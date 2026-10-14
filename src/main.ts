@@ -85,6 +85,7 @@ const drafts = new Map<string, Fields>();
 // Recovery working bytes can differ from loaded tags. Preserve explicit resets
 // for edited copies separately from pending drafts, including absent-field tombstones.
 const copyOverrides = new Map<string, Fields>();
+const workingReadErrors = new Map<string, string>();
 const selected = new Set<string>();
 const columns = [{ key:'filename',label:'Filename',width:220 },{ key:'TITLE',label:'Title',width:175 },{ key:'ARTIST',label:'Artist',width:145 },{ key:'ALBUM',label:'Album',width:165 },{ key:'TRACK',label:'Track',width:55 },{ key:'YEAR',label:'Year',width:55 },{ key:'GENRE',label:'Genre',width:90 },{ key:'duration',label:'Length',width:60 },{ key:'format',label:'Format',width:65 },{ key:'bitrate',label:'Bitrate',width:65 }];
 let filter = '', sortKey = 'filename', sortAscending = true, anchor: string | undefined, busy = false, status = 'Ready', errors: FileError[] = [], location = 'No folder loaded', coverIndex = 0;
@@ -160,11 +161,15 @@ async function refreshSourceAccess(){
   if(!runtimePlatform.document_access_supported)return;
   documentAccess=await refreshDocumentAccess(documentAccess,()=>invoke<Record<string,DocumentState>>('document_states'));
 }
+function workingMetadataNotice(path:string){
+  const error=workingReadErrors.get(path);
+  return error?`<p class="source-error" role="alert">Retained tags and artwork are unavailable: ${esc(publicMessage(error))}. Displayed tags are the last read values plus pending edits; they may differ from an edited copy. Choose Original backup to export the last verified source.</p>`:'';
+}
 function sourceMarkup(context:'files'|'tags'){
   const entry=active();if(!entry||!providerEntry(entry))return '';
   const state=documentAccess.states[entry.path],source=sourcePresentation(state,!!documentAccess.refreshError),policy=sourcePolicy();
   const reason=policy.mutationReason||'Tag and cover saves are verified against the source.';
-  return `<section class="source-access ${state?.state==='recovery_required'?'recovery':''}" aria-label="Document source access"><div><strong>${esc(source.label)}</strong><span>${esc(source.name)}</span></div><p class="source-location" title="${esc(source.location)}">${esc(source.location)}</p><p>${esc(source.detail)}</p>${state?.error?`<p class="source-error" role="alert">${esc(publicMessage(state.error))}</p>`:''}${documentAccess.refreshError?`<p class="source-error" role="alert">Source access could not be refreshed: ${esc(publicMessage(documentAccess.refreshError))}. Previous source details and pending edits are retained.</p>`:''}<p id="source-policy-${context}">${esc(reason)}</p><p class="source-limit">${esc(policy.unsupportedReason)}</p><div class="source-actions">${button('save-copy','Save a copy…')}${button('refresh-source','Refresh source access')}</div></section>`;
+  return `<section class="source-access ${state?.state==='recovery_required'?'recovery':''}" aria-label="Document source access"><div><strong>${esc(source.label)}</strong><span>${esc(source.name)}</span></div><p class="source-location" title="${esc(source.location)}">${esc(source.location)}</p><p>${esc(source.detail)}</p>${workingMetadataNotice(entry.path)}${state?.error?`<p class="source-error" role="alert">${esc(publicMessage(state.error))}</p>`:''}${documentAccess.refreshError?`<p class="source-error" role="alert">Source access could not be refreshed: ${esc(publicMessage(documentAccess.refreshError))}. Previous source details and pending edits are retained.</p>`:''}<p id="source-policy-${context}">${esc(reason)}</p><p class="source-limit">${esc(policy.unsupportedReason)}</p><div class="source-actions">${button('save-copy','Save a copy…')}${button('refresh-source','Refresh source access')}</div></section>`;
 }
 function requestFilter(query:string){
   const context=filterContextKey(),key=`${context}:${query}`;
@@ -211,13 +216,14 @@ function cacheCovers(path:string,epoch:number,covers:Cover[]){
   while(coverCache.size>coverCacheEntryLimit||coverCacheBytes>coverCacheBytesLimit){const oldest=coverCache.keys().next().value as string;coverCacheBytes-=coverCache.get(oldest)!.bytes;coverCache.delete(oldest);}
 }
 function storeEntry(entry:Entry){
+  if(coverError?.path===entry.path)coverError=undefined;
   invalidateCovers(entry.path);const epoch=coverEpochs.get(entry.path)!;
   if(active()?.path===entry.path)coverIndex=Math.min(coverIndex,Math.max(0,entry.covers.length-1));
   if(entry.covers.length&&entry.covers.every(cover=>!!cover.data_base64)){cacheCovers(entry.path,epoch,entry.covers);if(active()?.path===entry.path)activeCover={path:entry.path,epoch,covers:entry.covers};}
   entries.set(entry.path,{...entry,covers:entry.covers.map(cover=>({...cover,data_base64:''}))});changedData();
 }
 function coversFor(entry:Entry|undefined):Cover[]{
-  if(!entry)return[];const epoch=coverEpochs.get(entry.path)||0;
+  if(!entry||workingReadErrors.has(entry.path))return[];const epoch=coverEpochs.get(entry.path)||0;
   if(activeCover?.path===entry.path&&activeCover.epoch===epoch)return activeCover.covers;
   const cached=coverCache.get(entry.path);if(cached?.epoch===epoch)return cached.covers;
   return entry.covers;
@@ -225,7 +231,7 @@ function coversFor(entry:Entry|undefined):Cover[]{
 function coverMarkup(){
   const entry=active(),covers=coversFor(entry),cover=covers[Math.min(coverIndex,covers.length-1)];
   const loaded=!!cover?.data_base64,error=coverError&&coverError.path===entry?.path?coverError.message:'';
-  return `<div class="cover-row"><div class="cover-art">${loaded?`<img alt="Embedded ${esc(cover.picture_type)} artwork">`:`<img class="fallback-artwork" data-theme-image="artwork" src="${themedAsset('artwork')}" alt="" aria-hidden="true">`}</div><div class="cover-info"><strong>${cover?esc(cover.picture_type||'Embedded cover'):'No artwork'}</strong>${error?esc(error):cover?`${esc(cover.mime)}<br>${loaded?esc(cover.description||`${covers.length} embedded image${covers.length===1?'':'s'}`):'Loading artwork…'}`:selected.size>1?'First selected file':'Embedded cover art'}</div></div><div class="cover-controls">${button('add-cover','Add…')}${button('remove-cover','Remove')}${covers.length>1?`<select id="cover-choice" aria-label="Select cover">${covers.map((c,i)=>`<option value="${i}" ${i===coverIndex?'selected':''}>${i+1}: ${esc(c.picture_type)}</option>`).join('')}</select>`:''}</div>`;
+  return `<div class="cover-row"><div class="cover-art">${loaded?`<img alt="Embedded ${esc(cover.picture_type)} artwork">`:`<img class="fallback-artwork" data-theme-image="artwork" src="${themedAsset('artwork')}" alt="" aria-hidden="true">`}</div><div class="cover-info"><strong>${entry&&workingReadErrors.has(entry.path)?'Artwork unavailable':cover?esc(cover.picture_type||'Embedded cover'):'No artwork'}</strong>${error?esc(error):cover?`${esc(cover.mime)}<br>${loaded?esc(cover.description||`${covers.length} embedded image${covers.length===1?'':'s'}`):'Loading artwork…'}`:selected.size>1?'First selected file':'Embedded cover art'}</div></div><div class="cover-controls">${button('add-cover','Add…')}${button('remove-cover','Remove')}${covers.length>1?`<select id="cover-choice" aria-label="Select cover">${covers.map((c,i)=>`<option value="${i}" ${i===coverIndex?'selected':''}>${i+1}: ${esc(c.picture_type)}</option>`).join('')}</select>`:''}</div>`;
 }
 function setCoverImage(){const covers=coversFor(active()),cover=covers[Math.min(coverIndex,covers.length-1)],image=document.querySelector<HTMLImageElement>('.cover-art img');if(image&&cover?.data_base64)image.src=`data:${cover.mime};base64,${cover.data_base64}`;}
 function refreshCoverPanel(){
@@ -235,7 +241,7 @@ function refreshCoverPanel(){
   panel.querySelector<HTMLSelectElement>('#cover-choice')?.addEventListener('change',e=>{coverIndex=Number((e.target as HTMLSelectElement).value);refreshCoverPanel();});
 }
 function hydrateActiveCover(){
-  const entry=active();if(!desktop||!entry?.covers.length)return;
+  const entry=active();if(!desktop||!entry?.covers.length||workingReadErrors.has(entry.path))return;
   const path=entry.path,epoch=coverEpochs.get(path)||0,cached=coverCache.get(path);
   if(cached?.epoch===epoch){coverCache.delete(path);coverCache.set(path,cached);activeCover={path,epoch,covers:cached.covers};return;}
   if(activeCover?.path===path&&activeCover.epoch===epoch)return;
@@ -424,7 +430,7 @@ async function run<T>(message: string, job: () => Promise<T>, options: {preserve
   try { return await job(); } catch(error) { const failure={path:'Operation',error:String(error)};errors=options.preserveErrors?[...errors,failure]:[failure];status='Operation failed';return undefined; } finally {await refreshSourceAccess();busy=false;render();}
 }
 function accept(batch: Batch, message: string, clearDrafts = true) {
-  batch.entries.forEach(storeEntry);reconcileDrafts(drafts,batch.entries.map(entry=>entry.path),clearDrafts);if(clearDrafts)batch.entries.forEach(entry=>copyOverrides.delete(entry.path));
+  batch.entries.forEach(storeEntry);reconcileDrafts(drafts,batch.entries.map(entry=>entry.path),clearDrafts);if(clearDrafts)batch.entries.forEach(entry=>{copyOverrides.delete(entry.path);workingReadErrors.delete(entry.path);});
   errors=batch.errors;status=`${message}: ${batch.entries.length} file${batch.entries.length===1?'':'s'}${errors.length?`, ${errors.length} failed`:''}`;
 }
 function applyRenamed(batch:Batch){
@@ -436,11 +442,35 @@ function applyRenamed(batch:Batch){
 async function scan(newPaths: string[]) {
   await run('Reading audio files…',async()=>{ const result=await invoke<Batch>('scan_files',{paths:newPaths,recursive:true});accept(result,'Loaded',false);location=newPaths.length===1?newPaths[0]:`${newPaths.length} added locations`;if(!selected.size&&result.entries.length){selected.add(result.entries[0].path);anchor=result.entries[0].path;} });
 }
-async function mutate(command: string, args: Record<string,unknown>, message: string) { await run(`${message}…`,async()=>accept(await invoke<Batch>(command,{paths:paths(),...args}),message)); }
+// Immediate mutations may change retained bytes even when publication fails.
+// Keep those local contents separate from source success and pending field intent.
+async function reconcileWorkingEntries(targets:string[]){
+  const managed=[...new Set(targets)].filter(path=>{const entry=entries.get(path);return !!entry&&providerEntry(entry);});
+  if(!managed.length)return;
+  const unavailable=(path:string,error:string)=>{workingReadErrors.set(path,error);invalidateCovers(path);};
+  try{
+    const batch=await invoke<Batch>('document_working_entries',{paths:managed});
+    for(const path of managed){
+      const entry=batch.entries.find(entry=>entry.path===path);
+      if(entry){workingReadErrors.delete(path);storeEntry(entry);}
+      else unavailable(path,batch.errors.find(error=>error.path===path)?.error||'Retained metadata was not returned');
+    }
+  }catch(error){managed.forEach(path=>unavailable(path,String(error)));}
+}
+async function mutate(command: string, args: Record<string,unknown>, message: string) {
+  const targets=paths();
+  await run(`${message}…`,async()=>{
+    let batch:Batch;
+    try{batch=await invoke<Batch>(command,{paths:targets,...args});}
+    catch(error){await reconcileWorkingEntries(targets);throw error;}
+    accept(batch,message);
+    await reconcileWorkingEntries(batch.errors.map(error=>error.path));
+  });
+}
 async function saveDrafts() {
   await run('Saving tags…',async()=>{
     let successes=0;const failures:FileError[]=[];
-    for(const path of paths()) { const updates=drafts.get(path);if(!updates)continue;const batch=await invoke<Batch>('save_fields',{paths:[path],updates});batch.entries.forEach(e=>{storeEntry(e);successes++;});reconcileDrafts(drafts,batch.entries.map(entry=>entry.path),true);batch.entries.forEach(entry=>copyOverrides.delete(entry.path));failures.push(...batch.errors); }
+    for(const path of paths()) { const updates=drafts.get(path);if(!updates)continue;const batch=await invoke<Batch>('save_fields',{paths:[path],updates});batch.entries.forEach(e=>{storeEntry(e);successes++;});reconcileDrafts(drafts,batch.entries.map(entry=>entry.path),true);batch.entries.forEach(entry=>{copyOverrides.delete(entry.path);workingReadErrors.delete(entry.path);});failures.push(...batch.errors); }
     errors=failures;status=`Saved tags: ${successes} file${successes===1?'':'s'}${failures.length?`, ${failures.length} failed`:''}`;
   });
 }
@@ -452,7 +482,7 @@ function modalError(dialog: HTMLDialogElement, error: unknown) {let el=dialog.qu
 function value(dialog: HTMLDialogElement, id: string) {return dialog.querySelector<HTMLInputElement|HTMLSelectElement>(`#${id}`)!.value;}
 function saveCopy() {
   const path=paths()[0],source=documentAccess.states[path];if(!source)return;
-  const dialog=modal('Save a copy',`<p><strong>${esc(source.name)}</strong></p><p>Create a new document in a location you choose. The source and its recovery copies are retained.</p><label class="field"><span>COPY VERSION</span><select id="copy-version"><option value="edited">Edited copy — includes pending tag changes</option><option value="original">Original backup — last verified source</option></select></label><p class="copy-status" role="status">${source.state==='recovery_required'?'Recovery required. Choose the edited copy or original backup.':'The edited copy includes the current tags and any pending changes.'}</p>`,`<button class="primary" id="save-document-copy">Choose destination…</button>`);
+  const dialog=modal('Save a copy',`<p><strong>${esc(source.name)}</strong></p><p>Create a new document in a location you choose. The source and its recovery copies are retained.</p>${workingMetadataNotice(path)}<label class="field"><span>COPY VERSION</span><select id="copy-version"><option value="edited">Edited copy — includes pending tag changes</option><option value="original">Original backup — last verified source</option></select></label><p class="copy-status" role="status">${source.state==='recovery_required'?'Recovery required. Choose the edited copy or original backup.':'The edited copy includes the current tags and any pending changes.'}</p>`,`<button class="primary" id="save-document-copy">Choose destination…</button>`);
   dialog.setAttribute('aria-label','Save a copy');
   const saveButton=dialog.querySelector<HTMLButtonElement>('#save-document-copy')!,closeButton=dialog.querySelector<HTMLButtonElement>('[data-close]')!;
   let copying=false;

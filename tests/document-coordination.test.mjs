@@ -8,24 +8,46 @@ import ts from 'typescript';
 const main=await readFile(new URL('../src/main.ts',import.meta.url),'utf8');
 const helper=await readFile(new URL('../src/document-state.ts',import.meta.url),'utf8');
 const parsed=ts.createSourceFile('main.ts',main,ts.ScriptTarget.Latest,true,ts.ScriptKind.TS);
-const names=new Set(['updateDraft','run','saveDrafts','saveCopy','value','accept','operateImpl','refreshSourceAccess','providerEntry','copyBaseUnknown','editedCopyFields','discardDrafts']);
+const names=new Set(['updateDraft','run','saveDrafts','saveCopy','value','accept','operateImpl','refreshSourceAccess','providerEntry','copyBaseUnknown','editedCopyFields','discardDrafts','mutate','reconcileWorkingEntries','storeEntry','invalidateCovers','cacheCovers','coversFor','hydrateActiveCover','coverMarkup','sourceMarkup','workingMetadataNotice']);
 const mergedDeclaration=parsed.statements.filter(ts.isVariableStatement).flatMap(statement=>statement.declarationList.declarations).find(declaration=>declaration.name.getText(parsed)==='merged');
 const functions=parsed.statements.filter(node=>ts.isFunctionDeclaration(node)&&names.has(node.name?.text)).map(node=>node.getText(parsed)).join('\n');
 const factory=`${helper.replace(/\bexport /g,'')}
 export function createWorkspace(initial, options={}) {
   const path='retained.wav', original=structuredClone(initial);
-  let working=structuredClone(initial), copied, dialog, status='', busy=false, errors=[], location='', anchor;
-  const makeEntry=(path,fields)=>({path,filename:path,format:'WAV',duration:1,bitrate:1411,sample_rate:44100,channels:2,size:44,fields:structuredClone(fields),technical:{},covers:[]});
+  let working=structuredClone(initial), workingCovers=structuredClone(options.covers||[]), copied, copiedCovers, dialog, status='', busy=false, errors=[], location='', anchor;
+  const nativeCalls=[],workingReadErrors=new Map();
+  const coverEpochs=new Map(),coverCache=new Map(),coverRequests=new Map();
+  const coverCacheBytesLimit=12*1024*1024,coverCacheEntryLimit=8;
+  let coverCacheBytes=0,activeCover,coverError,coverIndex=0;
+  const desktop=true,active=()=>entries.get(path),timing=()=>{},refreshCoverPanel=()=>{},themedAsset=()=>'',button=()=>'';
+  const makeEntry=(path,fields)=>({path,filename:path,format:'WAV',duration:1,bitrate:1411,sample_rate:44100,channels:2,size:44,fields:structuredClone(fields),technical:{},covers:structuredClone(workingCovers)});
   const entries=new Map([[path,makeEntry(path,initial)]]),drafts=new Map(),copyOverrides=new Map(),selected=new Set([path]);
   const ready={uri:'content://provider/audio',name:path,writable:true,persisted:true,state:'ready',error:null};
   let documentAccess={states:{[path]:ready},refreshError:null}, nativeState=ready, refreshFails=!!options.refreshFails;
   const runtimePlatform={document_access_supported:options.provider!==false};
   const paths=()=>[...selected],dirtySelected=()=>paths().some(path=>drafts.has(path));
-  const render=()=>{},changedData=()=>{},storeEntry=entry=>entries.set(entry.path,entry),esc=value=>String(value),publicMessage=value=>String(value),displayName=value=>value;
+  const render=()=>{},changedData=()=>{},esc=value=>String(value),publicMessage=value=>String(value),displayName=value=>value;
   const merged=${mergedDeclaration.initializer.getText(parsed)};
   const enabled=()=>true,ask=async()=>true,modalError=()=>{};
+  const sourcePolicy=()=>({mutationReason:'',unsupportedReason:''});
   const applyFields=(base,updates)=>{const result=structuredClone(base);for(const [key,values] of Object.entries(updates)){if(values.length)result[key]=structuredClone(values);else delete result[key];}return result;};
   async function invoke(command,args) {
+    nativeCalls.push(command);
+    if(['remove_tags','filename_to_tags','add_cover','remove_cover'].includes(command)) {
+      if(command==='remove_tags'){working={};workingCovers=[];}
+      if(command==='filename_to_tags')working=applyFields(working,options.filenameFields||{TITLE:['Filename title']});
+      if(command==='add_cover')workingCovers=[{index:0,mime:'image/png',description:'New cover',picture_type:'CoverFront',data_base64:'TkVX'}];
+      if(command==='remove_cover')workingCovers.splice(args.index,1);
+      nativeState={...ready,state:'recovery_required',error:'Source publication failed after local edit'};
+      if(options.mutationThrows)throw new Error(nativeState.error);
+      return {entries:[],errors:[{path,error:nativeState.error}]};
+    }
+    if(command==='document_working_entries') {
+      if(options.workingReadFails)return {entries:[],errors:[{path,error:'Retained working bytes unreadable'}]};
+      const entry=makeEntry(path,working);entry.covers.forEach(cover=>cover.data_base64='');
+      return {entries:[entry],errors:[]};
+    }
+    if(command==='get_covers')return structuredClone(workingCovers);
     if(command==='save_fields') {
       working=applyFields(working,args.updates);
       nativeState={...ready,state:'recovery_required',error:'Source publication failed after local edit'};
@@ -33,12 +55,15 @@ export function createWorkspace(initial, options={}) {
     }
     if(command==='document_states') {if(refreshFails)throw new Error('State refresh unavailable');return {[path]:nativeState};}
     if(command==='document_save_copy') {
+      copiedCovers=structuredClone(workingCovers);
       copied=applyFields(args.version==='original'?original:working,args.updates);
       return {entries:[makeEntry('copied.wav',copied)],errors:[]};
     }
     throw new Error('Unexpected native boundary: '+command);
   }
-  function modal() {
+  let dialogContent='';
+  function modal(title,content) {
+    dialogContent=content;
     const controls=new Map();
     for(const selector of ['[data-close]','#copy-version','#save-document-copy','.copy-status'])controls.set(selector,{value:'edited',addEventListener(event,handler){this[event]=handler;}});
     dialog={open:true,controls,querySelector:selector=>controls.get(selector),setAttribute(){},addEventListener(){},close(){this.open=false;}};
@@ -47,11 +72,16 @@ export function createWorkspace(initial, options={}) {
   ${functions}
   return {
     edit:(key,values)=>updateDraft(path,key,values),save:()=>saveDrafts(),
+    mutate:(command,args={})=>mutate(command,args,'Applied'),
+    hydrate:async()=>{hydrateActiveCover();await Promise.all([...coverRequests.values()]);},
+    coverMarkup,sourceMarkup:()=>sourceMarkup('tags'),
+    selectCover:index=>coverIndex=index,
     discard:()=>operateImpl('discard'),refresh:()=>operateImpl('refresh-source'),
     setRefreshFailure:failure=>refreshFails=failure,
+    acceptImported:fields=>accept({entries:[makeEntry(path,fields)],errors:[]},'Loaded',false),
     acceptLoaded:fields=>{working=structuredClone(fields);nativeState=ready;accept({entries:[makeEntry(path,fields)],errors:[]},'Reloaded');},
     copy:async(version='edited')=>{selected.clear();selected.add(path);saveCopy();dialog.controls.get('#copy-version').value=version;await dialog.controls.get('#save-document-copy').click();return structuredClone(copied);},
-    snapshot:()=>({fields:structuredClone(merged(entries.get(path))),drafts:structuredClone([...drafts]),copyOverrides:structuredClone([...copyOverrides]),errors:structuredClone(errors),status,busy}),
+    snapshot:()=>({fields:structuredClone(merged(entries.get(path))),drafts:structuredClone([...drafts]),copyOverrides:structuredClone([...copyOverrides]),errors:structuredClone(errors),status,busy,covers:structuredClone(coversFor(entries.get(path))),copiedCovers,coverIndex,nativeCalls:[...nativeCalls],workingReadErrors:[...workingReadErrors],dialogContent}),
   };
 }`;
 const javascript=ts.transpileModule(factory,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
@@ -107,4 +137,82 @@ test('accepting a verified source baseline clears old recovery copy overrides',a
   assert.deepEqual(workspace.snapshot().drafts,[]);
   assert.deepEqual(workspace.snapshot().fields,{TITLE:['Fresh source']});
   assert.deepEqual(await workspace.copy(),{TITLE:['Fresh source']});
+});
+
+
+test('failed Remove tags reconciles retained tags before a later field edit and edited copy',async()=>{
+  const workspace=createWorkspace({TITLE:['Old title'],ARTIST:['Original artist']});
+  await workspace.mutate('remove_tags');
+  assert.deepEqual(workspace.snapshot().fields,{});
+  assert.match(workspace.snapshot().errors[0].error,/publication failed/);
+  workspace.edit('TITLE',['Replacement title']);
+  assert.deepEqual(workspace.snapshot().fields,{TITLE:['Replacement title']});
+  assert.deepEqual(await workspace.copy(),{TITLE:['Replacement title']});
+});
+test('failed filename conversion preserves pending fields and deletion intent over retained converted tags',async()=>{
+  const workspace=createWorkspace({TITLE:['Old'],ARTIST:['Artist']},{filenameFields:{TITLE:['Filename title'],TRACK:['03']}});
+  workspace.edit('COMMENT',['Pending']);workspace.edit('ARTIST',[]);
+  await workspace.mutate('filename_to_tags',{pattern:'%title%'});
+  assert.deepEqual(workspace.snapshot().fields,{TITLE:['Filename title'],TRACK:['03'],ARTIST:[],COMMENT:['Pending']});
+  assert.deepEqual(await workspace.copy(),{TITLE:['Filename title'],TRACK:['03'],COMMENT:['Pending']});
+});
+test('Discard after failed immediate conversion reverts only pending edits, retaining the applied conversion',async()=>{
+  const workspace=createWorkspace({TITLE:['Old'],ARTIST:['Artist']});
+  await workspace.mutate('filename_to_tags',{pattern:'%title%'});
+  workspace.edit('TITLE',['Pending']);workspace.edit('NEW',['Pending']);await workspace.discard();
+  assert.deepEqual(workspace.snapshot().drafts,[]);
+  assert.deepEqual(await workspace.copy(),{TITLE:['Filename title'],ARTIST:['Artist']});
+});
+test('immediate reconciliation preserves an explicit recovery reset override',async()=>{
+  const workspace=createWorkspace({TITLE:['Old'],ARTIST:['Artist']});
+  workspace.edit('TITLE',['Changed']);await workspace.save();workspace.edit('TITLE',['Old']);
+  await workspace.mutate('remove_tags');
+  assert.deepEqual(workspace.snapshot().fields,{TITLE:['Old']});
+  assert.deepEqual(await workspace.copy(),{TITLE:['Old']});
+});
+const oldCover={index:0,mime:'image/png',description:'Old cover',picture_type:'CoverFront',data_base64:'T0xE'};
+for(const scenario of ['first add','replace','remove','remove tags']) {
+  test(`failed ${scenario} reconciles cover summaries and invalidates hydrated art`,async()=>{
+    const workspace=createWorkspace({TITLE:['Old']},{covers:scenario==='first add'?[]:[oldCover]});
+    await workspace.hydrate();
+    const removing=scenario==='remove'||scenario==='remove tags';
+    await workspace.mutate(scenario==='remove tags'?'remove_tags':removing?'remove_cover':'add_cover',{index:0,imagePath:'content://image'});
+    await workspace.hydrate();
+    assert.deepEqual(workspace.snapshot().covers.map(cover=>cover.data_base64),removing?[]:['TkVX']);
+    assert.equal(workspace.snapshot().coverIndex,0);
+    await workspace.copy();
+    assert.deepEqual(workspace.snapshot().copiedCovers.map(cover=>cover.data_base64),removing?[]:['TkVX']);
+  });
+}
+test('unreadable retained metadata is explicit in source, artwork and copy presentation without hiding publication error',async()=>{
+  const workspace=createWorkspace({TITLE:['Old']},{covers:[oldCover],workingReadFails:true});
+  await workspace.hydrate();await workspace.mutate('remove_tags');
+  assert.match(workspace.sourceMarkup(),/retained.*unavailable/i);
+  assert.match(workspace.coverMarkup(),/artwork unavailable/i);
+  assert.deepEqual(workspace.snapshot().covers,[]);
+  assert.match(workspace.snapshot().errors[0].error,/publication failed/);
+  await workspace.copy();assert.match(workspace.snapshot().dialogContent,/retained.*unavailable/i);
+});
+test('a rejected immediate command also reconciles local bytes without provider reload',async()=>{
+  const workspace=createWorkspace({TITLE:['Old'],ARTIST:['Artist']},{mutationThrows:true});
+  await workspace.mutate('remove_tags');
+  assert.deepEqual(workspace.snapshot().fields,{});
+  assert.match(workspace.snapshot().errors[0].error,/publication failed/);
+  assert.equal(workspace.snapshot().nativeCalls.includes('scan_files'),false);
+});
+
+test('failed removal clamps the selected artwork index to the remaining cover',async()=>{
+  const workspace=createWorkspace({TITLE:['Old']},{covers:[oldCover,{...oldCover,index:1,data_base64:'U0VDT05E'}]});
+  await workspace.hydrate();workspace.selectCover(1);await workspace.mutate('remove_cover',{index:1});await workspace.hydrate();
+  assert.equal(workspace.snapshot().coverIndex,0);
+  assert.deepEqual(workspace.snapshot().covers.map(cover=>cover.data_base64),['T0xE']);
+});
+
+test('reselecting a recovery backup does not clear a known unavailable edited-metadata notice',async()=>{
+  const workspace=createWorkspace({TITLE:['Old']},{workingReadFails:true});
+  await workspace.mutate('remove_tags');
+  workspace.acceptImported({TITLE:['Old']});
+  assert.match(workspace.sourceMarkup(),/retained.*unavailable/i);
+  workspace.acceptLoaded({TITLE:['Verified source']});
+  assert.equal(workspace.snapshot().workingReadErrors.length,0);
 });

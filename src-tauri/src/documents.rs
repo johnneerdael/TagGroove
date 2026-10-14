@@ -159,6 +159,25 @@ pub fn mutate(
     #[cfg(not(target_os = "android"))]
     work(path)
 }
+pub fn read_working(path: &Path) -> Result<AudioEntry, String> {
+    #[cfg(test)]
+    {
+        return command_fixture::STORES
+            .lock()
+            .unwrap()
+            .iter()
+            .find(|store| store.is_managed(path))
+            .ok_or_else(|| "Unknown provider document".to_string())?
+            .read_working(path);
+    }
+    #[cfg(all(target_os = "android", not(test)))]
+    return android::with_store(|store| store.read_working(path));
+    #[cfg(not(any(target_os = "android", test)))]
+    {
+        let _ = path;
+        Err("Unknown provider document".into())
+    }
+}
 pub fn reload(path: &Path) -> Result<AudioEntry, String> {
     #[cfg(test)]
     if is_managed(path) {

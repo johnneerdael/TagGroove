@@ -437,6 +437,16 @@ impl<P: Provider> Store<P> {
         }
         self.publish(record)
     }
+    // Read only the retained edited bytes. Recovery presentation must never
+    // substitute a baseline or contact the provider to describe an edited copy.
+    pub(super) fn read_working(&self, path: &Path) -> Result<AudioEntry> {
+        let record = self.record(path)?;
+        let working = self.working(&record);
+        self.checked(&working, false)?;
+        let mut entry = tag_core::read_entry_summary(&working)?;
+        project_entry(&mut entry, &record.document);
+        Ok(entry)
+    }
     pub(super) fn reload(&mut self, path: &Path) -> Result<AudioEntry> {
         let mut record = self.ready(path, false)?;
         // A failed read leaves the current ready working copy intact.

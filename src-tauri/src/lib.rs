@@ -234,6 +234,10 @@ async fn document_save_copy(
     io(move || documents::save_copy(&app, &path, &updates, &version)).await
 }
 #[tauri::command]
+async fn document_working_entries(paths: Vec<String>) -> Result<ScanResult, String> {
+    io(move || Ok(batch(&paths, documents::read_working))).await
+}
+#[tauri::command]
 async fn restore_document_recovery() -> Result<ScanResult, String> {
     io(documents::restore_recovery).await
 }
@@ -729,6 +733,7 @@ pub fn run() {
             runtime_platform,
             pick_document_files,
             document_states,
+            document_working_entries,
             document_save_copy,
             restore_document_recovery,
             get_covers,
@@ -1064,6 +1069,129 @@ mod tests {
         assert!(result.entries.is_empty());
         assert!(result.errors[0].error.contains("Read-only"));
         assert_eq!(std::fs::read(&readonly.path).unwrap(), before);
+    }
+
+    #[test]
+    fn working_entries_describe_failed_immediate_mutations_without_source_access() {
+        use base64::Engine;
+        use documents::command_fixture::Session;
+        for operation in [
+            "remove_tags",
+            "filename_to_tags",
+            "add_cover",
+            "remove_cover",
+        ] {
+            let dir = tempfile::tempdir().unwrap();
+            let source = dir.path().join("provider.wav");
+            wav(&source);
+            tag_core::write_fields(
+                &source,
+                &Fields::from([
+                    ("TITLE".into(), vec!["Old title".into()]),
+                    ("ARTIST".into(), vec!["Original artist".into()]),
+                ]),
+            )
+            .unwrap();
+            let image = dir.path().join("cover.png");
+            let png = base64::engine::general_purpose::STANDARD.decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j4n8AAAAASUVORK5CYII=").unwrap();
+            std::fs::write(&image, &png).unwrap();
+            if operation == "remove_cover" || operation == "remove_tags" {
+                tag_core::add_cover(&source, &image).unwrap();
+            }
+            let session = Session::import(
+                &dir.path().join("private"),
+                &source,
+                "Filename artist - Filename title.wav",
+                true,
+            );
+            let paths = vec![session.path.clone()];
+            let original = std::fs::read(&source).unwrap();
+            session.fail_publish();
+            let failed = tauri::async_runtime::block_on(async {
+                match operation {
+                    "remove_tags" => remove_tags(paths.clone()).await,
+                    "filename_to_tags" => {
+                        filename_to_tags(paths.clone(), "%artist% - %title%".into()).await
+                    }
+                    "add_cover" => {
+                        add_cover(paths.clone(), image.to_string_lossy().into_owned()).await
+                    }
+                    "remove_cover" => remove_cover(paths.clone(), 0).await,
+                    _ => unreachable!(),
+                }
+            })
+            .unwrap();
+            assert!(failed.entries.is_empty());
+            assert!(failed.errors[0].error.contains("publication failed"));
+            assert_eq!(std::fs::read(&source).unwrap(), original);
+            // Removing provider bytes makes any accidental provider reload fail.
+            std::fs::remove_file(&source).unwrap();
+            let before =
+                tauri::async_runtime::block_on(document_states()).unwrap()[&session.path].clone();
+            let local = tauri::async_runtime::block_on(document_working_entries(paths)).unwrap();
+            assert!(local.errors.is_empty(), "{:?}", local.errors);
+            let entry = &local.entries[0];
+            assert_eq!(entry.path, session.path);
+            assert_eq!(entry.filename, "Filename artist - Filename title.wav");
+            assert_eq!(entry.technical["_PATH"], std::slice::from_ref(&session.uri));
+            match operation {
+                "remove_tags" => {
+                    assert!(entry.fields.is_empty());
+                    assert!(entry.covers.is_empty());
+                }
+                "filename_to_tags" => {
+                    assert_eq!(entry.fields["TITLE"], ["Filename title"]);
+                    assert_eq!(entry.fields["ARTIST"], ["Filename artist"]);
+                }
+                "add_cover" => {
+                    assert_eq!(entry.covers.len(), 1);
+                    assert!(entry.covers[0].data_base64.is_empty());
+                    assert_eq!(
+                        tauri::async_runtime::block_on(get_covers(session.path.clone())).unwrap()
+                            [0]
+                        .data_base64,
+                        base64::engine::general_purpose::STANDARD.encode(&png)
+                    );
+                }
+                "remove_cover" => assert!(entry.covers.is_empty()),
+                _ => unreachable!(),
+            }
+            let after =
+                tauri::async_runtime::block_on(document_states()).unwrap()[&session.path].clone();
+            assert_eq!(after.state, "recovery_required");
+            assert_eq!(after.state, before.state);
+            assert_eq!(after.error, before.error);
+        }
+    }
+
+    #[test]
+    fn working_entries_reject_unmanaged_paths_and_never_fall_back_to_backup() {
+        use documents::command_fixture::Session;
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("provider.wav");
+        wav(&source);
+        let session = Session::import(&dir.path().join("private"), &source, "Provider.wav", true);
+        session.fail_publish();
+        tauri::async_runtime::block_on(remove_tags(vec![session.path.clone()])).unwrap();
+        std::fs::write(&session.path, b"unreadable retained audio").unwrap();
+        let local = tauri::async_runtime::block_on(document_working_entries(vec![
+            session.path.clone(),
+            source.to_string_lossy().into_owned(),
+        ]))
+        .unwrap();
+        assert!(
+            local.entries.is_empty(),
+            "must not present backup as edited bytes"
+        );
+        assert_eq!(local.errors.len(), 2);
+        assert_eq!(local.errors[0].path, session.path);
+        assert!(local.errors[1].error.contains("Unknown provider document"));
+        // Recovery's separate baseline salvage remains available.
+        let recovered = tauri::async_runtime::block_on(restore_document_recovery()).unwrap();
+        assert!(recovered
+            .entries
+            .iter()
+            .any(|entry| entry.path == session.path));
     }
 
     #[test]
