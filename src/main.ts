@@ -23,6 +23,7 @@ import { TagPanel, type PanelLayout, type TagPanelSettings } from './tag-panel';
 import { editShortcut, emptyHistory, historyLabel, type HistoryState } from './edit-history';
 import { clipboardText, copyTags, cutPlan, pastePlan, type PasteUpdate, type TagClipboard } from './tag-clipboard';
 import { openTagToTag } from './tag-tag-ui';
+import { installHelperMenus } from './helper-menu';
 import { FileOpsUI, fileShortcut, startupChoice, startupOptionsPage, type FileOperation } from './file-ops';
 import { listen } from '@tauri-apps/api/event';
 import logoLightUrl from '../assets/brand/OpenTag-Brand-Kit/01-logos/horizontal/opentag-logo-light.svg';
@@ -142,6 +143,9 @@ let filterMatch:{context:string;query:string;paths:Set<string>}|undefined;
 let filterRequestKey='',filterPending=false,filterFailure='',filterTimer=0;
 type ProgressJob={id:string;done:number;total:number;cancelling:boolean};
 let progressJob:ProgressJob|undefined;
+// With Auto-apply filter off, typing edits a draft that Return applies.
+let filterAutoApply=true,filterDraft:string|undefined;
+try{filterAutoApply=localStorage.getItem('opentag.filter-auto-apply')!=='false';}catch{/* Defaults to filtering as you type. */}
 const actionUI=new ActionUI({
   load:()=>invoke<ActionLibrary>('load_action_library'),
   save:library=>invoke<void>('save_action_library',{library}),
@@ -150,6 +154,7 @@ const actionUI=new ActionUI({
   pickFile:async kind=>{const extensions=kind==='mta'?['mta']:kind==='image'?['jpg','jpeg','png','webp','gif']:kind==='export'?['mte']:['txt','lrc'];const path=await open({multiple:false,title:kind==='mta'?'Import action group':kind==='image'?'Choose cover image':kind==='export'?'Choose export configuration':'Choose text file',filters:[{name:kind==='mta'?'Action groups':kind==='image'?'Images':kind==='export'?'Export configurations':'Text files',extensions}]});return typeof path==='string'?path:null;},
   confirm:message=>ask(message,{title:'Action groups',kind:'warning'}),
   canExecute:()=>enabled('action'),executeReason:()=>operationReason('action'),selectedCount:()=>selected.size,fieldNames:()=>[...new Set(paths().flatMap(path=>Object.keys(merged(entries.get(path)!))))],changed:()=>render(),
+  exportGroup:async group=>{const path=await save({title:'Export action group',defaultPath:`${group.name.replace(/[\\/:*?"<>|]/g,'_')}.mta`,filters:[{name:'Action groups',extensions:['mta']}]});if(!path)return null;await invoke('export_action_group',{path,group});return path;},
 });
 const exportUI=new ExportUI({
   load:()=>invoke<ExportLibrary>('load_export_library'),save:library=>invoke<void>('save_export_library',{library}),
@@ -507,7 +512,7 @@ function render() {
   <nav class="mobile-panes" aria-label="Workspace view"><button data-pane="files" aria-pressed="${mobilePane==='files'}">Files (${entries.size})</button><button data-pane="tags" aria-pressed="${mobilePane==='tags'}" ${selected.size?'':'disabled'}>Tags (${selected.size})</button></nav>
   <main class="workspace"><aside class="editor" aria-label="Tag editor"><div class="panel-title">Tag panel <span class="panel-count">${panelCount()}</span>${tagPanel.titleHTML()}</div>${sourceMarkup('tags')}<div class="fields">${tagPanel.fieldsHTML()}</div><div class="editor-actions">${button('save','Save tags')}${button('extended','Extended…')}</div>
   ${tagPanel.showCover?`<section class="cover-section" aria-label="Embedded artwork">${coverMarkup()}</section>`:''}</aside>
-  <section class="files" aria-label="Audio files"><div class="location">${glyph(glyphOrganize)}<span class="path" title="${esc(entry&&providerEntry(entry)?sourcePresentation(documentAccess.states[entry.path]).location:location)}">${esc(entry&&providerEntry(entry)?sourcePresentation(documentAccess.states[entry.path]).location:location)}</span><strong>${entries.size} file${entries.size===1?'':'s'}</strong></div>${sourceMarkup('files')}<div class="filterbar"><label for="filter">${glyph(glyphSearch)}<span class="visually-hidden">Filter</span></label><input id="filter" type="search" value="${esc(filter)}" placeholder="Filter filenames and tags, or enter a filter expression" autocomplete="off"><span class="count">${countText(list)}</span></div><div class="table-wrap"><table aria-label="Audio metadata" aria-rowcount="${list.length+1}" style="width:${shownColumns.reduce((sum,c)=>sum+c.width,0)}px"><thead><tr>${headerMarkup(shownColumns,columnLayout.sort)}</tr></thead><tbody></tbody></table>${!list.length ? `<div class="empty"><img class="empty-symbol" data-theme-image="mark" src="${themedAsset('mark')}" alt="" aria-hidden="true"><h1>${filterPending ? 'Filtering files…' : filterFailure ? 'Invalid filter' : entries.size ? 'No matching files' : runtimePlatform.document_access_supported?'Add audio documents':desktop ? 'Open your music folder' : 'Your music, ready to edit'}</h1><p>${filterPending ? 'Matching your filter against filenames and tag values.' : filterFailure ? esc(filterFailure) : entries.size ? 'Try another filename or tag value in the filter.' : runtimePlatform.document_access_supported?'Choose audio files from your document provider. Source access and recovery options appear with your selection.':desktop ? 'Open a folder, add audio files, or drop them into this window. Select files to edit their tags together.' : 'Open the desktop app to work with local audio files. Your files and tags stay on your computer.'}</p>${!entries.size ? `<div class="empty-actions">${button('folder','Open folder…')}${button('files','Add files…')}</div>` : ''}</div>` : ''}</div><div class="selection-info">${selectionInfoMarkup(selectedEntries,list)}</div>
+  <section class="files" aria-label="Audio files"><div class="location">${glyph(glyphOrganize)}<span class="path" title="${esc(entry&&providerEntry(entry)?sourcePresentation(documentAccess.states[entry.path]).location:location)}">${esc(entry&&providerEntry(entry)?sourcePresentation(documentAccess.states[entry.path]).location:location)}</span><strong>${entries.size} file${entries.size===1?'':'s'}</strong></div>${sourceMarkup('files')}<div class="filterbar"><label for="filter">${glyph(glyphSearch)}<span class="visually-hidden">Filter</span></label><input id="filter" type="search" value="${esc(filterDraft??filter)}" data-helper="filter" data-history="filter" data-history-manage placeholder="Filter filenames and tags, or enter a filter expression" autocomplete="off"><span class="count">${countText(list)}</span></div><div class="table-wrap"><table aria-label="Audio metadata" aria-rowcount="${list.length+1}" style="width:${shownColumns.reduce((sum,c)=>sum+c.width,0)}px"><thead><tr>${headerMarkup(shownColumns,columnLayout.sort)}</tr></thead><tbody></tbody></table>${!list.length ? `<div class="empty"><img class="empty-symbol" data-theme-image="mark" src="${themedAsset('mark')}" alt="" aria-hidden="true"><h1>${filterPending ? 'Filtering files…' : filterFailure ? 'Invalid filter' : entries.size ? 'No matching files' : runtimePlatform.document_access_supported?'Add audio documents':desktop ? 'Open your music folder' : 'Your music, ready to edit'}</h1><p>${filterPending ? 'Matching your filter against filenames and tag values.' : filterFailure ? esc(filterFailure) : entries.size ? 'Try another filename or tag value in the filter.' : runtimePlatform.document_access_supported?'Choose audio files from your document provider. Source access and recovery options appear with your selection.':desktop ? 'Open a folder, add audio files, or drop them into this window. Select files to edit their tags together.' : 'Open the desktop app to work with local audio files. Your files and tags stay on your computer.'}</p>${!entries.size ? `<div class="empty-actions">${button('folder','Open folder…')}${button('files','Add files…')}</div>` : ''}</div>` : ''}</div><div class="selection-info">${selectionInfoMarkup(selectedEntries,list)}</div>
   ${errors.length ? `<section class="errors" aria-label="Operation errors"><header>${errors.length} file error${errors.length===1?'':'s'}<button id="dismiss-errors">Dismiss</button></header>${errors.map(e => `<p><strong>${esc(displayName(e.path))}:</strong> ${esc(publicMessage(e.error))}</p>`).join('')}</section>` : ''}</section></main><footer class="status ${busy?'busy':''}"><span class="status-dot" aria-hidden="true"></span><span class="status-message" role="status">${esc(status)}</span>${progressMarkup()}${drafts.size ? `<span class="dirty-count">${drafts.size} unsaved file${drafts.size===1?'':'s'}</span>` : ''}<span>${entries.size} files</span></footer></div>`;
   const wrap=document.querySelector<HTMLDivElement>('.table-wrap')!;
   wrap.querySelector('tbody')!.innerHTML=list.length?`<tr class="virtual-spacer" aria-hidden="true"><td colspan="${tableColumns().length}" style="height:${list.length*rowHeight}px"></td></tr>`:'';
@@ -611,8 +616,11 @@ function bind() {
   document.querySelectorAll<HTMLButtonElement>('button[data-pane]').forEach(el=>el.addEventListener('click',()=>{mobilePane=el.dataset.pane as 'files'|'tags';render();}));
   document.querySelectorAll<HTMLButtonElement>('[data-op]').forEach(el => el.addEventListener('click', () => { document.querySelectorAll<HTMLDetailsElement>('details[open]').forEach(d => d.open = false); void operate(el.dataset.op as Operation); }));
   bindFields(app);
+  document.querySelector<HTMLInputElement>('#filter')!.addEventListener('keydown',event=>{if(event.key==='Enter'&&filterDraft!==undefined){filter=filterDraft;filterDraft=undefined;document.querySelector('.table-wrap')!.scrollTop=0;render();document.querySelector<HTMLInputElement>('#filter')?.focus();}});
   document.querySelector<HTMLInputElement>('#filter')!.addEventListener('input',event => {
-    const el = event.target as HTMLInputElement, position = el.selectionStart; filter = el.value; document.querySelector('.table-wrap')!.scrollTop=0;render();
+    const el = event.target as HTMLInputElement, position = el.selectionStart;
+    if(!filterAutoApply){filterDraft=el.value;return;}
+    filter = el.value; document.querySelector('.table-wrap')!.scrollTop=0;render();
     const replacement = document.querySelector<HTMLInputElement>('#filter')!;replacement.focus();try{replacement.setSelectionRange(position,position);}catch{/* Search controls do not expose selection on every webview. */}
   });
   document.querySelectorAll<HTMLButtonElement>('[data-sort]').forEach(el => el.addEventListener('click', event => { document.querySelector('.table-wrap')!.scrollTop=0;applyColumns({...columnLayout,sort:sortClick(columnLayout.sort,el.dataset.sort!,event.shiftKey)}).catch(error=>{errors=[{path:'Columns',error:String(error)}];render();}); }));
@@ -787,7 +795,7 @@ function extended() {
   });
 }
 function converter(rename: boolean) {
-  const dialog=modal(rename?'Tag → Filename':'Filename → Tag',`<p>${rename?'Preview filenames before applying. The audio file extension is retained.':'Extract tags from each filename using field placeholders. Preview the results before saving them to your files.'}</p><label class="field"><span>${rename?'FORMAT STRING':'FILENAME PATTERN'}</span><input id="template" value="%artist% - %title%"></label><div id="preview"></div>`,`<button id="preview-button">Preview</button><button class="primary" id="apply-converter" disabled>Apply to ${selected.size} files</button>`);
+  const dialog=modal(rename?'Tag → Filename':'Filename → Tag',`<p>${rename?'Preview filenames before applying. The audio file extension is retained.':'Extract tags from each filename using field placeholders. Preview the results before saving them to your files.'}</p><label class="field"><span>${rename?'FORMAT STRING':'FILENAME PATTERN'}</span><input id="template" value="%artist% - %title%" spellcheck="false" autocomplete="off" data-helper="${rename?'format':'pattern'}" data-history="${rename?'tag-filename':'filename-tag'}" data-history-manage></label><div id="preview"></div>`,`<button id="preview-button">Preview</button><button class="primary" id="apply-converter" disabled>Apply to ${selected.size} files</button>`);
   const apply=dialog.querySelector<HTMLButtonElement>('#apply-converter')!;let previewed='',previewRevision=0,previewPaths:string[]=[],planToken:string|undefined;
   dialog.querySelector('#template')!.addEventListener('input',()=>{previewRevision++;previewed='';previewPaths=[];planToken=undefined;apply.disabled=true;dialog.querySelector('#preview')!.innerHTML='';});
   dialog.querySelector('#preview-button')!.addEventListener('click',async()=>{
@@ -806,15 +814,15 @@ function reviewedConverter(kind:'filename'|'text') {
   type Item = FilenameConversionItem | TextImportItem;
   const rename=kind==='filename',title=rename?'Filename → Filename':'Text File → Tag';
   const content=rename?`<p>Rearrange numbered parts using %1 through %9. The original audio extension is retained. Preview the destinations before renaming your files.</p>
-    <label class="field"><span>OLD FILENAME PATTERN</span><input id="old-pattern" value="%1 - %2" spellcheck="false" autocomplete="off"></label>
-    <label class="field"><span>NEW FILENAME PATTERN</span><input id="new-pattern" value="%2 - %1" spellcheck="false" autocomplete="off"></label>`:
+    <label class="field"><span>OLD FILENAME PATTERN</span><input id="old-pattern" value="%1 - %2" spellcheck="false" autocomplete="off" data-helper="history" data-history="filename-filename-old" data-history-manage></label>
+    <label class="field"><span>NEW FILENAME PATTERN</span><input id="new-pattern" value="%2 - %1" spellcheck="false" autocomplete="off" data-helper="history" data-history="filename-filename-new" data-history-manage></label>`:
     `<p>Import one record per selected file in table order. Use %_filename_ext% or %_path% in the mask to match by file. Apply saves the reviewed tag values immediately.</p>
     <label class="field"><span>TEXT SOURCE</span><select id="text-source-kind"><option value="file">Text file</option><option value="text">Pasted text</option></select></label>
     <div id="text-file-source"><div class="field"><span>SOURCE FILE</span><div class="action-input"><input id="text-source-path" aria-label="Text source file" placeholder="Choose a text file" autocomplete="off" spellcheck="false"><button id="pick-text-source" type="button">Choose file…</button></div></div>
     <label class="field"><span>LEGACY ENCODING FALLBACK (OPTIONAL)</span><input id="text-codepage" placeholder="e.g. windows-1252" list="text-codepages" spellcheck="false"><datalist id="text-codepages"><option value="windows-1252"><option value="windows-1251"><option value="cp932"><option value="cp936"><option value="cp949"><option value="cp950"></datalist></label>
     <p>UTF-8 and BOM-marked UTF-16 are detected first. The fallback is used only when the file is not valid UTF-8.</p></div>
     <label class="field" id="text-paste-source" hidden><span>RECORDS TO IMPORT</span><textarea id="text-source-records" rows="5" spellcheck="false"></textarea></label>
-    <label class="field"><span>IMPORT MASK</span><input id="text-mask" value="%title%;%artist%" autocomplete="off" spellcheck="false"></label>
+    <label class="field"><span>IMPORT MASK</span><input id="text-mask" value="%title%;%artist%" autocomplete="off" spellcheck="false" data-helper="pattern" data-history="text-tag" data-history-manage></label>
     <label class="action-check"><input id="text-case-sensitive" type="checkbox" checked> Match filename and path keys case-sensitively</label>`;
   const dialog=modal(title,`${content}<p class="converter-status" role="status" aria-live="polite">Run Preview to review every selected file.</p><div id="reviewed-preview" aria-label="Conversion preview"></div>`,
     `<button id="reviewed-preview-button">Preview</button><button class="primary" id="reviewed-apply" disabled></button>`);
@@ -1172,6 +1180,12 @@ document.addEventListener('keydown',event=>{
 });
 tagPanel.install(document);
 window.addEventListener('beforeunload',event=>{if(drafts.size||actionUI.hasUnsavedChanges){event.preventDefault();event.returnValue='';}});
+installHelperMenus({
+  fieldNames:()=>[...new Set(paths().flatMap(path=>Object.keys(merged(entries.get(path)!))))],
+  panelFields:()=>tagPanel.settings.panel.fields.filter(field=>field.visible&&!field.field.startsWith('_')).map(field=>field.field),
+  confirm:message=>ask(message,{title:'OpenTag',kind:'warning'}),
+  filterAutoApply:{get:()=>filterAutoApply,set:value=>{filterAutoApply=value;try{localStorage.setItem('opentag.filter-auto-apply',String(value));}catch{/* Session-only preference. */}if(value&&filterDraft!==undefined){filter=filterDraft;filterDraft=undefined;}render();}},
+});
 render();
 let resizeFrame=0;
 window.addEventListener('resize',()=>{if(!resizeFrame)resizeFrame=requestAnimationFrame(()=>{
