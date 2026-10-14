@@ -14,6 +14,7 @@ public final class FixtureActivity extends Activity {
     }
     private String summary() {
         return "Generated WAV files only.\nNext partial write armed: " + FixtureProvider.prefs(this).getBoolean("partial_next", false)
+            + "\nNext copy partial write armed: " + FixtureProvider.prefs(this).getBoolean("copy_partial_next", false)
             + "\nConflict source unavailable: " + FixtureProvider.prefs(this).getBoolean("unavailable", false);
     }
     @Override public void onCreate(Bundle saved) {
@@ -23,6 +24,7 @@ public final class FixtureActivity extends Activity {
         button(layout, "Change conflict source metadata", () -> { FixtureProvider.changeOutside(this); FixtureProvider.notifyRoot(this); });
         button(layout, "Arm partial write for interrupted fixture", () -> FixtureProvider.prefs(this).edit().putBoolean("partial_next", true).commit());
         button(layout, "Revoke conflict source access", () -> { FixtureProvider.revoke(this); FixtureProvider.notifyRoot(this); });
+        button(layout, "Arm partial write for next copy", () -> FixtureProvider.prefs(this).edit().putBoolean("copy_partial_next", true).commit());
         TextView note = new TextView(this); note.setText("Choose these files through OpenTag > Add files > OpenTag Test Documents.\nThe read-only fixture rejects writes. Partial injection drains the edited stream but retains only 128 bytes. Recovery must preserve both copies.\nReseed by clearing ONLY this test application's data on the dedicated AVD; that invalidates previous fixture URIs."); layout.addView(note);
         ScrollView scroll = new ScrollView(this); scroll.addView(layout, new ViewGroup.LayoutParams(-1, -2)); setContentView(scroll);
     }

@@ -118,8 +118,11 @@ public final class FixtureProvider extends DocumentsProvider {
         try {
             if (!write) { CountDownLatch pending = WRITES.get(id); if (pending != null && !pending.await(10, TimeUnit.SECONDS)) throw new IOException("Fixture write timeout"); }
             event(getContext(), write ? "write_open" : "read_open", id, mode + ":" + sha(f));
-            if (write && id.equals("partial") && prefs(getContext()).getBoolean("partial_next", false)) {
-                prefs(getContext()).edit().putBoolean("partial_next", false).commit();
+            boolean partialFixture = id.equals("partial") && prefs(getContext()).getBoolean("partial_next", false);
+            boolean partialCopy = id.startsWith("copy-") && prefs(getContext()).getBoolean("copy_partial_next", false);
+            if (write && (partialFixture || partialCopy)) {
+                if (partialFixture) prefs(getContext()).edit().putBoolean("partial_next", false).commit();
+                if (partialCopy) prefs(getContext()).edit().putBoolean("copy_partial_next", false).commit();
                 ParcelFileDescriptor[] pipe = ParcelFileDescriptor.createReliablePipe(); CountDownLatch complete = new CountDownLatch(1); WRITES.put(id, complete);
                 STREAMS.submit(() -> {
                     try (InputStream input = new ParcelFileDescriptor.AutoCloseInputStream(pipe[0]); FileOutputStream output = new FileOutputStream(f, false)) {

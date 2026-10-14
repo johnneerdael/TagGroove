@@ -16,6 +16,10 @@ change or truncate their own generated audio. They never access a user library.
 - Interrupted document: arm a control before saving. A reliable pipe consumes
   the entire write but retains only its first 128 bytes; a subsequent read waits
   for the pipe worker. The application's independent read-back must detect this.
+- Copy failure control: arm a one-shot partial write for the next generated
+  `copy-UUID` document. It does not arm writes to the four original identities.
+  Use this to exercise immediate tag/artwork failures on a fresh copied source
+  without resetting existing recovery records or original fixtures.
 - Copy destinations: `createDocument` allocates distinct UUID identities and
   accepts streamed writes, including empty initial documents.
 
