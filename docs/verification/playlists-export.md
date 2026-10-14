@@ -104,6 +104,7 @@ Scope: loading playlists and cue sheets, File → Playlist (all files / selected
   - Windows absolute paths (`C:\…`) in playlists cannot resolve on macOS or Linux and are reported as missing.
   - The playlist is not re-read on Refresh (F5). F5 rescans the files that were loaded.
   - Loading a playlist clears the saved column sort; the unsorted order is the list order. A dedicated "Playlist order" sort criterion is not stored.
+  - When a playlist is added to a non-empty list (drop, Add files, `/add`), files that are already listed keep their earlier position. Replacing the list (File → Load playlist/cue sheet, or a launch without `/add`) shows the exact playlist order.
 - **Writing:**
   - `.m3u` on macOS and Linux is written as UTF-8 because those systems have no ANSI codepage.
   - The ANSI path error is stricter than Mp3tag, which presumably writes `?` (not verified).
