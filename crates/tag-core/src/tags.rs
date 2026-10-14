@@ -12,6 +12,8 @@ mod cover_ops;
 mod mapping;
 #[path = "tag_policy.rs"]
 mod tag_policy;
+#[path = "tag_types.rs"]
+mod tag_types;
 #[path = "technical.rs"]
 mod technical;
 use crate::preferences::TagOptions;
@@ -49,6 +51,7 @@ use std::{
     io::{Seek, SeekFrom},
     path::{Path, PathBuf},
 };
+pub use tag_types::*;
 use walkdir::WalkDir;
 
 pub(crate) fn error_message(error: &dyn std::error::Error) -> String {
@@ -774,13 +777,27 @@ pub fn staging_copy(
     prefix: &str,
     suffix: &str,
 ) -> Result<tempfile::NamedTempFile, String> {
-    tempfile::Builder::new()
+    staging_clone(source, dir, prefix, suffix).map(|(file, _)| file)
+}
+
+/// [`staging_copy`], also reporting whether the copy is a true clone.
+pub fn staging_clone(
+    source: &Path,
+    dir: &Path,
+    prefix: &str,
+    suffix: &str,
+) -> Result<(tempfile::NamedTempFile, bool), String> {
+    let mut cloned = false;
+    let file = tempfile::Builder::new()
         .prefix(prefix)
         .suffix(suffix)
         .rand_bytes(12)
         .make_in(dir, |path| {
             let copied = match clone_file(source, path) {
-                Ok(true) => Ok(()),
+                Ok(true) => {
+                    cloned = true;
+                    Ok(())
+                }
                 Ok(false) => fs::copy(source, path).map(|_| ()),
                 Err(error) => Err(error),
             };
@@ -792,7 +809,8 @@ pub fn staging_copy(
             }
             fs::OpenOptions::new().read(true).write(true).open(path)
         })
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    Ok((file, cloned))
 }
 
 /// Whether [`staging_copy`] makes copy-on-write clones in `dir`: true only
@@ -892,14 +910,22 @@ where
     if original.permissions().readonly() {
         return Err("The audio file is read-only".into());
     }
-    let mut staging = staging_copy(
+    let (mut staging, cloned) = staging_clone(
         &path,
         path.parent().ok_or("Audio path has no parent directory")?,
         ".opentag-",
         "",
     )?;
     let staged_path = staging.path().to_path_buf();
+    let scope = crate::write_cost::Scope::begin();
     mutation(staging.as_file_mut(), &path, &staged_path)?;
+    // An in-place rewrite never changes the length; anything else is a full rewrite.
+    let rewritten = scope.finish().filter(|_| {
+        staging
+            .as_file()
+            .metadata()
+            .is_ok_and(|m| m.len() == original.len())
+    });
     if options.preserve_modified_time {
         if let Ok(modified) = original.modified() {
             staging
@@ -916,6 +942,7 @@ where
         return Err("The file changed during editing; reload it before saving".into());
     }
     staging.persist(&path).map_err(|e| e.error.to_string())?;
+    crate::history::note_write(&path, cloned, rewritten);
     entry.path = path.to_string_lossy().into_owned();
     entry.filename = path
         .file_name()
@@ -975,6 +1002,10 @@ fn save_preserving_native(
     covers_changed: bool,
     id3: Id3Write,
 ) -> Result<(), String> {
+    // Only FLAC Vorbis comments can be rewritten in place; flac_metadata reports how.
+    if !(file_type == FileType::Flac && tag.tag_type() == TagType::VorbisComments) {
+        crate::write_cost::rewrote_all();
+    }
     let originals = native_tags(staging, file_type)?;
     match tag.tag_type() {
         TagType::Id3v2 => {
@@ -1350,6 +1381,7 @@ fn remove_tags_result(
             staging
                 .seek(SeekFrom::Start(0))
                 .map_err(|e| e.to_string())?;
+            crate::write_cost::rewrote_all();
             tag.tag_type()
                 .remove_from(staging, WriteOptions::default())
                 .map_err(|e| e.to_string())?;

@@ -6,13 +6,91 @@
 //! to a bounded copy. Undo and redo first verify that each file is still
 //! exactly as the journal left it, then restore through a verified sibling
 //! staging file. Files changed elsewhere are reported and never overwritten.
+//!
+//! Retained bytes are counted by what each snapshot really keeps on disk. A
+//! staged write that clones the original and rewrites only a region in place
+//! leaves the hard-linked snapshot sharing every other block with the new
+//! file, so it costs the rewritten region plus a small overhead; full copies
+//! and full rewrites cost the whole file.
 use crate::{FileError, TagOptions};
 use serde::Serialize;
 use std::{
+    collections::BTreeMap,
     fs,
     path::{Path, PathBuf},
+    sync::Mutex,
     time::SystemTime,
 };
+
+/// Filesystem allocation granularity used to round rewritten regions.
+const BLOCK: u64 = 4096;
+/// Per-file allowance for block rounding and filesystem metadata of a clone.
+const OVERHEAD: u64 = 16 * 1024;
+/// Planning estimate for one clone-backed file before its write reports the
+/// real region (a metadata region with typical artwork).
+const ESTIMATE: u64 = 1024 * 1024;
+
+#[derive(Clone, Copy, Debug)]
+struct Writes {
+    count: u32,
+    /// Bytes rewritten in clones so far, or `None` once any write was a full
+    /// copy or a full rewrite.
+    rewritten: Option<u64>,
+}
+
+/// Files an open capture is watching, with what their staged writes replaced.
+static WRITES: Mutex<BTreeMap<PathBuf, Writes>> = Mutex::new(BTreeMap::new());
+
+/// Called by staged writes after replacing `path`: whether the staging copy was
+/// a clone, and the bytes rewritten in place (`None` for a full rewrite).
+pub(crate) fn note_write(path: &Path, cloned: bool, rewritten: Option<u64>) {
+    if let Ok(mut writes) = WRITES.lock() {
+        if let Some(entry) = writes.get_mut(path) {
+            entry.count += 1;
+            entry.rewritten = match (entry.rewritten, cloned, rewritten) {
+                (Some(total), true, Some(bytes)) => Some(total.saturating_add(bytes)),
+                _ => None,
+            };
+        }
+    }
+}
+
+fn watch(paths: impl IntoIterator<Item = PathBuf>) {
+    if let Ok(mut writes) = WRITES.lock() {
+        for path in paths {
+            writes.insert(
+                path,
+                Writes {
+                    count: 0,
+                    rewritten: Some(0),
+                },
+            );
+        }
+    }
+}
+
+fn unwatch<'a>(paths: impl IntoIterator<Item = &'a PathBuf>) -> BTreeMap<PathBuf, Writes> {
+    let Ok(mut writes) = WRITES.lock() else {
+        return BTreeMap::new();
+    };
+    paths
+        .into_iter()
+        .filter_map(|path| writes.remove(path).map(|w| (path.clone(), w)))
+        .collect()
+}
+
+/// Bytes a snapshot of a `len`-byte file keeps on disk after the operation.
+/// Only a hard-linked snapshot whose writes all cloned and rewrote a region is
+/// cheaper than the whole file.
+fn retained(len: u64, linked: bool, writes: Option<Writes>) -> u64 {
+    match writes {
+        Some(Writes {
+            count: 1..,
+            rewritten: Some(bytes),
+        }) if linked => (bytes.div_ceil(BLOCK) * BLOCK + OVERHEAD).min(len),
+        _ => len,
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct Fingerprint {
@@ -40,18 +118,22 @@ fn fingerprint(path: &Path) -> Result<Fingerprint, String> {
     })
 }
 
-/// Bounds for retained snapshots. An operation whose files exceed `bytes`
-/// is not recorded, so the journal never retains more than this much audio.
+/// Bounds for retained snapshots. An operation whose snapshots would retain
+/// more than `bytes` is not recorded, so the journal never keeps more than
+/// this much audio. Journaling is also refused when it would leave less than
+/// `min_free` bytes available on the journal's volume.
 #[derive(Clone, Copy, Debug)]
 pub struct Limits {
     pub operations: usize,
     pub bytes: u64,
+    pub min_free: u64,
 }
 impl Default for Limits {
     fn default() -> Self {
         Self {
             operations: 50,
             bytes: 2 * 1024 * 1024 * 1024,
+            min_free: 2 * 1024 * 1024 * 1024,
         }
     }
 }
@@ -60,6 +142,10 @@ impl Default for Limits {
 struct Blob {
     path: PathBuf,
     fingerprint: Fingerprint,
+    /// A hard link to the file's previous inode rather than a copy.
+    linked: bool,
+    /// Bytes this snapshot keeps on disk.
+    cost: u64,
 }
 #[derive(Clone, Debug)]
 struct Side {
@@ -72,6 +158,9 @@ struct FileRecord {
     before: Side,
     after: Side,
     content: bool,
+    /// What one snapshot of this file retains when its counterpart was
+    /// written by cloning (see [`retained`]).
+    cost: u64,
 }
 impl FileRecord {
     /// The side the file is on now, and the side a replay moves it to.
@@ -98,7 +187,7 @@ impl Record {
             .flatten()
     }
     fn bytes(&self) -> u64 {
-        self.blobs().map(|b| b.fingerprint.len).sum()
+        self.blobs().map(|b| b.cost).sum()
     }
 }
 
@@ -227,7 +316,8 @@ impl Journal {
     // the previous bytes for free. Copies are verified against a stable source.
     fn snapshot(&mut self, source: &Path, expected: Fingerprint) -> Result<Blob, String> {
         let path = self.blob_path();
-        if fs::hard_link(source, &path).is_err() {
+        let linked = fs::hard_link(source, &path).is_ok();
+        if !linked {
             if let Err(error) = fs::copy(source, &path) {
                 let _ = fs::remove_file(&path);
                 return Err(error.to_string());
@@ -240,6 +330,8 @@ impl Journal {
         let blob = Blob {
             fingerprint: fingerprint(&path)?,
             path,
+            linked,
+            cost: expected.len,
         };
         if blob.fingerprint.len != expected.len {
             discard(&blob);
@@ -278,9 +370,34 @@ impl Journal {
             Some(top) if group.is_some() && top.group.as_deref() == group => top.bytes(),
             _ => 0,
         };
-        let total: u64 = grouped + targets.iter().map(|(_, _, f)| f.len).sum::<u64>();
-        if total > self.limits.bytes {
+        // Files on the journal's volume that clone keep only rewritten blocks;
+        // everything else keeps (or copies) the whole file.
+        let journal = volume_id(&self.dir);
+        let mut clones = BTreeMap::new();
+        let (mut full, mut estimate) = (0u64, 0u64);
+        for (_, path, print) in &targets {
+            let cheap = journal.is_some()
+                && volume_id(path) == journal
+                && path.parent().is_some_and(|dir| {
+                    *clones
+                        .entry(dir.to_path_buf())
+                        .or_insert_with(|| crate::clones_in(dir))
+                });
+            if cheap {
+                estimate = estimate.saturating_add(ESTIMATE.min(print.len));
+            } else {
+                full = full.saturating_add(print.len);
+                estimate = estimate.saturating_add(print.len);
+            }
+        }
+        if grouped.saturating_add(full) > self.limits.bytes {
             capture.abandoned = Some("the operation is too large to undo".into());
+            return capture;
+        }
+        if available_space(&self.dir)
+            .is_some_and(|free| free < estimate.saturating_add(self.limits.min_free))
+        {
+            capture.abandoned = Some("there is not enough free disk space for undo".into());
             return capture;
         }
         for (raw, path, print) in targets {
@@ -299,6 +416,7 @@ impl Journal {
                 }
             }
         }
+        watch(capture.files.iter().map(|f| f.path.clone()));
         capture
     }
 
@@ -315,6 +433,7 @@ impl Journal {
             .iter()
             .map(|(from, to)| (PathBuf::from(from), PathBuf::from(to)))
             .collect();
+        let writes = unwatch(capture.files.iter().map(|f| &f.path));
         if let Some(reason) = capture.abandoned {
             if capture.group.is_some() {
                 if let Some(record) = self.undo.pop_if(|top| top.group == capture.group) {
@@ -354,8 +473,12 @@ impl Journal {
                 lost += 1;
                 continue;
             }
+            let len = captured.fingerprint.len;
+            let cost = retained(len, true, writes.get(&captured.path).copied());
             let blob = if content {
-                Some(captured.blob)
+                let mut blob = captured.blob;
+                blob.cost = if blob.linked { cost } else { len };
+                Some(blob)
             } else {
                 discard(&captured.blob);
                 None
@@ -372,6 +495,7 @@ impl Journal {
                     fingerprint: after,
                 },
                 content,
+                cost,
             });
         }
         if files.is_empty() && directories.is_empty() {
@@ -411,8 +535,15 @@ impl Journal {
                 {
                     if !existing.content {
                         existing.before.blob = file.before.blob;
+                        existing.cost = file.cost;
                     } else if let Some(blob) = &file.before.blob {
+                        // The first snapshot now also keeps what this write replaced.
                         discard(blob);
+                        let whole = existing.before.fingerprint.len;
+                        existing.cost = existing.cost.saturating_add(file.cost).min(whole);
+                        if let Some(first) = existing.before.blob.as_mut() {
+                            first.cost = if first.linked { existing.cost } else { whole };
+                        }
                     }
                     existing.content |= file.content;
                     existing.after = file.after;
@@ -422,11 +553,22 @@ impl Journal {
             }
         } else {
             self.undo.push(Record {
-                label: capture.label,
-                group: capture.group,
+                label: capture.label.clone(),
+                group: capture.group.clone(),
                 files,
                 directories,
             });
+        }
+        let limit = self.limits.bytes;
+        if let Some(record) = self.undo.pop_if(|top| top.bytes() > limit) {
+            discard_record(&record);
+            if capture.group.is_some() {
+                self.abandoned_group = capture.group;
+            }
+            self.notice = Some(format!(
+                "{} cannot be undone: the operation is too large to undo.",
+                capture.label
+            ));
         }
         self.enforce_limits();
     }
@@ -520,6 +662,7 @@ impl Journal {
             if content && from.blob.is_none() {
                 let (path, print) = (from.path.clone(), from.fingerprint);
                 match self.snapshot(&path, print) {
+                    // Updated once the restore shows whether it cloned.
                     Ok(blob) => file.sides(backward).0.blob = Some(blob),
                     Err(error) => {
                         replay.errors.push(FileError {
@@ -559,7 +702,9 @@ impl Journal {
             .collect();
         // 3. Rename each file and restore its contents.
         for mut file in files {
-            let content = file.content;
+            let (content, cost) = (file.content, file.cost);
+            // A full rewrite shares nothing, so each snapshot keeps its whole file.
+            let cheap = cost < file.before.fingerprint.len;
             let (from, to) = file.sides(backward);
             let current = rebase(&from.path, &moves);
             let outcome = (|| {
@@ -568,11 +713,24 @@ impl Journal {
                 }
                 if content {
                     let blob = to.blob.as_ref().ok_or("The undo snapshot is missing")?;
-                    if let Err(error) = restore(blob, &to.path, &self.options) {
-                        if current != to.path {
-                            let _ = crate::operations::rename_no_clobber(&to.path, &current);
+                    match restore(blob, &to.path, &self.options) {
+                        // The replaced file now shares all but the rewritten region
+                        // with the snapshot it came from.
+                        Ok(cloned) => {
+                            if let Some(left) = from.blob.as_mut() {
+                                left.cost = if cloned && left.linked && cheap {
+                                    cost
+                                } else {
+                                    left.fingerprint.len
+                                };
+                            }
                         }
-                        return Err(error);
+                        Err(error) => {
+                            if current != to.path {
+                                let _ = crate::operations::rename_no_clobber(&to.path, &current);
+                            }
+                            return Err(error);
+                        }
                     }
                 }
                 fingerprint(&to.path)
@@ -608,6 +766,44 @@ impl Journal {
 impl Drop for Journal {
     fn drop(&mut self) {
         let _ = fs::remove_dir_all(&self.dir);
+    }
+}
+
+/// The device a path lives on, where the platform exposes it.
+fn volume_id(path: &Path) -> Option<u64> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        fs::metadata(path).ok().map(|m| m.dev())
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = path;
+        None
+    }
+}
+
+/// Bytes available to this user on the volume holding `path`, where known.
+// statvfs field widths differ between platforms.
+#[allow(clippy::useless_conversion)]
+fn available_space(path: &Path) -> Option<u64> {
+    #[cfg(unix)]
+    {
+        use std::{ffi::CString, os::unix::ffi::OsStrExt};
+        let path = CString::new(path.as_os_str().as_bytes()).ok()?;
+        let mut stats = std::mem::MaybeUninit::<libc::statvfs>::uninit();
+        // SAFETY: `path` is NUL-terminated and `stats` is written by the call on success.
+        if unsafe { libc::statvfs(path.as_ptr(), stats.as_mut_ptr()) } != 0 {
+            return None;
+        }
+        // SAFETY: statvfs returned 0, so the structure is initialised.
+        let stats = unsafe { stats.assume_init() };
+        Some(u64::from(stats.f_bavail).saturating_mul(u64::from(stats.f_frsize)))
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = path;
+        None
     }
 }
 
@@ -657,7 +853,8 @@ fn move_directories(moves: &[(PathBuf, PathBuf)]) -> Result<(), String> {
 }
 
 /// Replace `target` with the snapshot bytes through a verified staging file.
-fn restore(blob: &Blob, target: &Path, options: &TagOptions) -> Result<(), String> {
+/// Returns whether the staging file was a clone of the snapshot.
+fn restore(blob: &Blob, target: &Path, options: &TagOptions) -> Result<bool, String> {
     if fingerprint(&blob.path).ok() != Some(blob.fingerprint) {
         return Err("The undo snapshot was modified".into());
     }
@@ -667,7 +864,7 @@ fn restore(blob: &Blob, target: &Path, options: &TagOptions) -> Result<(), Strin
         return Err("The audio file is read-only".into());
     }
     let expected = fingerprint(&target)?;
-    let staging = crate::staging_copy(
+    let (staging, cloned) = crate::staging_clone(
         &blob.path,
         target
             .parent()
@@ -689,7 +886,7 @@ fn restore(blob: &Blob, target: &Path, options: &TagOptions) -> Result<(), Strin
         return Err("The file changed during restore; reload it and try again".into());
     }
     staging.persist(&target).map_err(|e| e.error.to_string())?;
-    Ok(())
+    Ok(cloned)
 }
 
 fn discard(blob: &Blob) {
@@ -703,4 +900,64 @@ fn discard_file(file: &FileRecord) {
 }
 fn discard_record(record: &Record) {
     record.blobs().for_each(discard);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const MB: u64 = 1024 * 1024;
+
+    #[test]
+    fn retained_bytes_follow_clones_and_rewritten_regions() {
+        let partial = |count, rewritten| Some(Writes { count, rewritten });
+        // A cloned padding write keeps its region, rounded to blocks, plus overhead.
+        assert_eq!(
+            retained(40 * MB, true, partial(1, Some(10))),
+            BLOCK + OVERHEAD
+        );
+        assert_eq!(
+            retained(40 * MB, true, partial(2, Some(MB + 1))),
+            MB + BLOCK + OVERHEAD
+        );
+        // Never more than the file itself.
+        assert_eq!(retained(1000, true, partial(1, Some(900))), 1000);
+        // Full rewrites, unreported writes and copied snapshots keep everything.
+        assert_eq!(retained(40 * MB, true, partial(1, None)), 40 * MB);
+        assert_eq!(retained(40 * MB, true, partial(0, Some(0))), 40 * MB);
+        assert_eq!(retained(40 * MB, true, None), 40 * MB);
+        assert_eq!(retained(40 * MB, false, partial(1, Some(10))), 40 * MB);
+    }
+
+    #[test]
+    fn writes_accumulate_only_for_watched_files_and_any_full_write_is_sticky() {
+        let path = PathBuf::from("/opentag-test/watched.flac");
+        let other = PathBuf::from("/opentag-test/unwatched.flac");
+        watch([path.clone()]);
+        note_write(&path, true, Some(8192));
+        note_write(&path, true, Some(100));
+        note_write(&other, true, Some(1));
+        let writes = unwatch([&path, &other]);
+        assert_eq!(writes.len(), 1);
+        assert_eq!(writes[&path].count, 2);
+        assert_eq!(writes[&path].rewritten, Some(8292));
+        for (cloned, rewritten) in [(false, Some(10)), (true, None)] {
+            watch([path.clone()]);
+            note_write(&path, true, Some(10));
+            note_write(&path, cloned, rewritten);
+            note_write(&path, true, Some(10));
+            assert_eq!(unwatch([&path])[&path].rewritten, None);
+        }
+        assert!(unwatch([&path]).is_empty(), "commit stops watching");
+    }
+
+    #[test]
+    fn free_space_and_volume_are_known_on_unix() {
+        let dir = std::env::temp_dir();
+        assert_eq!(
+            available_space(&dir).is_some_and(|free| free > 0),
+            cfg!(unix)
+        );
+        assert_eq!(volume_id(&dir).is_some(), cfg!(unix));
+    }
 }
