@@ -564,17 +564,28 @@ fn normalized_output(path: &Path) -> Result<String, String> {
     for component in absolute.components() {
         match component {
             std::path::Component::CurDir => {}
+            // A Windows drive/verbatim prefix is incomplete until its root is
+            // appended. Querying `D:` as a filesystem object can fail with
+            // ERROR_INVALID_FUNCTION; only inspect complete normal components.
+            std::path::Component::Prefix(_) | std::path::Component::RootDir => {
+                resolved.push(component.as_os_str());
+            }
             std::path::Component::ParentDir => {
                 resolved.pop();
             }
-            _ => {
+            std::path::Component::Normal(_) => {
                 resolved.push(component.as_os_str());
                 match fs::symlink_metadata(&resolved) {
                     Ok(_) => {
                         resolved = resolved.canonicalize().map_err(|e| e.to_string())?;
                     }
                     Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-                    Err(error) => return Err(error.to_string()),
+                    Err(error) => {
+                        return Err(format!(
+                            "Cannot inspect output path {}: {error}",
+                            resolved.display()
+                        ))
+                    }
                 }
             }
         }
@@ -784,6 +795,27 @@ pub fn execute(
 mod tests {
     use super::*;
     use tag_core::actions::ActionSpec;
+    #[test]
+    fn output_normalization_accepts_existing_roots_and_missing_children() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("new/../report.txt");
+        let expected = dir
+            .path()
+            .canonicalize()
+            .unwrap()
+            .join("report.txt")
+            .to_string_lossy()
+            .into_owned();
+        assert_eq!(
+            normalized_output(&source).unwrap(),
+            if cfg!(windows) {
+                expected.to_lowercase()
+            } else {
+                expected
+            }
+        );
+        assert!(!dir.path().join("new").exists());
+    }
     fn fixture(dir: &Path, name: &str) -> PathBuf {
         let path = dir.join(name);
         let audio = vec![0u8; 8820];
