@@ -1,0 +1,305 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-14",
+  "scope": "Actual macOS arm64 native debug UI on six disposable fixtures; bounded checkpoint, not original/runtime/mobile parity",
+  "status": "PASS_BOUNDED",
+  "build": {
+    "receipt_path": "/tmp/opentag-user-test/receipts/native-build-parity-desktop-unique.json",
+    "receipt_sha256": "93806fbf056a21c7d1460d870864f8a72631dd7cb0fca047747a323231a5c4e0",
+    "executable_sha256": "ea605ca210c821eb49e7720001877f775c6454a5159522b9e41c5b57ae149307",
+    "base_commit": "b15635360ad0f48d6f1b3ceef376b1aa3eaef07a",
+    "tracked_patch_sha256": "3e8875218c3a488f829093f74f32e731a645a4671ff1cb30992ce9adaed7f9d6",
+    "untracked_source_zip_sha256": "49a25407ac26045b36b6d4288ffdb39b32bfe4ee4fdebf5e978f1a59d00e99db",
+    "bundle_identifier": "org.opentag.editor.usertest.desktop"
+  },
+  "external_evidence_directory": "/tmp/opentag-user-test/receipts/technical-covers",
+  "evidence_manifest": {
+    "assertions.json": "4f616888579b6406d09eafddaead1fc10bf5e26f749265186a02eb0dcec7f108",
+    "before.json": "e9a395d51474fd539defc2b5c0388ef8aa85170ecb77531df5cf8991a43e13cd",
+    "cover-removed-all-ax.txt": "a462140527ca5fd80a06e2f8fe972fdc9d6e1d8670004f2536e170a30753eea5",
+    "cover-removed-one-ax.txt": "9db1b2bbb7c24ca4120cf03f90f84b30d1d03eb75bcc869b66bbad719817ffcf",
+    "cover-width-refreshed-ax.txt": "fb02ef2ea5f041a62d83fd5067876e6216f7b33dd0526236037e43e6a6b1b995",
+    "cover-zero-filter-ax.txt": "3b7253ed7e692a05180be56263a76f3b9dba02c8453a1af23df966ab0686e7b6",
+    "cover-zero-filter.png": "75d293f9c77fb647ecdc719add9e7b45c56a675ae93f755443b60c464c54d745",
+    "covers-added-comparison.json": "5cd9da056a1312a170335e97a12b263934cd0ccf966cf6f192ed908c84310f7d",
+    "covers-added.json": "c0898a88c02867e57bd61d7791ab1de99c033fd3de30cfe1d21b0a56381aef12",
+    "covers-removed-comparison.json": "913d0e969cd762893ef4e43ea928267cc2fe3b75bd0d771af0575a2b3586899e",
+    "covers-removed.json": "2ec96e7399cbf60714efb37da2772e8cd8028c5eddc345a7adedad6e4986890d",
+    "export-distinct-filenames-ax.txt": "65c47c6ad5c639203594ca7be6b4137e1aed1b5f02e39a52c078f524c64231dc",
+    "export-distinct-filenames.png": "850415e6072f4b015f23c5b1192128cceec73ce22c27967d755d98bb5f7af4f1",
+    "filename-cover-export-comparison.json": "e05212df2d5f1f34b853da09517576ed383787e7027deeaca28b2042f35df66f",
+    "filename-cover-export.json": "af5b7353fbe6d041bfa49931538962d4866a4abf583295574b7e830b78a8e740",
+    "measured-codec-filter-ax.txt": "7091c352f6b7a77f649e51eb9279bc2393a8083026f70746bcf131d317a8eccf",
+    "measured-cover-filter-ax.txt": "868c3921165143e6136533ea0a40d2c3956f8f091869e4dd422a4189ac273dd6",
+    "measured-cover-filter.png": "ca2846f72dcc1fbf6a4d597d499a6b674f814be77322669500c9f7a646800028"
+  },
+  "stage_utc": {
+    "before": "2026-10-14T06:02:35.429935+00:00",
+    "covers-added": "2026-10-14T06:20:33.344175+00:00",
+    "filename-cover-export": "2026-10-14T06:25:59.814136+00:00",
+    "covers-removed": "2026-10-14T06:27:09.376003+00:00"
+  },
+  "ui_ax_observations": [
+    {
+      "expression": "_CODEC IS AAC",
+      "visible_audio_rows": [
+        "04 - Solar Arcade - Quoted Title.m4a"
+      ],
+      "count": 1,
+      "evidence": "measured-codec-filter-ax.txt",
+      "sha256": "7091c352f6b7a77f649e51eb9279bc2393a8083026f70746bcf131d317a8eccf"
+    },
+    {
+      "expression": "_COVER_WIDTH IS 600",
+      "visible_audio_rows": [
+        "01 - Solar Arcade - First Light.mp3",
+        "02 - Solar Arcade - Night Shift.mp3"
+      ],
+      "count": 2,
+      "evidence": "measured-cover-filter-ax.txt",
+      "sha256": "868c3921165143e6136533ea0a40d2c3956f8f091869e4dd422a4189ac273dd6"
+    },
+    {
+      "expression": "_COVERS IS 1",
+      "visible_audio_rows": [
+        "01 - Solar Arcade - First Light.mp3",
+        "02 - Solar Arcade - Night Shift.mp3"
+      ],
+      "count": 2,
+      "evidence": "export-distinct-filenames-ax.txt",
+      "sha256": "65c47c6ad5c639203594ca7be6b4137e1aed1b5f02e39a52c078f524c64231dc"
+    },
+    {
+      "expression": "_COVERS IS 1",
+      "visible_audio_rows": [
+        "02 - Solar Arcade - Night Shift.mp3"
+      ],
+      "count": 1,
+      "evidence": "cover-removed-one-ax.txt",
+      "sha256": "9db1b2bbb7c24ca4120cf03f90f84b30d1d03eb75bcc869b66bbad719817ffcf"
+    },
+    {
+      "expression": "_COVERS IS 1",
+      "visible_audio_rows": [],
+      "count": 0,
+      "evidence": "cover-removed-all-ax.txt",
+      "sha256": "a462140527ca5fd80a06e2f8fe972fdc9d6e1d8670004f2536e170a30753eea5"
+    },
+    {
+      "expression": "_COVER_WIDTH IS 600",
+      "visible_audio_rows": [],
+      "count": 0,
+      "evidence": "cover-width-refreshed-ax.txt",
+      "sha256": "fb02ef2ea5f041a62d83fd5067876e6216f7b33dd0526236037e43e6a6b1b995"
+    },
+    {
+      "expression": "_COVERS IS 0",
+      "visible_audio_rows": [
+        "01 - Solar Arcade - First Light.mp3",
+        "02 - Solar Arcade - Night Shift.mp3",
+        "03 - Mémoire - Café 猫.flac",
+        "04 - Solar Arcade - Quoted Title.m4a",
+        "05 - Zephyr - Paper Planes.opus",
+        "06 - Fixture Lab - Sanity Pulse.wav"
+      ],
+      "count": 6,
+      "evidence": "cover-zero-filter-ax.txt",
+      "sha256": "3b7253ed7e692a05180be56263a76f3b9dba02c8453a1af23df966ab0686e7b6"
+    }
+  ],
+  "operator_observed_without_retained_ax": [
+    {
+      "expression": "_BITSPERSAMPLE IS 16",
+      "visible_audio_count": 2,
+      "formats": [
+        "FLAC",
+        "WAV"
+      ],
+      "evidence_boundary": "Parent operator observed actual native table; no retained AX/screenshot for this step"
+    }
+  ],
+  "export_outputs": {
+    "distinct_title_names": [
+      {
+        "path": "outputs/First Light.png",
+        "size": 2411,
+        "sha256": "474b5eebee61cae290e3ea03d32b80de333ced94c1ec69e69adc6ada45613f92"
+      },
+      {
+        "path": "outputs/Night Shift.png",
+        "size": 2411,
+        "sha256": "474b5eebee61cae290e3ea03d32b80de333ced94c1ec69e69adc6ada45613f92"
+      }
+    ],
+    "shared_base_duplicate_disabled": [
+      {
+        "path": "outputs/shared.png",
+        "size": 2411,
+        "sha256": "474b5eebee61cae290e3ea03d32b80de333ced94c1ec69e69adc6ada45613f92"
+      }
+    ]
+  },
+  "independently_recomputed_from_receipts": {
+    "export_only_all_six_complete_files_unchanged": true,
+    "all_stage_packet_lists_equal": true,
+    "all_stage_pcm_equal": true,
+    "all_stage_ffprobe_format_tag_dicts_equal": true,
+    "four_unselected_complete_files_unchanged": true
+  },
+  "files": [
+    {
+      "path": "Disc 1/01 - Solar Arcade - First Light.mp3",
+      "complete_file_sha256": {
+        "before": "623e54f15478b4b09cb9f255b2667aa5b900bbb607b31b73928a980377b7aa27",
+        "covers-added": "587292fbf6485d9b1e1e2faf947780f6c18a5567f46e5aa922dea8aeb94c91f2",
+        "filename-cover-export": "587292fbf6485d9b1e1e2faf947780f6c18a5567f46e5aa922dea8aeb94c91f2",
+        "covers-removed": "baccf2bb7518e2aa579b0705d9f07cf64ed4e38c401b66f4c689addfdab641d1"
+      },
+      "audio_packet_sha256": "a7cea04a782fb2c1d78f7b41f390257aebbfb8c5e17c7caaa50ba65c747424a9",
+      "decoded_s16le_pcm_sha256": "a3f52588c6690decdde7686cdb218b8f0941ff0b4ce7b9264dd0c661c4597d16",
+      "all_stage_packet_lists_equal": true,
+      "all_stage_pcm_equal": true,
+      "all_stage_ffprobe_format_tag_dicts_equal": true,
+      "cover_counts": {
+        "before": 0,
+        "covers-added": 1,
+        "filename-cover-export": 1,
+        "covers-removed": 0
+      }
+    },
+    {
+      "path": "Disc 1/02 - Solar Arcade - Night Shift.mp3",
+      "complete_file_sha256": {
+        "before": "693b16419568eaa4cd6f076007d4b281ad21ce763458e78e1a4e346b46c7c006",
+        "covers-added": "74125ba03738b8a5740ba01b0352ebb0731c4eee8821c07f912f795ed8fef1cb",
+        "filename-cover-export": "74125ba03738b8a5740ba01b0352ebb0731c4eee8821c07f912f795ed8fef1cb",
+        "covers-removed": "1900f9308ebaf36e4961f25ae1a654c43f4362b11fe95ebf0b03ab87b5a8e951"
+      },
+      "audio_packet_sha256": "05ffec56bbcdea3555f034d96d174e5633f0890e8ac6377815814a27454294d5",
+      "decoded_s16le_pcm_sha256": "05ba954ee9bee7ad674085f4f5604d9cb91e7a44cc07379eef33f7ce9a1c122c",
+      "all_stage_packet_lists_equal": true,
+      "all_stage_pcm_equal": true,
+      "all_stage_ffprobe_format_tag_dicts_equal": true,
+      "cover_counts": {
+        "before": 0,
+        "covers-added": 1,
+        "filename-cover-export": 1,
+        "covers-removed": 0
+      }
+    },
+    {
+      "path": "Disc 1/03 - Mémoire - Café 猫.flac",
+      "complete_file_sha256": {
+        "before": "991896db3ec85b7f7a72f3cf2957a666f4f61146523620b812e1f3db832a1d10",
+        "covers-added": "991896db3ec85b7f7a72f3cf2957a666f4f61146523620b812e1f3db832a1d10",
+        "filename-cover-export": "991896db3ec85b7f7a72f3cf2957a666f4f61146523620b812e1f3db832a1d10",
+        "covers-removed": "991896db3ec85b7f7a72f3cf2957a666f4f61146523620b812e1f3db832a1d10"
+      },
+      "audio_packet_sha256": "4a45ad47336f757596e7d41bf9dea393f1b903c68d11f5019bed9df86a3e01a2",
+      "decoded_s16le_pcm_sha256": "4e534935ee1b4da0d136be6bdfb2098a51efbd09807e6be027c0e289f6682310",
+      "all_stage_packet_lists_equal": true,
+      "all_stage_pcm_equal": true,
+      "all_stage_ffprobe_format_tag_dicts_equal": true,
+      "cover_counts": {
+        "before": 0,
+        "covers-added": 0,
+        "filename-cover-export": 0,
+        "covers-removed": 0
+      }
+    },
+    {
+      "path": "Disc 2/04 - Solar Arcade - Quoted Title.m4a",
+      "complete_file_sha256": {
+        "before": "e7d7dbe0809d25a26365dd24dd61679d02aea0afdb818313c57361ebece81552",
+        "covers-added": "e7d7dbe0809d25a26365dd24dd61679d02aea0afdb818313c57361ebece81552",
+        "filename-cover-export": "e7d7dbe0809d25a26365dd24dd61679d02aea0afdb818313c57361ebece81552",
+        "covers-removed": "e7d7dbe0809d25a26365dd24dd61679d02aea0afdb818313c57361ebece81552"
+      },
+      "audio_packet_sha256": "0f1f5a03fa19be21c9434ce9e9ec953225f360445f2e0eb19a589101b2e5bacb",
+      "decoded_s16le_pcm_sha256": "a4e0ae2da2f2f229e5d41cb0157c8344d5f75d980665c94e5c60a0fcea322cd9",
+      "all_stage_packet_lists_equal": true,
+      "all_stage_pcm_equal": true,
+      "all_stage_ffprobe_format_tag_dicts_equal": true,
+      "cover_counts": {
+        "before": 0,
+        "covers-added": 0,
+        "filename-cover-export": 0,
+        "covers-removed": 0
+      }
+    },
+    {
+      "path": "Disc 2/05 - Zephyr - Paper Planes.opus",
+      "complete_file_sha256": {
+        "before": "d766de48d647e658fd727e4df5accaec53cdae836d9083a2be0f3caef4c4a625",
+        "covers-added": "d766de48d647e658fd727e4df5accaec53cdae836d9083a2be0f3caef4c4a625",
+        "filename-cover-export": "d766de48d647e658fd727e4df5accaec53cdae836d9083a2be0f3caef4c4a625",
+        "covers-removed": "d766de48d647e658fd727e4df5accaec53cdae836d9083a2be0f3caef4c4a625"
+      },
+      "audio_packet_sha256": "292237b34cd916a7b8ec465e96b13726ad5f3c5f10ce47977217109a4446c00f",
+      "decoded_s16le_pcm_sha256": "a400948aee984a9dd746f434066f2df14d614c31f6a041bc9e6573bf85c3adda",
+      "all_stage_packet_lists_equal": true,
+      "all_stage_pcm_equal": true,
+      "all_stage_ffprobe_format_tag_dicts_equal": true,
+      "cover_counts": {
+        "before": 0,
+        "covers-added": 0,
+        "filename-cover-export": 0,
+        "covers-removed": 0
+      }
+    },
+    {
+      "path": "Disc 2/06 - Fixture Lab - Sanity Pulse.wav",
+      "complete_file_sha256": {
+        "before": "aef159cfccb4c96431928f530318423335ff9418af2e18597eb2aa75a74d654b",
+        "covers-added": "aef159cfccb4c96431928f530318423335ff9418af2e18597eb2aa75a74d654b",
+        "filename-cover-export": "aef159cfccb4c96431928f530318423335ff9418af2e18597eb2aa75a74d654b",
+        "covers-removed": "aef159cfccb4c96431928f530318423335ff9418af2e18597eb2aa75a74d654b"
+      },
+      "audio_packet_sha256": "6daffd4dea82bc53a8f76f32654648adbc785404f7e9b7934097f2e3093d6a62",
+      "decoded_s16le_pcm_sha256": "7f2f4642826e19d97b81f0061074e89ef5926e76a2d636a3e9a034d74f78ba3c",
+      "all_stage_packet_lists_equal": true,
+      "all_stage_pcm_equal": true,
+      "all_stage_ffprobe_format_tag_dicts_equal": true,
+      "cover_counts": {
+        "before": 0,
+        "covers-added": 0,
+        "filename-cover-export": 0,
+        "covers-removed": 0
+      }
+    }
+  ],
+  "operator_assertions": {
+    "status": "PASS",
+    "native_build_receipt": "../native-build-parity-desktop-unique.json",
+    "distinct_names_export_both_identical_covers": true,
+    "same_base_duplicate_disabled_exports_one": true,
+    "export_all_six_sources_byte_identical": true,
+    "cover_remove_refresh_counts": [
+      1,
+      0
+    ],
+    "no_cover_filter_matches_six": true,
+    "removed_cover_width_no_longer_matches": true,
+    "all_audio_packets_and_pcm_preserved": true,
+    "all_format_tag_dicts_preserved": true,
+    "four_unselected_files_byte_identical": true,
+    "not_run": [
+      "original Mp3tag runtime comparison",
+      "other codecs cover mutation",
+      "actual mobile device"
+    ]
+  },
+  "screenshots": {
+    "technical-covers-measured-cover-filter.png": "ca2846f72dcc1fbf6a4d597d499a6b674f814be77322669500c9f7a646800028",
+    "technical-covers-cover-zero-filter.png": "75d293f9c77fb647ecdc719add9e7b45c56a675ae93f755443b60c464c54d745"
+  },
+  "not_qualified": [
+    "Original Mp3tag runtime differential equivalence",
+    "Public release artifact",
+    "Windows/Linux UI",
+    "Android/iOS or actual mobile document provider",
+    "Cover mutation for formats other than the two MP3 fixtures",
+    "Duplicate-enabled cross-file collision policy or all image types/options",
+    "Every technical placeholder, tag format, or opaque metadata preservation"
+  ]
+}
