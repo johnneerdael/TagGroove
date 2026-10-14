@@ -6,6 +6,8 @@ mod cover_ops;
 mod mapping;
 #[path = "tag_policy.rs"]
 mod tag_policy;
+#[path = "tag_types.rs"]
+mod tag_types;
 #[path = "technical.rs"]
 mod technical;
 use crate::preferences::TagOptions;
@@ -42,6 +44,7 @@ use std::{
     io::{Seek, SeekFrom},
     path::{Path, PathBuf},
 };
+pub use tag_types::*;
 use walkdir::WalkDir;
 
 fn error_message(error: &dyn std::error::Error) -> String {
