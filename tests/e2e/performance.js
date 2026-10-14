@@ -71,7 +71,7 @@
       if (loaded) covers.push(performance.now() - t);
     }
     await both('select_arrow', arrows);
-    for (const name of ['workspace render', 'selection refresh', 'table window', 'table selection', 'sort', 'filter']) { const list = timings.filter(t => t.name === name).map(t => t.ms); if (list.length) await perf(`phase ${name.replace(/ /g, '_')}`, stats(list)); }
+    for (const name of ['workspace render', 'selection refresh', 'list refresh', 'table window', 'table selection', 'sort', 'filter']) { const list = timings.filter(t => t.name === name).map(t => t.ms); if (list.length) await perf(`phase ${name.replace(/ /g, '_')}`, stats(list)); }
     await perf('cover_hydrate_after_arrow', `${stats(covers)} ${ipc('get_covers', 0)}`);
 
     // 3. Sort by a column (header click), then restore filename order.
