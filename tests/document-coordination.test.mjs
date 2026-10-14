@@ -7,11 +7,14 @@ import ts from 'typescript';
 // Avoid importing main.ts's platform bootstrap or replacing its draft/save/refresh logic.
 const main=await readFile(new URL('../src/main.ts',import.meta.url),'utf8');
 const helper=await readFile(new URL('../src/document-state.ts',import.meta.url),'utf8');
+// The cover window markup comes from the real cover modules (without their stylesheet).
+const coverModules=(await Promise.all(['cover-model','covers'].map(name=>readFile(new URL(`../src/${name}.ts`,import.meta.url),'utf8')))).map(source=>source.replace(/^import .*$/gm,'').replace(/\bexport /g,'')).join('\n');
 const parsed=ts.createSourceFile('main.ts',main,ts.ScriptTarget.Latest,true,ts.ScriptKind.TS);
 const names=new Set(['updateDraft','run','refreshHistory','saveDrafts','saveCopy','value','accept','operateImpl','refreshSourceAccess','providerEntry','copyBaseUnknown','editedCopyFields','discardDrafts','mutate','reconcileWorkingEntries','storeEntry','invalidateCovers','cacheCovers','coversFor','hydrateActiveCover','coverMarkup','sourceMarkup','workingMetadataNotice']);
 const mergedDeclaration=parsed.statements.filter(ts.isVariableStatement).flatMap(statement=>statement.declarationList.declarations).find(declaration=>declaration.name.getText(parsed)==='merged');
 const functions=parsed.statements.filter(node=>ts.isFunctionDeclaration(node)&&names.has(node.name?.text)).map(node=>node.getText(parsed)).join('\n');
 const factory=`${helper.replace(/\bexport /g,'')}
+${coverModules}
 export function createWorkspace(initial, options={}) {
   const path='retained.wav', original=structuredClone(initial);
   let working=structuredClone(initial), workingCovers=structuredClone(options.covers||[]), copied, copiedCovers, dialog, status='', busy=false, errors=[], location='', anchor;
@@ -20,6 +23,7 @@ export function createWorkspace(initial, options={}) {
   const coverCacheBytesLimit=12*1024*1024,coverCacheEntryLimit=8;
   let coverCacheBytes=0,activeCover,coverError,coverIndex=0,progressJob;
   const desktop=true,active=()=>entries.get(path),timing=()=>{},refreshCoverPanel=()=>{},themedAsset=()=>'',button=()=>'';
+  const coverUI=new CoverUI({selection:()=>paths().map(path=>({path,covers:workingReadErrors.has(path)?[]:entries.get(path).covers})),displayed:()=>({path:active()?.path,covers:coversFor(active()),index:coverIndex}),reason:()=>'',clipboard:()=>false,mac:false});
   const makeEntry=(path,fields)=>({path,filename:path,format:'WAV',duration:1,bitrate:1411,sample_rate:44100,channels:2,size:44,fields:structuredClone(fields),technical:{},covers:structuredClone(workingCovers)});
   const entries=new Map([[path,makeEntry(path,initial)]]),drafts=new Map(),copyOverrides=new Map(),selected=new Set([path]);
   const ready={uri:'content://provider/audio',name:path,writable:true,persisted:true,state:'ready',error:null};
