@@ -103,9 +103,74 @@
       "unrelated_raw_vorbis_keys_and_values_preserved": true,
       "dialog_one_row_per_ascii_insensitive_name": true,
       "dialog_opens_at_first_field": true
+    },
+    "UAT-04": {
+      "status": "PASS",
+      "visible_sort": "Filename descending",
+      "saved_tracks": {
+        "Night Shift": "07/2",
+        "First Light": "08/2"
+      },
+      "pending_files_unchanged": true,
+      "only_selected_track_tags_changed": true,
+      "unselected_files_unchanged": true,
+      "all_audio_preserved": true,
+      "cancel_created_no_draft": true
+    },
+    "UAT-05": {
+      "status": "PASS",
+      "pattern": "%track% - %artist% - %title%",
+      "precondition": "Both MP3 titles saved as Needs import",
+      "preview_all_six_complete_files_unchanged": true,
+      "saved_titles": [
+        "First Light",
+        "Night Shift"
+      ],
+      "saved_tracks": [
+        "01",
+        "02"
+      ],
+      "other_tags_and_unselected_files_unchanged": true,
+      "all_audio_preserved": true,
+      "nonmatching_pattern": "NO MATCH %title%",
+      "nonmatching_error": "Filename does not completely match the pattern",
+      "nonmatching_apply_disabled": true
+    },
+    "UAT-06": {
+      "status": "PASS",
+      "dynamic": {
+        "first": "/private/tmp/opentag-user-test/work/rename-dynamic/library/Disc 1/UAT-43c431cd-8dff-4bf1-aa4e-e57c9a6363d3.mp3",
+        "final": "/private/tmp/opentag-user-test/work/rename-dynamic/library/Disc 1/UAT2-954921ab-23c7-4fa6-8a4a-a17a4f10a4aa.mp3",
+        "template_change_disabled_apply": true
+      },
+      "dynamic_applied_exact_final_review": true,
+      "dynamic_old_and_first_preview_paths_absent": true,
+      "counter_reviewed_paths": [
+        "/private/tmp/opentag-user-test/work/rename-counter/library/Disc 1/01 - FIRST LIGHT.mp3",
+        "/private/tmp/opentag-user-test/work/rename-counter/library/Disc 1/02 - NIGHT SHIFT.mp3"
+      ],
+      "counter_applied_exact_reviewed_paths": true,
+      "previews_all_files_unchanged": true,
+      "all_six_complete_file_contents_and_audio_preserved_in_both_cases": true,
+      "cancelled_additional_preview_created_no_file": true
+    },
+    "UAT-08": {
+      "status": "PASS",
+      "action": "Replace with Regular Expression",
+      "field": "TITLE",
+      "pattern": "(?<=First )Light",
+      "replacement": "Glow",
+      "saved_title": "First Glow",
+      "save_mode": "immediate; persisted after Reload without separate Save",
+      "macos_option_shift_6_opened_quick_actions": true,
+      "invalid_pattern": "(",
+      "invalid_error": "Unmatched marking parenthesis ( or \\(.",
+      "failed_action_and_cancellation_all_files_unchanged": true,
+      "other_tags_and_five_files_unchanged": true,
+      "all_audio_preserved": true
     }
   },
-  "other_UAT_cases": "UAT-04 to UAT-06 and UAT-08 to UAT-14: NOT RUN",
+  "other_UAT_cases": "UAT-09 to UAT-14: NOT RUN",
   "regular_profile_actions_json_before": {
     "path": "/Users/jneerdael/Library/Application Support/org.opentag.editor/actions.json",
     "exists": false
