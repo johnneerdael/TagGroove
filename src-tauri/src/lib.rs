@@ -459,6 +459,34 @@ fn write_export(output: &Path, text: &str) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
+fn export_field(fields: &Fields, format: &str, key: &str, separator: &str) -> String {
+    let lookup = |name: &str| {
+        fields
+            .iter()
+            .find(|(field, _)| field.eq_ignore_ascii_case(name))
+            .map(|(_, values)| values.join(separator))
+            .unwrap_or_default()
+    };
+    let format = format.to_ascii_lowercase();
+    if key == "TRACK"
+        && ["flac", "ogg", "vorbis", "opus", "speex"]
+            .iter()
+            .any(|name| format.contains(name))
+    {
+        return lookup("TRACKNUMBER");
+    }
+    let value = lookup(key);
+    if value.is_empty() {
+        match key {
+            "TRACK" => lookup("TRACKNUMBER"),
+            "YEAR" => lookup("DATE"),
+            _ => value,
+        }
+    } else {
+        value
+    }
+}
+
 #[tauri::command]
 async fn export_csv(paths: Vec<String>, output_path: String) -> Result<(), String> {
     io(move || {
@@ -475,13 +503,7 @@ async fn export_csv(paths: Vec<String>, output_path: String) -> Result<(), Strin
             rows.push(
                 names
                     .iter()
-                    .map(|k| {
-                        entry
-                            .fields
-                            .get(*k)
-                            .map(|v| v.join("\\\\"))
-                            .unwrap_or_default()
-                    })
+                    .map(|key| export_field(&entry.fields, &entry.format, key, "\\\\"))
                     .chain([entry.path])
                     .collect(),
             );
@@ -502,12 +524,7 @@ async fn export_playlist(paths: Vec<String>, output_path: String) -> Result<(), 
         let mut text = String::from("#EXTM3U\n");
         for entry in entries {
             let get = |key: &str| {
-                entry
-                    .fields
-                    .get(key)
-                    .map(|v| v.join(" / "))
-                    .unwrap_or_default()
-                    .replace(['\r', '\n'], " ")
+                export_field(&entry.fields, &entry.format, key, " / ").replace(['\r', '\n'], " ")
             };
             let relative = tag_core::operations::playlist_path(Path::new(&entry.path), output);
             let path = relative.to_string_lossy();
@@ -688,6 +705,106 @@ mod tests {
         std::fs::write(&out, b"keep").unwrap();
         assert!(write_export(&out, "new").is_err());
         assert_eq!(std::fs::read(out).unwrap(), b"keep");
+    }
+
+    #[test]
+    fn exports_preserve_native_tag_casing_aliases_and_multivalues() {
+        use std::process::Command;
+        if Command::new("ffmpeg").arg("-version").output().is_err() {
+            eprintln!("Skipping encoded export regression: ffmpeg is required");
+            return;
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().canonicalize().unwrap();
+        let path = root.join("Café 猫.flac");
+        let output = Command::new("ffmpeg")
+            .args([
+                "-v",
+                "error",
+                "-f",
+                "lavfi",
+                "-i",
+                "sine=frequency=440:sample_rate=48000:duration=0.1",
+                "-metadata",
+                "title=Café; 猫 \"live\"",
+                "-metadata",
+                "album=Native album",
+                "-metadata",
+                "date=2020-04-18",
+                "-metadata",
+                "track=03/06",
+                "-metadata",
+                "genre=Ambient",
+                "-metadata",
+                "comment=first line\nsecond line",
+            ])
+            .arg(&path)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        tag_core::write_fields_summary(
+            &path,
+            &Fields::from([
+                ("ARTIST".into(), vec!["Mémoire".into(), "Guest 猫".into()]),
+                ("COMMENT".into(), vec!["first line\nsecond line".into()]),
+            ]),
+        )
+        .unwrap();
+        let entry = tag_core::read_entry_summary(&path).unwrap();
+        assert!(entry.fields.contains_key("title"));
+        assert!(entry.fields.contains_key("date"));
+        let before = std::fs::read(&path).unwrap();
+        let paths = vec![path.to_string_lossy().into_owned()];
+        let csv = root.join("tags.csv");
+        tauri::async_runtime::block_on(export_csv(
+            paths.clone(),
+            csv.to_string_lossy().into_owned(),
+        ))
+        .unwrap();
+        assert_eq!(
+            std::fs::read_to_string(csv).unwrap(),
+            format!("TITLE;ARTIST;ALBUM;TRACK;YEAR;GENRE;COMMENT;PATH\r\n\"Café; 猫 \"\"live\"\"\";Mémoire\\\\Guest 猫;Native album;03/06;2020-04-18;Ambient;\"first line\nsecond line\";{}\r\n", entry.path),
+        );
+        let playlist = root.join("list.m3u8");
+        tauri::async_runtime::block_on(export_playlist(
+            paths,
+            playlist.to_string_lossy().into_owned(),
+        ))
+        .unwrap();
+        assert_eq!(
+            std::fs::read_to_string(playlist).unwrap(),
+            "#EXTM3U\n#EXTINF:0,Mémoire / Guest 猫 - Café; 猫 \"live\"\nCafé 猫.flac\n",
+        );
+        assert_eq!(std::fs::read(path).unwrap(), before);
+    }
+
+    #[test]
+    fn export_lookup_keeps_comment_description_and_explicit_aliases_distinct() {
+        let fields = Fields::from([
+            ("comment".into(), vec!["Unicode 猫".into()]),
+            ("DESCRIPTION".into(), vec!["Independent description".into()]),
+            ("year".into(), vec!["1998".into()]),
+            ("DATE".into(), vec!["2020-04-18".into()]),
+            ("track".into(), vec!["2/9".into()]),
+            ("TRACKNUMBER".into(), vec!["3/9".into()]),
+        ]);
+        assert_eq!(
+            export_field(&fields, "WAV", "COMMENT", "\\\\"),
+            "Unicode 猫"
+        );
+        assert_eq!(
+            export_field(&fields, "WAV", "DESCRIPTION", "\\\\"),
+            "Independent description"
+        );
+        assert_eq!(export_field(&fields, "WAV", "YEAR", "\\\\"), "1998");
+        assert_eq!(export_field(&fields, "WAV", "TRACK", "\\\\"), "2/9");
+        for format in ["FLAC", "Vorbis", "Opus", "Speex", "Ogg"] {
+            assert_eq!(export_field(&fields, format, "TRACK", "\\\\"), "3/9");
+        }
     }
 
     #[test]

@@ -1,8 +1,8 @@
 # Native end-user workflow test plan
 
-Status: **native execution started: UAT-01 PARTIAL; UAT-02 through UAT-08 PASS (UAT-07 uses a recorded input variation); UAT-09 through UAT-14 NOT RUN**. See [execution evidence](user-workflows-execution.md) and [measured results](user-workflows-results.json). Do not treat fixture generation or unit-test results as a passed user acceptance test.
+Status: **UAT-01 PARTIAL; UAT-02 through UAT-14 PASS within recorded scopes, including UAT-11 after a rebuilt native replay. UAT-14 covers the Quick Import Text File action only; the standalone Text File → Tag UI is NOT PRESENT in this build**. UAT-07 uses a recorded input variation. Optional reversed-group/unresolved-import branches, live OS appearance-change propagation and the optional export overwrite attempt remain NOT RUN. See [execution evidence](user-workflows-execution.md) and [measured results](user-workflows-results.json). Do not treat fixture generation or unit-test results as a passed user acceptance test.
 
-Run against the release worktree at `/Users/jneerdael/Scripts/opentag-worktrees/brand-releases` after the appearance implementation/checkpoint is finished and the root agent authorizes the isolated native session. Do not use the current app or computer-use session while the interface agent owns it. No app build, launch, UI operation, preference access, or user-library access was performed during this preparation.
+Run against the release worktree at `/Users/jneerdael/Scripts/opentag-worktrees/brand-releases` after the appearance implementation/checkpoint is finished and the root agent authorizes the isolated native session. Do not use an app or computer-use session while another agent owns it. The original fixture-preparation phase did not build, launch or operate the app, access preferences, or access user libraries. Later authorized native execution is recorded separately in the linked evidence.
 
 These cases exercise the visible OpenTag interface and actual file results. They are not an original-Mp3tag differential qualification. Current scope and missing interfaces remain in [PARITY.md](../PARITY.md). Primary expectations for mask extraction, filter expressions, and MTE rendering are documented at [filename imports](https://docs.mp3tag.de/converters/import-tags-from-filenames/), [filters](https://docs.mp3tag.de/filter/), and [exports](https://docs.mp3tag.de/export/); workflow-specific details below describe the current OpenTag surface.
 
@@ -153,6 +153,8 @@ Clear the filter and expect all six rows. Rapidly replace a valid query with an 
 
 ### UAT-09 — Ordered groups, persistence and deferred MTE at group boundaries (case `groups`)
 
+Execution: **PASS** for A→B deferred export, saved group order/contents/enabled state and selection-preset persistence/restoration. Optional reversed order and unresolved import are **NOT RUN**. See the execution evidence and results linked above.
+
 1. Import `UAT-A-uppercase-comment.mta` and `UAT-B-prefix-comment.mta` through **Actions… → Import .mta…**. These use a supported Format Value schema and should not import unresolved actions.
 2. Edit group A. Add an **Export** action using `fixtures/exports/group-boundary.mte`, output `/tmp/opentag-user-test/work/groups/outputs/group-a.txt`, append off, partition off. Move Export **before** A's Format Value action. Save group changes.
 3. Enable both groups in order A then B; select the two MP3s and apply. A's Export must run after A's field actions even though its row precedes them. The output must contain `First Light.mp3|FIRST LIGHT` and `Night Shift.mp3|NIGHT SHIFT`, using the full actual fixture basenames in the first column.
@@ -163,6 +165,8 @@ Clear the filter and expect all six rows. Rapidly replace a valid query with an 
 Optional negative: import `UAT-unresolved.mta`. Expect preserved unresolved settings and blocked execution, not guessing action 999 or changing files. Do not import/execute unreviewed user action libraries.
 
 ### UAT-10 — Add, inspect, change properties and remove covers (case `covers`)
+
+Execution: **PASS** for PNG addition, back-cover/Unicode properties, JPEG addition and selective removal, then final removal and Reload. Dimensions were independently probed; the current UI displays MIME/type/description and a cover selector, not dimensions. See the execution evidence and results linked above.
 
 1. Select First Light. Its initial cover state is empty. Choose **Add…** and select `art/front-600.png`. Reload; expect one PNG cover, 600×600, with actual picture-packet bytes matching the input PNG hash.
 2. Through Quick action **Set Cover Properties**, set type Back Cover and description `UAT back — 猫` (disable keep-existing-description). Reload and verify both properties independently from the embedded picture metadata.

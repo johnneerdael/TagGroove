@@ -187,8 +187,196 @@ the other five files and all audio remained unchanged. UAT-08 PASS.
 
 ![Explicit Quick Action regex error](user-workflow-quick-error.png)
 
-UAT-09 through UAT-14 remain NOT RUN in this workflow suite. Earlier appearance
-and menu checks are separately recorded in `branding-appearance.md` and
-`menu-switch.md`; they are not substitutes for the remaining working-data cases.
-Original format/preferences/converter/action parity remains open in the project
-ledger and documentation inventory.
+## Ordered action groups and saved selection preset: passed
+
+UAT-09 used a fresh six-file groups copy and the same isolated native build
+recorded for UAT-03. Imported UAT-A-uppercase-comment and UAT-B-prefix-comment,
+then placed an Export action before A's Format Value COMMENT action. Both groups
+were saved and enabled in A→B order. Native Quit/relaunch retained that order,
+the two actions in A, the one action in B, and the saved selection preset
+`UAT ordered A then B`. Unchecking B and choosing the preset restored both
+checkboxes without changing either group's action contents. The regular
+profile's `actions.json` remained absent.
+
+All six complete-file hashes were unchanged before Apply. Applying to the two
+MP3s created `/private/tmp/opentag-user-test/work/groups/outputs/group-a.txt`:
+
+```text
+01 - Solar Arcade - First Light.mp3|FIRST LIGHT
+02 - Solar Arcade - Night Shift.mp3|NIGHT SHIFT
+```
+
+The output SHA-256 is
+`cdfb8c0f6708955c5204f9570ffaad555d9749a6fc80afdd286747db0e576755`.
+It contains A's uppercase comments despite Export preceding Format Value in the
+list, and contains neither the original comments nor B's later prefix. Final
+saved comments were `B:FIRST LIGHT` and `B:NIGHT SHIFT`. This verifies deferred
+export at A's group boundary. Only those two MP3 comment tags changed; the other
+four complete files and all six encoded-audio/decoded-PCM identities were
+preserved. UAT-09 PASS. The optional fresh-media reversed-order run and unresolved
+`.mta` import remain NOT RUN.
+
+Receipts: `/tmp/opentag-user-test/receipts/groups/{before,before-apply,applied,assertions}.json`.
+The source screenshots also record the action order, restart, B unchecked,
+preset restoration and reloaded saved comment. Exact paths/build identity are in
+the results JSON; this is the recorded extended-fix functional build, not a new
+public release qualification.
+
+![Saved A→B order and action contents after preset restoration](user-workflow-groups-preset.png)
+
+## Cover addition, properties and selective removal: passed
+
+UAT-10 used a separate fresh six-file copy. Added the PNG to First Light and
+Reloaded. Quick Set Cover Properties changed it to Back Cover with description
+`UAT back — 猫`, with keep-existing-description disabled. Added the JPEG as a
+second selectable cover, selected that JPEG and Removed it, then Reloaded. The
+PNG retained its exact bytes, back-cover type and Unicode description. Removing
+the final PNG and Reloading showed No artwork; independent probes confirmed zero
+remaining picture packets. UAT-10 PASS.
+
+Independent receipts measured the PNG at 600×600/2,411 encoded bytes and JPEG at
+800×450/8,002 encoded bytes. Their embedded packet hashes matched their input
+files exactly, including the retained PNG after the JPEG removal. The panel
+shows MIME, type (`CoverBack`) and description; dimensions are not visible in
+this build and were verified only by the independent probes.
+
+At every checkpoint, all original tag dictionaries remained unchanged, the five
+unselected complete files stayed byte-identical, and all six encoded-audio and
+decoded-PCM identities matched baseline. This does not require the selected
+file's final padding/layout to equal its original complete-file bytes.
+
+Receipts: `/tmp/opentag-user-test/receipts/covers/{before,png-added,properties,two-covers,jpeg-removed,all-removed,assertions}.json`.
+Source screenshots cover each mutation and the final empty-artwork state.
+
+![Retained PNG back cover and Unicode description after JPEG removal and Reload](user-workflow-covers-retained.png)
+
+## Fixed CSV and M3U8 export: passed after a reproduced fix
+
+UAT-11 selected First Light, the multivalue FLAC and the quoted-title M4A in
+ascending Filename order, using the same extended-fix native build as UAT-03.
+The real save dialogs created UTF-8 CSV and M3U8 files with three selected
+records. The CSV had the eight expected columns and correctly quoted the M4A
+title as one cell. Playlist paths retained Unicode and the selected order.
+
+The outputs nevertheless omitted existing tag values. The FLAC CSV record had
+an empty TITLE, ALBUM, TRACK, YEAR and GENRE despite those values being present
+in the independently probed file; the MP3 COMMENT was also empty. The playlist
+contained `#EXTINF:3,Mémoire / Guest 猫 - ` with no FLAC title. Export lookups did
+not account for the actual native field spellings. This first native run failed;
+its output rows and hashes remain in the results JSON.
+
+The initial CSV SHA-256 was
+`ccbade50bfd663505c39d90fb3469064b73d1d439e13f332fdf279819e170f94`;
+the initial M3U8 SHA-256 was
+`7d27b5f7923b2c34c8d481b49662af4526918db409a1b5a81524b8887f90cd1e`.
+All six complete audio-file hashes and encoded/decoded payloads remained
+unchanged. A focused native fix uses case-insensitive lookups and explicit
+Vorbis TRACKNUMBER/DATE fallback for the fixed TRACK/YEAR columns. Two native
+regressions were added; the 22-test native suite and strict clippy passed before
+the isolated app was rebuilt.
+
+Receipts: `/tmp/opentag-user-test/receipts/exports/{before,exported,exported-comparison}.json`.
+Initial output rows/text and their hashes are retained in the results JSON.
+
+The actual rebuilt replay used fresh `exports-fixed` media and source commit
+`cfd2bd7b6394105c872a83ba22927f3752934702`, executable SHA-256
+`bce38f3922169b8650913d82f4934465f3cfb8d0f29545af364093c9ebc1ffb0`.
+The native build receipt records the identifier-only profile override and
+functional source hashes; only proof documentation/screenshots were dirty.
+The same three-file selection produced all expected CSV values, including
+FLAC TITLE `Café 猫`, both artists, ALBUM `Archive Sessions`, TRACK `03/06`,
+YEAR `2020-04-18`, GENRE `Ambient`, and MP3 COMMENT `Original comment`.
+The comma/quote-containing M4A title parsed as one exact cell.
+
+M3U8 contained the correct artist/title strings in the same selected order,
+including the previously missing FLAC title. Each relative media path resolved
+to its actual selected file. Cancelling another CSV picker left exactly the two
+expected outputs. All six complete files and encoded/decoded payloads remained
+unchanged. **UAT-11 PASS after the native replay**; the optional overwrite
+attempt remains NOT RUN.
+
+The corrected CSV SHA-256 is
+`5ccd4b58454ade8fff6d18e46c6682fdfef4fc2e2f79bd693ceb5be82c3b0558`;
+the corrected M3U8 SHA-256 is
+`69d4a42b442660c7a77f85b0c07718c5ba698ceb62bd034e20404739e38cf926`.
+Receipts: `/tmp/opentag-user-test/receipts/exports-fixed/{before,exported,assertions}.json`,
+with native screenshot/AX and `native-build-export-fix.json`. The results JSON
+keeps the failing and corrected attempts under their separate build identities.
+
+## Unsaved window close and action-group changes: passed
+
+UAT-12 used the same isolated extended-fix functional build, executable SHA-256
+`b4489f5b2ae3bfff13e73241b5f0034dcbccc9d5206e78f4ea60baf1dfffc296`.
+A TITLE draft `Never write this` triggered the native close alert:
+`Close OpenTag and discard pending changes in 1 file?`. Choosing No retained
+the window, selection and pending value. Choosing Yes on a second close
+discarded the draft. A fresh launch and library load showed original TITLE
+`First Light` with no pending tag edits.
+
+Creating `UAT never save this group` without saving then closing triggered
+`Close OpenTag and discard unsaved action group changes?`. No retained the
+unsaved group; Yes discarded it and closed the app. After another actual
+relaunch, the unsaved group was absent and the saved A/B groups remained.
+Independent cancelled/discarded receipts proved all six complete files and all
+encoded-packet/decoded-PCM identities unchanged. UAT-12 PASS.
+
+Receipts: `/tmp/opentag-user-test/receipts/unsaved-close/{before,cancelled,discarded}.json`.
+Native AX records include both alert texts, the clean reloaded title, and the
+reopened action dialog. This is window-close coverage; it does not establish
+force-quit/crash recovery or every platform's quit behavior.
+
+![Actual native pending-tag close warning](user-workflow-unsaved-close.png)
+
+## Appearance preserves active selection, filtering and drafts: passed
+
+UAT-13 used a fresh appearance-state copy and that same extended-fix executable.
+Filename was descending, both MP3s selected, and `_EXTENSION IS mp3` retained
+two visible rows. COMMENT `Theme must preserve this` remained pending for both
+files. Switching Dark and Light preserved the two selected files, descending
+order, filter, pending value and two-file dirty count.
+
+The actual Extended dialog displayed the pending comment in each mode and was
+cancelled. The invalid filter `ARTIST IS "Solar Arcade" AND (` displayed
+`Missing filter operand` in both modes while the drafts remained intact.
+Native screenshots cover the working state, dialogs and error in each mode.
+An explicit Edit → Discard confirmation then cleared the drafts; independent
+receipts showed all six complete files and encoded/decoded audio unchanged.
+
+After a native Quit/relaunch, explicit Light persisted. Selecting System
+displayed `System (Dark)`, matching the read-only OS observation
+`AppleInterfaceStyle: Dark`. No system setting was changed. UAT-13 PASS within
+that scope; **live OS appearance-change propagation remains NOT RUN**.
+
+Receipts: `/tmp/opentag-user-test/receipts/appearance-state/{before,after-theme-discard}.json`.
+`dark-ax.txt`, `light-ax.txt`, `restarted-light-ax.txt`, `system-dark-ax.txt`,
+`os-appearance.txt` and the corresponding native screenshots retain the
+individual observations. This working-data test is distinct from earlier
+branding-only appearance checks.
+
+![Light-mode invalid filter with both drafts and selection retained](user-workflow-appearance-state-light-error.png)
+
+## Multiline Unicode text-import action: passed
+
+UAT-14 used Quick Actions → Import Text File, FIELD LYRICS, and the absolute
+fixture path `/tmp/opentag-user-test/fixtures/text/lyrics-utf8.txt`. It wrote
+immediately. After Reload, Extended tags displayed both Unicode lines. The
+independent ffprobe value was exactly
+`UAT first line — Café 猫\nUAT second line\n`, including its trailing newline.
+The selected file's dictionary changed only by this LYRICS addition, the five
+unselected complete files stayed identical, and all six encoded-packet and
+decoded-PCM identities matched baseline. UAT-14 PASS for this Quick action.
+
+Receipts: `/tmp/opentag-user-test/receipts/text-action/{before,imported-reloaded,assertions}.json`,
+plus `extended-ax.txt` and the native screenshot below. The **standalone
+positional Text File → Tag converter UI is NOT PRESENT in this build**. The
+successful Import Text File action must not be reported as that separate
+converter's UI qualification.
+
+![Reloaded multiline Unicode LYRICS in the actual Extended tags dialog](user-workflow-text-import.png)
+
+UAT-01 remains PARTIAL; UAT-02 through UAT-14 pass within their stated scopes. The
+optional reversed-group/unresolved-import branches, live OS-change propagation
+and optional export overwrite attempt remain NOT RUN. Original
+format/preferences/converter/action parity remains open in the project ledger
+and documentation inventory. These native debug source tests do not qualify a
+byte-identical public release package or mobile document editing/save-back.

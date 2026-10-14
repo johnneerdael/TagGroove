@@ -168,10 +168,544 @@
       "failed_action_and_cancellation_all_files_unchanged": true,
       "other_tags_and_five_files_unchanged": true,
       "all_audio_preserved": true
+    },
+    "UAT-09": {
+      "status": "PASS",
+      "build": {
+        "same_functional_build_as": "UAT-03",
+        "receipt": "/tmp/opentag-user-test/receipts/native-build-extended-fix.json",
+        "commit": "4e635ad95bdc79a6ddb4f1acb40ba518252683a8",
+        "source_patch_sha256": "5d9017c7505d94959b4713bb04885a800102de9d149e4aeff435aae57236a6b1",
+        "executable_sha256": "b4489f5b2ae3bfff13e73241b5f0034dcbccc9d5206e78f4ea60baf1dfffc296",
+        "identifier_override": "org.opentag.editor.usertest"
+      },
+      "imported_groups": [
+        "UAT-A-uppercase-comment",
+        "UAT-B-prefix-comment"
+      ],
+      "saved_group_order": [
+        "UAT-A-uppercase-comment",
+        "UAT-B-prefix-comment"
+      ],
+      "saved_action_counts": [
+        2,
+        1
+      ],
+      "both_enabled_after_restart": true,
+      "group_a_action_order": [
+        "Export",
+        "Format Value COMMENT"
+      ],
+      "export_output": "/private/tmp/opentag-user-test/work/groups/outputs/group-a.txt",
+      "export_append": false,
+      "export_partition": false,
+      "export_text": "01 - Solar Arcade - First Light.mp3|FIRST LIGHT\n02 - Solar Arcade - Night Shift.mp3|NIGHT SHIFT\n",
+      "export_sha256": "cdfb8c0f6708955c5204f9570ffaad555d9749a6fc80afdd286747db0e576755",
+      "export_runs_after_a_field_actions_before_b": true,
+      "saved_comments": {
+        "Disc 1/01 - Solar Arcade - First Light.mp3": "B:FIRST LIGHT",
+        "Disc 1/02 - Solar Arcade - Night Shift.mp3": "B:NIGHT SHIFT"
+      },
+      "before_apply_all_six_complete_files_unchanged": true,
+      "only_two_selected_comment_tags_changed": true,
+      "other_four_complete_files_unchanged": true,
+      "all_six_encoded_packets_and_decoded_pcm_preserved": true,
+      "preset": {
+        "name": "UAT ordered A then B",
+        "persisted_after_restart": true,
+        "b_unchecked_before_preset": true,
+        "preset_restored_both_enabled": true,
+        "group_action_contents_unchanged": true
+      },
+      "receipts": {
+        "before": "/tmp/opentag-user-test/receipts/groups/before.json",
+        "before-apply": "/tmp/opentag-user-test/receipts/groups/before-apply.json",
+        "applied": "/tmp/opentag-user-test/receipts/groups/applied.json",
+        "assertions": "/tmp/opentag-user-test/receipts/groups/assertions.json"
+      },
+      "native_screenshots": {
+        "order-before": "/tmp/opentag-user-test/receipts/groups/order-before.png",
+        "restarted": "/tmp/opentag-user-test/receipts/groups/restarted.png",
+        "preset-before": "/tmp/opentag-user-test/receipts/groups/preset-before.png",
+        "preset-after": "/tmp/opentag-user-test/receipts/groups/preset-after.png",
+        "applied-reloaded": "/tmp/opentag-user-test/receipts/groups/applied-reloaded.png"
+      },
+      "selected_screenshot": {
+        "source": "/tmp/opentag-user-test/receipts/groups/preset-after.png",
+        "path": "user-workflow-groups-preset.png",
+        "sha256": "e9c3800b4f6922a2d40565995acde467eb066c43ecc696522b4312e35d5df25c"
+      },
+      "not_run": [
+        "fresh-media reversed group order B then A",
+        "optional unresolved .mta import"
+      ]
+    },
+    "UAT-10": {
+      "status": "PASS",
+      "build": {
+        "same_functional_build_as": "UAT-03",
+        "receipt": "/tmp/opentag-user-test/receipts/native-build-extended-fix.json",
+        "commit": "4e635ad95bdc79a6ddb4f1acb40ba518252683a8",
+        "source_patch_sha256": "5d9017c7505d94959b4713bb04885a800102de9d149e4aeff435aae57236a6b1",
+        "executable_sha256": "b4489f5b2ae3bfff13e73241b5f0034dcbccc9d5206e78f4ea60baf1dfffc296",
+        "identifier_override": "org.opentag.editor.usertest"
+      },
+      "selected_file": "Disc 1/01 - Solar Arcade - First Light.mp3",
+      "operations": [
+        "Add PNG and Reload",
+        "Quick Set Cover Properties: Back Cover; description UAT back — 猫; keep-existing-description disabled",
+        "Add JPEG as second cover",
+        "Select JPEG, Remove and Reload",
+        "Remove final PNG and Reload"
+      ],
+      "png": {
+        "input": "/tmp/opentag-user-test/fixtures/art/front-600.png",
+        "width": 600,
+        "height": 600,
+        "encoded_bytes": 2411,
+        "sha256": "474b5eebee61cae290e3ea03d32b80de333ced94c1ec69e69adc6ada45613f92"
+      },
+      "jpeg": {
+        "input": "/tmp/opentag-user-test/fixtures/art/back-800x450.jpg",
+        "width": 800,
+        "height": 450,
+        "encoded_bytes": 8002,
+        "sha256": "23b8d56d5eff86341e0fac8bc73d36b897575a76e7cec1fdcb9dbd3e6ce69089"
+      },
+      "retained_png_properties": {
+        "panel_type": "CoverBack",
+        "ffprobe_picture_type": "Cover (back)",
+        "description": "UAT back — 猫",
+        "mime": "image/png"
+      },
+      "input_image_hashes_match_embedded_packets": true,
+      "checkpoints": {
+        "png-added": {
+          "cover_count": 1,
+          "source_tags_unchanged": true,
+          "unselected5_unchanged": true,
+          "all6_audio_preserved": true
+        },
+        "properties": {
+          "cover_count": 1,
+          "source_tags_unchanged": true,
+          "unselected5_unchanged": true,
+          "all6_audio_preserved": true
+        },
+        "two-covers": {
+          "cover_count": 2,
+          "source_tags_unchanged": true,
+          "unselected5_unchanged": true,
+          "all6_audio_preserved": true
+        },
+        "jpeg-removed": {
+          "cover_count": 1,
+          "source_tags_unchanged": true,
+          "unselected5_unchanged": true,
+          "all6_audio_preserved": true
+        },
+        "all-removed": {
+          "cover_count": 0,
+          "source_tags_unchanged": true,
+          "unselected5_unchanged": true,
+          "all6_audio_preserved": true
+        }
+      },
+      "png_properties_and_bytes_retained_after_jpeg_removal": true,
+      "final_cover_packets": 0,
+      "final_ui": "No artwork",
+      "all_original_tag_dictionaries_unchanged_at_every_checkpoint": true,
+      "five_unselected_complete_files_unchanged_at_every_checkpoint": true,
+      "all_six_encoded_packets_and_decoded_pcm_preserved_at_every_checkpoint": true,
+      "dimensions_evidence": "Independent ffprobe measurements; dimensions are not displayed by this build. The UI shows MIME/type/description and cover selection.",
+      "receipts": {
+        "before": "/tmp/opentag-user-test/receipts/covers/before.json",
+        "png-added": "/tmp/opentag-user-test/receipts/covers/png-added.json",
+        "properties": "/tmp/opentag-user-test/receipts/covers/properties.json",
+        "two-covers": "/tmp/opentag-user-test/receipts/covers/two-covers.json",
+        "jpeg-removed": "/tmp/opentag-user-test/receipts/covers/jpeg-removed.json",
+        "all-removed": "/tmp/opentag-user-test/receipts/covers/all-removed.json",
+        "assertions": "/tmp/opentag-user-test/receipts/covers/assertions.json"
+      },
+      "native_screenshots": {
+        "png-added": "/tmp/opentag-user-test/receipts/covers/png-added.png",
+        "properties": "/tmp/opentag-user-test/receipts/covers/properties.png",
+        "two-covers": "/tmp/opentag-user-test/receipts/covers/two-covers.png",
+        "jpeg-removed": "/tmp/opentag-user-test/receipts/covers/jpeg-removed.png",
+        "all-removed": "/tmp/opentag-user-test/receipts/covers/all-removed.png"
+      },
+      "selected_screenshot": {
+        "source": "/tmp/opentag-user-test/receipts/covers/jpeg-removed.png",
+        "path": "user-workflow-covers-retained.png",
+        "sha256": "d930e5e504b716beb31751ef83ba1f6cf3e74399da8d620bb8496c7843ef2dc2"
+      }
+    },
+    "UAT-11": {
+      "status": "PASS after native export field-lookup fix",
+      "build": {
+        "receipt": "/tmp/opentag-user-test/receipts/native-build-export-fix.json",
+        "created_utc": "2026-10-14T05:15:23.393688+00:00",
+        "source_commit": "cfd2bd7b6394105c872a83ba22927f3752934702",
+        "source_status": " M docs/verification/user-workflows-execution.md\n M docs/verification/user-workflows-plan.md\n M docs/verification/user-workflows-results.json\n?? docs/verification/user-workflow-covers-retained.png\n?? docs/verification/user-workflow-groups-preset.png\n",
+        "source_hashes": {
+          "src-tauri/src/lib.rs": "f58423d104adcc5e001b59c7d97fc6ef04e4dd4e75327d6334de0419a3c1fa82",
+          "src/main.ts": "2fe44269ece375bb1bf13d5c3b2114884c34f1da1e85a27562c44fd7e97ac425",
+          "src/menubar.ts": "ce94b50dd08af0d0b46781aa69d81cd2c9900ec4672d3b6391c42a67221f7a15",
+          "Cargo.lock": "e98bd832e99dd1dcebc139c46439f91d6e324b0c9c499d9b35e5789d58bc7867",
+          "package-lock.json": "c8f33f1cf715d813160b030965dd1a75772e0f1775c6039ae32570074f843e31",
+          "src-tauri/tauri.conf.json": "b52cab05aef8f6c1332099dce3786fda480ddceafaecfc5b201d20ac9de11221"
+        },
+        "profile_override": {
+          "identifier": "org.opentag.editor.usertest"
+        },
+        "build": "CARGO_TARGET_DIR=/tmp/opentag-user-test/target npm run tauri -- build --debug --bundles app --config /tmp/opentag-user-test/identifier-only.json",
+        "rust_version": "rustc 1.95.0 (59807616e 2026-04-14)",
+        "executable_sha256": "bce38f3922169b8650913d82f4934465f3cfb8d0f29545af364093c9ebc1ffb0",
+        "notes": "Only UAT documentation/screenshots were dirty; all functional source committed at source_commit. macOS arm64 debug, ad-hoc signed, isolated profile."
+      },
+      "selected_files": [
+        "/private/tmp/opentag-user-test/work/exports-fixed/library/Disc 1/01 - Solar Arcade - First Light.mp3",
+        "/private/tmp/opentag-user-test/work/exports-fixed/library/Disc 1/03 - Mémoire - Café 猫.flac",
+        "/private/tmp/opentag-user-test/work/exports-fixed/library/Disc 2/04 - Solar Arcade - Quoted Title.m4a"
+      ],
+      "initial_failure": {
+        "cause": "Export field lookups were case-sensitive against mixed native tag spellings.",
+        "csv_observed_rows": [
+          [
+            "TITLE",
+            "ARTIST",
+            "ALBUM",
+            "TRACK",
+            "YEAR",
+            "GENRE",
+            "COMMENT",
+            "PATH"
+          ],
+          [
+            "First Light",
+            "Solar Arcade",
+            "Morning Signals",
+            "01/06",
+            "2024",
+            "Electronic",
+            "",
+            "/private/tmp/opentag-user-test/work/exports/library/Disc 1/01 - Solar Arcade - First Light.mp3"
+          ],
+          [
+            "",
+            "Mémoire\\\\Guest 猫",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "/private/tmp/opentag-user-test/work/exports/library/Disc 1/03 - Mémoire - Café 猫.flac"
+          ],
+          [
+            "Title, with \"quotes\"",
+            "Solar Arcade",
+            "Morning Signals",
+            "4/6",
+            "2024",
+            "Pop",
+            "",
+            "/private/tmp/opentag-user-test/work/exports/library/Disc 2/04 - Solar Arcade - Quoted Title.m4a"
+          ]
+        ],
+        "csv_sha256": "ccbade50bfd663505c39d90fb3469064b73d1d439e13f332fdf279819e170f94",
+        "playlist_sha256": "7d27b5f7923b2c34c8d481b49662af4526918db409a1b5a81524b8887f90cd1e",
+        "playlist_missing_flac_title": true,
+        "missing_csv_values": [
+          "FLAC TITLE",
+          "FLAC ALBUM",
+          "FLAC TRACK",
+          "FLAC YEAR",
+          "FLAC GENRE",
+          "MP3 COMMENT"
+        ],
+        "observed_playlist_text": "#EXTM3U\n#EXTINF:3,Solar Arcade - First Light\n../library/Disc 1/01 - Solar Arcade - First Light.mp3\n#EXTINF:3,Mémoire / Guest 猫 - \n../library/Disc 1/03 - Mémoire - Café 猫.flac\n#EXTINF:3,Solar Arcade - Title, with \"quotes\"\n../library/Disc 2/04 - Solar Arcade - Quoted Title.m4a\n",
+        "build": {
+          "same_functional_build_as": "UAT-03",
+          "receipt": "/tmp/opentag-user-test/receipts/native-build-extended-fix.json",
+          "commit": "4e635ad95bdc79a6ddb4f1acb40ba518252683a8",
+          "source_patch_sha256": "5d9017c7505d94959b4713bb04885a800102de9d149e4aeff435aae57236a6b1",
+          "executable_sha256": "b4489f5b2ae3bfff13e73241b5f0034dcbccc9d5206e78f4ea60baf1dfffc296",
+          "identifier_override": "org.opentag.editor.usertest"
+        }
+      },
+      "passed": [
+        "All eight fixed CSV columns match actual selected-file tags, including FLAC title/album/track/date/genre and original MP3 comment",
+        "M4A comma and quotes decode as one CSV cell",
+        "Both FLAC artists retained",
+        "M3U8 has correct titles/artists in selected ascending filename order",
+        "All three relative playlist paths resolve to the actual selected files",
+        "All six complete files and encoded/decoded payloads unchanged",
+        "Cancel another CSV picker creates no additional output"
+      ],
+      "all_six_complete_files_unchanged": true,
+      "fix_state": "Fixed-build native replay passed; original failure retained separately.",
+      "receipts": {
+        "before": "/tmp/opentag-user-test/receipts/exports-fixed/before.json",
+        "exported": "/tmp/opentag-user-test/receipts/exports-fixed/exported.json",
+        "exported-comparison": "/tmp/opentag-user-test/receipts/exports-fixed/exported-comparison.json",
+        "assertions": "/tmp/opentag-user-test/receipts/exports-fixed/assertions.json"
+      },
+      "outputs": [
+        {
+          "path": "outputs/list.m3u8",
+          "size": 292,
+          "sha256": "69d4a42b442660c7a77f85b0c07718c5ba698ceb62bd034e20404739e38cf926"
+        },
+        {
+          "path": "outputs/tags.csv",
+          "size": 573,
+          "sha256": "5ccd4b58454ade8fff6d18e46c6682fdfef4fc2e2f79bd693ceb5be82c3b0558"
+        }
+      ],
+      "not_run": [
+        "optional exact audio-destination overwrite attempt"
+      ],
+      "initial_receipts": {
+        "before": "/tmp/opentag-user-test/receipts/exports/before.json",
+        "exported": "/tmp/opentag-user-test/receipts/exports/exported.json",
+        "exported-comparison": "/tmp/opentag-user-test/receipts/exports/exported-comparison.json"
+      },
+      "initial_outputs": [
+        {
+          "path": "outputs/list.m3u8",
+          "size": 283,
+          "sha256": "7d27b5f7923b2c34c8d481b49662af4526918db409a1b5a81524b8887f90cd1e"
+        },
+        {
+          "path": "outputs/tags.csv",
+          "size": 492,
+          "sha256": "ccbade50bfd663505c39d90fb3469064b73d1d439e13f332fdf279819e170f94"
+        }
+      ],
+      "source_fix": "Case-insensitive field lookup with explicit Vorbis TRACKNUMBER and DATE fallback for fixed TRACK and YEAR columns.",
+      "source_fix_validation": {
+        "native_regression_tests_added": 2,
+        "native_tests_passed": 22,
+        "strict_native_clippy_passed": true,
+        "native_rebuild_passed": true
+      },
+      "fixed_run_assertions": {
+        "csv_rows": [
+          [
+            "TITLE",
+            "ARTIST",
+            "ALBUM",
+            "TRACK",
+            "YEAR",
+            "GENRE",
+            "COMMENT",
+            "PATH"
+          ],
+          [
+            "First Light",
+            "Solar Arcade",
+            "Morning Signals",
+            "01/06",
+            "2024",
+            "Electronic",
+            "Original comment",
+            "/private/tmp/opentag-user-test/work/exports-fixed/library/Disc 1/01 - Solar Arcade - First Light.mp3"
+          ],
+          [
+            "Café 猫",
+            "Mémoire\\\\Guest 猫",
+            "Archive Sessions",
+            "03/06",
+            "2020-04-18",
+            "Ambient",
+            "",
+            "/private/tmp/opentag-user-test/work/exports-fixed/library/Disc 1/03 - Mémoire - Café 猫.flac"
+          ],
+          [
+            "Title, with \"quotes\"",
+            "Solar Arcade",
+            "Morning Signals",
+            "4/6",
+            "2024",
+            "Pop",
+            "",
+            "/private/tmp/opentag-user-test/work/exports-fixed/library/Disc 2/04 - Solar Arcade - Quoted Title.m4a"
+          ]
+        ],
+        "playlist": "#EXTM3U\n#EXTINF:3,Solar Arcade - First Light\n../library/Disc 1/01 - Solar Arcade - First Light.mp3\n#EXTINF:3,Mémoire / Guest 猫 - Café 猫\n../library/Disc 1/03 - Mémoire - Café 猫.flac\n#EXTINF:3,Solar Arcade - Title, with \"quotes\"\n../library/Disc 2/04 - Solar Arcade - Quoted Title.m4a\n",
+        "output_sha256": {
+          "list.m3u8": "69d4a42b442660c7a77f85b0c07718c5ba698ceb62bd034e20404739e38cf926",
+          "tags.csv": "5ccd4b58454ade8fff6d18e46c6682fdfef4fc2e2f79bd693ceb5be82c3b0558"
+        },
+        "all6_complete_files_unchanged": true,
+        "playlist_paths_resolve_to_csv_selection": true,
+        "cancel_created_no_additional_output": true,
+        "optional_overwrite_picker": "NOT RUN"
+      },
+      "all_six_encoded_packets_and_decoded_pcm_preserved": true,
+      "native_screenshots": {
+        "initial-failure": "/tmp/opentag-user-test/receipts/exports/exported.png",
+        "fixed-export": "/tmp/opentag-user-test/receipts/exports-fixed/exported.png"
+      },
+      "native_ax": "/tmp/opentag-user-test/receipts/exports-fixed/exported-ax.txt"
+    },
+    "UAT-12": {
+      "status": "PASS",
+      "build": {
+        "same_functional_build_as": "UAT-03",
+        "receipt": "/tmp/opentag-user-test/receipts/native-build-extended-fix.json",
+        "commit": "4e635ad95bdc79a6ddb4f1acb40ba518252683a8",
+        "source_patch_sha256": "5d9017c7505d94959b4713bb04885a800102de9d149e4aeff435aae57236a6b1",
+        "executable_sha256": "b4489f5b2ae3bfff13e73241b5f0034dcbccc9d5206e78f4ea60baf1dfffc296",
+        "identifier_override": "org.opentag.editor.usertest"
+      },
+      "draft_title": "Never write this",
+      "tag_close_alert": "Close OpenTag and discard pending changes in 1 file?",
+      "no_preserved_selection_and_pending_draft": true,
+      "yes_discarded_draft_and_closed_app": true,
+      "fresh_launch_restored_disk_title": "First Light",
+      "fresh_launch_no_tag_drafts": true,
+      "unsaved_action_group": "UAT never save this group",
+      "action_close_alert": "Close OpenTag and discard unsaved action group changes?",
+      "action_close_no_preserved_unsaved_group": true,
+      "action_close_yes_discarded_group": true,
+      "fresh_launch_unsaved_group_absent": true,
+      "existing_saved_a_b_groups_preserved": true,
+      "all_six_complete_file_hashes_identical_after_cancel_and_discard": true,
+      "all_six_encoded_packets_and_decoded_pcm_preserved": true,
+      "receipts": {
+        "before": "/tmp/opentag-user-test/receipts/unsaved-close/before.json",
+        "cancelled": "/tmp/opentag-user-test/receipts/unsaved-close/cancelled.json",
+        "discarded": "/tmp/opentag-user-test/receipts/unsaved-close/discarded.json",
+        "cancelled-comparison": "/tmp/opentag-user-test/receipts/unsaved-close/cancelled-comparison.json",
+        "discarded-comparison": "/tmp/opentag-user-test/receipts/unsaved-close/discarded-comparison.json"
+      },
+      "native_ax": {
+        "tag-close-warning": "/tmp/opentag-user-test/receipts/unsaved-close/tag-close-warning-ax.txt",
+        "discarded-reloaded": "/tmp/opentag-user-test/receipts/unsaved-close/discarded-reloaded-ax.txt",
+        "action-close-warning": "/tmp/opentag-user-test/receipts/unsaved-close/action-close-warning-ax.txt",
+        "action-discard-restarted": "/tmp/opentag-user-test/receipts/unsaved-close/action-discard-restarted-ax.txt"
+      },
+      "native_screenshots": {
+        "tag-close-warning": "/tmp/opentag-user-test/receipts/unsaved-close/tag-close-warning.png",
+        "cancelled": "/tmp/opentag-user-test/receipts/unsaved-close/cancelled.png",
+        "action-close-warning": "/tmp/opentag-user-test/receipts/unsaved-close/action-close-warning.png"
+      },
+      "selected_screenshot": {
+        "source": "/tmp/opentag-user-test/receipts/unsaved-close/tag-close-warning.png",
+        "path": "user-workflow-unsaved-close.png",
+        "sha256": "defab0aa5fa069fea6e8638c51396b0b32721c66096c59bbe2db790b2f842934"
+      }
+    },
+    "UAT-13": {
+      "status": "PASS (live OS-change propagation NOT RUN)",
+      "build": {
+        "same_functional_build_as": "UAT-03",
+        "receipt": "/tmp/opentag-user-test/receipts/native-build-extended-fix.json",
+        "commit": "4e635ad95bdc79a6ddb4f1acb40ba518252683a8",
+        "source_patch_sha256": "5d9017c7505d94959b4713bb04885a800102de9d149e4aeff435aae57236a6b1",
+        "executable_sha256": "b4489f5b2ae3bfff13e73241b5f0034dcbccc9d5206e78f4ea60baf1dfffc296",
+        "identifier_override": "org.opentag.editor.usertest"
+      },
+      "working_state": {
+        "sort": "Filename descending",
+        "selected_files": [
+          "02 - Solar Arcade - Night Shift.mp3",
+          "01 - Solar Arcade - First Light.mp3"
+        ],
+        "filter": "_EXTENSION IS mp3",
+        "visible": 2,
+        "selected": 2,
+        "comment_draft": "Theme must preserve this",
+        "dirty_files": 2
+      },
+      "dark_light_switch_preserved_selection_order_filter_and_drafts": true,
+      "extended_dialog_displayed_pending_comment_in_both_modes": true,
+      "extended_dialog_cancelled_in_both_modes": true,
+      "invalid_filter": "ARTIST IS \"Solar Arcade\" AND (",
+      "invalid_filter_error": "Missing filter operand",
+      "invalid_filter_visible_in_both_modes": true,
+      "explicit_edit_discard_confirmed_and_cleared_drafts": true,
+      "all_six_complete_file_hashes_identical_after_theme_and_discard": true,
+      "all_six_encoded_packets_and_decoded_pcm_preserved": true,
+      "explicit_light_persisted_after_actual_restart": true,
+      "system_mode_resolved": "System (Dark)",
+      "read_only_observed_os_appearance": "Dark",
+      "os_settings_changed": false,
+      "receipts": {
+        "before": "/tmp/opentag-user-test/receipts/appearance-state/before.json",
+        "after-theme-discard": "/tmp/opentag-user-test/receipts/appearance-state/after-theme-discard.json",
+        "after-theme-discard-comparison": "/tmp/opentag-user-test/receipts/appearance-state/after-theme-discard-comparison.json"
+      },
+      "native_ax": {
+        "dark": "/tmp/opentag-user-test/receipts/appearance-state/dark-ax.txt",
+        "light": "/tmp/opentag-user-test/receipts/appearance-state/light-ax.txt",
+        "restarted-light": "/tmp/opentag-user-test/receipts/appearance-state/restarted-light-ax.txt",
+        "system-dark": "/tmp/opentag-user-test/receipts/appearance-state/system-dark-ax.txt"
+      },
+      "os_observation": "/tmp/opentag-user-test/receipts/appearance-state/os-appearance.txt",
+      "native_screenshots": {
+        "dark": "/tmp/opentag-user-test/receipts/appearance-state/dark.png",
+        "light": "/tmp/opentag-user-test/receipts/appearance-state/light.png",
+        "dark-dialog": "/tmp/opentag-user-test/receipts/appearance-state/dark-dialog.png",
+        "light-dialog": "/tmp/opentag-user-test/receipts/appearance-state/light-dialog.png",
+        "dark-error": "/tmp/opentag-user-test/receipts/appearance-state/dark-error.png",
+        "light-error": "/tmp/opentag-user-test/receipts/appearance-state/light-error.png",
+        "system-dark": "/tmp/opentag-user-test/receipts/appearance-state/system-dark.png"
+      },
+      "selected_screenshot": {
+        "source": "/tmp/opentag-user-test/receipts/appearance-state/light-error.png",
+        "path": "user-workflow-appearance-state-light-error.png",
+        "sha256": "13cc741077cda527353997039b97fe03ad67f953272b70d02360922d2afe71c2"
+      },
+      "not_run": [
+        "live operating-system appearance change propagation"
+      ]
+    },
+    "UAT-14": {
+      "status": "PASS — Quick Import Text File action only",
+      "build": {
+        "same_functional_build_as": "UAT-03",
+        "receipt": "/tmp/opentag-user-test/receipts/native-build-extended-fix.json",
+        "commit": "4e635ad95bdc79a6ddb4f1acb40ba518252683a8",
+        "source_patch_sha256": "5d9017c7505d94959b4713bb04885a800102de9d149e4aeff435aae57236a6b1",
+        "executable_sha256": "b4489f5b2ae3bfff13e73241b5f0034dcbccc9d5206e78f4ea60baf1dfffc296",
+        "identifier_override": "org.opentag.editor.usertest"
+      },
+      "interface": "Actions (Quick) → Import Text File",
+      "field": "LYRICS",
+      "source": "/tmp/opentag-user-test/fixtures/text/lyrics-utf8.txt",
+      "saved_immediately_without_separate_save": true,
+      "reload_and_extended_tags_displayed_exact_multiline_unicode": true,
+      "independent_ffprobe_lyrics": "UAT first line — Café 猫\nUAT second line\n",
+      "trailing_newline_preserved": true,
+      "other_selected_file_tags_unchanged": true,
+      "five_unselected_complete_files_unchanged": true,
+      "all_six_encoded_packets_and_decoded_pcm_preserved": true,
+      "receipts": {
+        "before": "/tmp/opentag-user-test/receipts/text-action/before.json",
+        "imported-reloaded": "/tmp/opentag-user-test/receipts/text-action/imported-reloaded.json",
+        "imported-reloaded-comparison": "/tmp/opentag-user-test/receipts/text-action/imported-reloaded-comparison.json",
+        "assertions": "/tmp/opentag-user-test/receipts/text-action/assertions.json"
+      },
+      "native_ax": "/tmp/opentag-user-test/receipts/text-action/extended-ax.txt",
+      "selected_screenshot": {
+        "source": "/tmp/opentag-user-test/receipts/text-action/extended.png",
+        "path": "user-workflow-text-import.png",
+        "sha256": "a4ce3dd9030d56ddce2d020b9cbbfad6e1e09a5e6d8dda707067333c17321543"
+      },
+      "standalone_text_file_to_tag_ui": {
+        "status": "NOT PRESENT",
+        "qualification": "This Quick Import Text File action is not the standalone positional Text File → Tag converter."
+      }
     }
   },
-  "other_UAT_cases": "UAT-09 to UAT-14: NOT RUN",
+  "other_UAT_cases": "UAT-01 PARTIAL. UAT-02 through UAT-14 PASS within recorded scopes, including UAT-11 after fixed-build native replay; UAT-14 covers Quick text-import action only, standalone converter UI NOT PRESENT. Optional reversed groups/unresolved import, live OS-change propagation and overwrite attempt remain NOT RUN.",
   "regular_profile_actions_json_before": {
+    "path": "/Users/jneerdael/Library/Application Support/org.opentag.editor/actions.json",
+    "exists": false
+  },
+  "regular_profile_actions_json_after_groups": {
     "path": "/Users/jneerdael/Library/Application Support/org.opentag.editor/actions.json",
     "exists": false
   }
