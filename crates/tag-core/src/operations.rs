@@ -58,6 +58,9 @@ fn remove_copy(path: &Path) -> std::io::Result<()> {
     if let Ok(metadata) = std::fs::metadata(path) {
         let mut permissions = metadata.permissions();
         if permissions.readonly() {
+            // This statement is Windows-only: it clears the DOS read-only
+            // attribute, never Unix mode bits or access-control permissions.
+            #[allow(clippy::permissions_set_readonly_false)]
             permissions.set_readonly(false);
             std::fs::set_permissions(path, permissions)?;
         }
