@@ -28,7 +28,26 @@ Mp3tag references: Manage Covers dialog, Cover Window Context Menu, main window 
 
 ## Automated checks
 
-RESULTS_PLACEHOLDER
+- `cargo test --workspace`: 397 passed after merging `feat/core-parity` (new: 7 `cover_manage` unit tests for reorder/retype/describe/remove, unchanged files left untouched, replace keeping position/type/description, apply-to-all, WebP and duplicate refusal, MP3 policy formats; ASF and DSF/Matroska plan tests in `tests/asf.rs` and `tests/containers.rs`; 3 command tests for `cover_set` aggregation, plans, extract and staging limits). Clippy `-D warnings` clean.
+- `node --test tests/*.test.mjs`: 173 passed (new `tests/covers.test.mjs`: details formatting, selection aggregation, context plans, manage list presence/plan/moves, menu availability, extract names and drop hit-testing; `document-coordination` now renders the real cover window markup).
+- Native: `OPENTAG_E2E_ID=org.opentag.editor.e2e.covers scripts/e2e-native.sh tests/e2e/covers.js` — **15/15 PASS**:
+  - empty cover window hint; Edit ▸ Manage covers… present
+  - `paste` event with a canvas PNG embeds it; info shows `300×200, 2 KB, PNG`
+  - ⌘Z/⌘Y undo and redo the added cover on disk
+  - context menu lists every documented command; Escape closes it
+  - Shift+F10 → Set cover type ▸ Back Cover (keyboard) writes `CoverBack`
+  - Set cover description… writes the description
+  - ⌘C on the cover of file A, ⌘V on file B through the system clipboard writes a 300×200 PNG
+  - A+B selected with different covers: "Covers vary" placeholder, no image
+  - Ctrl+Alt+M: two rows "In 1 of 2 files", Select all + Apply to all → "In all 2 files", Move up, OK: both files get `CoverFront, CoverBack:Rear sleeve`
+  - shared covers: "Shared by 2 files", `1 / 2` → → `2 / 2`; Enter opens the viewer, which follows ‹ navigation; close
+  - ⌘Z undoes Manage covers on both files; ⌘Y redoes
+  - Extract cover with format `%album% front` saves `Test Album front.png` next to the file
+  - emitting native `tauri://drag-enter`/`tauri://drag-drop` over the cover window with that file shows the cover drop overlay and embeds it (3 covers)
+  - Del on the focused cover art removes only the displayed cover
+  - cover menu colors differ between Light and Dark
+
+  Under heavy machine load (load average ~30 with sibling builds), some runs of both this script and `core-workflows.js` stalled until the 180 s limit at varying steps. The same stall happened with the unmodified `feat/core-parity` frontend, and immediate reruns passed (covers 15/15 in 8 s). The likely cause is suspended animation frames in an occluded window, which a sibling branch addresses in `e2e.rs`.
 
 ## Known gaps
 
