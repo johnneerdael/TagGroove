@@ -157,12 +157,12 @@ impl NativeHost {
     fn flush(&self, state: &mut ActionState) -> Result<AudioEntry, String> {
         self.synchronize(state)?;
         let path = state_path(state)?;
-        let original = tag_core::read_entry_summary(&path)?;
+        let original = crate::settings::read_summary(&path)?;
         let updates = delta(&original.fields, &state.fields);
         let entry = if updates.is_empty() {
             original
         } else {
-            tag_core::write_fields_summary(&path, &updates)?
+            crate::settings::write_summary(&path, &updates)?
         };
         let counter = state
             .context
@@ -271,7 +271,7 @@ impl ActionHost for NativeHost {
                     }
                 }
                 tag_core::operations::rename_no_clobber(&path, &target)?;
-                let entry = tag_core::read_entry_summary(&target)?;
+                let entry = crate::settings::read_summary(&target)?;
                 let index: usize = state
                     .context
                     .get("_COUNTER")
@@ -309,17 +309,22 @@ impl ActionHost for NativeHost {
                 self.synchronize(state)?;
             }
             ActionEffect::RemoveCovers => {
-                tag_core::remove_all_covers_summary(&path)?;
+                tag_core::remove_all_covers_with_options(&path, &crate::settings::tag_options())?;
             }
             ActionEffect::ImportCover { filename } => {
-                tag_core::add_cover_summary(&path, &relative_to_file(filename, &path))?;
+                tag_core::add_cover_with_options(
+                    &path,
+                    &relative_to_file(filename, &path),
+                    false,
+                    &crate::settings::tag_options(),
+                )?;
             }
             ActionEffect::ExportCover {
                 filename,
                 picture_type,
                 export_duplicates,
             } => {
-                let entry = tag_core::read_entry(&path)?;
+                let entry = crate::settings::read_full(&path)?;
                 let filter = picture_type
                     .as_deref()
                     .map(tag_core::picture_type_from_name)
@@ -375,18 +380,25 @@ impl ActionHost for NativeHost {
                 quality,
                 resize,
             } => {
-                tag_core::adjust_covers_summary(&path, *format, *quality, resize.as_ref())?;
+                tag_core::adjust_covers_with_options(
+                    &path,
+                    *format,
+                    *quality,
+                    resize.as_ref(),
+                    &crate::settings::tag_options(),
+                )?;
             }
             ActionEffect::SetCoverProperties {
                 picture_type,
                 description,
                 only_picture_type,
             } => {
-                tag_core::set_cover_properties_summary(
+                tag_core::set_cover_properties_with_options(
                     &path,
                     picture_type.as_deref(),
                     description.as_deref(),
                     only_picture_type.as_deref(),
+                    &crate::settings::tag_options(),
                 )?;
             }
             ActionEffect::ImportTextFile { field, filename } => {
@@ -407,7 +419,7 @@ impl ActionHost for NativeHost {
             }
         }
         // Refresh properties without losing imported data needed by later actions.
-        let entry = tag_core::read_entry_summary(&self.resolve(&state_path(state)?))?;
+        let entry = crate::settings::read_summary(&self.resolve(&state_path(state)?))?;
         let index = state
             .context
             .get("_COUNTER")
@@ -451,7 +463,7 @@ impl ActionHost for NativeHost {
                     let mut text = String::from("#EXTM3U\n");
                     for state in group {
                         let path = state_path(state)?;
-                        let entry = tag_core::read_entry_summary(&path)?;
+                        let entry = crate::settings::read_summary(&path)?;
                         let title = entry
                             .fields
                             .iter()
@@ -510,7 +522,7 @@ impl ActionHost for NativeHost {
                 let mut rows = Vec::with_capacity(states.len());
                 for state in states.iter() {
                     let path = state_path(state)?;
-                    let entry = tag_core::read_entry_summary(&path)?;
+                    let entry = crate::settings::read_summary(&path)?;
                     let mut fields = state.fields.clone();
                     fields.extend(state.context.clone());
                     let (identity, unchanged) = self.identity(state);
@@ -694,7 +706,7 @@ pub fn execute(
         if !seen.insert(path.clone()) {
             continue;
         }
-        match tag_core::read_entry_summary(Path::new(path)) {
+        match crate::settings::read_summary(Path::new(path)) {
             Ok(entry) => {
                 initial.push(entry.path.clone());
                 states.push(ActionState {
@@ -833,7 +845,7 @@ pub fn execute(
             });
         }
         if !failed.contains(&index) {
-            match tag_core::read_entry_summary(&path) {
+            match crate::settings::read_summary(&path) {
                 Ok(entry) => result.entries.push(entry),
                 Err(error) => result.errors.push(FileError {
                     path: path.to_string_lossy().into_owned(),

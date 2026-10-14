@@ -11,6 +11,7 @@ mod file_hashes;
 #[cfg(any(target_os = "android", test))]
 mod managed_actions;
 mod rename_plan;
+mod settings;
 
 fn export_library_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(action_host::library_path(app)?.with_file_name("exports.json"))
@@ -157,7 +158,7 @@ fn runtime_platform() -> RuntimePlatform {
 async fn get_covers(path: String) -> Result<Vec<tag_core::CoverInfo>, String> {
     io(move || {
         require_audio_handle(Path::new(&path))?;
-        tag_core::read_entry(Path::new(&path)).map(|e| e.covers)
+        settings::read_full(Path::new(&path)).map(|e| e.covers)
     })
     .await
 }
@@ -260,7 +261,7 @@ fn require_audio_handle(path: &Path) -> Result<(), String> {
 fn provider_filename(path: &Path) -> Result<String, String> {
     require_audio_handle(path)?;
     if documents::is_managed(path) {
-        let mut entry = tag_core::read_entry_summary(path)?;
+        let mut entry = settings::read_summary(path)?;
         documents::project(&mut entry);
         Ok(entry.filename)
     } else {
@@ -360,7 +361,12 @@ async fn scan_files(paths: Vec<String>, recursive: bool) -> Result<ScanResult, S
             let (managed, ordinary): (Vec<_>, Vec<_>) = paths
                 .into_iter()
                 .partition(|p| documents::is_managed(Path::new(p)));
-            let mut result = tag_core::scan_paths(&ordinary, recursive);
+            let mut result = tag_core::scan_paths_with_options(
+                &ordinary,
+                recursive,
+                &settings::tag_options(),
+                settings::extensions().as_deref(),
+            );
             let restored = batch(&managed, documents::reload);
             result.entries.extend(restored.entries);
             result.errors.extend(restored.errors);
@@ -377,7 +383,7 @@ async fn scan_files(paths: Vec<String>, recursive: bool) -> Result<ScanResult, S
 async fn save_fields(paths: Vec<String>, updates: Fields) -> Result<ScanResult, String> {
     io(move || {
         Ok(batch(&paths, |p| {
-            mutate_document(p, |p| tag_core::write_fields_summary(p, &updates))
+            mutate_document(p, |p| settings::write_summary(p, &updates))
         }))
     })
     .await
@@ -387,7 +393,9 @@ async fn save_fields(paths: Vec<String>, updates: Fields) -> Result<ScanResult, 
 async fn remove_tags(paths: Vec<String>) -> Result<ScanResult, String> {
     io(move || {
         Ok(batch(&paths, |p| {
-            mutate_document(p, tag_core::remove_tags_summary)
+            mutate_document(p, |p| {
+                tag_core::remove_tags_with_options(p, false, &settings::tag_options())
+            })
         }))
     })
     .await
@@ -398,7 +406,9 @@ async fn add_cover(paths: Vec<String>, image_path: String) -> Result<ScanResult,
     io(move || {
         let image = auxiliary_input(&image_path)?;
         Ok(batch(&paths, |p| {
-            mutate_document(p, |p| tag_core::add_cover_summary(p, &image))
+            mutate_document(p, |p| {
+                tag_core::add_cover_with_options(p, &image, false, &settings::tag_options())
+            })
         }))
     })
     .await
@@ -408,7 +418,9 @@ async fn add_cover(paths: Vec<String>, image_path: String) -> Result<ScanResult,
 async fn remove_cover(paths: Vec<String>, index: usize) -> Result<ScanResult, String> {
     io(move || {
         Ok(batch(&paths, |p| {
-            mutate_document(p, |p| tag_core::remove_cover_summary(p, index))
+            mutate_document(p, |p| {
+                tag_core::remove_cover_with_options(p, index, false, &settings::tag_options())
+            })
         }))
     })
     .await
@@ -435,7 +447,7 @@ async fn preview_format(
             .enumerate()
             .map(|(index, path)| {
                 require_audio_handle(Path::new(&path))?;
-                let mut entry = tag_core::read_entry_summary(Path::new(&path))?;
+                let mut entry = settings::read_summary(Path::new(&path))?;
                 documents::project(&mut entry);
                 let value = settings.evaluate(
                     &template,
@@ -484,7 +496,7 @@ async fn filename_to_tags(paths: Vec<String>, pattern: String) -> Result<ScanRes
     io(move || {
         Ok(batch(&paths, |p| {
             let updates = tag_core::parse_filename(&provider_filename(p)?, &pattern)?;
-            mutate_document(p, |p| tag_core::write_fields_summary(p, &updates))
+            mutate_document(p, |p| settings::write_summary(p, &updates))
         }))
     })
     .await
@@ -566,7 +578,7 @@ async fn preview_rename(
         reject_provider_operation(&paths, "Rename")?;
         let mut targets = Vec::new();
         for (index, path) in paths.iter().enumerate() {
-            let entry = tag_core::read_entry_summary(Path::new(path))?;
+            let entry = settings::read_summary(Path::new(path))?;
             targets.push(rename_target_with_settings(
                 &entry,
                 &template,
@@ -625,7 +637,7 @@ async fn rename_files(
                 .into_iter()
                 .enumerate()
                 .map(|(index, path)| {
-                    let plan = tag_core::read_entry_summary(Path::new(&path)).and_then(|entry| {
+                    let plan = settings::read_summary(Path::new(&path)).and_then(|entry| {
                         rename_target_with_settings(&entry, &template, index + 1, &settings)
                     });
                     (path, plan)
@@ -669,7 +681,7 @@ async fn rename_files(
                         from: path,
                         to: to.clone(),
                     });
-                    match tag_core::read_entry_summary(&target) {
+                    match settings::read_summary(&target) {
                         Ok(entry) => result.entries.push(entry),
                         Err(error) => result.errors.push(FileError { path: to, error }),
                     }
@@ -693,7 +705,7 @@ fn export_entries(paths: &[String], output: &Path) -> Result<Vec<AudioEntry>, St
     }
     paths
         .iter()
-        .map(|p| tag_core::read_entry_summary(Path::new(p)))
+        .map(|p| settings::read_summary(Path::new(p)))
         .collect()
 }
 
@@ -799,6 +811,7 @@ pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
             let _ = APP_HANDLE.set(app.handle().clone());
+            tauri::Manager::manage(app, settings::SettingsStore::open(app.handle()));
             Ok(())
         })
         .plugin(tauri_plugin_dialog::init())
@@ -837,7 +850,9 @@ pub fn run() {
             converters::preview_text_import,
             converters::apply_text_import,
             export_csv,
-            export_playlist
+            export_playlist,
+            settings::load_settings,
+            settings::save_settings
         ])
         .run(tauri::generate_context!())
         .expect("Unable to run OpenTag");
