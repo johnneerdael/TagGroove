@@ -1,4 +1,4 @@
 [workspace]
-members = ["crates/tag-core", "crates/regex-compat", "src-tauri"]
+members = ["crates/tag-core", "crates/regex-compat", "crates/document-access", "src-tauri"]
 default-members = ["crates/tag-core"]
 resolver = "2"

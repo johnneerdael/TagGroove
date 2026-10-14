@@ -36,3 +36,29 @@ Same command, host, debug build and 434-file directory after summary/lazy-artwor
 | 3 | 7062.51 | 19.64 | 534939 | 0 |
 
 Maximum resident set size: 151,633,920 bytes. IPC input fell from 740.9 MB to 0.535 MB (about 1,385 times smaller). Median scan plus serialization fell from roughly 56.5 seconds to 7.08 seconds (about 8 times faster). This is a measured core improvement, not a claim of original-app or actual device/UI performance parity.
+
+## Optimized core with measured technical properties: 2026-10-14
+
+Built `tag-core`'s existing `scan_bench` example with `--release --locked` using
+Rust 1.95.0 and isolated target `target/parity-performance`, then ran
+`/usr/bin/time -l target/parity-performance/release/examples/scan_bench /Users/jneerdael/Music/Beatport`.
+The benchmark only reads files. This is the current uncommitted parity-core
+source with actual technical-property maps, not the older debug-build source.
+Other development processes were active; filesystem caches were not flushed.
+
+| Run | Files | Errors | Scan ms | Serialization ms | JSON bytes | Cover base64 bytes |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 434 | 0 | 469.41 | 1.01 | 1,073,982 | 0 |
+| 2 | 434 | 0 | 159.83 | 0.94 | 1,073,982 | 0 |
+| 3 | 434 | 0 | 157.08 | 0.95 | 1,073,982 | 0 |
+
+Maximum resident set size was 137,265,152 bytes (130.9 MiB). The median scan plus
+serialization was 160.77 ms in this warm-cache sequence. Retain these figures as
+an optimized core baseline: differing source and optimization settings prevent
+attributing the difference from earlier debug results to a single code change.
+Tauri transport, rendering, interaction latency, original-Mp3tag comparison,
+cold-cache behavior and other platforms/devices remain unmeasured here.
+
+Raw output, resource counters, exact core-source hashes, compiler version and
+benchmark executable SHA-256 are recorded in
+`/tmp/opentag-parity-release-scan.json`, with the two corresponding `.log` files.

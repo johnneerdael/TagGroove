@@ -276,6 +276,41 @@ pub fn technical_fields(entry: &AudioEntry, index: usize) -> Fields {
         fields.insert("_COVER_MIMETYPE".into(), vec![cover.mime.clone()]);
         fields.insert("_COVER_TYPE".into(), vec![cover.picture_type.clone()]);
     }
+    // Keep the derived values as a fallback for older serialized entries.
+    // Actual file measurements take precedence, while selection, app, clock
+    // and export context belong to their native owners rather than the file.
+    for (name, values) in &entry.technical {
+        let name = name.to_ascii_uppercase();
+        if name.starts_with('_')
+            && !matches!(
+                name.as_str(),
+                "_APP"
+                    | "_COUNTER"
+                    | "_FILETYPE"
+                    | "_DATE"
+                    | "_DATETIME"
+                    | "_WORKINGDIR"
+                    | "_WORKINGPATH"
+                    | "_FILENAME_REL"
+                    | "_FOLDERPATH_REL"
+                    | "_CRC"
+                    | "_MD5"
+                    | "_MD5AUDIO"
+                    | "_MAX_COUNTER"
+                    | "_TOTAL_FILES"
+                    | "_TOTAL_SIZE"
+                    | "_TOTAL_SIZE_RAW"
+                    | "_TOTAL_TIME"
+                    | "_TOTAL_TIME2"
+                    | "_TOTAL_TIME_RAW"
+                    | "_PLAYLIST_FILENAME"
+                    | "_PLAYLIST_FILENAME_EXT"
+                    | "_PLAYLIST_FOLDERPATH"
+            )
+        {
+            fields.insert(name, values.clone());
+        }
+    }
     fields
 }
 
@@ -297,6 +332,175 @@ fn human_size(bytes: u64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use base64::{engine::general_purpose::STANDARD, Engine};
+    use std::{
+        fs,
+        time::{Duration, UNIX_EPOCH},
+    };
+
+    fn audio_with_cover(directory: &Path) -> AudioEntry {
+        let path = directory.join("measured.wav");
+        let mut bytes = b"RIFF".to_vec();
+        bytes.extend(16036u32.to_le_bytes());
+        bytes.extend(b"WAVEfmt ");
+        bytes.extend(16u32.to_le_bytes());
+        bytes.extend(1u16.to_le_bytes());
+        bytes.extend(1u16.to_le_bytes());
+        bytes.extend(8000u32.to_le_bytes());
+        bytes.extend(16000u32.to_le_bytes());
+        bytes.extend(2u16.to_le_bytes());
+        bytes.extend(16u16.to_le_bytes());
+        bytes.extend(b"data");
+        bytes.extend(16000u32.to_le_bytes());
+        bytes.extend(vec![0u8; 16000]);
+        fs::write(&path, bytes).unwrap();
+        let updates = Fields::from([
+            ("TITLE".into(), vec!["Raw title".into()]),
+            ("INVENTORY".into(), vec!["first".into(), "second".into()]),
+        ]);
+        tag_core::write_fields_summary(&path, &updates).unwrap();
+        let image = directory.join("cover.png");
+        fs::write(&image, STANDARD.decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j4n8AAAAASUVORK5CYII=").unwrap()).unwrap();
+        tag_core::add_cover_summary(&path, &image).unwrap();
+        // Windows requires write-attributes access when setting file times.
+        fs::OpenOptions::new()
+            .write(true)
+            .open(&path)
+            .unwrap()
+            .set_times(
+                fs::FileTimes::new().set_modified(UNIX_EPOCH + Duration::from_secs(1_700_000_000)),
+            )
+            .unwrap();
+        tag_core::read_entry_summary(&path).unwrap()
+    }
+
+    #[test]
+    fn measured_properties_reach_native_scripting_columns_and_filenames_without_polluting_tags() {
+        let directory = tempfile::tempdir().unwrap();
+        let entry = audio_with_cover(directory.path());
+        let original = entry.fields.clone();
+        let technical = technical_fields(&entry, 7);
+        let settings = EvaluationSettings {
+            columns: vec![ColumnSpec {
+                name: "Audio".into(),
+                template: "%_codec%/%_bitspersample%".into(),
+                values: BTreeMap::new(),
+            }],
+            ..Default::default()
+        };
+        assert_eq!(settings.evaluate(
+            "%_codec%|%_bitspersample%|%_cover_width%|%_cover_type%|%_file_mod_datetime_raw%|%_counter%|$columnValues(,';')",
+            &entry.fields, &technical, &entry.path, false,
+        ).unwrap(), "PCM|16|1|Front Cover|1700000000|7|PCM/16;");
+        assert_eq!(
+            settings
+                .filename("%_codec%-%_bitspersample%-%_cover_width%", &entry, 7)
+                .unwrap(),
+            "PCM-16-1"
+        );
+        let listed = settings
+            .evaluate(
+                "$list(,=,';','~')",
+                &entry.fields,
+                &technical,
+                &entry.path,
+                false,
+            )
+            .unwrap();
+        assert!(listed.contains("TITLE=Raw title;"));
+        assert!(listed.contains("INVENTORY=first~second;"));
+        for key in ["_CODEC", "_BITSPERSAMPLE", "_COUNTER", "_COVER_WIDTH"] {
+            assert!(!listed.contains(key), "{listed}");
+        }
+        assert_eq!(entry.fields, original);
+        assert!(entry.covers[0].data_base64.is_empty());
+    }
+
+    #[test]
+    fn measured_context_overrides_legacy_approximations_but_preserves_reserved_application_values()
+    {
+        let directory = tempfile::tempdir().unwrap();
+        let mut entry = audio_with_cover(directory.path());
+        let actual_size = fs::metadata(&entry.path).unwrap().len();
+        entry.bitrate = 999;
+        entry.sample_rate = 3;
+        entry.duration = 99.;
+        entry.size = 4;
+        for (key, value) in [
+            ("_counter", "999"),
+            ("_App", "Spoofed app"),
+            ("_FILETYPE", "Wrong container"),
+            ("_DATE", "Stale date"),
+            ("TITLE", "Wrong title"),
+        ] {
+            entry.technical.insert(key.into(), vec![value.into()]);
+        }
+        let context = enriched_fields(&entry, 3);
+        assert_eq!(context["_BITRATE"], ["128"]);
+        assert_eq!(context["_SAMPLERATE"], ["8000"]);
+        assert_eq!(context["_LENGTH_SECONDS"], ["1"]);
+        assert_eq!(context["_FILE_SIZE_BYTES"], [actual_size.to_string()]);
+        assert_eq!(context["_COVER_TYPE"], ["Front Cover"]);
+        assert_eq!(context["_COUNTER"], ["3"]);
+        assert_eq!(
+            context["_APP"],
+            [format!("OpenTag v{}", env!("CARGO_PKG_VERSION"))]
+        );
+        assert_eq!(context["_FILETYPE"], ["WAV"]);
+        assert_eq!(context["TITLE"], ["Raw title"]);
+        assert!(!context.contains_key("_DATE"));
+        assert!(!context.contains_key("_counter"));
+        assert!(!context.contains_key("_App"));
+    }
+
+    #[test]
+    fn native_actions_and_exports_receive_refreshed_measured_context_after_cover_removal() {
+        use tag_core::actions::{ActionGroup, ActionSpec};
+        let directory = tempfile::tempdir().unwrap();
+        let entry = audio_with_cover(directory.path());
+        let group = ActionGroup {
+            name: "Measured context".into(),
+            enabled: true,
+            actions: vec![
+                ActionSpec::FormatValue {
+                    field: "COMMENT".into(),
+                    template: "%_CODEC%|%_BITSPERSAMPLE%|%_COVER_WIDTH%|%_COVER_TYPE%|%_COUNTER%".into(),
+                },
+                ActionSpec::RemoveFields { fields: vec!["COVER".into()] },
+                ActionSpec::FormatValue {
+                    field: "AFTER".into(),
+                    template: "%_CODEC%|%_BITSPERSAMPLE%|%_COVERS%|[%_COVER_WIDTH%]".into(),
+                },
+                ActionSpec::Export {
+                    template: "$filename(txt,utf-8)$loop(%_filename%)%COMMENT%/%AFTER%/%_CODEC%/%_BITSPERSAMPLE%/%_COVERS%/$if(%_COVER_WIDTH%,present,absent)/%_COUNTER%$loopend()".into(),
+                    filename_template: "technical.txt".into(),
+                    append: false,
+                    partition_template: None,
+                },
+            ],
+        };
+        let result = crate::action_host::execute(
+            std::slice::from_ref(&entry.path),
+            &[group],
+            EvaluationSettings::default(),
+        );
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert_eq!(result.entries.len(), 1);
+        let saved = tag_core::read_entry_summary(Path::new(&entry.path)).unwrap();
+        assert_eq!(saved.fields["COMMENT"], ["PCM|16|1|Front Cover|1"]);
+        assert_eq!(saved.fields["AFTER"], ["PCM|16|0|"]);
+        assert_eq!(saved.fields["INVENTORY"], ["first", "second"]);
+        assert!(saved.covers.is_empty());
+        assert!(!saved.fields.keys().any(|key| key.starts_with('_')));
+        assert_eq!(
+            fs::read_to_string(directory.path().join("technical.txt")).unwrap(),
+            "PCM|16|1|Front Cover|1/PCM|16|0|/PCM/16/0/absent/1"
+        );
+        assert!(fs::read(&entry.path).unwrap()[44..16044]
+            .iter()
+            .all(|byte| *byte == 0));
+    }
+
     #[test]
     fn actual_table_values_and_raw_tag_list_are_distinct() {
         let raw = Fields::from([

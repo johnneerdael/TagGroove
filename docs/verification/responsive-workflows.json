@@ -1,0 +1,189 @@
+{
+  "date": "2026-10-14",
+  "geometry_replay_status": "PASS within recorded macOS WebKit scope",
+  "build": {
+    "receipt": "/tmp/opentag-user-test/receipts/native-build-parity-responsive.json",
+    "receipt_sha256_at_documentation": "6db5b84cc9e661cbf3c19eb7d8cdefb1c7011b5f8cb703e88813647bda84e59a",
+    "source_commit": "b15635360ad0f48d6f1b3ceef376b1aa3eaef07a",
+    "dirty_source_recorded": true,
+    "tracked_patch_sha256": "05b623e4d8392ee9e097d5d6880a15a6a5a7e936d2692cc9d6e4a9f2eda0698d",
+    "executable_sha256": "1aac5851f9872cc3eabb816cc37136d0afb6686ee763d42e7f51f2727aa9fb8c",
+    "bundle_path": "/tmp/opentag-user-test/bundles/mobile-landscape/OpenTag.app",
+    "identifier": "org.opentag.editor.usertest.mobilelayout",
+    "test_window_override": {
+      "title": "OpenTag",
+      "width": 390,
+      "height": 844,
+      "minWidth": 320,
+      "minHeight": 320
+    },
+    "ui_source_sha256": {
+      "src/main.ts": "5c010f296cc29d1709b282ddf858e935d419bd75c933f5c16c8dc7fc705e78a6",
+      "src/style.css": "a31b92ad65f42df306c5d3bafa56067273edf586629e754418d8361c7e6f7b0c"
+    }
+  },
+  "window_sequence": [
+    {
+      "width": 390,
+      "height": 844
+    },
+    {
+      "width": 844,
+      "height": 390
+    },
+    {
+      "width": 390,
+      "height": 844
+    }
+  ],
+  "receipt_root": "/tmp/opentag-user-test/receipts/mobile-layout",
+  "menu_switching": {
+    "portrait": {
+      "all_five_switch_exclusively": true,
+      "ax_receipts": [
+        "portrait-menu-file-ax.txt",
+        "portrait-menu-edit-ax.txt",
+        "portrait-menu-convert-ax.txt",
+        "portrait-menu-actions-ax.txt",
+        "portrait-menu-help-ax.txt"
+      ]
+    },
+    "landscape": {
+      "all_five_switch_exclusively": true,
+      "ax_receipts": [
+        "landscape-menu-file-ax.txt",
+        "landscape-menu-edit-ax.txt",
+        "landscape-menu-convert-ax.txt",
+        "landscape-menu-actions-ax.txt",
+        "landscape-menu-help-ax.txt"
+      ]
+    }
+  },
+  "escape_dismissal_ax": "portrait-escape-ax.txt",
+  "checks": {
+    "portrait_help_popup_visually_within_window": true,
+    "landscape_menu_and_panes_share_44px_row": true,
+    "two_mp3_selections_retained": true,
+    "short_duplicate_toolbar_and_location_hidden": true,
+    "file_list_scrolled_to_final_wav": true,
+    "whole_tag_inspector_scrolled_to_save_and_artwork": true,
+    "light_and_dark_exercised": true,
+    "scrolled_tag_bottom_remained_visible_on_theme_change_visual_only": true,
+    "filename_preview_destinations": [
+      "First Light - Solar Arcade.mp3",
+      "Night Shift - Solar Arcade.mp3"
+    ],
+    "text_preview_titles": [
+      "Landscape First",
+      "Landscape Second 猫"
+    ],
+    "converter_dialog_headers_and_footers_visible_while_content_scrolls": true,
+    "both_previews_cancelled_without_apply": true,
+    "returned_portrait_tags_view_observed": true
+  },
+  "additional_retained_screenshots": [
+    "landscape-list-bottom-light.png",
+    "landscape-tags-bottom-light.png",
+    "landscape-tags-bottom-dark.png",
+    "landscape-text-preview-light.png",
+    "portrait-tags-current-light.png"
+  ],
+  "preservation": {
+    "files": 6,
+    "all_complete_file_hashes_unchanged": true,
+    "all_encoded_packet_and_decoded_pcm_hashes_unchanged": true,
+    "outputs": [],
+    "receipts": {
+      "before.json": {
+        "path": "/tmp/opentag-user-test/receipts/mobile-layout/before.json",
+        "sha256": "0a907560dda8880ba60b8354fad1b35ae64118d932343f78c117e294a392ca52"
+      },
+      "responsive-cancelled.json": {
+        "path": "/tmp/opentag-user-test/receipts/mobile-layout/responsive-cancelled.json",
+        "sha256": "a18f45a52bfaebd631676b72c5ed4d8c5bbb99e956d12c60e0beabe8ec6714d8"
+      },
+      "responsive-cancelled-comparison.json": {
+        "path": "/tmp/opentag-user-test/receipts/mobile-layout/responsive-cancelled-comparison.json",
+        "sha256": "ee69942627a39371a83db9e707ac338e2c617cec0b21c8faec7d8cb849cbf921"
+      }
+    }
+  },
+  "not_asserted": [
+    "numeric editor.scrollTop invariance",
+    "converter Apply in this responsive session",
+    "Android/iOS runtime",
+    "physical mobile devices",
+    "IME/keyboard resize",
+    "background/resume and lifecycle",
+    "document-provider grants/save-back"
+  ],
+  "screenshots": [
+    {
+      "path": "responsive-workflows-portrait-help.png",
+      "source": "/tmp/opentag-user-test/receipts/mobile-layout/help-menu-fixed-portrait.png",
+      "sha256": "082d7dde62a890605665d3a304aaac1aceba3b4b95b851499920b65cdb935159"
+    },
+    {
+      "path": "responsive-workflows-landscape-files-light.png",
+      "source": "/tmp/opentag-user-test/receipts/mobile-layout/landscape-files-light.png",
+      "sha256": "892b5ec035eb7ae0ded06b05553f3f7f204e2bc27cf9af177edb8c0bdc65576e"
+    },
+    {
+      "path": "responsive-workflows-landscape-filename-dark.png",
+      "source": "/tmp/opentag-user-test/receipts/mobile-layout/landscape-filename-preview-dark.png",
+      "sha256": "8996f85b7a9596eb6e0cb2b21b30f1648f9717fefa6cc47b56c76c847e79a9ed"
+    }
+  ],
+  "supplemental_visual_scroll_replay": {
+    "status": "PASS (visual only)",
+    "previous_issue": "Initial1aac build lost tag-editor scroll after Tags→Files→Tags; fixed and replayed in the supplemental build.",
+    "build": {
+      "receipt": "/tmp/opentag-user-test/receipts/native-build-parity-responsive-scroll.json",
+      "receipt_sha256": "712f0489e8d9c34df9315f56a29c17e16ed93bfb7fda0d4bf85eca2477ebd41e",
+      "source_commit": "b15635360ad0f48d6f1b3ceef376b1aa3eaef07a",
+      "dirty_source_recorded": true,
+      "executable_sha256": "5ab11834407cd5d15b962b6fa2c9e0991b1bc574cf6f1940ecc144ea9ea447e7",
+      "bundle_path": "/tmp/opentag-user-test/bundles/mobile-scroll/OpenTag.app",
+      "ui_source_sha256": {
+        "src/main.ts": "7ae39bcfc90fab02ecf40aa9da6f742f173003fe05913a810af29ccd3adf5e51",
+        "src/style.css": "a31b92ad65f42df306c5d3bafa56067273edf586629e754418d8361c7e6f7b0c"
+      },
+      "changed_code_from_initial_build": [
+        "src/main.ts"
+      ],
+      "same_window_configuration": true
+    },
+    "sequence": [
+      "390x844: load six fixtures and select two MP3 checkboxes",
+      "resize to844x390",
+      "open Tags and scroll to bottom",
+      "switch to Files",
+      "return to Tags",
+      "same Save/Extended/artwork/Add controls visible at bottom",
+      "quit cleanly"
+    ],
+    "numeric_editor_scroll_top_asserted": false,
+    "retained_local_evidence": {
+      "landscape-scroll-before-pane-switch.png": {
+        "path": "/tmp/opentag-user-test/receipts/mobile-layout/landscape-scroll-before-pane-switch.png",
+        "sha256": "77ccbad5626e7e6100abf806b1c9f373ccf841a2d56a0f8a58ca4af10b5e42d3"
+      },
+      "landscape-scroll-after-pane-switch.png": {
+        "path": "/tmp/opentag-user-test/receipts/mobile-layout/landscape-scroll-after-pane-switch.png",
+        "sha256": "a1dbfd153db3c5d36a9d5420fc7db04729904f468bcd02ee28bdbe9be9514778"
+      },
+      "landscape-scroll-after-pane-switch-ax.txt": {
+        "path": "/tmp/opentag-user-test/receipts/mobile-layout/landscape-scroll-after-pane-switch-ax.txt",
+        "sha256": "c8e7c49da4c59828c76f188a845ae4f549739825f00078e5b63931602c86852a"
+      }
+    },
+    "final_preservation": {
+      "files": 6,
+      "all_complete_file_hashes_unchanged": true,
+      "all_encoded_packet_and_decoded_pcm_hashes_unchanged": true,
+      "outputs": [],
+      "receipt": "/tmp/opentag-user-test/receipts/mobile-layout/responsive-scroll-cancelled.json",
+      "receipt_sha256": "9b63499a8d46b67ea176b9cf7694c18756952a530977b52079425ba2aba1e5b4"
+    }
+  }
+}

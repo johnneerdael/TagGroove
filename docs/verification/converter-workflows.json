@@ -1,0 +1,233 @@
+{
+  "schema": 1,
+  "date": "2026-10-14",
+  "status": "BOUNDED DESKTOP NATIVE PASS after reproduced preview event-order fix",
+  "platform": "macOS arm64 native Tauri debug app, ad-hoc signed",
+  "data_scope": "Six disposable generated audio files; only two MP3s selected for converter writes/renames; no user library.",
+  "build": {
+    "receipt": "/tmp/opentag-user-test/receipts/native-build-parity-desktop-unique.json",
+    "receipt_sha256": "93806fbf056a21c7d1460d870864f8a72631dd7cb0fca047747a323231a5c4e0",
+    "source_base_commit": "b15635360ad0f48d6f1b3ceef376b1aa3eaef07a",
+    "source_state": "Dirty parity-core functional source, identified by recorded source hashes and tracked/untracked archives; base commit alone does not identify the tested tree.",
+    "identifier_override": {
+      "identifier": "org.opentag.editor.usertest.desktop"
+    },
+    "bundle": "/tmp/opentag-user-test/bundles/desktop-unique/OpenTag.app",
+    "executable_sha256": "ea605ca210c821eb49e7720001877f775c6454a5159522b9e41c5b57ae149307",
+    "functional_source_receipt": "/tmp/opentag-user-test/receipts/native-build-parity-preview-fix.json",
+    "tracked_patch": {
+      "path": "/tmp/opentag-user-test/receipts/native-build-parity-preview-fix.patch",
+      "sha256": "3e8875218c3a488f829093f74f32e731a645a4671ff1cb30992ce9adaed7f9d6"
+    },
+    "untracked_source_archive": {
+      "path": "/tmp/opentag-user-test/receipts/native-build-parity-preview-fix-untracked.zip",
+      "sha256": "49a25407ac26045b36b6d4288ffdb39b32bfe4ee4fdebf5e978f1a59d00e99db"
+    },
+    "converter_source_sha256": {
+      "crates/tag-core/src/script.rs": "8453d63af799bc865f1877cf03b1ba8a268ed886bedb42d56147d1c47fbcb0d1",
+      "src-tauri/src/lib.rs": "b83406d0065b6f3b7140b15550351ebfda8d7080b39bf483cae5930f0bd9b71d",
+      "src/main.ts": "864a6ce89a97582a2e432353c6c2bbf3c47d743b5e6617054d2966a074735be7",
+      "crates/tag-core/src/converters.rs": "90c6291cae332503de399c8206718bfe6f0b8fb1168af919504934e6278e1fa8",
+      "src-tauri/src/converters.rs": "4b15686cf99d78761c3f8690f17bb87a2eca55f70125e0b86850b2260e9ba1d3",
+      "src/converter-review.ts": "cb7713f3efd9c063b34a250454c78089e27e8ece135aedcbfcb6d99b266c3398"
+    }
+  },
+  "recorded_validation": {
+    "node_tests_passed": 52,
+    "native_tests_passed": 47,
+    "full_workspace_tests": "PASS",
+    "strict_workspace_clippy": "PASS",
+    "format_check": "PASS",
+    "frontend_build": "PASS",
+    "native_build": "PASS",
+    "provenance": "Root execution/validation checkpoint; this documentation task did not run builds or GUI."
+  },
+  "cases": {
+    "filename_initial": {
+      "status": "First activation FAIL; second Preview workaround applied exact destinations",
+      "build_receipt": "/tmp/opentag-user-test/receipts/native-build-parity-converters.json",
+      "executable_sha256": "11e307eb931eeaeba0b16fac89e5dcd9c58cc7a795ac179cdb4b446950494f0d",
+      "first_activation_error": "Inputs changed. Run Preview again.",
+      "rename_disabled_after_first_activation": true,
+      "second_preview_exact_destinations_applied_and_reloaded": true,
+      "all_six_complete_bytes_and_audio_preserved": true,
+      "receipts": {
+        "before": "/tmp/opentag-user-test/receipts/filename-converter/before.json",
+        "preview": "/tmp/opentag-user-test/receipts/filename-converter/preview.json",
+        "applied-reloaded": "/tmp/opentag-user-test/receipts/filename-converter/applied-reloaded.json",
+        "reviewed-destinations": "/tmp/opentag-user-test/receipts/filename-converter/reviewed-destinations.json",
+        "assertions": "/tmp/opentag-user-test/receipts/filename-converter/assertions.json"
+      },
+      "native_ax": {
+        "first-preview-invalidated-ax": "/tmp/opentag-user-test/receipts/filename-converter/first-preview-invalidated-ax.txt",
+        "reviewed-ax": "/tmp/opentag-user-test/receipts/filename-converter/reviewed-ax.txt",
+        "applied-reloaded-ax": "/tmp/opentag-user-test/receipts/filename-converter/applied-reloaded-ax.txt"
+      },
+      "superseded_by": "filename_fixed"
+    },
+    "filename_fixed": {
+      "status": "PASS within tested desktop scope",
+      "old_pattern": "%1 - %2 - %3",
+      "new_pattern": "%2 - %3-UAT-$uuid()",
+      "first_preview_activation": "Reviewed 2 files; Rename enabled",
+      "new_input_edit_invalidated_apply_and_cleared_old_receipt": true,
+      "fresh_preview_used_after_edit": true,
+      "reviewed_destinations": [
+        {
+          "from": "/private/tmp/opentag-user-test/work/filename-converter-fixed/library/Disc 1/01 - Solar Arcade - First Light.mp3",
+          "to": "/private/tmp/opentag-user-test/work/filename-converter-fixed/library/Disc 1/Solar Arcade - First Light-UAT-a73aff8f-ddb0-458c-8472-0302fa7c639e.mp3"
+        },
+        {
+          "from": "/private/tmp/opentag-user-test/work/filename-converter-fixed/library/Disc 1/02 - Solar Arcade - Night Shift.mp3",
+          "to": "/private/tmp/opentag-user-test/work/filename-converter-fixed/library/Disc 1/Solar Arcade - Night Shift-UAT-d66a6ba8-a6d5-4337-abd7-25642444e1e5.mp3"
+        }
+      ],
+      "actual_destinations_match_final_preview": true,
+      "old_sources_absent": true,
+      "reload_succeeded": true,
+      "all_six_complete_bytes_and_encoded_decoded_audio_preserved": true,
+      "preview_changed_no_files": true,
+      "preview_errors": [
+        {
+          "new_pattern": "%2",
+          "observed": "Undefined numbered part reference; Rename blocked",
+          "old_declared_parts": [
+            "%1"
+          ]
+        },
+        {
+          "old_pattern": "NO MATCH %1",
+          "new_pattern": "%1",
+          "observed": "Filename does not completely match the pattern; Rename blocked"
+        }
+      ],
+      "cancelled_without_additional_mutations": true,
+      "receipts": {
+        "before": "/tmp/opentag-user-test/receipts/filename-converter-fixed/before.json",
+        "preview": "/tmp/opentag-user-test/receipts/filename-converter-fixed/preview.json",
+        "applied-reloaded": "/tmp/opentag-user-test/receipts/filename-converter-fixed/applied-reloaded.json",
+        "reviewed-destinations": "/tmp/opentag-user-test/receipts/filename-converter-fixed/reviewed-destinations.json",
+        "assertions": "/tmp/opentag-user-test/receipts/filename-converter-fixed/assertions.json",
+        "preview-comparison": "/tmp/opentag-user-test/receipts/filename-converter-fixed/preview-comparison.json",
+        "applied-reloaded-comparison": "/tmp/opentag-user-test/receipts/filename-converter-fixed/applied-reloaded-comparison.json"
+      },
+      "native_ax": {
+        "first-preview-ax": "/tmp/opentag-user-test/receipts/filename-converter-fixed/first-preview-ax.txt",
+        "reviewed-ax": "/tmp/opentag-user-test/receipts/filename-converter-fixed/reviewed-ax.txt",
+        "nonmatching-ax": "/tmp/opentag-user-test/receipts/filename-converter-fixed/nonmatching-ax.txt",
+        "applied-reloaded-ax": "/tmp/opentag-user-test/receipts/filename-converter-fixed/applied-reloaded-ax.txt"
+      },
+      "native_screenshots": {
+        "reviewed": "/tmp/opentag-user-test/receipts/filename-converter-fixed/reviewed.png",
+        "nonmatching": "/tmp/opentag-user-test/receipts/filename-converter-fixed/nonmatching.png"
+      },
+      "selected_screenshot": {
+        "source": "/tmp/opentag-user-test/receipts/filename-converter-fixed/reviewed.png",
+        "path": "converter-workflows-filename-reviewed.png",
+        "sha256": "9ac4cf880698c8e7a49e51d70a176b0d51d22ff77027cc1e07b21ae185cb1bcf"
+      }
+    },
+    "text_file": {
+      "status": "PASS within tested desktop scope",
+      "source_selected_using": "Actual native text-file picker",
+      "source": "/private/tmp/opentag-user-test/fixtures/text/import-positional-utf16.txt",
+      "encoding": "BOM-marked UTF-16 little endian",
+      "mask": "%track%|%artist%|%title%",
+      "malformed_source": "/private/tmp/opentag-user-test/fixtures/text/import-malformed.txt",
+      "malformed_error": "Text import line 2 does not completely match the mask",
+      "malformed_preview_all_six_complete_files_unchanged": true,
+      "first_utf16_preview_activation_succeeded": true,
+      "case_option_off_and_on_both_invalidated_review": true,
+      "restored_option_did_not_resurrect_old_receipt": true,
+      "new_preview_required_before_apply": true,
+      "applied_and_reloaded": {
+        "Disc 1/01 - Solar Arcade - First Light.mp3": {
+          "title": "Imported First",
+          "track": "01"
+        },
+        "Disc 1/02 - Solar Arcade - Night Shift.mp3": {
+          "title": "Imported Second",
+          "track": "02"
+        }
+      },
+      "other_tag_dictionary_values_exactly_preserved": true,
+      "four_unselected_complete_files_unchanged": true,
+      "all_six_audio_preserved": true,
+      "receipts": {
+        "before": "/tmp/opentag-user-test/receipts/text-converter/before.json",
+        "malformed-preview": "/tmp/opentag-user-test/receipts/text-converter/malformed-preview.json",
+        "utf16-preview": "/tmp/opentag-user-test/receipts/text-converter/utf16-preview.json",
+        "utf16-applied-reloaded": "/tmp/opentag-user-test/receipts/text-converter/utf16-applied-reloaded.json"
+      },
+      "native_ax": {
+        "malformed-ax": "/tmp/opentag-user-test/receipts/text-converter/malformed-ax.txt",
+        "utf16-preview-ax": "/tmp/opentag-user-test/receipts/text-converter/utf16-preview-ax.txt",
+        "utf16-applied-reloaded-ax": "/tmp/opentag-user-test/receipts/text-converter/utf16-applied-reloaded-ax.txt"
+      },
+      "native_screenshot": "/tmp/opentag-user-test/receipts/text-converter/utf16-preview.png"
+    },
+    "text_keyed_paste": {
+      "status": "PASS within tested desktop scope",
+      "source": "Pasted text",
+      "records": "02 - Solar Arcade - Night Shift.mp3|Keyed Night|Keyed comment 猫\n01 - Solar Arcade - First Light.mp3|Keyed First|Keyed comment Café",
+      "mask": "%_filename_ext%|%title%|%comment%",
+      "source_line_to_selected_file": {
+        "1": 2,
+        "2": 1
+      },
+      "preview_all_six_files_unchanged_from_saved_utf16_checkpoint": true,
+      "applied_and_reloaded": {
+        "Disc 1/01 - Solar Arcade - First Light.mp3": {
+          "title": "Keyed First",
+          "comment": "Keyed comment Café",
+          "track": "01"
+        },
+        "Disc 1/02 - Solar Arcade - Night Shift.mp3": {
+          "title": "Keyed Night",
+          "comment": "Keyed comment 猫",
+          "track": "02"
+        }
+      },
+      "other_tag_dictionary_values_exactly_preserved": true,
+      "four_unselected_complete_files_unchanged": true,
+      "all_six_audio_preserved": true,
+      "another_dialog_cancelled_without_changes": true,
+      "receipts": {
+        "keyed-preview": "/tmp/opentag-user-test/receipts/text-converter/keyed-preview.json",
+        "keyed-applied-reloaded": "/tmp/opentag-user-test/receipts/text-converter/keyed-applied-reloaded.json",
+        "assertions": "/tmp/opentag-user-test/receipts/text-converter/assertions.json"
+      },
+      "native_ax": {
+        "keyed-preview-ax": "/tmp/opentag-user-test/receipts/text-converter/keyed-preview-ax.txt",
+        "keyed-applied-reloaded-ax": "/tmp/opentag-user-test/receipts/text-converter/keyed-applied-reloaded-ax.txt"
+      },
+      "selected_screenshot": {
+        "source": "/tmp/opentag-user-test/receipts/text-converter/keyed-preview.png",
+        "path": "converter-workflows-text-keyed.png",
+        "sha256": "2ad0b9c84fa13f030237b77e8aad5831de685bd642b7149056e89d9e81d167f6"
+      }
+    }
+  },
+  "not_run": [
+    "Native converter writes/renames to selected formats other than these MP3 fixtures",
+    "Windows/Linux native converter UI",
+    "Android/iOS converter UI and document-provider/save-back workflows",
+    "Mobile portrait/landscape converter layout",
+    "Five-minute wall-clock UI/native receipt expiry",
+    "Native Apply stale-source/permission/rollback error and recovery branches",
+    "Original Mp3tag runtime differential corpus",
+    "Legacy-codepage native UI imports and case-insensitive matching outcomes (checkbox invalidation only was exercised)",
+    "Absolute _path keyed native UI import"
+  ],
+  "no_claims": [
+    "Exact Mp3tag parity",
+    "Crash-safe multi-file transactions",
+    "Public-release binary qualification",
+    "Technical/filter/cover-export/mobile-provider UAT completion"
+  ],
+  "documentation_task_actions": [
+    "Read supplied receipts/AX/screenshots and independently compared file/audio hashes and tag dictionaries",
+    "Copied exactly two byte-identical supplied native screenshots",
+    "No app source, Git, build or GUI operations"
+  ]
+}

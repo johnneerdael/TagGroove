@@ -1,5 +1,7 @@
 /// <reference types="vite/client" />
 import { invoke, isTauri } from '@tauri-apps/api/core';
+import { buildFilterFields } from './filter-fields';
+import { createConverterInputTracker, createConverterReview, validateFilenameItems, validateTextItems, type FilenameConversionRequest, type TextImportRequest, type FilenameConversionItem, type TextImportItem, type ConverterPreview } from './converter-review';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getVersion } from '@tauri-apps/api/app';
@@ -32,14 +34,14 @@ import './style.css';
 
 type Fields = Record<string, string[]>;
 type Cover = { index: number; mime: string; description: string; picture_type: string; data_base64: string };
-type Entry = { path: string; filename: string; format: string; duration: number; bitrate: number; sample_rate: number; channels: number; size: number; fields: Fields; covers: Cover[] };
+type Entry = { path: string; filename: string; format: string; duration: number; bitrate: number; sample_rate: number; channels: number; size: number; fields: Fields; technical?: Fields; covers: Cover[] };
 type FileError = { path: string; error: string };
 type Batch = { entries: Entry[]; errors: FileError[]; renamed?: { from: string; to: string }[]; moved_directories?: {from:string;to:string}[] };
 type Preview = { path: string; value: string };
 type RenamePreview = Preview & {plan_token:string};
 type FilenamePreview = { path: string; fields: Fields };
-type Operation = 'folder'|'files'|'save'|'reload'|'extended'|'add-cover'|'remove-cover'|'filename-tags'|'tags-filename'|'action'|'groups'|'number'|'remove-tags'|'playlist'|'csv'|'select-all'|'discard'|'about';
-const glyphs:Partial<Record<Operation,string>>={folder:glyphImport,files:glyphMusic,save:glyphSave,reload:glyphOrganize,extended:glyphEdit,'add-cover':glyphAlbum,'remove-cover':glyphEdit,'filename-tags':glyphImport,'tags-filename':glyphExport,action:glyphBatch,groups:glyphSettings,number:glyphOrganize,'remove-tags':glyphEdit,playlist:glyphOrganize,csv:glyphExport,'select-all':glyphCheck,discard:glyphEdit,about:glyphInfo};
+type Operation = 'folder'|'files'|'save'|'reload'|'extended'|'add-cover'|'remove-cover'|'filename-tags'|'tags-filename'|'filename-filename'|'text-tags'|'action'|'groups'|'number'|'remove-tags'|'playlist'|'csv'|'select-all'|'discard'|'about';
+const glyphs:Partial<Record<Operation,string>>={folder:glyphImport,files:glyphMusic,save:glyphSave,reload:glyphOrganize,extended:glyphEdit,'add-cover':glyphAlbum,'remove-cover':glyphEdit,'filename-tags':glyphImport,'tags-filename':glyphExport,'filename-filename':glyphOrganize,'text-tags':glyphImport,action:glyphBatch,groups:glyphSettings,number:glyphOrganize,'remove-tags':glyphEdit,playlist:glyphOrganize,csv:glyphExport,'select-all':glyphCheck,discard:glyphEdit,about:glyphInfo};
 const glyph=(source:string)=>`<span class="icon" aria-hidden="true">${source}</span>`;
 const desktop = isTauri();
 const appearanceAssets = {
@@ -92,13 +94,15 @@ const dirtySelected = () => [...selected].some(path => drafts.has(path));
 const active = () => entries.get(selected.values().next().value||'');
 const collator = new Intl.Collator(undefined,{numeric:true,sensitivity:'base'});
 const dev = (import.meta as ImportMeta & {env?: {DEV?: boolean}}).env?.DEV === true;
-const compactScreen=()=>window.matchMedia('(max-width:700px)').matches;
+const compactScreen=()=>window.matchMedia('(max-width:1000px)').matches;
 let rowHeight = compactScreen()?44:30;
 const headerHeight = 29, overscan = 8;
 let mobilePane:'files'|'tags'='files';
 let tableScrollTop=0,tableScrollLeft=0;
+let editorScrollTop=0;
 let runtimePlatform={family:'desktop' as 'desktop'|'android'|'ios',folder_picker_supported:true};
 let dataRevision = 0, orderCacheKey = '', filterCacheKey = '', orderCache: Entry[] = [], filterCache: Entry[] = [];
+let reviewedConverterContextChanged: (() => void) | undefined;
 let virtualStart = -1, virtualEnd = -1, virtualRevision = -1, virtualSelection = '';
 const searchCache = new Map<string,string>();
 let searchRevision = -1;
@@ -125,7 +129,7 @@ function columnSpecs(targets:string[]){
   const rawColumn=(key:string)=>key==='YEAR'?`$if2($meta_sep(YEAR,${separator}),$meta_sep(DATE,${separator}))`:key==='TRACK'?`$if($or($eql(%_filetype%,FLAC),$eql(%_filetype%,Vorbis),$eql(%_filetype%,Opus),$eql(%_filetype%,Speex),$eql(%_filetype%,Ogg)),$meta_sep(TRACKNUMBER,${separator}),$if2($meta_sep(TRACK,${separator}),$meta_sep(TRACKNUMBER,${separator})))`:`$meta_sep(${key},${separator})`;
   return(compactScreen()?columns.slice(0,3):columns).map(column=>({name:column.label,template:column.key==='filename'?'%_filename_ext%':column.key==='duration'?'$div(%_length_seconds%,60):$num($mod(%_length_seconds%,60),2)':column.key==='format'?'%_filetype%':column.key==='bitrate'?'%_bitrate% kbps':rawColumn(column.key),values:Object.fromEntries(targets.map(path=>{const entry=entries.get(path)!;const value=column.key==='filename'?entry.filename:column.key==='duration'?length(entry.duration):column.key==='format'?entry.format:column.key==='bitrate'?`${entry.bitrate} kbps`:field(entry,column.key);return[path,value];}))}));
 }
-function changedData(){dataRevision++;}
+function changedData(){dataRevision++;reviewedConverterContextChanged?.();}
 function timing(name:string,start:number,extra:Record<string,unknown>={}){
   if(dev)console.debug(`[OpenTag performance] ${name}`,{milliseconds:Math.round((performance.now()-start)*100)/100,files:entries.size,...extra});
 }
@@ -139,9 +143,7 @@ function ordered(): Entry[] {
   timing('sort',start,{key:sortKey});return orderCache;
 }
 function filterFields(entry:Entry):Fields{
-  const separator=entry.path.includes('\\')?'\\':'/',folder=entry.path.slice(0,Math.max(entry.path.lastIndexOf('/'),entry.path.lastIndexOf('\\')));
-  const dot=entry.filename.lastIndexOf('.'),extension=dot>0?entry.filename.slice(dot+1):'',stem=dot>0?entry.filename.slice(0,dot):entry.filename;
-  return {...merged(entry),_FILENAME:[stem],_FILENAME_EXT:[entry.filename],_PATH:[entry.path],_FOLDERPATH:[folder+separator],_DIRECTORY:[basename(folder)],_EXTENSION:[extension],_LENGTH_SECONDS:[String(entry.duration)],_BITRATE:[String(entry.bitrate)],_SAMPLERATE:[String(entry.sample_rate)],_FILE_SIZE:[String(entry.size)]};
+  return buildFilterFields(entry,merged(entry));
 }
 function requestFilter(query:string){
   const context=filterContextKey(),key=`${context}:${query}`;
@@ -271,9 +273,12 @@ function input(key: string) {
   return `<label class="field"><span>${key === 'ALBUMARTIST' ? 'ALBUM ARTIST' : key === 'DISCNUMBER' ? 'DISC NUMBER' : key}</span>${control}</label>`;
 }
 function render() {
+  reviewedConverterContextChanged?.();
   const started=performance.now(),oldWrap=document.querySelector<HTMLDivElement>('.table-wrap');
   if(oldWrap?.clientHeight){tableScrollTop=oldWrap.scrollTop;tableScrollLeft=oldWrap.scrollLeft;}
   const scrollTop=tableScrollTop,scrollLeft=tableScrollLeft,panelTop=document.querySelector('.fields')?.scrollTop||0;
+  const oldEditor=document.querySelector<HTMLElement>('.editor');
+  if(oldEditor?.clientHeight)editorScrollTop=oldEditor.scrollTop;
   const focused=document.activeElement instanceof HTMLInputElement||document.activeElement instanceof HTMLTextAreaElement?document.activeElement:undefined;
   const focusSelector=focused?.id==="filter"?'#filter':focused?.dataset.field?`[data-field="${focused.dataset.field}"]`:undefined;
   const caretStart=focused?.selectionStart,caretEnd=focused?.selectionEnd;
@@ -281,7 +286,7 @@ function render() {
   const selectedEntries = paths().map(path => entries.get(path)!);
   const selectedSize = selectedEntries.reduce((sum,e) => sum+e.size,0), selectedTime = selectedEntries.reduce((sum,e) => sum+e.duration,0);
   app.innerHTML = `<div class="app" data-pane="${mobilePane}"><header class="titlebar"><img class="brand-logo" data-theme-image="logo" src="${themedAsset('logo')}" alt="OpenTag"><span class="subtitle">Audio metadata editor</span><span class="window-mode">${desktop ? 'Local files' : 'Browser preview'}</span><label class="appearance-control"><span>Appearance</span><select id="appearance" aria-label="Appearance"><option value="system">${appearance.state.preference==='system'?`System (${appearance.state.resolved==='dark'?'Dark':'Light'})`:'System'}</option><option value="light">Light</option><option value="dark">Dark</option></select></label></header>
-  <nav class="menubar" aria-label="Main menu">${menu('File',[['folder','Open folder…','⌘/Ctrl O'],['files','Add files…'],['save','Save tags','⌘/Ctrl S'],['reload','Reload tags'],['playlist','Create playlist…'],['csv','Export CSV…']])}${menu('Edit',[['select-all','Select all','⌘/Ctrl A'],['extended','Extended tags…'],['discard','Discard pending changes'],['remove-tags','Remove tags…']])}${menu('Convert',[['filename-tags','Filename → Tag…'],['tags-filename','Tag → Filename…']])}${menu('Actions',[['groups','Actions…','Alt 6'],['action','Actions (Quick)…','Alt Shift 6'],['number','Auto-numbering…']])}${menu('Help',[['about','About OpenTag']])}</nav>
+  <nav class="menubar" aria-label="Main menu">${menu('File',[['folder','Open folder…','⌘/Ctrl O'],['files','Add files…'],['save','Save tags','⌘/Ctrl S'],['reload','Reload tags'],['playlist','Create playlist…'],['csv','Export CSV…']])}${menu('Edit',[['select-all','Select all','⌘/Ctrl A'],['extended','Extended tags…'],['discard','Discard pending changes'],['remove-tags','Remove tags…']])}${menu('Convert',[['filename-tags','Filename → Tag…'],['tags-filename','Tag → Filename…'],['filename-filename','Filename → Filename…'],['text-tags','Text File → Tag…']])}${menu('Actions',[['groups','Actions…','Alt 6'],['action','Actions (Quick)…','Alt Shift 6'],['number','Auto-numbering…']])}${menu('Help',[['about','About OpenTag']])}</nav>
   <div class="toolbar" role="toolbar" aria-label="File and tag operations">${button('folder','Open folder','▱')}${button('files','Add files','＋')}<span class="sep"></span>${button('save','Save tags','▣')}${button('reload','Reload','↻')}<span class="sep"></span>${button('filename-tags','Filename → Tag')}${button('tags-filename','Tag → Filename')}<span class="spacer"></span>${button('groups','Actions','⚙')}${button('number','Numbering','#')}</div>
   <nav class="mobile-panes" aria-label="Workspace view"><button data-pane="files" aria-pressed="${mobilePane==='files'}">Files (${entries.size})</button><button data-pane="tags" aria-pressed="${mobilePane==='tags'}" ${selected.size?'':'disabled'}>Tags (${selected.size})</button></nav>
   <main class="workspace"><aside class="editor" aria-label="Tag editor"><div class="panel-title">Tag panel <span>${selected.size ? `${selected.size} selected` : 'No selection'}</span></div><div class="fields">${input('TITLE')}${input('ARTIST')}${input('ALBUM')}${input('ALBUMARTIST')}<div class="field-pair">${input('YEAR')}${input('TRACK')}</div>${input('GENRE')}${input('COMMENT')}${input('COMPOSER')}${input('DISCNUMBER')}</div><div class="editor-actions">${button('save','Save tags')}${button('extended','Extended…')}</div>
@@ -292,6 +297,7 @@ function render() {
   wrap.querySelector('tbody')!.innerHTML=list.length?`<tr class="virtual-spacer" aria-hidden="true"><td colspan="${columns.length}" style="height:${list.length*rowHeight}px"></td></tr>`:'';
   wrap.scrollTop=scrollTop;wrap.scrollLeft=scrollLeft;updateVirtualRows(true);
   document.querySelector('.fields')!.scrollTop=panelTop;
+  document.querySelector<HTMLElement>('.editor')!.scrollTop=editorScrollTop;
   bind();setCoverImage();hydrateActiveCover();applyAppearance(appearance.state);
   if(focusSelector){const replacement=document.querySelector<HTMLInputElement|HTMLTextAreaElement>(focusSelector);replacement?.focus({preventScroll:true});if(replacement&&caretStart!=null&&caretEnd!=null){try{replacement.setSelectionRange(caretStart,caretEnd);}catch{/* Search selection is not supported by every webview. */}}}
   timing('workspace render',started,{rendered:virtualEnd-virtualStart,selected:selected.size});
@@ -445,6 +451,141 @@ function converter(rename: boolean) {
   });
   apply.addEventListener('click',async()=>{const template=value(dialog,'template');if(!template.trim()){modalError(dialog,'Enter a pattern.');return;}if(template!==previewed||JSON.stringify(paths())!==JSON.stringify(previewPaths)||(rename&&!planToken)){apply.disabled=true;modalError(dialog,'Run Preview again before applying this conversion.');return;}const reviewedPaths=[...previewPaths],reviewedToken=planToken;dialog.close();if(rename){await run('Renaming files…',async()=>{const batch=await invoke<Batch>('rename_files',{paths:reviewedPaths,template,planToken:reviewedToken});applyRenamed(batch);accept(batch,'Renamed');});}else await mutate('filename_to_tags',{pattern:template},'Converted filenames to tags');});
 }
+function reviewedConverter(kind:'filename'|'text') {
+  type Request = FilenameConversionRequest | TextImportRequest;
+  type Item = FilenameConversionItem | TextImportItem;
+  const rename=kind==='filename',title=rename?'Filename → Filename':'Text File → Tag';
+  const content=rename?`<p>Rearrange numbered parts using %1 through %9. The original audio extension is retained. Preview the destinations before renaming your files.</p>
+    <label class="field"><span>OLD FILENAME PATTERN</span><input id="old-pattern" value="%1 - %2" spellcheck="false" autocomplete="off"></label>
+    <label class="field"><span>NEW FILENAME PATTERN</span><input id="new-pattern" value="%2 - %1" spellcheck="false" autocomplete="off"></label>`:
+    `<p>Import one record per selected file in table order. Use %_filename_ext% or %_path% in the mask to match by file. Apply saves the reviewed tag values immediately.</p>
+    <label class="field"><span>TEXT SOURCE</span><select id="text-source-kind"><option value="file">Text file</option><option value="text">Pasted text</option></select></label>
+    <div id="text-file-source"><div class="field"><span>SOURCE FILE</span><div class="action-input"><input id="text-source-path" aria-label="Text source file" placeholder="Choose a text file" autocomplete="off" spellcheck="false"><button id="pick-text-source" type="button">Choose file…</button></div></div>
+    <label class="field"><span>LEGACY ENCODING FALLBACK (OPTIONAL)</span><input id="text-codepage" placeholder="e.g. windows-1252" list="text-codepages" spellcheck="false"><datalist id="text-codepages"><option value="windows-1252"><option value="windows-1251"><option value="cp932"><option value="cp936"><option value="cp949"><option value="cp950"></datalist></label>
+    <p>UTF-8 and BOM-marked UTF-16 are detected first. The fallback is used only when the file is not valid UTF-8.</p></div>
+    <label class="field" id="text-paste-source" hidden><span>RECORDS TO IMPORT</span><textarea id="text-source-records" rows="5" spellcheck="false"></textarea></label>
+    <label class="field"><span>IMPORT MASK</span><input id="text-mask" value="%title%;%artist%" autocomplete="off" spellcheck="false"></label>
+    <label class="action-check"><input id="text-case-sensitive" type="checkbox" checked> Match filename and path keys case-sensitively</label>`;
+  const dialog=modal(title,`${content}<p class="converter-status" role="status" aria-live="polite">Run Preview to review every selected file.</p><div id="reviewed-preview" aria-label="Conversion preview"></div>`,
+    `<button id="reviewed-preview-button">Preview</button><button class="primary" id="reviewed-apply" disabled></button>`);
+  dialog.setAttribute('aria-label',title);
+  const apply=dialog.querySelector<HTMLButtonElement>('#reviewed-apply')!,previewButton=dialog.querySelector<HTMLButtonElement>('#reviewed-preview-button')!;
+  const previewArea=dialog.querySelector<HTMLDivElement>('#reviewed-preview')!,progress=dialog.querySelector<HTMLElement>('.converter-status')!;
+  const closeButton=dialog.querySelector<HTMLButtonElement>('[data-close]')!;
+  const review=createConverterReview<Request,Item>((request,items)=>rename?
+    validateFilenameItems(request as FilenameConversionRequest,items as FilenameConversionItem[]):
+    validateTextItems(request as TextImportRequest,items as TextImportItem[]));
+  const inputControls=[...dialog.querySelectorAll<HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement>('input,select,textarea')];
+  const inputValues=()=>inputControls.map(control=>control instanceof HTMLInputElement&&control.type==='checkbox'?control.checked:control.value);
+  const inputsChanged=createConverterInputTracker(inputValues());
+  let applying=false,picking=false,expiryTimer=0;
+  const context=()=>JSON.stringify({revision:dataRevision,paths:paths(),dirty:dirtySelected(),compact:compactScreen(),busy});
+  let workspaceContext=context();
+  const readRequest=():Request=>{
+    if(!paths().length)throw new Error('Select at least one audio file.');
+    if(dirtySelected())throw new Error('Save pending tag changes before converting files.');
+    const targets=paths();
+    if(rename){
+      const old_pattern=value(dialog,'old-pattern'),new_pattern=value(dialog,'new-pattern');
+      if(!old_pattern.trim()||!new_pattern.trim())throw new Error('Enter both filename patterns.');
+      return{paths:targets,old_pattern,new_pattern,columns:columnSpecs(targets)};
+    }
+    const mask=value(dialog,'text-mask');
+    if(!mask.trim())throw new Error('Enter an import mask.');
+    const file=value(dialog,'text-source-kind')==='file',path=value(dialog,'text-source-path');
+    if(file&&!path.trim())throw new Error('Choose a source text file.');
+    return{paths:targets,source:file?{kind:'file',path}:{kind:'text',text:value(dialog,'text-source-records')},mask,
+      options:{ansi_codepage:file?(value(dialog,'text-codepage').trim()||null):null,case_sensitive_paths:dialog.querySelector<HTMLInputElement>('#text-case-sensitive')!.checked}};
+  };
+  const syncControls=()=>{
+    const count=paths().length,blocked=applying||picking||busy||dirtySelected()||!count;
+    apply.textContent=`${rename?'Rename':'Save tags to'} ${count} file${count===1?'':'s'}`;
+    let ready=false,inputsValid=false;
+    try{const request=readRequest();inputsValid=true;ready=review.canApply(request,context());}catch{/* Missing inputs remain visible and can be completed. */}
+    apply.disabled=blocked||!ready;previewButton.disabled=blocked||review.pending||!inputsValid;
+    previewButton.textContent=review.pending?'Previewing…':'Preview';
+    closeButton.disabled=applying;
+    dialog.querySelectorAll<HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement>('input,select,textarea').forEach(control=>control.disabled=applying);
+    const picker=dialog.querySelector<HTMLButtonElement>('#pick-text-source');if(picker)picker.disabled=applying||picking||busy;
+  };
+  const invalidate=(message='Inputs changed. Run Preview again.')=>{
+    review.invalidate();window.clearTimeout(expiryTimer);previewArea.replaceChildren();
+    progress.textContent=message;dialog.querySelector('.dialog-error')?.remove();syncControls();
+  };
+  const observeWorkspace=()=>{
+    const next=context();
+    if(next!==workspaceContext){workspaceContext=next;if(applying){review.invalidate();syncControls();}else invalidate(busy?'Wait for the current file operation, then run Preview again.':'Files or selection changed. Run Preview again.');}
+    else syncControls();
+  };
+  reviewedConverterContextChanged=observeWorkspace;
+  dialog.addEventListener('close',()=>{
+    review.invalidate();window.clearTimeout(expiryTimer);
+    if(reviewedConverterContextChanged===observeWorkspace)reviewedConverterContextChanged=undefined;
+    if(!document.querySelector('dialog[open]'))[...app.querySelectorAll<HTMLElement>('.menubar > .menu > summary')].find(summary=>summary.textContent==='Convert')?.focus({preventScroll:true});
+  });
+  dialog.addEventListener('cancel',event=>{if(applying)event.preventDefault();});
+  inputControls.forEach(control=>{
+    const edited=()=>{
+      if(!inputsChanged(inputValues()))return;
+      if(!rename){const file=value(dialog,'text-source-kind')==='file';dialog.querySelector<HTMLElement>('#text-file-source')!.hidden=!file;dialog.querySelector<HTMLElement>('#text-paste-source')!.hidden=file;}
+      invalidate();
+    };
+    control.addEventListener('input',edited);control.addEventListener('change',edited);
+  });
+  dialog.querySelector('#pick-text-source')?.addEventListener('click',async()=>{
+    invalidate('Choose a text source, then run Preview.');picking=true;syncControls();
+    try{const source=await open({multiple:false,title:'Choose text import source'});if(dialog.open&&typeof source==='string'){dialog.querySelector<HTMLInputElement>('#text-source-path')!.value=source;inputsChanged(inputValues());}}
+    catch(error){if(dialog.open)modalError(dialog,error);}
+    finally{picking=false;if(dialog.open){syncControls();dialog.querySelector<HTMLInputElement>('#text-source-path')!.focus({preventScroll:true});}}
+  });
+  const fieldRows=(fields:Fields)=>`<dl class="converter-values">${Object.entries(fields).map(([name,values])=>`<dt>${esc(name)}</dt><dd>${values.length?values.map((value,index)=>`<span>${values.length>1?`${index+1}. `:''}${value===''?'<em>(empty)</em>':esc(value)}</span>`).join(''):'<em>No values</em>'}</dd>`).join('')}</dl>`;
+  const previewMarkup=(items:Item[])=>`<div class="preview" tabindex="0" role="region" aria-label="Reviewed conversion results">${items.map(item=>'target' in item?
+    `<div><small>${esc(item.path)}</small><strong>${esc(item.target)}</strong>${fieldRows(item.captures)}</div>`:
+    `<div><small>Source line ${item.source_line} → selected file ${item.selection_index+1}</small><strong>${esc(item.path)}</strong>${fieldRows(item.fields)}</div>`).join('')}</div>`;
+  previewButton.addEventListener('click',async()=>{
+    let attempt:ReturnType<typeof review.begin>|undefined;
+    previewButton.focus({preventScroll:true});
+    const restoreFocus=document.activeElement===previewButton;
+    try{
+      inputsChanged(inputValues()); // Capture also acknowledges AX edits with deferred change events.
+      const request=readRequest();attempt=review.begin(request,context());
+      window.clearTimeout(expiryTimer);previewArea.replaceChildren();dialog.querySelector('.dialog-error')?.remove();progress.textContent='Reading files and preparing preview…';syncControls();
+      const response=await invoke<ConverterPreview<Item>>(rename?'preview_filename_conversion':'preview_text_import',{request:attempt.request});
+      if(!dialog.open)return;
+      const markup=previewMarkup(response.items);
+      if(!review.complete(attempt,response,readRequest(),context())){review.fail(attempt);return;}
+      previewArea.innerHTML=markup;progress.textContent=`Reviewed ${response.items.length} file${response.items.length===1?'':'s'}. Apply uses these exact results.`;
+      expiryTimer=window.setTimeout(()=>{if(dialog.open)invalidate('The preview expired. Run Preview again.');},300_000);
+    }catch(error){if(dialog.open&&(!attempt||review.fail(attempt))){modalError(dialog,error);progress.textContent='Preview failed. Review the error and try again.';}}
+    finally{if(dialog.open){syncControls();if(restoreFocus&&(document.activeElement===dialog||document.activeElement===document.body))previewButton.focus({preventScroll:true});}}
+  });
+  apply.addEventListener('click',async()=>{
+    let reviewed:ReturnType<typeof review.take>;
+    apply.focus({preventScroll:true});
+    try{if(busy)throw new Error('Wait for the current file operation to finish.');reviewed=review.take(readRequest(),context());}
+    catch(error){invalidate('Run Preview again before applying.');modalError(dialog,error);return;}
+    applying=true;window.clearTimeout(expiryTimer);progress.textContent=rename?'Renaming reviewed files…':'Saving reviewed tag values…';syncControls();
+    let failure:string|undefined;
+    const result=await run(rename?'Renaming files…':'Importing text tags…',async()=>{
+      try{
+        const batch=await invoke<Batch>(rename?'apply_filename_conversion':'apply_text_import',{request:reviewed.request,planToken:reviewed.planToken});
+        applyRenamed(batch);accept(batch,rename?'Renamed':'Imported text tags',false);return batch;
+      }catch(error){
+        failure=String(error);
+        try{accept(await invoke<Batch>('scan_files',{paths:reviewed.request.paths,recursive:false}),'Reloaded reviewed source files',false);}
+        catch(reloadError){errors=[{path:'Reload',error:String(reloadError)}];}
+        errors=[{path:'Conversion',error:failure},...errors];status='Conversion failed. Review file errors and run Preview again.';return undefined;
+      }
+    });
+    applying=false;
+    if(!dialog.open)return;
+    if(result&&!result.errors.length){dialog.close();return;}
+    invalidate('Apply did not complete. Review the errors and run Preview again.');
+    modalError(dialog,failure||result?.errors.map(error=>`${error.path}: ${error.error}`).join('\n')||'Conversion did not complete. Run Preview again.');
+    previewButton.focus({preventScroll:true});
+  });
+  syncControls();dialog.querySelector<HTMLInputElement|HTMLSelectElement>(rename?'#old-pattern':'#text-source-kind')!.focus({preventScroll:true});
+}
 function numbering() {
   const dialog=modal('Auto-numbering',`<p>Number the selected files in their current table order.</p><div class="field-pair"><label class="field"><span>START AT</span><input id="number-start" type="number" min="1" value="1"></label><label class="field"><span>MINIMUM DIGITS</span><input id="number-digits" type="number" min="1" max="6" value="2"></label></div><label><input type="checkbox" id="number-total"> Include total tracks (01/12)</label>`,`<button class="primary" id="apply-number">Number ${selected.size} files</button>`);
   dialog.querySelector('#apply-number')!.addEventListener('click',()=>{const start=Number(value(dialog,'number-start')),digits=Number(value(dialog,'number-digits'));if(!Number.isInteger(start)||start<1||!Number.isInteger(digits)||digits<1||digits>6){modalError(dialog,'Enter a positive start number and 1–6 digits.');return;}const list=ordered().filter(e=>selected.has(e.path)),total=dialog.querySelector<HTMLInputElement>('#number-total')!.checked;list.forEach((entry,i)=>updateDraft(entry.path,panelKey({format:entry.format,fields:merged(entry)},'TRACK'),[String(start+i).padStart(digits,'0')+(total?`/${list.length}`:'')]));status=`Track numbers are pending for ${list.length} files. Save tags to write them.`;dialog.close();render();});
@@ -459,6 +600,7 @@ async function operateImpl(op: Operation) {
   if(op==='reload'){if(dirtySelected()&&!await ask('Reload tags from disk and discard pending changes for the selected files?',{title:'Reload tags',kind:'warning'}))return;await run('Reloading tags…',async()=>accept(await invoke<Batch>('scan_files',{paths:paths(),recursive:false}),'Reloaded'));return;}
   if(op==='extended'){extended();return;}
   if(op==='filename-tags'||op==='tags-filename'){converter(op==='tags-filename');return;}
+  if(op==='filename-filename'||op==='text-tags'){reviewedConverter(op==='filename-filename'?'filename':'text');return;}
   if(op==='action'){actionUI.quick();return;}
   if(op==='groups'){await actionUI.groupsDialog();return;}
   if(op==='number'){numbering();return;}

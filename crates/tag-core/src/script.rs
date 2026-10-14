@@ -1424,90 +1424,119 @@ fn function(
 /// Import complete matching strings; filename extensions are omitted unless
 /// the pattern explicitly includes them. Adjacent captures are ambiguous.
 pub fn parse_filename(filename: &str, pattern: &str) -> Result<Fields, String> {
-    if filename.len() > MAX_OUTPUT || pattern.len() > MAX_OUTPUT {
+    if filename.len() > MAX_OUTPUT {
         return Err("Filename pattern input limit exceeded".into());
     }
-    let mut expression = String::from("\\A");
-    let mut names = Vec::new();
-    let mut remainder = pattern;
-    let mut last_capture = false;
-    while let Some(start) = remainder.find('%') {
-        let literal = &remainder[..start];
-        if last_capture && literal.is_empty() {
-            return Err("Adjacent filename placeholders are ambiguous".into());
+    CompiledFilenamePattern::compile(pattern)?.parse(filename)
+}
+
+/// A reusable filename matching pattern. Parsing retains the exact public
+/// `parse_filename` matching and extension rules without recompiling per file.
+pub struct CompiledFilenamePattern {
+    expression: Regex,
+    names: Vec<String>,
+    pattern: String,
+}
+
+impl CompiledFilenamePattern {
+    pub fn compile(pattern: &str) -> Result<Self, String> {
+        if pattern.len() > MAX_OUTPUT {
+            return Err("Filename pattern input limit exceeded".into());
         }
-        expression.push_str(&regex::escape(literal));
-        remainder = &remainder[start + 1..];
-        let end = remainder
-            .find('%')
-            .ok_or("Unterminated filename placeholder")?;
-        let name = &remainder[..end];
-        if name.is_empty() || name.starts_with('_') {
-            return Err("Invalid filename capture field".into());
-        }
-        names.push(name.to_uppercase());
-        expression.push_str(if pattern.contains('\\') {
-            "([^\\\\]*?)"
-        } else {
-            "(.*?)"
-        });
-        remainder = &remainder[end + 1..];
-        last_capture = true;
-    }
-    if names.is_empty() {
-        return Err("Filename pattern contains no field placeholders".into());
-    }
-    expression.push_str(&regex::escape(remainder));
-    expression.push_str("\\z");
-    let expression = filename_regex(&expression)?;
-    // Windows-style folder separators remain literal matching delimiters.
-    let normalized = if pattern.contains('\\') {
-        let normalized = filename.replace('/', "\\");
-        if pattern.starts_with('\\') || pattern.as_bytes().get(1) == Some(&b':') {
-            normalized
-        } else {
-            let components: Vec<&str> = normalized.split('\\').collect();
-            let required = pattern.matches('\\').count() + 1;
-            if components.len() < required {
-                return Err("Filename path has too few folders for the pattern".into());
+        let mut expression = String::from("\\A");
+        let mut names = Vec::new();
+        let mut remainder = pattern;
+        let mut last_capture = false;
+        while let Some(start) = remainder.find('%') {
+            let literal = &remainder[..start];
+            if last_capture && literal.is_empty() {
+                return Err("Adjacent filename placeholders are ambiguous".into());
             }
-            components[components.len() - required..].join("\\")
+            expression.push_str(&regex::escape(literal));
+            remainder = &remainder[start + 1..];
+            let end = remainder
+                .find('%')
+                .ok_or("Unterminated filename placeholder")?;
+            let name = &remainder[..end];
+            if name.is_empty() || name.starts_with('_') {
+                return Err("Invalid filename capture field".into());
+            }
+            names.push(name.to_uppercase());
+            expression.push_str(if pattern.contains('\\') {
+                "([^\\\\]*?)"
+            } else {
+                "(.*?)"
+            });
+            remainder = &remainder[end + 1..];
+            last_capture = true;
         }
-    } else {
-        filename
-            .rsplit(['/', '\\'])
-            .next()
-            .unwrap_or(filename)
-            .to_owned()
-    };
-    let filename = normalized.as_str();
-    let last_component = filename.rsplit(['/', '\\']).next().unwrap_or(filename);
-    let extension = last_component
-        .rfind('.')
-        .filter(|i| *i > 0)
-        .map(|i| &last_component[i..]);
-    let omit_extension =
-        extension.is_some_and(|ext| !pattern.to_lowercase().ends_with(&ext.to_lowercase()));
-    let candidate = if omit_extension {
-        &filename[..filename.len() - extension.unwrap().len()]
-    } else {
-        filename
-    };
-    let captures = expression
-        .captures(candidate)
-        .ok_or("Filename does not completely match the pattern")?;
-    let mut fields = Fields::new();
-    for (i, name) in names.iter().enumerate() {
-        if name == "DUMMY" {
-            continue;
+        if names.is_empty() {
+            return Err("Filename pattern contains no field placeholders".into());
         }
-        let value = captures.get(i + 1).unwrap().as_str();
-        fields
-            .entry(name.clone())
-            .or_default()
-            .push(value.to_owned());
+        expression.push_str(&regex::escape(remainder));
+        expression.push_str("\\z");
+        Ok(Self {
+            expression: filename_regex(&expression)?,
+            names,
+            pattern: pattern.to_owned(),
+        })
     }
-    Ok(fields)
+
+    pub fn parse(&self, filename: &str) -> Result<Fields, String> {
+        if filename.len() > MAX_OUTPUT {
+            return Err("Filename pattern input limit exceeded".into());
+        }
+        let pattern = self.pattern.as_str();
+        // Windows-style folder separators remain literal matching delimiters.
+        let normalized = if pattern.contains('\\') {
+            let normalized = filename.replace('/', "\\");
+            if pattern.starts_with('\\') || pattern.as_bytes().get(1) == Some(&b':') {
+                normalized
+            } else {
+                let components: Vec<&str> = normalized.split('\\').collect();
+                let required = pattern.matches('\\').count() + 1;
+                if components.len() < required {
+                    return Err("Filename path has too few folders for the pattern".into());
+                }
+                components[components.len() - required..].join("\\")
+            }
+        } else {
+            filename
+                .rsplit(['/', '\\'])
+                .next()
+                .unwrap_or(filename)
+                .to_owned()
+        };
+        let filename = normalized.as_str();
+        let last_component = filename.rsplit(['/', '\\']).next().unwrap_or(filename);
+        let extension = last_component
+            .rfind('.')
+            .filter(|i| *i > 0)
+            .map(|i| &last_component[i..]);
+        let omit_extension =
+            extension.is_some_and(|ext| !pattern.to_lowercase().ends_with(&ext.to_lowercase()));
+        let candidate = if omit_extension {
+            &filename[..filename.len() - extension.unwrap().len()]
+        } else {
+            filename
+        };
+        let captures = self
+            .expression
+            .captures(candidate)
+            .ok_or("Filename does not completely match the pattern")?;
+        let mut fields = Fields::new();
+        for (i, name) in self.names.iter().enumerate() {
+            if name == "DUMMY" {
+                continue;
+            }
+            let value = captures.get(i + 1).unwrap().as_str();
+            fields
+                .entry(name.clone())
+                .or_default()
+                .push(value.to_owned());
+        }
+        Ok(fields)
+    }
 }
 
 fn selected_keys(fields: &Fields, field: &str) -> Result<Vec<String>, String> {

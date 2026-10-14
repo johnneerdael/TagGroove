@@ -4,6 +4,8 @@
 mod cover_ops;
 #[path = "mapping.rs"]
 mod mapping;
+#[path = "technical.rs"]
+mod technical;
 use base64::{engine::general_purpose::STANDARD, Engine};
 pub use cover_ops::*;
 use lofty::{
@@ -57,6 +59,12 @@ pub struct CoverInfo {
     pub description: String,
     pub picture_type: String,
     pub data_base64: String,
+    #[serde(default)]
+    pub size: u64,
+    #[serde(default)]
+    pub width: Option<u32>,
+    #[serde(default)]
+    pub height: Option<u32>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AudioEntry {
@@ -70,6 +78,8 @@ pub struct AudioEntry {
     pub size: u64,
     pub fields: Fields,
     pub covers: Vec<CoverInfo>,
+    #[serde(default)]
+    pub technical: Fields,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileError {
@@ -156,6 +166,7 @@ struct NativeTags {
     id3: Option<Id3v2Tag>,
     ilst: Option<Ilst>,
     riff: Option<RiffInfoList>,
+    technical: Fields,
 }
 
 // Lofty 0.25 generic conversions discard unknown APE and Vorbis items. Keep
@@ -235,28 +246,16 @@ fn native_tags(reader: &mut fs::File, kind: FileType) -> Result<NativeTags, Stri
             native.riff = file.riff_info().cloned();
         }
         FileType::Aiff => {
-            native.id3 = AiffFile::read_from(reader, options)
-                .map_err(|e| error_message(&e))?
-                .id3v2()
-                .cloned()
+            let file = AiffFile::read_from(reader, options).map_err(|e| error_message(&e))?;
+            native.id3 = file.id3v2().cloned();
         }
         FileType::Mp4 => {
-            native.ilst = Mp4File::read_from(reader, options)
-                .map_err(|e| error_message(&e))?
-                .ilst()
-                .cloned()
+            let file = Mp4File::read_from(reader, options).map_err(|e| error_message(&e))?;
+            native.ilst = file.ilst().cloned();
         }
         _ => {}
     }
     Ok(native)
-}
-
-fn describe(path: &Path, file: &TaggedFile) -> Result<AudioEntry, String> {
-    let native = native_tags(
-        &mut fs::File::open(path).map_err(|e| e.to_string())?,
-        file.file_type(),
-    )?;
-    describe_with_native(path, file, &native, true, &[])
 }
 
 fn describe_with_native(
@@ -333,6 +332,7 @@ fn describe_with_native(
             fields.entry(key).or_insert(values);
         }
         for picture in tag.pictures() {
+            let info = technical::picture_information(picture);
             covers.push(CoverInfo {
                 index: covers.len(),
                 mime: picture
@@ -347,10 +347,15 @@ fn describe_with_native(
                 } else {
                     String::new()
                 },
+                size: picture.data().len() as u64,
+                width: info.as_ref().map(|i| i.width).filter(|n| *n > 0),
+                height: info.as_ref().map(|i| i.height).filter(|n| *n > 0),
             });
         }
     }
     let properties = file.properties();
+    let metadata = fs::metadata(path).map_err(|e| e.to_string())?;
+    let technical = technical::collect(path, file, native, &covers, &metadata);
     Ok(AudioEntry {
         path: path.to_string_lossy().into_owned(),
         filename: path
@@ -381,40 +386,36 @@ fn describe_with_native(
             .unwrap_or(0),
         sample_rate: properties.sample_rate().unwrap_or(0),
         channels: properties.channels().unwrap_or(0),
-        size: fs::metadata(path).map_err(|e| e.to_string())?.len(),
+        size: metadata.len(),
         fields,
         covers,
+        technical,
     })
 }
 
 pub fn read_entry(path: &Path) -> Result<AudioEntry, String> {
-    let path = path.canonicalize().map_err(|e| e.to_string())?;
-    describe(&path, &load(&path)?)
+    read_entry_with_mappings(path, &[])
 }
-
 pub fn read_entry_with_mappings(
     path: &Path,
     rules: &[UserFieldMapping],
 ) -> Result<AudioEntry, String> {
-    validate_user_mappings(rules)?;
-    let path = path.canonicalize().map_err(|e| e.to_string())?;
-    let file = load(&path)?;
-    let native = native_tags(
-        &mut fs::File::open(&path).map_err(|e| e.to_string())?,
-        file.file_type(),
-    )?;
-    describe_with_native(&path, &file, &native, true, rules)
+    read_description(path, true, rules)
 }
-
-/// Read list metadata and cover descriptors without transporting image data.
-/// FLAC metadata is parsed once; the native comments retain custom fields that
-/// would otherwise disappear in Lofty's generic conversion.
+/// Read list fields and image descriptors without serializing artwork.
+/// Each supported format is parsed once, keeping concrete tags and properties.
 pub fn read_entry_summary(path: &Path) -> Result<AudioEntry, String> {
     read_entry_summary_with_mappings(path, &[])
 }
-
 pub fn read_entry_summary_with_mappings(
     path: &Path,
+    rules: &[UserFieldMapping],
+) -> Result<AudioEntry, String> {
+    read_description(path, false, rules)
+}
+fn read_description(
+    path: &Path,
+    include_cover_data: bool,
     rules: &[UserFieldMapping],
 ) -> Result<AudioEntry, String> {
     validate_user_mappings(rules)?;
@@ -423,27 +424,96 @@ pub fn read_entry_summary_with_mappings(
         .map_err(|e| e.to_string())?
         .guess_file_type()
         .map_err(|e| e.to_string())?;
-    if probe.file_type() == Some(FileType::Flac) {
-        let options = ParseOptions::new()
-            .implicit_conversions(false)
-            .parsing_mode(ParsingMode::Strict);
-        let mut reader = probe.into_inner();
-        let flac = FlacFile::read_from(&mut reader, options).map_err(|e| error_message(&e))?;
-        let native = NativeTags {
-            vorbis: flac.vorbis_comments().cloned(),
-            id3: flac.id3v2().cloned(),
-            ..NativeTags::default()
-        };
-        let file: TaggedFile = flac.into();
-        describe_with_native(&path, &file, &native, false, rules)
-    } else {
-        let file = load(&path)?;
-        let native = native_tags(
-            &mut fs::File::open(&path).map_err(|e| e.to_string())?,
-            file.file_type(),
-        )?;
-        describe_with_native(&path, &file, &native, false, rules)
+    let kind = probe.file_type().ok_or("Unrecognized audio file type")?;
+    let options = ParseOptions::new()
+        .implicit_conversions(false)
+        .parsing_mode(ParsingMode::Strict);
+    let mut reader = probe.into_inner();
+    macro_rules! read {
+        ($ty:ty,$snapshot:expr) => {{
+            let media = <$ty>::read_from(&mut reader, options).map_err(|e| error_message(&e))?;
+            let native: NativeTags = ($snapshot)(&media);
+            (TaggedFile::from(media), native)
+        }};
     }
+    let (mut file, native) = match kind {
+        FileType::Flac => read!(FlacFile, |f: &FlacFile| NativeTags {
+            vorbis: f.vorbis_comments().cloned(),
+            id3: f.id3v2().cloned(),
+            ..Default::default()
+        }),
+        FileType::Mpeg => read!(MpegFile, |f: &MpegFile| NativeTags {
+            id3: f.id3v2().cloned(),
+            ape: f.ape().cloned(),
+            technical: technical::mpeg(f.properties()),
+            ..Default::default()
+        }),
+        FileType::Mp4 => read!(Mp4File, |f: &Mp4File| NativeTags {
+            ilst: f.ilst().cloned(),
+            technical: technical::mp4(f.properties()),
+            ..Default::default()
+        }),
+        FileType::Wav => read!(WavFile, |f: &WavFile| NativeTags {
+            id3: f.id3v2().cloned(),
+            riff: f.riff_info().cloned(),
+            technical: technical::wav(f.properties()),
+            ..Default::default()
+        }),
+        FileType::Aiff => read!(AiffFile, |f: &AiffFile| NativeTags {
+            id3: f.id3v2().cloned(),
+            technical: technical::aiff(f.properties()),
+            ..Default::default()
+        }),
+        FileType::Vorbis => read!(VorbisFile, |f: &VorbisFile| NativeTags {
+            vorbis: Some(f.vorbis_comments().clone()),
+            ..Default::default()
+        }),
+        FileType::Opus => read!(OpusFile, |f: &OpusFile| NativeTags {
+            vorbis: Some(f.vorbis_comments().clone()),
+            ..Default::default()
+        }),
+        FileType::Speex => read!(SpeexFile, |f: &SpeexFile| NativeTags {
+            vorbis: Some(f.vorbis_comments().clone()),
+            ..Default::default()
+        }),
+        FileType::Ape => read!(ApeFile, |f: &ApeFile| NativeTags {
+            ape: f.ape().cloned(),
+            id3: f.id3v2().cloned(),
+            ..Default::default()
+        }),
+        FileType::WavPack => read!(WavPackFile, |f: &WavPackFile| NativeTags {
+            ape: f.ape().cloned(),
+            ..Default::default()
+        }),
+        FileType::Mpc => read!(MpcFile, |f: &MpcFile| NativeTags {
+            ape: f.ape().cloned(),
+            id3: f.id3v2().cloned(),
+            ..Default::default()
+        }),
+        FileType::Aac => read!(AacFile, |f: &AacFile| NativeTags {
+            id3: f.id3v2().cloned(),
+            ..Default::default()
+        }),
+        _ => {
+            let file = load(&path)?;
+            let native = native_tags(reader.get_mut(), kind)?;
+            (file, native)
+        }
+    };
+    // Generic APE conversion intentionally omits cover binary items. Enrich
+    // from the already parsed native tag, without a second file read.
+    if let (Some(ape), Some(tag)) = (native.ape.as_ref(), file.tag_mut(TagType::Ape)) {
+        for item in ape {
+            if item.key().starts_with("Cover Art (") {
+                if let ItemValue::Binary(data) = item.value() {
+                    tag.push_picture(
+                        Picture::from_ape_bytes(item.key(), data).map_err(|e| e.to_string())?,
+                    );
+                }
+            }
+        }
+    }
+    describe_with_native(&path, &file, &native, include_cover_data, rules)
 }
 
 fn audio_extension(path: &Path) -> bool {
@@ -595,6 +665,7 @@ where
         .unwrap_or_default()
         .to_string_lossy()
         .into_owned();
+    technical::path_fields(&mut entry.technical, &path);
     Ok(entry)
 }
 
