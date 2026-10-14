@@ -17,8 +17,14 @@ export type OptionControl=
   |{kind:'select';path:string;label:string;choices:[string,string][]}
   |{kind:'text';path:string;label:string;placeholder?:string;maxLength?:number}
   |{kind:'group';label:string;controls:OptionControl[]}
-  |{kind:'note';text:string};
-export type OptionsPage={id:string;label:string;parent?:string;order?:number;description?:string;controls:OptionControl[];validate?:(draft:OptionsDraft)=>string|undefined};
+  |{kind:'note';text:string}
+  /** Runs `run` when pressed, for example to open a dedicated editor. */
+  |{kind:'button';id:string;label:string;run:(draft:OptionsDraft)=>void|Promise<void>}
+  /** Free-form markup bound by the page; `paths` are restored by Restore page defaults. */
+  |{kind:'custom';id:string;paths:string[];render:(draft:OptionsDraft)=>string;bind:(root:HTMLElement,draft:OptionsDraft,refresh:()=>void)=>void};
+export type OptionsPage={id:string;label:string;parent?:string;order?:number;description?:string;controls:OptionControl[];validate?:(draft:OptionsDraft)=>string|undefined;
+  /** Default values of `pages.<id>.*`, used while a value has never been saved. */
+  defaults?:Record<string,unknown>};
 export type OptionsHost={
   load:()=>Promise<SettingsResponse>;save:(settings:Settings)=>Promise<SettingsResponse>;
   appearance:{get:()=>string;set:(value:string)=>void};
@@ -44,6 +50,15 @@ export function registerOptionsPage(page:OptionsPage){
   if(!pageId.test(page.id))throw new Error(`Invalid options page identifier: ${page.id}`);
   if(registry.has(page.id))throw new Error(`Options page ${page.id} is already registered`);
   registry.set(page.id,page);
+}
+/** Values of a registered page with its defaults filled in. */
+export function pageValues(settings:Pick<Settings,'pages'>,id:string):Record<string,unknown>{
+  return{...structuredClone(registry.get(id)?.defaults??{}),...(settings.pages[id] as Record<string,unknown>|undefined)};
+}
+/** Settings with every registered page's defaults filled in. */
+export function withPageDefaults<T extends Pick<Settings,'pages'>>(settings:T,pages:OptionsPage[]=[...registry.values()]):T{
+  for(const page of pages)if(page.defaults)settings.pages[page.id]={...structuredClone(page.defaults),...settings.pages[page.id]};
+  return settings;
 }
 /** Pages in display order with their tree depth. Unknown parents become top-level pages. */
 export function pageTree(pages:OptionsPage[]=[...registry.values()]):{page:OptionsPage;depth:number}[]{
@@ -122,22 +137,32 @@ export function controlMarkup(control:OptionControl,draft:OptionsDraft):string{
   case 'text':return`<label class="field"><span>${html(control.label)}</span><input id="${controlId(control.path)}" data-option="${html(control.path)}" value="${html(getPath(draft,control.path)??'')}" ${control.placeholder?`placeholder="${html(control.placeholder)}"`:''} ${control.maxLength?`maxlength="${control.maxLength}"`:''} autocomplete="off" spellcheck="false"></label>`;
   case 'group':return`<fieldset class="numbering-section"><legend>${html(control.label)}</legend>${control.controls.map(c=>controlMarkup(c,draft)).join('')}</fieldset>`;
   case 'note':return`<p>${html(control.text)}</p>`;
+  case 'button':return`<p><button type="button" id="option-button-${html(control.id)}" data-option-button="${html(control.id)}">${html(control.label)}</button></p>`;
+  case 'custom':return`<div class="options-custom" data-option-custom="${html(control.id)}">${control.render(draft)}</div>`;
   }
 }
-const pathsOf=(controls:OptionControl[]):string[]=>controls.flatMap(c=>c.kind==='group'?pathsOf(c.controls):'path' in c?[c.path]:[]);
+const pathsOf=(controls:OptionControl[]):string[]=>controls.flatMap(c=>c.kind==='group'?pathsOf(c.controls):c.kind==='custom'?c.paths:'path' in c?[c.path]:[]);
+const flatControls=(controls:OptionControl[]):OptionControl[]=>controls.flatMap(c=>c.kind==='group'?flatControls(c.controls):[c]);
 
 export class OptionsUI {
   private showing=false;
   private current:Settings=defaultSettings();
   constructor(private host:OptionsHost){}
   get settings():Settings{return this.current;}
+  /** Saved values of a registered page, with its defaults. */
+  page(id:string):Record<string,unknown>{return pageValues(this.current,id);}
+  /** Persist values of one page outside the dialog (for example a remembered format string). */
+  async updatePage(id:string,values:Record<string,unknown>){
+    const response=await this.host.load(),next={...response.settings,pages:{...response.settings.pages,[id]:{...response.settings.pages[id],...values}}};
+    this.current=(await this.host.save(next)).settings;
+  }
   async initialize(){const response=await this.host.load();this.current=response.settings;return response;}
   async open(initialPage='general'){
     if(this.showing)return;this.showing=true;
     let response:SettingsResponse;
     try{response=await this.host.load();}catch(error){this.showing=false;throw error;}
     this.current=response.settings;
-    const draft:OptionsDraft={...structuredClone(response.settings),appearance:this.host.appearance.get()};
+    const draft:OptionsDraft=withPageDefaults({...structuredClone(response.settings),appearance:this.host.appearance.get()});
     const tree=pageTree();let active=tree.some(({page})=>page.id===initialPage)?initialPage:tree[0].page.id,saving=false;
     const dialog=document.createElement('dialog');dialog.className='options-dialog';dialog.setAttribute('aria-labelledby','options-title');document.body.append(dialog);
     const error=(message:string)=>{let p=dialog.querySelector<HTMLElement>('.dialog-error');if(!p){p=document.createElement('p');p.className='dialog-error';p.setAttribute('role','alert');dialog.querySelector('.options-page')!.append(p);}p.textContent=message;};
@@ -145,7 +170,12 @@ export class OptionsUI {
       const page=tree.find(({page})=>page.id===active)!.page;
       dialog.querySelectorAll<HTMLButtonElement>('[role="treeitem"]').forEach(item=>{const selected=item.dataset.page===active;item.setAttribute('aria-selected',String(selected));item.tabIndex=selected?0:-1;if(selected&&focusTree)item.focus();});
       dialog.querySelector<HTMLSelectElement>('#options-page-picker')!.value=active;
-      dialog.querySelector('.options-page')!.innerHTML=`<h2 id="options-page-title">${html(page.label)}</h2>${page.description?`<p>${html(page.description)}</p>`:''}${page.controls.map(c=>controlMarkup(c,draft)).join('')}`;
+      const section=dialog.querySelector<HTMLElement>('.options-page')!;
+      section.innerHTML=`<h2 id="options-page-title">${html(page.label)}</h2>${page.description?`<p>${html(page.description)}</p>`:''}${page.controls.map(c=>controlMarkup(c,draft)).join('')}`;
+      for(const control of flatControls(page.controls)){
+        if(control.kind==='button')section.querySelector(`[data-option-button="${CSS.escape(control.id)}"]`)?.addEventListener('click',async()=>{try{await control.run(draft);}catch(e){error(String(e));}});
+        if(control.kind==='custom'){const root=section.querySelector<HTMLElement>(`[data-option-custom="${CSS.escape(control.id)}"]`);if(root){const refresh=()=>{root.innerHTML=control.render(draft);dialog.querySelector('.options-page .dialog-error')?.remove();control.bind(root,draft,refresh);};control.bind(root,draft,refresh);}}
+      }
     };
     const select=(id:string,focusTree=false)=>{active=id;renderPage(focusTree);};
     dialog.innerHTML=`<header id="options-title">Options</header><div class="dialog-content options-layout">${response.warning?`<p class="dialog-error options-warning" role="alert">${html(response.warning)}</p>`:''}
@@ -171,7 +201,7 @@ export class OptionsUI {
     };
     page.addEventListener('input',update);page.addEventListener('change',update);
     dialog.querySelector('#options-defaults')!.addEventListener('click',()=>{
-      const current=tree.find(({page})=>page.id===active)!.page,defaults:OptionsDraft={...structuredClone(response.defaults),appearance:'system'};
+      const current=tree.find(({page})=>page.id===active)!.page,defaults:OptionsDraft=withPageDefaults({...structuredClone(response.defaults),appearance:'system'});
       for(const path of pathsOf(current.controls))setPath(draft,path,structuredClone(getPath(defaults,path)));renderPage();
     });
     dialog.querySelector('#options-cancel')!.addEventListener('click',()=>dialog.close());

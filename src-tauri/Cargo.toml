@@ -45,5 +45,6 @@ tempfile = "3"
 tauri-plugin-opener = "2"
 tauri-plugin-single-instance = "2"
 trash = "5"
-# Cover window Copy/Paste cover: native clipboard image data.
+# Cover window Copy/Paste cover (image data) and Edit → Copy as Text (WebKit only
+# allows navigator.clipboard during a user gesture).
 arboard = { version = "3", default-features = false, features = ["image-data"] }

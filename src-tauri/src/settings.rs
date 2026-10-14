@@ -197,6 +197,19 @@ impl SettingsStore {
     }
 }
 
+/// Re-read `settings.json` after it was replaced by a configuration import.
+pub fn reload(app: &tauri::AppHandle) -> Result<Option<String>, String> {
+    let store = app.state::<SettingsStore>();
+    let path = store
+        .path
+        .as_deref()
+        .ok_or("The options location is unavailable")?;
+    let state = load(path);
+    let warning = state.1.clone();
+    *store.state.write().map_err(|_| "Options are unavailable")? = state;
+    Ok(warning)
+}
+
 /// The options in effect. Without a running app (unit tests) these are the defaults.
 pub fn current() -> Settings {
     crate::APP_HANDLE
