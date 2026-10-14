@@ -140,6 +140,8 @@ const searchCache = new Map<string,string>();
 let searchRevision = -1;
 let filterMatch:{context:string;query:string;paths:Set<string>}|undefined;
 let filterRequestKey='',filterPending=false,filterFailure='',filterTimer=0;
+type ProgressJob={id:string;done:number;total:number;cancelling:boolean};
+let progressJob:ProgressJob|undefined;
 const actionUI=new ActionUI({
   load:()=>invoke<ActionLibrary>('load_action_library'),
   save:library=>invoke<void>('save_action_library',{library}),
@@ -494,7 +496,7 @@ function render() {
   <main class="workspace"><aside class="editor" aria-label="Tag editor"><div class="panel-title">Tag panel <span>${selected.size ? `${selected.size} selected` : 'No selection'}</span>${tagPanel.titleHTML()}</div>${sourceMarkup('tags')}<div class="fields">${tagPanel.fieldsHTML()}</div><div class="editor-actions">${button('save','Save tags')}${button('extended','Extended…')}</div>
   ${tagPanel.showCover?`<section class="cover-section" aria-label="Embedded artwork">${coverMarkup()}</section>`:''}</aside>
   <section class="files" aria-label="Audio files"><div class="location">${glyph(glyphOrganize)}<span class="path" title="${esc(entry&&providerEntry(entry)?sourcePresentation(documentAccess.states[entry.path]).location:location)}">${esc(entry&&providerEntry(entry)?sourcePresentation(documentAccess.states[entry.path]).location:location)}</span><strong>${entries.size} file${entries.size===1?'':'s'}</strong></div>${sourceMarkup('files')}<div class="filterbar"><label for="filter">${glyph(glyphSearch)}<span class="visually-hidden">Filter</span></label><input id="filter" type="search" value="${esc(filter)}" placeholder="Filter filenames and tags, or enter a filter expression" autocomplete="off"><span class="count">${filterPending?'Filtering… · ':list.length === entries.size ? '' : `${list.length} visible · `}${selected.size} selected</span></div><div class="table-wrap"><table aria-label="Audio metadata" aria-rowcount="${list.length+1}" style="width:${shownColumns.reduce((sum,c)=>sum+c.width,0)}px"><thead><tr>${headerMarkup(shownColumns,columnLayout.sort)}</tr></thead><tbody></tbody></table>${!list.length ? `<div class="empty"><img class="empty-symbol" data-theme-image="mark" src="${themedAsset('mark')}" alt="" aria-hidden="true"><h1>${filterPending ? 'Filtering files…' : filterFailure ? 'Invalid filter' : entries.size ? 'No matching files' : runtimePlatform.document_access_supported?'Add audio documents':desktop ? 'Open your music folder' : 'Your music, ready to edit'}</h1><p>${filterPending ? 'Matching your filter against filenames and tag values.' : filterFailure ? esc(filterFailure) : entries.size ? 'Try another filename or tag value in the filter.' : runtimePlatform.document_access_supported?'Choose audio files from your document provider. Source access and recovery options appear with your selection.':desktop ? 'Open a folder, add audio files, or drop them into this window. Select files to edit their tags together.' : 'Open the desktop app to work with local audio files. Your files and tags stay on your computer.'}</p>${!entries.size ? `<div class="empty-actions">${button('folder','Open folder…')}${button('files','Add files…')}</div>` : ''}</div>` : ''}</div><div class="selection-info">${listSummary(selectedEntries,list,entries.size,selected.size===1?entry:undefined).map(segment=>`<span>${esc(segment)}</span>`).join('')}</div>
-  ${errors.length ? `<section class="errors" aria-label="Operation errors"><header>${errors.length} file error${errors.length===1?'':'s'}<button id="dismiss-errors">Dismiss</button></header>${errors.map(e => `<p><strong>${esc(displayName(e.path))}:</strong> ${esc(publicMessage(e.error))}</p>`).join('')}</section>` : ''}</section></main><footer class="status ${busy?'busy':''}"><span class="status-dot" aria-hidden="true"></span><span class="status-message" role="status">${esc(status)}</span>${drafts.size ? `<span class="dirty-count">${drafts.size} unsaved file${drafts.size===1?'':'s'}</span>` : ''}<span>${entries.size} files</span></footer></div>`;
+  ${errors.length ? `<section class="errors" aria-label="Operation errors"><header>${errors.length} file error${errors.length===1?'':'s'}<button id="dismiss-errors">Dismiss</button></header>${errors.map(e => `<p><strong>${esc(displayName(e.path))}:</strong> ${esc(publicMessage(e.error))}</p>`).join('')}</section>` : ''}</section></main><footer class="status ${busy?'busy':''}"><span class="status-dot" aria-hidden="true"></span><span class="status-message" role="status">${esc(status)}</span>${progressMarkup()}${drafts.size ? `<span class="dirty-count">${drafts.size} unsaved file${drafts.size===1?'':'s'}</span>` : ''}<span>${entries.size} files</span></footer></div>`;
   const wrap=document.querySelector<HTMLDivElement>('.table-wrap')!;
   wrap.querySelector('tbody')!.innerHTML=list.length?`<tr class="virtual-spacer" aria-hidden="true"><td colspan="${tableColumns().length}" style="height:${list.length*rowHeight}px"></td></tr>`:'';
   wrap.scrollTop=scrollTop;wrap.scrollLeft=scrollLeft;updateVirtualRows(true);
@@ -598,11 +600,29 @@ function bind() {
     if(e.key==='Enter')void operate('extended');
   });
   document.querySelector('#dismiss-errors')?.addEventListener('click',()=>{errors=[];render();});
+  document.querySelector('#cancel-job')?.addEventListener('click',cancelProgress);
   document.querySelector<HTMLSelectElement>('#cover-choice')?.addEventListener('change',e=>{coverIndex=Number((e.target as HTMLSelectElement).value);refreshCoverPanel();});
 }
-async function run<T>(message: string, job: () => Promise<T>, options: {preserveErrors?:boolean} = {}): Promise<T|undefined> {
-  if(busy)return;busy=true;status=message;if(!options.preserveErrors)errors=[];render();
-  try { return await job(); } catch(error) { const failure={path:'Operation',error:String(error)};errors=options.preserveErrors?[...errors,failure]:[failure];status='Operation failed';return undefined; } finally {await refreshSourceAccess();await refreshHistory();busy=false;render();}
+/** Run one exclusive operation. With `progress`, the job receives an id for backend progress events and cancellation. */
+async function run<T>(message: string, job: (progress?:string) => Promise<T>, options: {preserveErrors?:boolean;progress?:boolean} = {}): Promise<T|undefined> {
+  if(busy)return;busy=true;status=message;if(!options.preserveErrors)errors=[];
+  progressJob=options.progress&&desktop?{id:crypto.randomUUID(),done:0,total:0,cancelling:false}:undefined;render();
+  try { return await job(progressJob?.id); } catch(error) { const failure={path:'Operation',error:String(error)};errors=options.preserveErrors?[...errors,failure]:[failure];status='Operation failed';return undefined; } finally {progressJob=undefined;await refreshSourceAccess();await refreshHistory();busy=false;render();}
+}
+function progressText(job:ProgressJob){return job.cancelling?'Cancelling…':job.total?`${job.done} of ${job.total}`:'Preparing…';}
+function progressMarkup(){
+  const job=progressJob;if(!job)return '';
+  return `<span class="job-progress"><progress max="${Math.max(1,job.total)}" value="${job.done}" aria-label="Operation progress"></progress><span class="job-progress-text">${progressText(job)}</span><button id="cancel-job" ${job.cancelling?'disabled':''}>Cancel</button></span>`;
+}
+function showProgress(){
+  const job=progressJob;if(!job)return;
+  const bar=document.querySelector<HTMLProgressElement>('.job-progress progress'),text=document.querySelector('.job-progress-text');
+  if(bar){bar.max=Math.max(1,job.total);bar.value=job.done;}if(text)text.textContent=progressText(job);
+}
+function cancelProgress(){
+  const job=progressJob;if(!job||job.cancelling)return;
+  job.cancelling=true;showProgress();document.querySelector<HTMLButtonElement>('#cancel-job')?.setAttribute('disabled','');
+  void invoke('cancel_job',{job:job.id}).catch(()=>{/* The job already finished. */});
 }
 function accept(batch: Batch, message: string, clearDrafts = true) {
   batch.entries.forEach(storeEntry);reconcileDrafts(drafts,batch.entries.map(entry=>entry.path),clearDrafts);if(clearDrafts)batch.entries.forEach(entry=>{copyOverrides.delete(entry.path);workingReadErrors.delete(entry.path);});
@@ -616,7 +636,7 @@ function applyRenamed(batch:Batch){
 }
 // Replacing the list (Change directory) happens only after the new scan succeeds.
 async function scan(newPaths: string[], options:{recursive?:boolean;replace?:boolean;location?:string}={}) {
-  return !!await run('Reading audio files…',async()=>{ const result=await invoke<Batch>('scan_files',{paths:newPaths,recursive:options.recursive??optionsUI.settings.directories.subfolders});if(options.replace)clearWorkspace();const empty=!entries.size;accept(result,'Loaded',false);listRoots=options.replace?[...newPaths]:[...new Set([...listRoots,...newPaths])];if(empty||!options.location)location=options.location??(newPaths.length===1?newPaths[0]:`${newPaths.length} added locations`);if(!selected.size&&result.entries.length){selected.add(result.entries[0].path);anchor=result.entries[0].path;}return true; });
+  return !!await run('Reading audio files…',async job=>{ const result=await invoke<Batch>('scan_files',{paths:newPaths,recursive:options.recursive??optionsUI.settings.directories.subfolders,job});if(options.replace)clearWorkspace();const empty=!entries.size;accept(result,'Loaded',false);listRoots=options.replace?[...newPaths]:[...new Set([...listRoots,...newPaths])];if(empty||!options.location)location=options.location??(newPaths.length===1?newPaths[0]:`${newPaths.length} added locations`);if(!selected.size&&result.entries.length){selected.add(result.entries[0].path);anchor=result.entries[0].path;}if(progressJob?.cancelling)status+=' (reading cancelled)';return true; },{progress:true});
 }
 // Drop entries and everything cached for them (Remove from list, Clear list, Refresh, Delete, Change directory).
 function removeEntries(removed:string[]){
@@ -649,12 +669,15 @@ async function mutate(command: string, args: Record<string,unknown>, message: st
     await reconcileWorkingEntries(batch.errors.map(error=>error.path));
   });
 }
+// One backend call writes every file (in parallel, as one undo step) and reports progress; Cancel keeps unsaved drafts.
 async function saveDrafts() {
-  await run('Saving tags…',async()=>{
-    let successes=0;const failures:FileError[]=[];const historyGroup=crypto.randomUUID();
-    for(const path of paths()) { const updates=drafts.get(path);if(!updates)continue;const batch=await invoke<Batch>('save_fields',{paths:[path],updates,historyGroup});batch.entries.forEach(e=>{storeEntry(e);successes++;});reconcileDrafts(drafts,batch.entries.map(entry=>entry.path),true);batch.entries.forEach(entry=>{copyOverrides.delete(entry.path);workingReadErrors.delete(entry.path);});failures.push(...batch.errors); }
-    errors=failures;status=`Saved tags: ${successes} file${successes===1?'':'s'}${failures.length?`, ${failures.length} failed`:''}`;
-  });
+  await run('Saving tags…',async job=>{
+    const items=paths().flatMap(path=>{const updates=drafts.get(path);return updates?[{path,updates}]:[];});
+    const batch=await invoke<Batch>('save_fields_batch',{items,job});
+    batch.entries.forEach(storeEntry);reconcileDrafts(drafts,batch.entries.map(entry=>entry.path),true);batch.entries.forEach(entry=>{copyOverrides.delete(entry.path);workingReadErrors.delete(entry.path);});
+    const saved=batch.entries.length,skipped=items.length-saved-batch.errors.length;
+    errors=batch.errors;status=`Saved tags: ${saved} file${saved===1?'':'s'}${errors.length?`, ${errors.length} failed`:''}${skipped>0?`. Cancelled before ${skipped} file${skipped===1?'':'s'}; their changes are still pending`:''}`;
+  },{progress:true});
 }
 function modal(title: string, content: string, buttons: string): HTMLDialogElement {
   const dialog=document.createElement('dialog');dialog.innerHTML=`<header>${esc(title)}</header><div class="dialog-content">${content}</div><div class="dialog-footer"><button data-close>Cancel</button>${buttons}</div>`;
@@ -1051,14 +1074,15 @@ async function listOperation(op:Operation){
   if(op==='refresh'){
     if(drafts.size&&!await ask(`Refresh the file list and discard pending changes in ${drafts.size} file${drafts.size===1?'':'s'}?`,{title:'Refresh',kind:'warning'}))return;
     cellEditor.cancel();
-    await run('Refreshing file list…',async()=>{
-      const batch=await invoke<Batch>('scan_files',{paths:listRoots,recursive:optionsUI.settings.directories.subfolders}),found=new Set(batch.entries.map(entry=>entry.path));
+    await run('Refreshing file list…',async job=>{
+      const batch=await invoke<Batch>('scan_files',{paths:listRoots,recursive:optionsUI.settings.directories.subfolders,job}),found=new Set(batch.entries.map(entry=>entry.path));
+      if(progressJob?.cancelling){status='Refresh cancelled. The list is unchanged.';return;}
       removeEntries([...entries.keys()].filter(path=>!found.has(path)));
       drafts.clear();copyOverrides.clear();workingReadErrors.clear();
       accept(batch,'Refreshed');
       if(!anchor||!selected.has(anchor))anchor=paths()[0];
       if(!selected.size&&batch.entries.length){const first=ordered()[0].path;selected.add(first);anchor=first;}
-    });
+    },{progress:true});
   }
 }
 async function commitCell(target:CellTarget,value:string):Promise<string|undefined>{
@@ -1093,6 +1117,7 @@ document.addEventListener('keydown',event=>{
   if(!typing&&document.querySelector<HTMLDetailsElement>('#actions-menu')?.open&&event.key.trim().length===1&&!event.metaKey&&!event.ctrlKey){event.preventDefault();void actionUI.mnemonic(event.key);return;}
   const edit=editShortcut(event,{typing,textSelected:!!window.getSelection()?.toString(),mac:/Mac|iPhone|iPad/.test(navigator.platform)});
   if(edit&&(edit!=='paste-tags'||tagClipboard)){event.preventDefault();menubar.close();void operate(edit);return;}
+  if(event.key==='Escape'&&progressJob){event.preventDefault();cancelProgress();return;}
   if(event.key==='Escape'){document.querySelectorAll<HTMLDetailsElement>('details[open]').forEach(d=>d.open=false);}
   const fileOp=fileShortcut(event,typing,macPlatform);if(fileOp){event.preventDefault();menubar.close();void operate(fileOp==='folder'&&runtimePlatform.document_access_supported?'files':fileOp);return;}
   const listCommand=listShortcut(event,typing);
@@ -1121,6 +1146,7 @@ if(desktop){
   void tagPanel.initialize().catch(error=>{errors=[{path:'Tag panel',error:String(error)}];render();});
   const optionsReady=optionsUI.initialize().then(response=>{collator=naturalCollator(response.settings);changedData();if(response.warning)errors=[...errors,{path:'Options',error:response.warning}];render();}).catch(error=>{errors=[...errors,{path:'Options',error:String(error)}];render();});
   void invoke<typeof runtimePlatform>('runtime_platform').then(async platform=>{runtimePlatform=platform;nativeAppearanceReady=platform.family==='desktop';render();syncNativeAppearance();if(platform.folder_picker_supported)void optionsReady.then(()=>fileOps.initialize()).catch(error=>{errors=[{path:'Directories',error:String(error)}];render();});if(platform.document_access_supported)await run('Restoring recovery copies…',async()=>{const batch=await invoke<Batch>('restore_document_recovery');accept(batch,'Restored recovery copies',false);location='Provider documents';if(!selected.size&&batch.entries.length){selected.add(batch.entries[0].path);anchor=batch.entries[0].path;}if(!batch.entries.length&&!batch.errors.length)status='Ready';});}).catch(error=>{errors=[{path:'Platform',error:String(error)}];render();});
+  void listen<{job:string;done:number;total:number}>('opentag://progress',event=>{const job=progressJob;if(!job||event.payload.job!==job.id)return;job.done=event.payload.done;job.total=event.payload.total;showProgress();}).catch(()=>{/* Progress is optional; operations still complete. */});
   void listen('opentag://launch',()=>{if(runtimePlatform.folder_picker_supported)void fileOps.takeLaunches().catch(error=>{errors=[{path:'Command line',error:String(error)}];render();});}).catch(error=>{errors=[{path:'Command line',error:String(error)}];render();});
   void getCurrentWindow().onCloseRequested(async event => {
     if(busy){event.preventDefault();return;}
