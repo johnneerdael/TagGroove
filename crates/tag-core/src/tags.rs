@@ -761,10 +761,13 @@ pub fn scan_paths_with_progress(
 }
 
 /// Copy `source` to a new temporary file in `dir`. The copy is created at a
-/// fresh path rather than into an already opened temporary file, so
-/// copy-on-write filesystems clone it (APFS `clonefile`, reflinks through
-/// `copy_file_range`) instead of duplicating every audio byte; elsewhere it is
-/// an ordinary copy. The file is removed when the handle is dropped unpersisted.
+/// fresh path rather than into an already opened temporary file, so it can be a
+/// copy-on-write clone (APFS `clonefile`) that shares every block the write
+/// does not change; elsewhere it is an ordinary copy (`copy_file_range`, which
+/// may reflink, but OpenTag cannot tell). Either way it is a new inode: writes
+/// never reach `source`, and persisting it renames it over the original. The
+/// file is removed when the handle is dropped unpersisted. [`clones_in`]
+/// reports whether copies in `dir` are clones.
 pub fn staging_copy(
     source: &Path,
     dir: &Path,
@@ -776,13 +779,62 @@ pub fn staging_copy(
         .suffix(suffix)
         .rand_bytes(12)
         .make_in(dir, |path| {
-            if let Err(error) = fs::copy(source, path) {
-                let _ = fs::remove_file(path);
+            let copied = match clone_file(source, path) {
+                Ok(true) => Ok(()),
+                Ok(false) => fs::copy(source, path).map(|_| ()),
+                Err(error) => Err(error),
+            };
+            if let Err(error) = copied {
+                if error.kind() != std::io::ErrorKind::AlreadyExists {
+                    let _ = fs::remove_file(path);
+                }
                 return Err(error);
             }
             fs::OpenOptions::new().read(true).write(true).open(path)
         })
         .map_err(|e| e.to_string())
+}
+
+/// Whether [`staging_copy`] makes copy-on-write clones in `dir`: true only
+/// when a clone was verified (APFS on Apple platforms). An undo snapshot that
+/// hard-links the original then retains only the blocks a write changed,
+/// rather than the whole file. Probes with two empty temporary files.
+pub fn clones_in(dir: &Path) -> bool {
+    let Ok(probe) = tempfile::Builder::new()
+        .prefix(".opentag-probe-")
+        .tempfile_in(dir)
+    else {
+        return false;
+    };
+    let target = probe.path().with_extension("clone");
+    let cloned = matches!(clone_file(probe.path(), &target), Ok(true));
+    if cloned {
+        let _ = fs::remove_file(&target);
+    }
+    cloned
+}
+
+/// Clone `source` to the new path `target`. `Ok(false)` means the filesystem
+/// cannot clone here and nothing was created; an existing `target` is an error.
+#[cfg(target_vendor = "apple")]
+fn clone_file(source: &Path, target: &Path) -> std::io::Result<bool> {
+    use std::{ffi::CString, os::unix::ffi::OsStrExt};
+    let from = CString::new(source.as_os_str().as_bytes())?;
+    let to = CString::new(target.as_os_str().as_bytes())?;
+    const CLONE_NOFOLLOW: u32 = 0x0001; // <sys/clonefile.h>
+                                        // SAFETY: both arguments are valid NUL-terminated paths for the duration of the call.
+    if unsafe { libc::clonefile(from.as_ptr(), to.as_ptr(), CLONE_NOFOLLOW) } == 0 {
+        return Ok(true);
+    }
+    let error = std::io::Error::last_os_error();
+    match error.raw_os_error() {
+        Some(libc::EEXIST) => Err(error),
+        _ => Ok(false),
+    }
+}
+#[cfg(not(target_vendor = "apple"))]
+fn clone_file(_source: &Path, _target: &Path) -> std::io::Result<bool> {
+    Ok(false)
 }
 
 /// The closure only touches the temporary copy. Failed writes or failed

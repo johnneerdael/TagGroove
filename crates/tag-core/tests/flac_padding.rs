@@ -143,3 +143,35 @@ fn padding_writes_never_modify_a_hard_linked_original() {
         );
     }
 }
+
+#[cfg(unix)]
+#[test]
+fn in_place_fast_path_writes_a_cloned_new_inode() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("linked.flac");
+    if !flac(&path) {
+        return;
+    }
+    // The undo journal snapshots files by hard-linking them before a write.
+    let snapshot = dir.path().join("snapshot.flac");
+    fs::hard_link(&path, &snapshot).unwrap();
+    let before = fs::read(&snapshot).unwrap();
+    let (size, frames) = audio(&path);
+    write_fields(&path, &fields(&[("TITLE", "Linked")])).unwrap();
+    // The fast path ran (same size and audio) on a new inode renamed over the path.
+    assert_eq!(audio(&path), (size, frames));
+    assert_eq!(read_entry(&path).unwrap().fields["TITLE"], ["Linked"]);
+    assert_eq!(fs::read(&snapshot).unwrap(), before);
+    use std::os::unix::fs::MetadataExt;
+    assert_ne!(
+        fs::metadata(&path).unwrap().ino(),
+        fs::metadata(&snapshot).unwrap().ino()
+    );
+    assert_eq!(fs::metadata(&snapshot).unwrap().nlink(), 1);
+    if cfg!(target_os = "macos") {
+        assert!(
+            tag_core::clones_in(dir.path()),
+            "temporary directories on APFS clone"
+        );
+    }
+}
