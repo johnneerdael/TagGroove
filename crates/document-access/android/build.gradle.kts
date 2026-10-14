@@ -25,4 +25,6 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test:runner:1.5.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
+    // Invoke's public test constructor uses Tauri Android's existing mapper version.
+    androidTestImplementation("com.fasterxml.jackson.core:jackson-databind:2.15.3")
 }

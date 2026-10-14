@@ -165,6 +165,11 @@ class DocumentAccessPlugin(private val activity: Activity) : Plugin(activity) {
         }
     }
 
+    @Command
+    fun storageRoot(invoke: Invoke) {
+        background(invoke) { JSObject().put("path", activity.filesDir.canonicalPath) }
+    }
+
     private val privatePaths get() = PrivateDocumentPaths(listOf(activity.filesDir, activity.cacheDir))
     private val privateStreams get() = AndroidPrivateStreams(privatePaths)
 

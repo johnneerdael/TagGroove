@@ -11,6 +11,38 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class AndroidPrivateStreamsTest {
+    @Test fun storageRootUsesActualContextFilesDirectoryAcceptedByPrivateStreams() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val context = instrumentation.targetContext
+        lateinit var activity: androidx.appcompat.app.AppCompatActivity
+        lateinit var plugin: DocumentAccessPlugin
+        instrumentation.runOnMainSync {
+            activity = object : androidx.appcompat.app.AppCompatActivity() {
+                init { attachBaseContext(context) }
+            }
+            plugin = DocumentAccessPlugin(activity)
+        }
+        val done = java.util.concurrent.CountDownLatch(1)
+        val response = java.util.concurrent.atomic.AtomicReference<Pair<Long, String>>()
+        val invoke = app.tauri.plugin.Invoke(1, "storageRoot", 2, 3, { callback, json ->
+            response.set(Pair(callback, json)); done.countDown()
+        }, "{}", com.fasterxml.jackson.databind.ObjectMapper())
+        try {
+            plugin.storageRoot(invoke)
+            assertTrue("storageRoot timed out", done.await(10, java.util.concurrent.TimeUnit.SECONDS))
+            assertEquals(2L, response.get().first)
+            val root = File(org.json.JSONObject(response.get().second).getString("path"))
+            assertEquals(context.filesDir.canonicalFile, root)
+            val directory = File(root, "root-test-${System.nanoTime()}").apply { check(mkdir()) }
+            try {
+                val streams = AndroidPrivateStreams(PrivateDocumentPaths(listOf(context.filesDir, context.cacheDir)))
+                val snapshot = File(directory, "snapshot")
+                streams.output(snapshot.path).use { it.write(byteArrayOf(1, 2, 3)) }
+                streams.input(snapshot.path).use { assertArrayEquals(byteArrayOf(1, 2, 3), it.readBytes()) }
+                assertNoPrivateDescriptors(directory)
+            } finally { directory.deleteRecursively() }
+        } finally { instrumentation.runOnMainSync { plugin.onDestroy(activity) } }
+    }
     private fun fixture(work: (File, AndroidPrivateStreams) -> Unit) {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val directory = File(context.cacheDir, "private-stream-test-${System.nanoTime()}").apply { check(mkdir()) }

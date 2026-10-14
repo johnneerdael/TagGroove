@@ -24,7 +24,6 @@ pub struct DocumentState {
 mod android {
     use super::*;
     use std::sync::{Mutex, OnceLock};
-    use tauri::Manager;
     use tauri_plugin_document_access::{DocumentInfo, DocumentSnapshot, DocumentsExt};
     pub(super) struct Bridge(tauri::AppHandle);
     impl engine::Provider for Bridge {
@@ -46,11 +45,9 @@ mod android {
     static STORE: OnceLock<Mutex<engine::Store<Bridge>>> = OnceLock::new();
     pub(super) fn initialize(app: &tauri::AppHandle) -> Result<(), String> {
         if STORE.get().is_none() {
-            let root = app
-                .path()
-                .app_data_dir()
-                .map_err(|e| e.to_string())?
-                .join("documents-v1");
+            // Tauri app_data_dir is Android dataDir, not Context.filesDir.
+            // Resolve the actual allowed persistent root through the bridge.
+            let root = app.documents().storage_root()?.join("documents-v1");
             let store = engine::Store::open(&root, Bridge(app.clone()))?;
             STORE
                 .set(Mutex::new(store))

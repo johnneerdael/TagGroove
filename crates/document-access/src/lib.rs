@@ -3,7 +3,7 @@
 //! Tauri commands. The Android picker itself never blocks the Android UI thread.
 
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tauri::{
     plugin::{Builder, TauriPlugin},
     Manager, Runtime,
@@ -29,6 +29,25 @@ pub struct DocumentSnapshot {
     pub sha256: String,
     pub bytes: u64,
 }
+
+#[cfg(any(target_os = "android", test))]
+#[derive(Deserialize)]
+struct StorageRootResponse {
+    path: PathBuf,
+}
+#[cfg(any(target_os = "android", test))]
+impl StorageRootResponse {
+    fn into_path(self) -> Result<PathBuf, String> {
+        if !self.path.is_absolute() {
+            return Err("Native storage root must be absolute".into());
+        }
+        Ok(self.path)
+    }
+}
+
+#[cfg(target_os = "android")]
+#[derive(Serialize)]
+struct StorageRootRequest {}
 
 #[cfg(any(target_os = "android", test))]
 #[derive(Deserialize)]
@@ -86,6 +105,18 @@ struct RenameRequest<'a> {
 }
 
 impl<R: Runtime> Documents<R> {
+    /// Actual canonical Android Context.filesDir; resolve on a blocking worker.
+    pub fn storage_root(&self) -> Result<PathBuf, String> {
+        #[cfg(target_os = "android")]
+        {
+            self.0
+                .run_mobile_plugin::<StorageRootResponse>("storageRoot", StorageRootRequest {})
+                .map_err(|error| error.to_string())?
+                .into_path()
+        }
+        #[cfg(not(target_os = "android"))]
+        Err(unsupported())
+    }
     /// Stream into a new private file. Failed snapshots retain any partial output.
     pub fn snapshot(&self, uri: &str, output_path: &Path) -> Result<DocumentSnapshot, String> {
         #[cfg(target_os = "android")]
@@ -275,6 +306,15 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn storage_root_keeps_native_absolute_path_and_rejects_relative_roots() {
+        let path = std::env::temp_dir().canonicalize().unwrap();
+        let response: StorageRootResponse =
+            serde_json::from_value(serde_json::json!({"path":path})).unwrap();
+        assert_eq!(response.into_path().unwrap(), path);
+        let relative: StorageRootResponse = serde_json::from_str(r#"{"path":"files"}"#).unwrap();
+        assert!(relative.into_path().is_err());
+    }
     #[test]
     fn create_cancellation_is_nullable_and_snapshot_keeps_large_lengths() {
         let cancelled: CreateResponse = serde_json::from_str(r#"{"document":null}"#).unwrap();
