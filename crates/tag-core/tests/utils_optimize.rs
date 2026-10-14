@@ -1,4 +1,4 @@
-//! Utils → Remove Unsupported Fields, Optimize (FLAC, MP4) and Strip Chapters.
+//! Utils → Remove Unsupported Fields and Optimize (FLAC, MP4).
 //! FLAC and MP4 checks use ffmpeg-encoded files and compare decoded packets
 //! when ffmpeg is installed.
 use lofty::{
@@ -9,7 +9,7 @@ use lofty::{
 use std::{fs, path::Path, process::Command};
 use tag_core::{
     optimize_with_options, read_entry_with_options, remove_unsupported_fields_with_options,
-    strip_chapters_with_options, write_fields_with_options, Fields, TagOptions, FLAC_PADDING,
+    write_fields_with_options, Fields, TagOptions, FLAC_PADDING,
 };
 
 fn mp3(path: &Path) -> Vec<u8> {
@@ -255,7 +255,7 @@ fn chapters(path: &Path) -> usize {
 }
 
 #[test]
-fn optimize_and_strip_chapters_rewrite_ffmpeg_mp4_files_losslessly() {
+fn optimize_rewrites_ffmpeg_mp4_files_losslessly() {
     if !ffmpeg() {
         return;
     }
@@ -305,27 +305,6 @@ fn optimize_and_strip_chapters_rewrite_ffmpeg_mp4_files_losslessly() {
     let before = fs::read(&path).unwrap();
     optimize_with_options(&path, false, &options).unwrap();
     assert_eq!(fs::read(&path).unwrap(), before, "already optimized");
-
-    let entry = strip_chapters_with_options(&path, false, &options).unwrap();
-    assert_eq!(entry.fields["TITLE"], ["Book"]);
-    assert_eq!(chapters(&path), 0);
-    assert_eq!(packets(&path), audio);
-    let probe = Command::new("ffprobe")
-        .args([
-            "-v",
-            "error",
-            "-show_entries",
-            "stream=codec_type",
-            "-of",
-            "csv=p=0",
-        ])
-        .arg(&path)
-        .output()
-        .unwrap();
-    assert_eq!(String::from_utf8_lossy(&probe.stdout).trim(), "audio");
-    let stripped = fs::read(&path).unwrap();
-    strip_chapters_with_options(&path, false, &options).unwrap();
-    assert_eq!(fs::read(&path).unwrap(), stripped, "no chapters left");
 }
 
 #[test]
@@ -337,9 +316,6 @@ fn utils_reject_formats_they_do_not_apply_to() {
     assert!(optimize_with_options(&path, false, &options)
         .unwrap_err()
         .contains("FLAC and MP4"));
-    assert!(strip_chapters_with_options(&path, false, &options)
-        .unwrap_err()
-        .contains("MP4"));
     // An MP3 without any ID3v2 tag has nothing to remove.
     let bytes = fs::read(&path).unwrap();
     remove_unsupported_fields_with_options(&path, false, &options).unwrap();

@@ -1,7 +1,7 @@
-//! MP4 box layout rewrites for Utils → Optimize and Strip Chapters: free space
-//! removal, `moov` placement before the media data and chapter removal. Every
-//! chunk offset is relocated, and the result is checked against the original
-//! bytes before the staged copy may replace the file.
+//! MP4 box layout rewrites for Utils → Optimize: free space removal and `moov`
+//! placement before the media data. Every chunk offset is relocated, and the
+//! result is checked against the original bytes before the staged copy may
+//! replace the file.
 use std::{
     fs,
     io::{self, Read, Seek, SeekFrom, Write},
@@ -202,15 +202,6 @@ impl Node {
             Body::Leaf(_) => None,
         }
     }
-    fn child(&self, kind: &Kind) -> Option<&Node> {
-        self.children().iter().find(|c| &c.kind == kind)
-    }
-    fn leaf(&self) -> Option<&[u8]> {
-        match &self.body {
-            Body::Leaf(bytes) => Some(bytes),
-            Body::Container { .. } => None,
-        }
-    }
     fn any(&self, test: &impl Fn(&Node) -> bool) -> bool {
         test(self) || self.children().iter().any(|c| c.any(test))
     }
@@ -329,91 +320,6 @@ impl Layout {
 /// Remove all free space and put `moov` before the media data.
 pub(crate) fn optimize(layout: &mut Layout) {
     layout.movie.drop_free();
-}
-
-fn track_id(trak: &Node) -> Option<u32> {
-    let tkhd = trak.child(b"tkhd")?.leaf()?;
-    let at = if tkhd.first() == Some(&1) { 20 } else { 12 };
-    tkhd.get(at..at + 4).map(be32)
-}
-fn handler(trak: &Node) -> Option<Kind> {
-    trak.child(b"mdia")?
-        .child(b"hdlr")?
-        .leaf()?
-        .get(8..12)?
-        .try_into()
-        .ok()
-}
-
-/// Remove Nero chapters (`udta/chpl`) and QuickTime chapter tracks with their
-/// `tref/chap` references. Returns false when the file has no chapters.
-pub(crate) fn strip_chapters(layout: &mut Layout) -> bool {
-    let movie = &mut layout.movie;
-    let mut chapter_tracks = Vec::new();
-    for trak in movie.children().iter().filter(|c| &c.kind == b"trak") {
-        if let Some(chap) = trak
-            .child(b"tref")
-            .and_then(|t| t.child(b"chap"))
-            .and_then(Node::leaf)
-        {
-            chapter_tracks.extend(chap.chunks_exact(4).map(be32));
-        }
-    }
-    // Only text tracks are chapter tracks; anything else stays referenced.
-    let removable: Vec<u32> = movie
-        .children()
-        .iter()
-        .filter(|c| &c.kind == b"trak")
-        .filter(|t| matches!(handler(t).as_ref(), Some(b"text") | Some(b"sbtl")))
-        .filter_map(track_id)
-        .filter(|id| chapter_tracks.contains(id))
-        .collect();
-    let children = movie.children_mut().expect("moov is a container");
-    let before = children.len();
-    children
-        .retain(|c| !(&c.kind == b"trak" && track_id(c).is_some_and(|id| removable.contains(&id))));
-    let mut changed = children.len() != before;
-    for trak in children.iter_mut().filter(|c| &c.kind == b"trak") {
-        let Some(trak_children) = trak.children_mut() else {
-            continue;
-        };
-        for tref in trak_children.iter_mut().filter(|c| &c.kind == b"tref") {
-            let Some(refs) = tref.children_mut() else {
-                continue;
-            };
-            for chap in refs.iter_mut().filter(|c| &c.kind == b"chap") {
-                if let Body::Leaf(ids) = &mut chap.body {
-                    let kept: Vec<u8> = ids
-                        .chunks_exact(4)
-                        .filter(|id| !removable.contains(&be32(id)))
-                        .flatten()
-                        .copied()
-                        .collect();
-                    changed |= kept.len() != ids.len();
-                    *ids = kept;
-                }
-            }
-            refs.retain(|c| !(&c.kind == b"chap" && c.leaf().is_some_and(<[u8]>::is_empty)));
-        }
-        trak_children.retain(|c| !(&c.kind == b"tref" && c.children().is_empty()));
-    }
-    for udta in children.iter_mut().filter(|c| &c.kind == b"udta") {
-        if let Some(items) = udta.children_mut() {
-            let before = items.len();
-            items.retain(|c| &c.kind != b"chpl");
-            changed |= items.len() != before;
-        }
-    }
-    changed
-}
-
-pub(crate) fn has_chapters(layout: &Layout) -> bool {
-    let mut copy = Layout {
-        top: layout.top.clone(),
-        moov: layout.moov,
-        movie: layout.movie.clone(),
-    };
-    strip_chapters(&mut copy)
 }
 
 enum Part {
@@ -735,32 +641,6 @@ mod tests {
         let old_base = before.windows(4).position(|w| w == b"mdat").unwrap() + 4;
         assert_eq!(after[offsets[2] as usize], before[old_base + 300]);
         assert!(after.len() < before.len());
-    }
-
-    #[test]
-    fn strip_chapters_removes_the_text_track_reference_and_nero_list() {
-        let dir = tempfile::tempdir().unwrap();
-        let (path, _) = sample(dir.path());
-        let mut source = fs::File::open(&path).unwrap();
-        assert!(has_chapters(&read_layout(&mut source).unwrap()));
-        rewrite(&path, strip_chapters, false);
-        let mut file = fs::File::open(path.with_extension("out")).unwrap();
-        let layout = read_layout(&mut file).unwrap();
-        assert!(!has_chapters(&layout));
-        let traks: Vec<_> = layout
-            .movie
-            .children()
-            .iter()
-            .filter(|c| &c.kind == b"trak")
-            .collect();
-        assert_eq!(traks.len(), 1);
-        assert_eq!(track_id(traks[0]), Some(1));
-        assert!(traks[0].child(b"tref").is_none());
-        assert!(!layout.movie.any(&|n| &n.kind == b"chpl"));
-        // Without reordering, the box order and free space stay as they were.
-        let kinds: Vec<_> = layout.top.iter().map(|b| b.kind).collect();
-        assert_eq!(kinds, [*b"ftyp", *b"free", *b"mdat", *b"moov"]);
-        assert_eq!(all_offsets(&layout.movie).unwrap().len(), 2);
     }
 
     #[test]

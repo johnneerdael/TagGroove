@@ -1,5 +1,5 @@
 //! Utils → Remove Tag Types, Remove Unsupported Fields, Optimize and Strip
-//! Chapters, Options → Tools (user-defined external programs)
+//! chapters MP4, Options → Tools (user-defined external programs)
 //! and File → Save/Load configuration (https://docs.mp3tag.de/utils/,
 //! https://docs.mp3tag.de/customization/options/tools/, menus/file).
 use crate::{batch, history, io, mutate_document, settings};
@@ -43,14 +43,12 @@ pub async fn remove_tag_types(
 pub enum Util {
     RemoveUnsupportedFields,
     Optimize,
-    StripChapters,
 }
 impl Util {
     fn label(self) -> &'static str {
         match self {
             Self::RemoveUnsupportedFields => "Remove unsupported fields",
             Self::Optimize => "Optimize",
-            Self::StripChapters => "Strip chapters",
         }
     }
 }
@@ -69,9 +67,22 @@ pub async fn apply_util(paths: Vec<String>, util: Util) -> Result<ScanResult, St
                         tag_core::remove_unsupported_fields_with_options(p, false, &options)
                     }
                     Util::Optimize => tag_core::optimize_with_options(p, false, &options),
-                    Util::StripChapters => {
-                        tag_core::strip_chapters_with_options(p, false, &options)
-                    }
+                })
+            }))
+        })
+    })
+    .await
+}
+
+/// Utils → Strip chapters MP4. Files without MP4 chapters are left untouched.
+#[tauri::command]
+pub async fn strip_mp4_chapters(paths: Vec<String>) -> Result<ScanResult, String> {
+    io(move || {
+        crate::reject_provider_operation(&paths, "Stripping MP4 chapters")?;
+        history::record("Strip chapters MP4", None, &paths, || {
+            Ok(batch(&paths, |p| {
+                mutate_document(p, |p| {
+                    tag_core::strip_mp4_chapters_with_options(p, false, &settings::tag_options())
                 })
             }))
         })

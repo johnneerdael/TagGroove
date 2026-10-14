@@ -21,7 +21,7 @@ export const messagesOptionsPage:OptionsPage={id:'messages',label:'Messages',ord
       check('confirm_remove_tags','at removing tags'),
       check('confirm_cut_tags','at cutting tags'),
       check('confirm_paste_tags','at pasting tags'),
-      check('confirm_export','at exporting CSV files and playlists (offers to open the file)'),
+      check('confirm_export','at exporting and creating playlists (offers to open the written file)'),
       check('confirm_delete_files','at deleting files'),
       check('action_warnings','at warnings from Actions (file errors of the last action or action groups)'),
       check('unsaved_changes','at unsaved changes (closing, reloading, refreshing or discarding pending edits)'),

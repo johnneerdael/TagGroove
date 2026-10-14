@@ -3,17 +3,18 @@
 //!
 //! Providers only translate their API into the provider-agnostic
 //! [`SourceRelease`]; matching, field selection and writing are shared, so
-//! further sources (gnudb/freedb, local CUE or freedb files) plug in by adding
-//! a module with `search_query`/`parse_search`/`release_id`/`parse_release`.
+//! further sources plug in by adding a module that produces them, as
+//! `freedb` does for gnudb and local freedb folders.
 mod credentials;
 mod discogs;
+mod freedb;
 pub(crate) mod http;
 mod model;
 mod musicbrainz;
 
 use base64::Engine;
 use http::Channel;
-pub use model::{Provider, SearchQuery, SearchResult, SourceRelease};
+pub use model::{Provider, SearchPage, SearchQuery, SourceRelease};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -40,8 +41,21 @@ fn cover_size_from(settings: &crate::settings::Settings) -> musicbrainz::CoverSi
         .unwrap_or_default()
 }
 
+fn freedb_service(settings: &freedb::FreedbSettings) -> http::Service {
+    http::Service {
+        name: freedb::server_name(settings),
+        gate: &http::FREEDB,
+        spacing: Duration::from_millis(500),
+        token: None,
+        retry_busy: false,
+    }
+}
+
 fn service(provider: Provider, credentials: &credentials::Credentials) -> http::Service {
     match provider {
+        Provider::Freedb | Provider::LocalFreedb => {
+            freedb_service(&freedb::settings_from(&crate::settings::current()))
+        }
         // MusicBrainz allows one request per second per client.
         Provider::Musicbrainz => http::Service {
             name: "MusicBrainz",
@@ -71,12 +85,15 @@ pub async fn tag_source_search(
     provider: Provider,
     query: SearchQuery,
     ticket: u64,
-) -> Result<Vec<SearchResult>, String> {
+) -> Result<SearchPage, String> {
     http::claim(Channel::Search, ticket);
+    if matches!(provider, Provider::Freedb | Provider::LocalFreedb) {
+        return freedb_search(provider, query, ticket).await;
+    }
     let credentials = current_credentials(&app)?;
     let url = match provider {
-        Provider::Musicbrainz => musicbrainz::search_query(&query)?,
         Provider::Discogs => discogs::search_query(&query)?,
+        _ => musicbrainz::search_query(&query)?,
     };
     let body = http::json(
         &service(provider, &credentials),
@@ -86,9 +103,126 @@ pub async fn tag_source_search(
     )
     .await?;
     Ok(match provider {
-        Provider::Musicbrainz => musicbrainz::parse_search(&body),
         Provider::Discogs => discogs::parse_search(&body),
+        _ => musicbrainz::parse_search(&body),
     })
+}
+
+fn import_options(settings: &freedb::FreedbSettings) -> freedb::ImportOptions {
+    freedb::ImportOptions {
+        comment_disc_id: settings.comment_disc_id,
+        disc_id_field: settings.disc_id_field,
+    }
+}
+
+/// Disc ID from the selected files (a `cddb query` with their TOC) or typed in.
+async fn freedb_search(
+    provider: Provider,
+    query: SearchQuery,
+    ticket: u64,
+) -> Result<SearchPage, String> {
+    let settings = freedb::settings_from(&crate::settings::current());
+    let gnudb = freedb::server_name(&settings) == "gnudb";
+    let disc_id = match query.mode {
+        model::SearchMode::Toc => freedb::Toc::from_lengths(&query.lengths)?.disc_id(),
+        model::SearchMode::DiscId => freedb::disc_id(&query.text)?,
+        _ => return Err("freedb searches by disc ID: computed from the selected files or typed in. Text search on gnudb.org is not available.".into()),
+    };
+    let results = if provider == Provider::LocalFreedb {
+        let directory = PathBuf::from(&settings.local_directory);
+        let options = import_options(&settings);
+        tauri::async_runtime::spawn_blocking(move || {
+            freedb::local_lookup(&directory, &disc_id)?
+                .into_iter()
+                .map(|(category, text)| {
+                    freedb::release(
+                        &freedb::parse_xmcd(&text),
+                        provider,
+                        &category,
+                        &disc_id,
+                        options,
+                        false,
+                    )
+                    .map(|release| freedb::search_result(&release, &category))
+                })
+                .collect::<Result<Vec<_>, String>>()
+        })
+        .await
+        .map_err(|e| e.to_string())??
+    } else if query.mode == model::SearchMode::Toc {
+        let toc = freedb::Toc::from_lengths(&query.lengths)?;
+        let url = freedb::command_url(&settings, &toc.query_command())?;
+        let body =
+            http::freedb_text(&freedb_service(&settings), &url, Channel::Search, ticket).await?;
+        freedb::parse_query(&body)?
+            .iter()
+            .map(|found| freedb::match_result(found, provider, gnudb))
+            .collect()
+    } else {
+        // Without a TOC the server can only be asked category by category.
+        let mut results = Vec::new();
+        for category in freedb::CATEGORIES {
+            let url = freedb::command_url(&settings, &format!("cddb read {category} {disc_id}"))?;
+            let body = http::freedb_text(&freedb_service(&settings), &url, Channel::Search, ticket)
+                .await?;
+            if let Some(text) = freedb::parse_read(&body)? {
+                let release = freedb::release(
+                    &freedb::parse_xmcd(&text),
+                    provider,
+                    category,
+                    &disc_id,
+                    import_options(&settings),
+                    gnudb,
+                )?;
+                results.push(freedb::search_result(&release, category));
+            }
+        }
+        results
+    };
+    let total = Some(results.len() as u32);
+    Ok(SearchPage { results, total })
+}
+
+async fn freedb_release(
+    provider: Provider,
+    input: &str,
+    ticket: u64,
+) -> Result<SourceRelease, String> {
+    let settings = freedb::settings_from(&crate::settings::current());
+    let (category, disc_id) = freedb::entry_id(input)?;
+    let options = import_options(&settings);
+    if provider == Provider::LocalFreedb {
+        let directory = PathBuf::from(&settings.local_directory);
+        return tauri::async_runtime::spawn_blocking(move || {
+            let (category, text) = freedb::local_lookup(&directory, &disc_id)?
+                .into_iter()
+                .find(|(found, _)| *found == category)
+                .ok_or("This disc is no longer in the local freedb folder.")?;
+            freedb::release(
+                &freedb::parse_xmcd(&text),
+                provider,
+                &category,
+                &disc_id,
+                options,
+                false,
+            )
+        })
+        .await
+        .map_err(|e| e.to_string())?;
+    }
+    let url = freedb::command_url(&settings, &format!("cddb read {category} {disc_id}"))?;
+    let body =
+        http::freedb_text(&freedb_service(&settings), &url, Channel::Release, ticket).await?;
+    let text = freedb::parse_read(&body)?
+        .ok_or("The freedb server has no entry for this disc in this category.")?;
+    freedb::release(
+        &freedb::parse_xmcd(&text),
+        provider,
+        &category,
+        &disc_id,
+        options,
+        freedb::server_name(&settings) == "gnudb",
+    )
 }
 
 /// Look up a release by ID or address (search results pass their own ID).
@@ -125,7 +259,18 @@ pub async fn tag_source_release(
             .await?;
             discogs::parse_release(&body)
         }
+        Provider::Freedb | Provider::LocalFreedb => freedb_release(provider, &input, ticket).await,
     }
+}
+
+/// Tag Sources "Preview": open the release page in the default browser.
+#[tauri::command]
+pub async fn tag_source_open_page(url: String) -> Result<(), String> {
+    let url = http::release_page(&url)?;
+    #[cfg(desktop)]
+    return tauri_plugin_opener::open_url(url.as_str(), None::<&str>).map_err(|e| e.to_string());
+    #[cfg(mobile)]
+    return Err(format!("Open {url} in a browser"));
 }
 
 /// Every Cover Art Archive image of a MusicBrainz release (Discogs lists its images with the release).
@@ -197,6 +342,9 @@ pub struct ApplyCover {
     /// importing covers).
     #[serde(default)]
     pub preserve_existing: bool,
+    /// Utils → Save image to disc: a file name format (Options → Tag Sources).
+    #[serde(default)]
+    pub save_as: Option<String>,
 }
 
 fn validate_items(items: &[ApplyItem], cover: bool) -> Result<(), String> {
@@ -260,6 +408,14 @@ pub async fn tag_source_apply(
     cover: Option<ApplyCover>,
 ) -> Result<ScanResult, String> {
     validate_items(&items, cover.is_some())?;
+    let save_as = cover
+        .as_ref()
+        .and_then(|c| c.save_as.clone())
+        .filter(|template| !template.trim().is_empty());
+    if save_as.is_some() {
+        let paths: Vec<String> = items.iter().map(|item| item.path.clone()).collect();
+        crate::reject_provider_operation(&paths, "Saving the cover image to a file")?;
+    }
     let image = match &cover {
         Some(cover) => Some(http::image(&cover.url, Channel::Image, u64::MAX).await?),
         None => None,
@@ -268,7 +424,7 @@ pub async fn tag_source_apply(
     let preserve = cover.as_ref().is_some_and(|c| c.preserve_existing);
     crate::io(move || {
         let staging = tempfile::tempdir().map_err(|e| e.to_string())?;
-        let cover_path = match image {
+        let cover_path = match &image {
             Some(image) => {
                 let path = staging.path().join(format!("cover.{}", image.extension));
                 std::fs::write(&path, &image.bytes).map_err(|e| e.to_string())?;
@@ -281,19 +437,120 @@ pub async fn tag_source_apply(
             .map(|item| (item.path.as_str(), &item.updates))
             .collect();
         let paths: Vec<String> = items.iter().map(|item| item.path.clone()).collect();
-        Ok(crate::batch(&paths, |path| {
-            let fields = path
-                .to_str()
-                .and_then(|p| updates.get(p))
-                .copied()
-                .ok_or("File is not part of this import")?;
-            crate::mutate_document(path, |working| {
-                let cover = cover_target(working, cover_path.as_deref(), preserve)?;
-                apply_one(working, fields, cover, replace)
-            })
-        }))
+        let mut result = crate::history::record("Tag source import", None, &paths, || {
+            Ok(crate::batch(&paths, |path| {
+                let fields = path
+                    .to_str()
+                    .and_then(|p| updates.get(p))
+                    .copied()
+                    .ok_or("File is not part of this import")?;
+                crate::mutate_document(path, |working| {
+                    let cover = cover_target(working, cover_path.as_deref(), preserve)?;
+                    apply_one(working, fields, cover, replace)
+                })
+            }))
+        })?;
+        if let (Some(template), Some(image)) = (save_as, &image) {
+            let errors = save_cover_files(&result.entries, &template, image);
+            result.errors.extend(errors);
+        }
+        Ok(result)
     })
     .await
+}
+
+/// The file name for a saved cover: the format evaluated on one written file,
+/// reduced to a single safe file name (the extension comes from the image).
+fn cover_file_name(entry: &AudioEntry, template: &str) -> Result<String, String> {
+    let fields = crate::evaluation::enriched_fields(entry, 0);
+    let name =
+        tag_core::evaluate_filename_with_context(template, &tag_core::EvalContext::new(&fields))?;
+    let name: String = name
+        .chars()
+        .map(|c| {
+            if c.is_control() || r#"<>:"/\|?*"#.contains(c) {
+                '_'
+            } else {
+                c
+            }
+        })
+        .collect();
+    let name = name.trim().trim_end_matches(['.', ' ']).to_owned();
+    Ok(if name.is_empty() || name == ".." {
+        "folder".into()
+    } else {
+        name
+    })
+}
+
+/// Utils → Save image to disc: one image per folder of written files, named
+/// from the first written file in it. An existing image of that name is replaced.
+fn save_cover_files(
+    entries: &[AudioEntry],
+    template: &str,
+    image: &http::Image,
+) -> Vec<tag_core::FileError> {
+    let mut folders = std::collections::HashSet::new();
+    let mut errors = Vec::new();
+    for entry in entries {
+        let Some(folder) = Path::new(&entry.path).parent() else {
+            continue;
+        };
+        if !folders.insert(folder.to_path_buf()) {
+            continue;
+        }
+        let saved = cover_file_name(entry, template).and_then(|name| {
+            let target = folder.join(format!("{name}.{}", image.extension));
+            write_atomically(&target, &image.bytes)
+        });
+        if let Err(error) = saved {
+            errors.push(tag_core::FileError {
+                path: folder.to_string_lossy().into_owned(),
+                error: format!("The cover image could not be saved: {error}"),
+            });
+        }
+    }
+    errors
+}
+
+fn write_atomically(target: &Path, bytes: &[u8]) -> Result<(), String> {
+    let folder = target
+        .parent()
+        .filter(|folder| folder.is_dir())
+        .ok_or_else(|| format!("The folder for {} does not exist", target.display()))?;
+    let mut staging = tempfile::NamedTempFile::new_in(folder).map_err(|e| e.to_string())?;
+    std::io::Write::write_all(&mut staging, bytes).map_err(|e| e.to_string())?;
+    staging.persist(target).map_err(|e| e.error.to_string())?;
+    Ok(())
+}
+
+/// Utils → Extract cover: save the displayed artwork to a chosen file. The
+/// extension is corrected to the image's real type.
+#[tauri::command]
+pub async fn tag_source_save_cover(url: String, path: String) -> Result<String, String> {
+    if path.starts_with("content://") {
+        return Err("Saving images to files is not available here.".into());
+    }
+    let image = http::image(&url, Channel::Image, u64::MAX).await?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let target = image_target(PathBuf::from(path), image.extension);
+        write_atomically(&target, &image.bytes)?;
+        Ok(target.to_string_lossy().into_owned())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+fn image_target(mut target: PathBuf, extension: &str) -> PathBuf {
+    let current = target
+        .extension()
+        .map(|e| e.to_string_lossy().to_ascii_lowercase())
+        .unwrap_or_default();
+    let same = current == extension || (extension == "jpg" && current == "jpeg");
+    if !same {
+        target.set_extension(extension);
+    }
+    target
 }
 
 #[cfg(test)]
@@ -428,6 +685,7 @@ mod tests {
                 url: "https://example.com/a.jpg".into(),
                 replace_existing: true,
                 preserve_existing: false,
+                save_as: None,
             }),
         ))
         .unwrap_err();
@@ -458,6 +716,82 @@ mod tests {
         assert_eq!(tag_core::read_entry(&b).unwrap().fields["TITLE"], ["Two"]);
     }
 
+    #[test]
+    fn cover_images_are_saved_once_per_folder_with_a_formatted_name() {
+        let dir = tempfile::tempdir().unwrap();
+        let other = dir.path().join("cd2");
+        std::fs::create_dir(&other).unwrap();
+        let (a, b, c) = (
+            dir.path().join("a.wav"),
+            dir.path().join("b.wav"),
+            other.join("c.wav"),
+        );
+        for (path, album) in [(&a, "One/Two"), (&b, "Ignored"), (&c, "Disc: 2")] {
+            wav(path);
+            let fields: Fields = [("ALBUM".to_string(), vec![album.to_string()])].into();
+            apply_one(path, &fields, None, false).unwrap();
+        }
+        let entries: Vec<AudioEntry> = [&a, &b, &c]
+            .iter()
+            .map(|p| tag_core::read_entry(p).unwrap())
+            .collect();
+        let mut png = Vec::new();
+        image::DynamicImage::new_rgb8(2, 2)
+            .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
+            .unwrap();
+        let image = http::Image::validate(png).unwrap();
+        let errors = save_cover_files(&entries, "%album% cover", &image);
+        assert!(errors.is_empty(), "{errors:?}");
+        assert!(dir.path().join("One_Two cover.png").is_file());
+        assert!(!dir.path().join("Ignored cover.png").exists());
+        assert!(other.join("Disc_ 2 cover.png").is_file());
+        assert_eq!(cover_file_name(&entries[0], "").unwrap(), "folder");
+        assert_eq!(cover_file_name(&entries[0], "..").unwrap(), "folder");
+    }
+
+    #[test]
+    fn extracted_covers_get_the_image_extension() {
+        let path = |p: &str| PathBuf::from(p);
+        assert_eq!(
+            image_target(path("/x/front.jpeg"), "jpg"),
+            path("/x/front.jpeg")
+        );
+        assert_eq!(
+            image_target(path("/x/front.jpg"), "png"),
+            path("/x/front.png")
+        );
+        assert_eq!(
+            image_target(path("/x/front"), "webp"),
+            path("/x/front.webp")
+        );
+        assert!(tauri::async_runtime::block_on(tag_source_save_cover(
+            "https://example.com/a.jpg".into(),
+            "/tmp/a.jpg".into()
+        ))
+        .unwrap_err()
+        .contains("not from a supported tag source"));
+    }
+
+    /// gnudb answers only registered applications; this records what it says to OpenTag.
+    #[test]
+    #[ignore]
+    fn live_gnudb_query() {
+        let settings = freedb::FreedbSettings::default();
+        let toc = freedb::Toc::from_lengths(&[200.0, 240.0, 178.0]).unwrap();
+        let url = freedb::command_url(&settings, &toc.query_command()).unwrap();
+        let body = tauri::async_runtime::block_on(http::freedb_text(
+            &freedb_service(&settings),
+            &url,
+            Channel::Search,
+            u64::MAX,
+        ))
+        .unwrap();
+        match freedb::parse_query(&body) {
+            Ok(matches) => println!("gnudb matches: {matches:?}"),
+            Err(error) => assert!(error.contains("does not accept requests"), "{error}"),
+        }
+    }
+
     /// Manual check against the live services: `cargo test -p opentag live_ -- --ignored`.
     #[test]
     #[ignore]
@@ -485,6 +819,7 @@ mod tests {
                         )
                         .await?,
                     ),
+                    Provider::Freedb | Provider::LocalFreedb => unreachable!(),
                 }
             })
         };

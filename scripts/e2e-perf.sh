@@ -6,6 +6,10 @@
 # approximates a cold read; later runs in the same invocation are warm.
 # Usage: scripts/e2e-perf.sh <folder> [runs] [--no-build] [--read-only]
 set -euo pipefail
+if [[ -z "${CI:-}" && -z "${OPENTAG_E2E_ALLOW_LOCAL:-}" ]]; then
+  echo "Refusing to open test windows on this desktop; set OPENTAG_E2E_ALLOW_LOCAL=1 to override." >&2
+  exit 2
+fi
 root="$(cd "$(dirname "$0")/.." && pwd)"
 folder="${1:?folder to measure}"; runs="${2:-2}"; shift $(( $# < 2 ? $# : 2 ))
 build=1; write=true

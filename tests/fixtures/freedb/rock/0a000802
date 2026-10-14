@@ -1,0 +1,21 @@
+# xmcd
+#
+# Track frame offsets:
+#	150
+#	375
+#
+# Disc length: 8 seconds
+#
+# Revision: 0
+# Submitted via: OpenTag e2e fixture
+#
+DISCID=0a000802
+DTITLE=Fixture Artist / Fixture Album
+DYEAR=2001
+DGENRE=Electronic
+TTITLE0=First Tone
+TTITLE1=Second Tone
+EXTD=
+EXTT0=
+EXTT1=
+PLAYORDER=

@@ -1,5 +1,4 @@
-//! Utils → Remove Unsupported Fields, Optimize and Strip Chapters
-//! (https://docs.mp3tag.de/utils/). Each util writes through a staged copy and
+//! Utils → Remove Unsupported Fields and Optimize (https://docs.mp3tag.de/utils/). Each util writes through a staged copy and
 //! leaves files it has nothing to do for untouched.
 use super::*;
 use crate::flac_metadata;
@@ -113,34 +112,6 @@ pub fn optimize_with_options(
         }
         _ => Err("Optimize applies to FLAC and MP4 files".into()),
     }
-}
-
-/// Remove MP4 chapters: Nero chapter lists and QuickTime chapter tracks.
-pub fn strip_chapters_with_options(
-    path: &Path,
-    include_cover_data: bool,
-    options: &TagOptions,
-) -> Result<AudioEntry, String> {
-    if file_type(path)? != Some(FileType::Mp4) {
-        return Err("Chapters can only be stripped from MP4 files".into());
-    }
-    let layout = mp4_layout::read_layout(&mut fs::File::open(path).map_err(|e| e.to_string())?)?;
-    if !mp4_layout::has_chapters(&layout) {
-        return unchanged(path, include_cover_data, options);
-    }
-    staged_write(
-        path,
-        include_cover_data,
-        &[],
-        options,
-        |staging, original, _| {
-            crate::write_cost::rewrote_all();
-            let mut source = fs::File::open(original).map_err(|e| e.to_string())?;
-            let mut layout = mp4_layout::read_layout(&mut source)?;
-            mp4_layout::strip_chapters(&mut layout);
-            mp4_layout::write(&mut source, layout, false, staging)
-        },
-    )
 }
 
 fn flac_region(file: &mut fs::File) -> Result<(u64, Vec<u8>), String> {
