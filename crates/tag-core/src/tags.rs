@@ -1300,11 +1300,23 @@ fn remove_tags_result(
 }
 
 pub fn add_cover(path: &Path, image: &Path) -> Result<AudioEntry, String> {
-    add_cover_result(path, image, true, &TagOptions::default())
+    add_cover_result(
+        path,
+        image,
+        PictureType::CoverFront,
+        true,
+        &TagOptions::default(),
+    )
 }
 
 pub fn add_cover_summary(path: &Path, image: &Path) -> Result<AudioEntry, String> {
-    add_cover_result(path, image, false, &TagOptions::default())
+    add_cover_result(
+        path,
+        image,
+        PictureType::CoverFront,
+        false,
+        &TagOptions::default(),
+    )
 }
 
 pub fn add_cover_with_options(
@@ -1313,13 +1325,41 @@ pub fn add_cover_with_options(
     include_cover_data: bool,
     options: &TagOptions,
 ) -> Result<AudioEntry, String> {
-    add_cover_result(path, image, include_cover_data, options)
+    add_cover_result(
+        path,
+        image,
+        PictureType::CoverFront,
+        include_cover_data,
+        options,
+    )
+}
+
+/// Import Cover from File: embed `image` as `picture_type` (front cover when
+/// `None`), optionally deleting existing covers first. The image is decoded
+/// before any existing art is removed.
+pub fn import_cover_with_options(
+    path: &Path,
+    image: &Path,
+    picture_type: Option<&str>,
+    delete_existing: bool,
+    options: &TagOptions,
+) -> Result<AudioEntry, String> {
+    let kind = picture_type
+        .map(picture_type_from_name)
+        .transpose()?
+        .unwrap_or(PictureType::CoverFront);
+    if delete_existing {
+        let mut reader = fs::File::open(image).map_err(|e| e.to_string())?;
+        Picture::from_reader(&mut reader).map_err(|e| e.to_string())?;
+        remove_all_covers_with_options(path, options)?;
+    }
+    add_cover_result(path, image, kind, false, options)
 }
 
 /// ID3 requires picture descriptions to identify repeated cover types.
-fn describe_repeated_front_cover(pictures: &[Picture], picture: &mut Picture, image: &Path) {
+fn describe_repeated_cover(pictures: &[Picture], picture: &mut Picture, image: &Path) {
     if !pictures.iter().any(|p| {
-        p.pic_type() == PictureType::CoverFront && p.description().unwrap_or_default().is_empty()
+        p.pic_type() == picture.pic_type() && p.description().unwrap_or_default().is_empty()
     }) {
         return;
     }
@@ -1339,12 +1379,13 @@ fn describe_repeated_front_cover(pictures: &[Picture], picture: &mut Picture, im
 fn add_cover_result(
     path: &Path,
     image: &Path,
+    kind: PictureType,
     include_cover_data: bool,
     options: &TagOptions,
 ) -> Result<AudioEntry, String> {
     let mut image_file = fs::File::open(image).map_err(|e| e.to_string())?;
     let mut picture = Picture::from_reader(&mut image_file).map_err(|e| e.to_string())?;
-    picture.set_pic_type(PictureType::CoverFront);
+    picture.set_pic_type(kind);
     if asf::sniff(path) {
         return asf::change_pictures(
             path,
@@ -1357,10 +1398,10 @@ fn add_cover_result(
             "The cover could not be added",
         );
     }
-    if let Some(kind) = container_formats::detect(path) {
+    if let Some(container) = container_formats::detect(path) {
         return container_formats::add_cover(
             path,
-            kind,
+            container,
             picture,
             image,
             include_cover_data,
@@ -1374,7 +1415,7 @@ fn add_cover_result(
         |staging, mut file, staged_path| {
             if tag_policy::policy(file.file_type()).is_some() {
                 let mut pictures = tag_policy::displayed_pictures(&file, options);
-                describe_repeated_front_cover(&pictures, &mut picture, image);
+                describe_repeated_cover(&pictures, &mut picture, image);
                 pictures.push(picture);
                 let written = tag_policy::write(
                     staging,
@@ -1401,7 +1442,7 @@ fn add_cover_result(
                 .primary_tag_mut()
                 .ok_or("The audio format has no writable tag")?;
             if primary == TagType::Id3v2 {
-                describe_repeated_front_cover(tag.pictures(), &mut picture, image);
+                describe_repeated_cover(tag.pictures(), &mut picture, image);
             }
             tag.push_picture(picture);
             save_preserving_native(

@@ -8,9 +8,12 @@ script="${1:-$root/tests/e2e/core-workflows.js}"
 # Parallel runs need distinct identifiers: single-instance forwarding and app
 # config directories are keyed by it.
 identifier="${OPENTAG_E2E_ID:-org.opentag.editor.usertest}"
+# Concurrent runs cover each other's windows; WebKit would otherwise suspend
+# timers in an occluded test window (macOS 14+ honours this policy).
+window='"app":{"windows":[{"title":"OpenTag","width":1240,"height":800,"minWidth":800,"minHeight":560,"backgroundThrottling":"disabled"}]}'
 if [[ "${2:-}" != "--no-build" ]]; then
   (cd "$root" && AR="${AR:-/usr/bin/ar}" npx tauri build --debug --bundles app \
-    --config "{\"identifier\":\"$identifier\",\"productName\":\"OpenTag UserTest\"}" >/dev/null)
+    --config "{\"identifier\":\"$identifier\",\"productName\":\"OpenTag UserTest\",$window}" >/dev/null)
 fi
 if [[ "$(uname)" == "Darwin" ]]; then
   bin="$root/target/debug/bundle/macos/OpenTag UserTest.app/Contents/MacOS/opentag"

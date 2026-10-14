@@ -939,6 +939,7 @@ pub fn run() {
             save_action_library,
             import_action_group,
             execute_action_groups,
+            action_host::export_action_group,
             runtime_platform,
             pick_document_files,
             document_states,

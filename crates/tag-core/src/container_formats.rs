@@ -264,7 +264,7 @@ pub(super) fn add_cover(
         |current| {
             let mut pictures = current.pictures.clone();
             if kind != Kind::Matroska {
-                describe_repeated_front_cover(&pictures, &mut picture, image);
+                describe_repeated_cover(&pictures, &mut picture, image);
             }
             pictures.push(picture);
             Ok(Edit::Pictures(pictures))

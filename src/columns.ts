@@ -295,9 +295,9 @@ export class ColumnUI{
       <div class="group-buttons"><button id="column-new">New</button><button id="column-duplicate" ${column?'':'disabled'}>Duplicate</button><button id="column-remove" ${layout.columns.length>1?'':'disabled'}>Remove</button><button id="column-up" ${current>0?'':'disabled'}>Move up</button><button id="column-down" ${current<layout.columns.length-1?'':'disabled'}>Move down</button></div>
       <div class="group-buttons"><button id="column-defaults">Reset to defaults</button><button id="column-import">Load configuration…</button><button id="column-export">Save configuration…</button></div></div>
       <div>${column?`<label class="field"><span>NAME</span><input id="column-name" value="${html(column.name)}"></label>
-      <label class="field"><span>VALUE</span><input id="column-value" value="${html(column.value)}" spellcheck="false" autocomplete="off" placeholder="%artist% or $num(%track%,2)"></label>
-      <label class="field"><span>FIELD (EMPTY = READ-ONLY)</span><input id="column-field" value="${html(column.field)}" spellcheck="false" autocomplete="off" placeholder="%artist%"></label>
-      <label class="field"><span>SORT BY (EMPTY = VALUE)</span><input id="column-sort" value="${html(column.sort_by)}" spellcheck="false" autocomplete="off"></label>
+      <label class="field"><span>VALUE</span><input id="column-value" value="${html(column.value)}" spellcheck="false" autocomplete="off" placeholder="%artist% or $num(%track%,2)" data-helper="format"></label>
+      <label class="field"><span>FIELD (EMPTY = READ-ONLY)</span><input id="column-field" value="${html(column.field)}" spellcheck="false" autocomplete="off" placeholder="%artist%" data-helper="placeholder"></label>
+      <label class="field"><span>SORT BY (EMPTY = VALUE)</span><input id="column-sort" value="${html(column.sort_by)}" spellcheck="false" autocomplete="off" data-helper="format"></label>
       <div class="field-pair"><label class="field"><span>WIDTH</span><input id="column-width" type="number" min="${minColumnWidth}" max="${maxColumnWidth}" value="${column.width}"></label><label class="field"><span>ALIGNMENT</span><select id="column-align">${(['left','center','right'] as const).map(a=>`<option value="${a}" ${column.align===a?'selected':''}>${a[0].toUpperCase()+a.slice(1)}</option>`).join('')}</select></label></div>
       <label class="action-check"><input type="checkbox" id="column-numeric" ${column.numeric?'checked':''}> Numeric (sort numerically)</label>
       <p class="column-preview" role="status"></p>`:''}</div></div></div>
