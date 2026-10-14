@@ -20,6 +20,19 @@ if [[ "$(uname)" == "Darwin" ]]; then
 else
   bin="$root/target/debug/opentag"
 fi
+# --no-build may reuse a bundle built for another identifier; trust the bundle.
+if [[ "$(uname)" == "Darwin" ]]; then
+  identifier="$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "${bin%/MacOS/opentag}/Info.plist")"
+fi
+# Start every run from empty app state; only test identifiers are ever cleared.
+case "$identifier" in
+  *usertest*|*.e2e.*)
+    if [[ "$(uname)" == "Darwin" ]]; then
+      rm -rf "$HOME/Library/Application Support/$identifier" "$HOME/Library/WebKit/$identifier" "$HOME/Library/Caches/$identifier"
+    else
+      rm -rf "${XDG_CONFIG_HOME:-$HOME/.config}/$identifier" "${XDG_DATA_HOME:-$HOME/.local/share}/$identifier"
+    fi ;;
+esac
 work="$(mktemp -d)"; trap 'rm -rf "$work"' EXIT
 album="$work/album"; mkdir -p "$album"
 for spec in "a:440:1" "b:660:2"; do
