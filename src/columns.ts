@@ -199,11 +199,18 @@ export class ColumnValueCache{
   }
 }
 
+const ariaSort=(sort:SortKey[],id:string)=>{const key=sort.find(item=>item.id===id);return key?key.ascending?'ascending':'descending':'none';};
+const sortLabel=(column:ColumnDef,sort:SortKey[])=>`${html(column.name)}${sortIndicator(sort,column.id)}`;
 export function headerMarkup(columns:ColumnDef[],sort:SortKey[]){
-  return columns.map(column=>{
-    const key=sort.find(item=>item.id===column.id);
-    return`<th style="width:${column.width}px" data-col="${html(column.id)}" class="align-${column.align}" aria-sort="${key?key.ascending?'ascending':'descending':'none'}"><button data-sort="${html(column.id)}" title="${html(`${column.name} — click to sort, Shift+click to add a sort criterion`)}">${html(column.name)}${sortIndicator(sort,column.id)}</button><span class="col-resize" data-resize="${html(column.id)}" aria-hidden="true"></span></th>`;
-  }).join('');
+  return columns.map(column=>`<th style="width:${column.width}px" data-col="${html(column.id)}" class="align-${column.align}" aria-sort="${ariaSort(sort,column.id)}"><button data-sort="${html(column.id)}" title="${html(`${column.name} — click to sort, Shift+click to add a sort criterion`)}">${sortLabel(column,sort)}</button><span class="col-resize" data-resize="${html(column.id)}" aria-hidden="true"></span></th>`).join('');
+}
+/** Show `sort` in header cells made by `headerMarkup`, keeping the cells and their listeners. */
+export function updateSortHeader(cells:Iterable<HTMLElement>,columns:ColumnDef[],sort:SortKey[]){
+  for(const th of cells){
+    const column=columns.find(c=>c.id===th.dataset.col),button=th.querySelector('button[data-sort]');if(!column||!button)continue;
+    th.setAttribute('aria-sort',ariaSort(sort,column.id));
+    const label=sortLabel(column,sort);if(button.innerHTML!==label)button.innerHTML=label;
+  }
 }
 
 export type ColumnUIHost={
