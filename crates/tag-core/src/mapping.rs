@@ -1234,8 +1234,16 @@ fn append(fields: &mut Fields, key: String, value: String) {
 }
 
 pub(super) fn id3_fields(tag: &Id3v2Tag) -> Fields {
+    id3_fields_with(tag, tag.original_version(), false)
+}
+/// `popularimeter` shows every POPM frame as POPULARIMETER (Options → Tags →
+/// Advanced) instead of the RATING MM/RATING WMP convenience fields.
+pub(super) fn id3_fields_with(
+    tag: &Id3v2Tag,
+    version: Id3v2Version,
+    popularimeter: bool,
+) -> Fields {
     let mut fields = Fields::new();
-    let version = tag.original_version();
     for frame in tag {
         let id = frame.id().as_str().to_owned();
         let ordinary = id3_name(&id, version)
@@ -1332,6 +1340,11 @@ pub(super) fn id3_fields(tag: &Id3v2Tag) -> Fields {
                         .to_string(),
                 );
             }
+            Frame::Popularimeter(popm) if popularimeter => append(
+                &mut fields,
+                "POPULARIMETER".into(),
+                format!("{}|{}|{}", popm.email, popm.rating, popm.counter),
+            ),
             Frame::Popularimeter(popm) => {
                 if popm.email == "no@email" {
                     if let Some(rating) = mm_rating(popm.rating) {
@@ -1472,29 +1485,204 @@ pub(super) fn mp4_fields(tag: &Ilst) -> Fields {
     fields
 }
 
-pub(super) fn id3_write_options(tag: &Id3v2Tag) -> WriteOptions {
-    WriteOptions::default().use_id3v23(tag.original_version() == Id3v2Version::V3)
+/// ID3v2 revision, text encoding and comment language used for a write.
+#[derive(Debug, Clone, Copy)]
+pub(super) struct Id3Target {
+    pub version: Id3v2Version,
+    pub latin1: bool,
+    pub language: [u8; 3],
+}
+impl Id3Target {
+    /// Keep the revision of an existing tag (v2.2 tags are upgraded to v2.4).
+    pub(super) fn preserving(tag: &Id3v2Tag, language: [u8; 3]) -> Self {
+        Self {
+            version: if tag.original_version() == Id3v2Version::V3 {
+                Id3v2Version::V3
+            } else {
+                Id3v2Version::V4
+            },
+            latin1: false,
+            language,
+        }
+    }
+    fn encoding(&self) -> TextEncoding {
+        if self.latin1 {
+            TextEncoding::Latin1
+        } else if self.version == Id3v2Version::V3 {
+            TextEncoding::UTF16
+        } else {
+            TextEncoding::UTF8
+        }
+    }
 }
 
 pub(super) fn save_id3(
     file: &mut std::fs::File,
     kind: lofty::file::FileType,
     tag: &Id3v2Tag,
+    target: &Id3Target,
 ) -> Result<(), String> {
-    if tag.original_version() == Id3v2Version::V3 {
-        id3_v23::save(file, kind, tag)
+    if target.version == Id3v2Version::V3 {
+        id3_v23::save(file, kind, tag, target.latin1)
     } else {
-        tag.save_to(file, id3_write_options(tag))
+        tag.save_to(file, WriteOptions::default().use_id3v23(false))
             .map_err(|e| e.to_string())
     }
 }
-pub(super) fn patch_id3(tag: &mut Id3v2Tag, updates: &Fields) -> Result<(), String> {
-    let version = tag.original_version();
-    let encoding = if version == Id3v2Version::V3 {
-        TextEncoding::UTF16
+
+/// Characters an ISO-8859-1 tag cannot hold are written as '?'.
+pub(super) fn latin1_lossy(value: &str) -> String {
+    value
+        .chars()
+        .map(|c| if u32::from(c) <= 0xff { c } else { '?' })
+        .collect()
+}
+
+fn frame_key(frame: &Frame<'_>) -> String {
+    match frame {
+        Frame::UserText(text) => format!("TXXX:{}", text.description),
+        _ => frame.id().as_str().to_owned(),
+    }
+}
+fn version_native(field: &str, version: Id3v2Version) -> String {
+    field_mapping(field)
+        .map(|r| {
+            if version == Id3v2Version::V3 {
+                r.id3v23
+            } else {
+                r.id3v24
+            }
+        })
+        .filter(|s| !s.is_empty())
+        .map(str::to_owned)
+        .unwrap_or_else(|| format!("TXXX:{field}"))
+}
+
+/// Re-express documented frames whose identifier differs between ID3v2.3 and
+/// ID3v2.4 (for example TYER/TDAT/TIME and TDRC). Other frames are retained.
+pub(super) fn convert_id3_version(tag: &mut Id3v2Tag, target: &Id3Target) -> Result<(), String> {
+    let from = if tag.original_version() == Id3v2Version::V3 {
+        Id3v2Version::V3
     } else {
-        TextEncoding::UTF8
+        Id3v2Version::V4
     };
+    let to = target.version;
+    if from == to {
+        return Ok(());
+    }
+    let text = |id: &str| {
+        tag.get_text(&FrameId::new(id).expect("fixed frame identifier"))
+            .map(str::to_owned)
+    };
+    let mut moved = Fields::new();
+    let mut extra = Vec::new();
+    let mut consumed: Vec<&str> = Vec::new();
+    if from == Id3v2Version::V3 {
+        // TYER + TDAT (DDMM) + TIME (HHMM) combine into one TDRC timestamp.
+        if let Some(year) =
+            text("TYER").filter(|y| y.len() == 4 && y.bytes().all(|b| b.is_ascii_digit()))
+        {
+            let mut stamp = year;
+            consumed.push("TYER");
+            if let Some(date) =
+                text("TDAT").filter(|d| d.len() == 4 && d.bytes().all(|b| b.is_ascii_digit()))
+            {
+                stamp = format!("{stamp}-{}-{}", &date[2..], &date[..2]);
+                consumed.push("TDAT");
+                if let Some(time) =
+                    text("TIME").filter(|t| t.len() == 4 && t.bytes().all(|b| b.is_ascii_digit()))
+                {
+                    stamp = format!("{stamp}T{}:{}", &time[..2], &time[2..]);
+                    consumed.push("TIME");
+                }
+            }
+            moved.insert("YEAR".into(), vec![stamp]);
+        }
+    } else if let Some(Frame::Timestamp(frame)) =
+        tag.get(&FrameId::new("TDRC").expect("fixed frame identifier"))
+    {
+        // ID3v2.3 stores the recording time as separate year, date and time frames.
+        let stamp = frame.timestamp;
+        consumed.push("TDRC");
+        moved.insert("YEAR".into(), vec![format!("{:04}", stamp.year)]);
+        if let (Some(month), Some(day)) = (stamp.month, stamp.day) {
+            extra.push(("TDAT", format!("{day:02}{month:02}")));
+            if let (Some(hour), Some(minute)) = (stamp.hour, stamp.minute) {
+                extra.push(("TIME", format!("{hour:02}{minute:02}")));
+            }
+        }
+    }
+    let mut remove = Vec::new();
+    for frame in &*tag {
+        let key = frame_key(frame);
+        if consumed.iter().any(|id| *id == key) {
+            remove.push(true);
+            continue;
+        }
+        let convertible = matches!(
+            frame,
+            Frame::Text(_) | Frame::Timestamp(_) | Frame::UserText(_) | Frame::KeyValue(_)
+        ) || (matches!(frame, Frame::Binary(_)) && key == "IPLS");
+        // Documented fields without a native frame in one revision are stored
+        // as TXXX:<FIELD> there (for example MOOD in ID3v2.3).
+        let field = id3_name(&key, from)
+            .or_else(|| match frame {
+                Frame::UserText(text)
+                    if version_native(&text.description, from).eq_ignore_ascii_case(&key) =>
+                {
+                    field_mapping(&text.description).map(|r| r.field)
+                }
+                _ => None,
+            })
+            .filter(|field| convertible && !version_native(field, to).eq_ignore_ascii_case(&key));
+        if field.is_none() {
+            remove.push(false);
+            continue;
+        }
+        let mut single = Id3v2Tag::new();
+        single.insert(frame.clone());
+        for (name, values) in id3_fields_with(&single, from, true) {
+            moved.entry(name).or_default().extend(values);
+        }
+        remove.push(true);
+    }
+    let mut index = 0;
+    tag.retain(|_| {
+        index += 1;
+        !remove[index - 1]
+    });
+    patch_id3(tag, &moved, target)?;
+    for (id, value) in extra {
+        tag.insert(Frame::Text(TextInformationFrame::new(
+            FrameId::new(id).map_err(|e| e.to_string())?,
+            target.encoding(),
+            value,
+        )));
+    }
+    // Data length indicators only describe compressed or encrypted v2.4 frames.
+    let mut failure = None;
+    tag.retain_mut(|frame| {
+        let mut flags = frame.flags();
+        if flags.data_length_indicator.is_some() {
+            if flags.compression || flags.encryption.is_some() {
+                failure = Some("Compressed or encrypted ID3v2.4 frames cannot be converted; original file preserved".to_owned());
+            } else {
+                flags.data_length_indicator = None;
+                frame.set_flags(flags);
+            }
+        }
+        true
+    });
+    failure.map_or(Ok(()), Err)
+}
+
+pub(super) fn patch_id3(
+    tag: &mut Id3v2Tag,
+    updates: &Fields,
+    target: &Id3Target,
+) -> Result<(), String> {
+    let version = target.version;
+    let encoding = target.encoding();
     if updates.contains_key("MOVEMENT") || updates.contains_key("MOVEMENTTOTAL") {
         let existing = id3_fields(tag);
         let n = updates
@@ -1622,7 +1810,7 @@ pub(super) fn patch_id3(tag: &mut Id3v2Tag, updates: &Fields) -> Result<(), Stri
                 for (i, v) in values.iter().enumerate() {
                     tag.insert(Frame::Comment(CommentFrame::new(
                         encoding,
-                        *b"eng",
+                        target.language,
                         if i == 0 {
                             String::new()
                         } else {
