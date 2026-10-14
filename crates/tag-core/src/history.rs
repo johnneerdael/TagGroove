@@ -6,7 +6,7 @@
 //! to a bounded copy. Undo and redo first verify that each file is still
 //! exactly as the journal left it, then restore through a verified sibling
 //! staging file. Files changed elsewhere are reported and never overwritten.
-use crate::FileError;
+use crate::{FileError, TagOptions};
 use serde::Serialize;
 use std::{
     fs,
@@ -148,6 +148,7 @@ pub struct Journal {
     next: u64,
     notice: Option<String>,
     abandoned_group: Option<String>,
+    options: TagOptions,
     _lock: fs::File,
 }
 
@@ -189,8 +190,15 @@ impl Journal {
             next: 0,
             notice: None,
             abandoned_group: None,
+            options: TagOptions::default(),
             _lock: lock,
         })
+    }
+
+    /// Tag preferences used to verify that a restored copy still reads as audio.
+    /// Restores put back the exact previous bytes, so no tag is rewritten.
+    pub fn set_tag_options(&mut self, options: TagOptions) {
+        self.options = options;
     }
 
     pub fn state(&self) -> HistoryState {
@@ -565,7 +573,7 @@ impl Journal {
                 }
                 if content {
                     let blob = to.blob.as_ref().ok_or("The undo snapshot is missing")?;
-                    if let Err(error) = restore(blob, &to.path) {
+                    if let Err(error) = restore(blob, &to.path, &self.options) {
                         if current != to.path {
                             let _ = crate::operations::rename_no_clobber(&to.path, &current);
                         }
@@ -654,7 +662,7 @@ fn move_directories(moves: &[(PathBuf, PathBuf)]) -> Result<(), String> {
 }
 
 /// Replace `target` with the snapshot bytes through a verified staging file.
-fn restore(blob: &Blob, target: &Path) -> Result<(), String> {
+fn restore(blob: &Blob, target: &Path, options: &TagOptions) -> Result<(), String> {
     if fingerprint(&blob.path).ok() != Some(blob.fingerprint) {
         return Err("The undo snapshot was modified".into());
     }
@@ -681,7 +689,7 @@ fn restore(blob: &Blob, target: &Path) -> Result<(), String> {
     {
         return Err("The restored copy is incomplete".into());
     }
-    crate::read_entry_summary(staging.path())?;
+    crate::read_entry_summary_with_options(staging.path(), &[], options)?;
     fs::set_permissions(staging.path(), original.permissions()).map_err(|e| e.to_string())?;
     if fingerprint(&target)? != expected {
         return Err("The file changed during restore; reload it and try again".into());

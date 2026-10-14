@@ -13,6 +13,12 @@ snapshot is on another volume, the journal makes a copy and checks it. After the
 command, the journal records each file's fingerprint (size, mtime, and device
 and inode on Unix), any file renames, and folder moves in the order they ran.
 
+- Restores put back the exact previous bytes, so they never rewrite tags and
+  the user's MPEG/APE write preferences cannot change what is restored. The
+  staged copy is checked by reading it with the current `TagOptions`, and the
+  entries returned to the UI are read through `settings::read_summary`. The
+  journaled commands themselves write through `settings::write_summary` and the
+  `*_with_options` variants.
 - Undo/redo checks that every file still matches the fingerprint the journal
   left. A file that was changed, replaced or deleted outside OpenTag is reported
   ("Changed outside OpenTag after …") and is not overwritten. It is then dropped
@@ -112,7 +118,9 @@ has focus, so you can still type characters such as ™.
   field options, target validation and preview outcomes.
   `tests/document-coordination.test.mjs` now also extracts `refreshHistory`,
   which `run()` calls.
-- Totals: frontend 108 tests (baseline 101 + 7), Rust 290 (baseline 279 + 11).
+- Totals before merging `feat/core-parity`: frontend 108 tests (baseline
+  101 + 7), Rust 290 (baseline 279 + 11). After the merge (tag panel and
+  options): frontend 128 and Rust 312, all passing.
   `npx tsc --noEmit` and `cargo clippy --workspace --all-targets -D warnings`
   are clean.
 - A manual browser check ran Vite with a mocked Tauri bridge. It exercised these

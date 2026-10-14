@@ -32,30 +32,32 @@ fn syncsafe_bytes(value: usize) -> Result<[u8; 4], String> {
         (v & 127) as u8,
     ])
 }
-fn encoding(encoding: &mut TextEncoding) {
-    if matches!(encoding, TextEncoding::UTF8 | TextEncoding::UTF16BE) {
+fn encoding(encoding: &mut TextEncoding, latin1: bool) {
+    if latin1 {
+        *encoding = TextEncoding::Latin1;
+    } else if matches!(encoding, TextEncoding::UTF8 | TextEncoding::UTF16BE) {
         *encoding = TextEncoding::UTF16;
     }
 }
-fn prepare(frame: &mut Frame<'_>) -> Result<(), String> {
+fn prepare(frame: &mut Frame<'_>, latin1: bool) -> Result<(), String> {
     let flags = frame.flags();
     if flags.compression || flags.encryption.is_some() || flags.data_length_indicator.is_some() {
         return Err("Rewriting compressed/encrypted ID3v2.3 frames is not yet supported; original file preserved".into());
     }
     match frame {
-        Frame::Text(v) => encoding(&mut v.encoding),
-        Frame::UserText(v) => encoding(&mut v.encoding),
-        Frame::UserUrl(v) => encoding(&mut v.encoding),
-        Frame::Comment(v) => encoding(&mut v.encoding),
-        Frame::UnsynchronizedText(v) => encoding(&mut v.encoding),
-        Frame::Picture(v) => encoding(&mut v.encoding),
-        Frame::KeyValue(v) => encoding(&mut v.encoding),
-        Frame::Timestamp(v) => encoding(&mut v.encoding),
-        Frame::Ownership(v) => encoding(&mut v.encoding),
+        Frame::Text(v) => encoding(&mut v.encoding, latin1),
+        Frame::UserText(v) => encoding(&mut v.encoding, latin1),
+        Frame::UserUrl(v) => encoding(&mut v.encoding, latin1),
+        Frame::Comment(v) => encoding(&mut v.encoding, latin1),
+        Frame::UnsynchronizedText(v) => encoding(&mut v.encoding, latin1),
+        Frame::Picture(v) => encoding(&mut v.encoding, latin1),
+        Frame::KeyValue(v) => encoding(&mut v.encoding, latin1),
+        Frame::Timestamp(v) => encoding(&mut v.encoding, latin1),
+        Frame::Ownership(v) => encoding(&mut v.encoding, latin1),
         Frame::Chapter(v) => {
             let mut error = None;
             v.children.retain_mut(|v| {
-                if let Err(e) = prepare(v) {
+                if let Err(e) = prepare(v, latin1) {
                     error = Some(e);
                 }
                 true
@@ -67,7 +69,7 @@ fn prepare(frame: &mut Frame<'_>) -> Result<(), String> {
         Frame::TableOfContents(v) => {
             let mut error = None;
             v.children.retain_mut(|v| {
-                if let Err(e) = prepare(v) {
+                if let Err(e) = prepare(v, latin1) {
                     error = Some(e);
                 }
                 true
@@ -235,7 +237,7 @@ fn unsync(bytes: &[u8]) -> Vec<u8> {
     output
 }
 
-pub(super) fn serialize(tag: &Id3v2Tag) -> Result<Vec<u8>, String> {
+pub(super) fn serialize(tag: &Id3v2Tag, latin1: bool) -> Result<Vec<u8>, String> {
     let flags = *tag.flags();
     if flags.crc && flags.unsynchronisation {
         return Err("Combined CRC and unsynchronisation in ID3v2.3 needs further verification; original file preserved".into());
@@ -244,7 +246,7 @@ pub(super) fn serialize(tag: &Id3v2Tag) -> Result<Vec<u8>, String> {
     tag.set_flags(Id3v2TagFlags::default());
     let mut failure = None;
     tag.retain_mut(|frame| {
-        if let Err(error) = prepare(frame) {
+        if let Err(error) = prepare(frame, latin1) {
             failure = Some(error);
         }
         true
@@ -255,6 +257,10 @@ pub(super) fn serialize(tag: &Id3v2Tag) -> Result<Vec<u8>, String> {
     let mut urls = Vec::new();
     for frame in &tag {
         collect_urls(frame, &mut urls)?;
+    }
+    if tag.is_empty() {
+        // An ID3v2 tag without frames is removed rather than written.
+        return Ok(Vec::new());
     }
     let mut bytes = Vec::new();
     tag.dump_to(&mut bytes, WriteOptions::default())
@@ -293,8 +299,13 @@ pub(super) fn serialize(tag: &Id3v2Tag) -> Result<Vec<u8>, String> {
     Ok(output)
 }
 
-pub(super) fn save(file: &mut File, kind: FileType, tag: &Id3v2Tag) -> Result<(), String> {
-    let bytes = serialize(tag)?;
+pub(super) fn save(
+    file: &mut File,
+    kind: FileType,
+    tag: &Id3v2Tag,
+    latin1: bool,
+) -> Result<(), String> {
+    let bytes = serialize(tag, latin1)?;
     file.seek(SeekFrom::Start(0)).map_err(|e| e.to_string())?;
     if matches!(kind, FileType::Mpeg | FileType::Aac) {
         let mut header = [0u8; 10];
@@ -342,6 +353,9 @@ pub(super) fn save(file: &mut File, kind: FileType, tag: &Id3v2Tag) -> Result<()
     for range in ranges.iter().rev() {
         replace(file, range.clone(), &[])?;
     }
+    if bytes.is_empty() {
+        return write_container_size(file, little);
+    }
     let mut chunk = b"ID3 ".to_vec();
     let size = u32::try_from(bytes.len()).map_err(|_| "ID3 chunk too large")?;
     chunk.extend(if little {
@@ -355,6 +369,10 @@ pub(super) fn save(file: &mut File, kind: FileType, tag: &Id3v2Tag) -> Result<()
     }
     let end = file.metadata().map_err(|e| e.to_string())?.len();
     replace(file, end..end, &chunk)?;
+    write_container_size(file, little)
+}
+
+fn write_container_size(file: &mut File, little: bool) -> Result<(), String> {
     let size = u32::try_from(
         file.metadata()
             .map_err(|e| e.to_string())?

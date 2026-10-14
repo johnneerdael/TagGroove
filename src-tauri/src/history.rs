@@ -130,13 +130,14 @@ pub fn history_state() -> Result<HistoryState, String> {
 
 fn replay(backward: bool) -> Result<HistoryResult, String> {
     let replay = with_journal(|journal| {
+        journal.set_tag_options(super::settings::tag_options());
         if backward {
             journal.undo()
         } else {
             journal.redo()
         }
     })??;
-    let mut result = super::batch(&replay.paths, tag_core::read_entry_summary);
+    let mut result = super::batch(&replay.paths, super::settings::read_summary);
     result.errors.extend(replay.errors);
     let changes = |pairs: Vec<(String, String)>| {
         pairs
