@@ -174,12 +174,21 @@ fn ape_pictures(native: &NativeTags, file: &mut TaggedFile) -> Result<(), String
     Ok(())
 }
 
+/// Tags in display order, primary first. FLAC reads Vorbis comments only: a
+/// prepended ID3v2 tag is never shown and is stripped by the next save.
 fn ordered_tags(file: &TaggedFile) -> Vec<&Tag> {
     let primary = file.primary_tag_type();
+    let read = |t: &&Tag| !(file.file_type() == FileType::Flac && t.tag_type() == TagType::Id3v2);
     file.tags()
         .iter()
+        .filter(read)
         .filter(|t| t.tag_type() == primary)
-        .chain(file.tags().iter().filter(|t| t.tag_type() != primary))
+        .chain(
+            file.tags()
+                .iter()
+                .filter(read)
+                .filter(|t| t.tag_type() != primary),
+        )
         .collect()
 }
 
@@ -568,7 +577,6 @@ fn read_description(
     let (mut file, native) = match kind {
         FileType::Flac => read!(FlacFile, |f: &FlacFile| NativeTags {
             vorbis: f.vorbis_comments().cloned(),
-            id3: f.id3v2().cloned(),
             ..Default::default()
         }),
         FileType::Mpeg => read!(MpegFile, |f: &MpegFile| NativeTags {
@@ -906,9 +914,39 @@ where
                 stream,
                 |staging, original, staged_path| mutation(staging, load(original)?, staged_path),
             ),
-            None => mutation(staging, load(original)?, staged_path),
+            None => {
+                let file = load(original)?;
+                let flac_id3 =
+                    file.file_type() == FileType::Flac && file.tag(TagType::Id3v2).is_some();
+                mutation(staging, file, staged_path)?;
+                if flac_id3 {
+                    strip_flac_id3v2(staging)?;
+                }
+                Ok(())
+            }
         },
     )
+}
+
+/// Mp3tag removes the ID3v2 tag some taggers prepend to FLAC files whenever
+/// it saves them; the FLAC stream itself is kept byte for byte.
+fn strip_flac_id3v2(staging: &mut fs::File) -> Result<(), String> {
+    staging
+        .seek(SeekFrom::Start(0))
+        .map_err(|e| e.to_string())?;
+    let mut header = [0u8; 10];
+    if std::io::Read::read_exact(staging, &mut header).is_err()
+        || container_formats::id3v2_size(&header).is_none()
+    {
+        return Ok(());
+    }
+    staging
+        .seek(SeekFrom::Start(0))
+        .map_err(|e| e.to_string())?;
+    crate::write_cost::rewrote_all();
+    TagType::Id3v2
+        .remove_from(staging, WriteOptions::default())
+        .map_err(|e| error_message(&e))
 }
 
 /// Like `staged_mutation_with_mappings`, for formats that lofty cannot load.
@@ -1559,7 +1597,10 @@ fn add_picture_result(
                 );
             }
             let primary = file.primary_tag_type();
-            let previous_covers: usize = file.tags().iter().map(|tag| tag.pictures().len()).sum();
+            let previous_covers: usize = ordered_tags(&file)
+                .iter()
+                .map(|tag| tag.pictures().len())
+                .sum();
             if file.primary_tag().is_none() {
                 file.insert_tag(Tag::new(primary));
             }
