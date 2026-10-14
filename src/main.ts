@@ -13,6 +13,8 @@ import { createNumberingReview, numberingCounter, type NumberingRequest, type Nu
 import { open, save, ask } from '@tauri-apps/plugin-dialog';
 import { fieldNameIdentity, resolveTagEdits, selectionTagRows, type TagRowEdit } from './tag-edits';
 import { ActionUI, panelKey, resolvePathChanges, type ActionGroup, type ActionLibrary, type ImportedGroup } from './action-ui';
+import { FileOpsUI, fileShortcut, type FileOperation } from './file-ops';
+import { listen } from '@tauri-apps/api/event';
 import logoLightUrl from '../assets/brand/OpenTag-Brand-Kit/01-logos/horizontal/opentag-logo-light.svg';
 import markLightUrl from '../assets/brand/OpenTag-Brand-Kit/01-logos/marks/opentag-mark-color.svg';
 import artworkLightUrl from '../assets/brand/OpenTag-Brand-Kit/04-in-app/opentag-default-artwork-light-1024.svg';
@@ -43,7 +45,7 @@ type Batch = { entries: Entry[]; errors: FileError[]; renamed?: { from: string; 
 type Preview = { path: string; value: string };
 type RenamePreview = Preview & {plan_token:string};
 type FilenamePreview = { path: string; fields: Fields };
-type Operation = 'folder'|'files'|'save'|'save-copy'|'refresh-source'|'reload'|'extended'|'add-cover'|'remove-cover'|'filename-tags'|'tags-filename'|'filename-filename'|'text-tags'|'action'|'groups'|'number'|'remove-tags'|'playlist'|'csv'|'export-config'|'select-all'|'discard'|'about';
+type Operation = 'folder'|'files'|'save'|'save-copy'|'refresh-source'|'reload'|'extended'|'add-cover'|'remove-cover'|'filename-tags'|'tags-filename'|'filename-filename'|'text-tags'|'action'|'groups'|'number'|'remove-tags'|'playlist'|'csv'|'export-config'|'select-all'|'discard'|'about'|FileOperation;
 const glyphs:Partial<Record<Operation,string>>={folder:glyphImport,files:glyphMusic,save:glyphSave,'save-copy':glyphSave,'refresh-source':glyphOrganize,reload:glyphOrganize,extended:glyphEdit,'add-cover':glyphAlbum,'remove-cover':glyphEdit,'filename-tags':glyphImport,'tags-filename':glyphExport,'filename-filename':glyphOrganize,'text-tags':glyphImport,action:glyphBatch,groups:glyphSettings,number:glyphOrganize,'remove-tags':glyphEdit,playlist:glyphOrganize,csv:glyphExport,'select-all':glyphCheck,discard:glyphEdit,about:glyphInfo};
 const glyph=(source:string)=>`<span class="icon" aria-hidden="true">${source}</span>`;
 const desktop = isTauri();
@@ -140,6 +142,18 @@ const exportUI=new ExportUI({
     });
     if(!result||result.errors.length)throw new Error(result?.errors.map(e=>`${e.path}: ${e.error}`).join('\n')||errors.map(e=>e.error).join('\n')||'Export did not complete.');
   },
+});
+const macPlatform=/Mac|iPhone|iPad/.test(navigator.platform);
+const fileOps=new FileOpsUI({
+  invoke:(command,args)=>invoke(command,args),
+  pickDirectories:async(title,multiple)=>{const result=await open({directory:true,multiple,title});return result?Array.isArray(result)?result:[result]:[];},
+  confirm:(message,title)=>ask(message,{title,kind:'warning'}),
+  selection:()=>paths().map(path=>({path,name:displayName(path)})),pendingCount:()=>drafts.size,
+  load:(targets,options)=>scan(targets,options),removeEntries,
+  moved:(result,message)=>{const batch=result as Batch;applyRenamed(batch);accept(batch,'Moved',false);status=message;},
+  run:(message,job)=>run(message,job),report:(failures,message)=>{errors=failures;status=message;render();},
+  openReason:()=>busy?'Wait for the current operation.':runtimePlatform.folder_picker_supported?'':'Folder access is not available here. Use Add files.',
+  changed:()=>render(),mac:macPlatform,
 });
 async function executeGroups(groups:ActionGroup[]){
   if(!enabled('action'))throw new Error(operationReason('action')||'Select files and save pending tag edits before applying actions.');
@@ -292,13 +306,15 @@ function updateVirtualRows(force=false){
 }
 function operationReason(op:Operation):string {
   const policy=sourcePolicy();
-  if(op==='folder'&&!runtimePlatform.folder_picker_supported)return 'Folder access is not available here. Use Add files.';
+  if((op==='folder'||op.startsWith('dir-'))&&!runtimePlatform.folder_picker_supported)return 'Folder access is not available here. Use Add files.';
+  if(op.startsWith('file-')&&runtimePlatform.family!=='desktop')return 'File operations are available in the desktop app.';
   if(op==='save-copy')return policy.copyReason;
-  if(['action','tags-filename','filename-filename','text-tags','playlist','csv'].includes(op)&&policy.unsupportedReason)return policy.unsupportedReason;
+  if((['action','tags-filename','filename-filename','text-tags','playlist','csv'].includes(op)||op.startsWith('file-'))&&policy.unsupportedReason)return policy.unsupportedReason;
   if(['save','add-cover','remove-cover','remove-tags','filename-tags'].includes(op)&&policy.mutationReason)return policy.mutationReason;
   if(op==='reload'&&policy.reloadReason)return policy.reloadReason;
   if(op==='number'&&dirtySelected()&&!sourcePolicy().unsupportedReason)return 'Save pending changes first.';
-  if(dirtySelected()&&!['save','save-copy','refresh-source','reload','extended','number','discard','folder','files','select-all','about','groups'].includes(op))return 'Save pending changes first.';
+  if(/^(dir|file)-/.test(op)&&fileOps.reason(op as FileOperation))return fileOps.reason(op as FileOperation);
+  if(dirtySelected()&&!/^(dir-|file-reveal$|file-play$)/.test(op)&&!['save','save-copy','refresh-source','reload','extended','number','discard','folder','files','select-all','about','groups'].includes(op))return 'Save pending changes first.';
   return '';
 }
 function enabled(op: Operation): boolean {
@@ -310,7 +326,7 @@ function enabled(op: Operation): boolean {
   if(op==='groups'||op==='export-config')return true;
   if(op==='refresh-source')return runtimePlatform.document_access_supported;
   if(operationReason(op))return false;
-  if (op === 'folder' || op === 'files') return true;
+  if (op === 'folder' || op === 'files' || op.startsWith('dir-') || op === 'file-reveal') return true;
   if (!selected.size) return false;
   if (op === 'save') return dirtySelected();
   if (op === 'reload' || op === 'extended' || op === 'number' || op === 'save-copy') return true;
@@ -320,7 +336,7 @@ function enabled(op: Operation): boolean {
 function button(op: Operation, label: string, icon = '', shortcut = '') {
   return `<button data-op="${op}" ${enabled(op) ? '' : 'disabled'} title="${esc(operationReason(op)||label)}">${glyphs[op]?glyph(glyphs[op]!):icon?`<span class="icon" aria-hidden="true">${esc(icon)}</span>`:''}<span>${label}</span>${shortcut ? `<small>${shortcut}</small>` : ''}</button>`;
 }
-function menu(name: string, items: [Operation,string,string?][]) { return `<details class="menu" ${name==='Actions'?'id="actions-menu"':''}><summary>${name}</summary><div class="menu-list">${items.map(([op,label,key]) => button(op,label,'',key)).join('')}${name==='Actions'?actionUI.menuHTML():''}${name==='File'&&!runtimePlatform.folder_picker_supported?'<p class="menu-note">Folder access is not available here. Use Add files.</p>':''}${['Convert','Actions'].includes(name)&&sourcePolicy().unsupportedReason?`<p class="menu-note">${esc(sourcePolicy().unsupportedReason)}</p>`:''}</div></details>`; }
+function menu(name: string, items: [Operation,string,string?][]) { return `<details class="menu" ${name==='Actions'?'id="actions-menu"':''}><summary>${name}</summary><div class="menu-list">${items.map(([op,label,key]) => button(op,label,'',key)).join('')}${name==='Actions'?actionUI.menuHTML():''}${name==='File'&&desktop&&runtimePlatform.folder_picker_supported?fileOps.menuHTML():''}${name==='File'&&!runtimePlatform.folder_picker_supported?'<p class="menu-note">Folder access is not available here. Use Add files.</p>':''}${['Convert','Actions'].includes(name)&&sourcePolicy().unsupportedReason?`<p class="menu-note">${esc(sourcePolicy().unsupportedReason)}</p>`:''}</div></details>`; }
 function input(key: string) {
   const values = paths().map(path => field(entries.get(path)!,key));
   const mixed = values.some(value => value !== values[0]);
@@ -342,7 +358,7 @@ function render() {
   const selectedEntries = paths().map(path => entries.get(path)!);
   const selectedSize = selectedEntries.reduce((sum,e) => sum+e.size,0), selectedTime = selectedEntries.reduce((sum,e) => sum+e.duration,0);
   app.innerHTML = `<div class="app" data-pane="${mobilePane}"><header class="titlebar"><img class="brand-logo" data-theme-image="logo" src="${themedAsset('logo')}" alt="OpenTag"><span class="subtitle">Audio metadata editor</span><span class="window-mode">${runtimePlatform.document_access_supported?'Provider documents':desktop?'Local files':'Browser preview'}</span><label class="appearance-control"><span>Appearance</span><select id="appearance" aria-label="Appearance"><option value="system">${appearance.state.preference==='system'?`System (${appearance.state.resolved==='dark'?'Dark':'Light'})`:'System'}</option><option value="light">Light</option><option value="dark">Dark</option></select></label></header>
-  <nav class="menubar" aria-label="Main menu">${menu('File',[['folder','Open folder…',runtimePlatform.document_access_supported?undefined:'⌘/Ctrl O'],['files','Add files…',runtimePlatform.document_access_supported?'⌘/Ctrl O':undefined],['save','Save tags','⌘/Ctrl S'],['save-copy','Save a copy…'],['reload','Reload tags'],['playlist','Create playlist…'],['export-config','Export…','⌘/Ctrl E'],['csv','Export CSV…']])}${menu('Edit',[['select-all','Select all','⌘/Ctrl A'],['extended','Extended tags…'],['discard','Discard pending changes'],['remove-tags','Remove tags…']])}${menu('Convert',[['filename-tags','Filename → Tag…'],['tags-filename','Tag → Filename…'],['filename-filename','Filename → Filename…'],['text-tags','Text File → Tag…'],['number','Auto-numbering…','⌘/Ctrl K']])}${menu('Actions',[['groups','Actions…','Alt 6'],['action','Actions (Quick)…','Alt Shift 6']])}${menu('Help',[['about','About OpenTag']])}</nav>
+  <nav class="menubar" aria-label="Main menu">${menu('File',[['folder','Change directory…',runtimePlatform.document_access_supported?undefined:'⌘/Ctrl D'],['dir-add','Add directory…','Ctrl H'],['files','Add files…',runtimePlatform.document_access_supported?'⌘/Ctrl O':undefined],['dir-up','Upper directory','⌘/Ctrl ⇧ D'],['dir-back','Previous directory','Alt ←'],['dir-forward','Next directory','Alt →'],['dir-favorite','Favorite directory','Ctrl M'],['dir-manage','Directories and favorites…'],['dir-subfolders',`${fileOps.subfolders?'✓ ':''}Include subfolders`],['file-reveal',`Open in ${fileOps.fileManager}`],['save','Save tags','⌘/Ctrl S'],['save-copy','Save a copy…'],['reload','Reload tags'],['playlist','Create playlist…'],['export-config','Export…','⌘/Ctrl E'],['csv','Export CSV…']])}${menu('Edit',[['select-all','Select all','⌘/Ctrl A'],['extended','Extended tags…'],['discard','Discard pending changes'],['remove-tags','Remove tags…'],['file-copy','Copy files to…','⌘/Ctrl ⇧ C'],['file-move','Move files to…','⌘/Ctrl ⇧ V'],['file-delete','Delete files…','⌘/Ctrl Del'],['file-play','Play','F4']])}${menu('Convert',[['filename-tags','Filename → Tag…'],['tags-filename','Tag → Filename…'],['filename-filename','Filename → Filename…'],['text-tags','Text File → Tag…'],['number','Auto-numbering…','⌘/Ctrl K']])}${menu('Actions',[['groups','Actions…','Alt 6'],['action','Actions (Quick)…','Alt Shift 6']])}${menu('Help',[['about','About OpenTag']])}</nav>
   <div class="toolbar" role="toolbar" aria-label="File and tag operations">${button('folder','Open folder','▱')}${button('files','Add files','＋')}<span class="sep"></span>${button('save','Save tags','▣')}${button('reload','Reload','↻')}<span class="sep"></span>${button('filename-tags','Filename → Tag')}${button('tags-filename','Tag → Filename')}<span class="spacer"></span>${button('groups','Actions','⚙')}${button('number','Numbering','#')}</div>
   <nav class="mobile-panes" aria-label="Workspace view"><button data-pane="files" aria-pressed="${mobilePane==='files'}">Files (${entries.size})</button><button data-pane="tags" aria-pressed="${mobilePane==='tags'}" ${selected.size?'':'disabled'}>Tags (${selected.size})</button></nav>
   <main class="workspace"><aside class="editor" aria-label="Tag editor"><div class="panel-title">Tag panel <span>${selected.size ? `${selected.size} selected` : 'No selection'}</span></div>${sourceMarkup('tags')}<div class="fields">${input('TITLE')}${input('ARTIST')}${input('ALBUM')}${input('ALBUMARTIST')}<div class="field-pair">${input('YEAR')}${input('TRACK')}</div>${input('GENRE')}${input('COMMENT')}${input('COMPOSER')}${input('DISCNUMBER')}</div><div class="editor-actions">${button('save','Save tags')}${button('extended','Extended…')}</div>
@@ -411,7 +427,7 @@ function select(path: string, event: MouseEvent | KeyboardEvent) {
 }
 function bind() {
   document.querySelector<HTMLSelectElement>('#appearance')!.addEventListener('change',event=>appearance.set((event.target as HTMLSelectElement).value));
-  actionUI.bindMenu(app);
+  actionUI.bindMenu(app);fileOps.bindMenu(app);
   document.querySelectorAll<HTMLButtonElement>('button[data-pane]').forEach(el=>el.addEventListener('click',()=>{mobilePane=el.dataset.pane as 'files'|'tags';render();}));
   document.querySelectorAll<HTMLButtonElement>('[data-op]').forEach(el => el.addEventListener('click', () => { document.querySelectorAll<HTMLDetailsElement>('details[open]').forEach(d => d.open = false); void operate(el.dataset.op as Operation); }));
   document.querySelectorAll<HTMLInputElement|HTMLTextAreaElement>('[data-field]').forEach(el => el.addEventListener('input', () => draftField(el.dataset.field!,el.value)));
@@ -457,9 +473,14 @@ function applyRenamed(batch:Batch){
   snapshots.forEach(({from})=>{invalidateCovers(from);entries.delete(from);drafts.delete(from);selected.delete(from);});
   snapshots.forEach(({from,to,entry,draft,selected:wasSelected})=>{storeEntry({...entry,path:to,filename:basename(to)});if(draft)drafts.set(to,draft);if(wasSelected)selected.add(to);if(anchor===from)anchor=to;});
 }
-async function scan(newPaths: string[]) {
-  await run('Reading audio files…',async()=>{ const result=await invoke<Batch>('scan_files',{paths:newPaths,recursive:true});accept(result,'Loaded',false);location=newPaths.length===1?newPaths[0]:`${newPaths.length} added locations`;if(!selected.size&&result.entries.length){selected.add(result.entries[0].path);anchor=result.entries[0].path;} });
+// Replacing the list (Change directory) happens only after the new scan succeeds.
+async function scan(newPaths: string[], options:{recursive?:boolean;replace?:boolean;location?:string}={}) {
+  return !!await run('Reading audio files…',async()=>{ const result=await invoke<Batch>('scan_files',{paths:newPaths,recursive:options.recursive??true});if(options.replace)clearWorkspace();const empty=!entries.size;accept(result,'Loaded',false);if(empty||!options.location)location=options.location??(newPaths.length===1?newPaths[0]:`${newPaths.length} added locations`);if(!selected.size&&result.entries.length){selected.add(result.entries[0].path);anchor=result.entries[0].path;}return true; });
 }
+function removeEntries(removed:string[]){
+  removed.forEach(path=>{invalidateCovers(path);entries.delete(path);drafts.delete(path);copyOverrides.delete(path);workingReadErrors.delete(path);selected.delete(path);if(anchor===path)anchor=undefined;});changedData();
+}
+function clearWorkspace(){removeEntries([...entries.keys()]);coverIndex=0;}
 // Immediate mutations may change retained bytes even when publication fails.
 // Keep those local contents separate from source success and pending field intent.
 async function reconcileWorkingEntries(targets:string[]){
@@ -786,7 +807,8 @@ async function operateImpl(op: Operation) {
   if(op==='refresh-source'){await run('Refreshing source access…',async()=>{},{preserveErrors:true});status=documentAccess.refreshError?'Source access refresh failed. Pending edits are retained.':'Source access refreshed';render();return;}
   if(op==='save-copy'){saveCopy();return;}
   if(op==='files'&&runtimePlatform.document_access_supported){await run('Choosing audio documents…',async()=>{const batch=await invoke<Batch>('pick_document_files');if(!batch.entries.length&&!batch.errors.length){status='No files added';return;}accept(batch,'Loaded',false);location='Provider documents';if(batch.entries.length){selected.clear();batch.entries.forEach(entry=>selected.add(entry.path));anchor=batch.entries[0].path;}});return;}
-  if(op==='folder'||op==='files'){const result=await open(op==='folder'?{directory:true,multiple:true,title:'Open audio folder'}:{multiple:true,title:'Add audio files'});if(result)await scan(Array.isArray(result)?result:[result]);return;}
+  if(op==='folder'||/^(dir|file)-/.test(op)){await fileOps.operate(op as FileOperation|'folder');return;}
+  if(op==='files'){const result=await open({multiple:true,title:'Add audio files'});if(result)await scan(Array.isArray(result)?result:[result]);return;}
   if(op==='save'){await saveDrafts();return;}
   if(op==='select-all'){selected.clear();visible().forEach(e=>selected.add(e.path));anchor=paths()[0];coverIndex=0;render();return;}
   if(op==='discard'){if(await ask('Discard the pending tag changes for the selected files?',{title:'Discard changes',kind:'warning'})){paths().forEach(discardDrafts);changedData();status='Pending changes discarded';render();}return;}
@@ -815,6 +837,7 @@ document.addEventListener('keydown',event=>{
   if(event.altKey&&(event.code==='KeyA'||event.key.toLowerCase()==='a')&&!typing){event.preventDefault();const menu=document.querySelector<HTMLDetailsElement>('#actions-menu')!;menubar.open(menu);menu.querySelector('summary')?.focus();actionUI.beginMnemonic();return;}
   if(!typing&&document.querySelector<HTMLDetailsElement>('#actions-menu')?.open&&event.key.trim().length===1&&!event.metaKey&&!event.ctrlKey){event.preventDefault();void actionUI.mnemonic(event.key);return;}
   if(event.key==='Escape'){document.querySelectorAll<HTMLDetailsElement>('details[open]').forEach(d=>d.open=false);}
+  const fileOp=fileShortcut(event,typing,macPlatform);if(fileOp){event.preventDefault();menubar.close();void operate(fileOp);return;}
   if(event.metaKey||event.ctrlKey){if(event.key.toLowerCase()==='s'){event.preventDefault();void operate('save');}if(event.key.toLowerCase()==='o'){event.preventDefault();void operate(runtimePlatform.document_access_supported?'files':'folder');}if(event.key.toLowerCase()==='a'&&!typing){event.preventDefault();void operate('select-all');}if(event.key.toLowerCase()==='e'&&!typing){event.preventDefault();menubar.close();void operate('export-config');}if(event.key.toLowerCase()==='k'&&!typing){event.preventDefault();menubar.close();void operate('number');}}
 });
 window.addEventListener('beforeunload',event=>{if(drafts.size||actionUI.hasUnsavedChanges){event.preventDefault();event.returnValue='';}});
@@ -830,7 +853,8 @@ window.addEventListener('resize',()=>{if(!resizeFrame)resizeFrame=requestAnimati
 if(desktop){
   void getVersion().then(version=>{appVersion=version;}).catch(()=>{appVersion='unknown';});
   void actionUI.initialize().catch(error=>{errors=[{path:'Action groups',error:String(error)}];render();});
-  void invoke<typeof runtimePlatform>('runtime_platform').then(async platform=>{runtimePlatform=platform;nativeAppearanceReady=platform.family==='desktop';render();syncNativeAppearance();if(platform.document_access_supported)await run('Restoring recovery copies…',async()=>{const batch=await invoke<Batch>('restore_document_recovery');accept(batch,'Restored recovery copies',false);location='Provider documents';if(!selected.size&&batch.entries.length){selected.add(batch.entries[0].path);anchor=batch.entries[0].path;}if(!batch.entries.length&&!batch.errors.length)status='Ready';});}).catch(error=>{errors=[{path:'Platform',error:String(error)}];render();});
+  void invoke<typeof runtimePlatform>('runtime_platform').then(async platform=>{runtimePlatform=platform;nativeAppearanceReady=platform.family==='desktop';render();syncNativeAppearance();if(platform.folder_picker_supported)void fileOps.initialize().catch(error=>{errors=[{path:'Directories',error:String(error)}];render();});if(platform.document_access_supported)await run('Restoring recovery copies…',async()=>{const batch=await invoke<Batch>('restore_document_recovery');accept(batch,'Restored recovery copies',false);location='Provider documents';if(!selected.size&&batch.entries.length){selected.add(batch.entries[0].path);anchor=batch.entries[0].path;}if(!batch.entries.length&&!batch.errors.length)status='Ready';});}).catch(error=>{errors=[{path:'Platform',error:String(error)}];render();});
+  void listen('opentag://launch',()=>{if(runtimePlatform.folder_picker_supported)void fileOps.takeLaunches().catch(error=>{errors=[{path:'Command line',error:String(error)}];render();});}).catch(error=>{errors=[{path:'Command line',error:String(error)}];render();});
   void getCurrentWindow().onCloseRequested(async event => {
     if(busy){event.preventDefault();return;}
     if(!drafts.size&&!actionUI.hasUnsavedChanges)return;
@@ -843,6 +867,6 @@ if(desktop){
   void getCurrentWebview().onDragDropEvent(event=>{
     document.querySelector('.drop-overlay')?.remove();
     if(event.payload.type==='enter'||event.payload.type==='over'){const overlay=document.createElement('div');overlay.className='drop-overlay';overlay.textContent='Drop audio files or folders to add them';document.body.append(overlay);}
-    if(event.payload.type==='drop'&&!busy&&!runtimePlatform.document_access_supported)void scan(event.payload.paths);
+    if(event.payload.type==='drop'&&!busy&&!runtimePlatform.document_access_supported)void scan(event.payload.paths,{recursive:fileOps.subfolders});
   }).catch(error=>{errors=[{path:'Drag and drop',error:String(error)}];render();});
 }

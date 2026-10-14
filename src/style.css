@@ -167,3 +167,5 @@ dialog { background:var(--surface); }
 @media(max-width:1000px){.source-access{padding:9px 12px}.source-actions button{min-height:44px}.files>.source-access{max-height:32vh;overflow:auto;overscroll-behavior:contain}}
 
 .export-dialog{width:760px}.export-dialog #export-list{width:100%;min-height:88px;color:var(--text);background:var(--surface);border:1px solid var(--line)}.export-dialog #export-template{min-height:180px;font-family:monospace;white-space:pre;overflow:auto}.export-dialog p{overflow-wrap:anywhere}
+.file-dir-menu>div{max-width:min(420px,90vw)}.file-dir-menu button{display:flex;flex-direction:column;align-items:flex-start!important;gap:2px}.file-dir-menu button>span,.file-dir-menu button small{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-left:0!important}.directories-dialog #dir-favorites{width:100%;min-height:96px;color:var(--text);background:var(--surface);border:1px solid var(--line)}.directories-dialog p{overflow-wrap:anywhere}
+@media(max-width:1000px){.file-dir-menu>div{max-width:none}.directories-dialog{width:calc(100vw - 16px)}}
