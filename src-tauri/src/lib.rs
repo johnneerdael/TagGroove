@@ -18,6 +18,7 @@ mod rename_plan;
 mod settings;
 mod sources;
 mod tag_panel;
+mod utilities;
 
 fn export_library_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(action_host::library_path(app)?.with_file_name("exports.json"))
@@ -928,7 +929,14 @@ pub fn run() {
             sources::tag_source_cancel,
             sources::tag_source_apply,
             sources::load_tag_source_settings,
-            sources::save_tag_source_settings
+            sources::save_tag_source_settings,
+            utilities::remove_tag_types,
+            utilities::run_tool,
+            utilities::export_configuration,
+            utilities::import_configuration,
+            utilities::open_configuration_folder,
+            utilities::open_help_page,
+            utilities::write_clipboard_text
         ])
         .run(tauri::generate_context!())
         .expect("Unable to run OpenTag");

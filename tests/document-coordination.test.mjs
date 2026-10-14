@@ -8,7 +8,7 @@ import ts from 'typescript';
 const main=await readFile(new URL('../src/main.ts',import.meta.url),'utf8');
 const helper=await readFile(new URL('../src/document-state.ts',import.meta.url),'utf8');
 const parsed=ts.createSourceFile('main.ts',main,ts.ScriptTarget.Latest,true,ts.ScriptKind.TS);
-const names=new Set(['updateDraft','run','refreshHistory','saveDrafts','saveCopy','value','accept','operateImpl','refreshSourceAccess','providerEntry','copyBaseUnknown','editedCopyFields','discardDrafts','mutate','reconcileWorkingEntries','storeEntry','invalidateCovers','cacheCovers','coversFor','hydrateActiveCover','coverMarkup','sourceMarkup','workingMetadataNotice']);
+const names=new Set(['updateDraft','run','refreshHistory','saveDrafts','saveCopy','value','accept','operateImpl','refreshSourceAccess','providerEntry','copyBaseUnknown','editedCopyFields','discardDrafts','mutate','reconcileWorkingEntries','storeEntry','invalidateCovers','cacheCovers','coversFor','hydrateActiveCover','coverMarkup','sourceMarkup','workingMetadataNotice','flushNotices']);
 const mergedDeclaration=parsed.statements.filter(ts.isVariableStatement).flatMap(statement=>statement.declarationList.declarations).find(declaration=>declaration.name.getText(parsed)==='merged');
 const functions=parsed.statements.filter(node=>ts.isFunctionDeclaration(node)&&names.has(node.name?.text)).map(node=>node.getText(parsed)).join('\n');
 const factory=`${helper.replace(/\bexport /g,'')}
@@ -29,6 +29,7 @@ export function createWorkspace(initial, options={}) {
   const render=()=>{},changedData=()=>{},esc=value=>String(value),publicMessage=value=>String(value),displayName=value=>value;
   const merged=${mergedDeclaration.initializer.getText(parsed)};
   const enabled=()=>true,ask=async()=>true,modalError=()=>{};
+  let queuedNotices=[];const noticeLabels={},messages={enabled:()=>false,confirm:async()=>true,notify:async()=>{}};
   const sourcePolicy=()=>({mutationReason:'',unsupportedReason:''});
   const applyFields=(base,updates)=>{const result=structuredClone(base);for(const [key,values] of Object.entries(updates)){if(values.length)result[key]=structuredClone(values);else delete result[key];}return result;};
   async function invoke(command,args) {
