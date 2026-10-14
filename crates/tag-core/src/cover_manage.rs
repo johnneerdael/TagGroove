@@ -46,6 +46,9 @@ pub struct CoverChange {
     pub description: String,
     /// Embed in every file, including files that do not contain `original`.
     pub all_files: bool,
+    /// Which copy of identical covers (same image, type and description)
+    /// this entry keeps; `None` keeps every copy.
+    pub occurrence: Option<usize>,
 }
 
 /// Build a picture from image bytes. Lofty does not sniff WebP, which is
@@ -88,8 +91,9 @@ pub fn find_cover_data(
         .transpose()
 }
 
-/// ASF artwork is not read by lofty; rebuild its pictures from a full read.
-fn asf_pictures(path: &Path, options: &TagOptions) -> Result<Vec<Picture>, String> {
+/// ASF, DSD and Matroska artwork is not read by lofty; rebuild the pictures
+/// from a full read.
+fn described_pictures(path: &Path, options: &TagOptions) -> Result<Vec<Picture>, String> {
     read_description(path, true, &[], options)?
         .covers
         .into_iter()
@@ -113,7 +117,7 @@ fn planned_pictures(current: &[Picture], changes: &[CoverChange]) -> Result<Vec<
     let mut planned = Vec::new();
     for change in changes {
         let kind = picture_type_from_name(&change.picture_type)?;
-        let matching: Vec<&Picture> = match &change.original {
+        let mut matching: Vec<&Picture> = match &change.original {
             Some(original) => current
                 .iter()
                 .zip(&digests)
@@ -122,6 +126,9 @@ fn planned_pictures(current: &[Picture], changes: &[CoverChange]) -> Result<Vec<
                 .collect(),
             None => Vec::new(),
         };
+        if let Some(occurrence) = change.occurrence {
+            matching = matching.into_iter().skip(occurrence).take(1).collect();
+        }
         let count = if change.original.is_none() || change.all_files {
             matching.len().max(1)
         } else {
@@ -173,8 +180,12 @@ pub fn apply_cover_changes_with_options(
     options: &TagOptions,
 ) -> Result<AudioEntry, String> {
     let asf = asf::sniff(path);
-    let (current, file_type) = if asf {
-        (asf_pictures(path, options)?, FileType::Custom("ASF"))
+    let container = container_formats::detect(path);
+    let (current, file_type) = if asf || container.is_some() {
+        (
+            described_pictures(path, options)?,
+            FileType::Custom("container"),
+        )
     } else {
         let file = load(path)?;
         (current_pictures(&file, options), file.file_type())
@@ -200,6 +211,9 @@ pub fn apply_cover_changes_with_options(
             },
             DUPLICATE_COVERS,
         );
+    }
+    if let Some(kind) = container {
+        return container_formats::set_covers(path, kind, options, planned, DUPLICATE_COVERS);
     }
     write_pictures(path, planned, options)
 }

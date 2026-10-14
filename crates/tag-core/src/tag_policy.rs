@@ -55,7 +55,7 @@ fn reading_only(options: &TagOptions, kind: TagType) -> TagOptions {
     options
 }
 
-fn id3_target(options: &TagOptions) -> mapping::Id3Target {
+pub(super) fn id3_target(options: &TagOptions) -> mapping::Id3Target {
     let (version, latin1) = match options.mpeg.id3v2_format {
         Id3v2Format::V23Utf16 => (Id3v2Version::V3, false),
         Id3v2Format::V23Latin1 => (Id3v2Version::V3, true),

@@ -2,6 +2,8 @@
 //! temporary file before the original is atomically replaced.
 #[path = "asf/mod.rs"]
 mod asf;
+#[path = "container_formats.rs"]
+mod container_formats;
 #[path = "cover_manage.rs"]
 mod cover_manage;
 #[path = "cover_ops.rs"]
@@ -517,6 +519,9 @@ fn read_description(
     if asf::sniff(&path) {
         return asf::describe(&path, include_cover_data, rules);
     }
+    if let Some(kind) = container_formats::detect(&path) {
+        return container_formats::read(&path, kind, include_cover_data, rules, options);
+    }
     let probe = Probe::open(&path)
         .map_err(|e| e.to_string())?
         .guess_file_type()
@@ -640,12 +645,16 @@ fn audio_extension(path: &Path, allowed: Option<&[String]>) -> bool {
             | "aifc"
             | "ape"
             | "asf"
+            | "dff"
+            | "dsf"
             | "flac"
             | "m4a"
             | "m4b"
             | "m4p"
             | "mp4"
             | "m4v"
+            | "mka"
+            | "mkv"
             | "mpc"
             | "mp+"
             | "mpp"
@@ -655,6 +664,7 @@ fn audio_extension(path: &Path, allowed: Option<&[String]>) -> bool {
             | "spx"
             | "wav"
             | "wave"
+            | "webm"
             | "wma"
             | "wv"
     )
@@ -1140,6 +1150,16 @@ fn write_fields_result(
     if asf::sniff(path) {
         return asf::write_fields(path, updates, include_cover_data, rules, options);
     }
+    if let Some(kind) = container_formats::detect(path) {
+        return container_formats::write_fields(
+            path,
+            kind,
+            updates,
+            include_cover_data,
+            rules,
+            options,
+        );
+    }
     staged_mutation_with_mappings(
         path,
         include_cover_data,
@@ -1217,6 +1237,9 @@ fn remove_tags_result(
 ) -> Result<AudioEntry, String> {
     if asf::sniff(path) {
         return asf::remove_tags(path, include_cover_data, options);
+    }
+    if let Some(kind) = container_formats::detect(path) {
+        return container_formats::remove_tags(path, kind, include_cover_data, options);
     }
     staged_mutation(path, include_cover_data, options, |staging, file, _| {
         for tag in file.tags() {
@@ -1299,6 +1322,16 @@ fn add_picture_result(
                 Ok(())
             },
             "The cover could not be added",
+        );
+    }
+    if let Some(kind) = container_formats::detect(path) {
+        return container_formats::add_cover(
+            path,
+            kind,
+            picture,
+            label,
+            include_cover_data,
+            options,
         );
     }
     staged_mutation(
@@ -1397,6 +1430,9 @@ fn remove_cover_result(
             },
             "The cover could not be removed",
         );
+    }
+    if let Some(kind) = container_formats::detect(path) {
+        return container_formats::remove_cover(path, kind, index, include_cover_data, options);
     }
     staged_mutation(
         path,

@@ -35,7 +35,9 @@ test('selection shows covers only when every file has the same list',()=>{
 
 test('context plans keep other covers and edit the displayed one or every distinct cover',()=>{
  const list=[cover('a'),cover('b','CoverBack','rear')];
- assert.deepEqual(keepPlan(list,(item,i)=>i===0?null:item),[{original:{digest:'b',picture_type:'CoverBack',description:'rear'},image:null,picture_type:'CoverBack',description:'rear',all_files:false}]);
+ assert.deepEqual(keepPlan(list,(item,i)=>i===0?null:item),[{original:{digest:'b',picture_type:'CoverBack',description:'rear'},image:null,picture_type:'CoverBack',description:'rear',all_files:false,occurrence:0}]);
+ // Identical copies are addressed one by one.
+ assert.deepEqual(keepPlan([cover('a'),cover('a')],(item,i)=>i===0?null:item).map(item=>item.occurrence),[1]);
  const retyped=keepPlan(list,(item,i)=>i===1?{...item,picture_type:'Media'}:item);
  assert.deepEqual(retyped.map(item=>[item.original.picture_type,item.picture_type]),[['CoverFront','CoverFront'],['CoverBack','Media']]);
  const distinct=selectionCovers([[cover('a')],[cover('c','Artist')]]).distinct;

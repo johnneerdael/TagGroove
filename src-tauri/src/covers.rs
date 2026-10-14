@@ -194,6 +194,8 @@ pub struct PlanItem {
     description: String,
     #[serde(default)]
     all_files: bool,
+    #[serde(default)]
+    occurrence: Option<usize>,
 }
 
 fn resolve_plan(paths: &[String], items: Vec<PlanItem>) -> Result<Vec<CoverChange>, String> {
@@ -231,6 +233,7 @@ fn resolve_plan(paths: &[String], items: Vec<PlanItem>) -> Result<Vec<CoverChang
                 picture_type: item.picture_type,
                 description: item.description,
                 all_files: item.all_files,
+                occurrence: item.occurrence,
             })
         })
         .collect()
@@ -600,6 +603,7 @@ mod tests {
             picture_type: "CoverBack".into(),
             description: "Shared".into(),
             all_files,
+            occurrence: None,
         };
         let result = run(apply_cover_plan(
             paths.clone(),

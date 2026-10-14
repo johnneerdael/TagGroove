@@ -6,7 +6,8 @@ export type SetCover=CoverRef&{mime:string;size:number;width:number|null;height:
 export type CoverSet={files:number;covers:SetCover[];errors:{path:string;error:string}[]};
 export type StagedImage={token:string;mime:string;size:number;width:number|null;height:number|null;data_base64:string;label:string};
 export type ImageSource={staged:string}|{path:string};
-export type PlanItem={original:CoverRef|null;image:ImageSource|null;picture_type:string;description:string;all_files:boolean};
+/** `occurrence` picks one of several identical covers in a file; without it every copy is meant. */
+export type PlanItem={original:CoverRef|null;image:ImageSource|null;picture_type:string;description:string;all_files:boolean;occurrence?:number};
 
 /** ID3v2 picture types in APIC order with Mp3tag's names. */
 export const PICTURE_TYPES:[string,string][]=[['Other','Other'],['Icon','File icon'],['OtherIcon','Other file icon'],['CoverFront','Front Cover'],['CoverBack','Back Cover'],['Leaflet','Leaflet'],['Media','Media'],['LeadArtist','Lead artist'],['Artist','Artist'],['Conductor','Conductor'],['Band','Band or orchestra'],['Composer','Composer'],['Lyricist','Lyricist'],['RecordingLocation','Recording location'],['DuringRecording','During recording'],['DuringPerformance','During performance'],['ScreenCapture','Screen capture'],['BrightFish','A bright colored fish'],['Illustration','Illustration'],['BandLogo','Band logo'],['PublisherLogo','Publisher logo']];
@@ -46,7 +47,10 @@ export function selectionCovers(lists:CoverInfo[][]):SelectionCovers{
 
 /** Plan that keeps every cover of a uniform selection except edits made by `change`. */
 export function keepPlan(covers:CoverInfo[],change:(item:PlanItem,index:number)=>PlanItem|null=item=>item):PlanItem[]{
-  return covers.flatMap((cover,index)=>{const item=change({original:coverRef(cover),image:null,picture_type:cover.picture_type,description:cover.description,all_files:false},index);return item?[item]:[];});
+  return covers.flatMap((cover,index)=>{
+    const occurrence=covers.slice(0,index).filter(other=>coverKey(other)===coverKey(cover)).length;
+    const item=change({original:coverRef(cover),image:null,picture_type:cover.picture_type,description:cover.description,all_files:false,occurrence},index);return item?[item]:[];
+  });
 }
 /** Plan for varying selections: every distinct cover, each kept only where present. */
 export function distinctPlan(distinct:CoverRef[],change:(item:PlanItem)=>PlanItem|null=item=>item):PlanItem[]{

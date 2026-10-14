@@ -41,6 +41,9 @@ fn transform_covers(
             "The edited covers could not be stored",
         );
     }
+    if let Some(kind) = container_formats::detect(path) {
+        return container_formats::transform_covers(path, kind, options, transform);
+    }
     staged_mutation(path, false, options, |staging, mut file, staged_path| {
         if tag_policy::policy(file.file_type()).is_some() {
             let mut pictures = Vec::new();

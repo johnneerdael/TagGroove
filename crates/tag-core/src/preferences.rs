@@ -83,12 +83,16 @@ pub struct AdvancedTagOptions {
     pub id3v2_comment_language: String,
     /// Show POPM frames as POPULARIMETER instead of RATING MM/RATING WMP.
     pub popularimeter_ratings: bool,
+    /// Use the recommended (video) Matroska mapping for files with a video
+    /// track: TITLE at target type 50, ALBUM at 60 and TV episode/season.
+    pub matroska_video_mapping: bool,
 }
 impl Default for AdvancedTagOptions {
     fn default() -> Self {
         Self {
             id3v2_comment_language: "eng".into(),
             popularimeter_ratings: false,
+            matroska_video_mapping: true,
         }
     }
 }
