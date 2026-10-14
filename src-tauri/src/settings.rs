@@ -72,6 +72,77 @@ impl Default for Settings {
     }
 }
 
+/// How tag sources and the update check reach the internet.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ProxyMode {
+    /// The operating system's proxy settings and the `HTTP(S)_PROXY` variables.
+    #[default]
+    System,
+    None,
+    Manual,
+}
+
+/// Options → Networking (https://docs.mp3tag.de/customization/options/networking/).
+/// The frontend page stores these values in `pages.networking`.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(default)]
+pub struct Network {
+    /// Seconds before a request is abandoned.
+    pub timeout: u64,
+    pub proxy: ProxyMode,
+    /// `http://host:port` when `proxy` is manual.
+    pub proxy_url: String,
+}
+impl Default for Network {
+    fn default() -> Self {
+        Self {
+            timeout: 30,
+            proxy: ProxyMode::System,
+            proxy_url: String::new(),
+        }
+    }
+}
+pub const TIMEOUT_RANGE: std::ops::RangeInclusive<u64> = 5..=300;
+impl Network {
+    pub fn validate(&self) -> Result<(), String> {
+        if !TIMEOUT_RANGE.contains(&self.timeout) {
+            return Err(format!(
+                "The network timeout must be between {} and {} seconds",
+                TIMEOUT_RANGE.start(),
+                TIMEOUT_RANGE.end()
+            ));
+        }
+        if self.proxy == ProxyMode::Manual {
+            self.proxy_address()?;
+        }
+        Ok(())
+    }
+    /// The manual proxy as a URL. Credentials are refused because settings are
+    /// stored and exported as plain text.
+    pub fn proxy_address(&self) -> Result<reqwest::Url, String> {
+        let text = self.proxy_url.trim();
+        let with_scheme = if text.contains("://") {
+            text.to_string()
+        } else {
+            format!("http://{text}")
+        };
+        let url = reqwest::Url::parse(&with_scheme)
+            .map_err(|_| "Enter the proxy as host:port or http://host:port".to_string())?;
+        if !matches!(url.scheme(), "http" | "https")
+            || url.host_str().is_none_or(str::is_empty)
+            || url.path().len() > 1
+            || url.query().is_some()
+        {
+            return Err("Enter the proxy as host:port or http://host:port".into());
+        }
+        if !url.username().is_empty() || url.password().is_some() {
+            return Err("Proxy user names and passwords are not supported".into());
+        }
+        Ok(url)
+    }
+}
+
 /// Parse `*.mp3; flac, .ogg` into lowercase extensions. `None` means all.
 pub fn parse_extensions(value: &str) -> Result<Option<Vec<String>>, String> {
     let mut output = Vec::new();
@@ -105,6 +176,11 @@ impl Settings {
         }
         self.tags.validate()?;
         parse_extensions(&self.files.restrict_extensions)?;
+        if let Some(value) = self.pages.get("networking") {
+            serde_json::from_value::<Network>(value.clone())
+                .map_err(|e| format!("Networking: {e}"))?
+                .validate()?;
+        }
         for (id, value) in &self.pages {
             if id.is_empty()
                 || !id
@@ -220,6 +296,13 @@ pub fn current() -> Settings {
 }
 pub fn tag_options() -> TagOptions {
     current().tags
+}
+pub fn network() -> Network {
+    current()
+        .pages
+        .get("networking")
+        .and_then(|value| serde_json::from_value(value.clone()).ok())
+        .unwrap_or_default()
 }
 pub fn extensions() -> Option<Vec<String>> {
     parse_extensions(&current().files.restrict_extensions)
@@ -343,6 +426,40 @@ mod tests {
             serde_json::from_str(include_str!("../../tests/fixtures/default-settings.json"))
                 .unwrap();
         assert_eq!(serde_json::to_value(Settings::default()).unwrap(), fixture);
+    }
+
+    #[test]
+    fn networking_values_are_validated() {
+        let network = |value: serde_json::Value| serde_json::from_value::<Network>(value).unwrap();
+        assert_eq!(network(serde_json::json!({})), Network::default());
+        assert!(Network::default().validate().is_ok());
+        assert!(network(serde_json::json!({"timeout": 2}))
+            .validate()
+            .is_err());
+        let manual = |url: &str| {
+            network(serde_json::json!({"proxy": "manual", "proxy_url": url})).validate()
+        };
+        assert!(manual("proxy.local:3128").is_ok());
+        assert!(manual("https://10.0.0.1:8443/").is_ok());
+        for bad in [
+            "",
+            "socks5://x:1",
+            "http://user:pw@x:1",
+            "http://x:1/path",
+            "http://:1",
+        ] {
+            assert!(manual(bad).is_err(), "{bad}");
+        }
+        let mut settings = Settings::default();
+        settings
+            .pages
+            .insert("networking".into(), serde_json::json!({"timeout": 1000}));
+        assert!(settings.validate().unwrap_err().contains("timeout"));
+        settings.pages.insert(
+            "networking".into(),
+            serde_json::json!({"proxy": "carrier pigeon"}),
+        );
+        assert!(settings.validate().unwrap_err().starts_with("Networking"));
     }
 
     #[test]

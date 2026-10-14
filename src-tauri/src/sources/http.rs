@@ -1,10 +1,11 @@
 //! Network hygiene for tag sources: one shared rustls client, a trusted host
 //! list (also enforced on redirects), serialised per-service rate limits, size
 //! limits and superseded-request cancellation.
+use crate::settings::{Network, ProxyMode};
 use reqwest::{header, StatusCode, Url};
 use serde_json::Value;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, Mutex as StdMutex};
 use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 
@@ -61,39 +62,58 @@ pub fn parse_trusted(url: &str) -> Result<Url, String> {
         .ok_or_else(|| "This image address is not from a supported tag source.".to_string())
 }
 
-fn client() -> Result<&'static reqwest::Client, String> {
-    static CLIENT: OnceLock<Result<reqwest::Client, String>> = OnceLock::new();
-    CLIENT
-        .get_or_init(|| {
-            let mut roots = rustls::RootCertStore::empty();
-            roots.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
-            let mut tls = rustls::ClientConfig::builder_with_provider(Arc::new(
-                rustls::crypto::ring::default_provider(),
-            ))
-            .with_safe_default_protocol_versions()
-            .map_err(|e| e.to_string())?
-            .with_root_certificates(roots)
-            .with_no_client_auth();
-            tls.alpn_protocols = vec![b"http/1.1".to_vec()];
-            reqwest::Client::builder()
-                .tls_backend_preconfigured(tls)
-                .user_agent(USER_AGENT)
-                .connect_timeout(Duration::from_secs(10))
-                .timeout(Duration::from_secs(30))
-                .redirect(reqwest::redirect::Policy::custom(|attempt| {
-                    if attempt.previous().len() >= 5 {
-                        attempt.error("too many redirects")
-                    } else if trusted(attempt.url()) {
-                        attempt.follow()
-                    } else {
-                        attempt.error("untrusted redirect")
-                    }
-                }))
-                .build()
-                .map_err(|e| format!("Network client could not start: {e}"))
-        })
-        .as_ref()
-        .map_err(Clone::clone)
+/// A client builder with OpenTag's TLS roots, user agent and the timeout and
+/// proxy from Options → Networking.
+pub(crate) fn builder(network: &Network) -> Result<reqwest::ClientBuilder, String> {
+    let mut roots = rustls::RootCertStore::empty();
+    roots.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+    let mut tls = rustls::ClientConfig::builder_with_provider(Arc::new(
+        rustls::crypto::ring::default_provider(),
+    ))
+    .with_safe_default_protocol_versions()
+    .map_err(|e| e.to_string())?
+    .with_root_certificates(roots)
+    .with_no_client_auth();
+    tls.alpn_protocols = vec![b"http/1.1".to_vec()];
+    let timeout = Duration::from_secs(network.timeout);
+    let builder = reqwest::Client::builder()
+        .tls_backend_preconfigured(tls)
+        .user_agent(USER_AGENT)
+        .connect_timeout(timeout.min(Duration::from_secs(10)))
+        .timeout(timeout);
+    Ok(match network.proxy {
+        // reqwest reads the system configuration unless told otherwise.
+        ProxyMode::System => builder,
+        ProxyMode::None => builder.no_proxy(),
+        ProxyMode::Manual => builder.proxy(
+            reqwest::Proxy::all(network.proxy_address()?)
+                .map_err(|e| format!("The proxy cannot be used: {e}"))?,
+        ),
+    })
+}
+
+/// The tag source client, rebuilt when the networking options change.
+fn client() -> Result<reqwest::Client, String> {
+    static CLIENT: StdMutex<Option<(Network, reqwest::Client)>> = StdMutex::new(None);
+    let network = crate::settings::network();
+    let mut cached = CLIENT.lock().map_err(|_| "Network client lock failed")?;
+    if let Some((_, client)) = cached.as_ref().filter(|(config, _)| *config == network) {
+        return Ok(client.clone());
+    }
+    let client = builder(&network)?
+        .redirect(reqwest::redirect::Policy::custom(|attempt| {
+            if attempt.previous().len() >= 5 {
+                attempt.error("too many redirects")
+            } else if trusted(attempt.url()) {
+                attempt.follow()
+            } else {
+                attempt.error("untrusted redirect")
+            }
+        }))
+        .build()
+        .map_err(|e| format!("Network client could not start: {e}"))?;
+    *cached = Some((network, client.clone()));
+    Ok(client)
 }
 
 /// Requests through one gate run one at a time, at least `spacing` apart.
@@ -168,7 +188,7 @@ pub fn status_message(service: &str, status: StatusCode, authenticated: bool) ->
     }
 }
 
-async fn read_limited(
+pub(crate) async fn read_limited(
     mut response: reqwest::Response,
     limit: usize,
     service: &str,
@@ -359,5 +379,59 @@ mod tests {
     #[test]
     fn client_builds_with_the_ring_provider() {
         assert!(client().is_ok());
+    }
+
+    #[test]
+    fn networking_options_configure_the_client() {
+        for proxy in [ProxyMode::System, ProxyMode::None, ProxyMode::Manual] {
+            let network = Network {
+                timeout: 12,
+                proxy,
+                proxy_url: "127.0.0.1:3128".into(),
+            };
+            assert!(builder(&network).unwrap().build().is_ok(), "{proxy:?}");
+        }
+        let broken = Network {
+            proxy: ProxyMode::Manual,
+            proxy_url: "user:secret@proxy:1".into(),
+            ..Network::default()
+        };
+        assert!(builder(&broken).is_err());
+    }
+
+    #[test]
+    fn manual_proxy_carries_requests() {
+        // A one-shot proxy on loopback answers the tunnel request with 403.
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let seen = std::thread::spawn(move || {
+            use std::io::{Read, Write};
+            let (mut socket, _) = listener.accept().unwrap();
+            let mut request = [0; 512];
+            let n = socket.read(&mut request).unwrap();
+            socket
+                .write_all(b"HTTP/1.1 403 Forbidden\r\ncontent-length: 0\r\n\r\n")
+                .unwrap();
+            String::from_utf8_lossy(&request[..n]).into_owned()
+        });
+        let network = Network {
+            timeout: 5,
+            proxy: ProxyMode::Manual,
+            proxy_url: format!("127.0.0.1:{port}"),
+        };
+        let result = tauri::async_runtime::block_on(tauri::async_runtime::spawn(async move {
+            let client = builder(&network).unwrap().build().unwrap();
+            client
+                .get("https://musicbrainz.org/ws/2/release/x")
+                .send()
+                .await
+                .map(|_| ())
+        }))
+        .unwrap();
+        assert!(result.is_err(), "the proxy refused the tunnel");
+        assert!(seen
+            .join()
+            .unwrap()
+            .starts_with("CONNECT musicbrainz.org:443"));
     }
 }
