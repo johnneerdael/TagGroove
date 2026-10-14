@@ -1,0 +1,108 @@
+Window: "OpenTag", App: OpenTag.
+0 standard window OpenTag, Secondary Actions: Raise
+	1 scroll area
+		2 HTML content Description: OpenTag, URL: tauri://localhost
+			3 container
+				4 image OpenTag
+					5 image opentag-logo-dark
+				6 text Audio metadata editor Local files Appearance
+				7 pop up button Appearance, Help: Appearance: System (dark), Value: System (Dark)
+			8 container Main menu
+				9 summary File, Value: off
+					10 text File
+				11 summary Edit, Value: off
+					12 text Edit
+				13 summary Convert, Value: off
+					14 text Convert
+				15 summary Actions, Value: off
+					16 text Actions
+				17 summary Help, Value: off
+					18 text Help
+			19 toolbar File and tag operations
+				20 button Open folder
+				21 button Add files
+				22 button (disabled) Save tags
+				23 button (disabled) Reload
+				24 button (disabled) Filename → Tag
+				25 button (disabled) Tag → Filename
+				26 button Actions
+				27 button (disabled) Numbering
+			28 container
+				29 container Tag editor
+					30 text Tag panel No selection
+					31 container
+						32 text TITLE
+						33 text field (disabled, settable) TITLE
+					34 container
+						35 text ARTIST
+						36 text field (disabled, settable) ARTIST
+					37 container
+						38 text ALBUM
+						39 text field (disabled, settable) ALBUM
+					40 container
+						41 text ALBUM ARTIST
+						42 text field (disabled, settable) ALBUM ARTIST
+					43 container
+						44 text YEAR
+						45 text field (disabled, settable) YEAR
+					46 container
+						47 text TRACK
+						48 text field (disabled, settable) TRACK
+					49 container
+						50 text GENRE
+						51 text field (disabled, settable) GENRE
+					52 container
+						53 text COMMENT
+						54 text entry area (disabled, settable) COMMENT, Value: [text entry area]
+					55 container
+						56 text COMPOSER
+						57 text field (disabled, settable) COMPOSER
+					58 container
+						59 text DISC NUMBER
+						60 text field (disabled, settable) DISC NUMBER
+					61 button (disabled) Save tags
+					62 button (disabled) Extended…
+					63 container Embedded artwork
+						64 text No artwork
+						65 text Embedded cover art
+						66 button (disabled) Add…
+						67 button (disabled) Remove
+				68 container Audio files
+					69 text No folder loaded
+					70 text 0 files
+					71 text Filter
+					72 search text field (settable) Filter, Placeholder: Filter filenames and tags, or enter a filter expression
+						73 text Filter filenames and tags, or enter a filter expression
+					74 text 0 selected
+					75 table Audio metadata
+						76 row (selectable) Filename ↑
+Title
+Artist
+Album
+Track
+Year
+Genre
+Length
+Format
+Bitrate
+					77 heading Open your music folder, Value: 1
+						78 text Open your music folder
+					79 text Open a folder, add audio files, or drop them into this window. Select files to edit their tags together.
+					80 button Open folder…
+					81 button Add files…
+					82 text Select a file to view its tags
+			83 container
+				84 text Ready 0 files
+	85 close button
+	86 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window
+	87 minimize button
+	88 text OpenTag
+89 menu bar
+	90 OpenTag
+	91 File
+	92 Edit
+	93 View
+	94 Window
+	95 Help
+
+The focused UI element is 2 HTML content Description: OpenTag, URL: tauri://localhost

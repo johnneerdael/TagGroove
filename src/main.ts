@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 import { invoke, isTauri } from '@tauri-apps/api/core';
+import { installMenubar } from './menubar';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getVersion } from '@tauri-apps/api/app';
@@ -429,16 +430,16 @@ async function operate(op: Operation) {
   try { await operateImpl(op); }
   catch(error) {errors=[{path:'Operation',error:String(error)}];status='Operation failed';render();}
 }
+const menubar = installMenubar(document);
 document.addEventListener('keydown',event=>{
-  if(document.querySelector('dialog[open]'))return;
+  if(event.defaultPrevented||document.querySelector('dialog[open]'))return;
   const typing=event.target instanceof HTMLInputElement||event.target instanceof HTMLTextAreaElement;
-  if(event.altKey&&event.key==='6'){event.preventDefault();void operate(event.shiftKey?'action':'groups');return;}
-  if(event.altKey&&event.key.toLowerCase()==='a'&&!typing){event.preventDefault();const menu=document.querySelector<HTMLDetailsElement>('#actions-menu')!;menu.open=true;actionUI.beginMnemonic();return;}
-  if(!typing&&document.querySelector<HTMLDetailsElement>('#actions-menu')?.open&&event.key.length===1&&!event.metaKey&&!event.ctrlKey){event.preventDefault();void actionUI.mnemonic(event.key);return;}
+  if(event.altKey&&(event.code==='Digit6'||event.key==='6')){event.preventDefault();menubar.close();void operate(event.shiftKey?'action':'groups');return;}
+  if(event.altKey&&(event.code==='KeyA'||event.key.toLowerCase()==='a')&&!typing){event.preventDefault();const menu=document.querySelector<HTMLDetailsElement>('#actions-menu')!;menubar.open(menu);menu.querySelector('summary')?.focus();actionUI.beginMnemonic();return;}
+  if(!typing&&document.querySelector<HTMLDetailsElement>('#actions-menu')?.open&&event.key.trim().length===1&&!event.metaKey&&!event.ctrlKey){event.preventDefault();void actionUI.mnemonic(event.key);return;}
   if(event.key==='Escape'){document.querySelectorAll<HTMLDetailsElement>('details[open]').forEach(d=>d.open=false);}
   if(event.metaKey||event.ctrlKey){if(event.key.toLowerCase()==='s'){event.preventDefault();void operate('save');}if(event.key.toLowerCase()==='o'){event.preventDefault();void operate('folder');}if(event.key.toLowerCase()==='a'&&!typing){event.preventDefault();void operate('select-all');}}
 });
-document.addEventListener('click',e=>{if(!(e.target as Element).closest('.menu'))document.querySelectorAll<HTMLDetailsElement>('details[open]').forEach(d=>d.open=false);});
 window.addEventListener('beforeunload',event=>{if(drafts.size||actionUI.hasUnsavedChanges){event.preventDefault();event.returnValue='';}});
 render();
 let resizeFrame=0;
