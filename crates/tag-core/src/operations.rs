@@ -187,7 +187,12 @@ mod tests {
         let target = dir.path().join("copied.flac");
         let bytes = (0..131_073).map(|i| (i % 251) as u8).collect::<Vec<_>>();
         std::fs::write(&source, &bytes).unwrap();
-        let input = std::fs::File::open(&source).unwrap();
+        // Windows requires a writable handle to set fixture timestamps.
+        let input = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(&source)
+            .unwrap();
         input
             .set_times(std::fs::FileTimes::new().set_modified(
                 std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_700_000_000),
