@@ -13,7 +13,7 @@ export function documentSelection(paths: string[], access: DocumentAccess, docum
   if(provider && paths.length) {
     if(access.refreshError || managed.length !== paths.length) mutationReason = 'Source access is unknown. Refresh source access before saving.';
     else if(managed.some(path => access.states[path].state !== 'ready')) mutationReason = 'Recovery required. Save an edited copy or the original backup.';
-    else if(managed.some(path => !access.states[path].writable)) mutationReason = 'The source is read-only. Keep editing and use Save a copy.';
+    else if(managed.some(path => !access.states[path].writable)) mutationReason = 'Selection includes a read-only source. Keep editing and use Save a copy.';
     if(access.refreshError || managed.length !== paths.length) reloadReason = 'Source access is unknown. Refresh source access before reloading.';
     else if(managed.some(path => access.states[path].state !== 'ready')) reloadReason = 'Recovery copies are retained. Use Save a copy before reopening the source.';
   }
