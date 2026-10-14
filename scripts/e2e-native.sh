@@ -5,7 +5,9 @@
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 script="${1:-$root/tests/e2e/core-workflows.js}"
-identifier="org.opentag.editor.usertest"
+# Parallel runs need distinct identifiers: single-instance forwarding and app
+# config directories are keyed by it.
+identifier="${OPENTAG_E2E_ID:-org.opentag.editor.usertest}"
 if [[ "${2:-}" != "--no-build" ]]; then
   (cd "$root" && AR="${AR:-/usr/bin/ar}" npx tauri build --debug --bundles app \
     --config "{\"identifier\":\"$identifier\",\"productName\":\"OpenTag UserTest\"}" >/dev/null)
