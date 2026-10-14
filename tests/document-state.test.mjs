@@ -74,10 +74,18 @@ test('source presentation uses provider identity and distinguishes grant, recove
   const source=sourcePresentation(ready);
   assert.equal(source.name,'Mémoire 猫.wav');
   assert.equal(source.location,'content://audio.provider/document/37');
-  assert.match(source.detail,/retained/i);
-  assert.match(sourcePresentation({...ready,persisted:false}).detail,/session/i);
+  assert.equal(source.detail,'Access retained · Save a copy available');
+  assert.equal(sourcePresentation({...ready,persisted:false}).detail,'Access for this session · Save a copy available');
   assert.match(sourcePresentation({...ready,writable:false}).label,/read.only/i);
-  assert.match(sourcePresentation({...ready,state:'recovery_required'}).label,/recovery/i);
+  for(const persisted of [true,false]) {
+    const recovery=sourcePresentation({...ready,persisted,state:'recovery_required'});
+    assert.match(recovery.label,/recovery/i);
+    assert.match(recovery.detail,/^Previous source details: /);
+    assert.match(recovery.detail,/Edited and original copies retained$/);
+    assert.equal(recovery.name,source.name);
+    assert.equal(recovery.location,source.location);
+    assert.match(sourcePresentation({...ready,persisted},true).detail,/^Previous source details: /);
+  }
   assert.match(sourcePresentation(undefined).label,/unknown/i);
 });
 test('source errors redact working paths and private storage details before display', () => {

@@ -39,7 +39,7 @@ export function sourcePresentation(state: DocumentState|undefined, stale = false
   return {
     name: state?.name || 'Provider document', location: state?.uri || 'Source location unavailable',
     label: !state || stale ? 'Source access unknown' : state.state === 'recovery_required' ? 'Recovery required' : state.writable ? 'Source writable' : 'Source read-only',
-    detail: !state ? 'Refresh source access before saving.' : `${stale ? 'Previous source details: ' : ''}${state.persisted ? 'Access retained' : 'Access for this session'} · ${state.state === 'recovery_required' ? 'Edited and original copies retained' : 'Save a copy available'}`,
+    detail: !state ? 'Refresh source access before saving.' : `${stale || state.state === 'recovery_required' ? 'Previous source details: ' : ''}${state.persisted ? 'Access retained' : 'Access for this session'} · ${state.state === 'recovery_required' ? 'Edited and original copies retained' : 'Save a copy available'}`,
   };
 }
 export function publicDocumentMessage(error: unknown, states: Record<string, DocumentState>): string {
