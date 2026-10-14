@@ -70,6 +70,7 @@ test('update messages and release notes after an update',()=>{
   assert.match(general.updateMessage({current:'0.1.0',latest:release,newer:true}).text,/OpenTag 0\.2\.0 \(0\.2\.0\) is available\. You have OpenTag 0\.1\.0/);
   assert.equal(general.updateMessage({current:'0.2.0',latest:release,newer:false}).title,'OpenTag is up to date');
   assert.equal(general.updateMessage({current:'0.1.0',latest:null,newer:false}).title,'No releases found');
+  assert.match(general.updateMessage({current:'0.1.0',latest:null,newer:false,skipped_beta:'0.1.0'}).text,/Development build 0\.1\.0 is published; include development builds/);
   const prefs=general.updateOptions({});
   assert.deepEqual(prefs,general.UPDATE_DEFAULTS);
   assert.equal(general.showReleaseNotes({...prefs,last_version:''},'0.2.0'),false,'not on a fresh install');
@@ -94,10 +95,10 @@ test('new messages default on and remember the cover choice',()=>{
 test('Utils apply to their formats and say what they skip',()=>{
   assert.equal(utils.utilTargets('optimize',['FLAC','MP3','MP4']),2);
   assert.equal(utils.utilTargets('remove_unsupported_fields',['MP3','FLAC']),1);
-  assert.equal(utils.utilTargets('strip_chapters',['MP3']),0);
+  assert.equal(utils.utilTargets('optimize',['MP3']),0);
   const text=utils.utilMessage('optimize',['FLAC','MP3']);
   assert.match(text,/^Optimize for 1 of 2 selected files\?/);
   assert.match(text,/1 file is skipped: this applies to FLAC and MP4 files\./);
   assert.match(text,/Edit → Undo restores/);
-  assert.doesNotMatch(utils.utilMessage('strip_chapters',['MP4']),/skipped/);
+  assert.doesNotMatch(utils.utilMessage('optimize',['MP4']),/skipped/);
 });

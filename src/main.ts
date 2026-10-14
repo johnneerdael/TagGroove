@@ -826,8 +826,10 @@ function cancelProgress(){
   job.cancelling=true;showProgress();document.querySelector<HTMLButtonElement>('#cancel-job')?.setAttribute('disabled','');
   void invoke('cancel_job',{job:job.id}).catch(()=>{/* The job already finished. */});
 }
+// Files applyRenamed dropped from the list; the accept() that follows it does not list them again.
+const movedOut=new Set<string>();
 function accept(batch: Batch, message: string, clearDrafts = true) {
-  batch.entries.forEach(storeEntry);reconcileDrafts(drafts,batch.entries.map(entry=>entry.path),clearDrafts);if(clearDrafts)batch.entries.forEach(entry=>{copyOverrides.delete(entry.path);workingReadErrors.delete(entry.path);});
+  batch.entries.forEach(entry=>{if(!movedOut.has(entry.path))storeEntry(entry);});movedOut.clear();reconcileDrafts(drafts,batch.entries.map(entry=>entry.path),clearDrafts);if(clearDrafts)batch.entries.forEach(entry=>{copyOverrides.delete(entry.path);workingReadErrors.delete(entry.path);});
   errors=batch.errors;status=`${message}: ${batch.entries.length} file${batch.entries.length===1?'':'s'}${errors.length?`, ${errors.length} failed`:''}`;
   if(noticeLabels[message]&&batch.entries.length)queuedNotices.push([noticeLabels[message],status]);
   if(message==='Renamed'&&batch.entries.length)autoPlaylistPending=true;
@@ -840,7 +842,7 @@ function applyRenamed(batch:Batch){
   snapshots.forEach(({from})=>{invalidateCovers(from);entries.delete(from);drafts.delete(from);selected.delete(from);});
   snapshots.forEach(({from,to,entry,draft,selected:wasSelected})=>{storeEntry({...entry,path:to,filename:basename(to)});if(draft)drafts.set(to,draft);if(wasSelected)selected.add(to);if(anchor===from)anchor=to;});
   // Options → General → Keep moved files: without it, files moved out of the listed folders leave the list (unless they have pending edits).
-  if(!generalPrefs().keep_moved&&folders.length){const gone=snapshots.map(({to})=>to).filter(to=>!insideFolders(to,folders)&&!drafts.has(to));if(gone.length)removeEntries(gone);}
+  if(!generalPrefs().keep_moved&&folders.length){const gone=snapshots.map(({to})=>to).filter(to=>!insideFolders(to,folders)&&!drafts.has(to));gone.forEach(path=>movedOut.add(path));if(gone.length)removeEntries(gone);}
 }
 // Replacing the list (Change directory) happens only after the new scan succeeds.
 async function scan(newPaths: string[], options:{recursive?:boolean;replace?:boolean;location?:string;errors?:FileError[]}={}) {

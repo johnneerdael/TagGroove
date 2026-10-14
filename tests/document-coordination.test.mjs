@@ -33,7 +33,7 @@ export function createWorkspace(initial, options={}) {
   const render=()=>{},changedData=()=>{},esc=value=>String(value),publicMessage=value=>String(value),displayName=value=>value;
   const merged=${mergedDeclaration.initializer.getText(parsed)};
   const enabled=()=>true,ask=async()=>true,modalError=()=>{};
-  let queuedNotices=[],autoPlaylistPending=false;const autoPlaylist=async()=>{autoPlaylistPending=false;},noticeLabels={},messages={enabled:()=>false,confirm:async()=>true,notify:async()=>{}};
+  let queuedNotices=[],autoPlaylistPending=false;const movedOut=new Set();const autoPlaylist=async()=>{autoPlaylistPending=false;},noticeLabels={},messages={enabled:()=>false,confirm:async()=>true,notify:async()=>{}};
   const sourcePolicy=()=>({mutationReason:'',unsupportedReason:''});
   const applyFields=(base,updates)=>{const result=structuredClone(base);for(const [key,values] of Object.entries(updates)){if(values.length)result[key]=structuredClone(values);else delete result[key];}return result;};
   async function invoke(command,args) {

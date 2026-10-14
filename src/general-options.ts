@@ -12,7 +12,7 @@ export type ProxyMode='system'|'none'|'manual';
 export type NetworkOptions={timeout:number;proxy:ProxyMode;proxy_url:string};
 export type UpdateOptions={check_on_startup:boolean;include_beta:boolean;release_notes:boolean;last_version:string};
 export type Release={version:string;name:string;url:string;prerelease:boolean;published:string|null};
-export type UpdateCheck={current:string;latest:Release|null;newer:boolean};
+export type UpdateCheck={current:string;latest:Release|null;newer:boolean;skipped_beta?:string|null};
 
 export const NETWORK_DEFAULTS:NetworkOptions={timeout:30,proxy:'system',proxy_url:''};
 export const UPDATE_DEFAULTS:UpdateOptions={check_on_startup:false,include_beta:false,release_notes:true,last_version:''};
@@ -64,8 +64,9 @@ export function releaseNotesUrl(version:string){return `${RELEASES_PAGE}tag/v${e
 /** First start of a different version than the one that last ran (not a fresh install). */
 export function showReleaseNotes(options:UpdateOptions,current:string){return options.release_notes&&!!options.last_version&&options.last_version!==current&&/^\d/.test(current);}
 export function updateMessage(check:UpdateCheck){
-  if(!check.latest)return{title:'No releases found',text:`OpenTag ${check.current} is installed. No published release was found.`};
-  if(!check.newer)return{title:'OpenTag is up to date',text:`OpenTag ${check.current} is the newest ${check.latest.prerelease?'version, including beta builds':'release'}.`};
+  const beta=check.skipped_beta?` Development build ${check.skipped_beta} is published; include development builds in Options → Updates to check against it.`:'';
+  if(!check.latest)return{title:'No releases found',text:`OpenTag ${check.current} is installed. No stable release has been published.${beta}`};
+  if(!check.newer)return{title:'OpenTag is up to date',text:`OpenTag ${check.current} is the newest ${check.latest.prerelease?'version, including beta builds':'release'}.${beta}`};
   return{title:'An update is available',text:`${check.latest.name} (${check.latest.version}${check.latest.prerelease?', beta':''}) is available. You have OpenTag ${check.current}.`};
 }
 

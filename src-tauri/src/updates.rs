@@ -66,6 +66,16 @@ impl Ord for Version {
         })
     }
 }
+impl std::fmt::Display for Version {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let [major, minor, patch] = self.numbers;
+        write!(f, "{major}.{minor}.{patch}")?;
+        if !self.pre.is_empty() {
+            write!(f, "-{}", self.pre.join("."))?;
+        }
+        Ok(())
+    }
+}
 impl PartialOrd for Version {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
@@ -101,17 +111,30 @@ pub struct UpdateCheck {
     /// The newest published release that matches the channel.
     pub latest: Option<Release>,
     pub newer: bool,
+    /// The newest beta build, when beta builds were left out and it is newer
+    /// than `latest`.
+    pub skipped_beta: Option<String>,
 }
 
 /// Pick the newest release. Drafts, unparsable tags and pages outside the
 /// OpenTag repository are ignored; beta builds only when asked for.
 fn newest(releases: &[GithubRelease], current: &str, include_prereleases: bool) -> UpdateCheck {
-    let latest = releases
+    let published: Vec<(Version, &GithubRelease)> = releases
         .iter()
         .filter(|r| !r.draft && r.html_url.starts_with(RELEASES_PAGE))
         .filter_map(|r| Version::parse(&r.tag_name).map(|v| (v, r)))
-        .filter(|(v, r)| include_prereleases || !(r.prerelease || v.prerelease()))
+        .collect();
+    let beta = |(v, r): &&(Version, &GithubRelease)| r.prerelease || v.prerelease();
+    let latest = published
+        .iter()
+        .filter(|release| include_prereleases || !beta(release))
         .max_by(|a, b| a.0.cmp(&b.0));
+    let skipped_beta = published
+        .iter()
+        .filter(|release| !include_prereleases && beta(release))
+        .max_by(|a, b| a.0.cmp(&b.0))
+        .filter(|(v, _)| latest.is_none_or(|(l, _)| v > l))
+        .map(|(v, _)| v.to_string());
     let newer = match (&latest, Version::parse(current)) {
         (Some((version, _)), Some(current)) => *version > current,
         _ => false,
@@ -119,17 +142,7 @@ fn newest(releases: &[GithubRelease], current: &str, include_prereleases: bool) 
     UpdateCheck {
         current: current.to_string(),
         latest: latest.map(|(version, r)| Release {
-            version: format!(
-                "{}.{}.{}{}",
-                version.numbers[0],
-                version.numbers[1],
-                version.numbers[2],
-                if version.pre.is_empty() {
-                    String::new()
-                } else {
-                    format!("-{}", version.pre.join("."))
-                }
-            ),
+            version: version.to_string(),
             name: r
                 .name
                 .clone()
@@ -140,6 +153,7 @@ fn newest(releases: &[GithubRelease], current: &str, include_prereleases: bool) 
             published: r.published_at.clone(),
         }),
         newer,
+        skipped_beta,
     }
 }
 
@@ -245,9 +259,20 @@ mod tests {
             (beta.version.as_str(), beta.prerelease),
             ("0.3.0-beta.1", true)
         );
+        assert_eq!(stable.skipped_beta.as_deref(), Some("0.3.0-beta.1"));
         let current = newest(&releases, "0.2.0", false);
         assert!(!current.newer);
         assert!(!newest(&[], "0.1.0", true).newer);
+        // Only a beta is published: a stable check reports it was left out.
+        let only_beta = newest(&[release("v0.1.0", true, false)], "0.1.0", false);
+        assert_eq!(
+            (only_beta.latest, only_beta.skipped_beta.as_deref()),
+            (None, Some("0.1.0"))
+        );
+        assert_eq!(
+            newest(&[release("v0.1.0", true, false)], "0.1.0", true).skipped_beta,
+            None
+        );
     }
 
     #[test]
