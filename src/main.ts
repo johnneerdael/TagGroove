@@ -702,7 +702,13 @@ document.addEventListener('keydown',event=>{
 window.addEventListener('beforeunload',event=>{if(drafts.size||actionUI.hasUnsavedChanges){event.preventDefault();event.returnValue='';}});
 render();
 let resizeFrame=0;
-window.addEventListener('resize',()=>{if(!resizeFrame)resizeFrame=requestAnimationFrame(()=>{resizeFrame=0;rowHeight=compactScreen()?44:30;render();});});
+window.addEventListener('resize',()=>{if(!resizeFrame)resizeFrame=requestAnimationFrame(()=>{
+  resizeFrame=0;
+  const nextRowHeight=compactScreen()?44:30;
+  // IME and orientation resizes within a mode must keep editor/menu nodes intact.
+  if(nextRowHeight===rowHeight){updateVirtualRows();return;}
+  rowHeight=nextRowHeight;render();
+});});
 if(desktop){
   void getVersion().then(version=>{appVersion=version;}).catch(()=>{appVersion='unknown';});
   void actionUI.initialize().catch(error=>{errors=[{path:'Action groups',error:String(error)}];render();});
