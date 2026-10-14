@@ -1002,8 +1002,12 @@ fn save_preserving_native(
     covers_changed: bool,
     id3: Id3Write,
 ) -> Result<(), String> {
-    // Only FLAC Vorbis comments can be rewritten in place; flac_metadata reports how.
-    if !(file_type == FileType::Flac && tag.tag_type() == TagType::VorbisComments) {
+    // FLAC Vorbis comments, ID3v2 and MP4 ilst can be rewritten in place; their
+    // writers report how (flac_metadata, id3_padding, mp4_metadata).
+    if !matches!(
+        (file_type, tag.tag_type()),
+        (FileType::Flac, TagType::VorbisComments) | (_, TagType::Id3v2) | (_, TagType::Mp4Ilst)
+    ) {
         crate::write_cost::rewrote_all();
     }
     let originals = native_tags(staging, file_type)?;
@@ -1041,12 +1045,7 @@ fn save_preserving_native(
                     native.insert_picture(picture.clone());
                 }
             }
-            staging
-                .seek(SeekFrom::Start(0))
-                .map_err(|e| e.to_string())?;
-            native
-                .save_to(staging, WriteOptions::default())
-                .map_err(|e| error_message(&e))
+            crate::mp4_metadata::save(staging, &native)
         }
         TagType::VorbisComments => {
             let mut native = originals.vorbis.unwrap_or_default();

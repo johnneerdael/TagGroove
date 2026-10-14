@@ -1,5 +1,6 @@
 //! Writes one COMMENT value into the first `count` audio files of a folder and
-//! reports the time per file. It modifies files: point it at a disposable copy
+//! reports the time per file. An optional third argument is appended to each
+//! value, so repeated runs can grow or shrink the tag. It modifies files: point it at a disposable copy
 //! (on APFS, `cp -cR <folder> <copy>` costs no extra disk).
 use std::time::Instant;
 
@@ -9,13 +10,14 @@ fn main() {
     let count: usize = args
         .next()
         .map_or(usize::MAX, |n| n.parse().expect("count"));
+    let suffix = args.next().unwrap_or_default();
     let scan = tag_core::scan_paths(std::slice::from_ref(&path), true);
     let mut times = Vec::new();
     let started = Instant::now();
     for entry in scan.entries.iter().take(count) {
         let updates = [(
             "COMMENT".to_string(),
-            vec![format!("save_bench {}", times.len())],
+            vec![format!("save_bench {}{suffix}", times.len())],
         )]
         .into_iter()
         .collect();

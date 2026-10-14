@@ -237,7 +237,13 @@ fn unsync(bytes: &[u8]) -> Vec<u8> {
     output
 }
 
-pub(super) fn serialize(tag: &Id3v2Tag, latin1: bool) -> Result<Vec<u8>, String> {
+/// Serialize `tag` as ID3v2.3 with exactly `padding` bytes of padding, or
+/// lofty's default amount when `None`.
+pub(super) fn serialize_padded(
+    tag: &Id3v2Tag,
+    latin1: bool,
+    padding: Option<u32>,
+) -> Result<Vec<u8>, String> {
     let flags = *tag.flags();
     if flags.crc && flags.unsynchronisation {
         return Err("Combined CRC and unsynchronisation in ID3v2.3 needs further verification; original file preserved".into());
@@ -272,7 +278,8 @@ pub(super) fn serialize(tag: &Id3v2Tag, latin1: bool) -> Result<Vec<u8>, String>
     if end > bytes.len() {
         return Err("Serialized ID3 size exceeds buffer".into());
     }
-    let (frames, padding) = convert_frames(&bytes[10..end], &urls, &mut 0)?;
+    let (frames, default_padding) = convert_frames(&bytes[10..end], &urls, &mut 0)?;
+    let padding = padding.map_or(default_padding, |p| p as usize);
     let mut body = Vec::new();
     let mut header_flags = if flags.experimental { 0x20 } else { 0 };
     if flags.crc {
@@ -299,13 +306,9 @@ pub(super) fn serialize(tag: &Id3v2Tag, latin1: bool) -> Result<Vec<u8>, String>
     Ok(output)
 }
 
-pub(super) fn save(
-    file: &mut File,
-    kind: FileType,
-    tag: &Id3v2Tag,
-    latin1: bool,
-) -> Result<(), String> {
-    let bytes = serialize(tag, latin1)?;
+/// Replace the ID3v2 tag of `file` with the serialized tag `bytes` (empty
+/// removes it).
+pub(super) fn save(file: &mut File, kind: FileType, bytes: &[u8]) -> Result<(), String> {
     file.seek(SeekFrom::Start(0)).map_err(|e| e.to_string())?;
     if matches!(kind, FileType::Mpeg | FileType::Aac) {
         let mut header = [0u8; 10];
@@ -321,7 +324,7 @@ pub(super) fn save(
         } else {
             0
         };
-        replace(file, 0..size, &bytes)?;
+        replace(file, 0..size, bytes)?;
         return Ok(());
     }
     let little = kind == FileType::Wav;
@@ -363,7 +366,7 @@ pub(super) fn save(
     } else {
         size.to_be_bytes()
     });
-    chunk.extend(bytes);
+    chunk.extend_from_slice(bytes);
     if size % 2 != 0 {
         chunk.push(0);
     }
