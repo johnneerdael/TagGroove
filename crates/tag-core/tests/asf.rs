@@ -547,6 +547,19 @@ fn probe_tags(path: &Path) -> serde_json::Value {
     );
     serde_json::from_slice(&output.stdout).unwrap()
 }
+/// The libavformat major version reported by `ffprobe -version`.
+fn libavformat_major() -> Option<u32> {
+    let output = Command::new("ffprobe").arg("-version").output().ok()?;
+    String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .find_map(|line| line.trim().strip_prefix("libavformat"))?
+        .trim()
+        .split('.')
+        .next()?
+        .trim()
+        .parse()
+        .ok()
+}
 fn decodes(path: &Path) {
     let output = Command::new("ffmpeg")
         .args(["-v", "error", "-i"])
@@ -682,10 +695,21 @@ fn ffmpeg_reads_values_moved_to_the_metadata_library() {
     decodes(&path);
     let tags = &probe_tags(&path)["format"]["tags"];
     assert_eq!(tags["title"], "Short");
-    assert_eq!(tags["MY LONG"], long.as_str());
+    // libavformat before 62 (ffmpeg 8.0) rejects Metadata Library values over
+    // 65535 bytes and skips the rest of that object; newer versions read it.
+    match libavformat_major() {
+        Some(major) if major >= 62 => assert_eq!(tags["MY LONG"], long.as_str()),
+        major => eprintln!("libavformat {major:?} cannot read values over 64 KiB"),
+    }
     // Repeated values also live in the Metadata Library; ffmpeg keeps one.
-    let entry = write_fields(&path, &fields(&[("ARTIST", &["One", "Two"])])).unwrap();
+    let entry = write_fields(
+        &path,
+        &fields(&[("ARTIST", &["One", "Two"]), ("MY LONG", &[])]),
+    )
+    .unwrap();
     assert_eq!(entry.fields["ARTIST"], ["One", "Two"]);
+    assert!(!entry.fields.contains_key("MY LONG"));
+    assert_eq!(media(&fs::read(&path).unwrap()), media(&original));
     decodes(&path);
     assert_eq!(probe_tags(&path)["format"]["tags"]["artist"], "Two");
 }
