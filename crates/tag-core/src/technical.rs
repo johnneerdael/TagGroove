@@ -351,38 +351,13 @@ pub(super) fn collect(
     {
         put(&mut fields, "_TOOL", vendor);
     }
-    if let Some(bits) = properties.bit_depth().filter(|n| *n > 0) {
-        put(&mut fields, "_BITSPERSAMPLE", bits);
-    }
-    if let Some(rate) = properties.audio_bitrate().filter(|n| *n > 0) {
-        put(&mut fields, "_BITRATE", rate);
-    }
-    if let Some(rate) = properties.sample_rate().filter(|n| *n > 0) {
-        put(&mut fields, "_SAMPLERATE", rate);
-    }
-    if !fields.contains_key("_MODE") {
-        if let Some(channels) = properties.channels().filter(|c| *c > 0) {
-            put(
-                &mut fields,
-                "_MODE",
-                match channels {
-                    1 => "Mono".into(),
-                    2 => "Stereo".into(),
-                    n => format!("{n} channels"),
-                },
-            );
-        }
-    }
-    let seconds = properties.duration().as_secs();
-    put(
+    stream_fields(
         &mut fields,
-        "_LENGTH_SECONDS",
-        properties.duration().as_secs_f64().round() as u64,
-    );
-    put(
-        &mut fields,
-        "_LENGTH",
-        format!("{}:{:02}", seconds / 60, seconds % 60),
+        properties.bit_depth(),
+        properties.audio_bitrate(),
+        properties.sample_rate(),
+        properties.channels(),
+        properties.duration(),
     );
     let tags = super::ordered_tags(file)
         .iter()
@@ -449,33 +424,84 @@ pub(super) fn collect(
             put(&mut fields, "_ID3V2_UNKNOWN_FRAMES", opaque.join(", "));
         }
     }
-    put(&mut fields, "_COVERS", covers.len());
+    file_fields(&mut fields, covers, metadata, path);
+    fields
+}
+
+/// Audio stream properties shared by every container.
+pub(super) fn stream_fields(
+    fields: &mut Fields,
+    bits: Option<u8>,
+    bitrate: Option<u32>,
+    sample_rate: Option<u32>,
+    channels: Option<u8>,
+    duration: std::time::Duration,
+) {
+    if let Some(bits) = bits.filter(|n| *n > 0) {
+        put(fields, "_BITSPERSAMPLE", bits);
+    }
+    if let Some(rate) = bitrate.filter(|n| *n > 0) {
+        put(fields, "_BITRATE", rate);
+    }
+    if let Some(rate) = sample_rate.filter(|n| *n > 0) {
+        put(fields, "_SAMPLERATE", rate);
+    }
+    if !fields.contains_key("_MODE") {
+        if let Some(channels) = channels.filter(|c| *c > 0) {
+            put(
+                fields,
+                "_MODE",
+                match channels {
+                    1 => "Mono".into(),
+                    2 => "Stereo".into(),
+                    n => format!("{n} channels"),
+                },
+            );
+        }
+    }
+    let seconds = duration.as_secs();
+    put(
+        fields,
+        "_LENGTH_SECONDS",
+        duration.as_secs_f64().round() as u64,
+    );
+    put(
+        fields,
+        "_LENGTH",
+        format!("{}:{:02}", seconds / 60, seconds % 60),
+    );
+}
+
+/// Cover, size, timestamp and path fields shared by every container.
+pub(super) fn file_fields(
+    fields: &mut Fields,
+    covers: &[CoverInfo],
+    metadata: &Metadata,
+    path: &Path,
+) {
+    put(fields, "_COVERS", covers.len());
     if let Some(cover) = covers.first() {
-        put(&mut fields, "_COVER_DESCRIPTION", &cover.description);
-        put(&mut fields, "_COVER_MIMETYPE", &cover.mime);
-        put(
-            &mut fields,
-            "_COVER_TYPE",
-            picture_type(&cover.picture_type),
-        );
-        put(&mut fields, "_COVER_SIZE", cover.size);
+        put(fields, "_COVER_DESCRIPTION", &cover.description);
+        put(fields, "_COVER_MIMETYPE", &cover.mime);
+        put(fields, "_COVER_TYPE", picture_type(&cover.picture_type));
+        put(fields, "_COVER_SIZE", cover.size);
         if let Some(width) = cover.width {
-            put(&mut fields, "_COVER_WIDTH", width);
+            put(fields, "_COVER_WIDTH", width);
         }
         if let Some(height) = cover.height {
-            put(&mut fields, "_COVER_HEIGHT", height);
+            put(fields, "_COVER_HEIGHT", height);
         }
     }
     let size = metadata.len();
-    put(&mut fields, "_FILE_SIZE_BYTES", size);
-    put(&mut fields, "_FILE_SIZE_KB", size / 1024);
+    put(fields, "_FILE_SIZE_BYTES", size);
+    put(fields, "_FILE_SIZE_KB", size / 1024);
     put(
-        &mut fields,
+        fields,
         "_FILE_SIZE_MB",
         format!("{:.2}", size as f64 / (1024. * 1024.)),
     );
     put(
-        &mut fields,
+        fields,
         "_FILE_SIZE",
         if size < 1024 {
             format!("{size} B")
@@ -489,6 +515,5 @@ pub(super) fn collect(
         metadata.created().ok(),
         metadata.modified().ok(),
     ));
-    path_fields(&mut fields, path);
-    fields
+    path_fields(fields, path);
 }
