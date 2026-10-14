@@ -37,7 +37,10 @@ pub fn install(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry
         // user's windows; native suites run headless in CI (xvfb).
         match std::fs::read_to_string(&path) {
             Ok(script) => {
-                if let Err(error) = webview.eval(format!("{SHORTCUT_PRELUDE}\n{script}")) {
+                if let Err(error) = webview.eval(format!(
+                    "window.OPENTAG_E2E_OFFLINE = {};\n{SHORTCUT_PRELUDE}\n{script}",
+                    std::env::var_os("OPENTAG_E2E_OFFLINE").is_some()
+                )) {
                     eprintln!("[e2e] script could not be evaluated: {error}");
                 }
             }

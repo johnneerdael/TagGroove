@@ -20,7 +20,7 @@
   const idle = () => waitFor(() => !document.querySelector('footer.status.busy'), 20000, 'idle');
   const op = name => document.querySelector(`button[data-op="${name}"]`);
   const results = [];
-  const step = async (name, fn) => { try { const detail = await fn(); results.push(['PASS', name]); await report(`PASS ${name}${detail ? ' — ' + detail : ''}`); } catch (e) { results.push(['FAIL', name]); await report(`FAIL ${name} — ${e && e.message || e}`); } };
+  const step = async (name, fn) => { if (name.startsWith('live:') && window.OPENTAG_E2E_OFFLINE) { await report(`SKIP ${name} — offline run`); return; } try { const detail = await fn(); results.push(['PASS', name]); await report(`PASS ${name}${detail ? ' — ' + detail : ''}`); } catch (e) { results.push(['FAIL', name]); await report(`FAIL ${name} — ${e && e.message || e}`); } };
   const finish = async () => { await report(`SUMMARY ${results.filter(r => r[0] === 'PASS').length}/${results.length} passed`); await inv('e2e_exit', { code: 0 }); };
   const stage = sessionStorage.getItem('general-options-stage');
   // Shortcuts use ⌘ on macOS and Ctrl elsewhere.
