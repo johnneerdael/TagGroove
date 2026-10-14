@@ -7,6 +7,7 @@ pub mod history;
 pub mod numbering;
 pub mod operations;
 pub mod parallel;
+pub mod playlist;
 pub mod preferences;
 pub mod script;
 pub mod tags;
