@@ -14,7 +14,11 @@
       "read_id3v1": true, "read_ape": true, "write_id3v1": false, "write_ape": true,
       "remove_id3v1": false, "remove_id3v2": false, "remove_ape": false
     },
-    "advanced": { "id3v2_comment_language": "eng", "popularimeter_ratings": false },
+    "advanced": {
+      "id3v2_comment_language": "eng",
+      "popularimeter_ratings": false,
+      "matroska_video_mapping": true
+    },
     "preserve_modified_time": false
   },
   "pages": {}
