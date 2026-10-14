@@ -762,7 +762,10 @@ fn ffmpeg_matroska_and_webm_remain_decodable_after_edits() {
             command
                 .arg("-attach")
                 .arg(&image)
-                .args(["-metadata:s:t", "mimetype=image/png"]);
+                .args(["-metadata:s:t", "mimetype=image/png"])
+                // ffmpeg on Windows stores the full attach path as the file
+                // name; use such a name everywhere so every runner agrees.
+                .args(["-metadata:s:t", r"filename=C:\fixtures\cover.png"]);
         }
         if name.ends_with(".mkv") {
             command.args(["-c:v", "ffv1"]);

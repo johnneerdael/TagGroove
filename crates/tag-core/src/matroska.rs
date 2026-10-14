@@ -766,6 +766,9 @@ const PICTURE_NAMES: &[(PictureType, &str)] = &[
 ];
 
 fn picture_type(name: &str) -> PictureType {
+    // ffmpeg on Windows stores the whole `-attach` path, since it only strips
+    // directories up to a '/'; judge the type by the base name.
+    let name = name.rsplit(['/', '\\']).next().unwrap_or(name);
     let stem = name
         .rsplit_once('.')
         .map_or(name, |(stem, _)| stem)
@@ -1356,5 +1359,10 @@ mod tests {
             PictureType::CoverFront
         );
         assert_eq!(picture_type("poster.jpg"), PictureType::Other);
+        assert_eq!(
+            picture_type(r"C:\Users\me\Temp\cover.png"),
+            PictureType::CoverFront
+        );
+        assert_eq!(picture_type("/tmp/a/back (3).jpg"), PictureType::CoverBack);
     }
 }
