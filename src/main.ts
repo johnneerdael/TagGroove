@@ -1,5 +1,5 @@
 /// <reference types="vite/client" />
-import { invoke, isTauri } from '@tauri-apps/api/core';
+import { invoke as coreInvoke, isTauri, type InvokeArgs } from '@tauri-apps/api/core';
 import { buildFilterFields } from './filter-fields';
 import { documentSelection, refreshDocumentAccess, copyRequest, copyOutcome, reconcileDrafts, sourcePresentation, publicDocumentMessage, type DocumentAccess, type DocumentState } from './document-state';
 import { createConverterInputTracker, createConverterReview, validateFilenameItems, validateTextItems, type FilenameConversionRequest, type TextImportRequest, type FilenameConversionItem, type TextImportItem, type ConverterPreview } from './converter-review';
@@ -47,6 +47,14 @@ import artworkDarkUrl from '../assets/brand/OpenTag-Brand-Kit/04-in-app/opentag-
 import aboutDarkUrl from '../assets/brand/OpenTag-Brand-Kit/04-in-app/opentag-splash-dark-1600x1000.svg';
 import './style.css';
 
+type PerfRecord={name:string;at:number;ms:number;pending?:boolean;in?:number;out?:number;[key:string]:unknown};
+// Profiling scripts (tests/e2e/performance.js) create this array to collect timings; normal runs never do.
+const perfSink=()=>(window as Window&{__OPENTAG_TIMINGS__?:PerfRecord[]}).__OPENTAG_TIMINGS__;
+function invoke<T>(command:string,args?:InvokeArgs):Promise<T>{
+  const sink=perfSink();if(!sink)return coreInvoke<T>(command,args);
+  const record:PerfRecord={name:`ipc ${command}`,at:performance.now(),ms:0,pending:true,in:JSON.stringify(args??{}).length};sink.push(record);
+  return coreInvoke<T>(command,args).then(result=>{record.out=JSON.stringify(result??null)?.length??0;return result;}).finally(()=>{record.ms=performance.now()-record.at;record.pending=false;});
+}
 type Fields = Record<string, string[]>;
 type Cover = { index: number; mime: string; description: string; picture_type: string; data_base64: string };
 type Entry = { path: string; filename: string; format: string; duration: number; bitrate: number; sample_rate: number; channels: number; size: number; fields: Fields; technical?: Fields; covers: Cover[] };
@@ -278,7 +286,9 @@ function revealRow(path:string,focus=true){
 }
 function changedData(){dataRevision++;reviewedConverterContextChanged?.();}
 function timing(name:string,start:number,extra:Record<string,unknown>={}){
-  if(dev)console.debug(`[OpenTag performance] ${name}`,{milliseconds:Math.round((performance.now()-start)*100)/100,files:entries.size,...extra});
+  const ms=performance.now()-start;
+  perfSink()?.push({name,at:start,ms,...extra});
+  if(dev)console.debug(`[OpenTag performance] ${name}`,{milliseconds:Math.round(ms*100)/100,files:entries.size,...extra});
 }
 function ordered(): Entry[] {
   const key=`${dataRevision}:${columnValues.revision}:${JSON.stringify(columnLayout.sort)}`;

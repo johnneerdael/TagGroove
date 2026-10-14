@@ -8,6 +8,11 @@ license = "MIT"
 name = "opentag_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[features]
+# Profiling builds only: enables the end-to-end script hook (`src/e2e.rs`) in
+# release builds. Off by default and never enabled for published releases.
+e2e = []
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
