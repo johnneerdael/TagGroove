@@ -172,7 +172,8 @@ export class ActionUI {
     show();typeControl.addEventListener('change',()=>{current=defaultAction(typeControl.value);show();el.querySelector('.dialog-error')?.remove();});el.querySelector('[data-close]')!.addEventListener('click',()=>el.close());
     keep.addEventListener('click',async()=>{try{const action=readAction(el,current.type);keep.disabled=true;await onKeep(action);el.close();}catch(e){error(el,e);keep.disabled=false;}});
   }
-  quick(){if(this.host.canExecute())this.editAction(undefined,action=>this.host.execute([{name:'Quick action',enabled:true,actions:[action]}]),true);}
+  /** Actions (Quick); `type` preselects one action, e.g. Adjust Cover from the cover window. */
+  quick(type?:string){if(this.host.canExecute())this.editAction(type?defaultAction(type):undefined,action=>this.host.execute([{name:'Quick action',enabled:true,actions:[action]}]),true);}
   async groupsDialog(){
     if(!this.loaded)await this.initialize();let draft=clone(this.library),index=draft.groups.length?0:-1,dirty=false,working=false,groupError='',renameTimer=0;
     const el=dialog('Action groups','',`<button data-close>Close</button><button id="save-groups">Save groups</button><button class="primary" id="apply-groups">Apply checked groups</button>`);el.classList.add('action-groups-dialog');
