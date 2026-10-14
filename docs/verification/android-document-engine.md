@@ -1,8 +1,9 @@
 # Durable document engine checkpoint
 
 Source commits `2ffbcc9` and `950d594` add the provider working-copy engine.
-This checkpoint precedes command and UI integration; it does not qualify an
-Android editing workflow or a mobile release.
+This historical checkpoint precedes command and UI integration; it does not
+qualify an Android editing workflow or a mobile release. Later integration and
+actual app checks are recorded in the [native workflow report](android-document-workflows.md).
 
 The engine persists a pending manifest before local mutation, retains immutable
 baseline versions and edited bytes, and requires verified provider publication
@@ -42,9 +43,10 @@ about synchronous fixture preferences, API targets, backup metadata, icon and
 test-screen strings; no lint errors. This fixture is a separate APK and is never
 included in OpenTag.
 
-Actual app picker/cancel, editing, verified save/reload, read-only copy export,
-conflict/partial-write recovery, restart without source access, both appearances,
-IME/focus and orientation remain the next verification gate. SAF still supplies
+The later native workflow report records bounded picker, tag save/reload in
+Light/Dark, artwork, read-only copy, conflict/partial-write recovery, revoked-source
+restart and orientation/IME checks. Wider device/provider qualification remains
+open. SAF still supplies
 no general atomic replace or compare-and-swap; no automatic rollback is claimed.
 
 The PR build workflow now includes an Android arm64 debug build without release

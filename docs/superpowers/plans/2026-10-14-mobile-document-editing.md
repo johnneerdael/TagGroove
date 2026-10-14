@@ -63,9 +63,9 @@ access/recovery state in the existing UI.
 ### Task 4: Native verification and delivery
 
 - [ ] Independently review command coverage, grant/path handling and recovery-state durability.
-- [ ] Build the tracked Android package on the dedicated test AVD; use generated fixtures and native UI controls. Record exact source and APK identity.
-- [ ] Exercise picker/cancel, Unicode audio load, save/reload, read-only/copy and recovery behavior in both appearances; record packet/PCM/file receipts.
-- [ ] Update parity/evidence docs without promoting build-only or desktop-only evidence to mobile qualification.
+- [x] Build the tracked Android package on the dedicated test AVD; use generated fixtures and native UI controls. Record exact source and APK identity.
+- [x] Exercise picker/cancel, Unicode audio load, save/reload, read-only/copy and recovery behavior in both appearances; record packet/PCM/file receipts.
+- [x] Update parity/evidence docs without promoting build-only or desktop-only evidence to mobile qualification.
 - [ ] Commit logical changes, open PR, run all desktop CI and appropriate Android build/tests; fix actual failures.
 
 Plan self-review: every spec requirement maps to one task. Remaining provider

@@ -1,0 +1,394 @@
+{
+  "schema_version": 1,
+  "scope": "Bounded native Android UI/provider checks, not full mobile release or Mp3tag parity certification",
+  "device": {
+    "avd": "OpenTag_Document_Test_API_34",
+    "serial": "emulator-5554",
+    "api": 34,
+    "abi": "arm64-v8a",
+    "webview": "com.android.webview 113.0.5672.136",
+    "provider": "separate org.opentag.fixture.documents generated one-second WAVs",
+    "user_music": "Beatport not mutated"
+  },
+  "artifacts": {
+    "light_tag_cover_apk": {
+      "created_utc": "2026-10-14T09:28:50.639828+00:00",
+      "source_commit": "f247c228bade48a5606dfb3c6ff7a62d8d836a19",
+      "scope": "Reviewed UIrecovery+nativeinsets+wholecompactinspector fixes; debug build. Device UAT pending.",
+      "build_exit": 0,
+      "apk": {
+        "path": "/tmp/opentag-documents-insets-v2.apk",
+        "bytes": 227832740,
+        "sha256": "f709c14df2ceff279d8a6ea9034f6d7b4fca018cdd273514188e1f1bcb57f481"
+      },
+      "native_sha256": "289ea08e9f2e50aac7cc2bee07c9b5be382d214b2234bfffbd9ddd5d7a0acfab",
+      "native_matches_target": true,
+      "source_sha256": {
+        "src/main.ts": "8b118e6131a50325e50fa8dc47b0305da4d34cb2fd5a8f5b332c59784e3e1ad4",
+        "src/style.css": "317d5a64bc4c564b6afcdac6ddf22fe2eae3c1e44ae1064f5197fb913e5244d9",
+        "src/document-state.ts": "73b7128d35d28e842b59f4f1f367f06e2e176c4261b0b79cbd6751483b9ad80c",
+        "src-tauri/src/lib.rs": "7999f104b280f37c39f71914cfbb38734a1b3ea7be43b1270ae67b2026b815f0",
+        "src-tauri/gen/android/app/src/main/java/org/opentag/editor/MainActivity.kt": "c142ce7060ff6f91018c257eb447273d4ab29e46043924227d683542b35fbb5f",
+        "src-tauri/gen/android/app/src/main/AndroidManifest.xml": "258ae690198b94b7b51fb8cda72936af030729bdfa4f4ed6bb85307492f423e5"
+      },
+      "jdk": "Homebrew21.0.11",
+      "warnings": "Existing AGP/Java8source-target and generatedTauriAndroiddeprecatedAPIs; no suppression.",
+      "subsequent_native_evidence": [
+        "light_tag_cover"
+      ]
+    },
+    "copy_conflict_partial_restart_apk": {
+      "source_commit": "d1cf0d83837dcbfc37d5c8e16c5db08dcb9c364a",
+      "scope": "Full Tauri Android debug arm64 APK; actual native UAT pending",
+      "apk": "/tmp/opentag-documents-menu-dialog.apk",
+      "bytes": 227832740,
+      "apk_sha256": "ee9bd2b41478a8f36fbe6b20406212e7ed6b6eef24d3101d84a70f67150f7a30",
+      "embedded_native_sha256": "8dbbe9069ed60a720a29c25e6813a52e5869207b7c32b9fb044974e316bb86cc",
+      "native_matches_isolated_target": true,
+      "java_home": "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home",
+      "build_exit": 0,
+      "build_log": "/tmp/opentag-user-test/receipts/android-documents/menu-dialog-build.log",
+      "time_utc": "2026-10-14T10:29:00.303982+00:00",
+      "subsequent_native_evidence": [
+        "readonly_copy",
+        "outside_change",
+        "partial_write",
+        "revoked_restart"
+      ]
+    },
+    "latest_keyboard_recovery_wording_apk": {
+      "source_commit": "181e1974b28d249df8528803ca23adecc62449ef",
+      "scope": "Full Android debug arm64 APK built exit0; actual native UAT pending",
+      "apk": "/tmp/opentag-documents-recovery-access.apk",
+      "bytes": 227832804,
+      "apk_sha256": "d08fd5623d2f0df968860d9e94c75de196cf80eec69a8d51753f43c31c8d1c12",
+      "embedded_native_sha256": "fdde0ad7c9e5f39949958959b65ec930d7ff7846f878f8aad1e658736084e0b7",
+      "native_matches_isolated_target": true,
+      "java_home": "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home",
+      "build_exit": 0,
+      "build_log": "/tmp/opentag-user-test/receipts/android-documents/recovery-access-build.log",
+      "time_utc": "2026-10-14T10:54:44.413463+00:00",
+      "subsequent_native_evidence": [
+        "latest_ui",
+        "latest_dark_save_reload"
+      ]
+    }
+  },
+  "cases": {
+    "readonly_copy": {
+      "source_commit": "d1cf0d83837dcbfc37d5c8e16c5db08dcb9c364a",
+      "apk_sha256": "ee9bd2b41478a8f36fbe6b20406212e7ed6b6eef24d3101d84a70f67150f7a30",
+      "cancel_no_new_identity_or_source_changes": true,
+      "source_whole_file_unchanged": {
+        "provider/conflict.wav": true,
+        "provider/partial.wav": true,
+        "provider/readonly.wav": true,
+        "provider/writable.wav": true
+      },
+      "new_copy": "provider/copy-05c4461d-d39b-4a31-8363-0aa1b5a69d95.wav",
+      "new_copy_file_sha256": "345f645565f5eb89a86f76a4a2429c611892cc22347ff5776c7c5b06d6c65ec9",
+      "new_copy_tags": {
+        "title": "Fixture Original",
+        "artist": "OpenTag Fixture",
+        "album": "R"
+      },
+      "exact_audio_packets_unchanged": true,
+      "decoded_pcm_unchanged": true,
+      "decoded_pcm": "SHA256=624217e398d315e0fbc6ff4368bf5a6c9418c77a0208ee39b4053e37a878f2dd",
+      "UI": "copy selected Source writable with new URI; Reload preserves AlbumR; originaldraft remains one unsaved; source Album absent"
+    },
+    "outside_change": {
+      "source_commit": "d1cf0d83837dcbfc37d5c8e16c5db08dcb9c364a",
+      "source_external_tags": {
+        "title": "Outside Modified",
+        "artist": "OpenTag Fixture"
+      },
+      "source_bytes": 88306,
+      "source_modified_ms_before_and_after": 1791966724503,
+      "actual_stat": "2026-10-14 10:32:04.503000000 +0200",
+      "hash_detected_despite_unchanged_size_time": true,
+      "no_provider_write_open_on_failed_save": true,
+      "external_source_bytes_retained_after_both_exports": true,
+      "unselected_provider_files_unchanged": {
+        "provider/copy-05c4461d-d39b-4a31-8363-0aa1b5a69d95.wav": true,
+        "provider/partial.wav": true,
+        "provider/readonly.wav": true,
+        "provider/writable.wav": true
+      },
+      "original_export": {
+        "path": "provider/copy-7dc40b29-07e1-4d5f-9880-7067f5101e4b.wav",
+        "sha256": "3c76ad37568106ebb105c93c227de711ea7650d842ddbed441713376589ed963",
+        "exact_baseline_bytes": true,
+        "tags": {
+          "title": "Fixture Original",
+          "artist": "OpenTag Fixture"
+        }
+      },
+      "edited_export": {
+        "path": "provider/copy-0be159ea-4f3f-4d1f-9ae1-e69bf2f108ad.wav",
+        "sha256": "f795c1b84bf11640eb0e78dabec1ca581e2609ff9db6cb0e790f32ab7ffb52ac",
+        "tags": {
+          "title": "Fixture Original",
+          "artist": "OpenTag Fixture",
+          "album": "C"
+        }
+      },
+      "exact_audio_packets_and_decoded_pcm_preserved": true,
+      "recovery_record": "working/f53be7fa-bc16-4490-895c-dc0b04bb262f/manifest.json",
+      "UI": "conflict error and AlbumC retained after original export; selected writable distinct copy after each export"
+    },
+    "partial_write": {
+      "source_commit": "d1cf0d83837dcbfc37d5c8e16c5db08dcb9c364a",
+      "provider_partial_bytes": 128,
+      "provider_partial_sha256": "e0a2a49a183c1d8534f2a1cb701190a99b9ec8fdb0f41cd5465303cda39d71bf",
+      "partial_bytes_remain_after_exports_no_automatic_rollback": true,
+      "manifest_recovery_required": "working/14d7dc9b-2cfe-4bf4-8516-5c4a8090fd1f/manifest.json",
+      "edited_working_full_audio_preserved": true,
+      "private_working_tags": {
+        "title": "Fixture Original",
+        "artist": "OpenTag Fixture",
+        "album": "P"
+      },
+      "unselected_provider_files_unchanged": {
+        "provider/conflict.wav": true,
+        "provider/copy-05c4461d-d39b-4a31-8363-0aa1b5a69d95.wav": true,
+        "provider/copy-0be159ea-4f3f-4d1f-9ae1-e69bf2f108ad.wav": true,
+        "provider/copy-7dc40b29-07e1-4d5f-9880-7067f5101e4b.wav": true,
+        "provider/copy-b4630bbf-9988-40b8-b2be-15823543544a.wav": true,
+        "provider/readonly.wav": true,
+        "provider/writable.wav": true
+      },
+      "original_export": {
+        "path": "provider/copy-3660b449-d079-43c3-b613-b13c98264aaf.wav",
+        "sha256": "3c76ad37568106ebb105c93c227de711ea7650d842ddbed441713376589ed963",
+        "exact_baseline_bytes": true,
+        "tags": {
+          "title": "Fixture Original",
+          "artist": "OpenTag Fixture"
+        }
+      },
+      "edited_export": {
+        "path": "provider/copy-bf3d3c72-5bdd-4a4f-bb53-3f7bbce99352.wav",
+        "sha256": "cfb843b67b47399f5f313fce3588273f0dd7534b5485cff3a0e98daf76e29ba1",
+        "tags": {
+          "title": "Fixture Original",
+          "artist": "OpenTag Fixture",
+          "album": "P"
+        }
+      },
+      "exact_audio_packets_and_decoded_pcm_preserved_in_both_exports": true,
+      "provider_events_during_failed_save": [
+        {
+          "time_ms": 1791975212865,
+          "action": "read_open",
+          "id": "partial",
+          "detail": "r:3c76ad37568106ebb105c93c227de711ea7650d842ddbed441713376589ed963"
+        },
+        {
+          "time_ms": 1791975212882,
+          "action": "write_open",
+          "id": "partial",
+          "detail": "wt:3c76ad37568106ebb105c93c227de711ea7650d842ddbed441713376589ed963"
+        },
+        {
+          "time_ms": 1791975212902,
+          "action": "partial_write",
+          "id": "partial",
+          "detail": "received=89370,retained=128"
+        },
+        {
+          "time_ms": 1791975212905,
+          "action": "read_open",
+          "id": "partial",
+          "detail": "r:e0a2a49a183c1d8534f2a1cb701190a99b9ec8fdb0f41cd5465303cda39d71bf"
+        }
+      ]
+    },
+    "revoked_restart": {
+      "source_commit": "d1cf0d83837dcbfc37d5c8e16c5db08dcb9c364a",
+      "same_apk_sha256": "ee9bd2b41478a8f36fbe6b20406212e7ed6b6eef24d3101d84a70f67150f7a30",
+      "source_revoke_fixture": true,
+      "source_unavailable_native_control": true,
+      "pid_before": 5783,
+      "force_stop": "Android Settings App info > Force stop > OK via CUA",
+      "pid_after_stop_query_exit": 1,
+      "pid_after_stop_query_stdout": "",
+      "restart": "Launcher icon via CUA; no source picker",
+      "pid_after_restart": 6216,
+      "all_generated_provider_working_baseline_manifest_bytes_unchanged_across_restart": {
+        "provider/conflict.wav": true,
+        "provider/copy-05c4461d-d39b-4a31-8363-0aa1b5a69d95.wav": true,
+        "provider/copy-0be159ea-4f3f-4d1f-9ae1-e69bf2f108ad.wav": true,
+        "provider/copy-7dc40b29-07e1-4d5f-9880-7067f5101e4b.wav": true,
+        "provider/partial.wav": true,
+        "provider/readonly.wav": true,
+        "provider/writable.wav": true,
+        "working/14d7dc9b-2cfe-4bf4-8516-5c4a8090fd1f/baselines/ab6345e9-5348-4dc3-956a-02ac3ce25216": true,
+        "working/14d7dc9b-2cfe-4bf4-8516-5c4a8090fd1f/manifest.json": true,
+        "working/14d7dc9b-2cfe-4bf4-8516-5c4a8090fd1f/working/04 - Interrupted write.wav": true,
+        "working/4df611e3-3cec-4544-87ca-4fa54876576a/baselines/130b8c94-312d-4991-b2f2-1aca96e8d44d": true,
+        "working/4df611e3-3cec-4544-87ca-4fa54876576a/manifest.json": true,
+        "working/4df611e3-3cec-4544-87ca-4fa54876576a/working/02 - Read only.wav": true,
+        "working/60d7c10f-0a13-497c-8db5-7274d2535399/baselines/13eac2e7-c4d9-46f3-a292-9a41a62aba14": true,
+        "working/60d7c10f-0a13-497c-8db5-7274d2535399/baselines/3fa128d3-54cb-46f7-8591-d7fc3b7997e6": true,
+        "working/60d7c10f-0a13-497c-8db5-7274d2535399/manifest.json": true,
+        "working/60d7c10f-0a13-497c-8db5-7274d2535399/working/03 - Changed outside.wav": true,
+        "working/7c1a4494-c718-45f3-b6ac-ebea863ffa0f/baselines/0e552166-faa8-4837-951e-9e15228f71b3": true,
+        "working/7c1a4494-c718-45f3-b6ac-ebea863ffa0f/baselines/6390c417-401d-49e1-bacf-215b1845e924": true,
+        "working/7c1a4494-c718-45f3-b6ac-ebea863ffa0f/baselines/ef7f4adb-c40b-44aa-af05-29c5b0ace267": true,
+        "working/7c1a4494-c718-45f3-b6ac-ebea863ffa0f/manifest.json": true,
+        "working/7c1a4494-c718-45f3-b6ac-ebea863ffa0f/working/02 - Read only.wav": true,
+        "working/a23ad3e7-6bf2-4f93-832c-7ad5ec9f09ab/baselines/0080026f-8e1f-46bd-b351-5e48c86c68c1": true,
+        "working/a23ad3e7-6bf2-4f93-832c-7ad5ec9f09ab/baselines/01ac2766-db95-47df-bdf0-a855062e8a9f": true,
+        "working/a23ad3e7-6bf2-4f93-832c-7ad5ec9f09ab/baselines/3100aa21-4fd2-48d3-86c8-0408ba0fc18f": true,
+        "working/a23ad3e7-6bf2-4f93-832c-7ad5ec9f09ab/baselines/8512839c-1862-4765-b421-2fdc59b195e6": true,
+        "working/a23ad3e7-6bf2-4f93-832c-7ad5ec9f09ab/baselines/b859524e-0e23-44b6-b821-f14363d90d31": true,
+        "working/a23ad3e7-6bf2-4f93-832c-7ad5ec9f09ab/manifest.json": true,
+        "working/a23ad3e7-6bf2-4f93-832c-7ad5ec9f09ab/working/01 - Mémoire - Café 猫.wav": true,
+        "working/c4a253f5-7e19-4893-99e7-c78d77ce8a23/baselines/3b0c371b-3d22-4553-aa26-82433e8eb83c": true,
+        "working/c4a253f5-7e19-4893-99e7-c78d77ce8a23/baselines/c0dea37c-fd34-444e-bbd6-cb2f5c53f471": true,
+        "working/c4a253f5-7e19-4893-99e7-c78d77ce8a23/manifest.json": true,
+        "working/c4a253f5-7e19-4893-99e7-c78d77ce8a23/working/03 - Changed outside.wav": true,
+        "working/f53be7fa-bc16-4490-895c-dc0b04bb262f/baselines/168b68e2-1279-4a96-9bac-1f676e613cbc": true,
+        "working/f53be7fa-bc16-4490-895c-dc0b04bb262f/manifest.json": true,
+        "working/f53be7fa-bc16-4490-895c-dc0b04bb262f/working/03 - Changed outside.wav": true,
+        "working/inputs/02919764-f890-4c59-869e-9ebc1e9f40b3": true
+      },
+      "provider_events_during_restore": [],
+      "restored_recovery_count": 1,
+      "ready_records_stayed_closed": true,
+      "UI_album": "C",
+      "recovery_copy_path": "provider/copy-b4630bbf-9988-40b8-b2be-15823543544a.wav",
+      "recovery_copy_sha256": "f795c1b84bf11640eb0e78dabec1ca581e2609ff9db6cb0e790f32ab7ffb52ac",
+      "copy_exact_edited_working_bytes": true,
+      "UI_limitation_found": "Recovery banner displayed cached Access retained without historical qualification; follow-up presentation fix in progress."
+    },
+    "latest_ui": {
+      "source_commit": "181e1974b28d249df8528803ca23adecc62449ef",
+      "apk_sha256": "d08fd5623d2f0df968860d9e94c75de196cf80eec69a8d51753f43c31c8d1c12",
+      "native_ui_checks": [
+        "Recovery source access qualified as previous details",
+        "Dark appearance",
+        "Album focus survives IME resize",
+        "One Back leaves keyboard dismissed",
+        "First File tap hides IME and preserves open menu",
+        "File>Savecopy Dark dialog",
+        "Landscape modal content and controls visible",
+        "Portrait/landscape navigation retains selected AlbumP",
+        "Open Help menu retained on return to portrait",
+        "Convert disabled with provider reason",
+        "Actions Quick disabled with reason",
+        "Native Next Title through Comment",
+        "Comment A LF B remains focused and visible while typing",
+        "File menu first tap from multiline keyboard",
+        "Actual editedcopy includes AlbumP and multiline Comment"
+      ],
+      "unverified": [
+        "Landscape keyboard typing",
+        "Other emulator/API/device/provider types",
+        "Native Android system bar theme synchronization"
+      ],
+      "all_prior_provider_files_unchanged": {
+        "provider/conflict.wav": true,
+        "provider/copy-05c4461d-d39b-4a31-8363-0aa1b5a69d95.wav": true,
+        "provider/copy-0be159ea-4f3f-4d1f-9ae1-e69bf2f108ad.wav": true,
+        "provider/copy-3660b449-d079-43c3-b613-b13c98264aaf.wav": true,
+        "provider/copy-7dc40b29-07e1-4d5f-9880-7067f5101e4b.wav": true,
+        "provider/copy-b4630bbf-9988-40b8-b2be-15823543544a.wav": true,
+        "provider/copy-bf3d3c72-5bdd-4a4f-bb53-3f7bbce99352.wav": true,
+        "provider/partial.wav": true,
+        "provider/readonly.wav": true,
+        "provider/writable.wav": true
+      },
+      "new_copy": "provider/copy-56bea41c-0578-4d6f-a460-02d0249d872c.wav",
+      "new_copy_sha256": "4e8aa4f3b34a51020f02068c06da15661c2979cf5ad0139f043559701d0f1646",
+      "tags": {
+        "title": "Fixture Original",
+        "artist": "OpenTag Fixture",
+        "album": "P",
+        "comment": "A\nB"
+      },
+      "exact_audio_packets_and_pcm_preserved": true
+    },
+    "latest_dark_save_reload": {
+      "source_commit": "181e1974b28d249df8528803ca23adecc62449ef",
+      "apk_sha256": "d08fd5623d2f0df968860d9e94c75de196cf80eec69a8d51753f43c31c8d1c12",
+      "UI": "Dark; picker Cancel No files added retains dirty1; load Unicode writable; Album edited A to As; Save tags1 and Reload1; Comment A LF B retained",
+      "provider_tags": {
+        "title": "Fixture Original",
+        "artist": "OpenTag Fixture",
+        "comment": "A\nB",
+        "album": "As"
+      },
+      "provider_file_sha256": "94bea80fcffd2d663d231604dc542a4236ee41b2283fbd646e57acb203560801",
+      "exact_audio_packets_and_decoded_pcm_preserved": true,
+      "all_other_provider_files_unchanged": {
+        "provider/conflict.wav": true,
+        "provider/copy-05c4461d-d39b-4a31-8363-0aa1b5a69d95.wav": true,
+        "provider/copy-0be159ea-4f3f-4d1f-9ae1-e69bf2f108ad.wav": true,
+        "provider/copy-3660b449-d079-43c3-b613-b13c98264aaf.wav": true,
+        "provider/copy-56bea41c-0578-4d6f-a460-02d0249d872c.wav": true,
+        "provider/copy-7dc40b29-07e1-4d5f-9880-7067f5101e4b.wav": true,
+        "provider/copy-b4630bbf-9988-40b8-b2be-15823543544a.wav": true,
+        "provider/copy-bf3d3c72-5bdd-4a4f-bb53-3f7bbce99352.wav": true,
+        "provider/partial.wav": true,
+        "provider/readonly.wav": true
+      }
+    }
+  },
+  "light_tag_cover": {
+    "source_commit": "f247c228bade48a5606dfb3c6ff7a62d8d836a19",
+    "UI": "Native picker, tag save/reload AlbumA+CommentA LF B, PNG cover add then remove",
+    "receipt_directories": [
+      "v2-loaded",
+      "v2-saved-tags",
+      "v2-added-cover",
+      "v2-removed-cover"
+    ],
+    "artwork_packet_sha256": "474b5eebee61cae290e3ea03d32b80de333ced94c1ec69e69adc6ada45613f92",
+    "exact_audio_packets_and_pcm_preserved": true,
+    "all_three_unselected_sources_byte_identical": true
+  },
+  "screenshots": [
+    {
+      "artifact": "android-document-ui-light.png",
+      "sha256": "c250a85e83016cad090d69f2834988319caaab4f7898107879d9d36e181ea920",
+      "original_cua_screenshot": "final-recovery-label.png",
+      "original_sha256": "5d17229d4a91617509ccf593a65086b33ea2d24959a27b10cb69c2a805ea8206",
+      "crop_width_height_x_y": "445:991:2151:286",
+      "capture": "Native Android Studio CUA screenshot; crop only, no pixel repaint"
+    },
+    {
+      "artifact": "android-document-ui-dark.png",
+      "sha256": "f0235c35144ecab45062f18a3fe3a5606c5c8d86eae321c15fa57163f2f931f6",
+      "original_cua_screenshot": "final-dark-reloaded.png",
+      "original_sha256": "9ebabc0e389067074ed49d663a5cfc8ec61dcddb0b3e21135c2f6d9ae5e96d56",
+      "crop_width_height_x_y": "445:991:2151:286",
+      "capture": "Native Android Studio CUA screenshot; crop only, no pixel repaint"
+    },
+    {
+      "artifact": "android-document-ui-landscape.png",
+      "sha256": "62525390617dfdba4f3f34f8cd3c410ff52a4e4ee974d9f28a927869ad4a8ef2",
+      "original_cua_screenshot": "final-landscape-copy-dialog.png",
+      "original_sha256": "fa9ee63b34bcbac0e8c633047ec806efae201f24383fc25c39ed411b1dbd9c6d",
+      "crop_width_height_x_y": "688:309:2031:626",
+      "capture": "Native Android Studio CUA screenshot; crop only, no pixel repaint"
+    },
+    {
+      "artifact": "android-document-ui-recovery.png",
+      "sha256": "e9e061f0032a2e8dd89f89b2709f5f72749d3683eb5b74ab468190cfb17e14a4",
+      "original_cua_screenshot": "d06-recovery-banner.png",
+      "original_sha256": "944d7da56a31737f11f1e4431346d389f6489d5e4886bed91b07752c8203ffcd",
+      "crop_width_height_x_y": "445:991:2151:286",
+      "capture": "Native Android Studio CUA screenshot; crop only, no pixel repaint"
+    }
+  ],
+  "raw_evidence_root": "/tmp/opentag-user-test/receipts/android-documents",
+  "remaining": [
+    "Whole branch review and hosted desktop/Android CI",
+    "Landscape keyboard typing and native bar theme sync",
+    "Additional APIs/physical devices/cloud providers",
+    "Provider actions/renames/text imports/exports/directory trees",
+    "iOS security-scoped editing and full feature/performance parity"
+  ]
+}
