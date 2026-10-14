@@ -317,12 +317,7 @@ impl Journal {
             .collect();
         if let Some(reason) = capture.abandoned {
             if capture.group.is_some() {
-                if self
-                    .undo
-                    .last()
-                    .is_some_and(|top| top.group == capture.group)
-                {
-                    let record = self.undo.pop().expect("checked top record");
+                if let Some(record) = self.undo.pop_if(|top| top.group == capture.group) {
                     discard_record(&record);
                 }
                 self.abandoned_group = capture.group.clone();
