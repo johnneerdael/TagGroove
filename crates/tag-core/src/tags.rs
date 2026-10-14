@@ -1,5 +1,7 @@
 //! Portable metadata I/O. Every mutation is written and verified in a sibling
 //! temporary file before the original is atomically replaced.
+#[path = "asf/mod.rs"]
+mod asf;
 #[path = "container_formats.rs"]
 mod container_formats;
 #[path = "cover_ops.rs"]
@@ -506,6 +508,10 @@ fn read_description(
 ) -> Result<AudioEntry, String> {
     validate_user_mappings(rules)?;
     let path = path.canonicalize().map_err(|e| e.to_string())?;
+    // Before lofty: its MPEG sync search can match bytes inside ASF artwork.
+    if asf::sniff(&path) {
+        return asf::describe(&path, include_cover_data, rules);
+    }
     if let Some(kind) = container_formats::detect(&path) {
         return container_formats::read(&path, kind, include_cover_data, rules, options);
     }
@@ -631,6 +637,7 @@ fn audio_extension(path: &Path, allowed: Option<&[String]>) -> bool {
             | "aiff"
             | "aifc"
             | "ape"
+            | "asf"
             | "dff"
             | "dsf"
             | "flac"
@@ -651,6 +658,7 @@ fn audio_extension(path: &Path, allowed: Option<&[String]>) -> bool {
             | "wav"
             | "wave"
             | "webm"
+            | "wma"
             | "wv"
     )
 }
@@ -751,12 +759,12 @@ where
         include_cover_data,
         rules,
         options,
-        |staging, staged_path, original| mutation(staging, load(original)?, staged_path),
+        |staging, original, staged_path| mutation(staging, load(original)?, staged_path),
     )
 }
 
-/// Format-neutral staging: the closure receives the staged copy, its path and
-/// the canonical original path, which must not be modified.
+/// Like `staged_mutation_with_mappings`, for formats that lofty cannot load.
+/// The closure receives the staging file, the original path and the staged path.
 fn staged_write<F>(
     path: &Path,
     include_cover_data: bool,
@@ -783,7 +791,7 @@ where
         .map_err(|e| e.to_string())?;
     fs::copy(&path, staging.path()).map_err(|e| e.to_string())?;
     let staged_path = staging.path().to_path_buf();
-    mutation(staging.as_file_mut(), &staged_path, &path)?;
+    mutation(staging.as_file_mut(), &path, &staged_path)?;
     if options.preserve_modified_time {
         if let Ok(modified) = original.modified() {
             staging
@@ -1132,6 +1140,9 @@ fn write_fields_result(
     if updates.is_empty() {
         return read_description(path, include_cover_data, rules, options);
     }
+    if asf::sniff(path) {
+        return asf::write_fields(path, updates, include_cover_data, rules, options);
+    }
     if let Some(kind) = container_formats::detect(path) {
         return container_formats::write_fields(
             path,
@@ -1217,6 +1228,9 @@ fn remove_tags_result(
     include_cover_data: bool,
     options: &TagOptions,
 ) -> Result<AudioEntry, String> {
+    if asf::sniff(path) {
+        return asf::remove_tags(path, include_cover_data, options);
+    }
     if let Some(kind) = container_formats::detect(path) {
         return container_formats::remove_tags(path, kind, include_cover_data, options);
     }
@@ -1279,6 +1293,18 @@ fn add_cover_result(
     let mut image_file = fs::File::open(image).map_err(|e| e.to_string())?;
     let mut picture = Picture::from_reader(&mut image_file).map_err(|e| e.to_string())?;
     picture.set_pic_type(PictureType::CoverFront);
+    if asf::sniff(path) {
+        return asf::change_pictures(
+            path,
+            include_cover_data,
+            options,
+            |pictures| {
+                pictures.push(picture);
+                Ok(())
+            },
+            "The cover could not be added",
+        );
+    }
     if let Some(kind) = container_formats::detect(path) {
         return container_formats::add_cover(
             path,
@@ -1371,6 +1397,21 @@ fn remove_cover_result(
     include_cover_data: bool,
     options: &TagOptions,
 ) -> Result<AudioEntry, String> {
+    if asf::sniff(path) {
+        return asf::change_pictures(
+            path,
+            include_cover_data,
+            options,
+            |pictures| {
+                if index >= pictures.len() {
+                    return Err(format!("Cover index {index} does not exist"));
+                }
+                pictures.remove(index);
+                Ok(())
+            },
+            "The cover could not be removed",
+        );
+    }
     if let Some(kind) = container_formats::detect(path) {
         return container_formats::remove_cover(path, kind, index, include_cover_data, options);
     }

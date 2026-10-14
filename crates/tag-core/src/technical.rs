@@ -350,7 +350,7 @@ pub(super) fn collect(
     {
         put(&mut fields, "_TOOL", vendor);
     }
-    audio(
+    stream_fields(
         &mut fields,
         properties.bit_depth(),
         properties.audio_bitrate(),
@@ -371,12 +371,17 @@ pub(super) fn collect(
     if let Some(tag) = native.id3.as_ref() {
         id3_details(&mut fields, tag);
     }
-    common(&mut fields, path, covers, metadata);
+    file_fields(&mut fields, covers, metadata, path);
     fields
 }
 
-/// Placeholders shared by every container: covers, file size, timestamps and path.
-pub(super) fn common(fields: &mut Fields, path: &Path, covers: &[CoverInfo], metadata: &Metadata) {
+/// Cover, size, timestamp and path fields shared by every container.
+pub(super) fn file_fields(
+    fields: &mut Fields,
+    covers: &[CoverInfo],
+    metadata: &Metadata,
+    path: &Path,
+) {
     put(fields, "_COVERS", covers.len());
     if let Some(cover) = covers.first() {
         put(fields, "_COVER_DESCRIPTION", &cover.description);
@@ -416,8 +421,8 @@ pub(super) fn common(fields: &mut Fields, path: &Path, covers: &[CoverInfo], met
     path_fields(fields, path);
 }
 
-/// Codec-independent stream properties.
-pub(super) fn audio(
+/// Audio stream properties shared by every container.
+pub(super) fn stream_fields(
     fields: &mut Fields,
     bits: Option<u8>,
     bitrate: Option<u32>,

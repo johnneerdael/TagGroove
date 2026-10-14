@@ -25,6 +25,22 @@ fn transform_covers(
     {
         return read_entry_summary_with_options(path, &[], options);
     }
+    if asf::sniff(path) {
+        return asf::change_pictures(
+            path,
+            false,
+            options,
+            |pictures| {
+                let mut edited = Vec::new();
+                for picture in pictures.iter() {
+                    edited.extend(transform(picture)?);
+                }
+                *pictures = edited;
+                Ok(())
+            },
+            "The edited covers could not be stored",
+        );
+    }
     if let Some(kind) = container_formats::detect(path) {
         return container_formats::transform_covers(path, kind, options, transform);
     }

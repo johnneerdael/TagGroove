@@ -94,7 +94,7 @@ pub(super) fn read(
     if !description.codec.is_empty() {
         technical.insert("_CODEC".into(), vec![description.codec.clone()]);
     }
-    technical::audio(
+    technical::stream_fields(
         &mut technical,
         description.bits,
         Some(description.bitrate),
@@ -109,7 +109,7 @@ pub(super) fn read(
     if let Some(tag) = description.id3.as_ref() {
         technical::id3_details(&mut technical, tag);
     }
-    technical::common(&mut technical, path, &covers, &metadata);
+    technical::file_fields(&mut technical, &covers, &metadata, path);
     Ok(AudioEntry {
         path: path.to_string_lossy().into_owned(),
         filename: path
@@ -144,7 +144,7 @@ fn mutate(
         include_cover_data,
         rules,
         options,
-        |staging, staged_path, original| {
+        |staging, original, staged_path| {
             let current = describe(original, kind, rules, options)?;
             let edit = plan(&current)?;
             let latin1 = match kind {
