@@ -18,7 +18,14 @@
   const frame = () => new Promise(r => { let done = false; const finish = late => { if (!done) { done = true; if (late) suspended++; r(); } }; requestAnimationFrame(() => setTimeout(() => finish(false), 0)); setTimeout(() => finish(true), 1000); });
   // Forces style and layout, so sync timings include them (not paint).
   const layout = () => document.querySelector('.app')?.getBoundingClientRect();
-  const waitFor = async (fn, ms = 30000, what = 'condition') => { const t = Date.now(); while (Date.now() - t < ms) { try { const v = fn(); if (v) return v; } catch {} await sleep(5); } throw new Error('timeout waiting for ' + what); };
+  // Re-checks on every DOM mutation as well as on a timer: timers are throttled while the window is hidden.
+  const waitFor = (fn, ms = 30000, what = 'condition') => new Promise((resolve, reject) => {
+    const started = Date.now(); let done = false;
+    const finish = (ok, value) => { done = true; observer.disconnect(); clearInterval(timer); ok ? resolve(value) : reject(new Error('timeout waiting for ' + what)); };
+    const check = () => { if (done) return; try { const value = fn(); if (value) return finish(true, value); } catch {} if (Date.now() - started > ms) finish(false); };
+    const observer = new MutationObserver(check); observer.observe(document, { subtree: true, childList: true, characterData: true, attributes: true });
+    const timer = setInterval(check, 5); check();
+  });
   const status = () => document.querySelector('.status-message')?.textContent || '';
   const busy = () => !!document.querySelector('footer.status.busy');
   const idle = (ms = 600000) => waitFor(() => !busy(), ms, 'idle');
@@ -64,6 +71,7 @@
       if (loaded) covers.push(performance.now() - t);
     }
     await both('select_arrow', arrows);
+    for (const name of ['workspace render', 'selection refresh', 'table window', 'table selection', 'sort', 'filter']) { const list = timings.filter(t => t.name === name).map(t => t.ms); if (list.length) await perf(`phase ${name.replace(/ /g, '_')}`, stats(list)); }
     await perf('cover_hydrate_after_arrow', `${stats(covers)} ${ipc('get_covers', 0)}`);
 
     // 3. Sort by a column (header click), then restore filename order.
@@ -115,8 +123,8 @@
       since = performance.now(); let progressSeen = 0;
       key('s', { metaKey: true });
       await waitFor(() => { if (/\d+ of \d+/.test(document.querySelector('.job-progress-text')?.textContent || '')) progressSeen++; return /Saved tags/.test(status()) && !busy(); }, 1800000, 'saved');
-      await frame();
-      await perf('save_all', `ms=${round(performance.now() - since)} status="${status()}" progress_updates=${progressSeen} ${ipcSince(since)}`);
+      const savedAll = performance.now() - since; await frame();
+      await perf('save_all', `ms=${round(savedAll)} status="${status()}" progress_updates=${progressSeen} ${ipcSince(since)}`);
       const sample = rows()[rows().length - 1].dataset.path, disk = await inv('scan_files', { paths: [sample], recursive: false });
       await perf('save_all_verify', `comment_ok=${disk.entries[0]?.fields.COMMENT?.[0] === value}`);
       await waitFor(() => !document.querySelector('button[data-op="undo"]')?.disabled, 30000, 'undo available').catch(() => {});
@@ -132,8 +140,17 @@
       rows()[1].querySelector('td').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })); await frame();
       const single = panel('COMMENT'); single.focus(); single.value = 'OpenTag single'; single.dispatchEvent(new Event('input', { bubbles: true })); single.blur(); rows()[1].focus();
       since = performance.now(); key('s', { metaKey: true });
-      await waitFor(() => /Saved tags/.test(status()) && !busy(), 60000, 'saved one'); await frame();
-      await perf('save_one', `ms=${round(performance.now() - since)} ${ipcSince(since)}`);
+      await waitFor(() => /Saved tags/.test(status()) && !busy(), 60000, 'saved one'); const saved = performance.now() - since; await frame();
+      await perf('save_one', `ms=${round(saved)} frame_ms=${round(performance.now() - since)} ${ipcSince(since)}`);
+
+      // 9. Cancel a multi-file save after the first progress update.
+      rows()[0].focus(); key('a', { metaKey: true }); await frame();
+      const again = panel('COMMENT'); again.focus(); again.value = 'OpenTag cancelled'; again.dispatchEvent(new Event('input', { bubbles: true })); again.blur(); rows()[0].focus();
+      since = performance.now(); key('s', { metaKey: true });
+      const cancel = await waitFor(() => /^[1-9]\d* of /.test(document.querySelector('.job-progress-text')?.textContent || '') && document.querySelector('#cancel-job'), 60000, 'progress').catch(() => null);
+      const clicked = performance.now(); cancel?.click();
+      await waitFor(() => /Saved tags/.test(status()) && !busy(), 600000, 'cancelled save');
+      await perf('save_cancel', `cancel_found=${!!cancel} stop_ms=${round(performance.now() - clicked)} status="${status()}" pending="${document.querySelector('.dirty-count')?.textContent || 'none'}"`);
     }
     await report(`SUMMARY done visibility=${document.visibilityState} suspended_frames=${suspended}`);
   } catch (e) {

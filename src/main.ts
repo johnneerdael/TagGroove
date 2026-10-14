@@ -135,7 +135,7 @@ let documentAccess:DocumentAccess={states:{},refreshError:null};
 let dataRevision = 0, orderCacheKey = '', filterCacheKey = '', orderCache: Entry[] = [], filterCache: Entry[] = [];
 let reviewedConverterContextChanged: (() => void) | undefined;
 let history:HistoryState=emptyHistory,tagClipboard:TagClipboard|undefined;
-let virtualStart = -1, virtualEnd = -1, virtualRevision = -1, virtualSelection = '';
+let virtualStart = -1, virtualEnd = -1, virtualRevision = -1, virtualSelection = '', virtualViewport = -1;
 const searchCache = new Map<string,string>();
 let searchRevision = -1;
 let filterMatch:{context:string;query:string;paths:Set<string>}|undefined;
@@ -420,13 +420,25 @@ function rowMarkup(entry:Entry,index:number){
 function updateVirtualRows(force=false){
   const wrap=document.querySelector<HTMLDivElement>('.table-wrap'),body=wrap?.querySelector('tbody');if(!wrap||!body)return;
   const startTime=performance.now(),list=visible(),viewport=Math.max(rowHeight,wrap.clientHeight-headerHeight);
-  const first=Math.floor(wrap.scrollTop/rowHeight),start=Math.max(0,Math.min(list.length,first-overscan)),end=Math.min(list.length,first+Math.ceil(viewport/rowHeight)+overscan);
+  const first=Math.floor(wrap.scrollTop/rowHeight),last=Math.min(list.length,first+Math.ceil(viewport/rowHeight));
+  // Keep the rendered window while the viewport stays inside it, so scrolling or arrowing row by row rebuilds the table only every few rows.
+  const keep=!force&&virtualRevision===dataRevision&&virtualViewport===viewport&&first>=virtualStart&&last<=virtualEnd&&virtualEnd<=list.length;
+  const start=keep?virtualStart:Math.max(0,Math.min(list.length,first-overscan)),end=keep?virtualEnd:Math.min(list.length,last+overscan);
   const selectionKey=paths().join('\0');
-  if(!force&&start===virtualStart&&end===virtualEnd&&virtualRevision===dataRevision&&virtualSelection===selectionKey)return;
+  if(!force&&start===virtualStart&&end===virtualEnd&&virtualRevision===dataRevision){
+    if(virtualSelection===selectionKey)return;
+    // Only the selection changed: restyle the affected rows instead of rebuilding (and re-laying out) the table.
+    body.querySelectorAll<HTMLTableRowElement>('tr[data-path]').forEach(row=>{
+      const on=selected.has(row.dataset.path!);if(row.classList.contains('selected')===on)return;
+      row.classList.toggle('selected',on);row.setAttribute('aria-selected',String(on));
+      const box=row.querySelector<HTMLInputElement>('.row-select');if(box)box.checked=on;
+    });
+    virtualSelection=selectionKey;timing('table selection',startTime);return;
+  }
   const focused=document.activeElement instanceof HTMLTableRowElement?document.activeElement.dataset.path:undefined;
   const spacer=(height:number)=>height?`<tr class="virtual-spacer" aria-hidden="true"><td colspan="${tableColumns().length}" style="height:${height}px"></td></tr>`:'';
   body.innerHTML=spacer(start*rowHeight)+list.slice(start,end).map((entry,i)=>rowMarkup(entry,start+i)).join('')+spacer((list.length-end)*rowHeight);
-  virtualStart=start;virtualEnd=end;virtualRevision=dataRevision;virtualSelection=selectionKey;
+  virtualStart=start;virtualEnd=end;virtualRevision=dataRevision;virtualSelection=selectionKey;virtualViewport=viewport;
   if(focused)wrap.querySelector<HTMLTableRowElement>(`tr[data-path="${CSS.escape(focused)}"]`)?.focus({preventScroll:true});
   timing('table window',startTime,{rendered:end-start,first:start,last:end});
 }
@@ -493,9 +505,9 @@ function render() {
   <nav class="menubar" aria-label="Main menu">${menu('File',[['save','Save tags','⌘/Ctrl S'],['save-copy','Save a copy…'],['reload','Reload tags'],['playlist','Create playlist…'],['export-config','Export…','⌘/Ctrl E'],['csv','Export CSV…'],['folder','Change directory…',runtimePlatform.document_access_supported?undefined:'⌘/Ctrl D'],['dir-add','Add directory…','Ctrl H'],['files','Add files…',runtimePlatform.document_access_supported?'⌘/Ctrl D':undefined],['dir-up','Upper directory','⌘/Ctrl ⇧ D'],['dir-back','Previous directory','Alt ←'],['dir-forward','Next directory','Alt →'],['dir-favorite','Favorite directory','Ctrl M'],['dir-manage','Favorite directories…'],['clear-list','Clear list'],['file-reveal',`Open in ${fileOps.fileManager}`],['file-play','Play','F4'],['options','Options…','⌘/Ctrl O']])}${menu('Edit',[['undo',esc(historyLabel('Undo',history.undo)),'⌘/Ctrl Z'],['redo',esc(historyLabel('Redo',history.redo)),'⌘/Ctrl Y'],['cut-tags','Cut tags','⌘/Ctrl X'],['copy-tags','Copy tags','⌘/Ctrl C'],['paste-tags','Paste tags','⌘/Ctrl V'],['select-all','Select all','⌘/Ctrl A'],['invert-selection','Invert selection','⌘/Ctrl ⇧A'],['unselect-all','Unselect all','⌘/Ctrl U'],['select-next','Select next file','⌘/Ctrl N'],['select-similar','Select similar files','⌘/Ctrl G'],['select-next-similar','Select next similar files','⌘/Ctrl ⇧G'],['find','Find…','⌘/Ctrl F'],['edit-cell','Edit in file list','F2'],['file-copy','Copy files to…','⌘/Ctrl ⇧ C'],['file-move','Move files to…','⌘/Ctrl ⇧ V'],['remove-from-list','Remove from list','Del'],['file-delete','Delete files…','⌘/Ctrl Del'],['extended','Extended tags…'],['discard','Discard pending changes'],['remove-tags','Remove tags…']])}${menu('View',[viewListItems[0],['toggle-panel',tagPanel.visible?'Hide tag panel':'Show tag panel','Ctrl Q'],['panel-defaults','Default values in input fields'],['panel-options','Customize tag panel…'],['field-values','Field values…'],...viewListItems.slice(1)])}${menu('Convert',[['tags-filename','Tag → Filename…','Alt 1'],['filename-tags','Filename → Tag…','Alt 2'],['filename-filename','Filename → Filename…','Alt 3'],['text-tags','Text File → Tag…','Alt 4'],['tag-tag','Tag → Tag…','Alt 5'],['number','Auto-numbering…','⌘/Ctrl K']])}${menu('Actions',[['groups','Actions…','Alt 6'],['action','Actions (Quick)…','Alt Shift 6']])}${menu('Tag Sources',[['source-musicbrainz','MusicBrainz…',tagSourcesUI.lastProvider==='musicbrainz'?'⌘/Ctrl I':undefined],['source-discogs','Discogs…',tagSourcesUI.lastProvider==='discogs'?'⌘/Ctrl I':undefined],['source-token','Discogs access token…'],['source-options','Options…']])}${menu('Help',[['about','About OpenTag']])}</nav>
   <div class="toolbar" role="toolbar" aria-label="File and tag operations">${button('folder','Open folder','▱')}${button('files','Add files','＋')}<span class="sep"></span>${button('save','Save tags','▣')}${button('reload','Reload','↻')}<span class="sep"></span>${button('filename-tags','Filename → Tag')}${button('tags-filename','Tag → Filename')}<span class="spacer"></span>${button('groups','Actions','⚙')}${button('number','Numbering','#')}</div>
   <nav class="mobile-panes" aria-label="Workspace view"><button data-pane="files" aria-pressed="${mobilePane==='files'}">Files (${entries.size})</button><button data-pane="tags" aria-pressed="${mobilePane==='tags'}" ${selected.size?'':'disabled'}>Tags (${selected.size})</button></nav>
-  <main class="workspace"><aside class="editor" aria-label="Tag editor"><div class="panel-title">Tag panel <span>${selected.size ? `${selected.size} selected` : 'No selection'}</span>${tagPanel.titleHTML()}</div>${sourceMarkup('tags')}<div class="fields">${tagPanel.fieldsHTML()}</div><div class="editor-actions">${button('save','Save tags')}${button('extended','Extended…')}</div>
+  <main class="workspace"><aside class="editor" aria-label="Tag editor"><div class="panel-title">Tag panel <span class="panel-count">${panelCount()}</span>${tagPanel.titleHTML()}</div>${sourceMarkup('tags')}<div class="fields">${tagPanel.fieldsHTML()}</div><div class="editor-actions">${button('save','Save tags')}${button('extended','Extended…')}</div>
   ${tagPanel.showCover?`<section class="cover-section" aria-label="Embedded artwork">${coverMarkup()}</section>`:''}</aside>
-  <section class="files" aria-label="Audio files"><div class="location">${glyph(glyphOrganize)}<span class="path" title="${esc(entry&&providerEntry(entry)?sourcePresentation(documentAccess.states[entry.path]).location:location)}">${esc(entry&&providerEntry(entry)?sourcePresentation(documentAccess.states[entry.path]).location:location)}</span><strong>${entries.size} file${entries.size===1?'':'s'}</strong></div>${sourceMarkup('files')}<div class="filterbar"><label for="filter">${glyph(glyphSearch)}<span class="visually-hidden">Filter</span></label><input id="filter" type="search" value="${esc(filter)}" placeholder="Filter filenames and tags, or enter a filter expression" autocomplete="off"><span class="count">${filterPending?'Filtering… · ':list.length === entries.size ? '' : `${list.length} visible · `}${selected.size} selected</span></div><div class="table-wrap"><table aria-label="Audio metadata" aria-rowcount="${list.length+1}" style="width:${shownColumns.reduce((sum,c)=>sum+c.width,0)}px"><thead><tr>${headerMarkup(shownColumns,columnLayout.sort)}</tr></thead><tbody></tbody></table>${!list.length ? `<div class="empty"><img class="empty-symbol" data-theme-image="mark" src="${themedAsset('mark')}" alt="" aria-hidden="true"><h1>${filterPending ? 'Filtering files…' : filterFailure ? 'Invalid filter' : entries.size ? 'No matching files' : runtimePlatform.document_access_supported?'Add audio documents':desktop ? 'Open your music folder' : 'Your music, ready to edit'}</h1><p>${filterPending ? 'Matching your filter against filenames and tag values.' : filterFailure ? esc(filterFailure) : entries.size ? 'Try another filename or tag value in the filter.' : runtimePlatform.document_access_supported?'Choose audio files from your document provider. Source access and recovery options appear with your selection.':desktop ? 'Open a folder, add audio files, or drop them into this window. Select files to edit their tags together.' : 'Open the desktop app to work with local audio files. Your files and tags stay on your computer.'}</p>${!entries.size ? `<div class="empty-actions">${button('folder','Open folder…')}${button('files','Add files…')}</div>` : ''}</div>` : ''}</div><div class="selection-info">${listSummary(selectedEntries,list,entries.size,selected.size===1?entry:undefined).map(segment=>`<span>${esc(segment)}</span>`).join('')}</div>
+  <section class="files" aria-label="Audio files"><div class="location">${glyph(glyphOrganize)}<span class="path" title="${esc(entry&&providerEntry(entry)?sourcePresentation(documentAccess.states[entry.path]).location:location)}">${esc(entry&&providerEntry(entry)?sourcePresentation(documentAccess.states[entry.path]).location:location)}</span><strong>${entries.size} file${entries.size===1?'':'s'}</strong></div>${sourceMarkup('files')}<div class="filterbar"><label for="filter">${glyph(glyphSearch)}<span class="visually-hidden">Filter</span></label><input id="filter" type="search" value="${esc(filter)}" placeholder="Filter filenames and tags, or enter a filter expression" autocomplete="off"><span class="count">${countText(list)}</span></div><div class="table-wrap"><table aria-label="Audio metadata" aria-rowcount="${list.length+1}" style="width:${shownColumns.reduce((sum,c)=>sum+c.width,0)}px"><thead><tr>${headerMarkup(shownColumns,columnLayout.sort)}</tr></thead><tbody></tbody></table>${!list.length ? `<div class="empty"><img class="empty-symbol" data-theme-image="mark" src="${themedAsset('mark')}" alt="" aria-hidden="true"><h1>${filterPending ? 'Filtering files…' : filterFailure ? 'Invalid filter' : entries.size ? 'No matching files' : runtimePlatform.document_access_supported?'Add audio documents':desktop ? 'Open your music folder' : 'Your music, ready to edit'}</h1><p>${filterPending ? 'Matching your filter against filenames and tag values.' : filterFailure ? esc(filterFailure) : entries.size ? 'Try another filename or tag value in the filter.' : runtimePlatform.document_access_supported?'Choose audio files from your document provider. Source access and recovery options appear with your selection.':desktop ? 'Open a folder, add audio files, or drop them into this window. Select files to edit their tags together.' : 'Open the desktop app to work with local audio files. Your files and tags stay on your computer.'}</p>${!entries.size ? `<div class="empty-actions">${button('folder','Open folder…')}${button('files','Add files…')}</div>` : ''}</div>` : ''}</div><div class="selection-info">${selectionInfoMarkup(selectedEntries,list)}</div>
   ${errors.length ? `<section class="errors" aria-label="Operation errors"><header>${errors.length} file error${errors.length===1?'':'s'}<button id="dismiss-errors">Dismiss</button></header>${errors.map(e => `<p><strong>${esc(displayName(e.path))}:</strong> ${esc(publicMessage(e.error))}</p>`).join('')}</section>` : ''}</section></main><footer class="status ${busy?'busy':''}"><span class="status-dot" aria-hidden="true"></span><span class="status-message" role="status">${esc(status)}</span>${progressMarkup()}${drafts.size ? `<span class="dirty-count">${drafts.size} unsaved file${drafts.size===1?'':'s'}</span>` : ''}<span>${entries.size} files</span></footer></div>`;
   const wrap=document.querySelector<HTMLDivElement>('.table-wrap')!;
   wrap.querySelector('tbody')!.innerHTML=list.length?`<tr class="virtual-spacer" aria-hidden="true"><td colspan="${tableColumns().length}" style="height:${list.length*rowHeight}px"></td></tr>`:'';
@@ -508,6 +520,36 @@ function render() {
   syncWindowTitle();
   timing('workspace render',started,{rendered:virtualEnd-virtualStart,selected:selected.size});
 }
+function countText(list:Entry[]){return`${filterPending?'Filtering… · ':list.length===entries.size?'':`${list.length} visible · `}${selected.size} selected`;}
+function panelCount(){return selected.size?`${selected.size} selected`:'No selection';}
+function selectionInfoMarkup(selectedEntries:Entry[],list:Entry[]){return listSummary(selectedEntries,list,entries.size,selected.size===1?active():undefined).map(segment=>`<span>${esc(segment)}</span>`).join('');}
+function bindFields(root:ParentNode){root.querySelectorAll<HTMLInputElement|HTMLTextAreaElement>('[data-field]').forEach(el=>el.addEventListener('input',()=>draftField(el.dataset.field!,el.value)));}
+/**
+ * Selection changes update only what depends on the selection: table rows, tag panel fields, cover,
+ * counts and command states. A full render rebuilds every menu and forces layout of the whole window,
+ * which made each click or arrow key cost about twice as much. Provider documents and the compact
+ * layout show selection-dependent source details and pane tabs, so they keep the full render.
+ */
+function refreshSelection(){
+  const fields=document.querySelector<HTMLElement>('.fields');
+  if(!fields||runtimePlatform.document_access_supported||compactScreen()||selectedProvider()||document.querySelector('.source-access')){render();return;}
+  const started=performance.now();
+  reviewedConverterContextChanged?.();
+  const focused=document.activeElement instanceof HTMLInputElement||document.activeElement instanceof HTMLTextAreaElement?document.activeElement:undefined;
+  const focusField=focused&&fields.contains(focused)?focused.dataset.field:undefined;
+  const list=visible(),panelTop=fields.scrollTop;
+  updateVirtualRows();cellEditor.reattach();
+  fields.innerHTML=tagPanel.fieldsHTML();tagPanel.bind(fields);bindFields(fields);if(panelTop)fields.scrollTop=panelTop;
+  if(focusField)fields.querySelector<HTMLElement>(`[data-field="${CSS.escape(focusField)}"]`)?.focus({preventScroll:true});
+  document.querySelector('.panel-count')!.textContent=panelCount();
+  document.querySelector('.filterbar .count')!.textContent=countText(list);
+  document.querySelector('.selection-info')!.innerHTML=selectionInfoMarkup(paths().map(path=>entries.get(path)!),list);
+  document.querySelectorAll<HTMLButtonElement>('button[data-op]').forEach(el=>{el.disabled=!enabled(el.dataset.op as Operation);el.title=operationReason(el.dataset.op as Operation)||el.querySelector('span:not(.icon)')?.textContent||'';});
+  const actions=enabled('action');document.querySelectorAll<HTMLButtonElement>('[data-action-group]').forEach(el=>el.disabled=!actions);
+  refreshCoverPanel();hydrateActiveCover();
+  timing('selection refresh',started,{selected:selected.size});
+}
+function selectedProvider(){return [...selected].some(path=>{const entry=entries.get(path);return !!entry&&providerEntry(entry);});}
 function copyBaseUnknown(path:string){
   const entry=entries.get(path);
   return !!entry&&providerEntry(entry)&&(!!documentAccess.refreshError||documentAccess.states[path]?.state!=='ready');
@@ -543,7 +585,7 @@ function draftField(key: string, value: string) {
   else if(drafts.size) document.querySelector('.status-message')!.insertAdjacentHTML('afterend',`<span class="dirty-count">${drafts.size} unsaved file${drafts.size===1?'':'s'}</span>`);
   if(!drafts.size) oldCount?.remove();
   updateVirtualRows(true);
-  document.querySelector('.filterbar .count')!.textContent=`${visible().length===entries.size?'':`${visible().length} visible · `}${selected.size} selected`;
+  document.querySelector('.filterbar .count')!.textContent=countText(visible());
 }
 function keepField(key:string){
   paths().forEach(path=>{const entry=entries.get(path)!,name=panelKey({format:entry.format,fields:merged(entry)},key);updateDraft(path,name,[...(entry.fields[name]||[])]);});
@@ -560,7 +602,7 @@ function select(path: string, event: MouseEvent | KeyboardEvent) {
   const wrap=document.querySelector<HTMLDivElement>('.table-wrap')!;
   const index=list.indexOf(path),top=index*rowHeight,bottom=top+rowHeight,viewport=wrap.clientHeight-headerHeight;
   if(top<wrap.scrollTop)wrap.scrollTop=top;else if(bottom>wrap.scrollTop+viewport)wrap.scrollTop=bottom-viewport;
-  coverIndex = 0; coverError=undefined;if(activeCover?.path!==active()?.path)activeCover=undefined;render();
+  coverIndex = 0; coverError=undefined;if(activeCover?.path!==active()?.path)activeCover=undefined;refreshSelection();
   document.querySelector<HTMLTableRowElement>(`tr[data-path="${CSS.escape(path)}"]`)?.focus({preventScroll:true});
 }
 function bind() {
@@ -568,7 +610,7 @@ function bind() {
   actionUI.bindMenu(app);tagPanel.bind(app);columnUI.bindMenu(app);fileOps.bindMenu(app);
   document.querySelectorAll<HTMLButtonElement>('button[data-pane]').forEach(el=>el.addEventListener('click',()=>{mobilePane=el.dataset.pane as 'files'|'tags';render();}));
   document.querySelectorAll<HTMLButtonElement>('[data-op]').forEach(el => el.addEventListener('click', () => { document.querySelectorAll<HTMLDetailsElement>('details[open]').forEach(d => d.open = false); void operate(el.dataset.op as Operation); }));
-  document.querySelectorAll<HTMLInputElement|HTMLTextAreaElement>('[data-field]').forEach(el => el.addEventListener('input', () => draftField(el.dataset.field!,el.value)));
+  bindFields(app);
   document.querySelector<HTMLInputElement>('#filter')!.addEventListener('input',event => {
     const el = event.target as HTMLInputElement, position = el.selectionStart; filter = el.value; document.querySelector('.table-wrap')!.scrollTop=0;render();
     const replacement = document.querySelector<HTMLInputElement>('#filter')!;replacement.focus();try{replacement.setSelectionRange(position,position);}catch{/* Search controls do not expose selection on every webview. */}
@@ -1022,7 +1064,7 @@ async function operateImpl(op: Operation) {
   if(op==='copy-tags'||op==='cut-tags'){clipTags(op==='cut-tags');return;}
   if(op==='paste-tags'){stageTagUpdates(()=>pastePlan(tagClipboard,clipTargets()),'Paste tags',count=>`Pasted tags to ${count} file${count===1?'':'s'}.`);return;}
   if(op==='tag-tag'){tagToTag();return;}
-  if(op==='select-all'){selected.clear();visible().forEach(e=>selected.add(e.path));anchor=paths()[0];coverIndex=0;render();return;}
+  if(op==='select-all'){selected.clear();visible().forEach(e=>selected.add(e.path));anchor=paths()[0];coverIndex=0;refreshSelection();return;}
   if(op==='discard'){if(await ask('Discard the pending tag changes for the selected files?',{title:'Discard changes',kind:'warning'})){paths().forEach(discardDrafts);changedData();status='Pending changes discarded';render();}return;}
   if(op==='reload'){if(dirtySelected()&&!await ask('Reload tags from the source and discard pending changes for the selected files?',{title:'Reload tags',kind:'warning'}))return;await run('Reloading tags…',async()=>accept(await invoke<Batch>('scan_files',{paths:paths(),recursive:false}),'Reloaded'));return;}
   if(op==='extended'){extended();return;}
@@ -1047,7 +1089,7 @@ async function operateImpl(op: Operation) {
 }
 async function listOperation(op:Operation){
   const list=visible().map(entry=>entry.path);
-  const choose=(targets:string[],focus=targets[0])=>{selected.clear();targets.forEach(path=>selected.add(path));anchor=focus;coverIndex=0;coverError=undefined;render();if(focus)revealRow(focus);};
+  const choose=(targets:string[],focus=targets[0],listChanged=false)=>{selected.clear();targets.forEach(path=>selected.add(path));anchor=focus;coverIndex=0;coverError=undefined;if(listChanged)render();else refreshSelection();if(focus)revealRow(focus);};
   if(op==='unselect-all'){choose([]);return;}
   if(op==='invert-selection'){choose(invertSelection(list,selected));return;}
   if(op==='select-next'){const next=nextFile(list,selected);if(next)choose([next]);return;}
@@ -1069,7 +1111,7 @@ async function listOperation(op:Operation){
     cellEditor.cancel();removeEntries(targets);
     if(op==='clear-list'||!entries.size){listRoots=[];location='No folder loaded';errors=[];}
     status=`Removed ${targets.length} file${targets.length===1?'':'s'} from the list`;
-    choose(next?[next]:[]);return;
+    choose(next?[next]:[],next,true);return;
   }
   if(op==='refresh'){
     if(drafts.size&&!await ask(`Refresh the file list and discard pending changes in ${drafts.size} file${drafts.size===1?'':'s'}?`,{title:'Refresh',kind:'warning'}))return;
