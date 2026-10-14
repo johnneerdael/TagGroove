@@ -128,3 +128,59 @@ fn nero_and_quicktime_chapters_are_read_and_stripped() {
     strip_mp4_chapters_with_options(&flac, false, &TagOptions::default()).unwrap();
     assert_eq!(fs::read(&flac).unwrap(), before);
 }
+
+#[test]
+fn m4b_and_m4v_files_are_scanned_with_their_codec() {
+    if !tools() {
+        eprintln!("Skipping MP4 scan test: ffmpeg and ffprobe are required");
+        return;
+    }
+    let dir = tempfile::tempdir().unwrap();
+    for (name, extra) in [
+        ("book.m4b", vec!["-c:a", "aac"]),
+        (
+            "clip.m4v",
+            vec![
+                "-f",
+                "lavfi",
+                "-i",
+                "color=blue:s=16x16:d=0.3",
+                "-c:a",
+                "aac",
+                "-c:v",
+                "mpeg4",
+                "-f",
+                "mp4",
+            ],
+        ),
+    ] {
+        let output = Command::new("ffmpeg")
+            .args(["-v", "error", "-f", "lavfi", "-i", "sine=duration=0.3"])
+            .args(&extra)
+            .arg(dir.path().join(name))
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+    let scanned = tag_core::scan_paths(&[dir.path().to_string_lossy().into_owned()], false);
+    assert!(scanned.errors.is_empty(), "{:?}", scanned.errors);
+    let found: Vec<_> = scanned
+        .entries
+        .iter()
+        .map(|e| {
+            (
+                e.filename.as_str(),
+                e.format.as_str(),
+                e.technical["_CODEC"][0].as_str(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        found,
+        [("book.m4b", "MP4", "AAC"), ("clip.m4v", "MP4", "AAC")]
+    );
+}
