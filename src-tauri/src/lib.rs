@@ -131,6 +131,18 @@ async fn filter_matches(
     .map_err(|e| e.to_string())?
 }
 
+#[tauri::command]
+async fn preview_numbering(
+    items: Vec<tag_core::numbering::NumberingItem>,
+    options: tag_core::numbering::NumberingOptions,
+) -> Result<Vec<tag_core::numbering::NumberingUpdate>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        tag_core::numbering::plan_numbering(&items, &options)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 async fn io<T: Send + 'static>(
     work: impl FnOnce() -> Result<T, String> + Send + 'static,
 ) -> Result<T, String> {
@@ -740,6 +752,7 @@ pub fn run() {
             restore_document_recovery,
             get_covers,
             filter_matches,
+            preview_numbering,
             scan_files,
             save_fields,
             remove_tags,
@@ -765,6 +778,33 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn numbering_command_plans_unopened_files_without_io() {
+        use tag_core::numbering::{NumberingItem, NumberingOptions};
+        let plan = tauri::async_runtime::block_on(preview_numbering(
+            vec![
+                NumberingItem {
+                    path: "/unopened/a/one.flac".into(),
+                    fields: Fields::new(),
+                },
+                NumberingItem {
+                    path: "/unopened/b/two.mp3".into(),
+                    fields: Fields::new(),
+                },
+            ],
+            NumberingOptions {
+                disc_enabled: true,
+                next_disc_on_directory: true,
+                reset_track_on_next_disc: true,
+                ..Default::default()
+            },
+        ))
+        .unwrap();
+        assert_eq!(plan[0].fields["TRACK"], ["01"]);
+        assert_eq!(plan[1].fields["TRACK"], ["01"]);
+        assert_eq!(plan[1].fields["DISCNUMBER"], ["2"]);
+    }
 
     fn wav(path: &Path) {
         let samples = vec![0u8; 8820];

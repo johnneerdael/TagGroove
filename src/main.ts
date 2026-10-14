@@ -8,6 +8,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getVersion } from '@tauri-apps/api/app';
 import { createAppearance, type AppearanceState } from './theme';
 import { installMenubar } from './menubar';
+import { createNumberingReview, numberingCounter, type NumberingRequest, type NumberingUpdate } from './numbering-review';
 import { open, save, ask } from '@tauri-apps/plugin-dialog';
 import { fieldNameIdentity, resolveTagEdits, selectionTagRows, type TagRowEdit } from './tag-edits';
 import { ActionUI, panelKey, resolvePathChanges, type ActionGroup, type ActionLibrary, type ImportedGroup } from './action-ui';
@@ -324,7 +325,7 @@ function render() {
   const selectedEntries = paths().map(path => entries.get(path)!);
   const selectedSize = selectedEntries.reduce((sum,e) => sum+e.size,0), selectedTime = selectedEntries.reduce((sum,e) => sum+e.duration,0);
   app.innerHTML = `<div class="app" data-pane="${mobilePane}"><header class="titlebar"><img class="brand-logo" data-theme-image="logo" src="${themedAsset('logo')}" alt="OpenTag"><span class="subtitle">Audio metadata editor</span><span class="window-mode">${runtimePlatform.document_access_supported?'Provider documents':desktop?'Local files':'Browser preview'}</span><label class="appearance-control"><span>Appearance</span><select id="appearance" aria-label="Appearance"><option value="system">${appearance.state.preference==='system'?`System (${appearance.state.resolved==='dark'?'Dark':'Light'})`:'System'}</option><option value="light">Light</option><option value="dark">Dark</option></select></label></header>
-  <nav class="menubar" aria-label="Main menu">${menu('File',[['folder','Open folder…',runtimePlatform.document_access_supported?undefined:'⌘/Ctrl O'],['files','Add files…',runtimePlatform.document_access_supported?'⌘/Ctrl O':undefined],['save','Save tags','⌘/Ctrl S'],['save-copy','Save a copy…'],['reload','Reload tags'],['playlist','Create playlist…'],['csv','Export CSV…']])}${menu('Edit',[['select-all','Select all','⌘/Ctrl A'],['extended','Extended tags…'],['discard','Discard pending changes'],['remove-tags','Remove tags…']])}${menu('Convert',[['filename-tags','Filename → Tag…'],['tags-filename','Tag → Filename…'],['filename-filename','Filename → Filename…'],['text-tags','Text File → Tag…']])}${menu('Actions',[['groups','Actions…','Alt 6'],['action','Actions (Quick)…','Alt Shift 6'],['number','Auto-numbering…']])}${menu('Help',[['about','About OpenTag']])}</nav>
+  <nav class="menubar" aria-label="Main menu">${menu('File',[['folder','Open folder…',runtimePlatform.document_access_supported?undefined:'⌘/Ctrl O'],['files','Add files…',runtimePlatform.document_access_supported?'⌘/Ctrl O':undefined],['save','Save tags','⌘/Ctrl S'],['save-copy','Save a copy…'],['reload','Reload tags'],['playlist','Create playlist…'],['csv','Export CSV…']])}${menu('Edit',[['select-all','Select all','⌘/Ctrl A'],['extended','Extended tags…'],['discard','Discard pending changes'],['remove-tags','Remove tags…']])}${menu('Convert',[['filename-tags','Filename → Tag…'],['tags-filename','Tag → Filename…'],['filename-filename','Filename → Filename…'],['text-tags','Text File → Tag…'],['number','Auto-numbering…','⌘/Ctrl K']])}${menu('Actions',[['groups','Actions…','Alt 6'],['action','Actions (Quick)…','Alt Shift 6']])}${menu('Help',[['about','About OpenTag']])}</nav>
   <div class="toolbar" role="toolbar" aria-label="File and tag operations">${button('folder','Open folder','▱')}${button('files','Add files','＋')}<span class="sep"></span>${button('save','Save tags','▣')}${button('reload','Reload','↻')}<span class="sep"></span>${button('filename-tags','Filename → Tag')}${button('tags-filename','Tag → Filename')}<span class="spacer"></span>${button('groups','Actions','⚙')}${button('number','Numbering','#')}</div>
   <nav class="mobile-panes" aria-label="Workspace view"><button data-pane="files" aria-pressed="${mobilePane==='files'}">Files (${entries.size})</button><button data-pane="tags" aria-pressed="${mobilePane==='tags'}" ${selected.size?'':'disabled'}>Tags (${selected.size})</button></nav>
   <main class="workspace"><aside class="editor" aria-label="Tag editor"><div class="panel-title">Tag panel <span>${selected.size ? `${selected.size} selected` : 'No selection'}</span></div>${sourceMarkup('tags')}<div class="fields">${input('TITLE')}${input('ARTIST')}${input('ALBUM')}${input('ALBUMARTIST')}<div class="field-pair">${input('YEAR')}${input('TRACK')}</div>${input('GENRE')}${input('COMMENT')}${input('COMPOSER')}${input('DISCNUMBER')}</div><div class="editor-actions">${button('save','Save tags')}${button('extended','Extended…')}</div>
@@ -690,8 +691,77 @@ function reviewedConverter(kind:'filename'|'text') {
   syncControls();dialog.querySelector<HTMLInputElement|HTMLSelectElement>(rename?'#old-pattern':'#text-source-kind')!.focus({preventScroll:true});
 }
 function numbering() {
-  const dialog=modal('Auto-numbering',`<p>Number the selected files in their current table order.</p><div class="field-pair"><label class="field"><span>START AT</span><input id="number-start" type="number" min="1" value="1"></label><label class="field"><span>MINIMUM DIGITS</span><input id="number-digits" type="number" min="1" max="6" value="2"></label></div><label><input type="checkbox" id="number-total"> Include total tracks (01/12)</label>`,`<button class="primary" id="apply-number">Number ${selected.size} files</button>`);
-  dialog.querySelector('#apply-number')!.addEventListener('click',()=>{const start=Number(value(dialog,'number-start')),digits=Number(value(dialog,'number-digits'));if(!Number.isInteger(start)||start<1||!Number.isInteger(digits)||digits<1||digits>6){modalError(dialog,'Enter a positive start number and 1–6 digits.');return;}const list=ordered().filter(e=>selected.has(e.path)),total=dialog.querySelector<HTMLInputElement>('#number-total')!.checked;list.forEach((entry,i)=>updateDraft(entry.path,panelKey({format:entry.format,fields:merged(entry)},'TRACK'),[String(start+i).padStart(digits,'0')+(total?`/${list.length}`:'')]));status=`Track numbers are pending for ${list.length} files. Save tags to write them.`;dialog.close();render();});
+  const directoryAvailable=paths().every(path=>!providerEntry(entries.get(path)!));
+  const names=[...new Set(['ALBUM','DISCNUMBER','ALBUMARTIST',...paths().flatMap(path=>Object.keys(merged(entries.get(path)!)))])].sort();
+  const fieldOptions=`<option value="">Do not change counter</option>${names.map(name=>`<option value="${esc(name)}">${esc(name)}</option>`).join('')}`;
+  const counter=(id:string,label:string,initial:number,max=4_294_967_295)=>`<label class="field"><span>${label}</span><input id="${id}" type="number" min="1" max="${max}" step="1" value="${initial}"></label>`;
+  const dialog=modal('Auto-numbering',`<p>Number selected files in their current table order. Preview, then stage the numbers as pending edits.</p>
+    <fieldset class="numbering-section"><legend>Track numbers</legend><div class="field-pair">${counter('number-start','Begin at track',1)}${counter('number-digits','Minimum digits',2,10)}</div>
+    <label class="action-check"><input type="checkbox" id="number-total"> Save total track count</label>${counter('number-total-value','Total tracks',selected.size)}</fieldset>
+    <fieldset class="numbering-section"><legend><label><input type="checkbox" id="number-disc-enabled"> Disc numbers</label></legend><div class="field-pair">${counter('number-disc-start','Begin at disc',1)}${counter('number-disc-digits','Minimum digits',1,10)}</div>
+    <label class="action-check"><input type="checkbox" id="number-disc-total"> Save total disc count</label>${counter('number-disc-total-value','Total discs',1)}</fieldset>
+    <fieldset class="numbering-section"><legend>Counter changes</legend><label class="action-check"><input type="checkbox" id="number-directory" ${directoryAvailable?'':'disabled'}> Next disc on change of directory</label>
+    ${directoryAvailable?'':'<p>Directory grouping requires local files with known folders.</p>'}
+    <label class="field"><span>Next disc on change of field</span><select id="number-next-field">${fieldOptions}</select></label>
+    <label class="action-check"><input type="checkbox" id="number-reset-track"> Reset track counter on next disc</label>
+    <label class="field"><span>Reset disc counter on change of field</span><select id="number-reset-field">${fieldOptions}</select></label>
+    <p>Resetting the disc counter also resets tracks. Totals use the values entered above.</p></fieldset>
+    <p id="number-progress" role="status">Run Preview to review the sequence.</p><div id="number-preview"></div>`,
+    `<button id="preview-number">Preview</button><button class="primary" id="apply-number" disabled>Stage numbers</button>`);
+  dialog.classList.add('numbering-dialog');
+  const checked=(id:string)=>dialog.querySelector<HTMLInputElement>(`#${id}`)!.checked;
+  const count=(id:string,label:string,max?:number)=>numberingCounter(value(dialog,id),label,max);
+  const request=():NumberingRequest=>({
+    items:paths().map(path=>({path,fields:merged(entries.get(path)!)})),
+    options:{
+      track_start:count('number-start','Track start'),track_digits:count('number-digits','Track digits',10),track_total:checked('number-total')?count('number-total-value','Total tracks'):null,
+      disc_enabled:checked('number-disc-enabled'),disc_start:checked('number-disc-enabled')?count('number-disc-start','Disc start'):1,disc_digits:checked('number-disc-enabled')?count('number-disc-digits','Disc digits',10):1,
+      disc_total:checked('number-disc-enabled')&&checked('number-disc-total')?count('number-disc-total-value','Total discs'):null,
+      next_disc_on_directory:directoryAvailable&&checked('number-directory'),next_disc_on_field:value(dialog,'number-next-field')||null,
+      reset_track_on_next_disc:checked('number-reset-track'),reset_disc_on_field:value(dialog,'number-reset-field')||null,
+    },
+  });
+  const review=createNumberingReview(),apply=dialog.querySelector<HTMLButtonElement>('#apply-number')!,preview=dialog.querySelector<HTMLButtonElement>('#preview-number')!;
+  const progress=dialog.querySelector<HTMLElement>('#number-progress')!,area=dialog.querySelector<HTMLElement>('#number-preview')!;
+  const inputValues=()=>[...dialog.querySelectorAll<HTMLInputElement|HTMLSelectElement>('input,select')].map(control=>control instanceof HTMLInputElement&&control.type==='checkbox'?control.checked:control.value);
+  const inputsChanged=createConverterInputTracker(inputValues());
+  let generation=0,pending=false;
+  const sync=()=>{
+    const disable=(id:string,disabled:boolean)=>{dialog.querySelector<HTMLInputElement>(`#${id}`)!.disabled=disabled;};
+    disable('number-total-value',!checked('number-total'));
+    for(const id of ['number-disc-start','number-disc-digits','number-disc-total'])disable(id,!checked('number-disc-enabled'));
+    disable('number-disc-total-value',!checked('number-disc-enabled')||!checked('number-disc-total'));
+    preview.disabled=pending||busy;
+    try{apply.disabled=pending||busy||!review.canApply(request());}catch{apply.disabled=true;}
+  };
+  const invalidate=()=>{generation++;pending=false;review.invalidate();area.replaceChildren();progress.textContent='Inputs changed. Run Preview again.';sync();};
+  const changed=()=>{if(inputsChanged(inputValues()))invalidate();else sync();};
+  dialog.addEventListener('input',changed);dialog.addEventListener('change',changed);
+  dialog.addEventListener('close',()=>{generation++;review.invalidate();});
+  preview.addEventListener('click',async()=>{
+    preview.focus({preventScroll:true});changed();const current=++generation;
+    try{
+      if(busy)throw new Error('Wait for the current file operation to finish.');
+      const attempt=review.begin(request());pending=true;area.replaceChildren();dialog.querySelector('.dialog-error')?.remove();progress.textContent='Preparing numbering preview…';sync();
+      const plan=await invoke<NumberingUpdate[]>('preview_numbering',attempt.request);
+      if(!dialog.open||current!==generation)return;
+      if(!review.complete(attempt,plan,request())){progress.textContent='Selection changed. Run Preview again.';return;}
+      const rows=plan.slice(0,100);
+      area.innerHTML=`<div class="preview" tabindex="0" aria-label="Numbering preview"><table><thead><tr><th>File</th><th>Track</th>${attempt.request.options.disc_enabled?'<th>Disc</th>':''}</tr></thead><tbody>${rows.map(row=>`<tr><td>${esc(displayName(row.path))}</td><td>${esc(row.fields.TRACK[0])}</td>${attempt.request.options.disc_enabled?`<td>${esc(row.fields.DISCNUMBER[0])}</td>`:''}</tr>`).join('')}</tbody></table></div>`;
+      progress.textContent=`Reviewed ${plan.length} files.${plan.length>100?' Showing the first 100.':''} Stage numbers, then Save tags to write them.`;
+    }catch(error){if(dialog.open&&current===generation){review.invalidate();modalError(dialog,error);progress.textContent='Preview failed. Review the options and try again.';}}
+    finally{if(dialog.open&&current===generation){pending=false;sync();}}
+  });
+  apply.addEventListener('click',()=>{
+    apply.focus({preventScroll:true});changed();
+    try{
+      if(busy)throw new Error('Wait for the current file operation to finish.');
+      const plan=review.take(request());
+      for(const row of plan){const entry=entries.get(row.path)!;for(const [key,values] of Object.entries(row.fields))updateDraft(row.path,panelKey({format:entry.format,fields:merged(entry)},key),values);}
+      status=`Numbers are pending for ${plan.length} files. Save tags to write them.`;dialog.close();render();
+    }catch(error){modalError(dialog,error);sync();}
+  });
+  sync();dialog.querySelector<HTMLInputElement>('#number-start')!.focus({preventScroll:true});
 }
 async function operateImpl(op: Operation) {
   if(!enabled(op))return;
@@ -727,7 +797,7 @@ document.addEventListener('keydown',event=>{
   if(event.altKey&&(event.code==='KeyA'||event.key.toLowerCase()==='a')&&!typing){event.preventDefault();const menu=document.querySelector<HTMLDetailsElement>('#actions-menu')!;menubar.open(menu);menu.querySelector('summary')?.focus();actionUI.beginMnemonic();return;}
   if(!typing&&document.querySelector<HTMLDetailsElement>('#actions-menu')?.open&&event.key.trim().length===1&&!event.metaKey&&!event.ctrlKey){event.preventDefault();void actionUI.mnemonic(event.key);return;}
   if(event.key==='Escape'){document.querySelectorAll<HTMLDetailsElement>('details[open]').forEach(d=>d.open=false);}
-  if(event.metaKey||event.ctrlKey){if(event.key.toLowerCase()==='s'){event.preventDefault();void operate('save');}if(event.key.toLowerCase()==='o'){event.preventDefault();void operate(runtimePlatform.document_access_supported?'files':'folder');}if(event.key.toLowerCase()==='a'&&!typing){event.preventDefault();void operate('select-all');}}
+  if(event.metaKey||event.ctrlKey){if(event.key.toLowerCase()==='s'){event.preventDefault();void operate('save');}if(event.key.toLowerCase()==='o'){event.preventDefault();void operate(runtimePlatform.document_access_supported?'files':'folder');}if(event.key.toLowerCase()==='a'&&!typing){event.preventDefault();void operate('select-all');}if(event.key.toLowerCase()==='k'&&!typing){event.preventDefault();menubar.close();void operate('number');}}
 });
 window.addEventListener('beforeunload',event=>{if(drafts.size||actionUI.hasUnsavedChanges){event.preventDefault();event.returnValue='';}});
 render();
