@@ -1,0 +1,60 @@
+{
+  "date": "2026-10-14",
+  "platform": "macOS arm64 native Tauri debug app",
+  "build": {
+    "commit": "45419f05646e034fa75f833afa6c8bcd48122119",
+    "profile_override": {
+      "identifier": "org.opentag.editor.usertest"
+    },
+    "bundle": "/tmp/opentag-user-test/target/debug/bundle/macos/OpenTag.app",
+    "bundle_identifier": "org.opentag.editor.usertest",
+    "executable_sha256": "17fb7bd745598f61e12eedd71d009ec749d7f6fa68b80ad7a525650ee6dfc644",
+    "version": "0.1.0",
+    "build": "tauri build --debug --bundles app --config /tmp/opentag-user-test/identifier-only.json",
+    "target": "/tmp/opentag-user-test/target",
+    "rustc": "rustc 1.95.0 (59807616e 2026-04-14)",
+    "source_patch": "native-build-alias-fix.patch",
+    "source_patch_sha256": "febc532c2675c65a8eb102711dafbfa0f3d8e20b093e540de4b96e82330c2a20",
+    "changed_sources": {
+      "crates/tag-core/src/mapping.rs": "30f727eb250ec2bbe34d99bb067587dcbf1dcdf33ece8304e2c33d06645e90eb",
+      "crates/tag-core/tests/metadata.rs": "5138f8e87e6bbcc3f283a91f8cef897a30a374d38a9d5b0d0b050ecf647581e6"
+    }
+  },
+  "cases": {
+    "UAT-01": {
+      "status": "PARTIAL",
+      "passed": [
+        "recursive six-file load",
+        "add both already-loaded MP3s: six unique rows",
+        "file-picker cancel preserves list",
+        "all six complete files and encoded/decoded audio unchanged"
+      ],
+      "not_run": [
+        "two-MP3 initial load before folder",
+        "both sort directions",
+        "all-row selection",
+        "individual sample-rate/channel inspection"
+      ]
+    },
+    "UAT-02": {
+      "status": "PASS",
+      "initial_failure": "The format could not preserve all values for field COMMENT",
+      "cause": "TXXX:comment alias retained alongside new COMM frame",
+      "draft_and_failed_save_files_unchanged": true,
+      "changed_files": [
+        "Disc 1/01 - Solar Arcade - First Light.mp3",
+        "Disc 1/02 - Solar Arcade - Night Shift.mp3"
+      ],
+      "unselected_files_unchanged": true,
+      "all_encoded_and_decoded_audio_unchanged": true,
+      "independent_ffprobe_tags_exact": true,
+      "after_save_ui": "Saved tags: 2 files",
+      "after_reload_ui": "Reloaded: 2 files; exact album and Unicode comment; no pending changes or errors"
+    }
+  },
+  "other_UAT_cases": "NOT RUN",
+  "regular_profile_actions_json_before": {
+    "path": "/Users/jneerdael/Library/Application Support/org.opentag.editor/actions.json",
+    "exists": false
+  }
+}
