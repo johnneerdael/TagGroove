@@ -1,4 +1,4 @@
-//! Utils → Remove Tag Types, Options → Tools (user-defined external programs)
+//! Utils → Remove Tag Types and Strip chapters MP4, Options → Tools (user-defined external programs)
 //! and File → Save/Load configuration (https://docs.mp3tag.de/utils/,
 //! https://docs.mp3tag.de/customization/options/tools/, menus/file).
 use crate::{batch, history, io, mutate_document, settings};
@@ -29,6 +29,22 @@ pub async fn remove_tag_types(
                         false,
                         &settings::tag_options(),
                     )
+                })
+            }))
+        })
+    })
+    .await
+}
+
+/// Utils → Strip chapters MP4. Files without MP4 chapters are left untouched.
+#[tauri::command]
+pub async fn strip_mp4_chapters(paths: Vec<String>) -> Result<ScanResult, String> {
+    io(move || {
+        crate::reject_provider_operation(&paths, "Stripping MP4 chapters")?;
+        history::record("Strip chapters MP4", None, &paths, || {
+            Ok(batch(&paths, |p| {
+                mutate_document(p, |p| {
+                    tag_core::strip_mp4_chapters_with_options(p, false, &settings::tag_options())
                 })
             }))
         })

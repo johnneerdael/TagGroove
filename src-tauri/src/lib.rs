@@ -1001,6 +1001,7 @@ pub fn run() {
             sources::load_tag_source_settings,
             sources::save_tag_source_settings,
             utilities::remove_tag_types,
+            utilities::strip_mp4_chapters,
             utilities::run_tool,
             utilities::export_configuration,
             utilities::import_configuration,

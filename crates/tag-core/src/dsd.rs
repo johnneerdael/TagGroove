@@ -323,6 +323,7 @@ fn snapshot(path: &Path, kind: Kind) -> Result<Snapshot, String> {
                     codec: rate_label("DSD", dsf.sample_rate),
                     tags: Vec::new(),
                     id3: None,
+                    technical: Fields::new(),
                 },
             )
         }
@@ -374,6 +375,7 @@ fn snapshot(path: &Path, kind: Kind) -> Result<Snapshot, String> {
                     codec: rate_label(if dff.compressed { "DST" } else { "DSD" }, dff.sample_rate),
                     tags: Vec::new(),
                     id3: None,
+                    technical: Fields::new(),
                 },
             )
         }

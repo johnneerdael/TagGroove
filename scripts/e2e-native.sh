@@ -44,6 +44,8 @@ for spec in "a:440:1" "b:660:2"; do
 done
 # Local tag source data (a freedb folder) sits next to the album.
 if [[ -d "$root/tests/fixtures/freedb" ]]; then cp -R "$root/tests/fixtures/freedb" "$work/freedb"; fi
+# A script may add its own fixtures: OPENTAG_E2E_FIXTURES=<executable> gets the album folder.
+if [[ -n "${OPENTAG_E2E_FIXTURES:-}" ]]; then "$OPENTAG_E2E_FIXTURES" "$album"; fi
 output="$(OPENTAG_E2E_SCRIPT="$script" timeout 180 "$bin" "/fp:$album" 2>&1 | grep '^\[e2e\]' || true)"
 printf '%s\n' "$output"
 grep -q '^\[e2e\] SUMMARY' <<<"$output" || { echo "e2e run did not finish" >&2; exit 1; }

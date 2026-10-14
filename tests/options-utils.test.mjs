@@ -81,6 +81,9 @@ test('remove tag types counts present kinds from _TAG',()=>{
   assert.deepEqual([...utils.presentTagKinds('VorbisComment')],[]);
   assert.deepEqual([...utils.presentTagKinds(undefined)],[]);
   assert.deepEqual(utils.tagKindCounts(['ID3v2.4 ID3v1','APE','ID3v2.3',undefined]),{id3v1:1,id3v2:2,ape:1});
+  const chaptered=[{format:'MP4',technical:{_SUBSONG_COUNT:['3']}},{format:'MP4',technical:{}},{format:'Matroska',technical:{_SUBSONG_COUNT:['2']}},{format:'MP4',technical:{_SUBSONG_COUNT:['1']}},{}];
+  assert.deepEqual(utils.mp4ChapterFiles(chaptered),{files:2,chapters:4});
+  assert.match(utils.stripChaptersPrompt({files:1,chapters:1}),/^Permanently remove 1 chapter from 1 MP4 file\?/);
 });
 test('copy as text keeps a short format history',()=>{
   assert.deepEqual(utils.rememberFormat(undefined,'%title%'),['%title%']);
