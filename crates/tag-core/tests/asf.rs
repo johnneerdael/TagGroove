@@ -702,13 +702,11 @@ fn ffmpeg_reads_values_moved_to_the_metadata_library() {
         major => eprintln!("libavformat {major:?} cannot read values over 64 KiB"),
     }
     // Repeated values also live in the Metadata Library; ffmpeg keeps one.
-    let entry = write_fields(
-        &path,
-        &fields(&[("ARTIST", &["One", "Two"]), ("MY LONG", &[])]),
-    )
-    .unwrap();
+    // They are written before the oversized value, so every ffmpeg version
+    // sees them, even one that stops at the oversized value.
+    let entry = write_fields(&path, &fields(&[("ARTIST", &["One", "Two"])])).unwrap();
     assert_eq!(entry.fields["ARTIST"], ["One", "Two"]);
-    assert!(!entry.fields.contains_key("MY LONG"));
+    assert_eq!(entry.fields["MY LONG"], [long.as_str()]);
     assert_eq!(media(&fs::read(&path).unwrap()), media(&original));
     decodes(&path);
     assert_eq!(probe_tags(&path)["format"]["tags"]["artist"], "Two");

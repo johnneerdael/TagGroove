@@ -374,3 +374,45 @@ fn malformed_headers_are_rejected() {
     let no_properties = file(&[content(["T", "", "", "", ""])]);
     assert!(Asf::read(&mut &no_properties[..], no_properties.len() as u64).is_err());
 }
+
+#[test]
+fn oversized_library_values_are_written_last() {
+    let bytes = rich();
+    let mut asf = parse(&bytes);
+    let large = "y".repeat(40_000);
+    apply_fields(
+        &mut asf,
+        &Fields::from([
+            ("TITLE".into(), vec![large.clone()]),
+            ("ARTIST".into(), vec!["A".into(), "B".into()]),
+        ]),
+    )
+    .unwrap();
+    // The oversized title comes first in attribute order but is written after
+    // every ordinary Metadata Library record.
+    let title = asf.attributes.iter().position(|a| a.name == "Title");
+    let artist = asf.attributes.iter().position(|a| a.name == "Author");
+    assert!(title < artist);
+    let header = asf.render(tail(&bytes, &asf)).unwrap();
+    let mut file = header;
+    file.extend_from_slice(&bytes[asf.header_size as usize..]);
+    let library: Vec<_> = parse(&file)
+        .attributes
+        .into_iter()
+        .filter(|a| a.location == Some(Location::Library))
+        .map(|a| a.name)
+        .collect();
+    assert_eq!(
+        library,
+        [
+            "Author",
+            "Author",
+            "WM/Genre",
+            "WM/Genre",
+            "Id",
+            "Localized",
+            "Flag",
+            "Title"
+        ]
+    );
+}

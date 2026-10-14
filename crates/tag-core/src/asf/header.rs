@@ -622,6 +622,12 @@ impl Asf {
             Location::Metadata | Location::Library => {
                 let count = u16::try_from(attributes.len()).map_err(|_| too_many())?;
                 body.extend(count.to_le_bytes());
+                // libavformat before 62 (ffmpeg 8.0) stops reading this object
+                // at the first value over 64 KiB, so those values go last.
+                let mut attributes = attributes.to_vec();
+                attributes.sort_by_key(|attribute| {
+                    encode_value(&attribute.value, location).1.len() > usize::from(u16::MAX)
+                });
                 for attribute in attributes {
                     let name = utf16z(&attribute.name);
                     let (kind, data) = encode_value(&attribute.value, location);
