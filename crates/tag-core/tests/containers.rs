@@ -843,7 +843,8 @@ fn ffprobe_chapters(path: &Path) -> String {
         .output()
         .unwrap();
     assert!(output.status.success());
-    String::from_utf8_lossy(&output.stdout).into_owned()
+    // Windows builds of ffprobe end lines with CRLF.
+    String::from_utf8_lossy(&output.stdout).replace("\r\n", "\n")
 }
 
 #[test]

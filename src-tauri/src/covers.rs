@@ -478,24 +478,44 @@ mod clipboard {
         Image(u32, u32, Vec<u8>),
     }
 
-    fn open() -> Result<arboard::Clipboard, String> {
-        arboard::Clipboard::new().map_err(|e| format!("The clipboard is unavailable: {e}"))
+    /// One clipboard for the app's lifetime: on X11 and Wayland the owning
+    /// object serves the copied data, so dropping it would empty the clipboard.
+    fn with<T>(
+        use_clipboard: impl FnOnce(&mut arboard::Clipboard) -> Result<T, String>,
+    ) -> Result<T, String> {
+        static CLIPBOARD: std::sync::Mutex<Option<arboard::Clipboard>> =
+            std::sync::Mutex::new(None);
+        let mut guard = CLIPBOARD
+            .lock()
+            .map_err(|_| "The clipboard is busy".to_string())?;
+        if guard.is_none() {
+            *guard = Some(
+                arboard::Clipboard::new()
+                    .map_err(|e| format!("The clipboard is unavailable: {e}"))?,
+            );
+        }
+        use_clipboard(guard.as_mut().expect("clipboard was opened"))
     }
 
     pub fn set_image(width: u32, height: u32, rgba: Vec<u8>) -> Result<(), String> {
-        open()?
-            .set_image(arboard::ImageData {
-                width: width as usize,
-                height: height as usize,
-                bytes: Cow::Owned(rgba),
-            })
-            .map_err(|e| format!("The cover could not be copied: {e}"))
+        with(|clipboard| {
+            clipboard
+                .set_image(arboard::ImageData {
+                    width: width as usize,
+                    height: height as usize,
+                    bytes: Cow::Owned(rgba),
+                })
+                .map_err(|e| format!("The cover could not be copied: {e}"))
+        })
     }
 
     /// Copied image files keep their original encoding; Finder also puts the
     /// file icon on the clipboard, so files take precedence over image data.
     pub fn get() -> Result<Content, String> {
-        let mut clipboard = open()?;
+        with(read)
+    }
+
+    fn read(clipboard: &mut arboard::Clipboard) -> Result<Content, String> {
         if let Ok(files) = clipboard.get().file_list() {
             if let Some(file) = files.into_iter().find(|f| f.is_file()) {
                 return Ok(Content::File(file));

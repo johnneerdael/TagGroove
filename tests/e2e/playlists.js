@@ -30,7 +30,8 @@
   // A second launch of this binary with Mp3tag's /fn: switch, started as a Tool.
   const relaunch = async (file, any) => {
     const resources = await inv('plugin:path|resolve_directory', { directory: 11 });
-    const binary = resources.replace(/\/Resources\/?$/, '/MacOS/opentag');
+    // macOS bundles keep the binary beside Resources; unbundled builds keep it in the resource directory.
+    const binary = /\/Resources\/?$/.test(resources) ? resources.replace(/\/Resources\/?$/, '/MacOS/opentag') : resources.replace(/\/?$/, '/opentag');
     await inv('run_tool', { tool: { name: 'Relaunch', path: binary, parameters: `"/fn:${file}"`, for_each_file: false }, paths: [any], root: null });
   };
 
