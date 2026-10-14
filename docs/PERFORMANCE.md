@@ -90,7 +90,10 @@ The source library is never opened or written; saves only touch the clone.
 Corpus: `/Users/jneerdael/Music/Beatport`, 434 FLAC files (17 GB, about 1.6 MB
 of embedded artwork each), macOS arm64. Other agents were building at the same
 time, so expect a few milliseconds of noise. Baseline is commit `9ac3dd4`
-(measurement hooks only); "after" is commit `712827d`.
+(measurement hooks only); "after" is commit `712827d`. A run 1 repeated after
+merging `feat/core-parity` (`3601e62`) matched within noise; its clean 52 ms
+end-to-end single-file save is used below. The baseline end-to-end figure is
+missing because a suspended frame affected it.
 
 ### Results (median; run 1 = fresh clone / run 2 = warm)
 
@@ -110,7 +113,7 @@ time, so expect a few milliseconds of noise. Baseline is commit `9ac3dd4`
 | Edit COMMENT for 434 files, sync | 12 ms | 11 ms | |
 | Save COMMENT to 434 files | 43.3 s, no progress | 2.8 to 3.6 s, progress bar | with progress |
 | Cancel that save | not available | stops in 72 to 93 ms | |
-| Save one file (IPC) | 153 ms | 22 to 38 ms | < 100 ms |
+| Save one file: IPC / until the status shows it | 153 ms / not isolated | 15 to 38 ms / 52 ms | < 100 ms |
 | Undo the 434-file save | refused | refused | |
 
 The filter result appears 480 ms after the first keystroke in both versions.
