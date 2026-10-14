@@ -1,7 +1,9 @@
 //! Containers that lofty does not parse: DSF and DSDIFF (an ID3v2 tag plus
-//! DSDIFF edited-master text) and Matroska/WebM (EBML Tags and image
-//! attachments). Every mutation uses the shared sibling staging, then checks
-//! the read-back metadata and that the media payload is byte-identical.
+//! DSDIFF edited-master text) and Matroska/WebM (EBML Tags, chapters and
+//! image attachments). Every mutation uses the shared sibling staging, then
+//! checks the read-back metadata and that the media payload is byte-identical.
+//! TTA, TAK and OptimFROG streams are detected here too; their MP3-style tags
+//! go through the MPEG and APE tag policies (see `raw_streams`).
 use super::*;
 use std::{
     io::{Read, Write},
@@ -12,6 +14,8 @@ use std::{
 mod dsd;
 #[path = "matroska.rs"]
 mod matroska;
+#[path = "raw_streams.rs"]
+pub(super) mod raw_streams;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum Kind {
@@ -37,6 +41,28 @@ pub(super) fn detect(path: &Path) -> Option<Kind> {
     } else {
         None
     }
+}
+
+/// Size of the ID3v2 tag whose 10-byte header is `header`, footer included.
+pub(super) fn id3v2_size(header: &[u8]) -> Option<u64> {
+    let [b'I', b'D', b'3', major, minor, flags, size @ ..] = header.get(..10)? else {
+        return None;
+    };
+    if *major == 0xFF || *minor == 0xFF || size.iter().any(|b| *b >= 0x80) {
+        return None;
+    }
+    let body = size.iter().fold(0u64, |v, b| (v << 7) | u64::from(*b));
+    Some(10 + body + if flags & 0x10 != 0 { 10 } else { 0 })
+}
+
+/// Identify a TTA, TAK or OptimFROG stream by the magic after any leading
+/// ID3v2 tags.
+pub(super) fn detect_stream(path: &Path) -> Option<raw_streams::Stream> {
+    let mut file = fs::File::open(path).ok()?;
+    let length = file.metadata().ok()?.len();
+    let start = raw_streams::leading_tags(&mut file, length).ok()?;
+    let magic = read_at(&mut file, start, 4).ok()?;
+    raw_streams::Stream::from_magic(&magic)
 }
 
 /// Metadata and stream properties of one container, with fields already

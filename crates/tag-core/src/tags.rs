@@ -131,6 +131,9 @@ fn strict_or_lenient_id3v1<T>(
 }
 
 fn load(path: &Path) -> Result<TaggedFile, String> {
+    if let Some(stream) = container_formats::detect_stream(path) {
+        return container_formats::raw_streams::load(path, stream);
+    }
     let mut file = strict_or_lenient_id3v1(|mode| {
         Probe::open(path)
             .map_err(|e| e.to_string())?
@@ -149,19 +152,26 @@ fn load(path: &Path) -> Result<TaggedFile, String> {
             &mut fs::File::open(path).map_err(|e| e.to_string())?,
             file.file_type(),
         )?;
-        if let (Some(ape), Some(tag)) = (native.ape, file.tag_mut(TagType::Ape)) {
-            for item in &ape {
-                if item.key().starts_with("Cover Art (") {
-                    if let ItemValue::Binary(data) = item.value() {
-                        tag.push_picture(
-                            Picture::from_ape_bytes(item.key(), data).map_err(|e| e.to_string())?,
-                        );
-                    }
+        ape_pictures(&native, &mut file)?;
+    }
+    Ok(file)
+}
+
+/// Generic APE conversion intentionally omits cover binary items. Add them
+/// from the already parsed native tag.
+fn ape_pictures(native: &NativeTags, file: &mut TaggedFile) -> Result<(), String> {
+    if let (Some(ape), Some(tag)) = (native.ape.as_ref(), file.tag_mut(TagType::Ape)) {
+        for item in ape {
+            if item.key().starts_with("Cover Art (") {
+                if let ItemValue::Binary(data) = item.value() {
+                    tag.push_picture(
+                        Picture::from_ape_bytes(item.key(), data).map_err(|e| e.to_string())?,
+                    );
                 }
             }
         }
     }
-    Ok(file)
+    Ok(())
 }
 
 fn ordered_tags(file: &TaggedFile) -> Vec<&Tag> {
@@ -525,6 +535,15 @@ fn read_description(
     if let Some(kind) = container_formats::detect(&path) {
         return container_formats::read(&path, kind, include_cover_data, rules, options);
     }
+    if let Some(stream) = container_formats::detect_stream(&path) {
+        return container_formats::raw_streams::read(
+            &path,
+            stream,
+            include_cover_data,
+            rules,
+            options,
+        );
+    }
     let probe = Probe::open(&path)
         .map_err(|e| e.to_string())?
         .guess_file_type()
@@ -610,19 +629,9 @@ fn read_description(
             (file, native)
         }
     };
-    // Generic APE conversion intentionally omits cover binary items. Enrich
-    // from the already parsed native tag, without a second file read.
-    if let (Some(ape), Some(tag)) = (native.ape.as_ref(), file.tag_mut(TagType::Ape)) {
-        for item in ape {
-            if item.key().starts_with("Cover Art (") {
-                if let ItemValue::Binary(data) = item.value() {
-                    tag.push_picture(
-                        Picture::from_ape_bytes(item.key(), data).map_err(|e| e.to_string())?,
-                    );
-                }
-            }
-        }
-    }
+    // Enrich APE covers from the already parsed native tag, without a second
+    // file read.
+    ape_pictures(&native, &mut file)?;
     describe_with_native(&path, &file, &native, include_cover_data, rules, options)
 }
 
@@ -661,10 +670,14 @@ fn audio_extension(path: &Path, allowed: Option<&[String]>) -> bool {
             | "mpc"
             | "mp+"
             | "mpp"
+            | "ofr"
+            | "ofs"
             | "ogg"
             | "oga"
             | "opus"
             | "spx"
+            | "tak"
+            | "tta"
             | "wav"
             | "wave"
             | "webm"
@@ -884,7 +897,17 @@ where
         include_cover_data,
         rules,
         options,
-        |staging, original, staged_path| mutation(staging, load(original)?, staged_path),
+        |staging, original, staged_path| match container_formats::detect_stream(original) {
+            // Tags of raw streams are edited on a stand-in file lofty can parse.
+            Some(stream) => container_formats::raw_streams::stage(
+                staging,
+                original,
+                staged_path,
+                stream,
+                |staging, original, staged_path| mutation(staging, load(original)?, staged_path),
+            ),
+            None => mutation(staging, load(original)?, staged_path),
+        },
     )
 }
 
