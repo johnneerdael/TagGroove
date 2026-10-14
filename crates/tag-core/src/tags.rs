@@ -1,5 +1,7 @@
 //! Portable metadata I/O. Every mutation is written and verified in a sibling
 //! temporary file before the original is atomically replaced.
+#[path = "cover_manage.rs"]
+mod cover_manage;
 #[path = "cover_ops.rs"]
 mod cover_ops;
 #[path = "mapping.rs"]
@@ -10,6 +12,7 @@ mod tag_policy;
 mod technical;
 use crate::preferences::TagOptions;
 use base64::{engine::general_purpose::STANDARD, Engine};
+pub use cover_manage::*;
 pub use cover_ops::*;
 use lofty::{
     aac::AacFile,
@@ -76,6 +79,9 @@ pub struct CoverInfo {
     pub width: Option<u32>,
     #[serde(default)]
     pub height: Option<u32>,
+    /// Content identity of the image bytes, used to aggregate covers.
+    #[serde(default)]
+    pub digest: String,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AudioEntry {
@@ -413,6 +419,7 @@ fn describe_with_native(
                 size: picture.data().len() as u64,
                 width: info.as_ref().map(|i| i.width).filter(|n| *n > 0),
                 height: info.as_ref().map(|i| i.height).filter(|n| *n > 0),
+                digest: cover_digest(picture.data()),
             });
         }
     }
@@ -1204,20 +1211,21 @@ pub fn add_cover_with_options(
 }
 
 /// ID3 requires picture descriptions to identify repeated cover types.
-fn describe_repeated_front_cover(pictures: &[Picture], picture: &mut Picture, image: &Path) {
-    if !pictures.iter().any(|p| {
-        p.pic_type() == PictureType::CoverFront && p.description().unwrap_or_default().is_empty()
-    }) {
+fn describe_repeated_front_cover(pictures: &[Picture], picture: &mut Picture, label: &str) {
+    if picture.description().is_some_and(|d| !d.is_empty())
+        || !pictures.iter().any(|p| {
+            p.pic_type() == picture.pic_type() && p.description().unwrap_or_default().is_empty()
+        })
+    {
         return;
     }
-    let basename = image.file_name().unwrap_or_default().to_string_lossy();
-    let mut description = basename.to_string();
+    let mut description = label.to_string();
     let mut suffix = 2;
     while pictures
         .iter()
         .any(|p| p.description() == Some(description.as_str()))
     {
-        description = format!("{basename} ({suffix})");
+        description = format!("{label} ({suffix})");
         suffix += 1;
     }
     picture.set_description(Some(description));
@@ -1232,6 +1240,17 @@ fn add_cover_result(
     let mut image_file = fs::File::open(image).map_err(|e| e.to_string())?;
     let mut picture = Picture::from_reader(&mut image_file).map_err(|e| e.to_string())?;
     picture.set_pic_type(PictureType::CoverFront);
+    let label = image.file_name().unwrap_or_default().to_string_lossy();
+    add_picture_result(path, picture, &label, include_cover_data, options)
+}
+
+fn add_picture_result(
+    path: &Path,
+    mut picture: Picture,
+    label: &str,
+    include_cover_data: bool,
+    options: &TagOptions,
+) -> Result<AudioEntry, String> {
     staged_mutation(
         path,
         include_cover_data,
@@ -1239,7 +1258,7 @@ fn add_cover_result(
         |staging, mut file, staged_path| {
             if tag_policy::policy(file.file_type()).is_some() {
                 let mut pictures = tag_policy::displayed_pictures(&file, options);
-                describe_repeated_front_cover(&pictures, &mut picture, image);
+                describe_repeated_front_cover(&pictures, &mut picture, label);
                 pictures.push(picture);
                 let written = tag_policy::write(
                     staging,
@@ -1266,7 +1285,7 @@ fn add_cover_result(
                 .primary_tag_mut()
                 .ok_or("The audio format has no writable tag")?;
             if primary == TagType::Id3v2 {
-                describe_repeated_front_cover(tag.pictures(), &mut picture, image);
+                describe_repeated_front_cover(tag.pictures(), &mut picture, label);
             }
             tag.push_picture(picture);
             save_preserving_native(
