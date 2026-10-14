@@ -82,13 +82,16 @@ let appVersion='development';
 const app = document.querySelector<HTMLDivElement>('#app')!;
 const entries = new Map<string, Entry>();
 const drafts = new Map<string, Fields>();
+// Recovery working bytes can differ from loaded tags. Preserve explicit resets
+// for edited copies separately from pending drafts, including absent-field tombstones.
+const copyOverrides = new Map<string, Fields>();
 const selected = new Set<string>();
 const columns = [{ key:'filename',label:'Filename',width:220 },{ key:'TITLE',label:'Title',width:175 },{ key:'ARTIST',label:'Artist',width:145 },{ key:'ALBUM',label:'Album',width:165 },{ key:'TRACK',label:'Track',width:55 },{ key:'YEAR',label:'Year',width:55 },{ key:'GENRE',label:'Genre',width:90 },{ key:'duration',label:'Length',width:60 },{ key:'format',label:'Format',width:65 },{ key:'bitrate',label:'Bitrate',width:65 }];
 let filter = '', sortKey = 'filename', sortAscending = true, anchor: string | undefined, busy = false, status = 'Ready', errors: FileError[] = [], location = 'No folder loaded', coverIndex = 0;
 const esc = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 const basename = (path: string) => path.split(/[\\/]/).pop() || path;
 const paths = () => ordered().filter(entry=>selected.has(entry.path)).map(entry=>entry.path);
-const merged = (entry: Entry): Fields => ({ ...entry.fields, ...drafts.get(entry.path) });
+const merged = (entry: Entry): Fields => ({ ...entry.fields, ...copyOverrides.get(entry.path), ...drafts.get(entry.path) });
 const field = (entry: Entry, key: string) => (merged(entry)[panelKey({format:entry.format,fields:merged(entry)},key)] || []).join(' \\\\ ');
 const length = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2,'0')}`;
 const dirtySelected = () => [...selected].some(path => drafts.has(path));
@@ -331,10 +334,27 @@ function render() {
   if(focusSelector){const replacement=document.querySelector<HTMLInputElement|HTMLTextAreaElement>(focusSelector);replacement?.focus({preventScroll:true});if(replacement&&caretStart!=null&&caretEnd!=null){try{replacement.setSelectionRange(caretStart,caretEnd);}catch{/* Search selection is not supported by every webview. */}}}
   timing('workspace render',started,{rendered:virtualEnd-virtualStart,selected:selected.size});
 }
+function copyBaseUnknown(path:string){
+  const entry=entries.get(path);
+  return !!entry&&providerEntry(entry)&&(!!documentAccess.refreshError||documentAccess.states[path]?.state!=='ready');
+}
+function editedCopyFields(path:string):Fields{return {...copyOverrides.get(path),...drafts.get(path)};}
+function discardDrafts(path:string){
+  if(copyBaseUnknown(path)){
+    const overrides={...copyOverrides.get(path)};
+    for(const key of Object.keys(drafts.get(path)||{}))overrides[key]=[...(entries.get(path)?.fields[key]||[])];
+    if(Object.keys(overrides).length)copyOverrides.set(path,overrides);
+  }else copyOverrides.delete(path);
+  drafts.delete(path);
+}
 function updateDraft(path: string, key: string, values: string[]) {
   const original = entries.get(path)?.fields[key] || [];
   const draft = { ...drafts.get(path) };
-  if (JSON.stringify(original) === JSON.stringify(values)) delete draft[key]; else draft[key] = values;
+  const resetToLoaded=JSON.stringify(original)===JSON.stringify(values);
+  const overrides={...copyOverrides.get(path)};
+  if(copyBaseUnknown(path)&&resetToLoaded)overrides[key]=[...values];else delete overrides[key];
+  if(Object.keys(overrides).length)copyOverrides.set(path,overrides);else copyOverrides.delete(path);
+  if (resetToLoaded) delete draft[key]; else draft[key] = values;
   if (Object.keys(draft).length) drafts.set(path,draft); else drafts.delete(path);
   changedData();
 }
@@ -399,12 +419,12 @@ function bind() {
   document.querySelector('#dismiss-errors')?.addEventListener('click',()=>{errors=[];render();});
   document.querySelector<HTMLSelectElement>('#cover-choice')?.addEventListener('change',e=>{coverIndex=Number((e.target as HTMLSelectElement).value);refreshCoverPanel();});
 }
-async function run<T>(message: string, job: () => Promise<T>): Promise<T|undefined> {
-  if(busy)return;busy=true;status=message;errors=[];render();
-  try { return await job(); } catch(error) { errors=[{path:'Operation',error:String(error)}];status='Operation failed';return undefined; } finally {await refreshSourceAccess();busy=false;render();}
+async function run<T>(message: string, job: () => Promise<T>, options: {preserveErrors?:boolean} = {}): Promise<T|undefined> {
+  if(busy)return;busy=true;status=message;if(!options.preserveErrors)errors=[];render();
+  try { return await job(); } catch(error) { const failure={path:'Operation',error:String(error)};errors=options.preserveErrors?[...errors,failure]:[failure];status='Operation failed';return undefined; } finally {await refreshSourceAccess();busy=false;render();}
 }
 function accept(batch: Batch, message: string, clearDrafts = true) {
-  batch.entries.forEach(storeEntry);reconcileDrafts(drafts,batch.entries.map(entry=>entry.path),clearDrafts);
+  batch.entries.forEach(storeEntry);reconcileDrafts(drafts,batch.entries.map(entry=>entry.path),clearDrafts);if(clearDrafts)batch.entries.forEach(entry=>copyOverrides.delete(entry.path));
   errors=batch.errors;status=`${message}: ${batch.entries.length} file${batch.entries.length===1?'':'s'}${errors.length?`, ${errors.length} failed`:''}`;
 }
 function applyRenamed(batch:Batch){
@@ -420,7 +440,7 @@ async function mutate(command: string, args: Record<string,unknown>, message: st
 async function saveDrafts() {
   await run('Saving tags…',async()=>{
     let successes=0;const failures:FileError[]=[];
-    for(const path of paths()) { const updates=drafts.get(path);if(!updates)continue;const batch=await invoke<Batch>('save_fields',{paths:[path],updates});batch.entries.forEach(e=>{storeEntry(e);successes++;});reconcileDrafts(drafts,batch.entries.map(entry=>entry.path),true);failures.push(...batch.errors); }
+    for(const path of paths()) { const updates=drafts.get(path);if(!updates)continue;const batch=await invoke<Batch>('save_fields',{paths:[path],updates});batch.entries.forEach(e=>{storeEntry(e);successes++;});reconcileDrafts(drafts,batch.entries.map(entry=>entry.path),true);batch.entries.forEach(entry=>copyOverrides.delete(entry.path));failures.push(...batch.errors); }
     errors=failures;status=`Saved tags: ${successes} file${successes===1?'':'s'}${failures.length?`, ${failures.length} failed`:''}`;
   });
 }
@@ -439,7 +459,7 @@ function saveCopy() {
   dialog.addEventListener('cancel',event=>{if(copying)event.preventDefault();});
   saveButton.addEventListener('click',async()=>{
     if(copying||busy)return;
-    const request=copyRequest(path,value(dialog,'copy-version') as 'edited'|'original',drafts.get(path));
+    const request=copyRequest(path,value(dialog,'copy-version') as 'edited'|'original',editedCopyFields(path));
     copying=true;saveButton.disabled=true;closeButton.disabled=true;dialog.querySelector<HTMLSelectElement>('#copy-version')!.disabled=true;
     dialog.querySelector('.dialog-error')?.remove();
     const progress=dialog.querySelector<HTMLElement>('.copy-status')!;progress.textContent='Choose a destination. The copy will be checked after writing.';
@@ -646,13 +666,13 @@ function numbering() {
 async function operateImpl(op: Operation) {
   if(!enabled(op))return;
   if(op==='about'){const dialog=modal('About OpenTag',`<img class="about-artwork" data-theme-image="about" src="${themedAsset('about')}" alt="OpenTag — Tag, Organize, Enjoy"><p>Tag, Organize, Enjoy.</p><p>Open source music tag editor.</p><p>Version ${esc(appVersion)} · MIT License</p>`,'');dialog.querySelector('[data-close]')!.textContent='Close';return;}
-  if(op==='refresh-source'){await run('Refreshing source access…',async()=>{});status=documentAccess.refreshError?'Source access refresh failed. Pending edits are retained.':'Source access refreshed';render();return;}
+  if(op==='refresh-source'){await run('Refreshing source access…',async()=>{},{preserveErrors:true});status=documentAccess.refreshError?'Source access refresh failed. Pending edits are retained.':'Source access refreshed';render();return;}
   if(op==='save-copy'){saveCopy();return;}
   if(op==='files'&&runtimePlatform.document_access_supported){await run('Choosing audio documents…',async()=>{const batch=await invoke<Batch>('pick_document_files');if(!batch.entries.length&&!batch.errors.length){status='No files added';return;}accept(batch,'Loaded',false);location='Provider documents';if(batch.entries.length){selected.clear();batch.entries.forEach(entry=>selected.add(entry.path));anchor=batch.entries[0].path;}});return;}
   if(op==='folder'||op==='files'){const result=await open(op==='folder'?{directory:true,multiple:true,title:'Open audio folder'}:{multiple:true,title:'Add audio files'});if(result)await scan(Array.isArray(result)?result:[result]);return;}
   if(op==='save'){await saveDrafts();return;}
   if(op==='select-all'){selected.clear();visible().forEach(e=>selected.add(e.path));anchor=paths()[0];coverIndex=0;render();return;}
-  if(op==='discard'){if(await ask('Discard the pending tag changes for the selected files?',{title:'Discard changes',kind:'warning'})){paths().forEach(p=>drafts.delete(p));changedData();status='Pending changes discarded';render();}return;}
+  if(op==='discard'){if(await ask('Discard the pending tag changes for the selected files?',{title:'Discard changes',kind:'warning'})){paths().forEach(discardDrafts);changedData();status='Pending changes discarded';render();}return;}
   if(op==='reload'){if(dirtySelected()&&!await ask('Reload tags from the source and discard pending changes for the selected files?',{title:'Reload tags',kind:'warning'}))return;await run('Reloading tags…',async()=>accept(await invoke<Batch>('scan_files',{paths:paths(),recursive:false}),'Reloaded'));return;}
   if(op==='extended'){extended();return;}
   if(op==='filename-tags'||op==='tags-filename'){converter(op==='tags-filename');return;}
