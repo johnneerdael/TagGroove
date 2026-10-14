@@ -59,7 +59,7 @@ The selection-info bar shows:
   `tests/viewport-resize.test.mjs` only gains a `tableColumns` stub in its harness.
 - Rust: five tests in `src-tauri/src/columns.rs` cover editable-field parsing, layout validation, the save/load/import round trip (including a minimal file and a corrupt file), batch evaluation through the real scripting engine with isolated failures, and a 1000-file batch.
 - Results: `node --test tests/*.test.mjs` passes 116 tests (101 before). `cargo test --workspace` passes 284 tests (279 before). `npx tsc --noEmit` and `cargo clippy --workspace --all-targets -- -D warnings` are clean.
-- After merging `feat/core-parity` (tag panel, tag preferences, edit history): 143 frontend and 317 Rust tests pass, and `tsc`, `clippy` and `fmt` are clean. The File List entries go into the existing View menu through `viewListItems`. Refresh follows the *subfolders* directory option.
+- After merging `feat/core-parity` at b78b20d (tag panel, tag preferences, edit history, tag sources): 151 frontend and 345 Rust tests pass, and `tsc`, `clippy` and `fmt` are clean. The File List entries go into the existing View menu through `viewListItems`. Refresh follows the *subfolders* directory option.
 - Build note: on this machine Homebrew's GNU `ar` comes first in `PATH`, and it produces a `libopentag_regex.a` that Apple `ld` rejects. Build with `AR=/usr/bin/ar` whenever `regex-compat` gets rebuilt.
 
 ## Performance (synthetic 1000-file list)
