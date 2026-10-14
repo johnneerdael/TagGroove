@@ -1,12 +1,15 @@
-# Online tag sources (MusicBrainz and Discogs)
+# Tag sources (MusicBrainz, Discogs, freedb)
 
-Branch `feat/tag-sources` adds a top-level **Tag Sources** menu between Actions
-and Help, matching Mp3tag's menu placement. It has four entries:
-**MusicBrainz…**, **Discogs…**, **Discogs access token…** and **Options…**.
-**Options…** opens the shared Options dialog at its **Tag Sources** page, which
-corresponds to Mp3tag's Options › Tag Sources. Ctrl/⌘+I repeats the last used
-source, which is Mp3tag's shortcut too. Both providers are native Rust clients
-for the public web APIs. No Mp3tag `.src` web source scripts are used or shipped.
+Branch `feat/tag-sources` added a top-level **Tag Sources** menu between Actions
+and Help, matching Mp3tag's menu placement; `feat/sources-2` extended it. The
+menu has **MusicBrainz…**, **Discogs…**, **freedb…**, **freedb (local)…**
+(Ctrl/⌘+L, Mp3tag's shortcut), **Covers: MusicBrainz…**, **Covers: Discogs…**,
+**Discogs access token…** and **Options…**. **Options…** opens the shared
+Options dialog at its **Tag Sources** page, which corresponds to Mp3tag's
+Options › Tag Sources, with **freedb** and **Local freedb** sub-pages. Ctrl/⌘+I
+repeats the last used web source (MusicBrainz or Discogs), which is Mp3tag's
+shortcut too. Every provider is a native Rust client; no Mp3tag `.src` web
+source scripts are used or shipped.
 
 ## Workflow
 
@@ -20,7 +23,11 @@ for the public web APIs. No Mp3tag `.src` web source scripts are used or shipped
    address skips the results step, as Mp3tag does. MusicBrainz takes an MBID or
    any `musicbrainz.org/release/…` address and rejects release-group addresses.
    Discogs takes `12345`, `r12345`, `[r12345]` or a `discogs.com/…/release/12345…`
-   address. It rejects master addresses with an explanation.
+   address. It rejects master addresses with an explanation. Each search
+   fetches 50 results; **More results** appends the next page (MusicBrainz
+   `offset`, Discogs `page`) while the source reports more, and shows "N of
+   total". The chosen result has a **Preview** button that opens its release
+   page in the default browser (see Preview below).
 2. **Review.** The second step lists every field the release provides, with a
    checkbox for each. **All** and **None** set every box. Album-level values
    appear directly. Per-track fields show their shared value or the first value
@@ -33,8 +40,30 @@ for the public web APIs. No Mp3tag `.src` web source scripts are used or shipped
    title similarity (normalized Levenshtein, plus whole-word containment in the
    filename), then selection order. Files beyond the last track are shown as
    "Not written". ↑ and ↓ swap neighbours. **Selection order** restores
-   Mp3tag's plain order mapping. File lengths that differ from the track length
-   by more than 10 seconds are highlighted.
+   Mp3tag's plain order mapping. **By title** and **By length** are Mp3tag's
+   Utils → "Suggest sorting — Title/Length": every file is paired with the
+   track whose title is most similar, or whose length is closest, best pairs
+   first, and the rest follow in selection order. File lengths that differ from
+   the track length by more than 10 seconds are highlighted.
+   **Editing before saving** (Mp3tag lets you adjust values in this window):
+   album-level values, and per-track values that are the same on every track,
+   are text boxes in the field list. Per-track values that differ show a
+   summary and **Edit per track**, which switches the track column of the
+   matching table to that field. The track column is always editable and its
+   **Track column** selector picks any per-track field (TITLE by default). ` \\ `
+   separates multiple values, as in the tag panel. Emptying a value means the
+   field is not written for that file. Keyboard: Ctrl/⌘+E enables and
+   Ctrl/⌘+D disables every field, F2 edits the value of the focused row, and
+   Alt+↑/↓ moves the focused file (Mp3tag's Tag Sources shortcuts). The release
+   address has a **Preview** button.
+   **Cover utilities:** **Save image to file** (Mp3tag's Utils → "Save image to
+   disc") also saves the chosen artwork next to the written files, named by
+   Options → Tag Sources → "Default file name for cover art" (default `folder`).
+   The name is a format string evaluated on the first written file of each
+   folder, reduced to one safe file name; the image type adds the extension;
+   an existing file of that name is replaced. **Save cover as…** (Utils →
+   "Extract cover") downloads the shown artwork to a file chosen in a save
+   dialog; the extension is corrected to the real image type.
 3. **Apply.** Applying writes the checked fields and the chosen cover
    immediately. **Decision:** Mp3tag writes when the review window is confirmed,
    and OpenTag's other importers write immediately too: Filename → Tag through
@@ -43,7 +72,78 @@ for the public web APIs. No Mp3tag `.src` web source scripts are used or shipped
    Like the converters, the command is disabled while the selection has pending
    edits ("Save pending changes first."), when nothing is selected, or when the
    document-source policy blocks mutation. Unchecked fields are remembered per
-   provider in local storage.
+   provider in local storage. The whole import is one undo step ("Tag source
+   import") in Edit → Undo, through `history::record`; it was not journaled
+   before this branch.
+
+### Covers-only sources
+
+Mp3tag's Tag Sources → Covers lists sources that import cover art only.
+**Covers: MusicBrainz…** and **Covers: Discogs…** run the same search, then a
+review with only the artwork section: the chosen cover (and optionally Save
+image to file) is written to every selected file, and no fields change. There
+is no track matching in this mode.
+
+### freedb (gnudb) and freedb (local)
+
+- **Disc ID.** As in Mp3tag, the disc ID comes from the selected files' lengths
+  in file list order: tracks are laid out back to back after the two-second
+  lead-in (150 frames), each length rounded to 1/75 s frames, and the CDDB ID is
+  `(digit sum of start seconds mod 255) << 24 | playing seconds << 8 | tracks`.
+  The search step shows the computed ID before searching. Both Rust
+  (`freedb::Toc`) and TypeScript (`discToc`) implementations are tested against
+  libdiscid's reference TOC (ID `830abf0a`). A typed disc ID is the other search
+  mode.
+- **freedb (gnudb).** CDDB over HTTP: `GET <server><path>?cmd=…&hello=<user>
+  <host> OpenTag <version>&proto=6`. A file-based search sends `cddb query` with
+  the TOC (status 200 is one exact match, 210/211 list exact or inexact matches,
+  202 none). A typed disc ID has no TOC, so `cddb read` is tried in each of the
+  eleven categories. Choosing a match sends `cddb read <category> <discid>`.
+  `hello` uses the user and host of the configured email address, or
+  `opentag localhost`. Requests are 500 ms apart on their own gate and are
+  cancelled like the other sources.
+- **Server settings.** Options → Tag Sources → freedb has protocol (HTTPS
+  default, or HTTP), address (`gnudb.gnudb.org`), path (`/~cddb/cddb.cgi`), port
+  (empty means the protocol default), email address, and Mp3tag's "Copy disc ID
+  to COMMENT field" and "Copy disc ID to DISCID field". Restore page defaults
+  returns to gnudb, which is what Mp3tag's "Current list of freedb servers"
+  reset does. Because the server is user-configured, it is not on the trusted
+  HTTPS host list: freedb requests use a separate client that never follows
+  redirects, accept only http/https URLs built from the validated host name,
+  read at most 1 MiB, and only parsed results reach the webview.
+- **xmcd mapping.** `DTITLE` "Artist / Album" (continuation lines joined; no
+  separator means artist and album are the same) → `ALBUM` and `ARTIST`;
+  `DYEAR` → `YEAR`, falling back to `YEAR:` in `EXTD` (old rippers); `DGENRE` →
+  `GENRE`, falling back to the category in title case except `misc` and `data`;
+  `TTITLEn` → `TITLE` and `TRACK` n/total; `EXTD` (without `YEAR:`/`ID3G:`) →
+  album `COMMENT` and `EXTTn` → track `COMMENT`, unless the disc ID goes to
+  COMMENT; `DISCID` when that option is on. Various-artists discs (album artist
+  "Various", "Various Artists", "VA", … or every title containing " / ") put
+  the album artist in `ALBUMARTIST` and split each `TTITLEn` "Artist / Title"
+  into the track's `ARTIST` and `TITLE`. `\n`, `\t` and `\\` escapes are
+  decoded. Track lengths come from the `# Track frame offsets` and
+  `# Disc length` comments, so the length warning works. Entries are UTF-8
+  (protocol 6); local files that are not UTF-8 are read as Windows-1252.
+- **Local freedb.** Options → Tag Sources → Local freedb holds the folder (text
+  box plus **Choose folder…**). Lookups are by disc ID, typed or computed from
+  the files, across every category subfolder: the one-file-per-disc layout
+  (`rock/7a0a6b09`) and the Windows layout (`rock/78to7f` files holding many
+  entries after `#FILENAME=` lines) are both read. Mp3tag's documentation notes
+  that local databases are looked up by disc ID only; file-based IDs rarely
+  match an exact local entry, because the local lookup is exact while gnudb's
+  `cddb query` is fuzzy.
+- **Preview.** gnudb results link to `https://gnudb.org/cd/<two-letter
+  category><discid>`. That address pattern is taken from gnudb's site and was
+  not verified this round, because gnudb.org serves a browser check page to
+  non-browsers. Local entries have no page.
+
+### Preview
+
+`tag_source_open_page` opens a release page with the desktop opener plugin
+(`tauri_plugin_opener::open_url`, the same Rust path Help uses), so the webview
+needs no opener capability. Only `https` pages on musicbrainz.org,
+discogs.com/www.discogs.com and gnudb.org, without credentials or ports, are
+accepted. Mobile builds return the address in an error message instead.
 
 ## Field mapping
 
@@ -135,26 +235,34 @@ Vorbis mappings apply.
   written atomically through a 0600 temporary file. The token never returns to
   the webview, which only receives `discogs_token_set`. The "Discogs access
   token…" dialog uses a masked input and a "Remove the saved token" checkbox.
-- `mod.rs` holds the Tauri commands: `tag_source_search`, `tag_source_release`,
-  `tag_source_covers`, `tag_source_image` (a data URL, because the CSP blocks
-  remote images), `tag_source_cancel`, `tag_source_apply`, and
-  `load_`/`save_tag_source_settings`.
+- `freedb.rs` has the disc ID (`Toc`), CDDB URL building and response parsing,
+  the xmcd parser and mapping, and the local folder lookup. It is pure apart
+  from reading local files, and is tested with a hand-written xmcd fixture.
+- `mod.rs` holds the Tauri commands: `tag_source_search` (returns a
+  `SearchPage { results, total }`), `tag_source_release`, `tag_source_covers`,
+  `tag_source_image` (a data URL, because the CSP blocks remote images),
+  `tag_source_cancel`, `tag_source_apply`, `tag_source_open_page`,
+  `tag_source_save_cover`, and `load_`/`save_tag_source_settings`.
   - Apply checks the items first: there must be at least one, no file may appear
     twice, and something must be selected to write.
   - It downloads and validates the cover **before touching any file**, then
     stages it as `cover.<ext>` in a temporary directory.
-  - Inside the shared file-operation lock (`io`), each file goes through
-    `mutate_document`, so provider documents keep their recovery semantics. The
+  - Inside the shared file-operation lock (`io`) and one `history::record`
+    step, each file goes through `mutate_document`, so provider documents keep their recovery semantics. The
     steps use the settings-aware writers, so the user's MPEG/APE tag
     write/remove preferences apply to fields and covers: `settings::write_summary`,
     then `remove_all_covers_with_options` if replacing, then
     `add_cover_with_options`, all with `settings::tag_options()`. Results come back per file as a
-    `ScanResult`.
+    `ScanResult`. With `save_as`, the image is then written once per folder
+    (errors are reported per folder); provider documents refuse this before
+    anything is written.
 - `src/tag-sources.ts` holds the UI module (`TagSourcesUI`) and its pure
-  helpers: `searchPrefill`, `similarity`, `autoMatch`, `moveSlot`, `fieldRows`
-  and `buildApplyItems`. The `main.ts` changes are limited to the menu,
-  operation names, enablement rules, dispatch, the Ctrl+I binding and the host
-  callbacks.
+  helpers: `searchPrefill`, `discToc`, `similarity`, `autoMatch`,
+  `suggestByTitle`, `suggestByLength`, `moveSlot`, `fieldRows`, `editField`,
+  `buildApplyItems` and the Options pages (`tagSourcesOptionsPages`). The
+  `main.ts` changes are limited to the menu, operation names, enablement rules,
+  dispatch, the Ctrl+I and Ctrl+L bindings, the Options page registration and
+  the host callbacks.
 
 ## Verification
 
@@ -198,23 +306,62 @@ Vorbis mappings apply.
   frontend → command → file path end to end was covered only by these separate
   layers.
 
+### Round 2 (`feat/sources-2`)
+
+- `node --test tests/*.test.mjs`: 200 pass (4 new: disc ID vector, suggested
+  sorting by length and title, value editing and empty values, Options pages
+  and validation; the field-row test now covers editability).
+- `cargo test --workspace`: 441 pass, 3 ignored. New: 12 tests in
+  `sources::freedb` (disc ID vector and file layout, ID validation, command
+  URLs and handshake, Options parsing, query/read status codes including the
+  gnudb refusal, xmcd mapping with continuation lines and escapes, various
+  artists, Latin-1, local Unix and Windows layouts), paging parameters and
+  totals for MusicBrainz and Discogs, Preview host checks, cover file naming
+  per folder and extract-extension correction.
+- `cargo clippy --workspace --all-targets -- -D warnings`, `cargo fmt --all --
+  --check` and `npx tsc --noEmit` are clean.
+- Native e2e `tests/e2e/freedb-local.js` (offline; `scripts/e2e-native.sh` now
+  copies `tests/fixtures/freedb` next to the album): Options pages and saving
+  through the real dialog, Ctrl+L, the computed disc ID, typed disc ID search,
+  review layout fits, editing an album value (two values) and a track title,
+  By length, Ctrl+D/Ctrl+E, apply, values on disk including DISCID, and the
+  "Tag source import" undo step. All pass.
+- Native e2e `tests/e2e/tag-sources-live.js` (live network, run once):
+  MusicBrainz paging (50 of 552, then 98 after **More results**; MusicBrainz
+  repeats a few releases across pages and duplicates are dropped), the Preview
+  link, and Covers: MusicBrainz… by MBID with Save image to file: one cover
+  written to both files, fields unchanged, one undo step. All pass. Preview was
+  not clicked in e2e because it would open the desktop browser.
+- Ignored `live_gnudb_query`: gnudb.gnudb.org currently answers every request
+  from OpenTag with `500 Unknown application, developer email for OpenTag …`.
+  gnudb only serves client applications its operator has registered, so
+  **freedb (gnudb) does not return data for OpenTag until the project is
+  registered with gnudb**. The dialog explains this and points to another CDDB
+  server or a local folder. The protocol code is covered by fixtures only.
+
 ## Known gaps compared with Mp3tag
 
 - There is no Discogs OAuth flow. A personal access token is used instead,
   which Discogs supports for single-user apps. Searches run without a token but
   at 25 requests per minute and without thumbnails.
-- No cover-only sources (Mp3tag's Tag Sources → Covers), and no freedb/gnudb or
-  local freedb sources. The model is ready for them.
-- Missing from the Utils menu: "Suggest sorting — Length", "Save image to disc"
-  (and its file-name option) and "Extract cover". Length differences are only
-  highlighted. Fields are not editable in the review dialog, and there is no
-  drag and drop in the matching list (↑/↓ buttons only). Mp3tag's "apply
-  checkbox state to all selected fields" behaviour is not implemented; All/None
-  covers the common case.
-- No "Preview" button to open the release page in a browser, because the app
-  has no opener plugin. The release address is shown as selectable text instead.
-- Only the first page of results is fetched (50 releases). Discogs master
-  releases must be resolved to a specific release by the user.
+- gnudb refuses unregistered applications (see Round 2), so the freedb source
+  needs OpenTag to be registered with gnudb, or another CDDB server. freedb has
+  no audio-CD lookup (OpenTag does not read CD drives) and no text search:
+  gnudb's web search sits behind a browser check, and local text search needs
+  an index that Mp3tag also requires users to build. Local lookups are exact;
+  there is no fuzzy TOC matching against a local folder.
+- The covers-only sources are MusicBrainz and Discogs. Mp3tag's Covers submenu
+  lists whatever cover web-source scripts are installed; OpenTag has no script
+  framework.
+- Utils items are buttons rather than a menu, and the two "Suggest sorting"
+  entries are one-shot actions rather than persistent checkboxes. Saved cover
+  images are not part of the undo step. There is no drag and drop in the
+  matching list (↑/↓, Alt+↑/↓ only), no Alt+Page Up/Down, and no field
+  multi-selection: Space toggles a focused checkbox, but Mp3tag's Ctrl+A and
+  Ctrl+Shift+A field selection and "apply checkbox state to all selected
+  fields" are not implemented; All/None and Ctrl+E/Ctrl+D cover the common
+  case.
+- Discogs master releases must be resolved to a specific release by the user.
 - A field that the user unchecks is left as it is. Mp3tag likewise only writes
   the visible fields. Writing is per file and not transactional across files: if
   the cover step fails after the fields were written, that file keeps the new
