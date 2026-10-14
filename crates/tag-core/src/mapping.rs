@@ -1530,6 +1530,20 @@ pub(super) fn save_id3(
     }
 }
 
+/// Serialize a complete ID3v2 tag for containers that embed it as an opaque
+/// block (DSF, DSDIFF). An empty result means the tag has no frames.
+pub(super) fn render_id3(tag: &Id3v2Tag, target: &Id3Target) -> Result<Vec<u8>, String> {
+    if target.version == Id3v2Version::V3 {
+        return id3_v23::serialize(tag, target.latin1);
+    }
+    let mut bytes = Vec::new();
+    if !tag.is_empty() {
+        tag.dump_to(&mut bytes, WriteOptions::default().use_id3v23(false))
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(bytes)
+}
+
 /// Characters an ISO-8859-1 tag cannot hold are written as '?'.
 pub(super) fn latin1_lossy(value: &str) -> String {
     value
