@@ -13,6 +13,10 @@ import { createNumberingReview, numberingCounter, type NumberingRequest, type Nu
 import { open, save, ask } from '@tauri-apps/plugin-dialog';
 import { fieldNameIdentity, resolveTagEdits, selectionTagRows, type TagRowEdit } from './tag-edits';
 import { ActionUI, panelKey, resolvePathChanges, type ActionGroup, type ActionLibrary, type ImportedGroup } from './action-ui';
+import { ColumnUI, ColumnValueCache, columnFields, defaultLayout, editKey, headerMarkup, normalizeLayout, quickValue, sortClick, sortRows, sortTemplate, visibleColumns, type ColumnLayout } from './columns';
+import { CellEditor, adjacentCell, type CellTarget } from './cell-editor';
+import { invertSelection, listShortcut, listSummary, nextFile, nextSimilarFiles, similarFiles } from './list-commands';
+import { FindUI } from './find';
 import logoLightUrl from '../assets/brand/OpenTag-Brand-Kit/01-logos/horizontal/opentag-logo-light.svg';
 import markLightUrl from '../assets/brand/OpenTag-Brand-Kit/01-logos/marks/opentag-mark-color.svg';
 import artworkLightUrl from '../assets/brand/OpenTag-Brand-Kit/04-in-app/opentag-default-artwork-light-1024.svg';
@@ -43,7 +47,9 @@ type Batch = { entries: Entry[]; errors: FileError[]; renamed?: { from: string; 
 type Preview = { path: string; value: string };
 type RenamePreview = Preview & {plan_token:string};
 type FilenamePreview = { path: string; fields: Fields };
-type Operation = 'folder'|'files'|'save'|'save-copy'|'refresh-source'|'reload'|'extended'|'add-cover'|'remove-cover'|'filename-tags'|'tags-filename'|'filename-filename'|'text-tags'|'action'|'groups'|'number'|'remove-tags'|'playlist'|'csv'|'export-config'|'select-all'|'discard'|'about';
+type Operation = 'folder'|'files'|'save'|'save-copy'|'refresh-source'|'reload'|'extended'|'add-cover'|'remove-cover'|'filename-tags'|'tags-filename'|'filename-filename'|'text-tags'|'action'|'groups'|'number'|'remove-tags'|'playlist'|'csv'|'export-config'|'select-all'|'discard'|'about'|ListOperation;
+type ListOperation='unselect-all'|'invert-selection'|'select-next'|'select-similar'|'select-next-similar'|'remove-from-list'|'clear-list'|'refresh'|'find'|'edit-cell'|'columns';
+const listOperations:Operation[]=['unselect-all','invert-selection','select-next','select-similar','select-next-similar','remove-from-list','clear-list','refresh','find','edit-cell','columns'];
 const glyphs:Partial<Record<Operation,string>>={folder:glyphImport,files:glyphMusic,save:glyphSave,'save-copy':glyphSave,'refresh-source':glyphOrganize,reload:glyphOrganize,extended:glyphEdit,'add-cover':glyphAlbum,'remove-cover':glyphEdit,'filename-tags':glyphImport,'tags-filename':glyphExport,'filename-filename':glyphOrganize,'text-tags':glyphImport,action:glyphBatch,groups:glyphSettings,number:glyphOrganize,'remove-tags':glyphEdit,playlist:glyphOrganize,csv:glyphExport,'select-all':glyphCheck,discard:glyphEdit,about:glyphInfo};
 const glyph=(source:string)=>`<span class="icon" aria-hidden="true">${source}</span>`;
 const desktop = isTauri();
@@ -89,8 +95,8 @@ const drafts = new Map<string, Fields>();
 const copyOverrides = new Map<string, Fields>();
 const workingReadErrors = new Map<string, string>();
 const selected = new Set<string>();
-const columns = [{ key:'filename',label:'Filename',width:220 },{ key:'TITLE',label:'Title',width:175 },{ key:'ARTIST',label:'Artist',width:145 },{ key:'ALBUM',label:'Album',width:165 },{ key:'TRACK',label:'Track',width:55 },{ key:'YEAR',label:'Year',width:55 },{ key:'GENRE',label:'Genre',width:90 },{ key:'duration',label:'Length',width:60 },{ key:'format',label:'Format',width:65 },{ key:'bitrate',label:'Bitrate',width:65 }];
-let filter = '', sortKey = 'filename', sortAscending = true, anchor: string | undefined, busy = false, status = 'Ready', errors: FileError[] = [], location = 'No folder loaded', coverIndex = 0;
+let columnLayout:ColumnLayout=defaultLayout(),listRoots:string[]=[],slowEditTimer=0;
+let filter = '', anchor: string | undefined, busy = false, status = 'Ready', errors: FileError[] = [], location = 'No folder loaded', coverIndex = 0;
 const esc = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 const basename = (path: string) => path.split(/[\\/]/).pop() || path;
 const paths = () => ordered().filter(entry=>selected.has(entry.path)).map(entry=>entry.path);
@@ -102,6 +108,7 @@ const active = () => entries.get(selected.values().next().value||'');
 const collator = new Intl.Collator(undefined,{numeric:true,sensitivity:'base'});
 const dev = (import.meta as ImportMeta & {env?: {DEV?: boolean}}).env?.DEV === true;
 const compactScreen=()=>window.matchMedia('(max-width:1000px)').matches;
+const tableColumns=()=>{const shown=visibleColumns(columnLayout);return compactScreen()?shown.slice(0,3):shown;};
 let rowHeight = compactScreen()?44:30;
 const headerHeight = 29, overscan = 8;
 let mobilePane:'files'|'tags'='files';
@@ -149,22 +156,79 @@ async function executeGroups(groups:ActionGroup[]){
   if(result.errors.length)throw new Error(result.errors.map(error=>`${error.path}: ${error.error}`).join('\n'));
 }
 function columnSpecs(targets:string[]){
-  const separator="' \\\\ '";
-  const rawColumn=(key:string)=>key==='YEAR'?`$if2($meta_sep(YEAR,${separator}),$meta_sep(DATE,${separator}))`:key==='TRACK'?`$if($or($eql(%_filetype%,FLAC),$eql(%_filetype%,Vorbis),$eql(%_filetype%,Opus),$eql(%_filetype%,Speex),$eql(%_filetype%,Ogg)),$meta_sep(TRACKNUMBER,${separator}),$if2($meta_sep(TRACK,${separator}),$meta_sep(TRACKNUMBER,${separator})))`:`$meta_sep(${key},${separator})`;
-  return(compactScreen()?columns.slice(0,3):columns).map(column=>({name:column.label,template:column.key==='filename'?'%_filename_ext%':column.key==='duration'?'$div(%_length_seconds%,60):$num($mod(%_length_seconds%,60),2)':column.key==='format'?'%_filetype%':column.key==='bitrate'?'%_bitrate% kbps':rawColumn(column.key),values:Object.fromEntries(targets.map(path=>{const entry=entries.get(path)!;const value=column.key==='filename'?entry.filename:column.key==='duration'?length(entry.duration):column.key==='format'?entry.format:column.key==='bitrate'?`${entry.bitrate} kbps`:field(entry,column.key);return[path,value];}))}));
+  return tableColumns().map(column=>({name:column.name,template:column.value,values:Object.fromEntries(targets.flatMap(path=>{const value=columnValues.fresh(path,column.value);return value===undefined?[]:[[path,value]];}))}));
+}
+function columnItem(entry:Entry){return{fields:columnFields({...filterFields(entry),_FILETYPE:[entry.format]}),raw_fields:columnFields(merged(entry))};}
+const columnValues=new ColumnValueCache({
+  token:path=>{const entry=entries.get(path);return entry?[entry,drafts.get(path),copyOverrides.get(path),documentAccess.states[path]]:undefined;},
+  templates:()=>[...tableColumns().map(column=>column.value),...columnLayout.sort.flatMap(key=>{const column=columnLayout.columns.find(c=>c.id===key.id);return column?[sortTemplate(column)]:[];})],
+  evaluate:async(targets,templates)=>{
+    const items=targets.map(path=>columnItem(entries.get(path)!));
+    if(!desktop)return items.map(item=>templates.map(template=>quickValue(template,item.fields)??''));
+    const started=performance.now(),result=await invoke<{values:string[][];errors:string[]}>('evaluate_columns',{items,templates});
+    timing('column values',started,{files:targets.length,templates:templates.length});
+    if(result.errors.length){status=`Column value error: ${result.errors[0]}`;const element=document.querySelector('.status-message');if(element)element.textContent=status;}
+    return result.values;
+  },
+  updated:()=>{if(document.querySelector('.table-wrap'))updateVirtualRows(true);},
+  failed:error=>{status=`Column values could not be evaluated: ${String(error)}`;},
+});
+function cellValue(entry:Entry,template:string){return columnValues.get(entry.path,template)??quickValue(template,columnItem(entry).fields)??'';}
+const cellEditor=new CellEditor({
+  cell:target=>{const cell=revealRow(target.path,false)?.querySelector<HTMLTableCellElement>(`td[data-col="${CSS.escape(target.column)}"]`)||null;cell?.scrollIntoView({block:'nearest',inline:'nearest'});return cell;},
+  initial:({path,column})=>{const entry=entries.get(path),key=editKey(columnLayout.columns.find(c=>c.id===column)||{field:''});return!entry?'':key==='_FILENAME_EXT'?entry.filename:key==='_FILENAME'?entry.filename.replace(/\.[^.]*$/,''):field(entry,key);},
+  label:({column})=>columnLayout.columns.find(c=>c.id===column)?.name||'cell',
+  commit:commitCell,
+  next:(target,direction)=>{
+    const next=adjacentCell(visible().map(entry=>entry.path),tableColumns().filter(column=>editKey(column)).map(column=>column.id),target,direction);
+    if(next&&next.path!==target.path){selected.clear();selected.add(next.path);anchor=next.path;coverIndex=0;render();}
+    return next;
+  },
+  ended:()=>{const path=anchor&&selected.has(anchor)?anchor:paths()[0];if(path&&!document.querySelector('dialog[open]'))document.querySelector<HTMLElement>(`tr[data-path="${CSS.escape(path)}"]`)?.focus({preventScroll:true});},
+});
+const columnUI=new ColumnUI({
+  layout:()=>columnLayout,
+  apply:applyColumns,
+  importLayout:async()=>{const path=await open({multiple:false,title:'Load column configuration',filters:[{name:'Column configurations',extensions:['json']}]});return typeof path==='string'?normalizeLayout(await invoke<ColumnLayout>('import_columns',{path})):null;},
+  exportLayout:async layout=>{const path=await save({title:'Save column configuration',defaultPath:'columns.json',filters:[{name:'Column configurations',extensions:['json']}]});if(!path)return false;await invoke('export_columns',{path,layout});status=`Saved column configuration to ${basename(path)}`;return true;},
+  preview:async template=>{const entry=active();if(!entry||!desktop)return '';const result=await invoke<{values:string[][];errors:string[]}>('evaluate_columns',{items:[columnItem(entry)],templates:[template]});if(result.errors.length)throw new Error(result.errors[0]);return result.values[0][0];},
+  report:error=>{errors=[{path:'Columns',error:error instanceof Error?error.message:String(error)}];render();},
+});
+const findUI=new FindUI({
+  items:()=>visible().map(entry=>({path:entry.path,filename:entry.filename,fields:merged(entry)})),
+  select:(targets,focus)=>{selected.clear();targets.forEach(path=>selected.add(path));anchor=focus;coverIndex=0;coverError=undefined;render();if(focus)revealRow(focus,false);status=`${targets.length} file${targets.length===1?'':'s'} selected from Find results`;document.querySelector('.status-message')!.textContent=status;},
+  listed:path=>visible().some(entry=>entry.path===path),
+});
+/** Apply a column layout. Verified layouts (the Customize dialog) are saved first; quick header changes apply immediately. */
+async function applyColumns(layout:ColumnLayout,verified=false){
+  const next=normalizeLayout(layout);
+  if(verified&&desktop)await invoke('save_columns',{layout:next});
+  columnLayout=next;render();
+  if(!verified&&desktop)await invoke('save_columns',{layout:next});
+}
+function revealRow(path:string,focus=true){
+  const wrap=document.querySelector<HTMLDivElement>('.table-wrap'),index=visible().findIndex(entry=>entry.path===path);if(!wrap||index<0)return null;
+  const top=index*rowHeight,viewport=wrap.clientHeight-headerHeight;
+  if(top<wrap.scrollTop)wrap.scrollTop=top;else if(top+rowHeight>wrap.scrollTop+viewport)wrap.scrollTop=top+rowHeight-viewport;
+  updateVirtualRows();
+  const row=wrap.querySelector<HTMLTableRowElement>(`tr[data-path="${CSS.escape(path)}"]`);if(focus)row?.focus({preventScroll:true});return row;
 }
 function changedData(){dataRevision++;reviewedConverterContextChanged?.();}
 function timing(name:string,start:number,extra:Record<string,unknown>={}){
   if(dev)console.debug(`[OpenTag performance] ${name}`,{milliseconds:Math.round((performance.now()-start)*100)/100,files:entries.size,...extra});
 }
 function ordered(): Entry[] {
-  const key=`${dataRevision}:${sortKey}:${sortAscending}`;
+  const key=`${dataRevision}:${columnValues.revision}:${JSON.stringify(columnLayout.sort)}`;
   if(orderCacheKey===key)return orderCache;
   const start=performance.now();
-  const values=[...entries.values()].map(entry=>({entry,value:sortKey in entry?String(entry[sortKey as keyof Entry]):field(entry,sortKey)}));
-  values.sort((a,b)=>collator.compare(a.value,b.value)*(sortAscending?1:-1));
-  orderCache=values.map(item=>item.entry);orderCacheKey=key;
-  timing('sort',start,{key:sortKey});return orderCache;
+  const criteria=columnLayout.sort.flatMap(sort=>{const column=columnLayout.columns.find(c=>c.id===sort.id);return column?[{sort,column,template:sortTemplate(column)}]:[];});
+  orderCache=sortRows([...entries.values()].map(entry=>({item:entry,keys:criteria.map(({template})=>cellValue(entry,template))})),criteria.map(({sort,column})=>({ascending:sort.ascending,numeric:column.numeric})),collator);orderCacheKey=key;
+  timing('sort',start,{criteria:criteria.length});return orderCache;
+}
+function sortValueOf(path:string){
+  const entry=entries.get(path);if(!entry)return '';
+  const criteria=columnLayout.sort.flatMap(sort=>{const column=columnLayout.columns.find(c=>c.id===sort.id);return column?[sortTemplate(column)]:[];});
+  return criteria.length?criteria.map(template=>cellValue(entry,template).toLocaleLowerCase()).join('\u0000'):entry.filename.toLocaleLowerCase();
 }
 function providerEntry(entry:Entry){return runtimePlatform.document_access_supported||!!documentAccess.states[entry.path]||!!entry.technical?._PATH?.[0]?.startsWith('content://');}
 function publicMessage(error:unknown){return publicDocumentMessage(error,documentAccess.states);}
@@ -203,7 +267,7 @@ function requestFilter(query:string){
     }).catch(error=>{if(filterRequestKey===key&&filter===query&&filterContextKey()===context){filterPending=false;filterFailure=String(error);filterCacheKey='';render();}});
   },120);
 }
-function filterContextKey(){return`${dataRevision}:${sortKey}:${sortAscending}:${compactScreen()}`;}
+function filterContextKey(){return`${dataRevision}:${JSON.stringify(columnLayout.sort)}:${compactScreen()}`;}
 function visible(): Entry[] {
   const query = filter.toLocaleLowerCase();
   const all=ordered(),key=`${orderCacheKey}:${query}`;
@@ -275,7 +339,8 @@ function hydrateActiveCover(){
   coverRequests.set(requestKey,request);
 }
 function rowMarkup(entry:Entry,index:number){
-  return `<tr tabindex="0" data-path="${esc(entry.path)}" aria-rowindex="${index+2}" aria-selected="${selected.has(entry.path)}" class="${selected.has(entry.path)?'selected':''}">${columns.map(c=>`<td class="${c.key==='filename'?'filename ':''}${drafts.get(entry.path)?.[panelKey({format:entry.format,fields:merged(entry)},c.key)]?'pending':''}" title="${esc(c.key in entry?entry[c.key as keyof Entry]:field(entry,c.key))}">${c.key==='filename'?`<input class="row-select" type="checkbox" aria-label="Select ${esc(entry.filename)}" ${selected.has(entry.path)?'checked':''}>${drafts.has(entry.path)?'<span class="rowmarker" title="Pending changes">●</span>':''}${esc(entry.filename)}`:c.key==='duration'?length(entry.duration):c.key==='bitrate'?`${entry.bitrate} kbps`:c.key==='format'?esc(entry.format):esc(field(entry,c.key))}</td>`).join('')}</tr>`;
+  const draft=drafts.get(entry.path),fields=draft&&merged(entry);
+  return `<tr tabindex="0" data-path="${esc(entry.path)}" aria-rowindex="${index+2}" aria-selected="${selected.has(entry.path)}" class="${selected.has(entry.path)?'selected':''}">${tableColumns().map((c,i)=>{const value=cellValue(entry,c.value),key=editKey(c),pending=!!(draft&&key&&draft[panelKey({format:entry.format,fields:fields!},key)]);return`<td data-col="${esc(c.id)}" class="align-${c.align}${i===0?' filename':''}${pending?' pending':''}${key?' editable':''}" title="${esc(value)}">${i===0?`<input class="row-select" type="checkbox" aria-label="Select ${esc(entry.filename)}" ${selected.has(entry.path)?'checked':''}>${draft?'<span class="rowmarker" title="Pending changes">●</span>':''}`:''}${esc(value)}</td>`;}).join('')}</tr>`;
 }
 function updateVirtualRows(force=false){
   const wrap=document.querySelector<HTMLDivElement>('.table-wrap'),body=wrap?.querySelector('tbody');if(!wrap||!body)return;
@@ -284,7 +349,7 @@ function updateVirtualRows(force=false){
   const selectionKey=paths().join('\0');
   if(!force&&start===virtualStart&&end===virtualEnd&&virtualRevision===dataRevision&&virtualSelection===selectionKey)return;
   const focused=document.activeElement instanceof HTMLTableRowElement?document.activeElement.dataset.path:undefined;
-  const spacer=(height:number)=>height?`<tr class="virtual-spacer" aria-hidden="true"><td colspan="${columns.length}" style="height:${height}px"></td></tr>`:'';
+  const spacer=(height:number)=>height?`<tr class="virtual-spacer" aria-hidden="true"><td colspan="${tableColumns().length}" style="height:${height}px"></td></tr>`:'';
   body.innerHTML=spacer(start*rowHeight)+list.slice(start,end).map((entry,i)=>rowMarkup(entry,start+i)).join('')+spacer((list.length-end)*rowHeight);
   virtualStart=start;virtualEnd=end;virtualRevision=dataRevision;virtualSelection=selectionKey;
   if(focused)wrap.querySelector<HTMLTableRowElement>(`tr[data-path="${CSS.escape(focused)}"]`)?.focus({preventScroll:true});
@@ -298,7 +363,7 @@ function operationReason(op:Operation):string {
   if(['save','add-cover','remove-cover','remove-tags','filename-tags'].includes(op)&&policy.mutationReason)return policy.mutationReason;
   if(op==='reload'&&policy.reloadReason)return policy.reloadReason;
   if(op==='number'&&dirtySelected()&&!sourcePolicy().unsupportedReason)return 'Save pending changes first.';
-  if(dirtySelected()&&!['save','save-copy','refresh-source','reload','extended','number','discard','folder','files','select-all','about','groups'].includes(op))return 'Save pending changes first.';
+  if(dirtySelected()&&!['save','save-copy','refresh-source','reload','extended','number','discard','folder','files','select-all','about','groups',...listOperations].includes(op))return 'Save pending changes first.';
   return '';
 }
 function enabled(op: Operation): boolean {
@@ -306,6 +371,7 @@ function enabled(op: Operation): boolean {
   if (busy) return false;
   if (op === 'select-all') return visible().length > 0;
   if (op === 'discard') return dirtySelected();
+  if (listOperations.includes(op)) return listEnabled(op);
   if (!desktop) return false;
   if(op==='groups'||op==='export-config')return true;
   if(op==='refresh-source')return runtimePlatform.document_access_supported;
@@ -317,10 +383,18 @@ function enabled(op: Operation): boolean {
   if (op === 'remove-cover') return !!coversFor(active()).length && selected.size === 1;
   return true;
 }
+function listEnabled(op:Operation){
+  if(op==='columns')return true;
+  if(op==='refresh')return desktop&&!runtimePlatform.document_access_supported&&listRoots.length>0;
+  if(op==='clear-list'||op==='find')return entries.size>0;
+  if(op==='invert-selection'||op==='select-next')return visible().length>0;
+  if(op==='edit-cell')return selected.size>0&&tableColumns().some(column=>editKey(column));
+  return selected.size>0;
+}
 function button(op: Operation, label: string, icon = '', shortcut = '') {
   return `<button data-op="${op}" ${enabled(op) ? '' : 'disabled'} title="${esc(operationReason(op)||label)}">${glyphs[op]?glyph(glyphs[op]!):icon?`<span class="icon" aria-hidden="true">${esc(icon)}</span>`:''}<span>${label}</span>${shortcut ? `<small>${shortcut}</small>` : ''}</button>`;
 }
-function menu(name: string, items: [Operation,string,string?][]) { return `<details class="menu" ${name==='Actions'?'id="actions-menu"':''}><summary>${name}</summary><div class="menu-list">${items.map(([op,label,key]) => button(op,label,'',key)).join('')}${name==='Actions'?actionUI.menuHTML():''}${name==='File'&&!runtimePlatform.folder_picker_supported?'<p class="menu-note">Folder access is not available here. Use Add files.</p>':''}${['Convert','Actions'].includes(name)&&sourcePolicy().unsupportedReason?`<p class="menu-note">${esc(sourcePolicy().unsupportedReason)}</p>`:''}</div></details>`; }
+function menu(name: string, items: [Operation,string,string?][]) { return `<details class="menu" ${name==='Actions'?'id="actions-menu"':''}><summary>${name}</summary><div class="menu-list">${items.map(([op,label,key]) => button(op,label,'',key)).join('')}${name==='Actions'?actionUI.menuHTML():''}${name==='View'?columnUI.menuHTML():''}${name==='File'&&!runtimePlatform.folder_picker_supported?'<p class="menu-note">Folder access is not available here. Use Add files.</p>':''}${['Convert','Actions'].includes(name)&&sourcePolicy().unsupportedReason?`<p class="menu-note">${esc(sourcePolicy().unsupportedReason)}</p>`:''}</div></details>`; }
 function input(key: string) {
   const values = paths().map(path => field(entries.get(path)!,key));
   const mixed = values.some(value => value !== values[0]);
@@ -339,22 +413,22 @@ function render() {
   const focusSelector=focused?.id==="filter"?'#filter':focused?.dataset.field?`[data-field="${focused.dataset.field}"]`:undefined;
   const caretStart=focused?.selectionStart,caretEnd=focused?.selectionEnd;
   const list = visible(), entry = active();
-  const selectedEntries = paths().map(path => entries.get(path)!);
-  const selectedSize = selectedEntries.reduce((sum,e) => sum+e.size,0), selectedTime = selectedEntries.reduce((sum,e) => sum+e.duration,0);
+  const selectedEntries = paths().map(path => entries.get(path)!), shownColumns = tableColumns();
   app.innerHTML = `<div class="app" data-pane="${mobilePane}"><header class="titlebar"><img class="brand-logo" data-theme-image="logo" src="${themedAsset('logo')}" alt="OpenTag"><span class="subtitle">Audio metadata editor</span><span class="window-mode">${runtimePlatform.document_access_supported?'Provider documents':desktop?'Local files':'Browser preview'}</span><label class="appearance-control"><span>Appearance</span><select id="appearance" aria-label="Appearance"><option value="system">${appearance.state.preference==='system'?`System (${appearance.state.resolved==='dark'?'Dark':'Light'})`:'System'}</option><option value="light">Light</option><option value="dark">Dark</option></select></label></header>
-  <nav class="menubar" aria-label="Main menu">${menu('File',[['folder','Open folder…',runtimePlatform.document_access_supported?undefined:'⌘/Ctrl O'],['files','Add files…',runtimePlatform.document_access_supported?'⌘/Ctrl O':undefined],['save','Save tags','⌘/Ctrl S'],['save-copy','Save a copy…'],['reload','Reload tags'],['playlist','Create playlist…'],['export-config','Export…','⌘/Ctrl E'],['csv','Export CSV…']])}${menu('Edit',[['select-all','Select all','⌘/Ctrl A'],['extended','Extended tags…'],['discard','Discard pending changes'],['remove-tags','Remove tags…']])}${menu('Convert',[['filename-tags','Filename → Tag…'],['tags-filename','Tag → Filename…'],['filename-filename','Filename → Filename…'],['text-tags','Text File → Tag…'],['number','Auto-numbering…','⌘/Ctrl K']])}${menu('Actions',[['groups','Actions…','Alt 6'],['action','Actions (Quick)…','Alt Shift 6']])}${menu('Help',[['about','About OpenTag']])}</nav>
+  <nav class="menubar" aria-label="Main menu">${menu('File',[['folder','Open folder…',runtimePlatform.document_access_supported?undefined:'⌘/Ctrl O'],['files','Add files…',runtimePlatform.document_access_supported?'⌘/Ctrl O':undefined],['save','Save tags','⌘/Ctrl S'],['save-copy','Save a copy…'],['reload','Reload tags'],['playlist','Create playlist…'],['export-config','Export…','⌘/Ctrl E'],['csv','Export CSV…'],['clear-list','Clear list']])}${menu('Edit',[['select-all','Select all','⌘/Ctrl A'],['invert-selection','Invert selection','⌘/Ctrl ⇧A'],['unselect-all','Unselect all','⌘/Ctrl U'],['select-next','Select next file','⌘/Ctrl N'],['select-similar','Select similar files','⌘/Ctrl G'],['select-next-similar','Select next similar files','⌘/Ctrl ⇧G'],['find','Find…','⌘/Ctrl F'],['edit-cell','Edit in file list','F2'],['remove-from-list','Remove from list','Del'],['extended','Extended tags…'],['discard','Discard pending changes'],['remove-tags','Remove tags…']])}${menu('View',[['refresh','Refresh','F5'],['columns','Customize columns…']])}${menu('Convert',[['filename-tags','Filename → Tag…'],['tags-filename','Tag → Filename…'],['filename-filename','Filename → Filename…'],['text-tags','Text File → Tag…'],['number','Auto-numbering…','⌘/Ctrl K']])}${menu('Actions',[['groups','Actions…','Alt 6'],['action','Actions (Quick)…','Alt Shift 6']])}${menu('Help',[['about','About OpenTag']])}</nav>
   <div class="toolbar" role="toolbar" aria-label="File and tag operations">${button('folder','Open folder','▱')}${button('files','Add files','＋')}<span class="sep"></span>${button('save','Save tags','▣')}${button('reload','Reload','↻')}<span class="sep"></span>${button('filename-tags','Filename → Tag')}${button('tags-filename','Tag → Filename')}<span class="spacer"></span>${button('groups','Actions','⚙')}${button('number','Numbering','#')}</div>
   <nav class="mobile-panes" aria-label="Workspace view"><button data-pane="files" aria-pressed="${mobilePane==='files'}">Files (${entries.size})</button><button data-pane="tags" aria-pressed="${mobilePane==='tags'}" ${selected.size?'':'disabled'}>Tags (${selected.size})</button></nav>
   <main class="workspace"><aside class="editor" aria-label="Tag editor"><div class="panel-title">Tag panel <span>${selected.size ? `${selected.size} selected` : 'No selection'}</span></div>${sourceMarkup('tags')}<div class="fields">${input('TITLE')}${input('ARTIST')}${input('ALBUM')}${input('ALBUMARTIST')}<div class="field-pair">${input('YEAR')}${input('TRACK')}</div>${input('GENRE')}${input('COMMENT')}${input('COMPOSER')}${input('DISCNUMBER')}</div><div class="editor-actions">${button('save','Save tags')}${button('extended','Extended…')}</div>
   <section class="cover-section" aria-label="Embedded artwork">${coverMarkup()}</section></aside>
-  <section class="files" aria-label="Audio files"><div class="location">${glyph(glyphOrganize)}<span class="path" title="${esc(entry&&providerEntry(entry)?sourcePresentation(documentAccess.states[entry.path]).location:location)}">${esc(entry&&providerEntry(entry)?sourcePresentation(documentAccess.states[entry.path]).location:location)}</span><strong>${entries.size} file${entries.size===1?'':'s'}</strong></div>${sourceMarkup('files')}<div class="filterbar"><label for="filter">${glyph(glyphSearch)}<span class="visually-hidden">Filter</span></label><input id="filter" type="search" value="${esc(filter)}" placeholder="Filter filenames and tags, or enter a filter expression" autocomplete="off"><span class="count">${filterPending?'Filtering… · ':list.length === entries.size ? '' : `${list.length} visible · `}${selected.size} selected</span></div><div class="table-wrap"><table aria-label="Audio metadata" aria-rowcount="${list.length+1}"><thead><tr>${columns.map(c => `<th style="width:${c.width}px" aria-sort="${sortKey===c.key ? sortAscending?'ascending':'descending':'none'}"><button data-sort="${c.key}">${c.label}${sortKey===c.key?sortAscending?' ↑':' ↓':''}</button></th>`).join('')}</tr></thead><tbody></tbody></table>${!list.length ? `<div class="empty"><img class="empty-symbol" data-theme-image="mark" src="${themedAsset('mark')}" alt="" aria-hidden="true"><h1>${filterPending ? 'Filtering files…' : filterFailure ? 'Invalid filter' : entries.size ? 'No matching files' : runtimePlatform.document_access_supported?'Add audio documents':desktop ? 'Open your music folder' : 'Your music, ready to edit'}</h1><p>${filterPending ? 'Matching your filter against filenames and tag values.' : filterFailure ? esc(filterFailure) : entries.size ? 'Try another filename or tag value in the filter.' : runtimePlatform.document_access_supported?'Choose audio files from your document provider. Source access and recovery options appear with your selection.':desktop ? 'Open a folder, add audio files, or drop them into this window. Select files to edit their tags together.' : 'Open the desktop app to work with local audio files. Your files and tags stay on your computer.'}</p>${!entries.size ? `<div class="empty-actions">${button('folder','Open folder…')}${button('files','Add files…')}</div>` : ''}</div>` : ''}</div><div class="selection-info"><span>${selected.size ? `${selected.size} selected file${selected.size===1?'':'s'}` : 'Select a file to view its tags'}</span>${selected.size ? `<span>${length(selectedTime)} total</span><span>${(selectedSize/1048576).toFixed(1)} MB</span>` : ''}<span>${selected.size===1 && entry ? `${entry.sample_rate.toLocaleString()} Hz · ${entry.channels} channel${entry.channels===1?'':'s'}` : ''}</span></div>
+  <section class="files" aria-label="Audio files"><div class="location">${glyph(glyphOrganize)}<span class="path" title="${esc(entry&&providerEntry(entry)?sourcePresentation(documentAccess.states[entry.path]).location:location)}">${esc(entry&&providerEntry(entry)?sourcePresentation(documentAccess.states[entry.path]).location:location)}</span><strong>${entries.size} file${entries.size===1?'':'s'}</strong></div>${sourceMarkup('files')}<div class="filterbar"><label for="filter">${glyph(glyphSearch)}<span class="visually-hidden">Filter</span></label><input id="filter" type="search" value="${esc(filter)}" placeholder="Filter filenames and tags, or enter a filter expression" autocomplete="off"><span class="count">${filterPending?'Filtering… · ':list.length === entries.size ? '' : `${list.length} visible · `}${selected.size} selected</span></div><div class="table-wrap"><table aria-label="Audio metadata" aria-rowcount="${list.length+1}" style="width:${shownColumns.reduce((sum,c)=>sum+c.width,0)}px"><thead><tr>${headerMarkup(shownColumns,columnLayout.sort)}</tr></thead><tbody></tbody></table>${!list.length ? `<div class="empty"><img class="empty-symbol" data-theme-image="mark" src="${themedAsset('mark')}" alt="" aria-hidden="true"><h1>${filterPending ? 'Filtering files…' : filterFailure ? 'Invalid filter' : entries.size ? 'No matching files' : runtimePlatform.document_access_supported?'Add audio documents':desktop ? 'Open your music folder' : 'Your music, ready to edit'}</h1><p>${filterPending ? 'Matching your filter against filenames and tag values.' : filterFailure ? esc(filterFailure) : entries.size ? 'Try another filename or tag value in the filter.' : runtimePlatform.document_access_supported?'Choose audio files from your document provider. Source access and recovery options appear with your selection.':desktop ? 'Open a folder, add audio files, or drop them into this window. Select files to edit their tags together.' : 'Open the desktop app to work with local audio files. Your files and tags stay on your computer.'}</p>${!entries.size ? `<div class="empty-actions">${button('folder','Open folder…')}${button('files','Add files…')}</div>` : ''}</div>` : ''}</div><div class="selection-info">${listSummary(selectedEntries,list,entries.size,selected.size===1?entry:undefined).map(segment=>`<span>${esc(segment)}</span>`).join('')}</div>
   ${errors.length ? `<section class="errors" aria-label="Operation errors"><header>${errors.length} file error${errors.length===1?'':'s'}<button id="dismiss-errors">Dismiss</button></header>${errors.map(e => `<p><strong>${esc(displayName(e.path))}:</strong> ${esc(publicMessage(e.error))}</p>`).join('')}</section>` : ''}</section></main><footer class="status ${busy?'busy':''}"><span class="status-dot" aria-hidden="true"></span><span class="status-message" role="status">${esc(status)}</span>${drafts.size ? `<span class="dirty-count">${drafts.size} unsaved file${drafts.size===1?'':'s'}</span>` : ''}<span>${entries.size} files</span></footer></div>`;
   const wrap=document.querySelector<HTMLDivElement>('.table-wrap')!;
-  wrap.querySelector('tbody')!.innerHTML=list.length?`<tr class="virtual-spacer" aria-hidden="true"><td colspan="${columns.length}" style="height:${list.length*rowHeight}px"></td></tr>`:'';
+  wrap.querySelector('tbody')!.innerHTML=list.length?`<tr class="virtual-spacer" aria-hidden="true"><td colspan="${tableColumns().length}" style="height:${list.length*rowHeight}px"></td></tr>`:'';
   wrap.scrollTop=scrollTop;wrap.scrollLeft=scrollLeft;updateVirtualRows(true);
   document.querySelector('.fields')!.scrollTop=panelTop;
   document.querySelector<HTMLElement>('.editor')!.scrollTop=editorScrollTop;
   bind();setCoverImage();hydrateActiveCover();applyAppearance(appearance.state);
+  columnUI.bindHeader(wrap.querySelector('table')!,()=>void operate('columns'));cellEditor.reattach();
   if(focusSelector){const replacement=document.querySelector<HTMLInputElement|HTMLTextAreaElement>(focusSelector);replacement?.focus({preventScroll:true});if(replacement&&caretStart!=null&&caretEnd!=null){try{replacement.setSelectionRange(caretStart,caretEnd);}catch{/* Search selection is not supported by every webview. */}}}
   timing('workspace render',started,{rendered:virtualEnd-virtualStart,selected:selected.size});
 }
@@ -411,7 +485,7 @@ function select(path: string, event: MouseEvent | KeyboardEvent) {
 }
 function bind() {
   document.querySelector<HTMLSelectElement>('#appearance')!.addEventListener('change',event=>appearance.set((event.target as HTMLSelectElement).value));
-  actionUI.bindMenu(app);
+  actionUI.bindMenu(app);columnUI.bindMenu(app);
   document.querySelectorAll<HTMLButtonElement>('button[data-pane]').forEach(el=>el.addEventListener('click',()=>{mobilePane=el.dataset.pane as 'files'|'tags';render();}));
   document.querySelectorAll<HTMLButtonElement>('[data-op]').forEach(el => el.addEventListener('click', () => { document.querySelectorAll<HTMLDetailsElement>('details[open]').forEach(d => d.open = false); void operate(el.dataset.op as Operation); }));
   document.querySelectorAll<HTMLInputElement|HTMLTextAreaElement>('[data-field]').forEach(el => el.addEventListener('input', () => draftField(el.dataset.field!,el.value)));
@@ -419,7 +493,7 @@ function bind() {
     const el = event.target as HTMLInputElement, position = el.selectionStart; filter = el.value; document.querySelector('.table-wrap')!.scrollTop=0;render();
     const replacement = document.querySelector<HTMLInputElement>('#filter')!;replacement.focus();try{replacement.setSelectionRange(position,position);}catch{/* Search controls do not expose selection on every webview. */}
   });
-  document.querySelectorAll<HTMLButtonElement>('[data-sort]').forEach(el => el.addEventListener('click', () => { if(sortKey===el.dataset.sort) sortAscending=!sortAscending;else {sortKey=el.dataset.sort!;sortAscending=true;}document.querySelector('.table-wrap')!.scrollTop=0;render(); }));
+  document.querySelectorAll<HTMLButtonElement>('[data-sort]').forEach(el => el.addEventListener('click', event => { document.querySelector('.table-wrap')!.scrollTop=0;applyColumns({...columnLayout,sort:sortClick(columnLayout.sort,el.dataset.sort!,event.shiftKey)}).catch(error=>{errors=[{path:'Columns',error:String(error)}];render();}); }));
   const wrap=document.querySelector<HTMLDivElement>('.table-wrap')!;
   let scrollFrame=0;
   wrap.addEventListener('scroll',()=>{if(wrap.clientHeight){tableScrollTop=wrap.scrollTop;tableScrollLeft=wrap.scrollLeft;}if(!scrollFrame)scrollFrame=requestAnimationFrame(()=>{scrollFrame=0;if(wrap.isConnected&&wrap.clientHeight)updateVirtualRows();});},{passive:true});
@@ -427,9 +501,14 @@ function bind() {
   wrap.addEventListener('click',e=>{
     const row=rowFor(e);if(!row)return;
     if((e.target as Element).classList.contains('row-select'))select(row.dataset.path!,new MouseEvent('click',{ctrlKey:true,shiftKey:e.shiftKey}));
-    else{if(compactScreen())mobilePane='tags';select(row.dataset.path!,e);}
+    else{
+      // A second, delayed click on a selected file edits the clicked cell.
+      const cell=(e.target as Element).closest<HTMLElement>('td.editable[data-col]'),again=!!cell&&!e.shiftKey&&!e.metaKey&&!e.ctrlKey&&!compactScreen()&&selected.size===1&&selected.has(row.dataset.path!);
+      if(compactScreen())mobilePane='tags';select(row.dataset.path!,e);
+      window.clearTimeout(slowEditTimer);if(again){const target={path:row.dataset.path!,column:cell!.dataset.col!};slowEditTimer=window.setTimeout(()=>{if(selected.size===1&&selected.has(target.path)&&!busy)cellEditor.start(target);},550);}
+    }
   });
-  wrap.addEventListener('dblclick',e=>{if(rowFor(e))void operate('extended');});
+  wrap.addEventListener('dblclick',e=>{window.clearTimeout(slowEditTimer);if(rowFor(e))void operate('extended');});
   wrap.addEventListener('keydown',e=>{
     const row=rowFor(e);if(!row||e.target instanceof HTMLInputElement)return;
     if(e.key===' '){e.preventDefault();select(row.dataset.path!,e);}
@@ -458,7 +537,7 @@ function applyRenamed(batch:Batch){
   snapshots.forEach(({from,to,entry,draft,selected:wasSelected})=>{storeEntry({...entry,path:to,filename:basename(to)});if(draft)drafts.set(to,draft);if(wasSelected)selected.add(to);if(anchor===from)anchor=to;});
 }
 async function scan(newPaths: string[]) {
-  await run('Reading audio files…',async()=>{ const result=await invoke<Batch>('scan_files',{paths:newPaths,recursive:true});accept(result,'Loaded',false);location=newPaths.length===1?newPaths[0]:`${newPaths.length} added locations`;if(!selected.size&&result.entries.length){selected.add(result.entries[0].path);anchor=result.entries[0].path;} });
+  await run('Reading audio files…',async()=>{ const result=await invoke<Batch>('scan_files',{paths:newPaths,recursive:true});accept(result,'Loaded',false);listRoots=[...new Set([...listRoots,...newPaths])];location=newPaths.length===1?newPaths[0]:`${newPaths.length} added locations`;if(!selected.size&&result.entries.length){selected.add(result.entries[0].path);anchor=result.entries[0].path;} });
 }
 // Immediate mutations may change retained bytes even when publication fails.
 // Keep those local contents separate from source success and pending field intent.
@@ -803,18 +882,84 @@ async function operateImpl(op: Operation) {
   if(op==='remove-tags'){if(await ask(`Remove all tags from ${selected.size} selected file${selected.size===1?'':'s'}?`,{title:'Remove tags',kind:'warning'}))await mutate('remove_tags',{},'Removed tags');return;}
   if(op==='playlist'||op==='csv'){const playlist=op==='playlist',outputPath=await save({title:playlist?'Create playlist':'Export tags as CSV',defaultPath:playlist?'playlist.m3u8':'tags.csv',filters:[{name:playlist?'M3U8 playlist':'CSV file',extensions:[playlist?'m3u8':'csv']}]});if(outputPath)await run('Exporting…',async()=>{await invoke(playlist?'export_playlist':'export_csv',{paths:paths(),outputPath});status=`Exported ${selected.size} files to ${basename(outputPath)}`;});}
 }
+async function listOperation(op:Operation){
+  const list=visible().map(entry=>entry.path);
+  const choose=(targets:string[],focus=targets[0])=>{selected.clear();targets.forEach(path=>selected.add(path));anchor=focus;coverIndex=0;coverError=undefined;render();if(focus)revealRow(focus);};
+  if(op==='unselect-all'){choose([]);return;}
+  if(op==='invert-selection'){choose(invertSelection(list,selected));return;}
+  if(op==='select-next'){const next=nextFile(list,selected);if(next)choose([next]);return;}
+  if(op==='select-similar'||op==='select-next-similar'){
+    const targets=op==='select-similar'?similarFiles(list,sortValueOf,anchor&&selected.has(anchor)?anchor:paths()[0]):nextSimilarFiles(list,sortValueOf,selected);
+    if(targets.length){status=`Selected ${targets.length} similar file${targets.length===1?'':'s'}`;choose(targets);}return;
+  }
+  if(op==='find'){findUI.open();return;}
+  if(op==='columns'){columnUI.customize();return;}
+  if(op==='edit-cell'){
+    const path=paths()[0],editable=tableColumns().filter(column=>editKey(column));
+    const column=editable.find(column=>editKey(column).startsWith('_FILENAME'))||editable[0];
+    if(path&&column)cellEditor.start({path,column:column.id});return;
+  }
+  if(op==='remove-from-list'||op==='clear-list'){
+    const targets=op==='clear-list'?[...entries.keys()]:paths(),pending=targets.filter(path=>drafts.has(path)).length;
+    if(pending&&!await ask(`${pending} file${pending===1?' has':'s have'} pending tag changes. Remove ${targets.length===1?'it':'them'} from the list and discard the changes? Files on disk are not changed.`,{title:op==='clear-list'?'Clear list':'Remove from list',kind:'warning'}))return;
+    const removed=new Set(targets),next=list.slice(Math.max(0,...list.map((path,index)=>removed.has(path)?index:-1))).find(path=>!removed.has(path))||[...list].reverse().find(path=>!removed.has(path));
+    cellEditor.cancel();
+    targets.forEach(path=>{invalidateCovers(path);entries.delete(path);drafts.delete(path);copyOverrides.delete(path);workingReadErrors.delete(path);selected.delete(path);});
+    columnValues.retain(path=>entries.has(path));
+    if(op==='clear-list'||!entries.size){listRoots=[];location='No folder loaded';errors=[];}
+    changedData();status=`Removed ${targets.length} file${targets.length===1?'':'s'} from the list`;
+    choose(next?[next]:[]);return;
+  }
+  if(op==='refresh'){
+    if(drafts.size&&!await ask(`Refresh the file list and discard pending changes in ${drafts.size} file${drafts.size===1?'':'s'}?`,{title:'Refresh',kind:'warning'}))return;
+    cellEditor.cancel();
+    await run('Refreshing file list…',async()=>{
+      const batch=await invoke<Batch>('scan_files',{paths:listRoots,recursive:true}),found=new Set(batch.entries.map(entry=>entry.path));
+      for(const path of[...entries.keys()])if(!found.has(path)){invalidateCovers(path);entries.delete(path);selected.delete(path);}
+      drafts.clear();copyOverrides.clear();workingReadErrors.clear();columnValues.retain(path=>found.has(path));
+      accept(batch,'Refreshed');
+      if(!anchor||!selected.has(anchor))anchor=paths()[0];
+      if(!selected.size&&batch.entries.length){const first=ordered()[0].path;selected.add(first);anchor=first;}
+    });
+  }
+}
+async function commitCell(target:CellTarget,value:string):Promise<string|undefined>{
+  const entry=entries.get(target.path),column=columnLayout.columns.find(c=>c.id===target.column);if(!entry||!column)return undefined;
+  const key=editKey(column);if(!key)return target.path;
+  if(key==='_FILENAME'||key==='_FILENAME_EXT')return renameFromList(entry,key,value);
+  if(value===field(entry,key))return target.path;
+  updateDraft(target.path,panelKey({format:entry.format,fields:merged(entry)},key),value?value.split('\\\\').map(v=>v.trim()):[]);
+  status=`Pending changes for ${drafts.size} file${drafts.size===1?'':'s'}. ${sourcePolicy().mutationReason?'Use Save a copy to keep these edits.':'Save tags to write them.'}`;
+  render();return target.path;
+}
+async function renameFromList(entry:Entry,key:string,value:string):Promise<string|undefined>{
+  const dot=entry.filename.lastIndexOf('.'),extension=dot>0?entry.filename.slice(dot):'';
+  let stem=value.trim();
+  if(key==='_FILENAME_EXT'){if(stem===entry.filename)return entry.path;if(extension&&stem.toLowerCase().endsWith(extension.toLowerCase()))stem=stem.slice(0,-extension.length);else if(extension){errors=[{path:'Rename',error:`Keep the ${extension} extension when renaming ${entry.filename}.`}];render();return undefined;}}
+  else if(stem===entry.filename.slice(0,dot>0?dot:undefined))return entry.path;
+  const problem=!desktop?'Renaming requires the desktop app.':sourcePolicy().unsupportedReason||(!stem.trim()?'Enter a filename.':/[\\/]/.test(stem)?'Filenames cannot contain path separators.':'');
+  if(problem){errors=[{path:'Rename',error:problem}];render();return undefined;}
+  const result=await run('Renaming file…',async()=>{const batch=await invoke<Batch>('rename_files',{paths:[entry.path],template:`'${stem.replace(/'/g,"''")}'`,planToken:null});applyRenamed(batch);accept(batch,'Renamed',false);return batch;});
+  return result&&!result.errors.length?result.renamed?.find(item=>item.from===entry.path)?.to||entry.path:undefined;
+}
 async function operate(op: Operation) {
-  try { await operateImpl(op); }
+  try { if(listOperations.includes(op)){if(enabled(op))await listOperation(op);}else await operateImpl(op); }
   catch(error) {errors=[{path:'Operation',error:String(error)}];status='Operation failed';render();}
 }
 const menubar = installMenubar(document);
 document.addEventListener('keydown',event=>{
-  if(event.defaultPrevented||document.querySelector('dialog[open]'))return;
+  if(event.defaultPrevented||document.querySelector('dialog[open]:not(.find-dialog)'))return;
   const typing=event.target instanceof HTMLInputElement||event.target instanceof HTMLTextAreaElement;
   if(event.altKey&&(event.code==='Digit6'||event.key==='6')){event.preventDefault();menubar.close();void operate(event.shiftKey?'action':'groups');return;}
   if(event.altKey&&(event.code==='KeyA'||event.key.toLowerCase()==='a')&&!typing){event.preventDefault();const menu=document.querySelector<HTMLDetailsElement>('#actions-menu')!;menubar.open(menu);menu.querySelector('summary')?.focus();actionUI.beginMnemonic();return;}
   if(!typing&&document.querySelector<HTMLDetailsElement>('#actions-menu')?.open&&event.key.trim().length===1&&!event.metaKey&&!event.ctrlKey){event.preventDefault();void actionUI.mnemonic(event.key);return;}
   if(event.key==='Escape'){document.querySelectorAll<HTMLDetailsElement>('details[open]').forEach(d=>d.open=false);}
+  const listCommand=listShortcut(event,typing);
+  if(listCommand&&!(listCommand==='remove-from-list'&&event.target!==document.body&&!(event.target as Element).closest?.('.table-wrap'))){
+    event.preventDefault();menubar.close();
+    if(listCommand==='filter-focus'){const input=document.querySelector<HTMLInputElement>('#filter');input?.focus();input?.select();}else void operate(listCommand);
+    return;
+  }
   if(event.metaKey||event.ctrlKey){if(event.key.toLowerCase()==='s'){event.preventDefault();void operate('save');}if(event.key.toLowerCase()==='o'){event.preventDefault();void operate(runtimePlatform.document_access_supported?'files':'folder');}if(event.key.toLowerCase()==='a'&&!typing){event.preventDefault();void operate('select-all');}if(event.key.toLowerCase()==='e'&&!typing){event.preventDefault();menubar.close();void operate('export-config');}if(event.key.toLowerCase()==='k'&&!typing){event.preventDefault();menubar.close();void operate('number');}}
 });
 window.addEventListener('beforeunload',event=>{if(drafts.size||actionUI.hasUnsavedChanges){event.preventDefault();event.returnValue='';}});
@@ -830,6 +975,7 @@ window.addEventListener('resize',()=>{if(!resizeFrame)resizeFrame=requestAnimati
 if(desktop){
   void getVersion().then(version=>{appVersion=version;}).catch(()=>{appVersion='unknown';});
   void actionUI.initialize().catch(error=>{errors=[{path:'Action groups',error:String(error)}];render();});
+  void invoke<ColumnLayout|null>('load_columns').then(layout=>{if(layout){columnLayout=normalizeLayout(layout);render();}}).catch(error=>{errors=[{path:'Columns',error:String(error)}];render();});
   void invoke<typeof runtimePlatform>('runtime_platform').then(async platform=>{runtimePlatform=platform;nativeAppearanceReady=platform.family==='desktop';render();syncNativeAppearance();if(platform.document_access_supported)await run('Restoring recovery copies…',async()=>{const batch=await invoke<Batch>('restore_document_recovery');accept(batch,'Restored recovery copies',false);location='Provider documents';if(!selected.size&&batch.entries.length){selected.add(batch.entries[0].path);anchor=batch.entries[0].path;}if(!batch.entries.length&&!batch.errors.length)status='Ready';});}).catch(error=>{errors=[{path:'Platform',error:String(error)}];render();});
   void getCurrentWindow().onCloseRequested(async event => {
     if(busy){event.preventDefault();return;}
