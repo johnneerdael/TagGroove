@@ -1,0 +1,95 @@
+{
+  "date": "2026-10-14",
+  "branch": "feat/core-parity",
+  "base_commit": "ae30dfc",
+  "scope": "Standalone export configuration management and existing Export action integration; exact original-runtime parity remains open",
+  "automated": {
+    "frontend_passed": 101,
+    "rust_passed": 279,
+    "new_frontend_tests": 2,
+    "new_native_tests": 9,
+    "clippy": "passed with warnings denied",
+    "fmt": "passed",
+    "frontend_build": "passed",
+    "native_macos_bundle": "passed"
+  },
+  "builds": {
+    "initial": "/tmp/opentag-export-user-test/OpenTag.app",
+    "final": "/tmp/opentag-export-user-test/final/OpenTag.app",
+    "identifier": "org.opentag.editor.usertest.export",
+    "difference": "Final backend adds retiring removed MTE files and loading saved global BOM/directory preferences for Export actions. Frontend source is identical."
+  },
+  "native": {
+    "platform": "macOS arm64 Tauri WebKit",
+    "themes": [
+      "System Dark",
+      "Light"
+    ],
+    "configuration_management": [
+      "open without selection",
+      "create",
+      "rename",
+      "edit",
+      "duplicate",
+      "remove",
+      "save empty library",
+      "reopen empty library",
+      "import UTF-16 MTE",
+      "save and reopen",
+      "persist across app restart",
+      "reject invalid syntax without replacing saved template",
+      "retire saved duplicate into recovery folder"
+    ],
+    "exports": [
+      "directory creation disabled: visible error and no output directory",
+      "album partitions: exact expected UTF-8 bytes with one BOM",
+      "append: exact repeated blocks without duplicate BOM",
+      "final build standalone append",
+      "final build Quick Export using configuration display name and global BOM preference"
+    ],
+    "entry_points": [
+      "Ctrl/Cmd E",
+      "File menu Export"
+    ],
+    "final_state": "Three generated audio files selected, no pending tag drafts."
+  },
+  "outputs": {
+    "outputs": [
+      {
+        "file": "A.txt",
+        "blocks": 3,
+        "bom_count": 1,
+        "exact": true
+      },
+      {
+        "file": "B.txt",
+        "blocks": 3,
+        "bom_count": 1,
+        "exact": true
+      },
+      {
+        "file": "action.txt",
+        "blocks": 1,
+        "bom_count": 1,
+        "exact": true
+      }
+    ],
+    "source_audio_byte_identical": 3,
+    "imported_mte_byte_identical": true
+  },
+  "storage": {
+    "active_mte_files": 1,
+    "retired_mte_files": 1,
+    "retired_template_preserved": true,
+    "configuration": "Album export"
+  },
+  "remaining": [
+    "Original-runtime export differences and full locale/encoding corpus",
+    "Skip-selection-dialog and open-output confirmation preferences",
+    "Broader bundled template catalog",
+    "Discovering manually added MTE files without import",
+    "Windows/Linux native workflows and provider/mobile export qualification",
+    "All-output atomicity and settings multi-file interruption behavior",
+    "Audio-only MD5 and other parity ledger export requirements"
+  ]
+}

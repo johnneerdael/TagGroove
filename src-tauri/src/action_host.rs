@@ -71,9 +71,19 @@ pub fn import_group(path: &Path, legacy_encoding: Option<&str>) -> Result<MtaImp
     )
 }
 
-fn atomic_output(path: &Path, bytes: &[u8], append: bool) -> Result<(), String> {
+pub(crate) fn atomic_output(path: &Path, bytes: &[u8], append: bool) -> Result<(), String> {
+    atomic_output_with_directories(path, bytes, append, true)
+}
+fn atomic_output_with_directories(
+    path: &Path,
+    bytes: &[u8],
+    append: bool,
+    create_directories: bool,
+) -> Result<(), String> {
     let parent = path.parent().unwrap_or(Path::new("."));
-    fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    if create_directories {
+        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
     let mut staging = tempfile::NamedTempFile::new_in(parent).map_err(|e| e.to_string())?;
     if append && path.exists() {
         let mut original = fs::File::open(path).map_err(|e| e.to_string())?;
@@ -475,7 +485,28 @@ impl ActionHost for NativeHost {
                 append,
                 partition_template,
             } => {
-                let template = resolve_export_template(template, &self.settings)?;
+                let saved = if !self.settings.export_template_inline
+                    && !self.settings.app_data_directory.is_empty()
+                {
+                    crate::exports::saved_preferences(
+                        &Path::new(&self.settings.app_data_directory).join("exports.json"),
+                    )?
+                } else {
+                    None
+                };
+                let write_bom = saved
+                    .as_ref()
+                    .map_or(self.settings.export_write_bom, |p| p.write_bom);
+                let create_directories = saved
+                    .as_ref()
+                    .map_or(self.settings.export_create_directories, |p| {
+                        p.create_directories
+                    });
+                let template = if self.settings.export_template_inline {
+                    template.clone()
+                } else {
+                    resolve_export_template(template, &self.settings)?
+                };
                 let mut rows = Vec::with_capacity(states.len());
                 for state in states.iter() {
                     let path = state_path(state)?;
@@ -511,6 +542,7 @@ impl ActionHost for NativeHost {
                     app_data_directory: Some(self.settings.app_data_directory.clone()),
                     ansi_codepage: self.settings.ansi_codepage(),
                     timestamp_seconds: Some(self.settings.timestamp_seconds),
+                    bom: write_bom,
                     ..Default::default()
                 };
                 let hashes = tag_core::export::requested_hash_fields(&template, &options)?;
@@ -525,6 +557,12 @@ impl ActionHost for NativeHost {
                 let mut seen = HashSet::new();
                 for mut document in documents {
                     let target = PathBuf::from(&document.filename);
+                    if !create_directories && !target.parent().unwrap_or(Path::new(".")).is_dir() {
+                        return Err(format!(
+                            "Export directory does not exist: {}",
+                            target.display()
+                        ));
+                    }
                     self.protect_output(&target, states)?;
                     let normalized = normalized_output(&target)?;
                     if !seen.insert(normalized) {
@@ -543,7 +581,7 @@ impl ActionHost for NativeHost {
                     outputs.push((target, bytes));
                 }
                 for (target, bytes) in outputs {
-                    atomic_output(&target, &bytes, *append)?;
+                    atomic_output_with_directories(&target, &bytes, *append, create_directories)?;
                 }
                 Ok(())
             }
@@ -623,14 +661,24 @@ fn resolve_export_template(source: &str, settings: &EvaluationSettings) -> Resul
             candidates.push(directory.join(format!("{source}.mte")));
         }
     }
-    let path = candidates
-        .into_iter()
-        .find(|p| p.is_file())
-        .ok_or_else(|| format!("Export configuration not found: {source}"))?;
-    tag_core::export::decode_export_template(
-        &fs::read(&path).map_err(|e| e.to_string())?,
-        settings.ansi_codepage().as_deref(),
-    )
+    if let Some(path) = candidates.into_iter().find(|p| p.is_file()) {
+        return tag_core::export::decode_export_template(
+            &fs::read(&path).map_err(|e| e.to_string())?,
+            settings.ansi_codepage().as_deref(),
+        );
+    }
+    let library_path = Path::new(&settings.app_data_directory).join("exports.json");
+    if !settings.app_data_directory.is_empty() && library_path.is_file() {
+        let library = crate::exports::load(&library_path)?;
+        if let Some(configuration) = library
+            .configurations
+            .into_iter()
+            .find(|c| c.name.eq_ignore_ascii_case(source) || c.id == source)
+        {
+            return Ok(configuration.template);
+        }
+    }
+    Err(format!("Export configuration not found: {source}"))
 }
 
 pub fn execute(
@@ -805,6 +853,121 @@ pub fn execute(
 mod tests {
     use super::*;
     use tag_core::actions::ActionSpec;
+
+    #[test]
+    fn actions_can_use_the_export_library_display_name() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut library = crate::exports::Library::default();
+        library.configurations[0].name = "My export".into();
+        crate::exports::save(&directory.path().join("exports.json"), &library).unwrap();
+        let settings = EvaluationSettings {
+            app_data_directory: directory.path().to_string_lossy().into_owned(),
+            ..Default::default()
+        };
+        assert_eq!(
+            resolve_export_template("My export", &settings).unwrap(),
+            library.configurations[0].template
+        );
+    }
+
+    #[test]
+    fn export_actions_honor_saved_global_bom_preferences() {
+        let directory = tempfile::tempdir().unwrap();
+        let audio = fixture(directory.path(), "source.wav");
+        let output = directory.path().join("action.txt");
+        let mut library = crate::exports::Library::default();
+        library.configurations[0].name = "Saved export".into();
+        library.preferences.write_bom = true;
+        crate::exports::save(&directory.path().join("exports.json"), &library).unwrap();
+        let group = ActionGroup {
+            name: "Export".into(),
+            enabled: true,
+            actions: vec![ActionSpec::Export {
+                template: "Saved export".into(),
+                filename_template: output.to_string_lossy().into_owned(),
+                append: false,
+                partition_template: None,
+            }],
+        };
+        let result = execute(
+            &[audio.to_string_lossy().into_owned()],
+            &[group],
+            EvaluationSettings {
+                app_data_directory: directory.path().to_string_lossy().into_owned(),
+                ..Default::default()
+            },
+        );
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert!(fs::read(output).unwrap().starts_with(b"\xef\xbb\xbf"));
+    }
+
+    #[test]
+    fn standalone_export_accepts_plain_text_templates() {
+        let directory = tempfile::tempdir().unwrap();
+        let audio = fixture(directory.path(), "source.wav");
+        let output = directory.path().join("plain.txt");
+        let group = ActionGroup {
+            name: "Plain".into(),
+            enabled: true,
+            actions: vec![ActionSpec::Export {
+                template: "Plain text".into(),
+                filename_template: output.to_string_lossy().into_owned(),
+                append: false,
+                partition_template: None,
+            }],
+        };
+        let result = execute(
+            &[audio.to_string_lossy().into_owned()],
+            &[group],
+            EvaluationSettings {
+                export_template_inline: true,
+                ..Default::default()
+            },
+        );
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert_eq!(fs::read_to_string(output).unwrap(), "Plain text");
+    }
+
+    #[test]
+    fn standalone_export_preferences_control_directories_bom_and_append_without_editing_audio() {
+        let directory = tempfile::tempdir().unwrap();
+        let audio = fixture(directory.path(), "source.wav");
+        let before = fs::read(&audio).unwrap();
+        let output = directory.path().join("reports/report.txt");
+        let group = |append| ActionGroup {
+            name: "Standalone export".into(),
+            enabled: true,
+            actions: vec![ActionSpec::Export {
+                template: "$filename(txt,utf-8)$loop(1)%_filename_ext%$char(10)$loopend()".into(),
+                filename_template: output.to_string_lossy().into_owned(),
+                append,
+                partition_template: None,
+            }],
+        };
+        let paths = [audio.to_string_lossy().into_owned()];
+        let mut settings = EvaluationSettings {
+            export_write_bom: true,
+            export_create_directories: false,
+            ..Default::default()
+        };
+        let result = execute(&paths, &[group(false)], settings.clone());
+        assert!(!result.errors.is_empty());
+        assert!(!output.parent().unwrap().exists());
+        settings.export_create_directories = true;
+        assert!(execute(&paths, &[group(false)], settings.clone())
+            .errors
+            .is_empty());
+        assert_eq!(
+            fs::read(&output).unwrap(),
+            [b"\xef\xbb\xbf".as_slice(), b"source.wav\n"].concat()
+        );
+        assert!(execute(&paths, &[group(true)], settings).errors.is_empty());
+        assert_eq!(
+            fs::read(&output).unwrap(),
+            [b"\xef\xbb\xbf".as_slice(), b"source.wav\nsource.wav\n"].concat()
+        );
+        assert_eq!(fs::read(audio).unwrap(), before);
+    }
     #[test]
     fn output_normalization_accepts_existing_roots_and_missing_children() {
         let dir = tempfile::tempdir().unwrap();

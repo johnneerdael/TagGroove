@@ -17,6 +17,9 @@ pub struct EvaluationSettings {
     pub app_directory: String,
     pub app_data_directory: String,
     pub timestamp_seconds: i64,
+    pub export_write_bom: bool,
+    pub export_create_directories: bool,
+    pub export_template_inline: bool,
 }
 
 impl Default for EvaluationSettings {
@@ -34,6 +37,9 @@ impl Default for EvaluationSettings {
             app_directory: String::new(),
             app_data_directory: String::new(),
             timestamp_seconds,
+            export_write_bom: false,
+            export_create_directories: true,
+            export_template_inline: false,
         }
     }
 }

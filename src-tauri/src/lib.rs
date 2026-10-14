@@ -6,10 +6,74 @@ mod action_host;
 mod converters;
 mod documents;
 mod evaluation;
+mod exports;
 mod file_hashes;
 #[cfg(any(target_os = "android", test))]
 mod managed_actions;
 mod rename_plan;
+
+fn export_library_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    Ok(action_host::library_path(app)?.with_file_name("exports.json"))
+}
+#[tauri::command]
+async fn load_export_library(app: tauri::AppHandle) -> Result<exports::Library, String> {
+    let path = export_library_path(&app)?;
+    io(move || exports::load(&path)).await
+}
+#[tauri::command]
+async fn save_export_library(
+    app: tauri::AppHandle,
+    library: exports::Library,
+) -> Result<(), String> {
+    let path = export_library_path(&app)?;
+    io(move || exports::save(&path, &library)).await
+}
+#[tauri::command]
+async fn import_export_configuration(
+    path: String,
+    legacy_encoding: Option<String>,
+) -> Result<exports::Configuration, String> {
+    io(move || exports::import(&auxiliary_input(&path)?, legacy_encoding.as_deref())).await
+}
+#[tauri::command]
+async fn run_export(
+    app: tauri::AppHandle,
+    paths: Vec<String>,
+    columns: Option<Vec<evaluation::ColumnSpec>>,
+) -> Result<action_host::ActionResult, String> {
+    let path = export_library_path(&app)?;
+    let mut settings = evaluation_settings(columns)?;
+    io(move || {
+        reject_provider_operation(&paths, "Export")?;
+        if paths.is_empty() {
+            return Err("Select files to export".into());
+        }
+        let library = exports::load(&path)?;
+        let configuration = library
+            .configurations
+            .iter()
+            .find(|c| Some(&c.id) == library.preferences.configuration.as_ref())
+            .ok_or("Select an export configuration")?;
+        settings.export_write_bom = library.preferences.write_bom;
+        settings.export_create_directories = library.preferences.create_directories;
+        settings.export_template_inline = true;
+        Ok(action_host::execute(
+            &paths,
+            &[tag_core::actions::ActionGroup {
+                name: format!("Export {}", configuration.name),
+                enabled: true,
+                actions: vec![tag_core::actions::ActionSpec::Export {
+                    template: configuration.template.clone(),
+                    filename_template: library.preferences.filename,
+                    append: library.preferences.append,
+                    partition_template: library.preferences.partition,
+                }],
+            }],
+            settings,
+        ))
+    })
+    .await
+}
 
 #[tauri::command]
 async fn load_action_library(
@@ -740,6 +804,10 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_document_access::init())
         .invoke_handler(tauri::generate_handler![
+            load_export_library,
+            save_export_library,
+            import_export_configuration,
+            run_export,
             load_action_library,
             save_action_library,
             import_action_group,

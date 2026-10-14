@@ -165,3 +165,5 @@ dialog { background:var(--surface); }
 .menu-note,.operation-reason{padding:6px 9px;margin:3px 0;color:var(--muted-text);font-size:11px;line-height:1.4;max-width:330px;white-space:normal}
 .copy-status{color:var(--muted-text);line-height:1.5}
 @media(max-width:1000px){.source-access{padding:9px 12px}.source-actions button{min-height:44px}.files>.source-access{max-height:32vh;overflow:auto;overscroll-behavior:contain}}
+
+.export-dialog{width:760px}.export-dialog #export-list{width:100%;min-height:88px;color:var(--text);background:var(--surface);border:1px solid var(--line)}.export-dialog #export-template{min-height:180px;font-family:monospace;white-space:pre;overflow:auto}.export-dialog p{overflow-wrap:anywhere}
