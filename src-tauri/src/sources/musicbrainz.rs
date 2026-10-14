@@ -73,6 +73,9 @@ pub fn search_query(query: &SearchQuery) -> Result<String, String> {
             format!("catno:{}", lucene(&query.text))
         }
         SearchMode::CatalogNumber => String::new(),
+        SearchMode::Toc | SearchMode::DiscId => {
+            return Err("MusicBrainz searches by artist, album or text.".into())
+        }
     };
     if lucene_query.is_empty() {
         return Err("Enter an artist, album or search text.".into());
@@ -82,7 +85,8 @@ pub fn search_query(query: &SearchQuery) -> Result<String, String> {
         &[
             ("query", lucene_query.as_str()),
             ("fmt", "json"),
-            ("limit", "50"),
+            ("limit", &PAGE_SIZE.to_string()),
+            ("offset", &(query.page * PAGE_SIZE).to_string()),
         ],
     )
     .map_err(|e| e.to_string())?;
@@ -188,7 +192,12 @@ fn format_summary(media: &[Value]) -> String {
         .join(" + ")
 }
 
-pub fn parse_search(body: &Value) -> Vec<SearchResult> {
+pub fn parse_search(body: &Value) -> SearchPage {
+    let results = parse_results(body);
+    let total = body.get("count").and_then(Value::as_u64).map(|n| n as u32);
+    SearchPage { results, total }
+}
+fn parse_results(body: &Value) -> Vec<SearchResult> {
     list(body, "releases")
         .iter()
         .map(|release| {
@@ -500,6 +509,7 @@ mod tests {
             artist: "Daft \"Punk\"".into(),
             album: "Discovery".into(),
             text: String::new(),
+            ..Default::default()
         };
         let url = search_query(&query).unwrap();
         let parsed = reqwest::Url::parse(&url).unwrap();
@@ -508,12 +518,24 @@ mod tests {
             params[0].1,
             "release:\"Discovery\" AND artist:\"Daft \\\"Punk\\\"\""
         );
-        assert!(url.contains("fmt=json") && url.contains("limit=50"));
+        assert!(url.contains("fmt=json") && url.contains("limit=50") && url.contains("offset=0"));
+        let second = search_query(&SearchQuery {
+            page: 2,
+            ..query.clone()
+        })
+        .unwrap();
+        assert!(second.contains("offset=100"));
+        assert!(search_query(&SearchQuery {
+            mode: SearchMode::Toc,
+            ..query.clone()
+        })
+        .is_err());
         let barcode = SearchQuery {
             mode: SearchMode::Barcode,
             artist: String::new(),
             album: String::new(),
             text: "0 724384 960629".into(),
+            ..Default::default()
         };
         assert!(search_query(&barcode)
             .unwrap()
@@ -523,6 +545,7 @@ mod tests {
             artist: " ".into(),
             album: String::new(),
             text: "ignored".into(),
+            ..Default::default()
         };
         assert!(search_query(&empty).is_err());
     }
@@ -544,13 +567,15 @@ mod tests {
 
     #[test]
     fn search_results_summarise_labels_formats_and_scores() {
-        let body = json!({"releases": [{
+        let body = json!({"count": 120, "releases": [{
             "id": MBID, "score": 98, "title": "Discovery", "date": "2001-02-26", "country": "FR", "barcode": "724384960629",
             "artist-credit": [{"name": "Daft Punk", "joinphrase": " & "}, {"name": "Friend", "artist": {"id": "x"}}],
             "label-info": [{"catalog-number": "8496062", "label": {"name": "Virgin"}}, {"catalog-number": "8496062", "label": {"name": "Virgin"}}],
             "track-count": 15, "media": [{"format": "CD"}, {"format": "CD"}, {"format": "DVD"}]
         }, {"id": "not-an-id", "title": "Broken"}]});
-        let results = parse_search(&body);
+        let page = parse_search(&body);
+        assert_eq!(page.total, Some(120));
+        let results = page.results;
         assert_eq!(results.len(), 1);
         let result = &results[0];
         assert_eq!(

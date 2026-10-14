@@ -77,8 +77,11 @@ fn artists(values: &[Value]) -> String {
 }
 
 pub fn search_query(query: &SearchQuery) -> Result<String, String> {
-    let mut params: Vec<(&str, String)> =
-        vec![("type", "release".into()), ("per_page", "50".into())];
+    let mut params: Vec<(&str, String)> = vec![
+        ("type", "release".into()),
+        ("per_page", PAGE_SIZE.to_string()),
+        ("page", (query.page + 1).to_string()),
+    ];
     let trimmed = |value: &str| value.trim().to_owned();
     match query.mode {
         SearchMode::ArtistAlbum => {
@@ -101,7 +104,7 @@ pub fn search_query(query: &SearchQuery) -> Result<String, String> {
         }
         _ => {}
     }
-    if params.len() == 2 {
+    if params.len() == 3 {
         return Err("Enter an artist, album or search text.".into());
     }
     reqwest::Url::parse_with_params(&format!("{API}/database/search"), &params)
@@ -144,7 +147,17 @@ pub fn release_url(id: &str) -> String {
     format!("{API}/releases/{id}")
 }
 
-pub fn parse_search(body: &Value) -> Vec<SearchResult> {
+pub fn parse_search(body: &Value) -> SearchPage {
+    let total = body
+        .pointer("/pagination/items")
+        .and_then(Value::as_u64)
+        .map(|n| n as u32);
+    SearchPage {
+        results: parse_results(body),
+        total,
+    }
+}
+fn parse_results(body: &Value) -> Vec<SearchResult> {
     list(body, "results")
         .iter()
         .filter(|result| matches!(text(result, "type").as_str(), "" | "release"))
@@ -470,8 +483,17 @@ mod tests {
             artist: "Jazzanova".into(),
             album: "EP".into(),
             text: text.into(),
+            ..Default::default()
         };
         let url = search_query(&query(SearchMode::ArtistAlbum, "")).unwrap();
+        assert!(url.contains("per_page=50") && url.contains("page=1"));
+        let next = search_query(&SearchQuery {
+            page: 1,
+            ..query(SearchMode::ArtistAlbum, "")
+        })
+        .unwrap();
+        assert!(next.contains("&page=2"));
+        assert!(search_query(&query(SearchMode::DiscId, "7a0a6b09")).is_err());
         assert!(
             url.contains("type=release")
                 && url.contains("artist=Jazzanova")
@@ -488,13 +510,15 @@ mod tests {
 
     #[test]
     fn search_results_split_titles_and_skip_non_releases() {
-        let body = json!({"results": [
+        let body = json!({"pagination": {"page": 1, "pages": 3, "items": 140}, "results": [
             {"id": 8268, "type": "release", "title": "Jazzanova (2) - Jazzanova EP", "year": "1997", "country": "Germany",
              "label": ["Jazzanova Records", "Jazzanova Records"], "catno": "none", "format": ["Vinyl", "12\""], "barcode": ["EP-1 A"],
              "thumb": "", "uri": "/release/8268-Jazzanova-Jazzanova-EP"},
             {"id": 56255, "type": "master", "title": "Jazzanova - Jazzanova EP"}
         ]});
-        let results = parse_search(&body);
+        let page = parse_search(&body);
+        assert_eq!(page.total, Some(140));
+        let results = page.results;
         assert_eq!(results.len(), 1);
         let r = &results[0];
         assert_eq!(
