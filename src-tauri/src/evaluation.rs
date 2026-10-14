@@ -77,7 +77,7 @@ impl EvaluationSettings {
         })
     }
 
-    fn context<'a>(
+    pub(crate) fn context<'a>(
         &'a self,
         fields: &'a Fields,
         raw: &'a Fields,

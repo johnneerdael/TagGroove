@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 use tag_core::{Action, AudioEntry, Fields, FileError, ScanResult};
 mod action_host;
+mod columns;
 mod converters;
 mod documents;
 mod evaluation;
@@ -894,6 +895,11 @@ pub fn run() {
             history::convert_tag_to_tag,
             export_csv,
             export_playlist,
+            columns::load_columns,
+            columns::save_columns,
+            columns::import_columns,
+            columns::export_columns,
+            columns::evaluate_columns,
             tag_panel::load_tag_panel,
             tag_panel::save_tag_panel,
             tag_panel::import_tag_panel_layout,
