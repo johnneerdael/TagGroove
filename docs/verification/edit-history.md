@@ -154,7 +154,8 @@ has focus, so you can still type characters such as ™.
   all, stages ALBUM, saves, checks that one "Undo Save tags (N files)" step
   exists without a notice, undoes, verifies every file through `scan_files`,
   and redoes. With 100 files (2.29 GB logical, above the 2 GiB cap) it passed
-  5/5: the save took 614 ms, the undo 930 ms, and the volume's free space
+  5/5: the save took 614 ms, the undo 930 ms (after merging core-parity's
+  clone staging: 515 ms and 1039 ms), and the volume's free space
   changed by about 57 MB. That figure is noisy because other processes were
   writing to the same disk. `OPENTAG_E2E_ID=org.opentag.editor.e2e.history
   scripts/e2e-native.sh` passed 13/13.
