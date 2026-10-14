@@ -3,22 +3,31 @@ use serde::{Deserialize, Serialize};
 use tag_core::Fields;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "snake_case")]
 pub enum Provider {
     Musicbrainz,
     Discogs,
+    /// A CDDB server over HTTP (gnudb by default).
+    Freedb,
+    /// A folder of xmcd files (a freedb snapshot).
+    LocalFreedb,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SearchMode {
+    #[default]
     ArtistAlbum,
     Text,
     Barcode,
     CatalogNumber,
+    /// freedb: the disc ID computed from the selected files' lengths.
+    Toc,
+    /// freedb: an eight-digit disc ID typed by the user.
+    DiscId,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize)]
 pub struct SearchQuery {
     pub mode: SearchMode,
     #[serde(default)]
@@ -27,6 +36,21 @@ pub struct SearchQuery {
     pub album: String,
     #[serde(default)]
     pub text: String,
+    /// Track lengths in seconds, in file list order (freedb `Toc` mode).
+    #[serde(default)]
+    pub lengths: Vec<f64>,
+    /// Zero-based result page; each page holds up to [`PAGE_SIZE`] results.
+    #[serde(default)]
+    pub page: u32,
+}
+
+pub const PAGE_SIZE: u32 = 50;
+
+/// One page of search results and the total the source reports.
+#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+pub struct SearchPage {
+    pub results: Vec<SearchResult>,
+    pub total: Option<u32>,
 }
 
 /// One row of the search results list.

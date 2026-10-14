@@ -1008,6 +1008,8 @@ pub fn run() {
             sources::tag_source_image,
             sources::tag_source_cancel,
             sources::tag_source_apply,
+            sources::tag_source_open_page,
+            sources::tag_source_save_cover,
             sources::load_tag_source_settings,
             sources::save_tag_source_settings,
             utilities::remove_tag_types,
