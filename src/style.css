@@ -146,3 +146,17 @@ dialog { background:var(--surface); }
 @media(max-width:1000px) and (max-height:500px) {
   .menubar > .menu > .menu-list { max-height:60vh; overflow-y:auto; }
 }
+
+/* Provider access belongs to the selected file context in either compact pane. */
+.source-access{padding:9px 12px;border-bottom:1px solid var(--border);background:var(--surface-subtle);font-size:11px;flex-shrink:0;overflow-wrap:anywhere}
+.source-access>div:first-child{display:flex;gap:8px;flex-wrap:wrap;align-items:baseline}
+.source-access strong{color:var(--accent)}
+.source-access p{margin:5px 0;color:var(--muted-text);line-height:1.4}
+.source-access .source-location{font-size:10px;overflow-wrap:anywhere}
+.source-access .source-error{color:var(--error-text)}
+.source-access.recovery{border-left:3px solid var(--error-border)}
+.source-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.source-actions button{padding:5px 7px;font-size:11px}
+.menu-note,.operation-reason{padding:6px 9px;margin:3px 0;color:var(--muted-text);font-size:11px;line-height:1.4;max-width:330px;white-space:normal}
+.copy-status{color:var(--muted-text);line-height:1.5}
+@media(max-width:1000px){.source-access{padding:9px 12px}.source-actions button{min-height:44px}.files>.source-access{max-height:32vh;overflow:auto;overscroll-behavior:contain}}
