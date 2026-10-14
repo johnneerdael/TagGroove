@@ -11,6 +11,7 @@ mod file_hashes;
 #[cfg(any(target_os = "android", test))]
 mod managed_actions;
 mod rename_plan;
+mod sources;
 
 fn export_library_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(action_host::library_path(app)?.with_file_name("exports.json"))
@@ -837,7 +838,15 @@ pub fn run() {
             converters::preview_text_import,
             converters::apply_text_import,
             export_csv,
-            export_playlist
+            export_playlist,
+            sources::tag_source_search,
+            sources::tag_source_release,
+            sources::tag_source_covers,
+            sources::tag_source_image,
+            sources::tag_source_cancel,
+            sources::tag_source_apply,
+            sources::load_tag_source_settings,
+            sources::save_tag_source_settings
         ])
         .run(tauri::generate_context!())
         .expect("Unable to run OpenTag");

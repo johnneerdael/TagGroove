@@ -1,0 +1,164 @@
+{
+  "id": "d073287b-d1bd-4f11-a933-a4386f8cf701",
+  "title": "Discovery",
+  "date": "2001-02-26",
+  "country": "FR",
+  "status": "Official",
+  "barcode": "724384960629",
+  "artist-credit": [
+    {
+      "name": "Daft Punk",
+      "joinphrase": "",
+      "artist": {
+        "id": "056e4f3e-d505-4dad-8ec1-d04f521cbb56",
+        "name": "Daft Punk"
+      }
+    }
+  ],
+  "release-group": {
+    "id": "48117b90-a16e-34ca-a514-19c702df1158",
+    "primary-type": "Album",
+    "genres": [
+      {
+        "name": "house",
+        "count": 9
+      }
+    ]
+  },
+  "genres": [
+    {
+      "name": "electronic",
+      "count": 2
+    },
+    {
+      "name": "french house",
+      "count": 2
+    },
+    {
+      "name": "disco",
+      "count": 1
+    }
+  ],
+  "label-info": [
+    {
+      "catalog-number": "8496062",
+      "label": {
+        "name": "Virgin"
+      }
+    },
+    {
+      "catalog-number": "[none]",
+      "label": {
+        "name": "Labels"
+      }
+    }
+  ],
+  "cover-art-archive": {
+    "artwork": true,
+    "front": true,
+    "count": 2
+  },
+  "media": [
+    {
+      "position": 1,
+      "format": "CD",
+      "tracks": [
+        {
+          "id": "track-1",
+          "number": "1",
+          "position": 1,
+          "title": "One More Time",
+          "length": 320840,
+          "recording": {
+            "id": "rec-1",
+            "title": "One More Time",
+            "isrcs": [
+              "GBDUW0000053"
+            ],
+            "relations": [
+              {
+                "target-type": "artist",
+                "type": "producer",
+                "artist": {
+                  "name": "Thomas Bangalter"
+                }
+              },
+              {
+                "target-type": "work",
+                "type": "performance",
+                "work": {
+                  "id": "work-1",
+                  "relations": [
+                    {
+                      "target-type": "artist",
+                      "type": "composer",
+                      "target-credit": "",
+                      "artist": {
+                        "name": "Thomas Bangalter"
+                      }
+                    },
+                    {
+                      "target-type": "artist",
+                      "type": "writer",
+                      "artist": {
+                        "name": "Anthony Moore"
+                      }
+                    },
+                    {
+                      "target-type": "artist",
+                      "type": "composer",
+                      "target-credit": "Guy-Man",
+                      "artist": {
+                        "name": "Guy-Manuel de Homem-Christo"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "track-2",
+          "number": "2",
+          "position": 2,
+          "title": "Aerodynamic",
+          "artist-credit": [
+            {
+              "name": "Daft Punk",
+              "joinphrase": " feat. ",
+              "artist": {
+                "id": "a1"
+              }
+            },
+            {
+              "name": "Guest",
+              "artist": {
+                "id": "a2"
+              }
+            }
+          ],
+          "recording": {
+            "id": "rec-2",
+            "length": 207000
+          }
+        }
+      ]
+    },
+    {
+      "position": 2,
+      "format": "DVD",
+      "tracks": [
+        {
+          "id": "track-3",
+          "number": "A",
+          "title": "",
+          "recording": {
+            "id": "rec-3",
+            "title": "Video"
+          }
+        }
+      ]
+    }
+  ]
+}
