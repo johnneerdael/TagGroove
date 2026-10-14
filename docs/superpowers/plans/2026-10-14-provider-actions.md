@@ -33,19 +33,19 @@
 
 **Files:** modify `crates/tag-core/src/actions.rs`, create `src-tauri/src/managed_actions.rs`, declare the module under Android/test in `src-tauri/src/lib.rs`.
 
-**Interfaces:** produce `guess_value_targets(pattern: &str) -> Result<Vec<String>, String>`, `IN_PLACE_ACTION_TYPES: &[&str]` and `validate_groups(groups: &[ActionGroup]) -> Result<(), String>`.
+**Interfaces:** produce `guess_value_targets(pattern: &str) -> Result<Vec<String>, String>` and `validate_groups(groups: &[ActionGroup]) -> Result<(), String>`.
 
-- [ ] Add failing parser tests for repeated ARTIST targets, DUMMY, Unicode/newline values and the existing malformed/adjacent-placeholder rules.
-- [ ] Extract the existing compiled Guess Values pattern parser; have target inspection and execution consume the same parser without changing current output semantics.
-- [ ] Add capability tests using all 13 valid action DTOs; reject the five external-file types, unresolved enabled imports, rename selectors and malformed Guess Values settings with group/action position. Ignore disabled unsupported groups.
-- [ ] Pin Replace `_ALL` as unavailable while Merge Duplicate Fields `_ALL` remains supported; cover `_TAG`, `_FIELDNAME` and Format Value/Guess Values technical targets.
-- [ ] Implement the focused capability module, run the covering tests and commit.
+- [x] Add failing parser tests for repeated ARTIST targets, DUMMY, Unicode/newline values and the existing malformed/adjacent-placeholder rules.
+- [x] Extract the existing compiled Guess Values pattern parser; have target inspection and execution consume the same parser without changing current output semantics.
+- [x] Add capability tests using all 13 valid action DTOs; reject the five external-file types, unresolved enabled imports, rename selectors and malformed Guess Values settings with group/action position. Ignore disabled unsupported groups.
+- [x] Pin Replace `_ALL` as unavailable while Merge Duplicate Fields `_ALL` remains supported; cover `_TAG`, `_FIELDNAME` and Format Value/Guess Values technical targets.
+- [x] Implement the focused capability module. Run `cargo test -p tag-core actions::tests --locked` and `cargo test -p opentag managed_actions::tests --locked` (expected: all passing). Commit the focused change, then run `npm test` for task completion (expected: full frontend/Rust suites passing).
 
 ### Task 2: Managed host, projection and native command route
 
 **Files:** modify `src-tauri/src/managed_actions.rs`, `src-tauri/src/documents.rs`, `src-tauri/src/documents/engine.rs` and `src-tauri/src/lib.rs`. Add focused Rust tests using the existing generated-audio document command harness.
 
-**Interfaces:** consume Task1 validation; produce the spec's `DocumentProjection`, `documents::projection`, managed `execute` and runtime `provider_action_types` field. Keep `execute_action_groups` arguments and `ActionResult` serialization unchanged.
+**Interfaces:** consume Task1 validation; produce `IN_PLACE_ACTION_TYPES: &[&str]`, the spec's `DocumentProjection`, `documents::projection`, managed `execute` and runtime `provider_action_types` field. Keep `execute_action_groups` arguments and `ActionResult` serialization unchanged.
 
 - [ ] Write failing ordinary action tests with generated WAV/FLAC where supported: uppercase TITLE then replace text; repeated values/deletions; `_FIELDNAME` format eligibility; embedded-artwork removal, adjustment and properties; expression using provider filename/URI, counters and columns after earlier field changes.
 - [ ] Assert an unavailable action in a later group changes no selected file; a mixed invalid/read-only selection starts no edits; repeated managed identities are processed once.

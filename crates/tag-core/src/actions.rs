@@ -476,9 +476,14 @@ where
     Ok(effects)
 }
 
-/// Match an entire source string without filename extension or path processing.
-pub fn guess_values(source: &str, pattern: &str) -> Result<Fields, String> {
-    if source.len() > LIMIT || pattern.len() > LIMIT {
+/// Inspect the same field placeholders used by Guess Values without source data.
+pub fn guess_value_targets(pattern: &str) -> Result<Vec<String>, String> {
+    let (_, names) = guessing_pattern(pattern)?;
+    Ok(names.into_iter().filter(|name| name != "DUMMY").collect())
+}
+
+fn guessing_pattern(pattern: &str) -> Result<(regex::Regex, Vec<String>), String> {
+    if pattern.len() > LIMIT {
         return Err("Guess Values input limit exceeded".into());
     }
     let mut expression = String::from("\\A");
@@ -512,6 +517,15 @@ pub fn guess_values(source: &str, pattern: &str) -> Result<Fields, String> {
         .size_limit(8 * LIMIT)
         .build()
         .map_err(|error| error.to_string())?;
+    Ok((expression, names))
+}
+
+/// Match an entire source string without filename extension or path processing.
+pub fn guess_values(source: &str, pattern: &str) -> Result<Fields, String> {
+    if source.len() > LIMIT {
+        return Err("Guess Values input limit exceeded".into());
+    }
+    let (expression, names) = guessing_pattern(pattern)?;
     let captures = expression
         .captures(source)
         .ok_or("Source does not completely match the guessing pattern")?;
@@ -1535,6 +1549,38 @@ mod tests {
             Ok(())
         }
     }
+    #[test]
+    fn guessing_targets_preserve_repetition_and_ignore_dummy() {
+        assert_eq!(
+            guess_value_targets("%artist% / %DUMMY% / %ARTIST% - %TITLE%").unwrap(),
+            vec!["ARTIST", "ARTIST", "TITLE"]
+        );
+        let fields = guess_values(
+            "Ada / ignored / Bob - Mémoire\n猫",
+            "%artist% / %DUMMY% / %ARTIST% - %TITLE%",
+        )
+        .unwrap();
+        assert_eq!(fields["ARTIST"], vec!["Ada", "Bob"]);
+        assert_eq!(fields["TITLE"], vec!["Mémoire\n猫"]);
+        assert!(!fields.contains_key("DUMMY"));
+    }
+
+    #[test]
+    fn guessing_target_inspection_rejects_the_execution_grammar_errors() {
+        for pattern in ["literal text", "%TITLE", "%%", "%ARTIST%%TITLE%"] {
+            assert!(guess_value_targets(pattern).is_err(), "{pattern}");
+            assert!(guess_values("sample", pattern).is_err(), "{pattern}");
+        }
+    }
+
+    #[test]
+    fn guessing_targets_identify_technical_names_without_evaluating_values() {
+        assert_eq!(
+            guess_value_targets("%TITLE% - %_filename% - %_DIRECTORY%").unwrap(),
+            vec!["TITLE", "_FILENAME", "_DIRECTORY"]
+        );
+    }
+
     #[test]
     fn mixed_case_uses_configured_delimiters_and_whitespace() {
         let mut state = state();

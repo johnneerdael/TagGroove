@@ -7,6 +7,8 @@ mod converters;
 mod documents;
 mod evaluation;
 mod file_hashes;
+#[cfg(any(target_os = "android", test))]
+mod managed_actions;
 mod rename_plan;
 
 #[tauri::command]
