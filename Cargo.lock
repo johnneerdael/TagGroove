@@ -3802,6 +3802,7 @@ dependencies = [
  "chrono",
  "encoding_rs",
  "image",
+ "libc",
  "lofty",
  "num-format",
  "rand",
