@@ -121,8 +121,10 @@ fn text_sample(bytes: &[u8]) -> String {
     let text = bytes.get(2..2 + length).unwrap_or(&[]);
     if let Some(utf16) = text.strip_prefix(&[0xFE, 0xFF]) {
         let units: Vec<u16> = utf16
-            .chunks_exact(2)
-            .map(|c| u16::from_be_bytes([c[0], c[1]]))
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|c| u16::from_be_bytes(*c))
             .collect();
         return String::from_utf16_lossy(&units);
     }
@@ -264,8 +266,10 @@ pub(super) fn scan(path: &Path) -> Result<Chapters, String> {
             for chap in references.iter().filter(|a| &a.kind == b"chap") {
                 let ids = body(&mut file, chap)?;
                 referenced.extend(
-                    ids.chunks_exact(4)
-                        .map(|c| u32::from_be_bytes(c.try_into().expect("4"))),
+                    ids.as_chunks::<4>()
+                        .0
+                        .iter()
+                        .map(|c| u32::from_be_bytes(*c)),
                 );
                 // Blank the whole reference box when it only names chapters.
                 if references.iter().all(|a| &a.kind == b"chap") {
