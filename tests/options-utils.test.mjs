@@ -28,9 +28,10 @@ test('messages fall back to documented defaults and gate confirmations',async()=
   assert.equal(messages.messageEnabled({},'after_save'),false);
   assert.equal(messages.messageEnabled({confirm_remove_tags:false},'confirm_remove_tags'),false);
   assert.equal(messages.messageEnabled({confirm_remove_tags:'no'},'confirm_remove_tags'),true);
-  assert.deepEqual(messages.messagesOptionsPage.defaults,messages.MESSAGE_DEFAULTS);
+  // The cover choice applies while "at importing covers" is off.
+  assert.deepEqual(messages.messagesOptionsPage.defaults,{...messages.MESSAGE_DEFAULTS,import_covers_choice:'replace'});
   const paths=JSON.stringify(messages.messagesOptionsPage.controls).match(/pages\.messages\.\w+/g).map(p=>p.slice(15)).sort();
-  assert.deepEqual(paths,Object.keys(messages.MESSAGE_DEFAULTS).sort(),'every message has a checkbox and a default');
+  assert.deepEqual(paths,[...Object.keys(messages.MESSAGE_DEFAULTS),'import_covers_choice'].sort(),'every message has a checkbox and a default');
   let values={},asked=[],told=[];
   const ui=new messages.Messages({values:()=>values,ask:async(m)=>{asked.push(m);return false;},tell:async m=>{told.push(m);}});
   assert.equal(await ui.confirm('confirm_remove_tags','Remove?','Remove tags'),false);

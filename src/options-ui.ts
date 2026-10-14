@@ -15,7 +15,9 @@ export type OptionControl=
   |{kind:'checkbox';path:string;label:string;enabledWhen?:(draft:OptionsDraft)=>boolean}
   |{kind:'radio';path:string;label:string;choices:[string,string][];enabledWhen?:(draft:OptionsDraft)=>boolean}
   |{kind:'select';path:string;label:string;choices:[string,string][]}
-  |{kind:'text';path:string;label:string;placeholder?:string;maxLength?:number}
+  |{kind:'text';path:string;label:string;placeholder?:string;maxLength?:number;enabledWhen?:(draft:OptionsDraft)=>boolean}
+  /** Whole numbers; the value is stored as a number. */
+  |{kind:'number';path:string;label:string;min:number;max:number;suffix?:string}
   |{kind:'group';label:string;controls:OptionControl[]}
   |{kind:'note';text:string}
   /** Runs `run` when pressed, for example to open a dedicated editor. */
@@ -35,6 +37,12 @@ export const defaultSettings=():Settings=>({version:1,general:{natural_sort:true
   tags:{mpeg:{read_id3v1:true,read_id3v2:true,read_ape:true,write_id3v1:true,write_id3v2:true,write_ape:false,id3v2_only_if_needed:false,id3v2_format:'v23_utf16',remove_id3v1:false,remove_id3v2:false,remove_ape:true},
     ape:{read_id3v1:true,read_ape:true,write_id3v1:false,write_ape:true,remove_id3v1:false,remove_id3v2:false,remove_ape:false},
     advanced:{id3v2_comment_language:'eng',popularimeter_ratings:false,matroska_video_mapping:true},preserve_modified_time:false},pages:{}});
+
+/** pages.general: General options beyond the window title and sorting. */
+export const GENERAL_DEFAULTS={auto_select_next:false,autocomplete:true,select_added:false,keep_moved:true};
+/** pages.appearance: scaling in percent and the file list grid. */
+export const APPEARANCE_DEFAULTS={toolbar_scale:'100',ui_scale:'100',grid:'off'};
+const SCALES:[string,string][]=['100','110','125','150','175','200'].map(v=>[v,`${v}%`]);
 
 const pageId=/^[a-z0-9][a-z0-9_-]*$/;
 export function getPath(value:unknown,path:string):unknown{return path.split('.').reduce<unknown>((current,key)=>current&&typeof current==='object'?(current as Record<string,unknown>)[key]:undefined,value);}
@@ -94,16 +102,24 @@ export function windowTitle(location:string,settings:Settings){return settings.g
 const tagRead=(prefix:string,kinds:[string,string][]):OptionControl=>({kind:'group',label:'Read',controls:kinds.map(([key,label])=>({kind:'checkbox',path:`tags.${prefix}.read_${key}`,label}))});
 const tagRemove=(prefix:string):OptionControl=>({kind:'group',label:'Remove when saving',controls:[['id3v1','ID3v1'],['id3v2','ID3v2'],['ape','APE']].map(([key,label])=>({kind:'checkbox',path:`tags.${prefix}.remove_${key}`,label}))});
 for(const page of [
-  {id:'general',label:'General',order:10,controls:[
+  {id:'general',label:'General',order:10,defaults:{...GENERAL_DEFAULTS},controls:[
     {kind:'checkbox',path:'general.show_directory_in_title',label:'Show current directory in window title'},
-    {kind:'checkbox',path:'general.natural_sort',label:'Use natural sorting (1, 2, 11, …)'}]},
+    {kind:'checkbox',path:'pages.general.auto_select_next',label:'Automatically select next file when editing in file view'},
+    {kind:'checkbox',path:'pages.general.autocomplete',label:'Auto-completion at selection boxes'},
+    {kind:'checkbox',path:'general.natural_sort',label:'Use natural sorting (1, 2, 11, …)'},
+    {kind:'checkbox',path:'pages.general.select_added',label:'Select files automatically when they are added to the list'},
+    {kind:'checkbox',path:'pages.general.keep_moved',label:'Keep moved files in the file list'},
+    {kind:'note',text:'Auto-completion completes tag panel fields and file list cells from their drop-down values. Moved files that are no longer below a listed folder leave the list unless they have pending changes.'}]},
   {id:'files',label:'Files',order:20,controls:[
     {kind:'group',label:'Read files',controls:[{kind:'text',path:'files.restrict_extensions',label:'Restrict incoming files to',placeholder:'All supported formats (for example *.mp3;*.flac)'},
       {kind:'note',text:'Applies to folders. Files you add individually are always read.'}]},
     {kind:'group',label:'Write files',controls:[{kind:'checkbox',path:'tags.preserve_modified_time',label:'Preserve timestamps of modified files'}]}]},
   {id:'directories',label:'Directories',order:30,controls:[{kind:'checkbox',path:'directories.subfolders',label:'Read subfolders'}]},
-  {id:'appearance',label:'Appearance',order:40,controls:[{kind:'select',path:'appearance',label:'Color mode',choices:[['system','System'],['light','Light'],['dark','Dark']]},
-    {kind:'note',text:'Color mode is remembered on this device and also available in the title bar.'}]},
+  {id:'appearance',label:'Appearance',order:40,defaults:{...APPEARANCE_DEFAULTS},controls:[{kind:'select',path:'appearance',label:'Color mode',choices:[['system','System'],['light','Light'],['dark','Dark']]},
+    {kind:'note',text:'Color mode is remembered on this device and also available in the title bar.'},
+    {kind:'select',path:'pages.appearance.toolbar_scale',label:'Toolbar scaling',choices:SCALES},
+    {kind:'select',path:'pages.appearance.ui_scale',label:'User interface scaling',choices:SCALES},
+    {kind:'radio',path:'pages.appearance.grid',label:'Display grid lines in file view',choices:[['off','Off'],['alternate','Alternate row colors'],['lines','Grid lines']]}]},
   {id:'tags',label:'Tags',order:50,description:'Choose which tag types are read, written and removed for each format family.',controls:[
     {kind:'note',text:'Mpeg applies to MP3 files. Ape, Mpc applies to Monkey’s Audio, Musepack and WavPack files. Other formats always use their native tag.'}]},
   {id:'tags-mpeg',parent:'tags',label:'Mpeg',order:10,description:'Only one tag type is displayed: APE before ID3v2 before ID3v1, among the types enabled for reading.',controls:[
@@ -134,7 +150,8 @@ export function controlMarkup(control:OptionControl,draft:OptionsDraft):string{
   case 'checkbox':return`<label class="action-check"><input type="checkbox" id="${controlId(control.path)}" data-option="${html(control.path)}" ${getPath(draft,control.path)?'checked':''} ${disabled(control)}> ${html(control.label)}</label>`;
   case 'radio':return`<fieldset class="options-choices" ${disabled(control)}><legend>${html(control.label)}</legend>${control.choices.map(([value,label])=>`<label class="action-check"><input type="radio" name="${controlId(control.path)}" data-option="${html(control.path)}" value="${html(value)}" ${getPath(draft,control.path)===value?'checked':''}> ${html(label)}</label>`).join('')}</fieldset>`;
   case 'select':return`<label class="field"><span>${html(control.label)}</span><select id="${controlId(control.path)}" data-option="${html(control.path)}">${control.choices.map(([value,label])=>`<option value="${html(value)}" ${getPath(draft,control.path)===value?'selected':''}>${html(label)}</option>`).join('')}</select></label>`;
-  case 'text':return`<label class="field"><span>${html(control.label)}</span><input id="${controlId(control.path)}" data-option="${html(control.path)}" value="${html(getPath(draft,control.path)??'')}" ${control.placeholder?`placeholder="${html(control.placeholder)}"`:''} ${control.maxLength?`maxlength="${control.maxLength}"`:''} autocomplete="off" spellcheck="false"></label>`;
+  case 'text':return`<label class="field"><span>${html(control.label)}</span><input id="${controlId(control.path)}" data-option="${html(control.path)}" value="${html(getPath(draft,control.path)??'')}" ${control.placeholder?`placeholder="${html(control.placeholder)}"`:''} ${control.maxLength?`maxlength="${control.maxLength}"`:''} autocomplete="off" spellcheck="false" ${disabled(control)}></label>`;
+  case 'number':return`<label class="field"><span>${html(control.label)}</span><span class="options-number"><input type="number" id="${controlId(control.path)}" data-option="${html(control.path)}" data-number value="${html(getPath(draft,control.path)??'')}" min="${control.min}" max="${control.max}" step="1">${control.suffix?` ${html(control.suffix)}`:''}</span></label>`;
   case 'group':return`<fieldset class="numbering-section"><legend>${html(control.label)}</legend>${control.controls.map(c=>controlMarkup(c,draft)).join('')}</fieldset>`;
   case 'note':return`<p>${html(control.text)}</p>`;
   case 'button':return`<p><button type="button" id="option-button-${html(control.id)}" data-option-button="${html(control.id)}">${html(control.label)}</button></p>`;
@@ -195,9 +212,9 @@ export class OptionsUI {
     const update=(event:Event)=>{
       const input=event.target as HTMLInputElement|HTMLSelectElement,path=input.dataset.option;if(!path)return;
       if(input instanceof HTMLInputElement&&input.type==='radio'&&!input.checked)return;
-      setPath(draft,path,input instanceof HTMLInputElement&&input.type==='checkbox'?input.checked:input.value);
+      setPath(draft,path,input instanceof HTMLInputElement&&input.type==='checkbox'?input.checked:input.dataset.number!==undefined?(input.value.trim()===''?NaN:Number(input.value)):input.value);
       dialog.querySelector('.options-page .dialog-error')?.remove();
-      if(event.type==='change'&&!(input instanceof HTMLInputElement&&input.type==='text')){const focused=input.id||undefined,value=input.value;renderPage();(focused?dialog.querySelector<HTMLElement>(`#${CSS.escape(focused)}`):dialog.querySelector<HTMLElement>(`input[name="${CSS.escape((input as HTMLInputElement).name)}"][value="${CSS.escape(value)}"]`))?.focus();}
+      if(event.type==='change'&&!(input instanceof HTMLInputElement&&(input.type==='text'||input.type==='number'))){const focused=input.id||undefined,value=input.value;renderPage();(focused?dialog.querySelector<HTMLElement>(`#${CSS.escape(focused)}`):dialog.querySelector<HTMLElement>(`input[name="${CSS.escape((input as HTMLInputElement).name)}"][value="${CSS.escape(value)}"]`))?.focus();}
     };
     page.addEventListener('input',update);page.addEventListener('change',update);
     dialog.querySelector('#options-defaults')!.addEventListener('click',()=>{

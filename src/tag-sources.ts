@@ -8,7 +8,7 @@ export type SourceRelease = {provider:Provider;id:string;url:string;title:string
 /** Selected file values as shown in the file list (native field casing already resolved). */
 export type SourceFile = {path:string;name:string;title:string;artist:string;album:string;album_artist:string;track:string;disc:string;length:number};
 export type ApplyItem = {path:string;updates:Fields};
-export type ApplyCover = {url:string;replace_existing:boolean};
+export type ApplyCover = {url:string;replace_existing:boolean;preserve_existing?:boolean};
 export type TagSourceCredentials = {discogs_token_set:boolean};
 /** Options → Tag Sources (Mp3tag: Options › Tag Sources). Values persist under `pages.tag-sources`. */
 export const tagSourcesOptionsPage = {id:'tag-sources',label:'Tag Sources',order:60,controls:[
