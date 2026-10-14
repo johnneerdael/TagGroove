@@ -88,7 +88,9 @@ pub async fn apply_filename_conversion(
 ) -> Result<FilenameResult, String> {
     super::io(move || {
         super::reject_provider_operation(&request.paths, "Filename conversion")?;
-        apply_filename(&request, &plan_token)
+        super::history::record("Filename → Filename", None, &request.paths, || {
+            apply_filename(&request, &plan_token)
+        })
     })
     .await
 }
@@ -109,7 +111,9 @@ pub async fn apply_text_import(
 ) -> Result<ScanResult, String> {
     super::io(move || {
         reject_provider_text(&request)?;
-        apply_text(&request, &plan_token)
+        super::history::record("Text File → Tag", None, &request.paths, || {
+            apply_text(&request, &plan_token)
+        })
     })
     .await
 }
@@ -312,7 +316,7 @@ fn read_sources(paths: &[String], writable: bool) -> Result<Vec<(Snapshot, Audio
             if !seen.insert(path_key(&source.canonical)) {
                 return Err("A selected file occurs more than once".into());
             }
-            let entry = tag_core::read_entry_summary(&source.canonical)?;
+            let entry = crate::settings::read_summary(&source.canonical)?;
             source.validate()?;
             Ok((source, entry))
         })
@@ -458,7 +462,7 @@ fn apply_filename(request: &FilenameRequest, token: &str) -> Result<FilenameResu
             result
                 .result
                 .entries
-                .push(tag_core::read_entry_summary(&movement.target)?);
+                .push(crate::settings::read_summary(&movement.target)?);
         }
         Ok::<_, String>(())
     })();
@@ -585,7 +589,7 @@ fn sibling_copy(source: &Snapshot, backup: bool) -> Result<tempfile::TempPath, S
 }
 
 fn apply_text(request: &TextRequest, token: &str) -> Result<ScanResult, String> {
-    apply_text_with(request, token, tag_core::write_fields_summary, |_| Ok(()))
+    apply_text_with(request, token, crate::settings::write_summary, |_| Ok(()))
 }
 
 fn apply_text_with(
@@ -637,7 +641,7 @@ fn apply_text_with(
             item.committed_metadata = Some(committed);
             result
                 .entries
-                .push(tag_core::read_entry_summary(&item.source.canonical)?);
+                .push(crate::settings::read_summary(&item.source.canonical)?);
         }
         Ok::<_, String>(())
     })();

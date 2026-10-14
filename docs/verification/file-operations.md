@@ -4,15 +4,15 @@ Reference pages: [File menu](https://docs.mp3tag.de/menus/file/), [Edit menu](ht
 
 ## Delivered behavior
 
-**Directories.** Change directory (File menu, toolbar *Open folder*, Ctrl/Cmd D, Ctrl/Cmd O) now replaces the file list, as it does in Mp3tag. Before this change it appended. The old list is cleared only after the new scan succeeds. If any file has pending edits, OpenTag asks before discarding them. Add directory (Ctrl H) and drag-and-drop append to the list without changing the working directory. Other directory commands:
+**Directories.** Change directory (File menu, toolbar *Open folder*, Ctrl/Cmd D) now replaces the file list, as it does in Mp3tag. Before this change it appended. The old list is cleared only after the new scan succeeds. If any file has pending edits, OpenTag asks before discarding them. Add directory (Ctrl H) and drag-and-drop append to the list without changing the working directory. Other directory commands:
 
 - Upper directory (Ctrl/Cmd Shift D).
 - Back and forward history (Alt ←/→), kept in memory for the session.
 - Favorite directory (Ctrl M), which opens the first favorite.
 - Recent directories and Favorite directories submenus in the File menu.
-- A *Directories and favorites* dialog. It can add the current or a chosen folder, make a favorite first, remove or open favorites, set *Include subfolders* and the startup directory (empty, previous or first favorite), and clear the recent list.
+- A *Favorite directories…* dialog. It can add the current or a chosen folder, make a favorite first, remove or open favorites, and clear the recent list.
 
-*Include subfolders* is also a File-menu toggle. It applies to directory scans and dropped folders. The settings are saved in `directories.json` in the app configuration directory, next to `actions.json` and `exports.json`. The file has a version number, and the recent list is limited to 10 entries with no duplicates.
+Settings live in the shared Options store. Directory scans and dropped folders follow the existing *Read subfolders* option on File → Options → Directories. The startup directory (empty file list, previous directory or first favorite) is a *Startup* page under Directories, registered with `registerOptionsPage` and stored under `pages.directories-startup`. Recent and favorite folders are data rather than options, so they are saved in `directories.json` in the app configuration directory, next to `actions.json` and `exports.json`. That file has a version number, and the recent list is limited to 10 entries with no duplicates. Older files that still contain `subfolders` or `startup` fields load without error.
 
 **File operations.** These work on selected files:
 
@@ -32,13 +32,13 @@ Reference pages: [File menu](https://docs.mp3tag.de/menus/file/), [Edit menu](ht
 
 ## Automated checks
 
-**114 frontend and 287 Rust tests pass**, plus one ignored real-trash probe. Before this work the counts were 101 and 279.
+**142 frontend and 320 Rust tests pass** after merging `feat/core-parity`, plus one ignored real-trash probe. Before this work the counts were 101 and 279.
 
 New tests:
 
 - **Rust, `src-tauri/src/file_ops.rs`:** recent-list dedupe, cap and order; settings round-trip, partial and corrupt files; per-file trash failures, where folders and missing files are never passed to the remover; copy keeps originals; move relocates and reports per-file read errors; conflicts (existing target, case-insensitive duplicate name, same folder, missing destination) reject the whole plan before any file is touched; launch-switch parsing.
 - **Rust, tag-core:** `copy_no_clobber` never replaces an existing destination and refuses folders.
-- **`tests/file-ops.test.mjs` (13 cases):** parent directories, including Windows drive roots; history; the shortcut map for Windows/Linux and macOS, including the text-editing guards; summaries; and the change/add/up/back, delete, copy/move, launch, startup and subfolder flows against a fake host.
+- **`tests/file-ops.test.mjs` (14 cases):** parent directories, including Windows drive roots; history; the shortcut map for Windows/Linux and macOS, including the text-editing guards; summaries; the change/add/up/back, delete, copy/move, launch, startup and Read-subfolders flows against a fake host; and the Startup options page definition and its default.
 
 `cargo clippy --workspace --all-targets -- -D warnings`, `cargo fmt --check` and `npx tsc --noEmit` pass. Locally, `cargo test --workspace` needs `AR=/usr/bin/ar` because Homebrew GNU `ar` produces a `regex-compat` archive that Apple `ld` rejects. This is an environment issue, not a code issue.
 
@@ -53,13 +53,14 @@ New tests:
 5. The toolbar *Open folder* showed the "Change directory" panel, and Cancel kept the list.
 6. Cmd Backspace showed the "Move 1 file to the Trash?" sheet. Yes removed the file from disk and from the list ("Moved 1 file to the Trash").
 7. `directories.json` recorded both folders.
-8. After a restart with startup set to *previous*, the app opened `music`. Ctrl M opened the favorite, and Alt ← went back.
+8. After a restart with startup set to *previous*, the app opened `music`. This native run used the pre-merge build, which kept the startup choice in `directories.json`. Ctrl M opened the favorite, and Alt ← went back.
 
 **Browser preview.** In Chromium with a mocked Tauri IPC, the following rendered correctly in Dark and in Light at 390×844: the File menu, the Recent and Favorite submenus with long paths shortened, and the Directories and favorites dialog. Through the preview UI it also verified:
 
 - Making a favorite first, then saving.
 - Favorite directory, then back.
 - A delete where one file failed and appeared in the errors panel.
+- After the merge: the Options tree lists Directories → Startup, its saved *First favorite directory* choice opens the first favorite at startup, and *Read subfolders* off produces a non-recursive scan.
 - Copy, move and delete disabled with "Save pending changes first." while reveal and play stayed enabled.
 
 ## Known gaps compared with Mp3tag
@@ -67,9 +68,9 @@ New tests:
 - **Not driven natively:** the menus, the destination panel and the draft-blocking check, because the automation tool could not click inside the WebKit view. Keyboard shortcuts and native panels were driven natively. Play and Open in Finder were not launched natively, to avoid starting other apps on the test machine.
 - **Associated files:** the reference pages do not describe how `.lrc`/`.cdg` or cover files move with audio, so they are not moved. This needs evidence from the original program.
 - **Permanent delete:** Ctrl Shift Del is intentionally not implemented, and neither is the Options → Messages switch to skip the delete confirmation.
-- **No subfolders checkbox in the native dialog:** the native folder dialog cannot show one, so *Include subfolders* is a menu toggle and dialog option.
+- **No subfolders checkbox in the native dialog:** the native folder dialog cannot show one, so subfolder reading is the Options → Directories setting.
 - **History:** directory history is not persisted. F5 refresh, Load Playlist/Cuesheet and directory-tree browsing are out of scope.
 - **macOS command line:** macOS LaunchServices does not pass arguments to an app that is already running (for example `open -a OpenTag --args …`). Forwarding works when the binary is executed directly and on Windows/Linux. Finder "Open With" file associations (`RunEvent::Opened`) are not handled.
 - **Restoring from the trash:** with NSFileManager, macOS may not offer Finder's "Put Back" for trashed files. They can still be restored from the Trash by hand.
-- **Shortcuts differ from Mp3tag:** Ctrl/Cmd O stays Change directory rather than Options. On macOS, Hide and Minimize take Cmd H and Cmd M, so Add directory and Favorite directory use Ctrl H and Ctrl M there.
+- **Shortcuts differ from Mp3tag:** on macOS, Hide and Minimize take Cmd H and Cmd M, so Add directory and Favorite directory use Ctrl H and Ctrl M there.
 - **Play:** each file is opened separately; no temporary playlist is built.

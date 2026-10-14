@@ -10,15 +10,8 @@ const RECENT_LIMIT: usize = 10;
 const PLAY_LIMIT: usize = 100;
 pub const LAUNCH_EVENT: &str = "opentag://launch";
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Startup {
-    #[default]
-    Empty,
-    Previous,
-    Favorite,
-}
-
+/// Recent and favorite folders. Read subfolders and the startup directory are
+/// Options settings (`settings.rs` and the `directories-startup` options page).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct DirectoryState {
@@ -27,8 +20,6 @@ pub struct DirectoryState {
     pub recent: Vec<String>,
     /// The first favorite is the one used by File → Favorite directory and startup.
     pub favorites: Vec<String>,
-    pub subfolders: bool,
-    pub startup: Startup,
 }
 impl Default for DirectoryState {
     fn default() -> Self {
@@ -36,8 +27,6 @@ impl Default for DirectoryState {
             version: 1,
             recent: vec![],
             favorites: vec![],
-            subfolders: true,
-            startup: Startup::Empty,
         }
     }
 }
@@ -290,7 +279,7 @@ pub fn transfer(paths: &[String], destination: &Path, mode: TransferMode) -> Tra
                     from: path,
                     to: to.clone(),
                 });
-                match tag_core::read_entry_summary(&target) {
+                match crate::settings::read_summary(&target) {
                     Ok(entry) => output.result.entries.push(entry),
                     Err(error) => output.result.errors.push(FileError { path: to, error }),
                 }
@@ -516,16 +505,19 @@ mod tests {
         assert_eq!(load(&path).unwrap(), DirectoryState::default());
         let state = DirectoryState {
             favorites: strings(&["/music"]),
-            subfolders: false,
-            startup: Startup::Favorite,
             ..Default::default()
         };
         save(&path, state.clone()).unwrap();
         assert_eq!(load(&path).unwrap(), state);
-        std::fs::write(&path, br#"{"version":1,"recent":["/x"]}"#).unwrap();
+        // Older files with since-moved option fields still load.
+        std::fs::write(
+            &path,
+            br#"{"version":1,"recent":["/x"],"subfolders":false,"startup":"favorite"}"#,
+        )
+        .unwrap();
         let partial = load(&path).unwrap();
         assert_eq!(partial.recent, strings(&["/x"]));
-        assert!(partial.subfolders);
+        assert!(partial.favorites.is_empty());
         std::fs::write(&path, b"not json").unwrap();
         assert!(load(&path).is_err());
     }

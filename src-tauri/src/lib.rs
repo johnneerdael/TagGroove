@@ -9,9 +9,12 @@ mod evaluation;
 mod exports;
 mod file_hashes;
 mod file_ops;
+mod history;
 #[cfg(any(target_os = "android", test))]
 mod managed_actions;
 mod rename_plan;
+mod settings;
+mod tag_panel;
 
 fn export_library_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(action_host::library_path(app)?.with_file_name("exports.json"))
@@ -111,7 +114,13 @@ async fn execute_action_groups(
     let settings = evaluation_settings(columns)?;
     io(move || {
         reject_provider_operation(&paths, "Action groups")?;
-        Ok(action_host::execute(&paths, &groups, settings))
+        let label = match groups.iter().filter(|g| g.enabled).collect::<Vec<_>>()[..] {
+            [group] => format!("Action {}", group.name),
+            ref enabled => format!("Actions ({} groups)", enabled.len()),
+        };
+        history::record(&label, None, &paths, || {
+            Ok(action_host::execute(&paths, &groups, settings))
+        })
     })
     .await
 }
@@ -158,7 +167,7 @@ fn runtime_platform() -> RuntimePlatform {
 async fn get_covers(path: String) -> Result<Vec<tag_core::CoverInfo>, String> {
     io(move || {
         require_audio_handle(Path::new(&path))?;
-        tag_core::read_entry(Path::new(&path)).map(|e| e.covers)
+        settings::read_full(Path::new(&path)).map(|e| e.covers)
     })
     .await
 }
@@ -261,7 +270,7 @@ fn require_audio_handle(path: &Path) -> Result<(), String> {
 fn provider_filename(path: &Path) -> Result<String, String> {
     require_audio_handle(path)?;
     if documents::is_managed(path) {
-        let mut entry = tag_core::read_entry_summary(path)?;
+        let mut entry = settings::read_summary(path)?;
         documents::project(&mut entry);
         Ok(entry.filename)
     } else {
@@ -361,7 +370,12 @@ async fn scan_files(paths: Vec<String>, recursive: bool) -> Result<ScanResult, S
             let (managed, ordinary): (Vec<_>, Vec<_>) = paths
                 .into_iter()
                 .partition(|p| documents::is_managed(Path::new(p)));
-            let mut result = tag_core::scan_paths(&ordinary, recursive);
+            let mut result = tag_core::scan_paths_with_options(
+                &ordinary,
+                recursive,
+                &settings::tag_options(),
+                settings::extensions().as_deref(),
+            );
             let restored = batch(&managed, documents::reload);
             result.entries.extend(restored.entries);
             result.errors.extend(restored.errors);
@@ -375,11 +389,17 @@ async fn scan_files(paths: Vec<String>, recursive: bool) -> Result<ScanResult, S
 }
 
 #[tauri::command]
-async fn save_fields(paths: Vec<String>, updates: Fields) -> Result<ScanResult, String> {
+async fn save_fields(
+    paths: Vec<String>,
+    updates: Fields,
+    history_group: Option<String>,
+) -> Result<ScanResult, String> {
     io(move || {
-        Ok(batch(&paths, |p| {
-            mutate_document(p, |p| tag_core::write_fields_summary(p, &updates))
-        }))
+        history::record("Save tags", history_group.as_deref(), &paths, || {
+            Ok(batch(&paths, |p| {
+                mutate_document(p, |p| settings::write_summary(p, &updates))
+            }))
+        })
     })
     .await
 }
@@ -387,9 +407,13 @@ async fn save_fields(paths: Vec<String>, updates: Fields) -> Result<ScanResult, 
 #[tauri::command]
 async fn remove_tags(paths: Vec<String>) -> Result<ScanResult, String> {
     io(move || {
-        Ok(batch(&paths, |p| {
-            mutate_document(p, tag_core::remove_tags_summary)
-        }))
+        history::record("Remove tags", None, &paths, || {
+            Ok(batch(&paths, |p| {
+                mutate_document(p, |p| {
+                    tag_core::remove_tags_with_options(p, false, &settings::tag_options())
+                })
+            }))
+        })
     })
     .await
 }
@@ -398,9 +422,13 @@ async fn remove_tags(paths: Vec<String>) -> Result<ScanResult, String> {
 async fn add_cover(paths: Vec<String>, image_path: String) -> Result<ScanResult, String> {
     io(move || {
         let image = auxiliary_input(&image_path)?;
-        Ok(batch(&paths, |p| {
-            mutate_document(p, |p| tag_core::add_cover_summary(p, &image))
-        }))
+        history::record("Add cover", None, &paths, || {
+            Ok(batch(&paths, |p| {
+                mutate_document(p, |p| {
+                    tag_core::add_cover_with_options(p, &image, false, &settings::tag_options())
+                })
+            }))
+        })
     })
     .await
 }
@@ -408,9 +436,13 @@ async fn add_cover(paths: Vec<String>, image_path: String) -> Result<ScanResult,
 #[tauri::command]
 async fn remove_cover(paths: Vec<String>, index: usize) -> Result<ScanResult, String> {
     io(move || {
-        Ok(batch(&paths, |p| {
-            mutate_document(p, |p| tag_core::remove_cover_summary(p, index))
-        }))
+        history::record("Remove cover", None, &paths, || {
+            Ok(batch(&paths, |p| {
+                mutate_document(p, |p| {
+                    tag_core::remove_cover_with_options(p, index, false, &settings::tag_options())
+                })
+            }))
+        })
     })
     .await
 }
@@ -436,7 +468,7 @@ async fn preview_format(
             .enumerate()
             .map(|(index, path)| {
                 require_audio_handle(Path::new(&path))?;
-                let mut entry = tag_core::read_entry_summary(Path::new(&path))?;
+                let mut entry = settings::read_summary(Path::new(&path))?;
                 documents::project(&mut entry);
                 let value = settings.evaluate(
                     &template,
@@ -483,10 +515,12 @@ async fn preview_filename(
 #[tauri::command]
 async fn filename_to_tags(paths: Vec<String>, pattern: String) -> Result<ScanResult, String> {
     io(move || {
-        Ok(batch(&paths, |p| {
-            let updates = tag_core::parse_filename(&provider_filename(p)?, &pattern)?;
-            mutate_document(p, |p| tag_core::write_fields_summary(p, &updates))
-        }))
+        history::record("Filename → Tag", None, &paths, || {
+            Ok(batch(&paths, |p| {
+                let updates = tag_core::parse_filename(&provider_filename(p)?, &pattern)?;
+                mutate_document(p, |p| settings::write_summary(p, &updates))
+            }))
+        })
     })
     .await
 }
@@ -504,7 +538,9 @@ async fn apply_action(
     };
     io(move || {
         reject_provider_operation(&paths, "Actions")?;
-        Ok(action_host::execute(&paths, &[group], settings))
+        history::record("Quick action", None, &paths, || {
+            Ok(action_host::execute(&paths, &[group], settings))
+        })
     })
     .await
 }
@@ -567,7 +603,7 @@ async fn preview_rename(
         reject_provider_operation(&paths, "Rename")?;
         let mut targets = Vec::new();
         for (index, path) in paths.iter().enumerate() {
-            let entry = tag_core::read_entry_summary(Path::new(path))?;
+            let entry = settings::read_summary(Path::new(path))?;
             targets.push(rename_target_with_settings(
                 &entry,
                 &template,
@@ -607,9 +643,24 @@ async fn rename_files(
     template: String,
     plan_token: Option<String>,
 ) -> Result<RenameResult, String> {
-    let settings = evaluation_settings(None)?;
+    let evaluation = evaluation_settings(None)?;
+    let targets = paths.clone();
     io(move || {
         reject_provider_operation(&paths, "Rename")?;
+        history::record("Tag → Filename", None, &targets, move || {
+            rename_planned(paths, &template, plan_token, &evaluation)
+        })
+    })
+    .await
+}
+
+fn rename_planned(
+    paths: Vec<String>,
+    template: &str,
+    plan_token: Option<String>,
+    evaluation: &evaluation::EvaluationSettings,
+) -> Result<RenameResult, String> {
+    {
         let mut result = ScanResult {
             entries: vec![],
             errors: vec![],
@@ -617,7 +668,7 @@ async fn rename_files(
         let mut plans = vec![];
         let mut destinations = std::collections::HashSet::new();
         let candidates = if let Some(token) = plan_token {
-            rename_plan::consume(&token, &paths, &template)?
+            rename_plan::consume(&token, &paths, template)?
                 .into_iter()
                 .map(|(path, target)| (path, Ok(target)))
                 .collect::<Vec<_>>()
@@ -626,8 +677,8 @@ async fn rename_files(
                 .into_iter()
                 .enumerate()
                 .map(|(index, path)| {
-                    let plan = tag_core::read_entry_summary(Path::new(&path)).and_then(|entry| {
-                        rename_target_with_settings(&entry, &template, index + 1, &settings)
+                    let plan = settings::read_summary(Path::new(&path)).and_then(|entry| {
+                        rename_target_with_settings(&entry, template, index + 1, evaluation)
                     });
                     (path, plan)
                 })
@@ -670,7 +721,7 @@ async fn rename_files(
                         from: path,
                         to: to.clone(),
                     });
-                    match tag_core::read_entry_summary(&target) {
+                    match settings::read_summary(&target) {
                         Ok(entry) => result.entries.push(entry),
                         Err(error) => result.errors.push(FileError { path: to, error }),
                     }
@@ -679,8 +730,7 @@ async fn rename_files(
             }
         }
         Ok(RenameResult { result, renamed })
-    })
-    .await
+    }
 }
 
 fn export_entries(paths: &[String], output: &Path) -> Result<Vec<AudioEntry>, String> {
@@ -694,7 +744,7 @@ fn export_entries(paths: &[String], output: &Path) -> Result<Vec<AudioEntry>, St
     }
     paths
         .iter()
-        .map(|p| tag_core::read_entry_summary(Path::new(p)))
+        .map(|p| settings::read_summary(Path::new(p)))
         .collect()
 }
 
@@ -800,6 +850,7 @@ pub fn run() {
     file_ops::install(tauri::Builder::default())
         .setup(|app| {
             let _ = APP_HANDLE.set(app.handle().clone());
+            tauri::Manager::manage(app, settings::SettingsStore::open(app.handle()));
             Ok(())
         })
         .plugin(tauri_plugin_dialog::init())
@@ -837,6 +888,10 @@ pub fn run() {
             converters::apply_filename_conversion,
             converters::preview_text_import,
             converters::apply_text_import,
+            history::history_state,
+            history::undo_last,
+            history::redo_last,
+            history::convert_tag_to_tag,
             export_csv,
             export_playlist,
             file_ops::load_directory_state,
@@ -847,7 +902,15 @@ pub fn run() {
             file_ops::reveal_files,
             file_ops::open_directory,
             file_ops::play_files,
-            file_ops::take_launch_requests
+            file_ops::take_launch_requests,
+            tag_panel::load_tag_panel,
+            tag_panel::save_tag_panel,
+            tag_panel::import_tag_panel_layout,
+            tag_panel::export_tag_panel_layout,
+            tag_panel::import_value_list,
+            tag_panel::export_value_list,
+            settings::load_settings,
+            settings::save_settings
         ])
         .run(tauri::generate_context!())
         .expect("Unable to run OpenTag");
@@ -922,7 +985,8 @@ mod tests {
         let paths = vec![session.path.clone()];
         let initial = std::fs::read(&source).unwrap();
         let updates = Fields::from([("TITLE".into(), vec!["Published".into()])]);
-        let saved = tauri::async_runtime::block_on(save_fields(paths.clone(), updates)).unwrap();
+        let saved =
+            tauri::async_runtime::block_on(save_fields(paths.clone(), updates, None)).unwrap();
         assert!(saved.errors.is_empty());
         assert_eq!(
             tag_core::read_entry(&source).unwrap().fields["TITLE"],
@@ -1155,6 +1219,7 @@ mod tests {
         let failure = tauri::async_runtime::block_on(save_fields(
             paths.clone(),
             Fields::from([("TITLE".into(), vec!["Retain edited".into()])]),
+            None,
         ))
         .unwrap();
         assert!(failure.entries.is_empty());

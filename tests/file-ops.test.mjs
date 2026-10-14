@@ -4,7 +4,7 @@ import {readFile} from 'node:fs/promises';
 import ts from 'typescript';
 const source = await readFile(new URL('../src/file-ops.ts', import.meta.url), 'utf8');
 const javascript = ts.transpileModule(source, {compilerOptions: {target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022}}).outputText;
-const {parentDirectory, DirectoryHistory, fileShortcut, nameList, transferStatus, launchDirectory, FileOpsUI, defaultDirectoryState} = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);
+const {parentDirectory, DirectoryHistory, fileShortcut, nameList, transferStatus, launchDirectory, FileOpsUI, defaultDirectoryState, startupChoice, startupOptionsPage} = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);
 
 test('parent directories stop at filesystem and drive roots', () => {
   assert.equal(parentDirectory('/music/rock/album'), '/music/rock');
@@ -94,7 +94,7 @@ function harness(overrides = {}) {
     load: async (paths, options) => { host.loads.push([paths, options]); return host.loadResult ?? true; },
     removeEntries: paths => { host.removed = paths; }, moved: (result, status) => { host.movedResult = result; host.status = status; },
     run: async (_message, job) => job(), report: (errors, status) => { host.errors = errors; host.status = status; },
-    openReason: () => '', changed: () => {},
+    openReason: () => '', changed: () => {}, prefs: {subfolders: true, startup: 'empty'}, preferences: () => host.prefs,
     ...overrides,
   };
   return {ui: new FileOpsUI(host), host, calls};
@@ -182,17 +182,25 @@ test('startup opens queued launch requests before the startup directory', async 
   const second = harness();
   await second.ui.initialize();
   assert.equal(second.host.loads.length, 0, 'empty startup keeps the list empty');
-  const third = harness({invoke: async command => command === 'load_directory_state' ? {...defaultDirectoryState(), favorites: ['/fav'], startup: 'favorite'} : command === 'take_launch_requests' ? [] : defaultDirectoryState()});
+  const third = harness();
+  third.host.prefs = {subfolders: true, startup: 'favorite'};
   await third.ui.initialize();
   assert.deepEqual(third.host.loads[0][0], ['/fav']);
 });
 
-test('subfolder preference toggles through the backend and feeds directory scans', async () => {
-  const {ui, host, calls} = harness();
-  await ui.operate('dir-subfolders');
-  assert.equal(calls[0][0], 'save_directory_state');
-  assert.equal(ui.subfolders, false);
+test('the Options read-subfolders setting feeds directory scans', async () => {
+  const {ui, host} = harness();
+  host.prefs = {subfolders: false, startup: 'empty'};
   host.picks.push(['/m']);
   await ui.operate('folder');
   assert.equal(host.loads[0][1].recursive, false);
+});
+
+test('the startup choice is an Options page under Directories with a safe default', () => {
+  assert.equal(startupOptionsPage.parent, 'directories');
+  assert.equal(startupOptionsPage.controls[0].path, 'pages.directories-startup.startup');
+  assert.deepEqual(startupOptionsPage.controls[0].choices.map(([value]) => value), ['empty', 'previous', 'favorite']);
+  assert.equal(startupChoice(undefined), 'empty');
+  assert.equal(startupChoice('bogus'), 'empty');
+  assert.equal(startupChoice('previous'), 'previous');
 });

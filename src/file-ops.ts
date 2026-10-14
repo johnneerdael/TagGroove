@@ -1,13 +1,15 @@
 export type Startup='empty'|'previous'|'favorite';
-export type DirectoryState={version:number;recent:string[];favorites:string[];subfolders:boolean;startup:Startup};
+/** Recent and favorite folders (directories.json). Read subfolders and the startup choice are Options settings. */
+export type DirectoryState={version:number;recent:string[];favorites:string[]};
+export type DirectoryPreferences={subfolders:boolean;startup:Startup};
 export type LaunchRequest={directories:string[];files:string[];add:boolean};
-export type FileOperation='dir-add'|'dir-up'|'dir-back'|'dir-forward'|'dir-favorite'|'dir-manage'|'dir-subfolders'|'file-delete'|'file-copy'|'file-move'|'file-reveal'|'file-play';
+export type FileOperation='dir-add'|'dir-up'|'dir-back'|'dir-forward'|'dir-favorite'|'dir-manage'|'file-delete'|'file-copy'|'file-move'|'file-reveal'|'file-play';
 type FileError={path:string;error:string};
 type PathChange={from:string;to:string};
 export type TransferResult={entries:unknown[];errors:FileError[];renamed:PathChange[];copied:PathChange[]};
 type KeyInput={key:string;code?:string;ctrlKey:boolean;metaKey:boolean;shiftKey:boolean;altKey:boolean};
 
-export const defaultDirectoryState=():DirectoryState=>({version:1,recent:[],favorites:[],subfolders:true,startup:'empty'});
+export const defaultDirectoryState=():DirectoryState=>({version:1,recent:[],favorites:[]});
 /** Parent folder of a local path, or undefined at a filesystem or drive root. */
 export function parentDirectory(path:string):string|undefined {
   const trimmed=path.length>1?path.replace(/[\\/]+$/,''):path,index=Math.max(trimmed.lastIndexOf('/'),trimmed.lastIndexOf('\\'));
@@ -52,6 +54,11 @@ export function transferStatus(result:TransferResult,mode:'copy'|'move',destinat
   return `${verb} ${done} file${done===1?'':'s'} to ${destination}${result.errors.length?`, ${result.errors.length} error${result.errors.length===1?'':'s'}`:''}`;
 }
 /** Folder used as the working directory for a launch request. */
+/** File → Options → Directories → Startup. Values persist under `pages.directories-startup`. */
+export const startupOptionsPage={id:'directories-startup',parent:'directories',label:'Startup',order:10,controls:[
+  {kind:'select' as const,path:'pages.directories-startup.startup',label:'Startup directory',choices:[['empty','Empty file list'],['previous','Previous directory'],['favorite','First favorite directory']] as [string,string][]},
+  {kind:'note' as const,text:'Manage favorites with File → Favorite directories…. The first favorite opens with Ctrl M.'}]};
+export function startupChoice(value:unknown):Startup{return value==='previous'||value==='favorite'?value:'empty';}
 export function launchDirectory(request:LaunchRequest){return request.directories[0]??(request.files[0]?parentDirectory(request.files[0]):undefined);}
 
 type Selection={path:string;name:string};
@@ -68,6 +75,7 @@ export type FileOpsHost={
   report:(errors:FileError[],status:string)=>void;
   /** Why folders cannot be opened here, or an empty string. */
   openReason:()=>string;changed:()=>void;mac:boolean;
+  preferences:()=>DirectoryPreferences;
 };
 const html=(value:unknown)=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 const plural=(count:number,noun='file')=>`${count} ${noun}${count===1?'':'s'}`;
@@ -78,13 +86,12 @@ export class FileOpsUI {
   readonly history=new DirectoryHistory();
   private showing=false;
   constructor(private host:FileOpsHost){}
-  get subfolders(){return this.state.subfolders;}
   get fileManager(){return this.host.mac?'Finder':/Win/.test(globalThis.navigator?.platform||'')?'Explorer':'file manager';}
   /** Load preferences, then open queued command-line requests or the startup folder. */
   async initialize(){
     this.state=await this.host.invoke<DirectoryState>('load_directory_state');this.host.changed();
     if(await this.takeLaunches())return;
-    const start=this.state.startup==='previous'?this.state.recent[0]:this.state.startup==='favorite'?this.state.favorites[0]:undefined;
+    const startup=this.host.preferences().startup,start=startup==='previous'?this.state.recent[0]:startup==='favorite'?this.state.favorites[0]:undefined;
     if(start&&!this.host.openReason())await this.openDirectory(start,{replace:true});
   }
   async takeLaunches(){
@@ -104,7 +111,7 @@ export class FileOpsUI {
     if(op==='dir-up'&&!parentDirectory(this.history.current!))return 'This is the top folder.';
     if(op==='dir-back'&&!this.history.canBack)return 'No previous directory.';
     if(op==='dir-forward'&&!this.history.canForward)return 'No next directory.';
-    if(op==='dir-favorite'&&!this.state.favorites.length)return 'Add a favorite in File → Directories and favorites.';
+    if(op==='dir-favorite'&&!this.state.favorites.length)return 'Add a favorite in File → Favorite directories.';
     if(op==='file-reveal'&&!selected&&!this.history.current)return 'Select files or change to a directory first.';
     if(['file-delete','file-copy','file-move','file-play'].includes(op)&&!selected)return 'Select files first.';
     return '';
@@ -124,7 +131,6 @@ export class FileOpsUI {
   }
   async operate(op:FileOperation|'folder'){
     if(op==='dir-manage'){await this.manage();return;}
-    if(op==='dir-subfolders'){await this.save({...this.state,subfolders:!this.state.subfolders});return;}
     if(this.reason(op))return;
     if(op==='folder'||op==='dir-add'){
       const replace=op==='folder';if(replace&&!await this.confirmDiscard())return;
@@ -174,7 +180,7 @@ export class FileOpsUI {
   }
   private async open(paths:string[],options:{replace:boolean;directories:string[];location:string;working?:string;confirmed?:boolean}){
     if(options.replace&&!options.confirmed&&!await this.confirmDiscard())return false;
-    const loaded=await this.host.load(paths,{replace:options.replace,recursive:this.state.subfolders,location:options.location});
+    const loaded=await this.host.load(paths,{replace:options.replace,recursive:this.host.preferences().subfolders,location:options.location});
     if(!loaded)return false;
     if(options.working)this.history.visit(options.working);
     if(options.directories.length)try{this.state=await this.host.invoke<DirectoryState>('remember_directories',{paths:options.directories});}catch{/* Recent folders are a convenience; loading already succeeded. */}
@@ -183,33 +189,31 @@ export class FileOpsUI {
   private async save(next:DirectoryState){
     this.state=await this.host.invoke<DirectoryState>('save_directory_state',{state:next});this.host.changed();
   }
-  /** Directories and favorites: Mp3tag's Options → Directories plus favorite management. */
+  /** Favorite directories: add, order, remove and open favorites, and clear the recent list. */
   async manage(){
     if(this.showing)return;this.showing=true;
     let draft=structuredClone(this.state),current=0,working=false;
-    const dialog=document.createElement('dialog');dialog.className='directories-dialog';dialog.setAttribute('aria-label','Directories and favorites');document.body.append(dialog);
+    const dialog=document.createElement('dialog');dialog.className='directories-dialog';dialog.setAttribute('aria-label','Favorite directories');document.body.append(dialog);
     const error=(message:unknown)=>{const p=dialog.querySelector<HTMLElement>('.dialog-error')!;p.hidden=false;p.textContent=String(message);};
     const render=()=>{
       current=Math.min(current,Math.max(0,draft.favorites.length-1));
-      dialog.innerHTML=`<header>Directories and favorites</header><div class="dialog-content">
+      dialog.innerHTML=`<header>Favorite directories</header><div class="dialog-content">
       <label class="field"><span>Favorite directories</span><select id="dir-favorites" size="5" aria-label="Favorite directories">${draft.favorites.map((path,index)=>`<option value="${index}" ${index===current?'selected':''}>${index===0?'★ ':''}${html(path)}</option>`).join('')}</select></label>
       <p>${draft.favorites.length?'The first favorite opens with File → Favorite directory (Ctrl M) and at startup.':'No favorites yet. Add the current directory or choose a folder.'}</p>
       <div class="group-buttons"><button id="dir-add-current" ${this.history.current&&!draft.favorites.includes(this.history.current)?'':'disabled'}>Add current directory</button><button id="dir-add-folder">Add folder…</button><button id="dir-first" ${current>0?'':'disabled'}>Make first</button><button id="dir-remove" ${draft.favorites.length?'':'disabled'}>Remove</button><button id="dir-open" ${draft.favorites.length&&!this.host.openReason()?'':'disabled'}>Open</button></div>
-      <label class="action-check"><input type="checkbox" id="dir-subfolders" ${draft.subfolders?'checked':''}> Include subfolders when opening directories</label>
-      <label class="field"><span>Startup directory</span><select id="dir-startup"><option value="empty" ${draft.startup==='empty'?'selected':''}>Empty file list</option><option value="previous" ${draft.startup==='previous'?'selected':''}>Previous directory</option><option value="favorite" ${draft.startup==='favorite'?'selected':''}>First favorite directory</option></select></label>
+      <p>Read subfolders and the startup directory are in File → Options → Directories.</p>
       <div class="group-buttons"><button id="dir-clear-recent" ${draft.recent.length?'':'disabled'}>Clear recent directories (${draft.recent.length})</button></div>
       <p class="dialog-error" role="alert" hidden></p></div>
       <div class="dialog-footer"><button id="dir-cancel">Cancel</button><button class="primary" id="dir-save">Save</button></div>`;
       const on=(id:string,handler:()=>void|Promise<void>)=>dialog.querySelector(`#${id}`)!.addEventListener('click',()=>{if(!working)void handler();});
-      const capture=()=>{draft.subfolders=dialog.querySelector<HTMLInputElement>('#dir-subfolders')!.checked;draft.startup=dialog.querySelector<HTMLSelectElement>('#dir-startup')!.value as Startup;};
-      dialog.querySelector('#dir-favorites')!.addEventListener('change',event=>{capture();current=Number((event.target as HTMLSelectElement).value);render();});
-      on('dir-add-current',()=>{capture();draft.favorites.push(this.history.current!);current=draft.favorites.length-1;render();});
-      on('dir-add-folder',async()=>{capture();working=true;try{for(const path of await this.host.pickDirectories('Add favorite directory',true))if(!draft.favorites.includes(path))draft.favorites.push(path);current=draft.favorites.length-1;}catch(e){error(e);}finally{working=false;if(dialog.open)render();}});
-      on('dir-first',()=>{capture();draft.favorites.unshift(...draft.favorites.splice(current,1));current=0;render();});
-      on('dir-remove',()=>{capture();draft.favorites.splice(current,1);render();});
-      on('dir-clear-recent',()=>{capture();draft.recent=[];render();});
+      dialog.querySelector('#dir-favorites')!.addEventListener('change',event=>{current=Number((event.target as HTMLSelectElement).value);render();});
+      on('dir-add-current',()=>{draft.favorites.push(this.history.current!);current=draft.favorites.length-1;render();});
+      on('dir-add-folder',async()=>{working=true;try{for(const path of await this.host.pickDirectories('Add favorite directory',true))if(!draft.favorites.includes(path))draft.favorites.push(path);current=draft.favorites.length-1;}catch(e){error(e);}finally{working=false;if(dialog.open)render();}});
+      on('dir-first',()=>{draft.favorites.unshift(...draft.favorites.splice(current,1));current=0;render();});
+      on('dir-remove',()=>{draft.favorites.splice(current,1);render();});
+      on('dir-clear-recent',()=>{draft.recent=[];render();});
       on('dir-cancel',()=>dialog.close());
-      const persist=async()=>{capture();working=true;try{await this.save(draft);draft=structuredClone(this.state);return true;}catch(e){error(e);return false;}finally{working=false;}};
+      const persist=async()=>{working=true;try{await this.save(draft);draft=structuredClone(this.state);return true;}catch(e){error(e);return false;}finally{working=false;}};
       on('dir-save',async()=>{if(await persist())dialog.close();});
       on('dir-open',async()=>{const path=draft.favorites[current];if(path&&await persist()){dialog.close();await this.openDirectory(path,{replace:true});}});
     };

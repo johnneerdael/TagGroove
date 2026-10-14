@@ -712,7 +712,17 @@ fn native_vorbis_custom_text_and_ape_binary_survive_unrelated_changes() {
         .unwrap(),
     );
     ape.save_to_path(&mp3, WriteOptions::default()).unwrap();
-    write_fields(&mp3, &fields(&[("TITLE", &["Changed"])])).unwrap();
+    // Mp3tag removes APE from MPEG files by default; keep it as a written kind.
+    let mut options = tag_core::TagOptions::default();
+    options.mpeg.write_ape = true;
+    tag_core::write_fields_with_options(
+        &mp3,
+        &fields(&[("TITLE", &["Changed"])]),
+        false,
+        &[],
+        &options,
+    )
+    .unwrap();
     let concrete = lofty::mpeg::MpegFile::read_from(
         &mut fs::File::open(&mp3).unwrap(),
         lofty::config::ParseOptions::new(),
