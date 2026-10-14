@@ -231,8 +231,10 @@ fn objects(data: &[u8]) -> Result<Vec<(Guid, &[u8])>, String> {
 
 pub(super) fn utf16(bytes: &[u8]) -> String {
     let units: Vec<u16> = bytes
-        .chunks_exact(2)
-        .map(|pair| u16::from_le_bytes([pair[0], pair[1]]))
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .map(|pair| u16::from_le_bytes(*pair))
         .collect();
     let end = units
         .iter()
@@ -822,7 +824,12 @@ impl PictureValue {
         let length = usize::try_from(reader.u32().ok()?).ok()?;
         let mut text = || -> Option<String> {
             let rest = &bytes[reader.position..];
-            let end = rest.chunks_exact(2).position(|pair| pair == [0, 0])? * 2;
+            let end = rest
+                .as_chunks::<2>()
+                .0
+                .iter()
+                .position(|pair| *pair == [0, 0])?
+                * 2;
             let value = utf16(&rest[..end]);
             reader.take(end + 2).ok()?;
             Some(value)

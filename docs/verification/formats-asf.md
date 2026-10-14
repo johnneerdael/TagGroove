@@ -67,6 +67,7 @@ Full suite on macOS: `AR=/usr/bin/ar cargo test --workspace`, clippy `-D warning
   - whether repeated values go to the Metadata Library (we follow the Windows Media Format SDK rule) and whether the first Author/Title stays in the Content Description;
   - dedupe of cross-object copies, and whether "Remove tag" should keep stream-specific attributes.
 - No WMA from Windows Media Player or Mp3tag was available. Fixtures come from ffmpeg and from the hand-built specification file. DRM-protected files, files with Content Encryption objects and files over 4 GiB were not tested. Those objects are preserved as unknown objects, but nothing checks that protected content still plays.
+- Players built on libavformat before 62 (ffmpeg 6.x/7.x) reject Metadata Library values over 65535 bytes and skip the rest of that object. Values that large, such as long lyrics or big covers, are therefore invisible to them, along with any later values in the same object. The specification requires the Metadata Library for such values, and ffmpeg 8.0+ reads them. The ffprobe check for this case depends on the libavformat version.
 - Headers larger than 512 MiB are refused. Every write rewrites the whole file (header plus streamed copy). No padding object is reused for in-place edits.
 - Legacy `WM/Track` (0-based) is shown under its native name, not as TRACK. Language-specific duplicates are not filtered by language.
 - `.wmv` and other ASF video files are not scanned by default, but files with a `.wmv` extension can still be added explicitly or through "Restrict incoming files".
