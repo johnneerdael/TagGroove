@@ -618,6 +618,8 @@ fn many_padded_flac_saves_stay_under_the_cap_and_undo_exactly() {
         .all(|p| read_entry(p).unwrap().fields["ALBUM"] == ["One album for all"]));
 }
 
+// The free-space guard reads statvfs and exists on Unix only.
+#[cfg(unix)]
 #[test]
 fn journaling_is_refused_when_free_space_would_run_low() {
     let dir = tempfile::tempdir().unwrap();

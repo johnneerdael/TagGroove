@@ -559,12 +559,8 @@ impl Journal {
                 directories,
             });
         }
-        if self
-            .undo
-            .last()
-            .is_some_and(|top| top.bytes() > self.limits.bytes)
-        {
-            let record = self.undo.pop().expect("checked top record");
+        let limit = self.limits.bytes;
+        if let Some(record) = self.undo.pop_if(|top| top.bytes() > limit) {
             discard_record(&record);
             if capture.group.is_some() {
                 self.abandoned_group = capture.group;
