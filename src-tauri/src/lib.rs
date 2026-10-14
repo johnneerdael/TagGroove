@@ -4,6 +4,7 @@ use std::sync::{Mutex, OnceLock};
 use tag_core::{Action, AudioEntry, Fields, FileError, ScanResult};
 mod action_host;
 mod converters;
+mod documents;
 mod evaluation;
 mod file_hashes;
 mod rename_plan;
