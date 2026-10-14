@@ -93,6 +93,9 @@ dialog { background:var(--surface); }
 
 .preview:focus-visible{outline:2px solid var(--blue);outline-offset:1px}
 
+/* Exclude closed menu panels from layout to avoid WebView 113's outline-fragment crash when opening a dialog. */
+.menubar > .menu:not([open]) > .menu-list { display:none; }
+
 @media(max-width:1000px) {
   .menubar { position:relative; }
   .menubar > .menu { position:static; }
