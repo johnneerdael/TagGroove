@@ -265,7 +265,7 @@ pub fn technical_fields(entry: &AudioEntry, index: usize) -> Fields {
         ("_FILE_SIZE", human_size(entry.size)),
         ("_COVERS", entry.covers.len().to_string()),
         ("_COUNTER", index.to_string()),
-        ("_APP", "OpenTag v0.1.0".into()),
+        ("_APP", format!("OpenTag v{}", env!("CARGO_PKG_VERSION"))),
         // App table property; this is not advertised as an original placeholder.
         ("_FILETYPE", entry.format.clone()),
     ] {

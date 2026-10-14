@@ -27,6 +27,11 @@
     "active": true,
     "targets": "all",
     "shortDescription": "Open source audio metadata editor",
+    "longDescription": "OpenTag — Tag, Organize, Enjoy. An open source music metadata editor built with Tauri 2 and Rust.",
+    "publisher": "OpenTag",
+    "homepage": "https://github.com/johnneerdael/opentag",
+    "license": "MIT",
+    "licenseFile": "../LICENSE",
     "category": "Music",
     "icon": [
       "icons/32x32.png",
@@ -35,6 +40,9 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "macOS": {
+      "signingIdentity": "-"
+    },
     "linux": {
       "deb": {
         "files": {

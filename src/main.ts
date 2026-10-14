@@ -2,6 +2,7 @@
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { getVersion } from '@tauri-apps/api/app';
 import { open, save, ask } from '@tauri-apps/plugin-dialog';
 import { resolveTagEdits, type TagRowEdit } from './tag-edits';
 import { ActionUI, panelKey, resolvePathChanges, type ActionGroup, type ActionLibrary, type ImportedGroup } from './action-ui';
@@ -35,6 +36,7 @@ type Operation = 'folder'|'files'|'save'|'reload'|'extended'|'add-cover'|'remove
 const glyphs:Partial<Record<Operation,string>>={folder:glyphImport,files:glyphMusic,save:glyphSave,reload:glyphOrganize,extended:glyphEdit,'add-cover':glyphAlbum,'remove-cover':glyphEdit,'filename-tags':glyphImport,'tags-filename':glyphExport,action:glyphBatch,groups:glyphSettings,number:glyphOrganize,'remove-tags':glyphEdit,playlist:glyphOrganize,csv:glyphExport,'select-all':glyphCheck,discard:glyphEdit,about:glyphInfo};
 const glyph=(source:string)=>`<span class="icon" aria-hidden="true">${source}</span>`;
 const desktop = isTauri();
+let appVersion='development';
 const app = document.querySelector<HTMLDivElement>('#app')!;
 const entries = new Map<string, Entry>();
 const drafts = new Map<string, Fields>();
@@ -407,7 +409,7 @@ function numbering() {
 }
 async function operateImpl(op: Operation) {
   if(!enabled(op))return;
-  if(op==='about'){const dialog=modal('About OpenTag',`<img class="about-artwork" src="${aboutUrl}" alt="OpenTag — Tag, Organize, Enjoy"><p>Open source music tag editor.</p><p>Version 0.1.0 · MIT License</p>`,'');dialog.querySelector('[data-close]')!.textContent='Close';return;}
+  if(op==='about'){const dialog=modal('About OpenTag',`<img class="about-artwork" src="${aboutUrl}" alt="OpenTag — Tag, Organize, Enjoy"><p>Tag, Organize, Enjoy.</p><p>Open source music tag editor.</p><p>Version ${esc(appVersion)} · MIT License</p>`,'');dialog.querySelector('[data-close]')!.textContent='Close';return;}
   if(op==='folder'||op==='files'){const result=await open(op==='folder'?{directory:true,multiple:true,title:'Open audio folder'}:{multiple:true,title:'Add audio files'});if(result)await scan(Array.isArray(result)?result:[result]);return;}
   if(op==='save'){await saveDrafts();return;}
   if(op==='select-all'){selected.clear();visible().forEach(e=>selected.add(e.path));anchor=paths()[0];coverIndex=0;render();return;}
@@ -442,6 +444,7 @@ render();
 let resizeFrame=0;
 window.addEventListener('resize',()=>{if(!resizeFrame)resizeFrame=requestAnimationFrame(()=>{resizeFrame=0;rowHeight=compactScreen()?44:30;render();});});
 if(desktop){
+  void getVersion().then(version=>{appVersion=version;}).catch(()=>{appVersion='unknown';});
   void actionUI.initialize().catch(error=>{errors=[{path:'Action groups',error:String(error)}];render();});
   void invoke<typeof runtimePlatform>('runtime_platform').then(platform=>{runtimePlatform=platform;render();}).catch(error=>{errors=[{path:'Platform',error:String(error)}];render();});
   void getCurrentWindow().onCloseRequested(async event => {
