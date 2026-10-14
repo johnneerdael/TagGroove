@@ -38,20 +38,77 @@ pub struct Library {
     pub configurations: Vec<Configuration>,
     pub preferences: Preferences,
 }
+/// Built-in cue sheet export: one FILE and TRACK per file in File List order,
+/// which File → Load playlist/cue sheet reads back.
+pub const CUE_SHEET_TEMPLATE: &str = "$filename(cue,utf-8)TITLE \"%album%\"\r\nPERFORMER \"%albumartist%\"\r\n$loop(1)FILE \"%_filename_rel%\" $if($eql($lower(%_extension%),mp3),MP3,WAVE)\r\n  TRACK $num(%_counter%,2) AUDIO\r\n    TITLE \"%title%\"\r\n    PERFORMER \"%artist%\"\r\n    INDEX 01 00:00:00\r\n$loopend()";
+
 impl Default for Library {
     fn default() -> Self {
         Self {
             version: 1,
-            configurations: vec![Configuration {
-                id: "text".into(),
-                name: "Text".into(),
-                template:
-                    "$filename(txt,utf-8)$loop(1)%artist% - %title%$char(13)$char(10)$loopend()"
-                        .into(),
-            }],
+            configurations: vec![
+                Configuration {
+                    id: "text".into(),
+                    name: "Text".into(),
+                    template:
+                        "$filename(txt,utf-8)$loop(1)%artist% - %title%$char(13)$char(10)$loopend()"
+                            .into(),
+                },
+                Configuration {
+                    id: "cue-sheet".into(),
+                    name: "Cue sheet".into(),
+                    template: CUE_SHEET_TEMPLATE.into(),
+                },
+            ],
             preferences: Preferences::default(),
         }
     }
+}
+
+/// Options → Export (`pages.export`) values for writing BOMs and creating
+/// directories. Values never saved there fall back to the export library's
+/// preferences, where earlier versions stored them.
+pub fn output_options(page: Option<&serde_json::Value>, saved: &Preferences) -> (bool, bool) {
+    let flag = |key: &str| page.and_then(|p| p.get(key)).and_then(|v| v.as_bool());
+    (
+        flag("write_bom").unwrap_or(saved.write_bom),
+        flag("dont_create_directories").map_or(saved.create_directories, |v| !v),
+    )
+}
+pub fn current_output_options(saved: &Preferences) -> (bool, bool) {
+    output_options(crate::settings::current().pages.get("export"), saved)
+}
+
+/// File → Export with Shift (Ctrl+Shift+E): one export file per directory.
+/// Returns the file name and partition used instead of the saved ones: names
+/// that do not already depend on %_folderpath% are placed in each folder.
+pub fn per_directory(filename: &str, template: &str) -> (String, String) {
+    let partition = "%_folderpath%".to_string();
+    let filename = filename.trim();
+    if filename.to_ascii_lowercase().contains("%_folderpath%") {
+        return (filename.into(), partition);
+    }
+    let base = |name: &str| name.rsplit(['/', '\\']).next().unwrap_or(name).to_string();
+    let name = if filename.is_empty() {
+        // Default name of the configuration: $filename(ext) or $filename(name).
+        let argument = template
+            .trim_start()
+            .get(..10)
+            .filter(|head| head.eq_ignore_ascii_case("$filename("))
+            .and_then(|_| template.trim_start()[10..].split([',', ')']).next())
+            .map(str::trim)
+            .unwrap_or_default();
+        if argument.is_empty() {
+            "export.txt".into()
+        } else if argument.contains(['.', '/', '\\', ':']) {
+            base(argument)
+        } else {
+            format!("export.{argument}")
+        }
+    } else {
+        base(filename)
+    };
+    (format!("%_folderpath%{name}"), partition)
 }
 
 fn validate(library: &Library, templates: bool) -> Result<(), String> {
@@ -247,8 +304,10 @@ mod tests {
             .unwrap()
             .map(|entry| entry.unwrap().path())
             .collect();
-        assert_eq!(retired.len(), 1);
-        assert_eq!(fs::read_to_string(&retired[0]).unwrap(), original);
+        assert_eq!(retired.len(), 2);
+        assert!(retired
+            .iter()
+            .any(|path| fs::read_to_string(path).unwrap() == original));
     }
 
     #[test]
@@ -318,6 +377,86 @@ mod tests {
                 original.configurations[0].template
             );
         }
+    }
+
+    #[test]
+    fn cue_sheet_export_lists_files_in_order_and_loads_back() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path();
+        std::fs::create_dir_all(root.join("disc")).unwrap();
+        let row = |name: &str, title: &str| {
+            let path = root.join(name);
+            std::fs::write(&path, b"x").unwrap();
+            let fields: tag_core::Fields = [
+                ("TITLE".to_string(), vec![title.to_string()]),
+                ("ARTIST".to_string(), vec!["Band".to_string()]),
+                ("ALBUM".to_string(), vec!["Live".to_string()]),
+            ]
+            .into();
+            tag_core::ExportRow::new(fields, path.to_string_lossy(), 1.0, 1)
+        };
+        let rows = [row("disc/b.mp3", "One"), row("disc/a.flac", "Two")];
+        let options = tag_core::ExportOptions {
+            filename: root.join("export.txt").to_string_lossy().into_owned(),
+            base_directory: root.to_string_lossy().into_owned(),
+            ..Default::default()
+        };
+        let documents = tag_core::render_export(CUE_SHEET_TEMPLATE, &rows, &options).unwrap();
+        let document = &documents[0];
+        assert!(document.filename.ends_with("export.cue"));
+        let separator = std::path::MAIN_SEPARATOR;
+        assert_eq!(
+            document.text,
+            format!("TITLE \"Live\"\r\nPERFORMER \"\"\r\nFILE \"disc{separator}b.mp3\" MP3\r\n  TRACK 01 AUDIO\r\n    TITLE \"One\"\r\n    PERFORMER \"Band\"\r\n    INDEX 01 00:00:00\r\nFILE \"disc{separator}a.flac\" WAVE\r\n  TRACK 02 AUDIO\r\n    TITLE \"Two\"\r\n    PERFORMER \"Band\"\r\n    INDEX 01 00:00:00\r\n")
+        );
+        std::fs::write(&document.filename, &document.text).unwrap();
+        let loaded =
+            tag_core::playlist::load_playlist(Path::new(&document.filename), None).unwrap();
+        assert_eq!(
+            loaded.files,
+            [root.join("disc/b.mp3"), root.join("disc/a.flac")]
+        );
+    }
+
+    #[test]
+    fn per_directory_exports_place_one_file_in_each_folder() {
+        let folder = |name: &str| (format!("%_folderpath%{name}"), "%_folderpath%".to_string());
+        assert_eq!(
+            per_directory("", "$filename(csv,utf-8)$loop(1)$loopend()"),
+            folder("export.csv")
+        );
+        assert_eq!(
+            per_directory("", "$filename(%album%.html)x"),
+            folder("%album%.html")
+        );
+        assert_eq!(
+            per_directory("", "$filename(out/list.txt)x"),
+            folder("list.txt")
+        );
+        assert_eq!(per_directory("", "plain"), folder("export.txt"));
+        assert_eq!(per_directory("/tmp/x.txt", ""), folder("x.txt"));
+        assert_eq!(per_directory("C:\\out\\y.txt", ""), folder("y.txt"));
+        assert_eq!(
+            per_directory("%_folderpath%sub\\z.txt", ""),
+            ("%_folderpath%sub\\z.txt".into(), "%_folderpath%".into())
+        );
+    }
+
+    #[test]
+    fn options_page_overrides_library_output_preferences() {
+        let saved = Preferences {
+            write_bom: true,
+            create_directories: false,
+            ..Default::default()
+        };
+        assert_eq!(output_options(None, &saved), (true, false));
+        let page = serde_json::json!({"write_bom":false,"dont_create_directories":false});
+        assert_eq!(output_options(Some(&page), &saved), (false, true));
+        let partial = serde_json::json!({"dont_create_directories":true});
+        assert_eq!(
+            output_options(Some(&partial), &Preferences::default()),
+            (false, false)
+        );
     }
 
     #[test]

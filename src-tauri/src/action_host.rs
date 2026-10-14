@@ -26,6 +26,8 @@ pub struct ActionResult {
     pub result: ScanResult,
     pub renamed: Vec<PathChange>,
     pub moved_directories: Vec<PathChange>,
+    /// Playlist and export files written by the actions.
+    pub outputs: Vec<String>,
 }
 impl std::ops::Deref for ActionResult {
     type Target = ScanResult;
@@ -150,6 +152,8 @@ struct NativeHost {
     identities: Vec<String>,
     initial_fields: Vec<Fields>,
     inputs: Vec<PathBuf>,
+    /// Playlists and export files written, for opening after export.
+    outputs: Vec<String>,
 }
 impl NativeHost {
     fn resolve(&self, path: &Path) -> PathBuf {
@@ -466,6 +470,8 @@ impl ActionHost for NativeHost {
                     let key = self.evaluate(partition_template, state)?;
                     groups.entry(key).or_default().push(state.clone());
                 }
+                let options = crate::playlists::PlaylistOptions::current();
+                let write_options = options.write_options();
                 let mut outputs = Vec::new();
                 let mut destinations = HashSet::new();
                 for group in groups.values() {
@@ -479,34 +485,28 @@ impl ActionHost for NativeHost {
                             target.display()
                         ));
                     }
-                    let mut text = String::from("#EXTM3U\n");
+                    let mut items = Vec::with_capacity(group.len());
                     for state in group {
                         let path = state_path(state)?;
                         let entry = crate::settings::read_summary(&path)?;
-                        let title = entry
-                            .fields
-                            .iter()
-                            .find(|(k, _)| k.eq_ignore_ascii_case("TITLE"))
-                            .map(|(_, v)| v.join(" / "))
-                            .unwrap_or(entry.filename.clone())
-                            .replace(['\r', '\n'], " ");
-                        let relative = tag_core::operations::playlist_path(&path, &target)
-                            .to_string_lossy()
-                            .replace('\\', "/");
-                        if relative.contains(['\r', '\n']) {
-                            return Err("Playlist paths cannot contain line breaks".into());
-                        }
-                        text.push_str(&format!(
-                            "#EXTINF:{},{}\n{}\n",
-                            entry.duration.round() as u64,
+                        let title = if options.extended {
+                            self.evaluate(&options.extinf_format, state)?
+                        } else {
+                            String::new()
+                        };
+                        items.push(tag_core::playlist::PlaylistItem {
+                            path,
+                            duration: entry.duration,
                             title,
-                            relative
-                        ));
+                        });
                     }
-                    outputs.push((target, text));
+                    let bytes =
+                        tag_core::playlist::render_playlist(&target, &items, &write_options)?;
+                    outputs.push((target, bytes));
                 }
-                for (target, text) in outputs {
-                    atomic_output(&target, text.as_bytes(), false)?;
+                for (target, bytes) in outputs {
+                    crate::playlists::write(&target, &bytes, &options)?;
+                    self.outputs.push(target.to_string_lossy().into_owned());
                 }
                 Ok(())
             }
@@ -525,14 +525,13 @@ impl ActionHost for NativeHost {
                 } else {
                     None
                 };
-                let write_bom = saved
-                    .as_ref()
-                    .map_or(self.settings.export_write_bom, |p| p.write_bom);
-                let create_directories = saved
-                    .as_ref()
-                    .map_or(self.settings.export_create_directories, |p| {
-                        p.create_directories
-                    });
+                let (write_bom, create_directories) = crate::exports::current_output_options(
+                    &saved.unwrap_or(crate::exports::Preferences {
+                        write_bom: self.settings.export_write_bom,
+                        create_directories: self.settings.export_create_directories,
+                        ..Default::default()
+                    }),
+                );
                 let template = if self.settings.export_template_inline {
                     template.clone()
                 } else {
@@ -613,6 +612,7 @@ impl ActionHost for NativeHost {
                 }
                 for (target, bytes) in outputs {
                     atomic_output_with_directories(&target, &bytes, *append, create_directories)?;
+                    self.outputs.push(target.to_string_lossy().into_owned());
                 }
                 Ok(())
             }
@@ -622,7 +622,7 @@ impl ActionHost for NativeHost {
 
 use std::collections::BTreeMap;
 
-fn normalized_output(path: &Path) -> Result<String, String> {
+pub(crate) fn normalized_output(path: &Path) -> Result<String, String> {
     let value = normalized_output_path(path)?.to_string_lossy().into_owned();
     Ok(if cfg!(windows) {
         value.to_lowercase()
@@ -746,6 +746,7 @@ pub fn execute(
         identities: initial.clone(),
         inputs: initial.iter().map(PathBuf::from).collect(),
         initial_fields: states.iter().map(|s| s.fields.clone()).collect(),
+        outputs: Vec::new(),
     };
     let mut failed = HashSet::new();
     let mut preflight = None;
@@ -877,6 +878,7 @@ pub fn execute(
         result,
         renamed,
         moved_directories: host.directories,
+        outputs: host.outputs,
     }
 }
 
