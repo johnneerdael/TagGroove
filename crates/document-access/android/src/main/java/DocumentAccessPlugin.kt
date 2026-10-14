@@ -6,10 +6,6 @@ import android.content.pm.PackageManager
 import android.database.Cursor
 import android.net.Uri
 import android.os.Process
-import android.system.Os
-import android.system.OsConstants
-import java.io.FileInputStream
-import java.io.FileOutputStream
 import java.io.InputStream
 import java.io.OutputStream
 import android.provider.DocumentsContract
@@ -170,21 +166,7 @@ class DocumentAccessPlugin(private val activity: Activity) : Plugin(activity) {
     }
 
     private val privatePaths get() = PrivateDocumentPaths(listOf(activity.filesDir, activity.cacheDir))
-
-    private fun privateInput(path: String): InputStream {
-        val file = privatePaths.input(path)
-        val fd = Os.open(file.path, OsConstants.O_RDONLY or OsConstants.O_NOFOLLOW or OsConstants.O_NONBLOCK, 0)
-        try {
-            require(OsConstants.S_ISREG(Os.fstat(fd).st_mode)) { "Private input must be a regular file" }
-            return FileInputStream(fd)
-        } catch (error: Exception) { Os.close(fd); throw error }
-    }
-
-    private fun privateOutput(path: String): OutputStream {
-        val file = privatePaths.output(path)
-        val fd = Os.open(file.path, OsConstants.O_WRONLY or OsConstants.O_CREAT or OsConstants.O_EXCL or OsConstants.O_NOFOLLOW, 384)
-        return FileOutputStream(fd)
-    }
+    private val privateStreams get() = AndroidPrivateStreams(privatePaths)
 
     private inner class ProviderStreams(private val uri: Uri) : DocumentStreams {
         lateinit var latest: Metadata
@@ -206,7 +188,7 @@ class DocumentAccessPlugin(private val activity: Activity) : Plugin(activity) {
             try {
                 privatePaths.output(args.outputPath)
                 val provider = ProviderStreams(parseUri(args.uri))
-                val result = DocumentTransport.snapshot(provider) { privateOutput(args.outputPath) }
+                val result = DocumentTransport.snapshot(provider) { privateStreams.output(args.outputPath) }
                 JSObject().put("document", provider.latest.json).put("sha256", result.sha256).put("bytes", result.bytes)
             } catch (error: Exception) {
                 throw IllegalStateException("Snapshot failed; any partial private file is retained at ${args.outputPath}: ${error.message}", error)
@@ -220,7 +202,7 @@ class DocumentAccessPlugin(private val activity: Activity) : Plugin(activity) {
         catch (error: Exception) { reject(invoke, error); return }
         background(invoke) {
             val provider = ProviderStreams(parseUri(args.uri))
-            val result = DocumentTransport.publish(provider, { privateInput(args.inputPath) }, args.expectedSha256)
+            val result = DocumentTransport.publish(provider, { privateStreams.input(args.inputPath) }, args.expectedSha256)
             JSObject().put("document", provider.latest.json).put("sha256", result.sha256).put("bytes", result.bytes)
         }
     }
