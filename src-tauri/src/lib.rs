@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 use tag_core::{Action, AudioEntry, Fields, FileError, ScanResult};
 mod action_host;
+mod columns;
 mod converters;
 mod documents;
 mod evaluation;
@@ -14,6 +15,7 @@ mod history;
 mod managed_actions;
 mod rename_plan;
 mod settings;
+mod sources;
 mod tag_panel;
 
 fn export_library_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
@@ -903,6 +905,11 @@ pub fn run() {
             file_ops::open_directory,
             file_ops::play_files,
             file_ops::take_launch_requests,
+            columns::load_columns,
+            columns::save_columns,
+            columns::import_columns,
+            columns::export_columns,
+            columns::evaluate_columns,
             tag_panel::load_tag_panel,
             tag_panel::save_tag_panel,
             tag_panel::import_tag_panel_layout,
@@ -910,7 +917,15 @@ pub fn run() {
             tag_panel::import_value_list,
             tag_panel::export_value_list,
             settings::load_settings,
-            settings::save_settings
+            settings::save_settings,
+            sources::tag_source_search,
+            sources::tag_source_release,
+            sources::tag_source_covers,
+            sources::tag_source_image,
+            sources::tag_source_cancel,
+            sources::tag_source_apply,
+            sources::load_tag_source_settings,
+            sources::save_tag_source_settings
         ])
         .run(tauri::generate_context!())
         .expect("Unable to run OpenTag");

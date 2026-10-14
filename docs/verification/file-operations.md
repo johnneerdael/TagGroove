@@ -4,13 +4,17 @@ Reference pages: [File menu](https://docs.mp3tag.de/menus/file/), [Edit menu](ht
 
 ## Delivered behavior
 
-**Directories.** Change directory (File menu, toolbar *Open folder*, Ctrl/Cmd D) now replaces the file list, as it does in Mp3tag. Before this change it appended. The old list is cleared only after the new scan succeeds. If any file has pending edits, OpenTag asks before discarding them. Add directory (Ctrl H) and drag-and-drop append to the list without changing the working directory. Other directory commands:
+**Directories.** Change directory (File menu, toolbar *Open folder*, Ctrl/Cmd D; Ctrl/Cmd O is File → Options as in Mp3tag) now replaces the file list, as it does in Mp3tag. Before this change it appended. The old list is cleared only after the new scan succeeds. If any file has pending edits, OpenTag asks before discarding them. Add directory (Ctrl H) and drag-and-drop append to the list without changing the working directory. Other directory commands:
 
 - Upper directory (Ctrl/Cmd Shift D).
 - Back and forward history (Alt ←/→), kept in memory for the session.
 - Favorite directory (Ctrl M), which opens the first favorite.
 - Recent directories and Favorite directories submenus in the File menu.
 - A *Favorite directories…* dialog. It can add the current or a chosen folder, make a favorite first, remove or open favorites, and clear the recent list.
+
+The File menu follows Mp3tag's order: save/read/playlist/export, then the directory commands (Change, Add, Add files, Upper, Previous, Next, Favorite directory, Favorite directories…, Recent and Favorite submenus), Clear list, Open in Finder/Explorer, Play, and Options last. In the Edit menu, Copy files to… and Move files to… follow Edit in file list (Mp3tag's Rename), then Remove from list and Delete files….
+
+The file list (from `feat/file-list`) and file operations share one implementation. `removeEntries()` drops entries and their covers, drafts, overrides and cached column values; Remove from list, Clear list, Refresh, Delete and Change directory all use it. `scan(paths,{recursive,replace,location})` records the list roots: Change directory, Upper, history, favorites and replacing launches reset them to the new folder, while Add directory, Add files, drag-and-drop and `/add` launches append. Refresh rescans exactly those roots with the Read subfolders option.
 
 Settings live in the shared Options store. Directory scans and dropped folders follow the existing *Read subfolders* option on File → Options → Directories. The startup directory (empty file list, previous directory or first favorite) is a *Startup* page under Directories, registered with `registerOptionsPage` and stored under `pages.directories-startup`. Recent and favorite folders are data rather than options, so they are saved in `directories.json` in the app configuration directory, next to `actions.json` and `exports.json`. That file has a version number, and the recent list is limited to 10 entries with no duplicates. Older files that still contain `subfolders` or `startup` fields load without error.
 
@@ -32,7 +36,7 @@ Settings live in the shared Options store. Directory scans and dropped folders f
 
 ## Automated checks
 
-**142 frontend and 320 Rust tests pass** after merging `feat/core-parity`, plus one ignored real-trash probe. Before this work the counts were 101 and 279.
+**165 frontend and 353 Rust tests pass** after merging the latest `feat/core-parity`, with 2 ignored Rust tests: the real-trash probe here and one from another feature. Before this work the counts were 101 and 279.
 
 New tests:
 
@@ -60,7 +64,8 @@ New tests:
 - Making a favorite first, then saving.
 - Favorite directory, then back.
 - A delete where one file failed and appeared in the errors panel.
-- After the merge: the Options tree lists Directories → Startup, its saved *First favorite directory* choice opens the first favorite at startup, and *Read subfolders* off produces a non-recursive scan.
+- After the final merge: Ctrl/Cmd O opens Options and Ctrl/Cmd D opens the Change directory picker; the File menu renders in the order above; Refresh after the startup favorite and after opening another favorite rescans only that folder, non-recursively when Read subfolders is off.
+- After the first merge: the Options tree lists Directories → Startup, its saved *First favorite directory* choice opens the first favorite at startup, and *Read subfolders* off produces a non-recursive scan.
 - Copy, move and delete disabled with "Save pending changes first." while reveal and play stayed enabled.
 
 ## Known gaps compared with Mp3tag
