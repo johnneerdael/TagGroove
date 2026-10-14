@@ -325,6 +325,14 @@ mod tests {
     }
 
     #[test]
+    fn defaults_match_the_frontend_fixture() {
+        let fixture: serde_json::Value =
+            serde_json::from_str(include_str!("../../tests/fixtures/default-settings.json"))
+                .unwrap();
+        assert_eq!(serde_json::to_value(Settings::default()).unwrap(), fixture);
+    }
+
+    #[test]
     fn extension_lists_accept_mp3tag_patterns() {
         assert_eq!(parse_extensions("").unwrap(), None);
         assert_eq!(

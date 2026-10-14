@@ -1,0 +1,193 @@
+// File → Options… (https://docs.mp3tag.de/customization/options/). Built-in pages
+// are declarative; other features add pages with registerOptionsPage().
+export type Id3v2Format='v23_utf16'|'v23_latin1'|'v24_utf8';
+export type TagOptions={
+  mpeg:{read_id3v1:boolean;read_id3v2:boolean;read_ape:boolean;write_id3v1:boolean;write_id3v2:boolean;write_ape:boolean;id3v2_only_if_needed:boolean;id3v2_format:Id3v2Format;remove_id3v1:boolean;remove_id3v2:boolean;remove_ape:boolean};
+  ape:{read_id3v1:boolean;read_ape:boolean;write_id3v1:boolean;write_ape:boolean;remove_id3v1:boolean;remove_id3v2:boolean;remove_ape:boolean};
+  advanced:{id3v2_comment_language:string;popularimeter_ratings:boolean};
+  preserve_modified_time:boolean;
+};
+export type Settings={version:number;general:{natural_sort:boolean;show_directory_in_title:boolean};files:{restrict_extensions:string};directories:{subfolders:boolean};tags:TagOptions;pages:Record<string,Record<string,unknown>>};
+export type SettingsResponse={settings:Settings;defaults:Settings;warning:string|null};
+/** Values edited in the dialog: persisted settings plus the per-device appearance choice. */
+export type OptionsDraft=Settings&{appearance:string};
+export type OptionControl=
+  |{kind:'checkbox';path:string;label:string;enabledWhen?:(draft:OptionsDraft)=>boolean}
+  |{kind:'radio';path:string;label:string;choices:[string,string][];enabledWhen?:(draft:OptionsDraft)=>boolean}
+  |{kind:'select';path:string;label:string;choices:[string,string][]}
+  |{kind:'text';path:string;label:string;placeholder?:string;maxLength?:number}
+  |{kind:'group';label:string;controls:OptionControl[]}
+  |{kind:'note';text:string};
+export type OptionsPage={id:string;label:string;parent?:string;order?:number;description?:string;controls:OptionControl[];validate?:(draft:OptionsDraft)=>string|undefined};
+export type OptionsHost={
+  load:()=>Promise<SettingsResponse>;save:(settings:Settings)=>Promise<SettingsResponse>;
+  appearance:{get:()=>string;set:(value:string)=>void};
+  applied:(next:Settings,previous:Settings)=>void|Promise<void>;
+};
+
+export const defaultSettings=():Settings=>({version:1,general:{natural_sort:true,show_directory_in_title:true},files:{restrict_extensions:''},directories:{subfolders:true},
+  tags:{mpeg:{read_id3v1:true,read_id3v2:true,read_ape:true,write_id3v1:true,write_id3v2:true,write_ape:false,id3v2_only_if_needed:false,id3v2_format:'v23_utf16',remove_id3v1:false,remove_id3v2:false,remove_ape:true},
+    ape:{read_id3v1:true,read_ape:true,write_id3v1:false,write_ape:true,remove_id3v1:false,remove_id3v2:false,remove_ape:false},
+    advanced:{id3v2_comment_language:'eng',popularimeter_ratings:false},preserve_modified_time:false},pages:{}});
+
+const pageId=/^[a-z0-9][a-z0-9_-]*$/;
+export function getPath(value:unknown,path:string):unknown{return path.split('.').reduce<unknown>((current,key)=>current&&typeof current==='object'?(current as Record<string,unknown>)[key]:undefined,value);}
+export function setPath<T extends object>(value:T,path:string,next:unknown):T{
+  const keys=path.split('.'),last=keys.pop()!;let current=value as Record<string,unknown>;
+  for(const key of keys){if(!current[key]||typeof current[key]!=='object')current[key]={};current=current[key] as Record<string,unknown>;}
+  current[last]=next;return value;
+}
+
+const registry=new Map<string,OptionsPage>();
+/** Add an Options page. Values under `pages.<id>.*` persist without backend changes. */
+export function registerOptionsPage(page:OptionsPage){
+  if(!pageId.test(page.id))throw new Error(`Invalid options page identifier: ${page.id}`);
+  if(registry.has(page.id))throw new Error(`Options page ${page.id} is already registered`);
+  registry.set(page.id,page);
+}
+/** Pages in display order with their tree depth. Unknown parents become top-level pages. */
+export function pageTree(pages:OptionsPage[]=[...registry.values()]):{page:OptionsPage;depth:number}[]{
+  const known=new Set(pages.map(p=>p.id)),output:{page:OptionsPage;depth:number}[]=[];
+  const children=(parent:string|undefined)=>pages.map((page,index)=>({page,index})).filter(({page})=>(page.parent&&known.has(page.parent)?page.parent:undefined)===parent)
+    .sort((a,b)=>(a.page.order??1000)-(b.page.order??1000)||a.index-b.index).map(({page})=>page);
+  const visit=(parent:string|undefined,depth:number)=>children(parent).forEach(page=>{output.push({page,depth});visit(page.id,depth+1);});
+  visit(undefined,0);return output;
+}
+
+export function parseExtensions(value:string):string[]|null{
+  const output:string[]=[];
+  for(const item of value.split(/[;,\s]+/).filter(Boolean)){
+    const extension=item.replace(/^\*?\./,'').toLowerCase();
+    if(!/^[a-z0-9+]+$/.test(extension))throw new Error(`Invalid file extension: ${item}`);
+    if(!output.includes(extension))output.push(extension);
+  }
+  return output.length?output:null;
+}
+/** Mirror of the backend validation, reported with the page that needs attention. */
+export function validateOptions(draft:OptionsDraft,pages:OptionsPage[]=[...registry.values()]):{page:string;message:string}|undefined{
+  const {mpeg,ape,advanced}=draft.tags;
+  if(!/^[A-Za-z]{3}$/.test(advanced.id3v2_comment_language))return{page:'tags-advanced',message:'The ID3v2 comment language must be a three-letter ISO-639-2 code.'};
+  if(!mpeg.write_id3v1&&!mpeg.write_id3v2&&!mpeg.write_ape)return{page:'tags-mpeg',message:'Enable at least one tag type to write for MPEG files.'};
+  if(!ape.write_id3v1&&!ape.write_ape)return{page:'tags-ape',message:'Enable at least one tag type to write for APE, MPC and WavPack files.'};
+  try{parseExtensions(draft.files.restrict_extensions);}catch(error){return{page:'files',message:String((error as Error).message)};}
+  for(const page of pages){const message=page.validate?.(draft);if(message)return{page:page.id,message};}
+  return undefined;
+}
+export function naturalCollator(settings:Settings){return new Intl.Collator(undefined,{numeric:settings.general.natural_sort,sensitivity:'base'});}
+export function windowTitle(location:string,settings:Settings){return settings.general.show_directory_in_title&&location&&location!=='No folder loaded'?`OpenTag — ${location}`:'OpenTag';}
+
+const tagRead=(prefix:string,kinds:[string,string][]):OptionControl=>({kind:'group',label:'Read',controls:kinds.map(([key,label])=>({kind:'checkbox',path:`tags.${prefix}.read_${key}`,label}))});
+const tagRemove=(prefix:string):OptionControl=>({kind:'group',label:'Remove when saving',controls:[['id3v1','ID3v1'],['id3v2','ID3v2'],['ape','APE']].map(([key,label])=>({kind:'checkbox',path:`tags.${prefix}.remove_${key}`,label}))});
+for(const page of [
+  {id:'general',label:'General',order:10,controls:[
+    {kind:'checkbox',path:'general.show_directory_in_title',label:'Show current directory in window title'},
+    {kind:'checkbox',path:'general.natural_sort',label:'Use natural sorting (1, 2, 11, …)'}]},
+  {id:'files',label:'Files',order:20,controls:[
+    {kind:'group',label:'Read files',controls:[{kind:'text',path:'files.restrict_extensions',label:'Restrict incoming files to',placeholder:'All supported formats (for example *.mp3;*.flac)'},
+      {kind:'note',text:'Applies to folders. Files you add individually are always read.'}]},
+    {kind:'group',label:'Write files',controls:[{kind:'checkbox',path:'tags.preserve_modified_time',label:'Preserve timestamps of modified files'}]}]},
+  {id:'directories',label:'Directories',order:30,controls:[{kind:'checkbox',path:'directories.subfolders',label:'Read subfolders'}]},
+  {id:'appearance',label:'Appearance',order:40,controls:[{kind:'select',path:'appearance',label:'Color mode',choices:[['system','System'],['light','Light'],['dark','Dark']]},
+    {kind:'note',text:'Color mode is remembered on this device and also available in the title bar.'}]},
+  {id:'tags',label:'Tags',order:50,description:'Choose which tag types are read, written and removed for each format family.',controls:[
+    {kind:'note',text:'Mpeg applies to MP3 files. Ape, Mpc applies to Monkey’s Audio, Musepack and WavPack files. Other formats always use their native tag.'}]},
+  {id:'tags-mpeg',parent:'tags',label:'Mpeg',order:10,description:'Only one tag type is displayed: APE before ID3v2 before ID3v1, among the types enabled for reading.',controls:[
+    tagRead('mpeg',[['id3v1','ID3v1'],['id3v2','ID3v2'],['ape','APE']]),
+    {kind:'group',label:'Write',controls:[
+      {kind:'checkbox',path:'tags.mpeg.write_id3v1',label:'ID3v1'},
+      {kind:'checkbox',path:'tags.mpeg.write_id3v2',label:'ID3v2'},
+      {kind:'checkbox',path:'tags.mpeg.id3v2_only_if_needed',label:'ID3v2 only if ID3v1 too small',enabledWhen:d=>d.tags.mpeg.write_id3v1&&d.tags.mpeg.write_id3v2},
+      {kind:'radio',path:'tags.mpeg.id3v2_format',label:'ID3v2 version',enabledWhen:d=>d.tags.mpeg.write_id3v2,choices:[['v24_utf8','ID3v2.4 UTF-8'],['v23_utf16','ID3v2.3 UTF-16'],['v23_latin1','ID3v2.3 ISO-8859-1']]},
+      {kind:'checkbox',path:'tags.mpeg.write_ape',label:'APEv2 (also updates an existing ID3v1 tag)'}]},
+    tagRemove('mpeg')]},
+  {id:'tags-ape',parent:'tags',label:'Ape, Mpc',order:20,description:'APE is displayed before ID3v1 when both are read.',controls:[
+    tagRead('ape',[['id3v1','ID3v1'],['ape','APE']]),
+    {kind:'group',label:'Write',controls:[{kind:'checkbox',path:'tags.ape.write_id3v1',label:'ID3v1'},{kind:'checkbox',path:'tags.ape.write_ape',label:'APEv2 (also updates an existing ID3v1 tag)'}]},
+    tagRemove('ape')]},
+  {id:'tags-advanced',parent:'tags',label:'Advanced',order:40,controls:[
+    {kind:'text',path:'tags.advanced.id3v2_comment_language',label:'ID3v2 comment language code (ISO-639-2)',maxLength:3},
+    {kind:'checkbox',path:'tags.advanced.popularimeter_ratings',label:'Always display POPULARIMETER values for ID3v2 ratings'},
+    {kind:'note',text:'Reload files to see changed rating fields.'}]},
+] as OptionsPage[])registerOptionsPage(page);
+
+const html=(value:unknown)=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
+const controlId=(path:string,suffix='')=>`option-${path.replace(/[^a-z0-9]+/gi,'-')}${suffix}`;
+export function controlMarkup(control:OptionControl,draft:OptionsDraft):string{
+  const disabled=(c:{enabledWhen?:(d:OptionsDraft)=>boolean})=>c.enabledWhen&&!c.enabledWhen(draft)?'disabled':'';
+  switch(control.kind){
+  case 'checkbox':return`<label class="action-check"><input type="checkbox" id="${controlId(control.path)}" data-option="${html(control.path)}" ${getPath(draft,control.path)?'checked':''} ${disabled(control)}> ${html(control.label)}</label>`;
+  case 'radio':return`<fieldset class="options-choices" ${disabled(control)}><legend>${html(control.label)}</legend>${control.choices.map(([value,label])=>`<label class="action-check"><input type="radio" name="${controlId(control.path)}" data-option="${html(control.path)}" value="${html(value)}" ${getPath(draft,control.path)===value?'checked':''}> ${html(label)}</label>`).join('')}</fieldset>`;
+  case 'select':return`<label class="field"><span>${html(control.label)}</span><select id="${controlId(control.path)}" data-option="${html(control.path)}">${control.choices.map(([value,label])=>`<option value="${html(value)}" ${getPath(draft,control.path)===value?'selected':''}>${html(label)}</option>`).join('')}</select></label>`;
+  case 'text':return`<label class="field"><span>${html(control.label)}</span><input id="${controlId(control.path)}" data-option="${html(control.path)}" value="${html(getPath(draft,control.path)??'')}" ${control.placeholder?`placeholder="${html(control.placeholder)}"`:''} ${control.maxLength?`maxlength="${control.maxLength}"`:''} autocomplete="off" spellcheck="false"></label>`;
+  case 'group':return`<fieldset class="numbering-section"><legend>${html(control.label)}</legend>${control.controls.map(c=>controlMarkup(c,draft)).join('')}</fieldset>`;
+  case 'note':return`<p>${html(control.text)}</p>`;
+  }
+}
+const pathsOf=(controls:OptionControl[]):string[]=>controls.flatMap(c=>c.kind==='group'?pathsOf(c.controls):'path' in c?[c.path]:[]);
+
+export class OptionsUI {
+  private showing=false;
+  private current:Settings=defaultSettings();
+  constructor(private host:OptionsHost){}
+  get settings():Settings{return this.current;}
+  async initialize(){const response=await this.host.load();this.current=response.settings;return response;}
+  async open(initialPage='general'){
+    if(this.showing)return;this.showing=true;
+    let response:SettingsResponse;
+    try{response=await this.host.load();}catch(error){this.showing=false;throw error;}
+    this.current=response.settings;
+    const draft:OptionsDraft={...structuredClone(response.settings),appearance:this.host.appearance.get()};
+    const tree=pageTree();let active=tree.some(({page})=>page.id===initialPage)?initialPage:tree[0].page.id,saving=false;
+    const dialog=document.createElement('dialog');dialog.className='options-dialog';dialog.setAttribute('aria-labelledby','options-title');document.body.append(dialog);
+    const error=(message:string)=>{let p=dialog.querySelector<HTMLElement>('.dialog-error');if(!p){p=document.createElement('p');p.className='dialog-error';p.setAttribute('role','alert');dialog.querySelector('.options-page')!.append(p);}p.textContent=message;};
+    const renderPage=(focusTree=false)=>{
+      const page=tree.find(({page})=>page.id===active)!.page;
+      dialog.querySelectorAll<HTMLButtonElement>('[role="treeitem"]').forEach(item=>{const selected=item.dataset.page===active;item.setAttribute('aria-selected',String(selected));item.tabIndex=selected?0:-1;if(selected&&focusTree)item.focus();});
+      dialog.querySelector<HTMLSelectElement>('#options-page-picker')!.value=active;
+      dialog.querySelector('.options-page')!.innerHTML=`<h2 id="options-page-title">${html(page.label)}</h2>${page.description?`<p>${html(page.description)}</p>`:''}${page.controls.map(c=>controlMarkup(c,draft)).join('')}`;
+    };
+    const select=(id:string,focusTree=false)=>{active=id;renderPage(focusTree);};
+    dialog.innerHTML=`<header id="options-title">Options</header><div class="dialog-content options-layout">${response.warning?`<p class="dialog-error options-warning" role="alert">${html(response.warning)}</p>`:''}
+      <label class="field options-page-select"><span>Options page</span><select id="options-page-picker">${tree.map(({page,depth})=>`<option value="${html(page.id)}">${depth?'— ':''}${html(page.label)}</option>`).join('')}</select></label>
+      <div class="options-tree" role="tree" aria-label="Options pages">${tree.map(({page,depth})=>`<button type="button" role="treeitem" aria-level="${depth+1}" data-page="${html(page.id)}">${html(page.label)}</button>`).join('')}</div>
+      <section class="options-page" aria-labelledby="options-page-title" aria-live="polite"></section></div>
+      <div class="dialog-footer"><button id="options-defaults" type="button">Restore page defaults</button><span class="spacer"></span><button id="options-cancel" type="button">Cancel</button><button id="options-ok" class="primary" type="button">OK</button></div>`;
+    const items=()=>[...dialog.querySelectorAll<HTMLButtonElement>('[role="treeitem"]')];
+    dialog.querySelector('.options-tree')!.addEventListener('click',event=>{const item=(event.target as Element).closest<HTMLButtonElement>('[role="treeitem"]');if(item)select(item.dataset.page!,true);});
+    dialog.querySelector('.options-tree')!.addEventListener('keydown',event=>{
+      const key=(event as KeyboardEvent).key,list=items(),index=list.findIndex(item=>item.dataset.page===active);
+      const next=key==='ArrowDown'?index+1:key==='ArrowUp'?index-1:key==='Home'?0:key==='End'?list.length-1:-2;
+      if(next===-2)return;event.preventDefault();const target=list[Math.max(0,Math.min(list.length-1,next))];select(target.dataset.page!,true);
+    });
+    dialog.querySelector('#options-page-picker')!.addEventListener('change',event=>select((event.target as HTMLSelectElement).value));
+    const page=dialog.querySelector<HTMLElement>('.options-page')!;
+    const update=(event:Event)=>{
+      const input=event.target as HTMLInputElement|HTMLSelectElement,path=input.dataset.option;if(!path)return;
+      if(input instanceof HTMLInputElement&&input.type==='radio'&&!input.checked)return;
+      setPath(draft,path,input instanceof HTMLInputElement&&input.type==='checkbox'?input.checked:input.value);
+      dialog.querySelector('.options-page .dialog-error')?.remove();
+      if(event.type==='change'&&!(input instanceof HTMLInputElement&&input.type==='text')){const focused=input.id||undefined,value=input.value;renderPage();(focused?dialog.querySelector<HTMLElement>(`#${CSS.escape(focused)}`):dialog.querySelector<HTMLElement>(`input[name="${CSS.escape((input as HTMLInputElement).name)}"][value="${CSS.escape(value)}"]`))?.focus();}
+    };
+    page.addEventListener('input',update);page.addEventListener('change',update);
+    dialog.querySelector('#options-defaults')!.addEventListener('click',()=>{
+      const current=tree.find(({page})=>page.id===active)!.page,defaults:OptionsDraft={...structuredClone(response.defaults),appearance:'system'};
+      for(const path of pathsOf(current.controls))setPath(draft,path,structuredClone(getPath(defaults,path)));renderPage();
+    });
+    dialog.querySelector('#options-cancel')!.addEventListener('click',()=>dialog.close());
+    dialog.querySelector('#options-ok')!.addEventListener('click',async()=>{
+      if(saving)return;
+      const problem=validateOptions(draft);if(problem){select(problem.page);error(problem.message);return;}
+      const {appearance,...settings}=draft,previous=this.current;saving=true;
+      dialog.querySelectorAll<HTMLButtonElement>('.dialog-footer button').forEach(b=>b.disabled=true);
+      try{
+        const saved=await this.host.save(settings);this.current=saved.settings;this.host.appearance.set(appearance);
+        dialog.close();await this.host.applied(saved.settings,previous);
+      }catch(e){if(dialog.open)error(String(e));}
+      finally{saving=false;dialog.querySelectorAll<HTMLButtonElement>('.dialog-footer button').forEach(b=>b.disabled=false);}
+    });
+    dialog.addEventListener('cancel',event=>{if(saving)event.preventDefault();});
+    dialog.addEventListener('close',()=>{this.showing=false;dialog.remove();});
+    renderPage();dialog.showModal();items().find(item=>item.dataset.page===active)?.focus();
+    if(getComputedStyle(dialog.querySelector('.options-tree')!).display==='none')dialog.querySelector<HTMLSelectElement>('#options-page-picker')!.focus();
+  }
+}
