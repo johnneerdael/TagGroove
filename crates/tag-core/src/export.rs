@@ -859,14 +859,29 @@ fn rooted(path: &str) -> bool {
     path.starts_with(['/', '\\']) || path.as_bytes().get(1) == Some(&b':')
 }
 fn resolve_path(base: &str, path: &str) -> String {
-    let path = path.replace('\\', "/");
-    let joined = if rooted(&path) || base.is_empty() || base == "." {
-        path
+    let joined = if rooted(path) || base.is_empty() || base == "." {
+        path.to_owned()
     } else {
-        format!("{}/{path}", base.replace('\\', "/").trim_end_matches('/'))
+        format!("{}/{path}", base.trim_end_matches(['/', '\\']))
     };
+    let verbatim = verbatim_path(&joined);
+    // Other verbatim namespaces are opaque. Never turn their namespace marker
+    // into forward slashes or reinterpret it as an ordinary UNC server/share.
+    if joined.starts_with(r"\\?\") && verbatim.is_none() {
+        return joined.replace('/', "\\");
+    }
     let (prefix, parts) = path_parts(&joined);
-    if prefix == "/" {
+    if let Some((unc, _)) = verbatim {
+        let root = if unc {
+            format!(
+                r"\\?\UNC\{}",
+                prefix.trim_start_matches('/').replace('/', "\\")
+            )
+        } else {
+            format!(r"\\?\{prefix}")
+        };
+        format!("{root}\\{}", parts.join("\\"))
+    } else if prefix == "/" {
         format!("/{}", parts.join("/"))
     } else if prefix.is_empty() {
         parts.join("/")
@@ -874,8 +889,27 @@ fn resolve_path(base: &str, path: &str) -> String {
         format!("{prefix}/{}", parts.join("/"))
     }
 }
+// Remove only the representation wrapper for comparison. A drive or share is
+// the same volume whether spelled normally or with Windows' long-path prefix.
+fn verbatim_path(path: &str) -> Option<(bool, &str)> {
+    let rest = path.strip_prefix(r"\\?\")?;
+    if rest
+        .get(..4)
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("UNC\\"))
+    {
+        Some((true, &rest[4..]))
+    } else if rest.as_bytes().get(1) == Some(&b':') {
+        Some((false, rest))
+    } else {
+        None
+    }
+}
 fn path_parts(path: &str) -> (String, Vec<String>) {
-    let normalized = path.replace('\\', "/");
+    let normalized = match verbatim_path(path) {
+        Some((true, rest)) => format!("//{}", rest.replace('\\', "/")),
+        Some((false, rest)) => rest.replace('\\', "/"),
+        None => path.replace('\\', "/"),
+    };
     let mut parts = normalized
         .split('/')
         .filter(|part| !part.is_empty() && *part != ".")
@@ -908,7 +942,7 @@ fn relative_path(source: &str, output: &str, directory: bool) -> String {
     let (source_prefix, mut source_parts) = path_parts(source);
     let (base_prefix, mut base_parts) = path_parts(output);
     base_parts.pop();
-    let windows = source.as_bytes().get(1) == Some(&b':') || source.starts_with("\\\\");
+    let windows = source_prefix.ends_with(':') || source_prefix.starts_with("//");
     if !source_prefix.eq_ignore_ascii_case(&base_prefix) {
         return if directory {
             folder(source)

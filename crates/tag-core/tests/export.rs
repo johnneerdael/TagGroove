@@ -192,6 +192,122 @@ fn relative_paths_follow_actual_output_location_and_keep_other_drives_absolute()
 }
 
 #[test]
+fn verbatim_drive_export_destinations_keep_the_windows_namespace_and_long_paths() {
+    let long_folder = "音楽".repeat(100);
+    let base = format!(r"\\?\D:\{long_folder}\{long_folder}\exports");
+    assert!(base.encode_utf16().count() > 260);
+    let options = ExportOptions {
+        filename: r"reports\..\list.txt".into(),
+        base_directory: base.clone(),
+        ..options()
+    };
+    let document = render_export("contents", &rows(), &options)
+        .unwrap()
+        .remove(0);
+    assert_eq!(document.filename, format!(r"{base}\list.txt"));
+    assert!(!document.filename.contains('/'));
+
+    let options = ExportOptions {
+        filename: r"\\?\D:\out\list.txt".into(),
+        ..ExportOptions::default()
+    };
+    assert_eq!(
+        render_export("contents", &rows(), &options).unwrap()[0].filename,
+        r"\\?\D:\out\list.txt"
+    );
+}
+
+#[test]
+fn ordinary_and_verbatim_drive_paths_share_the_same_relative_export_volume() {
+    let rows = vec![
+        row(r"\\?\c:\music\a.mp3", "A", "X", "T", "1", 1., 1),
+        row(r"\\?\D:\music\b.mp3", "B", "Y", "T", "1", 1., 1),
+    ];
+    let options = ExportOptions {
+        filename: r"C:\out\list.txt".into(),
+        ..options()
+    };
+    assert_eq!(
+        render_export(
+            "$loop(1)%_filename_rel%|%_folderpath_rel%;$loopend()",
+            &rows,
+            &options
+        )
+        .unwrap()[0]
+            .text,
+        r"..\music\a.mp3|..\music\;\\?\D:\music\b.mp3|\\?\D:\music\;"
+    );
+    let options = ExportOptions {
+        filename: r"\\?\C:\out\list.txt".into(),
+        ..ExportOptions::default()
+    };
+    let rows = vec![row(r"c:\music\a.mp3", "A", "X", "T", "1", 1., 1)];
+    assert_eq!(
+        render_export("%_filename_rel%", &rows, &options).unwrap()[0].text,
+        r"..\music\a.mp3"
+    );
+}
+
+#[test]
+fn verbatim_unc_export_names_and_relative_placeholders_preserve_share_identity() {
+    let rows = vec![
+        row(r"\\server\share\music\a.mp3", "A", "X", "T", "1", 1., 1),
+        row(r"\\?\UNC\server\other\b.mp3", "B", "Y", "T", "1", 1., 1),
+    ];
+    let options = ExportOptions {
+        filename: r"\\?\UNC\SERVER\SHARE\out\list.txt".into(),
+        ..options()
+    };
+    let document = render_export(
+        "$loop(1)%_filename_rel%|%_folderpath_rel%;$loopend()",
+        &rows,
+        &options,
+    )
+    .unwrap()
+    .remove(0);
+    assert_eq!(document.filename, r"\\?\UNC\SERVER\SHARE\out\list.txt");
+    assert_eq!(
+        document.text,
+        r"..\music\a.mp3|..\music\;\\?\UNC\server\other\b.mp3|\\?\UNC\server\other\;"
+    );
+    let rows = vec![row(
+        r"\\?\UNC\server\share\music\a.mp3",
+        "A",
+        "X",
+        "T",
+        "1",
+        1.,
+        1,
+    )];
+    let options = ExportOptions {
+        filename: r"\\SERVER\SHARE\out\list.txt".into(),
+        ..ExportOptions::default()
+    };
+    assert_eq!(
+        render_export("%_filename_rel%", &rows, &options).unwrap()[0].text,
+        r"..\music\a.mp3"
+    );
+}
+
+#[test]
+fn filename_directives_and_row_folder_placeholders_keep_verbatim_destinations() {
+    let rows = vec![row(r"\\?\D:\music\a.mp3", "A", "X", "T", "1", 1., 1)];
+    let options = ExportOptions {
+        filename: "%_folderpath%export.txt".into(),
+        ..options()
+    };
+    let document = render_export(
+        "$filename('lists\\report.txt')%_filename_rel%",
+        &rows,
+        &options,
+    )
+    .unwrap()
+    .remove(0);
+    assert_eq!(document.filename, r"\\?\D:\music\lists\report.txt");
+    assert_eq!(document.text, r"..\a.mp3");
+}
+
+#[test]
 fn hash_placeholders_require_real_supplied_values_including_meta_access() {
     assert!(render_export("%_crc%", &rows(), &options()).is_err());
     assert!(render_export("$meta(_md5)", &rows(), &options()).is_err());
