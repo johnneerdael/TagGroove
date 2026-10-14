@@ -1,5 +1,4 @@
 pub mod actions;
-pub mod clone;
 pub mod converters;
 pub mod export;
 pub mod filter;

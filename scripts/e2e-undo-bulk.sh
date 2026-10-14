@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 # Saves one field across many generated FLAC files in the real desktop app and
-# undoes it. The files are copy-on-write clones of one noise template (APFS
-# `cp -c`, reflinks elsewhere), so the folder exceeds the undo cap in size while
-# using little disk. Requires ffmpeg and a cloning volume for the scratch dir.
+# undoes it. The files are APFS copy-on-write clones of one noise template
+# (`cp -c`), so the folder exceeds the undo cap in size while using little
+# disk. macOS only: OpenTag counts clone-backed snapshots by their rewritten
+# region only where it can confirm the clone (APFS). Requires ffmpeg.
 # Usage: scripts/e2e-undo-bulk.sh [files] [--no-build]
 set -euo pipefail
+[[ "$(uname)" == "Darwin" ]] || { echo "e2e-undo-bulk.sh needs macOS (APFS clones)" >&2; exit 2; }
 root="$(cd "$(dirname "$0")/.." && pwd)"
 files="${1:-100}"
 identifier="${OPENTAG_E2E_ID:-org.opentag.editor.e2e.history}"
@@ -12,13 +14,8 @@ if [[ "${2:-}" != "--no-build" ]]; then
   (cd "$root" && AR="${AR:-/usr/bin/ar}" npx tauri build --debug --bundles app \
     --config "{\"identifier\":\"$identifier\",\"productName\":\"OpenTag UserTest\"}" >/dev/null)
 fi
-if [[ "$(uname)" == "Darwin" ]]; then
-  bin="$root/target/debug/bundle/macos/OpenTag UserTest.app/Contents/MacOS/opentag"
-  clone=(cp -c)
-else
-  bin="$root/target/debug/opentag"
-  clone=(cp --reflink=always)
-fi
+bin="$root/target/debug/bundle/macos/OpenTag UserTest.app/Contents/MacOS/opentag"
+clone=(cp -c)
 work="$(mktemp -d)"; trap 'rm -rf "$work"' EXIT
 album="$work/album"; mkdir -p "$album"
 # About 23 MB of incompressible FLAC with ffmpeg's 8 KiB padding block.

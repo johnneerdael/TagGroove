@@ -5,6 +5,7 @@ use tag_core::{Action, AudioEntry, Fields, FileError, ScanResult};
 mod action_host;
 mod columns;
 mod converters;
+mod covers;
 mod documents;
 mod e2e;
 mod evaluation;
@@ -939,6 +940,7 @@ pub fn run() {
             save_action_library,
             import_action_group,
             execute_action_groups,
+            action_host::export_action_group,
             runtime_platform,
             pick_document_files,
             document_states,
@@ -953,6 +955,14 @@ pub fn run() {
             remove_tags,
             add_cover,
             remove_cover,
+            covers::cover_set,
+            covers::apply_cover_plan,
+            covers::add_cover_image,
+            covers::stage_cover_file,
+            covers::stage_cover_data,
+            covers::extract_cover,
+            covers::copy_cover_to_clipboard,
+            covers::paste_cover_from_clipboard,
             preview_format,
             preview_filename,
             preview_rename,

@@ -510,7 +510,7 @@ fn full_rewrites_count_whole_files_and_padding_writes_count_their_region() {
         fs::metadata(&wav_path).unwrap().len(),
     );
     let mut history = journal(dir.path());
-    let clones = tag_core::clone::supports_clone(dir.path());
+    let clones = tag_core::clones_in(dir.path());
 
     // WAV tags are rewritten as a whole: the snapshot keeps the whole file.
     let capture = history.begin("Save tags", None, &[key(&wav_path)]);
@@ -558,7 +558,7 @@ fn full_rewrites_count_whole_files_and_padding_writes_count_their_region() {
 fn many_padded_flac_saves_stay_under_the_cap_and_undo_exactly() {
     let dir = tempfile::tempdir().unwrap();
     let template = dir.path().join("template.flac");
-    if !noise_flac(&template, 6) || !tag_core::clone::supports_clone(dir.path()) {
+    if !noise_flac(&template, 6) || !tag_core::clones_in(dir.path()) {
         eprintln!("Skipping: needs ffmpeg and a cloning volume (APFS, Btrfs, XFS)");
         return;
     }
@@ -567,7 +567,7 @@ fn many_padded_flac_saves_stay_under_the_cap_and_undo_exactly() {
     let files: Vec<PathBuf> = (0..count)
         .map(|index| {
             let path = dir.path().join(format!("{index:02}.flac"));
-            tag_core::clone::clone_or_copy(&template, &path).unwrap();
+            fs::copy(&template, &path).unwrap();
             write_fields(&path, &fields(&[("TITLE", &[&format!("Track {index}")])])).unwrap();
             path
         })

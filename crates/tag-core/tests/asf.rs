@@ -711,3 +711,54 @@ fn ffmpeg_reads_values_moved_to_the_metadata_library() {
     decodes(&path);
     assert_eq!(probe_tags(&path)["format"]["tags"]["artist"], "Two");
 }
+
+#[test]
+fn cover_plans_reorder_retype_and_add_on_asf() {
+    let tmp = tempfile::tempdir().unwrap();
+    let original = hand_built();
+    let path = write(tmp.path(), "hand.wma", &original);
+    let options = TagOptions::default();
+    let mut png = std::io::Cursor::new(Vec::new());
+    image::DynamicImage::ImageRgb8(image::RgbImage::new(3, 2))
+        .write_to(&mut png, image::ImageFormat::Png)
+        .unwrap();
+    let entry = add_cover_bytes_with_options(
+        &path,
+        png.into_inner(),
+        "new.png",
+        Some("CoverBack"),
+        &options,
+    )
+    .unwrap();
+    assert_eq!(entry.covers.len(), 2);
+    let keep = |cover: &CoverInfo, picture_type: &str| CoverChange {
+        original: Some(CoverRef::of(cover)),
+        picture_type: picture_type.into(),
+        description: cover.description.clone(),
+        ..Default::default()
+    };
+    let front = &entry.covers[0];
+    let data = find_cover_data(&path, &CoverRef::of(front), &options)
+        .unwrap()
+        .unwrap();
+    assert_eq!(cover_digest(&data), front.digest);
+    let entry = apply_cover_changes_with_options(
+        &path,
+        &[keep(&entry.covers[1], "CoverBack"), keep(front, "Media")],
+        &options,
+    )
+    .unwrap();
+    assert_eq!(
+        entry
+            .covers
+            .iter()
+            .map(|c| c.picture_type.as_str())
+            .collect::<Vec<_>>(),
+        ["CoverBack", "Media"]
+    );
+    assert_eq!(entry.covers[1].digest, front.digest);
+    assert_eq!(entry.fields["TITLE"], ["Hand Title"]);
+    let bytes = fs::read(&path).unwrap();
+    assert_eq!(media(&bytes), media(&original));
+    assert_consistent(&bytes);
+}

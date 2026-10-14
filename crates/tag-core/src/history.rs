@@ -372,12 +372,17 @@ impl Journal {
         };
         // Files on the journal's volume that clone keep only rewritten blocks;
         // everything else keeps (or copies) the whole file.
-        let journal = crate::clone::volume_id(&self.dir);
+        let journal = volume_id(&self.dir);
+        let mut clones = BTreeMap::new();
         let (mut full, mut estimate) = (0u64, 0u64);
         for (_, path, print) in &targets {
             let cheap = journal.is_some()
-                && crate::clone::volume_id(path) == journal
-                && path.parent().is_some_and(crate::clone::supports_clone);
+                && volume_id(path) == journal
+                && path.parent().is_some_and(|dir| {
+                    *clones
+                        .entry(dir.to_path_buf())
+                        .or_insert_with(|| crate::clones_in(dir))
+                });
             if cheap {
                 estimate = estimate.saturating_add(ESTIMATE.min(print.len));
             } else {
@@ -389,7 +394,7 @@ impl Journal {
             capture.abandoned = Some("the operation is too large to undo".into());
             return capture;
         }
-        if crate::clone::available_space(&self.dir)
+        if available_space(&self.dir)
             .is_some_and(|free| free < estimate.saturating_add(self.limits.min_free))
         {
             capture.abandoned = Some("there is not enough free disk space for undo".into());
@@ -768,6 +773,44 @@ impl Drop for Journal {
     }
 }
 
+/// The device a path lives on, where the platform exposes it.
+fn volume_id(path: &Path) -> Option<u64> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        fs::metadata(path).ok().map(|m| m.dev())
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = path;
+        None
+    }
+}
+
+/// Bytes available to this user on the volume holding `path`, where known.
+// statvfs field widths differ between platforms.
+#[allow(clippy::useless_conversion)]
+fn available_space(path: &Path) -> Option<u64> {
+    #[cfg(unix)]
+    {
+        use std::{ffi::CString, os::unix::ffi::OsStrExt};
+        let path = CString::new(path.as_os_str().as_bytes()).ok()?;
+        let mut stats = std::mem::MaybeUninit::<libc::statvfs>::uninit();
+        // SAFETY: `path` is NUL-terminated and `stats` is written by the call on success.
+        if unsafe { libc::statvfs(path.as_ptr(), stats.as_mut_ptr()) } != 0 {
+            return None;
+        }
+        // SAFETY: statvfs returned 0, so the structure is initialised.
+        let stats = unsafe { stats.assume_init() };
+        Some(u64::from(stats.f_bavail).saturating_mul(u64::from(stats.f_frsize)))
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = path;
+        None
+    }
+}
+
 fn display(path: &Path) -> String {
     path.to_string_lossy().into_owned()
 }
@@ -910,5 +953,15 @@ mod tests {
             assert_eq!(unwatch([&path])[&path].rewritten, None);
         }
         assert!(unwatch([&path]).is_empty(), "commit stops watching");
+    }
+
+    #[test]
+    fn free_space_and_volume_are_known_on_unix() {
+        let dir = std::env::temp_dir();
+        assert_eq!(
+            available_space(&dir).is_some_and(|free| free > 0),
+            cfg!(unix)
+        );
+        assert_eq!(volume_id(&dir).is_some(), cfg!(unix));
     }
 }

@@ -40,9 +40,11 @@ and inode on Unix), any file renames, and folder moves in the order they ran.
   recorded change clears redo. An operation that changes nothing records
   nothing.
 - Retained bytes are what a snapshot really keeps on disk, not the file size.
-  Staged writes start from an explicit clone (`tag_core::clone`: macOS
-  `clonefile`, Linux `FICLONE`; a plain full copy elsewhere, including
-  Windows) and report whether it was a clone. Writers report what they
+  Staged writes start from `tag_core::staging_clone`. It uses the same
+  explicit `clonefile` as `staging_copy` and falls back to a plain copy. It
+  reports whether that file really was a clone: on APFS it is; on Linux
+  (reflinks cannot be confirmed) and on Windows it never counts as one. While
+  planning, `tag_core::clones_in` is checked once per folder. Writers report what they
   rewrote: the FLAC padding path reports its metadata region, every other
   writer (lofty full writes, ID3, tag removal, ID3v1) marks a full rewrite, and
   an unreported write or a changed length counts as full. A hard-linked
@@ -137,10 +139,10 @@ has focus, so you can still type characters such as ™.
   field options, target validation and preview outcomes.
   `tests/document-coordination.test.mjs` now also extracts `refreshHistory`,
   which `run()` calls.
-- Clone accounting (`crates/tag-core/src/{clone,write_cost,history}.rs` unit
+- Clone accounting (`crates/tag-core/src/{write_cost,history}.rs` unit
   tests, `crates/tag-core/tests/history.rs`): retained-cost rules,
   accumulation of several writes, sticky full rewrites, abandoned write
-  scopes, clone detection on APFS. A WAV save retains the whole file. A FLAC
+  scopes, free space and volume lookup. A WAV save retains the whole file. A FLAC
   padding write retains at most 64 KiB, and an overflowing FLAC write retains
   the whole file; after two undos both versions are counted. 48 clone-backed
   noise FLACs, together 24 times the test's cap of two files' size, are saved in
@@ -148,7 +150,7 @@ has focus, so you can still type characters such as ™.
   redone. The free-space guard refuses journaling with its notice while the
   write still happens.
 - Native: `scripts/e2e-undo-bulk.sh [files]` builds the debug app, generates
-  N clones of a ~23 MB noise FLAC (`cp -c` / `cp --reflink=always`), selects
+  N APFS clones of a ~23 MB noise FLAC (`cp -c`; the script is macOS-only), selects
   all, stages ALBUM, saves, checks that one "Undo Save tags (N files)" step
   exists without a notice, undoes, verifies every file through `scan_files`,
   and redoes. With 100 files (2.29 GB logical, above the 2 GiB cap) it passed

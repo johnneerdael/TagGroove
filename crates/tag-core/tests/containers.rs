@@ -819,3 +819,47 @@ fn ffmpeg_matroska_and_webm_remain_decodable_after_edits() {
         assert!(entry.fields.is_empty() && entry.covers.is_empty(), "{name}");
     }
 }
+
+#[test]
+fn cover_plans_reorder_and_retype_dsf_and_matroska_covers() {
+    use tag_core::{apply_cover_changes_with_options, CoverChange, CoverInfo, CoverRef};
+    // Identical covers are told apart by their occurrence.
+    let keep = |cover: &CoverInfo, occurrence: usize, picture_type: &str| CoverChange {
+        original: Some(CoverRef::of(cover)),
+        picture_type: picture_type.into(),
+        description: cover.description.clone(),
+        occurrence: Some(occurrence),
+        ..Default::default()
+    };
+    let dir = tempfile::tempdir().unwrap();
+    let image = dir.path().join("art.png");
+    png(&image);
+    let dsf_path = dir.path().join("track.dsf");
+    fs::write(&dsf_path, dsf(&samples(2 * 4096 * 3), None)).unwrap();
+    let mkv_path = dir.path().join("track.mka");
+    fs::write(&mkv_path, matroska(false)).unwrap();
+    for path in [&dsf_path, &mkv_path] {
+        add_cover(path, &image).unwrap();
+        let two = add_cover(path, &image).unwrap();
+        assert_eq!(two.covers.len(), 2);
+        let second = usize::from(CoverRef::of(&two.covers[0]) == CoverRef::of(&two.covers[1]));
+        let entry = apply_cover_changes_with_options(
+            path,
+            &[
+                keep(&two.covers[1], second, "CoverBack"),
+                keep(&two.covers[0], 0, "CoverFront"),
+            ],
+            &TagOptions::default(),
+        )
+        .unwrap();
+        let types: Vec<_> = entry
+            .covers
+            .iter()
+            .map(|c| c.picture_type.as_str())
+            .collect();
+        assert_eq!(types, ["CoverBack", "CoverFront"], "{}", path.display());
+        assert_eq!(entry.covers[1].description, two.covers[0].description);
+        let none = apply_cover_changes_with_options(path, &[], &TagOptions::default()).unwrap();
+        assert!(none.covers.is_empty());
+    }
+}

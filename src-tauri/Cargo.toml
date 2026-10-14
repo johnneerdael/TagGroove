@@ -45,3 +45,5 @@ tempfile = "3"
 tauri-plugin-opener = "2"
 tauri-plugin-single-instance = "2"
 trash = "5"
+# Cover window Copy/Paste cover: native clipboard image data.
+arboard = { version = "3", default-features = false, features = ["image-data"] }

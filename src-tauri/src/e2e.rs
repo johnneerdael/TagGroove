@@ -19,10 +19,11 @@ pub fn install(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry
         let Some(path) = std::env::var_os("OPENTAG_E2E_SCRIPT") else {
             return;
         };
-        // Hidden or covered webviews suspend animation frames; keep the window visible.
-        let window = webview.window();
-        let _ = window.set_always_on_top(true);
-        let _ = window.set_focus();
+        // Hidden or covered webviews suspend animation frames; keep the window
+        // visible. Never take keyboard focus: the user's typing in other apps
+        // would land in the scripted window.
+        #[cfg(desktop)]
+        let _ = webview.window().set_always_on_top(true);
         match std::fs::read_to_string(&path) {
             Ok(script) => {
                 if let Err(error) = webview.eval(&script) {
