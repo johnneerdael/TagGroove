@@ -110,3 +110,36 @@ fn tag_edits_reuse_padding_and_never_change_audio_frames() {
     assert_eq!(entry.fields["TITLE"], ["S"]);
     assert_eq!(entry.covers.len(), 1);
 }
+
+/// The undo journal snapshots files by hard link, which is only sound while
+/// writers replace the file instead of modifying its existing inode.
+#[test]
+fn padding_writes_never_modify_a_hard_linked_original() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("linked.flac");
+    if !flac(&path) {
+        return;
+    }
+    let snapshot = dir.path().join("snapshot.flac");
+    fs::hard_link(&path, &snapshot).unwrap();
+    let before = fs::read(&snapshot).unwrap();
+    write_fields(&path, &fields(&[("TITLE", "Edited in padding")])).unwrap();
+    assert_eq!(
+        fs::read(&snapshot).unwrap(),
+        before,
+        "snapshot bytes changed"
+    );
+    assert_ne!(fs::read(&path).unwrap(), before);
+    assert_eq!(
+        read_entry(&path).unwrap().fields["TITLE"],
+        ["Edited in padding"]
+    );
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        assert_ne!(
+            fs::metadata(&path).unwrap().ino(),
+            fs::metadata(&snapshot).unwrap().ino()
+        );
+    }
+}
