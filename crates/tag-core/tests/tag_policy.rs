@@ -742,3 +742,94 @@ fn encoded_mp3_and_wavpack_policies_keep_audio_packets() {
     assert!(!entry.technical["_TAG"].iter().any(|t| t.contains("APE")));
     assert_eq!(packet_hashes(&path), before);
 }
+
+fn ape_with_gain(path: &Path, title: &str, track_gain: &str) {
+    let mut ape = ApeTag::new();
+    for (key, value) in [
+        ("Title", title),
+        ("REPLAYGAIN_TRACK_GAIN", track_gain),
+        ("REPLAYGAIN_TRACK_PEAK", "0.988525"),
+        ("MP3GAIN_UNDO", "+004,+004,N"),
+    ] {
+        ape.insert(ApeItem::new(key.into(), ItemValue::Text(value.into())).unwrap());
+    }
+    ape.save_to_path(path, WriteOptions::default()).unwrap();
+}
+
+#[test]
+fn removing_a_displayed_ape_tag_keeps_gain_fields_in_id3v2() {
+    let tmp = tempfile::tempdir().unwrap();
+    let path = tmp.path().join("gain.mp3");
+    mp3(&path);
+    ape_with_gain(&path, "Ape title", "-6.48 dB");
+    write_fields(&path, &fields(&[("ARTIST", &["Artist"])])).unwrap();
+    assert_eq!(kinds(&path).ape, None);
+    let v2 = read_entry_with_options(&path, &[], &reading("id3v2")).unwrap();
+    assert_eq!(v2.fields["REPLAYGAIN_TRACK_GAIN"], ["-6.48 dB"]);
+    assert_eq!(v2.fields["REPLAYGAIN_TRACK_PEAK"], ["0.988525"]);
+    assert_eq!(v2.fields["MP3GAIN_UNDO"], ["+004,+004,N"]);
+    assert_eq!(v2.fields["TITLE"], ["Ape title"]);
+}
+
+#[test]
+fn removing_an_unread_ape_tag_migrates_only_gain_fields_into_id3v2() {
+    let tmp = tempfile::tempdir().unwrap();
+    let path = tmp.path().join("hidden-ape.mp3");
+    mp3(&path);
+    let mut v2 = Id3v2Tag::new();
+    lofty::tag::Accessor::set_title(&mut v2, "Two".into());
+    v2.save_to_path(&path, WriteOptions::default()).unwrap();
+    ape_with_gain(&path, "Ape title", "-6.48 dB");
+    let mut options = TagOptions::default();
+    options.mpeg.read_ape = false;
+    write_fields_with_options(
+        &path,
+        &fields(&[("ARTIST", &["Artist"])]),
+        false,
+        &[],
+        &options,
+    )
+    .unwrap();
+    assert_eq!(kinds(&path).ape, None);
+    let v2 = read_entry_with_options(&path, &[], &reading("id3v2")).unwrap();
+    assert_eq!(
+        v2.fields["TITLE"],
+        ["Two"],
+        "non-gain APE fields are not migrated"
+    );
+    assert_eq!(v2.fields["ARTIST"], ["Artist"]);
+    assert_eq!(v2.fields["REPLAYGAIN_TRACK_GAIN"], ["-6.48 dB"]);
+    assert_eq!(v2.fields["MP3GAIN_UNDO"], ["+004,+004,N"]);
+}
+
+#[test]
+fn existing_id3v2_gain_values_win_over_a_removed_ape_tag() {
+    let tmp = tempfile::tempdir().unwrap();
+    let path = tmp.path().join("both-gain.mp3");
+    mp3(&path);
+    let mut options = TagOptions::default();
+    options.mpeg.read_ape = false;
+    write_fields_with_options(
+        &path,
+        &fields(&[
+            ("TITLE", &["Two"]),
+            ("REPLAYGAIN_TRACK_GAIN", &["-1.00 dB"]),
+        ]),
+        false,
+        &[],
+        &options,
+    )
+    .unwrap();
+    ape_with_gain(&path, "Ape title", "-6.48 dB");
+    write_fields_with_options(
+        &path,
+        &fields(&[("ARTIST", &["Artist"])]),
+        false,
+        &[],
+        &options,
+    )
+    .unwrap();
+    let v2 = read_entry_with_options(&path, &[], &reading("id3v2")).unwrap();
+    assert_eq!(v2.fields["REPLAYGAIN_TRACK_GAIN"], ["-1.00 dB"]);
+    assert_eq!(v2.fields["MP3GAIN_UNDO"], ["+004,+004,N"]);
+}

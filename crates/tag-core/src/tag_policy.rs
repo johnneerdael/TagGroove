@@ -174,7 +174,7 @@ pub(super) fn write(
     let mut pictures = displayed
         .map(|tag| tag.pictures().to_vec())
         .unwrap_or_default();
-    let (updates, covers_changed) = match &change {
+    let (mut updates, covers_changed) = match &change {
         Change::Fields(updates) => {
             for (name, values) in updates.iter() {
                 full.retain(|key, _| !key.eq_ignore_ascii_case(name));
@@ -216,6 +216,37 @@ pub(super) fn write(
             (write_v1, false, o.write_ape, remove)
         }
     };
+    // An APE tag that is removed without being displayed would silently drop
+    // gain data written by MP3Gain/ReplayGain tools; keep it in ID3v2 user
+    // frames unless ID3v2 already carries those fields.
+    if kind == Policy::Mpeg
+        && remove[2].0
+        && write_v2
+        && displayed.map(Tag::tag_type) != Some(TagType::Ape)
+    {
+        if let Some(ape) = file.tag(TagType::Ape) {
+            let current_v2 = file
+                .tag(TagType::Id3v2)
+                .map(|tag| tag_fields(tag, &native, rules, options))
+                .transpose()?
+                .unwrap_or_default();
+            let present = |fields: &Fields, name: &str| {
+                fields.keys().any(|key| key.eq_ignore_ascii_case(name))
+            };
+            for (name, values) in tag_fields(ape, &native, rules, options)? {
+                let upper = name.to_ascii_uppercase();
+                let gain = upper.starts_with("REPLAYGAIN_") || upper.starts_with("MP3GAIN_");
+                if gain
+                    && !values.is_empty()
+                    && !present(&full, &name)
+                    && !present(&current_v2, &name)
+                {
+                    full.insert(name.clone(), values.clone());
+                    updates.insert(name, values);
+                }
+            }
+        }
+    }
     let id3 = if kind == Policy::Mpeg {
         Id3Write::Convert(id3_target(options))
     } else {
