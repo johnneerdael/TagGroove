@@ -1,0 +1,122 @@
+{
+  "created_utc": "2026-10-14T08:32:05.561586+00:00",
+  "device": "emulator-5554",
+  "api": 34,
+  "scope": "Separate disposable DocumentsProvider fixture API checks. No OpenTag app/UI qualification.",
+  "commands": [
+    {
+      "command": [
+        "/Users/jneerdael/Library/Android/sdk/platform-tools/adb",
+        "-s",
+        "emulator-5554",
+        "install",
+        "-r",
+        "crates/document-access/verification/provider-fixture/build/outputs/apk/debug/OpenTagProviderFixture-debug.apk"
+      ],
+      "output": "Performing Streamed Install\nSuccess\n"
+    },
+    {
+      "command": [
+        "/Users/jneerdael/Library/Android/sdk/platform-tools/adb",
+        "-s",
+        "emulator-5554",
+        "install",
+        "-r",
+        "crates/document-access/verification/provider-fixture/build/outputs/apk/androidTest/debug/OpenTagProviderFixture-debug-androidTest.apk"
+      ],
+      "output": "Performing Streamed Install\nSuccess\n"
+    },
+    {
+      "command": [
+        "/Users/jneerdael/Library/Android/sdk/platform-tools/adb",
+        "-s",
+        "emulator-5554",
+        "shell",
+        "am",
+        "instrument",
+        "-w",
+        "org.opentag.fixture.documents.test/org.opentag.fixture.documents.ProviderCheck"
+      ],
+      "output": "PASS 10 ContentResolver fixture checks; generated documents consumed; clear this test package before UI UAT\n\n"
+    },
+    {
+      "command": [
+        "/Users/jneerdael/Library/Android/sdk/platform-tools/adb",
+        "-s",
+        "emulator-5554",
+        "shell",
+        "pm",
+        "clear",
+        "org.opentag.fixture.documents"
+      ],
+      "output": "Success\n"
+    }
+  ],
+  "artifacts": {
+    "build/outputs/apk/debug/OpenTagProviderFixture-debug.apk": {
+      "bytes": 970595,
+      "sha256": "1ffbcf5f91ab876da58192c250f845034d39bcf10fa2e33c89dd60d949df5e9f"
+    },
+    "build/outputs/apk/androidTest/debug/OpenTagProviderFixture-debug-androidTest.apk": {
+      "bytes": 38976,
+      "sha256": "6adad880a7573ee319e9834d45bf91b4427ae7cc3943c0f6cabfd2e44a226de7"
+    }
+  },
+  "source_sha256": {
+    "README.md": "fb48198e3337d7f2c20f60b43b78561a5d52e6873104a7afeb778db348533e09",
+    ".gitignore": "816cb24dabc08bbb4edf6a0e80e9aab22b022b26a6f57dd8b52c53dfe221d068",
+    "build.gradle.kts": "03c693a3cb735d02de88abfd2f67f362ef3e18f85e943d91cc8a79cb3281e8b3",
+    "settings.gradle.kts": "c985994c2dee1d47483e085b92a536107a480d766f1751b0dcb46d9540f55261",
+    "src/main/AndroidManifest.xml": "5d0337b535ff35547ba52ede407f5727251699b2c27f72a044a3165b376e8f79",
+    "src/main/java/org/opentag/fixture/documents/FixtureActivity.java": "e0742dae698b7bf6ab5894b4f28a25edc423673ed55d3addae8bd359f34a28f1",
+    "src/main/java/org/opentag/fixture/documents/FixtureProvider.java": "b9fa72f2d453979c5d3ab8683d1b30741021a8937d8aa5282f2609900bcc6e20",
+    "src/androidTest/java/org/opentag/fixture/documents/ProviderCheck.java": "8f98673254c6a699ab080cabb3db51370f70e3fcc0db54b4f9dd7d9c044f4e0a"
+  },
+  "lint": [
+    {
+      "id": "ApplySharedPref",
+      "severity": "Warning",
+      "message": "Consider using `apply()` instead; `commit` writes its data to persistent storage immediately, whereas `apply` will handle it in the background"
+    },
+    {
+      "id": "ApplySharedPref",
+      "severity": "Warning",
+      "message": "Consider using `apply()` instead; `commit` writes its data to persistent storage immediately, whereas `apply` will handle it in the background"
+    },
+    {
+      "id": "ApplySharedPref",
+      "severity": "Warning",
+      "message": "Consider using `apply()` instead; `commit` writes its data to persistent storage immediately, whereas `apply` will handle it in the background"
+    },
+    {
+      "id": "OldTargetApi",
+      "severity": "Warning",
+      "message": "Not targeting the latest versions of Android; compatibility modes apply. Consider testing and updating this version. Consult the `android.os.Build.VERSION_CODES` javadoc for details."
+    },
+    {
+      "id": "GradleDependency",
+      "severity": "Warning",
+      "message": "A newer version of `compileSdk` than 36 is available: 37"
+    },
+    {
+      "id": "DataExtractionRules",
+      "severity": "Warning",
+      "message": "The attribute `android:allowBackup` is deprecated from Android 12 and higher and may be removed in future versions. Consider adding the attribute `android:dataExtractionRules` specifying an `@xml` resource which configures cloud backups and device transfers on Android 12 and higher."
+    },
+    {
+      "id": "MissingApplicationIcon",
+      "severity": "Warning",
+      "message": "Should explicitly set `android:icon`, there is no default"
+    },
+    {
+      "id": "SetTextI18n",
+      "severity": "Warning",
+      "message": "Do not concatenate text displayed with `setText`. Use resource string with placeholders."
+    },
+    {
+      "id": "SetTextI18n",
+      "severity": "Warning",
+      "message": "Do not concatenate text displayed with `setText`. Use resource string with placeholders."
+    }
+  ]
+}

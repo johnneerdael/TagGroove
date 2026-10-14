@@ -2274,6 +2274,7 @@ dependencies = [
  "tauri-plugin-dialog",
  "tauri-plugin-document-access",
  "tempfile",
+ "uuid",
 ]
 
 [[package]]

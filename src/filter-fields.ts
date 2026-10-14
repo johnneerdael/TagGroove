@@ -20,7 +20,7 @@ const contextOwned = new Set([
 ]);
 
 /** Preserve the legacy projection, then prefer actual file measurements. */
-export function buildFilterFields(entry: FilterEntry, rawFields: Fields): Fields {
+export function buildFilterFields(entry: FilterEntry, rawFields: Fields, source?: {uri?: string}): Fields {
   const separator = entry.path.includes('\\') ? '\\' : '/';
   const folder = entry.path.slice(0, Math.max(entry.path.lastIndexOf('/'), entry.path.lastIndexOf('\\')));
   const dot = entry.filename.lastIndexOf('.');
@@ -39,9 +39,14 @@ export function buildFilterFields(entry: FilterEntry, rawFields: Fields): Fields
     _SAMPLERATE: [String(entry.sample_rate)],
     _FILE_SIZE: [String(entry.size)],
   };
+  const provider = !!source || Object.entries(entry.technical ?? {}).some(([name, values]) => name.toUpperCase() === '_PATH' && values.some(value => value.startsWith('content://')));
   for (const [name, values] of Object.entries(entry.technical ?? {})) {
     const key = name.replace(/[a-z]/g, letter => letter.toUpperCase());
     if (key.startsWith('_') && !contextOwned.has(key)) fields[key] = [...values];
+  }
+  if (provider) {
+    delete fields._FOLDERPATH; delete fields._DIRECTORY;
+    if(source)fields._PATH=source.uri?[source.uri]:[];
   }
   return fields;
 }

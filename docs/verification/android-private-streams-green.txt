@@ -1,0 +1,6 @@
+
+org.opentag.documentaccess.AndroidPrivateStreamsTest:...
+
+Time: 1.005
+
+OK (3 tests)

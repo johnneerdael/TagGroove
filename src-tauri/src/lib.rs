@@ -4,6 +4,7 @@ use std::sync::{Mutex, OnceLock};
 use tag_core::{Action, AudioEntry, Fields, FileError, ScanResult};
 mod action_host;
 mod converters;
+mod documents;
 mod evaluation;
 mod file_hashes;
 mod rename_plan;
@@ -28,17 +29,24 @@ async fn import_action_group(
     path: String,
     legacy_encoding: Option<String>,
 ) -> Result<tag_core::actions::MtaImport, String> {
-    io(move || action_host::import_group(Path::new(&path), legacy_encoding.as_deref())).await
+    io(move || {
+        let input = auxiliary_input(&path)?;
+        action_host::import_group(&input, legacy_encoding.as_deref())
+    })
+    .await
 }
 #[tauri::command]
 async fn execute_action_groups(
-    app: tauri::AppHandle,
     paths: Vec<String>,
     groups: Vec<tag_core::actions::ActionGroup>,
     columns: Option<Vec<evaluation::ColumnSpec>>,
 ) -> Result<action_host::ActionResult, String> {
-    let settings = evaluation::EvaluationSettings::for_app(&app, columns)?;
-    io(move || Ok(action_host::execute(&paths, &groups, settings))).await
+    let settings = evaluation_settings(columns)?;
+    io(move || {
+        reject_provider_operation(&paths, "Action groups")?;
+        Ok(action_host::execute(&paths, &groups, settings))
+    })
+    .await
 }
 
 // Serialize operations to prevent two UI commands replacing each other's edits.
@@ -60,6 +68,7 @@ fn evaluation_settings(
 struct RuntimePlatform {
     family: &'static str,
     folder_picker_supported: bool,
+    document_access_supported: bool,
 }
 
 #[tauri::command]
@@ -74,12 +83,17 @@ fn runtime_platform() -> RuntimePlatform {
     RuntimePlatform {
         family,
         folder_picker_supported: family == "desktop",
+        document_access_supported: family == "android",
     }
 }
 
 #[tauri::command]
 async fn get_covers(path: String) -> Result<Vec<tag_core::CoverInfo>, String> {
-    io(move || tag_core::read_entry(Path::new(&path)).map(|e| e.covers)).await
+    io(move || {
+        require_audio_handle(Path::new(&path))?;
+        tag_core::read_entry(Path::new(&path)).map(|e| e.covers)
+    })
+    .await
 }
 
 #[derive(Deserialize)]
@@ -122,10 +136,110 @@ async fn io<T: Send + 'static>(
         let _guard = FILE_OPERATIONS
             .lock()
             .map_err(|_| "File operation lock failed".to_string())?;
+        if let Some(app) = APP_HANDLE.get() {
+            documents::initialize(app)?;
+        }
         work()
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+// Resolve auxiliary URIs before entering a pure audio mutation closure.
+fn auxiliary_input(path: &str) -> Result<PathBuf, String> {
+    #[cfg(not(target_os = "android"))]
+    if !path.starts_with("content://") {
+        return Ok(PathBuf::from(path));
+    }
+    #[cfg(test)]
+    if let Some(result) = documents::command_fixture::snapshot_input(path) {
+        return result;
+    }
+    documents::snapshot_input(
+        APP_HANDLE.get().ok_or("Document access is unavailable")?,
+        path,
+    )
+}
+fn mutate_document(
+    path: &Path,
+    work: impl FnOnce(&Path) -> Result<AudioEntry, String>,
+) -> Result<AudioEntry, String> {
+    #[cfg(target_os = "android")]
+    return documents::mutate(path, work);
+    #[cfg(not(target_os = "android"))]
+    if documents::is_managed(path) {
+        documents::mutate(path, work)
+    } else {
+        work(path)
+    }
+}
+fn require_audio_handle(path: &Path) -> Result<(), String> {
+    if cfg!(target_os = "android") && !documents::is_managed(path) {
+        return Err("Open audio with the provider document picker before editing".into());
+    }
+    Ok(())
+}
+fn provider_filename(path: &Path) -> Result<String, String> {
+    require_audio_handle(path)?;
+    if documents::is_managed(path) {
+        let mut entry = tag_core::read_entry_summary(path)?;
+        documents::project(&mut entry);
+        Ok(entry.filename)
+    } else {
+        Ok(path.to_string_lossy().into_owned())
+    }
+}
+fn preview_technical_fields(entry: &AudioEntry, index: usize) -> Fields {
+    let mut technical = evaluation::technical_fields(entry, index);
+    if documents::is_managed(Path::new(&entry.path)) {
+        for key in [
+            "_FOLDERPATH",
+            "_FOLDERPATH_REL",
+            "_DIRECTORY",
+            "_PARENT_DIRECTORY",
+        ] {
+            technical.remove(key);
+        }
+    }
+    technical
+}
+fn reject_provider_operation(paths: &[String], operation: &str) -> Result<(), String> {
+    if cfg!(target_os = "android")
+        || paths
+            .iter()
+            .any(|p| p.starts_with("content://") || documents::is_managed(Path::new(p)))
+    {
+        return Err(format!(
+            "{operation} is not yet supported for provider documents"
+        ));
+    }
+    Ok(())
+}
+#[tauri::command]
+async fn pick_document_files(app: tauri::AppHandle) -> Result<ScanResult, String> {
+    io(move || documents::pick(&app)).await
+}
+#[tauri::command]
+async fn document_states(
+) -> Result<std::collections::BTreeMap<String, documents::DocumentState>, String> {
+    io(documents::states).await
+}
+#[tauri::command]
+async fn document_save_copy(
+    app: tauri::AppHandle,
+    path: String,
+    updates: Fields,
+    version: String,
+) -> Result<ScanResult, String> {
+    io(move || documents::save_copy(&app, &path, &updates, &version)).await
+}
+#[tauri::command]
+async fn document_working_entries(paths: Vec<String>) -> Result<ScanResult, String> {
+    io(move || Ok(batch(&paths, documents::read_working))).await
+}
+#[tauri::command]
+async fn restore_document_recovery() -> Result<ScanResult, String> {
+    io(documents::restore_recovery).await
 }
 
 fn batch(
@@ -142,7 +256,10 @@ fn batch(
             continue;
         }
         match work(Path::new(path)) {
-            Ok(entry) => result.entries.push(entry),
+            Ok(mut entry) => {
+                documents::project(&mut entry);
+                result.entries.push(entry);
+            }
             Err(error) => result.errors.push(FileError {
                 path: path.clone(),
                 error,
@@ -154,14 +271,35 @@ fn batch(
 
 #[tauri::command]
 async fn scan_files(paths: Vec<String>, recursive: bool) -> Result<ScanResult, String> {
-    io(move || Ok(tag_core::scan_paths(&paths, recursive))).await
+    io(move || {
+        #[cfg(target_os = "android")]
+        {
+            let _ = recursive;
+            Ok(batch(&paths, documents::reload))
+        }
+        #[cfg(not(target_os = "android"))]
+        {
+            let (managed, ordinary): (Vec<_>, Vec<_>) = paths
+                .into_iter()
+                .partition(|p| documents::is_managed(Path::new(p)));
+            let mut result = tag_core::scan_paths(&ordinary, recursive);
+            let restored = batch(&managed, documents::reload);
+            result.entries.extend(restored.entries);
+            result.errors.extend(restored.errors);
+            for entry in &mut result.entries {
+                documents::project(entry);
+            }
+            Ok(result)
+        }
+    })
+    .await
 }
 
 #[tauri::command]
 async fn save_fields(paths: Vec<String>, updates: Fields) -> Result<ScanResult, String> {
     io(move || {
         Ok(batch(&paths, |p| {
-            tag_core::write_fields_summary(p, &updates)
+            mutate_document(p, |p| tag_core::write_fields_summary(p, &updates))
         }))
     })
     .await
@@ -169,14 +307,20 @@ async fn save_fields(paths: Vec<String>, updates: Fields) -> Result<ScanResult, 
 
 #[tauri::command]
 async fn remove_tags(paths: Vec<String>) -> Result<ScanResult, String> {
-    io(move || Ok(batch(&paths, tag_core::remove_tags_summary))).await
+    io(move || {
+        Ok(batch(&paths, |p| {
+            mutate_document(p, tag_core::remove_tags_summary)
+        }))
+    })
+    .await
 }
 
 #[tauri::command]
 async fn add_cover(paths: Vec<String>, image_path: String) -> Result<ScanResult, String> {
     io(move || {
+        let image = auxiliary_input(&image_path)?;
         Ok(batch(&paths, |p| {
-            tag_core::add_cover_summary(p, Path::new(&image_path))
+            mutate_document(p, |p| tag_core::add_cover_summary(p, &image))
         }))
     })
     .await
@@ -184,7 +328,12 @@ async fn add_cover(paths: Vec<String>, image_path: String) -> Result<ScanResult,
 
 #[tauri::command]
 async fn remove_cover(paths: Vec<String>, index: usize) -> Result<ScanResult, String> {
-    io(move || Ok(batch(&paths, |p| tag_core::remove_cover_summary(p, index)))).await
+    io(move || {
+        Ok(batch(&paths, |p| {
+            mutate_document(p, |p| tag_core::remove_cover_summary(p, index))
+        }))
+    })
+    .await
 }
 
 #[derive(Serialize)]
@@ -207,11 +356,13 @@ async fn preview_format(
             .into_iter()
             .enumerate()
             .map(|(index, path)| {
-                let entry = tag_core::read_entry_summary(Path::new(&path))?;
+                require_audio_handle(Path::new(&path))?;
+                let mut entry = tag_core::read_entry_summary(Path::new(&path))?;
+                documents::project(&mut entry);
                 let value = settings.evaluate(
                     &template,
                     &entry.fields,
-                    &evaluation::technical_fields(&entry, index + 1),
+                    &preview_technical_fields(&entry, index + 1),
                     &entry.path,
                     true,
                 )?;
@@ -241,7 +392,8 @@ async fn preview_filename(
         paths
             .into_iter()
             .map(|path| {
-                let fields = tag_core::parse_filename(&path, &pattern)?;
+                let fields =
+                    tag_core::parse_filename(&provider_filename(Path::new(&path))?, &pattern)?;
                 Ok(ParsedPreview { path, fields })
             })
             .collect()
@@ -253,8 +405,8 @@ async fn preview_filename(
 async fn filename_to_tags(paths: Vec<String>, pattern: String) -> Result<ScanResult, String> {
     io(move || {
         Ok(batch(&paths, |p| {
-            let updates = tag_core::parse_filename(&p.to_string_lossy(), &pattern)?;
-            tag_core::write_fields_summary(p, &updates)
+            let updates = tag_core::parse_filename(&provider_filename(p)?, &pattern)?;
+            mutate_document(p, |p| tag_core::write_fields_summary(p, &updates))
         }))
     })
     .await
@@ -271,7 +423,11 @@ async fn apply_action(
         enabled: true,
         actions: vec![tag_core::actions::from_quick_action(&action)?],
     };
-    io(move || Ok(action_host::execute(&paths, &[group], settings))).await
+    io(move || {
+        reject_provider_operation(&paths, "Actions")?;
+        Ok(action_host::execute(&paths, &[group], settings))
+    })
+    .await
 }
 
 #[cfg(test)]
@@ -329,6 +485,7 @@ async fn preview_rename(
 ) -> Result<Vec<Preview>, String> {
     let settings = evaluation_settings(columns)?;
     io(move || {
+        reject_provider_operation(&paths, "Rename")?;
         let mut targets = Vec::new();
         for (index, path) in paths.iter().enumerate() {
             let entry = tag_core::read_entry_summary(Path::new(path))?;
@@ -373,6 +530,7 @@ async fn rename_files(
 ) -> Result<RenameResult, String> {
     let settings = evaluation_settings(None)?;
     io(move || {
+        reject_provider_operation(&paths, "Rename")?;
         let mut result = ScanResult {
             entries: vec![],
             errors: vec![],
@@ -447,6 +605,11 @@ async fn rename_files(
 }
 
 fn export_entries(paths: &[String], output: &Path) -> Result<Vec<AudioEntry>, String> {
+    reject_provider_operation(paths, "Export")?;
+    reject_provider_operation(
+        &[output.to_string_lossy().into_owned()],
+        "Export destination",
+    )?;
     if paths.iter().any(|p| Path::new(p) == output) {
         return Err("Export cannot replace an input audio file".into());
     }
@@ -568,6 +731,11 @@ pub fn run() {
             import_action_group,
             execute_action_groups,
             runtime_platform,
+            pick_document_files,
+            document_states,
+            document_working_entries,
+            document_save_copy,
+            restore_document_recovery,
             get_covers,
             filter_matches,
             scan_files,
@@ -612,6 +780,418 @@ mod tests {
         data.extend((samples.len() as u32).to_le_bytes());
         data.extend(samples);
         std::fs::write(path, data).unwrap();
+    }
+
+    #[test]
+    fn managed_commands_publish_real_source_and_reject_private_only_writes() {
+        use documents::command_fixture::Session;
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("provider.wav");
+        wav(&source);
+        let mut signal = std::fs::read(&source).unwrap();
+        for (i, byte) in signal[44..].iter_mut().enumerate() {
+            *byte = (i.wrapping_mul(37) % 251) as u8;
+        }
+        std::fs::write(&source, signal).unwrap();
+        let session = Session::import(
+            &dir.path().join("private"),
+            &source,
+            "Artist - 音楽.wav",
+            true,
+        );
+        let paths = vec![session.path.clone()];
+        let initial = std::fs::read(&source).unwrap();
+        let updates = Fields::from([("TITLE".into(), vec!["Published".into()])]);
+        let saved = tauri::async_runtime::block_on(save_fields(paths.clone(), updates)).unwrap();
+        assert!(saved.errors.is_empty());
+        assert_eq!(
+            tag_core::read_entry(&source).unwrap().fields["TITLE"],
+            ["Published"],
+            "command must publish source, not only cache"
+        );
+        assert_eq!(saved.entries[0].filename, "Artist - 音楽.wav");
+        assert_eq!(
+            saved.entries[0].technical["_PATH"],
+            std::slice::from_ref(&session.uri)
+        );
+        assert!(std::fs::read(&source)
+            .unwrap()
+            .windows(8820)
+            .any(|b| b == &initial[44..]));
+        let previews = tauri::async_runtime::block_on(preview_format(
+            paths.clone(),
+            "%_path%|%_filename_ext%|%_directory%".into(),
+            None,
+        ))
+        .unwrap();
+        assert_eq!(
+            previews[0].value,
+            format!("{}|Artist - 音楽.wav|", session.uri)
+        );
+        let parsed = tauri::async_runtime::block_on(preview_filename(
+            paths.clone(),
+            "%artist% - %title%".into(),
+        ))
+        .unwrap();
+        assert_eq!(parsed[0].fields["TITLE"], ["音楽"]);
+        let imported = tauri::async_runtime::block_on(filename_to_tags(
+            paths.clone(),
+            "%artist% - %title%".into(),
+        ))
+        .unwrap();
+        assert!(imported.errors.is_empty());
+        assert_eq!(
+            tag_core::read_entry(&source).unwrap().fields["ARTIST"],
+            ["Artist"]
+        );
+        use base64::Engine;
+        let image = dir.path().join("cover.png");
+        let png = base64::engine::general_purpose::STANDARD.decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j4n8AAAAASUVORK5CYII=").unwrap();
+        std::fs::write(&image, &png).unwrap();
+        let image_uri = format!("{}/cover", session.uri);
+        session.add_input(&image_uri, &image, "cover.png");
+        let covered = tauri::async_runtime::block_on(add_cover(paths.clone(), image_uri)).unwrap();
+        assert!(covered.errors.is_empty(), "{:?}", covered.errors);
+        assert_eq!(tag_core::read_entry(&source).unwrap().covers.len(), 1);
+        assert_eq!(
+            tauri::async_runtime::block_on(get_covers(session.path.clone())).unwrap()[0]
+                .data_base64,
+            base64::engine::general_purpose::STANDARD.encode(&png)
+        );
+        let removed = tauri::async_runtime::block_on(remove_cover(paths.clone(), 0)).unwrap();
+        assert!(removed.errors.is_empty());
+        assert!(tag_core::read_entry(&source).unwrap().covers.is_empty());
+        let cleared = tauri::async_runtime::block_on(remove_tags(paths.clone())).unwrap();
+        assert!(cleared.errors.is_empty());
+        assert!(!tag_core::read_entry(&source)
+            .unwrap()
+            .fields
+            .contains_key("TITLE"));
+        assert!(std::fs::read(&source)
+            .unwrap()
+            .windows(8820)
+            .any(|b| b == &initial[44..]));
+        let group_file = dir.path().join("group.mta");
+        std::fs::write(&group_file, "[#0]\nT=9\nF=TITLE\n1=From URI\n").unwrap();
+        let group_uri = format!("{}/group", session.uri);
+        session.add_input(&group_uri, &group_file, "group.mta");
+        assert!(tauri::async_runtime::block_on(import_action_group(group_uri, None)).is_ok());
+        let external = Fields::from([("TITLE".into(), vec!["External".into()])]);
+        tag_core::write_fields(&source, &external).unwrap();
+        session.rename("Other - Changed.wav");
+        let reloaded = tauri::async_runtime::block_on(scan_files(paths.clone(), false)).unwrap();
+        assert_eq!(reloaded.entries[0].fields["TITLE"], ["External"]);
+        assert_eq!(reloaded.entries[0].filename, "Other - Changed.wav");
+        let renamed_preview = tauri::async_runtime::block_on(preview_filename(
+            paths.clone(),
+            "%artist% - %title%".into(),
+        ))
+        .unwrap();
+        assert_eq!(
+            renamed_preview[0].fields["TITLE"],
+            ["Changed"],
+            "parse current provider name rather than stale cache filename"
+        );
+        #[cfg(unix)]
+        {
+            let alias = dir.path().join("alias.wav");
+            std::os::unix::fs::symlink(&session.path, &alias).unwrap();
+            let alias_paths = vec![alias.to_string_lossy().into_owned()];
+            let alias_preview = tauri::async_runtime::block_on(preview_format(
+                alias_paths.clone(),
+                "%_path%|%_directory%".into(),
+                None,
+            ))
+            .unwrap();
+            assert_eq!(alias_preview[0].value, format!("{}|", session.uri));
+            let alias_filename = tauri::async_runtime::block_on(preview_filename(
+                alias_paths,
+                "%artist% - %title%".into(),
+            ))
+            .unwrap();
+            assert_eq!(alias_filename[0].fields["TITLE"], ["Changed"]);
+            assert!(
+                tauri::async_runtime::block_on(apply_action(
+                    vec![alias.to_string_lossy().into_owned()],
+                    Action::Remove {
+                        fields: vec!["TITLE".into()]
+                    }
+                ))
+                .is_err(),
+                "provider aliases must fail before action-host mutation"
+            );
+        }
+        let before = std::fs::read(&session.path).unwrap();
+        let output = dir
+            .path()
+            .join("blocked.csv")
+            .to_string_lossy()
+            .into_owned();
+        let group = tag_core::actions::ActionGroup {
+            name: "Must not run".into(),
+            enabled: true,
+            actions: vec![tag_core::actions::from_quick_action(&Action::Remove {
+                fields: vec!["TITLE".into()],
+            })
+            .unwrap()],
+        };
+        assert!(tauri::async_runtime::block_on(execute_action_groups(
+            paths.clone(),
+            vec![group],
+            None
+        ))
+        .err()
+        .unwrap()
+        .contains("provider"));
+        assert!(tauri::async_runtime::block_on(apply_action(
+            paths.clone(),
+            Action::Remove {
+                fields: vec!["TITLE".into()]
+            }
+        ))
+        .is_err());
+        assert!(
+            tauri::async_runtime::block_on(preview_rename(paths.clone(), "new".into(), None))
+                .is_err()
+        );
+        assert!(tauri::async_runtime::block_on(rename_files(
+            paths.clone(),
+            "new".into(),
+            Some("invalid".into())
+        ))
+        .err()
+        .unwrap()
+        .contains("provider"));
+        assert!(tauri::async_runtime::block_on(export_csv(paths.clone(), output.clone())).is_err());
+        assert!(
+            tauri::async_runtime::block_on(export_playlist(paths.clone(), output.clone())).is_err()
+        );
+        assert!(!Path::new(&output).exists());
+        assert!(tauri::async_runtime::block_on(export_csv(
+            Vec::new(),
+            "content://command-fixture/output".into()
+        ))
+        .err()
+        .unwrap()
+        .contains("provider"));
+        assert!(tauri::async_runtime::block_on(export_playlist(
+            Vec::new(),
+            "content://command-fixture/output".into()
+        ))
+        .err()
+        .unwrap()
+        .contains("provider"));
+        let token = rename_plan::record(&paths, "new", vec![dir.path().join("never.wav")]).unwrap();
+        assert!(tauri::async_runtime::block_on(rename_files(
+            paths.clone(),
+            "new".into(),
+            Some(token.clone())
+        ))
+        .is_err());
+        assert!(
+            rename_plan::consume(&token, &paths, "new").is_ok(),
+            "native guard must precede consumption"
+        );
+        let request = converters::FilenameRequest {
+            paths: paths.clone(),
+            old_pattern: "%title%".into(),
+            new_pattern: "new".into(),
+            columns: None,
+        };
+        assert!(
+            tauri::async_runtime::block_on(converters::preview_filename_conversion(
+                request.clone()
+            ))
+            .is_err()
+        );
+        assert!(
+            tauri::async_runtime::block_on(converters::apply_filename_conversion(
+                request,
+                "invalid".into()
+            ))
+            .err()
+            .unwrap()
+            .contains("provider")
+        );
+        let text = converters::TextRequest {
+            paths: paths.clone(),
+            source: converters::TextSource::Text {
+                text: "Overwrite".into(),
+            },
+            mask: "%title%".into(),
+            options: Default::default(),
+        };
+        assert!(
+            tauri::async_runtime::block_on(converters::preview_text_import(text.clone())).is_err()
+        );
+        assert!(
+            tauri::async_runtime::block_on(converters::apply_text_import(text, "invalid".into()))
+                .err()
+                .unwrap()
+                .contains("provider")
+        );
+        assert_eq!(std::fs::read(&session.path).unwrap(), before);
+        session.fail_publish();
+        let failure = tauri::async_runtime::block_on(save_fields(
+            paths.clone(),
+            Fields::from([("TITLE".into(), vec!["Retain edited".into()])]),
+        ))
+        .unwrap();
+        assert!(failure.entries.is_empty());
+        assert!(failure.errors[0].error.contains("publication failed"));
+        assert_eq!(
+            tag_core::read_entry(&source).unwrap().fields["TITLE"],
+            ["External"]
+        );
+        assert_eq!(
+            tag_core::read_entry(Path::new(&session.path))
+                .unwrap()
+                .fields["TITLE"],
+            ["Retain edited"]
+        );
+        assert_eq!(
+            tauri::async_runtime::block_on(document_states()).unwrap()[&session.path].state,
+            "recovery_required"
+        );
+        let recovered = tauri::async_runtime::block_on(restore_document_recovery()).unwrap();
+        assert!(recovered
+            .entries
+            .iter()
+            .any(|e| e.path == session.path && e.fields["TITLE"] == ["Retain edited"]));
+        let blocked = tauri::async_runtime::block_on(scan_files(paths, false)).unwrap();
+        assert!(blocked.entries.is_empty());
+        assert!(blocked.errors[0].error.contains("recovery"));
+        let readonly =
+            Session::import(&dir.path().join("readonly"), &source, "Readonly.wav", false);
+        let before = std::fs::read(&readonly.path).unwrap();
+        let result =
+            tauri::async_runtime::block_on(remove_tags(vec![readonly.path.clone()])).unwrap();
+        assert!(result.entries.is_empty());
+        assert!(result.errors[0].error.contains("Read-only"));
+        assert_eq!(std::fs::read(&readonly.path).unwrap(), before);
+    }
+
+    #[test]
+    fn working_entries_describe_failed_immediate_mutations_without_source_access() {
+        use base64::Engine;
+        use documents::command_fixture::Session;
+        for operation in [
+            "remove_tags",
+            "filename_to_tags",
+            "add_cover",
+            "remove_cover",
+        ] {
+            let dir = tempfile::tempdir().unwrap();
+            let source = dir.path().join("provider.wav");
+            wav(&source);
+            tag_core::write_fields(
+                &source,
+                &Fields::from([
+                    ("TITLE".into(), vec!["Old title".into()]),
+                    ("ARTIST".into(), vec!["Original artist".into()]),
+                ]),
+            )
+            .unwrap();
+            let image = dir.path().join("cover.png");
+            let png = base64::engine::general_purpose::STANDARD.decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j4n8AAAAASUVORK5CYII=").unwrap();
+            std::fs::write(&image, &png).unwrap();
+            if operation == "remove_cover" || operation == "remove_tags" {
+                tag_core::add_cover(&source, &image).unwrap();
+            }
+            let session = Session::import(
+                &dir.path().join("private"),
+                &source,
+                "Filename artist - Filename title.wav",
+                true,
+            );
+            let paths = vec![session.path.clone()];
+            let original = std::fs::read(&source).unwrap();
+            session.fail_publish();
+            let failed = tauri::async_runtime::block_on(async {
+                match operation {
+                    "remove_tags" => remove_tags(paths.clone()).await,
+                    "filename_to_tags" => {
+                        filename_to_tags(paths.clone(), "%artist% - %title%".into()).await
+                    }
+                    "add_cover" => {
+                        add_cover(paths.clone(), image.to_string_lossy().into_owned()).await
+                    }
+                    "remove_cover" => remove_cover(paths.clone(), 0).await,
+                    _ => unreachable!(),
+                }
+            })
+            .unwrap();
+            assert!(failed.entries.is_empty());
+            assert!(failed.errors[0].error.contains("publication failed"));
+            assert_eq!(std::fs::read(&source).unwrap(), original);
+            // Removing provider bytes makes any accidental provider reload fail.
+            std::fs::remove_file(&source).unwrap();
+            let before =
+                tauri::async_runtime::block_on(document_states()).unwrap()[&session.path].clone();
+            let local = tauri::async_runtime::block_on(document_working_entries(paths)).unwrap();
+            assert!(local.errors.is_empty(), "{:?}", local.errors);
+            let entry = &local.entries[0];
+            assert_eq!(entry.path, session.path);
+            assert_eq!(entry.filename, "Filename artist - Filename title.wav");
+            assert_eq!(entry.technical["_PATH"], std::slice::from_ref(&session.uri));
+            match operation {
+                "remove_tags" => {
+                    assert!(entry.fields.is_empty());
+                    assert!(entry.covers.is_empty());
+                }
+                "filename_to_tags" => {
+                    assert_eq!(entry.fields["TITLE"], ["Filename title"]);
+                    assert_eq!(entry.fields["ARTIST"], ["Filename artist"]);
+                }
+                "add_cover" => {
+                    assert_eq!(entry.covers.len(), 1);
+                    assert!(entry.covers[0].data_base64.is_empty());
+                    assert_eq!(
+                        tauri::async_runtime::block_on(get_covers(session.path.clone())).unwrap()
+                            [0]
+                        .data_base64,
+                        base64::engine::general_purpose::STANDARD.encode(&png)
+                    );
+                }
+                "remove_cover" => assert!(entry.covers.is_empty()),
+                _ => unreachable!(),
+            }
+            let after =
+                tauri::async_runtime::block_on(document_states()).unwrap()[&session.path].clone();
+            assert_eq!(after.state, "recovery_required");
+            assert_eq!(after.state, before.state);
+            assert_eq!(after.error, before.error);
+        }
+    }
+
+    #[test]
+    fn working_entries_reject_unmanaged_paths_and_never_fall_back_to_backup() {
+        use documents::command_fixture::Session;
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("provider.wav");
+        wav(&source);
+        let session = Session::import(&dir.path().join("private"), &source, "Provider.wav", true);
+        session.fail_publish();
+        tauri::async_runtime::block_on(remove_tags(vec![session.path.clone()])).unwrap();
+        std::fs::write(&session.path, b"unreadable retained audio").unwrap();
+        let local = tauri::async_runtime::block_on(document_working_entries(vec![
+            session.path.clone(),
+            source.to_string_lossy().into_owned(),
+        ]))
+        .unwrap();
+        assert!(
+            local.entries.is_empty(),
+            "must not present backup as edited bytes"
+        );
+        assert_eq!(local.errors.len(), 2);
+        assert_eq!(local.errors[0].path, session.path);
+        assert!(local.errors[1].error.contains("Unknown provider document"));
+        // Recovery's separate baseline salvage remains available.
+        let recovered = tauri::async_runtime::block_on(restore_document_recovery()).unwrap();
+        assert!(recovered
+            .entries
+            .iter()
+            .any(|entry| entry.path == session.path));
     }
 
     #[test]

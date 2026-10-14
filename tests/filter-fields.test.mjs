@@ -74,3 +74,24 @@ test('unmeasured properties and invented aliases stay absent while zero measurem
   assert.deepEqual(fields._FILE_MOD_DATETIME_RAW, ['-100']);
   for (const name of ['_BITS_PER_SAMPLE', '_COVER_WIDTH', '_COVER_HEIGHT', '_FILE_CREATE_DATETIME_RAW', '_MP4_CREATION_TIME', '_VIDEO_CODEC', '_VBR']) assert.equal(Object.hasOwn(fields, name), false);
 });
+
+
+test('provider context never invents private working folders and keeps the opaque source URI', () => {
+  const provider = { ...entry({ _PATH: ['content://music.provider/document/37'], _FILENAME_EXT: ['Mémoire 猫.FLAC'] }), path: '/data/user/0/app/files/documents/private-id/Mémoire 猫.FLAC', filename: 'Mémoire 猫.FLAC' };
+  const fields = buildFilterFields(provider, { TITLE: ['Pending title'] });
+  assert.deepEqual(fields._PATH, ['content://music.provider/document/37']);
+  assert.deepEqual(fields._FILENAME_EXT, ['Mémoire 猫.FLAC']);
+  assert.equal(Object.hasOwn(fields, '_FOLDERPATH'), false);
+  assert.equal(Object.hasOwn(fields, '_DIRECTORY'), false);
+  assert.equal(JSON.stringify(fields).includes('/data/user/0/'), false);
+  assert.deepEqual(fields.TITLE, ['Pending title']);
+});
+
+test('unknown provider context omits private location until source identity can be refreshed', () => {
+  const working = { ...entry(), path:'/data/user/0/app/files/documents/uuid/audio.FLAC' };
+  const fields=buildFilterFields(working, {}, {uri:undefined});
+  assert.deepEqual(fields._PATH, []);
+  assert.equal(Object.hasOwn(fields,'_FOLDERPATH'),false);
+  assert.equal(Object.hasOwn(fields,'_DIRECTORY'),false);
+  assert.equal(JSON.stringify(fields).includes('/data/user/0/'),false);
+});

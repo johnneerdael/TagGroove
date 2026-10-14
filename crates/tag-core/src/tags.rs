@@ -52,6 +52,14 @@ fn error_message(error: &dyn std::error::Error) -> String {
     message
 }
 pub type Fields = BTreeMap<String, Vec<String>>;
+/// Derive available file timestamps using the same locale format as audio reads.
+/// Provider-backed callers can omit unavailable creation times.
+pub fn file_time_fields(
+    created: Option<std::time::SystemTime>,
+    modified: Option<std::time::SystemTime>,
+) -> Fields {
+    technical::file_time_fields(created, modified)
+}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CoverInfo {
     pub index: usize,

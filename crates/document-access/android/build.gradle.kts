@@ -10,6 +10,7 @@ android {
     compileSdk = 36
     defaultConfig {
         minSdk = 24
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
     }
     compileOptions {
@@ -22,4 +23,8 @@ dependencies {
     implementation(project(":tauri-android"))
     implementation("androidx.appcompat:appcompat:1.7.1")
     testImplementation("junit:junit:4.13.2")
+    androidTestImplementation("androidx.test:runner:1.5.2")
+    androidTestImplementation("androidx.test.ext:junit:1.1.5")
+    // Invoke's public test constructor uses Tauri Android's existing mapper version.
+    androidTestImplementation("com.fasterxml.jackson.core:jackson-databind:2.15.3")
 }

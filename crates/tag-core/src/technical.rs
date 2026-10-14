@@ -155,7 +155,30 @@ fn locale() -> Locale {
     })
 }
 fn timestamp(fields: &mut Fields, prefix: &str, time: SystemTime) {
-    let utc: DateTime<Utc> = time.into();
+    // Provider timestamps may exceed Chrono's representable calendar range.
+    // Unlike From<SystemTime>, this checked conversion leaves unknown fields absent.
+    let (seconds, nanos) = match time.duration_since(std::time::UNIX_EPOCH) {
+        Ok(duration) => {
+            let Ok(seconds) = i64::try_from(duration.as_secs()) else {
+                return;
+            };
+            (seconds, duration.subsec_nanos())
+        }
+        Err(before_epoch) => {
+            let duration = before_epoch.duration();
+            let Ok(seconds) = i64::try_from(duration.as_secs()) else {
+                return;
+            };
+            if duration.subsec_nanos() == 0 {
+                (-seconds, 0)
+            } else {
+                (-seconds - 1, 1_000_000_000 - duration.subsec_nanos())
+            }
+        }
+    };
+    let Some(utc) = DateTime::<Utc>::from_timestamp(seconds, nanos) else {
+        return;
+    };
     let local: DateTime<Local> = utc.with_timezone(&Local);
     put(fields, &format!("{prefix}_DATETIME_RAW"), utc.timestamp());
     put(
@@ -168,6 +191,20 @@ fn timestamp(fields: &mut Fields, prefix: &str, time: SystemTime) {
         &format!("{prefix}_DATETIME"),
         local.format_localized("%x %X", locale()),
     );
+}
+
+pub(super) fn file_time_fields(
+    created: Option<SystemTime>,
+    modified: Option<SystemTime>,
+) -> Fields {
+    let mut fields = Fields::new();
+    if let Some(time) = modified {
+        timestamp(&mut fields, "_FILE_MOD", time);
+    }
+    if let Some(time) = created {
+        timestamp(&mut fields, "_FILE_CREATE", time);
+    }
+    fields
 }
 
 /// Also refresh this after staging is persisted, so temporary filenames never
@@ -445,12 +482,10 @@ pub(super) fn collect(
             format!("{:.1} MB", size as f64 / (1024. * 1024.))
         },
     );
-    if let Ok(time) = metadata.modified() {
-        timestamp(&mut fields, "_FILE_MOD", time);
-    }
-    if let Ok(time) = metadata.created() {
-        timestamp(&mut fields, "_FILE_CREATE", time);
-    }
+    fields.extend(file_time_fields(
+        metadata.created().ok(),
+        metadata.modified().ok(),
+    ));
     path_fields(&mut fields, path);
     fields
 }

@@ -93,13 +93,16 @@ dialog { background:var(--surface); }
 
 .preview:focus-visible{outline:2px solid var(--blue);outline-offset:1px}
 
+/* Exclude closed menu panels from layout to avoid WebView 113's outline-fragment crash when opening a dialog. */
+.menubar > .menu:not([open]) > .menu-list { display:none; }
+
 @media(max-width:1000px) {
   .menubar { position:relative; }
   .menubar > .menu { position:static; }
   .menubar > .menu > .menu-list { left:4px; right:4px; top:100%; min-width:0; }
 }
 
-/* Short compact windows retain commands in menus and scroll the whole inspector. */
+/* Short compact windows retain commands in menus. */
 @media(max-width:1000px) and (max-height:500px) {
   .app { min-height:0; }
   .toolbar { display:none; }
@@ -108,8 +111,6 @@ dialog { background:var(--surface); }
   .mobile-panes { height:44px; min-height:44px; padding:0 6px; }
   .mobile-panes button { min-height:44px; min-width:0; padding:4px 6px; }
   .workspace { overflow:hidden; }
-  .editor { display:block; overflow:auto; overscroll-behavior:contain; }
-  .fields { overflow:visible; flex:none; }
   .cover-section { padding:12px 16px; }
   .location { display:none; }
   .filterbar { height:44px; min-height:44px; padding:0 9px; border-bottom:0; flex-shrink:0; }
@@ -140,9 +141,26 @@ dialog { background:var(--surface); }
 }
 
 @media(max-width:1000px) {
+  /* Keep source details, full-size fields, actions and artwork in one scroll flow. */
+  .editor { display:block; overflow:auto; overscroll-behavior:contain; }
+  .fields { overflow:visible; flex:none; }
   .editor-actions button, .cover-controls button, .dialog-footer button, .dialog-content button { min-width:44px; }
   .extended-value { grid-template-columns:minmax(0,1fr) 44px; }
 }
 @media(max-width:1000px) and (max-height:500px) {
   .menubar > .menu > .menu-list { max-height:60vh; overflow-y:auto; }
 }
+
+/* Provider access belongs to the selected file context in either compact pane. */
+.source-access{padding:9px 12px;border-bottom:1px solid var(--border);background:var(--surface-subtle);font-size:11px;flex-shrink:0;overflow-wrap:anywhere}
+.source-access>div:first-child{display:flex;gap:8px;flex-wrap:wrap;align-items:baseline}
+.source-access strong{color:var(--accent)}
+.source-access p{margin:5px 0;color:var(--muted-text);line-height:1.4}
+.source-access .source-location{font-size:10px;overflow-wrap:anywhere}
+.source-access .source-error{color:var(--error-text)}
+.source-access.recovery{border-left:3px solid var(--error-border)}
+.source-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.source-actions button{padding:5px 7px;font-size:11px}
+.menu-note,.operation-reason{padding:6px 9px;margin:3px 0;color:var(--muted-text);font-size:11px;line-height:1.4;max-width:330px;white-space:normal}
+.copy-status{color:var(--muted-text);line-height:1.5}
+@media(max-width:1000px){.source-access{padding:9px 12px}.source-actions button{min-height:44px}.files>.source-access{max-height:32vh;overflow:auto;overscroll-behavior:contain}}

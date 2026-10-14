@@ -1,15 +1,19 @@
 # Android document access
 
-`crates/document-access` is an independently authored Tauri plugin for Android's Storage Access Framework. It provides read/write document selection and actual grant/capability metadata; it does not request broad storage permissions or turn `content://` identifiers into filesystem paths.
+`crates/document-access` is an independently authored Tauri plugin for Android's Storage Access Framework. It provides read/write document selection, actual grant/capability metadata, streamed private snapshots and checked provider publication. It does not request broad storage permissions or turn `content://` identifiers into filesystem paths. The application now routes Android tag and cover saves through a durable working-copy engine and exposes source access, recovery and Save a copy controls. Device qualification remains in progress; see the [native workflow evidence](verification/android-document-workflows.md).
 
 ## Rust integration
 
 Register `tauri_plugin_document_access::init()` and import `DocumentsExt`. Manager types, including `AppHandle`, expose:
 
 ```rust,ignore
+app.documents().storage_root()          // Result<PathBuf, String>: actual canonical Context.filesDir
 app.documents().pick_documents(multiple) // Result<Vec<DocumentInfo>, String>
 app.documents().info(&uri)               // Result<DocumentInfo, String>
 app.documents().rename(&uri, &name)      // Result<DocumentInfo, String>
+app.documents().snapshot(&uri, &private_output) // Result<DocumentSnapshot, String>
+app.documents().publish(&uri, &private_input, &expected_sha256) // Result<DocumentSnapshot, String>
+app.documents().create_document(&name, mime_type.as_deref()) // Result<Option<DocumentInfo>, String>
 ```
 
 These synchronous Rust bridge calls must run on `tauri::async_runtime::spawn_blocking`, rather than the UI/event loop. Picker completion is an asynchronous Android activity callback; provider queries and renames execute on a bounded native worker pool. Desktop and iOS return unsupported errors. iOS keeps the existing security-scoped file-dialog/filesystem route.
@@ -20,9 +24,23 @@ These synchronous Rust bridge calls must run on `tauri::async_runtime::spawn_blo
 
 The picker uses `ACTION_OPEN_DOCUMENT` with `CATEGORY_OPENABLE`, optional multi-select and requested read/write/persistable grants. Only result-granted access bits are passed to `takePersistableUriPermission`. Cancellation returns an empty vector. Unknown size/time/MIME remain null. Renaming requires a write grant and provider rename capability, returns the provider's new URI, and attempts to retain previously retained access where Android offers it. If rename succeeds but the subsequent metadata query fails, the error identifies the new URI and the completed rename; callers must present that partial state rather than claim no change.
 
-The plugin deliberately leaves byte reads, staged metadata work, write-back validation, source-revision checks and UI persistence to the app's working-file adapter. Directory-tree selection is not implemented in this slice. Provider grants can be revoked or documents moved externally; callers must re-query before saving and handle re-selection.
+Snapshots stream into exclusively created files beneath actual application filesDir/cacheDir. Publication checks the source hash before opening a truncating provider output stream and verifies a fresh read-back after closing it. `DocumentSnapshot` returns the queried document, streamed SHA-256 and byte count. Failed snapshots and private edited inputs are retained. Create-document cancellation returns None.
+
+The durable working-file engine in `src-tauri/src/documents.rs` now stages metadata, retains versioned baseline/edited bytes and atomic pending manifests, handles restart recovery and verifies publication. Command/UI integration is implemented for tag save/removal, cover add/removal, filename-to-tag and edited/original copies. The UI disables provider actions, renames, text imports and exports until they have equivalent publication/recovery support. The engine alone does not qualify these app workflows; the [native workflow report](verification/android-document-workflows.md) records actual device coverage and open cases. It obtains its root through the native `storage_root()` call: Tauri 2.12.3 Android `app_data_dir` resolves to Context.dataDir, which is not itself an allowed private transport root. No inferred files-directory child is used. SAF publication has no general atomic compare-and-swap; an outside change after the hash check can race a write. No automatic rollback over unknown provider bytes is attempted. Directory-tree selection is not implemented. Revoked/moved/deleted originals require explicit recovery/reselection rather than silent replacement.
+
+The app's read-only `document_working_entries` command refreshes affected retained
+working metadata after an immediate operation cannot be published. It does not
+reopen the provider or change recovery state. The UI preserves operation errors,
+updates tags/artwork, and explicitly identifies unavailable retained metadata.
+See the [review and delivery checkpoint](verification/document-editing-review.md)
+for current source review, CI, desktop UI checks and the unexecuted updated-APK
+recheck. Earlier native checks keep their original source attribution.
 
 ## Evidence and remaining checks
+
+The [streamed transport checkpoint](verification/android-document-transport.md) records the later native bridge changes: five host Rust tests, 16 JVM tests, strict plugin clippy, Android debug library/test APK builds and an actual Android 14 descriptor-ownership regression. That regression failed on the unfixed code and passed after explicit descriptor ownership, including repeated success/conflict/failure operations. It is native file/API evidence, not a real provider or application UI save-back qualification.
+
+### Historical selection/capability foundation build
 
 Rust validation/serialization tests cover opaque URI handling, invalid rename paths, null metadata and read-only state. Native JVM tests cover provider write support without a grant, delete-only capability, temporary write with retained read, retained read/write, and excluded directory/virtual-document capabilities.
 
@@ -54,6 +72,6 @@ env PATH=/Users/jneerdael/.rustup/toolchains/stable-aarch64-apple-darwin/bin:$PA
 | `src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk` | `f0b675ac2971b5bcc328e4ed53d97449a80fdc5e33ec661705bbe583e6cf1047` |
 | APK's `lib/arm64-v8a/libopentag_lib.so` | `3fa8c6764a396207eed04efbc2c9af5ece6b760c3ed83c2db2e7d600fde235b3` |
 
-Compilation and these pure capability tests do not prove picker grants, restart persistence, cloud-provider behavior or save-back. Device tests must cover read/write and read-only providers, cancellation, multi-select, revoked grants, restart, renamed identities and actual metadata-write/audio-payload preservation. No device runtime verification was performed for this plugin.
+The historical compilation and pure capability tests do not prove picker grants, restart persistence, cloud-provider behavior or save-back. Device tests must cover read/write and read-only providers, cancellation, multi-select, revoked grants, restart, renamed identities and actual metadata-write/audio-payload preservation. The later descriptor test above adds a bounded native resource check; picker/provider/application editing workflows were unverified at that checkpoint. Later bounded application tests are recorded separately in the [native workflow report](verification/android-document-workflows.md).
 
 Primary sources: [Android SAF guide](https://developer.android.com/training/data-storage/shared/documents-files), [DocumentsContract](https://developer.android.com/reference/android/provider/DocumentsContract), and [Tauri mobile plugin development](https://v2.tauri.app/develop/plugins/develop-mobile/). The installed Tauri 2.12.3 and dialog 2.8.2 sources establish the bridge/callback API and the existing `ACTION_GET_CONTENT` behavior being replaced for editable audio sources.

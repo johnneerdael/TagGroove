@@ -1,0 +1,94 @@
+{
+  "date": "2026-10-14",
+  "status": "PASS within native transport/API resource scope",
+  "source_commits": [
+    "bc7e93349e92fcd3ffdd6d124c55814864613493",
+    "17e6f77931eabea4b8f5ce2293141e025bca610e"
+  ],
+  "source_sha256": {
+    "crates/document-access/android/build.gradle.kts": "6e1d37b74eb62b72f845fcb84158ed63209fcaa24ab9f51a2b860f4c9405618a",
+    "crates/document-access/android/src/androidTest/java/org/opentag/documentaccess/AndroidPrivateStreamsTest.kt": "c20c3f5ae3166af2b7d94554d12bc5597405c8ffd070ae39a43a174af09416e3",
+    "crates/document-access/android/src/main/java/AndroidPrivateStreams.kt": "d58f8bbd1219cd9071b3bc8db82cb44ae8e95f20fd50209814d9743441daf41f",
+    "crates/document-access/android/src/main/java/DocumentAccessPlugin.kt": "01ee3d8c917fd42f05d4398d23f79a903c8d7cb62b97b6fb6d900256646d3fcc",
+    "crates/document-access/android/src/main/java/DocumentTransport.kt": "0e6ce4c061a2785f7cb62b429f03b2336c9c8784f3428e8b90f4f0165efc72f4",
+    "crates/document-access/android/src/main/java/PrivateDocumentPaths.kt": "5c56319cd37723036dc350c190791443107796ac975f4dfe1a3b809ee3057bd1",
+    "crates/document-access/android/src/test/java/org/opentag/documentaccess/DocumentTransportTest.kt": "ffcd7376c06c5b8a1a60dcf3945d8f1ea087447723b343fa0e5dcb3ad33f1e77",
+    "crates/document-access/src/lib.rs": "14615aa6989de8aabd101e5db1c061209abed663d345de6424ba21a7a51b2247"
+  },
+  "host_rust": {
+    "tests": 5,
+    "strict_clippy": "PASS",
+    "toolchain": "1.95",
+    "scope": "document-access plugin only; Android Rust bridge/fullapp integration not yet built"
+  },
+  "jvm_tests": [
+    {
+      "class": "org.opentag.documentaccess.DocumentAccessStateTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "c26d8d1b62c0cfdfd849bd1fc527b0a36f2bab50b04273c5efbfc3d5e401ce22"
+    },
+    {
+      "class": "org.opentag.documentaccess.DocumentTransportTest",
+      "tests": 11,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "a815c45c675bf649da1c9d9b04886c4d06daff031d5ef4737d38e1d2fc2c7e8d"
+    }
+  ],
+  "android_build": {
+    "artifact": "debug AAR and instrumentation test APK",
+    "compile_sdk": 36,
+    "min_sdk": 24,
+    "gradle": "9.6.1",
+    "agp": "9.3.1",
+    "kotlin": "2.2.10",
+    "jdk": "21.0.11",
+    "fixture": "/tmp/opentag-native-gradle"
+  },
+  "native_resource_regression": {
+    "serial": "emulator-5554",
+    "avd": "OpenTag_Document_Test_API_34",
+    "api": 34,
+    "abi": "arm64-v8a",
+    "runner": "org.opentag.documentaccess.test/androidx.test.runner.AndroidJUnitRunner",
+    "class": "org.opentag.documentaccess.AndroidPrivateStreamsTest",
+    "red": {
+      "apk_sha256": "c17d1bb0a0cc2d73a152238a89acffcf08b59a5ea99fad6d4b96974e519f7a47",
+      "tests": 3,
+      "failures": 2,
+      "log": "android-private-streams-red.txt",
+      "log_sha256": "59d6333057d7c6fed98de3715076cc276ab11db77748c70fbdf7c440306477ba",
+      "raw_log_sha256": "0cf4540d182fb5ba5e6b1eee9d299de0512d5d81a8392aae6db858f1192efda6",
+      "log_normalization": "Trailing blank lines removed from checked-in copy only; raw command log retained in /tmp/opentag-user-test/receipts/android-documents"
+    },
+    "green": {
+      "apk_sha256": "54927758bf46b3d0c78e0e15d537e58678e72a206b376776df4a4415cc05ea6c",
+      "tests": 3,
+      "failures": 0,
+      "log": "android-private-streams-green.txt",
+      "log_sha256": "5ce00cbaf6b9c16e66c73883e749ce7bcc38cca80bec8889959a6b77f8dcda96",
+      "raw_log_sha256": "1fd942f16ccc3ff612e3072d52c13d939d7c126dfe28d0b8395108d2cb70e86e",
+      "log_normalization": "Trailing blank lines removed from checked-in copy only; raw command log retained in /tmp/opentag-user-test/receipts/android-documents"
+    },
+    "checks": [
+      "actual descriptor invalidity after native closure",
+      "no proc/self/fd targets under private fixture after32snapshots and96publication/conflict/failure cycles",
+      "partial snapshot failure descriptor closure",
+      "exclusive output and symlink/private path rejection"
+    ],
+    "not_ui_automation": true
+  },
+  "not_qualified": [
+    "real ContentResolver provider bytes/grants",
+    "ACTION_OPEN_DOCUMENT/ACTION_CREATE_DOCUMENT picker lifecycle/cancellation",
+    "durable working-copy engine/restart recovery",
+    "native application UI editing/saveback",
+    "cloud providers",
+    "iOS",
+    "full feature or performance parity"
+  ]
+}

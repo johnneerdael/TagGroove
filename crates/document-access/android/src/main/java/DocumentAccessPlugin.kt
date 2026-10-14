@@ -6,6 +6,8 @@ import android.content.pm.PackageManager
 import android.database.Cursor
 import android.net.Uri
 import android.os.Process
+import java.io.InputStream
+import java.io.OutputStream
 import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import androidx.activity.result.ActivityResult
@@ -32,6 +34,13 @@ class PickDocumentsArgs { var multiple: Boolean = false }
 class DocumentUriArgs { lateinit var uri: String }
 @InvokeArg
 class RenameDocumentArgs { lateinit var uri: String; lateinit var name: String }
+
+@InvokeArg
+class SnapshotDocumentArgs { lateinit var uri: String; lateinit var outputPath: String }
+@InvokeArg
+class PublishDocumentArgs { lateinit var uri: String; lateinit var inputPath: String; lateinit var expectedSha256: String }
+@InvokeArg
+class CreateDocumentArgs { lateinit var name: String; var mimeType: String? = null }
 
 @TauriPlugin
 class DocumentAccessPlugin(private val activity: Activity) : Plugin(activity) {
@@ -107,6 +116,110 @@ class DocumentAccessPlugin(private val activity: Activity) : Plugin(activity) {
     }
 
     @Command
+    fun createDocument(invoke: Invoke) {
+        val args = try {
+            invoke.parseArgs(CreateDocumentArgs::class.java).also { validateName(it.name) }
+        } catch (error: Exception) { reject(invoke, error); return }
+        if (!pickerRunning.compareAndSet(false, true)) {
+            invoke.reject("A document picker is already open")
+            return
+        }
+        pendingPicker.set(invoke)
+        activity.runOnUiThread {
+            try {
+                check(!activity.isFinishing && !activity.isDestroyed) { "The activity is closing" }
+                val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = args.mimeType?.takeIf { it.isNotBlank() } ?: "application/octet-stream"
+                    putExtra(Intent.EXTRA_TITLE, args.name)
+                    addFlags(accessFlags or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+                }
+                startActivityForResult(invoke, intent, "documentCreated")
+            } catch (error: Exception) {
+                pendingPicker.compareAndSet(invoke, null)
+                pickerRunning.set(false)
+                reject(invoke, error)
+            }
+        }
+    }
+
+    @ActivityCallback
+    fun documentCreated(invoke: Invoke, result: ActivityResult) {
+        if (!pendingPicker.compareAndSet(invoke, null)) return
+        if (result.resultCode == Activity.RESULT_CANCELED) {
+            pickerRunning.set(false)
+            invoke.resolve(JSObject().put("document", JSONObject.NULL))
+            return
+        }
+        val data = result.data
+        val uri = data?.data
+        if (result.resultCode != Activity.RESULT_OK || uri == null) {
+            pickerRunning.set(false)
+            invoke.reject("The document picker returned no created document")
+            return
+        }
+        background(invoke, picker = true) {
+            val granted = data.flags and accessFlags
+            if (data.flags and Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION != 0 && granted != 0) retainWhenOffered(uri, granted)
+            JSObject().put("document", query(uri).json)
+        }
+    }
+
+    @Command
+    fun storageRoot(invoke: Invoke) {
+        background(invoke) { JSObject().put("path", activity.filesDir.canonicalPath) }
+    }
+
+    private val privatePaths get() = PrivateDocumentPaths(listOf(activity.filesDir, activity.cacheDir))
+    private val privateStreams get() = AndroidPrivateStreams(privatePaths)
+
+    private inner class ProviderStreams(private val uri: Uri) : DocumentStreams {
+        lateinit var latest: Metadata
+        override fun metadata(): DocumentVersion {
+            latest = query(uri)
+            return latest.version
+        }
+        override fun openRead(): InputStream = resolver.openInputStream(uri)
+            ?: throw IllegalStateException("Provider returned no input stream")
+        override fun openTruncatingWrite(): OutputStream = resolver.openOutputStream(uri, "wt")
+            ?: throw IllegalStateException("Provider returned no truncating output stream")
+    }
+
+    @Command
+    fun snapshot(invoke: Invoke) {
+        val args = try { invoke.parseArgs(SnapshotDocumentArgs::class.java) }
+        catch (error: Exception) { reject(invoke, error); return }
+        background(invoke) {
+            try {
+                privatePaths.output(args.outputPath)
+                val provider = ProviderStreams(parseUri(args.uri))
+                val result = DocumentTransport.snapshot(provider) { privateStreams.output(args.outputPath) }
+                JSObject().put("document", provider.latest.json).put("sha256", result.sha256).put("bytes", result.bytes)
+            } catch (error: Exception) {
+                throw IllegalStateException("Snapshot failed; any partial private file is retained at ${args.outputPath}: ${error.message}", error)
+            }
+        }
+    }
+
+    @Command
+    fun publish(invoke: Invoke) {
+        val args = try { invoke.parseArgs(PublishDocumentArgs::class.java) }
+        catch (error: Exception) { reject(invoke, error); return }
+        background(invoke) {
+            val provider = ProviderStreams(parseUri(args.uri))
+            val result = DocumentTransport.publish(provider, { privateStreams.input(args.inputPath) }, args.expectedSha256)
+            JSObject().put("document", provider.latest.json).put("sha256", result.sha256).put("bytes", result.bytes)
+        }
+    }
+
+    private fun validateName(name: String) {
+        require(name.isNotBlank() && name != "." && name != ".." &&
+            !name.contains('/') && !name.contains('\\') && !name.contains('\u0000')) {
+            "Document name must be one nonempty filename without path separators"
+        }
+    }
+
+    @Command
     fun info(invoke: Invoke) {
         val args = try { invoke.parseArgs(DocumentUriArgs::class.java) }
         catch (error: Exception) { reject(invoke, error); return }
@@ -144,7 +257,7 @@ class DocumentAccessPlugin(private val activity: Activity) : Plugin(activity) {
         }
     }
 
-    private data class Metadata(val json: JSObject, val flags: Int, val writeGranted: Boolean)
+    private data class Metadata(val json: JSObject, val flags: Int, val writeGranted: Boolean, val version: DocumentVersion)
 
     private fun parseUri(value: String): Uri {
         val uri = Uri.parse(value)
@@ -212,7 +325,7 @@ class DocumentAccessPlugin(private val activity: Activity) : Plugin(activity) {
         val json = JSObject().put("uri", uri.toString()).put("name", name)
             .put("mime_type", mime ?: JSONObject.NULL).put("size", size ?: JSONObject.NULL)
             .put("modified_ms", modified ?: JSONObject.NULL).put("writable", access.writable).put("persisted", access.persisted)
-        return Metadata(json, flags, writeGranted)
+        return Metadata(json, flags, writeGranted, DocumentVersion(name!!, mime, size, modified, access.writable))
     }
 
     private fun background(invoke: Invoke, picker: Boolean = false, work: () -> JSObject) {

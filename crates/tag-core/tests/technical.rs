@@ -249,3 +249,28 @@ fn malformed_embedded_jpeg_header_is_an_absent_dimension_not_a_panic() {
     assert_eq!(entry.covers[0].width, None);
     assert!(!entry.technical.contains_key("_COVER_WIDTH"));
 }
+
+#[test]
+fn provider_file_times_match_measured_file_times_without_inventing_creation() {
+    let d = tempfile::tempdir().unwrap();
+    let path = d.path().join("provider.wav");
+    wav(&path);
+    let time = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+    fs::OpenOptions::new()
+        .write(true)
+        .open(&path)
+        .unwrap()
+        .set_times(fs::FileTimes::new().set_modified(time))
+        .unwrap();
+    let measured = read_entry(&path).unwrap();
+    let projected = tag_core::file_time_fields(None, Some(time));
+    for key in [
+        "_FILE_MOD_DATE",
+        "_FILE_MOD_DATETIME",
+        "_FILE_MOD_DATETIME_RAW",
+    ] {
+        assert_eq!(projected.get(key), measured.technical.get(key), "{key}");
+    }
+    assert!(!projected.keys().any(|key| key.starts_with("_FILE_CREATE")));
+    assert!(tag_core::file_time_fields(None, None).is_empty());
+}
