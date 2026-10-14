@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 use tag_core::{Action, AudioEntry, Fields, FileError, ScanResult};
 mod action_host;
+mod columns;
 mod converters;
 mod documents;
 mod evaluation;
@@ -837,7 +838,12 @@ pub fn run() {
             converters::preview_text_import,
             converters::apply_text_import,
             export_csv,
-            export_playlist
+            export_playlist,
+            columns::load_columns,
+            columns::save_columns,
+            columns::import_columns,
+            columns::export_columns,
+            columns::evaluate_columns
         ])
         .run(tauri::generate_context!())
         .expect("Unable to run OpenTag");
