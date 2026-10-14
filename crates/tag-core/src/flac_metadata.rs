@@ -74,9 +74,20 @@ fn fit(region: &[u8], size: usize) -> Option<Vec<u8>> {
     (out.len() == size).then_some(out)
 }
 
+/// `region` with every PADDING block replaced by one trailing block of
+/// `padding` bytes, or `None` if the region is malformed.
+pub(crate) fn with_padding(region: &[u8], padding: usize) -> Option<Vec<u8>> {
+    let kept: Vec<Block> = blocks(region)?
+        .into_iter()
+        .filter(|b| b.kind != PADDING)
+        .collect();
+    let used: usize = kept.iter().map(|b| HEADER + b.len).sum();
+    fit(region, used + HEADER + padding.min(MAX_BLOCK))
+}
+
 /// Length of `fLaC` plus all metadata blocks, or `None` when the file does not
 /// start with a native FLAC stream (for example an ID3v2-prefixed file).
-fn metadata_end(file: &mut fs::File) -> std::io::Result<Option<u64>> {
+pub(crate) fn metadata_end(file: &mut fs::File) -> std::io::Result<Option<u64>> {
     file.seek(SeekFrom::Start(0))?;
     let mut magic = [0; 4];
     if file.read_exact(&mut magic).is_err() || &magic != MAGIC {
