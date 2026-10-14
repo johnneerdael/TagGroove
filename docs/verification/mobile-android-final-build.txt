@@ -1,0 +1,46 @@
+Final checkpoint command: npm run tauri -- android build --debug --target aarch64 --apk --ci --config {"build":{"beforeBuildCommand":null}}
+{"RUSTC": "/Users/jneerdael/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc", "CARGO_TARGET_DIR": "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/target/mobile-verification/android", "NDK_HOME": "/Users/jneerdael/Library/Android/sdk/ndk/28.2.13676358"}
+
+> opentag@0.1.0 tauri
+> tauri android build --debug --target aarch64 --apk --ci --config {"build":{"beforeBuildCommand":null}}
+
+        Info Using installed NDK: /Users/jneerdael/Library/Android/sdk/ndk/28.2.13676358
+        Info Looking up installed tauri packages to check mismatched versions...
+[1m[92m    Blocking[0m waiting for file lock on package cache
+[1m[92m   Compiling[0m opentag v0.1.0 (/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/src-tauri)
+[1m[92m   Compiling[0m tag-core v0.1.0 (/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/crates/tag-core)
+[1m[92m    Finished[0m ]8;;https://doc.rust-lang.org/cargo/reference/profiles.html#default-profiles\`dev` profile [unoptimized + debuginfo]]8;;\ target(s) in 21.50s
+        Info symlinking lib "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/target/mobile-verification/android/aarch64-linux-android/debug/libopentag_lib.so" in jniLibs dir "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/src-tauri/gen/android/app/src/main/jniLibs/arm64-v8a"
+        Info "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/target/mobile-verification/android/aarch64-linux-android/debug/libopentag_lib.so" requires shared lib "libandroid.so"
+        Info "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/target/mobile-verification/android/aarch64-linux-android/debug/libopentag_lib.so" requires shared lib "libc++_shared.so"
+        Info "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/target/mobile-verification/android/aarch64-linux-android/debug/libopentag_lib.so" requires shared lib "libdl.so"
+        Info "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/target/mobile-verification/android/aarch64-linux-android/debug/libopentag_lib.so" requires shared lib "liblog.so"
+        Info "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/target/mobile-verification/android/aarch64-linux-android/debug/libopentag_lib.so" requires shared lib "libm.so"
+        Info "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/target/mobile-verification/android/aarch64-linux-android/debug/libopentag_lib.so" requires shared lib "libc.so"
+        Info lib "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/target/mobile-verification/android/aarch64-linux-android/debug/libopentag_lib.so" requires "libc++_shared.so"
+        Info symlinking lib "/Users/jneerdael/Library/Android/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/darwin-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so" in jniLibs dir "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/src-tauri/gen/android/app/src/main/jniLibs/arm64-v8a"
+        Info symlink at "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/src-tauri/gen/android/app/src/main/jniLibs/arm64-v8a/libopentag_lib.so" points to "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/target/mobile-verification/android/aarch64-linux-android/debug/libopentag_lib.so"
+        Info symlink at "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/src-tauri/gen/android/app/src/main/jniLibs/arm64-v8a/libc++_shared.so" points to "/Users/jneerdael/Library/Android/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/darwin-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so"
+
+> opentag@0.1.0 tauri
+> tauri android android-studio-script --target aarch64
+
+        Info connection; remote_addr=127.0.0.1:51613 conn_id=0
+[1m[32m        Info[0m Using installed NDK: /Users/jneerdael/Library/Android/sdk/ndk/28.2.13676358
+[1m[92m   Compiling[0m opentag v0.1.0 (/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/src-tauri)
+[1m[92m    Finished[0m ]8;;https://doc.rust-lang.org/cargo/reference/profiles.html#default-profiles\`dev` profile [unoptimized + debuginfo]]8;;\ target(s) in 7.17s
+[1m[32m        Info[0m symlinking lib "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/target/mobile-verification/android/aarch64-linux-android/debug/libopentag_lib.so" in jniLibs dir "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/src-tauri/gen/android/app/src/main/jniLibs/arm64-v8a"
+[1m[32m        Info[0m "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/target/mobile-verification/android/aarch64-linux-android/debug/libopentag_lib.so" requires shared lib "libandroid.so"
+[1m[32m        Info[0m "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/target/mobile-verification/android/aarch64-linux-android/debug/libopentag_lib.so" requires shared lib "libc++_shared.so"
+[1m[32m        Info[0m "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/target/mobile-verification/android/aarch64-linux-android/debug/libopentag_lib.so" requires shared lib "libdl.so"
+[1m[32m        Info[0m "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/target/mobile-verification/android/aarch64-linux-android/debug/libopentag_lib.so" requires shared lib "liblog.so"
+[1m[32m        Info[0m "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/target/mobile-verification/android/aarch64-linux-android/debug/libopentag_lib.so" requires shared lib "libm.so"
+[1m[32m        Info[0m "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/target/mobile-verification/android/aarch64-linux-android/debug/libopentag_lib.so" requires shared lib "libc.so"
+[1m[32m        Info[0m lib "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/target/mobile-verification/android/aarch64-linux-android/debug/libopentag_lib.so" requires "libc++_shared.so"
+[1m[32m        Info[0m symlinking lib "/Users/jneerdael/Library/Android/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/darwin-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so" in jniLibs dir "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/src-tauri/gen/android/app/src/main/jniLibs/arm64-v8a"
+Configuration cache entry reused.
+    Finished 1 APK at:
+        /Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
+
+
+EXIT STATUS: 0

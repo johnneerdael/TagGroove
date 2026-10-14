@@ -1,0 +1,8 @@
+:root {
+  --opentag-ink: #101922;
+  --opentag-paper: #FAFAFC;
+  --opentag-amber: #FFC72C;
+  --opentag-orange: #FF7800;
+  --opentag-vermilion: #F23D0B;
+  --opentag-gradient: linear-gradient(135deg, #FFE84A 0%, #FFB70B 33%, #FF7900 64%, #F13A08 100%);
+}

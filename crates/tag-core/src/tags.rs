@@ -1,0 +1,1030 @@
+//! Portable metadata I/O. Every mutation is written and verified in a sibling
+//! temporary file before the original is atomically replaced.
+#[path = "cover_ops.rs"]
+mod cover_ops;
+#[path = "mapping.rs"]
+mod mapping;
+use base64::{engine::general_purpose::STANDARD, Engine};
+pub use cover_ops::*;
+use lofty::{
+    aac::AacFile,
+    ape::{ApeFile, ApeItem, ApeTag},
+    config::{ParseOptions, ParsingMode, WriteOptions},
+    file::{AudioFile, FileType, TaggedFile, TaggedFileExt},
+    flac::FlacFile,
+    id3::v2::{Frame, Id3v2Tag},
+    iff::{
+        aiff::AiffFile,
+        wav::{RiffInfoList, WavFile},
+    },
+    mp4::{Ilst, Mp4File},
+    mpeg::MpegFile,
+    musepack::MpcFile,
+    ogg::{tag::VorbisComments, OggPictureStorage, OpusFile, SpeexFile, VorbisFile},
+    picture::{Picture, PictureType},
+    probe::Probe,
+    tag::{ItemKey, ItemValue, Tag, TagExt, TagItem, TagType},
+    wavpack::WavPackFile,
+};
+pub use mapping::{
+    field_mapping, map_read_fields, map_write_fields, validate_user_mappings, FieldMapping,
+    UserFieldMapping, FIELD_MAPPINGS,
+};
+use serde::{Deserialize, Serialize};
+use std::{
+    collections::{BTreeMap, HashSet},
+    fs,
+    io::{Seek, SeekFrom},
+    path::{Path, PathBuf},
+};
+use walkdir::WalkDir;
+
+fn error_message(error: &dyn std::error::Error) -> String {
+    let mut message = error.to_string();
+    let mut source = error.source();
+    while let Some(cause) = source {
+        message.push_str(": ");
+        message.push_str(&cause.to_string());
+        source = cause.source();
+    }
+    message
+}
+pub type Fields = BTreeMap<String, Vec<String>>;
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CoverInfo {
+    pub index: usize,
+    pub mime: String,
+    pub description: String,
+    pub picture_type: String,
+    pub data_base64: String,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AudioEntry {
+    pub path: String,
+    pub filename: String,
+    pub format: String,
+    pub duration: f64,
+    pub bitrate: u32,
+    pub sample_rate: u32,
+    pub channels: u8,
+    pub size: u64,
+    pub fields: Fields,
+    pub covers: Vec<CoverInfo>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FileError {
+    pub path: String,
+    pub error: String,
+}
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ScanResult {
+    pub entries: Vec<AudioEntry>,
+    pub errors: Vec<FileError>,
+}
+
+fn load(path: &Path) -> Result<TaggedFile, String> {
+    let mut file = Probe::open(path)
+        .map_err(|e| e.to_string())?
+        .guess_file_type()
+        .map_err(|e| e.to_string())?
+        .options(
+            ParseOptions::new()
+                .implicit_conversions(false)
+                .parsing_mode(ParsingMode::Strict),
+        )
+        .read()
+        .map_err(|e| error_message(&e))?;
+    if file.tag(TagType::Ape).is_some() {
+        let native = native_tags(
+            &mut fs::File::open(path).map_err(|e| e.to_string())?,
+            file.file_type(),
+        )?;
+        if let (Some(ape), Some(tag)) = (native.ape, file.tag_mut(TagType::Ape)) {
+            for item in &ape {
+                if item.key().starts_with("Cover Art (") {
+                    if let ItemValue::Binary(data) = item.value() {
+                        tag.push_picture(
+                            Picture::from_ape_bytes(item.key(), data).map_err(|e| e.to_string())?,
+                        );
+                    }
+                }
+            }
+        }
+    }
+    Ok(file)
+}
+
+fn ordered_tags(file: &TaggedFile) -> Vec<&Tag> {
+    let primary = file.primary_tag_type();
+    file.tags()
+        .iter()
+        .filter(|t| t.tag_type() == primary)
+        .chain(file.tags().iter().filter(|t| t.tag_type() != primary))
+        .collect()
+}
+
+fn field_name(key: ItemKey) -> String {
+    match key {
+        ItemKey::TrackNumber => "TRACK".into(),
+        ItemKey::TrackTotal => "TOTALTRACKS".into(),
+        ItemKey::DiscNumber => "DISCNUMBER".into(),
+        ItemKey::DiscTotal => "TOTALDISCS".into(),
+        ItemKey::RecordingDate | ItemKey::Year => "YEAR".into(),
+        ItemKey::OriginalReleaseDate => "ORIGYEAR".into(),
+        ItemKey::ContentGroup => "GROUPING".into(),
+        ItemKey::UnsyncLyrics => "UNSYNCEDLYRICS".into(),
+        ItemKey::CopyrightMessage => "COPYRIGHT".into(),
+        _ => key
+            .map_key(TagType::VorbisComments)
+            .or_else(|| key.map_key(TagType::Ape))
+            .map(str::to_uppercase)
+            .unwrap_or_else(|| format!("{key:?}").to_uppercase()),
+    }
+}
+
+fn text_value(value: &ItemValue) -> Option<&str> {
+    match value {
+        ItemValue::Text(v) | ItemValue::Locator(v) => Some(v),
+        _ => None,
+    }
+}
+
+#[derive(Default)]
+struct NativeTags {
+    vorbis: Option<VorbisComments>,
+    ape: Option<ApeTag>,
+    id3: Option<Id3v2Tag>,
+    ilst: Option<Ilst>,
+    riff: Option<RiffInfoList>,
+}
+
+// Lofty 0.25 generic conversions discard unknown APE and Vorbis items. Keep
+// their concrete tags, including flags, vendor and binary items, separately.
+fn native_tags(reader: &mut fs::File, kind: FileType) -> Result<NativeTags, String> {
+    reader.seek(SeekFrom::Start(0)).map_err(|e| e.to_string())?;
+    let options = ParseOptions::new()
+        .implicit_conversions(false)
+        .read_properties(false)
+        .parsing_mode(ParsingMode::Strict);
+    let mut native = NativeTags::default();
+    match kind {
+        FileType::Flac => {
+            let file = FlacFile::read_from(reader, options).map_err(|e| error_message(&e))?;
+            native.id3 = file.id3v2().cloned();
+            let mut tag = file.vorbis_comments().cloned().unwrap_or_default();
+            for (picture, info) in file.pictures() {
+                tag.insert_picture(picture.clone(), Some(*info))
+                    .map_err(|e| e.to_string())?;
+            }
+            native.vorbis = Some(tag);
+        }
+        FileType::Vorbis => {
+            native.vorbis = Some(
+                VorbisFile::read_from(reader, options)
+                    .map_err(|e| error_message(&e))?
+                    .vorbis_comments()
+                    .clone(),
+            )
+        }
+        FileType::Opus => {
+            native.vorbis = Some(
+                OpusFile::read_from(reader, options)
+                    .map_err(|e| error_message(&e))?
+                    .vorbis_comments()
+                    .clone(),
+            )
+        }
+        FileType::Speex => {
+            native.vorbis = Some(
+                SpeexFile::read_from(reader, options)
+                    .map_err(|e| error_message(&e))?
+                    .vorbis_comments()
+                    .clone(),
+            )
+        }
+        FileType::Mpeg => {
+            let file = MpegFile::read_from(reader, options).map_err(|e| error_message(&e))?;
+            native.ape = file.ape().cloned();
+            native.id3 = file.id3v2().cloned();
+        }
+        FileType::Ape => {
+            let file = ApeFile::read_from(reader, options).map_err(|e| error_message(&e))?;
+            native.ape = file.ape().cloned();
+            native.id3 = file.id3v2().cloned();
+        }
+        FileType::Mpc => {
+            let file = MpcFile::read_from(reader, options).map_err(|e| error_message(&e))?;
+            native.ape = file.ape().cloned();
+            native.id3 = file.id3v2().cloned();
+        }
+        FileType::WavPack => {
+            native.ape = WavPackFile::read_from(reader, options)
+                .map_err(|e| error_message(&e))?
+                .ape()
+                .cloned()
+        }
+        FileType::Aac => {
+            native.id3 = AacFile::read_from(reader, options)
+                .map_err(|e| error_message(&e))?
+                .id3v2()
+                .cloned()
+        }
+        FileType::Wav => {
+            let file = WavFile::read_from(reader, options).map_err(|e| error_message(&e))?;
+            native.id3 = file.id3v2().cloned();
+            native.riff = file.riff_info().cloned();
+        }
+        FileType::Aiff => {
+            native.id3 = AiffFile::read_from(reader, options)
+                .map_err(|e| error_message(&e))?
+                .id3v2()
+                .cloned()
+        }
+        FileType::Mp4 => {
+            native.ilst = Mp4File::read_from(reader, options)
+                .map_err(|e| error_message(&e))?
+                .ilst()
+                .cloned()
+        }
+        _ => {}
+    }
+    Ok(native)
+}
+
+fn describe(path: &Path, file: &TaggedFile) -> Result<AudioEntry, String> {
+    let native = native_tags(
+        &mut fs::File::open(path).map_err(|e| e.to_string())?,
+        file.file_type(),
+    )?;
+    describe_with_native(path, file, &native, true, &[])
+}
+
+fn describe_with_native(
+    path: &Path,
+    file: &TaggedFile,
+    native: &NativeTags,
+    include_cover_data: bool,
+    rules: &[UserFieldMapping],
+) -> Result<AudioEntry, String> {
+    let mut fields = Fields::new();
+    let mut covers = Vec::new();
+    for tag in ordered_tags(file) {
+        let mut local = Fields::new();
+        match tag.tag_type() {
+            TagType::Id3v2 => {
+                if let Some(tag) = native.id3.as_ref() {
+                    local = mapping::id3_fields(tag);
+                }
+            }
+            TagType::Mp4Ilst => {
+                if let Some(tag) = native.ilst.as_ref() {
+                    local = mapping::mp4_fields(tag);
+                }
+            }
+            TagType::VorbisComments => {
+                if let Some(tag) = native.vorbis.as_ref() {
+                    for (key, value) in tag.items() {
+                        local
+                            .entry(key.to_owned())
+                            .or_default()
+                            .push(value.to_owned());
+                    }
+                }
+            }
+            TagType::Ape => {
+                if let Some(tag) = native.ape.as_ref() {
+                    for item in tag {
+                        if let Some(value) = text_value(item.value()) {
+                            local
+                                .entry(item.key().to_owned())
+                                .or_default()
+                                .extend(value.split('\0').map(str::to_owned));
+                        }
+                    }
+                }
+            }
+            TagType::RiffInfo => {
+                if let Some(tag) = native.riff.as_ref() {
+                    for (key, value) in tag {
+                        let name = FIELD_MAPPINGS
+                            .iter()
+                            .find(|m| !m.riff.is_empty() && m.riff.eq_ignore_ascii_case(key))
+                            .map(|m| m.field.to_owned())
+                            .unwrap_or_else(|| key.to_owned());
+                        local.entry(name).or_default().push(value.to_owned());
+                    }
+                }
+            }
+            _ => {
+                for item in tag.items() {
+                    if let Some(value) = text_value(item.value()) {
+                        local
+                            .entry(field_name(item.key()))
+                            .or_default()
+                            .push(value.to_owned());
+                    }
+                }
+            }
+        }
+        let local = map_read_fields(&local, tag.tag_type(), rules)?;
+        // Primary values take precedence over legacy representations. Secondary
+        // tags still contribute fields that the primary does not contain.
+        for (key, values) in local {
+            fields.entry(key).or_insert(values);
+        }
+        for picture in tag.pictures() {
+            covers.push(CoverInfo {
+                index: covers.len(),
+                mime: picture
+                    .mime_type()
+                    .map(|m| m.as_str())
+                    .unwrap_or("application/octet-stream")
+                    .into(),
+                description: picture.description().unwrap_or_default().into(),
+                picture_type: format!("{:?}", picture.pic_type()),
+                data_base64: if include_cover_data {
+                    STANDARD.encode(picture.data())
+                } else {
+                    String::new()
+                },
+            });
+        }
+    }
+    let properties = file.properties();
+    Ok(AudioEntry {
+        path: path.to_string_lossy().into_owned(),
+        filename: path
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .into_owned(),
+        format: match file.file_type() {
+            FileType::Mpeg => "MP3",
+            FileType::Aac => "AAC",
+            FileType::Aiff => "AIFF",
+            FileType::Ape => "APE",
+            FileType::Flac => "FLAC",
+            FileType::Mp4 => "MP4",
+            FileType::Mpc => "MPC",
+            FileType::Opus => "Opus",
+            FileType::Vorbis => "Ogg Vorbis",
+            FileType::Speex => "Speex",
+            FileType::Wav => "WAV",
+            FileType::WavPack => "WavPack",
+            _ => "Unknown",
+        }
+        .into(),
+        duration: properties.duration().as_secs_f64(),
+        bitrate: properties
+            .audio_bitrate()
+            .or(properties.overall_bitrate())
+            .unwrap_or(0),
+        sample_rate: properties.sample_rate().unwrap_or(0),
+        channels: properties.channels().unwrap_or(0),
+        size: fs::metadata(path).map_err(|e| e.to_string())?.len(),
+        fields,
+        covers,
+    })
+}
+
+pub fn read_entry(path: &Path) -> Result<AudioEntry, String> {
+    let path = path.canonicalize().map_err(|e| e.to_string())?;
+    describe(&path, &load(&path)?)
+}
+
+pub fn read_entry_with_mappings(
+    path: &Path,
+    rules: &[UserFieldMapping],
+) -> Result<AudioEntry, String> {
+    validate_user_mappings(rules)?;
+    let path = path.canonicalize().map_err(|e| e.to_string())?;
+    let file = load(&path)?;
+    let native = native_tags(
+        &mut fs::File::open(&path).map_err(|e| e.to_string())?,
+        file.file_type(),
+    )?;
+    describe_with_native(&path, &file, &native, true, rules)
+}
+
+/// Read list metadata and cover descriptors without transporting image data.
+/// FLAC metadata is parsed once; the native comments retain custom fields that
+/// would otherwise disappear in Lofty's generic conversion.
+pub fn read_entry_summary(path: &Path) -> Result<AudioEntry, String> {
+    read_entry_summary_with_mappings(path, &[])
+}
+
+pub fn read_entry_summary_with_mappings(
+    path: &Path,
+    rules: &[UserFieldMapping],
+) -> Result<AudioEntry, String> {
+    validate_user_mappings(rules)?;
+    let path = path.canonicalize().map_err(|e| e.to_string())?;
+    let probe = Probe::open(&path)
+        .map_err(|e| e.to_string())?
+        .guess_file_type()
+        .map_err(|e| e.to_string())?;
+    if probe.file_type() == Some(FileType::Flac) {
+        let options = ParseOptions::new()
+            .implicit_conversions(false)
+            .parsing_mode(ParsingMode::Strict);
+        let mut reader = probe.into_inner();
+        let flac = FlacFile::read_from(&mut reader, options).map_err(|e| error_message(&e))?;
+        let native = NativeTags {
+            vorbis: flac.vorbis_comments().cloned(),
+            id3: flac.id3v2().cloned(),
+            ..NativeTags::default()
+        };
+        let file: TaggedFile = flac.into();
+        describe_with_native(&path, &file, &native, false, rules)
+    } else {
+        let file = load(&path)?;
+        let native = native_tags(
+            &mut fs::File::open(&path).map_err(|e| e.to_string())?,
+            file.file_type(),
+        )?;
+        describe_with_native(&path, &file, &native, false, rules)
+    }
+}
+
+fn audio_extension(path: &Path) -> bool {
+    let extension = path
+        .extension()
+        .and_then(|v| v.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    matches!(
+        extension.as_str(),
+        "mp3"
+            | "mp2"
+            | "mp1"
+            | "aac"
+            | "aif"
+            | "aiff"
+            | "aifc"
+            | "ape"
+            | "flac"
+            | "m4a"
+            | "m4b"
+            | "m4p"
+            | "mp4"
+            | "m4v"
+            | "mpc"
+            | "mp+"
+            | "mpp"
+            | "ogg"
+            | "oga"
+            | "opus"
+            | "spx"
+            | "wav"
+            | "wave"
+            | "wv"
+    )
+}
+
+pub fn scan_paths(paths: &[String], recursive: bool) -> ScanResult {
+    let mut result = ScanResult::default();
+    let mut seen = HashSet::new();
+    let mut candidates = Vec::new();
+    for raw in paths {
+        let path = PathBuf::from(raw);
+        match fs::metadata(&path) {
+            Ok(meta) if meta.is_dir() => {
+                let walk = WalkDir::new(&path).follow_links(false).sort_by_file_name();
+                let walk = if recursive { walk } else { walk.max_depth(1) };
+                for item in walk {
+                    match item {
+                        Ok(item) if item.file_type().is_file() || item.file_type().is_symlink() => {
+                            if audio_extension(item.path()) {
+                                candidates.push(item.into_path());
+                            }
+                        }
+                        Ok(_) => {}
+                        Err(e) => result.errors.push(FileError {
+                            path: e.path().unwrap_or(&path).to_string_lossy().into_owned(),
+                            error: e.to_string(),
+                        }),
+                    }
+                }
+            }
+            Ok(_) => candidates.push(path),
+            Err(e) => result.errors.push(FileError {
+                path: raw.clone(),
+                error: e.to_string(),
+            }),
+        }
+    }
+    for path in candidates {
+        let canonical = match path.canonicalize() {
+            Ok(p) => p,
+            Err(e) => {
+                result.errors.push(FileError {
+                    path: path.to_string_lossy().into_owned(),
+                    error: e.to_string(),
+                });
+                continue;
+            }
+        };
+        if !seen.insert(canonical.clone()) {
+            continue;
+        }
+        match read_entry_summary(&canonical) {
+            Ok(entry) => result.entries.push(entry),
+            Err(error) => result.errors.push(FileError {
+                path: canonical.to_string_lossy().into_owned(),
+                error,
+            }),
+        }
+    }
+    result
+}
+
+/// The closure only touches the temporary copy. Failed writes or failed
+/// validation remove the copy through NamedTempFile's destructor.
+fn staged_mutation<F>(
+    path: &Path,
+    include_cover_data: bool,
+    mutation: F,
+) -> Result<AudioEntry, String>
+where
+    F: FnOnce(&mut fs::File, TaggedFile, &Path) -> Result<(), String>,
+{
+    staged_mutation_with_mappings(path, include_cover_data, &[], mutation)
+}
+
+fn staged_mutation_with_mappings<F>(
+    path: &Path,
+    include_cover_data: bool,
+    rules: &[UserFieldMapping],
+    mutation: F,
+) -> Result<AudioEntry, String>
+where
+    F: FnOnce(&mut fs::File, TaggedFile, &Path) -> Result<(), String>,
+{
+    validate_user_mappings(rules)?;
+    let path = path.canonicalize().map_err(|e| e.to_string())?;
+    let original = fs::metadata(&path).map_err(|e| e.to_string())?;
+    if !original.is_file() {
+        return Err("The audio path must be a regular file".into());
+    }
+    if original.permissions().readonly() {
+        return Err("The audio file is read-only".into());
+    }
+    let file = load(&path)?;
+    let mut staging = tempfile::Builder::new()
+        .prefix(".opentag-")
+        .tempfile_in(path.parent().ok_or("Audio path has no parent directory")?)
+        .map_err(|e| e.to_string())?;
+    fs::copy(&path, staging.path()).map_err(|e| e.to_string())?;
+    let staged_path = staging.path().to_path_buf();
+    mutation(staging.as_file_mut(), file, &staged_path)?;
+    staging.as_file().sync_all().map_err(|e| e.to_string())?;
+    let mut entry = if include_cover_data {
+        read_entry_with_mappings(staging.path(), rules)?
+    } else {
+        read_entry_summary_with_mappings(staging.path(), rules)?
+    };
+    fs::set_permissions(staging.path(), original.permissions()).map_err(|e| e.to_string())?;
+    let current = fs::metadata(&path).map_err(|e| e.to_string())?;
+    if current.len() != original.len() || current.modified().ok() != original.modified().ok() {
+        return Err("The file changed during editing; reload it before saving".into());
+    }
+    staging.persist(&path).map_err(|e| e.error.to_string())?;
+    entry.path = path.to_string_lossy().into_owned();
+    entry.filename = path
+        .file_name()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .into_owned();
+    Ok(entry)
+}
+
+fn normalized_updates(updates: &Fields, kind: TagType) -> Result<Fields, String> {
+    let mut output = Fields::new();
+    let mut seen = HashSet::new();
+    for (name, values) in updates {
+        if name.trim().is_empty()
+            || name.contains(['\0', '\n', '\r'])
+            || (kind == TagType::VorbisComments && name.contains('='))
+        {
+            return Err(format!("Invalid metadata field name: {name:?}"));
+        }
+        if values.iter().any(|v| v.contains('\0')) {
+            return Err(format!("{name}: values cannot contain NUL characters"));
+        }
+        let name = if matches!(kind, TagType::VorbisComments | TagType::Ape) {
+            name.clone()
+        } else {
+            field_mapping(name)
+                .map(|m| m.field.to_owned())
+                .unwrap_or_else(|| name.clone())
+        };
+        if !seen.insert(name.to_lowercase()) {
+            return Err(format!("Duplicate metadata field: {name}"));
+        }
+        output.insert(name, values.clone());
+    }
+    Ok(output)
+}
+
+fn save_preserving_native(
+    staging: &mut fs::File,
+    file_type: FileType,
+    tag: &Tag,
+    updates: &Fields,
+    covers_changed: bool,
+) -> Result<(), String> {
+    let originals = native_tags(staging, file_type)?;
+    match tag.tag_type() {
+        TagType::Id3v2 => {
+            let mut native = originals.id3.unwrap_or_default();
+            mapping::patch_id3(&mut native, updates)?;
+            if covers_changed {
+                native.retain(|frame| !matches!(frame, Frame::Picture(_)));
+                let pictures: Id3v2Tag = tag.clone().into();
+                for frame in &pictures {
+                    if matches!(frame, Frame::Picture(_)) {
+                        native.insert(frame.clone());
+                    }
+                }
+            }
+            staging
+                .seek(SeekFrom::Start(0))
+                .map_err(|e| e.to_string())?;
+            mapping::save_id3(staging, file_type, &native)
+        }
+        TagType::Mp4Ilst => {
+            let mut native = originals.ilst.unwrap_or_default();
+            mapping::patch_mp4(&mut native, updates)?;
+            if covers_changed {
+                native.remove_pictures();
+                for picture in tag.pictures() {
+                    native.insert_picture(picture.clone());
+                }
+            }
+            staging
+                .seek(SeekFrom::Start(0))
+                .map_err(|e| e.to_string())?;
+            native
+                .save_to(staging, WriteOptions::default())
+                .map_err(|e| error_message(&e))
+        }
+        TagType::VorbisComments => {
+            let mut native = originals.vorbis.unwrap_or_default();
+            for (name, values) in updates {
+                let items: Vec<_> = native.take_items().collect();
+                for (key, value) in items {
+                    if !key.eq_ignore_ascii_case(name) {
+                        native.push(key, value);
+                    }
+                }
+                for value in values {
+                    native.push(name.clone(), value.clone());
+                }
+            }
+            if covers_changed {
+                native.remove_pictures();
+                for picture in tag.pictures() {
+                    native
+                        .insert_picture(picture.clone(), None)
+                        .map_err(|e| e.to_string())?;
+                }
+            }
+            staging
+                .seek(SeekFrom::Start(0))
+                .map_err(|e| e.to_string())?;
+            native
+                .save_to(staging, WriteOptions::default())
+                .map_err(|e| error_message(&e))
+        }
+        TagType::Ape => {
+            let mut native = originals.ape.unwrap_or_default();
+            for (name, values) in updates {
+                native.remove(name);
+                if !values.is_empty() {
+                    native.insert(
+                        ApeItem::new(name.clone(), ItemValue::Text(values.join("\0")))
+                            .map_err(|e| e.to_string())?,
+                    );
+                }
+            }
+            if covers_changed {
+                let remove: Vec<_> = (&native)
+                    .into_iter()
+                    .filter(|i| i.key().starts_with("Cover Art ("))
+                    .map(|i| i.key().to_owned())
+                    .collect();
+                for name in remove {
+                    native.remove(&name);
+                }
+                for picture in tag.pictures() {
+                    let key = picture
+                        .pic_type()
+                        .as_ape_key()
+                        .ok_or("APE does not support this picture type")?
+                        .to_owned();
+                    native.insert(
+                        ApeItem::new(key, ItemValue::Binary(picture.as_ape_bytes()))
+                            .map_err(|e| e.to_string())?,
+                    );
+                }
+            }
+            staging
+                .seek(SeekFrom::Start(0))
+                .map_err(|e| e.to_string())?;
+            native
+                .save_to(staging, WriteOptions::default())
+                .map_err(|e| error_message(&e))
+        }
+        TagType::RiffInfo => {
+            let mut native = originals.riff.unwrap_or_default();
+            for (name, values) in updates {
+                let key = field_mapping(name)
+                    .map(|r| r.riff)
+                    .filter(|s| !s.is_empty())
+                    .or_else(|| (name.len() == 4).then_some(name.as_str()));
+                let Some(key) = key else {
+                    continue;
+                };
+                if values.len() > 1 {
+                    return Err(format!("RIFF {name} supports one text value"));
+                }
+                native.remove(key);
+                if let Some(value) = values.first() {
+                    native.insert(key.to_owned(), value.clone());
+                }
+            }
+            staging
+                .seek(SeekFrom::Start(0))
+                .map_err(|e| e.to_string())?;
+            native
+                .save_to(staging, WriteOptions::default())
+                .map_err(|e| error_message(&e))
+        }
+        _ => {
+            let mut tag = tag.clone();
+            for (name, values) in updates {
+                let key = match name.to_ascii_uppercase().as_str() {
+                    "TITLE" => Some(ItemKey::TrackTitle),
+                    "ARTIST" => Some(ItemKey::TrackArtist),
+                    "ALBUM" => Some(ItemKey::AlbumTitle),
+                    "COMMENT" => Some(ItemKey::Comment),
+                    "GENRE" => Some(ItemKey::Genre),
+                    "YEAR" => Some(ItemKey::Year),
+                    "TRACK" => Some(ItemKey::TrackNumber),
+                    _ => None,
+                };
+                if let Some(key) = key {
+                    tag.remove_key(key);
+                    for value in values {
+                        tag.push(TagItem::new(key, ItemValue::Text(value.clone())));
+                    }
+                }
+            }
+            staging
+                .seek(SeekFrom::Start(0))
+                .map_err(|e| e.to_string())?;
+            tag.save_to(staging, WriteOptions::default())
+                .map_err(|e| error_message(&e))
+        }
+    }
+}
+
+pub fn write_fields(path: &Path, updates: &Fields) -> Result<AudioEntry, String> {
+    write_fields_result(path, updates, true, &[])
+}
+
+pub fn write_fields_with_mappings(
+    path: &Path,
+    updates: &Fields,
+    rules: &[UserFieldMapping],
+) -> Result<AudioEntry, String> {
+    write_fields_result(path, updates, true, rules)
+}
+
+pub fn write_fields_summary_with_mappings(
+    path: &Path,
+    updates: &Fields,
+    rules: &[UserFieldMapping],
+) -> Result<AudioEntry, String> {
+    write_fields_result(path, updates, false, rules)
+}
+
+pub fn write_fields_summary(path: &Path, updates: &Fields) -> Result<AudioEntry, String> {
+    write_fields_result(path, updates, false, &[])
+}
+
+fn write_fields_result(
+    path: &Path,
+    updates: &Fields,
+    include_cover_data: bool,
+    rules: &[UserFieldMapping],
+) -> Result<AudioEntry, String> {
+    if updates.is_empty() {
+        return if include_cover_data {
+            read_entry_with_mappings(path, rules)
+        } else {
+            read_entry_summary_with_mappings(path, rules)
+        };
+    }
+    staged_mutation_with_mappings(
+        path,
+        include_cover_data,
+        rules,
+        |staging, mut file, staged_path| {
+            let primary = file.primary_tag_type();
+            let updates = normalized_updates(updates, primary)?;
+            if file.primary_tag().is_none() {
+                file.insert_tag(Tag::new(primary));
+            }
+            let types: Vec<_> = file
+                .tags()
+                .iter()
+                .map(Tag::tag_type)
+                .filter(|t| file.tag_support(*t).is_writable())
+                .collect();
+            for kind in types {
+                let tag = file.remove(kind).ok_or("Tag disappeared during editing")?;
+                let native_updates =
+                    normalized_updates(&map_write_fields(&updates, kind, rules)?, kind)?;
+                save_preserving_native(staging, file.file_type(), &tag, &native_updates, false)?;
+            }
+            staging
+                .seek(SeekFrom::Start(0))
+                .map_err(|e| e.to_string())?;
+            let actual = read_entry_summary(staged_path)?.fields;
+            let native_updates =
+                normalized_updates(&map_write_fields(&updates, primary, rules)?, primary)?;
+            for (key, values) in &native_updates {
+                let (read_key, expected) = if primary == TagType::Id3v2 {
+                    mapping::expected_id3_readback(key, values)?
+                } else {
+                    (key.clone(), values.clone())
+                };
+                let found = actual
+                    .iter()
+                    .find(|(name, _)| name.eq_ignore_ascii_case(&read_key))
+                    .map(|(_, values)| values);
+                if values.is_empty() {
+                    if found.is_some() {
+                        return Err(format!("The format could not remove field {key}"));
+                    }
+                } else if primary == TagType::Mp4Ilst
+                    && matches!(
+                        key.as_str(),
+                        "TRACK" | "DISCNUMBER" | "TOTALTRACKS" | "TOTALDISCS"
+                    )
+                {
+                    let requested = values.first().ok_or("Missing number")?;
+                    let found = found
+                        .and_then(|v| v.first())
+                        .ok_or_else(|| format!("The format lost field {key}"))?;
+                    let expected_number = requested
+                        .split('/')
+                        .next()
+                        .unwrap_or_default()
+                        .parse::<u16>()
+                        .map_err(|_| format!("{key} requires an unsigned number"))?;
+                    let actual_number = found
+                        .split('/')
+                        .next()
+                        .unwrap_or_default()
+                        .parse::<u16>()
+                        .map_err(|_| format!("The format returned an invalid {key}"))?;
+                    if expected_number != actual_number {
+                        return Err(format!("The format changed field {key}"));
+                    }
+                    if let Some((_, total)) = requested.split_once('/') {
+                        if found.split_once('/').map(|(_, t)| t.parse::<u16>().ok())
+                            != Some(total.parse::<u16>().ok())
+                        {
+                            return Err(format!("The format changed the total in {key}"));
+                        }
+                    }
+                } else if found != Some(&expected) {
+                    return Err(format!(
+                        "The format could not preserve all values for field {key}"
+                    ));
+                }
+            }
+            Ok(())
+        },
+    )
+}
+
+pub fn remove_tags(path: &Path) -> Result<AudioEntry, String> {
+    remove_tags_result(path, true)
+}
+
+pub fn remove_tags_summary(path: &Path) -> Result<AudioEntry, String> {
+    remove_tags_result(path, false)
+}
+
+fn remove_tags_result(path: &Path, include_cover_data: bool) -> Result<AudioEntry, String> {
+    staged_mutation(path, include_cover_data, |staging, file, _| {
+        for tag in file.tags() {
+            staging
+                .seek(SeekFrom::Start(0))
+                .map_err(|e| e.to_string())?;
+            tag.tag_type()
+                .remove_from(staging, WriteOptions::default())
+                .map_err(|e| e.to_string())?;
+        }
+        Ok(())
+    })
+}
+
+pub fn add_cover(path: &Path, image: &Path) -> Result<AudioEntry, String> {
+    add_cover_result(path, image, true)
+}
+
+pub fn add_cover_summary(path: &Path, image: &Path) -> Result<AudioEntry, String> {
+    add_cover_result(path, image, false)
+}
+
+fn add_cover_result(
+    path: &Path,
+    image: &Path,
+    include_cover_data: bool,
+) -> Result<AudioEntry, String> {
+    let mut image_file = fs::File::open(image).map_err(|e| e.to_string())?;
+    let mut picture = Picture::from_reader(&mut image_file).map_err(|e| e.to_string())?;
+    picture.set_pic_type(PictureType::CoverFront);
+    staged_mutation(
+        path,
+        include_cover_data,
+        |staging, mut file, staged_path| {
+            let primary = file.primary_tag_type();
+            let previous_covers: usize = file.tags().iter().map(|tag| tag.pictures().len()).sum();
+            if file.primary_tag().is_none() {
+                file.insert_tag(Tag::new(primary));
+            }
+            let file_type = file.file_type();
+            let tag = file
+                .primary_tag_mut()
+                .ok_or("The audio format has no writable tag")?;
+            // ID3 requires picture descriptions to identify repeated cover types.
+            if primary == TagType::Id3v2
+                && tag.pictures().iter().any(|p| {
+                    p.pic_type() == PictureType::CoverFront
+                        && p.description().unwrap_or_default().is_empty()
+                })
+            {
+                let basename = image.file_name().unwrap_or_default().to_string_lossy();
+                let mut description = basename.to_string();
+                let mut suffix = 2;
+                while tag
+                    .pictures()
+                    .iter()
+                    .any(|p| p.description() == Some(description.as_str()))
+                {
+                    description = format!("{basename} ({suffix})");
+                    suffix += 1;
+                }
+                picture.set_description(Some(description));
+            }
+            tag.push_picture(picture);
+            save_preserving_native(staging, file_type, tag, &Fields::new(), true)?;
+            if read_entry_summary(staged_path)?.covers.len() != previous_covers + 1 {
+                return Err(
+                    "This tag format cannot append another cover with the same picture type".into(),
+                );
+            }
+            Ok(())
+        },
+    )
+}
+
+pub fn remove_cover(path: &Path, index: usize) -> Result<AudioEntry, String> {
+    remove_cover_result(path, index, true)
+}
+
+pub fn remove_cover_summary(path: &Path, index: usize) -> Result<AudioEntry, String> {
+    remove_cover_result(path, index, false)
+}
+
+fn remove_cover_result(
+    path: &Path,
+    index: usize,
+    include_cover_data: bool,
+) -> Result<AudioEntry, String> {
+    staged_mutation(path, include_cover_data, |staging, mut file, _| {
+        let mut remaining = index;
+        let mut location = None;
+        for tag in ordered_tags(&file) {
+            if remaining < tag.pictures().len() {
+                location = Some((tag.tag_type(), remaining));
+                break;
+            }
+            remaining -= tag.pictures().len();
+        }
+        let (kind, local) =
+            location.ok_or_else(|| format!("Cover index {index} does not exist"))?;
+        if !file.tag_support(kind).is_writable() {
+            return Err("This cover belongs to a read-only tag type".into());
+        }
+        let file_type = file.file_type();
+        let tag = file.tag_mut(kind).ok_or("Cover tag disappeared")?;
+        tag.remove_picture(local);
+        save_preserving_native(staging, file_type, tag, &Fields::new(), true)
+    })
+}

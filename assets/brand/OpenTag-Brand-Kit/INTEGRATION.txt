@@ -1,0 +1,68 @@
+OpenTag asset integration
+
+WINDOWS
+Use 02-platform-icons/windows/opentag.ico as the application executable icon.
+The ICO includes 16, 20, 24, 32, 40, 48, 64, 96, 128, and 256 px images.
+Point your application framework or resource compiler to this file.
+
+macOS
+Use 02-platform-icons/macos/opentag.icns as your bundle icon for frameworks
+that accept ICNS. Set CFBundleIconFile to opentag.icns in the app's Info.plist
+when managing the bundle directly. Alternatively copy AppIcon.appiconset into
+Assets.xcassets and select AppIcon as the asset catalog's app icon name.
+OpenTag.iconset includes the standard 1x/2x PNG source files; on macOS you can
+also run: iconutil -c icns OpenTag.iconset
+The supplied ICNS is already assembled; this extra conversion is optional.
+
+LINUX
+Install the hicolor folders under your application packaging's icon directory.
+Use Icon=opentag in the app's .desktop file. Keep both scalable SVG and PNG
+resources for desktop environments that choose different icon formats.
+
+WEB / PWA
+Copy all files from 02-platform-icons/web to your web application's public
+asset directory. Copy the tags from head-snippet.html, adjusting URLs if your
+asset directory differs. site.webmanifest uses relative URLs and a default
+start_url/scope of ./; adapt these to the app's real deployment path.
+The 192/512 px any and maskable images are distinct files. Maskable PNGs have
+an opaque full-bleed background and the mark inside the central circular zone.
+
+ANDROID (OPTIONAL)
+Copy 02-platform-icons/android/res into app/src/main/res, resolving filename
+conflicts if your project already contains launcher resources. Set:
+android:icon="@mipmap/ic_launcher"
+The v26 resources supply foreground/background layers. The v33 resources also
+supply a monochrome layer for themed icons. A separate round legacy resource
+is not required by this integration; omit android:roundIcon if your existing
+project does not need it. The res/drawable XML is the canonical adaptive source.
+PNG and SVG layer exports are supplied separately for design tooling.
+Adaptive layers use a 108 dp viewport and a centered mark inside the 66 dp
+safe circle. Legacy launcher PNGs cover mdpi through xxxhdpi.
+
+iOS (OPTIONAL)
+Copy 02-platform-icons/ios/AppIcon.appiconset into Assets.xcassets and select
+AppIcon as your icon set. It contains a 1024 px opaque default static icon.
+Add further appearance variants or Icon Composer layers if your project uses
+those Apple workflows. Do not substitute the rounded transparent desktop PNG
+for the supplied opaque iOS icon.
+
+IN-APP
+Use horizontal SVGs for headers/about views and compact wordmarks for narrow
+headers. The descriptor lockup is optional. Splash PNGs are 1600 × 1000;
+SVG equivalents can adapt to a different window size without pixelation.
+Tray PNGs and monochrome SVG marks use transparent cutouts. For macOS tray
+use the black mark as a template image and enable isTemplate in your app.
+UI SVGs use currentColor; apply the foreground color through the app's styles.
+Default artwork is decorative fallback imagery; it makes no claim about a
+track's actual artwork or metadata.
+
+SPECS CONSULTED
+Apple standard iconset files:
+https://developer.apple.com/library/archive/documentation/Xcode/Reference/xcode_ref-Asset_Catalog_Format/IconSetType.html
+Android adaptive icon geometry and layers:
+https://developer.android.com/develop/ui/compose/system/icon_design_adaptive
+W3C web app manifest masking:
+https://www.w3.org/TR/appmanifest/#icon-masks
+
+These are exported assets and integration examples. No app repository was
+provided, so project configuration and device installation remain with the app.

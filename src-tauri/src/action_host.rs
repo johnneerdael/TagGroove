@@ -1,0 +1,1120 @@
+use crate::evaluation::{technical_fields, EvaluationSettings};
+use base64::{engine::general_purpose::STANDARD, Engine};
+use serde::Serialize;
+use sha2::{Digest, Sha256};
+use std::{
+    collections::HashSet,
+    fs,
+    io::Write,
+    path::{Path, PathBuf},
+};
+use tag_core::actions::{
+    ActionEffect, ActionGroup, ActionHost, ActionLibrary, ActionSpec, ActionState,
+    BatchActionEffect, MtaImport,
+};
+use tag_core::{AudioEntry, Fields, FileError, ScanResult};
+use tauri::Manager;
+
+#[derive(Debug, Serialize)]
+pub struct PathChange {
+    pub from: String,
+    pub to: String,
+}
+#[derive(Serialize)]
+pub struct ActionResult {
+    #[serde(flatten)]
+    pub result: ScanResult,
+    pub renamed: Vec<PathChange>,
+    pub moved_directories: Vec<PathChange>,
+}
+impl std::ops::Deref for ActionResult {
+    type Target = ScanResult;
+    fn deref(&self) -> &Self::Target {
+        &self.result
+    }
+}
+
+pub fn library_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    Ok(app
+        .path()
+        .app_config_dir()
+        .map_err(|e| e.to_string())?
+        .join("actions.json"))
+}
+pub fn load_library(path: &Path) -> Result<ActionLibrary, String> {
+    match fs::read(path) {
+        Ok(bytes) => serde_json::from_slice(&bytes)
+            .map_err(|e| format!("Cannot read action configuration: {e}")),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(ActionLibrary::default()),
+        Err(e) => Err(e.to_string()),
+    }
+}
+pub fn save_library(path: &Path, library: &ActionLibrary) -> Result<(), String> {
+    let mut names = HashSet::new();
+    for group in &library.groups {
+        if group.name.trim().is_empty() || !names.insert(group.name.to_lowercase()) {
+            return Err("Action group names must be nonempty and unique".into());
+        }
+    }
+    let bytes = serde_json::to_vec_pretty(library).map_err(|e| e.to_string())?;
+    atomic_output(path, &bytes, false)
+}
+pub fn import_group(path: &Path, legacy_encoding: Option<&str>) -> Result<MtaImport, String> {
+    let bytes = fs::read(path).map_err(|e| e.to_string())?;
+    tag_core::actions::import_mta(
+        path.file_stem()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .into_owned(),
+        &bytes,
+        legacy_encoding,
+    )
+}
+
+fn atomic_output(path: &Path, bytes: &[u8], append: bool) -> Result<(), String> {
+    let parent = path.parent().unwrap_or(Path::new("."));
+    fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    let mut staging = tempfile::NamedTempFile::new_in(parent).map_err(|e| e.to_string())?;
+    if append && path.exists() {
+        let mut original = fs::File::open(path).map_err(|e| e.to_string())?;
+        std::io::copy(&mut original, &mut staging).map_err(|e| e.to_string())?;
+    }
+    staging
+        .write_all(bytes)
+        .and_then(|_| staging.as_file().sync_all())
+        .map_err(|e| e.to_string())?;
+    staging.persist(path).map_err(|e| e.error.to_string())?;
+    Ok(())
+}
+
+fn delta(before: &Fields, after: &Fields) -> Fields {
+    let mut updates = Fields::new();
+    for key in before.keys() {
+        if !after.keys().any(|k| k.eq_ignore_ascii_case(key)) {
+            updates.insert(key.clone(), vec![]);
+        }
+    }
+    for (key, values) in after {
+        if before.get(key) != Some(values) {
+            updates.insert(key.clone(), values.clone());
+        }
+    }
+    updates
+}
+
+fn state_path(state: &ActionState) -> Result<PathBuf, String> {
+    state
+        .context
+        .get("_PATH")
+        .and_then(|v| v.first())
+        .map(PathBuf::from)
+        .ok_or_else(|| "Action state has no file path".into())
+}
+fn relative_to_file(path: &str, source: &Path) -> PathBuf {
+    let path = Path::new(path);
+    if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        source.parent().unwrap_or(Path::new(".")).join(path)
+    }
+}
+
+struct NativeHost {
+    settings: EvaluationSettings,
+    directories: Vec<PathChange>,
+    exported_covers: HashSet<[u8; 32]>,
+    identities: Vec<String>,
+    initial_fields: Vec<Fields>,
+    inputs: Vec<PathBuf>,
+}
+impl NativeHost {
+    fn resolve(&self, path: &Path) -> PathBuf {
+        let mut current = path.to_path_buf();
+        for change in &self.directories {
+            if let Ok(suffix) = current.strip_prefix(&change.from) {
+                current = Path::new(&change.to).join(suffix);
+            }
+        }
+        current
+    }
+    fn synchronize(&self, state: &mut ActionState) -> Result<(), String> {
+        let path = self.resolve(&state_path(state)?);
+        state
+            .context
+            .insert("_PATH".into(), vec![path.to_string_lossy().into_owned()]);
+        Ok(())
+    }
+    fn flush(&self, state: &mut ActionState) -> Result<AudioEntry, String> {
+        self.synchronize(state)?;
+        let path = state_path(state)?;
+        let original = tag_core::read_entry_summary(&path)?;
+        let updates = delta(&original.fields, &state.fields);
+        let entry = if updates.is_empty() {
+            original
+        } else {
+            tag_core::write_fields_summary(&path, &updates)?
+        };
+        let counter = state
+            .context
+            .get("_COUNTER")
+            .and_then(|v| v.first())
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(1);
+        state.fields = entry.fields.clone();
+        state.context = technical_fields(&entry, counter);
+        Ok(entry)
+    }
+    fn identity(&self, state: &ActionState) -> (String, bool) {
+        let index = state
+            .context
+            .get("_COUNTER")
+            .and_then(|v| v.first())
+            .and_then(|s| s.parse::<usize>().ok())
+            .unwrap_or(1)
+            .saturating_sub(1);
+        let identity = self.identities.get(index).cloned().unwrap_or_default();
+        let unchanged = self.initial_fields.get(index) == Some(&state.fields)
+            && state_path(state).is_ok_and(|p| p == Path::new(&identity));
+        (identity, unchanged)
+    }
+    fn protect_output(&self, target: &Path, states: &[ActionState]) -> Result<(), String> {
+        let target = normalized_output(target)?;
+        let protected = self.inputs.iter().cloned().chain(
+            states
+                .iter()
+                .map(state_path)
+                .collect::<Result<Vec<_>, _>>()?,
+        );
+        for source in protected {
+            let source = self.resolve(&source);
+            let source = normalized_output(&source)?;
+            if source == target {
+                return Err("Export output cannot replace an input audio file".into());
+            }
+        }
+        Ok(())
+    }
+}
+impl ActionHost for NativeHost {
+    fn evaluate(&mut self, template: &str, state: &ActionState) -> Result<String, String> {
+        let (identity, unchanged) = self.identity(state);
+        let mut context = state.context.clone();
+        let path = self.resolve(&state_path(state)?);
+        context.insert("_PATH".into(), vec![path.to_string_lossy().into_owned()]);
+        context.insert(
+            "_FILENAME_EXT".into(),
+            vec![path
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .into_owned()],
+        );
+        context.insert(
+            "_FILENAME".into(),
+            vec![path
+                .file_stem()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .into_owned()],
+        );
+        context.insert(
+            "_DIRECTORY".into(),
+            vec![path
+                .parent()
+                .and_then(Path::file_name)
+                .unwrap_or_default()
+                .to_string_lossy()
+                .into_owned()],
+        );
+        let parent = path.parent().unwrap_or(Path::new(""));
+        context.insert(
+            "_FOLDERPATH".into(),
+            vec![format!("{}{}", parent.display(), std::path::MAIN_SEPARATOR)],
+        );
+        context.insert(
+            "_PARENT_DIRECTORY".into(),
+            vec![parent
+                .parent()
+                .and_then(Path::file_name)
+                .unwrap_or_default()
+                .to_string_lossy()
+                .into_owned()],
+        );
+        self.settings
+            .evaluate(template, &state.fields, &context, &identity, unchanged)
+    }
+    fn execute(&mut self, effect: &ActionEffect, state: &mut ActionState) -> Result<(), String> {
+        self.flush(state)?;
+        let path = state_path(state)?;
+        match effect {
+            ActionEffect::RenameFile {
+                filename,
+                includes_extension,
+            } => {
+                let mut target = relative_to_file(filename, &path);
+                if !includes_extension {
+                    if let Some(extension) = path.extension() {
+                        let mut name = target.into_os_string();
+                        name.push(".");
+                        name.push(extension);
+                        target = PathBuf::from(name);
+                    }
+                }
+                tag_core::operations::rename_no_clobber(&path, &target)?;
+                let entry = tag_core::read_entry_summary(&target)?;
+                let index: usize = state
+                    .context
+                    .get("_COUNTER")
+                    .and_then(|v| v.first())
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(1);
+                if let Some(input) = self.inputs.get_mut(index.saturating_sub(1)) {
+                    *input = target.clone();
+                }
+                state.context = technical_fields(&entry, index);
+            }
+            ActionEffect::RenameDirectory { directory } => {
+                let source = path.parent().ok_or("File has no parent directory")?;
+                let target = if Path::new(directory).is_absolute() {
+                    PathBuf::from(directory)
+                } else {
+                    source.parent().unwrap_or(Path::new(".")).join(directory)
+                };
+                if source != target {
+                    if target.exists() {
+                        return Err("Destination directory already exists".into());
+                    }
+                    if target.starts_with(source) {
+                        return Err("Cannot move a directory inside itself".into());
+                    }
+                    if let Some(parent) = target.parent() {
+                        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+                    }
+                    fs::rename(source, &target).map_err(|e| e.to_string())?;
+                    self.directories.push(PathChange {
+                        from: source.to_string_lossy().into_owned(),
+                        to: target.to_string_lossy().into_owned(),
+                    });
+                }
+                self.synchronize(state)?;
+            }
+            ActionEffect::RemoveCovers => {
+                tag_core::remove_all_covers_summary(&path)?;
+            }
+            ActionEffect::ImportCover { filename } => {
+                tag_core::add_cover_summary(&path, &relative_to_file(filename, &path))?;
+            }
+            ActionEffect::ExportCover {
+                filename,
+                picture_type,
+                export_duplicates,
+            } => {
+                let entry = tag_core::read_entry(&path)?;
+                let filter = picture_type
+                    .as_deref()
+                    .map(tag_core::picture_type_from_name)
+                    .transpose()?;
+                let mut count = 0;
+                for cover in &entry.covers {
+                    if filter.is_some_and(|f| format!("{f:?}") != cover.picture_type) {
+                        continue;
+                    }
+                    let bytes = STANDARD
+                        .decode(&cover.data_base64)
+                        .map_err(|e| e.to_string())?;
+                    let digest: [u8; 32] = Sha256::digest(&bytes).into();
+                    if !export_duplicates && self.exported_covers.contains(&digest) {
+                        continue;
+                    }
+                    let mut target = relative_to_file(filename, &path);
+                    if target.extension().is_none() {
+                        target.set_extension(match cover.mime.as_str() {
+                            "image/png" => "png",
+                            "image/jpeg" => "jpg",
+                            "image/gif" => "gif",
+                            _ => "img",
+                        });
+                    }
+                    if count > 0 {
+                        let stem = target.file_stem().unwrap_or_default().to_string_lossy();
+                        let extension = target.extension().unwrap_or_default().to_string_lossy();
+                        target.set_file_name(format!("{stem} ({count}).{extension}"));
+                    }
+                    self.protect_output(&target, std::slice::from_ref(state))?;
+                    // Cover export never overwrites existing files implicitly.
+                    let parent = target.parent().unwrap_or(Path::new("."));
+                    fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+                    let mut staging =
+                        tempfile::NamedTempFile::new_in(parent).map_err(|e| e.to_string())?;
+                    staging
+                        .write_all(&bytes)
+                        .and_then(|_| staging.as_file().sync_all())
+                        .map_err(|e| e.to_string())?;
+                    staging
+                        .persist_noclobber(&target)
+                        .map_err(|e| e.error.to_string())?;
+                    self.exported_covers.insert(digest);
+                    count += 1;
+                }
+            }
+            ActionEffect::AdjustCover {
+                format,
+                quality,
+                resize,
+            } => {
+                tag_core::adjust_covers_summary(&path, *format, *quality, resize.as_ref())?;
+            }
+            ActionEffect::SetCoverProperties {
+                picture_type,
+                description,
+                only_picture_type,
+            } => {
+                tag_core::set_cover_properties_summary(
+                    &path,
+                    picture_type.as_deref(),
+                    description.as_deref(),
+                    only_picture_type.as_deref(),
+                )?;
+            }
+            ActionEffect::ImportTextFile { field, filename } => {
+                let bytes =
+                    fs::read(relative_to_file(filename, &path)).map_err(|e| e.to_string())?;
+                let text = if bytes.starts_with(&[0xff, 0xfe]) {
+                    encoding_rs::UTF_16LE.decode(&bytes[2..]).0.into_owned()
+                } else if bytes.starts_with(&[0xfe, 0xff]) {
+                    encoding_rs::UTF_16BE.decode(&bytes[2..]).0.into_owned()
+                } else {
+                    String::from_utf8(bytes)
+                        .map_err(|e| e.to_string())?
+                        .trim_start_matches('\u{feff}')
+                        .to_owned()
+                };
+                state.fields.insert(field.clone(), vec![text]);
+                self.flush(state)?;
+            }
+        }
+        // Refresh properties without losing imported data needed by later actions.
+        let entry = tag_core::read_entry_summary(&self.resolve(&state_path(state)?))?;
+        let index = state
+            .context
+            .get("_COUNTER")
+            .and_then(|v| v.first())
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(1);
+        state.context = technical_fields(&entry, index);
+        Ok(())
+    }
+    fn execute_batch(
+        &mut self,
+        effect: &BatchActionEffect,
+        states: &mut [ActionState],
+    ) -> Result<(), String> {
+        for state in states.iter_mut() {
+            self.flush(state)?;
+        }
+        match effect {
+            BatchActionEffect::GeneratePlaylists {
+                filename_template,
+                partition_template,
+            } => {
+                let mut groups: BTreeMap<String, Vec<ActionState>> = BTreeMap::new();
+                for state in states.iter() {
+                    let key = self.evaluate(partition_template, state)?;
+                    groups.entry(key).or_default().push(state.clone());
+                }
+                let mut outputs = Vec::new();
+                let mut destinations = HashSet::new();
+                for group in groups.values() {
+                    let Some(first) = group.first() else { continue };
+                    let name = self.evaluate(filename_template, first)?;
+                    let target = relative_to_file(&name, &state_path(first)?);
+                    self.protect_output(&target, states)?;
+                    if !destinations.insert(normalized_output(&target)?) {
+                        return Err(format!(
+                            "Multiple playlist partitions use {}",
+                            target.display()
+                        ));
+                    }
+                    let mut text = String::from("#EXTM3U\n");
+                    for state in group {
+                        let path = state_path(state)?;
+                        let entry = tag_core::read_entry_summary(&path)?;
+                        let title = entry
+                            .fields
+                            .iter()
+                            .find(|(k, _)| k.eq_ignore_ascii_case("TITLE"))
+                            .map(|(_, v)| v.join(" / "))
+                            .unwrap_or(entry.filename.clone())
+                            .replace(['\r', '\n'], " ");
+                        let relative = tag_core::operations::playlist_path(&path, &target)
+                            .to_string_lossy()
+                            .replace('\\', "/");
+                        if relative.contains(['\r', '\n']) {
+                            return Err("Playlist paths cannot contain line breaks".into());
+                        }
+                        text.push_str(&format!(
+                            "#EXTINF:{},{}\n{}\n",
+                            entry.duration.round() as u64,
+                            title,
+                            relative
+                        ));
+                    }
+                    outputs.push((target, text));
+                }
+                for (target, text) in outputs {
+                    atomic_output(&target, text.as_bytes(), false)?;
+                }
+                Ok(())
+            }
+            BatchActionEffect::Export {
+                template,
+                filename_template,
+                append,
+                partition_template,
+            } => {
+                let template = resolve_export_template(template, &self.settings)?;
+                let mut rows = Vec::with_capacity(states.len());
+                for state in states.iter() {
+                    let path = state_path(state)?;
+                    let entry = tag_core::read_entry_summary(&path)?;
+                    let mut fields = state.fields.clone();
+                    fields.extend(state.context.clone());
+                    let (identity, unchanged) = self.identity(state);
+                    rows.push(tag_core::export::ExportRow {
+                        fields: state.fields.clone(),
+                        context_fields: state.context.clone(),
+                        path: entry.path,
+                        duration: entry.duration,
+                        size: entry.size,
+                        columns: Some(self.settings.column_values(
+                            &fields,
+                            &state.fields,
+                            &identity,
+                            unchanged,
+                        )?),
+                    });
+                }
+                let options = tag_core::export::ExportOptions {
+                    filename_override: (!filename_template.trim().is_empty())
+                        .then(|| filename_template.clone()),
+                    base_directory: states
+                        .first()
+                        .map(state_path)
+                        .transpose()?
+                        .and_then(|p| p.parent().map(|p| p.to_string_lossy().into_owned()))
+                        .unwrap_or_else(|| ".".into()),
+                    partition: partition_template.clone(),
+                    app_directory: Some(self.settings.app_directory.clone()),
+                    app_data_directory: Some(self.settings.app_data_directory.clone()),
+                    ansi_codepage: self.settings.ansi_codepage(),
+                    ..Default::default()
+                };
+                let hashes = tag_core::export::requested_hash_fields(&template, &options)?;
+                for row in &mut rows {
+                    row.context_fields
+                        .extend(crate::file_hashes::compute(Path::new(&row.path), &hashes)?);
+                }
+                let documents = tag_core::export::render_export(&template, &rows, &options)?;
+                // Render, encode and protect the whole batch before writing any
+                // destination, so a later partition cannot overwrite input audio.
+                let mut outputs = Vec::with_capacity(documents.len());
+                let mut seen = HashSet::new();
+                for mut document in documents {
+                    let target = PathBuf::from(&document.filename);
+                    self.protect_output(&target, states)?;
+                    let normalized = normalized_output(&target)?;
+                    if !seen.insert(normalized) {
+                        return Err(format!(
+                            "Multiple export partitions use {}",
+                            target.display()
+                        ));
+                    }
+                    if *append && fs::metadata(&target).is_ok_and(|m| m.len() > 0) {
+                        document.bom = false;
+                    }
+                    let bytes = tag_core::export::encode_export_document(
+                        &document,
+                        options.ansi_codepage.as_deref(),
+                    )?;
+                    outputs.push((target, bytes));
+                }
+                for (target, bytes) in outputs {
+                    atomic_output(&target, &bytes, *append)?;
+                }
+                Ok(())
+            }
+        }
+    }
+}
+
+use std::collections::BTreeMap;
+
+fn normalized_output(path: &Path) -> Result<String, String> {
+    let absolute = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        std::env::current_dir()
+            .map_err(|e| e.to_string())?
+            .join(path)
+    };
+    let mut resolved = PathBuf::new();
+    // Resolve existing symlinks before processing '..', while normalizing
+    // nonexistent components without creating them. A missing/../audio alias
+    // must compare equal to audio before the output parent is created.
+    for component in absolute.components() {
+        match component {
+            std::path::Component::CurDir => {}
+            std::path::Component::ParentDir => {
+                resolved.pop();
+            }
+            _ => {
+                resolved.push(component.as_os_str());
+                match fs::symlink_metadata(&resolved) {
+                    Ok(_) => {
+                        resolved = resolved.canonicalize().map_err(|e| e.to_string())?;
+                    }
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                    Err(error) => return Err(error.to_string()),
+                }
+            }
+        }
+    }
+    let value = resolved.to_string_lossy().into_owned();
+    Ok(if cfg!(windows) {
+        value.to_lowercase()
+    } else {
+        value
+    })
+}
+
+fn resolve_export_template(source: &str, settings: &EvaluationSettings) -> Result<String, String> {
+    // Action configurations traditionally reference an .mte name or path. The
+    // editor also accepts a complete scripted configuration directly.
+    if source.contains(['$', '%', '\r', '\n']) {
+        return Ok(source.to_owned());
+    }
+    let requested = Path::new(source);
+    let mut candidates = vec![requested.to_path_buf()];
+    if !requested.is_absolute() {
+        let directory = Path::new(&settings.app_data_directory).join("export");
+        candidates.push(directory.join(requested));
+        if requested.extension().is_none() {
+            candidates.push(directory.join(format!("{source}.mte")));
+        }
+    }
+    let path = candidates
+        .into_iter()
+        .find(|p| p.is_file())
+        .ok_or_else(|| format!("Export configuration not found: {source}"))?;
+    tag_core::export::decode_export_template(
+        &fs::read(&path).map_err(|e| e.to_string())?,
+        settings.ansi_codepage().as_deref(),
+    )
+}
+
+pub fn execute(
+    paths: &[String],
+    groups: &[ActionGroup],
+    settings: EvaluationSettings,
+) -> ActionResult {
+    let mut result = ScanResult::default();
+    let mut states = Vec::new();
+    let mut initial = Vec::new();
+    let mut seen = HashSet::new();
+    for path in paths {
+        if !seen.insert(path.clone()) {
+            continue;
+        }
+        match tag_core::read_entry_summary(Path::new(path)) {
+            Ok(entry) => {
+                initial.push(entry.path.clone());
+                states.push(ActionState {
+                    fields: entry.fields.clone(),
+                    context: technical_fields(&entry, states.len() + 1),
+                });
+            }
+            Err(error) => result.errors.push(FileError {
+                path: path.clone(),
+                error,
+            }),
+        }
+    }
+    let mut host = NativeHost {
+        settings,
+        directories: Vec::new(),
+        exported_covers: HashSet::new(),
+        identities: initial.clone(),
+        inputs: initial.iter().map(PathBuf::from).collect(),
+        initial_fields: states.iter().map(|s| s.fields.clone()).collect(),
+    };
+    let mut failed = HashSet::new();
+    let mut preflight = None;
+    for group in groups.iter().filter(|g| g.enabled) {
+        for action in &group.actions {
+            if let Err(error) = tag_core::actions::validate_action(action) {
+                preflight = Some(format!("{}: {error}", group.name));
+                break;
+            }
+        }
+        if preflight.is_some() {
+            break;
+        }
+    }
+    if let Some(error) = preflight {
+        for (index, path) in initial.iter().enumerate() {
+            failed.insert(index);
+            result.errors.push(FileError {
+                path: path.clone(),
+                error: error.clone(),
+            });
+        }
+    } else {
+        for group in groups.iter().filter(|g| g.enabled) {
+            let mut deferred = Vec::new();
+            for (action_index, action) in group.actions.iter().enumerate() {
+                let batch = match action {
+                    ActionSpec::Export {
+                        template,
+                        filename_template,
+                        append,
+                        partition_template,
+                    } => Some(BatchActionEffect::Export {
+                        template: template.clone(),
+                        filename_template: filename_template.clone(),
+                        append: *append,
+                        partition_template: partition_template.clone(),
+                    }),
+                    ActionSpec::GeneratePlaylists {
+                        filename_template,
+                        partition_template,
+                    } => Some(BatchActionEffect::GeneratePlaylists {
+                        filename_template: filename_template.clone(),
+                        partition_template: partition_template.clone(),
+                    }),
+                    _ => None,
+                };
+                if let Some(batch) = batch {
+                    deferred.push(batch);
+                    continue;
+                }
+                for (index, state) in states.iter_mut().enumerate() {
+                    if failed.contains(&index) {
+                        continue;
+                    }
+                    let applied = tag_core::actions::apply_action_spec_with_evaluator(
+                        state,
+                        action,
+                        &mut |template, state| host.evaluate(template, state),
+                    );
+                    let outcome = applied.and_then(|effects| {
+                        for effect in effects {
+                            host.execute(&effect, state)?;
+                        }
+                        Ok(())
+                    });
+                    if let Err(error) = outcome {
+                        failed.insert(index);
+                        let path = host.resolve(
+                            &state_path(state).unwrap_or_else(|_| PathBuf::from(&initial[index])),
+                        );
+                        result.errors.push(FileError {
+                            path: path.to_string_lossy().into_owned(),
+                            error: format!("{} / action {}: {error}", group.name, action_index + 1),
+                        });
+                    }
+                }
+            }
+            // Persist each successful file before deferred exports see final group values.
+            for (index, state) in states.iter_mut().enumerate() {
+                if failed.contains(&index) {
+                    continue;
+                }
+                if let Err(error) = host.flush(state) {
+                    failed.insert(index);
+                    result.errors.push(FileError {
+                        path: initial[index].clone(),
+                        error,
+                    });
+                }
+            }
+            let mut complete: Vec<_> = states
+                .iter()
+                .enumerate()
+                .filter(|(index, _)| !failed.contains(index))
+                .map(|(_, s)| s.clone())
+                .collect();
+            for effect in deferred {
+                if let Err(error) = host.execute_batch(&effect, &mut complete) {
+                    result.errors.push(FileError {
+                        path: format!("Action group {}", group.name),
+                        error,
+                    });
+                }
+            }
+        }
+    }
+    let mut renamed = Vec::new();
+    for (index, state) in states.iter_mut().enumerate() {
+        let path =
+            host.resolve(&state_path(state).unwrap_or_else(|_| PathBuf::from(&initial[index])));
+        if path != Path::new(&initial[index]) {
+            renamed.push(PathChange {
+                from: initial[index].clone(),
+                to: path.to_string_lossy().into_owned(),
+            });
+        }
+        if !failed.contains(&index) {
+            match tag_core::read_entry_summary(&path) {
+                Ok(entry) => result.entries.push(entry),
+                Err(error) => result.errors.push(FileError {
+                    path: path.to_string_lossy().into_owned(),
+                    error,
+                }),
+            }
+        }
+    }
+    ActionResult {
+        result,
+        renamed,
+        moved_directories: host.directories,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tag_core::actions::ActionSpec;
+    fn fixture(dir: &Path, name: &str) -> PathBuf {
+        let path = dir.join(name);
+        let audio = vec![0u8; 8820];
+        let mut bytes = b"RIFF".to_vec();
+        bytes.extend((36 + audio.len() as u32).to_le_bytes());
+        bytes.extend(b"WAVEfmt ");
+        bytes.extend(16u32.to_le_bytes());
+        bytes.extend(1u16.to_le_bytes());
+        bytes.extend(1u16.to_le_bytes());
+        bytes.extend(44100u32.to_le_bytes());
+        bytes.extend(88200u32.to_le_bytes());
+        bytes.extend(2u16.to_le_bytes());
+        bytes.extend(16u16.to_le_bytes());
+        bytes.extend(b"data");
+        bytes.extend((audio.len() as u32).to_le_bytes());
+        bytes.extend(audio);
+        fs::write(&path, bytes).unwrap();
+        path
+    }
+    #[test]
+    fn saved_library_roundtrips_and_invalid_save_preserves_existing() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings/actions.json");
+        let mut library = ActionLibrary::default();
+        library
+            .add_group(ActionGroup {
+                name: "Test".into(),
+                enabled: true,
+                actions: vec![ActionSpec::FormatValue {
+                    field: "TITLE".into(),
+                    template: "Value".into(),
+                }],
+            })
+            .unwrap();
+        library.save_selection_preset("Daily".into()).unwrap();
+        save_library(&path, &library).unwrap();
+        assert_eq!(load_library(&path).unwrap(), library);
+        let before = fs::read(&path).unwrap();
+        library.groups.push(library.groups[0].clone());
+        assert!(save_library(&path, &library).is_err());
+        assert_eq!(fs::read(&path).unwrap(), before);
+    }
+    #[test]
+    fn ordered_import_format_and_filename_actions_write_real_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = fixture(dir.path(), "old.wav");
+        fs::write(dir.path().join("comment.txt"), "Two lines\nfrom text").unwrap();
+        let group = ActionGroup {
+            name: "Workflow".into(),
+            enabled: true,
+            actions: vec![
+                ActionSpec::ImportTextFile {
+                    field: "COMMENT".into(),
+                    filename_template: "comment.txt".into(),
+                },
+                ActionSpec::FormatValue {
+                    field: "TITLE".into(),
+                    template: "$left(%comment%,3)".into(),
+                },
+                ActionSpec::FormatValue {
+                    field: "_FILENAME".into(),
+                    template: "%title%".into(),
+                },
+            ],
+        };
+        let result = execute(
+            &[path.to_string_lossy().into_owned()],
+            &[group],
+            EvaluationSettings::default(),
+        );
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert_eq!(result.renamed.len(), 1);
+        assert!(!path.exists());
+        assert!(dir.path().join("Two.wav").exists());
+        assert_eq!(result.entries[0].fields["TITLE"], ["Two"]);
+        assert_eq!(
+            result.entries[0].fields["COMMENT"],
+            ["Two lines\nfrom text"]
+        );
+    }
+    #[test]
+    fn directory_moves_rebase_other_selected_files_before_later_actions() {
+        let dir = tempfile::tempdir().unwrap();
+        let album = dir.path().join("Album");
+        fs::create_dir(&album).unwrap();
+        let a = fixture(&album, "a.wav");
+        let b = fixture(&album, "b.wav");
+        let sibling = fixture(&album, "sibling.wav");
+        let group = ActionGroup {
+            name: "Move".into(),
+            enabled: true,
+            actions: vec![
+                ActionSpec::FormatValue {
+                    field: "_DIRECTORY".into(),
+                    template: "NewAlbum".into(),
+                },
+                ActionSpec::FormatValue {
+                    field: "TITLE".into(),
+                    template: "%_directory%".into(),
+                },
+            ],
+        };
+        let result = execute(
+            &[
+                a.to_string_lossy().into_owned(),
+                b.to_string_lossy().into_owned(),
+            ],
+            &[group],
+            EvaluationSettings::default(),
+        );
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert_eq!(result.moved_directories.len(), 1);
+        assert_eq!(result.renamed.len(), 2);
+        assert!(!sibling.exists());
+        assert!(dir.path().join("NewAlbum/sibling.wav").exists());
+        for entry in &result.entries {
+            assert_eq!(entry.fields["TITLE"], ["NewAlbum"]);
+        }
+    }
+    #[test]
+    fn filename_collision_reports_only_failed_file_and_returns_completed_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let a = fixture(dir.path(), "a.wav");
+        let b = fixture(dir.path(), "b.wav");
+        let group = ActionGroup {
+            name: "Collision".into(),
+            enabled: true,
+            actions: vec![ActionSpec::FormatValue {
+                field: "_FILENAME".into(),
+                template: "same".into(),
+            }],
+        };
+        let result = execute(
+            &[
+                a.to_string_lossy().into_owned(),
+                b.to_string_lossy().into_owned(),
+            ],
+            &[group],
+            EvaluationSettings::default(),
+        );
+        assert_eq!(result.entries.len(), 1);
+        assert_eq!(result.errors.len(), 1);
+        assert_eq!(result.renamed.len(), 1);
+        assert!(b.exists());
+        assert!(dir.path().join("same.wav").exists());
+    }
+    #[test]
+    fn export_runs_after_metadata_actions_and_appends_encoded_template_output() {
+        let dir = tempfile::tempdir().unwrap();
+        let a = fixture(dir.path(), "a.wav");
+        let b = fixture(dir.path(), "b.wav");
+        let export = ActionSpec::Export {
+            template: "$filename(txt,utf-16)$loop(%title%)%title%$char(10)$loopend()".into(),
+            filename_template: "%_folderpath%report.txt".into(),
+            append: true,
+            partition_template: None,
+        };
+        let group = ActionGroup {
+            name: "Export".into(),
+            enabled: true,
+            actions: vec![
+                export.clone(),
+                ActionSpec::FormatValue {
+                    field: "TITLE".into(),
+                    template: "Updated".into(),
+                },
+            ],
+        };
+        let paths = vec![
+            a.to_string_lossy().into_owned(),
+            b.to_string_lossy().into_owned(),
+        ];
+        let result = execute(&paths, &[group], EvaluationSettings::default());
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        let output = dir.path().join("report.txt");
+        let bytes = fs::read(&output).unwrap();
+        let expected = "Updated\nUpdated\n"
+            .encode_utf16()
+            .flat_map(u16::to_le_bytes)
+            .collect::<Vec<_>>();
+        assert_eq!(bytes, expected);
+        let result = execute(
+            &paths,
+            &[ActionGroup {
+                name: "Again".into(),
+                enabled: true,
+                actions: vec![export],
+            }],
+            EvaluationSettings::default(),
+        );
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert_eq!(fs::read(output).unwrap(), expected.repeat(2));
+    }
+    #[test]
+    fn export_partition_collision_writes_nothing_and_audio_output_is_rejected() {
+        let dir = tempfile::tempdir().unwrap();
+        let a = fixture(dir.path(), "a.wav");
+        let b = fixture(dir.path(), "b.wav");
+        let paths = vec![
+            a.to_string_lossy().into_owned(),
+            b.to_string_lossy().into_owned(),
+        ];
+        let mut export = ActionSpec::Export {
+            template: "$loop(%_filename%)%_filename%$loopend()".into(),
+            filename_template: "same.txt".into(),
+            append: false,
+            partition_template: Some("%_filename%".into()),
+        };
+        let run = |action| {
+            execute(
+                &paths,
+                &[ActionGroup {
+                    name: "Export".into(),
+                    enabled: true,
+                    actions: vec![action],
+                }],
+                EvaluationSettings::default(),
+            )
+        };
+        let result = run(export.clone());
+        assert!(!result.errors.is_empty());
+        assert!(!dir.path().join("same.txt").exists());
+        if let ActionSpec::Export {
+            filename_template,
+            partition_template,
+            ..
+        } = &mut export
+        {
+            *filename_template = a.to_string_lossy().into_owned();
+            *partition_template = None;
+        }
+        let before = fs::read(&a).unwrap();
+        let result = run(export);
+        assert!(!result.errors.is_empty());
+        assert_eq!(fs::read(a).unwrap(), before);
+    }
+    #[test]
+    fn named_utf16_configuration_exports_actual_file_hashes() {
+        let dir = tempfile::tempdir().unwrap();
+        let audio = fixture(dir.path(), "input.wav");
+        let config_dir = dir.path().join("config/export");
+        fs::create_dir_all(&config_dir).unwrap();
+        let script = "$filename(txt,utf-8)$loop(%_filename%)%_md5%:%_crc%$loopend()";
+        let mut bytes = vec![0xff, 0xfe];
+        bytes.extend(script.encode_utf16().flat_map(u16::to_le_bytes));
+        fs::write(config_dir.join("Checksums.mte"), bytes).unwrap();
+        let action = ActionSpec::Export {
+            template: "Checksums".into(),
+            filename_template: "checksums.txt".into(),
+            append: false,
+            partition_template: None,
+        };
+        let result = execute(
+            &[audio.to_string_lossy().into_owned()],
+            &[ActionGroup {
+                name: "Hashes".into(),
+                enabled: true,
+                actions: vec![action],
+            }],
+            EvaluationSettings {
+                app_data_directory: dir.path().join("config").to_string_lossy().into_owned(),
+                ..Default::default()
+            },
+        );
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        let hashes = crate::file_hashes::compute(&audio, &["_MD5".into(), "_CRC".into()]).unwrap();
+        assert_eq!(
+            fs::read_to_string(dir.path().join("checksums.txt")).unwrap(),
+            format!("{}:{}", hashes["_MD5"][0], hashes["_CRC"][0])
+        );
+    }
+    #[test]
+    fn output_alias_through_missing_parent_never_replaces_input_audio() {
+        let dir = tempfile::tempdir().unwrap();
+        let audio = fixture(dir.path(), "input.wav");
+        let original = fs::read(&audio).unwrap();
+        let actions = [
+            ActionSpec::GeneratePlaylists {
+                filename_template: "missing/../input.wav".into(),
+                partition_template: "".into(),
+            },
+            ActionSpec::Export {
+                template: "$loop(%_filename%)%_filename%$loopend()".into(),
+                filename_template: "missing/../input.wav".into(),
+                append: false,
+                partition_template: None,
+            },
+        ];
+        for action in actions {
+            let result = execute(
+                &[audio.to_string_lossy().into_owned()],
+                &[ActionGroup {
+                    name: "Protect".into(),
+                    enabled: true,
+                    actions: vec![action],
+                }],
+                EvaluationSettings::default(),
+            );
+            assert!(
+                !result.errors.is_empty(),
+                "Expected output protection error"
+            );
+            assert_eq!(
+                fs::read(&audio).unwrap(),
+                original,
+                "Export replaced input audio"
+            );
+        }
+    }
+    #[test]
+    fn playlist_partition_collision_does_not_write_any_output() {
+        let dir = tempfile::tempdir().unwrap();
+        let a = fixture(dir.path(), "a.wav");
+        let b = fixture(dir.path(), "b.wav");
+        let action = ActionSpec::GeneratePlaylists {
+            filename_template: "same.m3u8".into(),
+            partition_template: "%_filename%".into(),
+        };
+        let result = execute(
+            &[
+                a.to_string_lossy().into_owned(),
+                b.to_string_lossy().into_owned(),
+            ],
+            &[ActionGroup {
+                name: "Playlist".into(),
+                enabled: true,
+                actions: vec![action],
+            }],
+            EvaluationSettings::default(),
+        );
+        assert!(!result.errors.is_empty());
+        assert!(!dir.path().join("same.m3u8").exists());
+    }
+}

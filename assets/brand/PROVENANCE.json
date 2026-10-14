@@ -1,0 +1,392 @@
+{
+  "date": "2026-10-14",
+  "sources": [
+    {
+      "input": "/Users/jneerdael/Downloads/OpenTag-Brand-Guide.html",
+      "preserved": "opentag/assets/brand/originals/OpenTag-Brand-Guide.html",
+      "sha256": "40d9f477e48c5ccdfec6652b539a2d3a014a2cd71a25d30a998800cfaf83ca8d",
+      "bytes": 2253795
+    },
+    {
+      "input": "/Users/jneerdael/Downloads/OpenTag-Brand-Kit.zip",
+      "preserved": "opentag/assets/brand/originals/OpenTag-Brand-Kit.zip",
+      "sha256": "1ef2b22fd75a5c412b5943c8076289a54d51b6374dd5dc3d51ce2a04a1e97847",
+      "bytes": 11057427
+    }
+  ],
+  "archive_manifest_files_verified": 249,
+  "asset_copies": [
+    {
+      "source": "OpenTag-Brand-Kit/01-logos/app-icons/opentag-app-icon-color.svg",
+      "destination": "src-tauri/icon.svg",
+      "sha256": "3a4e21ebd0ad558235000012bfdf3c071d106a048f8cd55a9b29b3899ad55f63"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/windows/opentag.ico",
+      "destination": "src-tauri/icons/icon.ico",
+      "sha256": "6548dee3d75becccb812a436ec64c2881ec359c4b9b30df9159c2be9f45f6a9b"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/macos/opentag.icns",
+      "destination": "src-tauri/icons/icon.icns",
+      "sha256": "1e04ce4c638f1dd938106aa60028a5bf4dd8ea6d5688f032f08b8d1266099013"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/universal/opentag-32.png",
+      "destination": "src-tauri/icons/32x32.png",
+      "sha256": "d084d621ba67ff86bbc86fbee94d01f24f5cf465deaac5a23938992dac9af9dc"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/universal/opentag-64.png",
+      "destination": "src-tauri/icons/64x64.png",
+      "sha256": "bbc42ab8794c139301d26a01381cad6f1e9d352f8e2ec043d24a924e2eb251a6"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/universal/opentag-128.png",
+      "destination": "src-tauri/icons/128x128.png",
+      "sha256": "f7106cb37238ef0144bdc82471f7aaf2435339f012542e0af02650decf5870b5"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/universal/opentag-256.png",
+      "destination": "src-tauri/icons/128x128@2x.png",
+      "sha256": "f22f8a11cef033a0e5789c2235970e9a4f30f7c0b4191dc7cf52fe94e753b0b0"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/universal/opentag-1024.png",
+      "destination": "src-tauri/icons/icon.png",
+      "sha256": "c97877acb2fec9b21b0e79721097512cad74e4f7ecfa3802c9fc35be1c7d3156"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/linux/hicolor/scalable/apps/opentag.svg",
+      "destination": "src-tauri/icons/opentag.svg",
+      "sha256": "3a4e21ebd0ad558235000012bfdf3c071d106a048f8cd55a9b29b3899ad55f63"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/linux/hicolor/512x512/apps/opentag.png",
+      "destination": "src-tauri/icons/linux/hicolor/512x512/apps/opentag.png",
+      "sha256": "2a2b5679b455f5ce6da9b9d31b386d910ee7899fb0cff995db8ef3c831ba9f25"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/linux/hicolor/48x48/apps/opentag.png",
+      "destination": "src-tauri/icons/linux/hicolor/48x48/apps/opentag.png",
+      "sha256": "e38d5d18667925f5e8bd3c2b5c31ce2ebd44e9b3da8988675f83f34641183621"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/linux/hicolor/scalable/apps/opentag.svg",
+      "destination": "src-tauri/icons/linux/hicolor/scalable/apps/opentag.svg",
+      "sha256": "3a4e21ebd0ad558235000012bfdf3c071d106a048f8cd55a9b29b3899ad55f63"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/linux/hicolor/256x256/apps/opentag.png",
+      "destination": "src-tauri/icons/linux/hicolor/256x256/apps/opentag.png",
+      "sha256": "f22f8a11cef033a0e5789c2235970e9a4f30f7c0b4191dc7cf52fe94e753b0b0"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/linux/hicolor/128x128/apps/opentag.png",
+      "destination": "src-tauri/icons/linux/hicolor/128x128/apps/opentag.png",
+      "sha256": "f7106cb37238ef0144bdc82471f7aaf2435339f012542e0af02650decf5870b5"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/linux/hicolor/24x24/apps/opentag.png",
+      "destination": "src-tauri/icons/linux/hicolor/24x24/apps/opentag.png",
+      "sha256": "64007ad9a3df0456b7b399ed0ab89329ae4faa246c991283273e525364603c72"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/linux/hicolor/32x32/apps/opentag.png",
+      "destination": "src-tauri/icons/linux/hicolor/32x32/apps/opentag.png",
+      "sha256": "d084d621ba67ff86bbc86fbee94d01f24f5cf465deaac5a23938992dac9af9dc"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/linux/hicolor/64x64/apps/opentag.png",
+      "destination": "src-tauri/icons/linux/hicolor/64x64/apps/opentag.png",
+      "sha256": "bbc42ab8794c139301d26a01381cad6f1e9d352f8e2ec043d24a924e2eb251a6"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/linux/hicolor/16x16/apps/opentag.png",
+      "destination": "src-tauri/icons/linux/hicolor/16x16/apps/opentag.png",
+      "sha256": "23f3050a9f64f0acd00f71b5cb54d31b069f750f3585247286a6707e2a5da9c9"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/linux/hicolor/96x96/apps/opentag.png",
+      "destination": "src-tauri/icons/linux/hicolor/96x96/apps/opentag.png",
+      "sha256": "00ce21f75f1d7a516d3e8f8b11e2906c7c9229205565344592341c56df1d287c"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/web/favicon-16x16.png",
+      "destination": "public/brand/favicon-16x16.png",
+      "sha256": "23f3050a9f64f0acd00f71b5cb54d31b069f750f3585247286a6707e2a5da9c9"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/web/pwa-maskable-192.png",
+      "destination": "public/brand/pwa-maskable-192.png",
+      "sha256": "f6a86ee6ef5c5d2866ae21619bcf67d47f78f81ff4e26d14f354673d7a524637"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/web/safari-pinned-tab.svg",
+      "destination": "public/brand/safari-pinned-tab.svg",
+      "sha256": "80dab38a5fa7c3fa08ecb7cf73f097ffbff41814de1b6bb92d9f61d2b746bd78"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/web/favicon.ico",
+      "destination": "public/brand/favicon.ico",
+      "sha256": "fba59a4432352e6a3eacb45803d1126632cba497b811fd506920ae2438c6afc9"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/web/apple-touch-icon.png",
+      "destination": "public/brand/apple-touch-icon.png",
+      "sha256": "180063aeb752f21a88091b13dd834f2577c67d4cd2c83f5e46ffd304f0d9bf15"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/web/head-snippet.html",
+      "destination": "public/brand/head-snippet.html",
+      "sha256": "ef8422a1cdaf73a9102c4b2e04269c3da3d371ff9bd1cb0d64a6521d7629b3b4"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/web/pwa-512.png",
+      "destination": "public/brand/pwa-512.png",
+      "sha256": "2a2b5679b455f5ce6da9b9d31b386d910ee7899fb0cff995db8ef3c831ba9f25"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/web/site.webmanifest",
+      "destination": "public/brand/site.webmanifest",
+      "sha256": "97ef6904047b04d6719adc5f186dd898f15079b8a53f2f85b53dbc8765b2ecf2"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/web/maskable-master.png",
+      "destination": "public/brand/maskable-master.png",
+      "sha256": "26d1d433983f5644c0445047f0a923cd939484fc70a172d83e0eba6b99121191"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/web/pwa-maskable-512.png",
+      "destination": "public/brand/pwa-maskable-512.png",
+      "sha256": "5bd4ba3388aae010e9cf11cdfb9be32a357928e5186c5f33b5dcb51f769a98de"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/web/pwa-192.png",
+      "destination": "public/brand/pwa-192.png",
+      "sha256": "9b21847921bba7818fe3218409686a926625bcef9a2c90a370028b6860ecaf21"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/web/maskable-master.svg",
+      "destination": "public/brand/maskable-master.svg",
+      "sha256": "bca1d6725e03a171de1c6400071801120e28783ff4aafb60e302218ed1866ea6"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/web/favicon.svg",
+      "destination": "public/brand/favicon.svg",
+      "sha256": "3a4e21ebd0ad558235000012bfdf3c071d106a048f8cd55a9b29b3899ad55f63"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/web/favicon-32x32.png",
+      "destination": "public/brand/favicon-32x32.png",
+      "sha256": "d084d621ba67ff86bbc86fbee94d01f24f5cf465deaac5a23938992dac9af9dc"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/android/res/mipmap-mdpi/ic_launcher.png",
+      "destination": "src-tauri/gen/android/app/src/main/res/mipmap-mdpi/ic_launcher.png",
+      "sha256": "e38d5d18667925f5e8bd3c2b5c31ce2ebd44e9b3da8988675f83f34641183621"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/android/res/mipmap-mdpi/ic_launcher.png",
+      "destination": "src-tauri/icons/android/mipmap-mdpi/ic_launcher.png",
+      "sha256": "e38d5d18667925f5e8bd3c2b5c31ce2ebd44e9b3da8988675f83f34641183621"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/android/res/mipmap-mdpi/ic_launcher_round.png",
+      "destination": "src-tauri/gen/android/app/src/main/res/mipmap-mdpi/ic_launcher_round.png",
+      "sha256": "e38d5d18667925f5e8bd3c2b5c31ce2ebd44e9b3da8988675f83f34641183621"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/android/res/mipmap-mdpi/ic_launcher_round.png",
+      "destination": "src-tauri/icons/android/mipmap-mdpi/ic_launcher_round.png",
+      "sha256": "e38d5d18667925f5e8bd3c2b5c31ce2ebd44e9b3da8988675f83f34641183621"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/android/res/mipmap-hdpi/ic_launcher.png",
+      "destination": "src-tauri/gen/android/app/src/main/res/mipmap-hdpi/ic_launcher.png",
+      "sha256": "130d328548c3b0b265c524dbb3ad62563a33ddd9d566d16a0cd3cd552d759829"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/android/res/mipmap-hdpi/ic_launcher.png",
+      "destination": "src-tauri/icons/android/mipmap-hdpi/ic_launcher.png",
+      "sha256": "130d328548c3b0b265c524dbb3ad62563a33ddd9d566d16a0cd3cd552d759829"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/android/res/mipmap-hdpi/ic_launcher_round.png",
+      "destination": "src-tauri/gen/android/app/src/main/res/mipmap-hdpi/ic_launcher_round.png",
+      "sha256": "130d328548c3b0b265c524dbb3ad62563a33ddd9d566d16a0cd3cd552d759829"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/android/res/mipmap-hdpi/ic_launcher_round.png",
+      "destination": "src-tauri/icons/android/mipmap-hdpi/ic_launcher_round.png",
+      "sha256": "130d328548c3b0b265c524dbb3ad62563a33ddd9d566d16a0cd3cd552d759829"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/android/res/drawable/opentag_monochrome.xml",
+      "destination": "src-tauri/gen/android/app/src/main/res/drawable/opentag_monochrome.xml",
+      "sha256": "530edd86e319982bbc63df72fd75a983542c2588b39ce59ca582fa7890f94cb9"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/android/res/drawable/opentag_monochrome.xml",
+      "destination": "src-tauri/icons/android/drawable/opentag_monochrome.xml",
+      "sha256": "530edd86e319982bbc63df72fd75a983542c2588b39ce59ca582fa7890f94cb9"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/android/res/drawable/opentag_foreground.xml",
+      "destination": "src-tauri/gen/android/app/src/main/res/drawable/opentag_foreground.xml",
+      "sha256": "e4ae6d88604a3cbb85d0f09e59da3e2678aa32f3b9c3a8cea240e24f8309a551"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/android/res/drawable/opentag_foreground.xml",
+      "destination": "src-tauri/icons/android/drawable/opentag_foreground.xml",
+      "sha256": "e4ae6d88604a3cbb85d0f09e59da3e2678aa32f3b9c3a8cea240e24f8309a551"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/android/res/drawable/opentag_background.xml",
+      "destination": "src-tauri/gen/android/app/src/main/res/drawable/opentag_background.xml",
+      "sha256": "e55cae4c015d7d99423aea8e9230655d61f68764216649f5ee839e9ee1f7a2ff"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/android/res/drawable/opentag_background.xml",
+      "destination": "src-tauri/icons/android/drawable/opentag_background.xml",
+      "sha256": "e55cae4c015d7d99423aea8e9230655d61f68764216649f5ee839e9ee1f7a2ff"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/android/res/mipmap-xxxhdpi/ic_launcher.png",
+      "destination": "src-tauri/gen/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
+      "sha256": "9b21847921bba7818fe3218409686a926625bcef9a2c90a370028b6860ecaf21"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/android/res/mipmap-xxxhdpi/ic_launcher.png",
+      "destination": "src-tauri/icons/android/mipmap-xxxhdpi/ic_launcher.png",
+      "sha256": "9b21847921bba7818fe3218409686a926625bcef9a2c90a370028b6860ecaf21"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/android/res/mipmap-xxxhdpi/ic_launcher_round.png",
+      "destination": "src-tauri/gen/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png",
+      "sha256": "9b21847921bba7818fe3218409686a926625bcef9a2c90a370028b6860ecaf21"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/android/res/mipmap-xxxhdpi/ic_launcher_round.png",
+      "destination": "src-tauri/icons/android/mipmap-xxxhdpi/ic_launcher_round.png",
+      "sha256": "9b21847921bba7818fe3218409686a926625bcef9a2c90a370028b6860ecaf21"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/android/res/mipmap-xxhdpi/ic_launcher.png",
+      "destination": "src-tauri/gen/android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png",
+      "sha256": "da1cd9a3bf3449ee0504d96b9bf8be046afa27b763b56eddc013e9509c2c9a36"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/android/res/mipmap-xxhdpi/ic_launcher.png",
+      "destination": "src-tauri/icons/android/mipmap-xxhdpi/ic_launcher.png",
+      "sha256": "da1cd9a3bf3449ee0504d96b9bf8be046afa27b763b56eddc013e9509c2c9a36"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/android/res/mipmap-xxhdpi/ic_launcher_round.png",
+      "destination": "src-tauri/gen/android/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.png",
+      "sha256": "da1cd9a3bf3449ee0504d96b9bf8be046afa27b763b56eddc013e9509c2c9a36"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/android/res/mipmap-xxhdpi/ic_launcher_round.png",
+      "destination": "src-tauri/icons/android/mipmap-xxhdpi/ic_launcher_round.png",
+      "sha256": "da1cd9a3bf3449ee0504d96b9bf8be046afa27b763b56eddc013e9509c2c9a36"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/android/res/mipmap-anydpi-v33/ic_launcher.xml",
+      "destination": "src-tauri/gen/android/app/src/main/res/mipmap-anydpi-v33/ic_launcher.xml",
+      "sha256": "9b85d0fac45612b159e1bb8b057b2c0a66d6f093e00351516d76a94af18e31f2"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/android/res/mipmap-anydpi-v33/ic_launcher.xml",
+      "destination": "src-tauri/icons/android/mipmap-anydpi-v33/ic_launcher.xml",
+      "sha256": "9b85d0fac45612b159e1bb8b057b2c0a66d6f093e00351516d76a94af18e31f2"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/android/res/mipmap-anydpi-v33/ic_launcher_round.xml",
+      "destination": "src-tauri/gen/android/app/src/main/res/mipmap-anydpi-v33/ic_launcher_round.xml",
+      "sha256": "9b85d0fac45612b159e1bb8b057b2c0a66d6f093e00351516d76a94af18e31f2"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/android/res/mipmap-anydpi-v33/ic_launcher_round.xml",
+      "destination": "src-tauri/icons/android/mipmap-anydpi-v33/ic_launcher_round.xml",
+      "sha256": "9b85d0fac45612b159e1bb8b057b2c0a66d6f093e00351516d76a94af18e31f2"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/android/res/mipmap-xhdpi/ic_launcher.png",
+      "destination": "src-tauri/gen/android/app/src/main/res/mipmap-xhdpi/ic_launcher.png",
+      "sha256": "00ce21f75f1d7a516d3e8f8b11e2906c7c9229205565344592341c56df1d287c"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/android/res/mipmap-xhdpi/ic_launcher.png",
+      "destination": "src-tauri/icons/android/mipmap-xhdpi/ic_launcher.png",
+      "sha256": "00ce21f75f1d7a516d3e8f8b11e2906c7c9229205565344592341c56df1d287c"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/android/res/mipmap-xhdpi/ic_launcher_round.png",
+      "destination": "src-tauri/gen/android/app/src/main/res/mipmap-xhdpi/ic_launcher_round.png",
+      "sha256": "00ce21f75f1d7a516d3e8f8b11e2906c7c9229205565344592341c56df1d287c"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/android/res/mipmap-xhdpi/ic_launcher_round.png",
+      "destination": "src-tauri/icons/android/mipmap-xhdpi/ic_launcher_round.png",
+      "sha256": "00ce21f75f1d7a516d3e8f8b11e2906c7c9229205565344592341c56df1d287c"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/android/res/mipmap-anydpi-v26/ic_launcher.xml",
+      "destination": "src-tauri/gen/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml",
+      "sha256": "d092b4385f8ad68cc9bbc9c2a345ea590b4c3c53751f0ecf36267a8fa5124af8"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/android/res/mipmap-anydpi-v26/ic_launcher.xml",
+      "destination": "src-tauri/icons/android/mipmap-anydpi-v26/ic_launcher.xml",
+      "sha256": "d092b4385f8ad68cc9bbc9c2a345ea590b4c3c53751f0ecf36267a8fa5124af8"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/android/res/mipmap-anydpi-v26/ic_launcher_round.xml",
+      "destination": "src-tauri/gen/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml",
+      "sha256": "d092b4385f8ad68cc9bbc9c2a345ea590b4c3c53751f0ecf36267a8fa5124af8"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/android/res/mipmap-anydpi-v26/ic_launcher_round.xml",
+      "destination": "src-tauri/icons/android/mipmap-anydpi-v26/ic_launcher_round.xml",
+      "sha256": "d092b4385f8ad68cc9bbc9c2a345ea590b4c3c53751f0ecf36267a8fa5124af8"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/ios/AppIcon.appiconset/AppIcon-1024.png",
+      "destination": "src-tauri/gen/apple/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png",
+      "sha256": "e32c94bf496dab4458c84afd9a990376e75cad74fadcae52e12cbfbd1ae4f45a"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/ios/AppIcon.appiconset/AppIcon-1024.png",
+      "destination": "src-tauri/icons/ios/AppIcon.appiconset/AppIcon-1024.png",
+      "sha256": "e32c94bf496dab4458c84afd9a990376e75cad74fadcae52e12cbfbd1ae4f45a"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/ios/AppIcon.appiconset/Contents.json",
+      "destination": "src-tauri/gen/apple/Assets.xcassets/AppIcon.appiconset/Contents.json",
+      "sha256": "aaaaa3d92af7da71bcc55c6c1bbfb24f1a70a1ba1f3bfa5ffa7b374aa1727b8f"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/02-platform-icons/ios/AppIcon.appiconset/Contents.json",
+      "destination": "src-tauri/icons/ios/AppIcon.appiconset/Contents.json",
+      "sha256": "aaaaa3d92af7da71bcc55c6c1bbfb24f1a70a1ba1f3bfa5ffa7b374aa1727b8f"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/04-in-app/opentag-tray-black.svg",
+      "destination": "src-tauri/icons/tray/opentag-tray-black.svg",
+      "sha256": "6aafca6c409a6a2e1fc10e73922bc904e4acaea8a7fc73d6f1f8e2bc27d544d0"
+    },
+    {
+      "source": "OpenTag-Brand-Kit/04-in-app/opentag-tray-white.svg",
+      "destination": "src-tauri/icons/tray/opentag-tray-white.svg",
+      "sha256": "c8e6ff03c4c0dedfe4754e31c04d058e383d8d14455b77592eb8176e5e6c6112"
+    }
+  ],
+  "integration_changes": [
+    {
+      "file": "public/brand/site.webmanifest",
+      "change": "start_url and scope changed from ./ to ../ because manifest is served under /brand; icon filenames preserved."
+    }
+  ],
+  "artwork_modification": "No raster/vector art was regenerated or altered."
+}

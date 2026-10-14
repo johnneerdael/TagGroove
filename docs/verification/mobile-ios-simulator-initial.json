@@ -1,0 +1,16 @@
+{
+  "status": "failed",
+  "exit_status": 1,
+  "failure": "E0432 unresolved sha2 import in action_host.rs during concurrent parent native source/dependency changes",
+  "xcodebuild_exit_status": 65,
+  "artifact_produced": false,
+  "source_changes_since_start": [
+    "Cargo.lock",
+    "src-tauri/src/action_host.rs",
+    "src-tauri/src/lib.rs",
+    "crates/tag-core/src/id3_v23.rs"
+  ],
+  "log_sha256": "110153132ff78655e06c1c0ce1b03697d348eed6de9b7a54d3e6e29f0860b60c",
+  "log_modified_utc": "2026-10-14T01:52:32.376553+00:00",
+  "runtime_verified": false
+}

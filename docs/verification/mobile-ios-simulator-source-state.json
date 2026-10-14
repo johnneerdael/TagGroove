@@ -1,0 +1,46 @@
+{
+  "started_utc": "2026-10-14T01:49:54.369025+00:00",
+  "scoped_environment": {
+    "RUSTC": "/Users/jneerdael/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc",
+    "CARGO_TARGET_DIR": "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/target/mobile-verification/ios"
+  },
+  "command": [
+    "npm",
+    "run",
+    "tauri",
+    "--",
+    "ios",
+    "build",
+    "--debug",
+    "--target",
+    "aarch64-sim",
+    "--no-sign",
+    "--ci"
+  ],
+  "source_sha256": {
+    "Cargo.lock": "22f931932d9fe8f4a16585d6241bcbe80515f24b03703ab13b21207a08f7efd2",
+    "src-tauri/tauri.conf.json": "fa55900c759e2f27b2c026089464aece122c47469ab99c3f0b8b04e14583cc73",
+    "package-lock.json": "c8f33f1cf715d813160b030965dd1a75772e0f1775c6039ae32570074f843e31",
+    "src/action-ui.ts": "40a73e650a97cf0d92ea34306821705bc04c4ff20a7b4fef2938ea950cecfae5",
+    "src/tag-edits.ts": "aa7853cba126cc79add994dd08eb0050bb22d170071c7639fbb31c326c7736f1",
+    "src/main.ts": "3b87f3066773e3ad7b024796700a85438cc859e6aa1b726dc9f4af992af2df87",
+    "src/style.css": "a6c86f31325118a032a4aba7f2b33f025a0ab6f73ed695e0b240867b08a7a0b3",
+    "src-tauri/src/action_host.rs": "e25361cd33ced06aba68b8ca5b90b3299e170f3df3c4126190befb073ffa6dfd",
+    "src-tauri/src/evaluation.rs": "2bc13754df690c4725729364bd29f7264eb155da1b151e3e1027bfe2322afc42",
+    "src-tauri/src/lib.rs": "98a5f7304ed3bb41ec6b6af4ffa7189f9c7d8213a23c834c3c6ea42d0ebf8d71",
+    "src-tauri/src/main.rs": "8b9090d1067d0f0883c20f6b60b9afa6b6d34372d458beeb740eb20cb41e7fd9",
+    "src-tauri/src/rename_plan.rs": "e3c745a37497d235ea633c302436792560986b9c5bf2b639eb2b2266b836c051",
+    "crates/tag-core/src/actions.rs": "09ee5c1d1193a62a44aae1d6616529b57a79c918222f2603528093987107ac68",
+    "crates/tag-core/src/cover_ops.rs": "62272271089cd7b2fe08c4421d1027fa5fdc19940173ab5e9ec0a6a40b5ea413",
+    "crates/tag-core/src/export.rs": "113e0504db74f55bbe5b80a4f2bfd60770d2ff831bc79314afa9ab70763f3ca8",
+    "crates/tag-core/src/lib.rs": "0141e2ea1a2ee3df60195fa57eda1a3511c70ebb7666d87c51a0f9bde0aee34c",
+    "crates/tag-core/src/tags.rs": "592ff7bc0a180a6fbbbb5633b7c8a849817d53b1139b3df306c62f18c71b485e",
+    "crates/tag-core/src/id3_v23.rs": "47db117f195a31c11be043e5e7f959ddca33f128e62f5f5745f361beb51e2e95",
+    "crates/tag-core/src/mapping.rs": "85cdce95bc48d48c3ffe24f82522ce193c9b24f2c4054a52e12fca2baa7ad1c7",
+    "crates/tag-core/src/script.rs": "6d90d881803ff44c6172007a127c7ecd5ed66716707ffa910d2441ea06b3333c",
+    "crates/tag-core/src/filter.rs": "9f0ab31ceb57fa439ef0e470397a581d09a0f6d6fa4bd5a99858612416c000cb",
+    "crates/tag-core/src/operations.rs": "aa9e76e4c0bf7d5ae53f315cdf9653356de10c17b355756d4e3c2539e79e1d9d",
+    "crates/regex-compat/src/lib.rs": "49625646fe0917403af9434949ab7880aa6a86890070e852a7597b649c155ced",
+    "crates/regex-compat/src/bridge.cpp": "e71e89f004de3ec4ef4e31471f1c213a40c54a9602c90e9e1735735871be95a9"
+  }
+}

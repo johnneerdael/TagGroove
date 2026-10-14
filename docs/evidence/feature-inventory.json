@@ -1,0 +1,1635 @@
+{
+  "target": {
+    "name": "Mp3tag.exe",
+    "version": "3.36.1",
+    "sha256": "484794eec4e2b9a649d04eaab63b4cc73127ceb48a9e46075ea488c0e1eac911"
+  },
+  "evidence_id": "ev_da987475b3bd15a7cb4d2a0d6c78c79bc77f8f40b42a4dd07a54d606084da1f0",
+  "menus": [
+    {
+      "id": {
+        "kind": "id",
+        "id": 128
+      },
+      "file_offset": 24972568,
+      "items": [
+        {
+          "command_id": 65535,
+          "label": "0",
+          "children": [
+            {
+              "command_id": 1038,
+              "label": "0"
+            },
+            {
+              "command_id": 1037,
+              "label": "1"
+            },
+            {
+              "command_id": 1036,
+              "label": "2"
+            },
+            {
+              "command_id": 1033,
+              "label": "3"
+            },
+            {
+              "command_id": 1035,
+              "label": "4"
+            },
+            {
+              "command_id": 1034,
+              "label": "5"
+            },
+            {
+              "command_id": 1032,
+              "label": "6"
+            },
+            {
+              "command_id": 0,
+              "label": ""
+            },
+            {
+              "command_id": 1023,
+              "label": "7"
+            },
+            {
+              "command_id": 32790,
+              "label": "8"
+            },
+            {
+              "command_id": 32902,
+              "label": "9"
+            },
+            {
+              "command_id": 1030,
+              "label": "10"
+            },
+            {
+              "command_id": 36613,
+              "label": "11"
+            },
+            {
+              "command_id": 0,
+              "label": ""
+            },
+            {
+              "command_id": 32768,
+              "label": "12"
+            },
+            {
+              "command_id": 1039,
+              "label": "13"
+            },
+            {
+              "command_id": 36612,
+              "label": "14"
+            },
+            {
+              "command_id": 0,
+              "label": ""
+            },
+            {
+              "command_id": 57665,
+              "label": "15"
+            }
+          ]
+        },
+        {
+          "command_id": 65535,
+          "label": "1",
+          "children": [
+            {
+              "command_id": 32797,
+              "label": "0"
+            },
+            {
+              "command_id": 32830,
+              "label": "0-1"
+            },
+            {
+              "command_id": 0,
+              "label": ""
+            },
+            {
+              "command_id": 32815,
+              "label": "2"
+            },
+            {
+              "command_id": 32814,
+              "label": "1"
+            },
+            {
+              "command_id": 37026,
+              "label": "1-1"
+            },
+            {
+              "command_id": 32816,
+              "label": "3"
+            },
+            {
+              "command_id": 0,
+              "label": ""
+            },
+            {
+              "command_id": 37027,
+              "label": "Find..."
+            },
+            {
+              "command_id": 0,
+              "label": ""
+            },
+            {
+              "command_id": 65535,
+              "label": "Cover",
+              "children": [
+                {
+                  "command_id": 36916,
+                  "label": "1"
+                },
+                {
+                  "command_id": 36917,
+                  "label": "2"
+                },
+                {
+                  "command_id": 37029,
+                  "label": "3-1"
+                },
+                {
+                  "command_id": 36918,
+                  "label": "3"
+                },
+                {
+                  "command_id": 36919,
+                  "label": "4"
+                },
+                {
+                  "command_id": 0,
+                  "label": ""
+                },
+                {
+                  "command_id": 37032,
+                  "label": "4-1"
+                },
+                {
+                  "command_id": 0,
+                  "label": ""
+                },
+                {
+                  "command_id": 65535,
+                  "label": "5",
+                  "children": [
+                    {
+                      "command_id": 33962,
+                      "label": "dummy"
+                    }
+                  ]
+                },
+                {
+                  "command_id": 36920,
+                  "label": "6"
+                },
+                {
+                  "command_id": 0,
+                  "label": ""
+                },
+                {
+                  "command_id": 36921,
+                  "label": "7"
+                },
+                {
+                  "command_id": 36922,
+                  "label": "8"
+                },
+                {
+                  "command_id": 36923,
+                  "label": "9"
+                }
+              ]
+            },
+            {
+              "command_id": 0,
+              "label": ""
+            },
+            {
+              "command_id": 32780,
+              "label": "4"
+            },
+            {
+              "command_id": 32784,
+              "label": "5"
+            },
+            {
+              "command_id": 32782,
+              "label": "6"
+            },
+            {
+              "command_id": 33992,
+              "label": "7"
+            },
+            {
+              "command_id": 32781,
+              "label": "8"
+            },
+            {
+              "command_id": 0,
+              "label": ""
+            },
+            {
+              "command_id": 34094,
+              "label": "9"
+            },
+            {
+              "command_id": 32812,
+              "label": "10"
+            },
+            {
+              "command_id": 32813,
+              "label": "11"
+            },
+            {
+              "command_id": 32811,
+              "label": "12"
+            },
+            {
+              "command_id": 37034,
+              "label": "13"
+            },
+            {
+              "command_id": 37035,
+              "label": "14"
+            }
+          ]
+        },
+        {
+          "command_id": 65535,
+          "label": "2",
+          "children": [
+            {
+              "command_id": 32810,
+              "label": "0"
+            },
+            {
+              "command_id": 65535,
+              "label": "Sort by",
+              "children": [
+                {
+                  "command_id": 32850,
+                  "label": "dummy"
+                }
+              ]
+            },
+            {
+              "command_id": 0,
+              "label": ""
+            },
+            {
+              "command_id": 32901,
+              "label": "Tags"
+            },
+            {
+              "command_id": 32787,
+              "label": "2"
+            },
+            {
+              "command_id": 32842,
+              "label": "3"
+            },
+            {
+              "command_id": 65535,
+              "label": "Toolbars",
+              "children": [
+                {
+                  "command_id": 32845,
+                  "label": "4"
+                },
+                {
+                  "command_id": 32847,
+                  "label": "5"
+                },
+                {
+                  "command_id": 0,
+                  "label": ""
+                },
+                {
+                  "command_id": 1042,
+                  "label": "Customize"
+                },
+                {
+                  "command_id": 1043,
+                  "label": "Customize 2"
+                }
+              ]
+            },
+            {
+              "command_id": 65535,
+              "label": "Columns",
+              "children": [
+                {
+                  "command_id": 1041,
+                  "label": "Customize"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "command_id": 65535,
+          "label": "3",
+          "children": [
+            {
+              "command_id": 32773,
+              "label": "0"
+            },
+            {
+              "command_id": 32771,
+              "label": "1"
+            },
+            {
+              "command_id": 32770,
+              "label": "2"
+            },
+            {
+              "command_id": 32772,
+              "label": "3"
+            },
+            {
+              "command_id": 32774,
+              "label": "4"
+            },
+            {
+              "command_id": 32829,
+              "label": "5"
+            }
+          ]
+        },
+        {
+          "command_id": 65535,
+          "label": "3-1",
+          "children": [
+            {
+              "command_id": 32769,
+              "label": "0"
+            },
+            {
+              "command_id": 33214,
+              "label": "1"
+            },
+            {
+              "command_id": 0,
+              "label": ""
+            }
+          ]
+        },
+        {
+          "command_id": 65535,
+          "label": "4",
+          "children": [
+            {
+              "command_id": 32910,
+              "label": "0"
+            },
+            {
+              "command_id": 1031,
+              "label": "1"
+            },
+            {
+              "command_id": 0,
+              "label": ""
+            }
+          ]
+        },
+        {
+          "command_id": 65535,
+          "label": "5",
+          "children": [
+            {
+              "command_id": 32776,
+              "label": "0"
+            },
+            {
+              "command_id": 33229,
+              "label": "k"
+            },
+            {
+              "command_id": 32822,
+              "label": "1"
+            },
+            {
+              "command_id": 0,
+              "label": ""
+            },
+            {
+              "command_id": 32827,
+              "label": "2"
+            },
+            {
+              "command_id": 0,
+              "label": ""
+            },
+            {
+              "command_id": 32823,
+              "label": "3"
+            },
+            {
+              "command_id": 32824,
+              "label": "4"
+            },
+            {
+              "command_id": 32846,
+              "label": "5"
+            },
+            {
+              "command_id": 0,
+              "label": ""
+            },
+            {
+              "command_id": 1040,
+              "label": "6"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": {
+        "kind": "id",
+        "id": 1063
+      },
+      "file_offset": 24974760,
+      "items": [
+        {
+          "command_id": null,
+          "label": "0",
+          "children": [
+            {
+              "command_id": 32779,
+              "label": "0"
+            },
+            {
+              "command_id": 36613,
+              "label": "1"
+            },
+            {
+              "command_id": 1038,
+              "label": "2"
+            },
+            {
+              "command_id": 1037,
+              "label": "3"
+            },
+            {
+              "command_id": 32901,
+              "label": "4"
+            },
+            {
+              "command_id": 32815,
+              "label": "5"
+            },
+            {
+              "command_id": 32814,
+              "label": "6"
+            },
+            {
+              "command_id": 37026,
+              "label": "6-1"
+            },
+            {
+              "command_id": 32816,
+              "label": "7"
+            },
+            {
+              "command_id": 0,
+              "label": ""
+            },
+            {
+              "command_id": 1032,
+              "label": "8"
+            },
+            {
+              "command_id": null,
+              "label": "9",
+              "children": [
+                {
+                  "command_id": 32773,
+                  "label": "0"
+                },
+                {
+                  "command_id": 32771,
+                  "label": "1"
+                },
+                {
+                  "command_id": 32770,
+                  "label": "2"
+                },
+                {
+                  "command_id": 32772,
+                  "label": "3"
+                },
+                {
+                  "command_id": 32774,
+                  "label": "4"
+                },
+                {
+                  "command_id": 32829,
+                  "label": "5"
+                }
+              ]
+            },
+            {
+              "command_id": null,
+              "label": "10",
+              "children": [
+                {
+                  "command_id": 32769,
+                  "label": "0"
+                },
+                {
+                  "command_id": 33214,
+                  "label": "1"
+                },
+                {
+                  "command_id": 0,
+                  "label": ""
+                }
+              ]
+            },
+            {
+              "command_id": null,
+              "label": "11",
+              "children": [
+                {
+                  "command_id": 0,
+                  "label": "0"
+                }
+              ]
+            },
+            {
+              "command_id": null,
+              "label": "12",
+              "children": [
+                {
+                  "command_id": 0,
+                  "label": "0"
+                }
+              ]
+            },
+            {
+              "command_id": null,
+              "label": "13",
+              "children": [
+                {
+                  "command_id": 33216,
+                  "label": "0"
+                },
+                {
+                  "command_id": 36102,
+                  "label": "1"
+                },
+                {
+                  "command_id": 37030,
+                  "label": "2"
+                },
+                {
+                  "command_id": 37031,
+                  "label": "3"
+                }
+              ]
+            },
+            {
+              "command_id": 0,
+              "label": ""
+            },
+            {
+              "command_id": 33992,
+              "label": "14"
+            },
+            {
+              "command_id": 32780,
+              "label": "15"
+            },
+            {
+              "command_id": 32784,
+              "label": "16"
+            },
+            {
+              "command_id": 32782,
+              "label": "17"
+            },
+            {
+              "command_id": 0,
+              "label": ""
+            },
+            {
+              "command_id": 32781,
+              "label": "18"
+            },
+            {
+              "command_id": 0,
+              "label": ""
+            },
+            {
+              "command_id": 32783,
+              "label": "19"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": {
+        "kind": "id",
+        "id": 1163
+      },
+      "file_offset": 24975096,
+      "items": [
+        {
+          "command_id": null,
+          "label": "0",
+          "children": [
+            {
+              "command_id": 57665,
+              "label": "Exit"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "language_count": 43,
+  "english_language_keys": [
+    "LANGAUTHOR",
+    "LANGCONTACT",
+    "LANGVERSION",
+    "LANGCODE_639_1",
+    "LANGNAME",
+    "LANGNAMELOC",
+    "SLangCancel",
+    "SLangOk",
+    "SLangErrCatch",
+    "SLangErrCheck",
+    "SLangErrDriveCannotBeAccessed",
+    "SLangErrFileCannotBeAccessed",
+    "SLangErrFileCannotBeDeleted",
+    "SLangErrFolderCannotBeAccessed",
+    "SLangErrFolderCannotBeDeleted",
+    "SLangErrHelpBrowserIsNotAvailable",
+    "SLangErrHelpSystemIsNotAvailable",
+    "SLangErrHelpTopicIsNotAvailable",
+    "SLangErrNotEnoughFreeDiskSpace",
+    "SLangErrRegistryCannotBeAccessed",
+    "SLangMsgItemExistsAlready",
+    "SLangMsgFirstSteps",
+    "SLangMsgShutdownInfo",
+    "SLangWrnAppIsAlreadyRunning",
+    "SLangWrnAppHasToBeRestarted",
+    "SLangWrnNameContainsInvalidCharacters",
+    "SLangWrnStartLogging",
+    "_C_ABORT",
+    "_C_ABORTING",
+    "_C_APP_ST_ALBUM",
+    "_C_APP_ST_ARTIST",
+    "_C_APP_ST_COMMENT",
+    "_C_APP_ST_FOLDER",
+    "_C_APP_ST_GENRE",
+    "_C_APP_ST_TITLE",
+    "_C_APP_ST_TRACK",
+    "_C_APP_ST_YEAR",
+    "_C_CANCEL",
+    "_C_CANCELING",
+    "_C_CHECK",
+    "_C_CLOSE",
+    "_C_DLG_CDDBCONFIRM_CAPTION",
+    "_C_DLG_CDDBCONFIRM_CHK_DISCID",
+    "_C_DLG_CDDBCONFIRM_CHK_DISCID2",
+    "_C_DLG_CDDBCONFIRM_CHK_SAMPLER",
+    "_C_DLG_CDDBCONFIRM_CHK_SORT",
+    "_C_DLG_CDDBCONFIRM_ST_INFO",
+    "_C_DLG_CDDBCONFIRM_ST_INFO2",
+    "_C_DLG_CDDBCONFIRM_STC_TOP",
+    "_C_DLG_CDDBINPUT_CAPTION",
+    "_C_DLG_CDDBINPUT_ST_CATEGORY",
+    "_C_DLG_CDDBINPUT_ST_ID",
+    "_C_DLG_CDDBSTYLE_CAPTION",
+    "_C_DLG_CDDBSTYLE_RD_CDROM",
+    "_C_DLG_CDDBSTYLE_RD_ENTER",
+    "_C_DLG_CDDBSTYLE_RD_MP3",
+    "_C_DLG_CDDBSTYLE_RD_SEARCH",
+    "_C_DLG_CDDBSTYLE_RD_SEARCHLOCAL",
+    "_C_DLG_CDDBSTYLE_STC_TOP",
+    "_C_DLG_COPYFORMAT",
+    "_C_DLG_COPYFORMAT_BTN_COPY",
+    "_C_DLG_COLUMNS_CAPTION",
+    "_C_DLG_COLUMNS_TOP",
+    "_C_DLG_TAGS",
+    "_C_DLG_TTF_TOP",
+    "_C_FIND_BTN_FIND",
+    "_C_FIND_CAPTION",
+    "_C_FIND_CHK_CASESENSITIVE",
+    "_C_FIND_COLUMN_FIELD",
+    "_C_FIND_COLUMN_MATCH",
+    "_C_FIND_STATUS_BUSY",
+    "_C_FIND_STATUS_MANY_MANY",
+    "_C_FIND_STATUS_MANY_ONE",
+    "_C_FIND_STATUS_NONE",
+    "_C_FIND_STATUS_ONE_ONE",
+    "_C_FIND_STC_RESULT",
+    "_C_FIND_STRATEGY_BEGINSWITH",
+    "_C_FIND_STRATEGY_CONTAINS",
+    "_C_FIND_STRATEGY_ENDSWITH",
+    "_C_FIND_STRATEGY_MATCHESCONTENT",
+    "_C_FIND_STRATEGY_MATCHESWORD",
+    "_C_FIND_STRATEGY_REGEX",
+    "_C_HELP",
+    "_C_MANAGECOVERS",
+    "_C_MANAGECOVERS_ACC_COVERINALLFILES",
+    "_C_MANAGECOVERS_ACC_COVERINONEFILE",
+    "_C_MANAGECOVERS_ACC_COVERINSOMEFILES",
+    "_C_MANAGECOVERS_BTN_ADD",
+    "_C_MANAGECOVERS_BTN_REMOVE",
+    "_C_MANAGECOVERS_BTN_REPLACE",
+    "_C_MANAGECOVERS_COL_COVER",
+    "_C_MANAGECOVERS_COL_METADATA",
+    "_C_MANAGECOVERS_COL_STATUS",
+    "_C_MANAGECOVERS_MNU",
+    "_C_MANAGECOVERS_MNU_APPLYTOALL",
+    "_C_MNU_ACTIONS",
+    "_C_MNU_CON",
+    "_C_MNU_CON_FTF",
+    "_C_MNU_CON_FTT",
+    "_C_MNU_CON_TFF",
+    "_C_MNU_CON_TTF",
+    "_C_MNU_CON_TTT",
+    "_C_MNU_COVER_ADD",
+    "_C_MNU_COVER_ADJUST",
+    "_C_MNU_COVER_REPLACE",
+    "_C_MNU_COVERS_ADJUST",
+    "_C_MNU_COVERS_REMOVE",
+    "_C_MNU_COVERS_REPLACE",
+    "_C_MNU_COVERS_SETDESC",
+    "_C_MNU_COVERS_SETTYPE",
+    "_C_MNU_EDIT",
+    "_C_MNU_EDIT_COPY",
+    "_C_MNU_EDIT_COPY_FORMAT",
+    "_C_MNU_EDIT_CUT",
+    "_C_MNU_EDIT_FIND",
+    "_C_MNU_EDIT_INVERTSELECTION",
+    "_C_MNU_EDIT_NEXT",
+    "_C_MNU_EDIT_PASTE",
+    "_C_MNU_EDIT_REDO",
+    "_C_MNU_EDIT_REPEAT",
+    "_C_MNU_EDIT_SELECT",
+    "_C_MNU_EDIT_SELECT_SIMILAR",
+    "_C_MNU_EDIT_SELECT_SIMILAR_NEXT",
+    "_C_MNU_EDIT_UNDO",
+    "_C_MNU_EDIT_UNSELECTALL",
+    "_C_MNU_EXTRA",
+    "_C_MNU_EXTRA_OPTIONS",
+    "_C_MNU_EXTRA_RESET_EDITS",
+    "_C_MNU_EXTRA_SET_EDITS",
+    "_C_MNU_EXTRA_TRACKWIZARD",
+    "_C_MNU_FILE",
+    "_C_MNU_FILE_ADD",
+    "_C_MNU_FILE_CDDB",
+    "_C_MNU_FILE_CDDBLOCAL",
+    "_C_MNU_FILE_COPY",
+    "_C_MNU_FILE_DELETE",
+    "_C_MNU_FILE_DIR",
+    "_C_MNU_FILE_EXIT",
+    "_C_MNU_FILE_EXPORT",
+    "_C_MNU_FILE_FAVDIR",
+    "_C_MNU_FILE_MOVE",
+    "_C_MNU_FILE_OPENFOLDER",
+    "_C_MNU_FILE_OPENCONFIGFOLDER",
+    "_C_MNU_FILE_PLALL",
+    "_C_MNU_FILE_PLAY",
+    "_C_MNU_FILE_PLAYLIST",
+    "_C_MNU_FILE_PLGEN",
+    "_C_MNU_FILE_PLSEL",
+    "_C_MNU_FILE_PROPERTIES",
+    "_C_MNU_FILE_READ",
+    "_C_MNU_FILE_REMOVE",
+    "_C_MNU_FILE_REMOVEFILE",
+    "_C_MNU_FILE_RENAME",
+    "_C_MNU_FILE_SAVE",
+    "_C_MNU_FILE_SAVECONFIG",
+    "_C_MNU_FREEDB",
+    "_C_MNU_FREEDB_INDEX",
+    "_C_MNU_FS_EXT",
+    "_C_MNU_FS_FNCT",
+    "_C_MNU_FS_INFO",
+    "_C_MNU_FS_MANAGE",
+    "_C_MNU_FS_REM",
+    "_C_MNU_FS_REMALL",
+    "_C_MNU_FS_REMALL_MSG",
+    "_C_MNU_HELP",
+    "_C_MNU_HELP_ABOUT",
+    "_C_MNU_HELP_DONATE",
+    "_C_MNU_HELP_FINDER",
+    "_C_MNU_HELP_FIRSTSTEPS",
+    "_C_MNU_HELP_KEYBOARD",
+    "_C_MNU_HELP_SUPPORT",
+    "_C_MNU_HELP_UPGRADE",
+    "_C_MNU_HELP_WWW",
+    "_C_MNU_TAG_EDIT",
+    "_C_MNU_TAG_NEW",
+    "_C_MNU_TAG_REMOVE",
+    "_C_MNU_TAGSOURCES",
+    "_C_MNU_TAGSOURCES_SETTINGS",
+    "_C_MNU_TOOLS",
+    "_C_MNU_VIEW",
+    "_C_MNU_VIEW_COLUMNS",
+    "_C_MNU_VIEW_FILTER",
+    "_C_MNU_VIEW_FILTER_AUTOAPPLY",
+    "_C_MNU_VIEW_ID3",
+    "_C_MNU_VIEW_REFRESH",
+    "_C_MNU_VIEW_SORTBY",
+    "_C_MNU_VIEW_SORTBYRANDOM",
+    "_C_MNU_VIEW_TAGS",
+    "_C_MNU_VIEW_TOOLBAR",
+    "_C_MNU_VIEW_TOOLBAR_CUSTOM",
+    "_C_MNU_VIEW_TOOLBAR_CUSTOMIZE",
+    "_C_MNU_VIEW_TOOLBAR_CUSTOMIZE_CUSTOM",
+    "_C_MNU_VIEW_TOOLBAR_CUSTOMIZE_MAIN",
+    "_C_MNU_VIEW_TOOLBAR_MAIN",
+    "_C_MNU_VIEW_TOOLBARS",
+    "_C_MNU_SB_ACTIONS",
+    "_C_MNU_SB_CON_FTF",
+    "_C_MNU_SB_CON_FTT",
+    "_C_MNU_SB_CON_TFF",
+    "_C_MNU_SB_CON_TTF",
+    "_C_MNU_SB_CON_TTT",
+    "_C_MNU_SB_EDIT_COPY",
+    "_C_MNU_SB_EDIT_COPY_FORMAT",
+    "_C_MNU_SB_EDIT_CUT",
+    "_C_MNU_SB_EDIT_INVERTSELECTION",
+    "_C_MNU_SB_EDIT_NEXT",
+    "_C_MNU_SB_EDIT_PASTE",
+    "_C_MNU_SB_EDIT_REDO",
+    "_C_MNU_SB_EDIT_REPEAT",
+    "_C_MNU_SB_EDIT_SELECT",
+    "_C_MNU_SB_EDIT_SELECT_SIMILAR",
+    "_C_MNU_SB_EDIT_SELECT_SIMILAR_NEXT",
+    "_C_MNU_SB_EDIT_UNDO",
+    "_C_MNU_SB_EDIT_UNSELECTALL",
+    "_C_MNU_SB_EXTRA_OPTIONS",
+    "_C_MNU_SB_EXTRA_RESET_EDITS",
+    "_C_MNU_SB_EXTRA_SET_EDITS",
+    "_C_MNU_SB_EXTRA_TRACKWIZARD",
+    "_C_MNU_SB_FILE_ADD",
+    "_C_MNU_SB_FILE_CDDB",
+    "_C_MNU_SB_FILE_CDDBLOCAL",
+    "_C_MNU_SB_FILE_COPY",
+    "_C_MNU_SB_FILE_DELETE",
+    "_C_MNU_SB_FILE_DIR",
+    "_C_MNU_SB_FILE_EXIT",
+    "_C_MNU_SB_FILE_EXPORT",
+    "_C_MNU_SB_FILE_FAVDIR",
+    "_C_MNU_SB_FILE_FREEDBINDEX",
+    "_C_MNU_SB_FILE_MOVE",
+    "_C_MNU_SB_FILE_PLALL",
+    "_C_MNU_SB_FILE_PLAY",
+    "_C_MNU_SB_FILE_PLAYLIST",
+    "_C_MNU_SB_FILE_PLSEL",
+    "_C_MNU_SB_FILE_PROPERTIES",
+    "_C_MNU_SB_FILE_READ",
+    "_C_MNU_SB_FILE_REMOVE",
+    "_C_MNU_SB_FILE_REMOVEFILE",
+    "_C_MNU_SB_FILE_RENAME",
+    "_C_MNU_SB_FILE_SAVE",
+    "_C_MNU_SB_FILE_SAVECONFIG",
+    "_C_MNU_SB_HELP_ABOUT",
+    "_C_MNU_SB_HELP_CONTEXT",
+    "_C_MNU_SB_HELP_DONATE",
+    "_C_MNU_SB_HELP_FINDER",
+    "_C_MNU_SB_HELP_FIRSTSTEPS",
+    "_C_MNU_SB_HELP_KEYBOARD",
+    "_C_MNU_SB_HELP_SUPPORT",
+    "_C_MNU_SB_HELP_UPGRADE",
+    "_C_MNU_SB_HELP_WWW",
+    "_C_MNU_SB_UPDIR",
+    "_C_MNU_SB_VIEW_COLUMNS",
+    "_C_MNU_SB_VIEW_FILTER",
+    "_C_MNU_SB_VIEW_ID3",
+    "_C_MNU_SB_VIEW_REFRESH",
+    "_C_MNU_SB_VIEW_TAGS",
+    "_C_MNU_SB_VIEW_TOOLBAR",
+    "_C_MNU_SB_WND_IDLE",
+    "_C_MNU_SB_WND_MAXIMIZE",
+    "_C_MNU_SB_WND_MINIMIZE",
+    "_C_MNU_SB_WND_MOVE",
+    "_C_MNU_SB_WND_RESTORE",
+    "_C_MNU_SB_WND_SIZE",
+    "_C_MULTILINE",
+    "_C_OK",
+    "_C_OPT_ACTIONGROUPS",
+    "_C_OPT_ACTIONGROUPS_BTN_APPLY",
+    "_C_OPT_ACTIONGROUPS_SEL_EMPTY",
+    "_C_OPT_ACTIONGROUPS_SEL_MULTI",
+    "_C_OPT_ACTIONGROUPS_SEL_SINGLE",
+    "_C_OPT_ACTIONGROUPS_SORTBYNAME",
+    "_C_OPT_ACTIONGROUPS_SORTBYSTATE",
+    "_C_OPT_ACTIONS",
+    "_C_OPT_ACTIONS_TYPE",
+    "_C_OPT_ADVANCED",
+    "_C_OPT_ADVANCED_ID3V2LANG",
+    "_C_OPT_ADVANCED_ID3V2_REUSEUNMODIFIEDFRAMES",
+    "_C_OPT_ADVANCED_LISTCHAPTERS",
+    "_C_OPT_ADVANCED_MATROSKAVIDEO",
+    "_C_OPT_ADVANCED_MP4_REUSEUNMODIFIEDATOMS",
+    "_C_OPT_ADVANCED_MP4_WRITEMULTIDATA",
+    "_C_OPT_ADVANCED_POPULARIMETER",
+    "_C_OPT_APPEARANCE",
+    "_C_OPT_APPEARANCE_COLOR_DARK",
+    "_C_OPT_APPEARANCE_COLOR_DEFAULT",
+    "_C_OPT_APPEARANCE_COLOR_LIGHT",
+    "_C_OPT_APPEARANCE_COLORMODE",
+    "_C_OPT_APPEARANCE_ICONS",
+    "_C_OPT_APPEARANCE_ICONS_SET_DEFAULT",
+    "_C_OPT_APPEARANCE_ICONS_SET_ORIGINAL",
+    "_C_OPT_APPEARANCE_MINVERSION",
+    "_C_OPT_APPEARANCE_TOOLBAR_SCALING",
+    "_C_OPT_APPEARANCE_UI_SCALING",
+    "_C_OPT_CAPTION",
+    "_C_OPT_CDDB_CAPTION",
+    "_C_OPT_CDDB_CHK_USEPROXY",
+    "_C_OPT_CDDB_FRM_CDDB",
+    "_C_OPT_CDDB_FRM_LOCALPATH",
+    "_C_OPT_CDDB_FRM_PROXY",
+    "_C_OPT_CDDB_RD_FMT_UNIX",
+    "_C_OPT_CDDB_RD_FMT_WIN",
+    "_C_OPT_CDDB_ST_ADDRESS",
+    "_C_OPT_CDDB_ST_EMAIL",
+    "_C_OPT_CDDB_ST_NAME",
+    "_C_OPT_CDDB_ST_PATH",
+    "_C_OPT_CDDB_ST_PORT",
+    "_C_OPT_CDDB_ST_PROXYNAME",
+    "_C_OPT_CDDB_ST_PROXYPORT",
+    "_C_OPT_CDDB_ST_PWD",
+    "_C_OPT_CDDB_ST_TIMEOUT",
+    "_C_OPT_CDDB_ST_USERNAME",
+    "_C_OPT_CDDB3_CAPTION",
+    "_C_OPT_CON_FRM_FTT",
+    "_C_OPT_CON_FRM_TFF",
+    "_C_OPT_CON_FRM_TTF",
+    "_C_OPT_CON_ST_FNAME",
+    "_C_OPT_CON_ST_FS",
+    "_C_OPT_DIR",
+    "_C_OPT_DIR_COVER",
+    "_C_OPT_DIR_STARTUP",
+    "_C_OPT_DIR_STARTUP_EMPTY",
+    "_C_OPT_DIR_STARTUP_PREVIOUS",
+    "_C_OPT_DIR_STARTUP_STANDARD",
+    "_C_OPT_FILES",
+    "_C_OPT_FILES_FRM_READ",
+    "_C_OPT_FILES_FRM_RENAME",
+    "_C_OPT_FILES_FRM_WRITE",
+    "_C_OPT_FILES_ST_REPLACE_FOLDER_SEPARATOR",
+    "_C_OPT_EMPTY_HINT",
+    "_C_OPT_EXP_CAPTION",
+    "_C_OPT_EXP_CHK_APPEND",
+    "_C_OPT_EXP_CHK_WRITEBOM",
+    "_C_OPT_EXP_FRM_EXPORT",
+    "_C_OPT_EXP_RD_TRACK",
+    "_C_OPT_EXP_ST_FNAME",
+    "_C_OPT_EXP_ST_NAME",
+    "_C_OPT_FIELDVALUES_CAPTION",
+    "_C_OPT_FIELDVALUES_FIELDS",
+    "_C_OPT_FIELDVALUES_LABEL",
+    "_C_OPT_FMT_CASE",
+    "_C_OPT_FMT_FRM_FTF",
+    "_C_OPT_FMT_ST_BEGIN",
+    "_C_OPT_FMT_ST_FNAME_NEW",
+    "_C_OPT_FMT_ST_FNAME_OLD",
+    "_C_OPT_FMT2",
+    "_C_OPT_FMT2_CASE",
+    "_C_OPT_FMT2_COL_ORIGINAL",
+    "_C_OPT_FMT2_COL_REPLACE",
+    "_C_OPT_FMT2_ONLYWORDS",
+    "_C_OPT_GEN_CAPTION",
+    "_C_OPT_GEN_CHK_AUTOSAVE",
+    "_C_OPT_GEN_CHK_FOLDERSTART",
+    "_C_OPT_GEN_CHK_GRID",
+    "_C_OPT_GEN_CHK_JUMPONEDIT",
+    "_C_OPT_GEN_CHK_KEEPFILETIME",
+    "_C_OPT_GEN_CHK_KEEPMOVEDFILES",
+    "_C_OPT_GEN_CHK_MSG_ACTIONWARNINGS",
+    "_C_OPT_GEN_CHK_MSG_CHANGE",
+    "_C_OPT_GEN_CHK_MSG_CUT",
+    "_C_OPT_GEN_CHK_MSG_DEL",
+    "_C_OPT_GEN_CHK_MSG_DELETEFILE",
+    "_C_OPT_GEN_CHK_MSG_EXPORT",
+    "_C_OPT_GEN_CHK_MSG_PASTE",
+    "_C_OPT_GEN_CHK_MSG_REMOVETAGS",
+    "_C_OPT_GEN_CHK_MSG_SAVE",
+    "_C_OPT_GEN_CHK_MSG_TSIMPORTCOVER",
+    "_C_OPT_GEN_CHK_MSG_UNSAVED",
+    "_C_OPT_GEN_CHK_PL",
+    "_C_OPT_GEN_CHK_RELPL",
+    "_C_OPT_GEN_CHK_AUTOCOMPLETE",
+    "_C_OPT_GEN_CHK_SELECTFILES",
+    "_C_OPT_GEN_CHK_SHOWEXPLORERCONTEXTMENU",
+    "_C_OPT_GEN_CHK_SORTNATURAL",
+    "_C_OPT_GEN_CHK_TITLESHOWFOLDERPATH",
+    "_C_OPT_GEN_FRM_GEN",
+    "_C_OPT_GEN_FRM_MSG",
+    "_C_OPT_GEN_FRM_PL",
+    "_C_OPT_GEN_RD_PLALL",
+    "_C_OPT_GEN_RD_PLSEL",
+    "_C_OPT_GEN_ST_FAVDIR",
+    "_C_OPT_GEN2_CAPTION",
+    "_C_OPT_GENRES",
+    "_C_OPT_GENRES_HIDESTANDARD",
+    "_C_OPT_GENRES_PREFEREXISTING",
+    "_C_OPT_ID3_CHK_ISO88591",
+    "_C_OPT_ID3_CHK_LEADINGZEROS",
+    "_C_OPT_ID3_CHK_LENGTHDEPENDEND",
+    "_C_OPT_ID3_CHK_V1",
+    "_C_OPT_ID3_CHK_V2",
+    "_C_OPT_ID3_FRM_READ",
+    "_C_OPT_ID3_FRM_REMOVE",
+    "_C_OPT_ID3_FRM_WRITE",
+    "_C_OPT_LIB",
+    "_C_OPT_LIB_CHK_ENABLE",
+    "_C_OPT_LIB_CHK_RESTRICT",
+    "_C_OPT_LIB_CLEANUP",
+    "_C_OPT_MAPPING",
+    "_C_OPT_MAPPING_FRM",
+    "_C_OPT_MAPPING_SOURCE",
+    "_C_OPT_MAPPING_TARGET",
+    "_C_OPT_PLAYLIST_CAPTION",
+    "_C_OPT_PLAYLIST_EXTENDED",
+    "_C_OPT_PLAYLIST_NOFOLDERS",
+    "_C_OPT_PLAYLIST_SHOWDLG",
+    "_C_OPT_PLAYLIST_WRITE_BOM",
+    "_C_OPT_TAG",
+    "_C_OPT_TAGS_COVER",
+    "_C_OPT_TAGS_EXT",
+    "_C_OPT_TAGS_FILEFILTER",
+    "_C_OPT_TAGS_MUSICBRAINZ_COVERSIZE",
+    "_C_OPT_TAGS_NOIMG",
+    "_C_OPT_TOOLS",
+    "_C_OPT_TOOLS_CHK_DEFAULT",
+    "_C_OPT_TOOLS_CHK_MULTIPLEINSTANCES",
+    "_C_OPT_TOOLS_COL_PARAM",
+    "_C_OPT_TOOLS_COL_PATH",
+    "_C_OPT_TOOLS_EDIT",
+    "_C_OPT_TOOLS_FRM_DEFAULT",
+    "_C_OPT_TOOLS_FRM_TOOLS",
+    "_C_PLAYLIST_GENERATOR",
+    "_C_PLAYLIST_GENERATOR_FORMAT",
+    "_C_PLAYLIST_GENERATOR_PARTITION",
+    "_C_PLAYLIST_GENERATOR_PREVIEW",
+    "_C_PLAYLIST_GENERATOR_STATUS_BUSY",
+    "_C_PLAYLIST_GENERATOR_STATUS_ONE",
+    "_C_PLAYLIST_GENERATOR_STATUS_MANY",
+    "_C_OVERWRITE",
+    "_C_REMOVE",
+    "_C_RENAME",
+    "_C_TEXT",
+    "_C_TT_CDDB",
+    "_C_TT_CDDBLOCAL",
+    "_C_TT_CLOSE",
+    "_C_TT_DIR",
+    "_C_TT_EDIT_REDO",
+    "_C_TT_EDIT_REPEAT",
+    "_C_TT_EDIT_UNDO",
+    "_C_TT_EXPORT",
+    "_C_TT_FAVDIR",
+    "_C_TT_FILE_ADD",
+    "_C_TT_FILE_COPY",
+    "_C_TT_FILE_DELETE",
+    "_C_TT_FILE_MOVE",
+    "_C_TT_FILE_PLAY",
+    "_C_TT_FILE_PROPERTIES",
+    "_C_TT_FILE_RENAME",
+    "_C_TT_FTF",
+    "_C_TT_FTT",
+    "_C_TT_HELP",
+    "_C_TT_OPT",
+    "_C_TT_PLALL",
+    "_C_TT_PLSEL",
+    "_C_TT_REFRESH",
+    "_C_TT_REMOVE",
+    "_C_TT_SAVE",
+    "_C_TT_TFF",
+    "_C_TT_TTF",
+    "_C_TT_TTT",
+    "_C_TT_UPDIR",
+    "_C_WIZARD_TRACKS",
+    "_C_WIZARD_TRACKS_BEGIN",
+    "_C_WIZARD_TRACKS_DESC",
+    "_C_WIZARD_TRACKS_DISC_BEGIN",
+    "_C_WIZARD_TRACKS_DISC_LEADINGZEROS",
+    "_C_WIZARD_TRACKS_DISC_SAVETOTAL",
+    "_C_WIZARD_TRACKS_DISCNUMBER",
+    "_C_WIZARD_TRACKS_NEXTDISC_FIELD",
+    "_C_WIZARD_TRACKS_NEXTDISC_FOLDER",
+    "_C_WIZARD_TRACKS_RESETDISC_FIELD",
+    "_C_WIZARD_TRACKS_RESETFOLDERS",
+    "_C_WIZARD_TRACKS_RESETTRACK_NEXTDISC",
+    "_C_WIZARD_TRACKS_SAVETOTAL",
+    "_C_WIZARD_TRACKS_TRACKNUMBER",
+    "_M_ERR_CANCEL",
+    "_M_ERR_CDDB_CD",
+    "_M_ERR_CDDB_CONNECT",
+    "_M_ERR_CDDB_NOENTRY",
+    "_M_ERR_CDDB_NOENTRYINLOCALBD",
+    "_M_ERR_CDDB_PARSER",
+    "_M_ERR_CDDB_READ",
+    "_M_ERR_CONFIGURATION",
+    "_M_ERR_COPY",
+    "_M_ERR_DELETE",
+    "_M_ERR_FILECREATE",
+    "_M_ERR_FILEDELETE",
+    "_M_ERR_FILENAMEALREADYEXISTS",
+    "_M_ERR_FILENAMEALREADYEXISTS2",
+    "_M_ERR_FILEOPABORTED",
+    "_M_ERR_FILEOPEN",
+    "_M_ERR_FILEREADONLY",
+    "_M_ERR_FOLDERCANNOTBEACCESSED",
+    "_M_ERR_INVALID_FILENAME",
+    "_M_ERR_INVALID_FTF_FS",
+    "_M_ERR_INVALID_TOKEN",
+    "_M_ERR_MOVE",
+    "_M_ERR_ONLINE_NOTFOUND",
+    "_M_ERR_OPT_CDDB_NOADDRESS",
+    "_M_ERR_OPT_CDDB_NOEMAIL",
+    "_M_ERR_OPT_CDDB_NONAME",
+    "_M_ERR_OPT_CDDB_NOPORT",
+    "_M_ERR_PARSELINE",
+    "_M_ERR_PLAY",
+    "_M_ERR_READ_FILE",
+    "_M_ERR_RENAME_FILE",
+    "_M_ERR_RETRY",
+    "_M_ERR_TL_NOTAGS",
+    "_M_ERR_WRITE_FILE",
+    "_M_ERR_YN",
+    "_M_LOG_FMT_FNAME",
+    "_M_LOG_FMT_TAG",
+    "_M_LOG_FTF",
+    "_M_LOG_FTT",
+    "_M_LOG_PL_ALL",
+    "_M_LOG_PL_SEL",
+    "_M_LOG_REMOVE",
+    "_M_LOG_REMOVED",
+    "_M_LOG_REMOVED_UNSUPPORTED_FIELDS",
+    "_M_LOG_REMOVE_NOTAG",
+    "_M_LOG_SAVE",
+    "_M_LOG_SAVED",
+    "_M_LOG_TFF",
+    "_M_LOG_TFF_S",
+    "_M_LOG_TTF",
+    "_M_STAT_PLAY",
+    "_M_STR_ACTION",
+    "_M_STR_ACTION_ADJUSTCOVER",
+    "_M_STR_ACTION_ADJUSTCOVER_FORMAT",
+    "_M_STR_ACTION_ADJUSTCOVER_FORMATKEEP",
+    "_M_STR_ACTION_ADJUSTCOVER_QUALITY",
+    "_M_STR_ACTION_ADJUSTCOVER_QUALITY_BEST",
+    "_M_STR_ACTION_ADJUSTCOVER_QUALITY_HIGH",
+    "_M_STR_ACTION_ADJUSTCOVER_QUALITY_LOW",
+    "_M_STR_ACTION_ADJUSTCOVER_QUALITY_MEDIUM",
+    "_M_STR_ACTION_ADJUSTCOVER_SCALINGMODE_CROPTOSQUARE",
+    "_M_STR_ACTION_ADJUSTCOVER_SCALINGMODE_PROPORTIONAL",
+    "_M_STR_ACTION_ADJUSTCOVER_SCALINGMODE_SCALETOSQUARE",
+    "_M_STR_ACTION_ADJUSTCOVER_SIZE",
+    "_M_STR_ACTION_ADJUSTCOVER_SIZEMODE_MAX",
+    "_M_STR_ACTION_ADJUSTCOVER_SIZEMODE_MIN",
+    "_M_STR_ACTION_CODEPAGE",
+    "_M_STR_ACTION_CODEPAGE_DESC",
+    "_M_STR_ACTION_EXPORTCOVER",
+    "_M_STR_ACTION_EXPORTCOVER_DUPES",
+    "_M_STR_ACTION_EXPORTCOVER_TYPES",
+    "_M_STR_ACTION_FORMAT",
+    "_M_STR_ACTION_GUESS",
+    "_M_STR_ACTION_GUESSPATTERN",
+    "_M_STR_ACTION_GUESSSOURCE",
+    "_M_STR_ACTION_IMPORTCOVER",
+    "_M_STR_ACTION_IMPORTCOVER_FS",
+    "_M_STR_ACTION_IMPORTCOVER_DELETE",
+    "_M_STR_ACTION_IMPORTCOVER_TYPE",
+    "_M_STR_ACTION_IMPORTTEXT",
+    "_M_STR_ACTION_MERGEDUPLICATEFIELDS",
+    "_M_STR_ACTION_PLAYLIST",
+    "_M_STR_ACTION_REGEXP",
+    "_M_STR_ACTION_REGEXP_EXP",
+    "_M_STR_ACTION_REGEXP_MATCH",
+    "_M_STR_ACTION_REMOVEDUPES",
+    "_M_STR_ACTION_REMOVEDUPES_ONLYSAMECONTENT",
+    "_M_STR_ACTION_REM",
+    "_M_STR_ACTION_REM_DESC",
+    "_M_STR_ACTION_REM_EX",
+    "_M_STR_ACTION_REM_EX_DESC",
+    "_M_STR_ACTION_SETCOVERPROPERTIES",
+    "_M_STR_ACTION_SETCOVERPROPERTIES_DESC",
+    "_M_STR_ACTION_SETCOVERPROPERTIES_FILTER",
+    "_M_STR_ACTION_SETCOVERPROPERTIES_FILTER_ALL",
+    "_M_STR_ACTION_SETCOVERPROPERTIES_TYPE",
+    "_M_STR_ACTION_SPLITFIELDS",
+    "_M_STR_ACTIONGROUP_CHANGED",
+    "_M_STR_ACTIONGROUP_NAME",
+    "_M_STR_ALBUM",
+    "_M_STR_ALBUMARTIST",
+    "_M_STR_ALL_FILEDLGFILTER",
+    "_M_STR_ARTIST",
+    "_M_STR_AUTHOR",
+    "_M_STR_AUTOSIZECOLUMNS",
+    "_M_STR_BACK",
+    "_M_STR_BROWSE_COPY",
+    "_M_STR_BROWSE_MOVE",
+    "_M_STR_BROWSE_TEXT",
+    "_M_STR_BYTES",
+    "_M_STR_CDDB_CD",
+    "_M_STR_CDDB_CONNECT",
+    "_M_STR_CDDB_CONNECTED",
+    "_M_STR_CDDB_IDXDB_ENTRIES",
+    "_M_STR_CDDB_RETRIEVE",
+    "_M_STR_COLUMNFILENAME",
+    "_M_STR_COLUMNPATH",
+    "_M_STR_COLUMNUSEDCOLS",
+    "_M_STR_COMBO_HOLD",
+    "_M_STR_COMBO_REMOVE",
+    "_M_STR_COMBO_USER",
+    "_M_STR_COMMENT",
+    "_M_STR_COMPOSER",
+    "_M_STR_CONFIGURE",
+    "_M_STR_CONTEXT",
+    "_M_STR_COPYOF",
+    "_M_STR_COVER",
+    "_M_STR_COVER_ADD",
+    "_M_STR_COVER_CORRECTAR",
+    "_M_STR_COVER_SETDESC",
+    "_M_STR_COVER_SETTYPE",
+    "_M_STR_COVERVARIES",
+    "_M_STR_CUSTOMIZE",
+    "_M_STR_CUSTOMLISTVALUES",
+    "_M_STR_DAY",
+    "_M_STR_DAYS",
+    "_M_STR_DEFAULTVALUE",
+    "_M_STR_DESCRIPTION",
+    "_M_STR_DISCID",
+    "_M_STR_DISCOGS_OAUTH_PIN",
+    "_M_STR_DISCNUMBER",
+    "_M_STR_DONTSHOWAGAIN",
+    "_M_STR_ERR_CDDB_NOENTRYSELECTED",
+    "_M_STR_EXPORT",
+    "_M_STR_EXPORT_DELETE",
+    "_M_STR_EXPORT_FILEDLGTITLE",
+    "_M_STR_EXPORT_MULTIPLE",
+    "_M_STR_EXPORT_PARTITION",
+    "_M_STR_EXPORT_SHOWEXPORTFILE",
+    "_M_STR_EXP_MSG",
+    "_M_STR_FIELD",
+    "_M_STR_FIELDSIZE",
+    "_M_STR_FIELDTYPE",
+    "_M_STR_FIELDROWS",
+    "_M_STR_FILE",
+    "_M_STR_FILEDELETE",
+    "_M_STR_FILEMODIFIED",
+    "_M_STR_FILESIZE",
+    "_M_STR_FILTER",
+    "_M_STR_FMT_CAPITAL",
+    "_M_STR_FMT_HIGH",
+    "_M_STR_FMT_LOW",
+    "_M_STR_FMT_SENTENCE",
+    "_M_STR_FREEDBCREATEINDEX",
+    "_M_STR_FREEDB_SEARCH",
+    "_M_STR_GENRE",
+    "_M_STR_GENRES",
+    "_M_STR_HIDE",
+    "_M_STR_IMPORT",
+    "_M_STR_ITEMALREADYEXISTS",
+    "_M_STR_LANGUAGE",
+    "_M_STR_M3U_FILEDLGFILTER",
+    "_M_STR_MANAGE",
+    "_M_STR_MANAGEHISTORY",
+    "_M_STR_METADATA",
+    "_M_STR_MOVEDOWN",
+    "_M_STR_MOVEUP",
+    "_M_STR_MPEGBITRATE",
+    "_M_STR_MPEGFREQUENCY",
+    "_M_STR_MPEGLENGTH",
+    "_M_STR_MPEGMODE",
+    "_M_STR_MPEGVERSION",
+    "_M_STR_MSGCUT",
+    "_M_STR_MSGPASTE",
+    "_M_STR_MSGREMOVE",
+    "_M_STR_NAME",
+    "_M_STR_NETWORKING",
+    "_M_STR_NEXT",
+    "_M_STR_NOACTION",
+    "_M_STR_NOACTIONENABLED",
+    "_M_STR_NOICON",
+    "_M_STR_NUMERIC",
+    "_M_STR_OPT_CDDB_BROWSE_LOCALPATH",
+    "_M_STR_OPT_CDDB_PROCEED",
+    "_M_STR_OPTIMIZEFLAC",
+    "_M_STR_OPTIMIZEMP4",
+    "_M_STR_OPTS_ALWAYS",
+    "_M_STR_OPTS_ASK",
+    "_M_STR_OPTS_NEVER",
+    "_M_STR_PLNAME",
+    "_M_STR_PL_CONFIRM",
+    "_M_STR_PL_SAVEFILTER",
+    "_M_STR_PREFERTAGVALUES",
+    "_M_STR_PRESET_SELECTION",
+    "_M_STR_PRESETS",
+    "_M_STR_PREVIEW",
+    "_M_STR_PREVIEW_COVER",
+    "_M_STR_PROPERTIES",
+    "_M_STR_QUICK",
+    "_M_STR_RECURSE",
+    "_M_STR_RESET",
+    "_M_STR_REST",
+    "_M_STR_SAVE_NOT",
+    "_M_STR_SAVECONFIG",
+    "_M_STR_SAVECONFIG_FILEDLGFILTER",
+    "_M_STR_SAVECONFIG_FILEDLGTITLE",
+    "_M_STR_SAVEIMAGE",
+    "_M_STR_SAVEIMAGEDIRECTORY",
+    "_M_STR_SAVESELECTION",
+    "_M_STR_SB_ABORTED",
+    "_M_STR_SB_ACTION",
+    "_M_STR_SB_CLEANUPDATABASE",
+    "_M_STR_SB_CLEANUPDATABASE_BINARIES",
+    "_M_STR_SB_CLEANUPDATABASE_COVERS",
+    "_M_STR_SB_CLEANUPDATABASE_NONLIBFILES",
+    "_M_STR_SB_EXPORTTAGS",
+    "_M_STR_SB_FILTER",
+    "_M_STR_SB_LOADTAGS",
+    "_M_STR_SB_READDIRECTORY",
+    "_M_STR_SB_REMOVETAGS",
+    "_M_STR_SB_RENAMEFILES",
+    "_M_STR_SB_WRITETAGS",
+    "_M_STR_SHOWCHOOSEDLG",
+    "_M_STR_SEARCHBY",
+    "_M_STR_SEARCHTEXT",
+    "_M_STR_SEPARATOR",
+    "_M_STR_SHOW",
+    "_M_STR_SIZE_FULL",
+    "_M_STR_SIZE_LARGE",
+    "_M_STR_SIZE_LARGER",
+    "_M_STR_SIZE_MEDIUM",
+    "_M_STR_SIZE_NORMAL",
+    "_M_STR_SIZE_SMALLER",
+    "_M_STR_SIZE_SMALL",
+    "_M_STR_SIZE_TINY",
+    "_M_STR_SNA",
+    "_M_STR_SNA_SHOW",
+    "_M_STR_SNA_SHOWMIN",
+    "_M_STR_STRIPCHAPTERSMP4",
+    "_M_STR_TAG_COPIED",
+    "_M_STR_TAG2",
+    "_M_STR_TAGFIELDS_REMOVE",
+    "_M_STR_TAGFIELDS_REMOVEALL",
+    "_M_STR_TAGFIELDS_REMOVEALLMSG",
+    "_M_STR_TAGFIELDS_RESET",
+    "_M_STR_TAGFIELDS_RESETMSG",
+    "_M_STR_TAGPANEL",
+    "_M_STR_TAGPANEL_COVER",
+    "_M_STR_TAGPANEL_DIRECTORY",
+    "_M_STR_TAGPANEL_DUPLICATEFIELD",
+    "_M_STR_TAGLIST_FILEDLGFILTER",
+    "_M_STR_TAGLIST_FILEDLGTITLE",
+    "_M_STR_TAGSOURCES",
+    "_M_STR_TAGSOURCES_STATUS_METADATA",
+    "_M_STR_TAGSOURCES_STATUS_SEARCH",
+    "_M_STR_TAGTYPES_REMOVE_CAPTION",
+    "_M_STR_TAGTYPES_REMOVE_MENU",
+    "_M_STR_TAGTYPES_REMOVE_MSG",
+    "_M_STR_TAGTYPES_REMOVE_MSG_BTN",
+    "_M_STR_TAGTYPES_REMOVE_MSG_WARN",
+    "_M_STR_THISALBUMON",
+    "_M_STR_TITLE",
+    "_M_STR_TOOLBAR_COMMAND_CAPTION",
+    "_M_STR_TOOLBAR_COMMAND_MNU_CHANGEICON",
+    "_M_STR_TOOLBAR_COMMAND_MNU_USEDEFAULTICON",
+    "_M_STR_TOOLBAR_COMMAND_SEPARATOR",
+    "_M_STR_TOOLBAR_COMMAND_SPACER",
+    "_M_STR_TOOLBAR_CUSTOMIZE_CAPTION",
+    "_M_STR_TOOLTIP",
+    "_M_STR_TRYAGAIN",
+    "_M_STR_TTF",
+    "_M_STR_UNSAVED",
+    "_M_STR_UNSUPPORTED_FIELDS_REMOVE_MENU",
+    "_M_STR_UNSUPPORTED_FIELDS_REMOVE_MSG",
+    "_M_STR_UNSUPPORTED_FIELDS_REMOVE_STATUS",
+    "_M_STR_UPDATE_FRM",
+    "_M_STR_UPDATE_OPT_CHECK",
+    "_M_STR_UPDATE_OPT_CHECK_BETA",
+    "_M_STR_UPDATE_OPT_CHECK_RELEASENOTES",
+    "_M_STR_UPDATEAVAILABLE",
+    "_M_STR_UPDATENOTAVAILABLE",
+    "_M_STR_URL",
+    "_M_STR_UTILS",
+    "_M_STR_VALUE",
+    "_M_STR_VERSION",
+    "_M_STR_YEAR",
+    "_M_TP_CDDB_LOCALPATH",
+    "_M_TP_CDDB_SITES",
+    "_M_TP_CVR_CLIPBOARD",
+    "_M_TP_CVR_CLIPBOARD_COPY",
+    "_M_TP_CVR_CLIPBOARD_CUT",
+    "_M_TP_CVR_DEL",
+    "_M_TP_CVR_NEW",
+    "_M_TP_CVR_SAVE",
+    "_M_TP_DUPLICATE",
+    "_M_TP_EXP_DEL",
+    "_M_TP_EXP_EDIT",
+    "_M_TP_EXP_FILE",
+    "_M_TP_EXP_HLP",
+    "_M_TP_EXP_LOAD",
+    "_M_TP_EXP_NEW",
+    "_M_TP_EXP_SAVE",
+    "_M_TP_GEN_DIR",
+    "_M_TP_TAG_DEL",
+    "_M_TP_TAG_EDIT",
+    "_M_TP_TAG_NEW",
+    "_M_TS_ADDINFO",
+    "_M_TS_MULTIPLEVALUES",
+    "_M_TS_RELEASE",
+    "_M_TS_TRACKS",
+    "_M_UNDO_CANNOTREDO",
+    "_M_UNDO_CANNOTUNDO",
+    "_M_UNDO_CDDB",
+    "_M_UNDO_DIRECTORYCREATE",
+    "_M_UNDO_DIRECTORYMOVE",
+    "_M_UNDO_FORMAT",
+    "_M_UNDO_FTF",
+    "_M_UNDO_FTT",
+    "_M_UNDO_REMOVEFILE",
+    "_M_UNDO_RENAME",
+    "_M_UNDO_TAGCHANGE",
+    "_M_UNDO_TAGREMOVE",
+    "_M_UNDO_TAGSAVE",
+    "_M_UNDO_TFF",
+    "_M_UNDO_TTF"
+  ],
+  "shipped_action_types": [
+    1,
+    2
+  ],
+  "source_scripts": {
+    "Cover Art#Discogs Artist + Album.src": {
+      "sha256": "c0f6f969cc2a13efeb7f4612381581a85b2b5baa70b871c2719f9b56010480e0",
+      "directives": []
+    },
+    "Cover Art#Discogs Artist + Title.src": {
+      "sha256": "32965669fa4c2197f3978cc4cc642a98f8978ea0d3784eb45c4306b9e69a660e",
+      "directives": []
+    },
+    "Cover Art#Discogs Artist + Year.src": {
+      "sha256": "ba5ac2a6b185fae543cffa50f04d1213019a27a186eeb4196fa54d4105f8ac97",
+      "directives": []
+    },
+    "Cover Art#Discogs Release ID.src": {
+      "sha256": "3e07aa33315da4a9abc32c3b2e657cde1e612daf4cdc0e54f093cffdf213515a",
+      "directives": [
+        "endif",
+        "ifoutput",
+        "json",
+        "json_foreach",
+        "json_foreach_end",
+        "outputto"
+      ]
+    },
+    "Cover Art#Discogs.inc": {
+      "sha256": "2238bb9b7940aba92fe35ad5649221d3c140a9342ba5245191aabb737e97f1d5",
+      "directives": [
+        "endif",
+        "ifnot",
+        "ifoutput",
+        "json",
+        "json_foreach",
+        "json_foreach_end",
+        "json_select",
+        "json_select_object",
+        "outputto",
+        "replace"
+      ]
+    },
+    "Cover Art#Discogs.src": {
+      "sha256": "9a688f9e1635539e5193eb171e8eccda569dd7fea35864329cd576a053ff9330",
+      "directives": []
+    },
+    "Cover Art#MusicBrainz.src": {
+      "sha256": "ca353725308c91b0d7516f953188864c23f0422c0594c89a69cd3adcd843842b",
+      "directives": [
+        "else",
+        "endif",
+        "if",
+        "json",
+        "json_foreach",
+        "json_foreach_end",
+        "json_select",
+        "json_select_object",
+        "json_unselect_object",
+        "outputto",
+        "replace",
+        "sayrest",
+        "set"
+      ]
+    },
+    "Discogs Artist + Album.src": {
+      "sha256": "e439866a9787b1425b33a97eb9baf5b2b409350dda186846e3be8e8875b5775b",
+      "directives": []
+    },
+    "Discogs Artist + Title.src": {
+      "sha256": "68a9a3276b29f07300d727b101539dfba0bc6f62594a34f0f5b003bd7bb7fc80",
+      "directives": []
+    },
+    "Discogs Artist + Year.src": {
+      "sha256": "669fd6d15af0fee87e8de9002d8a17dd3d4b17a869cd21debfd0e9496d70f097",
+      "directives": []
+    },
+    "Discogs Release ID.src": {
+      "sha256": "1b1feb2c78d1ee47ff9eaa0cb9251753ca1dad78a092afe4f98d1e0574162fd5",
+      "directives": [
+        "endif",
+        "ifgreater",
+        "ifnot",
+        "ifoutput",
+        "json",
+        "json_foreach",
+        "json_foreach_end",
+        "json_select",
+        "json_select_array",
+        "json_select_many",
+        "json_select_many_count",
+        "outputto",
+        "regexpreplace",
+        "replace",
+        "sayoutput",
+        "sayrest",
+        "set"
+      ]
+    },
+    "Discogs.inc": {
+      "sha256": "daf4d0ca4d915982bf8833dea4f91ccf4b32f3ef169e5065622a7622dc672ac6",
+      "directives": [
+        "endif",
+        "ifgreater",
+        "ifnot",
+        "ifoutput",
+        "json",
+        "json_foreach",
+        "json_foreach_end",
+        "json_select",
+        "json_select_array",
+        "json_select_many",
+        "json_select_many_count",
+        "json_select_object",
+        "outputto",
+        "regexpreplace",
+        "replace",
+        "sayoutput",
+        "sayrest",
+        "set"
+      ]
+    },
+    "Discogs.src": {
+      "sha256": "51ef83bad4520850a4b984bb558d3ab367ef366eae510f95123fb4dcf886c087",
+      "directives": []
+    },
+    "MusicBrainz.src": {
+      "sha256": "c0007e8eb638dde637297f1576a19321fb692ce942f67f69f38d0bbd2e9ad4ff",
+      "directives": [
+        "else",
+        "endif",
+        "if",
+        "ifnot",
+        "json",
+        "json_foreach",
+        "json_foreach_end",
+        "json_select",
+        "json_select_array",
+        "json_select_many_count",
+        "json_select_object",
+        "json_unselect_object",
+        "outputto",
+        "replace",
+        "saynchars",
+        "sayoutput",
+        "sayrest",
+        "set"
+      ]
+    }
+  },
+  "export_templates": [
+    "RTF.mte",
+    "RTF_1.mte",
+    "csv.mte",
+    "csv_1.mte",
+    "html_mp3tag.mte",
+    "html_mp3tag_1.mte",
+    "html_standard.mte",
+    "html_standard_1.mte",
+    "sfv.mte",
+    "txt_taglist.mte"
+  ],
+  "limitations": [
+    "Static menu and configuration inventory, not observed execution.",
+    "Shipped examples do not enumerate all supported action or script types."
+  ]
+}

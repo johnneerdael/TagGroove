@@ -1,0 +1,19 @@
+{
+  "command": "PATH=<rustup-stable>/bin:$PATH RUSTC=<rustup-stable>/bin/rustc RUSTDOC=<rustup-stable>/bin/rustdoc npm run tauri build -- --debug --bundles app --ci",
+  "exit_code": 0,
+  "scope": "macOS debug bundle build only; current live UI observation remains unverified",
+  "rustc": "rustc 1.95.0 (59807616e 2026-04-14)",
+  "bundle_identifier": "org.opentag.editor",
+  "version": "0.1.0",
+  "executable": {
+    "path": "target/debug/bundle/macos/OpenTag.app/Contents/MacOS/opentag",
+    "bytes": 51397208,
+    "sha256": "db9ecfdb558428dd5be7bfe346d8446cb1fcfee01ca994b8b6b12b7e3d47baa7",
+    "file": "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/target/debug/bundle/macos/OpenTag.app/Contents/MacOS/opentag: Mach-O 64-bit executable arm64"
+  },
+  "icon": {
+    "path": "target/debug/bundle/macos/OpenTag.app/Contents/Resources/icon.icns",
+    "sha256": "1e04ce4c638f1dd938106aa60028a5bf4dd8ea6d5688f032f08b8d1266099013",
+    "matches_supplied_icon": true
+  }
+}

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <title>OpenTag — Mobile layout preview</title>
+  <link rel="icon" type="image/svg+xml" href="./brand/favicon.svg">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 24px; background: #FAFAFC; color: #101922; font: 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    main { width: max-content; max-width: 100%; margin: 0 auto; }
+    header { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+    header img { width: 36px; height: 36px; }
+    h1 { margin: 0 0 4px; font-size: 16px; font-weight: 600; }
+    p { margin: 0; color: #606a75; font-size: 11px; line-height: 1.6; }
+    .viewport { width: 392px; height: 802px; overflow: hidden; border: 1px solid #B8C3CE; border-radius: 6px; background: white; box-shadow: 0 3px 18px #10192212; }
+    iframe { display: block; width: 390px; height: 800px; border: 0; }
+    footer { margin-top: 11px; max-width: 390px; }
+    @media (max-width: 440px) { body { padding: 12px; } main { max-width: none; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header><img src="./brand/favicon.svg" alt=""><div><h1>Mobile layout preview</h1><p>Actual OpenTag interface · 390 × 800 viewport</p></div></header>
+    <div class="viewport"><iframe src="./" title="OpenTag in a 390 by 800 phone viewport"></iframe></div>
+    <footer><p>This page previews the responsive layout. It does not simulate a native device or add sample files.</p></footer>
+  </main>
+</body>
+</html>

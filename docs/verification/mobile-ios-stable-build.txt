@@ -1,0 +1,73 @@
+Stable checkpoint command: npm run tauri -- ios build --debug --target aarch64-sim --no-sign --ci
+{"RUSTC": "/Users/jneerdael/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc", "CARGO_TARGET_DIR": "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/target/mobile-verification/ios"}
+
+> opentag@0.1.0 tauri
+> tauri ios build --debug --target aarch64-sim --no-sign --ci
+
+        Info Looking up installed tauri packages to check mismatched versions...
+     Running beforeBuildCommand `npm run build`
+
+> opentag@0.1.0 build
+> tsc --noEmit && vite build
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 30 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                           0.74 kB │ gzip:  0.40 kB
+dist/assets/opentag-logo-light-BmuOTy_P.svg               5.38 kB │ gzip:  1.89 kB
+dist/assets/opentag-splash-light-1600x1000-C8CZC-SC.svg  10.64 kB │ gzip:  3.28 kB
+dist/assets/index-CsMU7gau.css                           18.53 kB │ gzip:  4.64 kB
+dist/assets/index-CM3A-Dr9.js                            93.90 kB │ gzip: 27.14 kB
+✓ built in 1.37s
+Setting version of project opentag to: 
+    0.1.0.
+
+Also setting CFBundleVersion key (assuming it exists)
+
+Updating CFBundleVersion in Info.plist(s)...
+
+Updated CFBundleVersion in "opentag.xcodeproj/../opentag_iOS/Info.plist" to 0.1.0
+
+
+--- xcodebuild: WARNING: Using the first of multiple matching destinations:
+{ platform:iOS Simulator, id:dvtdevice-DVTiOSDeviceSimulatorPlaceholder-iphonesimulator:placeholder, name:Any iOS Simulator Device }
+{ platform:iOS, id:dvtdevice-DVTiPhonePlaceholder-iphoneos:placeholder, name:Any iOS Device }
+{ platform:iOS Simulator, arch:arm64, id:C65DCC57-1EDD-4DF6-A783-5A0CA87B6C2B, OS:26.3.1, name:iPad (A16) }
+{ platform:iOS Simulator, arch:arm64, id:B42BD082-527D-48A4-8852-44FC7B5AD863, OS:26.3.1, name:iPad Air 11-inch (M3) }
+{ platform:iOS Simulator, arch:arm64, id:525CFA94-CC0C-4934-B980-B53EE2DD9C36, OS:26.3.1, name:iPad Air 13-inch (M3) }
+{ platform:iOS Simulator, arch:arm64, id:C1918C81-F7A8-45F9-A278-7830AD733C9F, OS:26.3.1, name:iPad Pro 11-inch (M5) }
+{ platform:iOS Simulator, arch:arm64, id:1FFB0E58-2EEA-4CE7-99CD-5C874AF7A6D3, OS:26.3.1, name:iPad Pro 13-inch (M5) }
+{ platform:iOS Simulator, arch:arm64, id:FB703FD1-6D10-4785-8FFD-BE79B4E3F3C9, OS:26.3.1, name:iPad mini (A17 Pro) }
+{ platform:iOS Simulator, arch:arm64, id:2BE6FDA9-028B-44AC-9EA9-0E8F74083846, OS:26.3.1, name:iPhone 16e }
+{ platform:iOS Simulator, arch:arm64, id:F39AF99C-D478-40AD-895A-2036031559F0, OS:26.3.1, name:iPhone 17 }
+{ platform:iOS Simulator, arch:arm64, id:A743B9EA-D957-4A0D-8C4A-D652F0799E19, OS:26.3.1, name:iPhone 17 Pro }
+{ platform:iOS Simulator, arch:arm64, id:733D8A05-DD84-470F-88D2-BD1708A66404, OS:26.3.1, name:iPhone 17 Pro Max }
+{ platform:iOS Simulator, arch:arm64, id:3B966913-1820-4CC3-B46B-42B204A3BD34, OS:26.3.1, name:iPhone Air }
+{ platform:macOS, arch:arm64, variant:Designed for [iPad,iPhone], id:00006040-000E09CC1E86801C, name:My Mac }
+        Info connection; remote_addr=127.0.0.1:50708 conn_id=0
+/* com.apple.actool.document.warnings */
+/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/src-tauri/gen/apple/Assets.xcassets:./AppIcon.appiconset/(null)[2d][AppIcon-20x20@1x.png]: warning: The app icon set "AppIcon" has 18 unassigned children.
+/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/src-tauri/gen/apple/Assets.xcassets:./AppIcon.appiconset/(null)[2d][AppIcon-20x20@1x.png]: warning: The app icon set "AppIcon" has 18 unassigned children.
+/* com.apple.actool.compilation-results */
+/Users/jneerdael/Library/Developer/Xcode/DerivedData/opentag-ejrfrbgopbzbvldjqnfpqpevodnv/Build/Intermediates.noindex/ArchiveIntermediates/opentag_iOS/IntermediateBuildFilesPath/opentag.build/debug-iphonesimulator/opentag_iOS.build/DerivedSources/GeneratedAssetSymbols-Index.plist
+/Users/jneerdael/Library/Developer/Xcode/DerivedData/opentag-ejrfrbgopbzbvldjqnfpqpevodnv/Build/Intermediates.noindex/ArchiveIntermediates/opentag_iOS/IntermediateBuildFilesPath/opentag.build/debug-iphonesimulator/opentag_iOS.build/DerivedSources/GeneratedAssetSymbols.h
+
+/* com.apple.actool.document.warnings */
+/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/src-tauri/gen/apple/Assets.xcassets:./AppIcon.appiconset/(null)[2d][AppIcon-20x20@1x.png]: warning: The app icon set "AppIcon" has 18 unassigned children.
+/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/src-tauri/gen/apple/Assets.xcassets:./AppIcon.appiconset/(null)[2d][AppIcon-20x20@1x.png]: warning: The app icon set "AppIcon" has 18 unassigned children.
+/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/src-tauri/gen/apple/Assets.xcassets:./AppIcon.appiconset/(null)[2d][AppIcon-20x20@1x.png]: warning: The app icon set "AppIcon" has 18 unassigned children.
+/* com.apple.actool.compilation-results */
+/Users/jneerdael/Library/Developer/Xcode/DerivedData/opentag-ejrfrbgopbzbvldjqnfpqpevodnv/Build/Intermediates.noindex/ArchiveIntermediates/opentag_iOS/IntermediateBuildFilesPath/opentag.build/debug-iphonesimulator/opentag_iOS.build/assetcatalog_generated_info.plist_thinned
+/Users/jneerdael/Library/Developer/Xcode/DerivedData/opentag-ejrfrbgopbzbvldjqnfpqpevodnv/Build/Intermediates.noindex/ArchiveIntermediates/opentag_iOS/IntermediateBuildFilesPath/opentag.build/debug-iphonesimulator/opentag_iOS.build/assetcatalog_output/thinned/AppIcon60x60@2x.png
+/Users/jneerdael/Library/Developer/Xcode/DerivedData/opentag-ejrfrbgopbzbvldjqnfpqpevodnv/Build/Intermediates.noindex/ArchiveIntermediates/opentag_iOS/IntermediateBuildFilesPath/opentag.build/debug-iphonesimulator/opentag_iOS.build/assetcatalog_output/thinned/AppIcon76x76@2x~ipad.png
+/Users/jneerdael/Library/Developer/Xcode/DerivedData/opentag-ejrfrbgopbzbvldjqnfpqpevodnv/Build/Intermediates.noindex/ArchiveIntermediates/opentag_iOS/IntermediateBuildFilesPath/opentag.build/debug-iphonesimulator/opentag_iOS.build/assetcatalog_output/thinned/Assets.car
+
+note: Using codesigning identity override: ""
+note: Run script build phase 'Build Rust Code' will be run during every build because the option to run the script phase "Based on dependency analysis" is unchecked. (in target 'opentag_iOS' from project 'opentag')
+    Finished 1 iOS Bundle at:
+        /Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/src-tauri/gen/apple/build/arm64-sim/OpenTag.app
+
+
+EXIT STATUS: 0

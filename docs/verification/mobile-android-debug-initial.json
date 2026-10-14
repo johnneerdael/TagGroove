@@ -1,0 +1,18 @@
+{
+  "target": "aarch64-linux-android",
+  "artifact_kind": "Android debug APK",
+  "attempt": "initial",
+  "status": "failed",
+  "exit_status": 1,
+  "failure": "Gradle second Cargo invocation saw action_host.rs sha2 import before direct Cargo.toml dependency was present (E0432).",
+  "rust_link_before_race": "Succeeded; dev profile in 58.03s, including regex-compat Boost C++ dependency",
+  "rustc": "/Users/jneerdael/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc",
+  "ndk": "/Users/jneerdael/Library/Android/sdk/ndk/28.2.13676358",
+  "cargo_target_dir": "default target/ (initial run already live when isolation requested)",
+  "log_sha256": "f322b1daedbae3bd3f9adb04d9ac550037c33606869347423329018c4684773f",
+  "log_created_utc": "2026-10-14T01:48:11.857615+00:00",
+  "log_modified_utc": "2026-10-14T01:51:16.757598+00:00",
+  "source_scope": "Concurrent parent native source/dependency changes; no current-source completion claim.",
+  "apk_produced_by_attempt": false,
+  "device_behavior_verified": false
+}

@@ -1,0 +1,35 @@
+{
+  "artifacts": [
+    {
+      "path": "src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk",
+      "bytes": 219332173,
+      "modified_utc": "2026-10-14T02:00:02.449271+00:00",
+      "sha256": "f107d13d423e9abb511c35c9def5e6d323c62b1f9545ccf551267282b832f808",
+      "native_libraries": [
+        "lib/arm64-v8a/libc++_shared.so",
+        "lib/arm64-v8a/libopentag_lib.so"
+      ]
+    },
+    {
+      "path": "src-tauri/gen/apple/build/arm64-sim/OpenTag.app/OpenTag",
+      "bytes": 112445752,
+      "modified_utc": "2026-10-14T01:59:29.148167+00:00",
+      "sha256": "db6c9c82ab956c298ac25004e0ae81bbfc36abdba22520a721bf09433d40e629"
+    }
+  ],
+  "ios_info": {
+    "CFBundleExecutable": "OpenTag",
+    "CFBundleIdentifier": "org.opentag.editor",
+    "CFBundleShortVersionString": "0.1.0",
+    "CFBundleVersion": "0.1.0",
+    "CFBundleSupportedPlatforms": [
+      "iPhoneSimulator"
+    ],
+    "MinimumOSVersion": "15.0",
+    "CFBundleIconName": null
+  },
+  "ios_binary": "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/src-tauri/gen/apple/build/arm64-sim/OpenTag.app/OpenTag: Mach-O 64-bit executable arm64\n",
+  "ios_build_platform": "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/src-tauri/gen/apple/build/arm64-sim/OpenTag.app/OpenTag:\nLoad command 11\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform IOSSIMULATOR\n    minos 15.0\n      sdk 26.2\n   ntools 1\n     tool LD\n  version 1230.1\n",
+  "runtime_tests": false,
+  "snapshot_scope": "Successful stable checkpoint before final export-context digest fix; not the final current-source artifact."
+}

@@ -1,0 +1,102 @@
+{
+  "after_initial_build_attempts": true,
+  "checks": [
+    {
+      "source": "assets/brand/OpenTag-Brand-Kit/02-platform-icons/ios/AppIcon.appiconset/Contents.json",
+      "target": "src-tauri/gen/apple/Assets.xcassets/AppIcon.appiconset/Contents.json",
+      "unchanged": true,
+      "sha256": "aaaaa3d92af7da71bcc55c6c1bbfb24f1a70a1ba1f3bfa5ffa7b374aa1727b8f"
+    },
+    {
+      "source": "assets/brand/OpenTag-Brand-Kit/02-platform-icons/ios/AppIcon.appiconset/AppIcon-1024.png",
+      "target": "src-tauri/gen/apple/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png",
+      "unchanged": true,
+      "sha256": "e32c94bf496dab4458c84afd9a990376e75cad74fadcae52e12cbfbd1ae4f45a"
+    },
+    {
+      "target": "src-tauri/gen/android/app/src/main/res/mipmap-mdpi/ic_launcher.png",
+      "unchanged": true,
+      "sha256": "e38d5d18667925f5e8bd3c2b5c31ce2ebd44e9b3da8988675f83f34641183621"
+    },
+    {
+      "target": "src-tauri/gen/android/app/src/main/res/mipmap-mdpi/ic_launcher_round.png",
+      "unchanged": true,
+      "sha256": "e38d5d18667925f5e8bd3c2b5c31ce2ebd44e9b3da8988675f83f34641183621"
+    },
+    {
+      "target": "src-tauri/gen/android/app/src/main/res/mipmap-hdpi/ic_launcher.png",
+      "unchanged": true,
+      "sha256": "130d328548c3b0b265c524dbb3ad62563a33ddd9d566d16a0cd3cd552d759829"
+    },
+    {
+      "target": "src-tauri/gen/android/app/src/main/res/mipmap-hdpi/ic_launcher_round.png",
+      "unchanged": true,
+      "sha256": "130d328548c3b0b265c524dbb3ad62563a33ddd9d566d16a0cd3cd552d759829"
+    },
+    {
+      "target": "src-tauri/gen/android/app/src/main/res/drawable/opentag_monochrome.xml",
+      "unchanged": true,
+      "sha256": "530edd86e319982bbc63df72fd75a983542c2588b39ce59ca582fa7890f94cb9"
+    },
+    {
+      "target": "src-tauri/gen/android/app/src/main/res/drawable/opentag_foreground.xml",
+      "unchanged": true,
+      "sha256": "e4ae6d88604a3cbb85d0f09e59da3e2678aa32f3b9c3a8cea240e24f8309a551"
+    },
+    {
+      "target": "src-tauri/gen/android/app/src/main/res/drawable/opentag_background.xml",
+      "unchanged": true,
+      "sha256": "e55cae4c015d7d99423aea8e9230655d61f68764216649f5ee839e9ee1f7a2ff"
+    },
+    {
+      "target": "src-tauri/gen/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
+      "unchanged": true,
+      "sha256": "9b21847921bba7818fe3218409686a926625bcef9a2c90a370028b6860ecaf21"
+    },
+    {
+      "target": "src-tauri/gen/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png",
+      "unchanged": true,
+      "sha256": "9b21847921bba7818fe3218409686a926625bcef9a2c90a370028b6860ecaf21"
+    },
+    {
+      "target": "src-tauri/gen/android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png",
+      "unchanged": true,
+      "sha256": "da1cd9a3bf3449ee0504d96b9bf8be046afa27b763b56eddc013e9509c2c9a36"
+    },
+    {
+      "target": "src-tauri/gen/android/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.png",
+      "unchanged": true,
+      "sha256": "da1cd9a3bf3449ee0504d96b9bf8be046afa27b763b56eddc013e9509c2c9a36"
+    },
+    {
+      "target": "src-tauri/gen/android/app/src/main/res/mipmap-anydpi-v33/ic_launcher.xml",
+      "unchanged": true,
+      "sha256": "9b85d0fac45612b159e1bb8b057b2c0a66d6f093e00351516d76a94af18e31f2"
+    },
+    {
+      "target": "src-tauri/gen/android/app/src/main/res/mipmap-anydpi-v33/ic_launcher_round.xml",
+      "unchanged": true,
+      "sha256": "9b85d0fac45612b159e1bb8b057b2c0a66d6f093e00351516d76a94af18e31f2"
+    },
+    {
+      "target": "src-tauri/gen/android/app/src/main/res/mipmap-xhdpi/ic_launcher.png",
+      "unchanged": true,
+      "sha256": "00ce21f75f1d7a516d3e8f8b11e2906c7c9229205565344592341c56df1d287c"
+    },
+    {
+      "target": "src-tauri/gen/android/app/src/main/res/mipmap-xhdpi/ic_launcher_round.png",
+      "unchanged": true,
+      "sha256": "00ce21f75f1d7a516d3e8f8b11e2906c7c9229205565344592341c56df1d287c"
+    },
+    {
+      "target": "src-tauri/gen/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml",
+      "unchanged": true,
+      "sha256": "d092b4385f8ad68cc9bbc9c2a345ea590b4c3c53751f0ecf36267a8fa5124af8"
+    },
+    {
+      "target": "src-tauri/gen/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml",
+      "unchanged": true,
+      "sha256": "d092b4385f8ad68cc9bbc9c2a345ea590b4c3c53751f0ecf36267a8fa5124af8"
+    }
+  ]
+}

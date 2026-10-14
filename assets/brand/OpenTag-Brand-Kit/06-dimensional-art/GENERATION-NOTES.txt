@@ -1,0 +1,13 @@
+OpenTag dimensional artwork
+
+The opaque dimensional master was generated with the built-in image-generation
+tool using the selected OpenTag artwork as a reference. This bitmap is an
+optional alternative style. All other logos, banners, and platform exports use
+the consistent outlined SVG adaptation supplied in this package.
+
+Final generation prompt:
++Use case: logo-brand. Asset type: ONE opaque full-bleed square store app-icon master for OpenTag.
+Reference image is the approved OpenTag branding. Use the white beveled diagonal audio metadata tag with a circular upper-left hole and exactly five vertical orange-red equalizer bars from its app icon.
+Create the same app icon as a completely opaque square image: the warm yellow upper-left to orange and vermilion lower-right background fills every pixel all the way to the four square corners. NO transparent areas, NO rounded exterior tile, NO padding, NO border. The operating system will mask this square later.
+The tag itself has rounded soft beveled edges, a refined subtle shadow on the gradient, small cool gray lower bevel, and a hole that reveals the warm background. Keep the tag centered and at roughly 70% of the canvas width, with the same proportions as the reference. The five bars are short, medium, tall, medium, short, symmetrically placed with vertical orientation.
+Crisp professional precision, beautiful material rendering, restrained depth, faithful to the reference. One single independent icon. No lettering, no sheet, no text, no artifacts. Square canvas high resolution 2048 by 2048 preferred.

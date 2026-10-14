@@ -1,0 +1,21 @@
+{
+  "copies_hash_verified": 72,
+  "sources_unchanged": true,
+  "inline_glyphs_verified": 12,
+  "ios_icon_opaque_1024": true,
+  "contrast": {
+    "ink_on_orange": 6.7,
+    "burnt_orange_on_paper": 6.36,
+    "muted_on_paper": 5.28
+  },
+  "frontend_build": "passed npm run build",
+  "ui_tests": {
+    "passed": 15,
+    "failed": 0
+  },
+  "desktop_screenshot": "pending: native CUA screenshot and AX observation both failed with Sky Computer Use native pipe startup failed",
+  "mobile_layout_preview": "public/mobile-preview.html uses actual app iframe at 390x800; no fabricated files",
+  "native_device_icons": "Frozen-source Android arm64 debug APK and unsigned arm64 iOS simulator app builds passed; no source drift. Installation/device behavior not tested.",
+  "mobile_artifact_evidence": "docs/verification/mobile-final-artifacts.json",
+  "ios_unassigned_icon_warnings_final_build": 0
+}

@@ -1,0 +1,60 @@
+{
+  "verified_utc": "2026-10-14T02:09:42.905985+00:00",
+  "source_drift_android": false,
+  "source_drift_ios": false,
+  "android": {
+    "path": "src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk",
+    "bytes": 219332173,
+    "modified_utc": "2026-10-14T02:08:41.857747+00:00",
+    "sha256": "a5ab16aab03572b1bd10edc7e754cb2fef9f11eef8701114e3145dce2ac001c1",
+    "native_libraries": [
+      "lib/arm64-v8a/libc++_shared.so",
+      "lib/arm64-v8a/libopentag_lib.so"
+    ],
+    "embedded_library_sha256": {
+      "lib/arm64-v8a/libc++_shared.so": "ab4e6c71b96b851de45a8a9bd86369e7dbc2130a44b3b4520564be94847910f2",
+      "lib/arm64-v8a/libopentag_lib.so": "30f46db9b461fe3ba89105491a1d6522a3da212913a640bc3fcdef1250fca224"
+    },
+    "package_badging": "package: name='org.opentag.editor' versionCode='1000' versionName='0.1.0' platformBuildVersionName='17' platformBuildVersionCode='37' compileSdkVersion='37' compileSdkVersionCodename='17'\nminSdkVersion:'24'\ntargetSdkVersion:'37'\nuses-permission: name='android.permission.INTERNET'\nuses-permission: name='org.opentag.editor.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'\napplication-label:'OpenTag'\napplication-label-af:'OpenTag'\napplication-label-am:'OpenTag'\napplication-label-ar:'OpenTag'\napplication-label-as:'OpenTag'\napplication-label-az:'OpenTag'\napplication-label-be:'OpenTag'\napplication-label-bg:'OpenTag'\napplication-label-bn:'OpenTag'\napplication-label-bs:'OpenTag'\napplication-label-ca:'OpenTag'\napplication-label-cs:'OpenTag'\napplication-label-da:'OpenTag'\napplication-label-de:'OpenTag'\napplication-label-el:'OpenTag'\napplication-label-en-AU:'OpenTag'\napplication-label-en-CA:'OpenTag'\napplication-label-en-GB:'OpenTag'\napplication-label-en-IN:'OpenTag'\napplication-label-en-XC:'OpenTag'\napplication-label-es:'OpenTag'\napplication-label-es-419:'OpenTag'\napplication-label-es-US:'OpenTag'\napplication-label-et:'OpenTag'\napplication-label-eu:'OpenTag'\napplication-label-fa:'OpenTag'\napplication-label-fi:'OpenTag'\napplication-label-fr:'OpenTag'\napplication-label-fr-CA:'OpenTag'\napplication-label-gl:'OpenTag'\napplication-label-gu:'OpenTag'\napplication-label-hi:'OpenTag'\napplication-label-hr:'OpenTag'\napplication-label-hu:'OpenTag'\napplication-label-hy:'OpenTag'\napplication-label-in:'OpenTag'\napplication-label-is:'OpenTag'\napplication-label-it:'OpenTag'\napplication-label-iw:'OpenTag'\napplication-label-ja:'OpenTag'\napplication-label-ka:'OpenTag'\napplication-label-kk:'OpenTag'\napplication-label-km:'OpenTag'\napplication-label-kn:'OpenTag'\napplication-label-ko:'OpenTag'\napplication-label-ky:'OpenTag'\napplication-label-lo:'OpenTag'\napplication-label-lt:'OpenTag'\napplication-label-lv:'OpenTag'\napplication-label-mk:'OpenTag'\napplication-label-ml:'OpenTag'\napplication-label-mn:'OpenTag'\napplication-label-mr:'OpenTag'\napplication-label-ms:'OpenTag'\napplication-label-my:'OpenTag'\napplication-label-nb:'OpenTag'\napplication-label-ne:'OpenTag'\napplication-label-nl:'OpenTag'\napplication-label-or:'OpenTag'\napplication-label-pa:'OpenTag'\napplication-label-pl:'OpenTag'\napplication-label-pt:'OpenTag'\napplication-label-pt-BR:'OpenTag'\napplication-label-pt-PT:'OpenTag'\napplication-label-ro:'OpenTag'\napplication-label-ru:'OpenTag'\napplication-label-si:'OpenTag'\napplication-label-sk:'OpenTag'\napplication-label-sl:'OpenTag'\napplication-label-sq:'OpenTag'\napplication-label-sr:'OpenTag'\napplication-label-sr-Latn:'OpenTag'\napplication-label-sv:'OpenTag'\napplication-label-sw:'OpenTag'\napplication-label-ta:'OpenTag'\napplication-label-te:'OpenTag'\napplication-label-th:'OpenTag'\napplication-label-tl:'OpenTag'\napplication-label-tr:'OpenTag'\napplication-label-uk:'OpenTag'\napplication-label-ur:'OpenTag'\napplication-label-uz:'OpenTag'\napplication-label-vi:'OpenTag'\napplication-label-zh-CN:'OpenTag'\napplication-label-zh-HK:'OpenTag'\napplication-label-zh-TW:'OpenTag'\napplication-label-zu:'OpenTag'\napplication-icon-120:'res/mipmap-anydpi-v33/ic_launcher.xml'\napplication-icon-160:'res/mipmap-anydpi-v33/ic_launcher.xml'\napplication-icon-240:'res/mipmap-anydpi-v33/ic_launcher.xml'\napplication-icon-320:'res/mipmap-anydpi-v33/ic_launcher.xml'\napplication-icon-480:'res/mipmap-anydpi-v33/ic_launcher.xml'\napplication-icon-640:'res/mipmap-anydpi-v33/ic_launcher.xml'\napplication-icon-65534:'res/mipmap-anydpi-v33/ic_launcher.xml'\napplication: label='OpenTag' icon='res/mipmap-anydpi-v33/ic_launcher.xml'\napplication-debuggable\nlaunchable-activity: name='org.opentag.editor.MainActivity'  label='OpenTag' icon=''\nleanback-launchable-activity: name='org.opentag.editor.MainActivity'  label='OpenTag' icon='' banner=''\nfeature-group: label=''\n  uses-feature-not-required: name='android.software.leanback'\n  uses-feature: name='android.hardware.faketouch'\n  uses-implied-feature: name='android.hardware.faketouch' reason='default feature for all apps'\nmain\nother-receivers\nsupports-screens: 'small' 'normal' 'large' 'xlarge'\nsupports-any-density: 'true'\nlocales: '--_--' 'af' 'am' 'ar' 'as' 'az' 'be' 'bg' 'bn' 'bs' 'ca' 'cs' 'da' 'de' 'el' 'en-AU' 'en-CA' 'en-GB' 'en-IN' 'en-XC' 'es' 'es-419' 'es-US' 'et' 'eu' 'fa' 'fi' 'fr' 'fr-CA' 'gl' 'gu' 'hi' 'hr' 'hu' 'hy' 'in' 'is' 'it' 'iw' 'ja' 'ka' 'kk' 'km' 'kn' 'ko' 'ky' 'lo' 'lt' 'lv' 'mk' 'ml' 'mn' 'mr' 'ms' 'my' 'nb' 'ne' 'nl' 'or' 'pa' 'pl' 'pt' 'pt-BR' 'pt-PT' 'ro' 'ru' 'si' 'sk' 'sl' 'sq' 'sr' 'sr-Latn' 'sv' 'sw' 'ta' 'te' 'th' 'tl' 'tr' 'uk' 'ur' 'uz' 'vi' 'zh-CN' 'zh-HK' 'zh-TW' 'zu'\ndensities: '120' '160' '240' '320' '480' '640' '65534'\nnative-code: 'arm64-v8a'\n"
+  },
+  "ios": {
+    "path": "src-tauri/gen/apple/build/arm64-sim/OpenTag.app/OpenTag",
+    "bytes": 112468040,
+    "modified_utc": "2026-10-14T02:08:47.578021+00:00",
+    "sha256": "af70b3b5ab9889b58437e661898e5d07cacf3d81cd689b203e8c089ca1352d69",
+    "bundle_path": "src-tauri/gen/apple/build/arm64-sim/OpenTag.app",
+    "info": {
+      "CFBundleExecutable": "OpenTag",
+      "CFBundleIdentifier": "org.opentag.editor",
+      "CFBundleShortVersionString": "0.1.0",
+      "CFBundleVersion": "0.1.0",
+      "CFBundleSupportedPlatforms": [
+        "iPhoneSimulator"
+      ],
+      "MinimumOSVersion": "15.0",
+      "CFBundleIcons": {
+        "CFBundlePrimaryIcon": {
+          "CFBundleIconFiles": [
+            "AppIcon60x60"
+          ],
+          "CFBundleIconName": "AppIcon"
+        }
+      },
+      "CFBundleIcons~ipad": {
+        "CFBundlePrimaryIcon": {
+          "CFBundleIconFiles": [
+            "AppIcon60x60",
+            "AppIcon76x76"
+          ],
+          "CFBundleIconName": "AppIcon"
+        }
+      }
+    },
+    "binary_type": "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/src-tauri/gen/apple/build/arm64-sim/OpenTag.app/OpenTag: Mach-O 64-bit executable arm64\n",
+    "build_platform": "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/src-tauri/gen/apple/build/arm64-sim/OpenTag.app/OpenTag:\nLoad command 11\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform IOSSIMULATOR\n    minos 15.0\n      sdk 26.2\n   ntools 1\n     tool LD\n  version 1230.1\n",
+    "bundle_manifest_sha256": "2ae0faba9a3933e142899a1ec0b7dac381ac50e536cd5e2831e5adc9d226c4c8"
+  },
+  "runtime_tests_performed": false,
+  "distribution_signing_verified": false,
+  "scope": "Final debug Android aarch64 APK and no-sign arm64 iOS simulator app; no installation or device runtime behavior tested."
+}

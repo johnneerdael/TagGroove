@@ -1,0 +1,446 @@
+Command: npm run tauri -- android build --debug --target aarch64 --apk --ci
+Scoped RUSTC: /Users/jneerdael/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc
+Scoped NDK_HOME: /Users/jneerdael/Library/Android/sdk/ndk/28.2.13676358
+
+> opentag@0.1.0 tauri
+> tauri android build --debug --target aarch64 --apk --ci
+
+        Info Using installed NDK: /Users/jneerdael/Library/Android/sdk/ndk/28.2.13676358
+        Info Looking up installed tauri packages to check mismatched versions...
+     Running beforeBuildCommand `npm run build`
+
+> opentag@0.1.0 build
+> tsc --noEmit && vite build
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 30 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                           0.74 kB │ gzip:  0.40 kB
+dist/assets/opentag-logo-light-BmuOTy_P.svg               5.38 kB │ gzip:  1.89 kB
+dist/assets/opentag-splash-light-1600x1000-C8CZC-SC.svg  10.64 kB │ gzip:  3.28 kB
+dist/assets/index-CsMU7gau.css                           18.53 kB │ gzip:  4.64 kB
+dist/assets/index-CGHgtBql.js                            93.78 kB │ gzip: 27.09 kB
+✓ built in 383ms
+[1m[33mwarning[0m: failed to auto-clean cache data
+
+failed to clean entries from the global cache
+
+Caused by:
+  failed to remove file `/Users/jneerdael/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yoke-0.8.2/Cargo.toml`
+
+Caused by:
+  Permission denied (os error 13)
+[1m[92m   Compiling[0m proc-macro2 v1.0.107
+[1m[92m   Compiling[0m quote v1.0.47
+[1m[92m   Compiling[0m unicode-ident v1.0.27
+[1m[92m   Compiling[0m libc v0.2.190
+[1m[92m   Compiling[0m serde_core v1.0.229
+[1m[92m   Compiling[0m siphasher v1.0.4
+[1m[92m   Compiling[0m fastrand v2.5.0
+[1m[92m   Compiling[0m icu_properties_data v2.3.0
+[1m[92m   Compiling[0m icu_normalizer_data v2.3.0
+[1m[92m   Compiling[0m zmij v1.0.23
+[1m[92m   Compiling[0m cfg-if v1.0.5
+[1m[92m   Compiling[0m parking_lot_core v0.9.12
+[1m[92m   Compiling[0m stable_deref_trait v1.2.1
+[1m[92m   Compiling[0m getrandom v0.4.3
+[1m[92m   Compiling[0m memchr v2.8.3
+[1m[92m   Compiling[0m phf_shared v0.13.1
+[1m[92m   Compiling[0m serde v1.0.229
+[1m[92m   Compiling[0m smallvec v1.16.3
+[1m[92m   Compiling[0m phf_generator v0.13.1
+[1m[92m   Compiling[0m phf_codegen v0.13.1
+[1m[92m   Compiling[0m winnow v1.0.4
+[1m[92m   Compiling[0m itoa v1.0.18
+[1m[92m   Compiling[0m autocfg v1.5.1
+[1m[92m   Compiling[0m typeid v1.0.3
+[1m[92m   Compiling[0m thiserror v2.0.21
+[1m[92m   Compiling[0m equivalent v1.0.3
+[1m[92m   Compiling[0m num-conv v0.2.2
+[1m[92m   Compiling[0m hashbrown v0.17.1
+[1m[92m   Compiling[0m time-core v0.1.9
+[1m[92m   Compiling[0m ident_case v1.0.1
+[1m[92m   Compiling[0m strsim v0.11.1
+[1m[92m   Compiling[0m erased-serde v0.4.10
+[1m[92m   Compiling[0m toml_parser v1.1.5+spec-1.1.0
+[1m[92m   Compiling[0m serde_json v1.0.154
+[1m[92m   Compiling[0m writeable v0.6.4
+[1m[92m   Compiling[0m litemap v0.8.3
+[1m[92m   Compiling[0m indexmap v2.14.2
+[1m[92m   Compiling[0m selectors v0.38.0
+[1m[92m   Compiling[0m utf8_iter v1.0.4
+[1m[92m   Compiling[0m bitflags v2.13.2
+[1m[92m   Compiling[0m version_check v0.9.5
+[1m[92m   Compiling[0m anyhow v1.0.104
+[1m[92m   Compiling[0m scopeguard v1.2.0
+[1m[92m   Compiling[0m new_debug_unreachable v1.0.6
+[1m[92m   Compiling[0m syn v3.0.9
+[1m[92m   Compiling[0m syn v2.0.119
+[1m[92m   Compiling[0m string_cache_codegen v0.6.1
+[1m[92m   Compiling[0m lock_api v0.4.14
+[1m[92m   Compiling[0m precomputed-hash v0.1.1
+[1m[92m   Compiling[0m toml_writer v1.1.3+spec-1.1.0
+[1m[92m   Compiling[0m percent-encoding v2.3.2
+[1m[92m   Compiling[0m log v0.4.34
+[1m[92m   Compiling[0m dtoa v1.0.11
+[1m[92m   Compiling[0m tendril v0.5.1
+[1m[92m   Compiling[0m form_urlencoded v1.2.2
+[1m[92m   Compiling[0m generic-array v0.14.7
+[1m[92m   Compiling[0m dtoa-short v0.3.5
+[1m[92m   Compiling[0m indexmap v1.9.3
+[1m[92m   Compiling[0m aho-corasick v1.1.5
+[1m[92m   Compiling[0m web_atoms v0.2.6
+[1m[92m   Compiling[0m parking_lot v0.12.5
+[1m[92m   Compiling[0m alloc-no-stdlib v3.0.0
+[1m[92m   Compiling[0m camino v1.2.6
+[1m[92m   Compiling[0m toml_datetime v1.1.2+spec-1.1.0
+[1m[92m   Compiling[0m semver v1.0.28
+[1m[92m   Compiling[0m serde_spanned v1.1.2
+[1m[92m   Compiling[0m uuid v1.28.0
+[1m[92m   Compiling[0m regex-syntax v0.8.11
+[1m[92m   Compiling[0m alloc-stdlib v0.3.0
+[1m[92m   Compiling[0m string_cache v0.9.0
+[1m[92m   Compiling[0m toml v1.1.8+spec-1.1.0
+[1m[92m   Compiling[0m servo_arc v0.4.3
+[1m[92m   Compiling[0m schemars v0.8.22
+[1m[92m   Compiling[0m fnv v1.0.7
+[1m[92m   Compiling[0m deranged v0.5.9
+[1m[92m   Compiling[0m hashbrown v0.12.3
+[1m[92m   Compiling[0m crc32fast v1.5.2
+[1m[92m   Compiling[0m rustc-hash v2.1.3
+[1m[92m   Compiling[0m web-time v1.1.0
+[1m[92m   Compiling[0m bit-vec v0.8.0
+[1m[92m   Compiling[0m powerfmt v0.2.1
+[1m[92m   Compiling[0m cfb v0.14.0
+[1m[92m   Compiling[0m bit-set v0.8.0
+[1m[92m   Compiling[0m brotli-decompressor v6.0.1
+[1m[92m   Compiling[0m quick-xml v0.42.0
+[1m[92m   Compiling[0m time v0.3.55
+[1m[92m   Compiling[0m dyn-clone v1.0.20
+[1m[92m   Compiling[0m synstructure v0.14.0
+[1m[92m   Compiling[0m darling_core v0.24.1
+[1m[92m   Compiling[0m bytes v1.12.1
+[1m[92m   Compiling[0m same-file v1.0.6
+[1m[92m   Compiling[0m find-msvc-tools v0.1.14
+[1m[92m   Compiling[0m serde_derive_internals v0.29.1
+[1m[92m   Compiling[0m base64 v0.21.7
+[1m[92m   Compiling[0m foldhash v0.2.0
+[1m[92m   Compiling[0m base64 v0.23.1
+[1m[92m   Compiling[0m regex-automata v0.4.18
+[1m[92m   Compiling[0m shlex v2.0.1
+[1m[92m   Compiling[0m dunce v1.0.5
+[1m[92m   Compiling[0m http v1.5.0
+[1m[92m   Compiling[0m cc v1.8.0
+[1m[92m   Compiling[0m infer v0.22.0
+[1m[92m   Compiling[0m walkdir v2.5.0
+[1m[92m   Compiling[0m brotli v9.0.0
+[1m[92m   Compiling[0m serde-untagged v0.1.9
+[1m[92m   Compiling[0m ctor v1.0.13
+[1m[92m   Compiling[0m glob v0.3.4
+[1m[92m   Compiling[0m rustversion v1.0.23
+[1m[92m   Compiling[0m serde_derive v1.0.229
+[1m[92m   Compiling[0m zerofrom-derive v0.1.8
+[1m[92m   Compiling[0m yoke-derive v0.8.4
+[1m[92m   Compiling[0m zerovec-derive v0.11.6
+[1m[92m   Compiling[0m displaydoc v0.2.7
+[1m[92m   Compiling[0m phf_macros v0.13.1
+[1m[92m   Compiling[0m thiserror-impl v2.0.21
+[1m[92m   Compiling[0m derive_more-impl v2.1.1
+[1m[92m   Compiling[0m cssparser-macros v0.7.1
+[1m[92m   Compiling[0m schemars_derive v0.8.22
+[1m[92m   Compiling[0m pin-project-lite v0.2.17
+[1m[92m   Compiling[0m phf v0.13.1
+[1m[92m   Compiling[0m futures-core v0.3.34
+[1m[92m   Compiling[0m cssparser v0.37.0
+[1m[92m   Compiling[0m jni-sys-macros v0.4.1
+[1m[92m   Compiling[0m rustc_version v0.4.1
+[1m[92m   Compiling[0m derive_more v2.1.1
+[1m[92m   Compiling[0m regex v1.13.1
+[1m[92m   Compiling[0m darling_macro v0.24.1
+[1m[92m   Compiling[0m option-ext v0.2.0
+[1m[92m   Compiling[0m zerofrom v0.1.8
+[1m[92m   Compiling[0m jni-sys v0.3.1
+[1m[92m   Compiling[0m markup5ever v0.39.0
+[1m[92m   Compiling[0m simd-adler32 v0.3.10
+[1m[92m   Compiling[0m jni-sys v0.4.1
+[1m[92m   Compiling[0m darling v0.24.1
+[1m[92m   Compiling[0m yoke v0.8.3
+[1m[92m   Compiling[0m html5ever v0.39.0
+[1m[92m   Compiling[0m dirs-sys v0.5.0
+[1m[92m   Compiling[0m embed-resource v3.0.12
+[1m[92m   Compiling[0m thiserror v1.0.69
+[1m[92m   Compiling[0m adler2 v2.0.1
+[1m[92m   Compiling[0m heck v0.5.0
+[1m[92m   Compiling[0m once_cell v1.21.4
+[1m[92m   Compiling[0m serde_with_macros v3.24.0
+[1m[92m   Compiling[0m tauri-winres v0.3.6
+[1m[92m   Compiling[0m dirs v7.0.0
+[1m[92m   Compiling[0m thiserror-impl v1.0.69
+[1m[92m   Compiling[0m toml_edit v0.25.17+spec-1.1.0
+[1m[92m   Compiling[0m zerovec v0.11.8
+[1m[92m   Compiling[0m zerotrie v0.2.5
+[1m[92m   Compiling[0m socket2 v0.6.5
+[1m[92m   Compiling[0m mio v1.2.4
+[1m[92m   Compiling[0m time-macros v0.2.32
+[1m[92m   Compiling[0m dom_query v0.28.0
+[1m[92m   Compiling[0m serde_with v3.24.0
+[1m[92m   Compiling[0m tinystr v0.8.4
+[1m[92m   Compiling[0m potential_utf v0.1.6
+[1m[92m   Compiling[0m typenum v1.20.1
+[1m[92m   Compiling[0m icu_locale_core v2.3.0
+[1m[92m   Compiling[0m icu_collections v2.3.0
+[1m[92m   Compiling[0m cargo-platform v0.1.9
+[1m[92m   Compiling[0m swift-rs v1.0.9
+[1m[92m   Compiling[0m jsonptr v0.7.1
+[1m[92m   Compiling[0m cargo_metadata v0.19.2
+[1m[92m   Compiling[0m plist v1.10.1
+[1m[92m   Compiling[0m json-patch v4.2.0
+[1m[92m   Compiling[0m cargo_toml v1.0.1
+[1m[92m   Compiling[0m objc2 v0.6.5
+[1m[92m   Compiling[0m icu_provider v2.3.1
+[1m[92m   Compiling[0m tokio v1.53.3
+[1m[92m   Compiling[0m icu_normalizer v2.3.0
+[1m[92m   Compiling[0m icu_properties v2.3.0
+[1m[92m   Compiling[0m proc-macro-crate v3.5.0
+[1m[92m   Compiling[0m miniz_oxide v0.9.1
+[1m[92m   Compiling[0m crossbeam-utils v0.8.23
+[1m[92m   Compiling[0m objc2-encode v4.1.0
+[1m[92m   Compiling[0m getrandom v0.3.4
+[1m[92m   Compiling[0m num_enum_derive v0.7.6
+[1m[92m   Compiling[0m flate2 v1.1.10
+[1m[92m   Compiling[0m idna_adapter v1.2.2
+[1m[92m   Compiling[0m idna v1.1.0
+[1m[92m   Compiling[0m http-body v1.1.0
+[1m[92m   Compiling[0m combine v4.6.8
+[1m[92m   Compiling[0m miniz_oxide v0.8.9
+[1m[92m   Compiling[0m fdeflate v0.3.7
+[1m[92m   Compiling[0m url v2.5.8
+[1m[92m   Compiling[0m cookie v0.18.2
+[1m[92m   Compiling[0m raw-window-handle v0.6.2
+[1m[92m   Compiling[0m httparse v1.10.1
+[1m[92m   Compiling[0m slab v0.4.12
+[1m[92m   Compiling[0m urlpattern v0.6.0
+[1m[92m   Compiling[0m futures-task v0.3.34
+[1m[92m   Compiling[0m cesu8 v1.1.0
+[1m[92m   Compiling[0m futures-util v0.3.34
+[1m[92m   Compiling[0m num_enum v0.7.6
+[1m[92m   Compiling[0m objc2-foundation v0.3.2
+[1m[92m   Compiling[0m crypto-common v0.1.7
+[1m[92m   Compiling[0m block-buffer v0.10.4
+[1m[92m   Compiling[0m dpi v0.1.2
+[1m[92m   Compiling[0m ndk-sys v0.6.0+11769913
+[1m[92m   Compiling[0m tauri-utils v2.10.1
+[1m[92m   Compiling[0m bitflags v1.3.2
+[1m[92m   Compiling[0m try-lock v0.2.5
+[1m[92m   Compiling[0m tower-service v0.3.3
+[1m[92m   Compiling[0m ndk v0.9.0
+[1m[92m   Compiling[0m png v0.17.16
+[1m[92m   Compiling[0m want v0.3.2
+[1m[92m   Compiling[0m crossbeam-channel v0.5.17
+[1m[92m   Compiling[0m digest v0.10.7
+[1m[92m   Compiling[0m wry v0.57.0
+[1m[92m   Compiling[0m tracing-core v0.1.36
+[1m[92m   Compiling[0m sync_wrapper v1.0.2
+[1m[92m   Compiling[0m tao-macros v0.1.4
+[1m[92m   Compiling[0m cpufeatures v0.2.17
+[1m[92m   Compiling[0m num-traits v0.2.19
+[1m[92m   Compiling[0m tower-layer v0.3.3
+[1m[92m   Compiling[0m tauri-runtime v2.12.1
+[1m[92m   Compiling[0m jni v0.21.1
+[1m[92m   Compiling[0m byteorder v1.5.0
+[1m[92m   Compiling[0m zerocopy v0.8.63
+[1m[92m   Compiling[0m atomic-waker v1.1.2
+[1m[92m   Compiling[0m base64 v0.22.1
+[1m[92m   Compiling[0m tracing v0.1.44
+[1m[92m   Compiling[0m ico v0.5.0
+[1m[92m   Compiling[0m hyper v1.12.0
+[1m[92m   Compiling[0m tower v0.5.3
+[1m[92m   Compiling[0m sha2 v0.10.9
+[1m[92m   Compiling[0m png v0.18.1
+[1m[92m   Compiling[0m futures-channel v0.3.34
+[1m[92m   Compiling[0m ndk-context v0.1.1
+[1m[92m   Compiling[0m tauri-runtime-wry v2.12.1
+[1m[92m   Compiling[0m ipnet v2.12.2
+[1m[92m   Compiling[0m futures-sink v0.3.34
+[1m[92m   Compiling[0m tower-http v0.6.11
+[1m[92m   Compiling[0m tokio-util v0.7.20
+[1m[92m   Compiling[0m hyper-util v0.1.21
+[1m[92m   Compiling[0m http-body-util v0.1.5
+[1m[92m   Compiling[0m serialize-to-javascript-impl v0.1.2
+[1m[92m   Compiling[0m rustix v1.1.5
+[1m[92m   Compiling[0m paste v1.0.15
+[1m[92m   Compiling[0m rand_core v0.9.5
+[1m[92m   Compiling[0m encoding_rs v0.8.42
+[1m[92m   Compiling[0m regex-compat v0.1.0 (/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/crates/regex-compat)
+[1m[92m   Compiling[0m serde_repr v0.1.21
+[1m[92m   Compiling[0m serialize-to-javascript v0.1.2
+[1m[92m   Compiling[0m errno v0.3.14
+[1m[92m   Compiling[0m android_system_properties v0.1.6
+[1m[92m   Compiling[0m mime v0.3.17
+[1m[92m   Compiling[0m zune-core v0.5.3
+[1m[92m   Compiling[0m quick-error v2.0.1
+[1m[92m   Compiling[0m color_quant v1.1.0
+[1m[92m   Compiling[0m weezl v0.1.12
+[1m[92m   Compiling[0m pxfm v0.1.30
+[1m[92m   Compiling[0m reqwest v0.13.5
+[1m[92m   Compiling[0m linux-raw-sys v0.12.1
+[1m[92m   Compiling[0m byteorder-lite v0.1.0
+[1m[92m   Compiling[0m zune-jpeg v0.5.15
+[1m[92m   Compiling[0m tao v0.37.1
+[1m[92m   Compiling[0m image-webp v0.2.4
+[1m[92m   Compiling[0m ogg_pager v0.7.2
+[1m[92m   Compiling[0m gif v0.14.2
+[1m[92m   Compiling[0m iana-time-zone v0.1.65
+[1m[92m   Compiling[0m lofty_attr v0.13.0
+[1m[92m   Compiling[0m data-encoding v2.11.1
+[1m[92m   Compiling[0m simdutf8 v0.1.5
+[1m[92m   Compiling[0m bytemuck v1.25.2
+[1m[92m   Compiling[0m arrayvec v0.7.8
+[1m[92m   Compiling[0m pure-rust-locales v0.8.2
+[1m[92m   Compiling[0m multiversion_no_op v1.0.0
+[1m[92m   Compiling[0m num-format v0.4.4
+[1m[92m   Compiling[0m lofty v0.25.4
+[1m[92m   Compiling[0m tempfile v3.27.0
+[1m[92m   Compiling[0m sys-locale v0.3.2
+[1m[92m   Compiling[0m moxcms v0.8.1
+[1m[92m   Compiling[0m ppv-lite86 v0.2.21
+[1m[92m   Compiling[0m rand_chacha v0.9.0
+[1m[92m   Compiling[0m rand v0.9.5
+[1m[92m   Compiling[0m chrono v0.4.45
+[1m[92m   Compiling[0m tauri-build v2.7.2
+[1m[92m   Compiling[0m tauri-plugin v2.7.1
+[1m[92m   Compiling[0m tauri-codegen v2.7.2
+[1m[92m   Compiling[0m image v0.25.10
+[1m[92m   Compiling[0m tauri v2.12.3
+[1m[92m   Compiling[0m tauri-plugin-fs v2.7.0
+[1m[92m   Compiling[0m tauri-plugin-dialog v2.8.2
+[1m[92m   Compiling[0m tauri-macros v2.7.2
+[1m[92m   Compiling[0m opentag v0.1.0 (/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/src-tauri)
+[1m[92m   Compiling[0m tag-core v0.1.0 (/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/crates/tag-core)
+[1m[33mwarning[0m[1m: function `rename_target` is never used[0m
+   [1m[94m--> [0msrc-tauri/src/lib.rs:220:4
+    [1m[94m|[0m
+[1m[94m220[0m [1m[94m|[0m fn rename_target(entry: &AudioEntry, template: &str) -> Result<PathBuf, String> {
+    [1m[94m|[0m    [1m[33m^^^^^^^^^^^^^[0m
+    [1m[94m|[0m
+    [1m[94m= [0m[1mnote[0m: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+[1m[33mwarning[0m: `opentag` (lib) generated 1 warning
+[1m[92m    Finished[0m ]8;;https://doc.rust-lang.org/cargo/reference/profiles.html#default-profiles\`dev` profile [unoptimized + debuginfo]]8;;\ target(s) in 58.03s
+        Info symlinking lib "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/target/aarch64-linux-android/debug/libopentag_lib.so" in jniLibs dir "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/src-tauri/gen/android/app/src/main/jniLibs/arm64-v8a"
+        Info "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/target/aarch64-linux-android/debug/libopentag_lib.so" requires shared lib "libandroid.so"
+        Info "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/target/aarch64-linux-android/debug/libopentag_lib.so" requires shared lib "libc++_shared.so"
+        Info "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/target/aarch64-linux-android/debug/libopentag_lib.so" requires shared lib "libdl.so"
+        Info "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/target/aarch64-linux-android/debug/libopentag_lib.so" requires shared lib "liblog.so"
+        Info "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/target/aarch64-linux-android/debug/libopentag_lib.so" requires shared lib "libm.so"
+        Info "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/target/aarch64-linux-android/debug/libopentag_lib.so" requires shared lib "libc.so"
+        Info lib "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/target/aarch64-linux-android/debug/libopentag_lib.so" requires "libc++_shared.so"
+        Info symlinking lib "/Users/jneerdael/Library/Android/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/darwin-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so" in jniLibs dir "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/src-tauri/gen/android/app/src/main/jniLibs/arm64-v8a"
+        Info symlink at "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/src-tauri/gen/android/app/src/main/jniLibs/arm64-v8a/libopentag_lib.so" points to "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/target/aarch64-linux-android/debug/libopentag_lib.so"
+        Info symlink at "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/src-tauri/gen/android/app/src/main/jniLibs/arm64-v8a/libc++_shared.so" points to "/Users/jneerdael/Library/Android/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/darwin-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so"
+WARNING: The option setting 'android.proguard.failOnMissingFiles=false' is deprecated.
+The current default is 'true'.
+It will be removed in version 10.0 of the Android Gradle plugin.
+Add android.sync.suppressAgpWarnings=UNSUPPORTED_PROJECT_OPTION_USE to the gradle.properties file to suppress this warning.
+WARNING: The option setting 'android.builtInKotlin=false' is deprecated.
+The current default is 'true'.
+It will be removed in version 10.0 of the Android Gradle plugin.
+Add android.sync.suppressAgpWarnings=UNSUPPORTED_PROJECT_OPTION_USE to the gradle.properties file to suppress this warning.
+WARNING: The option setting 'android.newDsl=false' is deprecated.
+The current default is 'true'.
+It will be removed in version 10.0 of the Android Gradle plugin.
+Add android.sync.suppressAgpWarnings=UNSUPPORTED_PROJECT_OPTION_USE to the gradle.properties file to suppress this warning.
+WARNING: API 'applicationVariants' is obsolete and has been replaced with 'AndroidComponentsExtension'.
+It will be removed in version 10.0 of the Android Gradle plugin.
+The legacy variant API is disabled by default in AGP 9.0, but can be re-enabled by adding 
+    android.newDsl=false
+to this project's gradle.properties file.
+For more information, see http://developer.android.com/build/r/new-dsl.
+
+To determine what is calling applicationVariants, use -Pandroid.debug.obsoleteApi=true on the command line to display more information.
+Add android.sync.suppressAgpWarnings=DEPRECATED_DSL to the gradle.properties file to suppress this warning.
+WARNING: API 'testVariants' is obsolete and has been replaced with 'AndroidComponentsExtension'.
+It will be removed in version 10.0 of the Android Gradle plugin.
+The legacy variant API is disabled by default in AGP 9.0, but can be re-enabled by adding 
+    android.newDsl=false
+to this project's gradle.properties file.
+For more information, see http://developer.android.com/build/r/new-dsl.
+
+To determine what is calling testVariants, use -Pandroid.debug.obsoleteApi=true on the command line to display more information.
+Add android.sync.suppressAgpWarnings=DEPRECATED_DSL to the gradle.properties file to suppress this warning.
+WARNING: API 'unitTestVariants' is obsolete and has been replaced with 'AndroidComponentsExtension'.
+It will be removed in version 10.0 of the Android Gradle plugin.
+The legacy variant API is disabled by default in AGP 9.0, but can be re-enabled by adding 
+    android.newDsl=false
+to this project's gradle.properties file.
+For more information, see http://developer.android.com/build/r/new-dsl.
+
+To determine what is calling unitTestVariants, use -Pandroid.debug.obsoleteApi=true on the command line to display more information.
+Add android.sync.suppressAgpWarnings=DEPRECATED_DSL to the gradle.properties file to suppress this warning.
+w: file:///Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/src-tauri/gen/android/app/build.gradle.kts:17:1: 'fun Project.android(configure: Action<BaseAppModuleExtension>): Unit' is deprecated. Replaced by com.android.build.api.dsl.ApplicationExtension.
+This class is not used for the public extensions in AGP when android.newDsl=true, which is the default in AGP 9.0, and will be removed in AGP 10.0.
+WARNING: API 'libraryVariants' is obsolete and has been replaced with 'AndroidComponentsExtension'.
+It will be removed in version 10.0 of the Android Gradle plugin.
+The legacy variant API is disabled by default in AGP 9.0, but can be re-enabled by adding 
+    android.newDsl=false
+to this project's gradle.properties file.
+For more information, see http://developer.android.com/build/r/new-dsl.
+
+To determine what is calling libraryVariants, use -Pandroid.debug.obsoleteApi=true on the command line to display more information.
+Add android.sync.suppressAgpWarnings=DEPRECATED_DSL to the gradle.properties file to suppress this warning.
+w: file:///Users/jneerdael/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-2.12.3/mobile/android/build.gradle.kts:8:1: 'fun Project.android(configure: Action<LibraryExtension>): Unit' is deprecated. Replaced by com.android.build.api.dsl.LibraryExtension.
+This class is not used for the public extensions in AGP when android.newDsl=true, which is the default in AGP 9.0, and will be removed in AGP 10.0.
+w: file:///Users/jneerdael/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-plugin-dialog-2.8.2/android/build.gradle.kts:8:1: 'fun Project.android(configure: Action<LibraryExtension>): Unit' is deprecated. Replaced by com.android.build.api.dsl.LibraryExtension.
+This class is not used for the public extensions in AGP when android.newDsl=true, which is the default in AGP 9.0, and will be removed in AGP 10.0.
+
+> opentag@0.1.0 tauri
+> tauri android android-studio-script --target aarch64
+
+        Info connection; remote_addr=127.0.0.1:49847 conn_id=0
+[1m[32m        Info[0m Using installed NDK: /Users/jneerdael/Library/Android/sdk/ndk/28.2.13676358
+[1m[92m   Compiling[0m tauri v2.12.3
+[1m[92m   Compiling[0m wry v0.57.0
+[1m[92m   Compiling[0m tauri-plugin-fs v2.7.0
+[1m[92m   Compiling[0m tauri-plugin-dialog v2.8.2
+[1m[92m   Compiling[0m opentag v0.1.0 (/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/src-tauri)
+[1m[92m   Compiling[0m tauri-runtime-wry v2.12.1
+[1m[91merror[E0432][0m[1m: unresolved import `sha2`[0m
+ [1m[94m--> [0msrc-tauri/src/action_host.rs:4:5
+  [1m[94m|[0m
+[1m[94m4[0m [1m[94m|[0m use sha2::{Digest, Sha256};
+  [1m[94m|[0m     [1m[91m^^^^[0m [1m[91muse of unresolved module or unlinked crate `sha2`[0m
+  [1m[94m|[0m
+  [1m[94m= [0m[1mhelp[0m: if you wanted to use a crate named `sha2`, use `cargo add sha2` to add it to your `Cargo.toml`
+
+[1mFor more information about this error, try `rustc --explain E0432`.[0m
+[1m[91merror[0m: could not compile `opentag` (lib) due to 1 previous error
+failed to build Android app: `Failed to run `cargo build`: command ["cargo", "build", "--package", "opentag", "--manifest-path", "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/src-tauri/Cargo.toml", "--target", "aarch64-linux-android", "--features", "tauri/custom-protocol tauri/custom-protocol", "--lib"] exited with code 101
+[1m[31m       Error[0m failed to build Android app: `Failed to run `cargo build`: command ["cargo", "build", "--package", "opentag", "--manifest-path", "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/src-tauri/Cargo.toml", "--target", "aarch64-linux-android", "--features", "tauri/custom-protocol tauri/custom-protocol", "--lib"] exited with code 101
+w: file:///Users/jneerdael/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-2.12.3/mobile/android/src/main/java/app/tauri/AppPlugin.kt:35:37 'fun onBackPressed(): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/jneerdael/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-2.12.3/mobile/android/src/main/java/app/tauri/plugin/Plugin.kt:125:5 'fun onDestroy(): Unit' is deprecated. use onDestroy(activity: AppCompatActivity) instead.
+w: file:///Users/jneerdael/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-2.12.3/mobile/android/src/main/java/app/tauri/plugin/Plugin.kt:130:5 'fun onRestart(): Unit' is deprecated. use onRestart(activity: AppCompatActivity) instead.
+w: file:///Users/jneerdael/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-2.12.3/mobile/android/src/main/java/app/tauri/plugin/Plugin.kt:135:5 'fun onPause(): Unit' is deprecated. use onPause(activity: AppCompatActivity) instead.
+w: file:///Users/jneerdael/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-2.12.3/mobile/android/src/main/java/app/tauri/plugin/Plugin.kt:140:5 'fun onResume(): Unit' is deprecated. use onResume(activity: AppCompatActivity) instead.
+w: file:///Users/jneerdael/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-2.12.3/mobile/android/src/main/java/app/tauri/plugin/Plugin.kt:145:5 'fun onStop(): Unit' is deprecated. use onStop(activity: AppCompatActivity) instead.
+w: file:///Users/jneerdael/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-2.12.3/mobile/android/src/main/java/app/tauri/plugin/PluginHandle.kt:159:22 Java type mismatch: inferred type is 'Class<in CapturedType(*)!>?', but 'Class<*>' was expected.
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:rustBuildArm64Debug' (registered by plugin 'rust').
+> Process 'command 'npm'' finished with non-zero exit value 1
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights from a Build Scan (powered by Develocity).
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 2m 1s
+Configuration cache entry stored.
+failed to build APK: Failed to assemble APK with Io(BeforeSpawn(<closure>), Io(StderrFile(OwnedFd { fd: 18 }), Io(StdoutFile(OwnedFd { fd: 17 }), Io(StdinFile(OwnedFd { fd: 16 }), Io(Env("TAURI_CLI_VERBOSITY", "0"), Io(Env("CARGO_TARGET_I686_LINUX_ANDROID_LINKER", "/Users/jneerdael/Library/Android/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/darwin-x86_64/bin/i686-linux-android24-clang"), Io(Env("TAURI_ANDROID_PROJECT_PATH", "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/src-tauri/gen/android"), Io(Env("CARGO_TARGET_ARMV7_LINUX_ANDROIDEABI_LINKER", "/Users/jneerdael/Library/Android/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/darwin-x86_64/bin/armv7a-linux-androideabi24-clang"), Io(Env("TMPDIR", "/var/folders/cm/m92k6_qs115046xzbll7hfkh0000gn/T/"), Io(Env("PATH", "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/node_modules/.bin:/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/node_modules/.bin:/Users/jneerdael/Scripts/node_modules/.bin:/Users/jneerdael/node_modules/.bin:/Users/node_modules/.bin:/node_modules/.bin:/opt/homebrew/lib/node_modules/npm/node_modules/@npmcli/run-script/lib/node-gyp-bin:/Users/jneerdael/.rustup/toolchains/stable-aarch64-apple-darwin/bin:/opt/local/bin:/opt/local/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/Library/Apple/usr/bin:/Library/TeX/texbin:/Applications/Wireshark.app/Contents/MacOS:/opt/homebrew/bin:/Users/jneerdael/.codex/packages/app-server-daemon/releases/0.162.1-aarch64-apple-darwin/codex-path:/Users/jneerdael/.codex/tmp/arg0/codex-arg0PwQrzx:/Users/jneerdael/.codex/tmp/arg0/codex-arg0XS9l27:/Users/jneerdael/.codex/packages/app-server-daemon/releases/0.162.0-aarch64-apple-darwin/codex-path:/Users/jneerdael/.codex/tmp/arg0/codex-arg0jcFPyC:/Users/jneerdael/.nvm/versions/node/v22.22.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/codex-path:/opt/homebrew/opt/binutils/bin:/Users/jneerdael/.cargo/bin:/Users/jneerdael/.nvm/versions/node/v22.22.2/bin:/Users/jneerdael/.antigravity/antigravity/bin:/Users/jneerdael/.bun/bin:/opt/miniconda3/bin:/opt/miniconda3/condabin:/Users/jneerdael/.opencode/bin:/opt/homebrew/opt/rustup/bin:/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home/bin:/Users/jneerdael/Library/Android/sdk/cmdline-tools/latest/bin:/Users/jneerdael/Library/Android/sdk/platform-tools:/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home/bin:/Users/jneerdael/.local/bin:/Users/jneerdael/Library/Python/3.9/bin:/opt/local/bin:/opt/local/sbin:/Users/jneerdael/Library/Android/sdk/build-tools/34.0.0"), Io(Env("CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER", "/Users/jneerdael/Library/Android/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/darwin-x86_64/bin/aarch64-linux-android24-clang"), Io(Env("WRY_ANDROID_KOTLIN_FILES_OUT_DIR", "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/src-tauri/gen/android/app/src/main/java/org/opentag/editor/generated"), Io(Env("RUST_LOG_STYLE", "always"), Io(Env("NDK_HOME", "/Users/jneerdael/Library/Android/sdk/ndk/28.2.13676358"), Io(Env("ANDROID_HOME", "/Users/jneerdael/Library/Android/sdk"), Io(Env("CARGO_TARGET_I686_LINUX_ANDROID_RUSTFLAGS", "-Clink-arg=-landroid -Clink-arg=-llog -Clink-arg=-lOpenSLES"), Io(Env("SSH_AUTH_SOCK", "/private/tmp/com.apple.launchd.OAqQtHgGmK/Listeners"), Io(Env("CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS", "-Clink-arg=-landroid -Clink-arg=-llog -Clink-arg=-lOpenSLES"), Io(Env("TAURI_ANDROID_PACKAGE_UNESCAPED", "org.opentag.editor"), Io(Env("HOME", "/Users/jneerdael"), Io(Env("TERM", "dumb"), Io(Env("CARGO_TARGET_X86_64_LINUX_ANDROID_RUSTFLAGS", "-Clink-arg=-landroid -Clink-arg=-llog -Clink-arg=-lOpenSLES"), Io(Env("CARGO_TARGET_ARMV7_LINUX_ANDROIDEABI_RUSTFLAGS", "-Clink-arg=-landroid -Clink-arg=-llog -Clink-arg=-lOpenSLES"), Io(Env("CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER", "/Users/jneerdael/Library/Android/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/darwin-x86_64/bin/x86_64-linux-android24-clang"), Io(Env("WRY_ANDROID_PACKAGE", "org.opentag.editor"), Io(Env("WRY_ANDROID_LIBRARY", "opentag_lib"), Cmd(["/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/src-tauri/gen/android/gradlew", "--project-dir", "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/src-tauri/gen/android"]))))))))))))))))))))))))))): command ["/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/src-tauri/gen/android/gradlew", "--project-dir", "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/src-tauri/gen/android"] exited with code 1
+       Error failed to build APK: Failed to assemble APK with Io(BeforeSpawn(<closure>), Io(StderrFile(OwnedFd { fd: 18 }), Io(StdoutFile(OwnedFd { fd: 17 }), Io(StdinFile(OwnedFd { fd: 16 }), Io(Env("TAURI_CLI_VERBOSITY", "0"), Io(Env("CARGO_TARGET_I686_LINUX_ANDROID_LINKER", "/Users/jneerdael/Library/Android/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/darwin-x86_64/bin/i686-linux-android24-clang"), Io(Env("TAURI_ANDROID_PROJECT_PATH", "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/src-tauri/gen/android"), Io(Env("CARGO_TARGET_ARMV7_LINUX_ANDROIDEABI_LINKER", "/Users/jneerdael/Library/Android/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/darwin-x86_64/bin/armv7a-linux-androideabi24-clang"), Io(Env("TMPDIR", "/var/folders/cm/m92k6_qs115046xzbll7hfkh0000gn/T/"), Io(Env("PATH", "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/node_modules/.bin:/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/node_modules/.bin:/Users/jneerdael/Scripts/node_modules/.bin:/Users/jneerdael/node_modules/.bin:/Users/node_modules/.bin:/node_modules/.bin:/opt/homebrew/lib/node_modules/npm/node_modules/@npmcli/run-script/lib/node-gyp-bin:/Users/jneerdael/.rustup/toolchains/stable-aarch64-apple-darwin/bin:/opt/local/bin:/opt/local/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/Library/Apple/usr/bin:/Library/TeX/texbin:/Applications/Wireshark.app/Contents/MacOS:/opt/homebrew/bin:/Users/jneerdael/.codex/packages/app-server-daemon/releases/0.162.1-aarch64-apple-darwin/codex-path:/Users/jneerdael/.codex/tmp/arg0/codex-arg0PwQrzx:/Users/jneerdael/.codex/tmp/arg0/codex-arg0XS9l27:/Users/jneerdael/.codex/packages/app-server-daemon/releases/0.162.0-aarch64-apple-darwin/codex-path:/Users/jneerdael/.codex/tmp/arg0/codex-arg0jcFPyC:/Users/jneerdael/.nvm/versions/node/v22.22.2/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/codex-path:/opt/homebrew/opt/binutils/bin:/Users/jneerdael/.cargo/bin:/Users/jneerdael/.nvm/versions/node/v22.22.2/bin:/Users/jneerdael/.antigravity/antigravity/bin:/Users/jneerdael/.bun/bin:/opt/miniconda3/bin:/opt/miniconda3/condabin:/Users/jneerdael/.opencode/bin:/opt/homebrew/opt/rustup/bin:/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home/bin:/Users/jneerdael/Library/Android/sdk/cmdline-tools/latest/bin:/Users/jneerdael/Library/Android/sdk/platform-tools:/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home/bin:/Users/jneerdael/.local/bin:/Users/jneerdael/Library/Python/3.9/bin:/opt/local/bin:/opt/local/sbin:/Users/jneerdael/Library/Android/sdk/build-tools/34.0.0"), Io(Env("CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER", "/Users/jneerdael/Library/Android/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/darwin-x86_64/bin/aarch64-linux-android24-clang"), Io(Env("WRY_ANDROID_KOTLIN_FILES_OUT_DIR", "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/src-tauri/gen/android/app/src/main/java/org/opentag/editor/generated"), Io(Env("RUST_LOG_STYLE", "always"), Io(Env("NDK_HOME", "/Users/jneerdael/Library/Android/sdk/ndk/28.2.13676358"), Io(Env("ANDROID_HOME", "/Users/jneerdael/Library/Android/sdk"), Io(Env("CARGO_TARGET_I686_LINUX_ANDROID_RUSTFLAGS", "-Clink-arg=-landroid -Clink-arg=-llog -Clink-arg=-lOpenSLES"), Io(Env("SSH_AUTH_SOCK", "/private/tmp/com.apple.launchd.OAqQtHgGmK/Listeners"), Io(Env("CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS", "-Clink-arg=-landroid -Clink-arg=-llog -Clink-arg=-lOpenSLES"), Io(Env("TAURI_ANDROID_PACKAGE_UNESCAPED", "org.opentag.editor"), Io(Env("HOME", "/Users/jneerdael"), Io(Env("TERM", "dumb"), Io(Env("CARGO_TARGET_X86_64_LINUX_ANDROID_RUSTFLAGS", "-Clink-arg=-landroid -Clink-arg=-llog -Clink-arg=-lOpenSLES"), Io(Env("CARGO_TARGET_ARMV7_LINUX_ANDROIDEABI_RUSTFLAGS", "-Clink-arg=-landroid -Clink-arg=-llog -Clink-arg=-lOpenSLES"), Io(Env("CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER", "/Users/jneerdael/Library/Android/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/darwin-x86_64/bin/x86_64-linux-android24-clang"), Io(Env("WRY_ANDROID_PACKAGE", "org.opentag.editor"), Io(Env("WRY_ANDROID_LIBRARY", "opentag_lib"), Cmd(["/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/src-tauri/gen/android/gradlew", "--project-dir", "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/src-tauri/gen/android"]))))))))))))))))))))))))))): command ["/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/src-tauri/gen/android/gradlew", "--project-dir", "/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/src-tauri/gen/android"] exited with code 1
+
+EXIT STATUS: 1

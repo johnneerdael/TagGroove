@@ -1,0 +1,6 @@
+{
+  "source": "https://github.com/boostorg/regex/tree/boost-1.89.0",
+  "archive_sha256": "97d6caa4c273883f6432a0914d4b77967adf665dfeb209c239b6315c5f7e06db",
+  "version": "1.89.0",
+  "vendored": "include directory and license; standalone mode"
+}

@@ -1,0 +1,8 @@
+[package]
+name = "regex-compat"
+version = "0.1.0"
+edition = "2021"
+license = "MIT AND BSL-1.0"
+
+[build-dependencies]
+cc = "1"

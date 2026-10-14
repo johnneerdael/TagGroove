@@ -1,0 +1,70 @@
+{
+  "date": "2026-10-14",
+  "scope": "tag-core cargo check only; no native linking or runtime qualification",
+  "compiler": {
+    "release": "1.95.0",
+    "commit": "59807616e1fa2540724bfbac14d7976d7e4a3860",
+    "host": "aarch64-apple-darwin"
+  },
+  "cargo": {
+    "release": "1.95.0",
+    "commit": "f2d3ce0bd7f24a49f8f72d9000448f8838c4e850"
+  },
+  "observed_failure": {
+    "code": "E0463",
+    "child_compiler": "Homebrew rustc 1.92.0 (ded5c06cf 2025-12-08)",
+    "child_sysroot": "/opt/homebrew/Cellar/rust/1.92.0",
+    "cause": "Cargo child PATH resolved a different compiler than the top-level rustup compiler; requested targets were installed only in rustup sysroot",
+    "compiler_trace_excerpt": {
+      "compiler_arg": "rustc",
+      "resolved": "/opt/homebrew/bin/rustc",
+      "version": "rustc 1.92.0 (ded5c06cf 2025-12-08) (Homebrew)\nbinary: rustc\ncommit-hash: ded5c06cf21d2b93bffd5d884aa6e96934ee4234\ncommit-date: 2025-12-08\nhost: aarch64-apple-darwin\nrelease: 1.92.0\nLLVM version: 21.1.7\n",
+      "sysroot": "/opt/homebrew/Cellar/rust/1.92.0\n",
+      "target": "aarch64-apple-ios-sim"
+    }
+  },
+  "resolution": "Set RUSTC for the check process to the absolute rustup-selected compiler; invoke cargo from the same toolchain. No global default changes, target installs, or core source fixes.",
+  "targets": [
+    {
+      "target": "aarch64-apple-ios-sim",
+      "status": 0,
+      "core_artifacts": [
+        "libtag_core-e640843aa20ddbe1.rmeta"
+      ],
+      "completion": "    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.56s"
+    },
+    {
+      "target": "aarch64-linux-android",
+      "status": 0,
+      "core_artifacts": [
+        "libtag_core-b9d9df0a8e177106.rmeta"
+      ],
+      "completion": "    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.50s"
+    },
+    {
+      "target": "x86_64-pc-windows-msvc",
+      "status": 0,
+      "core_artifacts": [
+        "libtag_core-7fbb6b901a174093.rmeta"
+      ],
+      "completion": "    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.11s"
+    },
+    {
+      "target": "x86_64-unknown-linux-gnu",
+      "status": 0,
+      "core_artifacts": [
+        "libtag_core-fd70909ac8c7c428.rmeta"
+      ],
+      "completion": "    Finished `dev` profile [unoptimized + debuginfo] target(s) in 4.36s"
+    }
+  ],
+  "source_sha256": {
+    "Cargo.lock": "e796694aa93562995cd1fde370e434c76245073d2cf3e0e013f06f47efb7b21a",
+    "crates/tag-core/Cargo.toml": "baa5b4391bf4a7299ac5333c25e0400a41cfb2eb782b5b81b91296b543edc601",
+    "crates/tag-core/src/filter.rs": "41a9bcaa98998fa788fcba0491731e4ee5bdfe33a231984413f4481e8d10dd41",
+    "crates/tag-core/src/lib.rs": "ffede310411139477800977394a382a22567ada061bebb91a901fa62b8720e6e",
+    "crates/tag-core/src/operations.rs": "1ce6fc5ae9daf2d4929fc037e082d29073964ee7529942fc0d07b30e4f27379c",
+    "crates/tag-core/src/script.rs": "ddefdbba3fc06d555b97800927c1db3948bea8a7601c905e9ebb14abbd142131",
+    "crates/tag-core/src/tags.rs": "2a6609fa9f6b1faf9994ae471c83b74981206c4829f81324495149e018021807"
+  }
+}

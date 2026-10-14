@@ -1,0 +1,136 @@
+warning: failed to auto-clean cache data
+
+failed to clean entries from the global cache
+
+Caused by:
+  failed to remove file `/Users/jneerdael/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yoke-0.8.2/Cargo.toml`
+
+Caused by:
+  Permission denied (os error 13)
+    Checking serde_core v1.0.229
+    Checking libc v0.2.190
+   Compiling phf_generator v0.13.1
+   Compiling zmij v1.0.23
+   Compiling zerofrom v0.1.8
+   Compiling icu_properties_data v2.3.0
+   Compiling icu_normalizer_data v2.3.0
+   Compiling toml_datetime v1.1.2+spec-1.1.0
+   Compiling serde_spanned v1.1.2
+   Compiling form_urlencoded v1.2.2
+    Checking objc2-exception-helper v0.1.1
+   Compiling typeid v1.0.3
+   Compiling phf_codegen v0.13.1
+   Compiling yoke v0.8.3
+   Compiling phf_macros v0.13.1
+   Compiling serde_json v1.0.154
+   Compiling string_cache_codegen v0.6.1
+   Compiling thiserror v2.0.21
+   Compiling toml v1.1.8+spec-1.1.0
+    Checking objc2 v0.6.5
+   Compiling erased-serde v0.4.10
+   Compiling selectors v0.38.0
+   Compiling zerovec v0.11.8
+   Compiling zerotrie v0.2.5
+    Checking crc32fast v1.5.2
+   Compiling web_atoms v0.2.6
+    Checking getrandom v0.4.3
+   Compiling plist v1.10.1
+   Compiling serde-untagged v0.1.9
+    Checking flate2 v1.1.10
+   Compiling parking_lot_core v0.9.12
+    Checking tinystr v0.8.4
+   Compiling uuid v1.28.0
+   Compiling parking_lot v0.12.5
+   Compiling phf v0.13.1
+   Compiling jsonptr v0.7.1
+   Compiling potential_utf v0.1.6
+   Compiling cargo_metadata v0.19.2
+   Compiling anyhow v1.0.104
+   Compiling swift-rs v1.0.9
+   Compiling serde_with v3.24.0
+   Compiling icu_locale_core v2.3.0
+   Compiling icu_collections v2.3.0
+   Compiling string_cache v0.9.0
+   Compiling cfb v0.14.0
+   Compiling json-patch v4.2.0
+    Checking block2 v0.6.2
+   Compiling cssparser v0.37.0
+    Checking getrandom v0.3.4
+    Checking bitflags v2.13.2
+    Checking serde v1.0.229
+    Checking objc2-core-foundation v0.3.2
+    Checking png v0.18.1
+    Checking num-traits v0.2.19
+   Compiling markup5ever v0.39.0
+   Compiling infer v0.22.0
+   Compiling icu_provider v2.3.1
+    Checking zerocopy v0.8.63
+   Compiling regex-compat v0.1.0 (/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/crates/regex-compat)
+   Compiling html5ever v0.39.0
+   Compiling dirs-sys v0.5.0
+   Compiling embed-resource v3.0.12
+    Checking icu_properties v2.3.0
+   Compiling icu_normalizer v2.3.0
+    Checking rand_core v0.9.5
+    Checking errno v0.3.14
+   Compiling tauri-winres v0.3.6
+    Checking moxcms v0.8.1
+   Compiling dirs v7.0.0
+    Checking rustix v1.1.5
+    Checking objc2-foundation v0.3.2
+   Compiling cargo_toml v1.0.1
+    Checking encoding_rs v0.8.42
+   Compiling generic-array v0.14.7
+    Checking lofty v0.25.4
+    Checking chrono v0.4.45
+   Compiling dom_query v0.28.0
+    Checking idna_adapter v1.2.2
+    Checking idna v1.1.0
+    Checking tempfile v3.27.0
+    Checking dpi v0.1.2
+    Checking url v2.5.8
+    Checking crossbeam-utils v0.8.23
+   Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
+    Checking core-foundation v0.10.1
+    Checking foreign-types v0.5.0
+    Checking core-graphics-types v0.2.0
+   Compiling png v0.17.16
+   Compiling digest v0.10.7
+   Compiling wry v0.57.0
+    Checking urlpattern v0.6.0
+   Compiling schemars v0.8.22
+    Checking crossbeam-channel v0.5.17
+    Checking cookie v0.18.2
+    Checking dispatch2 v0.3.1
+   Compiling cpufeatures v0.2.17
+    Checking ppv-lite86 v0.2.21
+   Compiling sha2 v0.10.9
+    Checking core-graphics v0.25.0
+    Checking rand_chacha v0.9.0
+   Compiling ico v0.5.0
+    Checking image v0.25.10
+    Checking rand v0.9.5
+    Checking keyboard-types v0.8.3
+    Checking serialize-to-javascript v0.1.2
+   Compiling tauri-utils v2.10.1
+    Checking md-5 v0.10.6
+    Checking objc2-quartz-core v0.3.2
+    Checking objc2-app-kit v0.3.2
+    Checking tag-core v0.1.0 (/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/crates/tag-core)
+    Checking objc2-web-kit v0.3.2
+    Checking tao v0.37.1
+    Checking window-vibrancy v0.8.1
+    Checking muda v0.20.0
+    Checking rfd v0.16.0
+    Checking tauri-runtime v2.12.1
+    Checking tauri-runtime-wry v2.12.1
+   Compiling tauri-build v2.7.2
+   Compiling tauri-plugin v2.7.1
+   Compiling tauri-codegen v2.7.2
+   Compiling tauri v2.12.3
+   Compiling tauri-plugin-fs v2.7.0
+   Compiling tauri-plugin-dialog v2.8.2
+   Compiling tauri-macros v2.7.2
+   Compiling opentag v0.1.0 (/Users/jneerdael/Scripts/mp3tag-v3.36.1-x64-setup/opentag/src-tauri)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 26.46s

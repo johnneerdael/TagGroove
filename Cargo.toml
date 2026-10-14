@@ -1,0 +1,4 @@
+[workspace]
+members = ["crates/tag-core", "crates/regex-compat", "src-tauri"]
+default-members = ["crates/tag-core"]
+resolver = "2"
