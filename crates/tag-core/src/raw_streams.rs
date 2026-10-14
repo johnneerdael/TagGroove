@@ -393,7 +393,15 @@ pub(in crate::tags) fn stage(
     let mut source = fs::File::open(original).map_err(|e| e.to_string())?;
     let layout = layout(&mut source, stream)?;
     let bytes = stand_in_bytes(&mut source, &layout)?;
-    let dir = tempfile::tempdir().map_err(|e| e.to_string())?;
+    // Beside the staging file: that directory is known to be writable.
+    let dir = tempfile::Builder::new()
+        .prefix(".opentag-stand-in-")
+        .tempdir_in(
+            staged_path
+                .parent()
+                .ok_or("The staging file has no folder")?,
+        )
+        .map_err(|e| e.to_string())?;
     let before = dir.path().join("before");
     let after = dir.path().join("after");
     fs::write(&before, &bytes).map_err(|e| e.to_string())?;
