@@ -99,7 +99,7 @@
       const preview = dlg.querySelector('#generate-preview').textContent;
       dlg.querySelector('#generate-ok').click();
       await waitFor(() => /Created 2 playlists/.test(status()), 8000, 'generated status (' + status() + ')');
-      const read = await inv('read_playlist', { path: album + '/gen-Sine A.pls' });
+      const read = await inv('read_playlist', { path: album + '/gen-Sine A.pls' }).catch(e => { throw new Error(`${e}; preview: ${preview}; status: ${status()}`); });
       if (read.files.length !== 1 || !read.files[0].endsWith('sine-a.mp3')) throw new Error(JSON.stringify(read));
       return preview.replace(/\s+/g, ' ').slice(0, 120);
     });
