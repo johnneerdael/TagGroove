@@ -1,4 +1,4 @@
-// Utils → Remove Tag Types, Edit → Copy as Text… and Repeat, Help → Keyboard
+// Utils → Remove Tag Types and Strip chapters MP4, Edit → Copy as Text… and Repeat, Help → Keyboard
 // shortcuts, and File → Save/Load configuration
 // (https://docs.mp3tag.de/utils/, menus/edit, menus/help, menus/file, keyboard).
 import type { HistoryState } from './edit-history';
@@ -24,7 +24,7 @@ export function tagKindCounts(tags:(string|undefined)[]):Record<RemovableTag,num
 export type RemoveTagTypesHost={modal:Modal;modalError:ModalError;tags:()=>(string|undefined)[];remove:(kinds:RemovableTag[])=>Promise<void>};
 export function removeTagTypesDialog(host:RemoveTagTypesHost){
   const tags=host.tags(),counts=tagKindCounts(tags);
-  const dialog=host.modal('Remove tag types',`<p>Remove the checked tag types from ${tags.length} selected file${tags.length===1?'':'s'}. Applies to MP3, APE, Musepack and WavPack files; Options → Tags is not used.</p>
+  const dialog=host.modal('Remove tag types',`<p>Remove the checked tag types from ${tags.length} selected file${tags.length===1?'':'s'}. Applies to MP3, TTA, APE, Musepack, WavPack, TAK and OptimFROG files; Options → Tags is not used.</p>
     <fieldset class="numbering-section"><legend>Tag types</legend>${REMOVABLE_TAGS.map(([kind,label])=>`<label class="action-check"><input type="checkbox" data-tag-kind="${kind}" ${counts[kind]?'':'disabled'}> ${label} <small>(${counts[kind]} file${counts[kind]===1?'':'s'})</small></label>`).join('')}</fieldset>
     <p>APEv2 tags can hold MP3GAIN_UNDO and ReplayGain values; removing them erases that information permanently. Edit → Undo restores the files during this session.</p>`,'<button id="remove-tag-types" class="primary" disabled>Remove</button>');
   dialog.classList.add('remove-tag-types-dialog');
@@ -37,6 +37,20 @@ export function removeTagTypesDialog(host:RemoveTagTypesHost){
   });
   dialog.querySelector<HTMLInputElement>('[data-tag-kind]:not(:disabled)')?.focus();
   return dialog;
+}
+
+// Strip chapters MP4 -------------------------------------------------------------
+/** Selected MP4 files with chapters, from their `_SUBSONG_COUNT` and format. */
+export function mp4ChapterFiles(entries:{format?:string;technical?:Record<string,string[]|undefined>}[]):{files:number;chapters:number}{
+  let files=0,chapters=0;
+  for(const entry of entries){
+    const count=Number(entry.technical?._SUBSONG_COUNT?.[0]||0);
+    if(entry.format==='MP4'&&count>0){files++;chapters+=count;}
+  }
+  return{files,chapters};
+}
+export function stripChaptersPrompt(found:{files:number;chapters:number}):string{
+  return`Permanently remove ${found.chapters} chapter${found.chapters===1?'':'s'} from ${found.files} MP4 file${found.files===1?'':'s'}? The chapter boxes become free space; audio, video and tags are not changed.`;
 }
 
 // Copy as Text --------------------------------------------------------------------

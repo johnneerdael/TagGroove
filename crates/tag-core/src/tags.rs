@@ -10,6 +10,8 @@ mod cover_manage;
 mod cover_ops;
 #[path = "mapping.rs"]
 mod mapping;
+#[path = "mp4_chapters.rs"]
+mod mp4_chapters;
 #[path = "tag_policy.rs"]
 mod tag_policy;
 #[path = "tag_types.rs"]
@@ -574,7 +576,7 @@ fn read_description(
             (TaggedFile::from(media), native)
         }};
     }
-    let (mut file, native) = match kind {
+    let (mut file, mut native) = match kind {
         FileType::Flac => read!(FlacFile, |f: &FlacFile| NativeTags {
             vorbis: f.vorbis_comments().cloned(),
             ..Default::default()
@@ -637,6 +639,9 @@ fn read_description(
             (file, native)
         }
     };
+    if kind == FileType::Mp4 {
+        native.technical.extend(mp4_chapters::technical(&path));
+    }
     // Enrich APE covers from the already parsed native tag, without a second
     // file read.
     ape_pictures(&native, &mut file)?;
@@ -1406,6 +1411,26 @@ fn write_fields_result(
             verify_readback(&actual, &native_updates, primary, false)
         },
     )
+}
+
+/// Utils → Strip chapters MP4: remove Nero chapters and QuickTime chapter
+/// tracks. Other files, and MP4 files without chapters, are left untouched.
+pub fn strip_mp4_chapters_with_options(
+    path: &Path,
+    include_cover_data: bool,
+    options: &TagOptions,
+) -> Result<AudioEntry, String> {
+    let mp4 = !asf::sniff(path)
+        && container_formats::detect(path).is_none()
+        && container_formats::detect_stream(path).is_none()
+        && Probe::open(path)
+            .ok()
+            .and_then(|p| p.guess_file_type().ok())
+            .is_some_and(|p| p.file_type() == Some(FileType::Mp4));
+    if !mp4 || mp4_chapters::scan(path)?.list.is_empty() {
+        return read_description(path, include_cover_data, &[], options);
+    }
+    staged_write(path, include_cover_data, &[], options, mp4_chapters::strip)
 }
 
 pub fn remove_tags(path: &Path) -> Result<AudioEntry, String> {
