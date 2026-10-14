@@ -32,7 +32,7 @@ scripts/e2e-native.sh tests/e2e/core-workflows.js --no-build
 
 - ⌘Z pressed while focus is still in a tag panel field after saving is handled as text-field undo (by design: saved-operation undo only applies outside text fields). The test focuses the file list first, as a user would.
 - "Saved tags" appears in the status bar slightly before the undo history refresh completes; an immediate ⌘Z can be ignored. Not observable at human speed; the test waits for Undo to become available.
-- Tag panel labels underline their mnemonic letter with separate elements, so accessibility names read "TIT L E". Needs an `aria-label` fix.
+- Tag panel labels underline their mnemonic letter with separate elements, so accessibility names read "TIT L E". Fixed with explicit `aria-label`s; the native accessibility tree now reports "Title", "Artist", …
 
 ## Not covered here
 

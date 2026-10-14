@@ -165,7 +165,8 @@ export class TagPanel {
   private fieldHTML(field:PanelField,index:number,disabled:boolean){
     if(field.field===SEPARATOR)return'<div class="panel-separator" role="separator"></div>';
     const id=`tag-panel-${index}`,label=mnemonic(field.name),span=`style="grid-column:span ${sizeSpan[field.size]}"`,off=disabled?'disabled':'';
-    const shortcut=label.key?`aria-keyshortcuts="Alt+${html(label.key)}"`:'';
+    // The underlined mnemonic splits the label into several text nodes; name controls explicitly.
+    const shortcut=`aria-label="${html(label.label)}" ${label.key?`aria-keyshortcuts="Alt+${html(label.key)}"`:''}`;
     if(field.field===DIRECTORY){
       const {selected}=this.host.directories(),state=selectionState(selected);
       return `<div class="field panel-field" ${span}><label for="${id}">${label.html}</label><div class="combo"><input id="${id}" data-panel-index="${index}" data-directory role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-autocomplete="none" readonly value="${html(state.value)}" placeholder="${state.mixed?KEEP:''}" title="${html(state.value)}" ${shortcut}><button type="button" class="combo-toggle" data-combo="${index}" tabindex="-1" aria-label="Show folders">▾</button></div></div>`;
