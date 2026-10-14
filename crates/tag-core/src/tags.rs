@@ -1,5 +1,7 @@
 //! Portable metadata I/O. Every mutation is written and verified in a sibling
 //! temporary file before the original is atomically replaced.
+#[path = "asf/mod.rs"]
+mod asf;
 #[path = "cover_manage.rs"]
 mod cover_manage;
 #[path = "cover_ops.rs"]
@@ -382,6 +384,29 @@ fn displayed_tags<'a>(file: &'a TaggedFile, options: &TagOptions) -> Vec<&'a Tag
     }
 }
 
+fn cover_info(index: usize, picture: &Picture, include_cover_data: bool) -> CoverInfo {
+    let info = technical::picture_information(picture);
+    CoverInfo {
+        index,
+        mime: picture
+            .mime_type()
+            .map(|m| m.as_str())
+            .unwrap_or("application/octet-stream")
+            .into(),
+        description: picture.description().unwrap_or_default().into(),
+        picture_type: format!("{:?}", picture.pic_type()),
+        data_base64: if include_cover_data {
+            STANDARD.encode(picture.data())
+        } else {
+            String::new()
+        },
+        size: picture.data().len() as u64,
+        width: info.as_ref().map(|i| i.width).filter(|n| *n > 0),
+        height: info.as_ref().map(|i| i.height).filter(|n| *n > 0),
+        digest: cover_digest(picture.data()),
+    }
+}
+
 fn describe_with_native(
     path: &Path,
     file: &TaggedFile,
@@ -401,26 +426,7 @@ fn describe_with_native(
             fields.entry(key).or_insert(values);
         }
         for picture in tag.pictures() {
-            let info = technical::picture_information(picture);
-            covers.push(CoverInfo {
-                index: covers.len(),
-                mime: picture
-                    .mime_type()
-                    .map(|m| m.as_str())
-                    .unwrap_or("application/octet-stream")
-                    .into(),
-                description: picture.description().unwrap_or_default().into(),
-                picture_type: format!("{:?}", picture.pic_type()),
-                data_base64: if include_cover_data {
-                    STANDARD.encode(picture.data())
-                } else {
-                    String::new()
-                },
-                size: picture.data().len() as u64,
-                width: info.as_ref().map(|i| i.width).filter(|n| *n > 0),
-                height: info.as_ref().map(|i| i.height).filter(|n| *n > 0),
-                digest: cover_digest(picture.data()),
-            });
+            covers.push(cover_info(covers.len(), picture, include_cover_data));
         }
     }
     let properties = file.properties();
@@ -507,6 +513,10 @@ fn read_description(
 ) -> Result<AudioEntry, String> {
     validate_user_mappings(rules)?;
     let path = path.canonicalize().map_err(|e| e.to_string())?;
+    // Before lofty: its MPEG sync search can match bytes inside ASF artwork.
+    if asf::sniff(&path) {
+        return asf::describe(&path, include_cover_data, rules);
+    }
     let probe = Probe::open(&path)
         .map_err(|e| e.to_string())?
         .guess_file_type()
@@ -629,6 +639,7 @@ fn audio_extension(path: &Path, allowed: Option<&[String]>) -> bool {
             | "aiff"
             | "aifc"
             | "ape"
+            | "asf"
             | "flac"
             | "m4a"
             | "m4b"
@@ -644,6 +655,7 @@ fn audio_extension(path: &Path, allowed: Option<&[String]>) -> bool {
             | "spx"
             | "wav"
             | "wave"
+            | "wma"
             | "wv"
     )
 }
@@ -739,6 +751,27 @@ fn staged_mutation_with_mappings<F>(
 where
     F: FnOnce(&mut fs::File, TaggedFile, &Path) -> Result<(), String>,
 {
+    staged_write(
+        path,
+        include_cover_data,
+        rules,
+        options,
+        |staging, original, staged_path| mutation(staging, load(original)?, staged_path),
+    )
+}
+
+/// Like `staged_mutation_with_mappings`, for formats that lofty cannot load.
+/// The closure receives the staging file, the original path and the staged path.
+fn staged_write<F>(
+    path: &Path,
+    include_cover_data: bool,
+    rules: &[UserFieldMapping],
+    options: &TagOptions,
+    mutation: F,
+) -> Result<AudioEntry, String>
+where
+    F: FnOnce(&mut fs::File, &Path, &Path) -> Result<(), String>,
+{
     validate_user_mappings(rules)?;
     options.validate()?;
     let path = path.canonicalize().map_err(|e| e.to_string())?;
@@ -749,14 +782,13 @@ where
     if original.permissions().readonly() {
         return Err("The audio file is read-only".into());
     }
-    let file = load(&path)?;
     let mut staging = tempfile::Builder::new()
         .prefix(".opentag-")
         .tempfile_in(path.parent().ok_or("Audio path has no parent directory")?)
         .map_err(|e| e.to_string())?;
     fs::copy(&path, staging.path()).map_err(|e| e.to_string())?;
     let staged_path = staging.path().to_path_buf();
-    mutation(staging.as_file_mut(), file, &staged_path)?;
+    mutation(staging.as_file_mut(), &path, &staged_path)?;
     if options.preserve_modified_time {
         if let Ok(modified) = original.modified() {
             staging
@@ -1105,6 +1137,9 @@ fn write_fields_result(
     if updates.is_empty() {
         return read_description(path, include_cover_data, rules, options);
     }
+    if asf::sniff(path) {
+        return asf::write_fields(path, updates, include_cover_data, rules, options);
+    }
     staged_mutation_with_mappings(
         path,
         include_cover_data,
@@ -1180,6 +1215,9 @@ fn remove_tags_result(
     include_cover_data: bool,
     options: &TagOptions,
 ) -> Result<AudioEntry, String> {
+    if asf::sniff(path) {
+        return asf::remove_tags(path, include_cover_data, options);
+    }
     staged_mutation(path, include_cover_data, options, |staging, file, _| {
         for tag in file.tags() {
             staging
@@ -1251,6 +1289,18 @@ fn add_picture_result(
     include_cover_data: bool,
     options: &TagOptions,
 ) -> Result<AudioEntry, String> {
+    if asf::sniff(path) {
+        return asf::change_pictures(
+            path,
+            include_cover_data,
+            options,
+            |pictures| {
+                pictures.push(picture);
+                Ok(())
+            },
+            "The cover could not be added",
+        );
+    }
     staged_mutation(
         path,
         include_cover_data,
@@ -1333,6 +1383,21 @@ fn remove_cover_result(
     include_cover_data: bool,
     options: &TagOptions,
 ) -> Result<AudioEntry, String> {
+    if asf::sniff(path) {
+        return asf::change_pictures(
+            path,
+            include_cover_data,
+            options,
+            |pictures| {
+                if index >= pictures.len() {
+                    return Err(format!("Cover index {index} does not exist"));
+                }
+                pictures.remove(index);
+                Ok(())
+            },
+            "The cover could not be removed",
+        );
+    }
     staged_mutation(
         path,
         include_cover_data,

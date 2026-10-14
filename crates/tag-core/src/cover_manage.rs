@@ -80,11 +80,32 @@ pub fn find_cover_data(
     cover: &CoverRef,
     options: &TagOptions,
 ) -> Result<Option<Vec<u8>>, String> {
-    let file = load(path)?;
-    Ok(current_pictures(&file, options)
+    read_description(path, true, &[], options)?
+        .covers
         .into_iter()
-        .find(|picture| cover.matches(picture, &cover_digest(picture.data())))
-        .map(Picture::into_data))
+        .find(|info| &CoverRef::of(info) == cover)
+        .map(|info| STANDARD.decode(info.data_base64).map_err(|e| e.to_string()))
+        .transpose()
+}
+
+/// ASF artwork is not read by lofty; rebuild its pictures from a full read.
+fn asf_pictures(path: &Path, options: &TagOptions) -> Result<Vec<Picture>, String> {
+    read_description(path, true, &[], options)?
+        .covers
+        .into_iter()
+        .map(|info| {
+            let mut picture = Picture::unchecked(
+                STANDARD
+                    .decode(info.data_base64)
+                    .map_err(|e| e.to_string())?,
+            )
+            .mime_type(lofty::picture::MimeType::from_str(&info.mime))
+            .pic_type(picture_type_from_name(&info.picture_type)?)
+            .build();
+            picture.set_description((!info.description.is_empty()).then_some(info.description));
+            Ok(picture)
+        })
+        .collect()
 }
 
 fn planned_pictures(current: &[Picture], changes: &[CoverChange]) -> Result<Vec<Picture>, String> {
@@ -151,10 +172,15 @@ pub fn apply_cover_changes_with_options(
     changes: &[CoverChange],
     options: &TagOptions,
 ) -> Result<AudioEntry, String> {
-    let file = load(path)?;
-    let current = current_pictures(&file, options);
+    let asf = asf::sniff(path);
+    let (current, file_type) = if asf {
+        (asf_pictures(path, options)?, FileType::Custom("ASF"))
+    } else {
+        let file = load(path)?;
+        (current_pictures(&file, options), file.file_type())
+    };
     let mut planned = planned_pictures(&current, changes)?;
-    normalize_for(file.file_type(), &mut planned);
+    normalize_for(file_type, &mut planned);
     let unchanged = current.len() == planned.len()
         && current
             .iter()
@@ -162,6 +188,18 @@ pub fn apply_cover_changes_with_options(
             .all(|(a, b)| identity(a) == identity(b));
     if unchanged {
         return read_entry_summary_with_options(path, &[], options);
+    }
+    if asf {
+        return asf::change_pictures(
+            path,
+            false,
+            options,
+            |pictures| {
+                *pictures = planned;
+                Ok(())
+            },
+            DUPLICATE_COVERS,
+        );
     }
     write_pictures(path, planned, options)
 }
