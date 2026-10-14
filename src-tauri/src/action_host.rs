@@ -477,7 +477,8 @@ impl ActionHost for NativeHost {
                 for group in groups.values() {
                     let Some(first) = group.first() else { continue };
                     let name = self.evaluate(filename_template, first)?;
-                    let target = relative_to_file(&name, &state_path(first)?);
+                    let target =
+                        normalized_output_path(&relative_to_file(&name, &state_path(first)?))?;
                     self.protect_output(&target, states)?;
                     if !destinations.insert(normalized_output(&target)?) {
                         return Err(format!(

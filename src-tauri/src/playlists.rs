@@ -262,7 +262,8 @@ fn plan(
                     .unwrap_or(Path::new("."))
                     .to_path_buf()
             });
-        let target = base.join(name);
+        // Resolve symlinked folders so relative entries match the scanned file paths.
+        let target = crate::action_host::normalized_output_path(&base.join(name))?;
         let normalized = crate::action_host::normalized_output(&target)?;
         if inputs.contains(&normalized) {
             return Err("A playlist cannot replace an input audio file".into());
@@ -519,6 +520,27 @@ mod tests {
                 .contains("does not exist")
         );
         assert!(!root.join("missing").exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn relative_entries_survive_a_symlinked_working_directory() {
+        let (directory, paths) = fixture(&["album/1.wav", "album/2.wav"]);
+        let root = directory.path().canonicalize().unwrap();
+        let link = tempfile::tempdir().unwrap();
+        let alias = link.path().join("alias");
+        std::os::unix::fs::symlink(root.join("album"), &alias).unwrap();
+        let mut list = request(&paths, "list.m3u8");
+        list.base_directory = Some(alias.to_string_lossy().into_owned());
+        let settings = evaluation::EvaluationSettings::default();
+        let plan = create(&list, &settings, &PlaylistOptions::default()).unwrap();
+        assert_eq!(
+            plan.playlists[0].path,
+            root.join("album/list.m3u8").to_string_lossy()
+        );
+        let loaded = tag_core::playlist::load_playlist(&alias.join("list.m3u8"), None).unwrap();
+        assert_eq!(loaded.missing, []);
+        assert_eq!(loaded.files.len(), 2);
     }
 
     #[test]
