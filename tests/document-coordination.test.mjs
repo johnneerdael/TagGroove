@@ -8,7 +8,7 @@ import ts from 'typescript';
 const main=await readFile(new URL('../src/main.ts',import.meta.url),'utf8');
 const helper=await readFile(new URL('../src/document-state.ts',import.meta.url),'utf8');
 const parsed=ts.createSourceFile('main.ts',main,ts.ScriptTarget.Latest,true,ts.ScriptKind.TS);
-const names=new Set(['updateDraft','run','saveDrafts','saveCopy','value','accept','operateImpl','refreshSourceAccess','providerEntry','copyBaseUnknown','editedCopyFields','discardDrafts','mutate','reconcileWorkingEntries','storeEntry','invalidateCovers','cacheCovers','coversFor','hydrateActiveCover','coverMarkup','sourceMarkup','workingMetadataNotice']);
+const names=new Set(['updateDraft','run','refreshHistory','saveDrafts','saveCopy','value','accept','operateImpl','refreshSourceAccess','providerEntry','copyBaseUnknown','editedCopyFields','discardDrafts','mutate','reconcileWorkingEntries','storeEntry','invalidateCovers','cacheCovers','coversFor','hydrateActiveCover','coverMarkup','sourceMarkup','workingMetadataNotice']);
 const mergedDeclaration=parsed.statements.filter(ts.isVariableStatement).flatMap(statement=>statement.declarationList.declarations).find(declaration=>declaration.name.getText(parsed)==='merged');
 const functions=parsed.statements.filter(node=>ts.isFunctionDeclaration(node)&&names.has(node.name?.text)).map(node=>node.getText(parsed)).join('\n');
 const factory=`${helper.replace(/\bexport /g,'')}

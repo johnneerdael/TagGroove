@@ -167,3 +167,5 @@ dialog { background:var(--surface); }
 @media(max-width:1000px){.source-access{padding:9px 12px}.source-actions button{min-height:44px}.files>.source-access{max-height:32vh;overflow:auto;overscroll-behavior:contain}}
 
 .export-dialog{width:760px}.export-dialog #export-list{width:100%;min-height:88px;color:var(--text);background:var(--surface);border:1px solid var(--line)}.export-dialog #export-template{min-height:180px;font-family:monospace;white-space:pre;overflow:auto}.export-dialog p{overflow-wrap:anywhere}
+/* Edit history labels name the operation; keep them on one line with the full text in the tooltip. */
+.menu-list [data-op=undo]>span:not(.icon),.menu-list [data-op=redo]>span:not(.icon){max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
