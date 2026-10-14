@@ -128,6 +128,8 @@ export type TagPanelHost={
   directories:()=>{selected:string[];all:string[]};selectDirectory:(directory:string)=>void;openFolder:()=>void;
   draft:(field:string,value:string)=>void;keep:(field:string)=>void;
   changed:()=>void;notify:(message:string)=>void;fail:(error:unknown)=>void;
+  /** Options → General → Auto-completion at selection boxes: the completer while it is enabled. */
+  autocomplete?:()=>((input:HTMLInputElement,event:Event,candidates:()=>Iterable<string>)=>boolean)|undefined;
 };
 const groupLabels:Record<ComboOption['group'],string>={special:'',selection:'Selected files',custom:'Custom values',genre:'Genres',directory:'Loaded folders'};
 type OpenList={input:HTMLInputElement|HTMLTextAreaElement;field:PanelField;options:ComboOption[];active:number;popup:HTMLElement};
@@ -176,7 +178,8 @@ export class TagPanel {
       const check=checkState(values);
       return `<div class="panel-field panel-check-field" ${span}><label class="action-check"><input type="checkbox" id="${id}" data-check="${html(field.field)}" data-panel-index="${index}" ${check==='on'?'checked':''} data-mixed="${check==='mixed'}" ${off} ${shortcut}> ${label.html}</label></div>`;
     }
-    const placeholder=state.mixed?KEEP:'',common=`id="${id}" data-field="${html(field.field)}" data-panel-index="${index}" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-autocomplete="none" placeholder="${placeholder}" autocomplete="off" ${off} ${shortcut}`;
+    const placeholder=state.mixed?KEEP:'',inline=field.type==='text'&&!!this.host.autocomplete?.();
+    const common=`id="${id}" data-field="${html(field.field)}" data-panel-index="${index}" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-autocomplete="${inline?'inline':'none'}" placeholder="${placeholder}" autocomplete="off" ${off} ${shortcut}`;
     const control=field.type==='multiline'?`<textarea ${common} rows="${field.rows}">${html(state.value)}</textarea>`:`<input ${common} value="${html(state.value)}">`;
     return `<div class="field panel-field" ${span}><label for="${id}">${label.html}</label><div class="combo ${field.type==='multiline'?'multiline':''}">${control}<button type="button" class="combo-toggle" data-combo="${index}" tabindex="-1" aria-label="Show values for ${html(label.label)}" ${off}>▾</button></div></div>`;
   }
@@ -193,7 +196,12 @@ export class TagPanel {
     }));
     root.querySelectorAll<HTMLInputElement|HTMLTextAreaElement>('.combo [data-panel-index]').forEach(input=>{
       input.addEventListener('keydown',event=>this.comboKey(event as KeyboardEvent,input));
-      input.addEventListener('input',()=>this.closeList());
+      input.addEventListener('input',event=>{
+        this.closeList();
+        const field=this.settings.panel.fields[Number(input.dataset.panelIndex)];
+        const complete=this.host.autocomplete?.();
+        if(complete&&input instanceof HTMLInputElement&&field?.type==='text'&&input.dataset.field)complete(input,event,()=>this.optionsFor(field).filter(option=>option.kind==='value').map(option=>option.value));
+      });
       input.addEventListener('blur',()=>{if(this.list?.input===input)this.closeList();});
       if(input.dataset.directory!==undefined)input.addEventListener('click',()=>this.list?.input===input?this.closeList():this.openList(input));
     });

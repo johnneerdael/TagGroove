@@ -8,7 +8,7 @@
 mod credentials;
 mod discogs;
 mod freedb;
-mod http;
+pub(crate) mod http;
 mod model;
 mod musicbrainz;
 
@@ -338,6 +338,10 @@ pub struct ApplyItem {
 pub struct ApplyCover {
     pub url: String,
     pub replace_existing: bool,
+    /// Files that already have artwork keep it (Options → Messages → at
+    /// importing covers).
+    #[serde(default)]
+    pub preserve_existing: bool,
     /// Utils → Save image to disc: a file name format (Options → Tag Sources).
     #[serde(default)]
     pub save_as: Option<String>,
@@ -360,6 +364,18 @@ fn validate_items(items: &[ApplyItem], cover: bool) -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+/// The cover to write to `path`: none when existing artwork is preserved.
+fn cover_target<'a>(
+    path: &Path,
+    cover: Option<&'a Path>,
+    preserve: bool,
+) -> Result<Option<&'a Path>, String> {
+    if preserve && cover.is_some() && !crate::settings::read_summary(path)?.covers.is_empty() {
+        return Ok(None);
+    }
+    Ok(cover)
 }
 
 /// Writes honour the user's tag write/remove preferences (MPEG/APE, covers).
@@ -405,6 +421,7 @@ pub async fn tag_source_apply(
         None => None,
     };
     let replace = cover.as_ref().is_some_and(|c| c.replace_existing);
+    let preserve = cover.as_ref().is_some_and(|c| c.preserve_existing);
     crate::io(move || {
         let staging = tempfile::tempdir().map_err(|e| e.to_string())?;
         let cover_path = match &image {
@@ -428,7 +445,8 @@ pub async fn tag_source_apply(
                     .copied()
                     .ok_or("File is not part of this import")?;
                 crate::mutate_document(path, |working| {
-                    apply_one(working, fields, cover_path.as_deref(), replace)
+                    let cover = cover_target(working, cover_path.as_deref(), preserve)?;
+                    apply_one(working, fields, cover, replace)
                 })
             }))
         })?;
@@ -601,6 +619,25 @@ mod tests {
     }
 
     #[test]
+    fn preserved_artwork_is_not_replaced() {
+        let dir = tempfile::tempdir().unwrap();
+        let (with, without) = (dir.path().join("a.wav"), dir.path().join("b.wav"));
+        wav(&with);
+        wav(&without);
+        tag_core::add_cover_summary(&with, &png(dir.path(), "old.png", 1)).unwrap();
+        let cover = png(dir.path(), "new.png", 2);
+        assert_eq!(cover_target(&with, Some(&cover), true).unwrap(), None);
+        assert_eq!(
+            cover_target(&without, Some(&cover), true).unwrap(),
+            Some(cover.as_path())
+        );
+        assert_eq!(
+            cover_target(&with, Some(&cover), false).unwrap(),
+            Some(cover.as_path())
+        );
+    }
+
+    #[test]
     fn cover_size_comes_from_the_options_page() {
         let mut settings = crate::settings::Settings::default();
         assert_eq!(cover_size_from(&settings), musicbrainz::CoverSize::Medium);
@@ -647,6 +684,7 @@ mod tests {
             Some(ApplyCover {
                 url: "https://example.com/a.jpg".into(),
                 replace_existing: true,
+                preserve_existing: false,
                 save_as: None,
             }),
         ))

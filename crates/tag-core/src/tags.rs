@@ -12,6 +12,10 @@ mod cover_ops;
 mod mapping;
 #[path = "mp4_chapters.rs"]
 mod mp4_chapters;
+#[path = "mp4_layout.rs"]
+mod mp4_layout;
+#[path = "optimize.rs"]
+mod optimize;
 #[path = "tag_policy.rs"]
 mod tag_policy;
 #[path = "tag_types.rs"]
@@ -46,6 +50,7 @@ pub use mapping::{
     field_mapping, map_read_fields, map_write_fields, validate_user_mappings, FieldMapping,
     UserFieldMapping, FIELD_MAPPINGS,
 };
+pub use optimize::*;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, HashSet},

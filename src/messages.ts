@@ -2,13 +2,16 @@
 // which confirmations and notifications are shown around operations.
 import type { OptionsPage } from './options-ui';
 
-export type MessageKey='after_save'|'after_change'|'after_delete'|'confirm_remove_tags'|'confirm_cut_tags'|'confirm_paste_tags'|'confirm_export'|'confirm_delete_files'|'unsaved_changes';
+export type MessageKey='after_save'|'after_change'|'after_delete'|'confirm_remove_tags'|'confirm_cut_tags'|'confirm_paste_tags'|'confirm_export'|'confirm_delete_files'|'action_warnings'|'unsaved_changes'|'confirm_import_covers';
 export const MESSAGE_DEFAULTS:Record<MessageKey,boolean>={
   after_save:false,after_change:false,after_delete:false,
-  confirm_remove_tags:true,confirm_cut_tags:false,confirm_paste_tags:false,confirm_export:false,confirm_delete_files:true,unsaved_changes:true,
+  confirm_remove_tags:true,confirm_cut_tags:false,confirm_paste_tags:false,confirm_export:false,confirm_delete_files:true,action_warnings:true,unsaved_changes:true,confirm_import_covers:true,
 };
+/** What a tag source import does with existing artwork when it does not ask. */
+export type CoverChoice='preserve'|'replace';
+export function coverChoice(values:Record<string,unknown>):CoverChoice{return values.import_covers_choice==='preserve'?'preserve':'replace';}
 const check=(key:MessageKey,label:string)=>({kind:'checkbox' as const,path:`pages.messages.${key}`,label});
-export const messagesOptionsPage:OptionsPage={id:'messages',label:'Messages',order:15,defaults:{...MESSAGE_DEFAULTS},
+export const messagesOptionsPage:OptionsPage={id:'messages',label:'Messages',order:15,defaults:{...MESSAGE_DEFAULTS,import_covers_choice:'replace'},
   description:'Choose which messages are shown before or after operations.',controls:[
     {kind:'group',label:'Show a notification',controls:[
       check('after_save','after saving tags'),
@@ -20,8 +23,11 @@ export const messagesOptionsPage:OptionsPage={id:'messages',label:'Messages',ord
       check('confirm_paste_tags','at pasting tags'),
       check('confirm_export','at exporting and creating playlists (offers to open the written file)'),
       check('confirm_delete_files','at deleting files'),
-      check('unsaved_changes','at unsaved changes (closing, reloading, refreshing or discarding pending edits)')]},
-    {kind:'note',text:'Without a confirmation, deleted files still go to the Trash or Recycle Bin, and pending tag edits are discarded.'},
+      check('action_warnings','at warnings from Actions (file errors of the last action or action groups)'),
+      check('unsaved_changes','at unsaved changes (closing, reloading, refreshing or discarding pending edits)'),
+      check('confirm_import_covers','at importing covers (when files already have cover art)'),
+      {kind:'radio',path:'pages.messages.import_covers_choice',label:'Without asking, existing cover art is',enabledWhen:draft=>!messageEnabled(draft.pages.messages??{},'confirm_import_covers'),choices:[['preserve','Preserved'],['replace','Replaced or added to, as chosen in the import']]}]},
+    {kind:'note',text:'Without a confirmation, deleted files still go to the Trash or Recycle Bin, and pending tag edits are discarded. Without warnings from Actions, file errors are listed below the file list only.'},
   ]};
 
 export type MessageHost={

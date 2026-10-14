@@ -21,7 +21,10 @@ mod rename_plan;
 mod settings;
 mod sources;
 mod tag_panel;
+mod updates;
 mod utilities;
+#[cfg(desktop)]
+mod window_state;
 
 fn export_library_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(action_host::library_path(app)?.with_file_name("exports.json"))
@@ -910,7 +913,15 @@ pub fn run() {
         .setup(|app| {
             let _ = APP_HANDLE.set(app.handle().clone());
             tauri::Manager::manage(app, settings::SettingsStore::open(app.handle()));
+            #[cfg(desktop)]
+            if let Some(window) = tauri::Manager::get_webview_window(app, "main") {
+                window_state::restore(&window);
+            }
             Ok(())
+        })
+        .on_window_event(|_window, _event| {
+            #[cfg(desktop)]
+            window_state::track(_window, _event);
         })
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_document_access::init())
@@ -1001,16 +1012,25 @@ pub fn run() {
             sources::load_tag_source_settings,
             sources::save_tag_source_settings,
             utilities::remove_tag_types,
+            utilities::apply_util,
             utilities::strip_mp4_chapters,
             utilities::run_tool,
             utilities::export_configuration,
             utilities::import_configuration,
             utilities::open_configuration_folder,
             utilities::open_help_page,
-            utilities::write_clipboard_text
+            utilities::write_clipboard_text,
+            updates::check_for_updates,
+            updates::open_release_page
         ])
-        .run(tauri::generate_context!())
-        .expect("Unable to run OpenTag");
+        .build(tauri::generate_context!())
+        .expect("Unable to run OpenTag")
+        .run(|_app, _event| {
+            #[cfg(desktop)]
+            if let tauri::RunEvent::Exit = _event {
+                window_state::save(_app);
+            }
+        });
 }
 
 #[cfg(test)]

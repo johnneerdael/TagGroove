@@ -30,9 +30,11 @@ sha2 = "0.10"
 md-5 = "0.10"
 crc32fast = "1"
 uuid = { version = "1", features = ["v4"] }
-# Tag sources: rustls with the ring provider and bundled roots (no OpenSSL or
-# platform verifier initialisation), so every desktop and mobile target builds.
-reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider"] }
+# Tag sources and the update check: rustls with the ring provider and bundled
+# roots (no OpenSSL or platform verifier initialisation), so every desktop and
+# mobile target builds. `system-proxy` reads the macOS and Windows proxy
+# settings (Options → Networking).
+reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider", "system-proxy"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 webpki-roots = "1"
 tokio = { version = "1", features = ["sync", "time"] }

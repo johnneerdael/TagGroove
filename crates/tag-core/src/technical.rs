@@ -499,11 +499,9 @@ pub(super) fn id3_details(fields: &mut Fields, tag: &Id3v2Tag) {
                 encodings.push(label);
             }
         }
-        if let Frame::Binary(binary) = frame {
-            let id = binary.id().as_str();
-            if id != "IPLS" && id != "PCST" && !opaque.contains(&id) {
-                opaque.push(id);
-            }
+        let id = frame.id().as_str();
+        if super::optimize::unsupported_id3_frame(frame) && !opaque.contains(&id) {
+            opaque.push(id);
         }
     }
     encodings.sort_unstable();
