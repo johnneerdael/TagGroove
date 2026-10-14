@@ -103,8 +103,10 @@ pub(crate) fn save(file: &mut fs::File, tag: &VorbisComments) -> Result<(), Stri
         file.seek(SeekFrom::Start(MAGIC.len() as u64))
             .and_then(|_| file.write_all(&updated))
             .map_err(|e| e.to_string())?;
+        crate::write_cost::rewrote_region(updated.len() as u64);
         return Ok(());
     }
+    crate::write_cost::rewrote_all();
     file.seek(SeekFrom::Start(0)).map_err(|e| e.to_string())?;
     tag.save_to(file, WriteOptions::default())
         .map_err(|e| crate::tags::error_message(&e))
