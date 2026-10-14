@@ -1,8 +1,10 @@
 # Online tag sources (MusicBrainz and Discogs)
 
 Branch `feat/tag-sources` adds a top-level **Tag Sources** menu between Actions
-and Help, matching Mp3tag's menu placement. It has three entries:
-**MusicBrainz…**, **Discogs…** and **Options…**. Ctrl/⌘+I repeats the last used
+and Help, matching Mp3tag's menu placement. It has four entries:
+**MusicBrainz…**, **Discogs…**, **Discogs access token…** and **Options…**.
+**Options…** opens the shared Options dialog at its **Tag Sources** page, which
+corresponds to Mp3tag's Options › Tag Sources. Ctrl/⌘+I repeats the last used
 source, which is Mp3tag's shortcut too. Both providers are native Rust clients
 for the public web APIs. No Mp3tag `.src` web source scripts are used or shipped.
 
@@ -123,12 +125,16 @@ Vorbis mappings apply.
     stale responses.
   - `Image::validate` checks downloaded artwork with the `image` crate. It
     accepts JPEG, PNG, GIF, WebP or BMP that decodes to sane dimensions.
-- `settings.rs` stores `tag-sources.json` in the app config directory. The
-  Discogs personal access token and the MusicBrainz cover size (250, 500, 1200
-  or original, as in Mp3tag's options) are kept there. The file is written
-  atomically through a 0600 temporary file. The token never returns to the
-  webview, which only receives `discogs_token_set`. The Options dialog uses a
-  masked input and a "Remove the saved token" checkbox.
+- The MusicBrainz cover size (250, 500, 1200 or original, as in Mp3tag's
+  options) is set on the Options → Tag Sources page. That page is registered with
+  `registerOptionsPage` and stored in the shared settings under
+  `pages.tag-sources.musicbrainz_cover_size`. The backend reads it through
+  `crate::settings::current()`.
+- `credentials.rs` keeps the Discogs personal access token out of the shared
+  settings. It lives in its own `tag-sources.json` in the app config directory,
+  written atomically through a 0600 temporary file. The token never returns to
+  the webview, which only receives `discogs_token_set`. The "Discogs access
+  token…" dialog uses a masked input and a "Remove the saved token" checkbox.
 - `mod.rs` holds the Tauri commands: `tag_source_search`, `tag_source_release`,
   `tag_source_covers`, `tag_source_image` (a data URL, because the CSP blocks
   remote images), `tag_source_cancel`, `tag_source_apply`, and
@@ -139,8 +145,10 @@ Vorbis mappings apply.
     stages it as `cover.<ext>` in a temporary directory.
   - Inside the shared file-operation lock (`io`), each file goes through
     `mutate_document`, so provider documents keep their recovery semantics. The
-    steps are `write_fields_summary`, then `remove_all_covers_summary` if
-    replacing, then `add_cover_summary`. Results come back per file as a
+    steps use the settings-aware writers, so the user's MPEG/APE tag
+    write/remove preferences apply to fields and covers: `settings::write_summary`,
+    then `remove_all_covers_with_options` if replacing, then
+    `add_cover_with_options`, all with `settings::tag_options()`. Results come back per file as a
     `ScanResult`.
 - `src/tag-sources.ts` holds the UI module (`TagSourcesUI`) and its pure
   helpers: `searchPrefill`, `similarity`, `autoMatch`, `moveSlot`, `fieldRows`

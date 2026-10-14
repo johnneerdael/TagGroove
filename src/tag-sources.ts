@@ -9,8 +9,12 @@ export type SourceRelease = {provider:Provider;id:string;url:string;title:string
 export type SourceFile = {path:string;name:string;title:string;artist:string;album:string;album_artist:string;track:string;disc:string;length:number};
 export type ApplyItem = {path:string;updates:Fields};
 export type ApplyCover = {url:string;replace_existing:boolean};
-export type CoverSize = '250'|'500'|'1200'|'original';
-export type TagSourceSettings = {discogs_token_set:boolean;musicbrainz_cover_size:CoverSize};
+export type TagSourceCredentials = {discogs_token_set:boolean};
+/** Options → Tag Sources (Mp3tag: Options › Tag Sources). Values persist under `pages.tag-sources`. */
+export const tagSourcesOptionsPage = {id:'tag-sources',label:'Tag Sources',order:60,controls:[
+  {kind:'select' as const,path:'pages.tag-sources.musicbrainz_cover_size',label:'MusicBrainz cover size',choices:[['500','500 pixels (default)'],['250','250 pixels'],['1200','1200 pixels'],['original','Original size']] as [string,string][]},
+  {kind:'note' as const,text:'Cover Art Archive images are downloaded in this size; original images can be very large. Set the Discogs personal access token with Tag Sources → Discogs access token….'},
+]};
 export type FieldRow = {name:string;value:string;perTrack:boolean};
 
 export const providerName = (provider:Provider) => provider === 'musicbrainz' ? 'MusicBrainz' : 'Discogs';
@@ -129,35 +133,33 @@ export class TagSourcesUI {
   constructor(private host:TagSourcesHost) {}
   get lastProvider():Provider { return storage.get('opentag.tagSources.last') === 'discogs' ? 'discogs' : 'musicbrainz'; }
 
-  async options() {
+  /** The Discogs token stays in its own private file, never in the shared Options store. */
+  async token() {
     if (this.showing) return;
     this.showing = true;
-    let settings:TagSourceSettings;
-    try { settings = await this.host.invoke<TagSourceSettings>('load_tag_source_settings'); } catch (error) { this.showing = false; throw error; }
+    let credentials:TagSourceCredentials;
+    try { credentials = await this.host.invoke<TagSourceCredentials>('load_tag_source_settings'); } catch (error) { this.showing = false; throw error; }
     const dialog = document.createElement('dialog');
-    dialog.className = 'tag-source-dialog';
-    dialog.setAttribute('aria-label','Tag Sources options');
-    dialog.innerHTML = `<header>Tag Sources options</header><div class="dialog-content">
-      <label class="field"><span>DISCOGS PERSONAL ACCESS TOKEN</span><input id="ts-token" type="password" autocomplete="off" spellcheck="false" placeholder="${settings.discogs_token_set ? 'Saved. Enter a new token to replace it.' : 'Not set'}"></label>
-      <label class="action-check"><input id="ts-token-clear" type="checkbox" ${settings.discogs_token_set ? '' : 'disabled'}> Remove the saved token</label>
-      <p>Create a token on Discogs under Settings → Developers. Release lookups and searches also work without one at a lower rate limit; with a token, searches show cover thumbnails. The token is stored in OpenTag's configuration folder and is not shown again.</p>
-      <label class="field"><span>MUSICBRAINZ COVER SIZE</span><select id="ts-cover-size">${(['250','500','1200','original'] as CoverSize[]).map(size => `<option value="${size}" ${size === settings.musicbrainz_cover_size ? 'selected' : ''}>${size === 'original' ? 'Original size' : `${size} pixels`}</option>`).join('')}</select></label>
-      <p>Cover Art Archive images are downloaded in this size. Original images can be very large.</p></div>
-      <div class="dialog-footer"><button data-close>Cancel</button><button class="primary" id="ts-save-options">Save</button></div>`;
+    dialog.className = 'tag-source-dialog ts-token-dialog';
+    dialog.setAttribute('aria-label','Discogs access token');
+    dialog.innerHTML = `<header>Discogs access token</header><div class="dialog-content">
+      <label class="field"><span>PERSONAL ACCESS TOKEN</span><input id="ts-token" type="password" autocomplete="off" spellcheck="false" placeholder="${credentials.discogs_token_set ? 'Saved. Enter a new token to replace it.' : 'Not set'}"></label>
+      <label class="action-check"><input id="ts-token-clear" type="checkbox" ${credentials.discogs_token_set ? '' : 'disabled'}> Remove the saved token</label>
+      <p>Create a token on Discogs under Settings → Developers. Release lookups and searches also work without one at a lower rate limit; with a token, searches show cover thumbnails. The token is stored privately in OpenTag's configuration folder and is not shown again.</p></div>
+      <div class="dialog-footer"><button data-close>Cancel</button><button class="primary" id="ts-save-token">Save</button></div>`;
     document.body.append(dialog);
     const error = (message:unknown) => { let p = dialog.querySelector('.dialog-error'); if (!p) { p = document.createElement('p'); p.className = 'dialog-error'; p.setAttribute('role','alert'); dialog.querySelector('.dialog-content')!.append(p); } p.textContent = String(message); };
-    const token = dialog.querySelector<HTMLInputElement>('#ts-token')!, clear = dialog.querySelector<HTMLInputElement>('#ts-token-clear')!;
-    clear.addEventListener('change',() => { token.disabled = clear.checked; });
+    const token = dialog.querySelector<HTMLInputElement>('#ts-token')!, clear = dialog.querySelector<HTMLInputElement>('#ts-token-clear')!, save = dialog.querySelector<HTMLButtonElement>('#ts-save-token')!;
+    const sync = () => { token.disabled = clear.checked; save.disabled = !clear.checked && !token.value.trim(); };
+    clear.addEventListener('change',sync); token.addEventListener('input',sync);
     dialog.querySelector('[data-close]')!.addEventListener('click',() => dialog.close());
     dialog.addEventListener('close',() => { this.showing = false; dialog.remove(); });
-    dialog.querySelector('#ts-save-options')!.addEventListener('click',async () => {
-      const save = dialog.querySelector<HTMLButtonElement>('#ts-save-options')!;
+    save.addEventListener('click',async () => {
       save.disabled = true;
-      try {
-        await this.host.invoke('save_tag_source_settings',{update:{discogs_token:clear.checked ? '' : token.value.trim() || null,musicbrainz_cover_size:dialog.querySelector<HTMLSelectElement>('#ts-cover-size')!.value}});
-        dialog.close();
-      } catch (e) { error(e); save.disabled = false; }
+      try { await this.host.invoke('save_tag_source_settings',{update:{discogs_token:clear.checked ? '' : token.value.trim()}}); dialog.close(); }
+      catch (e) { error(e); sync(); }
     });
+    sync();
     dialog.showModal();
     token.focus();
   }

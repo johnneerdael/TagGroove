@@ -5,11 +5,11 @@
 //! [`SourceRelease`]; matching, field selection and writing are shared, so
 //! further sources (gnudb/freedb, local CUE or freedb files) plug in by adding
 //! a module with `search_query`/`parse_search`/`release_id`/`parse_release`.
+mod credentials;
 mod discogs;
 mod http;
 mod model;
 mod musicbrainz;
-mod settings;
 
 use base64::Engine;
 use http::Channel;
@@ -23,11 +23,24 @@ use tag_core::{AudioEntry, Fields, ScanResult};
 fn settings_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(crate::action_host::library_path(app)?.with_file_name("tag-sources.json"))
 }
-fn current_settings(app: &tauri::AppHandle) -> Result<settings::Settings, String> {
-    settings::load(&settings_path(app)?)
+fn current_credentials(app: &tauri::AppHandle) -> Result<credentials::Credentials, String> {
+    credentials::load(&settings_path(app)?)
 }
 
-fn service(provider: Provider, settings: &settings::Settings) -> http::Service {
+/// Cover Art Archive size from Options → Tag Sources (`pages.tag-sources`).
+fn cover_size() -> musicbrainz::CoverSize {
+    cover_size_from(&crate::settings::current())
+}
+fn cover_size_from(settings: &crate::settings::Settings) -> musicbrainz::CoverSize {
+    settings
+        .pages
+        .get("tag-sources")
+        .and_then(|page| page.get("musicbrainz_cover_size"))
+        .and_then(|value| serde_json::from_value(value.clone()).ok())
+        .unwrap_or_default()
+}
+
+fn service(provider: Provider, credentials: &credentials::Credentials) -> http::Service {
     match provider {
         // MusicBrainz allows one request per second per client.
         Provider::Musicbrainz => http::Service {
@@ -39,7 +52,7 @@ fn service(provider: Provider, settings: &settings::Settings) -> http::Service {
         },
         // Discogs allows 60 authenticated or 25 anonymous requests per minute.
         Provider::Discogs => {
-            let token = Some(settings.discogs_token.clone()).filter(|t| !t.is_empty());
+            let token = Some(credentials.discogs_token.clone()).filter(|t| !t.is_empty());
             let spacing = Duration::from_millis(if token.is_some() { 1100 } else { 2500 });
             http::Service {
                 name: "Discogs",
@@ -60,12 +73,18 @@ pub async fn tag_source_search(
     ticket: u64,
 ) -> Result<Vec<SearchResult>, String> {
     http::claim(Channel::Search, ticket);
-    let settings = current_settings(&app)?;
+    let credentials = current_credentials(&app)?;
     let url = match provider {
         Provider::Musicbrainz => musicbrainz::search_query(&query)?,
         Provider::Discogs => discogs::search_query(&query)?,
     };
-    let body = http::json(&service(provider, &settings), &url, Channel::Search, ticket).await?;
+    let body = http::json(
+        &service(provider, &credentials),
+        &url,
+        Channel::Search,
+        ticket,
+    )
+    .await?;
     Ok(match provider {
         Provider::Musicbrainz => musicbrainz::parse_search(&body),
         Provider::Discogs => discogs::parse_search(&body),
@@ -81,8 +100,8 @@ pub async fn tag_source_release(
     ticket: u64,
 ) -> Result<SourceRelease, String> {
     http::claim(Channel::Release, ticket);
-    let settings = current_settings(&app)?;
-    let service = service(provider, &settings);
+    let credentials = current_credentials(&app)?;
+    let service = service(provider, &credentials);
     match provider {
         Provider::Musicbrainz => {
             let id = musicbrainz::release_id(&input)?;
@@ -93,7 +112,7 @@ pub async fn tag_source_release(
                 ticket,
             )
             .await?;
-            musicbrainz::parse_release(&body, settings.musicbrainz_cover_size)
+            musicbrainz::parse_release(&body, cover_size())
         }
         Provider::Discogs => {
             let id = discogs::release_id(&input)?;
@@ -111,12 +130,7 @@ pub async fn tag_source_release(
 
 /// Every Cover Art Archive image of a MusicBrainz release (Discogs lists its images with the release).
 #[tauri::command]
-pub async fn tag_source_covers(
-    app: tauri::AppHandle,
-    id: String,
-    ticket: u64,
-) -> Result<Vec<model::SourceCover>, String> {
-    let settings = current_settings(&app)?;
+pub async fn tag_source_covers(id: String, ticket: u64) -> Result<Vec<model::SourceCover>, String> {
     let id = musicbrainz::release_id(&id)?;
     let archive = http::Service {
         name: "Cover Art Archive",
@@ -132,10 +146,7 @@ pub async fn tag_source_covers(
         ticket,
     )
     .await?;
-    Ok(musicbrainz::parse_covers(
-        &listing,
-        settings.musicbrainz_cover_size,
-    ))
+    Ok(musicbrainz::parse_covers(&listing, cover_size()))
 }
 
 /// Preview image as a data URL (the webview's CSP does not load remote images).
@@ -158,18 +169,18 @@ pub fn tag_source_cancel(ticket: u64) {
 #[tauri::command]
 pub async fn load_tag_source_settings(
     app: tauri::AppHandle,
-) -> Result<settings::SettingsView, String> {
-    Ok(current_settings(&app)?.view())
+) -> Result<credentials::CredentialsView, String> {
+    Ok(current_credentials(&app)?.view())
 }
 
 #[tauri::command]
 pub async fn save_tag_source_settings(
     app: tauri::AppHandle,
-    update: settings::SettingsUpdate,
-) -> Result<settings::SettingsView, String> {
+    update: credentials::CredentialsUpdate,
+) -> Result<credentials::CredentialsView, String> {
     let path = settings_path(&app)?;
-    let next = settings::load(&path)?.apply(update)?;
-    settings::save(&path, &next)?;
+    let next = credentials::load(&path)?.apply(update)?;
+    credentials::save(&path, &next)?;
     Ok(next.view())
 }
 
@@ -203,22 +214,24 @@ fn validate_items(items: &[ApplyItem], cover: bool) -> Result<(), String> {
     Ok(())
 }
 
+/// Writes honour the user's tag write/remove preferences (MPEG/APE, covers).
 fn apply_one(
     path: &Path,
     updates: &Fields,
     cover: Option<&Path>,
     replace: bool,
 ) -> Result<AudioEntry, String> {
+    let options = crate::settings::tag_options();
     let mut entry = if updates.is_empty() {
-        tag_core::read_entry_summary(path)?
+        crate::settings::read_summary(path)?
     } else {
-        tag_core::write_fields_summary(path, updates)?
+        crate::settings::write_summary(path, updates)?
     };
     if let Some(image) = cover {
         if replace {
-            tag_core::remove_all_covers_summary(path)?;
+            tag_core::remove_all_covers_with_options(path, &options)?;
         }
-        entry = tag_core::add_cover_summary(path, image)?;
+        entry = tag_core::add_cover_with_options(path, image, false, &options)?;
     }
     Ok(entry)
 }
@@ -331,6 +344,22 @@ mod tests {
     }
 
     #[test]
+    fn cover_size_comes_from_the_options_page() {
+        let mut settings = crate::settings::Settings::default();
+        assert_eq!(cover_size_from(&settings), musicbrainz::CoverSize::Medium);
+        settings.pages.insert(
+            "tag-sources".into(),
+            serde_json::json!({"musicbrainz_cover_size": "1200"}),
+        );
+        assert_eq!(cover_size_from(&settings), musicbrainz::CoverSize::Large);
+        settings.pages.insert(
+            "tag-sources".into(),
+            serde_json::json!({"musicbrainz_cover_size": "huge"}),
+        );
+        assert_eq!(cover_size_from(&settings), musicbrainz::CoverSize::Medium);
+    }
+
+    #[test]
     fn apply_items_must_be_unique_and_write_something() {
         let item = |path: &str, updates: Fields| ApplyItem {
             path: path.into(),
@@ -396,8 +425,7 @@ mod tests {
     #[ignore]
     fn live_musicbrainz_and_discogs_lookups() {
         let run = |provider, input: &str, ticket| {
-            let settings = settings::Settings::default();
-            let service = service(provider, &settings);
+            let service = service(provider, &credentials::Credentials::default());
             tauri::async_runtime::block_on(async {
                 match provider {
                     Provider::Musicbrainz => musicbrainz::parse_release(
