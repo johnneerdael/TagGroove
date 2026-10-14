@@ -61,6 +61,11 @@ def measurements(path):
                        '-of', 'json', str(path)], required=False)
     result['packets'] = json.loads(packets.stdout) if packets.returncode == 0 else {
         'error': packets.stderr.decode(errors='replace')}
+    covers = command([FFPROBE, '-v', 'error', '-select_streams', 'v', '-show_packets',
+                      '-show_data_hash', 'sha256', '-show_entries', 'packet=stream_index,data_hash,size',
+                      '-of', 'json', str(path)], required=False)
+    result['cover_packets'] = json.loads(covers.stdout).get('packets', []) if covers.returncode == 0 else {
+        'error': covers.stderr.decode(errors='replace')}
     pcm = command([FFMPEG, '-v', 'error', '-nostdin', '-i', str(path), '-map', '0:a:0',
                    '-c:a', 'pcm_s16le', '-f', 'hash', '-hash', 'sha256', '-'], required=False)
     result['decoded_pcm'] = pcm.stdout.decode().strip() if pcm.returncode == 0 else {
