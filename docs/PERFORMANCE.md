@@ -175,3 +175,153 @@ the same decoded-audio MD5, and `flac -t` passed on both.
   (process and WebView start), before any OpenTag code runs.
 - Not measured: Mp3tag itself (it does not run on this host), Windows/Linux,
   libraries much larger than 434 files, and a true cold cache.
+
+## Round 2: in-place ID3v2/MP4 writes, filter cache, list refresh (2026-10-15)
+
+Baseline is `5efc322` (`main` after round 1); "after" is `feat/perf-2`. macOS
+arm64, APFS, release builds, other agents building at the same time (expect a
+few milliseconds and a few percent of noise). Every write test ran on APFS
+clones in a scratch directory; `/Users/jneerdael/Music/Beatport` was only read
+or cloned.
+
+### Corpora
+
+- **FLAC**: the Beatport folder, 434 files, 17 GB (as in round 1).
+- **MP3**: 434 clones of one 4-minute 320 kbit/s LAME file made by ffmpeg
+  (`-id3v2_version 3 -write_id3v1 1`, 7 text frames and an 84 KB front cover).
+  ffmpeg leaves almost no ID3v2 padding, so the first edit of each file must
+  rewrite it.
+- **MP3, padded**: the same template after one OpenTag save, i.e. with the 4 KiB
+  of padding a rewrite now reserves (as a file previously tagged by Mp3tag or
+  OpenTag would have).
+- **M4A** and **M4A, padded**: the same for a 256 kbit/s AAC file with
+  `-movflags +faststart` (`moov` before `mdat`), 7 text atoms and a cover; ffmpeg
+  writes no `free` atom beside `ilst`.
+
+### Core: saving one COMMENT value to 434 files (`save_bench`)
+
+`save_bench <clone> 434 <suffix>`, serial, two consecutive edits that each
+change the tag size (edit 1 grows the value, edit 2 shrinks it). Median per
+file and total; peak RSS of edit 2 from `/usr/bin/time -l`.
+
+| Corpus | Edit | Before median / total | After median / total | RSS before → after |
+| --- | --- | ---: | ---: | ---: |
+| MP3 | 1 (first rewrite) | 52.5 ms / 23.6 s | 46.7 ms / 21.3 s | |
+| MP3 | 2 | 24.9 ms / 11.0 s | 15.4 ms / 7.6 s | 29 → 31 MB |
+| MP3, padded | 1 | 26.0 ms / 13.8 s | 12.3 ms / 6.4 s | |
+| MP3, padded | 2 | 43.2 ms / 29.4 s | 12.0 ms / 5.9 s | 30 → 32 MB |
+| M4A | 1 (first rewrite) | 23.8 ms / 15.0 s | 17.0 ms / 8.5 s | |
+| M4A | 2 | 18.3 ms / 8.6 s | 12.7 ms / 6.1 s | 138 → 25 MB |
+| M4A, padded | 1 | 16.1 ms / 7.6 s | 8.7 ms / 4.4 s | |
+| M4A, padded | 2 | 18.5 ms / 11.0 s | 8.5 ms / 3.8 s | 179 → 24 MB |
+| FLAC (Beatport) | 1 | 16.1 ms / 7.1 s | 14.3 ms / 6.3 s | |
+| FLAC (Beatport) | 2 | 15.8 ms / 7.0 s | 16.3 ms / 7.2 s | 224 → 251 MB |
+
+The remaining 9 to 12 ms per file are the clone, the verification read-back,
+`fsync` and the rename, not tag I/O. FLAC is unchanged (it was already in
+place). The real gain is in the bytes written: an in-place edit rewrites the
+tag region (about 4 to 110 KB here) instead of the whole 6 to 10 MB file, and
+lofty no longer reads whole MP4 files into memory (peak RSS 138 to 179 MB →
+24 MB).
+
+### Undo of a 434-file save (`journal_bench`)
+
+`journal_bench <clone>` saves COMMENT to every file as one undo step through
+the real journal (`Limits::default`, 2 GiB):
+
+| Corpus (4.2 GB / 2.7 GB) | Before | After |
+| --- | --- | --- |
+| MP3, padded | refused: too large to undo (17.9 s) | undoable, 46 MB retained (6.1 s) |
+| M4A, padded | refused: too large to undo (9.4 s) | undoable, 46 MB retained (4.9 s) |
+
+The first save of an unpadded file is still a full rewrite and still counts
+the whole file.
+
+### Filter query payload (`filter_cache_bench`, windowless)
+
+`OPENTAG_FILTER_BENCH=<folder> cargo test --release -p opentag
+filter_cache_bench -- --ignored --nocapture` on the Beatport folder (read only)
+builds the request the window sends, with the 11 default column templates:
+
+| Request | Bytes | Backend time |
+| --- | ---: | ---: |
+| Before: every query (fields, raw fields, column values of 434 files) | 1,788,771 | |
+| After: first query of a session (all files once) | 1,391,822 | 13.5 ms |
+| After: any later query with unchanged files | 757 | 1.1 ms (median of 20) |
+
+The in-app figure for the old request was 2.66 MB (the window's filter fields
+include more technical values than this approximation). After a save, undo or
+pending edit, the next query carries only the changed files.
+
+### Native UI timings
+
+Measured with `scripts/e2e-perf.sh` before local GUI runs were stopped
+(release profiling build, run 1 / run 2 medians where both exist). Later
+native runs, including the second-filter-query step now in
+`tests/e2e/performance.js` (`filter_requery`), were **not measured**; they run
+only in CI from now on.
+
+| Interaction (Beatport FLAC) | Before | After |
+| --- | ---: | ---: |
+| Sort by Title, sync / frame | 17–20 / 35–39 ms | 10–11 / 14–27 ms |
+| Sort by Length (evaluated column), sync / frame | 28–32 / 49–59 ms, plus an `evaluate_columns` call of 1.4 MB | 11–12 / 17–19 ms, no call |
+| Filter keystroke, sync / frame | 10 / 13 ms | 2 / 3–4 ms |
+| First filter query, request bytes / call | 2.67 MB / 40–55 ms | 1.73 MB / 28–29 ms |
+| Save COMMENT to 434 files | 4.3 s | 3.9 s |
+| Undo that save | 11.9 s | 6.4 s |
+
+On the generated MP3 and M4A corpora sort sync time fell from 11–13 ms to
+8–10 ms and filter keystrokes from 6–7 ms to 2 ms. Saving 434 padded MP3s in
+the app took 2.6 s and could be undone (4.4 s); the unpadded MP3 save took
+9.7 s in both versions and was refused for undo in both. The padded baselines
+in the app and the padded M4A run were **not measured**.
+
+### What changed
+
+- **ID3v2 in place** (`crates/tag-core/src/id3_padding.rs`). When the new
+  ID3v2.3 or v2.4 tag fits the existing tag plus its padding, it is rendered
+  with exactly the padding that keeps its size and written over the old tag in
+  the staging clone: at the start of MPEG/AAC streams (including a v2.4
+  footer) and in the single `ID3 ` chunk of WAV/AIFF. An existing ID3v1 tag is
+  overwritten in its 128 bytes. Rewrites that do not fit reserve 4 KiB of
+  padding. Mp3tag documents no ID3v2 padding option
+  (`customization/options/tags/advanced.html`); 4 KiB matches the padding its
+  Utils → Optimize FLAC reserves.
+- **MP4 in place** (`crates/tag-core/src/mp4_metadata.rs`). lofty encodes the
+  new `ilst` against an in-memory copy of `ftyp` and `moov` only. If it fits
+  the old `ilst` plus the `free` atoms beside it in `moov.udta.meta`, it is
+  written there and the rest becomes a `free` atom, so `moov` keeps its size
+  and no chunk offset changes. Otherwise the new `ilst` and a 4 KiB `free`
+  atom are spliced into `moov`, `stco`/`co64` offsets past `moov` are shifted,
+  and everything after `moov` is written once. Files without an `ilst`,
+  fragmented files and 64-bit atom sizes keep lofty's full write.
+- Both report their region to the undo journal like the FLAC writer, and all
+  writes still go to the staging clone that is renamed over the original
+  (tests in `crates/tag-core/tests/in_place_tags.rs`, including a hard-linked
+  original and journal accounting).
+- **Filter cache** (`src-tauri/src/filter_cache.rs`, `src/filter-sync.ts`). The
+  backend keeps each window session's filter fields, list order and column
+  snapshots. A query sends only files whose entry, pending edits, source state
+  or evaluated column values changed (compared by identity), and the order
+  only when it changed. A backend without a listed file answers with a marker
+  and the window resends everything; expression errors keep the cache.
+  Requests are serialized so cache updates apply in order.
+- **List refresh** (`refreshList()` in `src/main.ts`). Sort and filter changes
+  update the header sort indicators, virtual rows, empty state, counts and
+  command states instead of rebuilding the window; the filter input keeps its
+  focus without being replaced. Sort values of all shown columns are evaluated
+  with the cells, so sorting by Length or Bitrate needs no new evaluation.
+
+### Remaining bottlenecks and gaps
+
+- The first save of a file without padding (fresh rips, ffmpeg output) is
+  still a full rewrite and counts in full against the undo cap.
+- In-place regions keep their size: removing a large cover leaves its space as
+  padding (as for FLAC). APE tags, RIFF INFO, Ogg, and the other container
+  formats still rewrite whole files.
+- Per-file save time is now dominated by clone, verification read-back,
+  `fsync` and rename (about 9 to 12 ms).
+- Saving one FLAC right after undoing the 434-file save took 1.3 to 2.0 s in
+  both versions (54 ms on the other corpora); not investigated.
+- Native UI numbers after the last changes, and Windows/Linux, are not
+  measured.

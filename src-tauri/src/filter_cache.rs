@@ -303,4 +303,94 @@ mod tests {
             ["1"]
         );
     }
+
+    /// Payload sizes and timings for a real folder (read only):
+    /// `OPENTAG_FILTER_BENCH=<folder> cargo test --release -p opentag filter_cache_bench -- --ignored --nocapture`
+    #[test]
+    #[ignore]
+    fn filter_cache_bench() {
+        let Ok(folder) = std::env::var("OPENTAG_FILTER_BENCH") else {
+            return;
+        };
+        let scan = tag_core::scan_paths(&[folder], true);
+        let templates = [
+            "%_filename_ext%",
+            "$meta_sep(title,' \\\\ ')",
+            "$meta_sep(artist,' \\\\ ')",
+            "$meta_sep(album,' \\\\ ')",
+            "%track%",
+            "%year%",
+            "$meta_sep(genre,' \\\\ ')",
+            "%_length%",
+            "$if2(%_codec%,%_filetype%)",
+            "[%_bitrate% kbps]",
+            "%_folderpath%",
+        ];
+        let fields = |entry: &tag_core::AudioEntry| {
+            let mut fields = entry.fields.clone();
+            fields.extend(entry.technical.clone());
+            fields
+        };
+        // What every query sent before: all fields, raw fields and column values.
+        let legacy = serde_json::json!({
+            "query": "remix",
+            "items": scan.entries.iter().enumerate().map(|(index, entry)| {
+                let mut fields = fields(entry);
+                fields.insert("_COUNTER".into(), vec![(index + 1).to_string()]);
+                serde_json::json!({"path": entry.path, "fields": fields, "raw_fields": entry.fields})
+            }).collect::<Vec<_>>(),
+            "columns": templates.iter().map(|template| serde_json::json!({
+                "name": template, "template": template,
+                "values": scan.entries.iter().map(|e| (e.path.clone(), "value".to_string())).collect::<BTreeMap<_, _>>(),
+            })).collect::<Vec<_>>(),
+        });
+        let columns = || {
+            templates
+                .iter()
+                .map(|t| serde_json::json!({"name": t, "template": t}))
+                .collect::<Vec<_>>()
+        };
+        let first = serde_json::json!({"query": "remix", "request": {
+            "session": "bench",
+            "order": scan.entries.iter().map(|e| &e.path).collect::<Vec<_>>(),
+            "updates": scan.entries.iter().map(|entry| serde_json::json!({
+                "path": entry.path, "fields": fields(entry), "raw_fields": entry.fields,
+                "columns": templates.iter().map(|_| "value").collect::<Vec<_>>(),
+            })).collect::<Vec<_>>(),
+            "columns": columns(),
+        }});
+        let next = serde_json::json!({"query": "mix", "request": {
+            "session": "bench", "order": null, "updates": [], "columns": columns(),
+        }});
+        let size = |value: &serde_json::Value| value.to_string().len();
+        let mut cache = FilterCache::default();
+        let run = |cache: &mut FilterCache, value: &serde_json::Value| {
+            let started = std::time::Instant::now();
+            let text = value.to_string();
+            let parsed: serde_json::Value = serde_json::from_str(&text).unwrap();
+            let request: FilterRequest = serde_json::from_value(parsed["request"].clone()).unwrap();
+            let outcome = cache
+                .matches(parsed["query"].as_str().unwrap(), request, settings)
+                .unwrap();
+            assert!(outcome.error.is_none());
+            (
+                started.elapsed().as_secs_f64() * 1000.0,
+                outcome.matches.len(),
+            )
+        };
+        let (first_ms, first_matches) = run(&mut cache, &first);
+        let mut later = (0..20)
+            .map(|_| run(&mut cache, &next).0)
+            .collect::<Vec<_>>();
+        later.sort_by(f64::total_cmp);
+        println!(
+            "files={} legacy_bytes={} first_bytes={} next_bytes={} first_ms={first_ms:.2} \
+             first_matches={first_matches} next_median_ms={:.2}",
+            scan.entries.len(),
+            size(&legacy),
+            size(&first),
+            size(&next),
+            later[later.len() / 2]
+        );
+    }
 }
