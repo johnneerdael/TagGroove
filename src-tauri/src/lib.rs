@@ -8,6 +8,7 @@ mod documents;
 mod evaluation;
 mod exports;
 mod file_hashes;
+mod file_ops;
 #[cfg(any(target_os = "android", test))]
 mod managed_actions;
 mod rename_plan;
@@ -796,7 +797,7 @@ async fn export_playlist(paths: Vec<String>, output_path: String) -> Result<(), 
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    file_ops::install(tauri::Builder::default())
         .setup(|app| {
             let _ = APP_HANDLE.set(app.handle().clone());
             Ok(())
@@ -837,7 +838,16 @@ pub fn run() {
             converters::preview_text_import,
             converters::apply_text_import,
             export_csv,
-            export_playlist
+            export_playlist,
+            file_ops::load_directory_state,
+            file_ops::save_directory_state,
+            file_ops::remember_directories,
+            file_ops::trash_files,
+            file_ops::transfer_files,
+            file_ops::reveal_files,
+            file_ops::open_directory,
+            file_ops::play_files,
+            file_ops::take_launch_requests
         ])
         .run(tauri::generate_context!())
         .expect("Unable to run OpenTag");

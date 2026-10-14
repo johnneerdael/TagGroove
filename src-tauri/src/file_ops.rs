@@ -1,0 +1,698 @@
+//! File-menu operations: directory preferences, recycle-bin deletes, copy/move
+//! to a folder, shell integration and command-line launch requests.
+use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
+use std::path::{Path, PathBuf};
+use std::sync::Mutex;
+use tag_core::{FileError, ScanResult};
+
+const RECENT_LIMIT: usize = 10;
+const PLAY_LIMIT: usize = 100;
+pub const LAUNCH_EVENT: &str = "opentag://launch";
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Startup {
+    #[default]
+    Empty,
+    Previous,
+    Favorite,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct DirectoryState {
+    pub version: u32,
+    /// Most recent first.
+    pub recent: Vec<String>,
+    /// The first favorite is the one used by File → Favorite directory and startup.
+    pub favorites: Vec<String>,
+    pub subfolders: bool,
+    pub startup: Startup,
+}
+impl Default for DirectoryState {
+    fn default() -> Self {
+        Self {
+            version: 1,
+            recent: vec![],
+            favorites: vec![],
+            subfolders: true,
+            startup: Startup::Empty,
+        }
+    }
+}
+
+fn unique(paths: Vec<String>) -> Vec<String> {
+    let mut seen = HashSet::new();
+    paths
+        .into_iter()
+        .map(|p| p.trim().to_string())
+        .filter(|p| !p.is_empty() && seen.insert(p.clone()))
+        .collect()
+}
+pub fn normalize(mut state: DirectoryState) -> Result<DirectoryState, String> {
+    if state.version != 1 {
+        return Err("Unsupported directory settings version".into());
+    }
+    state.recent = unique(state.recent);
+    state.recent.truncate(RECENT_LIMIT);
+    state.favorites = unique(state.favorites);
+    Ok(state)
+}
+pub fn remember(mut state: DirectoryState, directories: &[String]) -> DirectoryState {
+    for directory in directories {
+        state.recent.retain(|p| p != directory);
+        state.recent.insert(0, directory.clone());
+    }
+    state.recent.truncate(RECENT_LIMIT);
+    state
+}
+pub fn load(path: &Path) -> Result<DirectoryState, String> {
+    match std::fs::read(path) {
+        Ok(bytes) => normalize(
+            serde_json::from_slice(&bytes)
+                .map_err(|e| format!("Cannot read directory settings: {e}"))?,
+        ),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(DirectoryState::default()),
+        Err(e) => Err(e.to_string()),
+    }
+}
+pub fn save(path: &Path, state: DirectoryState) -> Result<DirectoryState, String> {
+    let state = normalize(state)?;
+    let bytes = serde_json::to_vec_pretty(&state).map_err(|e| e.to_string())?;
+    crate::action_host::atomic_output(path, &bytes, false)?;
+    Ok(state)
+}
+fn state_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    Ok(crate::action_host::library_path(app)?.with_file_name("directories.json"))
+}
+
+#[tauri::command]
+pub async fn load_directory_state(app: tauri::AppHandle) -> Result<DirectoryState, String> {
+    let path = state_path(&app)?;
+    super::io(move || load(&path)).await
+}
+#[tauri::command]
+pub async fn save_directory_state(
+    app: tauri::AppHandle,
+    state: DirectoryState,
+) -> Result<DirectoryState, String> {
+    let path = state_path(&app)?;
+    super::io(move || save(&path, state)).await
+}
+/// Record opened folders in the recent list. Missing paths and files are ignored.
+#[tauri::command]
+pub async fn remember_directories(
+    app: tauri::AppHandle,
+    paths: Vec<String>,
+) -> Result<DirectoryState, String> {
+    let path = state_path(&app)?;
+    super::io(move || {
+        let directories: Vec<_> = paths
+            .into_iter()
+            .filter(|p| !p.starts_with("content://") && Path::new(p).is_dir())
+            .collect();
+        save(&path, remember(load(&path)?, &directories))
+    })
+    .await
+}
+
+fn regular_file(path: &Path, verb: &str) -> Result<(), String> {
+    match std::fs::symlink_metadata(path) {
+        Ok(metadata) if metadata.is_file() => Ok(()),
+        Ok(_) => Err(format!("Only regular files can be {verb}")),
+        Err(e) => Err(e.to_string()),
+    }
+}
+fn unique_paths(paths: &[String]) -> Vec<&String> {
+    let mut seen = HashSet::new();
+    paths.iter().filter(|p| seen.insert(*p)).collect()
+}
+
+#[derive(Debug, Default, Serialize)]
+pub struct TrashResult {
+    pub removed: Vec<String>,
+    pub errors: Vec<FileError>,
+}
+/// Delete each regular file with `remove`, reporting failures per file.
+pub fn trash_paths(
+    paths: &[String],
+    mut remove: impl FnMut(&Path) -> Result<(), String>,
+) -> TrashResult {
+    let mut result = TrashResult::default();
+    for path in unique_paths(paths) {
+        match regular_file(Path::new(path), "deleted").and_then(|()| remove(Path::new(path))) {
+            Ok(()) => result.removed.push(path.clone()),
+            Err(error) => result.errors.push(FileError {
+                path: path.clone(),
+                error,
+            }),
+        }
+    }
+    result
+}
+#[cfg(desktop)]
+fn move_to_trash(path: &Path) -> Result<(), String> {
+    #[allow(unused_mut)]
+    let mut context = trash::TrashContext::default();
+    // NSFileManager avoids asking for permission to control Finder.
+    #[cfg(target_os = "macos")]
+    trash::macos::TrashContextExtMacos::set_delete_method(
+        &mut context,
+        trash::macos::DeleteMethod::NsFileManager,
+    );
+    context
+        .delete(path)
+        .map_err(|e| format!("Cannot move to the trash: {e}"))
+}
+#[cfg(mobile)]
+fn move_to_trash(_: &Path) -> Result<(), String> {
+    Err("Deleting files is not available here".into())
+}
+#[tauri::command]
+pub async fn trash_files(paths: Vec<String>) -> Result<TrashResult, String> {
+    super::io(move || {
+        super::reject_provider_operation(&paths, "Delete")?;
+        Ok(trash_paths(&paths, move_to_trash))
+    })
+    .await
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TransferMode {
+    Copy,
+    Move,
+}
+#[derive(Debug, Serialize)]
+pub struct PathChange {
+    pub from: String,
+    pub to: String,
+}
+#[derive(Debug, Serialize)]
+pub struct TransferResult {
+    #[serde(flatten)]
+    pub result: ScanResult,
+    /// Moved files, in the same shape as rename results so the UI can re-key them.
+    pub renamed: Vec<PathChange>,
+    pub copied: Vec<PathChange>,
+}
+
+/// Map every source to `destination/<filename>` and validate the whole plan.
+/// Any conflict rejects the plan before a file is touched.
+pub fn plan_transfer(
+    paths: &[String],
+    destination: &Path,
+) -> Result<Vec<(String, PathBuf)>, Vec<FileError>> {
+    let fail = |error: String| {
+        vec![FileError {
+            path: destination.to_string_lossy().into_owned(),
+            error,
+        }]
+    };
+    let destination = match std::fs::canonicalize(destination) {
+        Ok(path) if path.is_dir() => path,
+        Ok(_) => return Err(fail("The destination is not a folder".into())),
+        Err(e) => return Err(fail(format!("Cannot open the destination folder: {e}"))),
+    };
+    let mut plan = vec![];
+    let mut errors = vec![];
+    // Compare names case-insensitively: case-insensitive volumes would otherwise collide.
+    let mut names = HashSet::new();
+    for path in unique_paths(paths) {
+        let source = Path::new(path);
+        let target = (|| {
+            regular_file(source, "copied or moved")?;
+            let name = source.file_name().ok_or("The file has no name")?;
+            let parent = source
+                .parent()
+                .and_then(|p| std::fs::canonicalize(p).ok())
+                .ok_or("Cannot resolve the source folder")?;
+            if parent == destination {
+                return Err("The file is already in the destination folder".to_string());
+            }
+            let target = destination.join(name);
+            if std::fs::symlink_metadata(&target).is_ok() {
+                return Err(format!("{} already exists", target.display()));
+            }
+            if !names.insert(name.to_string_lossy().to_lowercase()) {
+                return Err(format!(
+                    "Another selected file is also named {}",
+                    name.to_string_lossy()
+                ));
+            }
+            Ok(target)
+        })();
+        match target {
+            Ok(target) => plan.push((path.clone(), target)),
+            Err(error) => errors.push(FileError {
+                path: path.clone(),
+                error,
+            }),
+        }
+    }
+    if errors.is_empty() {
+        Ok(plan)
+    } else {
+        Err(errors)
+    }
+}
+pub fn transfer(paths: &[String], destination: &Path, mode: TransferMode) -> TransferResult {
+    let mut output = TransferResult {
+        result: ScanResult {
+            entries: vec![],
+            errors: vec![],
+        },
+        renamed: vec![],
+        copied: vec![],
+    };
+    let plan = match plan_transfer(paths, destination) {
+        Ok(plan) => plan,
+        Err(errors) => {
+            output.result.errors = errors;
+            return output;
+        }
+    };
+    for (path, target) in plan {
+        let source = Path::new(&path);
+        let operation = match mode {
+            TransferMode::Copy => tag_core::operations::copy_no_clobber(source, &target),
+            TransferMode::Move => tag_core::operations::rename_no_clobber(source, &target),
+        };
+        let to = target.to_string_lossy().into_owned();
+        match operation {
+            Err(error) => output.result.errors.push(FileError { path, error }),
+            Ok(()) if mode == TransferMode::Copy => {
+                output.copied.push(PathChange { from: path, to })
+            }
+            Ok(()) => {
+                output.renamed.push(PathChange {
+                    from: path,
+                    to: to.clone(),
+                });
+                match tag_core::read_entry_summary(&target) {
+                    Ok(entry) => output.result.entries.push(entry),
+                    Err(error) => output.result.errors.push(FileError { path: to, error }),
+                }
+            }
+        }
+    }
+    output
+}
+#[tauri::command]
+pub async fn transfer_files(
+    paths: Vec<String>,
+    destination: String,
+    mode: TransferMode,
+) -> Result<TransferResult, String> {
+    super::io(move || {
+        super::reject_provider_operation(&paths, "Copy and move")?;
+        super::reject_provider_operation(std::slice::from_ref(&destination), "Destination")?;
+        Ok(transfer(&paths, Path::new(&destination), mode))
+    })
+    .await
+}
+
+fn existing(paths: &[String], verb: &str) -> Result<Vec<PathBuf>, String> {
+    super::reject_provider_operation(paths, verb)?;
+    if paths.is_empty() {
+        return Err("Select files first".into());
+    }
+    unique_paths(paths)
+        .into_iter()
+        .map(|p| {
+            regular_file(Path::new(p), "opened")
+                .map(|()| PathBuf::from(p))
+                .map_err(|e| format!("{p}: {e}"))
+        })
+        .collect()
+}
+#[cfg(desktop)]
+fn shell<T>(result: Result<T, tauri_plugin_opener::Error>) -> Result<T, String> {
+    result.map_err(|e| e.to_string())
+}
+/// Show files selected in Finder, Explorer or the desktop file manager.
+#[tauri::command]
+pub async fn reveal_files(paths: Vec<String>) -> Result<(), String> {
+    super::io(move || {
+        let paths = existing(&paths, "Showing files")?;
+        #[cfg(desktop)]
+        return shell(tauri_plugin_opener::reveal_items_in_dir(&paths));
+        #[cfg(mobile)]
+        return Err(format!("Cannot show {} files here", paths.len()));
+    })
+    .await
+}
+#[tauri::command]
+pub async fn open_directory(path: String) -> Result<(), String> {
+    super::io(move || {
+        super::reject_provider_operation(std::slice::from_ref(&path), "Opening folders")?;
+        if !Path::new(&path).is_dir() {
+            return Err(format!("{path} is not a folder"));
+        }
+        #[cfg(desktop)]
+        return shell(tauri_plugin_opener::open_path(&path, None::<&str>));
+        #[cfg(mobile)]
+        return Err("Opening folders is not available here".into());
+    })
+    .await
+}
+/// Open each file with the system's default application for its type.
+#[tauri::command]
+pub async fn play_files(paths: Vec<String>) -> Result<(), String> {
+    super::io(move || {
+        let paths = existing(&paths, "Playing files")?;
+        if paths.len() > PLAY_LIMIT {
+            return Err(format!("Select at most {PLAY_LIMIT} files to play"));
+        }
+        #[cfg(desktop)]
+        for path in paths {
+            shell(tauri_plugin_opener::open_path(&path, None::<&str>))
+                .map_err(|e| format!("{}: {e}", path.display()))?;
+        }
+        Ok(())
+    })
+    .await
+}
+
+/// Files and folders passed on the command line or by a second launch.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
+pub struct LaunchRequest {
+    pub directories: Vec<String>,
+    pub files: Vec<String>,
+    /// `/add`: append to the file list instead of replacing it.
+    pub add: bool,
+}
+
+/// Parse Mp3tag-style switches: `/fp:<folder>`, `/fn:<file>` and `/add`.
+/// Switches also accept a `-` prefix and are case-insensitive; a switch with an
+/// empty value takes the next argument. Bare arguments are files or folders.
+pub fn parse_launch(
+    args: impl IntoIterator<Item = String>,
+    cwd: &Path,
+    is_dir: impl Fn(&Path) -> bool,
+) -> Option<LaunchRequest> {
+    let mut request = LaunchRequest::default();
+    let mut args = args.into_iter();
+    let resolve = |value: &str| {
+        let value = value.trim().trim_matches('"');
+        (!value.is_empty()).then(|| cwd.join(value).to_string_lossy().into_owned())
+    };
+    while let Some(arg) = args.next() {
+        let switch = arg
+            .strip_prefix('/')
+            .or_else(|| arg.strip_prefix('-'))
+            .map(|s| s.to_ascii_lowercase());
+        match switch.as_deref() {
+            Some("add") => request.add = true,
+            Some(s) if s.starts_with("fp:") || s.starts_with("fn:") => {
+                let mut value = arg[4..].to_string();
+                if value.trim().is_empty() {
+                    value = args.next().unwrap_or_default();
+                }
+                if let Some(path) = resolve(&value) {
+                    if s.starts_with("fp:") {
+                        request.directories.push(path);
+                    } else {
+                        request.files.push(path);
+                    }
+                }
+            }
+            // Unix absolute paths start with '/', so only known switches are consumed there.
+            Some(s) if cfg!(windows) || !arg.starts_with('/') || s.starts_with("psn_") => {}
+            _ => {
+                if let Some(path) = resolve(&arg) {
+                    if is_dir(Path::new(&path)) {
+                        request.directories.push(path);
+                    } else {
+                        request.files.push(path);
+                    }
+                }
+            }
+        }
+    }
+    (!request.directories.is_empty() || !request.files.is_empty()).then_some(request)
+}
+
+#[derive(Default)]
+pub struct PendingLaunches(Mutex<Vec<LaunchRequest>>);
+impl PendingLaunches {
+    fn push(&self, request: LaunchRequest) {
+        if let Ok(mut queue) = self.0.lock() {
+            queue.push(request);
+        }
+    }
+}
+#[tauri::command]
+pub fn take_launch_requests(state: tauri::State<'_, PendingLaunches>) -> Vec<LaunchRequest> {
+    state
+        .0
+        .lock()
+        .map(|mut queue| std::mem::take(&mut *queue))
+        .unwrap_or_default()
+}
+
+/// Install launch handling. A second desktop launch forwards its arguments to
+/// this instance, which queues them and notifies the UI.
+pub fn install(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry> {
+    let pending = PendingLaunches::default();
+    if let Ok(cwd) = std::env::current_dir() {
+        if let Some(request) = parse_launch(std::env::args().skip(1), &cwd, Path::is_dir) {
+            pending.push(request);
+        }
+    }
+    #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
+        use tauri::{Emitter, Manager};
+        if let Some(window) = app.get_webview_window("main") {
+            let _ = window.unminimize();
+            let _ = window.set_focus();
+        }
+        let args = argv.into_iter().skip(1);
+        if let Some(request) = parse_launch(args, Path::new(&cwd), Path::is_dir) {
+            app.state::<PendingLaunches>().push(request);
+            let _ = app.emit(LAUNCH_EVENT, ());
+        }
+    }));
+    builder.manage(pending)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn strings(values: &[&str]) -> Vec<String> {
+        values.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn directory_state_dedupes_caps_and_orders_recent_folders() {
+        let mut state = DirectoryState::default();
+        for i in 0..12 {
+            state = remember(state, &[format!("/music/{i}")]);
+        }
+        state = remember(state, &strings(&["/music/5"]));
+        assert_eq!(state.recent.len(), RECENT_LIMIT);
+        assert_eq!(state.recent[0], "/music/5");
+        assert_eq!(state.recent.iter().filter(|p| *p == "/music/5").count(), 1);
+        assert!(!state.recent.contains(&"/music/0".to_string()));
+        let normalized = normalize(DirectoryState {
+            favorites: strings(&[" /a ", "/a", "", "/b"]),
+            ..Default::default()
+        })
+        .unwrap();
+        assert_eq!(normalized.favorites, strings(&["/a", "/b"]));
+        assert!(normalize(DirectoryState {
+            version: 2,
+            ..Default::default()
+        })
+        .is_err());
+    }
+
+    #[test]
+    fn directory_state_round_trips_and_defaults_missing_fields() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config/directories.json");
+        assert_eq!(load(&path).unwrap(), DirectoryState::default());
+        let state = DirectoryState {
+            favorites: strings(&["/music"]),
+            subfolders: false,
+            startup: Startup::Favorite,
+            ..Default::default()
+        };
+        save(&path, state.clone()).unwrap();
+        assert_eq!(load(&path).unwrap(), state);
+        std::fs::write(&path, br#"{"version":1,"recent":["/x"]}"#).unwrap();
+        let partial = load(&path).unwrap();
+        assert_eq!(partial.recent, strings(&["/x"]));
+        assert!(partial.subfolders);
+        std::fs::write(&path, b"not json").unwrap();
+        assert!(load(&path).is_err());
+    }
+
+    #[test]
+    fn trash_reports_each_failure_and_never_touches_folders() {
+        let dir = tempfile::tempdir().unwrap();
+        let ok = dir.path().join("ok.mp3");
+        let fails = dir.path().join("locked.mp3");
+        std::fs::write(&ok, b"a").unwrap();
+        std::fs::write(&fails, b"b").unwrap();
+        let paths: Vec<String> = [
+            ok.clone(),
+            ok.clone(),
+            fails.clone(),
+            dir.path().join("missing.mp3"),
+            dir.path().to_path_buf(),
+        ]
+        .iter()
+        .map(|p| p.to_string_lossy().into_owned())
+        .collect();
+        let mut calls = vec![];
+        let result = trash_paths(&paths, |path| {
+            calls.push(path.to_path_buf());
+            if path == fails {
+                Err("Permission denied".into())
+            } else {
+                std::fs::remove_file(path).map_err(|e| e.to_string())
+            }
+        });
+        assert_eq!(calls, vec![ok.clone(), fails.clone()]);
+        assert_eq!(result.removed, vec![ok.to_string_lossy().into_owned()]);
+        assert_eq!(result.errors.len(), 3);
+        assert!(dir.path().is_dir() && fails.exists());
+    }
+
+    #[cfg(desktop)]
+    #[test]
+    #[ignore = "moves a probe file into the real system trash"]
+    fn system_trash_removes_the_probe_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let probe = dir.path().join("opentag-trash-probe.txt");
+        std::fs::write(&probe, b"OpenTag trash probe; safe to delete").unwrap();
+        let path = probe.to_string_lossy().into_owned();
+        let result = trash_paths(std::slice::from_ref(&path), move_to_trash);
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert_eq!(result.removed, vec![path]);
+        assert!(!probe.exists());
+    }
+
+    fn fixture() -> (tempfile::TempDir, PathBuf, PathBuf, Vec<String>) {
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("source");
+        let target = dir.path().join("target");
+        std::fs::create_dir_all(source.join("disc2")).unwrap();
+        std::fs::create_dir_all(&target).unwrap();
+        let files = ["one.mp3", "two.mp3"]
+            .map(|name| {
+                let path = source.join(name);
+                std::fs::write(&path, name.as_bytes()).unwrap();
+                path.to_string_lossy().into_owned()
+            })
+            .to_vec();
+        (dir, source, target, files)
+    }
+
+    #[test]
+    fn copy_keeps_originals_and_reports_copies() {
+        let (_dir, _source, target, files) = fixture();
+        let result = transfer(&files, &target, TransferMode::Copy);
+        assert!(
+            result.result.errors.is_empty(),
+            "{:?}",
+            result.result.errors
+        );
+        assert_eq!(result.copied.len(), 2);
+        assert!(result.renamed.is_empty() && result.result.entries.is_empty());
+        for file in &files {
+            assert!(Path::new(file).exists());
+        }
+        assert_eq!(std::fs::read(target.join("two.mp3")).unwrap(), b"two.mp3");
+    }
+
+    #[test]
+    fn move_relocates_files_and_reports_renames_even_if_unreadable() {
+        let (_dir, _source, target, files) = fixture();
+        let result = transfer(&files, &target, TransferMode::Move);
+        assert_eq!(result.renamed.len(), 2);
+        assert_eq!(result.renamed[0].from, files[0]);
+        assert!(result.renamed[0].to.ends_with("one.mp3"));
+        // The fixtures are not audio: moves succeed and the read failure is per file.
+        assert_eq!(result.result.errors.len(), 2);
+        assert!(files.iter().all(|f| !Path::new(f).exists()));
+        assert_eq!(std::fs::read(target.join("one.mp3")).unwrap(), b"one.mp3");
+    }
+
+    #[test]
+    fn conflicts_reject_the_whole_plan_before_touching_files() {
+        let (_dir, source, target, mut files) = fixture();
+        std::fs::write(target.join("two.mp3"), b"existing").unwrap();
+        let result = transfer(&files, &target, TransferMode::Move);
+        assert_eq!(result.result.errors.len(), 1);
+        assert!(result.renamed.is_empty());
+        assert!(files.iter().all(|f| Path::new(f).exists()));
+        assert_eq!(std::fs::read(target.join("two.mp3")).unwrap(), b"existing");
+
+        std::fs::remove_file(target.join("two.mp3")).unwrap();
+        let duplicate = source.join("disc2/ONE.mp3");
+        std::fs::write(&duplicate, b"other").unwrap();
+        files.push(duplicate.to_string_lossy().into_owned());
+        let result = transfer(&files, &target, TransferMode::Copy);
+        assert_eq!(result.result.errors.len(), 1);
+        assert!(result.result.errors[0]
+            .error
+            .contains("Another selected file"));
+        assert!(std::fs::read_dir(&target).unwrap().next().is_none());
+
+        let same = transfer(&files[..1], &source, TransferMode::Move);
+        assert!(same.result.errors[0]
+            .error
+            .contains("already in the destination"));
+        let missing = transfer(&files, &target.join("absent"), TransferMode::Copy);
+        assert!(missing.result.errors[0]
+            .error
+            .contains("destination folder"));
+    }
+
+    #[test]
+    fn launch_arguments_follow_mp3tag_switches() {
+        let cwd = Path::new("work");
+        let at = |p: &str| cwd.join(p).to_string_lossy().into_owned();
+        let dirs = |p: &Path| p.ends_with("Albums");
+        let parse = |args: &[&str]| parse_launch(strings(args), cwd, dirs);
+        assert_eq!(parse(&[]), None);
+        assert_eq!(parse(&["/add"]), None);
+        assert_eq!(
+            parse(&["/fp:\"Rock Music\""]),
+            Some(LaunchRequest {
+                directories: vec![at("Rock Music")],
+                ..Default::default()
+            })
+        );
+        assert_eq!(
+            parse(&["/FN:song.flac", "/add"]),
+            Some(LaunchRequest {
+                files: vec![at("song.flac")],
+                add: true,
+                ..Default::default()
+            })
+        );
+        assert_eq!(
+            parse(&[
+                "-fp:",
+                "Albums",
+                "-psn_0_1234",
+                "--unknown",
+                "a.mp3",
+                "Albums"
+            ]),
+            Some(LaunchRequest {
+                directories: vec![at("Albums"), at("Albums")],
+                files: vec![at("a.mp3")],
+                add: false,
+            })
+        );
+        let absolute = std::env::temp_dir().join("a.mp3");
+        let absolute = absolute.to_string_lossy().into_owned();
+        assert_eq!(parse(&[&absolute]).unwrap().files, vec![absolute.clone()]);
+    }
+}
