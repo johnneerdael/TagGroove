@@ -1,0 +1,46 @@
+
+org.opentag.documentaccess.AndroidPrivateStreamsTest:.
+Error in publicationClosesEveryNativeInputOnSuccessConflictAndWriteFailure(org.opentag.documentaccess.AndroidPrivateStreamsTest):
+java.lang.AssertionError: publication leaked native input at iteration 0 mode 0
+	at org.junit.Assert.fail(Assert.java:89)
+	at org.junit.Assert.assertTrue(Assert.java:42)
+	at org.junit.Assert.assertFalse(Assert.java:65)
+	at org.opentag.documentaccess.AndroidPrivateStreamsTest.publicationClosesEveryNativeInputOnSuccessConflictAndWriteFailure$lambda$14(AndroidPrivateStreamsTest.kt:75)
+	at org.opentag.documentaccess.AndroidPrivateStreamsTest$$ExternalSyntheticLambda2.invoke(D8$$SyntheticClass:0)
+	at org.opentag.documentaccess.AndroidPrivateStreamsTest.fixture(AndroidPrivateStreamsTest.kt:17)
+	at org.opentag.documentaccess.AndroidPrivateStreamsTest.publicationClosesEveryNativeInputOnSuccessConflictAndWriteFailure(AndroidPrivateStreamsTest.kt:62)
+
+Error in snapshotClosesEveryNativeOutputIncludingTransferFailure(org.opentag.documentaccess.AndroidPrivateStreamsTest):
+java.lang.AssertionError: snapshot leaked native output at iteration 0
+	at org.junit.Assert.fail(Assert.java:89)
+	at org.junit.Assert.assertTrue(Assert.java:42)
+	at org.junit.Assert.assertFalse(Assert.java:65)
+	at org.opentag.documentaccess.AndroidPrivateStreamsTest.snapshotClosesEveryNativeOutputIncludingTransferFailure$lambda$8(AndroidPrivateStreamsTest.kt:41)
+	at org.opentag.documentaccess.AndroidPrivateStreamsTest$$ExternalSyntheticLambda6.invoke(D8$$SyntheticClass:0)
+	at org.opentag.documentaccess.AndroidPrivateStreamsTest.fixture(AndroidPrivateStreamsTest.kt:17)
+	at org.opentag.documentaccess.AndroidPrivateStreamsTest.snapshotClosesEveryNativeOutputIncludingTransferFailure(AndroidPrivateStreamsTest.kt:33)
+
+
+Time: 0.099
+There were 2 failures:
+1) publicationClosesEveryNativeInputOnSuccessConflictAndWriteFailure(org.opentag.documentaccess.AndroidPrivateStreamsTest)
+java.lang.AssertionError: publication leaked native input at iteration 0 mode 0
+	at org.junit.Assert.fail(Assert.java:89)
+	at org.junit.Assert.assertTrue(Assert.java:42)
+	at org.junit.Assert.assertFalse(Assert.java:65)
+	at org.opentag.documentaccess.AndroidPrivateStreamsTest.publicationClosesEveryNativeInputOnSuccessConflictAndWriteFailure$lambda$14(AndroidPrivateStreamsTest.kt:75)
+	at org.opentag.documentaccess.AndroidPrivateStreamsTest$$ExternalSyntheticLambda2.invoke(D8$$SyntheticClass:0)
+	at org.opentag.documentaccess.AndroidPrivateStreamsTest.fixture(AndroidPrivateStreamsTest.kt:17)
+	at org.opentag.documentaccess.AndroidPrivateStreamsTest.publicationClosesEveryNativeInputOnSuccessConflictAndWriteFailure(AndroidPrivateStreamsTest.kt:62)
+2) snapshotClosesEveryNativeOutputIncludingTransferFailure(org.opentag.documentaccess.AndroidPrivateStreamsTest)
+java.lang.AssertionError: snapshot leaked native output at iteration 0
+	at org.junit.Assert.fail(Assert.java:89)
+	at org.junit.Assert.assertTrue(Assert.java:42)
+	at org.junit.Assert.assertFalse(Assert.java:65)
+	at org.opentag.documentaccess.AndroidPrivateStreamsTest.snapshotClosesEveryNativeOutputIncludingTransferFailure$lambda$8(AndroidPrivateStreamsTest.kt:41)
+	at org.opentag.documentaccess.AndroidPrivateStreamsTest$$ExternalSyntheticLambda6.invoke(D8$$SyntheticClass:0)
+	at org.opentag.documentaccess.AndroidPrivateStreamsTest.fixture(AndroidPrivateStreamsTest.kt:17)
+	at org.opentag.documentaccess.AndroidPrivateStreamsTest.snapshotClosesEveryNativeOutputIncludingTransferFailure(AndroidPrivateStreamsTest.kt:33)
+
+FAILURES!!!
+Tests run: 3,  Failures: 2

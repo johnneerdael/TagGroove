@@ -52,6 +52,7 @@ recovery record merely because an export succeeded.
 
 ```rust,ignore
 pub struct DocumentSnapshot { pub document: DocumentInfo, pub sha256: String, pub bytes: u64 }
+Documents::storage_root() -> Result<PathBuf, String> // actual Context.filesDir, canonical
 Documents::snapshot(uri: &str, output_path: &Path) -> Result<DocumentSnapshot, String>
 Documents::publish(uri: &str, input_path: &Path, expected_sha256: &str) -> Result<DocumentSnapshot, String>
 Documents::create_document(name: &str, mime_type: Option<&str>) -> Result<Option<DocumentInfo>, String>
@@ -64,6 +65,9 @@ on the existing bounded worker pool; picker callbacks remain asynchronous.
 Cancellation returns None. Snapshot validates provider metadata before/after
 the streamed read; unknown size/time remain unknown. Publish validates the
 expected SHA syntax and private input before opening a provider output stream.
+The engine obtains its root through `storage_root`, not Tauri's Android data
+directory: installed Tauri 2.12.3 resolves the latter to `Context.dataDir`, which
+is not itself a permitted transport root. No inferred child directory is used.
 
 `src-tauri/src/documents.rs`: portable durable working-copy engine plus a
 cfg(Android) bridge driver. All calls occur under the existing FILE_OPERATIONS
@@ -76,6 +80,7 @@ pub fn states() -> Result<BTreeMap<String, DocumentState>, String>;
 pub fn is_managed(path: &Path) -> bool;
 pub fn mutate(path: &Path, work: impl FnOnce(&Path) -> Result<AudioEntry,String>) -> Result<AudioEntry,String>;
 pub fn reload(path: &Path) -> Result<AudioEntry,String>;
+pub fn restore_recovery() -> Result<ScanResult,String>;
 pub fn project(entry: &mut AudioEntry);
 pub fn snapshot_input(app: &tauri::AppHandle, path: &str) -> Result<PathBuf,String>;
 pub fn save_copy(app: &tauri::AppHandle, path: &str, updates: &Fields, version: &str) -> Result<ScanResult,String>;
@@ -87,10 +92,21 @@ working paths matching AudioEntry.path. Desktop functions are pass-through or
 explicit unsupported as appropriate. A provider trait supports desktop tests
 against real audio fixtures and injected external changes/partial writes.
 AppHandle global registration may be reused; avoid a new background daemon.
+Provider modification dates must use the existing core technical-time
+formatter, including its locale and raw-seconds behavior. A focused
+`tag_core::file_time_fields(created, modified)` helper can expose that existing
+formatter; unknown provider creation times remain absent/empty rather than
+inheriting the private working file's timestamp.
 
 Root command integration owns `src-tauri/src/lib.rs`: Add files command
 `pick_document_files` returns ScanResult; `document_states` returns the map;
 `document_save_copy {path,updates,version}` returns ScanResult (empty on cancel).
+`restore_document_recovery` returns locally retained recovery entries without
+requiring a provider grant or picker reselection. The Android UI invokes it on
+startup so a removed/revoked original cannot make its recovery copies
+inaccessible. Prefer the edited working audio; if it cannot be parsed, present
+the verified baseline under the same working-path identity with the recovery
+error retained. Ordinary ready records are not automatically reopened.
 `version` is `edited` or `original`. Basic mutations and reload use the engine;
 other write routes explicitly reject managed documents until adapted. Image
 content URIs are snapshotted privately before passing to the existing writer.
