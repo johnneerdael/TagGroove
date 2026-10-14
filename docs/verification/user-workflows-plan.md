@@ -1,6 +1,6 @@
 # Native end-user workflow test plan
 
-Status: **native execution started: UAT-01 PARTIAL; UAT-02 and UAT-03 PASS after reproduced fixes; UAT-07 PASS with recorded input variation; remaining cases NOT RUN**. See [execution evidence](user-workflows-execution.md) and [measured results](user-workflows-results.json). Do not treat fixture generation or unit-test results as a passed user acceptance test.
+Status: **native execution started: UAT-01 PARTIAL; UAT-02 through UAT-08 PASS (UAT-07 uses a recorded input variation); UAT-09 through UAT-14 NOT RUN**. See [execution evidence](user-workflows-execution.md) and [measured results](user-workflows-results.json). Do not treat fixture generation or unit-test results as a passed user acceptance test.
 
 Run against the release worktree at `/Users/jneerdael/Scripts/opentag-worktrees/brand-releases` after the appearance implementation/checkpoint is finished and the root agent authorizes the isolated native session. Do not use the current app or computer-use session while the interface agent owns it. No app build, launch, UI operation, preference access, or user-library access was performed during this preparation.
 

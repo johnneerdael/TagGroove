@@ -128,7 +128,66 @@ identity rules in every path; this checkpoint does not claim universal Unicode
 custom-field equivalence. The focused reviewer found no introduced loss or swap
 defect in these changes.
 
-UAT-04 through UAT-06 and UAT-08 through UAT-14 remain NOT RUN in this workflow suite. Earlier appearance
+## Numbering: passed
+
+UAT-04 used a fresh case. Clicking the visible Filename header switched the
+table to descending order. The selected Night Shift/First Light files received
+07/2 and 08/2 from start 7, two digits and total tracks enabled. Applying numbers left
+all complete-file hashes unchanged until Save. Save and Reload persisted the
+exact strings in visible order; independent ffprobe dictionaries differed only
+in TRACK. Four unselected files and all six audio payloads were unchanged.
+Cancelling another numbering dialog created no draft. UAT-04 PASS. This covers
+the implemented basic numbering interface, not the missing disc-reset wizard.
+
+![Saved numbering in descending order](user-workflow-numbering.png)
+
+## Filename conversion: passed
+
+UAT-05 saved Needs import as the two MP3 titles, then previewed
+`%track% - %artist% - %title%`. The visible preview extracted artist Solar Arcade,
+original titles and tracks 01/02 without extensions. Independent before/after
+preview hashes proved all six files unchanged. Apply and Reload restored the
+titles and wrote the extracted tracks. Independent probes confirmed every other
+tag, all unselected complete files and all audio remained intact. The pattern
+`NO MATCH %title%` produced an explicit error with Apply disabled. UAT-05 PASS.
+
+![Reviewed filename extraction](user-workflow-import-preview.png)
+
+![Explicit nonmatching-pattern error](user-workflow-import-error.png)
+
+## Reviewed dynamic and counter renaming: passed
+
+UAT-06 used separate fresh dynamic and counter copies. Previewing UAT-$uuid(),
+then changing to UAT2-$uuid(), disabled Apply until a new preview. Apply created
+exactly the final visible UUID destination, retained the extension, removed the
+old source, and reconciled the selected row. Reload succeeded. The first preview
+path was never created. A later preview was cancelled without another file.
+
+The two-file counter pattern `$num(%_counter%,2) - $upper(%title%)` in ascending
+Filename order previewed and applied exactly 01 - FIRST LIGHT.mp3 and
+02 - NIGHT SHIFT.mp3. Independent receipts confirmed previews changed no bytes,
+and all six complete-file contents and encoded/decoded audio remained identical
+after each rename case. Exact reviewed destinations are in the results JSON.
+UAT-06 PASS.
+
+![Final reviewed UUID destination](user-workflow-rename-preview.png)
+
+![The applied filename matches the review](user-workflow-rename-after.png)
+
+## Quick regular-expression action: passed
+
+UAT-08 selected First Light and applied Replace with Regular Expression to TITLE,
+using lookbehind `(?<=First )Light` and replacement Glow. The dialog explicitly
+stated immediate saving; First Glow persisted after Reload with no separate Save.
+Option+Shift+6 opened Quick Actions on macOS. Applying invalid pattern `(` showed
+the actual unmatched-parenthesis error. Cancelling it and another quick dialog
+left all six complete-file hashes equal to their before-error checkpoint.
+Independent ffprobe tags differed from the original only in the selected title;
+the other five files and all audio remained unchanged. UAT-08 PASS.
+
+![Explicit Quick Action regex error](user-workflow-quick-error.png)
+
+UAT-09 through UAT-14 remain NOT RUN in this workflow suite. Earlier appearance
 and menu checks are separately recorded in `branding-appearance.md` and
 `menu-switch.md`; they are not substitutes for the remaining working-data cases.
 Original format/preferences/converter/action parity remains open in the project
