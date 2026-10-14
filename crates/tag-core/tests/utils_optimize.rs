@@ -89,7 +89,11 @@ fn unsupported_id3_frames_are_removed_and_everything_else_is_kept() {
     assert!(entry.fields.contains_key("MUSICBRAINZ_TRACKID"));
     let bytes = fs::read(&path).unwrap();
     assert_eq!(&bytes[3..5], [3, 0], "ID3v2.3 is kept");
-    assert_eq!(after_id3(&bytes), rest.as_slice(), "audio and ID3v1 are untouched");
+    assert_eq!(
+        after_id3(&bytes),
+        rest.as_slice(),
+        "audio and ID3v1 are untouched"
+    );
 
     // Nothing left to remove: the file is not rewritten.
     let modified = fs::metadata(&path).unwrap().modified().unwrap();
