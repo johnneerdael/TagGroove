@@ -1,0 +1,134 @@
+{
+  "release_url": "https://github.com/johnneerdael/opentag/releases/tag/v0.1.0",
+  "commit": "e86c6fb85191a27ec4509585d5dc288b073152d8",
+  "seven_platforms": [
+    "windows-x64",
+    "macos-arm64",
+    "macos-x64",
+    "linux-x64",
+    "linux-arm64",
+    "android-arm64",
+    "ios-arm64-simulator-preview"
+  ],
+  "downloaded_assets_verified_against_api_and_manifest": [
+    {
+      "name": "OpenTag-v0.1.0-android-arm64-signed.apk",
+      "sha256": "4859b695a10c4e1096c8eb9fbf253a4054cd8947fe45720eee8cfe77d01f2bec",
+      "bytes": 30927298
+    },
+    {
+      "name": "OpenTag-v0.1.0-ios-arm64-simulator-preview-debug.app.zip",
+      "sha256": "8cd0aab673c8282d44498bda0182ce79d7b953560887576cd407caf8c1ea964c",
+      "bytes": 27292288
+    },
+    {
+      "name": "OpenTag-v0.1.0-linux-arm64.AppImage",
+      "sha256": "b13859d5928a62d7dc0e9431be71b3a5255af6d7d89ca01624c9b4400b1660bd",
+      "bytes": 82926088
+    },
+    {
+      "name": "OpenTag-v0.1.0-linux-arm64.deb",
+      "sha256": "6484ccf938b006052ead180fb1cfe04cb8e1e7927979e871f3a6d606d3c28909",
+      "bytes": 6774698
+    },
+    {
+      "name": "OpenTag-v0.1.0-linux-arm64.rpm",
+      "sha256": "2a869908b9ee034e27881874c60abd7af5d45ea48ca8e93f2880589d485b2db4",
+      "bytes": 6754738
+    },
+    {
+      "name": "OpenTag-v0.1.0-linux-x64.AppImage",
+      "sha256": "d568230ea28020acd4e3363d8dc4f2657d7bb44e0a4fdadc35ccc1df2bdc197e",
+      "bytes": 84867576
+    },
+    {
+      "name": "OpenTag-v0.1.0-linux-x64.deb",
+      "sha256": "ca80a73cd929d65f02ced362c60689e096c52482d67203466855828a14c50cc9",
+      "bytes": 6641350
+    },
+    {
+      "name": "OpenTag-v0.1.0-linux-x64.rpm",
+      "sha256": "948c9abe3a39f934911e5644c05576dc6f05057bf697bd5862045f874fed1eed",
+      "bytes": 6619762
+    },
+    {
+      "name": "OpenTag-v0.1.0-macos-arm64.app.tar.gz",
+      "sha256": "f8f69f6068d6b08a256124faa4a377ee5c42f1ac4db81fd2ebfddb4c11019e3a",
+      "bytes": 6169965
+    },
+    {
+      "name": "OpenTag-v0.1.0-macos-arm64.dmg",
+      "sha256": "f9a831c0b9007ef0f69c75cbf9faa1bbab9d9597a1073da96c5f6f14043b53c8",
+      "bytes": 6485064
+    },
+    {
+      "name": "OpenTag-v0.1.0-macos-x64.app.tar.gz",
+      "sha256": "ad66eb08ac716701e84b844fc757e2868e8f0df74909da45386325ac06e42469",
+      "bytes": 6534928
+    },
+    {
+      "name": "OpenTag-v0.1.0-macos-x64.dmg",
+      "sha256": "7f5701043c9a4c0cf7b02e5d3d0fe4c719a950552f9993a084dda20a1e136605",
+      "bytes": 6842860
+    },
+    {
+      "name": "OpenTag-v0.1.0-windows-x64-setup.exe",
+      "sha256": "a00629968844a5084ef22c2ba9f663e5ad212a7eb0996e0d10028f504861623c",
+      "bytes": 4223114
+    },
+    {
+      "name": "release-manifest.json",
+      "sha256": "60881f751c5bde63e40d7a1d7e3378afc1dea23cdcf657bb141810e86363d8e5",
+      "bytes": 2553
+    },
+    {
+      "name": "SHA256SUMS",
+      "sha256": "d60d6f7e8d82dd4ce13c56e30c21da1c7ce1467982ecde075e36025cdd2329ec",
+      "bytes": 1404
+    }
+  ],
+  "checksum_file_entries_verified": 14,
+  "android_certificate_matches_persistent_project_key_sha256": "d97ad94e5a900e8a6f460eef11c9670115f7cff73281488587426f3e551408e0",
+  "android_signature_verification": "Verifies\nVerified using v1 scheme (JAR signing): false\nVerified using v2 scheme (APK Signature Scheme v2): true\nVerified using v3 scheme (APK Signature Scheme v3): false\nVerified using v3.1 scheme (APK Signature Scheme v3.1): false\nVerified using v4 scheme (APK Signature Scheme v4): false\nVerified for SourceStamp: false\nNumber of signers: 1\nSigner #1 certificate DN: CN=OpenTag, O=OpenTag\nSigner #1 certificate SHA-256 digest: d97ad94e5a900e8a6f460eef11c9670115f7cff73281488587426f3e551408e0\nSigner #1 certificate SHA-1 digest: 00921cdea431a14bd4dfcbda46b2dfbff34db074\nSigner #1 certificate MD5 digest: a6bf9a5e6ae4f8ce4e01ec00cc0a5729\nSigner #1 key algorithm: RSA\nSigner #1 key size (bits): 3072\nSigner #1 public key SHA-256 digest: 33d16764b703afbef5b84998a1398101449bec637e289c31b3d94c3ee4d6d91d\nSigner #1 public key SHA-1 digest: f05cc99958e9d3b66b58226df882e9f18c89db52\nSigner #1 public key MD5 digest: 53fd05cb8a67e63e92d04fa9a19b0aad\n",
+  "macos_app_archive_signature": "codesign --verify --deep --strict passed",
+  "limits": "Downloads/signatures verified. Installer/device runtime coverage remains separate.",
+  "tagged_brand_banner_sha256": "9cb6b6aee9e744e82f4850038a432609e920223c07f77ee90e4c754acc086327",
+  "native_macos_runtime": {
+    "checks": [
+      {
+        "clicked": "File",
+        "active": [
+          "File"
+        ]
+      },
+      {
+        "clicked": "Edit",
+        "active": [
+          "Edit"
+        ]
+      },
+      {
+        "clicked": "Convert",
+        "active": [
+          "Convert"
+        ]
+      },
+      {
+        "clicked": "Actions",
+        "active": [
+          "Actions"
+        ]
+      },
+      {
+        "clicked": "Help",
+        "active": [
+          "Help"
+        ]
+      }
+    ],
+    "escapeClosed": true,
+    "initialEmptyWorkspace": true,
+    "noMediaLoaded": true
+  },
+  "workflow_run": "https://github.com/johnneerdael/opentag/actions/runs/38516775608"
+}
