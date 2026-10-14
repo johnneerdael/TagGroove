@@ -1,0 +1,89 @@
+{
+  "status": "PASS",
+  "dataset": "common case after successful album/comment save",
+  "all_six_complete_files_unchanged": true,
+  "queries": [
+    {
+      "query": "猫",
+      "expected": 3,
+      "actual": 3,
+      "note": "Saved MP3 comments and FLAC contain this character."
+    },
+    {
+      "query": "ARTIST IS \"Solar Arcade\"",
+      "expected": 3,
+      "actual": 3
+    },
+    {
+      "query": "ARTIST IS \"Solar Arcade\" AND TITLE HAS Light",
+      "expected": 1,
+      "actual": 1,
+      "files": [
+        "01 - Solar Arcade - First Light.mp3"
+      ]
+    },
+    {
+      "query": "NOT ARTIST IS \"Solar Arcade\"",
+      "expected": 3,
+      "actual": 3,
+      "files": [
+        "03 - Mémoire - Café 猫.flac",
+        "05 - Zephyr - Paper Planes.opus",
+        "06 - Fixture Lab - Sanity Pulse.wav"
+      ]
+    },
+    {
+      "query": "\"$upper(%artist%)\" IS \"SOLAR ARCADE\"",
+      "expected": 3,
+      "actual": 3,
+      "files": [
+        "01 - Solar Arcade - First Light.mp3",
+        "02 - Solar Arcade - Night Shift.mp3",
+        "04 - Solar Arcade - Quoted Title.m4a"
+      ]
+    },
+    {
+      "query": "TITLE MATCHES \"(?<=First )Light\"",
+      "expected": 1,
+      "actual": 1,
+      "files": [
+        "01 - Solar Arcade - First Light.mp3"
+      ]
+    },
+    {
+      "query": "TITLE MATCHES \"\\b(Paper)\\s+\\1\\b\"",
+      "expected": 1,
+      "actual": 1,
+      "files": [
+        "05 - Zephyr - Paper Planes.opus"
+      ]
+    },
+    {
+      "query": "ARTIST IS \"Solar Arcade\" AND (",
+      "expected": "error",
+      "actual": "error",
+      "files": []
+    },
+    {
+      "query": "TITLE MATCHES \"(\"",
+      "expected": "error",
+      "actual": "error",
+      "message": "Unmatched marking parenthesis ( or \\(.",
+      "input": "pasted as literal text; native AX typing had substituted one curly quote"
+    },
+    {
+      "query": "rapid valid → invalid → clear",
+      "expected": 6,
+      "actual": 6,
+      "selected": 2,
+      "files": [
+        "01 - Solar Arcade - First Light.mp3",
+        "02 - Solar Arcade - Night Shift.mp3",
+        "03 - Mémoire - Café 猫.flac",
+        "04 - Solar Arcade - Quoted Title.m4a",
+        "05 - Zephyr - Paper Planes.opus",
+        "06 - Fixture Lab - Sanity Pulse.wav"
+      ]
+    }
+  ]
+}

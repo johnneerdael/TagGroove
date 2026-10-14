@@ -50,9 +50,15 @@
       "independent_ffprobe_tags_exact": true,
       "after_save_ui": "Saved tags: 2 files",
       "after_reload_ui": "Reloaded: 2 files; exact album and Unicode comment; no pending changes or errors"
+    },
+    "UAT-07": {
+      "status": "PASS",
+      "dataset_variation": "Reused saved common case; Unicode search correctly matches both MP3 comments plus FLAC (three rows). All other expected query counts match the plan.",
+      "all_six_complete_files_unchanged": true,
+      "results": "user-workflow-filter-results.json"
     }
   },
-  "other_UAT_cases": "NOT RUN",
+  "other_UAT_cases": "UAT-03 to UAT-06 and UAT-08 to UAT-14: NOT RUN",
   "regular_profile_actions_json_before": {
     "path": "/Users/jneerdael/Library/Application Support/org.opentag.editor/actions.json",
     "exists": false

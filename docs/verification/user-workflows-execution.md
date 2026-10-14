@@ -67,7 +67,27 @@ including the generated encoded-format/audio-packet matrix. Core all-target
 Clippy passed with warnings denied. The isolated native debug bundle built and
 signed ad-hoc successfully. These results do not certify mobile file access.
 
-UAT-03 through UAT-14 remain NOT RUN in this workflow suite. Earlier appearance
+## Native filters: passed with recorded dataset variation
+
+The visible Filter control exercised Boolean AND/NOT, scripted `$upper` values,
+Boost lookbehind and pattern backreferences, malformed Boolean syntax, an invalid
+regular expression, and a quick valid → invalid → clear sequence. Final clearing
+restored all six rows and retained the two selected files. Every expected result
+was observed; see `user-workflow-filter-results.json`. The invalid regex reported
+its actual unmatched-parenthesis error instead of silently returning no matches.
+
+This case reused the successfully saved common dataset. Unicode search `猫`
+therefore correctly matched the two MP3 comments as well as the FLAC (three
+files); the other plan queries were unaffected by the earlier album/comment
+edits. All six complete-file hashes stayed unchanged throughout filtering.
+Native AX typing substituted a curly quote in the short invalid-regex input;
+pasting the literal expression through the visible control verified the actual
+Boost error. General typing substitutions remain a separate UX investigation.
+UAT-07 PASS with this explicit input variation.
+
+![Explicit native regular-expression error](user-workflow-filter-error.png)
+
+UAT-03 through UAT-06 and UAT-08 through UAT-14 remain NOT RUN in this workflow suite. Earlier appearance
 and menu checks are separately recorded in `branding-appearance.md` and
 `menu-switch.md`; they are not substitutes for the remaining working-data cases.
 Original format/preferences/converter/action parity remains open in the project
