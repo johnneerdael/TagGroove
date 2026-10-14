@@ -1129,16 +1129,17 @@ pub fn decode_export_template(bytes: &[u8], ansi_codepage: Option<&str>) -> Resu
             .map(|bytes| (bytes, false))
     };
     if let Some((bytes, little)) = utf16 {
-        if bytes.len() % 2 != 0 {
+        let (pairs, trailing) = bytes.as_chunks::<2>();
+        if !trailing.is_empty() {
             return Err("Truncated UTF-16 export configuration".into());
         }
-        let units = bytes
-            .chunks_exact(2)
-            .map(|unit| {
+        let units = pairs
+            .iter()
+            .map(|&unit| {
                 if little {
-                    u16::from_le_bytes([unit[0], unit[1]])
+                    u16::from_le_bytes(unit)
                 } else {
-                    u16::from_be_bytes([unit[0], unit[1]])
+                    u16::from_be_bytes(unit)
                 }
             })
             .collect::<Vec<_>>();
