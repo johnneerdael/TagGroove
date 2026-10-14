@@ -510,6 +510,7 @@ impl ActionHost for NativeHost {
                     app_directory: Some(self.settings.app_directory.clone()),
                     app_data_directory: Some(self.settings.app_data_directory.clone()),
                     ansi_codepage: self.settings.ansi_codepage(),
+                    timestamp_seconds: Some(self.settings.timestamp_seconds),
                     ..Default::default()
                 };
                 let hashes = tag_core::export::requested_hash_fields(&template, &options)?;

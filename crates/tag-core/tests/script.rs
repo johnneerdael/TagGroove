@@ -719,10 +719,19 @@ fn all_documented_placeholders_resolve_from_supplied_context() {
         .iter()
         .map(|name| (name.to_uppercase(), vec![format!("value:{name}")]))
         .collect();
+    let mut context = tag_core::EvalContext::new(&f);
+    context.timestamp_seconds = Some(981_173_106);
+    context.timezone_offset_seconds = Some(0);
+    context.locale = "de-DE".into();
     for name in names {
+        let expected = match name {
+            "_date" => "03.02.2001".to_owned(),
+            "_datetime" => "03.02.2001 04:05:06".to_owned(),
+            _ => format!("value:{name}"),
+        };
         assert_eq!(
-            evaluate(&format!("%{name}%"), &f).unwrap(),
-            format!("value:{name}")
+            tag_core::evaluate_with_context(&format!("%{name}%"), &context).unwrap(),
+            expected
         );
     }
 }

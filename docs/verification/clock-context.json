@@ -1,0 +1,64 @@
+{
+  "date": "2026-10-14",
+  "branch": "feat/core-parity",
+  "base_commit": "69aac6a",
+  "scope": "Clock placeholders and custom field lookup; no exact original-runtime certification",
+  "automated": {
+    "frontend_passed": 99,
+    "rust_passed": 270,
+    "new_clock_and_field_tests": 6,
+    "new_native_context_tests": 1,
+    "clippy": "passed with warnings denied",
+    "fmt": "passed",
+    "frontend_build": "passed",
+    "native_macos_bundle": "passed"
+  },
+  "native": {
+    "platform": "macOS arm64 Tauri WebKit",
+    "app": "/tmp/opentag-clock-user-test/OpenTag.app",
+    "bundle_identifier": "org.opentag.editor.usertest.clock",
+    "appearance": "System Dark",
+    "quick_action": "Format Value, COMMENT",
+    "expression": "%_date%|%_datetime%|$fmtDate('yyyy-MM-dd HH:mm:ss')",
+    "source": "Two disposable generated FLAC/MP3 files",
+    "reload": "2 successes",
+    "filters": [
+      {
+        "query": "_DATE IS 10/14/2026",
+        "visible": 2
+      },
+      {
+        "query": "_DATETIME MISSING",
+        "visible": 0
+      },
+      {
+        "query": "\"%_date%\" IS 10/14/2026",
+        "visible": 2
+      }
+    ],
+    "final_state": "Filter cleared, two files selected, no pending drafts",
+    "input_observation": "Native text entry changed a quote to a typographic quote on the first attempt. The invalid action was rejected. Pasting the exact expression succeeded; automatic quote substitution remains open."
+  },
+  "saved_results": [
+    {
+      "file": "01.flac",
+      "comment": "10/14/2026|10/14/2026 06:50:21 PM|2026-10-14 18:50:21",
+      "title_unchanged": true,
+      "decoded_audio_unchanged": true
+    },
+    {
+      "file": "02.mp3",
+      "comment": "10/14/2026|10/14/2026 06:50:21 PM|2026-10-14 18:50:21",
+      "title_unchanged": true,
+      "decoded_audio_unchanged": true
+    }
+  ],
+  "remaining": [
+    "Original-runtime date and locale comparisons",
+    "Operating-system custom regional date/time formats",
+    "Windows/Linux native workflows",
+    "Complete Unicode field-name comparison equivalence",
+    "Automatic quote substitution in scripting input",
+    "Other missing format placeholder producers"
+  ]
+}

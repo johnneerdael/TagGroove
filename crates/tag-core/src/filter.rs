@@ -1,7 +1,7 @@
 //! Compiled Mp3tag filter expressions, based on https://docs.mp3tag.de/filter/.
 //! Queries, scripting templates, and regular expressions are parsed once.
 //! Evaluation operates only on supplied metadata snapshots and never reads files.
-use crate::script::{regex, CompiledTemplate, EvalContext};
+use crate::script::{context_values, regex, CompiledTemplate, EvalContext};
 use crate::Fields;
 use regex_compat::Regex;
 use std::borrow::Cow;
@@ -21,7 +21,7 @@ impl Filter {
     }
 
     pub fn matches_with_context(&self, context: &EvalContext<'_>) -> Result<bool, String> {
-        self.expression.matches(context)
+        self.expression.matches(&context.snapshot_clock())
     }
 }
 
@@ -160,9 +160,21 @@ fn contains_words(values: &[Cow<'_, str>], words: &[String]) -> bool {
 }
 
 impl Selector {
-    fn values<'a>(&self, context: &EvalContext<'a>) -> Result<Vec<Cow<'a, str>>, String> {
+    fn values<'a>(&self, context: &'a EvalContext<'_>) -> Result<Vec<Cow<'a, str>>, String> {
         let fields = context.fields;
         match self {
+            Self::Field(name)
+                if name.eq_ignore_ascii_case("_DATE") || name.eq_ignore_ascii_case("_DATETIME") =>
+            {
+                Ok(match context_values(context, name)? {
+                    Some(Cow::Borrowed(values)) => values
+                        .iter()
+                        .map(|value| Cow::Borrowed(value.as_str()))
+                        .collect(),
+                    Some(Cow::Owned(values)) => values.into_iter().map(Cow::Owned).collect(),
+                    None => Vec::new(),
+                })
+            }
             Self::Field(name) => Ok(values(fields, name)
                 .into_iter()
                 .flatten()
@@ -477,11 +489,11 @@ impl Parser<'_> {
                     "Presence filters require a field name, not a scripting expression".into(),
                 );
             }
-            Selector::Field(name.to_uppercase())
+            Selector::Field(name.to_ascii_uppercase())
         } else if lhs.contains(['$', '%']) {
             Selector::Template(CompiledTemplate::compile(&lhs)?)
         } else {
-            Selector::Field(lhs.to_uppercase())
+            Selector::Field(lhs.to_ascii_uppercase())
         };
         let operation = if presence {
             Operation::Present(operator == "PRESENT")

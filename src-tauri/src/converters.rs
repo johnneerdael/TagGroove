@@ -399,6 +399,7 @@ fn preview_filename(
         context.app_directory = Some(&settings.app_directory);
         context.app_data_directory = Some(&settings.app_data_directory);
         context.ansi_codepage = settings.ansi_codepage().or(context.ansi_codepage);
+        context.timestamp_seconds = Some(settings.timestamp_seconds);
         let rendered = converter.render(&entry.path, &context)?;
         let raw_target = super::filename_target(&entry, rendered.target)?;
         let target = crate::action_host::normalized_output_path(&raw_target)?;

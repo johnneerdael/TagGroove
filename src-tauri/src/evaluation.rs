@@ -11,11 +11,31 @@ pub struct ColumnSpec {
     pub values: BTreeMap<String, String>,
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct EvaluationSettings {
     pub columns: Vec<ColumnSpec>,
     pub app_directory: String,
     pub app_data_directory: String,
+    pub timestamp_seconds: i64,
+}
+
+impl Default for EvaluationSettings {
+    fn default() -> Self {
+        let timestamp_seconds =
+            match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
+                Ok(duration) => i64::try_from(duration.as_secs()).unwrap_or(i64::MAX),
+                Err(error) => {
+                    -i64::try_from(error.duration().as_secs()).unwrap_or(i64::MAX)
+                        - i64::from(error.duration().subsec_nanos() > 0)
+                }
+            };
+        Self {
+            columns: Vec::new(),
+            app_directory: String::new(),
+            app_data_directory: String::new(),
+            timestamp_seconds,
+        }
+    }
 }
 
 impl EvaluationSettings {
@@ -47,6 +67,7 @@ impl EvaluationSettings {
                 .map_err(|e| e.to_string())?
                 .to_string_lossy()
                 .into_owned(),
+            ..Default::default()
         })
     }
 
@@ -61,6 +82,7 @@ impl EvaluationSettings {
         context.columns = columns;
         context.app_directory = Some(&self.app_directory);
         context.app_data_directory = Some(&self.app_data_directory);
+        context.timestamp_seconds = Some(self.timestamp_seconds);
         #[cfg(windows)]
         {
             context.ansi_codepage = Some(windows_ansi_codepage().to_string());
@@ -338,6 +360,42 @@ mod tests {
         time::{Duration, UNIX_EPOCH},
     };
 
+    #[test]
+    fn operation_contexts_capture_one_clock_for_columns_scripts_and_filters() {
+        let raw = Fields::from([("TITLE".into(), vec!["Current".into()])]);
+        let settings = EvaluationSettings::default();
+        let first = settings.context(&raw, &raw, None);
+        let second = settings.context(&raw, &raw, None);
+        assert!(first.timestamp_seconds.is_some());
+        assert_eq!(first.timestamp_seconds, second.timestamp_seconds);
+        let date = tag_core::evaluate_with_context("%_date%", &first).unwrap();
+        let datetime = tag_core::evaluate_with_context("%_datetime%", &first).unwrap();
+        assert!(!date.is_empty());
+        assert!(datetime.starts_with(&date));
+        assert_eq!(
+            settings
+                .evaluate("%_date%|%_datetime%", &raw, &Fields::new(), "first", false)
+                .unwrap(),
+            format!("{date}|{datetime}")
+        );
+        let filter = tag_core::compile_filter(&format!("_DATE IS \"{date}\"")).unwrap();
+        assert!(settings.matches(&filter, &raw, &raw, "second").unwrap());
+        let columns = EvaluationSettings {
+            columns: vec![ColumnSpec {
+                name: "Clock".into(),
+                template: "%_datetime%".into(),
+                values: BTreeMap::new(),
+            }],
+            ..settings
+        };
+        assert_eq!(
+            columns
+                .evaluate("$columnValues(,)", &raw, &Fields::new(), "third", false)
+                .unwrap(),
+            datetime
+        );
+    }
+
     fn audio_with_cover(directory: &Path) -> AudioEntry {
         let path = directory.join("measured.wav");
         let mut bytes = b"RIFF".to_vec();
@@ -516,6 +574,7 @@ mod tests {
             }],
             app_directory: "/app".into(),
             app_data_directory: "/config".into(),
+            ..Default::default()
         };
         assert_eq!(
             settings
