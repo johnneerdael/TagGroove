@@ -994,6 +994,11 @@ fn encoding(name: &str) -> Result<String, String> {
     }
 }
 
+/// Validate configuration syntax without evaluating fields or producing output.
+pub fn validate_export_template(template: &str) -> Result<(), String> {
+    compile(template).map(|_| ())
+}
+
 pub fn render_export(
     template: &str,
     rows: &[ExportRow],

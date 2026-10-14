@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "general": { "natural_sort": true, "show_directory_in_title": true },
+  "files": { "restrict_extensions": "" },
+  "directories": { "subfolders": true },
+  "tags": {
+    "mpeg": {
+      "read_id3v1": true, "read_id3v2": true, "read_ape": true,
+      "write_id3v1": true, "write_id3v2": true, "write_ape": false,
+      "id3v2_only_if_needed": false, "id3v2_format": "v23_utf16",
+      "remove_id3v1": false, "remove_id3v2": false, "remove_ape": true
+    },
+    "ape": {
+      "read_id3v1": true, "read_ape": true, "write_id3v1": false, "write_ape": true,
+      "remove_id3v1": false, "remove_id3v2": false, "remove_ape": false
+    },
+    "advanced": { "id3v2_comment_language": "eng", "popularimeter_ratings": false },
+    "preserve_modified_time": false
+  },
+  "pages": {}
+}

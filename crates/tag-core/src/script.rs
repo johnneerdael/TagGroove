@@ -61,6 +61,7 @@ pub struct ScriptNumberFormat {
 
 /// Application and system values required by context-sensitive scripting.
 /// Supply columns in visible table order with their rendered values.
+#[derive(Clone)]
 pub struct EvalContext<'a> {
     pub fields: &'a Fields,
     pub raw_fields: Option<&'a Fields>,
@@ -101,6 +102,18 @@ impl<'a> EvalContext<'a> {
             environment: None,
             app_directory: None,
             app_data_directory: None,
+        }
+    }
+
+    /// Resolve an unspecified clock once for the whole expression. Nested
+    /// templates and date functions receive the same instant.
+    pub(crate) fn snapshot_clock(&self) -> Cow<'_, Self> {
+        if self.timestamp_seconds.is_some() {
+            Cow::Borrowed(self)
+        } else {
+            let mut context = self.clone();
+            context.timestamp_seconds = Some(Utc::now().timestamp());
+            Cow::Owned(context)
         }
     }
 }
@@ -370,7 +383,7 @@ struct Value {
 }
 
 fn field_values<'a>(fields: &'a Fields, name: &str) -> Option<&'a Vec<String>> {
-    fields.get(&name.to_uppercase()).or_else(|| {
+    fields.get(&name.to_ascii_uppercase()).or_else(|| {
         fields
             .iter()
             .find(|(key, _)| key.eq_ignore_ascii_case(name))
@@ -378,7 +391,7 @@ fn field_values<'a>(fields: &'a Fields, name: &str) -> Option<&'a Vec<String>> {
     })
 }
 
-fn context_values<'a>(
+pub(crate) fn context_values<'a>(
     context: &'a EvalContext<'_>,
     name: &str,
 ) -> Result<Option<Cow<'a, [String]>>, String> {
@@ -386,6 +399,22 @@ fn context_values<'a>(
         if let Some(values) = extension.field(name)? {
             return Ok(Some(Cow::Owned(values)));
         }
+    }
+    if name.eq_ignore_ascii_case("_DATE") || name.eq_ignore_ascii_case("_DATETIME") {
+        let date = local_datetime(
+            context
+                .timestamp_seconds
+                .unwrap_or_else(|| Utc::now().timestamp()),
+            context,
+        )?;
+        let pattern = if name.eq_ignore_ascii_case("_DATE") {
+            "%x"
+        } else {
+            "%x %X"
+        };
+        return Ok(Some(Cow::Owned(vec![date
+            .format_localized(pattern, date_locale(&context.locale)?)
+            .to_string()])));
     }
     Ok(field_values(context.fields, name).map(|values| Cow::Borrowed(values.as_slice())))
 }
@@ -613,7 +642,7 @@ impl CompiledTemplate {
         &self,
         context: &EvalContext<'_>,
     ) -> Result<ScriptValue, String> {
-        run(&self.nodes, context, false).map(|value| ScriptValue {
+        run(&self.nodes, &context.snapshot_clock(), false).map(|value| ScriptValue {
             text: value.text,
             present: value.present,
             truth: value.truth,
@@ -628,7 +657,8 @@ impl CompiledTemplate {
         &self,
         context: &EvalContext<'_>,
     ) -> Result<String, String> {
-        run(&self.nodes, context, true).map(|value| value.filename.unwrap_or_default())
+        run(&self.nodes, &context.snapshot_clock(), true)
+            .map(|value| value.filename.unwrap_or_default())
     }
 }
 
@@ -862,16 +892,7 @@ fn format_date(
             .timestamp_seconds
             .unwrap_or_else(|| Utc::now().timestamp()),
     };
-    let utc = Utc
-        .timestamp_opt(seconds, 0)
-        .single()
-        .ok_or("Timestamp is outside the supported date range")?;
-    let date = match context.timezone_offset_seconds {
-        Some(offset) => {
-            utc.with_timezone(&FixedOffset::east_opt(offset).ok_or("Invalid timezone offset")?)
-        }
-        None => utc.with_timezone(&Local).fixed_offset(),
-    };
+    let date = local_datetime(seconds, context)?;
     let mut remaining = pattern;
     let mut output = String::new();
     const TOKENS: &[&str] = &[
@@ -932,6 +953,22 @@ fn format_date(
         }
     }
     Ok(output)
+}
+
+fn local_datetime(
+    seconds: i64,
+    context: &EvalContext<'_>,
+) -> Result<chrono::DateTime<FixedOffset>, String> {
+    let utc = Utc
+        .timestamp_opt(seconds, 0)
+        .single()
+        .ok_or("Timestamp is outside the supported date range")?;
+    Ok(match context.timezone_offset_seconds {
+        Some(offset) => {
+            utc.with_timezone(&FixedOffset::east_opt(offset).ok_or("Invalid timezone offset")?)
+        }
+        None => utc.with_timezone(&Local).fixed_offset(),
+    })
 }
 
 fn decimal_milliseconds(value: &str, multiplier: i128) -> Result<i128, String> {

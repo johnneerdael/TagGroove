@@ -120,6 +120,23 @@ pub fn rename_no_clobber(source: &Path, destination: &Path) -> Result<(), String
     Ok(())
 }
 
+/// Copy a regular file to a new path. The destination is created exclusively,
+/// so an existing file is never replaced, and an incomplete copy is removed.
+pub fn copy_no_clobber(source: &Path, destination: &Path) -> Result<(), String> {
+    if !std::fs::symlink_metadata(source)
+        .map_err(|e| e.to_string())?
+        .is_file()
+    {
+        return Err("Only regular files can be copied".into());
+    }
+    if let Some(parent) = destination.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    let mut input = std::fs::File::open(source).map_err(|e| e.to_string())?;
+    let metadata = input.metadata().map_err(|e| e.to_string())?;
+    copy_new(&mut input, destination, &metadata)
+}
+
 pub fn render_csv(rows: &[Vec<String>]) -> String {
     rows.iter()
         .map(|row| {
@@ -225,6 +242,21 @@ mod tests {
         .is_err());
         assert_eq!(std::fs::read(&target).unwrap(), bytes);
         assert_eq!(std::fs::read(&source).unwrap(), bytes);
+    }
+
+    #[test]
+    fn copy_keeps_source_and_never_replaces_destination() {
+        let dir = tempfile::tempdir().unwrap();
+        let src = dir.path().join("first.mp3");
+        let dst = dir.path().join("copies/first.mp3");
+        std::fs::write(&src, b"audio").unwrap();
+        copy_no_clobber(&src, &dst).unwrap();
+        assert_eq!(std::fs::read(&src).unwrap(), b"audio");
+        assert_eq!(std::fs::read(&dst).unwrap(), b"audio");
+        std::fs::write(&dst, b"existing").unwrap();
+        assert!(copy_no_clobber(&src, &dst).is_err());
+        assert_eq!(std::fs::read(&dst).unwrap(), b"existing");
+        assert!(copy_no_clobber(dir.path(), &dir.path().join("dir-copy")).is_err());
     }
 
     #[test]

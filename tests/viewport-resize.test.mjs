@@ -25,7 +25,7 @@ const factory=`export function createViewport(width=390,height=469) {
   const requestAnimationFrame=handler=>(frames.push(handler),frames.length);
   class HTMLTableRowElement {}
   const list=Array.from({length:100},(_,index)=>({path:'file-'+index}));
-  const visible=()=>list,paths=()=>['file-0'],columns=[{}],timing=()=>{};
+  const visible=()=>list,paths=()=>['file-0'],columns=[{}],tableColumns=()=>columns,timing=()=>{};
   const rowMarkup=(entry,index)=>'<tr data-path="'+entry.path+'" aria-rowindex="'+(index+2)+'"></tr>';
   function render(){
     renders++;

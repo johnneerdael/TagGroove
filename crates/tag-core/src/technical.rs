@@ -325,6 +325,7 @@ pub(super) fn collect(
     native: &NativeTags,
     covers: &[CoverInfo],
     metadata: &Metadata,
+    read: Option<TagType>,
 ) -> Fields {
     let mut fields = native.technical.clone();
     let properties = file.properties();
@@ -389,7 +390,9 @@ pub(super) fn collect(
         .collect::<Vec<_>>();
     if !tags.is_empty() {
         put(&mut fields, "_TAG", tags.join(" "));
-        put(&mut fields, "_TAG_READ", &tags[0]);
+    }
+    if let Some(kind) = read {
+        put(&mut fields, "_TAG_READ", tag_name(kind, native));
     }
     if let Some(tag) = native.id3.as_ref() {
         let mut encodings = Vec::new();

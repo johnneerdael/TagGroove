@@ -3,11 +3,84 @@ use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 use tag_core::{Action, AudioEntry, Fields, FileError, ScanResult};
 mod action_host;
+mod columns;
 mod converters;
 mod documents;
+mod e2e;
 mod evaluation;
+mod exports;
 mod file_hashes;
+mod file_ops;
+mod history;
+#[cfg(any(target_os = "android", test))]
+mod managed_actions;
 mod rename_plan;
+mod settings;
+mod sources;
+mod tag_panel;
+
+fn export_library_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    Ok(action_host::library_path(app)?.with_file_name("exports.json"))
+}
+#[tauri::command]
+async fn load_export_library(app: tauri::AppHandle) -> Result<exports::Library, String> {
+    let path = export_library_path(&app)?;
+    io(move || exports::load(&path)).await
+}
+#[tauri::command]
+async fn save_export_library(
+    app: tauri::AppHandle,
+    library: exports::Library,
+) -> Result<(), String> {
+    let path = export_library_path(&app)?;
+    io(move || exports::save(&path, &library)).await
+}
+#[tauri::command]
+async fn import_export_configuration(
+    path: String,
+    legacy_encoding: Option<String>,
+) -> Result<exports::Configuration, String> {
+    io(move || exports::import(&auxiliary_input(&path)?, legacy_encoding.as_deref())).await
+}
+#[tauri::command]
+async fn run_export(
+    app: tauri::AppHandle,
+    paths: Vec<String>,
+    columns: Option<Vec<evaluation::ColumnSpec>>,
+) -> Result<action_host::ActionResult, String> {
+    let path = export_library_path(&app)?;
+    let mut settings = evaluation_settings(columns)?;
+    io(move || {
+        reject_provider_operation(&paths, "Export")?;
+        if paths.is_empty() {
+            return Err("Select files to export".into());
+        }
+        let library = exports::load(&path)?;
+        let configuration = library
+            .configurations
+            .iter()
+            .find(|c| Some(&c.id) == library.preferences.configuration.as_ref())
+            .ok_or("Select an export configuration")?;
+        settings.export_write_bom = library.preferences.write_bom;
+        settings.export_create_directories = library.preferences.create_directories;
+        settings.export_template_inline = true;
+        Ok(action_host::execute(
+            &paths,
+            &[tag_core::actions::ActionGroup {
+                name: format!("Export {}", configuration.name),
+                enabled: true,
+                actions: vec![tag_core::actions::ActionSpec::Export {
+                    template: configuration.template.clone(),
+                    filename_template: library.preferences.filename,
+                    append: library.preferences.append,
+                    partition_template: library.preferences.partition,
+                }],
+            }],
+            settings,
+        ))
+    })
+    .await
+}
 
 #[tauri::command]
 async fn load_action_library(
@@ -44,7 +117,13 @@ async fn execute_action_groups(
     let settings = evaluation_settings(columns)?;
     io(move || {
         reject_provider_operation(&paths, "Action groups")?;
-        Ok(action_host::execute(&paths, &groups, settings))
+        let label = match groups.iter().filter(|g| g.enabled).collect::<Vec<_>>()[..] {
+            [group] => format!("Action {}", group.name),
+            ref enabled => format!("Actions ({} groups)", enabled.len()),
+        };
+        history::record(&label, None, &paths, || {
+            Ok(action_host::execute(&paths, &groups, settings))
+        })
     })
     .await
 }
@@ -91,7 +170,7 @@ fn runtime_platform() -> RuntimePlatform {
 async fn get_covers(path: String) -> Result<Vec<tag_core::CoverInfo>, String> {
     io(move || {
         require_audio_handle(Path::new(&path))?;
-        tag_core::read_entry(Path::new(&path)).map(|e| e.covers)
+        settings::read_full(Path::new(&path)).map(|e| e.covers)
     })
     .await
 }
@@ -124,6 +203,18 @@ async fn filter_matches(
             }
         }
         Ok(matching)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn preview_numbering(
+    items: Vec<tag_core::numbering::NumberingItem>,
+    options: tag_core::numbering::NumberingOptions,
+) -> Result<Vec<tag_core::numbering::NumberingUpdate>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        tag_core::numbering::plan_numbering(&items, &options)
     })
     .await
     .map_err(|e| e.to_string())?
@@ -182,7 +273,7 @@ fn require_audio_handle(path: &Path) -> Result<(), String> {
 fn provider_filename(path: &Path) -> Result<String, String> {
     require_audio_handle(path)?;
     if documents::is_managed(path) {
-        let mut entry = tag_core::read_entry_summary(path)?;
+        let mut entry = settings::read_summary(path)?;
         documents::project(&mut entry);
         Ok(entry.filename)
     } else {
@@ -282,7 +373,12 @@ async fn scan_files(paths: Vec<String>, recursive: bool) -> Result<ScanResult, S
             let (managed, ordinary): (Vec<_>, Vec<_>) = paths
                 .into_iter()
                 .partition(|p| documents::is_managed(Path::new(p)));
-            let mut result = tag_core::scan_paths(&ordinary, recursive);
+            let mut result = tag_core::scan_paths_with_options(
+                &ordinary,
+                recursive,
+                &settings::tag_options(),
+                settings::extensions().as_deref(),
+            );
             let restored = batch(&managed, documents::reload);
             result.entries.extend(restored.entries);
             result.errors.extend(restored.errors);
@@ -296,11 +392,17 @@ async fn scan_files(paths: Vec<String>, recursive: bool) -> Result<ScanResult, S
 }
 
 #[tauri::command]
-async fn save_fields(paths: Vec<String>, updates: Fields) -> Result<ScanResult, String> {
+async fn save_fields(
+    paths: Vec<String>,
+    updates: Fields,
+    history_group: Option<String>,
+) -> Result<ScanResult, String> {
     io(move || {
-        Ok(batch(&paths, |p| {
-            mutate_document(p, |p| tag_core::write_fields_summary(p, &updates))
-        }))
+        history::record("Save tags", history_group.as_deref(), &paths, || {
+            Ok(batch(&paths, |p| {
+                mutate_document(p, |p| settings::write_summary(p, &updates))
+            }))
+        })
     })
     .await
 }
@@ -308,9 +410,13 @@ async fn save_fields(paths: Vec<String>, updates: Fields) -> Result<ScanResult, 
 #[tauri::command]
 async fn remove_tags(paths: Vec<String>) -> Result<ScanResult, String> {
     io(move || {
-        Ok(batch(&paths, |p| {
-            mutate_document(p, tag_core::remove_tags_summary)
-        }))
+        history::record("Remove tags", None, &paths, || {
+            Ok(batch(&paths, |p| {
+                mutate_document(p, |p| {
+                    tag_core::remove_tags_with_options(p, false, &settings::tag_options())
+                })
+            }))
+        })
     })
     .await
 }
@@ -319,9 +425,13 @@ async fn remove_tags(paths: Vec<String>) -> Result<ScanResult, String> {
 async fn add_cover(paths: Vec<String>, image_path: String) -> Result<ScanResult, String> {
     io(move || {
         let image = auxiliary_input(&image_path)?;
-        Ok(batch(&paths, |p| {
-            mutate_document(p, |p| tag_core::add_cover_summary(p, &image))
-        }))
+        history::record("Add cover", None, &paths, || {
+            Ok(batch(&paths, |p| {
+                mutate_document(p, |p| {
+                    tag_core::add_cover_with_options(p, &image, false, &settings::tag_options())
+                })
+            }))
+        })
     })
     .await
 }
@@ -329,9 +439,13 @@ async fn add_cover(paths: Vec<String>, image_path: String) -> Result<ScanResult,
 #[tauri::command]
 async fn remove_cover(paths: Vec<String>, index: usize) -> Result<ScanResult, String> {
     io(move || {
-        Ok(batch(&paths, |p| {
-            mutate_document(p, |p| tag_core::remove_cover_summary(p, index))
-        }))
+        history::record("Remove cover", None, &paths, || {
+            Ok(batch(&paths, |p| {
+                mutate_document(p, |p| {
+                    tag_core::remove_cover_with_options(p, index, false, &settings::tag_options())
+                })
+            }))
+        })
     })
     .await
 }
@@ -357,7 +471,7 @@ async fn preview_format(
             .enumerate()
             .map(|(index, path)| {
                 require_audio_handle(Path::new(&path))?;
-                let mut entry = tag_core::read_entry_summary(Path::new(&path))?;
+                let mut entry = settings::read_summary(Path::new(&path))?;
                 documents::project(&mut entry);
                 let value = settings.evaluate(
                     &template,
@@ -404,10 +518,12 @@ async fn preview_filename(
 #[tauri::command]
 async fn filename_to_tags(paths: Vec<String>, pattern: String) -> Result<ScanResult, String> {
     io(move || {
-        Ok(batch(&paths, |p| {
-            let updates = tag_core::parse_filename(&provider_filename(p)?, &pattern)?;
-            mutate_document(p, |p| tag_core::write_fields_summary(p, &updates))
-        }))
+        history::record("Filename → Tag", None, &paths, || {
+            Ok(batch(&paths, |p| {
+                let updates = tag_core::parse_filename(&provider_filename(p)?, &pattern)?;
+                mutate_document(p, |p| settings::write_summary(p, &updates))
+            }))
+        })
     })
     .await
 }
@@ -425,7 +541,9 @@ async fn apply_action(
     };
     io(move || {
         reject_provider_operation(&paths, "Actions")?;
-        Ok(action_host::execute(&paths, &[group], settings))
+        history::record("Quick action", None, &paths, || {
+            Ok(action_host::execute(&paths, &[group], settings))
+        })
     })
     .await
 }
@@ -488,7 +606,7 @@ async fn preview_rename(
         reject_provider_operation(&paths, "Rename")?;
         let mut targets = Vec::new();
         for (index, path) in paths.iter().enumerate() {
-            let entry = tag_core::read_entry_summary(Path::new(path))?;
+            let entry = settings::read_summary(Path::new(path))?;
             targets.push(rename_target_with_settings(
                 &entry,
                 &template,
@@ -528,9 +646,24 @@ async fn rename_files(
     template: String,
     plan_token: Option<String>,
 ) -> Result<RenameResult, String> {
-    let settings = evaluation_settings(None)?;
+    let evaluation = evaluation_settings(None)?;
+    let targets = paths.clone();
     io(move || {
         reject_provider_operation(&paths, "Rename")?;
+        history::record("Tag → Filename", None, &targets, move || {
+            rename_planned(paths, &template, plan_token, &evaluation)
+        })
+    })
+    .await
+}
+
+fn rename_planned(
+    paths: Vec<String>,
+    template: &str,
+    plan_token: Option<String>,
+    evaluation: &evaluation::EvaluationSettings,
+) -> Result<RenameResult, String> {
+    {
         let mut result = ScanResult {
             entries: vec![],
             errors: vec![],
@@ -538,7 +671,7 @@ async fn rename_files(
         let mut plans = vec![];
         let mut destinations = std::collections::HashSet::new();
         let candidates = if let Some(token) = plan_token {
-            rename_plan::consume(&token, &paths, &template)?
+            rename_plan::consume(&token, &paths, template)?
                 .into_iter()
                 .map(|(path, target)| (path, Ok(target)))
                 .collect::<Vec<_>>()
@@ -547,8 +680,8 @@ async fn rename_files(
                 .into_iter()
                 .enumerate()
                 .map(|(index, path)| {
-                    let plan = tag_core::read_entry_summary(Path::new(&path)).and_then(|entry| {
-                        rename_target_with_settings(&entry, &template, index + 1, &settings)
+                    let plan = settings::read_summary(Path::new(&path)).and_then(|entry| {
+                        rename_target_with_settings(&entry, template, index + 1, evaluation)
                     });
                     (path, plan)
                 })
@@ -591,7 +724,7 @@ async fn rename_files(
                         from: path,
                         to: to.clone(),
                     });
-                    match tag_core::read_entry_summary(&target) {
+                    match settings::read_summary(&target) {
                         Ok(entry) => result.entries.push(entry),
                         Err(error) => result.errors.push(FileError { path: to, error }),
                     }
@@ -600,8 +733,7 @@ async fn rename_files(
             }
         }
         Ok(RenameResult { result, renamed })
-    })
-    .await
+    }
 }
 
 fn export_entries(paths: &[String], output: &Path) -> Result<Vec<AudioEntry>, String> {
@@ -615,7 +747,7 @@ fn export_entries(paths: &[String], output: &Path) -> Result<Vec<AudioEntry>, St
     }
     paths
         .iter()
-        .map(|p| tag_core::read_entry_summary(Path::new(p)))
+        .map(|p| settings::read_summary(Path::new(p)))
         .collect()
 }
 
@@ -718,14 +850,21 @@ async fn export_playlist(paths: Vec<String>, output_path: String) -> Result<(), 
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    e2e::install(file_ops::install(tauri::Builder::default()))
         .setup(|app| {
             let _ = APP_HANDLE.set(app.handle().clone());
+            tauri::Manager::manage(app, settings::SettingsStore::open(app.handle()));
             Ok(())
         })
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_document_access::init())
         .invoke_handler(tauri::generate_handler![
+            e2e::e2e_report,
+            e2e::e2e_exit,
+            load_export_library,
+            save_export_library,
+            import_export_configuration,
+            run_export,
             load_action_library,
             save_action_library,
             import_action_group,
@@ -738,6 +877,7 @@ pub fn run() {
             restore_document_recovery,
             get_covers,
             filter_matches,
+            preview_numbering,
             scan_files,
             save_fields,
             remove_tags,
@@ -753,8 +893,42 @@ pub fn run() {
             converters::apply_filename_conversion,
             converters::preview_text_import,
             converters::apply_text_import,
+            history::history_state,
+            history::undo_last,
+            history::redo_last,
+            history::convert_tag_to_tag,
             export_csv,
-            export_playlist
+            export_playlist,
+            file_ops::load_directory_state,
+            file_ops::save_directory_state,
+            file_ops::remember_directories,
+            file_ops::trash_files,
+            file_ops::transfer_files,
+            file_ops::reveal_files,
+            file_ops::open_directory,
+            file_ops::play_files,
+            file_ops::take_launch_requests,
+            columns::load_columns,
+            columns::save_columns,
+            columns::import_columns,
+            columns::export_columns,
+            columns::evaluate_columns,
+            tag_panel::load_tag_panel,
+            tag_panel::save_tag_panel,
+            tag_panel::import_tag_panel_layout,
+            tag_panel::export_tag_panel_layout,
+            tag_panel::import_value_list,
+            tag_panel::export_value_list,
+            settings::load_settings,
+            settings::save_settings,
+            sources::tag_source_search,
+            sources::tag_source_release,
+            sources::tag_source_covers,
+            sources::tag_source_image,
+            sources::tag_source_cancel,
+            sources::tag_source_apply,
+            sources::load_tag_source_settings,
+            sources::save_tag_source_settings
         ])
         .run(tauri::generate_context!())
         .expect("Unable to run OpenTag");
@@ -763,6 +937,33 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn numbering_command_plans_unopened_files_without_io() {
+        use tag_core::numbering::{NumberingItem, NumberingOptions};
+        let plan = tauri::async_runtime::block_on(preview_numbering(
+            vec![
+                NumberingItem {
+                    path: "/unopened/a/one.flac".into(),
+                    fields: Fields::new(),
+                },
+                NumberingItem {
+                    path: "/unopened/b/two.mp3".into(),
+                    fields: Fields::new(),
+                },
+            ],
+            NumberingOptions {
+                disc_enabled: true,
+                next_disc_on_directory: true,
+                reset_track_on_next_disc: true,
+                ..Default::default()
+            },
+        ))
+        .unwrap();
+        assert_eq!(plan[0].fields["TRACK"], ["01"]);
+        assert_eq!(plan[1].fields["TRACK"], ["01"]);
+        assert_eq!(plan[1].fields["DISCNUMBER"], ["2"]);
+    }
 
     fn wav(path: &Path) {
         let samples = vec![0u8; 8820];
@@ -802,7 +1003,8 @@ mod tests {
         let paths = vec![session.path.clone()];
         let initial = std::fs::read(&source).unwrap();
         let updates = Fields::from([("TITLE".into(), vec!["Published".into()])]);
-        let saved = tauri::async_runtime::block_on(save_fields(paths.clone(), updates)).unwrap();
+        let saved =
+            tauri::async_runtime::block_on(save_fields(paths.clone(), updates, None)).unwrap();
         assert!(saved.errors.is_empty());
         assert_eq!(
             tag_core::read_entry(&source).unwrap().fields["TITLE"],
@@ -1035,6 +1237,7 @@ mod tests {
         let failure = tauri::async_runtime::block_on(save_fields(
             paths.clone(),
             Fields::from([("TITLE".into(), vec!["Retain edited".into()])]),
+            None,
         ))
         .unwrap();
         assert!(failure.entries.is_empty());

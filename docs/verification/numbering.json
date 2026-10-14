@@ -1,0 +1,82 @@
+{
+  "date": "2026-10-14",
+  "scope": "OpenTag numbering implementation, not original-runtime parity certification",
+  "platform": "macOS arm64 native Tauri WebKit",
+  "branch": "feat/numbering-parity",
+  "functional_build": "/tmp/opentag-numbering-user-test/OpenTag.app",
+  "final_layout_build": "/tmp/opentag-numbering-user-test/final/OpenTag.app",
+  "build_difference": "Final build changes only the numbering preview table minimum width and test bundle identifier; numbering Rust and TypeScript are identical.",
+  "automated": {
+    "frontend_passed": 99,
+    "rust_passed": 263,
+    "clippy": "passed with warnings denied",
+    "fmt": "passed",
+    "frontend_build": "passed",
+    "macos_bundle": "passed"
+  },
+  "native_checks": {
+    "keyboard_shortcut": "passed",
+    "disc_start_padding_and_totals": "passed",
+    "directory_disc_increment": "passed",
+    "album_reset": "passed",
+    "track_reset": "passed",
+    "changed_input_invalidates_preview": "passed",
+    "invalid_zero_start": "passed",
+    "stage_leaves_files_byte_identical": "passed",
+    "save_reload_six_files": "passed",
+    "light_and_dark_preview_all_columns": "passed",
+    "cancel_leaves_no_drafts": "passed"
+  },
+  "saved_files": [
+    {
+      "file": "01.flac",
+      "track": "01/2",
+      "disc": "01/2",
+      "decoded_audio_unchanged": true,
+      "title_unchanged": true
+    },
+    {
+      "file": "02.mp3",
+      "track": "02/2",
+      "disc": "01/2",
+      "decoded_audio_unchanged": true,
+      "title_unchanged": true
+    },
+    {
+      "file": "03.flac",
+      "track": "01/2",
+      "disc": "02/2",
+      "decoded_audio_unchanged": true,
+      "title_unchanged": true
+    },
+    {
+      "file": "04.mp3",
+      "track": "02/2",
+      "disc": "02/2",
+      "decoded_audio_unchanged": true,
+      "title_unchanged": true
+    },
+    {
+      "file": "05.flac",
+      "track": "01/2",
+      "disc": "01/2",
+      "decoded_audio_unchanged": true,
+      "title_unchanged": true
+    },
+    {
+      "file": "06.mp3",
+      "track": "02/2",
+      "disc": "01/2",
+      "decoded_audio_unchanged": true,
+      "title_unchanged": true
+    }
+  ],
+  "remaining": [
+    "Original Mp3tag runtime differential checks",
+    "Padding and simultaneous-trigger edge-case equivalence",
+    "Persistent wizard options",
+    "Windows and Linux native interaction checks",
+    "Full format and provider workflow qualification",
+    "Saved-operation undo"
+  ]
+}
