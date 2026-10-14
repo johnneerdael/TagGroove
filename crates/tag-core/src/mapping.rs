@@ -1545,6 +1545,12 @@ pub(super) fn patch_id3(tag: &mut Id3v2Tag, updates: &Fields) -> Result<(), Stri
             }
             continue;
         }
+        // The reader also exposes TXXX descriptions as logical field names
+        // (for example FFmpeg's TXXX:comment). Replace those aliases only when
+        // their field is edited, along with its standard mapped frame.
+        tag.retain(|frame| {
+            !matches!(frame, Frame::UserText(text) if text.description.eq_ignore_ascii_case(name))
+        });
         if name == "RATING MM" || name == "RATING WMP" {
             let email = if name == "RATING MM" {
                 "no@email"

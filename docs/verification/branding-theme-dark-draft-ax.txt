@@ -1,0 +1,126 @@
+Window: "OpenTag", App: OpenTag.
+0 standard window OpenTag, Secondary Actions: Raise
+	1 scroll area
+		2 HTML content Description: OpenTag, URL: tauri://localhost
+			3 container
+				4 image OpenTag
+					5 image opentag-logo-light
+				6 text Audio metadata editor Local files Appearance
+				7 pop up button Appearance, Help: Appearance: dark, Value: Dark
+			8 container Main menu
+				9 summary File, Value: off
+					10 text File
+				11 summary Edit, Value: off
+					12 text Edit
+				13 summary Convert, Value: off
+					14 text Convert
+				15 summary Actions, Value: off
+					16 text Actions
+				17 summary Help, Value: off
+					18 text Help
+			19 toolbar File and tag operations
+				20 button Open folder
+				21 button Add files
+				22 button Save tags
+				23 button Reload
+				24 button (disabled) Filename → Tag
+				25 button (disabled) Tag → Filename
+				26 button Actions
+				27 button (disabled) Numbering
+			28 container
+				29 container Tag editor
+					30 text Tag panel 1 selected
+					31 container
+						32 text TITLE
+						33 text field (settable) TITLE, Value: First song — theme check
+					34 container
+						35 text ARTIST
+						36 text field (settable) ARTIST, Value: Test Artist
+					37 container
+						38 text ALBUM
+						39 text field (settable) ALBUM, Value: Smoke Test
+					40 container
+						41 text ALBUM ARTIST
+						42 text field (settable) ALBUM ARTIST
+					43 container
+						44 text YEAR
+						45 text field (settable) YEAR
+					46 container
+						47 text TRACK
+						48 text field (settable) TRACK, Value: 1
+					49 container
+						50 text GENRE
+						51 text field (settable) GENRE
+					52 container
+						53 text COMMENT
+						54 text entry area (settable) COMMENT, Value: [text entry area]
+					55 container
+						56 text COMPOSER
+						57 text field (settable) COMPOSER
+					58 container
+						59 text DISC NUMBER
+						60 text field (settable) DISC NUMBER
+					61 button Save tags
+					62 button Extended…
+					63 container Embedded artwork
+						64 text No artwork
+						65 text Embedded cover art
+						66 button (disabled) Add…
+						67 button (disabled) Remove
+				68 container Audio files
+					69 text /private/tmp/opentag-desktop-smoke
+					70 text 2 files
+					71 text Filter
+					72 search text field (settable) Filter, Placeholder: Filter filenames and tags, or enter a filter expression
+						73 text Filter filenames and tags, or enter a filter expression
+					74 text 1 selected
+					75 table Audio metadata
+						76 row (selectable) Filename ↑
+Title
+Artist
+Album
+Track
+Year
+Genre
+Length
+Format
+Bitrate
+						77 row (selected)
+							78 cell (selectable) Description: 01-first.flac, Value: ●
+01-first.flac
+							79 cell (selectable) First song — theme check
+							80 cell (selectable) Test Artist
+							81 cell (selectable) Smoke Test
+							82 cell (selectable) 1
+							83 cell (selectable)
+							84 cell (selectable)
+							85 cell (selectable) Description: 2, Value: 0:02
+							86 cell (selectable) FLAC
+							87 cell (selectable) Description: 123, Value: 123 kbps
+						88 row (selectable)
+							89 cell (selectable) 02-second.mp3
+							90 cell (selectable) Second song
+							91 cell (selectable) Test Artist
+							92 cell (selectable) Smoke Test
+							93 cell (selectable) 2
+							94 cell (selectable)
+							95 cell (selectable)
+							96 cell (selectable) Description: 3.03, Value: 0:03
+							97 cell (selectable) MP3
+							98 cell (selectable) Description: 64, Value: 64 kbps
+					99 text 1 selected file 0:02 total 0.0 MB 44,100 Hz · 1 channel
+			100 container
+				101 text Pending changes for 1 file. Save tags to write them. 1 unsaved file 2 files
+	102 close button
+	103 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window
+	104 minimize button
+	105 text OpenTag
+106 menu bar
+	107 OpenTag
+	108 File
+	109 Edit
+	110 View
+	111 Window
+	112 Help
+
+The focused UI element is 7 pop up button Appearance, Help: Appearance: dark, Value: Dark

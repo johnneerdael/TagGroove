@@ -112,6 +112,49 @@ fn untouched_opaque_id3_frame_survives_field_edit() {
 }
 
 #[test]
+fn editing_mapped_id3_fields_replaces_case_insensitive_user_text_aliases() {
+    let tmp = tempfile::tempdir().unwrap();
+    let path = tmp.path().join("comment-alias.wav");
+    let payload = wav(&path);
+    let mut tag = Id3v2Tag::new();
+    // FFmpeg writes -metadata comment as TXXX:comment in MP3 files. It is
+    // exposed as COMMENT by the reader, just like a standard COMM frame.
+    tag.insert_user_text("comment".into(), "Original comment".into());
+    tag.insert_user_text("TiTlE".into(), "Shadow title".into());
+    tag.insert_user_text("Unmanaged_Field".into(), "Keep Café 猫".into());
+    tag.insert(Frame::Text(lofty::id3::v2::TextInformationFrame::new(
+        FrameId::new("TIT2").unwrap(),
+        lofty::TextEncoding::UTF8,
+        "Original title",
+    )));
+    tag.save_to_path(&path, WriteOptions::default()).unwrap();
+    let before = read_entry(&path).unwrap().fields;
+    assert!(before["TITLE"].iter().any(|value| value == "Shadow title"));
+    let entry = write_fields(
+        &path,
+        &fields(&[
+            ("COMMENT", &["UAT common — Café 猫"]),
+            ("ALBUM", &["New album"]),
+        ]),
+    )
+    .unwrap();
+    assert_eq!(entry.fields["COMMENT"], ["UAT common — Café 猫"]);
+    assert!(!entry.fields.contains_key("comment"));
+    assert_eq!(entry.fields["ALBUM"], ["New album"]);
+    assert_eq!(entry.fields["TITLE"], before["TITLE"]);
+    assert_eq!(entry.fields["Unmanaged_Field"], ["Keep Café 猫"]);
+    let entry = write_fields(
+        &path,
+        &fields(&[("TITLE", &["Only title"]), ("COMMENT", &[])]),
+    )
+    .unwrap();
+    assert_eq!(entry.fields["TITLE"], ["Only title"]);
+    assert!(!entry.fields.contains_key("COMMENT"));
+    assert_eq!(entry.fields["Unmanaged_Field"], ["Keep Café 猫"]);
+    assert_eq!(wav_payload(&path), payload);
+}
+
+#[test]
 fn unedited_padded_id3_numbers_and_frame_details_survive_other_edits() {
     let tmp = tempfile::tempdir().unwrap();
     let path = tmp.path().join("padded.wav");

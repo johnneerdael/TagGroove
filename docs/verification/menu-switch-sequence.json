@@ -1,0 +1,32 @@
+[
+  {
+    "action": "Click File",
+    "open": [
+      "File"
+    ]
+  },
+  {
+    "action": "Click Edit",
+    "open": [
+      "Edit"
+    ]
+  },
+  {
+    "action": "Click Convert",
+    "open": [
+      "Convert"
+    ]
+  },
+  {
+    "action": "Click Actions",
+    "open": [
+      "Actions"
+    ]
+  },
+  {
+    "action": "Click Help",
+    "open": [
+      "Help"
+    ]
+  }
+]

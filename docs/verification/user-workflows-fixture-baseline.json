@@ -1,0 +1,119 @@
+{
+  "status": "Fixtures prepared and independently probed; native UAT not executed",
+  "fixture_root": "/tmp/opentag-user-test",
+  "prepared_utc": "2026-10-14T03:04:45.451547+00:00",
+  "audited_utc": "2026-10-14T03:07:04.433212+00:00",
+  "app_base_commit_at_preparation": "fbc23b694b9ce627731408511470f82ca9003889",
+  "receipt_script_sha256": "6abcb6bf86da648539c8387205c479e9ceb75825fc2ac1781179e90869c774ec",
+  "ffmpeg": "ffmpeg version 9.0.2 Copyright (c) 2000-2026 the FFmpeg developers",
+  "ffprobe": "ffprobe version 9.0.2 Copyright (c) 2007-2026 the FFmpeg developers",
+  "files": [
+    {
+      "relative_path": "Disc 1/01 - Solar Arcade - First Light.mp3",
+      "size": 73598,
+      "file_sha256": "623e54f15478b4b09cb9f255b2667aa5b900bbb607b31b73928a980377b7aa27",
+      "audio_packet_count": 116,
+      "audio_packet_bytes": 72724,
+      "audio_packet_sha256": "a7cea04a782fb2c1d78f7b41f390257aebbfb8c5e17c7caaa50ba65c747424a9",
+      "decoded_s16le_pcm_sha256": "a3f52588c6690decdde7686cdb218b8f0941ff0b4ce7b9264dd0c661c4597d16",
+      "raw_flac_comments": null
+    },
+    {
+      "relative_path": "Disc 1/02 - Solar Arcade - Night Shift.mp3",
+      "size": 73597,
+      "file_sha256": "693b16419568eaa4cd6f076007d4b281ad21ce763458e78e1a4e346b46c7c006",
+      "audio_packet_count": 116,
+      "audio_packet_bytes": 72724,
+      "audio_packet_sha256": "05ffec56bbcdea3555f034d96d174e5633f0890e8ac6377815814a27454294d5",
+      "decoded_s16le_pcm_sha256": "05ba954ee9bee7ad674085f4f5604d9cb91e7a44cc07379eef33f7ce9a1c122c",
+      "raw_flac_comments": null
+    },
+    {
+      "relative_path": "Disc 1/03 - Mémoire - Café 猫.flac",
+      "size": 58601,
+      "file_sha256": "991896db3ec85b7f7a72f3cf2957a666f4f61146523620b812e1f3db832a1d10",
+      "audio_packet_count": 141,
+      "audio_packet_bytes": 50074,
+      "audio_packet_sha256": "4a45ad47336f757596e7d41bf9dea393f1b903c68d11f5019bed9df86a3e01a2",
+      "decoded_s16le_pcm_sha256": "4e534935ee1b4da0d136be6bdfb2098a51efbd09807e6be027c0e289f6682310",
+      "raw_flac_comments": [
+        "title=Café 猫",
+        "album=Archive Sessions",
+        "date=2020-04-18",
+        "TRACKNUMBER=03/06",
+        "DISCNUMBER=1/2",
+        "genre=Ambient",
+        "encoder=Lavf63.1.102",
+        "ARTIST=Mémoire",
+        "ARTIST=Guest 猫",
+        "MOOD=Calm",
+        "MOOD=Focus",
+        "TEST_A=left",
+        "TEST_B=right",
+        "UAT_REMOVE=remove-me"
+      ]
+    },
+    {
+      "relative_path": "Disc 2/04 - Solar Arcade - Quoted Title.m4a",
+      "size": 61991,
+      "file_sha256": "e7d7dbe0809d25a26365dd24dd61679d02aea0afdb818313c57361ebece81552",
+      "audio_packet_count": 131,
+      "audio_packet_bytes": 60423,
+      "audio_packet_sha256": "0f1f5a03fa19be21c9434ce9e9ec953225f360445f2e0eb19a589101b2e5bacb",
+      "decoded_s16le_pcm_sha256": "a4e0ae2da2f2f229e5d41cb0157c8344d5f75d980665c94e5c60a0fcea322cd9",
+      "raw_flac_comments": null
+    },
+    {
+      "relative_path": "Disc 2/05 - Zephyr - Paper Planes.opus",
+      "size": 49913,
+      "file_sha256": "d766de48d647e658fd727e4df5accaec53cdae836d9083a2be0f3caef4c4a625",
+      "audio_packet_count": 151,
+      "audio_packet_bytes": 49240,
+      "audio_packet_sha256": "292237b34cd916a7b8ec465e96b13726ad5f3c5f10ce47977217109a4446c00f",
+      "decoded_s16le_pcm_sha256": "a400948aee984a9dd746f434066f2df14d614c31f6a041bc9e6573bf85c3adda",
+      "raw_flac_comments": null
+    },
+    {
+      "relative_path": "Disc 2/06 - Fixture Lab - Sanity Pulse.wav",
+      "size": 264754,
+      "file_sha256": "aef159cfccb4c96431928f530318423335ff9418af2e18597eb2aa75a74d654b",
+      "audio_packet_count": 33,
+      "audio_packet_bytes": 264600,
+      "audio_packet_sha256": "6daffd4dea82bc53a8f76f32654648adbc785404f7e9b7934097f2e3093d6a62",
+      "decoded_s16le_pcm_sha256": "7f2f4642826e19d97b81f0061074e89ef5926e76a2d636a3e9a034d74f78ba3c",
+      "raw_flac_comments": null
+    }
+  ],
+  "images": [
+    {
+      "path": "fixtures/art/back-800x450.jpg",
+      "sha256": "23b8d56d5eff86341e0fac8bc73d36b897575a76e7cec1fdcb9dbd3e6ce69089",
+      "probe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "mjpeg",
+            "width": 800,
+            "height": 450
+          }
+        ]
+      }
+    },
+    {
+      "path": "fixtures/art/front-600.png",
+      "sha256": "474b5eebee61cae290e3ea03d32b80de333ced94c1ec69e69adc6ada45613f92",
+      "probe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "png",
+            "width": 600,
+            "height": 600
+          }
+        ]
+      }
+    }
+  ]
+}

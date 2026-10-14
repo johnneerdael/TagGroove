@@ -13,3 +13,9 @@
 /src-tauri/gen/apple/**/xcuserdata/
 .DS_Store
 *.log
+*.keystore
+*.jks
+*.p12
+*.pfx
+keystore.properties
+/release-assets/

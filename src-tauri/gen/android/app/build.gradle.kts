@@ -25,6 +25,18 @@ android {
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
         versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
     }
+    val releaseStore = System.getenv("ANDROID_KEYSTORE_PATH")
+    if (!releaseStore.isNullOrBlank()) {
+        signingConfigs.create("opentagRelease") {
+            storeFile = file(releaseStore)
+            storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                ?: error("ANDROID_KEYSTORE_PASSWORD is required for release signing")
+            keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+                ?: error("ANDROID_KEY_ALIAS is required for release signing")
+            keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+                ?: error("ANDROID_KEY_PASSWORD is required for release signing")
+        }
+    }
     buildTypes {
         getByName("debug") {
             manifestPlaceholders["usesCleartextTraffic"] = "true"
@@ -39,6 +51,9 @@ android {
             }
         }
         getByName("release") {
+            if (!releaseStore.isNullOrBlank()) {
+                signingConfig = signingConfigs.getByName("opentagRelease")
+            }
             optimization {
                enable = true
             }

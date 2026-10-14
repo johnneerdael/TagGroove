@@ -2,13 +2,16 @@
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { getVersion } from '@tauri-apps/api/app';
+import { createAppearance, type AppearanceState } from './theme';
+import { installMenubar } from './menubar';
 import { open, save, ask } from '@tauri-apps/plugin-dialog';
-import { resolveTagEdits, type TagRowEdit } from './tag-edits';
+import { fieldNameIdentity, resolveTagEdits, selectionTagRows, type TagRowEdit } from './tag-edits';
 import { ActionUI, panelKey, resolvePathChanges, type ActionGroup, type ActionLibrary, type ImportedGroup } from './action-ui';
-import logoUrl from '../assets/brand/OpenTag-Brand-Kit/01-logos/horizontal/opentag-logo-light.svg';
-import markUrl from '../assets/brand/OpenTag-Brand-Kit/01-logos/marks/opentag-mark-color.svg';
-import artworkUrl from '../assets/brand/OpenTag-Brand-Kit/04-in-app/opentag-default-artwork-light-1024.svg';
-import aboutUrl from '../assets/brand/OpenTag-Brand-Kit/04-in-app/opentag-splash-light-1600x1000.svg';
+import logoLightUrl from '../assets/brand/OpenTag-Brand-Kit/01-logos/horizontal/opentag-logo-light.svg';
+import markLightUrl from '../assets/brand/OpenTag-Brand-Kit/01-logos/marks/opentag-mark-color.svg';
+import artworkLightUrl from '../assets/brand/OpenTag-Brand-Kit/04-in-app/opentag-default-artwork-light-1024.svg';
+import aboutLightUrl from '../assets/brand/OpenTag-Brand-Kit/04-in-app/opentag-splash-light-1600x1000.svg';
 import glyphAlbum from '../assets/brand/OpenTag-Brand-Kit/04-in-app/ui-icons/opentag-album.svg?raw';
 import glyphBatch from '../assets/brand/OpenTag-Brand-Kit/04-in-app/ui-icons/opentag-batch-edit.svg?raw';
 import glyphCheck from '../assets/brand/OpenTag-Brand-Kit/04-in-app/ui-icons/opentag-check.svg?raw';
@@ -21,6 +24,10 @@ import glyphOrganize from '../assets/brand/OpenTag-Brand-Kit/04-in-app/ui-icons/
 import glyphSave from '../assets/brand/OpenTag-Brand-Kit/04-in-app/ui-icons/opentag-save.svg?raw';
 import glyphSearch from '../assets/brand/OpenTag-Brand-Kit/04-in-app/ui-icons/opentag-search.svg?raw';
 import glyphSettings from '../assets/brand/OpenTag-Brand-Kit/04-in-app/ui-icons/opentag-settings.svg?raw';
+import logoDarkUrl from '../assets/brand/OpenTag-Brand-Kit/01-logos/horizontal/opentag-logo-dark.svg';
+import markDarkUrl from '../assets/brand/OpenTag-Brand-Kit/01-logos/marks/opentag-mark-dark.svg';
+import artworkDarkUrl from '../assets/brand/OpenTag-Brand-Kit/04-in-app/opentag-default-artwork-dark-1024.svg';
+import aboutDarkUrl from '../assets/brand/OpenTag-Brand-Kit/04-in-app/opentag-splash-dark-1600x1000.svg';
 import './style.css';
 
 type Fields = Record<string, string[]>;
@@ -35,6 +42,40 @@ type Operation = 'folder'|'files'|'save'|'reload'|'extended'|'add-cover'|'remove
 const glyphs:Partial<Record<Operation,string>>={folder:glyphImport,files:glyphMusic,save:glyphSave,reload:glyphOrganize,extended:glyphEdit,'add-cover':glyphAlbum,'remove-cover':glyphEdit,'filename-tags':glyphImport,'tags-filename':glyphExport,action:glyphBatch,groups:glyphSettings,number:glyphOrganize,'remove-tags':glyphEdit,playlist:glyphOrganize,csv:glyphExport,'select-all':glyphCheck,discard:glyphEdit,about:glyphInfo};
 const glyph=(source:string)=>`<span class="icon" aria-hidden="true">${source}</span>`;
 const desktop = isTauri();
+const appearanceAssets = {
+  light: {logo:logoLightUrl,mark:markLightUrl,artwork:artworkLightUrl,about:aboutLightUrl},
+  dark: {logo:logoDarkUrl,mark:markDarkUrl,artwork:artworkDarkUrl,about:aboutDarkUrl},
+};
+let nativeAppearanceReady=false, nativeAppearanceChoice:string|undefined;
+let nativeAppearanceQueue=Promise.resolve();
+const appearance = createAppearance({
+  media:window.matchMedia('(prefers-color-scheme: dark)'),
+  storage:{getItem:key=>window.localStorage.getItem(key),setItem:(key,value)=>window.localStorage.setItem(key,value)},
+  changed:applyAppearance,
+});
+const themedAsset=(kind:keyof typeof appearanceAssets.light)=>appearanceAssets[appearance.state.resolved][kind];
+function syncNativeAppearance(){
+  if(!desktop||!nativeAppearanceReady)return;
+  const choice=appearance.state.preference;
+  if(nativeAppearanceChoice===choice)return;
+  nativeAppearanceChoice=choice;
+  nativeAppearanceQueue=nativeAppearanceQueue.then(()=>getCurrentWindow().setTheme(choice==='system'?null:choice))
+    .catch(error=>{nativeAppearanceChoice=undefined;console.warn('Native appearance could not update',error);});
+}
+function applyAppearance(state:AppearanceState){
+  document.documentElement.dataset.theme=state.resolved;
+  document.documentElement.style.colorScheme=state.resolved;
+  document.querySelectorAll<HTMLImageElement>('img[data-theme-image]').forEach(image=>{
+    const kind=image.dataset.themeImage as keyof typeof appearanceAssets.light;
+    image.src=appearanceAssets[state.resolved][kind];
+  });
+  const select=document.querySelector<HTMLSelectElement>('#appearance');
+  if(select){select.value=state.preference;select.title=`Appearance: ${state.preference==='system'?`System (${state.resolved})`:state.resolved}`;const system=select.querySelector<HTMLOptionElement>('option[value="system"]');if(system)system.textContent=state.preference==='system'?`System (${state.resolved==='dark'?'Dark':'Light'})`:'System';}
+  syncNativeAppearance();
+}
+applyAppearance(appearance.state);
+
+let appVersion='development';
 const app = document.querySelector<HTMLDivElement>('#app')!;
 const entries = new Map<string, Entry>();
 const drafts = new Map<string, Fields>();
@@ -161,7 +202,7 @@ function coversFor(entry:Entry|undefined):Cover[]{
 function coverMarkup(){
   const entry=active(),covers=coversFor(entry),cover=covers[Math.min(coverIndex,covers.length-1)];
   const loaded=!!cover?.data_base64,error=coverError&&coverError.path===entry?.path?coverError.message:'';
-  return `<div class="cover-row"><div class="cover-art">${loaded?`<img alt="Embedded ${esc(cover.picture_type)} artwork">`:`<img class="fallback-artwork" src="${artworkUrl}" alt="" aria-hidden="true">`}</div><div class="cover-info"><strong>${cover?esc(cover.picture_type||'Embedded cover'):'No artwork'}</strong>${error?esc(error):cover?`${esc(cover.mime)}<br>${loaded?esc(cover.description||`${covers.length} embedded image${covers.length===1?'':'s'}`):'Loading artwork…'}`:selected.size>1?'First selected file':'Embedded cover art'}</div></div><div class="cover-controls">${button('add-cover','Add…')}${button('remove-cover','Remove')}${covers.length>1?`<select id="cover-choice" aria-label="Select cover">${covers.map((c,i)=>`<option value="${i}" ${i===coverIndex?'selected':''}>${i+1}: ${esc(c.picture_type)}</option>`).join('')}</select>`:''}</div>`;
+  return `<div class="cover-row"><div class="cover-art">${loaded?`<img alt="Embedded ${esc(cover.picture_type)} artwork">`:`<img class="fallback-artwork" data-theme-image="artwork" src="${themedAsset('artwork')}" alt="" aria-hidden="true">`}</div><div class="cover-info"><strong>${cover?esc(cover.picture_type||'Embedded cover'):'No artwork'}</strong>${error?esc(error):cover?`${esc(cover.mime)}<br>${loaded?esc(cover.description||`${covers.length} embedded image${covers.length===1?'':'s'}`):'Loading artwork…'}`:selected.size>1?'First selected file':'Embedded cover art'}</div></div><div class="cover-controls">${button('add-cover','Add…')}${button('remove-cover','Remove')}${covers.length>1?`<select id="cover-choice" aria-label="Select cover">${covers.map((c,i)=>`<option value="${i}" ${i===coverIndex?'selected':''}>${i+1}: ${esc(c.picture_type)}</option>`).join('')}</select>`:''}</div>`;
 }
 function setCoverImage(){const covers=coversFor(active()),cover=covers[Math.min(coverIndex,covers.length-1)],image=document.querySelector<HTMLImageElement>('.cover-art img');if(image&&cover?.data_base64)image.src=`data:${cover.mime};base64,${cover.data_base64}`;}
 function refreshCoverPanel(){
@@ -239,19 +280,19 @@ function render() {
   const list = visible(), entry = active();
   const selectedEntries = paths().map(path => entries.get(path)!);
   const selectedSize = selectedEntries.reduce((sum,e) => sum+e.size,0), selectedTime = selectedEntries.reduce((sum,e) => sum+e.duration,0);
-  app.innerHTML = `<div class="app" data-pane="${mobilePane}"><header class="titlebar"><img class="brand-logo" src="${logoUrl}" alt="OpenTag"><span class="subtitle">Audio metadata editor</span><span class="window-mode">${desktop ? 'Local files' : 'Browser preview'}</span></header>
+  app.innerHTML = `<div class="app" data-pane="${mobilePane}"><header class="titlebar"><img class="brand-logo" data-theme-image="logo" src="${themedAsset('logo')}" alt="OpenTag"><span class="subtitle">Audio metadata editor</span><span class="window-mode">${desktop ? 'Local files' : 'Browser preview'}</span><label class="appearance-control"><span>Appearance</span><select id="appearance" aria-label="Appearance"><option value="system">${appearance.state.preference==='system'?`System (${appearance.state.resolved==='dark'?'Dark':'Light'})`:'System'}</option><option value="light">Light</option><option value="dark">Dark</option></select></label></header>
   <nav class="menubar" aria-label="Main menu">${menu('File',[['folder','Open folder…','⌘/Ctrl O'],['files','Add files…'],['save','Save tags','⌘/Ctrl S'],['reload','Reload tags'],['playlist','Create playlist…'],['csv','Export CSV…']])}${menu('Edit',[['select-all','Select all','⌘/Ctrl A'],['extended','Extended tags…'],['discard','Discard pending changes'],['remove-tags','Remove tags…']])}${menu('Convert',[['filename-tags','Filename → Tag…'],['tags-filename','Tag → Filename…']])}${menu('Actions',[['groups','Actions…','Alt 6'],['action','Actions (Quick)…','Alt Shift 6'],['number','Auto-numbering…']])}${menu('Help',[['about','About OpenTag']])}</nav>
   <div class="toolbar" role="toolbar" aria-label="File and tag operations">${button('folder','Open folder','▱')}${button('files','Add files','＋')}<span class="sep"></span>${button('save','Save tags','▣')}${button('reload','Reload','↻')}<span class="sep"></span>${button('filename-tags','Filename → Tag')}${button('tags-filename','Tag → Filename')}<span class="spacer"></span>${button('groups','Actions','⚙')}${button('number','Numbering','#')}</div>
   <nav class="mobile-panes" aria-label="Workspace view"><button data-pane="files" aria-pressed="${mobilePane==='files'}">Files (${entries.size})</button><button data-pane="tags" aria-pressed="${mobilePane==='tags'}" ${selected.size?'':'disabled'}>Tags (${selected.size})</button></nav>
   <main class="workspace"><aside class="editor" aria-label="Tag editor"><div class="panel-title">Tag panel <span>${selected.size ? `${selected.size} selected` : 'No selection'}</span></div><div class="fields">${input('TITLE')}${input('ARTIST')}${input('ALBUM')}${input('ALBUMARTIST')}<div class="field-pair">${input('YEAR')}${input('TRACK')}</div>${input('GENRE')}${input('COMMENT')}${input('COMPOSER')}${input('DISCNUMBER')}</div><div class="editor-actions">${button('save','Save tags')}${button('extended','Extended…')}</div>
   <section class="cover-section" aria-label="Embedded artwork">${coverMarkup()}</section></aside>
-  <section class="files" aria-label="Audio files"><div class="location">${glyph(glyphOrganize)}<span class="path" title="${esc(location)}">${esc(location)}</span><strong>${entries.size} file${entries.size===1?'':'s'}</strong></div><div class="filterbar"><label for="filter">${glyph(glyphSearch)}<span class="visually-hidden">Filter</span></label><input id="filter" type="search" value="${esc(filter)}" placeholder="Filter filenames and tags, or enter a filter expression" autocomplete="off"><span class="count">${filterPending?'Filtering… · ':list.length === entries.size ? '' : `${list.length} visible · `}${selected.size} selected</span></div><div class="table-wrap"><table aria-label="Audio metadata" aria-rowcount="${list.length+1}"><thead><tr>${columns.map(c => `<th style="width:${c.width}px" aria-sort="${sortKey===c.key ? sortAscending?'ascending':'descending':'none'}"><button data-sort="${c.key}">${c.label}${sortKey===c.key?sortAscending?' ↑':' ↓':''}</button></th>`).join('')}</tr></thead><tbody></tbody></table>${!list.length ? `<div class="empty"><img class="empty-symbol" src="${markUrl}" alt="" aria-hidden="true"><h1>${filterPending ? 'Filtering files…' : filterFailure ? 'Invalid filter' : entries.size ? 'No matching files' : desktop ? 'Open your music folder' : 'Your music, ready to edit'}</h1><p>${filterPending ? 'Matching your filter against filenames and tag values.' : filterFailure ? esc(filterFailure) : entries.size ? 'Try another filename or tag value in the filter.' : desktop ? 'Open a folder, add audio files, or drop them into this window. Select files to edit their tags together.' : 'Open the desktop app to work with local audio files. Your files and tags stay on your computer.'}</p>${!entries.size ? `<div class="empty-actions">${button('folder','Open folder…')}${button('files','Add files…')}</div>` : ''}</div>` : ''}</div><div class="selection-info"><span>${selected.size ? `${selected.size} selected file${selected.size===1?'':'s'}` : 'Select a file to view its tags'}</span>${selected.size ? `<span>${length(selectedTime)} total</span><span>${(selectedSize/1048576).toFixed(1)} MB</span>` : ''}<span>${selected.size===1 && entry ? `${entry.sample_rate.toLocaleString()} Hz · ${entry.channels} channel${entry.channels===1?'':'s'}` : ''}</span></div>
+  <section class="files" aria-label="Audio files"><div class="location">${glyph(glyphOrganize)}<span class="path" title="${esc(location)}">${esc(location)}</span><strong>${entries.size} file${entries.size===1?'':'s'}</strong></div><div class="filterbar"><label for="filter">${glyph(glyphSearch)}<span class="visually-hidden">Filter</span></label><input id="filter" type="search" value="${esc(filter)}" placeholder="Filter filenames and tags, or enter a filter expression" autocomplete="off"><span class="count">${filterPending?'Filtering… · ':list.length === entries.size ? '' : `${list.length} visible · `}${selected.size} selected</span></div><div class="table-wrap"><table aria-label="Audio metadata" aria-rowcount="${list.length+1}"><thead><tr>${columns.map(c => `<th style="width:${c.width}px" aria-sort="${sortKey===c.key ? sortAscending?'ascending':'descending':'none'}"><button data-sort="${c.key}">${c.label}${sortKey===c.key?sortAscending?' ↑':' ↓':''}</button></th>`).join('')}</tr></thead><tbody></tbody></table>${!list.length ? `<div class="empty"><img class="empty-symbol" data-theme-image="mark" src="${themedAsset('mark')}" alt="" aria-hidden="true"><h1>${filterPending ? 'Filtering files…' : filterFailure ? 'Invalid filter' : entries.size ? 'No matching files' : desktop ? 'Open your music folder' : 'Your music, ready to edit'}</h1><p>${filterPending ? 'Matching your filter against filenames and tag values.' : filterFailure ? esc(filterFailure) : entries.size ? 'Try another filename or tag value in the filter.' : desktop ? 'Open a folder, add audio files, or drop them into this window. Select files to edit their tags together.' : 'Open the desktop app to work with local audio files. Your files and tags stay on your computer.'}</p>${!entries.size ? `<div class="empty-actions">${button('folder','Open folder…')}${button('files','Add files…')}</div>` : ''}</div>` : ''}</div><div class="selection-info"><span>${selected.size ? `${selected.size} selected file${selected.size===1?'':'s'}` : 'Select a file to view its tags'}</span>${selected.size ? `<span>${length(selectedTime)} total</span><span>${(selectedSize/1048576).toFixed(1)} MB</span>` : ''}<span>${selected.size===1 && entry ? `${entry.sample_rate.toLocaleString()} Hz · ${entry.channels} channel${entry.channels===1?'':'s'}` : ''}</span></div>
   ${errors.length ? `<section class="errors" aria-label="Operation errors"><header>${errors.length} file error${errors.length===1?'':'s'}<button id="dismiss-errors">Dismiss</button></header>${errors.map(e => `<p><strong>${esc(basename(e.path))}:</strong> ${esc(e.error)}</p>`).join('')}</section>` : ''}</section></main><footer class="status ${busy?'busy':''}"><span class="status-dot" aria-hidden="true"></span><span class="status-message" role="status">${esc(status)}</span>${drafts.size ? `<span class="dirty-count">${drafts.size} unsaved file${drafts.size===1?'':'s'}</span>` : ''}<span>${entries.size} files</span></footer></div>`;
   const wrap=document.querySelector<HTMLDivElement>('.table-wrap')!;
   wrap.querySelector('tbody')!.innerHTML=list.length?`<tr class="virtual-spacer" aria-hidden="true"><td colspan="${columns.length}" style="height:${list.length*rowHeight}px"></td></tr>`:'';
   wrap.scrollTop=scrollTop;wrap.scrollLeft=scrollLeft;updateVirtualRows(true);
   document.querySelector('.fields')!.scrollTop=panelTop;
-  bind();setCoverImage();hydrateActiveCover();
+  bind();setCoverImage();hydrateActiveCover();applyAppearance(appearance.state);
   if(focusSelector){const replacement=document.querySelector<HTMLInputElement|HTMLTextAreaElement>(focusSelector);replacement?.focus({preventScroll:true});if(replacement&&caretStart!=null&&caretEnd!=null){try{replacement.setSelectionRange(caretStart,caretEnd);}catch{/* Search selection is not supported by every webview. */}}}
   timing('workspace render',started,{rendered:virtualEnd-virtualStart,selected:selected.size});
 }
@@ -290,6 +331,7 @@ function select(path: string, event: MouseEvent | KeyboardEvent) {
   document.querySelector<HTMLTableRowElement>(`tr[data-path="${CSS.escape(path)}"]`)?.focus({preventScroll:true});
 }
 function bind() {
+  document.querySelector<HTMLSelectElement>('#appearance')!.addEventListener('change',event=>appearance.set((event.target as HTMLSelectElement).value));
   actionUI.bindMenu(app);
   document.querySelectorAll<HTMLButtonElement>('button[data-pane]').forEach(el=>el.addEventListener('click',()=>{mobilePane=el.dataset.pane as 'files'|'tags';render();}));
   document.querySelectorAll<HTMLButtonElement>('[data-op]').forEach(el => el.addEventListener('click', () => { document.querySelectorAll<HTMLDetailsElement>('details[open]').forEach(d => d.open = false); void operate(el.dataset.op as Operation); }));
@@ -354,7 +396,7 @@ function modal(title: string, content: string, buttons: string): HTMLDialogEleme
 function modalError(dialog: HTMLDialogElement, error: unknown) {let el=dialog.querySelector('.dialog-error');if(!el){el=document.createElement('p');el.className='dialog-error';el.setAttribute('role','alert');dialog.querySelector('.dialog-content')!.append(el);}el.textContent=String(error);}
 function value(dialog: HTMLDialogElement, id: string) {return dialog.querySelector<HTMLInputElement|HTMLSelectElement>(`#${id}`)!.value;}
 function extended() {
-  const all=paths().map(p=>merged(entries.get(p)!));const keys=[...new Set(all.flatMap(f=>Object.keys(f)))].sort();
+  const all=paths().map(p=>merged(entries.get(p)!));
   const dialog=modal('Extended tags',`<p>Each value can contain multiple lines. Use Add value for another tag value, or remove all values to remove a field. Renaming a field keeps each file's values.</p><div id="extended-rows"></div><button id="add-field">＋ Add field</button>`,`<button class="primary" id="apply-extended">Keep changes</button>`);
   const rows=dialog.querySelector('#extended-rows')!;
   const originalValues=new WeakMap<HTMLTextAreaElement,string>();
@@ -375,10 +417,12 @@ function extended() {
     row.querySelector('.add-value')!.addEventListener('click',()=>{addValue('');changed();valueList.querySelector<HTMLTextAreaElement>('.extended-value:last-child textarea')!.focus();});
     rows.append(row);
   };
-  keys.forEach(key=>{const vals=all.map(f=>f[key]||[]);const mixed=vals.some(v=>JSON.stringify(v)!==JSON.stringify(vals[0]));add(key,mixed?[]:vals[0],mixed);});
+  selectionTagRows(all).forEach(({name,values,mixed})=>add(name,values,mixed));
+  rows.querySelector<HTMLInputElement>('input')?.focus({preventScroll:true});
+  dialog.querySelector('.dialog-content')!.scrollTop=0;
   dialog.querySelector('#add-field')!.addEventListener('click',()=>add());
   dialog.querySelector('#apply-extended')!.addEventListener('click',()=>{
-    const edits:TagRowEdit[]=[...rows.querySelectorAll<HTMLDivElement>('.extended-row')].map(row=>({original:row.dataset.original||'',name:row.querySelector('input')!.value.trim().toUpperCase(),values:[...row.querySelectorAll<HTMLTextAreaElement>('.extended-value textarea')].map(textarea=>textarea.dataset.edited==='true'?textarea.value:originalValues.get(textarea)??textarea.value),changed:row.dataset.changed==='true',valueChanged:row.dataset.valueChanged==='true',removed:row.dataset.removed==='true'}));
+    const edits:TagRowEdit[]=[...rows.querySelectorAll<HTMLDivElement>('.extended-row')].map(row=>({original:row.dataset.original||'',name:fieldNameIdentity(row.querySelector('input')!.value.trim()),values:[...row.querySelectorAll<HTMLTextAreaElement>('.extended-value textarea')].map(textarea=>textarea.dataset.edited==='true'?textarea.value:originalValues.get(textarea)??textarea.value),changed:row.dataset.changed==='true',valueChanged:row.dataset.valueChanged==='true',removed:row.dataset.removed==='true'}));
     try {
       const perFile=paths().map(path=>({path,updates:resolveTagEdits(merged(entries.get(path)!),edits)}));
       perFile.forEach(({path,updates})=>Object.entries(updates).forEach(([key,values])=>updateDraft(path,key,values)));
@@ -407,7 +451,7 @@ function numbering() {
 }
 async function operateImpl(op: Operation) {
   if(!enabled(op))return;
-  if(op==='about'){const dialog=modal('About OpenTag',`<img class="about-artwork" src="${aboutUrl}" alt="OpenTag — Tag, Organize, Enjoy"><p>Open source music tag editor.</p><p>Version 0.1.0 · MIT License</p>`,'');dialog.querySelector('[data-close]')!.textContent='Close';return;}
+  if(op==='about'){const dialog=modal('About OpenTag',`<img class="about-artwork" data-theme-image="about" src="${themedAsset('about')}" alt="OpenTag — Tag, Organize, Enjoy"><p>Tag, Organize, Enjoy.</p><p>Open source music tag editor.</p><p>Version ${esc(appVersion)} · MIT License</p>`,'');dialog.querySelector('[data-close]')!.textContent='Close';return;}
   if(op==='folder'||op==='files'){const result=await open(op==='folder'?{directory:true,multiple:true,title:'Open audio folder'}:{multiple:true,title:'Add audio files'});if(result)await scan(Array.isArray(result)?result:[result]);return;}
   if(op==='save'){await saveDrafts();return;}
   if(op==='select-all'){selected.clear();visible().forEach(e=>selected.add(e.path));anchor=paths()[0];coverIndex=0;render();return;}
@@ -427,23 +471,24 @@ async function operate(op: Operation) {
   try { await operateImpl(op); }
   catch(error) {errors=[{path:'Operation',error:String(error)}];status='Operation failed';render();}
 }
+const menubar = installMenubar(document);
 document.addEventListener('keydown',event=>{
-  if(document.querySelector('dialog[open]'))return;
+  if(event.defaultPrevented||document.querySelector('dialog[open]'))return;
   const typing=event.target instanceof HTMLInputElement||event.target instanceof HTMLTextAreaElement;
-  if(event.altKey&&event.key==='6'){event.preventDefault();void operate(event.shiftKey?'action':'groups');return;}
-  if(event.altKey&&event.key.toLowerCase()==='a'&&!typing){event.preventDefault();const menu=document.querySelector<HTMLDetailsElement>('#actions-menu')!;menu.open=true;actionUI.beginMnemonic();return;}
-  if(!typing&&document.querySelector<HTMLDetailsElement>('#actions-menu')?.open&&event.key.length===1&&!event.metaKey&&!event.ctrlKey){event.preventDefault();void actionUI.mnemonic(event.key);return;}
+  if(event.altKey&&(event.code==='Digit6'||event.key==='6')){event.preventDefault();menubar.close();void operate(event.shiftKey?'action':'groups');return;}
+  if(event.altKey&&(event.code==='KeyA'||event.key.toLowerCase()==='a')&&!typing){event.preventDefault();const menu=document.querySelector<HTMLDetailsElement>('#actions-menu')!;menubar.open(menu);menu.querySelector('summary')?.focus();actionUI.beginMnemonic();return;}
+  if(!typing&&document.querySelector<HTMLDetailsElement>('#actions-menu')?.open&&event.key.trim().length===1&&!event.metaKey&&!event.ctrlKey){event.preventDefault();void actionUI.mnemonic(event.key);return;}
   if(event.key==='Escape'){document.querySelectorAll<HTMLDetailsElement>('details[open]').forEach(d=>d.open=false);}
   if(event.metaKey||event.ctrlKey){if(event.key.toLowerCase()==='s'){event.preventDefault();void operate('save');}if(event.key.toLowerCase()==='o'){event.preventDefault();void operate('folder');}if(event.key.toLowerCase()==='a'&&!typing){event.preventDefault();void operate('select-all');}}
 });
-document.addEventListener('click',e=>{if(!(e.target as Element).closest('.menu'))document.querySelectorAll<HTMLDetailsElement>('details[open]').forEach(d=>d.open=false);});
 window.addEventListener('beforeunload',event=>{if(drafts.size||actionUI.hasUnsavedChanges){event.preventDefault();event.returnValue='';}});
 render();
 let resizeFrame=0;
 window.addEventListener('resize',()=>{if(!resizeFrame)resizeFrame=requestAnimationFrame(()=>{resizeFrame=0;rowHeight=compactScreen()?44:30;render();});});
 if(desktop){
+  void getVersion().then(version=>{appVersion=version;}).catch(()=>{appVersion='unknown';});
   void actionUI.initialize().catch(error=>{errors=[{path:'Action groups',error:String(error)}];render();});
-  void invoke<typeof runtimePlatform>('runtime_platform').then(platform=>{runtimePlatform=platform;render();}).catch(error=>{errors=[{path:'Platform',error:String(error)}];render();});
+  void invoke<typeof runtimePlatform>('runtime_platform').then(platform=>{runtimePlatform=platform;nativeAppearanceReady=platform.family==='desktop';render();syncNativeAppearance();}).catch(error=>{errors=[{path:'Platform',error:String(error)}];render();});
   void getCurrentWindow().onCloseRequested(async event => {
     if(busy){event.preventDefault();return;}
     if(!drafts.size&&!actionUI.hasUnsavedChanges)return;

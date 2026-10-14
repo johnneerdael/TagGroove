@@ -1,0 +1,26 @@
+Window: "OpenTag", App: OpenTag.
+0 standard window OpenTag, Secondary Actions: Raise
+	1 scroll area
+		2 HTML content Description: OpenTag, URL: tauri://localhost
+			3 image opentag-logo-light
+			4 container
+				5 text About OpenTag
+				6 image OpenTag — Tag, Organize, Enjoy
+					7 image opentag-splash-light-1600x1000
+				8 text Tag, Organize, Enjoy.
+				9 text Open source music tag editor.
+				10 text Version 0.1.0 · MIT License
+				11 button Close
+	12 close button
+	13 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window
+	14 minimize button
+	15 text OpenTag
+16 menu bar
+	17 OpenTag
+	18 File
+	19 Edit
+	20 View
+	21 Window
+	22 Help
+
+The focused UI element is 11 button Close

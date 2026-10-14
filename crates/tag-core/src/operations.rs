@@ -58,6 +58,9 @@ fn remove_copy(path: &Path) -> std::io::Result<()> {
     if let Ok(metadata) = std::fs::metadata(path) {
         let mut permissions = metadata.permissions();
         if permissions.readonly() {
+            // This statement is Windows-only: it clears the DOS read-only
+            // attribute, never Unix mode bits or access-control permissions.
+            #[allow(clippy::permissions_set_readonly_false)]
             permissions.set_readonly(false);
             std::fs::set_permissions(path, permissions)?;
         }
@@ -187,7 +190,12 @@ mod tests {
         let target = dir.path().join("copied.flac");
         let bytes = (0..131_073).map(|i| (i % 251) as u8).collect::<Vec<_>>();
         std::fs::write(&source, &bytes).unwrap();
-        let input = std::fs::File::open(&source).unwrap();
+        // Windows requires a writable handle to set fixture timestamps.
+        let input = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(&source)
+            .unwrap();
         input
             .set_times(std::fs::FileTimes::new().set_modified(
                 std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_700_000_000),
