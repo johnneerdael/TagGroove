@@ -44,7 +44,7 @@ use std::{
 };
 use walkdir::WalkDir;
 
-fn error_message(error: &dyn std::error::Error) -> String {
+pub(crate) fn error_message(error: &dyn std::error::Error) -> String {
     let mut message = error.to_string();
     let mut source = error.source();
     while let Some(cause) = source {
@@ -652,6 +652,23 @@ pub fn scan_paths_with_options(
     options: &TagOptions,
     extensions: Option<&[String]>,
 ) -> ScanResult {
+    scan_paths_with_progress(
+        paths,
+        recursive,
+        options,
+        extensions,
+        &crate::parallel::Silent,
+    )
+}
+/// Like [`scan_paths_with_options`], reading files in parallel while reporting
+/// progress. After a cancellation the files read so far are returned.
+pub fn scan_paths_with_progress(
+    paths: &[String],
+    recursive: bool,
+    options: &TagOptions,
+    extensions: Option<&[String]>,
+    progress: &dyn crate::parallel::Progress,
+) -> ScanResult {
     let mut result = ScanResult::default();
     let mut seen = HashSet::new();
     let mut candidates = Vec::new();
@@ -683,29 +700,60 @@ pub fn scan_paths_with_options(
             }),
         }
     }
+    let mut unique = Vec::new();
     for path in candidates {
-        let canonical = match path.canonicalize() {
-            Ok(p) => p,
-            Err(e) => {
-                result.errors.push(FileError {
-                    path: path.to_string_lossy().into_owned(),
-                    error: e.to_string(),
-                });
-                continue;
+        match path.canonicalize() {
+            Ok(canonical) => {
+                if seen.insert(canonical.clone()) {
+                    unique.push(canonical);
+                }
             }
-        };
-        if !seen.insert(canonical.clone()) {
-            continue;
-        }
-        match read_entry_summary_with_options(&canonical, &[], options) {
-            Ok(entry) => result.entries.push(entry),
-            Err(error) => result.errors.push(FileError {
-                path: canonical.to_string_lossy().into_owned(),
-                error,
+            Err(e) => result.errors.push(FileError {
+                path: path.to_string_lossy().into_owned(),
+                error: e.to_string(),
             }),
         }
     }
+    progress.start(unique.len());
+    let read = crate::parallel::map_ordered(&unique, progress, |canonical| {
+        read_entry_summary_with_options(canonical, &[], options)
+    });
+    for (canonical, outcome) in unique.iter().zip(read) {
+        match outcome {
+            Some(Ok(entry)) => result.entries.push(entry),
+            Some(Err(error)) => result.errors.push(FileError {
+                path: canonical.to_string_lossy().into_owned(),
+                error,
+            }),
+            None => {}
+        }
+    }
     result
+}
+
+/// Copy `source` to a new temporary file in `dir`. The copy is created at a
+/// fresh path rather than into an already opened temporary file, so
+/// copy-on-write filesystems clone it (APFS `clonefile`, reflinks through
+/// `copy_file_range`) instead of duplicating every audio byte; elsewhere it is
+/// an ordinary copy. The file is removed when the handle is dropped unpersisted.
+pub fn staging_copy(
+    source: &Path,
+    dir: &Path,
+    prefix: &str,
+    suffix: &str,
+) -> Result<tempfile::NamedTempFile, String> {
+    tempfile::Builder::new()
+        .prefix(prefix)
+        .suffix(suffix)
+        .rand_bytes(12)
+        .make_in(dir, |path| {
+            if let Err(error) = fs::copy(source, path) {
+                let _ = fs::remove_file(path);
+                return Err(error);
+            }
+            fs::OpenOptions::new().read(true).write(true).open(path)
+        })
+        .map_err(|e| e.to_string())
 }
 
 /// The closure only touches the temporary copy. Failed writes or failed
@@ -743,11 +791,12 @@ where
         return Err("The audio file is read-only".into());
     }
     let file = load(&path)?;
-    let mut staging = tempfile::Builder::new()
-        .prefix(".opentag-")
-        .tempfile_in(path.parent().ok_or("Audio path has no parent directory")?)
-        .map_err(|e| e.to_string())?;
-    fs::copy(&path, staging.path()).map_err(|e| e.to_string())?;
+    let mut staging = staging_copy(
+        &path,
+        path.parent().ok_or("Audio path has no parent directory")?,
+        ".opentag-",
+        "",
+    )?;
     let staged_path = staging.path().to_path_buf();
     mutation(staging.as_file_mut(), file, &staged_path)?;
     if options.preserve_modified_time {
@@ -887,6 +936,9 @@ fn save_preserving_native(
                         .insert_picture(picture.clone(), None)
                         .map_err(|e| e.to_string())?;
                 }
+            }
+            if file_type == FileType::Flac {
+                return crate::flac_metadata::save(staging, &native);
             }
             staging
                 .seek(SeekFrom::Start(0))
