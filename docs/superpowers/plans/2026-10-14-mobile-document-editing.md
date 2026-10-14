@@ -62,7 +62,7 @@ access/recovery state in the existing UI.
 
 ### Task 4: Native verification and delivery
 
-- [ ] Independently review command coverage, grant/path handling and recovery-state durability.
+- [x] Independently review command coverage, grant/path handling and recovery-state durability.
 - [x] Build the tracked Android package on the dedicated test AVD; use generated fixtures and native UI controls. Record exact source and APK identity.
 - [x] Exercise picker/cancel, Unicode audio load, save/reload, read-only/copy and recovery behavior in both appearances; record packet/PCM/file receipts.
 - [x] Update parity/evidence docs without promoting build-only or desktop-only evidence to mobile qualification.
@@ -70,3 +70,9 @@ access/recovery state in the existing UI.
 
 Plan self-review: every spec requirement maps to one task. Remaining provider
 path/action and iOS work stays explicitly open. No task may claim full parity.
+
+Delivery checkpoint: PR7 is a draft. Source review and all four hosted jobs passed
+at `02510c0`; ordinary latest-build macOS UI checks passed. The additional Android
+recheck of the final retained-metadata correction remains unexecuted after the
+diagnostic device sequence was stopped. Keep this gap explicit; no overall parity
+or mobile release qualification is claimed.

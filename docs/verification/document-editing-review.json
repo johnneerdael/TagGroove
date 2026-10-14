@@ -1,0 +1,177 @@
+{
+  "source_commit": "02510c00437da085b1481f625cbb369c435564c3",
+  "review": {
+    "finding": "Displayed retained tags and artwork could be stale after an unsuccessful save",
+    "fix_commit": "57e5fdfa2e2765f147c74b11aa7d2475e9515a94",
+    "scoped_rereview": "PASS",
+    "frontend_tests": 95,
+    "rust_tests": 243,
+    "format_clippy_frontend_build": "PASS"
+  },
+  "ci": {
+    "run": 38566406618,
+    "url": "https://github.com/johnneerdael/opentag/actions/runs/38566406618",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "name": "Android document integration",
+        "conclusion": "success",
+        "url": "https://github.com/johnneerdael/opentag/actions/runs/38566406618/job/115860079775"
+      },
+      {
+        "name": "desktop (ubuntu-24.04)",
+        "conclusion": "success",
+        "url": "https://github.com/johnneerdael/opentag/actions/runs/38566406618/job/115860080039"
+      },
+      {
+        "name": "desktop (macos-latest)",
+        "conclusion": "success",
+        "url": "https://github.com/johnneerdael/opentag/actions/runs/38566406618/job/115860080063"
+      },
+      {
+        "name": "desktop (windows-latest)",
+        "conclusion": "success",
+        "url": "https://github.com/johnneerdael/opentag/actions/runs/38566406618/job/115860080611"
+      }
+    ],
+    "android_junit": [
+      {
+        "report": "crates/document-access/android/build/test-results/testDebugUnitTest/TEST-org.opentag.documentaccess.DocumentAccessStateTest.xml",
+        "suite": "org.opentag.documentaccess.DocumentAccessStateTest",
+        "tests": 5,
+        "failures": 0,
+        "errors": 0
+      },
+      {
+        "report": "crates/document-access/android/build/test-results/testDebugUnitTest/TEST-org.opentag.documentaccess.DocumentTransportTest.xml",
+        "suite": "org.opentag.documentaccess.DocumentTransportTest",
+        "tests": 11,
+        "failures": 0,
+        "errors": 0
+      },
+      {
+        "report": "src-tauri/gen/android/app/build/test-results/testArm64DebugUnitTest/TEST-org.opentag.editor.MainActivityInsetsTest.xml",
+        "suite": "org.opentag.editor.MainActivityInsetsTest",
+        "tests": 6,
+        "failures": 0,
+        "errors": 0
+      }
+    ]
+  },
+  "desktop": {
+    "build": {
+      "source_commit": "02510c00437da085b1481f625cbb369c435564c3",
+      "scope": "Native macOS debug test app, isolated app identifier; built exit0, UI checks pending",
+      "app": "/tmp/opentag-user-test/bundles/documents-r1-02510c0/OpenTag.app",
+      "bundle_identifier": "org.opentag.editor.usertest.documentworkflows",
+      "executable": "/tmp/opentag-user-test/bundles/documents-r1-02510c0/OpenTag.app/Contents/MacOS/opentag",
+      "executable_sha256": "b1fa0769bbecf061bcae02f6a47992b25ca4da57f6c91201d15c87682e2f7258",
+      "beforeBuildCommand": "disabled after fresh frontend compile; source/dist hashes rechecked",
+      "build_log": "/tmp/opentag-user-test/receipts/android-documents/r1-desktop-build.log",
+      "time_utc": "2026-10-14T12:50:50.127752+00:00"
+    },
+    "scope": "Native macOS arm64 isolated test application; generated FLAC and MP3 only",
+    "title": "Desktop verification",
+    "comment": "First line\nSecond line",
+    "save_reload": "PASS",
+    "exact_flac_audio_packets_preserved": true,
+    "unselected_mp3_byte_identical": true,
+    "appearance": [
+      "System Dark",
+      "Light"
+    ],
+    "window_css_widths": [
+      1280,
+      780,
+      1280
+    ],
+    "compact_selection_and_tags_retained": true,
+    "compact_files_and_tags_panes": "PASS",
+    "full_table_columns_restore_on_wide_return": true,
+    "menus": [
+      {
+        "opened": "File",
+        "states": [
+          "10 summary File, Value: on",
+          "19 summary Edit, Value: off",
+          "21 summary Convert, Value: off",
+          "23 summary Actions, Value: off",
+          "25 summary Help, Value: off"
+        ]
+      },
+      {
+        "opened": "Edit",
+        "states": [
+          "9 summary File, Value: off",
+          "12 summary Edit, Value: on",
+          "18 summary Convert, Value: off",
+          "20 summary Actions, Value: off",
+          "22 summary Help, Value: off"
+        ]
+      },
+      {
+        "opened": "Convert",
+        "states": [
+          "9 summary File, Value: off",
+          "11 summary Edit, Value: off",
+          "14 summary Convert, Value: on",
+          "20 summary Actions, Value: off",
+          "22 summary Help, Value: off"
+        ]
+      },
+      {
+        "opened": "Actions",
+        "states": [
+          "9 summary File, Value: off",
+          "11 summary Edit, Value: off",
+          "13 summary Convert, Value: off",
+          "16 summary Actions, Value: on",
+          "21 summary Help, Value: off"
+        ]
+      },
+      {
+        "opened": "Help",
+        "states": [
+          "9 summary File, Value: off",
+          "11 summary Edit, Value: off",
+          "13 summary Convert, Value: off",
+          "15 summary Actions, Value: off",
+          "18 summary Help, Value: on"
+        ]
+      }
+    ],
+    "escape_closes_menu": true
+  },
+  "android_latest_build": {
+    "source_commit": "02510c00437da085b1481f625cbb369c435564c3",
+    "apk": "/tmp/opentag-documents-r1-green.apk",
+    "bytes": 228153812,
+    "apk_sha256": "3b0f0c6e2a0712c4b62df907a04f763228b91438259e82fca5475dbeef3e679b",
+    "embedded_native_sha256": "21ee115ee3f593e913f2784e4416aa8939dff4da0a9bab6ac344dd2f0b50ffef",
+    "native_matches_isolated_target": true,
+    "build_exit": 0,
+    "beforeBuildCommand": "disabled after one verified fresh frontend build; source/dist hashes rechecked unchanged",
+    "java_home": "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home",
+    "native_ui": "pending",
+    "time_utc": "2026-10-14T12:49:58.767211+00:00"
+  },
+  "explicitly_incomplete": [
+    "Updated Android APK not installed or user-tested for the latest retained-metadata reconciliation change",
+    "Additional diagnostic device test sequence stopped; no successful native replay of that change is claimed",
+    "Physical devices, additional providers, iOS editing and full feature/performance parity remain open"
+  ],
+  "screenshots": [
+    {
+      "file": "document-desktop-dark.png",
+      "sha256": "de3aba0d46d28b3fe7be948e47583ac775aea3bc258d69e4860316ed7f2e468d",
+      "original_cua_screenshot": "desktop-normal-dark-reloaded.png",
+      "original_sha256": "349720d3508edc293dbae40ab06af7b331434a9aa2fd9c5db47b8bca0cd51da0"
+    },
+    {
+      "file": "document-desktop-compact.png",
+      "sha256": "d2ebc24afcf1288f8c1cdc2cdf4573e7c4e8961e7d0e408096256bd77a105861",
+      "original_cua_screenshot": "desktop-normal-compact-tags.png",
+      "original_sha256": "afb1ac0f33d75721d23139116ab5e01f586f085e5b071dd85125f290f38bceb9"
+    }
+  ]
+}

@@ -28,6 +28,14 @@ Snapshots stream into exclusively created files beneath actual application files
 
 The durable working-file engine in `src-tauri/src/documents.rs` now stages metadata, retains versioned baseline/edited bytes and atomic pending manifests, handles restart recovery and verifies publication. Command/UI integration is implemented for tag save/removal, cover add/removal, filename-to-tag and edited/original copies. The UI disables provider actions, renames, text imports and exports until they have equivalent publication/recovery support. The engine alone does not qualify these app workflows; the [native workflow report](verification/android-document-workflows.md) records actual device coverage and open cases. It obtains its root through the native `storage_root()` call: Tauri 2.12.3 Android `app_data_dir` resolves to Context.dataDir, which is not itself an allowed private transport root. No inferred files-directory child is used. SAF publication has no general atomic compare-and-swap; an outside change after the hash check can race a write. No automatic rollback over unknown provider bytes is attempted. Directory-tree selection is not implemented. Revoked/moved/deleted originals require explicit recovery/reselection rather than silent replacement.
 
+The app's read-only `document_working_entries` command refreshes affected retained
+working metadata after an immediate operation cannot be published. It does not
+reopen the provider or change recovery state. The UI preserves operation errors,
+updates tags/artwork, and explicitly identifies unavailable retained metadata.
+See the [review and delivery checkpoint](verification/document-editing-review.md)
+for current source review, CI, desktop UI checks and the unexecuted updated-APK
+recheck. Earlier native checks keep their original source attribution.
+
 ## Evidence and remaining checks
 
 The [streamed transport checkpoint](verification/android-document-transport.md) records the later native bridge changes: five host Rust tests, 16 JVM tests, strict plugin clippy, Android debug library/test APK builds and an actual Android 14 descriptor-ownership regression. That regression failed on the unfixed code and passed after explicit descriptor ownership, including repeated success/conflict/failure operations. It is native file/API evidence, not a real provider or application UI save-back qualification.

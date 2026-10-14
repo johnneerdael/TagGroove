@@ -41,9 +41,7 @@ Opening File > Save a copy originally crashed WebView113 before a destination
 was chosen, with or without a draft. The same dialog opened from the source
 panel survived. A separate diagnostic native WebView APK reproduced this with
 the actual compiled frontend and mock command transport, isolating frontend
-layout from provider mutation. Matching renderer dumps trapped during outline
-collection of an empty layout-fragment list. Explicitly excluding closed
-menu panels from layout prevented it; the actual patched OpenTag APK then
+layout from provider mutation. Explicitly excluding closed menu panels from layout prevented it; the actual patched OpenTag APK then
 passed repeated menu/dialog open/cancel and real copy workflows.
 
 Keyboard dismissal originally triggered a whole-app resize redraw that focused
@@ -70,5 +68,6 @@ performs no UI input and refuses other AVD names.
 Landscape keyboard typing, native Android system-bar theme synchronization,
 other APIs/physical devices/providers, cloud behavior and iOS security-scoped
 editing are not qualified. Provider actions, renames, text imports, exports and
-directory trees remain subsequent parity work. Whole-branch review and hosted
-Android/desktop CI are still required before delivering this integration.
+directory trees remain subsequent parity work. The later [review checkpoint](document-editing-review.md) records completed source
+review and hosted Android/desktop CI, ordinary desktop UI checks, and the latest
+Android recheck that remains explicitly incomplete.
