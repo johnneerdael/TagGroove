@@ -46,3 +46,11 @@ Actual app picker/cancel, editing, verified save/reload, read-only copy export,
 conflict/partial-write recovery, restart without source access, both appearances,
 IME/focus and orientation remain the next verification gate. SAF still supplies
 no general atomic replace or compare-and-swap; no automatic rollback is claimed.
+
+The PR build workflow now includes an Android arm64 debug build without release
+credentials and the actual app project's document-plugin JVM task. `actionlint`
+passed locally; that exact Gradle task passed all [16 tests](android-app-project-jvm-tests.json).
+The new hosted job still requires a real PR run; local validation does not
+certify GitHub runner execution. The [read-only receipt collector](android-document-receipts.py)
+records generated provider/recovery bytes and independent ffprobe/PCM hashes
+from the dedicated AVD; it performs no UI actions and refuses other AVD names.

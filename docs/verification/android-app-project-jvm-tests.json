@@ -1,0 +1,25 @@
+{
+  "created_utc": "2026-10-14T08:44:43.756744+00:00",
+  "scope": "Actual generated Android app project plugin JVM task, before document UI UAT",
+  "task": ":tauri-plugin-document-access:testDebugUnitTest",
+  "exit": 0,
+  "suites": [
+    {
+      "class": "org.opentag.documentaccess.DocumentAccessStateTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "5ab7af7bee810bf1039aafa9f720ec26cc9dc9883116d5a5d3242aae88432d28"
+    },
+    {
+      "class": "org.opentag.documentaccess.DocumentTransportTest",
+      "tests": 11,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "xml_sha256": "00c58a13d13740c9fb4ab0fa585d2e81e33ad436f9cd055fa587afeadaac61bd"
+    }
+  ],
+  "warnings": "Existing AGP legacy DSL/proguard/Kotlin options deprecations; no warning suppression added."
+}
