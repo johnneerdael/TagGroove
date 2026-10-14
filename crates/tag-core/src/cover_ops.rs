@@ -16,12 +16,38 @@ pub fn picture_type_from_name(name: &str) -> Result<PictureType, String> {
 
 fn transform_covers(
     path: &Path,
+    options: &TagOptions,
     mut transform: impl FnMut(&Picture) -> Result<Option<Picture>, String>,
 ) -> Result<AudioEntry, String> {
-    if read_entry_summary(path)?.covers.is_empty() {
-        return read_entry_summary(path);
+    if read_entry_summary_with_options(path, &[], options)?
+        .covers
+        .is_empty()
+    {
+        return read_entry_summary_with_options(path, &[], options);
     }
-    staged_mutation(path, false, |staging, mut file, staged_path| {
+    staged_mutation(path, false, options, |staging, mut file, staged_path| {
+        if tag_policy::policy(file.file_type()).is_some() {
+            let mut pictures = Vec::new();
+            for picture in tag_policy::displayed_pictures(&file, options) {
+                if let Some(picture) = transform(&picture)? {
+                    pictures.push(picture);
+                }
+            }
+            let written = tag_policy::write(
+                staging,
+                &file,
+                &[],
+                options,
+                tag_policy::Change::Pictures(pictures.clone()),
+            )?;
+            return tag_policy::verify_pictures(
+                staged_path,
+                options,
+                written,
+                &pictures,
+                "The tag format cannot preserve all edited covers (duplicate type/description)",
+            );
+        }
         let kinds: Vec<_> = ordered_tags(&file)
             .into_iter()
             .filter(|tag| !tag.pictures().is_empty())
@@ -50,9 +76,16 @@ fn transform_covers(
             staging
                 .seek(SeekFrom::Start(0))
                 .map_err(|e| e.to_string())?;
-            save_preserving_native(staging, file_type, tag, &Fields::new(), true)?;
+            save_preserving_native(
+                staging,
+                file_type,
+                tag,
+                &Fields::new(),
+                true,
+                Id3Write::preserving(options),
+            )?;
         }
-        let actual = read_entry_summary(staged_path)?;
+        let actual = read_entry_summary_with_options(staged_path, &[], options)?;
         if actual.covers.len() != expected.len() {
             return Err(
                 "The tag format cannot preserve all edited covers (duplicate type/description)"
@@ -71,7 +104,13 @@ fn transform_covers(
 }
 
 pub fn remove_all_covers_summary(path: &Path) -> Result<AudioEntry, String> {
-    transform_covers(path, |_| Ok(None))
+    remove_all_covers_with_options(path, &TagOptions::default())
+}
+pub fn remove_all_covers_with_options(
+    path: &Path,
+    options: &TagOptions,
+) -> Result<AudioEntry, String> {
+    transform_covers(path, options, |_| Ok(None))
 }
 pub fn set_cover_properties_summary(
     path: &Path,
@@ -79,9 +118,24 @@ pub fn set_cover_properties_summary(
     description: Option<&str>,
     only_picture_type: Option<&str>,
 ) -> Result<AudioEntry, String> {
+    set_cover_properties_with_options(
+        path,
+        picture_type,
+        description,
+        only_picture_type,
+        &TagOptions::default(),
+    )
+}
+pub fn set_cover_properties_with_options(
+    path: &Path,
+    picture_type: Option<&str>,
+    description: Option<&str>,
+    only_picture_type: Option<&str>,
+    options: &TagOptions,
+) -> Result<AudioEntry, String> {
     let kind = picture_type.map(picture_type_from_name).transpose()?;
     let filter = only_picture_type.map(picture_type_from_name).transpose()?;
-    transform_covers(path, |original| {
+    transform_covers(path, options, |original| {
         let mut picture = original.clone();
         if filter.is_none_or(|f| f == picture.pic_type()) {
             if let Some(kind) = kind {
@@ -140,6 +194,15 @@ pub fn adjust_covers_summary(
     quality: u8,
     resize: Option<&CoverResize>,
 ) -> Result<AudioEntry, String> {
+    adjust_covers_with_options(path, format, quality, resize, &TagOptions::default())
+}
+pub fn adjust_covers_with_options(
+    path: &Path,
+    format: CoverImageFormat,
+    quality: u8,
+    resize: Option<&CoverResize>,
+    options: &TagOptions,
+) -> Result<AudioEntry, String> {
     if quality > 100 {
         return Err("JPEG quality must be between 0 and 100".into());
     }
@@ -148,7 +211,7 @@ pub fn adjust_covers_summary(
             return Err("Cover size must be between 1 and 32768 pixels".into());
         }
     }
-    transform_covers(path, |original| {
+    transform_covers(path, options, |original| {
         let mut image = image::load_from_memory(original.data()).map_err(|e| e.to_string())?;
         if let Some(options) = resize {
             image = resize_image(image, options)?;
