@@ -1,7 +1,11 @@
-//! Matroska and WebM: EBML Tags (SimpleTags grouped by target type value)
-//! and image attachments.
+//! Matroska and WebM: EBML Tags (SimpleTags grouped by target type value),
+//! chapters and image attachments.
 //!
-//! Writing never moves clusters or cues. Old Tags/Attachments elements are
+//! Chapters of the default edition are exposed as the multi-value field
+//! CHAPTERS, one "HH:MM:SS.mmm Title" value per chapter, and as
+//! `_SUBSONG_COUNT`. Writing CHAPTERS rebuilds that edition.
+//!
+//! Writing never moves clusters or cues. Old Tags/Chapters/Attachments are
 //! overwritten by EBML Void elements and their replacements are placed in a
 //! free (Void) region that fits or appended at the end of the Segment. The
 //! SeekHead is rebuilt inside its own space (including following Void
@@ -43,6 +47,17 @@ const FILE_NAME: u32 = 0x466E;
 const FILE_MIME_TYPE: u32 = 0x4660;
 const FILE_DATA: u32 = 0x465C;
 const FILE_UID: u32 = 0x46AE;
+const CHAPTERS: u32 = 0x1043_A770;
+const EDITION_ENTRY: u32 = 0x45B9;
+const EDITION_UID: u32 = 0x45BC;
+const EDITION_FLAG_DEFAULT: u32 = 0x45DB;
+const CHAPTER_ATOM: u32 = 0xB6;
+const CHAPTER_UID: u32 = 0x73C4;
+const CHAPTER_TIME_START: u32 = 0x91;
+const CHAPTER_TIME_END: u32 = 0x92;
+const CHAPTER_DISPLAY: u32 = 0x80;
+const CHAP_STRING: u32 = 0x85;
+const CHAP_LANGUAGE: u32 = 0x437C;
 const CLUSTER: u32 = 0x1F43_B675;
 const VOID: u32 = 0xEC;
 
@@ -302,7 +317,7 @@ fn layout(file: &mut fs::File) -> Result<Layout, String> {
         // Live recordings: find the metadata elements through the SeekHead.
         for (id, position) in seek_entries(file, &layout)? {
             let at = data_start + position;
-            if matches!(id, INFO | TRACKS | TAGS | ATTACHMENTS)
+            if matches!(id, INFO | TRACKS | TAGS | CHAPTERS | ATTACHMENTS)
                 && !layout.elements.iter().any(|e| e.start == at)
                 && at < data_end
             {
@@ -836,6 +851,252 @@ fn attached_file(picture: &Picture, name: &str) -> Vec<u8> {
     element(ATTACHED_FILE, &payload)
 }
 
+/// The Mp3tag field that lists Matroska chapters.
+pub(super) const CHAPTERS_FIELD: &str = "CHAPTERS";
+
+#[derive(Debug, Clone)]
+struct Chapter {
+    /// Start in nanoseconds.
+    start: u64,
+    title: String,
+    uid: u64,
+    /// Flags and other children kept when the chapter is rewritten.
+    extra: Vec<Vec<u8>>,
+    /// Language children of the first ChapterDisplay.
+    display: Vec<Vec<u8>>,
+}
+
+/// The editions of a Chapters element and the chapters of the default (or
+/// else first) edition, nested atoms flattened in order.
+#[derive(Debug, Clone)]
+struct Editions {
+    raw: Vec<Vec<u8>>,
+    current: Option<usize>,
+    /// EditionUID, flags and other children of the current edition.
+    edition_extra: Vec<Vec<u8>>,
+    chapters: Vec<Chapter>,
+}
+
+fn parse_chapters(data: &[u8]) -> Result<Editions, String> {
+    let editions: Vec<_> = children(data)?
+        .into_iter()
+        .filter(|c| c.id == EDITION_ENTRY)
+        .collect();
+    let mut current = None;
+    for (index, edition) in editions.iter().enumerate() {
+        if children(edition.data)?
+            .iter()
+            .any(|c| c.id == EDITION_FLAG_DEFAULT && uint(c.data) == 1)
+        {
+            current = Some(index);
+            break;
+        }
+    }
+    let current = current.or((!editions.is_empty()).then_some(0));
+    let mut chapters = Vec::new();
+    let mut edition_extra = Vec::new();
+    if let Some(index) = current {
+        for child in children(editions[index].data)? {
+            if child.id == CHAPTER_ATOM {
+                collect_chapter(child.data, &mut chapters, 0)?;
+            } else {
+                edition_extra.push(child.whole.to_vec());
+            }
+        }
+    }
+    Ok(Editions {
+        raw: editions.iter().map(|e| e.whole.to_vec()).collect(),
+        current,
+        edition_extra,
+        chapters,
+    })
+}
+
+fn collect_chapter(data: &[u8], output: &mut Vec<Chapter>, depth: usize) -> Result<(), String> {
+    if depth > NESTING_LIMIT {
+        return Err(invalid("chapters nested too deeply"));
+    }
+    let mut chapter = Chapter {
+        start: 0,
+        title: String::new(),
+        uid: 0,
+        extra: Vec::new(),
+        display: Vec::new(),
+    };
+    let mut nested = Vec::new();
+    let mut titled = false;
+    for child in children(data)? {
+        match child.id {
+            CHAPTER_UID => chapter.uid = uint(child.data),
+            CHAPTER_TIME_START => chapter.start = uint(child.data),
+            CHAPTER_TIME_END => {}
+            CHAPTER_DISPLAY if !titled => {
+                titled = true;
+                for part in children(child.data)? {
+                    if part.id == CHAP_STRING {
+                        chapter.title = text(part.data);
+                    } else {
+                        chapter.display.push(part.whole.to_vec());
+                    }
+                }
+            }
+            CHAPTER_ATOM => nested.push(child.data),
+            _ => chapter.extra.push(child.whole.to_vec()),
+        }
+    }
+    output.push(chapter);
+    for data in nested {
+        collect_chapter(data, output, depth + 1)?;
+    }
+    Ok(())
+}
+
+/// "HH:MM:SS.mmm Title", the value of one chapter in CHAPTERS.
+fn chapter_value(start: u64, title: &str) -> String {
+    let ms = start / 1_000_000;
+    let time = format!(
+        "{:02}:{:02}:{:02}.{:03}",
+        ms / 3_600_000,
+        ms / 60_000 % 60,
+        ms / 1000 % 60,
+        ms % 1000
+    );
+    if title.is_empty() {
+        time
+    } else {
+        format!("{time} {title}")
+    }
+}
+
+/// Parse "[H:]MM:SS[.fraction] Title" into a start in nanoseconds and a title.
+fn parse_chapter_value(value: &str) -> Result<(u64, String), String> {
+    let error = || format!("Invalid chapter {value:?}: use HH:MM:SS.mmm followed by the title");
+    let trimmed = value.trim_start();
+    let (time, title) = trimmed
+        .split_once(char::is_whitespace)
+        .map_or((trimmed, ""), |(time, title)| (time, title.trim_start()));
+    let (clock, fraction) = time.split_once('.').unwrap_or((time, ""));
+    let parts: Vec<&str> = clock.split(':').collect();
+    if !(2..=3).contains(&parts.len())
+        || fraction.len() > 9
+        || !fraction.bytes().all(|b| b.is_ascii_digit())
+    {
+        return Err(error());
+    }
+    let mut seconds = 0u64;
+    for (index, part) in parts.iter().enumerate() {
+        if part.is_empty() || !part.bytes().all(|b| b.is_ascii_digit()) {
+            return Err(error());
+        }
+        let number: u64 = part.parse().map_err(|_| error())?;
+        if index > 0 && number >= 60 {
+            return Err(error());
+        }
+        seconds = seconds
+            .checked_mul(60)
+            .and_then(|s| s.checked_add(number))
+            .ok_or_else(error)?;
+    }
+    let nanos = if fraction.is_empty() {
+        0
+    } else {
+        format!("{fraction:0<9}")
+            .parse::<u64>()
+            .map_err(|_| error())?
+    };
+    seconds
+        .checked_mul(1_000_000_000)
+        .and_then(|s| s.checked_add(nanos))
+        .map(|start| (start, title.to_owned()))
+        .ok_or_else(error)
+}
+
+/// Write CHAPTERS values in their canonical form, so they read back as written.
+pub(super) fn normalize_chapters(updates: &mut Fields) -> Result<(), String> {
+    for (name, values) in updates.iter_mut() {
+        if name.eq_ignore_ascii_case(CHAPTERS_FIELD) {
+            *values = values
+                .iter()
+                .map(|value| {
+                    parse_chapter_value(value).map(|(start, title)| chapter_value(start, &title))
+                })
+                .collect::<Result<_, _>>()?;
+        }
+    }
+    Ok(())
+}
+
+/// The Chapters element with the current edition's chapters replaced by
+/// `values`, or `None` when no edition remains. Chapters keep their UID,
+/// flags and languages by position; each ends where the next one starts.
+fn rebuilt_chapters(
+    old: Option<&Editions>,
+    values: &[String],
+    duration: Option<u64>,
+) -> Result<Option<Vec<u8>>, String> {
+    let parsed = values
+        .iter()
+        .map(|value| parse_chapter_value(value))
+        .collect::<Result<Vec<_>, _>>()?;
+    let previous = old.map_or(&[][..], |e| e.chapters.as_slice());
+    let mut atoms = Vec::new();
+    for (index, (start, title)) in parsed.iter().enumerate() {
+        let before = previous.get(index);
+        // Keep the exact stored start while it still displays the same.
+        let start = match before {
+            Some(chapter) if chapter.start / 1_000_000 == start / 1_000_000 => chapter.start,
+            _ => *start,
+        };
+        let end = parsed
+            .get(index + 1)
+            .map(|(next, _)| *next)
+            .or(duration)
+            .filter(|end| *end > start);
+        let uid = before
+            .map(|c| c.uid)
+            .filter(|uid| *uid != 0)
+            .unwrap_or_else(|| rand::random::<u64>().max(1));
+        let mut payload = uint_element(CHAPTER_UID, uid);
+        payload.extend(uint_element(CHAPTER_TIME_START, start));
+        if let Some(end) = end {
+            payload.extend(uint_element(CHAPTER_TIME_END, end));
+        }
+        let mut display = element(CHAP_STRING, title.as_bytes());
+        match before {
+            Some(chapter) => {
+                for extra in &chapter.extra {
+                    payload.extend(extra);
+                }
+                for part in &chapter.display {
+                    display.extend(part);
+                }
+            }
+            None => display.extend(element(CHAP_LANGUAGE, b"und")),
+        }
+        payload.extend(element(CHAPTER_DISPLAY, &display));
+        atoms.push(element(CHAPTER_ATOM, &payload));
+    }
+    let mut editions = old.map(|e| e.raw.clone()).unwrap_or_default();
+    let current = old.and_then(|e| e.current);
+    if atoms.is_empty() {
+        if let Some(index) = current {
+            editions.remove(index);
+        }
+    } else {
+        let mut payload = match (old, current) {
+            (Some(old), Some(_)) => old.edition_extra.concat(),
+            _ => uint_element(EDITION_UID, rand::random::<u64>().max(1)),
+        };
+        payload.extend(atoms.concat());
+        let edition = element(EDITION_ENTRY, &payload);
+        match current {
+            Some(index) => editions[index] = edition,
+            None => editions.push(edition),
+        }
+    }
+    Ok((!editions.is_empty()).then(|| element(CHAPTERS, &editions.concat())))
+}
+
 struct Track {
     kind: u64,
     codec: String,
@@ -847,6 +1108,7 @@ struct Track {
 struct Parsed {
     layout: Layout,
     tags: Vec<MkvTag>,
+    chapters: Option<Editions>,
     attachments: Vec<Attachment>,
     tracks: Vec<Track>,
     duration: f64,
@@ -856,6 +1118,7 @@ fn parse(path: &Path) -> Result<Parsed, String> {
     let mut file = fs::File::open(path).map_err(|e| e.to_string())?;
     let layout = layout(&mut file)?;
     let mut tags = Vec::new();
+    let mut chapters = None;
     let mut attachments = Vec::new();
     let mut tracks = Vec::new();
     let mut duration = 0.0;
@@ -912,6 +1175,9 @@ fn parse(path: &Path) -> Result<Parsed, String> {
                     tags.push(MkvTag::parse(tag.data)?);
                 }
             }
+            CHAPTERS if chapters.is_none() => {
+                chapters = Some(parse_chapters(&element_data(&mut file, element)?)?);
+            }
             ATTACHMENTS => {
                 let data = element_data(&mut file, element)?;
                 for attached in children(&data)?.iter().filter(|c| c.id == ATTACHED_FILE) {
@@ -924,6 +1190,7 @@ fn parse(path: &Path) -> Result<Parsed, String> {
     Ok(Parsed {
         layout,
         tags,
+        chapters,
         attachments,
         tracks,
         duration,
@@ -971,7 +1238,19 @@ pub(super) fn describe(path: &Path, options: &TagOptions) -> Result<Description,
     } else {
         0
     };
-    let fields = model.fields();
+    let mut fields = model.fields();
+    let chapters = parsed.chapters.as_ref().map_or(&[][..], |e| &e.chapters);
+    let mut technical = Fields::new();
+    if !chapters.is_empty() {
+        fields.insert(
+            CHAPTERS_FIELD.into(),
+            chapters
+                .iter()
+                .map(|c| chapter_value(c.start, &c.title))
+                .collect(),
+        );
+        technical.insert("_SUBSONG_COUNT".into(), vec![chapters.len().to_string()]);
+    }
     Ok(Description {
         format: if parsed.layout.doc_type == "webm" {
             "WebM"
@@ -997,6 +1276,7 @@ pub(super) fn describe(path: &Path, options: &TagOptions) -> Result<Description,
         bits: audio.and_then(|t| u8::try_from(t.bits).ok()),
         codec: audio.map(|t| codec_name(&t.codec)).unwrap_or_default(),
         id3: None,
+        technical,
     })
 }
 
@@ -1028,19 +1308,33 @@ pub(super) fn write(
         rules: mapping_rules(video(&parsed, options)),
         tags: parsed.tags.clone(),
     };
-    let (tags_changed, attachments_changed) = match edit {
+    let mut chapters = None;
+    let (tags_changed, chapters_changed, attachments_changed) = match edit {
         Edit::Fields(updates) => {
-            model.apply(updates)?;
-            (true, false)
+            let mut updates = updates.clone();
+            let key = updates
+                .keys()
+                .find(|k| k.eq_ignore_ascii_case(CHAPTERS_FIELD))
+                .cloned();
+            let values = key.and_then(|key| updates.remove(&key));
+            if let Some(values) = &values {
+                let duration = (parsed.duration > 0.0).then_some((parsed.duration * 1e9) as u64);
+                chapters = rebuilt_chapters(parsed.chapters.as_ref(), values, duration)?;
+            }
+            model.apply(&updates)?;
+            (!updates.is_empty(), values.is_some(), false)
         }
-        Edit::Pictures(_) => (false, true),
+        Edit::Pictures(_) => (false, false, true),
         Edit::Remove => {
             model.tags.retain(|t| t.scoped);
-            (true, true)
+            (true, parsed.chapters.is_some(), true)
         }
     };
     // New level-1 elements, in placement order.
     let mut new_elements: Vec<(u32, Vec<u8>)> = Vec::new();
+    if let Some(chapters) = chapters {
+        new_elements.push((CHAPTERS, chapters));
+    }
     if tags_changed {
         let payload: Vec<u8> = model.tags.iter().flat_map(MkvTag::bytes).collect();
         if !payload.is_empty() {
@@ -1075,8 +1369,11 @@ pub(super) fn write(
             new_elements.push((ATTACHMENTS, element(ATTACHMENTS, &payload)));
         }
     }
-    let replaced =
-        |id: u32| (tags_changed && id == TAGS) || (attachments_changed && id == ATTACHMENTS);
+    let replaced = |id: u32| {
+        (tags_changed && id == TAGS)
+            || (chapters_changed && id == CHAPTERS)
+            || (attachments_changed && id == ATTACHMENTS)
+    };
     let at_eof = layout.data_end == layout.length;
 
     // Group level-1 elements into free regions; a SeekHead owns the free
@@ -1236,8 +1533,16 @@ pub(super) fn write(
 }
 
 /// Every element outside Tags, Attachments, SeekHead and Void (clusters,
-/// cues, tracks, info, chapters) must be byte-identical at the same offset.
-pub(super) fn verify_media(original: &Path, staged: &Path) -> Result<(), String> {
+/// cues, tracks, info and, unless `edit` changes them, chapters) must be
+/// byte-identical at the same offset.
+pub(super) fn verify_media(original: &Path, staged: &Path, edit: &Edit) -> Result<(), String> {
+    let chapters = match edit {
+        Edit::Fields(updates) => updates
+            .keys()
+            .any(|k| k.eq_ignore_ascii_case(CHAPTERS_FIELD)),
+        Edit::Pictures(_) => false,
+        Edit::Remove => true,
+    };
     let mut file = fs::File::open(original).map_err(|e| e.to_string())?;
     let before = layout(&mut file)?;
     let after = layout(&mut fs::File::open(staged).map_err(|e| e.to_string())?)?;
@@ -1250,6 +1555,7 @@ pub(super) fn verify_media(original: &Path, staged: &Path) -> Result<(), String>
         .elements
         .iter()
         .filter(|e| !matches!(e.id, TAGS | ATTACHMENTS | SEEK_HEAD | VOID))
+        .filter(|e| !(chapters && e.id == CHAPTERS))
     {
         if !after
             .elements

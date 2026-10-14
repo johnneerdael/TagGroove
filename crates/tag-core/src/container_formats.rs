@@ -80,6 +80,8 @@ pub(super) struct Description {
     /// Tag kinds present, in display priority order (`_TAG`).
     pub tags: Vec<String>,
     pub id3: Option<Id3v2Tag>,
+    /// Further information fields, such as `_SUBSONG_COUNT`.
+    pub technical: Fields,
 }
 
 /// One requested change. Field names are canonical Mp3tag names.
@@ -135,6 +137,7 @@ pub(super) fn read(
     if let Some(tag) = description.id3.as_ref() {
         technical::id3_details(&mut technical, tag);
     }
+    technical.extend(description.technical.clone());
     technical::file_fields(&mut technical, &covers, &metadata, path);
     Ok(AudioEntry {
         path: path.to_string_lossy().into_owned(),
@@ -186,7 +189,7 @@ fn mutate(
             verify(staged_path, kind, &edit, rules, options, latin1, message)?;
             match kind {
                 Kind::Dsf | Kind::Dff => dsd::verify_media(original, staged_path, kind),
-                Kind::Matroska => matroska::verify_media(original, staged_path),
+                Kind::Matroska => matroska::verify_media(original, staged_path, &edit),
             }
         },
     )
@@ -244,7 +247,10 @@ pub(super) fn write_fields(
     rules: &[UserFieldMapping],
     options: &TagOptions,
 ) -> Result<AudioEntry, String> {
-    let updates = normalized_updates(updates, TagType::Id3v2)?;
+    let mut updates = normalized_updates(updates, TagType::Id3v2)?;
+    if kind == Kind::Matroska {
+        matroska::normalize_chapters(&mut updates)?;
+    }
     mutate(
         path,
         kind,

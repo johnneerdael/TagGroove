@@ -415,6 +415,10 @@ const CLUSTER: [u8; 4] = [0x1F, 0x43, 0xB6, 0x75];
 
 /// A Segment with an 8-byte size: SeekHead + Void, Info, Tracks, Cluster, Tags.
 fn matroska(video: bool) -> Vec<u8> {
+    matroska_with(video, &[])
+}
+/// Like [`matroska`], with `chapters` (a Chapters element) after Tracks.
+fn matroska_with(video: bool, chapters: &[u8]) -> Vec<u8> {
     let info = el(
         &[0x15, 0x49, 0xA9, 0x66],
         &cat(&[
@@ -488,7 +492,7 @@ fn matroska(video: bool) -> Vec<u8> {
     let void = el(&[0xEC], &[0; 60]);
     let info_at = head_len + void.len();
     let tracks_at = info_at + info.len();
-    let tags_at = tracks_at + tracks.len() + cluster.len();
+    let tags_at = tracks_at + tracks.len() + chapters.len() + cluster.len();
     let head = el(
         &[0x11, 0x4D, 0x9B, 0x74],
         &cat(&[
@@ -498,7 +502,7 @@ fn matroska(video: bool) -> Vec<u8> {
         ]),
     );
     assert_eq!(head.len(), head_len);
-    let body = cat(&[head, void, info, tracks, cluster, tags]);
+    let body = cat(&[head, void, info, tracks, chapters.to_vec(), cluster, tags]);
     let mut bytes = el(
         &[0x1A, 0x45, 0xDF, 0xA3],
         &cat(&[
@@ -525,6 +529,111 @@ fn cluster() -> Vec<u8> {
 fn same_cluster(bytes: &[u8], original: &[u8]) {
     let at = find(original, &cluster()).unwrap();
     assert_eq!(bytes[at..at + cluster().len()], cluster()[..]);
+}
+
+/// A Chapters element with one edition: (start in ms, title, language).
+fn chapters_element(atoms: &[(u64, &str, &str)]) -> Vec<u8> {
+    let mut edition = el(&[0x45, 0xBC], &[0x11]);
+    for (index, (start, title, language)) in atoms.iter().enumerate() {
+        edition.extend(el(
+            &[0xB6],
+            &cat(&[
+                el(&[0x73, 0xC4], &[0x40 + index as u8]),
+                el(&[0x91], &(start * 1_000_000).to_be_bytes()),
+                el(&[0x98], &[0]),
+                el(
+                    &[0x80],
+                    &cat(&[
+                        el(&[0x85], title.as_bytes()),
+                        el(&[0x43, 0x7C], language.as_bytes()),
+                    ]),
+                ),
+            ]),
+        ));
+    }
+    el(&[0x10, 0x43, 0xA7, 0x70], &el(&[0x45, 0xB9], &edition))
+}
+
+#[test]
+fn matroska_chapters_read_write_and_remove() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("chapters.mka");
+    let original = matroska_with(
+        false,
+        &chapters_element(&[(0, "Intro", "eng"), (1500, "Verse", "ger")]),
+    );
+    fs::write(&path, &original).unwrap();
+    let entry = read_entry(&path).unwrap();
+    assert_eq!(
+        value(&entry, "CHAPTERS").as_deref(),
+        Some("00:00:00.000 Intro|00:00:01.500 Verse")
+    );
+    assert_eq!(technical(&entry, "_SUBSONG_COUNT"), "2");
+    assert_eq!(value(&entry, "TITLE").as_deref(), Some("The Song"));
+
+    // Editing a title keeps the chapter UIDs and languages; the shorthand
+    // time is stored canonically and a new chapter is added.
+    let written = write_fields(
+        &path,
+        &fields(&[(
+            "CHAPTERS",
+            &["0:00 Opening", "00:00:01.5 Verse", "0:02.25   Outro"],
+        )]),
+    )
+    .unwrap();
+    assert_eq!(
+        value(&written, "CHAPTERS").as_deref(),
+        Some("00:00:00.000 Opening|00:00:01.500 Verse|00:00:02.250 Outro")
+    );
+    assert_eq!(technical(&written, "_SUBSONG_COUNT"), "3");
+    assert_eq!(value(&written, "TITLE").as_deref(), Some("The Song"));
+    let bytes = fs::read(&path).unwrap();
+    same_cluster(&bytes, &original);
+    assert!(
+        find(&bytes, &el(&[0x73, 0xC4], &[0x40])).is_some(),
+        "UID kept"
+    );
+    assert!(
+        find(&bytes, &el(&[0x43, 0x7C], b"ger")).is_some(),
+        "language kept"
+    );
+    // Each chapter ends where the next starts; the last at the duration.
+    assert!(find(&bytes, &el(&[0x92], &1_500_000_000u64.to_be_bytes()[4..])).is_some());
+    assert!(find(&bytes, &el(&[0x92], &2_500_000_000u64.to_be_bytes()[4..])).is_some());
+
+    // Ordinary tag edits leave the chapters alone.
+    let tagged = write_fields(&path, &fields(&[("GENRE", &["Jazz"])])).unwrap();
+    assert_eq!(value(&tagged, "CHAPTERS"), value(&written, "CHAPTERS"));
+
+    assert!(write_fields(&path, &fields(&[("CHAPTERS", &["1:61:00 Bad"])])).is_err());
+    assert!(write_fields(&path, &fields(&[("CHAPTERS", &["Title only"])])).is_err());
+
+    // Clearing CHAPTERS drops the edition; Remove Tag also drops chapters.
+    let cleared = write_fields(&path, &fields(&[("CHAPTERS", &[])])).unwrap();
+    assert!(!cleared.fields.contains_key("CHAPTERS"));
+    assert_eq!(technical(&cleared, "_SUBSONG_COUNT"), "");
+    write_fields(&path, &fields(&[("CHAPTERS", &["00:00:00.000 Again"])])).unwrap();
+    let removed = remove_tags(&path).unwrap();
+    assert!(removed.fields.is_empty(), "{:?}", removed.fields);
+    same_cluster(&fs::read(&path).unwrap(), &original);
+}
+
+#[test]
+fn chapters_can_be_added_to_matroska_without_any() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("plain.mka");
+    let original = matroska(false);
+    fs::write(&path, &original).unwrap();
+    let written = write_fields(
+        &path,
+        &fields(&[("CHAPTERS", &["00:00:00.000 Start", "00:00:01.000"])]),
+    )
+    .unwrap();
+    assert_eq!(
+        value(&written, "CHAPTERS").as_deref(),
+        Some("00:00:00.000 Start|00:00:01.000")
+    );
+    same_cluster(&fs::read(&path).unwrap(), &original);
 }
 
 #[test]
@@ -717,6 +826,70 @@ fn decodes(path: &Path) -> bool {
         .output()
         .unwrap();
     output.status.success() && output.stderr.is_empty()
+}
+
+/// ffprobe's chapter list as "start_time title" lines.
+fn ffprobe_chapters(path: &Path) -> String {
+    let output = Command::new("ffprobe")
+        .args([
+            "-v",
+            "error",
+            "-show_entries",
+            "chapter=start_time:chapter_tags=title",
+            "-of",
+            "csv=p=0",
+        ])
+        .arg(path)
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    String::from_utf8_lossy(&output.stdout).into_owned()
+}
+
+#[test]
+fn ffmpeg_matroska_chapters_are_edited_in_place() {
+    if !tools() {
+        eprintln!("Skipping optional ffmpeg chapter test: ffmpeg and ffprobe are required");
+        return;
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let metadata = dir.path().join("chapters.txt");
+    fs::write(
+        &metadata,
+        ";FFMETADATA1\n[CHAPTER]\nTIMEBASE=1/1000\nSTART=0\nEND=400\ntitle=One\n\
+         [CHAPTER]\nTIMEBASE=1/1000\nSTART=400\nEND=1000\ntitle=Two\n",
+    )
+    .unwrap();
+    let path = dir.path().join("chapters.mka");
+    let output = Command::new("ffmpeg")
+        .args(["-v", "error", "-f", "lavfi", "-i", "sine=duration=1", "-i"])
+        .arg(&metadata)
+        .args(["-map", "0", "-map_chapters", "1", "-c:a", "flac"])
+        .arg(&path)
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let before = packets(&path);
+    let entry = read_entry(&path).unwrap();
+    assert_eq!(
+        value(&entry, "CHAPTERS").as_deref(),
+        Some("00:00:00.000 One|00:00:00.400 Two")
+    );
+    write_fields(
+        &path,
+        &fields(&[("CHAPTERS", &["00:00:00.000 First", "00:00:00.600 Second"])]),
+    )
+    .unwrap();
+    assert_eq!(ffprobe_chapters(&path), "0.000000,First\n0.600000,Second\n");
+    assert!(decodes(&path));
+    assert_eq!(packets(&path), before);
+    remove_tags(&path).unwrap();
+    assert_eq!(ffprobe_chapters(&path), "");
+    assert_eq!(packets(&path), before);
 }
 
 #[test]
