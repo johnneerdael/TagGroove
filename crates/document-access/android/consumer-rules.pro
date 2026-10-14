@@ -1,0 +1,2 @@
+-keep class org.opentag.documentaccess.DocumentAccessPlugin { *; }
+-keep class org.opentag.documentaccess.**Args { *; }

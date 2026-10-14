@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 use tag_core::{Action, AudioEntry, Fields, FileError, ScanResult};
 mod action_host;
+mod converters;
 mod evaluation;
 mod file_hashes;
 mod rename_plan;
@@ -290,10 +291,18 @@ fn rename_target_with_settings(
     settings: &evaluation::EvaluationSettings,
 ) -> Result<PathBuf, String> {
     let generated = settings.filename(template, entry, index)?;
+    filename_target(entry, generated)
+}
+
+fn filename_target(entry: &AudioEntry, generated: String) -> Result<PathBuf, String> {
     if generated.trim().is_empty() {
         return Err("Filename evaluates to an empty string".into());
     }
-    let generated = generated.replace('\\', "/");
+    let generated = if cfg!(windows) && generated.starts_with(r"\\?\") {
+        generated
+    } else {
+        generated.replace('\\', "/")
+    };
     let relative = Path::new(&generated);
     let source = Path::new(&entry.path);
     let mut target = if relative.is_absolute() {
@@ -552,6 +561,7 @@ pub fn run() {
             Ok(())
         })
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_document_access::init())
         .invoke_handler(tauri::generate_handler![
             load_action_library,
             save_action_library,
@@ -571,6 +581,10 @@ pub fn run() {
             filename_to_tags,
             apply_action,
             rename_files,
+            converters::preview_filename_conversion,
+            converters::apply_filename_conversion,
+            converters::preview_text_import,
+            converters::apply_text_import,
             export_csv,
             export_playlist
         ])

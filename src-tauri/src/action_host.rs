@@ -122,7 +122,7 @@ fn relative_to_file(path: &str, source: &Path) -> PathBuf {
 struct NativeHost {
     settings: EvaluationSettings,
     directories: Vec<PathChange>,
-    exported_covers: HashSet<[u8; 32]>,
+    exported_covers: HashSet<(String, [u8; 32])>,
     identities: Vec<String>,
     initial_fields: Vec<Fields>,
     inputs: Vec<PathBuf>,
@@ -323,9 +323,6 @@ impl ActionHost for NativeHost {
                         .decode(&cover.data_base64)
                         .map_err(|e| e.to_string())?;
                     let digest: [u8; 32] = Sha256::digest(&bytes).into();
-                    if !export_duplicates && self.exported_covers.contains(&digest) {
-                        continue;
-                    }
                     let mut target = relative_to_file(filename, &path);
                     if target.extension().is_none() {
                         target.set_extension(match cover.mime.as_str() {
@@ -334,6 +331,12 @@ impl ActionHost for NativeHost {
                             "image/gif" => "gif",
                             _ => "img",
                         });
+                    }
+                    // Duplicate identity is the requested destination plus
+                    // content. Take it before per-file multi-cover numbering.
+                    let identity = (normalized_output(&target)?, digest);
+                    if !export_duplicates && self.exported_covers.contains(&identity) {
+                        continue;
                     }
                     if count > 0 {
                         let stem = target.file_stem().unwrap_or_default().to_string_lossy();
@@ -353,7 +356,7 @@ impl ActionHost for NativeHost {
                     staging
                         .persist_noclobber(&target)
                         .map_err(|e| e.error.to_string())?;
-                    self.exported_covers.insert(digest);
+                    self.exported_covers.insert(identity);
                     count += 1;
                 }
             }
@@ -550,6 +553,17 @@ impl ActionHost for NativeHost {
 use std::collections::BTreeMap;
 
 fn normalized_output(path: &Path) -> Result<String, String> {
+    let value = normalized_output_path(path)?.to_string_lossy().into_owned();
+    Ok(if cfg!(windows) {
+        value.to_lowercase()
+    } else {
+        value
+    })
+}
+
+/// Resolve destination aliases without creating parents or folding the case of
+/// the path that a native file operation will use.
+pub(crate) fn normalized_output_path(path: &Path) -> Result<PathBuf, String> {
     let absolute = if path.is_absolute() {
         path.to_path_buf()
     } else {
@@ -590,12 +604,7 @@ fn normalized_output(path: &Path) -> Result<String, String> {
             }
         }
     }
-    let value = resolved.to_string_lossy().into_owned();
-    Ok(if cfg!(windows) {
-        value.to_lowercase()
-    } else {
-        value
-    })
+    Ok(resolved)
 }
 
 fn resolve_export_template(source: &str, settings: &EvaluationSettings) -> Result<String, String> {
@@ -835,6 +844,188 @@ mod tests {
         fs::write(&path, bytes).unwrap();
         path
     }
+
+    #[test]
+    fn normalized_output_path_preserves_destination_case_without_creating_parents() {
+        let dir = tempfile::tempdir().unwrap();
+        let parent = dir.path().join("Mixed Album");
+        fs::create_dir(&parent).unwrap();
+        let target = parent.join("Missing/../Chosen Track.wav");
+        assert_eq!(
+            normalized_output_path(&target).unwrap(),
+            parent.canonicalize().unwrap().join("Chosen Track.wav")
+        );
+        assert!(!parent.join("Missing").exists());
+        assert!(!parent.join("Chosen Track.wav").exists());
+    }
+
+    fn covered_fixture(dir: &Path, name: &str, repeated_image: bool) -> (PathBuf, Vec<u8>) {
+        let path = fixture(dir, name);
+        let png = STANDARD.decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j4n8AAAAASUVORK5CYII=").unwrap();
+        let image = dir.join("embedded.png");
+        fs::write(&image, &png).unwrap();
+        tag_core::write_fields_summary(
+            &path,
+            &Fields::from([
+                ("TITLE".into(), vec![name.into()]),
+                ("Unmanaged_Field".into(), vec!["one".into(), "two".into()]),
+            ]),
+        )
+        .unwrap();
+        tag_core::add_cover_summary(&path, &image).unwrap();
+        if repeated_image {
+            tag_core::set_cover_properties_summary(&path, Some("CoverBack"), Some("Back"), None)
+                .unwrap();
+            tag_core::add_cover_summary(&path, &image).unwrap();
+            assert_eq!(tag_core::read_entry_summary(&path).unwrap().covers.len(), 2);
+        }
+        (path, png)
+    }
+
+    fn cover_export_group(filename: &str, export_duplicates: bool) -> ActionGroup {
+        ActionGroup {
+            name: "Export art".into(),
+            enabled: true,
+            actions: vec![ActionSpec::ExportCover {
+                filename_template: filename.into(),
+                picture_type: None,
+                export_duplicates,
+            }],
+        }
+    }
+
+    #[test]
+    fn cover_export_same_bytes_with_distinct_evaluated_names_are_both_written() {
+        let dir = tempfile::tempdir().unwrap();
+        let (a, png) = covered_fixture(dir.path(), "a.wav", false);
+        let (b, _) = covered_fixture(dir.path(), "b.wav", false);
+        let before = [fs::read(&a).unwrap(), fs::read(&b).unwrap()];
+        let paths = [
+            a.to_string_lossy().into_owned(),
+            b.to_string_lossy().into_owned(),
+        ];
+        let result = execute(
+            &paths,
+            &[cover_export_group("art/%_filename%", false)],
+            EvaluationSettings::default(),
+        );
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert_eq!(result.entries.len(), 2);
+        assert_eq!(fs::read(dir.path().join("art/a.png")).unwrap(), png);
+        assert_eq!(fs::read(dir.path().join("art/b.png")).unwrap(), png);
+        for (path, bytes) in paths.iter().zip(before) {
+            assert_eq!(fs::read(path).unwrap(), bytes);
+        }
+    }
+
+    #[test]
+    fn cover_export_same_normalized_base_and_bytes_skip_before_index_suffix() {
+        let dir = tempfile::tempdir().unwrap();
+        let (path, png) = covered_fixture(dir.path(), "multiple.wav", true);
+        let before = fs::read(&path).unwrap();
+        let mut group = cover_export_group("art/cover", false);
+        group
+            .actions
+            .extend(cover_export_group("art/missing/../cover.png", false).actions);
+        let result = execute(
+            &[path.to_string_lossy().into_owned()],
+            &[group],
+            EvaluationSettings::default(),
+        );
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert_eq!(fs::read(dir.path().join("art/cover.png")).unwrap(), png);
+        assert!(!dir.path().join("art/cover (1).png").exists());
+        assert!(!dir.path().join("art/missing").exists());
+        assert_eq!(fs::read(path).unwrap(), before);
+    }
+
+    #[test]
+    fn cover_export_duplicates_true_writes_repeated_embedded_images() {
+        let dir = tempfile::tempdir().unwrap();
+        let (path, png) = covered_fixture(dir.path(), "multiple.wav", true);
+        let before = fs::read(&path).unwrap();
+        let result = execute(
+            &[path.to_string_lossy().into_owned()],
+            &[cover_export_group("duplicates", true)],
+            EvaluationSettings::default(),
+        );
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert_eq!(fs::read(dir.path().join("duplicates.png")).unwrap(), png);
+        assert_eq!(
+            fs::read(dir.path().join("duplicates (1).png")).unwrap(),
+            png
+        );
+        assert_eq!(fs::read(path).unwrap(), before);
+    }
+
+    #[test]
+    fn cover_export_keeps_existing_files_and_rejects_input_aliases() {
+        let dir = tempfile::tempdir().unwrap();
+        let (path, _) = covered_fixture(dir.path(), "input.wav", false);
+        let before = fs::read(&path).unwrap();
+        let output = dir.path().join("cover.png");
+        fs::write(&output, b"Existing output").unwrap();
+        for filename in ["cover", "missing/../input.wav"] {
+            let result = execute(
+                &[path.to_string_lossy().into_owned()],
+                &[cover_export_group(filename, false)],
+                EvaluationSettings::default(),
+            );
+            assert_eq!(result.errors.len(), 1, "{filename}");
+            assert_eq!(fs::read(&path).unwrap(), before);
+            assert_eq!(fs::read(&output).unwrap(), b"Existing output");
+        }
+        assert!(!dir.path().join("missing").exists());
+    }
+
+    #[test]
+    fn cover_export_duplicates_true_reports_cross_file_destination_collision() {
+        let dir = tempfile::tempdir().unwrap();
+        let (a, png) = covered_fixture(dir.path(), "a.wav", false);
+        let (b, _) = covered_fixture(dir.path(), "b.wav", false);
+        let before = [fs::read(&a).unwrap(), fs::read(&b).unwrap()];
+        let paths = [
+            a.to_string_lossy().into_owned(),
+            b.to_string_lossy().into_owned(),
+        ];
+        let result = execute(
+            &paths,
+            &[cover_export_group("shared", true)],
+            EvaluationSettings::default(),
+        );
+        assert_eq!(result.errors.len(), 1);
+        assert_eq!(result.entries.len(), 1);
+        assert_eq!(fs::read(dir.path().join("shared.png")).unwrap(), png);
+        assert!(!dir.path().join("shared (1).png").exists());
+        for (path, bytes) in paths.iter().zip(before) {
+            assert_eq!(fs::read(path).unwrap(), bytes);
+        }
+    }
+
+    #[test]
+    fn cover_export_repeated_destination_and_content_are_suppressed_across_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let (a, png) = covered_fixture(dir.path(), "a.wav", false);
+        let (b, _) = covered_fixture(dir.path(), "b.wav", false);
+        let before = [fs::read(&a).unwrap(), fs::read(&b).unwrap()];
+        let paths = [
+            a.to_string_lossy().into_owned(),
+            b.to_string_lossy().into_owned(),
+        ];
+        let result = execute(
+            &paths,
+            &[cover_export_group("shared", false)],
+            EvaluationSettings::default(),
+        );
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert_eq!(result.entries.len(), 2);
+        assert_eq!(fs::read(dir.path().join("shared.png")).unwrap(), png);
+        assert!(!dir.path().join("shared (1).png").exists());
+        for (path, bytes) in paths.iter().zip(before) {
+            assert_eq!(fs::read(path).unwrap(), bytes);
+        }
+    }
+
     #[test]
     fn saved_library_roundtrips_and_invalid_save_preserves_existing() {
         let dir = tempfile::tempdir().unwrap();
