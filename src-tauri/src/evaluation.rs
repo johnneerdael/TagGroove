@@ -362,7 +362,10 @@ mod tests {
         let image = directory.join("cover.png");
         fs::write(&image, STANDARD.decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j4n8AAAAASUVORK5CYII=").unwrap()).unwrap();
         tag_core::add_cover_summary(&path, &image).unwrap();
-        fs::File::open(&path)
+        // Windows requires write-attributes access when setting file times.
+        fs::OpenOptions::new()
+            .write(true)
+            .open(&path)
             .unwrap()
             .set_times(
                 fs::FileTimes::new().set_modified(UNIX_EPOCH + Duration::from_secs(1_700_000_000)),
