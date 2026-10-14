@@ -88,7 +88,9 @@ pub async fn apply_filename_conversion(
 ) -> Result<FilenameResult, String> {
     super::io(move || {
         super::reject_provider_operation(&request.paths, "Filename conversion")?;
-        apply_filename(&request, &plan_token)
+        super::history::record("Filename → Filename", None, &request.paths, || {
+            apply_filename(&request, &plan_token)
+        })
     })
     .await
 }
@@ -109,7 +111,9 @@ pub async fn apply_text_import(
 ) -> Result<ScanResult, String> {
     super::io(move || {
         reject_provider_text(&request)?;
-        apply_text(&request, &plan_token)
+        super::history::record("Text File → Tag", None, &request.paths, || {
+            apply_text(&request, &plan_token)
+        })
     })
     .await
 }
