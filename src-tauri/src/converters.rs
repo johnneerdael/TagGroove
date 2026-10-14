@@ -74,7 +74,11 @@ pub async fn preview_filename_conversion(
     request: FilenameRequest,
 ) -> Result<FilenamePreview, String> {
     let settings = super::evaluation_settings(request.columns.clone())?;
-    super::io(move || preview_filename(&request, &settings)).await
+    super::io(move || {
+        super::reject_provider_operation(&request.paths, "Filename conversion")?;
+        preview_filename(&request, &settings)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -82,12 +86,20 @@ pub async fn apply_filename_conversion(
     request: FilenameRequest,
     plan_token: String,
 ) -> Result<FilenameResult, String> {
-    super::io(move || apply_filename(&request, &plan_token)).await
+    super::io(move || {
+        super::reject_provider_operation(&request.paths, "Filename conversion")?;
+        apply_filename(&request, &plan_token)
+    })
+    .await
 }
 
 #[tauri::command]
 pub async fn preview_text_import(request: TextRequest) -> Result<TextPreview, String> {
-    super::io(move || preview_text(&request)).await
+    super::io(move || {
+        reject_provider_text(&request)?;
+        preview_text(&request)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -95,7 +107,19 @@ pub async fn apply_text_import(
     request: TextRequest,
     plan_token: String,
 ) -> Result<ScanResult, String> {
-    super::io(move || apply_text(&request, &plan_token)).await
+    super::io(move || {
+        reject_provider_text(&request)?;
+        apply_text(&request, &plan_token)
+    })
+    .await
+}
+
+fn reject_provider_text(request: &TextRequest) -> Result<(), String> {
+    super::reject_provider_operation(&request.paths, "Text import")?;
+    if let TextSource::File { path } = &request.source {
+        super::reject_provider_operation(std::slice::from_ref(path), "Text import source")?;
+    }
+    Ok(())
 }
 
 static PLANS: Mutex<VecDeque<ReviewedPlan>> = Mutex::new(VecDeque::new());

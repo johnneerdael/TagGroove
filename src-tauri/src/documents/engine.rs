@@ -572,11 +572,14 @@ impl<P: Provider> Store<P> {
             })
             .collect()
     }
-    #[cfg(target_os = "android")]
     pub(super) fn is_managed(&self, path: &Path) -> bool {
         path.to_str().is_some_and(|p| self.records.contains_key(p))
+            || path
+                .canonicalize()
+                .ok()
+                .and_then(|p| p.to_str().map(str::to_owned))
+                .is_some_and(|p| self.records.contains_key(&p))
     }
-    #[cfg(target_os = "android")]
     pub(super) fn project(&self, entry: &mut AudioEntry) {
         if let Some(record) = self.records.get(&entry.path) {
             project_entry(entry, &record.document);
