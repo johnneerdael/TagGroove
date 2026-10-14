@@ -14,6 +14,7 @@ mod file_ops;
 mod history;
 #[cfg(any(target_os = "android", test))]
 mod managed_actions;
+mod progress;
 mod rename_plan;
 mod settings;
 mod sources;
@@ -360,24 +361,31 @@ fn batch(
     result
 }
 
+/// `job` names the operation for progress events and [`progress::cancel_job`].
 #[tauri::command]
-async fn scan_files(paths: Vec<String>, recursive: bool) -> Result<ScanResult, String> {
+async fn scan_files(
+    paths: Vec<String>,
+    recursive: bool,
+    job: Option<String>,
+) -> Result<ScanResult, String> {
     io(move || {
         #[cfg(target_os = "android")]
         {
-            let _ = recursive;
+            let _ = (recursive, job);
             Ok(batch(&paths, documents::reload))
         }
         #[cfg(not(target_os = "android"))]
         {
+            let job = progress::Job::new(job);
             let (managed, ordinary): (Vec<_>, Vec<_>) = paths
                 .into_iter()
                 .partition(|p| documents::is_managed(Path::new(p)));
-            let mut result = tag_core::scan_paths_with_options(
+            let mut result = tag_core::scan_paths_with_progress(
                 &ordinary,
                 recursive,
                 &settings::tag_options(),
                 settings::extensions().as_deref(),
+                &job,
             );
             let restored = batch(&managed, documents::reload);
             result.entries.extend(restored.entries);
@@ -402,6 +410,66 @@ async fn save_fields(
             Ok(batch(&paths, |p| {
                 mutate_document(p, |p| settings::write_summary(p, &updates))
             }))
+        })
+    })
+    .await
+}
+
+#[derive(Deserialize)]
+struct FieldUpdate {
+    path: String,
+    updates: Fields,
+}
+
+/// Save per-file field changes as one undo step, writing files in parallel
+/// with progress. A cancelled save leaves the remaining files untouched and
+/// returns the files written so far.
+#[tauri::command]
+async fn save_fields_batch(
+    items: Vec<FieldUpdate>,
+    job: Option<String>,
+) -> Result<ScanResult, String> {
+    io(move || {
+        let job = progress::Job::new(job);
+        let mut seen = std::collections::HashSet::new();
+        let items: Vec<FieldUpdate> = items
+            .into_iter()
+            .filter(|item| seen.insert(item.path.clone()))
+            .collect();
+        let paths: Vec<String> = items.iter().map(|item| item.path.clone()).collect();
+        history::record("Save tags", None, &paths, || {
+            use tag_core::parallel::Progress;
+            job.start(items.len());
+            let options = settings::tag_options();
+            // Provider documents publish through shared recovery state; keep them sequential.
+            let threads = if items
+                .iter()
+                .any(|i| documents::is_managed(Path::new(&i.path)))
+            {
+                1
+            } else {
+                std::thread::available_parallelism().map_or(4, |n| n.get().clamp(1, 8))
+            };
+            let written = tag_core::parallel::map_ordered_on(threads, &items, &job, |item| {
+                mutate_document(Path::new(&item.path), |p| {
+                    tag_core::write_fields_with_options(p, &item.updates, false, &[], &options)
+                })
+            });
+            let mut result = ScanResult::default();
+            for (item, outcome) in items.iter().zip(written) {
+                match outcome {
+                    Some(Ok(mut entry)) => {
+                        documents::project(&mut entry);
+                        result.entries.push(entry);
+                    }
+                    Some(Err(error)) => result.errors.push(FileError {
+                        path: item.path.clone(),
+                        error,
+                    }),
+                    None => {}
+                }
+            }
+            Ok(result)
         })
     })
     .await
@@ -860,6 +928,8 @@ pub fn run() {
         .plugin(tauri_plugin_document_access::init())
         .invoke_handler(tauri::generate_handler![
             e2e::e2e_report,
+            progress::cancel_job,
+            save_fields_batch,
             e2e::e2e_exit,
             load_export_library,
             save_export_library,
@@ -1081,7 +1151,8 @@ mod tests {
         let external = Fields::from([("TITLE".into(), vec!["External".into()])]);
         tag_core::write_fields(&source, &external).unwrap();
         session.rename("Other - Changed.wav");
-        let reloaded = tauri::async_runtime::block_on(scan_files(paths.clone(), false)).unwrap();
+        let reloaded =
+            tauri::async_runtime::block_on(scan_files(paths.clone(), false, None)).unwrap();
         assert_eq!(reloaded.entries[0].fields["TITLE"], ["External"]);
         assert_eq!(reloaded.entries[0].filename, "Other - Changed.wav");
         let renamed_preview = tauri::async_runtime::block_on(preview_filename(
@@ -1261,7 +1332,7 @@ mod tests {
             .entries
             .iter()
             .any(|e| e.path == session.path && e.fields["TITLE"] == ["Retain edited"]));
-        let blocked = tauri::async_runtime::block_on(scan_files(paths, false)).unwrap();
+        let blocked = tauri::async_runtime::block_on(scan_files(paths, false, None)).unwrap();
         assert!(blocked.entries.is_empty());
         assert!(blocked.errors[0].error.contains("recovery"));
         let readonly =

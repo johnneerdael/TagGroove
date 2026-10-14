@@ -18,7 +18,7 @@ export function createWorkspace(initial, options={}) {
   const nativeCalls=[],workingReadErrors=new Map();
   const coverEpochs=new Map(),coverCache=new Map(),coverRequests=new Map();
   const coverCacheBytesLimit=12*1024*1024,coverCacheEntryLimit=8;
-  let coverCacheBytes=0,activeCover,coverError,coverIndex=0;
+  let coverCacheBytes=0,activeCover,coverError,coverIndex=0,progressJob;
   const desktop=true,active=()=>entries.get(path),timing=()=>{},refreshCoverPanel=()=>{},themedAsset=()=>'',button=()=>'';
   const makeEntry=(path,fields)=>({path,filename:path,format:'WAV',duration:1,bitrate:1411,sample_rate:44100,channels:2,size:44,fields:structuredClone(fields),technical:{},covers:structuredClone(workingCovers)});
   const entries=new Map([[path,makeEntry(path,initial)]]),drafts=new Map(),copyOverrides=new Map(),selected=new Set([path]);
@@ -48,8 +48,8 @@ export function createWorkspace(initial, options={}) {
       return {entries:[entry],errors:[]};
     }
     if(command==='get_covers')return structuredClone(workingCovers);
-    if(command==='save_fields') {
-      working=applyFields(working,args.updates);
+    if(command==='save_fields_batch') {
+      for(const item of args.items)working=applyFields(working,item.updates);
       nativeState={...ready,state:'recovery_required',error:'Source publication failed after local edit'};
       return {entries:[],errors:[{path,error:'Source publication failed after local edit'}]};
     }
