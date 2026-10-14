@@ -11,7 +11,7 @@ export type SourceRelease = {provider:Provider;id:string;url:string;title:string
 export type SourceFile = {path:string;name:string;title:string;artist:string;album:string;album_artist:string;track:string;disc:string;length:number};
 export type ApplyItem = {path:string;updates:Fields};
 /** `save_as` is Utils → Save image to disc: the file name format from Options → Tag Sources. */
-export type ApplyCover = {url:string;replace_existing:boolean;save_as:string|null};
+export type ApplyCover = {url:string;replace_existing:boolean;save_as:string|null;preserve_existing?:boolean};
 export type TagSourceCredentials = {discogs_token_set:boolean};
 export type FieldRow = {name:string;value:string;perTrack:boolean;editable:boolean};
 /** Covers-only sources (Mp3tag's Tag Sources → Covers) write artwork and no fields. */

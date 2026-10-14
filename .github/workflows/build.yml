@@ -74,11 +74,11 @@ jobs:
           set -o pipefail
           mkdir -p e2e-output
           status=0
-          for suite in core-workflows covers actions options-utils playlists freedb-local formats-3; do
+          for suite in core-workflows covers actions options-utils playlists freedb-local formats-3 general-options; do
             fixtures=""
             [[ -x "tests/e2e/$suite-fixtures.sh" ]] && fixtures="$PWD/tests/e2e/$suite-fixtures.sh"
             echo "::group::$suite"
-            if ! OPENTAG_E2E_FIXTURES="$fixtures" xvfb-run -a scripts/e2e-native.sh "tests/e2e/$suite.js" --no-build 2>&1 | tee "e2e-output/$suite.txt"; then
+            if ! OPENTAG_E2E_OFFLINE=1 OPENTAG_E2E_FIXTURES="$fixtures" xvfb-run -a scripts/e2e-native.sh "tests/e2e/$suite.js" --no-build 2>&1 | tee "e2e-output/$suite.txt"; then
               echo "::error::Native suite $suite failed"
               status=1
             fi
