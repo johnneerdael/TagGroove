@@ -8,6 +8,11 @@ license = "MIT"
 name = "opentag_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[features]
+# Profiling builds only: enables the end-to-end script hook (`src/e2e.rs`) in
+# release builds. Off by default and never enabled for published releases.
+e2e = []
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
@@ -40,3 +45,5 @@ tempfile = "3"
 tauri-plugin-opener = "2"
 tauri-plugin-single-instance = "2"
 trash = "5"
+# Cover window Copy/Paste cover: native clipboard image data.
+arboard = { version = "3", default-features = false, features = ["image-data"] }

@@ -559,13 +559,13 @@ fn sibling_copy(source: &Snapshot, backup: bool) -> Result<tempfile::TempPath, S
         .extension()
         .map(|ext| format!(".{}", ext.to_string_lossy()))
         .unwrap_or_default();
-    let temporary = tempfile::Builder::new()
-        .prefix(".opentag-converter-")
-        .suffix(&suffix)
-        .tempfile_in(source.canonical.parent().ok_or("Source has no parent")?)
-        .map_err(|e| e.to_string())?
-        .into_temp_path();
-    fs::copy(&source.canonical, &temporary).map_err(|e| e.to_string())?;
+    let temporary = tag_core::staging_copy(
+        &source.canonical,
+        source.canonical.parent().ok_or("Source has no parent")?,
+        ".opentag-converter-",
+        &suffix,
+    )?
+    .into_temp_path();
     if digest_file(&temporary)?.0 != source.hash {
         return Err("Source changed while converter staging was prepared".into());
     }

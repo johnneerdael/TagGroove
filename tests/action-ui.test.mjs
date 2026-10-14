@@ -5,7 +5,7 @@ import ts from 'typescript';
 
 const source = await readFile(new URL('../src/action-ui.ts', import.meta.url), 'utf8');
 const javascript = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 } }).outputText;
-const { actionCatalog, panelKey, moveItem, renameGroup, removeGroup, applyPreset, menuSegments, resolvePathChanges } = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);
+const { actionCatalog, panelKey, moveItem, renameGroup, removeGroup, applyPreset, menuSegments, resolvePathChanges, mnemonicMarkup, sortGroups, enabledSummary, copyName, codepageChoices, qualityPresets } = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);
 const library = () => ({groups:[{name:'First',enabled:true,actions:[{type:'format_value',field:'TITLE',template:'text'}]},{name:'Second',enabled:false,actions:[]}],presets:[{name:'Only first',enabled_groups:['First']}]});
 
 test('catalog exposes every documented action type exactly once', () => {
@@ -37,4 +37,24 @@ test('directory moves include unselected siblings and exclude similarly prefixed
 test('path reconciliation respects physical directory order and exact final filename mappings',()=>{
   const moves=resolvePathChanges(['/A/one.flac','/A/two.flac'],[{from:'/A/one.flac',to:'/C/final.flac'}],[{from:'/A',to:'/B'},{from:'/B',to:'/C'}]);assert.deepEqual([...moves],[['/A/one.flac','/C/final.flac'],['/A/two.flac','/C/two.flac']]);
   const swaps=resolvePathChanges(['/one.flac','/two.flac'],[{from:'/one.flac',to:'/two.flac'},{from:'/two.flac',to:'/one.flac'}],[]);assert.deepEqual([...swaps],[['/one.flac','/two.flac'],['/two.flac','/one.flac']]);
+});
+
+test('action menu underlines the first mnemonic character of each segment and escapes labels',()=>{
+  assert.equal(mnemonicMarkup('&Default values'),'<u>D</u>efault values');assert.equal(mnemonicMarkup('Set &COMMENT &x'),'Set <u>C</u>OMMENT x');assert.equal(mnemonicMarkup('Rock && <Roll>'),'Rock &amp; &lt;Roll&gt;');
+});
+test('sort by name uses menu labels and sort by state keeps enabled groups first in order',()=>{
+  const lib={groups:[{name:'b',enabled:false,actions:[]},{name:'&Zeta',enabled:true,actions:[]},{name:'Alpha 10',enabled:false,actions:[]},{name:'alpha 9',enabled:true,actions:[]}],presets:[]};
+  assert.deepEqual(sortGroups(lib,'name').groups.map(g=>g.name),['alpha 9','Alpha 10','b','&Zeta']);
+  assert.deepEqual(sortGroups(lib,'state').groups.map(g=>g.name),['&Zeta','alpha 9','b','Alpha 10']);
+  assert.equal(lib.groups[0].name,'b');
+});
+test('enabled summary and duplicate names follow the original wording',()=>{
+  const groups=library().groups;assert.equal(enabledSummary(groups),'1 action group enabled');assert.equal(enabledSummary([]),'No action group enabled');assert.equal(enabledSummary(groups.map(g=>({...g,enabled:true}))),'2 action groups enabled');
+  assert.equal(copyName('First',groups),'Copy of First');assert.equal(copyName('First',[...groups,{name:'copy of first',enabled:true,actions:[]}]),'Copy of First (2)');
+});
+test('every Convert Codepage choice is understood by the native converter',async()=>{
+  const rust=await readFile(new URL('../crates/tag-core/src/actions.rs',import.meta.url),'utf8');const table=rust.slice(rust.indexOf('fn decode_codepage'),rust.indexOf('other => other'));
+  assert.equal(new Set(codepageChoices.map(([id])=>id)).size,codepageChoices.length);
+  for(const [id] of codepageChoices)assert.match(table,new RegExp(`"${id}"`),id);
+  assert.deepEqual(qualityPresets.map(([,label])=>label),['Best','High','Medium','Low']);
 });

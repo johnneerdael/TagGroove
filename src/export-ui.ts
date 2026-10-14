@@ -55,13 +55,13 @@ export class ExportUI {
       dialog.innerHTML=`<header>Export</header><div class="dialog-content"><label class="field"><span>Export configurations</span><select id="export-list" size="4" aria-label="Export configurations">${library.configurations.map(c=>`<option value="${html(c.id)}" ${c.id===preferences.configuration?'selected':''}>${html(c.name)}</option>`).join('')}</select></label>
       <div class="group-buttons"><button id="export-new">New</button><button id="export-copy">Duplicate</button><button id="export-remove">Remove</button><button id="export-import">Import .mte…</button></div>
       <label class="field"><span>Configuration name</span><input id="export-name" value="${html(current?.name||'')}"></label>
-      <label class="field"><span>Export template</span><textarea id="export-template" aria-label="Export template" spellcheck="false" autocorrect="off" autocapitalize="off">${html(current?.template||'')}</textarea></label>
+      <label class="field"><span>Export template</span><textarea id="export-template" aria-label="Export template" spellcheck="false" autocorrect="off" autocapitalize="off" data-helper="format-export">${html(current?.template||'')}</textarea></label>
       <label class="field"><span>Legacy import encoding (optional)</span><input id="export-encoding" placeholder="For example windows-1252"></label>
-      <label class="field"><span>Export file name</span><div class="action-input"><input id="export-filename" value="${html(preferences.filename)}" placeholder="Use configuration default"><button id="export-browse">Browse…</button></div></label>
+      <label class="field"><span>Export file name</span><div class="action-input"><input id="export-filename" value="${html(preferences.filename)}" placeholder="Use configuration default" data-helper="format-export"><button id="export-browse">Browse…</button></div></label>
       <p>Relative output names use the first selected file’s folder. Leave the name empty to use the template’s default filename.</p>
       <label class="action-check"><input type="checkbox" id="export-append" ${preferences.append?'checked':''}> Append data</label>
       <label class="action-check"><input type="checkbox" id="export-partition-enabled" ${preferences.partition!==null?'checked':''}> Create one output file per</label>
-      <label class="field"><span>Partition format</span><input id="export-partition" value="${html(preferences.partition||'')}" placeholder="%album%"></label>
+      <label class="field"><span>Partition format</span><input id="export-partition" value="${html(preferences.partition||'')}" placeholder="%album%" data-helper="format"></label>
       <label class="action-check"><input type="checkbox" id="export-bom" ${preferences.write_bom?'checked':''}> Write BOM for UTF-8 and UTF-16</label>
       <label class="action-check"><input type="checkbox" id="export-directories" ${preferences.create_directories?'checked':''}> Create output directories</label>
       <p id="export-reason"></p><p id="export-status" role="status">Save configurations to remember templates and options. Export also saves them.</p></div>

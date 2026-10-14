@@ -667,15 +667,14 @@ fn restore(blob: &Blob, target: &Path, options: &TagOptions) -> Result<(), Strin
         return Err("The audio file is read-only".into());
     }
     let expected = fingerprint(&target)?;
-    let staging = tempfile::Builder::new()
-        .prefix(".opentag-")
-        .tempfile_in(
-            target
-                .parent()
-                .ok_or("Audio path has no parent directory")?,
-        )
-        .map_err(|e| e.to_string())?;
-    fs::copy(&blob.path, staging.path()).map_err(|e| e.to_string())?;
+    let staging = crate::staging_copy(
+        &blob.path,
+        target
+            .parent()
+            .ok_or("Audio path has no parent directory")?,
+        ".opentag-",
+        "",
+    )?;
     staging.as_file().sync_all().map_err(|e| e.to_string())?;
     if fs::metadata(staging.path())
         .map_err(|e| e.to_string())?

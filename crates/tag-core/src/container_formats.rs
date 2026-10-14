@@ -251,7 +251,7 @@ pub(super) fn add_cover(
     path: &Path,
     kind: Kind,
     mut picture: Picture,
-    image: &Path,
+    label: &str,
     include_cover_data: bool,
     options: &TagOptions,
 ) -> Result<AudioEntry, String> {
@@ -264,7 +264,7 @@ pub(super) fn add_cover(
         |current| {
             let mut pictures = current.pictures.clone();
             if kind != Kind::Matroska {
-                describe_repeated_front_cover(&pictures, &mut picture, image);
+                describe_repeated_cover(&pictures, &mut picture, label);
             }
             pictures.push(picture);
             Ok(Edit::Pictures(pictures))
@@ -295,6 +295,25 @@ pub(super) fn remove_cover(
             Ok(Edit::Pictures(pictures))
         },
         "The cover could not be removed",
+    )
+}
+
+/// Replace the whole cover list (Manage covers).
+pub(super) fn set_covers(
+    path: &Path,
+    kind: Kind,
+    options: &TagOptions,
+    pictures: Vec<Picture>,
+    failure: &str,
+) -> Result<AudioEntry, String> {
+    mutate(
+        path,
+        kind,
+        false,
+        &[],
+        options,
+        |_| Ok(Edit::Pictures(pictures)),
+        failure,
     )
 }
 
