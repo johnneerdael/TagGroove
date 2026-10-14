@@ -26,7 +26,9 @@ fn wav_properties_dates_and_paths_are_measured_without_polluting_raw_fields() {
     let d = tempfile::tempdir().unwrap();
     let p = d.path().join("source.wav");
     wav(&p);
-    fs::File::open(&p)
+    fs::OpenOptions::new()
+        .write(true)
+        .open(&p)
         .unwrap()
         .set_times(
             fs::FileTimes::new().set_modified(UNIX_EPOCH + Duration::from_secs(1_700_000_000)),
@@ -205,7 +207,9 @@ fn raw_modified_timestamp_is_directly_usable_by_fmtdate() {
     let p = d.path().join("date.wav");
     wav(&p);
     let time = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
-    fs::File::open(&p)
+    fs::OpenOptions::new()
+        .write(true)
+        .open(&p)
         .unwrap()
         .set_times(fs::FileTimes::new().set_modified(time))
         .unwrap();
