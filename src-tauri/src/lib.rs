@@ -6,6 +6,7 @@ mod action_host;
 mod columns;
 mod converters;
 mod documents;
+mod e2e;
 mod evaluation;
 mod exports;
 mod file_hashes;
@@ -849,7 +850,7 @@ async fn export_playlist(paths: Vec<String>, output_path: String) -> Result<(), 
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    file_ops::install(tauri::Builder::default())
+    e2e::install(file_ops::install(tauri::Builder::default()))
         .setup(|app| {
             let _ = APP_HANDLE.set(app.handle().clone());
             tauri::Manager::manage(app, settings::SettingsStore::open(app.handle()));
@@ -858,6 +859,8 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_document_access::init())
         .invoke_handler(tauri::generate_handler![
+            e2e::e2e_report,
+            e2e::e2e_exit,
             load_export_library,
             save_export_library,
             import_export_configuration,
