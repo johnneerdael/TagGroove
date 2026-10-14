@@ -753,29 +753,43 @@ pub fn scan_paths_with_progress(
     result
 }
 
-/// Copy `source` to a new temporary file in `dir`. The copy is created at a
-/// fresh path rather than into an already opened temporary file, so
-/// copy-on-write filesystems clone it (APFS `clonefile`, reflinks through
-/// `copy_file_range`) instead of duplicating every audio byte; elsewhere it is
-/// an ordinary copy. The file is removed when the handle is dropped unpersisted.
+/// Copy `source` to a new temporary file in `dir`. On copy-on-write volumes
+/// (APFS, reflink filesystems) the copy is an explicit clone sharing every
+/// block with the source instead of duplicating every audio byte; elsewhere it
+/// is an ordinary copy. The file is removed when the handle is dropped unpersisted.
 pub fn staging_copy(
     source: &Path,
     dir: &Path,
     prefix: &str,
     suffix: &str,
 ) -> Result<tempfile::NamedTempFile, String> {
-    tempfile::Builder::new()
+    staging_clone(source, dir, prefix, suffix).map(|(file, _)| file)
+}
+
+/// [`staging_copy`], also reporting whether the copy is a true clone.
+pub fn staging_clone(
+    source: &Path,
+    dir: &Path,
+    prefix: &str,
+    suffix: &str,
+) -> Result<(tempfile::NamedTempFile, bool), String> {
+    let mut cloned = false;
+    let file = tempfile::Builder::new()
         .prefix(prefix)
         .suffix(suffix)
         .rand_bytes(12)
         .make_in(dir, |path| {
-            if let Err(error) = fs::copy(source, path) {
-                let _ = fs::remove_file(path);
-                return Err(error);
+            match crate::clone::clone_or_copy(source, path) {
+                Ok(clone) => cloned = clone,
+                Err(error) => {
+                    let _ = fs::remove_file(path);
+                    return Err(error);
+                }
             }
             fs::OpenOptions::new().read(true).write(true).open(path)
         })
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    Ok((file, cloned))
 }
 
 /// The closure only touches the temporary copy. Failed writes or failed
@@ -833,14 +847,22 @@ where
     if original.permissions().readonly() {
         return Err("The audio file is read-only".into());
     }
-    let mut staging = staging_copy(
+    let (mut staging, cloned) = staging_clone(
         &path,
         path.parent().ok_or("Audio path has no parent directory")?,
         ".opentag-",
         "",
     )?;
     let staged_path = staging.path().to_path_buf();
+    let scope = crate::write_cost::Scope::begin();
     mutation(staging.as_file_mut(), &path, &staged_path)?;
+    // An in-place rewrite never changes the length; anything else is a full rewrite.
+    let rewritten = scope.finish().filter(|_| {
+        staging
+            .as_file()
+            .metadata()
+            .is_ok_and(|m| m.len() == original.len())
+    });
     if options.preserve_modified_time {
         if let Ok(modified) = original.modified() {
             staging
@@ -857,6 +879,7 @@ where
         return Err("The file changed during editing; reload it before saving".into());
     }
     staging.persist(&path).map_err(|e| e.error.to_string())?;
+    crate::history::note_write(&path, cloned, rewritten);
     entry.path = path.to_string_lossy().into_owned();
     entry.filename = path
         .file_name()
@@ -916,6 +939,10 @@ fn save_preserving_native(
     covers_changed: bool,
     id3: Id3Write,
 ) -> Result<(), String> {
+    // Only FLAC Vorbis comments can be rewritten in place; flac_metadata reports how.
+    if !(file_type == FileType::Flac && tag.tag_type() == TagType::VorbisComments) {
+        crate::write_cost::rewrote_all();
+    }
     let originals = native_tags(staging, file_type)?;
     match tag.tag_type() {
         TagType::Id3v2 => {
@@ -1291,6 +1318,7 @@ fn remove_tags_result(
             staging
                 .seek(SeekFrom::Start(0))
                 .map_err(|e| e.to_string())?;
+            crate::write_cost::rewrote_all();
             tag.tag_type()
                 .remove_from(staging, WriteOptions::default())
                 .map_err(|e| e.to_string())?;

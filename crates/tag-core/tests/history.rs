@@ -393,6 +393,7 @@ fn limits_bound_operations_and_bytes() {
         Limits {
             operations: 3,
             bytes: size * 10,
+            ..Limits::default()
         },
     )
     .unwrap();
@@ -415,6 +416,7 @@ fn limits_bound_operations_and_bytes() {
         Limits {
             operations: 10,
             bytes: size - 1,
+            ..Limits::default()
         },
     )
     .unwrap();
@@ -473,4 +475,172 @@ fn consecutive_steps_undo_and_redo_in_order() {
         }
         assert!(history.redo().is_err());
     }
+}
+
+fn noise_flac(path: &Path, seconds: u32) -> bool {
+    if Command::new("ffmpeg").arg("-version").output().is_err() {
+        eprintln!("Skipping clone accounting test: ffmpeg is required");
+        return false;
+    }
+    let output = Command::new("ffmpeg")
+        .args(["-v", "error", "-f", "lavfi", "-i"])
+        .arg(format!("anoisesrc=d={seconds}:r=44100:a=0.5"))
+        .arg(path)
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    true
+}
+
+#[test]
+fn full_rewrites_count_whole_files_and_padding_writes_count_their_region() {
+    let dir = tempfile::tempdir().unwrap();
+    let flac = dir.path().join("padded.flac");
+    if !noise_flac(&flac, 2) {
+        return;
+    }
+    let wav_path = dir.path().join("plain.wav");
+    wav(&wav_path);
+    let (flac_len, wav_len) = (
+        fs::metadata(&flac).unwrap().len(),
+        fs::metadata(&wav_path).unwrap().len(),
+    );
+    let mut history = journal(dir.path());
+    let clones = tag_core::clone::supports_clone(dir.path());
+
+    // WAV tags are rewritten as a whole: the snapshot keeps the whole file.
+    let capture = history.begin("Save tags", None, &[key(&wav_path)]);
+    write_fields(&wav_path, &fields(&[("TITLE", &["Whole"])])).unwrap();
+    history.commit(capture, &[], &[]);
+    assert_eq!(history.retained_bytes(), wav_len);
+
+    // A FLAC edit that fits the padding rewrites only the metadata region.
+    let capture = history.begin("Save tags", None, &[key(&flac)]);
+    write_fields(&flac, &fields(&[("TITLE", &["Small"])])).unwrap();
+    history.commit(capture, &[], &[]);
+    let flac_cost = history.retained_bytes() - wav_len;
+    if clones {
+        assert!(
+            flac_cost <= 64 * 1024,
+            "{flac_cost} bytes for a padding write"
+        );
+    } else {
+        assert_eq!(flac_cost, flac_len, "full copies keep the whole file");
+    }
+
+    // Overflowing the padding shifts the audio: the whole file is kept.
+    let before = fs::metadata(&flac).unwrap().len();
+    let capture = history.begin("Save tags", None, &[key(&flac)]);
+    write_fields(&flac, &fields(&[("COMMENT", &[&"x".repeat(64 * 1024)])])).unwrap();
+    history.commit(capture, &[], &[]);
+    assert_eq!(history.retained_bytes() - wav_len - flac_cost, before);
+
+    // Undo keeps both versions: a full rewrite retains both whole files, a
+    // clone-backed padding write retains about its region twice.
+    let after = fs::metadata(&flac).unwrap().len();
+    history.undo().unwrap();
+    history.undo().unwrap();
+    let (undo_cost, redo) = (history.retained_bytes(), history.state().redo.unwrap());
+    assert_eq!(redo.label, "Save tags");
+    let small = undo_cost - wav_len - before - after;
+    if clones {
+        assert!(small <= 2 * 64 * 1024, "{small}");
+    } else {
+        assert_eq!(small, 2 * flac_len);
+    }
+}
+
+#[test]
+fn many_padded_flac_saves_stay_under_the_cap_and_undo_exactly() {
+    let dir = tempfile::tempdir().unwrap();
+    let template = dir.path().join("template.flac");
+    if !noise_flac(&template, 6) || !tag_core::clone::supports_clone(dir.path()) {
+        eprintln!("Skipping: needs ffmpeg and a cloning volume (APFS, Btrfs, XFS)");
+        return;
+    }
+    let size = fs::metadata(&template).unwrap().len();
+    let count = 48;
+    let files: Vec<PathBuf> = (0..count)
+        .map(|index| {
+            let path = dir.path().join(format!("{index:02}.flac"));
+            tag_core::clone::clone_or_copy(&template, &path).unwrap();
+            write_fields(&path, &fields(&[("TITLE", &[&format!("Track {index}")])])).unwrap();
+            path
+        })
+        .collect();
+    let originals: Vec<Vec<u8>> = files.iter().map(|p| fs::read(p).unwrap()).collect();
+    // The whole selection is many times the cap; only rewritten regions count.
+    let cap = size * 2;
+    assert!(size * count > 20 * cap);
+    let mut history = Journal::open(
+        &dir.path().join("journal"),
+        Limits {
+            bytes: cap,
+            ..Limits::default()
+        },
+    )
+    .unwrap();
+    let paths: Vec<String> = files.iter().map(|p| key(p)).collect();
+    let capture = history.begin("Save tags", None, &paths);
+    let options = tag_core::TagOptions::default();
+    let written =
+        tag_core::parallel::map_ordered_on(8, &files, &tag_core::parallel::Silent, |path| {
+            tag_core::write_fields_with_options(
+                path,
+                &fields(&[("ALBUM", &["One album for all"])]),
+                false,
+                &[],
+                &options,
+            )
+        });
+    assert!(written.iter().all(|w| matches!(w, Some(Ok(_)))));
+    history.commit(capture, &[], &[]);
+    let state = history.state();
+    assert_eq!(state.notice, None);
+    assert_eq!(state.undo.unwrap().files, count as usize);
+    assert!(
+        history.retained_bytes() <= count * 64 * 1024,
+        "{} retained for {count} padding writes",
+        history.retained_bytes()
+    );
+    let replay = history.undo().unwrap();
+    assert!(replay.errors.is_empty(), "{:?}", replay.errors);
+    for (path, original) in files.iter().zip(&originals) {
+        assert_eq!(&fs::read(path).unwrap(), original);
+    }
+    history.redo().unwrap();
+    assert!(files
+        .iter()
+        .all(|p| read_entry(p).unwrap().fields["ALBUM"] == ["One album for all"]));
+}
+
+#[test]
+fn journaling_is_refused_when_free_space_would_run_low() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("a.wav");
+    wav(&path);
+    let mut history = Journal::open(
+        &dir.path().join("journal"),
+        Limits {
+            min_free: u64::MAX / 2,
+            ..Limits::default()
+        },
+    )
+    .unwrap();
+    let capture = history.begin("Save tags", None, &[key(&path)]);
+    write_fields(&path, &fields(&[("TITLE", &["Applied anyway"])])).unwrap();
+    history.commit(capture, &[], &[]);
+    let state = history.state();
+    assert!(state.undo.is_none());
+    if cfg!(unix) {
+        assert!(state.notice.unwrap().contains("free disk space"));
+    }
+    assert_eq!(
+        read_entry(&path).unwrap().fields["TITLE"],
+        ["Applied anyway"]
+    );
 }

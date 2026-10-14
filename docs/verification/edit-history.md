@@ -34,10 +34,29 @@ and inode on Unix), any file renames, and folder moves in the order they ran.
   their expected fingerprints, so you can undo or redo several steps in a row.
 - Limits: 50 steps (undo and redo together), with at most 2 GiB of retained
   audio. The oldest steps are evicted and their snapshots deleted. If one
-  operation is larger than the byte bound, it still runs but is not recorded.
-  The Edit menu, and the status line after the operation, then show the notice
-  "… cannot be undone: the operation is too large to undo". A new recorded
-  change clears redo. An operation that changes nothing records nothing.
+  operation would retain more than the byte bound, it still runs but is not
+  recorded. The Edit menu, and the status line after the operation, then show
+  the notice "… cannot be undone: the operation is too large to undo". A new
+  recorded change clears redo. An operation that changes nothing records
+  nothing.
+- Retained bytes are what a snapshot really keeps on disk, not the file size.
+  Staged writes start from an explicit clone (`tag_core::clone`: macOS
+  `clonefile`, Linux `FICLONE`; a plain full copy elsewhere, including
+  Windows) and report whether it was a clone. Writers report what they
+  rewrote: the FLAC padding path reports its metadata region, every other
+  writer (lofty full writes, ID3, tag removal, ID3v1) marks a full rewrite, and
+  an unreported write or a changed length counts as full. A hard-linked
+  snapshot whose writes were all clone-backed region rewrites costs the
+  regions rounded to 4 KiB plus 16 KiB per file (capped at the file size);
+  copied snapshots, full copies and full rewrites cost the whole file. After an
+  undo or redo restores through a clone, the other snapshot is costed the same
+  way. Files written after a rename in the same operation are counted in full.
+- Before snapshotting, the journal plans the step: files on its own volume that
+  clone are estimated at 1 MiB each, everything else at its full size. If the
+  full-size part alone exceeds the cap, the step is not recorded. If the
+  journal volume's free space is below the estimate plus a 2 GiB margin
+  (`Limits::min_free`), journaling is refused with "there is not enough free
+  disk space for undo". The actual cost is checked again at commit.
 - Each running process locks its session directory. On startup, directories
   of sessions that are no longer running are removed. A clean exit also removes
   the current session's directory, because the `Drop` impl runs.
@@ -118,6 +137,25 @@ has focus, so you can still type characters such as ™.
   field options, target validation and preview outcomes.
   `tests/document-coordination.test.mjs` now also extracts `refreshHistory`,
   which `run()` calls.
+- Clone accounting (`crates/tag-core/src/{clone,write_cost,history}.rs` unit
+  tests, `crates/tag-core/tests/history.rs`): retained-cost rules,
+  accumulation of several writes, sticky full rewrites, abandoned write
+  scopes, clone detection on APFS. A WAV save retains the whole file. A FLAC
+  padding write retains at most 64 KiB, and an overflowing FLAC write retains
+  the whole file; after two undos both versions are counted. 48 clone-backed
+  noise FLACs, together 24 times the test's cap of two files' size, are saved in
+  parallel as one step that stays under the cap, then undone byte-exactly and
+  redone. The free-space guard refuses journaling with its notice while the
+  write still happens.
+- Native: `scripts/e2e-undo-bulk.sh [files]` builds the debug app, generates
+  N clones of a ~23 MB noise FLAC (`cp -c` / `cp --reflink=always`), selects
+  all, stages ALBUM, saves, checks that one "Undo Save tags (N files)" step
+  exists without a notice, undoes, verifies every file through `scan_files`,
+  and redoes. With 100 files (2.29 GB logical, above the 2 GiB cap) it passed
+  5/5: the save took 614 ms, the undo 930 ms, and the volume's free space
+  changed by about 57 MB. That figure is noisy because other processes were
+  writing to the same disk. `OPENTAG_E2E_ID=org.opentag.editor.e2e.history
+  scripts/e2e-native.sh` passed 13/13.
 - Totals before merging `feat/core-parity`: frontend 108 tests (baseline
   101 + 7), Rust 290 (baseline 279 + 11). After the merge (tag panel and
   options): frontend 128 and Rust 312, all passing.

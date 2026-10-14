@@ -1551,6 +1551,7 @@ pub(super) fn save_id3(
     tag: &Id3v2Tag,
     target: &Id3Target,
 ) -> Result<(), String> {
+    crate::write_cost::rewrote_all();
     if target.version == Id3v2Version::V3 {
         id3_v23::save(file, kind, tag, target.latin1)
     } else {
