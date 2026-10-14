@@ -158,16 +158,17 @@ Vorbis mappings apply.
 
 ## Verification
 
-- `node --test tests/*.test.mjs`: 109 pass, 8 of them new in
+- `node --test tests/*.test.mjs`: 129 pass after merging `feat/core-parity`, 8 of them new in
   `tests/tag-sources.test.mjs`. They cover prefill, similarity, the three
   matching passes, ambiguous and multi-disc numbers, moves, field rows, apply
   items and tickets.
-- `cargo test --workspace --locked`: all pass, including 29 new tests in
+- `cargo test --workspace --locked`: all pass, including 30 new tests in
   `opentag::sources` (one more is ignored, described below). The new tests cover:
   - parsers and query builders for both providers, using JSON fixtures;
   - ID and address parsing, and the host allow-list;
   - ticket cancellation, status messages and image validation;
-  - the settings round trip (private file mode, token never viewed);
+  - the credentials round trip (private file mode, token never viewed) and the
+    cover size read from Options;
   - apply against real generated WAV files: fields written, covers replaced, an
     untrusted cover address rejected before any write, and several files written
     in one call.
