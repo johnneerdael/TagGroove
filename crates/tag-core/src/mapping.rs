@@ -32,14 +32,22 @@ pub struct UserFieldMapping {
     pub target: String,
 }
 
-fn rule_matches(rule: &UserFieldMapping, kind: TagType) -> bool {
-    match kind {
-        TagType::Id3v2 => rule.tag_type.eq_ignore_ascii_case("ID3v2"),
-        TagType::Mp4Ilst => rule.tag_type.eq_ignore_ascii_case("MP4"),
-        TagType::VorbisComments => rule.tag_type.eq_ignore_ascii_case("VorbisComment"),
-        TagType::Ape => rule.tag_type.eq_ignore_ascii_case("APEv2"),
-        _ => false,
-    }
+/// The tag a user mapping rule applies to. ASF has no lofty tag type.
+#[derive(Clone, Copy)]
+pub(super) enum RuleTag {
+    Lofty(TagType),
+    Wma,
+}
+fn rule_matches(rule: &UserFieldMapping, kind: RuleTag) -> bool {
+    let name = match kind {
+        RuleTag::Lofty(TagType::Id3v2) => "ID3v2",
+        RuleTag::Lofty(TagType::Mp4Ilst) => "MP4",
+        RuleTag::Lofty(TagType::VorbisComments) => "VorbisComment",
+        RuleTag::Lofty(TagType::Ape) => "APEv2",
+        RuleTag::Wma => "WMA",
+        RuleTag::Lofty(_) => return false,
+    };
+    rule.tag_type.eq_ignore_ascii_case(name)
 }
 pub fn validate_user_mappings(rules: &[UserFieldMapping]) -> Result<(), String> {
     let mut sources = std::collections::BTreeMap::new();
@@ -73,6 +81,13 @@ pub fn map_read_fields(
     kind: TagType,
     rules: &[UserFieldMapping],
 ) -> Result<Fields, String> {
+    map_read(fields, RuleTag::Lofty(kind), rules)
+}
+pub(super) fn map_read(
+    fields: &Fields,
+    kind: RuleTag,
+    rules: &[UserFieldMapping],
+) -> Result<Fields, String> {
     validate_user_mappings(rules)?;
     let mut output = Fields::new();
     for (source, values) in fields {
@@ -103,6 +118,13 @@ pub fn map_read_fields(
 pub fn map_write_fields(
     fields: &Fields,
     kind: TagType,
+    rules: &[UserFieldMapping],
+) -> Result<Fields, String> {
+    map_write(fields, RuleTag::Lofty(kind), rules)
+}
+pub(super) fn map_write(
+    fields: &Fields,
+    kind: RuleTag,
     rules: &[UserFieldMapping],
 ) -> Result<Fields, String> {
     validate_user_mappings(rules)?;
@@ -1215,6 +1237,13 @@ fn id3_name(id: &str, version: Id3v2Version) -> Option<&'static str> {
         })
         .map(|r| r.field)
 }
+/// The Mp3tag field stored under an ASF attribute name.
+pub(super) fn asf_name(native: &str) -> Option<&'static str> {
+    FIELD_MAPPINGS
+        .iter()
+        .find(|r| !r.asf.is_empty() && r.asf.eq_ignore_ascii_case(native))
+        .map(|r| r.field)
+}
 fn mp4_name(ident: &AtomIdent<'_>) -> Option<&'static str> {
     let name = match ident {
         AtomIdent::Fourcc(v) => v.iter().map(|v| char::from(*v)).collect::<String>(),
@@ -1522,12 +1551,27 @@ pub(super) fn save_id3(
     tag: &Id3v2Tag,
     target: &Id3Target,
 ) -> Result<(), String> {
+    crate::write_cost::rewrote_all();
     if target.version == Id3v2Version::V3 {
         id3_v23::save(file, kind, tag, target.latin1)
     } else {
         tag.save_to(file, WriteOptions::default().use_id3v23(false))
             .map_err(|e| e.to_string())
     }
+}
+
+/// Serialize a complete ID3v2 tag for containers that embed it as an opaque
+/// block (DSF, DSDIFF). An empty result means the tag has no frames.
+pub(super) fn render_id3(tag: &Id3v2Tag, target: &Id3Target) -> Result<Vec<u8>, String> {
+    if target.version == Id3v2Version::V3 {
+        return id3_v23::serialize(tag, target.latin1);
+    }
+    let mut bytes = Vec::new();
+    if !tag.is_empty() {
+        tag.dump_to(&mut bytes, WriteOptions::default().use_id3v23(false))
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(bytes)
 }
 
 /// Characters an ISO-8859-1 tag cannot hold are written as '?'.
@@ -1939,7 +1983,7 @@ fn wmp_rating(value: u8) -> u8 {
         _ => 5,
     }
 }
-fn parse_stars(value: &str, half_allowed: bool) -> Result<u8, String> {
+pub(super) fn parse_stars(value: &str, half_allowed: bool) -> Result<u8, String> {
     let half = if value.chars().all(|c| c == '*' || c == '-') {
         (value.chars().filter(|c| *c == '*').count() * 2
             + value.chars().filter(|c| *c == '-').count()) as f64

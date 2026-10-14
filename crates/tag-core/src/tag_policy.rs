@@ -55,7 +55,7 @@ fn reading_only(options: &TagOptions, kind: TagType) -> TagOptions {
     options
 }
 
-fn id3_target(options: &TagOptions) -> mapping::Id3Target {
+pub(super) fn id3_target(options: &TagOptions) -> mapping::Id3Target {
     let (version, latin1) = match options.mpeg.id3v2_format {
         Id3v2Format::V23Utf16 => (Id3v2Version::V3, false),
         Id3v2Format::V23Latin1 => (Id3v2Version::V3, true),
@@ -303,6 +303,7 @@ pub(super) fn write(
             .seek(SeekFrom::Start(0))
             .map_err(|e| e.to_string())?;
         if !tag.is_empty() || has(TagType::Id3v1) {
+            crate::write_cost::rewrote_all();
             tag.save_to(staging, WriteOptions::default())
                 .map_err(|e| error_message(&e))?;
         }
@@ -312,6 +313,7 @@ pub(super) fn write(
             staging
                 .seek(SeekFrom::Start(0))
                 .map_err(|e| e.to_string())?;
+            crate::write_cost::rewrote_all();
             kind.remove_from(staging, WriteOptions::default())
                 .map_err(|e| error_message(&e))?;
         }

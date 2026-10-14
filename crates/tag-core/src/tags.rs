@@ -1,5 +1,11 @@
 //! Portable metadata I/O. Every mutation is written and verified in a sibling
 //! temporary file before the original is atomically replaced.
+#[path = "asf/mod.rs"]
+mod asf;
+#[path = "container_formats.rs"]
+mod container_formats;
+#[path = "cover_manage.rs"]
+mod cover_manage;
 #[path = "cover_ops.rs"]
 mod cover_ops;
 #[path = "mapping.rs"]
@@ -12,6 +18,7 @@ mod tag_types;
 mod technical;
 use crate::preferences::TagOptions;
 use base64::{engine::general_purpose::STANDARD, Engine};
+pub use cover_manage::*;
 pub use cover_ops::*;
 use lofty::{
     aac::AacFile,
@@ -47,7 +54,7 @@ use std::{
 pub use tag_types::*;
 use walkdir::WalkDir;
 
-fn error_message(error: &dyn std::error::Error) -> String {
+pub(crate) fn error_message(error: &dyn std::error::Error) -> String {
     let mut message = error.to_string();
     let mut source = error.source();
     while let Some(cause) = source {
@@ -79,6 +86,9 @@ pub struct CoverInfo {
     pub width: Option<u32>,
     #[serde(default)]
     pub height: Option<u32>,
+    /// Content identity of the image bytes, used to aggregate covers.
+    #[serde(default)]
+    pub digest: String,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AudioEntry {
@@ -379,6 +389,29 @@ fn displayed_tags<'a>(file: &'a TaggedFile, options: &TagOptions) -> Vec<&'a Tag
     }
 }
 
+fn cover_info(index: usize, picture: &Picture, include_cover_data: bool) -> CoverInfo {
+    let info = technical::picture_information(picture);
+    CoverInfo {
+        index,
+        mime: picture
+            .mime_type()
+            .map(|m| m.as_str())
+            .unwrap_or("application/octet-stream")
+            .into(),
+        description: picture.description().unwrap_or_default().into(),
+        picture_type: format!("{:?}", picture.pic_type()),
+        data_base64: if include_cover_data {
+            STANDARD.encode(picture.data())
+        } else {
+            String::new()
+        },
+        size: picture.data().len() as u64,
+        width: info.as_ref().map(|i| i.width).filter(|n| *n > 0),
+        height: info.as_ref().map(|i| i.height).filter(|n| *n > 0),
+        digest: cover_digest(picture.data()),
+    }
+}
+
 fn describe_with_native(
     path: &Path,
     file: &TaggedFile,
@@ -398,25 +431,7 @@ fn describe_with_native(
             fields.entry(key).or_insert(values);
         }
         for picture in tag.pictures() {
-            let info = technical::picture_information(picture);
-            covers.push(CoverInfo {
-                index: covers.len(),
-                mime: picture
-                    .mime_type()
-                    .map(|m| m.as_str())
-                    .unwrap_or("application/octet-stream")
-                    .into(),
-                description: picture.description().unwrap_or_default().into(),
-                picture_type: format!("{:?}", picture.pic_type()),
-                data_base64: if include_cover_data {
-                    STANDARD.encode(picture.data())
-                } else {
-                    String::new()
-                },
-                size: picture.data().len() as u64,
-                width: info.as_ref().map(|i| i.width).filter(|n| *n > 0),
-                height: info.as_ref().map(|i| i.height).filter(|n| *n > 0),
-            });
+            covers.push(cover_info(covers.len(), picture, include_cover_data));
         }
     }
     let properties = file.properties();
@@ -503,6 +518,13 @@ fn read_description(
 ) -> Result<AudioEntry, String> {
     validate_user_mappings(rules)?;
     let path = path.canonicalize().map_err(|e| e.to_string())?;
+    // Before lofty: its MPEG sync search can match bytes inside ASF artwork.
+    if asf::sniff(&path) {
+        return asf::describe(&path, include_cover_data, rules);
+    }
+    if let Some(kind) = container_formats::detect(&path) {
+        return container_formats::read(&path, kind, include_cover_data, rules, options);
+    }
     let probe = Probe::open(&path)
         .map_err(|e| e.to_string())?
         .guess_file_type()
@@ -625,12 +647,17 @@ fn audio_extension(path: &Path, allowed: Option<&[String]>) -> bool {
             | "aiff"
             | "aifc"
             | "ape"
+            | "asf"
+            | "dff"
+            | "dsf"
             | "flac"
             | "m4a"
             | "m4b"
             | "m4p"
             | "mp4"
             | "m4v"
+            | "mka"
+            | "mkv"
             | "mpc"
             | "mp+"
             | "mpp"
@@ -640,6 +667,8 @@ fn audio_extension(path: &Path, allowed: Option<&[String]>) -> bool {
             | "spx"
             | "wav"
             | "wave"
+            | "webm"
+            | "wma"
             | "wv"
     )
 }
@@ -654,6 +683,23 @@ pub fn scan_paths_with_options(
     recursive: bool,
     options: &TagOptions,
     extensions: Option<&[String]>,
+) -> ScanResult {
+    scan_paths_with_progress(
+        paths,
+        recursive,
+        options,
+        extensions,
+        &crate::parallel::Silent,
+    )
+}
+/// Like [`scan_paths_with_options`], reading files in parallel while reporting
+/// progress. After a cancellation the files read so far are returned.
+pub fn scan_paths_with_progress(
+    paths: &[String],
+    recursive: bool,
+    options: &TagOptions,
+    extensions: Option<&[String]>,
+    progress: &dyn crate::parallel::Progress,
 ) -> ScanResult {
     let mut result = ScanResult::default();
     let mut seen = HashSet::new();
@@ -686,29 +732,127 @@ pub fn scan_paths_with_options(
             }),
         }
     }
+    let mut unique = Vec::new();
     for path in candidates {
-        let canonical = match path.canonicalize() {
-            Ok(p) => p,
-            Err(e) => {
-                result.errors.push(FileError {
-                    path: path.to_string_lossy().into_owned(),
-                    error: e.to_string(),
-                });
-                continue;
+        match path.canonicalize() {
+            Ok(canonical) => {
+                if seen.insert(canonical.clone()) {
+                    unique.push(canonical);
+                }
             }
-        };
-        if !seen.insert(canonical.clone()) {
-            continue;
-        }
-        match read_entry_summary_with_options(&canonical, &[], options) {
-            Ok(entry) => result.entries.push(entry),
-            Err(error) => result.errors.push(FileError {
-                path: canonical.to_string_lossy().into_owned(),
-                error,
+            Err(e) => result.errors.push(FileError {
+                path: path.to_string_lossy().into_owned(),
+                error: e.to_string(),
             }),
         }
     }
+    progress.start(unique.len());
+    let read = crate::parallel::map_ordered(&unique, progress, |canonical| {
+        read_entry_summary_with_options(canonical, &[], options)
+    });
+    for (canonical, outcome) in unique.iter().zip(read) {
+        match outcome {
+            Some(Ok(entry)) => result.entries.push(entry),
+            Some(Err(error)) => result.errors.push(FileError {
+                path: canonical.to_string_lossy().into_owned(),
+                error,
+            }),
+            None => {}
+        }
+    }
     result
+}
+
+/// Copy `source` to a new temporary file in `dir`. The copy is created at a
+/// fresh path rather than into an already opened temporary file, so it can be a
+/// copy-on-write clone (APFS `clonefile`) that shares every block the write
+/// does not change; elsewhere it is an ordinary copy (`copy_file_range`, which
+/// may reflink, but OpenTag cannot tell). Either way it is a new inode: writes
+/// never reach `source`, and persisting it renames it over the original. The
+/// file is removed when the handle is dropped unpersisted. [`clones_in`]
+/// reports whether copies in `dir` are clones.
+pub fn staging_copy(
+    source: &Path,
+    dir: &Path,
+    prefix: &str,
+    suffix: &str,
+) -> Result<tempfile::NamedTempFile, String> {
+    staging_clone(source, dir, prefix, suffix).map(|(file, _)| file)
+}
+
+/// [`staging_copy`], also reporting whether the copy is a true clone.
+pub fn staging_clone(
+    source: &Path,
+    dir: &Path,
+    prefix: &str,
+    suffix: &str,
+) -> Result<(tempfile::NamedTempFile, bool), String> {
+    let mut cloned = false;
+    let file = tempfile::Builder::new()
+        .prefix(prefix)
+        .suffix(suffix)
+        .rand_bytes(12)
+        .make_in(dir, |path| {
+            let copied = match clone_file(source, path) {
+                Ok(true) => {
+                    cloned = true;
+                    Ok(())
+                }
+                Ok(false) => fs::copy(source, path).map(|_| ()),
+                Err(error) => Err(error),
+            };
+            if let Err(error) = copied {
+                if error.kind() != std::io::ErrorKind::AlreadyExists {
+                    let _ = fs::remove_file(path);
+                }
+                return Err(error);
+            }
+            fs::OpenOptions::new().read(true).write(true).open(path)
+        })
+        .map_err(|e| e.to_string())?;
+    Ok((file, cloned))
+}
+
+/// Whether [`staging_copy`] makes copy-on-write clones in `dir`: true only
+/// when a clone was verified (APFS on Apple platforms). An undo snapshot that
+/// hard-links the original then retains only the blocks a write changed,
+/// rather than the whole file. Probes with two empty temporary files.
+pub fn clones_in(dir: &Path) -> bool {
+    let Ok(probe) = tempfile::Builder::new()
+        .prefix(".opentag-probe-")
+        .tempfile_in(dir)
+    else {
+        return false;
+    };
+    let target = probe.path().with_extension("clone");
+    let cloned = matches!(clone_file(probe.path(), &target), Ok(true));
+    if cloned {
+        let _ = fs::remove_file(&target);
+    }
+    cloned
+}
+
+/// Clone `source` to the new path `target`. `Ok(false)` means the filesystem
+/// cannot clone here and nothing was created; an existing `target` is an error.
+#[cfg(target_vendor = "apple")]
+fn clone_file(source: &Path, target: &Path) -> std::io::Result<bool> {
+    use std::{ffi::CString, os::unix::ffi::OsStrExt};
+    let from = CString::new(source.as_os_str().as_bytes())?;
+    let to = CString::new(target.as_os_str().as_bytes())?;
+    const CLONE_NOFOLLOW: u32 = 0x0001; // <sys/clonefile.h>
+                                        // SAFETY: both arguments are valid NUL-terminated paths for the duration of the call.
+    if unsafe { libc::clonefile(from.as_ptr(), to.as_ptr(), CLONE_NOFOLLOW) } == 0 {
+        return Ok(true);
+    }
+    let error = std::io::Error::last_os_error();
+    match error.raw_os_error() {
+        Some(libc::EEXIST) => Err(error),
+        _ => Ok(false),
+    }
+}
+#[cfg(not(target_vendor = "apple"))]
+fn clone_file(_source: &Path, _target: &Path) -> std::io::Result<bool> {
+    Ok(false)
 }
 
 /// The closure only touches the temporary copy. Failed writes or failed
@@ -735,6 +879,27 @@ fn staged_mutation_with_mappings<F>(
 where
     F: FnOnce(&mut fs::File, TaggedFile, &Path) -> Result<(), String>,
 {
+    staged_write(
+        path,
+        include_cover_data,
+        rules,
+        options,
+        |staging, original, staged_path| mutation(staging, load(original)?, staged_path),
+    )
+}
+
+/// Like `staged_mutation_with_mappings`, for formats that lofty cannot load.
+/// The closure receives the staging file, the original path and the staged path.
+fn staged_write<F>(
+    path: &Path,
+    include_cover_data: bool,
+    rules: &[UserFieldMapping],
+    options: &TagOptions,
+    mutation: F,
+) -> Result<AudioEntry, String>
+where
+    F: FnOnce(&mut fs::File, &Path, &Path) -> Result<(), String>,
+{
     validate_user_mappings(rules)?;
     options.validate()?;
     let path = path.canonicalize().map_err(|e| e.to_string())?;
@@ -745,14 +910,22 @@ where
     if original.permissions().readonly() {
         return Err("The audio file is read-only".into());
     }
-    let file = load(&path)?;
-    let mut staging = tempfile::Builder::new()
-        .prefix(".opentag-")
-        .tempfile_in(path.parent().ok_or("Audio path has no parent directory")?)
-        .map_err(|e| e.to_string())?;
-    fs::copy(&path, staging.path()).map_err(|e| e.to_string())?;
+    let (mut staging, cloned) = staging_clone(
+        &path,
+        path.parent().ok_or("Audio path has no parent directory")?,
+        ".opentag-",
+        "",
+    )?;
     let staged_path = staging.path().to_path_buf();
-    mutation(staging.as_file_mut(), file, &staged_path)?;
+    let scope = crate::write_cost::Scope::begin();
+    mutation(staging.as_file_mut(), &path, &staged_path)?;
+    // An in-place rewrite never changes the length; anything else is a full rewrite.
+    let rewritten = scope.finish().filter(|_| {
+        staging
+            .as_file()
+            .metadata()
+            .is_ok_and(|m| m.len() == original.len())
+    });
     if options.preserve_modified_time {
         if let Ok(modified) = original.modified() {
             staging
@@ -769,6 +942,7 @@ where
         return Err("The file changed during editing; reload it before saving".into());
     }
     staging.persist(&path).map_err(|e| e.error.to_string())?;
+    crate::history::note_write(&path, cloned, rewritten);
     entry.path = path.to_string_lossy().into_owned();
     entry.filename = path
         .file_name()
@@ -828,6 +1002,10 @@ fn save_preserving_native(
     covers_changed: bool,
     id3: Id3Write,
 ) -> Result<(), String> {
+    // Only FLAC Vorbis comments can be rewritten in place; flac_metadata reports how.
+    if !(file_type == FileType::Flac && tag.tag_type() == TagType::VorbisComments) {
+        crate::write_cost::rewrote_all();
+    }
     let originals = native_tags(staging, file_type)?;
     match tag.tag_type() {
         TagType::Id3v2 => {
@@ -890,6 +1068,9 @@ fn save_preserving_native(
                         .insert_picture(picture.clone(), None)
                         .map_err(|e| e.to_string())?;
                 }
+            }
+            if file_type == FileType::Flac {
+                return crate::flac_metadata::save(staging, &native);
             }
             staging
                 .seek(SeekFrom::Start(0))
@@ -1101,6 +1282,19 @@ fn write_fields_result(
     if updates.is_empty() {
         return read_description(path, include_cover_data, rules, options);
     }
+    if asf::sniff(path) {
+        return asf::write_fields(path, updates, include_cover_data, rules, options);
+    }
+    if let Some(kind) = container_formats::detect(path) {
+        return container_formats::write_fields(
+            path,
+            kind,
+            updates,
+            include_cover_data,
+            rules,
+            options,
+        );
+    }
     staged_mutation_with_mappings(
         path,
         include_cover_data,
@@ -1176,11 +1370,18 @@ fn remove_tags_result(
     include_cover_data: bool,
     options: &TagOptions,
 ) -> Result<AudioEntry, String> {
+    if asf::sniff(path) {
+        return asf::remove_tags(path, include_cover_data, options);
+    }
+    if let Some(kind) = container_formats::detect(path) {
+        return container_formats::remove_tags(path, kind, include_cover_data, options);
+    }
     staged_mutation(path, include_cover_data, options, |staging, file, _| {
         for tag in file.tags() {
             staging
                 .seek(SeekFrom::Start(0))
                 .map_err(|e| e.to_string())?;
+            crate::write_cost::rewrote_all();
             tag.tag_type()
                 .remove_from(staging, WriteOptions::default())
                 .map_err(|e| e.to_string())?;
@@ -1190,11 +1391,23 @@ fn remove_tags_result(
 }
 
 pub fn add_cover(path: &Path, image: &Path) -> Result<AudioEntry, String> {
-    add_cover_result(path, image, true, &TagOptions::default())
+    add_cover_result(
+        path,
+        image,
+        PictureType::CoverFront,
+        true,
+        &TagOptions::default(),
+    )
 }
 
 pub fn add_cover_summary(path: &Path, image: &Path) -> Result<AudioEntry, String> {
-    add_cover_result(path, image, false, &TagOptions::default())
+    add_cover_result(
+        path,
+        image,
+        PictureType::CoverFront,
+        false,
+        &TagOptions::default(),
+    )
 }
 
 pub fn add_cover_with_options(
@@ -1203,24 +1416,53 @@ pub fn add_cover_with_options(
     include_cover_data: bool,
     options: &TagOptions,
 ) -> Result<AudioEntry, String> {
-    add_cover_result(path, image, include_cover_data, options)
+    add_cover_result(
+        path,
+        image,
+        PictureType::CoverFront,
+        include_cover_data,
+        options,
+    )
+}
+
+/// Import Cover from File: embed `image` as `picture_type` (front cover when
+/// `None`), optionally deleting existing covers first. The image is decoded
+/// before any existing art is removed.
+pub fn import_cover_with_options(
+    path: &Path,
+    image: &Path,
+    picture_type: Option<&str>,
+    delete_existing: bool,
+    options: &TagOptions,
+) -> Result<AudioEntry, String> {
+    let kind = picture_type
+        .map(picture_type_from_name)
+        .transpose()?
+        .unwrap_or(PictureType::CoverFront);
+    if delete_existing {
+        let mut reader = fs::File::open(image).map_err(|e| e.to_string())?;
+        Picture::from_reader(&mut reader).map_err(|e| e.to_string())?;
+        remove_all_covers_with_options(path, options)?;
+    }
+    add_cover_result(path, image, kind, false, options)
 }
 
 /// ID3 requires picture descriptions to identify repeated cover types.
-fn describe_repeated_front_cover(pictures: &[Picture], picture: &mut Picture, image: &Path) {
-    if !pictures.iter().any(|p| {
-        p.pic_type() == PictureType::CoverFront && p.description().unwrap_or_default().is_empty()
-    }) {
+fn describe_repeated_cover(pictures: &[Picture], picture: &mut Picture, label: &str) {
+    if picture.description().is_some_and(|d| !d.is_empty())
+        || !pictures.iter().any(|p| {
+            p.pic_type() == picture.pic_type() && p.description().unwrap_or_default().is_empty()
+        })
+    {
         return;
     }
-    let basename = image.file_name().unwrap_or_default().to_string_lossy();
-    let mut description = basename.to_string();
+    let mut description = label.to_string();
     let mut suffix = 2;
     while pictures
         .iter()
         .any(|p| p.description() == Some(description.as_str()))
     {
-        description = format!("{basename} ({suffix})");
+        description = format!("{label} ({suffix})");
         suffix += 1;
     }
     picture.set_description(Some(description));
@@ -1229,12 +1471,46 @@ fn describe_repeated_front_cover(pictures: &[Picture], picture: &mut Picture, im
 fn add_cover_result(
     path: &Path,
     image: &Path,
+    kind: PictureType,
     include_cover_data: bool,
     options: &TagOptions,
 ) -> Result<AudioEntry, String> {
     let mut image_file = fs::File::open(image).map_err(|e| e.to_string())?;
     let mut picture = Picture::from_reader(&mut image_file).map_err(|e| e.to_string())?;
-    picture.set_pic_type(PictureType::CoverFront);
+    picture.set_pic_type(kind);
+    let label = image.file_name().unwrap_or_default().to_string_lossy();
+    add_picture_result(path, picture, &label, include_cover_data, options)
+}
+
+fn add_picture_result(
+    path: &Path,
+    mut picture: Picture,
+    label: &str,
+    include_cover_data: bool,
+    options: &TagOptions,
+) -> Result<AudioEntry, String> {
+    if asf::sniff(path) {
+        return asf::change_pictures(
+            path,
+            include_cover_data,
+            options,
+            |pictures| {
+                pictures.push(picture);
+                Ok(())
+            },
+            "The cover could not be added",
+        );
+    }
+    if let Some(container) = container_formats::detect(path) {
+        return container_formats::add_cover(
+            path,
+            container,
+            picture,
+            label,
+            include_cover_data,
+            options,
+        );
+    }
     staged_mutation(
         path,
         include_cover_data,
@@ -1242,7 +1518,7 @@ fn add_cover_result(
         |staging, mut file, staged_path| {
             if tag_policy::policy(file.file_type()).is_some() {
                 let mut pictures = tag_policy::displayed_pictures(&file, options);
-                describe_repeated_front_cover(&pictures, &mut picture, image);
+                describe_repeated_cover(&pictures, &mut picture, label);
                 pictures.push(picture);
                 let written = tag_policy::write(
                     staging,
@@ -1269,7 +1545,7 @@ fn add_cover_result(
                 .primary_tag_mut()
                 .ok_or("The audio format has no writable tag")?;
             if primary == TagType::Id3v2 {
-                describe_repeated_front_cover(tag.pictures(), &mut picture, image);
+                describe_repeated_cover(tag.pictures(), &mut picture, label);
             }
             tag.push_picture(picture);
             save_preserving_native(
@@ -1317,6 +1593,24 @@ fn remove_cover_result(
     include_cover_data: bool,
     options: &TagOptions,
 ) -> Result<AudioEntry, String> {
+    if asf::sniff(path) {
+        return asf::change_pictures(
+            path,
+            include_cover_data,
+            options,
+            |pictures| {
+                if index >= pictures.len() {
+                    return Err(format!("Cover index {index} does not exist"));
+                }
+                pictures.remove(index);
+                Ok(())
+            },
+            "The cover could not be removed",
+        );
+    }
+    if let Some(kind) = container_formats::detect(path) {
+        return container_formats::remove_cover(path, kind, index, include_cover_data, options);
+    }
     staged_mutation(
         path,
         include_cover_data,

@@ -98,6 +98,7 @@ Notifications are queued while an operation runs and are shown as native message
   12. The Tools, Help and File configuration entries are present.
 - `tests/e2e/core-workflows.js` still passes 13/13 on this branch.
 - Totals before the merge with `feat/core-parity`: Rust 364 (baseline 356), frontend 175 (baseline 165). Clippy `-D warnings`, `cargo fmt` and `tsc` are clean.
+- After merging `feat/core-parity` (covers, progress jobs, batch save): Rust 427, frontend 196, all passing. `options-utils.js` and `core-workflows.js` both pass 13/13 natively. `arboard` is shared with the cover clipboard, which enables `image-data`.
 
 ## Findings
 

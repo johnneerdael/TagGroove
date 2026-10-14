@@ -16,7 +16,7 @@ const resize=parsed.statements.find(node=>ts.isExpressionStatement(node)&&ts.isC
   &&node.expression.expression.getText(parsed)==='window.addEventListener'&&node.expression.arguments[0]?.text==='resize').getText(parsed);
 const factory=`export function createViewport(width=390,height=469) {
   const frames=[],listeners=new Map(),body={innerHTML:''};
-  let renders=0,virtualStart=-1,virtualEnd=-1,virtualRevision=-1,virtualSelection='',dataRevision=0;
+  let renders=0,virtualStart=-1,virtualEnd=-1,virtualRevision=-1,virtualSelection='',virtualViewport=-1,dataRevision=0;
   const input={value:'Pending Album',selectionStart:4,selectionEnd:8},menu={open:true},dialog={open:true};
   let controls={input,menu,dialog};
   const wrap={clientHeight:height,scrollTop:0,querySelector:selector=>selector==='tbody'?body:null};
@@ -41,6 +41,7 @@ const factory=`export function createViewport(width=390,height=469) {
     resize(nextWidth,nextHeight){width=nextWidth;wrap.clientHeight=nextHeight;listeners.get('resize')();},
     flush(){const pending=frames.splice(0);pending.forEach(callback=>callback());},
     scroll(top){wrap.scrollTop=top;},
+    update(){body.innerHTML+='<!--kept-->';updateVirtualRows();},
     snapshot:()=>({renders,controls,focused:document.activeElement,html:body.innerHTML,start:virtualStart,end:virtualEnd,pendingFrames:frames.length}),
   };
 }`;
@@ -86,4 +87,15 @@ test('a breakpoint excursion completed before the queued frame preserves the cur
   const viewport=createViewport(1000,469);
   viewport.resize(1001,469);viewport.resize(1000,689);viewport.flush();
   assert.equal(viewport.snapshot().renders,0);assert.equal(viewport.snapshot().end,23);
+});
+
+test('row-by-row scrolling keeps the rendered window until the viewport leaves it',()=>{
+  const viewport=createViewport(1280,469);
+  assert.deepEqual([viewport.snapshot().start,viewport.snapshot().end],[0,23]);
+  viewport.scroll(30);viewport.update();
+  assert.deepEqual([viewport.snapshot().start,viewport.snapshot().end],[0,23]);
+  assert.match(viewport.snapshot().html,/<!--kept-->$/);
+  viewport.scroll(300);viewport.update();
+  assert.deepEqual([viewport.snapshot().start,viewport.snapshot().end],[2,33]);
+  assert.doesNotMatch(viewport.snapshot().html,/kept/);
 });

@@ -8,15 +8,31 @@ script="${1:-$root/tests/e2e/core-workflows.js}"
 # Parallel runs need distinct identifiers: single-instance forwarding and app
 # config directories are keyed by it.
 identifier="${OPENTAG_E2E_ID:-org.opentag.editor.usertest}"
+# Concurrent runs cover each other's windows; WebKit would otherwise suspend
+# timers in an occluded test window (macOS 14+ honours this policy).
+window='"app":{"windows":[{"title":"OpenTag","width":1240,"height":800,"minWidth":800,"minHeight":560,"backgroundThrottling":"disabled"}]}'
 if [[ "${2:-}" != "--no-build" ]]; then
   (cd "$root" && AR="${AR:-/usr/bin/ar}" npx tauri build --debug --bundles app \
-    --config "{\"identifier\":\"$identifier\",\"productName\":\"OpenTag UserTest\"}" >/dev/null)
+    --config "{\"identifier\":\"$identifier\",\"productName\":\"OpenTag UserTest\",$window}" >/dev/null)
 fi
 if [[ "$(uname)" == "Darwin" ]]; then
   bin="$root/target/debug/bundle/macos/OpenTag UserTest.app/Contents/MacOS/opentag"
 else
   bin="$root/target/debug/opentag"
 fi
+# --no-build may reuse a bundle built for another identifier; trust the bundle.
+if [[ "$(uname)" == "Darwin" ]]; then
+  identifier="$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "${bin%/MacOS/opentag}/Info.plist")"
+fi
+# Start every run from empty app state; only test identifiers are ever cleared.
+case "$identifier" in
+  *usertest*|*.e2e.*)
+    if [[ "$(uname)" == "Darwin" ]]; then
+      rm -rf "$HOME/Library/Application Support/$identifier" "$HOME/Library/WebKit/$identifier" "$HOME/Library/Caches/$identifier"
+    else
+      rm -rf "${XDG_CONFIG_HOME:-$HOME/.config}/$identifier" "${XDG_DATA_HOME:-$HOME/.local/share}/$identifier"
+    fi ;;
+esac
 work="$(mktemp -d)"; trap 'rm -rf "$work"' EXIT
 album="$work/album"; mkdir -p "$album"
 for spec in "a:440:1" "b:660:2"; do

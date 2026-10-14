@@ -70,6 +70,20 @@ pub fn import_group(path: &Path, legacy_encoding: Option<&str>) -> Result<MtaImp
         legacy_encoding,
     )
 }
+/// Write a group as a UTF-16LE `.mta` file with BOM and CRLF lines, the
+/// layout of the action files shipped with Mp3tag.
+pub fn export_group(path: &Path, group: &ActionGroup) -> Result<(), String> {
+    let text = tag_core::actions::export_mta(group)?;
+    let mut bytes = vec![0xff, 0xfe];
+    bytes.extend(text.encode_utf16().flat_map(u16::to_le_bytes));
+    atomic_output(path, &bytes, false)
+}
+#[tauri::command]
+pub async fn export_action_group(path: String, group: ActionGroup) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || export_group(Path::new(&path), &group))
+        .await
+        .map_err(|e| e.to_string())?
+}
 
 pub(crate) fn atomic_output(path: &Path, bytes: &[u8], append: bool) -> Result<(), String> {
     atomic_output_with_directories(path, bytes, append, true)
@@ -311,11 +325,16 @@ impl ActionHost for NativeHost {
             ActionEffect::RemoveCovers => {
                 tag_core::remove_all_covers_with_options(&path, &crate::settings::tag_options())?;
             }
-            ActionEffect::ImportCover { filename } => {
-                tag_core::add_cover_with_options(
+            ActionEffect::ImportCover {
+                filename,
+                picture_type,
+                delete_existing,
+            } => {
+                tag_core::import_cover_with_options(
                     &path,
                     &relative_to_file(filename, &path),
-                    false,
+                    picture_type.as_deref(),
+                    *delete_existing,
                     &crate::settings::tag_options(),
                 )?;
             }
@@ -1056,6 +1075,90 @@ mod tests {
             assert_eq!(tag_core::read_entry_summary(&path).unwrap().covers.len(), 2);
         }
         (path, png)
+    }
+
+    #[test]
+    fn import_cover_sets_type_and_deletes_existing_only_for_a_readable_image() {
+        let dir = tempfile::tempdir().unwrap();
+        let (path, png) = covered_fixture(dir.path(), "a.wav", false);
+        let paths = [path.to_string_lossy().into_owned()];
+        let import = |picture_type: Option<&str>, delete_existing: bool, image: &str| ActionGroup {
+            name: "Import art".into(),
+            enabled: true,
+            actions: vec![ActionSpec::ImportCover {
+                filename_template: image.into(),
+                picture_type: picture_type.map(str::to_owned),
+                delete_existing,
+            }],
+        };
+        let covers = || tag_core::read_entry(&path).unwrap().covers;
+        let result = execute(
+            &paths,
+            &[import(Some("CoverBack"), true, "embedded.png")],
+            EvaluationSettings::default(),
+        );
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        let after = covers();
+        assert_eq!(after.len(), 1);
+        assert_eq!(after[0].picture_type, "CoverBack");
+        assert_eq!(STANDARD.decode(&after[0].data_base64).unwrap(), png);
+        let result = execute(
+            &paths,
+            &[import(Some("Artist"), false, "embedded.png")],
+            EvaluationSettings::default(),
+        );
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert_eq!(
+            covers()
+                .iter()
+                .map(|c| c.picture_type.as_str())
+                .collect::<Vec<_>>(),
+            ["CoverBack", "Artist"]
+        );
+        let before = fs::read(&path).unwrap();
+        let result = execute(
+            &paths,
+            &[import(None, true, "missing.png")],
+            EvaluationSettings::default(),
+        );
+        assert_eq!(result.errors.len(), 1);
+        assert_eq!(fs::read(&path).unwrap(), before);
+    }
+    #[test]
+    fn exported_group_is_utf16_mta_that_imports_back() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("Umlauts.mta");
+        let group = ActionGroup {
+            name: "Umlauts".into(),
+            enabled: true,
+            actions: vec![ActionSpec::Replace {
+                field: "_FILENAME".into(),
+                from: "ä".into(),
+                to: "ae".into(),
+                whole_word: false,
+                case_sensitive: true,
+            }],
+        };
+        export_group(&target, &group).unwrap();
+        let bytes = fs::read(&target).unwrap();
+        assert_eq!(&bytes[..2], &[0xff, 0xfe]);
+        let imported = import_group(&target, None).unwrap();
+        assert!(imported.issues.is_empty());
+        assert_eq!(imported.group, group);
+        assert!(export_group(
+            &dir.path().join("cover.mta"),
+            &ActionGroup {
+                name: "Art".into(),
+                enabled: true,
+                actions: vec![ActionSpec::AdjustCover {
+                    format: tag_core::actions::CoverImageFormat::Png,
+                    quality: 90,
+                    resize: None,
+                }],
+            }
+        )
+        .is_err());
+        assert!(!dir.path().join("cover.mta").exists());
     }
 
     fn cover_export_group(filename: &str, export_duplicates: bool) -> ActionGroup {

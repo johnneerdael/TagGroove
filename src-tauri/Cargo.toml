@@ -8,6 +8,11 @@ license = "MIT"
 name = "opentag_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[features]
+# Profiling builds only: enables the end-to-end script hook (`src/e2e.rs`) in
+# release builds. Off by default and never enabled for published releases.
+e2e = []
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
@@ -38,7 +43,8 @@ tempfile = "3"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-opener = "2"
-# Copy as Text: WebKit only allows navigator.clipboard during a user gesture.
-arboard = { version = "3", default-features = false }
 tauri-plugin-single-instance = "2"
 trash = "5"
+# Cover window Copy/Paste cover (image data) and Edit → Copy as Text (WebKit only
+# allows navigator.clipboard during a user gesture).
+arboard = { version = "3", default-features = false, features = ["image-data"] }

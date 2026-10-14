@@ -49,10 +49,9 @@ export function openTagToTag(deps: TagTagDeps) {
   let remembered = { field: 'ALBUMARTIST', template: '%artist%' };
   try { remembered = { ...remembered, ...JSON.parse(deps.storage?.getItem(storageKey) || '{}') }; } catch { /* Last values are a convenience only. */ }
   const { esc } = deps, count = deps.paths().length;
-  const options = tagTagFieldOptions(deps.fieldNames()).map(name => `<option value="${esc(name)}">`).join('');
   const dialog = deps.modal('Tag → Tag', `<p>Set a field of each selected file from a format string using %field% placeholders and scripting functions. _FILENAME renames files; _DIRECTORY renames their folder. Changes are written to the files immediately and can be undone.</p>
-    <label class="field"><span>FIELD</span><input id="tag-tag-field" list="tag-tag-fields" value="${esc(remembered.field)}" autocomplete="off" spellcheck="false"><datalist id="tag-tag-fields">${options}</datalist></label>
-    <label class="field"><span>FORMAT STRING</span><input id="tag-tag-template" value="${esc(remembered.template)}" autocomplete="off" spellcheck="false"></label>
+    <label class="field"><span>FIELD</span><input id="tag-tag-field" value="${esc(remembered.field)}" autocomplete="off" spellcheck="false" data-helper="field" data-specials="_FILENAME,_DIRECTORY"></label>
+    <label class="field"><span>FORMAT STRING</span><input id="tag-tag-template" value="${esc(remembered.template)}" autocomplete="off" spellcheck="false" data-helper="format" data-history="tag-tag" data-history-manage></label>
     <p class="converter-status" role="status" aria-live="polite">Preparing preview…</p><div id="tag-tag-preview" aria-label="Tag → Tag preview"></div>`,
   `<button class="primary" id="tag-tag-apply" disabled>Apply to ${count} file${count === 1 ? '' : 's'}</button>`);
   dialog.setAttribute('aria-label', 'Tag → Tag');
