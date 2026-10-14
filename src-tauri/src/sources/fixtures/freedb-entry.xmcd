@@ -1,0 +1,25 @@
+# xmcd
+#
+# Track frame offsets:
+#	150
+#	15150
+#	33150
+#
+# Disc length: 620 seconds
+#
+# Revision: 2
+# Submitted via: OpenTag test fixture
+#
+DISCID=1f026a03
+DTITLE=The Example Band / Long Album Title,
+DTITLE= Continued
+DYEAR=1998
+DGENRE=Alternative Rock
+TTITLE0=Opening
+TTITLE1=Song / With Slash
+TTITLE2=Back\\slash
+EXTD=Recorded live.\nSecond line
+EXTT0=
+EXTT1=Bonus
+EXTT2=
+PLAYORDER=

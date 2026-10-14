@@ -16,3 +16,13 @@ test('remove updates selected configuration and allows an empty saved library',(
  const source=library(),result=removeExportConfiguration(source,'a');assert.deepEqual(result.configurations.map(c=>c.id),['b']);assert.equal(result.preferences.configuration,'b');assert.equal(source.preferences.configuration,'a');
  const empty=removeExportConfiguration(result,'b');assert.equal(empty.preferences.configuration,null);assert.deepEqual(empty.configurations,[]);assert.equal(empty.preferences.filename,'out.txt');
 });
+const {ExportUI}=await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
+test('export without the selection dialog runs the saved configuration, per directory on request',async()=>{
+ const runs=[];let reason='';
+ const ui=new ExportUI({load:async()=>library(),execute:async(saved,perDirectory)=>{runs.push([saved.preferences.configuration,perDirectory]);},reason:()=>reason,selectedCount:()=>2});
+ await ui.runSaved();await ui.runSaved(true);
+ assert.deepEqual(runs,[['a',false],['a',true]]);
+ reason='Select files to export.';await assert.rejects(ui.runSaved(),/Select files/);
+ reason='';const missing=new ExportUI({load:async()=>({...library(),preferences:{...library().preferences,configuration:null}}),execute:async()=>runs.push('ran'),reason:()=>'',selectedCount:()=>1});
+ await assert.rejects(missing.runSaved(),/export configuration/);assert.equal(runs.length,2);
+});

@@ -8,6 +8,10 @@
 # OPENTAG_E2E_ID overrides the bundle identifier (so concurrent runs keep
 # separate settings); OPENTAG_PERF_BIN runs another build's executable.
 set -euo pipefail
+if [[ -z "${CI:-}" && -z "${OPENTAG_E2E_ALLOW_LOCAL:-}" ]]; then
+  echo "Refusing to open test windows on this desktop; set OPENTAG_E2E_ALLOW_LOCAL=1 to override." >&2
+  exit 2
+fi
 root="$(cd "$(dirname "$0")/.." && pwd)"
 folder="${1:?folder to measure}"; runs="${2:-2}"; shift $(( $# < 2 ? $# : 2 ))
 build=1; write=true

@@ -10,6 +10,8 @@ mod cover_manage;
 mod cover_ops;
 #[path = "mapping.rs"]
 mod mapping;
+#[path = "mp4_chapters.rs"]
+mod mp4_chapters;
 #[path = "tag_policy.rs"]
 mod tag_policy;
 #[path = "tag_types.rs"]
@@ -131,6 +133,9 @@ fn strict_or_lenient_id3v1<T>(
 }
 
 fn load(path: &Path) -> Result<TaggedFile, String> {
+    if let Some(stream) = container_formats::detect_stream(path) {
+        return container_formats::raw_streams::load(path, stream);
+    }
     let mut file = strict_or_lenient_id3v1(|mode| {
         Probe::open(path)
             .map_err(|e| e.to_string())?
@@ -149,27 +154,43 @@ fn load(path: &Path) -> Result<TaggedFile, String> {
             &mut fs::File::open(path).map_err(|e| e.to_string())?,
             file.file_type(),
         )?;
-        if let (Some(ape), Some(tag)) = (native.ape, file.tag_mut(TagType::Ape)) {
-            for item in &ape {
-                if item.key().starts_with("Cover Art (") {
-                    if let ItemValue::Binary(data) = item.value() {
-                        tag.push_picture(
-                            Picture::from_ape_bytes(item.key(), data).map_err(|e| e.to_string())?,
-                        );
-                    }
-                }
-            }
-        }
+        ape_pictures(&native, &mut file)?;
     }
     Ok(file)
 }
 
+/// Generic APE conversion intentionally omits cover binary items. Add them
+/// from the already parsed native tag.
+fn ape_pictures(native: &NativeTags, file: &mut TaggedFile) -> Result<(), String> {
+    if let (Some(ape), Some(tag)) = (native.ape.as_ref(), file.tag_mut(TagType::Ape)) {
+        for item in ape {
+            if item.key().starts_with("Cover Art (") {
+                if let ItemValue::Binary(data) = item.value() {
+                    tag.push_picture(
+                        Picture::from_ape_bytes(item.key(), data).map_err(|e| e.to_string())?,
+                    );
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Tags in display order, primary first. FLAC reads Vorbis comments only: a
+/// prepended ID3v2 tag is never shown and is stripped by the next save.
 fn ordered_tags(file: &TaggedFile) -> Vec<&Tag> {
     let primary = file.primary_tag_type();
+    let read = |t: &&Tag| !(file.file_type() == FileType::Flac && t.tag_type() == TagType::Id3v2);
     file.tags()
         .iter()
+        .filter(read)
         .filter(|t| t.tag_type() == primary)
-        .chain(file.tags().iter().filter(|t| t.tag_type() != primary))
+        .chain(
+            file.tags()
+                .iter()
+                .filter(read)
+                .filter(|t| t.tag_type() != primary),
+        )
         .collect()
 }
 
@@ -525,6 +546,15 @@ fn read_description(
     if let Some(kind) = container_formats::detect(&path) {
         return container_formats::read(&path, kind, include_cover_data, rules, options);
     }
+    if let Some(stream) = container_formats::detect_stream(&path) {
+        return container_formats::raw_streams::read(
+            &path,
+            stream,
+            include_cover_data,
+            rules,
+            options,
+        );
+    }
     let probe = Probe::open(&path)
         .map_err(|e| e.to_string())?
         .guess_file_type()
@@ -546,10 +576,9 @@ fn read_description(
             (TaggedFile::from(media), native)
         }};
     }
-    let (mut file, native) = match kind {
+    let (mut file, mut native) = match kind {
         FileType::Flac => read!(FlacFile, |f: &FlacFile| NativeTags {
             vorbis: f.vorbis_comments().cloned(),
-            id3: f.id3v2().cloned(),
             ..Default::default()
         }),
         FileType::Mpeg => read!(MpegFile, |f: &MpegFile| NativeTags {
@@ -610,19 +639,12 @@ fn read_description(
             (file, native)
         }
     };
-    // Generic APE conversion intentionally omits cover binary items. Enrich
-    // from the already parsed native tag, without a second file read.
-    if let (Some(ape), Some(tag)) = (native.ape.as_ref(), file.tag_mut(TagType::Ape)) {
-        for item in ape {
-            if item.key().starts_with("Cover Art (") {
-                if let ItemValue::Binary(data) = item.value() {
-                    tag.push_picture(
-                        Picture::from_ape_bytes(item.key(), data).map_err(|e| e.to_string())?,
-                    );
-                }
-            }
-        }
+    if kind == FileType::Mp4 {
+        native.technical.extend(mp4_chapters::technical(&path));
     }
+    // Enrich APE covers from the already parsed native tag, without a second
+    // file read.
+    ape_pictures(&native, &mut file)?;
     describe_with_native(&path, &file, &native, include_cover_data, rules, options)
 }
 
@@ -661,10 +683,14 @@ fn audio_extension(path: &Path, allowed: Option<&[String]>) -> bool {
             | "mpc"
             | "mp+"
             | "mpp"
+            | "ofr"
+            | "ofs"
             | "ogg"
             | "oga"
             | "opus"
             | "spx"
+            | "tak"
+            | "tta"
             | "wav"
             | "wave"
             | "webm"
@@ -884,8 +910,48 @@ where
         include_cover_data,
         rules,
         options,
-        |staging, original, staged_path| mutation(staging, load(original)?, staged_path),
+        |staging, original, staged_path| match container_formats::detect_stream(original) {
+            // Tags of raw streams are edited on a stand-in file lofty can parse.
+            Some(stream) => container_formats::raw_streams::stage(
+                staging,
+                original,
+                staged_path,
+                stream,
+                |staging, original, staged_path| mutation(staging, load(original)?, staged_path),
+            ),
+            None => {
+                let file = load(original)?;
+                let flac_id3 =
+                    file.file_type() == FileType::Flac && file.tag(TagType::Id3v2).is_some();
+                mutation(staging, file, staged_path)?;
+                if flac_id3 {
+                    strip_flac_id3v2(staging)?;
+                }
+                Ok(())
+            }
+        },
     )
+}
+
+/// Mp3tag removes the ID3v2 tag some taggers prepend to FLAC files whenever
+/// it saves them; the FLAC stream itself is kept byte for byte.
+fn strip_flac_id3v2(staging: &mut fs::File) -> Result<(), String> {
+    staging
+        .seek(SeekFrom::Start(0))
+        .map_err(|e| e.to_string())?;
+    let mut header = [0u8; 10];
+    if std::io::Read::read_exact(staging, &mut header).is_err()
+        || container_formats::id3v2_size(&header).is_none()
+    {
+        return Ok(());
+    }
+    staging
+        .seek(SeekFrom::Start(0))
+        .map_err(|e| e.to_string())?;
+    crate::write_cost::rewrote_all();
+    TagType::Id3v2
+        .remove_from(staging, WriteOptions::default())
+        .map_err(|e| error_message(&e))
 }
 
 /// Like `staged_mutation_with_mappings`, for formats that lofty cannot load.
@@ -1346,6 +1412,26 @@ fn write_fields_result(
     )
 }
 
+/// Utils → Strip chapters MP4: remove Nero chapters and QuickTime chapter
+/// tracks. Other files, and MP4 files without chapters, are left untouched.
+pub fn strip_mp4_chapters_with_options(
+    path: &Path,
+    include_cover_data: bool,
+    options: &TagOptions,
+) -> Result<AudioEntry, String> {
+    let mp4 = !asf::sniff(path)
+        && container_formats::detect(path).is_none()
+        && container_formats::detect_stream(path).is_none()
+        && Probe::open(path)
+            .ok()
+            .and_then(|p| p.guess_file_type().ok())
+            .is_some_and(|p| p.file_type() == Some(FileType::Mp4));
+    if !mp4 || mp4_chapters::scan(path)?.list.is_empty() {
+        return read_description(path, include_cover_data, &[], options);
+    }
+    staged_write(path, include_cover_data, &[], options, mp4_chapters::strip)
+}
+
 pub fn remove_tags(path: &Path) -> Result<AudioEntry, String> {
     remove_tags_result(path, true, &TagOptions::default())
 }
@@ -1535,7 +1621,10 @@ fn add_picture_result(
                 );
             }
             let primary = file.primary_tag_type();
-            let previous_covers: usize = file.tags().iter().map(|tag| tag.pictures().len()).sum();
+            let previous_covers: usize = ordered_tags(&file)
+                .iter()
+                .map(|tag| tag.pictures().len())
+                .sum();
             if file.primary_tag().is_none() {
                 file.insert_tag(Tag::new(primary));
             }

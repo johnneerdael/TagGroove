@@ -19,13 +19,21 @@ type ExportHost={
   load:()=>Promise<ExportLibrary>;save:(library:ExportLibrary)=>Promise<void>;
   import:(path:string,encoding:string)=>Promise<ExportConfiguration>;
   pickTemplate:()=>Promise<string|null>;pickOutput:(current:string)=>Promise<string|null>;
-  execute:(library:ExportLibrary)=>Promise<void>;reason:()=>string;selectedCount:()=>number;
+  /** Run the active configuration; `perDirectory` writes one file per folder (File → Export with Shift). */
+  execute:(library:ExportLibrary,perDirectory:boolean)=>Promise<void>;reason:()=>string;selectedCount:()=>number;
 };
 const html=(value:unknown)=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 export class ExportUI {
   private showing=false;
   constructor(private host:ExportHost){}
-  async open(){
+  /** File → Export without the selection dialog (Options → Export). */
+  async runSaved(perDirectory=false){
+    const reason=this.host.reason();if(reason)throw new Error(reason);
+    const library=await this.host.load();
+    if(!library.configurations.some(c=>c.id===library.preferences.configuration))throw new Error('Select an export configuration in File → Export first.');
+    await this.host.execute(library,perDirectory);
+  }
+  async open(perDirectory=false){
     if(this.showing)return;this.showing=true;
     let library:ExportLibrary;
     try{library=structuredClone(await this.host.load());}catch(error){this.showing=false;throw error;}
@@ -37,14 +45,15 @@ export class ExportUI {
     const error=(error:unknown)=>{let p=dialog.querySelector<HTMLElement>('.dialog-error');if(!p){p=document.createElement('p');p.className='dialog-error';p.setAttribute('role','alert');dialog.querySelector('.dialog-content')!.append(p);}p.textContent=String(error);};
     const capture=()=>{
       const current=active();if(current){current.name=value('export-name');current.template=value('export-template');}
-      Object.assign(library.preferences,{filename:value('export-filename'),append:checked('export-append'),partition:checked('export-partition-enabled')?value('export-partition'):null,write_bom:checked('export-bom'),create_directories:checked('export-directories')});
+      Object.assign(library.preferences,{filename:value('export-filename'),append:checked('export-append'),partition:checked('export-partition-enabled')?value('export-partition'):null});
     };
     const sync=()=>{
       dialog.querySelectorAll<HTMLInputElement|HTMLButtonElement|HTMLSelectElement|HTMLTextAreaElement>('input,button,select,textarea').forEach(control=>control.disabled=working);
       for(const id of ['export-name','export-template','export-copy','export-remove'])dialog.querySelector<HTMLInputElement|HTMLButtonElement>(`#${id}`)!.disabled=working||!active();
-      dialog.querySelector<HTMLInputElement>('#export-partition')!.disabled=working||!checked('export-partition-enabled');
+      dialog.querySelector<HTMLInputElement>('#export-partition')!.disabled=working||perDirectory||!checked('export-partition-enabled');
+      if(perDirectory)dialog.querySelector<HTMLInputElement>('#export-partition-enabled')!.disabled=true;
       const reason=this.host.reason();dialog.querySelector<HTMLButtonElement>('#export-run')!.disabled=working||!active()||!!reason;
-      dialog.querySelector<HTMLElement>('#export-reason')!.textContent=reason||`${this.host.selectedCount()} selected files. Existing output files are replaced unless Append data is enabled.`;
+      dialog.querySelector<HTMLElement>('#export-reason')!.textContent=reason||`${this.host.selectedCount()} selected files.${perDirectory?' One export file is created in each folder (Shift).':''} Existing output files are replaced unless Append data is enabled.`;
     };
     const perform=async(work:()=>Promise<void>)=>{
       if(working)return;working=true;dialog.querySelector('.dialog-error')?.remove();sync();
@@ -62,8 +71,7 @@ export class ExportUI {
       <label class="action-check"><input type="checkbox" id="export-append" ${preferences.append?'checked':''}> Append data</label>
       <label class="action-check"><input type="checkbox" id="export-partition-enabled" ${preferences.partition!==null?'checked':''}> Create one output file per</label>
       <label class="field"><span>Partition format</span><input id="export-partition" value="${html(preferences.partition||'')}" placeholder="%album%" data-helper="format"></label>
-      <label class="action-check"><input type="checkbox" id="export-bom" ${preferences.write_bom?'checked':''}> Write BOM for UTF-8 and UTF-16</label>
-      <label class="action-check"><input type="checkbox" id="export-directories" ${preferences.create_directories?'checked':''}> Create output directories</label>
+      <p>Byte order marks and directory creation are set in Options → Export.</p>
       <p id="export-reason"></p><p id="export-status" role="status">Save configurations to remember templates and options. Export also saves them.</p></div>
       <div class="dialog-footer"><button id="export-cancel">Cancel</button><button id="export-save">Save configurations</button><button class="primary" id="export-run">Export</button></div>`;
       const on=(id:string,handler:()=>void)=>dialog.querySelector(`#${id}`)!.addEventListener('click',handler);
@@ -75,7 +83,7 @@ export class ExportUI {
       on('export-import',()=>{capture();const encoding=value('export-encoding');void perform(async()=>{const path=await this.host.pickTemplate();if(!path)return;const imported=await this.host.import(path,encoding);imported.name=uniqueName(library,imported.name);library.configurations.push(imported);library.preferences.configuration=imported.id;render();});});
       on('export-browse',()=>{capture();void perform(async()=>{const path=await this.host.pickOutput(library.preferences.filename);if(path){library.preferences.filename=path;dialog.querySelector<HTMLInputElement>('#export-filename')!.value=path;}});});
       on('export-save',()=>{capture();const snapshot=structuredClone(library);void perform(async()=>{await this.host.save(snapshot);if(dialog.open){render();dialog.querySelector<HTMLElement>('#export-status')!.textContent='Export configurations and options saved.';}});});
-      on('export-run',()=>{capture();const reason=this.host.reason();if(reason){error(reason);return;}const snapshot=structuredClone(library);void perform(async()=>{await this.host.execute(snapshot);dialog.close();});});
+      on('export-run',()=>{capture();const reason=this.host.reason();if(reason){error(reason);return;}const snapshot=structuredClone(library);void perform(async()=>{await this.host.execute(snapshot,perDirectory);dialog.close();});});
       on('export-cancel',()=>dialog.close());
       dialog.querySelector('#export-partition-enabled')!.addEventListener('change',sync);
       sync();
