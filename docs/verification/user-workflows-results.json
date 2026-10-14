@@ -56,9 +56,56 @@
       "dataset_variation": "Reused saved common case; Unicode search correctly matches both MP3 comments plus FLAC (three rows). All other expected query counts match the plan.",
       "all_six_complete_files_unchanged": true,
       "results": "user-workflow-filter-results.json"
+    },
+    "UAT-03": {
+      "status": "PASS after mixed-format dialog fix",
+      "build": {
+        "commit": "4e635ad95bdc79a6ddb4f1acb40ba518252683a8",
+        "identifier_override": "org.opentag.editor.usertest",
+        "executable_sha256": "b4489f5b2ae3bfff13e73241b5f0034dcbccc9d5206e78f4ea60baf1dfffc296",
+        "source_patch": "native-build-extended-fix.patch",
+        "source_patch_sha256": "5d9017c7505d94959b4713bb04885a800102de9d149e4aeff435aae57236a6b1",
+        "source_files": {
+          "src/main.ts": "2fe44269ece375bb1bf13d5c3b2114884c34f1da1e85a27562c44fd7e97ac425",
+          "src/tag-edits.ts": "b5b8ce7df65c261146db5100d56b6c978005a6646fc1915c1d5e024f112f7dbe",
+          "tests/tag-edits.test.mjs": "4ca16d0cece85de5a25113ec9c232c29a387085a52d8d30a4a4810134d848966"
+        },
+        "build": "tauri build --debug --bundles app --config /tmp/opentag-user-test/identifier-only.json",
+        "target": "/tmp/opentag-user-test/target"
+      },
+      "initial_error": "Duplicate field: ALBUM",
+      "draft_stage_all_files_unchanged": true,
+      "saved_flac": {
+        "ARTIST": [
+          "Mémoire",
+          "Guest 猫"
+        ],
+        "COMMENT": [
+          "First line\nSecond line"
+        ],
+        "TEST_A": [
+          "right"
+        ],
+        "TEST_B": [
+          "left"
+        ],
+        "UAT_MOOD": [
+          "Calm",
+          "Focus",
+          "Late Night"
+        ],
+        "MOOD_removed": true,
+        "UAT_REMOVE_removed": true
+      },
+      "mixed_rename_only_flac_drafted_and_written": true,
+      "mp3_and_four_other_files_byte_identical": true,
+      "all_six_encoded_packets_and_decoded_pcm_preserved": true,
+      "unrelated_raw_vorbis_keys_and_values_preserved": true,
+      "dialog_one_row_per_ascii_insensitive_name": true,
+      "dialog_opens_at_first_field": true
     }
   },
-  "other_UAT_cases": "UAT-03 to UAT-06 and UAT-08 to UAT-14: NOT RUN",
+  "other_UAT_cases": "UAT-04 to UAT-06 and UAT-08 to UAT-14: NOT RUN",
   "regular_profile_actions_json_before": {
     "path": "/Users/jneerdael/Library/Application Support/org.opentag.editor/actions.json",
     "exists": false

@@ -87,7 +87,48 @@ UAT-07 PASS with this explicit input variation.
 
 ![Explicit native regular-expression error](user-workflow-filter-error.png)
 
-UAT-03 through UAT-06 and UAT-08 through UAT-14 remain NOT RUN in this workflow suite. Earlier appearance
+## Extended tags: passed after a reproduced mixed-format fix
+
+UAT-03 used an independent six-file copy. Native Extended tags displayed two
+ARTIST and two MOOD values as separate controls. Added a third MOOD value,
+created a two-line COMMENT, removed UAT_REMOVE, and swapped TEST_A/TEST_B names
+without replacing their values. Keep changes left every file byte-identical.
+Save/Reload then retained the exact three MOOD values, two ARTIST values, line
+break, swapped values and deletion. Only the FLAC file changed; all six encoded
+and decoded audio identities remained identical.
+
+Selecting that FLAC with an MP3 and renaming MOOD initially failed with
+`Duplicate field: ALBUM`. The dialog had separate rows for native `ALBUM` and
+`album`, then uppercased both during validation. A separate test also exposed
+that case-only differences in source keys could lose values during a rename.
+
+The fix builds one row per ASCII-insensitive logical name and indexes each
+file's actual spelling and original values. Two-pass resolution retains swaps,
+per-file multivalues and untouched raw names. DATE/YEAR remain distinct, as do
+custom names such as maß/MASS. Three focused regressions passed with the rest
+of the 35 JavaScript tests. The native debug bundle rebuilt successfully.
+
+The rebuilt dialog displayed one ALBUM row and opened at the first field;
+previously initial Add field focus had scrolled it to the bottom. Renaming MOOD
+to UAT_MOOD in the mixed selection created and saved exactly one FLAC draft.
+The MP3 acquired no field or physical write. Reload retained all three values
+under UAT_MOOD. Independent raw Vorbis inspection confirmed ARTIST, COMMENT,
+TEST_A/TEST_B and every unrelated key/value, including native casing, stayed
+intact. All five other complete files stayed unchanged; all six encoded-packet
+and PCM hashes matched the original fixture baseline. UAT-03 PASS.
+
+![Mixed-format duplicate-field error before the fix](user-workflow-extended-before.png)
+
+![One logical field row and correct initial scroll after the fix](user-workflow-extended-after.png)
+
+![Persisted renamed multivalues](user-workflow-extended-multivalues.png)
+
+The metadata reader and writer do not yet use identical Unicode field-name
+identity rules in every path; this checkpoint does not claim universal Unicode
+custom-field equivalence. The focused reviewer found no introduced loss or swap
+defect in these changes.
+
+UAT-04 through UAT-06 and UAT-08 through UAT-14 remain NOT RUN in this workflow suite. Earlier appearance
 and menu checks are separately recorded in `branding-appearance.md` and
 `menu-switch.md`; they are not substitutes for the remaining working-data cases.
 Original format/preferences/converter/action parity remains open in the project

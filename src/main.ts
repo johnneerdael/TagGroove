@@ -6,7 +6,7 @@ import { getVersion } from '@tauri-apps/api/app';
 import { createAppearance, type AppearanceState } from './theme';
 import { installMenubar } from './menubar';
 import { open, save, ask } from '@tauri-apps/plugin-dialog';
-import { resolveTagEdits, type TagRowEdit } from './tag-edits';
+import { fieldNameIdentity, resolveTagEdits, selectionTagRows, type TagRowEdit } from './tag-edits';
 import { ActionUI, panelKey, resolvePathChanges, type ActionGroup, type ActionLibrary, type ImportedGroup } from './action-ui';
 import logoLightUrl from '../assets/brand/OpenTag-Brand-Kit/01-logos/horizontal/opentag-logo-light.svg';
 import markLightUrl from '../assets/brand/OpenTag-Brand-Kit/01-logos/marks/opentag-mark-color.svg';
@@ -396,7 +396,7 @@ function modal(title: string, content: string, buttons: string): HTMLDialogEleme
 function modalError(dialog: HTMLDialogElement, error: unknown) {let el=dialog.querySelector('.dialog-error');if(!el){el=document.createElement('p');el.className='dialog-error';el.setAttribute('role','alert');dialog.querySelector('.dialog-content')!.append(el);}el.textContent=String(error);}
 function value(dialog: HTMLDialogElement, id: string) {return dialog.querySelector<HTMLInputElement|HTMLSelectElement>(`#${id}`)!.value;}
 function extended() {
-  const all=paths().map(p=>merged(entries.get(p)!));const keys=[...new Set(all.flatMap(f=>Object.keys(f)))].sort();
+  const all=paths().map(p=>merged(entries.get(p)!));
   const dialog=modal('Extended tags',`<p>Each value can contain multiple lines. Use Add value for another tag value, or remove all values to remove a field. Renaming a field keeps each file's values.</p><div id="extended-rows"></div><button id="add-field">＋ Add field</button>`,`<button class="primary" id="apply-extended">Keep changes</button>`);
   const rows=dialog.querySelector('#extended-rows')!;
   const originalValues=new WeakMap<HTMLTextAreaElement,string>();
@@ -417,10 +417,12 @@ function extended() {
     row.querySelector('.add-value')!.addEventListener('click',()=>{addValue('');changed();valueList.querySelector<HTMLTextAreaElement>('.extended-value:last-child textarea')!.focus();});
     rows.append(row);
   };
-  keys.forEach(key=>{const vals=all.map(f=>f[key]||[]);const mixed=vals.some(v=>JSON.stringify(v)!==JSON.stringify(vals[0]));add(key,mixed?[]:vals[0],mixed);});
+  selectionTagRows(all).forEach(({name,values,mixed})=>add(name,values,mixed));
+  rows.querySelector<HTMLInputElement>('input')?.focus({preventScroll:true});
+  dialog.querySelector('.dialog-content')!.scrollTop=0;
   dialog.querySelector('#add-field')!.addEventListener('click',()=>add());
   dialog.querySelector('#apply-extended')!.addEventListener('click',()=>{
-    const edits:TagRowEdit[]=[...rows.querySelectorAll<HTMLDivElement>('.extended-row')].map(row=>({original:row.dataset.original||'',name:row.querySelector('input')!.value.trim().toUpperCase(),values:[...row.querySelectorAll<HTMLTextAreaElement>('.extended-value textarea')].map(textarea=>textarea.dataset.edited==='true'?textarea.value:originalValues.get(textarea)??textarea.value),changed:row.dataset.changed==='true',valueChanged:row.dataset.valueChanged==='true',removed:row.dataset.removed==='true'}));
+    const edits:TagRowEdit[]=[...rows.querySelectorAll<HTMLDivElement>('.extended-row')].map(row=>({original:row.dataset.original||'',name:fieldNameIdentity(row.querySelector('input')!.value.trim()),values:[...row.querySelectorAll<HTMLTextAreaElement>('.extended-value textarea')].map(textarea=>textarea.dataset.edited==='true'?textarea.value:originalValues.get(textarea)??textarea.value),changed:row.dataset.changed==='true',valueChanged:row.dataset.valueChanged==='true',removed:row.dataset.removed==='true'}));
     try {
       const perFile=paths().map(path=>({path,updates:resolveTagEdits(merged(entries.get(path)!),edits)}));
       perFile.forEach(({path,updates})=>Object.entries(updates).forEach(([key,values])=>updateDraft(path,key,values)));
