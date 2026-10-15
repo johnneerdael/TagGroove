@@ -15,7 +15,8 @@
   const click = (target, init = {}) => target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ...init }));
   const op = name => document.querySelector(`button[data-op="${name}"]`);
   const sourceDialog = () => document.querySelector('dialog.tag-source-dialog[open]:not(.ts-token-dialog)');
-  const closeSource = async d => { d.querySelector('[data-close]').click(); await waitFor(() => !sourceDialog(), 5000, 'dialog closed'); };
+  // The dialog leaves the document in its close event, after which another may open.
+  const closeSource = async d => { d.querySelector('[data-close]').click(); await waitFor(() => !d.isConnected, 5000, 'dialog closed'); };
   try {
     if (!window.OPENTAG_E2E_OFFLINE) await report('note: suite is offline by design; no network steps');
     const rows = await waitFor(() => { const r = [...document.querySelectorAll('tr[data-path]')]; return r.length === 2 && r; }, 15000, 'rows');
@@ -131,7 +132,7 @@
     key(down, { key: 'PageDown', altKey: true });
     await check(fileAt(0) === before[0] && fileAt(1) === before[1], 'Alt+Page Down moves the first file to the end');
     apply.click();
-    await waitFor(() => !d.open, 20000, 'apply');
+    await waitFor(() => !d.isConnected, 20000, 'apply');
     const disk = await Promise.all(paths.map(async p => (await inv('scan_files', { paths: [p], recursive: false })).entries[0].fields));
     const value = (f, k) => (f[k] || f[k.toLowerCase()] || []).join(' | ');
     await report('disk ' + disk.map(f => ['TITLE', 'ARTIST', 'ALBUM', 'YEAR', 'GENRE'].map(k => `${k}=${value(f, k)}`).join(' ')).join(' / '));
@@ -158,7 +159,7 @@
     type(t.querySelector('#ts-token'), 'e2eToken123');
     keychain.click();
     t.querySelector('#ts-save-token').click();
-    await waitFor(() => !t.open, 5000, 'token saved');
+    await waitFor(() => !t.isConnected, 5000, 'token saved');
     let saved = await inv('load_tag_source_settings');
     await check(saved.discogs_token_set && saved.discogs_token_in_keychain, 'token kept in the keychain ' + JSON.stringify(saved));
     t = await tokenDialog();
@@ -166,13 +167,13 @@
     t.querySelector('#ts-token-keychain').click();
     await check(!t.querySelector('#ts-save-token').disabled, 'moving the token enables Save');
     t.querySelector('#ts-save-token').click();
-    await waitFor(() => !t.open, 5000, 'token moved');
+    await waitFor(() => !t.isConnected, 5000, 'token moved');
     saved = await inv('load_tag_source_settings');
     await check(saved.discogs_token_set && !saved.discogs_token_in_keychain, 'token moved back to the private file');
     t = await tokenDialog();
     t.querySelector('#ts-token-clear').click();
     t.querySelector('#ts-save-token').click();
-    await waitFor(() => !t.open, 5000, 'token removed');
+    await waitFor(() => !t.isConnected, 5000, 'token removed');
     await check(!(await inv('load_tag_source_settings')).discogs_token_set, 'token removed');
   } catch (e) { await report('FAIL ' + (e.message || e)); }
   await report('SUMMARY done');
