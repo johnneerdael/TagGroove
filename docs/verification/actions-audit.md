@@ -79,6 +79,8 @@ Run notes:
 
 ## Gaps and limits
 
+Status after batch 7 (2026-10-15): `.mta` export covers every type ([script-export](script-export.md)); the field list and histories moved into the configuration as `lists.json` ([export-lists](export-lists.md)); `%_volume%` and the MP4 timestamps have producers ([script-export](script-export.md)); Repeat and the Quick action memory exist ([options-utils](options-utils.md), [actions-polish](actions-polish.md)). `_FIELDNAME`, the Export Cover extension and Adjust Cover sizing were only partial when this audit marked them yes; they were fixed in [rename-fixes](rename-fixes.md) and [script-export](script-export.md). The list below is the state at the time of this audit.
+
 - Mp3tag's `.mta` IDs and option schemas for Adjust Cover, Convert Codepage, Export, Export/Import Cover, Import Text, Remove Duplicates, Regex Replace, Set Cover Properties and Case modes other than Mixed are still unverified, so those actions can't be exported to `.mta` (import keeps them as unresolved records).
 - The quality preset numbers and the default field list are OpenTag choices. Mp3tag's internal values were not observed.
 - The field list and format-string histories are stored per device in WebView storage, not in `settings.json`, so configuration export/import does not include them yet.

@@ -80,7 +80,7 @@ Independent tiny CSV, HTML-like text, grouped summaries, Unicode paths, quotes, 
 - Counter state before/after loops, aggregate scope in more complex sibling/conditional loops, fractional-duration rounding, size-unit formatting, and very large totals.
 - Variable name case, unset-variable presence/truth, assignments inside skipped branches, and unusual variable/loop interactions.
 - Whitespace/newlines adjacent to `$filename`, all legacy MTE encodings/codepages, BOM defaults, filename empty/extension edge cases, and platform path behavior.
-- Runtime-discovered hash names and actual native `_md5audio` behavior for every supported audio format. Successful field lookup is not proof of audio hashing.
+- Runtime-discovered hash names. `_md5audio` is now produced for FLAC, WavPack, MPEG, AAC, Monkey's Audio, Musepack, TTA, TAK and OptimFROG and empty for other formats ([script-export](verification/script-export.md)); whether Mp3tag hashes the same byte ranges is unverified.
 - Cross-platform filesystem execution, append semantics, directory options, template collection UI, and opening exported files. These require native/UI evidence outside this pure module.
 
 Default sorting currently uses deterministic Rust string comparison, not Windows locale collation. Default formatted aggregate sizes use English when no locale is supplied. Callers should supply actual locale settings; exact host-locale and proprietary formatting equivalence remains unqualified. The exporter preserves a newline following `$filename` because it is template content; any original special trimming behavior requires differential evidence before changing that rule.

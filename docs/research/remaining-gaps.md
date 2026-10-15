@@ -8,55 +8,59 @@ Legend: **Impact** H = daily tagging workflows, M = regular but not daily, L = r
 
 ## Counts per area
 
-| Area | Items checked | OK | Partial | Missing | Notes |
-|---|---:|---:|---:|---:|---|
-| Menu commands (10 menu pages) | 85 | 69 | 12 | 4 | 1 missing item (Donation) out of scope |
-| Keyboard reference rows | 97 | 53 | 10 | 34 | 10 = 5 bound to a different action + 5 partial |
-| Scripting functions | 64 | 61 | 3 | 0 | |
-| Placeholders (`format`) | 72 | 50 | 5 | 17 | |
-| Filter syntax | 19 | 17 | 2 | 0 | |
-| Regular expressions | 19 | 18 | 1 | 0 | |
-| Action types and action groups | 114 | 96 | 17 | 1 | plus a cross-cutting rename bug (X1) |
-| Converters and auto-numbering | 67 | 57 | 6 | 4 | |
-| Export, playlists, covers, utils, find, manage list, CLI | 97 | 82 | 11 | 4 | |
-| Options pages and UI customization | 147 | 101 | 17 | 24 | plus 4 mapping items implemented in the core but never wired, 1 out of scope |
-| Tag sources | 33 | 20 | 10 | 3 | |
-| File formats (tag kinds per format) | 21 | 16 | 3 | 2 | |
-| Mapping table (registry cells) | 118 rows | 118 | 0 | 0 | 7 gap categories outside the registry |
+Recounted for `main` at `08dc952` (2026-10-15, after batch 7). The per-area tables further down are the original audit snapshot; the "Closed after this audit" sections at the end record what changed since, and [Open after batch 7](#open-after-batch-7) lists what remains. Each open row counts once, even where it touches several reference items. "At audit" repeats the original counts.
 
-Some gaps appear in more than one area (for example Remove tag and Ctrl+R, manual reordering and Alt+arrows, `%_md5audio%`). The priority list counts each once.
+| Area | Items checked | OK | Partial | Missing | At audit (OK / P / M) | Notes |
+|---|---:|---:|---:|---:|---|---|
+| Menu commands (10 menu pages) | 85 | 78 | 4 | 3 | 69 / 12 / 4 | Partial: Exit, Shift-click Export, Edit → Cover, freedb lookups. Missing: First Steps, Website, Donation (out of scope) |
+| Keyboard reference rows | 97 | 97 | 0 | 0 | 53 / 10 / 34 | Alt+Enter opens the file manager (no properties sheet off Windows) |
+| Scripting functions | 64 | 62 | 2 | 0 | 61 / 3 / 0 | `$caps`/`$caps2` word separators unverified |
+| Placeholders (`format`) | 72 | 67 | 5 | 0 | 50 / 5 / 17 | Partial: `%_vbr%`, `%_tool%` and the three tag sizes cover only some formats |
+| Filter syntax | 19 | 18 | 1 | 0 | 17 / 2 / 0 | Plain search mixing quoted and bare words |
+| Regular expressions | 19 | 19 | 0 | 0 | 18 / 1 / 0 | `$regexp` case default decided in script-export |
+| Action types and action groups | 114 | 111 | 3 | 0 | 96 / 17 / 1 | Remove Fields Except (deliberate), Split Field, provider documents |
+| Converters and auto-numbering | 67 | 65 | 2 | 0 | 57 / 6 / 4 | Both deliberate: whole-plan refusal in Filename → Filename and Text File → Tag |
+| Export, playlists, covers, utils, find, manage list, CLI | 97 | 96 | 1 | 0 | 82 / 11 / 4 | Find uses JavaScript RegExp |
+| Options pages and UI customization | 147 | 142 | 4 | 1 | 101 / 17 / 24 | Missing: Language. Partial: proxy credentials/SOCKS/PAC, floating panel window, toolbar bands and import, Extended Tags OK |
+| Tag sources | 33 | 31 | 2 | 0 | 20 / 10 / 3 | gnudb registration; remote freedb by disc ID only |
+| File formats (tag kinds per format) | 21 | 21 | 0 | 0 | 16 / 3 / 2 | TAK/OptimFROG still lack real-encoder fixtures |
+| Mapping table (registry cells) | 118 rows | 118 | 0 | 0 | 118 / 0 / 0 | The 7 gap categories outside the registry are closed except the lofty edge cases in formats-edge |
+
+Some gaps appear in more than one area (for example the Find regex and the regex page). The priority list counts each once.
 
 ## Top 25 by impact
 
-| # | Gap | Impact | Size |
-|---:|---|---|---|
-| 1 | Renames that change only letter case fail on macOS and Windows (hard-link no-clobber, then "destination exists"). This breaks Case Conversion on `_FILENAME`/`_DIRECTORY` and case-only Tag→Filename and Filename→Filename runs | H | M |
-| 2 | File → Remove tag strips every tag kind instead of the kinds chosen under Options → Tags, and Ctrl+R is unbound (on WebView2 it probably reloads the page) | H | M |
-| 3 | Options → Tags → Mapping (user-defined field mappings per tag type) has no UI or storage. The engine in `mapping.rs` exists, but every call site passes an empty rule list | H | M |
-| 4 | The Extended Tags dialog has no cover-art panel, no `<<`/`>>` navigation between files, no Alt+T, no field-name drop-down and no Field Values auto-complete | H | M |
-| 5 | macOS: Option+6 and the tag panel's Alt+letter jumps fire while typing, which swallows characters such as `ˆ` (Option+I), `å`, `©`, `®` and `µ` | M–H | S |
-| 6 | Unbound keys for operations that already exist: Ctrl+T (read tags), Alt+T (Extended Tags), Ctrl+B (restore panel), Ctrl+Space (format-string helper), Ctrl+Tab (cycle panes) | M | S |
-| 7 | Options → Tags "save tags when using arrow keys / single click" is missing. Edits stay pending until Ctrl+S | M–H | M |
-| 8 | No manual file-list reordering (Alt+Up/Down/PgUp/PgDn, Alt+drag), so playlist order can only come from sorting or load order | M | M |
-| 9 | The cover pane never shows the folder's first image when nothing is embedded (option "Don't display first folder image as cover" is missing, and the fallback with it) | M | M |
-| 10 | The `$regexp` 4th argument defaults to case-sensitive. The doc implies case is ignored unless `c=0`. Needs a differential check, then a flipped default | M–H | S |
-| 11 | Filter GREATER/LESS/EQUAL only compare whole integers, so `track GREATER 10` misses `3/12`-style values | M | S |
-| 12 | Copy and Cut tags leave out cover art | M | M |
-| 13 | Case Conversion on `_FIELDNAME` always errors (expects `_TAG` = `APEv2`/`VorbisComments`, but the reader reports `APE`/`VorbisComment`), and case-only key changes are not written | M | M |
-| 14 | Format Value, Guess Values and Tag→Tag targeting `_FILENAME` evaluate as plain text, not filename mode: `/` makes folders, illegal characters are not replaced, `%title%.mp3` doubles the extension | M | S |
-| 15 | Missing placeholders `%_workingdir%` and `%_workingpath%` (reserved names, never filled) | M | S |
-| 16 | Missing `%_vbr%` and `%_md5audio%`. The latter makes exports that use it stop with an error; FLAC/WavPack already carry the value | M | M |
-| 17 | MTE `$filename(…,ansi)` fails on macOS/Linux instead of falling back to Windows-1252 as playlist reading does | M | S |
-| 18 | Export configurations are UUID-named and listed only from `exports.json`, so `.mte` files dropped into the export folder are ignored | M | M |
-| 19 | `.mta` import/export covers only the verified action IDs. Other types import as disabled, unresolved records and export is refused | M | M |
-| 20 | Export Cover adds the image extension only when the name has none (`Vol. 2`, `.jpg` holding PNG, `.img` for webp/bmp). Adjust Cover "max size" enlarges small covers in square/crop modes | M | S |
-| 21 | Ctrl+Shift+K (auto-numbering restarting per folder) acts like Ctrl+K; wizard options are not remembered | M | S |
-| 22 | Text File → Tag cannot take its source path as a format string (e.g. `%_folderpath%tracks.txt`) | M | S |
-| 23 | Options → Files "Replace folder separator in tag values" is fixed to `_`; there is no setting and no way to remove the separator | M | S |
-| 24 | WAV: RIFF INFO is updated only if it already exists (new files get ID3v2 only), and fields without a RIFF id are dropped silently | M | S |
-| 25 | No `.src` web-source interpreter, so users cannot install community sources (Bandcamp, Beatport, lyrics…); only the native MusicBrainz, Discogs and freedb clients exist | M | L |
+| # | Gap | Impact | Size | Status |
+|---:|---|---|---|---|
+| 1 | Renames that change only letter case fail on macOS and Windows (hard-link no-clobber, then "destination exists"). This breaks Case Conversion on `_FILENAME`/`_DIRECTORY` and case-only Tag→Filename and Filename→Filename runs | H | M | Closed, batch 5 |
+| 2 | File → Remove tag strips every tag kind instead of the kinds chosen under Options → Tags, and Ctrl+R is unbound (on WebView2 it probably reloads the page) | H | M | Closed, batch 5 |
+| 3 | Options → Tags → Mapping (user-defined field mappings per tag type) has no UI or storage. The engine in `mapping.rs` exists, but every call site passes an empty rule list | H | M | Closed, batch 5 |
+| 4 | The Extended Tags dialog has no cover-art panel, no `<<`/`>>` navigation between files, no Alt+T, no field-name drop-down and no Field Values auto-complete | H | M | Closed, batch 5 |
+| 5 | macOS: Option+6 and the tag panel's Alt+letter jumps fire while typing, which swallows characters such as `ˆ` (Option+I), `å`, `©`, `®` and `µ` | M–H | S | Closed, batch 5 |
+| 6 | Unbound keys for operations that already exist: Ctrl+T (read tags), Alt+T (Extended Tags), Ctrl+B (restore panel), Ctrl+Space (format-string helper), Ctrl+Tab (cycle panes) | M | S | Closed, batch 5 |
+| 7 | Options → Tags "save tags when using arrow keys / single click" is missing. Edits stay pending until Ctrl+S | M–H | M | Closed, batch 5 |
+| 8 | No manual file-list reordering (Alt+Up/Down/PgUp/PgDn, Alt+drag), so playlist order can only come from sorting or load order | M | M | Closed, batch 5 |
+| 9 | The cover pane never shows the folder's first image when nothing is embedded (option "Don't display first folder image as cover" is missing, and the fallback with it) | M | M | Closed, batch 5 |
+| 10 | The `$regexp` 4th argument defaults to case-sensitive. The doc implies case is ignored unless `c=0`. Needs a differential check, then a flipped default | M–H | S | Closed, batch 5 |
+| 11 | Filter GREATER/LESS/EQUAL only compare whole integers, so `track GREATER 10` misses `3/12`-style values | M | S | Closed, batch 5 |
+| 12 | Copy and Cut tags leave out cover art | M | M | Closed, batch 5 |
+| 13 | Case Conversion on `_FIELDNAME` always errors (expects `_TAG` = `APEv2`/`VorbisComments`, but the reader reports `APE`/`VorbisComment`), and case-only key changes are not written | M | M | Closed, batch 5 |
+| 14 | Format Value, Guess Values and Tag→Tag targeting `_FILENAME` evaluate as plain text, not filename mode: `/` makes folders, illegal characters are not replaced, `%title%.mp3` doubles the extension | M | S | Closed, batch 5 |
+| 15 | Missing placeholders `%_workingdir%` and `%_workingpath%` (reserved names, never filled) | M | S | Closed, batch 5 |
+| 16 | Missing `%_vbr%` and `%_md5audio%`. The latter makes exports that use it stop with an error; FLAC/WavPack already carry the value | M | M | Closed, batch 5 |
+| 17 | MTE `$filename(…,ansi)` fails on macOS/Linux instead of falling back to Windows-1252 as playlist reading does | M | S | Closed, batch 5 |
+| 18 | Export configurations are UUID-named and listed only from `exports.json`, so `.mte` files dropped into the export folder are ignored | M | M | Closed, batch 5 |
+| 19 | `.mta` import/export covers only the verified action IDs. Other types import as disabled, unresolved records and export is refused | M | M | Closed, batch 5 |
+| 20 | Export Cover adds the image extension only when the name has none (`Vol. 2`, `.jpg` holding PNG, `.img` for webp/bmp). Adjust Cover "max size" enlarges small covers in square/crop modes | M | S | Closed, batch 5 |
+| 21 | Ctrl+Shift+K (auto-numbering restarting per folder) acts like Ctrl+K; wizard options are not remembered | M | S | Closed, batches 5 (Ctrl+Shift+K) and 6 (wizard memory) |
+| 22 | Text File → Tag cannot take its source path as a format string (e.g. `%_folderpath%tracks.txt`) | M | S | Closed, batch 5 |
+| 23 | Options → Files "Replace folder separator in tag values" is fixed to `_`; there is no setting and no way to remove the separator | M | S | Closed, batch 5 |
+| 24 | WAV: RIFF INFO is updated only if it already exists (new files get ID3v2 only), and fields without a RIFF id are dropped silently | M | S | Closed, batch 5 |
+| 25 | No `.src` web-source interpreter, so users cannot install community sources (Bandcamp, Beatport, lyrics…); only the native MusicBrainz, Discogs and freedb clients exist | M | L | Closed, batch 6 |
 
 Runners-up: column auto-size (Ctrl+Num+ or double-click on a divider, M/S); Mac keyboards have no way to trigger Remove from list (only forward-Delete is mapped, M/S); gnudb rejects OpenTag until the application is registered (M/S, no code); Finder "Open With" and `open --args` forwarding on macOS (M/M); Library database (M/L); UI translations (M/L); "List chapters as separate files" (M/L).
+
+All 25 are closed (see the sections at the end). Of the runners-up, column auto-size and Remove from list on Mac keyboards closed in batch 5, Finder "Open With" and chapters as separate files in batch 6, and the Library in batch 7. Still open: gnudb registration and UI translations, both in progress on branches.
 
 ## Menus
 
@@ -279,6 +283,8 @@ The mapping registry matches all 118 rows of the mapping table (92 common, 24 MP
 - `docs/CRITICAL-TECHNICAL.md`: `%_subsong_count%` is produced for MP4/MKV.
 - `docs/FEATURE-INVENTORY.md`: the Ctrl+O contradiction is resolved (Options, as documented).
 
+Status after batch 7: the `shortcuts` section was regenerated by the keyboard batches; `CRITICAL-MAPPING.md`, `CRITICAL-TECHNICAL.md`, `FEATURE-INVENTORY.md`, `feature-inventory.json`, `actions-audit.md` and `options-utils.md` were brought up to date in the docs refresh of 2026-10-15.
+
 ## Closed after this audit (batch 5, 2026-10-15)
 
 Closed by implementation and unit tests. Their native suites run headless in CI. None of these has differential evidence against the original.
@@ -324,3 +330,23 @@ Closed by implementation and unit tests; native suites run headless in CI on Lin
 
 Still open: UI translations (needs an OpenTag translation layer); floating Tag Panel as a separate OS window; movable toolbar bands and Mp3tag toolbar file import; global Nero fields and Nero covers; gnudb registration (no code); the per-item gaps listed in each verification note.
 
+## Open after batch 7
+
+Everything below is open in `main` at `08dc952`. Items on a branch that has not merged are marked "in progress". The per-item gaps in each verification note still apply.
+
+| Area | Open item | Kind |
+|---|---|---|
+| Menus | File → Exit (macOS app menu only); Shift-click on Export for one file per folder (⌘/Ctrl Shift E works); Edit → Cover submenu (only Manage covers); Help → First Steps and Website | Partial / missing |
+| Tag sources | gnudb refuses OpenTag until the application is registered, and remote freedb has no text search (in progress); audio-CD lookup (out of scope); `[MinAppVersion*]` not enforced; no keychain on mobile; more providers such as iTunes, Deezer, LRCLIB, Cover Art Archive, AcoustID, Last.fm and fanart.tv (in progress) | Partial |
+| Scripting and filter | `$caps`/`$caps2` word separators and the truth model unverified; an error inside a format string aborts the whole string; plain search mixing quoted and bare words is rejected; AND/OR precedence unverified | Partial / unverified |
+| Placeholders | `%_vbr%` for Musepack and WavPack profiles; `%_tool%` beyond MPEG encoder strings and Vorbis vendors; tag sizes for chunk and box containers (WAV, AIFF, MP4, Ogg, Matroska, ASF, DSD) | Partial |
+| Find | Uses JavaScript RegExp instead of the Boost bridge | Partial |
+| Actions | Remove Fields Except keeps frames that have no field (deliberate); Split Field keeps empty pieces (unverified); file, cover-file and rename actions refused for mobile provider documents; `.mta` setting order of types 4, 6 and 11–15 unconfirmed | Partial |
+| Converters | Filename → Filename refuses the whole plan when one destination clashes, and Text File → Tag refuses a line-count mismatch (both deliberate) | Differs by design |
+| Options and UI | Language (UI translations, in progress); proxy credentials, SOCKS and PAC; floating Tag Panel as a separate OS window; movable toolbar bands, custom toolbar symbols and Mp3tag `toolbar.ini` import; Extended Tags OK stages edits instead of writing (deliberate); manual list order not kept across sessions; quick-action and numbering memories outside the configuration backup; Mp3tag zip configuration format | Missing / partial |
+| Formats | TAK and OptimFROG tested only with hand-built headers; AAC with junk before the first ADTS frame; header-less APEv2 and some 131-byte APE tags misread by lofty; DSF/DFF writes decompress compressed ID3v2 frames | Partial |
+| Chapters | Global Nero fields only fill gaps; Nero covers, the `indx` box, QuickTime chapter URLs and ID3v2 chapter pictures are kept but not shown; playlists of chapter rows refused | Partial |
+| Playlists and export | XSPF, WPL and ASX playlists | Missing |
+| File operations | Associated `.lrc`/`.cdg` files (undocumented); directory history not persisted; persistent undo history | Missing |
+| Platforms | Windows Explorer and Linux file-manager "Open With" not registered (deliberate); `open -a … --args` cannot reach a running macOS app; native drag-out and notification-area clicks not exercised automatically | Partial |
+| Evidence | No differential test against Mp3tag 3.36.1 or files it wrote, for any area | Missing |

@@ -22,27 +22,27 @@ The filter RPC evaluates a caller-supplied field map. The frontend now merges op
 | `%_covers%` | Measured, conditional where noted | Measured cover count, including zero. |
 | `%_id3v2_character_encoding%` | Measured, conditional where noted | Distinct encodings from parsed ID3 string frames, including retained v2.3 IPLS. |
 | `%_id3v2_unknown_frames%` | Measured, conditional where noted | Sorted native IDs retained as opaque binary by this backend, excluding recognized PCST/IPLS. Original-app unsupported-frame classification remains unqualified. |
-| `%_length%` | Measured, conditional where noted | Parsed duration rendered as minutes:seconds, whole seconds. |
+| `%_length%` | Measured, conditional where noted | Parsed duration as `m:ss`, or `h:mm:ss` from one hour, using the same rounded seconds as `%_length_seconds%` ([script-export](verification/script-export.md)). |
 | `%_length_seconds%` | Measured, conditional where noted | Parsed duration rounded to whole seconds. |
 | `%_mode%` | Measured, conditional where noted | Actual MPEG channel mode, otherwise measured channel count rendered as Mono/Stereo/N channels. |
-| `%_mp4_creation_time%` | Absent from audio technical map | Not yet measured: mvhd timestamp parser is not exposed by Lofty. |
-| `%_mp4_creation_time_raw%` | Absent from audio technical map | Not yet measured: movie epoch and unknown-zero handling require a concrete mvhd parser. |
-| `%_mp4_modification_time%` | Absent from audio technical map | Not yet measured: mvhd timestamp parser. |
-| `%_mp4_modification_time_raw%` | Absent from audio technical map | Not yet measured: mvhd timestamp parser. |
+| `%_mp4_creation_time%` | Measured, conditional where noted | MP4 `mvhd` (version 0 and 1) as long local date and time; absent for a zero timestamp ([script-export](verification/script-export.md)). |
+| `%_mp4_creation_time_raw%` | Measured, conditional where noted | MP4 `mvhd` creation time in Unix seconds; absent for a zero timestamp ([script-export](verification/script-export.md)). |
+| `%_mp4_modification_time%` | Measured, conditional where noted | MP4 `mvhd` modification time, formatted as above ([script-export](verification/script-export.md)). |
+| `%_mp4_modification_time_raw%` | Measured, conditional where noted | MP4 `mvhd` modification time in Unix seconds ([script-export](verification/script-export.md)). |
 | `%_samplerate%` | Measured, conditional where noted | Parsed audio sample rate in Hz; absent if unavailable. |
-| `%_subsong%` | Absent from audio technical map | Absent: chapter/subsong producer not implemented. |
-| `%_subsong_count%` | Absent from audio technical map | Absent: chapter/subsong producer not implemented. |
+| `%_subsong%` | Measured for chapter and cue rows | 1-based chapter or cue track index when chapters are listed as separate rows ([chapter fields](verification/chapter-fields.md)); absent on whole-file rows. Mp3tag's base is unconfirmed. |
+| `%_subsong_count%` | Measured, conditional where noted | Chapter count for MP4, Matroska and ID3v2 `CHAP` (MP3, AIFF, WAV) ([script-export](verification/script-export.md), [chapter fields](verification/chapter-fields.md)). |
 | `%_tag%` | Measured, conditional where noted | Available concrete tag kinds; ID3 original version retained. Display spelling/separators need original-app differential qualification. |
 | `%_tag_read%` | Measured, conditional where noted | First tag according to the existing primary/secondary read precedence. Mixed-tag fields can also include secondary unique fields. |
-| `%_tag_size%` | Absent from audio technical map | Not yet measured: exact physical tag-region accounting across native formats. |
-| `%_tag_size_appended%` | Absent from audio technical map | Not yet measured: exact appended tag-region accounting. |
-| `%_tag_size_prepended%` | Absent from audio technical map | Not yet measured: exact prepended tag-region accounting. |
-| `%_tool%` | Measured, conditional where noted | Literal stored Vorbis vendor for FLAC/Vorbis/Opus/Speex, when present; no invented ENCODER metadata field. |
-| `%_vbr%` | Absent from audio technical map | Not yet measured: no bitrate-mode guess is made from an averaged bitrate or codec name. |
-| `%_video_bitrate%` | Absent from audio technical map | Absent: video properties not parsed. |
-| `%_video_codec%` | Absent from audio technical map | Absent: video properties not parsed. |
-| `%_video_height%` | Absent from audio technical map | Absent: video properties not parsed. |
-| `%_video_width%` | Absent from audio technical map | Absent: video properties not parsed. |
+| `%_tag_size%` | Measured, conditional where noted | Prepended plus appended tag bytes for MPEG, AAC, Monkey's Audio, Musepack, WavPack, FLAC and the TTA/TAK/OptimFROG stand-in; absent for chunk and box containers ([script-export](verification/script-export.md)). |
+| `%_tag_size_appended%` | Measured, conditional where noted | APEv1/v2, Lyrics3v2, ID3v1 and footer-marked ID3v2 at the end ([script-export](verification/script-export.md)). |
+| `%_tag_size_prepended%` | Measured, conditional where noted | ID3v2 at the start; FLAC adds its Vorbis comment and picture blocks ([script-export](verification/script-export.md)). |
+| `%_tool%` | Measured, conditional where noted | MPEG encoder string after the Xing/Info header (for example `LAME3.100`); stored Vorbis vendor for FLAC/Vorbis/Opus/Speex. Other encoders are not reported ([script-export](verification/script-export.md)). |
+| `%_vbr%` | Measured, conditional where noted | MPEG: Xing/VBRI/LAME method (CBR, ABR, VBR); Monkey's Audio: compression level. Absent for other formats, including Musepack and WavPack profiles ([script-export](verification/script-export.md)). |
+| `%_video_bitrate%` | Measured, conditional where noted | MP4 `stsz` sizes over `mdhd` duration; Matroska `BPS` statistics tag when present ([script-export](verification/script-export.md)). |
+| `%_video_codec%` | Measured, conditional where noted | First MP4 `vide` track's sample entry, or the first Matroska video track's codec ID ([script-export](verification/script-export.md)). |
+| `%_video_height%` | Measured, conditional where noted | MP4 visual sample entry or `tkhd`; Matroska `PixelHeight` ([script-export](verification/script-export.md)). |
+| `%_video_width%` | Measured, conditional where noted | MP4 visual sample entry or `tkhd`; Matroska `PixelWidth` ([script-export](verification/script-export.md)). |
 | `%_directory%` | Measured, conditional where noted | Canonical source parent directory name. |
 | `%_extension%` | Measured, conditional where noted | Actual source extension, preserving spelling. |
 | `%_filename%` | Measured, conditional where noted | Canonical source filename without extension. |
@@ -50,9 +50,9 @@ The filter RPC evaluates a caller-supplied field map. The frontend now merges op
 | `%_folderpath%` | Measured, conditional where noted | Canonical parent path with one trailing platform separator. |
 | `%_path%` | Measured, conditional where noted | Canonical source path; staging names are refreshed after atomic persistence. |
 | `%_parent_directory%` | Measured, conditional where noted | Canonical source grandparent directory name. |
-| `%_volume%` | Absent from audio technical map | Not yet measured: platform volume label. |
-| `%_workingdir%` | Absent from audio technical map | Caller-owned runtime context; not produced by audio reads. |
-| `%_workingpath%` | Absent from audio technical map | Caller-owned runtime context; not produced by audio reads. |
+| `%_volume%` | Native context | Volume label from `/Volumes` (macOS), `/dev/disk/by-label` (Linux) or `GetVolumeInformationW` (Windows); absent when none is found ([script-export](verification/script-export.md)). |
+| `%_workingdir%` | Native context | Name of the folder the file list was last changed to; absent before one is opened ([script-export](verification/script-export.md)). |
+| `%_workingpath%` | Native context | Path of that folder, ending with a separator ([script-export](verification/script-export.md)). |
 | `%_file_create_date%` | Measured, conditional where noted | Filesystem birth time, local short date; absent when the filesystem does not supply creation time. |
 | `%_file_create_datetime%` | Measured, conditional where noted | Filesystem birth time, local date/time; absent when unavailable. |
 | `%_file_create_datetime_raw%` | Measured, conditional where noted | Filesystem birth time in signed Unix seconds, absent when unavailable. |
@@ -71,7 +71,7 @@ The filter RPC evaluates a caller-supplied field map. The frontend now merges op
 | `%_folderpath_rel%` | Export only | Relative folder supplied by pure export renderer. |
 | `%_crc%` | Export only | Native export host streams CRC32 only when requested. |
 | `%_md5%` | Export only | Native export host streams full-file MD5 only when requested. |
-| `%_md5audio%` | Absent from audio technical map | Explicitly unsupported by native export host until codec-specific audio hashing is qualified; no fake hash. |
+| `%_md5audio%` | Export only | FLAC STREAMINFO MD5, WavPack `ID_MD5_CHECKSUM`, or MD5 of the bytes between the tags for MPEG, AAC, Monkey's Audio, Musepack, TTA, TAK and OptimFROG; empty for other formats ([script-export](verification/script-export.md)). |
 | `%_max_counter%` | Export only | Export loop state. |
 | `%_total_files%` | Export only | Export loop totals. |
 | `%_total_size%` | Export only | Export loop totals and formatting. |
@@ -87,7 +87,7 @@ The filter RPC evaluates a caller-supplied field map. The frontend now merges op
 
 The official docs identify raw file timestamps but do not specify their numeric epoch. Direct Mp3tag users report Unix seconds and provide reproducible conversions: [the 2012 file-date filter examples](https://community.mp3tag.de/t/a-tip-for-filtering-by-file-dates/13545) and [the working Unix-to-FILETIME conversion](https://community.mp3tag.de/t/convert-date-and-time-string-into-raw-epoch-time/59512). These are firsthand user evidence, not an explicit implementation guarantee from the author. [Florian's introduction of fmtDate](https://community.mp3tag.de/t/date-transformation-function-requested/71556/2) confirms that the function consumes the same raw timestamp family. Our implementation uses filesystem `SystemTime` converted to signed UTC Unix seconds and tests a known 1700000000 modification time through the real `$fmtDate` evaluator.
 
-Formatted file dates use the local timezone and the system locale's Chrono locale patterns. Birth time is omitted when unavailable; Unix ctime is never substituted for creation time. User-customized Windows regional overrides and native original executable comparisons remain unqualified. Movie timestamps in MP4 have a separate epoch and are deliberately absent until their real header parser is implemented.
+Formatted file dates use the local timezone and the system locale's Chrono locale patterns. Birth time is omitted when unavailable; Unix ctime is never substituted for creation time. User-customized Windows regional overrides and native original executable comparisons remain unqualified. MP4 movie timestamps are read from `mvhd` and converted from the 1904 epoch; a zero timestamp means unset and leaves them absent.
 
 ## Performance and preservation
 
@@ -95,7 +95,7 @@ All supported formats now use one concrete metadata/properties parse for each su
 
 The current native metadata library still reads embedded picture bytes internally. This work removes repeated parses and serialized picture payloads; it does not claim a zero-allocation or picture-byte-skipping parser. Technical maps contain small measured strings and do not duplicate image bytes. Hashes are not calculated during scans.
 
-The tag names, cover-type labels, mixed-tag precedence, duration rounding, file-size formatting, opaque-frame classification, and codec-name presentation require original-executable differential qualification for exact display parity. The source measurements and absence behavior are covered by generated-audio tests. This is not full technical-placeholder parity: video, chapters, MP4 movie timestamps, physical tag-byte accounting, bitrate/compression-profile labels, platform volume labels, runtime clock/working-directory context, playlist context, and audio-only MD5 remain separate obligations.
+The tag names, cover-type labels, mixed-tag precedence, duration rounding, file-size formatting, opaque-frame classification, and codec-name presentation require original-executable differential qualification for exact display parity. The source measurements and absence behavior are covered by generated-audio tests. This is not full technical-placeholder parity. Since 2026-10-15 video, chapter, MP4 timestamp, tag-size, `%_vbr%`, volume-label, working-directory and audio-MD5 producers exist ([script-export](verification/script-export.md), [chapter fields](verification/chapter-fields.md)); their gaps are tag sizes for chunk and box containers, `%_vbr%` for Musepack and WavPack profiles, `%_tool%` beyond MPEG and Vorbis, and original differential qualification of every value.
 
 ## Verification
 

@@ -4,7 +4,7 @@ Checkpoint: 2026-10-14, branch `feat/core-parity` after merging tag-panel, tag-p
 
 ## Where native suites run
 
-Native suites open real app windows, so they run **headless in CI**: the `native-e2e` job in `.github/workflows/build.yml` builds the debug app once on Ubuntu and runs every offline suite (`core-workflows`, `covers`, `actions`, `options-utils`, `playlists`, `freedb-local`, `formats-3`, `general-options`, `remove-mapping`, `keyboard-extended`) under `xvfb-run`, uploading each suite's output as an artifact. `scripts/e2e-native.sh`, `e2e-perf.sh` and `e2e-undo-bulk.sh` refuse to start outside CI unless `OPENTAG_E2E_ALLOW_LOCAL=1` is set, so test windows never appear on a working desktop by accident. The hook no longer pins the window on top. Scripts write shortcuts with the Command key; on non-Apple platforms the hook translates synthetic `metaKey` events to `ctrlKey`, matching how the app picks its primary modifier.
+Native suites open real app windows, so they run **in CI only**: the `native-e2e` job in `.github/workflows/build.yml` builds the debug app once per runner on Ubuntu, macOS and Windows and runs every offline suite listed there (24 on 2026-10-15), under `xvfb-run` with a session D-Bus on Linux and in the runner's desktop session on macOS and Windows. Each suite's output is uploaded as an artifact. `scripts/e2e-native.sh`, `e2e-perf.sh` and `e2e-undo-bulk.sh` refuse to start outside CI unless `OPENTAG_E2E_ALLOW_LOCAL=1` is set, so test windows never appear on a working desktop by accident. The hook no longer pins the window on top. Scripts write shortcuts with the Command key; on non-Apple platforms the hook translates synthetic `metaKey` events to `ctrlKey`, matching how the app picks its primary modifier.
 
 ## How it works
 
@@ -40,4 +40,4 @@ scripts/e2e-native.sh tests/e2e/core-workflows.js --no-build
 
 ## Not covered here
 
-Native folder pickers (copy/move/change directory dialogs), drag-and-drop, column drag/resize by hand, Windows/Linux runs, mobile.
+Native folder pickers (copy/move/change directory dialogs), drag-and-drop, column drag/resize by hand, mobile. (Windows and Linux runs were added to CI after this checkpoint.)

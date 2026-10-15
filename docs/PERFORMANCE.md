@@ -157,6 +157,8 @@ the same decoded-audio MD5, and `flac -t` passed on both.
 
 ### Remaining bottlenecks and gaps
 
+Status 2026-10-15: round 2 below addressed the MP3/MP4 full-file writes, the full-window re-render on sort and filter, and the per-query filter payload. The undo cap now counts clone-backed snapshots by the bytes they keep ([edit history](verification/edit-history.md)), so the 434-file FLAC save below can be undone (6.4 s in round 2). The list is kept as measured.
+
 - **Undo after large saves.** The undo journal refuses operations whose files
   total more than 2 GiB (`Limits::default`), counted at full file length.
   Saving 434 FLACs (17 GB) therefore cannot be undone. On APFS the hard-linked
@@ -325,3 +327,7 @@ in the app and the padded M4A run were **not measured**.
   both versions (54 ms on the other corpora); not investigated.
 - Native UI numbers after the last changes, and Windows/Linux, are not
   measured.
+
+## Library (2026-10-15)
+
+Options → Library stores list entries in SQLite and loads unchanged files without reading them. The only measurement so far is a debug build on 3000 small generated WAV files (warm disk cache): plain scan 394 ms, first scan through the library 620 ms, second scan 281 ms with every file from the library ([library](verification/library.md)). These files are nearly free to parse, so this is the smallest possible saving. Release builds, real collections, Windows/Linux and comparison with Mp3tag's own library were not measured.

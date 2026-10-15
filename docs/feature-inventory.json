@@ -46,146 +46,172 @@
   "status_policy": "All acceptance items remain OPEN. A family evidence profile does not certify every item. Local tests establish only their stated contracts; current snapshots, native integration, UI access, user tests and original runtime comparison are separate. History/reference pages are indexed without assuming obsolete provider integrations remain required.",
   "evidence_profiles": {
     "metadata": {
-      "core": "Present with format/policy gaps",
-      "native": "Read/patch/cover batch commands present",
-      "ui": "Tag panel and extended editing present; full preferences absent",
-      "runtime": "Historical macOS file-loading evidence only; fixture write contracts are not UI or original-runtime qualification",
+      "core": "Native read/write for every documented format, one displayed tag kind with read/write/remove policies, mapping registry and user mappings",
+      "native": "Read/patch/cover/remove/utils batch commands, all journaled for undo",
+      "ui": "Tag panel, Extended Tags (navigation, covers, field clipboard), Options → Tags pages",
+      "runtime": "Headless native suites on Linux/macOS/Windows CI; no Mp3tag-written fixtures or original-runtime comparison",
       "evidence": [
         "crates/tag-core/src/tags.rs",
         "crates/tag-core/src/mapping.rs",
+        "crates/tag-core/src/tag_policy.rs",
         "crates/tag-core/tests/metadata.rs",
         "crates/tag-core/tests/mappings.rs",
-        "src-tauri/src/lib.rs",
-        "src/main.ts",
-        "docs/CRITICAL-MAPPING.md"
+        "src-tauri/src/settings.rs",
+        "src/extended-tags.ts",
+        "docs/PARITY.md",
+        "docs/verification/tag-preferences.md",
+        "docs/verification/remove-mapping.md",
+        "docs/verification/formats-edge.md"
       ]
     },
     "actions": {
-      "core": "18 action models and pure contracts present",
-      "native": "Host applies modeled side effects and batch exports",
-      "ui": "Quick/group editor present; exact options/shortcuts remain open",
-      "runtime": "Per-action original and device user tests absent",
+      "core": "18 action models with option-by-option audit; .mta import/export for every type",
+      "native": "Host applies every effect, journaled for undo",
+      "ui": "Actions and Actions (Quick) dialogs with remembered type, keyboard map, helper menus",
+      "runtime": "Headless native suites; no per-action original comparison",
       "evidence": [
         "crates/tag-core/src/actions.rs",
         "src-tauri/src/action_host.rs",
         "src/action-ui.ts",
-        "docs/CRITICAL-ACTIONS.md"
+        "docs/CRITICAL-ACTIONS.md",
+        "docs/verification/actions-audit.md",
+        "docs/verification/actions-polish.md",
+        "docs/verification/script-export.md"
       ]
     },
     "scripting": {
-      "core": "Compiled evaluator and Boost bridge present",
-      "native": "Evaluation context adapter present",
-      "ui": "Used by actions/filter/rename; helper/history controls incomplete",
+      "core": "Compiled evaluator, all 64 functions, Boost bridge",
+      "native": "Evaluation context with working directory, technical and clock placeholders",
+      "ui": "Used by columns, actions, converters, filter and export; Fields and Format-string helper menus with histories",
       "runtime": "Original differential corpus absent",
       "evidence": [
         "crates/tag-core/src/script.rs",
         "crates/regex-compat/src/bridge.cpp",
         "src-tauri/src/evaluation.rs",
-        "docs/CRITICAL-SCRIPTING.md"
+        "docs/CRITICAL-SCRIPTING.md",
+        "docs/verification/script-export.md"
       ]
     },
     "filter": {
-      "core": "Query compiler present",
-      "native": "Batch filter command present",
-      "ui": "Visible filter input present; toggle/history parity absent",
+      "core": "Query compiler with numeric leading-integer comparison",
+      "native": "Batch filter command with backend field cache",
+      "ui": "Filter with F3 toggle, position option, history and auto-apply",
       "runtime": "No original query/UI corpus",
       "evidence": [
         "crates/tag-core/src/filter.rs",
-        "src-tauri/src/lib.rs",
-        "src/main.ts"
+        "src-tauri/src/filter_cache.rs",
+        "src/main.ts",
+        "docs/verification/script-export.md"
       ]
     },
     "converter-basic": {
-      "core": "Filename match and format evaluator present",
-      "native": "Filename-to-tag and reviewed rename commands present",
-      "ui": "Two basic converter dialogs present",
-      "runtime": "Full original/native corner-case qualification absent",
+      "core": "Filename match and format evaluator; filename-mode targets",
+      "native": "Filename-to-tag, Tag → Tag and reviewed rename commands; case-only renames; a clashing destination skips one file",
+      "ui": "Converter dialogs with previews and Alt+1…5",
+      "runtime": "Headless native suites; full original corner-case qualification absent",
       "evidence": [
         "crates/tag-core/src/script.rs",
-        "src-tauri/src/rename_plan.rs",
-        "src-tauri/src/lib.rs",
-        "src/main.ts",
-        "docs/CRITICAL-CONVERTERS.md"
-      ]
-    },
-    "converter-additional": {
-      "core": "FilenameConverter and TextTagConverter contracts present",
-      "native": "No dedicated native application commands for these planners",
-      "ui": "Dedicated converter dialogs absent in this snapshot",
-      "runtime": "No native user workflow evidence",
-      "evidence": [
-        "crates/tag-core/src/converters.rs",
-        "crates/tag-core/tests/converters.rs",
-        "docs/CRITICAL-CONVERTERS.md"
-      ]
-    },
-    "numbering": {
-      "core": "Basic track generation and compound metadata supported",
-      "native": "Field patch path present",
-      "ui": "Basic track controls only; disc/reset wizard absent",
-      "runtime": "No full wizard runtime comparison",
-      "evidence": [
-        "src/main.ts",
-        "crates/tag-core/src/tags.rs",
-        "crates/tag-core/tests/metadata.rs"
-      ]
-    },
-    "export": {
-      "core": "MTE loops/variables/partition/encoding and playlist paths present",
-      "native": "Action export host and fixed CSV/M3U8 commands present",
-      "ui": "Actions expose export options; dedicated configuration/preview manager incomplete",
-      "runtime": "Original sort/encoding/dialog corpus absent",
-      "evidence": [
-        "crates/tag-core/src/export.rs",
-        "src-tauri/src/action_host.rs",
-        "src-tauri/src/file_hashes.rs",
-        "src-tauri/src/lib.rs",
-        "docs/CRITICAL-EXPORT.md"
-      ]
-    },
-    "cover": {
-      "core": "Native cover I/O and image effects present",
-      "native": "Basic commands and action effects present",
-      "ui": "Basic add/remove/navigation; aggregate manager/reorder/clipboard incomplete",
-      "runtime": "No original cover corpus or complete device workflow",
-      "evidence": [
-        "crates/tag-core/src/cover_ops.rs",
-        "crates/tag-core/src/tags.rs",
-        "src/action-ui.ts",
-        "src/main.ts"
-      ]
-    },
-    "files": {
-      "core": "No-clobber rename/copy fallback and scanning present",
-      "native": "Reviewed converter rename implemented; file-manager command family incomplete",
-      "ui": "Load/selection/rename subset only",
-      "runtime": "Historical macOS load evidence; cross-volume/case-only/device qualification incomplete",
-      "evidence": [
         "crates/tag-core/src/operations.rs",
         "src-tauri/src/rename_plan.rs",
         "src-tauri/src/lib.rs",
+        "docs/CRITICAL-CONVERTERS.md",
+        "docs/verification/rename-fixes.md"
+      ]
+    },
+    "converter-additional": {
+      "core": "FilenameConverter and TextTagConverter contracts",
+      "native": "Receipt-reviewed Filename → Filename and Text File → Tag services; source path as a format string",
+      "ui": "Dedicated converter dialogs with preview",
+      "runtime": "Bounded macOS native workflow evidence plus headless CI suites",
+      "evidence": [
+        "crates/tag-core/src/converters.rs",
+        "src-tauri/src/converters.rs",
+        "src/converter-review.ts",
+        "docs/CRITICAL-CONVERTERS.md",
+        "docs/verification/converter-workflows.md"
+      ]
+    },
+    "numbering": {
+      "core": "Ordered track/disc planner with starts, padding, totals and resets",
+      "native": "Pending-edit patch path",
+      "ui": "Auto-numbering wizard with preview, remembered options, ⌘/Ctrl K and ⌘/Ctrl Shift K",
+      "runtime": "No full wizard runtime comparison",
+      "evidence": [
+        "src/numbering-review.ts",
         "src/main.ts",
-        "docs/verification/2026-10-14-development-snapshot.md"
+        "docs/verification/numbering.md",
+        "docs/verification/actions-polish.md"
+      ]
+    },
+    "export": {
+      "core": "MTE loops/variables/partition/encoding, $filename ansi, playlist paths and cue sheets",
+      "native": "Export manager, Export action, playlist writing and loading, per-folder output",
+      "ui": "Export dialog with editable library, bundled templates, open after export; Options → Playlist and Export",
+      "runtime": "Headless native suites; original sort/encoding/dialog corpus absent",
+      "evidence": [
+        "crates/tag-core/src/export.rs",
+        "crates/tag-core/src/playlist.rs",
+        "src-tauri/src/exports.rs",
+        "src-tauri/src/playlists.rs",
+        "docs/CRITICAL-EXPORT.md",
+        "docs/verification/export-manager.md",
+        "docs/verification/export-lists.md"
+      ]
+    },
+    "cover": {
+      "core": "Native cover I/O and image effects",
+      "native": "Cover commands, Manage Covers, adjust, drag-out, all journaled",
+      "ui": "Cover window, context menu, Manage Covers, clipboard, drag in and out, folder image fallback",
+      "runtime": "Headless native suites; native drag-out by hand and original cover corpus absent",
+      "evidence": [
+        "crates/tag-core/src/cover_ops.rs",
+        "src-tauri/src/covers.rs",
+        "src-tauri/src/cover_drag.rs",
+        "src/covers.ts",
+        "docs/verification/covers.md"
+      ]
+    },
+    "files": {
+      "core": "No-clobber rename/copy fallback with case-only aliases; parallel scanning",
+      "native": "Copy, move, delete, permanent delete, reveal, play, working directory, launch forwarding",
+      "ui": "File menu, directory history and favorites, drop replace and Ctrl+drop add",
+      "runtime": "Headless native suites; associated-file and device qualification incomplete",
+      "evidence": [
+        "crates/tag-core/src/operations.rs",
+        "src-tauri/src/file_ops.rs",
+        "src/file-ops.ts",
+        "docs/verification/file-operations.md",
+        "docs/verification/launch-forwarding.md"
       ]
     },
     "settings": {
-      "core": "No general persistent preferences model",
-      "native": "Only action-library persistence; not these user preferences",
-      "ui": "General options/customization dialogs absent",
-      "runtime": "No preference persistence/migration user tests",
+      "core": "Validated settings.json store with per-page options",
+      "native": "Configuration backup/restore bundle, Library database, notification area",
+      "ui": "Every documented Options page except Language",
+      "runtime": "Headless native suites; no preference migration from Mp3tag",
       "evidence": [
-        "src-tauri/src/action_host.rs",
-        "src/main.ts"
+        "src-tauri/src/settings.rs",
+        "src-tauri/src/utilities.rs",
+        "src/options-ui.ts",
+        "src/general-options.ts",
+        "docs/verification/general-options.md",
+        "docs/verification/options-utils.md",
+        "docs/verification/library.md"
       ]
     },
     "sources": {
-      "core": "No Web Sources VM or catalog provider implementation",
-      "native": "No source query/auth/import service",
-      "ui": "No source search/review/configuration workflow",
-      "runtime": "No provider/device/original execution evidence",
+      "core": "MusicBrainz, Discogs, freedb and local freedb providers; clean-room .src web-source interpreter",
+      "native": "Search, review, cover download and import as one undo step",
+      "ui": "Tag Sources menu, review dialog, Ctrl+I/Ctrl+Shift+I, web-source install and settings",
+      "runtime": "One live MusicBrainz native run; gnudb rejects the unregistered application; no comparison with Mp3tag's sources",
       "evidence": [
-        "docs/evidence/feature-inventory.json",
-        "docs/PARITY.md"
+        "src-tauri/src/sources/mod.rs",
+        "src-tauri/src/sources/web/engine.rs",
+        "src/tag-sources.ts",
+        "src/web-sources.ts",
+        "docs/verification/tag-sources.md",
+        "docs/verification/sources-3.md",
+        "docs/verification/web-sources.md"
       ]
     },
     "reference": {
@@ -198,35 +224,42 @@
       ]
     },
     "missing-ui": {
-      "core": "No dedicated domain implementation for this feature",
-      "native": "Absent or insufficient for described workflow",
-      "ui": "Absent in inspected original-checkout snapshot",
-      "runtime": "No workflow proof",
+      "core": "Feature-specific; the original snapshot had no domain implementation",
+      "native": "See the feature's verification note",
+      "ui": "Implemented since this inventory was captured for CLI, Find, Manage List, helper menus and Utils",
+      "runtime": "Headless native suites; no original-runtime comparison",
       "evidence": [
-        "src/main.ts",
-        "src-tauri/src/lib.rs"
+        "src/find.ts",
+        "src/helper-menu.ts",
+        "src/utils-ui.ts",
+        "src-tauri/src/utilities.rs",
+        "docs/PARITY.md"
       ]
     },
     "technical": {
-      "core": "36 measured/conditional producers; explicit remaining gaps",
-      "native": "Merge integration must be checked separately",
-      "ui": "Raw versus technical context separation required",
+      "core": "Measured producers for nearly every placeholder, including video, MP4 timestamps, tag sizes, %_vbr% and %_md5audio%",
+      "native": "Merged into the shared evaluation context",
+      "ui": "Raw versus technical context kept separate",
       "runtime": "Generated audio and read-only corpus evidence; no original full technical corpus",
       "evidence": [
         "crates/tag-core/src/technical.rs",
         "crates/tag-core/tests/technical.rs",
-        "docs/CRITICAL-TECHNICAL.md"
+        "docs/CRITICAL-TECHNICAL.md",
+        "docs/verification/script-export.md"
       ]
     },
     "tag-policy": {
-      "core": "Native patch/version/preservation primitives and optional mapping APIs exist; configurable read/write/remove policy is incomplete",
-      "native": "No general preference persistence or complete policy adapter",
-      "ui": "Tag-policy options dialog absent in inspected snapshot",
+      "core": "Configurable read/write/remove policy, versions, encodings, user mappings and advanced toggles",
+      "native": "Settings store passes TagOptions to every read and write",
+      "ui": "Options → Tags, Mpeg, Ape/Mpc, Mapping and Advanced pages",
       "runtime": "No original preference/version/encoding differential matrix",
       "evidence": [
-        "crates/tag-core/src/tags.rs",
+        "crates/tag-core/src/tag_policy.rs",
         "crates/tag-core/src/mapping.rs",
-        "docs/CRITICAL-MAPPING.md"
+        "src-tauri/src/settings.rs",
+        "src/field-mapping.ts",
+        "docs/CRITICAL-MAPPING.md",
+        "docs/verification/tag-preferences.md"
       ]
     }
   },
@@ -14223,9 +14256,9 @@
         "Write": "ID3v1, ID3v2, APEv2",
         "Remove": "ID3v1, ID3v2, APEv1, APEv2"
       },
-      "current_core": "Container path exists; exact read/write/remove kinds and encoding policies remain partial",
-      "native": "Uses tag-core when supported; no missing-format adapter",
-      "ui": "Load/edit workflow limited by actual backend coverage",
+      "current_core": "Read/write/remove of the documented tag kinds implemented; see docs/PARITY.md Format coverage for the remaining edge cases",
+      "native": "Routed through tag-core with staged, verified writes",
+      "ui": "Load/edit/remove workflow; headless native suites on Linux/macOS/Windows",
       "runtime": "No complete original-format or device differential corpus",
       "acceptance": "OPEN"
     },
@@ -14237,9 +14270,9 @@
         "Write": "ID3v2",
         "Remove": "ID3v2"
       },
-      "current_core": "Container path exists; exact read/write/remove kinds and encoding policies remain partial",
-      "native": "Uses tag-core when supported; no missing-format adapter",
-      "ui": "Load/edit workflow limited by actual backend coverage",
+      "current_core": "Read/write/remove of the documented tag kinds implemented; see docs/PARITY.md Format coverage for the remaining edge cases",
+      "native": "Routed through tag-core with staged, verified writes",
+      "ui": "Load/edit/remove workflow; headless native suites on Linux/macOS/Windows",
       "runtime": "No complete original-format or device differential corpus",
       "acceptance": "OPEN"
     },
@@ -14251,9 +14284,9 @@
         "Write": "ID3v1, APEv2",
         "Remove": "ID3v1, ID3v2, APEv1, APEv2"
       },
-      "current_core": "Container path exists; exact read/write/remove kinds and encoding policies remain partial",
-      "native": "Uses tag-core when supported; no missing-format adapter",
-      "ui": "Load/edit workflow limited by actual backend coverage",
+      "current_core": "Read/write/remove of the documented tag kinds implemented; see docs/PARITY.md Format coverage for the remaining edge cases",
+      "native": "Routed through tag-core with staged, verified writes",
+      "ui": "Load/edit/remove workflow; headless native suites on Linux/macOS/Windows",
       "runtime": "No complete original-format or device differential corpus",
       "acceptance": "OPEN"
     },
@@ -14265,9 +14298,9 @@
         "Write": "ID3v2",
         "Remove": "ID3v2"
       },
-      "current_core": "Not explicitly routed and preservation-qualified by the application",
-      "native": "Uses tag-core when supported; no missing-format adapter",
-      "ui": "Load/edit workflow limited by actual backend coverage",
+      "current_core": "Read/write/remove of the documented tag kinds implemented; see docs/PARITY.md Format coverage for the remaining edge cases",
+      "native": "Routed through tag-core with staged, verified writes",
+      "ui": "Load/edit/remove workflow; headless native suites on Linux/macOS/Windows",
       "runtime": "No complete original-format or device differential corpus",
       "acceptance": "OPEN"
     },
@@ -14279,9 +14312,9 @@
         "Write": "Vorbis Comments",
         "Remove": "Vorbis Comments, ID3v2"
       },
-      "current_core": "Container path exists; exact read/write/remove kinds and encoding policies remain partial",
-      "native": "Uses tag-core when supported; no missing-format adapter",
-      "ui": "Load/edit workflow limited by actual backend coverage",
+      "current_core": "Read/write/remove of the documented tag kinds implemented; see docs/PARITY.md Format coverage for the remaining edge cases",
+      "native": "Routed through tag-core with staged, verified writes",
+      "ui": "Load/edit/remove workflow; headless native suites on Linux/macOS/Windows",
       "runtime": "No complete original-format or device differential corpus",
       "acceptance": "OPEN"
     },
@@ -14293,9 +14326,9 @@
         "Write": "Matroska Tags, Chapters and Image Attachments",
         "Remove": "Matroska Tags, Chapters and Image Attachments"
       },
-      "current_core": "Not explicitly routed and preservation-qualified by the application",
-      "native": "Uses tag-core when supported; no missing-format adapter",
-      "ui": "Load/edit workflow limited by actual backend coverage",
+      "current_core": "Read/write/remove of the documented tag kinds implemented; see docs/PARITY.md Format coverage for the remaining edge cases",
+      "native": "Routed through tag-core with staged, verified writes",
+      "ui": "Load/edit/remove workflow; headless native suites on Linux/macOS/Windows",
       "runtime": "No complete original-format or device differential corpus",
       "acceptance": "OPEN"
     },
@@ -14307,9 +14340,9 @@
         "Write": "ID3v1, ID3v2, APEv2",
         "Remove": "ID3v1, ID3v2, APEv1, APEv2"
       },
-      "current_core": "Container path exists; exact read/write/remove kinds and encoding policies remain partial",
-      "native": "Uses tag-core when supported; no missing-format adapter",
-      "ui": "Load/edit workflow limited by actual backend coverage",
+      "current_core": "Read/write/remove of the documented tag kinds implemented; see docs/PARITY.md Format coverage for the remaining edge cases",
+      "native": "Routed through tag-core with staged, verified writes",
+      "ui": "Load/edit/remove workflow; headless native suites on Linux/macOS/Windows",
       "runtime": "No complete original-format or device differential corpus",
       "acceptance": "OPEN"
     },
@@ -14321,9 +14354,9 @@
         "Write": "MP4/iTunes metadata",
         "Remove": "MP4/iTunes metadata"
       },
-      "current_core": "Container path exists; exact read/write/remove kinds and encoding policies remain partial",
-      "native": "Uses tag-core when supported; no missing-format adapter",
-      "ui": "Load/edit workflow limited by actual backend coverage",
+      "current_core": "Read/write/remove of the documented tag kinds implemented; see docs/PARITY.md Format coverage for the remaining edge cases",
+      "native": "Routed through tag-core with staged, verified writes",
+      "ui": "Load/edit/remove workflow; headless native suites on Linux/macOS/Windows",
       "runtime": "No complete original-format or device differential corpus",
       "acceptance": "OPEN"
     },
@@ -14335,9 +14368,9 @@
         "Write": "ID3v1, APEv2",
         "Remove": "ID3v1, ID3v2, APEv1, APEv2"
       },
-      "current_core": "Container path exists; exact read/write/remove kinds and encoding policies remain partial",
-      "native": "Uses tag-core when supported; no missing-format adapter",
-      "ui": "Load/edit workflow limited by actual backend coverage",
+      "current_core": "Read/write/remove of the documented tag kinds implemented; see docs/PARITY.md Format coverage for the remaining edge cases",
+      "native": "Routed through tag-core with staged, verified writes",
+      "ui": "Load/edit/remove workflow; headless native suites on Linux/macOS/Windows",
       "runtime": "No complete original-format or device differential corpus",
       "acceptance": "OPEN"
     },
@@ -14349,9 +14382,9 @@
         "Write": "Vorbis Comments",
         "Remove": "Vorbis Comments"
       },
-      "current_core": "Container path exists; exact read/write/remove kinds and encoding policies remain partial",
-      "native": "Uses tag-core when supported; no missing-format adapter",
-      "ui": "Load/edit workflow limited by actual backend coverage",
+      "current_core": "Read/write/remove of the documented tag kinds implemented; see docs/PARITY.md Format coverage for the remaining edge cases",
+      "native": "Routed through tag-core with staged, verified writes",
+      "ui": "Load/edit/remove workflow; headless native suites on Linux/macOS/Windows",
       "runtime": "No complete original-format or device differential corpus",
       "acceptance": "OPEN"
     },
@@ -14363,9 +14396,9 @@
         "Write": "Vorbis Comments",
         "Remove": "Vorbis Comments"
       },
-      "current_core": "Container path exists; exact read/write/remove kinds and encoding policies remain partial",
-      "native": "Uses tag-core when supported; no missing-format adapter",
-      "ui": "Load/edit workflow limited by actual backend coverage",
+      "current_core": "Read/write/remove of the documented tag kinds implemented; see docs/PARITY.md Format coverage for the remaining edge cases",
+      "native": "Routed through tag-core with staged, verified writes",
+      "ui": "Load/edit/remove workflow; headless native suites on Linux/macOS/Windows",
       "runtime": "No complete original-format or device differential corpus",
       "acceptance": "OPEN"
     },
@@ -14377,9 +14410,9 @@
         "Write": "ID3v1, APEv2",
         "Remove": "ID3v1, ID3v2, APEv1, APEv2"
       },
-      "current_core": "Not explicitly routed and preservation-qualified by the application",
-      "native": "Uses tag-core when supported; no missing-format adapter",
-      "ui": "Load/edit workflow limited by actual backend coverage",
+      "current_core": "Read/write/remove through a byte-verified stand-in; tested only with hand-built headers",
+      "native": "Routed through tag-core with staged, verified writes",
+      "ui": "Load/edit/remove workflow; headless native suites on Linux/macOS/Windows",
       "runtime": "No complete original-format or device differential corpus",
       "acceptance": "OPEN"
     },
@@ -14391,9 +14424,9 @@
         "Write": "Vorbis Comments",
         "Remove": "Vorbis Comments"
       },
-      "current_core": "Container path exists; exact read/write/remove kinds and encoding policies remain partial",
-      "native": "Uses tag-core when supported; no missing-format adapter",
-      "ui": "Load/edit workflow limited by actual backend coverage",
+      "current_core": "Read/write/remove of the documented tag kinds implemented; see docs/PARITY.md Format coverage for the remaining edge cases",
+      "native": "Routed through tag-core with staged, verified writes",
+      "ui": "Load/edit/remove workflow; headless native suites on Linux/macOS/Windows",
       "runtime": "No complete original-format or device differential corpus",
       "acceptance": "OPEN"
     },
@@ -14405,9 +14438,9 @@
         "Write": "ID3v1, APEv2",
         "Remove": "ID3v1, ID3v2, APEv1, APEv2"
       },
-      "current_core": "Not explicitly routed and preservation-qualified by the application",
-      "native": "Uses tag-core when supported; no missing-format adapter",
-      "ui": "Load/edit workflow limited by actual backend coverage",
+      "current_core": "Read/write/remove through a byte-verified stand-in; tested only with hand-built headers",
+      "native": "Routed through tag-core with staged, verified writes",
+      "ui": "Load/edit/remove workflow; headless native suites on Linux/macOS/Windows",
       "runtime": "No complete original-format or device differential corpus",
       "acceptance": "OPEN"
     },
@@ -14419,9 +14452,9 @@
         "Write": "ID3v1, ID3v2, APEv2",
         "Remove": "ID3v1, ID3v2, APEv1, APEv2"
       },
-      "current_core": "Not explicitly routed and preservation-qualified by the application",
-      "native": "Uses tag-core when supported; no missing-format adapter",
-      "ui": "Load/edit workflow limited by actual backend coverage",
+      "current_core": "Read/write/remove of the documented tag kinds implemented; see docs/PARITY.md Format coverage for the remaining edge cases",
+      "native": "Routed through tag-core with staged, verified writes",
+      "ui": "Load/edit/remove workflow; headless native suites on Linux/macOS/Windows",
       "runtime": "No complete original-format or device differential corpus",
       "acceptance": "OPEN"
     },
@@ -14433,9 +14466,9 @@
         "Write": "RIFF INFO, ID3v2",
         "Remove": "RIFF INFO, ID3v2"
       },
-      "current_core": "Container path exists; exact read/write/remove kinds and encoding policies remain partial",
-      "native": "Uses tag-core when supported; no missing-format adapter",
-      "ui": "Load/edit workflow limited by actual backend coverage",
+      "current_core": "Read/write/remove of the documented tag kinds implemented; see docs/PARITY.md Format coverage for the remaining edge cases",
+      "native": "Routed through tag-core with staged, verified writes",
+      "ui": "Load/edit/remove workflow; headless native suites on Linux/macOS/Windows",
       "runtime": "No complete original-format or device differential corpus",
       "acceptance": "OPEN"
     },
@@ -14447,9 +14480,9 @@
         "Write": "ID3v1, APEv2",
         "Remove": "ID3v1, ID3v2, APEv1, APEv2"
       },
-      "current_core": "Container path exists; exact read/write/remove kinds and encoding policies remain partial",
-      "native": "Uses tag-core when supported; no missing-format adapter",
-      "ui": "Load/edit workflow limited by actual backend coverage",
+      "current_core": "Read/write/remove of the documented tag kinds implemented; see docs/PARITY.md Format coverage for the remaining edge cases",
+      "native": "Routed through tag-core with staged, verified writes",
+      "ui": "Load/edit/remove workflow; headless native suites on Linux/macOS/Windows",
       "runtime": "No complete original-format or device differential corpus",
       "acceptance": "OPEN"
     },
@@ -14461,9 +14494,9 @@
         "Write": "ASF/Windows Media",
         "Remove": "ASF/Windows Media"
       },
-      "current_core": "Not explicitly routed and preservation-qualified by the application",
-      "native": "Uses tag-core when supported; no missing-format adapter",
-      "ui": "Load/edit workflow limited by actual backend coverage",
+      "current_core": "Read/write/remove of the documented tag kinds implemented; see docs/PARITY.md Format coverage for the remaining edge cases",
+      "native": "Routed through tag-core with staged, verified writes",
+      "ui": "Load/edit/remove workflow; headless native suites on Linux/macOS/Windows",
       "runtime": "No complete original-format or device differential corpus",
       "acceptance": "OPEN"
     },
@@ -14475,9 +14508,9 @@
         "Write": "Matroska Tags, Chapters and Image Attachments",
         "Remove": "Matroska Tags, Chapters and Image Attachments"
       },
-      "current_core": "Not explicitly routed and preservation-qualified by the application",
-      "native": "Uses tag-core when supported; no missing-format adapter",
-      "ui": "Load/edit workflow limited by actual backend coverage",
+      "current_core": "Read/write/remove of the documented tag kinds implemented; see docs/PARITY.md Format coverage for the remaining edge cases",
+      "native": "Routed through tag-core with staged, verified writes",
+      "ui": "Load/edit/remove workflow; headless native suites on Linux/macOS/Windows",
       "runtime": "No complete original-format or device differential corpus",
       "acceptance": "OPEN"
     },
@@ -14610,22 +14643,22 @@
   "known_contradictions": [
     {
       "url": "https://docs.mp3tag.de/customization/options/tags/mpeg/",
-      "current": "Reader merges unique secondary-tag fields and uses fixed primary-tag precedence.",
+      "current": "Resolved in OpenTag: MPEG and APE-family files display one tag kind (APE, then ID3v2, then ID3v1) and no longer merge secondary tags; read/write/remove choices are independent (docs/verification/tag-preferences.md).",
       "required": "One configured tag kind is displayed; read/write/remove choices and version/encoding policies are independent."
     },
     {
       "url": "https://docs.mp3tag.de/keyboard/",
-      "current": "Ctrl+O opens a folder in src/main.ts.",
+      "current": "Resolved in OpenTag: Ctrl+O opens Options and Ctrl+D changes directory.",
       "required": "Documented Ctrl+O opens Options; Ctrl+D changes directory."
     },
     {
       "url": "https://docs.mp3tag.de/menus/file/",
-      "current": "Ctrl+Shift+P is described as Playlist Generator here.",
+      "current": "OpenTag follows the keyboard page: Ctrl+Shift+P writes one playlist per folder of all files; Generate Playlists keeps its menu item without a shortcut (docs/verification/keyboard-ui.md). Original runtime still unrecorded.",
       "required": "Keyboard page describes per-subfolder playlist behavior; reconcile original runtime before choosing exact shortcut semantics."
     },
     {
       "url": "https://docs.mp3tag.de/file-formats/",
-      "current": "Existing broad ledger names DFF and MIDI as gaps.",
+      "current": "OpenTag supports DSF and, beyond the reference, DFF; MIDI is not supported.",
       "required": "Current official format list explicitly documents DSF but not DFF or MIDI; original support for those must be demonstrated rather than assumed."
     },
     {
