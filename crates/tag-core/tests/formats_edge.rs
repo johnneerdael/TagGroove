@@ -908,3 +908,50 @@ fn mp4_reuse_and_single_atom_toggles() {
         assert_eq!(value(&entry, "COMPOSER").as_deref(), Some("Bach"));
     }
 }
+
+#[test]
+fn an_ape_tag_whose_header_looks_like_id3v1_is_read_and_written() {
+    // A 131-byte APE tag (header, one 67-byte item, footer) puts the "TAG" of
+    // its header exactly where an ID3v1 tag would start.
+    let ape = ape_bytes(&[("encoder", &"L".repeat(51))]);
+    assert_eq!(ape.len(), 131);
+    assert_eq!(&ape[3..6], b"TAG");
+    let dir = tempfile::tempdir().unwrap();
+    for (name, stream) in [
+        ("track.wv", wavpack(44_100, 2000)),
+        ("track.mp3", mpeg_frames()),
+    ] {
+        let path = dir.path().join(name);
+        let mut bytes = id3_bytes("Prepended");
+        bytes.extend(&stream);
+        bytes.extend(&ape);
+        fs::write(&path, &bytes).unwrap();
+        let mut options = TagOptions::default();
+        options.mpeg.write_ape = true;
+        options.mpeg.remove_ape = false;
+        options.mpeg.write_id3v1 = false;
+        options.mpeg.read_id3v2 = false;
+        let entry = read_entry_with_options(&path, &[], &options).unwrap();
+        assert_eq!(technical(&entry, "_TAG_READ"), "APEv2", "{name}");
+        assert_eq!(value(&entry, "ENCODER"), Some("L".repeat(51)), "{name}");
+        assert!(!technical(&entry, "_TAG").contains("ID3v1"), "{name}");
+        write_fields_with_options(
+            &path,
+            &fields(&[("ARTIST", &["A", "B"])]),
+            false,
+            &[],
+            &options,
+        )
+        .unwrap_or_else(|e| panic!("{name}: {e}"));
+        let entry = read_entry_with_options(&path, &[], &options).unwrap();
+        assert_eq!(value(&entry, "ARTIST").as_deref(), Some("A|B"), "{name}");
+        assert_eq!(value(&entry, "ENCODER"), Some("L".repeat(51)), "{name}");
+        let after = fs::read(&path).unwrap();
+        let start = contains(&after, &stream[..64]).unwrap();
+        assert_eq!(
+            &after[start..start + stream.len()],
+            stream.as_slice(),
+            "{name}"
+        );
+    }
+}

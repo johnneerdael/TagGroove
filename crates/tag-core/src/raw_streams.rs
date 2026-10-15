@@ -113,7 +113,9 @@ pub(in crate::tags) fn leading_tags(file: &mut fs::File, length: u64) -> Result<
 /// then a Lyrics3v2 block and an ID3v1 tag, the order lofty reads them in.
 fn trailing_tags(file: &mut fs::File, floor: u64, length: u64) -> Result<u64, String> {
     let mut end = length;
-    if end >= floor + 128 && read_at(file, end - 128, 3)? == b"TAG" {
+    let lookalike = crate::ape_footer::id3v1_lookalike(file).map_err(|e| e.to_string())?;
+    if end >= floor + 128 && read_at(file, end - 128, 3)? == b"TAG" && lookalike != Some(end - 128)
+    {
         end -= 128;
     }
     if end >= floor + 15 && read_at(file, end - 9, 9)? == b"LYRICS200" {

@@ -1056,9 +1056,14 @@ where
                 original,
                 staged_path,
                 stream,
-                |staging, original, staged_path| mutation(staging, load(original)?, staged_path),
+                |staging, original, staged_path| {
+                    crate::ape_footer::strip_colliding_header(staging)?;
+                    mutation(staging, load(original)?, staged_path)
+                },
             ),
             None => {
+                // lofty's writers would take such an APE header for ID3v1.
+                crate::ape_footer::strip_colliding_header(staging)?;
                 let file = load(original)?;
                 let flac_id3 =
                     file.file_type() == FileType::Flac && file.tag(TagType::Id3v2).is_some();
@@ -1357,7 +1362,8 @@ fn save_preserving_native(
                 .map_err(|e| e.to_string())?;
             native
                 .save_to(staging, WriteOptions::default())
-                .map_err(|e| error_message(&e))
+                .map_err(|e| error_message(&e))?;
+            crate::ape_footer::strip_colliding_header(staging)
         }
         TagType::RiffInfo => {
             let mut native = originals.riff.unwrap_or_default();
