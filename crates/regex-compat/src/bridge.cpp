@@ -6,8 +6,22 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <mutex>
 
 static thread_local std::string last_error;
+
+// Boost.Regex's locale-dependent traits are not safe to set up from several
+// threads at once (crashes seen when expressions were compiled in parallel),
+// so compilation is serialised. Matching a compiled expression is const and
+// stays concurrent.
+static std::mutex& compile_mutex() {
+    static std::mutex mutex;
+    return mutex;
+}
+static const std::locale& user_locale() {
+    static const std::locale locale("");
+    return locale;
+}
 
 // Preserve Windows UTF-16 code units on platforms with 32-bit wchar_t.
 static std::wstring wide(const uint16_t* text, size_t count) {
@@ -22,9 +36,10 @@ const char* ot_regex_error() noexcept { return last_error.c_str(); }
 
 void* ot_regex_new(const uint16_t* text, size_t count, bool sensitive) noexcept {
     try {
+        std::lock_guard<std::mutex> lock(compile_mutex());
         auto expression = new boost::wregex();
         try {
-            expression->imbue(std::locale(""));
+            expression->imbue(user_locale());
             const auto flags = boost::regex::perl | (sensitive ? boost::regex::normal : boost::regex::icase);
             expression->assign(wide(text, count), flags);
             return expression;
