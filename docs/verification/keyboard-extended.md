@@ -1,6 +1,6 @@
 # Keyboard shortcuts, macOS Option keys and Extended Tags
 
-Branch `feat/keyboard-extended`. It closes gaps 4, 5, 6 and 21 of `docs/research/remaining-gaps.md` (Extended Tags dialog, the macOS Option-key bug, unbound keys for existing operations, Ctrl+Shift+K) and the runners-up "column auto-size" and "Remove from list on Mac keyboards". Reference pages: `keyboard` (97 rows), `extended-tags`, `menus/view`, `menus/file`, `menus/edit`.
+Branch `feat/keyboard-extended`. It closes gaps 4, 5, 6 and 21 of `docs/research/remaining-gaps.md` (Extended Tags dialog, the macOS Option-key bug, unbound keys for existing operations, Ctrl+Shift+K) and the runner-up "Remove from list on Mac keyboards". Column auto-size, manual list order and save on move came from `feat/list-behaviour`, merged here. Reference pages: `keyboard` (97 rows), `extended-tags`, `menus/view`, `menus/file`, `menus/edit`.
 
 Nothing was launched locally. The evidence is unit tests and code reading. The native suite `tests/e2e/keyboard-extended.js` runs headless in the CI `native-e2e` job.
 
@@ -36,7 +36,7 @@ New bindings, all routed by `windowShortcut` in `src/keyboard.ts` unless noted:
 - **Ctrl+Tab / Ctrl+Shift+Tab** cycle Tag Panel → Filter → File List (`nextPane`). They use the physical Control key on macOS, because ⌘Tab switches applications. A hidden tag panel or an empty list is skipped.
 - **Ctrl+Space** opens the helper menu of the focused input that has a ► button, such as converters, actions, the filter or field names (`helperKey` in `src/helper-menu.ts`). It uses the physical Control key on macOS, because ⌘Space is Spotlight. macOS can claim ⌃Space for switching input sources, so Control+Option+Space works too.
 - **Shift+Del** in an input with a drop-down history removes the current value from that history.
-- **⌘/Ctrl+Num +**: View → Auto-size columns (new menu item). Each visible column fits its header and its widest value, measured in the table's fonts over the first 5,000 listed files (`fitColumns` in `src/columns.ts`). Double-clicking a header divider fits that one column. Most Mac keyboards have no numeric keypad, so the menu item and the divider are the way to reach this there.
+- **View → Auto-size columns** (new menu item) runs the column auto-size from `feat/list-behaviour` (⌘/Ctrl+Num + and divider double-click). Most Mac keyboards have no numeric keypad, so the menu item is the keyboard-free route there.
 - **Alt+Enter** opens the file in Finder, Explorer or the file manager. Mp3tag opens the Windows file-properties sheet, which has no cross-platform equivalent, so this is the closest available target. Before, Alt+Enter fell through to Enter, which opens Extended tags.
 - **⌫ on Mac keyboards** removes the selected files from the list. Most Mac keyboards have no forward Delete, and the key is labelled "delete". ⌘⌫ still deletes files, as in Finder.
 - **Actions dialog** (`actionListKey` in `src/action-ui.ts`): Insert adds a group or action and Delete (⌫ on Mac keyboards) removes it. Space enables or disables the focused group. ⌘/Ctrl+E enables all groups, ⌘/Ctrl+D disables all, and ⌘/Ctrl+S saves the groups. Alt+↑/↓ move a group or action, and Alt+Page Up/Page Down move it to the beginning or end. F2 and F4 were already bound.
@@ -48,11 +48,10 @@ Help → Keyboard shortcuts is generated from the menus plus `EXTRA_SHORTCUTS` (
 
 The status of every row is also written into the `ui_evidence` of the `shortcuts` section of `docs/feature-inventory.json`. Acceptance stays OPEN, as the inventory's policy requires.
 
-Totals: 54 OK, 22 new in this batch, 3 partial, 4 bound differently, 14 missing. Before this batch the audit counted 53 OK, 10 partial or differently bound and 34 unbound. Ctrl+R came from `feat/remove-mapping`.
+Totals: 60 OK, 21 new in this batch, 3 partial, 13 missing. Before this batch the audit counted 53 OK, 10 partial or differently bound and 34 unbound. Seven of the OK rows came from sibling batches merged through `feat/core-parity`: Ctrl+R from `feat/remove-mapping`, and Alt+drag, the four Alt+arrow/Page keys and Ctrl+Num + from `feat/list-behaviour`.
 
 Still open:
 - **Ctrl+Shift+Del** (permanent delete): there is no such operation.
-- **Alt+drag, Alt+↑/↓/Page Up/Page Down in the File List**: there is no manual list order. These keys still move the selection.
 - **Ctrl+A and Ctrl+Shift+A in the Actions and Tag Sources dialogs**: those lists select one item at a time.
 - **Toolbar customization (8 rows)**: the dialog does not exist.
 - **Ctrl+Shift+P, Ctrl+I, Ctrl+Shift+I**: still partial, unchanged by this batch.
@@ -104,11 +103,11 @@ Still open:
 | General | Alt+Left arrow | Backward in directory history | OK | src/file-ops.ts fileShortcut (outside text fields) |
 | General | Alt+Enter | File properties | New | src/keyboard.ts windowShortcut → Open in Finder/Explorer/file manager; no system properties sheet exists cross-platform |
 | General | Alt+T | Extended tags dialog | New | src/keyboard.ts windowShortcut → View → Extended tags (⌃⌥T while typing on macOS) |
-| General | Alt+Drag’n’Drop | Change order of files in list of files. | Missing | no manual File List order |
-| General | Alt+Arrow down | Change order of files in list of files. | Differs | moves the selection; no manual File List order |
-| General | Alt+Arrow up | Change order of files in list of files. | Differs | moves the selection; no manual File List order |
-| General | Alt+Page down | Move selected files to end in list of files. | Differs | moves the selection; no manual File List order |
-| General | Alt+Page up | Move selected files to beginning in list of files. | Differs | moves the selection; no manual File List order |
+| General | Alt+Drag’n’Drop | Change order of files in list of files. | OK | src/list-behaviour.ts bindRowDrag (list-behaviour batch) |
+| General | Alt+Arrow down | Change order of files in list of files. | OK | src/list-behaviour.ts reorderKey (list-behaviour batch) |
+| General | Alt+Arrow up | Change order of files in list of files. | OK | src/list-behaviour.ts reorderKey (list-behaviour batch) |
+| General | Alt+Page down | Move selected files to end in list of files. | OK | src/list-behaviour.ts reorderKey (list-behaviour batch) |
+| General | Alt+Page up | Move selected files to beginning in list of files. | OK | src/list-behaviour.ts reorderKey (list-behaviour batch) |
 | Convert | Alt+1 | Tag - Filename | OK | src/edit-history.ts editShortcut (⌃⌥digit while typing on macOS) |
 | Convert | Alt+2 | Filename - Tag | OK | src/edit-history.ts editShortcut (⌃⌥digit while typing on macOS) |
 | Convert | Alt+3 | Filename - Filename | OK | src/edit-history.ts editShortcut (⌃⌥digit while typing on macOS) |
@@ -153,7 +152,7 @@ Still open:
 | Useful helpers | Ctrl+Space | Displays format string helper menu (e.g., at converters or actions) | New | src/helper-menu.ts helperKey (physical Ctrl; ⌃⌥Space also on macOS) |
 | Useful helpers | Ctrl+Tab | Quick forward navigation between sub-windows (Tag Panel, Filter, File View) | New | src/keyboard.ts windowShortcut + src/keyboard.ts nextPane: Tag Panel → Filter → File List (physical Ctrl on macOS) |
 | Useful helpers | Ctrl+Shift+Tab | Quick backward navigation between sub-windows (Tag Panel, Filter, File View) | New | src/keyboard.ts windowShortcut + nextPane, backwards |
-| Useful helpers | Ctrl+Num++ | Automatically size the File List columns to match the content | New | src/keyboard.ts windowShortcut → View → Auto-size columns (src/columns.ts fitColumns); also double-click a header divider |
+| Useful helpers | Ctrl+Num++ | Automatically size the File List columns to match the content | OK | src/list-behaviour.ts autoSizeShortcut and divider double-click (list-behaviour batch); View → Auto-size columns added here for keyboards without a keypad |
 | Useful helpers | Shift+Del | Remove format strings which are not longer needed from drop-down lists. | New | src/helper-menu.ts helperKey: removes the input value from its drop-down history |
 | Useful helpers | Shift+Enter | Add the contents of the current Tag Panel field to the list of custom list values for that field | OK | src/tag-panel.ts comboKey |
 
@@ -162,8 +161,8 @@ Still open:
 The dialog moved from `main.ts` into `src/extended-tags.ts`. Pure helpers live in `src/tag-edits.ts` (`extendedCaption`, `neighbourFile`).
 
 - **Caption**: for one file, the tag format and file name, for example "Extended tags — ID3v2.3 ID3v1 — a.mp3", from `_TAG`. For several files it shows the count.
-- **<< and >>** (single file only) step through the File List in display order, including the current filter and sort. They are disabled at either end. Moving to another file stages the current file's edits as pending changes, the same as Keep changes, then selects the new file in the File List. The tag panel and the cover window follow. An invalid row (empty or duplicate field name) shows the error and does not move. When the dialog closes, the status bar reports how many files have pending Extended Tags changes.
-  - Deviation: Mp3tag asks, saves or discards when navigating, depending on Options → Tags → "Save mode at extended tag dialog", and OK saves to disk. OpenTag edits are pending until Save tags, so navigation keeps them pending and nothing is lost. That option does not exist in OpenTag yet.
+- **<< and >>** (single file only) step through the File List in display order, including the current filter, sort and manual order. They are disabled at either end. Moving to another file stages the current file's edits as pending changes, the same as Keep changes, then selects the new file in the File List. The tag panel and the cover window follow. With Options → Tags "Save tags when using arrow keys or a single mouse click" on, the file left behind is saved, as for any other move. An invalid row (empty or duplicate field name) shows the error and does not move. When the dialog closes, the status bar reports how many files still have pending Extended Tags changes.
+  - Deviation: Mp3tag asks, saves or discards when navigating, depending on Options → Tags → "Save mode at extended tag dialog", and OK saves to disk. OpenTag edits stay pending until Save tags, unless save on move is enabled, so nothing is lost. A separate save-mode option does not exist in OpenTag.
 - **Field names** have the Fields drop-down (`data-helper="field"`). It lists the user's field list (the defaults include ALBUMARTIST, BPM, ISRC, …), every field of the selected files, and the ► Fields menu.
 - **Values** auto-complete from the Field Values custom lists and the values of loaded files. This uses the File List cell completer and follows Options → General "auto-completion".
 - **Cover art**: the dialog shows the cover window, which is the same `CoverUI` as the tag panel. It has Add cover…, Remove cover and Extract cover… buttons, the ⋯ and right-click context menu (opened inside the dialog because content outside a modal dialog is inert), paste, keyboard commands (Del, ←/→, Enter, ⌘/Ctrl C/X/V) and native image drops. The drop target is the dialog's cover window while the dialog is open. Cover commands write immediately and can be undone, as in the tag panel.
@@ -174,7 +173,7 @@ The dialog moved from `main.ts` into `src/extended-tags.ts`. Pure helpers live i
 
 ## Tests
 
-Unit tests (`node --test tests/*.test.mjs`, 233 passing):
+Unit tests (`node --test tests/*.test.mjs`, 243 passing after the merge):
 
 - `tests/keyboard.test.mjs` (new):
   - Platform and text-entry detection, and chord keys under Option, AltGr and Cyrillic layouts.
@@ -186,7 +185,6 @@ Unit tests (`node --test tests/*.test.mjs`, 233 passing):
 - `tests/action-ui.test.mjs`: the Actions dialog key map.
 - `tests/tag-sources.test.mjs`: `moveSlotTo`.
 - `tests/helper-menu.test.mjs`: Ctrl+Space and Shift+Del, and that ⌘Space and Shift+Backspace are not taken.
-- `tests/columns.test.mjs`: `fitColumns` for header minimum, widest value, hidden columns, a single column, the maximum clamp and an unchanged input.
 - `tests/tag-edits.test.mjs`: the caption and `<<`/`>>` neighbours.
 - `tests/remove-mapping.test.mjs`: AltGr+R types its character.
 
@@ -203,13 +201,13 @@ Native suite `tests/e2e/keyboard-extended.js`, added to the CI suite list. It ov
 10. Ctrl+Shift+K presets the per-folder options, and Ctrl+K does not.
 11. ⌘/Ctrl+T reloads.
 12. The View/File/Edit menus show Alt T, ⌘/Ctrl T and ⌘/Ctrl B. Help → Keyboard shortcuts lists the new rows and the Control+Option note.
-13. View → Auto-size columns changes the Filename width and the file name is no longer truncated.
+13. View → Auto-size columns (the menu item for keyboards without a keypad) changes the Filename width and the file name is no longer truncated.
 14. With a Mac keyboard, ⌫ on a row removes it from the list and the file stays on disk.
 
 Synthetic DOM key events show what the app does with a key. They cannot show that WebKit then inserts the character. On macOS the OS produces the character and the app now leaves the event alone, so the remaining risk is WebKit-specific dead-key handling, which no CI runner covers.
 
-Checks after merging `feat/core-parity` (`cf1c48d`):
+Checks after merging `feat/core-parity` (`7288e60`):
 - `cargo fmt --all -- --check` passes.
 - `cargo clippy --workspace --all-targets --locked -- -D warnings` passes.
-- `cargo test --workspace --locked`: 510 passed, 0 failed, 4 ignored (31 suites).
-- `npx tsc --noEmit` passes, and the unit tests pass (233).
+- `cargo test --workspace --locked`: 513 passed, 0 failed, 4 ignored (31 suites).
+- `npx tsc --noEmit` passes, and the unit tests pass (243).

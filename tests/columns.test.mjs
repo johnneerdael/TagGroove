@@ -8,7 +8,7 @@ const load = async name => {
   const javascript = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 } }).outputText;
   return import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);
 };
-const { fitColumns, defaultLayout, editKey, normalizeLayout, layoutProblem, toggleColumn, moveColumn, resizeColumn, sortClick, sortIndicator, numericValue, sortRows, columnFields, quickValue, ColumnValueCache, headerMarkup, uniqueColumnId, visibleColumns } = await load('columns');
+const { defaultLayout, editKey, normalizeLayout, layoutProblem, toggleColumn, moveColumn, resizeColumn, sortClick, sortIndicator, numericValue, sortRows, columnFields, quickValue, ColumnValueCache, headerMarkup, uniqueColumnId, visibleColumns } = await load('columns');
 const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
 
 test('default layout approximates the Mp3tag column set with a visible subset', () => {
@@ -139,20 +139,4 @@ test('sorting 1000 rows with cached values stays well within a frame budget', ()
   for (let run = 0; run < 10; run++) sortRows(rows, [{ ascending: true, numeric: false }, { ascending: true, numeric: true }], collator);
   const average = (performance.now() - started) / 10;
   assert.ok(average < 50, `${average}ms`);
-});
-
-test('auto-size fits each visible column to its header and widest value', () => {
-  const layout = defaultLayout(), measure = text => text.length * 7;
-  const values = column => column.id === 'title' ? ['Short', 'A much longer title value'] : column.id === 'track' ? ['1', '12'] : [];
-  const fitted = fitColumns(layout, values, measure, measure);
-  const width = id => fitted.columns.find(column => column.id === id).width;
-  assert.equal(width('title'), 'A much longer title value'.length * 7 + 22);
-  assert.equal(width('track'), 'Track'.length * 7 + 16 + 22, 'a narrow value keeps the header readable');
-  assert.equal(width('comment'), layout.columns.find(column => column.id === 'comment').width, 'hidden columns keep their width');
-  const one = fitColumns(layout, values, measure, measure, 'title');
-  assert.equal(one.columns.find(column => column.id === 'track').width, layout.columns.find(column => column.id === 'track').width);
-  assert.equal(one.columns.find(column => column.id === 'title').width, width('title'));
-  const huge = fitColumns(layout, () => ['x'.repeat(10000)], measure, measure);
-  assert.equal(huge.columns.find(column => column.id === 'title').width, 4000, 'clamped to the maximum width');
-  assert.equal(layout.columns.find(column => column.id === 'title').width, 175, 'the input layout is unchanged');
 });

@@ -13802,7 +13802,7 @@
       "key": "Alt+Drag’n’Drop",
       "command": "Change order of files in list of files.",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "Missing: no manual File List order. Keyboard batch 2026-10-15; acceptance stays OPEN",
+      "ui_evidence": "OK: src/list-behaviour.ts bindRowDrag (list-behaviour batch). Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13810,7 +13810,7 @@
       "key": "Alt+Arrow down",
       "command": "Change order of files in list of files.",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "Differs: moves the selection; no manual File List order. Keyboard batch 2026-10-15; acceptance stays OPEN",
+      "ui_evidence": "OK: src/list-behaviour.ts reorderKey (list-behaviour batch). Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13818,7 +13818,7 @@
       "key": "Alt+Arrow up",
       "command": "Change order of files in list of files.",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "Differs: moves the selection; no manual File List order. Keyboard batch 2026-10-15; acceptance stays OPEN",
+      "ui_evidence": "OK: src/list-behaviour.ts reorderKey (list-behaviour batch). Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13826,7 +13826,7 @@
       "key": "Alt+Page down",
       "command": "Move selected files to end in list of files.",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "Differs: moves the selection; no manual File List order. Keyboard batch 2026-10-15; acceptance stays OPEN",
+      "ui_evidence": "OK: src/list-behaviour.ts reorderKey (list-behaviour batch). Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13834,7 +13834,7 @@
       "key": "Alt+Page up",
       "command": "Move selected files to beginning in list of files.",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "Differs: moves the selection; no manual File List order. Keyboard batch 2026-10-15; acceptance stays OPEN",
+      "ui_evidence": "OK: src/list-behaviour.ts reorderKey (list-behaviour batch). Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -14194,7 +14194,7 @@
       "key": "Ctrl+Num++",
       "command": "Automatically size the File List columns to match the content",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "New: src/keyboard.ts windowShortcut → View → Auto-size columns (src/columns.ts fitColumns); also double-click a header divider. Keyboard batch 2026-10-15; acceptance stays OPEN",
+      "ui_evidence": "OK: src/list-behaviour.ts autoSizeShortcut and divider double-click (list-behaviour batch); View → Auto-size columns added here for keyboards without a keypad. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {

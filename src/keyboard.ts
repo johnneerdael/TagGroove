@@ -9,7 +9,7 @@
 //   outside text fields Option alone works as Alt.
 export type KeyInput={key:string;code?:string;ctrlKey:boolean;metaKey:boolean;shiftKey:boolean;altKey:boolean;getModifierState?:(key:string)=>boolean};
 export type KeyContext={typing:boolean;mac:boolean};
-export type WindowShortcut='reload'|'extended'|'discard'|'number-folders'|'groups'|'action'|'file-reveal'|'pane-next'|'pane-previous'|'autosize-columns';
+export type WindowShortcut='reload'|'extended'|'discard'|'number-folders'|'groups'|'action'|'file-reveal'|'pane-next'|'pane-previous';
 export type Pane='panel'|'filter'|'list';
 
 export const isMacPlatform=(platform:string)=>/Mac|iPhone|iPad/.test(platform);
@@ -55,7 +55,6 @@ export function windowShortcut(event:KeyInput,context:KeyContext):WindowShortcut
   if(event.key==='Tab'&&event.ctrlKey&&!event.metaKey)return event.shiftKey?'pane-previous':'pane-next';
   const primary=context.mac?event.metaKey:event.ctrlKey,other=context.mac?event.ctrlKey:event.metaKey;
   if(!primary||other)return undefined;
-  if(event.code==='NumpadAdd')return 'autosize-columns';
   if(event.shiftKey)return key==='k'&&!context.typing?'number-folders':undefined;
   if(key==='t')return 'reload';
   if(key==='b')return 'discard';

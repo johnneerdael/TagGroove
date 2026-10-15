@@ -25,7 +25,8 @@ export type ExtendedTagsHost={
   bindCover:(root:HTMLElement)=>void;
   modal:(title:string,content:string,buttons:string)=>HTMLDialogElement;
   modalError:(dialog:HTMLDialogElement,error:unknown)=>void;
-  done:(message:string)=>void;
+  /** The dialog closed after staging edits for `staged` (some may be saved already, by save on move). */
+  done:(staged:string[])=>void;
 };
 
 const esc=(value:unknown)=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
@@ -49,7 +50,7 @@ export class ExtendedTags{
     dialog.querySelector('#apply-extended')!.addEventListener('click',()=>{if(this.commit())dialog.close();});
     dialog.addEventListener('close',()=>{
       if(this.dialog===dialog)this.dialog=undefined;
-      if(this.staged.size)this.host.done(`Extended tag changes for ${this.staged.size} file${this.staged.size===1?'':'s'} are pending. Save tags to write them.`);
+      if(this.staged.size)this.host.done([...this.staged]);
     });
     this.fill();
   }

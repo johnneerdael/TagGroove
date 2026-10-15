@@ -86,9 +86,6 @@ test('primary-modifier shortcuts use Ctrl elsewhere and Command on macOS', () =>
   assert.equal(windowShortcut(press('K', 'KeyK', { ctrlKey: true, shiftKey: true }), pc), 'number-folders');
   assert.equal(windowShortcut(press('K', 'KeyK', { ctrlKey: true, shiftKey: true }), pcTyping), undefined);
   assert.equal(windowShortcut(press('k', 'KeyK', { ctrlKey: true }), pc), undefined, 'plain Ctrl+K stays with the numbering wizard binding');
-  assert.equal(windowShortcut(press('+', 'NumpadAdd', { ctrlKey: true }), pc), 'autosize-columns');
-  assert.equal(windowShortcut(press('+', 'NumpadAdd', { metaKey: true }), mac), 'autosize-columns');
-  assert.equal(windowShortcut(press('+', 'Equal', { ctrlKey: true, shiftKey: true }), pc), undefined, 'main-keyboard plus is browser zoom territory');
 });
 
 test('Ctrl+Tab keeps the physical Control key on macOS (⌘Tab switches apps)', () => {
