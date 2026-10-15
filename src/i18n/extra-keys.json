@@ -23,5 +23,10 @@
  "{file}: unknown language",
  "{file}: {missing} missing, {invalid} invalid",
  "{file}: the file is too large",
- "{file}: not a JSON object"
+ "{file}: not a JSON object",
+ "deleted",
+ "copied or moved",
+ "opened",
+ "Showing files",
+ "Playing files"
 ]

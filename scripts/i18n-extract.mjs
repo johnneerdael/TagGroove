@@ -7,9 +7,11 @@
 //
 // Usage: node scripts/i18n-extract.mjs           list keys missing from en.json
 //        node scripts/i18n-extract.mjs --write   rewrite en.json (keeps nothing stale)
+//        node scripts/i18n-extract.mjs --backend also refresh the backend message snapshot
 //        node scripts/i18n-extract.mjs --check   exit 1 when en.json is out of date
 import ts from 'typescript';
-import {readFileSync, readdirSync, writeFileSync} from 'node:fs';
+import {readFileSync, readdirSync, statSync, writeFileSync} from 'node:fs';
+import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
@@ -278,22 +280,52 @@ export function extract() {
   return new Map([...keys].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0));
 }
 
-/** The English catalog: every key maps to itself, plus hand-added keys (backend messages). */
+// Backend messages shown in the UI: error texts of the Rust commands, with `{}` values as placeholders.
+// They are a snapshot (src/i18n/backend-keys.json, `--backend` refreshes it): a message added later shows in English.
+const BACKEND_DIRS = ['src-tauri/src', 'crates/tag-core/src', 'crates/library/src', 'crates/document-access/src'];
+const BACKEND_MESSAGE = /(?:\bErr\(|\.ok_or\(|ok_or_else\(\|\|\s*|map_err\(\|[^|]*\|\s*)\s*(?:format!\(\s*)?"((?:[^"\\]|\\.)*)"/g;
+const INTERNAL = /Injected|fixture|json_foreach|^Invalid document|URI|manifest|lock failed|poisoned/i;
+export function extractBackend() {
+  const files = [];
+  const walk = dir => {for (const name of readdirSync(dir)) {const path = join(dir, name);if (statSync(path).isDirectory()) walk(path);else if (name.endsWith('.rs')) files.push(path);}};
+  for (const dir of BACKEND_DIRS) walk(root + dir);
+  const keys = new Set();
+  for (const file of files.sort()) {
+    let source = readFileSync(file, 'utf8');
+    const tests = source.search(/#\[cfg\(test\)\]\s*mod tests/);if (tests >= 0) source = source.slice(0, tests);
+    for (const match of source.matchAll(BACKEND_MESSAGE)) {
+      const used = new Map();
+      let key = match[1].replace(/\\n/g, ' ').replace(/\\"/g, '"').replace(/\\\\/g, '\\')
+        .replace(/\{\{|\}\}|\{([A-Za-z_][A-Za-z0-9_]*)?(?::[^}]*)?\}/g, (all, name) => {
+          if (all === '{{') return '{';if (all === '}}') return '}';
+          const base = name ? name.replace(/_([a-z])/g, (_, c) => c.toUpperCase()) : 'value', count = (used.get(base) ?? 0) + 1;
+          used.set(base, count);return `{${count > 1 ? base + count : base}}`;
+        }).replace(/\s+/g, ' ').trim();
+      if (!/^[A-Z{]/.test(key) || !/\p{L}{2,}[\s,]+\p{L}{2,}/u.test(bare(key)) || INTERNAL.test(key)) continue;
+      keys.add(key);
+    }
+  }
+  return [...keys].sort((a, b) => a < b ? -1 : a > b ? 1 : 0);
+}
+
+/** The English catalog: every key maps to itself, plus hand-added keys and backend messages. */
 export function englishCatalog(keys = extract()) {
   const extra = JSON.parse(readFileSync(`${SRC}i18n/extra-keys.json`, 'utf8'));
-  const all = [...new Set([...keys.keys(), ...extra])].sort((a, b) => a < b ? -1 : a > b ? 1 : 0);
+  const backend = JSON.parse(readFileSync(`${SRC}i18n/backend-keys.json`, 'utf8'));
+  const all = [...new Set([...keys.keys(), ...extra, ...backend])].sort((a, b) => a < b ? -1 : a > b ? 1 : 0);
   return Object.fromEntries(all.map(key => [key, key]));
 }
 
 if (import.meta.url === `file://${process.argv[1]}` || process.argv[1]?.endsWith('i18n-extract.mjs')) {
   const mode = process.argv[2];
+  if (mode === '--backend') writeFileSync(`${SRC}i18n/backend-keys.json`, JSON.stringify(extractBackend(), null, 1) + '\n');
   const keys = extract();
   const catalog = englishCatalog(keys);
   const path = `${CATALOGS}en.json`;
   const text = JSON.stringify({'@meta': {name: 'English', locale: 'en'}, ...catalog}, null, 1) + '\n';
   let current = '';
   try { current = readFileSync(path, 'utf8'); } catch { /* first run */ }
-  if (mode === '--write') { writeFileSync(path, text); console.log(`${Object.keys(catalog).length} keys written to src/i18n/catalogs/en.json`); }
+  if (mode === '--write' || mode === '--backend') { writeFileSync(path, text); console.log(`${Object.keys(catalog).length} keys written to src/i18n/catalogs/en.json`); }
   else if (mode === '--check') {
     if (current !== text) { console.error('src/i18n/catalogs/en.json is out of date: run node scripts/i18n-extract.mjs --write and translate the new keys.'); process.exit(1); }
   } else if (mode === '--list') {
