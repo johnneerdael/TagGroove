@@ -695,8 +695,10 @@ fn filename_target(entry: &AudioEntry, generated: String) -> Result<PathBuf, Str
     if generated.trim().is_empty() {
         return Err("Filename evaluates to an empty string".into());
     }
-    let generated = if cfg!(windows) && generated.starts_with(r"\\?\") {
-        generated
+    // Either separator separates folders. Targets use the platform's own, so
+    // they are spelled like the paths the scanner lists.
+    let generated = if cfg!(windows) {
+        generated.replace('/', "\\")
     } else {
         generated.replace('\\', "/")
     };
@@ -1636,6 +1638,34 @@ mod tests {
         assert_eq!(!result.result.errors.is_empty(), insensitive);
         assert!(other.exists());
         assert_eq!(names().len(), 2);
+    }
+
+    #[test]
+    fn renamed_paths_are_spelled_like_the_listed_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
+        for (name, template) in [
+            ("a.wav", "Moved/%_filename%-1"),
+            ("b.wav", "Moved\\%_filename%-2"),
+        ] {
+            let path = root.join(name);
+            wav(&path);
+            let result = rename_planned(
+                vec![path.to_string_lossy().into_owned()],
+                template,
+                None,
+                &evaluation::EvaluationSettings::default(),
+            )
+            .unwrap();
+            assert!(
+                result.result.errors.is_empty(),
+                "{:?}",
+                result.result.errors
+            );
+            // The interface matches the rename to the listed entry by this string.
+            assert_eq!(result.renamed[0].to, result.result.entries[0].path);
+            assert!(Path::new(&result.renamed[0].to).starts_with(root.join("Moved")));
+        }
     }
 
     #[test]

@@ -14,8 +14,8 @@
   const errorsText = () => [...document.querySelectorAll('.errors p')].map(p => p.textContent).join(' | ');
   const key = (k, o = {}, target = document.activeElement || document.body) => target.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...o }));
   const rows = () => [...document.querySelectorAll('tr[data-path]')];
-  const row = name => rows().find(r => r.dataset.path.endsWith('/' + name));
-  const order = () => rows().map(r => r.dataset.path.split('/').pop()).join(',');
+  const row = name => rows().find(r => r.dataset.path.split(/[\\/]/).pop() === name);
+  const order = () => rows().map(r => r.dataset.path.split(/[\\/]/).pop()).join(',');
   const clickRow = async (name, o = {}) => { const r = await waitFor(() => row(name), 8000, 'row ' + name); r.querySelector('td').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ...o })); await sleep(250); };
   const idle = () => waitFor(() => !document.querySelector('footer.status.busy'), 20000, 'idle');
   const done = async (pattern, what) => waitFor(() => pattern.test(status()) && !document.querySelector('footer.status.busy'), 15000, `${what} (status "${status()}" errors "${errorsText()}")`);

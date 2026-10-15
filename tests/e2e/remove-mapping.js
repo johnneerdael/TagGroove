@@ -12,7 +12,7 @@
   // Returns false when a handler called preventDefault (the reload is suppressed).
   const key = (k, o = {}, target = document.activeElement || document.body) => target.dispatchEvent(new KeyboardEvent('keydown', { key: k, code: /^[a-z]$/i.test(k) ? 'Key' + k.toUpperCase() : k, bubbles: true, cancelable: true, ...o }));
   const rows = () => [...document.querySelectorAll('tr[data-path]')];
-  const row = name => rows().find(r => r.dataset.path.endsWith('/' + name));
+  const row = name => rows().find(r => r.dataset.path.split(/[\\/]/).pop() === name);
   const pathOf = name => row(name).dataset.path;
   const clickRow = async (name, o = {}) => { const r = await waitFor(() => row(name), 8000, 'row ' + name); r.querySelector('td').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ...o })); await sleep(250); };
   const scan = async name => (await inv('scan_files', { paths: [pathOf(name)], recursive: false })).entries[0];

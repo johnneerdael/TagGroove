@@ -8,7 +8,7 @@
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const waitFor = async (fn, ms = 8000, what = 'condition') => { const t = Date.now(); let last; while (Date.now() - t < ms) { try { const v = await fn(); if (v) return v; } catch (e) { last = e; } await sleep(100); } throw new Error('timeout waiting for ' + what + (last ? ' (' + (last.message || last) + ')' : '')); };
   const rows = () => [...document.querySelectorAll('tr[data-path]')];
-  const row = name => rows().find(r => r.dataset.path.endsWith('/' + name));
+  const row = name => rows().find(r => r.dataset.path.split(/[\\/]/).pop() === name);
   const op = name => document.querySelector(`button[data-op="${name}"]`);
   const input = (el, value) => { el.value = value; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); };
   const results = [];
@@ -29,11 +29,13 @@
   try {
     await waitFor(() => rows().length >= 2, 15000, 'fixture rows');
     const a = row('sine-a.mp3').dataset.path, b = row('sine-b.mp3').dataset.path;
-    const album = a.replace(/\/[^/]+$/, '');
+    const album = a.replace(/[\\/][^\\/]+$/, '');
 
     await step('%_workingdir% and %_workingpath% name the folder the list was opened from', async () => {
-      // The window reports the folder right after loading it.
-      const value = await waitFor(async () => { const v = await preview(a, '%_workingdir%|%_workingpath%'); return v === `album|${album}/` && v; }, 5000, 'working folder')
+      // The window reports the folder right after loading it, spelled as it was
+      // opened (macOS lists /var/folders files under /private/var/folders).
+      const sep = album.includes('\\') ? '\\' : '/', opened = document.querySelector('.location .path')?.textContent || album;
+      const value = await waitFor(async () => { const v = await preview(a, '%_workingdir%|%_workingpath%'); return [`album|${album}${sep}`, `album|${opened}${sep}`].includes(v) && v; }, 5000, 'working folder')
         .catch(async e => { throw new Error(`${e.message}: ${await preview(a, '%_workingdir%|%_workingpath%')}`); });
       return value;
     });

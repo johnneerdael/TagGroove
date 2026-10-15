@@ -192,8 +192,9 @@ fn cover_file_target(mut target: PathBuf, mime: &str, bytes: &[u8]) -> PathBuf {
 fn action_name(name: &str, origin: NameOrigin, separator: &str) -> String {
     match origin {
         NameOrigin::Value => tag_core::filename_value(name, separator),
-        NameOrigin::Template if !cfg!(windows) => name.replace('\\', "/"),
-        NameOrigin::Template | NameOrigin::Edited => name.to_owned(),
+        NameOrigin::Template if cfg!(windows) => name.replace('/', "\\"),
+        NameOrigin::Template => name.replace('\\', "/"),
+        NameOrigin::Edited => name.to_owned(),
     }
 }
 
