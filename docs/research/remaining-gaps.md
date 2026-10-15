@@ -8,7 +8,7 @@ Legend: **Impact** H = daily tagging workflows, M = regular but not daily, L = r
 
 ## Counts per area
 
-Recounted for `main` at `08dc952` (2026-10-15, after batch 7). The per-area tables further down are the original audit snapshot; the "Closed after this audit" sections at the end record what changed since, and [Open after batch 7](#open-after-batch-7) lists what remains. Each open row counts once, even where it touches several reference items. "At audit" repeats the original counts.
+Recounted for `main` at `08dc952` plus the UI translations of `feat/core-parity` at `b82cba3` (2026-10-15, after batch 8). The per-area tables further down are the original audit snapshot; the "Closed after this audit" sections at the end record what changed since, and [Open after batch 8](#open-after-batch-8) lists what remains. Each open row counts once, even where it touches several reference items. "At audit" repeats the original counts.
 
 | Area | Items checked | OK | Partial | Missing | At audit (OK / P / M) | Notes |
 |---|---:|---:|---:|---:|---|---|
@@ -21,7 +21,7 @@ Recounted for `main` at `08dc952` (2026-10-15, after batch 7). The per-area tabl
 | Action types and action groups | 114 | 111 | 3 | 0 | 96 / 17 / 1 | Remove Fields Except (deliberate), Split Field, provider documents |
 | Converters and auto-numbering | 67 | 65 | 2 | 0 | 57 / 6 / 4 | Both deliberate: whole-plan refusal in Filename → Filename and Text File → Tag |
 | Export, playlists, covers, utils, find, manage list, CLI | 97 | 96 | 1 | 0 | 82 / 11 / 4 | Find uses JavaScript RegExp |
-| Options pages and UI customization | 147 | 142 | 4 | 1 | 101 / 17 / 24 | Missing: Language. Partial: proxy credentials/SOCKS/PAC, floating panel window, toolbar bands and import, Extended Tags OK |
+| Options pages and UI customization | 147 | 143 | 4 | 0 | 101 / 17 / 24 | Partial: proxy credentials/SOCKS/PAC, floating panel window, toolbar bands and import, Extended Tags OK |
 | Tag sources | 33 | 31 | 2 | 0 | 20 / 10 / 3 | gnudb registration; remote freedb by disc ID only |
 | File formats (tag kinds per format) | 21 | 21 | 0 | 0 | 16 / 3 / 2 | TAK/OptimFROG still lack real-encoder fixtures |
 | Mapping table (registry cells) | 118 rows | 118 | 0 | 0 | 118 / 0 / 0 | The 7 gap categories outside the registry are closed except the lofty edge cases in formats-edge |
@@ -60,7 +60,7 @@ Some gaps appear in more than one area (for example the Find regex and the regex
 
 Runners-up: column auto-size (Ctrl+Num+ or double-click on a divider, M/S); Mac keyboards have no way to trigger Remove from list (only forward-Delete is mapped, M/S); gnudb rejects OpenTag until the application is registered (M/S, no code); Finder "Open With" and `open --args` forwarding on macOS (M/M); Library database (M/L); UI translations (M/L); "List chapters as separate files" (M/L).
 
-All 25 are closed (see the sections at the end). Of the runners-up, column auto-size and Remove from list on Mac keyboards closed in batch 5, Finder "Open With" and chapters as separate files in batch 6, and the Library in batch 7. Still open: gnudb registration and UI translations, both in progress on branches.
+All 25 are closed (see the sections at the end). Of the runners-up, column auto-size and Remove from list on Mac keyboards closed in batch 5, Finder "Open With" and chapters as separate files in batch 6, the Library in batch 7, and UI translations in batch 8. Still open: gnudb registration, in progress on a branch.
 
 ## Menus
 
@@ -330,9 +330,19 @@ Closed by implementation and unit tests; native suites run headless in CI on Lin
 
 Still open: UI translations (needs an OpenTag translation layer); floating Tag Panel as a separate OS window; movable toolbar bands and Mp3tag toolbar file import; global Nero fields and Nero covers; gnudb registration (no code); the per-item gaps listed in each verification note.
 
-## Open after batch 7
+## Closed after this audit (batch 8, 2026-10-15)
 
-Everything below is open in `main` at `08dc952`. Items on a branch that has not merged are marked "in progress". The per-item gaps in each verification note still apply.
+Closed by implementation and unit tests; the native suite runs headless in CI on Linux, macOS and Windows. None of these has differential evidence against the original.
+
+| Items | Closed by | Evidence |
+|---|---|---|
+| Options → Language: OpenTag's own English, Dutch and German catalogs, system default, live switching, translated native dialogs, window title and tray menu, user catalogs in `<config>/languages` | i18n | [verification](../verification/i18n.md) |
+
+Still English: backend messages added after the catalog snapshot, operating-system text and the macOS application menu.
+
+## Open after batch 8
+
+Everything below is open in `main` at `08dc952` plus `feat/core-parity` at `b82cba3`. Items on a branch that has not merged are marked "in progress". The per-item gaps in each verification note still apply.
 
 | Area | Open item | Kind |
 |---|---|---|
@@ -343,7 +353,7 @@ Everything below is open in `main` at `08dc952`. Items on a branch that has not 
 | Find | Uses JavaScript RegExp instead of the Boost bridge | Partial |
 | Actions | Remove Fields Except keeps frames that have no field (deliberate); Split Field keeps empty pieces (unverified); file, cover-file and rename actions refused for mobile provider documents; `.mta` setting order of types 4, 6 and 11–15 unconfirmed | Partial |
 | Converters | Filename → Filename refuses the whole plan when one destination clashes, and Text File → Tag refuses a line-count mismatch (both deliberate) | Differs by design |
-| Options and UI | Language (UI translations, in progress); proxy credentials, SOCKS and PAC; floating Tag Panel as a separate OS window; movable toolbar bands, custom toolbar symbols and Mp3tag `toolbar.ini` import; Extended Tags OK stages edits instead of writing (deliberate); manual list order not kept across sessions; quick-action and numbering memories outside the configuration backup; Mp3tag zip configuration format | Missing / partial |
+| Options and UI | Proxy credentials, SOCKS and PAC; floating Tag Panel as a separate OS window; movable toolbar bands, custom toolbar symbols and Mp3tag `toolbar.ini` import; Extended Tags OK stages edits instead of writing (deliberate); manual list order not kept across sessions; quick-action and numbering memories outside the configuration backup; Mp3tag zip configuration format | Partial |
 | Formats | TAK and OptimFROG tested only with hand-built headers; AAC with junk before the first ADTS frame; header-less APEv2 and some 131-byte APE tags misread by lofty; DSF/DFF writes decompress compressed ID3v2 frames | Partial |
 | Chapters | Global Nero fields only fill gaps; Nero covers, the `indx` box, QuickTime chapter URLs and ID3v2 chapter pictures are kept but not shown; playlists of chapter rows refused | Partial |
 | Playlists and export | XSPF, WPL and ASX playlists | Missing |

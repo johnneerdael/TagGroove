@@ -107,7 +107,7 @@ Notifications are queued while an operation runs and are shown as native message
 
 ## Gaps (not implemented, no dead controls)
 
-Status after batch 7 (2026-10-15): the General extras, Networking, Updates, Playlist and Library pages, all Messages, and the three Utils commands now exist ([general options](general-options.md), [playlists-export](playlists-export.md), [library](library.md), [formats-3](formats-3.md)); the notification area options exist on Windows and Linux ([panel-dock](panel-dock.md)). Language and the Mp3tag zip configuration format are still open. The list below is the state at the time of this note.
+Status after batch 7 (2026-10-15): the General extras, Networking, Updates, Playlist and Library pages, all Messages, and the three Utils commands now exist ([general options](general-options.md), [playlists-export](playlists-export.md), [library](library.md), [formats-3](formats-3.md)); the notification area options exist on Windows and Linux ([panel-dock](panel-dock.md)). Options → Language exists since batch 8 ([i18n](i18n.md)); the Mp3tag zip configuration format is still open. The list below is the state at the time of this note.
 
 - **Messages:** "at warnings from Actions" (action errors are always shown), "at importing covers" (Tag Sources cover preservation), and the "at exporting tags" prompt for File → Export… (the output name comes from a template and the command does not report the path).
 - **General:** auto-select next file, auto-completion, select files automatically, keep moved files, notification area. These belong to the file-list and file-ops areas or have no cross-platform equivalent.

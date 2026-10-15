@@ -187,7 +187,7 @@
     "settings": {
       "core": "Validated settings.json store with per-page options",
       "native": "Configuration backup/restore bundle, Library database, notification area",
-      "ui": "Every documented Options page except Language",
+      "ui": "Every documented Options page, including Language (English, Dutch, German and user catalogs)",
       "runtime": "Headless native suites; no preference migration from Mp3tag",
       "evidence": [
         "src-tauri/src/settings.rs",

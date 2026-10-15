@@ -21,7 +21,7 @@ OpenTag is in **0.x prerelease**. The desktop editor covers most of Mp3tag's doc
 - [Remaining gaps](docs/research/remaining-gaps.md): what is still open, by area and impact.
 - [Performance](docs/PERFORMANCE.md): measurements so far.
 
-In progress on branches, not yet in `main`: UI translations, more metadata sources (iTunes, Deezer, LRCLIB, Cover Art Archive, AcoustID, Last.fm, fanart.tv), gnudb compliance with remote text search, and wider compatibility with community `.src` web sources.
+In progress on branches: more metadata sources (iTunes, Deezer, LRCLIB, Cover Art Archive, AcoustID, Last.fm, fanart.tv), gnudb compliance with remote text search, and wider compatibility with community `.src` web sources.
 
 ## Features
 
@@ -57,6 +57,7 @@ In progress on branches, not yet in `main`: UI translations, more metadata sourc
 - Options pages modelled on Mp3tag's, including Library (an SQLite cache that loads unchanged files without reading them), Tools, Messages, Networking and Updates; configuration backup and restore.
 - Mp3tag's keyboard reference: all 97 rows are bound. ⌘ replaces Ctrl on macOS, and Option keys still type characters in text fields.
 - File operations (copy, move, delete, rename with case-only support), favorite directories, command line switches (`/fp:`, `/fn:`, `/add`) with single-instance forwarding, macOS "Open With".
+- Interface in English, Dutch and German (Options → Language, switched live), plus catalogs you add yourself.
 - Light, Dark and System appearance; notification area icon on Windows and Linux.
 
 **Platforms**: Windows x64, macOS (Apple Silicon and Intel) and Linux (x64 and arm64) are the main targets. Android has document access and save-back for provider files; iOS builds for the simulator only. See the ledger for what each mobile build has been checked on.
@@ -82,6 +83,10 @@ npm run tauri build      # release packages
 On macOS with Homebrew `binutils` ahead of the system tools in `PATH`, GNU `ar` builds a regex-bridge archive that Apple's linker rejects. Run cargo and npm commands with the system archiver, for example `AR=/usr/bin/ar npm test`.
 
 Native UI suites (`tests/e2e/*.js`) open real app windows and drive them with scripted DOM events. The `native-e2e` job in [build.yml](.github/workflows/build.yml) runs them headless on Linux (under xvfb), macOS and Windows. `scripts/e2e-native.sh` refuses to run outside CI unless `OPENTAG_E2E_ALLOW_LOCAL=1` is set, because the windows would take focus and keystrokes on a working desktop.
+
+### Translating OpenTag
+
+UI text is written in English in the code and translated where it is rendered. The catalogs are `src/i18n/catalogs/{en,nl,de}.json`, keyed by the English text, with `{name}` placeholders and ICU-style plural forms. After changing UI text, run `npm run i18n:extract` to regenerate `en.json`, then add the new keys to the other catalogs; `tests/i18n.test.mjs` fails while a catalog is incomplete or a placeholder does not match. To try or add a language without building, put `<locale>.json` in the `languages` folder of the configuration folder (Options → Language → Open languages folder writes a template there). Format strings, field names and tag values are never translated. Details: [docs/verification/i18n.md](docs/verification/i18n.md).
 
 ### Metadata API keys
 
