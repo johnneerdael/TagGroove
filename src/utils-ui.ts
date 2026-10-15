@@ -127,10 +127,31 @@ export const EXTRA_SHORTCUTS:ShortcutRow[]=[
   {group:'File List',command:'Select a range',keys:'Shift Click'},
   {group:'File List',command:'Extended tags (or the default tool from Options → Tools)',keys:'Double-click'},
   {group:'File List',command:'Extended tags',keys:'Enter'},
+  {group:'File List',command:'Show the file in the file manager (file properties)',keys:'Alt Enter'},
+  {group:'File List',command:'Auto-size one column',keys:'Double-click its right header edge'},
+  {group:'Convert',command:'Auto-numbering, restarting the track counter in each folder',keys:'⌘/Ctrl ⇧ K'},
   {group:'Tools',command:'User-defined tool 1 … 10',keys:'⌘/Ctrl 1 … 0'},
   {group:'Actions',command:'Open the Actions menu and choose a group by its mnemonic',keys:'Alt A, then a letter'},
+  {group:'Actions dialog',command:'New group or action',keys:'Insert'},
+  {group:'Actions dialog',command:'Remove the group or action',keys:'Del (⌫ on macOS)'},
+  {group:'Actions dialog',command:'Rename the group',keys:'F2'},
+  {group:'Actions dialog',command:'Edit the group or action',keys:'F4'},
+  {group:'Actions dialog',command:'Enable or disable the group',keys:'Space'},
+  {group:'Actions dialog',command:'Enable all groups / disable all groups',keys:'⌘/Ctrl E / ⌘/Ctrl D'},
+  {group:'Actions dialog',command:'Save groups',keys:'⌘/Ctrl S'},
+  {group:'Actions dialog',command:'Move the group or action up / down',keys:'Alt ↑ / Alt ↓'},
+  {group:'Actions dialog',command:'Move the group or action to the beginning / end',keys:'Alt Page Up / Alt Page Down'},
+  {group:'Tag Sources dialog',command:'Enable all fields / disable all fields',keys:'⌘/Ctrl E / ⌘/Ctrl D'},
+  {group:'Tag Sources dialog',command:'Edit the value of the focused field',keys:'F2'},
+  {group:'Tag Sources dialog',command:'Move the focused file up / down',keys:'Alt ↑ / Alt ↓'},
+  {group:'Tag Sources dialog',command:'Move the focused file to the beginning / end',keys:'Alt Page Up / Alt Page Down'},
+  {group:'Tag Panel',command:'Focus a field by its underlined letter',keys:'Alt letter'},
   {group:'Tag Panel',command:'Add the field value to its custom values',keys:'Shift Enter'},
   {group:'Tag Panel',command:'Open the value list of a field',keys:'Alt ↓'},
+  {group:'Helpers',command:'Next pane: Tag Panel, Filter, File List',keys:'Ctrl Tab'},
+  {group:'Helpers',command:'Previous pane',keys:'Ctrl ⇧ Tab'},
+  {group:'Helpers',command:'Format string helper menu of the focused input',keys:'Ctrl Space (or ⌃⌥ Space on macOS)'},
+  {group:'Helpers',command:'Remove the current value from an input\'s drop-down history',keys:'⇧ Del'},
   {group:'Dialogs',command:'Close a dialog',keys:'Esc'},
 ];
 /** Rows for every menu command that shows a shortcut, in menu order. */
@@ -146,7 +167,7 @@ export function menuShortcuts(menubar:ParentNode):ShortcutRow[]{
 }
 export function shortcutsDialog(modal:Modal,rows:ShortcutRow[]){
   const groups=[...new Set(rows.map(row=>row.group))];
-  const dialog=modal('Keyboard shortcuts',`<p>⌘/Ctrl means ⌘ on macOS and Ctrl elsewhere. Most shortcuts are ignored while typing in a text field.</p>${groups.map(group=>`<h3>${html(group)}</h3><table class="shortcut-table"><tbody>${rows.filter(row=>row.group===group).map(row=>`<tr><td>${html(row.command)}</td><td><kbd>${html(row.keys)}</kbd></td></tr>`).join('')}</tbody></table>`).join('')}`,'');
+  const dialog=modal('Keyboard shortcuts',`<p>⌘/Ctrl means ⌘ on macOS and Ctrl elsewhere; Ctrl alone is the Control key everywhere. Alt is Option on macOS, where Option+key types characters such as å or ©: while a text field has focus there, press Control+Option with the key instead. Most shortcuts are ignored while typing in a text field.</p>${groups.map(group=>`<h3>${html(group)}</h3><table class="shortcut-table"><tbody>${rows.filter(row=>row.group===group).map(row=>`<tr><td>${html(row.command)}</td><td><kbd>${html(row.keys)}</kbd></td></tr>`).join('')}</tbody></table>`).join('')}`,'');
   dialog.classList.add('shortcuts-dialog');
   dialog.querySelector('[data-close]')!.textContent='Close';
   return dialog;

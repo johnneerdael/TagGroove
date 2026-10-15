@@ -5,7 +5,7 @@ import ts from 'typescript';
 
 const source = await readFile(new URL('../src/action-ui.ts', import.meta.url), 'utf8');
 const javascript = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 } }).outputText;
-const { actionCatalog, panelKey, moveItem, renameGroup, removeGroup, applyPreset, menuSegments, resolvePathChanges, mnemonicMarkup, sortGroups, enabledSummary, copyName, codepageChoices, qualityPresets } = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);
+const { actionListKey, actionCatalog, panelKey, moveItem, renameGroup, removeGroup, applyPreset, menuSegments, resolvePathChanges, mnemonicMarkup, sortGroups, enabledSummary, copyName, codepageChoices, qualityPresets } = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);
 const library = () => ({groups:[{name:'First',enabled:true,actions:[{type:'format_value',field:'TITLE',template:'text'}]},{name:'Second',enabled:false,actions:[]}],presets:[{name:'Only first',enabled_groups:['First']}]});
 
 test('catalog exposes every documented action type exactly once', () => {
@@ -57,4 +57,24 @@ test('every Convert Codepage choice is understood by the native converter',async
   assert.equal(new Set(codepageChoices.map(([id])=>id)).size,codepageChoices.length);
   for(const [id] of codepageChoices)assert.match(table,new RegExp(`"${id}"`),id);
   assert.deepEqual(qualityPresets.map(([,label])=>label),['Best','High','Medium','Low']);
+});
+
+test('Actions dialog keys follow the keyboard reference', () => {
+  const key = (k, modifiers = {}) => ({ key: k, ctrlKey: false, metaKey: false, shiftKey: false, altKey: false, ...modifiers });
+  assert.equal(actionListKey(key('Insert'), false), 'new');
+  assert.equal(actionListKey(key('Delete'), false), 'remove');
+  assert.equal(actionListKey(key('Backspace'), true), 'remove', 'Mac keyboards have no forward Delete');
+  assert.equal(actionListKey(key('Backspace'), false), undefined);
+  assert.equal(actionListKey(key(' '), false), 'toggle');
+  assert.equal(actionListKey(key('e', { ctrlKey: true }), false), 'enable-all');
+  assert.equal(actionListKey(key('d', { ctrlKey: true }), false), 'disable-all');
+  assert.equal(actionListKey(key('s', { ctrlKey: true }), false), 'save');
+  assert.equal(actionListKey(key('e', { metaKey: true }), true), 'enable-all');
+  assert.equal(actionListKey(key('e', { ctrlKey: true }), true), undefined, 'macOS uses Command');
+  assert.equal(actionListKey(key('ArrowUp', { altKey: true }), false), 'up');
+  assert.equal(actionListKey(key('ArrowDown', { altKey: true }), true), 'down');
+  assert.equal(actionListKey(key('PageUp', { altKey: true }), false), 'top');
+  assert.equal(actionListKey(key('PageDown', { altKey: true }), false), 'bottom');
+  assert.equal(actionListKey(key('ArrowUp'), false), undefined, 'plain arrows move the selection');
+  assert.equal(actionListKey(key('a', { ctrlKey: true }), false), undefined);
 });

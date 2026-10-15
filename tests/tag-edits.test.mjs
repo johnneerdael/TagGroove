@@ -5,7 +5,7 @@ import ts from 'typescript';
 
 const source = await readFile(new URL('../src/tag-edits.ts', import.meta.url), 'utf8');
 const javascript = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 } }).outputText;
-const { resolveTagEdits, selectionTagRows } = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);
+const { resolveTagEdits, selectionTagRows, extendedCaption, neighbourFile } = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);
 const row = (original, name, values = [], valueChanged = false, removed = false) => ({ original, name, values, valueChanged, removed, changed: true });
 
 test('simultaneous field swaps preserve both values', () => {
@@ -84,4 +84,19 @@ test('validate the entire edit before changing fields', () => {
   assert.throws(() => resolveTagEdits({}, [row('', '')]), /field name/);
   assert.deepEqual(resolveTagEdits({}, [row('', '', [], false, true)]), {});
   assert.throws(() => resolveTagEdits({}, [row('', 'Mood'), row('', 'MOOD')]), /Duplicate field/);
+});
+
+test('Extended Tags caption names the tag format and file for one file', () => {
+  assert.equal(extendedCaption([{ name: 'a.mp3', tag: 'ID3v2.3 ID3v1' }]), 'Extended tags — ID3v2.3 ID3v1 — a.mp3');
+  assert.equal(extendedCaption([{ name: 'a.flac' }]), 'Extended tags — a.flac');
+  assert.equal(extendedCaption([{ name: 'a.mp3' }, { name: 'b.mp3' }]), 'Extended tags — 2 files');
+});
+
+test('<< and >> step through the File List order and stop at its ends', () => {
+  const list = ['/a.mp3', '/b.mp3', '/c.mp3'];
+  assert.equal(neighbourFile(list, '/b.mp3', 1), '/c.mp3');
+  assert.equal(neighbourFile(list, '/b.mp3', -1), '/a.mp3');
+  assert.equal(neighbourFile(list, '/a.mp3', -1), undefined);
+  assert.equal(neighbourFile(list, '/c.mp3', 1), undefined);
+  assert.equal(neighbourFile(list, '/filtered-out.mp3', 1), undefined);
 });

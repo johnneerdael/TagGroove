@@ -2,6 +2,7 @@
 // viewer) and the Manage Covers dialog. Mutations go through journaled
 // backend commands, so Undo restores them.
 import './covers.css';
+import {isTextEntry} from './keyboard';
 import {PICTURE_TYPES,coverDetails,coverExtension,coverFileName,coverMenu,coverRef,distinctPlan,dropManaged,insideRect,isImagePath,keepPlan,managedFromSet,moveManaged,newManaged,pictureTypeLabel,planChanged,planItems,presence,replaceManaged,selectionCovers,type CoverInfo,type CoverSet,type ImageSource,type ManagedCover,type PlanItem,type SelectionCovers,type StagedImage} from './cover-model';
 
 type Batch={errors:{path:string;error:string}[]};
@@ -73,8 +74,9 @@ export class CoverUI {
     return `<div class="cover-row"><div class="cover-art${this.aspect?'':' stretch'}" tabindex="0" role="button" aria-haspopup="menu" aria-label="${esc(label)}" title="Right-click for cover commands; double-click to enlarge">${art}</div><div class="cover-info"><strong>${esc(title)}</strong>${lines.filter(Boolean).map(line=>`<span>${esc(line)}</span>`).join('')}${nav}</div></div><div class="cover-controls">${options.buttons}<button data-cover="menu" aria-haspopup="menu" aria-label="Cover commands" title="Cover commands">⋯</button></div>`;
   }
   paint(){
-    const {cover}=this.shown(),image=document.querySelector<HTMLImageElement>('.cover-art img[data-cover-image]');
-    if(image&&cover?.data_base64)image.src=dataUrl(cover);
+    const {cover}=this.shown();
+    // The tag panel and the Extended Tags dialog can both show the cover window.
+    if(cover?.data_base64)document.querySelectorAll<HTMLImageElement>('.cover-art img[data-cover-image]').forEach(image=>image.src=dataUrl(cover));
     this.updateViewer();
   }
   /** Attach cover window handlers; call after the cover section is (re)rendered. */
@@ -95,11 +97,13 @@ export class CoverUI {
     art.addEventListener('drop',event=>{art.classList.remove('drop-target');const files=[...event.dataTransfer?.files||[]];if(files.length){event.preventDefault();void this.addFiles(files);}});
     art.addEventListener('paste',event=>{const files=[...event.clipboardData?.files||[]];if(files.length){event.preventDefault();event.stopPropagation();void this.addFiles(files);}});
   }
-  /** Global shortcut: Ctrl+Alt+M (⌘⌥M) opens Manage covers. */
+  /** Global shortcut: Ctrl+Alt+M (⌘⌥M) opens Manage covers. Ctrl+Alt is AltGr on
+   * Windows, so a chord that types a character (German AltGr+M is µ) stays text. */
   install(target:Document){
     target.addEventListener('keydown',event=>{
       if(event.defaultPrevented||modalOpen())return;
-      if(event.altKey&&(event.ctrlKey||event.metaKey)&&!event.shiftKey&&event.code==='KeyM'){event.preventDefault();event.stopPropagation();void this.run('manage');}
+      const typed=!this.host.mac&&isTextEntry(event.target)&&(event.key.toLowerCase()!=='m'||event.getModifierState?.('AltGraph'));
+      if(event.altKey&&(event.ctrlKey||event.metaKey)&&!event.shiftKey&&event.code==='KeyM'&&!typed){event.preventDefault();event.stopPropagation();void this.run('manage');}
     },true);
   }
   private artKey(event:KeyboardEvent,art:HTMLElement){
@@ -118,7 +122,8 @@ export class CoverUI {
     return {selected:state.files,state:state.state,count:covers.length,index,displayedType:cover?.picture_type,canEdit:!this.host.reason(),canClipboard:this.host.clipboard(),aspect:this.aspect,mac:this.host.mac};
   }
   openMenu(x:number,y:number,focus:boolean,returnFocus?:HTMLElement){
-    this.showMenu(document.body,x,y,coverMenu(this.menuState()) as MenuEntry[],'Cover',(command,value)=>void this.run(command,value),focus,returnFocus);
+    // Content outside a modal dialog is inert, so a cover window inside the Extended Tags dialog opens its menu there.
+    this.showMenu(returnFocus?.closest('dialog')??document.body,x,y,coverMenu(this.menuState()) as MenuEntry[],'Cover',(command,value)=>void this.run(command,value),focus,returnFocus);
   }
   closeMenu(){this.menu?.remove();this.menu=undefined;}
   /** A keyboard-navigable popup menu with one level of submenus. */
@@ -229,7 +234,8 @@ export class CoverUI {
   }
   /** Native drag and drop: images dropped on the cover window are embedded. Returns true when handled. */
   dragDrop(payload:{type:string;paths?:string[];position?:{x:number;y:number}}):boolean{
-    const section=document.querySelector<HTMLElement>('.cover-section');
+    // While the Extended Tags dialog is open, its cover window is the drop target.
+    const section=document.querySelector<HTMLElement>('dialog[open] .cover-section')||(modalOpen()?null:document.querySelector<HTMLElement>('.cover-section'));
     if(payload.type==='enter')this.dragPaths=payload.paths||[];
     const over=!!section&&!!payload.position&&payload.type!=='leave'&&insideRect(payload.position,section.getBoundingClientRect(),window.devicePixelRatio||1);
     section?.classList.toggle('drop-target',over&&payload.type!=='drop');
@@ -243,7 +249,7 @@ export class CoverUI {
     }
     const overlay=document.createElement('div');overlay.className='drop-overlay cover-drop';
     overlay.textContent=images.length?`Drop to embed ${images.length===1?'the image':`${images.length} images`} as cover of ${this.host.selection().length} selected file${this.host.selection().length===1?'':'s'}`:'Only images can be dropped on the cover art';
-    document.body.append(overlay);return true;
+    (section.closest('dialog')||document.body).append(overlay);return true;
   }
   private askDescription(current:string,varying:boolean):Promise<string|null>{
     return new Promise(resolve=>{

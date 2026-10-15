@@ -58,3 +58,16 @@ export function resolveTagEdits(source: Fields, rows: TagRowEdit[]): Fields {
   }
   return updates;
 }
+
+/** Extended Tags caption: the tag format and file name for one file, the count otherwise. */
+export function extendedCaption(files: { name: string; tag?: string }[]) {
+  if (files.length !== 1) return `Extended tags — ${files.length} files`;
+  const [{ name, tag }] = files;
+  return `Extended tags — ${tag ? `${tag} — ` : ''}${name}`;
+}
+
+/** The file before (-1) or after (1) `current` in File List order, for the << and >> buttons. */
+export function neighbourFile(list: string[], current: string, step: 1 | -1) {
+  const index = list.indexOf(current);
+  return index < 0 ? undefined : list[index + step];
+}

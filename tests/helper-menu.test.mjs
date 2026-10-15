@@ -5,7 +5,7 @@ import ts from 'typescript';
 
 const source = await readFile(new URL('../src/helper-menu.ts', import.meta.url), 'utf8');
 const javascript = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 } }).outputText;
-const { FieldList, FormatHistory, defaultFieldList, helperEntries, insertion, extendedFields, informationFields, scriptFunctions, placeholder } = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);
+const { helperKey, FieldList, FormatHistory, defaultFieldList, helperEntries, insertion, extendedFields, informationFields, scriptFunctions, placeholder } = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);
 const memory = () => { const data = new Map(); return { getItem: key => data.get(key) ?? null, setItem: (key, value) => data.set(key, value), data }; };
 const labels = entries => entries.map(entry => entry.separator ? '—' : entry.label);
 const submenu = (entries, label) => entries.find(entry => entry.label === label)?.submenu;
@@ -105,4 +105,15 @@ test('every helper function exists in the scripting engine catalog', async () =>
   const catalog = script.slice(script.indexOf('pub const SUPPORTED_FUNCTIONS'), script.indexOf('];', script.indexOf('pub const SUPPORTED_FUNCTIONS')));
   const supported = new Set([...catalog.matchAll(/"([a-z_0-9]+)"/g)].map(match => match[1]));
   for (const [, list] of scriptFunctions) for (const signature of list) assert.ok(supported.has(signature.slice(1, signature.indexOf('(')).toLowerCase()), signature);
+});
+
+test('Ctrl+Space opens the helper menu and Shift+Del removes a history entry', () => {
+  const key = (k, modifiers = {}) => ({ key: k, code: k === ' ' ? 'Space' : k, ctrlKey: false, metaKey: false, shiftKey: false, altKey: false, ...modifiers });
+  assert.equal(helperKey(key(' ', { ctrlKey: true })), 'open');
+  assert.equal(helperKey(key(' ', { ctrlKey: true, altKey: true })), 'open', 'Control+Option+Space on macOS');
+  assert.equal(helperKey(key(' ', { metaKey: true })), undefined, '⌘Space belongs to Spotlight');
+  assert.equal(helperKey(key(' ')), undefined);
+  assert.equal(helperKey(key('Delete', { shiftKey: true })), 'remove-history');
+  assert.equal(helperKey(key('Delete')), undefined);
+  assert.equal(helperKey(key('Backspace', { shiftKey: true })), undefined, 'Shift+Backspace still deletes text');
 });

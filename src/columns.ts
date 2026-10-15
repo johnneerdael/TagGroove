@@ -88,6 +88,17 @@ export function moveColumn(layout:ColumnLayout,id:string,targetId:string,after:b
   });
 }
 export const resizeColumn=(layout:ColumnLayout,id:string,width:number)=>update(layout,columns=>columns.map(column=>column.id===id?{...column,width:clampWidth(width)}:column));
+/** File List auto-size (Ctrl+Num+, or double-click a header divider for one column): each
+ * visible column (or only `only`) fits its header and its widest value. `header` and `cell`
+ * measure text in the header and cell fonts; `pad` is a cell's horizontal padding and border. */
+export function fitColumns(layout:ColumnLayout,values:(column:ColumnDef)=>Iterable<string>,header:(text:string)=>number,cell:(text:string)=>number,only?:string,pad=22):ColumnLayout{
+  return update(layout,columns=>columns.map(column=>{
+    if(!column.visible||(only&&column.id!==only))return column;
+    let width=header(column.name)+16;// room for the sort indicator
+    for(const value of values(column))width=Math.max(width,cell(value));
+    return {...column,width:clampWidth(Math.ceil(width)+pad)};
+  }));
+}
 export function uniqueColumnId(layout:ColumnLayout,base='column'){let index=1,id=base;while(layout.columns.some(column=>column.id.toLowerCase()===id.toLowerCase()))id=`${base}-${++index}`;return id;}
 
 /** Header click: replace the sort, or with Shift add a secondary criterion. Repeating a click reverses that criterion. */

@@ -40,7 +40,10 @@ test('Alt+1 to Alt+5 open the converters in Mp3tag order', () => {
   // macOS Option+digit produces characters such as ¡; the physical key still matches.
   assert.equal(editShortcut({ ...key('¡', { altKey: true }), code: 'Digit1' }, { ...idle, mac: true }), 'tags-filename');
   assert.equal(editShortcut({ ...key('¡', { altKey: true }), code: 'Digit1' }, { ...idle, typing: true, mac: true }), undefined);
+  assert.equal(editShortcut({ ...key('¡', { altKey: true, ctrlKey: true }), code: 'Digit1' }, { ...idle, typing: true, mac: true }), 'tags-filename');
   assert.equal(editShortcut(key('5', { altKey: true }), { ...idle, typing: true }), 'tag-tag');
+  assert.equal(editShortcut(key('5', { altKey: true, ctrlKey: true }), { ...idle, typing: true }), undefined);
+  assert.equal(editShortcut(key('5', { altKey: true, getModifierState: name => name === 'AltGraph' }), idle), undefined);
   assert.equal(editShortcut(key('6', { altKey: true }), idle), undefined);
   assert.equal(editShortcut(key('1', { altKey: true, shiftKey: true }), idle), undefined);
 });

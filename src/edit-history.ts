@@ -8,15 +8,17 @@ export function historyLabel(kind: 'Undo'|'Redo', step: HistoryStep|null|undefin
 }
 
 export type EditShortcut = 'undo'|'redo'|'copy-tags'|'cut-tags'|'paste-tags'|'tags-filename'|'filename-tags'|'filename-filename'|'text-tags'|'tag-tag';
-type Key = { key: string; code?: string; ctrlKey: boolean; metaKey: boolean; shiftKey: boolean; altKey: boolean };
+type Key = { key: string; code?: string; ctrlKey: boolean; metaKey: boolean; shiftKey: boolean; altKey: boolean; getModifierState?: (key: string) => boolean };
 const converters: EditShortcut[] = ['tags-filename','filename-tags','filename-filename','text-tags','tag-tag'];
 
 /** Mp3tag Edit and Convert shortcuts. Text fields keep native undo and clipboard
- * behaviour, as does text selected on the page; on macOS, Option+digit keeps
- * typing its character while a text field has focus. */
+ * behaviour, as does text selected on the page. Option+digit types a character
+ * on macOS, so in a text field the converters take Control+Option+digit there;
+ * Ctrl+Alt (AltGr) chords are never converter shortcuts elsewhere. */
 export function editShortcut(event: Key, context: { typing: boolean; textSelected: boolean; mac: boolean }): EditShortcut|undefined {
   const digit = /^Digit([1-5])$/.exec(event.code || '')?.[1] ?? (/^[1-5]$/.test(event.key) ? event.key : undefined);
-  if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && digit && !(context.typing && context.mac)) return converters[Number(digit) - 1];
+  const alt = event.altKey && !event.metaKey && !event.getModifierState?.('AltGraph') && (context.mac ? !context.typing || event.ctrlKey : !event.ctrlKey);
+  if (alt && !event.shiftKey && digit) return converters[Number(digit) - 1];
   if (!(event.ctrlKey || event.metaKey) || event.altKey || context.typing) return;
   const key = event.key.toLowerCase();
   if (key === 'z') return event.shiftKey ? 'redo' : 'undo';
