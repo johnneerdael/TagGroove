@@ -8,13 +8,13 @@ album="$1"
 art="$(mktemp -d)"; trap 'rm -rf "$art"' EXIT
 mkdir -p "$album"
 ffmpeg -loglevel error -y -f lavfi \
-  -i "gradients=s=600x600:c0=0xFFC72C:c1=0xFF7800:c2=0xF23D0B:c3=0x101922:nb_colors=4:x0=0:y0=0:x1=600:y1=600" \
+  -i "gradients=s=600x600:c0=0xFFE84A:c1=0xFF7900:c2=0xF13A08:nb_colors=3:x0=0:y0=0:x1=600:y1=600" \
   -frames:v 1 "$art/front.jpg"
 i=0
 while IFS='|' read -r file title seconds; do
   i=$((i + 1))
   ffmpeg -nostdin -loglevel error -y -f lavfi -i "sine=frequency=$((220 + 55 * i)):duration=$seconds" -i "$art/front.jpg" \
-    -map 0:a -map 1:v -c:a libmp3lame -b:a 192k -c:v copy -id3v2_version 3 -disposition:v attached_pic \
+    -map 0:a -map 1:v -ac 2 -c:a libmp3lame -b:a 192k -c:v copy -id3v2_version 3 -disposition:v attached_pic \
     -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" \
     -metadata title="$title" -metadata artist="Juniper Vale" -metadata album_artist="Juniper Vale" \
     -metadata album="Harbour Lights" -metadata date=2024 -metadata genre="Indie Folk" \
