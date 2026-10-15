@@ -4,7 +4,7 @@
 
 **You need:**
 
--  ] OpenTag installed ([Install OpenTag)
+- [ ] OpenTag installed ([download a desktop package](https://github.com/johnneerdael/opentag/releases/latest))
 - [ ] A folder with a few music files, ideally one album
 
 !!! tip "Practise on a copy"

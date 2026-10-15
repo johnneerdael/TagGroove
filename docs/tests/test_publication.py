@@ -1,5 +1,6 @@
 """Exercise the publication boundary through real strict MkDocs builds."""
 
+from html.parser import HTMLParser
 import json
 from pathlib import Path
 import subprocess
@@ -70,6 +71,52 @@ class PublicationTests(unittest.TestCase):
         self.assertTrue((self.root / "site" / "draft" / "index.html").exists())
         search = (self.root / "site" / "search" / "search_index.json").read_text()
         self.assertIn("Completed topic", search)
+
+
+class PrerequisiteParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.items = []
+        self.stack = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "li":
+            self.stack.append({"text": "", "checkboxes": 0, "links": []})
+        if not self.stack:
+            return
+        attrs = dict(attrs)
+        if tag == "input" and attrs.get("type") == "checkbox":
+            self.stack[-1]["checkboxes"] += 1
+        if tag == "a":
+            self.stack[-1]["links"].append(attrs.get("href"))
+
+    def handle_data(self, text):
+        if self.stack:
+            self.stack[-1]["text"] += text
+
+    def handle_endtag(self, tag):
+        if tag == "li" and self.stack:
+            self.items.append(self.stack.pop())
+
+
+class GuideContentTests(unittest.TestCase):
+    def test_first_session_has_installation_checkbox_and_download_link(self):
+        root = HOOK.parents[2]
+        with tempfile.TemporaryDirectory() as output:
+            result = subprocess.run(
+                [sys.executable, "-m", "mkdocs", "build", "--strict", "-f",
+                 str(root / "mkdocs.yml"), "--site-dir", output],
+                cwd=root,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            parser = PrerequisiteParser()
+            parser.feed((Path(output) / "learn/first-tagging-session/index.html").read_text())
+        matches = [item for item in parser.items if "OpenTag installed" in item["text"]]
+        self.assertEqual(len(matches), 1)
+        self.assertEqual(matches[0]["checkboxes"], 1)
+        self.assertIn("https://github.com/johnneerdael/opentag/releases/latest", matches[0]["links"])
 
 
 if __name__ == "__main__":
