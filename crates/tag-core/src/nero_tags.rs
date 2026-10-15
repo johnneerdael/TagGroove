@@ -9,11 +9,53 @@
 //! byte, a length-prefixed name, a 16-bit value count and per value a 32-bit
 //! length and UTF-8 bytes. Names are lowercase. Fields with other flag bytes,
 //! covers (`cvrx`) and unknown boxes are kept as they are.
+//!
+//! A `cvrx` payload, as Mp3tag 3.36.1 reads and writes it: a 32-bit zero, a
+//! 32-bit count, then per cover a 16-bit length and an ASCII MIME type, a
+//! 16-bit picture type and a 32-bit length and the image bytes (at most
+//! 64 MiB). Values are big-endian.
 use crate::Fields;
 use std::collections::BTreeMap;
 
 /// Longest value read, as in Mp3tag.
 const VALUE_LIMIT: usize = 0xF_FFFF;
+/// Largest cover read, as in Mp3tag.
+const COVER_LIMIT: usize = 0x400_0000;
+
+/// One cover of a `cvrx` box.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct Cover {
+    pub mime: String,
+    pub kind: u16,
+    pub data: Vec<u8>,
+}
+
+fn parse_covers(bytes: &[u8]) -> Option<Vec<Cover>> {
+    if be32(bytes, 0)? != 0 {
+        return Some(Vec::new());
+    }
+    let count = be32(bytes, 4)?;
+    let mut at = 8;
+    let mut covers = Vec::new();
+    for _ in 0..count {
+        let length = be16(bytes, at)?;
+        let mime = bytes.get(at + 2..at + 2 + length)?;
+        at += 2 + length;
+        let kind = be16(bytes, at)? as u16;
+        let size = be32(bytes, at + 2)?;
+        if size > COVER_LIMIT {
+            return None;
+        }
+        let data = bytes.get(at + 6..at + 6 + size)?;
+        at += 6 + size;
+        covers.push(Cover {
+            mime: String::from_utf8_lossy(mime).into_owned(),
+            kind,
+            data: data.to_vec(),
+        });
+    }
+    Some(covers)
+}
 
 #[derive(Debug, Clone, PartialEq)]
 enum Field {
@@ -218,6 +260,73 @@ impl NeroTags {
         self.global.as_ref().map(fields).unwrap_or_default()
     }
 
+    /// The covers of the `cvrx` box; a malformed box has none.
+    pub(crate) fn covers(&self) -> Vec<Cover> {
+        self.kept
+            .iter()
+            .find(|whole| whole.get(4..8) == Some(b"cvrx"))
+            .and_then(|whole| parse_covers(&whole[8..]))
+            .unwrap_or_default()
+    }
+
+    /// Drop the `cvrx` box; whether there was one.
+    pub(crate) fn remove_covers(&mut self) -> bool {
+        let before = self.kept.len();
+        self.kept.retain(|whole| whole.get(4..8) != Some(b"cvrx"));
+        self.kept.len() != before
+    }
+
+    /// Apply file field `updates` to the file-wide fields that already
+    /// exist: new values replace theirs and empty values remove them, so the
+    /// file-wide set never contradicts the iTunes tag it fills gaps in.
+    /// Fields it does not hold are not added. Returns whether it changed.
+    pub(crate) fn sync_global(&mut self, updates: &Fields) -> Result<bool, String> {
+        let Some(global) = self.global.as_mut() else {
+            return Ok(false);
+        };
+        let mut changed = false;
+        for (name, list) in updates {
+            let list: Vec<String> = list.iter().filter(|v| !v.is_empty()).cloned().collect();
+            if list.len() > 0xFFFF
+                || list
+                    .iter()
+                    .any(|v| v.len() > VALUE_LIMIT || v.contains('\0'))
+            {
+                return Err(format!("{name} cannot be stored in the Nero tag"));
+            }
+            let matches = |field: &Field| {
+                matches!(field, Field::Text { name: stored, .. }
+                    if field_name(stored).eq_ignore_ascii_case(name))
+            };
+            if list.is_empty() {
+                let before = global.len();
+                global.retain(|field| !matches(field));
+                changed |= global.len() != before;
+                continue;
+            }
+            let mut first = true;
+            let mut kept = Vec::new();
+            for mut field in std::mem::take(global) {
+                if matches(&field) {
+                    if !first {
+                        changed = true;
+                        continue;
+                    }
+                    first = false;
+                    if let Field::Text { values, .. } = &mut field {
+                        if *values != list {
+                            *values = list.clone();
+                            changed = true;
+                        }
+                    }
+                }
+                kept.push(field);
+            }
+            *global = kept;
+        }
+        Ok(changed)
+    }
+
     /// Fields of the chapter at `index` (0-based).
     pub(crate) fn chapter_fields(&self, index: usize) -> Fields {
         u32::try_from(index)
@@ -363,5 +472,98 @@ mod tests {
             }]
         );
         assert!(NeroTags::parse(&boxed(b"tseg", &boxed(b"meta", &[0; 4]))).is_none());
+    }
+
+    fn meta_body(fields: &[(u8, &str, &[&str])]) -> Vec<u8> {
+        let mut meta = (fields.len() as u32).to_be_bytes().to_vec();
+        for (flag, name, values) in fields {
+            meta.extend([*flag, 0, name.len() as u8]);
+            meta.extend(name.as_bytes());
+            meta.extend((values.len() as u16).to_be_bytes());
+            for value in *values {
+                meta.extend((value.len() as u32).to_be_bytes());
+                meta.extend(value.as_bytes());
+            }
+        }
+        boxed(b"meta", &meta)
+    }
+
+    #[test]
+    fn covers_are_read_and_kept_byte_for_byte() {
+        let mut cvrx = [0u32.to_be_bytes(), 2u32.to_be_bytes()].concat();
+        for (mime, kind, data) in [
+            ("image/jpeg", 3u16, &b"\xFF\xD8\xFFjpeg"[..]),
+            ("", 4, b"png"),
+        ] {
+            cvrx.extend((mime.len() as u16).to_be_bytes());
+            cvrx.extend(mime.as_bytes());
+            cvrx.extend(kind.to_be_bytes());
+            cvrx.extend((data.len() as u32).to_be_bytes());
+            cvrx.extend(data);
+        }
+        let body = [meta_body(&[(0x80, "album", &["A"])]), boxed(b"cvrx", &cvrx)].concat();
+        let mut tags = NeroTags::parse(&body).unwrap();
+        assert_eq!(
+            tags.covers(),
+            [
+                Cover {
+                    mime: "image/jpeg".into(),
+                    kind: 3,
+                    data: b"\xFF\xD8\xFFjpeg".to_vec()
+                },
+                Cover {
+                    mime: String::new(),
+                    kind: 4,
+                    data: b"png".to_vec()
+                }
+            ]
+        );
+        assert_eq!(tags.render(), body);
+        // A truncated or non-zero-version box has no covers.
+        let short = [meta_body(&[]), boxed(b"cvrx", &cvrx[..cvrx.len() - 1])].concat();
+        assert!(NeroTags::parse(&short).unwrap().covers().is_empty());
+        let other = [meta_body(&[]), boxed(b"cvrx", &[0, 0, 0, 1, 0, 0, 0, 0])].concat();
+        assert!(NeroTags::parse(&other).unwrap().covers().is_empty());
+        assert!(tags.remove_covers());
+        assert!(tags.covers().is_empty());
+        assert_eq!(tags.render(), meta_body(&[(0x80, "album", &["A"])]));
+        assert!(!tags.remove_covers());
+    }
+
+    #[test]
+    fn file_fields_follow_edits_and_removals_of_fields_they_hold() {
+        let body = meta_body(&[
+            (0x80, "album", &["Old"]),
+            (0x80, "date", &["1999"]),
+            (0x80, "lyrics", &["la"]),
+            (0x81, "secret", &["x"]),
+        ]);
+        let mut tags = NeroTags::parse(&body).unwrap();
+        let updates = Fields::from([
+            field("ALBUM", &["New", "Two"]),
+            field("YEAR", &[""]),
+            field("ARTIST", &["Not added"]),
+        ]);
+        assert!(tags.sync_global(&updates).unwrap());
+        let global = tags.global_fields();
+        assert_eq!(global["ALBUM"], ["New", "Two"]);
+        assert!(!global.contains_key("YEAR") && !global.contains_key("ARTIST"));
+        assert_eq!(global["UNSYNCEDLYRICS"], ["la"]);
+        assert_eq!(
+            tags.render(),
+            meta_body(&[
+                (0x80, "album", &["New", "Two"]),
+                (0x80, "lyrics", &["la"]),
+                (0x81, "secret", &["x"]),
+            ])
+        );
+        // Unchanged values and absent fields change nothing.
+        assert!(!tags
+            .sync_global(&Fields::from([field("ALBUM", &["New", "Two"])]))
+            .unwrap());
+        assert!(!NeroTags::default().sync_global(&updates).unwrap());
+        assert!(tags
+            .sync_global(&Fields::from([field("ALBUM", &["a\0b"])]))
+            .is_err());
     }
 }

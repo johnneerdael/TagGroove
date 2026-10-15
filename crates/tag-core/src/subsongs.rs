@@ -674,7 +674,7 @@ fn write_mp4_rows(
             put(set, name, values.clone());
         }
     }
-    let changed = plan.chapters.iter().any(|f| !f.is_empty());
+    let mut changed = plan.chapters.iter().any(|f| !f.is_empty());
     let nero = if existing.is_some() || sets.iter().any(|s| !s.is_empty()) {
         let mut nero = existing.unwrap_or_default();
         nero.truncate(sets.len());
@@ -682,6 +682,8 @@ fn write_mp4_rows(
             put(set, "TITLE", vec![title(index)]);
             nero.set_chapter(index, set)?;
         }
+        // File-wide Nero fields follow the file fields (see `sync_global`).
+        changed |= nero.sync_global(&plan.file)?;
         Some(nero)
     } else {
         None

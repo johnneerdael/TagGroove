@@ -192,6 +192,8 @@ This changes the earlier, unverified 1-based `%_subsong%`. Whether Mp3tag's scri
 
 ## Remaining gaps
 
+The Nero items are addressed in [formats-gaps](formats-gaps.md); its own remaining gaps replace them.
+
 - **Nero tags:**
   - Global Nero `meta` fields only fill gaps. Editing or removing such a field with List chapters off changes the iTunes tag, and a removed field reappears from Nero.
   - Nero covers (`cvrx`) are kept but not read.

@@ -16,7 +16,8 @@ use std::io::Cursor;
 
 /// Parse a standalone ID3v2 tag. Lofty exposes no public parser for raw tag
 /// bytes, so the tag is wrapped in a minimal in-memory AIFF form, which lofty
-/// reads without audio properties.
+/// reads without audio properties. Encrypted frames are read as placeholders
+/// (see `id3_frames`).
 fn parse_id3(bytes: &[u8]) -> Result<Id3v2Tag, String> {
     if !bytes.starts_with(b"ID3") {
         return Err("The metadata block is not an ID3v2 tag".into());
@@ -34,11 +35,14 @@ fn parse_id3(bytes: &[u8]) -> Result<Id3v2Tag, String> {
         .read_properties(false)
         .implicit_conversions(false)
         .parsing_mode(ParsingMode::Strict);
-    AiffFile::read_from(&mut Cursor::new(form), options)
-        .map_err(|e| error_message(&e))?
-        .id3v2()
-        .cloned()
-        .ok_or_else(|| "The ID3v2 tag could not be read".into())
+    crate::id3_frames::read_with_fallback(&mut Cursor::new(form), |mut reader| {
+        reader.seek(SeekFrom::Start(0)).map_err(|e| e.to_string())?;
+        AiffFile::read_from(&mut reader, options).map_err(|e| error_message(&e))
+    })?
+    .0
+    .id3v2()
+    .cloned()
+    .ok_or_else(|| "The ID3v2 tag could not be read".into())
 }
 
 fn u32_le(bytes: &[u8], at: usize) -> u32 {
@@ -283,6 +287,8 @@ fn chunk_bytes(id: &[u8; 4], data: &[u8]) -> Vec<u8> {
 
 struct Snapshot {
     id3: Option<Id3v2Tag>,
+    /// The stored bytes of `id3`.
+    id3_bytes: Vec<u8>,
     artist: Option<String>,
     title: Option<String>,
     description: Description,
@@ -290,17 +296,15 @@ struct Snapshot {
 
 fn snapshot(path: &Path, kind: Kind) -> Result<Snapshot, String> {
     let mut file = fs::File::open(path).map_err(|e| e.to_string())?;
+    let mut id3_bytes = Vec::new();
     let (id3, artist, title, description) = match kind {
         Kind::Dsf => {
             let dsf = parse_dsf(&mut file)?;
             let id3 = if dsf.pointer == 0 {
                 None
             } else {
-                Some(parse_id3(&read_at(
-                    &mut file,
-                    dsf.pointer,
-                    (dsf.length - dsf.pointer) as usize,
-                )?)?)
+                id3_bytes = read_at(&mut file, dsf.pointer, (dsf.length - dsf.pointer) as usize)?;
+                Some(parse_id3(&id3_bytes)?)
             };
             let duration = if dsf.sample_rate > 0 {
                 dsf.samples as f64 / f64::from(dsf.sample_rate)
@@ -331,11 +335,10 @@ fn snapshot(path: &Path, kind: Kind) -> Result<Snapshot, String> {
         _ => {
             let dff = parse_dff(&mut file)?;
             let id3 = match dff.id3.first() {
-                Some(chunk) => Some(parse_id3(&read_at(
-                    &mut file,
-                    chunk.data,
-                    chunk.size as usize,
-                )?)?),
+                Some(chunk) => {
+                    id3_bytes = read_at(&mut file, chunk.data, chunk.size as usize)?;
+                    Some(parse_id3(&id3_bytes)?)
+                }
                 None => None,
             };
             let mut artist = None;
@@ -384,6 +387,7 @@ fn snapshot(path: &Path, kind: Kind) -> Result<Snapshot, String> {
     };
     Ok(Snapshot {
         id3,
+        id3_bytes,
         artist,
         title,
         description,
@@ -401,6 +405,7 @@ pub(super) fn describe(
         artist,
         title,
         mut description,
+        ..
     } = snapshot(path, kind)?;
     let mut native = Fields::new();
     if let Some(tag) = id3.as_ref() {
@@ -478,7 +483,12 @@ pub(super) fn write(
         }
         Edit::Rows { .. } => return Err("DSD files have no chapters".into()),
     }
-    let bytes = mapping::render_id3(&native, &target)?;
+    // Compressed and encrypted frames the edit left alone are copied.
+    let stored = current
+        .id3
+        .as_ref()
+        .map(|tag| (tag, current.id3_bytes.as_slice()));
+    let bytes = mapping::render_id3(&native, &target, stored)?;
     match kind {
         Kind::Dsf => write_dsf(staging, original, &bytes)?,
         _ => write_dff(

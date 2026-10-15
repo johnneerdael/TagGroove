@@ -190,46 +190,63 @@ fn strict_or_lenient_id3v1<T>(
 
 /// Read an MP4 file. Items whose integer data lofty's strict reader rejects
 /// (see [`crate::mp4_metadata::legacy_integer_items`]) are read leniently and
-/// kept verbatim; any other malformed item still fails the read.
+/// kept verbatim; any other malformed item still fails the read. A `plID`
+/// lofty drops is restored (see [`crate::mp4_metadata::odd_album_id`]).
 fn read_mp4<R: std::io::Read + Seek>(
     reader: &mut R,
     mut options: ParseOptions,
 ) -> Result<Mp4File, String> {
     let start = reader.stream_position().map_err(|e| e.to_string())?;
-    let error = match Mp4File::read_from(reader, options) {
-        Ok(file) => return Ok(file),
-        Err(error) => error_message(&error),
+    let album = crate::mp4_metadata::odd_album_id(reader).map_err(|e| e.to_string())?;
+    let album_ident = lofty::mp4::AtomIdent::Fourcc(*b"plID");
+    reader
+        .seek(SeekFrom::Start(start))
+        .map_err(|e| e.to_string())?;
+    let mut file = match Mp4File::read_from(reader, options) {
+        Ok(file) => file,
+        Err(error) => {
+            let error = error_message(&error);
+            if !error.contains("unexpected atom size for type \"BE") {
+                return Err(error);
+            }
+            reader
+                .seek(SeekFrom::Start(start))
+                .map_err(|e| e.to_string())?;
+            let (legacy, items) =
+                crate::mp4_metadata::legacy_integer_items(reader).map_err(|e| e.to_string())?;
+            if legacy.is_empty() {
+                return Err(error);
+            }
+            reader
+                .seek(SeekFrom::Start(start))
+                .map_err(|e| e.to_string())?;
+            let mut file = Mp4File::read_from(reader, options.parsing_mode(ParsingMode::Relaxed))
+                .map_err(|e| error_message(&e))?;
+            let mut ilst = file.ilst().cloned().unwrap_or_default();
+            // Only the items the lenient reader dropped are restored; lofty
+            // itself keeps an 8-byte `plID`, and an odd one is restored below.
+            let dropped: Vec<_> = legacy
+                .into_iter()
+                .filter(|atom| ilst.get(atom.ident()).is_none())
+                .filter(|atom| album.is_none() || atom.ident() != &album_ident)
+                .collect();
+            let album_dropped = album.is_some() && ilst.get(&album_ident).is_none();
+            if ilst.len() + dropped.len() + usize::from(album_dropped) != items {
+                return Err(error);
+            }
+            for atom in dropped {
+                ilst.insert(atom);
+            }
+            file.set_ilst(ilst);
+            file
+        }
     };
-    if !error.contains("unexpected atom size for type \"BE") {
-        return Err(error);
+    if let Some(album) = album {
+        let mut ilst = file.ilst().cloned().unwrap_or_default();
+        ilst.remove(&album_ident).for_each(drop);
+        ilst.insert(album);
+        file.set_ilst(ilst);
     }
-    reader
-        .seek(SeekFrom::Start(start))
-        .map_err(|e| e.to_string())?;
-    let (legacy, items) =
-        crate::mp4_metadata::legacy_integer_items(reader).map_err(|e| e.to_string())?;
-    if legacy.is_empty() {
-        return Err(error);
-    }
-    reader
-        .seek(SeekFrom::Start(start))
-        .map_err(|e| e.to_string())?;
-    let mut file = Mp4File::read_from(reader, options.parsing_mode(ParsingMode::Relaxed))
-        .map_err(|e| error_message(&e))?;
-    let mut ilst = file.ilst().cloned().unwrap_or_default();
-    // Only the items the lenient reader dropped are restored; lofty itself
-    // keeps an 8-byte `plID`.
-    let dropped: Vec<_> = legacy
-        .into_iter()
-        .filter(|atom| ilst.get(atom.ident()).is_none())
-        .collect();
-    if ilst.len() + dropped.len() != items {
-        return Err(error);
-    }
-    for atom in dropped {
-        ilst.insert(atom);
-    }
-    file.set_ilst(ilst);
     Ok(file)
 }
 
@@ -255,7 +272,7 @@ fn load(path: &Path) -> Result<TaggedFile, String> {
             }
             probe.options(options).read().map_err(|e| error_message(&e))
         })
-        .map(|(file, _)| file)
+        .map(|(file, _, phantom)| without_phantom(file, phantom))
     })?;
     if file.tag(TagType::Ape).is_some() {
         let native = native_tags(
@@ -264,7 +281,16 @@ fn load(path: &Path) -> Result<TaggedFile, String> {
         )?;
         ape_pictures(&native, &mut file)?;
     }
+    mp4_chapters::add_nero_covers(&mut file, path);
     Ok(file)
+}
+
+/// Drop the ID3v1 tag lofty read from the phantom of `ape_footer`.
+pub(super) fn without_phantom(mut file: TaggedFile, phantom: bool) -> TaggedFile {
+    if phantom {
+        file.remove(TagType::Id3v1);
+    }
+    file
 }
 
 /// Generic APE conversion intentionally omits cover binary items. Add them
@@ -343,7 +369,7 @@ struct NativeTags {
 fn native_tags(reader: &mut fs::File, kind: FileType) -> Result<NativeTags, String> {
     strict_or_lenient_id3v1(|mode| {
         crate::id3_frames::read_with_fallback(reader, |reader| native_tags_with(reader, kind, mode))
-            .map(|(native, _)| native)
+            .map(|(native, _, _)| native)
     })
 }
 fn native_tags_with(
@@ -688,7 +714,7 @@ fn read_description(
     let mut placeholders = Vec::new();
     macro_rules! read {
         ($ty:ty,$snapshot:expr) => {{
-            let (media, names) = strict_or_lenient_id3v1(|mode| {
+            let (media, names, phantom) = strict_or_lenient_id3v1(|mode| {
                 crate::id3_frames::read_with_fallback(&mut reader, |mut reader| {
                     reader.seek(SeekFrom::Start(0)).map_err(|e| e.to_string())?;
                     let mut options = parse_options;
@@ -698,7 +724,7 @@ fn read_description(
             })?;
             placeholders = names;
             let native: NativeTags = ($snapshot)(&media);
-            (TaggedFile::from(media), native)
+            (without_phantom(TaggedFile::from(media), phantom), native)
         }};
     }
     let (mut file, mut native) = match kind {
@@ -719,7 +745,9 @@ fn read_description(
                 technical: technical::mp4(media.properties()),
                 ..Default::default()
             };
-            (TaggedFile::from(media), native)
+            let mut file = TaggedFile::from(media);
+            mp4_chapters::add_nero_covers(&mut file, &path);
+            (file, native)
         }
         FileType::Wav => read!(WavFile, |f: &WavFile| NativeTags {
             id3: f.id3v2().cloned(),
@@ -1165,17 +1193,19 @@ where
                 staged_path,
                 stream,
                 |staging, original, staged_path| {
-                    crate::ape_footer::strip_colliding_header(staging)?;
-                    mutation(staging, load(original)?, staged_path)
+                    let guard = crate::ape_footer::Guard::prepare(staging)?;
+                    mutation(staging, load(original)?, staged_path)?;
+                    guard.finish(staging)
                 },
             ),
             None => {
-                // lofty's writers would take such an APE header for ID3v1.
-                crate::ape_footer::strip_colliding_header(staging)?;
+                // Trailing APE tags lofty's writers would misplace.
+                let guard = crate::ape_footer::Guard::prepare(staging)?;
                 let file = load(original)?;
                 let flac_id3 =
                     file.file_type() == FileType::Flac && file.tag(TagType::Id3v2).is_some();
                 mutation(staging, file, staged_path)?;
+                guard.finish(staging)?;
                 if flac_id3 {
                     strip_flac_id3v2(staging)?;
                 }
@@ -1403,7 +1433,12 @@ fn save_preserving_native(
                     native.insert_picture(picture.clone());
                 }
             }
-            crate::mp4_metadata::save(staging, &native, id3.mp4_single_atom)
+            crate::mp4_metadata::save(staging, &native, id3.mp4_single_atom)?;
+            if covers_changed {
+                // The covers shown, Nero ones included, are now the iTunes covers.
+                mp4_chapters::drop_nero_covers(staging)?;
+            }
+            Ok(())
         }
         TagType::VorbisComments => {
             let mut native = originals.vorbis.unwrap_or_default();
@@ -1473,8 +1508,7 @@ fn save_preserving_native(
                 .map_err(|e| e.to_string())?;
             native
                 .save_to(staging, WriteOptions::default())
-                .map_err(|e| error_message(&e))?;
-            crate::ape_footer::strip_colliding_header(staging)
+                .map_err(|e| error_message(&e))
         }
         TagType::RiffInfo => {
             let mut native = originals.riff.unwrap_or_default();
@@ -1691,6 +1725,11 @@ fn write_fields_result(
                     .and_then(|key| updates.remove(&key)),
                 _ => None,
             };
+            if file.file_type() == FileType::Mp4 {
+                // First, so the read-back of the iTunes tag sees no stale
+                // file-wide Nero value.
+                mp4_chapters::sync_nero_fields(staging, staged_path, &updates)?;
+            }
             if let Some(values) = chapters {
                 if !updates.is_empty() {
                     write_tag_fields(staging, file, staged_path, &updates, rules, options)?;
