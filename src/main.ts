@@ -43,6 +43,7 @@ import { listen } from '@tauri-apps/api/event';
 import { CoverUI, type FolderImage } from './covers';
 import { imageExtensions, type CoverInfo } from './cover-model';
 import { chapterRowReason } from './chapters';
+import { libraryOptionsPage, type CleanupReport, type LibraryStatus } from './library';
 import logoLightUrl from '../assets/brand/OpenTag-Brand-Kit/01-logos/horizontal/opentag-logo-light.svg';
 import markLightUrl from '../assets/brand/OpenTag-Brand-Kit/01-logos/marks/opentag-mark-color.svg';
 import artworkLightUrl from '../assets/brand/OpenTag-Brand-Kit/04-in-app/opentag-default-artwork-light-1024.svg';
@@ -291,6 +292,14 @@ const fileOps=new FileOpsUI({
   preferences:()=>({subfolders:optionsUI.settings.directories.subfolders,startup:startupChoice(optionsUI.settings.pages['directories-startup']?.startup)}),
 });
 registerOptionsPage(startupOptionsPage);
+registerOptionsPage(libraryOptionsPage({
+  status:()=>invoke<LibraryStatus>('library_status'),
+  cleanup:(restrict,directories,job)=>invoke<CleanupReport>('cleanup_library',{restrict,directories,job}),
+  clear:()=>invoke<LibraryStatus>('clear_library'),
+  cancel:job=>invoke('cancel_job',{job}),
+  progress:(job,update)=>listen<{job:string;done:number;total:number}>('opentag://progress',event=>{if(event.payload.job===job)update(event.payload.done,event.payload.total);}),
+  pickDirectories:async()=>{const seam=dialogSeam();if(seam){seam.requests.push({title:'Include directory in the library'});const answer=seam.answers.shift();return answer?[answer]:[];}const result=await open({directory:true,multiple:true,title:'Include directories in the library'});return result?Array.isArray(result)?result:[result]:[];},
+}));
 const dirname=(path:string)=>path.replace(/[\\/][^\\/]*$/,'')||path;
 const tagPanel=new TagPanel({
   persistent:()=>desktop,
@@ -1591,7 +1600,7 @@ async function operateImpl(op: Operation) {
   if(op==='tag-tag'){tagToTag();return;}
   if(op==='select-all'){selected.clear();visible().forEach(e=>selected.add(e.path));anchor=paths()[0];coverIndex=0;refreshSelection();return;}
   if(op==='discard'){if(await messages.confirm('unsaved_changes','Discard the pending tag changes for the selected files?','Discard changes')){paths().forEach(discardDrafts);changedData();status='Pending changes discarded';render();}return;}
-  if(op==='reload'){if(dirtySelected()&&!await messages.confirm('unsaved_changes','Reload tags from the source and discard pending changes for the selected files?','Reload tags'))return;await run('Reloading tags…',async()=>accept(await invoke<Batch>('scan_files',{paths:paths(),recursive:false}),'Reloaded'));return;}
+  if(op==='reload'){if(dirtySelected()&&!await messages.confirm('unsaved_changes','Reload tags from the source and discard pending changes for the selected files?','Reload tags'))return;await run('Reloading tags…',async()=>accept(await invoke<Batch>('scan_files',{paths:paths(),recursive:false,refresh:true}),'Reloaded'));return;}
   if(op==='extended'){extendedTags.show();return;}
   if(op==='filename-tags'||op==='tags-filename'){converter(op==='tags-filename');return;}
   if(op==='filename-filename'||op==='text-tags'){reviewedConverter(op==='filename-filename'?'filename':'text');return;}

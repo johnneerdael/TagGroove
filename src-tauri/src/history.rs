@@ -113,6 +113,22 @@ pub fn record_with_side_files<T: Changes>(
     paths: &[String],
     work: impl FnOnce(&mut dyn FnMut(&Path) -> Result<(), String>) -> Result<T, String>,
 ) -> Result<T, String> {
+    let result = journal_work(label, group, paths, work);
+    // The library reads written, renamed and moved files again.
+    let (renamed, directories) = result
+        .as_ref()
+        .map(|r| (r.renamed(), r.directories()))
+        .unwrap_or_default();
+    super::library::changed(paths, &renamed, &directories);
+    result
+}
+
+fn journal_work<T: Changes>(
+    label: &str,
+    group: Option<&str>,
+    paths: &[String],
+    work: impl FnOnce(&mut dyn FnMut(&Path) -> Result<(), String>) -> Result<T, String>,
+) -> Result<T, String> {
     // Chapter and cue sheet rows are snapshots of their file.
     let mut local: Vec<String> = Vec::new();
     for path in paths {
@@ -165,6 +181,7 @@ fn replay(backward: bool) -> Result<HistoryResult, String> {
             journal.redo()
         }
     })??;
+    super::library::changed(&replay.paths, &replay.renamed, &replay.directories);
     let mut result = super::batch(&replay.paths, super::settings::read_summary);
     result.errors.extend(replay.errors);
     let changes = |pairs: Vec<(String, String)>| {

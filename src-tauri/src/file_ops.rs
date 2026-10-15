@@ -162,7 +162,9 @@ fn move_to_trash(_: &Path) -> Result<(), String> {
 pub async fn trash_files(paths: Vec<String>) -> Result<TrashResult, String> {
     super::io(move || {
         super::reject_provider_operation(&paths, "Delete")?;
-        Ok(trash_paths(&paths, move_to_trash))
+        let result = trash_paths(&paths, move_to_trash);
+        super::library::changed(&paths, &[], &[]);
+        Ok(result)
     })
     .await
 }
@@ -177,7 +179,9 @@ pub fn delete_paths(paths: &[String]) -> TrashResult {
 pub async fn delete_files_permanently(paths: Vec<String>) -> Result<TrashResult, String> {
     super::io(move || {
         super::reject_provider_operation(&paths, "Delete")?;
-        Ok(delete_paths(&paths))
+        let result = delete_paths(&paths);
+        super::library::changed(&paths, &[], &[]);
+        Ok(result)
     })
     .await
 }
@@ -371,7 +375,14 @@ pub async fn transfer_files(
     super::io(move || {
         super::reject_provider_operation(&paths, "Copy and move")?;
         super::reject_provider_operation(std::slice::from_ref(&destination), "Destination")?;
-        Ok(transfer(&paths, Path::new(&destination), mode))
+        let output = transfer(&paths, Path::new(&destination), mode);
+        let moved: Vec<(String, String)> = output
+            .renamed
+            .iter()
+            .map(|r| (r.from.clone(), r.to.clone()))
+            .collect();
+        super::library::changed(&[], &moved, &[]);
+        Ok(output)
     })
     .await
 }

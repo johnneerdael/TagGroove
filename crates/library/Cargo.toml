@@ -1,0 +1,17 @@
+[package]
+name = "opentag-library"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Options → Library: a persistent database of the metadata OpenTag read from files"
+
+[dependencies]
+tag-core = { path = "../tag-core" }
+dunce = "1"
+rusqlite = { version = "0.40", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+
+[dev-dependencies]
+tempfile = "3"

@@ -193,6 +193,11 @@ impl Settings {
                 .map_err(|e| format!("Networking: {e}"))?
                 .validate()?;
         }
+        if let Some(value) = self.pages.get("library") {
+            serde_json::from_value::<crate::library::LibraryOptions>(value.clone())
+                .map_err(|e| format!("Library: {e}"))?
+                .validate()?;
+        }
         for (id, value) in &self.pages {
             if id.is_empty()
                 || !id
