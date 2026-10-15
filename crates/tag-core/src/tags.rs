@@ -175,22 +175,67 @@ fn strict_or_lenient_id3v1<T>(
     }
 }
 
+/// Read an MP4 file. Items whose integer data lofty's strict reader rejects
+/// (see [`crate::mp4_metadata::legacy_integer_items`]) are read leniently and
+/// kept verbatim; any other malformed item still fails the read.
+fn read_mp4<R: std::io::Read + Seek>(
+    reader: &mut R,
+    mut options: ParseOptions,
+) -> Result<Mp4File, String> {
+    let start = reader.stream_position().map_err(|e| e.to_string())?;
+    let error = match Mp4File::read_from(reader, options) {
+        Ok(file) => return Ok(file),
+        Err(error) => error_message(&error),
+    };
+    if !error.contains("unexpected atom size for type \"BE") {
+        return Err(error);
+    }
+    reader
+        .seek(SeekFrom::Start(start))
+        .map_err(|e| e.to_string())?;
+    let (legacy, items) =
+        crate::mp4_metadata::legacy_integer_items(reader).map_err(|e| e.to_string())?;
+    if legacy.is_empty() {
+        return Err(error);
+    }
+    reader
+        .seek(SeekFrom::Start(start))
+        .map_err(|e| e.to_string())?;
+    let mut file = Mp4File::read_from(reader, options.parsing_mode(ParsingMode::Relaxed))
+        .map_err(|e| error_message(&e))?;
+    let mut ilst = file.ilst().cloned().unwrap_or_default();
+    // Only the items the lenient reader dropped are restored; lofty itself
+    // keeps an 8-byte `plID`.
+    let dropped: Vec<_> = legacy
+        .into_iter()
+        .filter(|atom| ilst.get(atom.ident()).is_none())
+        .collect();
+    if ilst.len() + dropped.len() != items {
+        return Err(error);
+    }
+    for atom in dropped {
+        ilst.insert(atom);
+    }
+    file.set_ilst(ilst);
+    Ok(file)
+}
+
 fn load(path: &Path) -> Result<TaggedFile, String> {
     if let Some(stream) = container_formats::detect_stream(path) {
         return container_formats::raw_streams::load(path, stream);
     }
     let mut file = strict_or_lenient_id3v1(|mode| {
-        Probe::open(path)
+        let probe = Probe::open(path)
             .map_err(|e| e.to_string())?
             .guess_file_type()
-            .map_err(|e| e.to_string())?
-            .options(
-                ParseOptions::new()
-                    .implicit_conversions(false)
-                    .parsing_mode(mode),
-            )
-            .read()
-            .map_err(|e| error_message(&e))
+            .map_err(|e| e.to_string())?;
+        let options = ParseOptions::new()
+            .implicit_conversions(false)
+            .parsing_mode(mode);
+        if probe.file_type() == Some(FileType::Mp4) {
+            return read_mp4(&mut probe.into_inner(), options).map(TaggedFile::from);
+        }
+        probe.options(options).read().map_err(|e| error_message(&e))
     })?;
     if file.tag(TagType::Ape).is_some() {
         let native = native_tags(
@@ -361,8 +406,7 @@ fn native_tags_with(
             native.id3 = file.id3v2().cloned();
         }
         FileType::Mp4 => {
-            let file = Mp4File::read_from(reader, options).map_err(|e| error_message(&e))?;
-            native.ilst = file.ilst().cloned();
+            native.ilst = read_mp4(reader, options)?.ilst().cloned();
         }
         _ => {}
     }
@@ -630,11 +674,15 @@ fn read_description(
             technical: technical::mpeg(f.properties()),
             ..Default::default()
         }),
-        FileType::Mp4 => read!(Mp4File, |f: &Mp4File| NativeTags {
-            ilst: f.ilst().cloned(),
-            technical: technical::mp4(f.properties()),
-            ..Default::default()
-        }),
+        FileType::Mp4 => {
+            let media = read_mp4(&mut reader, parse_options)?;
+            let native = NativeTags {
+                ilst: media.ilst().cloned(),
+                technical: technical::mp4(media.properties()),
+                ..Default::default()
+            };
+            (TaggedFile::from(media), native)
+        }
         FileType::Wav => read!(WavFile, |f: &WavFile| NativeTags {
             id3: f.id3v2().cloned(),
             riff: f.riff_info().cloned(),

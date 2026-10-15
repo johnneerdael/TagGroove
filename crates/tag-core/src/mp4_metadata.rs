@@ -113,8 +113,8 @@ fn free_atom(size: usize) -> Vec<u8> {
 type TopAtom = ([u8; 4], Range<u64>);
 
 /// Top-level atoms of the file, or `None` when they do not tile it.
-fn top_level(file: &mut File) -> std::io::Result<Option<Vec<TopAtom>>> {
-    let length = file.metadata()?.len();
+fn top_level(file: &mut (impl Read + Seek)) -> std::io::Result<Option<Vec<TopAtom>>> {
+    let length = file.seek(SeekFrom::End(0))?;
     let mut atoms = Vec::new();
     let mut at = 0u64;
     while at + 8 <= length {
@@ -138,11 +138,88 @@ fn top_level(file: &mut File) -> std::io::Result<Option<Vec<TopAtom>>> {
     Ok(Some(atoms))
 }
 
-fn read_range(file: &mut File, range: &Range<u64>) -> std::io::Result<Vec<u8>> {
+fn read_range(file: &mut (impl Read + Seek), range: &Range<u64>) -> std::io::Result<Vec<u8>> {
     let mut bytes = vec![0; usize::try_from(range.end - range.start).unwrap_or(usize::MAX)];
     file.seek(SeekFrom::Start(range.start))?;
     file.read_exact(&mut bytes)?;
     Ok(bytes)
+}
+
+/// lofty's strict reader rejects an `ilst` item whose integer `data` is not
+/// one to four bytes long, such as the 8-byte `plID` (ITUNESALBUMID) older
+/// iTunes versions stored as a signed integer; its relaxed reader drops the
+/// item. These are such items, with their data kept verbatim so a later save
+/// writes them back unchanged, and the number of items in the `ilst`.
+pub(crate) fn legacy_integer_items(
+    reader: &mut (impl Read + Seek),
+) -> std::io::Result<(Vec<lofty::mp4::Atom<'static>>, usize)> {
+    use lofty::mp4::{Atom as Item, AtomData, AtomIdent, DataType};
+    let none = (Vec::new(), 0);
+    let Some(moov) = top_level(reader)?.and_then(|top| {
+        top.into_iter()
+            .find(|(kind, _)| kind == b"moov")
+            .map(|(_, range)| range)
+    }) else {
+        return Ok(none);
+    };
+    let moov = read_range(reader, &moov)?;
+    let Some(ilst) = meta(&moov)
+        .and_then(|(_, _, children)| children.into_iter().find(|atom| &atom.kind == b"ilst"))
+    else {
+        return Ok(none);
+    };
+    let Some(items) = atoms(&moov, ilst.content()) else {
+        return Ok(none);
+    };
+    let text = |atom: &Atom| {
+        // `mean` and `name` are full atoms: version and flags come first.
+        moov.get(atom.content().start + 4..atom.end)
+            .map(|bytes| String::from_utf8_lossy(bytes).into_owned())
+    };
+    let mut legacy = Vec::new();
+    for item in &items {
+        let Some(children) = atoms(&moov, item.content()) else {
+            continue;
+        };
+        let mut values = Vec::new();
+        let mut odd = false;
+        for data in children.iter().filter(|atom| &atom.kind == b"data") {
+            let Some(content) = moov.get(data.content()) else {
+                continue;
+            };
+            if content.len() < 8 || content[0] != 0 {
+                continue;
+            }
+            let code = u32::from_be_bytes([0, content[1], content[2], content[3]]);
+            let payload = &content[8..];
+            if matches!(code, 21 | 22) && !(1..=4).contains(&payload.len()) {
+                odd = true;
+            }
+            values.push(AtomData::Unknown {
+                code: DataType::from(code),
+                data: payload.to_vec(),
+            });
+        }
+        if !odd {
+            continue;
+        }
+        let ident = if &item.kind == b"----" {
+            let find = |kind: &[u8; 4]| children.iter().find(|a| &a.kind == kind).and_then(text);
+            let (Some(mean), Some(name)) = (find(b"mean"), find(b"name")) else {
+                continue;
+            };
+            AtomIdent::Freeform {
+                mean: mean.into(),
+                name: name.into(),
+            }
+        } else {
+            AtomIdent::Fourcc(item.kind)
+        };
+        if let Some(atom) = Item::from_collection(ident, values) {
+            legacy.push(atom);
+        }
+    }
+    Ok((legacy, items.len()))
 }
 
 /// Write `tag` into the MP4 file, in place when the `free` atoms allow it.

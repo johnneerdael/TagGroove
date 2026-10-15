@@ -366,3 +366,118 @@ fn ffmpeg_aac_and_wavpack_decode_identically_after_tagging() {
         );
     }
 }
+
+fn encode(path: &Path, codec: &str) -> bool {
+    if !tool("ffmpeg") {
+        eprintln!("Skipping: ffmpeg is required");
+        return false;
+    }
+    let output = Command::new("ffmpeg")
+        .args([
+            "-v",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=440:duration=1",
+        ])
+        .args(["-ac", "2", "-c:a", codec])
+        .arg(path)
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    true
+}
+
+/// The item atom `ident` with one `data` atom of `code` holding `payload`.
+fn item(ident: &[u8; 4], code: u8, payload: &[u8]) -> Vec<u8> {
+    let mut data = ((16 + payload.len()) as u32).to_be_bytes().to_vec();
+    data.extend(b"data");
+    data.extend([0, 0, 0, code, 0, 0, 0, 0]);
+    data.extend(payload);
+    let mut item = ((8 + data.len()) as u32).to_be_bytes().to_vec();
+    item.extend(ident);
+    item.extend(data);
+    item
+}
+
+#[test]
+fn legacy_eight_byte_integer_atoms_are_read_kept_and_editable() {
+    use lofty::mp4::{Atom, AtomData, AtomIdent, DataType, Mp4File};
+    use lofty::prelude::*;
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("legacy.m4a");
+    if !encode(&path, "aac") {
+        return;
+    }
+    let album: u64 = 1_234_567_890_123;
+    let catalog: u64 = 9_876_543_210;
+    let mut file = Mp4File::read_from(
+        &mut fs::File::open(&path).unwrap(),
+        lofty::config::ParseOptions::new(),
+    )
+    .unwrap();
+    let mut ilst = file.ilst().cloned().unwrap_or_default();
+    ilst.set_title("Legacy".into());
+    // Older iTunes versions label 8-byte IDs as 32-bit signed integers.
+    for (ident, value) in [(*b"plID", album), (*b"cnID", catalog)] {
+        ilst.insert(Atom::new(
+            AtomIdent::Fourcc(ident),
+            AtomData::Unknown {
+                code: DataType::BeSignedInteger,
+                data: value.to_be_bytes().to_vec(),
+            },
+        ));
+    }
+    file.set_ilst(ilst);
+    file.save_to_path(&path, lofty::config::WriteOptions::default())
+        .unwrap();
+    let plid = item(b"plID", 21, &album.to_be_bytes());
+    let cnid = item(b"cnID", 21, &catalog.to_be_bytes());
+    let original = fs::read(&path).unwrap();
+    assert!(contains(&original, &plid).is_some() && contains(&original, &cnid).is_some());
+    // lofty's strict reader refuses the 8-byte cnID (it special-cases plID),
+    // and its lenient reader drops it.
+    let strict = |path: &Path| {
+        lofty::probe::Probe::open(path)
+            .unwrap()
+            .options(
+                lofty::config::ParseOptions::new().parsing_mode(lofty::config::ParsingMode::Strict),
+            )
+            .read()
+    };
+    assert!(strict(&path).is_err());
+
+    let entry = read_entry(&path).unwrap();
+    assert_eq!(value(&entry, "ITUNESALBUMID"), Some(album.to_string()));
+    assert_eq!(value(&entry, "ITUNESCATALOGID"), Some(catalog.to_string()));
+    assert_eq!(value(&entry, "TITLE").as_deref(), Some("Legacy"));
+
+    // Other edits keep both atoms byte for byte.
+    let written = write_fields(&path, &fields(&[("TITLE", &["Edited"])])).unwrap();
+    assert_eq!(value(&written, "ITUNESALBUMID"), Some(album.to_string()));
+    assert_eq!(
+        value(&written, "ITUNESCATALOGID"),
+        Some(catalog.to_string())
+    );
+    let after = fs::read(&path).unwrap();
+    assert!(contains(&after, &plid).is_some() && contains(&after, &cnid).is_some());
+
+    // Editing the fields writes their documented types.
+    let written = write_fields(
+        &path,
+        &fields(&[("ITUNESALBUMID", &["77"]), ("ITUNESCATALOGID", &["78"])]),
+    )
+    .unwrap();
+    assert_eq!(value(&written, "ITUNESALBUMID").as_deref(), Some("77"));
+    assert_eq!(value(&written, "ITUNESCATALOGID").as_deref(), Some("78"));
+    let after = fs::read(&path).unwrap();
+    assert!(contains(&after, &plid).is_none());
+    assert!(contains(&after, &item(b"plID", 78, &77u64.to_be_bytes())).is_some());
+    assert!(contains(&after, &cnid).is_none());
+    assert!(strict(&path).is_ok());
+}
