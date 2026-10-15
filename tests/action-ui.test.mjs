@@ -5,7 +5,7 @@ import ts from 'typescript';
 
 const source = await readFile(new URL('../src/action-ui.ts', import.meta.url), 'utf8');
 const javascript = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 } }).outputText;
-const { actionCatalog, panelKey, moveItem, renameGroup, removeGroup, applyPreset, menuSegments, resolvePathChanges, mnemonicMarkup, sortGroups, enabledSummary, copyName, codepageChoices, qualityPresets } = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);
+const { actionCatalog, panelKey, moveItem, renameGroup, removeGroup, applyPreset, menuSegments, resolvePathChanges, rebaseCaseOnly, mnemonicMarkup, sortGroups, enabledSummary, copyName, codepageChoices, qualityPresets } = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);
 const library = () => ({groups:[{name:'First',enabled:true,actions:[{type:'format_value',field:'TITLE',template:'text'}]},{name:'Second',enabled:false,actions:[]}],presets:[{name:'Only first',enabled_groups:['First']}]});
 
 test('catalog exposes every documented action type exactly once', () => {
@@ -57,4 +57,9 @@ test('every Convert Codepage choice is understood by the native converter',async
   assert.equal(new Set(codepageChoices.map(([id])=>id)).size,codepageChoices.length);
   for(const [id] of codepageChoices)assert.match(table,new RegExp(`"${id}"`),id);
   assert.deepEqual(qualityPresets.map(([,label])=>label),['Best','High','Medium','Low']);
+});
+
+test('list folders follow folder renames that change only the letter case', () => {
+  const moves=[{from:'/music/album',to:'/music/ALBUM'},{from:'/music/other',to:'/music/renamed'}];
+  assert.deepEqual(rebaseCaseOnly(['/music/album','/music/album/disc 1','/music/other','/elsewhere'],moves),['/music/ALBUM','/music/ALBUM/disc 1','/music/other','/elsewhere']);
 });

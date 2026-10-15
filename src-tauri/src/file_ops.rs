@@ -217,7 +217,8 @@ pub fn plan_transfer(
                 .parent()
                 .and_then(|p| std::fs::canonicalize(p).ok())
                 .ok_or("Cannot resolve the source folder")?;
-            if parent == destination {
+            // The same folder may be spelled in another case on case-insensitive volumes.
+            if parent == destination || tag_core::operations::is_case_alias(&parent, &destination) {
                 return Err("The file is already in the destination folder".to_string());
             }
             let target = destination.join(name);

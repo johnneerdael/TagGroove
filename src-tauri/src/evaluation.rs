@@ -20,6 +20,8 @@ pub struct EvaluationSettings {
     pub export_write_bom: bool,
     pub export_create_directories: bool,
     pub export_template_inline: bool,
+    /// Options → Files "Replace folder separator in tag values with".
+    pub folder_separator: String,
 }
 
 impl Default for EvaluationSettings {
@@ -40,6 +42,7 @@ impl Default for EvaluationSettings {
             export_write_bom: false,
             export_create_directories: true,
             export_template_inline: false,
+            folder_separator: tag_core::DEFAULT_FOLDER_SEPARATOR.into(),
         }
     }
 }
@@ -73,6 +76,7 @@ impl EvaluationSettings {
                 .map_err(|e| e.to_string())?
                 .to_string_lossy()
                 .into_owned(),
+            folder_separator: crate::settings::current().files.folder_separator,
             ..Default::default()
         })
     }
@@ -89,6 +93,7 @@ impl EvaluationSettings {
         context.app_directory = Some(&self.app_directory);
         context.app_data_directory = Some(&self.app_data_directory);
         context.timestamp_seconds = Some(self.timestamp_seconds);
+        context.folder_separator = Some(&self.folder_separator);
         #[cfg(windows)]
         {
             context.ansi_codepage = Some(windows_ansi_codepage().to_string());
@@ -137,10 +142,40 @@ impl EvaluationSettings {
         identity: &str,
         use_snapshot: bool,
     ) -> Result<String, String> {
+        self.evaluate_mode(template, raw, technical, identity, use_snapshot, false)
+    }
+
+    /// Evaluate a `_FILENAME`/`_DIRECTORY` target the way Tag → Filename does:
+    /// separators in tag values are replaced, literal ones kept.
+    pub fn evaluate_filename(
+        &self,
+        template: &str,
+        raw: &Fields,
+        technical: &Fields,
+        identity: &str,
+        use_snapshot: bool,
+    ) -> Result<String, String> {
+        self.evaluate_mode(template, raw, technical, identity, use_snapshot, true)
+    }
+
+    fn evaluate_mode(
+        &self,
+        template: &str,
+        raw: &Fields,
+        technical: &Fields,
+        identity: &str,
+        use_snapshot: bool,
+        filename: bool,
+    ) -> Result<String, String> {
         let mut fields = raw.clone();
         fields.extend(technical.clone());
         let columns = self.column_values(&fields, raw, identity, use_snapshot)?;
-        tag_core::evaluate_with_context(template, &self.context(&fields, raw, Some(&columns)))
+        let context = self.context(&fields, raw, Some(&columns));
+        if filename {
+            tag_core::evaluate_filename_with_context(template, &context)
+        } else {
+            tag_core::evaluate_with_context(template, &context)
+        }
     }
 
     pub fn matches(

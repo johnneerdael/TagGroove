@@ -9,7 +9,7 @@ export type TagOptions={
   /** Options → Tags → Mapping, edited by the page in field-mapping.ts. */
   mappings:{tag_type:string;source:string;target:string}[];
 };
-export type Settings={version:number;general:{natural_sort:boolean;show_directory_in_title:boolean};files:{restrict_extensions:string};directories:{subfolders:boolean};tags:TagOptions;pages:Record<string,Record<string,unknown>>};
+export type Settings={version:number;general:{natural_sort:boolean;show_directory_in_title:boolean};files:{restrict_extensions:string;folder_separator:string};directories:{subfolders:boolean};tags:TagOptions;pages:Record<string,Record<string,unknown>>};
 export type SettingsResponse={settings:Settings;defaults:Settings;warning:string|null};
 /** Values edited in the dialog: persisted settings plus the per-device appearance choice. */
 export type OptionsDraft=Settings&{appearance:string};
@@ -35,7 +35,7 @@ export type OptionsHost={
   applied:(next:Settings,previous:Settings)=>void|Promise<void>;
 };
 
-export const defaultSettings=():Settings=>({version:1,general:{natural_sort:true,show_directory_in_title:true},files:{restrict_extensions:''},directories:{subfolders:true},
+export const defaultSettings=():Settings=>({version:1,general:{natural_sort:true,show_directory_in_title:true},files:{restrict_extensions:'',folder_separator:'_'},directories:{subfolders:true},
   tags:{mpeg:{read_id3v1:true,read_id3v2:true,read_ape:true,write_id3v1:true,write_id3v2:true,write_ape:false,id3v2_only_if_needed:false,id3v2_format:'v23_utf16',remove_id3v1:true,remove_id3v2:true,remove_ape:true},
     ape:{read_id3v1:true,read_ape:true,write_id3v1:false,write_ape:true,remove_id3v1:true,remove_id3v2:false,remove_ape:true},
     advanced:{id3v2_comment_language:'eng',popularimeter_ratings:false,matroska_video_mapping:true},preserve_modified_time:false,mappings:[]},pages:{}});
@@ -90,6 +90,11 @@ export function parseExtensions(value:string):string[]|null{
   }
   return output.length?output:null;
 }
+/** Mirror of `tag_core::validate_folder_separator`: the replacement for \ and / in tag values must not itself be a separator or an invalid filename character. */
+export function folderSeparatorProblem(value:string){
+  if([...value].length>16)return'The folder separator replacement is limited to 16 characters.';
+  return/[\\/:*?"<>|\u0000-\u001f]/.test(value)?'The folder separator replacement cannot contain \\ / : * ? " < > | or control characters.':undefined;
+}
 /** Mirror of the backend validation, reported with the page that needs attention. */
 export function validateOptions(draft:OptionsDraft,pages:OptionsPage[]=[...registry.values()]):{page:string;message:string}|undefined{
   const {mpeg,ape,advanced}=draft.tags;
@@ -97,6 +102,7 @@ export function validateOptions(draft:OptionsDraft,pages:OptionsPage[]=[...regis
   if(!mpeg.write_id3v1&&!mpeg.write_id3v2&&!mpeg.write_ape)return{page:'tags-mpeg',message:'Enable at least one tag type to write for MPEG files.'};
   if(!ape.write_id3v1&&!ape.write_ape)return{page:'tags-ape',message:'Enable at least one tag type to write for APE, MPC and WavPack files.'};
   try{parseExtensions(draft.files.restrict_extensions);}catch(error){return{page:'files',message:String((error as Error).message)};}
+  const separatorProblem=folderSeparatorProblem(draft.files.folder_separator??'_');if(separatorProblem)return{page:'files',message:separatorProblem};
   for(const page of pages){const message=page.validate?.(draft);if(message)return{page:page.id,message};}
   return undefined;
 }
@@ -118,6 +124,8 @@ for(const page of [
   {id:'files',label:'Files',order:20,controls:[
     {kind:'group',label:'Read files',controls:[{kind:'text',path:'files.restrict_extensions',label:'Restrict incoming files to',placeholder:'All supported formats (for example *.mp3;*.flac)'},
       {kind:'note',text:'Applies to folders. Files you add individually are always read.'}]},
+    {kind:'group',label:'Rename files from tags',controls:[{kind:'text',path:'files.folder_separator',label:'Replace folder separator in tag values with',placeholder:'Nothing: remove separators',maxLength:16},
+      {kind:'note',text:'Replaces \\ and / inside tag values when Tag → Filename, Format Value, Guess Values or Tag → Tag rename files, so a value such as Rock\\Classic does not create a folder. Leave empty to remove them. Separators typed in the format string itself still create folders.'}]},
     {kind:'group',label:'Write files',controls:[{kind:'checkbox',path:'tags.preserve_modified_time',label:'Preserve timestamps of modified files'}]}]},
   {id:'directories',label:'Directories',order:30,controls:[{kind:'checkbox',path:'directories.subfolders',label:'Read subfolders'}]},
   {id:'appearance',label:'Appearance',order:40,defaults:{...APPEARANCE_DEFAULTS},controls:[{kind:'select',path:'appearance',label:'Color mode',choices:[['system','System'],['light','Light'],['dark','Dark']]},

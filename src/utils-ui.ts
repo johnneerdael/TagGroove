@@ -29,7 +29,7 @@ export const REMOVABLE_TAGS:[RemovableTag,string][]=[['id3v1','ID3v1'],['id3v2',
 /** Kinds present in a `_TAG` technical value such as "ID3v2.3 ID3v1". */
 export function presentTagKinds(tag:string|undefined):Set<RemovableTag>{
   const kinds=new Set<RemovableTag>();
-  for(const token of (tag||'').split(/\s+/)){if(token==='ID3v1')kinds.add('id3v1');else if(/^ID3v2/.test(token))kinds.add('id3v2');else if(token==='APE')kinds.add('ape');}
+  for(const token of (tag||'').split(/\s+/)){if(token==='ID3v1')kinds.add('id3v1');else if(/^ID3v2/.test(token))kinds.add('id3v2');else if(/^APE/.test(token))kinds.add('ape');}
   return kinds;
 }
 export function tagKindCounts(tags:(string|undefined)[]):Record<RemovableTag,number>{
