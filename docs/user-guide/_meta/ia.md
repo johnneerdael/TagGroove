@@ -60,16 +60,26 @@ Design decisions:
   Those four pages are stubs marked *waiting for merge*: the sources are
   being built on other branches. Write them once the sources are on main.
 
-## Status legend
+## Status: computed, never edited by hand
 
-| Status | Meaning |
-|---|---|
-| written (exemplar) | Written in phase 1 to the full standard. Use as a model |
-| planned | Stub with a scope brief; to be written in phase 2 |
-| waiting for merge | The feature isn't on main yet |
-| written | Finished in phase 2 (writers update this column) |
+A page's status is its front matter. A page with `status: draft` is not
+finished; removing that line marks it written. Nothing else records status,
+so writers working in parallel never edit the same file for bookkeeping:
+**don't edit this file to report progress**.
 
-The status refers to the **first** page listed in each row.
+```bash
+python3 scripts/docs-status.py              # written / total per tab
+python3 scripts/docs-status.py --drafts     # every page still to write
+python3 scripts/docs-status.py --coverage   # the coverage map below, with live status
+```
+
+`--coverage` reads the table below and reports each Mp3tag topic as
+*written* (all mapped pages written), *partial* or *planned*. iTunes,
+Deezer, LRCLIB and AcoustID are stubs that wait for those sources to reach
+main. They stay drafts until then.
+
+Edit this file only to change the plan itself (a page added, split or
+renamed). Do that in a PR of its own, or tell the docs lead.
 
 ## Coverage map: Mp3tag documentation → OpenTag guide
 
@@ -81,102 +91,102 @@ in our own words and from OpenTag's actual behaviour. Never copy prose,
 examples or tables from the source. A sub-topic that OpenTag doesn't
 implement is documented as such, or left out with a note in the PR.
 
-| Mp3tag page | Topic | OpenTag page(s) | Sub-topics to cover | Status |
-|---|---|---|---|---|
-| `actions` | Actions | [`actions/index.md`](../actions/index.md), [`learn/first-action-group.md`](../learn/first-action-group.md) | Action Types; Quick Actions; Action Groups; Adding, Duplicating, and Removing Action Groups; Rearranging Action Groups; Enabling and Disabling Action Groups; Loading and Saving of Selection Presets; Editing Action Groups; Organizing Action Groups; Action Types | planned |
-| `actions/adjust-cover` | Adjust Cover | [`actions/adjust-cover.md`](../actions/adjust-cover.md) | — | planned |
-| `actions/case-conversion` | Case Conversion | [`actions/case-conversion.md`](../actions/case-conversion.md) | Special Fields | planned |
-| `actions/convert-codepage` | Convert Codepage | [`actions/convert-codepage.md`](../actions/convert-codepage.md) | — | planned |
-| `actions/export` | Export | [`actions/export.md`](../actions/export.md) | — | planned |
-| `actions/export-cover` | Export Cover to File | [`actions/export-cover.md`](../actions/export-cover.md) | — | planned |
-| `actions/format` | Format Value | [`actions/format-value.md`](../actions/format-value.md) | — | planned |
-| `actions/generate-playlists` | Generate Playlists | [`actions/generate-playlists.md`](../actions/generate-playlists.md) | — | planned |
-| `actions/guess` | Guess Values | [`actions/guess-values.md`](../actions/guess-values.md) | — | planned |
-| `actions/import-cover` | Import Cover from File | [`actions/import-cover.md`](../actions/import-cover.md) | — | planned |
-| `actions/import-text` | Import Text File | [`actions/import-text-file.md`](../actions/import-text-file.md) | — | planned |
-| `actions/merge-duplicate-fields` | Merge Duplicate Fields | [`actions/merge-duplicate-fields.md`](../actions/merge-duplicate-fields.md) | Special Fields | planned |
-| `actions/remove-duplicate-fields` | Remove Duplicate Fields | [`actions/remove-duplicate-fields.md`](../actions/remove-duplicate-fields.md) | — | planned |
-| `actions/remove-fields` | Remove Fields | [`actions/remove-fields.md`](../actions/remove-fields.md) | Removing embedded cover art | planned |
-| `actions/remove-fields-except` | Remove Fields Except | [`actions/remove-fields-except.md`](../actions/remove-fields-except.md) | Preserving embedded cover art | planned |
-| `actions/replace` | Replace | [`actions/replace.md`](../actions/replace.md) | Special Fields | planned |
-| `actions/replace-regexp` | Replace with Regular Expression | [`actions/replace-regexp.md`](../actions/replace-regexp.md) | Special Fields | planned |
-| `actions/set-cover-properties` | Set Cover Properties | [`actions/set-cover-properties.md`](../actions/set-cover-properties.md) | — | planned |
-| `actions/split-field` | Split Field by Separator | [`actions/split-field.md`](../actions/split-field.md) | Special Fields | planned |
-| `command-line` | Command Line Interface | [`reference/command-line.md`](../reference/command-line.md) | Start with directory; Start with file; Add directory or file; Further Commands | planned |
-| `converters` | Converters | [`converters/index.md`](../converters/index.md) | Available Converters | planned |
-| `converters/auto-numbering` | Auto Track- and Disc-Numbering | [`converters/auto-numbering.md`](../converters/auto-numbering.md), [`concepts/track-and-disc-numbers.md`](../concepts/track-and-disc-numbers.md) | Tracknumbers; Begin at tracknumber; Save total count of tracks; Leading zeros for tracknumbers; Discnumbers; Begin at discnumber; Save total count of discs; Leading zeros for discnumbers; Resetting and Incrementing Counters; Next disc on change of directory; Next disc on change of field; Reset track counter on next disc; Reset disc counter on change of field | planned |
-| `converters/copy-compose-tags` | Copy and Compose Contents from Tags | [`converters/tag-to-tag.md`](../converters/tag-to-tag.md) | — | planned |
-| `converters/import-tags-from-filenames` | Import Tags from File and Folder Names | [`converters/filename-to-tag.md`](../converters/filename-to-tag.md), [`learn/tags-from-filenames.md`](../learn/tags-from-filenames.md) | Import Parts of the File Name to the Tag; Import Parts of the Folder Structure to the Tag | planned |
-| `converters/import-tags-from-text-files` | Import Tags from Text Files | [`converters/text-file-to-tag.md`](../converters/text-file-to-tag.md) | Matching files from the text file to Mp3tag’s File List | planned |
-| `converters/rearrange-filenames` | Rearrange Parts of File Names | [`converters/filename-to-filename.md`](../converters/filename-to-filename.md) | Simple Example; Complex Example | planned |
-| `converters/rename-files` | Rename Files | [`converters/tag-to-filename.md`](../converters/tag-to-filename.md), [`learn/rename-files-and-folders.md`](../learn/rename-files-and-folders.md) | Rename Files based on Tags; Create Folder Structures based on Tags | planned |
-| `credits` | Credits | [`help/about.md`](../help/about.md) | Special thanks to… | planned |
-| `customization` | Customization | [`customize/index.md`](../customize/index.md) | — | planned |
-| `customization/file-list` | File List | [`customize/columns.md`](../customize/columns.md), [`guides/file-list.md`](../guides/file-list.md) | Adding and Removing Columns; Rearranging Columns; Hiding and Showing Columns; Editing Columns; Loading and Saving of Configurations | planned |
-| `customization/options` | Options | [`reference/options/index.md`](../reference/options/index.md) | — | planned |
-| `customization/options/appearance` | Appearance | [`reference/options/appearance.md`](../reference/options/appearance.md) | Color Mode; Symbols; Toolbar Scaling; User Interface Scaling; Display grid lines in file view | planned |
-| `customization/options/directories` | Directories | [`reference/options/directories.md`](../reference/options/directories.md) | Subfolders; Favorite directory; Startup directory; Cover art directory | planned |
-| `customization/options/export` | Export | [`reference/options/export.md`](../reference/options/export.md) | — | planned |
-| `customization/options/field-values` | Field Values | [`reference/options/field-values.md`](../reference/options/field-values.md) | — | planned |
-| `customization/options/files` | Files | [`reference/options/files.md`](../reference/options/files.md) | Read Files; Restrict incoming files to; Rename Files from Tags; Replace folder separator in tag values with; Write Files; Preserve timestamps of modified files | planned |
-| `customization/options/general` | General | [`reference/options/general.md`](../reference/options/general.md) | General; Show current directory in window title; Automatically select next file when editing in file view; Auto-completion at selection boxes; Use natural sorting; Select files automatically; Keep moved files in the file list; Notification Area; Always show icon in notification area; Minimize to notification area | planned |
-| `customization/options/language` | Language | [`reference/options/language.md`](../reference/options/language.md) | — | planned |
-| `customization/options/library` | Library | [`reference/options/library.md`](../reference/options/library.md) | Enable Library; Only include these directories; Cleanup Library; Further Tips and Troubleshooting; Exclude the process mp3tag.exe from Windows Defender; Use Mp3tag and its settings on an SSD | planned |
-| `customization/options/messages` | Messages | [`reference/options/messages.md`](../reference/options/messages.md) | after save; after change; after delete; at removing tags; at cutting tags; at pasting tags; at exporting tags; at deleting files; at warnings from Actions; at unsaved changes; at importing covers | planned |
-| `customization/options/networking` | Networking | [`reference/options/networking.md`](../reference/options/networking.md) | Timeout; Use proxy | planned |
-| `customization/options/playlist` | Playlist | [`reference/options/playlist.md`](../reference/options/playlist.md) | Write extended info; Entries relative to working directory; Create Playlist automatically; Filename of playlist; Show confirm filename dialog; Don’t create directories | planned |
-| `customization/options/tag-panel` | Tag Panel | [`reference/options/tag-panel.md`](../reference/options/tag-panel.md) | — | planned |
-| `customization/options/tag-sources` | Tag Sources | [`reference/options/tag-sources.md`](../reference/options/tag-sources.md) | Default file name for cover art; MusicBrainz Cover Size; Further Configuration Options | planned |
-| `customization/options/tag-sources/freedb` | freedb | [`reference/options/tag-sources-freedb.md`](../reference/options/tag-sources-freedb.md) | freedb Server; Name; Address; Path; Port; Email address; General; Copy disc ID to comment field; Copy disc ID to DISCID field | planned |
-| `customization/options/tag-sources/local-freedb` | Local freedb | [`reference/options/tag-sources-local-freedb.md`](../reference/options/tag-sources-local-freedb.md) | — | planned |
-| `customization/options/tags` | Tags | [`reference/options/tags.md`](../reference/options/tags.md) | Save tags when using arrow-keys/single mouse click; Save mode at extended tag dialog; Don’t display first image from file directory as cover art; Further Configuration Options | planned |
-| `customization/options/tags/advanced` | Advanced | [`reference/options/tags-advanced.md`](../reference/options/tags-advanced.md) | ID3v2 comment language code (ISO-639-2); Always display POPULARIMETER values for ID3v2 ratings; List chapters as separate files; Use recommended mapping for Matroska video; Use single MP4 atom for multiple values; Reuse unmodified MP4 atoms; Reuse unmodified ID3v2 frames | planned |
-| `customization/options/tags/ape` | Ape, Mpc | [`reference/options/tags-ape-mpc.md`](../reference/options/tags-ape-mpc.md) | Read; Write; Remove | planned |
-| `customization/options/tags/mapping` | Mapping | [`reference/options/tags-mapping.md`](../reference/options/tags-mapping.md) | User-defined field mappings; Process when Reading mapped Fields; Process when Saving mapped Fields | planned |
-| `customization/options/tags/mpeg` | Mpeg | [`reference/options/tags-mpeg.md`](../reference/options/tags-mpeg.md) | Read; Write; Remove | planned |
-| `customization/options/tools` | Tools | [`reference/options/tools.md`](../reference/options/tools.md) | Name; Path; Parameter; for all selected files; Default tool; Further Reading | planned |
-| `customization/options/updates` | Updates | [`reference/options/updates.md`](../reference/options/updates.md) | Check for updates on startup; Also include Development Builds (Beta); Display release notes for new versions | planned |
-| `customization/tag-panel` | Tag Panel | [`customize/tag-panel.md`](../customize/tag-panel.md), [`guides/tag-panel.md`](../guides/tag-panel.md) | Adding and Removing Fields; Rearranging Fields; Hiding and Showing Fields; Editing Fields; Cover Art; Loading and Saving of Configurations | planned |
-| `export` | Exporting Tag and File Information | [`export/index.md`](../export/index.md), [`export/template-language.md`](../export/template-language.md), [`export/template-gallery.md`](../export/template-gallery.md), [`export/csv.md`](../export/csv.md), [`learn/export-a-cd-catalogue.md`](../learn/export-a-cd-catalogue.md) | Configuration Options; Adding, Duplicating, and Removing Export Configurations; Editing Export Configurations; Export Scripting Functions; Further Reading | planned |
-| `extended-tags` | Extended Tags | [`guides/extended-tags.md`](../guides/extended-tags.md) | Fields; Cover Art | planned |
-| `file-formats` | Supported File Formats | [`reference/file-formats.md`](../reference/file-formats.md), [`concepts/tag-formats.md`](../concepts/tag-formats.md) | AAC - Advanced Audio Coding; AIF / AIFC / AIFF - Audio Interchange File Format; APE - Monkey’s Audio; DSF - Direct Stream Digital; FLAC - Free Lossless Audio Codec; MKA / MKV - Matroska; MP3 - MPEG Audio Layer 3; MP4, M4A, M4B, M4V - MPEG-4; MPC - Musepack; OGG - Ogg Vorbis; OPUS - Opus Interactive Audio Codec; OFR/OFS - OptimFROG; SPX - Speex; TAK - Tom’s lossless Audio Kompressor | planned |
-| `filter` | Filter and Search | [`reference/filter-syntax.md`](../reference/filter-syntax.md), [`guides/filter.md`](../guides/filter.md) | Notes; Filter Syntax; <string>; <field> HAS <string>; <field> IS <string>; <expr1> AND <expr2>; <expr1> OR <expr2>; NOT <expr>; <field> GREATER <number>; <field> LESS <number>; <field> EQUAL <number>; <field> ABSENT; <field> MISSING; <field> PRESENT | planned |
-| `find` | Find | [`guides/find.md`](../guides/find.md) | — | planned |
-| `format` | Format Strings and Placeholders | [`reference/format-strings.md`](../reference/format-strings.md), [`reference/placeholders.md`](../reference/placeholders.md), [`learn/format-strings-from-zero.md`](../learn/format-strings-from-zero.md) | Characters with Special Functionality; Tag and Metadata Information; Technical Information; File Name and Path Information; File Properties; Dynamic Information; Export; Global placeholders for Export; Playlist | written (exemplar) |
-| `getting-started` | Getting Started | [`getting-started/index.md`](../getting-started/index.md) | — | planned |
-| `getting-started/first-steps` | First Steps | [`learn/first-tagging-session.md`](../learn/first-tagging-session.md), [`getting-started/opening-files.md`](../getting-started/opening-files.md), [`getting-started/editing-and-saving.md`](../getting-started/editing-and-saving.md) | Saving Tags to Files; Step 1; Step 2; Step 3; Step 4; Renaming Files based on Tags; Step 1; Step 2; Step 3; Step 4; Importing Parts of the File Name to the Tag; Step 1; Step 2; Step 3 | written (exemplar) |
-| `getting-started/installation` | Download and Installation | [`getting-started/install.md`](../getting-started/install.md), [`platforms/macos.md`](../platforms/macos.md), [`platforms/windows.md`](../platforms/windows.md), [`platforms/linux.md`](../platforms/linux.md), [`platforms/android.md`](../platforms/android.md), [`platforms/ios.md`](../platforms/ios.md) | Download; Installation; Standard; Portable; Store; Requirements; Check Installation Mode; Backup and Restore Configuration | planned |
-| `getting-started/main-window` | Main Window | [`getting-started/main-window.md`](../getting-started/main-window.md) | File List; Columns; Editing; Sorting; Customization; Tag Panel; Multiple Fields; Editing; Cover; Customization; Filter; Status Bar; Menus; Toolbar | planned |
-| `getting-started/overview` | Overview | [`getting-started/index.md`](../getting-started/index.md), [`index.md`](../index.md) | Documentation; Design Philosophy | planned |
-| `getting-started/release-notes` | Release Notes | [`getting-started/whats-new.md`](../getting-started/whats-new.md) | Mp3tag v3.36.1; Mp3tag v3.36; Improvements to Tag Sources; Custom Field Values Independent of Tag Panel Fields; Export to Multiple Output Files; Bugfixes and Internal Changes; Mp3tag v3.35.1; Bugfixes and Minor Changes; Mp3tag v3.35; File-related Configuration Options; Improvements to Toolbar Configuration; Improvements to Discogs and MusicBrainz Tag Sources; Support for RF64 WAV files; Bugfixes and Internal Changes | planned |
-| `getting-started/release-notes-archive` | Release Notes Archive | [`getting-started/whats-new.md`](../getting-started/whats-new.md) | Mp3tag v3.25; Mp3tag v3.24; Playlist Generator; Improvements for action Remove Duplicate Fields; Optimization of Padding for FLAC Files; Mp3tag v3.23; Modernized Dialogs and Larger Default Font; Improvements in Web Sources Framework; Mp3tag v3.22a; Updated to libwebp 1.3.2; Mp3tag v3.22; Configuration Settings for Tag Sources; Checkbox fields on Tag Panel; More JSON-related functions for Web Sources Framework | planned |
-| `index` | index | [`index.md`](../index.md) | Getting Started; Menu Commands; Using Mp3tag; Converters; Tag Sources; Extended Tags; Actions; Filter and Search; Export; Playlists; Customizing Mp3tag; File List; Tag Panel; Options | written (exemplar) |
-| `keyboard` | Keyboard Shortcuts | [`reference/keyboard-shortcuts.md`](../reference/keyboard-shortcuts.md) | General; Convert; Actions; Tag Sources; Toolbar Customization; Useful helpers | planned |
-| `license` | License Information | [`help/about.md`](../help/about.md) | — | planned |
-| `manage-covers` | Manage Covers | [`guides/covers.md`](../guides/covers.md), [`concepts/cover-art.md`](../concepts/cover-art.md) | Apply to all; Adjust cover; Set cover type; Set cover description… | planned |
-| `manage-list` | Manage List | [`guides/file-list.md`](../guides/file-list.md), [`getting-started/opening-files.md`](../getting-started/opening-files.md) | — | planned |
-| `mapping` | Tag Field Mappings | [`reference/tag-mapping.md`](../reference/tag-mapping.md), [`reference/options/tags-mapping.md`](../reference/options/tags-mapping.md), [`concepts/tag-formats.md`](../concepts/tag-formats.md) | ACOUSTID_ID; ACOUSTID_FINGERPRINT; ALBUM; ALBUMSORT; ALBUMARTIST; ALBUMARTISTSORT; ARTIST; ARTISTSORT; BARCODE; BPM; CATALOGNUMBER; COMMENT; COMPILATION; COMPOSER | planned |
-| `mapping-table` | Tag Field Mappings Table | [`reference/tag-mapping.md`](../reference/tag-mapping.md), [`reference/field-names.md`](../reference/field-names.md) | — | planned |
-| `menus` | Menu Commands | [`reference/menus/index.md`](../reference/menus/index.md) | — | planned |
-| `menus/actions` | Menu Actions | [`reference/menus/actions.md`](../reference/menus/actions.md) | Actions; Actions (Quick); List of Action Groups | planned |
-| `menus/convert` | Menu Convert | [`reference/menus/convert.md`](../reference/menus/convert.md) | Tag - Filename; Filename - Tag; Filename - Filename; Text file - Tag (Import); Tag - Tag; Auto-numbering wizard… | planned |
-| `menus/cover` | Cover Window Context Menu | [`reference/menus/context-menus.md`](../reference/menus/context-menus.md), [`guides/covers.md`](../guides/covers.md) | Add cover…; Remove cover; Replace cover; Extract cover…; Adjust cover; Manage covers…; Set cover type; Set cover description…; Cut cover; Copy cover; Paste cover; Correct aspect ratio | planned |
-| `menus/edit` | Menu Edit | [`reference/menus/edit.md`](../reference/menus/edit.md) | Undo; Redo; Repeat; Copy; Copy as Text…; Cut; Paste; Find; Cover; Rename; Copy…; Move…; Remove; Delete… | planned |
-| `menus/fields` | Fields Helper Menu | [`reference/menus/context-menus.md`](../reference/menus/context-menus.md) | Remove field; Remove all fields…; Reset fields… | planned |
-| `menus/file` | Menu File | [`reference/menus/file.md`](../reference/menus/file.md) | Save tag; Remove tag; Read tag; Playlist (all files); Playlist (selected files); Generate Playlists…; Export; Change directory…; Add directory…; Load Playlist/Cuesheet…; Favorite directory; Open in Explorer; Options…; Save configuration… | planned |
-| `menus/format-strings` | Format String Helper Menu | [`reference/menus/context-menus.md`](../reference/menus/context-menus.md), [`reference/format-strings.md`](../reference/format-strings.md) | Field names in the first section; Extended fields; Information fields; Functions; Manage history…; Remove from history; Remove all from history… | planned |
-| `menus/help` | Menu Help | [`reference/menus/help.md`](../reference/menus/help.md) | Contents…; Keyboard Shortcuts; First Steps; Donation; Online Support…; Mp3tag Website…; Check for new version…; About Mp3tag… | planned |
-| `menus/tag-sources` | Menu Tag Sources | [`reference/menus/tag-sources.md`](../reference/menus/tag-sources.md) | freedb …; freedb (local)…; Discogs, MusicBrainz, … | planned |
-| `menus/view` | Menu View | [`reference/menus/view.md`](../reference/menus/view.md) | Refresh; Sort by; Tag Panel; Extended Tags…; Filter; Toolbars; Columns | planned |
-| `playlists` | Playlists | [`guides/playlists.md`](../guides/playlists.md), [`reference/options/playlist.md`](../reference/options/playlist.md) | Loading Playlists; Adding Files; Saving Playlists; Generating Multiple Playlists | planned |
-| `regex` | Regular Expressions | [`reference/regular-expressions.md`](../reference/regular-expressions.md), [`learn/regex-from-zero.md`](../learn/regex-from-zero.md) | Literals; Wildcard; Repeats; Non-greedy repeats; Parenthesis; Alternatives; Line anchors; Sets; Word boundaries | written (exemplar) |
-| `scripting` | Scripting Functions | [`reference/scripting/index.md`](../reference/scripting/index.md), [`reference/scripting/text.md`](../reference/scripting/text.md), [`reference/scripting/search-compare.md`](../reference/scripting/search-compare.md), [`reference/scripting/conditions.md`](../reference/scripting/conditions.md), [`reference/scripting/numbers.md`](../reference/scripting/numbers.md), [`reference/scripting/dates-durations.md`](../reference/scripting/dates-durations.md), [`reference/scripting/lists-metadata.md`](../reference/scripting/lists-metadata.md), [`reference/regular-expressions.md`](../reference/regular-expressions.md) | String Functions; Boolean Functions; Arithmetic Functions; Variable Functions; Metadata Functions; Date and Time Formatting | planned |
-| `tag-sources` | Tag Sources | [`tag-sources/index.md`](../tag-sources/index.md) | — | planned |
-| `tag-sources/archive` | Using user-contributed Tag Sources | [`tag-sources/web-sources.md`](../tag-sources/web-sources.md) | Organizing Tag Sources | planned |
-| `tag-sources/development` | Developing Tag Sources | [`tag-sources/writing-web-sources.md`](../tag-sources/writing-web-sources.md), [`tag-sources/web-source-reference.md`](../tag-sources/web-source-reference.md) | Specification of the Web Source file format; Parser Scripts; How to Start; JSON; Debugging; List of Parser Commands; Configuration Settings; Configuration Schema Definition; Editing the Tag Source Configuration; Accessing Configuration Settings from a Tag Source | planned |
-| `tag-sources/discogs-auth` | Discogs Authorization | [`tag-sources/discogs.md`](../tag-sources/discogs.md) | — | planned |
-| `tag-sources/import` | Importing Tags from Online Tag Sources | [`tag-sources/index.md`](../tag-sources/index.md), [`learn/tag-from-online-sources.md`](../learn/tag-from-online-sources.md) | Search via Tag Source; Choose one of the search results; Confirm data to import; Utils menu | planned |
-| `utils` | Utils | [`guides/utilities.md`](../guides/utilities.md), [`guides/remove-tags.md`](../guides/remove-tags.md) | Remove Tag Types; MP3; Remove Unsupported Fields; MP3; Optimize; FLAC; MP4; Strip Chapters; MP4 | planned |
+| Mp3tag page | Topic | OpenTag page(s) | Sub-topics to cover |
+|---|---|---|---|
+| `actions` | Actions | [`actions/index.md`](../actions/index.md), [`learn/first-action-group.md`](../learn/first-action-group.md) | Action Types; Quick Actions; Action Groups; Adding, Duplicating, and Removing Action Groups; Rearranging Action Groups; Enabling and Disabling Action Groups; Loading and Saving of Selection Presets; Editing Action Groups; Organizing Action Groups; Action Types |
+| `actions/adjust-cover` | Adjust Cover | [`actions/adjust-cover.md`](../actions/adjust-cover.md) | — |
+| `actions/case-conversion` | Case Conversion | [`actions/case-conversion.md`](../actions/case-conversion.md) | Special Fields |
+| `actions/convert-codepage` | Convert Codepage | [`actions/convert-codepage.md`](../actions/convert-codepage.md) | — |
+| `actions/export` | Export | [`actions/export.md`](../actions/export.md) | — |
+| `actions/export-cover` | Export Cover to File | [`actions/export-cover.md`](../actions/export-cover.md) | — |
+| `actions/format` | Format Value | [`actions/format-value.md`](../actions/format-value.md) | — |
+| `actions/generate-playlists` | Generate Playlists | [`actions/generate-playlists.md`](../actions/generate-playlists.md) | — |
+| `actions/guess` | Guess Values | [`actions/guess-values.md`](../actions/guess-values.md) | — |
+| `actions/import-cover` | Import Cover from File | [`actions/import-cover.md`](../actions/import-cover.md) | — |
+| `actions/import-text` | Import Text File | [`actions/import-text-file.md`](../actions/import-text-file.md) | — |
+| `actions/merge-duplicate-fields` | Merge Duplicate Fields | [`actions/merge-duplicate-fields.md`](../actions/merge-duplicate-fields.md) | Special Fields |
+| `actions/remove-duplicate-fields` | Remove Duplicate Fields | [`actions/remove-duplicate-fields.md`](../actions/remove-duplicate-fields.md) | — |
+| `actions/remove-fields` | Remove Fields | [`actions/remove-fields.md`](../actions/remove-fields.md) | Removing embedded cover art |
+| `actions/remove-fields-except` | Remove Fields Except | [`actions/remove-fields-except.md`](../actions/remove-fields-except.md) | Preserving embedded cover art |
+| `actions/replace` | Replace | [`actions/replace.md`](../actions/replace.md) | Special Fields |
+| `actions/replace-regexp` | Replace with Regular Expression | [`actions/replace-regexp.md`](../actions/replace-regexp.md) | Special Fields |
+| `actions/set-cover-properties` | Set Cover Properties | [`actions/set-cover-properties.md`](../actions/set-cover-properties.md) | — |
+| `actions/split-field` | Split Field by Separator | [`actions/split-field.md`](../actions/split-field.md) | Special Fields |
+| `command-line` | Command Line Interface | [`reference/command-line.md`](../reference/command-line.md) | Start with directory; Start with file; Add directory or file; Further Commands |
+| `converters` | Converters | [`converters/index.md`](../converters/index.md) | Available Converters |
+| `converters/auto-numbering` | Auto Track- and Disc-Numbering | [`converters/auto-numbering.md`](../converters/auto-numbering.md), [`concepts/track-and-disc-numbers.md`](../concepts/track-and-disc-numbers.md) | Tracknumbers; Begin at tracknumber; Save total count of tracks; Leading zeros for tracknumbers; Discnumbers; Begin at discnumber; Save total count of discs; Leading zeros for discnumbers; Resetting and Incrementing Counters; Next disc on change of directory; Next disc on change of field; Reset track counter on next disc; Reset disc counter on change of field |
+| `converters/copy-compose-tags` | Copy and Compose Contents from Tags | [`converters/tag-to-tag.md`](../converters/tag-to-tag.md) | — |
+| `converters/import-tags-from-filenames` | Import Tags from File and Folder Names | [`converters/filename-to-tag.md`](../converters/filename-to-tag.md), [`learn/tags-from-filenames.md`](../learn/tags-from-filenames.md) | Import Parts of the File Name to the Tag; Import Parts of the Folder Structure to the Tag |
+| `converters/import-tags-from-text-files` | Import Tags from Text Files | [`converters/text-file-to-tag.md`](../converters/text-file-to-tag.md) | Matching files from the text file to Mp3tag’s File List |
+| `converters/rearrange-filenames` | Rearrange Parts of File Names | [`converters/filename-to-filename.md`](../converters/filename-to-filename.md) | Simple Example; Complex Example |
+| `converters/rename-files` | Rename Files | [`converters/tag-to-filename.md`](../converters/tag-to-filename.md), [`learn/rename-files-and-folders.md`](../learn/rename-files-and-folders.md) | Rename Files based on Tags; Create Folder Structures based on Tags |
+| `credits` | Credits | [`help/about.md`](../help/about.md) | Special thanks to… |
+| `customization` | Customization | [`customize/index.md`](../customize/index.md) | — |
+| `customization/file-list` | File List | [`customize/columns.md`](../customize/columns.md), [`guides/file-list.md`](../guides/file-list.md) | Adding and Removing Columns; Rearranging Columns; Hiding and Showing Columns; Editing Columns; Loading and Saving of Configurations |
+| `customization/options` | Options | [`reference/options/index.md`](../reference/options/index.md) | — |
+| `customization/options/appearance` | Appearance | [`reference/options/appearance.md`](../reference/options/appearance.md) | Color Mode; Symbols; Toolbar Scaling; User Interface Scaling; Display grid lines in file view |
+| `customization/options/directories` | Directories | [`reference/options/directories.md`](../reference/options/directories.md) | Subfolders; Favorite directory; Startup directory; Cover art directory |
+| `customization/options/export` | Export | [`reference/options/export.md`](../reference/options/export.md) | — |
+| `customization/options/field-values` | Field Values | [`reference/options/field-values.md`](../reference/options/field-values.md) | — |
+| `customization/options/files` | Files | [`reference/options/files.md`](../reference/options/files.md) | Read Files; Restrict incoming files to; Rename Files from Tags; Replace folder separator in tag values with; Write Files; Preserve timestamps of modified files |
+| `customization/options/general` | General | [`reference/options/general.md`](../reference/options/general.md) | General; Show current directory in window title; Automatically select next file when editing in file view; Auto-completion at selection boxes; Use natural sorting; Select files automatically; Keep moved files in the file list; Notification Area; Always show icon in notification area; Minimize to notification area |
+| `customization/options/language` | Language | [`reference/options/language.md`](../reference/options/language.md) | — |
+| `customization/options/library` | Library | [`reference/options/library.md`](../reference/options/library.md) | Enable Library; Only include these directories; Cleanup Library; Further Tips and Troubleshooting; Exclude the process mp3tag.exe from Windows Defender; Use Mp3tag and its settings on an SSD |
+| `customization/options/messages` | Messages | [`reference/options/messages.md`](../reference/options/messages.md) | after save; after change; after delete; at removing tags; at cutting tags; at pasting tags; at exporting tags; at deleting files; at warnings from Actions; at unsaved changes; at importing covers |
+| `customization/options/networking` | Networking | [`reference/options/networking.md`](../reference/options/networking.md) | Timeout; Use proxy |
+| `customization/options/playlist` | Playlist | [`reference/options/playlist.md`](../reference/options/playlist.md) | Write extended info; Entries relative to working directory; Create Playlist automatically; Filename of playlist; Show confirm filename dialog; Don’t create directories |
+| `customization/options/tag-panel` | Tag Panel | [`reference/options/tag-panel.md`](../reference/options/tag-panel.md) | — |
+| `customization/options/tag-sources` | Tag Sources | [`reference/options/tag-sources.md`](../reference/options/tag-sources.md) | Default file name for cover art; MusicBrainz Cover Size; Further Configuration Options |
+| `customization/options/tag-sources/freedb` | freedb | [`reference/options/tag-sources-freedb.md`](../reference/options/tag-sources-freedb.md) | freedb Server; Name; Address; Path; Port; Email address; General; Copy disc ID to comment field; Copy disc ID to DISCID field |
+| `customization/options/tag-sources/local-freedb` | Local freedb | [`reference/options/tag-sources-local-freedb.md`](../reference/options/tag-sources-local-freedb.md) | — |
+| `customization/options/tags` | Tags | [`reference/options/tags.md`](../reference/options/tags.md) | Save tags when using arrow-keys/single mouse click; Save mode at extended tag dialog; Don’t display first image from file directory as cover art; Further Configuration Options |
+| `customization/options/tags/advanced` | Advanced | [`reference/options/tags-advanced.md`](../reference/options/tags-advanced.md) | ID3v2 comment language code (ISO-639-2); Always display POPULARIMETER values for ID3v2 ratings; List chapters as separate files; Use recommended mapping for Matroska video; Use single MP4 atom for multiple values; Reuse unmodified MP4 atoms; Reuse unmodified ID3v2 frames |
+| `customization/options/tags/ape` | Ape, Mpc | [`reference/options/tags-ape-mpc.md`](../reference/options/tags-ape-mpc.md) | Read; Write; Remove |
+| `customization/options/tags/mapping` | Mapping | [`reference/options/tags-mapping.md`](../reference/options/tags-mapping.md) | User-defined field mappings; Process when Reading mapped Fields; Process when Saving mapped Fields |
+| `customization/options/tags/mpeg` | Mpeg | [`reference/options/tags-mpeg.md`](../reference/options/tags-mpeg.md) | Read; Write; Remove |
+| `customization/options/tools` | Tools | [`reference/options/tools.md`](../reference/options/tools.md) | Name; Path; Parameter; for all selected files; Default tool; Further Reading |
+| `customization/options/updates` | Updates | [`reference/options/updates.md`](../reference/options/updates.md) | Check for updates on startup; Also include Development Builds (Beta); Display release notes for new versions |
+| `customization/tag-panel` | Tag Panel | [`customize/tag-panel.md`](../customize/tag-panel.md), [`guides/tag-panel.md`](../guides/tag-panel.md) | Adding and Removing Fields; Rearranging Fields; Hiding and Showing Fields; Editing Fields; Cover Art; Loading and Saving of Configurations |
+| `export` | Exporting Tag and File Information | [`export/index.md`](../export/index.md), [`export/template-language.md`](../export/template-language.md), [`export/template-gallery.md`](../export/template-gallery.md), [`export/csv.md`](../export/csv.md), [`learn/export-a-cd-catalogue.md`](../learn/export-a-cd-catalogue.md) | Configuration Options; Adding, Duplicating, and Removing Export Configurations; Editing Export Configurations; Export Scripting Functions; Further Reading |
+| `extended-tags` | Extended Tags | [`guides/extended-tags.md`](../guides/extended-tags.md) | Fields; Cover Art |
+| `file-formats` | Supported File Formats | [`reference/file-formats.md`](../reference/file-formats.md), [`concepts/tag-formats.md`](../concepts/tag-formats.md) | AAC - Advanced Audio Coding; AIF / AIFC / AIFF - Audio Interchange File Format; APE - Monkey’s Audio; DSF - Direct Stream Digital; FLAC - Free Lossless Audio Codec; MKA / MKV - Matroska; MP3 - MPEG Audio Layer 3; MP4, M4A, M4B, M4V - MPEG-4; MPC - Musepack; OGG - Ogg Vorbis; OPUS - Opus Interactive Audio Codec; OFR/OFS - OptimFROG; SPX - Speex; TAK - Tom’s lossless Audio Kompressor |
+| `filter` | Filter and Search | [`reference/filter-syntax.md`](../reference/filter-syntax.md), [`guides/filter.md`](../guides/filter.md) | Notes; Filter Syntax; <string>; <field> HAS <string>; <field> IS <string>; <expr1> AND <expr2>; <expr1> OR <expr2>; NOT <expr>; <field> GREATER <number>; <field> LESS <number>; <field> EQUAL <number>; <field> ABSENT; <field> MISSING; <field> PRESENT |
+| `find` | Find | [`guides/find.md`](../guides/find.md) | — |
+| `format` | Format Strings and Placeholders | [`reference/format-strings.md`](../reference/format-strings.md), [`reference/placeholders.md`](../reference/placeholders.md), [`learn/format-strings-from-zero.md`](../learn/format-strings-from-zero.md) | Characters with Special Functionality; Tag and Metadata Information; Technical Information; File Name and Path Information; File Properties; Dynamic Information; Export; Global placeholders for Export; Playlist |
+| `getting-started` | Getting Started | [`getting-started/index.md`](../getting-started/index.md) | — |
+| `getting-started/first-steps` | First Steps | [`learn/first-tagging-session.md`](../learn/first-tagging-session.md), [`getting-started/opening-files.md`](../getting-started/opening-files.md), [`getting-started/editing-and-saving.md`](../getting-started/editing-and-saving.md) | Saving Tags to Files; Step 1; Step 2; Step 3; Step 4; Renaming Files based on Tags; Step 1; Step 2; Step 3; Step 4; Importing Parts of the File Name to the Tag; Step 1; Step 2; Step 3 |
+| `getting-started/installation` | Download and Installation | [`getting-started/install.md`](../getting-started/install.md), [`platforms/macos.md`](../platforms/macos.md), [`platforms/windows.md`](../platforms/windows.md), [`platforms/linux.md`](../platforms/linux.md), [`platforms/android.md`](../platforms/android.md), [`platforms/ios.md`](../platforms/ios.md) | Download; Installation; Standard; Portable; Store; Requirements; Check Installation Mode; Backup and Restore Configuration |
+| `getting-started/main-window` | Main Window | [`getting-started/main-window.md`](../getting-started/main-window.md) | File List; Columns; Editing; Sorting; Customization; Tag Panel; Multiple Fields; Editing; Cover; Customization; Filter; Status Bar; Menus; Toolbar |
+| `getting-started/overview` | Overview | [`getting-started/index.md`](../getting-started/index.md), [`index.md`](../index.md) | Documentation; Design Philosophy |
+| `getting-started/release-notes` | Release Notes | [`getting-started/whats-new.md`](../getting-started/whats-new.md) | Mp3tag v3.36.1; Mp3tag v3.36; Improvements to Tag Sources; Custom Field Values Independent of Tag Panel Fields; Export to Multiple Output Files; Bugfixes and Internal Changes; Mp3tag v3.35.1; Bugfixes and Minor Changes; Mp3tag v3.35; File-related Configuration Options; Improvements to Toolbar Configuration; Improvements to Discogs and MusicBrainz Tag Sources; Support for RF64 WAV files; Bugfixes and Internal Changes |
+| `getting-started/release-notes-archive` | Release Notes Archive | [`getting-started/whats-new.md`](../getting-started/whats-new.md) | Mp3tag v3.25; Mp3tag v3.24; Playlist Generator; Improvements for action Remove Duplicate Fields; Optimization of Padding for FLAC Files; Mp3tag v3.23; Modernized Dialogs and Larger Default Font; Improvements in Web Sources Framework; Mp3tag v3.22a; Updated to libwebp 1.3.2; Mp3tag v3.22; Configuration Settings for Tag Sources; Checkbox fields on Tag Panel; More JSON-related functions for Web Sources Framework |
+| `index` | index | [`index.md`](../index.md) | Getting Started; Menu Commands; Using Mp3tag; Converters; Tag Sources; Extended Tags; Actions; Filter and Search; Export; Playlists; Customizing Mp3tag; File List; Tag Panel; Options |
+| `keyboard` | Keyboard Shortcuts | [`reference/keyboard-shortcuts.md`](../reference/keyboard-shortcuts.md) | General; Convert; Actions; Tag Sources; Toolbar Customization; Useful helpers |
+| `license` | License Information | [`help/about.md`](../help/about.md) | — |
+| `manage-covers` | Manage Covers | [`guides/covers.md`](../guides/covers.md), [`concepts/cover-art.md`](../concepts/cover-art.md) | Apply to all; Adjust cover; Set cover type; Set cover description… |
+| `manage-list` | Manage List | [`guides/file-list.md`](../guides/file-list.md), [`getting-started/opening-files.md`](../getting-started/opening-files.md) | — |
+| `mapping` | Tag Field Mappings | [`reference/tag-mapping.md`](../reference/tag-mapping.md), [`reference/options/tags-mapping.md`](../reference/options/tags-mapping.md), [`concepts/tag-formats.md`](../concepts/tag-formats.md) | ACOUSTID_ID; ACOUSTID_FINGERPRINT; ALBUM; ALBUMSORT; ALBUMARTIST; ALBUMARTISTSORT; ARTIST; ARTISTSORT; BARCODE; BPM; CATALOGNUMBER; COMMENT; COMPILATION; COMPOSER |
+| `mapping-table` | Tag Field Mappings Table | [`reference/tag-mapping.md`](../reference/tag-mapping.md), [`reference/field-names.md`](../reference/field-names.md) | — |
+| `menus` | Menu Commands | [`reference/menus/index.md`](../reference/menus/index.md) | — |
+| `menus/actions` | Menu Actions | [`reference/menus/actions.md`](../reference/menus/actions.md) | Actions; Actions (Quick); List of Action Groups |
+| `menus/convert` | Menu Convert | [`reference/menus/convert.md`](../reference/menus/convert.md) | Tag - Filename; Filename - Tag; Filename - Filename; Text file - Tag (Import); Tag - Tag; Auto-numbering wizard… |
+| `menus/cover` | Cover Window Context Menu | [`reference/menus/context-menus.md`](../reference/menus/context-menus.md), [`guides/covers.md`](../guides/covers.md) | Add cover…; Remove cover; Replace cover; Extract cover…; Adjust cover; Manage covers…; Set cover type; Set cover description…; Cut cover; Copy cover; Paste cover; Correct aspect ratio |
+| `menus/edit` | Menu Edit | [`reference/menus/edit.md`](../reference/menus/edit.md) | Undo; Redo; Repeat; Copy; Copy as Text…; Cut; Paste; Find; Cover; Rename; Copy…; Move…; Remove; Delete… |
+| `menus/fields` | Fields Helper Menu | [`reference/menus/context-menus.md`](../reference/menus/context-menus.md) | Remove field; Remove all fields…; Reset fields… |
+| `menus/file` | Menu File | [`reference/menus/file.md`](../reference/menus/file.md) | Save tag; Remove tag; Read tag; Playlist (all files); Playlist (selected files); Generate Playlists…; Export; Change directory…; Add directory…; Load Playlist/Cuesheet…; Favorite directory; Open in Explorer; Options…; Save configuration… |
+| `menus/format-strings` | Format String Helper Menu | [`reference/menus/context-menus.md`](../reference/menus/context-menus.md), [`reference/format-strings.md`](../reference/format-strings.md) | Field names in the first section; Extended fields; Information fields; Functions; Manage history…; Remove from history; Remove all from history… |
+| `menus/help` | Menu Help | [`reference/menus/help.md`](../reference/menus/help.md) | Contents…; Keyboard Shortcuts; First Steps; Donation; Online Support…; Mp3tag Website…; Check for new version…; About Mp3tag… |
+| `menus/tag-sources` | Menu Tag Sources | [`reference/menus/tag-sources.md`](../reference/menus/tag-sources.md) | freedb …; freedb (local)…; Discogs, MusicBrainz, … |
+| `menus/view` | Menu View | [`reference/menus/view.md`](../reference/menus/view.md) | Refresh; Sort by; Tag Panel; Extended Tags…; Filter; Toolbars; Columns |
+| `playlists` | Playlists | [`guides/playlists.md`](../guides/playlists.md), [`reference/options/playlist.md`](../reference/options/playlist.md) | Loading Playlists; Adding Files; Saving Playlists; Generating Multiple Playlists |
+| `regex` | Regular Expressions | [`reference/regular-expressions.md`](../reference/regular-expressions.md), [`learn/regex-from-zero.md`](../learn/regex-from-zero.md) | Literals; Wildcard; Repeats; Non-greedy repeats; Parenthesis; Alternatives; Line anchors; Sets; Word boundaries |
+| `scripting` | Scripting Functions | [`reference/scripting/index.md`](../reference/scripting/index.md), [`reference/scripting/text.md`](../reference/scripting/text.md), [`reference/scripting/search-compare.md`](../reference/scripting/search-compare.md), [`reference/scripting/conditions.md`](../reference/scripting/conditions.md), [`reference/scripting/numbers.md`](../reference/scripting/numbers.md), [`reference/scripting/dates-durations.md`](../reference/scripting/dates-durations.md), [`reference/scripting/lists-metadata.md`](../reference/scripting/lists-metadata.md), [`reference/regular-expressions.md`](../reference/regular-expressions.md) | String Functions; Boolean Functions; Arithmetic Functions; Variable Functions; Metadata Functions; Date and Time Formatting |
+| `tag-sources` | Tag Sources | [`tag-sources/index.md`](../tag-sources/index.md) | — |
+| `tag-sources/archive` | Using user-contributed Tag Sources | [`tag-sources/web-sources.md`](../tag-sources/web-sources.md) | Organizing Tag Sources |
+| `tag-sources/development` | Developing Tag Sources | [`tag-sources/writing-web-sources.md`](../tag-sources/writing-web-sources.md), [`tag-sources/web-source-reference.md`](../tag-sources/web-source-reference.md) | Specification of the Web Source file format; Parser Scripts; How to Start; JSON; Debugging; List of Parser Commands; Configuration Settings; Configuration Schema Definition; Editing the Tag Source Configuration; Accessing Configuration Settings from a Tag Source |
+| `tag-sources/discogs-auth` | Discogs Authorization | [`tag-sources/discogs.md`](../tag-sources/discogs.md) | — |
+| `tag-sources/import` | Importing Tags from Online Tag Sources | [`tag-sources/index.md`](../tag-sources/index.md), [`learn/tag-from-online-sources.md`](../learn/tag-from-online-sources.md) | Search via Tag Source; Choose one of the search results; Confirm data to import; Utils menu |
+| `utils` | Utils | [`guides/utilities.md`](../guides/utilities.md), [`guides/remove-tags.md`](../guides/remove-tags.md) | Remove Tag Types; MP3; Remove Unsupported Fields; MP3; Optimize; FLAC; MP4; Strip Chapters; MP4 |
 
 All 94 checklist pages are mapped; none is unmapped.
 
@@ -212,15 +222,18 @@ Available scenes (`tests/docs-screens/screens.js`, each in `-light` and `-dark`)
 | `menu-convert` | Convert menu open | first session |
 | `tag-to-filename` | Tag → Filename with preview | first session |
 | `extended-tags` | Extended tags dialog | first session |
+| `filename-to-tag` | Filename → Tag with a pattern and preview (in `scenes/converters.js`) | for `converters/filename-to-tag.md` |
 
 ### Screens wanted
 
-Writers who can't script a scene themselves add it here, and the docs lead
-adds it to `screens.js`.
+Writers add the scenes they need to their workstream's own scene file in
+`tests/docs-screens/scenes/` (see the README there; `converters.js` is the
+model). The table below lists screens the plan already expects, so writers
+know what to script. If you can't script a scene, describe it in your PR and
+the docs lead will add it.
 
 | Scene name | State to show | For page |
 |---|---|---|
-| `filename-to-tag` | Filename → Tag with a pattern and preview | `converters/filename-to-tag.md` |
 | `actions-dialog` | Action groups dialog with one group expanded | `actions/index.md` |
 | `filter-active` | Filter bar with an expression, list filtered | `guides/filter.md` |
 | `options-tags-mpeg` | Options → Tags → Mpeg | `reference/options/tags-mpeg.md` |
@@ -231,10 +244,27 @@ adds it to `screens.js`.
 
 ## Phase 2 workstreams
 
-Eight workstreams that can run in parallel. Each writer owns the listed
-files and the matching rows of the coverage map, and follows `style.md`.
+Eight workstreams that can run in parallel, each in its own branch from main
+and its own PR. A writer owns exactly the listed pages, plus one scene file
+`tests/docs-screens/scenes/<workstream>.js` and the screenshots it produces.
 Links across workstreams point at stub pages that already exist, so no
 writer waits for another.
+
+Rules that keep parallel PRs conflict-free:
+
+- Edit only your own pages. To fix something in another workstream's page,
+  describe it in your PR instead.
+- Don't edit `mkdocs.yml`, `_meta/*`, `stylesheets/` or
+  `_snippets/abbreviations.md`. If you need a new page, a nav change, a style
+  or a new abbreviation, ask the docs lead.
+- Mark progress only by removing `status: draft` from finished pages.
+- Commit only the screenshots your pages use, named after your scenes.
+- Before pushing: `mkdocs build --strict` (style.md § 12) and
+  `python3 scripts/docs-status.py` must both pass.
+
+Scene files per workstream: W1 `onboarding.js`, W2 `learn.js`,
+W3 `guides.js`, W4 `converters.js` (exists), W5 `sources-export.js`,
+W6 `reference.js`, W7 `options.js`, W8 `cookbook.js`.
 
 | # | Workstream | Pages | Files |
 |---|---|---:|---|

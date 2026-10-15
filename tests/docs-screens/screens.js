@@ -4,7 +4,9 @@
 // to capture the window; the state is held until the runner has done so.
 // Never run on a working desktop.
 //
-// To add a screen: append a scene below. `name` becomes
+// Scenes: the core scenes below, plus one file per writer workstream in
+// tests/docs-screens/scenes/*.js (see the README there), which the runner
+// loads before this script. `name` becomes
 // docs/user-guide/assets/screens/<name>-light.png and <name>-dark.png.
 (async () => {
   const inv = (cmd, args) => window.__TAURI_INTERNALS__.invoke(cmd, args);
@@ -51,6 +53,9 @@
       }
     },
   ];
+  // Scene files register factories that receive these helpers.
+  const helpers = { inv, sleep, waitFor, rows, idle, op, input, dialog, clickRow, selectAll, menu };
+  for (const factory of window.OPENTAG_DOCS_SCENE_FILES || []) scenes.push(...factory(helpers));
   const wanted = window.OPENTAG_DOCS_SCENES;
   let failures = 0, taken = 0;
   try {

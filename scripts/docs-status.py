@@ -2,7 +2,10 @@
 """Reports the user guide's writing progress: pages per navigation section,
 which are still drafts (front matter `status: draft`), and any navigation
 entry without a file or page without a navigation entry.
-Usage: python3 scripts/docs-status.py [--drafts]
+Usage: python3 scripts/docs-status.py [--drafts] [--coverage]
+  --drafts    list every draft page
+  --coverage  the coverage map in docs/user-guide/_meta/ia.md with each
+              Mp3tag topic's status computed from its pages
 Reads files only; needs no MkDocs installation."""
 import os
 import re
@@ -40,7 +43,28 @@ def is_draft(path):
     return bool(re.match(r"---\n(?:.*\n)*?status:\s*draft\s*\n(?:.*\n)*?---", head))
 
 
+def coverage():
+    """Status of every coverage-map row: written, partial or planned."""
+    counts = {}
+    with open(os.path.join(DOCS, "_meta", "ia.md"), encoding="utf-8") as f:
+        for line in f:
+            cells = [c.strip() for c in line.split("|")]
+            if len(cells) < 5 or not cells[1].startswith("`"):
+                continue
+            pages = re.findall(r"\]\(\.\./([^)]+\.md)\)", cells[3])
+            if not pages:
+                continue
+            done = [p for p in pages if os.path.exists(os.path.join(DOCS, p)) and not is_draft(p)]
+            state = "written" if len(done) == len(pages) else "partial" if done else "planned"
+            counts[state] = counts.get(state, 0) + 1
+            print(f"{state:8} {cells[1].strip('`'):45} {len(done)}/{len(pages)} pages")
+    print(", ".join(f"{n} {state}" for state, n in sorted(counts.items())))
+
+
 def main():
+    if "--coverage" in sys.argv:
+        coverage()
+        return 0
     entries = nav_entries()
     listed = {path for _, path in entries}
     missing = [path for path in listed if not os.path.exists(os.path.join(DOCS, path))]

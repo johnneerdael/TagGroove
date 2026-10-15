@@ -15,7 +15,25 @@ The pages that set the bar are:
 | Reference + teaching (function) | `reference/regular-expressions.md` |
 | Recipe | `cookbook/rename-zero-padded-track-numbers.md`, `cookbook/feat-artists-to-title.md`, `cookbook/tags-from-folder-and-filename.md` |
 
-When this guide and an exemplar disagree, the exemplar wins. Fix this guide.
+When this guide and an exemplar disagree, the exemplar wins. Tell the docs
+lead so this guide gets fixed.
+
+## 0. Your workflow as a writer
+
+1. Work in your own branch from `main`, in your own worktree. Open one PR per
+   workstream, or per group of pages if it gets big.
+2. Your workstream in `_meta/ia.md` lists the pages you own. Edit only
+   those, plus your scene file `tests/docs-screens/scenes/<workstream>.js`
+   and the screenshots it produces. Don't edit `mkdocs.yml`, `_meta/*`,
+   `stylesheets/`, `_snippets/` or other workstreams' pages. Put requests for
+   changes there in your PR description.
+3. For each page: read its brief (the stub) and its rows in the coverage
+   map; read the code that implements the feature; write the page with the
+   template for its type (§ 3); verify every example (§ 4); remove
+   `status: draft`.
+4. Need screenshots? Add scenes, push, fetch (§ 8).
+5. Before pushing: `mkdocs build --strict` and `python3 scripts/docs-status.py`
+   (§ 11, § 12) must pass. CI runs the same strict build on your PR.
 
 ## 1. Ground rules
 
@@ -277,15 +295,17 @@ Screenshots come from CI, never from a writer's machine.
 - **Getting them into the guide:** `scripts/docs-screens-fetch.sh [run-id] [scene…]`
   downloads the artifact and copies `<scene>-light.png` and `<scene>-dark.png`
   into `docs/user-guide/assets/screens/`. Commit only the scenes your pages use.
-- **Requesting a new screen:** add a scene object (`name` and `run`) to
-  `tests/docs-screens/screens.js`. Use the existing scenes as models:
-  `op('<data-op>')` runs a menu command, `clickRow(i)` and `selectAll()`
-  select files, and `menu('Convert').open = true` opens a menu. Push your
-  branch: the workflow runs on every push that touches the scene files. Once
-  the workflow is on main you can also start it by hand for selected scenes:
+- **Requesting a new screen:** script it yourself in your workstream's scene
+  file, `tests/docs-screens/scenes/<workstream>.js`. Never put it in
+  `screens.js`; that file holds only the core scenes. The README in that
+  folder lists the helpers and the fixture album, and `converters.js` is a
+  working model. Push your branch: the workflow runs on every push that
+  touches `tests/docs-screens/`. Once the workflow is on main you can also
+  start it by hand for selected scenes:
   `gh workflow run docs-screenshots.yml --ref <branch> -f scenes="<name> <name>"`.
-  If you can't script the scene yourself, add it to the "Screens wanted"
-  table in `_meta/ia.md`.
+  A failing scene fails the run, and its error is in the log under
+  "Capture screenshots". If you can't script a scene, describe it in your
+  PR and the docs lead will add it.
 - **Embedding:** always both variants, so each colour scheme shows the
   matching screenshot:
 
@@ -328,17 +348,23 @@ Screenshots come from CI, never from a writer's machine.
 
 `_snippets/abbreviations.md` is appended to every page. Any abbreviation
 listed there (ID3, APE, MP4, CDDB, …) gets a hover tooltip on every page.
-Add one when you introduce a new abbreviation. Define terms in
-`help/glossary.md`.
+When you introduce a new abbreviation, list it in your PR description and the
+docs lead adds it, so parallel PRs don't collide on that file. W1 owns
+`help/glossary.md`; other writers list new terms in their PR description in
+the same way.
 
 ## 11. Page status and the coverage map
 
-- New pages start with `status: draft` in the front matter. The navigation
-  shows a pencil next to them. Remove the line when the page meets this guide.
-- `_meta/ia.md` maps every Mp3tag documentation topic to our pages. When you
-  finish a page, update its **Status** cell there in the same commit.
-- `scripts/docs-status.py` lists drafts and checks that every page in the
-  navigation exists. Run it before you push.
+- Unfinished pages carry `status: draft` in their front matter, and the
+  navigation shows a pencil next to them. **Remove that line when the page
+  meets this guide.** That is the only place status is recorded.
+- Don't edit `_meta/ia.md` to report progress. The coverage map's status is
+  computed from the front matter:
+  `python3 scripts/docs-status.py --coverage`.
+- Before you finish, check that every sub-topic in your pages' rows of the
+  coverage map is covered (or documented as not supported).
+- `python3 scripts/docs-status.py` checks that every page in the navigation
+  exists and that every page is in the navigation. Run it before you push.
 
 ## 12. Building locally
 

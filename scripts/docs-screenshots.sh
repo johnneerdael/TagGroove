@@ -60,7 +60,10 @@ album="$library/Harbour Lights"
 "$root/tests/docs-screens/fixtures.sh" "$album"
 # Scene names given on the command line restrict the run to those scenes.
 scenes="$(node -e 'process.stdout.write(JSON.stringify(process.argv.slice(1)))' -- "$@")"
-{ printf 'window.OPENTAG_DOCS_SCENES = %s;\n' "$scenes"; cat "$root/tests/docs-screens/screens.js"; } >"$work/screens.js"
+# Scene files (one per workstream) register themselves before the driver runs.
+{ printf 'window.OPENTAG_DOCS_SCENES = %s;\n' "$scenes"
+  for file in "$root"/tests/docs-screens/scenes/*.js; do [[ -e "$file" ]] && cat "$file"; done
+  cat "$root/tests/docs-screens/screens.js"; } >"$work/screens.js"
 # A display sized for the HiDPI window (1240x800 logical) plus room to spare;
 # the session bus serves single-instance forwarding as in the native suites.
 dbus-run-session -- xvfb-run -a -s "-screen 0 $((1300 * scale))x$((860 * scale))x24" \
