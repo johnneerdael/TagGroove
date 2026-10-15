@@ -56,16 +56,15 @@ pub use mapping::{
 };
 pub use media_info::{audio_digest, AudioDigest};
 pub use optimize::*;
-pub use subsongs::{
-    chapter_rows, expand_chapter_rows, subsong_parts, subsong_path, ChapterInfo,
-    SUBSONG_SEPARATOR,
-};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, HashSet},
     fs,
     io::{Seek, SeekFrom},
     path::{Path, PathBuf},
+};
+pub use subsongs::{
+    chapter_rows, expand_chapter_rows, subsong_parts, subsong_path, ChapterInfo, SUBSONG_SEPARATOR,
 };
 pub use tag_types::*;
 
@@ -713,7 +712,8 @@ fn read_description(
     // Enrich APE covers from the already parsed native tag, without a second
     // file read.
     ape_pictures(&native, &mut file)?;
-    let mut entry = describe_with_native(&path, &file, &native, include_cover_data, rules, options)?;
+    let mut entry =
+        describe_with_native(&path, &file, &native, include_cover_data, rules, options)?;
     if kind == FileType::Mp4 {
         mp4_chapters::describe(&path, &mut entry);
     }
@@ -1535,75 +1535,73 @@ fn write_tag_fields(
     rules: &[UserFieldMapping],
     options: &TagOptions,
 ) -> Result<(), String> {
-            if tag_policy::policy(file.file_type()).is_some() {
-                let updates = normalized_updates(updates, TagType::Ape)?;
-                let written = tag_policy::write(
-                    staging,
-                    &file,
-                    rules,
-                    options,
-                    tag_policy::Change::Fields(&updates),
-                )?;
-                return tag_policy::verify_fields(staged_path, rules, options, written, &updates);
+    if tag_policy::policy(file.file_type()).is_some() {
+        let updates = normalized_updates(updates, TagType::Ape)?;
+        let written = tag_policy::write(
+            staging,
+            &file,
+            rules,
+            options,
+            tag_policy::Change::Fields(&updates),
+        )?;
+        return tag_policy::verify_fields(staged_path, rules, options, written, &updates);
+    }
+    let primary = file.primary_tag_type();
+    let updates = normalized_updates(updates, primary)?;
+    // WAV files carry RIFF INFO and ID3v2 (file-formats). A new INFO
+    // chunk starts from every displayed value that has a RIFF id.
+    let mut seeded = None;
+    if file.file_type() == FileType::Wav && file.tag(TagType::RiffInfo).is_none() {
+        let mut values = Fields::new();
+        let native = native_tags(staging, FileType::Wav)?;
+        for tag in ordered_tags(&file) {
+            for (key, list) in tag_fields(tag, &native, rules, options)? {
+                values.entry(key).or_insert(list);
             }
-            let primary = file.primary_tag_type();
-            let updates = normalized_updates(updates, primary)?;
-            // WAV files carry RIFF INFO and ID3v2 (file-formats). A new INFO
-            // chunk starts from every displayed value that has a RIFF id.
-            let mut seeded = None;
-            if file.file_type() == FileType::Wav && file.tag(TagType::RiffInfo).is_none() {
-                let mut values = Fields::new();
-                let native = native_tags(staging, FileType::Wav)?;
-                for tag in ordered_tags(&file) {
-                    for (key, list) in tag_fields(tag, &native, rules, options)? {
-                        values.entry(key).or_insert(list);
-                    }
-                }
-                for (name, list) in &updates {
-                    values.retain(|key, _| !key.eq_ignore_ascii_case(name));
-                    values.insert(name.clone(), list.clone());
-                }
-                if map_write_fields(&values, TagType::RiffInfo, rules)?
-                    .iter()
-                    .any(|(name, list)| !list.is_empty() && riff_key(name).is_some())
-                {
-                    file.insert_tag(Tag::new(TagType::RiffInfo));
-                    seeded = Some(values);
-                }
-            }
-            if file.primary_tag().is_none() {
-                file.insert_tag(Tag::new(primary));
-            }
-            let types: Vec<_> = file
-                .tags()
-                .iter()
-                .map(Tag::tag_type)
-                .filter(|t| file.tag_support(*t).is_writable())
-                .collect();
-            for kind in types {
-                let tag = file.remove(kind).ok_or("Tag disappeared during editing")?;
-                let source = match &seeded {
-                    Some(values) if kind == TagType::RiffInfo => values,
-                    _ => &updates,
-                };
-                let native_updates =
-                    normalized_updates(&map_write_fields(source, kind, rules)?, kind)?;
-                save_preserving_native(
-                    staging,
-                    file.file_type(),
-                    &tag,
-                    &native_updates,
-                    false,
-                    Id3Write::preserving(options),
-                )?;
-            }
-            staging
-                .seek(SeekFrom::Start(0))
-                .map_err(|e| e.to_string())?;
-            let actual = read_entry_summary_with_options(staged_path, &[], options)?.fields;
-            let native_updates =
-                normalized_updates(&map_write_fields(&updates, primary, rules)?, primary)?;
-            verify_readback(&actual, &native_updates, primary, false)
+        }
+        for (name, list) in &updates {
+            values.retain(|key, _| !key.eq_ignore_ascii_case(name));
+            values.insert(name.clone(), list.clone());
+        }
+        if map_write_fields(&values, TagType::RiffInfo, rules)?
+            .iter()
+            .any(|(name, list)| !list.is_empty() && riff_key(name).is_some())
+        {
+            file.insert_tag(Tag::new(TagType::RiffInfo));
+            seeded = Some(values);
+        }
+    }
+    if file.primary_tag().is_none() {
+        file.insert_tag(Tag::new(primary));
+    }
+    let types: Vec<_> = file
+        .tags()
+        .iter()
+        .map(Tag::tag_type)
+        .filter(|t| file.tag_support(*t).is_writable())
+        .collect();
+    for kind in types {
+        let tag = file.remove(kind).ok_or("Tag disappeared during editing")?;
+        let source = match &seeded {
+            Some(values) if kind == TagType::RiffInfo => values,
+            _ => &updates,
+        };
+        let native_updates = normalized_updates(&map_write_fields(source, kind, rules)?, kind)?;
+        save_preserving_native(
+            staging,
+            file.file_type(),
+            &tag,
+            &native_updates,
+            false,
+            Id3Write::preserving(options),
+        )?;
+    }
+    staging
+        .seek(SeekFrom::Start(0))
+        .map_err(|e| e.to_string())?;
+    let actual = read_entry_summary_with_options(staged_path, &[], options)?.fields;
+    let native_updates = normalized_updates(&map_write_fields(&updates, primary, rules)?, primary)?;
+    verify_readback(&actual, &native_updates, primary, false)
 }
 
 /// Utils → Strip chapters MP4: remove Nero chapters and QuickTime chapter

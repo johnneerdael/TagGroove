@@ -17,7 +17,8 @@
     "advanced": {
       "id3v2_comment_language": "eng",
       "popularimeter_ratings": false,
-      "matroska_video_mapping": true
+      "matroska_video_mapping": true,
+      "list_chapters": false
     },
     "preserve_modified_time": false,
     "mappings": []

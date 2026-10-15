@@ -1054,7 +1054,7 @@ fn rebuild_tree<'a>(
                 let added: Vec<_> = after[i].iter().map(|j| fresh(*j)).collect();
                 let has_children = !children.is_empty();
                 if has_children {
-                    children.splice(0..0, added.into_iter());
+                    children.splice(0..0, added);
                 }
                 out.push(Rebuilt {
                     start,
@@ -1224,7 +1224,10 @@ fn parse(path: &Path) -> Result<Parsed, String> {
                 if let Some(value) = fields.iter().find(|c| c.id == DURATION) {
                     duration = float(value.data) * scale as f64 / 1e9;
                 }
-                title = fields.iter().find(|c| c.id == SEGMENT_TITLE).map(|c| text(c.data));
+                title = fields
+                    .iter()
+                    .find(|c| c.id == SEGMENT_TITLE)
+                    .map(|c| text(c.data));
             }
             TRACKS if !seen_tracks => {
                 seen_tracks = true;
@@ -1415,7 +1418,9 @@ pub(super) fn describe(path: &Path, options: &TagOptions) -> Result<Description,
     if !flat.is_empty() {
         fields.insert(
             CHAPTERS_FIELD.into(),
-            flat.iter().map(|c| chapter_value(c.start, &c.title)).collect(),
+            flat.iter()
+                .map(|c| chapter_value(c.start, &c.title))
+                .collect(),
         );
         technical.insert("_SUBSONG_COUNT".into(), vec![flat.len().to_string()]);
     }

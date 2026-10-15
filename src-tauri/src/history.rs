@@ -97,7 +97,14 @@ pub fn record<T: Changes>(
     paths: &[String],
     work: impl FnOnce() -> Result<T, String>,
 ) -> Result<T, String> {
-    let local: Vec<String> = paths.iter().filter(|p| journaled(p)).cloned().collect();
+    // Chapter and cue sheet rows are snapshots of their file.
+    let mut local: Vec<String> = Vec::new();
+    for path in paths {
+        let file = tag_core::subsong_parts(path).map_or(path.as_str(), |(file, _)| file);
+        if journaled(file) && !local.iter().any(|p| p == file) {
+            local.push(file.to_owned());
+        }
+    }
     if local.is_empty() {
         return work();
     }

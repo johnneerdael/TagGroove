@@ -206,7 +206,10 @@ pub(crate) fn embedded_cue_chapters(fields: &Fields) -> Vec<ChapterInfo> {
         .map(|index| {
             let (start, end) = sheet.track_time(index);
             let mut fields = sheet.own_track_fields(index);
-            let title = fields.remove("TITLE").map(|t| t.join("; ")).unwrap_or_default();
+            let title = fields
+                .remove("TITLE")
+                .map(|t| t.join("; "))
+                .unwrap_or_default();
             ChapterInfo {
                 start,
                 end,
@@ -318,7 +321,10 @@ fn cue_row(
     let mut parent = read_description(&audio, include_cover_data, rules, options)?;
     let (start, end) = sheet.track_time(number - 1);
     let mut fields = sheet.track_fields(number - 1);
-    let title = fields.remove("TITLE").map(|t| t.join("; ")).unwrap_or_default();
+    let title = fields
+        .remove("TITLE")
+        .map(|t| t.join("; "))
+        .unwrap_or_default();
     parent.fields = Fields::new();
     let count = sheet.tracks.len();
     parent.chapters = vec![ChapterInfo {
@@ -404,7 +410,8 @@ pub(super) fn write_rows(
         let index = number - 1;
         let mut own = Fields::new();
         for (name, values) in updates {
-            if name.eq_ignore_ascii_case(CHAPTERS_FIELD) || name.eq_ignore_ascii_case(CUESHEET_FIELD)
+            if name.eq_ignore_ascii_case(CHAPTERS_FIELD)
+                || name.eq_ignore_ascii_case(CUESHEET_FIELD)
             {
                 return Err(format!(
                     "{name} cannot be edited on a chapter row; turn off List chapters as separate files to edit it"
@@ -442,7 +449,8 @@ pub(super) fn write_rows(
                     .map(|c| chapter_value(c.start * 1_000_000, &c.title))
                     .collect();
                 for (index, title) in &titles {
-                    values[*index] = chapter_value(parent.chapters[*index].start * 1_000_000, title);
+                    values[*index] =
+                        chapter_value(parent.chapters[*index].start * 1_000_000, title);
                 }
                 shared.insert(CHAPTERS_FIELD.into(), values);
             }
@@ -476,9 +484,10 @@ pub(super) fn write_rows(
     let rows_after = chapter_rows(&parent);
     rows.iter()
         .map(|(number, _)| {
-            rows_after.get(number - 1).cloned().ok_or_else(|| {
-                format!("Chapter {number} is no longer in {}", parent.filename)
-            })
+            rows_after
+                .get(number - 1)
+                .cloned()
+                .ok_or_else(|| format!("Chapter {number} is no longer in {}", parent.filename))
         })
         .collect()
 }
@@ -502,17 +511,21 @@ fn write_id3_titles(
             TextEncoding::UTF8
         };
         for (index, title) in titles {
-            let id = ids.get(*index).ok_or("A chapter disappeared while saving")?;
+            let id = ids
+                .get(*index)
+                .ok_or("A chapter disappeared while saving")?;
             tag.retain_mut(|frame| {
                 if let Frame::Chapter(chapter) = frame {
                     if chapter.id == id.as_str() {
                         chapter.children.retain(|f| f.id().as_str() != "TIT2");
                         if !title.is_empty() {
-                            chapter.children.insert(Frame::Text(TextInformationFrame::new(
-                                FrameId::Valid("TIT2".into()),
-                                encoding,
-                                title.clone(),
-                            )));
+                            chapter
+                                .children
+                                .insert(Frame::Text(TextInformationFrame::new(
+                                    FrameId::Valid("TIT2".into()),
+                                    encoding,
+                                    title.clone(),
+                                )));
                         }
                     }
                 }
@@ -557,8 +570,11 @@ fn write_cue_rows(cue: &Path, rows: &[(usize, Fields)]) -> Result<(), String> {
         .suffix(".cue")
         .tempfile_in(directory)
         .map_err(|e| e.to_string())?;
-    std::io::Write::write_all(staged.as_file_mut(), &crate::cue::encode(&rendered, encoding))
-        .map_err(|e| e.to_string())?;
+    std::io::Write::write_all(
+        staged.as_file_mut(),
+        &crate::cue::encode(&rendered, encoding),
+    )
+    .map_err(|e| e.to_string())?;
     staged.as_file().sync_all().map_err(|e| e.to_string())?;
     let (check, _, _) = read_sheet(staged.path())?;
     if check.render() != rendered {

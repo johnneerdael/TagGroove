@@ -324,7 +324,10 @@ pub(crate) fn optimize(layout: &mut Layout) {
 
 enum Part {
     Movie,
-    Copy { source: TopBox, header: Vec<u8> },
+    Copy {
+        source: TopBox,
+        header: Vec<u8>,
+    },
     /// New boxes placed directly after the movie box.
     Data(Vec<u8>),
 }
@@ -581,7 +584,6 @@ fn verify(
     Ok(())
 }
 
-
 // Chapter writing: a Nero `chpl` box in `moov/udta` and a QuickTime chapter
 // text track referenced by `tref/chap` from the audio and video tracks, laid
 // out as ffmpeg writes them. Earlier chapter boxes and tracks are replaced;
@@ -590,16 +592,16 @@ fn verify(
 /// QuickTime text sample description (display flags, justification, colors,
 /// text box and font table) as ffmpeg writes it for chapter tracks.
 const TEXT_SAMPLE_ENTRY: [u8; 59] = [
-    0, 0, 0, 0x3b, b't', b'e', b'x', b't', 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xd, b'f', b't', b'a',
-    b'b', 0, 1, 0, 1, 0,
+    0, 0, 0, 0x3b, b't', b'e', b'x', b't', 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xd, b'f', b't', b'a', b'b',
+    0, 1, 0, 1, 0,
 ];
 /// QuickTime base media header (`gmhd` with `gmin` and the text matrix).
 const TEXT_MEDIA_HEADER: [u8; 76] = [
     0, 0, 0, 0x4c, b'g', b'm', b'h', b'd', 0, 0, 0, 0x18, b'g', b'm', b'i', b'n', 0, 0, 0, 0, 0,
-    0x40, 0x80, 0, 0x80, 0, 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0x2c, b't', b'e', b'x', b't', 0, 1, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x40,
-    0, 0, 0,
+    0x40, 0x80, 0, 0x80, 0, 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0x2c, b't', b'e', b'x', b't', 0, 1, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x40, 0, 0,
+    0,
 ];
 /// Text encoding atom marking each sample as UTF-8.
 const ENCD: [u8; 12] = [0, 0, 0, 12, b'e', b'n', b'c', b'd', 0, 0, 1, 0];
@@ -722,7 +724,9 @@ fn chapter_trak(
     stsc.extend(1u32.to_be_bytes());
     let mut stsz = 0u32.to_be_bytes().to_vec();
     stsz.extend((samples.len() as u32).to_be_bytes());
-    samples.iter().for_each(|(_, size)| stsz.extend(size.to_be_bytes()));
+    samples
+        .iter()
+        .for_each(|(_, size)| stsz.extend(size.to_be_bytes()));
     let mut chunks = 1u32.to_be_bytes().to_vec();
     if wide {
         chunks.extend(offset.to_be_bytes());
@@ -737,7 +741,12 @@ fn chapter_trak(
         full_box(if wide { b"co64" } else { b"stco" }, 0, 0, &chunks),
     ]
     .concat();
-    let dref = full_box(b"dref", 0, 0, &[&1u32.to_be_bytes()[..], &full_box(b"url ", 0, 1, &[])].concat());
+    let dref = full_box(
+        b"dref",
+        0,
+        0,
+        &[&1u32.to_be_bytes()[..], &full_box(b"url ", 0, 1, &[])].concat(),
+    );
     let minf = [
         TEXT_MEDIA_HEADER.to_vec(),
         boxed(b"dinf", &dref),
@@ -849,7 +858,9 @@ pub(crate) fn write_chapters(
     let children = base
         .children_mut()
         .ok_or_else(|| invalid("the movie box could not be read"))?;
-    children.retain(|c| !(&c.kind == b"trak" && track_id(c).is_some_and(|id| referenced.contains(&id))));
+    children.retain(|c| {
+        !(&c.kind == b"trak" && track_id(c).is_some_and(|id| referenced.contains(&id)))
+    });
     let mut referencing = 0;
     for trak in children.iter_mut().filter(|c| &c.kind == b"trak") {
         let media = matches!(handler(trak).as_ref(), Some(b"soun") | Some(b"vide"));
@@ -861,7 +872,10 @@ pub(crate) fn write_chapters(
                 refs.retain(|c| &c.kind != b"chap");
             }
         }
-        parts.retain(|c| !(&c.kind == b"tref" && matches!(&c.body, Body::Container { children, .. } if children.is_empty())));
+        parts.retain(|c| {
+            !(&c.kind == b"tref"
+                && matches!(&c.body, Body::Container { children, .. } if children.is_empty()))
+        });
         if !media {
             continue;
         }
@@ -980,7 +994,11 @@ pub(crate) fn write_chapters(
         let offset = place(wide);
         let mut bytes = Vec::new();
         movie(offset, wide).write(&mut bytes);
-        let spare = if tail { 0 } else { region_end - moov.start - need };
+        let spare = if tail {
+            0
+        } else {
+            region_end - moov.start - need
+        };
         if spare >= 8 {
             bytes.extend(mdat(0));
             bytes.extend(boxed(b"free", &vec![0; (spare - 8) as usize]));
@@ -1204,5 +1222,140 @@ mod tests {
         assert!(write(&mut source, layout, true, &mut target)
             .unwrap_err()
             .contains("outside the media data"));
+    }
+
+    /// ftyp and a one-track movie (1000 ticks per second, two seconds) with
+    /// its media before (`tail`) or after the movie box.
+    fn movie_file(dir: &Path, tail: bool) -> (std::path::PathBuf, Vec<u8>) {
+        let ftyp = boxed(b"ftyp", b"M4A \0\0\0\0M4A mp42isom");
+        let media: Vec<u8> = (0..300u32).map(|i| (i * 13 % 251) as u8).collect();
+        let mut mvhd = vec![0; 100];
+        mvhd[12..16].copy_from_slice(&1000u32.to_be_bytes());
+        mvhd[16..20].copy_from_slice(&2000u32.to_be_bytes());
+        mvhd[96..100].copy_from_slice(&2u32.to_be_bytes());
+        let moov = |base: u32| {
+            boxed(
+                b"moov",
+                &[
+                    boxed(b"mvhd", &mvhd),
+                    trak(1, b"soun", &[base, base + 100], None),
+                ]
+                .concat(),
+            )
+        };
+        let size = moov(0).len() as u32;
+        let file = if tail {
+            let base = (ftyp.len() + 8) as u32;
+            [ftyp, boxed(b"mdat", &media), moov(base)].concat()
+        } else {
+            let base = ftyp.len() as u32 + size + 8;
+            [ftyp, moov(base), boxed(b"mdat", &media)].concat()
+        };
+        let path = dir.join(if tail { "tail.m4a" } else { "fast.m4a" });
+        fs::write(&path, &file).unwrap();
+        (path, media)
+    }
+
+    fn chapters(list: &[(u64, &str)]) -> Vec<(u64, String)> {
+        list.iter().map(|(s, t)| (*s, t.to_string())).collect()
+    }
+
+    fn rewrite_chapters(path: &Path, list: &[(u64, &str)]) -> Layout {
+        let mut file = fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(path)
+            .unwrap();
+        write_chapters(&mut file, path, &chapters(list)).unwrap();
+        read_layout(&mut file).unwrap()
+    }
+
+    #[test]
+    fn chapters_are_written_in_place_at_the_tail_and_after_a_fast_start_rewrite() {
+        let dir = tempfile::tempdir().unwrap();
+        for tail in [true, false] {
+            let (path, media) = movie_file(dir.path(), tail);
+            let before = fs::read(&path).unwrap();
+            let audio = |layout: &Layout| {
+                let trak = layout
+                    .movie
+                    .children()
+                    .iter()
+                    .find(|c| track_id(c) == Some(1))
+                    .unwrap();
+                node_offsets(trak).unwrap()
+            };
+            let original = audio(&read_layout(&mut fs::File::open(&path).unwrap()).unwrap());
+            let layout = rewrite_chapters(&path, &[(0, "One"), (5_000_000, "Two – é")]);
+            let after = fs::read(&path).unwrap();
+            let kinds: Vec<_> = layout.top.iter().map(|b| b.kind).collect();
+            let moved = audio(&layout);
+            if tail {
+                assert_eq!(kinds, [*b"ftyp", *b"mdat", *b"moov", *b"mdat"]);
+                assert_eq!(moved, original, "nothing before moov moves");
+                assert_eq!(
+                    after[..layout.top[2].start as usize],
+                    before[..layout.top[2].start as usize]
+                );
+            } else {
+                assert_eq!(kinds, [*b"ftyp", *b"moov", *b"mdat", *b"free", *b"mdat"]);
+            }
+            let at = moved[0] as usize;
+            assert_eq!(&after[at..at + 300], media.as_slice());
+            let found = crate::tags::mp4_chapters::scan(&path).unwrap();
+            assert_eq!(
+                found.list,
+                [(0, "One".to_string()), (500, "Two – é".to_string())]
+            );
+            assert_eq!(found.track, found.list);
+            let id = |layout: &Layout| {
+                let mvhd = leaf(find(&layout.movie, b"mvhd").unwrap()).unwrap();
+                be32(&mvhd[96..])
+            };
+            assert_eq!(id(&layout), 3, "next track ID follows the chapter track");
+
+            // A second edit replaces the chapter track and reuses the space.
+            let length = after.len();
+            let layout = rewrite_chapters(&path, &[(0, "A"), (2_000_000, "B"), (9_000_000, "C")]);
+            let again = fs::read(&path).unwrap();
+            if !tail {
+                assert_eq!(again.len(), length, "fits the space after moov");
+            }
+            assert_eq!(
+                &again[audio(&layout)[0] as usize..][..300],
+                media.as_slice()
+            );
+            let found = crate::tags::mp4_chapters::scan(&path).unwrap();
+            assert_eq!(found.list.len(), 3);
+            assert_eq!(found.track[2], (900, "C".to_string()));
+            let traks = layout
+                .movie
+                .children()
+                .iter()
+                .filter(|c| &c.kind == b"trak")
+                .count();
+            assert_eq!(traks, 2, "the old chapter track is gone");
+        }
+    }
+
+    #[test]
+    fn invalid_chapter_lists_are_refused() {
+        let dir = tempfile::tempdir().unwrap();
+        let (path, _) = movie_file(dir.path(), true);
+        let mut file = fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(&path)
+            .unwrap();
+        let before = fs::read(&path).unwrap();
+        for list in [
+            chapters(&[]),
+            chapters(&[(0, "A"), (0, "B")]),
+            vec![(0, "x".repeat(256))],
+            (0..256).map(|i| (i * 10, String::new())).collect(),
+        ] {
+            assert!(write_chapters(&mut file, &path, &list).is_err());
+        }
+        assert_eq!(fs::read(&path).unwrap(), before);
     }
 }

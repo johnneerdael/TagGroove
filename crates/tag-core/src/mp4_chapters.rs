@@ -90,7 +90,7 @@ pub(super) struct Chapters {
     /// Nero starts in 100 ns units.
     nero: Vec<u64>,
     /// Chapters of the QuickTime chapter track.
-    track: Vec<(u64, String)>,
+    pub(super) track: Vec<(u64, String)>,
     boxes: Vec<Atom>,
 }
 
@@ -382,16 +382,15 @@ pub(super) fn write(
         .collect();
     // The QuickTime track starts at zero and counts in its own time scale.
     let track_matches = written.track.len() == expected.len()
-        && written
-            .track
-            .iter()
-            .zip(&expected)
-            .enumerate()
-            .all(|(index, ((ms, title), (start, wanted)))| {
+        && written.track.iter().zip(&expected).enumerate().all(
+            |(index, ((ms, title), (start, wanted)))| {
                 title == wanted && (index == 0 || ms.abs_diff(*start) <= 1)
-            });
+            },
+        );
     if written.list != expected || !track_matches {
-        return Err("The MP4 chapters did not read back as written; the original file was kept".into());
+        return Err(
+            "The MP4 chapters did not read back as written; the original file was kept".into(),
+        );
     }
     Ok(())
 }

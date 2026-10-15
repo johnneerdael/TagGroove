@@ -403,7 +403,9 @@ impl CueSheet {
 
     /// Whether a field can be stored for a single track.
     pub fn track_field(name: &str) -> bool {
-        TRACK_KEYS.iter().any(|(f, _, _)| f.eq_ignore_ascii_case(name))
+        TRACK_KEYS
+            .iter()
+            .any(|(f, _, _)| f.eq_ignore_ascii_case(name))
     }
 
     /// Apply field changes for the tracks at the given positions. Album
@@ -418,12 +420,14 @@ impl CueSheet {
             }
             for (name, values) in updates {
                 let value = values.join("; ");
-                if let Some((_, keyword, rem)) =
-                    TRACK_KEYS.iter().find(|(f, _, _)| f.eq_ignore_ascii_case(name))
+                if let Some((_, keyword, rem)) = TRACK_KEYS
+                    .iter()
+                    .find(|(f, _, _)| f.eq_ignore_ascii_case(name))
                 {
                     tracks.push((*index, *keyword, *rem, value));
-                } else if let Some((field, keyword, rem)) =
-                    ALBUM_KEYS.iter().find(|(f, _, _)| f.eq_ignore_ascii_case(name))
+                } else if let Some((field, keyword, rem)) = ALBUM_KEYS
+                    .iter()
+                    .find(|(f, _, _)| f.eq_ignore_ascii_case(name))
                 {
                     match album.iter().find(|(f, ..)| f == field) {
                         Some((.., other)) if *other != value => {
@@ -542,9 +546,22 @@ mod tests {
         };
         sheet
             .apply(&[
-                (0, fields(&[("TITLE", "Intro"), ("ARTIST", "Solo"), ("ALBUM", "Renamed")])),
-                (1, fields(&[("ARTIST", ""), ("ISRC", "USXXX0000001"), ("ALBUM", "Renamed")])),
-                (2, fields(&[("REPLAYGAIN_TRACK_GAIN", "-6.50 dB"), ("GENRE", "Jazz")])),
+                (
+                    0,
+                    fields(&[("TITLE", "Intro"), ("ARTIST", "Solo"), ("ALBUM", "Renamed")]),
+                ),
+                (
+                    1,
+                    fields(&[
+                        ("ARTIST", ""),
+                        ("ISRC", "USXXX0000001"),
+                        ("ALBUM", "Renamed"),
+                    ]),
+                ),
+                (
+                    2,
+                    fields(&[("REPLAYGAIN_TRACK_GAIN", "-6.50 dB"), ("GENRE", "Jazz")]),
+                ),
             ])
             .unwrap();
         let text = sheet.render();
@@ -563,7 +580,10 @@ mod tests {
         // Album fields are shared; unknown fields and track numbers are refused.
         let mut sheet = CueSheet::parse(SHEET);
         assert!(sheet
-            .apply(&[(0, fields(&[("ALBUM", "A")])), (1, fields(&[("ALBUM", "B")]))])
+            .apply(&[
+                (0, fields(&[("ALBUM", "A")])),
+                (1, fields(&[("ALBUM", "B")]))
+            ])
             .is_err());
         assert!(sheet.apply(&[(0, fields(&[("LYRICIST", "x")]))]).is_err());
         assert!(sheet.apply(&[(0, fields(&[("TRACK", "7")]))]).is_err());
@@ -603,6 +623,9 @@ mod tests {
             "\u{FEFF}TITLE \"\u{65E5}\"".as_bytes()
         );
         let utf16 = encode("TRACK", CueEncoding::Bom(encoding_rs::UTF_16LE));
-        assert_eq!(decode(&utf16), ("TRACK".into(), CueEncoding::Bom(encoding_rs::UTF_16LE)));
+        assert_eq!(
+            decode(&utf16),
+            ("TRACK".into(), CueEncoding::Bom(encoding_rs::UTF_16LE))
+        );
     }
 }

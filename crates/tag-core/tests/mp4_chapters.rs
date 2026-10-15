@@ -246,7 +246,11 @@ fn chapters_are_written_edited_and_removed_as_nero_and_quicktime() {
         assert_eq!(written.technical["_SUBSONG_COUNT"], ["3"]);
         assert_eq!(packets(&path), audio, "{name}: audio unchanged");
         let after = fs::read(&path).unwrap();
-        assert_eq!(after[..moov], before[..moov], "{name}: media stays in place");
+        assert_eq!(
+            after[..moov],
+            before[..moov],
+            "{name}: media stays in place"
+        );
         assert_eq!(
             chapters(&path),
             "0.000000,Intro\n0.250000,Middle part\n0.700000,End – é\n",
@@ -287,11 +291,7 @@ fn chapters_are_written_edited_and_removed_as_nero_and_quicktime() {
 
         // Equal starts and over-long titles are refused without changes.
         let unchanged = fs::read(&path).unwrap();
-        assert!(write_fields(
-            &path,
-            &fields(&[("CHAPTERS", &["0:00 A", "0:00 B"])])
-        )
-        .is_err());
+        assert!(write_fields(&path, &fields(&[("CHAPTERS", &["0:00 A", "0:00 B"])])).is_err());
         let long = format!("0:00 {}", "x".repeat(256));
         assert!(write_fields(&path, &fields(&[("CHAPTERS", &[long.as_str()])])).is_err());
         assert_eq!(fs::read(&path).unwrap(), unchanged);
@@ -306,8 +306,7 @@ fn chapters_are_written_edited_and_removed_as_nero_and_quicktime() {
         assert_eq!(packets(&path), audio, "{name}");
 
         // Chapters can be added again after removal.
-        let late =
-            write_fields(&path, &fields(&[("CHAPTERS", &["0:00.5 Late start"])])).unwrap();
+        let late = write_fields(&path, &fields(&[("CHAPTERS", &["0:00.5 Late start"])])).unwrap();
         assert_eq!(late.fields["CHAPTERS"], ["00:00:00.500 Late start"]);
         // Like ffmpeg's own files, the QuickTime track (which ffprobe prefers)
         // starts at zero; the Nero box keeps the start.
@@ -325,7 +324,16 @@ fn fast_start_files_are_rewritten_once_then_edited_in_place() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("fast.m4a");
     let output = Command::new("ffmpeg")
-        .args(["-v", "error", "-f", "lavfi", "-i", "sine=duration=1", "-c:a", "aac"])
+        .args([
+            "-v",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=duration=1",
+            "-c:a",
+            "aac",
+        ])
         .args(["-movflags", "+faststart", "-metadata", "title=Song"])
         .arg(&path)
         .output()
@@ -355,7 +363,10 @@ fn fast_start_files_are_rewritten_once_then_edited_in_place() {
     let edited = fs::read(&path).unwrap();
     assert_eq!(edited.len() as u64, length);
     assert_eq!(edited[mdat..], media[mdat..]);
-    assert_eq!(chapters(&path), "0.000000,One\n0.300000,Two\n0.600000,Three\n");
+    assert_eq!(
+        chapters(&path),
+        "0.000000,One\n0.300000,Two\n0.600000,Three\n"
+    );
     assert_eq!(packets(&path), audio);
 }
 
@@ -370,7 +381,8 @@ fn chapters_are_listed_and_edited_as_rows() {
     write_fields(&path, &fields(&[("ARTIST", &["Author"])])).unwrap();
     let mut options = TagOptions::default();
     let folder = dir.path().to_string_lossy().into_owned();
-    let plain = tag_core::scan_paths_with_options(&[folder.clone()], false, &options, None);
+    let plain =
+        tag_core::scan_paths_with_options(std::slice::from_ref(&folder), false, &options, None);
     assert_eq!(plain.entries.len(), 1);
     options.advanced.list_chapters = true;
     let listed = tag_core::scan_paths_with_options(&[folder], false, &options, None);
@@ -421,7 +433,10 @@ fn chapters_are_listed_and_edited_as_rows() {
     let together = tag_core::write_chapter_rows(
         &path,
         &[
-            (1, fields(&[("TITLE", &["First"]), ("GENRE", &["Audiobook"])])),
+            (
+                1,
+                fields(&[("TITLE", &["First"]), ("GENRE", &["Audiobook"])]),
+            ),
             (2, fields(&[("GENRE", &["Audiobook"])])),
         ],
         false,
@@ -441,7 +456,13 @@ fn chapters_are_listed_and_edited_as_rows() {
         &options,
     );
     assert!(conflict.unwrap_err().contains("not per chapter"));
-    assert!(tag_core::write_chapter_rows(&path, &[(3, fields(&[("TITLE", &["x"])]))], false, &options).is_err());
+    assert!(tag_core::write_chapter_rows(
+        &path,
+        &[(3, fields(&[("TITLE", &["x"])]))],
+        false,
+        &options
+    )
+    .is_err());
     assert_eq!(fs::read(&path).unwrap(), unchanged);
     // Whole-file operations are refused on rows.
     assert!(tag_core::remove_tags(Path::new(&rows[0])).is_err());
