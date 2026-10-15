@@ -20,12 +20,14 @@ mod lists;
 #[cfg(any(target_os = "android", test))]
 mod managed_actions;
 mod mp3tag_columns;
+mod mp3tag_tag_panel;
 mod playlists;
 mod progress;
 mod rename_plan;
 mod settings;
 mod sources;
 mod tag_panel;
+mod tray;
 mod updates;
 mod utilities;
 #[cfg(desktop)]
@@ -1110,6 +1112,7 @@ pub fn run() {
         .on_window_event(|_window, _event| {
             #[cfg(desktop)]
             window_state::track(_window, _event);
+            tray::track(_window, _event);
         })
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_document_access::init())
@@ -1196,6 +1199,8 @@ pub fn run() {
             tag_panel::load_tag_panel,
             tag_panel::save_tag_panel,
             tag_panel::import_tag_panel_layout,
+            mp3tag_tag_panel::import_mp3tag_tag_panel,
+            tray::set_tray_options,
             tag_panel::export_tag_panel_layout,
             tag_panel::import_value_list,
             tag_panel::export_value_list,

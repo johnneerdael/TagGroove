@@ -41,7 +41,10 @@ export const defaultSettings=():Settings=>({version:1,general:{natural_sort:true
     advanced:{id3v2_comment_language:'eng',popularimeter_ratings:false,matroska_video_mapping:true,list_chapters:false,mp4_single_atom:true,reuse_mp4_atoms:false,reuse_id3v2_frames:false},preserve_modified_time:false,mappings:[]},pages:{}});
 
 /** pages.general: General options beyond the window title and sorting. */
-export const GENERAL_DEFAULTS={auto_select_next:false,autocomplete:true,select_added:false,keep_moved:true};
+export const GENERAL_DEFAULTS={auto_select_next:false,autocomplete:true,select_added:false,keep_moved:true,tray_icon:false,minimize_to_tray:false};
+// Notification area options work on Windows and Linux; the app sets this at start-up.
+let notificationArea=true;
+export function setNotificationAreaSupport(supported:boolean){notificationArea=supported;}
 /** pages.tags: saving when moving to another file and the folder-image fallback of the cover pane. */
 export const TAGS_PAGE_DEFAULTS={save_on_move:false,no_folder_image:false,extended_save_mode:'pending'};
 /** pages.appearance: scaling in percent and the file list grid. */
@@ -120,7 +123,11 @@ for(const page of [
     {kind:'checkbox',path:'general.natural_sort',label:'Use natural sorting (1, 2, 11, …)'},
     {kind:'checkbox',path:'pages.general.select_added',label:'Select files automatically when they are added to the list'},
     {kind:'checkbox',path:'pages.general.keep_moved',label:'Keep moved files in the file list'},
-    {kind:'note',text:'Auto-completion completes tag panel fields and file list cells from their drop-down values. Moved files that are no longer below a listed folder leave the list unless they have pending changes.'}]},
+    {kind:'note',text:'Auto-completion completes tag panel fields and file list cells from their drop-down values. Moved files that are no longer below a listed folder leave the list unless they have pending changes.'},
+    {kind:'group',label:'Notification area',controls:[
+      {kind:'checkbox',path:'pages.general.tray_icon',label:'Always show icon in notification area',enabledWhen:()=>notificationArea},
+      {kind:'checkbox',path:'pages.general.minimize_to_tray',label:'Minimize to notification area',enabledWhen:()=>notificationArea},
+      {kind:'note',text:'Minimizing then hides the window and its task bar entry; click the icon or choose Show OpenTag in its menu to bring it back. Windows and Linux only (Linux needs libayatana-appindicator); macOS keeps minimized windows in the Dock.'}]}]},
   {id:'files',label:'Files',order:20,controls:[
     {kind:'group',label:'Read files',controls:[{kind:'text',path:'files.restrict_extensions',label:'Restrict incoming files to',placeholder:'All supported formats (for example *.mp3;*.flac)'},
       {kind:'note',text:'Applies to folders. Files you add individually are always read.'}]},

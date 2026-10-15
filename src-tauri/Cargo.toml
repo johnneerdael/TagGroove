@@ -70,3 +70,10 @@ windows-sys = { version = "0.61", features = ["Win32_UI_Input_KeyboardAndMouse"]
 keyring = { version = "3.6.3", features = ["async-secret-service", "tokio", "crypto-rust"] }
 [target.'cfg(target_os = "linux")'.dependencies]
 gdk = "0.18"
+# Options → General → Notification area: probes for the status-area library
+# before creating the icon (it is loaded at run time).
+libloading = "0.7"
+
+# Options → General → Notification area (Windows and Linux only).
+[target.'cfg(any(windows, target_os = "linux"))'.dependencies]
+tauri = { version = "2", features = ["tray-icon"] }

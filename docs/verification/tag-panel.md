@@ -80,5 +80,6 @@ Reference pages: `customization/tag-panel`, `customization/options/tag-panel`,
 - **Mnemonic conflicts**: Alt+A opens the Actions menu when focus is not in a text field, so
   `&Album` works only while typing in another field. On macOS, Option+letter is captured only for
   letters that a field marks.
-- The standard genre list leaves out one offensive legacy Winamp entry. Docking, orientation and
-  panel width are not configurable.
+- The standard genre list leaves out one offensive legacy Winamp entry.
+- Docking positions, the horizontal layout, panel sizes and the Mp3tag `usrfields.ini` import are
+  covered in [panel-dock.md](panel-dock.md).

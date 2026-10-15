@@ -9,7 +9,7 @@ import { getVersion } from '@tauri-apps/api/app';
 import { createAppearance, type AppearanceState } from './theme';
 import { installMenubar } from './menubar';
 import { ExportUI, offerOpenOutputs, type ExportLibrary, type ExportConfiguration } from './export-ui';
-import { OptionsUI, registerOptionsPage, naturalCollator, windowTitle, type Settings, type SettingsResponse } from './options-ui';
+import { OptionsUI, registerOptionsPage, naturalCollator, setNotificationAreaSupport, windowTitle, type Settings, type SettingsResponse } from './options-ui';
 import { createNumberingReview, numberingCounter, recallNumbering, rememberNumbering, type NumberingRequest, type NumberingUpdate } from './numbering-review';
 import { open, save, ask, message } from '@tauri-apps/plugin-dialog';
 import { Messages, messagesOptionsPage, coverChoice, type MessageKey } from './messages';
@@ -29,11 +29,12 @@ import { FilterSync, filterCacheMiss } from './filter-sync';
 import { CellEditor, adjacentCell, type CellTarget } from './cell-editor';
 import { invertSelection, listShortcut, listSummary, nextFile, nextSimilarFiles, similarFiles } from './list-commands';
 import { FindUI } from './find';
-import { TagPanel, automaticDefaults, splitValues, type PanelLayout, type TagPanelSettings } from './tag-panel';
+import { TagPanel, automaticDefaults, splitValues, type Mp3tagPanelImport, type PanelLayout, type TagPanelSettings } from './tag-panel';
+import { DOCKS, FILTER_DOCKS, PANEL_HEIGHT, PANEL_WIDTH, dropTarget, fitFloat, horizontalDock, normalizeMainLayout, panelColumns, resized, toggledDock, withDock, type DockSide, type FilterDock, type MainLayout } from './panel-dock';
 import { editShortcut, emptyHistory, historyLabel, type HistoryState } from './edit-history';
 import { clipboardText, copiedMessage, copyTags, cutCoverPlan, cutPlan, pasteCoverPlan, pastePlan, pendingDigests, type ClipCover, type CoverUpdate, type PasteUpdate, type PendingCover, type TagClipboard } from './tag-clipboard';
 import { AUTO_SIZE_ROWS, autoSaveTargets, autoSizeShortcut, bindRowDrag, dropAdds, dropSelection, fitWidth, folderImageFolder, mergeOrder, moveSelection, reorderKey, shuffleOrder, tagsPagePrefs, textWidths, type ReorderMove } from './list-behaviour';
-import { TOOLBAR_COMMANDS, customizeToolbar, isSeparator, itemLabel, normalizeToolbar, visibleItems, type ToolbarConfig } from './toolbar';
+import { ACTION_PREFIX, TOOLBAR_COMMANDS, TOOL_PREFIX, customizeToolbar, isSeparator, isSpacer, itemHint, itemLabel, normalizeCustomToolbar, normalizeToolbar, visibleItems, type ToolbarChoice, type ToolbarConfig } from './toolbar';
 import './keyboard-ui.css';
 import { openTagToTag } from './tag-tag-ui';
 import { ConfigListStorage, installHelperMenus } from './helper-menu';
@@ -64,6 +65,7 @@ import markDarkUrl from '../assets/brand/OpenTag-Brand-Kit/01-logos/marks/openta
 import artworkDarkUrl from '../assets/brand/OpenTag-Brand-Kit/04-in-app/opentag-default-artwork-dark-1024.svg';
 import aboutDarkUrl from '../assets/brand/OpenTag-Brand-Kit/04-in-app/opentag-splash-dark-1600x1000.svg';
 import './style.css';
+import './panel-dock.css';
 
 type PerfRecord={name:string;at:number;ms:number;pending?:boolean;in?:number;out?:number;[key:string]:unknown};
 // Profiling scripts (tests/e2e/performance.js) create this array to collect timings; normal runs never do.
@@ -84,7 +86,7 @@ type Batch = { entries: Entry[]; errors: FileError[]; renamed?: { from: string; 
 type Preview = { path: string; value: string };
 type RenamePreview = Preview & {plan_token:string};
 type FilenamePreview = { path: string; fields: Fields };
-type Operation = 'folder'|'files'|'save'|'save-copy'|'refresh-source'|'reload'|'extended'|'add-cover'|'remove-cover'|'filename-tags'|'tags-filename'|'filename-filename'|'text-tags'|'action'|'groups'|'number'|'remove-tags'|'playlist-load'|'playlist-all'|'playlist-selected'|'playlist-generate'|'export-folders'|'list-unsorted'|'csv'|'export-config'|'select-all'|'discard'|'options'|'about'|'toggle-panel'|'panel-options'|'field-values'|'panel-defaults'|'undo'|'redo'|'copy-tags'|'cut-tags'|'paste-tags'|'tag-tag'|'source-musicbrainz'|'source-freedb'|'source-local-freedb'|'source-cover-musicbrainz'|'source-cover-discogs'|'source-discogs'|'source-discogs-release'|'source-token'|'source-install'|'source-folder'|'source-options'|'cover-manage'|'copy-text'|'remove-tag-types'|'strip-mp4-chapters'|'tools-options'|'config-save'|'config-load'|'config-folder'|'help-shortcuts'|'help-docs'|'help-issues'|'help-releases'|'help-updates'|'playlist-folders'|'source-last'|'source-last-quick'|'toggle-filter'|'toggle-toolbar'|'toolbar-customize'|UtilOperation|ListOperation|FileOperation;
+type Operation = 'folder'|'files'|'save'|'save-copy'|'refresh-source'|'reload'|'extended'|'add-cover'|'remove-cover'|'filename-tags'|'tags-filename'|'filename-filename'|'text-tags'|'action'|'groups'|'number'|'remove-tags'|'playlist-load'|'playlist-all'|'playlist-selected'|'playlist-generate'|'export-folders'|'list-unsorted'|'csv'|'export-config'|'select-all'|'discard'|'options'|'about'|'toggle-panel'|'panel-options'|'field-values'|'panel-defaults'|'undo'|'redo'|'copy-tags'|'cut-tags'|'paste-tags'|'tag-tag'|'source-musicbrainz'|'source-freedb'|'source-local-freedb'|'source-cover-musicbrainz'|'source-cover-discogs'|'source-discogs'|'source-discogs-release'|'source-token'|'source-install'|'source-folder'|'source-options'|'cover-manage'|'copy-text'|'remove-tag-types'|'strip-mp4-chapters'|'tools-options'|'config-save'|'config-load'|'config-folder'|'help-shortcuts'|'help-docs'|'help-issues'|'help-releases'|'help-updates'|'playlist-folders'|'source-last'|'source-last-quick'|'toggle-filter'|'toggle-toolbar'|'toolbar-customize'|'toggle-custom-toolbar'|'custom-toolbar-customize'|UtilOperation|ListOperation|FileOperation;
 type UtilOperation='util-unsupported'|'util-optimize';
 const utilOperations:Record<UtilOperation,Util>={'util-unsupported':'remove_unsupported_fields','util-optimize':'optimize'};
 const tagSourceOperations:Operation[]=['source-musicbrainz','source-discogs','source-discogs-release','source-freedb','source-local-freedb','source-cover-musicbrainz','source-cover-discogs','source-last','source-last-quick'];
@@ -127,15 +129,26 @@ function applyAppearance(state:AppearanceState){
 applyAppearance(appearance.state);
 
 let appVersion='development';
-// The tag panel width, set with the splitter and remembered on this device.
-const PANEL_WIDTH:[number,number]=[200,640];
-function setPanelWidth(width:number,save=false){
-  const clamped=Math.round(Math.max(PANEL_WIDTH[0],Math.min(PANEL_WIDTH[1],width)));
-  document.documentElement.style.setProperty('--panel-width',`${clamped}px`);
-  if(save)try{localStorage.setItem('opentag.panel-width',String(clamped));}catch{/* The width applies to this session only. */}
-  return clamped;
+// Main window layout: where the tag panel is docked, its sizes and the filter's place.
+// Saved in the options (pages.layout); this device also keeps a copy for the browser preview.
+const LAYOUT_KEY='opentag.main-layout';
+let mainLayout:MainLayout=(()=>{try{return normalizeMainLayout(JSON.parse(localStorage.getItem(LAYOUT_KEY)||'null'),Number(localStorage.getItem('opentag.panel-width'))||undefined);}catch{return normalizeMainLayout(undefined);}})();
+let layoutSaveTimer=0;
+const viewport=()=>({width:window.innerWidth,height:window.innerHeight});
+function applyLayoutVars(){
+  const style=document.documentElement.style,float=fitFloat(mainLayout.float,viewport());
+  style.setProperty('--panel-width',`${mainLayout.width}px`);style.setProperty('--panel-height',`${mainLayout.height}px`);
+  style.setProperty('--float-x',`${float.x}px`);style.setProperty('--float-y',`${float.y}px`);style.setProperty('--float-width',`${float.width}px`);style.setProperty('--float-height',`${float.height}px`);
 }
-try{const saved=Number(localStorage.getItem('opentag.panel-width'));if(saved)setPanelWidth(saved);}catch{/* Default width. */}
+/** Apply a layout change now and save it shortly after (dragging and arrow keys change it often). */
+function updateLayout(next:MainLayout,rerender=false){
+  mainLayout=next;applyLayoutVars();
+  try{localStorage.setItem(LAYOUT_KEY,JSON.stringify(next));}catch{/* Kept for this session only. */}
+  window.clearTimeout(layoutSaveTimer);
+  if(desktop)layoutSaveTimer=window.setTimeout(()=>void optionsUI.updatePage('layout',mainLayout).catch(error=>{errors=[{path:'Layout',error:String(error)}];render();}),400);
+  if(rerender)render();
+}
+applyLayoutVars();
 const app = document.querySelector<HTMLDivElement>('#app')!;
 const entries = new Map<string, Entry>();
 const drafts = new Map<string, Fields>();
@@ -187,6 +200,8 @@ let filterShown=true,hiddenFilter='';
 try{filterShown=localStorage.getItem('opentag.filter-shown')!=='false';}catch{/* Shown by default. */}
 // View → Toolbars: the main toolbar's visibility and items (Options storage, pages.toolbar).
 let toolbarConfig:ToolbarConfig=normalizeToolbar(undefined);
+// View → Toolbars → Custom toolbar: commands, tools and action groups the user adds (pages['custom-toolbar']).
+let customToolbar:ToolbarConfig=normalizeCustomToolbar(undefined);
 const actionUI=new ActionUI({
   load:()=>invoke<ActionLibrary>('load_action_library'),
   save:library=>invoke<void>('save_action_library',{library}),
@@ -296,8 +311,9 @@ const tagPanel=new TagPanel({
   persistent:()=>desktop,
   load:()=>invoke<TagPanelSettings>('load_tag_panel'),save:settings=>invoke<void>('save_tag_panel',{settings}),
   importLayout:path=>invoke<PanelLayout>('import_tag_panel_layout',{path}),exportLayout:(path,panel)=>invoke<void>('export_tag_panel_layout',{path,panel}),
+  importMp3tag:desktop?path=>invoke<Mp3tagPanelImport>('import_mp3tag_tag_panel',{path}):undefined,
   importList:path=>invoke<string[]>('import_value_list',{path}),exportList:(path,values)=>invoke<void>('export_value_list',{path,values}),
-  pickOpen:async kind=>{const path=await open({multiple:false,title:kind==='layout'?'Load tag panel configuration':'Import custom values',filters:[kind==='layout'?{name:'Tag panel configurations',extensions:['json']}:{name:'Text files',extensions:['txt']}]});return typeof path==='string'?path:null;},
+  pickOpen:async kind=>{const path=await open({multiple:false,title:kind==='layout'?'Load tag panel configuration':kind==='mp3tag'?'Import Mp3tag tag panel configuration (usrfields.ini)':'Import custom values',filters:kind==='mp3tag'?[{name:'Mp3tag configuration',extensions:['ini']},{name:'All files',extensions:['*']}]:[kind==='layout'?{name:'Tag panel configurations',extensions:['json']}:{name:'Text files',extensions:['txt']}]});return typeof path==='string'?path:null;},
   pickSave:(kind,name)=>save({title:kind==='layout'?'Save tag panel configuration':'Export custom values',defaultPath:name,filters:[kind==='layout'?{name:'Tag panel configurations',extensions:['json']}:{name:'Text files',extensions:['txt']}]}),
   values:key=>paths().map(path=>field(entries.get(path)!,key)),disabled:()=>!selected.size||busy,
   directories:()=>{const local=(list:Entry[])=>list.filter(entry=>!providerEntry(entry)).map(entry=>dirname(entry.path));return{selected:local(paths().map(path=>entries.get(path)!)),all:local([...entries.values()])};},
@@ -308,6 +324,9 @@ const tagPanel=new TagPanel({
   fail:error=>{errors=[{path:'Tag panel',error:error instanceof Error?error.message:String(error)}];status='Operation failed';render();},
   autocomplete:()=>generalPrefs().autocomplete?completeInput:undefined,
   altShortcut:event=>altChord(event,{typing:isTextEntry(event.target),mac:macKeyboard()}),
+  // Docked above or below the file list, the fields fill columns as tall as the panel.
+  columns:items=>!compactScreen()&&horizontalDock(mainLayout.dock)?panelColumns(items,Math.max(52,Math.min(mainLayout.height,window.innerHeight*0.6)-92)):undefined,
+  get dock(){return compactScreen()?undefined:{choices:DOCKS,current:()=>mainLayout.dock,set:(side:string)=>setDock(side as DockSide)};},
 });
 const optionsUI=new OptionsUI({
   load:()=>invoke<SettingsResponse>('load_settings'),save:settings=>invoke<SettingsResponse>('save_settings',{settings}),
@@ -356,10 +375,24 @@ let shownTitle='';
 function syncWindowTitle(){const title=windowTitle(location,optionsUI.settings);if(desktop&&title!==shownTitle){shownTitle=title;void getCurrentWindow().setTitle(title).catch(()=>{shownTitle='';});}}
 // Read preferences change which tag is displayed, so reload files without pending edits.
 async function optionsApplied(next:Settings,previous:Settings){
-  collator=naturalCollator(next);changedData();applyAppearancePrefs();
+  collator=naturalCollator(next);changedData();applyAppearancePrefs();void applyNotificationArea();
+  // File → Load configuration brings its own layout and toolbars.
+  const changed=(id:string)=>JSON.stringify(next.pages[id])!==JSON.stringify(previous.pages[id]);
+  if(changed('layout')&&next.pages.layout)updateLayout(normalizeMainLayout(next.pages.layout));
+  if(changed('toolbar'))toolbarConfig=normalizeToolbar(next.pages.toolbar);
+  if(changed('custom-toolbar'))customToolbar=normalizeCustomToolbar(next.pages['custom-toolbar']);
   const clean=JSON.stringify(next.tags)===JSON.stringify(previous.tags)?[]:[...entries.values()].filter(entry=>!drafts.has(entry.path)&&!providerEntry(entry)).map(entry=>entry.path);
   if(clean.length)await run('Applying tag options…',async()=>accept(await invoke<Batch>('scan_files',{paths:clean,recursive:false}),'Options saved. Reloaded',false));
   else{status=drafts.size&&JSON.stringify(next.tags)!==JSON.stringify(previous.tags)?'Options saved. Reload files with pending changes to apply tag options.':'Options saved';render();}
+}
+// Options → General → Notification area (Windows and Linux): the tray icon and minimizing into it.
+setNotificationAreaSupport(desktop&&!macPlatform);
+let notificationArea='';
+async function applyNotificationArea(){
+  if(!desktop||macPlatform)return;
+  const prefs=generalPrefs(),key=`${prefs.tray_icon}/${prefs.minimize_to_tray}`;if(key===notificationArea)return;notificationArea=key;
+  try{const state=await invoke<{supported:boolean;active:boolean}>('set_tray_options',{showIcon:prefs.tray_icon,minimizeToTray:prefs.minimize_to_tray});if(!state.supported)setNotificationAreaSupport(false);}
+  catch(error){notificationArea='';errors=[...errors,{path:'Notification area',error:publicMessage(error)}];render();}
 }
 // Options → Appearance: toolbar and interface scaling and the file list grid.
 let appliedZoom=1;
@@ -738,12 +771,12 @@ function operationReason(op:Operation):string {
   if(op==='reload'&&policy.reloadReason)return policy.reloadReason;
   if(op==='number'&&dirtySelected()&&!sourcePolicy().unsupportedReason)return 'Save pending changes first.';
   if(/^(dir|file)-/.test(op)&&fileOps.reason(op as FileOperation))return fileOps.reason(op as FileOperation);
-  if(dirtySelected()&&!/^(dir-|file-reveal$|file-play$)/.test(op)&&!['save','save-copy','refresh-source','reload','extended','number','discard','folder','files','select-all','about','groups','toggle-panel','panel-options','field-values','panel-defaults','options','undo','redo','copy-tags','cut-tags','paste-tags','source-token','source-options','source-install','source-folder','copy-text','tools-options','config-save','config-load','config-folder','help-shortcuts','help-docs','help-issues','help-releases','help-updates','list-unsorted','toggle-filter','toggle-toolbar','toolbar-customize','source-last','source-last-quick',...listOperations].includes(op))return 'Save pending changes first.';
+  if(dirtySelected()&&!/^(dir-|file-reveal$|file-play$)/.test(op)&&!['save','save-copy','refresh-source','reload','extended','number','discard','folder','files','select-all','about','groups','toggle-panel','panel-options','field-values','panel-defaults','options','undo','redo','copy-tags','cut-tags','paste-tags','source-token','source-options','source-install','source-folder','copy-text','tools-options','config-save','config-load','config-folder','help-shortcuts','help-docs','help-issues','help-releases','help-updates','list-unsorted','toggle-filter','toggle-toolbar','toolbar-customize','toggle-custom-toolbar','custom-toolbar-customize','source-last','source-last-quick',...listOperations].includes(op))return 'Save pending changes first.';
   if(op==='source-last'||op==='source-last-quick')return operationReason(lastSourceOp());
   return '';
 }
 function enabled(op: Operation): boolean {
-  if (op === 'about' || op === 'toggle-panel' || op === 'help-shortcuts' || op === 'toggle-filter' || op === 'toggle-toolbar' || op === 'toolbar-customize') return true;
+  if (op === 'about' || op === 'toggle-panel' || op === 'help-shortcuts' || op === 'toggle-filter' || op === 'toggle-toolbar' || op === 'toolbar-customize' || op === 'toggle-custom-toolbar' || op === 'custom-toolbar-customize') return true;
   if (op === 'source-last' || op === 'source-last-quick') return enabled(lastSourceOp());
   if (busy) return false;
   if (op === 'select-all') return visible().length > 0;
@@ -777,25 +810,65 @@ function sortMenuItems(){
 function viewMenuHTML(){
   const sortItems=sortMenuItems();
   const check=(op:Operation,label:string,on:boolean)=>`<button type="button" data-op="${op}" role="menuitemcheckbox" aria-checked="${on}"><span>${on?'✓ ':'<span class="column-check-space"></span>'}${label}</span></button>`;
-  return`<details class="group-submenu view-sort-menu"><summary>Sort by</summary><div>${sortItems}</div></details><details class="group-submenu view-toolbars-menu"><summary>Toolbars</summary><div>${check('toggle-toolbar','Main toolbar',toolbarConfig.shown)}<button type="button" data-op="toolbar-customize"><span>Customize toolbar…</span></button></div></details>`;
+  const radio=(attribute:string,value:string,label:string,on:boolean)=>`<button type="button" ${attribute}="${value}" role="menuitemradio" aria-checked="${on}"><span>${on?'✓ ':'<span class="column-check-space"></span>'}${label}</span></button>`;
+  const layoutMenus=compactScreen()?'':`<details class="group-submenu view-dock-menu"><summary>Tag panel position</summary><div>${DOCKS.map(([side,label])=>radio('data-panel-dock',side,label,mainLayout.dock===side)).join('')}</div></details><details class="group-submenu view-filter-dock-menu"><summary>Filter position</summary><div>${FILTER_DOCKS.map(([id,label])=>radio('data-filter-dock',id,label,mainLayout.filter===id)).join('')}</div></details>`;
+  return`<details class="group-submenu view-sort-menu"><summary>Sort by</summary><div>${sortItems}</div></details><details class="group-submenu view-toolbars-menu"><summary>Toolbars</summary><div>${check('toggle-toolbar','Main toolbar',toolbarConfig.shown)}${check('toggle-custom-toolbar','Custom toolbar',customToolbar.shown)}<button type="button" data-op="toolbar-customize"><span>Customize main toolbar…</span></button><button type="button" data-op="custom-toolbar-customize"><span>Customize custom toolbar…</span></button></div></details>${layoutMenus}`;
 }
 function toolbarMarkup(){
   if(!toolbarConfig.shown)return'';
   const items=visibleItems(toolbarConfig.items).map(item=>{
     if(isSeparator(item.id))return'<span class="sep"></span>';
+    if(isSpacer(item.id))return'<span class="spacer"></span>';
     const command=TOOLBAR_COMMANDS[item.id];
     return button(item.id as Operation,esc(itemLabel(item)),command.icon).replace('<button ',`<button data-hint="${esc(command.hint)}" `);
   }).join('');
   return`<div class="toolbar" role="toolbar" aria-label="File and tag operations">${items}</div>`;
+}
+/** Why a custom toolbar tool or action group cannot run now, or an empty string. */
+function customItemReason(id:string){
+  if(id.startsWith(TOOL_PREFIX))return toolsUI.tools.some(tool=>tool.name===id.slice(TOOL_PREFIX.length))?toolsUI.reason:'This tool no longer exists. Edit the custom toolbar.';
+  if(id.startsWith(ACTION_PREFIX))return !actionUI.groupNames.includes(id.slice(ACTION_PREFIX.length))?'This action group no longer exists. Edit the custom toolbar.':enabled('action')?'':operationReason('action')||'Select files first.';
+  return'';
+}
+function customToolbarMarkup(){
+  if(!customToolbar.shown)return'';
+  const items=visibleItems(customToolbar.items);
+  if(!items.some(item=>!isSeparator(item.id)&&!isSpacer(item.id)))return'';
+  return`<div class="toolbar custom-toolbar" role="toolbar" aria-label="Custom toolbar">${items.map(item=>{
+    if(isSeparator(item.id))return'<span class="sep"></span>';
+    if(isSpacer(item.id))return'<span class="spacer"></span>';
+    const label=esc(itemLabel(item)),hint=esc(itemHint(item.id));
+    if(item.id in TOOLBAR_COMMANDS)return button(item.id as Operation,label,TOOLBAR_COMMANDS[item.id].icon).replace('<button ',`<button data-hint="${hint}" `);
+    const reason=customItemReason(item.id);
+    return`<button type="button" data-custom-item="${esc(item.id)}" data-hint="${hint}" ${reason?'disabled':''} title="${esc(reason||itemLabel(item))}"><span>${label}</span></button>`;
+  }).join('')}</div>`;
+}
+/** The toolbars, with the filter docked to their left or right when chosen (desktop layout only). */
+function toolbarsMarkup(filterbar:string){
+  const toolbars=toolbarMarkup()+customToolbarMarkup();
+  if(compactScreen())return toolbars;
+  if(mainLayout.filter==='list')return toolbars?`<div class="toolbar-row">${toolbars}</div>`:'';
+  return`<div class="toolbar-row" data-filter="${mainLayout.filter}">${mainLayout.filter==='toolbar-left'?filterbar:''}${toolbars}${mainLayout.filter==='toolbar-right'?filterbar:''}</div>`;
 }
 async function saveToolbar(config:ToolbarConfig){
   toolbarConfig=normalizeToolbar(config);
   if(desktop)await optionsUI.updatePage('toolbar',toolbarConfig);
   render();
 }
+async function saveCustomToolbar(config:ToolbarConfig){
+  customToolbar=normalizeCustomToolbar(config);
+  if(desktop)await optionsUI.updatePage('custom-toolbar',customToolbar);
+  render();
+}
+/** Items the custom toolbar can hold: every toolbar command, each tool and each action group. */
+function customToolbarChoices():ToolbarChoice[]{
+  return[...Object.entries(TOOLBAR_COMMANDS).map(([id,command])=>({id,label:command.label,group:'Commands'})),
+    ...toolsUI.tools.map(tool=>({id:`${TOOL_PREFIX}${tool.name}`,label:tool.name,group:'Tools'})),
+    ...actionUI.groupNames.map(name=>({id:`${ACTION_PREFIX}${name}`,label:name.replace(/#/g,' › '),group:'Action groups'}))];
+}
 /** Status-bar hints of the toolbar buttons (Mp3tag shows them while hovering a button). */
 function bindToolbarHints(){
-  const toolbar=document.querySelector<HTMLElement>('.toolbar');if(!toolbar)return;
+  const toolbars=document.querySelectorAll<HTMLElement>('.toolbar');if(!toolbars.length)return;
   const show=(event:Event)=>{
     const button=(event.target as Element).closest<HTMLButtonElement>('button[data-hint]'),el=document.querySelector<HTMLElement>('.status-message');if(!button||!el)return;
     if(!el.classList.contains('hint'))el.dataset.before=el.textContent||'';
@@ -804,8 +877,10 @@ function bindToolbarHints(){
     el.textContent=reason?`${button.dataset.hint} — ${reason}`:button.dataset.hint!;el.classList.add('hint');
   };
   const hide=()=>{const el=document.querySelector<HTMLElement>('.status-message');if(el?.classList.contains('hint')){el.textContent=el.dataset.before??status;el.classList.remove('hint');}};
-  toolbar.addEventListener('pointerover',show);toolbar.addEventListener('focusin',show);
-  toolbar.addEventListener('pointerleave',hide);toolbar.addEventListener('focusout',hide);
+  toolbars.forEach(toolbar=>{
+    toolbar.addEventListener('pointerover',show);toolbar.addEventListener('focusin',show);
+    toolbar.addEventListener('pointerleave',hide);toolbar.addEventListener('focusout',hide);
+  });
 }
 /** View → Filter (F3): hiding the filter shows every file; showing it restores and focuses the filter text. */
 function toggleFilter(){
@@ -845,13 +920,15 @@ function render() {
   const caretStart=focused?.selectionStart,caretEnd=focused?.selectionEnd;
   const list = visible(), entry = active();
   const selectedEntries = paths().map(path => entries.get(path)!), shownColumns = tableColumns();
-  app.innerHTML = `<div class="app" data-pane="${mobilePane}" data-panel="${tagPanel.visible?'shown':'hidden'}"><header class="titlebar"><img class="brand-logo" data-theme-image="logo" src="${themedAsset('logo')}" alt="OpenTag"><span class="subtitle">Audio metadata editor</span><span class="window-mode">${runtimePlatform.document_access_supported?'Provider documents':desktop?'Local files':'Browser preview'}</span><label class="appearance-control"><span>Appearance</span><select id="appearance" aria-label="Appearance"><option value="system">${appearance.state.preference==='system'?`System (${appearance.state.resolved==='dark'?'Dark':'Light'})`:'System'}</option><option value="light">Light</option><option value="dark">Dark</option></select></label></header>
+  const filterbar=`<div class="filterbar" ${filterShown?'':'hidden'}><label for="filter">${glyph(glyphSearch)}<span class="visually-hidden">Filter</span></label><input id="filter" type="search" value="${esc(filterDraft??filter)}" data-helper="filter" data-history="filter" data-history-manage placeholder="Filter filenames and tags, or enter a filter expression" autocomplete="off"><span class="count">${countText(list)}</span></div>`,filterInList=compactScreen()||mainLayout.filter==='list';
+  const dock=mainLayout.dock,across=horizontalDock(dock),range=across?PANEL_HEIGHT:PANEL_WIDTH;
+  app.innerHTML = `<div class="app" data-pane="${mobilePane}" data-panel="${tagPanel.visible?'shown':'hidden'}" data-dock="${dock}"><header class="titlebar"><img class="brand-logo" data-theme-image="logo" src="${themedAsset('logo')}" alt="OpenTag"><span class="subtitle">Audio metadata editor</span><span class="window-mode">${runtimePlatform.document_access_supported?'Provider documents':desktop?'Local files':'Browser preview'}</span><label class="appearance-control"><span>Appearance</span><select id="appearance" aria-label="Appearance"><option value="system">${appearance.state.preference==='system'?`System (${appearance.state.resolved==='dark'?'Dark':'Light'})`:'System'}</option><option value="light">Light</option><option value="dark">Dark</option></select></label></header>
   <nav class="menubar" aria-label="Main menu">${menu('File',[['save','Save tags','⌘/Ctrl S'],['remove-tags','Remove tag…','⌘/Ctrl R'],['save-copy','Save a copy…'],['reload','Reload tags','⌘/Ctrl T'],['playlist-all','Playlist (all files)','⌘/Ctrl P'],['playlist-selected','Playlist (selected files)'],['playlist-folders','Playlist per folder (all files)','⌘/Ctrl ⇧ P'],['playlist-generate','Generate playlists…'],['export-config','Export…','⌘/Ctrl E'],['csv','Export CSV…'],['folder','Change directory…',runtimePlatform.document_access_supported?undefined:'⌘/Ctrl D'],['dir-add','Add directory…','Ctrl H'],['files','Add files…',runtimePlatform.document_access_supported?'⌘/Ctrl D':undefined],['playlist-load','Load playlist/cue sheet…'],['dir-up','Upper directory','⌘/Ctrl ⇧ D'],['dir-back','Previous directory','Alt ←'],['dir-forward','Next directory','Alt →'],['dir-favorite','Favorite directory','Ctrl M'],['dir-manage','Favorite directories…'],['clear-list','Clear list'],['file-reveal',`Open in ${fileOps.fileManager}`],['file-play','Play','F4'],['options','Options…','⌘/Ctrl O'],['config-save','Save configuration…'],['config-load','Load configuration…'],['config-folder','Open configuration folder']])}${menu('Edit',[['undo',esc(historyLabel('Undo',history.undo)),'⌘/Ctrl Z'],['redo',esc(repeatState().label),'⌘/Ctrl Y'],['cut-tags','Cut tags','⌘/Ctrl X'],['copy-tags','Copy tags','⌘/Ctrl C'],['copy-text','Copy as Text…'],['paste-tags','Paste tags','⌘/Ctrl V'],['select-all','Select all','⌘/Ctrl A'],['invert-selection','Invert selection','⌘/Ctrl ⇧A'],['unselect-all','Unselect all','⌘/Ctrl U'],['select-next','Select next file','⌘/Ctrl N'],['select-similar','Select similar files','⌘/Ctrl G'],['select-next-similar','Select next similar files','⌘/Ctrl ⇧G'],['find','Find…','⌘/Ctrl F'],['edit-cell','Edit in file list','F2'],['file-copy','Copy files to…','⌘/Ctrl ⇧ C'],['file-move','Move files to…','⌘/Ctrl ⇧ V'],['remove-from-list','Remove from list',macPlatform?'⌫ / Del':'Del'],['file-delete','Delete files…','⌘/Ctrl Del'],['file-delete-permanent','Delete files permanently…',macPlatform?'⌘⇧⌫ / ⌘⇧Del':'Ctrl ⇧ Del'],['discard','Discard pending changes','⌘/Ctrl B'],['cover-manage','Manage covers…',macPlatform?'⌘⌥M':'Ctrl Alt M']])}${menu('View',[viewListItems[0],['toggle-panel',tagPanel.visible?'Hide tag panel':'Show tag panel','Ctrl Q'],['extended','Extended tags…','Alt T'],['toggle-filter',filterShown?'Hide filter':'Show filter','F3'],['panel-defaults','Default values in input fields'],['panel-options','Customize tag panel…'],['field-values','Field values…'],...viewListItems.slice(1)])}${menu('Convert',[['tags-filename','Tag → Filename…','Alt 1'],['filename-tags','Filename → Tag…','Alt 2'],['filename-filename','Filename → Filename…','Alt 3'],['text-tags','Text File → Tag…','Alt 4'],['tag-tag','Tag → Tag…','Alt 5'],['number','Auto-numbering…','⌘/Ctrl K']])}${menu('Actions',[['groups','Actions…','Alt 6'],['action','Actions (Quick)…','Alt Shift 6']])}${menu('Tag Sources',([['source-musicbrainz','MusicBrainz…'],['source-discogs','Discogs…'],['source-discogs-release','Discogs Release ID…'],['source-freedb','freedb…'],['source-local-freedb','freedb (local)…','⌘/Ctrl L'],['source-cover-musicbrainz','Covers: MusicBrainz…'],['source-cover-discogs','Covers: Discogs…'],...(desktop&&runtimePlatform.folder_picker_supported?[['source-install','Install tag sources…'],['source-folder','Open sources folder']] as [Operation,string][]:[]),['source-token','Discogs access token…'],['source-options','Options…']] as [Operation,string,string?][]).map(([op,label,key])=>[op,label,!lastWebSource()&&op===tagSourcesUI.lastOperation?'⌘/Ctrl I':key] as [Operation,string,string?]))}${menu('Tools',[['remove-tag-types','Remove tag types…'],['strip-mp4-chapters','Strip chapters MP4…'],['util-unsupported','Remove unsupported fields…'],['util-optimize','Optimize…'],['tools-options','Configure tools…']])}${menu('Help',[['help-docs','Documentation'],['help-shortcuts','Keyboard shortcuts'],['help-issues','Report an issue'],['help-updates','Check for updates…'],['help-releases','Releases'],['about','About OpenTag']])}</nav>
-  ${toolbarMarkup()}
+  ${toolbarsMarkup(filterbar)}
   <nav class="mobile-panes" aria-label="Workspace view"><button data-pane="files" aria-pressed="${mobilePane==='files'}">Files (${entries.size})</button><button data-pane="tags" aria-pressed="${mobilePane==='tags'}" ${selected.size?'':'disabled'}>Tags (${selected.size})</button></nav>
-  <main class="workspace"><aside class="editor" aria-label="Tag editor"><div class="panel-title">Tag panel <span class="panel-count">${panelCount()}</span>${tagPanel.titleHTML()}</div>${sourceMarkup('tags')}<div class="fields">${tagPanel.fieldsHTML()}</div><div class="editor-actions">${button('save','Save tags')}${button('extended','Extended…')}</div>
-  ${tagPanel.showCover?`<section class="cover-section" aria-label="Embedded artwork">${coverMarkup()}</section>`:''}</aside><div class="panel-splitter" role="separator" aria-orientation="vertical" aria-label="Tag panel width" aria-valuemin="${PANEL_WIDTH[0]}" aria-valuemax="${PANEL_WIDTH[1]}" tabindex="0"></div>
-  <section class="files" aria-label="Audio files"><div class="location">${glyph(glyphOrganize)}<span class="path" title="${esc(entry&&providerEntry(entry)?sourcePresentation(documentAccess.states[entry.path]).location:location)}">${esc(entry&&providerEntry(entry)?sourcePresentation(documentAccess.states[entry.path]).location:location)}</span><strong>${entries.size} file${entries.size===1?'':'s'}</strong></div>${sourceMarkup('files')}<div class="filterbar" ${filterShown?'':'hidden'}><label for="filter">${glyph(glyphSearch)}<span class="visually-hidden">Filter</span></label><input id="filter" type="search" value="${esc(filterDraft??filter)}" data-helper="filter" data-history="filter" data-history-manage placeholder="Filter filenames and tags, or enter a filter expression" autocomplete="off"><span class="count">${countText(list)}</span></div><div class="table-wrap"><table aria-label="Audio metadata" aria-rowcount="${list.length+1}" style="width:${shownColumns.reduce((sum,c)=>sum+c.width,0)}px"><thead><tr>${headerMarkup(shownColumns,columnLayout.sort,!compactScreen())}</tr></thead><tbody></tbody></table>${!list.length ? emptyMarkup() : ''}</div><div class="selection-info">${selectionInfoMarkup(selectedEntries,list)}</div>
+  <main class="workspace"><aside class="editor" aria-label="Tag editor"><div class="panel-title" ${compactScreen()?'':`title="Drag to dock the tag panel at another edge or to float it; double-click to ${dock==='float'?'dock it again':'float it'}"`}>Tag panel <span class="panel-count">${panelCount()}</span>${tagPanel.titleHTML()}</div>${sourceMarkup('tags')}<div class="fields">${tagPanel.fieldsHTML()}</div><div class="editor-actions">${button('save','Save tags')}${button('extended','Extended…')}</div>
+  ${tagPanel.showCover?`<section class="cover-section" aria-label="Embedded artwork">${coverMarkup()}</section>`:''}</aside><div class="panel-splitter" role="separator" aria-orientation="${across?'horizontal':'vertical'}" aria-label="Tag panel ${across?'height':'width'}" aria-valuemin="${range[0]}" aria-valuemax="${range[1]}" tabindex="0"></div>
+  <section class="files" aria-label="Audio files"><div class="location">${glyph(glyphOrganize)}<span class="path" title="${esc(entry&&providerEntry(entry)?sourcePresentation(documentAccess.states[entry.path]).location:location)}">${esc(entry&&providerEntry(entry)?sourcePresentation(documentAccess.states[entry.path]).location:location)}</span><strong>${entries.size} file${entries.size===1?'':'s'}</strong></div>${sourceMarkup('files')}${filterInList?filterbar:''}<div class="table-wrap"><table aria-label="Audio metadata" aria-rowcount="${list.length+1}" style="width:${shownColumns.reduce((sum,c)=>sum+c.width,0)}px"><thead><tr>${headerMarkup(shownColumns,columnLayout.sort,!compactScreen())}</tr></thead><tbody></tbody></table>${!list.length ? emptyMarkup() : ''}</div><div class="selection-info">${selectionInfoMarkup(selectedEntries,list)}</div>
   ${errors.length ? `<section class="errors" aria-label="Operation errors"><header>${errors.length} file error${errors.length===1?'':'s'}<button id="dismiss-errors">Dismiss</button></header>${errors.map(e => `<p><strong>${esc(displayName(e.path))}:</strong> ${esc(publicMessage(e.error))}</p>`).join('')}</section>` : ''}</section></main><footer class="status ${busy?'busy':''}"><span class="status-dot" aria-hidden="true"></span><span class="status-message" role="status">${esc(status)}</span>${progressMarkup()}${drafts.size ? `<span class="dirty-count">${drafts.size} unsaved file${drafts.size===1?'':'s'}</span>` : ''}<span>${entries.size} files</span></footer></div>`;
   const wrap=document.querySelector<HTMLDivElement>('.table-wrap')!;
   wrap.querySelector('tbody')!.innerHTML=list.length?`<tr class="virtual-spacer" aria-hidden="true"><td colspan="${tableColumns().length}" style="height:${list.length*rowHeight}px"></td></tr>`:'';
@@ -937,6 +1014,7 @@ function refreshList(){
 function refreshCommandStates(){
   document.querySelectorAll<HTMLButtonElement>('button[data-op]').forEach(el=>{el.disabled=!enabled(el.dataset.op as Operation);el.title=operationReason(el.dataset.op as Operation)||el.querySelector('span:not(.icon)')?.textContent||'';});
   const actions=enabled('action');document.querySelectorAll<HTMLButtonElement>('[data-action-group]').forEach(el=>el.disabled=!actions);
+  document.querySelectorAll<HTMLButtonElement>('button[data-custom-item]').forEach(el=>{const reason=customItemReason(el.dataset.customItem!);el.disabled=!!reason;el.title=reason||el.textContent||'';});
 }
 function selectedProvider(){return [...selected].some(path=>{const entry=entries.get(path);return !!entry&&providerEntry(entry);});}
 function copyBaseUnknown(path:string){
@@ -1034,20 +1112,93 @@ async function shuffleFiles(){
   status=`Shuffled ${shown.length} files. Playlists and numbering use the list order.`;
   const element=document.querySelector('.status-message');if(element)element.textContent=status;
 }
+/** The splitter between the docked tag panel and the file list: drag it, or use the arrow keys. */
 function bindSplitter(){
   const splitter=document.querySelector<HTMLElement>('.panel-splitter'),editor=document.querySelector<HTMLElement>('.editor');if(!splitter||!editor)return;
-  const show=(width:number)=>splitter.setAttribute('aria-valuenow',String(width));show(Math.round(editor.offsetWidth));
+  const across=horizontalDock(mainLayout.dock),size=()=>across?mainLayout.height:mainLayout.width;
+  const show=()=>splitter.setAttribute('aria-valuenow',String(size()));show();
+  // A horizontal panel lays out its columns for its height, so it is rebuilt when the height changes.
+  const refit=()=>{if(across)refreshSelection();};
   splitter.addEventListener('pointerdown',event=>{
-    if(event.button!==0)return;event.preventDefault();splitter.setPointerCapture(event.pointerId);splitter.classList.add('dragging');
-    const left=editor.getBoundingClientRect().left,move=(e:PointerEvent)=>show(setPanelWidth(e.clientX-left));
-    const end=(e:PointerEvent)=>{splitter.removeEventListener('pointermove',move);splitter.classList.remove('dragging');show(setPanelWidth(e.clientX-left,true));};
+    if(event.button!==0)return;event.preventDefault();try{splitter.setPointerCapture(event.pointerId);}catch{/* Synthetic pointers cannot be captured. */}splitter.classList.add('dragging');
+    const start=size(),origin=across?event.clientY:event.clientX;
+    const move=(e:PointerEvent)=>{updateLayout({...mainLayout,...resized(mainLayout,start,(across?e.clientY:e.clientX)-origin)});show();};
+    const end=(e:PointerEvent)=>{splitter.removeEventListener('pointermove',move);splitter.classList.remove('dragging');move(e);refit();};
     splitter.addEventListener('pointermove',move);splitter.addEventListener('pointerup',end,{once:true});splitter.addEventListener('pointercancel',end,{once:true});
   });
-  splitter.addEventListener('keydown',event=>{if(event.key!=='ArrowLeft'&&event.key!=='ArrowRight')return;event.preventDefault();show(setPanelWidth(editor.offsetWidth+(event.key==='ArrowRight'?16:-16),true));});
+  splitter.addEventListener('keydown',event=>{
+    const keys=across?['ArrowUp','ArrowDown']:['ArrowLeft','ArrowRight'];if(!keys.includes(event.key))return;event.preventDefault();
+    updateLayout({...mainLayout,...resized(mainLayout,size(),event.key===keys[1]?16:-16)});show();refit();
+  });
+}
+const dockLabel=(side:DockSide)=>side==='float'?'floating':`docked ${side==='top'?'above':side==='bottom'?'below':`on the ${side} of`} the file list`;
+/** Dock the tag panel (View → Tag panel position, the panel menu, or dragging its title bar). */
+function setDock(side:DockSide,float?:MainLayout['float']){
+  updateLayout({...withDock(mainLayout,side),...(float?{float:fitFloat(float,viewport())}:{})});
+  status=`Tag panel ${dockLabel(side)}.${side==='float'?' Drag its title bar to an edge, or double-click it, to dock it again.':''}`;
+  if(!tagPanel.visible)tagPanel.toggle();else render();
+}
+function setFilterDock(position:FilterDock){
+  updateLayout({...mainLayout,filter:position},true);
+  status=`Filter ${FILTER_DOCKS.find(([id])=>id===position)![1].toLowerCase()}.`;const el=document.querySelector('.status-message');if(el)el.textContent=status;
+}
+let floatObserver:ResizeObserver|undefined;
+/**
+ * Dragging the tag panel's title bar: dropped near an edge of the workspace it docks there,
+ * elsewhere it floats where it was dropped; a floating panel moves with the pointer.
+ * Double-clicking the title bar floats a docked panel or docks a floating one again.
+ */
+function bindPanelDock(){
+  floatObserver?.disconnect();floatObserver=undefined;
+  const editor=document.querySelector<HTMLElement>('.editor'),title=editor?.querySelector<HTMLElement>('.panel-title'),workspace=document.querySelector<HTMLElement>('.workspace');
+  if(!editor||!title||!workspace||compactScreen()||!tagPanel.visible)return;
+  const interactive=(target:EventTarget|null)=>!!(target as Element|null)?.closest?.('details,button,input,select,textarea,a');
+  title.addEventListener('dblclick',event=>{if(!interactive(event.target))setDock(toggledDock(mainLayout));});
+  title.addEventListener('pointerdown',event=>{
+    if(event.button!==0||interactive(event.target))return;
+    const startX=event.clientX,startY=event.clientY,floating=mainLayout.dock==='float',origin=fitFloat(mainLayout.float,viewport());
+    let dragging=false,target:DockSide=mainLayout.dock,overlay:HTMLElement|undefined;
+    try{title.setPointerCapture(event.pointerId);}catch{/* Synthetic pointers cannot be captured. */}
+    const floatAt=(x:number,y:number)=>floating?{...origin,x:origin.x+x-startX,y:origin.y+y-startY}:{...origin,x:x-40,y:y-14};
+    const move=(e:PointerEvent)=>{
+      if(!dragging&&Math.hypot(e.clientX-startX,e.clientY-startY)<6)return;
+      if(!dragging){dragging=true;overlay=document.createElement('div');overlay.className='dock-overlay';overlay.setAttribute('aria-hidden','true');document.body.append(overlay);document.body.classList.add('panel-dragging');}
+      const area=workspace.getBoundingClientRect();
+      target=dropTarget({x:e.clientX,y:e.clientY},area,floating?48:Math.max(60,Math.min(area.width,area.height)*0.2));
+      const float=fitFloat(floatAt(e.clientX,e.clientY),viewport());
+      if(floating){const style=document.documentElement.style;style.setProperty('--float-x',`${float.x}px`);style.setProperty('--float-y',`${float.y}px`);}
+      const rect=target==='float'?{left:float.x,top:float.y,width:float.width,height:float.height}
+        :target==='left'||target==='right'?{left:target==='left'?area.left:area.right-Math.min(mainLayout.width,area.width/2),top:area.top,width:Math.min(mainLayout.width,area.width/2),height:area.height}
+        :{left:area.left,top:target==='top'?area.top:area.bottom-Math.min(mainLayout.height,area.height*0.6),width:area.width,height:Math.min(mainLayout.height,area.height*0.6)};
+      overlay!.dataset.target=target;Object.assign(overlay!.style,{left:`${rect.left}px`,top:`${rect.top}px`,width:`${rect.width}px`,height:`${rect.height}px`});
+    };
+    const end=(e:PointerEvent)=>{
+      title.removeEventListener('pointermove',move);title.removeEventListener('pointerup',end);title.removeEventListener('pointercancel',end);
+      overlay?.remove();document.body.classList.remove('panel-dragging');
+      if(!dragging||e.type==='pointercancel'){applyLayoutVars();return;}
+      if(target==='float')setDock('float',floatAt(e.clientX,e.clientY));else setDock(target);
+    };
+    title.addEventListener('pointermove',move);title.addEventListener('pointerup',end);title.addEventListener('pointercancel',end);
+  });
+  // A floating panel is resized with its corner grip; keep the size it was given.
+  if(mainLayout.dock==='float'&&typeof ResizeObserver!=='undefined'){
+    floatObserver=new ResizeObserver(()=>{
+      const width=Math.round(editor.offsetWidth),height=Math.round(editor.offsetHeight),float=fitFloat(mainLayout.float,viewport());
+      if(width&&height&&(Math.abs(width-float.width)>2||Math.abs(height-float.height)>2))updateLayout({...mainLayout,float:{...float,width,height}});
+    });
+    floatObserver.observe(editor);
+  }
 }
 function bind() {
   document.querySelector<HTMLSelectElement>('#appearance')!.addEventListener('change',event=>appearance.set((event.target as HTMLSelectElement).value));
-  bindSplitter();
+  bindSplitter();bindPanelDock();
+  document.querySelectorAll<HTMLButtonElement>('[data-panel-dock]').forEach(el=>el.addEventListener('click',()=>{document.querySelectorAll<HTMLDetailsElement>('details[open]').forEach(d=>d.open=false);setDock(el.dataset.panelDock as DockSide);}));
+  document.querySelectorAll<HTMLButtonElement>('[data-filter-dock]').forEach(el=>el.addEventListener('click',()=>{document.querySelectorAll<HTMLDetailsElement>('details[open]').forEach(d=>d.open=false);setFilterDock(el.dataset.filterDock as FilterDock);}));
+  document.querySelectorAll<HTMLButtonElement>('button[data-custom-item]').forEach(el=>el.addEventListener('click',()=>{
+    const id=el.dataset.customItem!,reason=customItemReason(id);if(reason){status=reason;render();return;}
+    if(id.startsWith(TOOL_PREFIX))void toolsUI.run(toolsUI.tools.findIndex(tool=>tool.name===id.slice(TOOL_PREFIX.length)));
+    else void actionUI.runOne(actionUI.groupNames.indexOf(id.slice(ACTION_PREFIX.length)));
+  }));
   actionUI.bindMenu(app);webSourcesUI.bindMenu(app);tagPanel.bind(app);columnUI.bindMenu(app);fileOps.bindMenu(app);coverUI.bind(app);toolsUI.bindMenu(app);
   document.querySelectorAll<HTMLButtonElement>('button[data-pane]').forEach(el=>el.addEventListener('click',()=>{mobilePane=el.dataset.pane as 'files'|'tags';render();}));
   document.querySelectorAll<HTMLButtonElement>('[data-op]').forEach(el => el.addEventListener('click', () => { document.querySelectorAll<HTMLDetailsElement>('details[open]').forEach(d => d.open = false); void operate(el.dataset.op as Operation); }));
@@ -1605,6 +1756,8 @@ async function operateImpl(op: Operation) {
   if(op==='toggle-filter'){toggleFilter();return;}
   if(op==='toggle-toolbar'){await saveToolbar({...toolbarConfig,shown:!toolbarConfig.shown});status=toolbarConfig.shown?'Main toolbar shown':'Main toolbar hidden. Show it again with View → Toolbars → Main toolbar.';render();return;}
   if(op==='toolbar-customize'){customizeToolbar({config:()=>toolbarConfig,save:saveToolbar,mac:macKeyboard});return;}
+  if(op==='toggle-custom-toolbar'){await saveCustomToolbar({...customToolbar,shown:!customToolbar.shown});status=customToolbar.shown?customToolbar.items.length?'Custom toolbar shown':'Custom toolbar shown. Add commands, tools and action groups with View → Toolbars → Customize custom toolbar.':'Custom toolbar hidden';render();return;}
+  if(op==='custom-toolbar-customize'){await actionUI.initialize().catch(()=>undefined);customizeToolbar({config:()=>customToolbar,save:saveCustomToolbar,mac:macKeyboard,custom:{choices:customToolbarChoices}});return;}
   if(op==='list-unsorted'){await applyColumns({...columnLayout,sort:[]});status='Files are shown in load order (playlist order)';render();return;}
   if(op==='options'){await optionsUI.open();return;}
   if(op==='number'){numbering();return;}
@@ -1798,7 +1951,7 @@ if(desktop){
   void actionUI.initialize().catch(error=>{errors=[{path:'Action groups',error:String(error)}];render();});
   void invoke<ColumnLayout|null>('load_columns').then(layout=>{if(layout){columnLayout=normalizeLayout(layout);render();}}).catch(error=>{errors=[{path:'Columns',error:String(error)}];render();});
   void tagPanel.initialize().catch(error=>{errors=[{path:'Tag panel',error:String(error)}];render();});
-  const optionsReady=optionsUI.initialize().then(response=>{collator=naturalCollator(response.settings);toolbarConfig=normalizeToolbar(response.settings.pages.toolbar);changedData();applyAppearancePrefs();if(response.warning)errors=[...errors,{path:'Options',error:response.warning}];render();}).catch(error=>{errors=[...errors,{path:'Options',error:String(error)}];render();});
+  const optionsReady=optionsUI.initialize().then(response=>{collator=naturalCollator(response.settings);toolbarConfig=normalizeToolbar(response.settings.pages.toolbar);customToolbar=normalizeCustomToolbar(response.settings.pages['custom-toolbar']);if(response.settings.pages.layout)updateLayout(normalizeMainLayout(response.settings.pages.layout));void applyNotificationArea();changedData();applyAppearancePrefs();if(response.warning)errors=[...errors,{path:'Options',error:response.warning}];render();}).catch(error=>{errors=[...errors,{path:'Options',error:String(error)}];render();});
   void Promise.all([optionsReady,versionReady]).then(([,version])=>version?startupUpdates(version):undefined);
   void invoke<typeof runtimePlatform>('runtime_platform').then(async platform=>{runtimePlatform=platform;nativeAppearanceReady=platform.family==='desktop';render();syncNativeAppearance();if(platform.folder_picker_supported)void optionsReady.then(()=>fileOps.initialize()).catch(error=>{errors=[{path:'Directories',error:String(error)}];render();});if(platform.document_access_supported)await run('Restoring recovery copies…',async()=>{const batch=await invoke<Batch>('restore_document_recovery');accept(batch,'Restored recovery copies',false);location='Provider documents';if(!selected.size&&batch.entries.length){selected.add(batch.entries[0].path);anchor=batch.entries[0].path;}if(!batch.entries.length&&!batch.errors.length)status='Ready';});}).catch(error=>{errors=[{path:'Platform',error:String(error)}];render();});
   void listen<{job:string;done:number;total:number}>('opentag://progress',event=>{const job=progressJob;if(!job||event.payload.job!==job.id)return;job.done=event.payload.done;job.total=event.payload.total;showProgress();}).catch(()=>{/* Progress is optional; operations still complete. */});

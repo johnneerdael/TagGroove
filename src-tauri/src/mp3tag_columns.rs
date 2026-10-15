@@ -30,7 +30,7 @@ pub fn decode(bytes: &[u8]) -> String {
 }
 
 /// Sections in file order, each with its lower-case keys and raw values.
-fn sections(text: &str) -> Vec<(String, Vec<(String, String)>)> {
+pub(crate) fn sections(text: &str) -> Vec<(String, Vec<(String, String)>)> {
     let mut result: Vec<(String, Vec<(String, String)>)> = Vec::new();
     for line in text.lines() {
         let line = line.trim();
@@ -54,14 +54,14 @@ fn sections(text: &str) -> Vec<(String, Vec<(String, String)>)> {
     result
 }
 
-fn lookup<'a>(keys: &'a [(String, String)], names: &[&str]) -> Option<&'a str> {
+pub(crate) fn lookup<'a>(keys: &'a [(String, String)], names: &[&str]) -> Option<&'a str> {
     names.iter().find_map(|name| {
         keys.iter()
             .find(|(key, _)| key == name)
             .map(|(_, value)| value.as_str())
     })
 }
-fn flag(value: &str) -> Option<bool> {
+pub(crate) fn flag(value: &str) -> Option<bool> {
     match value.trim().to_ascii_lowercase().as_str() {
         "1" | "true" | "yes" | "on" => Some(true),
         "0" | "false" | "no" | "off" => Some(false),

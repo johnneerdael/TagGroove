@@ -131,12 +131,20 @@ export function directoryOptions(directories:string[]):ComboOption[]{
   return [...[...new Set(directories)].sort(collator.compare).map(value=>({kind:'value' as const,value,group:'directory' as const})),{kind:'browse',value:'Open folder…',group:'special'}];
 }
 
+/** Fields of an Mp3tag tag panel configuration, with the entries that were left out. */
+export type Mp3tagPanelImport={panel:PanelLayout;skipped:string[]};
 export type TagPanelHost={
   persistent:()=>boolean;
   load:()=>Promise<TagPanelSettings>;save:(settings:TagPanelSettings)=>Promise<void>;
   importLayout:(path:string)=>Promise<PanelLayout>;exportLayout:(path:string,layout:PanelLayout)=>Promise<void>;
+  /** Utils → Load configuration of an Mp3tag file the user picks (usrfields.ini or a saved panel configuration). */
+  importMp3tag?:(path:string)=>Promise<Mp3tagPanelImport>;
   importList:(path:string)=>Promise<string[]>;exportList:(path:string,values:string[])=>Promise<void>;
-  pickOpen:(kind:'layout'|'list')=>Promise<string|null>;pickSave:(kind:'layout'|'list',name:string)=>Promise<string|null>;
+  pickOpen:(kind:'layout'|'list'|'mp3tag')=>Promise<string|null>;pickSave:(kind:'layout'|'list',name:string)=>Promise<string|null>;
+  /** Horizontal (top or bottom) panels: item indexes per column, or undefined for the vertical layout. */
+  columns?:(items:{span:number;height:number;separator:boolean}[])=>number[][]|undefined;
+  /** Docking position: the choices, the current one and how to change it. */
+  dock?:{choices:[string,string][];current:()=>string;set:(side:string)=>void};
   values:(field:string)=>string[];disabled:()=>boolean;
   directories:()=>{selected:string[];all:string[]};selectDirectory:(directory:string)=>void;openFolder:()=>void;
   /** A folder path typed into the _DIRECTORY field: make it the working directory. */
@@ -175,12 +183,17 @@ export class TagPanel {
   titleHTML(){
     const fields=this.settings.panel.fields.map((field,index)=>[field,index] as const).filter(([field])=>field.field!==SEPARATOR);
     const item=(command:string,label:string,checked?:boolean)=>`<button type="button" data-panel-command="${command}" ${checked===undefined?'':`role="menuitemcheckbox" aria-checked="${checked}"`}><span>${checked===undefined?'':checked?'✓ ':'<span class="panel-check-space"></span>'}${html(label)}</span></button>`;
-    return `<details class="menu panel-menu"><summary aria-label="Tag panel options" title="Tag panel options">⋯</summary><div class="menu-list">${item('configure','Customize tag panel…')}${item('values','Field values…')}${item('defaults','Default values in input fields')}<hr>${fields.map(([field,index])=>item(`field:${index}`,mnemonic(field.name).label||field.field,field.visible)).join('')}${item('cover','Display cover art',this.showCover)}<hr>${item('save','Save configuration…')}${item('load','Load configuration…')}${item('hide','Hide tag panel')}</div></details>`;
+    const dock=this.host.dock,position=dock?`<hr><div class="menu-heading">Position</div>${dock.choices.map(([side,label])=>item(`dock:${side}`,label,dock.current()===side)).join('')}`:'';
+    return `<details class="menu panel-menu"><summary aria-label="Tag panel options" title="Tag panel options">⋯</summary><div class="menu-list">${item('configure','Customize tag panel…')}${item('values','Field values…')}${item('defaults','Default values in input fields')}<hr>${fields.map(([field,index])=>item(`field:${index}`,mnemonic(field.name).label||field.field,field.visible)).join('')}${item('cover','Display cover art',this.showCover)}<hr>${item('save','Save configuration…')}${item('load','Load configuration…')}${this.host.importMp3tag?item('import-mp3tag','Import Mp3tag configuration…'):''}${position}<hr>${item('hide','Hide tag panel')}</div></details>`;
   }
   fieldsHTML(){
     this.closeList();
-    const disabled=this.host.disabled();
-    return `<div class="panel-grid">${this.settings.panel.fields.map((field,index)=>field.visible?this.fieldHTML(field,index,disabled):'').join('')}</div>`;
+    const disabled=this.host.disabled(),fields=this.settings.panel.fields;
+    const shown=fields.map((field,index)=>({field,index})).filter(({field})=>field.visible);
+    // Rough heights of a label with its control, for filling the columns of a horizontal panel.
+    const columns=this.host.columns?.(shown.map(({field})=>({span:sizeSpan[field.size],separator:field.field===SEPARATOR,height:field.type==='multiline'?30+field.rows*17:field.type==='check'?32:52})));
+    if(!columns)return `<div class="panel-grid">${shown.map(({field,index})=>this.fieldHTML(field,index,disabled)).join('')}</div>`;
+    return `<div class="panel-columns">${columns.map(column=>`<div class="panel-grid">${column.map(item=>this.fieldHTML(shown[item].field,shown[item].index,disabled)).join('')}</div>`).join('')}</div>`;
   }
   private fieldHTML(field:PanelField,index:number,disabled:boolean){
     if(field.field===SEPARATOR)return'<div class="panel-separator" role="separator"></div>';
@@ -339,6 +352,8 @@ export class TagPanel {
     if(command.startsWith('field:')){const index=Number(command.slice(6));return this.update(settings=>{const field=settings.panel.fields[index];if(field)field.visible=!field.visible;});}
     if(command==='save'){const path=await this.host.pickSave('layout','tag-panel.json');if(path){await this.host.exportLayout(path,this.settings.panel);this.host.notify('Tag panel configuration saved.');}return;}
     if(command==='load'){const path=await this.host.pickOpen('layout');if(!path)return;const panel=await this.host.importLayout(path);await this.persist({...clone(this.settings),panel},'Tag panel configuration loaded.');}
+    if(command==='import-mp3tag')return this.configure(true);
+    if(command.startsWith('dock:'))this.host.dock?.set(command.slice(5));
   }
   private dialog(title:string,className:string,content:string,footer:string){
     const dialog=document.createElement('dialog');dialog.className=className;dialog.setAttribute('aria-label',title);
@@ -348,11 +363,12 @@ export class TagPanel {
   }
   private static error(dialog:HTMLDialogElement,error:unknown){let p=dialog.querySelector<HTMLElement>('.dialog-error');if(!p){p=document.createElement('p');p.className='dialog-error';p.setAttribute('role','alert');dialog.querySelector('.dialog-content')!.append(p);}p.textContent=String(error instanceof Error?error.message:error);}
   /** Options → Tag Panel: fields list with New/Remove/Move and a field editor. */
-  configure(){
+  /** `importMp3tag` opens the dialog with the Mp3tag import started. */
+  configure(importMp3tag=false){
     if(this.dialogOpen)return;
     let layout=clone(this.settings.panel),current=layout.fields.length?0:-1,working=false;
-    const dialog=this.dialog('Customize tag panel','tag-panel-dialog',`<p>Choose the fields shown on the tag panel. Unchecked fields are hidden. Use &amp; in a name to set its Alt shortcut letter; ${DIRECTORY} adds a folder switcher and ${SEPARATOR} starts a new row.</p><div class="panel-config"><div><div class="panel-config-list" role="listbox" aria-label="Tag panel fields" tabindex="0"></div><div class="group-buttons"><button type="button" id="tp-new">New</button><button type="button" id="tp-remove">Remove</button><button type="button" id="tp-up" aria-label="Move up">Move up</button><button type="button" id="tp-down" aria-label="Move down">Move down</button><button type="button" id="tp-reset">Restore defaults</button></div></div><div class="panel-config-editor"></div></div><label class="action-check"><input type="checkbox" id="tp-cover"> Display cover art</label><datalist id="tp-fields">${COMMON_FIELDS.map(field=>`<option value="${field}">`).join('')}</datalist><datalist id="tp-defaults"><option value="${KEEP}"><option value="${BLANK}"></datalist>`,
-      '<button type="button" id="tp-save-file">Save configuration…</button><button type="button" id="tp-load-file">Load configuration…</button><button type="button" data-close>Cancel</button><button type="button" class="primary" id="tp-ok">OK</button>');
+    const dialog=this.dialog('Customize tag panel','tag-panel-dialog',`<p>Choose the fields shown on the tag panel. Unchecked fields are hidden. Use &amp; in a name to set its Alt shortcut letter; ${DIRECTORY} adds a folder switcher and ${SEPARATOR} starts a new row (a new column when the panel is docked above or below the file list).</p><div class="panel-config"><div><div class="panel-config-list" role="listbox" aria-label="Tag panel fields" tabindex="0"></div><div class="group-buttons"><button type="button" id="tp-new">New</button><button type="button" id="tp-remove">Remove</button><button type="button" id="tp-up" aria-label="Move up">Move up</button><button type="button" id="tp-down" aria-label="Move down">Move down</button><button type="button" id="tp-reset">Restore defaults</button></div></div><div class="panel-config-editor"></div></div><label class="action-check"><input type="checkbox" id="tp-cover"> Display cover art</label><div class="tp-import-report" role="status"></div><datalist id="tp-fields">${COMMON_FIELDS.map(field=>`<option value="${field}">`).join('')}</datalist><datalist id="tp-defaults"><option value="${KEEP}"><option value="${BLANK}"></datalist>`,
+      `<button type="button" id="tp-save-file">Save configuration…</button><button type="button" id="tp-load-file">Load configuration…</button>${this.host.importMp3tag?'<button type="button" id="tp-import-mp3tag">Import Mp3tag configuration…</button>':''}<button type="button" data-close>Cancel</button><button type="button" class="primary" id="tp-ok">OK</button>`);
     const list=dialog.querySelector<HTMLElement>('.panel-config-list')!,editor=dialog.querySelector<HTMLElement>('.panel-config-editor')!,cover=dialog.querySelector<HTMLInputElement>('#tp-cover')!;
     const on=(id:string,handler:()=>void)=>dialog.querySelector(`#${id}`)!.addEventListener('click',handler);
     const renderList=()=>{
@@ -394,10 +410,20 @@ export class TagPanel {
     };
     on('tp-save-file',()=>void perform(async()=>{const error=layoutError(layout);if(error)throw new Error(error);const path=await this.host.pickSave('layout','tag-panel.json');if(path)await this.host.exportLayout(path,layout);}));
     on('tp-load-file',()=>void perform(async()=>{const path=await this.host.pickOpen('layout');if(!path)return;layout={...await this.host.importLayout(path),show_panel:layout.show_panel};current=layout.fields.length?0:-1;if(dialog.open)renderAll();}));
+    // Mp3tag's own file (usrfields.ini or a saved configuration): the fields replace the list for review; OK saves them.
+    const importMp3tagFile=()=>void perform(async()=>{
+      const read=this.host.importMp3tag;if(!read)return;const path=await this.host.pickOpen('mp3tag');if(!path)return;
+      const imported=await read(path);if(!dialog.open)return;
+      layout={...imported.panel,show_panel:layout.show_panel,show_cover:layout.show_cover};current=layout.fields.length?0:-1;renderAll();
+      const report=dialog.querySelector<HTMLElement>('.tp-import-report')!,count=imported.panel.fields.filter(field=>field.field!==SEPARATOR).length;
+      report.innerHTML=`<p>Imported ${count} field${count===1?'':'s'} from the Mp3tag configuration. Press OK to use them.</p>${imported.skipped.length?`<p>Not imported:</p><ul>${imported.skipped.map(entry=>`<li>${html(entry)}</li>`).join('')}</ul>`:''}`;
+    });
+    if(this.host.importMp3tag)on('tp-import-mp3tag',importMp3tagFile);
     on('tp-ok',()=>void perform(async()=>{const error=layoutError(layout);if(error)throw new Error(error);await this.persist({...clone(this.settings),panel:clone(layout)},'Tag panel configuration saved.');dialog.close();}));
     dialog.addEventListener('cancel',event=>{if(working)event.preventDefault();});
     dialog.querySelector('[data-close]')!.addEventListener('click',()=>dialog.close());
     renderAll();list.focus();
+    if(importMp3tag)importMp3tagFile();
   }
   /** Options → Field Values: per-field custom value lists, genre options, import/export. */
   fieldValues(initialField?:string){

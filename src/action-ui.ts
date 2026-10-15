@@ -229,6 +229,8 @@ export class ActionUI {
   private dirtyGroupDialogs=new Set<HTMLDialogElement>();
   private mnemonicPrefix:string[]=[];
   constructor(private host:ActionUIHost){}
+  /** Names of the saved action groups, in library order (the custom toolbar runs them by name). */
+  get groupNames(){return this.library.groups.map(group=>group.name);}
   async initialize(){if(this.loaded)return;if(!this.loading)this.loading=this.host.load().then(library=>{this.library=library;this.loaded=true;this.host.changed();}).finally(()=>this.loading=undefined);await this.loading;}
   get groups(){return this.library.groups;}
   get hasUnsavedChanges(){return this.dirtyGroupDialogs.size>0;}

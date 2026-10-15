@@ -1,0 +1,55 @@
+/* Main window layout: the toolbars row (main and custom toolbar, the filter docked
+   beside them), the tag panel docked right, above or below the file list or
+   floating, the dock preview while dragging, and the Mp3tag import report. */
+.toolbar-row{display:flex;flex-wrap:wrap;align-items:stretch;min-width:0;background:var(--surface-subtle);border-bottom:1px solid var(--line)}
+.toolbar-row>.toolbar{flex:1 1 auto;min-width:0;border-bottom:0}
+.toolbar-row>.toolbar+.toolbar{flex:0 1 auto;border-left:1px solid var(--line)}
+.toolbar-row>.filterbar{flex:0 1 420px;min-width:240px;border-bottom:0}
+.toolbar-row[data-filter=toolbar-left]>.filterbar{border-right:1px solid var(--line)}
+.toolbar-row[data-filter=toolbar-right]>.filterbar{margin-left:auto;border-left:1px solid var(--line)}
+.panel-menu .menu-heading{padding:5px 10px 2px;font-size:10px;font-weight:650;letter-spacing:.04em;color:var(--muted-text);text-transform:uppercase}
+.tp-import-report:empty{display:none}
+.tp-import-report{margin:4px 0 8px;padding:7px 10px;border:1px solid var(--line);border-radius:3px;background:var(--surface-subtle)}
+.tp-import-report p{margin:2px 0}
+.tp-import-report ul{margin:4px 0 0;padding-left:18px;max-height:120px;overflow:auto}
+.toolbar-add{display:flex;gap:8px;align-items:flex-end;margin:0 0 10px}
+.toolbar-add .field{flex:1;margin:0}
+.toolbar-add select{width:100%}
+.dock-overlay{position:fixed;z-index:45;pointer-events:none;border:2px solid var(--accent);border-radius:4px;background:var(--selection);opacity:.72}
+.dock-overlay[data-target=float]{border-style:dashed}
+body.panel-dragging,body.panel-dragging *{cursor:grabbing!important;user-select:none}
+@media(min-width:1001px){
+  .app[data-panel=shown] .editor>.panel-title{cursor:grab}
+  /* Right of the file list. */
+  .app[data-panel=shown][data-dock=right] .workspace{grid-template-columns:minmax(0,1fr) min(var(--panel-width,264px),50vw)}
+  .app[data-panel=shown][data-dock=right] .editor{grid-column:2;grid-row:1;border-right:0;border-left:1px solid var(--line)}
+  .app[data-panel=shown][data-dock=right] .files{grid-column:1;grid-row:1}
+  .app[data-panel=shown][data-dock=right] .panel-splitter{left:auto;right:calc(min(var(--panel-width,264px),50vw) - 4px)}
+  /* Above or below the file list: a horizontal panel with the cover on its right. */
+  .app[data-panel=shown]:is([data-dock=top],[data-dock=bottom]) .workspace{grid-template-columns:minmax(0,1fr)}
+  .app[data-panel=shown][data-dock=top] .workspace{grid-template-rows:min(var(--panel-height,260px),60vh) minmax(0,1fr)}
+  .app[data-panel=shown][data-dock=bottom] .workspace{grid-template-rows:minmax(0,1fr) min(var(--panel-height,260px),60vh)}
+  .app[data-panel=shown][data-dock=top] .editor{grid-row:1;border-right:0;border-bottom:1px solid var(--line)}
+  .app[data-panel=shown][data-dock=top] .files{grid-row:2}
+  .app[data-panel=shown][data-dock=bottom] .editor{grid-row:2;border-right:0;border-top:1px solid var(--line)}
+  .app[data-panel=shown][data-dock=bottom] .files{grid-row:1}
+  .app[data-panel=shown]:is([data-dock=top],[data-dock=bottom]) .panel-splitter{left:0;right:0;width:auto;height:8px;cursor:row-resize}
+  .app[data-panel=shown][data-dock=top] .panel-splitter{top:calc(min(var(--panel-height,260px),60vh) - 4px);bottom:auto}
+  .app[data-panel=shown][data-dock=bottom] .panel-splitter{top:auto;bottom:calc(min(var(--panel-height,260px),60vh) - 4px)}
+  .app[data-panel=shown]:is([data-dock=top],[data-dock=bottom]) .panel-splitter:is(:hover,:focus-visible,.dragging){background:linear-gradient(var(--accent),var(--accent)) center/100% 2px no-repeat}
+  .app[data-panel=shown]:is([data-dock=top],[data-dock=bottom]) .editor{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto minmax(0,1fr) auto;overflow:hidden}
+  .app[data-panel=shown]:is([data-dock=top],[data-dock=bottom]) .editor>*{grid-column:1;min-width:0}
+  .app[data-panel=shown]:is([data-dock=top],[data-dock=bottom]) .editor>.panel-title{grid-row:1;padding-top:7px;padding-bottom:5px}
+  .app[data-panel=shown]:is([data-dock=top],[data-dock=bottom]) .editor>.source-access{grid-row:2}
+  .app[data-panel=shown]:is([data-dock=top],[data-dock=bottom]) .editor>.fields{grid-row:3;overflow:auto}
+  .app[data-panel=shown]:is([data-dock=top],[data-dock=bottom]) .editor>.editor-actions{grid-row:4;padding-top:6px;padding-bottom:6px}
+  .app[data-panel=shown]:is([data-dock=top],[data-dock=bottom]) .editor>.cover-section{grid-column:2;grid-row:1/-1;width:clamp(180px,20vw,250px);overflow:auto;border-top:0;border-left:1px solid var(--line)}
+  .panel-columns{display:flex;gap:18px;align-items:flex-start;min-width:min-content}
+  .panel-columns>.panel-grid{flex:0 0 clamp(220px,20vw,320px)}
+  /* Floating over the window; the corner grip resizes it. */
+  .app[data-panel=shown][data-dock=float] .workspace{grid-template-columns:minmax(0,1fr)}
+  .app[data-panel=shown][data-dock=float] .files{grid-column:1;grid-row:1}
+  .app[data-panel=shown][data-dock=float] .panel-splitter{display:none}
+  .app[data-panel=shown][data-dock=float] .editor{position:fixed;left:var(--float-x,80px);top:var(--float-y,120px);width:var(--float-width,300px);height:var(--float-height,520px);min-width:220px;min-height:160px;max-width:100vw;max-height:100vh;z-index:15;overflow:hidden;resize:both;border:1px solid var(--control-border);border-radius:6px;box-shadow:0 12px 32px var(--shadow-strong)}
+  .app[data-panel=shown][data-dock=float] .editor>.panel-title{cursor:move;background:var(--surface-raised);border-bottom:1px solid var(--line);border-radius:6px 6px 0 0}
+}

@@ -2913,6 +2913,7 @@ dependencies = [
  "gdk",
  "image",
  "keyring",
+ "libloading",
  "md-5",
  "objc2-app-kit",
  "regex-compat",
