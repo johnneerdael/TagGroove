@@ -22,7 +22,7 @@ def load():
 
 def pull():
     return dict(number=17, state='open', base=dict(ref='main', sha=BASE), head=dict(sha=HEAD),
-                merge_commit_sha=MERGE, mergeable=True)
+                merge_commit_sha=MERGE, mergeable=True, body='## Release notes\nInternal: Collect merged PR descriptions for published releases.')
 
 
 class GateTests(unittest.TestCase):
@@ -56,6 +56,26 @@ class GateTests(unittest.TestCase):
         endpoint, body = self.api.post.call_args.args
         self.assertEqual(endpoint, 'actions/workflows/reviewed-pr.yml/dispatches')
         self.assertEqual(body, dict(ref='main', inputs=dict(pr_number='17', head_sha=HEAD, base_sha=BASE, merge_sha=MERGE)))
+
+    def test_placeholder_notes_block_clean_review_dispatch_and_cancel_active_build(self):
+        item = pull()
+        item['body'] = '## Release notes\nTODO'
+        self.api.snapshot.return_value = (item, (True, 'Clean'))
+        self.api.runs.return_value = [dict(id=7, status='in_progress', display_title=f'Reviewed PR #17 @ {HEAD} + {BASE}')]
+        self.gate.reconcile(self.api, 17)
+        self.api.post.assert_called_once_with('actions/runs/7/cancel', {})
+        notes = [call for call in self.api.status.call_args_list if call.kwargs.get('context') == 'Release notes']
+        self.assertEqual(notes[0].args[1], 'failure')
+        with self.assertRaisesRegex(RuntimeError, 'TODO'):
+            self.gate.check_pr(self.api, 17)
+
+    def test_merged_release_rechecks_live_notes_before_publication(self):
+        item = pull()
+        item.update(state='closed', merged=True, merge_commit_sha=SOURCE, body='## Release notes\nN/A')
+        self.api.snapshot.return_value = (item, (True, 'Clean'))
+        with self.assertRaisesRegex(RuntimeError, 'N/A'):
+            self.gate.check_release(self.api, 17, HEAD, SOURCE)
+        self.api.pages.assert_not_called()
 
     def test_wrong_merge_parents_and_stale_base_are_rejected(self):
         self.api.get.side_effect = lambda path: ({'object': {'sha': BASE}} if path == 'git/ref/heads/main'
@@ -134,7 +154,7 @@ class WorkflowTrustTests(unittest.TestCase):
         self.assertNotIn('secrets.', source)
         self.assertNotIn('rust-cache', source)
         self.assertNotIn('cache:', source)
-        for job in ['desktop', 'native-e2e', 'android', 'docs']:
+        for job in ['tooling', 'desktop', 'native-e2e', 'android', 'docs']:
             block = re.search(rf'^  {job}:\n(.*?)(?=^  [a-z-]+:|\Z)', source, re.M | re.S)[1]
             self.assertIn('needs: authorize', block)
             self.assertIn("if: needs.authorize.outputs.ready == 'true'", block)
