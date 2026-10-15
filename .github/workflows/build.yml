@@ -12,11 +12,11 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: build-${{ github.event_name }}-${{ github.event.pull_request.head.ref || github.ref_name }}${{ inputs.loop && '-loop' || '' }}
+  group: build-${{ github.event_name }}-${{ github.event.pull_request.head.ref || github.ref_name }}${{ inputs.loop > 0 && '-loop' || '' }}
   cancel-in-progress: true
 jobs:
   desktop:
-    if: ${{ !inputs.loop }}
+    if: ${{ !(inputs.loop > 0) }}
     strategy:
       fail-fast: false
       matrix:
@@ -69,7 +69,7 @@ jobs:
           name: OpenTag-${{ matrix.os }}
           path: target/release/bundle/
   native-e2e:
-    if: ${{ !inputs.loop }}
+    if: ${{ !(inputs.loop > 0) }}
     name: Native UI workflows (${{ matrix.os }})
     strategy:
       fail-fast: false
@@ -134,7 +134,7 @@ jobs:
           name: native-e2e-output-${{ matrix.os }}
           path: e2e-output/
   android:
-    if: ${{ !inputs.loop }}
+    if: ${{ !(inputs.loop > 0) }}
     name: Android document integration
     runs-on: ubuntu-24.04
     timeout-minutes: 60
