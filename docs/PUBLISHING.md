@@ -52,27 +52,44 @@ Coverage is a writing plan, not a feature-parity claim.
 
 1. Open a pull request. Include user-visible documentation changes in its
    **Release notes** section and the checks performed in **Validation**.
-2. Require a Codex review with no outstanding findings, plus passing checks,
-   before merging. The **User guide** workflow builds pull requests with no
-   Pages deployment permissions.
-3. After merging to `main`, the same strict build creates a Pages artifact.
-   **Publish user guide** deploys it through the `github-pages` environment.
-   Feature-branch and pull-request builds cannot deploy.
-4. Check the deployment job and its environment URL, then open the public
+2. Obtain a clean Codex review of the final head commit. The trusted review
+   controller then authorizes **Reviewed PR validation** for the exact head,
+   current main and immutable test merge. Its documentation workload runs
+   the publication tests, writing-plan check and strict build. A new commit
+   requires a fresh review. PR validation cannot deploy Pages.
+3. Merge only after **Codex review** and **Reviewed PR builds** pass for that
+   revision. The controller authorizes **Reviewed main release** from the
+   approved merged tree. Its **user-guide** job runs independently of the
+   application release, including when application packaging is skipped for
+   a documentation-only change.
+4. The guide checks the merged-PR review and trusted validation proof before
+   building the site. The deployment job checks them again, then publishes
+   the built artifact through the `github-pages` environment only if the
+   source is still current main.
+5. Check the deployment job and its environment URL, then open the public
    site. Confirm the changed page, its navigation entry, search, and an image.
-   A successful local build is not proof of publication.
+   A successful local build or uploaded artifact is not proof of publication.
 
 The repository's Pages source must be **GitHub Actions** under
 **Settings → Pages**. The `github-pages` environment should permit only
-`main`. A skipped older revision avoids replacing a newer `main` deployment.
+`main`. Keep legacy build, release, docs and screenshot workflow IDs disabled;
+never enable them to recover a deployment. Read `.github/CI_LOCKDOWN.md` for
+review-controller operations and the validation retry procedure.
 
-If the site is missing, first check that the docs files and workflows are
-actually merged to `main`, then inspect **Actions → User guide**. A green
-feature-branch build does not publish the site. To rebuild or recover a
-deployment, run **User guide → Run workflow** with branch **main**. To roll
-back bad content, revert the docs change on `main`; the workflow rebuilds it.
+If the site is missing, first check that the docs files and reviewed Pages
+workflow are actually merged to `main`, then inspect the approved source's
+**Reviewed main release → user-guide** jobs. A feature branch cannot publish.
+To retry publication, rerun the approved release workflow after resolving
+its failure. Its authorization checks still apply; source or review drift
+requires fresh validation. To roll back content, submit a revert PR through
+that same review and validation process.
 
-The workflow also rebuilds when application source changes, allowing stale
-links and examples to be caught during review. Structural checks cannot
-establish behavioral accuracy: update affected user instructions alongside
-feature changes, and review screenshots when the interface changes.
+Existing guide images are retained. The former automatic **Docs screenshots**
+workflow is removed; do not restore its triggers. New app-image capture must
+be routed through the review gate before it can run in CI.
+
+Structural checks cannot establish complete behavioral accuracy. The selected
+Rust example checks cover core behavior; update affected instructions alongside
+feature changes, and review screenshots when the interface changes. Complete
+coverage of the original documentation remains a separate writing and
+verification task, tracked in the writing plan.

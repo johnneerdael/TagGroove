@@ -1,0 +1,97 @@
+name: Publish reviewed user guide
+on:
+  workflow_call:
+    inputs:
+      pr_number:
+        required: true
+        type: string
+      head_sha:
+        required: true
+        type: string
+      source_sha:
+        required: true
+        type: string
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+  actions: read
+jobs:
+  authorize:
+    if: github.ref == 'refs/heads/main' && github.workflow_ref == format('{0}/.github/workflows/reviewed-release.yml@refs/heads/main', github.repository)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Require approved merged source and successful reviewed validation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_HEAD: ${{ inputs.head_sha }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+        run: python3 .github/scripts/review_gate.py release-check --pr "$PR_NUMBER"
+  build:
+    needs: authorize
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      NO_MKDOCS_2_WARNING: 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r docs/site-requirements.txt
+      - run: python -m unittest discover -s docs/tests -v
+      - run: python scripts/docs-status.py
+      - run: python -m mkdocs build --strict
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/user-guide-site
+  deploy:
+    needs: [authorize, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      actions: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: opentag-pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Recheck approved source and prevent an older deployment
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_HEAD: ${{ inputs.head_sha }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/review_gate.py release-check --pr "$PR_NUMBER"
+          current_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')
+          if [ "$SOURCE_SHA" = "$current_sha" ]; then
+            echo 'current=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'current=false' >> "$GITHUB_OUTPUT"
+            echo 'Skip an older source revision; the newer main revision owns publication.'
+          fi
+      - uses: actions/deploy-pages@v4
+        if: steps.source.outputs.current == 'true'
+        id: deployment

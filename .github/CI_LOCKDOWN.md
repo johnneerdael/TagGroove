@@ -24,3 +24,14 @@ node --test tests/release.test.mjs
 actionlint -ignore 'unexpected key "queue" for "concurrency" section' .github/workflows/*.yml
 git diff --check
 ```
+
+## User guide publication
+
+Reviewed PR validation includes strict documentation checks whenever the
+reviewed source contains `mkdocs.yml`. After merging an approved and validated
+source, `reviewed-release.yml` calls `_reviewed-pages.yml` independently of
+application-release skipping. The reusable workflow authenticates its trusted
+main caller and checks the merged source proof before building and again before
+Pages deployment. Only the deployment job receives Pages/OIDC permissions.
+The former automatic docs and screenshot workflow files are removed; their
+legacy IDs remain disabled.
