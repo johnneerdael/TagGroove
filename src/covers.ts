@@ -460,7 +460,7 @@ export class CoverUI {
     };
     dialog.querySelectorAll<HTMLButtonElement>('[data-manage]').forEach(button=>button.addEventListener('click',()=>void command(button.dataset.manage!).catch(error=>this.host.modalError(dialog,error))));
     typeSelect.addEventListener('change',()=>{if(typeSelect.value)update(cover=>({...cover,picture_type:typeSelect.value}));});
-    descriptionInput.addEventListener('input',()=>{list=list.map(cover=>chosen.has(cover.id)?{...cover,description:descriptionInput.value}:cover);const row=listbox.querySelectorAll<HTMLElement>('[aria-selected="true"] .manage-cover-text > span');row.forEach(span=>span.textContent=descriptionInput.value||'No description');status.textContent=planChanged(initial,list)?'Changes are written to the files when you choose OK. Undo restores them.':'No changes yet.';});
+    descriptionInput.addEventListener('input',()=>{list=list.map(cover=>chosen.has(cover.id)?{...cover,description:descriptionInput.value}:cover);const row=listbox.querySelectorAll<HTMLElement>('[aria-selected="true"] .manage-cover-text > span');row.forEach(span=>{if(descriptionInput.value)span.setAttribute('translate','no');else span.removeAttribute('translate');span.textContent=descriptionInput.value||'No description';});status.textContent=planChanged(initial,list)?'Changes are written to the files when you choose OK. Undo restores them.':'No changes yet.';});
     descriptionInput.addEventListener('change',()=>draw());
     allBox.addEventListener('change',()=>update(cover=>cover.original&&cover.files<cover.total?{...cover,all_files:allBox.checked}:cover));
     const choose=(id:string,event:{shiftKey:boolean;metaKey:boolean;ctrlKey:boolean})=>{

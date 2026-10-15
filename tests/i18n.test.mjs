@@ -74,6 +74,22 @@ test('names someone gave stay as typed even when they equal a key',()=>{
   // The cache of ordinary lookups is not affected.
   assert.equal(de.translate('Help'),'Hilfe');
 });
+for(const locale of ['de','nl'])test(`${locale}: translated confirmations retain original paths, line breaks and cached whitespace variants`,()=>{
+  const t=new Translator(locale,catalogs[locale]);
+  const names='Help\nMy  Files.mp3',destination='/Music/My  Files';
+  const key='Copy {plural} to {destination}? {names} Existing files are never replaced. If any name is already taken, nothing is copied.';
+  const text=`Copy 2 files to ${destination}?\n\n${names}\n\nExisting files are never replaced. If any name is already taken, nothing is copied.`;
+  const translated=t.translate(text);
+  assert.notEqual(translated,text);
+  assert.ok(translated.includes(destination));assert.ok(translated.includes(`\n\n${names}\n\n`));
+  const flat=text.replace(/\s+/g,' '),flatTranslation=t.translate(flat);
+  assert.equal(flatTranslation,t.t(key,{plural:t.translate('2 files'),destination:'/Music/My Files',names:'Help My Files.mp3'}));
+  assert.equal(t.translate(text),translated);
+  const custom=new Translator(locale,{'Open {path}':'{path} öffnen'});
+  for(const input of ['My  Files','My Files','My Files','My  Files'])assert.equal(custom.translate(`Open ${input}`),`${input} öffnen`);
+  const reordered=new Translator(locale,{'Copy {name} to {destination}? {names} Existing files are never replaced.':'{names} Existing files are never replaced. Copy {name} to {destination}?'});
+  assert.equal(reordered.translate(`Copy Help to ${destination}?\r\n\r\n${names}\r\n\r\nExisting files are never replaced.`),`${names}\r\n\r\nExisting files are never replaced. Copy Help to ${destination}?`);
+});
 test('rereading the languages folder replaces the user catalogs instead of adding to them',()=>{
   const bundled=['en','nl','de'].map(locale=>({...catalogMeta(catalogs[locale]),catalog:catalogs[locale],source:'bundled'}));
   const first=languageSet(bundled,[{file:'fr.json',catalog:{'@meta':{name:'Français'},'Save tags':'Enregistrer'}},{file:'de.json',catalog:{'@meta':{name:'Deutsch (eigene)'},'Save tags':'Speichern!'}},{file:'bad.json',catalog:[]}],english);

@@ -1446,8 +1446,8 @@ function converter(rename: boolean) {
     const previewButton=dialog.querySelector<HTMLButtonElement>('#preview-button')!;previewButton.disabled=true;apply.disabled=true;planToken=undefined;
     try{
       const template=value(dialog,'template'),targets=paths(),revision=previewRevision;
-      if(rename){const result=await invoke<RenamePreview[]>('preview_rename',{paths:targets,template,columns:columnSpecs(targets)});if(!dialog.open||revision!==previewRevision)return;const token=result[0]?.plan_token;if(!token||result.length!==targets.length||result.some((row,index)=>row.path!==targets[index]||row.plan_token!==token))throw new Error('The rename preview could not be verified. Run Preview again.');dialog.querySelector('#preview')!.innerHTML=`<div class="preview">${result.map(r=>`<div><small>${esc(displayName(r.path))}</small>${esc(r.value)}</div>`).join('')}</div>`;planToken=token;}
-      else{const result=await invoke<FilenamePreview[]>('preview_filename',{paths:targets,pattern:template});if(!dialog.open||revision!==previewRevision)return;matched=result.filter(r=>r.fields).length;dialog.querySelector('#preview')!.innerHTML=`<div class="preview">${result.map(r=>`<div${r.fields?'':' class="no-match"'}><small>${esc(displayName(r.path))}</small>${r.fields?Object.entries(r.fields).map(([key,values])=>`${esc(key)}: ${esc(values.join(' · '))}`).join('<br>'):r.error?esc(publicMessage(r.error)):'No match, not changed'}</div>`).join('')}</div>`;apply.textContent=`Apply to ${matched} file${matched===1?'':'s'}`;}
+      if(rename){const result=await invoke<RenamePreview[]>('preview_rename',{paths:targets,template,columns:columnSpecs(targets)});if(!dialog.open||revision!==previewRevision)return;const token=result[0]?.plan_token;if(!token||result.length!==targets.length||result.some((row,index)=>row.path!==targets[index]||row.plan_token!==token))throw new Error('The rename preview could not be verified. Run Preview again.');dialog.querySelector('#preview')!.innerHTML=`<div class="preview">${result.map(r=>`<div translate="no"><small>${esc(displayName(r.path))}</small>${esc(r.value)}</div>`).join('')}</div>`;planToken=token;}
+      else{const result=await invoke<FilenamePreview[]>('preview_filename',{paths:targets,pattern:template});if(!dialog.open||revision!==previewRevision)return;matched=result.filter(r=>r.fields).length;dialog.querySelector('#preview')!.innerHTML=`<div class="preview">${result.map(r=>`<div${r.fields?'':' class="no-match"'}><small translate="no">${esc(displayName(r.path))}</small>${r.fields?Object.entries(r.fields).map(([key,values])=>`<span translate="no">${esc(key)}: ${esc(values.join(' · '))}</span>`).join('<br>'):r.error?esc(publicMessage(r.error)):'No match, not changed'}</div>`).join('')}</div>`;apply.textContent=`Apply to ${matched} file${matched===1?'':'s'}`;}
       dialog.querySelector('.dialog-error')?.remove();previewed=template;previewPaths=targets;apply.disabled=value(dialog,'template')!==template||JSON.stringify(paths())!==JSON.stringify(targets)||(rename&&!planToken)||(!rename&&!matched);
     }catch(e){modalError(dialog,e);}finally{previewButton.disabled=false;}
   });
@@ -1542,8 +1542,8 @@ function reviewedConverter(kind:'filename'|'text') {
   });
   const fieldRows=(fields:Fields)=>`<dl class="converter-values">${Object.entries(fields).map(([name,values])=>`<dt translate="no">${esc(name)}</dt><dd>${values.length?values.map((value,index)=>`<span>${values.length>1?`${index+1}. `:''}${value===''?'<em>(empty)</em>':`<span translate="no">${esc(value)}</span>`}</span>`).join(''):'<em>No values</em>'}</dd>`).join('')}</dl>`;
   const previewMarkup=(items:Item[])=>`<div class="preview" tabindex="0" role="region" aria-label="Reviewed conversion results">${items.map(item=>'target' in item?
-    `<div><small>${esc(item.path)}</small><strong>${esc(item.target)}</strong>${fieldRows(item.captures)}</div>`:
-    `<div><small>Source line ${item.source_line} → selected file ${item.selection_index+1}</small><strong>${esc(item.path)}</strong>${fieldRows(item.fields)}</div>`).join('')}</div>`;
+    `<div><small translate="no">${esc(item.path)}</small><strong translate="no">${esc(item.target)}</strong>${fieldRows(item.captures)}</div>`:
+    `<div><small>Source line ${item.source_line} → selected file ${item.selection_index+1}</small><strong translate="no">${esc(item.path)}</strong>${fieldRows(item.fields)}</div>`).join('')}</div>`;
   previewButton.addEventListener('click',async()=>{
     let attempt:ReturnType<typeof review.begin>|undefined;
     previewButton.focus({preventScroll:true});
@@ -1715,7 +1715,7 @@ function numbering(options:{perFolder?:boolean}={}) {
       if(!dialog.open||current!==generation)return;
       if(!review.complete(attempt,plan,request())){progress.textContent='Selection changed. Run Preview again.';return;}
       const rows=plan.slice(0,100);
-      area.innerHTML=`<div class="preview" tabindex="0" aria-label="Numbering preview"><table><thead><tr><th>File</th><th>Track</th>${attempt.request.options.disc_enabled?'<th>Disc</th>':''}</tr></thead><tbody>${rows.map(row=>`<tr><td>${esc(displayName(row.path))}</td><td>${esc(row.fields.TRACK[0])}</td>${attempt.request.options.disc_enabled?`<td>${esc(row.fields.DISCNUMBER[0])}</td>`:''}</tr>`).join('')}</tbody></table></div>`;
+      area.innerHTML=`<div class="preview" tabindex="0" aria-label="Numbering preview"><table><thead><tr><th>File</th><th>Track</th>${attempt.request.options.disc_enabled?'<th>Disc</th>':''}</tr></thead><tbody translate="no">${rows.map(row=>`<tr><td>${esc(displayName(row.path))}</td><td>${esc(row.fields.TRACK[0])}</td>${attempt.request.options.disc_enabled?`<td>${esc(row.fields.DISCNUMBER[0])}</td>`:''}</tr>`).join('')}</tbody></table></div>`;
       progress.textContent=`Reviewed ${plan.length} files.${plan.length>100?' Showing the first 100.':''} Stage numbers, then Save tags to write them.`;
     }catch(error){if(dialog.open&&current===generation){review.invalidate();modalError(dialog,error);progress.textContent='Preview failed. Review the options and try again.';}}
     finally{if(dialog.open&&current===generation){pending=false;sync();}}

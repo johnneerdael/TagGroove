@@ -76,7 +76,7 @@ export function openTagToTag(deps: TagTagDeps) {
       const rows = await deps.preview(input.paths, input.template, input.field.startsWith('_'));
       if (!dialog.open || current !== generation) return;
       const outcomes = rows.map(row => ({ row, outcome: tagTagOutcome(input.field, row.value, deps.displayName(row.path)) }));
-      area.innerHTML = `<div class="preview" tabindex="0" role="region" aria-label="Tag → Tag results">${outcomes.slice(0, 100).map(({ row, outcome }) => `<div><small>${esc(deps.displayName(row.path))}</small>${esc(outcome.label)}: ${outcome.removed ? `<em>${esc(outcome.value)}</em>` : esc(outcome.value)}</div>`).join('')}</div>`;
+      area.innerHTML = `<div class="preview" tabindex="0" role="region" aria-label="Tag → Tag results">${outcomes.slice(0, 100).map(({ row, outcome }) => `<div><small translate="no">${esc(deps.displayName(row.path))}</small><span ${input.field.startsWith('_')?'':'translate="no"'}>${esc(outcome.label)}</span>: ${outcome.removed ? `<em>${esc(outcome.value)}</em>` : `<span translate="no">${esc(outcome.value)}</span>`}</div>`).join('')}</div>`;
       const invalid = outcomes.some(({ outcome }) => outcome.removed && input.field.startsWith('_'));
       progress.textContent = invalid ? 'Some files would get an empty name. Change the format string.' : `Previewed ${rows.length} file${rows.length === 1 ? '' : 's'}${rows.length > 100 ? '; showing the first 100' : ''}.`;
       reviewed = invalid ? '' : tagTagKey(input); sync();

@@ -124,8 +124,8 @@ export class Translator {
       const literal = normalized.replace(PLACEHOLDER, '');
       // Keys that are mostly values ("{name}…") would match nearly any text.
       if (!/\p{L}{2,}/u.test(literal)) continue;
-      const source = normalized.split(PLACEHOLDER).map((part, i) => i % 2 ? NUMERIC.test(part) ? NUMBER : '([\\s\\S]*?)' : escapeRegex(part)).join('');
-      this.patterns.push({regex: new RegExp(`^${source}$`), names, value: nodes, literal: literal.length});
+      const source = normalized.split(PLACEHOLDER).map((part, i) => i % 2 ? NUMERIC.test(part) ? NUMBER : '([\\s\\S]*?)' : escapeRegex(part).replace(/ /g, '\\s+')).join('');
+      this.patterns.push({regex: new RegExp(`^${source}$`, 'd'), names, value: nodes, literal: literal.length});
     }
     this.patterns.sort((a, b) => b.literal - a.literal);
   }
@@ -150,10 +150,10 @@ export class Translator {
    */
   translate(text: string, depth = 0, verbatim: string | boolean = false): string {
     if (!this.active) return text;
-    const core = normalize(text);
+    const core = text.trim();
     if (!core || !/\p{L}/u.test(core)) return text;
     const name = typeof verbatim === 'string' ? normalize(verbatim) : undefined;
-    if (name !== undefined && core === name) return text;
+    if (name !== undefined && normalize(core) === name) return text;
     const cached = !verbatim;
     let result = cached ? this.cache.get(core) : undefined;
     if (result === undefined) {
@@ -165,17 +165,31 @@ export class Translator {
     return lead + result + (trail.length === text.length ? '' : trail);
   }
   private lookup(core: string, depth: number, verbatim: boolean, name?: string): string | null {
-    const exact = verbatim ? undefined : this.exact.get(core);
+    const exact = verbatim ? undefined : this.exact.get(normalize(core));
     if (exact) return render(exact, {}, this.rules);
     for (const pattern of this.patterns) {
       const match = pattern.regex.exec(core);
       if (!match) continue;
       const params: Record<string, string> = {};
+      const spacing = new Map<string, {before: string; after: string}>();
       pattern.names.forEach((param, i) => {
         const value = match[i + 1];
         params[param] = !verbatim && depth < 2 && !VERBATIM.test(param) && normalize(value) !== name && /\p{L}/u.test(value) ? this.translate(value, depth + 1) : value;
+        const [start, end] = match.indices![i + 1];
+        spacing.set(param, {before: /\s*$/.exec(core.slice(0, start))![0], after: /^\s*/.exec(core.slice(end))![0]});
       });
-      return render(pattern.value, params, this.rules);
+      // Catalog keys normalize the UI scaffold; keep paragraph separators next
+      // to values (such as a confirmation's file list) from the original text.
+      const nodes = pattern.value.map((node, i) => {
+        if (typeof node !== 'string') return node;
+        const previous = pattern.value[i - 1], next = pattern.value[i + 1];
+        const before = previous && typeof previous !== 'string' ? spacing.get(previous.name)?.after : undefined;
+        const after = next && typeof next !== 'string' ? spacing.get(next.name)?.before : undefined;
+        if (before && /[\r\n]/.test(before)) node = node.replace(/^\s*/, before);
+        if (after && /[\r\n]/.test(after)) node = node.replace(/\s*$/, after);
+        return node;
+      });
+      return render(nodes, params, this.rules);
     }
     return this.shortcut(core);
   }

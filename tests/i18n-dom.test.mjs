@@ -17,7 +17,10 @@ const {TagPanel,defaultLayout:defaultPanelLayout}=await load('tag-panel.ts');
 const {CoverUI}=await import(await moduleUrl('covers.ts',{"import './covers.css';":'',"'./keyboard'":JSON.stringify(await moduleUrl('keyboard.ts')),"'./cover-model'":JSON.stringify(await moduleUrl('cover-model.ts'))}));
 const {contextMenuMarkup}=await load('row-context-menu.ts');
 const {ToolsUI,toolsOptionsPage}=await load('tools.ts'),{installHelperMenus}=await load('helper-menu.ts');
+const {copyAsTextDialog}=await load('utils-ui.ts'),{PlaylistUI}=await load('playlist-ui.ts'),{openTagToTag}=await load('tag-tag-ui.ts');
+const {FileOpsUI}=await load('file-ops.ts');
 const main=await source('main.ts'),parsed=ts.createSourceFile('main.ts',main,ts.ScriptTarget.Latest,true);
+const tagSourceParsed=ts.createSourceFile('tag-sources.ts',await source('tag-sources.ts'),ts.ScriptTarget.Latest,true);
 const row=parsed.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text==='rowMarkup').getText(parsed);
 // Execute the production row renderer with only its data dependencies stubbed.
 const rowJS=ts.transpileModule(`export function render(entry){
@@ -30,6 +33,23 @@ const rowJS=ts.transpileModule(`export function render(entry){
 }`,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
 const {render:renderRows}=await import(`data:text/javascript;base64,${Buffer.from(rowJS).toString('base64')}`);
 const catalogs=Object.fromEntries(await Promise.all(['de','nl'].map(async locale=>[locale,JSON.parse(await source(`i18n/catalogs/${locale}.json`))])));
+const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function modal(p){return(title,content,buttons)=>{const dialog=p.window.document.createElement('dialog');dialog.innerHTML=`<header>${esc(title)}</header>${content}<footer>${buttons}</footer>`;p.body.append(dialog);dialog.setAttribute('open','');return dialog;};}
+function mainTemplate(needle,values,index=0){
+  const templates=[];
+  const visit=node=>{if(ts.isTemplateExpression(node)&&node.head.text.startsWith(needle))templates.push(node);ts.forEachChild(node,visit);};visit(parsed);
+  const template=templates[index];
+  assert.ok(template,`Production template ${needle}`);
+  const js=ts.transpileModule(`return ${template.getText(parsed)};`,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
+  return new Function(...Object.keys(values),js)(...Object.values(values));
+}
+function rendererVariable(tree,name,values){
+  let declaration;
+  const visit=node=>{if(ts.isVariableDeclaration(node)&&node.name.getText(tree)===name)declaration=node;ts.forEachChild(node,visit);};visit(tree);
+  assert.ok(declaration,`Production renderer ${name}`);
+  const js=ts.transpileModule(`const ${declaration.getText(tree)};return ${name};`,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
+  return new Function(...Object.keys(values),js)(...Object.values(values));
+}
 function page(){
   const window=new Window();
   for(const key of ['window','document','Node','NodeFilter','Element','HTMLElement','HTMLInputElement','HTMLTextAreaElement','HTMLButtonElement','MutationObserver','MouseEvent','Event'])globalThis[key]=key==='window'?window:window[key];
@@ -40,6 +60,107 @@ function page(){
 const memory=()=>{const data=new Map();return{getItem:key=>data.get(key)??null,setItem:(key,value)=>data.set(key,value)};};
 
 for(const locale of ['de','nl']){
+  for(const newline of ['\n','\r\n'])test(`${locale}: native file confirmations preserve data and paragraphs (${JSON.stringify(newline)})`,async()=>{
+    const translator=new Translator(locale,catalogs[locale]),calls=[];
+    const nativeSource=(await source('i18n/dialog.ts')).replace(/^import .*;\r?\n/gm,'').replace(/^export /gm,'');
+    const js=ts.transpileModule(nativeSource,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
+    const confirm=new Function('dialog','t','translate','translationActive',`${js}\nreturn confirm;`)({confirm:async(...args)=>{calls.push(args);return false;}},key=>translator.t(key),text=>translator.translate(text),()=>true);
+    const names=['Help',`My  Files${newline}Title`],destination='/Music/My  Files';
+    for(const mac of [false,true])for(const operation of ['file-delete','file-delete-permanent','file-copy','file-move']){
+      const host={mac,selection:()=>names.map(name=>({name,path:name})),openReason:()=>'',pickDirectories:async()=>[destination],confirm:(text,title)=>confirm(text.replace(/\r?\n/g,newline),title)};
+      await new FileOpsUI(host).operate(operation);
+      const [message,options]=calls.at(-1);
+      assert.ok(message.includes(`${newline}${newline}${names.join(', ')}${newline}${newline}`),message);
+      if(operation==='file-copy'||operation==='file-move')assert.ok(message.includes(destination));
+      assert.notEqual(options.title,operation==='file-copy'?'Copy files':operation==='file-move'?'Move files':operation==='file-delete'?'Delete files':'Delete permanently');
+      assert.equal(options.okLabel,translator.t('OK'));assert.equal(options.cancelLabel,translator.t('Cancel'));
+    }
+  });
+  test(`${locale}: generated copy, playlist and tag-to-tag previews retain data and translate their controls`,async()=>{
+    const p=page();
+    try{
+      const fail=(_dialog,error)=>{throw error;},uiModal=modal(p);
+      copyAsTextDialog({modal:uiModal,modalError:fail,values:()=>({}),count:()=>7,evaluate:async()=>['Help','Title','My  Files\nTitle'],write:async()=>{},remember:async()=>{},done:()=>{}});
+      new PlaylistUI({modal:uiModal,modalError:fail,values:()=>({}),files:()=>['Help'],workingDirectory:()=>'',loadedPlaylist:()=>'',columns:()=>[],invoke:async()=>({playlists:[{path:'Help',files:1}],errors:[]})}).generate();
+      openTagToTag({modal:uiModal,modalError:fail,esc,paths:()=>['Help'],fieldNames:()=>[],displayName:path=>path,canApply:()=>true,preview:async()=>[{path:'Help',value:'Help'}],storage:{getItem:()=>JSON.stringify({field:'Help'}),setItem:()=>{}}});
+      await p.window.happyDOM.waitUntilComplete();
+      const t=p.translate(locale);
+      assert.equal(p.body.querySelector('#copy-text-preview > div').textContent,'Help');
+      assert.equal(p.body.querySelector('#copy-text-preview > div:nth-child(2)').textContent,'Title');
+      assert.equal(p.body.querySelector('#copy-text-preview > div:nth-child(3)').textContent,'My  Files\nTitle');
+      assert.equal(p.body.querySelector('#copy-text-preview').getAttribute('aria-label'),t.t('Preview'));
+      assert.equal(p.body.querySelector('#copy-text-preview small').textContent,t.translate('… 2 more'));
+      assert.equal(p.body.querySelector('#generate-preview > div:nth-child(2) > span').textContent,'Help');
+      assert.equal(p.body.querySelector('#generate-preview small').textContent,`(${t.translate('1 file')})`);
+      const tagRow=p.body.querySelector('#tag-tag-preview .preview > div');
+      assert.equal(tagRow.querySelector('small').textContent,'Help');
+      assert.equal(tagRow.textContent,'HelpHelp: Help');
+      assert.equal(p.body.querySelector('#tag-tag-preview .preview').getAttribute('aria-label'),t.t('Tag → Tag results'));
+      p.body.querySelector('#tag-tag-field').value='_DIRECTORY';p.body.querySelector('#tag-tag-field').dispatchEvent(new p.window.Event('input'));
+      await p.window.happyDOM.waitUntilComplete();p.translate(locale);
+      assert.equal(p.body.querySelector('#tag-tag-preview .preview > div').textContent,`Help${t.t('New folder name')}: Help`);
+    }finally{p.close();}
+  });
+  test(`${locale}: main converter and numbering previews preserve their data while UI states translate`,()=>{
+    const p=page(),data={esc,displayName:value=>value,publicMessage:value=>value};
+    try{
+      p.body.innerHTML=mainTemplate('<div class="preview">',{...data,result:[{path:'Help',value:'Help'},{path:'Title',value:'Title'}]});
+      p.translate(locale);assert.equal(p.body.textContent,'HelpHelpTitleTitle');
+      p.body.innerHTML=mainTemplate('<div class="preview">',{...data,result:[{path:'Help',fields:{Title:['Title']}},{path:'Help',fields:null}]},1);
+      const t=p.translate(locale);assert.equal(p.body.querySelector('.preview > div').textContent,'HelpTitle: Title');
+      assert.equal(p.body.querySelector('.no-match').textContent,`Help${t.t('No match, not changed')}`);
+      p.body.innerHTML=mainTemplate('<div class="preview" tabindex="0" aria-label="Numbering preview">',{...data,rows:[{path:'Help',fields:{TRACK:['Help'],DISCNUMBER:['Help']}}],attempt:{request:{options:{disc_enabled:true}}}});
+      p.translate(locale);assert.deepEqual([...p.body.querySelectorAll('tbody td')].map(el=>el.textContent),['Help','Help','Help']);
+      assert.equal(p.body.querySelector('th').textContent,t.t('File'));
+      const fieldRows=rendererVariable(parsed,'fieldRows',{esc});
+      const reviewed=rendererVariable(parsed,'previewMarkup',{esc,fieldRows});
+      p.body.innerHTML=reviewed([{path:'Help',target:'Title',captures:{Help:['Title','']}},{path:'Title',fields:{Help:[]},source_line:1,selection_index:0}]);
+      p.translate(locale);
+      assert.equal(p.body.querySelector('.preview').getAttribute('aria-label'),t.t('Reviewed conversion results'));
+      assert.deepEqual([...p.body.querySelectorAll('strong')].map(el=>el.textContent),['Title','Title']);
+      assert.equal(p.body.querySelector('small').textContent,'Help');
+      assert.equal(p.body.querySelector('dt').textContent,'Help');
+      assert.equal(p.body.querySelector('dd > span > span').textContent,'Title');
+      assert.deepEqual([...p.body.querySelectorAll('em')].map(el=>el.textContent),[t.t('(empty)'),t.t('No values')]);
+    }finally{p.close();}
+  });
+  test(`${locale}: tag-source matching previews preserve file and field data, including accessible labels`,()=>{
+    const p=page();
+    try{
+      const render=rendererVariable(tagSourceParsed,'matchMarkup',{release:{tracks:[{position:'Title',length:1}]},files:[{path:'Help',length:1}],slots:['Help',null],trackField:'Title',html:esc,duration:()=>'',fileLength:()=>'',fileName:path=>path||'',trackValue:()=> 'Help'});
+      p.body.innerHTML=render();const t=p.translate(locale);
+      assert.equal(p.body.querySelector('thead th:nth-child(2)').textContent,'Title');
+      assert.equal(p.body.querySelector('tbody td').textContent,'Title');
+      assert.equal(p.body.querySelector('tbody tr td:nth-child(4)').textContent,'Help');
+      assert.equal(p.body.querySelector('tbody tr td:nth-child(4)').title,'Help');
+      assert.equal(p.body.querySelector('.ts-track-value').getAttribute('aria-label'),t.translate('Title of track Title',0,true));
+      assert.equal(p.body.querySelector('thead th:nth-child(4)').textContent,t.t('File'));
+      assert.equal(p.body.querySelector('tbody tr:nth-child(2) em').textContent,t.t('Not written'));
+      for(const extra of [{country:'Title'},{barcode:'Help'}]){
+        const chosen=rendererVariable(tagSourceParsed,'chosenMarkup',{results:[{artist:'Title',title:'Help',...extra}],chosen:0,web:false,freedb:false,html:esc,preview:()=>''});
+        p.body.innerHTML=chosen();p.translate(locale);
+        assert.equal(p.body.querySelector('strong').textContent,'Title – Help');
+        assert.equal(p.body.querySelector('strong + span').textContent,extra.country||t.translate('Barcode Help',0,true));
+      }
+    }finally{p.close();}
+  });
+  test(`${locale}: Manage Covers keeps description edits verbatim and translates the cleared state`,async()=>{
+    const p=page();
+    try{
+      const cover={digest:'fixture',mime:'image/png',size:42,width:1,height:1,picture_type:'CoverFront',description:'',files:[0],index:0,data_base64:'AA=='};
+      const ui=new CoverUI({reason:()=>'',selection:()=>[{path:'Help',covers:[cover]}],invoke:async()=>({files:1,covers:[cover],errors:[]}),modal:modal(p),clipboard:()=>false,displayed:()=>({path:'Help',covers:[cover],index:0})});
+      await ui.manage();const t=p.translate(locale),input=p.body.querySelector('#manage-cover-description');
+      const shown=()=>p.body.querySelector('.manage-cover-text > span');
+      assert.equal(shown().textContent,t.t('No description'));
+      for(const value of ['Help','','No description','']){
+        input.value=value;input.dispatchEvent(new p.window.Event('input'));
+        await p.window.happyDOM.waitUntilComplete();
+        assert.equal(shown().textContent,value||t.t('No description'));
+        input.dispatchEvent(new p.window.Event('change'));p.translate(locale);
+        assert.equal(shown().textContent,value||t.t('No description'));
+      }
+    }finally{p.close();}
+  });
   test(`${locale}: textarea attributes translate while editable text and values stay verbatim`,async()=>{
     const p=page();
     try{
