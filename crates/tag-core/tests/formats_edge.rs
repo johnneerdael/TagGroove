@@ -638,3 +638,149 @@ fn id3v24_flagged_frames_are_kept_in_v24_and_block_a_conversion() {
     assert_eq!(value(&reread, "ALBUM").as_deref(), Some("Album é"));
     assert_eq!(value(&reread, "TITLE").as_deref(), Some("T3"));
 }
+
+#[test]
+fn described_comments_lyrics_and_unique_file_ids_roundtrip() {
+    use lofty::id3::v2::{CommentFrame, UniqueFileIdentifierFrame, UnsynchronizedTextFrame};
+    for format in [
+        tag_core::Id3v2Format::V24Utf8,
+        tag_core::Id3v2Format::V23Utf16,
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("described.mp3");
+        let mut tag = Id3v2Tag::new();
+        for (description, text) in [
+            ("", "Main"),
+            ("iTunNORM", " 00000A1B 00000B2C"),
+            ("Songs-DB_Custom1", "Mood"),
+        ] {
+            tag.insert(Frame::Comment(CommentFrame::new(
+                TextEncoding::UTF8,
+                *b"eng",
+                description.to_owned(),
+                text.to_owned(),
+            )));
+        }
+        for (language, description, text) in
+            [(*b"eng", "", "Main lyrics"), (*b"deu", "Verse", "Strophe")]
+        {
+            tag.insert(Frame::UnsynchronizedText(UnsynchronizedTextFrame::new(
+                TextEncoding::UTF8,
+                language,
+                description.to_owned(),
+                text.to_owned(),
+            )));
+        }
+        for (owner, id) in [
+            ("http://musicbrainz.org", "mbid"),
+            ("http://example.com", "abc"),
+        ] {
+            tag.insert(Frame::UniqueFileIdentifier(UniqueFileIdentifierFrame::new(
+                owner.to_owned(),
+                id.as_bytes().to_vec(),
+            )));
+        }
+        let mut bytes = Vec::new();
+        tag.dump_to(&mut bytes, WriteOptions::default()).unwrap();
+        let audio = mpeg_frames();
+        bytes.extend(&audio);
+        fs::write(&path, &bytes).unwrap();
+        let mut options = TagOptions::default();
+        options.mpeg.id3v2_format = format;
+        options.mpeg.write_id3v1 = false;
+        let read = |path: &Path| read_entry_with_options(path, &[], &options).unwrap();
+
+        let entry = read(&path);
+        assert_eq!(value(&entry, "COMMENT").as_deref(), Some("Main"));
+        assert_eq!(
+            value(&entry, "COMMENT iTunNORM").as_deref(),
+            Some(" 00000A1B 00000B2C")
+        );
+        assert_eq!(
+            value(&entry, "COMMENT Songs-DB_Custom1").as_deref(),
+            Some("Mood")
+        );
+        assert_eq!(
+            value(&entry, "UNSYNCEDLYRICS").as_deref(),
+            Some("eng||Main lyrics")
+        );
+        assert_eq!(
+            value(&entry, "UNSYNCEDLYRICS Verse").as_deref(),
+            Some("deu||Strophe")
+        );
+        assert_eq!(
+            value(&entry, "UNIQUEFILEID").as_deref(),
+            Some("http://example.com|abc")
+        );
+        assert_eq!(
+            value(&entry, "MUSICBRAINZ_TRACKID").as_deref(),
+            Some("mbid")
+        );
+
+        // Editing COMMENT leaves the described comments alone.
+        let write =
+            |updates: Fields| write_fields_with_options(&path, &updates, false, &[], &options);
+        write(fields(&[("COMMENT", &["One"])])).unwrap();
+        let entry = read(&path);
+        assert_eq!(
+            value(&entry, "COMMENT").as_deref(),
+            Some("One"),
+            "{format:?}"
+        );
+        assert_eq!(
+            value(&entry, "COMMENT iTunNORM").as_deref(),
+            Some(" 00000A1B 00000B2C")
+        );
+        // Described fields are edited, added and removed by name.
+        write(fields(&[
+            ("COMMENT Songs-DB_Custom1", &["Calm"]),
+            ("COMMENT iTunNORM", &[]),
+            ("COMMENT New note", &["Added"]),
+            ("UNSYNCEDLYRICS Verse", &["eng||Verse", "deu||Strophe 2"]),
+            ("UNSYNCEDLYRICS", &[]),
+            (
+                "UNIQUEFILEID",
+                &["http://example.com|xyz", "http://other.org|42"],
+            ),
+        ]))
+        .unwrap();
+        let entry = read(&path);
+        assert_eq!(
+            value(&entry, "COMMENT Songs-DB_Custom1").as_deref(),
+            Some("Calm")
+        );
+        assert_eq!(value(&entry, "COMMENT iTunNORM"), None);
+        assert_eq!(value(&entry, "COMMENT New note").as_deref(), Some("Added"));
+        assert_eq!(value(&entry, "COMMENT").as_deref(), Some("One"));
+        assert_eq!(
+            value(&entry, "UNSYNCEDLYRICS Verse").as_deref(),
+            Some("eng||Verse|deu||Strophe 2")
+        );
+        assert_eq!(value(&entry, "UNSYNCEDLYRICS"), None);
+        assert_eq!(
+            value(&entry, "UNIQUEFILEID").as_deref(),
+            Some("http://example.com|xyz|http://other.org|42")
+        );
+        assert_eq!(
+            value(&entry, "MUSICBRAINZ_TRACKID").as_deref(),
+            Some("mbid")
+        );
+        assert!(fs::read(&path).unwrap().ends_with(&audio));
+
+        // Invalid values are refused and leave the file untouched.
+        let before = fs::read(&path).unwrap();
+        for (name, invalid) in [
+            ("UNIQUEFILEID", "no owner"),
+            ("UNIQUEFILEID", "http://musicbrainz.org|x"),
+            ("UNSYNCEDLYRICS Verse", "no language"),
+        ] {
+            assert!(write(fields(&[(name, &[invalid])])).is_err(), "{invalid}");
+            assert_eq!(fs::read(&path).unwrap(), before);
+        }
+        assert!(write(fields(&[("UNIQUEFILEID", &["a|1", "a|2"])])).is_err());
+        // One comment per description: further ones need their own description.
+        assert!(write(fields(&[("COMMENT", &["One", "Two"])])).is_err());
+        assert!(write(fields(&[("UNSYNCEDLYRICS", &["eng||a", "eng||b"])])).is_err());
+        assert_eq!(fs::read(&path).unwrap(), before);
+    }
+}

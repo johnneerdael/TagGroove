@@ -15,6 +15,7 @@ use lofty::{
     TextEncoding,
 };
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 #[derive(Debug, Clone, Copy, Serialize)]
 pub struct FieldMapping {
     pub field: &'static str,
@@ -1335,10 +1336,14 @@ pub(super) fn id3_fields_with(
             }
             Frame::Url(url) => append(&mut fields, ordinary, url.url().into()),
             Frame::UserUrl(url) => append(&mut fields, "WWW".into(), url.content.to_string()),
-            Frame::Comment(text) => append(&mut fields, "COMMENT".into(), text.content.to_string()),
+            Frame::Comment(text) => append(
+                &mut fields,
+                described("COMMENT", &text.description),
+                text.content.to_string(),
+            ),
             Frame::UnsynchronizedText(text) => append(
                 &mut fields,
-                "UNSYNCEDLYRICS".into(),
+                described("UNSYNCEDLYRICS", &text.description),
                 format!(
                     "{}||{}",
                     String::from_utf8_lossy(&text.language),
@@ -1353,9 +1358,14 @@ pub(super) fn id3_fields_with(
                     .map(|(role, name)| format!("{role}:{name};"))
                     .collect(),
             ),
-            Frame::UniqueFileIdentifier(uid) if uid.owner == "http://musicbrainz.org" => {
+            Frame::UniqueFileIdentifier(uid) if uid.owner == MUSICBRAINZ_OWNER => {
                 if let Ok(value) = std::str::from_utf8(&uid.identifier) {
                     append(&mut fields, "MUSICBRAINZ_TRACKID".into(), value.into());
+                }
+            }
+            Frame::UniqueFileIdentifier(uid) => {
+                if let Some(value) = unique_file_id(uid) {
+                    append(&mut fields, "UNIQUEFILEID".into(), value);
                 }
             }
             Frame::Binary(value) if id == "PCST" && value.data.len() <= 8 => {
@@ -1403,6 +1413,48 @@ pub(super) fn id3_fields_with(
         }
     }
     fields
+}
+
+/// The UFID owner of MUSICBRAINZ_TRACKID.
+const MUSICBRAINZ_OWNER: &str = "http://musicbrainz.org";
+
+/// The field of a COMM or USLT frame: `COMMENT` or `UNSYNCEDLYRICS`, followed
+/// by a space and the description when the frame has one.
+fn described(field: &str, description: &str) -> String {
+    if description.is_empty() {
+        field.to_owned()
+    } else {
+        format!("{field} {description}")
+    }
+}
+/// The frame and description a COMMENT or UNSYNCEDLYRICS field (with an
+/// optional description) is stored as.
+fn described_frame(name: &str) -> Option<(&'static str, &str)> {
+    for (field, id) in [("COMMENT", "COMM"), ("UNSYNCEDLYRICS", "USLT")] {
+        let Some(head) = name.get(..field.len()) else {
+            continue;
+        };
+        if !head.eq_ignore_ascii_case(field) {
+            continue;
+        }
+        match &name[field.len()..] {
+            "" => return Some((id, "")),
+            rest if rest.starts_with(' ') => return Some((id, &rest[1..])),
+            _ => {}
+        }
+    }
+    None
+}
+
+/// UNIQUEFILEID: `owner|identifier`, for identifiers that are text. Binary
+/// identifiers stay opaque (`%_id3v2_unknown_frames%`).
+pub(super) fn unique_file_id(uid: &UniqueFileIdentifierFrame<'_>) -> Option<String> {
+    let identifier = std::str::from_utf8(&uid.identifier).ok()?;
+    (uid.owner != MUSICBRAINZ_OWNER
+        && !uid.owner.contains('|')
+        && !identifier.is_empty()
+        && !identifier.contains('\0'))
+    .then(|| format!("{}|{identifier}", uid.owner))
 }
 
 fn atom_name(id: &AtomIdent<'_>) -> String {
@@ -1825,6 +1877,14 @@ pub(super) fn patch_id3(
                 }
             })
             .filter(|s| !s.is_empty());
+        if let Some((id, description)) = described_frame(name) {
+            // A TXXX alias of the field (FFmpeg's TXXX:comment) is replaced too.
+            tag.retain(|frame| {
+                !matches!(frame, Frame::UserText(text) if text.description.eq_ignore_ascii_case(name))
+            });
+            patch_described(tag, id, description, values, encoding, target.language)?;
+            continue;
+        }
         let mapping = mapped
             .map(str::to_owned)
             .unwrap_or_else(|| format!("TXXX:{name}"));
@@ -1891,7 +1951,8 @@ pub(super) fn patch_id3(
             continue;
         }
         if mapping == "UFID" {
-            return Err("UNIQUEFILEID serialization is not yet verified; existing UFID frames are preserved".into());
+            patch_unique_file_ids(tag, values)?;
+            continue;
         }
         let internal_id = if mapping == "IPLS" {
             "TIPL"
@@ -1909,37 +1970,6 @@ pub(super) fn patch_id3(
                     return Err("PODCAST requires 1 or deletion".into());
                 }
                 tag.insert(Frame::Binary(BinaryFrame::new(id, vec![0, 0, 0, 1])));
-            }
-            "COMM" => {
-                for (i, v) in values.iter().enumerate() {
-                    tag.insert(Frame::Comment(CommentFrame::new(
-                        encoding,
-                        target.language,
-                        if i == 0 {
-                            String::new()
-                        } else {
-                            format!("Comment {i}")
-                        },
-                        v.clone(),
-                    )));
-                }
-            }
-            "USLT" => {
-                for v in values {
-                    let (lang, lyrics) = v
-                        .split_once("||")
-                        .ok_or("UNSYNCEDLYRICS requires language||lyrics")?;
-                    let language: [u8; 3] = lang
-                        .as_bytes()
-                        .try_into()
-                        .map_err(|_| "Lyrics language requires three ASCII letters")?;
-                    tag.insert(Frame::UnsynchronizedText(UnsynchronizedTextFrame::new(
-                        encoding,
-                        language,
-                        "",
-                        lyrics.to_owned(),
-                    )));
-                }
             }
             "WXXX" => {
                 if values.len() > 1 {
@@ -2018,6 +2048,107 @@ pub(super) fn patch_id3(
                 )));
             }
         }
+    }
+    Ok(())
+}
+
+/// Replace the COMM or USLT frames with `description` (in any language).
+/// ID3v2 tells these frames apart by language and description, and lofty
+/// stops reading a comment at a NUL, so a description holds one comment and
+/// one lyrics text per language.
+fn patch_described(
+    tag: &mut Id3v2Tag,
+    id: &str,
+    description: &str,
+    values: &[String],
+    encoding: TextEncoding,
+    language: [u8; 3],
+) -> Result<(), String> {
+    tag.retain(|frame| match frame {
+        Frame::Comment(comment) if id == "COMM" => {
+            !comment.description.eq_ignore_ascii_case(description)
+        }
+        Frame::UnsynchronizedText(lyrics) if id == "USLT" => {
+            !lyrics.description.eq_ignore_ascii_case(description)
+        }
+        _ => true,
+    });
+    if values.is_empty() {
+        return Ok(());
+    }
+    if id == "COMM" {
+        let [value] = values else {
+            return Err(format!(
+                "{} holds one comment per description in ID3v2; use COMMENT <description> for more",
+                if description.is_empty() {
+                    "COMMENT".to_owned()
+                } else {
+                    format!("COMMENT {description}")
+                }
+            ));
+        };
+        tag.insert(Frame::Comment(CommentFrame::new(
+            encoding,
+            language,
+            description.to_owned(),
+            value.clone(),
+        )));
+        return Ok(());
+    }
+    let mut languages = HashSet::new();
+    for value in values {
+        let (lang, lyrics) = value
+            .split_once("||")
+            .ok_or("UNSYNCEDLYRICS requires language||lyrics")?;
+        let language: [u8; 3] = lang
+            .as_bytes()
+            .try_into()
+            .map_err(|_| "Lyrics language requires three ASCII letters")?;
+        if !languages.insert(language) {
+            return Err("UNSYNCEDLYRICS holds one text per language and description".into());
+        }
+        tag.insert(Frame::UnsynchronizedText(UnsynchronizedTextFrame::new(
+            encoding,
+            language,
+            description.to_owned(),
+            lyrics.to_owned(),
+        )));
+    }
+    Ok(())
+}
+
+/// Replace the UFID frames shown as UNIQUEFILEID with `owner|identifier`
+/// values. MusicBrainz identifiers and binary identifiers are kept.
+fn patch_unique_file_ids(tag: &mut Id3v2Tag, values: &[String]) -> Result<(), String> {
+    let mut frames = Vec::new();
+    let mut owners = HashSet::new();
+    for value in values {
+        let (owner, identifier) = value
+            .split_once('|')
+            .ok_or("UNIQUEFILEID requires owner|identifier")?;
+        if owner.is_empty() || identifier.is_empty() {
+            return Err("UNIQUEFILEID requires an owner and an identifier".into());
+        }
+        if owner == MUSICBRAINZ_OWNER {
+            return Err("The MusicBrainz identifier is stored in MUSICBRAINZ_TRACKID".into());
+        }
+        if identifier.len() > 64 {
+            return Err("A UNIQUEFILEID identifier holds at most 64 bytes".into());
+        }
+        if !owners.insert(owner) {
+            return Err("UNIQUEFILEID holds one identifier per owner".into());
+        }
+        frames.push(Frame::UniqueFileIdentifier(UniqueFileIdentifierFrame::new(
+            owner.to_owned(),
+            identifier.as_bytes().to_vec(),
+        )));
+    }
+    tag.retain(|frame| {
+        !matches!(frame, Frame::UniqueFileIdentifier(uid)
+            if unique_file_id(uid).is_some() || owners.contains(uid.owner.as_ref()))
+    });
+    for frame in frames {
+        tag.insert(frame);
     }
     Ok(())
 }
