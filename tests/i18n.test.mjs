@@ -104,6 +104,30 @@ test('catalog validation finds missing, unknown and mismatched keys',()=>{
   const problems=validateCatalog(en,{'A {x}':'Ein {y}','C {n}':'{n, plural, single {x} other {y}}','Z':'z'});
   assert.deepEqual(problems,{missing:['B'],unknown:['Z'],placeholders:['A {x}'],invalid:['C {n}']});
 });
+test('copying the generated language template adds the filename locale without replacing English',async()=>{
+  const main=await readFile(new URL('../src/main.ts',import.meta.url),'utf8');
+  const parsed=ts.createSourceFile('main.ts',main,ts.ScriptTarget.Latest,true);
+  const declaration=parsed.statements.filter(ts.isVariableStatement).flatMap(node=>[...node.declarationList.declarations]).find(node=>node.name.getText(parsed)==='languagePage');
+  // Run the production folder action and capture the template passed to the backend.
+  const js=ts.transpileModule(`const ${declaration.getText(parsed)};`,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
+  let generated;
+  const host=new Function('ENGLISH','desktop','languageOptionsPage','invoke',`${js}\nreturn languagePage;`)(english,true,host=>host,(_command,args)=>{generated=args.template;});
+  await host.openFolder();
+  const template=JSON.parse(generated),bundled=['en','nl','de'].map(locale=>({...catalogMeta(catalogs[locale]),catalog:catalogs[locale],source:'bundled'}));
+  for(const [file,locale,name] of [['fr.json','fr','Français'],['pt-BR.json','pt-BR','Português'],['de.json','de','Deutsch (eigene)']]){
+    // Follow the Options instructions: copy to this filename, set its name and translate values.
+    const copy=JSON.parse(generated);copy['@meta'].name=name;copy['Save tags']='Enregistrer';
+    assert.deepEqual(catalogMeta(copy,file),{locale,name});
+    const result=languageSet(bundled,[{file,catalog:copy}],english);
+    assert.deepEqual(result.warnings,[]);
+    assert.equal(result.languages.get(locale).source,'user');
+    assert.equal(result.languages.get(locale).catalog['Save tags'],'Enregistrer');
+    assert.equal(result.languages.get('en').catalog,english);
+  }
+  assert.deepEqual(validateCatalog(english,template),{missing:[],unknown:[],placeholders:[],invalid:[]});
+  assert.equal(template['Save tags'],'Save tags');assert.equal(english['@meta'].locale,'en');
+  assert.deepEqual(catalogMeta({'@meta':{name:'Français',locale:'fr'}},'custom.json'),{locale:'fr',name:'Français'});
+});
 test('the language follows the choice, then the system languages by region and base language, then English',()=>{
   const available=['en','nl','de','pt-BR'];
   assert.equal(resolveLanguage('system',['nl-BE','en-US'],available),'nl');

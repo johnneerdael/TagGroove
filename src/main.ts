@@ -393,7 +393,8 @@ let shownTitle='';
 function syncWindowTitle(){const title=translate(windowTitle(location,optionsUI.settings));if(desktop&&title!==shownTitle){shownTitle=title;void getCurrentWindow().setTitle(title).catch(()=>{shownTitle='';});}}
 // Read preferences change which tag is displayed, so reload files without pending edits.
 // Options → Language: catalogs from the languages folder (read again on every OK) and the chosen language.
-const languagePage=languageOptionsPage({openFolder:desktop?()=>invoke<void>('open_languages_folder',{template:`${JSON.stringify(ENGLISH,null,1)}\n`}):undefined});
+// A copied template takes its locale from its filename, rather than overriding English.
+const languagePage=languageOptionsPage({openFolder:desktop?()=>invoke<void>('open_languages_folder',{template:`${JSON.stringify({...ENGLISH,'@meta':{name:''}},null,1)}\n`}):undefined});
 registerOptionsPage(languagePage);
 async function applyLanguage(){
   if(desktop){
