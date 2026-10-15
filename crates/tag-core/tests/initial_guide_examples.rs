@@ -25,21 +25,31 @@ fn fields() -> Fields {
 }
 
 fn blocks(page: &str) -> Vec<String> {
-    page.split("```text\n")
-        .skip(1)
-        .map(|block| {
-            block
-                .split("```")
-                .next()
-                .unwrap()
-                .lines()
-                .map(str::trim)
-                .collect::<Vec<_>>()
-                .join("\n")
-                .trim_end()
-                .to_owned()
-        })
-        .collect()
+    let mut blocks = Vec::new();
+    let mut lines = page.lines();
+    while let Some(line) = lines.next() {
+        let Some(indent) = line.strip_suffix("```text") else {
+            continue;
+        };
+        if !indent.chars().all(|ch| ch == ' ') {
+            continue;
+        }
+        let mut body = Vec::new();
+        for line in lines.by_ref() {
+            if line.trim() == "```" {
+                break;
+            }
+            body.push(line.strip_prefix(indent).unwrap_or(line));
+        }
+        blocks.push(body.join("\n"));
+    }
+    blocks
+}
+
+fn newline_variants(page: &str) -> [String; 2] {
+    let lf = page.replace("\r\n", "\n");
+    let crlf = lf.replace('\n', "\r\n");
+    [lf, crlf]
 }
 
 #[test]
@@ -58,7 +68,17 @@ fn inline_empty_pattern_note_produces_its_own_written_result() {
 
 #[test]
 fn guarded_guest_expression_handles_the_regex_default_case_rule_and_fallback() {
-    let expression = blocks(REGEX)
+    for regex_page in newline_variants(REGEX) {
+        check_guarded_guest_expression_handles_the_regex_default_case_rule_and_fallback(
+            &regex_page,
+        );
+    }
+}
+
+fn check_guarded_guest_expression_handles_the_regex_default_case_rule_and_fallback(
+    regex_page: &str,
+) {
+    let expression = blocks(regex_page)
         .into_iter()
         .find(|block| block.starts_with("$if("))
         .unwrap();
@@ -80,7 +100,13 @@ fn guarded_guest_expression_handles_the_regex_default_case_rule_and_fallback() {
 
 #[test]
 fn every_format_reference_fence_runs_in_its_written_context() {
-    let examples = blocks(FORMAT);
+    for format_page in newline_variants(FORMAT) {
+        check_every_format_reference_fence_runs_in_its_written_context(&format_page);
+    }
+}
+
+fn check_every_format_reference_fence_runs_in_its_written_context(format_page: &str) {
+    let examples = blocks(format_page);
     assert_eq!(examples.len(), 10);
     let mut values = fields();
     for (index, expected) in [(0, "Lanterns"), (1, "LANTERNS"), (3, "no")] {
@@ -155,7 +181,13 @@ fn inline_optional_quote_whitespace_and_numeric_examples_are_literal() {
 
 #[test]
 fn remaining_regex_fences_preserve_capture_quotes_and_empty_replacements() {
-    let examples = blocks(REGEX);
+    for regex_page in newline_variants(REGEX) {
+        check_remaining_regex_fences_preserve_capture_quotes_and_empty_replacements(&regex_page);
+    }
+}
+
+fn check_remaining_regex_fences_preserve_capture_quotes_and_empty_replacements(regex_page: &str) {
+    let examples = blocks(regex_page);
     assert_eq!(examples.len(), 5);
     let mut values = fields();
     for (index, title, expected) in [
@@ -172,14 +204,29 @@ fn remaining_regex_fences_preserve_capture_quotes_and_empty_replacements() {
 
 #[test]
 fn first_session_and_number_recipe_fences_match_their_tutorial_outputs() {
+    for (first_page, numbers_page) in newline_variants(FIRST)
+        .into_iter()
+        .zip(newline_variants(NUMBERS))
+    {
+        check_first_session_and_number_recipe_fences_match_their_tutorial_outputs(
+            &first_page,
+            &numbers_page,
+        );
+    }
+}
+
+fn check_first_session_and_number_recipe_fences_match_their_tutorial_outputs(
+    first_page: &str,
+    numbers_page: &str,
+) {
     let values = fields();
-    let first = blocks(FIRST);
+    let first = blocks(first_page);
     assert_eq!(first.len(), 1);
     assert_eq!(
         evaluate(&first[0], &values).unwrap(),
         "02 - Juniper Vale - Lanterns on the Water"
     );
-    let examples = blocks(NUMBERS);
+    let examples = blocks(numbers_page);
     assert_eq!(examples.len(), 5);
     for (index, expected) in [
         (0, "02 Lanterns on the Water"),
@@ -205,7 +252,15 @@ fn first_session_and_number_recipe_fences_match_their_tutorial_outputs() {
 
 #[test]
 fn every_folder_recipe_pattern_runs_including_its_inline_deluxe_variation() {
-    let examples = blocks(FOLDERS);
+    for folders_page in newline_variants(FOLDERS) {
+        check_every_folder_recipe_pattern_runs_including_its_inline_deluxe_variation(&folders_page);
+    }
+}
+
+fn check_every_folder_recipe_pattern_runs_including_its_inline_deluxe_variation(
+    folders_page: &str,
+) {
+    let examples = blocks(folders_page);
     assert_eq!(examples.len(), 8); // Two blocks illustrate a tree/alignment, not copyable patterns.
     for (index, path, key, expected) in [
         (
@@ -262,7 +317,13 @@ fn every_folder_recipe_pattern_runs_including_its_inline_deluxe_variation() {
 
 #[test]
 fn guest_recipe_filter_and_both_match_and_no_match_examples_are_explicit() {
-    let examples = blocks(GUESTS);
+    for guests_page in newline_variants(GUESTS) {
+        check_guest_recipe_filter_and_both_match_and_no_match_examples_are_explicit(&guests_page);
+    }
+}
+
+fn check_guest_recipe_filter_and_both_match_and_no_match_examples_are_explicit(guests_page: &str) {
+    let examples = blocks(guests_page);
     assert_eq!(examples.len(), 3);
     let filter = compile_filter(&examples[0]).unwrap();
     let mut values = fields();
@@ -289,4 +350,25 @@ fn guest_recipe_filter_and_both_match_and_no_match_examples_are_explicit() {
         evaluate(&examples[1], &values).unwrap(),
         "Low Tide (feat. Juniper Vale)"
     );
+}
+
+#[test]
+fn written_fences_support_both_checkout_newlines_and_preserve_spaces() {
+    for (page, count) in [
+        (FORMAT, 10),
+        (REGEX, 5),
+        (FIRST, 1),
+        (NUMBERS, 5),
+        (FOLDERS, 8),
+        (GUESTS, 3),
+    ] {
+        let lf = page.replace("\r\n", "\n");
+        let crlf = lf.replace('\n', "\r\n");
+        assert_eq!(blocks(&crlf).len(), count, "CRLF checkout");
+        assert_eq!(blocks(&lf), blocks(&crlf));
+    }
+    for newline in ["\n", "\r\n"] {
+        let page = ["    ```text", "      literal  ", "    ", "    ```"].join(newline);
+        assert_eq!(blocks(&page), ["  literal  \n"]);
+    }
 }
