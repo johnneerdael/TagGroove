@@ -1148,20 +1148,36 @@ mod tests {
         let imported = import_group(&target, None).unwrap();
         assert!(imported.issues.is_empty());
         assert_eq!(imported.group, group);
+        let art = ActionGroup {
+            name: "Art".into(),
+            enabled: true,
+            actions: vec![ActionSpec::AdjustCover {
+                format: tag_core::actions::CoverImageFormat::Png,
+                quality: 90,
+                resize: None,
+            }],
+        };
+        export_group(&dir.path().join("Art.mta"), &art).unwrap();
+        assert_eq!(
+            import_group(&dir.path().join("Art.mta"), None)
+                .unwrap()
+                .group,
+            art
+        );
+        // A setting .mta cannot store refuses the export without a file.
         assert!(export_group(
-            &dir.path().join("cover.mta"),
+            &dir.path().join("lines.mta"),
             &ActionGroup {
-                name: "Art".into(),
+                name: "Lines".into(),
                 enabled: true,
-                actions: vec![ActionSpec::AdjustCover {
-                    format: tag_core::actions::CoverImageFormat::Png,
-                    quality: 90,
-                    resize: None,
+                actions: vec![ActionSpec::FormatValue {
+                    field: "COMMENT".into(),
+                    template: "a\nb".into(),
                 }],
             }
         )
         .is_err());
-        assert!(!dir.path().join("cover.mta").exists());
+        assert!(!dir.path().join("lines.mta").exists());
     }
 
     fn cover_export_group(filename: &str, export_duplicates: bool) -> ActionGroup {
