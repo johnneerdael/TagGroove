@@ -2914,6 +2914,7 @@ dependencies = [
  "keyring",
  "md-5",
  "objc2-app-kit",
+ "regex-compat",
  "reqwest",
  "rustls",
  "serde",

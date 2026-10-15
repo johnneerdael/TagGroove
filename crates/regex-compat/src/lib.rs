@@ -25,6 +25,13 @@ extern "C" {
         output_count: *mut usize,
     ) -> *mut u16;
     fn ot_regex_output_free(text: *mut u16);
+    fn ot_regex_find_all(
+        expression: *const c_void,
+        text: *const u16,
+        count: usize,
+        found: *mut usize,
+    ) -> *mut usize;
+    fn ot_regex_spans_free(spans: *mut usize);
 }
 
 fn error() -> String {
@@ -92,6 +99,29 @@ impl Regex {
             ot_regex_output_free(result.as_ptr());
         }
         Ok(output)
+    }
+    /// The text of every non-overlapping match, in order.
+    pub fn find_all(&self, input: &str) -> Result<Vec<String>, String> {
+        let input: Vec<u16> = input.encode_utf16().collect();
+        let mut found = 0;
+        let spans = NonNull::new(unsafe {
+            ot_regex_find_all(
+                self.handle.as_ptr(),
+                input.as_ptr(),
+                input.len(),
+                &mut found,
+            )
+        })
+        .ok_or_else(error)?;
+        // The bridge allocated 2 * found entries; copy them before freeing.
+        let pairs = unsafe { std::slice::from_raw_parts(spans.as_ptr(), found * 2) }.to_vec();
+        unsafe {
+            ot_regex_spans_free(spans.as_ptr());
+        }
+        Ok(pairs
+            .chunks(2)
+            .map(|pair| String::from_utf16_lossy(&input[pair[0]..pair[0] + pair[1]]))
+            .collect())
     }
     pub fn captures(&self, input: &str) -> Result<Option<Vec<Option<String>>>, String> {
         let input: Vec<u16> = input.encode_utf16().collect();
@@ -247,6 +277,25 @@ pub fn replace(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn find_all_lists_every_match_with_context() {
+        let expression = Regex::new(r"(?<=#)\d+", true).unwrap();
+        assert_eq!(
+            expression.find_all("#1 2 #34 猫#5").unwrap(),
+            ["1", "34", "5"]
+        );
+        assert!(Regex::new("x", true)
+            .unwrap()
+            .find_all("abc")
+            .unwrap()
+            .is_empty());
+        // Empty matches advance instead of looping.
+        assert_eq!(
+            Regex::new("a*", true).unwrap().find_all("baa").unwrap(),
+            ["", "aa", ""]
+        );
+    }
 
     #[test]
     fn documented_character_classes_and_repetition() {
