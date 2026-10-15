@@ -136,6 +136,54 @@ fn state_path(state: &ActionState) -> Result<PathBuf, String> {
         .map(PathBuf::from)
         .ok_or_else(|| "Action state has no file path".into())
 }
+/// The file extension of a cover image, from its MIME type or its bytes.
+fn cover_extension(mime: &str, bytes: &[u8]) -> &'static str {
+    match mime.to_ascii_lowercase().as_str() {
+        "image/jpeg" | "image/jpg" => "jpg",
+        "image/png" => "png",
+        "image/gif" => "gif",
+        "image/bmp" => "bmp",
+        "image/webp" => "webp",
+        "image/tiff" => "tif",
+        _ => match image::guess_format(bytes) {
+            Ok(image::ImageFormat::Jpeg) => "jpg",
+            Ok(image::ImageFormat::Png) => "png",
+            Ok(image::ImageFormat::Gif) => "gif",
+            Ok(image::ImageFormat::Bmp) => "bmp",
+            Ok(image::ImageFormat::WebP) => "webp",
+            Ok(image::ImageFormat::Tiff) => "tif",
+            _ => "img",
+        },
+    }
+}
+
+/// Export Cover appends the image type's extension to the evaluated name
+/// (`Vol. 2` → `Vol. 2.jpg`). A name already ending in that extension is
+/// kept, and another image extension is replaced (`cover.jpg` holding PNG
+/// data → `cover.png`).
+fn cover_file_target(mut target: PathBuf, mime: &str, bytes: &[u8]) -> PathBuf {
+    let extension = cover_extension(mime, bytes);
+    let current = target
+        .extension()
+        .map(|e| e.to_string_lossy().to_ascii_lowercase());
+    match current.as_deref() {
+        Some(current)
+            if current == extension
+                || (extension == "jpg" && current == "jpeg")
+                || (extension == "tif" && current == "tiff") => {}
+        Some("jpg" | "jpeg" | "png" | "gif" | "bmp" | "webp" | "tif" | "tiff" | "img") => {
+            target.set_extension(extension);
+        }
+        _ => {
+            let mut name = target.file_name().unwrap_or_default().to_os_string();
+            name.push(".");
+            name.push(extension);
+            target.set_file_name(name);
+        }
+    }
+    target
+}
+
 fn relative_to_file(path: &str, source: &Path) -> PathBuf {
     let path = Path::new(path);
     if path.is_absolute() {
@@ -361,15 +409,8 @@ impl ActionHost for NativeHost {
                         .decode(&cover.data_base64)
                         .map_err(|e| e.to_string())?;
                     let digest: [u8; 32] = Sha256::digest(&bytes).into();
-                    let mut target = relative_to_file(filename, &path);
-                    if target.extension().is_none() {
-                        target.set_extension(match cover.mime.as_str() {
-                            "image/png" => "png",
-                            "image/jpeg" => "jpg",
-                            "image/gif" => "gif",
-                            _ => "img",
-                        });
-                    }
+                    let mut target =
+                        cover_file_target(relative_to_file(filename, &path), &cover.mime, &bytes);
                     // Duplicate identity is the requested destination plus
                     // content. Take it before per-file multi-cover numbering.
                     let identity = (normalized_output(&target)?, digest);
@@ -1180,6 +1221,29 @@ mod tests {
         assert!(!dir.path().join("lines.mta").exists());
     }
 
+    #[test]
+    fn export_cover_appends_or_replaces_the_image_extension() {
+        let png = b"\x89PNG\r\n\x1a\n".as_slice();
+        let target = |name: &str, mime: &str, bytes: &[u8]| {
+            cover_file_target(PathBuf::from(name), mime, bytes)
+                .to_string_lossy()
+                .into_owned()
+        };
+        assert_eq!(target("art/Vol. 2", "image/jpeg", &[]), "art/Vol. 2.jpg");
+        assert_eq!(target("cover", "image/png", &[]), "cover.png");
+        assert_eq!(target("cover.jpg", "image/png", &[]), "cover.png");
+        assert_eq!(target("cover.JPEG", "image/jpeg", &[]), "cover.JPEG");
+        assert_eq!(target("cover.jpg", "image/jpeg", &[]), "cover.jpg");
+        assert_eq!(target("front", "image/webp", &[]), "front.webp");
+        assert_eq!(target("front", "image/bmp", &[]), "front.bmp");
+        assert_eq!(
+            target("front", "application/octet-stream", png),
+            "front.png"
+        );
+        assert_eq!(target("front", "", b"????"), "front.img");
+        assert_eq!(target("Mr. Jones", "image/gif", &[]), "Mr. Jones.gif");
+    }
+
     fn cover_export_group(filename: &str, export_duplicates: bool) -> ActionGroup {
         ActionGroup {
             name: "Export art".into(),
@@ -1263,17 +1327,24 @@ mod tests {
         let before = fs::read(&path).unwrap();
         let output = dir.path().join("cover.png");
         fs::write(&output, b"Existing output").unwrap();
-        for filename in ["cover", "missing/../input.wav"] {
-            let result = execute(
-                &[path.to_string_lossy().into_owned()],
-                &[cover_export_group(filename, false)],
-                EvaluationSettings::default(),
-            );
-            assert_eq!(result.errors.len(), 1, "{filename}");
-            assert_eq!(fs::read(&path).unwrap(), before);
-            assert_eq!(fs::read(&output).unwrap(), b"Existing output");
-        }
-        assert!(!dir.path().join("missing").exists());
+        let result = execute(
+            &[path.to_string_lossy().into_owned()],
+            &[cover_export_group("cover", false)],
+            EvaluationSettings::default(),
+        );
+        assert_eq!(result.errors.len(), 1);
+        assert_eq!(fs::read(&path).unwrap(), before);
+        assert_eq!(fs::read(&output).unwrap(), b"Existing output");
+        // The image extension is always added, so a name aimed at the input
+        // audio file writes a separate image next to it.
+        let result = execute(
+            &[path.to_string_lossy().into_owned()],
+            &[cover_export_group("missing/../input.wav", false)],
+            EvaluationSettings::default(),
+        );
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert_eq!(fs::read(&path).unwrap(), before);
+        assert!(dir.path().join("input.wav.png").is_file());
     }
 
     #[test]
