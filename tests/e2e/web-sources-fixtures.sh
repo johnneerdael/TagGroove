@@ -119,8 +119,9 @@ cat >"$sources/&Fixture#Settings.settings" <<'JSON'
   {"type":"string","key":"language","title":"Language","choices":["en","de"],"default":"en"}]}
 JSON
 
-# The server must not hold the run's output pipe open.
-(cd "$site" && setsid nohup python3 -m http.server 18765 --bind 127.0.0.1 </dev/null >/dev/null 2>&1 &)
+# The server must not hold the run's output open or outlive the suite (the
+# app itself is stopped after 180 s): it is detached and exits after 150 s.
+(cd "$site" && exec setsid -f timeout 150 python3 -m http.server 18765 --bind 127.0.0.1 </dev/null >/dev/null 2>&1)
 for _ in $(seq 1 50); do
   curl -fs -o /dev/null http://127.0.0.1:18765/search.html && exit 0
   sleep 0.2
