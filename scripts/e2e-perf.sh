@@ -5,6 +5,8 @@
 # `/fp:<clone>`. A fresh clone also has no cached file pages, so the first run
 # approximates a cold read; later runs in the same invocation are warm.
 # Usage: scripts/e2e-perf.sh <folder> [runs] [--no-build] [--read-only]
+# OPENTAG_E2E_ID overrides the bundle identifier (so concurrent runs keep
+# separate settings); OPENTAG_PERF_BIN runs another build's executable.
 set -euo pipefail
 if [[ -z "${CI:-}" && -z "${OPENTAG_E2E_ALLOW_LOCAL:-}" ]]; then
   echo "Refusing to open test windows on this desktop; set OPENTAG_E2E_ALLOW_LOCAL=1 to override." >&2
@@ -16,12 +18,12 @@ build=1; write=true
 for arg in "$@"; do
   case "$arg" in --no-build) build=0 ;; --read-only) write=false ;; esac
 done
-identifier="org.opentag.editor.e2e.perf"
+identifier="${OPENTAG_E2E_ID:-org.opentag.editor.e2e.perf}"
 if (( build )); then
   (cd "$root" && AR="${AR:-/usr/bin/ar}" npx tauri build --bundles app --features e2e \
     --config "{\"identifier\":\"$identifier\",\"productName\":\"OpenTag Perf\"}" >/dev/null)
 fi
-bin="$root/target/release/bundle/macos/OpenTag Perf.app/Contents/MacOS/opentag"
+bin="${OPENTAG_PERF_BIN:-$root/target/release/bundle/macos/OpenTag Perf.app/Contents/MacOS/opentag}"
 # App Nap throttles timers, animation frames and disk I/O of windows that are
 # not visible, which would turn background runs into multi-second outliers.
 defaults write "$identifier" NSAppSleepDisabled -bool YES

@@ -4,6 +4,8 @@ pub mod export;
 pub mod filter;
 mod flac_metadata;
 pub mod history;
+mod id3_padding;
+mod mp4_metadata;
 pub mod numbering;
 pub mod operations;
 pub mod parallel;

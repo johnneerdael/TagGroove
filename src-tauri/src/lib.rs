@@ -12,6 +12,7 @@ mod evaluation;
 mod exports;
 mod file_hashes;
 mod file_ops;
+mod filter_cache;
 mod history;
 #[cfg(any(target_os = "android", test))]
 mod managed_actions;
@@ -195,34 +196,24 @@ async fn get_covers(path: String) -> Result<Vec<tag_core::CoverInfo>, String> {
     .await
 }
 
-#[derive(Deserialize)]
-struct FilterItem {
-    path: String,
-    fields: Fields,
-    raw_fields: Option<Fields>,
-}
+static FILTER_CACHE: Mutex<Option<filter_cache::FilterCache>> = Mutex::new(None);
 
+/// Match the listed files against `query`. The window sends only files whose
+/// filter fields changed since its previous query (see `filter_cache`).
 #[tauri::command]
 async fn filter_matches(
     query: String,
-    items: Vec<FilterItem>,
-    columns: Option<Vec<evaluation::ColumnSpec>>,
-) -> Result<Vec<String>, String> {
-    let settings = evaluation_settings(columns)?;
+    request: filter_cache::FilterRequest,
+) -> Result<filter_cache::FilterOutcome, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        let filter = tag_core::compile_filter(&query)?;
-        let mut matching = Vec::new();
-        for item in items {
-            if settings.matches(
-                &filter,
-                &item.fields,
-                item.raw_fields.as_ref().unwrap_or(&item.fields),
-                &item.path,
-            )? {
-                matching.push(item.path);
-            }
-        }
-        Ok(matching)
+        let mut cache = FILTER_CACHE
+            .lock()
+            .map_err(|_| "Filter cache lock failed".to_string())?;
+        cache
+            .get_or_insert_with(Default::default)
+            .matches(&query, request, |columns| {
+                evaluation_settings(Some(columns))
+            })
     })
     .await
     .map_err(|e| e.to_string())?

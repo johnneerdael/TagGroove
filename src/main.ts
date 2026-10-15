@@ -20,7 +20,8 @@ import { removeTagTypesDialog, mp4ChapterFiles, stripChaptersPrompt, copyAsTextD
 import { fieldNameIdentity, resolveTagEdits, selectionTagRows, type TagRowEdit } from './tag-edits';
 import { TagSourcesUI, tagSourcesOptionsPages, type Provider } from './tag-sources';
 import { ActionUI, panelKey, resolvePathChanges, type ActionGroup, type ActionLibrary, type ImportedGroup } from './action-ui';
-import { ColumnUI, ColumnValueCache, columnFields, defaultLayout, editKey, headerMarkup, normalizeLayout, quickValue, sortClick, sortRows, sortTemplate, visibleColumns, type ColumnLayout } from './columns';
+import { ColumnUI, ColumnValueCache, columnFields, defaultLayout, editKey, headerMarkup, normalizeLayout, quickValue, sortClick, sortRows, sortTemplate, updateSortHeader, visibleColumns, type ColumnLayout } from './columns';
+import { FilterSync, filterCacheMiss } from './filter-sync';
 import { CellEditor, adjacentCell, type CellTarget } from './cell-editor';
 import { invertSelection, listShortcut, listSummary, nextFile, nextSimilarFiles, similarFiles } from './list-commands';
 import { FindUI } from './find';
@@ -363,10 +364,19 @@ async function executeGroups(groups:ActionGroup[]){
 function columnSpecs(targets:string[]){
   return tableColumns().map(column=>({name:column.name,template:column.value,values:Object.fromEntries(targets.flatMap(path=>{const value=columnValues.fresh(path,column.value);return value===undefined?[]:[[path,value]];}))}));
 }
+type FilterOutcome={matches:string[];error:string|null};
+let filterQueue:Promise<unknown>=Promise.resolve();
+const filterSync=new FilterSync({
+  paths:()=>ordered().map(entry=>entry.path),
+  columns:()=>tableColumns().map(column=>({name:column.name,template:column.value})),
+  token:(path,columns)=>[entries.get(path),drafts.get(path),copyOverrides.get(path),documentAccess.states[path],...columns.map(column=>columnValues.fresh(path,column.template))],
+  file:(path,columns)=>{const entry=entries.get(path)!;return{path,fields:filterFields(entry),raw_fields:merged(entry),columns:columns.map(column=>columnValues.fresh(path,column.template)??null)};},
+});
 function columnItem(entry:Entry){return{fields:columnFields({...filterFields(entry),_FILETYPE:[entry.format]}),raw_fields:columnFields(merged(entry))};}
 const columnValues=new ColumnValueCache({
   token:path=>{const entry=entries.get(path);return entry?[entry,drafts.get(path),copyOverrides.get(path),documentAccess.states[path]]:undefined;},
-  templates:()=>[...tableColumns().map(column=>column.value),...columnLayout.sort.flatMap(key=>{const column=columnLayout.columns.find(c=>c.id===key.id);return column?[sortTemplate(column)]:[];})],
+  // Sort values of every shown column are evaluated with the cells, so sorting by a script-evaluated column (Length, Bitrate) needs no new evaluation.
+  templates:()=>[...tableColumns().flatMap(column=>[column.value,sortTemplate(column)]),...columnLayout.sort.flatMap(key=>{const column=columnLayout.columns.find(c=>c.id===key.id);return column?[sortTemplate(column)]:[];})],
   evaluate:async(targets,templates)=>{
     const items=targets.map(path=>columnItem(entries.get(path)!));
     if(!desktop)return items.map(item=>templates.map(template=>quickValue(template,item.fields)??''));
@@ -417,9 +427,9 @@ const findUI=new FindUI({
 });
 /** Apply a column layout. Verified layouts (the Customize dialog) are saved first; quick header changes apply immediately. */
 async function applyColumns(layout:ColumnLayout,verified=false){
-  const next=normalizeLayout(layout);
+  const next=normalizeLayout(layout),sortOnly=JSON.stringify(next.columns)===JSON.stringify(columnLayout.columns);
   if(verified&&desktop)await invoke('save_columns',{layout:next});
-  columnLayout=next;render();
+  columnLayout=next;if(sortOnly)refreshList();else render();
   if(!verified&&desktop)await invoke('save_columns',{layout:next});
 }
 function revealRow(path:string,focus=true){
@@ -477,12 +487,19 @@ function requestFilter(query:string){
   filterRequestKey=key;filterPending=true;filterFailure='';window.clearTimeout(filterTimer);
   filterTimer=window.setTimeout(()=>{
     if(filterRequestKey!==key||filter!==query||filterContextKey()!==context)return;
-    const started=performance.now(),items=ordered().map((entry,index)=>({path:entry.path,fields:{...filterFields(entry),_COUNTER:[String(index+1)]},raw_fields:merged(entry)}));
-    void invoke<string[]>('filter_matches',{query,items,columns:columnSpecs(items.map(item=>item.path))}).then(matches=>{
+    const started=performance.now();
+    // A failed request may not have reached the cache; a cache miss is retried with every file.
+    const send=(retry:boolean):Promise<FilterOutcome>=>invoke<FilterOutcome>('filter_matches',{query,request:filterSync.request()})
+      .catch(error=>{filterSync.reset();if(retry&&String(error).includes(filterCacheMiss))return send(false);throw error;});
+    // Requests run one at a time, so the backend applies cache updates in the order they were made.
+    const result=filterQueue.then(()=>filterRequestKey===key?send(true):undefined);filterQueue=result.catch(()=>{});
+    void result.then(outcome=>{
+      if(!outcome)return;
+      const {matches,error}=outcome;if(error!==null)throw error;
       if(filterRequestKey!==key||filter!==query||filterContextKey()!==context)return;
       filterMatch={context,query,paths:new Set(matches)};filterPending=false;filterCacheKey='';filterFailure='';
-      timing('filter expression',started,{query,matched:matches.length});render();
-    }).catch(error=>{if(filterRequestKey===key&&filter===query&&filterContextKey()===context){filterPending=false;filterFailure=String(error);filterCacheKey='';render();}});
+      timing('filter expression',started,{query,matched:matches.length});refreshList();
+    }).catch(error=>{if(filterRequestKey===key&&filter===query&&filterContextKey()===context){filterPending=false;filterFailure=String(error);filterCacheKey='';refreshList();}});
   },120);
 }
 function filterContextKey(){return`${dataRevision}:${JSON.stringify(columnLayout.sort)}:${compactScreen()}`;}
@@ -652,7 +669,7 @@ function render() {
   <nav class="mobile-panes" aria-label="Workspace view"><button data-pane="files" aria-pressed="${mobilePane==='files'}">Files (${entries.size})</button><button data-pane="tags" aria-pressed="${mobilePane==='tags'}" ${selected.size?'':'disabled'}>Tags (${selected.size})</button></nav>
   <main class="workspace"><aside class="editor" aria-label="Tag editor"><div class="panel-title">Tag panel <span class="panel-count">${panelCount()}</span>${tagPanel.titleHTML()}</div>${sourceMarkup('tags')}<div class="fields">${tagPanel.fieldsHTML()}</div><div class="editor-actions">${button('save','Save tags')}${button('extended','Extended…')}</div>
   ${tagPanel.showCover?`<section class="cover-section" aria-label="Embedded artwork">${coverMarkup()}</section>`:''}</aside><div class="panel-splitter" role="separator" aria-orientation="vertical" aria-label="Tag panel width" aria-valuemin="${PANEL_WIDTH[0]}" aria-valuemax="${PANEL_WIDTH[1]}" tabindex="0"></div>
-  <section class="files" aria-label="Audio files"><div class="location">${glyph(glyphOrganize)}<span class="path" title="${esc(entry&&providerEntry(entry)?sourcePresentation(documentAccess.states[entry.path]).location:location)}">${esc(entry&&providerEntry(entry)?sourcePresentation(documentAccess.states[entry.path]).location:location)}</span><strong>${entries.size} file${entries.size===1?'':'s'}</strong></div>${sourceMarkup('files')}<div class="filterbar"><label for="filter">${glyph(glyphSearch)}<span class="visually-hidden">Filter</span></label><input id="filter" type="search" value="${esc(filterDraft??filter)}" data-helper="filter" data-history="filter" data-history-manage placeholder="Filter filenames and tags, or enter a filter expression" autocomplete="off"><span class="count">${countText(list)}</span></div><div class="table-wrap"><table aria-label="Audio metadata" aria-rowcount="${list.length+1}" style="width:${shownColumns.reduce((sum,c)=>sum+c.width,0)}px"><thead><tr>${headerMarkup(shownColumns,columnLayout.sort)}</tr></thead><tbody></tbody></table>${!list.length ? `<div class="empty"><img class="empty-symbol" data-theme-image="mark" src="${themedAsset('mark')}" alt="" aria-hidden="true"><h1>${filterPending ? 'Filtering files…' : filterFailure ? 'Invalid filter' : entries.size ? 'No matching files' : runtimePlatform.document_access_supported?'Add audio documents':desktop ? 'Open your music folder' : 'Your music, ready to edit'}</h1><p>${filterPending ? 'Matching your filter against filenames and tag values.' : filterFailure ? esc(filterFailure) : entries.size ? 'Try another filename or tag value in the filter.' : runtimePlatform.document_access_supported?'Choose audio files from your document provider. Source access and recovery options appear with your selection.':desktop ? 'Open a folder, add audio files, or drop them into this window. Select files to edit their tags together.' : 'Open the desktop app to work with local audio files. Your files and tags stay on your computer.'}</p>${!entries.size ? `<div class="empty-actions">${button('folder','Open folder…')}${button('files','Add files…')}</div>` : ''}</div>` : ''}</div><div class="selection-info">${selectionInfoMarkup(selectedEntries,list)}</div>
+  <section class="files" aria-label="Audio files"><div class="location">${glyph(glyphOrganize)}<span class="path" title="${esc(entry&&providerEntry(entry)?sourcePresentation(documentAccess.states[entry.path]).location:location)}">${esc(entry&&providerEntry(entry)?sourcePresentation(documentAccess.states[entry.path]).location:location)}</span><strong>${entries.size} file${entries.size===1?'':'s'}</strong></div>${sourceMarkup('files')}<div class="filterbar"><label for="filter">${glyph(glyphSearch)}<span class="visually-hidden">Filter</span></label><input id="filter" type="search" value="${esc(filterDraft??filter)}" data-helper="filter" data-history="filter" data-history-manage placeholder="Filter filenames and tags, or enter a filter expression" autocomplete="off"><span class="count">${countText(list)}</span></div><div class="table-wrap"><table aria-label="Audio metadata" aria-rowcount="${list.length+1}" style="width:${shownColumns.reduce((sum,c)=>sum+c.width,0)}px"><thead><tr>${headerMarkup(shownColumns,columnLayout.sort)}</tr></thead><tbody></tbody></table>${!list.length ? emptyMarkup() : ''}</div><div class="selection-info">${selectionInfoMarkup(selectedEntries,list)}</div>
   ${errors.length ? `<section class="errors" aria-label="Operation errors"><header>${errors.length} file error${errors.length===1?'':'s'}<button id="dismiss-errors">Dismiss</button></header>${errors.map(e => `<p><strong>${esc(displayName(e.path))}:</strong> ${esc(publicMessage(e.error))}</p>`).join('')}</section>` : ''}</section></main><footer class="status ${busy?'busy':''}"><span class="status-dot" aria-hidden="true"></span><span class="status-message" role="status">${esc(status)}</span>${progressMarkup()}${drafts.size ? `<span class="dirty-count">${drafts.size} unsaved file${drafts.size===1?'':'s'}</span>` : ''}<span>${entries.size} files</span></footer></div>`;
   const wrap=document.querySelector<HTMLDivElement>('.table-wrap')!;
   wrap.querySelector('tbody')!.innerHTML=list.length?`<tr class="virtual-spacer" aria-hidden="true"><td colspan="${tableColumns().length}" style="height:${list.length*rowHeight}px"></td></tr>`:'';
@@ -664,6 +681,9 @@ function render() {
   if(focusSelector){const replacement=document.querySelector<HTMLInputElement|HTMLTextAreaElement>(focusSelector);replacement?.focus({preventScroll:true});if(replacement&&caretStart!=null&&caretEnd!=null){try{replacement.setSelectionRange(caretStart,caretEnd);}catch{/* Search selection is not supported by every webview. */}}}
   syncWindowTitle();
   timing('workspace render',started,{rendered:virtualEnd-virtualStart,selected:selected.size});
+}
+function emptyMarkup(){
+  return `<div class="empty"><img class="empty-symbol" data-theme-image="mark" src="${themedAsset('mark')}" alt="" aria-hidden="true"><h1>${filterPending ? 'Filtering files…' : filterFailure ? 'Invalid filter' : entries.size ? 'No matching files' : runtimePlatform.document_access_supported?'Add audio documents':desktop ? 'Open your music folder' : 'Your music, ready to edit'}</h1><p>${filterPending ? 'Matching your filter against filenames and tag values.' : filterFailure ? esc(filterFailure) : entries.size ? 'Try another filename or tag value in the filter.' : runtimePlatform.document_access_supported?'Choose audio files from your document provider. Source access and recovery options appear with your selection.':desktop ? 'Open a folder, add audio files, or drop them into this window. Select files to edit their tags together.' : 'Open the desktop app to work with local audio files. Your files and tags stay on your computer.'}</p>${!entries.size ? `<div class="empty-actions">${button('folder','Open folder…')}${button('files','Add files…')}</div>` : ''}</div>`;
 }
 function countText(list:Entry[]){return`${filterPending?'Filtering… · ':list.length===entries.size?'':`${list.length} visible · `}${selected.size} selected`;}
 function panelCount(){return selected.size?`${selected.size} selected`:'No selection';}
@@ -689,10 +709,35 @@ function refreshSelection(){
   document.querySelector('.panel-count')!.textContent=panelCount();
   document.querySelector('.filterbar .count')!.textContent=countText(list);
   document.querySelector('.selection-info')!.innerHTML=selectionInfoMarkup(paths().map(path=>entries.get(path)!),list);
-  document.querySelectorAll<HTMLButtonElement>('button[data-op]').forEach(el=>{el.disabled=!enabled(el.dataset.op as Operation);el.title=operationReason(el.dataset.op as Operation)||el.querySelector('span:not(.icon)')?.textContent||'';});
-  const actions=enabled('action');document.querySelectorAll<HTMLButtonElement>('[data-action-group]').forEach(el=>el.disabled=!actions);
+  refreshCommandStates();
   refreshCoverPanel();hydrateActiveCover();
   timing('selection refresh',started,{selected:selected.size});
+}
+/**
+ * Sort and filter changes update only the list: header sort indicators, the virtual rows, the empty
+ * state, counts and command states, like `refreshSelection`. The table, menus and filter input stay,
+ * so typing keeps focus without a rebuild. Without files the empty state carries buttons, and
+ * provider documents and the compact layout show list-dependent details, so those keep the full render.
+ */
+function refreshList(){
+  const wrap=document.querySelector<HTMLDivElement>('.table-wrap'),table=wrap?.querySelector('table');
+  if(!wrap||!table||!entries.size||runtimePlatform.document_access_supported||compactScreen()||selectedProvider()||document.querySelector('.source-access')){render();return;}
+  const started=performance.now();
+  reviewedConverterContextChanged?.();
+  const list=visible();
+  table.setAttribute('aria-rowcount',String(list.length+1));
+  updateSortHeader(table.querySelectorAll<HTMLElement>('thead th[data-col]'),tableColumns(),columnLayout.sort);
+  wrap.querySelector('.empty')?.remove();
+  if(!list.length)wrap.insertAdjacentHTML('beforeend',emptyMarkup());
+  updateVirtualRows(true);
+  document.querySelector('.filterbar .count')!.textContent=countText(list);
+  document.querySelector('.selection-info')!.innerHTML=selectionInfoMarkup(paths().map(path=>entries.get(path)!),list);
+  refreshCommandStates();
+  timing('list refresh',started,{visible:list.length});
+}
+function refreshCommandStates(){
+  document.querySelectorAll<HTMLButtonElement>('button[data-op]').forEach(el=>{el.disabled=!enabled(el.dataset.op as Operation);el.title=operationReason(el.dataset.op as Operation)||el.querySelector('span:not(.icon)')?.textContent||'';});
+  const actions=enabled('action');document.querySelectorAll<HTMLButtonElement>('[data-action-group]').forEach(el=>el.disabled=!actions);
 }
 function selectedProvider(){return [...selected].some(path=>{const entry=entries.get(path);return !!entry&&providerEntry(entry);});}
 function copyBaseUnknown(path:string){
@@ -768,12 +813,12 @@ function bind() {
   document.querySelectorAll<HTMLButtonElement>('button[data-pane]').forEach(el=>el.addEventListener('click',()=>{mobilePane=el.dataset.pane as 'files'|'tags';render();}));
   document.querySelectorAll<HTMLButtonElement>('[data-op]').forEach(el => el.addEventListener('click', () => { document.querySelectorAll<HTMLDetailsElement>('details[open]').forEach(d => d.open = false); void operate(el.dataset.op as Operation); }));
   bindFields(app);
-  document.querySelector<HTMLInputElement>('#filter')!.addEventListener('keydown',event=>{if(event.key==='Enter'&&filterDraft!==undefined){filter=filterDraft;filterDraft=undefined;document.querySelector('.table-wrap')!.scrollTop=0;render();document.querySelector<HTMLInputElement>('#filter')?.focus();}});
+  document.querySelector<HTMLInputElement>('#filter')!.addEventListener('keydown',event=>{if(event.key==='Enter'&&filterDraft!==undefined){filter=filterDraft;filterDraft=undefined;document.querySelector('.table-wrap')!.scrollTop=0;refreshList();document.querySelector<HTMLInputElement>('#filter')?.focus();}});
   document.querySelector<HTMLInputElement>('#filter')!.addEventListener('input',event => {
     const el = event.target as HTMLInputElement, position = el.selectionStart;
     if(!filterAutoApply){filterDraft=el.value;return;}
-    filter = el.value; document.querySelector('.table-wrap')!.scrollTop=0;render();
-    const replacement = document.querySelector<HTMLInputElement>('#filter')!;replacement.focus();try{replacement.setSelectionRange(position,position);}catch{/* Search controls do not expose selection on every webview. */}
+    filter = el.value; document.querySelector('.table-wrap')!.scrollTop=0;refreshList();
+    const replacement = document.querySelector<HTMLInputElement>('#filter')!;if(replacement!==el){replacement.focus();try{replacement.setSelectionRange(position,position);}catch{/* Search controls do not expose selection on every webview. */}}
   });
   document.querySelectorAll<HTMLButtonElement>('[data-sort]').forEach(el => el.addEventListener('click', event => { document.querySelector('.table-wrap')!.scrollTop=0;applyColumns({...columnLayout,sort:sortClick(columnLayout.sort,el.dataset.sort!,event.shiftKey)}).catch(error=>{errors=[{path:'Columns',error:String(error)}];render();}); }));
   const wrap=document.querySelector<HTMLDivElement>('.table-wrap')!;
