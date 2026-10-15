@@ -1,0 +1,131 @@
+# Move “feat.” artists out of the artist field
+
+<div class="recipe-meta" markdown>
+<span>**Uses** [filter](../reference/filter-syntax.md), [action group](../actions/index.md), [regular expressions](../reference/regular-expressions.md)</span>
+<span>**Works on** any tag format</span>
+<span>**Time** 5 minutes, then one click each time</span>
+<span>**Undo** ++cmd+z++ / ++ctrl+z++</span>
+</div>
+
+## The problem
+
+Guest artists are written into the `ARTIST` field, so your player lists
+*Juniper Vale feat. Mira Solberg* as an artist of its own, separate from
+*Juniper Vale*. You want the guest in the title instead, which is how most
+music databases and streaming services do it:
+
+| | Before | After |
+|---|---|---|
+| `ARTIST` | `Juniper Vale feat. Mira Solberg` | `Juniper Vale` |
+| `TITLE` | `Paper Boats` | `Paper Boats (feat. Mira Solberg)` |
+| `ARTIST` | `Juniper Vale ft Kofi & the Tidewater Band` | `Juniper Vale` |
+| `TITLE` | `North Pier` | `North Pier (feat. Kofi & the Tidewater Band)` |
+| `ARTIST` | `Juniper Vale` | `Juniper Vale` (unchanged) |
+
+## The solution
+
+You'll find the affected files with the filter, then build an action group
+with two actions. Order matters: the title has to read the guest's name
+before the artist field loses it.
+
+**Find the files**
+
+1. Show the filter with ++f3++ and type:
+
+    ```text
+    artist MATCHES "\s(feat\.?|ft\.?|featuring)\s"
+    ```
+
+2. Only files with a guest in the artist field remain. Select them all
+   (++cmd+a++ / ++ctrl+a++).
+
+**Create the action group**
+
+1. Choose **Actions → Actions…** (++alt+6++; Alt is ⌥ Option on a Mac).
+2. Create a new action group and name it `Guests: artist → title`.
+3. Add a **Format value** action:
+    - **Field:** `TITLE`
+    - **Format string:**
+
+        ```text
+        %title% (feat. $regexp(%artist%,'^.*?\s+(?:feat\.?|ft\.?|featuring)\s+',''))
+        ```
+
+4. Add a **Replace with regular expression** action below it:
+    - **Field:** `ARTIST`
+    - **Regular expression:**
+
+        ```text
+        \s+(feat\.?|ft\.?|featuring)\s+.*$
+        ```
+
+    - **Replace matches with:** leave it empty
+    - **Case-sensitive comparison:** off
+
+5. Save the group, make sure only this group is checked, and run it.
+
+The action group stays in the **Actions** menu. Next time, filter, select and
+pick it from the menu.
+
+## How it works
+
+The pattern `(feat\.?|ft\.?|featuring)` covers the common spellings: `feat.`,
+`feat`, `ft.`, `ft` and `featuring`. `\.?` makes the dot optional, and
+because case is ignored by default, `Feat.` and `FT` match too. `\s` on both
+sides requires whole words, so a name like *Kraftwerk* is safe.
+
+**Action 1** builds the new title from three parts:
+
+| Part | Gives |
+|---|---|
+| `%title%` | `Paper Boats` |
+| ` (feat. ` | plain text |
+| `$regexp(%artist%,'^.*?\s+(?:feat\.?|ft\.?|featuring)\s+','')` | the artist with everything up to and including `feat.` removed: `Mira Solberg` |
+| `)` | plain text (outside a function, `)` has no special meaning) |
+
+`.*?` is *lazy*: it takes as little as possible, so the match stops at the
+first `feat.`. The pattern and replacement are in single quotes because they
+contain characters that format strings treat specially. See
+[Quote the pattern and the replacement](../reference/regular-expressions.md#regexp).
+
+**Action 2** deletes everything from the first `feat.` to the end of the
+artist field. The action takes its pattern as plain text, so no quotes are
+needed here.
+
+!!! warning "Why the filter comes first"
+    `$regexp` returns its input unchanged when nothing matches. Run action 1
+    on a file *without* a guest, and its title becomes
+    `Low Tide (feat. Juniper Vale)`. The filter guarantees that every
+    selected file has a guest. If you put the group on a toolbar for regular
+    use, keep the filter step.
+
+## Variations
+
+**Keep the guest as a second artist value instead**
+
+Some players handle multi-value artists well. Replace both actions with:
+
+1. **Replace with regular expression** on `ARTIST`: pattern
+   `\s+(feat\.?|ft\.?|featuring)\s+`, replacement `;`
+2. **Split field by separator** on `ARTIST`, separator `;`
+
+`ARTIST` then holds `Juniper Vale` and `Mira Solberg` as two values. See
+[Multi-value fields](../concepts/multi-value-fields.md).
+
+**Use “ft.” or “with” in titles**
+
+Change the text in action 1, for example `%title% (with $regexp(…))`.
+
+**Guests that are already in brackets in the artist field**
+
+For `Juniper Vale (feat. Mira Solberg)`, add `\(?` before and `\)?` after
+the pattern parts, or remove the brackets first with a third action:
+Replace with regular expression on `ARTIST`, pattern `[()]`, empty
+replacement.
+
+## Related
+
+- [Regular expressions](../reference/regular-expressions.md)
+- [Build your first action group](../learn/first-action-group.md)
+- [Split 'A; B' into separate artists](split-multiple-artists.md)
+- [Filter syntax](../reference/filter-syntax.md)

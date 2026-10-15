@@ -1,0 +1,41 @@
+name: User guide
+
+# Builds the guide on every push and pull request that touches it. Pushes to
+# main (and manual runs on main) also publish it to GitHub Pages.
+# Repository setting needed once: Settings -> Pages -> Source: GitHub Actions.
+on:
+  push:
+    paths:
+      - docs/user-guide/**
+      - docs/site-requirements.txt
+      - mkdocs.yml
+      - .github/workflows/docs.yml
+      - .github/workflows/docs-build.yml
+      - .github/workflows/pages-deploy.yml
+  pull_request:
+    paths:
+      - docs/user-guide/**
+      - docs/site-requirements.txt
+      - mkdocs.yml
+      - .github/workflows/docs.yml
+      - .github/workflows/docs-build.yml
+      - .github/workflows/pages-deploy.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    uses: ./.github/workflows/docs-build.yml
+    with:
+      pages_artifact: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+
+  deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: build
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/pages-deploy.yml
