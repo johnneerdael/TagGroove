@@ -199,6 +199,42 @@ test('startup opens queued launch requests before the startup directory', async 
   assert.deepEqual(third.host.loads[0][0], ['/fav']);
 });
 
+test('forwarded launches wait for a running operation and open in arrival order', async () => {
+  const {ui, host} = harness();
+  let busy = true, active = 0, overlap = false;
+  host.busy = () => busy;
+  host.load = async (paths, options) => {
+    if (++active > 1) overlap = true;
+    await new Promise(resolve => setTimeout(resolve, 5));
+    host.loads.push([paths, options]); active--; return true;
+  };
+  const queue = [[{directories: ['/x'], files: [], add: false}], [{directories: [], files: ['/y/c.flac'], add: true}]];
+  host.invoke = async command => command === 'take_launch_requests' ? queue.shift() || [] : undefined;
+  // A second instance and a Finder open arrive while a save is still running.
+  const first = ui.takeLaunches(), second = ui.takeLaunches();
+  await new Promise(resolve => setTimeout(resolve, 30));
+  assert.equal(host.loads.length, 0, 'nothing is dropped or loaded while busy');
+  busy = false;
+  assert.equal(await first, true);
+  assert.equal(await second, true);
+  assert.equal(overlap, false, 'requests never load concurrently');
+  assert.deepEqual(host.loads.map(([paths, options]) => [paths, options.replace]), [[['/x'], true], [['/y/c.flac'], false]]);
+  assert.equal(ui.history.current, '/x', '/add keeps the working directory');
+});
+
+test('a failed launch does not block later requests', async () => {
+  const {ui, host} = harness();
+  let calls = 0;
+  host.invoke = async command => {
+    if (command !== 'take_launch_requests') return undefined;
+    if (++calls === 1) throw new Error('backend gone');
+    return [{directories: ['/z'], files: [], add: false}];
+  };
+  await assert.rejects(ui.takeLaunches(), /backend gone/);
+  assert.equal(await ui.takeLaunches(), true);
+  assert.deepEqual(host.loads[0][0], ['/z']);
+});
+
 test('the Options read-subfolders setting feeds directory scans', async () => {
   const {ui, host} = harness();
   host.prefs = {subfolders: false, startup: 'empty'};

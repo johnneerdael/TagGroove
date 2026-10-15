@@ -44,6 +44,20 @@ jobs:
       - run: cargo test --workspace --locked
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - run: npm run tauri build
+      - name: Check macOS document types (Finder Open With)
+        if: runner.os == 'macOS'
+        run: |
+          plutil -convert json -o "$RUNNER_TEMP/info.json" target/release/bundle/macos/OpenTag.app/Contents/Info.plist
+          node -e '
+            const types = require(process.argv[1]).CFBundleDocumentTypes || [];
+            const ext = types.flatMap(t => t.CFBundleTypeExtensions || []), uti = types.flatMap(t => t.LSItemContentTypes || []);
+            for (const x of ["flac", "ogg", "opus", "dsf", "ape", "wv", "m3u8", "cue"]) if (!ext.includes(x)) throw new Error(`.${x} missing`);
+            for (const x of ["public.audio", "public.folder"]) if (!uti.includes(x)) throw new Error(`${x} missing`);
+            // macOS ignores extensions in an entry that also lists content types.
+            if (types.some(t => t.CFBundleTypeExtensions && t.LSItemContentTypes)) throw new Error("mixed document type");
+            if (types.some(t => t.LSHandlerRank !== "Alternate")) throw new Error("OpenTag must not claim the default handler");
+            console.log(JSON.stringify(types, null, 1));
+          ' "$RUNNER_TEMP/info.json"
       - uses: actions/upload-artifact@v4
         with:
           name: OpenTag-${{ matrix.os }}
@@ -74,7 +88,7 @@ jobs:
           set -o pipefail
           mkdir -p e2e-output
           status=0
-          for suite in core-workflows covers actions options-utils playlists freedb-local formats-3 general-options remove-mapping list-behaviour rename-fixes keyboard-extended script-export; do
+          for suite in core-workflows covers actions options-utils playlists freedb-local formats-3 general-options remove-mapping list-behaviour rename-fixes keyboard-extended script-export launch-forwarding; do
             fixtures=""
             [[ -x "tests/e2e/$suite-fixtures.sh" ]] && fixtures="$PWD/tests/e2e/$suite-fixtures.sh"
             echo "::group::$suite"

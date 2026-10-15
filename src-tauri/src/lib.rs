@@ -983,6 +983,7 @@ pub fn run() {
             progress::cancel_job,
             save_fields_batch,
             e2e::e2e_exit,
+            e2e::e2e_open_urls,
             load_export_library,
             save_export_library,
             import_export_configuration,
@@ -1082,6 +1083,11 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("Unable to run OpenTag")
         .run(|_app, _event| {
+            // Finder "Open With", Dock drops and `open -a OpenTag <paths>`.
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Opened { urls } = &_event {
+                file_ops::open_urls(_app, urls);
+            }
             #[cfg(desktop)]
             if let tauri::RunEvent::Exit = _event {
                 window_state::save(_app);
