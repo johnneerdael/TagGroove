@@ -302,6 +302,19 @@ fn folder_patterns_use_relative_suffix_and_only_remove_real_extension() {
 }
 
 #[test]
+fn filename_try_parse_reports_a_non_matching_name_as_none() {
+    let pattern = tag_core::CompiledFilenamePattern::compile("%artist% - %title%").unwrap();
+    assert_eq!(
+        pattern.try_parse("Ada - One.mp3").unwrap().unwrap()["TITLE"],
+        vec!["One"]
+    );
+    assert_eq!(pattern.try_parse("no separator.mp3").unwrap(), None);
+    let folders = tag_core::CompiledFilenamePattern::compile("%artist%\\%album%\\%title%").unwrap();
+    assert_eq!(folders.try_parse("Song.mp3").unwrap(), None);
+    assert!(pattern.parse("no separator.mp3").is_err());
+}
+
+#[test]
 fn sentence_case_uses_only_explicit_trigger_characters() {
     for (template, expected) in [
         ("$caps3(hELLO wORLD)", "Hello world"),
