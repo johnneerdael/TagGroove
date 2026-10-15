@@ -1,4 +1,5 @@
-export type ExportConfiguration={id:string;name:string;template:string};
+/** `file` names the `.mte` in the export folder for configurations found there (e.g. copied from Mp3tag). */
+export type ExportConfiguration={id:string;name:string;template:string;file?:string};
 export type ExportPreferences={configuration:string|null;filename:string;append:boolean;partition:string|null;write_bom:boolean;create_directories:boolean};
 export type ExportLibrary={version:number;configurations:ExportConfiguration[];preferences:ExportPreferences};
 function uniqueName(library:ExportLibrary,base:string):string {
@@ -8,7 +9,8 @@ export function copyExportConfiguration(library:ExportLibrary,id:string,newId:st
   const result=structuredClone(library),source=result.configurations.find(c=>c.id===id);
   if(!source)throw new Error('Export configuration does not exist.');
   if(!newId||result.configurations.some(c=>c.id===newId))throw new Error('Duplicate configuration identity.');
-  result.configurations.push({...source,id:newId,name:uniqueName(result,`${source.name} copy`)});result.preferences.configuration=newId;return result;
+  const {file:_file,...copy}=source;
+  result.configurations.push({...copy,id:newId,name:uniqueName(result,`${source.name} copy`)});result.preferences.configuration=newId;return result;
 }
 export function removeExportConfiguration(library:ExportLibrary,id:string):ExportLibrary {
   const result=structuredClone(library);result.configurations=result.configurations.filter(c=>c.id!==id);

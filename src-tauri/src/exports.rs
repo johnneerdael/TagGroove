@@ -7,6 +7,33 @@ pub struct Configuration {
     pub name: String,
     #[serde(default)]
     pub template: String,
+    /// The `.mte` file in the export folder holding the template, for
+    /// configurations found there (Mp3tag names them after the
+    /// configuration). Configurations made in OpenTag use `<id>.mte`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file: Option<String>,
+}
+
+impl Configuration {
+    fn file_name(&self) -> String {
+        self.file
+            .clone()
+            .unwrap_or_else(|| format!("{}.mte", self.id))
+    }
+}
+
+/// A plain `.mte` file name inside the export folder.
+fn valid_file_name(name: &str) -> bool {
+    !name.is_empty()
+        && !name.contains(['/', '\\', ':', '\0'])
+        && name != ".."
+        && Path::new(name)
+            .extension()
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("mte"))
+}
+
+fn legacy_codepage() -> Option<String> {
+    crate::evaluation::EvaluationSettings::default().ansi_codepage()
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -53,11 +80,13 @@ impl Default for Library {
                     template:
                         "$filename(txt,utf-8)$loop(1)%artist% - %title%$char(13)$char(10)$loopend()"
                             .into(),
+                    file: None,
                 },
                 Configuration {
                     id: "cue-sheet".into(),
                     name: "Cue sheet".into(),
                     template: CUE_SHEET_TEMPLATE.into(),
+                    file: None,
                 },
             ],
             preferences: Preferences::default(),
@@ -117,7 +146,16 @@ fn validate(library: &Library, templates: bool) -> Result<(), String> {
     }
     let mut ids = HashSet::new();
     let mut names = HashSet::new();
+    let mut files = HashSet::new();
     for configuration in &library.configurations {
+        if configuration
+            .file
+            .as_deref()
+            .is_some_and(|file| !valid_file_name(file))
+            || !files.insert(configuration.file_name().to_lowercase())
+        {
+            return Err("Export configurations require distinct .mte file names".into());
+        }
         if configuration.id.trim().is_empty()
             || !configuration
                 .id
@@ -162,23 +200,125 @@ pub fn load(path: &Path) -> Result<Library, String> {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Library::default(),
         Err(e) => return Err(e.to_string()),
     };
+    let directory = path.parent().unwrap_or(Path::new(".")).join("export");
+    let codepage = legacy_codepage();
     if path.exists() {
         // Validate identities before using them as stable MTE filenames.
         validate(&library, false)?;
-        for configuration in &mut library.configurations {
-            let source = path
-                .parent()
-                .unwrap_or(Path::new("."))
-                .join("export")
-                .join(format!("{}.mte", configuration.id));
-            configuration.template = tag_core::decode_export_template(
-                &fs::read(&source).map_err(|e| format!("Cannot read {}: {e}", source.display()))?,
-                None,
-            )?;
+        let mut kept = Vec::with_capacity(library.configurations.len());
+        for mut configuration in std::mem::take(&mut library.configurations) {
+            let source = directory.join(configuration.file_name());
+            let bytes = match fs::read(&source) {
+                Ok(bytes) => bytes,
+                // A file found in the folder and deleted there since leaves
+                // the list with it.
+                Err(e)
+                    if e.kind() == std::io::ErrorKind::NotFound && configuration.file.is_some() =>
+                {
+                    continue
+                }
+                Err(e) => return Err(format!("Cannot read {}: {e}", source.display())),
+            };
+            configuration.template = tag_core::decode_export_template(&bytes, codepage.as_deref())?;
+            kept.push(configuration);
+        }
+        library.configurations = kept;
+        if library
+            .preferences
+            .configuration
+            .as_deref()
+            .is_some_and(|id| !library.configurations.iter().any(|c| c.id == id))
+        {
+            library.preferences.configuration =
+                library.configurations.first().map(|c| c.id.clone());
         }
     }
+    discover(&directory, &mut library, codepage.as_deref());
     validate(&library, false)?;
     Ok(library)
+}
+
+/// Add the `.mte` files in the export folder that no configuration uses yet,
+/// such as configurations copied from Mp3tag, named after their file.
+/// Unreadable files are skipped.
+fn discover(directory: &Path, library: &mut Library, codepage: Option<&str>) {
+    let Ok(entries) = fs::read_dir(directory) else {
+        return;
+    };
+    let used: HashSet<String> = library
+        .configurations
+        .iter()
+        .map(|c| c.file_name().to_lowercase())
+        .collect();
+    let mut found: Vec<String> = entries
+        .flatten()
+        .filter(|entry| entry.file_type().is_ok_and(|kind| kind.is_file()))
+        .filter_map(|entry| entry.file_name().into_string().ok())
+        .filter(|name| valid_file_name(name) && !used.contains(&name.to_lowercase()))
+        .collect();
+    found.sort_by_key(|name| name.to_lowercase());
+    for file in found {
+        let Ok(bytes) = fs::read(directory.join(&file)) else {
+            continue;
+        };
+        let Ok(template) = tag_core::decode_export_template(&bytes, codepage) else {
+            continue;
+        };
+        let stem = Path::new(&file)
+            .file_stem()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .trim()
+            .to_string();
+        let taken = |name: &str| {
+            library
+                .configurations
+                .iter()
+                .any(|c| c.name.to_lowercase() == name.to_lowercase())
+        };
+        let base = if stem.is_empty() {
+            "Export".to_string()
+        } else {
+            stem
+        };
+        let mut name = base.clone();
+        for counter in 2.. {
+            if !taken(&name) {
+                break;
+            }
+            name = format!("{base} ({counter})");
+        }
+        // Stable across loads, so the selected configuration survives until
+        // the library is saved with the file recorded.
+        let slug: String = base
+            .chars()
+            .map(|c| {
+                if c.is_ascii_alphanumeric() {
+                    c.to_ascii_lowercase()
+                } else {
+                    '-'
+                }
+            })
+            .collect();
+        let mut id = format!(
+            "mte-{}-{:08x}",
+            slug.trim_matches('-'),
+            crc32fast::hash(file.to_lowercase().as_bytes())
+        );
+        while library
+            .configurations
+            .iter()
+            .any(|c| c.id.eq_ignore_ascii_case(&id))
+        {
+            id.push('x');
+        }
+        library.configurations.push(Configuration {
+            id,
+            name,
+            template,
+            file: Some(file),
+        });
+    }
 }
 
 /// Read global export options without loading or compiling the template library.
@@ -207,18 +347,38 @@ pub fn save(path: &Path, library: &Library) -> Result<(), String> {
     } else {
         Vec::new()
     };
+    let codepage = legacy_codepage();
     for configuration in &library.configurations {
         let target = path
             .parent()
             .unwrap_or(Path::new("."))
             .join("export")
-            .join(format!("{}.mte", configuration.id));
-        crate::action_host::atomic_output(&target, configuration.template.as_bytes(), false)?;
+            .join(configuration.file_name());
+        // Unchanged files keep their bytes and encoding.
+        if fs::read(&target).ok().is_some_and(|bytes| {
+            tag_core::decode_export_template(&bytes, codepage.as_deref()).as_deref()
+                == Ok(configuration.template.as_str())
+        }) {
+            continue;
+        }
+        // Files shared with Mp3tag get a BOM, so they are not read as ANSI.
+        let bytes = if configuration.file.is_some() {
+            [
+                b"\xef\xbb\xbf".as_slice(),
+                configuration.template.as_bytes(),
+            ]
+            .concat()
+        } else {
+            configuration.template.as_bytes().to_vec()
+        };
+        crate::action_host::atomic_output(&target, &bytes, false)?;
     }
     #[derive(Serialize)]
     struct SavedConfiguration<'a> {
         id: &'a str,
         name: &'a str,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        file: Option<&'a str>,
     }
     #[derive(Serialize)]
     struct SavedLibrary<'a> {
@@ -234,6 +394,7 @@ pub fn save(path: &Path, library: &Library) -> Result<(), String> {
             .map(|c| SavedConfiguration {
                 id: &c.id,
                 name: &c.name,
+                file: c.file.as_deref(),
             })
             .collect(),
         preferences: &library.preferences,
@@ -244,19 +405,23 @@ pub fn save(path: &Path, library: &Library) -> Result<(), String> {
         false,
     )?;
     for removed in previous.iter().filter(|old| {
-        !library
-            .configurations
-            .iter()
-            .any(|current| current.id == old.id)
+        !library.configurations.iter().any(|current| {
+            current.id == old.id || current.file_name().eq_ignore_ascii_case(&old.file_name())
+        })
     }) {
         let directory = path.parent().unwrap_or(Path::new(".")).join("export");
-        let source = directory.join(format!("{}.mte", removed.id));
+        let source = directory.join(removed.file_name());
         let archive = directory.join("removed");
+        let stem = Path::new(&removed.file_name())
+            .file_stem()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .into_owned();
         let retire = || -> std::io::Result<()> {
             fs::create_dir_all(&archive)?;
             fs::rename(
                 &source,
-                archive.join(format!("{}-{}.mte", removed.id, uuid::Uuid::new_v4())),
+                archive.join(format!("{stem}-{}.mte", uuid::Uuid::new_v4())),
             )
         };
         retire().map_err(|e| {
@@ -269,9 +434,13 @@ pub fn save(path: &Path, library: &Library) -> Result<(), String> {
     Ok(())
 }
 pub fn import(path: &Path, legacy_encoding: Option<&str>) -> Result<Configuration, String> {
+    let codepage = legacy_encoding
+        .map(str::to_owned)
+        .filter(|encoding| !encoding.trim().is_empty())
+        .or_else(legacy_codepage);
     let template = tag_core::decode_export_template(
         &fs::read(path).map_err(|e| e.to_string())?,
-        legacy_encoding,
+        codepage.as_deref(),
     )?;
     Ok(Configuration {
         id: uuid::Uuid::new_v4().to_string(),
@@ -281,6 +450,7 @@ pub fn import(path: &Path, legacy_encoding: Option<&str>) -> Result<Configuratio
             .to_string_lossy()
             .into_owned(),
         template,
+        file: None,
     })
 }
 
@@ -457,6 +627,81 @@ mod tests {
             output_options(Some(&partial), &Preferences::default()),
             (false, false)
         );
+    }
+
+    #[test]
+    fn mte_files_dropped_into_the_export_folder_are_listed_and_kept() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("exports.json");
+        let folder = directory.path().join("export");
+        // Before anything was saved, and next to UUID-named configurations.
+        fs::create_dir_all(&folder).unwrap();
+        fs::write(folder.join("HTML List.mte"), "$filename(html,utf-8)<ul>").unwrap();
+        // An ANSI file from Mp3tag on Windows.
+        fs::write(folder.join("Cue Sheet.MTE"), b"Bj\xf6rk").unwrap();
+        fs::write(folder.join("notes.txt"), "not a configuration").unwrap();
+        let library = load(&path).unwrap();
+        let names: Vec<_> = library
+            .configurations
+            .iter()
+            .map(|c| c.name.as_str())
+            .collect();
+        assert_eq!(names, ["Text", "Cue sheet", "Cue Sheet (2)", "HTML List"]);
+        let html = &library.configurations[3];
+        assert_eq!(html.file.as_deref(), Some("HTML List.mte"));
+        assert_eq!(html.template, "$filename(html,utf-8)<ul>");
+        assert_eq!(library.configurations[2].template, "Björk");
+        // Identities are stable until the library records the files.
+        assert_eq!(load(&path).unwrap().configurations[3].id, html.id);
+
+        let mut saved = library.clone();
+        saved.preferences.configuration = Some(html.id.clone());
+        saved.configurations[3].template = "$filename(html,utf-8)<ol>".into();
+        save(&path, &saved).unwrap();
+        assert_eq!(
+            fs::read_to_string(folder.join("HTML List.mte")).unwrap(),
+            "\u{feff}$filename(html,utf-8)<ol>"
+        );
+        // The untouched ANSI file is not rewritten.
+        assert_eq!(fs::read(folder.join("Cue Sheet.MTE")).unwrap(), b"Bj\xf6rk");
+        assert!(!folder.join(format!("{}.mte", html.id)).exists());
+        let reloaded = load(&path).unwrap();
+        assert_eq!(reloaded.configurations.len(), 4);
+        assert_eq!(reloaded.preferences.configuration, Some(html.id.clone()));
+
+        // Another file dropped later joins the saved library.
+        fs::write(folder.join("Late.mte"), "late").unwrap();
+        assert_eq!(load(&path).unwrap().configurations[4].name, "Late");
+        // Deleting a found file in the folder removes it from the list.
+        fs::remove_file(folder.join("HTML List.mte")).unwrap();
+        let without = load(&path).unwrap();
+        assert!(without.configurations.iter().all(|c| c.name != "HTML List"));
+        assert_eq!(without.preferences.configuration.as_deref(), Some("text"));
+        // Removing a found configuration retires its file.
+        let mut removed = load(&path).unwrap();
+        removed.configurations.retain(|c| c.name != "Late");
+        save(&path, &removed).unwrap();
+        assert!(!folder.join("Late.mte").exists());
+        assert!(load(&path)
+            .unwrap()
+            .configurations
+            .iter()
+            .all(|c| c.name != "Late"));
+    }
+
+    #[test]
+    fn recorded_file_names_cannot_leave_the_export_folder() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("exports.json");
+        for file in ["../escape.mte", "sub/x.mte", "x.txt", ""] {
+            let mut library = Library::default();
+            library.configurations[0].file = Some(file.into());
+            assert!(save(&path, &library).is_err(), "{file}");
+        }
+        let mut library = Library::default();
+        library.configurations[1].file = Some("TEXT.mte".into());
+        library.configurations[0].file = Some("text.mte".into());
+        assert!(save(&path, &library).is_err());
     }
 
     #[test]
