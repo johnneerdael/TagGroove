@@ -12,7 +12,7 @@
   const status = () => document.querySelector('.status-message')?.textContent || '';
   const key = (k, o = {}) => (document.activeElement || document.body).dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...o }));
   const rows = () => [...document.querySelectorAll('tr[data-path]')];
-  const names = () => rows().map(r => r.dataset.path.split('/').pop());
+  const names = () => rows().map(r => r.dataset.path.split(/[\\/]/).pop());
   const idle = () => waitFor(() => !document.querySelector('footer.status.busy'), 10000, 'idle');
   const results = [];
   const step = async (name, fn) => { try { const detail = await fn(); results.push(['PASS', name]); await report(`PASS ${name}${detail ? ' — ' + detail : ''}`); } catch (e) { results.push(['FAIL', name]); await report(`FAIL ${name} — ${e && e.message || e}`); document.querySelectorAll('dialog[open]').forEach(d => d.close()); } };
@@ -31,13 +31,14 @@
   const relaunch = async (file, any) => {
     const resources = await inv('plugin:path|resolve_directory', { directory: 11 });
     // macOS bundles keep the binary beside Resources; unbundled builds keep it in the resource directory.
-    const binary = /\/Resources\/?$/.test(resources) ? resources.replace(/\/Resources\/?$/, '/MacOS/opentag') : resources.replace(/\/?$/, '/opentag');
+    const binary = /\/Resources\/?$/.test(resources) ? resources.replace(/\/Resources\/?$/, '/MacOS/opentag')
+      : /^Win/.test(navigator.platform) ? resources.replace(/\\?$/, '\\opentag.exe') : resources.replace(/\/?$/, '/opentag');
     await inv('run_tool', { tool: { name: 'Relaunch', path: binary, parameters: `"/fn:${file}"`, for_each_file: false }, paths: [any], root: null });
   };
 
   try {
     await waitFor(() => rows().length >= 2, 15000, 'fixture rows');
-    const album = rows()[0].dataset.path.replace(/\/[^/]+$/, '');
+    const album = rows()[0].dataset.path.replace(/[\\/][^\\/]+$/, '');
     const anyFile = rows()[0].dataset.path;
 
     await step('Options → Playlist and Options → Export pages save their values', async () => {
@@ -58,11 +59,11 @@
       document.body.focus(); key('p', { metaKey: true });
       const dlg = await waitFor(() => document.querySelector('dialog[open].playlist-dialog'), 5000, 'confirm filename dialog');
       const input = dlg.querySelector('#playlist-filename');
-      if (!input.value.endsWith('/album/list.m3u8')) throw new Error('proposed ' + input.value);
+      if (!/[\\/]album[\\/]list\.m3u8$/.test(input.value)) throw new Error('proposed ' + input.value);
       dlg.querySelector('#playlist-ok').click();
       await waitFor(() => /Created playlist list\.m3u8 with 2 files/.test(status()), 8000, 'created status (' + status() + ')');
       const read = await inv('read_playlist', { path: album + '/list.m3u8' });
-      if (read.files.map(p => p.split('/').pop()).join() !== 'sine-b.mp3,sine-a.mp3') throw new Error(JSON.stringify(read));
+      if (read.files.map(p => p.split(/[\\/]/).pop()).join() !== 'sine-b.mp3,sine-a.mp3') throw new Error(JSON.stringify(read));
       const text = await inv('import_export_configuration', { path: album + '/list.m3u8', legacyEncoding: null });
       if (!/#EXTINF:3,Sine B by Test Artist\r\nsine-b\.mp3\r\n/.test(text.template)) throw new Error(JSON.stringify(text.template));
       return text.template.replace(/\r\n/g, ' | ');
@@ -120,7 +121,7 @@
       await inv('save_export_library', { library });
       document.body.focus(); key('e', { metaKey: true, shiftKey: true });
       const cue = await waitFor(() => inv('read_playlist', { path: album + '/export.cue' }), 8000, 'cue sheet (' + status() + ')');
-      if (cue.files.map(p => p.split('/').pop()).join() !== 'sine-b.mp3,sine-a.mp3' || cue.errors.length) throw new Error(JSON.stringify(cue));
+      if (cue.files.map(p => p.split(/[\\/]/).pop()).join() !== 'sine-b.mp3,sine-a.mp3' || cue.errors.length) throw new Error(JSON.stringify(cue));
       document.querySelector('[data-sort="filename"]').click(); await sleep(300);
       await relaunch(album + '/export.cue', anyFile);
       await waitFor(() => /export\.cue$/.test(document.querySelector('.location .path')?.textContent || ''), 15000, 'cue location');

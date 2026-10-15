@@ -11,7 +11,9 @@ ffmpeg -loglevel error -y -f lavfi -i "sine=frequency=330:duration=3" -i "$meta"
 ffmpeg -loglevel error -y -f lavfi -i "sine=frequency=550:duration=3" -i "$meta" -map 0 -map_chapters 1 \
   -c:a flac -metadata title="Matroska" "$album/chapters.mka"
 ffmpeg -loglevel error -y -f lavfi -i "sine=frequency=770:duration=2" -c:a tta -metadata title="True Audio" "$album/stream.tta"
-python3 -I - "$album/header.tak" <<'PY'
+# Windows runners name the interpreter python; elsewhere python3.
+for python in python3 python; do "$python" -c '' 2>/dev/null && break; done
+"$python" -I - "$album/header.tak" <<'PY'
 import sys
 def crc24(data):
     crc = 0xB704CE

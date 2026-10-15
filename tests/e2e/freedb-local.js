@@ -8,7 +8,7 @@
   const type = (input, value) => { input.value = value; input.dispatchEvent(new Event('input', { bubbles: true })); };
   try {
     const rows = await waitFor(() => { const r = [...document.querySelectorAll('tr[data-path]')]; return r.length === 2 && r; }, 15000, 'rows');
-    const paths = rows.map(r => r.dataset.path), album = paths[0].replace(/\/[^/]+$/, ''), freedb = album.replace(/\/[^/]+$/, '/freedb');
+    const paths = rows.map(r => r.dataset.path), album = paths[0].replace(/[\\/][^\\/]+$/, ''), freedb = album.replace(/([\\/])[^\\/]+$/, '$1freedb');
 
     // Options → Tag Sources → Local freedb, through the real dialog.
     document.querySelector('button[data-op="source-options"]').click();

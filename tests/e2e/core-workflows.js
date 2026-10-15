@@ -5,7 +5,7 @@
   const waitFor = async (fn, ms = 8000, what = 'condition') => { const t = Date.now(); while (Date.now() - t < ms) { try { const v = fn(); if (v) return v; } catch {} await sleep(100); } throw new Error('timeout waiting for ' + what); };
   const status = () => document.querySelector('.status-message')?.textContent || '';
   const key = (k, o = {}) => (document.activeElement || document.body).dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...o }));
-  const row = name => document.querySelector(`tr[data-path$="/${CSS.escape(name)}"]`) || [...document.querySelectorAll('tr[data-path]')].find(r => r.dataset.path.endsWith('/' + name));
+  const row = name => [...document.querySelectorAll('tr[data-path]')].find(r => r.dataset.path.split(/[\\/]/).pop() === name);
   const clickRow = async name => { const r = await waitFor(() => row(name), 8000, 'row ' + name); r.querySelector('td').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })); await sleep(300); };
   const field = name => document.querySelector(`.fields [data-field="${name}"]`);
   const read = async name => { const p = row(name)?.dataset.path; const b = await inv('scan_files', { paths: [p], recursive: false }); return b.entries[0]?.fields || {}; };

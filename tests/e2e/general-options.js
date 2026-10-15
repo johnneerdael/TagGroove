@@ -13,7 +13,7 @@
   const status = () => document.querySelector('.status-message')?.textContent || '';
   const key = (k, o = {}, target = document.activeElement || document.body) => target.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...o }));
   const rows = () => [...document.querySelectorAll('tr[data-path]')];
-  const row = name => rows().find(r => r.dataset.path.endsWith('/' + name));
+  const row = name => rows().find(r => r.dataset.path.split(/[\\/]/).pop() === name);
   const pathOf = name => row(name).dataset.path;
   const clickRow = async (name, o = {}) => { const r = await waitFor(() => row(name), 8000, 'row ' + name); r.querySelector('td').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ...o })); await sleep(250); };
   const scan = async path => (await inv('scan_files', { paths: [path], recursive: false })).entries[0];
@@ -25,6 +25,7 @@
   const stage = sessionStorage.getItem('general-options-stage');
   // Shortcuts use ⌘ on macOS and Ctrl elsewhere.
   const mod = /Mac/.test(navigator.platform) ? { metaKey: true } : { ctrlKey: true };
+  const windows = /^Win/.test(navigator.platform);
   const openOptions = async () => {
     for (let attempt = 0; attempt < 3; attempt++) {
       document.body.focus(); key('o', mod, document.body);
@@ -53,7 +54,7 @@
   try {
     if (!stage) {
       await waitFor(() => rows().length >= 2, 15000, 'fixture rows');
-      const album = pathOf('sine-a.mp3').replace(/\/[^/]+$/, '');
+      const album = pathOf('sine-a.mp3').replace(/[\\/][^\\/]+$/, '');
       await step('fixtures: FLAC and MP4 files are listed', async () => {
         await waitFor(async () => (await inv('scan_files', { paths: [album], recursive: false })).entries.length === 4, 15000, 'four audio files');
         return (await inv('scan_files', { paths: [album], recursive: false })).entries.map(e => `${e.filename} ${e.format}`).join(', ');
@@ -81,7 +82,7 @@
       return;
     }
     results.push(...JSON.parse(sessionStorage.getItem('general-options-results') || '[]'));
-    const album = await waitFor(() => rows().length >= 4 && pathOf('sine-a.mp3').replace(/\/[^/]+$/, ''), 20000, 'four rows after reload');
+    const album = await waitFor(() => rows().length >= 4 && pathOf('sine-a.mp3').replace(/[\\/][^\\/]+$/, ''), 20000, 'four rows after reload');
     await idle();
 
     await step('Select files automatically selects the files loaded at startup', async () => {
@@ -170,7 +171,7 @@
       if (!/^Sine [AB]$/.test(completed)) throw new Error('completion ' + completed);
       editor.value = 'Sine A'; key('Enter', {}, editor);
       const next = await waitFor(() => { const e = document.querySelector('.cell-editor'); return e && e !== editor && e; }, 3000, 'editor on the next file');
-      const selectedRow = rows().find(r => r.getAttribute('aria-selected') === 'true')?.dataset.path.split('/').pop();
+      const selectedRow = rows().find(r => r.getAttribute('aria-selected') === 'true')?.dataset.path.split(/[\\/]/).pop();
       const value = next.value;
       key('Escape', {}, next); await sleep(150);
       await setOptions('general', [['pages.general.auto_select_next', false]]);
@@ -212,7 +213,7 @@
       return `Optimize on MP3: "${error.replace(/\s+/g, ' ').slice(0, 80)}"; Remove unsupported fields: "${s}", size unchanged`;
     });
     await step('Messages → at warnings from Actions shows or suppresses action errors', async () => {
-      await inv('run_tool', { tool: { name: 'Lock', path: '/bin/chmod', parameters: '444 "%_path%"', for_each_file: true }, paths: [pathOf('sine-b.mp3')], root: null });
+      await inv('run_tool', { tool: windows ? { name: 'Lock', path: 'C:\\Windows\\System32\\attrib.exe', parameters: '+R "%_path%"', for_each_file: true } : { name: 'Lock', path: '/bin/chmod', parameters: '444 "%_path%"', for_each_file: true }, paths: [pathOf('sine-b.mp3')], root: null });
       await sleep(400);
       await clickRow('sine-a.mp3'); await clickRow('sine-b.mp3', mod);
       const runGroup = async () => { const group = await waitFor(() => [...document.querySelectorAll('[data-action-group]')].find(b => /Mark comment/.test(b.textContent) && !b.disabled), 5000, 'action group'); group.click(); await sleep(300); await idle(); await sleep(300); };
@@ -224,36 +225,36 @@
       await clickRow('sine-a.mp3'); await clickRow('sine-b.mp3', mod);
       await runGroup();
       const dialogs = [...document.querySelectorAll('dialog[open]')].length, listed = document.querySelector('.errors')?.textContent || '';
-      await inv('run_tool', { tool: { name: 'Unlock', path: '/bin/chmod', parameters: '644 "%_path%"', for_each_file: true }, paths: [pathOf('sine-b.mp3')], root: null });
+      await inv('run_tool', { tool: windows ? { name: 'Unlock', path: 'C:\\Windows\\System32\\attrib.exe', parameters: '-R "%_path%"', for_each_file: true } : { name: 'Unlock', path: '/bin/chmod', parameters: '644 "%_path%"', for_each_file: true }, paths: [pathOf('sine-b.mp3')], root: null });
       await sleep(400);
       await setOptions('messages', [['pages.messages.action_warnings', true]]);
       if (dialogs || !/read-only/i.test(listed)) throw new Error(`dialogs=${dialogs} errors=${listed}`);
       return `on: "${shown.textContent.replace(/\s+/g, ' ').slice(0, 70)}"; off: listed only (${listed.replace(/\s+/g, ' ').slice(0, 60)})`;
     });
     await step('Keep moved files: on keeps a file moved out of the folder, off removes it', async () => {
-      const outside = album.replace(/\/[^/]+$/, '') + '/moved-out';
+      const sep = album.includes('\\') ? '\\' : '/', outside = album.replace(/[\\/][^\\/]+$/, '') + sep + 'moved-out';
       const moveOut = async () => {
         await clickRow('sine-a.mp3'); op('tags-filename').click();
         const dlg = await waitFor(() => document.querySelector('dialog[open] #template')?.closest('dialog'), 3000, 'Tag → Filename');
-        const template = dlg.querySelector('#template'); template.value = `${outside}/%title%`; template.dispatchEvent(new Event('input', { bubbles: true }));
+        const template = dlg.querySelector('#template'); template.value = `${outside}${sep}%title%`; template.dispatchEvent(new Event('input', { bubbles: true }));
         dlg.querySelector('#preview-button').click();
         const apply = await waitFor(() => !dlg.querySelector('#apply-converter').disabled && dlg.querySelector('#apply-converter'), 5000, 'preview');
         apply.click(); await waitFor(() => !dlg.open, 5000, 'rename'); await idle();
       };
       const undo = async () => { key('z', mod, document.body); await idle(); };
       await moveOut();
-      const kept = rows().find(r => r.dataset.path.startsWith(outside + '/'));
+      const kept = rows().find(r => /^[\\/]/.test(r.dataset.path.slice(outside.length)) && r.dataset.path.startsWith(outside));
       if (!kept) throw new Error('moved file left the list while keep is on');
       await undo();
       await setOptions('general', [['pages.general.keep_moved', false]]);
       if (!row('sine-a.mp3')) { op('refresh').click(); await idle(); }
       await moveOut();
-      const listed = rows().some(r => r.dataset.path.startsWith(outside + '/')), count = rows().length;
+      const listed = rows().some(r => /^[\\/]/.test(r.dataset.path.slice(outside.length)) && r.dataset.path.startsWith(outside)), count = rows().length;
       await undo();
       await setOptions('general', [['pages.general.keep_moved', true]]);
       op('refresh').click(); await waitFor(() => row('sine-a.mp3'), 8000, 'sine-a back after refresh');
       if (listed || count !== 3) throw new Error(`listed=${listed} rows=${count}`);
-      return `on: kept ${kept.dataset.path.split('/').slice(-2).join('/')}; off: removed (rows ${count}); undo and refresh restore sine-a.mp3`;
+      return `on: kept ${kept.dataset.path.split(/[\\/]/).slice(-2).join('/')}; off: removed (rows ${count}); undo and refresh restore sine-a.mp3`;
     });
     await step('Networking: a manual proxy carries tag source and update requests', async () => {
       await setOptions('networking', [['pages.networking.proxy', 'manual'], ['pages.networking.proxy_url', '127.0.0.1:9'], ['pages.networking.timeout', '10']]);
@@ -285,7 +286,7 @@
     });
     await step('live: at importing covers asks, remembers the choice and keeps existing artwork', async () => {
       await clickRow('sine-a.mp3');
-      await inv('add_cover', { paths: [pathOf('sine-a.mp3')], imagePath: album.replace(/\/[^/]+$/, '') + '/cover.png' });
+      await inv('add_cover', { paths: [pathOf('sine-a.mp3')], imagePath: album.replace(/[\\/][^\\/]+$/, '') + '/cover.png' });
       op('refresh').click(); await idle();
       const coverBefore = (await scan(pathOf('sine-a.mp3'))).covers;
       if (coverBefore.length !== 1) throw new Error('fixture cover missing');

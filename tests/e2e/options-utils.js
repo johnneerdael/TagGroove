@@ -10,7 +10,7 @@
   const status = () => document.querySelector('.status-message')?.textContent || '';
   const key = (k, o = {}) => (document.activeElement || document.body).dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...o }));
   const rows = () => [...document.querySelectorAll('tr[data-path]')];
-  const row = name => rows().find(r => r.dataset.path.endsWith('/' + name));
+  const row = name => rows().find(r => r.dataset.path.split(/[\\/]/).pop() === name);
   const clickRow = async (name, o = {}) => { const r = await waitFor(() => row(name), 8000, 'row ' + name); r.querySelector('td').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ...o })); await sleep(250); };
   const scan = async name => (await inv('scan_files', { paths: [row(name).dataset.path], recursive: false })).entries[0];
   const idle = () => waitFor(() => !document.querySelector('footer.status.busy'), 10000, 'idle');
@@ -21,12 +21,13 @@
   const step = async (name, fn) => { try { const detail = await fn(); results.push(['PASS', name]); await report(`PASS ${name}${detail ? ' — ' + detail : ''}`); } catch (e) { results.push(['FAIL', name]); await report(`FAIL ${name} — ${e && e.message || e}`); } };
   const finish = async () => { await report(`SUMMARY ${results.filter(r => r[0] === 'PASS').length}/${results.length} passed`); await inv('e2e_exit', { code: 0 }); };
   const stage = sessionStorage.getItem('options-utils-stage');
-  const tool = { name: 'Copy beside', path: '/bin/cp', parameters: '"%_path%" "%_folderpath%copy-%_filename_ext%"', for_each_file: true };
+  const copy = /^Win/.test(navigator.platform) ? 'C:\\Program Files\\Git\\usr\\bin\\cp.exe' : '/bin/cp';
+  const tool = { name: 'Copy beside', path: copy, parameters: '"%_path%" "%_folderpath%copy-%_filename_ext%"', for_each_file: true };
 
   try {
     if (!stage) {
       await waitFor(() => rows().length >= 2, 15000, 'fixture rows');
-      const album = row('sine-a.mp3').dataset.path.replace(/\/[^/]+$/, '');
+      const album = row('sine-a.mp3').dataset.path.replace(/[\\/][^\\/]+$/, '');
       await step('configuration bundle saves, validates and restores settings', async () => {
         const settings = (await inv('load_settings')).settings;
         settings.general.natural_sort = true;
@@ -39,7 +40,7 @@
         const changed = (await inv('load_settings')).settings; changed.general.natural_sort = false; changed.pages = {}; await inv('save_settings', { settings: changed });
         const restored = await inv('import_configuration', { path: bundle });
         const after = (await inv('load_settings')).settings;
-        if (!after.general.natural_sort || after.pages.tools?.tools?.[0]?.path !== '/bin/cp' || after.pages.messages?.confirm_remove_tags !== false) throw new Error('settings not restored: ' + JSON.stringify(after.pages));
+        if (!after.general.natural_sort || after.pages.tools?.tools?.[0]?.path !== copy || after.pages.messages?.confirm_remove_tags !== false) throw new Error('settings not restored: ' + JSON.stringify(after.pages));
         let rejected = '';
         try { await inv('import_configuration', { path: album + '/sine-a.mp3' }); } catch (e) { rejected = String(e); }
         if (!rejected) throw new Error('an audio file was accepted as configuration');
@@ -105,7 +106,7 @@
       if (!item || !/Copy beside/.test(item.textContent) || !/⌘ 1|Ctrl 1/.test(item.textContent)) throw new Error('menu item ' + item?.textContent);
       row('sine-a.mp3').focus(); key('1', { metaKey: true, code: 'Digit1' });
       await waitFor(() => /Started Copy beside/.test(status()), 5000, 'tool status');
-      const album = row('sine-a.mp3').dataset.path.replace(/\/[^/]+$/, '');
+      const album = row('sine-a.mp3').dataset.path.replace(/[\\/][^\\/]+$/, '');
       const copy = await waitFor(async () => (await inv('scan_files', { paths: [album], recursive: false })).entries.find(e => e.filename === 'copy-sine-a.mp3'), 8000, 'copied file');
       return status() + ' → ' + copy.filename;
     });
@@ -172,14 +173,14 @@
       row('sine-a.mp3').querySelector('td').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 200, clientY: 200 }));
       const menu = await waitFor(() => document.querySelector('.row-context-menu'), 3000, 'context menu');
       const labels = [...menu.querySelectorAll('button')].map(b => b.querySelector('span').textContent);
-      const selectedNow = [...document.querySelectorAll('tr.selected')].map(r => r.dataset.path.split('/').pop()).join(',');
+      const selectedNow = [...document.querySelectorAll('tr.selected')].map(r => r.dataset.path.split(/[\\/]/).pop()).join(',');
       if (!labels.includes('Copy beside') || !labels.includes('Remove tag types…') || selectedNow !== 'sine-a.mp3') throw new Error(labels.join('|') + ' selected=' + selectedNow);
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
       if (document.querySelector('.row-context-menu')) throw new Error('Escape did not close');
       await clickRow('sine-b.mp3');
       row('sine-b.mp3').querySelector('td').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 200, clientY: 200 }));
       (await waitFor(() => document.querySelector('.row-context-menu [data-context="tool:0"]'), 3000, 'tool item')).click();
-      const album = row('sine-b.mp3').dataset.path.replace(/\/[^/]+$/, '');
+      const album = row('sine-b.mp3').dataset.path.replace(/[\\/][^\\/]+$/, '');
       await waitFor(async () => (await inv('scan_files', { paths: [album], recursive: false })).entries.find(e => e.filename === 'copy-sine-b.mp3'), 8000, 'copied file');
       return labels.join('|');
     });
