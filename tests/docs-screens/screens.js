@@ -27,7 +27,9 @@
   };
   // Hold each state until the runner captures it. Captures take well under a
   // second under xvfb; the margin keeps slow runners from mixing scenes.
-  const shot = async name => { await sleep(900); await report('SHOT ' + name); await sleep(2500); };
+  // Focus is dropped first: WebKitGTK paints an empty popup for focused
+  // inputs with suggestions when no window manager runs.
+  const shot = async name => { document.activeElement?.blur?.(); await sleep(900); await report('SHOT ' + name); await sleep(2500); };
 
   const scenes = [
     { name: 'main-window', run: async () => { await clickRow(0); } },

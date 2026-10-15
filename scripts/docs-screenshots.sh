@@ -54,8 +54,9 @@ out="$(mkdir -p "${1:?output directory}" && cd "$1" && pwd)"; shift
 # The same test identifier as the native suites; its state is cleared first.
 identifier=org.opentag.editor.usertest
 rm -rf "${XDG_CONFIG_HOME:-$HOME/.config}/$identifier" "${XDG_DATA_HOME:-$HOME/.local/share}/$identifier"
-work="$(mktemp -d)"; trap 'rm -rf "$work"' EXIT
-album="$work/Harbour Lights"
+# The album sits where a reader's would, so the location bar reads naturally.
+work="$(mktemp -d)" library="$HOME/Music/Juniper Vale"; trap 'rm -rf "$work" "$library"' EXIT
+album="$library/Harbour Lights"
 "$root/tests/docs-screens/fixtures.sh" "$album"
 # Scene names given on the command line restrict the run to those scenes.
 scenes="$(node -e 'process.stdout.write(JSON.stringify(process.argv.slice(1)))' -- "$@")"
