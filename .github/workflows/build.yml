@@ -110,7 +110,7 @@ jobs:
           # forwarding. macOS and Windows runners have a desktop session.
           if [[ "$RUNNER_OS" == Linux ]]; then run=(dbus-run-session -- xvfb-run -a); else run=(); fi
           status=0
-          for suite in core-workflows covers actions options-utils playlists freedb-local formats-3 general-options remove-mapping list-behaviour rename-fixes keyboard-extended script-export actions-polish sources-3 keyboard-ui launch-forwarding export-lists chapters web-sources formats-edge; do
+          for suite in core-workflows covers actions options-utils playlists freedb-local formats-3 general-options remove-mapping list-behaviour rename-fixes keyboard-extended script-export actions-polish sources-3 keyboard-ui launch-forwarding export-lists chapters chapter-fields web-sources formats-edge; do
             fixtures=""
             [[ -x "tests/e2e/$suite-fixtures.sh" ]] && fixtures="$PWD/tests/e2e/$suite-fixtures.sh"
             echo "::group::$suite"

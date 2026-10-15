@@ -69,6 +69,10 @@ pub struct CueTrack {
     file_line: Option<usize>,
     /// `INDEX 01` in milliseconds.
     pub start: Option<u64>,
+    /// `INDEX 00` (the pregap) in milliseconds, in the FILE it appears under.
+    pub pregap: Option<u64>,
+    /// An `AUDIO` track; data tracks are not listed.
+    pub audio: bool,
     /// Line of the TRACK keyword and the first line after the block.
     line: usize,
     end: usize,
@@ -180,26 +184,41 @@ impl CueSheet {
                     if let Some(track) = self.tracks.last_mut() {
                         track.end = track.end.min(at);
                     }
-                    let number = rest
-                        .split_whitespace()
+                    let mut words = rest.split_whitespace();
+                    let number = words.next().and_then(|n| n.parse().ok()).unwrap_or(0);
+                    let audio = words
                         .next()
-                        .and_then(|n| n.parse().ok())
-                        .unwrap_or(0);
+                        .is_none_or(|kind| kind.eq_ignore_ascii_case("AUDIO"));
                     self.tracks.push(CueTrack {
                         number,
                         file: file.as_ref().map(|(f, ..)| f.clone()),
                         file_index: file.as_ref().map(|(_, i, _)| *i),
                         file_line: file.as_ref().map(|(.., line)| *line),
                         start: None,
+                        pregap: None,
+                        audio,
                         line: at,
                         end: usize::MAX,
                     });
                 }
+                // INDEX lines after a FILE line still belong to the last
+                // TRACK: its INDEX 01 can sit in the next file, after a
+                // pregap at the end of the previous one. The track plays from
+                // the file of its INDEX 01.
                 "INDEX" => {
-                    if let Some(track) = self.tracks.last_mut().filter(|t| t.end == usize::MAX) {
+                    if let Some(track) = self.tracks.last_mut().filter(|t| t.start.is_none()) {
                         let mut parts = rest.split_whitespace();
-                        if parts.next().and_then(|n| n.parse::<u32>().ok()) == Some(1) {
-                            track.start = parts.next().and_then(index_time);
+                        let number = parts.next().and_then(|n| n.parse::<u32>().ok());
+                        let time = parts.next().and_then(index_time);
+                        match number {
+                            Some(0) => track.pregap = time,
+                            Some(1) if time.is_some() => {
+                                track.start = time;
+                                track.file = file.as_ref().map(|(f, ..)| f.clone());
+                                track.file_index = file.as_ref().map(|(_, i, _)| *i);
+                                track.file_line = file.as_ref().map(|(.., line)| *line);
+                            }
+                            _ => {}
                         }
                     }
                 }
@@ -295,15 +314,24 @@ impl CueSheet {
         fields
     }
 
-    /// Start of the track in milliseconds and its end: the start of the next
-    /// track on the same FILE, if any.
+    /// The tracks listed as subsongs, as positions in `tracks`: AUDIO
+    /// tracks with an `INDEX 01`.
+    pub fn subsongs(&self) -> Vec<usize> {
+        (0..self.tracks.len())
+            .filter(|at| self.tracks[*at].audio && self.tracks[*at].start.is_some())
+            .collect()
+    }
+
+    /// Start of the track in milliseconds and its end: the `INDEX 01` of the
+    /// next listed track when that plays from the same FILE (so a pregap
+    /// belongs to the track before it), else the end of the file.
     pub fn track_time(&self, index: usize) -> (u64, Option<u64>) {
         let Some(track) = self.tracks.get(index) else {
             return (0, None);
         };
-        let end = self
-            .tracks
-            .get(index + 1)
+        let end = self.tracks[index + 1..]
+            .iter()
+            .find(|next| next.audio && next.start.is_some())
             .filter(|next| next.file_index == track.file_index)
             .and_then(|next| next.start);
         (track.start.unwrap_or(0), end)
@@ -533,6 +561,33 @@ mod tests {
         assert_eq!(sheet.track_time(1), (2493, None));
         assert_eq!(sheet.track_time(2), (0, None));
         assert_eq!(sheet.render(), SHEET);
+    }
+
+    #[test]
+    fn tracks_spanning_files_pregaps_and_data_tracks() {
+        let text = "FILE \"01.wav\" WAVE\n  TRACK 01 AUDIO\n    TITLE \"One\"\n    INDEX 01 00:00:00\n  TRACK 02 AUDIO\n    TITLE \"Two\"\n    INDEX 00 03:20:15\nFILE \"02.wav\" WAVE\n    INDEX 01 00:00:00\n  TRACK 03 AUDIO\n    INDEX 00 02:00:00\n    INDEX 01 02:02:00\n  TRACK 04 MODE1/2352\n    INDEX 01 03:00:00\n";
+        let sheet = CueSheet::parse(text);
+        assert_eq!(sheet.tracks.len(), 4);
+        // Track 2's pregap ends 01.wav; the track plays from 02.wav.
+        assert_eq!(sheet.tracks[1].file.as_deref(), Some("02.wav"));
+        assert_eq!(sheet.tracks[1].pregap, Some(200_200));
+        assert_eq!(sheet.tracks[1].line(), 7);
+        // Track 1 runs to the end of 01.wav, pregap included.
+        assert_eq!(sheet.track_time(0), (0, None));
+        // A pregap belongs to the track before it: track 2 ends at the
+        // INDEX 01 of track 3, not at its INDEX 00.
+        assert_eq!(sheet.track_time(1), (0, Some(122_000)));
+        // The data track is not listed and does not end track 3.
+        assert_eq!(sheet.track_time(2), (122_000, None));
+        assert_eq!(sheet.subsongs(), [0, 1, 2]);
+        assert!(!sheet.tracks[3].audio);
+        assert_eq!(sheet.track_fields(1)["TITLE"], ["Two"]);
+        let mut edited = sheet.clone();
+        edited
+            .apply(&[(1, [("TITLE".to_string(), vec!["Deux".to_string()])].into())])
+            .unwrap();
+        assert_eq!(edited.render(), text.replace("\"Two\"", "\"Deux\""));
+        assert_eq!(sheet.render(), text);
     }
 
     #[test]

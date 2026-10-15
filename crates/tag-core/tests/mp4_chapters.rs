@@ -405,16 +405,20 @@ fn chapters_are_listed_and_edited_as_rows() {
     assert_eq!(second.fields["TITLE"], ["Two – ü"]);
     assert_eq!(second.fields["ARTIST"], ["Author"]);
     assert!(!second.fields.contains_key("CHAPTERS"));
-    assert_eq!(second.technical["_SUBSONG"], ["2"]);
+    assert_eq!(second.technical["_SUBSONG"], ["1"]);
     assert_eq!(second.technical["_SUBSONG_COUNT"], ["2"]);
     assert_eq!(second.technical["_LENGTH_SECONDS"], ["1"]);
     assert!((second.duration - 0.6).abs() < 0.05, "{}", second.duration);
+    // Sub-tracks without numbers are numbered, as in Mp3tag.
+    assert_eq!(second.fields["TRACK"], ["2"]);
+    assert_eq!(second.fields["TOTALTRACKS"], ["2"]);
 
-    // A row edit renames its chapter; other fields are the file's.
+    // A row edit renames its chapter. A field only this row has is stored
+    // with the chapter in Nero tags (udta/tags), not in the file's tag.
     let audio = packets(&path);
     let row = tag_core::write_fields_with_options(
         Path::new(&rows[1]),
-        &fields(&[("TITLE", &["Renamed"]), ("ALBUM", &["Shared"])]),
+        &fields(&[("TITLE", &["Renamed"]), ("ALBUM", &["Part two"])]),
         false,
         &[],
         &options,
@@ -422,18 +426,24 @@ fn chapters_are_listed_and_edited_as_rows() {
     .unwrap();
     assert_eq!(row.path, rows[1]);
     assert_eq!(row.fields["TITLE"], ["Renamed"]);
-    assert_eq!(row.fields["ALBUM"], ["Shared"]);
+    assert_eq!(row.fields["ALBUM"], ["Part two"]);
     let file_entry = read_entry(&path).unwrap();
     assert_eq!(
         file_entry.fields["CHAPTERS"],
         ["00:00:00.000 One", "00:00:00.400 Renamed"]
     );
-    assert_eq!(file_entry.fields["ALBUM"], ["Shared"]);
+    assert!(!file_entry.fields.contains_key("ALBUM"));
+    assert_eq!(file_entry.chapters[1].fields["ALBUM"], ["Part two"]);
+    assert!(file_entry.chapters[0].fields.is_empty());
     assert_eq!(file_entry.fields["TITLE"], ["Song"]);
     assert_eq!(chapters(&path), "0.000000,One\n0.400000,Renamed\n");
     assert_eq!(packets(&path), audio);
+    let bytes = fs::read(&path).unwrap();
+    assert!(bytes.windows(4).any(|w| w == b"tseg"));
+    assert!(bytes.windows(8).any(|w| w == b"\x80\0\x05album"));
 
-    // Rows saved together must agree on file fields.
+    // Rows saved together with one value: a file field. With different
+    // values: one per chapter, and the file loses the field.
     let together = tag_core::write_chapter_rows(
         &path,
         &[
@@ -449,17 +459,28 @@ fn chapters_are_listed_and_edited_as_rows() {
     .unwrap();
     assert_eq!(together[0].fields["TITLE"], ["First"]);
     assert_eq!(together[1].fields["GENRE"], ["Audiobook"]);
-    let unchanged = fs::read(&path).unwrap();
-    let conflict = tag_core::write_chapter_rows(
+    assert_eq!(read_entry(&path).unwrap().fields["GENRE"], ["Audiobook"]);
+    let split = tag_core::write_chapter_rows(
         &path,
         &[
-            (1, fields(&[("GENRE", &["A"])])),
+            (1, fields(&[("GENRE", &["A"]), ("ALBUM", &["Part two"])])),
             (2, fields(&[("GENRE", &["B"])])),
         ],
         false,
         &options,
-    );
-    assert!(conflict.unwrap_err().contains("not per chapter"));
+    )
+    .unwrap();
+    assert_eq!(split[0].fields["GENRE"], ["A"]);
+    assert_eq!(split[1].fields["GENRE"], ["B"]);
+    let file_entry = read_entry(&path).unwrap();
+    assert!(!file_entry.fields.contains_key("GENRE"));
+    assert_eq!(file_entry.chapters[0].fields["GENRE"], ["A"]);
+    // ALBUM is now the same on both rows: back in the file, out of Nero.
+    assert_eq!(file_entry.fields["ALBUM"], ["Part two"]);
+    assert!(!file_entry.chapters[1].fields.contains_key("ALBUM"));
+    assert_eq!(file_entry.chapters[0].title, "First");
+    assert_eq!(packets(&path), audio);
+    let unchanged = fs::read(&path).unwrap();
     assert!(tag_core::write_chapter_rows(
         &path,
         &[(3, fields(&[("TITLE", &["x"])]))],
@@ -467,8 +488,24 @@ fn chapters_are_listed_and_edited_as_rows() {
         &options
     )
     .is_err());
+    assert!(tag_core::write_chapter_rows(
+        &path,
+        &[(1, fields(&[("CHAPTERS", &["0:00 x"])]))],
+        false,
+        &options
+    )
+    .is_err());
     assert_eq!(fs::read(&path).unwrap(), unchanged);
-    // Whole-file operations are refused on rows.
+    // Remove tag on the file removes the Nero tags with the iTunes tag; the
+    // chapters stay.
+    let removed = tag_core::remove_tags(&path).unwrap();
+    assert!(!removed.fields.contains_key("ALBUM"));
+    assert_eq!(removed.chapters.len(), 2);
+    assert!(removed.chapters.iter().all(|c| c.fields.is_empty()));
+    assert!(!fs::read(&path).unwrap().windows(4).any(|w| w == b"tseg"));
+    assert_eq!(chapters(&path), "0.000000,First\n0.400000,Renamed\n");
+    assert_eq!(packets(&path), audio);
+    // Whole-file operations take the file, not a row.
     assert!(tag_core::remove_tags(Path::new(&rows[0])).is_err());
     assert!(strip_mp4_chapters_with_options(Path::new(&rows[0]), false, &options).is_err());
 }

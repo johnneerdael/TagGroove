@@ -799,13 +799,15 @@ fn text_samples(chapters: &[(u64, String)]) -> (Vec<u8>, Vec<u32>) {
 
 /// Replace the chapters of the MP4 file open as `file` (a staged copy at
 /// `staged_path`) by `chapters` (start in 100 ns units, title), at least
-/// one. The movie box and the chapter data are rewritten in place when they
+/// one, and with `tags` the Nero tags (the body of `udta/tags`). The movie
+/// box and the chapter data are rewritten in place when they
 /// end the file or fit the free space after `moov`; otherwise the file is
 /// rewritten with every chunk offset relocated and verified.
 pub(crate) fn write_chapters(
     file: &mut fs::File,
     staged_path: &std::path::Path,
     chapters: &[(u64, String)],
+    tags: Option<&[u8]>,
 ) -> Result<(), String> {
     if chapters.is_empty() || chapters.len() > 255 {
         return Err("MP4 files hold between 1 and 255 Nero chapters".into());
@@ -920,21 +922,28 @@ pub(crate) fn write_chapters(
         }
         if &node.kind == b"udta" {
             if let Some(items) = node.children_mut() {
-                items.retain(|c| &c.kind != b"chpl");
+                items.retain(|c| &c.kind != b"chpl" && (tags.is_none() || &c.kind != b"tags"));
             }
         }
     }
-    let nero = chpl(chapters);
+    // Nero chapters, then Nero tags, after the iTunes `meta` (as Mp3tag orders them).
+    let mut nero = vec![chpl(chapters)];
+    if let Some(tags) = tags {
+        nero.push(Node {
+            kind: *b"tags",
+            body: Body::Leaf(tags.to_vec()),
+        });
+    }
     match children.iter_mut().find(|c| &c.kind == b"udta") {
         Some(udta) => udta
             .children_mut()
             .ok_or_else(|| invalid("the user data box is malformed"))?
-            .push(nero),
+            .extend(nero),
         None => children.push(Node {
             kind: *b"udta",
             body: Body::Container {
                 prefix: Vec::new(),
-                children: vec![nero],
+                children: nero,
                 suffix: Vec::new(),
             },
         }),
@@ -1266,7 +1275,7 @@ mod tests {
             .write(true)
             .open(path)
             .unwrap();
-        write_chapters(&mut file, path, &chapters(list)).unwrap();
+        write_chapters(&mut file, path, &chapters(list), None).unwrap();
         read_layout(&mut file).unwrap()
     }
 
@@ -1354,7 +1363,7 @@ mod tests {
             vec![(0, "x".repeat(256))],
             (0..256).map(|i| (i * 10, String::new())).collect(),
         ] {
-            assert!(write_chapters(&mut file, &path, &list).is_err());
+            assert!(write_chapters(&mut file, &path, &list, None).is_err());
         }
         assert_eq!(fs::read(&path).unwrap(), before);
     }

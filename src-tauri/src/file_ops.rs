@@ -381,7 +381,12 @@ fn existing(paths: &[String], verb: &str) -> Result<Vec<PathBuf>, String> {
     if paths.is_empty() {
         return Err("Select files first".into());
     }
-    unique_paths(paths)
+    // Chapter and cue sheet rows stand for the audio file they play from.
+    let files = paths
+        .iter()
+        .map(|p| tag_core::subsong_file(Path::new(p)).map(|f| f.to_string_lossy().into_owned()))
+        .collect::<Result<Vec<_>, _>>()?;
+    unique_paths(&files)
         .into_iter()
         .map(|p| {
             regular_file(Path::new(p), "opened")

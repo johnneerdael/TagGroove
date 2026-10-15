@@ -17,15 +17,37 @@ test('row paths name their file and subsong',()=>{
   assert.equal(chapters.isChapterRow('C:\\a\\b.mka\u000112'),true);
 });
 
-test('chapter rows allow tag editing and refuse whole-file commands',()=>{
-  const row='/m/book.m4b\u00011',file='/m/song.mp3';
-  for(const op of ['save','extended','reload','copy-tags','paste-tags','action','groups','filename-tags','tag-tag','number','export-config','csv','source-musicbrainz','file-play'])
+test('chapter rows run whole-file commands on their file and refuse renaming, moving and playlists',()=>{
+  const row='/m/book.m4b\u00011',file='/m/song.mp3',cue='/m/live.cue\u00013';
+  for(const op of ['save','extended','reload','copy-tags','paste-tags','action','groups','filename-tags','tag-tag','number','export-config','csv','source-musicbrainz','file-play','file-reveal','remove-tags','add-cover','remove-cover','cover-manage','remove-tag-types','strip-mp4-chapters','util-optimize','util-unsupported'])
     assert.equal(chapters.chapterRowReason(op,[row],()=>[row]),'',op);
-  for(const op of ['remove-tags','add-cover','cover-manage','strip-mp4-chapters','tags-filename','filename-filename','file-move','file-delete','file-reveal','util-optimize','save-copy','playlist-selected'])
+  for(const op of ['tags-filename','filename-filename','file-move','file-copy','file-delete','save-copy','playlist-selected'])
     assert.equal(chapters.chapterRowReason(op,[file,row]),chapters.CHAPTER_ROW_REASON,op);
-  assert.equal(chapters.chapterRowReason('remove-tags',[file],()=>[file,row]),'');
+  assert.equal(chapters.chapterRowReason('tags-filename',[file],()=>[file,row]),'');
   assert.equal(chapters.chapterRowReason('playlist-all',[file],()=>[file,row]),chapters.CHAPTER_ROW_REASON);
-  assert.equal(chapters.chapterRowReason('file-play',['/m/live.cue\u00013']),chapters.CHAPTER_ROW_REASON);
+  // Cue sheet tracks edit the sheet: whole-file commands are refused, playing is not.
+  for(const op of ['remove-tags','add-cover','util-optimize','strip-mp4-chapters'])
+    assert.equal(chapters.chapterRowReason(op,[cue]),chapters.CUE_ROW_REASON,op);
+  assert.equal(chapters.chapterRowReason('file-play',[cue]),'');
+  assert.equal(chapters.rowFile(row),'/m/book.m4b');
+  assert.equal(chapters.rowFile(file),file);
+});
+
+test('whole-file results replace a file\'s rows in place',()=>{
+  const r=(n,f='/m/book.m4b')=>`${f}\u0001${n}`;
+  const order=['/m/a.mp3',r(1),r(2),r(3),'/m/z.mp3'];
+  // Same rows back: nothing moves.
+  assert.equal(chapters.replaceFileRows(order,[r(1),r(2),r(3)],['/m/book.m4b']),order);
+  // A save returning one row changes nothing.
+  assert.equal(chapters.replaceFileRows(order,[r(2)]),order);
+  // Chapters stripped: the file replaces its rows where they were.
+  assert.deepEqual(chapters.replaceFileRows(order,['/m/book.m4b'],['/m/book.m4b']),['/m/a.mp3','/m/book.m4b','/m/z.mp3']);
+  // Fewer chapters after a whole-file command: the stale row leaves.
+  assert.deepEqual(chapters.replaceFileRows(order,[r(1),r(2)],['/m/book.m4b']),['/m/a.mp3',r(1),r(2),'/m/z.mp3']);
+  // Undo brings the rows back in place of the file.
+  assert.deepEqual(chapters.replaceFileRows(['/m/a.mp3','/m/book.m4b'],[r(1),r(2)]),['/m/a.mp3',r(1),r(2)]);
+  // Unlisted files are not added.
+  assert.equal(chapters.replaceFileRows(order,['/m/other.mp3']),order);
 });
 
 test('Options → Tags → Advanced offers List chapters as separate files, off by default',()=>{

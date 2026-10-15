@@ -122,13 +122,16 @@
       await inv('save_export_library', { library });
       document.body.focus(); key('e', { metaKey: true, shiftKey: true });
       const cue = await waitFor(() => inv('read_playlist', { path: album + '/export.cue' }), 8000, 'cue sheet (' + status() + ')');
-      if (cue.files.map(p => p.split(/[\\/]/).pop()).join() !== 'sine-b.mp3,sine-a.mp3' || cue.errors.length) throw new Error(JSON.stringify(cue));
+      // As in Mp3tag, a cue sheet lists its tracks (rows of the sheet), each playing its FILE.
+      if (cue.files.map(p => p.split(/[\\/]/).pop()).join() !== 'export.cue\u00011,export.cue\u00012' || cue.errors.length) throw new Error(JSON.stringify(cue));
       document.querySelector('[data-sort="filename"]').click(); await sleep(300);
       await relaunch(album + '/export.cue', anyFile);
       await waitFor(() => /export\.cue$/.test(document.querySelector('.location .path')?.textContent || ''), 15000, 'cue location');
       await idle();
-      if (names().join() !== 'sine-b.mp3,sine-a.mp3') throw new Error('order ' + names().join());
-      return names().join(' → ');
+      // The track rows show their files' names, in the sheet's order.
+      const shown = rows().map(r => r.querySelector('td.filename')?.getAttribute('title'));
+      if (shown.join() !== 'sine-b.mp3,sine-a.mp3' || names().join() !== 'export.cue\u00011,export.cue\u00012') throw new Error('order ' + shown.join() + ' / ' + names().join());
+      return shown.join(' → ');
     });
 
     await step('missing playlist entries are reported while the others load', async () => {

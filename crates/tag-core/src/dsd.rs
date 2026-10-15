@@ -476,6 +476,7 @@ pub(super) fn write(
             native = Id3v2Tag::default();
             diin = vec![(b"DIAR", None), (b"DITI", None)];
         }
+        Edit::Rows { .. } => return Err("DSD files have no chapters".into()),
     }
     let bytes = mapping::render_id3(&native, &target)?;
     match kind {

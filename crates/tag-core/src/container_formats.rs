@@ -89,6 +89,12 @@ pub(super) struct Description {
 /// One requested change. Field names are canonical Mp3tag names.
 pub(super) enum Edit {
     Fields(Fields),
+    /// File fields and fields of chapters (0-based, document order) written
+    /// together from chapter rows (Matroska).
+    Rows {
+        fields: Fields,
+        chapters: Vec<(usize, Fields)>,
+    },
     Pictures(Vec<Picture>),
     Remove,
 }
@@ -223,6 +229,27 @@ fn verify(
                 verify_readback(&actual.fields, &native, TagType::Id3v2, latin1)
             }
         }
+        Edit::Rows { fields, chapters } => {
+            verify_readback(&actual.fields, fields, TagType::Ape, false)?;
+            for (index, updates) in chapters {
+                let stored = actual
+                    .chapters
+                    .get(*index)
+                    .map(|c| &c.fields)
+                    .ok_or("A chapter disappeared while saving")?;
+                let wanted: Fields = updates
+                    .iter()
+                    .map(|(name, values)| {
+                        let values: Vec<String> =
+                            values.iter().filter(|v| !v.is_empty()).cloned().collect();
+                        (name.to_ascii_uppercase(), values)
+                    })
+                    .collect();
+                verify_readback(stored, &wanted, TagType::Ape, false)
+                    .map_err(|e| format!("Chapter {}: {e}", index + 1))?;
+            }
+            Ok(())
+        }
         Edit::Pictures(expected) => {
             if actual.covers.len() != expected.len()
                 || actual.covers.iter().zip(expected).any(|(cover, picture)| {
@@ -263,6 +290,28 @@ pub(super) fn write_fields(
         rules,
         options,
         |_| Ok(Edit::Fields(updates)),
+        "",
+    )
+}
+
+/// Write the edits of chapter rows of a Matroska file: file fields
+/// (including CHAPTERS) and the fields of chapters, in one write.
+pub(super) fn write_chapter_rows(
+    path: &Path,
+    fields: &Fields,
+    chapters: Vec<(usize, Fields)>,
+    rules: &[UserFieldMapping],
+    options: &TagOptions,
+) -> Result<AudioEntry, String> {
+    let mut fields = normalized_updates(fields, TagType::Id3v2)?;
+    matroska::normalize_chapters(&mut fields)?;
+    mutate(
+        path,
+        Kind::Matroska,
+        false,
+        rules,
+        options,
+        |_| Ok(Edit::Rows { fields, chapters }),
         "",
     )
 }

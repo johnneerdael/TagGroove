@@ -6,7 +6,7 @@
 //! Utils → Strip chapters MP4, turns every chapter box into a `free` box of
 //! the same size, so no sample offset moves and the media is never rewritten.
 //! The same box reader supplies the `mvhd` timestamps and video properties.
-use super::*;
+use super::{nero_tags::NeroTags, *};
 use std::{
     io::{Read, Write},
     ops::Range,
@@ -92,6 +92,9 @@ pub(super) struct Chapters {
     /// Chapters of the QuickTime chapter track.
     pub(super) track: Vec<(u64, String)>,
     boxes: Vec<Atom>,
+    /// Nero tags (`udta/tags`), with the fields of each chapter.
+    pub(super) nero_tags: Option<NeroTags>,
+    nero_box: Option<Atom>,
 }
 
 /// Nero `chpl`: version, flags, (version 1: 4 reserved bytes), a count and
@@ -257,6 +260,12 @@ pub(super) fn scan(path: &Path) -> Result<Chapters, String> {
             }
             chapters.boxes.push(chpl);
         }
+        if let Some(tags) = child(&mut file, udta, b"tags")? {
+            if chapters.nero_tags.is_none() {
+                chapters.nero_tags = NeroTags::parse(&body(&mut file, &tags)?);
+                chapters.nero_box = Some(tags);
+            }
+        }
     }
     let mut referenced = Vec::new();
     let mut tracks = Vec::new();
@@ -307,11 +316,20 @@ pub(super) fn scan(path: &Path) -> Result<Chapters, String> {
 }
 
 /// The CHAPTERS field, `_SUBSONG_COUNT` and the chapter list of an MP4
-/// file. Files whose chapter boxes cannot be read simply show none.
+/// file, with the fields of each chapter from Nero tags. File-wide Nero
+/// fields fill in fields the iTunes tag does not have. Files whose chapter
+/// boxes cannot be read simply show none.
 pub(super) fn describe(path: &Path, entry: &mut AudioEntry) {
     let Ok(chapters) = scan(path) else {
         return;
     };
+    if let Some(nero) = &chapters.nero_tags {
+        for (name, values) in nero.global_fields() {
+            if !entry.fields.keys().any(|k| k.eq_ignore_ascii_case(&name)) {
+                entry.fields.insert(name, values);
+            }
+        }
+    }
     if chapters.list.is_empty() {
         return;
     }
@@ -323,17 +341,26 @@ pub(super) fn describe(path: &Path, entry: &mut AudioEntry) {
             .map(|(ms, title)| subsongs::chapter_value(ms * 1_000_000, title))
             .collect(),
     );
+    let nero = chapters.nero_tags;
     subsongs::attach(
         entry,
         chapters
             .list
             .into_iter()
-            .map(|(start, title)| ChapterInfo {
-                start,
-                end: None,
-                title,
-                fields: Fields::new(),
-                source: Default::default(),
+            .enumerate()
+            .map(|(index, (start, title))| {
+                let mut fields = nero
+                    .as_ref()
+                    .map(|n| n.chapter_fields(index))
+                    .unwrap_or_default();
+                fields.remove("TITLE");
+                ChapterInfo {
+                    start,
+                    end: None,
+                    title,
+                    fields,
+                    source: subsongs::ChapterSource::Mp4,
+                }
             })
             .collect(),
     );
@@ -346,6 +373,16 @@ pub(super) fn write(
     staged_path: &Path,
     values: &[String],
 ) -> Result<(), String> {
+    write_with_tags(staging, staged_path, values, None)
+}
+
+/// [`write`], also replacing the Nero tags (`udta/tags`) by `nero`.
+pub(super) fn write_with_tags(
+    staging: &mut fs::File,
+    staged_path: &Path,
+    values: &[String],
+    nero: Option<&NeroTags>,
+) -> Result<(), String> {
     let mut requested = values
         .iter()
         .map(|value| subsongs::parse_chapter_value(value))
@@ -353,6 +390,9 @@ pub(super) fn write(
     requested.sort_by_key(|(start, _)| *start);
     let current = scan(staged_path)?;
     if requested.is_empty() {
+        if nero.is_some() {
+            return Err("Nero chapter tags need chapters".into());
+        }
         if !current.boxes.is_empty() {
             blank(staging, current.boxes)?;
         }
@@ -372,7 +412,8 @@ pub(super) fn write(
                 (start, title.clone())
             })
             .collect();
-        mp4_layout::write_chapters(staging, staged_path, &chapters)?;
+        let tags = nero.map(NeroTags::render);
+        mp4_layout::write_chapters(staging, staged_path, &chapters, tags.as_deref())?;
     }
     staging.sync_all().map_err(|e| e.to_string())?;
     let written = scan(staged_path)?;
@@ -387,7 +428,9 @@ pub(super) fn write(
                 title == wanted && (index == 0 || ms.abs_diff(*start) <= 1)
             },
         );
-    if written.list != expected || !track_matches {
+    let tags_match = nero
+        .is_none_or(|nero| written.nero_tags.as_ref().map(NeroTags::render) == Some(nero.render()));
+    if written.list != expected || !track_matches || !tags_match {
         return Err(
             "The MP4 chapters did not read back as written; the original file was kept".into(),
         );
@@ -535,6 +578,17 @@ fn header_fields(path: &Path, fields: &mut Fields) -> Result<(), String> {
             }
         }
         break;
+    }
+    Ok(())
+}
+
+/// Remove tag: turn the Nero tags of the staged file into a `free` box.
+pub(super) fn strip_nero_tags(staging: &mut fs::File, staged_path: &Path) -> Result<(), String> {
+    if let Some(tags) = scan(staged_path)?.nero_box {
+        blank(staging, vec![tags])?;
+    }
+    if scan(staged_path)?.nero_tags.is_some() {
+        return Err("The Nero tags could not be removed".into());
     }
     Ok(())
 }

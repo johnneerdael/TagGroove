@@ -423,6 +423,43 @@ fn batch(
     result
 }
 
+/// [`batch`] for commands that work on whole files (Remove tag, covers,
+/// Utils): a chapter row stands for its file, which is processed once for
+/// all its rows and comes back as its rows (or as the file when it no longer
+/// has chapters). Rows of a loaded cue sheet edit the sheet, so whole-file
+/// commands are refused for them.
+fn whole_file_batch(
+    paths: &[String],
+    work: impl FnMut(&Path) -> Result<AudioEntry, String>,
+) -> ScanResult {
+    let mut files: Vec<String> = Vec::new();
+    let mut refused = Vec::new();
+    for path in paths {
+        let file = match tag_core::subsong_parts(path) {
+            Some((file, _))
+                if tag_core::playlist::playlist_kind(Path::new(file))
+                    == Some(tag_core::playlist::PlaylistKind::Cue) =>
+            {
+                refused.push(FileError {
+                    path: path.clone(),
+                    error: CUE_ROW_OPERATION.into(),
+                });
+                continue;
+            }
+            Some((file, _)) => file.to_owned(),
+            None => path.clone(),
+        };
+        if !files.contains(&file) {
+            files.push(file);
+        }
+    }
+    let mut result = batch(&files, work);
+    result.errors.extend(refused);
+    result
+}
+const CUE_ROW_OPERATION: &str =
+    "Cue sheet tracks only support editing tag fields, which are written into the cue sheet";
+
 /// Paths split into ordinary files and chapter rows grouped by their file
 /// (rows of one file are written together), each with its original index.
 type RowGroup = (String, Vec<(usize, usize)>);
@@ -601,11 +638,30 @@ async fn save_fields_batch(
             let written =
                 tag_core::parallel::map_ordered_on(threads, &units, &job, |(file, indices)| {
                     if let Some(file) = file {
-                        if indices.iter().any(|i| items[*i].covers.is_some()) {
-                            let error =
-                                "Covers belong to the whole file; chapter rows cannot change them"
-                                    .to_string();
-                            return indices.iter().map(|_| Err(error.clone())).collect();
+                        // Covers belong to the whole file: rows that bring
+                        // covers must agree, and the file gets them once.
+                        let mut covers = indices.iter().filter_map(|i| {
+                            items[*i].covers.as_ref().map(|c| (c, &items[*i].path))
+                        });
+                        if let Some((first, path)) = covers.next() {
+                            let outcome = if covers.any(|(other, _)| other != first) {
+                                Err("Covers belong to the whole file; give its chapter rows the same covers".to_string())
+                            } else {
+                                cover_plans
+                                    .get(path)
+                                    .cloned()
+                                    .unwrap_or_else(|| Ok(Vec::new()))
+                                    .and_then(|changes| {
+                                        tag_core::apply_cover_changes_with_options(
+                                            Path::new(file),
+                                            &changes,
+                                            &options,
+                                        )
+                                    })
+                            };
+                            if let Err(error) = outcome {
+                                return indices.iter().map(|_| Err(error.clone())).collect();
+                            }
                         }
                         let rows: Vec<(usize, Fields)> = indices
                             .iter()
@@ -658,7 +714,7 @@ async fn save_fields_batch(
 async fn remove_tags(paths: Vec<String>) -> Result<ScanResult, String> {
     io(move || {
         history::record("Remove tags", None, &paths, || {
-            Ok(batch(&paths, |p| {
+            Ok(whole_file_batch(&paths, |p| {
                 mutate_document(p, |p| {
                     tag_core::remove_tags_with_options(p, false, &settings::tag_options())
                 })
@@ -673,7 +729,7 @@ async fn add_cover(paths: Vec<String>, image_path: String) -> Result<ScanResult,
     io(move || {
         let image = auxiliary_input(&image_path)?;
         history::record("Add cover", None, &paths, || {
-            Ok(batch(&paths, |p| {
+            Ok(whole_file_batch(&paths, |p| {
                 mutate_document(p, |p| {
                     tag_core::add_cover_with_options(p, &image, false, &settings::tag_options())
                 })
@@ -687,7 +743,7 @@ async fn add_cover(paths: Vec<String>, image_path: String) -> Result<ScanResult,
 async fn remove_cover(paths: Vec<String>, index: usize) -> Result<ScanResult, String> {
     io(move || {
         history::record("Remove cover", None, &paths, || {
-            Ok(batch(&paths, |p| {
+            Ok(whole_file_batch(&paths, |p| {
                 mutate_document(p, |p| {
                     tag_core::remove_cover_with_options(p, index, false, &settings::tag_options())
                 })
@@ -1270,6 +1326,31 @@ mod tests {
                 ("/m/live.cue".to_string(), vec![(2, 1)])
             ]
         );
+    }
+
+    #[test]
+    fn whole_file_commands_run_once_per_file_and_refuse_cue_rows() {
+        let row = |file: &str, n| tag_core::subsong_path(file, n);
+        let mut seen = Vec::new();
+        let result = whole_file_batch(
+            &[
+                row("/m/book.m4b", 2),
+                "/m/a.mp3".to_string(),
+                row("/m/book.m4b", 1),
+                row("/m/live.cue", 1),
+            ],
+            |p| {
+                seen.push(p.to_string_lossy().into_owned());
+                Err("not read".into())
+            },
+        );
+        assert_eq!(seen, ["/m/book.m4b", "/m/a.mp3"]);
+        let errors: Vec<_> = result.errors.iter().map(|e| e.path.as_str()).collect();
+        assert_eq!(
+            errors,
+            ["/m/book.m4b", "/m/a.mp3", row("/m/live.cue", 1).as_str()]
+        );
+        assert_eq!(result.errors[2].error, CUE_ROW_OPERATION);
     }
 
     #[test]

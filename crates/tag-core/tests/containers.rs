@@ -796,6 +796,84 @@ fn nested_matroska_chapters_stay_nested_and_list_as_rows() {
         value(&read_entry(&path).unwrap(), "TITLE").as_deref(),
         Some("The Song")
     );
+
+    // Fields that differ between rows are tags bound to their chapter
+    // (TagChapterUID); equal ones are file tags.
+    let rows = tag_core::write_chapter_rows(
+        &path,
+        &[
+            (
+                2,
+                fields(&[("ARTIST", &["Guest"]), ("COMPOSER", &["Writer"])]),
+            ),
+            (
+                3,
+                fields(&[("ARTIST", &["Other"]), ("COMPOSER", &["Writer"])]),
+            ),
+        ],
+        false,
+        &options,
+    )
+    .unwrap();
+    assert_eq!(rows[0].fields["ARTIST"], ["Guest"]);
+    assert_eq!(rows[1].fields["ARTIST"], ["Other"]);
+    let bytes = fs::read(&path).unwrap();
+    assert!(
+        find(&bytes, &el(&[0x63, 0xC4], &[2])).is_some(),
+        "bound to Scene A"
+    );
+    assert_eq!(
+        chapter_tree(&bytes),
+        "Act 1[Scene A,Scene Three],Act 2,Coda"
+    );
+    same_cluster(&bytes, &original);
+    let entry = read_entry(&path).unwrap();
+    assert_eq!(
+        entry.chapters[1].fields,
+        fields(&[("ARTIST", &["Guest"]), ("COMPOSER", &["Writer"])])
+    );
+    assert_eq!(
+        entry.chapters[2].fields,
+        fields(&[("ARTIST", &["Other"]), ("COMPOSER", &["Writer"])])
+    );
+    assert!(entry.chapters[0].fields.is_empty());
+    assert_eq!(value(&entry, "ARTIST"), None);
+    // The rows that did not change keep the file value (none here).
+    let listed = tag_core::scan_paths_with_options(
+        &[path.to_string_lossy().into_owned()],
+        false,
+        &options,
+        None,
+    );
+    assert!(!listed.entries[0].fields.contains_key("ARTIST"));
+    assert_eq!(listed.entries[2].fields["COMPOSER"], ["Writer"]);
+    // The same value on every row moves into the file and out of the chapters.
+    let every: Vec<(usize, tag_core::Fields)> = (1..=5)
+        .map(|n| (n, fields(&[("ARTIST", &["Band"])])))
+        .collect();
+    tag_core::write_chapter_rows(&path, &every, false, &options).unwrap();
+    let entry = read_entry(&path).unwrap();
+    assert_eq!(value(&entry, "ARTIST").as_deref(), Some("Band"));
+    assert_eq!(
+        entry.chapters[1].fields,
+        fields(&[("COMPOSER", &["Writer"])])
+    );
+    same_cluster(&fs::read(&path).unwrap(), &original);
+    // Removing a chapter removes its tags.
+    write_fields(
+        &path,
+        &fields(&[(
+            "CHAPTERS",
+            &["0:00 Act 1", "0:00 Scene A", "0:02 Act 2", "0:02.2 Coda"],
+        )]),
+    )
+    .unwrap();
+    let bytes = fs::read(&path).unwrap();
+    assert!(
+        find(&bytes, b"Other").is_none(),
+        "Scene Three's tags are gone"
+    );
+    assert!(find(&bytes, &el(&[0x63, 0xC4], &[2])).is_some());
 }
 
 #[test]
