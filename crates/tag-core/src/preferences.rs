@@ -1,6 +1,7 @@
 //! Tag read/write preferences (https://docs.mp3tag.de/customization/options/tags/).
 //! Callers pass these explicitly to every read and write; tag-core keeps no
 //! process-wide configuration.
+use crate::tags::{validate_user_mappings, UserFieldMapping};
 use serde::{Deserialize, Serialize};
 
 /// ID3v2 revision and text encoding written to MPEG files.
@@ -27,6 +28,8 @@ pub struct MpegTagOptions {
     /// `write_id3v1`). Existing ID3v2 tags are always updated.
     pub id3v2_only_if_needed: bool,
     pub id3v2_format: Id3v2Format,
+    /// The Remove kinds: File → Remove tag strips these. Saving also strips
+    /// a selected kind that is not being written.
     pub remove_id3v1: bool,
     pub remove_id3v2: bool,
     pub remove_ape: bool,
@@ -42,8 +45,8 @@ impl Default for MpegTagOptions {
             write_ape: false,
             id3v2_only_if_needed: false,
             id3v2_format: Id3v2Format::V23Utf16,
-            remove_id3v1: false,
-            remove_id3v2: false,
+            remove_id3v1: true,
+            remove_id3v2: true,
             remove_ape: true,
         }
     }
@@ -57,6 +60,8 @@ pub struct ApeTagOptions {
     pub read_ape: bool,
     pub write_id3v1: bool,
     pub write_ape: bool,
+    /// As for MPEG: File → Remove tag strips these, saving strips the ones
+    /// not written.
     pub remove_id3v1: bool,
     pub remove_id3v2: bool,
     pub remove_ape: bool,
@@ -68,9 +73,11 @@ impl Default for ApeTagOptions {
             read_ape: true,
             write_id3v1: false,
             write_ape: true,
-            remove_id3v1: false,
+            remove_id3v1: true,
+            // An ID3v2 tag on these formats is never displayed; saving keeps
+            // it unless this is enabled.
             remove_id3v2: false,
-            remove_ape: false,
+            remove_ape: true,
         }
     }
 }
@@ -105,6 +112,10 @@ pub struct TagOptions {
     pub advanced: AdvancedTagOptions,
     /// Options → Files → Preserve timestamps of modified files.
     pub preserve_modified_time: bool,
+    /// Options → Tags → Mapping, in list order. Functions with a `rules`
+    /// parameter use that list; the others (covers, Remove tag, utils) use
+    /// these rules for the entry they return.
+    pub mappings: Vec<UserFieldMapping>,
 }
 
 impl TagOptions {
@@ -122,7 +133,7 @@ impl TagOptions {
                 "Enable at least one tag type to write for APE, MPC and WavPack files".into(),
             );
         }
-        Ok(())
+        validate_user_mappings(&self.mappings)
     }
     pub(crate) fn comment_language(&self) -> [u8; 3] {
         let mut code = *b"eng";
