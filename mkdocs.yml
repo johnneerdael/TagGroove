@@ -139,6 +139,26 @@ nav:
     - Zero-padded track numbers: cookbook/rename-zero-padded-track-numbers.md
     - Tags from folder and file names: cookbook/tags-from-folder-and-filename.md
     - Move guest artists to titles: cookbook/feat-artists-to-title.md
+  - Actions:
+    - actions/index.md
+    - Case Conversion: actions/case-conversion.md
+    - Convert Codepage: actions/convert-codepage.md
+    - Format Value: actions/format-value.md
+    - Guess Values: actions/guess-values.md
+    - Replace: actions/replace.md
+    - Replace with Regular Expression: actions/replace-regexp.md
+    - Split Field by Separator: actions/split-field.md
+    - Merge Duplicate Fields: actions/merge-duplicate-fields.md
+    - Remove Duplicate Fields: actions/remove-duplicate-fields.md
+    - Remove Fields: actions/remove-fields.md
+    - Remove Fields Except: actions/remove-fields-except.md
+    - Import Cover from File: actions/import-cover.md
+    - Export Cover to File: actions/export-cover.md
+    - Adjust Cover: actions/adjust-cover.md
+    - Set Cover Properties: actions/set-cover-properties.md
+    - Import Text File: actions/import-text-file.md
+    - Export: actions/export.md
+    - Generate Playlists: actions/generate-playlists.md
   - Reference:
     - Format strings: reference/format-strings.md
     - Placeholders: reference/placeholders.md
