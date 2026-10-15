@@ -16,27 +16,171 @@ export const FORMATS = {
 };
 export const PLATFORMS = Object.keys(FORMATS);
 
-export function releasePlan({ versions, head, expectedHead, tagCommit, tag, prerelease = true }) {
-  const version = versions.package;
-  const match = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/.exec(version);
+const SEMVER = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/;
+
+export function parseVersion(version) {
+  const match = SEMVER.exec(version);
   if (!match || match[4]?.split('.').some(part => /^0\d+$/.test(part))) throw new Error(`Invalid semantic version: ${version}`);
+  return { major: Number(match[1]), minor: Number(match[2]), patch: Number(match[3]), prerelease: match[4], build: match[5] };
+}
+
+export function compareVersions(a, b) {
+  const [x, y] = [parseVersion(a), parseVersion(b)];
+  for (const key of ['major', 'minor', 'patch']) if (x[key] !== y[key]) return x[key] < y[key] ? -1 : 1;
+  if (!x.prerelease || !y.prerelease) return (x.prerelease ? -1 : 0) + (y.prerelease ? 1 : 0);
+  const [p, q] = [x.prerelease.split('.'), y.prerelease.split('.')];
+  for (let i = 0; i < Math.min(p.length, q.length); i++) {
+    if (p[i] === q[i]) continue;
+    const [m, n] = [/^\d+$/.test(p[i]), /^\d+$/.test(q[i])];
+    if (m && n) return Number(p[i]) < Number(q[i]) ? -1 : 1;
+    if (m !== n) return m ? -1 : 1;
+    return p[i] < q[i] ? -1 : 1;
+  }
+  return Math.sign(p.length - q.length);
+}
+
+export function baseVersion(versions) {
+  const version = versions.package;
+  parseVersion(version);
   if (Object.values(versions).some(value => value !== version)) throw new Error('package.json, Cargo.toml and tauri.conf.json versions must match');
+  return version;
+}
+
+// Merges to main release <major>.<minor>.<n>, where n counts first-parent
+// commits since the base version was set. Tauri derives the Android
+// versionCode as major * 1000000 + minor * 1000 + patch, so each part < 1000.
+export function automaticVersion(base, distance) {
+  const { major, minor, patch, prerelease, build } = parseVersion(base);
+  if (prerelease || build || patch !== 0) throw new Error(`Automatic releases need a plain <major>.<minor>.0 base version, not ${base}`);
+  if (!Number.isInteger(distance) || distance < 0) throw new Error('Invalid commit distance');
+  if (major > 2000 || minor > 999 || distance > 999) throw new Error(`Patch ${distance} exceeds the Android versionCode range; bump the base minor version`);
+  return `${major}.${minor}.${distance}`;
+}
+
+// Apple bundle versions must be three numeric components; Tauri strips the
+// prerelease suffix the same way when it builds the iOS app.
+export function appleVersion(version) {
+  const { major, minor, patch } = parseVersion(version);
+  return `${major}.${minor}.${patch}`;
+}
+
+// Tauri's default Android versionCode; versionName keeps the full version.
+export function androidVersionCode(version) {
+  const { major, minor, patch } = parseVersion(version);
+  return major * 1000000 + minor * 1000 + patch;
+}
+
+// An explicit tag either releases the base version itself or a suffixed
+// prerelease, so it can never take a number that automatic releases will use.
+export function explicitVersion(base, tag) {
+  checkedTag(tag);
+  const version = tag.slice(1);
+  if (version !== base && !parseVersion(version).prerelease) throw new Error(`Explicit tag ${tag} must equal v${base} or carry a prerelease suffix such as v${base}-beta.1`);
+  return version;
+}
+
+export function releasePlan({ versions, head, expectedHead, tagCommit, tag, prerelease = false }) {
+  const version = baseVersion(versions);
   tag ||= `v${version}`;
   if (tag !== `v${version}`) throw new Error('Release tag must exactly match the application version');
   if (!/^[a-f0-9]{40}$/.test(head) || head !== expectedHead) throw new Error('Checked-out commit does not match the selected workflow commit');
   if (tagCommit && tagCommit !== head) throw new Error('Existing release tag points at a different commit');
   if (typeof prerelease !== 'boolean') throw new Error('Prerelease selection must be boolean');
-  return { tag, version, commit: head, prerelease: prerelease || match[1] === '0' || Boolean(match[4]) };
+  // 0.x versions are full releases so they are easy to find and install;
+  // only an explicit request or a semver prerelease suffix (-beta.1) marks one.
+  return { tag, version, commit: head, prerelease: prerelease || Boolean(parseVersion(version).prerelease) };
+}
+
+export const VERSION_FILES = ['package.json', 'src-tauri/tauri.conf.json', 'src-tauri/Cargo.toml'];
+const CARGO_PACKAGE = /^\[package\][^]*?(?=^\[|$(?![^]))/m;
+const CARGO_VERSION = /^(version\s*=\s*["'])([^"']+)(["']\s*(?:#.*)?)$/m;
+
+export function parseVersions([npm, tauri, cargo]) {
+  const version = cargo.match(CARGO_PACKAGE)?.[0].match(CARGO_VERSION)?.[2];
+  if (!version) throw new Error('src-tauri/Cargo.toml must contain an explicit [package] version');
+  return { package: JSON.parse(npm).version, tauri: JSON.parse(tauri).version, cargo: version };
 }
 
 export async function readVersions(root) {
-  const [npm, tauri, cargo] = await Promise.all([
-    readFile(join(root, 'package.json'), 'utf8'), readFile(join(root, 'src-tauri/tauri.conf.json'), 'utf8'), readFile(join(root, 'src-tauri/Cargo.toml'), 'utf8'),
-  ]);
-  const section = cargo.match(/^\[package\][^]*?(?=^\[|$(?![^]))/m)?.[0];
-  const version = section?.match(/^version\s*=\s*["']([^"']+)["']\s*(?:#.*)?$/m)?.[1];
-  if (!version) throw new Error('src-tauri/Cargo.toml must contain an explicit [package] version');
-  return { package: JSON.parse(npm).version, tauri: JSON.parse(tauri).version, cargo: version };
+  return parseVersions(await Promise.all(VERSION_FILES.map(file => readFile(join(root, file), 'utf8'))));
+}
+
+// Paths that never reach a package. Merges that only touch these neither get
+// a release nor advance the automatic patch number.
+export const NON_SHIPPING_PATHS = ['docs/**', 'mkdocs.yml', '*.md', '.github/workflows/docs*.yml', '.github/workflows/pages-deploy.yml', 'tests/docs-screens/**', 'scripts/docs-*', 'scripts/docs-*/**'];
+const SHIPPING_PATHSPEC = ['.', ...NON_SHIPPING_PATHS.map(path => `:(exclude,glob)${path}`)];
+
+// True when shipping files differ between two commits (or a commit's first parent).
+export function shipsChanges(root, from, to) {
+  try {
+    execFileSync('git', ['diff', '--quiet', from, to, '--', ...SHIPPING_PATHSPEC], { cwd: root, stdio: 'ignore' });
+    return false;
+  } catch (error) {
+    if (error.status === 1) return true;
+    throw error;
+  }
+}
+
+// Finds the first-parent commit that set the current base version and counts
+// the later first-parent commits that change shipping files. Only file
+// contents matter, so a version bump merged from a branch counts from its
+// merge commit on main.
+export function versionOrigin(root, base) {
+  const run = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+  const attempt = (...args) => { try { return run(...args); } catch { return null; } };
+  const blobs = commit => attempt('rev-parse', ...VERSION_FILES.map(file => `${commit}:${file}`));
+  const versionAt = commit => {
+    try { return baseVersion(parseVersions(VERSION_FILES.map(file => run('show', `${commit}:${file}`)))); } catch { return null; }
+  };
+  const commits = run('rev-list', '--first-parent', 'HEAD').split('\n');
+  if (versionAt(commits[0]) !== base) throw new Error(`HEAD does not contain base version ${base}`);
+  let origin = 0;
+  let current = blobs(commits[0]);
+  for (; commits[origin + 1]; origin++) {
+    const previous = blobs(commits[origin + 1]);
+    if (previous !== current && versionAt(commits[origin + 1]) !== base) break;
+    current = previous;
+  }
+  const shipping = commits.slice(0, origin).filter(commit => shipsChanges(root, `${commit}^1`, commit));
+  return { commit: commits[origin], distance: shipping.length, shipped: shipping[0] ?? commits[origin] };
+}
+
+export async function stampVersion(root, version) {
+  parseVersion(version);
+  const edit = async (file, change, optional = false) => {
+    const path = join(root, file);
+    let text;
+    try { text = await readFile(path, 'utf8'); }
+    catch (error) { if (optional && error.code === 'ENOENT') return; throw error; }
+    await writeFile(path, change(text));
+  };
+  const json = update => text => { const data = JSON.parse(text); update(data); return `${JSON.stringify(data, null, 2)}\n`; };
+  const once = (pattern, replacement, file) => text => {
+    const matches = text.match(new RegExp(pattern.source, `${pattern.flags.replace('g', '')}g`));
+    if (matches?.length !== 1) throw new Error(`Expected one version entry in ${file}`);
+    return text.replace(pattern, replacement);
+  };
+  await edit('package.json', json(data => { data.version = version; }));
+  await edit('package-lock.json', json(data => {
+    if (!data.packages?.['']) throw new Error('package-lock.json has no root package');
+    data.version = version;
+    data.packages[''].version = version;
+  }));
+  await edit('src-tauri/tauri.conf.json', json(data => { data.version = version; }));
+  await edit('src-tauri/Cargo.toml', text => {
+    const section = text.match(CARGO_PACKAGE)?.[0];
+    if (!section || !CARGO_VERSION.test(section)) throw new Error('src-tauri/Cargo.toml must contain an explicit [package] version');
+    return text.replace(section, section.replace(CARGO_VERSION, `$1${version}$3`));
+  });
+  // --locked builds fail unless the lockfile agrees with Cargo.toml.
+  await edit('Cargo.lock', once(/(\[\[package\]\]\r?\nname = "opentag"\r?\nversion = ")[^"]+(")/, `$1${version}$2`, 'Cargo.lock'));
+  const bundle = appleVersion(version);
+  for (const key of ['CFBundleShortVersionString', 'CFBundleVersion']) {
+    await edit('src-tauri/gen/apple/project.yml', once(new RegExp(`^(\\s*${key}:\\s*).*$`, 'm'), `$1"${bundle}"`, 'project.yml'), true);
+    await edit('src-tauri/gen/apple/opentag_iOS/Info.plist', once(new RegExp(`(<key>${key}</key>\\s*<string>)[^<]*(</string>)`), `$1${bundle}$2`, 'Info.plist'), true);
+  }
+  const stamped = await readVersions(root);
+  if (baseVersion(stamped) !== version) throw new Error('Stamped versions do not match');
 }
 
 function checkedTag(tag) {
@@ -127,13 +271,15 @@ export async function assembleRelease({ plan, directory }) {
   return { assets };
 }
 
-export function releaseBody(plan, repository) {
+export function releaseBody(plan, repository, notes = '') {
   return `![OpenTag](https://raw.githubusercontent.com/${repository}/${plan.tag}/assets/brand/OpenTag-Brand-Kit/03-banners/opentag-github-light-1280x640.png)
 
 OpenTag — Tag, Organize, Enjoy.
 
-${plan.prerelease ? '**Development prerelease.**' : '**Release.**'} Source: [${plan.commit.slice(0, 12)}](https://github.com/${repository}/commit/${plan.commit}).
+${plan.prerelease ? '**Development prerelease.**' : `**Release${plan.version.startsWith('0.') ? ' (pre-1.0)' : ''}.**`} Source: [${plan.commit.slice(0, 12)}](https://github.com/${repository}/commit/${plan.commit}).
 Feature parity and runtime qualification remain tracked in the [parity ledger](https://github.com/${repository}/blob/${plan.tag}/docs/PARITY.md).
+${notes.trim() ? `\n${notes.trim()}\n` : ''}
+## Downloads
 
 | Download | Architecture | Signing / distribution |
 | --- | --- | --- |
@@ -148,10 +294,22 @@ Verify downloads using SHA256SUMS; release-manifest.json records source commit, 
 `;
 }
 
-export async function publishRelease({ api, plan, assembled, repository }) {
-  const metadata = { tag_name: plan.tag, target_commitish: plan.commit, name: `OpenTag ${plan.tag}`, body: releaseBody(plan, repository), draft: true, prerelease: plan.prerelease, make_latest: 'false' };
+// An older run that is rerun after a newer release must not take "latest".
+export function makeLatest(plan, latest) {
+  if (plan.prerelease) return 'false';
+  const version = latest?.tag_name?.replace(/^v/, '');
+  try { return !version || compareVersions(plan.version, version) > 0 ? 'true' : 'false'; }
+  catch { return 'true'; }
+}
+
+export async function publishRelease({ api, plan, assembled, repository, notes = '' }) {
+  const metadata = { tag_name: plan.tag, target_commitish: plan.commit, name: `OpenTag ${plan.tag}`, body: releaseBody(plan, repository, notes), draft: true, prerelease: plan.prerelease, make_latest: 'false' };
   let release = await api.findRelease(plan.tag);
-  if (release && !release.draft) throw new Error('Refusing to overwrite an already published release');
+  if (release && !release.draft) {
+    // A rerun after a successful publication is a no-op, never a duplicate.
+    if (release.target_commitish === plan.commit) return { skipped: true, release };
+    throw new Error('Refusing to overwrite an already published release');
+  }
   if (release) {
     if (release.target_commitish !== plan.commit) throw new Error('Existing draft belongs to a different source commit');
     release = await api.updateDraft(release.id, metadata);
@@ -163,7 +321,30 @@ export async function publishRelease({ api, plan, assembled, repository }) {
   if (uploaded.length !== assembled.assets.length || assembled.assets.some(asset => !uploaded.some(item => item.name === asset.name && item.size === asset.size && item.state === 'uploaded' && item.digest === `sha256:${asset.sha256}`))) throw new Error('GitHub release assets do not match the complete verified package set (names, sizes, states and SHA256 digests required)');
   const current = await api.findRelease(plan.tag);
   if (!current?.draft || current.id !== release.id) throw new Error('Release draft changed during upload; refusing to publish');
-  await api.publish(release.id, { draft: false, prerelease: plan.prerelease, make_latest: plan.prerelease ? 'false' : 'true' });
+  await api.publish(release.id, { draft: false, prerelease: plan.prerelease, make_latest: makeLatest(plan, await api.latestRelease()) });
+  return { skipped: false, release };
+}
+
+// The newest earlier release tag reachable from this commit, preferring full
+// releases so a full release lists everything since the previous full one.
+export function previousTag(tags, plan) {
+  const earlier = tags.filter(tag => {
+    if (tag === plan.tag || !/^v/.test(tag)) return false;
+    try { return compareVersions(tag.slice(1), plan.version) < 0; } catch { return false; }
+  });
+  const stable = earlier.filter(tag => !parseVersion(tag.slice(1)).prerelease);
+  const pool = !plan.prerelease && stable.length ? stable : earlier;
+  return pool.sort((a, b) => compareVersions(b.slice(1), a.slice(1)))[0] ?? null;
+}
+
+export async function releaseNotes({ api, plan, previous, log }) {
+  try {
+    const { body } = await api.generateNotes({ tag_name: plan.tag, target_commitish: plan.commit, ...(previous ? { previous_tag_name: previous } : {}) });
+    if (body?.trim()) return body;
+  } catch (error) { console.warn(`Generated release notes unavailable: ${error.message}`); }
+  const lines = log().split('\n').filter(Boolean);
+  if (!lines.length) return '';
+  return `## Changes${previous ? ` since ${previous}` : ''}\n\n${lines.map(line => `- ${line}`).join('\n')}\n`;
 }
 
 export class GitHubApi {
@@ -189,6 +370,8 @@ export class GitHubApi {
       if (batch.length < 100) return null;
     }
   }
+  latestRelease() { return this.request('/releases/latest'); }
+  generateNotes(body) { return this.request('/releases/generate-notes', 'POST', body); }
   createDraft(body) { return this.request('/releases', 'POST', body); }
   updateDraft(id, body) { return this.request(`/releases/${id}`, 'PATCH', body); }
   publish(id, body) { return this.request(`/releases/${id}`, 'PATCH', body); }
@@ -230,19 +413,56 @@ async function walk(root, accept) {
 async function main(command) {
   const root = process.cwd();
   if (command === 'prepare') {
-    const versions = await readVersions(root);
-    const tag = process.env.RELEASE_TAG || `v${versions.package}`;
-    const prerelease = process.env.REQUESTED_PRERELEASE ? JSON.parse(process.env.REQUESTED_PRERELEASE) : true;
-    const plan = releasePlan({ versions, tag, prerelease, head: git('rev-parse', 'HEAD'), expectedHead: git('rev-parse', `${process.env.GITHUB_SHA}^{commit}`), tagCommit: tagCommit(tag) });
+    const base = baseVersion(await readVersions(root));
+    const requested = process.env.RELEASE_TAG || '';
+    let version;
+    if (requested) version = explicitVersion(base, requested);
+    else {
+      // Other branches would claim numbers that later main merges need.
+      const branch = process.env.RELEASE_BRANCH || 'main';
+      if (process.env.DRY_RUN !== 'true') {
+        try { git('merge-base', '--is-ancestor', 'HEAD', `refs/remotes/origin/${branch}`); }
+        catch { throw new Error(`Automatic versions are only published for commits on ${branch}; pass an explicit prerelease tag or use dry_run`); }
+      }
+      const origin = versionOrigin(root, base);
+      version = automaticVersion(base, origin.distance);
+      console.log(`Base ${base} was set by ${origin.commit}; ${origin.distance} shipping first-parent commit(s) since, last ${origin.shipped}`);
+    }
+    const tag = `v${version}`;
+    const prerelease = process.env.REQUESTED_PRERELEASE ? JSON.parse(process.env.REQUESTED_PRERELEASE) : false;
+    const head = git('rev-parse', 'HEAD');
+    const released = tagCommit(tag);
+    // A docs-only merge keeps the previous number; its notes go out with the next code release.
+    if (!requested && released && released !== head && !shipsChanges(root, released, head)) {
+      const summary = `${head} changes nothing that ships since ${tag} at ${released}; no release.`;
+      for (const [key, value] of Object.entries({ tag, version, commit: head, prerelease, skip: true })) await appendFile(process.env.GITHUB_OUTPUT, `${key}=${value}\n`);
+      if (process.env.GITHUB_STEP_SUMMARY) await appendFile(process.env.GITHUB_STEP_SUMMARY, `${summary}\n`);
+      console.log(summary);
+      return;
+    }
+    const plan = releasePlan({ versions: { package: version, cargo: version, tauri: version }, tag, prerelease, head, expectedHead: git('rev-parse', `${process.env.GITHUB_SHA}^{commit}`), tagCommit: released });
     const api = new GitHubApi(process.env.GITHUB_REPOSITORY, process.env.GH_TOKEN);
     const existing = await api.findRelease(plan.tag);
-    if (existing && !existing.draft) throw new Error('Refusing to overwrite an already published release');
-    for (const [key, value] of Object.entries(plan)) await appendFile(process.env.GITHUB_OUTPUT, `${key}=${value}\n`);
-    console.log(`Validated ${plan.tag} at ${plan.commit}; prerelease=${plan.prerelease}`);
+    let skip = false;
+    if (existing && !existing.draft) {
+      if (tagCommit(plan.tag) !== plan.commit) throw new Error('Refusing to overwrite an already published release');
+      skip = true;
+    }
+    for (const [key, value] of Object.entries({ ...plan, skip })) await appendFile(process.env.GITHUB_OUTPUT, `${key}=${value}\n`);
+    const summary = skip ? `${plan.tag} is already published from ${plan.commit}; nothing to build.` : `Validated ${plan.tag} at ${plan.commit}; prerelease=${plan.prerelease}`;
+    if (process.env.GITHUB_STEP_SUMMARY) await appendFile(process.env.GITHUB_STEP_SUMMARY, `${summary}\n`);
+    console.log(summary);
+    return;
+  }
+  if (command === 'stamp') {
+    const version = process.argv[3] || process.env.RELEASE_TAG?.replace(/^v/, '');
+    if (!version) throw new Error('Usage: release.mjs stamp <version>');
+    await stampVersion(root, version);
+    console.log(`Stamped version ${version} (not committed)`);
     return;
   }
   const versions = await readVersions(root);
-  const plan = releasePlan({ versions, tag: process.env.RELEASE_TAG, prerelease: JSON.parse(process.env.RELEASE_PRERELEASE || 'true'), head: git('rev-parse', 'HEAD'), expectedHead: process.env.RELEASE_COMMIT, tagCommit: tagCommit(process.env.RELEASE_TAG) });
+  const plan = releasePlan({ versions, tag: process.env.RELEASE_TAG, prerelease: JSON.parse(process.env.RELEASE_PRERELEASE || 'false'), head: git('rev-parse', 'HEAD'), expectedHead: process.env.RELEASE_COMMIT, tagCommit: tagCommit(process.env.RELEASE_TAG) });
   const outputDir = resolve(process.env.RELEASE_ASSETS || 'release-assets');
   if (command === 'collect-desktop') {
     const sources = JSON.parse(process.env.TAURI_ARTIFACT_PATHS || '[]');
@@ -259,7 +479,7 @@ async function main(command) {
     const signature = execFileSync(join(tools, 'apksigner'), ['verify', '--verbose', '--print-certs', paths[0]], { encoding: 'utf8' });
     if (/CN=Android Debug/i.test(signature)) throw new Error('Debug signing certificates are not release keys');
     const info = execFileSync(join(tools, 'aapt'), ['dump', 'badging', paths[0]], { encoding: 'utf8' });
-    if (!info.includes(`versionName='${plan.version}'`) || !/^native-code: 'arm64-v8a'\s*$/m.test(info)) throw new Error('APK version/ABI differs from the release plan');
+    if (!info.includes(`versionName='${plan.version}'`) || !info.includes(`versionCode='${androidVersionCode(plan.version)}'`) || !/^native-code: 'arm64-v8a'\s*$/m.test(info)) throw new Error('APK version/ABI differs from the release plan');
     console.log(signature);
     await collectAssets({ plan, platform: 'android-arm64', sourcePaths: paths, outputDir });
   } else if (command === 'collect-ios') {
@@ -267,14 +487,18 @@ async function main(command) {
     const executable = execFileSync('plutil', ['-extract', 'CFBundleExecutable', 'raw', '-o', '-', join(app, 'Info.plist')], { encoding: 'utf8' }).trim();
     const version = execFileSync('plutil', ['-extract', 'CFBundleShortVersionString', 'raw', '-o', '-', join(app, 'Info.plist')], { encoding: 'utf8' }).trim();
     const info = execFileSync('xcrun', ['vtool', '-show-build', join(app, executable)], { encoding: 'utf8' });
-    if (version !== plan.version || !info.includes('IOSSIMULATOR')) throw new Error('Expected matching-version iOS simulator app');
+    if (version !== appleVersion(plan.version) || !info.includes('IOSSIMULATOR')) throw new Error('Expected matching-version iOS simulator app');
     await mkdir(outputDir, { recursive: true });
     const zip = join(outputDir, assetName(plan.tag, 'ios-arm64-simulator-preview', 'OpenTag.app.zip'));
     execFileSync('ditto', ['-c', '-k', '--sequesterRsrc', '--keepParent', app, zip]);
     await collectAssets({ plan, platform: 'ios-arm64-simulator-preview', sourcePaths: [zip], outputDir });
   } else if (command === 'publish') {
     const assembled = await assembleRelease({ plan, directory: outputDir });
-    await publishRelease({ api: new GitHubApi(process.env.GITHUB_REPOSITORY, process.env.GH_TOKEN), plan, assembled, repository: process.env.GITHUB_REPOSITORY });
+    const api = new GitHubApi(process.env.GITHUB_REPOSITORY, process.env.GH_TOKEN);
+    const previous = previousTag(git('tag', '--merged', 'HEAD', '--list', 'v*').split('\n').filter(Boolean), plan);
+    const notes = await releaseNotes({ api, plan, previous, log: () => git('log', '--first-parent', '--max-count=100', '--format=%s (%h)', ...(previous ? [`${previous}..HEAD`] : ['HEAD'])) });
+    const result = await publishRelease({ api, plan, assembled, repository: process.env.GITHUB_REPOSITORY, notes });
+    console.log(result.skipped ? `${plan.tag} was already published from ${plan.commit}; nothing to do` : `Published ${plan.tag}`);
   } else throw new Error(`Unknown release command: ${command}`);
 }
 
