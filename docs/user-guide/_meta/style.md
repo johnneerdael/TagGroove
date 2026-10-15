@@ -281,8 +281,9 @@ Screenshots come from CI, never from a writer's machine.
   `tests/docs-screens/screens.js`. Use the existing scenes as models:
   `op('<data-op>')` runs a menu command, `clickRow(i)` and `selectAll()`
   select files, and `menu('Convert').open = true` opens a menu. Push your
-  branch; the workflow runs on pushes that touch the scene files, or start it
-  by hand with `gh workflow run docs-screenshots.yml --ref <branch> -f scenes="<name>"`.
+  branch: the workflow runs on every push that touches the scene files. Once
+  the workflow is on main you can also start it by hand for selected scenes:
+  `gh workflow run docs-screenshots.yml --ref <branch> -f scenes="<name> <name>"`.
   If you can't script the scene yourself, add it to the "Screens wanted"
   table in `_meta/ia.md`.
 - **Embedding:** always both variants, so each colour scheme shows the
