@@ -403,7 +403,7 @@ pub fn restore(directory: &Path, bytes: &[u8]) -> Result<Vec<String>, String> {
     Ok(validated.into_iter().map(|(name, _)| name).collect())
 }
 
-fn configuration_directory(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+pub(crate) fn configuration_directory(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(crate::action_host::library_path(app)?
         .parent()
         .ok_or("The configuration folder is unavailable")?

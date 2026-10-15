@@ -12,6 +12,7 @@ export const sizeSpan:Record<Size,number>={full:12,larger:10,large:9,medium:8,no
 export const CONTROLS:[Control,string][]=[['text','Text'],['check','Check'],['multiline','Multiline']];
 export const COMMON_FIELDS=['TITLE','ARTIST','ALBUM','ALBUMARTIST','YEAR','TRACK','DISCNUMBER','GENRE','COMMENT','COMPOSER','CONDUCTOR','LYRICIST','PUBLISHER','COPYRIGHT','ISRC','BPM','COMPILATION','MOOD','LANGUAGE','ENCODEDBY','ALBUMSORT','ARTISTSORT','ALBUMARTISTSORT','TITLESORT','UNSYNCEDLYRICS',DIRECTORY,SEPARATOR];
 // ID3v1 genres with the Winamp extensions, as offered by tag editors' genre lists.
+// i18n-ignore: genre names are tag values, written to files as they are.
 export const STANDARD_GENRES=['Blues','Classic Rock','Country','Dance','Disco','Funk','Grunge','Hip-Hop','Jazz','Metal','New Age','Oldies','Other','Pop','R&B','Rap','Reggae','Rock','Techno','Industrial','Alternative','Ska','Death Metal','Pranks','Soundtrack','Euro-Techno','Ambient','Trip-Hop','Vocal','Jazz+Funk','Fusion','Trance','Classical','Instrumental','Acid','House','Game','Sound Clip','Gospel','Noise','Alternative Rock','Bass','Soul','Punk','Space','Meditative','Instrumental Pop','Instrumental Rock','Ethnic','Gothic','Darkwave','Techno-Industrial','Electronic','Pop-Folk','Eurodance','Dream','Southern Rock','Comedy','Cult','Gangsta','Top 40','Christian Rap','Pop/Funk','Jungle','Native American','Cabaret','New Wave','Psychedelic','Rave','Showtunes','Trailer','Lo-Fi','Tribal','Acid Punk','Acid Jazz','Polka','Retro','Musical','Rock & Roll','Hard Rock','Folk','Folk-Rock','National Folk','Swing','Fast Fusion','Bebop','Latin','Revival','Celtic','Bluegrass','Avantgarde','Gothic Rock','Progressive Rock','Psychedelic Rock','Symphonic Rock','Slow Rock','Big Band','Chorus','Easy Listening','Acoustic','Humour','Speech','Chanson','Opera','Chamber Music','Sonata','Symphony','Booty Bass','Primus','Porn Groove','Satire','Slow Jam','Club','Tango','Samba','Folklore','Ballad','Power Ballad','Rhythmic Soul','Freestyle','Duet','Punk Rock','Drum Solo','A Cappella','Euro-House','Dance Hall','Goa','Drum & Bass','Club-House','Hardcore Techno','Terror','Indie','BritPop','Polsk Punk','Beat','Christian Gangsta Rap','Heavy Metal','Black Metal','Crossover','Contemporary Christian','Christian Rock','Merengue','Salsa','Thrash Metal','Anime','JPop','Synthpop','Abstract','Art Rock','Baroque','Bhangra','Big Beat','Breakbeat','Chillout','Downtempo','Dub','EBM','Eclectic','Electro','Electroclash','Emo','Experimental','Garage','Global','IDM','Illbient','Industro-Goth','Jam Band','Krautrock','Leftfield','Lounge','Math Rock','New Romantic','Nu-Breakz','Post-Punk','Post-Rock','Psytrance','Shoegaze','Space Rock','Trop Rock','World Music','Neoclassical','Audiobook','Audio Theatre','Neue Deutsche Welle','Podcast','Indie Rock','G-Funk','Dubstep','Garage Rock','Psybient'];
 const collator=new Intl.Collator(undefined,{numeric:true,sensitivity:'base'});
 const html=(value:unknown)=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
@@ -87,6 +88,16 @@ export function mnemonic(name:string):{label:string;key?:string;html:string}{
   }
   return {label,key,html:markup};
 }
+/**
+ * A field label in the UI language: `translate` gets the label without its `&`.
+ * The Alt letter stays the configured one and is underlined where the translation has it.
+ */
+export function localMnemonic(name:string,translate?:(label:string)=>string):{label:string;key?:string;html:string}{
+  const original=mnemonic(name),label=translate?translate(original.label):original.label;
+  if(label===original.label)return original;
+  const chars=[...label],at=original.key?chars.findIndex(c=>c.toUpperCase()===original.key):-1;
+  return {label,key:original.key,html:chars.map((c,i)=>i===at?`<u>${html(c)}</u>`:html(c)).join('')};
+}
 export const splitValues=(text:string)=>text?text.split('\\\\').map(value=>value.trim()):[];
 /** Panel text for the selection: shared value, or empty plus mixed when files differ. */
 export function selectionState(values:string[]):{value:string;mixed:boolean}{
@@ -147,6 +158,8 @@ export type TagPanelHost={
   dock?:{choices:[string,string][];current:()=>string;set:(side:string)=>void};
   values:(field:string)=>string[];disabled:()=>boolean;
   directories:()=>{selected:string[];all:string[]};selectDirectory:(directory:string)=>void;openFolder:()=>void;
+  /** Field labels in the UI language (Options → Language); configured names are shown as they are without it. */
+  translateLabel?:(label:string)=>string;
   /** A folder path typed into the _DIRECTORY field: make it the working directory. */
   changeDirectory:(path:string)=>void;
   draft:(field:string,value:string)=>void;keep:(field:string)=>void;
@@ -197,7 +210,7 @@ export class TagPanel {
   }
   private fieldHTML(field:PanelField,index:number,disabled:boolean){
     if(field.field===SEPARATOR)return'<div class="panel-separator" role="separator"></div>';
-    const id=`tag-panel-${index}`,label=mnemonic(field.name),span=`style="grid-column:span ${sizeSpan[field.size]}"`,off=disabled?'disabled':'';
+    const id=`tag-panel-${index}`,label=localMnemonic(field.name,this.host.translateLabel),span=`style="grid-column:span ${sizeSpan[field.size]}"`,off=disabled?'disabled':'';
     // The underlined mnemonic splits the label into several text nodes; name controls explicitly.
     const shortcut=`aria-label="${html(label.label)}" ${label.key?`aria-keyshortcuts="Alt+${html(label.key)}"`:''}`;
     if(field.field===DIRECTORY){
@@ -299,7 +312,7 @@ export class TagPanel {
     this.closeList();
     const field=this.settings.panel.fields[Number(input.dataset.panelIndex)];if(!field||input.disabled)return;
     const options=this.optionsFor(field),popup=document.createElement('div');
-    popup.className='combo-list';popup.id='tag-panel-listbox';popup.setAttribute('role','listbox');popup.setAttribute('aria-label',`${mnemonic(field.name).label} values`);
+    popup.className='combo-list';popup.setAttribute('translate','no');popup.id='tag-panel-listbox';popup.setAttribute('role','listbox');popup.setAttribute('aria-label',`${mnemonic(field.name).label} values`);
     let group:ComboOption['group']|undefined,markup='';
     options.forEach((option,index)=>{
       if(option.group!==group){if(group!==undefined)markup+='</div>';group=option.group;markup+=`<div role="group" ${groupLabels[group]?`aria-label="${groupLabels[group]}"`:''}>${groupLabels[group]?`<div class="combo-group" aria-hidden="true">${groupLabels[group]}</div>`:''}`;}
