@@ -139,6 +139,8 @@ let appVersion='development';
 const LAYOUT_KEY='opentag.main-layout';
 let mainLayout:MainLayout=(()=>{try{return normalizeMainLayout(JSON.parse(localStorage.getItem(LAYOUT_KEY)||'null'),Number(localStorage.getItem('opentag.panel-width'))||undefined);}catch{return normalizeMainLayout(undefined);}})();
 let layoutSaveTimer=0;
+/** The layout this window last saved, so its own save is not applied back over a newer change. */
+let ownLayoutSave='';
 const viewport=()=>({width:window.innerWidth,height:window.innerHeight});
 function applyLayoutVars(){
   const style=document.documentElement.style,float=fitFloat(mainLayout.float,viewport());
@@ -150,7 +152,7 @@ function updateLayout(next:MainLayout,rerender=false){
   mainLayout=next;applyLayoutVars();
   try{localStorage.setItem(LAYOUT_KEY,JSON.stringify(next));}catch{/* Kept for this session only. */}
   window.clearTimeout(layoutSaveTimer);
-  if(desktop)layoutSaveTimer=window.setTimeout(()=>void optionsUI.updatePage('layout',mainLayout).catch(error=>{errors=[{path:'Layout',error:String(error)}];render();}),400);
+  if(desktop)layoutSaveTimer=window.setTimeout(()=>{const saving=mainLayout;ownLayoutSave=JSON.stringify(normalizeMainLayout(saving));void optionsUI.updatePage('layout',saving).catch(error=>{errors=[{path:'Layout',error:String(error)}];render();});},400);
   if(rerender)render();
 }
 applyLayoutVars();
@@ -403,7 +405,9 @@ async function optionsApplied(next:Settings,previous:Settings){
   collator=naturalCollator(next);changedData();applyAppearancePrefs();void applyNotificationArea();
   // File → Load configuration brings its own layout and toolbars.
   const changed=(id:string)=>JSON.stringify(next.pages[id])!==JSON.stringify(previous.pages[id]);
-  if(changed('layout')&&next.pages.layout)updateLayout(normalizeMainLayout(next.pages.layout));
+  // A layout saved by this window comes back here; applying it would undo a
+  // resize made while the save was in flight.
+  if(changed('layout')&&next.pages.layout){const incoming=normalizeMainLayout(next.pages.layout);if(JSON.stringify(incoming)!==ownLayoutSave)updateLayout(incoming);}
   if(changed('toolbar'))toolbarConfig=normalizeToolbar(next.pages.toolbar);
   if(changed('custom-toolbar'))customToolbar=normalizeCustomToolbar(next.pages['custom-toolbar']);
   const clean=JSON.stringify(next.tags)===JSON.stringify(previous.tags)?[]:[...entries.values()].filter(entry=>!drafts.has(entry.path)&&!providerEntry(entry)).map(entry=>entry.path);
