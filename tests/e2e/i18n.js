@@ -137,7 +137,10 @@
         await inv('save_action_library', { library: { groups: [{ name: 'Help', enabled: true, actions: [{ type: 'format_value', field: 'COMMENT', template: 'help' }] }], presets: [] } });
         const settings = (await inv('load_settings')).settings;
         const program = /^Win/.test(navigator.platform) ? 'C:\\Windows\\System32\\notepad.exe' : '/bin/echo';
-        settings.pages = { ...settings.pages, tools: { tools: [{ name: 'Help', path: program, parameters: '', for_each_file: false }], default_tool: -1 } };
+        // The second load reopens the album as the previous directory.
+        const album = rows()[0].dataset.path.replace(/[\\/][^\\/]+$/, '');
+        await inv('remember_directories', { paths: [album] });
+        settings.pages = { ...settings.pages, 'directories-startup': { startup: 'previous' }, tools: { tools: [{ name: 'Help', path: program, parameters: '', for_each_file: false }], default_tool: -1 } };
         await inv('save_settings', { settings });
         const column = (id, name, value, width) => ({ id, name, value, field: value, sort_by: '', width, align: 'left', numeric: false, visible: true });
         await inv('save_columns', { layout: { version: 1, sort: [{ id: 'filename', ascending: true }], columns: [column('filename', 'Filename', '%_filename_ext%', 220), column('title', 'Title', '%title%', 175), column('help', 'Help', '%artist%', 120)] } });
@@ -245,7 +248,7 @@
     });
     if (unknown.size) await report(`INFO text without a catalog entry (${unknown.size}): ${[...unknown].slice(0, 60).join(' | ')}`);
   } catch (e) {
-    await report(`FATAL ${e && e.stack || e}`);
+    await report(`FATAL ${e && e.message || e} ${e && e.stack || ''}`);
   }
   await finish();
 })();
