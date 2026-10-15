@@ -79,6 +79,25 @@
       const c = (await read('sine-b.mp3')).COMMENT; if (!String(c).includes('Test Artist / Sine B')) throw new Error('disk COMMENT=' + JSON.stringify(c) + ' preview=' + preview); return 'COMMENT=' + c;
     });
 
+    await step('Filename -> Tag (Alt+2) skips a file that does not match and writes the rest', async () => {
+      await clickRow('sine-a.mp3'); document.body.focus(); key('a', { metaKey: true }); await sleep(300);
+      key('2', { altKey: true, code: 'Digit2' });
+      const dlg = await waitFor(() => document.querySelector('dialog[open] #template')?.closest('dialog'), 5000, 'Filename -> Tag dialog');
+      const input = dlg.querySelector('#template'); input.value = '%composer%-a'; input.dispatchEvent(new Event('input', { bubbles: true }));
+      dlg.querySelector('#preview-button').click();
+      const apply = await waitFor(() => !dlg.querySelector('#apply-converter').disabled && dlg.querySelector('#apply-converter'), 5000, 'preview');
+      const rowsShown = dlg.querySelectorAll('.preview > div').length, skipped = dlg.querySelectorAll('.preview > .no-match').length;
+      if (rowsShown !== 2 || skipped !== 1 || !/COMPOSER: sine/.test(dlg.querySelector('.preview').textContent) || apply.textContent !== 'Apply to 1 file') throw new Error(`preview rows=${rowsShown} skipped=${skipped} label=${apply.textContent} text=${dlg.querySelector('.preview').textContent}`);
+      apply.click(); await waitFor(() => /Converted filenames to tags/.test(status()) && !document.querySelector('footer.status.busy'), 8000, 'converted');
+      if (!/: 1 file, 1 didn't match/.test(status()) || document.querySelector('.errors')) throw new Error('status=' + status() + ' errors=' + document.querySelector('.errors')?.textContent);
+      const a = await read('sine-a.mp3'), b = await read('sine-b.mp3');
+      if (a.COMPOSER?.[0] !== 'sine' || b.COMPOSER) throw new Error(`disk A COMPOSER=${a.COMPOSER} B COMPOSER=${b.COMPOSER}`);
+      const done = status();
+      await undoReady('undo'); document.body.focus(); key('z', { metaKey: true }); await waitFor(() => /Undid/.test(status()), 8000, 'undo');
+      if ((await read('sine-a.mp3')).COMPOSER) throw new Error('undo left COMPOSER on A');
+      return done;
+    });
+
     await step('Options dialog opens with Cmd+O and lists pages', async () => {
       document.body.focus(); key('o', { metaKey: true });
       const dlg = await waitFor(() => document.querySelector('dialog[open] #options-ok') && document.querySelector('dialog[open]'), 5000, 'options dialog');

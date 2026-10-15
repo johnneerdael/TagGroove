@@ -566,13 +566,20 @@ fn guessing_pattern(pattern: &str) -> Result<(regex::Regex, Vec<String>), String
 
 /// Match an entire source string without filename extension or path processing.
 pub fn guess_values(source: &str, pattern: &str) -> Result<Fields, String> {
+    try_guess_values(source, pattern)?
+        .ok_or_else(|| "Source does not completely match the guessing pattern".into())
+}
+
+/// Like [`guess_values`], with a source that does not match the pattern as
+/// `None`: the action then leaves the file unchanged, like Mp3tag.
+pub fn try_guess_values(source: &str, pattern: &str) -> Result<Option<Fields>, String> {
     if source.len() > LIMIT {
         return Err("Guess Values input limit exceeded".into());
     }
     let (expression, names) = guessing_pattern(pattern)?;
-    let captures = expression
-        .captures(source)
-        .ok_or("Source does not completely match the guessing pattern")?;
+    let Some(captures) = expression.captures(source) else {
+        return Ok(None);
+    };
     let mut result = Fields::new();
     for (index, name) in names.into_iter().enumerate() {
         if name != "DUMMY" {
@@ -582,7 +589,7 @@ pub fn guess_values(source: &str, pattern: &str) -> Result<Fields, String> {
                 .push(captures[index + 1].into());
         }
     }
-    Ok(result)
+    Ok(Some(result))
 }
 
 fn decode_codepage(value: &str, codepage: &str) -> Result<String, String> {
@@ -843,7 +850,9 @@ where
             Ok(vec![])
         }
         ActionSpec::GuessValues { source, pattern } => {
-            let result = guess_values(&evaluate(source, state)?, pattern)?;
+            let Some(result) = try_guess_values(&evaluate(source, state)?, pattern)? else {
+                return Ok(vec![]);
+            };
             let mut effects = Vec::new();
             let mut fields = state.fields.clone();
             for (name, values) in result {
@@ -2384,6 +2393,30 @@ mod tests {
         let fields = guess_values("A + B", "%artist% + %artist%").unwrap();
         assert_eq!(fields["ARTIST"], ["A", "B"]);
         assert!(guess_values("anything", "%artist%%title%").is_err());
+    }
+    #[test]
+    fn guess_values_leaves_fields_unchanged_when_the_source_does_not_match() {
+        let mut state = state();
+        state
+            .fields
+            .insert("TITLE".into(), vec!["No separator".into()]);
+        let before = state.fields.clone();
+        let effects = apply_action_spec(
+            &mut state,
+            &ActionSpec::GuessValues {
+                source: "%title%".into(),
+                pattern: "%artist% / %title%".into(),
+            },
+        )
+        .unwrap();
+        assert!(effects.is_empty());
+        assert_eq!(state.fields, before);
+        assert_eq!(
+            try_guess_values("No separator", "%artist% / %title%").unwrap(),
+            None
+        );
+        // An invalid pattern is still an error.
+        assert!(try_guess_values("A B", "%artist%%title%").is_err());
     }
     #[test]
     fn guess_source_and_target_can_reference_same_field() {
