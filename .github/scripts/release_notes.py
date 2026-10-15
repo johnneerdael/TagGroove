@@ -176,7 +176,7 @@ def render_release_notes(repo: str, commits: list[Commit], pull_requests: PullLo
                 section = release_section(body)
                 if commit.sha in required_shas and section is None:
                     raise ValueError(f"Merged PR #{number} must include a ## Release notes section.")
-                text = validate_release_notes(body) if section is not None else historical_description(body)
+                text = validate_release_notes(body) if commit.sha in required_shas else historical_description(body)
                 title = " ".join(str(pr["title"]).splitlines())
                 parts.append(f"### {title} ([#{number}](https://github.com/{repo}/pull/{number}))")
                 if text:

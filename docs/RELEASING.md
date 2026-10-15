@@ -1,10 +1,10 @@
 # Publishing OpenTag releases
 
-**Emergency review-first workflow:** use the new `reviewed-release.yml` path and follow [CI_LOCKDOWN.md](../.github/CI_LOCKDOWN.md). Legacy automatic workflows remain disabled. Application builds and publication require a completed clean Codex code review and immutable validation proof; direct bootstrap commits do not release. The historical workflow references below are being migrated separately.
+**Review-first workflow:** follow [CI_LOCKDOWN.md](../.github/CI_LOCKDOWN.md). Legacy automatic workflows remain disabled. Application builds and publication require a completed clean Codex code review and immutable validation proof; direct bootstrap commits do not release.
 
-`.github/workflows/release.yml` builds the same validated commit for five desktop targets, an Android arm64 APK, and an iOS arm64 simulator app. Only the final job can publish. It waits for every required build, verifies platform manifests and SHA256 hashes, creates or reuses an unpublished draft, uploads the complete asset set, verifies GitHub's asset digests, and then publishes.
+`.github/workflows/reviewed-release.yml` builds the same validated commit for five desktop targets, an Android arm64 APK, and an iOS arm64 simulator app. Only the final job can publish. It waits for every required build, verifies platform manifests and SHA256 hashes, creates or reuses an unpublished draft, uploads the complete asset set, verifies GitHub's asset digests, and then publishes.
 
-Every merge to `main` publishes a full GitHub release (not a prerelease) marked as the latest release, so testers can always download the newest build. Pre-1.0 releases say "Release (pre-1.0)" in their notes. Android and iOS packages are **UI previews**: document editing and save-back integration is still in progress. Desktop feature parity and remaining runtime qualification are recorded in [PARITY.md](PARITY.md).
+An authorized merge to `main` that changes shipping files publishes a full GitHub release (not a prerelease); only a newer full release becomes latest. Pre-1.0 releases say "Release (pre-1.0)" in their notes. Android and iOS packages are **UI previews**: document editing and save-back integration is still in progress. Desktop feature parity and remaining runtime qualification are recorded in [PARITY.md](PARITY.md).
 
 ## How versions are derived
 
@@ -16,7 +16,7 @@ For a push to `main`, the release version is `<major>.<minor>.<n>`, where `n` is
 
 Tauri computes the Android `versionCode` as `major * 1000000 + minor * 1000 + patch`, so the patch must stay below 1000. Preparation fails once `main` reaches 1000 merges for one base version; bump the minor version before then.
 
-Release runs share one serialized concurrency group with [`queue: max`](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency), so up to 100 runs wait their turn instead of the newest replacing the pending one. Every code merge, tag push and manual run therefore gets its own release, in roughly first-in-first-out order. GitHub does not guarantee that order, so a later merge can occasionally publish before an earlier one; the earlier one still publishes its own version but does not take "latest" from the newer release. If more than 100 runs are waiting, GitHub cancels the extras; rerun a cancelled merge's workflow to publish its version.
+Release runs share one serialized concurrency group with [`queue: max`](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency), so up to 100 runs wait their turn instead of the newest replacing the pending one. Authorized merged-PR release dispatches therefore retain their place in the release queue. GitHub does not guarantee that order, so a later merge can occasionally publish before an earlier one; the earlier one still publishes its own version but does not take "latest" from the newer release. If more than 100 runs are waiting, GitHub cancels the extras; rerun a cancelled merge's workflow to publish its version.
 
 ### Docs-only merges
 
@@ -40,30 +40,11 @@ git commit -am "release: start 0.3 series"
 
 Merging that commit to `main` publishes `v0.3.0`, and later merges publish `v0.3.1`, `v0.3.2`, and so on. Only increase the base version, and always reset the patch to `0`; preparation rejects a base such as `0.3.4`.
 
-### Explicit releases and prereleases
+### Explicit releases, prereleases and dry runs
 
-Explicit tags cannot use a number that automatic releases will take later. A tag must either equal `v` plus the base version, or carry a prerelease suffix:
+The reviewed workflow accepts only the merged PR number, reviewed full head SHA and merged source SHA. The trusted controller supplies those inputs after validating the merged source. Tag pushes do not trigger publication, and the workflow has no arbitrary-tag, branch or dry-run input. Do not re-enable the legacy workflow to restore those paths.
 
-```sh
-gh workflow run release.yml --ref main -f tag=v0.3.0-beta.1
-```
-
-A suffix such as `-beta.1` always publishes a prerelease, even if the `prerelease` input is false. Pushing the same tag on the intended landed commit also works:
-
-```sh
-git tag v0.3.0-beta.1 <release-commit>
-git push origin v0.3.0-beta.1
-```
-
-Running the workflow manually with an empty `tag` derives the automatic version for the selected commit, exactly like a push to `main`. That only publishes commits already on `main`, because a commit from another branch would claim a number that a later merge needs; use a suffixed tag for other branches.
-
-### Dry run
-
-The `dry_run` input resolves the version and tag, stamps a checkout and checks that `cargo metadata --locked` and `npm ci` accept the stamped files. It builds and publishes nothing:
-
-```sh
-gh workflow run release.yml --ref <branch> -F dry_run=true
-```
+The release script retains its explicit-tag and prerelease validation rules: an explicit tag must equal the base version or carry a prerelease suffix, and a suffix always denotes a prerelease. Those script capabilities are covered by local tests but are not exposed by the reviewed publication workflow. Use `node --test tests/release.test.mjs` to validate version planning and stamping without publishing.
 
 ## Publication rules
 
@@ -78,11 +59,11 @@ Do not move a published tag or overwrite a public release. Releases are idempote
 - A failed draft upload remains unpublished. Rerunning the failed jobs reuses the plan from the original run and updates the same draft. The final job may replace stale assets only on a draft for that exact commit.
 - A rerun of an older run never takes "latest" from a newer published release.
 
-Release runs are serialized so a manual run, a tag push and a merge cannot race one another on a draft, a tag or "latest".
+Release runs are serialized so authorized dispatches and reruns cannot race one another on a draft, a tag or "latest".
 
 ## Release notes
 
-Every PR must contain substantive `## Release notes` describing the final public behavior, or a concrete `Internal:` explanation for documentation, tests or CI. Keep test results in `## Validation`. The trusted review controller validates the live PR body and publishes a separate required `Release notes` status. See [CONTRIBUTING.md](CONTRIBUTING.md) for review and repository setup.
+Every PR must contain substantive `## Release notes` describing the final public behavior, or a concrete `Internal:` explanation for documentation, tests or CI. Keep test results in `## Validation`. The trusted review controller validates the live PR body and publishes a separate `Release notes` status and blocks reviewed validation when notes are invalid. See [CONTRIBUTING.md](CONTRIBUTING.md) for review and repository setup.
 
 The publisher collects the public note sections from merged PRs on the first-parent range since the previous published release. It includes intervening docs-only merges, deduplicates PRs and links their source. Draft or unpublished tags do not truncate the range. Later PRs without the required section, invalid placeholders and GitHub API failures stop publication rather than falling back to commit titles. PRs at or before the full SHA in `.github/release-notes-baseline` may use a sanitized historical description; direct commits retain their actual subject and explanation. The collector treats PR text as data and never executes it.
 
@@ -132,7 +113,7 @@ Before committing workflow changes:
 ```sh
 node --test tests/release.test.mjs
 python3 -m unittest discover -s .github/scripts/tests -v
-actionlint -ignore 'unexpected key "queue" for "concurrency" section' .github/workflows/release.yml
+actionlint -ignore 'unexpected key "queue" for "concurrency" section' .github/workflows/*.yml
 ```
 
 actionlint 1.7.12 does not yet recognise the documented `concurrency.queue` key ([rhysd/actionlint#654](https://github.com/rhysd/actionlint/issues/654)); the flag ignores only that error.
@@ -142,7 +123,7 @@ The script tests cover automatic version derivation from a real git history (mer
 Inspect the actual workflow run and release after publication:
 
 ```sh
-gh run list --workflow release.yml
+gh run list --workflow reviewed-release.yml
 gh release view v0.1.0
 gh release download v0.1.0 --dir release-verification
 ```

@@ -75,6 +75,18 @@ class GenerationTests(unittest.TestCase):
         self.assertIn('/commit/' + 'b' * 40, result)
         self.assertNotIn('Tests passed', result)
 
+    def test_legacy_placeholder_section_does_not_apply_post_baseline_validation(self):
+        commit = self.notes.Commit('a' * 40, 'Merge old PR', '')
+        for legacy in ('N/A', 'TODO', '[Describe the changes]'):
+            with self.subTest(legacy=legacy):
+                historical = dict(number=1, title='Old change', merged_at='now',
+                                  body=f'## Summary\nKeep the selected album.\n## Release notes\n{legacy}\n## Validation\nPrivate results.')
+                result = self.notes.render_release_notes('owner/repo', [commit], lambda sha: [historical], set())
+                self.assertIn('Keep the selected album.', result)
+                self.assertNotIn('Private results', result)
+                with self.assertRaises(ValueError):
+                    self.notes.render_release_notes('owner/repo', [commit], lambda sha: [historical], {commit.sha})
+
     def test_first_parent_range_keeps_docs_only_changes_and_excludes_feature_commits(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
