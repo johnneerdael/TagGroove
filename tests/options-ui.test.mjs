@@ -36,6 +36,9 @@ test('validation names the page that needs attention',()=>{
   assert.equal(ui.validateOptions(draft(d=>{d.tags.mpeg.write_id3v1=d.tags.mpeg.write_id3v2=false;})).page,'tags-mpeg');
   assert.equal(ui.validateOptions(draft(d=>{d.tags.ape.write_ape=false;})).page,'tags-ape');
   assert.equal(ui.validateOptions(draft(d=>{d.files.restrict_extensions='*.mp3;../x';})).page,'files');
+  assert.equal(ui.validateOptions(draft(d=>{d.files.folder_separator='/';})).page,'files');
+  assert.equal(ui.validateOptions(draft(d=>{d.files.folder_separator='';})),undefined);
+  assert.equal(ui.validateOptions(draft(d=>{d.files.folder_separator=' - ';})),undefined);
   const custom=[{id:'custom',label:'Custom',controls:[],validate:d=>d.pages.custom?.ok?undefined:'Needs ok'}];
   assert.deepEqual(ui.validateOptions(draft(),custom),{page:'custom',message:'Needs ok'});
 });

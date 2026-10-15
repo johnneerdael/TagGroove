@@ -33,6 +33,22 @@ export function panelKey(entry:{format:string;fields:Record<string,string[]>},ke
   if(key==='YEAR')return existing('YEAR')||existing('DATE')||(vorbis?'DATE':'YEAR');
   return existing(key)||key;
 }
+const mac=()=>/Mac|iPhone|iPad/.test(navigator.platform);
+export type ActionListKey='new'|'remove'|'toggle'|'enable-all'|'disable-all'|'save'|'up'|'down'|'top'|'bottom';
+/** Keys of the action group and action lists (docs keyboard → Actions): Insert and Delete
+ * (⌫ on Mac keyboards), Space, Ctrl+E/D/S (⌘ on macOS) and Alt+↑/↓/Page Up/Page Down. */
+export function actionListKey(event:{key:string;ctrlKey:boolean;metaKey:boolean;shiftKey:boolean;altKey:boolean},mac:boolean):ActionListKey|undefined{
+  const primary=mac?event.metaKey:event.ctrlKey,other=mac?event.ctrlKey:event.metaKey,key=event.key.length===1?event.key.toLowerCase():event.key;
+  if(event.altKey){
+    if(primary||other||event.shiftKey)return undefined;
+    return ({ArrowUp:'up',ArrowDown:'down',PageUp:'top',PageDown:'bottom'} as Record<string,ActionListKey>)[key];
+  }
+  if(event.shiftKey||other)return undefined;
+  if(primary)return key==='e'?'enable-all':key==='d'?'disable-all':key==='s'?'save':undefined;
+  if(key==='Insert')return 'new';
+  if(key==='Delete'||(mac&&key==='Backspace'))return 'remove';
+  return key===' '?'toggle':undefined;
+}
 export function moveItem<T>(items:T[],from:number,to:number):T[]{
   if(from<0||to<0||from>=items.length||to>=items.length)throw new Error('Item index is out of range.');
   const result=[...items],item=result.splice(from,1)[0];result.splice(to,0,item);return result;
@@ -72,6 +88,11 @@ export function resolvePathChanges(paths:string[],renamed:{from:string;to:string
   const exact=new Map(renamed.map(rename=>[rename.from,rename.to]));
   const rebase=(path:string)=>directories.reduce((current,move)=>{const from=move.from.replace(/[\\/]+$/,''),to=move.to.replace(/[\\/]+$/,'');if(current===from)return to;if(current.startsWith(from)&&(current[from.length]==='/'||current[from.length]==='\\'))return to+current.slice(from.length);return current;},path);
   return new Map(paths.map(path=>[path,exact.get(path)||rebase(path)] as [string,string]).filter(([from,to])=>from!==to));
+}
+/** List folders after folder renames that changed only the letter case: on case-insensitive volumes they are still the listed folders. */
+export function rebaseCaseOnly(folders:string[],directories:{from:string;to:string}[]){
+  const changes=resolvePathChanges(folders,[],directories.filter(move=>move.from!==move.to&&move.from.toLowerCase()===move.to.toLowerCase()));
+  return folders.map(folder=>changes.get(folder)??folder);
 }
 const title=(action:ActionSpec)=>actionCatalog.find(([key])=>key===action.type)?.[1]||'Unresolved imported action';
 const coverTypes:[string,string][]=[['Other','Other'],['Icon','File icon'],['OtherIcon','Other file icon'],['CoverFront','Front Cover'],['CoverBack','Back Cover'],['Leaflet','Leaflet'],['Media','Media'],['LeadArtist','Lead artist'],['Artist','Artist'],['Conductor','Conductor'],['Band','Band or orchestra'],['Composer','Composer'],['Lyricist','Lyricist'],['RecordingLocation','Recording location'],['DuringRecording','During recording'],['DuringPerformance','During performance'],['ScreenCapture','Screen capture'],['BrightFish','A bright colored fish'],['Illustration','Illustration'],['BandLogo','Band logo'],['PublisherLogo','Publisher logo']];
@@ -221,6 +242,17 @@ export class ActionUI {
       content.querySelectorAll<HTMLButtonElement>('[data-command]').forEach(button=>button.addEventListener('click',event=>command(button.dataset.command!,event.altKey)));
     };
     const rename=()=>{if(index<0)return;nameDialog('Rename action group',draft.groups[index].name,name=>{draft=renameGroup(draft,index,name);});};
+    el.addEventListener('keydown',event=>{
+      const target=event.target as Element,inList=!!target.closest?.('.group-list'),key=working?undefined:actionListKey(event,mac());
+      if(!key||(!inList&&!['enable-all','disable-all','save'].includes(key))||(key==='toggle'&&target instanceof HTMLInputElement))return;
+      event.preventDefault();event.stopPropagation();
+      if(key==='save'){if(dirty)void run(persist);return;}
+      if(key==='enable-all'||key==='disable-all'){draft.groups.forEach(group=>group.enabled=key==='enable-all');mark();}
+      else if(key==='toggle'){if(index<0)return;draft.groups[index].enabled=!draft.groups[index].enabled;mark();}
+      else if(key==='new'||key==='remove')command(key);
+      else command(key==='up'||key==='top'?'up':'down',key==='top'||key==='bottom');
+      if(inList&&el.open)content.querySelector<HTMLElement>(`[data-group-row="${index}"]`)?.focus();
+    });
     const editGroup=(actionIndex=0)=>{
       if(index<0)return;const group=draft.groups[index],groupDraft=clone(group);let selectedAction=Math.min(actionIndex,groupDraft.actions.length-1);
       const child=dialog(`Actions — ${group.name}`,'','<button data-close>Cancel</button><button class="primary" data-keep>Keep group</button>');child.classList.add('group-editor-dialog');
@@ -229,10 +261,20 @@ export class ActionUI {
         child.querySelectorAll<HTMLButtonElement>('[data-command]').forEach(button=>button.addEventListener('click',event=>{const command=button.dataset.command;if(command==='new')this.editAction(undefined,action=>{groupDraft.actions.push(action);selectedAction=groupDraft.actions.length-1;draw();});if(command==='edit')edit();if(command==='duplicate'){groupDraft.actions.splice(selectedAction+1,0,clone(groupDraft.actions[selectedAction]));selectedAction++;draw();}if(command==='remove'){groupDraft.actions.splice(selectedAction,1);selectedAction=Math.min(selectedAction,groupDraft.actions.length-1);draw();}if(command==='up'||command==='down'){const target=event.altKey?(command==='up'?0:groupDraft.actions.length-1):selectedAction+(command==='up'?-1:1);groupDraft.actions=moveItem(groupDraft.actions,selectedAction,target);selectedAction=target;draw();}}));
       };
       const edit=()=>{if(selectedAction>=0)this.editAction(groupDraft.actions[selectedAction],action=>{groupDraft.actions[selectedAction]=action;draw();});};
-      child.querySelector('[data-close]')!.addEventListener('click',()=>child.close());child.querySelector('[data-keep]')!.addEventListener('click',()=>{draft.groups[index]=groupDraft;mark();child.close();});child.addEventListener('keydown',event=>{if(event.key==='F4'){event.preventDefault();edit();}});draw();
+      const commandButton=(name:string,extreme=false)=>child.querySelector<HTMLButtonElement>(`[data-command="${name}"]:not(:disabled)`)?.dispatchEvent(new MouseEvent('click',{altKey:extreme}));
+      child.querySelector('[data-close]')!.addEventListener('click',()=>child.close());child.querySelector('[data-keep]')!.addEventListener('click',()=>{draft.groups[index]=groupDraft;mark();child.close();});
+      child.addEventListener('keydown',event=>{
+        if(event.key==='F4'){event.preventDefault();edit();return;}
+        const command=(event.target as Element).closest?.('.action-edit-list')||event.key==='Insert'?actionListKey(event,mac()):undefined;
+        if(!command||!['new','remove','up','down','top','bottom'].includes(command))return;
+        event.preventDefault();event.stopPropagation();
+        commandButton(command==='top'?'up':command==='bottom'?'down':command,command==='top'||command==='bottom');
+        child.querySelector<HTMLElement>(`[data-action-index="${selectedAction}"]`)?.focus();
+      });draw();
     };
     const command=(name:string,extreme=false)=>{
       window.clearTimeout(renameTimer);
+      if((name==='up'&&index<=0)||(name==='down'&&(index<0||index>=draft.groups.length-1)))return;
       if(name==='new')nameDialog('New action group','',value=>{if(draft.groups.some(g=>g.name.toLocaleLowerCase()===value.toLocaleLowerCase()))throw new Error('An action group already has this name.');draft.groups.push({name:value,enabled:true,actions:[]});index=draft.groups.length-1;});
       if(name==='duplicate'&&index>=0)nameDialog('Duplicate action group',copyName(draft.groups[index].name,draft.groups),value=>{const group=clone(draft.groups[index]);if(draft.groups.some(g=>g.name.toLocaleLowerCase()===value.toLocaleLowerCase()))throw new Error('An action group already has this name.');group.name=value;draft.groups.push(group);index=draft.groups.length-1;});
       if(name==='rename')rename();

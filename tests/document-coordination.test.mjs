@@ -10,7 +10,7 @@ const helper=await readFile(new URL('../src/document-state.ts',import.meta.url),
 // The cover window markup comes from the real cover modules (without their stylesheet).
 const coverModules=(await Promise.all(['cover-model','covers'].map(name=>readFile(new URL(`../src/${name}.ts`,import.meta.url),'utf8')))).map(source=>source.replace(/^import .*$/gm,'').replace(/\bexport /g,'')).join('\n');
 const parsed=ts.createSourceFile('main.ts',main,ts.ScriptTarget.Latest,true,ts.ScriptKind.TS);
-const names=new Set(['updateDraft','run','refreshHistory','saveDrafts','saveCopy','value','accept','operateImpl','refreshSourceAccess','providerEntry','copyBaseUnknown','editedCopyFields','discardDrafts','mutate','reconcileWorkingEntries','storeEntry','invalidateCovers','cacheCovers','coversFor','hydrateActiveCover','coverMarkup','sourceMarkup','workingMetadataNotice','flushNotices']);
+const names=new Set(['updateDraft','run','refreshHistory','saveDrafts','saveCopy','value','accept','operateImpl','refreshSourceAccess','providerEntry','copyBaseUnknown','editedCopyFields','discardDrafts','mutate','reconcileWorkingEntries','storeEntry','invalidateCovers','cacheCovers','coversFor','pendingCoverInfos','hydrateActiveCover','coverMarkup','sourceMarkup','workingMetadataNotice','flushNotices']);
 const mergedDeclaration=parsed.statements.filter(ts.isVariableStatement).flatMap(statement=>statement.declarationList.declarations).find(declaration=>declaration.name.getText(parsed)==='merged');
 const functions=parsed.statements.filter(node=>ts.isFunctionDeclaration(node)&&names.has(node.name?.text)).map(node=>node.getText(parsed)).join('\n');
 const factory=`${helper.replace(/\bexport /g,'')}
@@ -26,6 +26,8 @@ export function createWorkspace(initial, options={}) {
   const coverUI=new CoverUI({selection:()=>paths().map(path=>({path,covers:workingReadErrors.has(path)?[]:entries.get(path).covers})),displayed:()=>({path:active()?.path,covers:coversFor(active()),index:coverIndex}),reason:()=>'',clipboard:()=>false,mac:false});
   const makeEntry=(path,fields)=>({path,filename:path,format:'WAV',duration:1,bitrate:1411,sample_rate:44100,channels:2,size:44,fields:structuredClone(fields),technical:{},covers:structuredClone(workingCovers)});
   const entries=new Map([[path,makeEntry(path,initial)]]),drafts=new Map(),copyOverrides=new Map(),selected=new Set([path]);
+  // Pasted covers and the folder-image fallback (list-behaviour) stay idle for provider documents.
+  const pendingCovers=new Map(),clipCovers=new Map(),clipImages=new Map(),folderImageFor=()=>undefined;
   const ready={uri:'content://provider/audio',name:path,writable:true,persisted:true,state:'ready',error:null};
   let documentAccess={states:{[path]:ready},refreshError:null}, nativeState=ready, refreshFails=!!options.refreshFails;
   const runtimePlatform={document_access_supported:options.provider!==false};

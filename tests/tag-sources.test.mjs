@@ -4,7 +4,7 @@ import {readFile} from 'node:fs/promises';
 import ts from 'typescript';
 const source = await readFile(new URL('../src/tag-sources.ts', import.meta.url), 'utf8');
 const javascript = ts.transpileModule(source, {compilerOptions: {target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022}}).outputText;
-const {autoMatch, buildApplyItems, discToc, duration, editField, fieldRows, isFreedb, moveSlot, nextTicket, normalizeTitle, providerName, searchPrefill, similarity, splitValues, suggestByLength, suggestByTitle, tagSourcesOptionsPages} = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);
+const {autoMatch, buildApplyItems, discToc, duration, editField, fieldRows, isFreedb, moveSlot, moveSlotTo, nextTicket, normalizeTitle, providerName, searchPrefill, similarity, splitValues, suggestByLength, suggestByTitle, tagSourcesOptionsPages} = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);
 
 const file = (path, values = {}) => ({path, name: `${path}.flac`, title: '', artist: '', album: '', album_artist: '', track: '', disc: '', length: 200, ...values});
 const track = (disc, number, title, fields = {}) => ({position: String(number), disc, number, title, artist: 'Artist', length: 200, fields: {TITLE: [title], TRACK: [`${number}/3`], ...fields}});
@@ -51,6 +51,9 @@ test('auto-match does not trust ambiguous numbers', () => {
 test('moving swaps neighbours and ignores moves past the ends', () => {
   assert.deepEqual(moveSlot(['a', 'b', null], 0, 1), ['b', 'a', null]);
   assert.deepEqual(moveSlot(['a', 'b', null], 1, 1), ['a', null, 'b']);
+  assert.deepEqual(moveSlotTo(['a', 'b', 'c', null], 2, 0), ['c', 'a', 'b', null], 'Alt+Page Up keeps the order of the other files');
+  assert.deepEqual(moveSlotTo(['a', 'b', 'c', null], 0, 3), ['b', 'c', null, 'a'], 'Alt+Page Down');
+  assert.deepEqual(moveSlotTo(['a', 'b'], 0, 5), ['a', 'b']);
   const slots = ['a', 'b'];
   assert.deepEqual(moveSlot(slots, 0, -1), ['a', 'b']);
   assert.deepEqual(moveSlot(slots, 1, 1), ['a', 'b']);

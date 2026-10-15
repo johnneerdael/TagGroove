@@ -163,6 +163,8 @@ fn explicit_dialog_filename_override_and_encoding_bom_are_separate() {
         encode_export_document(&doc, Some("windows-1252")).unwrap(),
         b"Bj\xf6rk ?"
     );
+    // macOS and Linux have no ANSI codepage: Windows-1252, as for playlists.
+    assert_eq!(encode_export_document(&doc, None).unwrap(), b"Bj\xf6rk ?");
 }
 
 #[test]
@@ -502,7 +504,12 @@ fn mte_decoding_supports_boms_and_explicit_legacy_codepages() {
         tag_core::decode_export_template(b"Bj\xf6rk", Some("1252")).unwrap(),
         "Björk"
     );
-    assert!(tag_core::decode_export_template(b"Bj\xf6rk", None).is_err());
+    // Without a system ANSI codepage, legacy configurations are Windows-1252.
+    assert_eq!(
+        tag_core::decode_export_template(b"Bj\xf6rk \x80", None).unwrap(),
+        "Björk €"
+    );
+    assert!(tag_core::decode_export_template(b"Bj\x81", Some("932")).is_err());
 }
 
 #[test]

@@ -392,7 +392,7 @@ pub(super) fn remove_tags(
     staged_write(
         path,
         include_cover_data,
-        &[],
+        &options.mappings,
         options,
         |staging, original, staged| {
             let (mut asf, size) = open(original)?;
@@ -443,7 +443,7 @@ pub(super) fn change_pictures(
     staged_write(
         path,
         include_cover_data,
-        &[],
+        &options.mappings,
         options,
         |staging, original, staged| {
             let (mut asf, size) = open(original)?;

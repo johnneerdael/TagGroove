@@ -1,0 +1,17 @@
+/* Extended Tags dialog: fields on the left, the cover window on the right. */
+.extended-dialog{width:780px}
+.extended-layout{display:grid;grid-template-columns:minmax(0,1fr) 200px;gap:18px;align-items:start}
+.extended-cover.cover-section{border-top:0;border-left:1px solid var(--line);padding:0 0 0 16px;position:sticky;top:0}
+.extended-cover .cover-row{flex-direction:column;align-items:flex-start}
+.extended-cover .cover-art{width:168px;height:168px}
+.extended-cover .cover-info span,.extended-cover .cover-info strong{max-width:168px}
+.extended-cover .cover-controls{flex-wrap:wrap}
+.extended-dialog .dialog-footer .extended-nav{order:-1;min-width:44px}
+.extended-dialog .dialog-footer .extended-nav[data-nav="1"]{margin-right:auto}
+.extended-dialog .dialog-footer .extended-nav[hidden]{display:none}
+@media(max-width:700px){
+  .extended-layout{grid-template-columns:minmax(0,1fr)}
+  .extended-cover.cover-section{border-left:0;border-top:1px solid var(--line);padding:12px 0 0;position:static}
+  .extended-cover .cover-row{flex-direction:row}
+  .extended-cover .cover-art{width:96px;height:96px}
+}

@@ -131,19 +131,19 @@ fn id3v2_padding_writes_never_modify_a_hard_linked_original() {
 fn wav_id3_chunk_is_rewritten_in_place() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("song.wav");
-    // Without the encoder INFO chunk, only the ID3 chunk holds tags.
+    // Without the encoder INFO chunk, and with a field that has no RIFF id,
+    // only the ID3 chunk holds tags.
     if !ffmpeg(&["-fflags", "+bitexact", "-flags:a", "+bitexact"], &path) {
         return;
     }
-    write_fields(&path, &fields(&[("TITLE", "First")])).unwrap();
+    write_fields(&path, &fields(&[("COMPOSER", "First")])).unwrap();
     let before = fs::read(&path).unwrap();
-    write_fields(&path, &fields(&[("TITLE", "A longer second title")])).unwrap();
+    write_fields(&path, &fields(&[("COMPOSER", "A longer second composer")])).unwrap();
     let after = fs::read(&path).unwrap();
     assert_eq!(after.len(), before.len());
-    assert_eq!(
-        read_entry(&path).unwrap().fields["TITLE"],
-        ["A longer second title"]
-    );
+    let entry = read_entry(&path).unwrap();
+    assert_eq!(entry.fields["COMPOSER"], ["A longer second composer"]);
+    assert_eq!(entry.technical["_TAG"], ["ID3v2.4"]);
     decodes(&path);
 }
 

@@ -4,6 +4,7 @@
 //! ("HH:MM:SS.mmm Title") with `_SUBSONG_COUNT`, like Mp3tag's subsong fields.
 //! Utils → Strip chapters MP4 turns every chapter box into a `free` box of the
 //! same size, so no sample offset moves and the media is never rewritten.
+//! The same box reader supplies the `mvhd` timestamps and video properties.
 use super::*;
 use std::{
     io::{Read, Write},
@@ -328,6 +329,150 @@ pub(super) fn technical(path: &Path) -> Fields {
             .collect(),
     );
     fields
+}
+
+/// Seconds between the MP4 epoch (1904-01-01) and the Unix epoch.
+const MP4_EPOCH_OFFSET: i64 = 2_082_844_800;
+
+/// `_MP4_CREATION_TIME` and `_MP4_MODIFICATION_TIME` (with `_RAW` Unix
+/// seconds) from `mvhd`, and `_VIDEO_*` from the first video track. Values
+/// that cannot be read are left out.
+pub(super) fn header_technical(path: &Path) -> Fields {
+    let mut fields = Fields::new();
+    // A malformed box only hides the values after it.
+    let _ = header_fields(path, &mut fields);
+    fields
+}
+
+fn video_codec(kind: &[u8]) -> String {
+    match kind {
+        b"avc1" | b"avc3" => "H.264".into(),
+        b"hvc1" | b"hev1" => "H.265".into(),
+        b"mp4v" => "MPEG-4 Visual".into(),
+        b"av01" => "AV1".into(),
+        b"vp08" => "VP8".into(),
+        b"vp09" => "VP9".into(),
+        b"s263" | b"h263" => "H.263".into(),
+        b"jpeg" | b"mjpa" | b"mjpb" => "Motion JPEG".into(),
+        b"apcn" | b"apch" | b"apcs" | b"apco" | b"ap4h" | b"ap4x" => "Apple ProRes".into(),
+        other => String::from_utf8_lossy(other).trim().to_owned(),
+    }
+}
+
+fn header_fields(path: &Path, fields: &mut Fields) -> Result<(), String> {
+    let mut file = fs::File::open(path).map_err(|e| e.to_string())?;
+    let length = file.metadata().map_err(|e| e.to_string())?.len();
+    let Some(moov) = atoms(&mut file, 0..length)?
+        .into_iter()
+        .find(|a| &a.kind == b"moov")
+    else {
+        return Ok(());
+    };
+    let top = atoms(&mut file, moov.body..moov.end)?;
+    if let Some(mvhd) = top.iter().find(|a| &a.kind == b"mvhd") {
+        let bytes = body(&mut file, mvhd)?;
+        let (created, modified) = if bytes.first() == Some(&1) {
+            (be64(&bytes, 4), be64(&bytes, 12))
+        } else {
+            (
+                be32(&bytes, 4).map(u64::from),
+                be32(&bytes, 8).map(u64::from),
+            )
+        };
+        for (name, value) in [
+            ("_MP4_CREATION_TIME", created),
+            ("_MP4_MODIFICATION_TIME", modified),
+        ] {
+            // Zero means "not set"; it is not a 1904 date.
+            if let Some(seconds) = value.filter(|v| *v > 0).and_then(|v| i64::try_from(v).ok()) {
+                technical::datetime(fields, name, seconds - MP4_EPOCH_OFFSET);
+            }
+        }
+    }
+    for trak in top.iter().filter(|a| &a.kind == b"trak") {
+        let Some(mdia) = child(&mut file, trak, b"mdia")? else {
+            continue;
+        };
+        let Some(hdlr) = child(&mut file, &mdia, b"hdlr")? else {
+            continue;
+        };
+        if body(&mut file, &hdlr)?.get(8..12) != Some(b"vide") {
+            continue;
+        }
+        let tkhd = match child(&mut file, trak, b"tkhd")? {
+            Some(tkhd) => body(&mut file, &tkhd)?,
+            None => Vec::new(),
+        };
+        let stbl = match child(&mut file, &mdia, b"minf")? {
+            Some(minf) => child(&mut file, &minf, b"stbl")?,
+            None => None,
+        };
+        let table = |file: &mut fs::File, kind: &[u8; 4]| -> Result<Option<Vec<u8>>, String> {
+            match &stbl {
+                Some(stbl) => child(file, stbl, kind)?
+                    .map(|atom| body(file, &atom))
+                    .transpose(),
+                None => Ok(None),
+            }
+        };
+        let stsd = table(&mut file, b"stsd")?.unwrap_or_default();
+        if let Some(kind) = stsd.get(12..16) {
+            fields.insert("_VIDEO_CODEC".into(), vec![video_codec(kind)]);
+        }
+        // The visual sample entry's size, else the track header's 16.16 size.
+        let sample = |at: usize| {
+            stsd.get(at..at + 2)
+                .map(|b| u32::from(u16::from_be_bytes([b[0], b[1]])))
+        };
+        let header = |back: usize| {
+            tkhd.len()
+                .checked_sub(back)
+                .and_then(|at| be32(&tkhd, at))
+                .map(|fixed| fixed >> 16)
+        };
+        for (name, value) in [
+            ("_VIDEO_WIDTH", sample(40).filter(|v| *v > 0).or(header(8))),
+            ("_VIDEO_HEIGHT", sample(42).filter(|v| *v > 0).or(header(4))),
+        ] {
+            if let Some(value) = value.filter(|v| *v > 0) {
+                fields.insert(name.into(), vec![value.to_string()]);
+            }
+        }
+        let mdhd = match child(&mut file, &mdia, b"mdhd")? {
+            Some(mdhd) => body(&mut file, &mdhd)?,
+            None => Vec::new(),
+        };
+        let (scale, duration) = if mdhd.first() == Some(&1) {
+            (be32(&mdhd, 20), be64(&mdhd, 24))
+        } else {
+            (be32(&mdhd, 12), be32(&mdhd, 16).map(u64::from))
+        };
+        if let (Some(scale), Some(duration), Some(stsz)) = (
+            scale.filter(|s| *s > 0),
+            duration.filter(|d| *d > 0),
+            table(&mut file, b"stsz")?,
+        ) {
+            let count = u64::from(be32(&stsz, 8).unwrap_or(0));
+            let bytes = match be32(&stsz, 4).unwrap_or(0) {
+                0 => stsz
+                    .get(12..)
+                    .unwrap_or_default()
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
+                    .map(|size| u64::from(u32::from_be_bytes(*size)))
+                    .sum(),
+                uniform => u64::from(uniform) * count,
+            };
+            let seconds = duration as f64 / f64::from(scale);
+            let kbps = (bytes as f64 * 8.0 / seconds / 1000.0).round() as u64;
+            if kbps > 0 {
+                fields.insert("_VIDEO_BITRATE".into(), vec![kbps.to_string()]);
+            }
+        }
+        break;
+    }
+    Ok(())
 }
 
 /// Turn the chapter boxes of `original` into `free` boxes in `staging` and

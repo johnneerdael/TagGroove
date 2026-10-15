@@ -47,7 +47,7 @@ export function completion(typed:string,candidates:Iterable<string>):string|unde
  * Complete `input` after the user typed at its end: the suggested rest is
  * selected, so typing on replaces it and Backspace removes it.
  */
-export function completeInput(input:HTMLInputElement,event:Event,candidates:()=>Iterable<string>){
+export function completeInput(input:HTMLInputElement|HTMLTextAreaElement,event:Event,candidates:()=>Iterable<string>){
   const kind=(event as InputEvent).inputType;
   if(!kind||!kind.startsWith('insert')||kind==='insertFromPaste'||input.selectionStart!==input.value.length)return false;
   const value=completion(input.value,candidates());if(!value)return false;

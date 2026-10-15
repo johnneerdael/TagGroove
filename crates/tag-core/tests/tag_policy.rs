@@ -148,7 +148,7 @@ fn mpeg_reads_display_one_enabled_tag_kind_by_priority() {
         !entry.fields.contains_key("YEAR"),
         "ID3v1 values are not merged"
     );
-    assert_eq!(entry.technical["_TAG_READ"], ["APE"]);
+    assert_eq!(entry.technical["_TAG_READ"], ["APEv2"]);
     let mut options = TagOptions::default();
     options.mpeg.read_ape = false;
     let entry = read_entry_with_options(&path, &[], &options).unwrap();
@@ -709,7 +709,7 @@ fn encoded_mp3_and_wavpack_policies_keep_audio_packets() {
     let path = encode("encoded.wv", "wavpack");
     let before = packet_hashes(&path);
     let entry = write_fields(&path, &fields(&[("Title", &["Pack"])])).unwrap();
-    assert_eq!(entry.technical["_TAG_READ"], ["APE"]);
+    assert_eq!(entry.technical["_TAG_READ"], ["APEv2"]);
     let bytes = fs::read(&path).unwrap();
     assert!(
         &bytes[bytes.len() - 128..bytes.len() - 125] != b"TAG",

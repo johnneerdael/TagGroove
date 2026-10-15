@@ -14,7 +14,8 @@ export type TextImportRequest = {
 };
 export type FilenameConversionItem = {path: string; target: string; captures: Fields};
 export type TextImportItem = {path: string; selection_index: number; source_line: number; fields: Fields};
-export type ConverterPreview<Item> = {plan_token: string; items: Item[]};
+/** `source_path` is the text file read, after evaluating a format-string source. */
+export type ConverterPreview<Item> = {plan_token: string; items: Item[]; source_path?: string | null};
 type Attempt<Request> = {revision: number; request: Request; context: string};
 type Receipt<Request, Item> = {request: Request; planToken: string; items: Item[]; context: string; reviewedAt: number};
 const snapshot = <T>(value: T): T => JSON.parse(JSON.stringify(value));
