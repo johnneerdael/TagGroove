@@ -11,7 +11,7 @@
 import type {Translator} from './core';
 
 const ATTRIBUTES = ['title', 'aria-label', 'aria-description', 'aria-roledescription', 'aria-valuetext', 'placeholder', 'alt', 'label', 'data-hint', 'data-tooltip'];
-const SKIP = 'script,style,svg,textarea,[translate="no"],[contenteditable="true"]';
+const SKIP = 'script,style,svg,[translate="no"],[contenteditable="true"]';
 const BUTTON_INPUT = /^(button|submit|reset)$/i;
 
 type Shown = {source: string; shown: string};
@@ -73,6 +73,8 @@ export class DomTranslator {
   }
 
   private text(node: Text) {
+    // Textarea children define editable defaults; only their UI attributes translate.
+    if (node.parentElement?.closest('textarea')) return;
     const current = node.data;
     if (!/\p{L}/u.test(current)) return;
     const next = this.next(current, this.texts.get(node), node.parentElement);

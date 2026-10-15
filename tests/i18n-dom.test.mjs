@@ -40,6 +40,34 @@ function page(){
 const memory=()=>{const data=new Map();return{getItem:key=>data.get(key)??null,setItem:(key,value)=>data.set(key,value)};};
 
 for(const locale of ['de','nl']){
+  test(`${locale}: textarea attributes translate while editable text and values stay verbatim`,async()=>{
+    const p=page();
+    try{
+      p.body.innerHTML='<textarea id="template" aria-label="Export template" placeholder="Help">Help</textarea><textarea id="field" aria-label="Field value 1">Help</textarea><textarea translate="no" aria-label="Export template">Help</textarea>';
+      const template=p.body.querySelector('#template'),field=p.body.querySelector('#field');
+      template.value='Title';
+      const t=p.translate(locale);
+      assert.equal(template.getAttribute('aria-label'),t.t('Export template'));
+      assert.equal(template.placeholder,t.t('Help'));
+      assert.equal(field.getAttribute('aria-label'),t.t('Field value {index}',{index:1}));
+      assert.equal(template.textContent,'Help');assert.equal(template.defaultValue,'Help');assert.equal(template.value,'Title');
+      assert.equal(field.value,'Help');assert.equal(p.body.querySelector('[translate="no"]').getAttribute('aria-label'),'Export template');
+      field.setAttribute('aria-label','Field value 2');
+      field.firstChild.data='Title';
+      template.replaceChildren(p.window.document.createTextNode('Help'));
+      await p.window.happyDOM.waitUntilComplete();
+      assert.equal(field.getAttribute('aria-label'),t.t('Field value {index}',{index:2}));
+      assert.equal(field.textContent,'Title');assert.equal(field.defaultValue,'Title');assert.equal(field.value,'Title');
+      assert.equal(template.textContent,'Help');assert.equal(template.value,'Title');
+      p.body.insertAdjacentHTML('beforeend','<textarea id="added" aria-label="Export template">Help</textarea>');
+      await p.window.happyDOM.waitUntilComplete();
+      assert.equal(p.body.querySelector('#added').getAttribute('aria-label'),t.t('Export template'));
+      assert.equal(p.body.querySelector('#added').value,'Help');
+      p.translate('en');
+      assert.equal(template.getAttribute('aria-label'),'Export template');assert.equal(template.placeholder,'Help');
+      assert.equal(field.getAttribute('aria-label'),'Field value 2');assert.equal(field.value,'Title');assert.equal(template.value,'Title');
+    }finally{p.close();}
+  });
   test(`${locale}: cover descriptions and folder-image names stay verbatim while cover UI translates`,()=>{
     const p=page();
     try{
