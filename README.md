@@ -15,11 +15,13 @@ OpenTag is an independently written reconstruction of Mp3tag 3.36.1, built with 
 
 ## Status
 
-OpenTag is in **0.x prerelease**. The desktop editor covers most of Mp3tag's documented features, and every change runs through unit tests and headless UI suites on Linux, macOS and Windows. Nothing has been checked against the original program yet, so no area is certified as exact parity.
+OpenTag is at **0.x**, before 1.0. The desktop editor covers most of Mp3tag's documented features, and every change runs through unit tests and headless UI suites on Linux, macOS and Windows. Nothing has been checked against the original program yet, so no area is certified as exact parity.
 
 - [Parity ledger](docs/PARITY.md): what each area does today, with links to its evidence.
 - [Remaining gaps](docs/research/remaining-gaps.md): what is still open, by area and impact.
 - [Performance](docs/PERFORMANCE.md): measurements so far.
+
+A user guide with tutorials and recipes is being written and will be published at `https://johnneerdael.github.io/opentag/`.
 
 In progress on branches: more metadata sources (iTunes, Deezer, LRCLIB, Cover Art Archive, AcoustID, Last.fm, fanart.tv), gnudb compliance with remote text search, and wider compatibility with community `.src` web sources.
 
@@ -64,7 +66,7 @@ In progress on branches: more metadata sources (iTunes, Deezer, LRCLIB, Cover Ar
 
 ## Download
 
-Get installers from [GitHub Releases](https://github.com/johnneerdael/opentag/releases). Every release is marked **prerelease** while the [parity ledger](docs/PARITY.md) is open. Assets name their operating system and architecture and come with a checksum list. Windows builds are unsigned and macOS builds are ad-hoc signed, not notarized. See [release automation](docs/RELEASING.md) for targets, signing and publishing.
+Get installers from [GitHub Releases](https://github.com/johnneerdael/opentag/releases). 0.x versions are regular releases, labelled "Release (pre-1.0)", so the newest build is the one GitHub shows as latest. Only versions with a suffix such as `-beta.1` are published as prereleases. Parity is still incomplete; see the [parity ledger](docs/PARITY.md). Assets name their operating system and architecture and come with a checksum list. Windows builds are unsigned and macOS builds are ad-hoc signed, not notarized. See [release automation](docs/RELEASING.md) for targets, signing and publishing.
 
 ## Develop
 
