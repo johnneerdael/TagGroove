@@ -57,10 +57,10 @@
     return out;
   };
   // Catalog text still shown in English: translating it again would change it.
-  const leftovers = root => [...new Set(readable(root).filter(text => i18n().translate(text) !== text))];
+  const leftovers = root => [...new Set(readable(root).filter(text => i18n().translate(text) !== text && !i18n().translated(text)))];
   // English-looking text the catalogs do not know yet; reported for coverage, not a failure.
   const unknown = new Set();
-  const collectUnknown = root => { for (const text of readable(root)) if (text.length > 3 && /\b(the|and|of|to|with|for|files?|tags?|select|save|selected|field|value|cover|not|no)\b/i.test(text) && /^[\x20-\x7e…→—–·’“”‘]+$/.test(text)) unknown.add(text); };
+  const collectUnknown = root => { for (const text of readable(root)) if (text.length > 3 && /\b(the|and|of|to|with|for|files?|selected|field|value|not|is|are|when|this)\b/.test(text) && /^[\x20-\x7e…→—–·’“”‘]+$/.test(text)) unknown.add(text); };
 
   // Labels whose text no longer fits: compared with the same view in English.
   const SELECTORS = 'button, summary, label, legend, h2, th, header, [role="treeitem"], .menu-list > *, .field > span, p.menu-note';

@@ -15,6 +15,9 @@ const VERBATIM = /^(name|path|filename|fileName|location|outputPath|destination|
 
 // Key combinations as menus and tooltips show them: ⌘/Ctrl ⇧ S, Alt+Enter, Ctrl Num +.
 const SHORTCUT = /^(?:(?:⌘|⌥|⇧|⌃|⌫|Ctrl|Alt|Shift|Option|Cmd|Del|Num|Enter|Esc|Tab|Space|Page Up|Page Down|Home|End|Ins|F\d{1,2}|[A-Z0-9]|[←→↑↓+\/·]|,)[\s+/]*)+$/;
+/** Values with these names are counts: they only match digits, so "{count} file" never matches "Choose a file". */
+const NUMERIC = /^(length|count|size|total|done|restored|missing|unmatched|pending|saved|failed|skipped|selectedCount|tracks|discs|chapters|selected|shown|started|removed|files|n|i|index|position|lastHits|lastStored|max)\d*$/;
+const NUMBER = '(\\d(?:[\\d.,\\u00a0\\u202f\' ]*\\d)?)';
 export const normalize = (text: string) => text.replace(/\s+/g, ' ').trim();
 
 type Node = string | {name: string} | {name: string; plural: [string, Node[]][]};
@@ -121,7 +124,7 @@ export class Translator {
       const literal = normalized.replace(PLACEHOLDER, '');
       // Keys that are mostly values ("{name}…") would match nearly any text.
       if (!/\p{L}{2,}/u.test(literal)) continue;
-      const source = normalized.split(PLACEHOLDER).map((part, i) => i % 2 ? '([\\s\\S]*?)' : escapeRegex(part)).join('');
+      const source = normalized.split(PLACEHOLDER).map((part, i) => i % 2 ? NUMERIC.test(part) ? NUMBER : '([\\s\\S]*?)' : escapeRegex(part)).join('');
       this.patterns.push({regex: new RegExp(`^${source}$`), names, value: nodes, literal: literal.length});
     }
     this.patterns.sort((a, b) => b.literal - a.literal);

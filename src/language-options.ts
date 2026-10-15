@@ -25,7 +25,7 @@ export function languageOptionsPage(host: LanguageHost): OptionsPage & {refresh:
   const choices = languageChoices();
   const status = {kind: 'note' as const, text: ''};
   const page = {
-    id: 'language', label: 'Language', order: 42, defaults: {...LANGUAGE_DEFAULTS},
+    id: 'language', label: 'Language', order: 47, defaults: {...LANGUAGE_DEFAULTS},
     description: 'Choose the language of the user interface. The change applies right away.',
     controls: [
       {kind: 'select' as const, path: 'pages.language.language', label: 'Language', choices},

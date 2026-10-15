@@ -78,7 +78,12 @@ export function installTranslation(root: HTMLElement = document.body) {
 }
 
 // Native UI suites (tests/e2e/i18n.js) check the shown language and look for text left untranslated.
-(globalThis as {__OPENTAG_I18N__?: unknown}).__OPENTAG_I18N__ = {language: () => translator.locale, translate: (text: string) => translator.translate(text)};
+// `translated` tells a shown translation ("Medium" in German) from English text that happens to be a key too.
+(globalThis as {__OPENTAG_I18N__?: unknown}).__OPENTAG_I18N__ = {
+  language: () => translator.locale,
+  translate: (text: string) => translator.translate(text),
+  translated: (text: string) => Object.values(languages.get(translator.locale)?.catalog ?? {}).includes(text),
+};
 
 /** Run `listener` after the language changes (window title, native menus). */
 export function onLanguageChange(listener: () => void) {listeners.add(listener);return () => listeners.delete(listener);}

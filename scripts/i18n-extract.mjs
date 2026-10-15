@@ -26,7 +26,7 @@ const MAX_VARIANTS = 64;
 const SKIP_METHODS = new Set(['querySelector', 'querySelectorAll', 'closest', 'matches', 'addEventListener', 'removeEventListener', 'getAttribute', 'hasAttribute', 'removeAttribute', 'toggleAttribute', 'getItem', 'setItem', 'removeItem', 'createElement', 'createElementNS', 'split', 'join', 'replace', 'replaceAll', 'startsWith', 'endsWith', 'includes', 'indexOf', 'lastIndexOf', 'test', 'exec', 'match', 'matchAll', 'padStart', 'padEnd', 'add', 'remove', 'toggle', 'contains', 'has', 'get', 'set', 'delete', 'postMessage', 'setProperty', 'getPropertyValue', 'getElementById', 'insertAdjacentHTML', 'warn', 'log', 'error', 'info', 'debug', 'trace', 'execCommand', 'setData', 'getData', 'emit', 'emitTo', 'mark', 'measure', 'scrollIntoView', 'focus', 'normalize', 'toLocaleString', 'localeCompare', 'escape', 'supports', 'setPointerCapture', 'dispatch', 'getContext']);
 const SKIP_FUNCTIONS = new Set(['invoke', 'coreInvoke', 'listen', 'once', 'timing', 'matchMedia', 'RegExp', 'Event', 'KeyboardEvent', 'MouseEvent', 'CustomEvent', 'PointerEvent', 'DragEvent', 'FocusEvent', 'InputEvent', 'ClipboardEvent', 'URL', 'Intl', 'Collator', 'NumberFormat', 'DateTimeFormat', 'Blob', 'File', 'TextDecoder', 'TextEncoder', 'fetch', 'convertFileSrc', 'getPath', 'setPath', 'pageValues', 'registerOptionsPage', 'perfRecord', 'require', 'Symbol', 'ResizeObserver', 'parseInt', 'parseFloat', 'Number', 'Date']);
 // Object properties that hold identifiers rather than text.
-const SKIP_PROPERTIES = new Set(['id', 'path', 'kind', 'type', 'key', 'op', 'className', 'class', 'href', 'src', 'value', 'field', 'code', 'name', 'format', 'extension', 'extensions', 'mime', 'icon', 'command', 'event', 'action', 'role', 'selector', 'pattern', 'template', 'default', 'separator', 'tag_type', 'source', 'target', 'mode', 'sort', 'dock', 'side', 'url', 'storage', 'storageKey', 'cursor', 'display', 'width', 'height', 'template_id', 'page', 'parent', 'shortcut', 'keys', 'accelerator', 'platform', 'state', 'scope', 'tool', 'util', 'operation', 'expression', 'placeholder_value', 'prefix', 'suffix_value', 'defaultPath', 'filename', 'element', 'preset', 'column', 'columns', 'colour', 'color', 'style', 'mask', 'regex', 'flags', 'variable', 'binding', 'dataKey', 'data', 'hash', 'digest', 'algorithm', 'encoding', 'locale', 'lang', 'mapping', 'frame', 'atom', 'tagType', 'file', 'folder', 'directory', 'version', 'release', 'tag']);
+const SKIP_PROPERTIES = new Set(['id', 'path', 'kind', 'type', 'key', 'op', 'className', 'class', 'href', 'src', 'field', 'code', 'format', 'extension', 'extensions', 'mime', 'icon', 'event', 'action', 'role', 'selector', 'pattern', 'template', 'default', 'separator', 'tag_type', 'source', 'target', 'mode', 'sort', 'dock', 'side', 'url', 'storage', 'storageKey', 'cursor', 'display', 'width', 'height', 'template_id', 'page', 'parent', 'shortcut', 'keys', 'accelerator', 'platform', 'state', 'scope', 'tool', 'util', 'operation', 'expression', 'placeholder_value', 'prefix', 'suffix_value', 'defaultPath', 'filename', 'element', 'preset', 'column', 'columns', 'colour', 'color', 'style', 'mask', 'regex', 'flags', 'variable', 'binding', 'dataKey', 'data', 'hash', 'digest', 'algorithm', 'encoding', 'locale', 'lang', 'mapping', 'frame', 'atom', 'tagType', 'file', 'folder', 'directory', 'version', 'release', 'tag']);
 // Text and assignments of these attributes is shown to people.
 const UI_ATTRIBUTES = ['title', 'aria-label', 'aria-description', 'aria-roledescription', 'aria-valuetext', 'placeholder', 'alt', 'label', 'data-hint', 'data-tooltip'];
 const SKIP_ASSIGNMENTS = new Set(['className', 'id', 'type', 'href', 'src', 'value', 'cssText', 'cursor', 'display', 'width', 'height', 'download', 'scrollBehavior', 'colorScheme', 'theme', 'lang', 'dir', 'name', 'accept', 'pattern', 'autocomplete', 'inputMode', 'role', 'returnValue', 'checked', 'key', 'hash', 'search', 'pathname']);
@@ -71,15 +71,9 @@ function variants(node, consumed) {
   if (ts.isNumericLiteral(node)) return [node.text];
   if (ts.isTemplateExpression(node)) {
     consumed.add(node);
-    let out = [node.head.text];
-    for (const span of node.templateSpans) {
-      let values = variants(span.expression, consumed);
-      if (out.length * values.length > MAX_VARIANTS) values = placeholder(span.expression, consumed);
-      const next = [];
-      for (const prefix of out) for (const value of values) next.push(prefix + value + span.literal.text);
-      out = next;
-    }
-    return out;
+    const parts = [[node.head.text]];
+    for (const span of node.templateSpans) parts.push(variants(span.expression, consumed), [span.literal.text]);
+    return combine(parts, node, consumed);
   }
   if (ts.isConditionalExpression(node)) {
     const values = [...variants(node.whenTrue, consumed), ...variants(node.whenFalse, consumed)];
@@ -99,6 +93,35 @@ function variants(node, consumed) {
   }
   return placeholder(node, consumed);
 }
+/**
+ * Strings of a template's parts. Markup splits the rendered text into separate
+ * nodes, so only parts within one stretch of text are combined with each other;
+ * each stretch varies on its own while the others keep their first form.
+ */
+const HAS_MARKUP = /<[A-Za-z!/]|\u0003/;
+function combine(parts, node, consumed) {
+  const stretches = [];let current = [];
+  parts.forEach((alternatives, index) => {
+    if (alternatives.every(a => HAS_MARKUP.test(a))) {if (current.length) stretches.push(current);stretches.push([index]);current = [];}
+    else current.push(index);
+  });
+  if (current.length) stretches.push(current);
+  const base = parts.map(alternatives => alternatives[0]);
+  const out = new Set([base.join('')]);
+  for (const stretch of stretches) {
+    let combos = [[]];
+    for (const index of stretch) {
+      let alternatives = parts[index];
+      if (combos.length * alternatives.length > MAX_VARIANTS) alternatives = placeholder(templateExpressionAt(node, index), consumed);
+      combos = combos.flatMap(combo => alternatives.map(a => [...combo, [index, a]]));
+    }
+    for (const combo of combos) {const chosen = [...base];for (const [index, a] of combo) chosen[index] = a;out.add(chosen.join(''));}
+  }
+  return [...out];
+}
+/** The expression of part `index` of a template (odd parts are expressions). */
+const templateExpressionAt = (node, index) => index % 2 ? node.templateSpans[(index - 1) / 2].expression : node;
+
 const stringy = node => {
   while (ts.isParenthesizedExpression(node)) node = node.expression;
   return isStringish(node) || (ts.isConditionalExpression(node) && (stringy(node.whenTrue) || stringy(node.whenFalse))) ||
@@ -188,6 +211,8 @@ function common(key) {
 function textWorthy(key) {
   const rest = bare(key);
   if (!common(key)) return false;
+  // Host names, URL paths and file names in placeholders are examples, not text.
+  if (!/\s/.test(rest.trim()) && /[./]/.test(rest)) return false;
   if (/^[\p{L}\d_.-]+\.(mp3|flac|m4a|txt|json|csv|xml|html|m3u8?|cue|jpg|png|svg)$/iu.test(rest.trim())) return false;
   return true;
 }
@@ -196,7 +221,11 @@ function proseWorthy(key) {
   if (!common(key)) return false;
   const rest = bare(key).replace(FORMAT_TOKEN, 'x').trim();
   if (/^https?:|^mailto:|^data:|^file:|^\/\/|^\.\.?\//.test(rest)) return false;
-  if (/[<>{}\[\]=#$\\@^`|;]|=>|&&|\|\||::|^\.|^%|%[A-Za-z_]+%|\$[a-z]+\(|^[a-z]+:[a-z]/.test(rest)) return false;
+  // Sentences may quote code-like characters (`;`, `<<`); short strings with them are code.
+  const sentence = /^[\p{Lu}"'(“‘]/u.test(rest) && (rest.match(/\p{L}{2,}/gu) ?? []).length >= 5 && !/=>|&&|\|\||::|\$\{/.test(rest);
+  if (!sentence && /[<>{}\[\]=#$\\@^`|;]|=>|&&|\|\||::|^\.|^%|%[A-Za-z_]+%|\$[a-z]+\(|^[a-z]+:[a-z]/.test(rest)) return false;
+  // A template that puts a value next to a word ("{count} selected") is text as well.
+  if (/\{[A-Za-z0-9]+\}/.test(key) && / /.test(key) && /\p{L}{3,}/u.test(rest) && !/^[\w-]+\(|\b(px|em|rem|deg|ms|solid|rgba?|var)\b/.test(key)) return true;
   if (/^[a-z0-9_.\-/:*+ ]+$/.test(rest) && !/[a-z]{2,} [a-z]{2,} [a-z]{2,}/.test(rest)) return false;
   if (/^[A-Z0-9_ ]+$/.test(rest) && !/ [A-Z]{3,} /.test(rest)) return false;
   if (/^[A-Z][a-z]+(?:[A-Z][a-z0-9]*)+$/.test(rest)) return false;
@@ -251,6 +280,7 @@ function extractFile(file, source, add) {
       if (!skipped(top)) {
         for (const value of values) {
           if (/<[A-Za-z!/]|\u0003/.test(value)) fromMarkup(value, (key, kind) => add(key, kind, file));
+          else if (/\b(?:title|aria-label|placeholder|alt|data-hint)="/.test(value)) fromMarkup(`<x ${value}>`, (key, kind) => add(key, kind, file));
           else { const key = finish(value); if (key && proseWorthy(key)) add(key, 'string', file); }
         }
       }

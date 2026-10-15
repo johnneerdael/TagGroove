@@ -44,6 +44,9 @@ test('rendered English text is translated by exact key or by key pattern, keepin
   assert.equal(de.translate('Moved 3 files to the Trash'),'3 Dateien in den Papierkorb verschoben');
   assert.equal(de.translate('Copy of Save tags'),'Kopie von Save tags');
   assert.equal(de.translate('Something else'),'Something else');
+  // Counts only match numbers, so a key such as "{count} files" leaves other text alone.
+  assert.equal(de.translate('Choose files'),'Choose files');
+  assert.equal(de.translate('1.234 files'),'1.234 Dateien');
   assert.equal(de.translate('12'),'12');
   assert.equal(new Translator('en',{}).active,false);
 });
@@ -104,7 +107,7 @@ test('format strings, field names and placeholders stay as they are in every tra
   const tokens=text=>(normalize(text).match(/%[A-Za-z0-9_]+%|\$[a-z_]+\(|\b[A-Z][A-Z0-9_]{3,}\b(?<!\bUTF)|\.(?:mta|mte|src|inc|m3u8?|pls|cue)\b/g)??[]).sort();
   for(const locale of ['nl','de']){
     // Labels written in capitals are translated as a whole.
-    const changed=Object.keys(english).filter(key=>!key.startsWith('@')&&/\p{Ll}/u.test(key)&&tokens(key).some(token=>!catalogs[locale][key].includes(token)));
+    const changed=Object.keys(english).filter(key=>!key.startsWith('@')&&/\p{Ll}/u.test(key.replace(/\{[A-Za-z0-9]+\}/g,''))&&tokens(key).some(token=>!catalogs[locale][key].includes(token)));
     assert.deepEqual(changed,[],locale);
   }
 });
