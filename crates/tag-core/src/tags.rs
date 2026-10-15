@@ -655,7 +655,7 @@ fn read_description(
     if let Some((file, number)) = subsongs::split_path(path) {
         return subsongs::read_row(&file, number, include_cover_data, rules, options);
     }
-    let path = path.canonicalize().map_err(|e| e.to_string())?;
+    let path = dunce::canonicalize(path).map_err(|e| e.to_string())?;
     // Before lofty: its MPEG sync search can match bytes inside ASF artwork.
     if asf::sniff(&path) {
         return asf::describe(&path, include_cover_data, rules);
@@ -923,7 +923,7 @@ pub fn scan_paths_with_progress(
     }
     let mut unique = Vec::new();
     for path in candidates {
-        match path.canonicalize() {
+        match dunce::canonicalize(&path) {
             Ok(canonical) => {
                 if seen.insert(canonical.clone()) {
                     unique.push(canonical);
@@ -1175,7 +1175,7 @@ where
     if subsongs::split_path(path).is_some() {
         return Err(subsongs::ROW_OPERATION.into());
     }
-    let path = path.canonicalize().map_err(|e| e.to_string())?;
+    let path = dunce::canonicalize(path).map_err(|e| e.to_string())?;
     let original = fs::metadata(&path).map_err(|e| e.to_string())?;
     if !original.is_file() {
         return Err("The audio path must be a regular file".into());

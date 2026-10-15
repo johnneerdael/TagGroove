@@ -113,7 +113,10 @@ fn id3v2_chapters_are_rows_and_titles_are_written_into_chap_frames() {
             &options,
             None,
         );
-        let file = path.canonicalize().unwrap().to_string_lossy().into_owned();
+        let file = dunce::canonicalize(&path)
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
         let rows: Vec<_> = listed.entries.iter().map(|e| e.path.clone()).collect();
         assert_eq!(rows, [subsong_path(&file, 1), subsong_path(&file, 2)]);
         assert_eq!(listed.entries[1].fields["TITLE"], ["Two"]);

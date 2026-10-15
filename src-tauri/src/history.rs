@@ -259,7 +259,7 @@ mod tests {
     fn commands_record_grouped_saves_tag_conversions_and_renames() {
         let _journal = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let dir = tempfile::tempdir().unwrap();
-        let root = dir.path().canonicalize().unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
         TEST_ROOTS.lock().unwrap().push(root.clone());
         let a = root.join("a.wav");
         let b = root.join("b.wav");

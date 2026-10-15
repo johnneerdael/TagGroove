@@ -2908,6 +2908,7 @@ dependencies = [
  "base64 0.22.1",
  "crc32fast",
  "drag",
+ "dunce",
  "encoding_rs",
  "gdk",
  "image",
@@ -4240,6 +4241,7 @@ version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
  "chrono",
+ "dunce",
  "encoding_rs",
  "image",
  "libc",

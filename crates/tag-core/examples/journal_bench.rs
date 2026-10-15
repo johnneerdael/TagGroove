@@ -10,8 +10,7 @@ fn main() {
     let folder = args.next().expect("Provide a disposable music directory");
     let suffix = args.next().unwrap_or_default();
     let scan = tag_core::scan_paths(std::slice::from_ref(&folder), true);
-    let root = Path::new(&folder)
-        .canonicalize()
+    let root = dunce::canonicalize(Path::new(&folder))
         .expect("folder")
         .with_file_name(".journal-bench");
     let _ = std::fs::remove_dir_all(&root);

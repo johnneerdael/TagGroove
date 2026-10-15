@@ -243,7 +243,7 @@ const playlistUI=new PlaylistUI({
 registerOptionsPage(exportOptionsPage);
 registerOptionsPage(playlistOptionsPage);
 const coverUI=new CoverUI({
-  invoke:(command,args)=>invoke(command,args),mac:macPlatform,
+  invoke:(command,args)=>invoke(command,args),get mac(){return macKeyboard();},
   selection:()=>paths().map(path=>({path,covers:workingReadErrors.has(path)?[]:pendingCovers.has(path)?pendingCoverInfos(path):entries.get(path)!.covers})),
   displayed:()=>({path:active()?.path,covers:coversFor(active()),index:coverIndex}),
   show:index=>{coverIndex=index;refreshCoverPanel();},

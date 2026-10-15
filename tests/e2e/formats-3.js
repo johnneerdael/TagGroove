@@ -11,7 +11,7 @@
   const status = () => document.querySelector('.status-message')?.textContent || '';
   const key = (k, o = {}) => (document.activeElement || document.body).dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...o }));
   const rows = () => [...document.querySelectorAll('tr[data-path]')];
-  const row = name => rows().find(r => r.dataset.path.endsWith('/' + name));
+  const row = name => rows().find(r => r.dataset.path.split(/[\\/]/).pop() === name);
   const clickRow = async name => { const r = await waitFor(() => row(name), 8000, 'row ' + name); r.querySelector('td').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })); await sleep(300); };
   const scan = async name => (await inv('scan_files', { paths: [row(name).dataset.path], recursive: false })).entries[0];
   const idle = () => waitFor(() => !document.querySelector('footer.status.busy'), 10000, 'idle');
@@ -34,7 +34,7 @@
   try {
     if (!sessionStorage.getItem('formats-3-stage')) {
       await waitFor(() => rows().length >= 6, 15000, 'fixture rows');
-      const album = row('stream.tta').dataset.path.replace(/\/[^/]+$/, '');
+      const album = row('stream.tta').dataset.path.replace(/[\\/][^\\/]+$/, '');
       const settings = (await inv('load_settings')).settings;
       settings.pages = { ...settings.pages, messages: { ...(settings.pages?.messages || {}), confirm_remove_tags: false }, 'directories-startup': { startup: 'previous' } };
       await inv('save_settings', { settings });

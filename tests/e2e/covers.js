@@ -10,7 +10,7 @@
   const waitFor = async (fn, ms = 8000, what = 'condition') => { const t = Date.now(); let last; while (Date.now() - t < ms) { try { const v = fn(); if (v) return v; } catch (e) { last = e; } await sleep(100); } throw new Error('timeout waiting for ' + what + (last ? ' (' + last.message + ')' : '')); };
   const status = () => document.querySelector('.status-message')?.textContent || '';
   const errorsText = () => [...document.querySelectorAll('.errors p')].map(p => p.textContent).join(' | ');
-  const row = name => [...document.querySelectorAll('tr[data-path]')].find(r => r.dataset.path.endsWith('/' + name));
+  const row = name => [...document.querySelectorAll('tr[data-path]')].find(r => r.dataset.path.split(/[\\/]/).pop() === name);
   const pathOf = name => row(name).dataset.path;
   const clickRow = async (name, opts = {}) => { const r = await waitFor(() => row(name), 8000, 'row ' + name); r.querySelector('td').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ...opts })); await sleep(300); };
   const idle = () => waitFor(() => !document.querySelector('footer.status.busy'), 10000, 'idle');

@@ -14,7 +14,7 @@
   const status = () => document.querySelector('.status-message')?.textContent || '';
   const errorsText = () => [...document.querySelectorAll('.errors p')].map(p => p.textContent).join(' | ');
   const rows = () => [...document.querySelectorAll('tr[data-path]')];
-  const row = name => rows().find(r => r.dataset.path.endsWith('/' + name));
+  const row = name => rows().find(r => r.dataset.path.split(/[\\/]/).pop() === name);
   const pathOf = name => row(name).dataset.path;
   // A second click on the only selected row starts the slow-click rename (the cell editor opens after 550 ms and takes focus), so an already selected row is only focused.
   const clickRow = async name => { const r = await waitFor(() => row(name), 8000, 'row ' + name); if (r.classList.contains('selected') && rows().filter(x => x.classList.contains('selected')).length === 1) { r.focus(); await sleep(50); return; } r.querySelector('td').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })); await sleep(250); };

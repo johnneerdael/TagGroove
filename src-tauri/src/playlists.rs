@@ -379,7 +379,7 @@ mod tests {
 
     fn fixture(names: &[&str]) -> (tempfile::TempDir, Vec<String>) {
         let directory = tempfile::tempdir().unwrap();
-        let root = directory.path().canonicalize().unwrap();
+        let root = dunce::canonicalize(directory.path()).unwrap();
         let audio = vec![0u8; 8820];
         let mut bytes = b"RIFF".to_vec();
         bytes.extend((36 + audio.len() as u32).to_le_bytes());
@@ -468,21 +468,22 @@ mod tests {
             plan.playlists,
             [
                 PlannedPlaylist {
-                    path: root.join("b/b.m3u8").to_string_lossy().into_owned(),
+                    path: root.join("b").join("b.m3u8").to_string_lossy().into_owned(),
                     files: 2
                 },
                 PlannedPlaylist {
-                    path: root.join("a/a.m3u8").to_string_lossy().into_owned(),
+                    path: root.join("a").join("a.m3u8").to_string_lossy().into_owned(),
                     files: 1
                 },
             ]
         );
-        let text = std::fs::read_to_string(root.join("b/b.m3u8")).unwrap();
+        let text = std::fs::read_to_string(root.join("b").join("b.m3u8")).unwrap();
         assert_eq!(
             text,
             "#EXTM3U\r\n#EXTINF:0,2\r\n2.wav\r\n#EXTINF:0,1\r\n1.wav\r\n"
         );
-        let loaded = tag_core::playlist::load_playlist(&root.join("b/b.m3u8"), None).unwrap();
+        let loaded =
+            tag_core::playlist::load_playlist(&root.join("b").join("b.m3u8"), None).unwrap();
         assert_eq!(
             loaded.files,
             [PathBuf::from(&paths[0]), PathBuf::from(&paths[2])]
@@ -498,7 +499,7 @@ mod tests {
         literal.output_path = Some("%album%.pls".into());
         literal.playlist = Some("/old/list.m3u".into());
         create(&literal, &settings, &options).unwrap();
-        let root = directory.path().canonicalize().unwrap();
+        let root = dunce::canonicalize(directory.path()).unwrap();
         let pls = std::fs::read_to_string(root.join("%album%.pls")).unwrap();
         assert!(pls.starts_with("[playlist]\r\nFile1=1.wav\r\nTitle1= - \r\nLength1=0\r\n"));
 
@@ -508,7 +509,7 @@ mod tests {
         let plan = create(&named, &settings, &options).unwrap();
         assert_eq!(
             plan.playlists[0].path,
-            root.join("lists/old-copy.m3u8").to_string_lossy()
+            root.join("lists").join("old-copy.m3u8").to_string_lossy()
         );
 
         let before = std::fs::read(&paths[0]).unwrap();
@@ -542,7 +543,7 @@ mod tests {
     #[test]
     fn relative_entries_survive_a_symlinked_working_directory() {
         let (directory, paths) = fixture(&["album/1.wav", "album/2.wav"]);
-        let root = directory.path().canonicalize().unwrap();
+        let root = dunce::canonicalize(directory.path()).unwrap();
         let link = tempfile::tempdir().unwrap();
         let alias = link.path().join("alias");
         std::os::unix::fs::symlink(root.join("album"), &alias).unwrap();
@@ -552,7 +553,7 @@ mod tests {
         let plan = create(&list, &settings, &PlaylistOptions::default()).unwrap();
         assert_eq!(
             plan.playlists[0].path,
-            root.join("album/list.m3u8").to_string_lossy()
+            root.join("album").join("list.m3u8").to_string_lossy()
         );
         let loaded = tag_core::playlist::load_playlist(&alias.join("list.m3u8"), None).unwrap();
         assert_eq!(loaded.missing, []);
@@ -576,7 +577,7 @@ mod tests {
         .unwrap();
         assert_eq!(plan.errors.len(), 1);
         assert_eq!(plan.playlists[0].files, 1);
-        let root = directory.path().canonicalize().unwrap();
+        let root = dunce::canonicalize(directory.path()).unwrap();
         assert_eq!(
             std::fs::read_to_string(root.join("list.m3u8")).unwrap(),
             "1.wav\r\n"

@@ -660,7 +660,10 @@ mod tests {
         data.extend((audio.len() as u32).to_le_bytes());
         data.extend(audio);
         std::fs::write(&path, data).unwrap();
-        path.canonicalize().unwrap().to_string_lossy().into_owned()
+        dunce::canonicalize(&path)
+            .unwrap()
+            .to_string_lossy()
+            .into_owned()
     }
 
     fn run<T>(future: impl std::future::Future<Output = T>) -> T {
@@ -744,7 +747,7 @@ mod tests {
         std::fs::create_dir_all(&art).unwrap();
         let song = wav(&album, "song.wav");
         let album = Path::new(&song).parent().unwrap().to_path_buf();
-        let working = dir.path().canonicalize().unwrap();
+        let working = dunce::canonicalize(dir.path()).unwrap();
         let settings = crate::evaluation::EvaluationSettings {
             working_directory: Some(working.to_string_lossy().into_owned()),
             ..Default::default()
@@ -758,8 +761,8 @@ mod tests {
             album.join("Artwork").to_string_lossy()
         );
         assert_eq!(
-            start(&art.canonicalize().unwrap().to_string_lossy()),
-            art.canonicalize().unwrap().to_string_lossy()
+            start(&dunce::canonicalize(&art).unwrap().to_string_lossy()),
+            dunce::canonicalize(&art).unwrap().to_string_lossy()
         );
         // No option, or a folder that does not exist: the working folder,
         // unless the file's folder holds an image.

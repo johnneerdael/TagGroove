@@ -139,7 +139,7 @@ impl<P: Provider> Store<P> {
         {
             return Err("Private workspace root is a symlink".into());
         }
-        let root = root.canonicalize().map_err(error)?;
+        let root = dunce::canonicalize(root).map_err(error)?;
         sync_dir(root.parent().ok_or("Private workspace has no parent")?)?;
         let mut store = Self {
             root,
@@ -221,7 +221,7 @@ impl<P: Provider> Store<P> {
                     if index + 1 < count && !meta.is_dir() {
                         return Err("Private parent is not a directory".into());
                     }
-                    if current.canonicalize().map_err(error)? != current {
+                    if dunce::canonicalize(&current).map_err(error)? != current {
                         return Err("Noncanonical private path".into());
                     }
                 }
@@ -584,8 +584,7 @@ impl<P: Provider> Store<P> {
     }
     pub(super) fn is_managed(&self, path: &Path) -> bool {
         path.to_str().is_some_and(|p| self.records.contains_key(p))
-            || path
-                .canonicalize()
+            || dunce::canonicalize(path)
                 .ok()
                 .and_then(|p| p.to_str().map(str::to_owned))
                 .is_some_and(|p| self.records.contains_key(&p))

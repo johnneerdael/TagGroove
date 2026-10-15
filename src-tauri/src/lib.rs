@@ -826,8 +826,10 @@ fn filename_target(entry: &AudioEntry, generated: String) -> Result<PathBuf, Str
     if generated.trim().is_empty() {
         return Err("Filename evaluates to an empty string".into());
     }
-    let generated = if cfg!(windows) && generated.starts_with(r"\\?\") {
-        generated
+    // Either separator separates folders. Targets use the platform's own, so
+    // they are spelled like the paths the scanner lists.
+    let generated = if cfg!(windows) {
+        generated.replace('/', "\\")
     } else {
         generated.replace('\\', "/")
     };
@@ -959,7 +961,7 @@ fn rename_planned(
             match plan {
                 Ok(target)
                     if destinations.insert(rename_key(&target))
-                        && (std::fs::canonicalize(&path).ok().as_ref() == Some(&target)
+                        && (dunce::canonicalize(&path).ok().as_ref() == Some(&target)
                             || !matches!(
                                 tag_core::operations::destination_state(Path::new(&path), &target),
                                 tag_core::operations::Destination::Taken
@@ -981,7 +983,7 @@ fn rename_planned(
         // A file whose destination clashes is skipped and reported; the
         // others are still renamed.
         for (path, target) in plans {
-            let operation = if std::fs::canonicalize(&path).ok().as_ref() == Some(&target) {
+            let operation = if dunce::canonicalize(&path).ok().as_ref() == Some(&target) {
                 Ok(())
             } else {
                 tag_core::operations::rename_no_clobber(Path::new(&path), &target)
@@ -1835,6 +1837,34 @@ mod tests {
     }
 
     #[test]
+    fn renamed_paths_are_spelled_like_the_listed_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
+        for (name, template) in [
+            ("a.wav", "Moved/%_filename%-1"),
+            ("b.wav", "Moved\\%_filename%-2"),
+        ] {
+            let path = root.join(name);
+            wav(&path);
+            let result = rename_planned(
+                vec![path.to_string_lossy().into_owned()],
+                template,
+                None,
+                &evaluation::EvaluationSettings::default(),
+            )
+            .unwrap();
+            assert!(
+                result.result.errors.is_empty(),
+                "{:?}",
+                result.result.errors
+            );
+            // The interface matches the rename to the listed entry by this string.
+            assert_eq!(result.renamed[0].to, result.result.entries[0].path);
+            assert!(Path::new(&result.renamed[0].to).starts_with(root.join("Moved")));
+        }
+    }
+
+    #[test]
     fn rename_preview_and_result_use_identical_sanitized_path() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("old.wav");
@@ -1987,7 +2017,7 @@ mod tests {
             return;
         }
         let dir = tempfile::tempdir().unwrap();
-        let root = dir.path().canonicalize().unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
         let path = root.join("Café 猫.flac");
         let output = Command::new("ffmpeg")
             .args([

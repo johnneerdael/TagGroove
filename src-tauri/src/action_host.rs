@@ -192,8 +192,9 @@ fn cover_file_target(mut target: PathBuf, mime: &str, bytes: &[u8]) -> PathBuf {
 fn action_name(name: &str, origin: NameOrigin, separator: &str) -> String {
     match origin {
         NameOrigin::Value => tag_core::filename_value(name, separator),
-        NameOrigin::Template if !cfg!(windows) => name.replace('\\', "/"),
-        NameOrigin::Template | NameOrigin::Edited => name.to_owned(),
+        NameOrigin::Template if cfg!(windows) => name.replace('/', "\\"),
+        NameOrigin::Template => name.replace('\\', "/"),
+        NameOrigin::Edited => name.to_owned(),
     }
 }
 
@@ -744,7 +745,7 @@ pub(crate) fn normalized_output_path(path: &Path) -> Result<PathBuf, String> {
                 resolved.push(component.as_os_str());
                 match fs::symlink_metadata(&resolved) {
                     Ok(_) => {
-                        resolved = resolved.canonicalize().map_err(|e| e.to_string())?;
+                        resolved = dunce::canonicalize(&resolved).map_err(|e| e.to_string())?;
                     }
                     Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
                     Err(error) => {
@@ -1091,9 +1092,7 @@ mod tests {
     fn output_normalization_accepts_existing_roots_and_missing_children() {
         let dir = tempfile::tempdir().unwrap();
         let source = dir.path().join("new/../report.txt");
-        let expected = dir
-            .path()
-            .canonicalize()
+        let expected = dunce::canonicalize(dir.path())
             .unwrap()
             .join("report.txt")
             .to_string_lossy()
@@ -1136,7 +1135,9 @@ mod tests {
         let target = parent.join("Missing/../Chosen Track.wav");
         assert_eq!(
             normalized_output_path(&target).unwrap(),
-            parent.canonicalize().unwrap().join("Chosen Track.wav")
+            dunce::canonicalize(&parent)
+                .unwrap()
+                .join("Chosen Track.wav")
         );
         assert!(!parent.join("Missing").exists());
         assert!(!parent.join("Chosen Track.wav").exists());

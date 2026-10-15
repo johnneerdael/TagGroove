@@ -2,3 +2,5 @@ assets/brand/** linguist-vendored
 crates/regex-compat/vendor/** linguist-vendored
 docs/evidence/** linguist-generated
 src-tauri/gen/** linguist-generated
+# Shell scripts run under Git Bash on Windows CI, which rejects CRLF.
+*.sh text eol=lf

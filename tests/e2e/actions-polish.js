@@ -12,7 +12,7 @@
   const mod = /Mac/.test(navigator.platform) ? { metaKey: true } : { ctrlKey: true };
   const key = (k, o = {}, target = document.activeElement || document.body) => target.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...o }));
   const rows = () => [...document.querySelectorAll('tr[data-path]')];
-  const row = name => rows().find(r => r.dataset.path.endsWith('/' + name));
+  const row = name => rows().find(r => r.dataset.path.split(/[\\/]/).pop() === name);
   const pathOf = name => row(name).dataset.path;
   const clickRow = async (name, opts = {}) => { const r = await waitFor(() => row(name), 8000, 'row ' + name); r.querySelector('td').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ...opts })); await sleep(300); };
   const selectAll = async () => { await clickRow('sine-a.mp3'); await clickRow('sine-b.mp3', { shiftKey: true }); };
@@ -45,7 +45,7 @@
   const step = async (name, fn) => { try { const detail = await fn(); results.push(['PASS', name]); await report(`PASS ${name}${detail ? ' — ' + detail : ''}`); } catch (e) { results.push(['FAIL', name]); await report(`FAIL ${name} — ${e && e.message || e}`); document.querySelectorAll('dialog[open]').forEach(d => d.close()); } };
   try {
     await waitFor(() => rows().length >= 2, 15000, 'fixture rows');
-    const album = pathOf('sine-a.mp3').replace(/\/[^/]+$/, '');
+    const album = pathOf('sine-a.mp3').replace(/[\\/][^\\/]+$/, '');
 
     await step('Actions (Quick) reopens on the last applied type and its settings', async () => {
       await clickRow('sine-a.mp3');
@@ -119,16 +119,18 @@
       await waitFor(() => /Added cover/.test(status()), 8000, 'added cover (' + errorsText() + ')'); await idle();
       const request = window.__OPENTAG_E2E_DIALOGS__.requests[0];
       const covers = (await read('sine-a.mp3')).covers;
-      if (request?.defaultPath !== album + '/Artwork' || covers.length !== 1 || covers[0].width !== 400) throw new Error(`request=${JSON.stringify(request)} covers=${JSON.stringify(covers.map(c => [c.width, c.height]))}`);
+      if (!/^[\\/]Artwork$/.test(request?.defaultPath?.slice(album.length) ?? '') || !request.defaultPath.startsWith(album) || covers.length !== 1 || covers[0].width !== 400) throw new Error(`request=${JSON.stringify(request)} covers=${JSON.stringify(covers.map(c => [c.width, c.height]))}`);
       // Without the option the dialog starts in the working folder (the album has no image of its own).
       await setCoverDirectory('');
       window.__OPENTAG_E2E_DIALOGS__ = { requests: [], answers: [null] };
       await clickRow('sine-b.mp3'); op('add-cover').click();
       await waitFor(() => window.__OPENTAG_E2E_DIALOGS__.requests.length === 1, 5000, 'second dialog request');
-      const fallback = String(window.__OPENTAG_E2E_DIALOGS__.requests[0].defaultPath).replace(/\/$/, '');
+      const fallback = String(window.__OPENTAG_E2E_DIALOGS__.requests[0].defaultPath).replace(/[\\/]$/, '');
       delete window.__OPENTAG_E2E_DIALOGS__;
-      if (fallback !== album) throw new Error('fallback=' + fallback);
-      return `start folder ${request.defaultPath.slice(album.length) || '.'}, then ${fallback === album ? 'working folder' : fallback}`;
+      // The working folder is spelled as it was opened (macOS lists /var/folders files under /private/var).
+      const opened = document.querySelector('.location .path')?.textContent;
+      if (fallback !== album && fallback !== opened) throw new Error(`fallback=${fallback} album=${album} opened=${opened}`);
+      return `start folder ${request.defaultPath.slice(album.length) || '.'}, then ${fallback === album || fallback === opened ? 'working folder' : fallback}`;
     });
 
     await step('Manage covers → Adjust… resizes and converts the selected cover, written on OK', async () => {

@@ -389,7 +389,10 @@ fn chapters_are_listed_and_edited_as_rows() {
     let listed = tag_core::scan_paths_with_options(&[folder], false, &options, None);
     assert!(listed.errors.is_empty(), "{:?}", listed.errors);
     let rows: Vec<_> = listed.entries.iter().map(|e| e.path.clone()).collect();
-    let file = path.canonicalize().unwrap().to_string_lossy().into_owned();
+    let file = dunce::canonicalize(&path)
+        .unwrap()
+        .to_string_lossy()
+        .into_owned();
     assert_eq!(
         rows,
         [
