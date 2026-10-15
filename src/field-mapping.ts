@@ -48,12 +48,13 @@ export function mappingOptionsPage():OptionsPage{
           <p>For ID3v2 and MP4 the source is OpenTag’s field name (for example COMPOSER), not the frame or atom. Files without pending changes are reloaded when you press OK.</p></div>`;
       },
       bind:(root,draft,refresh)=>{
-        const list=rules(draft),index=Math.min(current,list.length-1);
+        // Handlers read the rules again: typing edits the draft without re-rendering.
+        const index=Math.min(current,rules(draft).length-1);
         const save=(next:FieldMapping[])=>{draft.tags.mappings=next;};
         root.querySelector('#mapping-list')?.addEventListener('change',event=>{current=Number((event.target as HTMLSelectElement).value);refresh();});
-        root.querySelector('#mapping-new')!.addEventListener('click',()=>{save([...list,{tag_type:list[index]?.tag_type??'VorbisComment',source:'',target:''}]);current=list.length;refresh();root.querySelector<HTMLInputElement>('#mapping-source')?.focus();});
-        root.querySelector('#mapping-remove')!.addEventListener('click',()=>{save(list.filter((_,i)=>i!==index));current=Math.max(0,index-1);refresh();});
-        const move=(to:number)=>{const next=[...list];[next[index],next[to]]=[next[to],next[index]];save(next);current=to;refresh();};
+        root.querySelector('#mapping-new')!.addEventListener('click',()=>{const list=rules(draft);save([...list,{tag_type:list[index]?.tag_type??'VorbisComment',source:'',target:''}]);current=list.length;refresh();root.querySelector<HTMLInputElement>('#mapping-source')?.focus();});
+        root.querySelector('#mapping-remove')!.addEventListener('click',()=>{save(rules(draft).filter((_,i)=>i!==index));current=Math.max(0,index-1);refresh();});
+        const move=(to:number)=>{const next=rules(draft);[next[index],next[to]]=[next[to],next[index]];save(next);current=to;refresh();};
         root.querySelector('#mapping-up')!.addEventListener('click',()=>move(index-1));
         root.querySelector('#mapping-down')!.addEventListener('click',()=>move(index+1));
         const edit=(key:keyof FieldMapping,value:string)=>{

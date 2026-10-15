@@ -45,8 +45,19 @@
 
   try {
     await waitFor(() => rows().length >= 3, 15000, 'fixture rows');
-    // No native confirmation dialog during the run.
-    await updateSettings(s => { s.pages = { ...s.pages, messages: { ...s.pages.messages, confirm_remove_tags: false } }; });
+    // No native confirmation dialog during the run. Messages are read from the
+    // frontend's copy of the options, so this goes through the dialog.
+    await step('Options → Messages turns off the Remove tag confirmation', async () => {
+      const dlg = await openOptions();
+      dlg.querySelector('[data-page="messages"]').click(); await sleep(150);
+      const box = dlg.querySelector('[data-option="pages.messages.confirm_remove_tags"]');
+      box.checked = false; box.dispatchEvent(new Event('change', { bubbles: true })); await sleep(100);
+      dlg.querySelector('#options-ok').click();
+      await waitFor(() => !document.querySelector('dialog[open].options-dialog'), 5000, 'options closed'); await idle();
+      const saved = (await inv('load_settings')).settings.pages.messages?.confirm_remove_tags;
+      if (saved !== false) throw new Error('saved=' + saved);
+      return 'confirm_remove_tags=false';
+    });
 
     await step('File menu lists Remove tag with ⌘/Ctrl R', async () => {
       const file = [...document.querySelectorAll('.menubar > .menu')].find(m => m.querySelector('summary').textContent === 'File');
@@ -124,6 +135,8 @@
       if (year?.value !== '2024') throw new Error('tag panel YEAR=' + year?.value);
       return `${error}; YEAR=${year.value}`;
     });
+    // A failed step must not leave the dialog open: it blocks every shortcut.
+    document.querySelector('dialog[open].options-dialog #options-cancel')?.click(); await sleep(200);
 
     await step('saving the mapped field writes the source field', async () => {
       await clickRow('song.flac');

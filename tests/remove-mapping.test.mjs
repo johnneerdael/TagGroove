@@ -72,3 +72,26 @@ test('the Mapping page sits under Tags, stores tags.mappings and validates throu
   draft.tags.mappings.push(rule('VorbisComment','DATE','OTHER'));
   assert.deepEqual(options.validateOptions(draft,[page]).page,'tags-mapping');
 });
+
+test('mapping editor keeps typed values when adding, moving and removing rules',()=>{
+  const control=mapping.mappingOptionsPage().controls[0];
+  const draft={...options.defaultSettings(),appearance:'system'};
+  // A minimal stand-in for the rendered page: elements record their listeners.
+  let elements;
+  const element=()=>({listeners:{},value:'',textContent:'',addEventListener(type,fn){this.listeners[type]=fn;},focus(){}});
+  const root={querySelector:selector=>elements[selector]??(elements[selector]=element())};
+  const refresh=()=>{elements={};control.bind(root,draft,refresh);};
+  const fire=(selector,type,value)=>{const el=root.querySelector(selector);el.value=value;el.listeners[type]?.({target:el});};
+  refresh();
+  fire('#mapping-new','click');
+  fire('#mapping-source','input','DATE');fire('#mapping-target','input','YEAR');
+  assert.equal(root.querySelector('#mapping-list option[value="0"]').textContent,'Vorbis Comments: DATE → YEAR');
+  fire('#mapping-new','click');
+  fire('#mapping-tag-type','change','ID3v2');fire('#mapping-source','input','COMPOSER');fire('#mapping-target','input','WRITER');
+  assert.deepEqual(draft.tags.mappings,[rule('VorbisComment','DATE','YEAR'),rule('ID3v2','COMPOSER','WRITER')]);
+  fire('#mapping-up','click');
+  assert.deepEqual(draft.tags.mappings.map(r=>r.source),['COMPOSER','DATE']);
+  fire('#mapping-target','input','COMPOSER BY');
+  fire('#mapping-remove','click');
+  assert.deepEqual(draft.tags.mappings,[rule('VorbisComment','DATE','YEAR')]);
+});
