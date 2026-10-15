@@ -4,7 +4,7 @@ import {readFile} from 'node:fs/promises';
 import ts from 'typescript';
 const source = await readFile(new URL('../src/tag-sources.ts', import.meta.url), 'utf8');
 const javascript = ts.transpileModule(source, {compilerOptions: {target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022}}).outputText;
-const {autoMatch, buildApplyItems, discToc, duration, editField, fieldRows, isFreedb, moveSlot, moveSlotTo, nextTicket, normalizeTitle, providerName, searchPrefill, similarity, splitValues, suggestByLength, suggestByTitle, tagSourcesOptionsPages} = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);
+const {FREEDB_SERVERS, autoMatch, buildApplyItems, discToc, duration, editField, fieldRows, freedbServerList, initialSlots, invertFields, isFreedb, lastSourceOperation, moveSlot, moveSlotTo, nextTicket, normalizeTitle, providerName, searchPrefill, selectFields, similarity, sourceOperation, sourceRequest, splitValues, suggestByLength, suggestByTitle, tagSourcesOptionsPages, toggleEnabled, useFreedbServer} = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);
 
 const file = (path, values = {}) => ({path, name: `${path}.flac`, title: '', artist: '', album: '', album_artist: '', track: '', disc: '', length: 200, ...values});
 const track = (disc, number, title, fields = {}) => ({position: String(number), disc, number, title, artist: 'Artist', length: 200, fields: {TITLE: [title], TRACK: [`${number}/3`], ...fields}});
@@ -142,6 +142,70 @@ test('tag source options pages cover freedb and the local freedb folder', async 
   const custom = pages[2].controls[0];
   assert.deepEqual(custom.paths, ['pages.tag-sources-local-freedb.directory']);
   assert.match(custom.render({pages: {'tag-sources-local-freedb': {directory: '/a "b"'}}}), /value="\/a &quot;b&quot;"/);
+  const index = pages[2].controls[1];
+  assert.equal(index.id, 'local-freedb-index');
+  assert.match(index.render({pages: {}}), /Build index/);
+  const servers = freedb.controls[0].controls[0];
+  assert.deepEqual(servers.paths.slice(0, 2), ['pages.tag-sources-freedb.servers', 'pages.tag-sources-freedb.server']);
+  const markup = servers.render({pages: {'tag-sources-freedb': {...freedb.defaults}}});
+  assert.match(markup, /gnudb \(HTTPS\)[\s\S]*gnudb \(HTTP\)/);
+  assert.match(markup, /Current list of freedb servers/);
+  assert.match(markup, /data-option="pages.tag-sources-freedb.address" value="gnudb.gnudb.org"/);
   assert.equal(providerName('local_freedb'), 'freedb (local)');
   assert.ok(isFreedb('freedb') && !isFreedb('discogs'));
+});
+
+test('Ctrl+I repeats the last tag source of any kind', () => {
+  for (const op of ['source-musicbrainz', 'source-discogs', 'source-discogs-release', 'source-freedb', 'source-local-freedb', 'source-cover-musicbrainz', 'source-cover-discogs']) {
+    assert.equal(sourceOperation(sourceRequest(op)), op);
+  }
+  assert.deepEqual(sourceRequest('source-local-freedb'), {provider: 'local_freedb', coversOnly: false, releaseId: false});
+  assert.deepEqual(sourceRequest('source-cover-discogs'), {provider: 'discogs', coversOnly: true, releaseId: false});
+  assert.deepEqual(sourceRequest('source-discogs-release'), {provider: 'discogs', coversOnly: false, releaseId: true});
+  assert.equal(sourceRequest('source-token'), null);
+  assert.equal(lastSourceOperation('source-local-freedb', 'discogs'), 'source-local-freedb');
+  assert.equal(lastSourceOperation(null, 'discogs'), 'source-discogs', 'older builds remembered the provider only');
+  assert.equal(lastSourceOperation('bogus', null), 'source-musicbrainz');
+});
+
+test('freedb servers are a named list whose selected entry is the server in use', () => {
+  const defaults = freedbServerList({});
+  assert.equal(defaults.index, 0);
+  assert.deepEqual(defaults.servers.map(server => server.name), FREEDB_SERVERS.map(server => server.name));
+  assert.equal(freedbServerList({protocol: 'http', address: 'gnudb.gnudb.org', path: '/~cddb/cddb.cgi', port: ''}).index, 1);
+  // A server saved before the list existed is kept as a custom entry.
+  const legacy = freedbServerList({protocol: 'https', address: 'cddb.example.org', path: '/cgi', port: '8080'});
+  assert.equal(legacy.servers.length, 3);
+  assert.deepEqual(legacy.servers[2], {name: 'Custom server', protocol: 'https', address: 'cddb.example.org', path: '/cgi', port: '8080'});
+  assert.equal(legacy.index, 2);
+  const page = {};
+  useFreedbServer(page, legacy.servers, 2);
+  assert.equal(page.address, 'cddb.example.org');
+  assert.equal(page.server, 2);
+  assert.deepEqual(freedbServerList(page), legacy);
+  legacy.servers[2].address = 'changed.example.org';
+  assert.equal(page.servers[2].address, 'cddb.example.org', 'stored as a copy');
+});
+
+test('suggest sorting when checked decides the first matching', () => {
+  const tracks = [track(1, 1, 'Long Song', {}), track(1, 2, 'Short Song', {})];
+  tracks[0].length = 300; tracks[1].length = 60;
+  const files = [file('short', {name: 'b.flac', length: 61, track: '1'}), file('long', {name: 'a.flac', length: 299, track: '2'})];
+  assert.deepEqual(initialSlots(tracks, files, ''), ['short', 'long'], 'auto-match trusts track numbers');
+  assert.deepEqual(initialSlots(tracks, files, 'length'), ['long', 'short']);
+  assert.deepEqual(initialSlots(tracks, files, 'title'), suggestByTitle(tracks, files));
+});
+
+test('review fields select like a list and a checkbox applies to the selection', () => {
+  const names = ['TITLE', 'ARTIST', 'ALBUM', 'YEAR'];
+  let state = selectFields(names, new Set(), null, 'ARTIST', 'single');
+  assert.deepEqual([...state.selected], ['ARTIST']);
+  state = selectFields(names, state.selected, state.anchor, 'YEAR', 'range');
+  assert.deepEqual([...state.selected], ['ARTIST', 'ALBUM', 'YEAR']);
+  state = selectFields(names, state.selected, state.anchor, 'ALBUM', 'toggle');
+  assert.deepEqual([...state.selected], ['ARTIST', 'YEAR']);
+  assert.deepEqual([...invertFields(names, state.selected)], ['TITLE', 'ALBUM']);
+  const enabled = new Set(names);
+  assert.deepEqual([...toggleEnabled(enabled, state.selected, 'YEAR', false)], ['TITLE', 'ALBUM']);
+  assert.deepEqual([...toggleEnabled(enabled, state.selected, 'TITLE', false)], ['ARTIST', 'ALBUM', 'YEAR'], 'an unselected box changes only itself');
 });

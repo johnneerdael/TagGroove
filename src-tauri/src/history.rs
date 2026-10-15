@@ -70,7 +70,10 @@ impl Changes for ActionResult {
 }
 
 #[cfg(test)]
-static TEST_ROOTS: Mutex<Vec<std::path::PathBuf>> = Mutex::new(Vec::new());
+pub(crate) static TEST_ROOTS: Mutex<Vec<std::path::PathBuf>> = Mutex::new(Vec::new());
+/// Tests that undo through the shared journal hold this so their steps do not interleave.
+#[cfg(test)]
+pub(crate) static TEST_LOCK: Mutex<()> = Mutex::new(());
 
 // Provider documents publish through their own recovery copies and are not journaled.
 fn journaled(path: &str) -> bool {
@@ -97,6 +100,19 @@ pub fn record<T: Changes>(
     paths: &[String],
     work: impl FnOnce() -> Result<T, String>,
 ) -> Result<T, String> {
+    record_with_side_files(label, group, paths, |_| work())
+}
+
+/// [`record`] for work that also creates or replaces files that are not audio
+/// (a saved cover image). `work` calls the hook it receives with each such
+/// path before writing it; an `Err` from the hook means the file must not be
+/// written because its undo copy failed.
+pub fn record_with_side_files<T: Changes>(
+    label: &str,
+    group: Option<&str>,
+    paths: &[String],
+    work: impl FnOnce(&mut dyn FnMut(&Path) -> Result<(), String>) -> Result<T, String>,
+) -> Result<T, String> {
     // Chapter and cue sheet rows are snapshots of their file.
     let mut local: Vec<String> = Vec::new();
     for path in paths {
@@ -106,10 +122,15 @@ pub fn record<T: Changes>(
         }
     }
     if local.is_empty() {
-        return work();
+        return work(&mut |_| Ok(()));
     }
-    let capture = with_journal(|journal| journal.begin(label, group, &local));
-    let result = work();
+    let mut capture = with_journal(|journal| journal.begin(label, group, &local));
+    let result = work(&mut |path| match capture.as_mut() {
+        Ok(capture) if journaled(&path.to_string_lossy()) => {
+            with_journal(|journal| journal.capture_side_file(capture, path))?
+        }
+        _ => Ok(()),
+    });
     if let Ok(capture) = capture {
         let (renamed, directories) = result
             .as_ref()
@@ -236,6 +257,7 @@ mod tests {
 
     #[test]
     fn commands_record_grouped_saves_tag_conversions_and_renames() {
+        let _journal = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let dir = tempfile::tempdir().unwrap();
         let root = dir.path().canonicalize().unwrap();
         TEST_ROOTS.lock().unwrap().push(root.clone());

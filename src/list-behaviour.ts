@@ -5,9 +5,12 @@
 // Standalone (type imports only), so the rules are unit-tested directly.
 
 /** pages.tags (defaults in options-ui TAGS_PAGE_DEFAULTS): Options → Tags switches beyond the tag type pages. */
-export type TagsPagePrefs={save_on_move:boolean;no_folder_image:boolean};
+/** Options → Tags → Save mode at extended tag dialog, when << or >> leaves a changed file: keep the changes pending (OpenTag's default), ask, discard them or save the file. */
+export type ExtendedSaveMode='pending'|'ask'|'ignore'|'save';
+export type TagsPagePrefs={save_on_move:boolean;no_folder_image:boolean;extended_save_mode:ExtendedSaveMode};
 export function tagsPagePrefs(values:Record<string,unknown>):TagsPagePrefs{
-  return{save_on_move:values.save_on_move===true,no_folder_image:values.no_folder_image===true};
+  const mode=values.extended_save_mode;
+  return{save_on_move:values.save_on_move===true,no_folder_image:values.no_folder_image===true,extended_save_mode:mode==='ask'||mode==='ignore'||mode==='save'?mode:'pending'};
 }
 
 /**
@@ -160,4 +163,15 @@ export function bindRowDrag(wrap:HTMLElement,host:RowDragHost){
     wrap.addEventListener('pointermove',move);
     wrap.addEventListener('pointerup',end);wrap.addEventListener('pointercancel',end);
   });
+}
+
+/** Random File List order (a click on the icon column header): every order is equally likely. */
+export function shuffleOrder<T>(items:readonly T[],random:()=>number=Math.random):T[]{
+  const result=[...items];
+  for(let i=result.length-1;i>0;i--){const j=Math.floor(random()*(i+1));[result[i],result[j]]=[result[j],result[i]];}
+  return result;
+}
+/** Native drops: a plain drop replaces the File List; Ctrl (⌘ on macOS, where Control also works) adds to it. */
+export function dropAdds(keys:{control:boolean;command:boolean},mac:boolean):boolean{
+  return keys.control||(mac&&keys.command);
 }

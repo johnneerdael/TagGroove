@@ -48,7 +48,8 @@ fn probe(path: &Path, entries: &str, extra: &[&str]) -> String {
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
-    String::from_utf8_lossy(&output.stdout).into_owned()
+    // Windows builds of ffprobe end lines with CR LF.
+    String::from_utf8_lossy(&output.stdout).replace("\r\n", "\n")
 }
 fn packets(path: &Path) -> String {
     probe(

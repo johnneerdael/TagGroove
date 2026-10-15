@@ -67,3 +67,10 @@ test('sorting and window title follow General options',()=>{
   assert.equal(ui.windowTitle('No folder loaded',fixture),'OpenTag');
   assert.equal(ui.windowTitle('/music',{...fixture,general:{...fixture.general,show_directory_in_title:false}}),'OpenTag');
 });
+
+test('Directories offers the cover art directory stored with the extension pages',()=>{
+  const page=ui.pageTree().find(({page})=>page.id==='directories').page;
+  const markup=page.controls.map(c=>ui.controlMarkup(c,draft(d=>{d.pages.directories={cover_art:'%_folderpath%Scans'};}))).join('');
+  assert.match(markup,/data-option="pages\.directories\.cover_art" value="%_folderpath%Scans"/);
+  assert.match(page.controls.map(c=>ui.controlMarkup(c,draft())).join(''),/data-option="pages\.directories\.cover_art" value=""/);
+});

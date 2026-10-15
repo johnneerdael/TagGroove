@@ -42,7 +42,8 @@ fn probe(path: &Path, entries: &str, extra: &[&str]) -> String {
         .arg(path)
         .output()
         .unwrap();
-    String::from_utf8_lossy(&output.stdout).into_owned()
+    // Windows builds of ffprobe end lines with CR LF.
+    String::from_utf8_lossy(&output.stdout).replace("\r\n", "\n")
 }
 
 fn audio(path: &Path) -> String {

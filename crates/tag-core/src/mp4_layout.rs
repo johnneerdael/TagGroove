@@ -645,7 +645,7 @@ fn chapter_refs(trak: &Node) -> Vec<u32> {
                 .iter()
                 .filter(|c| &c.kind == b"chap")
                 .filter_map(leaf)
-                .flat_map(|ids| ids.chunks_exact(4).map(be32))
+                .flat_map(|ids| ids.as_chunks::<4>().0.iter().map(|id| be32(id)))
                 .collect()
         })
         .unwrap_or_default()

@@ -15,13 +15,17 @@ const { headerMarkup, defaultLayout, minColumnWidth, maxColumnWidth } = await lo
 
 const key = (k, o = {}) => ({ key: k, altKey: false, ctrlKey: false, metaKey: false, shiftKey: false, ...o });
 
-test('Options → Tags offers save-on-move and the folder-image switch, both off by default', () => {
+test('Options → Tags offers save-on-move, the folder-image switch and the Extended Tags save mode', () => {
   const page = options.pageTree().find(({ page }) => page.id === 'tags').page;
   const paths = page.controls.filter(control => control.kind === 'checkbox').map(control => control.path);
   assert.deepEqual(paths, ['pages.tags.save_on_move', 'pages.tags.no_folder_image']);
   const values = options.pageValues(options.defaultSettings(), 'tags');
-  assert.deepEqual(tagsPagePrefs(values), { save_on_move: false, no_folder_image: false });
-  assert.deepEqual(tagsPagePrefs({ save_on_move: true, no_folder_image: 'yes' }), { save_on_move: true, no_folder_image: false });
+  assert.deepEqual(tagsPagePrefs(values), { save_on_move: false, no_folder_image: false, extended_save_mode: 'pending' });
+  assert.deepEqual(tagsPagePrefs({ save_on_move: true, no_folder_image: 'yes' }), { save_on_move: true, no_folder_image: false, extended_save_mode: 'pending' });
+  const mode = page.controls.find(control => control.path === 'pages.tags.extended_save_mode');
+  assert.deepEqual(mode.choices.map(([value]) => value), ['pending', 'ask', 'ignore', 'save']);
+  for (const value of ['ask', 'ignore', 'save']) assert.equal(tagsPagePrefs({ extended_save_mode: value }).extended_save_mode, value);
+  assert.equal(tagsPagePrefs({ extended_save_mode: 'later' }).extended_save_mode, 'pending');
 });
 
 test('moving to another file saves only the files left behind that have pending edits', () => {

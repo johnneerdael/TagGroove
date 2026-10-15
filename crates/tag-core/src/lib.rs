@@ -8,6 +8,7 @@ pub mod history;
 mod id3_padding;
 mod mp4_metadata;
 pub mod numbering;
+mod oem_codepages;
 pub mod operations;
 pub mod parallel;
 pub mod playlist;
