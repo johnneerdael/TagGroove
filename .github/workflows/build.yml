@@ -36,7 +36,18 @@ jobs:
         run: brew install ffmpeg
       - name: Windows media fixtures
         if: runner.os == 'Windows'
-        run: choco install ffmpeg --no-progress -y
+        shell: pwsh
+        # Chocolatey's feed sometimes answers 5xx and the install silently
+        # does nothing; retry, then require a working ffmpeg.
+        run: |
+          for ($attempt = 1; $attempt -le 3; $attempt++) {
+            choco install ffmpeg --no-progress -y
+            if (Get-Command ffmpeg -ErrorAction SilentlyContinue) { break }
+            Write-Host "ffmpeg not installed (attempt $attempt); retrying"
+            Start-Sleep -Seconds (20 * $attempt)
+          }
+          ffmpeg -version | Select-Object -First 1
+          if ($LASTEXITCODE -ne 0) { throw 'ffmpeg is not available' }
       - run: npm ci
       - run: npm run build
       - run: npm run test:ui
@@ -91,7 +102,18 @@ jobs:
         run: brew install ffmpeg
       - name: Windows media fixtures
         if: runner.os == 'Windows'
-        run: choco install ffmpeg --no-progress -y
+        shell: pwsh
+        # Chocolatey's feed sometimes answers 5xx and the install silently
+        # does nothing; retry, then require a working ffmpeg.
+        run: |
+          for ($attempt = 1; $attempt -le 3; $attempt++) {
+            choco install ffmpeg --no-progress -y
+            if (Get-Command ffmpeg -ErrorAction SilentlyContinue) { break }
+            Write-Host "ffmpeg not installed (attempt $attempt); retrying"
+            Start-Sleep -Seconds (20 * $attempt)
+          }
+          ffmpeg -version | Select-Object -First 1
+          if ($LASTEXITCODE -ne 0) { throw 'ffmpeg is not available' }
       - run: npm ci
       - name: Build the debug app once
         run: |
