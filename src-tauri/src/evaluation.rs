@@ -20,6 +20,9 @@ pub struct EvaluationSettings {
     pub export_write_bom: bool,
     pub export_create_directories: bool,
     pub export_template_inline: bool,
+    /// Current working folder of the file list, for `%_workingdir%` and
+    /// `%_workingpath%`.
+    pub working_directory: Option<String>,
 }
 
 impl Default for EvaluationSettings {
@@ -40,6 +43,7 @@ impl Default for EvaluationSettings {
             export_write_bom: false,
             export_create_directories: true,
             export_template_inline: false,
+            working_directory: None,
         }
     }
 }
@@ -89,6 +93,7 @@ impl EvaluationSettings {
         context.app_directory = Some(&self.app_directory);
         context.app_data_directory = Some(&self.app_data_directory);
         context.timestamp_seconds = Some(self.timestamp_seconds);
+        context.working_directory = self.working_directory.as_deref();
         #[cfg(windows)]
         {
             context.ansi_codepage = Some(windows_ansi_codepage().to_string());
@@ -293,7 +298,7 @@ pub fn technical_fields(entry: &AudioEntry, index: usize) -> Fields {
         ("_FILE_SIZE", human_size(entry.size)),
         ("_COVERS", entry.covers.len().to_string()),
         ("_COUNTER", index.to_string()),
-        ("_APP", format!("OpenTag v{}", env!("CARGO_PKG_VERSION"))),
+        ("_APP", app_name()),
         // App table property; this is not advertised as an original placeholder.
         ("_FILETYPE", entry.format.clone()),
     ] {
@@ -340,6 +345,11 @@ pub fn technical_fields(entry: &AudioEntry, index: usize) -> Fields {
         }
     }
     fields
+}
+
+/// `%_app%`: the application name and version.
+pub fn app_name() -> String {
+    format!("OpenTag v{}", env!("CARGO_PKG_VERSION"))
 }
 
 pub fn enriched_fields(entry: &AudioEntry, index: usize) -> Fields {

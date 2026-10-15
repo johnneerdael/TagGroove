@@ -76,6 +76,9 @@ pub struct EvalContext<'a> {
     pub environment: Option<&'a BTreeMap<String, String>>,
     pub app_directory: Option<&'a str>,
     pub app_data_directory: Option<&'a str>,
+    /// Folder the file list was last changed to (`%_workingdir%`,
+    /// `%_workingpath%`). Absent when the list was not loaded from a folder.
+    pub working_directory: Option<&'a str>,
 }
 
 impl<'a> EvalContext<'a> {
@@ -102,6 +105,7 @@ impl<'a> EvalContext<'a> {
             environment: None,
             app_directory: None,
             app_data_directory: None,
+            working_directory: None,
         }
     }
 
@@ -416,7 +420,36 @@ pub(crate) fn context_values<'a>(
             .format_localized(pattern, date_locale(&context.locale)?)
             .to_string()])));
     }
+    if name.eq_ignore_ascii_case("_WORKINGDIR") || name.eq_ignore_ascii_case("_WORKINGPATH") {
+        return Ok(context
+            .working_directory
+            .filter(|path| !path.is_empty())
+            .map(|path| Cow::Owned(vec![working_directory_value(path, name)])));
+    }
     Ok(field_values(context.fields, name).map(|values| Cow::Borrowed(values.as_slice())))
+}
+
+/// `%_workingdir%` is the folder name; `%_workingpath%` the full path with a
+/// trailing separator, like `%_folderpath%`. Both separators are accepted.
+fn working_directory_value(path: &str, name: &str) -> String {
+    let trimmed = path.trim_end_matches(['/', '\\']);
+    let separator = if path.contains('\\') && !path.contains('/') {
+        '\\'
+    } else {
+        std::path::MAIN_SEPARATOR
+    };
+    if name.eq_ignore_ascii_case("_WORKINGDIR") {
+        return trimmed
+            .rsplit(['/', '\\'])
+            .next()
+            .unwrap_or_default()
+            .to_string();
+    }
+    if trimmed.is_empty() {
+        // The file-system root: keep it as given.
+        return path.to_string();
+    }
+    format!("{trimmed}{separator}")
 }
 
 fn bounded(text: String) -> Result<String, String> {

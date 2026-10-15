@@ -59,6 +59,7 @@ impl FilenameConverter {
             environment: context.environment,
             app_directory: context.app_directory,
             app_data_directory: context.app_data_directory,
+            working_directory: context.working_directory,
         };
         let mut target = self.new_pattern.evaluate_filename_with_context(&context)?;
         let leaf = basename(&target);

@@ -152,16 +152,30 @@ async fn execute_action_groups(
 // Serialize operations to prevent two UI commands replacing each other's edits.
 static FILE_OPERATIONS: Mutex<()> = Mutex::new(());
 static APP_HANDLE: OnceLock<tauri::AppHandle> = OnceLock::new();
+/// Folder the file list was last changed to, reported by the window.
+static WORKING_DIRECTORY: Mutex<Option<String>> = Mutex::new(None);
 fn evaluation_settings(
     columns: Option<Vec<evaluation::ColumnSpec>>,
 ) -> Result<evaluation::EvaluationSettings, String> {
-    match APP_HANDLE.get() {
-        Some(app) => evaluation::EvaluationSettings::for_app(app, columns),
-        None => Ok(evaluation::EvaluationSettings {
+    let mut settings = match APP_HANDLE.get() {
+        Some(app) => evaluation::EvaluationSettings::for_app(app, columns)?,
+        None => evaluation::EvaluationSettings {
             columns: columns.unwrap_or_default(),
             ..Default::default()
-        }),
-    }
+        },
+    };
+    settings.working_directory = WORKING_DIRECTORY
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .clone();
+    Ok(settings)
+}
+
+#[tauri::command]
+fn set_working_directory(path: Option<String>) {
+    *WORKING_DIRECTORY
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner()) = path.filter(|path| !path.is_empty());
 }
 
 #[derive(Serialize)]
@@ -931,6 +945,7 @@ pub fn run() {
             execute_action_groups,
             action_host::export_action_group,
             runtime_platform,
+            set_working_directory,
             pick_document_files,
             document_states,
             document_working_entries,

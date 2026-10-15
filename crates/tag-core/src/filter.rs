@@ -164,7 +164,9 @@ impl Selector {
         let fields = context.fields;
         match self {
             Self::Field(name)
-                if name.eq_ignore_ascii_case("_DATE") || name.eq_ignore_ascii_case("_DATETIME") =>
+                if ["_DATE", "_DATETIME", "_WORKINGDIR", "_WORKINGPATH"]
+                    .iter()
+                    .any(|context_name| name.eq_ignore_ascii_case(context_name)) =>
             {
                 Ok(match context_values(context, name)? {
                     Some(Cow::Borrowed(values)) => values

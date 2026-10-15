@@ -986,3 +986,31 @@ fn regexp_ignores_case_by_default_and_honours_the_flag_and_inline_modifiers() {
         assert_eq!(evaluate(script, &fields()).unwrap(), expected, "{script}");
     }
 }
+
+#[test]
+fn working_directory_placeholders_come_from_the_context_and_reach_filters() {
+    let fields = fields();
+    let mut context = EvalContext::new(&fields);
+    assert_eq!(
+        evaluate_with_context("[%_workingdir%]|[%_workingpath%]", &context).unwrap(),
+        "|"
+    );
+    context.working_directory = Some("/music/rock/");
+    assert_eq!(
+        evaluate_with_context("%_workingdir%|%_WorkingPath%", &context).unwrap(),
+        format!("rock|/music/rock{}", std::path::MAIN_SEPARATOR)
+    );
+    context.working_directory = Some("C:\\Music\\Jazz");
+    assert_eq!(
+        evaluate_with_context("%_workingdir%|%_workingpath%", &context).unwrap(),
+        "Jazz|C:\\Music\\Jazz\\"
+    );
+    context.working_directory = Some("/");
+    assert_eq!(
+        evaluate_with_context("[%_workingdir%]%_workingpath%", &context).unwrap(),
+        "/"
+    );
+    context.working_directory = Some("/music/rock");
+    let filter = tag_core::compile_filter("_WORKINGDIR IS rock").unwrap();
+    assert!(filter.matches_with_context(&context).unwrap());
+}
