@@ -139,6 +139,14 @@ nav:
     - Zero-padded track numbers: cookbook/rename-zero-padded-track-numbers.md
     - Tags from folder and file names: cookbook/tags-from-folder-and-filename.md
     - Move guest artists to titles: cookbook/feat-artists-to-title.md
+  - Converters:
+    - converters/index.md
+    - Tag → Filename: converters/tag-to-filename.md
+    - Filename → Tag: converters/filename-to-tag.md
+    - Filename → Filename: converters/filename-to-filename.md
+    - Text File → Tag: converters/text-file-to-tag.md
+    - Tag → Tag: converters/tag-to-tag.md
+    - Auto-numbering: converters/auto-numbering.md
   - Reference:
     - Format strings: reference/format-strings.md
     - Placeholders: reference/placeholders.md
