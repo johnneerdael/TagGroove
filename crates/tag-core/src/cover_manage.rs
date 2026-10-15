@@ -198,7 +198,7 @@ pub fn apply_cover_changes_with_options(
             .zip(&planned)
             .all(|(a, b)| identity(a) == identity(b));
     if unchanged {
-        return read_entry_summary_with_options(path, &[], options);
+        return read_entry_summary_with_options(path, &options.mappings, options);
     }
     if asf {
         return asf::change_pictures(
@@ -249,7 +249,7 @@ fn write_pictures(
             let written = tag_policy::write(
                 staging,
                 &file,
-                &[],
+                &options.mappings,
                 options,
                 tag_policy::Change::Pictures(pictures.clone()),
             )?;
