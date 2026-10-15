@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { PLATFORMS, GitHubApi, releasePlan, readVersions, assetName, collectAssets, assembleRelease, publishRelease, releaseBody, parseVersion, compareVersions, automaticVersion, explicitVersion, versionOrigin, stampVersion, makeLatest, previousTag, releaseNotes } from '../scripts/release.mjs';
+import { PLATFORMS, GitHubApi, releasePlan, readVersions, assetName, collectAssets, assembleRelease, publishRelease, releaseBody, parseVersion, compareVersions, automaticVersion, explicitVersion, versionOrigin, stampVersion, makeLatest, previousTag, releaseNotes, appleVersion, androidVersionCode } from '../scripts/release.mjs';
 
 const sha = 'a'.repeat(40);
 const versions = { package: '0.1.0', cargo: '0.1.0', tauri: '0.1.0' };
@@ -322,6 +322,26 @@ test('stamping sets the release version in every manifest and lockfile without t
   // Stamping is repeatable, so a rerun job may stamp an already stamped tree.
   await stampVersion(root, '0.2.42');
   assert.deepEqual(await readVersions(root), { package: '0.2.42', tauri: '0.2.42', cargo: '0.2.42' });
+});
+
+test('prereleases keep their suffix in app metadata but Apple bundle versions stay numeric', async (t) => {
+  const root = await stampFixture(t);
+  await stampVersion(root, '0.3.0-beta.1');
+  assert.deepEqual(await readVersions(root), { package: '0.3.0-beta.1', tauri: '0.3.0-beta.1', cargo: '0.3.0-beta.1' });
+  assert.match(await readFile(join(root, 'Cargo.lock'), 'utf8'), /name = "opentag"\nversion = "0\.3\.0-beta\.1"/);
+  const yml = await readFile(join(root, 'src-tauri/gen/apple/project.yml'), 'utf8');
+  assert.match(yml, /CFBundleShortVersionString: "0\.3\.0"\n {4}CFBundleVersion: "0\.3\.0"\n/);
+  const plist = await readFile(join(root, 'src-tauri/gen/apple/opentag_iOS/Info.plist'), 'utf8');
+  assert.equal(plist.match(/<string>0\.3\.0<\/string>/g).length, 2);
+  assert.doesNotMatch(plist + yml, /beta/);
+  assert.equal(appleVersion('0.3.0-beta.1'), '0.3.0');
+  assert.equal(appleVersion('1.2.3+build.5'), '1.2.3');
+  assert.equal(appleVersion('0.2.17'), '0.2.17');
+  // Android keeps the suffix in versionName; versionCode uses Tauri's formula.
+  assert.equal(androidVersionCode('0.2.17'), 2017);
+  assert.equal(androidVersionCode('0.3.0-beta.1'), 3000);
+  assert.equal(androidVersionCode('1.4.999'), 1004999);
+  assert.ok(androidVersionCode('0.2.1') > androidVersionCode('0.1.0'));
 });
 
 test('stamping fails rather than leave a lockfile that breaks --locked builds', async (t) => {

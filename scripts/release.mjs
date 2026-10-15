@@ -57,6 +57,19 @@ export function automaticVersion(base, distance) {
   return `${major}.${minor}.${distance}`;
 }
 
+// Apple bundle versions must be three numeric components; Tauri strips the
+// prerelease suffix the same way when it builds the iOS app.
+export function appleVersion(version) {
+  const { major, minor, patch } = parseVersion(version);
+  return `${major}.${minor}.${patch}`;
+}
+
+// Tauri's default Android versionCode; versionName keeps the full version.
+export function androidVersionCode(version) {
+  const { major, minor, patch } = parseVersion(version);
+  return major * 1000000 + minor * 1000 + patch;
+}
+
 // An explicit tag either releases the base version itself or a suffixed
 // prerelease, so it can never take a number that automatic releases will use.
 export function explicitVersion(base, tag) {
@@ -142,9 +155,10 @@ export async function stampVersion(root, version) {
   });
   // --locked builds fail unless the lockfile agrees with Cargo.toml.
   await edit('Cargo.lock', once(/(\[\[package\]\]\r?\nname = "opentag"\r?\nversion = ")[^"]+(")/, `$1${version}$2`, 'Cargo.lock'));
+  const bundle = appleVersion(version);
   for (const key of ['CFBundleShortVersionString', 'CFBundleVersion']) {
-    await edit('src-tauri/gen/apple/project.yml', once(new RegExp(`^(\\s*${key}:\\s*).*$`, 'm'), `$1"${version}"`, 'project.yml'), true);
-    await edit('src-tauri/gen/apple/opentag_iOS/Info.plist', once(new RegExp(`(<key>${key}</key>\\s*<string>)[^<]*(</string>)`), `$1${version}$2`, 'Info.plist'), true);
+    await edit('src-tauri/gen/apple/project.yml', once(new RegExp(`^(\\s*${key}:\\s*).*$`, 'm'), `$1"${bundle}"`, 'project.yml'), true);
+    await edit('src-tauri/gen/apple/opentag_iOS/Info.plist', once(new RegExp(`(<key>${key}</key>\\s*<string>)[^<]*(</string>)`), `$1${bundle}$2`, 'Info.plist'), true);
   }
   const stamped = await readVersions(root);
   if (baseVersion(stamped) !== version) throw new Error('Stamped versions do not match');
@@ -436,7 +450,7 @@ async function main(command) {
     const signature = execFileSync(join(tools, 'apksigner'), ['verify', '--verbose', '--print-certs', paths[0]], { encoding: 'utf8' });
     if (/CN=Android Debug/i.test(signature)) throw new Error('Debug signing certificates are not release keys');
     const info = execFileSync(join(tools, 'aapt'), ['dump', 'badging', paths[0]], { encoding: 'utf8' });
-    if (!info.includes(`versionName='${plan.version}'`) || !/^native-code: 'arm64-v8a'\s*$/m.test(info)) throw new Error('APK version/ABI differs from the release plan');
+    if (!info.includes(`versionName='${plan.version}'`) || !info.includes(`versionCode='${androidVersionCode(plan.version)}'`) || !/^native-code: 'arm64-v8a'\s*$/m.test(info)) throw new Error('APK version/ABI differs from the release plan');
     console.log(signature);
     await collectAssets({ plan, platform: 'android-arm64', sourcePaths: paths, outputDir });
   } else if (command === 'collect-ios') {
@@ -444,7 +458,7 @@ async function main(command) {
     const executable = execFileSync('plutil', ['-extract', 'CFBundleExecutable', 'raw', '-o', '-', join(app, 'Info.plist')], { encoding: 'utf8' }).trim();
     const version = execFileSync('plutil', ['-extract', 'CFBundleShortVersionString', 'raw', '-o', '-', join(app, 'Info.plist')], { encoding: 'utf8' }).trim();
     const info = execFileSync('xcrun', ['vtool', '-show-build', join(app, executable)], { encoding: 'utf8' });
-    if (version !== plan.version || !info.includes('IOSSIMULATOR')) throw new Error('Expected matching-version iOS simulator app');
+    if (version !== appleVersion(plan.version) || !info.includes('IOSSIMULATOR')) throw new Error('Expected matching-version iOS simulator app');
     await mkdir(outputDir, { recursive: true });
     const zip = join(outputDir, assetName(plan.tag, 'ios-arm64-simulator-preview', 'OpenTag.app.zip'));
     execFileSync('ditto', ['-c', '-k', '--sequesterRsrc', '--keepParent', app, zip]);

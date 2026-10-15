@@ -25,10 +25,11 @@ permissions:
 
 # Serialize release runs, including manual and tag-triggered runs for the same
 # version. A second run must never race a first run's draft or published assets.
-# GitHub keeps only the newest pending run, so merges that arrive during a
-# release build ship together in the next release.
+# queue: max keeps up to 100 pending runs instead of replacing the pending one,
+# so a tag push or manual run cannot displace a merge's release.
 concurrency:
   group: opentag-release
+  queue: max
   cancel-in-progress: false
 
 env:

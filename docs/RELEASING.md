@@ -10,11 +10,11 @@ Every merge to `main` publishes a full GitHub release (not a prerelease) marked 
 
 For a push to `main`, the release version is `<major>.<minor>.<n>`, where `n` is the number of first-parent commits on `main` since the commit that set the base version (`git rev-list --count --first-parent <base commit>..HEAD`). The commit that lands the base version is `v0.2.0`; the next merge is `v0.2.1`, then `v0.2.2`, and so on. Each merge adds one first-parent commit, however many commits its branch had, so versions follow the order of merges, increase strictly and never depend on the runner, the clock or earlier releases. The same commit always gets the same version, so reruns are deterministic.
 
-`scripts/release.mjs prepare` computes the version and tag once; every build job then runs `scripts/release.mjs stamp`, which writes that version into the files listed above in its checkout. Stamping includes `Cargo.lock` so `--locked` builds still pass. Stamped versions are never committed. The app's update check, the installer metadata, the Android `versionName`/`versionCode` and the iOS bundle version all report the stamped release version.
+`scripts/release.mjs prepare` computes the version and tag once; every build job then runs `scripts/release.mjs stamp`, which writes that version into the files listed above in its checkout. Stamping includes `Cargo.lock` so `--locked` builds still pass. Stamped versions are never committed. The app's update check, the installer metadata and the Android `versionName` report the full release version, including any prerelease suffix. Apple requires `CFBundleShortVersionString` and `CFBundleVersion` to be numeric, so the iOS project gets the numeric `<major>.<minor>.<patch>` (`0.3.0` for `0.3.0-beta.1`), as Tauri also does when it builds the app. The Android `versionCode` ignores the suffix too, so `0.3.0-beta.1` and `0.3.0` share code `3000`.
 
 Tauri computes the Android `versionCode` as `major * 1000000 + minor * 1000 + patch`, so the patch must stay below 1000. Preparation fails once `main` reaches 1000 merges for one base version; bump the minor version before then.
 
-GitHub keeps only the newest pending run in the serialized release queue. Merges that arrive while a release is building are released together by the next run, and the versions of the skipped intermediate commits are never published.
+Release runs share one serialized concurrency group with [`queue: max`](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency), so up to 100 runs wait their turn instead of the newest replacing the pending one. Every merge, tag push and manual run therefore gets its own release, in roughly first-in-first-out order. GitHub does not guarantee that order, so a later merge can occasionally publish before an earlier one; the earlier one still publishes its own version but does not take "latest" from the newer release. If more than 100 runs are waiting, GitHub cancels the extras; rerun a cancelled merge's workflow to publish its version.
 
 ### Bumping the minor or major version
 
@@ -65,7 +65,7 @@ Do not move a published tag or overwrite a public release. Releases are idempote
 - A failed draft upload remains unpublished. Rerunning the failed jobs reuses the plan from the original run and updates the same draft. The final job may replace stale assets only on a draft for that exact commit.
 - A rerun of an older run never takes "latest" from a newer published release.
 
-Release runs are serialized so a manual run, a tag push and a merge cannot race one another.
+Release runs are serialized so a manual run, a tag push and a merge cannot race one another on a draft, a tag or "latest".
 
 ## Release notes
 
@@ -114,8 +114,10 @@ Before committing workflow changes:
 
 ```sh
 node --test tests/release.test.mjs
-actionlint .github/workflows/release.yml
+actionlint -ignore 'unexpected key "queue" for "concurrency" section' .github/workflows/release.yml
 ```
+
+actionlint 1.7.12 does not yet recognise the documented `concurrency.queue` key ([rhysd/actionlint#654](https://github.com/rhysd/actionlint/issues/654)); the flag ignores only that error.
 
 The script tests cover automatic version derivation from a real git history (merge commits, multi-commit branches, base bumps), the Android versionCode limit, explicit-tag rules, stamping every manifest and `Cargo.lock`, rerun no-ops, "latest" selection, release-note fallback, version/tag/commit mismatch, forced development prereleases, exact platform coverage, missing and mixed manifests, tampered local files, duplicate asset formats, already published releases, upload failures, missing/wrong server SHA256 digests, draft pagination, publication order, banner/signing notes, and app archive fallback. They do not prove that the remote workflow ran or that built packages install correctly.
 
