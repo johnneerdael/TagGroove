@@ -241,9 +241,22 @@ function fromMarkup(text, add) {
   const tag = /<!--[\s\S]*?-->|<\/?[A-Za-z][^>]*>|\u0003/g;
   let last = 0, match;
   const segment = value => { const key = finish(value); if (key && textWorthy(key)) add(key, 'text'); };
-  let skipDepth = 0, skipTag = '';
+  let skipDepth = 0, skipTag = '', frozen = false;
+  // UI text written inside translate="no" would never be translated: reported as 'frozen'.
+  const attributesOf = (markup, kind) => {
+    const attributes = /([\w:-]+)\s*=\s*("([^"]*)"|'([^']*)')/g;let attribute;
+    while ((attribute = attributes.exec(markup))) {
+      const attributeName = attribute[1].toLowerCase(), value = attribute[3] ?? attribute[4] ?? '';
+      const input = /^<input\b/i.test(markup) && /\btype="(button|submit|reset)"/i.test(markup);
+      if (UI_ATTRIBUTES.includes(attributeName) || (input && attributeName === 'value')) {
+        const key = finish(value);
+        if (key && textWorthy(key)) add(key, kind);
+      }
+    }
+  };
   while ((match = tag.exec(text))) {
     if (!skipDepth) segment(text.slice(last, match.index));
+    else if (frozen) { const key = finish(text.slice(last, match.index)); if (key && textWorthy(key)) add(key, 'frozen'); }
     last = tag.lastIndex;
     const markup = match[0];
     const name = /^<\/?([A-Za-z][\w-]*)/.exec(markup)?.[1]?.toLowerCase();
@@ -251,18 +264,15 @@ function fromMarkup(text, add) {
     if (skipDepth) {
       if (name === skipTag && markup.startsWith('</')) skipDepth--;
       else if (name === skipTag && !markup.endsWith('/>')) skipDepth++;
+      if (frozen && skipDepth) attributesOf(markup, 'frozen');
       continue;
     }
-    if (name && !markup.startsWith('</') && (/\btranslate="no"/.test(markup) || ['style', 'script', 'svg'].includes(name))) { skipDepth = 1; skipTag = name; continue; }
-    const attributes = /([\w:-]+)\s*=\s*("([^"]*)"|'([^']*)')/g;let attribute;
-    while ((attribute = attributes.exec(markup))) {
-      const attributeName = attribute[1].toLowerCase(), value = attribute[3] ?? attribute[4] ?? '';
-      const input = /^<input\b/i.test(markup) && /\btype="(button|submit|reset)"/i.test(markup);
-      if (UI_ATTRIBUTES.includes(attributeName) || (input && attributeName === 'value')) {
-        const key = finish(value);
-        if (key && textWorthy(key)) add(key, 'attribute');
-      }
+    if (name && !markup.startsWith('</') && (/\btranslate="no"/.test(markup) || ['style', 'script', 'svg'].includes(name))) {
+      skipDepth = 1; skipTag = name; frozen = /\btranslate="no"/.test(markup);
+      if (frozen) attributesOf(markup, 'frozen');
+      continue;
     }
+    attributesOf(markup, 'attribute');
   }
   if (!skipDepth) segment(text.slice(last));
 }
@@ -302,6 +312,7 @@ export function extract() {
   const files = readdirSync(SRC).filter(name => name.endsWith('.ts') && !name.endsWith('.d.ts')).sort();
   for (const name of files) {
     extractFile(name, readFileSync(SRC + name, 'utf8'), (key, kind, file) => {
+      if (kind === 'frozen') return;
       if (ignore.exact.has(key) || ignore.patterns.some(p => p.test(key))) return;
       if (!keys.has(key)) keys.set(key, new Set());
       keys.get(key).add(file);
@@ -336,6 +347,14 @@ export function extractBackend() {
     }
   }
   return [...keys].sort((a, b) => a < b ? -1 : a > b ? 1 : 0);
+}
+
+/** UI text written inside translate="no" markup, where it would stay English: `file: text`. */
+export function extractFrozen() {
+  const found = [];
+  for (const name of readdirSync(SRC).filter(name => name.endsWith('.ts') && !name.endsWith('.d.ts')).sort())
+    extractFile(name, readFileSync(SRC + name, 'utf8'), (key, kind, file) => {if (kind === 'frozen') found.push(`${file}: ${key}`);});
+  return [...new Set(found)];
 }
 
 /** The English catalog: every key maps to itself, plus hand-added keys and backend messages. */

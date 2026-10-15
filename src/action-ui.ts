@@ -238,7 +238,7 @@ export class ActionUI {
     const tree=(prefix:string[]):string=>{
       const slots:({index:number;raw:string}|{branch:string;raw:string})[]=[],branches=new Set<string>();
       this.library.groups.forEach((group,index)=>{const segments=menuSegments(group.name),raw=group.name.split('#')[prefix.length];if(!prefix.every((part,i)=>segments[i]?.label===part))return;const segment=segments[prefix.length];if(!segment)return;if(segments.length===prefix.length+1)slots.push({index,raw});else if(!branches.has(segment.label)){branches.add(segment.label);slots.push({branch:segment.label,raw});}});
-      return slots.map(slot=>'branch'in slot?`<details class="group-submenu"><summary translate="no">${mnemonicMarkup(slot.raw)}</summary><div>${tree([...prefix,slot.branch])}</div></details>`:`<button data-action-group="${slot.index}" ${this.host.canExecute()?'':'disabled'} translate="no">${mnemonicMarkup(slot.raw)}</button>`).join('');
+      return slots.map(slot=>'branch'in slot?`<details class="group-submenu"><summary translate="no">${mnemonicMarkup(slot.raw)}</summary><div>${tree([...prefix,slot.branch])}</div></details>`:`<button data-action-group="${slot.index}" ${this.host.canExecute()?'':'disabled'}><span translate="no">${mnemonicMarkup(slot.raw)}</span></button>`).join('');
     };
     return this.loaded&&this.library.groups.length?`<hr>${tree([])}`:'';
   }

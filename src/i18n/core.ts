@@ -154,11 +154,12 @@ export class Translator {
     if (!core || !/\p{L}/u.test(core)) return text;
     const name = typeof verbatim === 'string' ? normalize(verbatim) : undefined;
     if (name !== undefined && core === name) return text;
-    const cached = !verbatim;
-    let result = cached ? this.cache.get(core) : undefined;
+    // File list cells repeat on every render, so protected text is cached by name as well.
+    const key = verbatim === true ? `\u0001${core}` : name !== undefined ? `${name}\u0000${core}` : core;
+    let result = this.cache.get(key);
     if (result === undefined) {
       result = this.lookup(core, depth, verbatim === true, name);
-      if (cached && depth === 0) {if (this.cache.size > 20000) this.cache.clear();this.cache.set(core, result);}
+      if (depth === 0) {if (this.cache.size > 20000) this.cache.clear();this.cache.set(key, result);}
     }
     if (result === null) return text;
     const lead = /^\s*/.exec(text)![0], trail = /\s*$/.exec(text)![0];

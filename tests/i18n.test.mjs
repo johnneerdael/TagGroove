@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile, readdir} from 'node:fs/promises';
 import ts from 'typescript';
-import {extract, englishCatalog} from '../scripts/i18n-extract.mjs';
+import {extract, englishCatalog, extractFrozen} from '../scripts/i18n-extract.mjs';
 const load=async file=>{
   const source=await readFile(new URL(`../src/${file}`,import.meta.url),'utf8');
   const js=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
@@ -124,6 +124,10 @@ test('the English catalog lists every user-visible string of the frontend',()=>{
   const missing=Object.keys(expected).filter(key=>!(key in current)),stale=Object.keys(current).filter(key=>!(key in expected));
   assert.deepEqual({missing,stale},{missing:[],stale:[]},'Run node scripts/i18n-extract.mjs --write, then translate the new keys in every catalog.');
   for(const [key,value] of Object.entries(current))assert.equal(value,key);
+});
+test('translate="no" only wraps data: no UI text is written inside it',()=>{
+  // tests/e2e/i18n.js checks the rendered views as well, including markup built from several templates.
+  assert.deepEqual(extractFrozen(),[]);
 });
 for(const locale of ['nl','de']){
   test(`the ${locale} catalog has every key with matching placeholders`,()=>{
