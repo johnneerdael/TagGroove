@@ -72,6 +72,19 @@ export function newManaged(list:ManagedCover[],image:StagedImage,id:string,total
 export function replaceManaged(cover:ManagedCover,image:StagedImage):ManagedCover{
   return {...cover,image:{staged:image.token},mime:image.mime,size:image.size,width:image.width,height:image.height,data_base64:image.data_base64,label:image.label};
 }
+/** Where Manage Covers → Adjust reads a cover: its staged image, else the first selected file holding the original; null when neither exists. */
+export function adjustSource(cover:ManagedCover,set:CoverSet,paths:string[]):{staged:string}|{cover:{path:string;index:number}}|null{
+  if(cover.image)return 'staged'in cover.image?{staged:cover.image.staged}:null;
+  const original=cover.original,item=original&&set.covers.find(item=>coverRef(item).digest===original.digest&&item.picture_type===original.picture_type&&item.description===original.description);
+  const path=item?paths[item.files[0]]:undefined;
+  return item&&path?{cover:{path,index:item.index}}:null;
+}
+/** Replace adjusted covers whose image changed; `changed` counts them. */
+export function applyAdjusted(list:ManagedCover[],adjusted:Map<string,StagedImage>):{list:ManagedCover[];changed:number}{
+  let changed=0;
+  const result=list.map(cover=>{const image=adjusted.get(cover.id);if(!image||image.data_base64===cover.data_base64)return cover;changed++;return replaceManaged(cover,image);});
+  return {list:result,changed};
+}
 /** Move the selected covers one step, keeping their relative order; blocked moves leave the list unchanged. */
 export function moveManaged(list:ManagedCover[],ids:Set<string>,delta:-1|1):ManagedCover[]{
   const result=[...list],order=delta<0?result.map((_,i)=>i):result.map((_,i)=>result.length-1-i);

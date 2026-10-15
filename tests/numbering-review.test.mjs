@@ -4,7 +4,7 @@ import {readFile} from 'node:fs/promises';
 import ts from 'typescript';
 const source = await readFile(new URL('../src/numbering-review.ts', import.meta.url), 'utf8');
 const javascript = ts.transpileModule(source, {compilerOptions: {target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022}}).outputText;
-const {numberingCounter, createNumberingReview} = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);
+const {numberingCounter, createNumberingReview, numberingDefaults, recallNumbering, rememberNumbering} = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);
 const request = () => ({items: [{path: '/a.flac', fields: {ALBUM: ['A']}}], options: {disc_enabled: true, track_start: 1}});
 const plan = () => [{path: '/a.flac', fields: {TRACK: ['01/12'], DISCNUMBER: ['1/2']}}];
 
@@ -49,4 +49,33 @@ test('partial, reordered or unexpected patches cannot stage any fields', () => {
     assert.throws(() => state.complete(attempt, response, request()), /preview/i);
     assert.throws(() => state.take(request()), /Preview again/);
   }
+});
+
+const memoryStore = () => { const items = new Map(); return {getItem: key => items.get(key) ?? null, setItem: (key, value) => items.set(key, value), items}; };
+
+test('the wizard remembers staged options but not the selected-file total', () => {
+  const storage = memoryStore();
+  assert.deepEqual(recallNumbering(storage), numberingDefaults());
+  const options = {...numberingDefaults(), track_start: 5, track_digits: 3, track_total: true, disc_enabled: true, disc_start: 2, disc_total: true, disc_total_value: 3, next_disc_on_field: 'ALBUM', reset_track_on_next_disc: true};
+  rememberNumbering(storage, options);
+  assert.deepEqual(recallNumbering(storage), options);
+  assert.ok(!('track_total_value' in JSON.parse(storage.items.get('opentag.numbering'))));
+  // Damaged or out-of-range values fall back one by one.
+  storage.setItem('opentag.numbering', JSON.stringify({...options, track_digits: 11, disc_start: 0, track_total: 'yes', next_disc_on_field: 4}));
+  assert.deepEqual(recallNumbering(storage), {...options, track_digits: 2, disc_start: 1, track_total: false, next_disc_on_field: ''});
+  storage.setItem('opentag.numbering', '{not json');
+  assert.deepEqual(recallNumbering(storage), numberingDefaults());
+  assert.deepEqual(recallNumbering(undefined), numberingDefaults());
+});
+
+test('Ctrl+Shift+K presets per-folder options without making them the Ctrl+K defaults', () => {
+  const storage = memoryStore();
+  rememberNumbering(storage, {...numberingDefaults(), track_start: 3, disc_enabled: true});
+  const perFolder = recallNumbering(storage, true);
+  assert.equal(perFolder.track_start, 3);
+  assert.deepEqual([perFolder.next_disc_on_directory, perFolder.reset_track_on_next_disc, perFolder.disc_enabled], [true, true, false]);
+  rememberNumbering(storage, {...perFolder, track_digits: 4}, true);
+  const plain = recallNumbering(storage);
+  assert.equal(plain.track_digits, 4);
+  assert.deepEqual([plain.next_disc_on_directory, plain.reset_track_on_next_disc, plain.disc_enabled], [false, false, true]);
 });

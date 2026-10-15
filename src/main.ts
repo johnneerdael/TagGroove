@@ -10,7 +10,7 @@ import { createAppearance, type AppearanceState } from './theme';
 import { installMenubar } from './menubar';
 import { ExportUI, type ExportLibrary, type ExportConfiguration } from './export-ui';
 import { OptionsUI, registerOptionsPage, naturalCollator, windowTitle, type Settings, type SettingsResponse } from './options-ui';
-import { createNumberingReview, numberingCounter, type NumberingRequest, type NumberingUpdate } from './numbering-review';
+import { createNumberingReview, numberingCounter, recallNumbering, rememberNumbering, type NumberingRequest, type NumberingUpdate } from './numbering-review';
 import { open, save, ask, message } from '@tauri-apps/plugin-dialog';
 import { Messages, messagesOptionsPage, coverChoice, type MessageKey } from './messages';
 import { appearanceOptions, completeInput, generalOptions, insideFolders, networkingOptionsPage, releaseNotesUrl, showReleaseNotes, updateMessage, updateOptions, updatesOptionsPage, type UpdateCheck } from './general-options';
@@ -64,6 +64,9 @@ import './style.css';
 type PerfRecord={name:string;at:number;ms:number;pending?:boolean;in?:number;out?:number;[key:string]:unknown};
 // Profiling scripts (tests/e2e/performance.js) create this array to collect timings; normal runs never do.
 const perfSink=()=>(window as Window&{__OPENTAG_TIMINGS__?:PerfRecord[]}).__OPENTAG_TIMINGS__;
+// Native UI suites (tests/e2e) create this object to answer the cover image file dialog, which cannot be driven headless; normal runs never do.
+type DialogSeam={requests:{title:string;defaultPath?:string}[];answers:(string|null)[]};
+const dialogSeam=()=>(window as Window&{__OPENTAG_E2E_DIALOGS__?:DialogSeam}).__OPENTAG_E2E_DIALOGS__;
 function invoke<T>(command:string,args?:InvokeArgs):Promise<T>{
   const sink=perfSink();if(!sink)return coreInvoke<T>(command,args);
   const record:PerfRecord={name:`ipc ${command}`,at:performance.now(),ms:0,pending:true,in:JSON.stringify(args??{}).length};sink.push(record);
@@ -183,6 +186,7 @@ const actionUI=new ActionUI({
   pickFile:async kind=>{const extensions=kind==='mta'?['mta']:kind==='image'?['jpg','jpeg','png','webp','gif']:kind==='export'?['mte']:['txt','lrc'];const path=await open({multiple:false,title:kind==='mta'?'Import action group':kind==='image'?'Choose cover image':kind==='export'?'Choose export configuration':'Choose text file',filters:[{name:kind==='mta'?'Action groups':kind==='image'?'Images':kind==='export'?'Export configurations':'Text files',extensions}]});return typeof path==='string'?path:null;},
   confirm:message=>ask(message,{title:'Action groups',kind:'warning'}),
   canExecute:()=>enabled('action'),executeReason:()=>operationReason('action'),selectedCount:()=>selected.size,fieldNames:()=>[...new Set(paths().flatMap(path=>Object.keys(merged(entries.get(path)!))))],changed:()=>render(),
+  storage:{getItem:key=>window.localStorage.getItem(key),setItem:(key,value)=>window.localStorage.setItem(key,value)},
   exportGroup:async group=>{const path=await save({title:'Export action group',defaultPath:`${group.name.replace(/[\\/:*?"<>|]/g,'_')}.mta`,filters:[{name:'Action groups',extensions:['mta']}]});if(!path)return null;await invoke('export_action_group',{path,group});return path;},
 });
 const exportUI=new ExportUI({
@@ -230,7 +234,9 @@ const coverUI=new CoverUI({
   clipboard:()=>desktop&&runtimePlatform.family==='desktop'&&!paths().some(path=>pendingCovers.has(path)),
   pending:()=>paths().some(path=>pendingCovers.has(path)),
   mutate:(command,args,message)=>mutate(command,args,message),
-  pickImage:async directory=>{const path=await open({multiple:false,title:'Choose cover image',defaultPath:directory,filters:[{name:'Images',extensions:imageExtensions()}]});return typeof path==='string'?path:null;},
+  pickImage:async directory=>{const seam=dialogSeam();if(seam){seam.requests.push({title:'Choose cover image',defaultPath:directory});return seam.answers.shift()??null;}const path=await open({multiple:false,title:'Choose cover image',defaultPath:directory,filters:[{name:'Images',extensions:imageExtensions()}]});return typeof path==='string'?path:null;},
+  startDirectory:path=>invoke<string>('cover_start_directory',{path,template:String(optionsUI.settings.pages.directories?.cover_art??'')}),
+  adjustSettings:()=>actionUI.adjustSettings(),
   pickSave:(defaultPath,extension)=>save({title:'Extract cover',defaultPath,filters:[{name:'Images',extensions:[extension]}]}),
   confirm:(message,title)=>ask(message,{title,kind:'warning'}),
   modal:(title,content,buttons)=>modal(title,content,buttons),modalError:(dialog,error)=>modalError(dialog,error),
@@ -1301,22 +1307,25 @@ function tagToTag(){
       if(result.errors.length)throw new Error(result.errors.map(error=>`${displayName(error.path)}: ${error.error}`).join('\n'));
     }});
 }
-/** Auto-numbering wizard; `perFolder` (Ctrl+Shift+K) restarts the track counter in each folder. */
+/** Auto-numbering wizard; `perFolder` (Ctrl+Shift+K) restarts the track counter in each folder. Options are remembered between runs. */
 function numbering(options:{perFolder?:boolean}={}) {
+  const storage={getItem:(key:string)=>window.localStorage.getItem(key),setItem:(key:string,value:string)=>window.localStorage.setItem(key,value)};
   const directoryAvailable=paths().every(path=>!providerEntry(entries.get(path)!));
-  const names=[...new Set(['ALBUM','DISCNUMBER','ALBUMARTIST',...paths().flatMap(path=>Object.keys(merged(entries.get(path)!)))])].sort();
-  const fieldOptions=`<option value="">Do not change counter</option>${names.map(name=>`<option value="${esc(name)}">${esc(name)}</option>`).join('')}`;
+  const memory=recallNumbering(storage,options.perFolder&&directoryAvailable);
+  const names=[...new Set(['ALBUM','DISCNUMBER','ALBUMARTIST',...paths().flatMap(path=>Object.keys(merged(entries.get(path)!))),...[memory.next_disc_on_field,memory.reset_disc_on_field].filter(Boolean)])].sort();
+  const fieldOptions=(chosen:string)=>`<option value="">Do not change counter</option>${names.map(name=>`<option value="${esc(name)}" ${name===chosen?'selected':''}>${esc(name)}</option>`).join('')}`;
   const counter=(id:string,label:string,initial:number,max=4_294_967_295)=>`<label class="field"><span>${label}</span><input id="${id}" type="number" min="1" max="${max}" step="1" value="${initial}"></label>`;
+  const on=(value:boolean)=>value?'checked':'';
   const dialog=modal('Auto-numbering',`<p>Number selected files in their current table order. Preview, then stage the numbers as pending edits.</p>
-    <fieldset class="numbering-section"><legend>Track numbers</legend><div class="field-pair">${counter('number-start','Begin at track',1)}${counter('number-digits','Minimum digits',2,10)}</div>
-    <label class="action-check"><input type="checkbox" id="number-total"> Save total track count</label>${counter('number-total-value','Total tracks',selected.size)}</fieldset>
-    <fieldset class="numbering-section"><legend><label><input type="checkbox" id="number-disc-enabled"> Disc numbers</label></legend><div class="field-pair">${counter('number-disc-start','Begin at disc',1)}${counter('number-disc-digits','Minimum digits',1,10)}</div>
-    <label class="action-check"><input type="checkbox" id="number-disc-total"> Save total disc count</label>${counter('number-disc-total-value','Total discs',1)}</fieldset>
-    <fieldset class="numbering-section"><legend>Counter changes</legend><label class="action-check"><input type="checkbox" id="number-directory" ${directoryAvailable?options.perFolder?'checked':'':'disabled'}> Next disc on change of directory</label>
+    <fieldset class="numbering-section"><legend>Track numbers</legend><div class="field-pair">${counter('number-start','Begin at track',memory.track_start)}${counter('number-digits','Minimum digits',memory.track_digits,10)}</div>
+    <label class="action-check"><input type="checkbox" id="number-total" ${on(memory.track_total)}> Save total track count</label>${counter('number-total-value','Total tracks',selected.size)}</fieldset>
+    <fieldset class="numbering-section"><legend><label><input type="checkbox" id="number-disc-enabled" ${on(memory.disc_enabled)}> Disc numbers</label></legend><div class="field-pair">${counter('number-disc-start','Begin at disc',memory.disc_start)}${counter('number-disc-digits','Minimum digits',memory.disc_digits,10)}</div>
+    <label class="action-check"><input type="checkbox" id="number-disc-total" ${on(memory.disc_total)}> Save total disc count</label>${counter('number-disc-total-value','Total discs',memory.disc_total_value)}</fieldset>
+    <fieldset class="numbering-section"><legend>Counter changes</legend><label class="action-check"><input type="checkbox" id="number-directory" ${directoryAvailable?on(memory.next_disc_on_directory):'disabled'}> Next disc on change of directory</label>
     ${directoryAvailable?'':'<p>Directory grouping requires local files with known folders.</p>'}
-    <label class="field"><span>Next disc on change of field</span><select id="number-next-field">${fieldOptions}</select></label>
-    <label class="action-check"><input type="checkbox" id="number-reset-track" ${options.perFolder&&directoryAvailable?'checked':''}> Reset track counter on next disc</label>
-    <label class="field"><span>Reset disc counter on change of field</span><select id="number-reset-field">${fieldOptions}</select></label>
+    <label class="field"><span>Next disc on change of field</span><select id="number-next-field">${fieldOptions(memory.next_disc_on_field)}</select></label>
+    <label class="action-check"><input type="checkbox" id="number-reset-track" ${on(memory.reset_track_on_next_disc)}> Reset track counter on next disc</label>
+    <label class="field"><span>Reset disc counter on change of field</span><select id="number-reset-field">${fieldOptions(memory.reset_disc_on_field)}</select></label>
     <p>Resetting the disc counter also resets tracks. Totals use the values entered above.</p></fieldset>
     <p id="number-progress" role="status">Run Preview to review the sequence.</p><div id="number-preview"></div>`,
     `<button id="preview-number">Preview</button><button class="primary" id="apply-number" disabled>Stage numbers</button>`);
@@ -1369,6 +1378,15 @@ function numbering(options:{perFolder?:boolean}={}) {
     try{
       if(busy)throw new Error('Wait for the current file operation to finish.');
       const plan=review.take(request());
+      // Disabled disc inputs may hold anything; their last valid values are kept.
+      const kept=(id:string,fallback:number,max?:number)=>{try{return count(id,id,max);}catch{return fallback;}};
+      rememberNumbering(storage,{
+        track_start:kept('number-start',memory.track_start),track_digits:kept('number-digits',memory.track_digits,10),track_total:checked('number-total'),
+        disc_enabled:checked('number-disc-enabled'),disc_start:kept('number-disc-start',memory.disc_start),disc_digits:kept('number-disc-digits',memory.disc_digits,10),
+        disc_total:checked('number-disc-total'),disc_total_value:kept('number-disc-total-value',memory.disc_total_value),
+        next_disc_on_directory:directoryAvailable?checked('number-directory'):memory.next_disc_on_directory,next_disc_on_field:value(dialog,'number-next-field'),
+        reset_track_on_next_disc:checked('number-reset-track'),reset_disc_on_field:value(dialog,'number-reset-field'),
+      },options.perFolder&&directoryAvailable);
       for(const row of plan){const entry=entries.get(row.path)!;for(const [key,values] of Object.entries(row.fields))updateDraft(row.path,panelKey({format:entry.format,fields:merged(entry)},key),values);}
       status=`Numbers are pending for ${plan.length} files. Save tags to write them.`;dialog.close();render();
     }catch(error){modalError(dialog,error);sync();}

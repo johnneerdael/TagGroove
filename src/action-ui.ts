@@ -15,7 +15,10 @@ export type ActionUIHost = {
   fieldNames?: () => string[];
   exportGroup?: (group: ActionGroup) => Promise<string|null>;
   changed: () => void;
+  /** Remembers the Actions (Quick) type and settings between uses. */
+  storage?: QuickStorage;
 };
+export type QuickStorage = { getItem: (key: string) => string | null; setItem: (key: string, value: string) => void };
 export const actionCatalog = [
   ['adjust_cover','Adjust Cover'],['case_conversion','Case Conversion'],['convert_codepage','Convert Codepage'],
   ['export','Export'],['export_cover','Export Cover to File'],['format_value','Format Value'],
@@ -77,8 +80,8 @@ export function sortGroups(library:ActionLibrary,by:'name'|'state'):ActionLibrar
 export function enabledSummary(groups:ActionGroup[]):string{const count=groups.filter(group=>group.enabled).length;return count===0?'No action group enabled':count===1?'1 action group enabled':`${count} action groups enabled`;}
 /** Default name for a duplicated group ("Copy of …"), numbered when already taken. */
 export function copyName(name:string,groups:ActionGroup[]):string{const taken=(value:string)=>groups.some(group=>group.name.toLocaleLowerCase()===value.toLocaleLowerCase());let candidate=`Copy of ${name}`,n=2;while(taken(candidate))candidate=`Copy of ${name} (${n++})`;return candidate;}
-/** Codepages offered by Convert Codepage (Windows identifiers understood by the native converter). */
-export const codepageChoices:[string,string][]=[['1250','Central European (Windows-1250)'],['1251','Cyrillic (Windows-1251)'],['1252','Western European (Windows-1252)'],['1253','Greek (Windows-1253)'],['1254','Turkish (Windows-1254)'],['1255','Hebrew (Windows-1255)'],['1256','Arabic (Windows-1256)'],['1257','Baltic (Windows-1257)'],['1258','Vietnamese (Windows-1258)'],['874','Thai (Windows-874)'],['866','Cyrillic DOS (CP866)'],['932','Japanese (Shift-JIS)'],['936','Simplified Chinese (GBK)'],['949','Korean (CP949)'],['950','Traditional Chinese (Big5)'],['54936','Chinese (GB18030)'],['51932','Japanese (EUC-JP)'],['20866','Cyrillic (KOI8-R)'],['21866','Ukrainian (KOI8-U)'],['10000','Western (Mac Roman)'],['10007','Cyrillic (Mac)'],['28591','Western (ISO-8859-1)'],['28592','Central European (ISO-8859-2)'],['28593','South European (ISO-8859-3)'],['28594','Baltic (ISO-8859-4)'],['28595','Cyrillic (ISO-8859-5)'],['28596','Arabic (ISO-8859-6)'],['28597','Greek (ISO-8859-7)'],['28598','Hebrew (ISO-8859-8)'],['28603','Estonian (ISO-8859-13)'],['28605','Latin 9 (ISO-8859-15)'],['65001','Unicode (UTF-8)']];
+/** Codepages offered by Convert Codepage (Windows identifiers understood by the native converter), including the DOS/OEM pages. */
+export const codepageChoices:[string,string][]=[['1250','Central European (Windows-1250)'],['1251','Cyrillic (Windows-1251)'],['1252','Western European (Windows-1252)'],['1253','Greek (Windows-1253)'],['1254','Turkish (Windows-1254)'],['1255','Hebrew (Windows-1255)'],['1256','Arabic (Windows-1256)'],['1257','Baltic (Windows-1257)'],['1258','Vietnamese (Windows-1258)'],['874','Thai (Windows-874)'],['437','OEM United States (CP437)'],['720','Arabic DOS (CP720)'],['737','Greek DOS (CP737)'],['775','Baltic DOS (CP775)'],['850','Western European DOS (CP850)'],['852','Central European DOS (CP852)'],['855','Cyrillic DOS (CP855)'],['857','Turkish DOS (CP857)'],['858','Western European DOS with euro (CP858)'],['860','Portuguese DOS (CP860)'],['861','Icelandic DOS (CP861)'],['862','Hebrew DOS (CP862)'],['863','French Canadian DOS (CP863)'],['864','Arabic DOS (CP864)'],['865','Nordic DOS (CP865)'],['866','Cyrillic DOS (CP866)'],['869','Modern Greek DOS (CP869)'],['932','Japanese (Shift-JIS)'],['936','Simplified Chinese (GBK)'],['949','Korean (CP949)'],['950','Traditional Chinese (Big5)'],['54936','Chinese (GB18030)'],['51932','Japanese (EUC-JP)'],['20866','Cyrillic (KOI8-R)'],['21866','Ukrainian (KOI8-U)'],['10000','Western (Mac Roman)'],['10007','Cyrillic (Mac)'],['28591','Western (ISO-8859-1)'],['28592','Central European (ISO-8859-2)'],['28593','South European (ISO-8859-3)'],['28594','Baltic (ISO-8859-4)'],['28595','Cyrillic (ISO-8859-5)'],['28596','Arabic (ISO-8859-6)'],['28597','Greek (ISO-8859-7)'],['28598','Hebrew (ISO-8859-8)'],['28603','Estonian (ISO-8859-13)'],['28605','Latin 9 (ISO-8859-15)'],['65001','Unicode (UTF-8)']];
 /** Adjust Cover quality presets (Best/High/Medium/Low) mapped onto the 0–100 encoder quality. */
 export const qualityPresets:[string,string][]=[['100','Best'],['90','High'],['75','Medium'],['50','Low']];
 export function menuSegments(name:string):{label:string;mnemonic:string|null}[]{
@@ -119,6 +122,27 @@ function defaultAction(type:string):ActionSpec{
     case'split_field':return{type,field:'ARTIST',separator:';'};
     default:throw new Error('Unknown action type.');
   }
+}
+const QUICK_KEY='opentag.actions.quick';
+type QuickMemory={last?:string;actions:Record<string,ActionSpec>};
+function quickMemory(storage?:QuickStorage):QuickMemory{
+  try{const value=JSON.parse(storage?.getItem(QUICK_KEY)||'null');if(value&&typeof value==='object'&&value.actions&&typeof value.actions==='object')return{last:typeof value.last==='string'?value.last:undefined,actions:value.actions};}catch{/* A damaged entry falls back to the defaults. */}
+  return{actions:{}};
+}
+/** Actions (Quick) settings last applied for `type` (default: the last type used), over that type's defaults. */
+export function recallQuick(storage:QuickStorage|undefined,type?:string):ActionSpec{
+  const memory=quickMemory(storage),wanted=type??memory.last;
+  const known=(name:unknown):name is string=>actionCatalog.some(([key])=>key===name);
+  const chosen=known(wanted)?wanted:'format_value',saved=memory.actions[chosen];
+  const base=defaultAction(chosen);
+  if(!saved||typeof saved!=='object')return base;
+  return Object.fromEntries(Object.keys(base).map(key=>[key,key==='type'||!(key in saved)?base[key]:saved[key]])) as ActionSpec;
+}
+/** Records the applied quick action; `last` moves only when `asLast` (the cover dialogs share Adjust Cover's settings without changing it). */
+export function rememberQuick(storage:QuickStorage|undefined,action:ActionSpec,asLast=true){
+  if(!storage||!actionCatalog.some(([key])=>key===action.type))return;
+  const memory=quickMemory(storage);memory.actions[action.type]=clone(action);if(asLast)memory.last=action.type;
+  try{storage.setItem(QUICK_KEY,JSON.stringify(memory));}catch{/* Preferences are optional. */}
 }
 function dialog(title:string,content:string,footer:string):HTMLDialogElement{
   const el=document.createElement('dialog');el.innerHTML=`<header>${html(title)}</header><div class="dialog-content">${content}</div><div class="dialog-footer">${footer}</div>`;document.body.append(el);el.addEventListener('close',()=>el.remove());el.showModal();return el;
@@ -201,9 +225,13 @@ export class ActionUI {
     const match=groups.find(item=>item.segments[this.mnemonicPrefix.length]?.mnemonic===key.toLocaleLowerCase());if(!match)return false;
     if(match.segments.length===this.mnemonicPrefix.length+1){this.mnemonicPrefix=[];await this.runOne(match.index);}else this.mnemonicPrefix.push(match.segments[this.mnemonicPrefix.length].label);return true;
   }
-  private editAction(original:ActionSpec|undefined,onKeep:(action:ActionSpec)=>Promise<void>|void,quick=false){
+  /** `mode`: 'group' edits a group's action, 'quick' applies one action now, 'cover' only collects Adjust Cover settings (Manage Covers). */
+  private editAction(original:ActionSpec|undefined,onKeep:(action:ActionSpec)=>Promise<void>|void,mode:'group'|'quick'|'cover'='group'){
+    const quick=mode==='quick';
     let current=clone(original||defaultAction('format_value'));const count=this.host.selectedCount();
-    const el=dialog(quick?'Actions (Quick)':'Edit action',`<p>${quick?`Apply one action to ${count} selected file${count===1?'':'s'} and save immediately.`:'Configure this action in the reusable group.'}</p><label class="field"><span>ACTION TYPE</span><select id="full-action-type">${current.type==='unresolved_mta'?'<option value="unresolved_mta">Unresolved imported action</option>':''}${actionCatalog.map(([type,name])=>`<option value="${type}" ${current.type===type?'selected':''}>${name}</option>`).join('')}</select></label><div id="full-action-controls"></div>`,`<button data-close>Cancel</button><button class="primary" data-keep>${quick?'Apply action':'Keep action'}</button>`);
+    const types=mode==='cover'?actionCatalog.filter(([type])=>type==='adjust_cover'):actionCatalog;
+    const intro=mode==='cover'?'Resize or convert the selected covers. They are written when you choose OK in Manage covers.':quick?`Apply one action to ${count} selected file${count===1?'':'s'} and save immediately.`:'Configure this action in the reusable group.';
+    const el=dialog(mode==='cover'?'Adjust cover':quick?'Actions (Quick)':'Edit action',`<p>${intro}</p><label class="field"><span>ACTION TYPE</span><select id="full-action-type" ${mode==='cover'?'disabled':''}>${current.type==='unresolved_mta'?'<option value="unresolved_mta">Unresolved imported action</option>':''}${types.map(([type,name])=>`<option value="${type}" ${current.type===type?'selected':''}>${name}</option>`).join('')}</select></label><div id="full-action-controls"></div>`,`<button data-close>Cancel</button><button class="primary" data-keep>${mode==='cover'?'Adjust':quick?'Apply action':'Keep action'}</button>`);
     const content=el.querySelector('#full-action-controls')!,typeControl=el.querySelector<HTMLSelectElement>('#full-action-type')!,keep=el.querySelector<HTMLButtonElement>('[data-keep]')!;
     const show=()=>{
       content.innerHTML=controls(current);keep.disabled=current.type==='unresolved_mta'||(quick&&!this.host.canExecute());
@@ -211,11 +239,16 @@ export class ActionUI {
       if(quality&&preset){preset.addEventListener('change',()=>{if(preset.value!=='custom')quality.value=preset.value;});quality.addEventListener('input',()=>{preset.value=qualityPresets.find(([value])=>value===String(Number(quality.value)))?.[0]||'custom';});}
       content.querySelectorAll<HTMLButtonElement>('[data-browse]').forEach(button=>button.addEventListener('click',async()=>{try{const path=await this.host.pickFile(button.dataset.browse as 'image'|'text'|'export');if(path)content.querySelector<HTMLInputElement>(`[data-key="${button.dataset.target}"]`)!.value=path;}catch(e){error(el,e);}}));content.querySelector<HTMLInputElement>('[data-key="resize_enabled"]')?.addEventListener('change',e=>{content.querySelector<HTMLElement>('.resize-options')!.hidden=!(e.target as HTMLInputElement).checked;});
     };
-    show();typeControl.addEventListener('change',()=>{current=defaultAction(typeControl.value);show();el.querySelector('.dialog-error')?.remove();});el.querySelector('[data-close]')!.addEventListener('click',()=>el.close());
-    keep.addEventListener('click',async()=>{try{const action=readAction(el,current.type);keep.disabled=true;await onKeep(action);el.close();}catch(e){error(el,e);keep.disabled=false;}});
+    show();typeControl.addEventListener('change',()=>{current=mode==='group'?defaultAction(typeControl.value):recallQuick(this.host.storage,typeControl.value);show();el.querySelector('.dialog-error')?.remove();});el.querySelector('[data-close]')!.addEventListener('click',()=>el.close());
+    keep.addEventListener('click',async()=>{try{const action=readAction(el,current.type);if(mode!=='group')rememberQuick(this.host.storage,action,quick);keep.disabled=true;await onKeep(action);el.close();}catch(e){error(el,e);keep.disabled=false;}});
+    return el;
   }
-  /** Actions (Quick); `type` preselects one action, e.g. Adjust Cover from the cover window. */
-  quick(type?:string){if(this.host.canExecute())this.editAction(type?defaultAction(type):undefined,action=>this.host.execute([{name:'Quick action',enabled:true,actions:[action]}]),true);}
+  /** Actions (Quick) reopens on the last applied type and its settings; `type` preselects one action, e.g. Adjust Cover from the cover window. */
+  quick(type?:string){if(this.host.canExecute())this.editAction(recallQuick(this.host.storage,type),action=>this.host.execute([{name:'Quick action',enabled:true,actions:[action]}]),'quick');}
+  /** Adjust Cover settings for Manage Covers, or null when cancelled. */
+  adjustSettings():Promise<ActionSpec|null>{
+    return new Promise(resolve=>{let chosen:ActionSpec|null=null;const el=this.editAction(recallQuick(this.host.storage,'adjust_cover'),action=>{chosen=action;},'cover');el.addEventListener('close',()=>resolve(chosen));});
+  }
   async groupsDialog(){
     if(!this.loaded)await this.initialize();let draft=clone(this.library),index=draft.groups.length?0:-1,dirty=false,working=false,groupError='',groupNotice='',renameTimer=0;
     const el=dialog('Action groups','',`<button data-close>Close</button><button id="save-groups">Save groups</button><button class="primary" id="apply-groups">Apply checked groups</button>`);el.classList.add('action-groups-dialog');

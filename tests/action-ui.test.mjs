@@ -5,7 +5,7 @@ import ts from 'typescript';
 
 const source = await readFile(new URL('../src/action-ui.ts', import.meta.url), 'utf8');
 const javascript = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 } }).outputText;
-const { actionListKey, actionCatalog, panelKey, moveItem, renameGroup, removeGroup, applyPreset, menuSegments, resolvePathChanges, rebaseCaseOnly, mnemonicMarkup, sortGroups, enabledSummary, copyName, codepageChoices, qualityPresets } = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);
+const { actionListKey, actionCatalog, panelKey, moveItem, renameGroup, removeGroup, applyPreset, menuSegments, resolvePathChanges, rebaseCaseOnly, mnemonicMarkup, sortGroups, enabledSummary, copyName, codepageChoices, qualityPresets, recallQuick, rememberQuick } = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);
 const library = () => ({groups:[{name:'First',enabled:true,actions:[{type:'format_value',field:'TITLE',template:'text'}]},{name:'Second',enabled:false,actions:[]}],presets:[{name:'Only first',enabled_groups:['First']}]});
 
 test('catalog exposes every documented action type exactly once', () => {
@@ -55,7 +55,9 @@ test('enabled summary and duplicate names follow the original wording',()=>{
 test('every Convert Codepage choice is understood by the native converter',async()=>{
   const rust=await readFile(new URL('../crates/tag-core/src/actions.rs',import.meta.url),'utf8');const table=rust.slice(rust.indexOf('fn decode_codepage'),rust.indexOf('other => other'));
   assert.equal(new Set(codepageChoices.map(([id])=>id)).size,codepageChoices.length);
-  for(const [id] of codepageChoices)assert.match(table,new RegExp(`"${id}"`),id);
+  const oem=await readFile(new URL('../crates/tag-core/src/oem_codepages.rs',import.meta.url),'utf8');const pages=new Set([...oem.matchAll(/^\s+(\d+) => &CP\1,$/gm)].map(match=>match[1]));
+  for(const [id] of codepageChoices)assert.ok(new RegExp(`"${id}"`).test(table)||pages.has(id),id);
+  for(const id of ['437','850','852','858'])assert.ok(pages.has(id)&&codepageChoices.some(([choice])=>choice===id),id);
   assert.deepEqual(qualityPresets.map(([,label])=>label),['Best','High','Medium','Low']);
 });
 
@@ -82,4 +84,28 @@ test('Actions dialog keys follow the keyboard reference', () => {
 test('list folders follow folder renames that change only the letter case', () => {
   const moves=[{from:'/music/album',to:'/music/ALBUM'},{from:'/music/other',to:'/music/renamed'}];
   assert.deepEqual(rebaseCaseOnly(['/music/album','/music/album/disc 1','/music/other','/elsewhere'],moves),['/music/ALBUM','/music/ALBUM/disc 1','/music/other','/elsewhere']);
+});
+
+test('Actions (Quick) reopens on the last applied type with its settings', () => {
+  const items = new Map(), storage = {getItem: key => items.get(key) ?? null, setItem: (key, value) => items.set(key, value)};
+  assert.equal(recallQuick(storage).type, 'format_value');
+  assert.equal(recallQuick(undefined, 'replace').type, 'replace');
+  rememberQuick(storage, {type: 'replace', field: 'ARTIST', from: 'feat.', to: 'ft.', whole_word: true, case_sensitive: false});
+  assert.deepEqual(recallQuick(storage), {type: 'replace', field: 'ARTIST', from: 'feat.', to: 'ft.', whole_word: true, case_sensitive: false});
+  // Each type keeps its own settings; the cover dialogs share Adjust Cover's without becoming the last type.
+  rememberQuick(storage, {type: 'adjust_cover', format: 'jpeg', quality: 75, resize: {pixels: 500, size_mode: 'maximum', scale_mode: 'crop_square'}}, false);
+  assert.equal(recallQuick(storage).type, 'replace');
+  assert.deepEqual(recallQuick(storage, 'adjust_cover').resize, {pixels: 500, size_mode: 'maximum', scale_mode: 'crop_square'});
+  rememberQuick(storage, {type: 'format_value', field: 'COMMENT', template: '%artist%'});
+  assert.deepEqual(recallQuick(storage), {type: 'format_value', field: 'COMMENT', template: '%artist%'});
+  assert.equal(recallQuick(storage, 'replace').from, 'feat.');
+  // Stored settings never add keys the type does not have, and broken entries fall back to the defaults.
+  items.set('opentag.actions.quick', JSON.stringify({last: 'format_value', actions: {format_value: {type: 'replace', field: 'GENRE', extra: 1}}}));
+  assert.deepEqual(recallQuick(storage), {type: 'format_value', field: 'GENRE', template: '%title%'});
+  items.set('opentag.actions.quick', JSON.stringify({last: 'nonsense', actions: {}}));
+  assert.equal(recallQuick(storage).type, 'format_value');
+  items.set('opentag.actions.quick', '{');
+  assert.equal(recallQuick(storage, 'split_field').separator, ';');
+  rememberQuick(storage, {type: 'unresolved_mta'});
+  assert.equal(items.get('opentag.actions.quick'), '{');
 });
