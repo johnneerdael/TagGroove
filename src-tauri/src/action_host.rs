@@ -10,7 +10,7 @@ use std::{
 };
 use tag_core::actions::{
     ActionEffect, ActionGroup, ActionHost, ActionLibrary, ActionSpec, ActionState,
-    BatchActionEffect, MtaImport,
+    BatchActionEffect, MtaImport, NameOrigin, TemplateMode,
 };
 use tag_core::{AudioEntry, Fields, FileError, ScanResult};
 use tauri::Manager;
@@ -184,6 +184,19 @@ fn cover_file_target(mut target: PathBuf, mime: &str, bytes: &[u8]) -> PathBuf {
     target
 }
 
+/// Turn a new file or folder name from an action into a relative path the way
+/// Tag → Filename does. In a format string `\` separates folders on every
+/// platform; text guessed from values has its separators and invalid
+/// characters replaced. Edited names keep their characters: on macOS and Linux
+/// a `\` already in a filename must not become a folder.
+fn action_name(name: &str, origin: NameOrigin, separator: &str) -> String {
+    match origin {
+        NameOrigin::Value => tag_core::filename_value(name, separator),
+        NameOrigin::Template if !cfg!(windows) => name.replace('\\', "/"),
+        NameOrigin::Template | NameOrigin::Edited => name.to_owned(),
+    }
+}
+
 fn relative_to_file(path: &str, source: &Path) -> PathBuf {
     let path = Path::new(path);
     if path.is_absolute() {
@@ -271,9 +284,9 @@ impl NativeHost {
         Ok(())
     }
 }
-impl ActionHost for NativeHost {
-    fn evaluate(&mut self, template: &str, state: &ActionState) -> Result<String, String> {
-        let (identity, unchanged) = self.identity(state);
+impl NativeHost {
+    /// Technical fields of the file's current path, for format strings.
+    fn path_context(&self, state: &ActionState) -> Result<Fields, String> {
         let mut context = state.context.clone();
         let path = self.resolve(&state_path(state)?);
         context.insert("_PATH".into(), vec![path.to_string_lossy().into_owned()]);
@@ -316,8 +329,21 @@ impl ActionHost for NativeHost {
                 .to_string_lossy()
                 .into_owned()],
         );
+        Ok(context)
+    }
+}
+impl ActionHost for NativeHost {
+    fn evaluate(&mut self, template: &str, state: &ActionState) -> Result<String, String> {
+        let (identity, unchanged) = self.identity(state);
+        let context = self.path_context(state)?;
         self.settings
             .evaluate(template, &state.fields, &context, &identity, unchanged)
+    }
+    fn evaluate_filename(&mut self, template: &str, state: &ActionState) -> Result<String, String> {
+        let (identity, unchanged) = self.identity(state);
+        let context = self.path_context(state)?;
+        self.settings
+            .evaluate_filename(template, &state.fields, &context, &identity, unchanged)
     }
     fn execute(&mut self, effect: &ActionEffect, state: &mut ActionState) -> Result<(), String> {
         self.flush(state)?;
@@ -326,14 +352,22 @@ impl ActionHost for NativeHost {
             ActionEffect::RenameFile {
                 filename,
                 includes_extension,
+                origin,
             } => {
-                let mut target = relative_to_file(filename, &path);
+                let filename = action_name(filename, *origin, &self.settings.folder_separator);
+                let mut target = relative_to_file(&filename, &path);
                 if !includes_extension {
                     if let Some(extension) = path.extension() {
-                        let mut name = target.into_os_string();
-                        name.push(".");
-                        name.push(extension);
-                        target = PathBuf::from(name);
+                        let dotted = format!(".{}", extension.to_string_lossy());
+                        // A generated name that already spells the extension keeps one.
+                        if *origin == NameOrigin::Edited
+                            || !tag_core::ends_with_extension(&filename, &dotted)
+                        {
+                            let mut name = target.into_os_string();
+                            name.push(".");
+                            name.push(extension);
+                            target = PathBuf::from(name);
+                        }
                     }
                 }
                 tag_core::operations::rename_no_clobber(&path, &target)?;
@@ -349,24 +383,19 @@ impl ActionHost for NativeHost {
                 }
                 state.context = technical_fields(&entry, index);
             }
-            ActionEffect::RenameDirectory { directory } => {
+            ActionEffect::RenameDirectory { directory, origin } => {
+                let directory = action_name(directory, *origin, &self.settings.folder_separator);
                 let source = path.parent().ok_or("File has no parent directory")?;
-                let target = if Path::new(directory).is_absolute() {
-                    PathBuf::from(directory)
+                let target = if Path::new(&directory).is_absolute() {
+                    PathBuf::from(&directory)
                 } else {
-                    source.parent().unwrap_or(Path::new(".")).join(directory)
+                    source.parent().unwrap_or(Path::new(".")).join(&directory)
                 };
                 if source != target {
-                    if target.exists() {
-                        return Err("Destination directory already exists".into());
-                    }
                     if target.starts_with(source) {
                         return Err("Cannot move a directory inside itself".into());
                     }
-                    if let Some(parent) = target.parent() {
-                        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-                    }
-                    fs::rename(source, &target).map_err(|e| e.to_string())?;
+                    tag_core::operations::rename_directory_no_clobber(source, &target)?;
                     self.directories.push(PathChange {
                         from: source.to_string_lossy().into_owned(),
                         to: target.to_string_lossy().into_owned(),
@@ -673,6 +702,20 @@ pub(crate) fn normalized_output(path: &Path) -> Result<String, String> {
     })
 }
 
+/// Like [`normalized_output_path`] for a rename destination: when the final
+/// name already exists as a plain entry (on a case-insensitive volume, the
+/// source itself in another case), keep the requested spelling so a case-only
+/// rename is not folded back to the stored name.
+pub(crate) fn normalized_rename_target(path: &Path) -> Result<PathBuf, String> {
+    let normalized = normalized_output_path(path)?;
+    match (path.file_name(), fs::symlink_metadata(path)) {
+        (Some(name), Ok(metadata)) if !metadata.file_type().is_symlink() => {
+            Ok(normalized.with_file_name(name))
+        }
+        _ => Ok(normalized),
+    }
+}
+
 /// Resolve destination aliases without creating parents or folding the case of
 /// the path that a native file operation will use.
 pub(crate) fn normalized_output_path(path: &Path) -> Result<PathBuf, String> {
@@ -844,10 +887,13 @@ pub fn execute(
                     if failed.contains(&index) {
                         continue;
                     }
-                    let applied = tag_core::actions::apply_action_spec_with_evaluator(
+                    let applied = tag_core::actions::apply_action_spec_with_modes(
                         state,
                         action,
-                        &mut |template, state| host.evaluate(template, state),
+                        &mut |template, state, mode| match mode {
+                            TemplateMode::Text => host.evaluate(template, state),
+                            TemplateMode::Filename => host.evaluate_filename(template, state),
+                        },
                     );
                     let outcome = applied.and_then(|effects| {
                         for effect in effects {
@@ -927,7 +973,7 @@ pub fn execute(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tag_core::actions::ActionSpec;
+    use tag_core::actions::{ActionSpec, CaseMode};
 
     #[test]
     fn actions_can_use_the_export_library_display_name() {
@@ -1709,5 +1755,164 @@ mod tests {
         );
         assert!(!result.errors.is_empty());
         assert!(!dir.path().join("same.m3u8").exists());
+    }
+
+    fn names(dir: &Path) -> Vec<String> {
+        let mut names: Vec<_> = fs::read_dir(dir)
+            .unwrap()
+            .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        names.sort();
+        names
+    }
+    fn titled(dir: &Path, name: &str, title: &str) -> PathBuf {
+        let path = fixture(dir, name);
+        tag_core::write_fields(&path, &Fields::from([("TITLE".into(), vec![title.into()])]))
+            .unwrap();
+        path
+    }
+    fn run(path: &Path, actions: Vec<ActionSpec>, settings: EvaluationSettings) -> ActionResult {
+        let group = ActionGroup {
+            name: "Test".into(),
+            enabled: true,
+            actions,
+        };
+        execute(&[path.to_string_lossy().into_owned()], &[group], settings)
+    }
+
+    #[test]
+    fn case_conversion_renames_files_and_folders_by_case_only() {
+        let dir = tempfile::tempdir().unwrap();
+        let album = dir.path().join("album");
+        fs::create_dir(&album).unwrap();
+        let path = fixture(&album, "track one.wav");
+        let result = run(
+            &path,
+            vec![
+                ActionSpec::CaseConversion {
+                    field: "_FILENAME".into(),
+                    mode: CaseMode::Upper,
+                    word_separators: String::new(),
+                },
+                ActionSpec::CaseConversion {
+                    field: "_DIRECTORY".into(),
+                    mode: CaseMode::Mixed,
+                    word_separators: String::new(),
+                },
+            ],
+            EvaluationSettings::default(),
+        );
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert_eq!(names(dir.path()), ["Album"]);
+        assert_eq!(names(&dir.path().join("Album")), ["TRACK ONE.wav"]);
+    }
+
+    #[test]
+    fn format_value_filenames_follow_tag_to_filename_rules() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = titled(dir.path(), "old.wav", "AC/DC: Live");
+        let format = |template: &str| {
+            vec![ActionSpec::FormatValue {
+                field: "_FILENAME".into(),
+                template: template.into(),
+            }]
+        };
+        // Tag values lose separators and invalid characters; the extension is not doubled.
+        let result = run(&path, format("%title%.WAV"), EvaluationSettings::default());
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert_eq!(names(dir.path()), ["AC_DC_ Live.WAV"]);
+        // A literal backslash creates a folder; the separator option applies to values.
+        let settings = EvaluationSettings {
+            folder_separator: "-".into(),
+            ..Default::default()
+        };
+        let path = dir.path().join("AC_DC_ Live.WAV");
+        let result = run(&path, format("Live\\%title%"), settings.clone());
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert_eq!(names(&dir.path().join("Live")), ["AC-DC_ Live.WAV"]);
+        // Guess Values treats the guessed name as a value, here with separators removed.
+        let path = dir.path().join("Live/AC-DC_ Live.WAV");
+        let result = run(
+            &path,
+            vec![ActionSpec::GuessValues {
+                source: "x %title%".into(),
+                pattern: "x %_filename%".into(),
+            }],
+            EvaluationSettings {
+                folder_separator: String::new(),
+                ..Default::default()
+            },
+        );
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert_eq!(names(&dir.path().join("Live")), ["ACDC_ Live.WAV"]);
+    }
+
+    #[test]
+    fn format_value_directories_replace_separators_in_values() {
+        let dir = tempfile::tempdir().unwrap();
+        let album = dir.path().join("old");
+        fs::create_dir(&album).unwrap();
+        let path = titled(&album, "a.wav", "Rock\\Classic");
+        let result = run(
+            &path,
+            vec![ActionSpec::FormatValue {
+                field: "_DIRECTORY".into(),
+                template: "%title%".into(),
+            }],
+            EvaluationSettings::default(),
+        );
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert_eq!(names(dir.path()), ["Rock_Classic"]);
+    }
+
+    fn flac(dir: &Path) -> Option<PathBuf> {
+        let path = dir.join("track.flac");
+        let output = std::process::Command::new("ffmpeg")
+            .args(["-v", "error", "-f", "lavfi", "-i"])
+            .arg("sine=frequency=440:sample_rate=8000:duration=0.2")
+            .arg(&path)
+            .output()
+            .ok()?;
+        output.status.success().then_some(path)
+    }
+
+    #[test]
+    fn field_name_case_conversion_rewrites_vorbis_comment_names() {
+        let dir = tempfile::tempdir().unwrap();
+        let Some(path) = flac(dir.path()) else {
+            eprintln!("Skipping _FIELDNAME test: ffmpeg is required");
+            return;
+        };
+        tag_core::write_fields(&path, &Fields::from([("MyField".into(), vec!["x".into()])]))
+            .unwrap();
+        let result = run(
+            &path,
+            vec![ActionSpec::CaseConversion {
+                field: "_FIELDNAME".into(),
+                mode: CaseMode::Upper,
+                word_separators: String::new(),
+            }],
+            EvaluationSettings::default(),
+        );
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        let fields = &tag_core::read_entry_summary(&path).unwrap().fields;
+        assert_eq!(
+            fields.get("MYFIELD"),
+            Some(&vec!["x".to_string()]),
+            "{fields:?}"
+        );
+        assert!(!fields.contains_key("MyField"));
+        // Tags that map field names (ID3v2 here) refuse field-name actions.
+        let wav = fixture(dir.path(), "a.wav");
+        let result = run(
+            &wav,
+            vec![ActionSpec::CaseConversion {
+                field: "_FIELDNAME".into(),
+                mode: CaseMode::Upper,
+                word_separators: String::new(),
+            }],
+            EvaluationSettings::default(),
+        );
+        assert!(result.errors[0].error.contains("APEv2 or VorbisComment"));
     }
 }

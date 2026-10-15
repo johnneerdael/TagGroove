@@ -8,7 +8,8 @@ export type TagTagDeps = {
   fieldNames: () => string[];
   displayName: (path: string) => string;
   canApply: () => boolean;
-  preview: (paths: string[], template: string) => Promise<TagTagPreview[]>;
+  /** `filename` evaluates as Tag → Filename does, for _FILENAME and _DIRECTORY. */
+  preview: (paths: string[], template: string, filename: boolean) => Promise<TagTagPreview[]>;
   apply: (request: TagTagRequest) => Promise<void>;
   storage?: { getItem(key: string): string|null; setItem(key: string, value: string): void };
 };
@@ -35,7 +36,12 @@ export function validateTagTarget(field: string) {
 /** Describe one preview row the way the converter will apply it. */
 export function tagTagOutcome(field: string, value: string, currentName = '') {
   const target = identity(field);
-  if (target === '_FILENAME') return value ? { label: 'New filename', value: value + (/\.[^./\\]+$/.exec(currentName)?.[0] ?? ''), removed: false } : { label: 'New filename', value: 'Error: the filename is empty', removed: true };
+  if (target === '_FILENAME') {
+    if (!value.trim()) return { label: 'New filename', value: 'Error: the filename is empty', removed: true };
+    // Like Tag → Filename, a format string that already spells the extension keeps one.
+    const extension = /\.[^./\\]+$/.exec(currentName)?.[0] ?? '';
+    return { label: 'New filename', value: extension && !value.toLowerCase().endsWith(extension.toLowerCase()) ? value + extension : value, removed: false };
+  }
   if (target === '_DIRECTORY') return value ? { label: 'New folder name', value, removed: false } : { label: 'New folder name', value: 'Error: the folder name is empty', removed: true };
   return value ? { label: field, value, removed: false } : { label: field, value: 'Field will be removed', removed: true };
 }
@@ -67,7 +73,7 @@ export function openTagToTag(deps: TagTagDeps) {
     catch (error) { area.replaceChildren(); progress.textContent = 'Complete the field and format string.'; deps.modalError(dialog, error); return; }
     progress.textContent = 'Preparing preview…';
     try {
-      const rows = await deps.preview(input.paths, input.template);
+      const rows = await deps.preview(input.paths, input.template, input.field.startsWith('_'));
       if (!dialog.open || current !== generation) return;
       const outcomes = rows.map(row => ({ row, outcome: tagTagOutcome(input.field, row.value, deps.displayName(row.path)) }));
       area.innerHTML = `<div class="preview" tabindex="0" role="region" aria-label="Tag → Tag results">${outcomes.slice(0, 100).map(({ row, outcome }) => `<div><small>${esc(deps.displayName(row.path))}</small>${esc(outcome.label)}: ${outcome.removed ? `<em>${esc(outcome.value)}</em>` : esc(outcome.value)}</div>`).join('')}</div>`;

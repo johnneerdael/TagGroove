@@ -14,6 +14,7 @@ mod file_hashes;
 mod file_ops;
 mod filter_cache;
 mod history;
+mod list_behaviour;
 #[cfg(any(target_os = "android", test))]
 mod managed_actions;
 mod playlists;
@@ -443,6 +444,9 @@ async fn save_fields(
 struct FieldUpdate {
     path: String,
     updates: Fields,
+    /// Pasted covers that replace the file's covers (Paste/Cut tags).
+    #[serde(default)]
+    covers: Option<Vec<list_behaviour::PendingCover>>,
 }
 
 /// Save per-file field changes as one undo step, writing files in parallel
@@ -461,6 +465,16 @@ async fn save_fields_batch(
             .filter(|item| seen.insert(item.path.clone()))
             .collect();
         let paths: Vec<String> = items.iter().map(|item| item.path.clone()).collect();
+        let cover_plans: std::collections::HashMap<
+            String,
+            Result<Vec<tag_core::CoverChange>, String>,
+        > = items
+            .iter()
+            .filter_map(|item| {
+                let covers = item.covers.as_ref()?;
+                Some((item.path.clone(), list_behaviour::cover_changes(covers)))
+            })
+            .collect();
         history::record("Save tags", None, &paths, || {
             use tag_core::parallel::Progress;
             job.start(items.len());
@@ -476,7 +490,17 @@ async fn save_fields_batch(
             };
             let written = tag_core::parallel::map_ordered_on(threads, &items, &job, |item| {
                 mutate_document(Path::new(&item.path), |p| {
-                    tag_core::write_fields_with_options(p, &item.updates, false, &[], &options)
+                    if let Some(plan) = cover_plans.get(&item.path) {
+                        let changes = plan.as_ref().map_err(Clone::clone)?;
+                        tag_core::apply_cover_changes_with_options(p, changes, &options)?;
+                    }
+                    tag_core::write_fields_with_options(
+                        p,
+                        &item.updates,
+                        false,
+                        &options.mappings,
+                        &options,
+                    )
                 })
             });
             let mut result = ScanResult::default();
@@ -555,7 +579,9 @@ async fn preview_format(
     paths: Vec<String>,
     template: String,
     columns: Option<Vec<evaluation::ColumnSpec>>,
+    filename: Option<bool>,
 ) -> Result<Vec<Preview>, String> {
+    let filename = filename.unwrap_or(false);
     let settings = evaluation_settings(columns)?;
     io(move || {
         paths
@@ -565,13 +591,18 @@ async fn preview_format(
                 require_audio_handle(Path::new(&path))?;
                 let mut entry = settings::read_summary(Path::new(&path))?;
                 documents::project(&mut entry);
-                let value = settings.evaluate(
-                    &template,
-                    &entry.fields,
-                    &preview_technical_fields(&entry, index + 1),
-                    &entry.path,
-                    true,
-                )?;
+                let technical = preview_technical_fields(&entry, index + 1);
+                let value = if filename {
+                    settings.evaluate_filename(
+                        &template,
+                        &entry.fields,
+                        &technical,
+                        &entry.path,
+                        true,
+                    )?
+                } else {
+                    settings.evaluate(&template, &entry.fields, &technical, &entry.path, true)?
+                };
                 Ok(Preview {
                     path,
                     value,
@@ -677,7 +708,11 @@ fn filename_target(entry: &AudioEntry, generated: String) -> Result<PathBuf, Str
         source.parent().unwrap_or(Path::new(".")).join(relative)
     };
     if let Some(ext) = source.extension() {
-        if target.extension() != Some(ext) {
+        // `%title%.MP3` names an .mp3 file once, as Mp3tag does.
+        if !target
+            .extension()
+            .is_some_and(|current| current.eq_ignore_ascii_case(ext))
+        {
             let mut name = target.into_os_string();
             name.push(".");
             name.push(ext);
@@ -749,6 +784,16 @@ async fn rename_files(
     .await
 }
 
+/// Destinations compare case-insensitively where volumes usually are.
+fn rename_key(path: &Path) -> String {
+    let path = path.to_string_lossy();
+    if cfg!(any(windows, target_os = "macos")) {
+        path.to_lowercase()
+    } else {
+        path.into_owned()
+    }
+}
+
 fn rename_planned(
     paths: Vec<String>,
     template: &str,
@@ -782,9 +827,12 @@ fn rename_planned(
         for (path, plan) in candidates {
             match plan {
                 Ok(target)
-                    if destinations.insert(target.clone())
+                    if destinations.insert(rename_key(&target))
                         && (std::fs::canonicalize(&path).ok().as_ref() == Some(&target)
-                            || !target.exists()) =>
+                            || !matches!(
+                                tag_core::operations::destination_state(Path::new(&path), &target),
+                                tag_core::operations::Destination::Taken
+                            )) =>
                 {
                     plans.push((path, target))
                 }
@@ -967,6 +1015,8 @@ pub fn run() {
             covers::extract_cover,
             covers::copy_cover_to_clipboard,
             covers::paste_cover_from_clipboard,
+            list_behaviour::folder_image,
+            list_behaviour::copy_tag_covers,
             preview_format,
             preview_filename,
             preview_rename,
@@ -1129,6 +1179,7 @@ mod tests {
             paths.clone(),
             "%_path%|%_filename_ext%|%_directory%".into(),
             None,
+            None,
         ))
         .unwrap();
         assert_eq!(
@@ -1208,6 +1259,7 @@ mod tests {
             let alias_preview = tauri::async_runtime::block_on(preview_format(
                 alias_paths.clone(),
                 "%_path%|%_directory%".into(),
+                None,
                 None,
             ))
             .unwrap();
@@ -1538,6 +1590,55 @@ mod tests {
     }
 
     #[test]
+    fn tag_to_filename_and_inline_edits_change_only_letter_case() {
+        let dir = tempfile::tempdir().unwrap();
+        let names = || {
+            let mut names: Vec<_> = std::fs::read_dir(dir.path())
+                .unwrap()
+                .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+                .collect();
+            names.sort();
+            names
+        };
+        let path = dir.path().join("song.wav");
+        wav(&path);
+        let mut fields = Fields::new();
+        fields.insert("TITLE".into(), vec!["Song".into()]);
+        tag_core::write_fields(&path, &fields).unwrap();
+        let rename = |path: &Path, template: &str| {
+            tauri::async_runtime::block_on(rename_files(
+                vec![path.to_string_lossy().into_owned()],
+                template.into(),
+                None,
+            ))
+            .unwrap()
+        };
+        let result = rename(&path, "%title%");
+        assert!(
+            result.result.errors.is_empty(),
+            "{:?}",
+            result.result.errors
+        );
+        assert_eq!(names(), ["Song.wav"]);
+        // The file list's inline filename edit sends a quoted literal.
+        let result = rename(&dir.path().join("Song.wav"), "'SONG'");
+        assert!(
+            result.result.errors.is_empty(),
+            "{:?}",
+            result.result.errors
+        );
+        assert_eq!(names(), ["SONG.wav"]);
+        // A different file that differs only in case is never replaced.
+        let other = dir.path().join("Other.wav");
+        wav(&other);
+        let insensitive = dir.path().join("other.wav").exists();
+        let result = rename(&dir.path().join("SONG.wav"), "'other'");
+        assert_eq!(!result.result.errors.is_empty(), insensitive);
+        assert!(other.exists());
+        assert_eq!(names().len(), 2);
+    }
+
+    #[test]
     fn rename_preview_and_result_use_identical_sanitized_path() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("old.wav");
@@ -1581,6 +1682,66 @@ mod tests {
                 .unwrap();
         assert!(result.errors.is_empty());
         assert_eq!(result.entries[0].fields["TITLE"], ["title.live"]);
+    }
+
+    #[test]
+    fn saving_pasted_tags_writes_and_removes_copied_covers() {
+        let _serial = list_behaviour::TEST_CLIPBOARD
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        let (source, target) = (dir.path().join("source.wav"), dir.path().join("target.wav"));
+        wav(&source);
+        wav(&target);
+        let image = dir.path().join("front.png");
+        let mut png = std::io::Cursor::new(Vec::new());
+        image::DynamicImage::ImageRgb8(image::RgbImage::new(4, 3))
+            .write_to(&mut png, image::ImageFormat::Png)
+            .unwrap();
+        std::fs::write(&image, png.into_inner()).unwrap();
+        let text = |path: &Path| path.to_string_lossy().into_owned();
+        use tauri::async_runtime::block_on as run;
+        run(covers::add_cover_image(
+            vec![text(&source)],
+            serde_json::from_value(serde_json::json!({ "path": text(&image) })).unwrap(),
+            None,
+        ))
+        .unwrap();
+        let copied = serde_json::to_value(
+            run(list_behaviour::copy_tag_covers(vec![text(&source)], vec![])).unwrap(),
+        )
+        .unwrap();
+        let covers = copied["covers"][0].clone();
+        assert_eq!(covers.as_array().unwrap().len(), 1);
+        assert_eq!(copied["images"].as_object().unwrap().len(), 1);
+        let save = |covers: serde_json::Value, title: &str| {
+            let items: Vec<FieldUpdate> = serde_json::from_value(serde_json::json!([
+                { "path": text(&target), "updates": { "TITLE": [title] }, "covers": covers }
+            ]))
+            .unwrap();
+            run(save_fields_batch(items, None)).unwrap()
+        };
+        let pasted = save(covers.clone(), "Pasted");
+        assert!(pasted.errors.is_empty(), "{:?}", pasted.errors);
+        let written = settings::read_full(&target).unwrap();
+        assert_eq!(written.fields["TITLE"], ["Pasted"]);
+        assert_eq!(written.covers.len(), 1);
+        assert_eq!(
+            written.covers[0].digest,
+            covers[0]["digest"].as_str().unwrap()
+        );
+        // Cut tags saves an empty cover list.
+        let cut = save(serde_json::json!([]), "Cut");
+        assert!(cut.errors.is_empty(), "{:?}", cut.errors);
+        assert!(settings::read_full(&target).unwrap().covers.is_empty());
+        // Artwork the clipboard no longer holds fails that file and writes nothing.
+        run(list_behaviour::copy_tag_covers(vec![], vec![])).unwrap();
+        let stale = save(covers, "Stale");
+        assert_eq!(stale.errors.len(), 1);
+        assert_eq!(
+            settings::read_full(&target).unwrap().fields["TITLE"],
+            ["Cut"]
+        );
     }
 
     #[test]

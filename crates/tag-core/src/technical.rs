@@ -295,8 +295,8 @@ fn tag_name(kind: TagType, native: &NativeTags) -> String {
     match kind {
         TagType::Id3v2 => native.id3.as_ref().map(id3_name).unwrap_or("ID3v2").into(),
         TagType::Id3v1 => "ID3v1".into(),
-        TagType::Ape => "APE".into(),
-        TagType::VorbisComments => "VorbisComment".into(),
+        TagType::Ape => crate::tags::APE_TAG_NAME.into(),
+        TagType::VorbisComments => crate::tags::VORBIS_TAG_NAME.into(),
         TagType::Mp4Ilst => "MP4".into(),
         TagType::RiffInfo => "RIFF INFO".into(),
         TagType::AiffText => "AIFF Text".into(),

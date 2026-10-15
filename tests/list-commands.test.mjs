@@ -25,6 +25,10 @@ test('documented File List shortcuts map to list commands', () => {
   assert.equal(listShortcut(key('F2'), true), undefined);
   assert.equal(listShortcut(key('Delete'), false), 'remove-from-list');
   assert.equal(listShortcut(key('Delete'), true), undefined, 'Delete inside text fields edits text');
+  assert.equal(listShortcut(key('Backspace'), false, true), 'remove-from-list', 'Mac keyboards: ⌫ removes from the list');
+  assert.equal(listShortcut(key('Backspace'), true, true), undefined, '⌫ inside text fields edits text');
+  assert.equal(listShortcut(key('Backspace'), false, false), undefined, 'Backspace is not Remove on PC keyboards');
+  assert.equal(listShortcut(key('Backspace', { metaKey: true }), false, true), undefined, '⌘⌫ stays Delete files');
   assert.equal(listShortcut(key('F5'), true), 'refresh');
   assert.equal(listShortcut(key('F3'), false), 'filter-focus');
   assert.equal(listShortcut(key('u', { ctrlKey: true }), true), undefined);

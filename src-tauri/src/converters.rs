@@ -328,7 +328,7 @@ fn read_sources(paths: &[String], writable: bool) -> Result<Vec<(Snapshot, Audio
 fn validate_moves(sources: &[Snapshot], moves: &[Move]) -> Result<(), String> {
     let mut seen = HashSet::new();
     for (source, movement) in sources.iter().zip(moves) {
-        let current = crate::action_host::normalized_output_path(&movement.raw_target)?;
+        let current = crate::action_host::normalized_rename_target(&movement.raw_target)?;
         if current != movement.target {
             return Err("A destination directory changed after preview; preview again".into());
         }
@@ -341,7 +341,10 @@ fn validate_moves(sources: &[Snapshot], moves: &[Move]) -> Result<(), String> {
             return Err("More than one selected file maps to the same destination".into());
         }
         match fs::symlink_metadata(&current) {
-            Ok(_) if current != source.canonical => {
+            Ok(_)
+                if current != source.canonical
+                    && !tag_core::operations::is_case_alias(&source.canonical, &current) =>
+            {
                 return Err(format!("Destination already exists: {}", current.display()))
             }
             Ok(_) => {}
@@ -408,7 +411,7 @@ fn preview_filename(
         context.timestamp_seconds = Some(settings.timestamp_seconds);
         let rendered = converter.render(&entry.path, &context)?;
         let raw_target = super::filename_target(&entry, rendered.target)?;
-        let target = crate::action_host::normalized_output_path(&raw_target)?;
+        let target = crate::action_host::normalized_rename_target(&raw_target)?;
         let (ancestor, ancestor_metadata) = destination_ancestor(&target)?;
         items.push(FilenameItem {
             path: request.paths[index].clone(),
@@ -821,6 +824,28 @@ mod tests {
         assert_eq!(fs::read(target).unwrap(), before);
         assert!(!path.exists());
         assert!(apply_filename(&request, &preview.plan_token).is_err());
+    }
+
+    #[test]
+    fn case_only_rearrangement_renames_without_doubling_the_extension() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("artist - song.wav");
+        wav(&path, "Song");
+        wav(&dir.path().join("Keep - Me.wav"), "Keep");
+        let request = filename_request(std::slice::from_ref(&path), "$upper(%1) - %2.WAV");
+        let preview = preview_filename(&request, &EvaluationSettings::default()).unwrap();
+        assert!(
+            preview.items[0].target.ends_with("ARTIST - song.WAV"),
+            "{}",
+            preview.items[0].target
+        );
+        apply_filename(&request, &preview.plan_token).unwrap();
+        let mut names: Vec<_> = fs::read_dir(dir.path())
+            .unwrap()
+            .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        names.sort();
+        assert_eq!(names, ["ARTIST - song.WAV", "Keep - Me.wav"]);
     }
 
     #[test]

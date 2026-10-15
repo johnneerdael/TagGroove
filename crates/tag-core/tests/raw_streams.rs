@@ -243,7 +243,7 @@ fn tta_follows_the_mpeg_policy_and_keeps_the_stream() {
     fs::write(&path, &bytes).unwrap();
     let entry = read_entry(&path).unwrap();
     assert_eq!(value(&entry, "TITLE").as_deref(), Some("From APE"));
-    assert_eq!(technical(&entry, "_TAG"), "APE");
+    assert_eq!(technical(&entry, "_TAG"), "APEv2");
 
     // Default Mpeg options: ID3v2.3 and ID3v1 are written, APE is removed.
     let written = write_fields(
@@ -299,7 +299,7 @@ fn tak_and_optimfrog_follow_the_ape_policy() {
         assert_eq!(value(&written, "TITLE").as_deref(), Some("New"), "{name}");
         assert_eq!(value(&written, "ARTIST").as_deref(), Some("A|B"), "{name}");
         assert_eq!(value(&written, "CUSTOM").as_deref(), Some("x"), "{name}");
-        assert_eq!(technical(&written, "_TAG_READ"), "APE", "{name}");
+        assert_eq!(technical(&written, "_TAG_READ"), "APEv2", "{name}");
         let after = fs::read(&path).unwrap();
         // The ID3v2 tag and the stream are untouched; APEv2 sits before the
         // updated ID3v1 tag.

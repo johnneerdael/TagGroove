@@ -429,3 +429,15 @@ fn large_keyed_import_indexes_the_selection_and_matches_every_reversed_record() 
         assert_eq!(plan.fields["TITLE"], vec![format!("Title {index}")]);
     }
 }
+
+#[test]
+fn filename_rearrangement_does_not_double_a_spelled_extension() {
+    let converter = FilenameConverter::compile("%1 - %2", "$upper(%1) - %2.mp3").unwrap();
+    let fields = Fields::new();
+    let result = converter
+        .render("/music/artist - title.MP3", &EvalContext::new(&fields))
+        .unwrap();
+    assert_eq!(result.target, "ARTIST - title.mp3");
+    assert!(tag_core::ends_with_extension("a.Mp3", ".mp3"));
+    assert!(!tag_core::ends_with_extension(".mp3", ".mp3"));
+}

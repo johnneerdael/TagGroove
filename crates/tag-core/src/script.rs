@@ -79,6 +79,9 @@ pub struct EvalContext<'a> {
     /// Folder the file list was last changed to (`%_workingdir%`,
     /// `%_workingpath%`). Absent when the list was not loaded from a folder.
     pub working_directory: Option<&'a str>,
+    /// Options → Files "Replace folder separator in tag values with". `None`
+    /// uses [`DEFAULT_FOLDER_SEPARATOR`]; an empty string removes separators.
+    pub folder_separator: Option<&'a str>,
 }
 
 impl<'a> EvalContext<'a> {
@@ -106,6 +109,7 @@ impl<'a> EvalContext<'a> {
             app_directory: None,
             app_data_directory: None,
             working_directory: None,
+            folder_separator: None,
         }
     }
 
@@ -463,16 +467,63 @@ fn bounded_with_limit(text: String, limit: usize) -> Result<String, String> {
     }
 }
 
-fn filename_component(text: &str) -> String {
-    text.chars()
-        .map(|character| {
-            if (character as u32) < 32 || "/\\:*?\"<>|".contains(character) {
-                '_'
-            } else {
-                character
+/// What replaces `\` and `/` in tag values used as filenames by default.
+pub const DEFAULT_FOLDER_SEPARATOR: &str = "_";
+
+/// Characters a tag value cannot carry into a filename besides the folder
+/// separators: `$validate`'s set plus control characters.
+fn invalid_filename_character(character: char) -> bool {
+    (character as u32) < 32 || ":*?\"<>|".contains(character)
+}
+
+/// Make a tag value usable as part of a filename: folder separators become
+/// `separator` (which may be empty) and other invalid characters `_`.
+pub fn filename_value(text: &str, separator: &str) -> String {
+    let mut output = String::with_capacity(text.len());
+    for character in text.chars() {
+        if matches!(character, '/' | '\\') {
+            // The replacement itself must never introduce a separator.
+            for replacement in separator.chars() {
+                output.push(
+                    if matches!(replacement, '/' | '\\') || invalid_filename_character(replacement)
+                    {
+                        '_'
+                    } else {
+                        replacement
+                    },
+                );
             }
-        })
-        .collect()
+        } else if invalid_filename_character(character) {
+            output.push('_');
+        } else {
+            output.push(character);
+        }
+    }
+    output
+}
+
+/// Check a "Replace folder separator" option value.
+pub fn validate_folder_separator(separator: &str) -> Result<(), String> {
+    if separator.chars().count() > 16 {
+        return Err("The folder separator replacement is limited to 16 characters".into());
+    }
+    if separator
+        .chars()
+        .any(|c| matches!(c, '/' | '\\') || invalid_filename_character(c))
+    {
+        return Err(
+            "The folder separator replacement cannot contain \\ / : * ? \" < > | or control characters"
+                .into(),
+        );
+    }
+    Ok(())
+}
+
+fn filename_component(text: &str, context: &EvalContext<'_>) -> String {
+    filename_value(
+        text,
+        context.folder_separator.unwrap_or(DEFAULT_FOLDER_SEPARATOR),
+    )
 }
 
 fn run(nodes: &[Node], context: &EvalContext<'_>, filename_mode: bool) -> Result<Value, String> {
@@ -495,7 +546,7 @@ fn run(nodes: &[Node], context: &EvalContext<'_>, filename_mode: bool) -> Result
                     .cloned()
                     .unwrap_or_default();
                 let present = !text.is_empty();
-                let filename = filename_mode.then(|| filename_component(&text));
+                let filename = filename_mode.then(|| filename_component(&text, context));
                 Value {
                     text,
                     present,
@@ -529,7 +580,7 @@ fn run(nodes: &[Node], context: &EvalContext<'_>, filename_mode: bool) -> Result
                         .extension
                         .ok_or_else(|| format!("${name} requires its opt-in host extension"))?
                         .call(name, &args)?;
-                    let filename = filename_mode.then(|| filename_component(&value.text));
+                    let filename = filename_mode.then(|| filename_component(&value.text, context));
                     Value {
                         text: bounded_with_limit(value.text, context.max_output_bytes)?,
                         present: value.present,
@@ -559,7 +610,7 @@ fn run(nodes: &[Node], context: &EvalContext<'_>, filename_mode: bool) -> Result
                     let filename = filename_mode.then(|| {
                         selected
                             .and_then(|index| values[index].filename.clone())
-                            .unwrap_or_else(|| filename_component(&text))
+                            .unwrap_or_else(|| filename_component(&text, context))
                     });
                     let truth = match name.as_str() {
                         "eql" | "neql" | "grtr" | "geql" | "less" | "leql" | "and" | "or"

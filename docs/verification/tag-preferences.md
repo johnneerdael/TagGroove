@@ -15,7 +15,7 @@ Scope: File → Options… and the Tags → Mpeg, Ape/Mpc and Advanced pages, pl
   - Converting between revisions re-expresses the documented version-specific frames. TDRC ↔ TYER/TDAT/TIME, TDOR ↔ TORY and TIPL ↔ IPLS are converted. Fields without a native v2.3 frame, such as MOOD/TMOO, are converted between their native frame and TXXX.
   - "ID3v2 only if ID3v1 too small" writes ID3v2 only for an existing ID3v2 tag, values that do not fit ID3v1 (length, Latin-1, extra fields, multiple values), a user-defined genre, or artwork.
   - Writing APEv2 upgrades an APEv1 tag to v2 and also updates an existing ID3v1 tag.
-- *Remove:* the selected kinds are stripped on save unless they are also being written.
+- *Remove:* File → Remove tag (Ctrl+R) strips the selected kinds ([remove-mapping](remove-mapping.md)). Saving also strips a selected kind that is not being written.
 
 **Ape, Mpc (Monkey's Audio, Musepack, WavPack):** the same model with Read ID3v1/APE (APE has priority), Write ID3v1/APEv2, and Remove ID3v1/ID3v2/APE.
 
@@ -64,7 +64,7 @@ Scope: File → Options… and the Tags → Mpeg, Ape/Mpc and Advanced pages, pl
 
 ## Known gaps and risks
 
-- **Defaults are not proven against the original.** The docs do not state default values. The defaults used are: write ID3v1 + ID3v2.3 UTF-16; read all kinds; remove APE on MP3; APEv2-only for Ape/Mpc; no ID3v2 removal; natural sort on; title shows the directory. These follow common Mp3tag configurations, not a captured original configuration. Removing APE on MP3 is kept as the default (decided 2026-10-14) because APE is read first: a stale APE tag would otherwise hide every ID3v2 edit on reload. To avoid losing gain data, `REPLAYGAIN_*` and `MP3GAIN_*` fields of a removed APE tag are carried into ID3v2 user frames (TXXX) unless ID3v2 already has them; a displayed APE tag's fields are mirrored into ID3v2 anyway. MP3Gain itself only reads its undo data from APE, so `MP3GAIN_UNDO` survives as text but is no longer usable by MP3Gain.
+- **Defaults are not proven against the original.** The docs do not state default values. The defaults used are: write ID3v1 + ID3v2.3 UTF-16; read all kinds; remove every kind on MP3 and ID3v1 + APE on Ape/Mpc (changed 2026-10-15 so Remove tag removes everything by default; under the default write settings saving is unaffected); APEv2-only for Ape/Mpc; natural sort on; title shows the directory. These follow common Mp3tag configurations, not a captured original configuration. Removing APE on MP3 is kept as the default (decided 2026-10-14) because APE is read first: a stale APE tag would otherwise hide every ID3v2 edit on reload. To avoid losing gain data, `REPLAYGAIN_*` and `MP3GAIN_*` fields of a removed APE tag are carried into ID3v2 user frames (TXXX) unless ID3v2 already has them; a displayed APE tag's fields are mirrored into ID3v2 anyway. MP3Gain itself only reads its undo data from APE, so `MP3GAIN_UNDO` survives as text but is no longer usable by MP3Gain.
 - **Mirroring is a deliberate approximation.** Other written kinds mirror the displayed text fields, but they keep their own artwork unless artwork is edited or the kind is new. Mp3tag's in-memory single-tag model may also replace that artwork.
 - **ID3v2 on Ape/Mpc files** is not displayed: the docs list only ID3v1/APE reads. It is removable.
 - **Not implemented (listed rather than shown as dead controls):**
@@ -78,5 +78,4 @@ Scope: File → Options… and the Tags → Mpeg, Ape/Mpc and Advanced pages, pl
 - **Platform and command limits**
   - WAV/AIFF ID3v2 chunks keep their existing revision. The docs scope the Mpeg page to MP3/TTA, and TTA is not supported by the backend.
   - Android provider-document reloads still read with default options, because the mobile code was intentionally left untouched.
-  - "Remove tag" (Ctrl+R) still removes every tag kind.
 - **Original runtime.** No differential runs against Mp3tag 3.36.1 were done. Exact ID3v1 truncation and joining of multiple values (the first value is used), and the exact encoding choice for existing Latin-1 frames in UTF-16 mode (they are kept), are unverified.

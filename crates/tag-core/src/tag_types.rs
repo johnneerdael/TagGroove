@@ -38,9 +38,9 @@ pub fn remove_tag_kinds_with_options(
     }
     if !kinds.iter().any(|kind| file.tag(kind.tag_type()).is_some()) {
         return if include_cover_data {
-            read_entry_with_options(path, &[], options)
+            read_entry_with_options(path, &options.mappings, options)
         } else {
-            read_entry_summary_with_options(path, &[], options)
+            read_entry_summary_with_options(path, &options.mappings, options)
         };
     }
     staged_mutation(path, include_cover_data, options, |staging, file, _| {

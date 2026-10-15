@@ -23,7 +23,7 @@ fn transform_covers(
         .covers
         .is_empty()
     {
-        return read_entry_summary_with_options(path, &[], options);
+        return read_entry_summary_with_options(path, &options.mappings, options);
     }
     if asf::sniff(path) {
         return asf::change_pictures(
@@ -55,7 +55,7 @@ fn transform_covers(
             let written = tag_policy::write(
                 staging,
                 &file,
-                &[],
+                &options.mappings,
                 options,
                 tag_policy::Change::Pictures(pictures.clone()),
             )?;
