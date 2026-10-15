@@ -67,6 +67,8 @@ pub struct TextRequest {
 pub struct TextPreview {
     pub plan_token: String,
     pub items: Vec<TextTagImport>,
+    /// The text file read, after evaluating a format-string source.
+    pub source_path: Option<String>,
 }
 
 #[tauri::command]
@@ -493,6 +495,35 @@ fn apply_filename(request: &FilenameRequest, token: &str) -> Result<FilenameResu
     Ok(result)
 }
 
+/// The text file of Convert → Text File → Tag. The source may be a format
+/// string such as `%_folderpath%tracks.txt`, evaluated for the first selected
+/// file; a relative result is relative to that file's folder. An existing
+/// file whose name merely contains `%` or `$` is used as named.
+fn text_source_path(template: &str, paths: &[String]) -> Result<PathBuf, String> {
+    let literal = Path::new(template);
+    if !template.contains(['%', '$']) || literal.is_file() {
+        return Ok(literal.to_path_buf());
+    }
+    let first = paths.first().ok_or("Select at least one audio file")?;
+    let entry = crate::settings::read_summary(Path::new(first))?;
+    let settings = super::evaluation_settings(None)?;
+    let technical = crate::evaluation::technical_fields(&entry, 1);
+    let value = settings.evaluate(template, &entry.fields, &technical, &entry.path, false)?;
+    let value = value.trim();
+    if value.is_empty() {
+        return Err("The source file name is empty for the first selected file".into());
+    }
+    let path = Path::new(value);
+    Ok(if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        Path::new(first)
+            .parent()
+            .unwrap_or(Path::new("."))
+            .join(path)
+    })
+}
+
 fn preview_text(request: &TextRequest) -> Result<TextPreview, String> {
     let converter = tag_core::TextTagConverter::compile(&request.mask)?;
     let sources = read_sources(&request.paths, true)?
@@ -505,6 +536,9 @@ fn preview_text(request: &TextRequest) -> Result<TextPreview, String> {
             None,
         ),
         TextSource::File { path } => {
+            let path = &text_source_path(path, &request.paths)?;
+            let shown = path.to_string_lossy().into_owned();
+            super::reject_provider_operation(std::slice::from_ref(&shown), "Text import source")?;
             if fs::metadata(path).map_err(|e| e.to_string())?.len() > MAX_TEXT {
                 return Err("Text import source exceeds the input limit".into());
             }
@@ -539,9 +573,14 @@ fn preview_text(request: &TextRequest) -> Result<TextPreview, String> {
         operation: Operation::Text(items.clone()),
     };
     validate_sources(&plan)?;
+    let source_path = plan
+        .text_source
+        .as_ref()
+        .map(|source| source.requested.to_string_lossy().into_owned());
     Ok(TextPreview {
         plan_token: remember(plan)?,
         items,
+        source_path,
     })
 }
 
@@ -896,6 +935,57 @@ mod tests {
         assert_eq!(entry.fields["TITLE"], ["Café 猫"]);
         assert_eq!(entry.fields["ARTIST"], ["Keep artist"]);
         assert!(apply_text(&request, &preview.plan_token).is_err());
+    }
+
+    #[test]
+    fn text_source_can_be_a_format_string_for_the_first_selected_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let album = dir.path().join("Album");
+        fs::create_dir_all(&album).unwrap();
+        let a = album.join("a.wav");
+        let b = album.join("b.wav");
+        wav(&a, "A");
+        wav(&b, "B");
+        fs::write(album.join("Album tracks.txt"), "One\nTwo\n").unwrap();
+        let mut request = text_request(&[a.clone(), b.clone()], "");
+        request.mask = "%title%".into();
+        for template in [
+            "%_folderpath%%_directory% tracks.txt".to_string(),
+            "$left(%_directory%,5) tracks.txt".to_string(),
+        ] {
+            request.source = TextSource::File { path: template };
+            let preview = preview_text(&request).unwrap();
+            assert_eq!(
+                fs::canonicalize(preview.source_path.unwrap()).unwrap(),
+                fs::canonicalize(album.join("Album tracks.txt")).unwrap()
+            );
+            assert_eq!(preview.items[1].fields["TITLE"], ["Two"]);
+        }
+        let result = apply_text(&request, &preview_text(&request).unwrap().plan_token).unwrap();
+        assert!(result.errors.is_empty());
+        assert_eq!(
+            tag_core::read_entry_summary(&b).unwrap().fields["TITLE"],
+            ["Two"]
+        );
+        // A name that evaluates to nothing, or to a missing file, is refused.
+        request.source = TextSource::File {
+            path: "[%comment%]".into(),
+        };
+        assert!(preview_text(&request).is_err());
+        request.source = TextSource::File {
+            path: "%_filename%.txt".into(),
+        };
+        assert!(preview_text(&request).is_err());
+        // An existing file named with a percent sign is read as named.
+        let literal = album.join("100% hits.txt");
+        fs::write(&literal, "Three\nFour\n").unwrap();
+        request.source = TextSource::File {
+            path: literal.to_string_lossy().into_owned(),
+        };
+        assert_eq!(
+            preview_text(&request).unwrap().items[0].fields["TITLE"],
+            ["Three"]
+        );
     }
 
     #[test]

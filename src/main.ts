@@ -1038,9 +1038,9 @@ function reviewedConverter(kind:'filename'|'text') {
     <label class="field"><span>NEW FILENAME PATTERN</span><input id="new-pattern" value="%2 - %1" spellcheck="false" autocomplete="off" data-helper="history" data-history="filename-filename-new" data-history-manage></label>`:
     `<p>Import one record per selected file in table order. Use %_filename_ext% or %_path% in the mask to match by file. Apply saves the reviewed tag values immediately.</p>
     <label class="field"><span>TEXT SOURCE</span><select id="text-source-kind"><option value="file">Text file</option><option value="text">Pasted text</option></select></label>
-    <div id="text-file-source"><div class="field"><span>SOURCE FILE</span><div class="action-input"><input id="text-source-path" aria-label="Text source file" placeholder="Choose a text file" autocomplete="off" spellcheck="false"><button id="pick-text-source" type="button">Choose file…</button></div></div>
+    <div id="text-file-source"><div class="field"><span>SOURCE FILE</span><div class="action-input"><input id="text-source-path" aria-label="Text source file" placeholder="Choose a text file or enter a format string" autocomplete="off" spellcheck="false" data-helper="format"><button id="pick-text-source" type="button">Choose file…</button></div></div>
     <label class="field"><span>LEGACY ENCODING FALLBACK (OPTIONAL)</span><input id="text-codepage" placeholder="e.g. windows-1252" list="text-codepages" spellcheck="false"><datalist id="text-codepages"><option value="windows-1252"><option value="windows-1251"><option value="cp932"><option value="cp936"><option value="cp949"><option value="cp950"></datalist></label>
-    <p>UTF-8 and BOM-marked UTF-16 are detected first. The fallback is used only when the file is not valid UTF-8.</p></div>
+    <p>The source may be a format string such as %_folderpath%tracks.txt, read for the first selected file. UTF-8 and BOM-marked UTF-16 are detected first. The fallback is used only when the file is not valid UTF-8.</p></div>
     <label class="field" id="text-paste-source" hidden><span>RECORDS TO IMPORT</span><textarea id="text-source-records" rows="5" spellcheck="false"></textarea></label>
     <label class="field"><span>IMPORT MASK</span><input id="text-mask" value="%title%;%artist%" autocomplete="off" spellcheck="false" data-helper="pattern" data-history="text-tag" data-history-manage></label>
     <label class="action-check"><input id="text-case-sensitive" type="checkbox" checked> Match filename and path keys case-sensitively</label>`;
@@ -1132,7 +1132,7 @@ function reviewedConverter(kind:'filename'|'text') {
       if(!dialog.open)return;
       const markup=previewMarkup(response.items);
       if(!review.complete(attempt,response,readRequest(),context())){review.fail(attempt);return;}
-      previewArea.innerHTML=markup;progress.textContent=`Reviewed ${response.items.length} file${response.items.length===1?'':'s'}. Apply uses these exact results.`;
+      previewArea.innerHTML=markup;progress.textContent=`Reviewed ${response.items.length} file${response.items.length===1?'':'s'}${response.source_path?` from ${response.source_path}`:''}. Apply uses these exact results.`;
       expiryTimer=window.setTimeout(()=>{if(dialog.open)invalidate('The preview expired. Run Preview again.');},300_000);
     }catch(error){if(dialog.open&&(!attempt||review.fail(attempt))){modalError(dialog,error);progress.textContent='Preview failed. Review the error and try again.';}}
     finally{if(dialog.open){syncControls();if(restoreFocus&&(document.activeElement===dialog||document.activeElement===document.body))previewButton.focus({preventScroll:true});}}
