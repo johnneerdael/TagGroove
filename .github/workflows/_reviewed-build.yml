@@ -96,8 +96,12 @@ jobs:
           if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
             # Chocolatey unavailable: fall back to the FFmpeg builds on GitHub.
             $zip = Join-Path $env:RUNNER_TEMP 'ffmpeg.zip'
-            $url = 'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip'
+            # Pin a month-end build (retained upstream for two years) and fail closed on replacement.
+            $url = 'https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-09-30-13-08/ffmpeg-N-127021-ge0c94b2d1c-win64-gpl.zip'
+            $expectedSha256 = '85c4a4636b93d681a07588ffa6f1d8f5c064d9c3fb0622066662906b6fd718a1'
             Invoke-WebRequest $url -OutFile $zip -MaximumRetryCount 5 -RetryIntervalSec 10
+            $actualSha256 = (Get-FileHash -LiteralPath $zip -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()
+            if ($actualSha256 -ne $expectedSha256) { throw "FFmpeg archive SHA-256 mismatch: expected $expectedSha256, got $actualSha256" }
             Expand-Archive $zip -DestinationPath (Join-Path $env:RUNNER_TEMP 'ffmpeg')
             $bin = (Get-ChildItem (Join-Path $env:RUNNER_TEMP 'ffmpeg') -Recurse -Filter ffmpeg.exe | Select-Object -First 1).DirectoryName
             Add-Content $env:GITHUB_PATH $bin
@@ -174,8 +178,12 @@ jobs:
           if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
             # Chocolatey unavailable: fall back to the FFmpeg builds on GitHub.
             $zip = Join-Path $env:RUNNER_TEMP 'ffmpeg.zip'
-            $url = 'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip'
+            # Pin a month-end build (retained upstream for two years) and fail closed on replacement.
+            $url = 'https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-09-30-13-08/ffmpeg-N-127021-ge0c94b2d1c-win64-gpl.zip'
+            $expectedSha256 = '85c4a4636b93d681a07588ffa6f1d8f5c064d9c3fb0622066662906b6fd718a1'
             Invoke-WebRequest $url -OutFile $zip -MaximumRetryCount 5 -RetryIntervalSec 10
+            $actualSha256 = (Get-FileHash -LiteralPath $zip -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()
+            if ($actualSha256 -ne $expectedSha256) { throw "FFmpeg archive SHA-256 mismatch: expected $expectedSha256, got $actualSha256" }
             Expand-Archive $zip -DestinationPath (Join-Path $env:RUNNER_TEMP 'ffmpeg')
             $bin = (Get-ChildItem (Join-Path $env:RUNNER_TEMP 'ffmpeg') -Recurse -Filter ffmpeg.exe | Select-Object -First 1).DirectoryName
             Add-Content $env:GITHUB_PATH $bin
