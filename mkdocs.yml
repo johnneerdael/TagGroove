@@ -132,34 +132,49 @@ validation:
     unrecognized_links: warn
 
 nav:
-  - Home: index.md
-  - Get started:
+- Home: index.md
+- Learn:
+  - Tutorials:
     - Your first tagging session: learn/first-tagging-session.md
-  - Recipes:
-    - Zero-padded track numbers: cookbook/rename-zero-padded-track-numbers.md
-    - Tags from folder and file names: cookbook/tags-from-folder-and-filename.md
-    - Move guest artists to titles: cookbook/feat-artists-to-title.md
+- Automate:
+  - Converters:
+    - converters/index.md
+    - Tag → Filename: converters/tag-to-filename.md
+    - Filename → Tag: converters/filename-to-tag.md
+    - Filename → Filename: converters/filename-to-filename.md
+    - Text File → Tag: converters/text-file-to-tag.md
+    - Tag → Tag: converters/tag-to-tag.md
+    - Auto-numbering: converters/auto-numbering.md
   - Actions:
     - actions/index.md
-    - Case Conversion: actions/case-conversion.md
-    - Convert Codepage: actions/convert-codepage.md
-    - Format Value: actions/format-value.md
-    - Guess Values: actions/guess-values.md
-    - Replace: actions/replace.md
-    - Replace with Regular Expression: actions/replace-regexp.md
-    - Split Field by Separator: actions/split-field.md
-    - Merge Duplicate Fields: actions/merge-duplicate-fields.md
-    - Remove Duplicate Fields: actions/remove-duplicate-fields.md
-    - Remove Fields: actions/remove-fields.md
-    - Remove Fields Except: actions/remove-fields-except.md
-    - Import Cover from File: actions/import-cover.md
-    - Export Cover to File: actions/export-cover.md
-    - Adjust Cover: actions/adjust-cover.md
-    - Set Cover Properties: actions/set-cover-properties.md
-    - Import Text File: actions/import-text-file.md
-    - Export: actions/export.md
-    - Generate Playlists: actions/generate-playlists.md
-  - Reference:
+    - Action types:
+      - Adjust cover: actions/adjust-cover.md
+      - Case conversion: actions/case-conversion.md
+      - Convert codepage: actions/convert-codepage.md
+      - Export: actions/export.md
+      - Export cover to file: actions/export-cover.md
+      - Format value: actions/format-value.md
+      - Generate playlists: actions/generate-playlists.md
+      - Guess values: actions/guess-values.md
+      - Import cover from file: actions/import-cover.md
+      - Import text file: actions/import-text-file.md
+      - Merge duplicate fields: actions/merge-duplicate-fields.md
+      - Remove duplicate fields: actions/remove-duplicate-fields.md
+      - Remove fields: actions/remove-fields.md
+      - Remove fields except: actions/remove-fields-except.md
+      - Replace: actions/replace.md
+      - Replace with regular expression: actions/replace-regexp.md
+      - Set cover properties: actions/set-cover-properties.md
+      - Split field by separator: actions/split-field.md
+- Reference:
+  - Format strings:
     - Format strings: reference/format-strings.md
     - Placeholders: reference/placeholders.md
-    - Regular expressions: reference/regular-expressions.md
+  - Regular expressions: reference/regular-expressions.md
+- Cookbook:
+  - Rename files and folders:
+    - Zero-padded track numbers in filenames: cookbook/rename-zero-padded-track-numbers.md
+  - Fix and tidy tags:
+    - Move “feat.” artists out of the artist field: cookbook/feat-artists-to-title.md
+  - Import tags:
+    - Tag files from folder and file names: cookbook/tags-from-folder-and-filename.md

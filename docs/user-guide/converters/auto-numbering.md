@@ -1,13 +1,115 @@
----
-status: draft
----
-
 # Auto-numbering
 
-!!! abstract "This page is being written"
+Use **Auto-numbering** to assign track and optional disc numbers in the
+current file-list order. Preview the sequence, stage it as pending edits,
+then save. The wizard does not infer an album's intended order from audio.
 
-    It will cover:
+## Number one album
 
-    - Track and disc numbering, minimum digits, totals, per-folder restarts, change-of-field triggers
+1. Keep copies, save pending edits and arrange the files in their intended
+   playing order. Select only the tracks to number.
+2. Choose **Convert → Auto-numbering…** (++cmd+k++ / ++ctrl+k++).
+3. Set **Begin at track** to `1` and **Minimum digits** to `2`.
+4. For this trial, leave total count, disc numbers and counter changes off.
+5. Choose **Preview**. Expect `01`, `02`, `03` and so on in file-list order.
+6. Choose **Stage numbers**. Inspect the pending values in the main window.
+7. Choose **File → Save tags** (++cmd+s++ / ++ctrl+s++) to write them.
 
-    Until then, the [reference section](../reference/index.md) has the details.
+Until the last step, the staged numbers are pending edits. Discard them if
+the sequence is wrong rather than saving and trying to reconstruct the
+original numbers.
+
+## Track and disc settings
+
+| Setting | Effect | Initial value |
+|---|---|---|
+| **Begin at track** | First track number and restart value | `1` |
+| **Minimum digits** under Track numbers | Pad track numbers to this width | `2` |
+| **Save total track count** | Add `/total` to every track value | Off |
+| **Total tracks** | The total to store when enabled | Number of selected files |
+| **Disc numbers** | Also write `DISCNUMBER` | Off |
+| **Begin at disc** | First disc number and disc reset value | `1` |
+| **Minimum digits** under Disc numbers | Pad disc numbers | `1` |
+| **Save total disc count** | Add `/total` to every disc value | Off |
+| **Total discs** | The total to store when enabled | `1` |
+
+These are initial defaults. Most options are remembered after a staged
+run, so check them when reopening the wizard. **Total tracks** starts with
+the current selection count each time.
+
+| Begin at track | Minimum digits | Total enabled/value | First three results |
+|---|---|---|---|
+| 1 | 2 | Off | `01`, `02`, `03` |
+| 5 | 3 | Off | `005`, `006`, `007` |
+| 1 | 2 | On, 8 | `01/8`, `02/8`, `03/8` |
+
+Totals are the numbers entered, not an automatic count of each group.
+For different per-disc totals, number each disc separately with its own
+total. A minimum width does not truncate larger numbers: width 2 still
+allows track `100`.
+
+Some tag formats store track/disc components as integers and may not
+retain leading zeros after saving. For consistently padded filenames,
+use `$num(%track%,2)` in a filename format.
+
+## Restart tracks in each folder
+
+For local files, ++cmd+shift+k++ / ++ctrl+shift+k++ opens a per-folder run.
+It enables directory changes and track resets, while leaving disc-number
+writing off. Arrange the selection so each folder's tracks are together.
+
+The regular wizard can produce the same result by enabling **Next disc
+on change of directory** and **Reset track counter on next disc** while
+leaving **Disc numbers** off. An internal disc boundary can restart tracks
+without writing a disc field.
+
+Directory grouping requires known local folders. For provider documents
+without those paths, the directory control is unavailable; use a reliable
+tag-field grouping or process each album separately.
+
+## Number a multi-disc collection
+
+The wizard compares each file with the previous file in list order:
+
+| Counter-change setting | When it acts |
+|---|---|
+| **Next disc on change of directory** | Parent folder changes |
+| **Next disc on change of field** | The chosen field's values change |
+| **Reset track counter on next disc** | A next-disc boundary restarts tracks at **Begin at track** |
+| **Reset disc counter on change of field** | Reset discs to **Begin at disc** and tracks to **Begin at track** |
+
+For two album folders, each with two disc subfolders:
+
+1. Sort by album, disc and intended track order.
+2. Enable **Disc numbers** and begin both counters at `1`.
+3. Set **Next disc on change of field** to `DISCNUMBER`, using the
+   existing disc tags to identify the boundaries.
+4. Enable **Reset track counter on next disc**.
+5. Set **Reset disc counter on change of field** to `ALBUM`.
+6. Preview the first and last rows of every disc before staging.
+
+A disc reset takes priority if both a next-disc and reset condition occur
+at the same boundary. A field's missing value also participates in these
+comparisons; clean inconsistent album/disc tags first.
+
+## Gotchas
+
+- Grouping detects transitions, not all equal values across the selection.
+  Interleaved albums cause repeated resets; keep groups together.
+- Disc settings do not change tracks unless their configured boundary or
+  reset rule acts. Preview instead of assuming enabling discs groups files.
+- Preview shows at most 100 rows, although the plan covers the selection.
+  Use smaller selections when the unshown boundaries need inspection.
+- Start and total values must be positive whole numbers. Minimum digits
+  must be 1–10; counter overflow reports an error.
+- Keep original copies and inspect **Edit → Undo** for recorded changes
+  after saving. Staging alone is not proof that tags were written.
+
+<!-- verified: crates/tag-core/src/numbering.rs:plan_numbering; src/numbering-review.ts:numberingDefaults, recallNumbering; src/main.ts:numbering -->
+
+## Related
+
+- [Tag → Filename](tag-to-filename.md)
+- [Tag → Tag](tag-to-tag.md)
+- [Zero-padded track numbers](../cookbook/rename-zero-padded-track-numbers.md)
+- [Converters](index.md)
