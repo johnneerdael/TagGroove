@@ -16,15 +16,6 @@
   };
   const timeline = []; let lastSnap = '';
   const watch = setInterval(() => { const s = snapshot(); if (s !== lastSnap) { lastSnap = s; timeline.push(`${ms()}ms ${s}`); if (timeline.length > 80) timeline.shift(); } }, 20);
-  // TEMP(e2e-flake): focus moves (with the caller of focus()) and key presses with timestamps.
-  const calls = [], log = line => { calls.push(`${ms()}ms ${line}`); if (calls.length > 120) calls.shift(); };
-  const nativeFocus = HTMLElement.prototype.focus;
-  HTMLElement.prototype.focus = function (...a) { log(`focus() ${describe(this)} from ${(new Error().stack || '').split('\n').slice(1, 5).map(l => l.trim()).join(' < ')}`); return nativeFocus.apply(this, a); };
-  document.addEventListener('focusin', e => log(`focusin ${describe(e.target)}`), true);
-  document.addEventListener('focusout', e => log(`focusout ${describe(e.target)} -> ${describe(e.relatedTarget)}`), true);
-  document.addEventListener('keydown', e => log(`keydown@document ${e.key} target=${describe(e.target)}`), true);
-  window.addEventListener('keydown', e => log(`keydown@window ${e.ctrlKey ? 'C-' : ''}${e.metaKey ? 'M-' : ''}${e.altKey ? 'A-' : ''}${e.key} prevented=${e.defaultPrevented}`));
-  window.addEventListener('blur', () => log('window blur')); window.addEventListener('focus', () => log('window focus'));
   const waitFor = async (fn, wait = 8000, what = 'condition') => { const t = Date.now(); while (Date.now() - t < wait) { try { const v = fn(); if (v) return v; } catch {} await sleep(100); } throw new Error(`timeout waiting for ${what} at ${ms()}ms; ${snapshot()}`); };
   const key = (k, o = {}) => (document.activeElement || document.body).dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...o }));
   const row = name => [...document.querySelectorAll('tr[data-path]')].find(r => r.dataset.path.split(/[\\/]/).pop() === name);
@@ -34,7 +25,7 @@
   const idle = () => waitFor(() => !document.querySelector('footer.status.busy'), 10000, 'idle');
   const undoReady = kind => waitFor(() => { const b = document.querySelector(`button[data-op="${kind}"]`); return b && !b.disabled; }, 8000, kind + ' available');
   const results = [];
-  const step = async (name, fn) => { try { const detail = await fn(); results.push(['PASS', name]); await report(`PASS ${name}${detail ? ' — ' + detail : ''}`); } catch (e) { results.push(['FAIL', name]); await report(`FAIL ${name} — ${e && e.message || e}`); for (const line of timeline.splice(0)) await report('  state ' + line); for (const line of calls.splice(0)) await report('  call ' + line); } };
+  const step = async (name, fn) => { try { const detail = await fn(); results.push(['PASS', name]); await report(`PASS ${name}${detail ? ' — ' + detail : ''}`); } catch (e) { results.push(['FAIL', name]); await report(`FAIL ${name} — ${e && e.message || e}`); for (const line of timeline.splice(0)) await report('  state ' + line); } };
   try {
     await waitFor(() => document.querySelectorAll('tr[data-path]').length >= 2, 15000, 'fixture rows');
     await report(`loaded at ${ms()}ms; ${snapshot()}`);
@@ -42,6 +33,14 @@
     await report(`menus=${[...document.querySelectorAll('.menubar > .menu > summary')].map(s => s.textContent).join('|')}`);
 
     await step('select row updates tag panel', async () => { await clickRow('sine-a.mp3'); const v = field('TITLE')?.value; if (v !== 'Sine A') throw new Error('TITLE field=' + v); return 'TITLE=' + v; });
+
+    await step('clicking into the tag panel cancels a pending slow-click edit', async () => {
+      // sine-a is the only selected file, so this click arms the delayed File List editor.
+      await clickRow('sine-a.mp3'); const f = field('TITLE'); f.focus(); await sleep(800);
+      if (document.querySelector('.cell-editor')) throw new Error('cell editor opened; focus=' + document.activeElement?.className);
+      if (document.activeElement !== field('TITLE')) throw new Error('focus left the tag panel');
+      return 'focus stays in TITLE';
+    });
 
     await step('edit title + Cmd+S writes file', async () => {
       const f = field('TITLE'); f.focus(); f.value = 'Sine A Edited'; f.dispatchEvent(new Event('input', { bubbles: true })); await sleep(200);
