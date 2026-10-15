@@ -142,7 +142,8 @@
       document.body.focus(); key('a', { metaKey: true }); await sleep(200);
       key('e', { metaKey: true });
       const state = () => `${status()}; busy ${!!document.querySelector('footer.status.busy')}; selected ${document.querySelectorAll('tr.selected').length}; focus ${document.activeElement?.tagName}; dialog ${document.querySelector('dialog[open]')?.className || 'none'}; errors ${document.querySelector('section.errors')?.textContent?.slice(0, 300) || 'none'}`;
-      await waitFor(() => inv('read_playlist', { path: album + '/export.m3u8' }), 8000, 'export (' + state() + ')');
+      const early = state();
+      await waitFor(() => inv('read_playlist', { path: album + '/export.m3u8' }), 8000, 'export').catch(e => { throw new Error(`${e.message}; after the keys: ${early}; now: ${state()}`); });
       await relaunch(album + '/export.m3u8', anyFile);
       await waitFor(() => /export\.m3u8$/.test(document.querySelector('.location .path')?.textContent || ''), 15000, 'playlist location');
       await idle();
