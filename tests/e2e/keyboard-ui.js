@@ -16,7 +16,8 @@
   const rows = () => [...document.querySelectorAll('tr[data-path]')];
   const names = () => rows().map(r => r.dataset.path.split('/').pop());
   const row = name => rows().find(r => r.dataset.path.endsWith('/' + name));
-  const clickRow = async (name, init = {}) => { const r = await waitFor(() => row(name), 8000, 'row ' + name); r.querySelector('td').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ...init })); await sleep(250); };
+  // A plain click on the only selected row would start the slow-click cell editor (after 550 ms), which takes the keyboard; such a row is only focused.
+  const clickRow = async (name, init = {}) => { const r = await waitFor(() => row(name), 8000, 'row ' + name); if (!Object.keys(init).length && r.classList.contains('selected') && rows().filter(x => x.classList.contains('selected')).length === 1) { r.focus(); await sleep(50); return; } r.querySelector('td').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ...init })); await sleep(250); };
   const idle = () => waitFor(() => !document.querySelector('footer.status.busy'), 15000, 'idle');
   const press = (target, k, o = {}) => { const event = new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...o }); target.dispatchEvent(event); return event; };
   const ctrl = { ctrlKey: true };
