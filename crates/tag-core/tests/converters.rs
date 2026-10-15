@@ -155,8 +155,23 @@ fn text_import_boms_codepages_and_all_line_endings_are_decoded_strictly() {
     assert!(converter
         .plan_bytes(b"\xff\xfe\x00", &paths()[..1], &options)
         .is_err());
+    // Without a system ANSI codepage, legacy text is Windows-1252.
+    assert_eq!(
+        converter
+            .plan_bytes(b"\xff", &paths()[..1], &TextImportOptions::default())
+            .unwrap()[0]
+            .fields["TITLE"],
+        vec!["ÿ"]
+    );
     assert!(converter
-        .plan_bytes(b"\xff", &paths()[..1], &TextImportOptions::default())
+        .plan_bytes(
+            b"\x81",
+            &paths()[..1],
+            &TextImportOptions {
+                ansi_codepage: Some("932".into()),
+                ..Default::default()
+            }
+        )
         .is_err());
     assert_eq!(
         converter
