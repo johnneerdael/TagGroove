@@ -1,0 +1,18 @@
+/* Main window, Actions and Tag Sources multi-selection, toolbar customization. */
+.filterbar[hidden]{display:none}
+.group-row.marked,.action-edit-list button.marked{background:var(--selection)}
+.group-row.marked:not(.current){box-shadow:inset 3px 0 0 var(--selection-line,var(--accent))}
+.action-edit-list button.current{box-shadow:inset 3px 0 0 var(--accent)}
+.ts-fields tr[data-row] th{cursor:default}
+.ts-fields tr.selected{background:var(--selection)}
+.ts-fields tr[data-row]:focus-visible{outline:2px solid var(--blue);outline-offset:-2px}
+th[data-col] .shuffle-list{position:absolute;left:2px;top:50%;transform:translateY(-50%);width:20px;height:20px;padding:0;border:0;border-radius:3px;background:transparent;color:var(--muted-text);font-size:12px;line-height:20px;text-align:center;z-index:1}
+th[data-col] .shuffle-list:hover,th[data-col] .shuffle-list:focus-visible{background:var(--hover);color:var(--text)}
+th[data-col]:has(.shuffle-list) button[data-sort]{padding-left:24px}
+.status-message.hint{color:var(--muted-text)}
+.toolbar-dialog{width:620px}
+.toolbar-items{height:300px}
+.toolbar-items .group-row small{flex:2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.toolbar-rename{flex:1;min-width:0;padding:2px 6px}
+.view-sort-menu>div,.view-toolbars-menu>div{max-height:60vh;overflow:auto}
+@media(max-width:1000px){.toolbar-dialog{width:calc(100vw - 16px)}.toolbar-items{height:200px}}

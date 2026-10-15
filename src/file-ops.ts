@@ -3,7 +3,7 @@ export type Startup='empty'|'previous'|'favorite';
 export type DirectoryState={version:number;recent:string[];favorites:string[]};
 export type DirectoryPreferences={subfolders:boolean;startup:Startup};
 export type LaunchRequest={directories:string[];files:string[];add:boolean};
-export type FileOperation='dir-add'|'dir-up'|'dir-back'|'dir-forward'|'dir-favorite'|'dir-manage'|'file-delete'|'file-copy'|'file-move'|'file-reveal'|'file-play';
+export type FileOperation='dir-add'|'dir-up'|'dir-back'|'dir-forward'|'dir-favorite'|'dir-manage'|'file-delete'|'file-delete-permanent'|'file-copy'|'file-move'|'file-reveal'|'file-play';
 type FileError={path:string;error:string};
 type PathChange={from:string;to:string};
 export type TransferResult={entries:unknown[];errors:FileError[];renamed:PathChange[];copied:PathChange[]};
@@ -124,7 +124,7 @@ export class FileOpsUI {
     if(op==='dir-forward'&&!this.history.canForward)return 'No next directory.';
     if(op==='dir-favorite'&&!this.state.favorites.length)return 'Add a favorite in File → Favorite directories.';
     if(op==='file-reveal'&&!selected&&!this.history.current)return 'Select files or change to a directory first.';
-    if(['file-delete','file-copy','file-move','file-play'].includes(op)&&!selected)return 'Select files first.';
+    if(['file-delete','file-delete-permanent','file-copy','file-move','file-play'].includes(op)&&!selected)return 'Select files first.';
     return '';
   }
   /** Recent and favorite folders for the File menu. */
@@ -171,6 +171,16 @@ export class FileOpsUI {
       });
       return;
     }
+    if(op==='file-delete-permanent'){
+      // Confirmed like Delete files (Options → Messages); the text says there is no way back.
+      if(!await this.host.confirm(`Permanently delete ${plural(paths.length)}?\n\n${names}\n\nThe files are removed from the disk without using the ${this.host.mac?'Trash':'Recycle Bin or trash'} and cannot be restored.`,'Delete permanently'))return;
+      await this.host.run(`Deleting ${plural(paths.length)}…`,async()=>{
+        const result=await this.host.invoke<{removed:string[];errors:FileError[]}>('delete_files_permanently',{paths});
+        this.host.removeEntries(result.removed);
+        this.host.report(result.errors,`Deleted ${plural(result.removed.length)} permanently${result.errors.length?`, ${plural(result.errors.length,'error')}`:''}`);
+      });
+      return;
+    }
     if(op==='file-copy'||op==='file-move'){
       const mode=op==='file-copy'?'copy':'move',[destination]=await this.host.pickDirectories(mode==='copy'?'Copy files to':'Move files to',false);
       if(!destination)return;
@@ -180,6 +190,11 @@ export class FileOpsUI {
         if(mode==='move')this.host.moved(result,status);else this.host.report(result.errors,status);
       });
     }
+  }
+  /** A plain drop on the window replaces the File List with the dropped files, folders and playlists. */
+  async replaceWith(paths:string[]){
+    if(!paths.length||this.host.openReason())return false;
+    return this.open(paths,{replace:true,directories:[],location:paths.length===1?paths[0]:`${paths.length} dropped locations`});
   }
   /** Open one folder as the working directory. */
   async openDirectory(path:string,options:{replace:boolean}){

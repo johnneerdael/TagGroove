@@ -497,16 +497,13 @@ impl ActionHost for NativeHost {
             ActionEffect::ImportTextFile { field, filename } => {
                 let bytes =
                     fs::read(relative_to_file(filename, &path)).map_err(|e| e.to_string())?;
-                let text = if bytes.starts_with(&[0xff, 0xfe]) {
-                    encoding_rs::UTF_16LE.decode(&bytes[2..]).0.into_owned()
-                } else if bytes.starts_with(&[0xfe, 0xff]) {
-                    encoding_rs::UTF_16BE.decode(&bytes[2..]).0.into_owned()
-                } else {
-                    String::from_utf8(bytes)
-                        .map_err(|e| e.to_string())?
-                        .trim_start_matches('\u{feff}')
-                        .to_owned()
-                };
+                // A BOM decides; text without one is UTF-8 when valid and
+                // otherwise ANSI (the system codepage, Windows-1252 without one).
+                let text = tag_core::decode_export_template(
+                    &bytes,
+                    self.settings.ansi_codepage().as_deref(),
+                )
+                .map_err(|e| format!("Cannot decode the text file: {e}"))?;
                 state.fields.insert(field.clone(), vec![text]);
                 self.flush(state)?;
             }
@@ -1502,6 +1499,119 @@ mod tests {
             result.entries[0].fields["COMMENT"],
             ["Two lines\nfrom text"]
         );
+    }
+    /// MP3 with an ID3v2.3 tag holding text fields, a comment, a private
+    /// frame, a GEOB object and one chapter.
+    fn mp3_with_unmapped_frames(path: &Path) {
+        let frame = |id: &[u8; 4], data: &[u8]| {
+            let mut bytes = id.to_vec();
+            bytes.extend((data.len() as u32).to_be_bytes());
+            bytes.extend([0, 0]);
+            bytes.extend(data);
+            bytes
+        };
+        let mut frames = Vec::new();
+        frames.extend(frame(b"TIT2", b"\0Title"));
+        frames.extend(frame(b"TPE1", b"\0Artist"));
+        frames.extend(frame(b"COMM", b"\0engNote\0Text"));
+        frames.extend(frame(b"PRIV", b"WM/MediaClassPrimaryID\0\x01\x02"));
+        frames.extend(frame(
+            b"GEOB",
+            b"\0application/octet-stream\0f.bin\0Object\0\x09",
+        ));
+        let mut chapter = b"ch0\0".to_vec();
+        chapter.extend(0u32.to_be_bytes());
+        chapter.extend(500u32.to_be_bytes());
+        chapter.extend(u32::MAX.to_be_bytes());
+        chapter.extend(u32::MAX.to_be_bytes());
+        chapter.extend(frame(b"TIT2", b"\0Intro"));
+        frames.extend(frame(b"CHAP", &chapter));
+        let size = frames.len() as u32;
+        let mut bytes = b"ID3\x03\0\0".to_vec();
+        bytes.extend(
+            (0..4)
+                .rev()
+                .map(|shift| ((size >> (7 * shift)) & 0x7f) as u8),
+        );
+        bytes.extend(frames);
+        for frame in 0..20u32 {
+            bytes.extend([0xFF, 0xFB, 0x90, 0x64]);
+            bytes.extend((0..413u32).map(|i| ((i + frame * 7) % 200) as u8));
+        }
+        fs::write(path, bytes).unwrap();
+    }
+
+    /// Remove Fields Except removes every displayed field but, like Mp3tag,
+    /// leaves frames without a field (left to Utils → Remove unsupported
+    /// fields) and chapters (Utils → Strip chapters).
+    #[test]
+    fn remove_fields_except_keeps_frames_that_have_no_field() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("song.mp3");
+        mp3_with_unmapped_frames(&path);
+        let before = crate::settings::read_summary(&path).unwrap();
+        assert_eq!(before.technical["_ID3V2_UNKNOWN_FRAMES"], ["GEOB, PRIV"]);
+        assert!(before.fields.contains_key("COMMENT"));
+        assert_eq!(before.technical["_SUBSONG_COUNT"], ["1"]);
+        let group = ActionGroup {
+            name: "Keep title".into(),
+            enabled: true,
+            actions: vec![ActionSpec::RemoveFieldsExcept {
+                fields: vec!["TITLE".into()],
+            }],
+        };
+        let result = execute(
+            &[path.to_string_lossy().into_owned()],
+            &[group],
+            EvaluationSettings::default(),
+        );
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        let after = crate::settings::read_summary(&path).unwrap();
+        assert_eq!(after.fields.keys().collect::<Vec<_>>(), ["TITLE"]);
+        assert_eq!(after.technical["_ID3V2_UNKNOWN_FRAMES"], ["GEOB, PRIV"]);
+        assert_eq!(after.technical["_SUBSONG_COUNT"], ["1"]);
+    }
+
+    #[test]
+    fn import_text_file_reads_bom_utf8_and_ansi_text() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = fixture(dir.path(), "song.wav");
+        let cases: [(&[u8], &str); 5] = [
+            (b"\xef\xbb\xbfCaf\xc3\xa9", "Café"),
+            (b"\xff\xfeC\x00a\x00f\x00\xe9\x00", "Café"),
+            (b"\xfe\xff\x00C\x00a\x00f\x00\xe9", "Café"),
+            (b"Caf\xc3\xa9 \xe2\x82\xac", "Café €"),
+            // Windows-1252 text without a BOM is not valid UTF-8.
+            (
+                b"Caf\xe9 \x80 \x93quoted\x94",
+                "Café € \u{201c}quoted\u{201d}",
+            ),
+        ];
+        // Windows reads text without a BOM in its own ANSI codepage.
+        let ansi_1252 = EvaluationSettings::default()
+            .ansi_codepage()
+            .is_none_or(|codepage| codepage == "1252");
+        for (index, (bytes, expected)) in cases.into_iter().enumerate() {
+            fs::write(dir.path().join("lyrics.txt"), bytes).unwrap();
+            let group = ActionGroup {
+                name: "Import".into(),
+                enabled: true,
+                actions: vec![ActionSpec::ImportTextFile {
+                    field: "LYRICS".into(),
+                    filename_template: "lyrics.txt".into(),
+                }],
+            };
+            let result = execute(
+                &[path.to_string_lossy().into_owned()],
+                &[group],
+                EvaluationSettings::default(),
+            );
+            assert!(result.errors.is_empty(), "{:?}", result.errors);
+            if index == 4 && !ansi_1252 {
+                continue;
+            }
+            assert_eq!(result.entries[0].fields["LYRICS"], [expected], "{bytes:?}");
+        }
     }
     #[test]
     fn directory_moves_rebase_other_selected_files_before_later_actions() {

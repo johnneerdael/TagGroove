@@ -12,21 +12,165 @@ export type SourceFile = {path:string;name:string;title:string;artist:string;alb
 export type ApplyItem = {path:string;updates:Fields};
 /** `save_as` is Utils → Save image to disc: the file name format from Options → Tag Sources. */
 export type ApplyCover = {url:string;replace_existing:boolean;save_as:string|null;preserve_existing?:boolean};
-export type TagSourceCredentials = {discogs_token_set:boolean};
+export type TagSourceCredentials = {discogs_token_set:boolean;discogs_token_in_keychain:boolean;keychain_available:boolean};
 export type FieldRow = {name:string;value:string;perTrack:boolean;editable:boolean};
-/** Covers-only sources (Mp3tag's Tag Sources → Covers) write artwork and no fields. */
-export type OpenOptions = {coversOnly?:boolean};
+/**
+ * Covers-only sources (Mp3tag's Tag Sources → Covers) write artwork and no
+ * fields. `releaseId` is Tag Sources → Discogs Release ID: the release is
+ * looked up directly. `quick` (Ctrl+Shift+I) searches with the selection's
+ * album and artist at once and opens a single result without the list.
+ */
+export type OpenOptions = {coversOnly?:boolean;releaseId?:boolean;quick?:boolean};
+export type IndexStatus = {directory:string|null;discs:number};
+/** Options → Local freedb: the text index commands of the backend. */
+export type LocalIndexHost = {
+  status:()=>Promise<IndexStatus>;
+  build:(directory:string, job:string)=>Promise<IndexStatus>;
+  cancel:(job:string)=>Promise<void>;
+  /** Calls `update` with progress events of `job`; returns a function that stops listening. */
+  progress:(job:string, update:(done:number,total:number)=>void)=>Promise<()=>void>;
+};
 
-const localFreedbPage = 'tag-sources-local-freedb';
+/** Tag Sources menu commands that open a source dialog. */
+export const SOURCE_OPERATIONS = ['source-musicbrainz','source-discogs','source-discogs-release','source-freedb','source-local-freedb','source-cover-musicbrainz','source-cover-discogs'] as const;
+export type SourceOperation = typeof SOURCE_OPERATIONS[number];
+export type SourceRequest = {provider:Provider;coversOnly:boolean;releaseId:boolean};
+export function sourceRequest(op:string):SourceRequest|null {
+  if (!(SOURCE_OPERATIONS as readonly string[]).includes(op)) return null;
+  const releaseId = op === 'source-discogs-release';
+  const provider = (releaseId ? 'discogs' : op.replace(/^source-(cover-)?/,'').replace('-','_')) as Provider;
+  return {provider,coversOnly:op.startsWith('source-cover-'),releaseId};
+}
+export function sourceOperation(request:SourceRequest):SourceOperation {
+  if (request.releaseId) return 'source-discogs-release';
+  return `source-${request.coversOnly ? 'cover-' : ''}${request.provider.replace('_','-')}` as SourceOperation;
+}
+/** Ctrl+I repeats the last tag source of any kind; older builds remembered only MusicBrainz or Discogs. */
+export function lastSourceOperation(saved:string|null, legacy:string|null):SourceOperation {
+  if (saved && sourceRequest(saved)) return saved as SourceOperation;
+  return legacy === 'discogs' ? 'source-discogs' : 'source-musicbrainz';
+}
+
+/** A named CDDB server of Options → Tag Sources → freedb. */
+export type FreedbServer = {name:string;protocol:string;address:string;path:string;port:string};
+/** The list "Current list of freedb servers" restores. */
+export const FREEDB_SERVERS:FreedbServer[] = [
+  {name:'gnudb (HTTPS)',protocol:'https',address:'gnudb.gnudb.org',path:'/~cddb/cddb.cgi',port:''},
+  {name:'gnudb (HTTP)',protocol:'http',address:'gnudb.gnudb.org',path:'/~cddb/cddb.cgi',port:''},
+];
+const serverKeys = ['protocol','address','path','port'] as const;
+const sameServer = (a:Partial<FreedbServer>, b:Partial<FreedbServer>) => serverKeys.every(key => String(a[key] ?? '').trim() === String(b[key] ?? '').trim());
+/**
+ * The saved server list and the entry in use. The backend reads the server
+ * in use from the page's own protocol/address/path/port; a server saved
+ * before the list existed joins the list as "Custom server".
+ */
+export function freedbServerList(page:Record<string,unknown>):{servers:FreedbServer[];index:number} {
+  const saved = Array.isArray(page.servers) ? (page.servers as Partial<FreedbServer>[]).filter(s => s && typeof s === 'object') : [];
+  const servers:FreedbServer[] = (saved.length ? saved : FREEDB_SERVERS).map(s => ({name:String(s.name ?? ''),protocol:s.protocol === 'http' ? 'http' : 'https',address:String(s.address ?? ''),path:String(s.path ?? ''),port:String(s.port ?? '')}));
+  const active = {protocol:page.protocol === 'http' ? 'http' : 'https',address:String(page.address ?? FREEDB_SERVERS[0].address),path:String(page.path ?? FREEDB_SERVERS[0].path),port:String(page.port ?? '')};
+  const chosen = Number(page.server);
+  if (Number.isInteger(chosen) && servers[chosen] && sameServer(servers[chosen],active)) return {servers,index:chosen};
+  const found = servers.findIndex(s => sameServer(s,active));
+  if (found >= 0) return {servers,index:found};
+  return {servers:[...servers,{name:'Custom server',...active}],index:servers.length};
+}
+/** Store the list and make `index` the server in use. */
+export function useFreedbServer(page:Record<string,unknown>, servers:FreedbServer[], index:number) {
+  const server = servers[index];
+  Object.assign(page,{servers:servers.map(s => ({...s})),server:index,protocol:server.protocol,address:server.address,path:server.path,port:server.port});
+}
+
+export type SuggestSorting = ''|'title'|'length';
+/** Matching when a release opens: Utils → Suggest sorting (Title or Length) when checked, else auto-match. */
+export function initialSlots(tracks:SourceTrack[], files:SourceFile[], suggest:SuggestSorting) {
+  return suggest === 'title' ? suggestByTitle(tracks,files) : suggest === 'length' ? suggestByLength(tracks,files) : autoMatch(tracks,files);
+}
+
+/** Field selection in the review: a click selects one, Ctrl/⌘ toggles one, Shift extends from the anchor. */
+export function selectFields(names:string[], selected:ReadonlySet<string>, anchor:string|null, name:string, mode:'single'|'toggle'|'range') {
+  if (mode === 'toggle') { const next = new Set(selected); if (next.has(name)) next.delete(name); else next.add(name); return {selected:next,anchor:name}; }
+  if (mode === 'range' && anchor && names.includes(anchor)) {
+    const [from,to] = [names.indexOf(anchor),names.indexOf(name)].sort((a,b) => a-b);
+    return {selected:new Set(names.slice(from,to+1)),anchor};
+  }
+  return {selected:new Set([name]),anchor:name};
+}
+/** Ctrl+Shift+A: select the fields that are not selected. */
+export const invertFields = (names:string[], selected:ReadonlySet<string>) => new Set(names.filter(name => !selected.has(name)));
+/** A checkbox click applies to every selected field when its own field is one of them. */
+export function toggleEnabled(enabled:ReadonlySet<string>, selected:ReadonlySet<string>, name:string, on:boolean) {
+  const next = new Set(enabled);
+  for (const field of selected.has(name) ? selected : [name]) { if (on) next.add(field); else next.delete(field); }
+  return next;
+}
+
+const localFreedbPage = 'tag-sources-local-freedb', freedbPage = 'tag-sources-freedb';
 /**
  * Options → Tag Sources with its freedb and Local freedb pages (Mp3tag:
  * Options › Tag Sources › freedb / Local freedb). Values persist under
  * `pages.<id>`; the backend reads them through the shared settings.
  */
-export function tagSourcesOptionsPages(pickFolder:()=>Promise<string|null>):OptionsPage[] {
+export function tagSourcesOptionsPages(pickFolder:()=>Promise<string|null>, index?:LocalIndexHost):OptionsPage[] {
   const directoryPath = `pages.${localFreedbPage}.directory`;
   const directory = (draft:OptionsDraft) => String((draft.pages[localFreedbPage] as Record<string,unknown>|undefined)?.directory ?? '');
   const setDirectory = (draft:OptionsDraft, value:string) => { draft.pages[localFreedbPage] = {...draft.pages[localFreedbPage],directory:value}; };
+  const serverPage = (draft:OptionsDraft) => (draft.pages[freedbPage] ??= {}) as Record<string,unknown>;
+  const field = (id:string, label:string, value:string, option:string, extra = '') => `<label class="field"><span>${label}</span><input id="${id}" data-option="pages.${freedbPage}.${option}" value="${html(value)}" autocomplete="off" spellcheck="false" ${extra}></label>`;
+  const serversMarkup = (draft:OptionsDraft) => {
+    const {servers,index} = freedbServerList(serverPage(draft)), server = servers[index];
+    return `<div class="field"><span>FREEDB SERVER</span><div class="action-input"><select id="freedb-server" aria-label="freedb server">${servers.map((s,i) => `<option value="${i}" ${i === index ? 'selected' : ''}>${html(s.name || 'Unnamed server')}</option>`).join('')}</select><button type="button" id="freedb-server-new">New</button><button type="button" id="freedb-server-delete" ${servers.length < 2 ? 'disabled' : ''}>Delete</button></div></div>
+      <label class="field"><span>NAME</span><input id="freedb-server-name" value="${html(server.name)}" autocomplete="off" spellcheck="false"></label>
+      <label class="field"><span>PROTOCOL</span><select id="freedb-server-protocol" data-option="pages.${freedbPage}.protocol"><option value="https" ${server.protocol === 'https' ? 'selected' : ''}>HTTPS</option><option value="http" ${server.protocol === 'http' ? 'selected' : ''}>HTTP</option></select></label>
+      ${field('freedb-server-address','ADDRESS',server.address,'address','placeholder="gnudb.gnudb.org"')}
+      ${field('freedb-server-path','PATH',server.path,'path','placeholder="/~cddb/cddb.cgi"')}
+      ${field('freedb-server-port','PORT',server.port,'port','placeholder="Default port of the protocol" maxlength="5"')}
+      <p><button type="button" id="freedb-server-list">Current list of freedb servers</button></p>`;
+  };
+  const bindServers = (root:HTMLElement, draft:OptionsDraft, refresh:()=>void) => {
+    const page = serverPage(draft);
+    let {servers,index} = freedbServerList(page);
+    useFreedbServer(page,servers,index);
+    const use = (next:FreedbServer[], at:number, focus?:string) => { servers = next; index = at; useFreedbServer(page,servers,index); refresh(); if (focus) root.querySelector<HTMLElement>(focus)?.focus(); };
+    root.querySelector('#freedb-server')!.addEventListener('change',event => use(servers,Number((event.target as HTMLSelectElement).value),'#freedb-server'));
+    root.querySelector('#freedb-server-new')!.addEventListener('click',() => use([...servers,{name:'New server',protocol:'https',address:'',path:'/~cddb/cddb.cgi',port:''}],servers.length,'#freedb-server-name'));
+    root.querySelector('#freedb-server-delete')!.addEventListener('click',() => { if (servers.length > 1) use(servers.filter((_,i) => i !== index),Math.max(0,index-1),'#freedb-server'); });
+    // Mp3tag's button fetches the list; OpenTag ships it and restores it here.
+    root.querySelector('#freedb-server-list')!.addEventListener('click',() => use(FREEDB_SERVERS.map(s => ({...s})),0,'#freedb-server'));
+    const edit = (key:keyof FreedbServer) => (event:Event) => {
+      servers[index] = {...servers[index],[key]:(event.target as HTMLInputElement|HTMLSelectElement).value};
+      useFreedbServer(page,servers,index);
+      if (key === 'name') { const option = root.querySelector<HTMLOptionElement>(`#freedb-server option[value="${index}"]`); if (option) option.textContent = servers[index].name || 'Unnamed server'; }
+    };
+    root.querySelector('#freedb-server-name')!.addEventListener('input',edit('name'));
+    root.querySelector('#freedb-server-protocol')!.addEventListener('change',edit('protocol'));
+    for (const key of ['address','path','port'] as const) root.querySelector(`#freedb-server-${key}`)!.addEventListener('input',edit(key));
+  };
+  const indexText = (status:IndexStatus|null, draft:OptionsDraft) => {
+    if (!status) return 'Reading the text index…';
+    if (!status.directory) return 'No text index. Build one to search this folder by artist and album words.';
+    const discs = `${status.discs.toLocaleString()} disc${status.discs === 1 ? '' : 's'}`;
+    return status.directory === directory(draft).trim() ? `Text index: ${discs} from this folder.` : `The text index (${discs}) was built for ${status.directory}. Build it again for this folder.`;
+  };
+  let indexStatus:IndexStatus|null = null;
+  const bindIndex = (root:HTMLElement, draft:OptionsDraft) => {
+    const text = root.querySelector<HTMLElement>('#local-freedb-index-status')!, build = root.querySelector<HTMLButtonElement>('#local-freedb-index-build')!, cancel = root.querySelector<HTMLButtonElement>('#local-freedb-index-cancel')!;
+    if (!index) { build.disabled = true; text.textContent = 'The text index is not available here.'; return; }
+    const show = (status:IndexStatus) => { indexStatus = status; if (root.isConnected) text.textContent = indexText(status,draft); };
+    void index.status().then(show).catch(error => { text.textContent = String(error); });
+    let job = '';
+    cancel.addEventListener('click',() => { if (job) void index.cancel(job); cancel.disabled = true; });
+    build.addEventListener('click',async () => {
+      const folder = directory(draft).trim();
+      if (!folder) { text.textContent = 'Choose the local freedb folder first.'; return; }
+      job = `local-freedb-index-${nextTicket()}`;
+      build.disabled = true; cancel.hidden = false; cancel.disabled = false; text.textContent = 'Building the text index…';
+      const stop = await index.progress(job,(done,total) => { if (root.isConnected) text.textContent = `Building the text index: ${done} of ${total} files…`; }).catch(() => () => undefined);
+      try { show(await index.build(folder,job)); }
+      catch (error) { text.textContent = String(error).replace(/^Error: /,''); }
+      finally { stop(); job = ''; build.disabled = false; cancel.hidden = true; }
+    });
+  };
   return [
     {id:'tag-sources',label:'Tag Sources',order:60,defaults:{cover_filename:'folder'},controls:[
       {kind:'text',path:'pages.tag-sources.cover_filename',label:'Default file name for cover art',placeholder:'folder'},
@@ -34,15 +178,12 @@ export function tagSourcesOptionsPages(pickFolder:()=>Promise<string|null>):Opti
       {kind:'select',path:'pages.tag-sources.musicbrainz_cover_size',label:'MusicBrainz cover size',choices:[['500','500 pixels (default)'],['250','250 pixels'],['1200','1200 pixels'],['original','Original size']]},
       {kind:'note',text:'Cover Art Archive images are downloaded in this size; original images can be very large. Set the Discogs personal access token with Tag Sources → Discogs access token….'},
     ]},
-    {id:'tag-sources-freedb',label:'freedb',parent:'tag-sources',order:1,
-      description:'The CDDB server that Tag Sources → freedb asks for disc IDs. Restore page defaults switches back to gnudb.',
-      defaults:{protocol:'https',address:'gnudb.gnudb.org',path:'/~cddb/cddb.cgi',port:'',email:'',comment_disc_id:false,disc_id_field:false},
+    {id:freedbPage,label:'freedb',parent:'tag-sources',order:1,
+      description:'The CDDB servers Tag Sources → freedb can ask for disc IDs. The selected server is used. Restore page defaults switches back to gnudb.',
+      defaults:{protocol:'https',address:'gnudb.gnudb.org',path:'/~cddb/cddb.cgi',port:'',email:'',comment_disc_id:false,disc_id_field:false,servers:FREEDB_SERVERS.map(s => ({...s})),server:0},
       controls:[
         {kind:'group',label:'freedb server',controls:[
-          {kind:'select',path:'pages.tag-sources-freedb.protocol',label:'Protocol',choices:[['https','HTTPS'],['http','HTTP']]},
-          {kind:'text',path:'pages.tag-sources-freedb.address',label:'Address',placeholder:'gnudb.gnudb.org'},
-          {kind:'text',path:'pages.tag-sources-freedb.path',label:'Path',placeholder:'/~cddb/cddb.cgi'},
-          {kind:'text',path:'pages.tag-sources-freedb.port',label:'Port',placeholder:'Default port of the protocol',maxLength:5},
+          {kind:'custom',id:'freedb-servers',paths:[`pages.${freedbPage}.servers`,`pages.${freedbPage}.server`,...serverKeys.map(key => `pages.${freedbPage}.${key}`)],render:serversMarkup,bind:bindServers},
           {kind:'text',path:'pages.tag-sources-freedb.email',label:'Email address',placeholder:'Only sent in the server handshake'},
         ]},
         {kind:'note',text:'gnudb only answers applications that its operator has registered. If gnudb refuses OpenTag, use another CDDB server or a local freedb folder.'},
@@ -52,21 +193,27 @@ export function tagSourcesOptionsPages(pickFolder:()=>Promise<string|null>):Opti
         ]},
       ],
       validate:draft => {
-        const page = (draft.pages['tag-sources-freedb'] || {}) as Record<string,unknown>;
+        const page = (draft.pages[freedbPage] || {}) as Record<string,unknown>;
         const address = String(page.address ?? '').trim(), port = String(page.port ?? '').trim();
         if (address && !/^[A-Za-z0-9.-]+$/.test(address)) return 'Enter the freedb server address as a host name, for example gnudb.gnudb.org.';
         if (port && !(/^\d+$/.test(port) && Number(port) >= 1 && Number(port) <= 65535)) return 'The freedb port must be a number from 1 to 65535.';
         return undefined;
       }},
     {id:localFreedbPage,label:'Local freedb',parent:'tag-sources',order:2,
-      description:'A folder of xmcd files from a freedb snapshot, with one subfolder per category (blues, classical, rock, …). Both the one-file-per-disc and the Windows (xxtoyy) layouts are read. Discs are looked up by disc ID; text search is not available.',
+      description:'A folder of xmcd files from a freedb snapshot, with one subfolder per category (blues, classical, rock, …). Both the one-file-per-disc and the Windows (xxtoyy) layouts are read. Discs are looked up by disc ID; searching by artist and album words needs a text index of the folder.',
       defaults:{directory:''},
       controls:[{kind:'custom',id:'local-freedb-directory',paths:[directoryPath],
         render:draft => `<div class="field"><span>LOCAL FREEDB FOLDER</span><div class="action-input"><input id="local-freedb-directory" aria-label="Local freedb folder" value="${html(directory(draft))}" placeholder="Not set" autocomplete="off" spellcheck="false"><button type="button" id="local-freedb-pick">Choose folder…</button></div></div>`,
         bind:(root,draft,refresh) => {
-          root.querySelector<HTMLInputElement>('#local-freedb-directory')!.addEventListener('input',event => setDirectory(draft,(event.target as HTMLInputElement).value));
-          root.querySelector<HTMLButtonElement>('#local-freedb-pick')!.addEventListener('click',async () => { const picked = await pickFolder(); if (picked) { setDirectory(draft,picked); refresh(); } });
-        }}]},
+          // The index line says whether the index covers the folder as typed.
+          const changed = () => { const line = root.closest('.options-page')?.querySelector('#local-freedb-index-status'); if (line && indexStatus) line.textContent = indexText(indexStatus,draft); };
+          root.querySelector<HTMLInputElement>('#local-freedb-directory')!.addEventListener('input',event => { setDirectory(draft,(event.target as HTMLInputElement).value); changed(); });
+          root.querySelector<HTMLButtonElement>('#local-freedb-pick')!.addEventListener('click',async () => { const picked = await pickFolder(); if (picked) { setDirectory(draft,picked); refresh(); changed(); } });
+        }},
+      {kind:'custom',id:'local-freedb-index',paths:[],
+        render:draft => `<div class="field"><span>TEXT INDEX</span><p id="local-freedb-index-status" role="status">${html(indexText(indexStatus,draft))}</p><div class="action-input"><button type="button" id="local-freedb-index-build">Build index</button><button type="button" id="local-freedb-index-cancel" hidden>Cancel</button></div></div>`,
+        bind:(root,draft) => bindIndex(root,draft)},
+      ]},
   ];
 }
 
@@ -256,7 +403,16 @@ const storage = {
 export class TagSourcesUI {
   private showing = false;
   constructor(private host:TagSourcesHost) {}
-  get lastProvider():Provider { return storage.get('opentag.tagSources.last') === 'discogs' ? 'discogs' : 'musicbrainz'; }
+  /** The tag source Ctrl+I opens again. */
+  get lastOperation():SourceOperation { return lastSourceOperation(storage.get('opentag.tagSources.lastSource'),storage.get('opentag.tagSources.last')); }
+
+  /** A Tag Sources menu command; `source-last` and `source-last-quick` are Ctrl+I and Ctrl+Shift+I. */
+  async run(op:string) {
+    const quick = op === 'source-last-quick';
+    const request = sourceRequest(op === 'source-last' || quick ? this.lastOperation : op);
+    if (!request) throw new Error(`Unknown tag source command ${op}`);
+    await this.open(request.provider,{coversOnly:request.coversOnly,releaseId:request.releaseId,quick});
+  }
 
   /** The Discogs token stays in its own private file, never in the shared Options store. */
   async token() {
@@ -267,21 +423,28 @@ export class TagSourcesUI {
     const dialog = document.createElement('dialog');
     dialog.className = 'tag-source-dialog ts-token-dialog';
     dialog.setAttribute('aria-label','Discogs access token');
+    const where = credentials.discogs_token_in_keychain ? 'in the system keychain' : 'in a private file in OpenTag\'s configuration folder';
     dialog.innerHTML = `<header>Discogs access token</header><div class="dialog-content">
       <label class="field"><span>PERSONAL ACCESS TOKEN</span><input id="ts-token" type="password" autocomplete="off" spellcheck="false" placeholder="${credentials.discogs_token_set ? 'Saved. Enter a new token to replace it.' : 'Not set'}"></label>
       <label class="action-check"><input id="ts-token-clear" type="checkbox" ${credentials.discogs_token_set ? '' : 'disabled'}> Remove the saved token</label>
-      <p>Create a token on Discogs under Settings → Developers. Release lookups and searches also work without one at a lower rate limit; with a token, searches show cover thumbnails. The token is stored privately in OpenTag's configuration folder and is not shown again.</p></div>
+      ${credentials.keychain_available ? `<label class="action-check"><input id="ts-token-keychain" type="checkbox" ${credentials.discogs_token_in_keychain ? 'checked' : ''}> Keep the token in the system keychain</label>` : ''}
+      <p>Create a token on Discogs under Settings → Developers. Release lookups and searches also work without one at a lower rate limit; with a token, searches show cover thumbnails. The token is not shown again.</p>
+      <p class="ts-token-place" role="status">${credentials.discogs_token_set ? `The saved token is kept ${where}.` : 'No token is saved.'}${credentials.keychain_available ? ' Changing the keychain option moves a saved token when you select Save.' : ''}</p></div>
       <div class="dialog-footer"><button data-close>Cancel</button><button class="primary" id="ts-save-token">Save</button></div>`;
     document.body.append(dialog);
     const error = (message:unknown) => { let p = dialog.querySelector('.dialog-error'); if (!p) { p = document.createElement('p'); p.className = 'dialog-error'; p.setAttribute('role','alert'); dialog.querySelector('.dialog-content')!.append(p); } p.textContent = String(message); };
     const token = dialog.querySelector<HTMLInputElement>('#ts-token')!, clear = dialog.querySelector<HTMLInputElement>('#ts-token-clear')!, save = dialog.querySelector<HTMLButtonElement>('#ts-save-token')!;
-    const sync = () => { token.disabled = clear.checked; save.disabled = !clear.checked && !token.value.trim(); };
-    clear.addEventListener('change',sync); token.addEventListener('input',sync);
+    const keychain = dialog.querySelector<HTMLInputElement>('#ts-token-keychain');
+    const moving = () => !!keychain && keychain.checked !== credentials.discogs_token_in_keychain;
+    const sync = () => { token.disabled = clear.checked; if (keychain) keychain.disabled = clear.checked; save.disabled = !clear.checked && !token.value.trim() && !moving(); };
+    clear.addEventListener('change',sync); token.addEventListener('input',sync); keychain?.addEventListener('change',sync);
     dialog.querySelector('[data-close]')!.addEventListener('click',() => dialog.close());
     dialog.addEventListener('close',() => { this.showing = false; dialog.remove(); });
     save.addEventListener('click',async () => {
       save.disabled = true;
-      try { await this.host.invoke('save_tag_source_settings',{update:{discogs_token:clear.checked ? '' : token.value.trim()}}); dialog.close(); }
+      // An empty token field keeps the saved token (possibly moving it).
+      const update = {discogs_token:clear.checked ? '' : token.value.trim() || null,keychain:keychain && !clear.checked ? keychain.checked : null};
+      try { await this.host.invoke('save_tag_source_settings',{update}); dialog.close(); }
       catch (e) { error(e); sync(); }
     });
     sync();
@@ -294,13 +457,16 @@ export class TagSourcesUI {
     const reason = this.host.reason();
     if (reason) throw new Error(reason);
     this.showing = true;
-    const coversOnly = !!options.coversOnly && !isFreedb(provider), freedb = isFreedb(provider);
-    if (!coversOnly && !freedb) storage.set('opentag.tagSources.last',provider);
-    const files = this.host.files(), name = coversOnly ? `${providerName(provider)} cover art` : providerName(provider), prefill = searchPrefill(files);
+    const coversOnly = !!options.coversOnly && !isFreedb(provider), freedb = isFreedb(provider), releaseOnly = !!options.releaseId && provider === 'discogs' && !coversOnly;
+    storage.set('opentag.tagSources.lastSource',sourceOperation({provider,coversOnly,releaseId:releaseOnly}));
+    const files = this.host.files(), name = coversOnly ? `${providerName(provider)} cover art` : releaseOnly ? 'Discogs Release ID' : providerName(provider), prefill = searchPrefill(files);
     const toc = discToc(files.map(f => f.length));
-    const disabledKey = `opentag.tagSources.disabled.${provider}`, saveCoverKey = 'opentag.tagSources.saveCover';
+    const disabledKey = `opentag.tagSources.disabled.${provider}`, saveCoverKey = 'opentag.tagSources.saveCover', suggestKey = 'opentag.tagSources.suggestSorting';
     let results:SearchResult[] = [], total:number|null = null, lastQuery:Record<string,unknown>|null = null, chosen = -1;
     let release:SourceRelease|undefined, slots:(string|null)[] = [], enabled = new Set<string>(), trackField = 'TITLE';
+    let fieldSelection = new Set<string>(), fieldAnchor:string|null = null, dragging = -1;
+    const savedSuggest = storage.get(suggestKey);
+    let suggest:SuggestSorting = savedSuggest === 'title' || savedSuggest === 'length' ? savedSuggest : '';
     let searchTicket = 0, releaseTicket = 0, imageTicket = 0, working = false, coverIndex = 0;
     const dialog = document.createElement('dialog');
     dialog.className = 'tag-source-dialog';
@@ -331,13 +497,31 @@ export class TagSourcesUI {
       if (button) void this.host.invoke('tag_source_open_page',{url:button.dataset.url}).catch(error);
     });
     // Mp3tag's review shortcuts: Ctrl+E/Ctrl+D enable or disable every field,
-    // F2 edits the focused field, Alt+↑/↓ moves the focused file, Alt+Page Up/Down
-    // moves it to the beginning or end of the list.
+    // Ctrl+A/Ctrl+Shift+A select all fields or invert the selection, Space
+    // enables or disables the selected fields, F2 edits the focused field,
+    // Alt+↑/↓ moves the focused file, Alt+Page Up/Down moves it to the
+    // beginning or end of the list.
     dialog.addEventListener('keydown',event => {
       if (!release || working) return;
       const target = event.target as HTMLElement, key = event.key.toLowerCase();
+      const typing = target.matches('input:not([type]),input[type=text],input[type=password],textarea');
       if ((event.ctrlKey || event.metaKey) && !event.shiftKey && !event.altKey && (key === 'e' || key === 'd') && !coversOnly) {
         event.preventDefault(); event.stopPropagation(); toggleAll(key === 'e'); return;
+      }
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && key === 'a' && !typing && !coversOnly) {
+        event.preventDefault(); event.stopPropagation();
+        const names = fieldRows(release).map(row => row.name);
+        fieldSelection = event.shiftKey ? invertFields(names,fieldSelection) : new Set(names);
+        showFieldSelection(); return;
+      }
+      const fieldRow = target.closest<HTMLTableRowElement>('.ts-fields tr[data-row]');
+      if (fieldRow && target === fieldRow && !coversOnly) {
+        if (event.key === ' ') { event.preventDefault(); setEnabled(fieldRow.dataset.row!,!enabled.has(fieldRow.dataset.row!)); return; }
+        if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+          const next = (event.key === 'ArrowUp' ? fieldRow.previousElementSibling : fieldRow.nextElementSibling) as HTMLTableRowElement|null;
+          if (next?.dataset.row) { event.preventDefault(); selectField(next.dataset.row,event.shiftKey ? 'range' : 'single'); }
+          return;
+        }
       }
       if (event.key === 'F2') {
         const input = target.closest('tr')?.querySelector<HTMLInputElement>('.ts-value,.ts-track-value');
@@ -391,7 +575,7 @@ export class TagSourcesUI {
       if (mode === 'toc' && !toc) $<HTMLButtonElement>('#ts-search').disabled = true;
       $<HTMLButtonElement>('#ts-next').disabled = working || chosen < 0;
     };
-    const search = async (more = false) => {
+    const search = async (more = false, auto = false) => {
       clearError();
       const mode = $<HTMLSelectElement>('#ts-mode').value as SearchMode;
       const query = more && lastQuery ? {...lastQuery,page:Number(lastQuery.page)+1} : {mode,artist:$<HTMLInputElement>('#ts-artist').value,album:$<HTMLInputElement>('#ts-album').value,text:$<HTMLInputElement>('#ts-text').value,lengths:files.map(f => f.length),page:0};
@@ -411,7 +595,9 @@ export class TagSourcesUI {
         } else { results = found.results; total = found.total; chosen = -1; }
         $('.ts-result-area').innerHTML = resultMarkup();
         const shown = results.length, all = total != null && total > shown ? ` (${total} in total)` : '';
-        status(shown ? `${shown} release${shown === 1 ? '' : 's'} found${all}. Choose one and select Next.` : freedb ? 'No disc with this ID was found.' : 'No releases found. Try fewer words, another spelling or a different search type.');
+        status(shown ? `${shown} release${shown === 1 ? '' : 's'} found${all}. Choose one and select Next.` : freedb && mode === 'text' ? 'No disc in the text index matches these words.' : freedb ? 'No disc with this ID was found.' : 'No releases found. Try fewer words, another spelling or a different search type.');
+        // Ctrl+Shift+I: a single result opens without the list.
+        if (auto && !more && shown === 1) void loadRelease(results[0].id);
         if (more) { choose(chosen); dialog.querySelector<HTMLTableRowElement>(`.ts-results tr[data-index="${shown-found.results.length}"]`)?.scrollIntoView({block:'nearest'}); }
         else { $('.ts-chosen').innerHTML = ''; if (shown) choose(0); else syncSearch(); }
       } catch (e) {
@@ -442,20 +628,22 @@ export class TagSourcesUI {
       }
     };
 
-    const modes:[SearchMode,string][] = freedb ? [['toc','Disc ID of the selected files'],['disc_id','freedb disc ID']]
+    const modes:[SearchMode,string][] = releaseOnly ? [['release_id','Release ID or address']]
+      : freedb ? [['toc','Disc ID of the selected files'],['disc_id','freedb disc ID'],...(provider === 'local_freedb' ? [['text','Artist and album words'] as [SearchMode,string]] : [])]
       : [['artist_album','Artist and album'],['text','Free text'],['release_id',provider === 'musicbrainz' ? 'Release ID (MBID) or address' : 'Release ID or address'],['barcode','Barcode'],['catalog_number','Catalog number']];
     const renderSearch = (mode?:SearchMode) => {
       release = undefined;
       dialog.innerHTML = `<header>${html(name)}</header><div class="dialog-content">
-        <div class="ts-search"><label class="field"><span>SEARCH BY</span><select id="ts-mode">${modes.map(([value,label]) => `<option value="${value}">${html(label)}</option>`).join('')}</select></label>
+        <div class="ts-search ${modes.length === 1 ? 'ts-single-mode' : ''}"><label class="field" ${modes.length === 1 ? 'hidden' : ''}><span>SEARCH BY</span><select id="ts-mode">${modes.map(([value,label]) => `<option value="${value}">${html(label)}</option>`).join('')}</select></label>
         <div class="field-pair" id="ts-pair"><label class="field"><span>ARTIST</span><input id="ts-artist" value="${html(prefill.artist)}" autocomplete="off" spellcheck="false"></label><label class="field"><span>ALBUM</span><input id="ts-album" value="${html(prefill.album)}" autocomplete="off" spellcheck="false"></label></div>
         <label class="field" id="ts-text-field" hidden><span id="ts-text-label">SEARCH TEXT</span><input id="ts-text" autocomplete="off" spellcheck="false"></label>
         <p class="ts-toc" id="ts-toc" hidden>${html(tocText())}</p>
         <button id="ts-search" class="ts-search-button">Search</button></div>
-        <p class="ts-status" role="status" aria-live="polite">${files.length} selected file${files.length === 1 ? '' : 's'}. ${freedb ? 'Look up the disc these files were ripped from.' : 'Search for the album these files belong to.'}</p>
+        <p class="ts-status" role="status" aria-live="polite">${files.length} selected file${files.length === 1 ? '' : 's'}. ${freedb ? 'Look up the disc these files were ripped from.' : releaseOnly ? 'Enter the Discogs release ID shown on the release page, or its address.' : 'Search for the album these files belong to.'}</p>
         <div class="ts-result-area">${resultMarkup()}</div><div class="ts-chosen">${chosenMarkup()}</div></div>
         <div class="dialog-footer"><button data-close>Cancel</button><button class="primary" id="ts-next" disabled>Next</button></div>`;
       if (mode || (freedb && !toc)) $<HTMLSelectElement>('#ts-mode').value = mode || 'disc_id';
+      if (releaseOnly) $<HTMLSelectElement>('#ts-mode').value = 'release_id';
       $('[data-close]').addEventListener('click',() => dialog.close());
       $('#ts-mode').addEventListener('change',() => { syncSearch(); (dialog.querySelector<HTMLInputElement>('#ts-text-field:not([hidden]) input') || dialog.querySelector<HTMLInputElement>('#ts-pair:not([hidden]) input') || $<HTMLButtonElement>('#ts-search')).focus(); });
       $('#ts-search').addEventListener('click',() => void search());
@@ -484,10 +672,10 @@ export class TagSourcesUI {
       const tracks = release!.tracks;
       return `<table class="ts-table ts-matches" aria-label="Track and file matching"><thead><tr><th class="ts-num">#</th><th>${trackField === 'TITLE' ? 'Track' : html(trackField)}</th><th class="ts-num ts-wide">Time</th><th>File</th><th class="ts-num ts-wide">Time</th><th class="ts-move"><span class="visually-hidden">Move</span></th></tr></thead><tbody>${slots.map((path,index) => {
         const track = tracks[index], warn = track && path && track.length != null && Math.abs(track.length-(files.find(f => f.path === path)?.length ?? track.length)) > 10;
-        return `<tr data-index="${index}" class="${track ? '' : 'ts-unmatched'}"><td class="ts-num">${track ? html(track.position || String(index+1)) : ''}</td><td>${track ? `<input class="ts-track-value" data-track="${index}" value="${html(trackValue(track))}" aria-label="${html(trackField)} of track ${html(track.position || String(index+1))}" autocomplete="off" spellcheck="false">` : '<em>Not written</em>'}</td><td class="ts-num ts-wide">${track ? duration(track.length) : ''}</td><td title="${html(fileName(path))}">${path ? html(fileName(path)) : '<em>No file</em>'}</td><td class="ts-num ts-wide ${warn ? 'ts-warn' : ''}" ${warn ? 'title="Length differs from the track by more than 10 seconds"' : ''}>${fileLength(path)}</td><td class="ts-move"><button data-move="-1" aria-label="Move ${html(fileName(path) || 'empty slot')} up" ${index === 0 || !path ? 'disabled' : ''}>↑</button><button data-move="1" aria-label="Move ${html(fileName(path) || 'empty slot')} down" ${index === slots.length-1 || !path ? 'disabled' : ''}>↓</button></td></tr>`;
+        return `<tr data-index="${index}" class="${track ? '' : 'ts-unmatched'}" draggable="${path ? 'true' : 'false'}"><td class="ts-num">${track ? html(track.position || String(index+1)) : ''}</td><td>${track ? `<input class="ts-track-value" data-track="${index}" value="${html(trackValue(track))}" aria-label="${html(trackField)} of track ${html(track.position || String(index+1))}" autocomplete="off" spellcheck="false">` : '<em>Not written</em>'}</td><td class="ts-num ts-wide">${track ? duration(track.length) : ''}</td><td title="${html(fileName(path))}">${path ? html(fileName(path)) : '<em>No file</em>'}</td><td class="ts-num ts-wide ${warn ? 'ts-warn' : ''}" ${warn ? 'title="Length differs from the track by more than 10 seconds"' : ''}>${fileLength(path)}</td><td class="ts-move"><button data-move="-1" aria-label="Move ${html(fileName(path) || 'empty slot')} up" ${index === 0 || !path ? 'disabled' : ''}>↑</button><button data-move="1" aria-label="Move ${html(fileName(path) || 'empty slot')} down" ${index === slots.length-1 || !path ? 'disabled' : ''}>↓</button></td></tr>`;
       }).join('')}</tbody></table>`;
     };
-    const fieldMarkup = () => `<table class="ts-table ts-fields" aria-label="Fields to write"><tbody>${fieldRows(release!).map(row => `<tr data-row="${html(row.name)}"><td class="ts-check"><input type="checkbox" data-field="${html(row.name)}" aria-label="Write ${html(row.name)}" ${enabled.has(row.name) ? 'checked' : ''}></td><th scope="row" title="${html(row.name)}">${html(row.name)}</th><td>${row.editable
+    const fieldMarkup = () => `<table class="ts-table ts-fields" aria-label="Fields to write" aria-multiselectable="true"><tbody>${fieldRows(release!).map(row => `<tr data-row="${html(row.name)}" tabindex="-1" aria-selected="${fieldSelection.has(row.name)}" class="${fieldSelection.has(row.name) ? 'selected' : ''}"><td class="ts-check"><input type="checkbox" data-field="${html(row.name)}" aria-label="Write ${html(row.name)}" ${enabled.has(row.name) ? 'checked' : ''}></td><th scope="row" title="${html(row.name)}">${html(row.name)}</th><td>${row.editable
       ? `<input class="ts-value" data-value="${html(row.name)}" value="${html(row.value)}" aria-label="${html(row.name)} value" autocomplete="off" spellcheck="false">${row.perTrack && release!.tracks.length > 1 ? '<small>all tracks</small>' : ''}`
       : `<span class="ts-summary" title="${html(row.value)}">${html(row.value)}</span><button type="button" class="ts-edit-tracks" data-track-field="${html(row.name)}">Edit per track</button>`}</td></tr>`).join('')}</tbody></table>`;
     const renderFields = () => { const list = dialog.querySelector('.ts-field-list'); if (list) list.innerHTML = fieldMarkup(); };
@@ -559,15 +747,29 @@ export class TagSourcesUI {
       if (working || !slots[index] || index === to) return;
       slots = moveSlotTo(slots,index,to); renderMatches({index:to,selector,delta:to < index ? -1 : 1});
     };
-    const toggleAll = (on:boolean) => { if (!release) return; enabled = on ? new Set(fieldRows(release).map(row => row.name)) : new Set(); dialog.querySelectorAll<HTMLInputElement>('.ts-fields input[type=checkbox]').forEach(box => box.checked = on); syncReview(); };
+    const toggleAll = (on:boolean) => { if (!release) return; enabled = on ? new Set(fieldRows(release).map(row => row.name)) : new Set(); showEnabled(); };
+    const showEnabled = () => { dialog.querySelectorAll<HTMLInputElement>('.ts-fields input[type=checkbox][data-field]').forEach(box => box.checked = enabled.has(box.dataset.field!)); syncReview(); };
+    /** A checkbox or Space on a selected field changes every selected field. */
+    const setEnabled = (name:string, on:boolean) => { enabled = toggleEnabled(enabled,fieldSelection,name,on); showEnabled(); };
+    const showFieldSelection = () => dialog.querySelectorAll<HTMLTableRowElement>('.ts-fields tr[data-row]').forEach(row => { const on = fieldSelection.has(row.dataset.row!); row.classList.toggle('selected',on); row.setAttribute('aria-selected',String(on)); });
+    const selectField = (name:string, mode:'single'|'toggle'|'range') => {
+      ({selected:fieldSelection,anchor:fieldAnchor} = selectFields(fieldRows(release!).map(row => row.name),fieldSelection,fieldAnchor,name,mode));
+      showFieldSelection();
+      dialog.querySelector<HTMLTableRowElement>(`.ts-fields tr[data-row="${CSS.escape(name)}"]`)?.focus();
+    };
+    const applySuggestion = (kind:SuggestSorting) => {
+      suggest = kind; storage.set(suggestKey,kind);
+      dialog.querySelectorAll<HTMLInputElement>('[data-suggest]').forEach(box => box.checked = box.dataset.suggest === kind);
+      slots = initialSlots(release!.tracks,files,kind); renderMatches();
+    };
     const showReview = (loaded:SourceRelease) => {
-      release = loaded; coverIndex = 0;
-      slots = autoMatch(loaded.tracks,files);
+      release = loaded; coverIndex = 0; fieldSelection = new Set(); fieldAnchor = null;
+      slots = initialSlots(loaded.tracks,files,suggest);
       trackField = trackFields().includes('TITLE') ? 'TITLE' : trackFields()[0];
       const disabled = new Set<string>(JSON.parse(storage.get(disabledKey) || '[]'));
       enabled = coversOnly ? new Set() : new Set(fieldRows(loaded).map(row => row.name).filter(field => !disabled.has(field)));
       const fieldSection = `<section class="ts-field-section" aria-label="Fields"><div class="ts-tools"><strong>Fields</strong><button id="ts-all" title="Enable all fields (Ctrl+E)">All</button><button id="ts-none" title="Disable all fields (Ctrl+D)">None</button></div><div class="ts-field-list">${fieldMarkup()}</div><p class="ts-hint">Values can be changed before saving; separate multiple values with \\\\.</p></section>`;
-      const matchSection = `<section class="ts-match-section" aria-label="Track and file matching"><div class="ts-tools"><strong>Tracks and files</strong><label class="ts-track-field">Track column <select id="ts-track-field">${trackFields().map(field => `<option ${field === trackField ? 'selected' : ''}>${html(field)}</option>`).join('')}</select></label><button id="ts-rematch">Auto-match</button><button id="ts-by-title" title="Suggest sorting by title">By title</button><button id="ts-by-length" title="Suggest sorting by length">By length</button><button id="ts-order">Selection order</button></div><div class="ts-match-area"></div></section>`;
+      const matchSection = `<section class="ts-match-section" aria-label="Track and file matching"><div class="ts-tools"><strong>Tracks and files</strong><label class="ts-track-field">Track column <select id="ts-track-field">${trackFields().map(field => `<option ${field === trackField ? 'selected' : ''}>${html(field)}</option>`).join('')}</select></label><button id="ts-rematch">Auto-match</button><button id="ts-order">Selection order</button></div><div class="ts-tools ts-suggest"><strong>Suggest sorting</strong><label class="action-check" title="Pair files with the closest track title; remembered for the next import"><input type="checkbox" id="ts-suggest-title" data-suggest="title" ${suggest === 'title' ? 'checked' : ''}> Title</label><label class="action-check" title="Pair files with the track of the closest length; remembered for the next import"><input type="checkbox" id="ts-suggest-length" data-suggest="length" ${suggest === 'length' ? 'checked' : ''}> Length</label></div><div class="ts-match-area"></div><p class="ts-hint">Drag a file to another track, or use the arrows (Alt+↑/↓, Alt+Page Up/Down).</p></section>`;
       dialog.innerHTML = `<header>${html(name)}: ${html(loaded.artist)} – ${html(loaded.title)}</header><div class="dialog-content">
         <div class="ts-review ${coversOnly ? 'ts-cover-only' : ''}">${coversOnly ? '' : fieldSection}<section class="ts-cover" aria-label="Artwork"></section></div>
         ${coversOnly ? '' : matchSection}
@@ -579,7 +781,7 @@ export class TagSourcesUI {
         $('#ts-all').addEventListener('click',() => toggleAll(true));
         $('#ts-none').addEventListener('click',() => toggleAll(false));
         const fields = $('.ts-field-section');
-        fields.addEventListener('change',event => { const box = event.target as HTMLInputElement; if (!box.matches('input[type=checkbox][data-field]')) return; if (box.checked) enabled.add(box.dataset.field!); else enabled.delete(box.dataset.field!); syncReview(); });
+        fields.addEventListener('change',event => { const box = event.target as HTMLInputElement; if (box.matches('input[type=checkbox][data-field]')) setEnabled(box.dataset.field!,box.checked); });
         fields.addEventListener('input',event => {
           const input = event.target as HTMLInputElement;
           if (!input.matches('.ts-value')) return;
@@ -587,21 +789,45 @@ export class TagSourcesUI {
           if (input.dataset.value === trackField) renderMatches();
         });
         fields.addEventListener('click',event => {
-          const button = (event.target as Element).closest<HTMLButtonElement>('.ts-edit-tracks');
+          const target = event.target as Element, row = target.closest<HTMLTableRowElement>('.ts-fields tr[data-row]');
+          if (row && !target.closest('input,button')) { const mouse = event as MouseEvent; selectField(row.dataset.row!,mouse.shiftKey ? 'range' : mouse.ctrlKey || mouse.metaKey ? 'toggle' : 'single'); return; }
+          const button = target.closest<HTMLButtonElement>('.ts-edit-tracks');
           if (!button) return;
           trackField = button.dataset.trackField!; $<HTMLSelectElement>('#ts-track-field').value = trackField;
           renderMatches(); dialog.querySelector<HTMLInputElement>('.ts-track-value')?.focus();
         });
         $('#ts-track-field').addEventListener('change',event => { trackField = (event.target as HTMLSelectElement).value; renderMatches(); });
         $('#ts-rematch').addEventListener('click',() => { slots = autoMatch(loaded.tracks,files); renderMatches(); });
-        $('#ts-by-title').addEventListener('click',() => { slots = suggestByTitle(loaded.tracks,files); renderMatches(); });
-        $('#ts-by-length').addEventListener('click',() => { slots = suggestByLength(loaded.tracks,files); renderMatches(); });
+        dialog.querySelectorAll<HTMLInputElement>('[data-suggest]').forEach(box => box.addEventListener('change',() => applySuggestion(box.checked ? box.dataset.suggest as SuggestSorting : '')));
         $('#ts-order').addEventListener('click',() => { slots = autoMatch(loaded.tracks,files.map(f => ({...f,track:'',title:'',name:''}))); renderMatches(); });
         const matches = $('.ts-match-area');
         matches.addEventListener('click',event => {
           const button = (event.target as Element).closest<HTMLButtonElement>('button[data-move]');
           if (button) move(Number(button.closest('tr')!.dataset.index),Number(button.dataset.move));
         });
+        // Drag a file onto another track; the files in between shift by one.
+        const dropRow = (event:Event) => (event.target as Element).closest<HTMLTableRowElement>('.ts-matches tr[data-index]');
+        matches.addEventListener('dragstart',event => {
+          const row = dropRow(event);
+          if (!row || working || !slots[Number(row.dataset.index)]) { event.preventDefault(); return; }
+          dragging = Number(row.dataset.index); row.classList.add('ts-dragging');
+          event.dataTransfer?.setData('text/plain',fileName(slots[dragging]));
+          if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+        });
+        matches.addEventListener('dragover',event => {
+          const row = dropRow(event);
+          if (dragging < 0 || !row) return;
+          event.preventDefault();
+          matches.querySelectorAll('.ts-drop-target').forEach(r => r.classList.remove('ts-drop-target'));
+          row.classList.add('ts-drop-target');
+        });
+        matches.addEventListener('drop',event => {
+          const row = dropRow(event), from = dragging;
+          dragging = -1;
+          if (from < 0 || !row) return;
+          event.preventDefault(); moveTo(from,Number(row.dataset.index));
+        });
+        matches.addEventListener('dragend',() => { dragging = -1; matches.querySelectorAll('.ts-dragging,.ts-drop-target').forEach(r => r.classList.remove('ts-dragging','ts-drop-target')); });
         matches.addEventListener('input',event => {
           const input = event.target as HTMLInputElement;
           if (!input.matches('.ts-track-value')) return;
@@ -626,6 +852,11 @@ export class TagSourcesUI {
     renderSearch();
     dialog.showModal();
     if (freedb) (toc ? $<HTMLButtonElement>('#ts-search') : $<HTMLInputElement>('#ts-text')).focus();
+    else if (releaseOnly) $<HTMLInputElement>('#ts-text').focus();
     else { const artist = $<HTMLInputElement>('#ts-artist'); artist.focus(); artist.select(); }
+    // Ctrl+Shift+I skips entering the search: the selection's album and artist
+    // (or the disc ID of the files) are searched at once.
+    const ready = freedb ? !!toc : !releaseOnly && !!(prefill.artist || prefill.album);
+    if (options.quick && ready) void search(false,true);
   }
 }

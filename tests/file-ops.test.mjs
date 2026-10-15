@@ -94,6 +94,7 @@ function harness(overrides = {}) {
       if (command === 'save_directory_state') return args.state;
       if (command === 'take_launch_requests') return host.launches || [];
       if (command === 'trash_files') return {removed: ['/m/a.mp3'], errors: [{path: '/m/b.mp3', error: 'locked'}]};
+      if (command === 'delete_files_permanently') return {removed: args.paths, errors: []};
       if (command === 'transfer_files') return {entries: [], errors: [], renamed: args.mode === 'move' ? args.paths.map(from => ({from, to: `/dest/${from.split('/').pop()}`})) : [], copied: args.mode === 'copy' ? [{from: '/m/a.mp3', to: '/dest/a.mp3'}] : []};
     },
     pickDirectories: async () => host.picks.shift() || [],
@@ -250,4 +251,30 @@ test('the startup choice is an Options page under Directories with a safe defaul
   assert.equal(startupChoice(undefined), 'empty');
   assert.equal(startupChoice('bogus'), 'empty');
   assert.equal(startupChoice('previous'), 'previous');
+});
+
+test('permanent delete warns that the files cannot be restored and drops them from the list', async () => {
+  const {ui, host, calls} = harness();
+  host.selected = [{path: '/m/a.mp3', name: 'a.mp3'}];
+  host.answers.push(false);
+  await ui.operate('file-delete-permanent');
+  assert.match(host.confirmed, /Permanently delete 1 file\?[\s\S]*cannot be restored/);
+  assert.ok(!calls.some(call => call[0] === 'delete_files_permanently'));
+  await ui.operate('file-delete-permanent');
+  assert.deepEqual(calls.at(-1), ['delete_files_permanently', {paths: ['/m/a.mp3']}]);
+  assert.deepEqual(host.removed, ['/m/a.mp3']);
+  assert.equal(host.status, 'Deleted 1 file permanently');
+  host.selected = [];
+  assert.equal(ui.reason('file-delete-permanent'), 'Select files first.');
+});
+
+test('a plain drop replaces the list after the unsaved-changes question', async () => {
+  const {ui, host} = harness();
+  host.pending = 1; host.answers.push(false);
+  assert.equal(await ui.replaceWith(['/drop/album']), false);
+  assert.equal(host.loads.length, 0);
+  assert.equal(await ui.replaceWith(['/drop/album']), true);
+  assert.deepEqual(host.loads[0], [['/drop/album'], {replace: true, recursive: true, location: '/drop/album'}]);
+  await ui.replaceWith(['/drop/a.mp3', '/drop/b.mp3']);
+  assert.equal(host.loads[1][1].location, '2 dropped locations');
 });

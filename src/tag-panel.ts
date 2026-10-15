@@ -114,6 +114,19 @@ export function defaultText(field:PanelField):string|null{
   if(field.field===DIRECTORY||field.field===SEPARATOR||field.default_value===KEEP)return null;
   return field.default_value===BLANK?'':field.default_value;
 }
+/**
+ * Default values filled in automatically when several files are selected
+ * (Customize tag panel → Default value): every visible field whose default is not
+ * < keep > and that has no pending edit yet. Returns [field, text] pairs.
+ */
+export function automaticDefaults(fields:PanelField[],pending:(field:string)=>boolean):[string,string][]{
+  return fields.filter(field=>field.visible).flatMap(field=>{const text=defaultText(field);return text===null||pending(field.field)?[]:[[field.field,text] as [string,string]];});
+}
+/** The folder typed into the _DIRECTORY field, or undefined when it is empty or unchanged. */
+export function typedDirectory(text:string,shown:string):string|undefined{
+  const path=text.trim().replace(/^"(.*)"$/,'$1');
+  return path&&path!==shown.trim()?path:undefined;
+}
 export function directoryOptions(directories:string[]):ComboOption[]{
   return [...[...new Set(directories)].sort(collator.compare).map(value=>({kind:'value' as const,value,group:'directory' as const})),{kind:'browse',value:'Open folder…',group:'special'}];
 }
@@ -126,6 +139,8 @@ export type TagPanelHost={
   pickOpen:(kind:'layout'|'list')=>Promise<string|null>;pickSave:(kind:'layout'|'list',name:string)=>Promise<string|null>;
   values:(field:string)=>string[];disabled:()=>boolean;
   directories:()=>{selected:string[];all:string[]};selectDirectory:(directory:string)=>void;openFolder:()=>void;
+  /** A folder path typed into the _DIRECTORY field: make it the working directory. */
+  changeDirectory:(path:string)=>void;
   draft:(field:string,value:string)=>void;keep:(field:string)=>void;
   changed:()=>void;notify:(message:string)=>void;fail:(error:unknown)=>void;
   /** Options → General → Auto-completion at selection boxes: the completer while it is enabled. */
@@ -139,6 +154,7 @@ type OpenList={input:HTMLInputElement|HTMLTextAreaElement;field:PanelField;optio
 export class TagPanel {
   settings=defaultSettings();
   private list?:OpenList;
+  private contextPoint?:{x:number;y:number};
   private dialogOpen=false;
   constructor(private host:TagPanelHost){}
   get visible(){return this.settings.panel.show_panel;}
@@ -173,7 +189,7 @@ export class TagPanel {
     const shortcut=`aria-label="${html(label.label)}" ${label.key?`aria-keyshortcuts="Alt+${html(label.key)}"`:''}`;
     if(field.field===DIRECTORY){
       const {selected}=this.host.directories(),state=selectionState(selected);
-      return `<div class="field panel-field" ${span}><label for="${id}">${label.html}</label><div class="combo"><input id="${id}" data-panel-index="${index}" data-directory role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-autocomplete="none" readonly value="${html(state.value)}" placeholder="${state.mixed?KEEP:''}" title="${html(state.value)}" ${shortcut}><button type="button" class="combo-toggle" data-combo="${index}" tabindex="-1" aria-label="Show folders">▾</button></div></div>`;
+      return `<div class="field panel-field" ${span}><label for="${id}">${label.html}</label><div class="combo"><input id="${id}" data-panel-index="${index}" data-directory role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-autocomplete="none" value="${html(state.value)}" data-shown="${html(state.value)}" placeholder="${state.mixed?KEEP:''}" title="${html(state.value)} — type a folder and press Enter to open it" autocomplete="off" spellcheck="false" ${shortcut}><button type="button" class="combo-toggle" data-combo="${index}" tabindex="-1" aria-label="Show folders">▾</button></div></div>`;
     }
     const values=this.host.values(field.field),state=selectionState(values);
     if(field.type==='check'){
@@ -205,11 +221,15 @@ export class TagPanel {
         if(complete&&input instanceof HTMLInputElement&&field?.type==='text'&&input.dataset.field)complete(input,event,()=>this.optionsFor(field).filter(option=>option.kind==='value').map(option=>option.value));
       });
       input.addEventListener('blur',()=>{if(this.list?.input===input)this.closeList();});
-      if(input.dataset.directory!==undefined)input.addEventListener('click',()=>this.list?.input===input?this.closeList():this.openList(input));
     });
     const menu=root.querySelector<HTMLDetailsElement>('.panel-menu');
     if(menu){
-      menu.addEventListener('toggle',()=>{if(!menu.open)return;const rect=menu.getBoundingClientRect(),popup=menu.querySelector<HTMLElement>('.menu-list')!;popup.style.top=`${rect.bottom+2}px`;popup.style.left=`${Math.max(8,Math.min(rect.right-popup.offsetWidth,window.innerWidth-popup.offsetWidth-8))}px`;});
+      menu.addEventListener('toggle',()=>{
+        if(!menu.open)return;const rect=menu.getBoundingClientRect(),popup=menu.querySelector<HTMLElement>('.menu-list')!,point=this.contextPoint;this.contextPoint=undefined;
+        const x=point?point.x:rect.right-popup.offsetWidth,y=point?point.y:rect.bottom+2;
+        popup.style.top=`${Math.max(8,Math.min(y,window.innerHeight-popup.offsetHeight-8))}px`;popup.style.left=`${Math.max(8,Math.min(x,window.innerWidth-popup.offsetWidth-8))}px`;
+        if(point)popup.querySelector<HTMLElement>('button')?.focus({preventScroll:true});
+      });
       menu.querySelectorAll<HTMLButtonElement>('[data-panel-command]').forEach(button=>button.addEventListener('click',()=>{menu.open=false;void this.command(button.dataset.panelCommand!).catch(error=>this.host.fail(error));}));
     }
   }
@@ -231,6 +251,14 @@ export class TagPanel {
       const menu=root.querySelector<HTMLDetailsElement>('.panel-menu[open]');if(menu&&!menu.contains(target))menu.open=false;
     });
     root.addEventListener('scroll',event=>{if(this.list&&!this.list.popup.contains(event.target as Node))this.closeList();},true);
+    // Right-click on the tag panel opens its menu (fields to show, configurations). Text
+    // fields keep the system edit menu and the cover window keeps its own menu.
+    root.addEventListener('contextmenu',event=>{
+      const target=event.target as HTMLElement;
+      if(!target.closest?.('.editor')||target.closest('.cover-section,.panel-menu')||target.matches('input:not([type=checkbox]),textarea'))return;
+      const menu=root.querySelector<HTMLDetailsElement>('.editor .panel-menu');if(!menu)return;
+      event.preventDefault();this.closeList();this.contextPoint={x:event.clientX,y:event.clientY};menu.open=true;
+    });
     window.addEventListener('resize',()=>this.closeList());
   }
   private comboKey(event:KeyboardEvent,input:HTMLInputElement|HTMLTextAreaElement){
@@ -243,6 +271,10 @@ export class TagPanel {
     if(event.key==='Escape'&&open){event.preventDefault();event.stopPropagation();this.closeList();return;}
     if(event.key==='Enter'&&open&&this.list!.active>=0){event.preventDefault();this.choose(this.list!.active);return;}
     if(event.key==='Enter'&&event.shiftKey&&input.dataset.field){event.preventDefault();this.addCurrent(input);return;}
+    if(input.dataset.directory!==undefined){
+      if(event.key==='Enter'){event.preventDefault();const path=typedDirectory(input.value,input.dataset.shown||'');if(path)this.host.changeDirectory(path);return;}
+      if(event.key==='Escape'&&input.value!==(input.dataset.shown||'')){event.preventDefault();event.stopPropagation();input.value=input.dataset.shown||'';return;}
+    }
     if(event.key==='Tab'&&open)this.closeList();
   }
   private optionsFor(field:PanelField):ComboOption[]{
