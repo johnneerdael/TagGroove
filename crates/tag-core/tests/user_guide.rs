@@ -147,7 +147,10 @@ fn published_guest_artist_recipe_keeps_both_steps_in_order() {
 fn published_bracketed_guest_recipe_runs_the_written_actions_in_order() {
     let mut state = ActionState {
         fields: [
-            ("ARTIST".into(), vec!["Juniper Vale (feat. Mira Solberg)".into()]),
+            (
+                "ARTIST".into(),
+                vec!["Juniper Vale (feat. Mira Solberg)".into()],
+            ),
             ("TITLE".into(), vec!["Paper Boats".into()]),
         ]
         .into(),
