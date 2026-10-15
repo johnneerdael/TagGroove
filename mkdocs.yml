@@ -141,6 +141,7 @@ nav:
     - Rename files and folders: learn/rename-files-and-folders.md
     - Regular expressions from zero: learn/regex-from-zero.md
     - Build your first action group: learn/first-action-group.md
+    - Export a CD catalogue: learn/export-a-cd-catalogue.md
   - Concepts:
     - Multi-value fields: concepts/multi-value-fields.md
     - Text encodings and codepages: concepts/text-encodings.md
@@ -177,6 +178,11 @@ nav:
       - Replace with regular expression: actions/replace-regexp.md
       - Set cover properties: actions/set-cover-properties.md
       - Split field by separator: actions/split-field.md
+  - Export and playlists:
+    - export/index.md
+    - Export template language: export/template-language.md
+    - Template gallery: export/template-gallery.md
+    - Export CSV: export/csv.md
 - Reference:
   - reference/index.md
   - Format strings: reference/format-strings.md
