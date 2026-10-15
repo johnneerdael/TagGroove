@@ -278,3 +278,17 @@ The mapping registry matches all 118 rows of the mapping table (92 common, 24 MP
 - `docs/CRITICAL-MAPPING.md`: ASF and Matroska are no longer registry-only; the POPM preference exists.
 - `docs/CRITICAL-TECHNICAL.md`: `%_subsong_count%` is produced for MP4/MKV.
 - `docs/FEATURE-INVENTORY.md`: the Ctrl+O contradiction is resolved (Options, as documented).
+
+## Closed after this audit (batch 5, 2026-10-15)
+
+Closed by implementation and unit tests. Their native suites run headless in CI. None of these has differential evidence against the original.
+
+| Top-25 item | Closed by | Evidence |
+|---|---|---|
+| 1 case-only renames; 13 `_FIELDNAME`; 14 `_FILENAME` filename mode; 23 folder-separator option; X1 | rename-fixes | [verification](../verification/rename-fixes.md) |
+| 2 Remove tag follows options / Ctrl+R; 3 Options → Tags → Mapping; 24 WAV RIFF INFO | remove-mapping | [verification](../verification/remove-mapping.md) |
+| 4 Extended Tags parity; 5 macOS Option-key swallowing; 6 missing shortcuts; 21 Ctrl+Shift+K | keyboard-extended | [verification](../verification/keyboard-extended.md) |
+| 7 save on move; 8 manual reordering; 9 folder-image fallback; 12 artwork in copy/paste; column auto-size | list-behaviour | [verification](../verification/list-behaviour.md) |
+| 10 `$regexp` case; 11 numeric filter compare; 15–17 placeholders, `$filename(…,ansi)`; 18 dropped `.mte`; 19 `.mta` for all types; 20 Export/Adjust Cover; 22 Text File → Tag source format string | script-export | [verification](../verification/script-export.md) |
+
+The keyboard reference now has 60 rows OK, 3 partial and 13 missing (was 53 / 10 / 34). Still open from the top 25: 25 (the `.src` web-source interpreter), and the runners-up such as Library, translations, Finder "Open With", and listing chapters as separate files.
