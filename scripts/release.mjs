@@ -440,7 +440,7 @@ async function main(command) {
       console.log(summary);
       return;
     }
-    const plan = releasePlan({ versions: { package: version, cargo: version, tauri: version }, tag, prerelease, head, expectedHead: git('rev-parse', `${process.env.GITHUB_SHA}^{commit}`), tagCommit: released });
+    const plan = releasePlan({ versions: { package: version, cargo: version, tauri: version }, tag, prerelease, head, expectedHead: git('rev-parse', `${process.env.RELEASE_SOURCE_SHA || process.env.GITHUB_SHA}^{commit}`), tagCommit: released });
     const api = new GitHubApi(process.env.GITHUB_REPOSITORY, process.env.GH_TOKEN);
     const existing = await api.findRelease(plan.tag);
     let skip = false;

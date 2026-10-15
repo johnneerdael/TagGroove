@@ -1,0 +1,57 @@
+name: Review authorization controller
+on:
+  push:
+    branches: [main]
+  pull_request_target:
+    branches: [main]
+    types: [opened, closed, synchronize, reopened, edited, ready_for_review, converted_to_draft, review_requested, review_request_removed]
+  issue_comment:
+    types: [created, edited, deleted]
+  workflow_run:
+    workflows: [Review metadata signal, Reviewed PR validation]
+    types: [completed]
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        type: string
+        default: ''
+      retry_build:
+        type: boolean
+        default: false
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+  statuses: write
+  actions: write
+concurrency:
+  group: opentag-review-controller
+  queue: max
+  cancel-in-progress: false
+jobs:
+  reconcile:
+    if: github.event_name != 'issue_comment' || github.event.issue.pull_request
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Reconcile metadata and dispatch only approved immutable PRs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ inputs.pr_number || github.event.pull_request.number || github.event.issue.number || '0' }}
+          RETRY: ${{ inputs.retry_build }}
+        run: |
+          args=()
+          if [ "$RETRY" = true ]; then args+=(--retry); fi
+          python3 .github/scripts/review_gate.py reconcile --pr "$PR_NUMBER" "${args[@]}"
+      - name: Authorize publication only for a validated merged PR
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ github.sha }}
+        run: python3 .github/scripts/review_gate.py main

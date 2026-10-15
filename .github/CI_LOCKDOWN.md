@@ -1,0 +1,26 @@
+# Review-first CI/CD containment
+
+The legacy `build.yml` and `release.yml` workflows were deleted from `main` in emergency commit `743996fc0eb859d430fc84910b774b1b70f64586`. Keep their old workflow IDs disabled: older PR branches still contain automatic triggers. Keep the separate legacy Docs, Docs screenshots and CI tooling workflows disabled until their execution is routed through the reviewed controller. Do not blanket-enable repository workflows.
+
+Only trusted metadata authorization can run before review. `review-controller.yml` checks out `main`, reads GitHub reviews/threads/reactions, cancels stale validation and dispatches `reviewed-pr.yml` **on main only** after an authenticated Codex code review of the final full head SHA completes with no findings and approval. Human, local and security-only reviews cannot substitute. No timeout approves a PR.
+
+The dispatched workflow repeats authorization against the exact current main/head/test-merge triple. Its reusable build independently authenticates the calling main workflow and repeats the same read-only preflight before any application code, dependencies or tests run. PR code receives no repository signing secrets, checkout credentials or shared build caches. Successful builds receive `Reviewed PR builds` proof bound to the reviewed head, current base and immutable test merge; every required workload must succeed.
+
+On a main push, `reviewed-release.yml` is dispatched only for a uniquely associated merged PR with clean final-head Codex review and successful trusted validation proof. The published source must have the exact validated parents and tree. The release workflow verifies this before building/signing and again before publication. Direct main containment/bootstrap commits have no source PR and authorize no release. Existing platform, version, signature, checksum and complete-asset checks remain in the new release workflow.
+
+Enable only the new controller, metadata signal, reviewed PR workflow, reusable reviewed build and reviewed release paths after installation. Require `Codex review` and `Reviewed PR builds` plus applicable checks through main branch protection/rulesets. Run a manual metadata recheck with:
+
+```sh
+gh workflow run review-controller.yml --ref main -f pr_number=17
+```
+
+An actual failed build requires an explicit `retry_build=true` dispatch after investigating it. API failures and stale heads deny application execution. Reactions have no direct Actions event, so scheduled reconciliation also checks every five minutes; GitHub may delay schedules. No Pages/site or release-note changes are included in this emergency bootstrap. Rebase later workflow PRs onto these paths so they cannot restore automatic execution.
+
+Local checks:
+
+```sh
+python3 -m unittest discover -s .github/scripts/tests -v
+node --test tests/release.test.mjs
+actionlint -ignore 'unexpected key "queue" for "concurrency" section' .github/workflows/*.yml
+git diff --check
+```

@@ -1,0 +1,13 @@
+name: Review metadata signal
+on:
+  pull_request_review:
+    types: [submitted, edited, dismissed]
+  pull_request_review_comment:
+    types: [created, edited, deleted]
+permissions: {}
+jobs:
+  signal:
+    if: github.event.pull_request.base.ref == 'main'
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo 'Metadata changed; trusted main controller must authorize application execution.'
