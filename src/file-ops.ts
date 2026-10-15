@@ -20,13 +20,15 @@ export function parentDirectory(path:string):string|undefined {
 /** Working-directory back/forward history; visiting a folder clears the forward list. */
 export class DirectoryHistory {
   private back:string[]=[];private forward:string[]=[];current:string|undefined;
-  visit(path:string){if(path===this.current)return;if(this.current)this.back.push(this.current);this.forward=[];this.current=path;}
+  /** `changed` hears every new working directory (for `%_workingdir%`/`%_workingpath%`). */
+  constructor(private changed?:(path:string)=>void){}
+  visit(path:string){if(path===this.current)return;if(this.current)this.back.push(this.current);this.forward=[];this.current=path;this.changed?.(path);}
   get canBack(){return this.back.length>0;}
   get canForward(){return this.forward.length>0;}
   peek(direction:'back'|'forward'){const list=direction==='back'?this.back:this.forward;return list[list.length-1];}
   move(direction:'back'|'forward'){
     const [from,to]=direction==='back'?[this.back,this.forward]:[this.forward,this.back],next=from.pop();
-    if(next!==undefined){if(this.current)to.push(this.current);this.current=next;}return next;
+    if(next!==undefined){if(this.current)to.push(this.current);this.current=next;this.changed?.(next);}return next;
   }
 }
 /** Map a key press to its File/Edit menu operation. Mp3tag uses Ctrl; macOS uses ⌘ except where the system reserves it (⌘H, ⌘M). */
@@ -83,7 +85,7 @@ const basename=(path:string)=>path.replace(/[\\/]+$/,'').split(/[\\/]/).pop()||p
 
 export class FileOpsUI {
   state=defaultDirectoryState();
-  readonly history=new DirectoryHistory();
+  readonly history=new DirectoryHistory(path=>{Promise.resolve().then(()=>this.host.invoke('set_working_directory',{path})).catch(()=>{/* The placeholders stay empty. */});});
   private showing=false;
   constructor(private host:FileOpsHost){}
   get fileManager(){return this.host.mac?'Finder':/Win/.test(globalThis.navigator?.platform||'')?'Explorer':'file manager';}

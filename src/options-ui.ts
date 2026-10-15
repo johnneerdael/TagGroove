@@ -9,7 +9,7 @@ export type TagOptions={
   /** Options → Tags → Mapping, edited by the page in field-mapping.ts. */
   mappings:{tag_type:string;source:string;target:string}[];
 };
-export type Settings={version:number;general:{natural_sort:boolean;show_directory_in_title:boolean};files:{restrict_extensions:string};directories:{subfolders:boolean};tags:TagOptions;pages:Record<string,Record<string,unknown>>};
+export type Settings={version:number;general:{natural_sort:boolean;show_directory_in_title:boolean};files:{restrict_extensions:string;folder_separator:string};directories:{subfolders:boolean};tags:TagOptions;pages:Record<string,Record<string,unknown>>};
 export type SettingsResponse={settings:Settings;defaults:Settings;warning:string|null};
 /** Values edited in the dialog: persisted settings plus the per-device appearance choice. */
 export type OptionsDraft=Settings&{appearance:string};
@@ -35,13 +35,15 @@ export type OptionsHost={
   applied:(next:Settings,previous:Settings)=>void|Promise<void>;
 };
 
-export const defaultSettings=():Settings=>({version:1,general:{natural_sort:true,show_directory_in_title:true},files:{restrict_extensions:''},directories:{subfolders:true},
+export const defaultSettings=():Settings=>({version:1,general:{natural_sort:true,show_directory_in_title:true},files:{restrict_extensions:'',folder_separator:'_'},directories:{subfolders:true},
   tags:{mpeg:{read_id3v1:true,read_id3v2:true,read_ape:true,write_id3v1:true,write_id3v2:true,write_ape:false,id3v2_only_if_needed:false,id3v2_format:'v23_utf16',remove_id3v1:true,remove_id3v2:true,remove_ape:true},
     ape:{read_id3v1:true,read_ape:true,write_id3v1:false,write_ape:true,remove_id3v1:true,remove_id3v2:false,remove_ape:true},
     advanced:{id3v2_comment_language:'eng',popularimeter_ratings:false,matroska_video_mapping:true},preserve_modified_time:false,mappings:[]},pages:{}});
 
 /** pages.general: General options beyond the window title and sorting. */
 export const GENERAL_DEFAULTS={auto_select_next:false,autocomplete:true,select_added:false,keep_moved:true};
+/** pages.tags: saving when moving to another file and the folder-image fallback of the cover pane. */
+export const TAGS_PAGE_DEFAULTS={save_on_move:false,no_folder_image:false};
 /** pages.appearance: scaling in percent and the file list grid. */
 export const APPEARANCE_DEFAULTS={toolbar_scale:'100',ui_scale:'100',grid:'off'};
 const SCALES:[string,string][]=['100','110','125','150','175','200'].map(v=>[v,`${v}%`]);
@@ -88,6 +90,11 @@ export function parseExtensions(value:string):string[]|null{
   }
   return output.length?output:null;
 }
+/** Mirror of `tag_core::validate_folder_separator`: the replacement for \ and / in tag values must not itself be a separator or an invalid filename character. */
+export function folderSeparatorProblem(value:string){
+  if([...value].length>16)return'The folder separator replacement is limited to 16 characters.';
+  return/[\\/:*?"<>|\u0000-\u001f]/.test(value)?'The folder separator replacement cannot contain \\ / : * ? " < > | or control characters.':undefined;
+}
 /** Mirror of the backend validation, reported with the page that needs attention. */
 export function validateOptions(draft:OptionsDraft,pages:OptionsPage[]=[...registry.values()]):{page:string;message:string}|undefined{
   const {mpeg,ape,advanced}=draft.tags;
@@ -95,6 +102,7 @@ export function validateOptions(draft:OptionsDraft,pages:OptionsPage[]=[...regis
   if(!mpeg.write_id3v1&&!mpeg.write_id3v2&&!mpeg.write_ape)return{page:'tags-mpeg',message:'Enable at least one tag type to write for MPEG files.'};
   if(!ape.write_id3v1&&!ape.write_ape)return{page:'tags-ape',message:'Enable at least one tag type to write for APE, MPC and WavPack files.'};
   try{parseExtensions(draft.files.restrict_extensions);}catch(error){return{page:'files',message:String((error as Error).message)};}
+  const separatorProblem=folderSeparatorProblem(draft.files.folder_separator??'_');if(separatorProblem)return{page:'files',message:separatorProblem};
   for(const page of pages){const message=page.validate?.(draft);if(message)return{page:page.id,message};}
   return undefined;
 }
@@ -116,6 +124,8 @@ for(const page of [
   {id:'files',label:'Files',order:20,controls:[
     {kind:'group',label:'Read files',controls:[{kind:'text',path:'files.restrict_extensions',label:'Restrict incoming files to',placeholder:'All supported formats (for example *.mp3;*.flac)'},
       {kind:'note',text:'Applies to folders. Files you add individually are always read.'}]},
+    {kind:'group',label:'Rename files from tags',controls:[{kind:'text',path:'files.folder_separator',label:'Replace folder separator in tag values with',placeholder:'Nothing: remove separators',maxLength:16},
+      {kind:'note',text:'Replaces \\ and / inside tag values when Tag → Filename, Format Value, Guess Values or Tag → Tag rename files, so a value such as Rock\\Classic does not create a folder. Leave empty to remove them. Separators typed in the format string itself still create folders.'}]},
     {kind:'group',label:'Write files',controls:[{kind:'checkbox',path:'tags.preserve_modified_time',label:'Preserve timestamps of modified files'}]}]},
   {id:'directories',label:'Directories',order:30,controls:[{kind:'checkbox',path:'directories.subfolders',label:'Read subfolders'}]},
   {id:'appearance',label:'Appearance',order:40,defaults:{...APPEARANCE_DEFAULTS},controls:[{kind:'select',path:'appearance',label:'Color mode',choices:[['system','System'],['light','Light'],['dark','Dark']]},
@@ -123,7 +133,10 @@ for(const page of [
     {kind:'select',path:'pages.appearance.toolbar_scale',label:'Toolbar scaling',choices:SCALES},
     {kind:'select',path:'pages.appearance.ui_scale',label:'User interface scaling',choices:SCALES},
     {kind:'radio',path:'pages.appearance.grid',label:'Display grid lines in file view',choices:[['off','Off'],['alternate','Alternate row colors'],['lines','Grid lines']]}]},
-  {id:'tags',label:'Tags',order:50,description:'Choose which tag types are read, written and removed for each format family.',controls:[
+  {id:'tags',label:'Tags',order:50,description:'Choose which tag types are read, written and removed for each format family.',defaults:{...TAGS_PAGE_DEFAULTS},controls:[
+    {kind:'checkbox',path:'pages.tags.save_on_move',label:'Save tags when using arrow keys or a single mouse click'},
+    {kind:'checkbox',path:'pages.tags.no_folder_image',label:'Don’t display first image from file directory as cover art'},
+    {kind:'note',text:'Saving on selection change writes pending tag panel edits when you move to another file with the mouse, the arrow keys in the file list or Select next file. Without embedded cover art, the cover pane shows the first image of the file’s folder; that image is not embedded.'},
     {kind:'note',text:'Mpeg applies to MP3 files. Ape, Mpc applies to Monkey’s Audio, Musepack and WavPack files. Other formats always use their native tag, and Remove tag removes all of their tags.'}]},
   {id:'tags-mpeg',parent:'tags',label:'Mpeg',order:10,description:'Only one tag type is displayed: APE before ID3v2 before ID3v1, among the types enabled for reading.',controls:[
     tagRead('mpeg',[['id3v1','ID3v1'],['id3v2','ID3v2'],['ape','APE']]),

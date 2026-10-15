@@ -19,6 +19,7 @@ test('Ctrl+R removes tags outside text fields and every Ctrl/⌘+R is consumed',
   for(const [event,typing,mac] of [[key('r',{ctrlKey:true}),true,false],[key('r',{ctrlKey:true,shiftKey:true}),false,false],[key('r',{ctrlKey:true}),false,true],[key('r',{metaKey:true,altKey:true}),false,true],[key('r',{metaKey:true}),false,false]])
     assert.equal(remove.removeTagShortcut(event,typing,mac),'suppress',JSON.stringify(event));
   assert.equal(remove.removeTagShortcut(key('r'),false,false),undefined);
+  assert.equal(remove.removeTagShortcut({...key('¶',{ctrlKey:true,altKey:true}),code:'KeyR'},true,false),undefined,'AltGr+R types its character');
   assert.equal(remove.removeTagShortcut(key('s',{ctrlKey:true}),false,false),undefined);
 });
 

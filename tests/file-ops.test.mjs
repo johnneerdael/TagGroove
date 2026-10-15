@@ -33,6 +33,14 @@ test('directory history moves back and forward and drops forward entries on visi
   assert.equal(history.move('back'), '/b');
 });
 
+test('directory history reports each new working directory for the working-folder placeholders', () => {
+  const seen = [];
+  const history = new DirectoryHistory(path => seen.push(path));
+  history.visit('/a'); history.visit('/a'); history.visit('/b');
+  history.move('back'); history.move('forward'); history.move('forward');
+  assert.deepEqual(seen, ['/a', '/b', '/a', '/b']);
+});
+
 const key = (key, modifiers = {}) => ({key, ctrlKey: false, metaKey: false, shiftKey: false, altKey: false, ...modifiers});
 test('shortcuts follow Mp3tag on Windows/Linux and avoid reserved macOS commands', () => {
   assert.equal(fileShortcut(key('d', {ctrlKey: true}), false, false), 'folder');
@@ -106,7 +114,8 @@ test('change directory replaces the list, records history and asks before discar
   await ui.operate('folder');
   assert.deepEqual(host.loads[0], [['/music/rock'], {replace: true, recursive: true, location: '/music/rock'}]);
   assert.equal(ui.history.current, '/music/rock');
-  assert.deepEqual(calls.at(-1), ['remember_directories', {paths: ['/music/rock']}]);
+  assert.deepEqual(calls.filter(call => call[0] !== 'set_working_directory').at(-1), ['remember_directories', {paths: ['/music/rock']}]);
+  assert.deepEqual(calls.find(call => call[0] === 'set_working_directory'), ['set_working_directory', {path: '/music/rock'}]);
   host.pending = 2; host.answers.push(false);
   await ui.operate('folder');
   assert.match(host.confirmed, /discard pending tag changes in 2 files/);
@@ -117,6 +126,8 @@ test('change directory replaces the list, records history and asks before discar
   await ui.operate('dir-back');
   assert.equal(ui.history.current, '/music/rock');
   assert.equal(ui.reason('dir-forward'), '');
+  await Promise.resolve();
+  assert.deepEqual(calls.filter(call => call[0] === 'set_working_directory').map(call => call[1].path), ['/music/rock', '/music', '/music/rock']);
 });
 
 test('add directory appends without changing the working directory', async () => {

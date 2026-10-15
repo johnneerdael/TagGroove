@@ -130,6 +130,8 @@ export type TagPanelHost={
   changed:()=>void;notify:(message:string)=>void;fail:(error:unknown)=>void;
   /** Options → General → Auto-completion at selection boxes: the completer while it is enabled. */
   autocomplete?:()=>((input:HTMLInputElement,event:Event,candidates:()=>Iterable<string>)=>boolean)|undefined;
+  /** Whether an Alt chord is a shortcut rather than typed text (macOS Option in text fields, AltGr). */
+  altShortcut:(event:KeyboardEvent)=>boolean;
 };
 const groupLabels:Record<ComboOption['group'],string>={special:'',selection:'Selected files',custom:'Custom values',genre:'Genres',directory:'Loaded folders'};
 type OpenList={input:HTMLInputElement|HTMLTextAreaElement;field:PanelField;options:ComboOption[];active:number;popup:HTMLElement};
@@ -211,12 +213,13 @@ export class TagPanel {
       menu.querySelectorAll<HTMLButtonElement>('[data-panel-command]').forEach(button=>button.addEventListener('click',()=>{menu.open=false;void this.command(button.dataset.panelCommand!).catch(error=>this.host.fail(error));}));
     }
   }
-  /** Document-level shortcuts: Ctrl+Q toggles the panel, Alt+mnemonic focuses a field. */
+  /** Document-level shortcuts: Ctrl+Q toggles the panel, Alt+mnemonic focuses a field
+   * (Control+Option+mnemonic while typing on macOS, where Option+letter types). */
   install(root:Document){
     root.addEventListener('keydown',event=>{
       if(event.defaultPrevented||root.querySelector('dialog[open]'))return;
       if(event.ctrlKey&&!event.metaKey&&!event.altKey&&!event.shiftKey&&event.code==='KeyQ'){event.preventDefault();this.toggle();return;}
-      if(!event.altKey||event.ctrlKey||event.metaKey||!this.visible)return;
+      if(!event.altKey||!this.visible||!this.host.altShortcut(event))return;
       const letter=/^Key([A-Z])$|^Digit([0-9])$/.exec(event.code);if(!letter)return;
       const key=letter[1]||letter[2],index=this.settings.panel.fields.findIndex(field=>field.visible&&field.field!==SEPARATOR&&mnemonic(field.name).key===key);
       const target=index<0?null:root.querySelector<HTMLElement>(`[data-panel-index="${index}"]`);

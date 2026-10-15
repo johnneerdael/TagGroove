@@ -20,6 +20,11 @@ pub struct EvaluationSettings {
     pub export_write_bom: bool,
     pub export_create_directories: bool,
     pub export_template_inline: bool,
+    /// Current working folder of the file list, for `%_workingdir%` and
+    /// `%_workingpath%`.
+    pub working_directory: Option<String>,
+    /// Options → Files "Replace folder separator in tag values with".
+    pub folder_separator: String,
 }
 
 impl Default for EvaluationSettings {
@@ -40,6 +45,8 @@ impl Default for EvaluationSettings {
             export_write_bom: false,
             export_create_directories: true,
             export_template_inline: false,
+            working_directory: None,
+            folder_separator: tag_core::DEFAULT_FOLDER_SEPARATOR.into(),
         }
     }
 }
@@ -73,6 +80,7 @@ impl EvaluationSettings {
                 .map_err(|e| e.to_string())?
                 .to_string_lossy()
                 .into_owned(),
+            folder_separator: crate::settings::current().files.folder_separator,
             ..Default::default()
         })
     }
@@ -89,6 +97,8 @@ impl EvaluationSettings {
         context.app_directory = Some(&self.app_directory);
         context.app_data_directory = Some(&self.app_data_directory);
         context.timestamp_seconds = Some(self.timestamp_seconds);
+        context.working_directory = self.working_directory.as_deref();
+        context.folder_separator = Some(&self.folder_separator);
         #[cfg(windows)]
         {
             context.ansi_codepage = Some(windows_ansi_codepage().to_string());
@@ -137,10 +147,40 @@ impl EvaluationSettings {
         identity: &str,
         use_snapshot: bool,
     ) -> Result<String, String> {
+        self.evaluate_mode(template, raw, technical, identity, use_snapshot, false)
+    }
+
+    /// Evaluate a `_FILENAME`/`_DIRECTORY` target the way Tag → Filename does:
+    /// separators in tag values are replaced, literal ones kept.
+    pub fn evaluate_filename(
+        &self,
+        template: &str,
+        raw: &Fields,
+        technical: &Fields,
+        identity: &str,
+        use_snapshot: bool,
+    ) -> Result<String, String> {
+        self.evaluate_mode(template, raw, technical, identity, use_snapshot, true)
+    }
+
+    fn evaluate_mode(
+        &self,
+        template: &str,
+        raw: &Fields,
+        technical: &Fields,
+        identity: &str,
+        use_snapshot: bool,
+        filename: bool,
+    ) -> Result<String, String> {
         let mut fields = raw.clone();
         fields.extend(technical.clone());
         let columns = self.column_values(&fields, raw, identity, use_snapshot)?;
-        tag_core::evaluate_with_context(template, &self.context(&fields, raw, Some(&columns)))
+        let context = self.context(&fields, raw, Some(&columns));
+        if filename {
+            tag_core::evaluate_filename_with_context(template, &context)
+        } else {
+            tag_core::evaluate_with_context(template, &context)
+        }
     }
 
     pub fn matches(
@@ -278,11 +318,7 @@ pub fn technical_fields(entry: &AudioEntry, index: usize) -> Fields {
         ),
         (
             "_LENGTH",
-            format!(
-                "{}:{:02}",
-                entry.duration as u64 / 60,
-                entry.duration as u64 % 60
-            ),
+            tag_core::format_length(entry.duration.round() as u64),
         ),
         ("_FILE_SIZE_BYTES", entry.size.to_string()),
         ("_FILE_SIZE_KB", (entry.size / 1024).to_string()),
@@ -293,7 +329,7 @@ pub fn technical_fields(entry: &AudioEntry, index: usize) -> Fields {
         ("_FILE_SIZE", human_size(entry.size)),
         ("_COVERS", entry.covers.len().to_string()),
         ("_COUNTER", index.to_string()),
-        ("_APP", format!("OpenTag v{}", env!("CARGO_PKG_VERSION"))),
+        ("_APP", app_name()),
         // App table property; this is not advertised as an original placeholder.
         ("_FILETYPE", entry.format.clone()),
     ] {
@@ -340,6 +376,11 @@ pub fn technical_fields(entry: &AudioEntry, index: usize) -> Fields {
         }
     }
     fields
+}
+
+/// `%_app%`: the application name and version.
+pub fn app_name() -> String {
+    format!("OpenTag v{}", env!("CARGO_PKG_VERSION"))
 }
 
 pub fn enriched_fields(entry: &AudioEntry, index: usize) -> Fields {

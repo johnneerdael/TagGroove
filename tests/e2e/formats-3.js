@@ -66,7 +66,7 @@
 
     await step('TAK title edit writes an APEv2 tag', async () => {
       const entry = await saveTitle('header.tak', 'TAK edited');
-      if (value(entry.fields, 'TITLE')?.[0] !== 'TAK edited' || entry.technical._TAG_READ?.[0] !== 'APE') throw new Error(JSON.stringify([entry.fields, entry.technical._TAG]));
+      if (value(entry.fields, 'TITLE')?.[0] !== 'TAK edited' || entry.technical._TAG_READ?.[0] !== 'APEv2') throw new Error(JSON.stringify([entry.fields, entry.technical._TAG]));
       return `${entry.technical._TAG?.[0]}, ${entry.channels} ch, ${entry.duration.toFixed(2)} s`;
     });
 

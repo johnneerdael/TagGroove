@@ -4,9 +4,11 @@ import type { TagOptions } from './options-ui';
 
 export type KeyInput=Pick<KeyboardEvent,'key'|'code'|'ctrlKey'|'metaKey'|'altKey'|'shiftKey'>;
 /** Ctrl+R (⌘R on macOS) removes tags outside text fields. Every other Ctrl/⌘+R
- * combination is only swallowed, because WebView2 reloads the page on it. */
+ * combination is only swallowed, because WebView2 reloads the page on it. Ctrl+Alt+R
+ * is AltGr+R on Windows, which types a character on some layouts, so it is left alone. */
 export function removeTagShortcut(event:KeyInput,typing:boolean,mac:boolean):'remove-tags'|'suppress'|undefined{
   if(!(event.ctrlKey||event.metaKey)||!(event.code==='KeyR'||event.key.toLowerCase()==='r'))return undefined;
+  if(event.altKey&&!event.metaKey)return undefined;
   const primary=mac?event.metaKey:event.ctrlKey,other=mac?event.ctrlKey:event.metaKey;
   return primary&&!other&&!event.shiftKey&&!event.altKey&&!typing?'remove-tags':'suppress';
 }

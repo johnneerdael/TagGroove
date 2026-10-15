@@ -155,8 +155,23 @@ fn text_import_boms_codepages_and_all_line_endings_are_decoded_strictly() {
     assert!(converter
         .plan_bytes(b"\xff\xfe\x00", &paths()[..1], &options)
         .is_err());
+    // Without a system ANSI codepage, legacy text is Windows-1252.
+    assert_eq!(
+        converter
+            .plan_bytes(b"\xff", &paths()[..1], &TextImportOptions::default())
+            .unwrap()[0]
+            .fields["TITLE"],
+        vec!["ÿ"]
+    );
     assert!(converter
-        .plan_bytes(b"\xff", &paths()[..1], &TextImportOptions::default())
+        .plan_bytes(
+            b"\x81",
+            &paths()[..1],
+            &TextImportOptions {
+                ansi_codepage: Some("932".into()),
+                ..Default::default()
+            }
+        )
         .is_err());
     assert_eq!(
         converter
@@ -413,4 +428,16 @@ fn large_keyed_import_indexes_the_selection_and_matches_every_reversed_record() 
         assert_eq!(plan.path, selected[index]);
         assert_eq!(plan.fields["TITLE"], vec![format!("Title {index}")]);
     }
+}
+
+#[test]
+fn filename_rearrangement_does_not_double_a_spelled_extension() {
+    let converter = FilenameConverter::compile("%1 - %2", "$upper(%1) - %2.mp3").unwrap();
+    let fields = Fields::new();
+    let result = converter
+        .render("/music/artist - title.MP3", &EvalContext::new(&fields))
+        .unwrap();
+    assert_eq!(result.target, "ARTIST - title.mp3");
+    assert!(tag_core::ends_with_extension("a.Mp3", ".mp3"));
+    assert!(!tag_core::ends_with_extension(".mp3", ".mp3"));
 }

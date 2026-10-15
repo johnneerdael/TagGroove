@@ -2,7 +2,7 @@
 //! References: https://docs.mp3tag.de/actions/ and its individual action pages.
 //! Native effects are explicit: a caller must execute them or return an error.
 use crate::{
-    script::{evaluate, Action},
+    script::{evaluate, evaluate_filename_with_context, Action, EvalContext},
     tags::Fields,
 };
 use serde::{Deserialize, Serialize};
@@ -30,8 +30,10 @@ pub const ACTION_CATALOG: [(&str, &str); 18] = [
     ("split_field", "Split Field by Separator"),
 ];
 /// Additional numeric IDs corroborated by original `.mta` reports on the
-/// official forum: /t/testing-mp3tag-behaviour/42469/22. Property schemas require
-/// separate evidence; a known ID alone does not make an import executable.
+/// official forum: /t/testing-mp3tag-behaviour/42469/22. Only types 1 and 2
+/// have settings verified on original action files; the settings of the
+/// others follow the same layout (`F` and numbered settings in dialog order)
+/// and are recorded in docs/verification/script-export.md.
 pub const MTA_TYPE_REGISTRY: [(u32, &str); 15] = [
     (1, "Case Conversion"),
     (2, "Replace"),
@@ -212,15 +214,45 @@ impl ActionState {
         fields
     }
 }
+/// Where a new file or folder name came from, which decides how the host
+/// turns it into a path.
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum NameOrigin {
+    /// The current name changed by Case Conversion, Replace and similar
+    /// actions. `\` and `/` separate folders.
+    #[default]
+    Edited,
+    /// A format string evaluated in filename mode (Format Value, Tag → Tag):
+    /// literal separators create folders, tag values had theirs replaced, and
+    /// a name already ending in the file's extension does not get it twice.
+    Template,
+    /// Text captured by Guess Values, used like a tag value: separators and
+    /// invalid characters are replaced, and the extension is not doubled.
+    Value,
+}
+
+/// How an action wants a format string evaluated.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TemplateMode {
+    Text,
+    /// Filename mode, as Convert → Tag - Filename evaluates.
+    Filename,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ActionEffect {
     RenameFile {
         filename: String,
         includes_extension: bool,
+        #[serde(default)]
+        origin: NameOrigin,
     },
     RenameDirectory {
         directory: String,
+        #[serde(default)]
+        origin: NameOrigin,
     },
     RemoveCovers,
     ImportCover {
@@ -269,6 +301,10 @@ pub trait ActionHost {
     /// Windows ANSI codepage), rebuilding tag context after each action.
     fn evaluate(&mut self, template: &str, state: &ActionState) -> Result<String, String> {
         evaluate(template, &state.evaluation_fields())
+    }
+    /// Evaluate a `_FILENAME`/`_DIRECTORY` target in filename mode.
+    fn evaluate_filename(&mut self, template: &str, state: &ActionState) -> Result<String, String> {
+        evaluate_filename_with_context(template, &EvalContext::new(&state.evaluation_fields()))
     }
     fn execute(&mut self, effect: &ActionEffect, state: &mut ActionState) -> Result<(), String>;
     fn execute_batch(
@@ -404,19 +440,17 @@ where
     let mut effects = Vec::new();
     let mut fields = state.fields.clone();
     if selector.eq_ignore_ascii_case("_FIELDNAME") {
+        // The displayed tag (`_TAG_READ`) is the one whose fields are edited;
+        // `_TAG` lists every tag in the file.
         let format = state
             .context
-            .get("_TAG")
+            .get("_TAG_READ")
+            .or_else(|| state.context.get("_TAG"))
             .and_then(|v| v.first())
             .map(String::as_str)
             .unwrap_or("");
-        if !["APEv2", "VorbisComments"]
-            .iter()
-            .any(|candidate| format.eq_ignore_ascii_case(candidate))
-        {
-            return Err(
-                "Field-name actions require native APEv2 or VorbisComments format context".into(),
-            );
+        if !crate::tags::keeps_field_names(format) {
+            return Err("Field-name actions require an APEv2 or VorbisComment tag".into());
         }
         let mut renamed = Fields::new();
         for (key, values) in &state.fields {
@@ -460,6 +494,7 @@ where
             effects.push(ActionEffect::RenameFile {
                 filename: value[0].clone(),
                 includes_extension: filename_extension,
+                origin: NameOrigin::Edited,
             });
         } else if selector.eq_ignore_ascii_case("_DIRECTORY") {
             let values = state
@@ -472,6 +507,7 @@ where
             }
             effects.push(ActionEffect::RenameDirectory {
                 directory: value[0].clone(),
+                origin: NameOrigin::Edited,
             });
         } else if selector.starts_with('_')
             && !selector.eq_ignore_ascii_case("_TAG")
@@ -699,6 +735,26 @@ pub fn apply_action_spec_with_evaluator<F>(
 where
     F: FnMut(&str, &ActionState) -> Result<String, String>,
 {
+    apply_action_spec_with_modes(state, action, &mut |template, state, mode| match mode {
+        TemplateMode::Text => evaluate(template, state),
+        TemplateMode::Filename => {
+            evaluate_filename_with_context(template, &EvalContext::new(&state.evaluation_fields()))
+        }
+    })
+}
+
+/// Like [`apply_action_spec_with_evaluator`], with the evaluator told whether a
+/// template is evaluated as text or in filename mode.
+pub fn apply_action_spec_with_modes<F>(
+    state: &mut ActionState,
+    action: &ActionSpec,
+    evaluate_mode: &mut F,
+) -> Result<Vec<ActionEffect>, String>
+where
+    F: FnMut(&str, &ActionState, TemplateMode) -> Result<String, String>,
+{
+    let mut evaluate =
+        |template: &str, state: &ActionState| evaluate_mode(template, state, TemplateMode::Text);
     validate_action(action)?;
     match action {
         ActionSpec::CaseConversion {
@@ -737,22 +793,31 @@ where
             regex_values(values, pattern, replacement, *case_sensitive)
         }),
         ActionSpec::FormatValue { field, template } => {
-            let result = evaluate(template, state)?;
-            if field.eq_ignore_ascii_case("_FILENAME") {
-                if result.is_empty() {
-                    return Err("Filename must not be empty".into());
+            let renames_file = field.eq_ignore_ascii_case("_FILENAME");
+            if renames_file || field.eq_ignore_ascii_case("_DIRECTORY") {
+                let result = evaluate_mode(template, state, TemplateMode::Filename)?;
+                if result.trim().is_empty() {
+                    return Err(if renames_file {
+                        "Filename must not be empty"
+                    } else {
+                        "Directory must not be empty"
+                    }
+                    .into());
                 }
-                return Ok(vec![ActionEffect::RenameFile {
-                    filename: result,
-                    includes_extension: false,
+                return Ok(vec![if renames_file {
+                    ActionEffect::RenameFile {
+                        filename: result,
+                        includes_extension: false,
+                        origin: NameOrigin::Template,
+                    }
+                } else {
+                    ActionEffect::RenameDirectory {
+                        directory: result,
+                        origin: NameOrigin::Template,
+                    }
                 }]);
             }
-            if field.eq_ignore_ascii_case("_DIRECTORY") {
-                if result.is_empty() {
-                    return Err("Directory must not be empty".into());
-                }
-                return Ok(vec![ActionEffect::RenameDirectory { directory: result }]);
-            }
+            let result = evaluate(template, state)?;
             if field.starts_with('_') {
                 return Err(format!("Unsupported Format Value target {field}"));
             }
@@ -781,10 +846,12 @@ where
                         ActionEffect::RenameFile {
                             filename: values[0].clone(),
                             includes_extension: false,
+                            origin: NameOrigin::Value,
                         }
                     } else {
                         ActionEffect::RenameDirectory {
                             directory: values[0].clone(),
+                            origin: NameOrigin::Value,
                         }
                     });
                 } else if name.starts_with('_') {
@@ -962,8 +1029,11 @@ pub fn execute_groups<H: ActionHost>(
             }
             for state in states.iter_mut() {
                 let effects =
-                    apply_action_spec_with_evaluator(state, action, &mut |template, state| {
-                        host.evaluate(template, state)
+                    apply_action_spec_with_modes(state, action, &mut |template, state, mode| {
+                        match mode {
+                            TemplateMode::Text => host.evaluate(template, state),
+                            TemplateMode::Filename => host.evaluate_filename(template, state),
+                        }
                     })
                     .map_err(|error| format!("{} / action {}: {error}", group.name, index + 1))?;
                 for effect in effects {
@@ -1244,44 +1314,109 @@ fn mta_value(value: &str) -> Result<String, String> {
     }
     Ok(out)
 }
-fn mta_action(record: &MtaRecord) -> Result<ActionSpec, String> {
-    let required = |name: &str| {
-        record
+/// `.mta` type IDs OpenTag assigns to action types with no known Mp3tag ID.
+/// Mp3tag lists them as unknown actions; OpenTag reads them back.
+pub const MTA_OPENTAG_TYPES: [(u32, &str); 3] = [
+    (1001, "Adjust Cover"),
+    (1002, "Set Cover Properties"),
+    (1003, "Generate Playlists"),
+];
+
+const CASE_MODES: [CaseMode; 4] = [
+    CaseMode::Lower,
+    CaseMode::Mixed,
+    CaseMode::Sentence,
+    CaseMode::Upper,
+];
+
+/// Settings of one `.mta` section, checked strictly so that an unexpected
+/// key or value leaves the record unresolved instead of being guessed.
+struct MtaSettings<'a> {
+    record: &'a MtaRecord,
+    type_id: &'a str,
+}
+impl MtaSettings<'_> {
+    fn only(&self, keys: &[&str]) -> Result<(), String> {
+        match self
+            .record
             .properties
-            .get(name)
-            .cloned()
-            .ok_or_else(|| format!("Missing MTA setting {name}"))
+            .keys()
+            .find(|key| !["T", "F"].contains(&key.as_str()) && !keys.contains(&key.as_str()))
+        {
+            Some(key) => Err(format!(
+                "Unknown setting {key} for action type {}",
+                self.type_id
+            )),
+            None => Ok(()),
+        }
+    }
+    fn optional(&self, key: &str) -> Option<String> {
+        self.record.properties.get(key).cloned()
+    }
+    fn required(&self, key: &str) -> Result<String, String> {
+        self.optional(key)
+            .ok_or_else(|| format!("Missing MTA setting {key}"))
+    }
+    fn flag(&self, key: &str) -> Result<bool, String> {
+        match self.optional(key).as_deref() {
+            None | Some("0") => Ok(false),
+            Some("1") => Ok(true),
+            Some(other) => Err(format!("Unknown flag {other:?} in setting {key}")),
+        }
+    }
+    /// An ID3 picture type number (0–20); absent or empty means none.
+    fn picture_type(&self, key: &str) -> Result<Option<String>, String> {
+        match self.optional(key).filter(|value| !value.is_empty()) {
+            None => Ok(None),
+            Some(value) => match value.parse::<u8>() {
+                Ok(number @ 0..=20) => Ok(Some(format!(
+                    "{:?}",
+                    lofty::picture::PictureType::from_u8(number)
+                ))),
+                _ => Err(format!("Unknown picture type {value:?}")),
+            },
+        }
+    }
+}
+
+fn mta_picture_type(name: &Option<String>) -> Result<String, String> {
+    name.as_deref()
+        .map(|name| crate::picture_type_from_name(name).map(|kind| kind.as_u8().to_string()))
+        .transpose()
+        .map(Option::unwrap_or_default)
+}
+
+fn mta_action(record: &MtaRecord) -> Result<ActionSpec, String> {
+    let type_id = record
+        .properties
+        .get("T")
+        .cloned()
+        .ok_or("Missing MTA setting T")?;
+    let settings = MtaSettings {
+        record,
+        type_id: &type_id,
     };
-    let type_id = required("T")?;
-    let field = required("F")?;
-    match type_id.as_str() {
+    let field = || settings.required("F");
+    let action = match type_id.as_str() {
+        // Verified on the 3.36.1 action files: mode 1 with its word starts.
+        // The other modes follow the documented order of the conversions.
         "1" => {
-            if record
-                .properties
-                .keys()
-                .any(|key| !["T", "F", "1", "2"].contains(&key.as_str()))
-            {
-                return Err("Unverified Case Conversion settings".into());
+            settings.only(&["1", "2"])?;
+            let mode = settings.required("1")?;
+            let mode = mode
+                .parse::<usize>()
+                .ok()
+                .and_then(|index| CASE_MODES.get(index))
+                .ok_or_else(|| format!("Unknown case mode {mode:?}"))?;
+            ActionSpec::CaseConversion {
+                field: field()?,
+                mode: *mode,
+                word_separators: settings.optional("2").unwrap_or_default(),
             }
-            // Only mode 1 is present in the supplied 3.36.1 action files.
-            if required("1")? != "1" {
-                return Err("Case mode ID is absent from the supplied artifact evidence".into());
-            }
-            Ok(ActionSpec::CaseConversion {
-                field,
-                mode: CaseMode::Mixed,
-                word_separators: required("2")?,
-            })
         }
         "2" => {
-            if record
-                .properties
-                .keys()
-                .any(|key| !["T", "F", "1", "2", "3"].contains(&key.as_str()))
-            {
-                return Err("Unverified Replace settings".into());
-            }
-            let flags = required("3")?;
+            settings.only(&["1", "2", "3"])?;
+            let flags = settings.required("3")?;
             let (whole_word, case_sensitive) = match flags.as_str() {
                 "0" | "0|0" => (false, false),
                 "1|0" => (true, false),
@@ -1289,76 +1424,169 @@ fn mta_action(record: &MtaRecord) -> Result<ActionSpec, String> {
                 "1|1" => (true, true),
                 _ => return Err(format!("Unknown Replace flags {flags:?}")),
             };
-            Ok(ActionSpec::Replace {
-                field,
-                from: required("1")?,
-                to: required("2")?,
+            ActionSpec::Replace {
+                field: field()?,
+                from: settings.required("1")?,
+                to: settings.required("2")?,
                 whole_word,
                 case_sensitive,
-            })
+            }
+        }
+        "4" => {
+            settings.only(&["1", "2", "3"])?;
+            ActionSpec::RegexReplace {
+                field: field()?,
+                pattern: settings.required("1")?,
+                replacement: settings.optional("2").unwrap_or_default(),
+                case_sensitive: settings.flag("3")?,
+            }
         }
         "5" | "7" | "8" | "16" => {
-            if record
-                .properties
-                .keys()
-                .any(|key| !["T", "F", "1"].contains(&key.as_str()))
-            {
-                return Err(format!("Unverified settings for action type {type_id}"));
-            }
-            let value = required("1")?;
-            Ok(match type_id.as_str() {
+            settings.only(&["1"])?;
+            let value = settings.required("1")?;
+            match type_id.as_str() {
                 "5" => ActionSpec::FormatValue {
-                    field,
+                    field: field()?,
                     template: value,
                 },
                 "7" => ActionSpec::GuessValues {
-                    source: field,
+                    source: field()?,
                     pattern: value,
                 },
                 "8" => ActionSpec::MergeDuplicateFields {
-                    field,
+                    field: field()?,
                     separator: value,
                 },
-                "16" => ActionSpec::SplitField {
-                    field,
+                _ => ActionSpec::SplitField {
+                    field: field()?,
                     separator: value,
                 },
-                _ => unreachable!(),
-            })
+            }
+        }
+        "6" => {
+            settings.only(&["1"])?;
+            ActionSpec::RemoveDuplicateFields {
+                field: field()?,
+                only_same_content: settings.flag("1")?,
+            }
         }
         "9" | "10" => {
-            if record
-                .properties
-                .keys()
-                .any(|key| !["T", "F"].contains(&key.as_str()))
-            {
-                return Err(format!("Unverified removal settings for type {type_id}"));
-            }
-            let fields = field
+            settings.only(&[])?;
+            let fields = field()?
                 .split(';')
                 .map(str::trim)
                 .filter(|name| !name.is_empty())
                 .map(str::to_owned)
                 .collect();
-            Ok(if type_id == "9" {
+            if type_id == "9" {
                 ActionSpec::RemoveFields { fields }
             } else {
                 ActionSpec::RemoveFieldsExcept { fields }
-            })
+            }
+        }
+        "11" => {
+            settings.only(&["1"])?;
+            ActionSpec::ConvertCodepage {
+                field: field()?,
+                codepage: settings.required("1")?,
+            }
+        }
+        "12" => {
+            settings.only(&["1", "2"])?;
+            ActionSpec::ImportCover {
+                filename_template: field()?,
+                picture_type: settings.picture_type("1")?,
+                delete_existing: settings.flag("2")?,
+            }
+        }
+        "13" => {
+            settings.only(&["1", "2"])?;
+            ActionSpec::ExportCover {
+                filename_template: field()?,
+                picture_type: settings.picture_type("1")?,
+                export_duplicates: settings.flag("2")?,
+            }
+        }
+        "14" => {
+            settings.only(&["1"])?;
+            ActionSpec::ImportTextFile {
+                field: field()?,
+                filename_template: settings.required("1")?,
+            }
+        }
+        "15" => {
+            settings.only(&["1", "2", "3"])?;
+            ActionSpec::Export {
+                template: field()?,
+                filename_template: settings.optional("1").unwrap_or_default(),
+                append: settings.flag("2")?,
+                partition_template: settings.optional("3").filter(|p| !p.is_empty()),
+            }
+        }
+        "1001" => {
+            settings.only(&["1", "2", "3", "4", "5"])?;
+            let format = match settings.required("1")?.as_str() {
+                "0" => CoverImageFormat::Original,
+                "1" => CoverImageFormat::Jpeg,
+                "2" => CoverImageFormat::Png,
+                other => return Err(format!("Unknown cover format {other:?}")),
+            };
+            let quality = settings
+                .required("2")?
+                .parse::<u8>()
+                .map_err(|_| "Invalid cover quality")?;
+            let pixels = settings
+                .optional("3")
+                .unwrap_or_else(|| "0".into())
+                .parse::<u32>()
+                .map_err(|_| "Invalid cover size")?;
+            let resize = if pixels == 0 {
+                None
+            } else {
+                Some(CoverResize {
+                    pixels,
+                    size_mode: match settings.required("4")?.as_str() {
+                        "0" => CoverSizeMode::Maximum,
+                        "1" => CoverSizeMode::Minimum,
+                        other => return Err(format!("Unknown cover size mode {other:?}")),
+                    },
+                    scale_mode: match settings.required("5")?.as_str() {
+                        "0" => CoverScaleMode::Proportional,
+                        "1" => CoverScaleMode::Square,
+                        "2" => CoverScaleMode::CropSquare,
+                        other => return Err(format!("Unknown cover scale mode {other:?}")),
+                    },
+                })
+            };
+            ActionSpec::AdjustCover {
+                format,
+                quality,
+                resize,
+            }
+        }
+        "1002" => {
+            settings.only(&["1", "2", "3"])?;
+            ActionSpec::SetCoverProperties {
+                picture_type: settings.picture_type("1")?,
+                description: settings.optional("2"),
+                only_picture_type: settings.picture_type("3")?,
+            }
+        }
+        "1003" => {
+            settings.only(&["1"])?;
+            ActionSpec::GeneratePlaylists {
+                filename_template: field()?,
+                partition_template: settings.optional("1").unwrap_or_default(),
+            }
         }
         _ => {
-            let known = type_id.parse::<u32>().ok().and_then(|id| {
-                MTA_TYPE_REGISTRY
-                    .iter()
-                    .find(|(candidate, _)| *candidate == id)
-            });
-            Err(if let Some((_, name)) = known {
-                format!("{name} type ID is verified; its imported option schema remains unresolved")
-            } else {
-                format!("Numeric action type {type_id} has no verified registry evidence")
-            })
+            return Err(format!(
+                "Numeric action type {type_id} has no known settings schema"
+            ))
         }
-    }
+    };
+    validate_action(&action)?;
+    Ok(action)
 }
 /// Read UTF-8 or BOM-marked UTF-16. Legacy encodings require explicit selection.
 /// Unknown type IDs/settings become preserved, non-executable records.
@@ -1501,9 +1729,9 @@ fn mta_escape(value: &str) -> Result<String, String> {
     }
     Ok(out)
 }
-/// Serialize a group using only the `.mta` schemas [`import_mta`] verifies.
-/// Action types without verified option schemas are rejected, not guessed;
-/// preserved unresolved records are written back unchanged.
+/// Serialize a group in the `.mta` layout [`import_mta`] reads: every action
+/// type, preserved unresolved records written back unchanged. Settings that
+/// cannot be stored (line breaks) are refused.
 pub fn export_mta(group: &ActionGroup) -> Result<String, String> {
     if group.actions.is_empty() {
         return Err("Action group contains no actions".into());
@@ -1511,16 +1739,24 @@ pub fn export_mta(group: &ActionGroup) -> Result<String, String> {
     let mut out = String::new();
     for (index, action) in group.actions.iter().enumerate() {
         let flag = |value: bool| if value { "1" } else { "0" };
+        let pair = |key: &str, value: String| (key.to_string(), value);
         let settings: Vec<(String, String)> = match action {
             ActionSpec::CaseConversion {
                 field,
-                mode: CaseMode::Mixed,
+                mode,
                 word_separators,
             } => vec![
-                ("T".into(), "1".into()),
-                ("F".into(), field.clone()),
-                ("1".into(), "1".into()),
-                ("2".into(), word_separators.clone()),
+                pair("T", "1".into()),
+                pair("F", field.clone()),
+                pair(
+                    "1",
+                    CASE_MODES
+                        .iter()
+                        .position(|candidate| candidate == mode)
+                        .unwrap_or(1)
+                        .to_string(),
+                ),
+                pair("2", word_separators.clone()),
             ],
             ActionSpec::Replace {
                 field,
@@ -1529,41 +1765,176 @@ pub fn export_mta(group: &ActionGroup) -> Result<String, String> {
                 whole_word,
                 case_sensitive,
             } => vec![
-                ("T".into(), "2".into()),
-                ("F".into(), field.clone()),
-                ("1".into(), from.clone()),
-                ("2".into(), to.clone()),
-                (
-                    "3".into(),
+                pair("T", "2".into()),
+                pair("F", field.clone()),
+                pair("1", from.clone()),
+                pair("2", to.clone()),
+                pair(
+                    "3",
                     format!("{}|{}", flag(*whole_word), flag(*case_sensitive)),
                 ),
             ],
+            ActionSpec::RegexReplace {
+                field,
+                pattern,
+                replacement,
+                case_sensitive,
+            } => vec![
+                pair("T", "4".into()),
+                pair("F", field.clone()),
+                pair("1", pattern.clone()),
+                pair("2", replacement.clone()),
+                pair("3", flag(*case_sensitive).into()),
+            ],
             ActionSpec::FormatValue { field, template } => vec![
-                ("T".into(), "5".into()),
-                ("F".into(), field.clone()),
-                ("1".into(), template.clone()),
+                pair("T", "5".into()),
+                pair("F", field.clone()),
+                pair("1", template.clone()),
+            ],
+            ActionSpec::RemoveDuplicateFields {
+                field,
+                only_same_content,
+            } => vec![
+                pair("T", "6".into()),
+                pair("F", field.clone()),
+                pair("1", flag(*only_same_content).into()),
             ],
             ActionSpec::GuessValues { source, pattern } => vec![
-                ("T".into(), "7".into()),
-                ("F".into(), source.clone()),
-                ("1".into(), pattern.clone()),
+                pair("T", "7".into()),
+                pair("F", source.clone()),
+                pair("1", pattern.clone()),
             ],
             ActionSpec::MergeDuplicateFields { field, separator } => vec![
-                ("T".into(), "8".into()),
-                ("F".into(), field.clone()),
-                ("1".into(), separator.clone()),
+                pair("T", "8".into()),
+                pair("F", field.clone()),
+                pair("1", separator.clone()),
             ],
             ActionSpec::SplitField { field, separator } => vec![
-                ("T".into(), "16".into()),
-                ("F".into(), field.clone()),
-                ("1".into(), separator.clone()),
+                pair("T", "16".into()),
+                pair("F", field.clone()),
+                pair("1", separator.clone()),
             ],
             ActionSpec::RemoveFields { fields } => {
-                vec![("T".into(), "9".into()), ("F".into(), fields.join(";"))]
+                vec![pair("T", "9".into()), pair("F", fields.join(";"))]
             }
             ActionSpec::RemoveFieldsExcept { fields } => {
-                vec![("T".into(), "10".into()), ("F".into(), fields.join(";"))]
+                vec![pair("T", "10".into()), pair("F", fields.join(";"))]
             }
+            ActionSpec::ConvertCodepage { field, codepage } => vec![
+                pair("T", "11".into()),
+                pair("F", field.clone()),
+                pair("1", codepage.clone()),
+            ],
+            ActionSpec::ImportCover {
+                filename_template,
+                picture_type,
+                delete_existing,
+            } => vec![
+                pair("T", "12".into()),
+                pair("F", filename_template.clone()),
+                pair("1", mta_picture_type(picture_type)?),
+                pair("2", flag(*delete_existing).into()),
+            ],
+            ActionSpec::ExportCover {
+                filename_template,
+                picture_type,
+                export_duplicates,
+            } => vec![
+                pair("T", "13".into()),
+                pair("F", filename_template.clone()),
+                pair("1", mta_picture_type(picture_type)?),
+                pair("2", flag(*export_duplicates).into()),
+            ],
+            ActionSpec::ImportTextFile {
+                field,
+                filename_template,
+            } => vec![
+                pair("T", "14".into()),
+                pair("F", field.clone()),
+                pair("1", filename_template.clone()),
+            ],
+            ActionSpec::Export {
+                template,
+                filename_template,
+                append,
+                partition_template,
+            } => {
+                let mut settings = vec![
+                    pair("T", "15".into()),
+                    pair("F", template.clone()),
+                    pair("1", filename_template.clone()),
+                    pair("2", flag(*append).into()),
+                ];
+                if let Some(partition) = partition_template {
+                    settings.push(pair("3", partition.clone()));
+                }
+                settings
+            }
+            ActionSpec::AdjustCover {
+                format,
+                quality,
+                resize,
+            } => {
+                let mut settings = vec![
+                    pair("T", "1001".into()),
+                    pair(
+                        "1",
+                        match format {
+                            CoverImageFormat::Original => "0",
+                            CoverImageFormat::Jpeg => "1",
+                            CoverImageFormat::Png => "2",
+                        }
+                        .into(),
+                    ),
+                    pair("2", quality.to_string()),
+                ];
+                if let Some(resize) = resize {
+                    settings.extend([
+                        pair("3", resize.pixels.to_string()),
+                        pair(
+                            "4",
+                            match resize.size_mode {
+                                CoverSizeMode::Maximum => "0",
+                                CoverSizeMode::Minimum => "1",
+                            }
+                            .into(),
+                        ),
+                        pair(
+                            "5",
+                            match resize.scale_mode {
+                                CoverScaleMode::Proportional => "0",
+                                CoverScaleMode::Square => "1",
+                                CoverScaleMode::CropSquare => "2",
+                            }
+                            .into(),
+                        ),
+                    ]);
+                }
+                settings
+            }
+            ActionSpec::SetCoverProperties {
+                picture_type,
+                description,
+                only_picture_type,
+            } => {
+                let mut settings = vec![
+                    pair("T", "1002".into()),
+                    pair("1", mta_picture_type(picture_type)?),
+                ];
+                if let Some(description) = description {
+                    settings.push(pair("2", description.clone()));
+                }
+                settings.push(pair("3", mta_picture_type(only_picture_type)?));
+                settings
+            }
+            ActionSpec::GeneratePlaylists {
+                filename_template,
+                partition_template,
+            } => vec![
+                pair("T", "1003".into()),
+                pair("F", filename_template.clone()),
+                pair("1", partition_template.clone()),
+            ],
             ActionSpec::UnresolvedMta { properties, .. } => {
                 let mut ordered: Vec<(String, String)> = ["T", "F"]
                     .iter()
@@ -1576,26 +1947,6 @@ pub fn export_mta(group: &ActionGroup) -> Result<String, String> {
                         .map(|(key, value)| (key.clone(), value.clone())),
                 );
                 ordered
-            }
-            other => {
-                let name = match other {
-                    ActionSpec::AdjustCover { .. } => "Adjust Cover",
-                    ActionSpec::CaseConversion { .. } => "Case Conversion (this mode)",
-                    ActionSpec::ConvertCodepage { .. } => "Convert Codepage",
-                    ActionSpec::Export { .. } => "Export",
-                    ActionSpec::ExportCover { .. } => "Export Cover to File",
-                    ActionSpec::GeneratePlaylists { .. } => "Generate Playlists",
-                    ActionSpec::ImportCover { .. } => "Import Cover from File",
-                    ActionSpec::ImportTextFile { .. } => "Import Text File",
-                    ActionSpec::RemoveDuplicateFields { .. } => "Remove Duplicate Fields",
-                    ActionSpec::RegexReplace { .. } => "Replace with Regular Expression",
-                    ActionSpec::SetCoverProperties { .. } => "Set Cover Properties",
-                    _ => "This action",
-                };
-                return Err(format!(
-                    "Action {}: {name} has no verified .mta settings schema",
-                    index + 1
-                ));
             }
         };
         out.push_str(&format!("[#{index}]\r\n"));
@@ -1861,7 +2212,8 @@ mod tests {
             effects,
             [ActionEffect::RenameFile {
                 filename: "old.FLAC".into(),
-                includes_extension: true
+                includes_extension: true,
+                origin: NameOrigin::Edited,
             }]
         );
         let mut second = state();
@@ -1880,8 +2232,99 @@ mod tests {
             effects,
             [ActionEffect::RenameFile {
                 filename: "new".into(),
-                includes_extension: false
+                includes_extension: false,
+                origin: NameOrigin::Edited,
             }]
+        );
+    }
+    #[test]
+    fn filename_targets_use_filename_mode_and_record_their_origin() {
+        let mut state = state();
+        state
+            .fields
+            .insert("TITLE".into(), vec!["AC/DC: Live".into()]);
+        let effects = apply_action_spec(
+            &mut state,
+            &ActionSpec::FormatValue {
+                field: "_filename".into(),
+                template: "Live\\%title%.flac".into(),
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            effects,
+            [ActionEffect::RenameFile {
+                filename: "Live\\AC_DC_ Live.flac".into(),
+                includes_extension: false,
+                origin: NameOrigin::Template,
+            }]
+        );
+        let effects = apply_action_spec(
+            &mut state,
+            &ActionSpec::FormatValue {
+                field: "_DIRECTORY".into(),
+                template: "%title%".into(),
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            effects,
+            [ActionEffect::RenameDirectory {
+                directory: "AC_DC_ Live".into(),
+                origin: NameOrigin::Template,
+            }]
+        );
+        // Guessed text stays raw here; the host replaces its separators.
+        let effects = apply_action_spec(
+            &mut state,
+            &ActionSpec::GuessValues {
+                source: "%title%".into(),
+                pattern: "%_filename%".into(),
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            effects,
+            [ActionEffect::RenameFile {
+                filename: "AC/DC: Live".into(),
+                includes_extension: false,
+                origin: NameOrigin::Value,
+            }]
+        );
+    }
+    #[test]
+    fn field_name_actions_accept_the_displayed_ape_and_vorbis_tags() {
+        let action = ActionSpec::CaseConversion {
+            field: "_FIELDNAME".into(),
+            mode: CaseMode::Upper,
+            word_separators: String::new(),
+        };
+        for (tag, read, accepted) in [
+            ("ID3v1 APEv2", "APEv2", true),
+            ("VorbisComment", "VorbisComment", true),
+            ("ID3v2.3 ID3v1", "ID3v2.3", false),
+            ("MP4", "MP4", false),
+        ] {
+            let mut state = state();
+            state.context.insert("_TAG".into(), vec![tag.into()]);
+            state.context.insert("_TAG_READ".into(), vec![read.into()]);
+            let result = apply_action_spec(&mut state, &action);
+            assert_eq!(result.is_ok(), accepted, "{read}: {result:?}");
+            if accepted {
+                assert!(
+                    state.fields.contains_key("ARTIST") && !state.fields.contains_key("Artist")
+                );
+            }
+        }
+        let mut state = state();
+        state.fields = Fields::from([("Artist".into(), vec!["Ada".into()])]);
+        state
+            .context
+            .insert("_TAG_READ".into(), vec!["APEv2".into()]);
+        apply_action_spec(&mut state, &action).unwrap();
+        assert_eq!(
+            state.fields,
+            Fields::from([("ARTIST".into(), vec!["Ada".into()])])
         );
     }
     #[test]
@@ -2177,7 +2620,10 @@ mod tests {
     fn mta_unknown_types_flags_and_modes_are_retained_without_guessing() {
         for text in [
             "[#0]\nT=44\nF=TITLE\n1=test",
-            "[#0]\nT=1\nF=TITLE\n1=3\n2=",
+            "[#0]\nT=1\nF=TITLE\n1=7\n2=",
+            "[#0]\nT=4\nF=TITLE\n1=a\n3=yes",
+            "[#0]\nT=12\nF=cover.jpg\n1=21",
+            "[#0]\nT=5\nF=TITLE\n1=x\n9=extra",
             "[#0]\nT=2\nF=TITLE\n1=a\n2=b\n3=2|1",
         ] {
             let import = import_mta("Unknown".into(), text.as_bytes(), None).unwrap();
@@ -2351,7 +2797,7 @@ mod tests {
     #[test]
     fn mta_export_roundtrips_every_verified_schema_and_unresolved_record() {
         let mut unresolved = BTreeMap::new();
-        unresolved.insert("T".to_string(), "11".to_string());
+        unresolved.insert("T".to_string(), "44".to_string());
         unresolved.insert("F".to_string(), "TITLE".to_string());
         unresolved.insert("1".to_string(), "1251".to_string());
         let group = ActionGroup {
@@ -2393,7 +2839,7 @@ mod tests {
                     fields: vec!["TITLE".into(), "ARTIST".into()],
                 },
                 ActionSpec::UnresolvedMta {
-                    type_id: "11".into(),
+                    type_id: "44".into(),
                     properties: unresolved,
                     reason: "unverified".into(),
                 },
@@ -2417,26 +2863,118 @@ mod tests {
         );
     }
     #[test]
-    fn mta_export_rejects_unverified_schemas_and_line_breaks() {
+    fn mta_roundtrips_every_action_type() {
+        let actions = vec![
+            ActionSpec::CaseConversion {
+                field: "TITLE".into(),
+                mode: CaseMode::Upper,
+                word_separators: String::new(),
+            },
+            ActionSpec::CaseConversion {
+                field: "TITLE".into(),
+                mode: CaseMode::Lower,
+                word_separators: String::new(),
+            },
+            ActionSpec::CaseConversion {
+                field: "_FILENAME".into(),
+                mode: CaseMode::Sentence,
+                word_separators: " ".into(),
+            },
+            ActionSpec::RegexReplace {
+                field: "TITLE".into(),
+                pattern: "\\s+\\(live\\)$".into(),
+                replacement: String::new(),
+                case_sensitive: true,
+            },
+            ActionSpec::RemoveDuplicateFields {
+                field: "_TAG".into(),
+                only_same_content: true,
+            },
+            ActionSpec::ConvertCodepage {
+                field: "_ALL".into(),
+                codepage: "1251".into(),
+            },
+            ActionSpec::ImportCover {
+                filename_template: "%_folderpath%folder.jpg".into(),
+                picture_type: Some("CoverBack".into()),
+                delete_existing: true,
+            },
+            ActionSpec::ImportCover {
+                filename_template: "cover.jpg".into(),
+                picture_type: None,
+                delete_existing: false,
+            },
+            ActionSpec::ExportCover {
+                filename_template: "%album%".into(),
+                picture_type: Some("CoverFront".into()),
+                export_duplicates: true,
+            },
+            ActionSpec::ImportTextFile {
+                field: "LYRICS".into(),
+                filename_template: "%_filename%.txt".into(),
+            },
+            ActionSpec::Export {
+                template: "HTML List".into(),
+                filename_template: "%_folderpath%list.html".into(),
+                append: true,
+                partition_template: Some("%album%".into()),
+            },
+            ActionSpec::Export {
+                template: "Text".into(),
+                filename_template: String::new(),
+                append: false,
+                partition_template: None,
+            },
+            ActionSpec::AdjustCover {
+                format: CoverImageFormat::Jpeg,
+                quality: 85,
+                resize: Some(CoverResize {
+                    pixels: 500,
+                    size_mode: CoverSizeMode::Minimum,
+                    scale_mode: CoverScaleMode::CropSquare,
+                }),
+            },
+            ActionSpec::AdjustCover {
+                format: CoverImageFormat::Original,
+                quality: 90,
+                resize: None,
+            },
+            ActionSpec::SetCoverProperties {
+                picture_type: Some("CoverFront".into()),
+                description: Some(String::new()),
+                only_picture_type: Some("Other".into()),
+            },
+            ActionSpec::SetCoverProperties {
+                picture_type: None,
+                description: None,
+                only_picture_type: None,
+            },
+            ActionSpec::GeneratePlaylists {
+                filename_template: "%album%.m3u".into(),
+                partition_template: "%_folderpath%".into(),
+            },
+        ];
+        let group = ActionGroup {
+            name: "Every type".into(),
+            enabled: true,
+            actions: actions.clone(),
+        };
+        let text = export_mta(&group).unwrap();
+        assert!(text.contains("[#6]\r\nT=12\r\nF=%_folderpath%folder.jpg\r\n1=4\r\n2=1\r\n"));
+        assert!(text.contains("[#0]\r\nT=1\r\nF=TITLE\r\n1=3\r\n2=\r\n"));
+        let imported = import_mta("Every type".into(), text.as_bytes(), None).unwrap();
+        assert!(imported.issues.is_empty(), "{:?}", imported.issues);
+        assert!(imported.group.enabled);
+        assert_eq!(imported.group.actions, actions);
+    }
+
+    #[test]
+    fn mta_export_rejects_line_breaks() {
         let group = |action| ActionGroup {
             name: "x".into(),
             enabled: true,
             actions: vec![action],
         };
-        assert!(export_mta(&group(ActionSpec::CaseConversion {
-            field: "TITLE".into(),
-            mode: CaseMode::Upper,
-            word_separators: String::new(),
-        }))
-        .unwrap_err()
-        .contains("Case Conversion"));
-        assert!(export_mta(&group(ActionSpec::ImportCover {
-            filename_template: "cover.jpg".into(),
-            picture_type: None,
-            delete_existing: false,
-        }))
-        .unwrap_err()
-        .contains("Import Cover from File"));
         assert!(export_mta(&group(ActionSpec::FormatValue {
             field: "COMMENT".into(),
             template: "a\nb".into(),

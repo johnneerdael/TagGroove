@@ -172,6 +172,8 @@ fn evaluate(
                 .expect("every listed file is cached");
             file.fields
                 .insert("_COUNTER".into(), vec![(index + 1).to_string()]);
+            file.fields
+                .insert("_APP".into(), vec![crate::evaluation::app_name()]);
             let raw = file.raw.as_ref().unwrap_or(&file.fields);
             if settings.matches(&filter, &file.fields, raw, path)? {
                 matching.push(path.clone());
@@ -231,6 +233,27 @@ mod tests {
                 .unwrap()
                 .matches,
             ["2"]
+        );
+        // Application and working-folder placeholders come from the context.
+        assert_eq!(
+            cache
+                .matches("_APP HAS opentag", request(None, vec![]), settings)
+                .unwrap()
+                .matches,
+            ["1", "2"]
+        );
+        let in_rock = |columns| {
+            Ok(EvaluationSettings {
+                working_directory: Some("/music/rock".into()),
+                ..settings(columns)?
+            })
+        };
+        assert_eq!(
+            cache
+                .matches("\"%_workingdir%\" IS rock", request(None, vec![]), in_rock)
+                .unwrap()
+                .matches,
+            ["1", "2"]
         );
         // Column snapshots are kept per file.
         assert_eq!(

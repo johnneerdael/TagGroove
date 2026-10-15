@@ -1,8 +1,10 @@
 export type ListCommand='unselect-all'|'invert-selection'|'select-next'|'select-similar'|'select-next-similar'|'remove-from-list'|'refresh'|'find'|'edit-cell'|'filter-focus';
 type KeyInput={key:string;code?:string;ctrlKey:boolean;metaKey:boolean;shiftKey:boolean;altKey:boolean};
 
-/** Mp3tag File List shortcuts (Ctrl on Windows/Linux, Cmd on macOS). */
-export function listShortcut(event:KeyInput,typing:boolean):ListCommand|undefined{
+/** Mp3tag File List shortcuts (Ctrl on Windows/Linux, Cmd on macOS). Mac keyboards
+ * label Backspace "delete" and most have no forward Delete key, so ⌫ also removes
+ * files from the list there (⌘⌫ deletes them, as in Finder). */
+export function listShortcut(event:KeyInput,typing:boolean,mac=false):ListCommand|undefined{
   const command=event.ctrlKey||event.metaKey,key=event.key.length===1?event.key.toLowerCase():event.key;
   if(event.altKey)return undefined;
   if(!command&&!event.shiftKey){
@@ -10,7 +12,7 @@ export function listShortcut(event:KeyInput,typing:boolean):ListCommand|undefine
     if(key==='F3')return 'filter-focus';
     if(typing)return undefined;
     if(key==='F2')return 'edit-cell';
-    if(key==='Delete')return 'remove-from-list';
+    if(key==='Delete'||(mac&&key==='Backspace'))return 'remove-from-list';
     return undefined;
   }
   if(!command)return undefined;

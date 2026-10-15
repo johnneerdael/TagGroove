@@ -202,7 +202,7 @@ export class ColumnValueCache{
 const ariaSort=(sort:SortKey[],id:string)=>{const key=sort.find(item=>item.id===id);return key?key.ascending?'ascending':'descending':'none';};
 const sortLabel=(column:ColumnDef,sort:SortKey[])=>`${html(column.name)}${sortIndicator(sort,column.id)}`;
 export function headerMarkup(columns:ColumnDef[],sort:SortKey[]){
-  return columns.map(column=>`<th style="width:${column.width}px" data-col="${html(column.id)}" class="align-${column.align}" aria-sort="${ariaSort(sort,column.id)}"><button data-sort="${html(column.id)}" title="${html(`${column.name} — click to sort, Shift+click to add a sort criterion`)}">${sortLabel(column,sort)}</button><span class="col-resize" data-resize="${html(column.id)}" aria-hidden="true"></span></th>`).join('');
+  return columns.map(column=>`<th style="width:${column.width}px" data-col="${html(column.id)}" class="align-${column.align}" aria-sort="${ariaSort(sort,column.id)}"><button data-sort="${html(column.id)}" title="${html(`${column.name} — click to sort, Shift+click to add a sort criterion`)}">${sortLabel(column,sort)}</button><span class="col-resize" data-resize="${html(column.id)}" aria-hidden="true" title="Drag to resize; double-click to fit the contents"></span></th>`).join('');
 }
 /** Show `sort` in header cells made by `headerMarkup`, keeping the cells and their listeners. */
 export function updateSortHeader(cells:Iterable<HTMLElement>,columns:ColumnDef[],sort:SortKey[]){
@@ -219,6 +219,8 @@ export type ColumnUIHost={
   importLayout:()=>Promise<ColumnLayout|null>;
   exportLayout:(layout:ColumnLayout)=>Promise<boolean>;
   preview?:(template:string)=>Promise<string>;
+  /** Size columns to their contents (double-click on a header divider). */
+  autoSize?:(ids:string[])=>void;
   report:(error:unknown)=>void;
 };
 export class ColumnUI{
@@ -263,6 +265,7 @@ export class ColumnUI{
       const end=()=>{handle.removeEventListener('pointermove',move);th.classList.remove('resizing');if(width!==initial)void this.change(resizeColumn(this.host.layout(),id,width));};
       handle.addEventListener('pointermove',move);handle.addEventListener('pointerup',end,{once:true});handle.addEventListener('pointercancel',end,{once:true});
     }));
+    head.querySelectorAll<HTMLElement>('[data-resize]').forEach(handle=>handle.addEventListener('dblclick',event=>{event.preventDefault();event.stopPropagation();this.host.autoSize?.([handle.dataset.resize!]);}));
     head.querySelectorAll<HTMLElement>('th[data-col]').forEach(th=>th.addEventListener('pointerdown',event=>{
       if(event.button!==0||(event.target as Element).closest('[data-resize]'))return;
       const start=event.clientX,id=th.dataset.col!;let dragging=false,target:{id:string;after:boolean}|undefined;

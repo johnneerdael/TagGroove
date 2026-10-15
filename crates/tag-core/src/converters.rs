@@ -59,6 +59,8 @@ impl FilenameConverter {
             environment: context.environment,
             app_directory: context.app_directory,
             app_data_directory: context.app_data_directory,
+            working_directory: context.working_directory,
+            folder_separator: context.folder_separator,
         };
         let mut target = self.new_pattern.evaluate_filename_with_context(&context)?;
         let leaf = basename(&target);
@@ -70,7 +72,10 @@ impl FilenameConverter {
         }
         let original_name = basename(source);
         if let Some(dot) = original_name.rfind('.').filter(|index| *index > 0) {
-            target.push_str(&original_name[dot..]);
+            // A pattern that already spells the extension does not get it twice.
+            if !ends_with_extension(&target, &original_name[dot..]) {
+                target.push_str(&original_name[dot..]);
+            }
         }
         if target.len() > context.max_output_bytes {
             return Err("Filename converter output limit exceeded".into());
@@ -81,6 +86,13 @@ impl FilenameConverter {
             captures,
         })
     }
+}
+
+/// Whether `name` ends with `extension` (including its dot), ignoring case.
+pub fn ends_with_extension(name: &str, extension: &str) -> bool {
+    name.len() > extension.len()
+        && name.is_char_boundary(name.len() - extension.len())
+        && name[name.len() - extension.len()..].eq_ignore_ascii_case(extension)
 }
 
 /// Translate only unquoted numbered references in generating patterns. Matching
