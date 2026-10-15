@@ -1277,7 +1277,9 @@ fn function(
         }
         "regexp" => {
             arity(name, a, 3, 4)?;
-            regex(a[1], a.get(3) == Some(&"1"))?.replace(a[0], a[2])?
+            // Case is ignored unless the fourth argument is 0; inline `(?-i)`
+            // and `(?i)` still override either default through Boost.
+            regex(a[1], a.get(3).is_none_or(|flag| *flag != "0"))?.replace(a[0], a[2])?
         }
         "strstr" | "strrstr" | "strchr" | "strrchr" => {
             arity(name, a, 2, 2)?;
