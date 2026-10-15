@@ -1271,9 +1271,10 @@ mod tests {
     fn export_cover_appends_or_replaces_the_image_extension() {
         let png = b"\x89PNG\r\n\x1a\n".as_slice();
         let target = |name: &str, mime: &str, bytes: &[u8]| {
+            // Windows rebuilds the path with `\`; compare in one separator style.
             cover_file_target(PathBuf::from(name), mime, bytes)
                 .to_string_lossy()
-                .into_owned()
+                .replace('\\', "/")
         };
         assert_eq!(target("art/Vol. 2", "image/jpeg", &[]), "art/Vol. 2.jpg");
         assert_eq!(target("cover", "image/png", &[]), "cover.png");
