@@ -6,6 +6,8 @@ export type TagOptions={
   ape:{read_id3v1:boolean;read_ape:boolean;write_id3v1:boolean;write_ape:boolean;remove_id3v1:boolean;remove_id3v2:boolean;remove_ape:boolean};
   advanced:{id3v2_comment_language:string;popularimeter_ratings:boolean;matroska_video_mapping:boolean};
   preserve_modified_time:boolean;
+  /** Options → Tags → Mapping, edited by the page in field-mapping.ts. */
+  mappings:{tag_type:string;source:string;target:string}[];
 };
 export type Settings={version:number;general:{natural_sort:boolean;show_directory_in_title:boolean};files:{restrict_extensions:string};directories:{subfolders:boolean};tags:TagOptions;pages:Record<string,Record<string,unknown>>};
 export type SettingsResponse={settings:Settings;defaults:Settings;warning:string|null};
@@ -34,9 +36,9 @@ export type OptionsHost={
 };
 
 export const defaultSettings=():Settings=>({version:1,general:{natural_sort:true,show_directory_in_title:true},files:{restrict_extensions:''},directories:{subfolders:true},
-  tags:{mpeg:{read_id3v1:true,read_id3v2:true,read_ape:true,write_id3v1:true,write_id3v2:true,write_ape:false,id3v2_only_if_needed:false,id3v2_format:'v23_utf16',remove_id3v1:false,remove_id3v2:false,remove_ape:true},
-    ape:{read_id3v1:true,read_ape:true,write_id3v1:false,write_ape:true,remove_id3v1:false,remove_id3v2:false,remove_ape:false},
-    advanced:{id3v2_comment_language:'eng',popularimeter_ratings:false,matroska_video_mapping:true},preserve_modified_time:false},pages:{}});
+  tags:{mpeg:{read_id3v1:true,read_id3v2:true,read_ape:true,write_id3v1:true,write_id3v2:true,write_ape:false,id3v2_only_if_needed:false,id3v2_format:'v23_utf16',remove_id3v1:true,remove_id3v2:true,remove_ape:true},
+    ape:{read_id3v1:true,read_ape:true,write_id3v1:false,write_ape:true,remove_id3v1:true,remove_id3v2:false,remove_ape:true},
+    advanced:{id3v2_comment_language:'eng',popularimeter_ratings:false,matroska_video_mapping:true},preserve_modified_time:false,mappings:[]},pages:{}});
 
 /** pages.general: General options beyond the window title and sorting. */
 export const GENERAL_DEFAULTS={auto_select_next:false,autocomplete:true,select_added:false,keep_moved:true};
@@ -102,7 +104,8 @@ export function naturalCollator(settings:Settings){return new Intl.Collator(unde
 export function windowTitle(location:string,settings:Settings){return settings.general.show_directory_in_title&&location&&location!=='No folder loaded'?`OpenTag — ${location}`:'OpenTag';}
 
 const tagRead=(prefix:string,kinds:[string,string][]):OptionControl=>({kind:'group',label:'Read',controls:kinds.map(([key,label])=>({kind:'checkbox',path:`tags.${prefix}.read_${key}`,label}))});
-const tagRemove=(prefix:string):OptionControl=>({kind:'group',label:'Remove when saving',controls:[['id3v1','ID3v1'],['id3v2','ID3v2'],['ape','APE']].map(([key,label])=>({kind:'checkbox',path:`tags.${prefix}.remove_${key}`,label}))});
+const tagRemove=(prefix:string):OptionControl=>({kind:'group',label:'Remove',controls:[...[['id3v1','ID3v1'],['id3v2','ID3v2'],['ape','APE']].map(([key,label]):OptionControl=>({kind:'checkbox',path:`tags.${prefix}.remove_${key}`,label})),
+  {kind:'note',text:'File → Remove tag (⌘/Ctrl R) removes these tag types. Saving also removes a checked type that is not written.'}]});
 for(const page of [
   {id:'general',label:'General',order:10,defaults:{...GENERAL_DEFAULTS},controls:[
     {kind:'checkbox',path:'general.show_directory_in_title',label:'Show current directory in window title'},
@@ -126,7 +129,7 @@ for(const page of [
     {kind:'checkbox',path:'pages.tags.save_on_move',label:'Save tags when using arrow keys or a single mouse click'},
     {kind:'checkbox',path:'pages.tags.no_folder_image',label:'Don’t display first image from file directory as cover art'},
     {kind:'note',text:'Saving on selection change writes pending tag panel edits when you move to another file with the mouse, the arrow keys in the file list or Select next file. Without embedded cover art, the cover pane shows the first image of the file’s folder; that image is not embedded.'},
-    {kind:'note',text:'Mpeg applies to MP3 files. Ape, Mpc applies to Monkey’s Audio, Musepack and WavPack files. Other formats always use their native tag.'}]},
+    {kind:'note',text:'Mpeg applies to MP3 files. Ape, Mpc applies to Monkey’s Audio, Musepack and WavPack files. Other formats always use their native tag, and Remove tag removes all of their tags.'}]},
   {id:'tags-mpeg',parent:'tags',label:'Mpeg',order:10,description:'Only one tag type is displayed: APE before ID3v2 before ID3v1, among the types enabled for reading.',controls:[
     tagRead('mpeg',[['id3v1','ID3v1'],['id3v2','ID3v2'],['ape','APE']]),
     {kind:'group',label:'Write',controls:[

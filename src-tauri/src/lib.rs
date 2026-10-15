@@ -480,7 +480,13 @@ async fn save_fields_batch(
                         let changes = plan.as_ref().map_err(Clone::clone)?;
                         tag_core::apply_cover_changes_with_options(p, changes, &options)?;
                     }
-                    tag_core::write_fields_with_options(p, &item.updates, false, &[], &options)
+                    tag_core::write_fields_with_options(
+                        p,
+                        &item.updates,
+                        false,
+                        &options.mappings,
+                        &options,
+                    )
                 })
             });
             let mut result = ScanResult::default();

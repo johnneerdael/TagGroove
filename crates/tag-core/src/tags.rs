@@ -779,7 +779,7 @@ pub fn scan_paths_with_progress(
     }
     progress.start(unique.len());
     let read = crate::parallel::map_ordered(&unique, progress, |canonical| {
-        read_entry_summary_with_options(canonical, &[], options)
+        read_entry_summary_with_options(canonical, &options.mappings, options)
     });
     for (canonical, outcome) in unique.iter().zip(read) {
         match outcome {
@@ -897,7 +897,13 @@ fn staged_mutation<F>(
 where
     F: FnOnce(&mut fs::File, TaggedFile, &Path) -> Result<(), String>,
 {
-    staged_mutation_with_mappings(path, include_cover_data, &[], options, mutation)
+    staged_mutation_with_mappings(
+        path,
+        include_cover_data,
+        &options.mappings,
+        options,
+        mutation,
+    )
 }
 
 fn staged_mutation_with_mappings<F>(
@@ -1190,20 +1196,15 @@ fn save_preserving_native(
         }
         TagType::RiffInfo => {
             let mut native = originals.riff.unwrap_or_default();
+            // Fields without a RIFF id live only in the ID3v2 chunk, which
+            // every WAV write also updates.
             for (name, values) in updates {
-                let key = field_mapping(name)
-                    .map(|r| r.riff)
-                    .filter(|s| !s.is_empty())
-                    .or_else(|| (name.len() == 4).then_some(name.as_str()));
-                let Some(key) = key else {
+                let Some(key) = riff_key(name) else {
                     continue;
                 };
-                if values.len() > 1 {
-                    return Err(format!("RIFF {name} supports one text value"));
-                }
                 native.remove(key);
-                if let Some(value) = values.first() {
-                    native.insert(key.to_owned(), value.clone());
+                if !values.is_empty() {
+                    native.insert(key.to_owned(), values.join(RIFF_SEPARATOR));
                 }
             }
             staging
@@ -1239,6 +1240,23 @@ fn save_preserving_native(
             tag.save_to(staging, WriteOptions::default())
                 .map_err(|e| error_message(&e))
         }
+    }
+}
+
+/// RIFF INFO holds one string per id; multiple values are joined.
+const RIFF_SEPARATOR: &str = "; ";
+
+/// The RIFF INFO id of a field: its documented mapping, or a field read from
+/// an INFO id that has no mapping (for example `IENG`).
+fn riff_key(name: &str) -> Option<&str> {
+    match field_mapping(name) {
+        Some(mapping) => (!mapping.riff.is_empty()).then_some(mapping.riff),
+        None => (name.len() == 4
+            && name.starts_with('I')
+            && name
+                .bytes()
+                .all(|b| b.is_ascii_uppercase() || b.is_ascii_digit()))
+        .then_some(name),
     }
 }
 
@@ -1384,6 +1402,29 @@ fn write_fields_result(
             }
             let primary = file.primary_tag_type();
             let updates = normalized_updates(updates, primary)?;
+            // WAV files carry RIFF INFO and ID3v2 (file-formats). A new INFO
+            // chunk starts from every displayed value that has a RIFF id.
+            let mut seeded = None;
+            if file.file_type() == FileType::Wav && file.tag(TagType::RiffInfo).is_none() {
+                let mut values = Fields::new();
+                let native = native_tags(staging, FileType::Wav)?;
+                for tag in ordered_tags(&file) {
+                    for (key, list) in tag_fields(tag, &native, rules, options)? {
+                        values.entry(key).or_insert(list);
+                    }
+                }
+                for (name, list) in &updates {
+                    values.retain(|key, _| !key.eq_ignore_ascii_case(name));
+                    values.insert(name.clone(), list.clone());
+                }
+                if map_write_fields(&values, TagType::RiffInfo, rules)?
+                    .iter()
+                    .any(|(name, list)| !list.is_empty() && riff_key(name).is_some())
+                {
+                    file.insert_tag(Tag::new(TagType::RiffInfo));
+                    seeded = Some(values);
+                }
+            }
             if file.primary_tag().is_none() {
                 file.insert_tag(Tag::new(primary));
             }
@@ -1395,8 +1436,12 @@ fn write_fields_result(
                 .collect();
             for kind in types {
                 let tag = file.remove(kind).ok_or("Tag disappeared during editing")?;
+                let source = match &seeded {
+                    Some(values) if kind == TagType::RiffInfo => values,
+                    _ => &updates,
+                };
                 let native_updates =
-                    normalized_updates(&map_write_fields(&updates, kind, rules)?, kind)?;
+                    normalized_updates(&map_write_fields(source, kind, rules)?, kind)?;
                 save_preserving_native(
                     staging,
                     file.file_type(),
@@ -1432,9 +1477,15 @@ pub fn strip_mp4_chapters_with_options(
             .and_then(|p| p.guess_file_type().ok())
             .is_some_and(|p| p.file_type() == Some(FileType::Mp4));
     if !mp4 || mp4_chapters::scan(path)?.list.is_empty() {
-        return read_description(path, include_cover_data, &[], options);
+        return read_description(path, include_cover_data, &options.mappings, options);
     }
-    staged_write(path, include_cover_data, &[], options, mp4_chapters::strip)
+    staged_write(
+        path,
+        include_cover_data,
+        &options.mappings,
+        options,
+        mp4_chapters::strip,
+    )
 }
 
 pub fn remove_tags(path: &Path) -> Result<AudioEntry, String> {
@@ -1445,8 +1496,9 @@ pub fn remove_tags_summary(path: &Path) -> Result<AudioEntry, String> {
     remove_tags_result(path, false, &TagOptions::default())
 }
 
-/// Remove every tag kind. The options control the returned description and
-/// whether the modification time is preserved.
+/// File → Remove tag: strip the kinds chosen under Options → Tags (MPEG and
+/// APE-family files) or every tag kind (other formats). Files without such a
+/// tag are left untouched.
 pub fn remove_tags_with_options(
     path: &Path,
     include_cover_data: bool,
@@ -1466,14 +1518,16 @@ fn remove_tags_result(
     if let Some(kind) = container_formats::detect(path) {
         return container_formats::remove_tags(path, kind, include_cover_data, options);
     }
+    if tag_policy::removed_kinds(&load(path)?, options)?.is_empty() {
+        return read_description(path, include_cover_data, &options.mappings, options);
+    }
     staged_mutation(path, include_cover_data, options, |staging, file, _| {
-        for tag in file.tags() {
+        for kind in tag_policy::removed_kinds(&file, options)? {
             staging
                 .seek(SeekFrom::Start(0))
                 .map_err(|e| e.to_string())?;
             crate::write_cost::rewrote_all();
-            tag.tag_type()
-                .remove_from(staging, WriteOptions::default())
+            kind.remove_from(staging, WriteOptions::default())
                 .map_err(|e| e.to_string())?;
         }
         Ok(())
@@ -1613,7 +1667,7 @@ fn add_picture_result(
                 let written = tag_policy::write(
                     staging,
                     &file,
-                    &[],
+                    &options.mappings,
                     options,
                     tag_policy::Change::Pictures(pictures.clone()),
                 )?;
@@ -1718,7 +1772,7 @@ fn remove_cover_result(
                 let written = tag_policy::write(
                     staging,
                     &file,
-                    &[],
+                    &options.mappings,
                     options,
                     tag_policy::Change::Pictures(pictures.clone()),
                 )?;

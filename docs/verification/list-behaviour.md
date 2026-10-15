@@ -25,10 +25,10 @@ No option for copying artwork is documented, so none was added.
 
 ## Checks
 
-- `cargo test --workspace --locked`: 506 passed (new: `list_behaviour::tests::folder_image_is_the_first_image_by_name_and_never_written`, `list_behaviour::tests::pending_covers_resolve_from_the_clipboard_store`, `tests::saving_pasted_tags_writes_and_removes_copied_covers`).
+- `cargo test --workspace --locked`: 513 passed after merging `feat/core-parity` @ cf1c48d (new: `list_behaviour::tests::folder_image_is_the_first_image_by_name_and_never_written`, `list_behaviour::tests::pending_covers_resolve_from_the_clipboard_store`, `tests::saving_pasted_tags_writes_and_removes_copied_covers`).
 - `cargo clippy --workspace --all-targets --locked -- -D warnings`: clean. `cargo fmt --all -- --check`: clean.
 - `npx tsc --noEmit`: clean.
-- `node --test tests/*.test.mjs`: 226 passed (new `tests/list-behaviour.test.mjs`, 11 tests; `tests/document-coordination.test.mjs` harness updated for the pending-cover state).
+- `node --test tests/*.test.mjs`: 231 passed (new `tests/list-behaviour.test.mjs`, 11 tests; `tests/document-coordination.test.mjs` harness updated for the pending-cover state).
 - Native e2e: `tests/e2e/list-behaviour.js` with `tests/e2e/list-behaviour-fixtures.sh` (folder.png and an MP3 with an embedded cover) added to the `native-e2e` suite list in `.github/workflows/build.yml`. CI only.
 
 ## Remaining gaps

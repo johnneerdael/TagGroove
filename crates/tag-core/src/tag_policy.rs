@@ -44,6 +44,36 @@ pub(super) fn read_order(kind: FileType, options: &TagOptions) -> Option<Vec<Tag
     )
 }
 
+/// Kinds File → Remove tag strips from `file`: the present kinds selected
+/// under Remove for MPEG and APE-family files, every present kind otherwise.
+pub(super) fn removed_kinds(
+    file: &TaggedFile,
+    options: &TagOptions,
+) -> Result<Vec<TagType>, String> {
+    let (selected, page) = match policy(file.file_type()) {
+        None => return Ok(file.tags().iter().map(Tag::tag_type).collect()),
+        Some(Policy::Mpeg) => {
+            let o = &options.mpeg;
+            ([o.remove_id3v1, o.remove_id3v2, o.remove_ape], "Mpeg")
+        }
+        Some(Policy::Ape) => {
+            let o = &options.ape;
+            ([o.remove_id3v1, o.remove_id3v2, o.remove_ape], "Ape, Mpc")
+        }
+    };
+    if !selected.contains(&true) {
+        return Err(format!(
+            "No tag types are selected under Options → Tags → {page} → Remove"
+        ));
+    }
+    Ok(selected
+        .into_iter()
+        .zip([TagType::Id3v1, TagType::Id3v2, TagType::Ape])
+        .filter(|(enabled, kind)| *enabled && file.tag(*kind).is_some())
+        .map(|(_, kind)| kind)
+        .collect())
+}
+
 /// Options that read exactly one tag kind, used to verify what was written.
 fn reading_only(options: &TagOptions, kind: TagType) -> TagOptions {
     let mut options = options.clone();
@@ -346,7 +376,8 @@ pub(super) fn verify_fields(
     written: TagType,
     updates: &Fields,
 ) -> Result<(), String> {
-    let entry = read_description(staged_path, false, rules, &reading_only(options, written))?;
+    // Native names: `native_updates` below are already mapped back to sources.
+    let entry = read_description(staged_path, false, &[], &reading_only(options, written))?;
     if written == TagType::Id3v1 {
         // ID3v1 truncates and drops values by design; only its presence is checked.
         return if entry.technical.contains_key("_TAG_READ") {

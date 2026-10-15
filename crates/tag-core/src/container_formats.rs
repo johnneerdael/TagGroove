@@ -272,7 +272,7 @@ pub(super) fn remove_tags(
         path,
         kind,
         include_cover_data,
-        &[],
+        &options.mappings,
         options,
         |_| Ok(Edit::Remove),
         "",
@@ -291,7 +291,7 @@ pub(super) fn add_cover(
         path,
         kind,
         include_cover_data,
-        &[],
+        &options.mappings,
         options,
         |current| {
             let mut pictures = current.pictures.clone();
@@ -316,7 +316,7 @@ pub(super) fn remove_cover(
         path,
         kind,
         include_cover_data,
-        &[],
+        &options.mappings,
         options,
         |current| {
             if index >= current.pictures.len() {
@@ -342,7 +342,7 @@ pub(super) fn set_covers(
         path,
         kind,
         false,
-        &[],
+        &options.mappings,
         options,
         |_| Ok(Edit::Pictures(pictures)),
         failure,
@@ -359,7 +359,7 @@ pub(super) fn transform_covers(
         path,
         kind,
         false,
-        &[],
+        &options.mappings,
         options,
         |current| {
             let mut pictures = Vec::new();
