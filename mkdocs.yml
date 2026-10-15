@@ -135,6 +135,11 @@ nav:
   - Home: index.md
   - Get started:
     - Your first tagging session: learn/first-tagging-session.md
+    - Build your first action group: learn/first-action-group.md
+    - Rename files and folders: learn/rename-files-and-folders.md
+  - Concepts:
+    - Multi-value fields: concepts/multi-value-fields.md
+    - Text encodings and codepages: concepts/text-encodings.md
   - Recipes:
     - Zero-padded track numbers: cookbook/rename-zero-padded-track-numbers.md
     - Tags from folder and file names: cookbook/tags-from-folder-and-filename.md
