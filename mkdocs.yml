@@ -135,6 +135,8 @@ nav:
   - Home: index.md
   - Get started:
     - Your first tagging session: learn/first-tagging-session.md
+    - Format strings from zero: learn/format-strings-from-zero.md
+    - Regular expressions from zero: learn/regex-from-zero.md
   - Recipes:
     - Zero-padded track numbers: cookbook/rename-zero-padded-track-numbers.md
     - Tags from folder and file names: cookbook/tags-from-folder-and-filename.md
