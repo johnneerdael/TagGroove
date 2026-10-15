@@ -191,7 +191,6 @@
  "Filename does not completely match the pattern",
  "Filename evaluates to an empty string",
  "Filename output limit exceeded",
- "Filename path has too few folders for the pattern",
  "Filename pattern contains no field placeholders",
  "Filename pattern input limit exceeded",
  "Filename transformation must produce one nonempty name",
