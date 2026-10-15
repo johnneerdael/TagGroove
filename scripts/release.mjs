@@ -16,7 +16,7 @@ export const FORMATS = {
 };
 export const PLATFORMS = Object.keys(FORMATS);
 
-export function releasePlan({ versions, head, expectedHead, tagCommit, tag, prerelease = true }) {
+export function releasePlan({ versions, head, expectedHead, tagCommit, tag, prerelease = false }) {
   const version = versions.package;
   const match = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/.exec(version);
   if (!match || match[4]?.split('.').some(part => /^0\d+$/.test(part))) throw new Error(`Invalid semantic version: ${version}`);
@@ -26,7 +26,9 @@ export function releasePlan({ versions, head, expectedHead, tagCommit, tag, prer
   if (!/^[a-f0-9]{40}$/.test(head) || head !== expectedHead) throw new Error('Checked-out commit does not match the selected workflow commit');
   if (tagCommit && tagCommit !== head) throw new Error('Existing release tag points at a different commit');
   if (typeof prerelease !== 'boolean') throw new Error('Prerelease selection must be boolean');
-  return { tag, version, commit: head, prerelease: prerelease || match[1] === '0' || Boolean(match[4]) };
+  // 0.x versions are full releases so they are easy to find and install;
+  // only an explicit request or a semver prerelease suffix (-beta.1) marks one.
+  return { tag, version, commit: head, prerelease: prerelease || Boolean(match[4]) };
 }
 
 export async function readVersions(root) {
@@ -132,7 +134,7 @@ export function releaseBody(plan, repository) {
 
 OpenTag — Tag, Organize, Enjoy.
 
-${plan.prerelease ? '**Development prerelease.**' : '**Release.**'} Source: [${plan.commit.slice(0, 12)}](https://github.com/${repository}/commit/${plan.commit}).
+${plan.prerelease ? '**Development prerelease.**' : `**Release${plan.version.startsWith('0.') ? ' (pre-1.0)' : ''}.**`} Source: [${plan.commit.slice(0, 12)}](https://github.com/${repository}/commit/${plan.commit}).
 Feature parity and runtime qualification remain tracked in the [parity ledger](https://github.com/${repository}/blob/${plan.tag}/docs/PARITY.md).
 
 | Download | Architecture | Signing / distribution |
@@ -232,7 +234,7 @@ async function main(command) {
   if (command === 'prepare') {
     const versions = await readVersions(root);
     const tag = process.env.RELEASE_TAG || `v${versions.package}`;
-    const prerelease = process.env.REQUESTED_PRERELEASE ? JSON.parse(process.env.REQUESTED_PRERELEASE) : true;
+    const prerelease = process.env.REQUESTED_PRERELEASE ? JSON.parse(process.env.REQUESTED_PRERELEASE) : false;
     const plan = releasePlan({ versions, tag, prerelease, head: git('rev-parse', 'HEAD'), expectedHead: git('rev-parse', `${process.env.GITHUB_SHA}^{commit}`), tagCommit: tagCommit(tag) });
     const api = new GitHubApi(process.env.GITHUB_REPOSITORY, process.env.GH_TOKEN);
     const existing = await api.findRelease(plan.tag);
@@ -242,7 +244,7 @@ async function main(command) {
     return;
   }
   const versions = await readVersions(root);
-  const plan = releasePlan({ versions, tag: process.env.RELEASE_TAG, prerelease: JSON.parse(process.env.RELEASE_PRERELEASE || 'true'), head: git('rev-parse', 'HEAD'), expectedHead: process.env.RELEASE_COMMIT, tagCommit: tagCommit(process.env.RELEASE_TAG) });
+  const plan = releasePlan({ versions, tag: process.env.RELEASE_TAG, prerelease: JSON.parse(process.env.RELEASE_PRERELEASE || 'false'), head: git('rev-parse', 'HEAD'), expectedHead: process.env.RELEASE_COMMIT, tagCommit: tagCommit(process.env.RELEASE_TAG) });
   const outputDir = resolve(process.env.RELEASE_ASSETS || 'release-assets');
   if (command === 'collect-desktop') {
     const sources = JSON.parse(process.env.TAURI_ARTIFACT_PATHS || '[]');

@@ -15,8 +15,9 @@ async function fixture(t) {
   return root;
 }
 
-test('version/tag/checkout policy rejects mismatches and forces development prereleases', () => {
-  assert.equal(plan().prerelease, true);
+test('version/tag/checkout policy rejects mismatches; 0.x is a release, suffixes are prereleases', () => {
+  assert.equal(plan().prerelease, false);
+  assert.equal(releasePlan({ ...planInput, prerelease: true }).prerelease, true);
   assert.equal(releasePlan({ ...planInput, tag: '', tagCommit: null }).tag, 'v0.1.0');
   const stable = { package: '1.2.3', cargo: '1.2.3', tauri: '1.2.3' };
   assert.equal(releasePlan({ ...planInput, versions: stable, tag: 'v1.2.3' }).prerelease, false);
