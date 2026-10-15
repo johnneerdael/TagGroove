@@ -13,7 +13,7 @@ ffmpeg -loglevel error -y -f lavfi \
 i=0
 while IFS='|' read -r file title seconds; do
   i=$((i + 1))
-  ffmpeg -loglevel error -y -f lavfi -i "sine=frequency=$((220 + 55 * i)):duration=$seconds" -i "$art/front.jpg" \
+  ffmpeg -nostdin -loglevel error -y -f lavfi -i "sine=frequency=$((220 + 55 * i)):duration=$seconds" -i "$art/front.jpg" \
     -map 0:a -map 1:v -c:a libmp3lame -b:a 192k -c:v copy -id3v2_version 3 -disposition:v attached_pic \
     -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" \
     -metadata title="$title" -metadata artist="Juniper Vale" -metadata album_artist="Juniper Vale" \
