@@ -1,0 +1,114 @@
+/* OpenTag palette on Material for MkDocs, for both colour schemes.
+   Brand tokens: assets/brand/OpenTag-Brand-Kit/brand-tokens.css.
+   Orange (#FF7800) is a highlight colour; on white it is too light for text,
+   so light-mode links use a darker burnt orange that passes WCAG AA. */
+:root {
+  --ot-ink: #101922;
+  --ot-paper: #FAFAFC;
+  --ot-amber: #FFC72C;
+  --ot-orange: #FF7800;
+  --ot-vermilion: #F23D0B;
+  --ot-gradient: linear-gradient(135deg, #FFE84A 0%, #FFB70B 33%, #FF7900 64%, #F13A08 100%);
+}
+
+/* Light (default) scheme */
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color: var(--ot-ink);
+  --md-primary-fg-color--light: #2a3644;
+  --md-primary-fg-color--dark: #0a1017;
+  --md-primary-bg-color: var(--ot-paper);
+  --md-primary-bg-color--light: rgba(250, 250, 252, 0.7);
+  --md-accent-fg-color: #D95F00;
+  --md-accent-fg-color--transparent: rgba(255, 120, 0, 0.1);
+  --md-accent-bg-color: #fff;
+  --md-default-bg-color: #ffffff;
+  --md-typeset-a-color: #B5420A;
+  --md-code-bg-color: #f5f3f0;
+  --md-typeset-mark-color: rgba(255, 199, 44, 0.45);
+  --ot-surface: #fbf8f4;
+  --ot-border: rgba(16, 25, 34, 0.12);
+}
+
+/* Dark (slate) scheme on the brand ink */
+[data-md-color-scheme="slate"] {
+  --md-hue: 210;
+  --md-primary-fg-color: #0a1118;
+  --md-primary-fg-color--light: #1b2734;
+  --md-primary-fg-color--dark: #060b10;
+  --md-primary-bg-color: var(--ot-paper);
+  --md-accent-fg-color: var(--ot-amber);
+  --md-accent-fg-color--transparent: rgba(255, 199, 44, 0.1);
+  --md-default-bg-color: var(--ot-ink);
+  --md-default-bg-color--light: #16212c;
+  --md-default-bg-color--lighter: #1d2a37;
+  --md-default-fg-color: rgba(250, 250, 252, 0.9);
+  --md-default-fg-color--light: rgba(250, 250, 252, 0.66);
+  --md-typeset-color: rgba(250, 250, 252, 0.88);
+  --md-typeset-a-color: #FF9A3C;
+  --md-code-bg-color: #182431;
+  --md-code-fg-color: #e6e9ee;
+  --md-typeset-mark-color: rgba(255, 120, 0, 0.35);
+  --md-footer-bg-color: #0a1118;
+  --md-footer-bg-color--dark: #060b10;
+  --ot-surface: #16212c;
+  --ot-border: rgba(250, 250, 252, 0.12);
+}
+
+/* Header: ink in both schemes, with the warm gradient as a thin rule */
+.md-header { box-shadow: none; border-bottom: 3px solid transparent; border-image: var(--ot-gradient) 1; }
+.md-tabs { background-color: var(--md-primary-fg-color); }
+.md-tabs__link { opacity: 0.78; }
+.md-tabs__link--active, .md-tabs__link:hover { opacity: 1; color: var(--ot-amber); }
+.md-header__button.md-logo img { height: 1.6rem; }
+
+/* Reading rhythm */
+.md-typeset { font-size: 0.8rem; line-height: 1.7; }
+.md-typeset h1 { font-weight: 800; letter-spacing: -0.02em; color: var(--md-default-fg-color); }
+.md-typeset h2 { font-weight: 700; letter-spacing: -0.01em; margin-top: 2em; }
+.md-typeset h3 { font-weight: 650; }
+.md-typeset .lead { font-size: 1.05em; color: var(--md-default-fg-color--light); margin-top: -0.4em; }
+
+/* Inline code in prose: a warm tint so placeholders stand out */
+.md-typeset :not(pre) > code { border-radius: 4px; padding: 0.05em 0.35em; }
+
+/* Keyboard keys */
+.md-typeset kbd { border-radius: 4px; font-size: 0.78em; }
+
+/* Tables */
+.md-typeset table:not([class]) { border-radius: 8px; font-size: 0.74rem; border: 1px solid var(--ot-border); }
+.md-typeset table:not([class]) th { background: var(--ot-surface); font-weight: 650; }
+.md-typeset table:not([class]) td { vertical-align: top; }
+/* Example tables: keep spaces in values visible and let long patterns wrap */
+.md-typeset table:not([class]) td code { white-space: pre-wrap; word-break: break-word; }
+
+/* Screenshots: framed, rounded, never upscaled past their width */
+.md-typeset img.screen, .md-typeset figure img { border-radius: 8px; border: 1px solid var(--ot-border); box-shadow: 0 8px 28px rgba(16, 25, 34, 0.16); }
+.md-typeset figure { margin: 1.4em auto; }
+.md-typeset figcaption { font-size: 0.72rem; color: var(--md-default-fg-color--light); max-width: 46rem; }
+
+/* Home hero */
+.ot-hero { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 2rem; align-items: center; margin: 0.5rem 0 2.2rem; }
+.ot-hero__logo { max-width: 20rem; margin: 0 0 0.6rem; }
+.md-typeset .ot-hero h1 { font-size: 2rem; margin: 0 0 0.4rem; line-height: 1.2; }
+.ot-hero p { margin: 0 0 1rem; }
+.ot-hero .md-button { margin: 0.2rem 0.4rem 0.2rem 0; }
+.md-typeset .md-button--primary { background: var(--ot-gradient); border: 0; color: var(--ot-ink); font-weight: 700; }
+.md-typeset .md-button--primary:hover { filter: brightness(1.05); color: var(--ot-ink); }
+@media screen and (max-width: 60em) { .ot-hero { grid-template-columns: 1fr; } }
+
+/* Cards */
+.md-typeset .grid.cards > ul > li,
+.md-typeset .grid > .card { border-radius: 12px; border-color: var(--ot-border); background: var(--ot-surface); transition: border-color 0.2s, transform 0.2s; }
+.md-typeset .grid.cards > ul > li:hover { border-color: var(--ot-orange); transform: translateY(-2px); box-shadow: none; }
+.md-typeset .grid.cards .lg { color: var(--ot-orange); }
+
+/* Recipe summary box (cookbook pages) */
+.md-typeset .recipe-meta { display: flex; flex-wrap: wrap; gap: 0.4rem 1.4rem; border-left: 4px solid var(--ot-orange); background: var(--ot-surface); padding: 0.6rem 1rem; border-radius: 0 8px 8px 0; font-size: 0.74rem; margin: 0 0 1.4em; }
+.md-typeset .recipe-meta strong { color: var(--md-default-fg-color--light); font-weight: 600; margin-right: 0.3em; }
+
+/* "Draft" page status in the navigation */
+:root { --md-status--draft: url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.06 9 15 9.94 5.92 19H5v-.92zm3.6-6c-.25 0-.51.1-.7.29l-1.83 1.83 3.75 3.75 1.83-1.83a.996.996 0 0 0 0-1.41l-2.34-2.34c-.2-.2-.45-.29-.71-.29m-3.6 3.19L3 17.25V21h3.75L17.81 9.94z"/></svg>'); }
+.md-status--draft::after { mask-image: var(--md-status--draft); -webkit-mask-image: var(--md-status--draft); }
+
+/* Admonitions: slightly softer corners */
+.md-typeset .admonition, .md-typeset details { border-radius: 8px; }
