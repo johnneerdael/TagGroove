@@ -1,6 +1,6 @@
 //! Read-only format placeholders. Missing evidence stays absent; raw stored
 //! metadata is never populated with these values.
-use super::{CoverInfo, Fields, NativeTags};
+use super::{media_info::Stream, CoverInfo, Fields, NativeTags};
 use chrono::{DateTime, Local, Locale, Utc};
 use lofty::{
     file::{AudioFile, FileType, TaggedFile, TaggedFileExt},
@@ -193,6 +193,17 @@ fn timestamp(fields: &mut Fields, prefix: &str, time: SystemTime) {
     );
 }
 
+/// A timestamp placeholder: `name` as the long local date and time, and
+/// `name_RAW` as Unix seconds (the input of `$fmtDate`).
+pub(super) fn datetime(fields: &mut Fields, name: &str, unix_seconds: i64) {
+    let Some(utc) = DateTime::<Utc>::from_timestamp(unix_seconds, 0) else {
+        return;
+    };
+    let local: DateTime<Local> = utc.with_timezone(&Local);
+    put(fields, &format!("{name}_RAW"), unix_seconds);
+    put(fields, name, local.format_localized("%x %X", locale()));
+}
+
 pub(super) fn file_time_fields(
     created: Option<SystemTime>,
     modified: Option<SystemTime>,
@@ -284,8 +295,8 @@ fn tag_name(kind: TagType, native: &NativeTags) -> String {
     match kind {
         TagType::Id3v2 => native.id3.as_ref().map(id3_name).unwrap_or("ID3v2").into(),
         TagType::Id3v1 => "ID3v1".into(),
-        TagType::Ape => "APE".into(),
-        TagType::VorbisComments => "VorbisComment".into(),
+        TagType::Ape => crate::tags::APE_TAG_NAME.into(),
+        TagType::VorbisComments => crate::tags::VORBIS_TAG_NAME.into(),
         TagType::Mp4Ilst => "MP4".into(),
         TagType::RiffInfo => "RIFF INFO".into(),
         TagType::AiffText => "AIFF Text".into(),
@@ -371,6 +382,16 @@ pub(super) fn collect(
     if let Some(tag) = native.id3.as_ref() {
         id3_details(&mut fields, tag);
     }
+    let stream = match file.file_type() {
+        FileType::Mpeg => Some(Stream::Mpeg),
+        FileType::Ape => Some(Stream::MonkeysAudio),
+        FileType::Flac => Some(Stream::Flac),
+        FileType::Aac | FileType::Mpc | FileType::WavPack => Some(Stream::Other),
+        _ => None,
+    };
+    if let Some(stream) = stream {
+        super::media_info::stream_fields(&mut fields, path, stream);
+    }
     file_fields(&mut fields, covers, metadata, path);
     fields
 }
@@ -419,6 +440,9 @@ pub(super) fn file_fields(
         metadata.modified().ok(),
     ));
     path_fields(fields, path);
+    if let Some(label) = super::media_info::volume_label(path) {
+        put(fields, "_VOLUME", label);
+    }
 }
 
 /// Audio stream properties shared by every container.
@@ -452,17 +476,9 @@ pub(super) fn stream_fields(
             );
         }
     }
-    let seconds = duration.as_secs();
-    put(
-        fields,
-        "_LENGTH_SECONDS",
-        duration.as_secs_f64().round() as u64,
-    );
-    put(
-        fields,
-        "_LENGTH",
-        format!("{}:{:02}", seconds / 60, seconds % 60),
-    );
+    let seconds = duration.as_secs_f64().round() as u64;
+    put(fields, "_LENGTH_SECONDS", seconds);
+    put(fields, "_LENGTH", super::format_length(seconds));
 }
 
 /// Text encodings and opaque frame identifiers found in an ID3v2 tag.
@@ -511,5 +527,12 @@ pub(super) fn id3_details(fields: &mut Fields, tag: &Id3v2Tag) {
     }
     if !opaque.is_empty() {
         put(fields, "_ID3V2_UNKNOWN_FRAMES", opaque.join(", "));
+    }
+    let chapters = tag
+        .into_iter()
+        .filter(|frame| frame.id().as_str() == "CHAP")
+        .count();
+    if chapters > 0 && !fields.contains_key("_SUBSONG_COUNT") {
+        put(fields, "_SUBSONG_COUNT", chapters);
     }
 }

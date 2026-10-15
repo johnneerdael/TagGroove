@@ -23,7 +23,7 @@ fn transform_covers(
         .covers
         .is_empty()
     {
-        return read_entry_summary_with_options(path, &[], options);
+        return read_entry_summary_with_options(path, &options.mappings, options);
     }
     if asf::sniff(path) {
         return asf::change_pictures(
@@ -55,7 +55,7 @@ fn transform_covers(
             let written = tag_policy::write(
                 staging,
                 &file,
-                &[],
+                &options.mappings,
                 options,
                 tag_policy::Change::Pictures(pictures.clone()),
             )?;
@@ -184,12 +184,16 @@ fn resize_image(image: DynamicImage, options: &CoverResize) -> Result<DynamicIma
         CoverSizeMode::Maximum => width.max(height),
         CoverSizeMode::Minimum => width.min(height),
     };
-    if matches!(options.scale_mode, CoverScaleMode::Proportional)
-        && match options.size_mode {
-            CoverSizeMode::Maximum => dimension <= options.pixels,
-            CoverSizeMode::Minimum => dimension >= options.pixels,
+    // max. size: a cover within the size keeps its size in every scale mode.
+    // min. size: the smaller side is matched, up or down.
+    let unchanged = match options.size_mode {
+        CoverSizeMode::Maximum => dimension <= options.pixels,
+        CoverSizeMode::Minimum => {
+            dimension == options.pixels
+                && (matches!(options.scale_mode, CoverScaleMode::Proportional) || width == height)
         }
-    {
+    };
+    if unchanged {
         return Ok(image);
     }
     let filter = image::imageops::FilterType::Lanczos3;
@@ -232,20 +236,52 @@ pub fn adjust_covers_with_options(
     }
     transform_covers(path, options, |original| {
         let mut image = image::load_from_memory(original.data()).map_err(|e| e.to_string())?;
+        let size = (image.width(), image.height());
         if let Some(options) = resize {
             image = resize_image(image, options)?;
         }
-        let output_format=match format {
-            CoverImageFormat::Jpeg=>ImageFormat::Jpeg,CoverImageFormat::Png=>ImageFormat::Png,
-            CoverImageFormat::Original=>match original.mime_type(){Some(lofty::picture::MimeType::Jpeg)=>ImageFormat::Jpeg,Some(lofty::picture::MimeType::Png)=>ImageFormat::Png,_=>return Err("Original-format cover adjustment supports JPEG and PNG; select an output format".into())},
+        let original_format = match original.mime_type() {
+            Some(lofty::picture::MimeType::Jpeg) => Some(ImageFormat::Jpeg),
+            Some(lofty::picture::MimeType::Png) => Some(ImageFormat::Png),
+            Some(lofty::picture::MimeType::Gif) => Some(ImageFormat::Gif),
+            Some(lofty::picture::MimeType::Bmp) => Some(ImageFormat::Bmp),
+            Some(lofty::picture::MimeType::Unknown(mime)) if mime == "image/webp" => {
+                Some(ImageFormat::WebP)
+            }
+            _ => image::guess_format(original.data()).ok(),
         };
+        let output_format = match format {
+            CoverImageFormat::Jpeg => ImageFormat::Jpeg,
+            CoverImageFormat::Png => ImageFormat::Png,
+            CoverImageFormat::Original => original_format
+                .filter(|f| {
+                    matches!(
+                        f,
+                        ImageFormat::Jpeg
+                            | ImageFormat::Png
+                            | ImageFormat::Gif
+                            | ImageFormat::Bmp
+                            | ImageFormat::WebP
+                    )
+                })
+                .ok_or("The original cover format cannot be written; select JPEG or PNG")?,
+        };
+        // A cover that keeps its size and format is left byte for byte.
+        if (image.width(), image.height()) == size && original_format == Some(output_format) {
+            return Ok(Some(original.clone()));
+        }
         let mut encoded = Cursor::new(Vec::new());
         if output_format == ImageFormat::Jpeg {
             image::codecs::jpeg::JpegEncoder::new_with_quality(&mut encoded, quality)
                 .encode_image(&image.to_rgb8())
                 .map_err(|e| e.to_string())?;
-        } else {
+        } else if output_format == ImageFormat::Png {
             image
+                .write_to(&mut encoded, output_format)
+                .map_err(|e| e.to_string())?;
+        } else {
+            // GIF, BMP and WebP encoders take 8-bit RGBA.
+            DynamicImage::ImageRgba8(image.to_rgba8())
                 .write_to(&mut encoded, output_format)
                 .map_err(|e| e.to_string())?;
         }
@@ -337,6 +373,87 @@ mod tests {
                     .unwrap();
             assert_eq!((image.width(), image.height()), (width, height));
         }
+    }
+
+    #[test]
+    fn maximum_size_never_enlarges_and_minimum_size_matches_the_smaller_side() {
+        let image = || DynamicImage::ImageRgb8(RgbImage::new(400, 200));
+        let size = |pixels, size_mode, scale_mode| {
+            let resized = resize_image(
+                image(),
+                &CoverResize {
+                    pixels,
+                    size_mode,
+                    scale_mode,
+                },
+            )
+            .unwrap();
+            (resized.width(), resized.height())
+        };
+        use CoverScaleMode::{CropSquare, Proportional, Square};
+        use CoverSizeMode::{Maximum, Minimum};
+        for mode in [Proportional, Square, CropSquare] {
+            assert_eq!(size(500, Maximum, mode), (400, 200), "{mode:?}");
+            assert_eq!(size(400, Maximum, mode), (400, 200), "{mode:?}");
+        }
+        assert_eq!(size(200, Maximum, Proportional), (200, 100));
+        assert_eq!(size(200, Maximum, Square), (200, 200));
+        assert_eq!(size(200, Maximum, CropSquare), (200, 200));
+        assert_eq!(size(100, Minimum, Proportional), (200, 100));
+        assert_eq!(size(300, Minimum, Proportional), (600, 300));
+        assert_eq!(size(200, Minimum, Proportional), (400, 200));
+        assert_eq!(size(200, Minimum, CropSquare), (200, 200));
+        assert_eq!(size(300, Minimum, Square), (300, 300));
+    }
+
+    #[test]
+    fn covers_that_keep_size_and_format_are_not_re_encoded() {
+        let (_dir, path, image) = fixture();
+        let original = fs::read(&image).unwrap();
+        let resize = CoverResize {
+            pixels: 800,
+            size_mode: CoverSizeMode::Maximum,
+            scale_mode: CoverScaleMode::CropSquare,
+        };
+        for format in [CoverImageFormat::Original, CoverImageFormat::Png] {
+            adjust_covers_summary(&path, format, 85, Some(&resize)).unwrap();
+            let entry = read_entry(&path).unwrap();
+            assert_eq!(
+                STANDARD.decode(&entry.covers[0].data_base64).unwrap(),
+                original
+            );
+        }
+        // A new format re-encodes at the same size.
+        adjust_covers_summary(&path, CoverImageFormat::Jpeg, 85, Some(&resize)).unwrap();
+        let entry = read_entry(&path).unwrap();
+        assert_eq!(entry.covers[0].mime, "image/jpeg");
+        assert_eq!(
+            (entry.covers[0].width, entry.covers[0].height),
+            (Some(400), Some(200))
+        );
+    }
+
+    #[test]
+    fn original_format_resizes_gif_covers_as_gif() {
+        let (dir, path, _) = fixture();
+        remove_all_covers_summary(&path).unwrap();
+        let gif = dir.path().join("cover.gif");
+        DynamicImage::ImageRgb8(RgbImage::new(300, 300))
+            .save_with_format(&gif, ImageFormat::Gif)
+            .unwrap();
+        add_cover(&path, &gif).unwrap();
+        let resize = CoverResize {
+            pixels: 100,
+            size_mode: CoverSizeMode::Maximum,
+            scale_mode: CoverScaleMode::Proportional,
+        };
+        adjust_covers_summary(&path, CoverImageFormat::Original, 85, Some(&resize)).unwrap();
+        let entry = read_entry(&path).unwrap();
+        assert_eq!(entry.covers[0].mime, "image/gif");
+        let bytes = STANDARD.decode(&entry.covers[0].data_base64).unwrap();
+        assert_eq!(image::guess_format(&bytes).unwrap(), ImageFormat::Gif);
+        let image = image::load_from_memory(&bytes).unwrap();
+        assert_eq!((image.width(), image.height()), (100, 100));
     }
 
     #[test]

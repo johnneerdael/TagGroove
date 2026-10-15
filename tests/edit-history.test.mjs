@@ -40,7 +40,10 @@ test('Alt+1 to Alt+5 open the converters in Mp3tag order', () => {
   // macOS Option+digit produces characters such as ¡; the physical key still matches.
   assert.equal(editShortcut({ ...key('¡', { altKey: true }), code: 'Digit1' }, { ...idle, mac: true }), 'tags-filename');
   assert.equal(editShortcut({ ...key('¡', { altKey: true }), code: 'Digit1' }, { ...idle, typing: true, mac: true }), undefined);
+  assert.equal(editShortcut({ ...key('¡', { altKey: true, ctrlKey: true }), code: 'Digit1' }, { ...idle, typing: true, mac: true }), 'tags-filename');
   assert.equal(editShortcut(key('5', { altKey: true }), { ...idle, typing: true }), 'tag-tag');
+  assert.equal(editShortcut(key('5', { altKey: true, ctrlKey: true }), { ...idle, typing: true }), undefined);
+  assert.equal(editShortcut(key('5', { altKey: true, getModifierState: name => name === 'AltGraph' }), idle), undefined);
   assert.equal(editShortcut(key('6', { altKey: true }), idle), undefined);
   assert.equal(editShortcut(key('1', { altKey: true, shiftKey: true }), idle), undefined);
 });
@@ -94,6 +97,7 @@ test('Tag → Tag field choices, targets and previews follow Format Value rules'
   assert.deepEqual(tagTagOutcome('ALBUM', 'Hits'), { label: 'ALBUM', value: 'Hits', removed: false });
   assert.equal(tagTagOutcome('ALBUM', '').removed, true);
   assert.equal(tagTagOutcome('_FILENAME', '01 Song', 'old.name.mp3').value, '01 Song.mp3');
+  assert.equal(tagTagOutcome('_FILENAME', '01 Song.MP3', 'old.mp3').value, '01 Song.MP3');
   assert.equal(tagTagOutcome('_FILENAME', '').removed, true);
   assert.equal(tagTagOutcome('_DIRECTORY', 'Album').label, 'New folder name');
   assert.notEqual(tagTagKey({ field: 'A', template: '%b%', paths: ['/1'] }), tagTagKey({ field: 'A', template: '%b%', paths: ['/2'] }));

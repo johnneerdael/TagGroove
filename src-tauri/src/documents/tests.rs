@@ -514,7 +514,7 @@ fn image_snapshot_is_private_exclusive_and_cannot_escape_via_input_symlink() {
     let first = f.store.snapshot_input("content://test/image").unwrap();
     let second = f.store.snapshot_input("content://test/image").unwrap();
     assert_ne!(first, second);
-    assert!(first.starts_with(f.root.canonicalize().unwrap()));
+    assert!(first.starts_with(dunce::canonicalize(&f.root).unwrap()));
     assert_eq!(fs::read(first).unwrap(), png);
     assert_eq!(fs::read(second).unwrap(), png);
     assert!(f.store.snapshot_input("file:///outside").is_err());

@@ -29,12 +29,23 @@ impl Default for General {
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Files {
     /// Extensions read from directories, for example `*.mp3;*.flac`. Empty
     /// reads every supported format.
     pub restrict_extensions: String,
+    /// Replaces `\` and `/` in tag values when files are renamed from tags.
+    /// Empty removes them.
+    pub folder_separator: String,
+}
+impl Default for Files {
+    fn default() -> Self {
+        Self {
+            restrict_extensions: String::new(),
+            folder_separator: tag_core::DEFAULT_FOLDER_SEPARATOR.into(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -176,6 +187,7 @@ impl Settings {
         }
         self.tags.validate()?;
         parse_extensions(&self.files.restrict_extensions)?;
+        tag_core::validate_folder_separator(&self.files.folder_separator)?;
         if let Some(value) = self.pages.get("networking") {
             serde_json::from_value::<Network>(value.clone())
                 .map_err(|e| format!("Networking: {e}"))?
@@ -310,14 +322,18 @@ pub fn extensions() -> Option<Vec<String>> {
         .flatten()
 }
 
+/// Reads and writes apply Options → Tags, including its field mappings.
 pub fn read_summary(path: &Path) -> Result<AudioEntry, String> {
-    tag_core::read_entry_summary_with_options(path, &[], &tag_options())
+    let options = tag_options();
+    tag_core::read_entry_summary_with_options(path, &options.mappings, &options)
 }
 pub fn read_full(path: &Path) -> Result<AudioEntry, String> {
-    tag_core::read_entry_with_options(path, &[], &tag_options())
+    let options = tag_options();
+    tag_core::read_entry_with_options(path, &options.mappings, &options)
 }
 pub fn write_summary(path: &Path, updates: &Fields) -> Result<AudioEntry, String> {
-    tag_core::write_fields_with_options(path, updates, false, &[], &tag_options())
+    let options = tag_options();
+    tag_core::write_fields_with_options(path, updates, false, &options.mappings, &options)
 }
 
 #[derive(Serialize)]
@@ -379,6 +395,11 @@ mod tests {
         assert_eq!(load(&path), (Settings::default(), None));
         let mut settings = Settings::default();
         settings.tags.mpeg.write_ape = true;
+        settings.tags.mappings = vec![tag_core::UserFieldMapping {
+            tag_type: "VorbisComment".into(),
+            source: "DATE".into(),
+            target: "YEAR".into(),
+        }];
         settings.files.restrict_extensions = "*.mp3; FLAC".into();
         settings
             .pages
@@ -401,6 +422,7 @@ mod tests {
             "{not json",
             r#"{"version":99}"#,
             r#"{"tags":{"advanced":{"id3v2_comment_language":"english"}}}"#,
+            r#"{"tags":{"mappings":[{"tag_type":"ID3v2","source":"","target":"X"}]}}"#,
             r#"{"files":{"restrict_extensions":"*.mp3;../x"}}"#,
         ] {
             fs::write(&path, contents).unwrap();

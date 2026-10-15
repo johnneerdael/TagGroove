@@ -119,6 +119,16 @@ export function helperEntries(context:HelperContext):HelperEntry[]{
   return entries;
 }
 
+/** Keyboard reference "Useful helpers": Ctrl+Space opens the helper menu of the focused
+ * input (the physical Control key on macOS too, where ⌘Space is Spotlight; Control+Option+Space
+ * also works there because macOS can claim ⌃Space for input sources). Shift+Del removes the
+ * current value from that input's drop-down history. */
+export function helperKey(event:{key:string;code?:string;ctrlKey:boolean;metaKey:boolean;shiftKey:boolean;altKey:boolean}):'open'|'remove-history'|undefined{
+  if(event.ctrlKey&&!event.metaKey&&!event.shiftKey&&(event.code==='Space'||event.key===' '))return 'open';
+  if(event.shiftKey&&!event.ctrlKey&&!event.metaKey&&!event.altKey&&event.key==='Delete')return 'remove-history';
+  return undefined;
+}
+
 const esc=(value:unknown)=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 let nextList=0;
 type Control=HTMLInputElement|HTMLTextAreaElement;
@@ -253,6 +263,17 @@ export function installHelperMenus(host:HelperHost,root:HTMLElement=document.bod
     }
   };
   const scan=(node:ParentNode)=>node.querySelectorAll<Control>('[data-helper]:not([data-helper-bound])').forEach(bind);
+  root.addEventListener('keydown',event=>{
+    const control=event.target,key=helperKey(event);
+    if(!key||!(control instanceof HTMLInputElement||control instanceof HTMLTextAreaElement)||!control.dataset.helperBound)return;
+    if(key==='open'){
+      let button=control.nextElementSibling;while(button&&!button.classList.contains('helper-button'))button=button.nextElementSibling;
+      if(!(button instanceof HTMLButtonElement)||button.disabled)return;
+      event.preventDefault();event.stopPropagation();if(open?.control!==control)show(control,button);return;
+    }
+    const historyKey=control.dataset.history;
+    if(historyKey&&history.list(historyKey).some(entry=>entry.value===control.value)){event.preventDefault();history.remove(historyKey,control.value);listFor(control);}
+  });
   scan(root);
   new MutationObserver(records=>{if(records.some(record=>record.addedNodes.length))scan(root);}).observe(root,{childList:true,subtree:true});
   window.addEventListener('resize',()=>close());

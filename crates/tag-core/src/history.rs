@@ -833,20 +833,14 @@ fn move_directories(moves: &[(PathBuf, PathBuf)]) -> Result<(), String> {
             if !from.is_dir() {
                 return Err(format!("{} no longer exists", from.display()));
             }
-            if fs::symlink_metadata(to).is_ok() {
-                return Err(format!("{} already exists", to.display()));
-            }
-            if let Some(parent) = to.parent() {
-                fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-            }
-            fs::rename(from, to).map_err(|e| e.to_string())?;
+            crate::operations::rename_directory_no_clobber(from, to)?;
             done.push(change);
         }
         Ok(())
     })();
     if result.is_err() {
         for (from, to) in done.into_iter().rev() {
-            let _ = fs::rename(to, from);
+            let _ = crate::operations::rename_directory_no_clobber(to, from);
         }
     }
     result

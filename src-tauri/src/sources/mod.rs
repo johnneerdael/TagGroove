@@ -461,8 +461,9 @@ pub async fn tag_source_apply(
 
 /// The file name for a saved cover: the format evaluated on one written file,
 /// reduced to a single safe file name (the extension comes from the image).
-fn cover_file_name(entry: &AudioEntry, template: &str) -> Result<String, String> {
-    let fields = crate::evaluation::enriched_fields(entry, 0);
+/// `counter` is the file's 1-based position among the written files.
+fn cover_file_name(entry: &AudioEntry, template: &str, counter: usize) -> Result<String, String> {
+    let fields = crate::evaluation::enriched_fields(entry, counter);
     let name =
         tag_core::evaluate_filename_with_context(template, &tag_core::EvalContext::new(&fields))?;
     let name: String = name
@@ -492,14 +493,14 @@ fn save_cover_files(
 ) -> Vec<tag_core::FileError> {
     let mut folders = std::collections::HashSet::new();
     let mut errors = Vec::new();
-    for entry in entries {
+    for (index, entry) in entries.iter().enumerate() {
         let Some(folder) = Path::new(&entry.path).parent() else {
             continue;
         };
         if !folders.insert(folder.to_path_buf()) {
             continue;
         }
-        let saved = cover_file_name(entry, template).and_then(|name| {
+        let saved = cover_file_name(entry, template, index + 1).and_then(|name| {
             let target = folder.join(format!("{name}.{}", image.extension));
             write_atomically(&target, &image.bytes)
         });
@@ -745,8 +746,12 @@ mod tests {
         assert!(dir.path().join("One_Two cover.png").is_file());
         assert!(!dir.path().join("Ignored cover.png").exists());
         assert!(other.join("Disc_ 2 cover.png").is_file());
-        assert_eq!(cover_file_name(&entries[0], "").unwrap(), "folder");
-        assert_eq!(cover_file_name(&entries[0], "..").unwrap(), "folder");
+        assert_eq!(cover_file_name(&entries[0], "", 1).unwrap(), "folder");
+        assert_eq!(cover_file_name(&entries[0], "..", 1).unwrap(), "folder");
+        assert_eq!(
+            cover_file_name(&entries[1], "cover %_counter%", 2).unwrap(),
+            "cover 2"
+        );
     }
 
     #[test]

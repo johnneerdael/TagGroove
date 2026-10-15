@@ -250,10 +250,11 @@
       if (!row('sine-a.mp3')) { op('refresh').click(); await idle(); }
       await moveOut();
       const listed = rows().some(r => /^[\\/]/.test(r.dataset.path.slice(outside.length)) && r.dataset.path.startsWith(outside)), count = rows().length;
+      const seen = `rows ${rows().map(r => r.dataset.path).join(' | ')}; location ${document.querySelector('.location .path')?.textContent}; status ${status()}`;
       await undo();
       await setOptions('general', [['pages.general.keep_moved', true]]);
       op('refresh').click(); await waitFor(() => row('sine-a.mp3'), 8000, 'sine-a back after refresh');
-      if (listed || count !== 3) throw new Error(`listed=${listed} rows=${count}`);
+      if (listed || count !== 3) throw new Error(`listed=${listed} rows=${count}; ${seen}`);
       return `on: kept ${kept.dataset.path.split(/[\\/]/).slice(-2).join('/')}; off: removed (rows ${count}); undo and refresh restore sine-a.mp3`;
     });
     await step('Networking: a manual proxy carries tag source and update requests', async () => {

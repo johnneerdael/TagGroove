@@ -250,7 +250,12 @@ fn regex_boost_references_and_ascii_digits() {
         evaluate("$regexp('１2','\\d',x)", &fields()).unwrap(),
         "１x"
     );
-    assert_eq!(evaluate("$regexp('Aa','\\u',x)", &fields()).unwrap(), "xa");
+    // Boost character classes follow icase: \u only means "upper" with c=0.
+    assert_eq!(
+        evaluate("$regexp('Aa','\\u',x,0)", &fields()).unwrap(),
+        "xa"
+    );
+    assert_eq!(evaluate("$regexp('Aa','\\u',x)", &fields()).unwrap(), "xx");
     assert_eq!(evaluate("$regexp(x,x,'\\U$0')", &fields()).unwrap(), "X");
     assert_eq!(evaluate("$regexp(x,x,'$MATCH')", &fields()).unwrap(), "x");
 }
@@ -751,6 +756,7 @@ fn boost_regex_is_used_end_to_end_by_scripting_and_legacy_actions() {
         "ABC DEF"
     );
     assert_eq!(evaluate("$regexp('Ab','a',x,1)", &fields()).unwrap(), "xb");
+    assert_eq!(evaluate("$regexp('Ab','a',x,0)", &fields()).unwrap(), "Ab");
     let f: Fields = [("TITLE".into(), vec!["abc abc".into()])].into();
     assert_eq!(
         apply_action(
@@ -961,4 +967,76 @@ fn ansi_conversion_roundtrips_encoded_glyphs_instead_of_assuming_identity() {
         evaluate_with_context("$ansi('¥‾猫')", &context).unwrap(),
         "\\~猫"
     );
+}
+
+#[test]
+fn regexp_ignores_case_by_default_and_honours_the_flag_and_inline_modifiers() {
+    // scripting: c=1 enables ignore case, c=0 disables the ignore-case setting.
+    for (script, expected) in [
+        ("$regexp('Live At Home','live',x)", "x At Home"),
+        ("$regexp('Live At Home','live',x,1)", "x At Home"),
+        ("$regexp('Live At Home','live',x,0)", "Live At Home"),
+        ("$regexp('Live At Home','(?-i)live',x)", "Live At Home"),
+        ("$regexp('Live At Home','(?-i)Live',x)", "x At Home"),
+        ("$regexp('Live At Home','(?i)LIVE',x,0)", "x At Home"),
+        ("$regexp('Live at home','(?-i)(?i:AT) home',x)", "Live x"),
+        ("$regexp('ABC abc','abc',x)", "x x"),
+        ("$regexp('ABC abc','abc',x,0)", "ABC x"),
+    ] {
+        assert_eq!(evaluate(script, &fields()).unwrap(), expected, "{script}");
+    }
+}
+
+#[test]
+fn working_directory_placeholders_come_from_the_context_and_reach_filters() {
+    let fields = fields();
+    let mut context = EvalContext::new(&fields);
+    assert_eq!(
+        evaluate_with_context("[%_workingdir%]|[%_workingpath%]", &context).unwrap(),
+        "|"
+    );
+    context.working_directory = Some("/music/rock/");
+    assert_eq!(
+        evaluate_with_context("%_workingdir%|%_WorkingPath%", &context).unwrap(),
+        format!("rock|/music/rock{}", std::path::MAIN_SEPARATOR)
+    );
+    context.working_directory = Some("C:\\Music\\Jazz");
+    assert_eq!(
+        evaluate_with_context("%_workingdir%|%_workingpath%", &context).unwrap(),
+        "Jazz|C:\\Music\\Jazz\\"
+    );
+    context.working_directory = Some("/");
+    assert_eq!(
+        evaluate_with_context("[%_workingdir%]%_workingpath%", &context).unwrap(),
+        "/"
+    );
+    context.working_directory = Some("/music/rock");
+    let filter = tag_core::compile_filter("_WORKINGDIR IS rock").unwrap();
+    assert!(filter.matches_with_context(&context).unwrap());
+}
+
+#[test]
+fn folder_separator_option_replaces_separators_in_values_only() {
+    let fields: Fields = [
+        ("GENRE".into(), vec!["Rock\\Classic".into()]),
+        ("ARTIST".into(), vec!["AC/DC".into()]),
+    ]
+    .into();
+    let mut context = EvalContext::new(&fields);
+    let render = |context: &EvalContext<'_>| {
+        tag_core::evaluate_filename_with_context("%genre%\\%artist%", context).unwrap()
+    };
+    assert_eq!(render(&context), "Rock_Classic\\AC_DC");
+    context.folder_separator = Some(" - ");
+    assert_eq!(render(&context), "Rock - Classic\\AC - DC");
+    context.folder_separator = Some("");
+    assert_eq!(render(&context), "RockClassic\\ACDC");
+    // A replacement can never introduce a separator or an invalid character.
+    context.folder_separator = Some("/:");
+    assert_eq!(render(&context), "Rock__Classic\\AC__DC");
+    assert_eq!(tag_core::filename_value("a/b\\c:d", "+"), "a+b+c_d");
+    assert!(tag_core::validate_folder_separator("").is_ok());
+    assert!(tag_core::validate_folder_separator(" - ").is_ok());
+    assert!(tag_core::validate_folder_separator("\\").is_err());
+    assert!(tag_core::validate_folder_separator("?").is_err());
 }

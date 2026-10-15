@@ -12,6 +12,11 @@ test('duplicate gets independent identity, unique name, and preserves source and
  result.configurations[2].template='changed';assert.equal(result.configurations[0].template,'%title%');
  assert.throws(()=>copyExportConfiguration(source,'missing','c'),/exist/);assert.throws(()=>copyExportConfiguration(source,'a','a'),/identity/);
 });
+test('a duplicate of a configuration found in the export folder gets its own file',()=>{
+ const source=library();source.configurations[0].file='Text.mte';
+ const result=copyExportConfiguration(source,'a','c');
+ assert.equal(result.configurations[2].file,undefined);assert.equal(result.configurations[0].file,'Text.mte');
+});
 test('remove updates selected configuration and allows an empty saved library',()=>{
  const source=library(),result=removeExportConfiguration(source,'a');assert.deepEqual(result.configurations.map(c=>c.id),['b']);assert.equal(result.preferences.configuration,'b');assert.equal(source.preferences.configuration,'a');
  const empty=removeExportConfiguration(result,'b');assert.equal(empty.preferences.configuration,null);assert.deepEqual(empty.configurations,[]);assert.equal(empty.preferences.filename,'out.txt');

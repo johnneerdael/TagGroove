@@ -452,21 +452,22 @@ mod tests {
             plan.playlists,
             [
                 PlannedPlaylist {
-                    path: root.join("b/b.m3u8").to_string_lossy().into_owned(),
+                    path: root.join("b").join("b.m3u8").to_string_lossy().into_owned(),
                     files: 2
                 },
                 PlannedPlaylist {
-                    path: root.join("a/a.m3u8").to_string_lossy().into_owned(),
+                    path: root.join("a").join("a.m3u8").to_string_lossy().into_owned(),
                     files: 1
                 },
             ]
         );
-        let text = std::fs::read_to_string(root.join("b/b.m3u8")).unwrap();
+        let text = std::fs::read_to_string(root.join("b").join("b.m3u8")).unwrap();
         assert_eq!(
             text,
             "#EXTM3U\r\n#EXTINF:0,2\r\n2.wav\r\n#EXTINF:0,1\r\n1.wav\r\n"
         );
-        let loaded = tag_core::playlist::load_playlist(&root.join("b/b.m3u8"), None).unwrap();
+        let loaded =
+            tag_core::playlist::load_playlist(&root.join("b").join("b.m3u8"), None).unwrap();
         assert_eq!(
             loaded.files,
             [PathBuf::from(&paths[0]), PathBuf::from(&paths[2])]
@@ -492,7 +493,7 @@ mod tests {
         let plan = create(&named, &settings, &options).unwrap();
         assert_eq!(
             plan.playlists[0].path,
-            root.join("lists/old-copy.m3u8").to_string_lossy()
+            root.join("lists").join("old-copy.m3u8").to_string_lossy()
         );
 
         let before = std::fs::read(&paths[0]).unwrap();
@@ -536,7 +537,7 @@ mod tests {
         let plan = create(&list, &settings, &PlaylistOptions::default()).unwrap();
         assert_eq!(
             plan.playlists[0].path,
-            root.join("album/list.m3u8").to_string_lossy()
+            root.join("album").join("list.m3u8").to_string_lossy()
         );
         let loaded = tag_core::playlist::load_playlist(&alias.join("list.m3u8"), None).unwrap();
         assert_eq!(loaded.missing, []);

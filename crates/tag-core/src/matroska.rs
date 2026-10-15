@@ -28,6 +28,11 @@ const TRACK_ENTRY: u32 = 0xAE;
 const TRACK_TYPE: u32 = 0x83;
 const CODEC_ID: u32 = 0x86;
 const AUDIO: u32 = 0xE1;
+const TRACK_UID: u32 = 0x73C5;
+const VIDEO: u32 = 0xE0;
+const PIXEL_WIDTH: u32 = 0xB0;
+const PIXEL_HEIGHT: u32 = 0xBA;
+const TAG_TRACK_UID: u32 = 0x63C5;
 const SAMPLING_FREQUENCY: u32 = 0xB5;
 const CHANNELS: u32 = 0x9F;
 const BIT_DEPTH: u32 = 0x6264;
@@ -1099,10 +1104,13 @@ fn rebuilt_chapters(
 
 struct Track {
     kind: u64,
+    uid: u64,
     codec: String,
     sample_rate: f64,
     channels: u64,
     bits: u64,
+    width: u64,
+    height: u64,
 }
 
 struct Parsed {
@@ -1144,15 +1152,28 @@ fn parse(path: &Path) -> Result<Parsed, String> {
                 for entry in children(&data)?.iter().filter(|c| c.id == TRACK_ENTRY) {
                     let mut track = Track {
                         kind: 0,
+                        uid: 0,
                         codec: String::new(),
                         sample_rate: 0.0,
                         channels: 0,
                         bits: 0,
+                        width: 0,
+                        height: 0,
                     };
                     for child in children(entry.data)? {
                         match child.id {
                             TRACK_TYPE => track.kind = uint(child.data),
+                            TRACK_UID => track.uid = uint(child.data),
                             CODEC_ID => track.codec = text(child.data),
+                            VIDEO => {
+                                for video in children(child.data)? {
+                                    match video.id {
+                                        PIXEL_WIDTH => track.width = uint(video.data),
+                                        PIXEL_HEIGHT => track.height = uint(video.data),
+                                        _ => {}
+                                    }
+                                }
+                            }
                             AUDIO => {
                                 for audio in children(child.data)? {
                                     match audio.id {
@@ -1222,6 +1243,71 @@ fn codec_name(codec: &str) -> String {
     name.to_owned()
 }
 
+fn video_codec_name(codec: &str) -> String {
+    let name = match codec {
+        "V_MPEG4/ISO/AVC" => "H.264",
+        "V_MPEGH/ISO/HEVC" => "H.265",
+        "V_AV1" => "AV1",
+        "V_VP8" => "VP8",
+        "V_VP9" => "VP9",
+        "V_THEORA" => "Theora",
+        "V_MPEG1" => "MPEG-1",
+        "V_MPEG2" => "MPEG-2",
+        "V_MJPEG" => "Motion JPEG",
+        "V_PRORES" => "Apple ProRes",
+        c if c.starts_with("V_MPEG4/ISO/") => "MPEG-4 Visual",
+        other => other,
+    };
+    name.to_owned()
+}
+
+/// `_VIDEO_*` of the first video track. The bitrate is the `BPS` statistic
+/// that muxers such as mkvmerge store for the track.
+fn video_fields(parsed: &Parsed, technical: &mut Fields) {
+    let Some(video) = parsed.tracks.iter().find(|t| t.kind == 1) else {
+        return;
+    };
+    if !video.codec.is_empty() {
+        technical.insert("_VIDEO_CODEC".into(), vec![video_codec_name(&video.codec)]);
+    }
+    for (name, value) in [
+        ("_VIDEO_WIDTH", video.width),
+        ("_VIDEO_HEIGHT", video.height),
+    ] {
+        if value > 0 {
+            technical.insert(name.into(), vec![value.to_string()]);
+        }
+    }
+    let targets_video = |tag: &MkvTag| {
+        video.uid != 0
+            && tag.targets.as_deref().is_some_and(|targets| {
+                children(targets)
+                    .ok()
+                    .and_then(|outer| outer.into_iter().next())
+                    .and_then(|outer| children(outer.data).ok())
+                    .is_some_and(|inner| {
+                        inner
+                            .iter()
+                            .any(|t| t.id == TAG_TRACK_UID && uint(t.data) == video.uid)
+                    })
+            })
+    };
+    let bps = parsed
+        .tags
+        .iter()
+        .filter(|tag| targets_video(tag))
+        .flat_map(|tag| &tag.simple)
+        .find(|simple| simple.name.eq_ignore_ascii_case("BPS"))
+        .and_then(|simple| simple.value.as_deref())
+        .and_then(|value| value.trim().parse::<u64>().ok());
+    if let Some(bps) = bps.filter(|b| *b > 0) {
+        technical.insert(
+            "_VIDEO_BITRATE".into(),
+            vec![((bps as f64) / 1000.0).round().to_string()],
+        );
+    }
+}
+
 pub(super) fn describe(path: &Path, options: &TagOptions) -> Result<Description, String> {
     let parsed = parse(path)?;
     let model = Model {
@@ -1251,6 +1337,7 @@ pub(super) fn describe(path: &Path, options: &TagOptions) -> Result<Description,
         );
         technical.insert("_SUBSONG_COUNT".into(), vec![chapters.len().to_string()]);
     }
+    video_fields(&parsed, &mut technical);
     Ok(Description {
         format: if parsed.layout.doc_type == "webm" {
             "WebM"

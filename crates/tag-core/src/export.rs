@@ -744,6 +744,10 @@ impl ScriptExtension for Engine<'_> {
                 drop(state);
                 let value=self.supplied_hash(&name).ok_or_else(||format!("{name} requires an actual supplied file hash; the pure export renderer does not read files"))?;
                 let expected = if name == "_CRC" { 8 } else { 32 };
+                // An empty audio MD5 means the format has none.
+                if name == "_MD5AUDIO" && value.is_empty() {
+                    return Ok(Some(vec![value]));
+                }
                 if value.len() != expected || !value.bytes().all(|byte| byte.is_ascii_hexdigit()) {
                     return Err(format!("Invalid supplied {name} hash"));
                 }
@@ -1091,6 +1095,10 @@ pub fn render_export(
     Ok(documents)
 }
 
+/// ANSI codepage of systems that have none: Windows-1252, the codepage of
+/// Mp3tag's own Western installations.
+const FALLBACK_ANSI_CODEPAGE: &str = "1252";
+
 /// Encode a rendered document without opening or modifying a file. For append,
 /// the host must suppress BOM when the destination already has content.
 pub fn encode_export_document(
@@ -1117,8 +1125,9 @@ pub fn encode_export_document(
             Ok(bytes)
         }
         "ansi" => {
-            let codepage =
-                ansi_codepage.ok_or("ANSI export encoding requires the actual system codepage")?;
+            // Without a system ANSI codepage (macOS, Linux) write Windows-1252,
+            // as playlist reading assumes.
+            let codepage = ansi_codepage.unwrap_or(FALLBACK_ANSI_CODEPAGE);
             let numeric = codepage
                 .strip_prefix("windows-")
                 .or_else(|| codepage.strip_prefix("cp"))
@@ -1154,8 +1163,9 @@ pub fn encode_export_document(
 }
 
 /// Decode configuration text separately from the configured output encoding.
-/// Unicode BOMs are authoritative; non-UTF8 legacy text needs an explicit real
-/// codepage and malformed sequences are reported rather than replaced.
+/// Unicode BOMs are authoritative; non-UTF8 legacy text uses the ANSI codepage
+/// (Windows-1252 without one) and malformed sequences are reported rather than
+/// replaced.
 pub fn decode_export_template(bytes: &[u8], ansi_codepage: Option<&str>) -> Result<String, String> {
     if let Some(bytes) = bytes.strip_prefix(&[0xef, 0xbb, 0xbf]) {
         return String::from_utf8(bytes.to_vec()).map_err(|error| error.to_string());
@@ -1187,8 +1197,7 @@ pub fn decode_export_template(bytes: &[u8], ansi_codepage: Option<&str>) -> Resu
     if let Ok(text) = std::str::from_utf8(bytes) {
         return Ok(text.to_owned());
     }
-    let codepage =
-        ansi_codepage.ok_or("Non-UTF8 export configuration requires its actual legacy codepage")?;
+    let codepage = ansi_codepage.unwrap_or(FALLBACK_ANSI_CODEPAGE);
     let numeric = codepage
         .strip_prefix("windows-")
         .or_else(|| codepage.strip_prefix("cp"))

@@ -188,6 +188,14 @@ export function moveSlot(slots:(string|null)[], index:number, delta:number) {
   return result;
 }
 
+/** Move one file to `target` (Alt+Page Up / Alt+Page Down), keeping the order of the others. */
+export function moveSlotTo(slots:(string|null)[], index:number, target:number) {
+  const result = [...slots];
+  if (index < 0 || index >= slots.length || target < 0 || target >= slots.length) return result;
+  const [moved] = result.splice(index,1); result.splice(target,0,moved);
+  return result;
+}
+
 /** Every field the release offers, album-level values first in Mp3tag's usual order. */
 export function fieldRows(release:SourceRelease):FieldRow[] {
   const names = new Set([...Object.keys(release.fields),...release.tracks.flatMap(t => Object.keys(t.fields))]);
@@ -323,7 +331,8 @@ export class TagSourcesUI {
       if (button) void this.host.invoke('tag_source_open_page',{url:button.dataset.url}).catch(error);
     });
     // Mp3tag's review shortcuts: Ctrl+E/Ctrl+D enable or disable every field,
-    // F2 edits the focused field, Alt+↑/↓ moves the focused file.
+    // F2 edits the focused field, Alt+↑/↓ moves the focused file, Alt+Page Up/Down
+    // moves it to the beginning or end of the list.
     dialog.addEventListener('keydown',event => {
       if (!release || working) return;
       const target = event.target as HTMLElement, key = event.key.toLowerCase();
@@ -338,6 +347,10 @@ export class TagSourcesUI {
       if (event.altKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
         const row = target.closest<HTMLTableRowElement>('.ts-matches tr[data-index]');
         if (row) { event.preventDefault(); move(Number(row.dataset.index),event.key === 'ArrowUp' ? -1 : 1,target.matches('.ts-track-value') ? '.ts-track-value' : undefined); }
+      }
+      if (event.altKey && (event.key === 'PageUp' || event.key === 'PageDown')) {
+        const row = target.closest<HTMLTableRowElement>('.ts-matches tr[data-index]');
+        if (row) { event.preventDefault(); moveTo(Number(row.dataset.index),event.key === 'PageUp' ? 0 : slots.length-1,target.matches('.ts-track-value') ? '.ts-track-value' : undefined); }
       }
     });
 
@@ -541,6 +554,10 @@ export class TagSourcesUI {
     const move = (index:number, delta:number, selector?:string) => {
       if (working || !slots[index] || index+delta < 0 || index+delta >= slots.length) return;
       slots = moveSlot(slots,index,delta); renderMatches({index:index+delta,selector,delta});
+    };
+    const moveTo = (index:number, to:number, selector?:string) => {
+      if (working || !slots[index] || index === to) return;
+      slots = moveSlotTo(slots,index,to); renderMatches({index:to,selector,delta:to < index ? -1 : 1});
     };
     const toggleAll = (on:boolean) => { if (!release) return; enabled = on ? new Set(fieldRows(release).map(row => row.name)) : new Set(); dialog.querySelectorAll<HTMLInputElement>('.ts-fields input[type=checkbox]').forEach(box => box.checked = on); syncReview(); };
     const showReview = (loaded:SourceRelease) => {

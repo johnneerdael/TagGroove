@@ -164,7 +164,9 @@ impl Selector {
         let fields = context.fields;
         match self {
             Self::Field(name)
-                if name.eq_ignore_ascii_case("_DATE") || name.eq_ignore_ascii_case("_DATETIME") =>
+                if ["_DATE", "_DATETIME", "_WORKINGDIR", "_WORKINGPATH"]
+                    .iter()
+                    .any(|context_name| name.eq_ignore_ascii_case(context_name)) =>
             {
                 Ok(match context_values(context, name)? {
                     Some(Cow::Borrowed(values)) => values
@@ -231,7 +233,7 @@ impl Expression {
                     }
                     Operation::Numeric(comparison, expected) => Ok(candidates
                         .iter()
-                        .filter_map(|value| value.trim().parse::<i64>().ok())
+                        .filter_map(|value| leading_integer(value))
                         .any(|number| match comparison {
                             Comparison::Equal => number == *expected,
                             Comparison::Greater => number > *expected,
@@ -241,6 +243,27 @@ impl Expression {
             }
         }
     }
+}
+
+/// Numeric part of a field value: the leading integer, ignoring whatever
+/// follows it, so `3/12` compares as 3 and `2024-05-01` as 2024. Values that
+/// do not start with a number take no part in numeric comparisons.
+fn leading_integer(value: &str) -> Option<i64> {
+    let value = value.trim_start();
+    let digits = value.strip_prefix(['-', '+']).unwrap_or(value);
+    let length = digits
+        .find(|c: char| !c.is_ascii_digit())
+        .unwrap_or(digits.len());
+    if length == 0 {
+        return None;
+    }
+    let number = value[..value.len() - digits.len() + length].parse::<i64>();
+    // Overlong digit runs saturate rather than dropping out of the comparison.
+    Some(number.unwrap_or(if value.starts_with('-') {
+        i64::MIN
+    } else {
+        i64::MAX
+    }))
 }
 
 #[derive(Debug)]
