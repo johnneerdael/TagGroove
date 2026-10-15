@@ -72,6 +72,26 @@ pub(crate) fn error_message(error: &dyn std::error::Error) -> String {
     message
 }
 pub type Fields = BTreeMap<String, Vec<String>>;
+
+/// `%_tag%` and `%_tag_read%` name of an APE tag, as Mp3tag spells it.
+pub const APE_TAG_NAME: &str = "APEv2";
+/// `%_tag%` and `%_tag_read%` name of a Vorbis comment block.
+pub const VORBIS_TAG_NAME: &str = "VorbisComment";
+
+/// Whether a tag kind, named as `%_tag_read%` shows it, stores field names
+/// verbatim, so `_FIELDNAME` actions can change them (APEv2, VorbisComment).
+pub fn keeps_field_names(tag: &str) -> bool {
+    let tag = tag.trim();
+    [
+        APE_TAG_NAME,
+        VORBIS_TAG_NAME,
+        "APE",
+        "APEv1",
+        "VorbisComments",
+    ]
+    .iter()
+    .any(|name| tag.eq_ignore_ascii_case(name))
+}
 /// Derive available file timestamps using the same locale format as audio reads.
 /// Provider-backed callers can omit unavailable creation times.
 pub fn file_time_fields(

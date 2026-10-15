@@ -79,6 +79,7 @@ test('tool runs report, confirm large batches and skip unusable states',async()=
 
 test('remove tag types counts present kinds from _TAG',()=>{
   assert.deepEqual([...utils.presentTagKinds('ID3v2.3 APE ID3v1')].sort(),['ape','id3v1','id3v2']);
+  assert.deepEqual([...utils.presentTagKinds('ID3v1 APEv2')].sort(),['ape','id3v1']);
   assert.deepEqual([...utils.presentTagKinds('VorbisComment')],[]);
   assert.deepEqual([...utils.presentTagKinds(undefined)],[]);
   assert.deepEqual(utils.tagKindCounts(['ID3v2.4 ID3v1','APE','ID3v2.3',undefined]),{id3v1:1,id3v2:2,ape:1});

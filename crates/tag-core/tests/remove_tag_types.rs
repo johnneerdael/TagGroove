@@ -48,8 +48,8 @@ fn each_kind_is_removed_on_its_own_and_audio_is_kept() {
     let dir = tempfile::tempdir().unwrap();
     for (kinds, expected) in [
         (vec![RemovableTag::Ape], "ID3v2.4 ID3v1"),
-        (vec![RemovableTag::Id3v1], "ID3v2.4 APE"),
-        (vec![RemovableTag::Id3v2], "APE ID3v1"),
+        (vec![RemovableTag::Id3v1], "ID3v2.4 APEv2"),
+        (vec![RemovableTag::Id3v2], "APEv2 ID3v1"),
         (
             vec![RemovableTag::Id3v1, RemovableTag::Id3v2, RemovableTag::Ape],
             "",

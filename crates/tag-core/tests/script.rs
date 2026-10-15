@@ -962,3 +962,29 @@ fn ansi_conversion_roundtrips_encoded_glyphs_instead_of_assuming_identity() {
         "\\~猫"
     );
 }
+
+#[test]
+fn folder_separator_option_replaces_separators_in_values_only() {
+    let fields: Fields = [
+        ("GENRE".into(), vec!["Rock\\Classic".into()]),
+        ("ARTIST".into(), vec!["AC/DC".into()]),
+    ]
+    .into();
+    let mut context = EvalContext::new(&fields);
+    let render = |context: &EvalContext<'_>| {
+        tag_core::evaluate_filename_with_context("%genre%\\%artist%", context).unwrap()
+    };
+    assert_eq!(render(&context), "Rock_Classic\\AC_DC");
+    context.folder_separator = Some(" - ");
+    assert_eq!(render(&context), "Rock - Classic\\AC - DC");
+    context.folder_separator = Some("");
+    assert_eq!(render(&context), "RockClassic\\ACDC");
+    // A replacement can never introduce a separator or an invalid character.
+    context.folder_separator = Some("/:");
+    assert_eq!(render(&context), "Rock__Classic\\AC__DC");
+    assert_eq!(tag_core::filename_value("a/b\\c:d", "+"), "a+b+c_d");
+    assert!(tag_core::validate_folder_separator("").is_ok());
+    assert!(tag_core::validate_folder_separator(" - ").is_ok());
+    assert!(tag_core::validate_folder_separator("\\").is_err());
+    assert!(tag_core::validate_folder_separator("?").is_err());
+}

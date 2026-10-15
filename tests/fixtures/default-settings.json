@@ -1,7 +1,7 @@
 {
   "version": 1,
   "general": { "natural_sort": true, "show_directory_in_title": true },
-  "files": { "restrict_extensions": "" },
+  "files": { "restrict_extensions": "", "folder_separator": "_" },
   "directories": { "subfolders": true },
   "tags": {
     "mpeg": {
