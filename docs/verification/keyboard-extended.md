@@ -173,7 +173,7 @@ The dialog moved from `main.ts` into `src/extended-tags.ts`. Pure helpers live i
 
 ## Tests
 
-Unit tests (`node --test tests/*.test.mjs`, 243 passing after the merge):
+Unit tests (`node --test tests/*.test.mjs`, 244 passing after the merge):
 
 - `tests/keyboard.test.mjs` (new):
   - Platform and text-entry detection, and chord keys under Option, AltGr and Cyrillic layouts.
@@ -206,8 +206,8 @@ Native suite `tests/e2e/keyboard-extended.js`, added to the CI suite list. It ov
 
 Synthetic DOM key events show what the app does with a key. They cannot show that WebKit then inserts the character. On macOS the OS produces the character and the app now leaves the event alone, so the remaining risk is WebKit-specific dead-key handling, which no CI runner covers.
 
-Checks after merging `feat/core-parity` (`7288e60`):
+Checks after merging `feat/core-parity` (`6f47210`):
 - `cargo fmt --all -- --check` passes.
 - `cargo clippy --workspace --all-targets --locked -- -D warnings` passes.
-- `cargo test --workspace --locked`: 513 passed, 0 failed, 4 ignored (31 suites).
-- `npx tsc --noEmit` passes, and the unit tests pass (243).
+- `cargo test --workspace --locked`: 528 passed, 0 failed, 4 ignored (31 suites).
+- `npx tsc --noEmit` passes, and the unit tests pass (244).

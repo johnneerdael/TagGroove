@@ -565,7 +565,9 @@ async fn preview_format(
     paths: Vec<String>,
     template: String,
     columns: Option<Vec<evaluation::ColumnSpec>>,
+    filename: Option<bool>,
 ) -> Result<Vec<Preview>, String> {
+    let filename = filename.unwrap_or(false);
     let settings = evaluation_settings(columns)?;
     io(move || {
         paths
@@ -575,13 +577,18 @@ async fn preview_format(
                 require_audio_handle(Path::new(&path))?;
                 let mut entry = settings::read_summary(Path::new(&path))?;
                 documents::project(&mut entry);
-                let value = settings.evaluate(
-                    &template,
-                    &entry.fields,
-                    &preview_technical_fields(&entry, index + 1),
-                    &entry.path,
-                    true,
-                )?;
+                let technical = preview_technical_fields(&entry, index + 1);
+                let value = if filename {
+                    settings.evaluate_filename(
+                        &template,
+                        &entry.fields,
+                        &technical,
+                        &entry.path,
+                        true,
+                    )?
+                } else {
+                    settings.evaluate(&template, &entry.fields, &technical, &entry.path, true)?
+                };
                 Ok(Preview {
                     path,
                     value,
@@ -687,7 +694,11 @@ fn filename_target(entry: &AudioEntry, generated: String) -> Result<PathBuf, Str
         source.parent().unwrap_or(Path::new(".")).join(relative)
     };
     if let Some(ext) = source.extension() {
-        if target.extension() != Some(ext) {
+        // `%title%.MP3` names an .mp3 file once, as Mp3tag does.
+        if !target
+            .extension()
+            .is_some_and(|current| current.eq_ignore_ascii_case(ext))
+        {
             let mut name = target.into_os_string();
             name.push(".");
             name.push(ext);
@@ -759,6 +770,16 @@ async fn rename_files(
     .await
 }
 
+/// Destinations compare case-insensitively where volumes usually are.
+fn rename_key(path: &Path) -> String {
+    let path = path.to_string_lossy();
+    if cfg!(any(windows, target_os = "macos")) {
+        path.to_lowercase()
+    } else {
+        path.into_owned()
+    }
+}
+
 fn rename_planned(
     paths: Vec<String>,
     template: &str,
@@ -792,9 +813,12 @@ fn rename_planned(
         for (path, plan) in candidates {
             match plan {
                 Ok(target)
-                    if destinations.insert(target.clone())
+                    if destinations.insert(rename_key(&target))
                         && (std::fs::canonicalize(&path).ok().as_ref() == Some(&target)
-                            || !target.exists()) =>
+                            || !matches!(
+                                tag_core::operations::destination_state(Path::new(&path), &target),
+                                tag_core::operations::Destination::Taken
+                            )) =>
                 {
                     plans.push((path, target))
                 }
@@ -1140,6 +1164,7 @@ mod tests {
             paths.clone(),
             "%_path%|%_filename_ext%|%_directory%".into(),
             None,
+            None,
         ))
         .unwrap();
         assert_eq!(
@@ -1219,6 +1244,7 @@ mod tests {
             let alias_preview = tauri::async_runtime::block_on(preview_format(
                 alias_paths.clone(),
                 "%_path%|%_directory%".into(),
+                None,
                 None,
             ))
             .unwrap();
@@ -1546,6 +1572,55 @@ mod tests {
         assert!(result.renamed.is_empty());
         assert!(a.exists() && b.exists());
         assert!(!dir.path().join("same.wav").exists());
+    }
+
+    #[test]
+    fn tag_to_filename_and_inline_edits_change_only_letter_case() {
+        let dir = tempfile::tempdir().unwrap();
+        let names = || {
+            let mut names: Vec<_> = std::fs::read_dir(dir.path())
+                .unwrap()
+                .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+                .collect();
+            names.sort();
+            names
+        };
+        let path = dir.path().join("song.wav");
+        wav(&path);
+        let mut fields = Fields::new();
+        fields.insert("TITLE".into(), vec!["Song".into()]);
+        tag_core::write_fields(&path, &fields).unwrap();
+        let rename = |path: &Path, template: &str| {
+            tauri::async_runtime::block_on(rename_files(
+                vec![path.to_string_lossy().into_owned()],
+                template.into(),
+                None,
+            ))
+            .unwrap()
+        };
+        let result = rename(&path, "%title%");
+        assert!(
+            result.result.errors.is_empty(),
+            "{:?}",
+            result.result.errors
+        );
+        assert_eq!(names(), ["Song.wav"]);
+        // The file list's inline filename edit sends a quoted literal.
+        let result = rename(&dir.path().join("Song.wav"), "'SONG'");
+        assert!(
+            result.result.errors.is_empty(),
+            "{:?}",
+            result.result.errors
+        );
+        assert_eq!(names(), ["SONG.wav"]);
+        // A different file that differs only in case is never replaced.
+        let other = dir.path().join("Other.wav");
+        wav(&other);
+        let insensitive = dir.path().join("other.wav").exists();
+        let result = rename(&dir.path().join("SONG.wav"), "'other'");
+        assert_eq!(!result.result.errors.is_empty(), insensitive);
+        assert!(other.exists());
+        assert_eq!(names().len(), 2);
     }
 
     #[test]

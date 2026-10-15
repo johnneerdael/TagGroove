@@ -257,6 +257,50 @@ fn renames_and_directory_moves_reverse_and_reapply() {
     assert!(final_second.exists() && moved.join("cover.jpg").exists());
 }
 
+fn names(dir: &Path) -> Vec<String> {
+    let mut names: Vec<_> = fs::read_dir(dir)
+        .unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+        .filter(|name| name != "journal")
+        .collect();
+    names.sort();
+    names
+}
+
+#[test]
+fn case_only_renames_of_files_and_folders_are_undone_and_redone() {
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path().canonicalize().unwrap();
+    let album = root.join("album");
+    fs::create_dir(&album).unwrap();
+    let first = album.join("one.wav");
+    wav(&first);
+    let mut history = journal(&root);
+    let capture = history.begin("Case Conversion", None, &[key(&first)]);
+    let renamed = album.join("One.wav");
+    tag_core::operations::rename_no_clobber(&first, &renamed).unwrap();
+    let moved = root.join("ALBUM");
+    tag_core::operations::rename_directory_no_clobber(&album, &moved).unwrap();
+    let last = moved.join("One.wav");
+    history.commit(
+        capture,
+        &[(key(&first), key(&last))],
+        &[(key(&album), key(&moved))],
+    );
+    assert_eq!(names(&root), ["ALBUM"]);
+    assert_eq!(names(&moved), ["One.wav"]);
+
+    let replay = history.undo().unwrap();
+    assert!(replay.errors.is_empty(), "{:?}", replay.errors);
+    assert_eq!(names(&root), ["album"]);
+    assert_eq!(names(&album), ["one.wav"]);
+
+    let replay = history.redo().unwrap();
+    assert!(replay.errors.is_empty(), "{:?}", replay.errors);
+    assert_eq!(names(&root), ["ALBUM"]);
+    assert_eq!(names(&moved), ["One.wav"]);
+}
+
 #[test]
 fn pure_rename_keeps_no_snapshot_and_reverses() {
     let dir = tempfile::tempdir().unwrap();

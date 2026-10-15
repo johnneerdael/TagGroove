@@ -89,6 +89,11 @@ export function resolvePathChanges(paths:string[],renamed:{from:string;to:string
   const rebase=(path:string)=>directories.reduce((current,move)=>{const from=move.from.replace(/[\\/]+$/,''),to=move.to.replace(/[\\/]+$/,'');if(current===from)return to;if(current.startsWith(from)&&(current[from.length]==='/'||current[from.length]==='\\'))return to+current.slice(from.length);return current;},path);
   return new Map(paths.map(path=>[path,exact.get(path)||rebase(path)] as [string,string]).filter(([from,to])=>from!==to));
 }
+/** List folders after folder renames that changed only the letter case: on case-insensitive volumes they are still the listed folders. */
+export function rebaseCaseOnly(folders:string[],directories:{from:string;to:string}[]){
+  const changes=resolvePathChanges(folders,[],directories.filter(move=>move.from!==move.to&&move.from.toLowerCase()===move.to.toLowerCase()));
+  return folders.map(folder=>changes.get(folder)??folder);
+}
 const title=(action:ActionSpec)=>actionCatalog.find(([key])=>key===action.type)?.[1]||'Unresolved imported action';
 const coverTypes:[string,string][]=[['Other','Other'],['Icon','File icon'],['OtherIcon','Other file icon'],['CoverFront','Front Cover'],['CoverBack','Back Cover'],['Leaflet','Leaflet'],['Media','Media'],['LeadArtist','Lead artist'],['Artist','Artist'],['Conductor','Conductor'],['Band','Band or orchestra'],['Composer','Composer'],['Lyricist','Lyricist'],['RecordingLocation','Recording location'],['DuringRecording','During recording'],['DuringPerformance','During performance'],['ScreenCapture','Screen capture'],['BrightFish','A bright colored fish'],['Illustration','Illustration'],['BandLogo','Band logo'],['PublisherLogo','Publisher logo']];
 function defaultAction(type:string):ActionSpec{

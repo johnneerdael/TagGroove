@@ -29,12 +29,23 @@ impl Default for General {
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Files {
     /// Extensions read from directories, for example `*.mp3;*.flac`. Empty
     /// reads every supported format.
     pub restrict_extensions: String,
+    /// Replaces `\` and `/` in tag values when files are renamed from tags.
+    /// Empty removes them.
+    pub folder_separator: String,
+}
+impl Default for Files {
+    fn default() -> Self {
+        Self {
+            restrict_extensions: String::new(),
+            folder_separator: tag_core::DEFAULT_FOLDER_SEPARATOR.into(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -176,6 +187,7 @@ impl Settings {
         }
         self.tags.validate()?;
         parse_extensions(&self.files.restrict_extensions)?;
+        tag_core::validate_folder_separator(&self.files.folder_separator)?;
         if let Some(value) = self.pages.get("networking") {
             serde_json::from_value::<Network>(value.clone())
                 .map_err(|e| format!("Networking: {e}"))?

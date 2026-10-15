@@ -22,7 +22,7 @@ import { removeTagTypesDialog, mp4ChapterFiles, stripChaptersPrompt, copyAsTextD
 import { ExtendedTags } from './extended-tags';
 import { isMacPlatform, isTextEntry, altChord, nextPane, windowShortcut, type Pane, type WindowShortcut } from './keyboard';
 import { TagSourcesUI, tagSourcesOptionsPages, type Provider } from './tag-sources';
-import { ActionUI, panelKey, resolvePathChanges, type ActionGroup, type ActionLibrary, type ImportedGroup } from './action-ui';
+import { ActionUI, panelKey, rebaseCaseOnly, resolvePathChanges, type ActionGroup, type ActionLibrary, type ImportedGroup } from './action-ui';
 import { ColumnUI, ColumnValueCache, columnFields, defaultLayout, editKey, headerMarkup, maxColumnWidth, minColumnWidth, normalizeLayout, quickValue, sortClick, sortIndicator, sortRows, sortTemplate, updateSortHeader, visibleColumns, type ColumnLayout } from './columns';
 import { FilterSync, filterCacheMiss } from './filter-sync';
 import { CellEditor, adjacentCell, type CellTarget } from './cell-editor';
@@ -983,6 +983,7 @@ function accept(batch: Batch, message: string, clearDrafts = true) {
 }
 function applyRenamed(batch:Batch){
   const changes=resolvePathChanges([...entries.keys()],batch.renamed||[],batch.moved_directories||[]);
+  listRoots=rebaseCaseOnly(listRoots,batch.moved_directories||[]);
   // Listed folders, taken before files added on their own are renamed away.
   const folders=listRoots.map(root=>entries.has(root)?dirname(root):root);
   const snapshots=[...changes].map(([from,to])=>({from,to,entry:entries.get(from)!,draft:drafts.get(from),covers:pendingCovers.get(from),selected:selected.has(from)}));
@@ -1292,7 +1293,7 @@ function tagToTag(){
   openTagToTag({modal,modalError,esc,paths,displayName,canApply:()=>enabled('tag-tag'),
     fieldNames:()=>[...new Set(paths().flatMap(path=>Object.keys(merged(entries.get(path)!))))],
     storage:{getItem:key=>window.localStorage.getItem(key),setItem:(key,value)=>window.localStorage.setItem(key,value)},
-    preview:(targets,template)=>invoke<Preview[]>('preview_format',{paths:targets,template,columns:columnSpecs(targets)}),
+    preview:(targets,template,filename)=>invoke<Preview[]>('preview_format',{paths:targets,template,columns:columnSpecs(targets),filename}),
     apply:async({field,template,paths:targets})=>{
       if(!enabled('tag-tag'))throw new Error(operationReason('tag-tag')||'Select files and save pending tag edits first.');
       const result=await run('Converting tags…',async()=>{const batch=await invoke<Batch>('convert_tag_to_tag',{paths:targets,field,template,columns:columnSpecs(targets)});applyRenamed(batch);accept(batch,'Tag → Tag');return batch;});

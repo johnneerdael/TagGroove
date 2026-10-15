@@ -2,7 +2,7 @@
 //! References: https://docs.mp3tag.de/actions/ and its individual action pages.
 //! Native effects are explicit: a caller must execute them or return an error.
 use crate::{
-    script::{evaluate, Action},
+    script::{evaluate, evaluate_filename_with_context, Action, EvalContext},
     tags::Fields,
 };
 use serde::{Deserialize, Serialize};
@@ -212,15 +212,45 @@ impl ActionState {
         fields
     }
 }
+/// Where a new file or folder name came from, which decides how the host
+/// turns it into a path.
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum NameOrigin {
+    /// The current name changed by Case Conversion, Replace and similar
+    /// actions. `\` and `/` separate folders.
+    #[default]
+    Edited,
+    /// A format string evaluated in filename mode (Format Value, Tag → Tag):
+    /// literal separators create folders, tag values had theirs replaced, and
+    /// a name already ending in the file's extension does not get it twice.
+    Template,
+    /// Text captured by Guess Values, used like a tag value: separators and
+    /// invalid characters are replaced, and the extension is not doubled.
+    Value,
+}
+
+/// How an action wants a format string evaluated.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TemplateMode {
+    Text,
+    /// Filename mode, as Convert → Tag - Filename evaluates.
+    Filename,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ActionEffect {
     RenameFile {
         filename: String,
         includes_extension: bool,
+        #[serde(default)]
+        origin: NameOrigin,
     },
     RenameDirectory {
         directory: String,
+        #[serde(default)]
+        origin: NameOrigin,
     },
     RemoveCovers,
     ImportCover {
@@ -269,6 +299,10 @@ pub trait ActionHost {
     /// Windows ANSI codepage), rebuilding tag context after each action.
     fn evaluate(&mut self, template: &str, state: &ActionState) -> Result<String, String> {
         evaluate(template, &state.evaluation_fields())
+    }
+    /// Evaluate a `_FILENAME`/`_DIRECTORY` target in filename mode.
+    fn evaluate_filename(&mut self, template: &str, state: &ActionState) -> Result<String, String> {
+        evaluate_filename_with_context(template, &EvalContext::new(&state.evaluation_fields()))
     }
     fn execute(&mut self, effect: &ActionEffect, state: &mut ActionState) -> Result<(), String>;
     fn execute_batch(
@@ -404,19 +438,17 @@ where
     let mut effects = Vec::new();
     let mut fields = state.fields.clone();
     if selector.eq_ignore_ascii_case("_FIELDNAME") {
+        // The displayed tag (`_TAG_READ`) is the one whose fields are edited;
+        // `_TAG` lists every tag in the file.
         let format = state
             .context
-            .get("_TAG")
+            .get("_TAG_READ")
+            .or_else(|| state.context.get("_TAG"))
             .and_then(|v| v.first())
             .map(String::as_str)
             .unwrap_or("");
-        if !["APEv2", "VorbisComments"]
-            .iter()
-            .any(|candidate| format.eq_ignore_ascii_case(candidate))
-        {
-            return Err(
-                "Field-name actions require native APEv2 or VorbisComments format context".into(),
-            );
+        if !crate::tags::keeps_field_names(format) {
+            return Err("Field-name actions require an APEv2 or VorbisComment tag".into());
         }
         let mut renamed = Fields::new();
         for (key, values) in &state.fields {
@@ -460,6 +492,7 @@ where
             effects.push(ActionEffect::RenameFile {
                 filename: value[0].clone(),
                 includes_extension: filename_extension,
+                origin: NameOrigin::Edited,
             });
         } else if selector.eq_ignore_ascii_case("_DIRECTORY") {
             let values = state
@@ -472,6 +505,7 @@ where
             }
             effects.push(ActionEffect::RenameDirectory {
                 directory: value[0].clone(),
+                origin: NameOrigin::Edited,
             });
         } else if selector.starts_with('_')
             && !selector.eq_ignore_ascii_case("_TAG")
@@ -699,6 +733,26 @@ pub fn apply_action_spec_with_evaluator<F>(
 where
     F: FnMut(&str, &ActionState) -> Result<String, String>,
 {
+    apply_action_spec_with_modes(state, action, &mut |template, state, mode| match mode {
+        TemplateMode::Text => evaluate(template, state),
+        TemplateMode::Filename => {
+            evaluate_filename_with_context(template, &EvalContext::new(&state.evaluation_fields()))
+        }
+    })
+}
+
+/// Like [`apply_action_spec_with_evaluator`], with the evaluator told whether a
+/// template is evaluated as text or in filename mode.
+pub fn apply_action_spec_with_modes<F>(
+    state: &mut ActionState,
+    action: &ActionSpec,
+    evaluate_mode: &mut F,
+) -> Result<Vec<ActionEffect>, String>
+where
+    F: FnMut(&str, &ActionState, TemplateMode) -> Result<String, String>,
+{
+    let mut evaluate =
+        |template: &str, state: &ActionState| evaluate_mode(template, state, TemplateMode::Text);
     validate_action(action)?;
     match action {
         ActionSpec::CaseConversion {
@@ -737,22 +791,31 @@ where
             regex_values(values, pattern, replacement, *case_sensitive)
         }),
         ActionSpec::FormatValue { field, template } => {
-            let result = evaluate(template, state)?;
-            if field.eq_ignore_ascii_case("_FILENAME") {
-                if result.is_empty() {
-                    return Err("Filename must not be empty".into());
+            let renames_file = field.eq_ignore_ascii_case("_FILENAME");
+            if renames_file || field.eq_ignore_ascii_case("_DIRECTORY") {
+                let result = evaluate_mode(template, state, TemplateMode::Filename)?;
+                if result.trim().is_empty() {
+                    return Err(if renames_file {
+                        "Filename must not be empty"
+                    } else {
+                        "Directory must not be empty"
+                    }
+                    .into());
                 }
-                return Ok(vec![ActionEffect::RenameFile {
-                    filename: result,
-                    includes_extension: false,
+                return Ok(vec![if renames_file {
+                    ActionEffect::RenameFile {
+                        filename: result,
+                        includes_extension: false,
+                        origin: NameOrigin::Template,
+                    }
+                } else {
+                    ActionEffect::RenameDirectory {
+                        directory: result,
+                        origin: NameOrigin::Template,
+                    }
                 }]);
             }
-            if field.eq_ignore_ascii_case("_DIRECTORY") {
-                if result.is_empty() {
-                    return Err("Directory must not be empty".into());
-                }
-                return Ok(vec![ActionEffect::RenameDirectory { directory: result }]);
-            }
+            let result = evaluate(template, state)?;
             if field.starts_with('_') {
                 return Err(format!("Unsupported Format Value target {field}"));
             }
@@ -781,10 +844,12 @@ where
                         ActionEffect::RenameFile {
                             filename: values[0].clone(),
                             includes_extension: false,
+                            origin: NameOrigin::Value,
                         }
                     } else {
                         ActionEffect::RenameDirectory {
                             directory: values[0].clone(),
+                            origin: NameOrigin::Value,
                         }
                     });
                 } else if name.starts_with('_') {
@@ -962,8 +1027,11 @@ pub fn execute_groups<H: ActionHost>(
             }
             for state in states.iter_mut() {
                 let effects =
-                    apply_action_spec_with_evaluator(state, action, &mut |template, state| {
-                        host.evaluate(template, state)
+                    apply_action_spec_with_modes(state, action, &mut |template, state, mode| {
+                        match mode {
+                            TemplateMode::Text => host.evaluate(template, state),
+                            TemplateMode::Filename => host.evaluate_filename(template, state),
+                        }
                     })
                     .map_err(|error| format!("{} / action {}: {error}", group.name, index + 1))?;
                 for effect in effects {
@@ -1861,7 +1929,8 @@ mod tests {
             effects,
             [ActionEffect::RenameFile {
                 filename: "old.FLAC".into(),
-                includes_extension: true
+                includes_extension: true,
+                origin: NameOrigin::Edited,
             }]
         );
         let mut second = state();
@@ -1880,8 +1949,99 @@ mod tests {
             effects,
             [ActionEffect::RenameFile {
                 filename: "new".into(),
-                includes_extension: false
+                includes_extension: false,
+                origin: NameOrigin::Edited,
             }]
+        );
+    }
+    #[test]
+    fn filename_targets_use_filename_mode_and_record_their_origin() {
+        let mut state = state();
+        state
+            .fields
+            .insert("TITLE".into(), vec!["AC/DC: Live".into()]);
+        let effects = apply_action_spec(
+            &mut state,
+            &ActionSpec::FormatValue {
+                field: "_filename".into(),
+                template: "Live\\%title%.flac".into(),
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            effects,
+            [ActionEffect::RenameFile {
+                filename: "Live\\AC_DC_ Live.flac".into(),
+                includes_extension: false,
+                origin: NameOrigin::Template,
+            }]
+        );
+        let effects = apply_action_spec(
+            &mut state,
+            &ActionSpec::FormatValue {
+                field: "_DIRECTORY".into(),
+                template: "%title%".into(),
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            effects,
+            [ActionEffect::RenameDirectory {
+                directory: "AC_DC_ Live".into(),
+                origin: NameOrigin::Template,
+            }]
+        );
+        // Guessed text stays raw here; the host replaces its separators.
+        let effects = apply_action_spec(
+            &mut state,
+            &ActionSpec::GuessValues {
+                source: "%title%".into(),
+                pattern: "%_filename%".into(),
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            effects,
+            [ActionEffect::RenameFile {
+                filename: "AC/DC: Live".into(),
+                includes_extension: false,
+                origin: NameOrigin::Value,
+            }]
+        );
+    }
+    #[test]
+    fn field_name_actions_accept_the_displayed_ape_and_vorbis_tags() {
+        let action = ActionSpec::CaseConversion {
+            field: "_FIELDNAME".into(),
+            mode: CaseMode::Upper,
+            word_separators: String::new(),
+        };
+        for (tag, read, accepted) in [
+            ("ID3v1 APEv2", "APEv2", true),
+            ("VorbisComment", "VorbisComment", true),
+            ("ID3v2.3 ID3v1", "ID3v2.3", false),
+            ("MP4", "MP4", false),
+        ] {
+            let mut state = state();
+            state.context.insert("_TAG".into(), vec![tag.into()]);
+            state.context.insert("_TAG_READ".into(), vec![read.into()]);
+            let result = apply_action_spec(&mut state, &action);
+            assert_eq!(result.is_ok(), accepted, "{read}: {result:?}");
+            if accepted {
+                assert!(
+                    state.fields.contains_key("ARTIST") && !state.fields.contains_key("Artist")
+                );
+            }
+        }
+        let mut state = state();
+        state.fields = Fields::from([("Artist".into(), vec!["Ada".into()])]);
+        state
+            .context
+            .insert("_TAG_READ".into(), vec!["APEv2".into()]);
+        apply_action_spec(&mut state, &action).unwrap();
+        assert_eq!(
+            state.fields,
+            Fields::from([("ARTIST".into(), vec!["Ada".into()])])
         );
     }
     #[test]

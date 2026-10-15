@@ -5,7 +5,7 @@ import ts from 'typescript';
 
 const source = await readFile(new URL('../src/action-ui.ts', import.meta.url), 'utf8');
 const javascript = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 } }).outputText;
-const { actionListKey, actionCatalog, panelKey, moveItem, renameGroup, removeGroup, applyPreset, menuSegments, resolvePathChanges, mnemonicMarkup, sortGroups, enabledSummary, copyName, codepageChoices, qualityPresets } = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);
+const { actionListKey, actionCatalog, panelKey, moveItem, renameGroup, removeGroup, applyPreset, menuSegments, resolvePathChanges, rebaseCaseOnly, mnemonicMarkup, sortGroups, enabledSummary, copyName, codepageChoices, qualityPresets } = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);
 const library = () => ({groups:[{name:'First',enabled:true,actions:[{type:'format_value',field:'TITLE',template:'text'}]},{name:'Second',enabled:false,actions:[]}],presets:[{name:'Only first',enabled_groups:['First']}]});
 
 test('catalog exposes every documented action type exactly once', () => {
@@ -77,4 +77,9 @@ test('Actions dialog keys follow the keyboard reference', () => {
   assert.equal(actionListKey(key('PageDown', { altKey: true }), false), 'bottom');
   assert.equal(actionListKey(key('ArrowUp'), false), undefined, 'plain arrows move the selection');
   assert.equal(actionListKey(key('a', { ctrlKey: true }), false), undefined);
+});
+
+test('list folders follow folder renames that change only the letter case', () => {
+  const moves=[{from:'/music/album',to:'/music/ALBUM'},{from:'/music/other',to:'/music/renamed'}];
+  assert.deepEqual(rebaseCaseOnly(['/music/album','/music/album/disc 1','/music/other','/elsewhere'],moves),['/music/ALBUM','/music/ALBUM/disc 1','/music/other','/elsewhere']);
 });
