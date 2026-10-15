@@ -1,4 +1,7 @@
 //! Exercise the concept pages and beginner workflow lessons as written.
+mod guide_examples;
+use guide_examples::text_blocks;
+
 use tag_core::{
     actions::{apply_action_spec, ActionSpec, ActionState, CaseMode},
     evaluate_filename_with_context, evaluate_with_context, EvalContext, Fields,
@@ -100,11 +103,7 @@ fn first_action_lesson_executes_the_published_settings_in_the_written_order() {
 
 #[test]
 fn filename_lesson_progression_matches_both_discs() {
-    let blocks: Vec<_> = RENAME
-        .split("```text\n")
-        .skip(1)
-        .map(|block| block.split("```").next().unwrap().trim_end())
-        .collect();
+    let blocks = text_blocks(RENAME);
     assert_eq!(blocks.len(), 5);
     for (disc, title, expected_stem) in [
         ("1", "Paper Boats", "01 - Paper Boats"),
@@ -119,15 +118,15 @@ fn filename_lesson_progression_matches_both_discs() {
         .into();
         let context = EvalContext::new(&fields);
         assert_eq!(
-            evaluate_filename_with_context(blocks[0], &context).unwrap(),
+            evaluate_filename_with_context(&blocks[0], &context).unwrap(),
             expected_stem
         );
-        let album = evaluate_filename_with_context(blocks[1], &context)
+        let album = evaluate_filename_with_context(&blocks[1], &context)
             .unwrap()
             .replace('\\', "/")
             + ".mp3";
         assert!(blocks[2].lines().any(|line| line == album));
-        let with_disc = evaluate_filename_with_context(blocks[3], &context)
+        let with_disc = evaluate_filename_with_context(&blocks[3], &context)
             .unwrap()
             .replace('\\', "/")
             + ".mp3";

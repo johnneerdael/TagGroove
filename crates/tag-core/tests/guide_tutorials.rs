@@ -1,4 +1,7 @@
 //! Run the beginner lessons' copyable expressions on their stated practice data.
+mod guide_examples;
+use guide_examples::text_blocks;
+
 use tag_core::{evaluate, Fields};
 
 const FORMAT: &str = include_str!("../../../docs/user-guide/learn/format-strings-from-zero.md");
@@ -15,16 +18,9 @@ fn fields(title: &str) -> Fields {
     .into()
 }
 
-fn expressions(page: &str) -> Vec<&str> {
-    page.split("```text\n")
-        .skip(1)
-        .map(|block| block.split("```").next().unwrap().trim_end())
-        .collect()
-}
-
 #[test]
 fn format_lesson_code_blocks_produce_every_stated_intermediate_result() {
-    let examples = expressions(FORMAT);
+    let examples = text_blocks(FORMAT);
     let expected = [
         "Paper Boats",
         "Juniper Vale - Paper Boats",
@@ -40,7 +36,7 @@ fn format_lesson_code_blocks_produce_every_stated_intermediate_result() {
     assert_eq!(examples.len(), expected.len());
     for (example, expected) in examples.into_iter().zip(expected) {
         assert_eq!(
-            evaluate(example, &fields("Paper Boats")).unwrap(),
+            evaluate(&example, &fields("Paper Boats")).unwrap(),
             expected,
             "{example}"
         );
@@ -49,7 +45,7 @@ fn format_lesson_code_blocks_produce_every_stated_intermediate_result() {
 
 #[test]
 fn regex_lesson_code_blocks_preserve_the_source_until_the_final_apply_step() {
-    let examples = expressions(REGEX);
+    let examples = text_blocks(REGEX);
     let expected = [
         "03 - Paper Boats (Live 2024)",
         " - Paper_Boats (Live 2024)",
@@ -62,7 +58,7 @@ fn regex_lesson_code_blocks_preserve_the_source_until_the_final_apply_step() {
     assert_eq!(examples.len(), expected.len());
     for (example, expected) in examples.into_iter().zip(expected) {
         assert_eq!(
-            evaluate(example, &fields("03 - Paper_Boats (Live 2024)")).unwrap(),
+            evaluate(&example, &fields("03 - Paper_Boats (Live 2024)")).unwrap(),
             expected,
             "{example}"
         );

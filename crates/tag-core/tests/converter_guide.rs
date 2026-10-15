@@ -1,4 +1,7 @@
 //! Validate the converter guide's published examples with OpenTag's core.
+mod guide_examples;
+use guide_examples::text_blocks;
+
 use tag_core::{
     evaluate, evaluate_filename_with_context,
     numbering::{plan_numbering, NumberingItem, NumberingOptions},
@@ -20,24 +23,6 @@ fn cells(line: &str) -> Vec<&str> {
 
 fn inline(cell: &str) -> &str {
     cell.strip_prefix('`').unwrap().split('`').next().unwrap()
-}
-
-fn text_blocks(page: &str) -> Vec<String> {
-    page.split("```text\n")
-        .skip(1)
-        .map(|block| {
-            block
-                .split("```")
-                .next()
-                .unwrap()
-                .lines()
-                .map(|line| line.strip_prefix("    ").unwrap_or(line))
-                .collect::<Vec<_>>()
-                .join("\n")
-                .trim_end()
-                .to_owned()
-        })
-        .collect()
 }
 
 #[test]

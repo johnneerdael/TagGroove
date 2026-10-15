@@ -1,4 +1,7 @@
 //! Execute the action guide's copyable examples against OpenTag's core.
+mod guide_examples;
+use guide_examples::text_blocks;
+
 use tag_core::{
     actions::{
         apply_action_spec, ActionSpec, ActionState, CaseMode, CoverImageFormat, CoverResize,
@@ -202,20 +205,7 @@ fn guess_values_examples_replace_destinations_and_skip_dummy_text() {
 
 #[test]
 fn export_action_configuration_runs_exactly_as_published() {
-    let template = EXPORT
-        .split("```text\n")
-        .nth(1)
-        .unwrap()
-        .split("```")
-        .next()
-        .unwrap();
-    let template = template
-        .lines()
-        .map(|line| line.strip_prefix("    ").unwrap_or(line))
-        .collect::<Vec<_>>()
-        .join("\n")
-        .trim_end()
-        .to_owned();
+    let template = text_blocks(EXPORT).remove(0);
     let rows: Vec<_> = [
         ("/music/z.mp3", "Paper Boats"),
         ("/music/a.mp3", "North Pier"),
