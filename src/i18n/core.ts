@@ -178,7 +178,15 @@ export class Translator {
       });
       return render(pattern.value, params, this.rules);
     }
-    return this.shortcut(core);
+    const shortcut = this.shortcut(core);
+    if (shortcut !== null) return shortcut;
+    // Marks rendered in the same text node as a label ("✓ Main toolbar", "Filename ↑") stay around its translation.
+    const marked = /^([✓✔●•►▸▾★☆]\s*)?(.*?)(\s*[↑↓▲▼›»])?$/u.exec(core)!;
+    if ((marked[1] || marked[3]) && marked[2] && marked[2] !== core) {
+      const inner = this.translate(marked[2], depth, verbatim || name || false);
+      if (inner !== marked[2]) return `${marked[1] ?? ''}${inner}${marked[3] ?? ''}`;
+    }
+    return null;
   }
   /** A shortcut label with the local names of its keys, or null for other text. */
   private shortcut(text: string): string | null {

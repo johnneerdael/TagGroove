@@ -84,7 +84,8 @@
   const measure = root => {
     const over = [];
     [...root.querySelectorAll(SELECTORS)].forEach((el, index) => {
-      if (!el.getClientRects().length || !el.clientWidth) return;
+      // An open submenu's flyout overflows its <details> by design; its summary and items are measured themselves.
+      if (!el.getClientRects().length || !el.clientWidth || el.matches('details')) return;
       if (el.scrollWidth > el.clientWidth + 2) over.push(`${index}:${el.tagName.toLowerCase()}${el.dataset.op ? '#' + el.dataset.op : ''} “${el.textContent.trim().slice(0, 40)}”`);
     });
     const box = root.getBoundingClientRect();

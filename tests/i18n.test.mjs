@@ -44,6 +44,10 @@ test('rendered English text is translated by exact key or by key pattern, keepin
   assert.equal(de.translate('Moved 3 files to the Trash'),'3 Dateien in den Papierkorb verschoben');
   assert.equal(de.translate('Copy of Save tags'),'Kopie von Save tags');
   assert.equal(de.translate('Something else'),'Something else');
+  // Check marks and sort arrows in the same text node stay around the translated label.
+  assert.equal(new Translator('de',{'Main toolbar':'Hauptsymbolleiste',Filename:'Dateiname'}).translate('✓ Main toolbar'),'✓ Hauptsymbolleiste');
+  assert.equal(new Translator('de',{'Main toolbar':'Hauptsymbolleiste',Filename:'Dateiname'}).translate('Filename ↑'),'Dateiname ↑');
+  assert.equal(new Translator('de',{Filename:'Dateiname'}).translate('✓ Other'),'✓ Other');
   // Counts only match numbers, so a key such as "{count} files" leaves other text alone.
   assert.equal(de.translate('Choose files'),'Choose files');
   assert.equal(de.translate('1.234 files'),'1.234 Dateien');
