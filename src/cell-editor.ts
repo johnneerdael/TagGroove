@@ -28,6 +28,17 @@ export function adjacentCell(rows:string[],columns:string[],target:CellTarget,di
 }
 
 /**
+ * A delayed second click on the selected file edits the clicked cell only if
+ * nothing happened in between: the file is still the only selection, no
+ * operation runs and the clicked row still has the keyboard focus. Clicking
+ * into the tag panel or a menu first cancels it, so typing there is not
+ * taken over by the File List editor.
+ */
+export function slowEditStillWanted(target:CellTarget,state:{selected:ReadonlySet<string>;busy:boolean;focusedRow:string|undefined}){
+  return state.selected.size===1&&state.selected.has(target.path)&&!state.busy&&state.focusedRow===target.path;
+}
+
+/**
  * Inline File List editor. The input floats inside the scrolling table container,
  * so virtual row re-rendering and full workspace renders do not discard typing.
  */
