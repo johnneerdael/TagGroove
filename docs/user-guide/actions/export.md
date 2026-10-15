@@ -6,19 +6,22 @@ contents; an output filename format decides where to write it.
 
 ## Produce a small track report
 
-1. Save pending edits and select copied practice files in the order you
-   want them listed.
-2. Choose **Actions → Actions (Quick)…**, then **Export**.
-3. In **Export configuration**, enter this complete configuration:
+1. In a plain-text editor, save this configuration as a UTF-8 file named
+   `practice-report.mte`:
 
     ```text
     $filename(tags.txt,utf-8)$loop(1)%artist% - %title%
     $loopend()
     ```
 
-4. In **Output filename format**, enter `tags.txt`.
-5. Leave **Append data** and **Create one output file per partition** off.
-6. Choose **Apply action**, then open the report beside the first selected
+2. Save pending tag edits and select copied practice files in the order
+   you want them listed.
+3. Choose **Actions → Actions (Quick)…**, then **Export**.
+4. Next to **Export configuration**, choose **Browse…** and select
+   `practice-report.mte`.
+5. In **Output filename format**, enter `tags.txt`.
+6. Leave **Append data** and **Create one output file per partition** off.
+7. Choose **Apply action**, then open the report beside the first selected
    audio file.
 
 With two selected titles, the content can look like:
@@ -45,10 +48,11 @@ functions.
 | **Create one output file per partition** | Enable grouping by **Partition format** |
 | **Partition format** | A per-file format string whose equal results belong to the same output group |
 
-For regular use, keep the template in a saved configuration or `.mte`
-file and reference it by name or path. The action also accepts the complete
-template shown above. Export settings control byte-order marks and whether
-missing output folders may be created.
+**Export configuration** is a single-line input. Use a saved configuration
+name or an `.mte` file path for templates containing line breaks; do not
+paste the multiline file contents into that box. A complete one-line
+template can be entered directly. Export settings control byte-order marks
+and whether missing output folders may be created.
 
 ## Partition a report
 
