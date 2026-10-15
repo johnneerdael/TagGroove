@@ -18,10 +18,12 @@ function kinds(remove:{remove_id3v1:boolean;remove_id3v2:boolean;remove_ape:bool
   const names=[remove.remove_id3v1&&'ID3v1',remove.remove_id3v2&&'ID3v2',remove.remove_ape&&'APE'].filter((name):name is string=>!!name);
   return names.length?list(names):`nothing (no tag type is checked under Options → Tags → ${page})`;
 }
-/** Translate each UI row before joining: catalog wording cannot collapse the confirmation's layout. */
-export function removeTagPrompt(count:number,tags:Pick<TagOptions,'mpeg'|'ape'>,translate:(text:string)=>string=text=>text){
-  return [translate(`Remove tags from ${count} selected file${count===1?'':'s'}?`),'',
-    translate(`MP3, TTA: ${kinds(tags.mpeg,'Mpeg')}`),
-    translate(`APE, MPC, WavPack, TAK, OptimFROG: ${kinds(tags.ape,'Ape, Mpc')}`),
-    translate('Other formats: all tags')].join('\n');
+/** English source rows; native dialogs translate these once and retain the code-owned line breaks. */
+export function removeTagParts(count:number,tags:Pick<TagOptions,'mpeg'|'ape'>){
+  return [`Remove tags from ${count} selected file${count===1?'':'s'}?`,'',
+    `MP3, TTA: ${kinds(tags.mpeg,'Mpeg')}`,
+    `APE, MPC, WavPack, TAK, OptimFROG: ${kinds(tags.ape,'Ape, Mpc')}`,
+    'Other formats: all tags'];
 }
+/** Plain text for non-native callers; preserve the same source-row layout. */
+export function removeTagPrompt(count:number,tags:Pick<TagOptions,'mpeg'|'ape'>,translate:(text:string)=>string=text=>text){return removeTagParts(count,tags).map(translate).join('\n');}

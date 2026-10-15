@@ -7,6 +7,8 @@
 /** A catalog file: English key → translation. `@meta` names the language. */
 export type Catalog = {'@meta'?: {name?: string; locale?: string; [key: string]: unknown}} & Record<string, unknown>;
 export type CatalogMeta = {name: string; locale: string};
+/** English source segments with a code-owned separator; translate parts once before joining. */
+export type MessageText = string | {parts: readonly string[]; separator: string};
 
 const PLACEHOLDER = /\{([A-Za-z][A-Za-z0-9]*)\}/g;
 const PLURAL_CATEGORIES = new Set(['zero', 'one', 'two', 'few', 'many', 'other']);

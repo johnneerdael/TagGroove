@@ -19,7 +19,8 @@ const {contextMenuMarkup}=await load('row-context-menu.ts');
 const {ToolsUI,toolsOptionsPage}=await load('tools.ts'),{installHelperMenus}=await load('helper-menu.ts');
 const {copyAsTextDialog}=await load('utils-ui.ts'),{PlaylistUI}=await load('playlist-ui.ts'),{openTagToTag}=await load('tag-tag-ui.ts');
 const {FileOpsUI}=await load('file-ops.ts');
-const {removeTagPrompt}=await load('remove-tag.ts');
+const {removeTagParts}=await load('remove-tag.ts');
+const {Messages}=await load('messages.ts');
 const {WebSourcesUI}=await import(await moduleUrl('web-sources.ts',{"'./action-ui'":JSON.stringify(await moduleUrl('action-ui.ts'))}));
 const main=await source('main.ts'),parsed=ts.createSourceFile('main.ts',main,ts.ScriptTarget.Latest,true);
 const tagSourceParsed=ts.createSourceFile('tag-sources.ts',await source('tag-sources.ts'),ts.ScriptTarget.Latest,true);
@@ -52,6 +53,15 @@ function rendererVariable(tree,name,values){
   const js=ts.transpileModule(`const ${declaration.getText(tree)};return ${name};`,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
   return new Function(...Object.keys(values),js)(...Object.values(values));
 }
+function mainMessage(call,needle,index,values){
+  let expression;
+  const visit=node=>{if(ts.isCallExpression(node)&&node.expression.getText(parsed)===call&&node.arguments[index]?.getText(parsed).includes(needle))expression=node.arguments[index];ts.forEachChild(node,visit);};visit(parsed);
+  assert.ok(expression,`Production ${needle} message`);
+  const js=ts.transpileModule(`return ${expression.getText(parsed)};`,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
+  return new Function(...Object.keys(values),js)(...Object.values(values));
+}
+const configurationMessage=values=>mainMessage('ask','OpenTag reloads its window',0,values);
+const removalMessage=(count,tags)=>mainMessage('messages.confirm','removeTagParts',1,{removeTagParts,selected:{size:count},optionsUI:{settings:{tags}}});
 function page(){
   const window=new Window();
   for(const key of ['window','document','Node','NodeFilter','Element','HTMLElement','HTMLInputElement','HTMLTextAreaElement','HTMLButtonElement','MutationObserver','MouseEvent','Event'])globalThis[key]=key==='window'?window:window[key];
@@ -60,6 +70,23 @@ function page(){
   return {body,window,translate(locale){translator=new Translator(locale,catalogs[locale]??{});dom.apply();return translator;},close(){window.happyDOM.abort();}};
 }
 const memory=()=>{const data=new Map();return{getItem:key=>data.get(key)??null,setItem:(key,value)=>data.set(key,value)};};
+
+test('structured confirmations translate source parts once through Messages and the native ask wrapper',async()=>{
+  const first='Replace the current options, action groups, export configurations, columns, tag panel, favorite directories and remembered lists with {path}?';
+  const reload='OpenTag reloads its window afterwards. The Discogs access token is not part of a configuration file.';
+  const translator=new Translator('en',{[first]:'Save tags',[reload]:'Save tags','Save tags':'Write tags','Save tags Save tags':'Incorrect second translation',
+    'Remove tags from {count} selected files?':'Save tags','MP3, TTA: {kinds}':'Save tags','APE, MPC, WavPack, TAK, OptimFROG: {kinds}':'Save tags','Other formats: all tags':'Save tags',
+    'Save tags Save tags Save tags Save tags':'Incorrect second translation',Yes:'Save tags',No:'Keep tags','Load configuration':'Save tags','Remove tag':'Save tags'});
+  const calls=[],nativeSource=(await source('i18n/dialog.ts')).replace(/^import .*;\r?\n/gm,'').replace(/^export /gm,'');
+  const js=ts.transpileModule(nativeSource,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
+  const ask=new Function('dialog','t','translate','translationActive',`${js}\nreturn ask;`)({ask:async(...args)=>{calls.push(args);return false;}},key=>translator.t(key),text=>translator.translate(text),()=>true);
+  await ask(configurationMessage({translate:text=>translator.translate(text),basename:path=>path,path:'Help  Title.json',drafts:{size:0}}),'Load configuration');
+  assert.equal(calls.at(-1)[0],'Save tags\n\nSave tags');
+  assert.deepEqual(calls.at(-1)[1],{title:'Save tags',okLabel:'Save tags',cancelLabel:'Keep tags'});
+  const messages=new Messages({values:()=>({}),ask:(text,title)=>ask(text,title)}),tags={mpeg:{remove_id3v1:true},ape:{remove_ape:true}};
+  await messages.confirm('confirm_remove_tags',removalMessage(2,tags),'Remove tag');
+  assert.equal(calls.at(-1)[0],'Save tags\n\nSave tags\nSave tags\nSave tags');
+});
 
 for(const locale of ['de','nl']){
   test(`${locale}: web-source names remain verbatim in enabled tooltips while disabled reasons translate`,()=>{
@@ -78,7 +105,8 @@ for(const locale of ['de','nl']){
     const translator=new Translator(locale,catalogs[locale]),calls=[];
     const nativeSource=(await source('i18n/dialog.ts')).replace(/^import .*;\r?\n/gm,'').replace(/^export /gm,'');
     const js=ts.transpileModule(nativeSource,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
-    const confirm=new Function('dialog','t','translate','translationActive',`${js}\nreturn confirm;`)({confirm:async(...args)=>{calls.push(args);return false;}},key=>translator.t(key),text=>translator.translate(text),()=>true);
+    const dialogs=new Function('dialog','t','translate','translationActive',`${js}\nreturn {ask,confirm};`)({ask:async(...args)=>{calls.push(args);return false;},confirm:async(...args)=>{calls.push(args);return false;}},key=>translator.t(key),text=>translator.translate(text),()=>true);
+    const {confirm,ask}=dialogs;
     const names=['Help',`My  Files${newline}Title`],destination='/Music/My  Files';
     for(const mac of [false,true])for(const operation of ['file-delete','file-delete-permanent','file-copy','file-move']){
       const host={mac,selection:()=>names.map(name=>({name,path:name})),openReason:()=>'',pickDirectories:async()=>[destination],confirm:(text,title)=>confirm(text.replace(/\r?\n/g,newline),title)};
@@ -90,15 +118,15 @@ for(const locale of ['de','nl']){
       assert.equal(options.okLabel,translator.t('OK'));assert.equal(options.cancelLabel,translator.t('Cancel'));
     }
     const tags={mpeg:{remove_id3v1:true,remove_id3v2:false,remove_ape:false},ape:{remove_id3v1:false,remove_id3v2:false,remove_ape:true}};
-    await confirm(removeTagPrompt(2,tags,text=>translator.translate(text)).replace(/\n/g,newline),'Remove tag');
+    await ask({...removalMessage(2,tags),separator:newline},'Remove tag');
     const removal=calls.at(-1)[0];
     assert.ok(removal.includes(`${newline}${newline}MP3, TTA: ID3v1${newline}APE, MPC, WavPack, TAK, OptimFROG: APE${newline}`),removal);
     assert.notEqual(removal.split(newline)[0],'Remove tags from 2 selected files?');
     assert.notEqual(removal.split(newline).at(-1),'Other formats: all tags');
     for(const size of [0,1,2]){
       const filename=`Help  ${newline}Title.json`;
-      const prompt=mainTemplate(node=>node.head.text===''&&node.getText(parsed).includes('OpenTag reloads its window'),{translate:text=>translator.translate(text),basename:path=>path,path:filename,drafts:{size}});
-      await confirm(prompt.replace(/\r?\n/g,newline),'Load configuration');
+      const prompt=configurationMessage({basename:path=>path,path:filename,drafts:{size}});
+      await ask({...prompt,separator:newline+newline},'Load configuration');
       const configuration=calls.at(-1)[0];
       assert.ok(configuration.includes(filename),configuration);
       assert.ok(configuration.includes(`${newline}${newline}${translator.t('OpenTag reloads its window afterwards. The Discogs access token is not part of a configuration file.')}`),configuration);
@@ -357,5 +385,6 @@ for(const [ending,newline] of [['LF','\n'],['CRLF','\r\n']]){
     assert.deepEqual(dialogs.message('Save tags'),['Write metadata',{buttons:{ok:'Accept'}}]);
     assert.deepEqual(picker,{title:'Open files',defaultPath:'Help',filters:[{name:'Audio files',extensions:['mp3']}]});
     assert.equal(create(native,new Translator('en')).open(picker)[0],picker);
+    assert.deepEqual(create(native,new Translator('en')).ask({parts:['Help','Title'],separator:'\n\n'},'Open files'),['Help\n\nTitle','Open files']);
   });
 }

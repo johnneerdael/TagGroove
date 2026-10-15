@@ -1,6 +1,7 @@
 // Options → Messages (https://docs.mp3tag.de/customization/options/messages/):
 // which confirmations and notifications are shown around operations.
 import type { OptionsPage } from './options-ui';
+import type { MessageText } from './i18n/core';
 
 export type MessageKey='after_save'|'after_change'|'after_delete'|'confirm_remove_tags'|'confirm_cut_tags'|'confirm_paste_tags'|'confirm_export'|'confirm_delete_files'|'action_warnings'|'unsaved_changes'|'confirm_import_covers';
 export const MESSAGE_DEFAULTS:Record<MessageKey,boolean>={
@@ -32,7 +33,7 @@ export const messagesOptionsPage:OptionsPage={id:'messages',label:'Messages',ord
 
 export type MessageHost={
   values:()=>Record<string,unknown>;
-  ask:(message:string,title:string)=>Promise<boolean>;
+  ask:(message:MessageText,title:string)=>Promise<boolean>;
   tell:(message:string,title:string)=>Promise<void>;
 };
 /** Whether a message is enabled, falling back to its default for unsaved or malformed values. */
@@ -42,7 +43,7 @@ export class Messages {
   constructor(private host:MessageHost){}
   enabled(key:MessageKey){return messageEnabled(this.host.values(),key);}
   /** Ask when the confirmation is enabled; otherwise proceed. */
-  async confirm(key:MessageKey,message:string,title:string){return !this.enabled(key)||this.host.ask(message,title);}
+  async confirm(key:MessageKey,message:MessageText,title:string){return !this.enabled(key)||this.host.ask(message,title);}
   /** Show a notification when it is enabled. */
   async notify(key:MessageKey,message:string,title:string){if(this.enabled(key))await this.host.tell(message,title);}
 }

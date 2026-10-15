@@ -18,7 +18,7 @@ import { Messages, messagesOptionsPage, coverChoice, type MessageKey } from './m
 import { appearanceOptions, notificationAreaKey, completeInput, generalOptions, insideFolders, networkingOptionsPage, releaseNotesUrl, showReleaseNotes, updateMessage, updateOptions, updatesOptionsPage, type UpdateCheck } from './general-options';
 import { ToolsUI, toolsOptionsPage, toolShortcut, type Tool } from './tools';
 import { mappingOptionsPage } from './field-mapping';
-import { removeTagPrompt, removeTagShortcut } from './remove-tag';
+import { removeTagParts, removeTagShortcut } from './remove-tag';
 import { RowContextMenu, type ContextItem } from './row-context-menu';
 import { removeTagTypesDialog, mp4ChapterFiles, stripChaptersPrompt, copyAsTextDialog, redoOrRepeat, menuShortcuts, EXTRA_SHORTCUTS, shortcutsDialog, CONFIGURATION_FILTER, configurationFileName, UTILS, utilMessage, utilTargets, type RemovableTag, type Util } from './utils-ui';
 import { ExtendedTags } from './extended-tags';
@@ -1826,7 +1826,7 @@ async function operateImpl(op: Operation) {
   if(op==='field-values'){tagPanel.fieldValues();return;}
   if(op==='panel-defaults'){tagPanel.applyDefaults();return;}
   if(op==='add-cover'||op==='remove-cover'||op==='cover-manage'){await coverUI.run(op==='add-cover'?'add':op==='remove-cover'?'remove':'manage');return;}
-  if(op==='remove-tags'){if(await messages.confirm('confirm_remove_tags',removeTagPrompt(selected.size,optionsUI.settings.tags,translate),'Remove tag'))await mutate('remove_tags',{},'Removed tags');return;}
+  if(op==='remove-tags'){if(await messages.confirm('confirm_remove_tags',{parts:removeTagParts(selected.size,optionsUI.settings.tags),separator:'\n'},'Remove tag'))await mutate('remove_tags',{},'Removed tags');return;}
   if(op==='strip-mp4-chapters'){const found=mp4ChapterFiles(selectedFiles());if(await messages.confirm('confirm_remove_tags',stripChaptersPrompt(found),'Strip chapters MP4'))await mutate('strip_mp4_chapters',{},'Stripped MP4 chapters');return;}
   if(op==='remove-tag-types'){removeTagTypesDialog({modal,modalError,tags:()=>paths().map(path=>entries.get(path)?.technical?._TAG?.[0]),remove:async kinds=>{await mutate('remove_tag_types',{kinds:kinds as RemovableTag[]},'Removed tag types');}});return;}
   if(op==='copy-text'){copyAsTextDialog({modal,modalError,values:()=>optionsUI.page('copy-as-text'),remember:values=>desktop?optionsUI.updatePage('copy-as-text',values):Promise.resolve(),count:()=>selected.size,
@@ -1841,8 +1841,8 @@ async function operateImpl(op: Operation) {
   if(op==='config-save'){const outputPath=await save({title:'Save configuration',defaultPath:configurationFileName(),filters:[CONFIGURATION_FILTER]});if(outputPath){const count=await invoke<number>('export_configuration',{outputPath});status=`Saved ${count} configuration file${count===1?'':'s'} to ${basename(outputPath)}`;render();}return;}
   if(op==='config-load'){
     const path=await open({multiple:false,title:'Load configuration',filters:[CONFIGURATION_FILTER]});if(typeof path!=='string')return;
-    // Translate the UI paragraphs separately, then join them without splitting the user's filename.
-    if(!await ask(`${translate(`Replace the current options, action groups, export configurations, columns, tag panel, favorite directories and remembered lists with ${basename(path)}?${drafts.size?` Pending changes in ${drafts.size} file${drafts.size===1?'':'s'} are discarded.`:''}`)}\n\n${translate('OpenTag reloads its window afterwards. The Discogs access token is not part of a configuration file.')}`,{title:'Load configuration',kind:'warning'}))return;
+    // Pass source paragraphs to the native boundary; it translates once, then joins the layout.
+    if(!await ask({parts:[`Replace the current options, action groups, export configurations, columns, tag panel, favorite directories and remembered lists with ${basename(path)}?${drafts.size?` Pending changes in ${drafts.size} file${drafts.size===1?'':'s'} are discarded.`:''}`,'OpenTag reloads its window afterwards. The Discogs access token is not part of a configuration file.'],separator:'\n\n'},{title:'Load configuration',kind:'warning'}))return;
     // Remembered lists are part of the configuration; nothing may save over the restored ones.
     await helperLists.flush().catch(()=>{});helperLists.pause();
     const restored=await invoke<string[]>('import_configuration',{path});drafts.clear();status=`Loaded ${restored.length} configuration file${restored.length===1?'':'s'}`;window.location.reload();return;
