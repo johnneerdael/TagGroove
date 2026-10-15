@@ -40,6 +40,17 @@ class GateTests(unittest.TestCase):
         self.gate.reconcile(self.api, 17)
         self.api.post.assert_not_called()
 
+    def test_conflicting_or_pending_merge_stays_blocked_without_controller_error(self):
+        for mergeable in (False, None):
+            with self.subTest(mergeable=mergeable):
+                item = pull()
+                item.update(mergeable=mergeable, merge_commit_sha=None)
+                self.api.snapshot.return_value = (item, (True, 'Clean'))
+                self.gate.reconcile(self.api, 17)
+                self.api.post.assert_not_called()
+                self.assertEqual(self.api.status.call_args.args[:3],
+                                 (HEAD, 'pending', 'PR is not mergeable'))
+
     def test_clean_exact_head_dispatches_only_trusted_main(self):
         self.gate.reconcile(self.api, 17)
         endpoint, body = self.api.post.call_args.args
@@ -123,12 +134,25 @@ class WorkflowTrustTests(unittest.TestCase):
         self.assertNotIn('secrets.', source)
         self.assertNotIn('rust-cache', source)
         self.assertNotIn('cache:', source)
-        for job in ['desktop', 'native-e2e', 'android']:
+        for job in ['desktop', 'native-e2e', 'android', 'docs']:
             block = re.search(rf'^  {job}:\n(.*?)(?=^  [a-z-]+:|\Z)', source, re.M | re.S)[1]
             self.assertIn('needs: authorize', block)
             self.assertIn("if: needs.authorize.outputs.ready == 'true'", block)
             self.assertIn('ref: ${{ inputs.merge_sha }}', block)
             self.assertIn('persist-credentials: false', block)
+
+    def test_documentation_is_checked_only_after_review_when_present(self):
+        import re
+        source = (ROOT.parent / 'workflows/_reviewed-build.yml').read_text()
+        block = re.search(r'^  docs:\n(.*?)(?=^  [a-z-]+:|\Z)', source, re.M | re.S)[1]
+        self.assertEqual(block.count("if: hashFiles('mkdocs.yml') != ''"), 5)
+        self.assertIn("python-version: '3.12'", block)
+        for command in ['python -m pip install -r docs/site-requirements.txt',
+                        'python -m unittest discover -s docs/tests -v',
+                        'python scripts/docs-status.py', 'python -m mkdocs build --strict']:
+            self.assertIn(command, block)
+        self.assertNotIn('upload-pages-artifact', block)
+        self.assertNotIn('deploy-pages', block)
 
     def test_release_checks_authorization_before_build_and_publication(self):
         source = (ROOT.parent / 'workflows/reviewed-release.yml').read_text()
