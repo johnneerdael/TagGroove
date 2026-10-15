@@ -10,9 +10,9 @@ on:
         type: string
         default: ''
       prerelease:
-        description: 'Publish as prerelease (always enforced for 0.x and development versions)'
+        description: 'Publish as prerelease (always enforced for versions with a suffix such as -beta.1)'
         type: boolean
-        default: true
+        default: false
 
 permissions:
   contents: read
