@@ -420,43 +420,58 @@ pub async fn tag_source_apply(
         Some(cover) => Some(http::image(&cover.url, Channel::Image, u64::MAX).await?),
         None => None,
     };
-    let replace = cover.as_ref().is_some_and(|c| c.replace_existing);
-    let preserve = cover.as_ref().is_some_and(|c| c.preserve_existing);
-    crate::io(move || {
-        let staging = tempfile::tempdir().map_err(|e| e.to_string())?;
-        let cover_path = match &image {
-            Some(image) => {
-                let path = staging.path().join(format!("cover.{}", image.extension));
-                std::fs::write(&path, &image.bytes).map_err(|e| e.to_string())?;
-                Some(path)
-            }
-            None => None,
-        };
-        let updates: HashMap<&str, &Fields> = items
-            .iter()
-            .map(|item| (item.path.as_str(), &item.updates))
-            .collect();
-        let paths: Vec<String> = items.iter().map(|item| item.path.clone()).collect();
-        let mut result = crate::history::record("Tag source import", None, &paths, || {
-            Ok(crate::batch(&paths, |path| {
-                let fields = path
-                    .to_str()
-                    .and_then(|p| updates.get(p))
-                    .copied()
-                    .ok_or("File is not part of this import")?;
-                crate::mutate_document(path, |working| {
-                    let cover = cover_target(working, cover_path.as_deref(), preserve)?;
-                    apply_one(working, fields, cover, replace)
-                })
-            }))
-        })?;
-        if let (Some(template), Some(image)) = (save_as, &image) {
-            let errors = save_cover_files(&result.entries, &template, image);
+    let options = ImportCover {
+        replace: cover.as_ref().is_some_and(|c| c.replace_existing),
+        preserve: cover.as_ref().is_some_and(|c| c.preserve_existing),
+        save_as,
+    };
+    crate::io(move || write_import(&items, image.as_ref(), &options)).await
+}
+
+struct ImportCover {
+    replace: bool,
+    preserve: bool,
+    save_as: Option<String>,
+}
+
+/// Write the import as one undo step, including any image files saved beside the audio.
+fn write_import(
+    items: &[ApplyItem],
+    image: Option<&http::Image>,
+    options: &ImportCover,
+) -> Result<ScanResult, String> {
+    let staging = tempfile::tempdir().map_err(|e| e.to_string())?;
+    let cover_path = match image {
+        Some(image) => {
+            let path = staging.path().join(format!("cover.{}", image.extension));
+            std::fs::write(&path, &image.bytes).map_err(|e| e.to_string())?;
+            Some(path)
+        }
+        None => None,
+    };
+    let updates: HashMap<&str, &Fields> = items
+        .iter()
+        .map(|item| (item.path.as_str(), &item.updates))
+        .collect();
+    let paths: Vec<String> = items.iter().map(|item| item.path.clone()).collect();
+    crate::history::record_with_side_files("Tag source import", None, &paths, |before_write| {
+        let mut result = crate::batch(&paths, |path| {
+            let fields = path
+                .to_str()
+                .and_then(|p| updates.get(p))
+                .copied()
+                .ok_or("File is not part of this import")?;
+            crate::mutate_document(path, |working| {
+                let cover = cover_target(working, cover_path.as_deref(), options.preserve)?;
+                apply_one(working, fields, cover, options.replace)
+            })
+        });
+        if let (Some(template), Some(image)) = (&options.save_as, image) {
+            let errors = save_cover_files(&result.entries, template, image, before_write);
             result.errors.extend(errors);
         }
         Ok(result)
     })
-    .await
 }
 
 /// The file name for a saved cover: the format evaluated on one written file,
@@ -490,6 +505,7 @@ fn save_cover_files(
     entries: &[AudioEntry],
     template: &str,
     image: &http::Image,
+    before_write: &mut dyn FnMut(&Path) -> Result<(), String>,
 ) -> Vec<tag_core::FileError> {
     let mut folders = std::collections::HashSet::new();
     let mut errors = Vec::new();
@@ -502,6 +518,7 @@ fn save_cover_files(
         }
         let saved = cover_file_name(entry, template, index + 1).and_then(|name| {
             let target = folder.join(format!("{name}.{}", image.extension));
+            before_write(&target)?;
             write_atomically(&target, &image.bytes)
         });
         if let Err(error) = saved {
@@ -741,7 +758,7 @@ mod tests {
             .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
             .unwrap();
         let image = http::Image::validate(png).unwrap();
-        let errors = save_cover_files(&entries, "%album% cover", &image);
+        let errors = save_cover_files(&entries, "%album% cover", &image, &mut |_| Ok(()));
         assert!(errors.is_empty(), "{errors:?}");
         assert!(dir.path().join("One_Two cover.png").is_file());
         assert!(!dir.path().join("Ignored cover.png").exists());
@@ -752,6 +769,68 @@ mod tests {
             cover_file_name(&entries[1], "cover %_counter%", 2).unwrap(),
             "cover 2"
         );
+    }
+
+    #[test]
+    fn saved_cover_files_are_part_of_the_import_undo_step() {
+        let _journal = crate::history::TEST_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().canonicalize().unwrap();
+        crate::history::TEST_ROOTS
+            .lock()
+            .unwrap()
+            .push(root.clone());
+        let audio = root.join("a.wav");
+        wav(&audio);
+        let replaced = root.join("Album.png");
+        std::fs::write(&replaced, b"previous image").unwrap();
+        let original = std::fs::read(&audio).unwrap();
+        let mut png = Vec::new();
+        image::DynamicImage::new_rgb8(2, 2)
+            .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
+            .unwrap();
+        let image = http::Image::validate(png.clone()).unwrap();
+        let items = vec![ApplyItem {
+            path: audio.to_string_lossy().into_owned(),
+            updates: [("ALBUM".to_string(), vec!["Album".to_string()])].into(),
+        }];
+        let save = |template: &str| ImportCover {
+            replace: true,
+            preserve: false,
+            save_as: Some(template.into()),
+        };
+        let run = |options: &ImportCover| {
+            let result = write_import(&items, Some(&image), options).unwrap();
+            assert!(result.errors.is_empty(), "{:?}", result.errors);
+        };
+        run(&save("%album%"));
+        run(&save("folder"));
+        let created = root.join("folder.png");
+        assert_eq!(std::fs::read(&replaced).unwrap(), png);
+        assert_eq!(std::fs::read(&created).unwrap(), png);
+        use tauri::async_runtime::block_on;
+        block_on(crate::history::undo_last()).unwrap();
+        assert!(
+            !created.exists(),
+            "the second import's new image is removed"
+        );
+        assert_eq!(std::fs::read(&replaced).unwrap(), png);
+        assert!(crate::history::history_state().unwrap().undo.is_some());
+        block_on(crate::history::undo_last()).unwrap();
+        assert_eq!(std::fs::read(&replaced).unwrap(), b"previous image");
+        assert_eq!(std::fs::read(&audio).unwrap(), original);
+        block_on(crate::history::redo_last()).unwrap();
+        assert_eq!(std::fs::read(&replaced).unwrap(), png);
+        assert_eq!(
+            tag_core::read_entry(&audio).unwrap().fields["ALBUM"],
+            ["Album"]
+        );
+        crate::history::TEST_ROOTS
+            .lock()
+            .unwrap()
+            .retain(|r| r != &root);
     }
 
     #[test]
