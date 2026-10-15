@@ -1,0 +1,1535 @@
+{
+  "baseline": "007a806",
+  "commit": "65f3898",
+  "semantic_checklist": [
+    {
+      "source": "filter",
+      "detail": "ViewFilterF3,typingfiltersfilenamesandtags",
+      "guide_page": "guides/filter.md",
+      "section": "Start with a text search",
+      "disposition": "explained"
+    },
+    {
+      "source": "filter",
+      "detail": "Clearorclosefilterrestoresloadedlist",
+      "guide_page": "guides/filter.md",
+      "section": "Clear, hide, and restore the filter",
+      "disposition": "explained"
+    },
+    {
+      "source": "filter",
+      "detail": "Autoapplyhelper:as-you-typeversusReturn",
+      "guide_page": "guides/filter.md",
+      "section": "Choose automatic or manual application",
+      "disposition": "explained"
+    },
+    {
+      "source": "filter",
+      "detail": "Quotedfieldnamesandstringswithspaces",
+      "guide_page": "reference/filter-syntax.md",
+      "section": "Quote operands",
+      "disposition": "explained"
+    },
+    {
+      "source": "filter",
+      "detail": "Doublequoteinsidequotedstringunsupported;char34andregexworkarounds",
+      "guide_page": "reference/filter-syntax.md",
+      "section": "Quote operands",
+      "disposition": "explained"
+    },
+    {
+      "source": "filter",
+      "detail": "Caseinsensitiveoperations,uppercasekeywords",
+      "guide_page": "reference/filter-syntax.md",
+      "section": "Expression grammar",
+      "disposition": "explained"
+    },
+    {
+      "source": "filter",
+      "detail": "Everyspacewordissubstringacrossmetadataandfilename",
+      "guide_page": "reference/filter-syntax.md",
+      "section": "Ordinary text search",
+      "disposition": "explained"
+    },
+    {
+      "source": "filter",
+      "detail": "HASallwords,ISatleastonecompletevalue",
+      "guide_page": "reference/filter-syntax.md",
+      "section": "Expression grammar",
+      "disposition": "explained"
+    },
+    {
+      "source": "filter",
+      "detail": "AllfieldselectorforHASandMATCHES",
+      "guide_page": "reference/filter-syntax.md",
+      "section": "Expression grammar",
+      "disposition": "explained"
+    },
+    {
+      "source": "filter",
+      "detail": "AND,OR,NOT,parentheses",
+      "guide_page": "reference/filter-syntax.md",
+      "section": "Boolean precedence",
+      "disposition": "explained"
+    },
+    {
+      "source": "filter",
+      "detail": "GREATER,LESS,EQUALintegerthresholdandbitrateexample",
+      "guide_page": "reference/filter-syntax.md",
+      "section": "Numeric comparisons",
+      "disposition": "explained"
+    },
+    {
+      "source": "filter",
+      "detail": "MISSING,ABSENT,PRESENT",
+      "guide_page": "reference/filter-syntax.md",
+      "section": "Presence, missing values, and empty text",
+      "disposition": "explained"
+    },
+    {
+      "source": "filter",
+      "detail": "MATCHESregexpandtracktotalexample",
+      "guide_page": "reference/filter-syntax.md",
+      "section": "Regular expressions",
+      "disposition": "explained"
+    },
+    {
+      "source": "filter",
+      "detail": "DollarpercentlhsformatselectorforHASISGREATERLESSEQUALMATCHES",
+      "guide_page": "reference/filter-syntax.md",
+      "section": "Format strings on the left",
+      "disposition": "explained"
+    },
+    {
+      "source": "filter",
+      "detail": "Formatselectorperfileevaluationperformanceconsequence",
+      "guide_page": "reference/filter-syntax.md",
+      "section": "Format strings on the left",
+      "disposition": "explained"
+    },
+    {
+      "source": "filter",
+      "detail": "Externalcommunityexamplesreplacedby24standalonetestedqueries",
+      "guide_page": "reference/filter-syntax.md",
+      "section": "Worked examples",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping",
+      "detail": "ExtendedTags,custompanelandcolumns,allfieldplaceholders",
+      "guide_page": "reference/field-names.md",
+      "section": "Names, values, and placeholders",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping",
+      "detail": "APE/Vorbisrawnamesanduseraliases",
+      "guide_page": "reference/tag-mapping.md",
+      "section": "How to read these tables",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping",
+      "detail": "BidirectionalSourceTargetuseraliases",
+      "guide_page": "reference/tag-mapping.md",
+      "section": "User-defined field names",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping",
+      "detail": "BarcodeMusicBrainzandcatalogDiscogs/MusicBrainzimports;historicalversionsnotOpenTagavailability",
+      "guide_page": "reference/tag-mapping.md",
+      "section": "Field-specific storage rules",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping",
+      "detail": "COMPILATIONandPODCASTflags1ordelete",
+      "guide_page": "reference/field-names.md",
+      "section": "Flags and MP4 media types",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping",
+      "detail": "DISCNUMBERversusTVEPISODEMatroskavideo",
+      "guide_page": "reference/tag-mapping.md",
+      "section": "Matroska, ASF, and RIFF INFO",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping",
+      "detail": "INVOLVEDPEOPLEandMUSICIANCREDITSrole:person;syntax",
+      "guide_page": "reference/field-names.md",
+      "section": "Credits",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping",
+      "detail": "POPULARIMETERowner|rating|optionalcounter1lowest255highest;OpenTagalso0",
+      "guide_page": "reference/field-names.md",
+      "section": "Ratings",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping",
+      "detail": "RATINGMM1low5highnumber/stars/halfminusandrawdisplayoption",
+      "guide_page": "reference/field-names.md",
+      "section": "Ratings",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping",
+      "detail": "RATINGWMP1low5highwhole-starsandrawdisplayoption",
+      "guide_page": "reference/field-names.md",
+      "section": "Ratings",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping",
+      "detail": "UNSYNCEDLYRICSISO6392language||text",
+      "guide_page": "reference/field-names.md",
+      "section": "Lyrics, comments, and identifiers",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping",
+      "detail": "MP4advisory0none1explicit2clean",
+      "guide_page": "reference/field-names.md",
+      "section": "Flags and MP4 media types",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping",
+      "detail": "MP4gaplessalbum1ordelete",
+      "guide_page": "reference/field-names.md",
+      "section": "Flags and MP4 media types",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping",
+      "detail": "All10MP4mediatypenames",
+      "guide_page": "reference/field-names.md",
+      "section": "Flags and MP4 media types",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping",
+      "detail": "MKVepisodeT50andseasonT60PART_NUMBER",
+      "guide_page": "reference/field-names.md",
+      "section": "MP4 store, video, and totals",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping-table",
+      "detail": "BarcodeMusicBrainzandcatalogDiscogs/MusicBrainzimports;historicalversionsnotOpenTagavailability",
+      "guide_page": "reference/tag-mapping.md",
+      "section": "Field-specific storage rules",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping-table",
+      "detail": "COMPILATIONandPODCASTflags1ordelete",
+      "guide_page": "reference/field-names.md",
+      "section": "Flags and MP4 media types",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping-table",
+      "detail": "DISCNUMBERversusTVEPISODEMatroskavideo",
+      "guide_page": "reference/tag-mapping.md",
+      "section": "Matroska, ASF, and RIFF INFO",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping-table",
+      "detail": "INVOLVEDPEOPLEandMUSICIANCREDITSrole:person;syntax",
+      "guide_page": "reference/field-names.md",
+      "section": "Credits",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping-table",
+      "detail": "POPULARIMETERowner|rating|optionalcounter1lowest255highest;OpenTagalso0",
+      "guide_page": "reference/field-names.md",
+      "section": "Ratings",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping-table",
+      "detail": "RATINGMM1low5highnumber/stars/halfminusandrawdisplayoption",
+      "guide_page": "reference/field-names.md",
+      "section": "Ratings",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping-table",
+      "detail": "RATINGWMP1low5highwhole-starsandrawdisplayoption",
+      "guide_page": "reference/field-names.md",
+      "section": "Ratings",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping-table",
+      "detail": "UNSYNCEDLYRICSISO6392language||text",
+      "guide_page": "reference/field-names.md",
+      "section": "Lyrics, comments, and identifiers",
+      "disposition": "explained"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "AAC",
+        "operation": "Read",
+        "original_tag_families": "ID3v1, ID3v2, APEv1, APEv2"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "AAC",
+        "operation": "Write",
+        "original_tag_families": "ID3v1, ID3v2, APEv2"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "AAC",
+        "operation": "Remove",
+        "original_tag_families": "ID3v1, ID3v2, APEv1, APEv2"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "AIFF",
+        "operation": "Read",
+        "original_tag_families": "ID3v2"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "AIFF",
+        "operation": "Write",
+        "original_tag_families": "ID3v2"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "AIFF",
+        "operation": "Remove",
+        "original_tag_families": "ID3v2"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "APE",
+        "operation": "Read",
+        "original_tag_families": "ID3v1, APEv1, APEv2"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "APE",
+        "operation": "Write",
+        "original_tag_families": "ID3v1, APEv2"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "APE",
+        "operation": "Remove",
+        "original_tag_families": "ID3v1, ID3v2, APEv1, APEv2"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "DSF",
+        "operation": "Read",
+        "original_tag_families": "ID3v2"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "DSF",
+        "operation": "Write",
+        "original_tag_families": "ID3v2"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "DSF",
+        "operation": "Remove",
+        "original_tag_families": "ID3v2"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "FLAC",
+        "operation": "Read",
+        "original_tag_families": "Vorbis Comments"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "FLAC",
+        "operation": "Write",
+        "original_tag_families": "Vorbis Comments"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "FLAC",
+        "operation": "Remove",
+        "original_tag_families": "Vorbis Comments, ID3v2"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "Matroska",
+        "operation": "Read",
+        "original_tag_families": "Matroska Tags, Chapters and Image Attachments"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "Matroska",
+        "operation": "Write",
+        "original_tag_families": "Matroska Tags, Chapters and Image Attachments"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "Matroska",
+        "operation": "Remove",
+        "original_tag_families": "Matroska Tags, Chapters and Image Attachments"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "MP3",
+        "operation": "Read",
+        "original_tag_families": "ID3v1, ID3v2, APEv1, APEv2"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "MP3",
+        "operation": "Write",
+        "original_tag_families": "ID3v1, ID3v2, APEv2"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "MP3",
+        "operation": "Remove",
+        "original_tag_families": "ID3v1, ID3v2, APEv1, APEv2"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "MP4",
+        "operation": "Read",
+        "original_tag_families": "MP4/iTunes metadata"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "MP4",
+        "operation": "Write",
+        "original_tag_families": "MP4/iTunes metadata"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "MP4",
+        "operation": "Remove",
+        "original_tag_families": "MP4/iTunes metadata"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "MPC",
+        "operation": "Read",
+        "original_tag_families": "ID3v1, APEv1, APEv2"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "MPC",
+        "operation": "Write",
+        "original_tag_families": "ID3v1, APEv2"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "MPC",
+        "operation": "Remove",
+        "original_tag_families": "ID3v1, ID3v2, APEv1, APEv2"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "OGG",
+        "operation": "Read",
+        "original_tag_families": "Vorbis Comments"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "OGG",
+        "operation": "Write",
+        "original_tag_families": "Vorbis Comments"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "OGG",
+        "operation": "Remove",
+        "original_tag_families": "Vorbis Comments"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "OPUS",
+        "operation": "Read",
+        "original_tag_families": "Vorbis Comments"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "OPUS",
+        "operation": "Write",
+        "original_tag_families": "Vorbis Comments"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "OPUS",
+        "operation": "Remove",
+        "original_tag_families": "Vorbis Comments"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "OptimFROG",
+        "operation": "Read",
+        "original_tag_families": "ID3v1, APEv1, APEv2"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "OptimFROG",
+        "operation": "Write",
+        "original_tag_families": "ID3v1, APEv2"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "OptimFROG",
+        "operation": "Remove",
+        "original_tag_families": "ID3v1, ID3v2, APEv1, APEv2"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "Speex",
+        "operation": "Read",
+        "original_tag_families": "Vorbis Comments"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "Speex",
+        "operation": "Write",
+        "original_tag_families": "Vorbis Comments"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "Speex",
+        "operation": "Remove",
+        "original_tag_families": "Vorbis Comments"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "TAK",
+        "operation": "Read",
+        "original_tag_families": "ID3v1, APEv1, APEv2"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "TAK",
+        "operation": "Write",
+        "original_tag_families": "ID3v1, APEv2"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "TAK",
+        "operation": "Remove",
+        "original_tag_families": "ID3v1, ID3v2, APEv1, APEv2"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "TTA",
+        "operation": "Read",
+        "original_tag_families": "ID3v1, ID3v2, APEv1, APEv2"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "TTA",
+        "operation": "Write",
+        "original_tag_families": "ID3v1, ID3v2, APEv2"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "TTA",
+        "operation": "Remove",
+        "original_tag_families": "ID3v1, ID3v2, APEv1, APEv2"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "WAV",
+        "operation": "Read",
+        "original_tag_families": "RIFF INFO, ID3v2"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "WAV",
+        "operation": "Write",
+        "original_tag_families": "RIFF INFO, ID3v2"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "WAV",
+        "operation": "Remove",
+        "original_tag_families": "RIFF INFO, ID3v2"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "WavPack",
+        "operation": "Read",
+        "original_tag_families": "ID3v1, APEv1, APEv2"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "WavPack",
+        "operation": "Write",
+        "original_tag_families": "ID3v1, APEv2"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "WavPack",
+        "operation": "Remove",
+        "original_tag_families": "ID3v1, ID3v2, APEv1, APEv2"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "WMA",
+        "operation": "Read",
+        "original_tag_families": "ASF/Windows Media"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "WMA",
+        "operation": "Write",
+        "original_tag_families": "ASF/Windows Media"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "WMA",
+        "operation": "Remove",
+        "original_tag_families": "ASF/Windows Media"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "WebM",
+        "operation": "Read",
+        "original_tag_families": "Matroska Tags, Chapters and Image Attachments"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "WebM",
+        "operation": "Write",
+        "original_tag_families": "Matroska Tags, Chapters and Image Attachments"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": {
+        "family": "WebM",
+        "operation": "Remove",
+        "original_tag_families": "Matroska Tags, Chapters and Image Attachments"
+      },
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits"
+    },
+    {
+      "source": "file-formats",
+      "detail": "ALACcarriedinMP4notseparatetagformat",
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping",
+      "detail": {
+        "format_specific_field": "DIRECTOR",
+        "native_identifier": "©dir",
+        "meaning": ""
+      },
+      "guide_page": "reference/tag-mapping.md",
+      "section": "ID3v2 and MP4",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping",
+      "detail": {
+        "format_specific_field": "ITUNESACCOUNT",
+        "native_identifier": "apID",
+        "meaning": ""
+      },
+      "guide_page": "reference/tag-mapping.md",
+      "section": "ID3v2 and MP4",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping",
+      "detail": {
+        "format_specific_field": "ITUNESADVISORY",
+        "native_identifier": "rtng",
+        "meaning": ""
+      },
+      "guide_page": "reference/tag-mapping.md",
+      "section": "ID3v2 and MP4",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping",
+      "detail": {
+        "format_specific_field": "ITUNESALBUMID",
+        "native_identifier": "plID",
+        "meaning": "iTunes Album ID"
+      },
+      "guide_page": "reference/tag-mapping.md",
+      "section": "ID3v2 and MP4",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping",
+      "detail": {
+        "format_specific_field": "ITUNESARTISTID",
+        "native_identifier": "atID",
+        "meaning": "iTunes Artist ID"
+      },
+      "guide_page": "reference/tag-mapping.md",
+      "section": "ID3v2 and MP4",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping",
+      "detail": {
+        "format_specific_field": "ITUNESCATALOGID",
+        "native_identifier": "cnID",
+        "meaning": "iTunes Catalog ID"
+      },
+      "guide_page": "reference/tag-mapping.md",
+      "section": "ID3v2 and MP4",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping",
+      "detail": {
+        "format_specific_field": "ITUNESCOMPOSERID",
+        "native_identifier": "cmID",
+        "meaning": "iTunes Composer ID"
+      },
+      "guide_page": "reference/tag-mapping.md",
+      "section": "ID3v2 and MP4",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping",
+      "detail": {
+        "format_specific_field": "ITUNESCOUNTRYID",
+        "native_identifier": "sfID",
+        "meaning": "iTunes Store Country ID"
+      },
+      "guide_page": "reference/tag-mapping.md",
+      "section": "ID3v2 and MP4",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping",
+      "detail": {
+        "format_specific_field": "ITUNESGAPLESS",
+        "native_identifier": "pgap",
+        "meaning": "Gapless album"
+      },
+      "guide_page": "reference/tag-mapping.md",
+      "section": "ID3v2 and MP4",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping",
+      "detail": {
+        "format_specific_field": "ITUNESGENREID",
+        "native_identifier": "geID",
+        "meaning": "iTunes Genre ID"
+      },
+      "guide_page": "reference/tag-mapping.md",
+      "section": "ID3v2 and MP4",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping",
+      "detail": {
+        "format_specific_field": "ITUNESHDVIDEO",
+        "native_identifier": "hdvd",
+        "meaning": "Boolean flag for HD video (0/1)"
+      },
+      "guide_page": "reference/tag-mapping.md",
+      "section": "ID3v2 and MP4",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping",
+      "detail": {
+        "format_specific_field": "ITUNESMEDIATYPE",
+        "native_identifier": "stik",
+        "meaning": "Media type"
+      },
+      "guide_page": "reference/tag-mapping.md",
+      "section": "ID3v2 and MP4",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping",
+      "detail": {
+        "format_specific_field": "ITUNESOWNER",
+        "native_identifier": "ownr",
+        "meaning": "Owner"
+      },
+      "guide_page": "reference/tag-mapping.md",
+      "section": "ID3v2 and MP4",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping",
+      "detail": {
+        "format_specific_field": "ITUNESPURCHASEDATE",
+        "native_identifier": "purd",
+        "meaning": "Purchase Date"
+      },
+      "guide_page": "reference/tag-mapping.md",
+      "section": "ID3v2 and MP4",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping",
+      "detail": {
+        "format_specific_field": "RATE",
+        "native_identifier": "rate",
+        "meaning": "Rating"
+      },
+      "guide_page": "reference/tag-mapping.md",
+      "section": "ID3v2 and MP4",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping",
+      "detail": {
+        "format_specific_field": "SHOWMOVEMENT",
+        "native_identifier": "shwm",
+        "meaning": "Show Movement"
+      },
+      "guide_page": "reference/tag-mapping.md",
+      "section": "ID3v2 and MP4",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping",
+      "detail": {
+        "format_specific_field": "STOREDESCRIPTION",
+        "native_identifier": "sdes",
+        "meaning": "Store Description"
+      },
+      "guide_page": "reference/tag-mapping.md",
+      "section": "ID3v2 and MP4",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping",
+      "detail": {
+        "format_specific_field": "TOTALDISCS",
+        "native_identifier": "disk",
+        "meaning": "Total Disc Number"
+      },
+      "guide_page": "reference/tag-mapping.md",
+      "section": "ID3v2 and MP4",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping",
+      "detail": {
+        "format_specific_field": "TOTALTRACKS",
+        "native_identifier": "trkn",
+        "meaning": "Total Track Number"
+      },
+      "guide_page": "reference/tag-mapping.md",
+      "section": "ID3v2 and MP4",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping",
+      "detail": {
+        "format_specific_field": "TVEPISODE",
+        "native_identifier": "tves",
+        "meaning": "TV Episode"
+      },
+      "guide_page": "reference/tag-mapping.md",
+      "section": "ID3v2 and MP4",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping",
+      "detail": {
+        "format_specific_field": "TVEPISODEID",
+        "native_identifier": "tven",
+        "meaning": "TV Episode ID"
+      },
+      "guide_page": "reference/tag-mapping.md",
+      "section": "ID3v2 and MP4",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping",
+      "detail": {
+        "format_specific_field": "TVNETWORK",
+        "native_identifier": "tvnn",
+        "meaning": ""
+      },
+      "guide_page": "reference/tag-mapping.md",
+      "section": "ID3v2 and MP4",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping",
+      "detail": {
+        "format_specific_field": "TVSEASON",
+        "native_identifier": "tvsn",
+        "meaning": "TV Season"
+      },
+      "guide_page": "reference/tag-mapping.md",
+      "section": "ID3v2 and MP4",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping",
+      "detail": {
+        "format_specific_field": "TVSHOW",
+        "native_identifier": "tvsh",
+        "meaning": "Show"
+      },
+      "guide_page": "reference/tag-mapping.md",
+      "section": "ID3v2 and MP4",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping",
+      "detail": {
+        "format_specific_field": "TVSHOWSORT",
+        "native_identifier": "sosn",
+        "meaning": "Sort Show"
+      },
+      "guide_page": "reference/tag-mapping.md",
+      "section": "ID3v2 and MP4",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping",
+      "detail": {
+        "format_specific_field": "WORK",
+        "native_identifier": "©wrk",
+        "meaning": "Work Name"
+      },
+      "guide_page": "reference/tag-mapping.md",
+      "section": "ID3v2 and MP4",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping",
+      "detail": {
+        "format_specific_field": "TVEPISODE",
+        "native_identifier": "T=50 PART_NUMBER",
+        "meaning": ""
+      },
+      "guide_page": "reference/tag-mapping.md",
+      "section": "Matroska, ASF, and RIFF INFO",
+      "disposition": "explained"
+    },
+    {
+      "source": "mapping",
+      "detail": {
+        "format_specific_field": "TVSEASON",
+        "native_identifier": "T=60 PART_NUMBER",
+        "meaning": ""
+      },
+      "guide_page": "reference/tag-mapping.md",
+      "section": "Matroska, ASF, and RIFF INFO",
+      "disposition": "explained"
+    }
+  ],
+  "limitations": [
+    "Source/coreexamplechecks only;noapp/nativeplatform/allformatqualification.",
+    "Sharednav/hooksuntouched;finalnavintegrationrequired.",
+    "No80placeholderexpansion;existingplaceholders.mdoutsidescope.",
+    "NoappCI,push,PR,mergeordeployment."
+  ],
+  "independent_semantic_review": {
+    "reviewer": "/root/pr25_owner",
+    "result": "No new established actionable defect",
+    "scope": "Read all6pages, native tables spot-reviewed; not every1241fact/cell independently recomputed; canonical filter/file-formats, mapping descriptions/structurednotes and listedsource traces; no tests/UI/runtime byreviewer"
+  },
+  "page_sha256": {
+    "guides/filter.md": "e5ec6f8c32356d3899ed8c67618784c1b55aa4d0627fb847b482c9e773a4cec9",
+    "reference/filter-syntax.md": "f13cc6741c8b36555f58847ae5d4ee42cb69dd53b92c8d5e211bf7aa9b97a9fd",
+    "reference/field-names.md": "fec1bdb0b34bb4cf5eabf9a08dfaf1b0a17781e79554e50afc1f9bade3be4b85",
+    "reference/tag-mapping.md": "9d8224976c1595b77f815796b51ad339639984b9d0d94934b831e90eac7fb8c3",
+    "reference/file-formats.md": "e6224b7d0a5a9c7e21b9c4a5852119540cba69bc14038bfd7a9c675f7a0af7a5",
+    "reference/index.md": "8e548378a298cfec5b7dc9c0ec8d1447166de5fa79cee60a14b888ed6f63aa1c"
+  },
+  "fact_groups": [
+    {
+      "source": "filter",
+      "guide_page": "guides/filter.md",
+      "section": "Start with a text search",
+      "disposition": "explained",
+      "checked_rows": 1
+    },
+    {
+      "source": "filter",
+      "guide_page": "guides/filter.md",
+      "section": "Clear, hide, and restore the filter",
+      "disposition": "explained",
+      "checked_rows": 1
+    },
+    {
+      "source": "filter",
+      "guide_page": "guides/filter.md",
+      "section": "Choose automatic or manual application",
+      "disposition": "explained",
+      "checked_rows": 1
+    },
+    {
+      "source": "filter",
+      "guide_page": "reference/filter-syntax.md",
+      "section": "Quote operands",
+      "disposition": "explained",
+      "checked_rows": 2
+    },
+    {
+      "source": "filter",
+      "guide_page": "reference/filter-syntax.md",
+      "section": "Expression grammar",
+      "disposition": "explained",
+      "checked_rows": 3
+    },
+    {
+      "source": "filter",
+      "guide_page": "reference/filter-syntax.md",
+      "section": "Ordinary text search",
+      "disposition": "explained",
+      "checked_rows": 1
+    },
+    {
+      "source": "filter",
+      "guide_page": "reference/filter-syntax.md",
+      "section": "Boolean precedence",
+      "disposition": "explained",
+      "checked_rows": 1
+    },
+    {
+      "source": "filter",
+      "guide_page": "reference/filter-syntax.md",
+      "section": "Numeric comparisons",
+      "disposition": "explained",
+      "checked_rows": 1
+    },
+    {
+      "source": "filter",
+      "guide_page": "reference/filter-syntax.md",
+      "section": "Presence, missing values, and empty text",
+      "disposition": "explained",
+      "checked_rows": 1
+    },
+    {
+      "source": "filter",
+      "guide_page": "reference/filter-syntax.md",
+      "section": "Regular expressions",
+      "disposition": "explained",
+      "checked_rows": 1
+    },
+    {
+      "source": "filter",
+      "guide_page": "reference/filter-syntax.md",
+      "section": "Format strings on the left",
+      "disposition": "explained",
+      "checked_rows": 2
+    },
+    {
+      "source": "filter",
+      "guide_page": "reference/filter-syntax.md",
+      "section": "Worked examples",
+      "disposition": "explained",
+      "checked_rows": 1
+    },
+    {
+      "source": "mapping",
+      "guide_page": "reference/field-names.md",
+      "section": "Names, values, and placeholders",
+      "disposition": "explained",
+      "checked_rows": 1
+    },
+    {
+      "source": "mapping",
+      "guide_page": "reference/tag-mapping.md",
+      "section": "How to read these tables",
+      "disposition": "explained",
+      "checked_rows": 1
+    },
+    {
+      "source": "mapping",
+      "guide_page": "reference/tag-mapping.md",
+      "section": "User-defined field names",
+      "disposition": "explained",
+      "checked_rows": 1
+    },
+    {
+      "source": "mapping",
+      "guide_page": "reference/tag-mapping.md",
+      "section": "Field-specific storage rules",
+      "disposition": "explained",
+      "checked_rows": 1
+    },
+    {
+      "source": "mapping",
+      "guide_page": "reference/field-names.md",
+      "section": "Flags and MP4 media types",
+      "disposition": "explained",
+      "checked_rows": 4
+    },
+    {
+      "source": "mapping",
+      "guide_page": "reference/tag-mapping.md",
+      "section": "Matroska, ASF, and RIFF INFO",
+      "disposition": "explained",
+      "checked_rows": 3
+    },
+    {
+      "source": "mapping",
+      "guide_page": "reference/field-names.md",
+      "section": "Credits",
+      "disposition": "explained",
+      "checked_rows": 1
+    },
+    {
+      "source": "mapping",
+      "guide_page": "reference/field-names.md",
+      "section": "Ratings",
+      "disposition": "explained",
+      "checked_rows": 3
+    },
+    {
+      "source": "mapping",
+      "guide_page": "reference/field-names.md",
+      "section": "Lyrics, comments, and identifiers",
+      "disposition": "explained",
+      "checked_rows": 1
+    },
+    {
+      "source": "mapping",
+      "guide_page": "reference/field-names.md",
+      "section": "MP4 store, video, and totals",
+      "disposition": "explained",
+      "checked_rows": 1
+    },
+    {
+      "source": "mapping-table",
+      "guide_page": "reference/tag-mapping.md",
+      "section": "Field-specific storage rules",
+      "disposition": "explained",
+      "checked_rows": 1
+    },
+    {
+      "source": "mapping-table",
+      "guide_page": "reference/field-names.md",
+      "section": "Flags and MP4 media types",
+      "disposition": "explained",
+      "checked_rows": 1
+    },
+    {
+      "source": "mapping-table",
+      "guide_page": "reference/tag-mapping.md",
+      "section": "Matroska, ASF, and RIFF INFO",
+      "disposition": "explained",
+      "checked_rows": 1
+    },
+    {
+      "source": "mapping-table",
+      "guide_page": "reference/field-names.md",
+      "section": "Credits",
+      "disposition": "explained",
+      "checked_rows": 1
+    },
+    {
+      "source": "mapping-table",
+      "guide_page": "reference/field-names.md",
+      "section": "Ratings",
+      "disposition": "explained",
+      "checked_rows": 3
+    },
+    {
+      "source": "mapping-table",
+      "guide_page": "reference/field-names.md",
+      "section": "Lyrics, comments, and identifiers",
+      "disposition": "explained",
+      "checked_rows": 1
+    },
+    {
+      "source": "file-formats",
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained-with-current-policy-and-removal-limits",
+      "checked_rows": 57
+    },
+    {
+      "source": "file-formats",
+      "guide_page": "reference/file-formats.md",
+      "section": "Read, write, and remove capabilities",
+      "disposition": "explained",
+      "checked_rows": 1
+    },
+    {
+      "source": "mapping",
+      "guide_page": "reference/tag-mapping.md",
+      "section": "ID3v2 and MP4",
+      "disposition": "factual-native-location-or-fallback",
+      "checked_rows": 275
+    },
+    {
+      "source": "mapping",
+      "guide_page": "reference/tag-mapping.md",
+      "section": "Matroska, ASF, and RIFF INFO",
+      "disposition": "factual-native-location-or-fallback",
+      "checked_rows": 276
+    },
+    {
+      "source": "mapping",
+      "guide_page": "reference/tag-mapping.md",
+      "section": "ID3v2 and MP4",
+      "disposition": "effective-writer-difference-documented",
+      "checked_rows": 1
+    },
+    {
+      "source": "mapping",
+      "guide_page": "reference/tag-mapping.md",
+      "section": "Custom-field fallback",
+      "disposition": "actual-fallbacksyntax-and-familylimits-explained",
+      "checked_rows": 6
+    },
+    {
+      "source": "mapping-table",
+      "guide_page": "reference/tag-mapping.md",
+      "section": "ID3v2 and MP4",
+      "disposition": "factual-native-location-or-fallback",
+      "checked_rows": 275
+    },
+    {
+      "source": "mapping-table",
+      "guide_page": "reference/tag-mapping.md",
+      "section": "Matroska, ASF, and RIFF INFO",
+      "disposition": "factual-native-location-or-fallback",
+      "checked_rows": 276
+    },
+    {
+      "source": "mapping-table",
+      "guide_page": "reference/tag-mapping.md",
+      "section": "ID3v2 and MP4",
+      "disposition": "effective-writer-difference-documented",
+      "checked_rows": 1
+    },
+    {
+      "source": "mapping-table",
+      "guide_page": "reference/tag-mapping.md",
+      "section": "Custom-field fallback",
+      "disposition": "actual-fallbacksyntax-and-familylimits-explained",
+      "checked_rows": 6
+    },
+    {
+      "source": "mapping",
+      "guide_page": "reference/tag-mapping.md",
+      "section": "ID3v2 and MP4",
+      "disposition": "explained",
+      "checked_rows": 26
+    }
+  ],
+  "full_checklist_sha256": "8aa4d2089cd4e5922a53d29d9bdd0e485f4b3f961b076d00e6e15572f00eeff5",
+  "source_mapping": [
+    {
+      "url": "https://docs.mp3tag.de/filter/",
+      "sha256": "65775e4aba586090abf1af898c5aae82ddefffb3cc3de57b35c824b5f375bbcc"
+    },
+    {
+      "url": "https://docs.mp3tag.de/file-formats/",
+      "sha256": "1934e17bdad39d5ad8ec1fd5401663625f5585e7f42b2a41eb96332e72d1a8ad"
+    },
+    {
+      "url": "https://docs.mp3tag.de/mapping/",
+      "sha256": "fa5106511c8c508e13c3fa18cc40f90bb36e50daea39148cf5718ac0b2708c42"
+    },
+    {
+      "url": "https://docs.mp3tag.de/mapping-table/",
+      "sha256": "5723424880a496c530117b0babff90832fc5402f88684e6430fa35f6a98938b0"
+    }
+  ],
+  "native_cell_evidence": "Per-cell native identifiers are kept once in reference/tag-mapping.md and checked by crates/tag-core/tests/user_guide_filter_reference.rs; fact_groups retains original-source cell coverage counts, and full_checklist_sha256 identifies the complete author ledger."
+}

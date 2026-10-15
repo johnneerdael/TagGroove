@@ -79,7 +79,8 @@ hooks:
   - docs/hooks/publication.py
 
 plugins:
-  - search
+  - search:
+      separator: '[\s\-$%(),\[\]]+'
 
 markdown_extensions:
   - abbr
@@ -143,6 +144,9 @@ nav:
   - Concepts:
     - Multi-value fields: concepts/multi-value-fields.md
     - Text encodings and codepages: concepts/text-encodings.md
+- Guides:
+  - Everyday editing:
+    - Filtering the file list: guides/filter.md
 - Automate:
   - Converters:
     - converters/index.md
@@ -174,10 +178,11 @@ nav:
       - Set cover properties: actions/set-cover-properties.md
       - Split field by separator: actions/split-field.md
 - Reference:
-  - Format strings:
-    - Format strings: reference/format-strings.md
-    - Placeholders: reference/placeholders.md
-    - Scripting functions: reference/scripting/index.md
+  - reference/index.md
+  - Format strings: reference/format-strings.md
+  - Placeholders: reference/placeholders.md
+  - Scripting functions:
+    - reference/scripting/index.md
     - Text and case: reference/scripting/text.md
     - Search and compare: reference/scripting/search-compare.md
     - Conditions and logic: reference/scripting/conditions.md
@@ -185,6 +190,33 @@ nav:
     - Dates and durations: reference/scripting/dates-durations.md
     - Lists, metadata and environment: reference/scripting/lists-metadata.md
   - Regular expressions: reference/regular-expressions.md
+  - Filter syntax: reference/filter-syntax.md
+  - Field names: reference/field-names.md
+  - Tag mapping table: reference/tag-mapping.md
+  - Supported file formats: reference/file-formats.md
+  - Options:
+    - reference/options/index.md
+    - General: reference/options/general.md
+    - Messages: reference/options/messages.md
+    - Files: reference/options/files.md
+    - Directories: reference/options/directories.md
+    - Appearance: reference/options/appearance.md
+    - Library: reference/options/library.md
+    - Tags: reference/options/tags.md
+    - Tags → Mpeg: reference/options/tags-mpeg.md
+    - Tags → Ape, Mpc: reference/options/tags-ape-mpc.md
+    - Tags → Mapping: reference/options/tags-mapping.md
+    - Tags → Advanced: reference/options/tags-advanced.md
+    - Tag panel: reference/options/tag-panel.md
+    - Field values: reference/options/field-values.md
+    - Networking: reference/options/networking.md
+    - Updates: reference/options/updates.md
+    - Tag sources: reference/options/tag-sources.md
+    - Tag sources → freedb: reference/options/tag-sources-freedb.md
+    - Tag sources → Local freedb: reference/options/tag-sources-local-freedb.md
+    - Export: reference/options/export.md
+    - Playlist: reference/options/playlist.md
+    - Tools: reference/options/tools.md
 - Cookbook:
   - Rename files and folders:
     - Zero-padded track numbers in filenames: cookbook/rename-zero-padded-track-numbers.md

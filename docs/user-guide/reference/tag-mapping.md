@@ -17,6 +17,10 @@ These are supported metadata representations, not guarantees that another player
 
 The ID3 columns describe the selected revision's dedicated mapping. A write in another revision can use custom text where no dedicated frame is defined. MP4 `ARTIST` writes `©ART` and reads the alternative `©art` spelling too. GENRE can read `gnre` as well as the text atom `©gen`; ordinary writes use the text representation. Existing alternative/freeform storage can also be normalized on save unless the Advanced reuse options preserve an unchanged field.
 
+Scroll this comparison horizontally to read complete native identifiers.
+
+<div class="native-mapping-table" markdown tabindex="0" role="region" aria-label="ID3v2 and MP4 field mappings">
+
 <!-- native-mapping-id3-mp4:start -->
 | Field | ID3v2.3 | ID3v2.4 | MP4 |
 |---|---|---|---|
@@ -140,11 +144,17 @@ The ID3 columns describe the selected revision's dedicated mapping. A write in a
 | `WORK` | — | — | `©wrk` |
 <!-- native-mapping-id3-mp4:end -->
 
+</div>
+
 ## Matroska, ASF, and RIFF INFO
 
 `T=30`, `T=50`, and similar Matroska entries are target type values. When no native name follows a target, use the field's own name. MKA entries describe the audio mapping; MKV entries describe the recommended video mapping when a video track is present and that Advanced option is enabled. A `.mkv` suffix alone does not select it.
 
 `SORT_WITH` is nested under that level's TITLE. For example, album sorting is nested under the album-level TITLE rather than stored as an unrelated global text tag. `PART_NUMBER` at target 30 represents a track; target 50 represents a disc in audio mapping, or an episode in the recommended video mapping.
+
+Scroll this comparison horizontally to read complete native identifiers.
+
+<div class="native-mapping-table" markdown tabindex="0" role="region" aria-label="Matroska ASF and RIFF field mappings">
 
 <!-- native-mapping-containers:start -->
 | Field | Matroska | ASF / Windows Media | RIFF INFO |
@@ -268,6 +278,8 @@ The ID3 columns describe the selected revision's dedicated mapping. A write in a
 | `TVSHOWSORT` | — | — | — |
 | `WORK` | — | — | — |
 <!-- native-mapping-containers:end -->
+
+</div>
 
 In recommended Matroska video mapping, target 50 `PART_NUMBER` is exposed as `TVEPISODE`, and target 60 `PART_NUMBER` as `TVSEASON`. The audio `DISCNUMBER` rule is not also applied to that episode value. Mapped native names stored at other, unrecognized levels may remain hidden and preserved. Track/edition/attachment-scoped metadata is not automatically merged into global editable fields; supported chapter-targeted tags belong to their chapter rows.
 

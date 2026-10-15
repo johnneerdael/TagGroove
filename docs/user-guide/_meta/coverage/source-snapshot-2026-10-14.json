@@ -1,0 +1,383 @@
+{
+  "origin": "https://docs.mp3tag.de/",
+  "retrieved_utc": "2026-10-14T02:59:27Z",
+  "sitemap_sha256": "05a17ab8da16a000864975bbe1c1eb055126ffe9747a644f8535d606c6bcaa69",
+  "pages": [
+    {
+      "url": "https://docs.mp3tag.de/",
+      "sha256": "9342b07d254f8c96339917cbe9d64d857100d6fac884644b6f4eb4555eb49517"
+    },
+    {
+      "url": "https://docs.mp3tag.de/actions/",
+      "sha256": "a026570c040d4c276081a51abd73ef829c2b2fcfe61120cc2343afe2ae433d88"
+    },
+    {
+      "url": "https://docs.mp3tag.de/actions/adjust-cover/",
+      "sha256": "038bc173a6dd0d7c609254e1d664a7550d18aa805ed2f12c84e1eead41daea55"
+    },
+    {
+      "url": "https://docs.mp3tag.de/actions/case-conversion/",
+      "sha256": "d4dc5957e9a0971065facbb399ab9fc5a0f72a26567631cf5bfd8441a516b056"
+    },
+    {
+      "url": "https://docs.mp3tag.de/actions/convert-codepage/",
+      "sha256": "56f3ed0f8a659687c67d2821598685a1bc0a95b55088c6d7d2b121369d3bc0c1"
+    },
+    {
+      "url": "https://docs.mp3tag.de/actions/export-cover/",
+      "sha256": "c1f19cfb72b778c1ed8ec2fb2e4fa5cc8c17e22b117f83ccf37551840b8f9c41"
+    },
+    {
+      "url": "https://docs.mp3tag.de/actions/export/",
+      "sha256": "4db1764e5728f172679020d32d6c517693437a1c403879ba68061c2328faaee6"
+    },
+    {
+      "url": "https://docs.mp3tag.de/actions/format/",
+      "sha256": "6c8af0928d3d97ed9239770250a0c4eca176aa06d41f9483d36ca970965abf40"
+    },
+    {
+      "url": "https://docs.mp3tag.de/actions/generate-playlists/",
+      "sha256": "4efd98c2cfc9804d5000d80c7fdc6805d384a2fe9a05210010730374a63a58e4"
+    },
+    {
+      "url": "https://docs.mp3tag.de/actions/guess/",
+      "sha256": "e0facac5468b64ee9250e65a7c287a0b379a82f3234bde90ca81cdb762251ddc"
+    },
+    {
+      "url": "https://docs.mp3tag.de/actions/import-cover/",
+      "sha256": "1456d0252f43fa66dc93145a5ca36c0fe38a224416bafe8b779c443701fe7876"
+    },
+    {
+      "url": "https://docs.mp3tag.de/actions/import-text/",
+      "sha256": "ec6f98869e392cd9381cf69c60e0e8ada75b1b7981c000c3718e543f8c95f59b"
+    },
+    {
+      "url": "https://docs.mp3tag.de/actions/merge-duplicate-fields/",
+      "sha256": "abbf9bb5e76de9d4cefb7a5a77ec1ce6a9c2c160c398f208fbd20c6011b606b1"
+    },
+    {
+      "url": "https://docs.mp3tag.de/actions/remove-duplicate-fields/",
+      "sha256": "598784c207bd5d2e1d2d68e1c6069f622c4381af73fa11b7a30875064f25fadf"
+    },
+    {
+      "url": "https://docs.mp3tag.de/actions/remove-fields-except/",
+      "sha256": "536bf601c59be8896f6040827a3434e0fab9ea87870e278be7f2bb7cd5a57aee"
+    },
+    {
+      "url": "https://docs.mp3tag.de/actions/remove-fields/",
+      "sha256": "100a6feaa2e0b79ecc41c8222362cfbfb176859e5d0d55f1e838e29f0542f3f8"
+    },
+    {
+      "url": "https://docs.mp3tag.de/actions/replace-regexp/",
+      "sha256": "fb1f70b4f6e24658311f66b0ba2bbbda417b74d09081bd0c3957d891194f921c"
+    },
+    {
+      "url": "https://docs.mp3tag.de/actions/replace/",
+      "sha256": "34ac358c9c596986783e4ceb449ee3adb87a08342d10fc4f7fa264da8bcd2806"
+    },
+    {
+      "url": "https://docs.mp3tag.de/actions/set-cover-properties/",
+      "sha256": "311c111e38937b6daecbdcfbc3eea014fda5cba3aa50958bda030515ea5fbbcb"
+    },
+    {
+      "url": "https://docs.mp3tag.de/actions/split-field/",
+      "sha256": "5eafb262d9272ef8a692f0331076826c4ba79fa7249c26ddc2d78a82ee772ed5"
+    },
+    {
+      "url": "https://docs.mp3tag.de/command-line/",
+      "sha256": "840574a89a5e529abda149d6222f3a1e073efd38421021149b5d66b819b3ba20"
+    },
+    {
+      "url": "https://docs.mp3tag.de/converters/",
+      "sha256": "634cfed809eab611948a6f52a2e341508ff2314c5598c7dfe7bd7f9e30a5066f"
+    },
+    {
+      "url": "https://docs.mp3tag.de/converters/auto-numbering/",
+      "sha256": "2407cf77806ff983cec02927eb7c78965891285d9ea2bcad3ca3b928026df98e"
+    },
+    {
+      "url": "https://docs.mp3tag.de/converters/copy-compose-tags/",
+      "sha256": "ee7e7b98e57f0645fe1a3f6dcd9d795e589326bcf8456ebbfd5fecd049b47ce5"
+    },
+    {
+      "url": "https://docs.mp3tag.de/converters/import-tags-from-filenames/",
+      "sha256": "39a9787cb32c4935a1eaa19f420122498b0c706b90d50324279d200e28790b28"
+    },
+    {
+      "url": "https://docs.mp3tag.de/converters/import-tags-from-text-files/",
+      "sha256": "6b923cd020526f4144ab784bbbe075812edb078b768836903c84a303a054bf5a"
+    },
+    {
+      "url": "https://docs.mp3tag.de/converters/rearrange-filenames/",
+      "sha256": "5368c265146ea8f46a41082fb3dec0494ca74c9e88300ae738a2caaf06f6cbfd"
+    },
+    {
+      "url": "https://docs.mp3tag.de/converters/rename-files/",
+      "sha256": "56a05c0a29e207da1ca909126ce84f307dc43e715b4914f56c8378bfdcb77550"
+    },
+    {
+      "url": "https://docs.mp3tag.de/credits/",
+      "sha256": "422b1dff7b22d03b0963e2d245139c9f9fe3e1a10a677816eaf6759583746ced"
+    },
+    {
+      "url": "https://docs.mp3tag.de/customization/",
+      "sha256": "3996317695008432fe798f7fb419f38926a1168f2b1ebb16bedc859936180db6"
+    },
+    {
+      "url": "https://docs.mp3tag.de/customization/file-list/",
+      "sha256": "f80d693f03371ef5c98cc2df09b1792c8a2643650d7b45d764897ab07fa71b75"
+    },
+    {
+      "url": "https://docs.mp3tag.de/customization/options/",
+      "sha256": "1a3fb223a05dd3e968d9c5940f4e94d6e19c0ee39b3bd963f10212d1e98707f0"
+    },
+    {
+      "url": "https://docs.mp3tag.de/customization/options/appearance/",
+      "sha256": "a1a15eba716a79640955dace1921c9c73e915b27aedc03087b134f2777deaa92"
+    },
+    {
+      "url": "https://docs.mp3tag.de/customization/options/directories/",
+      "sha256": "0d3065c684a2bc741766b67f11306dc3c293103be899a6d31a4763e21bd89e3d"
+    },
+    {
+      "url": "https://docs.mp3tag.de/customization/options/export/",
+      "sha256": "a350057d03ebb996d5c494249806e5782cb57d2455a74d5fed7bebba06b5e791"
+    },
+    {
+      "url": "https://docs.mp3tag.de/customization/options/field-values/",
+      "sha256": "cef08824e53bcc5de1ed7519374d7a240f9c81a8af512b6b661c8617fea1ef75"
+    },
+    {
+      "url": "https://docs.mp3tag.de/customization/options/files/",
+      "sha256": "52128d61fe45773d2ecbb668e817b23931fe6304e021f531ef88347259245983"
+    },
+    {
+      "url": "https://docs.mp3tag.de/customization/options/general/",
+      "sha256": "3ba617087dc24b8b6e221a73efaabd65aa103e092a65d918d675dff111a98922"
+    },
+    {
+      "url": "https://docs.mp3tag.de/customization/options/language/",
+      "sha256": "2fd4e455b441c4a58b3bddb93d77278ad85a5008f2f8c500fd10e129d048fcee"
+    },
+    {
+      "url": "https://docs.mp3tag.de/customization/options/library/",
+      "sha256": "131136398ce012a078512db4fe993ef47dc9e26d2838a24ca2f7e27ce2693632"
+    },
+    {
+      "url": "https://docs.mp3tag.de/customization/options/messages/",
+      "sha256": "7b37b16ce33efe0e2d5945441ad86da1af30d824955fc1a90ad0cf9f6fcdcc7e"
+    },
+    {
+      "url": "https://docs.mp3tag.de/customization/options/networking/",
+      "sha256": "8c3a58f329ff50d85dec42aa49e0bd7b8a6a79a62f1f7df860a13007e7f59886"
+    },
+    {
+      "url": "https://docs.mp3tag.de/customization/options/playlist/",
+      "sha256": "54f3c7c6024ebd8064618a8aababaf28e408e75c0663fb59885abbb9c1bf26ba"
+    },
+    {
+      "url": "https://docs.mp3tag.de/customization/options/tag-panel/",
+      "sha256": "dda9fb42eb6d7a8f0eaafb9eb8a54891ff19ae431cd86202a4edcbaa7bb3798c"
+    },
+    {
+      "url": "https://docs.mp3tag.de/customization/options/tag-sources/",
+      "sha256": "e0f566aea92fff7d81f53127475a711d2b97a1cbb403a491167a34e843c633da"
+    },
+    {
+      "url": "https://docs.mp3tag.de/customization/options/tag-sources/freedb/",
+      "sha256": "e2d4891619221610f3069fbd4b2afbfa451df976b714f316229add66092cb638"
+    },
+    {
+      "url": "https://docs.mp3tag.de/customization/options/tag-sources/local-freedb/",
+      "sha256": "96916cee9765446ba4537f5703ef1c5639051b24b8ab65c6fa48293643239454"
+    },
+    {
+      "url": "https://docs.mp3tag.de/customization/options/tags/",
+      "sha256": "0ab3f458a057c11882923afa32ca4093b91d400c495e46231fb46393a261541a"
+    },
+    {
+      "url": "https://docs.mp3tag.de/customization/options/tags/advanced/",
+      "sha256": "3d8a0cf4141c4d7cb1ae39c906fb3bf874a2a85ed0ff9263c3f17994ea00172a"
+    },
+    {
+      "url": "https://docs.mp3tag.de/customization/options/tags/ape/",
+      "sha256": "f53c47887c0c298c7815ab34eb6c208e0324152aadc996bd63e75188f3e3e3c0"
+    },
+    {
+      "url": "https://docs.mp3tag.de/customization/options/tags/mapping/",
+      "sha256": "3f1e6ef775b36883cf59ef682e3e613efcc24f2315a8e86ebb72f79001676ec8"
+    },
+    {
+      "url": "https://docs.mp3tag.de/customization/options/tags/mpeg/",
+      "sha256": "8459cfb438c9d1bbe19ee684b93188b13194d86357a0f34a0bc5fa46ba3e6221"
+    },
+    {
+      "url": "https://docs.mp3tag.de/customization/options/tools/",
+      "sha256": "8c08e00ab51a960d5df47d41f219b347b344dba3fffa307f8dec2462d4ade971"
+    },
+    {
+      "url": "https://docs.mp3tag.de/customization/options/updates/",
+      "sha256": "b968ed8ae6b1362de0b76c2dbc227d845462037e98fec5ca76649e380f85f2f7"
+    },
+    {
+      "url": "https://docs.mp3tag.de/customization/tag-panel/",
+      "sha256": "6462c53ce555e84205f5ee183b7ac0efa79f4302dd2082b9e6f634bc8fef1d14"
+    },
+    {
+      "url": "https://docs.mp3tag.de/export/",
+      "sha256": "fef09fa8c25ed97cf918c718415630fa011bc8848dacf87ee8179a92fbb64b52"
+    },
+    {
+      "url": "https://docs.mp3tag.de/extended-tags/",
+      "sha256": "ac6e164ef4ef4b44e5ffd9364539e393e8ddacde399e0dcbee5abd2c1cb4136c"
+    },
+    {
+      "url": "https://docs.mp3tag.de/file-formats/",
+      "sha256": "1934e17bdad39d5ad8ec1fd5401663625f5585e7f42b2a41eb96332e72d1a8ad"
+    },
+    {
+      "url": "https://docs.mp3tag.de/filter/",
+      "sha256": "65775e4aba586090abf1af898c5aae82ddefffb3cc3de57b35c824b5f375bbcc"
+    },
+    {
+      "url": "https://docs.mp3tag.de/find/",
+      "sha256": "580036f7d8b349d1d8caddc7c306d964261748b1b03481afab0a7484eaf7b141"
+    },
+    {
+      "url": "https://docs.mp3tag.de/format/",
+      "sha256": "ce27f4da8eb9305b439522ce63c5aaebcf510a6e7ea76e54c17b8e373eabf0d1"
+    },
+    {
+      "url": "https://docs.mp3tag.de/getting-started/",
+      "sha256": "2245c37f7faa7f3372e300ed2e1dee3f7747f5751376285f57c41bb3ab90c15a"
+    },
+    {
+      "url": "https://docs.mp3tag.de/getting-started/first-steps/",
+      "sha256": "70f97827e17a465f263dbe6ec9f656056ccfbb84e96b9a34ebc505a859414dff"
+    },
+    {
+      "url": "https://docs.mp3tag.de/getting-started/installation/",
+      "sha256": "265e5f015646cc14549cc23d1179befa32a3d4c7a40acd6962e609917637dd94"
+    },
+    {
+      "url": "https://docs.mp3tag.de/getting-started/main-window/",
+      "sha256": "648b8ee6826f1aa60354f311f9f38994e86975e26faea2958146e16c49c5a1c7"
+    },
+    {
+      "url": "https://docs.mp3tag.de/getting-started/overview/",
+      "sha256": "0b8d409e3d29c0d94501009d8b468dcccdb98ecbcc5b03d7d84447a05b02aa6b"
+    },
+    {
+      "url": "https://docs.mp3tag.de/getting-started/release-notes-archive/",
+      "sha256": "cdea4425ec35d93a23ac3f5876a5d85d1acb62dec6adb41d7ae05e5305e27127"
+    },
+    {
+      "url": "https://docs.mp3tag.de/getting-started/release-notes/",
+      "sha256": "177fcb174ae5de74beba5c6594ec989982fbfe167790b430692bb7191042ed66"
+    },
+    {
+      "url": "https://docs.mp3tag.de/keyboard/",
+      "sha256": "31664192d6281a0f23ca322845189d472f120c2a997117cd7f4d330beaae113b"
+    },
+    {
+      "url": "https://docs.mp3tag.de/license/",
+      "sha256": "2d21ed31fded3ef01e638050835492cde94d38db4a30c21aed5007a83055aa6e"
+    },
+    {
+      "url": "https://docs.mp3tag.de/manage-covers/",
+      "sha256": "b72b3b769a3e6455f81b2b314ced28530ddeb767b412fc4256b636cb21d5fb87"
+    },
+    {
+      "url": "https://docs.mp3tag.de/manage-list/",
+      "sha256": "dff8b4c7dea583bf82e34b0a3ab4c4d4dc79f95c4a54ede66dac513548760f88"
+    },
+    {
+      "url": "https://docs.mp3tag.de/mapping-table/",
+      "sha256": "5723424880a496c530117b0babff90832fc5402f88684e6430fa35f6a98938b0"
+    },
+    {
+      "url": "https://docs.mp3tag.de/mapping/",
+      "sha256": "fa5106511c8c508e13c3fa18cc40f90bb36e50daea39148cf5718ac0b2708c42"
+    },
+    {
+      "url": "https://docs.mp3tag.de/menus/",
+      "sha256": "5341d2a7d952f1383b86971a8feb8dc54710c805ee3d64f1b6eda5c778f9ebeb"
+    },
+    {
+      "url": "https://docs.mp3tag.de/menus/actions/",
+      "sha256": "85074b98f7b4ec6b084c110501b9414d0d9d6fc08c274d5a01b8523f7dc825cc"
+    },
+    {
+      "url": "https://docs.mp3tag.de/menus/convert/",
+      "sha256": "582812d9f517378104f945fd15650d080b9933ee2ab8ca480b8c1c2921ede657"
+    },
+    {
+      "url": "https://docs.mp3tag.de/menus/cover/",
+      "sha256": "3574949c1aa78283be2b46b4bc58b3c92c848f53b2e15589ae3f412b171c51ad"
+    },
+    {
+      "url": "https://docs.mp3tag.de/menus/edit/",
+      "sha256": "98db5735106b2e4e46908e6724464d1dc716feabb7be26a46c530d5ad5713864"
+    },
+    {
+      "url": "https://docs.mp3tag.de/menus/fields/",
+      "sha256": "ebb6e5ef283320f3e65f3c7b057ad34afdc3899912a74316def86c4c940e66f0"
+    },
+    {
+      "url": "https://docs.mp3tag.de/menus/file/",
+      "sha256": "2a596a2431a33a542afff57e9a049169320acc5c40313e8cc1c1c2b62799ff40"
+    },
+    {
+      "url": "https://docs.mp3tag.de/menus/format-strings/",
+      "sha256": "4aabeeff96cbaeb160a51462929ee809342d53869dc7ab8864b23f55bb634829"
+    },
+    {
+      "url": "https://docs.mp3tag.de/menus/help/",
+      "sha256": "ef07bc28f208bf821ef3a29ade300d8e0eb2e496fe940b4b29bff585e29ec03e"
+    },
+    {
+      "url": "https://docs.mp3tag.de/menus/tag-sources/",
+      "sha256": "aeae66b0e7a14fb85427b6dee663cd2be2f94840e3d67a33dbb630b7b239c560"
+    },
+    {
+      "url": "https://docs.mp3tag.de/menus/view/",
+      "sha256": "1d46bbc8c338f9fa99224bf5bdc4f83369257055e7616f39572548c4a480f4ce"
+    },
+    {
+      "url": "https://docs.mp3tag.de/playlists/",
+      "sha256": "ad8eb5dc91baa12a9b650cb553ba8dda99361482221aec57b40550f178ac9acf"
+    },
+    {
+      "url": "https://docs.mp3tag.de/regex/",
+      "sha256": "79de3e02ec337eea7de0dc66c3d8dc11bf65cc151a82d9e9b815db3d5aa64b34"
+    },
+    {
+      "url": "https://docs.mp3tag.de/scripting/",
+      "sha256": "9296fcbcfc59338bc44f44765c8b766f30c61601f3fd124ffa65c9559fb575b0"
+    },
+    {
+      "url": "https://docs.mp3tag.de/tag-sources/",
+      "sha256": "b93f3779f8b18ac0caa2b4c61cba6afb66bc5ac2929b98d38b5c51d4443a1ec0"
+    },
+    {
+      "url": "https://docs.mp3tag.de/tag-sources/archive/",
+      "sha256": "02c6d9539befaee8f99a765d55bc4631608a68b873e4e7557743099c8aee53c0"
+    },
+    {
+      "url": "https://docs.mp3tag.de/tag-sources/development/",
+      "sha256": "cad26e09a590fd0e979eb2471df1f8c9365f5dfa4bfe1a445181388c777215e8"
+    },
+    {
+      "url": "https://docs.mp3tag.de/tag-sources/discogs-auth/",
+      "sha256": "ff514343f59e043777a8b5ae716545f34487ad50c13aa28fff21e0c05e5f8f84"
+    },
+    {
+      "url": "https://docs.mp3tag.de/tag-sources/import/",
+      "sha256": "0b31cfa3fc8419bc3e1f1dd83dd51680c12d55e40838c7964c5d6e01551fc5a8"
+    },
+    {
+      "url": "https://docs.mp3tag.de/utils/",
+      "sha256": "995d051373a503d2fde160fc1f15f8a550114dfeb60b239f5f9bf98003bf043f"
+    }
+  ]
+}
