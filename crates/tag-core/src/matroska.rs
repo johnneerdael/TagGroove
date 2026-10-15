@@ -23,6 +23,7 @@ const SEEK_POSITION: u32 = 0x53AC;
 const INFO: u32 = 0x1549_A966;
 const TIMESTAMP_SCALE: u32 = 0x2A_D7B1;
 const DURATION: u32 = 0x4489;
+const SEGMENT_TITLE: u32 = 0x7BA9;
 const TRACKS: u32 = 0x1654_AE6B;
 const TRACK_ENTRY: u32 = 0xAE;
 const TRACK_TYPE: u32 = 0x83;
@@ -856,23 +857,25 @@ fn attached_file(picture: &Picture, name: &str) -> Vec<u8> {
     element(ATTACHED_FILE, &payload)
 }
 
-/// The Mp3tag field that lists Matroska chapters.
-pub(super) const CHAPTERS_FIELD: &str = "CHAPTERS";
+use super::subsongs::{chapter_value, parse_chapter_value, CHAPTERS_FIELD};
 
 #[derive(Debug, Clone)]
 struct Chapter {
-    /// Start in nanoseconds.
+    /// Start and stored end in nanoseconds.
     start: u64,
+    end: Option<u64>,
     title: String,
     uid: u64,
     /// Flags and other children kept when the chapter is rewritten.
     extra: Vec<Vec<u8>>,
     /// Language children of the first ChapterDisplay.
     display: Vec<Vec<u8>>,
+    /// Nested chapters.
+    children: Vec<Chapter>,
 }
 
-/// The editions of a Chapters element and the chapters of the default (or
-/// else first) edition, nested atoms flattened in order.
+/// The editions of a Chapters element and the chapter tree of the default
+/// (or else first) edition.
 #[derive(Debug, Clone)]
 struct Editions {
     raw: Vec<Vec<u8>>,
@@ -880,6 +883,22 @@ struct Editions {
     /// EditionUID, flags and other children of the current edition.
     edition_extra: Vec<Vec<u8>>,
     chapters: Vec<Chapter>,
+}
+
+impl Editions {
+    /// Chapters in document order, nested ones after their parent: the
+    /// order of CHAPTERS values.
+    fn flat(&self) -> Vec<&Chapter> {
+        fn walk<'a>(list: &'a [Chapter], out: &mut Vec<&'a Chapter>) {
+            for chapter in list {
+                out.push(chapter);
+                walk(&chapter.children, out);
+            }
+        }
+        let mut out = Vec::new();
+        walk(&self.chapters, &mut out);
+        out
+    }
 }
 
 fn parse_chapters(data: &[u8]) -> Result<Editions, String> {
@@ -903,7 +922,7 @@ fn parse_chapters(data: &[u8]) -> Result<Editions, String> {
     if let Some(index) = current {
         for child in children(editions[index].data)? {
             if child.id == CHAPTER_ATOM {
-                collect_chapter(child.data, &mut chapters, 0)?;
+                chapters.push(parse_chapter(child.data, 0)?);
             } else {
                 edition_extra.push(child.whole.to_vec());
             }
@@ -917,24 +936,25 @@ fn parse_chapters(data: &[u8]) -> Result<Editions, String> {
     })
 }
 
-fn collect_chapter(data: &[u8], output: &mut Vec<Chapter>, depth: usize) -> Result<(), String> {
+fn parse_chapter(data: &[u8], depth: usize) -> Result<Chapter, String> {
     if depth > NESTING_LIMIT {
         return Err(invalid("chapters nested too deeply"));
     }
     let mut chapter = Chapter {
         start: 0,
+        end: None,
         title: String::new(),
         uid: 0,
         extra: Vec::new(),
         display: Vec::new(),
+        children: Vec::new(),
     };
-    let mut nested = Vec::new();
     let mut titled = false;
     for child in children(data)? {
         match child.id {
             CHAPTER_UID => chapter.uid = uint(child.data),
             CHAPTER_TIME_START => chapter.start = uint(child.data),
-            CHAPTER_TIME_END => {}
+            CHAPTER_TIME_END => chapter.end = Some(uint(child.data)),
             CHAPTER_DISPLAY if !titled => {
                 titled = true;
                 for part in children(child.data)? {
@@ -945,95 +965,163 @@ fn collect_chapter(data: &[u8], output: &mut Vec<Chapter>, depth: usize) -> Resu
                     }
                 }
             }
-            CHAPTER_ATOM => nested.push(child.data),
+            CHAPTER_ATOM => chapter.children.push(parse_chapter(child.data, depth + 1)?),
             _ => chapter.extra.push(child.whole.to_vec()),
         }
     }
-    output.push(chapter);
-    for data in nested {
-        collect_chapter(data, output, depth + 1)?;
-    }
-    Ok(())
-}
-
-/// "HH:MM:SS.mmm Title", the value of one chapter in CHAPTERS.
-fn chapter_value(start: u64, title: &str) -> String {
-    let ms = start / 1_000_000;
-    let time = format!(
-        "{:02}:{:02}:{:02}.{:03}",
-        ms / 3_600_000,
-        ms / 60_000 % 60,
-        ms / 1000 % 60,
-        ms % 1000
-    );
-    if title.is_empty() {
-        time
-    } else {
-        format!("{time} {title}")
-    }
-}
-
-/// Parse "[H:]MM:SS[.fraction] Title" into a start in nanoseconds and a title.
-fn parse_chapter_value(value: &str) -> Result<(u64, String), String> {
-    let error = || format!("Invalid chapter {value:?}: use HH:MM:SS.mmm followed by the title");
-    let trimmed = value.trim_start();
-    let (time, title) = trimmed
-        .split_once(char::is_whitespace)
-        .map_or((trimmed, ""), |(time, title)| (time, title.trim_start()));
-    let (clock, fraction) = time.split_once('.').unwrap_or((time, ""));
-    let parts: Vec<&str> = clock.split(':').collect();
-    if !(2..=3).contains(&parts.len())
-        || fraction.len() > 9
-        || !fraction.bytes().all(|b| b.is_ascii_digit())
-    {
-        return Err(error());
-    }
-    let mut seconds = 0u64;
-    for (index, part) in parts.iter().enumerate() {
-        if part.is_empty() || !part.bytes().all(|b| b.is_ascii_digit()) {
-            return Err(error());
-        }
-        let number: u64 = part.parse().map_err(|_| error())?;
-        if index > 0 && number >= 60 {
-            return Err(error());
-        }
-        seconds = seconds
-            .checked_mul(60)
-            .and_then(|s| s.checked_add(number))
-            .ok_or_else(error)?;
-    }
-    let nanos = if fraction.is_empty() {
-        0
-    } else {
-        format!("{fraction:0<9}")
-            .parse::<u64>()
-            .map_err(|_| error())?
-    };
-    seconds
-        .checked_mul(1_000_000_000)
-        .and_then(|s| s.checked_add(nanos))
-        .map(|start| (start, title.to_owned()))
-        .ok_or_else(error)
+    Ok(chapter)
 }
 
 /// Write CHAPTERS values in their canonical form, so they read back as written.
 pub(super) fn normalize_chapters(updates: &mut Fields) -> Result<(), String> {
-    for (name, values) in updates.iter_mut() {
-        if name.eq_ignore_ascii_case(CHAPTERS_FIELD) {
-            *values = values
-                .iter()
-                .map(|value| {
-                    parse_chapter_value(value).map(|(start, title)| chapter_value(start, &title))
-                })
-                .collect::<Result<_, _>>()?;
+    super::subsongs::normalize_chapters(updates)
+}
+
+/// For each new value, the old chapter (document order) it replaces. Lists
+/// of equal length pair by position; otherwise chapters with the same start
+/// (in milliseconds) are kept in order and the rest are added or removed.
+fn pair_chapters(old: &[u64], new: &[u64]) -> Vec<Option<usize>> {
+    if old.len() == new.len() {
+        return (0..new.len()).map(Some).collect();
+    }
+    let ms = |ns: u64| ns / 1_000_000;
+    let mut table = vec![vec![0usize; new.len() + 1]; old.len() + 1];
+    for i in (0..old.len()).rev() {
+        for j in (0..new.len()).rev() {
+            table[i][j] = if ms(old[i]) == ms(new[j]) {
+                table[i + 1][j + 1] + 1
+            } else {
+                table[i + 1][j].max(table[i][j + 1])
+            };
         }
     }
-    Ok(())
+    let mut pairs = vec![None; new.len()];
+    let (mut i, mut j) = (0, 0);
+    while i < old.len() && j < new.len() {
+        if ms(old[i]) == ms(new[j]) {
+            pairs[j] = Some(i);
+            i += 1;
+            j += 1;
+        } else if table[i + 1][j] >= table[i][j + 1] {
+            i += 1;
+        } else {
+            j += 1;
+        }
+    }
+    pairs
+}
+
+/// A chapter of the rebuilt tree, with the times it had before.
+struct Rebuilt<'a> {
+    start: u64,
+    title: String,
+    old: Option<(&'a Chapter, Option<u64>)>,
+    children: Vec<Rebuilt<'a>>,
+}
+
+/// Map the old tree onto the new values: paired chapters keep their place,
+/// UID, flags, languages and nested chapters; removed chapters hand their
+/// nested chapters to their parent; new chapters follow the chapter before
+/// them in document order.
+fn rebuild_tree<'a>(
+    list: &'a [Chapter],
+    index: &mut usize,
+    old_of: &[Option<usize>],
+    after: &[Vec<usize>],
+    values: &[(u64, String)],
+) -> Vec<Rebuilt<'a>> {
+    let fresh = |j: usize| Rebuilt {
+        start: values[j].0,
+        title: values[j].1.clone(),
+        old: None,
+        children: Vec::new(),
+    };
+    let mut out = Vec::new();
+    for (k, chapter) in list.iter().enumerate() {
+        let i = *index;
+        *index += 1;
+        let mut children = rebuild_tree(&chapter.children, index, old_of, after, values);
+        let next = list.get(k + 1).map(|n| n.start);
+        match old_of.iter().position(|o| *o == Some(i)) {
+            Some(j) => {
+                let (start, title) = &values[j];
+                // Keep the exact stored start while it still displays the same.
+                let start = if chapter.start / 1_000_000 == start / 1_000_000 {
+                    chapter.start
+                } else {
+                    *start
+                };
+                let added: Vec<_> = after[i].iter().map(|j| fresh(*j)).collect();
+                let has_children = !children.is_empty();
+                if has_children {
+                    children.splice(0..0, added);
+                }
+                out.push(Rebuilt {
+                    start,
+                    title: title.clone(),
+                    old: Some((chapter, next)),
+                    children,
+                });
+                if !has_children {
+                    out.extend(after[i].iter().map(|j| fresh(*j)));
+                }
+            }
+            None => out.extend(children),
+        }
+    }
+    out
+}
+
+/// Chapter atoms of a rebuilt sibling list. A chapter keeps its stored end
+/// while its start and the next start are unchanged; otherwise it ends where
+/// the next sibling starts, or with its parent or the file.
+fn chapter_atoms(list: &[Rebuilt], parent_end: Option<u64>, duration: Option<u64>) -> Vec<u8> {
+    let mut atoms = Vec::new();
+    for (k, chapter) in list.iter().enumerate() {
+        let next = list.get(k + 1).map(|n| n.start);
+        let computed = next
+            .or(parent_end)
+            .or(duration)
+            .filter(|end| *end > chapter.start);
+        let end = match chapter.old {
+            Some((old, old_next))
+                if old.start == chapter.start && old_next == next && old.end.is_some() =>
+            {
+                old.end
+            }
+            _ => computed,
+        };
+        let before = chapter.old.map(|(old, _)| old);
+        let uid = before
+            .map(|c| c.uid)
+            .filter(|uid| *uid != 0)
+            .unwrap_or_else(|| rand::random::<u64>().max(1));
+        let mut payload = uint_element(CHAPTER_UID, uid);
+        payload.extend(uint_element(CHAPTER_TIME_START, chapter.start));
+        if let Some(end) = end {
+            payload.extend(uint_element(CHAPTER_TIME_END, end));
+        }
+        let mut display = element(CHAP_STRING, chapter.title.as_bytes());
+        match before {
+            Some(old) => {
+                for extra in &old.extra {
+                    payload.extend(extra);
+                }
+                for part in &old.display {
+                    display.extend(part);
+                }
+            }
+            None => display.extend(element(CHAP_LANGUAGE, b"und")),
+        }
+        payload.extend(element(CHAPTER_DISPLAY, &display));
+        payload.extend(chapter_atoms(&chapter.children, end, duration));
+        atoms.extend(element(CHAPTER_ATOM, &payload));
+    }
+    atoms
 }
 
 /// The Chapters element with the current edition's chapters replaced by
-/// `values`, or `None` when no edition remains. Chapters keep their UID,
-/// flags and languages by position; each ends where the next one starts.
+/// `values`, or `None` when no edition remains. Nested chapters stay nested.
 fn rebuilt_chapters(
     old: Option<&Editions>,
     values: &[String],
@@ -1043,44 +1131,32 @@ fn rebuilt_chapters(
         .iter()
         .map(|value| parse_chapter_value(value))
         .collect::<Result<Vec<_>, _>>()?;
-    let previous = old.map_or(&[][..], |e| e.chapters.as_slice());
-    let mut atoms = Vec::new();
-    for (index, (start, title)) in parsed.iter().enumerate() {
-        let before = previous.get(index);
-        // Keep the exact stored start while it still displays the same.
-        let start = match before {
-            Some(chapter) if chapter.start / 1_000_000 == start / 1_000_000 => chapter.start,
-            _ => *start,
-        };
-        let end = parsed
-            .get(index + 1)
-            .map(|(next, _)| *next)
-            .or(duration)
-            .filter(|end| *end > start);
-        let uid = before
-            .map(|c| c.uid)
-            .filter(|uid| *uid != 0)
-            .unwrap_or_else(|| rand::random::<u64>().max(1));
-        let mut payload = uint_element(CHAPTER_UID, uid);
-        payload.extend(uint_element(CHAPTER_TIME_START, start));
-        if let Some(end) = end {
-            payload.extend(uint_element(CHAPTER_TIME_END, end));
+    let tree = old.map_or(&[][..], |e| e.chapters.as_slice());
+    let flat = old.map(Editions::flat).unwrap_or_default();
+    let starts: Vec<u64> = flat.iter().map(|c| c.start).collect();
+    let old_of = pair_chapters(&starts, &parsed.iter().map(|(s, _)| *s).collect::<Vec<_>>());
+    // New chapters follow the paired chapter before them.
+    let mut after = vec![Vec::new(); flat.len()];
+    let mut leading = Vec::new();
+    let mut previous = None;
+    for (j, pair) in old_of.iter().enumerate() {
+        match (pair, previous) {
+            (Some(i), _) => previous = Some(*i),
+            (None, Some(i)) => after[i].push(j),
+            (None, None) => leading.push(j),
         }
-        let mut display = element(CHAP_STRING, title.as_bytes());
-        match before {
-            Some(chapter) => {
-                for extra in &chapter.extra {
-                    payload.extend(extra);
-                }
-                for part in &chapter.display {
-                    display.extend(part);
-                }
-            }
-            None => display.extend(element(CHAP_LANGUAGE, b"und")),
-        }
-        payload.extend(element(CHAPTER_DISPLAY, &display));
-        atoms.push(element(CHAPTER_ATOM, &payload));
     }
+    let mut rebuilt: Vec<Rebuilt> = leading
+        .iter()
+        .map(|j| Rebuilt {
+            start: parsed[*j].0,
+            title: parsed[*j].1.clone(),
+            old: None,
+            children: Vec::new(),
+        })
+        .collect();
+    rebuilt.extend(rebuild_tree(tree, &mut 0, &old_of, &after, &parsed));
+    let atoms = chapter_atoms(&rebuilt, None, duration);
     let mut editions = old.map(|e| e.raw.clone()).unwrap_or_default();
     let current = old.and_then(|e| e.current);
     if atoms.is_empty() {
@@ -1092,7 +1168,7 @@ fn rebuilt_chapters(
             (Some(old), Some(_)) => old.edition_extra.concat(),
             _ => uint_element(EDITION_UID, rand::random::<u64>().max(1)),
         };
-        payload.extend(atoms.concat());
+        payload.extend(atoms);
         let edition = element(EDITION_ENTRY, &payload);
         match current {
             Some(index) => editions[index] = edition,
@@ -1120,6 +1196,8 @@ struct Parsed {
     attachments: Vec<Attachment>,
     tracks: Vec<Track>,
     duration: f64,
+    /// The Segment Info title.
+    title: Option<String>,
 }
 
 fn parse(path: &Path) -> Result<Parsed, String> {
@@ -1130,6 +1208,7 @@ fn parse(path: &Path) -> Result<Parsed, String> {
     let mut attachments = Vec::new();
     let mut tracks = Vec::new();
     let mut duration = 0.0;
+    let mut title = None;
     let mut seen_info = false;
     let mut seen_tracks = false;
     for element in &layout.elements {
@@ -1145,6 +1224,10 @@ fn parse(path: &Path) -> Result<Parsed, String> {
                 if let Some(value) = fields.iter().find(|c| c.id == DURATION) {
                     duration = float(value.data) * scale as f64 / 1e9;
                 }
+                title = fields
+                    .iter()
+                    .find(|c| c.id == SEGMENT_TITLE)
+                    .map(|c| text(c.data));
             }
             TRACKS if !seen_tracks => {
                 seen_tracks = true;
@@ -1215,6 +1298,7 @@ fn parse(path: &Path) -> Result<Parsed, String> {
         attachments,
         tracks,
         duration,
+        title,
     })
 }
 
@@ -1325,18 +1409,34 @@ pub(super) fn describe(path: &Path, options: &TagOptions) -> Result<Description,
         0
     };
     let mut fields = model.fields();
-    let chapters = parsed.chapters.as_ref().map_or(&[][..], |e| &e.chapters);
+    let flat = parsed
+        .chapters
+        .as_ref()
+        .map(Editions::flat)
+        .unwrap_or_default();
     let mut technical = Fields::new();
-    if !chapters.is_empty() {
+    if !flat.is_empty() {
         fields.insert(
             CHAPTERS_FIELD.into(),
-            chapters
-                .iter()
+            flat.iter()
                 .map(|c| chapter_value(c.start, &c.title))
                 .collect(),
         );
-        technical.insert("_SUBSONG_COUNT".into(), vec![chapters.len().to_string()]);
+        technical.insert("_SUBSONG_COUNT".into(), vec![flat.len().to_string()]);
     }
+    if let Some(title) = parsed.title.as_ref().filter(|t| !t.is_empty()) {
+        technical.insert("_SEGMENT_TITLE".into(), vec![title.clone()]);
+    }
+    let chapters = flat
+        .iter()
+        .map(|c| ChapterInfo {
+            start: c.start / 1_000_000,
+            end: c.end.map(|end| end / 1_000_000),
+            title: c.title.clone(),
+            fields: Fields::new(),
+            source: Default::default(),
+        })
+        .collect();
     video_fields(&parsed, &mut technical);
     Ok(Description {
         format: if parsed.layout.doc_type == "webm" {
@@ -1364,6 +1464,7 @@ pub(super) fn describe(path: &Path, options: &TagOptions) -> Result<Description,
         codec: audio.map(|t| codec_name(&t.codec)).unwrap_or_default(),
         id3: None,
         technical,
+        chapters,
     })
 }
 

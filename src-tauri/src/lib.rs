@@ -309,7 +309,9 @@ fn provider_filename(path: &Path) -> Result<String, String> {
         documents::project(&mut entry);
         Ok(entry.filename)
     } else {
-        Ok(path.to_string_lossy().into_owned())
+        // A chapter row is named after its file.
+        let path = path.to_string_lossy();
+        Ok(tag_core::subsong_parts(&path).map_or(path.to_string(), |(file, _)| file.to_owned()))
     }
 }
 fn preview_technical_fields(entry: &AudioEntry, index: usize) -> Fields {
@@ -373,15 +375,44 @@ fn batch(
         entries: vec![],
         errors: vec![],
     };
-    let mut seen = std::collections::HashSet::new();
+    let list_chapters = settings::tag_options().advanced.list_chapters;
+    // A cue sheet (an undone cue sheet edit) stands for its track rows.
+    let mut targets = Vec::new();
     for path in paths {
+        if tag_core::playlist::playlist_kind(Path::new(path))
+            != Some(tag_core::playlist::PlaylistKind::Cue)
+        {
+            targets.push(path.clone());
+            continue;
+        }
+        match tag_core::playlist::load_playlist(Path::new(path), None) {
+            Ok(loaded) => targets.extend(
+                loaded
+                    .files
+                    .iter()
+                    .map(|p| p.to_string_lossy().into_owned())
+                    .filter(|p| tag_core::subsong_parts(p).is_some()),
+            ),
+            Err(error) => result.errors.push(FileError {
+                path: path.clone(),
+                error,
+            }),
+        }
+    }
+    let mut seen = std::collections::HashSet::new();
+    for path in &targets {
         if !seen.insert(path) {
             continue;
         }
         match work(Path::new(path)) {
             Ok(mut entry) => {
                 documents::project(&mut entry);
-                result.entries.push(entry);
+                // With List chapters as separate files, a file is its chapter rows.
+                if list_chapters && !entry.chapters.is_empty() {
+                    result.entries.extend(tag_core::chapter_rows(&entry));
+                } else {
+                    result.entries.push(entry);
+                }
             }
             Err(error) => result.errors.push(FileError {
                 path: path.clone(),
@@ -390,6 +421,50 @@ fn batch(
         }
     }
     result
+}
+
+/// Paths split into ordinary files and chapter rows grouped by their file
+/// (rows of one file are written together), each with its original index.
+type RowGroup = (String, Vec<(usize, usize)>);
+fn group_rows(paths: &[String]) -> (Vec<usize>, Vec<RowGroup>) {
+    let mut plain = Vec::new();
+    let mut groups: Vec<RowGroup> = Vec::new();
+    for (index, path) in paths.iter().enumerate() {
+        match tag_core::subsong_parts(path) {
+            Some((file, number)) => match groups.iter_mut().find(|(f, _)| f == file) {
+                Some((_, rows)) => rows.push((index, number)),
+                None => groups.push((file.to_owned(), vec![(index, number)])),
+            },
+            None => plain.push(index),
+        }
+    }
+    (plain, groups)
+}
+
+/// Write the chapter rows of one file; one outcome per row, in row order.
+fn write_row_group(
+    file: &str,
+    rows: &[(usize, Fields)],
+    paths: &[String],
+) -> Vec<Result<AudioEntry, String>> {
+    let options = settings::tag_options();
+    if documents::is_managed(Path::new(file)) {
+        return rows
+            .iter()
+            .map(|_| Err("Chapter rows of provider documents cannot be edited".into()))
+            .collect();
+    }
+    let numbered: Vec<(usize, Fields)> = rows
+        .iter()
+        .map(|(index, updates)| {
+            let number = tag_core::subsong_parts(&paths[*index]).map_or(0, |(_, n)| n);
+            (number, updates.clone())
+        })
+        .collect();
+    match tag_core::write_chapter_rows(Path::new(file), &numbered, false, &options) {
+        Ok(entries) => entries.into_iter().map(Ok).collect(),
+        Err(error) => rows.iter().map(|_| Err(error.clone())).collect(),
+    }
 }
 
 /// `job` names the operation for progress events and [`progress::cancel_job`].
@@ -438,9 +513,28 @@ async fn save_fields(
 ) -> Result<ScanResult, String> {
     io(move || {
         history::record("Save tags", history_group.as_deref(), &paths, || {
-            Ok(batch(&paths, |p| {
+            let (plain, groups) = group_rows(&paths);
+            let plain: Vec<String> = plain.into_iter().map(|i| paths[i].clone()).collect();
+            let mut result = batch(&plain, |p| {
                 mutate_document(p, |p| settings::write_summary(p, &updates))
-            }))
+            });
+            for (file, rows) in groups {
+                let rows: Vec<(usize, Fields)> = rows
+                    .into_iter()
+                    .map(|(i, _)| (i, updates.clone()))
+                    .collect();
+                for ((index, _), outcome) in rows.iter().zip(write_row_group(&file, &rows, &paths))
+                {
+                    match outcome {
+                        Ok(entry) => result.entries.push(entry),
+                        Err(error) => result.errors.push(FileError {
+                            path: paths[*index].clone(),
+                            error,
+                        }),
+                    }
+                }
+            }
+            Ok(result)
         })
     })
     .await
@@ -483,7 +577,17 @@ async fn save_fields_batch(
             .collect();
         history::record("Save tags", None, &paths, || {
             use tag_core::parallel::Progress;
-            job.start(items.len());
+            // Each unit is one file: an ordinary item or the chapter rows of a file.
+            let (plain, groups) = group_rows(&paths);
+            let units: Vec<(Option<String>, Vec<usize>)> =
+                plain
+                    .into_iter()
+                    .map(|index| (None, vec![index]))
+                    .chain(groups.into_iter().map(|(file, rows)| {
+                        (Some(file), rows.into_iter().map(|(i, _)| i).collect())
+                    }))
+                    .collect();
+            job.start(units.len());
             let options = settings::tag_options();
             // Provider documents publish through shared recovery state; keep them sequential.
             let threads = if items
@@ -494,33 +598,54 @@ async fn save_fields_batch(
             } else {
                 std::thread::available_parallelism().map_or(4, |n| n.get().clamp(1, 8))
             };
-            let written = tag_core::parallel::map_ordered_on(threads, &items, &job, |item| {
-                mutate_document(Path::new(&item.path), |p| {
-                    if let Some(plan) = cover_plans.get(&item.path) {
-                        let changes = plan.as_ref().map_err(Clone::clone)?;
-                        tag_core::apply_cover_changes_with_options(p, changes, &options)?;
+            let written =
+                tag_core::parallel::map_ordered_on(threads, &units, &job, |(file, indices)| {
+                    if let Some(file) = file {
+                        if indices.iter().any(|i| items[*i].covers.is_some()) {
+                            let error =
+                                "Covers belong to the whole file; chapter rows cannot change them"
+                                    .to_string();
+                            return indices.iter().map(|_| Err(error.clone())).collect();
+                        }
+                        let rows: Vec<(usize, Fields)> = indices
+                            .iter()
+                            .map(|i| (*i, items[*i].updates.clone()))
+                            .collect();
+                        return write_row_group(file, &rows, &paths);
                     }
-                    tag_core::write_fields_with_options(
-                        p,
-                        &item.updates,
-                        false,
-                        &options.mappings,
-                        &options,
-                    )
-                })
-            });
+                    let item = &items[indices[0]];
+                    vec![mutate_document(Path::new(&item.path), |p| {
+                        if let Some(plan) = cover_plans.get(&item.path) {
+                            let changes = plan.as_ref().map_err(Clone::clone)?;
+                            tag_core::apply_cover_changes_with_options(p, changes, &options)?;
+                        }
+                        tag_core::write_fields_with_options(
+                            p,
+                            &item.updates,
+                            false,
+                            &options.mappings,
+                            &options,
+                        )
+                    })]
+                });
+            let mut outcomes: Vec<(usize, Result<AudioEntry, String>)> = units
+                .iter()
+                .zip(written)
+                .filter_map(|((_, indices), outcome)| Some(indices.iter().copied().zip(outcome?)))
+                .flatten()
+                .collect();
+            outcomes.sort_by_key(|(index, _)| *index);
             let mut result = ScanResult::default();
-            for (item, outcome) in items.iter().zip(written) {
+            for (index, outcome) in outcomes {
                 match outcome {
-                    Some(Ok(mut entry)) => {
+                    Ok(mut entry) => {
                         documents::project(&mut entry);
                         result.entries.push(entry);
                     }
-                    Some(Err(error)) => result.errors.push(FileError {
-                        path: item.path.clone(),
+                    Err(error) => result.errors.push(FileError {
+                        path: items[index].path.clone(),
                         error,
                     }),
-                    None => {}
                 }
             }
             Ok(result)
@@ -970,6 +1095,10 @@ pub fn run() {
         .setup(|app| {
             let _ = APP_HANDLE.set(app.handle().clone());
             tauri::Manager::manage(app, settings::SettingsStore::open(app.handle()));
+            // Cue sheet rows that are not UTF-8 decode with the system codepage.
+            tag_core::cue::set_ansi_codepage(
+                evaluation::EvaluationSettings::default().ansi_codepage(),
+            );
             #[cfg(desktop)]
             if let Some(window) = tauri::Manager::get_webview_window(app, "main") {
                 window_state::restore(&window);
@@ -1112,6 +1241,27 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn chapter_rows_are_grouped_by_their_file() {
+        let row = |file: &str, n| tag_core::subsong_path(file, n);
+        let paths = vec![
+            "/m/a.mp3".to_string(),
+            row("/m/book.m4b", 2),
+            row("/m/live.cue", 1),
+            row("/m/book.m4b", 1),
+            "/m/b.mp3".to_string(),
+        ];
+        let (plain, groups) = group_rows(&paths);
+        assert_eq!(plain, [0, 4]);
+        assert_eq!(
+            groups,
+            [
+                ("/m/book.m4b".to_string(), vec![(1, 2), (3, 1)]),
+                ("/m/live.cue".to_string(), vec![(2, 1)])
+            ]
+        );
+    }
 
     #[test]
     fn numbering_command_plans_unopened_files_without_io() {

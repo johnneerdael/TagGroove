@@ -18,6 +18,8 @@ mod mp4_chapters;
 mod mp4_layout;
 #[path = "optimize.rs"]
 mod optimize;
+#[path = "subsongs.rs"]
+mod subsongs;
 #[path = "tag_policy.rs"]
 mod tag_policy;
 #[path = "tag_types.rs"]
@@ -60,6 +62,9 @@ use std::{
     fs,
     io::{Seek, SeekFrom},
     path::{Path, PathBuf},
+};
+pub use subsongs::{
+    chapter_rows, expand_chapter_rows, subsong_parts, subsong_path, ChapterInfo, SUBSONG_SEPARATOR,
 };
 pub use tag_types::*;
 
@@ -149,6 +154,10 @@ pub struct AudioEntry {
     pub covers: Vec<CoverInfo>,
     #[serde(default)]
     pub technical: Fields,
+    /// Chapters (MP4, Matroska, ID3v2, embedded cue sheet), listed as rows
+    /// of their own with Options → Tags → Advanced → List chapters.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub chapters: Vec<ChapterInfo>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileError {
@@ -176,6 +185,9 @@ fn strict_or_lenient_id3v1<T>(
 }
 
 fn load(path: &Path) -> Result<TaggedFile, String> {
+    if subsongs::split_path(path).is_some() {
+        return Err(subsongs::ROW_OPERATION.into());
+    }
     if let Some(stream) = container_formats::detect_stream(path) {
         return container_formats::raw_streams::load(path, stream);
     }
@@ -502,7 +514,11 @@ fn describe_with_native(
     let metadata = fs::metadata(path).map_err(|e| e.to_string())?;
     let read = displayed.first().map(|tag| tag.tag_type());
     let technical = technical::collect(path, file, native, &covers, &metadata, read);
-    Ok(AudioEntry {
+    let chapters = match native.id3.as_ref().map(subsongs::id3_chapters) {
+        Some(list) if !list.is_empty() => list.into_iter().map(|(_, c)| c).collect(),
+        _ => subsongs::embedded_cue_chapters(&fields),
+    };
+    let mut entry = AudioEntry {
         path: path.to_string_lossy().into_owned(),
         filename: path
             .file_name()
@@ -536,7 +552,10 @@ fn describe_with_native(
         fields,
         covers,
         technical,
-    })
+        chapters: Vec::new(),
+    };
+    subsongs::attach(&mut entry, chapters);
+    Ok(entry)
 }
 
 pub fn read_entry(path: &Path) -> Result<AudioEntry, String> {
@@ -581,6 +600,9 @@ fn read_description(
     options: &TagOptions,
 ) -> Result<AudioEntry, String> {
     validate_user_mappings(rules)?;
+    if let Some((file, number)) = subsongs::split_path(path) {
+        return subsongs::read_row(&file, number, include_cover_data, rules, options);
+    }
     let path = path.canonicalize().map_err(|e| e.to_string())?;
     // Before lofty: its MPEG sync search can match bytes inside ASF artwork.
     if asf::sniff(&path) {
@@ -683,7 +705,6 @@ fn read_description(
         }
     };
     if kind == FileType::Mp4 {
-        native.technical.extend(mp4_chapters::technical(&path));
         native
             .technical
             .extend(mp4_chapters::header_technical(&path));
@@ -691,7 +712,12 @@ fn read_description(
     // Enrich APE covers from the already parsed native tag, without a second
     // file read.
     ape_pictures(&native, &mut file)?;
-    describe_with_native(&path, &file, &native, include_cover_data, rules, options)
+    let mut entry =
+        describe_with_native(&path, &file, &native, include_cover_data, rules, options)?;
+    if kind == FileType::Mp4 {
+        mp4_chapters::describe(&path, &mut entry);
+    }
+    Ok(entry)
 }
 
 fn audio_extension(path: &Path, allowed: Option<&[String]>) -> bool {
@@ -776,7 +802,13 @@ pub fn scan_paths_with_progress(
     let mut result = ScanResult::default();
     let mut seen = HashSet::new();
     let mut candidates = Vec::new();
+    let mut rows = Vec::new();
     for raw in paths {
+        // Chapter and cue sheet rows are read as they are.
+        if subsong_parts(raw).is_some() {
+            rows.push(raw);
+            continue;
+        }
         let path = PathBuf::from(raw);
         match fs::metadata(&path) {
             Ok(meta) if meta.is_dir() => {
@@ -832,7 +864,37 @@ pub fn scan_paths_with_progress(
             None => {}
         }
     }
+    if options.advanced.list_chapters {
+        result.entries = expand_chapter_rows(std::mem::take(&mut result.entries));
+    }
+    for raw in rows {
+        if !seen.insert(PathBuf::from(raw)) {
+            continue;
+        }
+        match read_entry_summary_with_options(Path::new(raw), &options.mappings, options) {
+            Ok(entry) => result.entries.push(entry),
+            Err(error) => result.errors.push(FileError {
+                path: raw.clone(),
+                error,
+            }),
+        }
+    }
     result
+}
+
+/// Write the edits of several rows of one file with chapters (or of one
+/// loaded cue sheet) together; `rows` pairs 1-based subsong numbers with
+/// their field changes. Fields other than the chapter's own are file fields
+/// and must agree between the rows. Returns the rows as read back.
+pub fn write_chapter_rows(
+    file: &Path,
+    rows: &[(usize, Fields)],
+    include_cover_data: bool,
+    options: &TagOptions,
+) -> Result<Vec<AudioEntry>, String> {
+    validate_user_mappings(&options.mappings)?;
+    options.validate()?;
+    subsongs::write_rows(file, rows, include_cover_data, &options.mappings, options)
 }
 
 /// Copy `source` to a new temporary file in `dir`. The copy is created at a
@@ -1020,6 +1082,9 @@ where
 {
     validate_user_mappings(rules)?;
     options.validate()?;
+    if subsongs::split_path(path).is_some() {
+        return Err(subsongs::ROW_OPERATION.into());
+    }
     let path = path.canonicalize().map_err(|e| e.to_string())?;
     let original = fs::metadata(&path).map_err(|e| e.to_string())?;
     if !original.is_file() {
@@ -1411,6 +1476,16 @@ fn write_fields_result(
     if updates.is_empty() {
         return read_description(path, include_cover_data, rules, options);
     }
+    if let Some((file, number)) = subsongs::split_path(path) {
+        let mut rows = subsongs::write_rows(
+            &file,
+            &[(number, updates.clone())],
+            include_cover_data,
+            rules,
+            options,
+        )?;
+        return Ok(rows.remove(0));
+    }
     if asf::sniff(path) {
         return asf::write_fields(path, updates, include_cover_data, rules, options);
     }
@@ -1429,78 +1504,104 @@ fn write_fields_result(
         include_cover_data,
         rules,
         options,
-        |staging, mut file, staged_path| {
-            if tag_policy::policy(file.file_type()).is_some() {
-                let updates = normalized_updates(updates, TagType::Ape)?;
-                let written = tag_policy::write(
-                    staging,
-                    &file,
-                    rules,
-                    options,
-                    tag_policy::Change::Fields(&updates),
-                )?;
-                return tag_policy::verify_fields(staged_path, rules, options, written, &updates);
-            }
-            let primary = file.primary_tag_type();
-            let updates = normalized_updates(updates, primary)?;
-            // WAV files carry RIFF INFO and ID3v2 (file-formats). A new INFO
-            // chunk starts from every displayed value that has a RIFF id.
-            let mut seeded = None;
-            if file.file_type() == FileType::Wav && file.tag(TagType::RiffInfo).is_none() {
-                let mut values = Fields::new();
-                let native = native_tags(staging, FileType::Wav)?;
-                for tag in ordered_tags(&file) {
-                    for (key, list) in tag_fields(tag, &native, rules, options)? {
-                        values.entry(key).or_insert(list);
-                    }
+        |staging, file, staged_path| {
+            // MP4 chapters are boxes of their own, written after the tag.
+            let mut updates = updates.clone();
+            let chapters = match file.file_type() {
+                FileType::Mp4 => updates
+                    .keys()
+                    .find(|k| k.eq_ignore_ascii_case(subsongs::CHAPTERS_FIELD))
+                    .cloned()
+                    .and_then(|key| updates.remove(&key)),
+                _ => None,
+            };
+            if let Some(values) = chapters {
+                if !updates.is_empty() {
+                    write_tag_fields(staging, file, staged_path, &updates, rules, options)?;
                 }
-                for (name, list) in &updates {
-                    values.retain(|key, _| !key.eq_ignore_ascii_case(name));
-                    values.insert(name.clone(), list.clone());
-                }
-                if map_write_fields(&values, TagType::RiffInfo, rules)?
-                    .iter()
-                    .any(|(name, list)| !list.is_empty() && riff_key(name).is_some())
-                {
-                    file.insert_tag(Tag::new(TagType::RiffInfo));
-                    seeded = Some(values);
-                }
+                return mp4_chapters::write(staging, staged_path, &values);
             }
-            if file.primary_tag().is_none() {
-                file.insert_tag(Tag::new(primary));
-            }
-            let types: Vec<_> = file
-                .tags()
-                .iter()
-                .map(Tag::tag_type)
-                .filter(|t| file.tag_support(*t).is_writable())
-                .collect();
-            for kind in types {
-                let tag = file.remove(kind).ok_or("Tag disappeared during editing")?;
-                let source = match &seeded {
-                    Some(values) if kind == TagType::RiffInfo => values,
-                    _ => &updates,
-                };
-                let native_updates =
-                    normalized_updates(&map_write_fields(source, kind, rules)?, kind)?;
-                save_preserving_native(
-                    staging,
-                    file.file_type(),
-                    &tag,
-                    &native_updates,
-                    false,
-                    Id3Write::preserving(options),
-                )?;
-            }
-            staging
-                .seek(SeekFrom::Start(0))
-                .map_err(|e| e.to_string())?;
-            let actual = read_entry_summary_with_options(staged_path, &[], options)?.fields;
-            let native_updates =
-                normalized_updates(&map_write_fields(&updates, primary, rules)?, primary)?;
-            verify_readback(&actual, &native_updates, primary, false)
+            write_tag_fields(staging, file, staged_path, &updates, rules, options)
         },
     )
+}
+
+/// Write field changes into the tags of a staged lofty-readable file.
+fn write_tag_fields(
+    staging: &mut fs::File,
+    mut file: TaggedFile,
+    staged_path: &Path,
+    updates: &Fields,
+    rules: &[UserFieldMapping],
+    options: &TagOptions,
+) -> Result<(), String> {
+    if tag_policy::policy(file.file_type()).is_some() {
+        let updates = normalized_updates(updates, TagType::Ape)?;
+        let written = tag_policy::write(
+            staging,
+            &file,
+            rules,
+            options,
+            tag_policy::Change::Fields(&updates),
+        )?;
+        return tag_policy::verify_fields(staged_path, rules, options, written, &updates);
+    }
+    let primary = file.primary_tag_type();
+    let updates = normalized_updates(updates, primary)?;
+    // WAV files carry RIFF INFO and ID3v2 (file-formats). A new INFO
+    // chunk starts from every displayed value that has a RIFF id.
+    let mut seeded = None;
+    if file.file_type() == FileType::Wav && file.tag(TagType::RiffInfo).is_none() {
+        let mut values = Fields::new();
+        let native = native_tags(staging, FileType::Wav)?;
+        for tag in ordered_tags(&file) {
+            for (key, list) in tag_fields(tag, &native, rules, options)? {
+                values.entry(key).or_insert(list);
+            }
+        }
+        for (name, list) in &updates {
+            values.retain(|key, _| !key.eq_ignore_ascii_case(name));
+            values.insert(name.clone(), list.clone());
+        }
+        if map_write_fields(&values, TagType::RiffInfo, rules)?
+            .iter()
+            .any(|(name, list)| !list.is_empty() && riff_key(name).is_some())
+        {
+            file.insert_tag(Tag::new(TagType::RiffInfo));
+            seeded = Some(values);
+        }
+    }
+    if file.primary_tag().is_none() {
+        file.insert_tag(Tag::new(primary));
+    }
+    let types: Vec<_> = file
+        .tags()
+        .iter()
+        .map(Tag::tag_type)
+        .filter(|t| file.tag_support(*t).is_writable())
+        .collect();
+    for kind in types {
+        let tag = file.remove(kind).ok_or("Tag disappeared during editing")?;
+        let source = match &seeded {
+            Some(values) if kind == TagType::RiffInfo => values,
+            _ => &updates,
+        };
+        let native_updates = normalized_updates(&map_write_fields(source, kind, rules)?, kind)?;
+        save_preserving_native(
+            staging,
+            file.file_type(),
+            &tag,
+            &native_updates,
+            false,
+            Id3Write::preserving(options),
+        )?;
+    }
+    staging
+        .seek(SeekFrom::Start(0))
+        .map_err(|e| e.to_string())?;
+    let actual = read_entry_summary_with_options(staged_path, &[], options)?.fields;
+    let native_updates = normalized_updates(&map_write_fields(&updates, primary, rules)?, primary)?;
+    verify_readback(&actual, &native_updates, primary, false)
 }
 
 /// Utils → Strip chapters MP4: remove Nero chapters and QuickTime chapter
@@ -1510,6 +1611,9 @@ pub fn strip_mp4_chapters_with_options(
     include_cover_data: bool,
     options: &TagOptions,
 ) -> Result<AudioEntry, String> {
+    if subsongs::split_path(path).is_some() {
+        return Err(subsongs::ROW_OPERATION.into());
+    }
     let mp4 = !asf::sniff(path)
         && container_formats::detect(path).is_none()
         && container_formats::detect_stream(path).is_none()

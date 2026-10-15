@@ -4,7 +4,7 @@ export type Id3v2Format='v23_utf16'|'v23_latin1'|'v24_utf8';
 export type TagOptions={
   mpeg:{read_id3v1:boolean;read_id3v2:boolean;read_ape:boolean;write_id3v1:boolean;write_id3v2:boolean;write_ape:boolean;id3v2_only_if_needed:boolean;id3v2_format:Id3v2Format;remove_id3v1:boolean;remove_id3v2:boolean;remove_ape:boolean};
   ape:{read_id3v1:boolean;read_ape:boolean;write_id3v1:boolean;write_ape:boolean;remove_id3v1:boolean;remove_id3v2:boolean;remove_ape:boolean};
-  advanced:{id3v2_comment_language:string;popularimeter_ratings:boolean;matroska_video_mapping:boolean};
+  advanced:{id3v2_comment_language:string;popularimeter_ratings:boolean;matroska_video_mapping:boolean;list_chapters:boolean};
   preserve_modified_time:boolean;
   /** Options → Tags → Mapping, edited by the page in field-mapping.ts. */
   mappings:{tag_type:string;source:string;target:string}[];
@@ -38,7 +38,7 @@ export type OptionsHost={
 export const defaultSettings=():Settings=>({version:1,general:{natural_sort:true,show_directory_in_title:true},files:{restrict_extensions:'',folder_separator:'_'},directories:{subfolders:true},
   tags:{mpeg:{read_id3v1:true,read_id3v2:true,read_ape:true,write_id3v1:true,write_id3v2:true,write_ape:false,id3v2_only_if_needed:false,id3v2_format:'v23_utf16',remove_id3v1:true,remove_id3v2:true,remove_ape:true},
     ape:{read_id3v1:true,read_ape:true,write_id3v1:false,write_ape:true,remove_id3v1:true,remove_id3v2:false,remove_ape:true},
-    advanced:{id3v2_comment_language:'eng',popularimeter_ratings:false,matroska_video_mapping:true},preserve_modified_time:false,mappings:[]},pages:{}});
+    advanced:{id3v2_comment_language:'eng',popularimeter_ratings:false,matroska_video_mapping:true,list_chapters:false},preserve_modified_time:false,mappings:[]},pages:{}});
 
 /** pages.general: General options beyond the window title and sorting. */
 export const GENERAL_DEFAULTS={auto_select_next:false,autocomplete:true,select_added:false,keep_moved:true};
@@ -158,7 +158,8 @@ for(const page of [
     {kind:'text',path:'tags.advanced.id3v2_comment_language',label:'ID3v2 comment language code (ISO-639-2)',maxLength:3},
     {kind:'checkbox',path:'tags.advanced.popularimeter_ratings',label:'Always display POPULARIMETER values for ID3v2 ratings'},
     {kind:'checkbox',path:'tags.advanced.matroska_video_mapping',label:'Use recommended mapping for Matroska video'},
-    {kind:'note',text:'Reload files to see changed rating fields and Matroska mappings.'}]},
+    {kind:'checkbox',path:'tags.advanced.list_chapters',label:'List chapters as separate files'},
+    {kind:'note',text:'Reload files to see changed rating fields and Matroska mappings, and reload the directory to list or hide chapters.'}]},
 ] as OptionsPage[])registerOptionsPage(page);
 
 const html=(value:unknown)=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));

@@ -232,6 +232,7 @@ pub(super) fn describe(
         fields,
         covers,
         technical,
+        chapters: Vec::new(),
     })
 }
 

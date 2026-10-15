@@ -41,6 +41,7 @@ import { PlaylistUI, isPlaylistPath, playlistOptionsPage, exportOptionsPage, pla
 import { listen } from '@tauri-apps/api/event';
 import { CoverUI, type FolderImage } from './covers';
 import { imageExtensions, type CoverInfo } from './cover-model';
+import { chapterRowReason } from './chapters';
 import logoLightUrl from '../assets/brand/OpenTag-Brand-Kit/01-logos/horizontal/opentag-logo-light.svg';
 import markLightUrl from '../assets/brand/OpenTag-Brand-Kit/01-logos/marks/opentag-mark-color.svg';
 import artworkLightUrl from '../assets/brand/OpenTag-Brand-Kit/04-in-app/opentag-default-artwork-light-1024.svg';
@@ -711,6 +712,7 @@ function operationReason(op:Operation):string {
   const policy=sourcePolicy();
   if((op==='folder'||op==='playlist-load'||op.startsWith('dir-'))&&!runtimePlatform.folder_picker_supported)return 'Folder access is not available here. Use Add files.';
   if(op.startsWith('file-')&&runtimePlatform.family!=='desktop')return 'File operations are available in the desktop app.';
+  const rowReason=chapterRowReason(op,selected,()=>entries.keys());if(rowReason)return rowReason;
   if(op==='save-copy')return policy.copyReason;
   if((['action','tags-filename','filename-filename','text-tags','tag-tag','playlist-all','playlist-selected','playlist-generate','playlist-folders','csv'].includes(op)||op.startsWith('file-'))&&policy.unsupportedReason)return policy.unsupportedReason;
   if((op==='undo'||op==='redo')&&runtimePlatform.document_access_supported)return 'Undo is not available for provider documents.';

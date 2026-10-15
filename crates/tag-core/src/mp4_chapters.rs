@@ -1,9 +1,10 @@
 //! MP4 chapters: Nero chapters (`moov/udta/chpl`, 100 ns units) and
 //! QuickTime chapter tracks (a text track named by a `chap` track
-//! reference). They are listed read-only as `_CHAPTERS` values
-//! ("HH:MM:SS.mmm Title") with `_SUBSONG_COUNT`, like Mp3tag's subsong fields.
-//! Utils → Strip chapters MP4 turns every chapter box into a `free` box of the
-//! same size, so no sample offset moves and the media is never rewritten.
+//! reference). They are listed as the CHAPTERS field, one "HH:MM:SS.mmm
+//! Title" value per chapter, with `_SUBSONG_COUNT`. Writing CHAPTERS replaces
+//! both kinds (see `mp4_layout::write_chapters`); an empty CHAPTERS, like
+//! Utils → Strip chapters MP4, turns every chapter box into a `free` box of
+//! the same size, so no sample offset moves and the media is never rewritten.
 //! The same box reader supplies the `mvhd` timestamps and video properties.
 use super::*;
 use std::{
@@ -84,14 +85,18 @@ fn be64(bytes: &[u8], at: usize) -> Option<u64> {
 /// Chapters found in one file, and the boxes that hold them.
 #[derive(Debug, Default)]
 pub(super) struct Chapters {
-    /// Start in milliseconds and title.
+    /// Start in milliseconds and title: Nero chapters, else the track's.
     pub list: Vec<(u64, String)>,
+    /// Nero starts in 100 ns units.
+    nero: Vec<u64>,
+    /// Chapters of the QuickTime chapter track.
+    pub(super) track: Vec<(u64, String)>,
     boxes: Vec<Atom>,
 }
 
 /// Nero `chpl`: version, flags, (version 1: 4 reserved bytes), a count and
 /// per chapter a 64-bit start in 100 ns units and a length-prefixed title.
-fn nero(bytes: &[u8]) -> Vec<(u64, String)> {
+fn nero_units(bytes: &[u8]) -> Vec<(u64, String)> {
     let mut list = Vec::new();
     let Some(version) = bytes.first() else {
         return list;
@@ -108,7 +113,7 @@ fn nero(bytes: &[u8]) -> Vec<(u64, String)> {
         let Some(title) = bytes.get(at + 9..at + 9 + usize::from(*length)) else {
             break;
         };
-        list.push((start / 10_000, String::from_utf8_lossy(title).into_owned()));
+        list.push((start, String::from_utf8_lossy(title).into_owned()));
         at += 9 + usize::from(*length);
     }
     list
@@ -243,7 +248,12 @@ pub(super) fn scan(path: &Path) -> Result<Chapters, String> {
     for udta in top.iter().filter(|a| &a.kind == b"udta") {
         if let Some(chpl) = child(&mut file, udta, b"chpl")? {
             if chapters.list.is_empty() {
-                chapters.list = nero(&body(&mut file, &chpl)?);
+                let units = nero_units(&body(&mut file, &chpl)?);
+                chapters.nero = units.iter().map(|(start, _)| *start).collect();
+                chapters.list = units
+                    .into_iter()
+                    .map(|(start, title)| (start / 10_000, title))
+                    .collect();
             }
             chapters.boxes.push(chpl);
         }
@@ -284,51 +294,105 @@ pub(super) fn scan(path: &Path) -> Result<Chapters, String> {
     }
     for (id, trak) in tracks {
         if id.is_some_and(|id| referenced.contains(&id)) {
-            if chapters.list.is_empty() {
-                chapters.list = text_track(&mut file, &trak)?;
+            if chapters.track.is_empty() {
+                chapters.track = text_track(&mut file, &trak)?;
             }
             chapters.boxes.push(trak);
         }
     }
+    if chapters.list.is_empty() {
+        chapters.list = chapters.track.clone();
+    }
     Ok(chapters)
 }
 
-/// `_CHAPTERS` and `_SUBSONG_COUNT` for an MP4 file with chapters. Files
-/// whose chapter boxes cannot be read simply show none.
-pub(super) fn technical(path: &Path) -> Fields {
-    let mut fields = Fields::new();
+/// The CHAPTERS field, `_SUBSONG_COUNT` and the chapter list of an MP4
+/// file. Files whose chapter boxes cannot be read simply show none.
+pub(super) fn describe(path: &Path, entry: &mut AudioEntry) {
     let Ok(chapters) = scan(path) else {
-        return fields;
+        return;
     };
     if chapters.list.is_empty() {
-        return fields;
+        return;
     }
-    fields.insert(
-        "_SUBSONG_COUNT".into(),
-        vec![chapters.list.len().to_string()],
-    );
-    fields.insert(
-        "_CHAPTERS".into(),
+    entry.fields.insert(
+        subsongs::CHAPTERS_FIELD.into(),
         chapters
             .list
             .iter()
-            .map(|(ms, title)| {
-                let time = format!(
-                    "{:02}:{:02}:{:02}.{:03}",
-                    ms / 3_600_000,
-                    ms / 60_000 % 60,
-                    ms / 1000 % 60,
-                    ms % 1000
-                );
-                if title.is_empty() {
-                    time
-                } else {
-                    format!("{time} {title}")
-                }
+            .map(|(ms, title)| subsongs::chapter_value(ms * 1_000_000, title))
+            .collect(),
+    );
+    subsongs::attach(
+        entry,
+        chapters
+            .list
+            .into_iter()
+            .map(|(start, title)| ChapterInfo {
+                start,
+                end: None,
+                title,
+                fields: Fields::new(),
+                source: Default::default(),
             })
             .collect(),
     );
-    fields
+}
+
+/// Write CHAPTERS `values` into the staged MP4 file: Nero chapters and a
+/// QuickTime chapter track, or no chapters at all when `values` is empty.
+pub(super) fn write(
+    staging: &mut fs::File,
+    staged_path: &Path,
+    values: &[String],
+) -> Result<(), String> {
+    let mut requested = values
+        .iter()
+        .map(|value| subsongs::parse_chapter_value(value))
+        .collect::<Result<Vec<_>, _>>()?;
+    requested.sort_by_key(|(start, _)| *start);
+    let current = scan(staged_path)?;
+    if requested.is_empty() {
+        if !current.boxes.is_empty() {
+            blank(staging, current.boxes)?;
+        }
+    } else {
+        // Keep the stored start while it still displays the same.
+        let chapters: Vec<(u64, String)> = requested
+            .iter()
+            .enumerate()
+            .map(|(index, (ns, title))| {
+                let units = ns / 100;
+                let start = current
+                    .nero
+                    .get(index)
+                    .copied()
+                    .filter(|old| old / 10_000 == units / 10_000)
+                    .unwrap_or(units);
+                (start, title.clone())
+            })
+            .collect();
+        mp4_layout::write_chapters(staging, staged_path, &chapters)?;
+    }
+    staging.sync_all().map_err(|e| e.to_string())?;
+    let written = scan(staged_path)?;
+    let expected: Vec<(u64, String)> = requested
+        .iter()
+        .map(|(ns, title)| (ns / 1_000_000, title.clone()))
+        .collect();
+    // The QuickTime track starts at zero and counts in its own time scale.
+    let track_matches = written.track.len() == expected.len()
+        && written.track.iter().zip(&expected).enumerate().all(
+            |(index, ((ms, title), (start, wanted)))| {
+                title == wanted && (index == 0 || ms.abs_diff(*start) <= 1)
+            },
+        );
+    if written.list != expected || !track_matches {
+        return Err(
+            "The MP4 chapters did not read back as written; the original file was kept".into(),
+        );
+    }
+    Ok(())
 }
 
 /// Seconds between the MP4 epoch (1904-01-01) and the Unix epoch.
@@ -482,7 +546,31 @@ pub(super) fn strip(
     original: &Path,
     staged_path: &Path,
 ) -> Result<(), String> {
-    let mut boxes = scan(original)?.boxes;
+    let blanked = blank(staging, scan(original)?.boxes)?;
+    if !scan(staged_path)?.list.is_empty() {
+        return Err("The MP4 chapters could not be removed".into());
+    }
+    // Only the type and body of each blanked box may differ.
+    let length = fs::metadata(original).map_err(|e| e.to_string())?.len();
+    let mut kept = Vec::new();
+    let mut at = 0;
+    for atom in &blanked {
+        kept.push(at..atom.start + 4);
+        at = atom.end;
+    }
+    kept.push(at..length);
+    for range in kept {
+        let start = range.start;
+        if !container_formats::same_bytes(original, range, staged_path, start)? {
+            return Err("The MP4 media changed while removing chapters".into());
+        }
+    }
+    Ok(())
+}
+
+/// Turn chapter boxes into `free` boxes of the same size; returns the boxes
+/// blanked, outermost only.
+fn blank(staging: &mut fs::File, mut boxes: Vec<Atom>) -> Result<Vec<Atom>, String> {
     boxes.sort_by_key(|a| a.start);
     // A reference inside a removed track is covered by the track.
     let mut blanked: Vec<Atom> = Vec::new();
@@ -507,25 +595,7 @@ pub(super) fn strip(
     }
     crate::write_cost::rewrote_region(region);
     staging.sync_all().map_err(|e| e.to_string())?;
-    if !scan(staged_path)?.list.is_empty() {
-        return Err("The MP4 chapters could not be removed".into());
-    }
-    // Only the type and body of each blanked box may differ.
-    let length = fs::metadata(original).map_err(|e| e.to_string())?.len();
-    let mut kept = Vec::new();
-    let mut at = 0;
-    for atom in &blanked {
-        kept.push(at..atom.start + 4);
-        at = atom.end;
-    }
-    kept.push(at..length);
-    for range in kept {
-        let start = range.start;
-        if !container_formats::same_bytes(original, range, staged_path, start)? {
-            return Err("The MP4 media changed while removing chapters".into());
-        }
-    }
-    Ok(())
+    Ok(blanked)
 }
 
 #[cfg(test)]
@@ -541,11 +611,11 @@ mod tests {
             bytes.extend(title.as_bytes());
         }
         assert_eq!(
-            nero(&bytes),
-            [(0, "One".to_string()), (1500, "Two".to_string())]
+            nero_units(&bytes),
+            [(0, "One".to_string()), (15_000_000, "Two".to_string())]
         );
         // Truncated data keeps what was complete.
-        assert_eq!(nero(&bytes[..bytes.len() - 1]).len(), 1);
+        assert_eq!(nero_units(&bytes[..bytes.len() - 1]).len(), 1);
         assert_eq!(text_sample(b"\x00\x03abc\x00\x00"), "abc");
         assert_eq!(text_sample(b"\x00\x04\xFE\xFF\x00A"), "A");
     }
