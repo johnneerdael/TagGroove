@@ -86,7 +86,7 @@
     await check(history.undo?.label === 'Tag source import' && history.undo?.files === 2, 'undo step ' + JSON.stringify(history.undo));
 
     // Ctrl+I repeats the last tag source, now this web source.
-    key('i', { ctrlKey: true });
+    key('i', { metaKey: true }); // ⌘I on macOS; the e2e hook turns it into Ctrl+I elsewhere.
     d = await waitFor(() => document.querySelector('dialog.tag-source-dialog[open]'), 8000, 'Ctrl+I');
     await check(d.getAttribute('aria-label') === 'Fixture › Web Test', 'Ctrl+I reopens ' + d.getAttribute('aria-label'));
     d.querySelector('[data-close]').click();

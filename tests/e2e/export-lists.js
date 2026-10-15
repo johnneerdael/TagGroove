@@ -62,6 +62,8 @@
     await idle();
     const album = row('sine-a.mp3').dataset.path.replace(/[\\/][^\\/]+$/, '');
     const work = album.replace(/[\\/][^\\/]+$/, '');
+    // The app writes and offers paths with the platform's separator.
+    const sep = album.includes('\\') ? '\\' : '/';
 
     await step('helper lists in local storage move into the configuration (lists.json)', async () => {
       const saved = await waitFor(async () => { const l = await inv('load_helper_lists'); return l.exists && l; }, 5000, 'lists.json');
@@ -129,7 +131,7 @@
       dlg.querySelector('#export-run').click();
       const offer = await outputDialog();
       const options = [...offer.querySelectorAll('#open-output-file option')].map(o => o.title);
-      const expected = [`${work}/exports/list.txt`, `${work}/exports/disc2/list.txt`];
+      const expected = [`${work}${sep}exports${sep}list.txt`, `${work}${sep}exports${sep}disc2${sep}list.txt`];
       if (options.length !== 2 || !expected.every(path => options.includes(path))) throw new Error('offered ' + options.join(' | '));
       if (!/Written files \(2\)/.test(offer.textContent)) throw new Error(offer.textContent);
       await closeDialog(offer);
@@ -145,11 +147,11 @@
       await waitFor(() => names().join() !== before.join(), 3000, 'manual move');
       const order = names();
       const target = await playlist();
-      if (target !== `${album}/album.m3u8`) throw new Error('target ' + target);
+      if (target !== `${album}${sep}album.m3u8`) throw new Error('target ' + target);
       const read = await inv('read_playlist', { path: target });
       if (read.files.map(p => p.split(/[\\/]/).pop()).join() !== order.join()) throw new Error(`playlist ${read.files.join()} list ${order.join()}`);
       const text = await readText(target);
-      if (!/\r\ndisc2\/sine-c\.mp3\r\n/.test(text) || text.includes(album)) throw new Error(JSON.stringify(text));
+      if (!text.includes(`\r\ndisc2${sep}sine-c.mp3\r\n`) || text.includes(album)) throw new Error(JSON.stringify(text));
       return `${before.join(',')} → ${order.join(',')}`;
     });
 
@@ -164,9 +166,9 @@
       options.querySelector('#options-ok').click();
       await waitFor(() => !document.querySelector('dialog[open].options-dialog'), 5000, 'options closed');
       const target = await playlist();
-      if (target !== `${work}/outside.m3u8`) throw new Error('target ' + target);
+      if (target !== `${work}${sep}outside.m3u8`) throw new Error('target ' + target);
       const text = await readText(target);
-      if (!text.includes(`\r\n${album}/sine-a.mp3\r\n`) || !text.includes(`${album}/disc2/sine-c.mp3`)) throw new Error(JSON.stringify(text));
+      if (!text.includes(`\r\n${album}${sep}sine-a.mp3\r\n`) || !text.includes(`${album}${sep}disc2${sep}sine-c.mp3`)) throw new Error(JSON.stringify(text));
       return target;
     });
 
