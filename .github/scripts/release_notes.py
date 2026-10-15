@@ -39,7 +39,8 @@ def markdown_lines(text: str, *, skip_fenced: bool = False) -> list[tuple[str, i
             token = marker.group(1)
             if not fence:
                 fence = token
-            elif token[0] == fence[0] and len(token) >= len(fence):
+            elif (token[0] == fence[0] and len(token) >= len(fence)
+                  and not line[marker.end():].strip()):
                 fence = ""
             if not skip_fenced:
                 result.append((line, 0, ""))
@@ -111,6 +112,9 @@ def validate_release_notes(body: str) -> str:
         if has_template_placeholder(line):
             raise ValueError("Release notes must replace template placeholders with actual changes.")
         if depth:
+            if re.fullmatch(r'(?:validation|tests?|testing|test plan|test results|checklist|'
+                            r'screenshots?|review|review notes|verification)\s*:?', title, re.IGNORECASE):
+                raise ValueError('Keep validation and review subsections outside ## Release notes.')
             if internal_level and depth <= internal_level:
                 in_internal = False
                 internal_level = 0

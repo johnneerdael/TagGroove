@@ -45,6 +45,24 @@ class ValidationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.notes.validate_release_notes('```markdown\n## Release notes\nFixed tags.\n```')
 
+    def test_fence_with_trailing_text_does_not_expose_a_fake_release_heading(self):
+        for fence in ('```', '~~~'):
+            for suffix in ('not-a-close', ' more code'):
+                body = f'{fence}text\n{fence}{suffix}\n## Release notes\n- Fake change.\n{fence}'
+                with self.subTest(fence=fence, suffix=suffix), self.assertRaisesRegex(ValueError, '## Release notes'):
+                    self.notes.validate_release_notes(body)
+            body = f'{fence}text\n{fence}not-a-close\n{fence} \t\n## Release notes\n- Preserve covers.'
+            self.assertEqual(self.notes.validate_release_notes(body), '- Preserve covers.')
+
+    def test_validation_and_review_subsections_require_their_own_top_level_section(self):
+        for heading in ('Validation', 'Test results', 'Review', 'Verification'):
+            body = f'## Release notes\n- Preserve covers.\n### {heading}\nPrivate results.'
+            with self.subTest(heading=heading), self.assertRaisesRegex(ValueError, 'outside'):
+                self.notes.validate_release_notes(body)
+        body = ('## Release notes\n### Field validation\n- Reject invalid frame values.\n'
+                '```markdown\n### Validation\nLiteral example.\n```')
+        self.assertEqual(self.notes.validate_release_notes(body), body.split('\n', 1)[1])
+
     def test_substantive_markdown_links_are_not_template_placeholders(self):
         for label in ('Add cover-art support', 'Replace saved covers', 'Write tag values',
                       'Describe the changes'):
@@ -108,6 +126,16 @@ class GenerationTests(unittest.TestCase):
             self.notes.render_release_notes('owner/repo', [commit], lambda sha: [pull], {commit.sha})
         historical = self.notes.render_release_notes('owner/repo', [commit], lambda sha: [pull], set())
         self.assertNotIn('Private cover-art test result', historical)
+
+    def test_validation_subsection_within_release_notes_cannot_be_published(self):
+        commit = self.notes.Commit('a' * 40, 'Merge PR', '')
+        pull = dict(number=18, title='Fix tags', merged_at='now',
+                    body='## Release notes\n- Preserve covers.\n### Validation\nPrivate test results.')
+        with self.assertRaisesRegex(ValueError, 'outside'):
+            self.notes.render_release_notes('owner/repo', [commit], lambda sha: [pull], {commit.sha})
+        historical = self.notes.render_release_notes('owner/repo', [commit], lambda sha: [pull], set())
+        self.assertIn('Preserve covers.', historical)
+        self.assertNotIn('Private test results', historical)
 
     def test_historical_pr_and_direct_commit_keep_sanitized_explanation(self):
         commits = [self.notes.Commit('a' * 40, 'Merge old PR', ''), self.notes.Commit('b' * 40, 'Repair tags', 'Retain original cover values.')]
