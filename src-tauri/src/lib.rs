@@ -14,6 +14,7 @@ mod file_hashes;
 mod file_ops;
 mod filter_cache;
 mod history;
+mod list_behaviour;
 #[cfg(any(target_os = "android", test))]
 mod managed_actions;
 mod playlists;
@@ -429,6 +430,9 @@ async fn save_fields(
 struct FieldUpdate {
     path: String,
     updates: Fields,
+    /// Pasted covers that replace the file's covers (Paste/Cut tags).
+    #[serde(default)]
+    covers: Option<Vec<list_behaviour::PendingCover>>,
 }
 
 /// Save per-file field changes as one undo step, writing files in parallel
@@ -447,6 +451,16 @@ async fn save_fields_batch(
             .filter(|item| seen.insert(item.path.clone()))
             .collect();
         let paths: Vec<String> = items.iter().map(|item| item.path.clone()).collect();
+        let cover_plans: std::collections::HashMap<
+            String,
+            Result<Vec<tag_core::CoverChange>, String>,
+        > = items
+            .iter()
+            .filter_map(|item| {
+                let covers = item.covers.as_ref()?;
+                Some((item.path.clone(), list_behaviour::cover_changes(covers)))
+            })
+            .collect();
         history::record("Save tags", None, &paths, || {
             use tag_core::parallel::Progress;
             job.start(items.len());
@@ -462,6 +476,10 @@ async fn save_fields_batch(
             };
             let written = tag_core::parallel::map_ordered_on(threads, &items, &job, |item| {
                 mutate_document(Path::new(&item.path), |p| {
+                    if let Some(plan) = cover_plans.get(&item.path) {
+                        let changes = plan.as_ref().map_err(Clone::clone)?;
+                        tag_core::apply_cover_changes_with_options(p, changes, &options)?;
+                    }
                     tag_core::write_fields_with_options(p, &item.updates, false, &[], &options)
                 })
             });
@@ -952,6 +970,8 @@ pub fn run() {
             covers::extract_cover,
             covers::copy_cover_to_clipboard,
             covers::paste_cover_from_clipboard,
+            list_behaviour::folder_image,
+            list_behaviour::copy_tag_covers,
             preview_format,
             preview_filename,
             preview_rename,
@@ -1566,6 +1586,66 @@ mod tests {
                 .unwrap();
         assert!(result.errors.is_empty());
         assert_eq!(result.entries[0].fields["TITLE"], ["title.live"]);
+    }
+
+    #[test]
+    fn saving_pasted_tags_writes_and_removes_copied_covers() {
+        let _serial = list_behaviour::TEST_CLIPBOARD
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        let (source, target) = (dir.path().join("source.wav"), dir.path().join("target.wav"));
+        wav(&source);
+        wav(&target);
+        let image = dir.path().join("front.png");
+        let mut png = std::io::Cursor::new(Vec::new());
+        image::DynamicImage::ImageRgb8(image::RgbImage::new(4, 3))
+            .write_to(&mut png, image::ImageFormat::Png)
+            .unwrap();
+        std::fs::write(&image, png.into_inner()).unwrap();
+        let text = |path: &Path| path.to_string_lossy().into_owned();
+        use tauri::async_runtime::block_on as run;
+        run(covers::add_cover_image(
+            vec![text(&source)],
+            serde_json::from_value(serde_json::json!({ "path": text(&image) })).unwrap(),
+            None,
+        ))
+        .unwrap();
+        let copied = serde_json::to_value(
+            run(list_behaviour::copy_tag_covers(vec![text(&source)], vec![])).unwrap(),
+        )
+        .unwrap();
+        let covers = copied["covers"][0].clone();
+        assert_eq!(covers.as_array().unwrap().len(), 1);
+        assert_eq!(copied["images"].as_object().unwrap().len(), 1);
+        let save = |covers: serde_json::Value, title: &str| {
+            let items: Vec<FieldUpdate> = serde_json::from_value(serde_json::json!([
+                { "path": text(&target), "updates": { "TITLE": [title] }, "covers": covers }
+            ]))
+            .unwrap();
+            run(save_fields_batch(items, None)).unwrap()
+        };
+        let pasted = save(covers.clone(), "Pasted");
+        assert!(pasted.errors.is_empty(), "{:?}", pasted.errors);
+        let written = settings::read_full(&target).unwrap();
+        assert_eq!(written.fields["TITLE"], ["Pasted"]);
+        assert_eq!(written.covers.len(), 1);
+        assert_eq!(
+            written.covers[0].digest,
+            covers[0]["digest"].as_str().unwrap()
+        );
+        // Cut tags saves an empty cover list.
+        let cut = save(serde_json::json!([]), "Cut");
+        assert!(cut.errors.is_empty(), "{:?}", cut.errors);
+        assert!(settings::read_full(&target).unwrap().covers.is_empty());
+        // Artwork the clipboard no longer holds fails that file and writes nothing.
+        run(list_behaviour::copy_tag_covers(vec![], vec![])).unwrap();
+        let stale = save(covers, "Stale");
+        assert_eq!(stale.errors.len(), 1);
+        assert_eq!(
+            settings::read_full(&target).unwrap().fields["TITLE"],
+            ["Cut"]
+        );
     }
 
     #[test]

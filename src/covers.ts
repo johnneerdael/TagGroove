@@ -5,6 +5,8 @@ import './covers.css';
 import {PICTURE_TYPES,coverDetails,coverExtension,coverFileName,coverMenu,coverRef,distinctPlan,dropManaged,insideRect,isImagePath,keepPlan,managedFromSet,moveManaged,newManaged,pictureTypeLabel,planChanged,planItems,presence,replaceManaged,selectionCovers,type CoverInfo,type CoverSet,type ImageSource,type ManagedCover,type PlanItem,type SelectionCovers,type StagedImage} from './cover-model';
 
 type Batch={errors:{path:string;error:string}[]};
+/** An image file next to the audio files (Options → Tags folder-image fallback). */
+export type FolderImage={name:string;mime:string;size:number;width:number|null;height:number|null;data_base64:string};
 export type CoverHost={
   invoke:<T>(command:string,args?:Record<string,unknown>)=>Promise<T>;
   /** Selected files in list order with their cover descriptors. */
@@ -15,6 +17,8 @@ export type CoverHost={
   /** Why cover edits are unavailable, or '' when they are allowed. */
   reason:()=>string;
   clipboard:()=>boolean;
+  /** True while a selected file shows pasted covers that are not saved yet. */
+  pending?:()=>boolean;
   mutate:(command:string,args:Record<string,unknown>,message:string)=>Promise<Batch|undefined>;
   pickImage:(directory?:string)=>Promise<string|null>;
   pickSave:(defaultPath:string,extension:string)=>Promise<string|null>;
@@ -50,6 +54,7 @@ export class CoverUI {
   private menu?:HTMLElement;
   private viewer?:HTMLDialogElement;
   private dragPaths:string[]=[];
+  private folderShown?:FolderImage;
   constructor(private host:CoverHost){}
   get aspect(){return storage.get(ASPECT_KEY)!=='stretch';}
   state():SelectionCovers{return selectionCovers(this.host.selection().map(file=>file.covers));}
@@ -61,20 +66,31 @@ export class CoverUI {
   }
   canRemove(){return !this.host.reason()&&this.host.selection().length>0&&this.state().state!=='none';}
 
-  markup(options:{fallback:string;error:string;unavailable:boolean;buttons:string}){
+  /**
+   * `folder` is the first image of the files' folder, shown (and marked as not
+   * embedded) when no file has a cover. `note` adds a line, for example for
+   * pasted covers that are not saved yet.
+   */
+  markup(options:{fallback:string;error:string;unavailable:boolean;buttons:string;folder?:FolderImage;note?:string}){
     const {state,covers,index,cover}=this.shown(),loaded=!!cover?.data_base64,selected=state.files;
-    const title=options.unavailable?'Artwork unavailable':state.state==='varying'?'Covers vary':cover?pictureTypeLabel(cover.picture_type):'No artwork';
+    const folder=!options.unavailable&&!options.error&&state.state==='none'?options.folder:undefined;
+    this.folderShown=folder;
+    const title=options.unavailable?'Artwork unavailable':state.state==='varying'?'Covers vary':cover?pictureTypeLabel(cover.picture_type):folder?'Folder image':'No artwork';
     const lines=options.error?[options.error]:state.state==='varying'?[`${state.withCovers} of ${selected} files have artwork`,'The selected files have different covers']
       :cover?[coverDetails(cover),loaded?cover.description:'Loading artwork…',selected>1?`Shared by ${selected} files`:'']
+      :folder?[folder.name,coverDetails(folder),'Not embedded in the file']
       :[selected?'Drop or paste an image to embed it':'Embedded cover art'];
-    const art=loaded?`<img data-cover-image alt="${esc(`Embedded ${pictureTypeLabel(cover!.picture_type)} artwork`)}">`:`<img class="fallback-artwork" data-theme-image="artwork" src="${esc(options.fallback)}" alt="" aria-hidden="true">`;
+    if(options.note)lines.push(options.note);
+    const art=loaded?`<img data-cover-image alt="${esc(`Embedded ${pictureTypeLabel(cover!.picture_type)} artwork`)}">`:folder?`<img data-folder-image alt="${esc(`Folder image ${folder.name}, not embedded`)}">`:`<img class="fallback-artwork" data-theme-image="artwork" src="${esc(options.fallback)}" alt="" aria-hidden="true">`;
     const label=`Cover art: ${title}${cover&&covers.length>1?`, ${index+1} of ${covers.length}`:''}. Enter views it larger; Shift+F10 opens cover commands.`;
     const nav=cover&&covers.length>1?`<div class="cover-nav"><button data-cover="previous" aria-label="Previous cover" ${index>0?'':'disabled'}>‹</button><span>${index+1} / ${covers.length}</span><button data-cover="next" aria-label="Next cover" ${index<covers.length-1?'':'disabled'}>›</button></div>`:'';
-    return `<div class="cover-row"><div class="cover-art${this.aspect?'':' stretch'}" tabindex="0" role="button" aria-haspopup="menu" aria-label="${esc(label)}" title="Right-click for cover commands; double-click to enlarge">${art}</div><div class="cover-info"><strong>${esc(title)}</strong>${lines.filter(Boolean).map(line=>`<span>${esc(line)}</span>`).join('')}${nav}</div></div><div class="cover-controls">${options.buttons}<button data-cover="menu" aria-haspopup="menu" aria-label="Cover commands" title="Cover commands">⋯</button></div>`;
+    return `<div class="cover-row"><div class="cover-art${this.aspect?'':' stretch'}${folder?' folder-image':''}" tabindex="0" role="button" aria-haspopup="menu" aria-label="${esc(label)}" title="Right-click for cover commands; double-click to enlarge">${art}</div><div class="cover-info"><strong>${esc(title)}</strong>${lines.filter(Boolean).map(line=>`<span>${esc(line)}</span>`).join('')}${nav}</div></div><div class="cover-controls">${options.buttons}<button data-cover="menu" aria-haspopup="menu" aria-label="Cover commands" title="Cover commands">⋯</button></div>`;
   }
   paint(){
     const {cover}=this.shown(),image=document.querySelector<HTMLImageElement>('.cover-art img[data-cover-image]');
     if(image&&cover?.data_base64)image.src=dataUrl(cover);
+    const folderImage=document.querySelector<HTMLImageElement>('.cover-art img[data-folder-image]');
+    if(folderImage&&this.folderShown)folderImage.src=dataUrl(this.folderShown);
     this.updateViewer();
   }
   /** Attach cover window handlers; call after the cover section is (re)rendered. */
@@ -161,6 +177,8 @@ export class CoverUI {
   }
 
   async run(command:string,value?:string){
+    // Shown covers that are pasted but not saved exist only as pending tag edits.
+    if(['extract','copy','cut'].includes(command)&&this.host.pending?.()){this.host.notify('Save tags first: the shown covers are pasted and not written yet.');return;}
     try{await this.perform(command,value);}catch(error){this.host.fail(error);}
   }
   private plan(change:(item:PlanItem,index:number)=>PlanItem|null,all:(item:PlanItem)=>PlanItem|null){
