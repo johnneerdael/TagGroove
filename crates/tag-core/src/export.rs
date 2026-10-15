@@ -890,7 +890,9 @@ fn resolve_path(base: &str, path: &str) -> String {
     } else if prefix.is_empty() {
         parts.join("/")
     } else {
-        format!("{prefix}/{}", parts.join("/"))
+        // Drive and share paths are Windows paths: keep its separator, so the
+        // written files are offered as Windows spells them.
+        format!("{}\\{}", prefix.replace('/', "\\"), parts.join("\\"))
     }
 }
 // Remove only the representation wrapper for comparison. A drive or share is

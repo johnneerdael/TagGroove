@@ -41,16 +41,18 @@
     await step('macOS: Option+letter and Option+digit type in text fields instead of triggering shortcuts', async () => {
       setPlatform('MacIntel');
       await clickRow('sine-a.mp3');
-      const title = await waitFor(() => panel('TITLE'), 3000, 'Title field'); title.focus();
+      // A late panel render may replace the field (keeping its focus): look it up each time.
+      const title = () => panel('TITLE');
+      (await waitFor(() => title(), 3000, 'Title field')).focus();
       const typed = [['Dead', 'KeyI'], ['å', 'KeyA'], ['©', 'KeyG'], ['®', 'KeyR'], ['µ', 'KeyM'], ['§', 'Digit6'], ['¡', 'Digit1'], ['†', 'KeyT']];
       for (const [k, code] of typed) {
-        const event = press(title, k, { code, altKey: true });
+        const event = press(title(), k, { code, altKey: true });
         await sleep(120);
         if (event.defaultPrevented) throw new Error(`Option+${code} (${k}) was swallowed`);
-        if (document.activeElement !== title) throw new Error(`Option+${code} moved focus to ${document.activeElement?.dataset?.field || document.activeElement?.tagName}`);
+        if (document.activeElement !== title()) throw new Error(`Option+${code} moved focus to ${document.activeElement?.dataset?.field || document.activeElement?.tagName}${document.activeElement?.isConnected === false ? ' (detached)' : ''}`);
         if (openDialog()) throw new Error(`Option+${code} opened ${openDialog().querySelector('header')?.textContent}`);
       }
-      const shift6 = press(title, 'ﬂ', { code: 'Digit6', altKey: true, shiftKey: true }); await sleep(120);
+      const shift6 = press(title(), 'ﬂ', { code: 'Digit6', altKey: true, shiftKey: true }); await sleep(120);
       if (shift6.defaultPrevented || openDialog()) throw new Error('Option+Shift+6 opened Actions (Quick)');
       return `${typed.length + 1} Option chords left to the text field`;
     });

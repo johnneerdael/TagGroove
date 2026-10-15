@@ -14,7 +14,7 @@
   try {
     await check(window.OPENTAG_E2E_OFFLINE === true, 'offline run (web sources may only reach 127.0.0.1)');
     const rows = await waitFor(() => { const r = [...document.querySelectorAll('tr[data-path]')]; return r.length === 2 && r; }, 15000, 'rows');
-    const paths = rows.map(r => r.dataset.path), album = paths[0].replace(/\/[^/]+$/, ''), folder = album.replace(/\/[^/]+$/, '/web-sources');
+    const paths = rows.map(r => r.dataset.path), album = paths[0].replace(/[\\/][^\\/]+$/, ''), folder = album.replace(/([\\/])[^\\/]+$/, '$1web-sources');
 
     // Install the test sources (Tag Sources → Install tag sources… copies the chosen files).
     const files = ['&Fixture#&Web Test.src', '&Fixture#&Direct lookup.src', '&Fixture#Broken.src', 'Fixture.inc', '&Fixture#Settings.settings'];
@@ -86,7 +86,7 @@
     await check(history.undo?.label === 'Tag source import' && history.undo?.files === 2, 'undo step ' + JSON.stringify(history.undo));
 
     // Ctrl+I repeats the last tag source, now this web source.
-    key('i', { ctrlKey: true });
+    key('i', { metaKey: true }); // ⌘I on macOS; the e2e hook turns it into Ctrl+I elsewhere.
     d = await waitFor(() => document.querySelector('dialog.tag-source-dialog[open]'), 8000, 'Ctrl+I');
     await check(d.getAttribute('aria-label') === 'Fixture › Web Test', 'Ctrl+I reopens ' + d.getAttribute('aria-label'));
     d.querySelector('[data-close]').click();

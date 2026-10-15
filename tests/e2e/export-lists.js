@@ -18,8 +18,8 @@
   const errorsText = () => [...document.querySelectorAll('.errors p')].map(p => p.textContent).join(' | ');
   const key = (k, o = {}, target = document.activeElement || document.body) => target.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...o }));
   const rows = () => [...document.querySelectorAll('tr[data-path]')];
-  const row = name => rows().find(r => r.dataset.path.endsWith('/' + name));
-  const names = () => rows().map(r => r.dataset.path.split('/').pop());
+  const row = name => rows().find(r => r.dataset.path.split(/[\\/]/).pop() === name);
+  const names = () => rows().map(r => r.dataset.path.split(/[\\/]/).pop());
   const clickRow = async (name, o = {}) => { const r = await waitFor(() => row(name), 8000, 'row ' + name); r.querySelector('td').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ...o })); await sleep(250); };
   const idle = () => waitFor(() => !document.querySelector('footer.status.busy'), 20000, 'idle');
   const lists = async () => (await inv('load_helper_lists')).lists;
@@ -48,7 +48,7 @@
     if (!sessionStorage.getItem('export-lists-stage')) {
       // Stage 1: lists as earlier versions stored them, then a restart into the same folder.
       await waitFor(() => rows().length >= 3, 15000, 'fixture rows');
-      const album = row('sine-a.mp3').dataset.path.replace(/\/[^/]+$/, '');
+      const album = row('sine-a.mp3').dataset.path.replace(/[\\/][^\\/]+$/, '');
       const settings = (await inv('load_settings')).settings;
       settings.pages = { ...settings.pages, messages: { ...(settings.pages?.messages || {}), confirm_export: true }, 'directories-startup': { startup: 'previous' } };
       await inv('save_settings', { settings });
@@ -60,8 +60,10 @@
     }
     await waitFor(() => rows().length >= 3, 15000, 'fixture rows');
     await idle();
-    const album = row('sine-a.mp3').dataset.path.replace(/\/[^/]+$/, '');
-    const work = album.replace(/\/[^/]+$/, '');
+    const album = row('sine-a.mp3').dataset.path.replace(/[\\/][^\\/]+$/, '');
+    const work = album.replace(/[\\/][^\\/]+$/, '');
+    // The app writes and offers paths with the platform's separator.
+    const sep = album.includes('\\') ? '\\' : '/';
 
     await step('helper lists in local storage move into the configuration (lists.json)', async () => {
       const saved = await waitFor(async () => { const l = await inv('load_helper_lists'); return l.exists && l; }, 5000, 'lists.json');
@@ -129,7 +131,7 @@
       dlg.querySelector('#export-run').click();
       const offer = await outputDialog();
       const options = [...offer.querySelectorAll('#open-output-file option')].map(o => o.title);
-      const expected = [`${work}/exports/list.txt`, `${work}/exports/disc2/list.txt`];
+      const expected = [`${work}${sep}exports${sep}list.txt`, `${work}${sep}exports${sep}disc2${sep}list.txt`];
       if (options.length !== 2 || !expected.every(path => options.includes(path))) throw new Error('offered ' + options.join(' | '));
       if (!/Written files \(2\)/.test(offer.textContent)) throw new Error(offer.textContent);
       await closeDialog(offer);
@@ -145,11 +147,11 @@
       await waitFor(() => names().join() !== before.join(), 3000, 'manual move');
       const order = names();
       const target = await playlist();
-      if (target !== `${album}/album.m3u8`) throw new Error('target ' + target);
+      if (target !== `${album}${sep}album.m3u8`) throw new Error('target ' + target);
       const read = await inv('read_playlist', { path: target });
-      if (read.files.map(p => p.split('/').pop()).join() !== order.join()) throw new Error(`playlist ${read.files.join()} list ${order.join()}`);
+      if (read.files.map(p => p.split(/[\\/]/).pop()).join() !== order.join()) throw new Error(`playlist ${read.files.join()} list ${order.join()}`);
       const text = await readText(target);
-      if (!/\r\ndisc2\/sine-c\.mp3\r\n/.test(text) || text.includes(album)) throw new Error(JSON.stringify(text));
+      if (!text.includes(`\r\ndisc2${sep}sine-c.mp3\r\n`) || text.includes(album)) throw new Error(JSON.stringify(text));
       return `${before.join(',')} → ${order.join(',')}`;
     });
 
@@ -164,9 +166,9 @@
       options.querySelector('#options-ok').click();
       await waitFor(() => !document.querySelector('dialog[open].options-dialog'), 5000, 'options closed');
       const target = await playlist();
-      if (target !== `${work}/outside.m3u8`) throw new Error('target ' + target);
+      if (target !== `${work}${sep}outside.m3u8`) throw new Error('target ' + target);
       const text = await readText(target);
-      if (!text.includes(`\r\n${album}/sine-a.mp3\r\n`) || !text.includes(`${album}/disc2/sine-c.mp3`)) throw new Error(JSON.stringify(text));
+      if (!text.includes(`\r\n${album}${sep}sine-a.mp3\r\n`) || !text.includes(`${album}${sep}disc2${sep}sine-c.mp3`)) throw new Error(JSON.stringify(text));
       return target;
     });
 
@@ -203,7 +205,9 @@
       pointer('pointerdown', art, 0); pointer('pointermove', window, 2); pointer('pointermove', window, 30);
       await waitFor(() => /Cover file ready to drag: /.test(status()), 5000, 'prepared (' + status() + ' / ' + errorsText() + ')');
       const path = status().replace(/^.*Cover file ready to drag: /, '').trim();
-      if (!/\/Test_Album\.png$/.test(path)) throw new Error('file ' + path);
+      // Only the Linux drag source needs URI-safe names; elsewhere the album name keeps its space.
+      const expected = /Linux/.test(navigator.platform) ? 'Test_Album.png' : 'Test Album.png';
+      if (path.split(/[\\/]/).pop() !== expected) throw new Error('file ' + path);
       const staged = await inv('stage_cover_file', { path });
       if (staged.width !== 16 || staged.height !== 16 || staged.mime !== 'image/png') throw new Error(JSON.stringify({ ...staged, data_base64: undefined }));
       window.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));

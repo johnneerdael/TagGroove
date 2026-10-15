@@ -292,6 +292,29 @@ fn verbatim_unc_export_names_and_relative_placeholders_preserve_share_identity()
 }
 
 #[test]
+fn drive_and_share_destinations_use_windows_separators() {
+    let rows = vec![row(r"C:\music\a.mp3", "A", "X", "T", "1", 1., 1)];
+    for (base, filename, expected) in [
+        (r"C:\work", "exports/list.txt", r"C:\work\exports\list.txt"),
+        ("", "C:/out/sub/../list.txt", r"C:\out\list.txt"),
+        (
+            "",
+            r"\\server\share\out\list.txt",
+            r"\\server\share\out\list.txt",
+        ),
+        ("/srv", "out/list.txt", "/srv/out/list.txt"),
+    ] {
+        let options = ExportOptions {
+            filename: filename.into(),
+            base_directory: base.into(),
+            ..options()
+        };
+        let document = render_export("%title%", &rows, &options).unwrap().remove(0);
+        assert_eq!(document.filename, expected, "{base} + {filename}");
+    }
+}
+
+#[test]
 fn filename_directives_and_row_folder_placeholders_keep_verbatim_destinations() {
     let rows = vec![row(r"\\?\D:\music\a.mp3", "A", "X", "T", "1", 1., 1)];
     let options = ExportOptions {
