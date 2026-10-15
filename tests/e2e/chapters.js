@@ -14,8 +14,8 @@
   const SEP = '\u0001';
   const rows = () => [...document.querySelectorAll('tr[data-path]')];
   const rowPaths = () => rows().map(r => r.dataset.path);
-  const chapterRow = (name, n) => rows().find(r => r.dataset.path.endsWith('/' + name + SEP + n));
-  const fileRow = name => rows().find(r => r.dataset.path.endsWith('/' + name));
+  const chapterRow = (name, n) => rows().find(r => r.dataset.path.split(/[\\/]/).pop() === name + SEP + n);
+  const fileRow = name => rows().find(r => r.dataset.path.split(/[\\/]/).pop() === name);
   const click = async r => { r.querySelector('td').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })); await sleep(300); };
   const idle = () => waitFor(() => !document.querySelector('footer.status.busy'), 10000, 'idle');
   const op = name => document.querySelector(`button[data-op="${name}"]`);
@@ -26,7 +26,8 @@
   const finish = async () => { await report(`SUMMARY ${results.filter(r => r[0] === 'PASS').length}/${results.length} passed`); await inv('e2e_exit', { code: 0 }); };
   const relaunch = async (file, any) => {
     const resources = await inv('plugin:path|resolve_directory', { directory: 11 });
-    const binary = /\/Resources\/?$/.test(resources) ? resources.replace(/\/Resources\/?$/, '/MacOS/opentag') : resources.replace(/\/?$/, '/opentag');
+    const binary = /\/Resources\/?$/.test(resources) ? resources.replace(/\/Resources\/?$/, '/MacOS/opentag')
+      : /^Win/.test(navigator.platform) ? resources.replace(/\\?$/, '\\opentag.exe') : resources.replace(/\/?$/, '/opentag');
     await inv('run_tool', { tool: { name: 'Relaunch', path: binary, parameters: `"/fn:${file}"`, for_each_file: false }, paths: [any], root: null });
   };
   const saveTitle = async (target, title) => {
@@ -40,7 +41,7 @@
   try {
     if (!sessionStorage.getItem('chapters-stage')) {
       await waitFor(() => rows().length >= 5, 15000, 'fixture rows');
-      const album = fileRow('image.flac').dataset.path.replace(/\/[^/]+$/, '');
+      const album = fileRow('image.flac').dataset.path.replace(/[\\/][^\\/]+$/, '');
       const settings = (await inv('load_settings')).settings;
       settings.tags.advanced.list_chapters = true;
       settings.pages = { ...settings.pages, 'directories-startup': { startup: 'previous' } };
@@ -52,12 +53,13 @@
     }
     await waitFor(() => chapterRow('book.m4b', 2), 15000, 'chapter rows');
     await idle();
-    const album = fileRow('image.flac').dataset.path.replace(/\/[^/]+$/, '');
-    const book = album + '/book.m4b', podcast = album + '/podcast.mp3';
+    const album = fileRow('image.flac').dataset.path.replace(/[\\/][^\\/]+$/, '');
+    const sep = album.includes('\\') ? '\\' : '/';
+    const book = album + sep + 'book.m4b', podcast = album + sep + 'podcast.mp3';
 
     await step('files with chapters are listed as one row per chapter', async () => {
       const paths = rowPaths();
-      for (const expected of [book + SEP + '1', book + SEP + '2', podcast + SEP + '1', podcast + SEP + '2', album + '/image.flac'])
+      for (const expected of [book + SEP + '1', book + SEP + '2', podcast + SEP + '1', podcast + SEP + '2', album + sep + 'image.flac'])
         if (!paths.includes(expected)) throw new Error(paths.map(p => p.replace(SEP, '#')).join(', '));
       if (paths.includes(book) || paths.includes(podcast)) throw new Error('the files are listed as well');
       const [second] = (await scan(book + SEP + '2'));
@@ -103,10 +105,10 @@
     });
 
     await step('a loaded cue sheet lists its tracks and row edits are written into the sheet', async () => {
-      await relaunch(album + '/live.cue', album + '/image.flac');
+      await relaunch(album + sep + 'live.cue', album + sep + 'image.flac');
       await waitFor(() => /live\.cue$/.test(document.querySelector('.location .path')?.textContent || ''), 15000, 'cue location');
       await idle();
-      const cue = album + '/live.cue';
+      const cue = album + sep + 'live.cue';
       await waitFor(() => rowPaths().length === 2 && rowPaths()[1] === cue + SEP + '2', 8000, 'cue rows ' + rowPaths().map(p => p.replace(SEP, '#')).join());
       await saveTitle(rows()[1], 'Slow one');
       const [track] = await scan(cue + SEP + '2');
@@ -114,7 +116,7 @@
         throw new Error(JSON.stringify(track.fields));
       const [first] = await scan(cue + SEP + '1');
       if (first.fields.TITLE?.[0] !== 'Opening') throw new Error(JSON.stringify(first.fields));
-      const image = (await scan(album + '/image.flac')).find(e => e.path === album + '/image.flac');
+      const image = (await scan(album + sep + 'image.flac')).find(e => e.path === album + sep + 'image.flac');
       if (image?.fields.TITLE) throw new Error('the image file was tagged: ' + JSON.stringify(image.fields));
       return `track 2 "${track.fields.TITLE[0]}", ${track.duration.toFixed(1)} s`;
     });

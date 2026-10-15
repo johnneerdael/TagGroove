@@ -121,7 +121,17 @@ JSON
 
 # The server must not hold the run's output open or outlive the suite (the
 # app itself is stopped after 180 s): it is detached and exits after 150 s.
-(cd "$site" && exec setsid -f timeout 150 python3 -m http.server 18765 --bind 127.0.0.1 </dev/null >/dev/null 2>&1)
+if [[ "$(uname)" == "Linux" ]]; then
+  (cd "$site" && exec setsid -f timeout 150 python3 -m http.server 18765 --bind 127.0.0.1 </dev/null >/dev/null 2>&1)
+else
+  # macOS has neither setsid nor timeout, and Windows runners name the interpreter python.
+  for python in python3 python; do "$python" -c '' 2>/dev/null && break; done
+  serve='import functools, http.server, sys, threading
+server = http.server.ThreadingHTTPServer(("127.0.0.1", 18765), functools.partial(http.server.SimpleHTTPRequestHandler, directory=sys.argv[1]))
+threading.Timer(150, server.shutdown).start()
+server.serve_forever()'
+  "$python" -I -c "$serve" "$site" </dev/null >/dev/null 2>&1 &
+fi
 for _ in $(seq 1 50); do
   curl -fs -o /dev/null http://127.0.0.1:18765/search.html && exit 0
   sleep 0.2

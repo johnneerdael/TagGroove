@@ -12,7 +12,7 @@
   const key = (k, o = {}, target = document.activeElement || document.body) => target.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...o }));
   const mod = /Mac/.test(navigator.platform) ? { metaKey: true } : { ctrlKey: true };
   const rows = () => [...document.querySelectorAll('tr[data-path]')];
-  const row = name => rows().find(r => r.dataset.path.endsWith('/' + name));
+  const row = name => rows().find(r => r.dataset.path.split(/[\\/]/).pop() === name);
   const clickRow = async name => { const r = await waitFor(() => row(name), 8000, 'row ' + name); r.querySelector('td').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })); await sleep(300); };
   const scan = async name => (await inv('scan_files', { paths: [row(name).dataset.path], recursive: false })).entries[0];
   const idle = () => waitFor(() => !document.querySelector('footer.status.busy'), 10000, 'idle');
