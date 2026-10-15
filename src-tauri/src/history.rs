@@ -38,6 +38,7 @@ pub trait Changes {
     }
 }
 impl Changes for ScanResult {}
+impl Changes for super::FilenameImport {}
 impl Changes for super::RenameResult {
     fn renamed(&self) -> Vec<(String, String)> {
         self.renamed
@@ -371,6 +372,61 @@ mod tests {
         assert!(refused.result.errors[0].error.contains("Changed outside"));
         assert!(second.exists() && !b.exists());
         assert_eq!(title(&second), ["Else"]);
+        TEST_ROOTS.lock().unwrap().retain(|r| r != &root);
+    }
+
+    #[test]
+    fn filename_to_tag_skips_files_that_do_not_match_in_one_undo_step() {
+        let _journal = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
+        TEST_ROOTS.lock().unwrap().push(root.clone());
+        let key = |p: &Path| p.to_string_lossy().into_owned();
+        let a = root.join("Ada - One.wav");
+        let odd = root.join("no separator.wav");
+        let b = root.join("Bob - Two.wav");
+        for path in [&a, &odd, &b] {
+            wav(path, "Old");
+        }
+        let skipped = std::fs::read(&odd).unwrap();
+        let originals = (std::fs::read(&a).unwrap(), std::fs::read(&b).unwrap());
+        let paths = vec![key(&a), key(&odd), key(&b)];
+
+        let preview = run(crate::preview_filename(
+            paths.clone(),
+            "%artist% - %title%".into(),
+        ));
+        assert_eq!(preview.len(), 3);
+        assert_eq!(preview[0].fields.as_ref().unwrap()["ARTIST"], ["Ada"]);
+        assert!(preview[1].fields.is_none() && preview[1].error.is_none());
+        assert_eq!(preview[2].fields.as_ref().unwrap()["TITLE"], ["Two"]);
+
+        let imported = run(crate::filename_to_tags(paths, "%artist% - %title%".into()));
+        assert!(
+            imported.result.errors.is_empty(),
+            "{:?}",
+            imported.result.errors
+        );
+        assert_eq!(imported.unmatched, [key(&odd)]);
+        let written: Vec<_> = imported.result.entries.iter().map(|e| &e.path).collect();
+        assert_eq!(written, [&key(&a), &key(&b)]);
+        assert_eq!(title(&a), ["One"]);
+        assert_eq!(title(&b), ["Two"]);
+        assert_eq!(std::fs::read(&odd).unwrap(), skipped);
+        assert_eq!(step(), ("Filename → Tag".into(), 2));
+
+        let undone = run(undo_last());
+        assert_eq!(undone.label, "Filename → Tag");
+        assert_eq!(
+            (std::fs::read(&a).unwrap(), std::fs::read(&b).unwrap()),
+            originals
+        );
+        // A pattern error is still an error for the whole conversion.
+        assert!(tauri::async_runtime::block_on(crate::filename_to_tags(
+            vec![key(&a)],
+            "%artist%%title%".into()
+        ))
+        .is_err());
         TEST_ROOTS.lock().unwrap().retain(|r| r != &root);
     }
 }

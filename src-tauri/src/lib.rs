@@ -808,10 +808,14 @@ async fn preview_format(
     .await
 }
 
+/// One file of the Filename → Tag preview. A file whose name does not match
+/// the pattern has no `fields`; Apply leaves it unchanged, like Mp3tag.
 #[derive(Serialize)]
 struct ParsedPreview {
     path: String,
-    fields: Fields,
+    fields: Option<Fields>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<String>,
 }
 
 #[tauri::command]
@@ -820,26 +824,55 @@ async fn preview_filename(
     pattern: String,
 ) -> Result<Vec<ParsedPreview>, String> {
     io(move || {
-        paths
+        let pattern = tag_core::CompiledFilenamePattern::compile(&pattern)?;
+        Ok(paths
             .into_iter()
             .map(|path| {
-                let fields =
-                    tag_core::parse_filename(&provider_filename(Path::new(&path))?, &pattern)?;
-                Ok(ParsedPreview { path, fields })
+                match provider_filename(Path::new(&path)).and_then(|name| pattern.try_parse(&name))
+                {
+                    Ok(fields) => ParsedPreview {
+                        path,
+                        fields,
+                        error: None,
+                    },
+                    Err(error) => ParsedPreview {
+                        path,
+                        fields: None,
+                        error: Some(error),
+                    },
+                }
             })
-            .collect()
+            .collect())
     })
     .await
 }
 
+/// Filename → Tag result: the written files, plus the files whose name did
+/// not match the pattern and were left unchanged.
+#[derive(Serialize)]
+struct FilenameImport {
+    #[serde(flatten)]
+    result: ScanResult,
+    unmatched: Vec<String>,
+}
+
 #[tauri::command]
-async fn filename_to_tags(paths: Vec<String>, pattern: String) -> Result<ScanResult, String> {
+async fn filename_to_tags(paths: Vec<String>, pattern: String) -> Result<FilenameImport, String> {
     io(move || {
+        let pattern = tag_core::CompiledFilenamePattern::compile(&pattern)?;
         history::record("Filename → Tag", None, &paths, || {
-            Ok(batch(&paths, |p| {
-                let updates = tag_core::parse_filename(&provider_filename(p)?, &pattern)?;
+            let mut unmatched = Vec::new();
+            let mut result = batch(&paths, |p| {
+                let Some(updates) = pattern.try_parse(&provider_filename(p)?)? else {
+                    unmatched.push(p.to_string_lossy().into_owned());
+                    return Err(String::new());
+                };
                 mutate_document(p, |p| settings::write_summary(p, &updates))
-            }))
+            });
+            // A file that did not match is skipped, not failed.
+            let skipped: std::collections::HashSet<&String> = unmatched.iter().collect();
+            result.errors.retain(|error| !skipped.contains(&error.path));
+            Ok(FilenameImport { result, unmatched })
         })
     })
     .await
@@ -1464,13 +1497,13 @@ mod tests {
             "%artist% - %title%".into(),
         ))
         .unwrap();
-        assert_eq!(parsed[0].fields["TITLE"], ["音楽"]);
+        assert_eq!(parsed[0].fields.as_ref().unwrap()["TITLE"], ["音楽"]);
         let imported = tauri::async_runtime::block_on(filename_to_tags(
             paths.clone(),
             "%artist% - %title%".into(),
         ))
         .unwrap();
-        assert!(imported.errors.is_empty());
+        assert!(imported.result.errors.is_empty());
         assert_eq!(
             tag_core::read_entry(&source).unwrap().fields["ARTIST"],
             ["Artist"]
@@ -1520,7 +1553,7 @@ mod tests {
         ))
         .unwrap();
         assert_eq!(
-            renamed_preview[0].fields["TITLE"],
+            renamed_preview[0].fields.as_ref().unwrap()["TITLE"],
             ["Changed"],
             "parse current provider name rather than stale cache filename"
         );
@@ -1542,7 +1575,10 @@ mod tests {
                 "%artist% - %title%".into(),
             ))
             .unwrap();
-            assert_eq!(alias_filename[0].fields["TITLE"], ["Changed"]);
+            assert_eq!(
+                alias_filename[0].fields.as_ref().unwrap()["TITLE"],
+                ["Changed"]
+            );
             assert!(
                 tauri::async_runtime::block_on(apply_action(
                     vec![alias.to_string_lossy().into_owned()],
@@ -1757,7 +1793,9 @@ mod tests {
                 match operation {
                     "remove_tags" => remove_tags(paths.clone()).await,
                     "filename_to_tags" => {
-                        filename_to_tags(paths.clone(), "%artist% - %title%".into()).await
+                        filename_to_tags(paths.clone(), "%artist% - %title%".into())
+                            .await
+                            .map(|import| import.result)
                     }
                     "add_cover" => {
                         add_cover(paths.clone(), image.to_string_lossy().into_owned()).await
@@ -1996,12 +2034,15 @@ mod tests {
             "%artist% - %title%".into(),
         ))
         .unwrap();
-        assert_eq!(previews[0].fields["TITLE"], ["title.live"]);
+        assert_eq!(
+            previews[0].fields.as_ref().unwrap()["TITLE"],
+            ["title.live"]
+        );
         let result =
             tauri::async_runtime::block_on(filename_to_tags(paths, "%artist% - %title%".into()))
                 .unwrap();
-        assert!(result.errors.is_empty());
-        assert_eq!(result.entries[0].fields["TITLE"], ["title.live"]);
+        assert!(result.result.errors.is_empty());
+        assert_eq!(result.result.entries[0].fields["TITLE"], ["title.live"]);
     }
 
     #[test]

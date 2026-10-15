@@ -152,6 +152,8 @@ These native tests do not claim Windows/Linux, mobile document-URI/save-back, mu
 
 The older `rename_files` command still accepts an omitted receipt and can recompute its template; its legacy `rename_plan` uses size/mtime rather than full content hashes. The older `filename_to_tags` endpoint also writes directly per file. The existing Tag → Filename and Filename → Tag controls still use those endpoints; this frontend addition does not migrate or qualify them. The new Filename → Filename and Text File → Tag controls use only their required-receipt endpoints and never send client-rendered destinations or patches. Removing or separately qualifying the legacy bypasses and integrating document-access adapters remain follow-on work. No original-runtime equivalence is claimed here.
 
+Filename → Tag leaves a file whose name does not match the pattern unchanged, like Mp3tag: the preview marks it "No match, not changed", Apply writes only the matching files as one undo step, and the status counts the skipped files (`Converted filenames to tags: 8 files, 2 didn't match`). An invalid pattern still fails the whole conversion.
+
 
 ## Frontend integration checkpoint
 
