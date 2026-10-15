@@ -5,13 +5,16 @@ import ts from 'typescript';
 import {Window} from 'happy-dom';
 
 const source=async file=>readFile(new URL(`../src/${file}`,import.meta.url),'utf8');
-const load=async file=>{
-  const js=ts.transpileModule(await source(file),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
-  return import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
+const moduleUrl=async(file,replacements={})=>{
+  let js=ts.transpileModule(await source(file),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
+  for(const [from,to] of Object.entries(replacements))js=js.replace(from,to);
+  return `data:text/javascript;base64,${Buffer.from(js).toString('base64')}`;
 };
+const load=async file=>import(await moduleUrl(file));
 const {Translator}=await load('i18n/core.ts'),{DomTranslator}=await load('i18n/dom.ts');
 const {ColumnUI,defaultLayout,setColumnNameTranslation}=await load('columns.ts'),{ActionUI}=await load('action-ui.ts');
 const {TagPanel,defaultLayout:defaultPanelLayout}=await load('tag-panel.ts');
+const {CoverUI}=await import(await moduleUrl('covers.ts',{"import './covers.css';":'',"'./keyboard'":JSON.stringify(await moduleUrl('keyboard.ts')),"'./cover-model'":JSON.stringify(await moduleUrl('cover-model.ts'))}));
 const {contextMenuMarkup}=await load('row-context-menu.ts');
 const {ToolsUI,toolsOptionsPage}=await load('tools.ts'),{installHelperMenus}=await load('helper-menu.ts');
 const main=await source('main.ts'),parsed=ts.createSourceFile('main.ts',main,ts.ScriptTarget.Latest,true);
@@ -37,6 +40,27 @@ function page(){
 const memory=()=>{const data=new Map();return{getItem:key=>data.get(key)??null,setItem:(key,value)=>data.set(key,value)};};
 
 for(const locale of ['de','nl']){
+  test(`${locale}: cover descriptions and folder-image names stay verbatim while cover UI translates`,()=>{
+    const p=page();
+    try{
+      const cover={index:0,digest:'fixture',mime:'image/png',size:42,width:1,height:1,picture_type:'CoverFront',description:'Help',data_base64:'AA=='};
+      let covers=[cover];
+      const ui=new CoverUI({selection:()=>[{path:'one',covers},{path:'two',covers}],displayed:()=>({path:'one',covers,index:0})});
+      const options={fallback:'',error:'',unavailable:false,buttons:'',note:'Loading artwork…'};
+      p.body.innerHTML=ui.markup(options);let t=p.translate(locale);
+      assert.equal(p.body.querySelector('.cover-info strong').textContent,t.t('Front Cover'));
+      assert.ok([...p.body.querySelectorAll('.cover-info > span')].some(span=>span.textContent==='Help'));
+      assert.ok([...p.body.querySelectorAll('.cover-info > span')].some(span=>span.textContent===t.t('Shared by {selected} files',{selected:2})));
+      assert.equal(p.body.querySelector('.cover-info > span:last-child').textContent,t.t('Loading artwork…'));
+      cover.description='Loading artwork…';p.body.innerHTML=ui.markup(options);p.translate(locale);
+      assert.equal(p.body.querySelectorAll('.cover-info > span')[1].textContent,'Loading artwork…');
+      assert.equal(p.body.querySelector('.cover-info > span:last-child').textContent,t.t('Loading artwork…'));
+      covers=[];p.body.innerHTML=ui.markup({...options,folder:{name:'Help',mime:'image/png',size:42,width:1,height:1,data_base64:'AA=='}});p.translate(locale);
+      assert.equal(p.body.querySelector('.cover-info strong').textContent,t.t('Folder image'));
+      assert.equal(p.body.querySelector('.cover-info > span').textContent,'Help');
+      assert.equal(p.body.querySelector('[data-folder-image]').getAttribute('alt'),t.t('Folder image {name}, not embedded',{name:'Help'}));
+    }finally{p.close();}
+  });
   test(`${locale}: editors translate shipped names and retain custom names through editing`,()=>{
     const p=page(),t=new Translator(locale,catalogs[locale]);
     setColumnNameTranslation(label=>t.translate(label));

@@ -85,15 +85,16 @@ export class CoverUI {
     const folder=!options.unavailable&&!options.error&&state.state==='none'?options.folder:undefined;
     this.folderShown=folder;
     const title=options.unavailable?'Artwork unavailable':state.state==='varying'?'Covers vary':cover?pictureTypeLabel(cover.picture_type):folder?'Folder image':'No artwork';
-    const lines=options.error?[options.error]:state.state==='varying'?[`${state.withCovers} of ${selected} files have artwork`,'The selected files have different covers']
-      :cover?[coverDetails(cover),loaded?cover.description:'Loading artwork…',selected>1?`Shared by ${selected} files`:'']
-      :folder?[folder.name,coverDetails(folder),'Not embedded in the file']
-      :[selected?'Drop or paste an image to embed it':'Embedded cover art'];
-    if(options.note)lines.push(options.note);
-    const art=loaded?`<img data-cover-image alt="${esc(`Embedded ${pictureTypeLabel(cover!.picture_type)} artwork`)}">`:folder?`<img data-folder-image alt="${esc(`Folder image ${folder.name}, not embedded`)}">`:`<img class="fallback-artwork" data-theme-image="artwork" src="${esc(options.fallback)}" alt="" aria-hidden="true">`;
+    const line=(text:string,verbatim=false)=>({text,verbatim});
+    const lines=options.error?[line(options.error)]:state.state==='varying'?[line(`${state.withCovers} of ${selected} files have artwork`),line('The selected files have different covers')]
+      :cover?[line(coverDetails(cover)),line(loaded?cover.description:'Loading artwork…',loaded),line(selected>1?`Shared by ${selected} files`:'')]
+      :folder?[line(folder.name,true),line(coverDetails(folder)),line('Not embedded in the file')]
+      :[line(selected?'Drop or paste an image to embed it':'Embedded cover art')];
+    if(options.note)lines.push(line(options.note));
+    const art=loaded?`<img data-cover-image alt="${esc(`Embedded ${pictureTypeLabel(cover!.picture_type)} artwork`)}">`:folder?`<img data-folder-image data-verbatim="${esc(folder.name)}" alt="${esc(`Folder image ${folder.name}, not embedded`)}">`:`<img class="fallback-artwork" data-theme-image="artwork" src="${esc(options.fallback)}" alt="" aria-hidden="true">`;
     const label=`Cover art: ${title}${cover&&covers.length>1?`, ${index+1} of ${covers.length}`:''}. Enter views it larger; Shift+F10 opens cover commands.`;
     const nav=cover&&covers.length>1?`<div class="cover-nav"><button data-cover="previous" aria-label="Previous cover" ${index>0?'':'disabled'}>‹</button><span>${index+1} / ${covers.length}</span><button data-cover="next" aria-label="Next cover" ${index<covers.length-1?'':'disabled'}>›</button></div>`:'';
-    return `<div class="cover-row"><div class="cover-art${this.aspect?'':' stretch'}${folder?' folder-image':''}" tabindex="0" role="button" aria-haspopup="menu" aria-label="${esc(label)}" title="Right-click for cover commands; double-click to enlarge">${art}</div><div class="cover-info"><strong>${esc(title)}</strong>${lines.filter(Boolean).map(line=>`<span>${esc(line)}</span>`).join('')}${nav}</div></div><div class="cover-controls">${options.buttons}<button data-cover="menu" aria-haspopup="menu" aria-label="Cover commands" title="Cover commands">⋯</button></div>`;
+    return `<div class="cover-row"><div class="cover-art${this.aspect?'':' stretch'}${folder?' folder-image':''}" tabindex="0" role="button" aria-haspopup="menu" aria-label="${esc(label)}" title="Right-click for cover commands; double-click to enlarge">${art}</div><div class="cover-info"><strong>${esc(title)}</strong>${lines.filter(line=>line.text).map(({text,verbatim})=>`<span ${verbatim?'translate="no"':''}>${esc(text)}</span>`).join('')}${nav}</div></div><div class="cover-controls">${options.buttons}<button data-cover="menu" aria-haspopup="menu" aria-label="Cover commands" title="Cover commands">⋯</button></div>`;
   }
   paint(){
     const {cover}=this.shown();
