@@ -11,6 +11,7 @@ mod freedb;
 pub(crate) mod http;
 mod model;
 mod musicbrainz;
+pub(crate) mod web;
 
 use base64::Engine;
 use http::Channel;
@@ -53,7 +54,7 @@ fn freedb_service(settings: &freedb::FreedbSettings) -> http::Service {
 
 fn service(provider: Provider, credentials: &credentials::Credentials) -> http::Service {
     match provider {
-        Provider::Freedb | Provider::LocalFreedb => {
+        Provider::Freedb | Provider::LocalFreedb | Provider::Web => {
             freedb_service(&freedb::settings_from(&crate::settings::current()))
         }
         // MusicBrainz allows one request per second per client.
@@ -79,6 +80,9 @@ fn service(provider: Provider, credentials: &credentials::Credentials) -> http::
     }
 }
 
+/// Web sources are run by `web_source_search` and `web_source_release`.
+const WEB_COMMANDS: &str = "Web sources are searched by their script.";
+
 #[tauri::command]
 pub async fn tag_source_search(
     app: tauri::AppHandle,
@@ -87,6 +91,9 @@ pub async fn tag_source_search(
     ticket: u64,
 ) -> Result<SearchPage, String> {
     http::claim(Channel::Search, ticket);
+    if provider == Provider::Web {
+        return Err(WEB_COMMANDS.into());
+    }
     if matches!(provider, Provider::Freedb | Provider::LocalFreedb) {
         return freedb_search(provider, query, ticket).await;
     }
@@ -260,6 +267,7 @@ pub async fn tag_source_release(
             discogs::parse_release(&body)
         }
         Provider::Freedb | Provider::LocalFreedb => freedb_release(provider, &input, ticket).await,
+        Provider::Web => Err(WEB_COMMANDS.into()),
     }
 }
 
@@ -824,7 +832,7 @@ mod tests {
                         )
                         .await?,
                     ),
-                    Provider::Freedb | Provider::LocalFreedb => unreachable!(),
+                    Provider::Freedb | Provider::LocalFreedb | Provider::Web => unreachable!(),
                 }
             })
         };

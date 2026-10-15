@@ -144,4 +144,7 @@ test('tag source options pages cover freedb and the local freedb folder', async 
   assert.match(custom.render({pages: {'tag-sources-local-freedb': {directory: '/a "b"'}}}), /value="\/a &quot;b&quot;"/);
   assert.equal(providerName('local_freedb'), 'freedb (local)');
   assert.ok(isFreedb('freedb') && !isFreedb('discogs'));
+  assert.ok(pages[0].controls.some(control => control.kind === 'checkbox' && control.path === 'pages.tag-sources.web_debug'), 'web source debug output option');
+  assert.equal(providerName('web'), 'Web source');
+  assert.ok(!isFreedb('web'));
 });

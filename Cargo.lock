@@ -2660,6 +2660,7 @@ dependencies = [
  "encoding_rs",
  "image",
  "md-5",
+ "regex-compat",
  "reqwest",
  "rustls",
  "serde",

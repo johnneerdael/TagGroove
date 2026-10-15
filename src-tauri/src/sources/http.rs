@@ -4,6 +4,7 @@
 use crate::settings::{Network, ProxyMode};
 use reqwest::{header, StatusCode, Url};
 use serde_json::Value;
+use std::collections::HashSet;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex as StdMutex};
 use std::time::{Duration, Instant};
@@ -329,11 +330,15 @@ pub async fn freedb_text(
     Ok(String::from_utf8_lossy(&body).into_owned())
 }
 
-/// Release pages that "Preview" may open in the browser.
+/// Release pages that "Preview" may open in the browser: those of the
+/// built-in sources and pages a web source found in this session.
 pub fn release_page(url: &str) -> Result<Url, String> {
     Url::parse(url)
         .ok()
         .filter(|url| {
+            if web_registered(url) {
+                return true;
+            }
             let host = url.host_str().unwrap_or_default().to_ascii_lowercase();
             url.scheme() == "https"
                 && url.username().is_empty()
@@ -347,8 +352,173 @@ pub fn release_page(url: &str) -> Result<Url, String> {
         .ok_or_else(|| "This address is not a tag source release page.".to_string())
 }
 
+/// Addresses that user-installed web sources produced in this session (album
+/// pages, cover images and their thumbnails). Only these may be fetched as
+/// images or opened as release pages besides the built-in sources' hosts.
+static WEB_URLS: StdMutex<Option<HashSet<String>>> = StdMutex::new(None);
+const MAX_WEB_URLS: usize = 20_000;
+
+pub fn register_web_url(url: &Url) {
+    if !web_allowed(url) {
+        return;
+    }
+    let mut urls = WEB_URLS
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let urls = urls.get_or_insert_with(HashSet::new);
+    if urls.len() >= MAX_WEB_URLS {
+        urls.clear();
+    }
+    urls.insert(url.as_str().to_owned());
+}
+pub fn web_registered(url: &Url) -> bool {
+    WEB_URLS
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .as_ref()
+        .is_some_and(|urls| urls.contains(url.as_str()))
+}
+
+/// Scripted native test runs must never reach the internet.
+fn offline_test_run() -> bool {
+    cfg!(any(debug_assertions, feature = "e2e"))
+        && std::env::var_os("OPENTAG_E2E_SCRIPT").is_some()
+        && std::env::var_os("OPENTAG_E2E_OFFLINE").is_some()
+}
+
+/// Web sources may contact any HTTP or HTTPS host the user's script names,
+/// without credentials in the address.
+pub fn web_allowed(url: &Url) -> bool {
+    let local = || {
+        let host = url.host_str().unwrap_or_default();
+        let host = host.trim_start_matches('[').trim_end_matches(']');
+        host.eq_ignore_ascii_case("localhost")
+            || host
+                .parse::<std::net::IpAddr>()
+                .is_ok_and(|ip| ip.is_loopback())
+    };
+    matches!(url.scheme(), "http" | "https")
+        && url.host_str().is_some_and(|host| !host.is_empty())
+        && url.username().is_empty()
+        && url.password().is_none()
+        && (!offline_test_run() || local())
+}
+
+pub static WEB: Gate = Gate::new();
+
+fn web_client() -> Result<reqwest::Client, String> {
+    static CLIENT: CachedClient = StdMutex::new(None);
+    cached_client(&CLIENT, || {
+        reqwest::redirect::Policy::custom(|attempt| {
+            if attempt.previous().len() >= 10 {
+                attempt.error("too many redirects")
+            } else if web_allowed(attempt.url()) {
+                attempt.follow()
+            } else {
+                attempt.error("unsupported redirect")
+            }
+        })
+    })
+}
+
+/// A downloaded web source page and the address it finally came from.
+#[derive(Debug)]
+pub struct Page {
+    pub text: String,
+    pub url: Url,
+}
+
+/// Text in the charset the server names, a byte order mark, a `<meta>`
+/// charset, UTF-8 when valid, or else Windows-1252.
+pub fn decode_text(bytes: &[u8], content_type: Option<&str>) -> String {
+    let label = |text: &str| -> Option<&'static encoding_rs::Encoding> {
+        let lower = text.to_ascii_lowercase();
+        let start = lower.find("charset=")? + "charset=".len();
+        let value: String = lower[start..]
+            .trim_start_matches(['"', '\''])
+            .chars()
+            .take_while(|c| c.is_ascii_alphanumeric() || "-_:.".contains(*c))
+            .collect();
+        encoding_rs::Encoding::for_label(value.as_bytes())
+    };
+    if let Some((encoding, skip)) = encoding_rs::Encoding::for_bom(bytes) {
+        return encoding
+            .decode_without_bom_handling(&bytes[skip..])
+            .0
+            .into_owned();
+    }
+    let sniffed = || label(&String::from_utf8_lossy(&bytes[..bytes.len().min(4096)]));
+    match content_type.and_then(label).or_else(sniffed) {
+        Some(encoding) => encoding.decode_without_bom_handling(bytes).0.into_owned(),
+        None => match std::str::from_utf8(bytes) {
+            Ok(text) => text.to_owned(),
+            Err(_) => encoding_rs::WINDOWS_1252.decode(bytes).0.into_owned(),
+        },
+    }
+}
+
+/// Download a page for a web source. `user_agent` replaces OpenTag's own.
+pub async fn web_page(
+    name: &str,
+    url: &str,
+    user_agent: Option<&str>,
+    channel: Channel,
+    ticket: u64,
+) -> Result<Page, String> {
+    let url = Url::parse(url)
+        .ok()
+        .filter(web_allowed)
+        .ok_or_else(|| format!("{name} produced an address OpenTag cannot open: {url}"))?;
+    let client = web_client()?;
+    let response = {
+        let mut last = WEB.0.lock().await;
+        if stale(channel, ticket) {
+            return Err(CANCELLED.into());
+        }
+        let mut request = client.get(url.clone());
+        if let Some(agent) = user_agent {
+            request = request.header(header::USER_AGENT, agent);
+        }
+        let result = request.send().await;
+        *last = Some(Instant::now());
+        result.map_err(|error| {
+            if error.is_redirect() {
+                format!("{name} redirected to an address OpenTag cannot open.")
+            } else {
+                network_message(name, &error)
+            }
+        })?
+    };
+    let status = response.status();
+    if !status.is_success() {
+        return Err(format!(
+            "{name} returned HTTP {} for {url}",
+            status.as_u16()
+        ));
+    }
+    let final_url = response.url().clone();
+    let content_type = response
+        .headers()
+        .get(header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .map(str::to_owned);
+    let body = read_limited(response, MAX_JSON_BYTES, name).await?;
+    if stale(channel, ticket) {
+        return Err(CANCELLED.into());
+    }
+    Ok(Page {
+        text: decode_text(&body, content_type.as_deref()),
+        url: final_url,
+    })
+}
+
 pub async fn image(url: &str, channel: Channel, ticket: u64) -> Result<Image, String> {
-    let url = parse_trusted(url)?;
+    let (url, client) = match Url::parse(url) {
+        // Cover addresses found by a web source; its client follows redirects
+        // to other web hosts.
+        Ok(url) if !trusted(&url) && web_registered(&url) => (url, web_client()?),
+        _ => (parse_trusted(url)?, client()?),
+    };
     let service = Service {
         name: "The image server",
         gate: &IMAGES,
@@ -356,7 +526,7 @@ pub async fn image(url: &str, channel: Channel, ticket: u64) -> Result<Image, St
         token: None,
         retry_busy: false,
     };
-    let response = send(&service, &url, "image/*", channel, ticket).await?;
+    let response = send_with(&client, &service, &url, "image/*", channel, ticket).await?;
     if !response.status().is_success() {
         return Err(match response.status().as_u16() {
             404 => "This release has no image at that address.".into(),
@@ -513,6 +683,108 @@ mod tests {
             ..Network::default()
         };
         assert!(builder(&broken).is_err());
+    }
+
+    #[test]
+    fn web_addresses_are_checked_and_registered() {
+        let url = |text: &str| Url::parse(text).unwrap();
+        assert!(web_allowed(&url("http://127.0.0.1:8080/search?q=x")));
+        assert!(web_allowed(&url("https://example.org/a")));
+        for bad in [
+            "ftp://example.org/a",
+            "file:///etc/passwd",
+            "https://user:pw@example.org/",
+            "data:text/plain,x",
+        ] {
+            assert!(!web_allowed(&url(bad)), "{bad}");
+        }
+        let cover = url("https://images.example.org/cover-web-test.jpg");
+        assert!(!web_registered(&cover));
+        assert!(parse_trusted(cover.as_str()).is_err());
+        assert!(release_page(cover.as_str()).is_err());
+        register_web_url(&cover);
+        assert!(web_registered(&cover));
+        assert!(release_page(cover.as_str()).is_ok());
+        register_web_url(&url("file:///etc/passwd"));
+        assert!(!web_registered(&url("file:///etc/passwd")));
+    }
+
+    #[test]
+    fn web_pages_decode_by_declared_or_sniffed_charset() {
+        assert_eq!(
+            decode_text(b"caf\xE9", Some("text/html; charset=ISO-8859-1")),
+            "café"
+        );
+        assert_eq!(decode_text("café".as_bytes(), Some("text/html")), "café");
+        assert_eq!(decode_text(b"caf\xE9", None), "café");
+        assert_eq!(
+            decode_text(b"<meta charset=\"windows-1251\">\xC0", None),
+            "<meta charset=\"windows-1251\">А"
+        );
+        assert_eq!(
+            decode_text(b"\xEF\xBB\xBFok", Some("text/html; charset=latin1")),
+            "ok"
+        );
+    }
+
+    #[test]
+    fn web_pages_are_fetched_with_redirects_and_user_agent() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let server = std::thread::spawn(move || {
+            use std::io::{Read, Write};
+            let mut requests = Vec::new();
+            for answer in [
+                "HTTP/1.1 302 Found\r\nlocation: /final\r\nconnection: close\r\ncontent-length: 0\r\n\r\n".to_string(),
+                "HTTP/1.1 200 OK\r\ncontent-type: text/html; charset=iso-8859-1\r\nconnection: close\r\ncontent-length: 3\r\n\r\nn\u{e9}e".to_string(),
+                "HTTP/1.1 404 Not Found\r\nconnection: close\r\ncontent-length: 0\r\n\r\n".to_string(),
+            ] {
+                let (mut socket, _) = listener.accept().unwrap();
+                let mut request = [0; 2048];
+                let n = socket.read(&mut request).unwrap();
+                requests.push(String::from_utf8_lossy(&request[..n]).into_owned());
+                // Each char is one byte: the body is Latin-1.
+                let bytes: Vec<u8> = answer.chars().map(|c| c as u8).collect();
+                socket.write_all(&bytes).unwrap();
+            }
+            requests
+        });
+        let base = format!("http://127.0.0.1:{port}");
+        let page = tauri::async_runtime::block_on(web_page(
+            "Fixture",
+            &format!("{base}/start"),
+            Some("Custom/1.0"),
+            Channel::Search,
+            u64::MAX,
+        ))
+        .unwrap();
+        assert_eq!(page.text, "née");
+        assert_eq!(page.url.path(), "/final");
+        let missing = tauri::async_runtime::block_on(web_page(
+            "Fixture",
+            &format!("{base}/gone"),
+            None,
+            Channel::Search,
+            u64::MAX,
+        ))
+        .unwrap_err();
+        assert!(missing.contains("HTTP 404"), "{missing}");
+        let requests = server.join().unwrap();
+        assert!(requests[0]
+            .to_ascii_lowercase()
+            .contains("user-agent: custom/1.0"));
+        assert!(requests[2]
+            .to_ascii_lowercase()
+            .contains("user-agent: opentag/"));
+        assert!(tauri::async_runtime::block_on(web_page(
+            "Fixture",
+            "ftp://x/",
+            None,
+            Channel::Search,
+            u64::MAX
+        ))
+        .unwrap_err()
+        .contains("cannot open"));
     }
 
     #[test]
