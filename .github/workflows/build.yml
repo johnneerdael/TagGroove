@@ -63,7 +63,7 @@ jobs:
         with:
           key: native-e2e
       - name: Linux UI dependencies
-        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf ffmpeg xvfb xauth
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf ffmpeg xvfb xauth dbus-x11
       - run: npm ci
       - name: Build the debug app once
         run: |
@@ -78,7 +78,7 @@ jobs:
             fixtures=""
             [[ -x "tests/e2e/$suite-fixtures.sh" ]] && fixtures="$PWD/tests/e2e/$suite-fixtures.sh"
             echo "::group::$suite"
-            if ! OPENTAG_E2E_OFFLINE=1 OPENTAG_E2E_FIXTURES="$fixtures" xvfb-run -a scripts/e2e-native.sh "tests/e2e/$suite.js" --no-build 2>&1 | tee "e2e-output/$suite.txt"; then
+            if ! OPENTAG_E2E_OFFLINE=1 OPENTAG_E2E_FIXTURES="$fixtures" dbus-run-session -- xvfb-run -a scripts/e2e-native.sh "tests/e2e/$suite.js" --no-build 2>&1 | tee "e2e-output/$suite.txt"; then
               echo "::error::Native suite $suite failed"
               status=1
             fi
