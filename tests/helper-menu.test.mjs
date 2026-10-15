@@ -5,7 +5,7 @@ import ts from 'typescript';
 
 const source = await readFile(new URL('../src/helper-menu.ts', import.meta.url), 'utf8');
 const javascript = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 } }).outputText;
-const { helperKey, FieldList, FormatHistory, defaultFieldList, helperEntries, insertion, extendedFields, informationFields, scriptFunctions, placeholder } = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);
+const { helperKey, FieldList, FormatHistory, defaultFieldList, helperEntries, insertion, extendedFields, informationFields, scriptFunctions, placeholder, ConfigListStorage, configListKey, duplicateEntry } = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);
 const memory = () => { const data = new Map(); return { getItem: key => data.get(key) ?? null, setItem: (key, value) => data.set(key, value), data }; };
 const labels = entries => entries.map(entry => entry.separator ? '—' : entry.label);
 const submenu = (entries, label) => entries.find(entry => entry.label === label)?.submenu;
@@ -116,4 +116,73 @@ test('Ctrl+Space opens the helper menu and Shift+Del removes a history entry', (
   assert.equal(helperKey(key('Delete', { shiftKey: true })), 'remove-history');
   assert.equal(helperKey(key('Delete')), undefined);
   assert.equal(helperKey(key('Backspace', { shiftKey: true })), undefined, 'Shift+Backspace still deletes text');
+});
+
+test('favorites are offered in the ► menu and survive the history limit', () => {
+  const history = new FormatHistory(memory());
+  history.set('filter', [{ value: '%genre% IS rock', name: 'Rock', favorite: true }, { value: 'x' }]);
+  for (let i = 0; i < 40; i++) history.add('filter', `value ${i}`);
+  const list = history.list('filter');
+  assert.equal(list.length, FormatHistory.limit);
+  assert.ok(list.some(entry => entry.name === 'Rock' && entry.favorite), 'favorites are kept when old entries drop out');
+  assert.ok(!list.some(entry => entry.value === 'x'));
+  assert.deepEqual(history.favorites('filter').map(entry => entry.value), ['%genre% IS rock']);
+  const menu = helperEntries({ kind: 'filter', panel: ['TITLE'], known: [], history: true, manage: true, favorites: history.favorites('filter') });
+  const tail = labels(menu).slice(-3);
+  assert.deepEqual(tail, ['Rock', '—', 'Manage history…']);
+  assert.equal(menu.find(entry => entry.label === 'Rock').command, 'set:%genre% IS rock');
+  const find = helperEntries({ kind: 'history', panel: [], known: [], history: true, historySelected: true, favorites: [{ value: 'Björk', favorite: true }] });
+  assert.deepEqual(labels(find), ['Björk', '—', 'Remove from history', 'Remove all from history…']);
+});
+
+test('duplicates are named copies of the selected entry', () => {
+  const entries = [{ value: 'a', name: 'First', description: 'd', favorite: true }, { value: 'b', name: 'First copy' }, { value: 'c' }];
+  assert.deepEqual(duplicateEntry(entries, 0), { value: 'a', name: 'First copy 2', description: 'd', favorite: true });
+  assert.deepEqual(duplicateEntry(entries, 2), { value: 'c' });
+  assert.throws(() => duplicateEntry(entries, 5), /Select/);
+});
+
+const backend = saved => {
+  const calls = [];
+  return { calls, load: async () => saved === undefined ? { exists: false, lists: {} } : { exists: true, lists: saved }, save: async lists => { calls.push(structuredClone(lists)); } };
+};
+const legacy = entries => {
+  const data = new Map(Object.entries(entries));
+  return { data, get length() { return data.size; }, key: i => [...data.keys()][i] ?? null, getItem: key => data.get(key) ?? null, setItem: (key, value) => data.set(key, value), removeItem: key => data.delete(key) };
+};
+
+test('helper lists load from the configuration and save changes there', async () => {
+  const store = backend({ 'opentag.history.filter': [{ value: 'one', favorite: true }] });
+  const storage = new ConfigListStorage(store, legacy({ 'opentag.history.filter': '[{"value":"stale"}]' }), undefined, 0);
+  await storage.ready;
+  const history = new FormatHistory(storage);
+  assert.deepEqual(history.list('filter'), [{ value: 'one', favorite: true }], 'the configuration wins over old local storage');
+  history.add('filter', 'two');
+  await new Promise(resolve => setTimeout(resolve, 5));
+  assert.deepEqual(store.calls.at(-1), { 'opentag.history.filter': [{ value: 'two' }, { value: 'one', favorite: true }] });
+  storage.pause(); history.add('filter', 'three');
+  await new Promise(resolve => setTimeout(resolve, 5));
+  assert.equal(store.calls.length, 1, 'paused while a configuration is restored');
+});
+
+test('lists in local storage move into the configuration once', async () => {
+  const store = backend(undefined);
+  const old = legacy({ 'opentag.history.tag-filename': '[{"value":"%artist%","name":"A"}]', 'opentag.field-list': '["MOOD"]', 'opentag.panel-width': '300', 'opentag.history.broken': '{x' });
+  const storage = new ConfigListStorage(store, old, undefined, 0);
+  await storage.ready;
+  assert.deepEqual(store.calls, [{ 'opentag.field-list': ['MOOD'], 'opentag.history.tag-filename': [{ value: '%artist%', name: 'A' }] }]);
+  assert.deepEqual([...old.data.keys()].sort(), ['opentag.history.broken', 'opentag.panel-width'], 'moved lists leave local storage; other preferences stay');
+  assert.deepEqual(new FieldList(storage).list(), ['MOOD']);
+  assert.ok(configListKey('opentag.history.find') && !configListKey('opentag.cover.aspect'));
+});
+
+test('changes made before the configuration has loaded are kept and saved', async () => {
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  const calls = [];
+  const storage = new ConfigListStorage({ load: async () => { await gate; return { exists: true, lists: { 'opentag.history.find': [{ value: 'old' }] } }; }, save: async lists => { calls.push(lists); } }, undefined, undefined, 0);
+  new FormatHistory(storage).add('find', 'early');
+  release(); await storage.ready;
+  await new Promise(resolve => setTimeout(resolve, 5));
+  assert.deepEqual(calls.at(-1), { 'opentag.history.find': [{ value: 'early' }] });
 });

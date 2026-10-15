@@ -77,6 +77,8 @@ export type FileOpsHost={
   report:(errors:FileError[],status:string)=>void;
   /** Why folders cannot be opened here, or an empty string. */
   openReason:()=>string;changed:()=>void;mac:boolean;
+  /** True while another operation runs; launch requests wait for it instead of being dropped. */
+  busy?:()=>boolean;
   preferences:()=>DirectoryPreferences;
 };
 const html=(value:unknown)=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
@@ -87,6 +89,7 @@ export class FileOpsUI {
   state=defaultDirectoryState();
   readonly history=new DirectoryHistory(path=>{Promise.resolve().then(()=>this.host.invoke('set_working_directory',{path})).catch(()=>{/* The placeholders stay empty. */});});
   private showing=false;
+  private launching:Promise<unknown>=Promise.resolve();
   constructor(private host:FileOpsHost){}
   get fileManager(){return this.host.mac?'Finder':/Win/.test(globalThis.navigator?.platform||'')?'Explorer':'file manager';}
   /** Load preferences, then open queued command-line requests or the startup folder. */
@@ -96,13 +99,19 @@ export class FileOpsUI {
     const startup=this.host.preferences().startup,start=startup==='previous'?this.state.recent[0]:startup==='favorite'?this.state.favorites[0]:undefined;
     if(start&&!this.host.openReason())await this.openDirectory(start,{replace:true});
   }
-  async takeLaunches(){
-    const requests=await this.host.invoke<LaunchRequest[]>('take_launch_requests');
-    for(const request of requests)await this.launch(request);
-    return requests.length>0;
+  /** Open queued command-line, second-instance and Finder requests in arrival order, one at a time. */
+  takeLaunches(){
+    const next=this.launching.then(async()=>{
+      const requests=await this.host.invoke<LaunchRequest[]>('take_launch_requests');
+      for(const request of requests)await this.launch(request);
+      return requests.length>0;
+    });
+    this.launching=next.catch(()=>{/* The caller reports the error; later requests still run. */});
+    return next;
   }
   async launch(request:LaunchRequest){
     const paths=[...request.directories,...request.files],directory=launchDirectory(request);
+    while(this.host.busy?.())await new Promise(resolve=>setTimeout(resolve,100));
     if(!paths.length||this.host.openReason())return;
     const location=request.directories.length===1&&!request.files.length?request.directories[0]:!request.directories.length&&request.files.every(file=>parentDirectory(file)===directory)?directory!:`${paths.length} added locations`;
     await this.open(paths,{replace:!request.add,directories:request.directories,location,working:request.add?undefined:directory});

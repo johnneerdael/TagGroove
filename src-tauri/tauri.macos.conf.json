@@ -1,0 +1,75 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "bundle": {
+    "fileAssociations": [
+      {
+        "name": "Audio file",
+        "ext": [],
+        "contentTypes": [
+          "public.audio",
+          "public.mpeg-4",
+          "com.apple.m4v-video",
+          "org.matroska.mkv"
+        ],
+        "role": "Editor",
+        "rank": "Alternate"
+      },
+      {
+        "name": "Audio file (by extension)",
+        "ext": [
+          "mp2",
+          "mp1",
+          "aif",
+          "aiff",
+          "aifc",
+          "ape",
+          "asf",
+          "dff",
+          "dsf",
+          "flac",
+          "m4b",
+          "m4p",
+          "m4v",
+          "mka",
+          "mpc",
+          "mp+",
+          "mpp",
+          "ofr",
+          "ofs",
+          "ogg",
+          "oga",
+          "opus",
+          "spx",
+          "tak",
+          "tta",
+          "wave",
+          "webm",
+          "wma",
+          "wv"
+        ],
+        "role": "Editor",
+        "rank": "Alternate"
+      },
+      {
+        "name": "Playlist or cue sheet",
+        "ext": [
+          "m3u",
+          "m3u8",
+          "pls",
+          "cue"
+        ],
+        "role": "Viewer",
+        "rank": "Alternate"
+      },
+      {
+        "name": "Folder",
+        "ext": [],
+        "contentTypes": [
+          "public.folder"
+        ],
+        "role": "Viewer",
+        "rank": "Alternate"
+      }
+    ]
+  }
+}

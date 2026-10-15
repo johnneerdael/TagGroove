@@ -314,13 +314,14 @@ pub async fn run_tool(
 
 /// Configuration files that make up a backup, with the validation that each
 /// module applies when it loads them. Discogs credentials are deliberately excluded.
-const CONFIGURATION: [&str; 6] = [
+const CONFIGURATION: [&str; 7] = [
     "settings.json",
     "actions.json",
     "exports.json",
     "columns.json",
     "tag-panel.json",
     "directories.json",
+    "lists.json",
 ];
 pub const BUNDLE_FORMAT: &str = "opentag-configuration";
 const BUNDLE_LIMIT: u64 = 32 * 1024 * 1024;
@@ -343,6 +344,7 @@ fn validate_file(name: &str, path: &Path) -> Result<(), String> {
         "columns.json" => crate::columns::load(path).map(drop),
         "tag-panel.json" => crate::tag_panel::load(path).map(drop),
         "directories.json" => crate::file_ops::load(path).map(drop),
+        "lists.json" => crate::lists::load(path).map(drop),
         _ => Err(format!("{name} is not an OpenTag configuration file")),
     }
 }
@@ -684,6 +686,30 @@ mod tests {
             );
             assert_eq!(fs::read_dir(fresh.path()).unwrap().count(), 0, "{invalid}");
         }
+    }
+
+    #[test]
+    fn configuration_bundles_carry_helper_lists() {
+        let source = tempfile::tempdir().unwrap();
+        let lists: BTreeMap<String, serde_json::Value> = [(
+            "opentag.history.filter".to_string(),
+            serde_json::json!([{"value":"%genre% IS jazz","name":"Jazz","favorite":true}]),
+        )]
+        .into();
+        crate::lists::save(&source.path().join("lists.json"), &lists).unwrap();
+        let bundle = collect(source.path()).unwrap();
+        assert_eq!(bundle.files.keys().collect::<Vec<_>>(), ["lists.json"]);
+        let target = tempfile::tempdir().unwrap();
+        let bytes = serde_json::to_vec(&bundle).unwrap();
+        assert_eq!(restore(target.path(), &bytes).unwrap(), ["lists.json"]);
+        assert_eq!(
+            crate::lists::load(&target.path().join("lists.json"))
+                .unwrap()
+                .lists,
+            lists
+        );
+        let invalid = br#"{"format":"opentag-configuration","version":1,"files":{"lists.json":{"version":1,"lists":{"opentag.other":[]}}}}"#;
+        assert!(restore(target.path(), invalid).is_err());
     }
 
     #[test]

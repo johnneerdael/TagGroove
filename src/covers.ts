@@ -35,6 +35,8 @@ export type CoverHost={
   notify:(message:string)=>void;
   fail:(error:unknown)=>void;
   mac:boolean;
+  /** Drag the displayed cover out as an image file; resolves when the drag ends. */
+  dragOut?:(cover:{mime:string;data_base64:string})=>Promise<{path:string;result:string}>;
 };
 type MenuEntry={command:string;label:string;enabled:boolean;shortcut?:string;checked?:boolean;value?:string;children?:MenuEntry[]}|'separator';
 
@@ -60,6 +62,8 @@ export class CoverUI {
   private viewer?:HTMLDialogElement;
   private dragPaths:string[]=[];
   private folderShown?:FolderImage;
+  /** True while a cover is being dragged out; drops of it on this window are ignored. */
+  draggingOut=false;
   constructor(private host:CoverHost){}
   get aspect(){return storage.get(ASPECT_KEY)!=='stretch';}
   state():SelectionCovers{return selectionCovers(this.host.selection().map(file=>file.covers));}
@@ -115,7 +119,30 @@ export class CoverUI {
     art.addEventListener('dragover',event=>{if(event.dataTransfer?.types.includes('Files')){event.preventDefault();art.classList.add('drop-target');}});
     art.addEventListener('dragleave',()=>art.classList.remove('drop-target'));
     art.addEventListener('drop',event=>{art.classList.remove('drop-target');const files=[...event.dataTransfer?.files||[]];if(files.length){event.preventDefault();void this.addFiles(files);}});
+    // Dragging the displayed cover out of the window copies it as an image file
+    // (Mp3tag: drag a cover to the desktop). The webview's own image drag is off.
+    art.addEventListener('dragstart',event=>event.preventDefault());
+    art.querySelectorAll('img').forEach(image=>image.draggable=false);
+    art.addEventListener('pointerdown',event=>{
+      if(event.button!==0||!this.host.dragOut||this.draggingOut)return;
+      const {cover}=this.shown();if(!cover?.data_base64)return;
+      const start={x:event.clientX,y:event.clientY};
+      const stop=()=>{window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',stop);window.removeEventListener('pointercancel',stop);};
+      const move=(moved:PointerEvent)=>{if(Math.hypot(moved.clientX-start.x,moved.clientY-start.y)<6)return;stop();void this.dragOut(cover);};
+      window.addEventListener('pointermove',move);window.addEventListener('pointerup',stop);window.addEventListener('pointercancel',stop);
+    });
     art.addEventListener('paste',event=>{const files=[...event.clipboardData?.files||[]];if(files.length){event.preventDefault();event.stopPropagation();void this.addFiles(files);}});
+  }
+  private async dragOut(cover:{mime:string;data_base64:string}){
+    if(!this.host.dragOut||this.draggingOut)return;
+    this.draggingOut=true;
+    try{
+      const {path,result}=await this.host.dragOut(cover);
+      const name=path.split(/[\\/]/).pop()||path;
+      if(result==='dropped')this.host.notify(`Copied the cover as ${name}`);
+      else if(result==='prepared')this.host.notify(`Cover file ready to drag: ${path}`);
+    }catch(error){this.host.fail(error);}
+    finally{this.draggingOut=false;}
   }
   /** Global shortcut: Ctrl+Alt+M (⌘⌥M) opens Manage covers. Ctrl+Alt is AltGr on
    * Windows, so a chord that types a character (German AltGr+M is µ) stays text. */

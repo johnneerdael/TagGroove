@@ -64,3 +64,18 @@ pub fn e2e_exit(app: tauri::AppHandle, code: i32) {
         app.exit(code);
     }
 }
+
+/// Feeds file URLs through the macOS `RunEvent::Opened` handler so suites on
+/// any platform cover Finder "Open With"; ignored unless the hook is enabled.
+#[tauri::command]
+pub fn e2e_open_urls(app: tauri::AppHandle, urls: Vec<String>) -> Result<(), String> {
+    if !enabled() {
+        return Ok(());
+    }
+    let urls = urls
+        .iter()
+        .map(|url| tauri::Url::parse(url).map_err(|e| format!("{url}: {e}")))
+        .collect::<Result<Vec<_>, _>>()?;
+    crate::file_ops::open_urls(&app, &urls);
+    Ok(())
+}
