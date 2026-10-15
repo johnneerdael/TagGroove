@@ -14,8 +14,8 @@
   const status = () => document.querySelector('.status-message')?.textContent || '';
   const errorsText = () => [...document.querySelectorAll('.errors p')].map(p => p.textContent).join(' | ');
   const rows = () => [...document.querySelectorAll('tr[data-path]')];
-  const names = () => rows().map(r => r.dataset.path.split('/').pop());
-  const row = name => rows().find(r => r.dataset.path.endsWith('/' + name));
+  const names = () => rows().map(r => r.dataset.path.split(/[\\/]/).pop());
+  const row = name => rows().find(r => r.dataset.path.split(/[\\/]/).pop() === name);
   // A plain click on the only selected row would start the slow-click cell editor (after 550 ms), which takes the keyboard; such a row is only focused.
   const clickRow = async (name, init = {}) => { const r = await waitFor(() => row(name), 8000, 'row ' + name); if (!Object.keys(init).length && r.classList.contains('selected') && rows().filter(x => x.classList.contains('selected')).length === 1) { r.focus(); await sleep(50); return; } r.querySelector('td').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ...init })); await sleep(250); };
   const idle = () => waitFor(() => !document.querySelector('footer.status.busy'), 15000, 'idle');
@@ -48,7 +48,7 @@
 
   try {
     await waitFor(() => rows().length >= 4, 15000, 'fixture rows');
-    const album = row('sine-a.mp3').dataset.path.replace(/\/[^/]+$/, ''), work = album.replace(/\/[^/]+$/, '');
+    const album = row('sine-a.mp3').dataset.path.replace(/[\\/][^\\/]+$/, ''), work = album.replace(/[\\/][^\\/]+$/, '');
     // Native confirmations cannot be answered here; Options → Messages turns the ones this suite meets off.
     await setOptions('messages', [['pages.messages.confirm_delete_files', false], ['pages.messages.unsaved_changes', false]]);
 
@@ -208,7 +208,7 @@
       if (top.files.length !== 3 || sub.files.length !== 1 || !sub.files[0].endsWith('sine-sub.mp3')) throw new Error(`playlists ${top.files.length}/${sub.files.length}`);
       press(document.body, 'p', ctrl);
       const dlg = await waitFor(() => document.querySelector('dialog[open].playlist-dialog'), 3000, 'playlist dialog');
-      return `album.m3u8 ${top.files.length} files, sub/sub.m3u8 ${sub.files.length}; Ctrl+P: ${dlg.querySelector('#playlist-filename').value.split('/').pop()}`;
+      return `album.m3u8 ${top.files.length} files, sub/sub.m3u8 ${sub.files.length}; Ctrl+P: ${dlg.querySelector('#playlist-filename').value.split(/[\\/]/).pop()}`;
     });
 
     await step('Tag Sources: field multi-selection with Ctrl+A, Ctrl+Shift+A and Space; Ctrl+I and Ctrl+Shift+I reopen the last source', async () => {
