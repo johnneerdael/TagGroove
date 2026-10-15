@@ -56,6 +56,23 @@
     }
     return out;
   };
+  // Guard for translate="no": it may only wrap data (values, names, paths). Any catalog text inside it
+  // (a heading, a button label, an aria-label, a tooltip) would be frozen in English. "Help" is the
+  // column, action group and tool name this suite stores on purpose. Configured names are data too: the
+  // Customize columns and Customize tag panel editors list them as stored (the shipped defaults below),
+  // and field names (ARTIST) are identifiers.
+  const NAMES = new Set(['Help', 'Filename', 'Title', 'Artist', 'Album', 'Track', 'Year', 'Genre', 'Length', 'Codec', 'Bitrate', 'Path', 'Tag', 'Comment', 'Album Artist', 'Composer', 'Discnumber', 'Sample rate', 'Size', 'Last modified', 'Covers', 'Directory']);
+  const frozen = root => {
+    const out = [], containers = [...(root.matches('[translate="no"]') ? [root] : []), ...root.querySelectorAll('[translate="no"]')];
+    for (const container of containers) {
+      const walker = document.createTreeWalker(container, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
+      for (let n = walker.currentNode; n; n = walker.nextNode()) {
+        if (n.nodeType === Node.TEXT_NODE) { if (/\p{L}/u.test(n.data)) out.push(n.data.replace(/\s+/g, ' ').trim()); }
+        else for (const a of [...ATTRIBUTES, 'aria-description', 'label', 'data-hint']) { const v = n.getAttribute(a); if (v && /\p{L}/u.test(v)) out.push(v.replace(/\s+/g, ' ').trim()); }
+      }
+    }
+    return [...new Set(out.filter(text => !NAMES.has(text) && !/^[A-Z0-9_]+$/.test(text) && i18n().translate(text) !== text))];
+  };
   // Catalog text still shown in English: translating it again would change it.
   const leftovers = root => [...new Set(readable(root).filter(text => i18n().translate(text) !== text && !i18n().translated(text)))];
   // English-looking text the catalogs do not know yet; reported for coverage, not a failure.
@@ -67,7 +84,8 @@
   const measure = root => {
     const over = [];
     [...root.querySelectorAll(SELECTORS)].forEach((el, index) => {
-      if (!el.getClientRects().length || !el.clientWidth) return;
+      // Open submenu flyouts overflow <details> by design; measure their summaries/items.
+      if (!el.getClientRects().length || !el.clientWidth || el.matches('details')) return;
       if (el.scrollWidth > el.clientWidth + 2) over.push(`${index}:${el.tagName.toLowerCase()}${el.dataset.op ? '#' + el.dataset.op : ''} “${el.textContent.trim().slice(0, 40)}”`);
     });
     const box = root.getBoundingClientRect();
@@ -87,6 +105,8 @@
     if (added.length) problems.push(`${name}: ${added.join('; ')}`);
     const left = leftovers(root);
     if (left.length) problems.push(`${name} untranslated: ${left.slice(0, 8).join(' | ')}`);
+    const stuck = frozen(root);
+    if (stuck.length) problems.push(`${name} UI text inside translate="no": ${stuck.slice(0, 8).join(' | ')}`);
     collectUnknown(root);
   };
   const DIALOG_OPS = ['tags-filename', 'filename-tags', 'filename-filename', 'text-tags', 'tag-tag', 'number', 'groups', 'action', 'extended', 'columns', 'panel-options', 'field-values', 'copy-text', 'remove-tag-types', 'help-shortcuts', 'cover-manage', 'about', 'find', 'playlist-generate', 'dir-manage'];

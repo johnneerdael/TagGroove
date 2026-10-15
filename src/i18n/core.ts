@@ -18,7 +18,7 @@ const VERBATIM = /^(name|path|filename|fileName|location|outputPath|destination|
 // Key combinations as menus and tooltips show them: ⌘/Ctrl ⇧ S, Alt+Enter, Ctrl Num +.
 const SHORTCUT = /^(?:(?:⌘|⌥|⇧|⌃|⌫|Ctrl|Alt|Shift|Option|Cmd|Del|Num|Enter|Esc|Tab|Space|Page Up|Page Down|Home|End|Ins|F\d{1,2}|[A-Z0-9]|[←→↑↓+\/·]|,)[\s+/]*)+$/;
 /** Values with these names are counts: they only match digits, so "{count} file" never matches "Choose a file". */
-const NUMERIC = /^(length|count|size|total|done|restored|missing|unmatched|pending|saved|failed|skipped|selectedCount|tracks|discs|chapters|selected|shown|started|removed|files|n|i|index|position|lastHits|lastStored|max)\d*$/;
+const NUMERIC = /^(length|count|size|total|done|restored|missing|unmatched|pending|saved|failed|skipped|selectedCount|tracks|discs|chapters|selected|shown|started|removed|files|matched|n|i|index|position|lastHits|lastStored|max)\d*$/;
 const NUMBER = '(\\d(?:[\\d.,\\u00a0\\u202f\' ]*\\d)?)';
 export const normalize = (text: string) => text.replace(/\s+/g, ' ').trim();
 
@@ -193,7 +193,15 @@ export class Translator {
       });
       return render(nodes, params, this.rules);
     }
-    return this.shortcut(core);
+    const shortcut = this.shortcut(core);
+    if (shortcut !== null) return shortcut;
+    // Marks rendered in the same text node as a label stay around its translation.
+    const marked = /^([✓✔●•►▸▾★☆]\s*)?(.*?)(\s*[↑↓▲▼›»])?$/u.exec(core)!;
+    if ((marked[1] || marked[3]) && marked[2] && marked[2] !== core) {
+      const inner = this.translate(marked[2], depth, verbatim || name || false);
+      if (inner !== marked[2]) return `${marked[1] ?? ''}${inner}${marked[3] ?? ''}`;
+    }
+    return null;
   }
   /** A shortcut label with the local names of its keys, or null for other text. */
   private shortcut(text: string): string | null {

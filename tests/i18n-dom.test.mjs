@@ -18,6 +18,7 @@ const {CoverUI}=await import(await moduleUrl('covers.ts',{"import './covers.css'
 const {contextMenuMarkup}=await load('row-context-menu.ts');
 const {ToolsUI,toolsOptionsPage}=await load('tools.ts'),{installHelperMenus}=await load('helper-menu.ts');
 const {copyAsTextDialog}=await load('utils-ui.ts'),{PlaylistUI}=await load('playlist-ui.ts'),{openTagToTag}=await load('tag-tag-ui.ts');
+const {offerOpenOutputs}=await load('export-ui.ts');
 const {FileOpsUI}=await load('file-ops.ts');
 const {removeTagParts}=await load('remove-tag.ts');
 const {Messages}=await load('messages.ts');
@@ -115,6 +116,26 @@ test('structured confirmations translate source parts once through Messages and 
 });
 
 for(const locale of ['de','nl']){
+  test(`${locale}: post-export filenames and paths remain verbatim while prompt controls translate`,async()=>{
+    const p=page();
+    try{
+      const opened=[],host={modal:modal(p),modalError:(_dialog,error)=>{throw error;},open:async paths=>{opened.push(paths);},reveal:async()=>{},fileManager:'Finder'};
+      for(const output of ['Help','Title']){
+        const done=offerOpenOutputs(host,[output],'Save tags');const t=p.translate(locale);
+        assert.equal(p.body.querySelector('strong').textContent,output);
+        assert.equal(p.body.querySelector('p').textContent,t.translate('Save tags.'));
+        assert.equal(p.body.querySelector('#open-output-run').textContent,t.t('Open'));
+        p.body.querySelector('#open-output-run').click();await p.window.happyDOM.waitUntilComplete();await done;
+        assert.deepEqual(opened.at(-1),[output]);p.body.replaceChildren();
+      }
+      const outputs=['Help','My  Files/Title'],done=offerOpenOutputs(host,outputs,'Save tags');const t=p.translate(locale),select=p.body.querySelector('select');
+      assert.deepEqual([...select.options].map(option=>option.textContent),['Help — Help','Title — My  Files']);
+      assert.deepEqual([...select.options].map(option=>option.title),outputs);
+      assert.equal(select.getAttribute('aria-label'),t.t('Written files'));
+      select.value='1';p.body.querySelector('#open-output-run').click();await p.window.happyDOM.waitUntilComplete();await done;
+      assert.deepEqual(opened.at(-1),[outputs[1]]);
+    }finally{p.close();}
+  });
   test(`${locale}: web-source choice labels and saved tokens stay verbatim while settings UI translates`,()=>{
     const p=page();
     try{
@@ -230,7 +251,7 @@ for(const locale of ['de','nl']){
       assert.equal(p.body.querySelector('thead th:nth-child(2)').textContent,'Title');
       assert.equal(p.body.querySelector('tbody td').textContent,'Title');
       assert.equal(p.body.querySelector('tbody tr td:nth-child(4)').textContent,'Help');
-      assert.equal(p.body.querySelector('tbody tr td:nth-child(4)').title,'Help');
+      assert.equal(p.body.querySelector('tbody tr td:nth-child(4) span').title,'Help');
       assert.equal(p.body.querySelector('.ts-track-value').getAttribute('aria-label'),t.translate('Title of track Title',0,true));
       assert.equal(p.body.querySelector('thead th:nth-child(4)').textContent,t.t('File'));
       assert.equal(p.body.querySelector('tbody tr:nth-child(2) em').textContent,t.t('Not written'));

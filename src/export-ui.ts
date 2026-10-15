@@ -156,8 +156,8 @@ const folderName=(path:string)=>path.replace(/[\\/][^\\/]*$/,'');
 export function offerOpenOutputs(host:OpenOutputsHost,outputs:string[],message:string,title='Export'):Promise<void>{
   if(!outputs.length)return Promise.resolve();
   const single=outputs.length===1;
-  const content=single?`<p>${html(message)}.</p><p>Open <strong>${html(baseName(outputs[0]))}</strong> now?</p>`
-    :`<p>${html(message)}.</p><label class="field"><span>Written files (${outputs.length})</span><select id="open-output-file" size="${Math.min(outputs.length,6)}" aria-label="Written files">${outputs.map((path,index)=>`<option value="${index}" ${index===0?'selected':''} title="${html(path)}">${html(baseName(path))} — ${html(folderName(path))}</option>`).join('')}</select></label>`;
+  const content=single?`<p>${html(message)}.</p><p>Open <strong translate="no">${html(baseName(outputs[0]))}</strong> now?</p>`
+    :`<p>${html(message)}.</p><label class="field"><span>Written files (${outputs.length})</span><select id="open-output-file" size="${Math.min(outputs.length,6)}" aria-label="Written files">${outputs.map((path,index)=>`<option value="${index}" translate="no" ${index===0?'selected':''} title="${html(path)}">${html(baseName(path))} — ${html(folderName(path))}</option>`).join('')}</select></label>`;
   const dialog=host.modal(title,content,`<button id="open-output-reveal">Show in ${html(host.fileManager)}</button><button class="primary" id="open-output-run">Open</button>`);
   dialog.classList.add('open-output-dialog');
   const chosen=()=>single?outputs[0]:outputs[Number(dialog.querySelector<HTMLSelectElement>('#open-output-file')!.value)]??outputs[0];
