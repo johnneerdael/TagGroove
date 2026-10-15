@@ -203,7 +203,7 @@ export class TagPanel {
     const fields=this.settings.panel.fields.map((field,index)=>[field,index] as const).filter(([field])=>field.field!==SEPARATOR);
     const item=(command:string,label:string,checked?:boolean,name=false)=>`<button type="button" data-panel-command="${command}" ${checked===undefined?'':`role="menuitemcheckbox" aria-checked="${checked}"`}><span>${checked===undefined?'':checked?'✓ ':'<span class="panel-check-space"></span>'}${name?`<span translate="no">${html(label)}</span>`:html(label)}</span></button>`;
     const dock=this.host.dock,position=dock?`<hr><div class="menu-heading">Position</div>${dock.choices.map(([side,label])=>item(`dock:${side}`,label,dock.current()===side)).join('')}`:'';
-    return `<details class="menu panel-menu"><summary aria-label="Tag panel options" title="Tag panel options">⋯</summary><div class="menu-list">${item('configure','Customize tag panel…')}${item('values','Field values…')}${item('defaults','Default values in input fields')}<hr>${fields.map(([field,index])=>item(`field:${index}`,localMnemonic(field.name,defaultName(field)?this.host.translateLabel:undefined).label||field.field,field.visible,true)).join('')}${item('cover','Display cover art',this.showCover)}<hr>${item('save','Save configuration…')}${item('load','Load configuration…')}${this.host.importMp3tag?item('import-mp3tag','Import Mp3tag configuration…'):''}${position}<hr>${item('hide','Hide tag panel')}</div></details>`;
+    return `<details class="menu panel-menu"><summary aria-label="Tag panel options" title="Tag panel options">⋯</summary><div class="menu-list">${item('configure','Customize tag panel…')}${item('values','Field values…')}${item('defaults','Default values in input fields')}<hr>${fields.map(([field,index])=>item(`field:${index}`,this.fieldLabel(field).label||field.field,field.visible,true)).join('')}${item('cover','Display cover art',this.showCover)}<hr>${item('save','Save configuration…')}${item('load','Load configuration…')}${this.host.importMp3tag?item('import-mp3tag','Import Mp3tag configuration…'):''}${position}<hr>${item('hide','Hide tag panel')}</div></details>`;
   }
   fieldsHTML(){
     this.closeList();
@@ -214,9 +214,10 @@ export class TagPanel {
     if(!columns)return `<div class="panel-grid">${shown.map(({field,index})=>this.fieldHTML(field,index,disabled)).join('')}</div>`;
     return `<div class="panel-columns">${columns.map(column=>`<div class="panel-grid">${column.map(item=>this.fieldHTML(shown[item].field,shown[item].index,disabled)).join('')}</div>`).join('')}</div>`;
   }
+  private fieldLabel(field:PanelField){return localMnemonic(field.name,defaultName(field)?this.host.translateLabel:undefined);}
   private fieldHTML(field:PanelField,index:number,disabled:boolean){
     if(field.field===SEPARATOR)return'<div class="panel-separator" role="separator"></div>';
-    const id=`tag-panel-${index}`,label=localMnemonic(field.name,defaultName(field)?this.host.translateLabel:undefined),span=`style="grid-column:span ${sizeSpan[field.size]}"`,off=disabled?'disabled':'';
+    const id=`tag-panel-${index}`,label=this.fieldLabel(field),span=`style="grid-column:span ${sizeSpan[field.size]}"`,off=disabled?'disabled':'';
     // The underlined mnemonic splits the label into several text nodes; name controls explicitly.
     // Labels are names (translate="no", data-verbatim): only an untouched default label is translated, above.
     const shortcut=`data-verbatim="${html(label.label)}" aria-label="${html(label.label)}" ${label.key?`aria-keyshortcuts="Alt+${html(label.key)}"`:''}`,keep=this.host.translateLabel?.(KEEP)??KEEP;
@@ -320,7 +321,8 @@ export class TagPanel {
     const field=this.settings.panel.fields[Number(input.dataset.panelIndex)];if(!field||input.disabled)return;
     const options=this.optionsFor(field),popup=document.createElement('div');
     // Group headings, Open folder… and No values are UI text; the values themselves and the field label are not translated.
-    popup.className='combo-list';popup.id='tag-panel-listbox';popup.setAttribute('role','listbox');if(mnemonic(field.name).label)popup.dataset.verbatim=mnemonic(field.name).label;popup.setAttribute('aria-label',`${mnemonic(field.name).label} values`);
+    const label=this.fieldLabel(field).label;
+    popup.className='combo-list';popup.id='tag-panel-listbox';popup.setAttribute('role','listbox');if(label)popup.dataset.verbatim=label;popup.setAttribute('aria-label',`${label} values`);
     let group:ComboOption['group']|undefined,markup='';
     options.forEach((option,index)=>{
       if(option.group!==group){if(group!==undefined)markup+='</div>';group=option.group;markup+=`<div role="group" ${groupLabels[group]?`aria-label="${groupLabels[group]}"`:''}>${groupLabels[group]?`<div class="combo-group" aria-hidden="true">${groupLabels[group]}</div>`:''}`;}
@@ -393,7 +395,7 @@ export class TagPanel {
     const list=dialog.querySelector<HTMLElement>('.panel-config-list')!,editor=dialog.querySelector<HTMLElement>('.panel-config-editor')!,cover=dialog.querySelector<HTMLInputElement>('#tp-cover')!;
     const on=(id:string,handler:()=>void)=>dialog.querySelector(`#${id}`)!.addEventListener('click',handler);
     const renderList=()=>{
-      list.innerHTML=layout.fields.map((field,index)=>`<div class="panel-config-row ${index===current?'selected':''}" role="option" aria-selected="${index===current}" id="tp-row-${index}" data-row="${index}"><input type="checkbox" data-visible="${index}" ${field.visible?'checked':''} data-verbatim="${html(mnemonic(field.name).label||field.field)}" aria-label="Show ${html(mnemonic(field.name).label||field.field)}" tabindex="-1"><span ${mnemonic(field.name).label?'translate="no"':''}>${html(mnemonic(field.name).label||(field.field===SEPARATOR?'Separator':''))}</span><small>${html(field.field)}</small></div>`).join('');
+      list.innerHTML=layout.fields.map((field,index)=>{const name=this.fieldLabel(field).label;return`<div class="panel-config-row ${index===current?'selected':''}" role="option" aria-selected="${index===current}" id="tp-row-${index}" data-row="${index}"><input type="checkbox" data-visible="${index}" ${field.visible?'checked':''} data-verbatim="${html(name||field.field)}" aria-label="Show ${html(name||field.field)}" tabindex="-1"><span ${name?'translate="no"':''}>${html(name||(field.field===SEPARATOR?'Separator':''))}</span><small translate="no">${html(field.field)}</small></div>`;}).join('');
       if(current>=0)list.setAttribute('aria-activedescendant',`tp-row-${current}`);else list.removeAttribute('aria-activedescendant');
       list.querySelector('.selected')?.scrollIntoView({block:'nearest'});
       list.querySelectorAll<HTMLInputElement>('[data-visible]').forEach(box=>box.addEventListener('change',()=>{layout.fields[Number(box.dataset.visible)].visible=box.checked;}));
@@ -409,7 +411,11 @@ export class TagPanel {
       const value=(id:string)=>editor.querySelector<HTMLInputElement|HTMLSelectElement>(`#${id}`)!.value;
       field.name=value('tp-name');field.field=normalizeField(value('tp-field'));field.default_value=value('tp-default');field.type=value('tp-type') as Control;field.size=value('tp-size') as Size;field.rows=Number(value('tp-rows'))||1;
       editor.querySelector<HTMLInputElement>('#tp-rows')!.disabled=field.type!=='multiline';
-      const row=list.querySelector(`[data-row="${current}"]`);if(row){row.querySelector('span')!.textContent=mnemonic(field.name).label||(field.field===SEPARATOR?'Separator':'');row.querySelector('small')!.textContent=field.field;}
+      const row=list.querySelector(`[data-row="${current}"]`);if(row){
+        const name=this.fieldLabel(field).label,label=row.querySelector('span')!,box=row.querySelector('input')!;
+        label.textContent=name||(field.field===SEPARATOR?'Separator':'');if(name)label.setAttribute('translate','no');else label.removeAttribute('translate');
+        box.setAttribute('data-verbatim',name||field.field);box.setAttribute('aria-label',`Show ${name||field.field}`);row.querySelector('small')!.textContent=field.field;
+      }
     };
     editor.addEventListener('input',sync);editor.addEventListener('change',sync);
     const select=(index:number)=>{current=Math.max(-1,Math.min(layout.fields.length-1,index));renderList();renderEditor();};

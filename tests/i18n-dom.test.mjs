@@ -10,7 +10,8 @@ const load=async file=>{
   return import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
 };
 const {Translator}=await load('i18n/core.ts'),{DomTranslator}=await load('i18n/dom.ts');
-const {ColumnUI,defaultLayout}=await load('columns.ts'),{ActionUI}=await load('action-ui.ts');
+const {ColumnUI,defaultLayout,setColumnNameTranslation}=await load('columns.ts'),{ActionUI}=await load('action-ui.ts');
+const {TagPanel,defaultLayout:defaultPanelLayout}=await load('tag-panel.ts');
 const {contextMenuMarkup}=await load('row-context-menu.ts');
 const {ToolsUI,toolsOptionsPage}=await load('tools.ts'),{installHelperMenus}=await load('helper-menu.ts');
 const main=await source('main.ts'),parsed=ts.createSourceFile('main.ts',main,ts.ScriptTarget.Latest,true);
@@ -36,6 +37,43 @@ function page(){
 const memory=()=>{const data=new Map();return{getItem:key=>data.get(key)??null,setItem:(key,value)=>data.set(key,value)};};
 
 for(const locale of ['de','nl']){
+  test(`${locale}: editors translate shipped names and retain custom names through editing`,()=>{
+    const p=page(),t=new Translator(locale,catalogs[locale]);
+    setColumnNameTranslation(label=>t.translate(label));
+    try{
+      const layout=defaultLayout();layout.columns=[...layout.columns.slice(0,2),{...layout.columns[1],id:'custom',name:'Help'}];
+      new ColumnUI({layout:()=>layout}).customize();
+      const panel=new TagPanel({translateLabel:label=>t.translate(label),values:()=>[],disabled:()=>false,directories:()=>({selected:[],all:[]})});
+      const title=defaultPanelLayout().fields.find(field=>field.field==='TITLE');
+      panel.settings.panel.fields=[title,{...title,field:'CUSTOM',name:'Help'}];
+      p.body.insertAdjacentHTML('beforeend',panel.fieldsHTML());panel.bind(p.body.querySelector('.panel-grid'));
+      p.body.querySelector('.combo-toggle').click();p.translate(locale);
+      assert.equal(p.body.querySelector('.combo-list').getAttribute('aria-label'),t.t('{label} values',{label:t.t('Title')}));
+      assert.deepEqual([...p.body.querySelectorAll('.panel-grid > .field > label')].map(label=>label.textContent),[t.t('Title'),'Help']);
+      panel.closeList();panel.configure();
+      p.translate(locale);
+      const columnRows=[...p.body.querySelectorAll('.column-list li')],panelRows=[...p.body.querySelectorAll('.panel-config-row')];
+      assert.deepEqual(columnRows.map(row=>row.querySelector('span').textContent),[t.t('Filename'),t.t('Title'),'Help']);
+      for(const [i,name] of [t.t('Filename'),t.t('Title'),'Help'].entries())assert.equal(columnRows[i].querySelector('input').getAttribute('aria-label'),t.t('Show {name}',{name}));
+      assert.deepEqual(panelRows.map(row=>row.querySelector('span').textContent),[t.t('Title'),'Help']);
+      assert.deepEqual(panelRows.map(row=>row.querySelector('small').textContent),['TITLE','CUSTOM']);
+      for(const [i,name] of [t.t('Title'),'Help'].entries())assert.equal(panelRows[i].querySelector('input').getAttribute('aria-label'),t.t('Show {name}',{name}));
+      assert.equal(p.body.querySelector('#column-name').value,'Filename');assert.equal(p.body.querySelector('#tp-name').value,'Tit&le');
+      const columnName=p.body.querySelector('#column-name'),panelName=p.body.querySelector('#tp-name');
+      for(const name of ['Help','Filename']){
+        columnName.value=name;columnName.dispatchEvent(new p.window.Event('input',{bubbles:true}));p.translate(locale);
+        const shown=name==='Filename'?t.t(name):name;
+        assert.equal(columnRows[0].querySelector('span').textContent,shown);
+        assert.equal(columnRows[0].querySelector('input').getAttribute('aria-label'),t.t('Show {name}',{name:shown}));
+      }
+      for(const name of ['Help','Tit&le']){
+        panelName.value=name;panelName.dispatchEvent(new p.window.Event('input',{bubbles:true}));p.translate(locale);
+        const shown=name==='Tit&le'?t.t('Title'):name;
+        assert.equal(panelRows[0].querySelector('span').textContent,shown);
+        assert.equal(panelRows[0].querySelector('input').getAttribute('aria-label'),t.t('Show {name}',{name:shown}));
+      }
+    }finally{setColumnNameTranslation(label=>label);p.close();}
+  });
   test(`${locale}: file-row data stays verbatim while checkbox and pending tooltip translate`,()=>{
     const p=page();
     try{

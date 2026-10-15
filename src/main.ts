@@ -579,7 +579,7 @@ async function autoSizeColumns(ids:string[]){
   const widths=new Map(shown.map(column=>{
     const header=table.querySelector<HTMLElement>(`th[data-col="${CSS.escape(column.id)}"] button`),cell=table.querySelector<HTMLElement>(`td[data-col="${CSS.escape(column.id)}"]`)||table.querySelector<HTMLElement>('tbody td[data-col]');
     const headStyle=header?getComputedStyle(header):getComputedStyle(table),cellStyle=cell?getComputedStyle(cell):headStyle;
-    const label=`${column.name}${sortIndicator(columnLayout.sort,column.id).replace(/<[^>]*>/g,'')}`;
+    const label=`${columnName(column)}${sortIndicator(columnLayout.sort,column.id).replace(/<[^>]*>/g,'')}`;
     const marker=column.id===first&&drafts.size?textWidths(['●'],font(cellStyle))[0]+6:0;
     const headerWidth=fitWidth(textWidths([label],font(headStyle)),space(headStyle)+4,limits);
     return[column.id,Math.max(headerWidth,fitWidth(textWidths(rows.map(entry=>cellValue(entry,column.value)),font(cellStyle)),space(cellStyle)+marker+1,limits))] as const;

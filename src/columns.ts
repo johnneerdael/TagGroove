@@ -313,7 +313,7 @@ export class ColumnUI{
     };
     const render=(focus?:string)=>{
       const column=layout.columns[current];
-      dialog.innerHTML=`<header>Customize columns</header><div class="dialog-content"><div class="columns-layout"><div><p class="action-section-title">Columns</p><ul class="column-list" role="listbox" aria-label="Columns">${layout.columns.map((c,i)=>`<li class="group-row ${i===current?'current':''}" role="option" aria-selected="${i===current}" data-index="${i}" tabindex="${i===current?0:-1}"><input type="checkbox" data-visible="${i}" data-verbatim="${html(c.name)}" aria-label="Show ${html(c.name)}" ${c.visible?'checked':''}>${c.name?`<span translate="no">${html(c.name)}</span>`:'<span>(unnamed)</span>'}<small>${html(c.field?'editable':'')}</small></li>`).join('')}</ul>
+      dialog.innerHTML=`<header>Customize columns</header><div class="dialog-content"><div class="columns-layout"><div><p class="action-section-title">Columns</p><ul class="column-list" role="listbox" aria-label="Columns">${layout.columns.map((c,i)=>{const label=columnName(c);return`<li class="group-row ${i===current?'current':''}" role="option" aria-selected="${i===current}" data-index="${i}" tabindex="${i===current?0:-1}"><input type="checkbox" data-visible="${i}" data-verbatim="${html(label)}" aria-label="Show ${html(label)}" ${c.visible?'checked':''}>${c.name?nameMarkup(c):'<span>(unnamed)</span>'}<small>${html(c.field?'editable':'')}</small></li>`;}).join('')}</ul>
       <div class="group-buttons"><button id="column-new">New</button><button id="column-duplicate" ${column?'':'disabled'}>Duplicate</button><button id="column-remove" ${layout.columns.length>1?'':'disabled'}>Remove</button><button id="column-up" ${current>0?'':'disabled'}>Move up</button><button id="column-down" ${current<layout.columns.length-1?'':'disabled'}>Move down</button></div>
       <div class="group-buttons"><button id="column-defaults">Reset to defaults</button><button id="column-import">Load configuration…</button><button id="column-export">Save configuration…</button></div></div>
       <div>${column?`<label class="field"><span>NAME</span><input id="column-name" value="${html(column.name)}"></label>
@@ -345,7 +345,12 @@ export class ColumnUI{
       dialog.querySelectorAll<HTMLInputElement>('[data-visible]').forEach(input=>input.addEventListener('change',()=>{layout.columns[Number(input.dataset.visible)].visible=input.checked;}));
       dialog.querySelector('#column-value')?.addEventListener('input',()=>{capture();void preview();});
       dialog.querySelector('#column-numeric')?.addEventListener('change',event=>{const numeric=(event.target as HTMLInputElement).checked,align=q<HTMLSelectElement>('#column-align');if(numeric&&align.value==='left')align.value='right';if(!numeric&&align.value==='right')align.value='left';});
-      dialog.querySelector('#column-name')?.addEventListener('input',event=>{const label=dialog.querySelector(`.column-list li[data-index="${current}"] span`);if(label)label.textContent=(event.target as HTMLInputElement).value||'(unnamed)';});
+      dialog.querySelector('#column-name')?.addEventListener('input',event=>{
+        const column=layout.columns[current];column.name=(event.target as HTMLInputElement).value;
+        const row=dialog.querySelector(`.column-list li[data-index="${current}"]`),name=columnName(column),label=row?.querySelector('span'),box=row?.querySelector('input');
+        if(label){label.textContent=name||'(unnamed)';if(name)label.setAttribute('translate','no');else label.removeAttribute('translate');}
+        box?.setAttribute('data-verbatim',name);box?.setAttribute('aria-label',`Show ${name}`);
+      });
       q('#column-new').addEventListener('click',()=>{capture();layout.columns.splice(current+1,0,column(uniqueColumnId(layout),'New column','%isrc%','%isrc%',120));current++;render('#column-name');});
       dialog.querySelector('#column-duplicate')?.addEventListener('click',()=>{capture();const source=layout.columns[current];layout.columns.splice(current+1,0,{...source,id:uniqueColumnId(layout,source.id),name:`${source.name} copy`});current++;render('#column-name');});
       q('#column-remove').addEventListener('click',()=>{const id=layout.columns[current].id;layout.columns.splice(current,1);layout.sort=layout.sort.filter(key=>key.id!==id);current=Math.min(current,layout.columns.length-1);render('#column-remove');});
