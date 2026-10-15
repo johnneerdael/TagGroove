@@ -10,7 +10,7 @@ const load = async name => {
 };
 const { listShortcut, invertSelection, nextFile, similarFiles, nextSimilarFiles, formatDuration, formatSize, listSummary } = await load('list-commands');
 const { findInList, findMatcher, sortFindResults } = await load('find');
-const { adjacentCell } = await load('cell-editor');
+const { adjacentCell, slowEditStillWanted } = await load('cell-editor');
 const key = (key, modifiers = {}) => ({ key, ctrlKey: false, metaKey: false, shiftKey: false, altKey: false, ...modifiers });
 
 test('documented File List shortcuts map to list commands', () => {
@@ -88,4 +88,15 @@ test('Tab navigation moves across editable cells and wraps to adjacent rows', ()
   assert.equal(adjacentCell(rows, columns, { path: 'b', column: 'artist' }, 1), undefined);
   assert.equal(adjacentCell(rows, [], { path: 'a', column: 'title' }, 1), undefined);
   assert.equal(adjacentCell(rows, columns, { path: 'gone', column: 'title' }, 1), undefined);
+});
+
+test('a delayed second click edits only while the clicked row keeps the focus', () => {
+  const target = { path: 'a', column: 'filename' }, selected = new Set(['a']);
+  assert.equal(slowEditStillWanted(target, { selected, busy: false, focusedRow: 'a' }), true);
+  // Focus moved to the tag panel (or anything outside the row) in between.
+  assert.equal(slowEditStillWanted(target, { selected, busy: false, focusedRow: undefined }), false);
+  assert.equal(slowEditStillWanted(target, { selected, busy: false, focusedRow: 'b' }), false);
+  assert.equal(slowEditStillWanted(target, { selected, busy: true, focusedRow: 'a' }), false);
+  assert.equal(slowEditStillWanted(target, { selected: new Set(['a', 'b']), busy: false, focusedRow: 'a' }), false);
+  assert.equal(slowEditStillWanted(target, { selected: new Set(['b']), busy: false, focusedRow: 'a' }), false);
 });
