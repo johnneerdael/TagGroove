@@ -2,28 +2,74 @@
 
 `.github/workflows/release.yml` builds the same validated commit for five desktop targets, an Android arm64 APK, and an iOS arm64 simulator app. Only the final job can publish. It waits for every required build, verifies platform manifests and SHA256 hashes, creates or reuses an unpublished draft, uploads the complete asset set, verifies GitHub's asset digests, and then publishes.
 
-Current `0.1.0` packages are development prereleases. Android and iOS packages are **UI previews**: document editing and save-back integration is still in progress in this release source. Desktop feature parity and remaining runtime qualification are recorded in [PARITY.md](PARITY.md).
+Every merge to `main` publishes a full GitHub release (not a prerelease) marked as the latest release, so testers can always download the newest build. Pre-1.0 releases say "Release (pre-1.0)" in their notes. Android and iOS packages are **UI previews**: document editing and save-back integration is still in progress. Desktop feature parity and remaining runtime qualification are recorded in [PARITY.md](PARITY.md).
 
-## Triggering a release
+## How versions are derived
 
-Keep the version identical in `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json`. The tag must be exactly `v` plus that version, currently `v0.1.0`. Any existing tag must point to the checked-out workflow commit. Every build checks out the resolved immutable commit, rather than a moving branch.
+`package.json`, `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json`, `Cargo.lock` (the `opentag` entry), `package-lock.json` and the iOS project files carry the **base version**, currently `0.2.0`. It must be a plain `<major>.<minor>.0`.
 
-Land the workflow and release source on the repository's default branch before publication. GitHub's current [release API permissions](https://docs.github.com/en/rest/releases/releases#create-a-release) restrict creating releases when the target commit changes workflow files relative to the default branch; the normal workflow token cannot acquire the extra Workflows permission. Publishing a landed default-branch snapshot avoids needing an additional personal access token.
+For a push to `main`, the release version is `<major>.<minor>.<n>`, where `n` is the number of first-parent commits on `main` since the commit that set the base version (`git rev-list --count --first-parent <base commit>..HEAD`). The commit that lands the base version is `v0.2.0`; the next merge is `v0.2.1`, then `v0.2.2`, and so on. Each merge adds one first-parent commit, however many commits its branch had, so versions follow the order of merges, increase strictly and never depend on the runner, the clock or earlier releases. The same commit always gets the same version, so reruns are deterministic.
 
-Either push the release tag or run the workflow manually. The manual tag input can be empty: preparation derives `v<package version>` from the selected source. The prerelease input defaults to true. Version `0.x` and versions with a semantic-version prerelease suffix are always published as prereleases, even if the input is false.
+`scripts/release.mjs prepare` computes the version and tag once; every build job then runs `scripts/release.mjs stamp`, which writes that version into the files listed above in its checkout. Stamping includes `Cargo.lock` so `--locked` builds still pass. Stamped versions are never committed. The app's update check, the installer metadata, the Android `versionName`/`versionCode` and the iOS bundle version all report the stamped release version.
+
+Tauri computes the Android `versionCode` as `major * 1000000 + minor * 1000 + patch`, so the patch must stay below 1000. Preparation fails once `main` reaches 1000 merges for one base version; bump the minor version before then.
+
+GitHub keeps only the newest pending run in the serialized release queue. Merges that arrive while a release is building are released together by the next run, and the versions of the skipped intermediate commits are never published.
+
+### Bumping the minor or major version
+
+Change the base version in one commit, for example to `0.3.0` or `1.0.0`, using the stamping script so every file and lockfile agrees:
 
 ```sh
-gh workflow run release.yml --ref main -f tag=v0.1.0 -F prerelease=true
+node scripts/release.mjs stamp 0.3.0
+git commit -am "release: start 0.3 series"
 ```
 
-Alternatively, create and push a tag on the intended landed commit:
+Merging that commit to `main` publishes `v0.3.0`, and later merges publish `v0.3.1`, `v0.3.2`, and so on. Only increase the base version, and always reset the patch to `0`; preparation rejects a base such as `0.3.4`.
+
+### Explicit releases and prereleases
+
+Explicit tags cannot use a number that automatic releases will take later. A tag must either equal `v` plus the base version, or carry a prerelease suffix:
 
 ```sh
-git tag v0.1.0 <release-commit>
-git push origin v0.1.0
+gh workflow run release.yml --ref main -f tag=v0.3.0-beta.1
 ```
 
-Do not move a published tag or overwrite a public release. Preparation and publication both reject an already published release. A failed draft upload remains unpublished; rerun failed jobs using the same source commit. The final job may replace stale assets only on a draft for that exact commit. Release runs are serialized so a manual run and a tag-triggered run cannot race one another.
+A suffix such as `-beta.1` always publishes a prerelease, even if the `prerelease` input is false. Pushing the same tag on the intended landed commit also works:
+
+```sh
+git tag v0.3.0-beta.1 <release-commit>
+git push origin v0.3.0-beta.1
+```
+
+Running the workflow manually with an empty `tag` derives the automatic version for the selected commit, exactly like a push to `main`. That only publishes commits already on `main`, because a commit from another branch would claim a number that a later merge needs; use a suffixed tag for other branches.
+
+### Dry run
+
+The `dry_run` input resolves the version and tag, stamps a checkout and checks that `cargo metadata --locked` and `npm ci` accept the stamped files. It builds and publishes nothing:
+
+```sh
+gh workflow run release.yml --ref <branch> -F dry_run=true
+```
+
+## Publication rules
+
+Land the workflow and release source on the repository's default branch before publication. GitHub's current [release API permissions](https://docs.github.com/en/rest/releases/releases#create-a-release) restrict creating releases when the target commit changes workflow files relative to the default branch; the normal workflow token cannot acquire the extra Workflows permission. Every automatic release targets a commit on `main`, so this never applies to it.
+
+Every build checks out the resolved immutable commit, rather than a moving branch. The publish step creates the tag `v<version>` on that exact commit when it publishes the release. Any existing tag must already point to that commit.
+
+Do not move a published tag or overwrite a public release. Releases are idempotent:
+
+- If a published release for that tag and commit already exists, preparation reports it and the run skips every build, so rerunning a finished run publishes nothing new.
+- A published release or a tag for that version on a different commit fails the run.
+- A failed draft upload remains unpublished. Rerunning the failed jobs reuses the plan from the original run and updates the same draft. The final job may replace stale assets only on a draft for that exact commit.
+- A rerun of an older run never takes "latest" from a newer published release.
+
+Release runs are serialized so a manual run, a tag push and a merge cannot race one another.
+
+## Release notes
+
+The publish step asks GitHub to [generate release notes](https://docs.github.com/en/rest/releases/releases#generate-release-notes-content-for-a-release) since the newest earlier release tag reachable from the commit, which lists the merged pull request titles. If that request fails, the notes fall back to the first-parent commit subjects from `git log`. The download table, the signing status (Windows and Linux packages are unsigned, macOS builds are ad-hoc signed and not notarized) and the mobile preview limitations follow the notes.
 
 ## Required build outputs
 
@@ -71,7 +117,7 @@ node --test tests/release.test.mjs
 actionlint .github/workflows/release.yml
 ```
 
-The script tests cover version/tag/commit mismatch, forced development prereleases, exact platform coverage, missing and mixed manifests, tampered local files, duplicate asset formats, already published releases, upload failures, missing/wrong server SHA256 digests, draft pagination, publication order, banner/signing notes, and app archive fallback. They do not prove that the remote workflow ran or that built packages install correctly.
+The script tests cover automatic version derivation from a real git history (merge commits, multi-commit branches, base bumps), the Android versionCode limit, explicit-tag rules, stamping every manifest and `Cargo.lock`, rerun no-ops, "latest" selection, release-note fallback, version/tag/commit mismatch, forced development prereleases, exact platform coverage, missing and mixed manifests, tampered local files, duplicate asset formats, already published releases, upload failures, missing/wrong server SHA256 digests, draft pagination, publication order, banner/signing notes, and app archive fallback. They do not prove that the remote workflow ran or that built packages install correctly.
 
 Inspect the actual workflow run and release after publication:
 
@@ -81,6 +127,6 @@ gh release view v0.1.0
 gh release download v0.1.0 --dir release-verification
 ```
 
-From the downloaded directory, verify the checksum list with the platform's SHA256 tool (`sha256sum -c SHA256SUMS` on Linux, or `shasum -a 256 -c SHA256SUMS` on macOS). Confirm the release is a prerelease, all required platform assets exist, the source commit matches, and the banner and parity links resolve. Installer launches, mobile document access/save-back, same-device behavior, original-runtime differential tests, and signing/notarization qualification remain separate checks.
+From the downloaded directory, verify the checksum list with the platform's SHA256 tool (`sha256sum -c SHA256SUMS` on Linux, or `shasum -a 256 -c SHA256SUMS` on macOS). Confirm the release is a full release (or a prerelease for a suffixed tag), all required platform assets exist, the source commit matches, and the banner and parity links resolve. Installer launches, mobile document access/save-back, same-device behavior, original-runtime differential tests, and signing/notarization qualification remain separate checks.
 
 A failed build prevents the final job from running. A failed publication leaves a draft; no partial release becomes public. Missing GitHub asset digests fail explicitly rather than assuming that matching names or sizes prove integrity. If a public release needs correction, publish a new version instead of replacing existing downloads.
