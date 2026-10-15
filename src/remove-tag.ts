@@ -18,7 +18,10 @@ function kinds(remove:{remove_id3v1:boolean;remove_id3v2:boolean;remove_ape:bool
   const names=[remove.remove_id3v1&&'ID3v1',remove.remove_id3v2&&'ID3v2',remove.remove_ape&&'APE'].filter((name):name is string=>!!name);
   return names.length?list(names):`nothing (no tag type is checked under Options → Tags → ${page})`;
 }
-/** Confirmation text: which tag kinds each format family loses. */
-export function removeTagPrompt(count:number,tags:Pick<TagOptions,'mpeg'|'ape'>){
-  return`Remove tags from ${count} selected file${count===1?'':'s'}?\n\nMP3, TTA: ${kinds(tags.mpeg,'Mpeg')}\nAPE, MPC, WavPack, TAK, OptimFROG: ${kinds(tags.ape,'Ape, Mpc')}\nOther formats: all tags`;
+/** Translate each UI row before joining: catalog wording cannot collapse the confirmation's layout. */
+export function removeTagPrompt(count:number,tags:Pick<TagOptions,'mpeg'|'ape'>,translate:(text:string)=>string=text=>text){
+  return [translate(`Remove tags from ${count} selected file${count===1?'':'s'}?`),'',
+    translate(`MP3, TTA: ${kinds(tags.mpeg,'Mpeg')}`),
+    translate(`APE, MPC, WavPack, TAK, OptimFROG: ${kinds(tags.ape,'Ape, Mpc')}`),
+    translate('Other formats: all tags')].join('\n');
 }

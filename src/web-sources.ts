@@ -108,7 +108,7 @@ export class WebSourcesUI {
   /** Web sources and their configuration entries for the Tag Sources menu. */
   menuHTML() {
     const reason = this.host.reason(), last = this.host.last();
-    const sources = menuTree(this.listing.sources.map((source,index) => ({menu:source.menu,markup:raw => `<button data-web-source="${index}" ${reason ? 'disabled' : ''} title="${html(reason || source.name)}"><span translate="no">${mnemonicMarkup(raw)}…</span>${source.id === last ? `<small>${this.host.shortcut}</small>` : ''}</button>`})));
+    const sources = menuTree(this.listing.sources.map((source,index) => ({menu:source.menu,markup:raw => `<button data-web-source="${index}" ${reason ? 'disabled' : `data-verbatim="${html(source.name)}"`} title="${html(reason || source.name)}"><span translate="no">${mnemonicMarkup(raw)}…</span>${source.id === last ? `<small>${this.host.shortcut}</small>` : ''}</button>`})));
     const settings = menuTree(this.listing.settings.map((entry,index) => ({menu:entry.menu,markup:raw => `<button data-web-settings="${index}"><span translate="no">${mnemonicMarkup(raw)}…</span></button>`})));
     const problems = this.listing.problems.length ? `<p class="menu-note" title="${html(this.listing.problems.map(p => `${p.file}: ${p.error}`).join('\n'))}">${this.listing.problems.length} tag source file${this.listing.problems.length === 1 ? '' : 's'} could not be read.</p>` : '';
     return `${sources ? `<hr>${sources}` : ''}${problems}${settings ? `<hr>${settings}` : ''}<hr>`;

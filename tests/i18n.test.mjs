@@ -9,6 +9,7 @@ const load=async file=>{
   return import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
 };
 const core=await load('i18n/core.ts');
+const {removeTagPrompt}=await load('remove-tag.ts');
 const {Translator,parse,placeholders,validateCatalog,resolveLanguage,catalogMeta,normalize,languageSet}=core;
 const catalogs={};
 for(const file of await readdir(new URL('../src/i18n/catalogs/',import.meta.url)))catalogs[file.replace('.json','')]=JSON.parse(await readFile(new URL(`../src/i18n/catalogs/${file}`,import.meta.url),'utf8'));
@@ -142,6 +143,10 @@ test('copying the generated language template adds the filename locale without r
   }
   assert.deepEqual(validateCatalog(english,template),{missing:[],unknown:[],placeholders:[],invalid:[]});
   assert.equal(template['Save tags'],'Save tags');assert.equal(english['@meta'].locale,'en');
+  // User catalogs translate the individual UI rows; the app retains the paragraph/row layout.
+  const user={...template,'Remove tags from {count} selected files?':'Delete metadata from {count} tracks?','Other formats: all tags':'Everything else: all metadata'};
+  const translator=new Translator('en',user),tags={mpeg:{remove_id3v1:true},ape:{remove_ape:true}};
+  assert.equal(removeTagPrompt(2,tags,text=>translator.translate(text)),'Delete metadata from 2 tracks?\n\nMP3, TTA: ID3v1\nAPE, MPC, WavPack, TAK, OptimFROG: APE\nEverything else: all metadata');
   assert.deepEqual(catalogMeta({'@meta':{name:'Français',locale:'fr'}},'custom.json'),{locale:'fr',name:'Français'});
 });
 test('the language follows the choice, then the system languages by region and base language, then English',()=>{
@@ -170,6 +175,7 @@ for(const locale of ['nl','de']){
     const catalog=catalogs[locale];
     assert.equal(catalog['@meta'].locale,locale);
     assert.deepEqual(validateCatalog(english,catalog),{missing:[],unknown:[],placeholders:[],invalid:[]});
+    if(locale==='de')assert.equal(new Translator(locale,catalog).translate('Ctrl Shift Del'),'Strg Umschalt Entf');
   });
   test(`rendered English text reaches the right ${locale} translation`,()=>{
     const translator=new Translator(locale,catalogs[locale]),wrong=[];

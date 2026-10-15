@@ -19,6 +19,8 @@ const {contextMenuMarkup}=await load('row-context-menu.ts');
 const {ToolsUI,toolsOptionsPage}=await load('tools.ts'),{installHelperMenus}=await load('helper-menu.ts');
 const {copyAsTextDialog}=await load('utils-ui.ts'),{PlaylistUI}=await load('playlist-ui.ts'),{openTagToTag}=await load('tag-tag-ui.ts');
 const {FileOpsUI}=await load('file-ops.ts');
+const {removeTagPrompt}=await load('remove-tag.ts');
+const {WebSourcesUI}=await import(await moduleUrl('web-sources.ts',{"'./action-ui'":JSON.stringify(await moduleUrl('action-ui.ts'))}));
 const main=await source('main.ts'),parsed=ts.createSourceFile('main.ts',main,ts.ScriptTarget.Latest,true);
 const tagSourceParsed=ts.createSourceFile('tag-sources.ts',await source('tag-sources.ts'),ts.ScriptTarget.Latest,true);
 const row=parsed.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text==='rowMarkup').getText(parsed);
@@ -37,7 +39,7 @@ const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;
 function modal(p){return(title,content,buttons)=>{const dialog=p.window.document.createElement('dialog');dialog.innerHTML=`<header>${esc(title)}</header>${content}<footer>${buttons}</footer>`;p.body.append(dialog);dialog.setAttribute('open','');return dialog;};}
 function mainTemplate(needle,values,index=0){
   const templates=[];
-  const visit=node=>{if(ts.isTemplateExpression(node)&&node.head.text.startsWith(needle))templates.push(node);ts.forEachChild(node,visit);};visit(parsed);
+  const visit=node=>{if(ts.isTemplateExpression(node)&&(typeof needle==='function'?needle(node):node.head.text.startsWith(needle)))templates.push(node);ts.forEachChild(node,visit);};visit(parsed);
   const template=templates[index];
   assert.ok(template,`Production template ${needle}`);
   const js=ts.transpileModule(`return ${template.getText(parsed)};`,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
@@ -60,6 +62,18 @@ function page(){
 const memory=()=>{const data=new Map();return{getItem:key=>data.get(key)??null,setItem:(key,value)=>data.set(key,value)};};
 
 for(const locale of ['de','nl']){
+  test(`${locale}: web-source names remain verbatim in enabled tooltips while disabled reasons translate`,()=>{
+    const p=page();let reason='';
+    try{
+      const ui=new WebSourcesUI({reason:()=>reason,last:()=>null,shortcut:'Ctrl+I'});
+      ui.listing.sources=['Help','Title'].map(name=>({id:name,menu:name,name,search_by:[],direct:false}));
+      p.body.innerHTML=ui.menuHTML();const t=p.translate(locale);
+      assert.deepEqual([...p.body.querySelectorAll('[data-web-source]')].map(button=>button.title),['Help','Title']);
+      reason='Select files first.';p.body.innerHTML=ui.menuHTML();p.translate(locale);
+      for(const button of p.body.querySelectorAll('[data-web-source]')){assert.equal(button.title,t.t(reason));assert.ok(button.disabled);}
+      assert.deepEqual([...p.body.querySelectorAll('[data-web-source] > span')].map(span=>span.textContent),['Help…','Title…']);
+    }finally{p.close();}
+  });
   for(const newline of ['\n','\r\n'])test(`${locale}: native file confirmations preserve data and paragraphs (${JSON.stringify(newline)})`,async()=>{
     const translator=new Translator(locale,catalogs[locale]),calls=[];
     const nativeSource=(await source('i18n/dialog.ts')).replace(/^import .*;\r?\n/gm,'').replace(/^export /gm,'');
@@ -74,6 +88,21 @@ for(const locale of ['de','nl']){
       if(operation==='file-copy'||operation==='file-move')assert.ok(message.includes(destination));
       assert.notEqual(options.title,operation==='file-copy'?'Copy files':operation==='file-move'?'Move files':operation==='file-delete'?'Delete files':'Delete permanently');
       assert.equal(options.okLabel,translator.t('OK'));assert.equal(options.cancelLabel,translator.t('Cancel'));
+    }
+    const tags={mpeg:{remove_id3v1:true,remove_id3v2:false,remove_ape:false},ape:{remove_id3v1:false,remove_id3v2:false,remove_ape:true}};
+    await confirm(removeTagPrompt(2,tags,text=>translator.translate(text)).replace(/\n/g,newline),'Remove tag');
+    const removal=calls.at(-1)[0];
+    assert.ok(removal.includes(`${newline}${newline}MP3, TTA: ID3v1${newline}APE, MPC, WavPack, TAK, OptimFROG: APE${newline}`),removal);
+    assert.notEqual(removal.split(newline)[0],'Remove tags from 2 selected files?');
+    assert.notEqual(removal.split(newline).at(-1),'Other formats: all tags');
+    for(const size of [0,1,2]){
+      const filename=`Help  ${newline}Title.json`;
+      const prompt=mainTemplate(node=>node.head.text===''&&node.getText(parsed).includes('OpenTag reloads its window'),{translate:text=>translator.translate(text),basename:path=>path,path:filename,drafts:{size}});
+      await confirm(prompt.replace(/\r?\n/g,newline),'Load configuration');
+      const configuration=calls.at(-1)[0];
+      assert.ok(configuration.includes(filename),configuration);
+      assert.ok(configuration.includes(`${newline}${newline}${translator.t('OpenTag reloads its window afterwards. The Discogs access token is not part of a configuration file.')}`),configuration);
+      assert.notEqual(configuration.split(newline)[0].startsWith('Replace the current options'),true);
     }
   });
   test(`${locale}: generated copy, playlist and tag-to-tag previews retain data and translate their controls`,async()=>{
