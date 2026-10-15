@@ -52,7 +52,7 @@ before the artist field loses it.
     - **Format string:**
 
         ```text
-        %title% (feat. $regexp(%artist%,'^.*?\s+(?:feat\.?|ft\.?|featuring)\s+',''))
+        %title% (feat. $regexp(%artist%,'^.*?\s+(?:feat\.?|ft\.?|featuring)\s+',))
         ```
 
 4. Add a **Replace with regular expression** action below it:
@@ -83,8 +83,8 @@ sides requires whole words, so a name like *Kraftwerk* is safe.
 | Part | Gives |
 |---|---|
 | `%title%` | `Paper Boats` |
-| ` (feat. ` | plain text |
-| `$regexp(%artist%,'^.*?\s+(?:feat\.?|ft\.?|featuring)\s+','')` | the artist with everything up to and including `feat.` removed: `Mira Solberg` |
+| <code> (feat. </code> | plain text |
+| `$regexp(%artist%,'^.*?\s+(?:feat\.?|ft\.?|featuring)\s+',)` | the artist with everything up to and including `feat.` removed: `Mira Solberg` |
 | `)` | plain text (outside a function, `)` has no special meaning) |
 
 `.*?` is *lazy*: it takes as little as possible, so the match stops at the

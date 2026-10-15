@@ -99,6 +99,26 @@ class PrerequisiteParser(HTMLParser):
             self.items.append(self.stack.pop())
 
 
+class CodeParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.codes = []
+        self.current = None
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "code":
+            self.current = ""
+
+    def handle_data(self, text):
+        if self.current is not None:
+            self.current += text
+
+    def handle_endtag(self, tag):
+        if tag == "code" and self.current is not None:
+            self.codes.append(self.current)
+            self.current = None
+
+
 class GuideContentTests(unittest.TestCase):
     def test_first_session_has_installation_checkbox_and_download_link(self):
         root = HOOK.parents[2]
@@ -117,6 +137,23 @@ class GuideContentTests(unittest.TestCase):
         self.assertEqual(len(matches), 1)
         self.assertEqual(matches[0]["checkboxes"], 1)
         self.assertIn("https://github.com/johnneerdael/opentag/releases/latest", matches[0]["links"])
+
+
+    def test_regex_examples_preserve_copyable_edge_spaces(self):
+        root = HOOK.parents[2]
+        with tempfile.TemporaryDirectory() as output:
+            result = subprocess.run(
+                [sys.executable, "-m", "mkdocs", "build", "--strict", "-f",
+                 str(root / "mkdocs.yml"), "--site-dir", output],
+                cwd=root,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            parser = CodeParser()
+            parser.feed((Path(output) / "reference/regular-expressions/index.html").read_text())
+        for expected in [" ", r" \(Interlude\)", "Low Tide "]:
+            self.assertIn(expected, parser.codes)
 
 
 if __name__ == "__main__":

@@ -30,7 +30,7 @@ row says otherwise:
 
 | Syntax | Meaning | Example | Result |
 |---|---|---|---|
-| plain text | Copied as it is | `Live at ` | `Live at ` |
+| plain text | Copied as it is | <code>Live at </code> | <code>Live at </code> |
 | `%field%` | The field's value ([placeholder](placeholders.md)) | `%artist%` | `Juniper Vale` |
 | `%_name%` | Information about the file | `%_extension%` | `mp3` |
 | `$function(…)` | A scripting function | `$upper(%album%)` | `HARBOUR LIGHTS` |
@@ -123,7 +123,7 @@ and dropped completely, with its text, when none has:
 | `%album%[ (%year%)]` | `YEAR` not set | `Harbour Lights` |
 | `[CD%discnumber% - ]%title%` | `DISCNUMBER` not set | `Lanterns on the Water` |
 | `[CD%discnumber% - ]%title%` | `DISCNUMBER` = `2` | `CD2 - Lanterns on the Water` |
-| `[%artist% & %albumartist%]` | `ARTIST` set, `ALBUMARTIST` not set | `Juniper Vale & ` |
+| `[%artist% & %albumartist%]` | `ARTIST` set, `ALBUMARTIST` not set | <code>Juniper Vale &amp; </code> |
 | `[(live)]` | anything | *(empty)* |
 
 Things to know:
@@ -291,7 +291,7 @@ values only. Characters you type yourself are kept.
 |---|---|---|
 | `%artist%\%title%` | `ARTIST` = `AC/DC`, `TITLE` = `Live: Encore` | `AC_DC\Live_ Encore` |
 | `$replace(%artist%,/,-)\%title%` | `ARTIST` = `AC/DC` | `AC-DC\…` |
-| `%genre%\%artist%` | **Replace folder separator** set to ` - `, `GENRE` = `Folk/Rock` | `Folk - Rock\Juniper Vale` |
+| `%genre%\%artist%` | **Replace folder separator** set to <code> - </code>, `GENRE` = `Folk/Rock` | `Folk - Rock\Juniper Vale` |
 | `[CD$num(%discnumber%,1)\]%title%` | `DISCNUMBER` = `2` | `CD2\Lanterns on the Water` |
 | `[CD$num(%discnumber%,1)\]%title%` | `DISCNUMBER` not set | `Lanterns on the Water` |
 | `$if(%discnumber%,CD%discnumber%\,)%title%` | `DISCNUMBER` = `2` | `CD2\Lanterns on the Water` |

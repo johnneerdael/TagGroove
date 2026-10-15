@@ -30,6 +30,7 @@ python3 -m venv /tmp/opentag-docs
 /tmp/opentag-docs/bin/python -m unittest discover -s docs/tests -v
 /tmp/opentag-docs/bin/python -m mkdocs build --strict
 python3 scripts/docs-status.py
+cargo test -p tag-core --test user_guide --locked
 ```
 
 On Windows, create the environment outside the checkout, for example with
@@ -38,6 +39,10 @@ On Windows, create the environment outside the checkout, for example with
 Preview with `/tmp/opentag-docs/bin/python -m mkdocs serve`, then check both color
 modes, narrow screens, navigation, search, screenshots and copyable examples.
 The generated site is `build/user-guide-site/`; do not commit that output.
+The Rust documentation tests execute the published regex tables and selected
+format-string, date and recipe examples against OpenTag's core. They require
+the development prerequisites from README; they do not establish Mp3tag
+runtime parity.
 
 Run `python3 scripts/docs-status.py --drafts` to find unfinished pages, or
 `--coverage` to compare the plan with the original feature checklist.

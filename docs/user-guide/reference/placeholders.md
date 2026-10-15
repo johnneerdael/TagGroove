@@ -145,7 +145,7 @@ without artwork.
 
 Dates use your system's date format. For a fixed format, pass the `_raw`
 value to `$fmtdate`:
-`$fmtdate(%_file_mod_datetime_raw%,'%Y-%m-%d')`.
+`$fmtDate('yyyy-MM-dd',%_file_mod_datetime_raw%)`.
 
 The creation-time placeholders are empty on file systems that don't record
 when a file was created (many Linux file systems).

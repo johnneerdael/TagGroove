@@ -54,7 +54,7 @@ To match one of them literally, put a backslash in front: `\.`, `\(`, `\?`.
 
 | Text | Pattern | Replacement | Result |
 |---|---|---|---|
-| `Fog Horn (Interlude)` | ` \(Interlude\)` | *(empty)* | `Fog Horn` |
+| `Fog Horn (Interlude)` | <code> &#92;(Interlude&#92;)</code> | *(empty)* | `Fog Horn` |
 | `Who's There?` | `\?` | *(empty)* | `Who's There` |
 
 ## 2. Character classes: one character from a set
@@ -79,8 +79,8 @@ them: `[\]]`. A `-` is literal at the start or end of the class: `[_-]`.
 
 | Text | Pattern | Replacement | Result |
 |---|---|---|---|
-| `paper_boats` | `_` | ` ` | `paper boats` |
-| `06_the_keeper's_song` | `[_.]` | ` ` | `06 the keeper's song` |
+| `paper_boats` | `_` | <code> </code> | `paper boats` |
+| `06_the_keeper's_song` | `[_.]` | <code> </code> | `06 the keeper's song` |
 | `Track 07` | `\d` | `#` | `Track ##` |
 | `Salt & Cedar!` | `[^\w\s]` | *(empty)* | `Salt  Cedar` |
 
@@ -100,9 +100,9 @@ A quantifier after a character or class says how often it may repeat.
 | Text | Pattern | Replacement | Result |
 |---|---|---|---|
 | `Track 07` | `\d+` | `#` | `Track #` |
-| `Low··Tide···` (`·` is a space) | `\s{2,}` | ` ` | `Low Tide ` |
+| `Low··Tide···` (`·` is a space) | `\s{2,}` | <code> </code> | <code>Low Tide </code> |
 | `colour, color` | `colou?r` | `hue` | `hue, hue` |
-| `03 - Paper Boats` | `\d+ - ` | *(empty)* | `Paper Boats` |
+| `03 - Paper Boats` | <code>&#92;d+ - </code> | *(empty)* | `Paper Boats` |
 
 ### Greedy and lazy
 
@@ -133,8 +133,8 @@ Anchors match a *position*, not a character.
 
 | Text | Pattern | Replacement | Result |
 |---|---|---|---|
-| `07 Fog Horn 07` | `^\d+ ` | *(empty)* | `Fog Horn 07` |
-| `07 Fog Horn 07` | ` \d+$` | *(empty)* | `07 Fog Horn` |
+| `07 Fog Horn 07` | <code>^&#92;d+ </code> | *(empty)* | `Fog Horn 07` |
+| `07 Fog Horn 07` | <code> &#92;d+$</code> | *(empty)* | `07 Fog Horn` |
 | `the other theme` | `\bthe\b` | `a` | `a other theme` |
 | `··Low Tide·` | `^\s+|\s+$` | *(empty)* | `Low Tide` |
 
@@ -154,7 +154,7 @@ Parentheses do three jobs:
 |---|---|---|---|
 | `Vale, Juniper` | `^(\w+), (\w+)$` | `$2 $1` | `Juniper Vale` |
 | `The Lanterns` | `^The (.+)$` | `$1, The` | `Lanterns, The` |
-| `North Pier (Live)` | ` \((Live|Demo)\)$` | ` [$1]` | `North Pier [Live]` |
+| `North Pier (Live)` | <code> &#92;((Live&#124;Demo)&#92;)$</code> | <code> [$1]</code> | `North Pier [Live]` |
 | `2024-05-01` | `^(\d{4}).*` | `$1` | `2024` |
 
 Use `(?:…)` for a group that only groups and doesn't capture. Its contents
@@ -278,7 +278,7 @@ Replaces every match of a regular expression in a text.
 
 | Format string | With these values | Result |
 |---|---|---|
-| `$regexp(%title%,'\s*\(feat\. [^)]+\)','')` | `TITLE` = `Paper Boats (feat. Mira Solberg)` | `Paper Boats` |
+| `$regexp(%title%,'\s*\(feat\. [^)]+\)',)` | `TITLE` = `Paper Boats (feat. Mira Solberg)` | `Paper Boats` |
 | `$regexp(%title%,'^.*\(feat\. ([^)]+)\).*$','$1')` | same | `Mira Solberg` |
 | `$regexp(%year%,'^(\d{4}).*$','$1')` | `YEAR` = `2024-05-01` | `2024` |
 | `$regexp(%artist%,'^The (.+)$','$1, The')` | `ARTIST` = `The Lanterns` | `Lanterns, The` |
@@ -290,7 +290,7 @@ Replaces every match of a regular expression in a text.
 Inside a format string, `$`, `%`, `[`, `]`, `'`, `,` and `)` have their own
 meaning (see [Special characters](format-strings.md#special-characters)), and
 regular expressions are full of them. **Put the pattern and the replacement
-in single quotes**, and you never have to think about it:
+in single quotes** to keep their syntax literal:
 
 ```text
 $regexp(%title%,'^(\d+)[ ._-]+(.+)$','$2 [$1]')
@@ -304,6 +304,13 @@ write an apostrophe as `''`:
 $regexp(%title%,'(?<![\w''])(\w)','\u$1')
 ```
 
+To remove matches, leave the replacement argument empty after its comma:
+
+```text
+$regexp(%title%,'\s*\(feat\. [^)]+\)',)
+```
+
+Do not use `''` as an empty replacement: it means one literal apostrophe.
 Backslashes need no doubling: format strings don't treat `\` specially.
 
 !!! warning "Gotcha: no match means no change"
@@ -374,17 +381,18 @@ results, then use an action to make the change.
 ## A pattern library
 
 Copy, paste, adapt. Each row is ready to use in `$regexp` (with the quotes
-shown) or, without the quotes, in the action.
+shown) or, without the quotes, in the action. **Leave empty** means no text
+after the last comma in `$regexp`, or an empty replacement box in the action.
 
 | Goal | Pattern | Replacement | Before → After |
 |---|---|---|---|
-| Remove a leading track number | `'^\d+[\s._-]*'` | `''` | `03_Paper Boats` → `Paper Boats` |
+| Remove a leading track number | `'^\d+[\s._-]*'` | **Leave empty** | `03_Paper Boats` → `Paper Boats` |
 | Underscores to spaces | `'_'` | `' '` | `the_keeper's_song` → `the keeper's song` |
 | Collapse repeated spaces | `'\s{2,}'` | `' '` | `Low··Tide` → `Low Tide` |
-| Trim spaces at both ends | `'^\s+|\s+$'` | `''` | `·Low Tide·` → `Low Tide` |
-| Remove a "(Remastered …)" suffix | `'\s*\((Remaster(ed)?|Live)[^)]*\)$'` | `''` | `North Pier (Remastered 2021)` → `North Pier` |
-| Remove anything in square brackets | `'\s*\[[^\]]*\]'` | `''` | `Low Tide [Bonus]` → `Low Tide` |
-| Remove "feat." from a title | `'\s*\(feat\. [^)]+\)'` | `''` | `Paper Boats (feat. Mira Solberg)` → `Paper Boats` |
+| Trim spaces at both ends | `'^\s+|\s+$'` | **Leave empty** | `·Low Tide·` → `Low Tide` |
+| Remove a "(Remastered …)" suffix | `'\s*\((Remaster(ed)?|Live)[^)]*\)$'` | **Leave empty** | `North Pier (Remastered 2021)` → `North Pier` |
+| Remove anything in square brackets | `'\s*\[[^\]]*\]'` | **Leave empty** | `Low Tide [Bonus]` → `Low Tide` |
+| Remove "feat." from a title | `'\s*\(feat\. [^)]+\)'` | **Leave empty** | `Paper Boats (feat. Mira Solberg)` → `Paper Boats` |
 | Swap "Last, First" | `'^([^,]+), (.+)$'` | `'$2 $1'` | `Vale, Juniper` → `Juniper Vale` |
 | Move "The" to the end | `'^The (.+)$'` | `'$1, The'` | `The Lanterns` → `Lanterns, The` |
 | Keep the year of a date | `'^(\d{4}).*$'` | `'$1'` | `2024-05-01` → `2024` |
