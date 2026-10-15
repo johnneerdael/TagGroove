@@ -222,7 +222,7 @@ pub async fn copy_tag_covers(
 }
 
 /// A pasted cover list entry, saved with the file's pending tags.
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Deserialize, Clone, Debug, PartialEq)]
 pub struct PendingCover {
     digest: String,
     picture_type: String,

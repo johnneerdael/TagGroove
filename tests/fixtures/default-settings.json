@@ -17,7 +17,11 @@
     "advanced": {
       "id3v2_comment_language": "eng",
       "popularimeter_ratings": false,
-      "matroska_video_mapping": true
+      "matroska_video_mapping": true,
+      "list_chapters": false,
+      "mp4_single_atom": true,
+      "reuse_mp4_atoms": false,
+      "reuse_id3v2_frames": false
     },
     "preserve_modified_time": false,
     "mappings": []

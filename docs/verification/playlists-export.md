@@ -21,7 +21,7 @@ Scope: loading playlists and cue sheets, File → Playlist (all files / selected
   - `..` is normalised.
 - **Text encoding:** a byte order mark decides when present. Otherwise `.m3u8` is read as UTF-8, and other files are read as UTF-8 when the bytes are valid UTF-8 and as the ANSI codepage otherwise (Windows-1252 when no codepage is known).
 - **Unresolvable entries:** missing files and stream URLs are listed in the error panel as `<playlist>: Line N: <entry>: file not found`. The status line counts the entries that were not loaded. All other entries still load.
-- **Cue sheets:** loading a cue sheet loads the audio files named by its `FILE` lines, quoted or unquoted. The tracks inside a single image file are not shown as separate virtual entries.
+- **Cue sheets:** loading a cue sheet lists one row per `TRACK` of a `FILE` that holds several tracks (an image file), with TITLE/PERFORMER/INDEX and the other cue fields; a `FILE` with one track loads that file itself. See [chapters.md](chapters.md).
 - **List order:** loading a playlist clears the column sort, so the list shows the playlist order. **View → Unsorted (load and playlist order)** brings this order back after a header click. Without a sort, the list keeps the order in which files were loaded.
 - **Working directory:** the loaded playlist provides `%_playlist_filename%`, `%_playlist_filename_ext%` and `%_playlist_folderpath%` to the playlist filename format. Its folder becomes the folder for relative playlist names.
 

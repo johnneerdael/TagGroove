@@ -102,9 +102,9 @@ sample tables of the chapter track. Two sources are read:
   `stco`/`co64`. Samples are a 16-bit length followed by UTF-8 or BOM-marked
   UTF-16 text.
 
-Nero chapters are used when both exist. They appear read-only as `_CHAPTERS`
-and `_SUBSONG_COUNT`. Writing MP4 chapters, like Mp3tag's per-chapter
-subsongs, is not implemented.
+Nero chapters are used when both exist. They appear as the `CHAPTERS` field
+and `_SUBSONG_COUNT`; writing chapters and listing them as rows are covered in
+[chapters.md](chapters.md).
 
 **Utils → Strip chapters MP4** is in the Tools menu and in the file list's
 Utils section, and is disabled with a reason when no selected MP4 has
@@ -159,7 +159,7 @@ Automated (all pass):
   unchanged, and Remove Tag leaves no chapters.
 - `crates/tag-core/tests/mp4_chapters.rs`: ffmpeg `.mp4` (AAC), `.m4b` (AAC)
   and `.m4a` (ALAC) files with both chapter kinds.
-  - `_CHAPTERS`, including UTF-8 titles, is read from Nero chapters, and from
+  - `CHAPTERS`, including UTF-8 titles, is read from Nero chapters, and from
     the QuickTime track once `chpl` is disabled.
   - Strip keeps the file length; ffprobe then lists no chapters and identical
     packet hashes.
@@ -202,11 +202,10 @@ executable that receives the album folder.
   (OptimFROG), but no file from the original encoders was tested.
 - `.ofs` (OptimFROG DualStream) is detected by the same `OFR ` header, and its
   `_CODEC` is also `OptimFROG`.
-- Matroska `CHAPTERS` editing flattens nested chapters. Chapters bound to
-  other segments or ordered editions are rewritten as plain chapters if the
-  user edits `CHAPTERS`; nothing changes unless the field is edited.
-- MP4 chapters are read-only, and Mp3tag's "List chapters as separate files"
-  option is not implemented. Stripping leaves the chapter text samples in
-  `mdat`.
+- Matroska `CHAPTERS` editing keeps nested chapters nested since the chapters
+  batch ([chapters.md](chapters.md)). Chapters bound to other segments or
+  ordered editions keep their other children but are not interpreted.
+- Stripping leaves the chapter text samples in `mdat`. MP4 chapter writing
+  and "List chapters as separate files" are in [chapters.md](chapters.md).
 - Segment Info Title is not shown because the mapping docs do not document
   it.

@@ -63,9 +63,16 @@ jobs:
           name: OpenTag-${{ matrix.os }}
           path: target/release/bundle/
   native-e2e:
-    name: Native UI workflows (headless)
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    name: Native UI workflows (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -77,23 +84,38 @@ jobs:
         with:
           key: native-e2e
       - name: Linux UI dependencies
+        if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf ffmpeg xvfb xauth dbus-x11
+      - name: macOS media fixtures
+        if: runner.os == 'macOS'
+        run: brew install ffmpeg
+      - name: Windows media fixtures
+        if: runner.os == 'Windows'
+        run: choco install ffmpeg --no-progress -y
       - run: npm ci
       - name: Build the debug app once
         run: |
-          npx tauri build --debug --no-bundle \
-            --config '{"identifier":"org.opentag.editor.usertest","productName":"OpenTag UserTest"}'
-      - name: Run native suites under xvfb
+          # macOS runs the binary inside the .app bundle; it carries the test identifier.
+          if [[ "$RUNNER_OS" == macOS ]]; then bundle="--bundles app"; else bundle="--no-bundle"; fi
+          config='{"identifier":"org.opentag.editor.usertest","productName":"OpenTag UserTest"}'
+          if [[ "$RUNNER_OS" != Linux ]]; then
+            config='{"identifier":"org.opentag.editor.usertest","productName":"OpenTag UserTest","app":{"windows":[{"title":"OpenTag","width":1240,"height":800,"minWidth":800,"minHeight":560,"backgroundThrottling":"disabled"}]}}'
+          fi
+          npx tauri build --debug $bundle --config "$config"
+      - name: Run native suites
         run: |
           set -o pipefail
           mkdir -p e2e-output
+          # Linux has no display: xvfb plus a session bus for single-instance
+          # forwarding. macOS and Windows runners have a desktop session.
+          if [[ "$RUNNER_OS" == Linux ]]; then run=(dbus-run-session -- xvfb-run -a); else run=(); fi
           status=0
-          for suite in core-workflows covers actions options-utils playlists freedb-local formats-3 general-options remove-mapping list-behaviour rename-fixes keyboard-extended script-export actions-polish sources-3 keyboard-ui launch-forwarding export-lists; do
+          for suite in core-workflows covers actions options-utils playlists freedb-local formats-3 general-options remove-mapping list-behaviour rename-fixes keyboard-extended script-export actions-polish sources-3 keyboard-ui launch-forwarding export-lists chapters web-sources formats-edge panel-dock chapter-fields library; do
             fixtures=""
             [[ -x "tests/e2e/$suite-fixtures.sh" ]] && fixtures="$PWD/tests/e2e/$suite-fixtures.sh"
             echo "::group::$suite"
-            if ! OPENTAG_E2E_OFFLINE=1 OPENTAG_E2E_FIXTURES="$fixtures" dbus-run-session -- xvfb-run -a scripts/e2e-native.sh "tests/e2e/$suite.js" --no-build 2>&1 | tee "e2e-output/$suite.txt"; then
-              echo "::error::Native suite $suite failed"
+            if ! OPENTAG_E2E_OFFLINE=1 OPENTAG_E2E_FIXTURES="$fixtures" "${run[@]}" scripts/e2e-native.sh "tests/e2e/$suite.js" --no-build 2>&1 | tee "e2e-output/$suite.txt"; then
+              echo "::error::Native suite $suite failed on $RUNNER_OS"
               status=1
             fi
             echo "::endgroup::"
@@ -102,7 +124,7 @@ jobs:
       - if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: native-e2e-output
+          name: native-e2e-output-${{ matrix.os }}
           path: e2e-output/
   android:
     name: Android document integration

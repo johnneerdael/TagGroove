@@ -88,7 +88,7 @@ fn cover_headers_and_mutation_summary_technical_match_full_reads() {
     assert_eq!(a.technical["_COVER_TYPE"], ["Front Cover"]);
     assert_eq!(
         a.technical["_PATH"],
-        [p.canonicalize().unwrap().to_string_lossy()]
+        [dunce::canonicalize(&p).unwrap().to_string_lossy()]
     );
     assert_eq!(a.technical["_FILENAME_EXT"], ["source.wav"]);
     let fields: Fields = [("TITLE".into(), vec!["Edited".into()])]
@@ -273,4 +273,19 @@ fn provider_file_times_match_measured_file_times_without_inventing_creation() {
     }
     assert!(!projected.keys().any(|key| key.starts_with("_FILE_CREATE")));
     assert!(tag_core::file_time_fields(None, None).is_empty());
+}
+#[test]
+fn scanned_paths_are_plain_absolute_paths_that_accept_either_separator() {
+    let d = tempfile::tempdir().unwrap();
+    wav(&d.path().join("plain.wav"));
+    let scan = tag_core::scan_paths(&[d.path().to_string_lossy().into_owned()], false);
+    let path = &scan.entries[0].path;
+    // Windows canonicalization yields verbatim `\\?\C:\…` paths, which reject
+    // the `/` separator that the interface and playlists append.
+    assert!(!path.starts_with(r"\\?\"), "{path}");
+    let folder = path.rsplit_once(['/', '\\']).unwrap().0;
+    assert!(
+        Path::new(&format!("{folder}/plain.wav")).is_file(),
+        "{folder}"
+    );
 }

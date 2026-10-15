@@ -93,6 +93,18 @@ pub struct AdvancedTagOptions {
     /// Use the recommended (video) Matroska mapping for files with a video
     /// track: TITLE at target type 50, ALBUM at 60 and TV episode/season.
     pub matroska_video_mapping: bool,
+    /// List chapters (MP4, Matroska, ID3v2 `CHAP`, embedded cue sheets) as
+    /// separate rows when files are read.
+    pub list_chapters: bool,
+    /// Store the values of a multi-value field as data atoms of one MP4 atom
+    /// (otherwise one atom per value).
+    pub mp4_single_atom: bool,
+    /// Leave a user-defined MP4 atom for a field that has a documented atom
+    /// where it is until the field changes. Off: every save moves it to the
+    /// documented atom.
+    pub reuse_mp4_atoms: bool,
+    /// The same for user-defined ID3v2 (TXXX) frames.
+    pub reuse_id3v2_frames: bool,
 }
 impl Default for AdvancedTagOptions {
     fn default() -> Self {
@@ -100,6 +112,11 @@ impl Default for AdvancedTagOptions {
             id3v2_comment_language: "eng".into(),
             popularimeter_ratings: false,
             matroska_video_mapping: true,
+            list_chapters: false,
+            mp4_single_atom: true,
+            // Mp3tag 3.33.1 and later write the documented mappings by default.
+            reuse_mp4_atoms: false,
+            reuse_id3v2_frames: false,
         }
     }
 }

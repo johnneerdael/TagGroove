@@ -190,7 +190,7 @@ impl Snapshot {
         {
             return Err("Converter inputs must be regular files, not symbolic links".into());
         }
-        let canonical = path.canonicalize().map_err(|e| e.to_string())?;
+        let canonical = dunce::canonicalize(path).map_err(|e| e.to_string())?;
         let (hash, metadata) = digest_file(&canonical)?;
         if writable && metadata.permissions().readonly() {
             return Err("The audio file is read-only".into());
@@ -204,7 +204,7 @@ impl Snapshot {
         })
     }
     fn validate(&self) -> Result<(), String> {
-        if self.requested.canonicalize().map_err(|e| e.to_string())? != self.canonical
+        if dunce::canonicalize(&self.requested).map_err(|e| e.to_string())? != self.canonical
             || !same_metadata(
                 &fs::metadata(&self.canonical).map_err(|e| e.to_string())?,
                 &self.metadata,
@@ -981,8 +981,8 @@ mod tests {
             request.source = TextSource::File { path: template };
             let preview = preview_text(&request).unwrap();
             assert_eq!(
-                fs::canonicalize(preview.source_path.unwrap()).unwrap(),
-                fs::canonicalize(album.join("Album tracks.txt")).unwrap()
+                dunce::canonicalize(preview.source_path.unwrap()).unwrap(),
+                dunce::canonicalize(album.join("Album tracks.txt")).unwrap()
             );
             assert_eq!(preview.items[1].fields["TITLE"], ["Two"]);
         }

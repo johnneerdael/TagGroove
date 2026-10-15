@@ -10,11 +10,11 @@
   const mod = /Mac/.test(navigator.platform) ? { metaKey: true } : { ctrlKey: true };
   const key = (k, o = {}) => (document.activeElement || document.body).dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...o }));
   const rows = () => [...document.querySelectorAll('tr[data-path]')];
-  const row = name => rows().find(r => r.dataset.path.endsWith('/' + name));
+  const row = name => rows().find(r => r.dataset.path.split(/[\\/]/).pop() === name);
   const clickRow = async name => { const r = await waitFor(() => row(name), 8000, 'row ' + name); r.querySelector('td').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })); await sleep(300); };
   const idle = () => waitFor(() => !document.querySelector('footer.status.busy'), 10000, 'idle');
   const op = name => document.querySelector(`button[data-op="${name}"]`);
-  const names = async folder => (await inv('scan_files', { paths: [folder], recursive: true })).entries.map(e => e.path.slice(folder.length + 1)).sort();
+  const names = async folder => (await inv('scan_files', { paths: [folder], recursive: true })).entries.map(e => e.path.slice(folder.length + 1).replace(/\\/g, '/')).sort();
   const results = [];
   const step = async (name, fn) => { try { const detail = await fn(); results.push(['PASS', name]); await report(`PASS ${name}${detail ? ' — ' + detail : ''}`); } catch (e) { results.push(['FAIL', name]); await report(`FAIL ${name} — ${e && e.message || e}`); document.querySelectorAll('dialog[open]').forEach(d => d.close()); } };
   const tagToFilename = async (name, template) => {
@@ -27,7 +27,7 @@
   };
   try {
     await waitFor(() => rows().length >= 2, 15000, 'fixture rows');
-    const album = row('sine-a.mp3').dataset.path.replace(/\/[^/]+$/, '');
+    const album = row('sine-a.mp3').dataset.path.replace(/[\\/][^\\/]+$/, '');
 
     await step('Tag → Filename changes only the letter case and undo restores it', async () => {
       await tagToFilename('sine-a.mp3', '$upper(%_filename%)');
@@ -45,21 +45,21 @@
       const result = await inv('convert_tag_to_tag', { paths: [path], field: '_FILENAME', template: "$replace(%title%,' ','/').MP3", columns: null });
       if (result.errors.length) throw new Error(JSON.stringify(result.errors));
       const target = result.renamed?.[0]?.to || '';
-      if (!target.endsWith(album.split('/').pop() + '/Sine_B.MP3')) throw new Error('renamed to ' + target);
+      if (target.split(/[\\/]/).slice(-2).join('/') !== album.split(/[\\/]/).pop() + '/Sine_B.MP3') throw new Error('renamed to ' + target);
       await inv('undo_last');
       const back = (await names(album)).join('|');
       if (!back.includes('sine-b.mp3')) throw new Error('after undo: ' + back);
-      return target.split('/').pop();
+      return target.split(/[\\/]/).pop();
     });
 
-    const casefold = album.replace(/\/[^/]+$/, '') + '/casefold';
+    const casefold = album.replace(/[\\/][^\\/]+$/, '') + (album.includes('\\') ? '\\' : '/') + 'casefold';
     let folded = [];
     try { folded = await names(casefold); } catch { /* No casefolded volume on this runner. */ }
     if (!folded.length) {
       await report('PASS case-insensitive volume steps skipped — no casefolded folder (local macOS/Windows volumes are covered by cargo tests)');
     } else {
-      const song = (await inv('scan_files', { paths: [casefold], recursive: true })).entries.find(e => e.path.endsWith('/song.mp3')).path;
-      const folder = song.replace(/\/[^/]+$/, '');
+      const song = (await inv('scan_files', { paths: [casefold], recursive: true })).entries.find(e => /[\\/]song\.mp3$/.test(e.path)).path;
+      const folder = song.replace(/[\\/][^\\/]+$/, '');
       await step('case-insensitive volume: case-only file rename, never replacing another file', async () => {
         const first = await inv('rename_files', { paths: [song], template: "'Song'", planToken: null });
         if (first.errors.length) throw new Error(JSON.stringify(first.errors));
@@ -74,7 +74,7 @@
         const file = (await inv('scan_files', { paths: [folder], recursive: false })).entries.find(e => /song\.mp3$/i.test(e.path)).path;
         const result = await inv('apply_action', { paths: [file], action: { type: 'case', field: '_DIRECTORY', mode: 'upper' } });
         if (result.errors.length) throw new Error(JSON.stringify(result.errors));
-        const parent = folder.replace(/\/[^/]+$/, '');
+        const parent = folder.replace(/[\\/][^\\/]+$/, '');
         const after = (await names(parent)).join('|');
         if (!after.startsWith('ALBUM/')) throw new Error('after ' + after);
         await inv('undo_last');

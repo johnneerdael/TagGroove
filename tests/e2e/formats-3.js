@@ -11,7 +11,7 @@
   const status = () => document.querySelector('.status-message')?.textContent || '';
   const key = (k, o = {}) => (document.activeElement || document.body).dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...o }));
   const rows = () => [...document.querySelectorAll('tr[data-path]')];
-  const row = name => rows().find(r => r.dataset.path.endsWith('/' + name));
+  const row = name => rows().find(r => r.dataset.path.split(/[\\/]/).pop() === name);
   const clickRow = async name => { const r = await waitFor(() => row(name), 8000, 'row ' + name); r.querySelector('td').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })); await sleep(300); };
   const scan = async name => (await inv('scan_files', { paths: [row(name).dataset.path], recursive: false })).entries[0];
   const idle = () => waitFor(() => !document.querySelector('footer.status.busy'), 10000, 'idle');
@@ -34,7 +34,7 @@
   try {
     if (!sessionStorage.getItem('formats-3-stage')) {
       await waitFor(() => rows().length >= 6, 15000, 'fixture rows');
-      const album = row('stream.tta').dataset.path.replace(/\/[^/]+$/, '');
+      const album = row('stream.tta').dataset.path.replace(/[\\/][^\\/]+$/, '');
       const settings = (await inv('load_settings')).settings;
       settings.pages = { ...settings.pages, messages: { ...(settings.pages?.messages || {}), confirm_remove_tags: false }, 'directories-startup': { startup: 'previous' } };
       await inv('save_settings', { settings });
@@ -96,7 +96,7 @@
     await step('Strip chapters MP4 removes the chapters and Undo restores them', async () => {
       await clickRow('chapters.m4b');
       const before = await scan('chapters.m4b');
-      if (before.technical._SUBSONG_COUNT?.[0] !== '2') throw new Error(JSON.stringify(before.technical._CHAPTERS));
+      if (before.technical._SUBSONG_COUNT?.[0] !== '2') throw new Error(JSON.stringify(before.fields.CHAPTERS));
       (await ready('strip-mp4-chapters')).click();
       await waitFor(() => /Stripped MP4 chapters/.test(status()), 8000, 'strip status'); await idle();
       const after = await scan('chapters.m4b');
@@ -104,8 +104,8 @@
       await ready('undo'); row('chapters.m4b').focus(); key('z', { metaKey: true });
       await waitFor(() => /Undid/.test(status()), 8000, 'undo status'); await idle();
       const restored = await scan('chapters.m4b');
-      if (restored.technical._CHAPTERS?.join('|') !== before.technical._CHAPTERS.join('|')) throw new Error(JSON.stringify(restored.technical._CHAPTERS));
-      return `${before.technical._CHAPTERS.join(' | ')} → none → ${status()}`;
+      if (restored.fields.CHAPTERS?.join('|') !== before.fields.CHAPTERS.join('|')) throw new Error(JSON.stringify(restored.fields.CHAPTERS));
+      return `${before.fields.CHAPTERS.join(' | ')} → none → ${status()}`;
     });
   } catch (e) {
     await report(`FATAL ${e && e.message || e}`);

@@ -16,15 +16,19 @@ mod media_info;
 mod mp4_chapters;
 #[path = "mp4_layout.rs"]
 mod mp4_layout;
+#[path = "nero_tags.rs"]
+mod nero_tags;
 #[path = "optimize.rs"]
 mod optimize;
+#[path = "subsongs.rs"]
+mod subsongs;
 #[path = "tag_policy.rs"]
 mod tag_policy;
 #[path = "tag_types.rs"]
 mod tag_types;
 #[path = "technical.rs"]
 mod technical;
-use crate::preferences::TagOptions;
+use crate::{id3_frames::ReadSeek, preferences::TagOptions};
 use base64::{engine::general_purpose::STANDARD, Engine};
 pub use cover_manage::*;
 pub use cover_ops::*;
@@ -56,10 +60,15 @@ pub use media_info::{audio_digest, AudioDigest};
 pub use optimize::*;
 use serde::{Deserialize, Serialize};
 use std::{
+    borrow::Cow,
     collections::{BTreeMap, HashSet},
     fs,
     io::{Seek, SeekFrom},
     path::{Path, PathBuf},
+};
+pub use subsongs::{
+    chapter_rows, expand_chapter_rows, subsong_file, subsong_parts, subsong_path, ChapterInfo,
+    SUBSONG_SEPARATOR,
 };
 pub use tag_types::*;
 
@@ -149,6 +158,10 @@ pub struct AudioEntry {
     pub covers: Vec<CoverInfo>,
     #[serde(default)]
     pub technical: Fields,
+    /// Chapters (MP4, Matroska, ID3v2, embedded cue sheet), listed as rows
+    /// of their own with Options → Tags → Advanced → List chapters.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub chapters: Vec<ChapterInfo>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileError {
@@ -175,22 +188,74 @@ fn strict_or_lenient_id3v1<T>(
     }
 }
 
+/// Read an MP4 file. Items whose integer data lofty's strict reader rejects
+/// (see [`crate::mp4_metadata::legacy_integer_items`]) are read leniently and
+/// kept verbatim; any other malformed item still fails the read.
+fn read_mp4<R: std::io::Read + Seek>(
+    reader: &mut R,
+    mut options: ParseOptions,
+) -> Result<Mp4File, String> {
+    let start = reader.stream_position().map_err(|e| e.to_string())?;
+    let error = match Mp4File::read_from(reader, options) {
+        Ok(file) => return Ok(file),
+        Err(error) => error_message(&error),
+    };
+    if !error.contains("unexpected atom size for type \"BE") {
+        return Err(error);
+    }
+    reader
+        .seek(SeekFrom::Start(start))
+        .map_err(|e| e.to_string())?;
+    let (legacy, items) =
+        crate::mp4_metadata::legacy_integer_items(reader).map_err(|e| e.to_string())?;
+    if legacy.is_empty() {
+        return Err(error);
+    }
+    reader
+        .seek(SeekFrom::Start(start))
+        .map_err(|e| e.to_string())?;
+    let mut file = Mp4File::read_from(reader, options.parsing_mode(ParsingMode::Relaxed))
+        .map_err(|e| error_message(&e))?;
+    let mut ilst = file.ilst().cloned().unwrap_or_default();
+    // Only the items the lenient reader dropped are restored; lofty itself
+    // keeps an 8-byte `plID`.
+    let dropped: Vec<_> = legacy
+        .into_iter()
+        .filter(|atom| ilst.get(atom.ident()).is_none())
+        .collect();
+    if ilst.len() + dropped.len() != items {
+        return Err(error);
+    }
+    for atom in dropped {
+        ilst.insert(atom);
+    }
+    file.set_ilst(ilst);
+    Ok(file)
+}
+
 fn load(path: &Path) -> Result<TaggedFile, String> {
+    if subsongs::split_path(path).is_some() {
+        return Err(subsongs::ROW_OPERATION.into());
+    }
     if let Some(stream) = container_formats::detect_stream(path) {
         return container_formats::raw_streams::load(path, stream);
     }
+    let mut source = fs::File::open(path).map_err(|e| e.to_string())?;
     let mut file = strict_or_lenient_id3v1(|mode| {
-        Probe::open(path)
-            .map_err(|e| e.to_string())?
-            .guess_file_type()
-            .map_err(|e| e.to_string())?
-            .options(
-                ParseOptions::new()
-                    .implicit_conversions(false)
-                    .parsing_mode(mode),
-            )
-            .read()
-            .map_err(|e| error_message(&e))
+        crate::id3_frames::read_with_fallback(&mut source, |reader| {
+            reader.seek(SeekFrom::Start(0)).map_err(|e| e.to_string())?;
+            let probe = Probe::new(std::io::BufReader::new(reader))
+                .guess_file_type()
+                .map_err(|e| e.to_string())?;
+            let options = ParseOptions::new()
+                .implicit_conversions(false)
+                .parsing_mode(mode);
+            if probe.file_type() == Some(FileType::Mp4) {
+                return read_mp4(&mut probe.into_inner(), options).map(TaggedFile::from);
+            }
+            probe.options(options).read().map_err(|e| error_message(&e))
+        })
+        .map(|(file, _)| file)
     })?;
     if file.tag(TagType::Ape).is_some() {
         let native = native_tags(
@@ -276,10 +341,13 @@ struct NativeTags {
 // Lofty 0.25 generic conversions discard unknown APE and Vorbis items. Keep
 // their concrete tags, including flags, vendor and binary items, separately.
 fn native_tags(reader: &mut fs::File, kind: FileType) -> Result<NativeTags, String> {
-    strict_or_lenient_id3v1(|mode| native_tags_with(reader, kind, mode))
+    strict_or_lenient_id3v1(|mode| {
+        crate::id3_frames::read_with_fallback(reader, |reader| native_tags_with(reader, kind, mode))
+            .map(|(native, _)| native)
+    })
 }
 fn native_tags_with(
-    reader: &mut fs::File,
+    mut reader: &mut dyn ReadSeek,
     kind: FileType,
     mode: ParsingMode,
 ) -> Result<NativeTags, String> {
@@ -291,7 +359,7 @@ fn native_tags_with(
     let mut native = NativeTags::default();
     match kind {
         FileType::Flac => {
-            let file = FlacFile::read_from(reader, options).map_err(|e| error_message(&e))?;
+            let file = FlacFile::read_from(&mut reader, options).map_err(|e| error_message(&e))?;
             native.id3 = file.id3v2().cloned();
             let mut tag = file.vorbis_comments().cloned().unwrap_or_default();
             for (picture, info) in file.pictures() {
@@ -302,7 +370,7 @@ fn native_tags_with(
         }
         FileType::Vorbis => {
             native.vorbis = Some(
-                VorbisFile::read_from(reader, options)
+                VorbisFile::read_from(&mut reader, options)
                     .map_err(|e| error_message(&e))?
                     .vorbis_comments()
                     .clone(),
@@ -310,7 +378,7 @@ fn native_tags_with(
         }
         FileType::Opus => {
             native.vorbis = Some(
-                OpusFile::read_from(reader, options)
+                OpusFile::read_from(&mut reader, options)
                     .map_err(|e| error_message(&e))?
                     .vorbis_comments()
                     .clone(),
@@ -318,51 +386,50 @@ fn native_tags_with(
         }
         FileType::Speex => {
             native.vorbis = Some(
-                SpeexFile::read_from(reader, options)
+                SpeexFile::read_from(&mut reader, options)
                     .map_err(|e| error_message(&e))?
                     .vorbis_comments()
                     .clone(),
             )
         }
         FileType::Mpeg => {
-            let file = MpegFile::read_from(reader, options).map_err(|e| error_message(&e))?;
+            let file = MpegFile::read_from(&mut reader, options).map_err(|e| error_message(&e))?;
             native.ape = file.ape().cloned();
             native.id3 = file.id3v2().cloned();
         }
         FileType::Ape => {
-            let file = ApeFile::read_from(reader, options).map_err(|e| error_message(&e))?;
+            let file = ApeFile::read_from(&mut reader, options).map_err(|e| error_message(&e))?;
             native.ape = file.ape().cloned();
             native.id3 = file.id3v2().cloned();
         }
         FileType::Mpc => {
-            let file = MpcFile::read_from(reader, options).map_err(|e| error_message(&e))?;
+            let file = MpcFile::read_from(&mut reader, options).map_err(|e| error_message(&e))?;
             native.ape = file.ape().cloned();
             native.id3 = file.id3v2().cloned();
         }
         FileType::WavPack => {
-            native.ape = WavPackFile::read_from(reader, options)
+            native.ape = WavPackFile::read_from(&mut reader, options)
                 .map_err(|e| error_message(&e))?
                 .ape()
                 .cloned()
         }
         FileType::Aac => {
-            native.id3 = AacFile::read_from(reader, options)
+            native.id3 = AacFile::read_from(&mut reader, options)
                 .map_err(|e| error_message(&e))?
                 .id3v2()
                 .cloned()
         }
         FileType::Wav => {
-            let file = WavFile::read_from(reader, options).map_err(|e| error_message(&e))?;
+            let file = WavFile::read_from(&mut reader, options).map_err(|e| error_message(&e))?;
             native.id3 = file.id3v2().cloned();
             native.riff = file.riff_info().cloned();
         }
         FileType::Aiff => {
-            let file = AiffFile::read_from(reader, options).map_err(|e| error_message(&e))?;
+            let file = AiffFile::read_from(&mut reader, options).map_err(|e| error_message(&e))?;
             native.id3 = file.id3v2().cloned();
         }
         FileType::Mp4 => {
-            let file = Mp4File::read_from(reader, options).map_err(|e| error_message(&e))?;
-            native.ilst = file.ilst().cloned();
+            native.ilst = read_mp4(&mut reader, options)?.ilst().cloned();
         }
         _ => {}
     }
@@ -502,7 +569,11 @@ fn describe_with_native(
     let metadata = fs::metadata(path).map_err(|e| e.to_string())?;
     let read = displayed.first().map(|tag| tag.tag_type());
     let technical = technical::collect(path, file, native, &covers, &metadata, read);
-    Ok(AudioEntry {
+    let chapters = match native.id3.as_ref().map(subsongs::id3_chapters) {
+        Some(list) if !list.is_empty() => list.into_iter().map(|(_, c)| c).collect(),
+        _ => subsongs::embedded_cue_chapters(&fields),
+    };
+    let mut entry = AudioEntry {
         path: path.to_string_lossy().into_owned(),
         filename: path
             .file_name()
@@ -536,7 +607,10 @@ fn describe_with_native(
         fields,
         covers,
         technical,
-    })
+        chapters: Vec::new(),
+    };
+    subsongs::attach(&mut entry, chapters);
+    Ok(entry)
 }
 
 pub fn read_entry(path: &Path) -> Result<AudioEntry, String> {
@@ -581,7 +655,10 @@ fn read_description(
     options: &TagOptions,
 ) -> Result<AudioEntry, String> {
     validate_user_mappings(rules)?;
-    let path = path.canonicalize().map_err(|e| e.to_string())?;
+    if let Some((file, number)) = subsongs::split_path(path) {
+        return subsongs::read_row(&file, number, include_cover_data, rules, options);
+    }
+    let path = dunce::canonicalize(path).map_err(|e| e.to_string())?;
     // Before lofty: its MPEG sync search can match bytes inside ASF artwork.
     if asf::sniff(&path) {
         return asf::describe(&path, include_cover_data, rules);
@@ -607,14 +684,19 @@ fn read_description(
         .implicit_conversions(false)
         .parsing_mode(ParsingMode::Strict);
     let mut reader = probe.into_inner();
+    // Stored identifiers of encrypted ID3v2 frames read as placeholders.
+    let mut placeholders = Vec::new();
     macro_rules! read {
         ($ty:ty,$snapshot:expr) => {{
-            let media = strict_or_lenient_id3v1(|mode| {
-                reader.seek(SeekFrom::Start(0)).map_err(|e| e.to_string())?;
-                let mut options = parse_options;
-                <$ty>::read_from(&mut reader, options.parsing_mode(mode))
-                    .map_err(|e| error_message(&e))
+            let (media, names) = strict_or_lenient_id3v1(|mode| {
+                crate::id3_frames::read_with_fallback(&mut reader, |mut reader| {
+                    reader.seek(SeekFrom::Start(0)).map_err(|e| e.to_string())?;
+                    let mut options = parse_options;
+                    <$ty>::read_from(&mut reader, options.parsing_mode(mode))
+                        .map_err(|e| error_message(&e))
+                })
             })?;
+            placeholders = names;
             let native: NativeTags = ($snapshot)(&media);
             (TaggedFile::from(media), native)
         }};
@@ -630,11 +712,15 @@ fn read_description(
             technical: technical::mpeg(f.properties()),
             ..Default::default()
         }),
-        FileType::Mp4 => read!(Mp4File, |f: &Mp4File| NativeTags {
-            ilst: f.ilst().cloned(),
-            technical: technical::mp4(f.properties()),
-            ..Default::default()
-        }),
+        FileType::Mp4 => {
+            let media = read_mp4(&mut reader, parse_options)?;
+            let native = NativeTags {
+                ilst: media.ilst().cloned(),
+                technical: technical::mp4(media.properties()),
+                ..Default::default()
+            };
+            (TaggedFile::from(media), native)
+        }
         FileType::Wav => read!(WavFile, |f: &WavFile| NativeTags {
             id3: f.id3v2().cloned(),
             riff: f.riff_info().cloned(),
@@ -683,7 +769,6 @@ fn read_description(
         }
     };
     if kind == FileType::Mp4 {
-        native.technical.extend(mp4_chapters::technical(&path));
         native
             .technical
             .extend(mp4_chapters::header_technical(&path));
@@ -691,7 +776,36 @@ fn read_description(
     // Enrich APE covers from the already parsed native tag, without a second
     // file read.
     ape_pictures(&native, &mut file)?;
-    describe_with_native(&path, &file, &native, include_cover_data, rules, options)
+    let mut entry =
+        describe_with_native(&path, &file, &native, include_cover_data, rules, options)?;
+    if kind == FileType::Mp4 {
+        mp4_chapters::describe(&path, &mut entry);
+    }
+    name_placeholders(&mut entry.technical, &placeholders);
+    Ok(entry)
+}
+
+/// List encrypted ID3v2 frames read as placeholders under their stored
+/// identifiers in `%_id3v2_unknown_frames%`.
+fn name_placeholders(technical: &mut Fields, names: &[(String, String)]) {
+    if names.is_empty() {
+        return;
+    }
+    if let Some(values) = technical.get_mut("_ID3V2_UNKNOWN_FRAMES") {
+        let mut ids: Vec<String> = values
+            .join(", ")
+            .split(", ")
+            .map(|id| {
+                names
+                    .iter()
+                    .find(|(placeholder, _)| placeholder == id)
+                    .map_or_else(|| id.to_owned(), |(_, stored)| stored.clone())
+            })
+            .collect();
+        ids.sort_unstable();
+        ids.dedup();
+        *values = vec![ids.join(", ")];
+    }
 }
 
 fn audio_extension(path: &Path, allowed: Option<&[String]>) -> bool {
@@ -764,6 +878,15 @@ pub fn scan_paths_with_options(
         &crate::parallel::Silent,
     )
 }
+/// Entries kept between sessions (Options → Library) that stand in for reading
+/// unchanged files. Paths are canonical.
+pub trait EntryCache {
+    /// The stored entry of each path, or `None` where the file must be read.
+    fn lookup(&self, paths: &[PathBuf]) -> Vec<Option<AudioEntry>>;
+    /// Keep entries that were just read from their files.
+    fn store(&self, entries: &[&AudioEntry]);
+}
+
 /// Like [`scan_paths_with_options`], reading files in parallel while reporting
 /// progress. After a cancellation the files read so far are returned.
 pub fn scan_paths_with_progress(
@@ -773,10 +896,28 @@ pub fn scan_paths_with_progress(
     extensions: Option<&[String]>,
     progress: &dyn crate::parallel::Progress,
 ) -> ScanResult {
+    scan_paths_cached(paths, recursive, options, extensions, progress, None)
+}
+/// [`scan_paths_with_progress`] that takes unchanged files from `cache` and
+/// stores the files it had to read there.
+pub fn scan_paths_cached(
+    paths: &[String],
+    recursive: bool,
+    options: &TagOptions,
+    extensions: Option<&[String]>,
+    progress: &dyn crate::parallel::Progress,
+    cache: Option<&dyn EntryCache>,
+) -> ScanResult {
     let mut result = ScanResult::default();
     let mut seen = HashSet::new();
     let mut candidates = Vec::new();
+    let mut rows = Vec::new();
     for raw in paths {
+        // Chapter and cue sheet rows are read as they are.
+        if subsong_parts(raw).is_some() {
+            rows.push(raw);
+            continue;
+        }
         let path = PathBuf::from(raw);
         match fs::metadata(&path) {
             Ok(meta) if meta.is_dir() => {
@@ -806,7 +947,7 @@ pub fn scan_paths_with_progress(
     }
     let mut unique = Vec::new();
     for path in candidates {
-        match path.canonicalize() {
+        match dunce::canonicalize(&path) {
             Ok(canonical) => {
                 if seen.insert(canonical.clone()) {
                     unique.push(canonical);
@@ -819,10 +960,34 @@ pub fn scan_paths_with_progress(
         }
     }
     progress.start(unique.len());
-    let read = crate::parallel::map_ordered(&unique, progress, |canonical| {
+    let mut stored = match cache {
+        Some(cache) => cache.lookup(&unique),
+        None => vec![None; unique.len()],
+    };
+    let missing: Vec<&PathBuf> = unique
+        .iter()
+        .zip(&stored)
+        .filter(|(_, entry)| entry.is_none())
+        .map(|(path, _)| path)
+        .collect();
+    for _ in missing.len()..unique.len() {
+        progress.advance();
+    }
+    let read = crate::parallel::map_ordered(&missing, progress, |canonical| {
         read_entry_summary_with_options(canonical, &options.mappings, options)
     });
-    for (canonical, outcome) in unique.iter().zip(read) {
+    if let Some(cache) = cache {
+        let fresh: Vec<&AudioEntry> = read.iter().flatten().flatten().collect();
+        if !fresh.is_empty() {
+            cache.store(&fresh);
+        }
+    }
+    let mut read = read.into_iter();
+    for (canonical, entry) in unique.iter().zip(stored.iter_mut()) {
+        let outcome = match entry.take() {
+            Some(entry) => Some(Ok(entry)),
+            None => read.next().flatten(),
+        };
         match outcome {
             Some(Ok(entry)) => result.entries.push(entry),
             Some(Err(error)) => result.errors.push(FileError {
@@ -832,7 +997,37 @@ pub fn scan_paths_with_progress(
             None => {}
         }
     }
+    if options.advanced.list_chapters {
+        result.entries = expand_chapter_rows(std::mem::take(&mut result.entries));
+    }
+    for raw in rows {
+        if !seen.insert(PathBuf::from(raw)) {
+            continue;
+        }
+        match read_entry_summary_with_options(Path::new(raw), &options.mappings, options) {
+            Ok(entry) => result.entries.push(entry),
+            Err(error) => result.errors.push(FileError {
+                path: raw.clone(),
+                error,
+            }),
+        }
+    }
     result
+}
+
+/// Write the edits of several rows of one file with chapters (or of one
+/// loaded cue sheet) together; `rows` pairs 1-based subsong numbers with
+/// their field changes. Fields other than the chapter's own are file fields
+/// and must agree between the rows. Returns the rows as read back.
+pub fn write_chapter_rows(
+    file: &Path,
+    rows: &[(usize, Fields)],
+    include_cover_data: bool,
+    options: &TagOptions,
+) -> Result<Vec<AudioEntry>, String> {
+    validate_user_mappings(&options.mappings)?;
+    options.validate()?;
+    subsongs::write_rows(file, rows, include_cover_data, &options.mappings, options)
 }
 
 /// Copy `source` to a new temporary file in `dir`. The copy is created at a
@@ -969,9 +1164,14 @@ where
                 original,
                 staged_path,
                 stream,
-                |staging, original, staged_path| mutation(staging, load(original)?, staged_path),
+                |staging, original, staged_path| {
+                    crate::ape_footer::strip_colliding_header(staging)?;
+                    mutation(staging, load(original)?, staged_path)
+                },
             ),
             None => {
+                // lofty's writers would take such an APE header for ID3v1.
+                crate::ape_footer::strip_colliding_header(staging)?;
                 let file = load(original)?;
                 let flac_id3 =
                     file.file_type() == FileType::Flac && file.tag(TagType::Id3v2).is_some();
@@ -1020,7 +1220,10 @@ where
 {
     validate_user_mappings(rules)?;
     options.validate()?;
-    let path = path.canonicalize().map_err(|e| e.to_string())?;
+    if subsongs::split_path(path).is_some() {
+        return Err(subsongs::ROW_OPERATION.into());
+    }
+    let path = dunce::canonicalize(path).map_err(|e| e.to_string())?;
     let original = fs::metadata(&path).map_err(|e| e.to_string())?;
     if !original.is_file() {
         return Err("The audio path must be a regular file".into());
@@ -1102,13 +1305,34 @@ fn normalized_updates(updates: &Fields, kind: TagType) -> Result<Fields, String>
 /// How a write treats an ID3v2 tag: keep its revision (non-MPEG formats) or
 /// convert it to the configured MPEG revision and encoding.
 #[derive(Clone, Copy)]
-enum Id3Write {
+enum Id3Revision {
     Preserve([u8; 3]),
     Convert(mapping::Id3Target),
 }
+/// How a write treats native tags: the ID3v2 revision, and the Options →
+/// Tags → Advanced settings for MP4 atoms and ID3v2 frames.
+#[derive(Clone, Copy)]
+struct Id3Write {
+    revision: Id3Revision,
+    reuse_id3v2_frames: bool,
+    reuse_mp4_atoms: bool,
+    mp4_single_atom: bool,
+}
 impl Id3Write {
     fn preserving(options: &TagOptions) -> Self {
-        Self::Preserve(options.comment_language())
+        Self::with(Id3Revision::Preserve(options.comment_language()), options)
+    }
+    fn converting(target: mapping::Id3Target, options: &TagOptions) -> Self {
+        Self::with(Id3Revision::Convert(target), options)
+    }
+    fn with(revision: Id3Revision, options: &TagOptions) -> Self {
+        let advanced = &options.advanced;
+        Self {
+            revision,
+            reuse_id3v2_frames: advanced.reuse_id3v2_frames,
+            reuse_mp4_atoms: advanced.reuse_mp4_atoms,
+            mp4_single_atom: advanced.mp4_single_atom,
+        }
     }
 }
 
@@ -1132,14 +1356,23 @@ fn save_preserving_native(
     match tag.tag_type() {
         TagType::Id3v2 => {
             let mut native = originals.id3.unwrap_or_default();
-            let target = match id3 {
-                Id3Write::Preserve(language) => mapping::Id3Target::preserving(&native, language),
-                Id3Write::Convert(target) => {
+            let target = match id3.revision {
+                Id3Revision::Preserve(language) => {
+                    mapping::Id3Target::preserving(&native, language)
+                }
+                Id3Revision::Convert(target) => {
                     mapping::convert_id3_version(&mut native, &target)?;
                     target
                 }
             };
-            mapping::patch_id3(&mut native, updates, &target)?;
+            let mut updates = Cow::Borrowed(updates);
+            if !id3.reuse_id3v2_frames {
+                let moved = mapping::remap_id3(&mut native, &updates, &target);
+                if !moved.is_empty() {
+                    updates.to_mut().extend(moved);
+                }
+            }
+            mapping::patch_id3(&mut native, &updates, &target)?;
             if covers_changed {
                 native.retain(|frame| !matches!(frame, Frame::Picture(_)));
                 let pictures: Id3v2Tag = tag.clone().into();
@@ -1156,14 +1389,21 @@ fn save_preserving_native(
         }
         TagType::Mp4Ilst => {
             let mut native = originals.ilst.unwrap_or_default();
-            mapping::patch_mp4(&mut native, updates)?;
+            let mut updates = Cow::Borrowed(updates);
+            if !id3.reuse_mp4_atoms {
+                let moved = mapping::remap_mp4(&mut native, &updates);
+                if !moved.is_empty() {
+                    updates.to_mut().extend(moved);
+                }
+            }
+            mapping::patch_mp4(&mut native, &updates)?;
             if covers_changed {
                 native.remove_pictures();
                 for picture in tag.pictures() {
                     native.insert_picture(picture.clone());
                 }
             }
-            crate::mp4_metadata::save(staging, &native)
+            crate::mp4_metadata::save(staging, &native, id3.mp4_single_atom)
         }
         TagType::VorbisComments => {
             let mut native = originals.vorbis.unwrap_or_default();
@@ -1233,7 +1473,8 @@ fn save_preserving_native(
                 .map_err(|e| e.to_string())?;
             native
                 .save_to(staging, WriteOptions::default())
-                .map_err(|e| error_message(&e))
+                .map_err(|e| error_message(&e))?;
+            crate::ape_footer::strip_colliding_header(staging)
         }
         TagType::RiffInfo => {
             let mut native = originals.riff.unwrap_or_default();
@@ -1411,6 +1652,16 @@ fn write_fields_result(
     if updates.is_empty() {
         return read_description(path, include_cover_data, rules, options);
     }
+    if let Some((file, number)) = subsongs::split_path(path) {
+        let mut rows = subsongs::write_rows(
+            &file,
+            &[(number, updates.clone())],
+            include_cover_data,
+            rules,
+            options,
+        )?;
+        return Ok(rows.remove(0));
+    }
     if asf::sniff(path) {
         return asf::write_fields(path, updates, include_cover_data, rules, options);
     }
@@ -1429,78 +1680,104 @@ fn write_fields_result(
         include_cover_data,
         rules,
         options,
-        |staging, mut file, staged_path| {
-            if tag_policy::policy(file.file_type()).is_some() {
-                let updates = normalized_updates(updates, TagType::Ape)?;
-                let written = tag_policy::write(
-                    staging,
-                    &file,
-                    rules,
-                    options,
-                    tag_policy::Change::Fields(&updates),
-                )?;
-                return tag_policy::verify_fields(staged_path, rules, options, written, &updates);
-            }
-            let primary = file.primary_tag_type();
-            let updates = normalized_updates(updates, primary)?;
-            // WAV files carry RIFF INFO and ID3v2 (file-formats). A new INFO
-            // chunk starts from every displayed value that has a RIFF id.
-            let mut seeded = None;
-            if file.file_type() == FileType::Wav && file.tag(TagType::RiffInfo).is_none() {
-                let mut values = Fields::new();
-                let native = native_tags(staging, FileType::Wav)?;
-                for tag in ordered_tags(&file) {
-                    for (key, list) in tag_fields(tag, &native, rules, options)? {
-                        values.entry(key).or_insert(list);
-                    }
+        |staging, file, staged_path| {
+            // MP4 chapters are boxes of their own, written after the tag.
+            let mut updates = updates.clone();
+            let chapters = match file.file_type() {
+                FileType::Mp4 => updates
+                    .keys()
+                    .find(|k| k.eq_ignore_ascii_case(subsongs::CHAPTERS_FIELD))
+                    .cloned()
+                    .and_then(|key| updates.remove(&key)),
+                _ => None,
+            };
+            if let Some(values) = chapters {
+                if !updates.is_empty() {
+                    write_tag_fields(staging, file, staged_path, &updates, rules, options)?;
                 }
-                for (name, list) in &updates {
-                    values.retain(|key, _| !key.eq_ignore_ascii_case(name));
-                    values.insert(name.clone(), list.clone());
-                }
-                if map_write_fields(&values, TagType::RiffInfo, rules)?
-                    .iter()
-                    .any(|(name, list)| !list.is_empty() && riff_key(name).is_some())
-                {
-                    file.insert_tag(Tag::new(TagType::RiffInfo));
-                    seeded = Some(values);
-                }
+                return mp4_chapters::write(staging, staged_path, &values);
             }
-            if file.primary_tag().is_none() {
-                file.insert_tag(Tag::new(primary));
-            }
-            let types: Vec<_> = file
-                .tags()
-                .iter()
-                .map(Tag::tag_type)
-                .filter(|t| file.tag_support(*t).is_writable())
-                .collect();
-            for kind in types {
-                let tag = file.remove(kind).ok_or("Tag disappeared during editing")?;
-                let source = match &seeded {
-                    Some(values) if kind == TagType::RiffInfo => values,
-                    _ => &updates,
-                };
-                let native_updates =
-                    normalized_updates(&map_write_fields(source, kind, rules)?, kind)?;
-                save_preserving_native(
-                    staging,
-                    file.file_type(),
-                    &tag,
-                    &native_updates,
-                    false,
-                    Id3Write::preserving(options),
-                )?;
-            }
-            staging
-                .seek(SeekFrom::Start(0))
-                .map_err(|e| e.to_string())?;
-            let actual = read_entry_summary_with_options(staged_path, &[], options)?.fields;
-            let native_updates =
-                normalized_updates(&map_write_fields(&updates, primary, rules)?, primary)?;
-            verify_readback(&actual, &native_updates, primary, false)
+            write_tag_fields(staging, file, staged_path, &updates, rules, options)
         },
     )
+}
+
+/// Write field changes into the tags of a staged lofty-readable file.
+fn write_tag_fields(
+    staging: &mut fs::File,
+    mut file: TaggedFile,
+    staged_path: &Path,
+    updates: &Fields,
+    rules: &[UserFieldMapping],
+    options: &TagOptions,
+) -> Result<(), String> {
+    if tag_policy::policy(file.file_type()).is_some() {
+        let updates = normalized_updates(updates, TagType::Ape)?;
+        let written = tag_policy::write(
+            staging,
+            &file,
+            rules,
+            options,
+            tag_policy::Change::Fields(&updates),
+        )?;
+        return tag_policy::verify_fields(staged_path, rules, options, written, &updates);
+    }
+    let primary = file.primary_tag_type();
+    let updates = normalized_updates(updates, primary)?;
+    // WAV files carry RIFF INFO and ID3v2 (file-formats). A new INFO
+    // chunk starts from every displayed value that has a RIFF id.
+    let mut seeded = None;
+    if file.file_type() == FileType::Wav && file.tag(TagType::RiffInfo).is_none() {
+        let mut values = Fields::new();
+        let native = native_tags(staging, FileType::Wav)?;
+        for tag in ordered_tags(&file) {
+            for (key, list) in tag_fields(tag, &native, rules, options)? {
+                values.entry(key).or_insert(list);
+            }
+        }
+        for (name, list) in &updates {
+            values.retain(|key, _| !key.eq_ignore_ascii_case(name));
+            values.insert(name.clone(), list.clone());
+        }
+        if map_write_fields(&values, TagType::RiffInfo, rules)?
+            .iter()
+            .any(|(name, list)| !list.is_empty() && riff_key(name).is_some())
+        {
+            file.insert_tag(Tag::new(TagType::RiffInfo));
+            seeded = Some(values);
+        }
+    }
+    if file.primary_tag().is_none() {
+        file.insert_tag(Tag::new(primary));
+    }
+    let types: Vec<_> = file
+        .tags()
+        .iter()
+        .map(Tag::tag_type)
+        .filter(|t| file.tag_support(*t).is_writable())
+        .collect();
+    for kind in types {
+        let tag = file.remove(kind).ok_or("Tag disappeared during editing")?;
+        let source = match &seeded {
+            Some(values) if kind == TagType::RiffInfo => values,
+            _ => &updates,
+        };
+        let native_updates = normalized_updates(&map_write_fields(source, kind, rules)?, kind)?;
+        save_preserving_native(
+            staging,
+            file.file_type(),
+            &tag,
+            &native_updates,
+            false,
+            Id3Write::preserving(options),
+        )?;
+    }
+    staging
+        .seek(SeekFrom::Start(0))
+        .map_err(|e| e.to_string())?;
+    let actual = read_entry_summary_with_options(staged_path, &[], options)?.fields;
+    let native_updates = normalized_updates(&map_write_fields(&updates, primary, rules)?, primary)?;
+    verify_readback(&actual, &native_updates, primary, false)
 }
 
 /// Utils → Strip chapters MP4: remove Nero chapters and QuickTime chapter
@@ -1510,6 +1787,9 @@ pub fn strip_mp4_chapters_with_options(
     include_cover_data: bool,
     options: &TagOptions,
 ) -> Result<AudioEntry, String> {
+    if subsongs::split_path(path).is_some() {
+        return Err(subsongs::ROW_OPERATION.into());
+    }
     let mp4 = !asf::sniff(path)
         && container_formats::detect(path).is_none()
         && container_formats::detect_stream(path).is_none()
@@ -1559,20 +1839,33 @@ fn remove_tags_result(
     if let Some(kind) = container_formats::detect(path) {
         return container_formats::remove_tags(path, kind, include_cover_data, options);
     }
-    if tag_policy::removed_kinds(&load(path)?, options)?.is_empty() {
+    let loaded = load(path)?;
+    // Nero tags (per-chapter fields of MP4 files) go with the iTunes tag.
+    let nero = loaded.file_type() == FileType::Mp4
+        && mp4_chapters::scan(path).is_ok_and(|c| c.nero_tags.is_some());
+    if !nero && tag_policy::removed_kinds(&loaded, options)?.is_empty() {
         return read_description(path, include_cover_data, &options.mappings, options);
     }
-    staged_mutation(path, include_cover_data, options, |staging, file, _| {
-        for kind in tag_policy::removed_kinds(&file, options)? {
-            staging
-                .seek(SeekFrom::Start(0))
-                .map_err(|e| e.to_string())?;
-            crate::write_cost::rewrote_all();
-            kind.remove_from(staging, WriteOptions::default())
-                .map_err(|e| e.to_string())?;
-        }
-        Ok(())
-    })
+    staged_mutation(
+        path,
+        include_cover_data,
+        options,
+        |staging, file, staged_path| {
+            for kind in tag_policy::removed_kinds(&file, options)? {
+                staging
+                    .seek(SeekFrom::Start(0))
+                    .map_err(|e| e.to_string())?;
+                crate::write_cost::rewrote_all();
+                kind.remove_from(staging, WriteOptions::default())
+                    .map_err(|e| e.to_string())?;
+            }
+            if nero {
+                staging.sync_all().map_err(|e| e.to_string())?;
+                mp4_chapters::strip_nero_tags(staging, staged_path)?;
+            }
+            Ok(())
+        },
+    )
 }
 
 pub fn add_cover(path: &Path, image: &Path) -> Result<AudioEntry, String> {

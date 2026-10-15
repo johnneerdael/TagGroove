@@ -4,6 +4,8 @@
 #include <limits>
 #include <locale>
 #include <string>
+#include <vector>
+#include <algorithm>
 
 static thread_local std::string last_error;
 
@@ -67,4 +69,24 @@ uint16_t* ot_regex_replace(const void* expression, const uint16_t* text, size_t 
     return nullptr;
 }
 void ot_regex_output_free(uint16_t* text) noexcept { delete[] text; }
+
+// Every non-overlapping match as (start, length) pairs in UTF-16 units.
+size_t* ot_regex_find_all(const void* expression, const uint16_t* text, size_t count, size_t* found) noexcept {
+    try {
+        const auto input = wide(text, count);
+        std::vector<size_t> spans;
+        const auto& pattern = *static_cast<const boost::wregex*>(expression);
+        for (boost::wsregex_iterator it(input.begin(), input.end(), pattern), end; it != end; ++it) {
+            spans.push_back(static_cast<size_t>((*it)[0].first - input.begin()));
+            spans.push_back(static_cast<size_t>((*it)[0].length()));
+        }
+        auto output = new size_t[spans.size() + 1];
+        std::copy(spans.begin(), spans.end(), output);
+        *found = spans.size() / 2;
+        return output;
+    } catch (const std::exception& error) { last_error = error.what(); }
+    catch (...) { last_error = "Unknown regular expression matching error"; }
+    return nullptr;
+}
+void ot_regex_spans_free(size_t* spans) noexcept { delete[] spans; }
 }

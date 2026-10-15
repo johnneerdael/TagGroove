@@ -153,6 +153,9 @@ test('tag source options pages cover freedb and the local freedb folder', async 
   assert.match(markup, /data-option="pages.tag-sources-freedb.address" value="gnudb.gnudb.org"/);
   assert.equal(providerName('local_freedb'), 'freedb (local)');
   assert.ok(isFreedb('freedb') && !isFreedb('discogs'));
+  assert.ok(pages[0].controls.some(control => control.kind === 'checkbox' && control.path === 'pages.tag-sources.web_debug'), 'web source debug output option');
+  assert.equal(providerName('web'), 'Web source');
+  assert.ok(!isFreedb('web'));
 });
 
 test('Ctrl+I repeats the last tag source of any kind', () => {

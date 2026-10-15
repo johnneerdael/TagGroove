@@ -14,13 +14,15 @@
   const status = () => document.querySelector('.status-message')?.textContent || '';
   const errorsText = () => [...document.querySelectorAll('.errors p')].map(p => p.textContent).join(' | ');
   const rows = () => [...document.querySelectorAll('tr[data-path]')];
-  const names = () => rows().map(r => r.dataset.path.split('/').pop());
-  const row = name => rows().find(r => r.dataset.path.endsWith('/' + name));
+  const names = () => rows().map(r => r.dataset.path.split(/[\\/]/).pop());
+  const row = name => rows().find(r => r.dataset.path.split(/[\\/]/).pop() === name);
   // A plain click on the only selected row would start the slow-click cell editor (after 550 ms), which takes the keyboard; such a row is only focused.
   const clickRow = async (name, init = {}) => { const r = await waitFor(() => row(name), 8000, 'row ' + name); if (!Object.keys(init).length && r.classList.contains('selected') && rows().filter(x => x.classList.contains('selected')).length === 1) { r.focus(); await sleep(50); return; } r.querySelector('td').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ...init })); await sleep(250); };
   const idle = () => waitFor(() => !document.querySelector('footer.status.busy'), 15000, 'idle');
   const press = (target, k, o = {}) => { const event = new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...o }); target.dispatchEvent(event); return event; };
   const ctrl = { ctrlKey: true };
+  // Menu shortcuts use ⌘ on macOS and Ctrl elsewhere; Ctrl+Tab and Control-drops are Control everywhere.
+  const mac = /Mac/.test(navigator.platform), primary = mac ? { metaKey: true } : { ctrlKey: true };
   const input = (el, value) => { el.value = value; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); };
   const op = name => document.querySelector(`button[data-op="${name}"]`);
   const openDialog = () => document.querySelector('dialog[open]');
@@ -43,17 +45,17 @@
     await waitFor(() => !document.querySelector('dialog[open].options-dialog'), 5000, 'options closed');
     await idle();
   };
-  const selectAll = async () => { document.body.focus(); press(document.body, 'a', ctrl); await waitFor(() => rows().every(r => r.classList.contains('selected')), 3000, 'all selected'); };
-  const discardAll = async () => { await selectAll(); press(document.body, 'b', ctrl); await waitFor(() => !document.querySelector('.dirty-count'), 3000, 'drafts discarded'); };
+  const selectAll = async () => { document.body.focus(); press(document.body, 'a', primary); await waitFor(() => rows().every(r => r.classList.contains('selected')), 3000, 'all selected'); };
+  const discardAll = async () => { await selectAll(); press(document.body, 'b', primary); await waitFor(() => !document.querySelector('.dirty-count'), 3000, 'drafts discarded'); };
 
   try {
     await waitFor(() => rows().length >= 4, 15000, 'fixture rows');
-    const album = row('sine-a.mp3').dataset.path.replace(/\/[^/]+$/, ''), work = album.replace(/\/[^/]+$/, '');
+    const album = row('sine-a.mp3').dataset.path.replace(/[\\/][^\\/]+$/, ''), work = album.replace(/[\\/][^\\/]+$/, '');
     // Native confirmations cannot be answered here; Options → Messages turns the ones this suite meets off.
     await setOptions('messages', [['pages.messages.confirm_delete_files', false], ['pages.messages.unsaved_changes', false]]);
 
     await step('menus show the remaining reference shortcuts', async () => {
-      const expected = [['Edit', 'file-delete-permanent', 'Ctrl ⇧ Del'], ['File', 'playlist-folders', '⌘/Ctrl ⇧ P'], ['File', 'playlist-all', '⌘/Ctrl P'], ['View', 'toggle-filter', 'F3']];
+      const expected = [['Edit', 'file-delete-permanent', mac ? '⌘⇧⌫ / ⌘⇧Del' : 'Ctrl ⇧ Del'], ['File', 'playlist-folders', '⌘/Ctrl ⇧ P'], ['File', 'playlist-all', '⌘/Ctrl P'], ['View', 'toggle-filter', 'F3']];
       for (const [menu, name, keys] of expected) if (shortcutOf(menu, name) !== keys) throw new Error(`${menu} ${name}: "${shortcutOf(menu, name)}"`);
       const view = menuItem('View');
       if (!view.querySelector('.view-sort-menu [data-sort-menu="title"]') || !view.querySelector('.view-toolbars-menu [data-op="toggle-toolbar"]') || !view.querySelector('[data-op="toolbar-customize"]')) throw new Error('Sort by or Toolbars submenu missing');
@@ -129,9 +131,9 @@
       document.querySelector('[data-op="toolbar-customize"]').click();
       const dlg = await waitFor(() => document.querySelector('dialog[open].toolbar-dialog'), 3000, 'customize dialog');
       const list = dlg.querySelector('.toolbar-items'), checks = () => [...list.querySelectorAll('input[data-show]')].map(box => box.checked);
-      press(list, 'd', ctrl); await sleep(100);
+      press(list, 'd', primary); await sleep(100);
       if (checks().some(Boolean)) throw new Error('Ctrl+D left items shown');
-      press(list, 'e', ctrl); await sleep(100);
+      press(list, 'e', primary); await sleep(100);
       if (!checks().every(Boolean)) throw new Error('Ctrl+E left items hidden');
       press(list, 'Home'); press(list, ' '); await sleep(100);
       if (checks()[0]) throw new Error('Space did not hide the first item');
@@ -168,16 +170,16 @@
       const groupRows = () => [...dlg.querySelectorAll('[data-group-row]')], marked = () => groupRows().filter(r => r.classList.contains('marked')).map(r => r.querySelector('span').textContent);
       if (groupRows().length !== 3) throw new Error('groups ' + groupRows().length);
       groupRows()[0].querySelector('span').dispatchEvent(new MouseEvent('click', { bubbles: true }));
-      groupRows()[2].querySelector('span').dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true }));
+      groupRows()[2].querySelector('span').dispatchEvent(new MouseEvent('click', { bubbles: true, ...primary }));
       if (marked().join() !== 'Alpha,Gamma') throw new Error('Ctrl+click marked ' + marked());
-      press(groupRows()[2], 'A', { ctrlKey: true, shiftKey: true });
+      press(groupRows()[2], 'A', { ...primary, shiftKey: true });
       if (marked().join() !== 'Beta') throw new Error('Ctrl+Shift+A marked ' + marked());
-      press(dlg.querySelector('[data-group-row].current'), 'a', ctrl);
+      press(dlg.querySelector('[data-group-row].current'), 'a', primary);
       if (marked().join() !== 'Alpha,Beta,Gamma') throw new Error('Ctrl+A marked ' + marked());
       press(dlg.querySelector('[data-group-row].current'), ' ');
       if (groupRows().some(r => r.querySelector('input').checked)) throw new Error('Space did not disable every selected group');
       groupRows()[0].querySelector('span').dispatchEvent(new MouseEvent('click', { bubbles: true }));
-      groupRows()[2].querySelector('span').dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true }));
+      groupRows()[2].querySelector('span').dispatchEvent(new MouseEvent('click', { bubbles: true, ...primary }));
       press(dlg.querySelector('[data-group-row].current'), 'ArrowUp', { altKey: true });
       const order = groupRows().map(r => r.querySelector('span').textContent).join();
       if (order !== 'Alpha,Gamma,Beta') throw new Error('Alt+↑ order ' + order);
@@ -193,7 +195,7 @@
       }
       const actions = () => [...editor.querySelectorAll('[data-action-index]')];
       if (actions().length !== 2) throw new Error('actions ' + actions().length);
-      press(actions()[0], 'a', ctrl);
+      press(actions()[0], 'a', primary);
       if (actions().filter(a => a.classList.contains('marked')).length !== 2) throw new Error('Ctrl+A in the action list');
       press(editor.querySelector('[data-action-index]'), 'Delete');
       if (actions().length) throw new Error('Delete left actions');
@@ -202,19 +204,19 @@
 
     await step('Ctrl+Shift+P writes one playlist per folder of all files; Ctrl+P asks for the file name', async () => {
       await clickRow('sine-a.mp3');
-      press(document.body, 'P', { ctrlKey: true, shiftKey: true });
+      press(document.body, 'P', { ...primary, shiftKey: true });
       await waitFor(() => /Created 2 playlists with 4 files/.test(status()), 8000, 'per-folder playlists (status "' + status() + '" errors "' + errorsText() + '")');
       const top = await inv('read_playlist', { path: album + '/album.m3u8' }), sub = await inv('read_playlist', { path: album + '/sub/sub.m3u8' });
       if (top.files.length !== 3 || sub.files.length !== 1 || !sub.files[0].endsWith('sine-sub.mp3')) throw new Error(`playlists ${top.files.length}/${sub.files.length}`);
-      press(document.body, 'p', ctrl);
+      press(document.body, 'p', primary);
       const dlg = await waitFor(() => document.querySelector('dialog[open].playlist-dialog'), 3000, 'playlist dialog');
-      return `album.m3u8 ${top.files.length} files, sub/sub.m3u8 ${sub.files.length}; Ctrl+P: ${dlg.querySelector('#playlist-filename').value.split('/').pop()}`;
+      return `album.m3u8 ${top.files.length} files, sub/sub.m3u8 ${sub.files.length}; Ctrl+P: ${dlg.querySelector('#playlist-filename').value.split(/[\\/]/).pop()}`;
     });
 
     await step('Tag Sources: field multi-selection with Ctrl+A, Ctrl+Shift+A and Space; Ctrl+I and Ctrl+Shift+I reopen the last source', async () => {
       await setOptions('tag-sources-local-freedb', [['local-freedb-directory', work + '/freedb']]);
-      await clickRow('sine-a.mp3'); await clickRow('sine-b.mp3', { ctrlKey: true });
-      document.body.focus(); press(document.body, 'l', ctrl);
+      await clickRow('sine-a.mp3'); await clickRow('sine-b.mp3', primary);
+      document.body.focus(); press(document.body, 'l', primary);
       const d = await waitFor(() => document.querySelector('dialog.tag-source-dialog[open]'), 5000, 'freedb dialog');
       const mode = d.querySelector('#ts-mode'); mode.value = 'disc_id'; mode.dispatchEvent(new Event('change', { bubbles: true }));
       d.querySelector('#ts-text').value = '0A000802'; d.querySelector('#ts-search').click();
@@ -223,23 +225,23 @@
       await waitFor(() => d.querySelector('.ts-fields tr[data-row]'), 10000, 'review');
       const fieldRows = () => [...d.querySelectorAll('.ts-fields tr[data-row]')], selectedRows = () => fieldRows().filter(r => r.classList.contains('selected'));
       fieldRows()[0].querySelector('th').dispatchEvent(new MouseEvent('click', { bubbles: true }));
-      fieldRows()[2].querySelector('th').dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true }));
+      fieldRows()[2].querySelector('th').dispatchEvent(new MouseEvent('click', { bubbles: true, ...primary }));
       if (selectedRows().length !== 2) throw new Error('⌘/Ctrl+click selected ' + selectedRows().length);
-      press(fieldRows()[0], 'A', { ctrlKey: true, shiftKey: true });
+      press(fieldRows()[0], 'A', { ...primary, shiftKey: true });
       if (selectedRows().length !== fieldRows().length - 2) throw new Error('Ctrl+Shift+A selected ' + selectedRows().length);
-      press(fieldRows()[0], 'a', ctrl);
+      press(fieldRows()[0], 'a', primary);
       if (selectedRows().length !== fieldRows().length) throw new Error('Ctrl+A selected ' + selectedRows().length);
       fieldRows()[1].focus(); press(fieldRows()[1], ' ');
       const boxes = fieldRows().map(r => r.querySelector('input[type=checkbox]').checked);
       if (boxes.some(Boolean)) throw new Error('Space left fields enabled');
       if (!/Choose at least one field/.test(d.querySelector('.ts-status').textContent) && !d.querySelector('#ts-apply').disabled) throw new Error('apply state');
       d.close(); await sleep(200);
-      press(document.body, 'i', ctrl);
+      press(document.body, 'i', primary);
       const again = await waitFor(() => document.querySelector('dialog.tag-source-dialog[open]'), 5000, 'Ctrl+I dialog');
       if (again.getAttribute('aria-label') !== 'freedb (local)') throw new Error('Ctrl+I opened ' + again.getAttribute('aria-label'));
       const idleText = again.querySelector('.ts-status').textContent;
       again.close(); await sleep(200);
-      press(document.body, 'I', { ctrlKey: true, shiftKey: true });
+      press(document.body, 'I', { ...primary, shiftKey: true });
       const quick = await waitFor(() => document.querySelector('dialog.tag-source-dialog[open]'), 5000, 'Ctrl+Shift+I dialog');
       await waitFor(() => quick.querySelector('.ts-status').textContent !== idleText, 8000, 'quick search ran without pressing Search');
       // The Ctrl+I hint follows the last-used source in the Tag Sources menu.
@@ -343,7 +345,7 @@
     await step('Ctrl+Shift+Del deletes the selected file permanently', async () => {
       const path = row('zz-delete.mp3').dataset.path;
       await clickRow('zz-delete.mp3'); row('zz-delete.mp3').focus();
-      press(row('zz-delete.mp3'), 'Delete', { ctrlKey: true, shiftKey: true });
+      press(row('zz-delete.mp3'), 'Delete', { ...primary, shiftKey: true });
       await waitFor(() => !row('zz-delete.mp3'), 5000, 'row removed (status "' + status() + '" errors "' + errorsText() + '")');
       const scan = await inv('scan_files', { paths: [path], recursive: false });
       if (scan.entries.length) throw new Error('file still on disk');

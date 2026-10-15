@@ -2,13 +2,17 @@
 // Toolbars shows or hides it and opens Customize toolbar, where items are shown,
 // hidden, renamed and reordered with the keys of Mp3tag's customization dialog
 // (docs.mp3tag.de/keyboard/ → Toolbar Customization). Hovering or focusing a
-// button shows its description in the status bar.
+// button shows its description in the status bar. Spacers push the items after
+// them to the far end. The Custom Toolbar is a second toolbar that starts empty
+// and takes commands, external tools (Options → Tools) and action groups.
 // Standalone (no imports), so the rules are unit-tested directly.
 
 export type ToolbarItem={id:string;visible:boolean;label?:string};
 export type ToolbarConfig={shown:boolean;items:ToolbarItem[]};
 export type ToolbarCommand={label:string;icon?:string;hint:string};
-export const SEPARATOR='separator';
+export const SEPARATOR='separator',SPACER='spacer';
+/** Custom toolbar items that run a tool or an action group, by name. */
+export const TOOL_PREFIX='tool:',ACTION_PREFIX='action:';
 
 /** Commands that can sit on the toolbar, with the status-bar hint shown on hover. */
 export const TOOLBAR_COMMANDS:Record<string,ToolbarCommand>={
@@ -50,22 +54,40 @@ export function defaultToolbar():ToolbarConfig{
     hidden('source-musicbrainz'),hidden('source-discogs'),hidden('cover-manage'),hidden('file-reveal'),hidden('file-play'),hidden('toggle-panel'),hidden('toggle-filter'),hidden('options')]};
 }
 export const isSeparator=(id:string)=>id.startsWith(SEPARATOR);
-/** Saved toolbar settings: unknown commands are dropped, labels trimmed, and commands added in later versions appended hidden. */
-export function normalizeToolbar(value:unknown):ToolbarConfig{
-  const fallback=defaultToolbar();
+export const isSpacer=(id:string)=>id.startsWith(SPACER);
+/** Separators and spacers: layout items without a command. */
+export const isDivider=(id:string)=>isSeparator(id)||isSpacer(id);
+const named=(id:string,prefix:string)=>id.startsWith(prefix)&&!!id.slice(prefix.length).trim()&&id.length<=prefix.length+200;
+const savedItems=(value:unknown,accept:(id:string)=>boolean)=>{
   const saved=value&&typeof value==='object'?value as Partial<ToolbarConfig>:{};
-  if(!Array.isArray(saved.items))return{...fallback,shown:saved.shown!==false};
   const seen=new Set<string>(),items:ToolbarItem[]=[];
-  for(const item of saved.items){
-    if(!item||typeof item.id!=='string'||seen.has(item.id)||!(isSeparator(item.id)||item.id in TOOLBAR_COMMANDS))continue;
+  for(const item of Array.isArray(saved.items)?saved.items:[]){
+    if(!item||typeof item.id!=='string'||seen.has(item.id)||!(isDivider(item.id)||accept(item.id)))continue;
     seen.add(item.id);
-    const label=typeof item.label==='string'&&item.label.trim()&&!isSeparator(item.id)?item.label.trim().slice(0,60):undefined;
+    const label=typeof item.label==='string'&&item.label.trim()&&!isDivider(item.id)?item.label.trim().slice(0,60):undefined;
     items.push({id:item.id,visible:item.visible!==false,...(label?{label}:{})});
   }
+  return{shown:saved.shown,items:Array.isArray(saved.items)?items:undefined};
+};
+/** Saved toolbar settings: unknown commands are dropped, labels trimmed, and commands added in later versions appended hidden. */
+export function normalizeToolbar(value:unknown):ToolbarConfig{
+  const fallback=defaultToolbar(),saved=savedItems(value,id=>id in TOOLBAR_COMMANDS);
+  if(!saved.items)return{...fallback,shown:saved.shown!==false};
+  const seen=new Set(saved.items.map(item=>item.id)),items=saved.items;
   for(const item of fallback.items)if(!isSeparator(item.id)&&!seen.has(item.id))items.push({...item,visible:false});
   return{shown:saved.shown!==false,items};
 }
-export const itemLabel=(item:ToolbarItem)=>isSeparator(item.id)?'Separator':item.label||TOOLBAR_COMMANDS[item.id]?.label||item.id;
+/** The Custom Toolbar: commands, tools and action groups the user added (shown, but empty, by default). */
+export function normalizeCustomToolbar(value:unknown):ToolbarConfig{
+  const saved=savedItems(value,id=>id in TOOLBAR_COMMANDS||named(id,TOOL_PREFIX)||named(id,ACTION_PREFIX));
+  return{shown:saved.shown!==false,items:saved.items??[]};
+}
+export const itemLabel=(item:ToolbarItem)=>isSeparator(item.id)?'Separator':isSpacer(item.id)?'Spacer':item.label||TOOLBAR_COMMANDS[item.id]?.label
+  ||(item.id.startsWith(TOOL_PREFIX)?item.id.slice(TOOL_PREFIX.length):item.id.startsWith(ACTION_PREFIX)?item.id.slice(ACTION_PREFIX.length):item.id);
+/** Status-bar hint of any toolbar item. */
+export const itemHint=(id:string)=>TOOLBAR_COMMANDS[id]?.hint||(id.startsWith(TOOL_PREFIX)?`Tool: start ${id.slice(TOOL_PREFIX.length)} for the selected files`:id.startsWith(ACTION_PREFIX)?`Action group: apply ${id.slice(ACTION_PREFIX.length)} to the selected files`:'');
+/** A new separator or spacer id not used in `items`. */
+export function dividerId(items:ToolbarItem[],kind:typeof SEPARATOR|typeof SPACER){let n=1;while(items.some(item=>item.id===`${kind}-${n}`))n++;return`${kind}-${n}`;}
 
 export type ToolbarKey='edit'|'toggle'|'show-all'|'hide-all'|'up'|'down'|'top'|'bottom';
 /** Toolbar Customization keys: F4 edits, Space shows or hides, Ctrl+E / Ctrl+D (⌘ on macOS) show or hide all, Alt+↑/↓/Page Up/Page Down move. */
@@ -82,7 +104,7 @@ export function moveToolbarItem(items:ToolbarItem[],index:number,move:'up'|'down
   if(index<0||index>=items.length||target<0||target>=items.length||target===index)return{items,index};
   const next=[...items],[item]=next.splice(index,1);next.splice(target,0,item);return{items:next,index:target};
 }
-/** Visible items as rendered: separators at the start, the end or next to another separator are left out. */
+/** Visible items as rendered: separators at the start, the end or next to another separator are left out; spacers stay. */
 export function visibleItems(items:ToolbarItem[]):ToolbarItem[]{
   const result:ToolbarItem[]=[];
   for(const item of items.filter(item=>item.visible)){if(isSeparator(item.id)&&(!result.length||isSeparator(result[result.length-1].id)))continue;result.push(item);}
@@ -91,30 +113,36 @@ export function visibleItems(items:ToolbarItem[]):ToolbarItem[]{
 }
 
 const html=(value:unknown)=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
+export type ToolbarChoice={id:string;label:string;group:string};
 export type ToolbarHost={
   config:()=>ToolbarConfig;
   save:(config:ToolbarConfig)=>Promise<void>;
   mac:()=>boolean;
+  /** The Custom Toolbar: items are added from these choices and removed again. */
+  custom?:{choices:()=>ToolbarChoice[]};
 };
-/** View → Toolbars → Customize toolbar. */
+/** View → Toolbars → Customize main toolbar / Customize custom toolbar. */
 export function customizeToolbar(host:ToolbarHost){
   if(document.querySelector('.toolbar-dialog'))return;
+  const custom=host.custom,title=custom?'Customize custom toolbar':'Customize toolbar';
   let items=structuredClone(host.config().items),current=0,editing=false;
-  const dialog=document.createElement('dialog');dialog.className='toolbar-dialog';dialog.setAttribute('aria-label','Customize toolbar');document.body.append(dialog);
-  dialog.innerHTML=`<header>Customize toolbar</header><div class="dialog-content"><p>Checked items are shown on the main toolbar, in this order. Space shows or hides the selected item, F4 renames it, ⌘/Ctrl E shows all and ⌘/Ctrl D hides all, Alt ↑ ↓ and Alt Page Up / Page Down move it.</p>
+  const dialog=document.createElement('dialog');dialog.className='toolbar-dialog';dialog.setAttribute('aria-label',title);document.body.append(dialog);
+  const choices=custom?.choices()??[],groups=[...new Set(choices.map(choice=>choice.group))];
+  const adder=custom?`<div class="toolbar-add"><label class="field"><span>Add to the custom toolbar</span><select id="toolbar-choice">${groups.map(group=>`<optgroup label="${html(group)}">${choices.filter(choice=>choice.group===group).map(choice=>`<option value="${html(choice.id)}">${html(choice.label)}</option>`).join('')}</optgroup>`).join('')}</select></label><button type="button" data-tb="add">Add</button></div>`:'';
+  dialog.innerHTML=`<header>${title}</header><div class="dialog-content"><p>${custom?'The custom toolbar shows commands, tools (Options → Tools) and action groups next to the main toolbar. Add items below; checked items are shown, in this order.':'Checked items are shown on the main toolbar, in this order.'} Space shows or hides the selected item, F4 renames it, ⌘/Ctrl E shows all and ⌘/Ctrl D hides all, Alt ↑ ↓ and Alt Page Up / Page Down move it. A spacer pushes the items after it to the far end.</p>${adder}
     <div class="toolbar-config"><div class="group-list toolbar-items" role="listbox" aria-label="Toolbar items" tabindex="0"></div>
-    <div class="group-buttons"><button type="button" data-tb="edit">Rename…</button><button type="button" data-tb="separator">Add separator</button><button type="button" data-tb="up">↑ Move up</button><button type="button" data-tb="down">↓ Move down</button><button type="button" data-tb="show-all">Show all</button><button type="button" data-tb="hide-all">Hide all</button><button type="button" data-tb="reset">Reset</button></div></div></div>
+    <div class="group-buttons"><button type="button" data-tb="edit">Rename…</button><button type="button" data-tb="separator">Add separator</button><button type="button" data-tb="spacer">Add spacer</button>${custom?'<button type="button" data-tb="remove">Remove</button>':''}<button type="button" data-tb="up">↑ Move up</button><button type="button" data-tb="down">↓ Move down</button><button type="button" data-tb="show-all">Show all</button><button type="button" data-tb="hide-all">Hide all</button><button type="button" data-tb="reset">${custom?'Clear':'Reset'}</button></div></div></div>
     <div class="dialog-footer"><button type="button" data-close>Cancel</button><button type="button" class="primary" id="toolbar-ok">OK</button></div>`;
   const list=dialog.querySelector<HTMLElement>('.toolbar-items')!;
   const render=()=>{
     current=Math.max(0,Math.min(current,items.length-1));
-    list.innerHTML=items.map((item,index)=>`<div class="group-row ${index===current?'current':''}" role="option" id="toolbar-item-${index}" data-item="${index}" aria-selected="${index===current}"><input type="checkbox" tabindex="-1" data-show="${index}" aria-label="Show ${html(itemLabel(item))}" ${item.visible?'checked':''}><span>${html(itemLabel(item))}</span><small>${isSeparator(item.id)?'':html(TOOLBAR_COMMANDS[item.id]?.hint||'')}</small></div>`).join('');
+    list.innerHTML=items.map((item,index)=>`<div class="group-row ${index===current?'current':''}" role="option" id="toolbar-item-${index}" data-item="${index}" aria-selected="${index===current}"><input type="checkbox" tabindex="-1" data-show="${index}" aria-label="Show ${html(itemLabel(item))}" ${item.visible?'checked':''}><span>${html(itemLabel(item))}</span><small>${html(itemHint(item.id))}</small></div>`).join('')||'<p class="group-empty">No items yet. Choose a command, tool or action group and press Add.</p>';
     list.setAttribute('aria-activedescendant',`toolbar-item-${current}`);
     list.querySelector('.current')?.scrollIntoView({block:'nearest'});
     list.querySelectorAll<HTMLInputElement>('[data-show]').forEach(box=>box.addEventListener('change',()=>{items[Number(box.dataset.show)].visible=box.checked;}));
   };
   const edit=()=>{
-    const item=items[current];if(!item||isSeparator(item.id)||editing)return;
+    const item=items[current];if(!item||isDivider(item.id)||editing)return;
     const row=list.querySelector<HTMLElement>(`[data-item="${current}"] span`);if(!row)return;
     editing=true;const input=document.createElement('input');input.className='toolbar-rename';input.value=itemLabel(item);input.setAttribute('aria-label','Toolbar item name');row.replaceWith(input);input.focus();input.select();
     const finish=(keep:boolean)=>{if(!editing)return;editing=false;if(keep){const label=input.value.trim();item.label=label&&label!==TOOLBAR_COMMANDS[item.id]?.label?label.slice(0,60):undefined;}render();list.focus();};
@@ -126,8 +154,13 @@ export function customizeToolbar(host:ToolbarHost){
     if(command==='toggle'&&items[current])items[current].visible=!items[current].visible;
     if(command==='show-all'||command==='hide-all')items.forEach(item=>item.visible=command==='show-all');
     if(command==='up'||command==='down'||command==='top'||command==='bottom'){const moved=moveToolbarItem(items,current,command);items=moved.items;current=moved.index;}
-    if(command==='separator'){let n=1;while(items.some(item=>item.id===`${SEPARATOR}-${n}`))n++;items.splice(current+1,0,{id:`${SEPARATOR}-${n}`,visible:true});current++;}
-    if(command==='reset'){items=defaultToolbar().items;current=0;}
+    if(command==='separator'||command==='spacer'){items.splice(current+1,0,{id:dividerId(items,command==='separator'?SEPARATOR:SPACER),visible:true});current=Math.min(current+1,items.length-1);}
+    if(command==='add'){
+      const id=dialog.querySelector<HTMLSelectElement>('#toolbar-choice')?.value;
+      if(id){const existing=items.findIndex(item=>item.id===id);if(existing>=0){items[existing].visible=true;current=existing;}else{items.splice(current+1,0,{id,visible:true});current=Math.min(current+1,items.length-1);}}
+    }
+    if(command==='remove'&&items[current]){items.splice(current,1);}
+    if(command==='reset'){items=custom?[]:defaultToolbar().items;current=0;}
     render();
   };
   list.addEventListener('click',event=>{const row=(event.target as Element).closest<HTMLElement>('[data-item]');if(!row||(event.target as Element).matches('input'))return;current=Number(row.dataset.item);render();list.focus();});

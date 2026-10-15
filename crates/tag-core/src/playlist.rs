@@ -18,7 +18,7 @@ pub enum PlaylistKind {
     M3u8,
     /// `.pls`: INI-style `FileN=` entries, UTF-8.
     Pls,
-    /// `.cue`: `FILE` lines of a cue sheet (read only).
+    /// `.cue`: the tracks of a cue sheet, see [`crate::cue`].
     Cue,
 }
 
@@ -69,7 +69,7 @@ pub fn decode_playlist(bytes: &[u8], kind: PlaylistKind, ansi_codepage: Option<&
         .into_owned()
 }
 
-fn ansi_encoding(codepage: Option<&str>) -> Option<&'static encoding_rs::Encoding> {
+pub(crate) fn ansi_encoding(codepage: Option<&str>) -> Option<&'static encoding_rs::Encoding> {
     let codepage = codepage?;
     let numeric = codepage
         .strip_prefix("windows-")
@@ -313,6 +313,10 @@ pub fn load_playlist(path: &Path, ansi_codepage: Option<&str>) -> Result<LoadedP
     let kind = playlist_kind(path)
         .ok_or_else(|| format!("{} is not a playlist or cue sheet", path.display()))?;
     let bytes = std::fs::read(path).map_err(|e| format!("{}: {e}", path.display()))?;
+    if kind == PlaylistKind::Cue {
+        crate::cue::set_ansi_codepage(ansi_codepage.map(str::to_owned));
+        return Ok(load_cue(path, &crate::cue::decode(&bytes).0));
+    }
     let text = decode_playlist(&bytes, kind, ansi_codepage);
     let directory = path.parent().unwrap_or(Path::new("."));
     Ok(resolve_entries(
@@ -320,6 +324,46 @@ pub fn load_playlist(path: &Path, ansi_codepage: Option<&str>) -> Result<LoadedP
         directory,
         |p| p.exists(),
     ))
+}
+
+/// The entries of a cue sheet: one row per AUDIO track with an `INDEX 01`
+/// (a row path of the cue sheet, see [`crate::subsong_path`]), numbered in
+/// sheet order. As in Mp3tag, a sheet with one track per FILE also lists its
+/// tracks rather than the files, and its rows edit the sheet.
+fn load_cue(path: &Path, text: &str) -> LoadedPlaylist {
+    let sheet = crate::cue::CueSheet::parse(text);
+    let directory = path.parent().unwrap_or(Path::new("."));
+    let mut loaded = LoadedPlaylist::default();
+    for (number, index) in sheet.subsongs().into_iter().enumerate() {
+        let track = &sheet.tracks[index];
+        let line = track.line() + 1;
+        let Some(location) = track.file.as_deref() else {
+            loaded
+                .missing
+                .push((line, "The track has no FILE line".to_string()));
+            continue;
+        };
+        let audio = match entry_candidates(location, directory) {
+            Ok(candidates) => candidates.into_iter().find(|p| p.is_file()),
+            Err(error) => {
+                loaded.missing.push((line, error));
+                continue;
+            }
+        };
+        if audio.is_none() {
+            if !loaded.missing.iter().any(|(_, m)| m.starts_with(location)) {
+                loaded
+                    .missing
+                    .push((line, format!("{location}: file not found")));
+            }
+            continue;
+        }
+        let entry = PathBuf::from(crate::subsong_path(&path.to_string_lossy(), number + 1));
+        if !loaded.files.contains(&entry) {
+            loaded.files.push(entry);
+        }
+    }
+    loaded
 }
 
 /// One file written to a playlist.
@@ -562,18 +606,22 @@ mod tests {
     }
 
     #[test]
-    fn loading_a_cue_sheet_reads_referenced_audio() {
+    fn loading_a_cue_sheet_lists_every_audio_track() {
         let directory = tempfile::tempdir().unwrap();
         std::fs::write(directory.path().join("disc.flac"), b"x").unwrap();
+        std::fs::write(directory.path().join("bonus.flac"), b"x").unwrap();
         let cue = directory.path().join("disc.cue");
         std::fs::write(
             &cue,
-            "FILE \"disc.flac\" WAVE\n  TRACK 01 AUDIO\n    INDEX 01 00:00:00\n  TRACK 02 AUDIO\n",
+            "FILE \"disc.flac\" WAVE\n  TRACK 01 AUDIO\n    INDEX 01 00:00:00\n  TRACK 02 AUDIO\n    INDEX 01 00:10:00\nFILE bonus.flac WAVE\n  TRACK 03 AUDIO\n    INDEX 01 00:00:00\n  TRACK 04 MODE1/2352\n    INDEX 01 00:20:00\n  TRACK 05 AUDIO\nFILE gone.flac WAVE\n  TRACK 06 AUDIO\n    INDEX 01 00:00:00\n",
         )
         .unwrap();
         let loaded = load_playlist(&cue, None).unwrap();
-        assert_eq!(loaded.files, [directory.path().join("disc.flac")]);
-        assert!(loaded.missing.is_empty());
+        let row = |n| PathBuf::from(crate::subsong_path(&cue.to_string_lossy(), n));
+        // Data tracks and tracks without INDEX 01 are not listed; a FILE
+        // with one track still lists that track.
+        assert_eq!(loaded.files, [row(1), row(2), row(3)]);
+        assert_eq!(loaded.missing, [(12, "gone.flac: file not found".into())]);
     }
 
     fn item(path: &str, duration: f64, title: &str) -> PlaylistItem {

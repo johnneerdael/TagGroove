@@ -1,6 +1,7 @@
 import type { OptionsDraft, OptionsPage } from './options-ui';
+import type { WebResult, WebSearchPage, WebSourceInfo } from './web-sources';
 type Fields = Record<string, string[]>;
-export type Provider = 'musicbrainz'|'discogs'|'freedb'|'local_freedb';
+export type Provider = 'musicbrainz'|'discogs'|'freedb'|'local_freedb'|'web';
 export type SearchMode = 'artist_album'|'text'|'release_id'|'barcode'|'catalog_number'|'toc'|'disc_id';
 export type SearchResult = {id:string;title:string;artist:string;year:string;country:string;label:string;catalog_number:string;format:string;track_count:number|null;score:number|null;barcode:string;thumb:string|null;url:string};
 export type SearchPage = {results:SearchResult[];total:number|null};
@@ -19,8 +20,9 @@ export type FieldRow = {name:string;value:string;perTrack:boolean;editable:boole
  * fields. `releaseId` is Tag Sources → Discogs Release ID: the release is
  * looked up directly. `quick` (Ctrl+Shift+I) searches with the selection's
  * album and artist at once and opens a single result without the list.
+ * `web` is the script of the `web` provider, shown with `title`.
  */
-export type OpenOptions = {coversOnly?:boolean;releaseId?:boolean;quick?:boolean};
+export type OpenOptions = {coversOnly?:boolean;releaseId?:boolean;quick?:boolean;web?:WebSourceInfo;title?:string};
 export type IndexStatus = {directory:string|null;discs:number};
 /** Options → Local freedb: the text index commands of the backend. */
 export type LocalIndexHost = {
@@ -177,6 +179,8 @@ export function tagSourcesOptionsPages(pickFolder:()=>Promise<string|null>, inde
       {kind:'note',text:'Used by Save image to file in the tag source dialog. Placeholders such as %albumartist% - %album% are filled from the first written file of each folder, and the image type adds the extension.'},
       {kind:'select',path:'pages.tag-sources.musicbrainz_cover_size',label:'MusicBrainz cover size',choices:[['500','500 pixels (default)'],['250','250 pixels'],['1200','1200 pixels'],['original','Original size']]},
       {kind:'note',text:'Cover Art Archive images are downloaded in this size; original images can be very large. Set the Discogs personal access token with Tag Sources → Discogs access token….'},
+      {kind:'checkbox',path:'pages.tag-sources.web_debug',label:'Write debug output for web sources'},
+      {kind:'note',text:'Each search and album lookup of a web source (.src) writes the downloaded page and a step-by-step trace of its parser script to the debug folder inside the sources folder (Tag Sources → Open sources folder).'},
     ]},
     {id:freedbPage,label:'freedb',parent:'tag-sources',order:1,
       description:'The CDDB servers Tag Sources → freedb can ask for disc IDs. The selected server is used. Restore page defaults switches back to gnudb.',
@@ -218,7 +222,7 @@ export function tagSourcesOptionsPages(pickFolder:()=>Promise<string|null>, inde
 }
 
 export const isFreedb = (provider:Provider) => provider === 'freedb' || provider === 'local_freedb';
-export const providerName = (provider:Provider) => ({musicbrainz:'MusicBrainz',discogs:'Discogs',freedb:'freedb',local_freedb:'freedb (local)'})[provider];
+export const providerName = (provider:Provider) => ({musicbrainz:'MusicBrainz',discogs:'Discogs',freedb:'freedb',local_freedb:'freedb (local)',web:'Web source'})[provider];
 const fieldOrder = ['TITLE','ARTIST','ALBUM','ALBUMARTIST','YEAR','TRACK','DISCNUMBER','GENRE','STYLE','COMPOSER','PUBLISHER','CATALOGNUMBER','BARCODE','ISRC'];
 /** OpenTag's multi-value separator, as in the tag panel. */
 const MULTI = ' \\\\ ';
@@ -394,6 +398,8 @@ type TagSourcesHost = {
   options:()=>Record<string,unknown>;
   /** Save dialog for Utils → Extract cover. */
   pickSave:(name:string)=>Promise<string|null>;
+  /** A format string evaluated for one file (web sources fill their search fields with it). */
+  evaluate:(path:string, template:string)=>Promise<string>;
 };
 const storage = {
   get(key:string) { try { return window.localStorage.getItem(key); } catch { return null; } },
@@ -405,6 +411,8 @@ export class TagSourcesUI {
   constructor(private host:TagSourcesHost) {}
   /** The tag source Ctrl+I opens again. */
   get lastOperation():SourceOperation { return lastSourceOperation(storage.get('opentag.tagSources.lastSource'),storage.get('opentag.tagSources.last')); }
+  /** The id of the web source used last, when the last tag source was one (Ctrl+I runs it again). */
+  get lastWeb():string|null { const last = storage.get('opentag.tagSources.lastSource'); return last?.startsWith('web:') ? last.slice(4) : null; }
 
   /** A Tag Sources menu command; `source-last` and `source-last-quick` are Ctrl+I and Ctrl+Shift+I. */
   async run(op:string) {
@@ -456,10 +464,12 @@ export class TagSourcesUI {
     if (this.showing) return;
     const reason = this.host.reason();
     if (reason) throw new Error(reason);
+    const web = provider === 'web' ? options.web : undefined;
+    if (provider === 'web' && !web) throw new Error('This web source is no longer installed.');
     this.showing = true;
-    const coversOnly = !!options.coversOnly && !isFreedb(provider), freedb = isFreedb(provider), releaseOnly = !!options.releaseId && provider === 'discogs' && !coversOnly;
-    storage.set('opentag.tagSources.lastSource',sourceOperation({provider,coversOnly,releaseId:releaseOnly}));
-    const files = this.host.files(), name = coversOnly ? `${providerName(provider)} cover art` : releaseOnly ? 'Discogs Release ID' : providerName(provider), prefill = searchPrefill(files);
+    const coversOnly = !!options.coversOnly && !isFreedb(provider) && !web, freedb = isFreedb(provider), releaseOnly = !!options.releaseId && provider === 'discogs' && !coversOnly;
+    storage.set('opentag.tagSources.lastSource',web ? `web:${web.id}` : sourceOperation({provider,coversOnly,releaseId:releaseOnly}));
+    const files = this.host.files(), name = web ? options.title || web.name : coversOnly ? `${providerName(provider)} cover art` : releaseOnly ? 'Discogs Release ID' : providerName(provider), prefill = searchPrefill(files);
     const toc = discToc(files.map(f => f.length));
     const disabledKey = `opentag.tagSources.disabled.${provider}`, saveCoverKey = 'opentag.tagSources.saveCover', suggestKey = 'opentag.tagSources.suggestSorting';
     let results:SearchResult[] = [], total:number|null = null, lastQuery:Record<string,unknown>|null = null, chosen = -1;
@@ -468,6 +478,9 @@ export class TagSourcesUI {
     const savedSuggest = storage.get(suggestKey);
     let suggest:SuggestSorting = savedSuggest === 'title' || savedSuggest === 'length' ? savedSuggest : '';
     let searchTicket = 0, releaseTicket = 0, imageTicket = 0, working = false, coverIndex = 0;
+    // [SearchBy] fields start with their format strings evaluated for the first selected file.
+    let webValues:string[] = [], webColumns:string[] = [], webRows:WebResult[] = [];
+    if (web) webValues = await Promise.all(web.search_by.map(field => files[0] ? this.host.evaluate(files[0].path,field.format).catch(() => '') : Promise.resolve('')));
     const dialog = document.createElement('dialog');
     dialog.className = 'tag-source-dialog';
     dialog.setAttribute('aria-label',name);
@@ -489,7 +502,7 @@ export class TagSourcesUI {
       try { const data = await this.host.invoke<string>('tag_source_image',{url,ticket}); if (ticket === imageTicket && dialog.open) { image.src = data; image.hidden = false; } }
       catch { /* Missing artwork leaves the preview empty. */ }
     };
-    const preview = (url:string) => url.startsWith('https://') ? `<button type="button" class="ts-preview" data-url="${html(url)}" title="Open the release page in your browser">Preview</button>` : '';
+    const preview = (url:string) => url.startsWith('https://') || (web && url.startsWith('http://')) ? `<button type="button" class="ts-preview" data-url="${html(url)}" title="Open the release page in your browser">Preview</button>` : '';
     dialog.addEventListener('cancel',event => { if (working) event.preventDefault(); });
     dialog.addEventListener('close',() => { this.showing = false; void this.host.invoke('tag_source_cancel',{ticket:nextTicket()}).catch(() => undefined); dialog.remove(); });
     dialog.addEventListener('click',event => {
@@ -539,8 +552,10 @@ export class TagSourcesUI {
     });
 
     const freedbId = (r:SearchResult) => { const [category,disc] = r.id.split('/'); return {category:category || '',disc:disc || ''}; };
+    const rowAttributes = (i:number) => `tabindex="${i === Math.max(chosen,0) ? 0 : -1}" data-index="${i}" aria-selected="${i === chosen}" class="${i === chosen ? 'selected' : ''}"`;
     const resultMarkup = () => {
       if (!results.length) return '';
+      if (web) return `<table class="ts-table ts-results" aria-label="Search results"><thead><tr>${webColumns.map(column => `<th>${html(column)}</th>`).join('')}</tr></thead><tbody>${results.map((_,i) => `<tr ${rowAttributes(i)}>${(webRows[i]?.values || []).map(value => `<td title="${html(value)}">${html(value)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
       const mb = provider === 'musicbrainz';
       const head = freedb ? '<th>Artist</th><th>Title</th><th class="ts-num">Year</th><th class="ts-wide">Genre</th><th class="ts-wide">Category</th><th class="ts-wide">Disc ID</th><th class="ts-num ts-wide">Tracks</th>'
         : `${mb ? '<th class="ts-num ts-wide">Score</th>' : ''}<th>Artist</th><th>Title</th><th class="ts-num">Year</th><th class="ts-wide">Country</th><th class="ts-wide">Label</th><th class="ts-wide">Cat. no.</th><th class="ts-wide">Format</th>${mb ? '<th class="ts-num ts-wide">Tracks</th>' : ''}`;
@@ -553,6 +568,7 @@ export class TagSourcesUI {
     const chosenMarkup = () => {
       const r = results[chosen];
       if (!r) return '';
+      if (web) return `<img class="ts-thumb" alt="Release artwork" hidden><div><strong>${html(r.title)}</strong>${r.url ? `<span class="ts-url">${html(r.url)} ${preview(r.url)}</span>` : ''}</div>`;
       const details = freedb ? [r.year,r.format,`Disc ID ${freedbId(r).disc}`] : [r.year,r.country,r.label,r.catalog_number,r.format,r.barcode && `Barcode ${r.barcode}`];
       return `${freedb ? '' : '<img class="ts-thumb" alt="Release artwork" hidden>'}<div><strong>${html(r.artist)} – ${html(r.title)}</strong><span>${details.filter(Boolean).map(html).join(' · ')}</span>${r.url ? `<span class="ts-url">${html(r.url)} ${preview(r.url)}</span>` : ''}</div>`;
     };
@@ -567,6 +583,11 @@ export class TagSourcesUI {
     };
     const tocText = () => toc ? `Disc ID ${toc.id}: ${toc.tracks} track${toc.tracks === 1 ? '' : 's'} from the selected files in file list order, ${duration(toc.seconds-2)} in total.` : 'The disc ID needs the length of every selected file (at most 99 files).';
     const syncSearch = () => {
+      if (web) {
+        dialog.querySelectorAll<HTMLInputElement|HTMLButtonElement>('.dialog-content input,.dialog-content button').forEach(control => control.disabled = working);
+        $<HTMLButtonElement>('#ts-next').disabled = working || chosen < 0;
+        return;
+      }
       const mode = $<HTMLSelectElement>('#ts-mode').value as SearchMode, pair = mode === 'artist_album';
       $('#ts-pair').hidden = !pair; $('#ts-text-field').hidden = pair || mode === 'toc'; $('#ts-toc').hidden = mode !== 'toc';
       $('#ts-text-label').textContent = mode === 'release_id' ? 'RELEASE ID OR ADDRESS' : mode === 'barcode' ? 'BARCODE' : mode === 'catalog_number' ? 'CATALOG NUMBER' : mode === 'disc_id' ? 'DISC ID' : 'SEARCH TEXT';
@@ -575,8 +596,29 @@ export class TagSourcesUI {
       if (mode === 'toc' && !toc) $<HTMLButtonElement>('#ts-search').disabled = true;
       $<HTMLButtonElement>('#ts-next').disabled = working || chosen < 0;
     };
+    /** A web source's index script lists the results; without one the search opens the album page. */
+    const searchWeb = async () => {
+      const values = web!.search_by.map((_,i) => $<HTMLInputElement>(`#ts-web-${i}`).value);
+      webValues = values;
+      const ticket = searchTicket = nextTicket();
+      status(`Searching ${name}…`);
+      try {
+        const page = await this.host.invoke<WebSearchPage>('web_source_search',{source:web!.id,values,ticket});
+        if (ticket !== searchTicket || !dialog.open) return;
+        if (page.direct) { await loadRelease(page.results[0].url); return; }
+        webColumns = page.columns; webRows = page.results; chosen = -1; total = page.results.length;
+        results = page.results.map(r => ({id:r.url,title:r.values.filter(Boolean).join(' – ') || r.url,artist:'',year:'',country:'',label:'',catalog_number:'',format:'',track_count:null,score:null,barcode:'',thumb:r.cover,url:r.preview || r.url}));
+        $('.ts-result-area').innerHTML = resultMarkup();
+        status(results.length ? `${results.length} result${results.length === 1 ? '' : 's'} found. Choose one and select Next.` : 'No results. Try other search words.');
+        $('.ts-chosen').innerHTML = ''; if (results.length) choose(0); else syncSearch();
+      } catch (e) {
+        if (ticket !== searchTicket || !dialog.open) return;
+        status('Search failed.'); error(e);
+      }
+    };
     const search = async (more = false, auto = false) => {
       clearError();
+      if (web) { await searchWeb(); return; }
       const mode = $<HTMLSelectElement>('#ts-mode').value as SearchMode;
       const query = more && lastQuery ? {...lastQuery,page:Number(lastQuery.page)+1} : {mode,artist:$<HTMLInputElement>('#ts-artist').value,album:$<HTMLInputElement>('#ts-album').value,text:$<HTMLInputElement>('#ts-text').value,lengths:files.map(f => f.length),page:0};
       if (!more && mode === 'release_id') { await loadRelease(query.text as string); return; }
@@ -612,7 +654,7 @@ export class TagSourcesUI {
       const ticket = releaseTicket = nextTicket();
       working = true; syncSearch(); status('Loading release…');
       try {
-        const loaded = await this.host.invoke<SourceRelease>('tag_source_release',{provider,input,ticket});
+        const loaded = web ? await this.host.invoke<SourceRelease>('web_source_release',{source:web.id,url:input,ticket}) : await this.host.invoke<SourceRelease>('tag_source_release',{provider,input,ticket});
         if (ticket !== releaseTicket || !dialog.open) return;
         working = false;
         showReview(loaded);
@@ -633,8 +675,9 @@ export class TagSourcesUI {
       : [['artist_album','Artist and album'],['text','Free text'],['release_id',provider === 'musicbrainz' ? 'Release ID (MBID) or address' : 'Release ID or address'],['barcode','Barcode'],['catalog_number','Catalog number']];
     const renderSearch = (mode?:SearchMode) => {
       release = undefined;
+      const searchFields = web ? `<div class="ts-search ts-web-search">${web.search_by.map((field,i) => `<label class="field"><span>${html(field.label.toUpperCase())}</span><input id="ts-web-${i}" value="${html(webValues[i] || '')}" autocomplete="off" spellcheck="false"></label>`).join('')}<button id="ts-search" class="ts-search-button">Search</button></div>` : '';
       dialog.innerHTML = `<header>${html(name)}</header><div class="dialog-content">
-        <div class="ts-search ${modes.length === 1 ? 'ts-single-mode' : ''}"><label class="field" ${modes.length === 1 ? 'hidden' : ''}><span>SEARCH BY</span><select id="ts-mode">${modes.map(([value,label]) => `<option value="${value}">${html(label)}</option>`).join('')}</select></label>
+        ${searchFields}<div class="ts-search ${web ? 'ts-web-unused' : ''} ${modes.length === 1 ? 'ts-single-mode' : ''}"><label class="field" ${modes.length === 1 ? 'hidden' : ''}><span>SEARCH BY</span><select id="ts-mode">${modes.map(([value,label]) => `<option value="${value}">${html(label)}</option>`).join('')}</select></label>
         <div class="field-pair" id="ts-pair"><label class="field"><span>ARTIST</span><input id="ts-artist" value="${html(prefill.artist)}" autocomplete="off" spellcheck="false"></label><label class="field"><span>ALBUM</span><input id="ts-album" value="${html(prefill.album)}" autocomplete="off" spellcheck="false"></label></div>
         <label class="field" id="ts-text-field" hidden><span id="ts-text-label">SEARCH TEXT</span><input id="ts-text" autocomplete="off" spellcheck="false"></label>
         <p class="ts-toc" id="ts-toc" hidden>${html(tocText())}</p>
@@ -642,10 +685,11 @@ export class TagSourcesUI {
         <p class="ts-status" role="status" aria-live="polite">${files.length} selected file${files.length === 1 ? '' : 's'}. ${freedb ? 'Look up the disc these files were ripped from.' : releaseOnly ? 'Enter the Discogs release ID shown on the release page, or its address.' : 'Search for the album these files belong to.'}</p>
         <div class="ts-result-area">${resultMarkup()}</div><div class="ts-chosen">${chosenMarkup()}</div></div>
         <div class="dialog-footer"><button data-close>Cancel</button><button class="primary" id="ts-next" disabled>Next</button></div>`;
-      if (mode || (freedb && !toc)) $<HTMLSelectElement>('#ts-mode').value = mode || 'disc_id';
+      if (web) dialog.querySelector('.ts-web-unused')?.remove();
+      else if (mode || (freedb && !toc)) $<HTMLSelectElement>('#ts-mode').value = mode || 'disc_id';
       if (releaseOnly) $<HTMLSelectElement>('#ts-mode').value = 'release_id';
       $('[data-close]').addEventListener('click',() => dialog.close());
-      $('#ts-mode').addEventListener('change',() => { syncSearch(); (dialog.querySelector<HTMLInputElement>('#ts-text-field:not([hidden]) input') || dialog.querySelector<HTMLInputElement>('#ts-pair:not([hidden]) input') || $<HTMLButtonElement>('#ts-search')).focus(); });
+      dialog.querySelector('#ts-mode')?.addEventListener('change',() => { syncSearch(); (dialog.querySelector<HTMLInputElement>('#ts-text-field:not([hidden]) input') || dialog.querySelector<HTMLInputElement>('#ts-pair:not([hidden]) input') || $<HTMLButtonElement>('#ts-search')).focus(); });
       $('#ts-search').addEventListener('click',() => void search());
       dialog.querySelectorAll<HTMLInputElement>('.ts-search input').forEach(input => input.addEventListener('keydown',event => { if (event.key === 'Enter') { event.preventDefault(); void search(); } }));
       $('.ts-result-area').addEventListener('click',event => {
@@ -763,6 +807,8 @@ export class TagSourcesUI {
       slots = initialSlots(release!.tracks,files,kind); renderMatches();
     };
     const showReview = (loaded:SourceRelease) => {
+      // A web source that returns only album values (or only artwork) applies them to every selected file.
+      if (web && !loaded.tracks.length) loaded.tracks = files.map((_,i) => ({position:String(i+1),disc:1,number:i+1,title:'',artist:'',length:null,fields:{}}));
       release = loaded; coverIndex = 0; fieldSelection = new Set(); fieldAnchor = null;
       slots = initialSlots(loaded.tracks,files,suggest);
       trackField = trackFields().includes('TITLE') ? 'TITLE' : trackFields()[0];
@@ -776,7 +822,7 @@ export class TagSourcesUI {
         ${loaded.url ? `<p class="ts-url">${html(loaded.url)} ${preview(loaded.url)}</p>` : ''}<p class="ts-status" role="status" aria-live="polite"></p></div>
         <div class="dialog-footer"><button id="ts-back">Back</button><button data-close>Cancel</button><button class="primary" id="ts-apply"></button></div>`;
       $('[data-close]').addEventListener('click',() => dialog.close());
-      $('#ts-back').addEventListener('click',() => { clearError(); renderSearch(results.length ? undefined : freedb ? 'disc_id' : 'release_id'); });
+      $('#ts-back').addEventListener('click',() => { clearError(); renderSearch(results.length || web ? undefined : freedb ? 'disc_id' : 'release_id'); });
       if (!coversOnly) {
         $('#ts-all').addEventListener('click',() => toggleAll(true));
         $('#ts-none').addEventListener('click',() => toggleAll(false));
@@ -851,12 +897,13 @@ export class TagSourcesUI {
 
     renderSearch();
     dialog.showModal();
-    if (freedb) (toc ? $<HTMLButtonElement>('#ts-search') : $<HTMLInputElement>('#ts-text')).focus();
+    if (web) { const first = dialog.querySelector<HTMLInputElement>('#ts-web-0'); (first || $<HTMLButtonElement>('#ts-search')).focus(); first?.select(); }
+    else if (freedb) (toc ? $<HTMLButtonElement>('#ts-search') : $<HTMLInputElement>('#ts-text')).focus();
     else if (releaseOnly) $<HTMLInputElement>('#ts-text').focus();
     else { const artist = $<HTMLInputElement>('#ts-artist'); artist.focus(); artist.select(); }
     // Ctrl+Shift+I skips entering the search: the selection's album and artist
     // (or the disc ID of the files) are searched at once.
-    const ready = freedb ? !!toc : !releaseOnly && !!(prefill.artist || prefill.album);
+    const ready = web ? false : freedb ? !!toc : !releaseOnly && !!(prefill.artist || prefill.album);
     if (options.quick && ready) void search(false,true);
   }
 }

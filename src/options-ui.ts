@@ -4,7 +4,7 @@ export type Id3v2Format='v23_utf16'|'v23_latin1'|'v24_utf8';
 export type TagOptions={
   mpeg:{read_id3v1:boolean;read_id3v2:boolean;read_ape:boolean;write_id3v1:boolean;write_id3v2:boolean;write_ape:boolean;id3v2_only_if_needed:boolean;id3v2_format:Id3v2Format;remove_id3v1:boolean;remove_id3v2:boolean;remove_ape:boolean};
   ape:{read_id3v1:boolean;read_ape:boolean;write_id3v1:boolean;write_ape:boolean;remove_id3v1:boolean;remove_id3v2:boolean;remove_ape:boolean};
-  advanced:{id3v2_comment_language:string;popularimeter_ratings:boolean;matroska_video_mapping:boolean};
+  advanced:{id3v2_comment_language:string;popularimeter_ratings:boolean;matroska_video_mapping:boolean;list_chapters:boolean;mp4_single_atom:boolean;reuse_mp4_atoms:boolean;reuse_id3v2_frames:boolean};
   preserve_modified_time:boolean;
   /** Options → Tags → Mapping, edited by the page in field-mapping.ts. */
   mappings:{tag_type:string;source:string;target:string}[];
@@ -38,10 +38,13 @@ export type OptionsHost={
 export const defaultSettings=():Settings=>({version:1,general:{natural_sort:true,show_directory_in_title:true},files:{restrict_extensions:'',folder_separator:'_'},directories:{subfolders:true},
   tags:{mpeg:{read_id3v1:true,read_id3v2:true,read_ape:true,write_id3v1:true,write_id3v2:true,write_ape:false,id3v2_only_if_needed:false,id3v2_format:'v23_utf16',remove_id3v1:true,remove_id3v2:true,remove_ape:true},
     ape:{read_id3v1:true,read_ape:true,write_id3v1:false,write_ape:true,remove_id3v1:true,remove_id3v2:false,remove_ape:true},
-    advanced:{id3v2_comment_language:'eng',popularimeter_ratings:false,matroska_video_mapping:true},preserve_modified_time:false,mappings:[]},pages:{}});
+    advanced:{id3v2_comment_language:'eng',popularimeter_ratings:false,matroska_video_mapping:true,list_chapters:false,mp4_single_atom:true,reuse_mp4_atoms:false,reuse_id3v2_frames:false},preserve_modified_time:false,mappings:[]},pages:{}});
 
 /** pages.general: General options beyond the window title and sorting. */
-export const GENERAL_DEFAULTS={auto_select_next:false,autocomplete:true,select_added:false,keep_moved:true};
+export const GENERAL_DEFAULTS={auto_select_next:false,autocomplete:true,select_added:false,keep_moved:true,tray_icon:false,minimize_to_tray:false};
+// Notification area options work on Windows and Linux; the app sets this at start-up.
+let notificationArea=true;
+export function setNotificationAreaSupport(supported:boolean){notificationArea=supported;}
 /** pages.tags: saving when moving to another file and the folder-image fallback of the cover pane. */
 export const TAGS_PAGE_DEFAULTS={save_on_move:false,no_folder_image:false,extended_save_mode:'pending'};
 /** pages.appearance: scaling in percent and the file list grid. */
@@ -120,7 +123,11 @@ for(const page of [
     {kind:'checkbox',path:'general.natural_sort',label:'Use natural sorting (1, 2, 11, …)'},
     {kind:'checkbox',path:'pages.general.select_added',label:'Select files automatically when they are added to the list'},
     {kind:'checkbox',path:'pages.general.keep_moved',label:'Keep moved files in the file list'},
-    {kind:'note',text:'Auto-completion completes tag panel fields and file list cells from their drop-down values. Moved files that are no longer below a listed folder leave the list unless they have pending changes.'}]},
+    {kind:'note',text:'Auto-completion completes tag panel fields and file list cells from their drop-down values. Moved files that are no longer below a listed folder leave the list unless they have pending changes.'},
+    {kind:'group',label:'Notification area',controls:[
+      {kind:'checkbox',path:'pages.general.tray_icon',label:'Always show icon in notification area',enabledWhen:()=>notificationArea},
+      {kind:'checkbox',path:'pages.general.minimize_to_tray',label:'Minimize to notification area',enabledWhen:()=>notificationArea},
+      {kind:'note',text:'Minimizing then hides the window and its task bar entry; click the icon or choose Show OpenTag in its menu to bring it back. Windows and Linux only (Linux needs libayatana-appindicator); macOS keeps minimized windows in the Dock.'}]}]},
   {id:'files',label:'Files',order:20,controls:[
     {kind:'group',label:'Read files',controls:[{kind:'text',path:'files.restrict_extensions',label:'Restrict incoming files to',placeholder:'All supported formats (for example *.mp3;*.flac)'},
       {kind:'note',text:'Applies to folders. Files you add individually are always read.'}]},
@@ -140,7 +147,7 @@ for(const page of [
     {kind:'select',path:'pages.tags.extended_save_mode',label:'Save mode at extended tag dialog',choices:[['pending','Keep changes pending'],['ask','Ask'],['ignore','Ignore changes'],['save','Save changes']]},
     {kind:'checkbox',path:'pages.tags.no_folder_image',label:'Don’t display first image from file directory as cover art'},
     {kind:'note',text:'Saving on selection change writes pending tag panel edits when you move to another file with the mouse, the arrow keys in the file list or Select next file. Without embedded cover art, the cover pane shows the first image of the file’s folder; that image is not embedded. The save mode decides what happens to changed fields when << or >> in Extended tags moves to another file: they stay pending until Save tags, OpenTag asks, they are discarded, or the file is saved.'},
-    {kind:'note',text:'Mpeg applies to MP3 files. Ape, Mpc applies to Monkey’s Audio, Musepack and WavPack files. Other formats always use their native tag, and Remove tag removes all of their tags.'}]},
+    {kind:'note',text:'Mpeg applies to MP3, AAC and TTA files. Ape, Mpc applies to Monkey’s Audio, Musepack, WavPack, TAK and OptimFROG files. Other formats always use their native tag, and Remove tag removes all of their tags.'}]},
   {id:'tags-mpeg',parent:'tags',label:'Mpeg',order:10,description:'Only one tag type is displayed: APE before ID3v2 before ID3v1, among the types enabled for reading.',controls:[
     tagRead('mpeg',[['id3v1','ID3v1'],['id3v2','ID3v2'],['ape','APE']]),
     {kind:'group',label:'Write',controls:[
@@ -158,7 +165,11 @@ for(const page of [
     {kind:'text',path:'tags.advanced.id3v2_comment_language',label:'ID3v2 comment language code (ISO-639-2)',maxLength:3},
     {kind:'checkbox',path:'tags.advanced.popularimeter_ratings',label:'Always display POPULARIMETER values for ID3v2 ratings'},
     {kind:'checkbox',path:'tags.advanced.matroska_video_mapping',label:'Use recommended mapping for Matroska video'},
-    {kind:'note',text:'Reload files to see changed rating fields and Matroska mappings.'}]},
+    {kind:'checkbox',path:'tags.advanced.list_chapters',label:'List chapters as separate files'},
+    {kind:'checkbox',path:'tags.advanced.mp4_single_atom',label:'Use single MP4 atom for multiple values'},
+    {kind:'checkbox',path:'tags.advanced.reuse_mp4_atoms',label:'Reuse unmodified MP4 atoms'},
+    {kind:'checkbox',path:'tags.advanced.reuse_id3v2_frames',label:'Reuse unmodified ID3v2 frames'},
+    {kind:'note',text:'Reload files to see changed rating fields and Matroska mappings, and reload the directory to list or hide chapters.'}]},
 ] as OptionsPage[])registerOptionsPage(page);
 
 const html=(value:unknown)=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));

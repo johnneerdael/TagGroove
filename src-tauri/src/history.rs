@@ -113,7 +113,30 @@ pub fn record_with_side_files<T: Changes>(
     paths: &[String],
     work: impl FnOnce(&mut dyn FnMut(&Path) -> Result<(), String>) -> Result<T, String>,
 ) -> Result<T, String> {
-    let local: Vec<String> = paths.iter().filter(|p| journaled(p)).cloned().collect();
+    let result = journal_work(label, group, paths, work);
+    // The library reads written, renamed and moved files again.
+    let (renamed, directories) = result
+        .as_ref()
+        .map(|r| (r.renamed(), r.directories()))
+        .unwrap_or_default();
+    super::library::changed(paths, &renamed, &directories);
+    result
+}
+
+fn journal_work<T: Changes>(
+    label: &str,
+    group: Option<&str>,
+    paths: &[String],
+    work: impl FnOnce(&mut dyn FnMut(&Path) -> Result<(), String>) -> Result<T, String>,
+) -> Result<T, String> {
+    // Chapter and cue sheet rows are snapshots of their file.
+    let mut local: Vec<String> = Vec::new();
+    for path in paths {
+        let file = tag_core::subsong_parts(path).map_or(path.as_str(), |(file, _)| file);
+        if journaled(file) && !local.iter().any(|p| p == file) {
+            local.push(file.to_owned());
+        }
+    }
     if local.is_empty() {
         return work(&mut |_| Ok(()));
     }
@@ -158,6 +181,7 @@ fn replay(backward: bool) -> Result<HistoryResult, String> {
             journal.redo()
         }
     })??;
+    super::library::changed(&replay.paths, &replay.renamed, &replay.directories);
     let mut result = super::batch(&replay.paths, super::settings::read_summary);
     result.errors.extend(replay.errors);
     let changes = |pairs: Vec<(String, String)>| {
@@ -252,7 +276,7 @@ mod tests {
     fn commands_record_grouped_saves_tag_conversions_and_renames() {
         let _journal = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let dir = tempfile::tempdir().unwrap();
-        let root = dir.path().canonicalize().unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
         TEST_ROOTS.lock().unwrap().push(root.clone());
         let a = root.join("a.wav");
         let b = root.join("b.wav");

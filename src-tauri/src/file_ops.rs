@@ -162,7 +162,9 @@ fn move_to_trash(_: &Path) -> Result<(), String> {
 pub async fn trash_files(paths: Vec<String>) -> Result<TrashResult, String> {
     super::io(move || {
         super::reject_provider_operation(&paths, "Delete")?;
-        Ok(trash_paths(&paths, move_to_trash))
+        let result = trash_paths(&paths, move_to_trash);
+        super::library::changed(&paths, &[], &[]);
+        Ok(result)
     })
     .await
 }
@@ -177,7 +179,9 @@ pub fn delete_paths(paths: &[String]) -> TrashResult {
 pub async fn delete_files_permanently(paths: Vec<String>) -> Result<TrashResult, String> {
     super::io(move || {
         super::reject_provider_operation(&paths, "Delete")?;
-        Ok(delete_paths(&paths))
+        let result = delete_paths(&paths);
+        super::library::changed(&paths, &[], &[]);
+        Ok(result)
     })
     .await
 }
@@ -272,7 +276,7 @@ pub fn plan_transfer(
             error,
         }]
     };
-    let destination = match std::fs::canonicalize(destination) {
+    let destination = match dunce::canonicalize(destination) {
         Ok(path) if path.is_dir() => path,
         Ok(_) => return Err(fail("The destination is not a folder".into())),
         Err(e) => return Err(fail(format!("Cannot open the destination folder: {e}"))),
@@ -288,7 +292,7 @@ pub fn plan_transfer(
             let name = source.file_name().ok_or("The file has no name")?;
             let parent = source
                 .parent()
-                .and_then(|p| std::fs::canonicalize(p).ok())
+                .and_then(|p| dunce::canonicalize(p).ok())
                 .ok_or("Cannot resolve the source folder")?;
             // The same folder may be spelled in another case on case-insensitive volumes.
             if parent == destination || tag_core::operations::is_case_alias(&parent, &destination) {
@@ -371,7 +375,14 @@ pub async fn transfer_files(
     super::io(move || {
         super::reject_provider_operation(&paths, "Copy and move")?;
         super::reject_provider_operation(std::slice::from_ref(&destination), "Destination")?;
-        Ok(transfer(&paths, Path::new(&destination), mode))
+        let output = transfer(&paths, Path::new(&destination), mode);
+        let moved: Vec<(String, String)> = output
+            .renamed
+            .iter()
+            .map(|r| (r.from.clone(), r.to.clone()))
+            .collect();
+        super::library::changed(&[], &moved, &[]);
+        Ok(output)
     })
     .await
 }
@@ -381,7 +392,12 @@ fn existing(paths: &[String], verb: &str) -> Result<Vec<PathBuf>, String> {
     if paths.is_empty() {
         return Err("Select files first".into());
     }
-    unique_paths(paths)
+    // Chapter and cue sheet rows stand for the audio file they play from.
+    let files = paths
+        .iter()
+        .map(|p| tag_core::subsong_file(Path::new(p)).map(|f| f.to_string_lossy().into_owned()))
+        .collect::<Result<Vec<_>, _>>()?;
+    unique_paths(&files)
         .into_iter()
         .map(|p| {
             regular_file(Path::new(p), "opened")

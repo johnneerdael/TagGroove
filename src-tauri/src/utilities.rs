@@ -2,7 +2,7 @@
 //! chapters MP4, Options → Tools (user-defined external programs)
 //! and File → Save/Load configuration (https://docs.mp3tag.de/utils/,
 //! https://docs.mp3tag.de/customization/options/tools/, menus/file).
-use crate::{batch, history, io, mutate_document, settings};
+use crate::{history, io, mutate_document, settings, whole_file_batch};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
@@ -22,7 +22,7 @@ pub async fn remove_tag_types(
     io(move || {
         crate::reject_provider_operation(&paths, "Removing tag types")?;
         history::record("Remove tag types", None, &paths, || {
-            Ok(batch(&paths, |p| {
+            Ok(whole_file_batch(&paths, |p| {
                 mutate_document(p, |p| {
                     tag_core::remove_tag_kinds_with_options(
                         p,
@@ -61,7 +61,7 @@ pub async fn apply_util(paths: Vec<String>, util: Util) -> Result<ScanResult, St
         crate::reject_provider_operation(&paths, util.label())?;
         history::record(util.label(), None, &paths, || {
             let options = settings::tag_options();
-            Ok(batch(&paths, |p| {
+            Ok(whole_file_batch(&paths, |p| {
                 mutate_document(p, |p| match util {
                     Util::RemoveUnsupportedFields => {
                         tag_core::remove_unsupported_fields_with_options(p, false, &options)
@@ -80,7 +80,7 @@ pub async fn strip_mp4_chapters(paths: Vec<String>) -> Result<ScanResult, String
     io(move || {
         crate::reject_provider_operation(&paths, "Stripping MP4 chapters")?;
         history::record("Strip chapters MP4", None, &paths, || {
-            Ok(batch(&paths, |p| {
+            Ok(whole_file_batch(&paths, |p| {
                 mutate_document(p, |p| {
                     tag_core::strip_mp4_chapters_with_options(p, false, &settings::tag_options())
                 })

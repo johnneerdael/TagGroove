@@ -8,9 +8,9 @@ use std::{
 
 /// Default value that leaves differing per-file values untouched (`< blank >` clears the field).
 pub const KEEP: &str = "< keep >";
-const DIRECTORY: &str = "_DIRECTORY";
-const SEPARATOR: &str = "_SEPARATOR";
-const MAX_FIELDS: usize = 100;
+pub const DIRECTORY: &str = "_DIRECTORY";
+pub const SEPARATOR: &str = "_SEPARATOR";
+pub const MAX_FIELDS: usize = 100;
 const MAX_VALUES: usize = 5000;
 const MAX_TEXT: usize = 1000;
 const LAYOUT_FORMAT: &str = "opentag-tag-panel";
@@ -129,7 +129,7 @@ impl Default for Settings {
     }
 }
 
-fn text(value: &str, label: &str, multiline: bool) -> Result<(), String> {
+pub fn text(value: &str, label: &str, multiline: bool) -> Result<(), String> {
     if value.chars().count() > MAX_TEXT {
         return Err(format!("{label} is too long"));
     }
@@ -141,7 +141,7 @@ fn text(value: &str, label: &str, multiline: bool) -> Result<(), String> {
     }
     Ok(())
 }
-fn field_id(id: &str, panel: bool) -> Result<(), String> {
+pub fn field_id(id: &str, panel: bool) -> Result<(), String> {
     if id.is_empty() || id.trim() != id || id.to_uppercase() != id {
         return Err(format!(
             "Field \"{id}\" must be a trimmed uppercase field name"

@@ -292,3 +292,35 @@ Closed by implementation and unit tests. Their native suites run headless in CI.
 | 10 `$regexp` case; 11 numeric filter compare; 15–17 placeholders, `$filename(…,ansi)`; 18 dropped `.mte`; 19 `.mta` for all types; 20 Export/Adjust Cover; 22 Text File → Tag source format string | script-export | [verification](../verification/script-export.md) |
 
 The keyboard reference now has 60 rows OK, 3 partial and 13 missing (was 53 / 10 / 34). Still open from the top 25: 25 (the `.src` web-source interpreter), and the runners-up such as Library, translations, Finder "Open With", and listing chapters as separate files.
+
+## Closed after this audit (batch 6, 2026-10-15)
+
+Closed by implementation and unit tests; native suites run headless in CI on Linux, macOS and Windows. None of these has differential evidence against the original.
+
+| Items | Closed by | Evidence |
+|---|---|---|
+| Actions (Quick) memory; OEM code pages; ANSI Import Text File; one clashing Tag→Filename destination; cover art directory; Adjust in Manage Covers; numbering wizard memory | actions-polish | [verification](../verification/actions-polish.md) |
+| Ctrl+I / Ctrl+Shift+I for any source; review multi-select, drag and Suggest sorting; Discogs Release ID entry; saved covers in undo; freedb server list, local text index; keychain token option | sources-3 | [verification](../verification/sources-3.md) |
+| Remaining 16 keyboard rows; Actions dialog keys; toolbar customization; F3; Sort by; Tag Panel context menu and defaults; Extended Tags save mode and field clipboard; random sort; `columns.ini` import; Ctrl+drop adds | keyboard-ui | [verification](../verification/keyboard-ui.md) |
+| Finder "Open With" and launch forwarding; Remove from list on Mac keyboards (plain ⌫, already bound) | launch-forwarding | [verification](../verification/launch-forwarding.md) |
+| Open after export; in-place rename; bundled templates; per-directory output folder; playlist manual order and working-directory entries; Find history; Manage List favourites/duplicate; history in configuration; cover drag-out | export-lists | [verification](../verification/export-lists.md) |
+| MP4 chapter writing; list chapters as separate files; nested Matroska chapters and Segment title; cue sheet per-track entries | chapters | [verification](../verification/chapters.md) |
+| 25 `.src` web-source interpreter | web-sources | [verification](../verification/web-sources.md) |
+| AAC APE/ID3v1 and Utils; WavPack ID3v2 removal; ID3 edge cases; MP4 `plID`; ASF `WM/Track`; MP4/ID3v2 advanced toggles | formats-edge | [verification](../verification/formats-edge.md) |
+
+The keyboard reference now has all 97 rows bound (keyboard-ui). Still open: Library database; UI translations (needs an OpenTag translation layer); tray icon (product decision); Tag Panel dock/undock and Mp3tag tag-panel import; per-chapter fields other than TITLE; gnudb registration (no code); the per-item gaps listed in each verification note.
+
+## Closed after this audit (batch 7, 2026-10-15)
+
+Closed by implementation and unit tests; native suites run headless in CI on Linux, macOS and Windows. None of these has differential evidence against the original.
+
+| Items | Closed by | Evidence |
+|---|---|---|
+| Library: Options → Library (enable, included directories, cleanup, clear) and an SQLite metadata cache that loads unchanged files without reading them; OpenTag's own writes invalidate entries | library | [verification](../verification/library.md) |
+| Tag Panel left/right/above/below/floating with saved layout; filter position; custom toolbar; Mp3tag tag panel configuration import; notification area options (Windows/Linux) | panel-dock | [verification](../verification/panel-dock.md) |
+| Per-chapter fields beyond TITLE (Nero, Matroska chapter tags, ID3v2 CHAP sub-frames) with Mp3tag's sub-track consolidation; cue tracks spanning FILE entries and pregaps; whole-file commands on chapter rows; `%_subsong%` | chapter-fields | [verification](../verification/chapter-fields.md) |
+| Native UI suites portable to macOS and Windows; Windows path fixes (plain paths, export destinations, rename separators) | ci-matrix | — |
+| Slow-click cell editor stealing focus from the tag panel (lost keystrokes, Ctrl+S swallowed) | e2e-flake | [verification](../verification/e2e-flake.md) |
+
+Still open: UI translations (needs an OpenTag translation layer); floating Tag Panel as a separate OS window; movable toolbar bands and Mp3tag toolbar file import; global Nero fields and Nero covers; gnudb registration (no code); the per-item gaps listed in each verification note.
+

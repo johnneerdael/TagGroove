@@ -4,7 +4,7 @@
 import type { OptionsDraft, OptionsPage } from './options-ui';
 
 /** Fallbacks for malformed values; they equal the page defaults in options-ui. */
-const GENERAL_FALLBACKS={auto_select_next:false,autocomplete:true,select_added:false,keep_moved:true};
+const GENERAL_FALLBACKS={auto_select_next:false,autocomplete:true,select_added:false,keep_moved:true,tray_icon:false,minimize_to_tray:false};
 export type GeneralOptions=typeof GENERAL_FALLBACKS;
 export type Grid='off'|'alternate'|'lines';
 export type AppearanceOptions={toolbarScale:number;uiScale:number;grid:Grid};

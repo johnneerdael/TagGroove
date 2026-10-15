@@ -40,7 +40,7 @@ export function tagKindCounts(tags:(string|undefined)[]):Record<RemovableTag,num
 export type RemoveTagTypesHost={modal:Modal;modalError:ModalError;tags:()=>(string|undefined)[];remove:(kinds:RemovableTag[])=>Promise<void>};
 export function removeTagTypesDialog(host:RemoveTagTypesHost){
   const tags=host.tags(),counts=tagKindCounts(tags);
-  const dialog=host.modal('Remove tag types',`<p>Remove the checked tag types from ${tags.length} selected file${tags.length===1?'':'s'}. Applies to MP3, TTA, APE, Musepack, WavPack, TAK and OptimFROG files; Options → Tags is not used.</p>
+  const dialog=host.modal('Remove tag types',`<p>Remove the checked tag types from ${tags.length} selected file${tags.length===1?'':'s'}. Applies to MP3, AAC, TTA, APE, Musepack, WavPack, TAK and OptimFROG files; Options → Tags is not used.</p>
     <fieldset class="numbering-section"><legend>Tag types</legend>${REMOVABLE_TAGS.map(([kind,label])=>`<label class="action-check"><input type="checkbox" data-tag-kind="${kind}" ${counts[kind]?'':'disabled'}> ${label} <small>(${counts[kind]} file${counts[kind]===1?'':'s'})</small></label>`).join('')}</fieldset>
     <p>APEv2 tags can hold MP3GAIN_UNDO and ReplayGain values; removing them erases that information permanently. Edit → Undo restores the files during this session.</p>`,'<button id="remove-tag-types" class="primary" disabled>Remove</button>');
   dialog.classList.add('remove-tag-types-dialog');

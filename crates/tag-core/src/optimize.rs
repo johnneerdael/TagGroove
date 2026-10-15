@@ -16,7 +16,9 @@ pub(super) fn unsupported_id3_frame(frame: &Frame<'_>) -> bool {
         | Frame::RelativeVolumeAdjustment(_)
         | Frame::EventTimingCodes(_)
         | Frame::Ownership(_) => true,
-        Frame::UniqueFileIdentifier(uid) => uid.owner != "http://musicbrainz.org",
+        Frame::UniqueFileIdentifier(uid) => {
+            uid.owner != "http://musicbrainz.org" && mapping::unique_file_id(uid).is_none()
+        }
         _ => false,
     }
 }

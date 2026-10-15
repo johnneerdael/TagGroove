@@ -11,6 +11,8 @@ pub enum Provider {
     Freedb,
     /// A folder of xmcd files (a freedb snapshot).
     LocalFreedb,
+    /// A user-installed web source script (`.src`).
+    Web,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize)]

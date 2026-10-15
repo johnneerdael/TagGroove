@@ -424,6 +424,7 @@ fn matroska_with(video: bool, chapters: &[u8]) -> Vec<u8> {
         &cat(&[
             el(&[0x2A, 0xD7, 0xB1], &[0x0F, 0x42, 0x40]),
             el(&[0x44, 0x89], &2500f64.to_be_bytes()),
+            el(&[0x7B, 0xA9], b"Segment Title"),
         ]),
     );
     let audio = el(
@@ -616,6 +617,263 @@ fn matroska_chapters_read_write_and_remove() {
     let removed = remove_tags(&path).unwrap();
     assert!(removed.fields.is_empty(), "{:?}", removed.fields);
     same_cluster(&fs::read(&path).unwrap(), &original);
+}
+
+/// A chapter atom (start in ms, title) with nested atoms.
+fn atom(uid: u8, start: u64, title: &str, nested: &[Vec<u8>]) -> Vec<u8> {
+    let mut parts = vec![
+        el(&[0x73, 0xC4], &[uid]),
+        el(&[0x91], &(start * 1_000_000).to_be_bytes()),
+        el(&[0x80], &el(&[0x85], title.as_bytes())),
+    ];
+    parts.extend(nested.iter().cloned());
+    el(&[0xB6], &cat(&parts))
+}
+
+/// EBML children of `data` as (id, payload); enough for chapter trees.
+fn ebml(data: &[u8]) -> Vec<(u32, &[u8])> {
+    let vint = |at: usize| {
+        let width = data[at].leading_zeros() as usize + 1;
+        (width, data.get(at..at + width).unwrap_or(&[0]))
+    };
+    let mut out = Vec::new();
+    let mut at = 0;
+    while at < data.len() {
+        let (id_width, id) = vint(at);
+        let id = id.iter().fold(0u32, |v, b| (v << 8) | u32::from(*b));
+        let (size_width, size) = vint(at + id_width);
+        let mask = 0xFFu8.checked_shr(size_width as u32).unwrap_or(0);
+        let size = size[1..]
+            .iter()
+            .fold(u64::from(size[0] & mask), |v, b| (v << 8) | u64::from(*b))
+            as usize;
+        let start = at + id_width + size_width;
+        let Some(payload) = data.get(start..start + size) else {
+            break;
+        };
+        out.push((id, payload));
+        at = start + size;
+    }
+    out
+}
+
+/// The chapter tree of the first edition as nested (title, children).
+fn chapter_tree(bytes: &[u8]) -> String {
+    fn walk(atom: &[u8]) -> String {
+        let mut title = String::new();
+        let mut nested = Vec::new();
+        for (id, payload) in ebml(atom) {
+            match id {
+                0x80 => {
+                    for (part, text) in ebml(payload) {
+                        if part == 0x85 {
+                            title = String::from_utf8_lossy(text).into_owned();
+                        }
+                    }
+                }
+                0xB6 => nested.push(walk(payload)),
+                _ => {}
+            }
+        }
+        if nested.is_empty() {
+            title
+        } else {
+            format!("{title}[{}]", nested.join(","))
+        }
+    }
+    // The Chapters element (its ID also appears inside the SeekHead).
+    let edition = (0..bytes.len())
+        .filter(|at| bytes[*at..].starts_with(&[0x10, 0x43, 0xA7, 0x70]))
+        .find_map(|at| {
+            let (_, chapters) = *ebml(&bytes[at..]).first()?;
+            ebml(chapters)
+                .into_iter()
+                .find(|(id, _)| *id == 0x45B9)
+                .map(|(_, edition)| edition)
+        })
+        .unwrap();
+    ebml(edition)
+        .into_iter()
+        .filter(|(id, _)| *id == 0xB6)
+        .map(|(_, atom)| walk(atom))
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+#[test]
+fn nested_matroska_chapters_stay_nested_and_list_as_rows() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("nested.mka");
+    let edition = cat(&[
+        el(&[0x45, 0xBC], &[0x11]),
+        atom(
+            1,
+            0,
+            "Part 1",
+            &[atom(2, 0, "Scene 1", &[]), atom(3, 1000, "Scene 2", &[])],
+        ),
+        atom(4, 2000, "Part 2", &[]),
+    ]);
+    let original = matroska_with(
+        false,
+        &el(&[0x10, 0x43, 0xA7, 0x70], &el(&[0x45, 0xB9], &edition)),
+    );
+    fs::write(&path, &original).unwrap();
+    let entry = read_entry(&path).unwrap();
+    assert_eq!(
+        value(&entry, "CHAPTERS").as_deref(),
+        Some("00:00:00.000 Part 1|00:00:00.000 Scene 1|00:00:01.000 Scene 2|00:00:02.000 Part 2")
+    );
+    assert_eq!(technical(&entry, "_SEGMENT_TITLE"), "Segment Title");
+    assert_eq!(chapter_tree(&original), "Part 1[Scene 1,Scene 2],Part 2");
+
+    // Title edits keep the tree, UIDs included.
+    write_fields(
+        &path,
+        &fields(&[(
+            "CHAPTERS",
+            &["0:00 Act 1", "0:00 Scene A", "0:01 Scene B", "0:02 Act 2"],
+        )]),
+    )
+    .unwrap();
+    let bytes = fs::read(&path).unwrap();
+    assert_eq!(chapter_tree(&bytes), "Act 1[Scene A,Scene B],Act 2");
+    assert!(find(&bytes, &el(&[0x73, 0xC4], &[3])).is_some(), "UID kept");
+    same_cluster(&bytes, &original);
+
+    // Removing a nested chapter and adding one keep the others in place.
+    write_fields(
+        &path,
+        &fields(&[(
+            "CHAPTERS",
+            &[
+                "0:00 Act 1",
+                "0:00 Scene A",
+                "0:01.5 Scene C",
+                "0:02 Act 2",
+                "0:02.2 Coda",
+            ],
+        )]),
+    )
+    .unwrap();
+    let bytes = fs::read(&path).unwrap();
+    assert_eq!(chapter_tree(&bytes), "Act 1[Scene A,Scene C],Act 2,Coda");
+    same_cluster(&bytes, &original);
+
+    // As rows, each chapter is a row and a row edit keeps the tree.
+    let mut options = TagOptions::default();
+    options.advanced.list_chapters = true;
+    let listed = tag_core::scan_paths_with_options(
+        &[path.to_string_lossy().into_owned()],
+        false,
+        &options,
+        None,
+    );
+    let titles: Vec<_> = listed
+        .entries
+        .iter()
+        .map(|e| e.fields["TITLE"][0].clone())
+        .collect();
+    assert_eq!(titles, ["Act 1", "Scene A", "Scene C", "Act 2", "Coda"]);
+    assert_eq!(
+        listed.entries[2].technical["_SEGMENT_TITLE"],
+        ["Segment Title"]
+    );
+    let row = write_fields_with_options(
+        Path::new(&listed.entries[2].path),
+        &fields(&[("TITLE", &["Scene Three"])]),
+        false,
+        &[],
+        &options,
+    )
+    .unwrap();
+    assert_eq!(row.fields["TITLE"], ["Scene Three"]);
+    assert_eq!(
+        chapter_tree(&fs::read(&path).unwrap()),
+        "Act 1[Scene A,Scene Three],Act 2,Coda"
+    );
+    assert_eq!(
+        value(&read_entry(&path).unwrap(), "TITLE").as_deref(),
+        Some("The Song")
+    );
+
+    // Fields that differ between rows are tags bound to their chapter
+    // (TagChapterUID); equal ones are file tags.
+    let rows = tag_core::write_chapter_rows(
+        &path,
+        &[
+            (
+                2,
+                fields(&[("ARTIST", &["Guest"]), ("COMPOSER", &["Writer"])]),
+            ),
+            (
+                3,
+                fields(&[("ARTIST", &["Other"]), ("COMPOSER", &["Writer"])]),
+            ),
+        ],
+        false,
+        &options,
+    )
+    .unwrap();
+    assert_eq!(rows[0].fields["ARTIST"], ["Guest"]);
+    assert_eq!(rows[1].fields["ARTIST"], ["Other"]);
+    let bytes = fs::read(&path).unwrap();
+    assert!(
+        find(&bytes, &el(&[0x63, 0xC4], &[2])).is_some(),
+        "bound to Scene A"
+    );
+    assert_eq!(
+        chapter_tree(&bytes),
+        "Act 1[Scene A,Scene Three],Act 2,Coda"
+    );
+    same_cluster(&bytes, &original);
+    let entry = read_entry(&path).unwrap();
+    assert_eq!(
+        entry.chapters[1].fields,
+        fields(&[("ARTIST", &["Guest"]), ("COMPOSER", &["Writer"])])
+    );
+    assert_eq!(
+        entry.chapters[2].fields,
+        fields(&[("ARTIST", &["Other"]), ("COMPOSER", &["Writer"])])
+    );
+    assert!(entry.chapters[0].fields.is_empty());
+    assert_eq!(value(&entry, "ARTIST"), None);
+    // The rows that did not change keep the file value (none here).
+    let listed = tag_core::scan_paths_with_options(
+        &[path.to_string_lossy().into_owned()],
+        false,
+        &options,
+        None,
+    );
+    assert!(!listed.entries[0].fields.contains_key("ARTIST"));
+    assert_eq!(listed.entries[2].fields["COMPOSER"], ["Writer"]);
+    // The same value on every row moves into the file and out of the chapters.
+    let every: Vec<(usize, tag_core::Fields)> = (1..=5)
+        .map(|n| (n, fields(&[("ARTIST", &["Band"])])))
+        .collect();
+    tag_core::write_chapter_rows(&path, &every, false, &options).unwrap();
+    let entry = read_entry(&path).unwrap();
+    assert_eq!(value(&entry, "ARTIST").as_deref(), Some("Band"));
+    assert_eq!(
+        entry.chapters[1].fields,
+        fields(&[("COMPOSER", &["Writer"])])
+    );
+    same_cluster(&fs::read(&path).unwrap(), &original);
+    // Removing a chapter removes its tags.
+    write_fields(
+        &path,
+        &fields(&[(
+            "CHAPTERS",
+            &["0:00 Act 1", "0:00 Scene A", "0:02 Act 2", "0:02.2 Coda"],
+        )]),
+    )
+    .unwrap();
+    let bytes = fs::read(&path).unwrap();
+    assert!(
+        find(&bytes, b"Other").is_none(),
+        "Scene Three's tags are gone"
+    );
+    assert!(find(&bytes, &el(&[0x63, 0xC4], &[2])).is_some());
 }
 
 #[test]

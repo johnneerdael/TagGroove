@@ -15,17 +15,20 @@ mod file_hashes;
 mod file_ops;
 mod filter_cache;
 mod history;
+mod library;
 mod list_behaviour;
 mod lists;
 #[cfg(any(target_os = "android", test))]
 mod managed_actions;
 mod mp3tag_columns;
+mod mp3tag_tag_panel;
 mod playlists;
 mod progress;
 mod rename_plan;
 mod settings;
 mod sources;
 mod tag_panel;
+mod tray;
 mod updates;
 mod utilities;
 #[cfg(desktop)]
@@ -309,7 +312,9 @@ fn provider_filename(path: &Path) -> Result<String, String> {
         documents::project(&mut entry);
         Ok(entry.filename)
     } else {
-        Ok(path.to_string_lossy().into_owned())
+        // A chapter row is named after its file.
+        let path = path.to_string_lossy();
+        Ok(tag_core::subsong_parts(&path).map_or(path.to_string(), |(file, _)| file.to_owned()))
     }
 }
 fn preview_technical_fields(entry: &AudioEntry, index: usize) -> Fields {
@@ -373,15 +378,44 @@ fn batch(
         entries: vec![],
         errors: vec![],
     };
-    let mut seen = std::collections::HashSet::new();
+    let list_chapters = settings::tag_options().advanced.list_chapters;
+    // A cue sheet (an undone cue sheet edit) stands for its track rows.
+    let mut targets = Vec::new();
     for path in paths {
+        if tag_core::playlist::playlist_kind(Path::new(path))
+            != Some(tag_core::playlist::PlaylistKind::Cue)
+        {
+            targets.push(path.clone());
+            continue;
+        }
+        match tag_core::playlist::load_playlist(Path::new(path), None) {
+            Ok(loaded) => targets.extend(
+                loaded
+                    .files
+                    .iter()
+                    .map(|p| p.to_string_lossy().into_owned())
+                    .filter(|p| tag_core::subsong_parts(p).is_some()),
+            ),
+            Err(error) => result.errors.push(FileError {
+                path: path.clone(),
+                error,
+            }),
+        }
+    }
+    let mut seen = std::collections::HashSet::new();
+    for path in &targets {
         if !seen.insert(path) {
             continue;
         }
         match work(Path::new(path)) {
             Ok(mut entry) => {
                 documents::project(&mut entry);
-                result.entries.push(entry);
+                // With List chapters as separate files, a file is its chapter rows.
+                if list_chapters && !entry.chapters.is_empty() {
+                    result.entries.extend(tag_core::chapter_rows(&entry));
+                } else {
+                    result.entries.push(entry);
+                }
             }
             Err(error) => result.errors.push(FileError {
                 path: path.clone(),
@@ -392,17 +426,101 @@ fn batch(
     result
 }
 
+/// [`batch`] for commands that work on whole files (Remove tag, covers,
+/// Utils): a chapter row stands for its file, which is processed once for
+/// all its rows and comes back as its rows (or as the file when it no longer
+/// has chapters). Rows of a loaded cue sheet edit the sheet, so whole-file
+/// commands are refused for them.
+fn whole_file_batch(
+    paths: &[String],
+    work: impl FnMut(&Path) -> Result<AudioEntry, String>,
+) -> ScanResult {
+    let mut files: Vec<String> = Vec::new();
+    let mut refused = Vec::new();
+    for path in paths {
+        let file = match tag_core::subsong_parts(path) {
+            Some((file, _))
+                if tag_core::playlist::playlist_kind(Path::new(file))
+                    == Some(tag_core::playlist::PlaylistKind::Cue) =>
+            {
+                refused.push(FileError {
+                    path: path.clone(),
+                    error: CUE_ROW_OPERATION.into(),
+                });
+                continue;
+            }
+            Some((file, _)) => file.to_owned(),
+            None => path.clone(),
+        };
+        if !files.contains(&file) {
+            files.push(file);
+        }
+    }
+    let mut result = batch(&files, work);
+    result.errors.extend(refused);
+    result
+}
+const CUE_ROW_OPERATION: &str =
+    "Cue sheet tracks only support editing tag fields, which are written into the cue sheet";
+
+/// Paths split into ordinary files and chapter rows grouped by their file
+/// (rows of one file are written together), each with its original index.
+type RowGroup = (String, Vec<(usize, usize)>);
+fn group_rows(paths: &[String]) -> (Vec<usize>, Vec<RowGroup>) {
+    let mut plain = Vec::new();
+    let mut groups: Vec<RowGroup> = Vec::new();
+    for (index, path) in paths.iter().enumerate() {
+        match tag_core::subsong_parts(path) {
+            Some((file, number)) => match groups.iter_mut().find(|(f, _)| f == file) {
+                Some((_, rows)) => rows.push((index, number)),
+                None => groups.push((file.to_owned(), vec![(index, number)])),
+            },
+            None => plain.push(index),
+        }
+    }
+    (plain, groups)
+}
+
+/// Write the chapter rows of one file; one outcome per row, in row order.
+fn write_row_group(
+    file: &str,
+    rows: &[(usize, Fields)],
+    paths: &[String],
+) -> Vec<Result<AudioEntry, String>> {
+    let options = settings::tag_options();
+    if documents::is_managed(Path::new(file)) {
+        return rows
+            .iter()
+            .map(|_| Err("Chapter rows of provider documents cannot be edited".into()))
+            .collect();
+    }
+    let numbered: Vec<(usize, Fields)> = rows
+        .iter()
+        .map(|(index, updates)| {
+            let number = tag_core::subsong_parts(&paths[*index]).map_or(0, |(_, n)| n);
+            (number, updates.clone())
+        })
+        .collect();
+    match tag_core::write_chapter_rows(Path::new(file), &numbered, false, &options) {
+        Ok(entries) => entries.into_iter().map(Ok).collect(),
+        Err(error) => rows.iter().map(|_| Err(error.clone())).collect(),
+    }
+}
+
 /// `job` names the operation for progress events and [`progress::cancel_job`].
+/// `refresh` (File → Reload tags) reads every file even when Options →
+/// Library holds it.
 #[tauri::command]
 async fn scan_files(
     paths: Vec<String>,
     recursive: bool,
     job: Option<String>,
+    refresh: Option<bool>,
 ) -> Result<ScanResult, String> {
     io(move || {
         #[cfg(target_os = "android")]
         {
-            let _ = (recursive, job);
+            let _ = (recursive, job, refresh);
             Ok(batch(&paths, documents::reload))
         }
         #[cfg(not(target_os = "android"))]
@@ -411,12 +529,13 @@ async fn scan_files(
             let (managed, ordinary): (Vec<_>, Vec<_>) = paths
                 .into_iter()
                 .partition(|p| documents::is_managed(Path::new(p)));
-            let mut result = tag_core::scan_paths_with_progress(
+            let mut result = library::scan(
                 &ordinary,
                 recursive,
                 &settings::tag_options(),
                 settings::extensions().as_deref(),
                 &job,
+                refresh.unwrap_or(false),
             );
             let restored = batch(&managed, documents::reload);
             result.entries.extend(restored.entries);
@@ -438,9 +557,28 @@ async fn save_fields(
 ) -> Result<ScanResult, String> {
     io(move || {
         history::record("Save tags", history_group.as_deref(), &paths, || {
-            Ok(batch(&paths, |p| {
+            let (plain, groups) = group_rows(&paths);
+            let plain: Vec<String> = plain.into_iter().map(|i| paths[i].clone()).collect();
+            let mut result = batch(&plain, |p| {
                 mutate_document(p, |p| settings::write_summary(p, &updates))
-            }))
+            });
+            for (file, rows) in groups {
+                let rows: Vec<(usize, Fields)> = rows
+                    .into_iter()
+                    .map(|(i, _)| (i, updates.clone()))
+                    .collect();
+                for ((index, _), outcome) in rows.iter().zip(write_row_group(&file, &rows, &paths))
+                {
+                    match outcome {
+                        Ok(entry) => result.entries.push(entry),
+                        Err(error) => result.errors.push(FileError {
+                            path: paths[*index].clone(),
+                            error,
+                        }),
+                    }
+                }
+            }
+            Ok(result)
         })
     })
     .await
@@ -483,7 +621,17 @@ async fn save_fields_batch(
             .collect();
         history::record("Save tags", None, &paths, || {
             use tag_core::parallel::Progress;
-            job.start(items.len());
+            // Each unit is one file: an ordinary item or the chapter rows of a file.
+            let (plain, groups) = group_rows(&paths);
+            let units: Vec<(Option<String>, Vec<usize>)> =
+                plain
+                    .into_iter()
+                    .map(|index| (None, vec![index]))
+                    .chain(groups.into_iter().map(|(file, rows)| {
+                        (Some(file), rows.into_iter().map(|(i, _)| i).collect())
+                    }))
+                    .collect();
+            job.start(units.len());
             let options = settings::tag_options();
             // Provider documents publish through shared recovery state; keep them sequential.
             let threads = if items
@@ -494,33 +642,73 @@ async fn save_fields_batch(
             } else {
                 std::thread::available_parallelism().map_or(4, |n| n.get().clamp(1, 8))
             };
-            let written = tag_core::parallel::map_ordered_on(threads, &items, &job, |item| {
-                mutate_document(Path::new(&item.path), |p| {
-                    if let Some(plan) = cover_plans.get(&item.path) {
-                        let changes = plan.as_ref().map_err(Clone::clone)?;
-                        tag_core::apply_cover_changes_with_options(p, changes, &options)?;
+            let written =
+                tag_core::parallel::map_ordered_on(threads, &units, &job, |(file, indices)| {
+                    if let Some(file) = file {
+                        // Covers belong to the whole file: rows that bring
+                        // covers must agree, and the file gets them once.
+                        let mut covers = indices.iter().filter_map(|i| {
+                            items[*i].covers.as_ref().map(|c| (c, &items[*i].path))
+                        });
+                        if let Some((first, path)) = covers.next() {
+                            let outcome = if covers.any(|(other, _)| other != first) {
+                                Err("Covers belong to the whole file; give its chapter rows the same covers".to_string())
+                            } else {
+                                cover_plans
+                                    .get(path)
+                                    .cloned()
+                                    .unwrap_or_else(|| Ok(Vec::new()))
+                                    .and_then(|changes| {
+                                        tag_core::apply_cover_changes_with_options(
+                                            Path::new(file),
+                                            &changes,
+                                            &options,
+                                        )
+                                    })
+                            };
+                            if let Err(error) = outcome {
+                                return indices.iter().map(|_| Err(error.clone())).collect();
+                            }
+                        }
+                        let rows: Vec<(usize, Fields)> = indices
+                            .iter()
+                            .map(|i| (*i, items[*i].updates.clone()))
+                            .collect();
+                        return write_row_group(file, &rows, &paths);
                     }
-                    tag_core::write_fields_with_options(
-                        p,
-                        &item.updates,
-                        false,
-                        &options.mappings,
-                        &options,
-                    )
-                })
-            });
+                    let item = &items[indices[0]];
+                    vec![mutate_document(Path::new(&item.path), |p| {
+                        if let Some(plan) = cover_plans.get(&item.path) {
+                            let changes = plan.as_ref().map_err(Clone::clone)?;
+                            tag_core::apply_cover_changes_with_options(p, changes, &options)?;
+                        }
+                        tag_core::write_fields_with_options(
+                            p,
+                            &item.updates,
+                            false,
+                            &options.mappings,
+                            &options,
+                        )
+                    })]
+                });
+            let mut outcomes: Vec<(usize, Result<AudioEntry, String>)> = units
+                .iter()
+                .zip(written)
+                .filter_map(|((_, indices), outcome)| Some(indices.iter().copied().zip(outcome?)))
+                .flatten()
+                .collect();
+            outcomes.sort_by_key(|(index, _)| *index);
             let mut result = ScanResult::default();
-            for (item, outcome) in items.iter().zip(written) {
+            for (index, outcome) in outcomes {
                 match outcome {
-                    Some(Ok(mut entry)) => {
+                    Ok(mut entry) => {
                         documents::project(&mut entry);
                         result.entries.push(entry);
                     }
-                    Some(Err(error)) => result.errors.push(FileError {
-                        path: item.path.clone(),
+                    Err(error) => result.errors.push(FileError {
+                        path: items[index].path.clone(),
                         error,
                     }),
-                    None => {}
                 }
             }
             Ok(result)
@@ -533,7 +721,7 @@ async fn save_fields_batch(
 async fn remove_tags(paths: Vec<String>) -> Result<ScanResult, String> {
     io(move || {
         history::record("Remove tags", None, &paths, || {
-            Ok(batch(&paths, |p| {
+            Ok(whole_file_batch(&paths, |p| {
                 mutate_document(p, |p| {
                     tag_core::remove_tags_with_options(p, false, &settings::tag_options())
                 })
@@ -548,7 +736,7 @@ async fn add_cover(paths: Vec<String>, image_path: String) -> Result<ScanResult,
     io(move || {
         let image = auxiliary_input(&image_path)?;
         history::record("Add cover", None, &paths, || {
-            Ok(batch(&paths, |p| {
+            Ok(whole_file_batch(&paths, |p| {
                 mutate_document(p, |p| {
                     tag_core::add_cover_with_options(p, &image, false, &settings::tag_options())
                 })
@@ -562,7 +750,7 @@ async fn add_cover(paths: Vec<String>, image_path: String) -> Result<ScanResult,
 async fn remove_cover(paths: Vec<String>, index: usize) -> Result<ScanResult, String> {
     io(move || {
         history::record("Remove cover", None, &paths, || {
-            Ok(batch(&paths, |p| {
+            Ok(whole_file_batch(&paths, |p| {
                 mutate_document(p, |p| {
                     tag_core::remove_cover_with_options(p, index, false, &settings::tag_options())
                 })
@@ -701,8 +889,10 @@ fn filename_target(entry: &AudioEntry, generated: String) -> Result<PathBuf, Str
     if generated.trim().is_empty() {
         return Err("Filename evaluates to an empty string".into());
     }
-    let generated = if cfg!(windows) && generated.starts_with(r"\\?\") {
-        generated
+    // Either separator separates folders. Targets use the platform's own, so
+    // they are spelled like the paths the scanner lists.
+    let generated = if cfg!(windows) {
+        generated.replace('/', "\\")
     } else {
         generated.replace('\\', "/")
     };
@@ -834,7 +1024,7 @@ fn rename_planned(
             match plan {
                 Ok(target)
                     if destinations.insert(rename_key(&target))
-                        && (std::fs::canonicalize(&path).ok().as_ref() == Some(&target)
+                        && (dunce::canonicalize(&path).ok().as_ref() == Some(&target)
                             || !matches!(
                                 tag_core::operations::destination_state(Path::new(&path), &target),
                                 tag_core::operations::Destination::Taken
@@ -856,7 +1046,7 @@ fn rename_planned(
         // A file whose destination clashes is skipped and reported; the
         // others are still renamed.
         for (path, target) in plans {
-            let operation = if std::fs::canonicalize(&path).ok().as_ref() == Some(&target) {
+            let operation = if dunce::canonicalize(&path).ok().as_ref() == Some(&target) {
                 Ok(())
             } else {
                 tag_core::operations::rename_no_clobber(Path::new(&path), &target)
@@ -970,6 +1160,10 @@ pub fn run() {
         .setup(|app| {
             let _ = APP_HANDLE.set(app.handle().clone());
             tauri::Manager::manage(app, settings::SettingsStore::open(app.handle()));
+            // Cue sheet rows that are not UTF-8 decode with the system codepage.
+            tag_core::cue::set_ansi_codepage(
+                evaluation::EvaluationSettings::default().ansi_codepage(),
+            );
             #[cfg(desktop)]
             if let Some(window) = tauri::Manager::get_webview_window(app, "main") {
                 window_state::restore(&window);
@@ -979,12 +1173,16 @@ pub fn run() {
         .on_window_event(|_window, _event| {
             #[cfg(desktop)]
             window_state::track(_window, _event);
+            tray::track(_window, _event);
         })
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_document_access::init())
         .invoke_handler(tauri::generate_handler![
             e2e::e2e_report,
             progress::cancel_job,
+            library::library_status,
+            library::cleanup_library,
+            library::clear_library,
             save_fields_batch,
             e2e::e2e_exit,
             e2e::e2e_open_urls,
@@ -1065,6 +1263,8 @@ pub fn run() {
             tag_panel::load_tag_panel,
             tag_panel::save_tag_panel,
             tag_panel::import_tag_panel_layout,
+            mp3tag_tag_panel::import_mp3tag_tag_panel,
+            tray::set_tray_options,
             tag_panel::export_tag_panel_layout,
             tag_panel::import_value_list,
             tag_panel::export_value_list,
@@ -1082,6 +1282,13 @@ pub fn run() {
             sources::tag_source_save_cover,
             sources::load_tag_source_settings,
             sources::save_tag_source_settings,
+            sources::web::web_sources_list,
+            sources::web::web_sources_install,
+            sources::web::web_sources_open_folder,
+            sources::web::web_source_search,
+            sources::web::web_source_release,
+            sources::web::web_source_settings,
+            sources::web::save_web_source_settings,
             utilities::remove_tag_types,
             utilities::apply_util,
             utilities::strip_mp4_chapters,
@@ -1112,6 +1319,52 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn chapter_rows_are_grouped_by_their_file() {
+        let row = |file: &str, n| tag_core::subsong_path(file, n);
+        let paths = vec![
+            "/m/a.mp3".to_string(),
+            row("/m/book.m4b", 2),
+            row("/m/live.cue", 1),
+            row("/m/book.m4b", 1),
+            "/m/b.mp3".to_string(),
+        ];
+        let (plain, groups) = group_rows(&paths);
+        assert_eq!(plain, [0, 4]);
+        assert_eq!(
+            groups,
+            [
+                ("/m/book.m4b".to_string(), vec![(1, 2), (3, 1)]),
+                ("/m/live.cue".to_string(), vec![(2, 1)])
+            ]
+        );
+    }
+
+    #[test]
+    fn whole_file_commands_run_once_per_file_and_refuse_cue_rows() {
+        let row = |file: &str, n| tag_core::subsong_path(file, n);
+        let mut seen = Vec::new();
+        let result = whole_file_batch(
+            &[
+                row("/m/book.m4b", 2),
+                "/m/a.mp3".to_string(),
+                row("/m/book.m4b", 1),
+                row("/m/live.cue", 1),
+            ],
+            |p| {
+                seen.push(p.to_string_lossy().into_owned());
+                Err("not read".into())
+            },
+        );
+        assert_eq!(seen, ["/m/book.m4b", "/m/a.mp3"]);
+        let errors: Vec<_> = result.errors.iter().map(|e| e.path.as_str()).collect();
+        assert_eq!(
+            errors,
+            ["/m/book.m4b", "/m/a.mp3", row("/m/live.cue", 1).as_str()]
+        );
+        assert_eq!(result.errors[2].error, CUE_ROW_OPERATION);
+    }
 
     #[test]
     fn numbering_command_plans_unopened_files_without_io() {
@@ -1258,7 +1511,7 @@ mod tests {
         tag_core::write_fields(&source, &external).unwrap();
         session.rename("Other - Changed.wav");
         let reloaded =
-            tauri::async_runtime::block_on(scan_files(paths.clone(), false, None)).unwrap();
+            tauri::async_runtime::block_on(scan_files(paths.clone(), false, None, None)).unwrap();
         assert_eq!(reloaded.entries[0].fields["TITLE"], ["External"]);
         assert_eq!(reloaded.entries[0].filename, "Other - Changed.wav");
         let renamed_preview = tauri::async_runtime::block_on(preview_filename(
@@ -1451,7 +1704,7 @@ mod tests {
             .entries
             .iter()
             .any(|e| e.path == session.path && e.fields["TITLE"] == ["Retain edited"]));
-        let blocked = tauri::async_runtime::block_on(scan_files(paths, false, None)).unwrap();
+        let blocked = tauri::async_runtime::block_on(scan_files(paths, false, None, None)).unwrap();
         assert!(blocked.entries.is_empty());
         assert!(blocked.errors[0].error.contains("recovery"));
         let readonly =
@@ -1678,6 +1931,34 @@ mod tests {
     }
 
     #[test]
+    fn renamed_paths_are_spelled_like_the_listed_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
+        for (name, template) in [
+            ("a.wav", "Moved/%_filename%-1"),
+            ("b.wav", "Moved\\%_filename%-2"),
+        ] {
+            let path = root.join(name);
+            wav(&path);
+            let result = rename_planned(
+                vec![path.to_string_lossy().into_owned()],
+                template,
+                None,
+                &evaluation::EvaluationSettings::default(),
+            )
+            .unwrap();
+            assert!(
+                result.result.errors.is_empty(),
+                "{:?}",
+                result.result.errors
+            );
+            // The interface matches the rename to the listed entry by this string.
+            assert_eq!(result.renamed[0].to, result.result.entries[0].path);
+            assert!(Path::new(&result.renamed[0].to).starts_with(root.join("Moved")));
+        }
+    }
+
+    #[test]
     fn rename_preview_and_result_use_identical_sanitized_path() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("old.wav");
@@ -1830,7 +2111,7 @@ mod tests {
             return;
         }
         let dir = tempfile::tempdir().unwrap();
-        let root = dir.path().canonicalize().unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
         let path = root.join("Café 猫.flac");
         let output = Command::new("ffmpeg")
             .args([
