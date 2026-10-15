@@ -2,8 +2,28 @@
   const inv = (cmd, args) => window.__TAURI_INTERNALS__.invoke(cmd, args);
   const report = m => inv('e2e_report', { message: String(m) });
   const sleep = ms => new Promise(r => setTimeout(r, ms));
-  const waitFor = async (fn, ms = 8000, what = 'condition') => { const t = Date.now(); while (Date.now() - t < ms) { try { const v = fn(); if (v) return v; } catch {} await sleep(100); } throw new Error('timeout waiting for ' + what); };
   const status = () => document.querySelector('.status-message')?.textContent || '';
+  // Diagnostics for timeouts: a timeline of window state changes (busy, status,
+  // open dialogs, pending edits, selection, focus) since the script started.
+  const t0 = performance.now(), ms = () => Math.round(performance.now() - t0);
+  const snapshot = () => {
+    const opsState = ['save', 'undo', 'redo'].map(op => { const b = document.querySelector(`button[data-op="${op}"]`); return `${op}:${b ? (b.disabled ? 'off' : 'on') : '-'}`; }).join(',');
+    const dialogs = [...document.querySelectorAll('dialog[open]')].map(d => d.getAttribute('aria-label') || d.className || d.querySelector('header')?.textContent || 'dialog').join('|');
+    const sel = [...document.querySelectorAll('tr[data-path].selected')].map(r => r.dataset.path.split(/[\\/]/).pop()).join('+');
+    const focus = document.activeElement ? document.activeElement.tagName + (document.activeElement.dataset?.field ? ':' + document.activeElement.dataset.field : '') : '-';
+    return `busy=${!!document.querySelector('footer.status.busy')} status="${status()}" dialogs=[${dialogs}] dirty="${document.querySelector('.dirty-count')?.textContent || ''}" rows=${document.querySelectorAll('tr[data-path]').length} sel=${sel} ${opsState} focus=${focus}`;
+  };
+  const timeline = []; let lastSnap = '';
+  const watch = setInterval(() => { const s = snapshot(); if (s !== lastSnap) { lastSnap = s; timeline.push(`${ms()}ms ${s}`); if (timeline.length > 80) timeline.shift(); } }, 20);
+  // TEMP(e2e-flake): every backend call and key press with timestamps.
+  const calls = []; const native = window.__TAURI_INTERNALS__.invoke.bind(window.__TAURI_INTERNALS__);
+  window.__TAURI_INTERNALS__.invoke = (cmd, args, options) => {
+    if (cmd === 'e2e_report' || cmd === 'e2e_exit') return native(cmd, args, options);
+    const start = ms(); calls.push(`${start}ms > ${cmd}`); if (calls.length > 120) calls.shift();
+    return native(cmd, args, options).then(v => { calls.push(`${ms()}ms < ${cmd} ok (${ms() - start}ms)`); return v; }, e => { calls.push(`${ms()}ms < ${cmd} ERR ${e} (${ms() - start}ms)`); throw e; });
+  };
+  window.addEventListener('keydown', e => calls.push(`${ms()}ms key ${e.ctrlKey ? 'C-' : ''}${e.metaKey ? 'M-' : ''}${e.altKey ? 'A-' : ''}${e.key} target=${e.target?.tagName} prevented=${e.defaultPrevented}`));
+  const waitFor = async (fn, wait = 8000, what = 'condition') => { const t = Date.now(); while (Date.now() - t < wait) { try { const v = fn(); if (v) return v; } catch {} await sleep(100); } throw new Error(`timeout waiting for ${what} at ${ms()}ms; ${snapshot()}`); };
   const key = (k, o = {}) => (document.activeElement || document.body).dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...o }));
   const row = name => [...document.querySelectorAll('tr[data-path]')].find(r => r.dataset.path.split(/[\\/]/).pop() === name);
   const clickRow = async name => { const r = await waitFor(() => row(name), 8000, 'row ' + name); r.querySelector('td').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })); await sleep(300); };
@@ -12,9 +32,10 @@
   const idle = () => waitFor(() => !document.querySelector('footer.status.busy'), 10000, 'idle');
   const undoReady = kind => waitFor(() => { const b = document.querySelector(`button[data-op="${kind}"]`); return b && !b.disabled; }, 8000, kind + ' available');
   const results = [];
-  const step = async (name, fn) => { try { const detail = await fn(); results.push(['PASS', name]); await report(`PASS ${name}${detail ? ' — ' + detail : ''}`); } catch (e) { results.push(['FAIL', name]); await report(`FAIL ${name} — ${e && e.message || e}`); } };
+  const step = async (name, fn) => { try { const detail = await fn(); results.push(['PASS', name]); await report(`PASS ${name}${detail ? ' — ' + detail : ''}`); } catch (e) { results.push(['FAIL', name]); await report(`FAIL ${name} — ${e && e.message || e}`); for (const line of timeline.splice(0)) await report('  state ' + line); for (const line of calls.splice(0)) await report('  call ' + line); } };
   try {
     await waitFor(() => document.querySelectorAll('tr[data-path]').length >= 2, 15000, 'fixture rows');
+    await report(`loaded at ${ms()}ms; ${snapshot()}`);
     await report(`loaded rows=${document.querySelectorAll('tr[data-path]').length} headers=${[...document.querySelectorAll('thead th')].map(t => t.textContent.trim()).join('|')}`);
     await report(`menus=${[...document.querySelectorAll('.menubar > .menu > summary')].map(s => s.textContent).join('|')}`);
 
@@ -83,6 +104,7 @@
 
     await step('Light/Dark appearance switch', async () => { const s = document.querySelector('#appearance'); s.value = 'light'; s.dispatchEvent(new Event('change', { bubbles: true })); await sleep(300); const l = document.documentElement.dataset.theme; s.value = 'system'; s.dispatchEvent(new Event('change', { bubbles: true })); return 'light->' + l; });
   } catch (e) { await report('FATAL ' + (e && e.message || e)); }
+  clearInterval(watch);
   await report(`SUMMARY ${results.filter(r => r[0] === 'PASS').length}/${results.length} passed`);
   await inv('e2e_exit', { code: 0 });
 })();
