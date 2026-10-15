@@ -82,7 +82,11 @@ Release runs are serialized so a manual run, a tag push and a merge cannot race 
 
 ## Release notes
 
-The publish step asks GitHub to [generate release notes](https://docs.github.com/en/rest/releases/releases#generate-release-notes-content-for-a-release) since the newest earlier release tag reachable from the commit, which lists the merged pull request titles. If that request fails, the notes fall back to the first-parent commit subjects from `git log`. The download table, the signing status (Windows and Linux packages are unsigned, macOS builds are ad-hoc signed and not notarized) and the mobile preview limitations follow the notes.
+Every PR must contain substantive `## Release notes` describing the final public behavior, or a concrete `Internal:` explanation for documentation, tests or CI. Keep test results in `## Validation`. The trusted review controller validates the live PR body and publishes a separate required `Release notes` status. See [CONTRIBUTING.md](CONTRIBUTING.md) for review and repository setup.
+
+The publisher collects the public note sections from merged PRs on the first-parent range since the previous published release. It includes intervening docs-only merges, deduplicates PRs and links their source. Draft or unpublished tags do not truncate the range. Later PRs without the required section, invalid placeholders and GitHub API failures stop publication rather than falling back to commit titles. PRs at or before the full SHA in `.github/release-notes-baseline` may use a sanitized historical description; direct commits retain their actual subject and explanation. The collector treats PR text as data and never executes it.
+
+The download table, signing status (Windows and Linux packages are unsigned, macOS builds are ad-hoc signed and not notarized) and mobile preview limitations follow the collected notes. CI validates structure and placeholders; reviewers remain responsible for factual prose and scope. The Linux publish job uses Python 3.12 and read access to PR metadata alongside its existing release permission. Existing versioning, artifact, signature and checksum rules remain enforced.
 
 ## Required build outputs
 
@@ -127,12 +131,13 @@ Before committing workflow changes:
 
 ```sh
 node --test tests/release.test.mjs
+python3 -m unittest discover -s .github/scripts/tests -v
 actionlint -ignore 'unexpected key "queue" for "concurrency" section' .github/workflows/release.yml
 ```
 
 actionlint 1.7.12 does not yet recognise the documented `concurrency.queue` key ([rhysd/actionlint#654](https://github.com/rhysd/actionlint/issues/654)); the flag ignores only that error.
 
-The script tests cover automatic version derivation from a real git history (merge commits, multi-commit branches, base bumps), the Android versionCode limit, explicit-tag rules, docs-only merges keeping their number, stamping every manifest and `Cargo.lock`, numeric Apple bundle versions, rerun no-ops, "latest" selection, release-note fallback, version/tag/commit mismatch, forced development prereleases, exact platform coverage, missing and mixed manifests, tampered local files, duplicate asset formats, already published releases, upload failures, missing/wrong server SHA256 digests, draft pagination, publication order, banner/signing notes, and app archive fallback. They do not prove that the remote workflow ran or that built packages install correctly.
+The script tests cover automatic version derivation from a real git history (merge commits, multi-commit branches, base bumps), the Android versionCode limit, explicit-tag rules, docs-only merges keeping their number, stamping every manifest and `Cargo.lock`, numeric Apple bundle versions, rerun no-ops, "latest" selection, substantive PR-note collection, version/tag/commit mismatch, forced development prereleases, exact platform coverage, missing and mixed manifests, tampered local files, duplicate asset formats, already published releases, upload failures, missing/wrong server SHA256 digests, draft pagination, publication order, banner/signing notes, and app archive fallback. They do not prove that the remote workflow ran or that built packages install correctly.
 
 Inspect the actual workflow run and release after publication:
 

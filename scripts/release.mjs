@@ -337,14 +337,12 @@ export function previousTag(tags, plan) {
   return pool.sort((a, b) => compareVersions(b.slice(1), a.slice(1)))[0] ?? null;
 }
 
-export async function releaseNotes({ api, plan, previous, log }) {
-  try {
-    const { body } = await api.generateNotes({ tag_name: plan.tag, target_commitish: plan.commit, ...(previous ? { previous_tag_name: previous } : {}) });
-    if (body?.trim()) return body;
-  } catch (error) { console.warn(`Generated release notes unavailable: ${error.message}`); }
-  const lines = log().split('\n').filter(Boolean);
-  if (!lines.length) return '';
-  return `## Changes${previous ? ` since ${previous}` : ''}\n\n${lines.map(line => `- ${line}`).join('\n')}\n`;
+export async function releaseNotes({ plan, previous, root = process.cwd(), repository = process.env.GITHUB_REPOSITORY }) {
+  const script = fileURLToPath(new URL('../.github/scripts/release_notes.py', import.meta.url));
+  // Arguments remain data: never interpolate PR text into a shell command.
+  return execFileSync(process.platform === 'win32' ? 'python' : 'python3', [script, 'generate',
+    '--checkout', root, '--repo', repository, '--sha', plan.commit,
+    ...(previous ? ['--previous-tag', previous] : [])], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 }
 
 export class GitHubApi {
@@ -371,7 +369,15 @@ export class GitHubApi {
     }
   }
   latestRelease() { return this.request('/releases/latest'); }
-  generateNotes(body) { return this.request('/releases/generate-notes', 'POST', body); }
+  async publishedReleaseTags() {
+    const tags = new Set();
+    for (let page = 1; ; page++) {
+      const batch = await this.request(`/releases?per_page=100&page=${page}`);
+      if (!Array.isArray(batch)) throw new Error('Cannot enumerate published releases');
+      for (const release of batch) if (!release.draft) tags.add(release.tag_name);
+      if (batch.length < 100) return tags;
+    }
+  }
   createDraft(body) { return this.request('/releases', 'POST', body); }
   updateDraft(id, body) { return this.request(`/releases/${id}`, 'PATCH', body); }
   publish(id, body) { return this.request(`/releases/${id}`, 'PATCH', body); }
@@ -495,8 +501,9 @@ async function main(command) {
   } else if (command === 'publish') {
     const assembled = await assembleRelease({ plan, directory: outputDir });
     const api = new GitHubApi(process.env.GITHUB_REPOSITORY, process.env.GH_TOKEN);
-    const previous = previousTag(git('tag', '--merged', 'HEAD', '--list', 'v*').split('\n').filter(Boolean), plan);
-    const notes = await releaseNotes({ api, plan, previous, log: () => git('log', '--first-parent', '--max-count=100', '--format=%s (%h)', ...(previous ? [`${previous}..HEAD`] : ['HEAD'])) });
+    const published = await api.publishedReleaseTags();
+    const previous = previousTag(git('tag', '--merged', 'HEAD', '--list', 'v*').split('\n').filter(tag => published.has(tag)), plan);
+    const notes = await releaseNotes({ plan, previous });
     const result = await publishRelease({ api, plan, assembled, repository: process.env.GITHUB_REPOSITORY, notes });
     console.log(result.skipped ? `${plan.tag} was already published from ${plan.commit}; nothing to do` : `Published ${plan.tag}`);
   } else throw new Error(`Unknown release command: ${command}`);
