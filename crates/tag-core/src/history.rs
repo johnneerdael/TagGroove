@@ -356,7 +356,7 @@ impl Journal {
         let mut seen = std::collections::HashSet::new();
         let mut targets = Vec::new();
         for raw in paths {
-            let Ok(path) = Path::new(raw).canonicalize() else {
+            let Ok(path) = dunce::canonicalize(Path::new(raw)) else {
                 continue;
             };
             let Ok(print) = fingerprint(&path) else {
@@ -455,7 +455,7 @@ impl Journal {
                 })
                 .map(|(_, to)| PathBuf::from(to))
                 .unwrap_or_else(|| rebase(&captured.path, &directories));
-            let to = to.canonicalize().unwrap_or(to);
+            let to = dunce::canonicalize(&to).unwrap_or(to);
             let Ok(after) = fingerprint(&to) else {
                 // The operation removed or lost the file; there is nothing to restore onto.
                 discard(&captured.blob);
@@ -858,7 +858,7 @@ fn restore(blob: &Blob, target: &Path, options: &TagOptions) -> Result<bool, Str
     if fingerprint(&blob.path).ok() != Some(blob.fingerprint) {
         return Err("The undo snapshot was modified".into());
     }
-    let target = target.canonicalize().map_err(|e| e.to_string())?;
+    let target = dunce::canonicalize(target).map_err(|e| e.to_string())?;
     let original = fs::metadata(&target).map_err(|e| e.to_string())?;
     if original.permissions().readonly() {
         return Err("The audio file is read-only".into());

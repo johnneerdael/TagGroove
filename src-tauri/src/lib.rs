@@ -769,7 +769,7 @@ fn rename_planned(
             match plan {
                 Ok(target)
                     if destinations.insert(target.clone())
-                        && (std::fs::canonicalize(&path).ok().as_ref() == Some(&target)
+                        && (dunce::canonicalize(&path).ok().as_ref() == Some(&target)
                             || !target.exists()) =>
                 {
                     plans.push((path, target))
@@ -790,7 +790,7 @@ fn rename_planned(
             return Ok(RenameResult { result, renamed });
         }
         for (path, target) in plans {
-            let operation = if std::fs::canonicalize(&path).ok().as_ref() == Some(&target) {
+            let operation = if dunce::canonicalize(&path).ok().as_ref() == Some(&target) {
                 Ok(())
             } else {
                 tag_core::operations::rename_no_clobber(Path::new(&path), &target)
@@ -1615,7 +1615,7 @@ mod tests {
             return;
         }
         let dir = tempfile::tempdir().unwrap();
-        let root = dir.path().canonicalize().unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
         let path = root.join("Café 猫.flac");
         let output = Command::new("ffmpeg")
             .args([

@@ -199,7 +199,7 @@ pub fn plan_transfer(
             error,
         }]
     };
-    let destination = match std::fs::canonicalize(destination) {
+    let destination = match dunce::canonicalize(destination) {
         Ok(path) if path.is_dir() => path,
         Ok(_) => return Err(fail("The destination is not a folder".into())),
         Err(e) => return Err(fail(format!("Cannot open the destination folder: {e}"))),
@@ -215,7 +215,7 @@ pub fn plan_transfer(
             let name = source.file_name().ok_or("The file has no name")?;
             let parent = source
                 .parent()
-                .and_then(|p| std::fs::canonicalize(p).ok())
+                .and_then(|p| dunce::canonicalize(p).ok())
                 .ok_or("Cannot resolve the source folder")?;
             if parent == destination {
                 return Err("The file is already in the destination folder".to_string());

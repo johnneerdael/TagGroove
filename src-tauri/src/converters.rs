@@ -188,7 +188,7 @@ impl Snapshot {
         {
             return Err("Converter inputs must be regular files, not symbolic links".into());
         }
-        let canonical = path.canonicalize().map_err(|e| e.to_string())?;
+        let canonical = dunce::canonicalize(path).map_err(|e| e.to_string())?;
         let (hash, metadata) = digest_file(&canonical)?;
         if writable && metadata.permissions().readonly() {
             return Err("The audio file is read-only".into());
@@ -202,7 +202,7 @@ impl Snapshot {
         })
     }
     fn validate(&self) -> Result<(), String> {
-        if self.requested.canonicalize().map_err(|e| e.to_string())? != self.canonical
+        if dunce::canonicalize(&self.requested).map_err(|e| e.to_string())? != self.canonical
             || !same_metadata(
                 &fs::metadata(&self.canonical).map_err(|e| e.to_string())?,
                 &self.metadata,

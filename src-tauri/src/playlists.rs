@@ -363,7 +363,7 @@ mod tests {
 
     fn fixture(names: &[&str]) -> (tempfile::TempDir, Vec<String>) {
         let directory = tempfile::tempdir().unwrap();
-        let root = directory.path().canonicalize().unwrap();
+        let root = dunce::canonicalize(directory.path()).unwrap();
         let audio = vec![0u8; 8820];
         let mut bytes = b"RIFF".to_vec();
         bytes.extend((36 + audio.len() as u32).to_le_bytes());
@@ -482,7 +482,7 @@ mod tests {
         literal.output_path = Some("%album%.pls".into());
         literal.playlist = Some("/old/list.m3u".into());
         create(&literal, &settings, &options).unwrap();
-        let root = directory.path().canonicalize().unwrap();
+        let root = dunce::canonicalize(directory.path()).unwrap();
         let pls = std::fs::read_to_string(root.join("%album%.pls")).unwrap();
         assert!(pls.starts_with("[playlist]\r\nFile1=1.wav\r\nTitle1= - \r\nLength1=0\r\n"));
 
@@ -526,7 +526,7 @@ mod tests {
     #[test]
     fn relative_entries_survive_a_symlinked_working_directory() {
         let (directory, paths) = fixture(&["album/1.wav", "album/2.wav"]);
-        let root = directory.path().canonicalize().unwrap();
+        let root = dunce::canonicalize(directory.path()).unwrap();
         let link = tempfile::tempdir().unwrap();
         let alias = link.path().join("alias");
         std::os::unix::fs::symlink(root.join("album"), &alias).unwrap();
@@ -560,7 +560,7 @@ mod tests {
         .unwrap();
         assert_eq!(plan.errors.len(), 1);
         assert_eq!(plan.playlists[0].files, 1);
-        let root = directory.path().canonicalize().unwrap();
+        let root = dunce::canonicalize(directory.path()).unwrap();
         assert_eq!(
             std::fs::read_to_string(root.join("list.m3u8")).unwrap(),
             "1.wav\r\n"

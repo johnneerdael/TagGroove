@@ -91,7 +91,7 @@ fn key(path: &Path) -> String {
 }
 
 fn canonical(path: &Path) -> String {
-    key(&path.canonicalize().unwrap())
+    key(&dunce::canonicalize(path).unwrap())
 }
 
 #[test]
@@ -203,7 +203,7 @@ fn remove_tags_and_add_cover_are_reversible_and_preserve_permissions() {
 #[test]
 fn renames_and_directory_moves_reverse_and_reapply() {
     let tmp = tempfile::tempdir().unwrap();
-    let root = tmp.path().canonicalize().unwrap();
+    let root = dunce::canonicalize(tmp.path()).unwrap();
     let dir = root.as_path();
     let album = dir.join("Album");
     fs::create_dir(&album).unwrap();
@@ -270,7 +270,7 @@ fn pure_rename_keeps_no_snapshot_and_reverses() {
     assert_eq!(history.retained_bytes(), 0, "pure renames retain no audio");
     let pair = (
         canonical(&target),
-        key(&dir.path().canonicalize().unwrap().join("a.wav")),
+        key(&dunce::canonicalize(dir.path()).unwrap().join("a.wav")),
     );
     let replay = history.undo().unwrap();
     assert_eq!(replay.renamed, vec![pair]);
