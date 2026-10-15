@@ -122,10 +122,27 @@ Change the text in action 1, for example `%title% (with $regexp(…))`.
 
 **Guests that are already in brackets in the artist field**
 
-For `Juniper Vale (feat. Mira Solberg)`, add `\(?` before and `\)?` after
-the pattern parts, or remove the brackets first with a third action:
-Replace with regular expression on `ARTIST`, pattern `[()]`, empty
-replacement.
+For `Juniper Vale (feat. Mira Solberg)`, insert a **Replace with regular
+expression** action at the **top** of the group. Set **Field** to `ARTIST`,
+**Regular expression** to `[()]`, and leave **Replace matches with** empty.
+This removes all round brackets from the artist field, so use it only on
+files where those brackets wrap the guest credit.
+
+The complete group must run in this order; leave **Case-sensitive
+comparison** off for both replacement actions:
+
+| Order | Action | Field | Pattern or format string | Replacement |
+|---|---|---|---|---|
+| 1 | Replace with regular expression | `ARTIST` | `[()]` | *(empty)* |
+| 2 | Format value | `TITLE` | <code>%title% (feat. $regexp(%artist%,'^.*?\s+(?:feat\.?&#124;ft\.?&#124;featuring)\s+',))</code> | — |
+| 3 | Replace with regular expression | `ARTIST` | <code>\s+(feat\.?&#124;ft\.?&#124;featuring)\s+.*$</code> | *(empty)* |
+
+Step 1 produces `Juniper Vale feat. Mira Solberg`. Step 2 then produces
+`Paper Boats (feat. Mira Solberg)`, and step 3 leaves `Juniper Vale` in
+`ARTIST`. Putting bracket removal last cannot repair a closing bracket
+already copied into the title.
+
+<!-- verified: crates/tag-core/tests/user_guide.rs:published_bracketed_guest_recipe_runs_the_written_actions_in_order -->
 
 ## Related
 

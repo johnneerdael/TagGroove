@@ -1,5 +1,6 @@
 //! Execute copyable public-guide examples with OpenTag's core, not Mp3tag.
 use tag_core::{
+    actions::{apply_action_spec, ActionSpec, ActionState},
     evaluate, evaluate_filename_with_context, evaluate_with_context, parse_filename, EvalContext,
     Fields,
 };
@@ -140,6 +141,45 @@ fn published_guest_artist_recipe_keeps_both_steps_in_order() {
             "Juniper Vale"
         );
     }
+}
+
+#[test]
+fn published_bracketed_guest_recipe_runs_the_written_actions_in_order() {
+    let mut state = ActionState {
+        fields: [
+            ("ARTIST".into(), vec!["Juniper Vale (feat. Mira Solberg)".into()]),
+            ("TITLE".into(), vec!["Paper Boats".into()]),
+        ]
+        .into(),
+        context: Fields::new(),
+    };
+    let mut count = 0;
+    for line in GUEST.lines().filter(|line| {
+        line.starts_with("| 1 |") || line.starts_with("| 2 |") || line.starts_with("| 3 |")
+    }) {
+        let cells = table_cells(line);
+        assert_eq!(cells.len(), 5, "{line}");
+        count += 1;
+        assert_eq!(cells[0], count.to_string(), "recipe order changed");
+        let field = literal(&cells[2]);
+        let action = match cells[1].as_str() {
+            "Replace with regular expression" => ActionSpec::RegexReplace {
+                field,
+                pattern: literal(&cells[3]),
+                replacement: literal(&cells[4]),
+                case_sensitive: false,
+            },
+            "Format value" => ActionSpec::FormatValue {
+                field,
+                template: literal(&cells[3]),
+            },
+            other => panic!("unrecognized recipe action: {other}"),
+        };
+        apply_action_spec(&mut state, &action).unwrap();
+    }
+    assert_eq!(count, 3, "missing bracketed-guest recipe actions");
+    assert_eq!(state.fields["ARTIST"], ["Juniper Vale"]);
+    assert_eq!(state.fields["TITLE"], ["Paper Boats (feat. Mira Solberg)"]);
 }
 
 fn table_cells(line: &str) -> Vec<String> {
