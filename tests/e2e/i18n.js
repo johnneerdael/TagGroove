@@ -58,8 +58,10 @@
   };
   // Guard for translate="no": it may only wrap data (values, names, paths). Any catalog text inside it
   // (a heading, a button label, an aria-label, a tooltip) would be frozen in English. "Help" is the
-  // column, action group and tool name this suite stores on purpose.
-  const NAMES = new Set(['Help']);
+  // column, action group and tool name this suite stores on purpose. Configured names are data too: the
+  // Customize columns and Customize tag panel editors list them as stored (the shipped defaults below),
+  // and field names (ARTIST) are identifiers.
+  const NAMES = new Set(['Help', 'Filename', 'Title', 'Artist', 'Album', 'Track', 'Year', 'Genre', 'Length', 'Codec', 'Bitrate', 'Path', 'Tag', 'Comment', 'Album Artist', 'Composer', 'Discnumber', 'Sample rate', 'Size', 'Last modified', 'Covers', 'Directory']);
   const frozen = root => {
     const out = [], containers = [...(root.matches('[translate="no"]') ? [root] : []), ...root.querySelectorAll('[translate="no"]')];
     for (const container of containers) {
@@ -69,7 +71,7 @@
         else for (const a of [...ATTRIBUTES, 'aria-description', 'label', 'data-hint']) { const v = n.getAttribute(a); if (v && /\p{L}/u.test(v)) out.push(v.replace(/\s+/g, ' ').trim()); }
       }
     }
-    return [...new Set(out.filter(text => !NAMES.has(text) && i18n().translate(text) !== text))];
+    return [...new Set(out.filter(text => !NAMES.has(text) && !/^[A-Z0-9_]+$/.test(text) && i18n().translate(text) !== text))];
   };
   // Catalog text still shown in English: translating it again would change it.
   const leftovers = root => [...new Set(readable(root).filter(text => i18n().translate(text) !== text && !i18n().translated(text)))];
