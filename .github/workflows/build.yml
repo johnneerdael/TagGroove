@@ -43,8 +43,18 @@ jobs:
           for ($attempt = 1; $attempt -le 3; $attempt++) {
             choco install ffmpeg --no-progress -y
             if (Get-Command ffmpeg -ErrorAction SilentlyContinue) { break }
-            Write-Host "ffmpeg not installed (attempt $attempt); retrying"
-            Start-Sleep -Seconds (20 * $attempt)
+            Write-Host "ffmpeg not installed by Chocolatey (attempt $attempt)"
+            Start-Sleep -Seconds (15 * $attempt)
+          }
+          if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
+            # Chocolatey unavailable: fall back to the FFmpeg builds on GitHub.
+            $zip = Join-Path $env:RUNNER_TEMP 'ffmpeg.zip'
+            $url = 'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip'
+            Invoke-WebRequest $url -OutFile $zip -MaximumRetryCount 5 -RetryIntervalSec 10
+            Expand-Archive $zip -DestinationPath (Join-Path $env:RUNNER_TEMP 'ffmpeg')
+            $bin = (Get-ChildItem (Join-Path $env:RUNNER_TEMP 'ffmpeg') -Recurse -Filter ffmpeg.exe | Select-Object -First 1).DirectoryName
+            Add-Content $env:GITHUB_PATH $bin
+            $env:PATH = "$bin;$env:PATH"
           }
           ffmpeg -version | Select-Object -First 1
           if ($LASTEXITCODE -ne 0) { throw 'ffmpeg is not available' }
@@ -109,8 +119,18 @@ jobs:
           for ($attempt = 1; $attempt -le 3; $attempt++) {
             choco install ffmpeg --no-progress -y
             if (Get-Command ffmpeg -ErrorAction SilentlyContinue) { break }
-            Write-Host "ffmpeg not installed (attempt $attempt); retrying"
-            Start-Sleep -Seconds (20 * $attempt)
+            Write-Host "ffmpeg not installed by Chocolatey (attempt $attempt)"
+            Start-Sleep -Seconds (15 * $attempt)
+          }
+          if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
+            # Chocolatey unavailable: fall back to the FFmpeg builds on GitHub.
+            $zip = Join-Path $env:RUNNER_TEMP 'ffmpeg.zip'
+            $url = 'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip'
+            Invoke-WebRequest $url -OutFile $zip -MaximumRetryCount 5 -RetryIntervalSec 10
+            Expand-Archive $zip -DestinationPath (Join-Path $env:RUNNER_TEMP 'ffmpeg')
+            $bin = (Get-ChildItem (Join-Path $env:RUNNER_TEMP 'ffmpeg') -Recurse -Filter ffmpeg.exe | Select-Object -First 1).DirectoryName
+            Add-Content $env:GITHUB_PATH $bin
+            $env:PATH = "$bin;$env:PATH"
           }
           ffmpeg -version | Select-Object -First 1
           if ($LASTEXITCODE -ne 0) { throw 'ffmpeg is not available' }
