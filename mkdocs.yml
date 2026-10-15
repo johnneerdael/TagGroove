@@ -145,3 +145,11 @@ nav:
     - Format strings: reference/format-strings.md
     - Placeholders: reference/placeholders.md
     - Regular expressions: reference/regular-expressions.md
+    - Scripting functions:
+      - reference/scripting/index.md
+      - Text and case: reference/scripting/text.md
+      - Search and compare: reference/scripting/search-compare.md
+      - Conditions and logic: reference/scripting/conditions.md
+      - Numbers and maths: reference/scripting/numbers.md
+      - Dates and durations: reference/scripting/dates-durations.md
+      - Lists, metadata and environment: reference/scripting/lists-metadata.md
