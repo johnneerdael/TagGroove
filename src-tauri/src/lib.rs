@@ -5,6 +5,7 @@ use tag_core::{Action, AudioEntry, Fields, FileError, ScanResult};
 mod action_host;
 mod columns;
 mod converters;
+mod cover_drag;
 mod covers;
 mod documents;
 mod e2e;
@@ -15,6 +16,7 @@ mod file_ops;
 mod filter_cache;
 mod history;
 mod list_behaviour;
+mod lists;
 #[cfg(any(target_os = "android", test))]
 mod managed_actions;
 mod mp3tag_columns;
@@ -78,8 +80,11 @@ async fn run_export(
         ) = exports::current_output_options(&library.preferences);
         settings.export_template_inline = true;
         let (filename, partition) = if per_directory.unwrap_or(false) {
-            let (filename, partition) =
-                exports::per_directory(&library.preferences.filename, &configuration.template);
+            let (filename, partition) = exports::per_directory(
+                &library.preferences.filename,
+                &configuration.template,
+                &paths,
+            );
             (filename, Some(partition))
         } else {
             (
@@ -985,6 +990,9 @@ pub fn run() {
             e2e::e2e_open_urls,
             load_export_library,
             save_export_library,
+            lists::load_helper_lists,
+            cover_drag::drag_cover_out,
+            lists::save_helper_lists,
             import_export_configuration,
             run_export,
             load_action_library,

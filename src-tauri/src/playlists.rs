@@ -63,6 +63,7 @@ impl PlaylistOptions {
             relative: self.relative,
             bom: self.bom,
             ansi_codepage: ansi_codepage(),
+            root: None,
         }
     }
 }
@@ -312,7 +313,8 @@ pub fn create(
     if groups.is_empty() {
         return Err("No readable files for the playlist".into());
     }
-    let write_options = options.write_options();
+    let mut write_options = options.write_options();
+    write_options.root = working_root(request.base_directory.as_deref(), settings);
     let mut outputs = Vec::with_capacity(groups.len());
     // Render every playlist before writing any of them.
     for group in &groups {
@@ -348,6 +350,20 @@ pub fn create(
         write(&group.target, &bytes, options)?;
     }
     Ok(summary(&groups, errors))
+}
+
+/// The working directory that bounds relative entries: the folder the request
+/// names (the File List's working directory), else the evaluation settings' one.
+pub fn working_root(
+    base: Option<&str>,
+    settings: &evaluation::EvaluationSettings,
+) -> Option<PathBuf> {
+    base.or(settings.working_directory.as_deref())
+        .filter(|path| !path.trim().is_empty())
+        .map(|path| {
+            crate::action_host::normalized_output_path(Path::new(path))
+                .unwrap_or_else(|_| PathBuf::from(path))
+        })
 }
 
 /// Write the planned playlists with the Options → Playlist settings.

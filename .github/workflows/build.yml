@@ -88,7 +88,7 @@ jobs:
           set -o pipefail
           mkdir -p e2e-output
           status=0
-          for suite in core-workflows covers actions options-utils playlists freedb-local formats-3 general-options remove-mapping list-behaviour rename-fixes keyboard-extended script-export actions-polish sources-3 keyboard-ui launch-forwarding; do
+          for suite in core-workflows covers actions options-utils playlists freedb-local formats-3 general-options remove-mapping list-behaviour rename-fixes keyboard-extended script-export actions-polish sources-3 keyboard-ui launch-forwarding export-lists; do
             fixtures=""
             [[ -x "tests/e2e/$suite-fixtures.sh" ]] && fixtures="$PWD/tests/e2e/$suite-fixtures.sh"
             echo "::group::$suite"

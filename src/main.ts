@@ -8,7 +8,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getVersion } from '@tauri-apps/api/app';
 import { createAppearance, type AppearanceState } from './theme';
 import { installMenubar } from './menubar';
-import { ExportUI, type ExportLibrary, type ExportConfiguration } from './export-ui';
+import { ExportUI, offerOpenOutputs, type ExportLibrary, type ExportConfiguration } from './export-ui';
 import { OptionsUI, registerOptionsPage, naturalCollator, windowTitle, type Settings, type SettingsResponse } from './options-ui';
 import { createNumberingReview, numberingCounter, recallNumbering, rememberNumbering, type NumberingRequest, type NumberingUpdate } from './numbering-review';
 import { open, save, ask, message } from '@tauri-apps/plugin-dialog';
@@ -35,7 +35,7 @@ import { AUTO_SIZE_ROWS, autoSaveTargets, autoSizeShortcut, bindRowDrag, dropAdd
 import { TOOLBAR_COMMANDS, customizeToolbar, isSeparator, itemLabel, normalizeToolbar, visibleItems, type ToolbarConfig } from './toolbar';
 import './keyboard-ui.css';
 import { openTagToTag } from './tag-tag-ui';
-import { installHelperMenus } from './helper-menu';
+import { ConfigListStorage, installHelperMenus } from './helper-menu';
 import { FileOpsUI, fileShortcut, startupChoice, startupOptionsPage, type FileOperation } from './file-ops';
 import { PlaylistUI, isPlaylistPath, playlistOptionsPage, exportOptionsPage, playlistValues, type PlaylistPlan } from './playlist-ui';
 import { listen } from '@tauri-apps/api/event';
@@ -196,6 +196,11 @@ const actionUI=new ActionUI({
   storage:{getItem:key=>window.localStorage.getItem(key),setItem:(key,value)=>window.localStorage.setItem(key,value)},
   exportGroup:async group=>{const path=await save({title:'Export action group',defaultPath:`${group.name.replace(/[\\/:*?"<>|]/g,'_')}.mta`,filters:[{name:'Action groups',extensions:['mta']}]});if(!path)return null;await invoke('export_action_group',{path,group});return path;},
 });
+// Field list and histories of the ► helper menus, kept in the configuration (lists.json).
+const helperLists=new ConfigListStorage(
+  {load:()=>invoke<{exists:boolean;lists:Record<string,unknown>}>('load_helper_lists'),save:lists=>invoke<void>('save_helper_lists',{lists})},
+  (()=>{try{return window.localStorage;}catch{return undefined;}})(),
+  error=>console.warn('Remembered lists could not be saved',error));
 const exportUI=new ExportUI({
   load:()=>invoke<ExportLibrary>('load_export_library'),save:library=>invoke<void>('save_export_library',{library}),
   import:(path,encoding)=>invoke<ExportConfiguration>('import_export_configuration',{path,legacyEncoding:encoding||null}),
@@ -210,13 +215,16 @@ const exportUI=new ExportUI({
       const batch=await invoke<Batch>('run_export',{paths:targets,columns,perDirectory});errors=batch.errors;status=batch.errors.length?'Export incomplete. Review the file errors.':`Exported metadata for ${batch.entries.length} files${batch.outputs&&batch.outputs.length>1?` to ${batch.outputs.length} files`:''}`;return batch;
     });
     if(!result||result.errors.length)throw new Error(result?.errors.map(e=>`${e.path}: ${e.error}`).join('\n')||errors.map(e=>e.error).join('\n')||'Export did not complete.');
-    await offerOpen(result.outputs??[]);
+    // The Export dialog closes first; the offer to open a written file follows.
+    void offerOpen(result.outputs??[]);
   },
 });
 const macPlatform=/Mac|iPhone|iPad/.test(navigator.platform);
-// After exporting or creating a playlist, Options → Messages may offer to open the written file.
-async function offerOpen(outputs:string[]){
-  if(outputs.length===1&&messages.enabled('confirm_export')&&await ask(`${status}. Open ${basename(outputs[0])} now?`,{title:'Export',kind:'info'}))await invoke('play_files',{paths:outputs});
+// After exporting or creating playlists, Options → Messages may offer to open a written file.
+async function offerOpen(outputs:string[],title='Export'){
+  if(!outputs.length||!messages.enabled('confirm_export'))return;
+  await offerOpenOutputs({modal,modalError,fileManager:fileOps.fileManager,
+    open:paths=>invoke<void>('play_files',{paths}),reveal:paths=>invoke<void>('reveal_files',{paths})},outputs,status,title);
 }
 let loadedPlaylist:string|undefined,autoPlaylistPending=false;
 const playlistUI=new PlaylistUI({
@@ -227,7 +235,7 @@ const playlistUI=new PlaylistUI({
   done:async(plan:PlaylistPlan,interactive)=>{
     const files=plan.playlists.reduce((sum,p)=>sum+p.files,0);
     status=plan.playlists.length===1?`Created playlist ${basename(plan.playlists[0].path)} with ${files} file${files===1?'':'s'}`:`Created ${plan.playlists.length} playlists with ${files} files`;
-    errors=plan.errors;render();if(interactive)await offerOpen(plan.playlists.map(p=>p.path));
+    errors=plan.errors;render();if(interactive)await offerOpen(plan.playlists.map(p=>p.path),'Playlist');
   },
 });
 registerOptionsPage(exportOptionsPage);
@@ -251,6 +259,7 @@ const coverUI=new CoverUI({
   adjust:()=>actionUI.quick('adjust_cover'),
   notify:message=>{status=message;const el=document.querySelector('.status-message');if(el)el.textContent=message;},
   fail:error=>{errors=[{path:'Cover',error:error instanceof Error?error.message:String(error)}];status='Cover operation failed';render();},
+  dragOut:cover=>{const entry=active(),hint=entry?(field(entry,'ALBUM')||entry.filename.replace(/\.[^.]+$/,'')):'Cover';return invoke<{path:string;result:string}>('drag_cover_out',{dataBase64:cover.data_base64,mime:cover.mime,name:hint});},
 });
 const extendedTags=new ExtendedTags({
   selection:()=>paths(),listed:()=>visible().map(entry=>entry.path),
@@ -1603,7 +1612,9 @@ async function operateImpl(op: Operation) {
   if(op==='config-save'){const outputPath=await save({title:'Save configuration',defaultPath:configurationFileName(),filters:[CONFIGURATION_FILTER]});if(outputPath){const count=await invoke<number>('export_configuration',{outputPath});status=`Saved ${count} configuration file${count===1?'':'s'} to ${basename(outputPath)}`;render();}return;}
   if(op==='config-load'){
     const path=await open({multiple:false,title:'Load configuration',filters:[CONFIGURATION_FILTER]});if(typeof path!=='string')return;
-    if(!await ask(`Replace the current options, action groups, export configurations, columns, tag panel and favorite directories with ${basename(path)}?${drafts.size?` Pending changes in ${drafts.size} file${drafts.size===1?'':'s'} are discarded.`:''}\n\nOpenTag reloads its window afterwards. The Discogs access token is not part of a configuration file.`,{title:'Load configuration',kind:'warning'}))return;
+    if(!await ask(`Replace the current options, action groups, export configurations, columns, tag panel, favorite directories and remembered lists with ${basename(path)}?${drafts.size?` Pending changes in ${drafts.size} file${drafts.size===1?'':'s'} are discarded.`:''}\n\nOpenTag reloads its window afterwards. The Discogs access token is not part of a configuration file.`,{title:'Load configuration',kind:'warning'}))return;
+    // Remembered lists are part of the configuration; nothing may save over the restored ones.
+    await helperLists.flush().catch(()=>{});helperLists.pause();
     const restored=await invoke<string[]>('import_configuration',{path});drafts.clear();status=`Loaded ${restored.length} configuration file${restored.length===1?'':'s'}`;window.location.reload();return;
   }
   if(op==='csv'){const outputPath=await save({title:'Export tags as CSV',defaultPath:'tags.csv',filters:[{name:'CSV file',extensions:['csv']}]});if(outputPath&&await run('Exporting…',async()=>{await invoke('export_csv',{paths:paths(),outputPath});status=`Exported ${selected.size} files to ${basename(outputPath)}`;return true;}))await offerOpen([outputPath]);}
@@ -1742,6 +1753,7 @@ tagPanel.install(document);
 coverUI.install(document);
 window.addEventListener('beforeunload',event=>{if(drafts.size||actionUI.hasUnsavedChanges){event.preventDefault();event.returnValue='';}});
 installHelperMenus({
+  storage:helperLists,
   fieldNames:()=>[...new Set(paths().flatMap(path=>Object.keys(merged(entries.get(path)!))))],
   panelFields:()=>tagPanel.settings.panel.fields.filter(field=>field.visible&&!field.field.startsWith('_')).map(field=>field.field),
   confirm:message=>ask(message,{title:'OpenTag',kind:'warning'}),
@@ -1777,6 +1789,8 @@ if(desktop){
   }).catch(error=>{errors=[{path:'Window',error:String(error)}];render();});
   void getCurrentWebview().onDragDropEvent(event=>{
     document.querySelector('.drop-overlay')?.remove();
+    // A cover dragged out of the cover window is not dropped back in.
+    if(coverUI.draggingOut)return;
     if(!runtimePlatform.document_access_supported&&coverUI.dragDrop(event.payload))return;
     if(event.payload.type==='enter'||event.payload.type==='over'){const overlay=document.createElement('div');overlay.className='drop-overlay';overlay.textContent=entries.size?`Drop audio files, folders or playlists to replace the list. Hold ${macKeyboard()?'⌘':'Ctrl'} to add them.`:'Drop audio files, folders or playlists to open them';document.body.append(overlay);}
     if(event.payload.type==='drop'&&!busy&&!runtimePlatform.document_access_supported)void dropFiles(event.payload.paths).catch(error=>{errors=[{path:'Drag and drop',error:publicMessage(error)}];render();});

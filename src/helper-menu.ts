@@ -9,11 +9,13 @@
  *   data-helper="regex" / "regex-replacement"  regular expression snippets
  *   data-helper="history"        history commands only
  *   data-helper="filter"         filter: format plus Auto-apply filter
- *   data-history="key"           remembered format strings; data-history-manage enables Manage history…
+ *   data-history="key"           remembered format strings; data-history-manage enables Manage history…;
+ *                                data-history-enter also remembers on Enter inside a dialog
  *   data-specials="_FILENAME,…"  special names offered by a field-name input's drop-down list */
 export type HelperKind='field'|'format'|'format-export'|'placeholder'|'pattern'|'regex'|'regex-replacement'|'history'|'filter';
 export type HelperStorage={getItem(key:string):string|null;setItem(key:string,value:string):void;removeItem?(key:string):void};
-export type HistoryEntry={value:string;name?:string;description?:string};
+/** `favorite` entries (ticked in Manage List) are offered in the ► menu. */
+export type HistoryEntry={value:string;name?:string;description?:string;favorite?:boolean};
 export type HelperHost={
   fieldNames:()=>string[];
   panelFields:()=>string[];
@@ -71,11 +73,86 @@ export class FormatHistory{
   constructor(private storage?:HelperStorage){}
   private key(id:string){return`opentag.history.${id}`;}
   list(id:string):HistoryEntry[]{const value=read<unknown>(this.storage,this.key(id),[]);return Array.isArray(value)?value.filter((v):v is HistoryEntry=>!!v&&typeof v.value==='string'):[];}
-  set(id:string,entries:HistoryEntry[]){write(this.storage,this.key(id),entries.slice(0,FormatHistory.limit));}
+  /** Keeps at most `limit` entries; the oldest non-favorites go first. */
+  set(id:string,entries:HistoryEntry[]){
+    const kept=[...entries];
+    for(let index=kept.length-1;index>=0&&kept.length>FormatHistory.limit;index--)if(!kept[index].favorite)kept.splice(index,1);
+    write(this.storage,this.key(id),kept);
+  }
+  favorites(id:string){return this.list(id).filter(entry=>entry.favorite);}
   /** Most recent first; a named entry keeps its name and description when used again. */
   add(id:string,value:string){if(!value.trim())return;const list=this.list(id),existing=list.find(entry=>entry.value===value);this.set(id,[existing||{value},...list.filter(entry=>entry.value!==value)]);}
   remove(id:string,value:string){const list=this.list(id),next=list.filter(entry=>entry.value!==value);this.set(id,next);return next.length!==list.length;}
   clear(id:string){this.set(id,[]);}
+}
+
+/** Helper lists that belong to the configuration rather than the window. */
+export const configListKey=(key:string)=>key==='opentag.field-list'||key.startsWith('opentag.history.');
+type LegacyStorage=HelperStorage&{readonly length:number;key(index:number):string|null};
+export type ListBackend={load:()=>Promise<{exists:boolean;lists:Record<string,unknown>}>;save:(lists:Record<string,unknown>)=>Promise<void>};
+/**
+ * The helper lists (field list, histories with names, descriptions and
+ * favorites) kept in the configuration's lists.json, so configuration backups
+ * include them. Reads are synchronous from memory; changes are saved shortly
+ * after. The first load moves lists that earlier versions kept in the
+ * window's local storage into the configuration.
+ */
+export class ConfigListStorage implements HelperStorage{
+  private data=new Map<string,string>();
+  private early=new Set<string>();
+  private loaded=false;private paused=false;
+  private timer:ReturnType<typeof setTimeout>|undefined;
+  readonly ready:Promise<void>;
+  constructor(private backend:ListBackend,private legacy?:LegacyStorage,private onError:(error:unknown)=>void=()=>{},private delay=150){this.ready=this.load();}
+  getItem(key:string){return this.data.get(key)??null;}
+  setItem(key:string,value:string){this.data.set(key,value);if(!this.loaded)this.early.add(key);this.schedule();}
+  removeItem(key:string){this.data.delete(key);if(!this.loaded)this.early.add(key);this.schedule();}
+  private async load(){
+    let migrated:string[]=[];
+    try{
+      const saved=await this.backend.load();
+      if(saved.exists){for(const [key,value] of Object.entries(saved.lists))if(!this.early.has(key))this.data.set(key,JSON.stringify(value));}
+      else migrated=this.migrate();
+    }catch(error){this.onError(error);}
+    this.loaded=true;
+    if(migrated.length){
+      try{await this.flush();for(const key of migrated)this.legacy?.removeItem?.(key);}catch(error){this.onError(error);}
+    }else if(this.early.size)this.schedule();
+  }
+  private migrate(){
+    const keys:string[]=[];
+    try{
+      const legacy=this.legacy;if(!legacy)return keys;
+      for(let index=0;index<legacy.length;index++){const key=legacy.key(index);if(key&&configListKey(key))keys.push(key);}
+      for(const key of keys){
+        const raw=legacy.getItem(key);if(raw===null||this.early.has(key))continue;
+        try{if(Array.isArray(JSON.parse(raw)))this.data.set(key,raw);}catch{/* A damaged list is left behind. */}
+      }
+    }catch{/* Without local storage there is nothing to move. */}
+    return keys.filter(key=>this.data.has(key));
+  }
+  private schedule(){
+    if(!this.loaded||this.paused)return;
+    if(this.timer!==undefined)clearTimeout(this.timer);
+    this.timer=setTimeout(()=>{this.timer=undefined;this.flush().catch(this.onError);},this.delay);
+  }
+  /** Save now (for example before the configuration is replaced). */
+  async flush(){
+    if(this.timer!==undefined){clearTimeout(this.timer);this.timer=undefined;}
+    const lists:Record<string,unknown>={};
+    for(const [key,raw] of this.data){try{lists[key]=JSON.parse(raw);}catch{/* Unreadable values are not saved. */}}
+    await this.backend.save(lists);
+  }
+  /** Stop saving, so a configuration that is being restored is not overwritten. */
+  pause(){this.paused=true;if(this.timer!==undefined){clearTimeout(this.timer);this.timer=undefined;}}
+}
+
+/** A copy of `entries[index]` placed after it, named so the copy can be told apart. */
+export function duplicateEntry(entries:HistoryEntry[],index:number):HistoryEntry{
+  const source=entries[index];if(!source)throw new Error('Select an entry to duplicate.');
+  const copy:HistoryEntry={...source};
+  if(source.name){let name=`${source.name} copy`,count=2;while(entries.some(entry=>entry.name===name))name=`${source.name} copy ${count++}`;copy.name=name;}
+  return copy;
 }
 
 /** Insert text at the caret (replacing a selection) and select the first parameter of an inserted function. */
@@ -88,7 +165,7 @@ export const placeholder=(field:string)=>`%${field.toLowerCase()}%`;
 /** Names for the Extended fields submenu: everything known that the panel section does not already list. */
 export function extendedFields(panel:string[],known:string[]){const shown=new Set(panel.map(upper));return [...new Set(known.filter(name=>validField(name)&&!name.startsWith('_')).map(upper))].filter(name=>!shown.has(name)).sort();}
 
-export type HelperContext={kind:HelperKind;panel:string[];known:string[];history?:boolean;manage?:boolean;historySelected?:boolean;value?:string;inFieldList?:boolean;autoApply?:boolean};
+export type HelperContext={kind:HelperKind;panel:string[];known:string[];history?:boolean;manage?:boolean;historySelected?:boolean;value?:string;inFieldList?:boolean;autoApply?:boolean;favorites?:HistoryEntry[]};
 /** Menu model per documented section order. Pure so the contents can be tested without a DOM. */
 export function helperEntries(context:HelperContext):HelperEntry[]{
   const {kind}=context,entries:HelperEntry[]=[],separator=()=>{if(entries.length&&!entries[entries.length-1].separator)entries.push({label:'',separator:true});};
@@ -112,6 +189,9 @@ export function helperEntries(context:HelperContext):HelperEntry[]{
   if(kind==='regex'||kind==='regex-replacement')entries.push({label:'Regular expression',submenu:(kind==='regex'?regexSnippets:regexReplacementSnippets).map(([label,insert])=>({label,insert}))});
   if(context.history){
     separator();
+    // Favorites (ticked in Manage List) replace the input's value.
+    for(const entry of context.favorites||[])entries.push({label:entry.name||entry.value,command:`set:${entry.value}`});
+    if(context.favorites?.length)separator();
     if(context.manage)entries.push({label:'Manage history…',command:'history-manage'});
     else entries.push({label:'Remove from history',command:'history-remove',disabled:!context.historySelected},{label:'Remove all from history…',command:'history-clear'});
   }
@@ -176,25 +256,36 @@ export function installHelperMenus(host:HelperHost,root:HTMLElement=document.bod
     let entries=history.list(key),current=entries.findIndex(entry=>entry.value===control.value);
     const content=dialog.querySelector<HTMLElement>('.dialog-content')!,use=dialog.querySelector<HTMLButtonElement>('[data-use]')!;
     const save=()=>{history.set(key,entries);};
-    const edit=(index:number)=>{
-      const entry=entries[index]||{value:index<0?control.value:''},form=document.createElement('div');form.className='history-form';
-      form.innerHTML=`<label class="field"><span>NAME (OPTIONAL)</span><input data-name value="${esc(entry.name)}"></label><label class="field"><span>FORMAT STRING</span><input data-value value="${esc(entry.value)}" spellcheck="false" autocomplete="off"></label><label class="field"><span>DESCRIPTION (OPTIONAL)</span><textarea data-description rows="2">${esc(entry.description)}</textarea></label><div class="group-buttons"><button data-cancel>Cancel</button><button class="primary" data-keep>${index<0?'Add':'Keep'}</button></div>`;
+    /** `copyAt` places a duplicate there; it must differ from the entries it copies. */
+    const edit=(index:number,draft?:HistoryEntry,copyAt?:number)=>{
+      const entry=draft||entries[index]||{value:index<0?control.value:''},form=document.createElement('div');form.className='history-form';
+      form.innerHTML=`${copyAt!==undefined?'<p>Change the copy before keeping it: each format string is listed once.</p>':''}<label class="field"><span>NAME (OPTIONAL)</span><input data-name value="${esc(entry.name)}"></label><label class="field"><span>FORMAT STRING</span><input data-value value="${esc(entry.value)}" spellcheck="false" autocomplete="off"></label><label class="field"><span>DESCRIPTION (OPTIONAL)</span><textarea data-description rows="2">${esc(entry.description)}</textarea></label><label class="action-check"><input type="checkbox" data-favorite-edit ${entry.favorite?'checked':''}> Favorite (offered in the ► menu)</label><div class="group-buttons"><button data-cancel>Cancel</button><button class="primary" data-keep>${index<0?'Add':'Keep'}</button></div>`;
       content.replaceChildren(form);form.querySelector<HTMLInputElement>('[data-value]')!.focus();
       form.querySelector('[data-cancel]')!.addEventListener('click',draw);
       form.querySelector('[data-keep]')!.addEventListener('click',()=>{
         const value=form.querySelector<HTMLInputElement>('[data-value]')!.value,name=form.querySelector<HTMLInputElement>('[data-name]')!.value.trim(),description=form.querySelector<HTMLTextAreaElement>('[data-description]')!.value.trim();
         if(!value.trim()){form.querySelector('.dialog-error')?.remove();form.insertAdjacentHTML('beforeend','<p class="dialog-error" role="alert">Enter a format string.</p>');return;}
         if(name&&entries.some((other,i)=>i!==index&&other.name===name)){form.querySelector('.dialog-error')?.remove();form.insertAdjacentHTML('beforeend','<p class="dialog-error" role="alert">An entry with this description already exists. Please use another description.</p>');return;}
-        const next:HistoryEntry={value,...(name?{name}:{}),...(description?{description}:{})};
-        if(index<0){entries=[next,...entries.filter(other=>other.value!==value)];current=0;}else{entries[index]=next;entries=entries.filter((other,i)=>i===index||other.value!==value);current=entries.indexOf(next);}
+        const favorite=form.querySelector<HTMLInputElement>('[data-favorite-edit]')!.checked;
+        const next:HistoryEntry={value,...(name?{name}:{}),...(description?{description}:{}),...(favorite?{favorite}:{})};
+        if(copyAt!==undefined){
+          if(entries.some(other=>other.value===value)){form.querySelector('.dialog-error')?.remove();form.insertAdjacentHTML('beforeend','<p class="dialog-error" role="alert">This format string is already listed. Change the copy before keeping it.</p>');return;}
+          entries.splice(copyAt,0,next);current=copyAt;
+        }
+        else if(index<0){entries=[next,...entries.filter(other=>other.value!==value)];current=0;}else{entries[index]=next;entries=entries.filter((other,i)=>i===index||other.value!==value);current=entries.indexOf(next);}
         save();draw();
       });
     };
     const draw=()=>{
-      content.innerHTML=`<p>Saved format strings appear in the drop-down list of this field. Give an entry a name to find it again.</p><ul class="history-list" role="listbox" aria-label="History">${entries.map((entry,i)=>`<li role="option" tabindex="0" data-index="${i}" aria-selected="${i===current}" class="${i===current?'current':''}"><strong>${esc(entry.name||entry.value)}</strong>${entry.name?`<code>${esc(entry.value)}</code>`:''}${entry.description?`<small>${esc(entry.description)}</small>`:''}</li>`).join('')||'<li class="group-empty">No saved format strings.</li>'}</ul><div class="group-buttons"><button data-add>Add…</button><button data-edit ${current>=0?'':'disabled'}>Edit…</button><button data-remove ${current>=0?'':'disabled'}>Remove</button><button data-up ${current>0?'':'disabled'}>↑ Move up</button><button data-down ${current>=0&&current<entries.length-1?'':'disabled'}>↓ Move down</button></div>`;
+      content.innerHTML=`<p>Saved format strings appear in the drop-down list of this field. Give an entry a name to find it again. Ticked entries are favorites, offered in the ► menu.</p><ul class="history-list" role="listbox" aria-label="History">${entries.map((entry,i)=>`<li role="option" tabindex="0" data-index="${i}" aria-selected="${i===current}" class="${i===current?'current':''}"><input type="checkbox" data-favorite="${i}" aria-label="Favorite: ${esc(entry.name||entry.value)}" title="Favorite" ${entry.favorite?'checked':''}><span class="history-text"><strong>${esc(entry.name||entry.value)}</strong>${entry.name?`<code>${esc(entry.value)}</code>`:''}${entry.description?`<small>${esc(entry.description)}</small>`:''}</span></li>`).join('')||'<li class="group-empty">No saved format strings.</li>'}</ul><div class="group-buttons"><button data-add>Add…</button><button data-duplicate ${current>=0?'':'disabled'}>Duplicate…</button><button data-edit ${current>=0?'':'disabled'}>Edit…</button><button data-remove ${current>=0?'':'disabled'}>Remove</button><button data-up ${current>0?'':'disabled'}>↑ Move up</button><button data-down ${current>=0&&current<entries.length-1?'':'disabled'}>↓ Move down</button></div>`;
       use.disabled=current<0;
       content.querySelectorAll<HTMLElement>('[data-index]').forEach(item=>{const index=Number(item.dataset.index);item.addEventListener('click',()=>{current=index;draw();content.querySelector<HTMLElement>(`[data-index="${index}"]`)?.focus();});item.addEventListener('dblclick',()=>{current=index;use.click();});item.addEventListener('keydown',event=>{if(event.key==='ArrowDown'||event.key==='ArrowUp'){event.preventDefault();current=Math.max(0,Math.min(entries.length-1,index+(event.key==='ArrowDown'?1:-1)));draw();content.querySelector<HTMLElement>(`[data-index="${current}"]`)?.focus();}if(event.key==='Enter'){event.preventDefault();use.click();}if(event.key==='F2'){event.preventDefault();edit(index);}});});
+      content.querySelectorAll<HTMLInputElement>('[data-favorite]').forEach(box=>{
+        box.addEventListener('click',event=>event.stopPropagation());
+        box.addEventListener('change',()=>{const index=Number(box.dataset.favorite),entry=entries[index];if(!entry)return;if(box.checked)entry.favorite=true;else delete entry.favorite;save();});
+      });
       content.querySelector('[data-add]')!.addEventListener('click',()=>edit(-1));
+      content.querySelector('[data-duplicate]')!.addEventListener('click',()=>edit(-1,duplicateEntry(entries,current),current+1));
       content.querySelector('[data-edit]')!.addEventListener('click',()=>edit(current));
       content.querySelector('[data-remove]')!.addEventListener('click',()=>{entries.splice(current,1);current=Math.min(current,entries.length-1);save();draw();});
       const move=(by:number)=>{const target=current+by,[entry]=entries.splice(current,1);entries.splice(target,0,entry);current=target;save();draw();};
@@ -207,7 +298,7 @@ export function installHelperMenus(host:HelperHost,root:HTMLElement=document.bod
   const show=(control:Control,button:HTMLButtonElement)=>{
     if(open?.button===button){close(true);return;}
     close();const kind=control.dataset.helper as HelperKind,key=control.dataset.history;
-    const entries=helperEntries({kind,panel:host.panelFields().length?host.panelFields():defaultPanelFields,known:kind==='field'?known(control):[...fields.list(),...host.fieldNames()],history:!!key,manage:control.hasAttribute('data-history-manage'),historySelected:!!key&&history.list(key).some(entry=>entry.value===control.value),value:control.value,inFieldList:fields.has(control.value),autoApply:kind==='filter'?host.filterAutoApply?.get():undefined});
+    const entries=helperEntries({kind,panel:host.panelFields().length?host.panelFields():defaultPanelFields,known:kind==='field'?known(control):[...fields.list(),...host.fieldNames()],history:!!key,manage:control.hasAttribute('data-history-manage'),historySelected:!!key&&history.list(key).some(entry=>entry.value===control.value),favorites:key?history.favorites(key):[],value:control.value,inFieldList:fields.has(control.value),autoApply:kind==='filter'?host.filterAutoApply?.get():undefined});
     const menu=document.createElement('div');menu.className='helper-menu';menu.setAttribute('role','menu');menu.setAttribute('aria-label',kind==='field'?'Fields':'Format string helper');
     const build=(items:HelperEntry[],parent:HTMLElement)=>items.forEach(item=>{
       if(item.separator){parent.append(Object.assign(document.createElement('hr'),{role:'separator'}));return;}
@@ -259,7 +350,7 @@ export function installHelperMenus(host:HelperHost,root:HTMLElement=document.bod
     if(control.dataset.history){
       const dialog=control.closest('dialog');
       if(dialog&&!dialog.dataset.historyBound){dialog.dataset.historyBound='true';dialog.addEventListener('click',event=>{const target=(event.target as Element).closest('button');if(target?.classList.contains('primary')&&!target.closest('.manage-history-dialog'))dialog.querySelectorAll<Control>('[data-history]').forEach(remember);},true);}
-      if(!dialog)control.addEventListener('keydown',event=>{if((event as KeyboardEvent).key==='Enter')remember(control);});
+      if(!dialog||control.hasAttribute('data-history-enter'))control.addEventListener('keydown',event=>{if((event as KeyboardEvent).key==='Enter')remember(control);});
     }
   };
   const scan=(node:ParentNode)=>node.querySelectorAll<Control>('[data-helper]:not([data-helper-bound])').forEach(bind);

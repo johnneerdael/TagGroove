@@ -40,19 +40,20 @@ export function sortFindResults(results:FindResult[],sort:FindSort,collator=new 
 }
 
 export type FindHost={items:()=>FindItem[];select:(paths:string[],focus?:string)=>void;listed:(path:string)=>boolean};
-/** Edit → Find: a non-modal search window whose results select files in the File List. */
+/** Edit → Find: a non-modal search window whose results select files in the File List.
+ * Used criteria are remembered in the configuration's helper lists (history `find`);
+ * the ► button next to the search field removes one or all of them. */
 export class FindUI{
   private dialog?:HTMLDialogElement;
-  private history:string[]=[];
   constructor(private host:FindHost){}
   open(){
     if(this.dialog?.open){this.dialog.querySelector<HTMLInputElement>('#find-criteria')!.select();return;}
     let results:FindResult[]=[],sort:FindSort={key:'filename',ascending:true};
     const dialog=document.createElement('dialog');dialog.className='find-dialog';dialog.setAttribute('aria-label','Find');this.dialog=dialog;
-    dialog.innerHTML=`<header>Find</header><div class="dialog-content"><div class="action-input"><input id="find-criteria" list="find-history" aria-label="Find" placeholder="Text to find in tag fields and filenames" autocomplete="off" spellcheck="false"><datalist id="find-history"></datalist><button class="primary" id="find-run">Find</button></div>
+    dialog.innerHTML=`<header>Find</header><div class="dialog-content"><div class="action-input"><input id="find-criteria" data-helper="history" data-history="find" data-history-enter aria-label="Find" placeholder="Text to find in tag fields and filenames" autocomplete="off" spellcheck="false"><button class="primary" id="find-run">Find</button></div>
       <div class="field-pair"><label class="field"><span>STRATEGY</span><select id="find-strategy">${findStrategies.map(([value,label])=>`<option value="${value}">${label}</option>`).join('')}</select></label><label class="action-check"><input type="checkbox" id="find-case"> Case sensitive</label></div>
       <p id="find-status" role="status">Search all tag fields and filenames of the listed files.</p><div class="preview find-results" tabindex="-1"></div></div>
-      <div class="dialog-footer"><button id="find-clear-history">Clear history</button><button id="find-select" disabled>Select all results</button><button data-close>Close</button></div>`;
+      <div class="dialog-footer"><button id="find-select" disabled>Select all results</button><button data-close>Close</button></div>`;
     document.body.append(dialog);
     const q=<T extends Element>(selector:string)=>dialog.querySelector<T>(selector)!;
     const status=(text:string)=>{q('#find-status').textContent=text;};
@@ -72,18 +73,14 @@ export class FindUI{
       const criteria=q<HTMLInputElement>('#find-criteria').value;
       try{
         results=findInList(this.host.items(),criteria,q<HTMLSelectElement>('#find-strategy').value as FindStrategy,q<HTMLInputElement>('#find-case').checked);
-        this.history=[criteria,...this.history.filter(item=>item!==criteria)].slice(0,20);
-        q('#find-history').innerHTML=this.history.map(item=>`<option value="${html(item)}">`).join('');
         const files=new Set(results.map(result=>result.path)).size;
         status(results.length?`${results.length} match${results.length===1?'':'es'} in ${files} file${files===1?'':'s'}${results.length>2000?'. Showing the first 2000.':'.'}`:'No matches.');
       }catch(error){results=[];status(error instanceof Error?error.message:String(error));}
       table();
     };
-    q('#find-history').innerHTML=this.history.map(item=>`<option value="${html(item)}">`).join('');
     q('#find-run').addEventListener('click',run);
     q('#find-criteria').addEventListener('keydown',event=>{if((event as KeyboardEvent).key==='Enter'){event.preventDefault();run();}});
     q('#find-select').addEventListener('click',()=>{const paths=[...new Set(sortFindResults(results,sort).map(result=>result.path))].filter(path=>this.host.listed(path));this.host.select(paths,paths[0]);});
-    q('#find-clear-history').addEventListener('click',()=>{this.history=[];q('#find-history').innerHTML='';});
     q('[data-close]').addEventListener('click',()=>dialog.close());
     dialog.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();dialog.close();}});
     dialog.addEventListener('close',()=>{dialog.remove();if(this.dialog===dialog)this.dialog=undefined;});
