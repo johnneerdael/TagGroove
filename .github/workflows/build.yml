@@ -191,7 +191,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+        runner: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     defaults:
@@ -216,6 +216,9 @@ jobs:
           mkdir -p e2e-output
           pass=0; fail=0
           for i in $(seq 1 ${{ inputs.loop }}); do
+            # Later runs start as cold as the first: per-user caches (fontconfig,
+            # GStreamer registry, WebKit) and the page cache are dropped.
+            if [[ $i -gt 1 ]]; then rm -rf "$HOME/.cache"/* "$HOME/.local/share"/*; sync; echo 3 | sudo tee /proc/sys/vm/drop_caches >/dev/null; fi
             echo "::group::run $i"
             if OPENTAG_E2E_OFFLINE=1 OPENTAG_E2E_FIXTURES="" dbus-run-session -- xvfb-run -a scripts/e2e-native.sh tests/e2e/core-workflows.js --no-build 2>&1 | tee "e2e-output/run-$i.txt"; then pass=$((pass+1)); r=PASS; else fail=$((fail+1)); r=FAIL; fi
             echo "::endgroup::"

@@ -6,23 +6,25 @@
   // Diagnostics for timeouts: a timeline of window state changes (busy, status,
   // open dialogs, pending edits, selection, focus) since the script started.
   const t0 = performance.now(), ms = () => Math.round(performance.now() - t0);
+  const describe = el => !el ? '-' : el.tagName + (el.id ? '#' + el.id : '') + (el.dataset?.field ? ':' + el.dataset.field : '') + (el.className && typeof el.className === 'string' ? '.' + el.className.trim().split(/\s+/).join('.') : '') + (el.getAttribute?.('aria-label') ? `[${el.getAttribute('aria-label')}]` : '') + (el.isConnected === false ? '(detached)' : '') + (el.parentElement ? ' in ' + (el.parentElement.className || el.parentElement.tagName) : '');
   const snapshot = () => {
     const opsState = ['save', 'undo', 'redo'].map(op => { const b = document.querySelector(`button[data-op="${op}"]`); return `${op}:${b ? (b.disabled ? 'off' : 'on') : '-'}`; }).join(',');
     const dialogs = [...document.querySelectorAll('dialog[open]')].map(d => d.getAttribute('aria-label') || d.className || d.querySelector('header')?.textContent || 'dialog').join('|');
     const sel = [...document.querySelectorAll('tr[data-path].selected')].map(r => r.dataset.path.split(/[\\/]/).pop()).join('+');
-    const focus = document.activeElement ? document.activeElement.tagName + (document.activeElement.dataset?.field ? ':' + document.activeElement.dataset.field : '') : '-';
+    const focus = describe(document.activeElement);
     return `busy=${!!document.querySelector('footer.status.busy')} status="${status()}" dialogs=[${dialogs}] dirty="${document.querySelector('.dirty-count')?.textContent || ''}" rows=${document.querySelectorAll('tr[data-path]').length} sel=${sel} ${opsState} focus=${focus}`;
   };
   const timeline = []; let lastSnap = '';
   const watch = setInterval(() => { const s = snapshot(); if (s !== lastSnap) { lastSnap = s; timeline.push(`${ms()}ms ${s}`); if (timeline.length > 80) timeline.shift(); } }, 20);
-  // TEMP(e2e-flake): every backend call and key press with timestamps.
-  const calls = []; const native = window.__TAURI_INTERNALS__.invoke.bind(window.__TAURI_INTERNALS__);
-  window.__TAURI_INTERNALS__.invoke = (cmd, args, options) => {
-    if (cmd === 'e2e_report' || cmd === 'e2e_exit') return native(cmd, args, options);
-    const start = ms(); calls.push(`${start}ms > ${cmd}`); if (calls.length > 120) calls.shift();
-    return native(cmd, args, options).then(v => { calls.push(`${ms()}ms < ${cmd} ok (${ms() - start}ms)`); return v; }, e => { calls.push(`${ms()}ms < ${cmd} ERR ${e} (${ms() - start}ms)`); throw e; });
-  };
-  window.addEventListener('keydown', e => calls.push(`${ms()}ms key ${e.ctrlKey ? 'C-' : ''}${e.metaKey ? 'M-' : ''}${e.altKey ? 'A-' : ''}${e.key} target=${e.target?.tagName} prevented=${e.defaultPrevented}`));
+  // TEMP(e2e-flake): focus moves (with the caller of focus()) and key presses with timestamps.
+  const calls = [], log = line => { calls.push(`${ms()}ms ${line}`); if (calls.length > 120) calls.shift(); };
+  const nativeFocus = HTMLElement.prototype.focus;
+  HTMLElement.prototype.focus = function (...a) { log(`focus() ${describe(this)} from ${(new Error().stack || '').split('\n').slice(1, 5).map(l => l.trim()).join(' < ')}`); return nativeFocus.apply(this, a); };
+  document.addEventListener('focusin', e => log(`focusin ${describe(e.target)}`), true);
+  document.addEventListener('focusout', e => log(`focusout ${describe(e.target)} -> ${describe(e.relatedTarget)}`), true);
+  document.addEventListener('keydown', e => log(`keydown@document ${e.key} target=${describe(e.target)}`), true);
+  window.addEventListener('keydown', e => log(`keydown@window ${e.ctrlKey ? 'C-' : ''}${e.metaKey ? 'M-' : ''}${e.altKey ? 'A-' : ''}${e.key} prevented=${e.defaultPrevented}`));
+  window.addEventListener('blur', () => log('window blur')); window.addEventListener('focus', () => log('window focus'));
   const waitFor = async (fn, wait = 8000, what = 'condition') => { const t = Date.now(); while (Date.now() - t < wait) { try { const v = fn(); if (v) return v; } catch {} await sleep(100); } throw new Error(`timeout waiting for ${what} at ${ms()}ms; ${snapshot()}`); };
   const key = (k, o = {}) => (document.activeElement || document.body).dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...o }));
   const row = name => [...document.querySelectorAll('tr[data-path]')].find(r => r.dataset.path.split(/[\\/]/).pop() === name);
