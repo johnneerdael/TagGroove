@@ -338,6 +338,11 @@ pub struct PlaylistWriteOptions {
     pub extended: bool,
     /// Write paths relative to the playlist folder where possible.
     pub relative: bool,
+    /// The working directory (Options → Playlist "Entries relative to working
+    /// directory"): entries are relative only when both the file and the
+    /// playlist lie inside it; other entries keep absolute paths. Without a
+    /// working directory, any path sharing a root is made relative.
+    pub root: Option<PathBuf>,
     /// Byte order mark for UTF-8 playlists.
     pub bom: bool,
     /// System ANSI codepage for `.m3u`; UTF-8 is written when there is none.
@@ -360,7 +365,16 @@ pub fn render_playlist(
     let mut text = String::new();
     let mut entries = Vec::with_capacity(items.len());
     for item in items {
-        let path = if options.relative {
+        let inside = |path: &Path| {
+            options
+                .root
+                .as_ref()
+                .is_none_or(|root| path.starts_with(root))
+        };
+        let path = if options.relative
+            && inside(&item.path)
+            && inside(target.parent().unwrap_or(Path::new(".")))
+        {
             relative_path(&item.path, target)
         } else {
             item.path.clone()
@@ -581,6 +595,7 @@ mod tests {
             relative: true,
             bom: true,
             ansi_codepage: None,
+            root: None,
         };
         let bytes = render_playlist(Path::new("/music/a/list.m3u8"), &items, &options).unwrap();
         let separator = std::path::MAIN_SEPARATOR;
@@ -596,6 +611,50 @@ mod tests {
     }
 
     #[test]
+    fn relative_entries_stay_inside_the_working_directory() {
+        let items = [
+            item("/music/album/a/01.mp3", 1.0, ""),
+            item("/music/album/b/02.mp3", 1.0, ""),
+            item("/elsewhere/03.mp3", 1.0, ""),
+        ];
+        let options = PlaylistWriteOptions {
+            relative: true,
+            root: Some(PathBuf::from("/music/album")),
+            ..Default::default()
+        };
+        let separator = std::path::MAIN_SEPARATOR;
+        let render = |target: &str| {
+            String::from_utf8(render_playlist(Path::new(target), &items, &options).unwrap())
+                .unwrap()
+        };
+        // In the working directory and in a folder below it.
+        assert_eq!(
+            render("/music/album/list.m3u8"),
+            format!("a{separator}01.mp3\r\nb{separator}02.mp3\r\n/elsewhere/03.mp3\r\n")
+        );
+        assert_eq!(
+            render("/music/album/a/list.m3u8"),
+            format!("01.mp3\r\n..{separator}b{separator}02.mp3\r\n/elsewhere/03.mp3\r\n")
+        );
+        // A playlist outside the working directory lists absolute paths.
+        assert_eq!(
+            render("/music/list.m3u8"),
+            "/music/album/a/01.mp3\r\n/music/album/b/02.mp3\r\n/elsewhere/03.mp3\r\n"
+        );
+        let unbounded = PlaylistWriteOptions {
+            root: None,
+            ..options.clone()
+        };
+        assert_eq!(
+            String::from_utf8(
+                render_playlist(Path::new("/music/list.m3u8"), &items[..1], &unbounded).unwrap()
+            )
+            .unwrap(),
+            format!("album{separator}a{separator}01.mp3\r\n")
+        );
+    }
+
+    #[test]
     fn pls_and_ansi_m3u_output() {
         let items = [item("/m/é.mp3", 3.0, "É")];
         let options = PlaylistWriteOptions {
@@ -603,6 +662,7 @@ mod tests {
             relative: true,
             bom: true,
             ansi_codepage: Some("1252".into()),
+            root: None,
         };
         assert_eq!(
             String::from_utf8(render_playlist(Path::new("/m/x.pls"), &items, &options).unwrap())

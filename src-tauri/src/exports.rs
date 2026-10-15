@@ -64,34 +64,150 @@ pub struct Library {
     pub version: u32,
     pub configurations: Vec<Configuration>,
     pub preferences: Preferences,
+    /// The newest set of bundled configurations this library has been offered.
+    /// Libraries saved before a set was added receive its configurations once;
+    /// bundled configurations removed afterwards stay removed.
+    #[serde(default = "first_bundled_set")]
+    pub bundled: u32,
+}
+/// Libraries saved before sets were recorded were offered the first set.
+fn first_bundled_set() -> u32 {
+    1
 }
 /// Built-in cue sheet export: one FILE and TRACK per file in File List order,
 /// which File → Load playlist/cue sheet reads back.
 pub const CUE_SHEET_TEMPLATE: &str = "$filename(cue,utf-8)TITLE \"%album%\"\r\nPERFORMER \"%albumartist%\"\r\n$loop(1)FILE \"%_filename_rel%\" $if($eql($lower(%_extension%),mp3),MP3,WAVE)\r\n  TRACK $num(%_counter%,2) AUDIO\r\n    TITLE \"%title%\"\r\n    PERFORMER \"%artist%\"\r\n    INDEX 01 00:00:00\r\n$loopend()";
 
+/// Comma-separated values with a header row; every value is quoted and
+/// embedded quotes are doubled, so spreadsheet programs read any text back.
+pub const CSV_TEMPLATE: &str = concat!(
+    "$filename(csv,utf-8)",
+    "\"Path\",\"Title\",\"Artist\",\"Album\",\"Album artist\",\"Track\",\"Disc\",\"Year\",\"Genre\",\"Length\"$char(13)$char(10)",
+    "$loop(1)",
+    "\"$replace(%_path%,\",\"\")\",\"$replace(%title%,\",\"\")\",\"$replace(%artist%,\",\"\")\",",
+    "\"$replace(%album%,\",\"\")\",\"$replace(%albumartist%,\",\"\")\",\"$replace(%track%,\",\"\")\",",
+    "\"$replace(%discnumber%,\",\"\")\",\"$replace(%year%,\",\"\")\",\"$replace(%genre%,\",\"\")\",\"%_length%\"$char(13)$char(10)",
+    "$loopend()",
+);
+
+/// A standalone HTML page with one table row per file and a summary line.
+/// Text is escaped for HTML; the page has no scripts or external resources.
+pub const HTML_TABLE_TEMPLATE: &str = concat!(
+    "$filename(html,utf-8)",
+    "<!DOCTYPE html>$char(10)<html>$char(10)<head>$char(10)<meta charset=\"utf-8\">$char(10)",
+    "<title>Track list</title>$char(10)",
+    "<style>body{font-family:sans-serif;margin:2em}table{border-collapse:collapse}",
+    "th,td{border:1px solid #bbb;padding:.3em .6em;text-align:left;vertical-align:top}",
+    "th{background:#eee}td.n{text-align:right}</style>$char(10)</head>$char(10)<body>$char(10)",
+    "<table>$char(10)<thead><tr><th>#</th><th>Title</th><th>Artist</th><th>Album</th><th>Year</th><th>Length</th><th>File</th></tr></thead>$char(10)<tbody>$char(10)",
+    "$loop(1)<tr><td class=\"n\">%_counter%</td>",
+    "<td>$replace(%title%,&,&amp;,<,&lt;,>,&gt;)</td>",
+    "<td>$replace(%artist%,&,&amp;,<,&lt;,>,&gt;)</td>",
+    "<td>$replace(%album%,&,&amp;,<,&lt;,>,&gt;)</td>",
+    "<td>$replace(%year%,&,&amp;,<,&lt;,>,&gt;)</td>",
+    "<td class=\"n\">%_length%</td>",
+    "<td>$replace(%_filename_ext%,&,&amp;,<,&lt;,>,&gt;)</td></tr>$char(10)$loopend()",
+    "</tbody>$char(10)</table>$char(10)<p>%_total_files% files, %_total_time%, %_total_size%</p>$char(10)</body>$char(10)</html>$char(10)",
+);
+
+/// An extended M3U playlist (UTF-8) with durations and display titles,
+/// entries relative to the export file.
+pub const M3U_EXTENDED_TEMPLATE: &str = concat!(
+    "$filename(m3u8,utf-8)",
+    "#EXTM3U$char(13)$char(10)",
+    "$loop(1)#EXTINF:%_length_seconds%,$if2(%artist%,Unknown artist) - $if2(%title%,%_filename%)$char(13)$char(10)",
+    "%_filename_rel%$char(13)$char(10)$loopend()",
+);
+
+/// A JSON array with one object per file. Backslashes, quotes and line
+/// breaks are escaped; brackets are quoted because they are format-string syntax.
+pub const JSON_TEMPLATE: &str = concat!(
+    "$filename(json,utf-8)",
+    "'['$char(10)",
+    "$loop(1)$if($grtr(%_counter%,1),$char(44)$char(10),)",
+    "  {\"path\": \"$replace(%_path%,\\,\\\\,\",\\\",$char(13),\\r,$char(10),\\n,$char(9),\\t)\", ",
+    "\"title\": \"$replace(%title%,\\,\\\\,\",\\\",$char(13),\\r,$char(10),\\n,$char(9),\\t)\", ",
+    "\"artist\": \"$replace(%artist%,\\,\\\\,\",\\\",$char(13),\\r,$char(10),\\n,$char(9),\\t)\", ",
+    "\"album\": \"$replace(%album%,\\,\\\\,\",\\\",$char(13),\\r,$char(10),\\n,$char(9),\\t)\", ",
+    "\"track\": \"$replace(%track%,\\,\\\\,\",\\\",$char(13),\\r,$char(10),\\n,$char(9),\\t)\", ",
+    "\"year\": \"$replace(%year%,\\,\\\\,\",\\\",$char(13),\\r,$char(10),\\n,$char(9),\\t)\", ",
+    "\"seconds\": %_length_seconds%}",
+    "$loopend()$char(10)']'$char(10)",
+);
+
+/// One line per album: each album artist and album once, with its year.
+pub const ALBUM_LIST_TEMPLATE: &str = concat!(
+    "$filename(txt,utf-8)",
+    "$loop(%albumartist%%album%,1)$if2(%albumartist%,%artist%) - %album%[ (%year%)]$char(13)$char(10)$loopend()",
+);
+
+/// The bundled configurations with the set (`Library::bundled`) that
+/// introduced them. All templates are written for OpenTag.
+fn bundled() -> [(u32, &'static str, &'static str, &'static str); 7] {
+    [
+        (
+            1,
+            "text",
+            "Text",
+            "$filename(txt,utf-8)$loop(1)%artist% - %title%$char(13)$char(10)$loopend()",
+        ),
+        (1, "cue-sheet", "Cue sheet", CUE_SHEET_TEMPLATE),
+        (2, "csv", "CSV (spreadsheet)", CSV_TEMPLATE),
+        (2, "html-table", "HTML table", HTML_TABLE_TEMPLATE),
+        (
+            2,
+            "m3u-extended",
+            "Extended M3U playlist",
+            M3U_EXTENDED_TEMPLATE,
+        ),
+        (2, "json", "JSON", JSON_TEMPLATE),
+        (2, "album-list", "Album list", ALBUM_LIST_TEMPLATE),
+    ]
+}
+/// The newest bundled set.
+pub const BUNDLED: u32 = 2;
+
 impl Default for Library {
     fn default() -> Self {
         Self {
             version: 1,
-            configurations: vec![
-                Configuration {
-                    id: "text".into(),
-                    name: "Text".into(),
-                    template:
-                        "$filename(txt,utf-8)$loop(1)%artist% - %title%$char(13)$char(10)$loopend()"
-                            .into(),
+            configurations: bundled()
+                .into_iter()
+                .map(|(_, id, name, template)| Configuration {
+                    id: id.into(),
+                    name: name.into(),
+                    template: template.into(),
                     file: None,
-                },
-                Configuration {
-                    id: "cue-sheet".into(),
-                    name: "Cue sheet".into(),
-                    template: CUE_SHEET_TEMPLATE.into(),
-                    file: None,
-                },
-            ],
+                })
+                .collect(),
             preferences: Preferences::default(),
+            bundled: BUNDLED,
         }
     }
+}
+
+/// Offer the bundled configurations added since the library was saved. Names
+/// or identities the library already uses are left alone.
+fn add_bundled(library: &mut Library) {
+    if library.bundled >= BUNDLED {
+        return;
+    }
+    for (set, id, name, template) in bundled() {
+        let taken = library.configurations.iter().any(|c| {
+            c.id.eq_ignore_ascii_case(id)
+                || c.name.to_lowercase() == name.to_lowercase()
+                || c.file_name().eq_ignore_ascii_case(&format!("{id}.mte"))
+        });
+        if set > library.bundled && !taken {
+            library.configurations.push(Configuration {
+                id: id.into(),
+                name: name.into(),
+                template: template.into(),
+                file: None,
+            });
+        }
+    }
+    library.bundled = BUNDLED;
 }
 
 /// Options → Export (`pages.export`) values for writing BOMs and creating
@@ -109,16 +225,25 @@ pub fn current_output_options(saved: &Preferences) -> (bool, bool) {
 }
 
 /// File → Export with Shift (Ctrl+Shift+E): one export file per directory.
-/// Returns the file name and partition used instead of the saved ones: names
-/// that do not already depend on %_folderpath% are placed in each folder.
-pub fn per_directory(filename: &str, template: &str) -> (String, String) {
+/// Returns the file name and partition used instead of the saved ones. Names
+/// that already depend on %_folderpath% are kept. A plain name, or a name in
+/// a relative folder, is placed in each folder. A name in an absolute folder
+/// (or below %_workingpath%) keeps that output folder and mirrors each directory
+/// below it, relative to the folder all exported files share.
+pub fn per_directory(filename: &str, template: &str, paths: &[String]) -> (String, String) {
     let partition = "%_folderpath%".to_string();
     let filename = filename.trim();
     if filename.to_ascii_lowercase().contains("%_folderpath%") {
         return (filename.into(), partition);
     }
-    let base = |name: &str| name.rsplit(['/', '\\']).next().unwrap_or(name).to_string();
-    let name = if filename.is_empty() {
+    let split = |name: &str| match name.rfind(['/', '\\']) {
+        Some(index) => (name[..=index].to_string(), name[index + 1..].to_string()),
+        None => (String::new(), name.to_string()),
+    };
+    let (folder, name) = split(filename);
+    let name = if !name.is_empty() {
+        name
+    } else {
         // Default name of the configuration: $filename(ext) or $filename(name).
         let argument = template
             .trim_start()
@@ -130,14 +255,52 @@ pub fn per_directory(filename: &str, template: &str) -> (String, String) {
         if argument.is_empty() {
             "export.txt".into()
         } else if argument.contains(['.', '/', '\\', ':']) {
-            base(argument)
+            split(argument).1
         } else {
             format!("export.{argument}")
         }
-    } else {
-        base(filename)
     };
-    (format!("%_folderpath%{name}"), partition)
+    let absolute = folder.starts_with(['/', '\\'])
+        || folder.as_bytes().get(1) == Some(&b':')
+        || folder.to_ascii_lowercase().starts_with("%_workingpath%");
+    if folder.is_empty() || !absolute {
+        return (format!("%_folderpath%{folder}{name}"), partition);
+    }
+    let common = common_folder(paths);
+    let below = if common.is_empty() {
+        // Nothing shared (different drives): one folder per directory name.
+        "%_directory%/".to_string()
+    } else {
+        format!("$cutLeft(%_folderpath%,{})", common.chars().count())
+    };
+    (format!("{folder}{below}{name}"), partition)
+}
+
+/// The longest folder (with its trailing separator, as `%_folderpath%` writes
+/// it) that contains every path.
+fn common_folder(paths: &[String]) -> String {
+    let folder = |path: &str| {
+        path.rfind(['/', '\\'])
+            .map(|index| path[..=index].to_string())
+            .unwrap_or_default()
+    };
+    let mut iter = paths.iter().map(|path| folder(path));
+    let Some(mut common) = iter.next() else {
+        return String::new();
+    };
+    for next in iter {
+        let shared = common
+            .char_indices()
+            .zip(next.chars())
+            .take_while(|((_, a), b)| a == b)
+            .last()
+            .map_or(0, |((index, c), _)| index + c.len_utf8());
+        common.truncate(shared);
+        // Keep whole folder names only.
+        let end = common.rfind(['/', '\\']).map_or(0, |index| index + 1);
+        common.truncate(end);
+    }
+    common
 }
 
 fn validate(library: &Library, templates: bool) -> Result<(), String> {
@@ -223,6 +386,7 @@ pub fn load(path: &Path) -> Result<Library, String> {
             kept.push(configuration);
         }
         library.configurations = kept;
+        add_bundled(&mut library);
         if library
             .preferences
             .configuration
@@ -385,6 +549,7 @@ pub fn save(path: &Path, library: &Library) -> Result<(), String> {
         version: u32,
         configurations: Vec<SavedConfiguration<'a>>,
         preferences: &'a Preferences,
+        bundled: u32,
     }
     let saved = SavedLibrary {
         version: library.version,
@@ -398,6 +563,7 @@ pub fn save(path: &Path, library: &Library) -> Result<(), String> {
             })
             .collect(),
         preferences: &library.preferences,
+        bundled: library.bundled.max(BUNDLED),
     };
     crate::action_host::atomic_output(
         path,
@@ -411,6 +577,10 @@ pub fn save(path: &Path, library: &Library) -> Result<(), String> {
     }) {
         let directory = path.parent().unwrap_or(Path::new(".")).join("export");
         let source = directory.join(removed.file_name());
+        // Bundled configurations offered since the last save have no file yet.
+        if !source.exists() {
+            continue;
+        }
         let archive = directory.join("removed");
         let stem = Path::new(&removed.file_name())
             .file_stem()
@@ -474,7 +644,7 @@ mod tests {
             .unwrap()
             .map(|entry| entry.unwrap().path())
             .collect();
-        assert_eq!(retired.len(), 2);
+        assert_eq!(retired.len(), Library::default().configurations.len());
         assert!(retired
             .iter()
             .any(|path| fs::read_to_string(path).unwrap() == original));
@@ -591,24 +761,339 @@ mod tests {
     #[test]
     fn per_directory_exports_place_one_file_in_each_folder() {
         let folder = |name: &str| (format!("%_folderpath%{name}"), "%_folderpath%".to_string());
+        let none: &[String] = &[];
         assert_eq!(
-            per_directory("", "$filename(csv,utf-8)$loop(1)$loopend()"),
+            per_directory("", "$filename(csv,utf-8)$loop(1)$loopend()", none),
             folder("export.csv")
         );
         assert_eq!(
-            per_directory("", "$filename(%album%.html)x"),
+            per_directory("", "$filename(%album%.html)x", none),
             folder("%album%.html")
         );
         assert_eq!(
-            per_directory("", "$filename(out/list.txt)x"),
+            per_directory("", "$filename(out/list.txt)x", none),
             folder("list.txt")
         );
-        assert_eq!(per_directory("", "plain"), folder("export.txt"));
-        assert_eq!(per_directory("/tmp/x.txt", ""), folder("x.txt"));
-        assert_eq!(per_directory("C:\\out\\y.txt", ""), folder("y.txt"));
+        assert_eq!(per_directory("", "plain", none), folder("export.txt"));
         assert_eq!(
-            per_directory("%_folderpath%sub\\z.txt", ""),
+            per_directory("%_folderpath%sub\\z.txt", "", none),
             ("%_folderpath%sub\\z.txt".into(), "%_folderpath%".into())
+        );
+        // A relative folder is created inside each folder.
+        assert_eq!(
+            per_directory("lists/x.txt", "", none),
+            folder("lists/x.txt")
+        );
+        assert_eq!(
+            per_directory("%album%/x.txt", "", none),
+            folder("%album%/x.txt")
+        );
+    }
+
+    #[test]
+    fn per_directory_exports_keep_an_absolute_output_folder() {
+        let paths = [
+            "/music/Artist/Album/CD1/01.mp3".to_string(),
+            "/music/Artist/Album/CD1/02.mp3".to_string(),
+            "/music/Artist/Album/CD2/01.mp3".to_string(),
+            "/music/Other/Album/CD1/01.mp3".to_string(),
+        ];
+        assert_eq!(common_folder(&paths), "/music/");
+        assert_eq!(common_folder(&paths[..2]), "/music/Artist/Album/CD1/");
+        assert_eq!(
+            common_folder(&["/music/abc/1.mp3".into(), "/music/abd/2.mp3".into()]),
+            "/music/"
+        );
+        assert_eq!(
+            common_folder(&["C:\\a\\1.mp3".into(), "D:\\a\\2.mp3".into()]),
+            ""
+        );
+        let (filename, partition) = per_directory("/out/list.txt", "", &paths);
+        assert_eq!(filename, "/out/$cutLeft(%_folderpath%,7)list.txt");
+        assert_eq!(partition, "%_folderpath%");
+        assert_eq!(
+            per_directory(
+                "C:\\out\\y.txt",
+                "",
+                &["C:\\m\\a\\1.mp3".into(), "C:\\m\\b\\2.mp3".into()]
+            )
+            .0,
+            "C:\\out\\$cutLeft(%_folderpath%,5)y.txt"
+        );
+        assert_eq!(
+            per_directory("%_workingpath%exports/", "$filename(html)x", &paths[..1]).0,
+            "%_workingpath%exports/$cutLeft(%_folderpath%,24)export.html"
+        );
+        assert_eq!(
+            per_directory(
+                "C:\\out\\y.txt",
+                "",
+                &["C:\\a\\1.mp3".into(), "D:\\a\\2.mp3".into()]
+            )
+            .0,
+            "C:\\out\\%_directory%/y.txt"
+        );
+
+        // Rendered, every folder gets its own file below the output folder.
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path().to_string_lossy().replace('\\', "/");
+        let paths: Vec<String> = ["a/CD1/1.mp3", "a/CD1/2.mp3", "b/CD1/1.mp3"]
+            .iter()
+            .map(|name| format!("{root}/music/{name}"))
+            .collect();
+        let (filename, partition) = per_directory(&format!("{root}/out/list.txt"), "", &paths);
+        let rows: Vec<_> = paths
+            .iter()
+            .map(|path| {
+                let fields: tag_core::Fields =
+                    [("TITLE".to_string(), vec!["t".to_string()])].into();
+                tag_core::ExportRow::new(fields, path.as_str(), 1.0, 1)
+            })
+            .collect();
+        let options = tag_core::ExportOptions {
+            filename_override: Some(filename),
+            partition: Some(partition),
+            base_directory: format!("{root}/music/a/CD1"),
+            ..Default::default()
+        };
+        let documents =
+            tag_core::render_export("$loop(1)%title%$loopend()", &rows, &options).unwrap();
+        let mut targets: Vec<_> = documents
+            .iter()
+            .map(|d| d.filename.replace('\\', "/"))
+            .collect();
+        targets.sort();
+        assert_eq!(
+            targets,
+            [
+                format!("{root}/out/a/CD1/list.txt"),
+                format!("{root}/out/b/CD1/list.txt")
+            ]
+        );
+    }
+
+    fn sample_rows(root: &Path) -> Vec<tag_core::ExportRow> {
+        let row = |name: &str, fields: &[(&str, &str)], seconds: f64| {
+            let path = root.join(name);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(&path, b"x").unwrap();
+            let fields: tag_core::Fields = fields
+                .iter()
+                .map(|(k, v)| (k.to_string(), vec![v.to_string()]))
+                .collect();
+            let mut row = tag_core::ExportRow::new(fields, path.to_string_lossy(), seconds, 1000);
+            // Technical fields that the app supplies with every row.
+            let length = format!("{}:{:02}", seconds as u64 / 60, seconds as u64 % 60);
+            row.context_fields.insert("_LENGTH".into(), vec![length]);
+            row
+        };
+        vec![
+            row(
+                "a/01.mp3",
+                &[
+                    ("TITLE", "Say \"Hi\", <now> & \\ later"),
+                    ("ARTIST", "Band"),
+                    ("ALBUM", "First"),
+                    ("ALBUMARTIST", "Band"),
+                    ("YEAR", "2001"),
+                    ("TRACK", "1"),
+                    ("COMMENT", "x"),
+                ],
+                61.0,
+            ),
+            row(
+                "a/02.flac",
+                &[
+                    ("TITLE", "Line\nbreak"),
+                    ("ARTIST", "Band"),
+                    ("ALBUM", "First"),
+                    ("ALBUMARTIST", "Band"),
+                    ("YEAR", "2001"),
+                    ("TRACK", "2"),
+                ],
+                30.0,
+            ),
+            row(
+                "b/01.mp3",
+                &[("TITLE", "Other"), ("ARTIST", "Solo"), ("ALBUM", "Second")],
+                5.0,
+            ),
+        ]
+    }
+
+    fn render(template: &str, root: &Path) -> tag_core::ExportDocument {
+        let options = tag_core::ExportOptions {
+            filename: root.join("export.txt").to_string_lossy().into_owned(),
+            base_directory: root.to_string_lossy().into_owned(),
+            ..Default::default()
+        };
+        let mut documents =
+            tag_core::render_export(template, &sample_rows(root), &options).unwrap();
+        assert_eq!(documents.len(), 1);
+        documents.remove(0)
+    }
+
+    #[test]
+    fn bundled_templates_validate_and_have_unique_identities() {
+        let library = Library::default();
+        assert_eq!(library.bundled, BUNDLED);
+        validate(&library, true).unwrap();
+        assert_eq!(
+            library
+                .configurations
+                .iter()
+                .map(|c| c.name.as_str())
+                .collect::<Vec<_>>(),
+            [
+                "Text",
+                "Cue sheet",
+                "CSV (spreadsheet)",
+                "HTML table",
+                "Extended M3U playlist",
+                "JSON",
+                "Album list"
+            ]
+        );
+    }
+
+    #[test]
+    fn csv_template_quotes_every_value() {
+        let directory = tempfile::tempdir().unwrap();
+        let document = render(CSV_TEMPLATE, directory.path());
+        assert!(document.filename.ends_with("export.csv"));
+        let lines: Vec<_> = document.text.split("\r\n").collect();
+        assert_eq!(
+            lines[0],
+            "\"Path\",\"Title\",\"Artist\",\"Album\",\"Album artist\",\"Track\",\"Disc\",\"Year\",\"Genre\",\"Length\""
+        );
+        let path = directory
+            .path()
+            .join("a/01.mp3")
+            .to_string_lossy()
+            .into_owned();
+        assert_eq!(
+            lines[1],
+            format!("\"{path}\",\"Say \"\"Hi\"\", <now> & \\ later\",\"Band\",\"First\",\"Band\",\"1\",\"\",\"2001\",\"\",\"1:01\"")
+        );
+        assert_eq!(lines.len(), 5);
+        assert_eq!(lines[4], "");
+    }
+
+    #[test]
+    fn html_template_escapes_text_and_sums_the_files() {
+        let directory = tempfile::tempdir().unwrap();
+        let document = render(HTML_TABLE_TEMPLATE, directory.path());
+        assert!(document.filename.ends_with("export.html"));
+        let text = &document.text;
+        assert!(text.starts_with("<!DOCTYPE html>\n<html>"), "{text}");
+        assert!(
+            text.contains("<td>Say \"Hi\", &lt;now&gt; &amp; \\ later</td>"),
+            "{text}"
+        );
+        assert!(!text.contains("<now>"));
+        assert_eq!(text.matches("<tr><td class=\"n\">").count(), 3);
+        assert!(text.contains("<td>01.flac</td>") || text.contains("<td>02.flac</td>"));
+        assert!(text.contains("<p>3 files, "), "{text}");
+        assert!(text.trim_end().ends_with("</html>"));
+    }
+
+    #[test]
+    fn m3u_template_writes_extended_entries_that_load_back() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path();
+        let document = render(M3U_EXTENDED_TEMPLATE, root);
+        assert!(document.filename.ends_with("export.m3u8"));
+        assert!(document
+            .text
+            .starts_with("#EXTM3U\r\n#EXTINF:61,Band - Say \"Hi\""));
+        assert!(document.text.contains("#EXTINF:5,Solo - Other\r\n"));
+        std::fs::write(&document.filename, &document.text).unwrap();
+        let loaded =
+            tag_core::playlist::load_playlist(Path::new(&document.filename), None).unwrap();
+        assert_eq!(
+            loaded.files,
+            [
+                root.join("a/01.mp3"),
+                root.join("a/02.flac"),
+                root.join("b/01.mp3")
+            ]
+        );
+    }
+
+    #[test]
+    fn json_template_writes_valid_json() {
+        let directory = tempfile::tempdir().unwrap();
+        let document = render(JSON_TEMPLATE, directory.path());
+        assert!(document.filename.ends_with("export.json"));
+        let value: serde_json::Value = serde_json::from_str(&document.text)
+            .unwrap_or_else(|e| panic!("{e}: {}", document.text));
+        let items = value.as_array().unwrap();
+        assert_eq!(items.len(), 3);
+        assert_eq!(items[0]["title"], "Say \"Hi\", <now> & \\ later");
+        assert_eq!(items[1]["title"], "Line\nbreak");
+        assert_eq!(items[0]["seconds"], 61);
+        assert_eq!(
+            items[2]["path"],
+            directory.path().join("b/01.mp3").to_string_lossy().as_ref()
+        );
+    }
+
+    #[test]
+    fn album_list_template_names_each_album_once() {
+        let directory = tempfile::tempdir().unwrap();
+        let document = render(ALBUM_LIST_TEMPLATE, directory.path());
+        assert_eq!(document.text, "Band - First (2001)\r\nSolo - Second\r\n");
+    }
+
+    #[test]
+    fn saved_libraries_receive_new_bundled_configurations_once() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("exports.json");
+        fs::create_dir_all(directory.path().join("export")).unwrap();
+        // Saved before sets were recorded, with the cue sheet removed and a
+        // configuration of its own called "JSON".
+        fs::write(
+            &path,
+            r#"{"version":1,"configurations":[{"id":"text","name":"Text"},{"id":"mine","name":"json"}],"preferences":{"configuration":"mine"}}"#,
+        )
+        .unwrap();
+        fs::write(directory.path().join("export/text.mte"), "%title%").unwrap();
+        fs::write(directory.path().join("export/mine.mte"), "%artist%").unwrap();
+        let library = load(&path).unwrap();
+        let names: Vec<_> = library
+            .configurations
+            .iter()
+            .map(|c| c.name.as_str())
+            .collect();
+        assert_eq!(
+            names,
+            [
+                "Text",
+                "json",
+                "CSV (spreadsheet)",
+                "HTML table",
+                "Extended M3U playlist",
+                "Album list"
+            ]
+        );
+        assert_eq!(library.configurations[0].template, "%title%");
+        assert_eq!(library.preferences.configuration.as_deref(), Some("mine"));
+        // Removing an offered configuration before it was ever saved works,
+        // and it is not offered again.
+        let mut removed = library.clone();
+        removed.configurations.retain(|c| c.id != "csv");
+        save(&path, &removed).unwrap();
+        let reloaded = load(&path).unwrap();
+        assert_eq!(reloaded.bundled, BUNDLED);
+        assert!(reloaded.configurations.iter().all(|c| c.id != "csv"));
+        assert!(reloaded.configurations.iter().any(|c| c.id == "html-table"));
+        assert_eq!(
+            reloaded
+                .configurations
+                .iter()
+                .find(|c| c.id == "json")
+                .map(|c| c.name.as_str()),
+            None
         );
     }
 
@@ -641,22 +1126,29 @@ mod tests {
         fs::write(folder.join("Cue Sheet.MTE"), b"Bj\xf6rk").unwrap();
         fs::write(folder.join("notes.txt"), "not a configuration").unwrap();
         let library = load(&path).unwrap();
-        let names: Vec<_> = library
-            .configurations
+        let bundled = Library::default().configurations.len();
+        let names: Vec<_> = library.configurations[bundled - 7..]
             .iter()
             .map(|c| c.name.as_str())
             .collect();
-        assert_eq!(names, ["Text", "Cue sheet", "Cue Sheet (2)", "HTML List"]);
-        let html = &library.configurations[3];
+        assert_eq!(names[..2], ["Text", "Cue sheet"]);
+        assert_eq!(
+            library.configurations[bundled..]
+                .iter()
+                .map(|c| c.name.as_str())
+                .collect::<Vec<_>>(),
+            ["Cue Sheet (2)", "HTML List"]
+        );
+        let html = &library.configurations[bundled + 1];
         assert_eq!(html.file.as_deref(), Some("HTML List.mte"));
         assert_eq!(html.template, "$filename(html,utf-8)<ul>");
-        assert_eq!(library.configurations[2].template, "Björk");
+        assert_eq!(library.configurations[bundled].template, "Björk");
         // Identities are stable until the library records the files.
-        assert_eq!(load(&path).unwrap().configurations[3].id, html.id);
+        assert_eq!(load(&path).unwrap().configurations[bundled + 1].id, html.id);
 
         let mut saved = library.clone();
         saved.preferences.configuration = Some(html.id.clone());
-        saved.configurations[3].template = "$filename(html,utf-8)<ol>".into();
+        saved.configurations[bundled + 1].template = "$filename(html,utf-8)<ol>".into();
         save(&path, &saved).unwrap();
         assert_eq!(
             fs::read_to_string(folder.join("HTML List.mte")).unwrap(),
@@ -666,12 +1158,15 @@ mod tests {
         assert_eq!(fs::read(folder.join("Cue Sheet.MTE")).unwrap(), b"Bj\xf6rk");
         assert!(!folder.join(format!("{}.mte", html.id)).exists());
         let reloaded = load(&path).unwrap();
-        assert_eq!(reloaded.configurations.len(), 4);
+        assert_eq!(reloaded.configurations.len(), bundled + 2);
         assert_eq!(reloaded.preferences.configuration, Some(html.id.clone()));
 
         // Another file dropped later joins the saved library.
         fs::write(folder.join("Late.mte"), "late").unwrap();
-        assert_eq!(load(&path).unwrap().configurations[4].name, "Late");
+        assert_eq!(
+            load(&path).unwrap().configurations[bundled + 2].name,
+            "Late"
+        );
         // Deleting a found file in the folder removes it from the list.
         fs::remove_file(folder.join("HTML List.mte")).unwrap();
         let without = load(&path).unwrap();

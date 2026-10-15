@@ -50,3 +50,5 @@ trash = "5"
 # Cover window Copy/Paste cover (image data) and Edit → Copy as Text (WebKit only
 # allows navigator.clipboard during a user gesture).
 arboard = { version = "3", default-features = false, features = ["image-data"] }
+# Dragging a cover from the cover window out to the file manager or desktop.
+drag = "2"

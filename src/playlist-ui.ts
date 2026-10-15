@@ -22,7 +22,7 @@ export const playlistOptionsPage:OptionsPage={id:'playlist',label:'Playlist',ord
   description:'How File → Playlist (all files), Playlist (selected files) and Generate Playlists write playlists.',controls:[
     check('extended','Write extended info'),
     {kind:'text',path:'pages.playlist.extinf_format',label:'Extended info format string',placeholder:PLAYLIST_DEFAULTS.extinf_format},
-    check('relative','Entries relative to the playlist folder (if possible)'),
+    check('relative','Entries relative to working directory (if possible)'),
     check('auto_create','Create playlist automatically after saving tags or renaming files'),
     {kind:'text',path:'pages.playlist.filename',label:'Filename of playlist',placeholder:PLAYLIST_DEFAULTS.filename},
     check('confirm_filename','Show confirm filename dialog'),

@@ -541,7 +541,8 @@ impl ActionHost for NativeHost {
                     groups.entry(key).or_default().push(state.clone());
                 }
                 let options = crate::playlists::PlaylistOptions::current();
-                let write_options = options.write_options();
+                let mut write_options = options.write_options();
+                write_options.root = crate::playlists::working_root(None, &self.settings);
                 let mut outputs = Vec::new();
                 let mut destinations = HashSet::new();
                 for group in groups.values() {
