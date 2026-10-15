@@ -2854,9 +2854,11 @@ dependencies = [
  "base64 0.22.1",
  "crc32fast",
  "encoding_rs",
+ "gdk",
  "image",
  "keyring",
  "md-5",
+ "objc2-app-kit",
  "reqwest",
  "rustls",
  "serde",
@@ -2875,6 +2877,7 @@ dependencies = [
  "unicode-normalization",
  "uuid",
  "webpki-roots",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

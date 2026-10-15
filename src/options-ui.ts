@@ -43,7 +43,7 @@ export const defaultSettings=():Settings=>({version:1,general:{natural_sort:true
 /** pages.general: General options beyond the window title and sorting. */
 export const GENERAL_DEFAULTS={auto_select_next:false,autocomplete:true,select_added:false,keep_moved:true};
 /** pages.tags: saving when moving to another file and the folder-image fallback of the cover pane. */
-export const TAGS_PAGE_DEFAULTS={save_on_move:false,no_folder_image:false};
+export const TAGS_PAGE_DEFAULTS={save_on_move:false,no_folder_image:false,extended_save_mode:'pending'};
 /** pages.appearance: scaling in percent and the file list grid. */
 export const APPEARANCE_DEFAULTS={toolbar_scale:'100',ui_scale:'100',grid:'off'};
 const SCALES:[string,string][]=['100','110','125','150','175','200'].map(v=>[v,`${v}%`]);
@@ -137,8 +137,9 @@ for(const page of [
     {kind:'radio',path:'pages.appearance.grid',label:'Display grid lines in file view',choices:[['off','Off'],['alternate','Alternate row colors'],['lines','Grid lines']]}]},
   {id:'tags',label:'Tags',order:50,description:'Choose which tag types are read, written and removed for each format family.',defaults:{...TAGS_PAGE_DEFAULTS},controls:[
     {kind:'checkbox',path:'pages.tags.save_on_move',label:'Save tags when using arrow keys or a single mouse click'},
+    {kind:'select',path:'pages.tags.extended_save_mode',label:'Save mode at extended tag dialog',choices:[['pending','Keep changes pending'],['ask','Ask'],['ignore','Ignore changes'],['save','Save changes']]},
     {kind:'checkbox',path:'pages.tags.no_folder_image',label:'Don’t display first image from file directory as cover art'},
-    {kind:'note',text:'Saving on selection change writes pending tag panel edits when you move to another file with the mouse, the arrow keys in the file list or Select next file. Without embedded cover art, the cover pane shows the first image of the file’s folder; that image is not embedded.'},
+    {kind:'note',text:'Saving on selection change writes pending tag panel edits when you move to another file with the mouse, the arrow keys in the file list or Select next file. Without embedded cover art, the cover pane shows the first image of the file’s folder; that image is not embedded. The save mode decides what happens to changed fields when << or >> in Extended tags moves to another file: they stay pending until Save tags, OpenTag asks, they are discarded, or the file is saved.'},
     {kind:'note',text:'Mpeg applies to MP3 files. Ape, Mpc applies to Monkey’s Audio, Musepack and WavPack files. Other formats always use their native tag, and Remove tag removes all of their tags.'}]},
   {id:'tags-mpeg',parent:'tags',label:'Mpeg',order:10,description:'Only one tag type is displayed: APE before ID3v2 before ID3v1, among the types enabled for reading.',controls:[
     tagRead('mpeg',[['id3v1','ID3v1'],['id3v2','ID3v2'],['ape','APE']]),

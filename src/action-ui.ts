@@ -37,16 +37,18 @@ export function panelKey(entry:{format:string;fields:Record<string,string[]>},ke
   return existing(key)||key;
 }
 const mac=()=>/Mac|iPhone|iPad/.test(navigator.platform);
-export type ActionListKey='new'|'remove'|'toggle'|'enable-all'|'disable-all'|'save'|'up'|'down'|'top'|'bottom';
+export type ActionListKey='new'|'remove'|'toggle'|'enable-all'|'disable-all'|'save'|'up'|'down'|'top'|'bottom'|'select-all'|'invert';
 /** Keys of the action group and action lists (docs keyboard → Actions): Insert and Delete
- * (⌫ on Mac keyboards), Space, Ctrl+E/D/S (⌘ on macOS) and Alt+↑/↓/Page Up/Page Down. */
+ * (⌫ on Mac keyboards), Space, Ctrl+A / Ctrl+Shift+A, Ctrl+E/D/S (⌘ on macOS) and Alt+↑/↓/Page Up/Page Down. */
 export function actionListKey(event:{key:string;ctrlKey:boolean;metaKey:boolean;shiftKey:boolean;altKey:boolean},mac:boolean):ActionListKey|undefined{
   const primary=mac?event.metaKey:event.ctrlKey,other=mac?event.ctrlKey:event.metaKey,key=event.key.length===1?event.key.toLowerCase():event.key;
   if(event.altKey){
     if(primary||other||event.shiftKey)return undefined;
     return ({ArrowUp:'up',ArrowDown:'down',PageUp:'top',PageDown:'bottom'} as Record<string,ActionListKey>)[key];
   }
-  if(event.shiftKey||other)return undefined;
+  if(other)return undefined;
+  if(primary&&key==='a')return event.shiftKey?'invert':'select-all';
+  if(event.shiftKey)return undefined;
   if(primary)return key==='e'?'enable-all':key==='d'?'disable-all':key==='s'?'save':undefined;
   if(key==='Insert')return 'new';
   if(key==='Delete'||(mac&&key==='Backspace'))return 'remove';
@@ -55,6 +57,30 @@ export function actionListKey(event:{key:string;ctrlKey:boolean;metaKey:boolean;
 export function moveItem<T>(items:T[],from:number,to:number):T[]{
   if(from<0||to<0||from>=items.length||to>=items.length)throw new Error('Item index is out of range.');
   const result=[...items],item=result.splice(from,1)[0];result.splice(to,0,item);return result;
+}
+/**
+ * Move the marked items of a multi-selection (Alt+↑/↓/Page Up/Page Down). Single steps
+ * keep the marked items' order and stop at the list edges; top and bottom gather them
+ * there. Returns the new order and the new indices of the marked items.
+ */
+export function moveMarked<T>(items:readonly T[],marked:ReadonlySet<number>,move:'up'|'down'|'top'|'bottom'):{items:T[];marked:Set<number>}{
+  let rows=items.map((item,index)=>({item,on:marked.has(index)}));
+  if(move==='top'||move==='bottom'){const on=rows.filter(row=>row.on),off=rows.filter(row=>!row.on);rows=move==='top'?[...on,...off]:[...off,...on];}
+  else{
+    const step=move==='up'?-1:1,order=rows.map((_,index)=>index);if(step>0)order.reverse();
+    for(const index of order){const target=index+step;if(rows[index].on&&target>=0&&target<rows.length&&!rows[target].on)[rows[index],rows[target]]=[rows[target],rows[index]];}
+  }
+  return{items:rows.map(row=>row.item),marked:new Set(rows.flatMap((row,index)=>row.on?[index]:[]))};
+}
+/** Ctrl+A selects every item; Ctrl+Shift+A inverts the selection. */
+export function markAll(count:number,marked:ReadonlySet<number>,invert:boolean):Set<number>{
+  return new Set(Array.from({length:count},(_,index)=>index).filter(index=>!invert||!marked.has(index)));
+}
+/** Click (one item), ⌘/Ctrl+click (toggle) and Shift+click (range from the current item). */
+export function clickMark(marked:ReadonlySet<number>,current:number,clicked:number,modifiers:{toggle:boolean;range:boolean}):Set<number>{
+  if(modifiers.range&&current>=0){const [a,b]=[current,clicked].sort((x,y)=>x-y);return new Set(Array.from({length:b-a+1},(_,i)=>a+i));}
+  if(modifiers.toggle){const next=new Set(marked);if(next.has(clicked))next.delete(clicked);else next.add(clicked);return next;}
+  return new Set([clicked]);
 }
 export function renameGroup(library:ActionLibrary,index:number,name:string):ActionLibrary{
   const result=clone(library),group=result.groups[index];if(!group)throw new Error('Action group does not exist.');
@@ -251,6 +277,9 @@ export class ActionUI {
   }
   async groupsDialog(){
     if(!this.loaded)await this.initialize();let draft=clone(this.library),index=draft.groups.length?0:-1,dirty=false,working=false,groupError='',groupNotice='',renameTimer=0;
+    // Selected groups (Ctrl+A, Ctrl+Shift+A, ⌘/Ctrl+click, Shift+click); `index` is the focused one.
+    let marked=new Set<number>(index>=0?[index]:[]);
+    const block=()=>marked.size>1&&marked.has(index);
     const el=dialog('Action groups','',`<button data-close>Close</button><button id="save-groups">Save groups</button><button class="primary" id="apply-groups">Apply checked groups</button>`);el.classList.add('action-groups-dialog');
     el.addEventListener('close',()=>this.dirtyGroupDialogs.delete(el));
     const content=el.querySelector('.dialog-content')!;
@@ -261,14 +290,15 @@ export class ActionUI {
     const nameDialog=(heading:string,value:string,apply:(name:string)=>void)=>{const child=dialog(heading,text('NAME','name',value),'<button data-close>Cancel</button><button class="primary" data-keep>Keep name</button>');child.querySelector('[data-close]')!.addEventListener('click',()=>child.close());child.querySelector('[data-keep]')!.addEventListener('click',()=>{try{const name=child.querySelector<HTMLInputElement>('[data-key="name"]')!.value;if(!name.trim())throw new Error('Enter a name.');apply(name);child.close();mark();}catch(e){error(child,e);}});};
     const update=()=>{
       const selected=draft.groups[index];
-      content.innerHTML=`<p>Checked groups run in order on ${this.host.selectedCount()} selected file${this.host.selectedCount()===1?'':'s'}. Save groups to keep your workflows.</p><div class="group-layout"><section class="group-library"><div class="action-section-title">GROUPS</div><p class="group-summary" role="status">${enabledSummary(draft.groups)}</p><div class="group-list" role="listbox" aria-label="Action groups">${draft.groups.map((group,i)=>`<div class="group-row ${i===index?'current':''}" data-group-row="${i}" role="option" aria-selected="${i===index}" tabindex="0"><input type="checkbox" aria-label="Enable ${html(group.name)}" data-enable="${i}" ${group.enabled?'checked':''}><span>${html(group.name)}</span><small>${group.actions.length}</small></div>`).join('')||'<p class="group-empty">No groups yet. Create a group or import an .mta file.</p>'}</div><div class="group-buttons"><button data-command="new">New…</button><button data-command="duplicate" ${selected?'':'disabled'}>Duplicate…</button><button data-command="rename" ${selected?'':'disabled'}>Rename…</button><button data-command="remove" ${selected?'':'disabled'}>Remove</button><button data-command="up" ${index>0?'':'disabled'}>↑ Move up</button><button data-command="down" ${index>=0&&index<draft.groups.length-1?'':'disabled'}>↓ Move down</button><button data-command="sort-name" ${draft.groups.length>1?'':'disabled'}>Sort by name</button><button data-command="sort-state" ${draft.groups.length>1?'':'disabled'}>Sort by state</button><button data-command="import">Import .mta…</button><button data-command="export" ${selected&&this.host.exportGroup?'':'disabled'}>Export .mta…</button></div><div class="preset-controls"><label for="group-preset">Selection preset</label><select id="group-preset"><option value="">Choose a preset…</option>${draft.presets.map(p=>`<option value="${html(p.name)}">${html(p.name)}</option>`).join('')}</select><button data-command="save-preset">Save preset…</button><button data-command="remove-preset" ${draft.presets.length?'':'disabled'}>Remove preset…</button></div></section><section class="group-actions"><div class="action-section-title">${selected?html(selected.name):'ACTIONS'}</div><ol class="action-summary-list">${selected?.actions.map((action,i)=>`<li><button data-edit-action="${i}"><strong>${html(title(action))}</strong><span>${html(action.field||action.filename_template||action.pattern||(Array.isArray(action.fields)?action.fields.join('; '):''))}</span></button></li>`).join('')||'<li class="group-empty">Select a group to edit its actions.</li>'}</ol><button data-command="edit" ${selected?'':'disabled'}>Edit actions…</button>${selected?.actions.some(a=>a.type==='unresolved_mta')?'<p class="import-issues">This group contains unresolved imported actions. Edit or replace them before applying.</p>':''}</section></div>`;
+      marked=new Set([...marked].filter(i=>i<draft.groups.length));if(index>=0&&!marked.has(index))marked=new Set([index]);
+      content.innerHTML=`<p>Checked groups run in order on ${this.host.selectedCount()} selected file${this.host.selectedCount()===1?'':'s'}. Save groups to keep your workflows.</p><div class="group-layout"><section class="group-library"><div class="action-section-title">GROUPS</div><p class="group-summary" role="status">${enabledSummary(draft.groups)}</p><div class="group-list" role="listbox" aria-multiselectable="true" aria-label="Action groups">${draft.groups.map((group,i)=>`<div class="group-row ${i===index?'current':''} ${marked.has(i)?'marked':''}" data-group-row="${i}" role="option" aria-selected="${marked.has(i)}" tabindex="0"><input type="checkbox" aria-label="Enable ${html(group.name)}" data-enable="${i}" ${group.enabled?'checked':''}><span>${html(group.name)}</span><small>${group.actions.length}</small></div>`).join('')||'<p class="group-empty">No groups yet. Create a group or import an .mta file.</p>'}</div><div class="group-buttons"><button data-command="new">New…</button><button data-command="duplicate" ${selected?'':'disabled'}>Duplicate…</button><button data-command="rename" ${selected?'':'disabled'}>Rename…</button><button data-command="remove" ${selected?'':'disabled'}>Remove</button><button data-command="up" ${index>0||block()?'':'disabled'}>↑ Move up</button><button data-command="down" ${index>=0&&(index<draft.groups.length-1||block())?'':'disabled'}>↓ Move down</button><button data-command="sort-name" ${draft.groups.length>1?'':'disabled'}>Sort by name</button><button data-command="sort-state" ${draft.groups.length>1?'':'disabled'}>Sort by state</button><button data-command="import">Import .mta…</button><button data-command="export" ${selected&&this.host.exportGroup?'':'disabled'}>Export .mta…</button></div><div class="preset-controls"><label for="group-preset">Selection preset</label><select id="group-preset"><option value="">Choose a preset…</option>${draft.presets.map(p=>`<option value="${html(p.name)}">${html(p.name)}</option>`).join('')}</select><button data-command="save-preset">Save preset…</button><button data-command="remove-preset" ${draft.presets.length?'':'disabled'}>Remove preset…</button></div></section><section class="group-actions"><div class="action-section-title">${selected?html(selected.name):'ACTIONS'}</div><ol class="action-summary-list">${selected?.actions.map((action,i)=>`<li><button data-edit-action="${i}"><strong>${html(title(action))}</strong><span>${html(action.field||action.filename_template||action.pattern||(Array.isArray(action.fields)?action.fields.join('; '):''))}</span></button></li>`).join('')||'<li class="group-empty">Select a group to edit its actions.</li>'}</ol><button data-command="edit" ${selected?'':'disabled'}>Edit actions…</button>${selected?.actions.some(a=>a.type==='unresolved_mta')?'<p class="import-issues">This group contains unresolved imported actions. Edit or replace them before applying.</p>':''}</section></div>`;
       el.querySelector<HTMLButtonElement>('#save-groups')!.disabled=!dirty||working;
       el.querySelector<HTMLButtonElement>('#apply-groups')!.disabled=working||!this.host.canExecute()||!draft.groups.some(group=>group.enabled&&group.actions.length)||draft.groups.some(group=>group.enabled&&group.actions.some(action=>action.type==='unresolved_mta'));
       const blockedReason=this.host.executeReason?.();
       if(blockedReason){const reason=document.createElement('p');reason.className='operation-reason';reason.textContent=blockedReason;content.prepend(reason);}
       if(groupError)error(el,groupError);
       if(groupNotice){const notice=document.createElement('p');notice.className='group-notice';notice.setAttribute('role','status');notice.textContent=groupNotice;content.append(notice);}
-      content.querySelectorAll<HTMLElement>('[data-group-row]').forEach(row=>{row.addEventListener('click',event=>{window.clearTimeout(renameTimer);if(event.target instanceof HTMLInputElement)return;const clicked=Number(row.dataset.groupRow);if(clicked===index&&(event.target as Element).tagName==='SPAN'){renameTimer=window.setTimeout(()=>{if(el.open&&!working)rename();},600);}else{index=clicked;update();}});row.addEventListener('dblclick',()=>{window.clearTimeout(renameTimer);editGroup();});row.addEventListener('keydown',event=>{window.clearTimeout(renameTimer);if(event.key==='F2'){event.preventDefault();rename();}if(event.key==='F4'||event.key==='Enter'){event.preventDefault();editGroup();}if(event.key==='ArrowUp'||event.key==='ArrowDown'){event.preventDefault();index=Math.max(0,Math.min(draft.groups.length-1,index+(event.key==='ArrowDown'?1:-1)));update();content.querySelector<HTMLElement>(`[data-group-row="${index}"]`)?.focus();}});});
+      content.querySelectorAll<HTMLElement>('[data-group-row]').forEach(row=>{row.addEventListener('click',event=>{window.clearTimeout(renameTimer);if(event.target instanceof HTMLInputElement)return;const clicked=Number(row.dataset.groupRow),toggle=event.metaKey||event.ctrlKey;if(toggle||event.shiftKey){marked=clickMark(marked,index,clicked,{toggle,range:event.shiftKey});index=clicked;update();content.querySelector<HTMLElement>(`[data-group-row="${index}"]`)?.focus();}else if(clicked===index&&marked.size===1&&(event.target as Element).tagName==='SPAN'){renameTimer=window.setTimeout(()=>{if(el.open&&!working)rename();},600);}else{index=clicked;marked=new Set([clicked]);update();content.querySelector<HTMLElement>(`[data-group-row="${index}"]`)?.focus();}});row.addEventListener('dblclick',()=>{window.clearTimeout(renameTimer);editGroup();});row.addEventListener('keydown',event=>{window.clearTimeout(renameTimer);if(event.key==='F2'){event.preventDefault();rename();}if(event.key==='F4'||event.key==='Enter'){event.preventDefault();editGroup();}if((event.key==='ArrowUp'||event.key==='ArrowDown')&&!event.altKey){event.preventDefault();index=Math.max(0,Math.min(draft.groups.length-1,index+(event.key==='ArrowDown'?1:-1)));marked=new Set([index]);update();content.querySelector<HTMLElement>(`[data-group-row="${index}"]`)?.focus();}});});
       content.querySelectorAll<HTMLInputElement>('[data-enable]').forEach(input=>input.addEventListener('change',()=>{draft.groups[Number(input.dataset.enable)].enabled=input.checked;mark();}));
       content.querySelectorAll<HTMLButtonElement>('[data-edit-action]').forEach(button=>button.addEventListener('click',()=>editGroup(Number(button.dataset.editAction))));
       content.querySelector<HTMLSelectElement>('#group-preset')!.addEventListener('change',event=>{const name=(event.target as HTMLSelectElement).value;if(name){draft=applyPreset(draft,name);mark();}});
@@ -280,18 +310,21 @@ export class ActionUI {
       if(!key||(!inList&&!['enable-all','disable-all','save'].includes(key))||(key==='toggle'&&target instanceof HTMLInputElement))return;
       event.preventDefault();event.stopPropagation();
       if(key==='save'){if(dirty)void run(persist);return;}
+      if(key==='select-all'||key==='invert'){marked=markAll(draft.groups.length,marked,key==='invert');if(!marked.has(index))index=marked.size?Math.min(...marked):index;if(!marked.size)marked=new Set();update();content.querySelector<HTMLElement>(`[data-group-row="${index}"]`)?.focus();return;}
       if(key==='enable-all'||key==='disable-all'){draft.groups.forEach(group=>group.enabled=key==='enable-all');mark();}
-      else if(key==='toggle'){if(index<0)return;draft.groups[index].enabled=!draft.groups[index].enabled;mark();}
+      else if(key==='toggle'){if(index<0)return;const on=!draft.groups[index].enabled;(block()?[...marked]:[index]).forEach(i=>draft.groups[i].enabled=on);mark();}
       else if(key==='new'||key==='remove')command(key);
       else command(key==='up'||key==='top'?'up':'down',key==='top'||key==='bottom');
       if(inList&&el.open)content.querySelector<HTMLElement>(`[data-group-row="${index}"]`)?.focus();
     });
     const editGroup=(actionIndex=0)=>{
-      if(index<0)return;const group=draft.groups[index],groupDraft=clone(group);let selectedAction=Math.min(actionIndex,groupDraft.actions.length-1);
+      if(index<0)return;const group=draft.groups[index],groupDraft=clone(group);let selectedAction=Math.min(actionIndex,groupDraft.actions.length-1),markedActions=new Set<number>(selectedAction>=0?[selectedAction]:[]);
+      const actionBlock=()=>markedActions.size>1&&markedActions.has(selectedAction);
       const child=dialog(`Actions — ${group.name}`,'','<button data-close>Cancel</button><button class="primary" data-keep>Keep group</button>');child.classList.add('group-editor-dialog');
-      const draw=()=>{child.querySelector('.dialog-content')!.innerHTML=`<ol class="action-edit-list" aria-label="Actions in execution order">${groupDraft.actions.map((action,i)=>`<li><button data-action-index="${i}" class="${i===selectedAction?'current':''}"><strong>${html(title(action))}</strong><span>${html(action.field||action.filename_template||action.pattern||'')}</span></button></li>`).join('')||'<li class="group-empty">Add an action to this group.</li>'}</ol><div class="group-buttons"><button data-command="new">New…</button><button data-command="edit" ${selectedAction>=0?'':'disabled'}>Edit…</button><button data-command="duplicate" ${selectedAction>=0?'':'disabled'}>Duplicate</button><button data-command="remove" ${selectedAction>=0?'':'disabled'}>Remove</button><button data-command="up" ${selectedAction>0?'':'disabled'}>↑ Move up</button><button data-command="down" ${selectedAction>=0&&selectedAction<groupDraft.actions.length-1?'':'disabled'}>↓ Move down</button></div>`;
-        child.querySelectorAll<HTMLButtonElement>('[data-action-index]').forEach(button=>{button.addEventListener('click',()=>{selectedAction=Number(button.dataset.actionIndex);draw();});button.addEventListener('dblclick',()=>edit());});
-        child.querySelectorAll<HTMLButtonElement>('[data-command]').forEach(button=>button.addEventListener('click',event=>{const command=button.dataset.command;if(command==='new')this.editAction(undefined,action=>{groupDraft.actions.push(action);selectedAction=groupDraft.actions.length-1;draw();});if(command==='edit')edit();if(command==='duplicate'){groupDraft.actions.splice(selectedAction+1,0,clone(groupDraft.actions[selectedAction]));selectedAction++;draw();}if(command==='remove'){groupDraft.actions.splice(selectedAction,1);selectedAction=Math.min(selectedAction,groupDraft.actions.length-1);draw();}if(command==='up'||command==='down'){const target=event.altKey?(command==='up'?0:groupDraft.actions.length-1):selectedAction+(command==='up'?-1:1);groupDraft.actions=moveItem(groupDraft.actions,selectedAction,target);selectedAction=target;draw();}}));
+      const draw=()=>{markedActions=new Set([...markedActions].filter(i=>i<groupDraft.actions.length));if(selectedAction>=0&&!markedActions.has(selectedAction))markedActions=new Set([selectedAction]);
+        child.querySelector('.dialog-content')!.innerHTML=`<ol class="action-edit-list" aria-label="Actions in execution order">${groupDraft.actions.map((action,i)=>`<li><button data-action-index="${i}" class="${i===selectedAction?'current':''} ${markedActions.has(i)?'marked':''}" aria-pressed="${markedActions.has(i)}"><strong>${html(title(action))}</strong><span>${html(action.field||action.filename_template||action.pattern||'')}</span></button></li>`).join('')||'<li class="group-empty">Add an action to this group.</li>'}</ol><div class="group-buttons"><button data-command="new">New…</button><button data-command="edit" ${selectedAction>=0?'':'disabled'}>Edit…</button><button data-command="duplicate" ${selectedAction>=0?'':'disabled'}>Duplicate</button><button data-command="remove" ${selectedAction>=0?'':'disabled'}>Remove</button><button data-command="up" ${selectedAction>0||actionBlock()?'':'disabled'}>↑ Move up</button><button data-command="down" ${selectedAction>=0&&(selectedAction<groupDraft.actions.length-1||actionBlock())?'':'disabled'}>↓ Move down</button></div>`;
+        child.querySelectorAll<HTMLButtonElement>('[data-action-index]').forEach(button=>{button.addEventListener('click',event=>{const clicked=Number(button.dataset.actionIndex),toggle=event.metaKey||event.ctrlKey;markedActions=clickMark(markedActions,selectedAction,clicked,{toggle,range:event.shiftKey});selectedAction=clicked;draw();child.querySelector<HTMLElement>(`[data-action-index="${selectedAction}"]`)?.focus();});button.addEventListener('dblclick',()=>edit());});
+        child.querySelectorAll<HTMLButtonElement>('[data-command]').forEach(button=>button.addEventListener('click',event=>{const command=button.dataset.command;if(command==='new')this.editAction(undefined,action=>{groupDraft.actions.push(action);selectedAction=groupDraft.actions.length-1;draw();});if(command==='edit')edit();if(command==='duplicate'){groupDraft.actions.splice(selectedAction+1,0,clone(groupDraft.actions[selectedAction]));selectedAction++;draw();}if(command==='remove'){const removed=actionBlock()?[...markedActions].sort((a,b)=>b-a):[selectedAction],first=Math.min(...removed);removed.forEach(i=>groupDraft.actions.splice(i,1));selectedAction=Math.min(first,groupDraft.actions.length-1);markedActions=new Set(selectedAction>=0?[selectedAction]:[]);draw();}if(command==='up'||command==='down'){if(actionBlock()){const current=groupDraft.actions[selectedAction],moved=moveMarked(groupDraft.actions,markedActions,event.altKey?(command==='up'?'top':'bottom'):command);groupDraft.actions=moved.items;markedActions=moved.marked;selectedAction=groupDraft.actions.indexOf(current);}else{const target=event.altKey?(command==='up'?0:groupDraft.actions.length-1):selectedAction+(command==='up'?-1:1);groupDraft.actions=moveItem(groupDraft.actions,selectedAction,target);selectedAction=target;markedActions=new Set([target]);}draw();}}));
       };
       const edit=()=>{if(selectedAction>=0)this.editAction(groupDraft.actions[selectedAction],action=>{groupDraft.actions[selectedAction]=action;draw();});};
       const commandButton=(name:string,extreme=false)=>child.querySelector<HTMLButtonElement>(`[data-command="${name}"]:not(:disabled)`)?.dispatchEvent(new MouseEvent('click',{altKey:extreme}));
@@ -299,6 +332,7 @@ export class ActionUI {
       child.addEventListener('keydown',event=>{
         if(event.key==='F4'){event.preventDefault();edit();return;}
         const command=(event.target as Element).closest?.('.action-edit-list')||event.key==='Insert'?actionListKey(event,mac()):undefined;
+        if(command==='select-all'||command==='invert'){event.preventDefault();event.stopPropagation();markedActions=markAll(groupDraft.actions.length,markedActions,command==='invert');if(!markedActions.has(selectedAction)&&markedActions.size)selectedAction=Math.min(...markedActions);draw();child.querySelector<HTMLElement>(`[data-action-index="${selectedAction}"]`)?.focus();return;}
         if(!command||!['new','remove','up','down','top','bottom'].includes(command))return;
         event.preventDefault();event.stopPropagation();
         commandButton(command==='top'?'up':command==='bottom'?'down':command,command==='top'||command==='bottom');
@@ -307,12 +341,16 @@ export class ActionUI {
     };
     const command=(name:string,extreme=false)=>{
       window.clearTimeout(renameTimer);
-      if((name==='up'&&index<=0)||(name==='down'&&(index<0||index>=draft.groups.length-1)))return;
+      if(!block()&&((name==='up'&&index<=0)||(name==='down'&&(index<0||index>=draft.groups.length-1))))return;
       if(name==='new')nameDialog('New action group','',value=>{if(draft.groups.some(g=>g.name.toLocaleLowerCase()===value.toLocaleLowerCase()))throw new Error('An action group already has this name.');draft.groups.push({name:value,enabled:true,actions:[]});index=draft.groups.length-1;});
       if(name==='duplicate'&&index>=0)nameDialog('Duplicate action group',copyName(draft.groups[index].name,draft.groups),value=>{const group=clone(draft.groups[index]);if(draft.groups.some(g=>g.name.toLocaleLowerCase()===value.toLocaleLowerCase()))throw new Error('An action group already has this name.');group.name=value;draft.groups.push(group);index=draft.groups.length-1;});
       if(name==='rename')rename();
-      if(name==='remove'&&index>=0){draft=removeGroup(draft,index);index=Math.min(index,draft.groups.length-1);mark();}
-      if((name==='up'||name==='down')&&index>=0){const target=extreme?(name==='up'?0:draft.groups.length-1):index+(name==='up'?-1:1);draft.groups=moveItem(draft.groups,index,target);index=target;mark();}
+      if(name==='remove'&&index>=0){const removed=block()?[...marked].sort((a,b)=>b-a):[index],first=Math.min(...removed);removed.forEach(i=>{draft=removeGroup(draft,i);});index=Math.min(first,draft.groups.length-1);marked=new Set(index>=0?[index]:[]);mark();}
+      if((name==='up'||name==='down')&&index>=0){
+        if(block()){const current=draft.groups[index],moved=moveMarked(draft.groups,marked,extreme?(name==='up'?'top':'bottom'):name);draft.groups=moved.items;marked=moved.marked;index=draft.groups.indexOf(current);}
+        else{const target=extreme?(name==='up'?0:draft.groups.length-1):index+(name==='up'?-1:1);draft.groups=moveItem(draft.groups,index,target);index=target;marked=new Set([target]);}
+        mark();
+      }
       if(name==='edit')editGroup();
       if(name==='sort-name'||name==='sort-state'){const current=draft.groups[index];draft=sortGroups(draft,name==='sort-name'?'name':'state');index=current?draft.groups.findIndex(group=>group.name===current.name):-1;mark();}
       if(name==='export'&&index>=0&&this.host.exportGroup){const group=clone(draft.groups[index]);void run(async()=>{const path=await this.host.exportGroup!(group);if(path)groupNotice=`Exported ${group.name} to ${path}`;});}
