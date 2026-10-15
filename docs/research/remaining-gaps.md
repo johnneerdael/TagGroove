@@ -310,3 +310,17 @@ Closed by implementation and unit tests; native suites run headless in CI on Lin
 
 The keyboard reference now has all 97 rows bound (keyboard-ui). Still open: Library database; UI translations (needs an OpenTag translation layer); tray icon (product decision); Tag Panel dock/undock and Mp3tag tag-panel import; per-chapter fields other than TITLE; gnudb registration (no code); the per-item gaps listed in each verification note.
 
+## Closed after this audit (batch 7, 2026-10-15)
+
+Closed by implementation and unit tests; native suites run headless in CI on Linux, macOS and Windows. None of these has differential evidence against the original.
+
+| Items | Closed by | Evidence |
+|---|---|---|
+| Library: Options → Library (enable, included directories, cleanup, clear) and an SQLite metadata cache that loads unchanged files without reading them; OpenTag's own writes invalidate entries | library | [verification](../verification/library.md) |
+| Tag Panel left/right/above/below/floating with saved layout; filter position; custom toolbar; Mp3tag tag panel configuration import; notification area options (Windows/Linux) | panel-dock | [verification](../verification/panel-dock.md) |
+| Per-chapter fields beyond TITLE (Nero, Matroska chapter tags, ID3v2 CHAP sub-frames) with Mp3tag's sub-track consolidation; cue tracks spanning FILE entries and pregaps; whole-file commands on chapter rows; `%_subsong%` | chapter-fields | [verification](../verification/chapter-fields.md) |
+| Native UI suites portable to macOS and Windows; Windows path fixes (plain paths, export destinations, rename separators) | ci-matrix | — |
+| Slow-click cell editor stealing focus from the tag panel (lost keystrokes, Ctrl+S swallowed) | e2e-flake | [verification](../verification/e2e-flake.md) |
+
+Still open: UI translations (needs an OpenTag translation layer); floating Tag Panel as a separate OS window; movable toolbar bands and Mp3tag toolbar file import; global Nero fields and Nero covers; gnudb registration (no code); the per-item gaps listed in each verification note.
+
