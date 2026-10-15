@@ -53,3 +53,10 @@ first launch.
 - core-workflows timeouts now report the window state at the timeout and a
   timeline of changes (busy, status text, open dialogs, pending count,
   selection, enabled save/undo/redo, focused element).
+
+## Verification
+
+- Loop with the fix (run 38724629049): 20 fresh Linux runners × 4 cold runs,
+  80 of 80 core-workflows passes (14/14 steps each).
+- The temporary loop job (`workflow_dispatch` input `loop`) was removed
+  afterwards. build.yml is unchanged from feat/core-parity.

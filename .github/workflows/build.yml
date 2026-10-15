@@ -4,19 +4,13 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
-    inputs:
-      loop:
-        description: TEMP(e2e-flake) run core-workflows this many times per variant instead of the standard jobs
-        type: number
-        default: 0
 permissions:
   contents: read
 concurrency:
-  group: build-${{ github.event_name }}-${{ github.event.pull_request.head.ref || github.ref_name }}${{ inputs.loop > 0 && '-loop' || '' }}
+  group: build-${{ github.event_name }}-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 jobs:
   desktop:
-    if: ${{ !(inputs.loop > 0) }}
     strategy:
       fail-fast: false
       matrix:
@@ -69,7 +63,6 @@ jobs:
           name: OpenTag-${{ matrix.os }}
           path: target/release/bundle/
   native-e2e:
-    if: ${{ !(inputs.loop > 0) }}
     name: Native UI workflows (${{ matrix.os }})
     strategy:
       fail-fast: false
@@ -134,7 +127,6 @@ jobs:
           name: native-e2e-output-${{ matrix.os }}
           path: e2e-output/
   android:
-    if: ${{ !(inputs.loop > 0) }}
     name: Android document integration
     runs-on: ubuntu-24.04
     timeout-minutes: 60
@@ -183,51 +175,3 @@ jobs:
           name: OpenTag-android-arm64-debug
           path: src-tauri/gen/android/app/build/outputs/apk/universal/debug/*.apk
           if-no-files-found: error
-  core-loop:
-    # TEMP(e2e-flake): run core-workflows first thing on many fresh runners
-    # (as the standard job does), then repeat it on the same runner.
-    if: ${{ inputs.loop > 0 }}
-    name: core-workflows loop (runner ${{ matrix.runner }})
-    strategy:
-      fail-fast: false
-      matrix:
-        runner: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
-    runs-on: ubuntu-24.04
-    timeout-minutes: 60
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: native-e2e
-          save-if: false
-      - run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf ffmpeg xvfb xauth dbus-x11
-      - run: npm ci
-      - run: npx tauri build --debug --no-bundle --config '{"identifier":"org.opentag.editor.usertest","productName":"OpenTag UserTest"}'
-      - name: Loop core-workflows
-        run: |
-          mkdir -p e2e-output
-          pass=0; fail=0
-          for i in $(seq 1 ${{ inputs.loop }}); do
-            # Later runs start as cold as the first: per-user caches (fontconfig,
-            # GStreamer registry, WebKit) and the page cache are dropped.
-            if [[ $i -gt 1 ]]; then rm -rf "$HOME/.cache"/* "$HOME/.local/share"/*; sync; echo 3 | sudo tee /proc/sys/vm/drop_caches >/dev/null; fi
-            echo "::group::run $i"
-            if OPENTAG_E2E_OFFLINE=1 OPENTAG_E2E_FIXTURES="" dbus-run-session -- xvfb-run -a scripts/e2e-native.sh tests/e2e/core-workflows.js --no-build 2>&1 | tee "e2e-output/run-$i.txt"; then pass=$((pass+1)); r=PASS; else fail=$((fail+1)); r=FAIL; fi
-            echo "::endgroup::"
-            echo "run $i: $r"
-          done
-          echo "core-workflows runner ${{ matrix.runner }}: $pass passed, $fail failed of ${{ inputs.loop }}" | tee -a "$GITHUB_STEP_SUMMARY"
-          [[ $fail -eq 0 ]]
-      - if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: core-loop-${{ matrix.runner }}
-          path: e2e-output/
