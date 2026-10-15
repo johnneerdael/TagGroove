@@ -223,3 +223,37 @@ fn compiled_filters_accept_application_and_date_context() {
     assert!(filter.matches_with_context(&context).unwrap());
     assert!(filter.matches(&f).is_err());
 }
+
+#[test]
+fn numeric_filters_compare_the_numeric_part_of_values() {
+    let f: Fields = [
+        ("TRACK".into(), vec!["3/12".into()]),
+        ("DISCNUMBER".into(), vec![" 02 / 03".into()]),
+        ("YEAR".into(), vec!["2024-05-01".into()]),
+        ("BPM".into(), vec!["128.6".into()]),
+        ("MOOD".into(), vec!["calm".into()]),
+        ("GAIN".into(), vec!["-6 dB".into()]),
+        ("SERIAL".into(), vec!["99999999999999999999999".into()]),
+    ]
+    .into();
+    for (query, expected) in [
+        ("track EQUAL 3", true),
+        ("track GREATER 2", true),
+        ("track GREATER 10", false),
+        ("track LESS 4", true),
+        ("track EQUAL 12", false),
+        ("discnumber EQUAL 2", true),
+        ("year GREATER 2023", true),
+        ("year EQUAL 2024", true),
+        ("bpm EQUAL 128", true),
+        ("gain LESS 0", true),
+        ("gain EQUAL -6", true),
+        ("serial GREATER 1000", true),
+        ("mood EQUAL 0", false),
+        ("mood LESS 1", false),
+        ("NOT mood GREATER 0", true),
+        ("title GREATER 0", false),
+    ] {
+        assert_eq!(matches_filter(query, &f).unwrap(), expected, "{query}");
+    }
+}
