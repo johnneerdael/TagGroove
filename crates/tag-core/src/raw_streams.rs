@@ -298,12 +298,12 @@ fn lofty_properties(
         Stream::Aac => AacFile::read_from(&mut window, options)
             .map_err(|e| error_message(&e))?
             .properties()
-            .clone()
+            .to_owned()
             .into(),
         _ => WavPackFile::read_from(&mut window, options)
             .map_err(|e| error_message(&e))?
             .properties()
-            .clone()
+            .to_owned()
             .into(),
     })
 }

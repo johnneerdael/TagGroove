@@ -56,6 +56,7 @@ pub use media_info::{audio_digest, AudioDigest};
 pub use optimize::*;
 use serde::{Deserialize, Serialize};
 use std::{
+    borrow::Cow,
     collections::{BTreeMap, HashSet},
     fs,
     io::{Seek, SeekFrom},
@@ -1188,13 +1189,34 @@ fn normalized_updates(updates: &Fields, kind: TagType) -> Result<Fields, String>
 /// How a write treats an ID3v2 tag: keep its revision (non-MPEG formats) or
 /// convert it to the configured MPEG revision and encoding.
 #[derive(Clone, Copy)]
-enum Id3Write {
+enum Id3Revision {
     Preserve([u8; 3]),
     Convert(mapping::Id3Target),
 }
+/// How a write treats native tags: the ID3v2 revision, and the Options →
+/// Tags → Advanced settings for MP4 atoms and ID3v2 frames.
+#[derive(Clone, Copy)]
+struct Id3Write {
+    revision: Id3Revision,
+    reuse_id3v2_frames: bool,
+    reuse_mp4_atoms: bool,
+    mp4_single_atom: bool,
+}
 impl Id3Write {
     fn preserving(options: &TagOptions) -> Self {
-        Self::Preserve(options.comment_language())
+        Self::with(Id3Revision::Preserve(options.comment_language()), options)
+    }
+    fn converting(target: mapping::Id3Target, options: &TagOptions) -> Self {
+        Self::with(Id3Revision::Convert(target), options)
+    }
+    fn with(revision: Id3Revision, options: &TagOptions) -> Self {
+        let advanced = &options.advanced;
+        Self {
+            revision,
+            reuse_id3v2_frames: advanced.reuse_id3v2_frames,
+            reuse_mp4_atoms: advanced.reuse_mp4_atoms,
+            mp4_single_atom: advanced.mp4_single_atom,
+        }
     }
 }
 
@@ -1218,14 +1240,23 @@ fn save_preserving_native(
     match tag.tag_type() {
         TagType::Id3v2 => {
             let mut native = originals.id3.unwrap_or_default();
-            let target = match id3 {
-                Id3Write::Preserve(language) => mapping::Id3Target::preserving(&native, language),
-                Id3Write::Convert(target) => {
+            let target = match id3.revision {
+                Id3Revision::Preserve(language) => {
+                    mapping::Id3Target::preserving(&native, language)
+                }
+                Id3Revision::Convert(target) => {
                     mapping::convert_id3_version(&mut native, &target)?;
                     target
                 }
             };
-            mapping::patch_id3(&mut native, updates, &target)?;
+            let mut updates = Cow::Borrowed(updates);
+            if !id3.reuse_id3v2_frames {
+                let moved = mapping::remap_id3(&mut native, &updates, &target);
+                if !moved.is_empty() {
+                    updates.to_mut().extend(moved);
+                }
+            }
+            mapping::patch_id3(&mut native, &updates, &target)?;
             if covers_changed {
                 native.retain(|frame| !matches!(frame, Frame::Picture(_)));
                 let pictures: Id3v2Tag = tag.clone().into();
@@ -1242,14 +1273,21 @@ fn save_preserving_native(
         }
         TagType::Mp4Ilst => {
             let mut native = originals.ilst.unwrap_or_default();
-            mapping::patch_mp4(&mut native, updates)?;
+            let mut updates = Cow::Borrowed(updates);
+            if !id3.reuse_mp4_atoms {
+                let moved = mapping::remap_mp4(&mut native, &updates);
+                if !moved.is_empty() {
+                    updates.to_mut().extend(moved);
+                }
+            }
+            mapping::patch_mp4(&mut native, &updates)?;
             if covers_changed {
                 native.remove_pictures();
                 for picture in tag.pictures() {
                     native.insert_picture(picture.clone());
                 }
             }
-            crate::mp4_metadata::save(staging, &native)
+            crate::mp4_metadata::save(staging, &native, id3.mp4_single_atom)
         }
         TagType::VorbisComments => {
             let mut native = originals.vorbis.unwrap_or_default();

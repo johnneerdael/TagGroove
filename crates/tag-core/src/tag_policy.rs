@@ -278,7 +278,7 @@ pub(super) fn write(
         }
     }
     let id3 = if kind == Policy::Mpeg {
-        Id3Write::Convert(id3_target(options))
+        Id3Write::converting(id3_target(options), options)
     } else {
         Id3Write::preserving(options)
     };

@@ -223,8 +223,10 @@ pub(crate) fn legacy_integer_items(
 }
 
 /// Write `tag` into the MP4 file, in place when the `free` atoms allow it.
-pub(crate) fn save(file: &mut File, tag: &Ilst) -> Result<(), String> {
-    match padded(file, tag).map_err(|e| e.to_string())? {
+/// Unless `single_atom`, a field with several values is stored as one atom
+/// per value (Options → Tags → Advanced).
+pub(crate) fn save(file: &mut File, tag: &Ilst, single_atom: bool) -> Result<(), String> {
+    match padded(file, tag, single_atom).map_err(|e| e.to_string())? {
         Some(true) => return Ok(()),
         Some(false) => crate::write_cost::rewrote_all(),
         None => {
@@ -232,14 +234,51 @@ pub(crate) fn save(file: &mut File, tag: &Ilst) -> Result<(), String> {
             file.seek(SeekFrom::Start(0)).map_err(|e| e.to_string())?;
             tag.save_to(file, WriteOptions::default())
                 .map_err(|e| crate::tags::error_message(&e))?;
+            // lofty writes one atom per field; split it now that an `ilst`
+            // exists.
+            if !single_atom && tag.into_iter().any(|atom| atom.data().count() > 1) {
+                padded(file, tag, false).map_err(|e| e.to_string())?;
+            }
         }
     }
     Ok(())
 }
 
+/// One item atom per `data` atom: an `ilst` item with several values becomes
+/// several items with the same identifier (and `mean`/`name`). Cover art
+/// keeps all its images in one `covr` atom.
+fn split_items(ilst: &[u8]) -> Option<Vec<u8>> {
+    let root = atoms(ilst, 0..ilst.len())?.into_iter().next()?;
+    let mut body = Vec::new();
+    for item in atoms(ilst, root.content())? {
+        let children = atoms(ilst, item.content())?;
+        let data: Vec<_> = children.iter().filter(|a| &a.kind == b"data").collect();
+        if data.len() < 2 || &item.kind == b"covr" {
+            body.extend_from_slice(&ilst[item.start..item.end]);
+            continue;
+        }
+        let names: Vec<u8> = children
+            .iter()
+            .filter(|a| &a.kind != b"data")
+            .flat_map(|a| ilst[a.start..a.end].iter().copied())
+            .collect();
+        for value in data {
+            let size = u32::try_from(8 + names.len() + (value.end - value.start)).ok()?;
+            body.extend(size.to_be_bytes());
+            body.extend(item.kind);
+            body.extend(&names);
+            body.extend_from_slice(&ilst[value.start..value.end]);
+        }
+    }
+    let mut output = u32::try_from(8 + body.len()).ok()?.to_be_bytes().to_vec();
+    output.extend(b"ilst");
+    output.extend(body);
+    Some(output)
+}
+
 /// `Some(true)`: written in place; `Some(false)`: `moov` was rewritten with
 /// padding; `None`: nothing was written and lofty has to write the tag.
-fn padded(file: &mut File, tag: &Ilst) -> std::io::Result<Option<bool>> {
+fn padded(file: &mut File, tag: &Ilst, single_atom: bool) -> std::io::Result<Option<bool>> {
     let Some(top) = top_level(file)? else {
         return Ok(None);
     };
@@ -274,6 +313,16 @@ fn padded(file: &mut File, tag: &Ilst) -> std::io::Result<Option<bool>> {
     let Some(new) = encoded.get(moov_at..).and_then(ilst) else {
         // Removing the tag is left to lofty.
         return Ok(None);
+    };
+    let split;
+    let new = if single_atom {
+        new
+    } else {
+        let Some(items) = split_items(new) else {
+            return Ok(None);
+        };
+        split = items;
+        &split[..]
     };
     let available = region.len();
     if new.len() == available || new.len() + 8 <= available {

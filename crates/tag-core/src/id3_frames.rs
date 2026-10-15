@@ -481,7 +481,7 @@ mod tests {
     #[test]
     fn splice_appends_frames_before_the_padding() {
         let first = frame(b"TIT2", [0, 0], b"\x03A", 4);
-        let rendered = tag(4, &[first.clone()], 20);
+        let rendered = tag(4, std::slice::from_ref(&first), 20);
         let kept = frame(b"TALB", [0, 0x0D], b"\x00\x00\x00\x05\x81data", 4);
         let passthrough = Passthrough {
             major: 4,

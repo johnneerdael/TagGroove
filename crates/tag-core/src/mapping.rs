@@ -2153,6 +2153,111 @@ fn patch_unique_file_ids(tag: &mut Id3v2Tag, values: &[String]) -> Result<(), St
     Ok(())
 }
 
+/// Options → Tags → Advanced with "Reuse unmodified ID3v2 frames" off: a
+/// TXXX frame named after a documented field that is stored elsewhere (for
+/// example TXXX:MOOD in ID3v2.4, or FFmpeg's TXXX:comment) is moved to the
+/// documented frame on every save. Fields being edited, fields whose
+/// documented frame already exists and values the documented frame cannot
+/// hold are left alone. Returns the moved values, to be patched in.
+pub(super) fn remap_id3(tag: &mut Id3v2Tag, updates: &Fields, target: &Id3Target) -> Fields {
+    let mut moved = Fields::new();
+    let mut aliases = Vec::new();
+    for frame in &*tag {
+        let Frame::UserText(text) = frame else {
+            continue;
+        };
+        let Some(field) = field_mapping(&text.description).map(|r| r.field) else {
+            continue;
+        };
+        let native = version_native(field, target.version);
+        let stored = format!("TXXX:{}", text.description);
+        if native == stored
+            || updates.keys().any(|key| key.eq_ignore_ascii_case(field))
+            || described_frame(field).is_some()
+        {
+            continue;
+        }
+        let present = match native.strip_prefix("TXXX:") {
+            Some(description) => (&*tag)
+                .into_iter()
+                .any(|f| matches!(f, Frame::UserText(t) if t.description == description)),
+            None => (&*tag).into_iter().any(|f| f.id().as_str() == native),
+        };
+        if present {
+            continue;
+        }
+        moved
+            .entry(field.to_owned())
+            .or_default()
+            .extend(text.content.split('\0').map(str::to_owned));
+        aliases.push(text.description.to_string());
+    }
+    // Values the documented frame cannot hold stay where they are.
+    moved.retain(|field, values| {
+        let single = Fields::from([(field.clone(), values.clone())]);
+        let keep = patch_id3(&mut Id3v2Tag::new(), &single, target).is_ok();
+        if !keep {
+            aliases.retain(|alias| field_mapping(alias).map(|r| r.field) != Some(field.as_str()));
+        }
+        keep
+    });
+    tag.retain(|frame| {
+        !matches!(frame, Frame::UserText(text) if aliases.iter().any(|a| *a == text.description))
+    });
+    moved
+}
+
+/// Options → Tags → Advanced with "Reuse unmodified MP4 atoms" off: a
+/// freeform `----:com.apple.iTunes:<FIELD>` atom for a field with a
+/// documented atom, or a documented alternative spelling (`©art`, `gnre`),
+/// is moved to the documented atom on every save, under the same conditions
+/// as [`remap_id3`].
+pub(super) fn remap_mp4(tag: &mut Ilst, updates: &Fields) -> Fields {
+    let mut moved = Fields::new();
+    let mut idents = Vec::new();
+    for atom in &*tag {
+        let field = match atom.ident() {
+            AtomIdent::Freeform { mean, name } if mean == "com.apple.iTunes" => {
+                field_mapping(name).map(|r| r.field)
+            }
+            AtomIdent::Freeform { .. } => None,
+            ident => mp4_name(ident),
+        };
+        let Some(field) = field.filter(|field| {
+            !matches!(
+                *field,
+                "TRACK" | "TOTALTRACKS" | "DISCNUMBER" | "TOTALDISCS"
+            ) && !updates.keys().any(|key| key.eq_ignore_ascii_case(field))
+        }) else {
+            continue;
+        };
+        let Ok(primary) = mp4_ident(field) else {
+            continue;
+        };
+        if primary == *atom.ident()
+            || field_mapping(field).is_none_or(|r| r.mp4.is_empty())
+            || tag.get(&primary).is_some()
+        {
+            continue;
+        }
+        let mut single = Ilst::default();
+        single.insert(atom.clone());
+        let Some(values) = mp4_fields(&single).into_values().next() else {
+            continue;
+        };
+        let fields = Fields::from([(field.to_owned(), values)]);
+        if patch_mp4(&mut Ilst::default(), &fields).is_err() || moved.contains_key(field) {
+            continue;
+        }
+        moved.extend(fields);
+        idents.push(atom.ident().clone().into_owned());
+    }
+    for ident in idents {
+        tag.remove(&ident).for_each(drop);
+    }
+    moved
+}
+
 const MM_VALUES: [u8; 11] = [0, 13, 1, 54, 64, 118, 128, 186, 196, 242, 255];
 const WMP_VALUES: [u8; 6] = [0, 1, 64, 128, 196, 255];
 fn mm_rating(value: u8) -> Option<String> {

@@ -784,3 +784,127 @@ fn described_comments_lyrics_and_unique_file_ids_roundtrip() {
         assert_eq!(fs::read(&path).unwrap(), before);
     }
 }
+
+#[test]
+fn reuse_unmodified_id3v2_frames_toggle() {
+    use lofty::prelude::AudioFile;
+    for reuse in [false, true] {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("remap.mp3");
+        let mut tag = Id3v2Tag::new();
+        tag.insert_user_text("MOOD".into(), "Calm".into());
+        tag.insert_user_text("MUSICBRAINZ_ALBUMID".into(), "album-id".into());
+        tag.insert_user_text("Unmapped".into(), "kept".into());
+        let mut bytes = Vec::new();
+        tag.dump_to(&mut bytes, WriteOptions::default()).unwrap();
+        bytes.extend(mpeg_frames());
+        fs::write(&path, &bytes).unwrap();
+        let mut options = TagOptions::default();
+        options.mpeg.id3v2_format = tag_core::Id3v2Format::V24Utf8;
+        options.mpeg.write_id3v1 = false;
+        options.advanced.reuse_id3v2_frames = reuse;
+        write_fields_with_options(&path, &fields(&[("TITLE", &["T"])]), false, &[], &options)
+            .unwrap();
+        let written = lofty::mpeg::MpegFile::read_from(
+            &mut fs::File::open(&path).unwrap(),
+            lofty::config::ParseOptions::new().implicit_conversions(false),
+        )
+        .unwrap()
+        .id3v2()
+        .cloned()
+        .unwrap();
+        let user = |description: &str| {
+            (&written)
+                .into_iter()
+                .any(|f| matches!(f, Frame::UserText(t) if t.description == description))
+        };
+        let tmoo = written.get_text(&FrameId::new("TMOO").unwrap());
+        // Off (the default): moved to their documented frames on any save.
+        assert_eq!(tmoo.is_some(), !reuse, "reuse {reuse}");
+        assert_eq!(user("MOOD"), reuse);
+        assert_eq!(user("MusicBrainz Album Id"), !reuse);
+        assert_eq!(user("MUSICBRAINZ_ALBUMID"), reuse);
+        assert!(user("Unmapped"));
+        let entry = read_entry_with_options(&path, &[], &options).unwrap();
+        assert_eq!(value(&entry, "MOOD").as_deref(), Some("Calm"));
+        assert_eq!(
+            value(&entry, "MUSICBRAINZ_ALBUMID").as_deref(),
+            Some("album-id")
+        );
+    }
+}
+
+#[test]
+fn mp4_reuse_and_single_atom_toggles() {
+    use lofty::mp4::{Atom, AtomData, AtomIdent, Mp4File};
+    use lofty::prelude::*;
+    let dir = tempfile::tempdir().unwrap();
+    let source = dir.path().join("source.m4a");
+    if !encode(&source, "aac") {
+        return;
+    }
+    let mut file = Mp4File::read_from(
+        &mut fs::File::open(&source).unwrap(),
+        lofty::config::ParseOptions::new(),
+    )
+    .unwrap();
+    let mut ilst = file.ilst().cloned().unwrap_or_default();
+    ilst.insert(Atom::new(
+        AtomIdent::Freeform {
+            mean: "com.apple.iTunes".into(),
+            name: "COMPOSER".into(),
+        },
+        AtomData::UTF8("Bach".into()),
+    ));
+    file.set_ilst(ilst);
+    file.save_to_path(&source, WriteOptions::default()).unwrap();
+    let freeform = b"\x00\x00\x00\x14name\x00\x00\x00\x00COMPOSER";
+    let composer = b"\xa9wrt";
+    // ©ART holding `values` as one atom with several `data` atoms.
+    let artist_atom = |values: &[&str]| {
+        let mut body = Vec::new();
+        for value in values {
+            body.extend(((16 + value.len()) as u32).to_be_bytes());
+            body.extend(b"data\x00\x00\x00\x01\x00\x00\x00\x00");
+            body.extend(value.as_bytes());
+        }
+        let mut atom = ((8 + body.len()) as u32).to_be_bytes().to_vec();
+        atom.extend(b"\xa9ART");
+        atom.extend(body);
+        atom
+    };
+    for (reuse, single) in [(false, true), (true, false)] {
+        let path = dir.path().join(format!("{reuse}-{single}.m4a"));
+        fs::copy(&source, &path).unwrap();
+        let mut options = TagOptions::default();
+        options.advanced.reuse_mp4_atoms = reuse;
+        options.advanced.mp4_single_atom = single;
+        write_fields_with_options(
+            &path,
+            &fields(&[("ARTIST", &["A", "B"])]),
+            false,
+            &[],
+            &options,
+        )
+        .unwrap();
+        let bytes = fs::read(&path).unwrap();
+        assert_eq!(contains(&bytes, freeform).is_some(), reuse, "reuse {reuse}");
+        assert_eq!(
+            contains(&bytes, composer).is_some(),
+            !reuse,
+            "reuse {reuse}"
+        );
+        if single {
+            assert!(contains(&bytes, &artist_atom(&["A", "B"])).is_some());
+        } else {
+            // Two ©ART atoms, one per value, side by side.
+            let (first, second) = (artist_atom(&["A"]), artist_atom(&["B"]));
+            let a = contains(&bytes, &first).unwrap();
+            let b = a + first.len();
+            assert_eq!(&bytes[b..b + second.len()], second.as_slice());
+        }
+        let entry = read_entry_with_options(&path, &[], &options).unwrap();
+        assert_eq!(value(&entry, "ARTIST").as_deref(), Some("A|B"));
+        assert_eq!(value(&entry, "COMPOSER").as_deref(), Some("Bach"));
+    }
+}
