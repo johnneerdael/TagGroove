@@ -98,22 +98,24 @@ for(const locale of ['de','nl']){
   });
 }
 
-test('native dialogs honor an active English user catalog and preserve picker data',async()=>{
-  const nativeSource=(await source('i18n/dialog.ts')).replace(/^import .*;\n/gm,'').replace(/^export /gm,'');
-  const js=ts.transpileModule(`export function create(dialog,translator){
-    const t=(key)=>translator.t(key),translate=(text)=>translator.translate(text),translationActive=()=>translator.active;
-    ${nativeSource}
-    return {open,save,ask,confirm,message};
-  }`,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
-  const {create}=await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
-  const calls=[],native=Object.fromEntries(['open','save','ask','confirm','message'].map(name=>[name,(...args)=>(calls.push([name,...args]),args)]));
-  const custom=new Translator('en',{'Open files':'Choose tracks','Audio files':'Music','Save tags':'Write metadata',Yes:'Proceed',No:'Decline',OK:'Accept',Cancel:'Back'});
-  const dialogs=create(native,custom),picker={title:'Open files',defaultPath:'Help',filters:[{name:'Audio files',extensions:['mp3']}]};
-  assert.deepEqual(dialogs.open(picker)[0],{title:'Choose tracks',defaultPath:'Help',filters:[{name:'Music',extensions:['mp3']}]});
-  assert.equal(dialogs.save(picker)[0].title,'Choose tracks');
-  assert.deepEqual(dialogs.ask('Save tags','Open files'),['Write metadata',{title:'Choose tracks',okLabel:'Proceed',cancelLabel:'Decline'}]);
-  assert.deepEqual(dialogs.confirm('Save tags'),['Write metadata',{okLabel:'Accept',cancelLabel:'Back'}]);
-  assert.deepEqual(dialogs.message('Save tags'),['Write metadata',{buttons:{ok:'Accept'}}]);
-  assert.deepEqual(picker,{title:'Open files',defaultPath:'Help',filters:[{name:'Audio files',extensions:['mp3']}]});
-  assert.equal(create(native,new Translator('en')).open(picker)[0],picker);
-});
+for(const [ending,newline] of [['LF','\n'],['CRLF','\r\n']]){
+  test(`native dialogs honor an active English user catalog and preserve picker data (${ending} source)`,async()=>{
+    const nativeSource=(await source('i18n/dialog.ts')).replace(/\r?\n/g,newline).replace(/^import .*;\r?\n/gm,'').replace(/^export /gm,'');
+    const js=ts.transpileModule(`export function create(dialog,translator){
+      const t=(key)=>translator.t(key),translate=(text)=>translator.translate(text),translationActive=()=>translator.active;
+      ${nativeSource}
+      return {open,save,ask,confirm,message};
+    }`,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
+    const {create}=await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
+    const calls=[],native=Object.fromEntries(['open','save','ask','confirm','message'].map(name=>[name,(...args)=>(calls.push([name,...args]),args)]));
+    const custom=new Translator('en',{'Open files':'Choose tracks','Audio files':'Music','Save tags':'Write metadata',Yes:'Proceed',No:'Decline',OK:'Accept',Cancel:'Back'});
+    const dialogs=create(native,custom),picker={title:'Open files',defaultPath:'Help',filters:[{name:'Audio files',extensions:['mp3']}]};
+    assert.deepEqual(dialogs.open(picker)[0],{title:'Choose tracks',defaultPath:'Help',filters:[{name:'Music',extensions:['mp3']}]});
+    assert.equal(dialogs.save(picker)[0].title,'Choose tracks');
+    assert.deepEqual(dialogs.ask('Save tags','Open files'),['Write metadata',{title:'Choose tracks',okLabel:'Proceed',cancelLabel:'Decline'}]);
+    assert.deepEqual(dialogs.confirm('Save tags'),['Write metadata',{okLabel:'Accept',cancelLabel:'Back'}]);
+    assert.deepEqual(dialogs.message('Save tags'),['Write metadata',{buttons:{ok:'Accept'}}]);
+    assert.deepEqual(picker,{title:'Open files',defaultPath:'Help',filters:[{name:'Audio files',extensions:['mp3']}]});
+    assert.equal(create(native,new Translator('en')).open(picker)[0],picker);
+  });
+}
