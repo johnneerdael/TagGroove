@@ -50,3 +50,12 @@ trash = "5"
 # Cover window Copy/Paste cover (image data) and Edit → Copy as Text (WebKit only
 # allows navigator.clipboard during a user gesture).
 arboard = { version = "3", default-features = false, features = ["image-data"] }
+
+# Optional system keychain for the Discogs token (sources/credentials.rs). Linux
+# talks to the Secret Service over pure-Rust D-Bus, so no libdbus is needed.
+[target.'cfg(target_os = "macos")'.dependencies]
+keyring = { version = "3.6.3", features = ["apple-native"] }
+[target.'cfg(windows)'.dependencies]
+keyring = { version = "3.6.3", features = ["windows-native"] }
+[target.'cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android"))))'.dependencies]
+keyring = { version = "3.6.3", features = ["async-secret-service", "tokio", "crypto-rust"] }

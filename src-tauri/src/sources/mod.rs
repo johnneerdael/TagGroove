@@ -24,8 +24,35 @@ use tag_core::{AudioEntry, Fields, ScanResult};
 fn settings_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(crate::action_host::library_path(app)?.with_file_name("tag-sources.json"))
 }
-fn current_credentials(app: &tauri::AppHandle) -> Result<credentials::Credentials, String> {
-    credentials::load(&settings_path(app)?)
+/// The keychain under this build's identifier; scripted end-to-end runs keep
+/// the token in memory so they never reach a real keychain.
+fn secret_store(app: &tauri::AppHandle) -> std::sync::Arc<dyn credentials::SecretStore> {
+    use std::sync::{Arc, OnceLock};
+    static E2E: OnceLock<Arc<credentials::MemoryStore>> = OnceLock::new();
+    if crate::e2e::enabled() {
+        return E2E.get_or_init(Default::default).clone();
+    }
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    return Arc::new(credentials::KeychainStore {
+        service: tauri::Manager::config(app).identifier.clone(),
+    });
+    #[cfg(any(target_os = "android", target_os = "ios"))]
+    {
+        let _ = app;
+        Arc::new(credentials::NoKeychain)
+    }
+}
+
+/// The Discogs token, or empty; the keychain is only asked for Discogs requests.
+async fn discogs_token(app: &tauri::AppHandle, provider: Provider) -> Result<String, String> {
+    if provider != Provider::Discogs {
+        return Ok(String::new());
+    }
+    let path = settings_path(app)?;
+    let store = secret_store(app);
+    tauri::async_runtime::spawn_blocking(move || credentials::load(&path)?.discogs_token(&*store))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 /// Cover Art Archive size from Options → Tag Sources (`pages.tag-sources`).
@@ -51,7 +78,7 @@ fn freedb_service(settings: &freedb::FreedbSettings) -> http::Service {
     }
 }
 
-fn service(provider: Provider, credentials: &credentials::Credentials) -> http::Service {
+fn service(provider: Provider, discogs_token: String) -> http::Service {
     match provider {
         Provider::Freedb | Provider::LocalFreedb => {
             freedb_service(&freedb::settings_from(&crate::settings::current()))
@@ -66,7 +93,7 @@ fn service(provider: Provider, credentials: &credentials::Credentials) -> http::
         },
         // Discogs allows 60 authenticated or 25 anonymous requests per minute.
         Provider::Discogs => {
-            let token = Some(credentials.discogs_token.clone()).filter(|t| !t.is_empty());
+            let token = Some(discogs_token).filter(|t| !t.is_empty());
             let spacing = Duration::from_millis(if token.is_some() { 1100 } else { 2500 });
             http::Service {
                 name: "Discogs",
@@ -90,18 +117,12 @@ pub async fn tag_source_search(
     if matches!(provider, Provider::Freedb | Provider::LocalFreedb) {
         return freedb_search(provider, query, ticket).await;
     }
-    let credentials = current_credentials(&app)?;
+    let token = discogs_token(&app, provider).await?;
     let url = match provider {
         Provider::Discogs => discogs::search_query(&query)?,
         _ => musicbrainz::search_query(&query)?,
     };
-    let body = http::json(
-        &service(provider, &credentials),
-        &url,
-        Channel::Search,
-        ticket,
-    )
-    .await?;
+    let body = http::json(&service(provider, token), &url, Channel::Search, ticket).await?;
     Ok(match provider {
         Provider::Discogs => discogs::parse_search(&body),
         _ => musicbrainz::parse_search(&body),
@@ -234,8 +255,7 @@ pub async fn tag_source_release(
     ticket: u64,
 ) -> Result<SourceRelease, String> {
     http::claim(Channel::Release, ticket);
-    let credentials = current_credentials(&app)?;
-    let service = service(provider, &credentials);
+    let service = service(provider, discogs_token(&app, provider).await?);
     match provider {
         Provider::Musicbrainz => {
             let id = musicbrainz::release_id(&input)?;
@@ -315,7 +335,7 @@ pub fn tag_source_cancel(ticket: u64) {
 pub async fn load_tag_source_settings(
     app: tauri::AppHandle,
 ) -> Result<credentials::CredentialsView, String> {
-    Ok(current_credentials(&app)?.view())
+    Ok(credentials::load(&settings_path(&app)?)?.view(&*secret_store(&app)))
 }
 
 #[tauri::command]
@@ -324,9 +344,10 @@ pub async fn save_tag_source_settings(
     update: credentials::CredentialsUpdate,
 ) -> Result<credentials::CredentialsView, String> {
     let path = settings_path(&app)?;
-    let next = credentials::load(&path)?.apply(update)?;
-    credentials::save(&path, &next)?;
-    Ok(next.view())
+    let store = secret_store(&app);
+    tauri::async_runtime::spawn_blocking(move || credentials::update(&path, &*store, update))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 #[derive(Debug, Deserialize)]
@@ -881,7 +902,7 @@ mod tests {
     #[ignore]
     fn live_musicbrainz_and_discogs_lookups() {
         let run = |provider, input: &str, ticket| {
-            let service = service(provider, &credentials::Credentials::default());
+            let service = service(provider, String::new());
             tauri::async_runtime::block_on(async {
                 match provider {
                     Provider::Musicbrainz => musicbrainz::parse_release(
