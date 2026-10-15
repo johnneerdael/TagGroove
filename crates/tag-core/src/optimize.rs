@@ -27,9 +27,9 @@ fn unchanged(
     options: &TagOptions,
 ) -> Result<AudioEntry, String> {
     if include_cover_data {
-        read_entry_with_options(path, &[], options)
+        read_entry_with_options(path, &options.mappings, options)
     } else {
-        read_entry_summary_with_options(path, &[], options)
+        read_entry_summary_with_options(path, &options.mappings, options)
     }
 }
 
@@ -68,17 +68,23 @@ pub fn remove_unsupported_fields_with_options(
         return unchanged(path, include_cover_data, options);
     }
     let language = options.comment_language();
-    staged_write(path, include_cover_data, &[], options, |staging, _, _| {
-        let mut tag = native_tags(staging, kind)?
-            .id3
-            .ok_or("The ID3v2 tag disappeared")?;
-        let target = mapping::Id3Target::preserving(&tag, language);
-        tag.retain(|frame| !unsupported_id3_frame(frame));
-        staging
-            .seek(SeekFrom::Start(0))
-            .map_err(|e| e.to_string())?;
-        mapping::save_id3(staging, kind, &tag, &target)
-    })
+    staged_write(
+        path,
+        include_cover_data,
+        &options.mappings,
+        options,
+        |staging, _, _| {
+            let mut tag = native_tags(staging, kind)?
+                .id3
+                .ok_or("The ID3v2 tag disappeared")?;
+            let target = mapping::Id3Target::preserving(&tag, language);
+            tag.retain(|frame| !unsupported_id3_frame(frame));
+            staging
+                .seek(SeekFrom::Start(0))
+                .map_err(|e| e.to_string())?;
+            mapping::save_id3(staging, kind, &tag, &target)
+        },
+    )
 }
 
 /// Optimize FLAC (exactly [`FLAC_PADDING`] bytes of padding) or MP4 (no free
@@ -99,7 +105,7 @@ pub fn optimize_with_options(
             staged_write(
                 path,
                 include_cover_data,
-                &[],
+                &options.mappings,
                 options,
                 |staging, original, _| {
                     crate::write_cost::rewrote_all();
@@ -138,7 +144,7 @@ fn optimize_flac(
     staged_write(
         path,
         include_cover_data,
-        &[],
+        &options.mappings,
         options,
         |staging, original, _| {
             let mut source = fs::File::open(original).map_err(|e| e.to_string())?;

@@ -25,7 +25,7 @@ pub struct FieldMapping {
     pub asf: &'static str,
     pub riff: &'static str,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct UserFieldMapping {
     pub tag_type: String,
     pub source: String,

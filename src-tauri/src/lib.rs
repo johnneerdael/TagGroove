@@ -462,7 +462,13 @@ async fn save_fields_batch(
             };
             let written = tag_core::parallel::map_ordered_on(threads, &items, &job, |item| {
                 mutate_document(Path::new(&item.path), |p| {
-                    tag_core::write_fields_with_options(p, &item.updates, false, &[], &options)
+                    tag_core::write_fields_with_options(
+                        p,
+                        &item.updates,
+                        false,
+                        &options.mappings,
+                        &options,
+                    )
                 })
             });
             let mut result = ScanResult::default();
