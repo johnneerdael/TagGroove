@@ -184,15 +184,16 @@ jobs:
           path: src-tauri/gen/android/app/build/outputs/apk/universal/debug/*.apk
           if-no-files-found: error
   core-loop:
-    # TEMP(e2e-flake): repeat the core-workflows suite to reproduce its flake.
+    # TEMP(e2e-flake): run core-workflows first thing on many fresh runners
+    # (as the standard job does), then repeat it on the same runner.
     if: ${{ inputs.loop > 0 }}
-    name: core-workflows loop (${{ matrix.variant }})
+    name: core-workflows loop (runner ${{ matrix.runner }})
     strategy:
       fail-fast: false
       matrix:
-        variant: [warm, fresh, stress]
+        runner: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 60
     defaults:
       run:
         shell: bash
@@ -215,22 +216,15 @@ jobs:
           mkdir -p e2e-output
           pass=0; fail=0
           for i in $(seq 1 ${{ inputs.loop }}); do
-            # fresh: the first suite of the standard job starts with an empty
-            # app cache (undo journal, WebKit caches) and cold disk caches.
-            if [[ "${{ matrix.variant }}" == fresh ]]; then rm -rf "$HOME/.cache/org.opentag.editor.usertest"; sync; echo 3 | sudo tee /proc/sys/vm/drop_caches >/dev/null; fi
-            hogs=()
-            if [[ "${{ matrix.variant }}" == stress ]]; then for _ in $(seq "$(nproc)"); do (while :; do :; done) & hogs+=($!); done; fi
             echo "::group::run $i"
-            if OPENTAG_E2E_OFFLINE=1 dbus-run-session -- xvfb-run -a scripts/e2e-native.sh tests/e2e/core-workflows.js --no-build > "e2e-output/run-$i.txt" 2>&1; then pass=$((pass+1)); r=PASS; else fail=$((fail+1)); r=FAIL; fi
-            cat "e2e-output/run-$i.txt"
+            if OPENTAG_E2E_OFFLINE=1 OPENTAG_E2E_FIXTURES="" dbus-run-session -- xvfb-run -a scripts/e2e-native.sh tests/e2e/core-workflows.js --no-build 2>&1 | tee "e2e-output/run-$i.txt"; then pass=$((pass+1)); r=PASS; else fail=$((fail+1)); r=FAIL; fi
             echo "::endgroup::"
             echo "run $i: $r"
-            for h in "${hogs[@]}"; do kill "$h" 2>/dev/null || true; done
           done
-          echo "core-workflows ${{ matrix.variant }}: $pass passed, $fail failed of ${{ inputs.loop }}" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "core-workflows runner ${{ matrix.runner }}: $pass passed, $fail failed of ${{ inputs.loop }}" | tee -a "$GITHUB_STEP_SUMMARY"
           [[ $fail -eq 0 ]]
       - if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: core-loop-${{ matrix.variant }}
+          name: core-loop-${{ matrix.runner }}
           path: e2e-output/
