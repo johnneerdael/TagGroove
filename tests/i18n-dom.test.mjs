@@ -72,6 +72,54 @@ function page(){
 }
 const memory=()=>{const data=new Map();return{getItem:key=>data.get(key)??null,setItem:(key,value)=>data.set(key,value)};};
 
+test('source-authored settings prose remains authoritative while OpenTag controls and errors translate',async()=>{
+  const custom={Save:'Store',Cancel:'Back',Help:'Assistance',Title:'Name','Select files first.':'Choose files','Save tags':'Write tags','{title} needs a number.':'A number is required for {title}.','This tag source has no settings.':'There are no settings.'};
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]]){
+    const p=page();
+    try{
+      const schema={key:'fixture',title:'Original source title',settings:[
+        {type:'heading',key:'heading',title:'Original heading'},
+        {type:'separator',key:'separator',title:'Original note'},
+        {type:'bool',key:'flag',title:'Original flag',default:true},
+        {type:'number',key:'count',title:'Original number',default:5},
+        {type:'string',key:'text',title:'Original text',default:'Title'},
+        {type:'string',key:'choice',title:'Original choice',choices:['Help','Title'],default:'Help'},
+        {type:'string',key:'Help',default:'Title'},
+      ],localizations:{[locale]:[
+        {key:'fixture',title:'Save'},{key:'heading',title:'Help'},{key:'separator',title:'Title'},
+        {key:'flag',title:'Cancel',description:'Select files first.'},
+        {key:'count',title:'Help',description:'Save tags'},
+        {key:'text',title:'Title',description:'Help'},{key:'choice',title:'Save',description:'Title'},
+      ]}};
+      let form={schema,values:{}},saved;
+      const ui=new WebSourcesUI({invoke:async(command,args)=>{if(command==='web_source_settings')return form;assert.equal(command,'save_web_source_settings');saved=args.values;form={schema,values:saved};},fail:error=>{throw error;}});
+      const entry={id:'fixture',menu:'Fallback name'};
+      p.window.document.documentElement.lang=locale;await ui.settings(entry);const t=p.translate(locale,catalog);
+      const dialog=p.body.querySelector('dialog');
+      assert.equal(dialog.querySelector('header').textContent,'Save');
+      assert.equal(p.body.querySelector('#'+dialog.getAttribute('aria-labelledby')).textContent,'Save');
+      assert.equal(dialog.querySelector('.ws-heading').textContent,'Help');assert.equal(dialog.querySelector('.ws-note').textContent,'Title');
+      assert.equal(dialog.querySelector('.action-check').textContent.trim(),'Cancel');
+      assert.deepEqual([...dialog.querySelectorAll('.field > span')].map(node=>node.textContent),['Help','Title','Save','Help']);
+      assert.deepEqual([...dialog.querySelectorAll('small')].map(node=>node.textContent),['Select files first.','Save tags','Help','Title']);
+      assert.equal(dialog.querySelector('[data-close]').textContent,t.t('Cancel'));assert.equal(dialog.querySelector('#ws-save').textContent,t.t('Save'));
+      assert.deepEqual([...dialog.querySelectorAll('option')].map(option=>option.textContent),['Help','Title']);
+      assert.equal(dialog.querySelector('[data-setting="2"]').checked,true);assert.equal(dialog.querySelector('[data-setting="3"]').value,'5');
+      assert.equal(dialog.querySelector('[data-setting="4"]').value,'Title');assert.equal(dialog.querySelector('[data-setting="5"]').value,'Help');
+      dialog.querySelector('[data-setting="3"]').value='';dialog.querySelector('#ws-save').click();await p.window.happyDOM.waitUntilComplete();
+      assert.equal(saved,undefined);assert.equal(dialog.querySelector('.dialog-error').textContent,t.t('{title} needs a number.',{title:'Help'}));
+      assert.equal(dialog.querySelector('.ws-heading').textContent,'Help');assert.equal(dialog.querySelector('#ws-save').textContent,t.t('Save'));
+      dialog.querySelector('[data-setting="3"]').value='7';dialog.querySelector('[data-setting="4"]').value='Help';dialog.querySelector('[data-setting="5"]').value='Title';
+      dialog.querySelector('#ws-save').click();await p.window.happyDOM.waitUntilComplete();
+      assert.deepEqual(saved,{flag:true,count:7,text:'Help',choice:'Title',Help:'Title'});
+      await ui.settings(entry);p.translate(locale,catalog);assert.equal(p.body.querySelector('[data-setting="5"]').value,'Title');
+      p.body.querySelector('[data-close]').click();form={schema:{...schema,settings:[]},values:{}};
+      await ui.settings(entry);p.translate(locale,catalog);
+      assert.equal(p.body.querySelector('header').textContent,'Save');assert.equal(p.body.querySelector('.dialog-content p').textContent,t.t('This tag source has no settings.'));
+    }finally{p.close();}
+  }
+});
+
 test('web-source settings save and redraw preserve choice tokens under bundled and custom catalogs',async()=>{
   const custom={Help:'Assistance',Title:'Nom','FORMAT STRING':'Format local','Select files first.':'Choisir des fichiers','Save':'Enregistrer'};
   for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]]){
@@ -86,8 +134,8 @@ test('web-source settings save and redraw preserve choice tokens under bundled a
       p.window.document.documentElement.lang=locale;
       await ui.settings(entry);const t=p.translate(locale,catalog),select=p.body.querySelector('select');
       assert.equal(select.value,'Title');assert.deepEqual([...select.options].map(option=>option.textContent),['Help','Title']);
-      assert.equal(p.body.querySelector('label > span').textContent,t.t('FORMAT STRING'));
-      assert.equal(p.body.querySelector('small').textContent,t.t('Select files first.'));
+      assert.equal(p.body.querySelector('label > span').textContent,'Format string');
+      assert.equal(p.body.querySelector('small').textContent,'Select files first.');
       assert.equal(p.body.querySelector('#ws-save').textContent,t.t('Save'));
       select.value='Help';p.body.querySelector('#ws-save').click();await p.window.happyDOM.waitUntilComplete();
       assert.deepEqual(saved,{choice:'Help'});assert.equal(p.body.querySelector('dialog'),null);
@@ -145,8 +193,8 @@ for(const locale of ['de','nl']){
       assert.deepEqual([...select.options].map(option=>option.textContent),choices);
       assert.deepEqual([...select.options].map(option=>option.value),choices);
       assert.equal(select.value,'Title');assert.deepEqual(readSettings(schema,p.body),{choice:'Title'});
-      assert.equal(p.body.querySelector('label > span').textContent,t.translate('FORMAT STRING'));
-      assert.equal(p.body.querySelector('small').textContent,t.t('Select files first.'));
+      assert.equal(p.body.querySelector('label > span').textContent,'Format string');
+      assert.equal(p.body.querySelector('small').textContent,'Select files first.');
       for(const choice of choices){select.value=choice;assert.deepEqual(readSettings(schema,p.body),{choice});}
       p.translate('en');assert.equal(select.value,choices.at(-1));assert.deepEqual([...select.options].map(option=>option.textContent),choices);
     }finally{p.close();}
