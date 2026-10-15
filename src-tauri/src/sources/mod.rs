@@ -8,6 +8,7 @@
 mod credentials;
 mod discogs;
 mod freedb;
+mod freedb_index;
 pub(crate) mod http;
 mod model;
 mod musicbrainz;
@@ -24,8 +25,35 @@ use tag_core::{AudioEntry, Fields, ScanResult};
 fn settings_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(crate::action_host::library_path(app)?.with_file_name("tag-sources.json"))
 }
-fn current_credentials(app: &tauri::AppHandle) -> Result<credentials::Credentials, String> {
-    credentials::load(&settings_path(app)?)
+/// The keychain under this build's identifier; scripted end-to-end runs keep
+/// the token in memory so they never reach a real keychain.
+fn secret_store(app: &tauri::AppHandle) -> std::sync::Arc<dyn credentials::SecretStore> {
+    use std::sync::{Arc, OnceLock};
+    static E2E: OnceLock<Arc<credentials::MemoryStore>> = OnceLock::new();
+    if crate::e2e::enabled() {
+        return E2E.get_or_init(Default::default).clone();
+    }
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    return Arc::new(credentials::KeychainStore {
+        service: tauri::Manager::config(app).identifier.clone(),
+    });
+    #[cfg(any(target_os = "android", target_os = "ios"))]
+    {
+        let _ = app;
+        Arc::new(credentials::NoKeychain)
+    }
+}
+
+/// The Discogs token, or empty; the keychain is only asked for Discogs requests.
+async fn discogs_token(app: &tauri::AppHandle, provider: Provider) -> Result<String, String> {
+    if provider != Provider::Discogs {
+        return Ok(String::new());
+    }
+    let path = settings_path(app)?;
+    let store = secret_store(app);
+    tauri::async_runtime::spawn_blocking(move || credentials::load(&path)?.discogs_token(&*store))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 /// Cover Art Archive size from Options → Tag Sources (`pages.tag-sources`).
@@ -51,7 +79,7 @@ fn freedb_service(settings: &freedb::FreedbSettings) -> http::Service {
     }
 }
 
-fn service(provider: Provider, credentials: &credentials::Credentials) -> http::Service {
+fn service(provider: Provider, discogs_token: String) -> http::Service {
     match provider {
         Provider::Freedb | Provider::LocalFreedb => {
             freedb_service(&freedb::settings_from(&crate::settings::current()))
@@ -66,7 +94,7 @@ fn service(provider: Provider, credentials: &credentials::Credentials) -> http::
         },
         // Discogs allows 60 authenticated or 25 anonymous requests per minute.
         Provider::Discogs => {
-            let token = Some(credentials.discogs_token.clone()).filter(|t| !t.is_empty());
+            let token = Some(discogs_token).filter(|t| !t.is_empty());
             let spacing = Duration::from_millis(if token.is_some() { 1100 } else { 2500 });
             http::Service {
                 name: "Discogs",
@@ -88,20 +116,14 @@ pub async fn tag_source_search(
 ) -> Result<SearchPage, String> {
     http::claim(Channel::Search, ticket);
     if matches!(provider, Provider::Freedb | Provider::LocalFreedb) {
-        return freedb_search(provider, query, ticket).await;
+        return freedb_search(&app, provider, query, ticket).await;
     }
-    let credentials = current_credentials(&app)?;
+    let token = discogs_token(&app, provider).await?;
     let url = match provider {
         Provider::Discogs => discogs::search_query(&query)?,
         _ => musicbrainz::search_query(&query)?,
     };
-    let body = http::json(
-        &service(provider, &credentials),
-        &url,
-        Channel::Search,
-        ticket,
-    )
-    .await?;
+    let body = http::json(&service(provider, token), &url, Channel::Search, ticket).await?;
     Ok(match provider {
         Provider::Discogs => discogs::parse_search(&body),
         _ => musicbrainz::parse_search(&body),
@@ -115,8 +137,14 @@ fn import_options(settings: &freedb::FreedbSettings) -> freedb::ImportOptions {
     }
 }
 
-/// Disc ID from the selected files (a `cddb query` with their TOC) or typed in.
+fn local_index_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    Ok(settings_path(app)?.with_file_name("local-freedb-index.tsv"))
+}
+
+/// Disc ID from the selected files (a `cddb query` with their TOC) or typed
+/// in; local folders also search their text index.
 async fn freedb_search(
+    app: &tauri::AppHandle,
     provider: Provider,
     query: SearchQuery,
     ticket: u64,
@@ -126,7 +154,21 @@ async fn freedb_search(
     let disc_id = match query.mode {
         model::SearchMode::Toc => freedb::Toc::from_lengths(&query.lengths)?.disc_id(),
         model::SearchMode::DiscId => freedb::disc_id(&query.text)?,
-        _ => return Err("freedb searches by disc ID: computed from the selected files or typed in. Text search on gnudb.org is not available.".into()),
+        model::SearchMode::Text if provider == Provider::LocalFreedb => {
+            let index = local_index_path(app)?;
+            let directory = PathBuf::from(&settings.local_directory);
+            let found = tauri::async_runtime::spawn_blocking(move || {
+                freedb::check_local_directory(&directory)?;
+                freedb_index::search(&index, &directory, &query.text, query.page)
+            })
+            .await
+            .map_err(|e| e.to_string())??;
+            return Ok(SearchPage {
+                results: found.results,
+                total: Some(found.total),
+            });
+        }
+        _ => return Err("freedb servers search by disc ID: computed from the selected files or typed in. Text search is available for a local freedb folder with a text index.".into()),
     };
     let results = if provider == Provider::LocalFreedb {
         let directory = PathBuf::from(&settings.local_directory);
@@ -234,8 +276,7 @@ pub async fn tag_source_release(
     ticket: u64,
 ) -> Result<SourceRelease, String> {
     http::claim(Channel::Release, ticket);
-    let credentials = current_credentials(&app)?;
-    let service = service(provider, &credentials);
+    let service = service(provider, discogs_token(&app, provider).await?);
     match provider {
         Provider::Musicbrainz => {
             let id = musicbrainz::release_id(&input)?;
@@ -306,6 +347,36 @@ pub async fn tag_source_image(url: String, ticket: u64) -> Result<String, String
     ))
 }
 
+/// Options → Tag Sources → Local freedb: the text index and the folder it covers.
+#[tauri::command]
+pub async fn local_freedb_index_status(
+    app: tauri::AppHandle,
+) -> Result<freedb_index::IndexStatus, String> {
+    let index = local_index_path(&app)?;
+    tauri::async_runtime::spawn_blocking(move || freedb_index::status(&index))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Build the text index of a local freedb folder (as typed in Options). `job`
+/// reports progress per file and can be cancelled with `cancel_job`.
+#[tauri::command]
+pub async fn build_local_freedb_index(
+    app: tauri::AppHandle,
+    directory: String,
+    job: Option<String>,
+) -> Result<freedb_index::IndexStatus, String> {
+    let index = local_index_path(&app)?;
+    let directory = PathBuf::from(directory.trim());
+    tauri::async_runtime::spawn_blocking(move || {
+        let job = crate::progress::Job::new(job);
+        freedb_index::build(&directory, &index, &job)?;
+        Ok(freedb_index::status(&index))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 #[tauri::command]
 pub fn tag_source_cancel(ticket: u64) {
     http::cancel(ticket);
@@ -315,7 +386,7 @@ pub fn tag_source_cancel(ticket: u64) {
 pub async fn load_tag_source_settings(
     app: tauri::AppHandle,
 ) -> Result<credentials::CredentialsView, String> {
-    Ok(current_credentials(&app)?.view())
+    Ok(credentials::load(&settings_path(&app)?)?.view(&*secret_store(&app)))
 }
 
 #[tauri::command]
@@ -324,9 +395,10 @@ pub async fn save_tag_source_settings(
     update: credentials::CredentialsUpdate,
 ) -> Result<credentials::CredentialsView, String> {
     let path = settings_path(&app)?;
-    let next = credentials::load(&path)?.apply(update)?;
-    credentials::save(&path, &next)?;
-    Ok(next.view())
+    let store = secret_store(&app);
+    tauri::async_runtime::spawn_blocking(move || credentials::update(&path, &*store, update))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 #[derive(Debug, Deserialize)]
@@ -420,43 +492,58 @@ pub async fn tag_source_apply(
         Some(cover) => Some(http::image(&cover.url, Channel::Image, u64::MAX).await?),
         None => None,
     };
-    let replace = cover.as_ref().is_some_and(|c| c.replace_existing);
-    let preserve = cover.as_ref().is_some_and(|c| c.preserve_existing);
-    crate::io(move || {
-        let staging = tempfile::tempdir().map_err(|e| e.to_string())?;
-        let cover_path = match &image {
-            Some(image) => {
-                let path = staging.path().join(format!("cover.{}", image.extension));
-                std::fs::write(&path, &image.bytes).map_err(|e| e.to_string())?;
-                Some(path)
-            }
-            None => None,
-        };
-        let updates: HashMap<&str, &Fields> = items
-            .iter()
-            .map(|item| (item.path.as_str(), &item.updates))
-            .collect();
-        let paths: Vec<String> = items.iter().map(|item| item.path.clone()).collect();
-        let mut result = crate::history::record("Tag source import", None, &paths, || {
-            Ok(crate::batch(&paths, |path| {
-                let fields = path
-                    .to_str()
-                    .and_then(|p| updates.get(p))
-                    .copied()
-                    .ok_or("File is not part of this import")?;
-                crate::mutate_document(path, |working| {
-                    let cover = cover_target(working, cover_path.as_deref(), preserve)?;
-                    apply_one(working, fields, cover, replace)
-                })
-            }))
-        })?;
-        if let (Some(template), Some(image)) = (save_as, &image) {
-            let errors = save_cover_files(&result.entries, &template, image);
+    let options = ImportCover {
+        replace: cover.as_ref().is_some_and(|c| c.replace_existing),
+        preserve: cover.as_ref().is_some_and(|c| c.preserve_existing),
+        save_as,
+    };
+    crate::io(move || write_import(&items, image.as_ref(), &options)).await
+}
+
+struct ImportCover {
+    replace: bool,
+    preserve: bool,
+    save_as: Option<String>,
+}
+
+/// Write the import as one undo step, including any image files saved beside the audio.
+fn write_import(
+    items: &[ApplyItem],
+    image: Option<&http::Image>,
+    options: &ImportCover,
+) -> Result<ScanResult, String> {
+    let staging = tempfile::tempdir().map_err(|e| e.to_string())?;
+    let cover_path = match image {
+        Some(image) => {
+            let path = staging.path().join(format!("cover.{}", image.extension));
+            std::fs::write(&path, &image.bytes).map_err(|e| e.to_string())?;
+            Some(path)
+        }
+        None => None,
+    };
+    let updates: HashMap<&str, &Fields> = items
+        .iter()
+        .map(|item| (item.path.as_str(), &item.updates))
+        .collect();
+    let paths: Vec<String> = items.iter().map(|item| item.path.clone()).collect();
+    crate::history::record_with_side_files("Tag source import", None, &paths, |before_write| {
+        let mut result = crate::batch(&paths, |path| {
+            let fields = path
+                .to_str()
+                .and_then(|p| updates.get(p))
+                .copied()
+                .ok_or("File is not part of this import")?;
+            crate::mutate_document(path, |working| {
+                let cover = cover_target(working, cover_path.as_deref(), options.preserve)?;
+                apply_one(working, fields, cover, options.replace)
+            })
+        });
+        if let (Some(template), Some(image)) = (&options.save_as, image) {
+            let errors = save_cover_files(&result.entries, template, image, before_write);
             result.errors.extend(errors);
         }
         Ok(result)
     })
-    .await
 }
 
 /// The file name for a saved cover: the format evaluated on one written file,
@@ -490,6 +577,7 @@ fn save_cover_files(
     entries: &[AudioEntry],
     template: &str,
     image: &http::Image,
+    before_write: &mut dyn FnMut(&Path) -> Result<(), String>,
 ) -> Vec<tag_core::FileError> {
     let mut folders = std::collections::HashSet::new();
     let mut errors = Vec::new();
@@ -502,6 +590,7 @@ fn save_cover_files(
         }
         let saved = cover_file_name(entry, template, index + 1).and_then(|name| {
             let target = folder.join(format!("{name}.{}", image.extension));
+            before_write(&target)?;
             write_atomically(&target, &image.bytes)
         });
         if let Err(error) = saved {
@@ -741,7 +830,7 @@ mod tests {
             .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
             .unwrap();
         let image = http::Image::validate(png).unwrap();
-        let errors = save_cover_files(&entries, "%album% cover", &image);
+        let errors = save_cover_files(&entries, "%album% cover", &image, &mut |_| Ok(()));
         assert!(errors.is_empty(), "{errors:?}");
         assert!(dir.path().join("One_Two cover.png").is_file());
         assert!(!dir.path().join("Ignored cover.png").exists());
@@ -752,6 +841,68 @@ mod tests {
             cover_file_name(&entries[1], "cover %_counter%", 2).unwrap(),
             "cover 2"
         );
+    }
+
+    #[test]
+    fn saved_cover_files_are_part_of_the_import_undo_step() {
+        let _journal = crate::history::TEST_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().canonicalize().unwrap();
+        crate::history::TEST_ROOTS
+            .lock()
+            .unwrap()
+            .push(root.clone());
+        let audio = root.join("a.wav");
+        wav(&audio);
+        let replaced = root.join("Album.png");
+        std::fs::write(&replaced, b"previous image").unwrap();
+        let original = std::fs::read(&audio).unwrap();
+        let mut png = Vec::new();
+        image::DynamicImage::new_rgb8(2, 2)
+            .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
+            .unwrap();
+        let image = http::Image::validate(png.clone()).unwrap();
+        let items = vec![ApplyItem {
+            path: audio.to_string_lossy().into_owned(),
+            updates: [("ALBUM".to_string(), vec!["Album".to_string()])].into(),
+        }];
+        let save = |template: &str| ImportCover {
+            replace: true,
+            preserve: false,
+            save_as: Some(template.into()),
+        };
+        let run = |options: &ImportCover| {
+            let result = write_import(&items, Some(&image), options).unwrap();
+            assert!(result.errors.is_empty(), "{:?}", result.errors);
+        };
+        run(&save("%album%"));
+        run(&save("folder"));
+        let created = root.join("folder.png");
+        assert_eq!(std::fs::read(&replaced).unwrap(), png);
+        assert_eq!(std::fs::read(&created).unwrap(), png);
+        use tauri::async_runtime::block_on;
+        block_on(crate::history::undo_last()).unwrap();
+        assert!(
+            !created.exists(),
+            "the second import's new image is removed"
+        );
+        assert_eq!(std::fs::read(&replaced).unwrap(), png);
+        assert!(crate::history::history_state().unwrap().undo.is_some());
+        block_on(crate::history::undo_last()).unwrap();
+        assert_eq!(std::fs::read(&replaced).unwrap(), b"previous image");
+        assert_eq!(std::fs::read(&audio).unwrap(), original);
+        block_on(crate::history::redo_last()).unwrap();
+        assert_eq!(std::fs::read(&replaced).unwrap(), png);
+        assert_eq!(
+            tag_core::read_entry(&audio).unwrap().fields["ALBUM"],
+            ["Album"]
+        );
+        crate::history::TEST_ROOTS
+            .lock()
+            .unwrap()
+            .retain(|r| r != &root);
     }
 
     #[test]
@@ -802,7 +953,7 @@ mod tests {
     #[ignore]
     fn live_musicbrainz_and_discogs_lookups() {
         let run = |provider, input: &str, ticket| {
-            let service = service(provider, &credentials::Credentials::default());
+            let service = service(provider, String::new());
             tauri::async_runtime::block_on(async {
                 match provider {
                     Provider::Musicbrainz => musicbrainz::parse_release(
