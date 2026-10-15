@@ -15,6 +15,7 @@ mod file_hashes;
 mod file_ops;
 mod filter_cache;
 mod history;
+mod languages;
 mod library;
 mod list_behaviour;
 mod lists;
@@ -1296,6 +1297,9 @@ pub fn run() {
             utilities::export_configuration,
             utilities::import_configuration,
             utilities::open_configuration_folder,
+            languages::language_catalogs,
+            languages::open_languages_folder,
+            languages::prepare_languages_folder,
             utilities::open_help_page,
             utilities::write_clipboard_text,
             updates::check_for_updates,

@@ -15,11 +15,11 @@ test('web sources form # submenus with & access keys in file name order', () => 
   const leaves = ['Shop#&Albums', 'Shop#&Singles', '&Lyrics', 'Covers#Shop#Front'].map(menu => ({menu, markup: raw => `<b data-menu="${menu}">${raw}</b>`}));
   const markup = menuTree(leaves);
   assert.equal(markup,
-    '<details class="group-submenu web-submenu"><summary>Shop</summary><div><b data-menu="Shop#&Albums">&Albums</b><b data-menu="Shop#&Singles">&Singles</b></div></details>'
+    '<details class="group-submenu web-submenu"><summary translate="no">Shop</summary><div><b data-menu="Shop#&Albums">&Albums</b><b data-menu="Shop#&Singles">&Singles</b></div></details>'
     + '<b data-menu="&Lyrics">&Lyrics</b>'
-    + '<details class="group-submenu web-submenu"><summary>Covers</summary><div><details class="group-submenu web-submenu"><summary>Shop</summary><div><b data-menu="Covers#Shop#Front">Front</b></div></details></div></details>');
+    + '<details class="group-submenu web-submenu"><summary translate="no">Covers</summary><div><details class="group-submenu web-submenu"><summary translate="no">Shop</summary><div><b data-menu="Covers#Shop#Front">Front</b></div></details></div></details>');
   // Submenu names carry their own access keys.
-  assert.match(menuTree([{menu: '&Shop#Albums', markup: () => 'x'}]), /<summary><u>S<\/u>hop<\/summary>/);
+  assert.match(menuTree([{menu: '&Shop#Albums', markup: () => 'x'}]), /<summary translate="no"><u>S<\/u>hop<\/summary>/);
   assert.equal(menuLabel('Shop#&Albums && More'), 'Shop › Albums & More');
 });
 

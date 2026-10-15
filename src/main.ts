@@ -11,7 +11,9 @@ import { installMenubar } from './menubar';
 import { ExportUI, offerOpenOutputs, type ExportLibrary, type ExportConfiguration } from './export-ui';
 import { OptionsUI, registerOptionsPage, naturalCollator, setNotificationAreaSupport, windowTitle, type Settings, type SettingsResponse } from './options-ui';
 import { createNumberingReview, numberingCounter, recallNumbering, rememberNumbering, type NumberingRequest, type NumberingUpdate } from './numbering-review';
-import { open, save, ask, message } from '@tauri-apps/plugin-dialog';
+import { open, save, ask, message } from './i18n/dialog';
+import { ENGLISH, addUserCatalogs, currentLanguage, installTranslation, setLanguage, t, translate } from './i18n';
+import { languageOptionsPage, languageSetting } from './language-options';
 import { Messages, messagesOptionsPage, coverChoice, type MessageKey } from './messages';
 import { appearanceOptions, completeInput, generalOptions, insideFolders, networkingOptionsPage, releaseNotesUrl, showReleaseNotes, updateMessage, updateOptions, updatesOptionsPage, type UpdateCheck } from './general-options';
 import { ToolsUI, toolsOptionsPage, toolShortcut, type Tool } from './tools';
@@ -128,6 +130,8 @@ function applyAppearance(state:AppearanceState){
   syncNativeAppearance();
 }
 applyAppearance(appearance.state);
+// Options → Language: what is shown follows the UI language from the first paint.
+installTranslation(document.body);
 
 let appVersion='development';
 // Main window layout: where the tag panel is docked, its sizes and the filter's place.
@@ -317,6 +321,7 @@ registerOptionsPage(libraryOptionsPage({
 }));
 const dirname=(path:string)=>path.replace(/[\\/][^\\/]*$/,'')||path;
 const tagPanel=new TagPanel({
+  translateLabel:label=>translate(label),
   persistent:()=>desktop,
   load:()=>invoke<TagPanelSettings>('load_tag_panel'),save:settings=>invoke<void>('save_tag_panel',{settings}),
   importLayout:path=>invoke<PanelLayout>('import_tag_panel_layout',{path}),exportLayout:(path,panel)=>invoke<void>('export_tag_panel_layout',{path,panel}),
@@ -381,9 +386,20 @@ const rowMenu=new RowContextMenu({
   activate:id=>{if(id.startsWith('tool:'))void toolsUI.run(Number(id.slice(5)));else void operate(id.slice(3) as Operation);},
 });
 let shownTitle='';
-function syncWindowTitle(){const title=windowTitle(location,optionsUI.settings);if(desktop&&title!==shownTitle){shownTitle=title;void getCurrentWindow().setTitle(title).catch(()=>{shownTitle='';});}}
+function syncWindowTitle(){const title=translate(windowTitle(location,optionsUI.settings));if(desktop&&title!==shownTitle){shownTitle=title;void getCurrentWindow().setTitle(title).catch(()=>{shownTitle='';});}}
 // Read preferences change which tag is displayed, so reload files without pending edits.
+// Options → Language: catalogs from the languages folder (read again on every OK) and the chosen language.
+const languagePage=languageOptionsPage({openFolder:desktop?()=>invoke<void>('open_languages_folder',{template:`${JSON.stringify(ENGLISH,null,1)}\n`}):undefined});
+registerOptionsPage(languagePage);
+async function applyLanguage(){
+  if(desktop){
+    try{const found=await invoke<{catalogs:{file:string;catalog:unknown}[];errors:string[]}>('language_catalogs');languagePage.refresh([...found.errors,...addUserCatalogs(found.catalogs)]);}
+    catch(error){languagePage.refresh([publicMessage(error)]);}
+  }
+  if(setLanguage(languageSetting(optionsUI.page('language')))){shownTitle='';void applyNotificationArea();render();}
+}
 async function optionsApplied(next:Settings,previous:Settings){
+  await applyLanguage();
   collator=naturalCollator(next);changedData();applyAppearancePrefs();void applyNotificationArea();
   // File → Load configuration brings its own layout and toolbars.
   const changed=(id:string)=>JSON.stringify(next.pages[id])!==JSON.stringify(previous.pages[id]);
@@ -399,8 +415,8 @@ setNotificationAreaSupport(desktop&&!macPlatform);
 let notificationArea='';
 async function applyNotificationArea(){
   if(!desktop||macPlatform)return;
-  const prefs=generalPrefs(),key=`${prefs.tray_icon}/${prefs.minimize_to_tray}`;if(key===notificationArea)return;notificationArea=key;
-  try{const state=await invoke<{supported:boolean;active:boolean}>('set_tray_options',{showIcon:prefs.tray_icon,minimizeToTray:prefs.minimize_to_tray});if(!state.supported)setNotificationAreaSupport(false);}
+  const prefs=generalPrefs(),key=`${prefs.tray_icon}/${prefs.minimize_to_tray}/${currentLanguage()}`;if(key===notificationArea)return;notificationArea=key;
+  try{const state=await invoke<{supported:boolean;active:boolean}>('set_tray_options',{showIcon:prefs.tray_icon,minimizeToTray:prefs.minimize_to_tray,labels:{show:t('Show OpenTag'),quit:t('Quit OpenTag')}});if(!state.supported)setNotificationAreaSupport(false);}
   catch(error){notificationArea='';errors=[...errors,{path:'Notification area',error:publicMessage(error)}];render();}
 }
 // Options → Appearance: toolbar and interface scaling and the file list grid.
@@ -915,7 +931,7 @@ function listEnabled(op:Operation){
 function button(op: Operation, label: string, icon = '', shortcut = '') {
   return `<button data-op="${op}" ${enabled(op) ? '' : 'disabled'} title="${esc(operationReason(op)||label)}">${glyphs[op]?glyph(glyphs[op]!):icon?`<span class="icon" aria-hidden="true">${esc(icon)}</span>`:''}<span>${label}</span>${shortcut ? `<small>${shortcut}</small>` : ''}</button>`;
 }
-function menu(name: string, items: [Operation,string,string?][]) { return `<details class="menu" ${name==='Actions'?'id="actions-menu"':name==='Tag Sources'?'id="tag-sources-menu"':''}><summary>${name}</summary><div class="menu-list">${items.map(([op,label,key]) => button(op,label,'',key)+(op==='dir-manage'&&desktop&&runtimePlatform.folder_picker_supported?fileOps.menuHTML():'')+(op==='source-cover-discogs'?webSourcesUI.menuHTML():'')).join('')}${name==='Actions'?actionUI.menuHTML():''}${name==='View'?viewMenuHTML()+columnUI.menuHTML():''}${name==='Tools'?toolsUI.menuHTML():''}${name==='File'&&!runtimePlatform.folder_picker_supported?'<p class="menu-note">Folder access is not available here. Use Add files.</p>':''}${['Convert','Actions'].includes(name)&&sourcePolicy().unsupportedReason?`<p class="menu-note">${esc(sourcePolicy().unsupportedReason)}</p>`:''}</div></details>`; }
+function menu(name: string, items: [Operation,string,string?][]) { return `<details class="menu" data-menu="${name}" ${name==='Actions'?'id="actions-menu"':name==='Tag Sources'?'id="tag-sources-menu"':''}><summary>${name}</summary><div class="menu-list">${items.map(([op,label,key]) => button(op,label,'',key)+(op==='dir-manage'&&desktop&&runtimePlatform.folder_picker_supported?fileOps.menuHTML():'')+(op==='source-cover-discogs'?webSourcesUI.menuHTML():'')).join('')}${name==='Actions'?actionUI.menuHTML():''}${name==='View'?viewMenuHTML()+columnUI.menuHTML():''}${name==='Tools'?toolsUI.menuHTML():''}${name==='File'&&!runtimePlatform.folder_picker_supported?'<p class="menu-note">Folder access is not available here. Use Add files.</p>':''}${['Convert','Actions'].includes(name)&&sourcePolicy().unsupportedReason?`<p class="menu-note">${esc(sourcePolicy().unsupportedReason)}</p>`:''}</div></details>`; }
 function render() {
   applyAutoDefaults();
   reviewedConverterContextChanged?.();
@@ -937,8 +953,8 @@ function render() {
   <nav class="mobile-panes" aria-label="Workspace view"><button data-pane="files" aria-pressed="${mobilePane==='files'}">Files (${entries.size})</button><button data-pane="tags" aria-pressed="${mobilePane==='tags'}" ${selected.size?'':'disabled'}>Tags (${selected.size})</button></nav>
   <main class="workspace"><aside class="editor" aria-label="Tag editor"><div class="panel-title" ${compactScreen()?'':`title="Drag to dock the tag panel at another edge or to float it; double-click to ${dock==='float'?'dock it again':'float it'}"`}>Tag panel <span class="panel-count">${panelCount()}</span>${tagPanel.titleHTML()}</div>${sourceMarkup('tags')}<div class="fields">${tagPanel.fieldsHTML()}</div><div class="editor-actions">${button('save','Save tags')}${button('extended','Extended…')}</div>
   ${tagPanel.showCover?`<section class="cover-section" aria-label="Embedded artwork">${coverMarkup()}</section>`:''}</aside><div class="panel-splitter" role="separator" aria-orientation="${across?'horizontal':'vertical'}" aria-label="Tag panel ${across?'height':'width'}" aria-valuemin="${range[0]}" aria-valuemax="${range[1]}" tabindex="0"></div>
-  <section class="files" aria-label="Audio files"><div class="location">${glyph(glyphOrganize)}<span class="path" title="${esc(entry&&providerEntry(entry)?sourcePresentation(documentAccess.states[entry.path]).location:location)}">${esc(entry&&providerEntry(entry)?sourcePresentation(documentAccess.states[entry.path]).location:location)}</span><strong>${entries.size} file${entries.size===1?'':'s'}</strong></div>${sourceMarkup('files')}${filterInList?filterbar:''}<div class="table-wrap"><table aria-label="Audio metadata" aria-rowcount="${list.length+1}" style="width:${shownColumns.reduce((sum,c)=>sum+c.width,0)}px"><thead><tr>${headerMarkup(shownColumns,columnLayout.sort,!compactScreen())}</tr></thead><tbody></tbody></table>${!list.length ? emptyMarkup() : ''}</div><div class="selection-info">${selectionInfoMarkup(selectedEntries,list)}</div>
-  ${errors.length ? `<section class="errors" aria-label="Operation errors"><header>${errors.length} file error${errors.length===1?'':'s'}<button id="dismiss-errors">Dismiss</button></header>${errors.map(e => `<p><strong>${esc(displayName(e.path))}:</strong> ${esc(publicMessage(e.error))}</p>`).join('')}</section>` : ''}</section></main><footer class="status ${busy?'busy':''}"><span class="status-dot" aria-hidden="true"></span><span class="status-message" role="status">${esc(status)}</span>${progressMarkup()}${drafts.size ? `<span class="dirty-count">${drafts.size} unsaved file${drafts.size===1?'':'s'}</span>` : ''}<span>${entries.size} files</span></footer></div>`;
+  <section class="files" aria-label="Audio files"><div class="location">${glyph(glyphOrganize)}<span class="path" translate="no" title="${esc(entry&&providerEntry(entry)?sourcePresentation(documentAccess.states[entry.path]).location:location)}">${esc(entry&&providerEntry(entry)?sourcePresentation(documentAccess.states[entry.path]).location:location)}</span><strong>${entries.size} file${entries.size===1?'':'s'}</strong></div>${sourceMarkup('files')}${filterInList?filterbar:''}<div class="table-wrap"><table aria-label="Audio metadata" aria-rowcount="${list.length+1}" style="width:${shownColumns.reduce((sum,c)=>sum+c.width,0)}px"><thead><tr>${headerMarkup(shownColumns,columnLayout.sort,!compactScreen())}</tr></thead><tbody translate="no"></tbody></table>${!list.length ? emptyMarkup() : ''}</div><div class="selection-info">${selectionInfoMarkup(selectedEntries,list)}</div>
+  ${errors.length ? `<section class="errors" aria-label="Operation errors"><header>${errors.length} file error${errors.length===1?'':'s'}<button id="dismiss-errors">Dismiss</button></header>${errors.map(e => `<p><strong translate="no">${esc(displayName(e.path))}:</strong> ${esc(publicMessage(e.error))}</p>`).join('')}</section>` : ''}</section></main><footer class="status ${busy?'busy':''}"><span class="status-dot" aria-hidden="true"></span><span class="status-message" role="status">${esc(status)}</span>${progressMarkup()}${drafts.size ? `<span class="dirty-count">${drafts.size} unsaved file${drafts.size===1?'':'s'}</span>` : ''}<span>${entries.size} files</span></footer></div>`;
   const wrap=document.querySelector<HTMLDivElement>('.table-wrap')!;
   wrap.querySelector('tbody')!.innerHTML=list.length?`<tr class="virtual-spacer" aria-hidden="true"><td colspan="${tableColumns().length}" style="height:${list.length*rowHeight}px"></td></tr>`:'';
   wrap.scrollTop=scrollTop;wrap.scrollLeft=scrollLeft;updateVirtualRows(true);
@@ -1499,7 +1515,7 @@ function reviewedConverter(kind:'filename'|'text') {
   dialog.addEventListener('close',()=>{
     review.invalidate();window.clearTimeout(expiryTimer);
     if(reviewedConverterContextChanged===observeWorkspace)reviewedConverterContextChanged=undefined;
-    if(!document.querySelector('dialog[open]'))[...app.querySelectorAll<HTMLElement>('.menubar > .menu > summary')].find(summary=>summary.textContent==='Convert')?.focus({preventScroll:true});
+    if(!document.querySelector('dialog[open]'))app.querySelector<HTMLElement>('.menubar > .menu[data-menu="Convert"] > summary')?.focus({preventScroll:true});
   });
   dialog.addEventListener('cancel',event=>{if(applying)event.preventDefault();});
   inputControls.forEach(control=>{
@@ -1981,7 +1997,7 @@ if(desktop){
   void actionUI.initialize().catch(error=>{errors=[{path:'Action groups',error:String(error)}];render();});
   void invoke<ColumnLayout|null>('load_columns').then(layout=>{if(layout){columnLayout=normalizeLayout(layout);render();}}).catch(error=>{errors=[{path:'Columns',error:String(error)}];render();});
   void tagPanel.initialize().catch(error=>{errors=[{path:'Tag panel',error:String(error)}];render();});
-  const optionsReady=optionsUI.initialize().then(response=>{collator=naturalCollator(response.settings);toolbarConfig=normalizeToolbar(response.settings.pages.toolbar);customToolbar=normalizeCustomToolbar(response.settings.pages['custom-toolbar']);if(response.settings.pages.layout)updateLayout(normalizeMainLayout(response.settings.pages.layout));void applyNotificationArea();changedData();applyAppearancePrefs();if(response.warning)errors=[...errors,{path:'Options',error:response.warning}];render();}).catch(error=>{errors=[...errors,{path:'Options',error:String(error)}];render();});
+  const optionsReady=optionsUI.initialize().then(response=>{collator=naturalCollator(response.settings);toolbarConfig=normalizeToolbar(response.settings.pages.toolbar);customToolbar=normalizeCustomToolbar(response.settings.pages['custom-toolbar']);if(response.settings.pages.layout)updateLayout(normalizeMainLayout(response.settings.pages.layout));void applyLanguage();void applyNotificationArea();changedData();applyAppearancePrefs();if(response.warning)errors=[...errors,{path:'Options',error:response.warning}];render();}).catch(error=>{errors=[...errors,{path:'Options',error:String(error)}];render();});
   void Promise.all([optionsReady,versionReady]).then(([,version])=>version?startupUpdates(version):undefined);
   void invoke<typeof runtimePlatform>('runtime_platform').then(async platform=>{runtimePlatform=platform;nativeAppearanceReady=platform.family==='desktop';render();syncNativeAppearance();if(platform.folder_picker_supported)void optionsReady.then(()=>fileOps.initialize()).catch(error=>{errors=[{path:'Directories',error:String(error)}];render();});if(platform.document_access_supported)await run('Restoring recovery copies…',async()=>{const batch=await invoke<Batch>('restore_document_recovery');accept(batch,'Restored recovery copies',false);location='Provider documents';if(!selected.size&&batch.entries.length){selected.add(batch.entries[0].path);anchor=batch.entries[0].path;}if(!batch.entries.length&&!batch.errors.length)status='Ready';});}).catch(error=>{errors=[{path:'Platform',error:String(error)}];render();});
   void listen<{job:string;done:number;total:number}>('opentag://progress',event=>{const job=progressJob;if(!job||event.payload.job!==job.id)return;job.done=event.payload.done;job.total=event.payload.total;showProgress();}).catch(()=>{/* Progress is optional; operations still complete. */});
