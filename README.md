@@ -17,7 +17,7 @@ The desktop editor loads audio folders, edits common and extended multi-value ta
 
 ## Download
 
-Get platform installers from the [latest GitHub release](https://github.com/johnneerdael/opentag/releases/latest). Every merge to `main` publishes a new full release with all platform builds (versions `0.2.1`, `0.2.2`, …); the [parity ledger](docs/PARITY.md) tracks what is still incomplete before 1.0. Release assets include checksums and identify their operating system and architecture.
+Get platform installers from the [latest GitHub release](https://github.com/johnneerdael/opentag/releases/latest). Every code merge to `main` publishes a new full release with all platform builds (versions `0.2.1`, `0.2.2`, …); the [parity ledger](docs/PARITY.md) tracks what is still incomplete before 1.0. Release assets include checksums and identify their operating system and architecture.
 
 See [release automation](docs/RELEASING.md) for build targets, signing status and publishing instructions. Simulator previews are labeled separately from device installers.
 

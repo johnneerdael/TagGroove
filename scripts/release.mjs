@@ -105,9 +105,26 @@ export async function readVersions(root) {
   return parseVersions(await Promise.all(VERSION_FILES.map(file => readFile(join(root, file), 'utf8'))));
 }
 
-// Finds the first-parent commit that set the current base version and how
-// many first-parent commits follow it. Only file contents matter, so a
-// version bump merged from a branch counts from its merge commit on main.
+// Paths that never reach a package. Merges that only touch these neither get
+// a release nor advance the automatic patch number.
+export const NON_SHIPPING_PATHS = ['docs/**', 'mkdocs.yml', '*.md', '.github/workflows/docs*.yml', '.github/workflows/pages-deploy.yml', 'tests/docs-screens/**', 'scripts/docs-*', 'scripts/docs-*/**'];
+const SHIPPING_PATHSPEC = ['.', ...NON_SHIPPING_PATHS.map(path => `:(exclude,glob)${path}`)];
+
+// True when shipping files differ between two commits (or a commit's first parent).
+export function shipsChanges(root, from, to) {
+  try {
+    execFileSync('git', ['diff', '--quiet', from, to, '--', ...SHIPPING_PATHSPEC], { cwd: root, stdio: 'ignore' });
+    return false;
+  } catch (error) {
+    if (error.status === 1) return true;
+    throw error;
+  }
+}
+
+// Finds the first-parent commit that set the current base version and counts
+// the later first-parent commits that change shipping files. Only file
+// contents matter, so a version bump merged from a branch counts from its
+// merge commit on main.
 export function versionOrigin(root, base) {
   const run = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
   const attempt = (...args) => { try { return run(...args); } catch { return null; } };
@@ -117,13 +134,15 @@ export function versionOrigin(root, base) {
   };
   const commits = run('rev-list', '--first-parent', 'HEAD').split('\n');
   if (versionAt(commits[0]) !== base) throw new Error(`HEAD does not contain base version ${base}`);
+  let origin = 0;
   let current = blobs(commits[0]);
-  for (let index = 0; index < commits.length; index++) {
-    const parent = commits[index + 1];
-    const previous = parent && blobs(parent);
-    if (!parent || (previous !== current && versionAt(parent) !== base)) return { commit: commits[index], distance: index };
+  for (; commits[origin + 1]; origin++) {
+    const previous = blobs(commits[origin + 1]);
+    if (previous !== current && versionAt(commits[origin + 1]) !== base) break;
     current = previous;
   }
+  const shipping = commits.slice(0, origin).filter(commit => shipsChanges(root, `${commit}^1`, commit));
+  return { commit: commits[origin], distance: shipping.length, shipped: shipping[0] ?? commits[origin] };
 }
 
 export async function stampVersion(root, version) {
@@ -407,11 +426,21 @@ async function main(command) {
       }
       const origin = versionOrigin(root, base);
       version = automaticVersion(base, origin.distance);
-      console.log(`Base ${base} was set by ${origin.commit}; ${origin.distance} first-parent commit(s) since`);
+      console.log(`Base ${base} was set by ${origin.commit}; ${origin.distance} shipping first-parent commit(s) since, last ${origin.shipped}`);
     }
     const tag = `v${version}`;
     const prerelease = process.env.REQUESTED_PRERELEASE ? JSON.parse(process.env.REQUESTED_PRERELEASE) : false;
-    const plan = releasePlan({ versions: { package: version, cargo: version, tauri: version }, tag, prerelease, head: git('rev-parse', 'HEAD'), expectedHead: git('rev-parse', `${process.env.GITHUB_SHA}^{commit}`), tagCommit: tagCommit(tag) });
+    const head = git('rev-parse', 'HEAD');
+    const released = tagCommit(tag);
+    // A docs-only merge keeps the previous number; its notes go out with the next code release.
+    if (!requested && released && released !== head && !shipsChanges(root, released, head)) {
+      const summary = `${head} changes nothing that ships since ${tag} at ${released}; no release.`;
+      for (const [key, value] of Object.entries({ tag, version, commit: head, prerelease, skip: true })) await appendFile(process.env.GITHUB_OUTPUT, `${key}=${value}\n`);
+      if (process.env.GITHUB_STEP_SUMMARY) await appendFile(process.env.GITHUB_STEP_SUMMARY, `${summary}\n`);
+      console.log(summary);
+      return;
+    }
+    const plan = releasePlan({ versions: { package: version, cargo: version, tauri: version }, tag, prerelease, head, expectedHead: git('rev-parse', `${process.env.GITHUB_SHA}^{commit}`), tagCommit: released });
     const api = new GitHubApi(process.env.GITHUB_REPOSITORY, process.env.GH_TOKEN);
     const existing = await api.findRelease(plan.tag);
     let skip = false;

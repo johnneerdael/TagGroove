@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { PLATFORMS, GitHubApi, releasePlan, readVersions, assetName, collectAssets, assembleRelease, publishRelease, releaseBody, parseVersion, compareVersions, automaticVersion, explicitVersion, versionOrigin, stampVersion, makeLatest, previousTag, releaseNotes, appleVersion, androidVersionCode } from '../scripts/release.mjs';
+import { PLATFORMS, GitHubApi, releasePlan, readVersions, assetName, collectAssets, assembleRelease, publishRelease, releaseBody, parseVersion, compareVersions, automaticVersion, explicitVersion, versionOrigin, stampVersion, makeLatest, previousTag, releaseNotes, appleVersion, androidVersionCode, shipsChanges, NON_SHIPPING_PATHS } from '../scripts/release.mjs';
 
 const sha = 'a'.repeat(40);
 const versions = { package: '0.1.0', cargo: '0.1.0', tauri: '0.1.0' };
@@ -237,26 +237,26 @@ test('automatic numbering counts first-parent merges since the base version chan
   await commit('follow-up on branch');
   git('checkout', '-q', 'main');
   git('merge', '-q', '--no-ff', '-m', 'Merge bump', 'bump');
-  assert.deepEqual(versionOrigin(root, '0.2.0'), { commit: git('rev-parse', 'HEAD'), distance: 0 });
+  assert.deepEqual(versionOrigin(root, '0.2.0'), { commit: git('rev-parse', 'HEAD'), distance: 0, shipped: git('rev-parse', 'HEAD') });
   const origin = git('rev-parse', 'HEAD');
   // Three branch commits merged at once still advance the version by one.
   git('checkout', '-q', '-b', 'feature');
   for (let i = 0; i < 3; i++) await commit();
   git('checkout', '-q', 'main');
   git('merge', '-q', '--no-ff', '-m', 'Merge feature', 'feature');
-  assert.deepEqual(versionOrigin(root, '0.2.0'), { commit: origin, distance: 1 });
+  assert.deepEqual(versionOrigin(root, '0.2.0'), { commit: origin, distance: 1, shipped: git('rev-parse', 'HEAD') });
   // A direct commit and a version-file edit that keeps the version both count.
   await commit();
   await setVersion('0.2.0', '[dependencies]\nserde = "1"\n');
   await commit('add dependency');
   const result = versionOrigin(root, '0.2.0');
-  assert.deepEqual(result, { commit: origin, distance: 3 });
+  assert.deepEqual(result, { commit: origin, distance: 3, shipped: git('rev-parse', 'HEAD') });
   assert.equal(automaticVersion('0.2.0', result.distance), '0.2.3');
   assert.throws(() => versionOrigin(root, '0.3.0'), /base version/);
   // Bumping the minor version restarts numbering at that commit.
   await setVersion('0.3.0');
   await commit('bump minor');
-  assert.deepEqual(versionOrigin(root, '0.3.0'), { commit: git('rev-parse', 'HEAD'), distance: 0 });
+  assert.deepEqual(versionOrigin(root, '0.3.0'), { commit: git('rev-parse', 'HEAD'), distance: 0, shipped: git('rev-parse', 'HEAD') });
   await commit();
   assert.equal(versionOrigin(root, '0.3.0').distance, 1);
 });
@@ -391,4 +391,50 @@ test('release notes cover changes since the previous earlier release', async () 
   const body = releaseBody(auto, 'johnneerdael/opentag', fallback);
   assert.ok(body.indexOf('Fix list') < body.indexOf('| Download |'));
   assert.match(body, /Release \(pre-1\.0\)/);
+});
+
+test('merges that change nothing that ships keep the previous number', async (t) => {
+  const root = await fixture(t);
+  const { git, setVersion, commit } = repo(root);
+  const touch = async (path, message) => {
+    await mkdir(join(root, path, '..'), { recursive: true });
+    await writeFile(join(root, path), `${message}\n`);
+    git('add', '-A');
+    git('commit', '-q', '-m', message);
+    return git('rev-parse', 'HEAD');
+  };
+  git('init', '-q', '-b', 'main');
+  await setVersion('0.1.0');
+  await commit('initial');
+  await setVersion('0.2.0');
+  await commit('bump');
+  const base = git('rev-parse', 'HEAD');
+  const docsOnly = [
+    'docs/guide/index.md', 'mkdocs.yml', 'docs/site-requirements.txt', 'README.md', 'CHANGELOG.md',
+    '.github/workflows/docs-site.yml', '.github/workflows/pages-deploy.yml', 'tests/docs-screens/shot.mjs', 'scripts/docs-build.mjs', 'scripts/docs-tools/run.sh',
+  ];
+  for (const path of docsOnly) {
+    const head = await touch(path, `docs ${path}`);
+    assert.equal(shipsChanges(root, `${head}^1`, head), false, path);
+  }
+  assert.deepEqual(versionOrigin(root, '0.2.0'), { commit: base, distance: 0, shipped: base });
+  // Nested Markdown, other workflows and other scripts ship (or affect what ships).
+  const code = await touch('src/notes.md', 'nested markdown ships');
+  assert.deepEqual(versionOrigin(root, '0.2.0'), { commit: base, distance: 1, shipped: code });
+  await touch('docs/after.md', 'more docs');
+  assert.equal(versionOrigin(root, '0.2.0').distance, 1);
+  assert.equal(shipsChanges(root, code, 'HEAD'), false);
+  for (const path of ['.github/workflows/release.yml', 'scripts/release.mjs', 'tests/release.test.mjs']) {
+    const head = await touch(path, `ships ${path}`);
+    assert.equal(shipsChanges(root, `${head}^1`, head), true, path);
+  }
+  assert.equal(versionOrigin(root, '0.2.0').distance, 4);
+  // A merge mixing docs and code ships once.
+  git('checkout', '-q', '-b', 'mixed');
+  await touch('docs/mixed.md', 'mixed docs');
+  await touch('src/app.ts', 'mixed code');
+  git('checkout', '-q', 'main');
+  git('merge', '-q', '--no-ff', '-m', 'Merge mixed', 'mixed');
+  assert.equal(versionOrigin(root, '0.2.0').distance, 5);
+  assert.ok(NON_SHIPPING_PATHS.includes('docs/**'));
 });
