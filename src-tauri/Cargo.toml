@@ -30,6 +30,7 @@ sha2 = "0.10"
 md-5 = "0.10"
 crc32fast = "1"
 uuid = { version = "1", features = ["v4"] }
+unicode-normalization = "0.1.24"
 # Tag sources and the update check: rustls with the ring provider and bundled
 # roots (no OpenSSL or platform verifier initialisation), so every desktop and
 # mobile target builds. `system-proxy` reads the macOS and Windows proxy
@@ -52,3 +53,18 @@ trash = "5"
 arboard = { version = "3", default-features = false, features = ["image-data"] }
 # Dragging a cover from the cover window out to the file manager or desktop.
 drag = "2"
+
+# Optional system keychain for the Discogs token (sources/credentials.rs). Linux
+# talks to the Secret Service over pure-Rust D-Bus, so no libdbus is needed.
+# objc2-app-kit / windows-sys / gdk: modifier keys held during a native file
+# drop (File List: Ctrl+drop adds files).
+[target.'cfg(target_os = "macos")'.dependencies]
+keyring = { version = "3.6.3", features = ["apple-native"] }
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSEvent"] }
+[target.'cfg(windows)'.dependencies]
+keyring = { version = "3.6.3", features = ["windows-native"] }
+windows-sys = { version = "0.61", features = ["Win32_UI_Input_KeyboardAndMouse"] }
+[target.'cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android"))))'.dependencies]
+keyring = { version = "3.6.3", features = ["async-secret-service", "tokio", "crypto-rust"] }
+[target.'cfg(target_os = "linux")'.dependencies]
+gdk = "0.18"

@@ -37,7 +37,7 @@ fn mime_and_size(data: &[u8]) -> Option<(String, Option<u32>, Option<u32>)> {
 }
 
 /// Image files of `dir` in name order, ignoring case like Explorer and Finder.
-fn folder_images(dir: &Path) -> Vec<PathBuf> {
+pub(crate) fn folder_images(dir: &Path) -> Vec<PathBuf> {
     let Ok(listing) = std::fs::read_dir(dir) else {
         return Vec::new();
     };

@@ -19,6 +19,7 @@ mod list_behaviour;
 mod lists;
 #[cfg(any(target_os = "android", test))]
 mod managed_actions;
+mod mp3tag_columns;
 mod playlists;
 mod progress;
 mod rename_plan;
@@ -852,10 +853,8 @@ fn rename_planned(
             }
         }
         let mut renamed = vec![];
-        // Validate the entire plan before touching any file.
-        if !result.errors.is_empty() {
-            return Ok(RenameResult { result, renamed });
-        }
+        // A file whose destination clashes is skipped and reported; the
+        // others are still renamed.
         for (path, target) in plans {
             let operation = if std::fs::canonicalize(&path).ok().as_ref() == Some(&target) {
                 Ok(())
@@ -1019,6 +1018,8 @@ pub fn run() {
             covers::apply_cover_plan,
             covers::add_cover_image,
             covers::stage_cover_file,
+            covers::stage_adjusted_cover,
+            covers::cover_start_directory,
             covers::stage_cover_data,
             covers::extract_cover,
             covers::copy_cover_to_clipboard,
@@ -1047,6 +1048,8 @@ pub fn run() {
             file_ops::save_directory_state,
             file_ops::remember_directories,
             file_ops::trash_files,
+            file_ops::delete_files_permanently,
+            file_ops::modifier_keys,
             file_ops::transfer_files,
             file_ops::reveal_files,
             file_ops::open_directory,
@@ -1055,6 +1058,7 @@ pub fn run() {
             columns::load_columns,
             columns::save_columns,
             columns::import_columns,
+            mp3tag_columns::import_mp3tag_columns,
             columns::export_columns,
             columns::evaluate_columns,
             tag_panel::load_tag_panel,
@@ -1070,6 +1074,8 @@ pub fn run() {
             sources::tag_source_covers,
             sources::tag_source_image,
             sources::tag_source_cancel,
+            sources::local_freedb_index_status,
+            sources::build_local_freedb_index,
             sources::tag_source_apply,
             sources::tag_source_open_page,
             sources::tag_source_save_cover,
@@ -1576,25 +1582,44 @@ mod tests {
     }
 
     #[test]
-    fn rename_batch_collision_aborts_every_source() {
+    fn rename_batch_skips_and_reports_only_clashing_destinations() {
         let dir = tempfile::tempdir().unwrap();
         let a = dir.path().join("a.wav");
         let b = dir.path().join("b.wav");
-        wav(&a);
-        wav(&b);
+        let c = dir.path().join("c.wav");
+        let taken = dir.path().join("taken.wav");
+        for path in [&a, &b, &c, &taken] {
+            wav(path);
+        }
+        // a and b map to the same name, c to an existing file.
         let result = tauri::async_runtime::block_on(rename_files(
-            vec![
-                a.to_string_lossy().into_owned(),
-                b.to_string_lossy().into_owned(),
-            ],
-            "same".into(),
+            [&a, &b, &c]
+                .iter()
+                .map(|path| path.to_string_lossy().into_owned())
+                .collect(),
+            "$if($strcmp(%_filename%,c),taken,same)".into(),
             None,
         ))
         .unwrap();
-        assert!(!result.result.errors.is_empty());
-        assert!(result.renamed.is_empty());
-        assert!(a.exists() && b.exists());
-        assert!(!dir.path().join("same.wav").exists());
+        assert_eq!(result.renamed.len(), 1);
+        assert_eq!(result.renamed[0].from, a.to_string_lossy());
+        assert!(!a.exists() && dir.path().join("same.wav").exists());
+        assert!(b.exists() && c.exists() && taken.exists());
+        let failed: Vec<_> = result
+            .result
+            .errors
+            .iter()
+            .map(|error| error.path.clone())
+            .collect();
+        assert_eq!(
+            failed,
+            [
+                b.to_string_lossy().into_owned(),
+                c.to_string_lossy().into_owned()
+            ]
+        );
+        assert!(result.result.errors[0].error.contains("Destination exists"));
+        assert_eq!(result.result.entries.len(), 1);
     }
 
     #[test]

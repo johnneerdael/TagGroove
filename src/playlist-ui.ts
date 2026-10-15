@@ -106,6 +106,15 @@ export class PlaylistUI {
     input.addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();void submit();}});
     input.focus();input.select();
   }
+  /**
+   * File → Playlist per folder (Ctrl+Shift+P): one playlist of all listed files for each
+   * folder, written into that folder with the Options → Playlist file name.
+   */
+  async createPerFolder(){
+    const paths=this.host.files('all');if(!paths.length)return;
+    const options=playlistValues(this.host.values());
+    await this.write({...this.request(paths,options.filename,'%_folderpath%'),base_directory:null},true);
+  }
   private async write(request:PlaylistRequest,interactive:boolean){
     const plan=await this.host.run('Creating playlist…',()=>this.host.invoke<PlaylistPlan>('create_playlists',{request}));
     if(plan)await this.host.done(plan,interactive);

@@ -3,7 +3,7 @@
 // backend commands, so Undo restores them.
 import './covers.css';
 import {isTextEntry} from './keyboard';
-import {PICTURE_TYPES,coverDetails,coverExtension,coverFileName,coverMenu,coverRef,distinctPlan,dropManaged,insideRect,isImagePath,keepPlan,managedFromSet,moveManaged,newManaged,pictureTypeLabel,planChanged,planItems,presence,replaceManaged,selectionCovers,type CoverInfo,type CoverSet,type ImageSource,type ManagedCover,type PlanItem,type SelectionCovers,type StagedImage} from './cover-model';
+import {PICTURE_TYPES,adjustSource,applyAdjusted,coverDetails,coverExtension,coverFileName,coverMenu,coverRef,distinctPlan,dropManaged,insideRect,isImagePath,keepPlan,managedFromSet,moveManaged,newManaged,pictureTypeLabel,planChanged,planItems,presence,replaceManaged,selectionCovers,type CoverInfo,type CoverSet,type ImageSource,type ManagedCover,type PlanItem,type SelectionCovers,type StagedImage} from './cover-model';
 
 type Batch={errors:{path:string;error:string}[]};
 /** An image file next to the audio files (Options → Tags folder-image fallback). */
@@ -22,6 +22,10 @@ export type CoverHost={
   pending?:()=>boolean;
   mutate:(command:string,args:Record<string,unknown>,message:string)=>Promise<Batch|undefined>;
   pickImage:(directory?:string)=>Promise<string|null>;
+  /** Folder Add cover starts in (Options → Directories → Cover art directory) for the first selected file. */
+  startDirectory?:(path:string)=>Promise<string>;
+  /** Adjust Cover settings for Manage Covers, or null when cancelled. */
+  adjustSettings?:()=>Promise<Record<string,unknown>|null>;
   pickSave:(defaultPath:string,extension:string)=>Promise<string|null>;
   confirm:(message:string,title:string)=>Promise<boolean>;
   modal:(title:string,content:string,buttons:string)=>HTMLDialogElement;
@@ -208,6 +212,11 @@ export class CoverUI {
     if(focus)level(menu)[0]?.focus();else menu.focus();
   }
 
+  /** Add and Replace start in the cover art directory, else the file's folder. */
+  private async startFolder(path?:string){
+    if(!path)return undefined;
+    try{return await this.host.startDirectory?.(path)??dirname(path);}catch{return dirname(path);}
+  }
   async run(command:string,value?:string){
     // Shown covers that are pasted but not saved exist only as pending tag edits.
     if(['extract','copy','cut'].includes(command)&&this.host.pending?.()){this.host.notify('Save tags first: the shown covers are pasted and not written yet.');return;}
@@ -231,7 +240,7 @@ export class CoverUI {
       case 'aspect':storage.set(ASPECT_KEY,this.aspect?'stretch':'correct');this.host.show(index);return;
       case 'manage':await this.manage();return;
       case 'adjust':this.host.adjust();return;
-      case 'add':{const image=await this.host.pickImage(path?dirname(path):undefined);if(image)await this.addImage({path:image},'Added cover');return;}
+      case 'add':{const image=await this.host.pickImage(await this.startFolder(path));if(image)await this.addImage({path:image},'Added cover');return;}
       case 'paste':{
         const staged=await this.host.invoke<StagedImage>('paste_cover_from_clipboard');
         await this.addImage({staged:staged.token},'Pasted cover');return;
@@ -249,7 +258,7 @@ export class CoverUI {
       }
       case 'replace':{
         if(!cover)return;
-        const image=await this.host.pickImage(path?dirname(path):undefined);if(!image)return;
+        const image=await this.host.pickImage(await this.startFolder(path));if(!image)return;
         await this.apply(this.plan(item=>({...item,image:{path:image}}),item=>item),'Replace cover','Replaced cover');return;
       }
       case 'type':{
@@ -372,7 +381,7 @@ export class CoverUI {
     const set=await this.host.invoke<CoverSet>('cover_set',{paths:targets});
     const initial=managedFromSet(set);
     let list=[...initial],chosen=new Set<string>(list[0]?[list[0].id]:[]),anchor=list[0]?.id,focusId=anchor,counter=0,working=false;
-    const dialog=this.host.modal('Manage covers',`<p class="manage-covers-summary"></p><div class="manage-covers-layout"><ul class="manage-covers-list" role="listbox" aria-multiselectable="true" aria-label="Covers" tabindex="0"></ul><div class="manage-covers-buttons" role="group" aria-label="Cover commands"><button data-manage="add">Add…</button><button data-manage="paste">Paste</button><button data-manage="replace">Replace…</button><button data-manage="remove">Remove</button><hr><button data-manage="up">Move up</button><button data-manage="down">Move down</button><hr><button data-manage="all">Apply to all</button><button data-manage="extract">Extract…</button></div></div><fieldset class="manage-cover-properties"><legend>Selected covers</legend><div class="field-pair"><label class="field"><span>Cover type</span><select id="manage-cover-type"></select></label><label class="field"><span>Description</span><input id="manage-cover-description" autocomplete="off"></label></div><label class="action-check"><input type="checkbox" id="manage-cover-all"> Embed in all selected files</label></fieldset><p class="manage-covers-status" role="status"></p>`,'<button class="primary" id="manage-covers-ok">OK</button>');
+    const dialog=this.host.modal('Manage covers',`<p class="manage-covers-summary"></p><div class="manage-covers-layout"><ul class="manage-covers-list" role="listbox" aria-multiselectable="true" aria-label="Covers" tabindex="0"></ul><div class="manage-covers-buttons" role="group" aria-label="Cover commands"><button data-manage="add">Add…</button><button data-manage="paste">Paste</button><button data-manage="replace">Replace…</button><button data-manage="adjust">Adjust…</button><button data-manage="remove">Remove</button><hr><button data-manage="up">Move up</button><button data-manage="down">Move down</button><hr><button data-manage="all">Apply to all</button><button data-manage="extract">Extract…</button></div></div><fieldset class="manage-cover-properties"><legend>Selected covers</legend><div class="field-pair"><label class="field"><span>Cover type</span><select id="manage-cover-type"></select></label><label class="field"><span>Description</span><input id="manage-cover-description" autocomplete="off"></label></div><label class="action-check"><input type="checkbox" id="manage-cover-all"> Embed in all selected files</label></fieldset><p class="manage-covers-status" role="status"></p>`,'<button class="primary" id="manage-covers-ok">OK</button>');
     dialog.classList.add('manage-covers-dialog');
     const listbox=dialog.querySelector<HTMLUListElement>('.manage-covers-list')!,typeSelect=dialog.querySelector<HTMLSelectElement>('#manage-cover-type')!;
     const descriptionInput=dialog.querySelector<HTMLInputElement>('#manage-cover-description')!,allBox=dialog.querySelector<HTMLInputElement>('#manage-cover-all')!;
@@ -395,6 +404,7 @@ export class CoverUI {
         if(command==='add'||command==='paste')return command!=='paste'||this.host.clipboard();
         if(command==='replace'||command==='extract')return !!one&&(command==='replace'||(!!one.original&&!one.image));
         if(command==='all')return partial.some(cover=>!cover.all_files);
+        if(command==='adjust')return current.length>0&&!!this.host.adjustSettings&&current.every(cover=>!!adjustSource(cover,set,targets));
         if(command==='up')return current.length>0&&list.findIndex(cover=>chosen.has(cover.id))>0;
         if(command==='down')return current.length>0&&list.map(cover=>chosen.has(cover.id)).lastIndexOf(true)<list.length-1;
         return current.length>0;
@@ -406,24 +416,42 @@ export class CoverUI {
       if(focusList)listbox.focus({preventScroll:true});
     };
     const update=(change:(cover:ManagedCover)=>ManagedCover)=>{list=list.map(cover=>chosen.has(cover.id)?change(cover):cover);draw();};
-    const stageImage=async(image:Promise<StagedImage|null>)=>{
+    const stageImage=async<T>(image:Promise<T|null>)=>{
       working=true;draw();dialog.querySelector('.dialog-error')?.remove();
       try{return await image;}catch(error){this.host.modalError(dialog,error);return null;}finally{working=false;if(dialog.open)draw();}
     };
     const add=async(source:'file'|'clipboard')=>{
-      const staged=await stageImage(source==='file'?this.host.pickImage(dirname(targets[0])).then(path=>path?this.host.invoke<StagedImage>('stage_cover_file',{path}):null):this.host.invoke<StagedImage>('paste_cover_from_clipboard'));
+      const staged=await stageImage(source==='file'?this.startFolder(targets[0]).then(folder=>this.host.pickImage(folder)).then(path=>path?this.host.invoke<StagedImage>('stage_cover_file',{path}):null):this.host.invoke<StagedImage>('paste_cover_from_clipboard'));
       if(!staged)return;
       const cover=newManaged(list,staged,`n${counter++}`,set.files);list=[...list,cover];chosen=new Set([cover.id]);anchor=focusId=cover.id;draw(true);
+    };
+    // Adjust…: each selected cover is resized/converted into a staged image that replaces it on OK.
+    const adjust=async(covers:ManagedCover[])=>{
+      const settings=await this.host.adjustSettings?.();if(!settings||!dialog.open)return;
+      const {format,quality,resize}=settings;
+      const staged=await stageImage((async()=>{
+        const result=new Map<string,StagedImage>();
+        for(const cover of covers){
+          const source=adjustSource(cover,set,targets);
+          if(!source)throw new Error('This cover cannot be adjusted here.');
+          result.set(cover.id,await this.host.invoke<StagedImage>('stage_adjusted_cover',{source,settings:{format,quality,resize}}));
+        }
+        return result;
+      })());
+      if(!staged)return;
+      const adjusted=applyAdjusted(list,staged);list=adjusted.list;draw(true);
+      if(!adjusted.changed)status.textContent='The selected covers already match these settings.';
     };
     const command=async(name:string,value?:string)=>{
       const current=selectedCovers();
       if(name==='add'||name==='paste'){await add(name==='add'?'file':'clipboard');return;}
       if(name==='replace'&&current.length===1){
-        const staged=await stageImage(this.host.pickImage(dirname(targets[0])).then(path=>path?this.host.invoke<StagedImage>('stage_cover_file',{path}):null));
+        const staged=await stageImage(this.startFolder(targets[0]).then(folder=>this.host.pickImage(folder)).then(path=>path?this.host.invoke<StagedImage>('stage_cover_file',{path}):null));
         if(staged)update(cover=>replaceManaged(cover,staged));return;
       }
       if(name==='remove'){const first=list.findIndex(cover=>chosen.has(cover.id));list=list.filter(cover=>!chosen.has(cover.id));const next=list[Math.min(first,list.length-1)];chosen=new Set(next?[next.id]:[]);anchor=focusId=next?.id;draw(true);return;}
       if(name==='up'||name==='down'){list=moveManaged(list,chosen,name==='up'?-1:1);draw(true);return;}
+      if(name==='adjust'&&current.length){await adjust(current);return;}
       if(name==='all'){update(cover=>cover.original&&cover.files<cover.total?{...cover,all_files:true}:cover);return;}
       if(name==='type'&&value){update(cover=>({...cover,picture_type:value}));return;}
       if(name==='description'){const description=await this.askDescription(current.length===1?current[0].description:'',current.length>1);if(description!==null)update(cover=>({...cover,description}));return;}
@@ -501,6 +529,7 @@ export class CoverUI {
       {command:'description',label:'Set cover description…',enabled:covers.length>0},
       'separator',
       {command:'replace',label:'Replace cover…',enabled:!!one},
+      {command:'adjust',label:'Adjust cover…',enabled:covers.length>0&&!!this.host.adjustSettings},
       {command:'extract',label:'Extract cover…',enabled:!!one?.original&&!one.image},
       {command:'remove',label:'Remove cover',enabled:covers.length>0,shortcut:'Del'},
     ];

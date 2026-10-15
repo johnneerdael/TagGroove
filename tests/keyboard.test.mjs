@@ -108,3 +108,22 @@ test('pane cycling follows Tag Panel, Filter, File List and skips missing panes'
   assert.equal(nextPane('panel', ['filter', 'list'], false), 'filter');
   assert.equal(nextPane('list', [], false), undefined);
 });
+
+test('remaining reference rows: Ctrl+Shift+Del, Ctrl+P / Ctrl+Shift+P, Ctrl+I / Ctrl+Shift+I with ⌘ on macOS', () => {
+  assert.equal(windowShortcut(press('Delete', 'Delete', { ctrlKey: true, shiftKey: true }), pc), 'file-delete-permanent');
+  assert.equal(windowShortcut(press('Delete', 'Delete', { metaKey: true, shiftKey: true }), mac), 'file-delete-permanent');
+  assert.equal(windowShortcut(press('Backspace', 'Backspace', { metaKey: true, shiftKey: true }), mac), 'file-delete-permanent', 'Mac keyboards have no forward Delete');
+  assert.equal(windowShortcut(press('Backspace', 'Backspace', { ctrlKey: true, shiftKey: true }), pc), undefined);
+  assert.equal(windowShortcut(press('Delete', 'Delete', { ctrlKey: true, shiftKey: true }), pcTyping), undefined);
+  assert.equal(windowShortcut(press('Delete', 'Delete', { ctrlKey: true }), pc), undefined, 'Ctrl+Del stays with Delete files (trash)');
+  assert.equal(windowShortcut(press('p', 'KeyP', { ctrlKey: true }), pc), 'playlist-all');
+  assert.equal(windowShortcut(press('P', 'KeyP', { ctrlKey: true, shiftKey: true }), pc), 'playlist-folders');
+  assert.equal(windowShortcut(press('P', 'KeyP', { metaKey: true, shiftKey: true }), mac), 'playlist-folders');
+  assert.equal(windowShortcut(press('p', 'KeyP', { ctrlKey: true }), mac), undefined);
+  assert.equal(windowShortcut(press('p', 'KeyP', { ctrlKey: true }), pcTyping), undefined);
+  assert.equal(windowShortcut(press('i', 'KeyI', { ctrlKey: true }), pc), 'source-last');
+  assert.equal(windowShortcut(press('I', 'KeyI', { ctrlKey: true, shiftKey: true }), pc), 'source-last-quick');
+  assert.equal(windowShortcut(press('i', 'KeyI', { metaKey: true }), mac), 'source-last');
+  assert.equal(windowShortcut(press('i', 'KeyI', { ctrlKey: true }), pcTyping), undefined);
+  assert.equal(windowShortcut(press('t', 'KeyT', { ctrlKey: true }), pcTyping), 'reload', 'Read tag still works from a tag panel field');
+});
