@@ -30,6 +30,7 @@ sha2 = "0.10"
 md-5 = "0.10"
 crc32fast = "1"
 uuid = { version = "1", features = ["v4"] }
+unicode-normalization = "0.1.24"
 # Tag sources and the update check: rustls with the ring provider and bundled
 # roots (no OpenSSL or platform verifier initialisation), so every desktop and
 # mobile target builds. `system-proxy` reads the macOS and Windows proxy

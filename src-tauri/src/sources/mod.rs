@@ -8,6 +8,7 @@
 mod credentials;
 mod discogs;
 mod freedb;
+mod freedb_index;
 pub(crate) mod http;
 mod model;
 mod musicbrainz;
@@ -115,7 +116,7 @@ pub async fn tag_source_search(
 ) -> Result<SearchPage, String> {
     http::claim(Channel::Search, ticket);
     if matches!(provider, Provider::Freedb | Provider::LocalFreedb) {
-        return freedb_search(provider, query, ticket).await;
+        return freedb_search(&app, provider, query, ticket).await;
     }
     let token = discogs_token(&app, provider).await?;
     let url = match provider {
@@ -136,8 +137,14 @@ fn import_options(settings: &freedb::FreedbSettings) -> freedb::ImportOptions {
     }
 }
 
-/// Disc ID from the selected files (a `cddb query` with their TOC) or typed in.
+fn local_index_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    Ok(settings_path(app)?.with_file_name("local-freedb-index.tsv"))
+}
+
+/// Disc ID from the selected files (a `cddb query` with their TOC) or typed
+/// in; local folders also search their text index.
 async fn freedb_search(
+    app: &tauri::AppHandle,
     provider: Provider,
     query: SearchQuery,
     ticket: u64,
@@ -147,7 +154,21 @@ async fn freedb_search(
     let disc_id = match query.mode {
         model::SearchMode::Toc => freedb::Toc::from_lengths(&query.lengths)?.disc_id(),
         model::SearchMode::DiscId => freedb::disc_id(&query.text)?,
-        _ => return Err("freedb searches by disc ID: computed from the selected files or typed in. Text search on gnudb.org is not available.".into()),
+        model::SearchMode::Text if provider == Provider::LocalFreedb => {
+            let index = local_index_path(app)?;
+            let directory = PathBuf::from(&settings.local_directory);
+            let found = tauri::async_runtime::spawn_blocking(move || {
+                freedb::check_local_directory(&directory)?;
+                freedb_index::search(&index, &directory, &query.text)
+            })
+            .await
+            .map_err(|e| e.to_string())??;
+            return Ok(SearchPage {
+                results: found.results,
+                total: Some(found.total),
+            });
+        }
+        _ => return Err("freedb servers search by disc ID: computed from the selected files or typed in. Text search is available for a local freedb folder with a text index.".into()),
     };
     let results = if provider == Provider::LocalFreedb {
         let directory = PathBuf::from(&settings.local_directory);
@@ -324,6 +345,36 @@ pub async fn tag_source_image(url: String, ticket: u64) -> Result<String, String
         image.mime,
         base64::engine::general_purpose::STANDARD.encode(&image.bytes)
     ))
+}
+
+/// Options → Tag Sources → Local freedb: the text index and the folder it covers.
+#[tauri::command]
+pub async fn local_freedb_index_status(
+    app: tauri::AppHandle,
+) -> Result<freedb_index::IndexStatus, String> {
+    let index = local_index_path(&app)?;
+    tauri::async_runtime::spawn_blocking(move || freedb_index::status(&index))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Build the text index of the local freedb folder saved in Options. `job`
+/// reports progress per file and can be cancelled with `cancel_job`.
+#[tauri::command]
+pub async fn build_local_freedb_index(
+    app: tauri::AppHandle,
+    job: Option<String>,
+) -> Result<freedb_index::IndexStatus, String> {
+    let index = local_index_path(&app)?;
+    let directory =
+        PathBuf::from(freedb::settings_from(&crate::settings::current()).local_directory);
+    tauri::async_runtime::spawn_blocking(move || {
+        let job = crate::progress::Job::new(job);
+        freedb_index::build(&directory, &index, &job)?;
+        Ok(freedb_index::status(&index))
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]

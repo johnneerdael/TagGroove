@@ -1062,6 +1062,8 @@ pub fn run() {
             sources::tag_source_covers,
             sources::tag_source_image,
             sources::tag_source_cancel,
+            sources::local_freedb_index_status,
+            sources::build_local_freedb_index,
             sources::tag_source_apply,
             sources::tag_source_open_page,
             sources::tag_source_save_cover,
