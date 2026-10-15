@@ -73,8 +73,9 @@ test('sort header updates keep the header cells', () => {
   updateSortHeader(cells, columns, [{ id: 'title', ascending: false }]);
   assert.equal(cells[0].attributes['aria-sort'], 'none');
   assert.equal(cells[1].attributes['aria-sort'], 'descending');
-  assert.equal(cells[0].button.innerHTML, 'Filename');
-  assert.equal(cells[1].button.innerHTML, 'Title ↓');
+  // Column names are names, kept out of translation (translate="no").
+  assert.equal(cells[0].button.innerHTML, '<span translate="no">Filename</span>');
+  assert.equal(cells[1].button.innerHTML, '<span translate="no">Title</span> ↓');
   // The same labels as a full header render.
-  assert.ok(headerMarkup(columns, [{ id: 'title', ascending: false }]).includes('>Title ↓</button>'));
+  assert.ok(headerMarkup(columns, [{ id: 'title', ascending: false }]).includes('><span translate="no">Title</span> ↓</button>'));
 });

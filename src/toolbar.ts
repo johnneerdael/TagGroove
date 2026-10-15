@@ -82,6 +82,8 @@ export function normalizeCustomToolbar(value:unknown):ToolbarConfig{
   const saved=savedItems(value,id=>id in TOOLBAR_COMMANDS||named(id,TOOL_PREFIX)||named(id,ACTION_PREFIX));
   return{shown:saved.shown!==false,items:saved.items??[]};
 }
+/** Whether an item shows a name someone gave (a renamed item, a tool or an action group), kept as typed in every language. */
+export const userLabel=(item:ToolbarItem)=>!isSeparator(item.id)&&!isSpacer(item.id)&&(!!item.label||!(item.id in TOOLBAR_COMMANDS));
 export const itemLabel=(item:ToolbarItem)=>isSeparator(item.id)?'Separator':isSpacer(item.id)?'Spacer':item.label||TOOLBAR_COMMANDS[item.id]?.label
   ||(item.id.startsWith(TOOL_PREFIX)?item.id.slice(TOOL_PREFIX.length):item.id.startsWith(ACTION_PREFIX)?item.id.slice(ACTION_PREFIX.length):item.id);
 /** Status-bar hint of any toolbar item. */
@@ -128,7 +130,7 @@ export function customizeToolbar(host:ToolbarHost){
   let items=structuredClone(host.config().items),current=0,editing=false;
   const dialog=document.createElement('dialog');dialog.className='toolbar-dialog';dialog.setAttribute('aria-label',title);document.body.append(dialog);
   const choices=custom?.choices()??[],groups=[...new Set(choices.map(choice=>choice.group))];
-  const adder=custom?`<div class="toolbar-add"><label class="field"><span>Add to the custom toolbar</span><select id="toolbar-choice">${groups.map(group=>`<optgroup label="${html(group)}">${choices.filter(choice=>choice.group===group).map(choice=>`<option value="${html(choice.id)}">${html(choice.label)}</option>`).join('')}</optgroup>`).join('')}</select></label><button type="button" data-tb="add">Add</button></div>`:'';
+  const adder=custom?`<div class="toolbar-add"><label class="field"><span>Add to the custom toolbar</span><select id="toolbar-choice">${groups.map(group=>`<optgroup label="${html(group)}">${choices.filter(choice=>choice.group===group).map(choice=>`<option value="${html(choice.id)}" ${choice.id in TOOLBAR_COMMANDS?'':'translate="no"'}>${html(choice.label)}</option>`).join('')}</optgroup>`).join('')}</select></label><button type="button" data-tb="add">Add</button></div>`:'';
   dialog.innerHTML=`<header>${title}</header><div class="dialog-content"><p>${custom?'The custom toolbar shows commands, tools (Options → Tools) and action groups next to the main toolbar. Add items below; checked items are shown, in this order.':'Checked items are shown on the main toolbar, in this order.'} Space shows or hides the selected item, F4 renames it, ⌘/Ctrl E shows all and ⌘/Ctrl D hides all, Alt ↑ ↓ and Alt Page Up / Page Down move it. A spacer pushes the items after it to the far end.</p>${adder}
     <div class="toolbar-config"><div class="group-list toolbar-items" role="listbox" aria-label="Toolbar items" tabindex="0"></div>
     <div class="group-buttons"><button type="button" data-tb="edit">Rename…</button><button type="button" data-tb="separator">Add separator</button><button type="button" data-tb="spacer">Add spacer</button>${custom?'<button type="button" data-tb="remove">Remove</button>':''}<button type="button" data-tb="up">↑ Move up</button><button type="button" data-tb="down">↓ Move down</button><button type="button" data-tb="show-all">Show all</button><button type="button" data-tb="hide-all">Hide all</button><button type="button" data-tb="reset">${custom?'Clear':'Reset'}</button></div></div></div>
@@ -136,7 +138,7 @@ export function customizeToolbar(host:ToolbarHost){
   const list=dialog.querySelector<HTMLElement>('.toolbar-items')!;
   const render=()=>{
     current=Math.max(0,Math.min(current,items.length-1));
-    list.innerHTML=items.map((item,index)=>`<div class="group-row ${index===current?'current':''}" role="option" id="toolbar-item-${index}" data-item="${index}" aria-selected="${index===current}"><input type="checkbox" tabindex="-1" data-show="${index}" aria-label="Show ${html(itemLabel(item))}" ${item.visible?'checked':''}><span>${html(itemLabel(item))}</span><small>${html(itemHint(item.id))}</small></div>`).join('')||'<p class="group-empty">No items yet. Choose a command, tool or action group and press Add.</p>';
+    list.innerHTML=items.map((item,index)=>`<div class="group-row ${index===current?'current':''}" role="option" id="toolbar-item-${index}" data-item="${index}" aria-selected="${index===current}"><input type="checkbox" tabindex="-1" data-show="${index}" ${userLabel(item)?`data-verbatim="${html(itemLabel(item))}"`:''} aria-label="Show ${html(itemLabel(item))}" ${item.visible?'checked':''}><span ${userLabel(item)?'translate="no"':''}>${html(itemLabel(item))}</span><small>${html(itemHint(item.id))}</small></div>`).join('')||'<p class="group-empty">No items yet. Choose a command, tool or action group and press Add.</p>';
     list.setAttribute('aria-activedescendant',`toolbar-item-${current}`);
     list.querySelector('.current')?.scrollIntoView({block:'nearest'});
     list.querySelectorAll<HTMLInputElement>('[data-show]').forEach(box=>box.addEventListener('change',()=>{items[Number(box.dataset.show)].visible=box.checked;}));

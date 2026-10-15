@@ -200,10 +200,21 @@ export class ColumnValueCache{
 }
 
 const ariaSort=(sort:SortKey[],id:string)=>{const key=sort.find(item=>item.id===id);return key?key.ascending?'ascending':'descending':'none';};
-const sortLabel=(column:ColumnDef,sort:SortKey[])=>`${html(column.name)}${sortIndicator(sort,column.id)}`;
+// Options → Language: a column shows the name it was given (translate="no"); only a default
+// column that still has its default name follows the UI language.
+let translateName=(name:string)=>name;
+export function setColumnNameTranslation(translate:(name:string)=>string){translateName=translate;}
+let defaultNames:Map<string,string>|undefined;
+export function columnName(column:{id:string;name:string}){
+  defaultNames??=new Map(defaultLayout().columns.map(c=>[c.id,c.name]));
+  return defaultNames.get(column.id)===column.name?translateName(column.name):column.name;
+}
+const nameMarkup=(column:{id:string;name:string})=>`<span translate="no">${html(columnName(column))}</span>`;
+const sortTitle=(name:string)=>`${name} — click to sort, Shift+click to add a sort criterion`;
+const sortLabel=(column:ColumnDef,sort:SortKey[])=>`${nameMarkup(column)}${sortIndicator(sort,column.id)}`;
 /** Header cells; with `shuffle`, the first cell starts with the icon-column button that puts the files in random order. */
 export function headerMarkup(columns:ColumnDef[],sort:SortKey[],shuffle=false){
-  return columns.map((column,index)=>`<th style="width:${column.width}px" data-col="${html(column.id)}" class="align-${column.align}" aria-sort="${ariaSort(sort,column.id)}">${shuffle&&index===0?'<button type="button" class="shuffle-list" data-shuffle title="Random order: shuffle the file list" aria-label="Random order">⤮</button>':''}<button data-sort="${html(column.id)}" title="${html(`${column.name} — click to sort, Shift+click to add a sort criterion`)}">${sortLabel(column,sort)}</button><span class="col-resize" data-resize="${html(column.id)}" aria-hidden="true" title="Drag to resize; double-click to fit the contents"></span></th>`).join('');
+  return columns.map((column,index)=>`<th style="width:${column.width}px" data-col="${html(column.id)}" class="align-${column.align}" aria-sort="${ariaSort(sort,column.id)}">${shuffle&&index===0?'<button type="button" class="shuffle-list" data-shuffle title="Random order: shuffle the file list" aria-label="Random order">⤮</button>':''}<button data-sort="${html(column.id)}" data-verbatim="${html(columnName(column))}" title="${html(sortTitle(columnName(column)))}">${sortLabel(column,sort)}</button><span class="col-resize" data-resize="${html(column.id)}" aria-hidden="true" title="Drag to resize; double-click to fit the contents"></span></th>`).join('');
 }
 /** Show `sort` in header cells made by `headerMarkup`, keeping the cells and their listeners. */
 export function updateSortHeader(cells:Iterable<HTMLElement>,columns:ColumnDef[],sort:SortKey[]){
@@ -229,7 +240,7 @@ export class ColumnUI{
   constructor(private host:ColumnUIHost){}
   private async change(layout:ColumnLayout){try{await this.host.apply(layout);}catch(error){this.host.report(error);}}
   /** View → Columns entries: one checkable entry per configured column. */
-  menuHTML(){return`<hr><p class="menu-note">Columns</p>${this.host.layout().columns.map(column=>`<button class="column-toggle" data-column-toggle="${html(column.id)}" role="menuitemcheckbox" aria-checked="${column.visible}"><span>${column.visible?'✓ ':'<span class="column-check-space"></span>'}${html(column.name)}</span></button>`).join('')}`;}
+  menuHTML(){return`<hr><p class="menu-note">Columns</p>${this.host.layout().columns.map(column=>`<button class="column-toggle" data-column-toggle="${html(column.id)}" role="menuitemcheckbox" aria-checked="${column.visible}"><span>${column.visible?'✓ ':'<span class="column-check-space"></span>'}${nameMarkup(column)}</span></button>`).join('')}`;}
   bindMenu(root:ParentNode){
     root.querySelectorAll<HTMLButtonElement>('[data-column-toggle]').forEach(button=>button.addEventListener('click',()=>{
       button.closest('details')?.removeAttribute('open');
@@ -241,7 +252,7 @@ export class ColumnUI{
   headerMenu(x:number,y:number,customize:()=>void){
     this.closeMenu();
     const menu=document.createElement('div');menu.className='column-menu';menu.setAttribute('role','menu');menu.setAttribute('aria-label','File List columns');
-    menu.innerHTML=`${this.host.layout().columns.map(column=>`<label role="menuitemcheckbox" aria-checked="${column.visible}"><input type="checkbox" data-id="${html(column.id)}" ${column.visible?'checked':''}> ${html(column.name)}</label>`).join('')}<hr><button data-customize>Customize columns…</button>`;
+    menu.innerHTML=`${this.host.layout().columns.map(column=>`<label role="menuitemcheckbox" aria-checked="${column.visible}"><input type="checkbox" data-id="${html(column.id)}" ${column.visible?'checked':''}> ${nameMarkup(column)}</label>`).join('')}<hr><button data-customize>Customize columns…</button>`;
     document.body.append(menu);this.menu=menu;
     const width=menu.offsetWidth,height=menu.offsetHeight;
     menu.style.left=`${Math.max(4,Math.min(x,window.innerWidth-width-4))}px`;menu.style.top=`${Math.max(4,Math.min(y,window.innerHeight-height-4))}px`;
@@ -302,7 +313,7 @@ export class ColumnUI{
     };
     const render=(focus?:string)=>{
       const column=layout.columns[current];
-      dialog.innerHTML=`<header>Customize columns</header><div class="dialog-content"><div class="columns-layout"><div><p class="action-section-title">Columns</p><ul class="column-list" role="listbox" aria-label="Columns">${layout.columns.map((c,i)=>`<li class="group-row ${i===current?'current':''}" role="option" aria-selected="${i===current}" data-index="${i}" tabindex="${i===current?0:-1}"><input type="checkbox" data-visible="${i}" aria-label="Show ${html(c.name)}" ${c.visible?'checked':''}><span>${html(c.name||'(unnamed)')}</span><small>${html(c.field?'editable':'')}</small></li>`).join('')}</ul>
+      dialog.innerHTML=`<header>Customize columns</header><div class="dialog-content"><div class="columns-layout"><div><p class="action-section-title">Columns</p><ul class="column-list" role="listbox" aria-label="Columns">${layout.columns.map((c,i)=>`<li class="group-row ${i===current?'current':''}" role="option" aria-selected="${i===current}" data-index="${i}" tabindex="${i===current?0:-1}"><input type="checkbox" data-visible="${i}" aria-label="Show ${html(c.name)}" ${c.visible?'checked':''}>${c.name?`<span translate="no">${html(c.name)}</span>`:'<span>(unnamed)</span>'}<small>${html(c.field?'editable':'')}</small></li>`).join('')}</ul>
       <div class="group-buttons"><button id="column-new">New</button><button id="column-duplicate" ${column?'':'disabled'}>Duplicate</button><button id="column-remove" ${layout.columns.length>1?'':'disabled'}>Remove</button><button id="column-up" ${current>0?'':'disabled'}>Move up</button><button id="column-down" ${current<layout.columns.length-1?'':'disabled'}>Move down</button></div>
       <div class="group-buttons"><button id="column-defaults">Reset to defaults</button><button id="column-import">Load configuration…</button><button id="column-export">Save configuration…</button></div></div>
       <div>${column?`<label class="field"><span>NAME</span><input id="column-name" value="${html(column.name)}"></label>

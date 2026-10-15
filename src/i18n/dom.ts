@@ -3,7 +3,11 @@
 // looked up in the active catalog as they appear, so every view, menu and
 // dialog follows the language without building its strings differently.
 // Regions marked translate="no" (file list rows, tag values, paths) are left
-// alone, as are form values. English installs nothing.
+// alone, as are form values. English installs nothing. An element marked
+// data-verbatim="<name>" shows a name someone entered (in its text or its
+// attributes, alone or inside a sentence such as "Show {name}"): that name is
+// never translated, even when it equals a key, while the rest of the element's
+// text is. A bare data-verbatim protects every value of the element.
 import type {Translator} from './core';
 
 const ATTRIBUTES = ['title', 'aria-label', 'aria-description', 'aria-roledescription', 'aria-valuetext', 'placeholder', 'alt', 'label', 'data-hint', 'data-tooltip'];
@@ -61,16 +65,17 @@ export class DomTranslator {
     }
   }
 
-  private next(current: string, record: Shown | undefined) {
+  private next(current: string, record: Shown | undefined, element: Element | null) {
     // Text the app wrote since the last pass is English; text we wrote is replaced from its source.
     const source = record && record.shown === current ? record.source : current;
-    return {source, shown: this.translator().translate(source)};
+    const marked = element?.closest('[data-verbatim]'), name = marked?.getAttribute('data-verbatim');
+    return {source, shown: this.translator().translate(source, 0, marked ? name || true : false)};
   }
 
   private text(node: Text) {
     const current = node.data;
     if (!/\p{L}/u.test(current)) return;
-    const next = this.next(current, this.texts.get(node));
+    const next = this.next(current, this.texts.get(node), node.parentElement);
     this.texts.set(node, next);
     if (next.shown !== current) node.data = next.shown;
   }
@@ -81,7 +86,7 @@ export class DomTranslator {
     if (current === null || !/\p{L}/u.test(current)) return;
     let map = this.attributes.get(element);
     if (!map) {map = new Map();this.attributes.set(element, map);}
-    const next = this.next(current, map.get(name));
+    const next = this.next(current, map.get(name), element);
     map.set(name, next);
     if (next.shown !== current) element.setAttribute(name, next.shown);
   }

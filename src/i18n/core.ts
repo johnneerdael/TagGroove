@@ -143,30 +143,37 @@ export class Translator {
    * placeholders whose values are taken from the text. Values that are
    * themselves UI text ("3 files", an error message) are translated too.
    * Surrounding whitespace is kept; unknown text is returned unchanged.
+   * `verbatim` protects a name someone entered, so a column named "Help" is
+   * never shown as "Hilfe": that exact text, and values equal to it read back
+   * from a key with placeholders, stay as they are. `true` protects all text:
+   * only keys with placeholders apply, and none of their values are translated.
    */
-  translate(text: string, depth = 0): string {
+  translate(text: string, depth = 0, verbatim: string | boolean = false): string {
     if (!this.active) return text;
     const core = normalize(text);
     if (!core || !/\p{L}/u.test(core)) return text;
-    let result = this.cache.get(core);
+    const name = typeof verbatim === 'string' ? normalize(verbatim) : undefined;
+    if (name !== undefined && core === name) return text;
+    const cached = !verbatim;
+    let result = cached ? this.cache.get(core) : undefined;
     if (result === undefined) {
-      result = this.lookup(core, depth);
-      if (depth === 0) {if (this.cache.size > 20000) this.cache.clear();this.cache.set(core, result);}
+      result = this.lookup(core, depth, verbatim === true, name);
+      if (cached && depth === 0) {if (this.cache.size > 20000) this.cache.clear();this.cache.set(core, result);}
     }
     if (result === null) return text;
     const lead = /^\s*/.exec(text)![0], trail = /\s*$/.exec(text)![0];
     return lead + result + (trail.length === text.length ? '' : trail);
   }
-  private lookup(core: string, depth: number): string | null {
-    const exact = this.exact.get(core);
+  private lookup(core: string, depth: number, verbatim: boolean, name?: string): string | null {
+    const exact = verbatim ? undefined : this.exact.get(core);
     if (exact) return render(exact, {}, this.rules);
     for (const pattern of this.patterns) {
       const match = pattern.regex.exec(core);
       if (!match) continue;
       const params: Record<string, string> = {};
-      pattern.names.forEach((name, i) => {
+      pattern.names.forEach((param, i) => {
         const value = match[i + 1];
-        params[name] = depth < 2 && !VERBATIM.test(name) && /\p{L}/u.test(value) ? this.translate(value, depth + 1) : value;
+        params[param] = !verbatim && depth < 2 && !VERBATIM.test(param) && normalize(value) !== name && /\p{L}/u.test(value) ? this.translate(value, depth + 1) : value;
       });
       return render(pattern.value, params, this.rules);
     }
@@ -227,4 +234,28 @@ export function resolveLanguage(choice: string, preferred: readonly string[], av
   if (choice && choice !== 'system') return find(choice) ?? 'en';
   for (const wanted of preferred) {const found = find(wanted);if (found) return found;}
   return 'en';
+}
+
+export type Language = CatalogMeta & {catalog: Catalog; source: 'bundled' | 'user'; file?: string; problems?: number};
+/**
+ * The languages offered: the bundled catalogs plus the catalog files read from
+ * the languages folder now. A file for a bundled language replaces it; a file
+ * that disappeared or became unreadable leaves no trace of its earlier contents.
+ */
+export function languageSet(bundled: readonly Language[], files: readonly {file: string; catalog: unknown}[], english: Catalog): {languages: Map<string, Language>; warnings: string[]} {
+  const languages = new Map(bundled.map(language => [language.locale, language]));
+  const warnings: string[] = [];
+  for (const {file, catalog} of files) {
+    if (!catalog || typeof catalog !== 'object' || Array.isArray(catalog)) {warnings.push(`${file}: not a catalog`);continue;}
+    const meta = catalogMeta(catalog as Catalog, file);
+    if (!meta) {warnings.push(`${file}: unknown language`);continue;}
+    const problems = validateCatalog(english, catalog as Catalog);
+    const count = problems.missing.length + problems.placeholders.length + problems.invalid.length;
+    // Keys with mismatched placeholders would show the wrong values; English stands in for them.
+    const usable: Catalog = {...catalog as Catalog};
+    for (const key of [...problems.placeholders, ...problems.invalid]) delete usable[key];
+    languages.set(meta.locale, {...meta, catalog: usable, source: 'user', file, problems: count});
+    if (count) warnings.push(`${file}: ${problems.missing.length} missing, ${problems.placeholders.length + problems.invalid.length} invalid`);
+  }
+  return {languages, warnings};
 }

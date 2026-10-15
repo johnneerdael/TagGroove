@@ -92,6 +92,12 @@ export function mnemonic(name:string):{label:string;key?:string;html:string}{
  * A field label in the UI language: `translate` gets the label without its `&`.
  * The Alt letter stays the configured one and is underlined where the translation has it.
  */
+let defaultNames:Map<string,string>|undefined;
+/** Whether a field still has its default label, which follows the UI language; a label someone typed is shown as typed. */
+export function defaultName(field:{field:string;name:string}){
+  defaultNames??=new Map(defaultLayout().fields.map(f=>[f.field,f.name]));
+  return defaultNames.get(field.field)===field.name;
+}
 export function localMnemonic(name:string,translate?:(label:string)=>string):{label:string;key?:string;html:string}{
   const original=mnemonic(name),label=translate?translate(original.label):original.label;
   if(label===original.label)return original;
@@ -195,9 +201,9 @@ export class TagPanel {
   }
   titleHTML(){
     const fields=this.settings.panel.fields.map((field,index)=>[field,index] as const).filter(([field])=>field.field!==SEPARATOR);
-    const item=(command:string,label:string,checked?:boolean)=>`<button type="button" data-panel-command="${command}" ${checked===undefined?'':`role="menuitemcheckbox" aria-checked="${checked}"`}><span>${checked===undefined?'':checked?'✓ ':'<span class="panel-check-space"></span>'}${html(label)}</span></button>`;
+    const item=(command:string,label:string,checked?:boolean,name=false)=>`<button type="button" data-panel-command="${command}" ${checked===undefined?'':`role="menuitemcheckbox" aria-checked="${checked}"`}><span>${checked===undefined?'':checked?'✓ ':'<span class="panel-check-space"></span>'}${name?`<span translate="no">${html(label)}</span>`:html(label)}</span></button>`;
     const dock=this.host.dock,position=dock?`<hr><div class="menu-heading">Position</div>${dock.choices.map(([side,label])=>item(`dock:${side}`,label,dock.current()===side)).join('')}`:'';
-    return `<details class="menu panel-menu"><summary aria-label="Tag panel options" title="Tag panel options">⋯</summary><div class="menu-list">${item('configure','Customize tag panel…')}${item('values','Field values…')}${item('defaults','Default values in input fields')}<hr>${fields.map(([field,index])=>item(`field:${index}`,mnemonic(field.name).label||field.field,field.visible)).join('')}${item('cover','Display cover art',this.showCover)}<hr>${item('save','Save configuration…')}${item('load','Load configuration…')}${this.host.importMp3tag?item('import-mp3tag','Import Mp3tag configuration…'):''}${position}<hr>${item('hide','Hide tag panel')}</div></details>`;
+    return `<details class="menu panel-menu"><summary aria-label="Tag panel options" title="Tag panel options">⋯</summary><div class="menu-list">${item('configure','Customize tag panel…')}${item('values','Field values…')}${item('defaults','Default values in input fields')}<hr>${fields.map(([field,index])=>item(`field:${index}`,localMnemonic(field.name,defaultName(field)?this.host.translateLabel:undefined).label||field.field,field.visible,true)).join('')}${item('cover','Display cover art',this.showCover)}<hr>${item('save','Save configuration…')}${item('load','Load configuration…')}${this.host.importMp3tag?item('import-mp3tag','Import Mp3tag configuration…'):''}${position}<hr>${item('hide','Hide tag panel')}</div></details>`;
   }
   fieldsHTML(){
     this.closeList();
@@ -210,22 +216,23 @@ export class TagPanel {
   }
   private fieldHTML(field:PanelField,index:number,disabled:boolean){
     if(field.field===SEPARATOR)return'<div class="panel-separator" role="separator"></div>';
-    const id=`tag-panel-${index}`,label=localMnemonic(field.name,this.host.translateLabel),span=`style="grid-column:span ${sizeSpan[field.size]}"`,off=disabled?'disabled':'';
+    const id=`tag-panel-${index}`,label=localMnemonic(field.name,defaultName(field)?this.host.translateLabel:undefined),span=`style="grid-column:span ${sizeSpan[field.size]}"`,off=disabled?'disabled':'';
     // The underlined mnemonic splits the label into several text nodes; name controls explicitly.
-    const shortcut=`aria-label="${html(label.label)}" ${label.key?`aria-keyshortcuts="Alt+${html(label.key)}"`:''}`;
+    // Labels are names (translate="no", data-verbatim): only an untouched default label is translated, above.
+    const shortcut=`data-verbatim="${html(label.label)}" aria-label="${html(label.label)}" ${label.key?`aria-keyshortcuts="Alt+${html(label.key)}"`:''}`,keep=this.host.translateLabel?.(KEEP)??KEEP;
     if(field.field===DIRECTORY){
       const {selected}=this.host.directories(),state=selectionState(selected);
-      return `<div class="field panel-field" ${span}><label for="${id}">${label.html}</label><div class="combo"><input id="${id}" data-panel-index="${index}" data-directory role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-autocomplete="none" value="${html(state.value)}" data-shown="${html(state.value)}" placeholder="${state.mixed?KEEP:''}" title="${html(state.value)} — type a folder and press Enter to open it" autocomplete="off" spellcheck="false" ${shortcut}><button type="button" class="combo-toggle" data-combo="${index}" tabindex="-1" aria-label="Show folders">▾</button></div></div>`;
+      return `<div class="field panel-field" ${span}><label for="${id}" translate="no">${label.html}</label><div class="combo"><input id="${id}" data-panel-index="${index}" data-directory role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-autocomplete="none" value="${html(state.value)}" data-shown="${html(state.value)}" placeholder="${state.mixed?keep:''}" title="${html(state.value)} — type a folder and press Enter to open it" autocomplete="off" spellcheck="false" ${shortcut}><button type="button" class="combo-toggle" data-combo="${index}" tabindex="-1" aria-label="Show folders">▾</button></div></div>`;
     }
     const values=this.host.values(field.field),state=selectionState(values);
     if(field.type==='check'){
       const check=checkState(values);
-      return `<div class="panel-field panel-check-field" ${span}><label class="action-check"><input type="checkbox" id="${id}" data-check="${html(field.field)}" data-panel-index="${index}" ${check==='on'?'checked':''} data-mixed="${check==='mixed'}" ${off} ${shortcut}> ${label.html}</label></div>`;
+      return `<div class="panel-field panel-check-field" ${span}><label class="action-check"><input type="checkbox" id="${id}" data-check="${html(field.field)}" data-panel-index="${index}" ${check==='on'?'checked':''} data-mixed="${check==='mixed'}" ${off} ${shortcut}> <span translate="no">${label.html}</span></label></div>`;
     }
-    const placeholder=state.mixed?KEEP:'',inline=field.type==='text'&&!!this.host.autocomplete?.();
+    const placeholder=state.mixed?keep:'',inline=field.type==='text'&&!!this.host.autocomplete?.();
     const common=`id="${id}" data-field="${html(field.field)}" data-panel-index="${index}" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-autocomplete="${inline?'inline':'none'}" placeholder="${placeholder}" autocomplete="off" ${off} ${shortcut}`;
     const control=field.type==='multiline'?`<textarea ${common} rows="${field.rows}">${html(state.value)}</textarea>`:`<input ${common} value="${html(state.value)}">`;
-    return `<div class="field panel-field" ${span}><label for="${id}">${label.html}</label><div class="combo ${field.type==='multiline'?'multiline':''}">${control}<button type="button" class="combo-toggle" data-combo="${index}" tabindex="-1" aria-label="Show values for ${html(label.label)}" ${off}>▾</button></div></div>`;
+    return `<div class="field panel-field" ${span}><label for="${id}" translate="no">${label.html}</label><div class="combo ${field.type==='multiline'?'multiline':''}">${control}<button type="button" class="combo-toggle" data-combo="${index}" tabindex="-1" data-verbatim="${html(label.label)}" aria-label="Show values for ${html(label.label)}" ${off}>▾</button></div></div>`;
   }
   bind(root:HTMLElement){
     root.querySelectorAll<HTMLInputElement>('input[data-check]').forEach(box=>{
@@ -385,7 +392,7 @@ export class TagPanel {
     const list=dialog.querySelector<HTMLElement>('.panel-config-list')!,editor=dialog.querySelector<HTMLElement>('.panel-config-editor')!,cover=dialog.querySelector<HTMLInputElement>('#tp-cover')!;
     const on=(id:string,handler:()=>void)=>dialog.querySelector(`#${id}`)!.addEventListener('click',handler);
     const renderList=()=>{
-      list.innerHTML=layout.fields.map((field,index)=>`<div class="panel-config-row ${index===current?'selected':''}" role="option" aria-selected="${index===current}" id="tp-row-${index}" data-row="${index}"><input type="checkbox" data-visible="${index}" ${field.visible?'checked':''} aria-label="Show ${html(mnemonic(field.name).label||field.field)}" tabindex="-1"><span>${html(mnemonic(field.name).label||(field.field===SEPARATOR?'Separator':''))}</span><small>${html(field.field)}</small></div>`).join('');
+      list.innerHTML=layout.fields.map((field,index)=>`<div class="panel-config-row ${index===current?'selected':''}" role="option" aria-selected="${index===current}" id="tp-row-${index}" data-row="${index}"><input type="checkbox" data-visible="${index}" ${field.visible?'checked':''} data-verbatim="${html(mnemonic(field.name).label||field.field)}" aria-label="Show ${html(mnemonic(field.name).label||field.field)}" tabindex="-1"><span ${mnemonic(field.name).label?'translate="no"':''}>${html(mnemonic(field.name).label||(field.field===SEPARATOR?'Separator':''))}</span><small>${html(field.field)}</small></div>`).join('');
       if(current>=0)list.setAttribute('aria-activedescendant',`tp-row-${current}`);else list.removeAttribute('aria-activedescendant');
       list.querySelector('.selected')?.scrollIntoView({block:'nearest'});
       list.querySelectorAll<HTMLInputElement>('[data-visible]').forEach(box=>box.addEventListener('change',()=>{layout.fields[Number(box.dataset.visible)].visible=box.checked;}));
@@ -429,7 +436,7 @@ export class TagPanel {
       const imported=await read(path);if(!dialog.open)return;
       layout={...imported.panel,show_panel:layout.show_panel,show_cover:layout.show_cover};current=layout.fields.length?0:-1;renderAll();
       const report=dialog.querySelector<HTMLElement>('.tp-import-report')!,count=imported.panel.fields.filter(field=>field.field!==SEPARATOR).length;
-      report.innerHTML=`<p>Imported ${count} field${count===1?'':'s'} from the Mp3tag configuration. Press OK to use them.</p>${imported.skipped.length?`<p>Not imported:</p><ul>${imported.skipped.map(entry=>`<li>${html(entry)}</li>`).join('')}</ul>`:''}`;
+      report.innerHTML=`<p>Imported ${count} field${count===1?'':'s'} from the Mp3tag configuration. Press OK to use them.</p>${imported.skipped.length?`<p>Not imported:</p><ul translate="no">${imported.skipped.map(entry=>`<li>${html(entry)}</li>`).join('')}</ul>`:''}`;
     });
     if(this.host.importMp3tag)on('tp-import-mp3tag',importMp3tagFile);
     on('tp-ok',()=>void perform(async()=>{const error=layoutError(layout);if(error)throw new Error(error);await this.persist({...clone(this.settings),panel:clone(layout)},'Tag panel configuration saved.');dialog.close();}));

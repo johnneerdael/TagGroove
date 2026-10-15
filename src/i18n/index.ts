@@ -1,24 +1,22 @@
 // The UI language: bundled catalogs (English, Dutch, German), catalogs people
 // add to the configuration folder (languages/<locale>.json), the choice in
 // Options → Language and the translation of what is on screen.
-import {Translator, catalogMeta, resolveLanguage, validateCatalog, type Catalog, type CatalogMeta} from './core';
+import {Translator, catalogMeta, languageSet, resolveLanguage, validateCatalog, type Catalog, type Language} from './core';
 import {DomTranslator} from './dom';
 import en from './catalogs/en.json';
 import nl from './catalogs/nl.json';
 import de from './catalogs/de.json';
 
-export {Translator, resolveLanguage, validateCatalog, type Catalog};
+export {Translator, resolveLanguage, validateCatalog, type Catalog, type Language};
 
-export type Language = CatalogMeta & {catalog: Catalog; source: 'bundled' | 'user'; file?: string; problems?: number};
 /** The English catalog: every key the UI uses. */
 export const ENGLISH = en as Catalog;
-const languages = new Map<string, Language>();
-for (const catalog of [en, nl, de] as Catalog[]) {
-  const meta = catalogMeta(catalog)!;
-  languages.set(meta.locale, {...meta, catalog, source: 'bundled'});
-}
+const BUNDLED: Language[] = ([en, nl, de] as Catalog[]).map(catalog => ({...catalogMeta(catalog)!, catalog, source: 'bundled'}));
+let languages = languageSet(BUNDLED, [], ENGLISH).languages;
 
 let translator = new Translator('en');
+/** The catalog the translator was built from, to notice a replaced or removed catalog file. */
+let shownCatalog: Catalog | undefined;
 let dom: DomTranslator | undefined;
 let choice = 'system';
 const listeners = new Set<() => void>();
@@ -36,32 +34,27 @@ const systemLanguages = () => typeof navigator === 'undefined' ? [] : navigator.
 /** What 'system' resolves to on this computer. */
 export function systemLanguage() {return resolveLanguage('system', systemLanguages(), [...languages.keys()]);}
 
-/** Catalog files from the configuration folder; a file for a bundled language replaces it. */
-export function addUserCatalogs(files: {file: string; catalog: unknown}[]): string[] {
-  const warnings: string[] = [];
-  for (const {file, catalog} of files) {
-    if (!catalog || typeof catalog !== 'object' || Array.isArray(catalog)) {warnings.push(`${file}: not a catalog`);continue;}
-    const meta = catalogMeta(catalog as Catalog, file);
-    if (!meta) {warnings.push(`${file}: unknown language`);continue;}
-    const problems = validateCatalog(ENGLISH, catalog as Catalog);
-    const count = problems.missing.length + problems.placeholders.length + problems.invalid.length;
-    // Keys with mismatched placeholders would show the wrong values; English stands in for them.
-    const usable: Catalog = {...catalog as Catalog};
-    for (const key of [...problems.placeholders, ...problems.invalid]) delete usable[key];
-    languages.set(meta.locale, {...meta, catalog: usable, source: 'user', file, problems: count});
-    if (count) warnings.push(`${file}: ${problems.missing.length} missing, ${problems.placeholders.length + problems.invalid.length} invalid`);
-  }
-  return warnings;
+/**
+ * The catalog files of the configuration folder as read now: they replace the
+ * previous set, so a removed file is no longer offered and a removed override
+ * brings the bundled catalog back. Call setLanguage afterwards to apply.
+ */
+export function setUserCatalogs(files: {file: string; catalog: unknown}[]): string[] {
+  const result = languageSet(BUNDLED, files, ENGLISH);
+  languages = result.languages;
+  return result.warnings;
 }
 
 /** Show the language chosen in Options ('system' or a locale). Returns whether it changed. */
 export function setLanguage(next: string): boolean {
   choice = next || 'system';
   try {localStorage.setItem(STORAGE_KEY, choice);} catch {/* storage may be unavailable */}
+  // A language whose file disappeared resolves like any unavailable one (system language, else English).
   const locale = resolveLanguage(choice, systemLanguages(), [...languages.keys()]);
-  const language = languages.get(locale);
-  if (locale === translator.locale && (!language || language.source === 'bundled')) return false;
-  translator = new Translator(locale, locale === 'en' && language?.source !== 'user' ? {} : language?.catalog ?? {});
+  const catalog = locale === 'en' && languages.get(locale)?.source !== 'user' ? undefined : languages.get(locale)?.catalog;
+  if (locale === translator.locale && catalog === shownCatalog) return false;
+  shownCatalog = catalog;
+  translator = new Translator(locale, catalog ?? {});
   document.documentElement.lang = locale;
   dom?.apply();
   listeners.forEach(listener => listener());

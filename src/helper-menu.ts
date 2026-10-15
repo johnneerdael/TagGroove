@@ -229,7 +229,7 @@ export function installHelperMenus(host:HelperHost,root:HTMLElement=document.bod
     let list=document.getElementById(id) as HTMLDataListElement|null;
     if(!list){list=document.createElement('datalist');list.id=id;control.after(list);control.setAttribute('list',id);}
     const options:HistoryEntry[]=kind==='field'?[...new Set(known(control).map(upper))].filter(validField).sort().map(value=>({value})):control.dataset.history?history.list(control.dataset.history):[];
-    list.innerHTML=options.map(entry=>`<option value="${esc(entry.value)}"${entry.name?` label="${esc(entry.name)}"`:''}></option>`).join('');
+    list.innerHTML=options.map(entry=>`<option value="${esc(entry.value)}"${entry.name?` label="${esc(entry.name)}"`:''} translate="no"></option>`).join('');
   };
   const insert=(control:Control,text:string)=>{
     const start=control.selectionStart??control.value.length,end=control.selectionEnd??start,next=insertion(control.value,start,end,text);

@@ -130,7 +130,7 @@ export class FileOpsUI {
   /** Recent and favorite folders for the File menu. */
   menuHTML(){
     const disabled=this.host.openReason()?'disabled':'';
-    const list=(kind:string,label:string,paths:string[])=>paths.length?`<details class="group-submenu file-dir-menu"><summary>${label}</summary><div>${paths.map((path,index)=>`<button data-dir-${kind}="${index}" title="${html(path)}" ${disabled}><span>${html(basename(path))}</span><small>${html(path)}</small></button>`).join('')}</div></details>`:'';
+    const list=(kind:string,label:string,paths:string[])=>paths.length?`<details class="group-submenu file-dir-menu"><summary>${label}</summary><div>${paths.map((path,index)=>`<button data-dir-${kind}="${index}" title="${html(path)}" ${disabled} translate="no"><span>${html(basename(path))}</span><small>${html(path)}</small></button>`).join('')}</div></details>`:'';
     return `${list('recent','Recent directories',this.state.recent)}${list('favorite','Favorite directories',this.state.favorites)}`;
   }
   bindMenu(root:HTMLElement){

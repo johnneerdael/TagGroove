@@ -130,6 +130,25 @@
   try {
     await waitFor(() => rows().length >= 2, 15000, 'fixture rows');
     await waitFor(() => i18n(), 5000, 'translation layer');
+    // Two page loads: the first stores names someone gave that equal UI text ("Help"),
+    // the second checks they stay as typed while the Help menu is translated.
+    if (!sessionStorage.getItem('i18n-stage')) {
+      await step('a column, an action group and a tool named "Help" are stored for the second load', async () => {
+        await inv('save_action_library', { library: { groups: [{ name: 'Help', enabled: true, actions: [{ type: 'format_value', field: 'COMMENT', template: 'help' }] }], presets: [] } });
+        const settings = (await inv('load_settings')).settings;
+        const program = /^Win/.test(navigator.platform) ? 'C:\\Windows\\System32\\notepad.exe' : '/bin/echo';
+        settings.pages = { ...settings.pages, tools: { tools: [{ name: 'Help', path: program, parameters: '', for_each_file: false }], default_tool: -1 } };
+        await inv('save_settings', { settings });
+        const column = (id, name, value, width) => ({ id, name, value, field: value, sort_by: '', width, align: 'left', numeric: false, visible: true });
+        await inv('save_columns', { layout: { version: 1, sort: [{ id: 'filename', ascending: true }], columns: [column('filename', 'Filename', '%_filename_ext%', 220), column('title', 'Title', '%title%', 175), column('help', 'Help', '%artist%', 120)] } });
+        return 'stored';
+      });
+      sessionStorage.setItem('i18n-results', JSON.stringify(results));
+      sessionStorage.setItem('i18n-stage', '2');
+      location.reload();
+      return;
+    }
+    results.push(...JSON.parse(sessionStorage.getItem('i18n-results') || '[]'));
     await selectAll();
 
     await step('English is shown on an English system and catalog text is complete', async () => {
@@ -157,6 +176,17 @@
       if (shortcut !== '⌘/Strg S') throw new Error('shortcut: ' + shortcut);
       if (!/Tag-Panel/.test(document.querySelector('.panel-title').textContent)) throw new Error('panel title: ' + document.querySelector('.panel-title').textContent);
       return sameList(summaries(), ['Datei', 'Bearbeiten', 'Ansicht', 'Konvertieren', 'Aktionen', 'Tag-Quellen', 'Werkzeuge', 'Hilfe'], 'menus');
+    });
+    await step('German: a column, action group and tool named "Help" keep their names while the Help menu is "Hilfe"', async () => {
+      const header = await waitFor(() => document.querySelector('th[data-col="help"] button[data-sort]'), 5000, 'Help column');
+      const group = await waitFor(() => document.querySelector('button[data-action-group]'), 5000, 'Help action group');
+      const tool = await waitFor(() => document.querySelector('button[data-tool] span'), 5000, 'Help tool');
+      const shown = { column: header.textContent.trim(), title: header.title, group: group.textContent.trim(), tool: tool.textContent.trim(), sortMenu: [...document.querySelectorAll('[data-sort-menu="help"]')].map(b => b.textContent.trim()).join() };
+      if (shown.column !== 'Help' || shown.group !== 'Help' || shown.tool !== 'Help') throw new Error(JSON.stringify(shown));
+      // The rest of the header tooltip is translated around the name.
+      if (!shown.title.startsWith('Help') || /click to sort/.test(shown.title)) throw new Error('tooltip: ' + shown.title);
+      if (shown.sortMenu && !/^(✓ )?Help/.test(shown.sortMenu)) throw new Error('sort menu: ' + shown.sortMenu);
+      return JSON.stringify(shown);
     });
     await step('German: every view is translated and no label overflows where English fits', async () => {
       const problems = await sweep('de');

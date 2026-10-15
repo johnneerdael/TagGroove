@@ -9,7 +9,7 @@ const load=async file=>{
   return import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
 };
 const core=await load('i18n/core.ts');
-const {Translator,parse,placeholders,validateCatalog,resolveLanguage,catalogMeta,normalize}=core;
+const {Translator,parse,placeholders,validateCatalog,resolveLanguage,catalogMeta,normalize,languageSet}=core;
 const catalogs={};
 for(const file of await readdir(new URL('../src/i18n/catalogs/',import.meta.url)))catalogs[file.replace('.json','')]=JSON.parse(await readFile(new URL(`../src/i18n/catalogs/${file}`,import.meta.url),'utf8'));
 const english=catalogs.en;
@@ -58,6 +58,39 @@ test('shortcut labels use the local names of keys',()=>{
   assert.equal(de.translate('Alt+Page Up'),'Alt+Bild auf');
   assert.equal(de.translate('Alt 1'),'Alt 1');
   assert.equal(de.translate('Delete files'),'Delete files');
+});
+test('names someone gave stay as typed even when they equal a key',()=>{
+  const de=new Translator('de',{Help:'Hilfe','Show {label}':'{label} anzeigen','Select files first.':'Wählen Sie zuerst Dateien aus.'});
+  assert.equal(de.translate('Help'),'Hilfe');
+  // data-verbatim="Help": the name stays, the sentence around it and other text are translated.
+  assert.equal(de.translate('Help',0,'Help'),'Help');
+  assert.equal(de.translate(' Help ',0,'Help'),' Help ');
+  assert.equal(de.translate('Show Help'),'Hilfe anzeigen');
+  assert.equal(de.translate('Show Help',0,'Help'),'Help anzeigen');
+  assert.equal(de.translate('Select files first.',0,'Help'),'Wählen Sie zuerst Dateien aus.');
+  // A bare data-verbatim protects every value.
+  assert.equal(de.translate('Help',0,true),'Help');
+  assert.equal(de.translate('Show Help',0,true),'Help anzeigen');
+  // The cache of ordinary lookups is not affected.
+  assert.equal(de.translate('Help'),'Hilfe');
+});
+test('rereading the languages folder replaces the user catalogs instead of adding to them',()=>{
+  const bundled=['en','nl','de'].map(locale=>({...catalogMeta(catalogs[locale]),catalog:catalogs[locale],source:'bundled'}));
+  const first=languageSet(bundled,[{file:'fr.json',catalog:{'@meta':{name:'Français'},'Save tags':'Enregistrer'}},{file:'de.json',catalog:{'@meta':{name:'Deutsch (eigene)'},'Save tags':'Speichern!'}},{file:'bad.json',catalog:[]}],english);
+  assert.deepEqual([...first.languages.keys()].sort(),['de','en','fr','nl']);
+  assert.equal(first.languages.get('de').source,'user');
+  assert.equal(first.languages.get('de').catalog['Save tags'],'Speichern!');
+  assert.ok(first.warnings.some(w=>w.startsWith('bad.json: not a catalog')));
+  // fr.json deleted and de.json removed: French is gone and the bundled German is back.
+  const second=languageSet(bundled,[],english);
+  assert.deepEqual([...second.languages.keys()].sort(),['de','en','nl']);
+  assert.equal(second.languages.get('de').source,'bundled');
+  assert.equal(second.languages.get('de').catalog,catalogs.de);
+  // A chosen language that disappeared falls back like any unavailable one.
+  assert.equal(resolveLanguage('fr',['nl-NL'],[...second.languages.keys()]),'en');
+  assert.equal(resolveLanguage('system',['fr-FR','nl-NL'],[...second.languages.keys()]),'nl');
+  // A file that became unreadable is not offered either.
+  assert.ok(!languageSet(bundled,[{file:'fr.json',catalog:'{'}],english).languages.has('fr'));
 });
 test('catalog validation finds missing, unknown and mismatched keys',()=>{
   const en={'@meta':{name:'English',locale:'en'},'A {x}':'A {x}','B':'B','C {n}':'C {n}'};

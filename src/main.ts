@@ -12,7 +12,7 @@ import { ExportUI, offerOpenOutputs, type ExportLibrary, type ExportConfiguratio
 import { OptionsUI, registerOptionsPage, naturalCollator, setNotificationAreaSupport, windowTitle, type Settings, type SettingsResponse } from './options-ui';
 import { createNumberingReview, numberingCounter, recallNumbering, rememberNumbering, type NumberingRequest, type NumberingUpdate } from './numbering-review';
 import { open, save, ask, message } from './i18n/dialog';
-import { ENGLISH, addUserCatalogs, currentLanguage, installTranslation, setLanguage, t, translate } from './i18n';
+import { ENGLISH, setUserCatalogs, currentLanguage, installTranslation, setLanguage, t, translate } from './i18n';
 import { languageOptionsPage, languageSetting } from './language-options';
 import { Messages, messagesOptionsPage, coverChoice, type MessageKey } from './messages';
 import { appearanceOptions, completeInput, generalOptions, insideFolders, networkingOptionsPage, releaseNotesUrl, showReleaseNotes, updateMessage, updateOptions, updatesOptionsPage, type UpdateCheck } from './general-options';
@@ -26,7 +26,7 @@ import { isMacPlatform, isTextEntry, altChord, nextPane, windowShortcut, type Pa
 import { WebSourcesUI, menuLabel } from './web-sources';
 import { TagSourcesUI, tagSourcesOptionsPages, type IndexStatus } from './tag-sources';
 import { ActionUI, panelKey, rebaseCaseOnly, resolvePathChanges, type ActionGroup, type ActionLibrary, type ImportedGroup } from './action-ui';
-import { ColumnUI, ColumnValueCache, columnFields, defaultLayout, editKey, headerMarkup, maxColumnWidth, minColumnWidth, normalizeLayout, quickValue, sortClick, sortIndicator, sortRows, sortTemplate, updateSortHeader, visibleColumns, type ColumnLayout } from './columns';
+import { ColumnUI, ColumnValueCache, columnFields, columnName, setColumnNameTranslation, defaultLayout, editKey, headerMarkup, maxColumnWidth, minColumnWidth, normalizeLayout, quickValue, sortClick, sortIndicator, sortRows, sortTemplate, updateSortHeader, visibleColumns, type ColumnLayout } from './columns';
 import { FilterSync, filterCacheMiss } from './filter-sync';
 import { CellEditor, adjacentCell, slowEditStillWanted, type CellTarget } from './cell-editor';
 import { invertSelection, listShortcut, listSummary, nextFile, nextSimilarFiles, similarFiles } from './list-commands';
@@ -36,7 +36,7 @@ import { DOCKS, FILTER_DOCKS, PANEL_HEIGHT, PANEL_WIDTH, dropTarget, fitFloat, h
 import { editShortcut, emptyHistory, historyLabel, type HistoryState } from './edit-history';
 import { clipboardText, copiedMessage, copyTags, cutCoverPlan, cutPlan, pasteCoverPlan, pastePlan, pendingDigests, type ClipCover, type CoverUpdate, type PasteUpdate, type PendingCover, type TagClipboard } from './tag-clipboard';
 import { AUTO_SIZE_ROWS, autoSaveTargets, autoSizeShortcut, bindRowDrag, dropAdds, dropSelection, fitWidth, folderImageFolder, mergeOrder, moveSelection, reorderKey, shuffleOrder, tagsPagePrefs, textWidths, type ReorderMove } from './list-behaviour';
-import { ACTION_PREFIX, TOOLBAR_COMMANDS, TOOL_PREFIX, customizeToolbar, isSeparator, isSpacer, itemHint, itemLabel, normalizeCustomToolbar, normalizeToolbar, visibleItems, type ToolbarChoice, type ToolbarConfig } from './toolbar';
+import { ACTION_PREFIX, TOOLBAR_COMMANDS, TOOL_PREFIX, customizeToolbar, isSeparator, isSpacer, itemHint, itemLabel, userLabel, normalizeCustomToolbar, normalizeToolbar, visibleItems, type ToolbarChoice, type ToolbarConfig } from './toolbar';
 import './keyboard-ui.css';
 import { openTagToTag } from './tag-tag-ui';
 import { ConfigListStorage, installHelperMenus } from './helper-menu';
@@ -132,6 +132,7 @@ function applyAppearance(state:AppearanceState){
 applyAppearance(appearance.state);
 // Options → Language: what is shown follows the UI language from the first paint.
 installTranslation(document.body);
+setColumnNameTranslation(name=>translate(name));
 
 let appVersion='development';
 // Main window layout: where the tag panel is docked, its sizes and the filter's place.
@@ -395,7 +396,7 @@ const languagePage=languageOptionsPage({openFolder:desktop?()=>invoke<void>('ope
 registerOptionsPage(languagePage);
 async function applyLanguage(){
   if(desktop){
-    try{const found=await invoke<{catalogs:{file:string;catalog:unknown}[];errors:string[]}>('language_catalogs');languagePage.refresh([...found.errors,...addUserCatalogs(found.catalogs)]);}
+    try{const found=await invoke<{catalogs:{file:string;catalog:unknown}[];errors:string[]}>('language_catalogs');languagePage.refresh([...found.errors,...setUserCatalogs(found.catalogs)]);}
     catch(error){languagePage.refresh([publicMessage(error)]);}
   }
   if(setLanguage(languageSetting(optionsUI.page('language')))){shownTitle='';void applyNotificationArea();render();}
@@ -644,7 +645,7 @@ function sourceMarkup(context:'files'|'tags'){
   const entry=active();if(!entry||!providerEntry(entry))return '';
   const state=documentAccess.states[entry.path],source=sourcePresentation(state,!!documentAccess.refreshError),policy=sourcePolicy();
   const reason=policy.mutationReason||'Tag and cover saves are verified against the source.';
-  return `<section class="source-access ${state?.state==='recovery_required'?'recovery':''}" aria-label="Document source access"><div><strong>${esc(source.label)}</strong><span>${esc(source.name)}</span></div><p class="source-location" title="${esc(source.location)}">${esc(source.location)}</p><p>${esc(source.detail)}</p>${workingMetadataNotice(entry.path)}${state?.error?`<p class="source-error" role="alert">${esc(publicMessage(state.error))}</p>`:''}${documentAccess.refreshError?`<p class="source-error" role="alert">Source access could not be refreshed: ${esc(publicMessage(documentAccess.refreshError))}. Previous source details and pending edits are retained.</p>`:''}<p id="source-policy-${context}">${esc(reason)}</p><p class="source-limit">${esc(policy.unsupportedReason)}</p><div class="source-actions">${button('save-copy','Save a copy…')}${button('refresh-source','Refresh source access')}</div></section>`;
+  return `<section class="source-access ${state?.state==='recovery_required'?'recovery':''}" aria-label="Document source access"><div><strong>${esc(source.label)}</strong><span translate="no">${esc(source.name)}</span></div><p class="source-location" title="${esc(source.location)}">${esc(source.location)}</p><p>${esc(source.detail)}</p>${workingMetadataNotice(entry.path)}${state?.error?`<p class="source-error" role="alert">${esc(publicMessage(state.error))}</p>`:''}${documentAccess.refreshError?`<p class="source-error" role="alert">Source access could not be refreshed: ${esc(publicMessage(documentAccess.refreshError))}. Previous source details and pending edits are retained.</p>`:''}<p id="source-policy-${context}">${esc(reason)}</p><p class="source-limit">${esc(policy.unsupportedReason)}</p><div class="source-actions">${button('save-copy','Save a copy…')}${button('refresh-source','Refresh source access')}</div></section>`;
 }
 function requestFilter(query:string){
   const context=filterContextKey(),key=`${context}:${query}`;
@@ -834,7 +835,7 @@ function lastSourceOp():Operation{return tagSourcesUI.lastOperation as Operation
 /** View menu submenus: Sort by (each shown column; again reverses the order) and Toolbars. */
 function sortMenuItems(){
   const primary=columnLayout.sort[0];
-  return tableColumns().map(column=>{const on=primary?.id===column.id;return`<button type="button" data-sort-menu="${esc(column.id)}" role="menuitemradio" aria-checked="${on}"><span>${on?'✓ ':'<span class="column-check-space"></span>'}${esc(column.name)}${on?primary.ascending?' ↑':' ↓':''}</span></button>`;}).join('');
+  return tableColumns().map(column=>{const on=primary?.id===column.id;return`<button type="button" data-sort-menu="${esc(column.id)}" role="menuitemradio" aria-checked="${on}"><span>${on?'✓ ':'<span class="column-check-space"></span>'}<span translate="no">${esc(columnName(column))}</span>${on?primary.ascending?' ↑':' ↓':''}</span></button>`;}).join('');
 }
 function viewMenuHTML(){
   const sortItems=sortMenuItems();
@@ -849,7 +850,7 @@ function toolbarMarkup(){
     if(isSeparator(item.id))return'<span class="sep"></span>';
     if(isSpacer(item.id))return'<span class="spacer"></span>';
     const command=TOOLBAR_COMMANDS[item.id];
-    return button(item.id as Operation,esc(itemLabel(item)),command.icon).replace('<button ',`<button data-hint="${esc(command.hint)}" `);
+    return button(item.id as Operation,esc(itemLabel(item)),command.icon,'',userLabel(item)).replace('<button ',`<button data-hint="${esc(command.hint)}" `);
   }).join('');
   return`<div class="toolbar" role="toolbar" aria-label="File and tag operations">${items}</div>`;
 }
@@ -867,9 +868,9 @@ function customToolbarMarkup(){
     if(isSeparator(item.id))return'<span class="sep"></span>';
     if(isSpacer(item.id))return'<span class="spacer"></span>';
     const label=esc(itemLabel(item)),hint=esc(itemHint(item.id));
-    if(item.id in TOOLBAR_COMMANDS)return button(item.id as Operation,label,TOOLBAR_COMMANDS[item.id].icon).replace('<button ',`<button data-hint="${hint}" `);
+    if(item.id in TOOLBAR_COMMANDS)return button(item.id as Operation,label,TOOLBAR_COMMANDS[item.id].icon,'',userLabel(item)).replace('<button ',`<button data-hint="${hint}" `);
     const reason=customItemReason(item.id);
-    return`<button type="button" data-custom-item="${esc(item.id)}" data-hint="${hint}" ${reason?'disabled':''} title="${esc(reason||itemLabel(item))}"><span>${label}</span></button>`;
+    return`<button type="button" data-custom-item="${esc(item.id)}" data-hint="${hint}" data-verbatim="${label}" ${reason?'disabled':''} title="${esc(reason||itemLabel(item))}"><span translate="no">${label}</span></button>`;
   }).join('')}</div>`;
 }
 /** The toolbars, with the filter docked to their left or right when chosen (desktop layout only). */
@@ -932,8 +933,9 @@ function listEnabled(op:Operation){
   if(op==='edit-cell')return selected.size>0&&tableColumns().some(column=>editKey(column));
   return selected.size>0;
 }
-function button(op: Operation, label: string, icon = '', shortcut = '') {
-  return `<button data-op="${op}" ${enabled(op) ? '' : 'disabled'} title="${esc(operationReason(op)||label)}">${glyphs[op]?glyph(glyphs[op]!):icon?`<span class="icon" aria-hidden="true">${esc(icon)}</span>`:''}<span>${label}</span>${shortcut ? `<small>${shortcut}</small>` : ''}</button>`;
+/** `name`: the label is a name someone gave (a renamed toolbar item), shown as typed in every language. */
+function button(op: Operation, label: string, icon = '', shortcut = '', name = false) {
+  return `<button data-op="${op}" ${enabled(op) ? '' : 'disabled'} ${name?`data-verbatim="${label}"`:''} title="${esc(operationReason(op)||label)}">${glyphs[op]?glyph(glyphs[op]!):icon?`<span class="icon" aria-hidden="true">${esc(icon)}</span>`:''}<span ${name?'translate="no"':''}>${label}</span>${shortcut ? `<small>${shortcut}</small>` : ''}</button>`;
 }
 function menu(name: string, items: [Operation,string,string?][]) { return `<details class="menu" data-menu="${name}" ${name==='Actions'?'id="actions-menu"':name==='Tag Sources'?'id="tag-sources-menu"':''}><summary>${name}</summary><div class="menu-list">${items.map(([op,label,key]) => button(op,label,'',key)+(op==='dir-manage'&&desktop&&runtimePlatform.folder_picker_supported?fileOps.menuHTML():'')+(op==='source-cover-discogs'?webSourcesUI.menuHTML():'')).join('')}${name==='Actions'?actionUI.menuHTML():''}${name==='View'?viewMenuHTML()+columnUI.menuHTML():''}${name==='Tools'?toolsUI.menuHTML():''}${name==='File'&&!runtimePlatform.folder_picker_supported?'<p class="menu-note">Folder access is not available here. Use Add files.</p>':''}${['Convert','Actions'].includes(name)&&sourcePolicy().unsupportedReason?`<p class="menu-note">${esc(sourcePolicy().unsupportedReason)}</p>`:''}</div></details>`; }
 function render() {
@@ -1412,7 +1414,7 @@ function modalError(dialog: HTMLDialogElement, error: unknown) {let el=dialog.qu
 function value(dialog: HTMLDialogElement, id: string) {return dialog.querySelector<HTMLInputElement|HTMLSelectElement>(`#${id}`)!.value;}
 function saveCopy() {
   const path=paths()[0],source=documentAccess.states[path];if(!source)return;
-  const dialog=modal('Save a copy',`<p><strong>${esc(source.name)}</strong></p><p>Create a new document in a location you choose. The source and its recovery copies are retained.</p>${workingMetadataNotice(path)}<label class="field"><span>COPY VERSION</span><select id="copy-version"><option value="edited">Edited copy — includes pending tag changes</option><option value="original">Original backup — last verified source</option></select></label><p class="copy-status" role="status">${source.state==='recovery_required'?'Recovery required. Choose the edited copy or original backup.':'The edited copy includes the current tags and any pending changes.'}</p>`,`<button class="primary" id="save-document-copy">Choose destination…</button>`);
+  const dialog=modal('Save a copy',`<p><strong translate="no">${esc(source.name)}</strong></p><p>Create a new document in a location you choose. The source and its recovery copies are retained.</p>${workingMetadataNotice(path)}<label class="field"><span>COPY VERSION</span><select id="copy-version"><option value="edited">Edited copy — includes pending tag changes</option><option value="original">Original backup — last verified source</option></select></label><p class="copy-status" role="status">${source.state==='recovery_required'?'Recovery required. Choose the edited copy or original backup.':'The edited copy includes the current tags and any pending changes.'}</p>`,`<button class="primary" id="save-document-copy">Choose destination…</button>`);
   dialog.setAttribute('aria-label','Save a copy');
   const saveButton=dialog.querySelector<HTMLButtonElement>('#save-document-copy')!,closeButton=dialog.querySelector<HTMLButtonElement>('[data-close]')!;
   let copying=false;
@@ -1536,7 +1538,7 @@ function reviewedConverter(kind:'filename'|'text') {
     catch(error){if(dialog.open)modalError(dialog,error);}
     finally{picking=false;if(dialog.open){syncControls();dialog.querySelector<HTMLInputElement>('#text-source-path')!.focus({preventScroll:true});}}
   });
-  const fieldRows=(fields:Fields)=>`<dl class="converter-values">${Object.entries(fields).map(([name,values])=>`<dt>${esc(name)}</dt><dd>${values.length?values.map((value,index)=>`<span>${values.length>1?`${index+1}. `:''}${value===''?'<em>(empty)</em>':esc(value)}</span>`).join(''):'<em>No values</em>'}</dd>`).join('')}</dl>`;
+  const fieldRows=(fields:Fields)=>`<dl class="converter-values">${Object.entries(fields).map(([name,values])=>`<dt translate="no">${esc(name)}</dt><dd>${values.length?values.map((value,index)=>`<span>${values.length>1?`${index+1}. `:''}${value===''?'<em>(empty)</em>':`<span translate="no">${esc(value)}</span>`}</span>`).join(''):'<em>No values</em>'}</dd>`).join('')}</dl>`;
   const previewMarkup=(items:Item[])=>`<div class="preview" tabindex="0" role="region" aria-label="Reviewed conversion results">${items.map(item=>'target' in item?
     `<div><small>${esc(item.path)}</small><strong>${esc(item.target)}</strong>${fieldRows(item.captures)}</div>`:
     `<div><small>Source line ${item.source_line} → selected file ${item.selection_index+1}</small><strong>${esc(item.path)}</strong>${fieldRows(item.fields)}</div>`).join('')}</div>`;
@@ -1656,7 +1658,7 @@ function numbering(options:{perFolder?:boolean}={}) {
   const directoryAvailable=paths().every(path=>!providerEntry(entries.get(path)!));
   const memory=recallNumbering(storage,options.perFolder&&directoryAvailable);
   const names=[...new Set(['ALBUM','DISCNUMBER','ALBUMARTIST',...paths().flatMap(path=>Object.keys(merged(entries.get(path)!))),...[memory.next_disc_on_field,memory.reset_disc_on_field].filter(Boolean)])].sort();
-  const fieldOptions=(chosen:string)=>`<option value="">Do not change counter</option>${names.map(name=>`<option value="${esc(name)}" ${name===chosen?'selected':''}>${esc(name)}</option>`).join('')}`;
+  const fieldOptions=(chosen:string)=>`<option value="">Do not change counter</option>${names.map(name=>`<option value="${esc(name)}" ${name===chosen?'selected':''} translate="no">${esc(name)}</option>`).join('')}`;
   const counter=(id:string,label:string,initial:number,max=4_294_967_295)=>`<label class="field"><span>${label}</span><input id="${id}" type="number" min="1" max="${max}" step="1" value="${initial}"></label>`;
   const on=(value:boolean)=>value?'checked':'';
   const dialog=modal('Auto-numbering',`<p>Number selected files in their current table order. Preview, then stage the numbers as pending edits.</p>
