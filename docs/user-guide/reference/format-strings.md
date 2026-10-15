@@ -241,15 +241,18 @@ placeholder only gives the first one. These functions give you the rest:
 | `$meta_sep(artist,' & ')` | | `Juniper Vale & Mira Solberg` |
 
 Note that `$meta` takes the field **name**, without `%`. In the tag panel and
-the file list, OpenTag shows multiple values joined with ` \\ `. That is only
-a display convention; format strings never produce it. Storage of multiple
-values depends on the tag format.
+the file list, OpenTag shows multiple values joined with ` \\ `. A bare
+placeholder does not add that display separator; choose a join explicitly
+with `$meta_sep` when needed. Storage of multiple values depends on the tag
+format.
 
 ## Numbers inside text
 
-Numeric functions read the whole number at the **start** of a value and
-ignore the rest. `TRACK` = `2/8` counts as 2, and a year of `2024-05-01`
-counts as 2024. Text that doesn't start with a digit counts as 0.
+Numeric functions skip leading whitespace, read a signed integer prefix,
+and ignore the rest. `TRACK` = `2/8` counts as 2, a year of `2024-05-01`
+counts as 2024, and `-3` remains negative. Text without a leading integer,
+such as `B2`, counts as 0. These functions use integer arithmetic; a decimal
+such as `2.9` contributes 2.
 
 | Format string | With these values | Result |
 |---|---|---|
@@ -257,6 +260,8 @@ counts as 2024. Text that doesn't start with a digit counts as 0.
 | `$num(%track%,3)` | `TRACK` = `2/8` | `002` |
 | `$add(%track%,10)` | `TRACK` = `2/8` | `12` |
 | `$num(%track%,2)` | `TRACK` = `B2` (a vinyl side) | `00` |
+| `$num(-3,3)` | anything | `-03` |
+| `$num(' 3/8',2)` | anything | `03` |
 
 Use `$num` for padding and arithmetic functions such as `$add` for calculations.
 

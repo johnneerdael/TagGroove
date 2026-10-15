@@ -321,8 +321,12 @@ Backslashes need no doubling: format strings don't treat `\` specially.
     `title MATCHES "\(feat\."`), or guard the expression:
 
     ```text
-    $if($grtr($strstr(%title%,'(feat. '),0),$regexp(%title%,'^.*\(feat\. ([^)]+)\).*$','$1'),%artist%)
+    $if($grtr($strstr($lower(%title%),'(feat. '),0),$regexp(%title%,'^.*\(feat\. ([^)]+)\).*$','$1'),%artist%)
     ```
+
+    The search checks a lowercase copy so `FEAT.` follows the same
+    case-insensitive rule as the regex. The extraction still reads the
+    original title, preserving the guest's spelling.
 
 !!! warning "Gotcha: only the first value of a multi-value field"
     `%artist%` gives only the first artist, so `$regexp(%artist%,…)` only sees
@@ -420,7 +424,8 @@ Mp3tag. If you come from another tool, watch for these:
   With case ignored, `\u` matches any letter. In a *replacement*, `\u` and
   `\l` change the case of the next character.
 - **An empty pattern matches between every character:**
-  `$regexp(ab,'',_)` gives `_a_b_`.
+  `$regexp(ab,,_)` gives `_a_b_`. The pattern argument is empty; `''`
+  would search for an apostrophe instead.
 - **Characters outside the Basic Multilingual Plane**, such as emoji, count
   as two characters for `.` and `{n}`.
 - Case-insensitive matching of non-English letters follows your system's
