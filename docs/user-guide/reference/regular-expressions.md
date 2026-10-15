@@ -73,6 +73,40 @@ A class matches **one** character from a set.
 | `[^0-9]` | **not** in the set (`^` right after `[`) | `T` |
 | `[[:punct:]]` | punctuation (also `[[:alpha:]]`, `[[:upper:]]`, `[[:digit:]]`…) | `:` |
 
+### Case classes, control characters and code points
+
+Some escapes have different meanings in a pattern and a replacement.
+The following table describes their **pattern** meaning:
+
+| Pattern | Matches |
+|---|---|
+| `\l` | A lowercase character |
+| `\u` | An uppercase character |
+| `\L` | A character that is not lowercase |
+| `\U` | A character that is not uppercase |
+| `\t` | A tab |
+| `\n` | A newline/line-feed character |
+| `\r` | A carriage-return character |
+| `\r\n` | A Windows-style line ending, carriage return followed by line feed |
+| `\xnn` | A character identified by a two-digit hexadecimal code point, such as `\x41` for `A` |
+| `\x{nnnn}` | A character identified by a braced hexadecimal code point, such as `\x{732B}` for `猫` |
+
+Case-insensitive matching also affects case classes. Use `(?-i)` when
+distinguishing uppercase from lowercase is the purpose of the pattern:
+
+| Text | Pattern | Replacement | Result |
+|---|---|---|---|
+| `aB1` | `(?-i)\l` | `#` | `#B1` |
+| `aB1` | `(?-i)\u` | `#` | `a#1` |
+| `aB1` | `(?-i)\L` | `#` | `a##` |
+| `aB1` | `(?-i)\U` | `#` | `#B#` |
+| `A` | `\x41` | `#` | `#` |
+| `猫` | `\x{732B}` | `#` | `#` |
+
+In a replacement, `\u` and `\l` instead change the next character's case,
+and `\U` / `\L` change a run of output until `\E`. See
+[The replacement](#6-the-replacement) for that separate language.
+
 Inside `[…]`, most special characters lose their meaning: `[.?]` matches a
 dot or a question mark. To include `]`, `\` or `^` (at the start), escape
 them: `[\]]`. A `-` is literal at the start or end of the class: `[_-]`.
@@ -430,6 +464,8 @@ Mp3tag. If you come from another tool, watch for these:
   as two characters for `.` and `{n}`.
 - Case-insensitive matching of non-English letters follows your system's
   language settings.
+- Boost's extended conditional replacement syntax is not enabled. Use
+  format-string conditions around `$regexp` when the output needs a decision.
 
 ## Related
 

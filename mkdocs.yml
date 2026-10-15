@@ -137,7 +137,12 @@ nav:
   - Tutorials:
     - Your first tagging session: learn/first-tagging-session.md
     - Format strings from zero: learn/format-strings-from-zero.md
+    - Rename files and folders: learn/rename-files-and-folders.md
     - Regular expressions from zero: learn/regex-from-zero.md
+    - Build your first action group: learn/first-action-group.md
+  - Concepts:
+    - Multi-value fields: concepts/multi-value-fields.md
+    - Text encodings and codepages: concepts/text-encodings.md
 - Automate:
   - Converters:
     - converters/index.md
