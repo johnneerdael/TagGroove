@@ -325,6 +325,15 @@ pub(crate) fn optimize(layout: &mut Layout) {
 enum Part {
     Movie,
     Copy { source: TopBox, header: Vec<u8> },
+    /// New boxes placed directly after the movie box.
+    Data(Vec<u8>),
+}
+
+/// Boxes added after `moov` and top-level boxes left out by [`write_with`].
+/// Chunk offsets from `source length + n` address byte `n` of `boxes`.
+struct Extra {
+    boxes: Vec<u8>,
+    drop: Vec<usize>,
 }
 
 /// Write `layout` into `target`. With `reorder`, free space is dropped and
@@ -332,14 +341,31 @@ enum Part {
 /// output is verified against `source`.
 pub(crate) fn write(
     source: &mut fs::File,
-    mut layout: Layout,
+    layout: Layout,
     reorder: bool,
     target: &mut fs::File,
 ) -> Result<(), String> {
+    write_with(source, layout, reorder, target, None)
+}
+
+fn write_with(
+    source: &mut fs::File,
+    mut layout: Layout,
+    reorder: bool,
+    target: &mut fs::File,
+    extra: Option<Extra>,
+) -> Result<(), String> {
+    let source_len = source.metadata().map_err(io_error)?.len();
+    let (data, drop) = extra.map_or((None, Vec::new()), |e| (Some(e.boxes), e.drop));
     let mut parts: Vec<Part> = Vec::new();
     for (index, top) in layout.top.iter().enumerate() {
         if index == layout.moov {
             parts.push(Part::Movie);
+            if let Some(data) = &data {
+                parts.push(Part::Data(data.clone()));
+            }
+        } else if drop.contains(&index) {
+            continue;
         } else if !(reorder && FREE.contains(&&top.kind)) {
             let header = if top.open_ended {
                 let size = top.end - top.payload();
@@ -388,6 +414,10 @@ pub(crate) fn write(
                 moved.push((source.payload(), source.end, at + header.len() as u64));
                 at += header.len() as u64 + payload;
             }
+            Part::Data(bytes) => {
+                moved.push((source_len, source_len + bytes.len() as u64, at));
+                at += bytes.len() as u64;
+            }
         }
     }
     let relocate = |offset: u64| {
@@ -424,6 +454,7 @@ pub(crate) fn write(
         for part in &parts {
             match part {
                 Part::Movie => out.write_all(&movie).map_err(io_error)?,
+                Part::Data(bytes) => out.write_all(bytes).map_err(io_error)?,
                 Part::Copy {
                     source: top,
                     header,
@@ -443,7 +474,7 @@ pub(crate) fn write(
         }
         out.flush().map_err(io_error)?;
     }
-    verify(source, target, &parts, &pairs, at, reorder)
+    verify(source, target, &parts, &pairs, at, reorder, data.as_deref())
 }
 
 fn same_bytes(
@@ -478,20 +509,39 @@ fn verify(
     pairs: &[(u64, u64)],
     length: u64,
     reorder: bool,
+    data: Option<&[u8]>,
 ) -> Result<(), String> {
-    let failed = || "The optimized MP4 file did not verify; the original file was kept".to_string();
+    let failed = || "The rewritten MP4 file did not verify; the original file was kept".to_string();
     let source_len = source.metadata().map_err(io_error)?.len();
     if target.metadata().map_err(io_error)?.len() != length {
         return Err(failed());
     }
     let written = read_layout(target).map_err(|_| failed())?;
-    if written.top.len() != parts.len() {
+    let boxes = |bytes: &[u8]| parse_children(bytes).map_or(usize::MAX, |(c, _)| c.len());
+    let expected: usize = parts
+        .iter()
+        .map(|part| match part {
+            Part::Data(bytes) => boxes(bytes),
+            _ => 1,
+        })
+        .sum();
+    if written.top.len() != expected {
         return Err(failed());
     }
     if reorder && !written.optimized() {
         return Err(failed());
     }
-    for (part, top) in parts.iter().zip(&written.top) {
+    let mut tops = written.top.iter();
+    for part in parts {
+        let top = match part {
+            Part::Data(bytes) => {
+                for _ in 0..boxes(bytes) {
+                    tops.next();
+                }
+                continue;
+            }
+            _ => tops.next().ok_or_else(failed)?,
+        };
         if let Part::Copy {
             source: original, ..
         } = part
@@ -510,12 +560,483 @@ fn verify(
         return Err(failed());
     }
     for (old, new) in pairs {
+        if let Some(at) = old.checked_sub(source_len) {
+            // An offset into the added boxes.
+            let data = data.ok_or_else(failed)?;
+            let expected = data.get(at as usize..).ok_or_else(failed)?;
+            let span = expected.len().min(COMPARE as usize);
+            let mut actual = vec![0; span];
+            target.seek(SeekFrom::Start(*new)).map_err(io_error)?;
+            target.read_exact(&mut actual).map_err(io_error)?;
+            if actual != expected[..span] {
+                return Err(failed());
+            }
+            continue;
+        }
         let span = COMPARE.min(source_len - old).min(length - new);
         if !same_bytes(source, *old, target, *new, span)? {
             return Err(failed());
         }
     }
     Ok(())
+}
+
+
+// Chapter writing: a Nero `chpl` box in `moov/udta` and a QuickTime chapter
+// text track referenced by `tref/chap` from the audio and video tracks, laid
+// out as ffmpeg writes them. Earlier chapter boxes and tracks are replaced;
+// text samples of a replaced track stay unreferenced inside its media data.
+
+/// QuickTime text sample description (display flags, justification, colors,
+/// text box and font table) as ffmpeg writes it for chapter tracks.
+const TEXT_SAMPLE_ENTRY: [u8; 59] = [
+    0, 0, 0, 0x3b, b't', b'e', b'x', b't', 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xd, b'f', b't', b'a',
+    b'b', 0, 1, 0, 1, 0,
+];
+/// QuickTime base media header (`gmhd` with `gmin` and the text matrix).
+const TEXT_MEDIA_HEADER: [u8; 76] = [
+    0, 0, 0, 0x4c, b'g', b'm', b'h', b'd', 0, 0, 0, 0x18, b'g', b'm', b'i', b'n', 0, 0, 0, 0, 0,
+    0x40, 0x80, 0, 0x80, 0, 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0x2c, b't', b'e', b'x', b't', 0, 1, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x40,
+    0, 0, 0,
+];
+/// Text encoding atom marking each sample as UTF-8.
+const ENCD: [u8; 12] = [0, 0, 0, 12, b'e', b'n', b'c', b'd', 0, 0, 1, 0];
+const MATRIX: [u8; 36] = [
+    0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0x40, 0, 0, 0,
+];
+/// Free space left after chapter data that had to move the media.
+const CHAPTER_PADDING: u64 = 1024;
+/// Nero chapter starts are in 100 ns units.
+const NERO_UNITS: u128 = 10_000_000;
+
+fn boxed(kind: &Kind, body: &[u8]) -> Vec<u8> {
+    let mut out = ((body.len() + 8) as u32).to_be_bytes().to_vec();
+    out.extend(kind);
+    out.extend(body);
+    out
+}
+fn find<'a>(node: &'a Node, kind: &Kind) -> Option<&'a Node> {
+    node.children().iter().find(|c| &c.kind == kind)
+}
+fn leaf(node: &Node) -> Option<&[u8]> {
+    match &node.body {
+        Body::Leaf(bytes) => Some(bytes),
+        Body::Container { .. } => None,
+    }
+}
+fn track_id(trak: &Node) -> Option<u32> {
+    let tkhd = leaf(find(trak, b"tkhd")?)?;
+    let at = if tkhd.first() == Some(&1) { 20 } else { 12 };
+    tkhd.get(at..at + 4).map(be32)
+}
+fn handler(trak: &Node) -> Option<Kind> {
+    let hdlr = leaf(find(find(trak, b"mdia")?, b"hdlr")?)?;
+    hdlr.get(8..12)?.try_into().ok()
+}
+fn chapter_refs(trak: &Node) -> Vec<u32> {
+    find(trak, b"tref")
+        .map(|tref| {
+            tref.children()
+                .iter()
+                .filter(|c| &c.kind == b"chap")
+                .filter_map(leaf)
+                .flat_map(|ids| ids.chunks_exact(4).map(be32))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+fn node_offsets(node: &Node) -> Result<Vec<u64>, String> {
+    all_offsets(node)
+}
+
+/// A full box (version 0 or 1) with `fields` after its version and flags.
+fn full_box(kind: &Kind, version: u8, flags: u32, fields: &[u8]) -> Vec<u8> {
+    let mut body = vec![version];
+    body.extend(&flags.to_be_bytes()[1..]);
+    body.extend(fields);
+    boxed(kind, &body)
+}
+
+/// The chapter text track. `samples` are (duration, size) in the movie time
+/// scale; their bytes form one chunk at `offset`.
+fn chapter_trak(
+    id: u32,
+    timescale: u32,
+    duration: u64,
+    samples: &[(u64, u32)],
+    offset: u64,
+    wide: bool,
+) -> Node {
+    let long = duration > u64::from(u32::MAX);
+    let version = u8::from(long);
+    let time = |value: u64| {
+        if long {
+            value.to_be_bytes().to_vec()
+        } else {
+            (value as u32).to_be_bytes().to_vec()
+        }
+    };
+    // Creation and modification times are left at zero, as ffmpeg does.
+    let mut tkhd = time(0);
+    tkhd.extend(time(0));
+    tkhd.extend(id.to_be_bytes());
+    tkhd.extend([0; 4]);
+    tkhd.extend(time(duration));
+    tkhd.extend([0; 16]);
+    tkhd.extend(MATRIX);
+    tkhd.extend([0; 8]);
+    let mut elst = 1u32.to_be_bytes().to_vec();
+    elst.extend(time(duration));
+    elst.extend(time(0));
+    elst.extend(0x0001_0000u32.to_be_bytes());
+    let mut mdhd = time(0);
+    mdhd.extend(time(0));
+    mdhd.extend(timescale.to_be_bytes());
+    mdhd.extend(time(duration));
+    mdhd.extend([0x55, 0xC4, 0, 0]);
+    let mut hdlr = vec![0; 4];
+    hdlr.extend(b"text");
+    hdlr.extend([0; 12]);
+    hdlr.extend(b"Chapters\0");
+    let mut stsd = 1u32.to_be_bytes().to_vec();
+    stsd.extend(TEXT_SAMPLE_ENTRY);
+    let mut stts = Vec::new();
+    let mut runs: Vec<(u32, u64)> = Vec::new();
+    for (delta, _) in samples {
+        match runs.last_mut() {
+            Some((count, last)) if *last == *delta => *count += 1,
+            _ => runs.push((1, *delta)),
+        }
+    }
+    stts.extend((runs.len() as u32).to_be_bytes());
+    for (count, delta) in runs {
+        stts.extend(count.to_be_bytes());
+        stts.extend((delta.min(u64::from(u32::MAX)) as u32).to_be_bytes());
+    }
+    let mut stsc = 1u32.to_be_bytes().to_vec();
+    stsc.extend(1u32.to_be_bytes());
+    stsc.extend((samples.len() as u32).to_be_bytes());
+    stsc.extend(1u32.to_be_bytes());
+    let mut stsz = 0u32.to_be_bytes().to_vec();
+    stsz.extend((samples.len() as u32).to_be_bytes());
+    samples.iter().for_each(|(_, size)| stsz.extend(size.to_be_bytes()));
+    let mut chunks = 1u32.to_be_bytes().to_vec();
+    if wide {
+        chunks.extend(offset.to_be_bytes());
+    } else {
+        chunks.extend((offset as u32).to_be_bytes());
+    }
+    let stbl = [
+        full_box(b"stsd", 0, 0, &stsd),
+        full_box(b"stts", 0, 0, &stts),
+        full_box(b"stsc", 0, 0, &stsc),
+        full_box(b"stsz", 0, 0, &stsz),
+        full_box(if wide { b"co64" } else { b"stco" }, 0, 0, &chunks),
+    ]
+    .concat();
+    let dref = full_box(b"dref", 0, 0, &[&1u32.to_be_bytes()[..], &full_box(b"url ", 0, 1, &[])].concat());
+    let minf = [
+        TEXT_MEDIA_HEADER.to_vec(),
+        boxed(b"dinf", &dref),
+        boxed(b"stbl", &stbl),
+    ]
+    .concat();
+    let mdia = [
+        full_box(b"mdhd", version, 0, &mdhd),
+        full_box(b"hdlr", 0, 0, &hdlr),
+        boxed(b"minf", &minf),
+    ]
+    .concat();
+    let trak = [
+        full_box(b"tkhd", version, 2, &tkhd),
+        boxed(b"edts", &full_box(b"elst", version, 0, &elst)),
+        boxed(b"mdia", &mdia),
+    ]
+    .concat();
+    parse_node(*b"trak", &trak)
+}
+
+/// Nero `chpl`: version 1, four reserved bytes, a count and per chapter a
+/// 64-bit start in 100 ns units and a length-prefixed UTF-8 title.
+fn chpl(chapters: &[(u64, String)]) -> Node {
+    let mut body = vec![1, 0, 0, 0, 0, 0, 0, 0, chapters.len() as u8];
+    for (start, title) in chapters {
+        body.extend(start.to_be_bytes());
+        body.push(title.len() as u8);
+        body.extend(title.as_bytes());
+    }
+    Node {
+        kind: *b"chpl",
+        body: Body::Leaf(body),
+    }
+}
+
+/// Text samples: a 16-bit length, the UTF-8 title and an `encd` atom.
+fn text_samples(chapters: &[(u64, String)]) -> (Vec<u8>, Vec<u32>) {
+    let mut data = Vec::new();
+    let mut sizes = Vec::new();
+    for (_, title) in chapters {
+        let before = data.len();
+        data.extend((title.len() as u16).to_be_bytes());
+        data.extend(title.as_bytes());
+        data.extend(ENCD);
+        sizes.push((data.len() - before) as u32);
+    }
+    (data, sizes)
+}
+
+/// Replace the chapters of the MP4 file open as `file` (a staged copy at
+/// `staged_path`) by `chapters` (start in 100 ns units, title), at least
+/// one. The movie box and the chapter data are rewritten in place when they
+/// end the file or fit the free space after `moov`; otherwise the file is
+/// rewritten with every chunk offset relocated and verified.
+pub(crate) fn write_chapters(
+    file: &mut fs::File,
+    staged_path: &std::path::Path,
+    chapters: &[(u64, String)],
+) -> Result<(), String> {
+    if chapters.is_empty() || chapters.len() > 255 {
+        return Err("MP4 files hold between 1 and 255 Nero chapters".into());
+    }
+    if chapters.iter().any(|(_, title)| title.len() > 255) {
+        return Err("MP4 chapter titles are limited to 255 bytes".into());
+    }
+    if chapters.windows(2).any(|w| w[1].0 <= w[0].0) {
+        return Err("MP4 chapters must start at different, increasing times".into());
+    }
+    let layout = read_layout(file)?;
+    let file_len = file.metadata().map_err(io_error)?.len();
+    let header = leaf(find(&layout.movie, b"mvhd").ok_or_else(|| invalid("no movie header"))?)
+        .ok_or_else(|| invalid("no movie header"))?
+        .to_vec();
+    let (timescale, duration) = match header.first() {
+        Some(1) if header.len() >= 32 => (be32(&header[20..]), be64(&header[24..])),
+        Some(0) if header.len() >= 20 => (be32(&header[12..]), u64::from(be32(&header[16..]))),
+        _ => return Err(invalid("the movie header is malformed")),
+    };
+    if timescale == 0 || header.len() < 4 {
+        return Err(invalid("the movie time scale is zero"));
+    }
+    let traks: Vec<&Node> = layout
+        .movie
+        .children()
+        .iter()
+        .filter(|c| &c.kind == b"trak")
+        .collect();
+    let referenced: Vec<u32> = traks.iter().flat_map(|t| chapter_refs(t)).collect();
+    let mut kept = Vec::new();
+    let mut removed = Vec::new();
+    let mut max_id = 0;
+    for trak in &traks {
+        let id = track_id(trak).ok_or_else(|| invalid("a track has no header"))?;
+        max_id = max_id.max(id);
+        if referenced.contains(&id) {
+            removed.extend(node_offsets(trak)?);
+        } else {
+            kept.extend(node_offsets(trak)?);
+        }
+    }
+    let next_id = be32(&header[header.len() - 4..]).max(max_id + 1);
+    if next_id == u32::MAX {
+        return Err(invalid("no track ID is left for the chapter track"));
+    }
+
+    // The movie without the old chapters, with the new Nero box and references.
+    let mut base = layout.movie.clone();
+    let children = base
+        .children_mut()
+        .ok_or_else(|| invalid("the movie box could not be read"))?;
+    children.retain(|c| !(&c.kind == b"trak" && track_id(c).is_some_and(|id| referenced.contains(&id))));
+    let mut referencing = 0;
+    for trak in children.iter_mut().filter(|c| &c.kind == b"trak") {
+        let media = matches!(handler(trak).as_ref(), Some(b"soun") | Some(b"vide"));
+        let Some(parts) = trak.children_mut() else {
+            continue;
+        };
+        for tref in parts.iter_mut().filter(|c| &c.kind == b"tref") {
+            if let Some(refs) = tref.children_mut() {
+                refs.retain(|c| &c.kind != b"chap");
+            }
+        }
+        parts.retain(|c| !(&c.kind == b"tref" && matches!(&c.body, Body::Container { children, .. } if children.is_empty())));
+        if !media {
+            continue;
+        }
+        referencing += 1;
+        let chap = Node {
+            kind: *b"chap",
+            body: Body::Leaf(next_id.to_be_bytes().to_vec()),
+        };
+        match parts.iter_mut().find(|c| &c.kind == b"tref") {
+            Some(tref) => tref
+                .children_mut()
+                .ok_or_else(|| invalid("a track reference box is malformed"))?
+                .push(chap),
+            None => {
+                let at = parts
+                    .iter()
+                    .position(|c| &c.kind == b"mdia")
+                    .unwrap_or(parts.len());
+                parts.insert(
+                    at,
+                    Node {
+                        kind: *b"tref",
+                        body: Body::Container {
+                            prefix: Vec::new(),
+                            children: vec![chap],
+                            suffix: Vec::new(),
+                        },
+                    },
+                );
+            }
+        }
+    }
+    if referencing == 0 {
+        return Err("The MP4 file has no audio or video track for chapters".into());
+    }
+    for node in children.iter_mut() {
+        if &node.kind == b"mvhd" {
+            if let Body::Leaf(bytes) = &mut node.body {
+                let at = bytes.len() - 4;
+                bytes[at..].copy_from_slice(&(next_id + 1).to_be_bytes());
+            }
+        }
+        if &node.kind == b"udta" {
+            if let Some(items) = node.children_mut() {
+                items.retain(|c| &c.kind != b"chpl");
+            }
+        }
+    }
+    let nero = chpl(chapters);
+    match children.iter_mut().find(|c| &c.kind == b"udta") {
+        Some(udta) => udta
+            .children_mut()
+            .ok_or_else(|| invalid("the user data box is malformed"))?
+            .push(nero),
+        None => children.push(Node {
+            kind: *b"udta",
+            body: Body::Container {
+                prefix: Vec::new(),
+                children: vec![nero],
+                suffix: Vec::new(),
+            },
+        }),
+    }
+    let trak_at = children
+        .iter()
+        .rposition(|c| &c.kind == b"trak")
+        .map_or(children.len(), |i| i + 1);
+
+    // Samples in the movie time scale; each title lasts until the next one.
+    let ticks = |units: u64| (u128::from(units) * u128::from(timescale) / NERO_UNITS) as u64;
+    let last = ticks(chapters[chapters.len() - 1].0);
+    let total = duration.max(last + u64::from(timescale));
+    let (data, sizes) = text_samples(chapters);
+    let samples: Vec<(u64, u32)> = (0..chapters.len())
+        .map(|i| {
+            let from = if i == 0 { 0 } else { ticks(chapters[i].0) };
+            let to = chapters.get(i + 1).map_or(total, |next| ticks(next.0));
+            (to.saturating_sub(from).max(1), sizes[i])
+        })
+        .collect();
+    let movie = |offset: u64, wide: bool| {
+        let mut movie = base.clone();
+        let trak = chapter_trak(next_id, timescale, total, &samples, offset, wide);
+        if let Some(children) = movie.children_mut() {
+            children.insert(trak_at, trak);
+        }
+        movie
+    };
+    let mdat = |padding: u64| {
+        let mut out = boxed(b"mdat", &data);
+        let size = out.len() as u64 + padding;
+        out[..4].copy_from_slice(&(size as u32).to_be_bytes());
+        out.resize(size as usize, 0);
+        out
+    };
+
+    // In place: `moov` and everything after it is free space or old chapter
+    // data, or the free space after `moov` holds the new boxes.
+    let moov = layout.top[layout.moov].clone();
+    let chapter_only = |top: &TopBox| {
+        &top.kind == b"mdat"
+            && removed.iter().any(|o| (top.payload()..top.end).contains(o))
+            && !kept.iter().any(|o| (top.payload()..top.end).contains(o))
+    };
+    let droppable = |top: &TopBox| FREE.contains(&&top.kind) || chapter_only(top);
+    let after = &layout.top[layout.moov + 1..];
+    let blocker = after.iter().find(|top| !droppable(top));
+    let region_end = blocker.map_or(file_len, |top| top.start);
+    let tail = blocker.is_none() && kept.iter().all(|o| *o < moov.start);
+    let in_region = kept.iter().any(|o| (moov.start..region_end).contains(o));
+    let sized = |wide: bool| movie(0, wide).size();
+    let place = |wide: bool| moov.start + sized(wide) + 8;
+    let wide = place(false) > u64::from(u32::MAX);
+    let need = sized(wide) + 8 + data.len() as u64;
+    if !in_region && (tail || need <= region_end - moov.start) {
+        let offset = place(wide);
+        let mut bytes = Vec::new();
+        movie(offset, wide).write(&mut bytes);
+        let spare = if tail { 0 } else { region_end - moov.start - need };
+        if spare >= 8 {
+            bytes.extend(mdat(0));
+            bytes.extend(boxed(b"free", &vec![0; (spare - 8) as usize]));
+        } else {
+            bytes.extend(mdat(spare));
+        }
+        file.seek(SeekFrom::Start(moov.start)).map_err(io_error)?;
+        file.write_all(&bytes).map_err(io_error)?;
+        if tail {
+            file.set_len(moov.start + bytes.len() as u64)
+                .map_err(io_error)?;
+        }
+        crate::write_cost::rewrote_region(bytes.len() as u64);
+        file.sync_all().map_err(io_error)?;
+        // Every other chunk offset is unchanged and the samples are in place.
+        let written = read_layout(file).map_err(|_| invalid("the rewritten movie box"))?;
+        let mut expected = kept.clone();
+        expected.push(offset);
+        let mut sample = vec![0; data.len()];
+        file.seek(SeekFrom::Start(offset)).map_err(io_error)?;
+        file.read_exact(&mut sample).map_err(io_error)?;
+        if all_offsets(&written.movie)? != expected || sample != data {
+            return Err("The MP4 chapters did not verify; the original file was kept".into());
+        }
+        return Ok(());
+    }
+
+    // Rewrite: the chapter data follows `moov`, with room for later edits.
+    crate::write_cost::rewrote_all();
+    let directory = staged_path
+        .parent()
+        .ok_or_else(|| invalid("the staged file has no folder"))?;
+    let copy = crate::tags::staging_copy(staged_path, directory, ".opentag-chapters-", "")?;
+    let mut source = copy.reopen().map_err(io_error)?;
+    let wide = file_len + need + 2 * CHAPTER_PADDING > u64::from(u32::MAX);
+    let mut boxes = mdat(0);
+    boxes.extend(boxed(b"free", &vec![0; CHAPTER_PADDING as usize]));
+    let drop = layout
+        .top
+        .iter()
+        .enumerate()
+        .filter(|(_, top)| chapter_only(top))
+        .map(|(index, _)| index)
+        .collect();
+    let rewritten = Layout {
+        top: layout.top.clone(),
+        moov: layout.moov,
+        movie: movie(file_len + 8, wide),
+    };
+    write_with(
+        &mut source,
+        rewritten,
+        false,
+        file,
+        Some(Extra { boxes, drop }),
+    )
 }
 
 #[cfg(test)]

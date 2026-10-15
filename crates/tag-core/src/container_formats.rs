@@ -82,6 +82,7 @@ pub(super) struct Description {
     pub id3: Option<Id3v2Tag>,
     /// Further information fields, such as `_SUBSONG_COUNT`.
     pub technical: Fields,
+    pub chapters: Vec<ChapterInfo>,
 }
 
 /// One requested change. Field names are canonical Mp3tag names.
@@ -139,7 +140,7 @@ pub(super) fn read(
     }
     technical.extend(description.technical.clone());
     technical::file_fields(&mut technical, &covers, &metadata, path);
-    Ok(AudioEntry {
+    let mut entry = AudioEntry {
         path: path.to_string_lossy().into_owned(),
         filename: path
             .file_name()
@@ -155,7 +156,10 @@ pub(super) fn read(
         fields: description.fields,
         covers,
         technical,
-    })
+        chapters: Vec::new(),
+    };
+    subsongs::attach(&mut entry, description.chapters);
+    Ok(entry)
 }
 
 /// Stage, apply and verify one edit chosen from the current description.

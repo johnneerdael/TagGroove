@@ -1,5 +1,6 @@
 pub mod actions;
 pub mod converters;
+pub mod cue;
 pub mod export;
 pub mod filter;
 mod flac_metadata;

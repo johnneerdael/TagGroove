@@ -324,6 +324,7 @@ fn snapshot(path: &Path, kind: Kind) -> Result<Snapshot, String> {
                     tags: Vec::new(),
                     id3: None,
                     technical: Fields::new(),
+                    chapters: Vec::new(),
                 },
             )
         }
@@ -376,6 +377,7 @@ fn snapshot(path: &Path, kind: Kind) -> Result<Snapshot, String> {
                     tags: Vec::new(),
                     id3: None,
                     technical: Fields::new(),
+                    chapters: Vec::new(),
                 },
             )
         }
