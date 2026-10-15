@@ -15,6 +15,7 @@ mod file_hashes;
 mod file_ops;
 mod filter_cache;
 mod history;
+mod library;
 mod list_behaviour;
 mod lists;
 #[cfg(any(target_os = "android", test))]
@@ -507,16 +508,19 @@ fn write_row_group(
 }
 
 /// `job` names the operation for progress events and [`progress::cancel_job`].
+/// `refresh` (File → Reload tags) reads every file even when Options →
+/// Library holds it.
 #[tauri::command]
 async fn scan_files(
     paths: Vec<String>,
     recursive: bool,
     job: Option<String>,
+    refresh: Option<bool>,
 ) -> Result<ScanResult, String> {
     io(move || {
         #[cfg(target_os = "android")]
         {
-            let _ = (recursive, job);
+            let _ = (recursive, job, refresh);
             Ok(batch(&paths, documents::reload))
         }
         #[cfg(not(target_os = "android"))]
@@ -525,12 +529,13 @@ async fn scan_files(
             let (managed, ordinary): (Vec<_>, Vec<_>) = paths
                 .into_iter()
                 .partition(|p| documents::is_managed(Path::new(p)));
-            let mut result = tag_core::scan_paths_with_progress(
+            let mut result = library::scan(
                 &ordinary,
                 recursive,
                 &settings::tag_options(),
                 settings::extensions().as_deref(),
                 &job,
+                refresh.unwrap_or(false),
             );
             let restored = batch(&managed, documents::reload);
             result.entries.extend(restored.entries);
@@ -1175,6 +1180,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             e2e::e2e_report,
             progress::cancel_job,
+            library::library_status,
+            library::cleanup_library,
+            library::clear_library,
             save_fields_batch,
             e2e::e2e_exit,
             e2e::e2e_open_urls,
@@ -1503,7 +1511,7 @@ mod tests {
         tag_core::write_fields(&source, &external).unwrap();
         session.rename("Other - Changed.wav");
         let reloaded =
-            tauri::async_runtime::block_on(scan_files(paths.clone(), false, None)).unwrap();
+            tauri::async_runtime::block_on(scan_files(paths.clone(), false, None, None)).unwrap();
         assert_eq!(reloaded.entries[0].fields["TITLE"], ["External"]);
         assert_eq!(reloaded.entries[0].filename, "Other - Changed.wav");
         let renamed_preview = tauri::async_runtime::block_on(preview_filename(
@@ -1696,7 +1704,7 @@ mod tests {
             .entries
             .iter()
             .any(|e| e.path == session.path && e.fields["TITLE"] == ["Retain edited"]));
-        let blocked = tauri::async_runtime::block_on(scan_files(paths, false, None)).unwrap();
+        let blocked = tauri::async_runtime::block_on(scan_files(paths, false, None, None)).unwrap();
         assert!(blocked.entries.is_empty());
         assert!(blocked.errors[0].error.contains("recovery"));
         let readonly =

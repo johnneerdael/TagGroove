@@ -878,6 +878,15 @@ pub fn scan_paths_with_options(
         &crate::parallel::Silent,
     )
 }
+/// Entries kept between sessions (Options → Library) that stand in for reading
+/// unchanged files. Paths are canonical.
+pub trait EntryCache {
+    /// The stored entry of each path, or `None` where the file must be read.
+    fn lookup(&self, paths: &[PathBuf]) -> Vec<Option<AudioEntry>>;
+    /// Keep entries that were just read from their files.
+    fn store(&self, entries: &[&AudioEntry]);
+}
+
 /// Like [`scan_paths_with_options`], reading files in parallel while reporting
 /// progress. After a cancellation the files read so far are returned.
 pub fn scan_paths_with_progress(
@@ -886,6 +895,18 @@ pub fn scan_paths_with_progress(
     options: &TagOptions,
     extensions: Option<&[String]>,
     progress: &dyn crate::parallel::Progress,
+) -> ScanResult {
+    scan_paths_cached(paths, recursive, options, extensions, progress, None)
+}
+/// [`scan_paths_with_progress`] that takes unchanged files from `cache` and
+/// stores the files it had to read there.
+pub fn scan_paths_cached(
+    paths: &[String],
+    recursive: bool,
+    options: &TagOptions,
+    extensions: Option<&[String]>,
+    progress: &dyn crate::parallel::Progress,
+    cache: Option<&dyn EntryCache>,
 ) -> ScanResult {
     let mut result = ScanResult::default();
     let mut seen = HashSet::new();
@@ -939,10 +960,34 @@ pub fn scan_paths_with_progress(
         }
     }
     progress.start(unique.len());
-    let read = crate::parallel::map_ordered(&unique, progress, |canonical| {
+    let mut stored = match cache {
+        Some(cache) => cache.lookup(&unique),
+        None => vec![None; unique.len()],
+    };
+    let missing: Vec<&PathBuf> = unique
+        .iter()
+        .zip(&stored)
+        .filter(|(_, entry)| entry.is_none())
+        .map(|(path, _)| path)
+        .collect();
+    for _ in missing.len()..unique.len() {
+        progress.advance();
+    }
+    let read = crate::parallel::map_ordered(&missing, progress, |canonical| {
         read_entry_summary_with_options(canonical, &options.mappings, options)
     });
-    for (canonical, outcome) in unique.iter().zip(read) {
+    if let Some(cache) = cache {
+        let fresh: Vec<&AudioEntry> = read.iter().flatten().flatten().collect();
+        if !fresh.is_empty() {
+            cache.store(&fresh);
+        }
+    }
+    let mut read = read.into_iter();
+    for (canonical, entry) in unique.iter().zip(stored.iter_mut()) {
+        let outcome = match entry.take() {
+            Some(entry) => Some(Ok(entry)),
+            None => read.next().flatten(),
+        };
         match outcome {
             Some(Ok(entry)) => result.entries.push(entry),
             Some(Err(error)) => result.errors.push(FileError {

@@ -21,6 +21,7 @@ tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
 tauri-plugin-document-access = { path = "../crates/document-access" }
 tag-core = { path = "../crates/tag-core" }
+opentag-library = { path = "../crates/library" }
 dunce = "1"
 regex-compat = { path = "../crates/regex-compat" }
 serde = { version = "1", features = ["derive"] }
