@@ -13,6 +13,7 @@ import sys
 import subprocess
 
 from codex_review import GitHub as BaseGitHub, timestamp
+from release_notes import validate_release_notes
 
 CONTEXT = 'Reviewed PR builds'
 
@@ -37,10 +38,18 @@ def shas(*values):
         raise ValueError('Full commit SHAs are required')
 
 
+def check_notes(pr):
+    try:
+        validate_release_notes(pr.get('body') or '')
+    except ValueError as error:
+        raise RuntimeError(str(error)) from error
+
+
 def check_pr(api, number, source=None):
     pr, (ready, reason) = api.snapshot(number)
     if not ready:
         raise RuntimeError(reason)
+    check_notes(pr)
     if pr.get('mergeable') is not True:
         raise RuntimeError('PR is not mergeable')
     head, base, merge = pr['head']['sha'], api.get('git/ref/heads/main')['object']['sha'], pr.get('merge_commit_sha')
@@ -63,9 +72,17 @@ def title(pr):
 def reconcile(api, number, retry=False):
     raw, (eligible, reason) = api.snapshot(number)
     api.status(raw['head']['sha'], 'success' if eligible else 'pending', reason, context='Codex review')
+    try:
+        check_notes(raw)
+        notes_ready, notes_reason = True, 'Release notes describe a concrete change'
+    except RuntimeError as error:
+        notes_ready, notes_reason = False, str(error)
+    api.status(raw['head']['sha'], 'success' if notes_ready else 'failure', notes_reason, context='Release notes')
+    if not notes_ready:
+        reason = notes_reason
     runs = [run for run in api.runs('reviewed-pr.yml') if run['display_title'].startswith(f'Reviewed PR #{number} @ ')]
     try:
-        pr = check_pr(api, number) if eligible else None
+        pr = check_pr(api, number) if eligible and notes_ready else None
     except RuntimeError as error:
         pr, reason = None, str(error)
     for run in runs:
@@ -116,6 +133,7 @@ def check_release(api, number, head, source):
     if (not ready or not pr.get('merged') or pr['state'] != 'closed' or pr['base']['ref'] != 'main'
             or pr['head']['sha'] != head or pr.get('merge_commit_sha') != source):
         raise RuntimeError(f'Main source has no approved merged PR: {reason}')
+    check_notes(pr)
     proof = next((item for item in api.pages(f'commits/{head}/statuses?per_page=100') if item['context'] == CONTEXT), None)
     match = re.fullmatch(r'Passed ([0-9a-f]{40}) ([0-9a-f]{40})', proof.get('description', '')) if proof and proof['state'] == 'success' else None
     if not match:
@@ -176,6 +194,7 @@ def main():
                 pr = api.get(f'pulls/{number}')
                 api.status(pr['head']['sha'], 'pending', 'Cannot verify review; application execution denied', context=CONTEXT)
                 api.status(pr['head']['sha'], 'pending', 'Cannot verify Codex review', context='Codex review')
+                api.status(pr['head']['sha'], 'pending', 'Cannot verify release notes', context='Release notes')
                 for run in api.runs('reviewed-pr.yml'):
                     if run['status'] != 'completed' and run['display_title'].startswith(f'Reviewed PR #{number} @ '):
                         api.post(f"actions/runs/{run['id']}/cancel", {})

@@ -1,5 +1,6 @@
 """Require an authenticated, clean Codex code review of the final PR head."""
 import importlib.util
+from copy import deepcopy
 import json
 from pathlib import Path
 import sys
@@ -155,3 +156,28 @@ class EligibilityTests(unittest.TestCase):
             pull = pr()
             pull[key] = value
             self.assertFalse(self.check(pull=pull))
+
+
+class SnapshotTests(unittest.TestCase):
+    def test_review_request_added_during_read_cannot_authorize_stale_clean_snapshot(self):
+        gate = load_gate()
+        for key, request in (("requested_reviewers", dict(login="reviewer")),
+                             ("requested_teams", dict(slug="maintainers"))):
+            with self.subTest(key=key):
+                initial = pr()
+                current = deepcopy(initial)
+                current[key] = [request]
+                api = gate.GitHub("owner/repo")
+                with patch.object(api, "get", side_effect=[initial, current]), \
+                        patch.object(api, "pages", side_effect=[[review()], [], [thumb()], []]), \
+                        patch.object(api, "threads", return_value=[]):
+                    with self.assertRaisesRegex(RuntimeError, "PR changed"):
+                        api.snapshot(1)
+
+    def test_unchanged_clean_snapshot_still_authorizes(self):
+        gate = load_gate()
+        api = gate.GitHub("owner/repo")
+        with patch.object(api, "get", side_effect=[pr(), pr()]), \
+                patch.object(api, "pages", side_effect=[[review()], [], [thumb()], []]), \
+                patch.object(api, "threads", return_value=[]):
+            self.assertTrue(api.snapshot(1)[1][0])

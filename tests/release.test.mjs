@@ -376,21 +376,47 @@ test('a rerun after publication is a no-op and never a duplicate release', async
   await assert.rejects(publishRelease({ api, plan: plan(), assembled, repository: 'owner/repo' }), /published/);
 });
 
-test('release notes cover changes since the previous earlier release', async () => {
+test('release ranges use the previous earlier version', () => {
   const auto = { ...plan(), tag: 'v0.2.3', version: '0.2.3' };
   assert.equal(previousTag(['v0.1.0', 'v0.2.0', 'v0.2.2', 'v0.2.3', 'v0.2.4', 'v0.3.0-beta.1', 'v0.2.3-rc.1', 'nightly'], auto), 'v0.2.2');
   assert.equal(previousTag(['v0.2.0', 'v0.2.3-rc.1'], auto), 'v0.2.0');
   assert.equal(previousTag(['v0.2.0', 'v0.2.3-rc.1'], { ...auto, prerelease: true }), 'v0.2.3-rc.1');
   assert.equal(previousTag(['v0.2.3'], auto), null);
-  const requests = [];
-  const generated = await releaseNotes({ api: { generateNotes: async (body) => { requests.push(body); return { body: "## What's Changed\n* Add chapters by @dev in #17\n" }; } }, plan: auto, previous: 'v0.2.2', log: () => assert.fail('No fallback') });
-  assert.match(generated, /Add chapters/);
-  assert.deepEqual(requests, [{ tag_name: 'v0.2.3', target_commitish: sha, previous_tag_name: 'v0.2.2' }]);
-  const fallback = await releaseNotes({ api: { generateNotes: async () => { throw new Error('offline'); } }, plan: auto, previous: 'v0.2.2', log: () => 'Merge pull request #17 (abc1234)\nFix list (def5678)\n' });
-  assert.equal(fallback, '## Changes since v0.2.2\n\n- Merge pull request #17 (abc1234)\n- Fix list (def5678)\n');
-  const body = releaseBody(auto, 'johnneerdael/opentag', fallback);
+  const body = releaseBody(auto, 'johnneerdael/opentag', '## Changes\n\n- Fix list');
   assert.ok(body.indexOf('Fix list') < body.indexOf('| Download |'));
   assert.match(body, /Release \(pre-1\.0\)/);
+});
+
+test('published release enumeration excludes drafts and paginates', async () => {
+  const api = new GitHubApi('owner/repo', 'test-token');
+  const requests = [];
+  api.request = async path => {
+    requests.push(path);
+    return path.endsWith('page=1')
+      ? Array.from({ length: 100 }, (_, index) => ({ tag_name: `v0.2.${index}`, draft: index === 99 }))
+      : [{ tag_name: 'v0.2.100', draft: false }];
+  };
+  const tags = await api.publishedReleaseTags();
+  assert.equal(tags.size, 100);
+  assert.ok(!tags.has('v0.2.99'));
+  assert.ok(tags.has('v0.2.100'));
+  assert.equal(requests.length, 2);
+});
+
+test('notes invoke the strict collector and fail rather than silently downgrade', async t => {
+  const root = await fixture(t);
+  const { git, setVersion, commit } = repo(root);
+  git('init', '-q', '-b', 'main');
+  await setVersion('0.2.0');
+  await commit('Published release');
+  const head = git('rev-parse', 'HEAD');
+  git('tag', 'v0.2.0');
+  await mkdir(join(root, '.github'));
+  await writeFile(join(root, '.github/release-notes-baseline'), `${head}\n`);
+  const notes = await releaseNotes({ plan: { ...plan(), commit: head }, previous: 'v0.2.0', root, repository: 'owner/repo' });
+  assert.match(notes, /No commits in this release range/);
+  await writeFile(join(root, '.github/release-notes-baseline'), 'invalid\n');
+  await assert.rejects(releaseNotes({ plan: { ...plan(), commit: head }, previous: 'v0.2.0', root, repository: 'owner/repo' }), /baseline/);
 });
 
 test('merges that change nothing that ships keep the previous number', async (t) => {
