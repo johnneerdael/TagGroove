@@ -26,7 +26,7 @@ import { TagSourcesUI, tagSourcesOptionsPages, type IndexStatus } from './tag-so
 import { ActionUI, panelKey, rebaseCaseOnly, resolvePathChanges, type ActionGroup, type ActionLibrary, type ImportedGroup } from './action-ui';
 import { ColumnUI, ColumnValueCache, columnFields, defaultLayout, editKey, headerMarkup, maxColumnWidth, minColumnWidth, normalizeLayout, quickValue, sortClick, sortIndicator, sortRows, sortTemplate, updateSortHeader, visibleColumns, type ColumnLayout } from './columns';
 import { FilterSync, filterCacheMiss } from './filter-sync';
-import { CellEditor, adjacentCell, type CellTarget } from './cell-editor';
+import { CellEditor, adjacentCell, slowEditStillWanted, type CellTarget } from './cell-editor';
 import { invertSelection, listShortcut, listSummary, nextFile, nextSimilarFiles, similarFiles } from './list-commands';
 import { FindUI } from './find';
 import { TagPanel, automaticDefaults, splitValues, type Mp3tagPanelImport, type PanelLayout, type TagPanelSettings } from './tag-panel';
@@ -1232,7 +1232,7 @@ function bind() {
       // A second, delayed click on a selected file edits the clicked cell.
       const cell=(e.target as Element).closest<HTMLElement>('td.editable[data-col]'),again=!!cell&&!e.shiftKey&&!e.metaKey&&!e.ctrlKey&&!compactScreen()&&selected.size===1&&selected.has(row.dataset.path!);
       if(compactScreen())mobilePane='tags';select(row.dataset.path!,e);
-      window.clearTimeout(slowEditTimer);if(again){const target={path:row.dataset.path!,column:cell!.dataset.col!};slowEditTimer=window.setTimeout(()=>{if(selected.size===1&&selected.has(target.path)&&!busy)cellEditor.start(target);},550);}
+      window.clearTimeout(slowEditTimer);if(again){const target={path:row.dataset.path!,column:cell!.dataset.col!};slowEditTimer=window.setTimeout(()=>{const focusedRow=(document.activeElement as Element|null)?.closest?.<HTMLElement>('tr[data-path]')?.dataset.path;if(slowEditStillWanted(target,{selected,busy,focusedRow}))cellEditor.start(target);},550);}
     }
   });
   rowMenu.bind(wrap);
@@ -1865,6 +1865,8 @@ async function operate(op: Operation) {
 let heldModifiers={control:false,command:false};
 const trackModifiers=(event:KeyboardEvent)=>{heldModifiers={control:event.ctrlKey,command:event.metaKey};};
 window.addEventListener('keydown',trackModifiers,true);window.addEventListener('keyup',trackModifiers,true);
+// Any key press cancels a pending delayed-click edit, as in Explorer.
+window.addEventListener('keydown',()=>window.clearTimeout(slowEditTimer),true);
 window.addEventListener('blur',()=>{heldModifiers={control:false,command:false};});
 /** File drops replace the File List; with Ctrl (⌘ on macOS) held they add to it, as in Mp3tag. */
 async function dropFiles(dropped:string[]){
