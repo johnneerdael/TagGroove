@@ -85,10 +85,11 @@ type Fields = Record<string, string[]>;
 type Cover = CoverInfo;
 type Entry = { path: string; filename: string; format: string; duration: number; bitrate: number; sample_rate: number; channels: number; size: number; fields: Fields; technical?: Fields; covers: Cover[] };
 type FileError = { path: string; error: string };
-type Batch = { entries: Entry[]; errors: FileError[]; renamed?: { from: string; to: string }[]; moved_directories?: {from:string;to:string}[]; outputs?: string[] };
+type Batch = { entries: Entry[]; errors: FileError[]; renamed?: { from: string; to: string }[]; moved_directories?: {from:string;to:string}[]; outputs?: string[]; unmatched?: string[] };
 type Preview = { path: string; value: string };
 type RenamePreview = Preview & {plan_token:string};
-type FilenamePreview = { path: string; fields: Fields };
+// A file whose name does not match the pattern has no fields and is left unchanged.
+type FilenamePreview = { path: string; fields: Fields|null; error?: string };
 type Operation = 'folder'|'files'|'save'|'save-copy'|'refresh-source'|'reload'|'extended'|'add-cover'|'remove-cover'|'filename-tags'|'tags-filename'|'filename-filename'|'text-tags'|'action'|'groups'|'number'|'remove-tags'|'playlist-load'|'playlist-all'|'playlist-selected'|'playlist-generate'|'export-folders'|'list-unsorted'|'csv'|'export-config'|'select-all'|'discard'|'options'|'about'|'toggle-panel'|'panel-options'|'field-values'|'panel-defaults'|'undo'|'redo'|'copy-tags'|'cut-tags'|'paste-tags'|'tag-tag'|'source-musicbrainz'|'source-freedb'|'source-local-freedb'|'source-cover-musicbrainz'|'source-cover-discogs'|'source-discogs'|'source-discogs-release'|'source-token'|'source-install'|'source-folder'|'source-options'|'cover-manage'|'copy-text'|'remove-tag-types'|'strip-mp4-chapters'|'tools-options'|'config-save'|'config-load'|'config-folder'|'help-shortcuts'|'help-docs'|'help-issues'|'help-releases'|'help-updates'|'playlist-folders'|'source-last'|'source-last-quick'|'toggle-filter'|'toggle-toolbar'|'toolbar-customize'|'toggle-custom-toolbar'|'custom-toolbar-customize'|UtilOperation|ListOperation|FileOperation;
 type UtilOperation='util-unsupported'|'util-optimize';
 const utilOperations:Record<UtilOperation,Util>={'util-unsupported':'remove_unsupported_fields','util-optimize':'optimize'};
@@ -1385,13 +1386,13 @@ async function reconcileWorkingEntries(targets:string[]){
     }
   }catch(error){managed.forEach(path=>unavailable(path,String(error)));}
 }
-async function mutate(command: string, args: Record<string,unknown>, message: string) {
+async function mutate(command: string, args: Record<string,unknown>, message: string, note?: (batch: Batch) => string) {
   const targets=paths();
   return await run(`${message}…`,async()=>{
     let batch:Batch;
     try{batch=await invoke<Batch>(command,{paths:targets,...args});}
     catch(error){await reconcileWorkingEntries(targets);throw error;}
-    accept(batch,message,true,targets.map(rowFile));
+    accept(batch,message,true,targets.map(rowFile));if(note)status+=note(batch);
     await reconcileWorkingEntries(batch.errors.map(error=>error.path));
     return batch;
   });
@@ -1438,18 +1439,18 @@ function saveCopy() {
 }
 function converter(rename: boolean) {
   const dialog=modal(rename?'Tag → Filename':'Filename → Tag',`<p>${rename?'Preview filenames before applying. The audio file extension is retained.':'Extract tags from each filename using field placeholders. Preview the results before saving them to your files.'}</p><label class="field"><span>${rename?'FORMAT STRING':'FILENAME PATTERN'}</span><input id="template" value="%artist% - %title%" spellcheck="false" autocomplete="off" data-helper="${rename?'format':'pattern'}" data-history="${rename?'tag-filename':'filename-tag'}" data-history-manage></label><div id="preview"></div>`,`<button id="preview-button">Preview</button><button class="primary" id="apply-converter" disabled>Apply to ${selected.size} files</button>`);
-  const apply=dialog.querySelector<HTMLButtonElement>('#apply-converter')!;let previewed='',previewRevision=0,previewPaths:string[]=[],planToken:string|undefined;
+  const apply=dialog.querySelector<HTMLButtonElement>('#apply-converter')!;let previewed='',previewRevision=0,previewPaths:string[]=[],planToken:string|undefined,matched=0;
   dialog.querySelector('#template')!.addEventListener('input',()=>{previewRevision++;previewed='';previewPaths=[];planToken=undefined;apply.disabled=true;dialog.querySelector('#preview')!.innerHTML='';});
   dialog.querySelector('#preview-button')!.addEventListener('click',async()=>{
     const previewButton=dialog.querySelector<HTMLButtonElement>('#preview-button')!;previewButton.disabled=true;apply.disabled=true;planToken=undefined;
     try{
       const template=value(dialog,'template'),targets=paths(),revision=previewRevision;
       if(rename){const result=await invoke<RenamePreview[]>('preview_rename',{paths:targets,template,columns:columnSpecs(targets)});if(!dialog.open||revision!==previewRevision)return;const token=result[0]?.plan_token;if(!token||result.length!==targets.length||result.some((row,index)=>row.path!==targets[index]||row.plan_token!==token))throw new Error('The rename preview could not be verified. Run Preview again.');dialog.querySelector('#preview')!.innerHTML=`<div class="preview">${result.map(r=>`<div><small>${esc(displayName(r.path))}</small>${esc(r.value)}</div>`).join('')}</div>`;planToken=token;}
-      else{const result=await invoke<FilenamePreview[]>('preview_filename',{paths:targets,pattern:template});if(!dialog.open||revision!==previewRevision)return;dialog.querySelector('#preview')!.innerHTML=`<div class="preview">${result.map(r=>`<div><small>${esc(displayName(r.path))}</small>${Object.entries(r.fields).map(([key,values])=>`${esc(key)}: ${esc(values.join(' · '))}`).join('<br>')}</div>`).join('')}</div>`;}
-      dialog.querySelector('.dialog-error')?.remove();previewed=template;previewPaths=targets;apply.disabled=value(dialog,'template')!==template||JSON.stringify(paths())!==JSON.stringify(targets)||(rename&&!planToken);
+      else{const result=await invoke<FilenamePreview[]>('preview_filename',{paths:targets,pattern:template});if(!dialog.open||revision!==previewRevision)return;matched=result.filter(r=>r.fields).length;dialog.querySelector('#preview')!.innerHTML=`<div class="preview">${result.map(r=>`<div${r.fields?'':' class="no-match"'}><small>${esc(displayName(r.path))}</small>${r.fields?Object.entries(r.fields).map(([key,values])=>`${esc(key)}: ${esc(values.join(' · '))}`).join('<br>'):r.error?esc(publicMessage(r.error)):'No match, not changed'}</div>`).join('')}</div>`;apply.textContent=`Apply to ${matched} file${matched===1?'':'s'}`;}
+      dialog.querySelector('.dialog-error')?.remove();previewed=template;previewPaths=targets;apply.disabled=value(dialog,'template')!==template||JSON.stringify(paths())!==JSON.stringify(targets)||(rename&&!planToken)||(!rename&&!matched);
     }catch(e){modalError(dialog,e);}finally{previewButton.disabled=false;}
   });
-  apply.addEventListener('click',async()=>{const template=value(dialog,'template');if(!template.trim()){modalError(dialog,'Enter a pattern.');return;}if(template!==previewed||JSON.stringify(paths())!==JSON.stringify(previewPaths)||(rename&&!planToken)){apply.disabled=true;modalError(dialog,'Run Preview again before applying this conversion.');return;}const reviewedPaths=[...previewPaths],reviewedToken=planToken;dialog.close();if(rename){await run('Renaming files…',async()=>{const batch=await invoke<Batch>('rename_files',{paths:reviewedPaths,template,planToken:reviewedToken});applyRenamed(batch);accept(batch,'Renamed');});}else await mutate('filename_to_tags',{pattern:template},'Converted filenames to tags');});
+  apply.addEventListener('click',async()=>{const template=value(dialog,'template');if(!template.trim()){modalError(dialog,'Enter a pattern.');return;}if(template!==previewed||JSON.stringify(paths())!==JSON.stringify(previewPaths)||(rename&&!planToken)){apply.disabled=true;modalError(dialog,'Run Preview again before applying this conversion.');return;}const reviewedPaths=[...previewPaths],reviewedToken=planToken;dialog.close();if(rename){await run('Renaming files…',async()=>{const batch=await invoke<Batch>('rename_files',{paths:reviewedPaths,template,planToken:reviewedToken});applyRenamed(batch);accept(batch,'Renamed');});}else await mutate('filename_to_tags',{pattern:template},'Converted filenames to tags',batch=>{const skipped=batch.unmatched?.length??0;return skipped?`, ${skipped} didn't match`:'';});});
 }
 function reviewedConverter(kind:'filename'|'text') {
   type Request = FilenameConversionRequest | TextImportRequest;
