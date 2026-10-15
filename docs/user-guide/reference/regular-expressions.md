@@ -12,8 +12,7 @@ the [`$regexp` reference](#regexp).
     Select a file, open **Convert → Tag → Tag…** (++alt+5++; Alt is ⌥ Option
     on a Mac), choose a field such as `TITLE` and type a `$regexp(…)` format
     string. The preview updates as you type, and nothing changes until you
-    apply it. [Regular expressions from zero](../learn/regex-from-zero.md)
-    walks you through exactly that.
+    apply it. Start with the examples below on a copy of your files.
 
 ## Where you can use regular expressions
 
@@ -326,7 +325,7 @@ Backslashes need no doubling: format strings don't treat `\` specially.
 
 ## The Replace with regular expression action { #the-replace-with-regular-expression-action }
 
-The [action](../actions/replace-regexp.md) rewrites a field in place. Its
+The action rewrites a field in place. Its
 settings:
 
 | Setting | Meaning |
@@ -355,7 +354,7 @@ written the files.
 
 ## In the filter and Find { #in-the-filter-and-find }
 
-In the [filter](filter-syntax.md), `MATCHES` tests a field against a regular
+In the filter, `MATCHES` tests a field against a regular
 expression. The match **always ignores case**, so add `(?-i)` when case
 matters. Put the pattern in double quotes when it contains spaces or
 parentheses:
@@ -421,8 +420,5 @@ Mp3tag. If you come from another tool, watch for these:
 
 ## Related
 
-- [Regular expressions from zero](../learn/regex-from-zero.md): the guided tutorial
-- [Format strings](format-strings.md): quoting rules for `$regexp` arguments
-- [Replace with regular expression](../actions/replace-regexp.md): the action in detail
-- [Filter syntax](filter-syntax.md): `MATCHES` and the other operators
-- [Cookbook](../cookbook/index.md): recipes that use these patterns
+- [Format strings](format-strings.md)
+- [Move guest artists to titles](../cookbook/feat-artists-to-title.md)

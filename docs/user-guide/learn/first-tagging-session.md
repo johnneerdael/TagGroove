@@ -1,10 +1,10 @@
 # Your first tagging session
 
-<p class="lead">In about fifteen minutes you'll open an album, fix tags on one file and then on all of them at once, look inside a file's complete tag, and rename every file from its tags. You'll also undo a change, so you know that nothing you try here is permanent.</p>
+<p class="lead">In about fifteen minutes you'll open an album, fix tags on one file and then on all of them at once, look inside a file's complete tag, and rename every file from its tags. You'll also undo a change, so you can recover a change during the session. Keep your original files as a backup.</p>
 
 **You need:**
 
-- [ ] OpenTag installed ([Install OpenTag](../getting-started/install.md))
+-  ] OpenTag installed ([Install OpenTag)
 - [ ] A folder with a few music files, ideally one album
 
 !!! tip "Practise on a copy"
@@ -74,7 +74,7 @@ the file, and any music player will see it.
 
 ## 4. Edit all files at once
 
-This is where a tag editor saves you hours. Suppose the whole album should
+Apply a shared value to every selected file. Suppose the whole album should
 have the genre *Folk* instead of *Indie Folk*.
 
 1. Click any file in the list, then press ++cmd+a++ / ++ctrl+a++ to select
@@ -117,8 +117,7 @@ Select one file and press ++alt+t++ (Alt is ⌥ Option on a Mac), or click
 
 Here you can edit any field, give a field several values with **＋ Add
 value**, and add fields of your own with **＋ Add field**. Close the dialog
-with **Cancel** for now. [Extended tags](../guides/extended-tags.md) explains
-everything in it.
+with **Cancel** for now.
 
 ## 6. Rename the files from their tags
 
@@ -164,8 +163,9 @@ Suppose you'd rather have names without the artist. Choose **Edit → Undo**
 (++cmd+z++ / ++ctrl+z++). The menu item names the step it undoes, and the
 files get their old names back. Press ++cmd+y++ / ++ctrl+y++ to redo it.
 
-Undo works for everything OpenTag writes to disk in this session: saved
-tags, renames and actions. You can also undo the genre change from step 4.
+Undo can restore saved tags and renames recorded in this session. Check
+the menu label before undoing, and keep the practice copy until you have
+verified your results. You can also undo the genre change from step 4.
 
 ## What you learned
 
@@ -180,10 +180,9 @@ tags, renames and actions. You can also undo the genre change from step 4.
 
 ## Next steps
 
-- [Format strings from zero](format-strings-from-zero.md): write your own
-  naming schemes, with folders, optional parts and conditions.
-- [Get tags from filenames](tags-from-filenames.md): the opposite direction,
-  for files whose names are good and tags are empty.
-- [Tag an album from an online database](tag-from-online-sources.md): fill
-  in tags and covers from MusicBrainz or Discogs.
-- [The tag panel](../guides/tag-panel.md): every detail of the panel you just used.
+- [Zero-padded track numbers](../cookbook/rename-zero-padded-track-numbers.md):
+  adapt the naming pattern you just used.
+- [Tags from folder and file names](../cookbook/tags-from-folder-and-filename.md):
+  fill tags from names when working in the opposite direction.
+- [Format strings](../reference/format-strings.md): look up optional parts,
+  quoting and conditions for more complex names.

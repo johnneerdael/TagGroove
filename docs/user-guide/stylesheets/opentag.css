@@ -92,6 +92,8 @@
 .md-typeset .ot-hero h1 { font-size: 2rem; margin: 0 0 0.4rem; line-height: 1.2; }
 .ot-hero p { margin: 0 0 1rem; }
 .ot-hero .md-button { margin: 0.2rem 0.4rem 0.2rem 0; }
+.md-typeset .md-button:not(.md-button--primary) { color: var(--md-default-fg-color); border-color: currentColor; }
+.md-typeset .md-button:not(.md-button--primary):is(:hover, :focus) { color: var(--ot-ink); background: var(--ot-amber); border-color: var(--ot-amber); }
 .md-typeset .md-button--primary { background: var(--ot-gradient); border: 0; color: var(--ot-ink); font-weight: 700; }
 .md-typeset .md-button--primary:hover { filter: brightness(1.05); color: var(--ot-ink); }
 @media screen and (max-width: 60em) { .ot-hero { grid-template-columns: 1fr; } }

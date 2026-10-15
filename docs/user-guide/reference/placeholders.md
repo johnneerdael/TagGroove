@@ -16,7 +16,7 @@ quoting, conditions), see [Format strings](format-strings.md).
 **Tag fields** have plain names: `%artist%`, `%album%`, `%mood%`. They read
 the file's tag, and any field name works. A missing field gives empty text.
 See [Placeholders: `%field%`](format-strings.md#placeholders) for the
-details, and [Field names](field-names.md) for the standard names.
+details. Common field names include `ARTIST`, `TITLE`, `ALBUM` and `TRACK`.
 
 **Information placeholders** start with an underscore: `%_length%`,
 `%_covers%`. OpenTag works them out from the file itself, its location, its
@@ -30,7 +30,7 @@ The rest of this page lists the information placeholders. All of them:
   `$if`,
 - are **read-only**: you can't set them as a field in Tag → Tag or the tag
   panel. To rename a file, use the `_FILENAME` and `_DIRECTORY`
-  [targets](field-names.md) instead.
+  targets instead.
 
 The example values are for track 2 of the guide's example album, stored at
 `/Users/you/Music/Juniper Vale/Harbour Lights/02 - Lanterns on the Water.mp3`
@@ -85,7 +85,7 @@ single files.
 
 ### Chapters
 
-When [chapters are listed as separate rows](../guides/chapters.md), each
+When chapters are listed as separate rows, each
 chapter row has its own values:
 
 | Placeholder | Gives | Example |
@@ -98,7 +98,7 @@ chapter row has its own values:
 | Placeholder | Gives | Example |
 |---|---|---|
 | `%_mp4_creation_time%`, `%_mp4_modification_time%` | The dates stored inside an MP4/M4A file, as local date and time | `1/2/24 3:04:05 AM` |
-| `%_mp4_creation_time_raw%`, `%_mp4_modification_time_raw%` | The same, as seconds since 1 January 1970 (for [`$fmtdate`](scripting/dates-durations.md)) | `1704164645` |
+| `%_mp4_creation_time_raw%`, `%_mp4_modification_time_raw%` | The same, as seconds since 1 January 1970 (for `$fmtdate`) | `1704164645` |
 
 ## Tags inside the file
 
@@ -112,8 +112,7 @@ chapter row has its own values:
 | `%_id3v2_unknown_frames%` | ID3v2 frames OpenTag keeps but doesn't interpret | `XABC` |
 
 `%_tag_size%` and its variants exist for MP3, APE, FLAC, AAC, Musepack and
-WavPack files. The other two only exist for files with an ID3v2 tag. See
-[Tag formats explained](../concepts/tag-formats.md) for what these tag types are.
+WavPack files. The other two only exist for files with an ID3v2 tag.
 
 ## Cover art
 
@@ -129,7 +128,7 @@ These describe the **first** picture in the file.
 | `%_cover_width%`, `%_cover_height%` | Size in pixels (JPEG and PNG only) | `600`, `600` |
 
 `%_covers%` is the one to filter on. `"%_covers%" EQUAL 0` shows every file
-without artwork ([recipe](../cookbook/find-missing-covers.md)).
+without artwork.
 
 ## File properties
 
@@ -145,7 +144,7 @@ without artwork ([recipe](../cookbook/find-missing-covers.md)).
 | `%_file_create_date%`, `%_file_create_datetime%`, `%_file_create_datetime_raw%` | The same for the creation time | |
 
 Dates use your system's date format. For a fixed format, pass the `_raw`
-value to [`$fmtdate`](scripting/dates-durations.md):
+value to `$fmtdate`:
 `$fmtdate(%_file_mod_datetime_raw%,'%Y-%m-%d')`.
 
 The creation-time placeholders are empty on file systems that don't record
@@ -162,12 +161,12 @@ when a file was created (many Linux file systems).
 
 `%_counter%` follows the order of the files in the file list, so sort the list
 first when you use it to number files. For track numbers, the
-[Auto-numbering](../converters/auto-numbering.md) wizard is usually the better
+Auto-numbering wizard is usually the better
 tool.
 
 ## Export only
 
-These exist only inside [export templates](../export/template-language.md),
+These exist only inside export templates,
 because they describe the export as a whole or need extra work per file.
 
 | Placeholder | Gives | Example |
@@ -192,7 +191,7 @@ read every file completely.
 ## Playlists only
 
 In the extended-info format string and file name of
-[playlists](../guides/playlists.md):
+playlists:
 
 | Placeholder | Gives | Example |
 |---|---|---|
@@ -203,7 +202,7 @@ In the extended-info format string and file name of
 ## Web source scripts only
 
 `%_url%`, `%_coverurl%`, `%_preview%` and `%_current%` exist only inside
-[web source scripts](../tag-sources/web-source-reference.md), where they
+web source scripts, where they
 describe the page being parsed.
 
 ## Placeholders compared with Mp3tag
@@ -216,8 +215,5 @@ describe the page being parsed.
 
 ## Related
 
-- [Format strings](format-strings.md): the language the placeholders live in
-- [Field names](field-names.md): standard tag fields and special targets
-- [Scripting functions](scripting/index.md): transform placeholder values
-- [Customize columns](../customize/columns.md): show any placeholder as a column
-- [Filter syntax](filter-syntax.md): find files by any placeholder
+- [Format strings](format-strings.md)
+- [Zero-padded track numbers](../cookbook/rename-zero-padded-track-numbers.md)

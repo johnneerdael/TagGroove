@@ -1,7 +1,7 @@
 # Tag files from folder and file names
 
 <div class="recipe-meta" markdown>
-<span>**Uses** [Filename → Tag](../converters/filename-to-tag.md)</span>
+<span>**Uses** Filename → Tag</span>
 <span>**Works on** files in `Artist/Album/` folders</span>
 <span>**Time** 2 minutes per batch</span>
 <span>**Undo** ++cmd+z++ / ++ctrl+z++</span>
@@ -30,6 +30,10 @@ You want all of that in the tags:
 | `02 - Lanterns on the Water.mp3` | `Juniper Vale` | `Harbour Lights` | `2024` | `02` | `Lanterns on the Water` |
 
 ## The solution
+
+Try this on a copy of a few files first. Check the results before applying
+it to your library; use **Edit → Undo** in the same session to reverse the
+recorded changes. Keep the originals as a backup.
 
 1. Open the `Music` folder, or the artist's folder, and select the files.
    Selecting all of them (++cmd+a++ / ++ctrl+a++) is fine as long as they
@@ -61,10 +65,10 @@ path:     Juniper Vale \ Harbour Lights (2024) \ 02      - Lanterns on the Water
   is ignored. Use `\` on macOS and Linux too.
 - **The text between placeholders must appear exactly**, here ` - `, ` (` and `)`.
 - **The extension is left out** automatically.
-- **The whole name must fit.** If one selected file doesn't follow the
-  layout, the preview reports *Filename does not completely match the
-  pattern* and **Apply** stays disabled. Use the filter or sort by path to
-  find the odd ones out, and select only the files that fit.
+- **The whole name must fit for that file to change.** Files that do not
+  match are skipped. The **Apply** button shows the number of matching
+  files and stays disabled when none match. Review every row; use the
+  filter or sort by path to identify files that need a different pattern.
 
 !!! warning "Gotcha: brackets inside album names"
     Placeholders take as little text as possible. For the folder
@@ -92,7 +96,7 @@ path:     Juniper Vale \ Harbour Lights (2024) \ 02      - Lanterns on the Water
 %artist%\%album%\%title%
 ```
 
-Then number the tracks with [Auto-numbering](../converters/auto-numbering.md),
+Then number the tracks with Auto-numbering,
 after sorting the file list by file name.
 
 **Disc folders (`CD1`, `CD2`) inside the album**
@@ -122,7 +126,6 @@ The same placeholder twice gives a field two values. For
 
 ## Related
 
-- [Filename → Tag](../converters/filename-to-tag.md): every rule for patterns
-- [Get tags from filenames](../learn/tags-from-filenames.md): the tutorial
-- [Disc numbers from CD1/CD2 folders](disc-numbers-from-folders.md)
-- [Sort files into Artist\Album folders](rename-into-artist-album-folders.md): the reverse direction
+- [Your first tagging session](../learn/first-tagging-session.md)
+- [Zero-padded track numbers](rename-zero-padded-track-numbers.md)
+- [Regular expressions](../reference/regular-expressions.md)

@@ -24,16 +24,18 @@ lead so this guide gets fixed.
    workstream, or per group of pages if it gets big.
 2. Your workstream in `_meta/ia.md` lists the pages you own. Edit only
    those, plus your scene file `tests/docs-screens/scenes/<workstream>.js`
-   and the screenshots it produces. Don't edit `mkdocs.yml`, `_meta/*`,
-   `stylesheets/`, `_snippets/` or other workstreams' pages. Put requests for
-   changes there in your PR description.
+   and the screenshots it produces. Add completed pages to `mkdocs.yml`.
+   Don't edit `_meta/*`, `stylesheets/`, `_snippets/` or other workstreams'
+   pages. Put requests for changes there in your PR description.
 3. For each page: read its brief (the stub) and its rows in the coverage
    map; read the code that implements the feature; write the page with the
    template for its type (§ 3); verify every example (§ 4); remove
    `status: draft`.
 4. Need screenshots? Add scenes, push, fetch (§ 8).
 5. Before pushing: `mkdocs build --strict` and `python3 scripts/docs-status.py`
-   (§ 11, § 12) must pass. CI runs the same strict build on your PR.
+   (§ 11, § 12) must pass. Add finished pages to the public navigation in
+   `mkdocs.yml` as described in `docs/PUBLISHING.md`. Drafts stay out of
+   public HTML and search. CI runs the same strict build on your PR.
 
 ## 1. Ground rules
 

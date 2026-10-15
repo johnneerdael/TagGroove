@@ -17,9 +17,9 @@ EXCLUDED = ("_meta/", "_snippets/")
 
 
 def nav_entries():
-    """(top-level section, path) for every page in mkdocs.yml's nav."""
+    """(top-level section, path) for every page in the complete writing plan."""
     entries, section, in_nav = [], "", False
-    with open(os.path.join(ROOT, "mkdocs.yml"), encoding="utf-8") as f:
+    with open(os.path.join(DOCS, "_meta", "planned-nav.yml"), encoding="utf-8") as f:
         for line in f:
             if line.startswith("nav:"):
                 in_nav = True

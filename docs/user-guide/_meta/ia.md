@@ -8,11 +8,13 @@ jobs:
    checklist of topics only, maps to OpenTag pages.
 3. It tracks status and splits the remaining work into workstreams.
 
-The page plan itself lives in `mkdocs.yml` (`nav:`). Every page listed there
+The full page plan lives in `_meta/planned-nav.yml` (`nav:`). Every page listed there
 exists. Pages still to be written carry `status: draft` in their front
 matter and show a brief of what they must cover. `python3 scripts/docs-status.py`
-counts written and draft pages per section and checks the navigation against
-the files.
+counts written and draft pages per section and checks the plan against
+the files. `mkdocs.yml` contains only the public navigation. The publication
+hook excludes pages marked `status: draft` from HTML and search; drafts
+remain in the writing plan until ready. See `docs/PUBLISHING.md`.
 
 ## Structure
 

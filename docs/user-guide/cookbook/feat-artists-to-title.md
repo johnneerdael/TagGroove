@@ -1,7 +1,7 @@
 # Move “feat.” artists out of the artist field
 
 <div class="recipe-meta" markdown>
-<span>**Uses** [filter](../reference/filter-syntax.md), [action group](../actions/index.md), [regular expressions](../reference/regular-expressions.md)</span>
+<span>**Uses** filter, action group, [regular expressions](../reference/regular-expressions.md)</span>
 <span>**Works on** any tag format</span>
 <span>**Time** 5 minutes, then one click each time</span>
 <span>**Undo** ++cmd+z++ / ++ctrl+z++</span>
@@ -23,6 +23,10 @@ music databases and streaming services do it:
 | `ARTIST` | `Juniper Vale` | `Juniper Vale` (unchanged) |
 
 ## The solution
+
+Try this on a copy of a few files first. Check the results before applying
+it to your library; use **Edit → Undo** in the same session to reverse the
+recorded changes. Keep the originals as a backup.
 
 You'll find the affected files with the filter, then build an action group
 with two actions. Order matters: the title has to read the guest's name
@@ -109,8 +113,8 @@ Some players handle multi-value artists well. Replace both actions with:
    `\s+(feat\.?|ft\.?|featuring)\s+`, replacement `;`
 2. **Split field by separator** on `ARTIST`, separator `;`
 
-`ARTIST` then holds `Juniper Vale` and `Mira Solberg` as two values. See
-[Multi-value fields](../concepts/multi-value-fields.md).
+`ARTIST` then holds `Juniper Vale` and `Mira Solberg` as two values. Check
+that your player displays multiple artists as intended.
 
 **Use “ft.” or “with” in titles**
 
@@ -126,6 +130,4 @@ replacement.
 ## Related
 
 - [Regular expressions](../reference/regular-expressions.md)
-- [Build your first action group](../learn/first-action-group.md)
-- [Split 'A; B' into separate artists](split-multiple-artists.md)
-- [Filter syntax](../reference/filter-syntax.md)
+- [Format strings](../reference/format-strings.md)

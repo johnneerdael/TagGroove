@@ -13,16 +13,14 @@ hide:
 ![OpenTag](assets/brand/logo-on-light.svg#only-light){ .ot-hero__logo }
 ![OpenTag](assets/brand/logo-on-dark.svg#only-dark){ .ot-hero__logo }
 
-## Tag, rename and organise your music
+## Tag, rename and organize your music
 
-OpenTag is a free, open-source editor for the metadata inside your audio
-files: titles, artists, albums, track numbers, cover art and anything else
-your player shows. It edits hundreds of files at once, renames them from
-their tags, fills in tags from online databases and turns your library into
-playlists and catalogues. It runs on macOS, Windows, Linux and Android.
+OpenTag edits the metadata inside your audio files: titles, artists,
+albums, track numbers and cover art. Start with a copy of an album, learn
+to edit and save its tags, then give the files consistent names.
 
 [Start your first session](learn/first-tagging-session.md){ .md-button .md-button--primary }
-[Install OpenTag](getting-started/install.md){ .md-button }
+[Download OpenTag](https://github.com/johnneerdael/opentag/releases/latest){ .md-button }
 
 </div>
 
@@ -35,100 +33,69 @@ playlists and catalogues. It runs on macOS, Windows, Linux and Android.
 
 </div>
 
-## Where do you want to start?
+!!! note "An evolving editor and guide"
+    OpenTag is in development. This guide covers desktop workflows; mobile
+    builds and simulator previews have different capabilities. Check the
+    [release notes](https://github.com/johnneerdael/opentag/releases) for
+    available packages and limitations. OpenTag is an independent project;
+    complete Mp3tag compatibility remains a goal.
+
+## Learn by doing
 
 <div class="grid cards" markdown>
 
--   :material-school-outline:{ .lg .middle } **New to tagging?**
+-   :material-school-outline:{ .lg .middle } **Your first tagging session**
 
     ---
 
-    Open an album, fix its tags, rename the files and undo a change, in
-    fifteen minutes.
+    Open an album, change tags on one file and a selection, rename the
+    files, and undo a change.
 
-    [:octicons-arrow-right-24: Your first tagging session](learn/first-tagging-session.md)
+    [:octicons-arrow-right-24: Start the tutorial](learn/first-tagging-session.md)
 
--   :material-format-letter-case:{ .lg .middle } **Rename everything consistently**
-
-    ---
-
-    Build file and folder names from tags with format strings, from
-    `%artist% - %title%` to multi-disc folder trees.
-
-    [:octicons-arrow-right-24: Format strings from zero](learn/format-strings-from-zero.md)
-
--   :material-broom:{ .lg .middle } **Clean up a messy library**
+-   :material-numeric:{ .lg .middle } **Give track numbers two digits**
 
     ---
 
-    Fix capitalisation, strip junk, split artists and number tracks, then
-    save the steps as an action group you can run again.
+    Rename `2 Low Tide.mp3` to `02 Low Tide.mp3` so files sort in order.
 
-    [:octicons-arrow-right-24: Clean up a messy library](learn/clean-a-messy-library.md)
+    [:octicons-arrow-right-24: Zero-padded track numbers](cookbook/rename-zero-padded-track-numbers.md)
 
--   :material-chef-hat:{ .lg .middle } **Copy a ready-made solution**
-
-    ---
-
-    Dozens of recipes for common jobs: zero-padded track numbers, “feat.”
-    artists, covers, playlists and reports.
-
-    [:octicons-arrow-right-24: Cookbook](cookbook/index.md)
-
--   :material-regex:{ .lg .middle } **Master the power tools**
+-   :material-folder-music-outline:{ .lg .middle } **Get tags from names**
 
     ---
 
-    Format strings, placeholders, 64 scripting functions, regular
-    expressions and the filter language, each with worked examples.
+    Use your existing artist and album folders to fill empty tags.
 
-    [:octicons-arrow-right-24: Reference](reference/index.md)
+    [:octicons-arrow-right-24: Tags from folder and file names](cookbook/tags-from-folder-and-filename.md)
 
--   :material-swap-horizontal:{ .lg .middle } **Coming from Mp3tag?**
+-   :material-account-music-outline:{ .lg .middle } **Keep guest artists in titles**
 
     ---
 
-    OpenTag reads your format strings, action groups, export templates and
-    web sources. Here's what is the same and what differs.
+    Build an action group that moves “feat.” names from the artist field
+    into the title.
 
-    [:octicons-arrow-right-24: Coming from Mp3tag](getting-started/coming-from-mp3tag.md)
+    [:octicons-arrow-right-24: Move guest artists to titles](cookbook/feat-artists-to-title.md)
 
 </div>
 
-## What OpenTag does
+## Look up the syntax
 
-<div class="grid" markdown>
+- [Format strings](reference/format-strings.md): combine tags, text and
+  functions to build a value or filename.
+- [Placeholders](reference/placeholders.md): read tag values and file
+  properties such as `%artist%`, `%title%` and `%_filename%`.
+- [Regular expressions](reference/regular-expressions.md): match, extract
+  and replace text, with worked examples.
 
-<div markdown>
+Use the search box (press ++s++ or ++slash++) to find a topic in this guide.
+More topics are being written; only completed pages appear here.
 
-**Edit tags**
+## Get help and follow changes
 
-- Edit one file or a thousand at once; fields that differ stay untouched
-- Every tag format: ID3v1 and ID3v2, APEv2, Vorbis comments, MP4, ASF,
-  Matroska, RIFF and more ([formats](reference/file-formats.md))
-- Cover art: add, extract, resize and convert covers
-- Undo everything written in the session
-
-</div>
-
-<div markdown>
-
-**Automate**
-
-- [Converters](converters/index.md) between tags, file names and text files
-- [Actions](actions/index.md): reusable multi-step clean-ups
-- [Tag sources](tag-sources/index.md): MusicBrainz, Discogs, freedb and
-  your own web sources
-- [Export](export/index.md) reports, CSV files and [playlists](guides/playlists.md)
-
-</div>
-
-</div>
-
-!!! tip "How this guide is organised"
-    **[Learn](learn/index.md)** teaches by doing, one tutorial at a time.
-    **[Guides](guides/index.md)** and **[Automate](automate/index.md)**
-    explain each part of OpenTag by task. **[Reference](reference/index.md)**
-    is complete and exact, for when you need a detail. The
-    **[Cookbook](cookbook/index.md)** has copy-paste solutions. Use the
-    search box (press ++s++ or ++slash++) to jump to anything.
+Download installers and read changes on the
+[GitHub releases page](https://github.com/johnneerdael/opentag/releases).
+If a step in this guide differs from your build,
+[report it on GitHub](https://github.com/johnneerdael/opentag/issues), including
+your OpenTag version, operating system and the steps you tried.

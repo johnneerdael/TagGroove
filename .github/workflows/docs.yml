@@ -5,8 +5,20 @@ name: User guide
 # Repository setting needed once: Settings -> Pages -> Source: GitHub Actions.
 on:
   push:
+    branches: [main]
     paths:
       - docs/user-guide/**
+      - docs/hooks/**
+      - docs/tests/**
+      - docs/PUBLISHING.md
+      - scripts/docs-status.py
+      - README.md
+      - src/**
+      - src-tauri/**
+      - crates/**
+      - assets/**
+      - package.json
+      - package-lock.json
       - docs/site-requirements.txt
       - mkdocs.yml
       - .github/workflows/docs.yml
@@ -15,6 +27,17 @@ on:
   pull_request:
     paths:
       - docs/user-guide/**
+      - docs/hooks/**
+      - docs/tests/**
+      - docs/PUBLISHING.md
+      - scripts/docs-status.py
+      - README.md
+      - src/**
+      - src-tauri/**
+      - crates/**
+      - assets/**
+      - package.json
+      - package-lock.json
       - docs/site-requirements.txt
       - mkdocs.yml
       - .github/workflows/docs.yml
@@ -24,6 +47,10 @@ on:
 
 permissions:
   contents: read
+
+concurrency:
+  group: user-guide-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
 
 jobs:
   build:

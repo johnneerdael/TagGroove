@@ -1,7 +1,7 @@
 # Zero-padded track numbers in filenames
 
 <div class="recipe-meta" markdown>
-<span>**Uses** [Tag → Filename](../converters/tag-to-filename.md), [`$num`](../reference/scripting/numbers.md)</span>
+<span>**Uses** Tag → Filename, `$num`</span>
 <span>**Works on** any files with a `TRACK` tag</span>
 <span>**Time** 2 minutes</span>
 <span>**Undo** ++cmd+z++ / ++ctrl+z++</span>
@@ -23,6 +23,10 @@ them in the wrong order:
 Sorted as text, `10` comes before `2`. With two digits everywhere, it doesn't.
 
 ## The solution
+
+Try this on a copy of a few files first. Check the results before applying
+it to your library; use **Edit → Undo** in the same session to reverse the
+recorded changes. Keep the originals as a backup.
 
 1. Select the files (++cmd+a++ / ++ctrl+a++ selects all of them).
 2. Choose **Convert → Tag → Filename…** (++alt+1++; Alt is ⌥ Option on a Mac).
@@ -62,7 +66,7 @@ disappears. `%title%` adds the title, and OpenTag keeps the extension.
     track MATCHES ^[^0-9] OR track MISSING
     ```
 
-    Number them with [Auto-numbering](../converters/auto-numbering.md) or by
+    Number them with Auto-numbering or by
     hand, then come back.
 
 ## Variations
@@ -97,7 +101,6 @@ need it, but some car stereos sort by the tag text.
 
 ## Related
 
-- [Tag → Filename](../converters/tag-to-filename.md)
-- [Sort files into Artist\Album folders](rename-into-artist-album-folders.md)
-- [Multi-disc albums: CD1, CD2 folders](rename-multi-disc-albums.md)
-- [Track and disc numbers](../concepts/track-and-disc-numbers.md)
+- [Format strings](../reference/format-strings.md)
+- [Placeholders](../reference/placeholders.md)
+- [Tags from folder and file names](tags-from-folder-and-filename.md)

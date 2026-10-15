@@ -9,9 +9,9 @@ character with a special meaning, how conditions decide, and how file and
 folder names are made safe.
 
 !!! tip "New to this?"
-    [Format strings from zero](../learn/format-strings-from-zero.md) teaches
-    the same material step by step on one album. Come back here when you need
-    a detail.
+    Start with [Your first tagging session](../learn/first-tagging-session.md)
+    to try a naming pattern on a practice album. Use this reference when
+    you need a syntax detail.
 
 All examples on this page use track 2 of the guide's example album, unless a
 row says otherwise:
@@ -33,7 +33,7 @@ row says otherwise:
 | plain text | Copied as it is | `Live at ` | `Live at ` |
 | `%field%` | The field's value ([placeholder](placeholders.md)) | `%artist%` | `Juniper Vale` |
 | `%_name%` | Information about the file | `%_extension%` | `mp3` |
-| `$function(…)` | A [scripting function](scripting/index.md) | `$upper(%album%)` | `HARBOUR LIGHTS` |
+| `$function(…)` | A scripting function | `$upper(%album%)` | `HARBOUR LIGHTS` |
 | `[…]` | Optional section: dropped when its fields are empty | `%album%[ (%year%)]` | `Harbour Lights (2024)` |
 | `'…'` | Quoted text: everything inside is literal | `'%artist%'` | `%artist%` |
 | `''` | One apostrophe | `%artist%''s best` | `Juniper Vale's best` |
@@ -45,15 +45,15 @@ The same language works everywhere. Only what happens to the result differs.
 
 | Where | The result becomes |
 |---|---|
-| [Tag → Filename](../converters/tag-to-filename.md) | The new file name, and folders if it contains `\` |
-| [Tag → Tag](../converters/tag-to-tag.md) and the [Format value](../actions/format-value.md) action | The new value of a field, or a new file or folder name for `_FILENAME` and `_DIRECTORY` |
-| [Columns](../customize/columns.md) (**Value**) | The text shown in that column |
-| [Copy as Text](../guides/copy-paste-tags.md) | One line per file on the clipboard |
-| [Export](../export/index.md), [playlists](../guides/playlists.md) | Output file names, partitions and extended playlist info |
-| Cover actions ([import](../actions/import-cover.md), [export](../actions/export-cover.md)), [Import text file](../actions/import-text-file.md), [Text File → Tag](../converters/text-file-to-tag.md) | The name of the file to read or write |
-| [Guess values](../actions/guess-values.md) (source) | The text that the guessing pattern takes apart |
-| [External tools](../customize/tools.md) (parameter) | The argument passed to the tool |
-| [Filter](filter-syntax.md) (left side of an operator) | The value that is compared |
+| Tag → Filename | The new file name, and folders if it contains `\` |
+| Tag → Tag and the Format value action | The new value of a field, or a new file or folder name for `_FILENAME` and `_DIRECTORY` |
+| Columns (**Value**) | The text shown in that column |
+| Copy as Text | One line per file on the clipboard |
+| Export, playlists | Output file names, partitions and extended playlist info |
+| Cover actions (import, export), Import text file, Text File → Tag | The name of the file to read or write |
+| Guess values (source) | The text that the guessing pattern takes apart |
+| External tools (parameter) | The argument passed to the tool |
+| Filter (left side of an operator) | The value that is compared |
 
 Two more places look similar but work the other way round: **Filename → Tag**
 and **Guess values** read values *out of* text with a pattern. See
@@ -108,9 +108,8 @@ gives `LANTERNS`.
 - An unknown function name, or the wrong number of arguments, is an error
   that the preview shows before anything is changed.
 
-OpenTag has 64 functions for text, case, numbers, dates, conditions, regular
-expressions and multi-value fields. See the
-[scripting functions reference](scripting/index.md) for all of them.
+Scripting functions cover text, case, numbers, dates, conditions, regular
+expressions and multi-value fields. The examples below show common uses.
 
 ### Optional sections: `[…]` { #optional-sections }
 
@@ -132,7 +131,7 @@ Things to know:
 - **"Has a value" means a placeholder inside produced text.** In the fifth
   row, `ARTIST` is enough to keep the section. Its text is kept even though
   `ALBUMARTIST` is empty. To require both, use
-  [`$and`](scripting/conditions.md) with [`$if`](#conditions).
+  `$and` with [`$if`](#conditions).
 - **A section with only plain text is always dropped**, because no
   placeholder in it has a value. Write plain text outside brackets.
 - **Functions count through their arguments.** `[CD$num(%discnumber%,1)]` is
@@ -197,7 +196,7 @@ backslash followed by the start of a placeholder.
 
 ## True and false: how conditions decide { #conditions }
 
-Functions such as [`$if`](scripting/conditions.md), `$if2`, `$and`, `$or`
+Functions such as `$if`, `$if2`, `$and`, `$or`
 and `$not` test whether something is *true*. OpenTag doesn't treat text like
 `1` or `yes` as true. Truth comes from where a value came from:
 
@@ -243,9 +242,8 @@ placeholder only gives the first one. These functions give you the rest:
 
 Note that `$meta` takes the field **name**, without `%`. In the tag panel and
 the file list, OpenTag shows multiple values joined with ` \\ `. That is only
-a display convention; format strings never produce it. See
-[Multi-value fields](../concepts/multi-value-fields.md) for how each tag
-format stores them.
+a display convention; format strings never produce it. Storage of multiple
+values depends on the tag format.
 
 ## Numbers inside text
 
@@ -260,14 +258,14 @@ counts as 2024. Text that doesn't start with a digit counts as 0.
 | `$add(%track%,10)` | `TRACK` = `2/8` | `12` |
 | `$num(%track%,2)` | `TRACK` = `B2` (a vinyl side) | `00` |
 
-See [Numbers and maths](scripting/numbers.md).
+Use `$num` for padding and arithmetic functions such as `$add` for calculations.
 
 ## File and folder names { #file-and-folder-names }
 
 When the result of a format string is a file name (in
-[Tag → Filename](../converters/tag-to-filename.md), and in
-[Format value](../actions/format-value.md) or
-[Tag → Tag](../converters/tag-to-tag.md) on `_FILENAME` or `_DIRECTORY`),
+Tag → Filename, and in
+Format value or
+Tag → Tag on `_FILENAME` or `_DIRECTORY`),
 OpenTag applies three extra rules.
 
 **1. `\` and `/` that you type make folders.** Both work on every platform,
@@ -283,7 +281,7 @@ as `02 - Lanterns on the Water.mp3`.
 
 **2. `\` and `/` that come from a value are replaced**, so a value can never
 create a folder by accident. The replacement is `_` unless you change it under
-[**Options → Files → Replace folder separator in tag values with**](options/files.md).
+**Options → Files → Replace folder separator in tag values with**.
 
 **3. Characters that file systems reject are replaced with `_`.** These are
 `:` `*` `?` `"` `<` `>` `|` and control characters, and the rule applies to
@@ -316,8 +314,8 @@ A few more details:
 
 ## Patterns: reading values out of text { #patterns-reading-values-out-of-text }
 
-[Filename → Tag](../converters/filename-to-tag.md) and
-[Guess values](../actions/guess-values.md) use format strings in reverse.
+Filename → Tag and
+Guess values use format strings in reverse.
 You describe what the text looks like, and OpenTag works out the values.
 
 ```text
@@ -348,7 +346,8 @@ Filename → Tag adds two rules for file names, which Guess values doesn't need:
 - `\` in a pattern matches folder levels: `%artist%\%album%\%track% %title%`
   reads the two folders above the file too. Use `\` here on every platform.
 
-The [Filename → Tag](../converters/filename-to-tag.md) page has many more examples.
+For a worked folder pattern, see
+[Tags from folder and file names](../cookbook/tags-from-folder-and-filename.md).
 
 ## The ► helper menu and history
 
@@ -371,7 +370,7 @@ nothing is changed. The messages are:
 | Unterminated quoted literal | An odd number of `'` | Close the quote, or write `''` for an apostrophe |
 | Unterminated optional section / Unexpected closing optional bracket | Unbalanced `[` `]` | Balance them, or quote them: `'['` |
 | Expected function call after $… | A `$` not followed by a name and `(` | Write `'$'` for a dollar sign |
-| Unsupported scripting function: $… | A misspelt or unknown function | Check the [function list](scripting/index.md) |
+| Unsupported scripting function: $… | A misspelt or unknown function | Check the function name in the ► helper menu |
 | $… expects n..=m arguments | Too many or too few arguments, often from an unquoted `,` or `)` | Quote commas and brackets in arguments |
 | $replace requires complete search/replacement pairs | An odd number of search and replace arguments | Add the missing replacement (it may be empty) |
 
@@ -412,7 +411,7 @@ a runaway `$repeat`.
 
 ??? example "A column that flags tracks longer than five minutes"
 
-    Use this as the **Value** of a [custom column](../customize/columns.md):
+    Use this as the **Value** of a custom column:
 
     ```text
     $ifgreater(%_length_seconds%,300,long,)
@@ -422,8 +421,6 @@ a runaway `$repeat`.
 
 ## Related
 
-- [Placeholders](placeholders.md): every `%_…%` value
-- [Scripting functions](scripting/index.md): all 64 functions
-- [Regular expressions](regular-expressions.md): `$regexp` and pattern matching
-- [Tag → Filename](../converters/tag-to-filename.md) and [Filename → Tag](../converters/filename-to-tag.md)
-- [Cookbook](../cookbook/index.md): ready-made format strings
+- [Placeholders](placeholders.md)
+- [Regular expressions](regular-expressions.md)
+- [Zero-padded track numbers](../cookbook/rename-zero-padded-track-numbers.md)
