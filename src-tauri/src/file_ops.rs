@@ -497,6 +497,31 @@ pub fn parse_launch(
     (!request.directories.is_empty() || !request.files.is_empty()).then_some(request)
 }
 
+/// Paths from a macOS open-documents event: Finder "Open With", files dropped on
+/// the Dock icon and `open -a OpenTag <paths>`. Like a drop or Mp3tag's Explorer
+/// context menu they replace the file list. URLs other than `file:` are ignored.
+pub fn opened_request(
+    urls: &[tauri::Url],
+    is_dir: impl Fn(&Path) -> bool,
+) -> Option<LaunchRequest> {
+    let mut request = LaunchRequest::default();
+    for url in urls.iter().filter(|url| url.scheme() == "file") {
+        let Ok(path) = url.to_file_path() else {
+            continue;
+        };
+        // Finder sends folders with a trailing slash; the list and the recent
+        // folders use the plain path.
+        let path: PathBuf = path.components().collect();
+        let value = path.to_string_lossy().into_owned();
+        if url.path().ends_with('/') || is_dir(&path) {
+            request.directories.push(value);
+        } else {
+            request.files.push(value);
+        }
+    }
+    (!request.directories.is_empty() || !request.files.is_empty()).then_some(request)
+}
+
 #[derive(Default)]
 pub struct PendingLaunches(Mutex<Vec<LaunchRequest>>);
 impl PendingLaunches {
@@ -515,6 +540,33 @@ pub fn take_launch_requests(state: tauri::State<'_, PendingLaunches>) -> Vec<Lau
         .unwrap_or_default()
 }
 
+/// Bring the main window forward for a second launch or an opened document.
+fn focus_main(app: &tauri::AppHandle) {
+    #[cfg(desktop)]
+    if let Some(window) = tauri::Manager::get_webview_window(app, "main") {
+        let _ = window.unminimize();
+        let _ = window.set_focus();
+    }
+    #[cfg(not(desktop))]
+    let _ = app;
+}
+
+/// Queue a request for the UI, which opens queued requests in order.
+fn forward(app: &tauri::AppHandle, request: LaunchRequest) {
+    use tauri::{Emitter, Manager};
+    app.state::<PendingLaunches>().push(request);
+    let _ = app.emit(LAUNCH_EVENT, ());
+}
+
+/// Handle `RunEvent::Opened` (macOS). Events that arrive before the page has
+/// loaded stay queued until the UI takes them at startup.
+pub fn open_urls(app: &tauri::AppHandle, urls: &[tauri::Url]) {
+    if let Some(request) = opened_request(urls, Path::is_dir) {
+        focus_main(app);
+        forward(app, request);
+    }
+}
+
 /// Install launch handling. A second desktop launch forwards its arguments to
 /// this instance, which queues them and notifies the UI.
 pub fn install(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry> {
@@ -526,15 +578,10 @@ pub fn install(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry
     }
     #[cfg(desktop)]
     let builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
-        use tauri::{Emitter, Manager};
-        if let Some(window) = app.get_webview_window("main") {
-            let _ = window.unminimize();
-            let _ = window.set_focus();
-        }
+        focus_main(app);
         let args = argv.into_iter().skip(1);
         if let Some(request) = parse_launch(args, Path::new(&cwd), Path::is_dir) {
-            app.state::<PendingLaunches>().push(request);
-            let _ = app.emit(LAUNCH_EVENT, ());
+            forward(app, request);
         }
     }));
     builder.manage(pending)
@@ -736,6 +783,41 @@ mod tests {
         assert!(missing.result.errors[0]
             .error
             .contains("destination folder"));
+    }
+
+    #[test]
+    fn opened_urls_become_a_replacing_request() {
+        let base = std::env::temp_dir().join("Open With");
+        let file = base.join("a b#1.mp3");
+        let folder = base.join("Album");
+        let url = |path: &Path, dir: bool| {
+            if dir {
+                tauri::Url::from_directory_path(path).unwrap()
+            } else {
+                tauri::Url::from_file_path(path).unwrap()
+            }
+        };
+        let text = |path: &Path| path.to_string_lossy().into_owned();
+        assert!(url(&file, false).as_str().contains("a%20b%231.mp3"));
+        let urls = [
+            url(&file, false),
+            url(&folder, true),
+            tauri::Url::parse("https://example.org/a.mp3").unwrap(),
+            url(&base.join("Singles"), false),
+        ];
+        let request = opened_request(&urls, |p| p.ends_with("Singles")).unwrap();
+        assert_eq!(
+            request,
+            LaunchRequest {
+                directories: vec![text(&folder), text(&base.join("Singles"))],
+                files: vec![text(&file)],
+                add: false,
+            }
+        );
+        assert!(!request.directories[0].ends_with(['/', '\\']));
+        assert_eq!(opened_request(&[], |_| false), None);
+        let web = [tauri::Url::parse("opentag://launch").unwrap()];
+        assert_eq!(opened_request(&web, |_| true), None);
     }
 
     #[test]

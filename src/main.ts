@@ -276,7 +276,7 @@ const fileOps=new FileOpsUI({
   moved:(result,message)=>{const batch=result as Batch;applyRenamed(batch);accept(batch,'Moved',false);status=message;},
   run:(message,job)=>run(message,job),report:(failures,message)=>{errors=failures;status=message;render();},
   openReason:()=>busy?'Wait for the current operation.':runtimePlatform.folder_picker_supported?'':'Folder access is not available here. Use Add files.',
-  changed:()=>render(),mac:macPlatform,
+  changed:()=>render(),mac:macPlatform,busy:()=>busy,
   preferences:()=>({subfolders:optionsUI.settings.directories.subfolders,startup:startupChoice(optionsUI.settings.pages['directories-startup']?.startup)}),
 });
 registerOptionsPage(startupOptionsPage);
