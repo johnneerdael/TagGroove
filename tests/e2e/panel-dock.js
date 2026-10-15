@@ -66,6 +66,8 @@
   try {
     await waitFor(() => rows().length >= 2, 15000, 'fixture rows');
     const album = rows()[0].dataset.path.replace(/[\\/][^\\/]+$/, ''), work = album.replace(/[\\/][^\\/]+$/, '');
+    // Native confirmations cannot be answered here; discarding pending changes asks unless this message is off.
+    await setOptions('messages', [['pages.messages.unsaved_changes', false]]);
     rows()[0].querySelector('td').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })); await sleep(250);
 
     await step('the tag panel starts docked on the left of the file list', async () => {
