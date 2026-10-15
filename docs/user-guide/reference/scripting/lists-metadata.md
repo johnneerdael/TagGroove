@@ -141,6 +141,8 @@ in configured column order.
 This function requires the application's column context. An empty column
 list returns empty text; unavailable context reports an error. A trailing
 separator in the last example comes from the suffix after the final column.
+The **Value** expression of a file-list column does not itself receive
+that column context, so this function cannot be used there to list its peers.
 **Related:** [`$columnvalues`](#columnvalues).
 
 ### `$columnvalues(prefix,suffix)` { #columnvalues }
@@ -162,6 +164,8 @@ wrapped individually and kept in configured column order.
 These are display results from column definitions, which can differ from
 raw tag values. Missing column context reports an error. Do not assume a
 standalone expression evaluator has an application's rendered columns.
+The **Value** expression inside a column is evaluated without that context;
+it cannot call this function to read the other columns' rendered results.
 **Related:** [`$columnnames`](#columnnames), [`$list`](#list).
 
 ### `$folderdepth(path)` { #folderdepth }
