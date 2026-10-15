@@ -96,3 +96,11 @@ export function updatesOptionsPage(checkNow:()=>void|Promise<void>):OptionsPage{
       {kind:'checkbox',path:'pages.updates.release_notes',label:'Display release notes for new versions'},
       {kind:'button',id:'check-updates',label:'Check now…',run:()=>checkNow()}]};
 }
+
+/**
+ * What the notification area was last set up with: the options and the menu
+ * labels in the UI language, so an edited language file updates Show/Quit too.
+ */
+export function notificationAreaKey(prefs:{tray_icon:boolean;minimize_to_tray:boolean},labels:{show:string;quit:string}){
+  return JSON.stringify([prefs.tray_icon,prefs.minimize_to_tray,labels.show,labels.quit]);
+}

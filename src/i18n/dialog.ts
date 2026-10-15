@@ -1,12 +1,13 @@
 // Native dialogs in the UI language: titles, messages, buttons and file type
 // names are translated at this boundary, so callers keep passing English.
 import * as dialog from '@tauri-apps/plugin-dialog';
-import {currentLanguage, t, translate} from './index';
+import {t, translate, translationActive} from './index';
 
 type Filters = {filters?: {name: string; extensions: string[]}[]};
 const filters = <T extends Filters>(options: T): T => options.filters ? {...options, filters: options.filters.map(filter => ({...filter, name: translate(filter.name)}))} : options;
 const titled = <T extends {title?: string}>(options: T): T => options.title ? {...options, title: translate(options.title)} : options;
-const english = () => currentLanguage() === 'en';
+// Only the shipped English passes through untouched; an English catalog from the languages folder applies here too.
+const english = () => !translationActive();
 
 export function open<T extends dialog.OpenDialogOptions>(options?: T) {
   return dialog.open<T>(options && !english() ? filters(titled(options)) : options);

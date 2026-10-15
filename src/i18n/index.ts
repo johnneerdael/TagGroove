@@ -29,6 +29,8 @@ export function availableLanguages(): Language[] {
 }
 /** The language shown now (a locale such as `nl`). */
 export function currentLanguage() {return translator.locale;}
+/** Whether text is being translated: any language but the shipped English, including an English catalog from the languages folder. */
+export function translationActive() {return translator.active;}
 export function languageChoice() {return choice;}
 const systemLanguages = () => typeof navigator === 'undefined' ? [] : navigator.languages?.length ? navigator.languages : [navigator.language];
 /** What 'system' resolves to on this computer. */

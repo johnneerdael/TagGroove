@@ -102,3 +102,12 @@ test('Utils apply to their formats and say what they skip',()=>{
   assert.match(text,/Edit → Undo restores/);
   assert.doesNotMatch(utils.utilMessage('optimize',['MP4']),/skipped/);
 });
+
+test('the notification area is set up again when its menu labels change language',()=>{
+  const prefs={tray_icon:true,minimize_to_tray:false},english={show:'Show OpenTag',quit:'Quit OpenTag'};
+  assert.equal(general.notificationAreaKey(prefs,english),general.notificationAreaKey({...prefs},{...english}));
+  assert.notEqual(general.notificationAreaKey(prefs,english),general.notificationAreaKey(prefs,{show:'OpenTag tonen',quit:'OpenTag afsluiten'}));
+  // An edited language file with the same locale changes only a label.
+  assert.notEqual(general.notificationAreaKey(prefs,{show:'OpenTag tonen',quit:'OpenTag afsluiten'}),general.notificationAreaKey(prefs,{show:'OpenTag weergeven',quit:'OpenTag afsluiten'}));
+  assert.notEqual(general.notificationAreaKey(prefs,english),general.notificationAreaKey({...prefs,minimize_to_tray:true},english));
+});

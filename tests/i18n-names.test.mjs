@@ -28,6 +28,9 @@ test('a column keeps the name it was given; an untouched default name follows th
 test('tag panel labels: defaults follow the language, typed labels stay as typed',()=>{
   assert.equal(panel.defaultName({field:'TITLE',name:'Tit&le'}),true);
   assert.equal(panel.defaultName({field:'TITLE',name:'Help'}),false);
+  // A label typed as "Title" is not the shipped "Tit&le": it stays "Title" in German.
+  assert.equal(panel.defaultName({field:'TITLE',name:'Title'}),false);
+  assert.equal(panel.defaultName({field:'ARTIST',name:'Tit&le'}),false);
   assert.equal(panel.defaultName({field:'HELP',name:'Help'}),false);
   assert.equal(panel.localMnemonic('Tit&le',german).label,'Titel');
   assert.equal(panel.localMnemonic('Tit&le',german).html,'Tite<u>l</u>');

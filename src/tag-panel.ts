@@ -319,11 +319,12 @@ export class TagPanel {
     this.closeList();
     const field=this.settings.panel.fields[Number(input.dataset.panelIndex)];if(!field||input.disabled)return;
     const options=this.optionsFor(field),popup=document.createElement('div');
-    popup.className='combo-list';popup.setAttribute('translate','no');popup.id='tag-panel-listbox';popup.setAttribute('role','listbox');popup.setAttribute('aria-label',`${mnemonic(field.name).label} values`);
+    // Group headings, Open folder… and No values are UI text; the values themselves and the field label are not translated.
+    popup.className='combo-list';popup.id='tag-panel-listbox';popup.setAttribute('role','listbox');if(mnemonic(field.name).label)popup.dataset.verbatim=mnemonic(field.name).label;popup.setAttribute('aria-label',`${mnemonic(field.name).label} values`);
     let group:ComboOption['group']|undefined,markup='';
     options.forEach((option,index)=>{
       if(option.group!==group){if(group!==undefined)markup+='</div>';group=option.group;markup+=`<div role="group" ${groupLabels[group]?`aria-label="${groupLabels[group]}"`:''}>${groupLabels[group]?`<div class="combo-group" aria-hidden="true">${groupLabels[group]}</div>`:''}`;}
-      markup+=`<div role="option" id="tag-panel-option-${index}" data-option="${index}" class="${option.kind==='value'?'':'special'}" aria-selected="false">${html(option.value)}</div>`;
+      markup+=`<div role="option" id="tag-panel-option-${index}" data-option="${index}" class="${option.kind==='value'?'':'special'}" ${option.kind==='value'?'translate="no"':''} aria-selected="false">${html(option.value)}</div>`;
     });
     popup.innerHTML=options.length?`${markup}</div>`:'<div class="combo-empty">No values</div>';
     popup.addEventListener('pointerdown',event=>event.preventDefault());

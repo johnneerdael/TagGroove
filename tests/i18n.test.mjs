@@ -89,6 +89,13 @@ test('rereading the languages folder replaces the user catalogs instead of addin
   // A chosen language that disappeared falls back like any unavailable one.
   assert.equal(resolveLanguage('fr',['nl-NL'],[...second.languages.keys()]),'en');
   assert.equal(resolveLanguage('system',['fr-FR','nl-NL'],[...second.languages.keys()]),'nl');
+  // An English file replaces the shipped English and is active, so dialogs and the DOM use it.
+  const english2=languageSet(bundled,[{file:'en.json',catalog:{'@meta':{name:'English (custom)'},'Save tags':'Write tags'}}],english).languages.get('en');
+  assert.equal(english2.source,'user');
+  const custom=new Translator('en',english2.catalog);
+  assert.equal(custom.active,true);
+  assert.equal(custom.translate('Save tags'),'Write tags');
+  assert.equal(new Translator('en',{}).active,false);
   // A file that became unreadable is not offered either.
   assert.ok(!languageSet(bundled,[{file:'fr.json',catalog:'{'}],english).languages.has('fr'));
 });

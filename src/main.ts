@@ -12,10 +12,10 @@ import { ExportUI, offerOpenOutputs, type ExportLibrary, type ExportConfiguratio
 import { OptionsUI, registerOptionsPage, naturalCollator, setNotificationAreaSupport, windowTitle, type Settings, type SettingsResponse } from './options-ui';
 import { createNumberingReview, numberingCounter, recallNumbering, rememberNumbering, type NumberingRequest, type NumberingUpdate } from './numbering-review';
 import { open, save, ask, message } from './i18n/dialog';
-import { ENGLISH, setUserCatalogs, currentLanguage, installTranslation, setLanguage, t, translate } from './i18n';
+import { ENGLISH, setUserCatalogs, installTranslation, setLanguage, t, translate } from './i18n';
 import { languageOptionsPage, languageSetting } from './language-options';
 import { Messages, messagesOptionsPage, coverChoice, type MessageKey } from './messages';
-import { appearanceOptions, completeInput, generalOptions, insideFolders, networkingOptionsPage, releaseNotesUrl, showReleaseNotes, updateMessage, updateOptions, updatesOptionsPage, type UpdateCheck } from './general-options';
+import { appearanceOptions, notificationAreaKey, completeInput, generalOptions, insideFolders, networkingOptionsPage, releaseNotesUrl, showReleaseNotes, updateMessage, updateOptions, updatesOptionsPage, type UpdateCheck } from './general-options';
 import { ToolsUI, toolsOptionsPage, toolShortcut, type Tool } from './tools';
 import { mappingOptionsPage } from './field-mapping';
 import { removeTagPrompt, removeTagShortcut } from './remove-tag';
@@ -420,8 +420,8 @@ setNotificationAreaSupport(desktop&&!macPlatform);
 let notificationArea='';
 async function applyNotificationArea(){
   if(!desktop||macPlatform)return;
-  const prefs=generalPrefs(),key=`${prefs.tray_icon}/${prefs.minimize_to_tray}/${currentLanguage()}`;if(key===notificationArea)return;notificationArea=key;
-  try{const state=await invoke<{supported:boolean;active:boolean}>('set_tray_options',{showIcon:prefs.tray_icon,minimizeToTray:prefs.minimize_to_tray,labels:{show:t('Show OpenTag'),quit:t('Quit OpenTag')}});if(!state.supported)setNotificationAreaSupport(false);}
+  const prefs=generalPrefs(),labels={show:t('Show OpenTag'),quit:t('Quit OpenTag')},key=notificationAreaKey(prefs,labels);if(key===notificationArea)return;notificationArea=key;
+  try{const state=await invoke<{supported:boolean;active:boolean}>('set_tray_options',{showIcon:prefs.tray_icon,minimizeToTray:prefs.minimize_to_tray,labels});if(!state.supported)setNotificationAreaSupport(false);}
   catch(error){notificationArea='';errors=[...errors,{path:'Notification area',error:publicMessage(error)}];render();}
 }
 // Options → Appearance: toolbar and interface scaling and the file list grid.

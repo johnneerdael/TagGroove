@@ -180,6 +180,17 @@
       if (!/Tag-Panel/.test(document.querySelector('.panel-title').textContent)) throw new Error('panel title: ' + document.querySelector('.panel-title').textContent);
       return sameList(summaries(), ['Datei', 'Bearbeiten', 'Ansicht', 'Konvertieren', 'Aktionen', 'Tag-Quellen', 'Werkzeuge', 'Hilfe'], 'menus');
     });
+    await step('German: the tag panel value list translates its headings but not the values', async () => {
+      const input = document.querySelector('[data-field="TITLE"]');
+      input.closest('.combo').querySelector('.combo-toggle').click();
+      const popup = await waitFor(() => document.querySelector('#tag-panel-listbox'), 3000, 'value list');
+      await sleep(100);
+      const headings = [...popup.querySelectorAll('.combo-group')].map(g => g.textContent.trim()), values = [...popup.querySelectorAll('[role="option"][translate="no"]')].map(o => o.textContent.trim());
+      key('Escape', {}, input); await sleep(100); document.querySelector('#tag-panel-listbox')?.remove();
+      if (!headings.length || headings.includes('Selected files')) throw new Error('headings: ' + headings.join(', '));
+      if (!values.includes('Sine A') || popup.hasAttribute('translate')) throw new Error('values: ' + values.join(', '));
+      return `${headings.join(', ')}: ${values.join(', ')}`;
+    });
     await step('German: a column, action group and tool named "Help" keep their names while the Help menu is "Hilfe"', async () => {
       const header = await waitFor(() => document.querySelector('th[data-col="help"] button[data-sort]'), 5000, 'Help column');
       const group = await waitFor(() => document.querySelector('button[data-action-group]'), 5000, 'Help action group');
