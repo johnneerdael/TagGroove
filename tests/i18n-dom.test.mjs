@@ -21,7 +21,7 @@ const {copyAsTextDialog}=await load('utils-ui.ts'),{PlaylistUI}=await load('play
 const {FileOpsUI}=await load('file-ops.ts');
 const {removeTagParts}=await load('remove-tag.ts');
 const {Messages}=await load('messages.ts');
-const {WebSourcesUI}=await import(await moduleUrl('web-sources.ts',{"'./action-ui'":JSON.stringify(await moduleUrl('action-ui.ts'))}));
+const {WebSourcesUI,settingsMarkup,readSettings}=await import(await moduleUrl('web-sources.ts',{"'./action-ui'":JSON.stringify(await moduleUrl('action-ui.ts'))}));
 const main=await source('main.ts'),parsed=ts.createSourceFile('main.ts',main,ts.ScriptTarget.Latest,true);
 const tagSourceParsed=ts.createSourceFile('tag-sources.ts',await source('tag-sources.ts'),ts.ScriptTarget.Latest,true);
 const row=parsed.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text==='rowMarkup').getText(parsed);
@@ -67,9 +67,35 @@ function page(){
   for(const key of ['window','document','Node','NodeFilter','Element','HTMLElement','HTMLInputElement','HTMLTextAreaElement','HTMLButtonElement','MutationObserver','MouseEvent','Event'])globalThis[key]=key==='window'?window:window[key];
   const body=window.document.body;
   let translator=new Translator('en');const dom=new DomTranslator(body,()=>translator);
-  return {body,window,translate(locale){translator=new Translator(locale,catalogs[locale]??{});dom.apply();return translator;},close(){window.happyDOM.abort();}};
+  return {body,window,translate(locale,catalog=catalogs[locale]??{}){translator=new Translator(locale,catalog);dom.apply();return translator;},close(){window.happyDOM.abort();}};
 }
 const memory=()=>{const data=new Map();return{getItem:key=>data.get(key)??null,setItem:(key,value)=>data.set(key,value)};};
+
+test('web-source settings save and redraw preserve choice tokens under bundled and custom catalogs',async()=>{
+  const custom={Help:'Assistance',Title:'Nom','FORMAT STRING':'Format local','Select files first.':'Choisir des fichiers','Save':'Enregistrer'};
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]]){
+    const p=page();
+    try{
+      const schema={key:'fixture',settings:[{type:'string',key:'choice',title:'Format string',description:'Select files first.',choices:['Help','Title'],default:'Help'}]};
+      let values={choice:'Title'},saved;
+      const ui=new WebSourcesUI({invoke:async(command,args)=>{
+        if(command==='web_source_settings')return{schema,values};
+        assert.equal(command,'save_web_source_settings');saved=structuredClone(args.values);values=saved;
+      },fail:error=>{throw error;}}),entry={id:'fixture',menu:'Source'};
+      p.window.document.documentElement.lang=locale;
+      await ui.settings(entry);const t=p.translate(locale,catalog),select=p.body.querySelector('select');
+      assert.equal(select.value,'Title');assert.deepEqual([...select.options].map(option=>option.textContent),['Help','Title']);
+      assert.equal(p.body.querySelector('label > span').textContent,t.t('FORMAT STRING'));
+      assert.equal(p.body.querySelector('small').textContent,t.t('Select files first.'));
+      assert.equal(p.body.querySelector('#ws-save').textContent,t.t('Save'));
+      select.value='Help';p.body.querySelector('#ws-save').click();await p.window.happyDOM.waitUntilComplete();
+      assert.deepEqual(saved,{choice:'Help'});assert.equal(p.body.querySelector('dialog'),null);
+      await ui.settings(entry);p.translate(locale,catalog);
+      assert.equal(p.body.querySelector('select').value,'Help');
+      assert.deepEqual([...p.body.querySelectorAll('option')].map(option=>option.textContent),['Help','Title']);
+    }finally{p.close();}
+  }
+});
 
 test('structured confirmations translate source parts once through Messages and the native ask wrapper',async()=>{
   const first='Replace the current options, action groups, export configurations, columns, tag panel, favorite directories and remembered lists with {path}?';
@@ -89,6 +115,21 @@ test('structured confirmations translate source parts once through Messages and 
 });
 
 for(const locale of ['de','nl']){
+  test(`${locale}: web-source choice labels and saved tokens stay verbatim while settings UI translates`,()=>{
+    const p=page();
+    try{
+      const choices=['Help','Title','My  Files','A&B"<'],schema={key:'fixture',settings:[{type:'string',key:'choice',title:'Format string',description:'Select files first.',choices,default:'Help'}]};
+      p.body.innerHTML=settingsMarkup({schema,values:{choice:'Title'}},locale);
+      const t=p.translate(locale),select=p.body.querySelector('select');
+      assert.deepEqual([...select.options].map(option=>option.textContent),choices);
+      assert.deepEqual([...select.options].map(option=>option.value),choices);
+      assert.equal(select.value,'Title');assert.deepEqual(readSettings(schema,p.body),{choice:'Title'});
+      assert.equal(p.body.querySelector('label > span').textContent,t.translate('FORMAT STRING'));
+      assert.equal(p.body.querySelector('small').textContent,t.t('Select files first.'));
+      for(const choice of choices){select.value=choice;assert.deepEqual(readSettings(schema,p.body),{choice});}
+      p.translate('en');assert.equal(select.value,choices.at(-1));assert.deepEqual([...select.options].map(option=>option.textContent),choices);
+    }finally{p.close();}
+  });
   test(`${locale}: web-source names remain verbatim in enabled tooltips while disabled reasons translate`,()=>{
     const p=page();let reason='';
     try{

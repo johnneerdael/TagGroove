@@ -68,7 +68,7 @@ export function settingsMarkup(form:SettingsForm, language:string) {
       case 'bool': return `<label class="action-check"><input type="checkbox" data-setting="${index}" ${value === true ? 'checked' : ''}> ${html(title)}</label>${help}`;
       case 'number': return `<label class="field"><span>${html(title.toUpperCase())}</span><input type="number" data-setting="${index}" value="${html(value)}"></label>${help}`;
       case 'string': return setting.choices?.length
-        ? `<label class="field"><span>${html(title.toUpperCase())}</span><select data-setting="${index}">${setting.choices.map(choice => `<option ${choice === value ? 'selected' : ''}>${html(choice)}</option>`).join('')}</select></label>${help}`
+        ? `<label class="field"><span>${html(title.toUpperCase())}</span><select data-setting="${index}">${setting.choices.map(choice => `<option value="${html(choice)}" translate="no" ${choice === value ? 'selected' : ''}>${html(choice)}</option>`).join('')}</select></label>${help}`
         : `<label class="field"><span>${html(title.toUpperCase())}</span><input data-setting="${index}" value="${html(value)}" autocomplete="off" spellcheck="false"></label>${help}`;
       default: return '';
     }
