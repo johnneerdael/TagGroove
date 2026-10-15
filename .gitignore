@@ -19,3 +19,4 @@
 *.pfx
 keystore.properties
 /release-assets/
+__pycache__/

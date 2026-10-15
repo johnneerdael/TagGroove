@@ -1,0 +1,83 @@
+name: Reviewed PR validation
+run-name: 'Reviewed PR #${{ inputs.pr_number }} @ ${{ inputs.head_sha }} + ${{ inputs.base_sha }}'
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        required: true
+        type: string
+      head_sha:
+        required: true
+        type: string
+      base_sha:
+        required: true
+        type: string
+      merge_sha:
+        required: true
+        type: string
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+concurrency:
+  group: reviewed-pr-${{ inputs.pr_number }}
+  cancel-in-progress: true
+jobs:
+  preflight:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      statuses: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Authorize final reviewed head and exact current test merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_HEAD: ${{ inputs.head_sha }}
+          PR_BASE: ${{ inputs.base_sha }}
+          PR_MERGE: ${{ inputs.merge_sha }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+        run: python3 .github/scripts/review_gate.py preflight --pr "$PR_NUMBER"
+  build:
+    needs: preflight
+    uses: ./.github/workflows/_reviewed-build.yml
+    with:
+      pr_number: ${{ inputs.pr_number }}
+      head_sha: ${{ inputs.head_sha }}
+      base_sha: ${{ inputs.base_sha }}
+      merge_sha: ${{ inputs.merge_sha }}
+    # No repository secrets reach application code. PR caches are disabled.
+  result:
+    if: always() && github.ref == 'refs/heads/main'
+    needs: [preflight, build]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      statuses: write
+    concurrency:
+      group: opentag-review-controller
+      queue: max
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Record proof only for successful still-reviewed validation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_HEAD: ${{ inputs.head_sha }}
+          PR_BASE: ${{ inputs.base_sha }}
+          PR_MERGE: ${{ inputs.merge_sha }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          PREFLIGHT_RESULT: ${{ needs.preflight.result }}
+          BUILD_RESULT: ${{ needs.build.result }}
+        run: python3 .github/scripts/review_gate.py finish --pr "$PR_NUMBER"

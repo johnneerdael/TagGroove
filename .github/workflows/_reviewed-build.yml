@@ -1,16 +1,46 @@
-name: Build and test
+name: Reviewed application build implementation
 on:
-  push:
-    branches: [main]
-  pull_request:
-  workflow_dispatch:
+  workflow_call:
+    inputs:
+      pr_number:
+        required: true
+        type: string
+      head_sha:
+        required: true
+        type: string
+      base_sha:
+        required: true
+        type: string
+      merge_sha:
+        required: true
+        type: string
 permissions:
   contents: read
-concurrency:
-  group: build-${{ github.event_name }}-${{ github.event.pull_request.head.ref || github.ref_name }}
-  cancel-in-progress: true
+  pull-requests: read
+  issues: read
 jobs:
+  authorize:
+    if: github.workflow_ref == format('{0}/.github/workflows/reviewed-pr.yml@refs/heads/main', github.repository)
+    runs-on: ubuntu-24.04
+    outputs:
+      ready: ${{ steps.review.outcome == 'success' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Recheck live review and immutable merge before executing PR code
+        id: review
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_HEAD: ${{ inputs.head_sha }}
+          PR_BASE: ${{ inputs.base_sha }}
+          PR_MERGE: ${{ inputs.merge_sha }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+        run: python3 .github/scripts/review_gate.py verify --pr "$PR_NUMBER"
   desktop:
+    needs: authorize
+    if: needs.authorize.outputs.ready == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -18,16 +48,15 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.merge_sha }}
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@v2
-        with:
-          cache-on-failure: true
       - name: Linux build dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf ffmpeg
@@ -69,6 +98,7 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           plutil -convert json -o "$RUNNER_TEMP/info.json" target/release/bundle/macos/OpenTag.app/Contents/Info.plist
+          # shellcheck disable=SC2016
           node -e '
             const types = require(process.argv[1]).CFBundleDocumentTypes || [];
             const ext = types.flatMap(t => t.CFBundleTypeExtensions || []), uti = types.flatMap(t => t.LSItemContentTypes || []);
@@ -84,6 +114,8 @@ jobs:
           name: OpenTag-${{ matrix.os }}
           path: target/release/bundle/
   native-e2e:
+    needs: authorize
+    if: needs.authorize.outputs.ready == 'true'
     name: Native UI workflows (${{ matrix.os }})
     strategy:
       fail-fast: false
@@ -96,14 +128,13 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.merge_sha }}
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
       - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: native-e2e
       - name: Linux UI dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf ffmpeg xvfb xauth dbus-x11
@@ -138,12 +169,12 @@ jobs:
       - name: Build the debug app once
         run: |
           # macOS runs the binary inside the .app bundle; it carries the test identifier.
-          if [[ "$RUNNER_OS" == macOS ]]; then bundle="--bundles app"; else bundle="--no-bundle"; fi
+          if [[ "$RUNNER_OS" == macOS ]]; then bundle=(--bundles app); else bundle=(--no-bundle); fi
           config='{"identifier":"org.opentag.editor.usertest","productName":"OpenTag UserTest"}'
           if [[ "$RUNNER_OS" != Linux ]]; then
             config='{"identifier":"org.opentag.editor.usertest","productName":"OpenTag UserTest","app":{"windows":[{"title":"OpenTag","width":1240,"height":800,"minWidth":800,"minHeight":560,"backgroundThrottling":"disabled"}]}}'
           fi
-          npx tauri build --debug $bundle --config "$config"
+          npx tauri build --debug "${bundle[@]}" --config "$config"
       - name: Run native suites
         run: |
           set -o pipefail
@@ -169,15 +200,19 @@ jobs:
           name: native-e2e-output-${{ matrix.os }}
           path: e2e-output/
   android:
+    needs: authorize
+    if: needs.authorize.outputs.ready == 'true'
     name: Android document integration
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.merge_sha }}
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -193,9 +228,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-linux-android
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: android-document-integration
       - run: npm ci
       - run: npm run test:ui
       - name: Build debug arm64 app without release credentials
@@ -217,3 +249,32 @@ jobs:
           name: OpenTag-android-arm64-debug
           path: src-tauri/gen/android/app/build/outputs/apk/universal/debug/*.apk
           if-no-files-found: error
+
+  docs:
+    needs: authorize
+    if: needs.authorize.outputs.ready == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      NO_MKDOCS_2_WARNING: 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.merge_sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        if: hashFiles('mkdocs.yml') != ''
+        with:
+          python-version: '3.12'
+      - name: Install the pinned user-guide toolchain
+        if: hashFiles('mkdocs.yml') != ''
+        run: python -m pip install -r docs/site-requirements.txt
+      - name: Check documentation publication boundaries and rendered content
+        if: hashFiles('mkdocs.yml') != ''
+        run: python -m unittest discover -s docs/tests -v
+      - name: Check the complete user-guide writing plan
+        if: hashFiles('mkdocs.yml') != ''
+        run: python scripts/docs-status.py
+      - name: Build the user guide strictly
+        if: hashFiles('mkdocs.yml') != ''
+        run: python -m mkdocs build --strict
