@@ -7,7 +7,7 @@
 import type {Translator} from './core';
 
 const ATTRIBUTES = ['title', 'aria-label', 'aria-description', 'aria-roledescription', 'aria-valuetext', 'placeholder', 'alt', 'label', 'data-hint', 'data-tooltip'];
-const SKIP = 'script,style,textarea,[translate="no"],[contenteditable="true"]';
+const SKIP = 'script,style,svg,textarea,[translate="no"],[contenteditable="true"]';
 const BUTTON_INPUT = /^(button|submit|reset)$/i;
 
 type Shown = {source: string; shown: string};

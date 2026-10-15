@@ -49,7 +49,7 @@
   const ATTRIBUTES = ['title', 'aria-label', 'placeholder', 'alt'];
   const readable = root => {
     const out = [];
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, { acceptNode: n => n instanceof Element && n.matches('script,style,textarea,[translate="no"]') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT });
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, { acceptNode: n => n instanceof Element && n.matches('script,style,svg,textarea,[translate="no"]') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT });
     for (let n = walker.currentNode; n; n = walker.nextNode()) {
       if (n.nodeType === Node.TEXT_NODE) { if (/\p{L}/u.test(n.data)) out.push(n.data.replace(/\s+/g, ' ').trim()); }
       else for (const a of ATTRIBUTES) { const v = n.getAttribute(a); if (v && /\p{L}/u.test(v)) out.push(v.replace(/\s+/g, ' ').trim()); }
@@ -60,7 +60,7 @@
   const leftovers = root => [...new Set(readable(root).filter(text => i18n().translate(text) !== text && !i18n().translated(text)))];
   // English-looking text the catalogs do not know yet; reported for coverage, not a failure.
   const unknown = new Set();
-  const collectUnknown = root => { for (const text of readable(root)) if (text.length > 3 && /\b(the|and|of|to|with|for|files?|selected|field|value|not|is|are|when|this)\b/.test(text) && /^[\x20-\x7e…→—–·’“”‘]+$/.test(text)) unknown.add(text); };
+  const collectUnknown = root => { for (const text of readable(root)) if (text.length > 3 && /\b(the|and|with|files?|selected|field|value|when|this|from|which)\b/.test(text) && /^[\x20-\x7e…→—–·’“”‘]+$/.test(text)) unknown.add(text); };
 
   // Labels whose text no longer fits: compared with the same view in English.
   const SELECTORS = 'button, summary, label, legend, h2, th, header, [role="treeitem"], .menu-list > *, .field > span, p.menu-note';
