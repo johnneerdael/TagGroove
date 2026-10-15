@@ -2,7 +2,7 @@
 // nodes and the attributes people read (title, aria-label, placeholder, …) are
 // looked up in the active catalog as they appear, so every view, menu and
 // dialog follows the language without building its strings differently.
-// Regions marked translate="no" (file list rows, tag values, paths) are left
+// Regions marked translate="no" (file/tag values, user labels, paths) are left
 // alone, as are form values. English installs nothing. An element marked
 // data-verbatim="<name>" shows a name someone entered (in its text or its
 // attributes, alone or inside a sentence such as "Show {name}"): that name is

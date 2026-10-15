@@ -93,7 +93,7 @@ export class ToolsUI {
   get reason(){return this.host.reason();}
   menuHTML(){
     const list=this.tools,reason=this.host.reason();
-    return list.length?`<hr>${list.map((tool,index)=>`<button data-tool="${index}" ${reason?'disabled':''} title="${html(reason||tool.path)}"><span translate="no">${html(tool.name)}</span>${index<10?`<small>${toolShortcut(index,this.host.mac)}</small>`:''}</button>`).join('')}`
+    return list.length?`<hr>${list.map((tool,index)=>`<button data-tool="${index}"${reason?'':` data-verbatim="${html(tool.path)}"`} ${reason?'disabled':''} title="${html(reason||tool.path)}"><span translate="no">${html(tool.name)}</span>${index<10?`<small>${toolShortcut(index,this.host.mac)}</small>`:''}</button>`).join('')}`
       :'<p class="menu-note">No tools defined. Add them in Configure tools….</p>';
   }
   bindMenu(root:HTMLElement){
