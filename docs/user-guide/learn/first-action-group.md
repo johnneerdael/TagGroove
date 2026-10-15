@@ -104,7 +104,7 @@ that earlier file changes were rolled back.
 
 ## 7. Reuse the group
 
-Close the dialog and select only the second practice file. Open the
+After the dialog closes, select only the second practice file. Open the
 **Actions** menu and choose **Practice title cleanup**. The saved group
 runs again without reopening its editor.
 
