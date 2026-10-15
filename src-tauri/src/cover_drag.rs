@@ -30,13 +30,14 @@ pub fn file_name(hint: &str, mime: &str) -> String {
             || (cfg!(target_os = "linux")
                 && !(c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | '(' | ')')))
     };
-    let cleaned: String = hint
+    let trimmed = hint.trim_matches(|c: char| c == '.' || c.is_whitespace());
+    let cleaned: String = trimmed
         .chars()
         .map(|c| if unsafe_char(c) { '_' } else { c })
         .take(100)
         .collect();
     let cleaned = cleaned.trim_matches(|c: char| c == '.' || c.is_whitespace());
-    let stem = if cleaned.trim_matches('_').is_empty() {
+    let stem = if cleaned.chars().all(|c| c == '_' || c == '.') {
         "Cover"
     } else {
         cleaned

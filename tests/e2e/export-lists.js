@@ -31,7 +31,7 @@
   const exportDialog = async (shift = false) => { document.body.focus(); key('e', { metaKey: true, shiftKey: shift }, document.body); return waitFor(() => document.querySelector('dialog[open].export-dialog'), 5000, 'export dialog'); };
   const item = (dlg, name) => [...dlg.querySelectorAll('#export-list li[data-id]')].find(li => li.textContent === name);
   const outputDialog = () => waitFor(() => document.querySelector('dialog[open].open-output-dialog'), 8000, 'open-after-export dialog (' + status() + ' / ' + errorsText() + ')');
-  const closeDialog = async dlg => { dlg.querySelector('[data-close]').click(); await waitFor(() => !dlg.open, 3000, 'dialog closed'); };
+  const closeDialog = async dlg => { (dlg.querySelector('[data-close]') || dlg.querySelector('#export-cancel')).click(); await waitFor(() => !dlg.open, 3000, 'dialog closed'); };
   const playlist = async () => {
     document.body.focus(); key('p', { metaKey: true }, document.body);
     const dlg = await waitFor(() => document.querySelector('dialog[open].playlist-dialog'), 5000, 'confirm filename dialog');
@@ -66,7 +66,8 @@
     await step('helper lists in local storage move into the configuration (lists.json)', async () => {
       const saved = await waitFor(async () => { const l = await inv('load_helper_lists'); return l.exists && l; }, 5000, 'lists.json');
       const moved = saved.lists['opentag.history.tag-filename'];
-      if (JSON.stringify(moved) !== legacy['opentag.history.tag-filename']) throw new Error(JSON.stringify(saved.lists));
+      const canonical = list => JSON.stringify(list.map(entry => Object.fromEntries(Object.entries(entry).sort())));
+      if (!moved || canonical(moved) !== canonical(JSON.parse(legacy['opentag.history.tag-filename']))) throw new Error(JSON.stringify(saved.lists));
       if (localStorage.getItem('opentag.history.tag-filename') !== null) throw new Error('local storage copy left behind');
       return Object.keys(saved.lists).join(', ');
     });
@@ -210,11 +211,12 @@
     });
 
     await step('Manage List: ticked entries are ► favorites; Duplicate needs a changed copy', async () => {
-      const filter = document.getElementById('filter');
-      filter.focus(); setValue(filter, 'sine'); key('Enter', {}, filter);
+      // The File List may re-render the filter bar; look the input up each time.
+      const filter = () => document.getElementById('filter');
+      const helper = () => filter().parentElement.querySelector('.helper-button');
+      filter().focus(); setValue(filter(), 'sine'); key('Enter', {}, filter());
       await waitFor(async () => (await lists())['opentag.history.filter']?.[0]?.value === 'sine', 3000, 'filter history');
-      const button = filter.parentElement.querySelector('.helper-button');
-      button.click();
+      helper().click();
       const manage = await waitFor(() => [...document.querySelectorAll('.helper-menu button')].find(b => b.textContent === 'Manage history…'), 2000, 'Manage history…');
       manage.click();
       const dlg = await waitFor(() => document.querySelector('dialog[open].manage-history-dialog'), 2000, 'Manage history dialog');
@@ -232,14 +234,14 @@
       if (saved[0].value !== 'sine' || saved[1].value !== 'sine b' || !saved[1].favorite) throw new Error(JSON.stringify(saved));
       dlg.querySelector('[data-close]').click();
       await waitFor(() => !document.querySelector('dialog[open].manage-history-dialog'), 2000, 'closed');
-      setValue(filter, '');
-      button.click();
+      setValue(filter(), ''); await sleep(300);
+      helper().click();
       const menu = await waitFor(() => document.querySelector('.helper-menu'), 2000, 'helper menu');
       const favorites = [...menu.querySelectorAll('button')].map(b => b.textContent);
       if (!favorites.includes('sine') || !favorites.includes('sine b')) throw new Error(favorites.join('|'));
       [...menu.querySelectorAll('button')].find(b => b.textContent === 'sine b').click();
-      await waitFor(() => filter.value === 'sine b', 2000, 'favorite applied');
-      setValue(filter, '');
+      await waitFor(() => filter().value === 'sine b', 2000, 'favorite applied');
+      setValue(filter(), '');
       return JSON.stringify(saved);
     });
   } catch (e) {
