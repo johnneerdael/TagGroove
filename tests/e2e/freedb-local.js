@@ -55,7 +55,7 @@
     type(d.querySelector('.ts-value[data-value="ALBUM"]'), 'Edited Album \\\\ Second Value');
     type(d.querySelectorAll('.ts-track-value')[1], 'Renamed Tone');
     await check(d.querySelector('tr[data-row="TITLE"] .ts-summary')?.textContent.includes('2 values'), 'track edit updates the field list');
-    d.querySelector('#ts-by-length').click();
+    d.querySelector('#ts-suggest-length').click();
     await check(d.querySelectorAll('.ts-matches tbody tr').length === 2 && !d.querySelector('.ts-matches em'), 'sorting by length keeps every file matched');
     d.dispatchEvent(new KeyboardEvent('keydown', { key: 'd', ctrlKey: true, bubbles: true }));
     await check(apply.disabled && ![...d.querySelectorAll('.ts-fields input[type=checkbox]')].some(b => b.checked), 'Ctrl+D disables every field');

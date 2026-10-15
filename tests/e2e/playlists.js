@@ -93,7 +93,8 @@
 
     await step('Generate Playlists previews and writes one playlist per partition', async () => {
       document.body.focus(); key('a', { metaKey: true }); await sleep(200);
-      key('p', { metaKey: true, shiftKey: true });
+      // ⌘/Ctrl+Shift+P is Playlist per folder (keyboard reference); the generator is opened from the File menu.
+      document.querySelector('button[data-op="playlist-generate"]').click();
       const dlg = await waitFor(() => document.querySelector('dialog[open].generate-playlists-dialog'), 5000, 'generator dialog');
       const set = (id, value) => { const el = dlg.querySelector(id); el.value = value; el.dispatchEvent(new Event('input', { bubbles: true })); };
       set('#generate-filename', '%_folderpath%gen-%title%.pls'); set('#generate-partition', '%title%');

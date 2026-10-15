@@ -362,6 +362,67 @@ fn external_changes_are_reported_and_never_overwritten() {
 }
 
 #[test]
+fn side_files_created_or_replaced_are_removed_or_restored() {
+    let dir = tempfile::tempdir().unwrap();
+    let audio = dir.path().join("track.wav");
+    let created = dir.path().join("folder.jpg");
+    let replaced = dir.path().join("cover.png");
+    wav(&audio);
+    fs::write(&replaced, b"old image").unwrap();
+    let original = fs::read(&audio).unwrap();
+    let mut history = journal(dir.path());
+    let mut capture = history.begin("Tag source import", None, &[key(&audio)]);
+    write_fields(&audio, &fields(&[("TITLE", &["Imported"])])).unwrap();
+    for path in [&created, &replaced] {
+        history.capture_side_file(&mut capture, path).unwrap();
+        fs::write(path, b"new image").unwrap();
+    }
+    history.commit(capture, &[], &[]);
+    assert_eq!(history.state().undo.unwrap().files, 1, "only audio counts");
+
+    let replay = history.undo().unwrap();
+    assert!(replay.errors.is_empty(), "{:?}", replay.errors);
+    assert_eq!(fs::read(&audio).unwrap(), original);
+    assert!(!created.exists(), "a created image is removed");
+    assert_eq!(fs::read(&replaced).unwrap(), b"old image");
+
+    let replay = history.redo().unwrap();
+    assert!(replay.errors.is_empty(), "{:?}", replay.errors);
+    assert_eq!(fs::read(&created).unwrap(), b"new image");
+    assert_eq!(fs::read(&replaced).unwrap(), b"new image");
+
+    // An image changed by another program is reported and left alone.
+    fs::write(&created, b"edited elsewhere").unwrap();
+    let replay = history.undo().unwrap();
+    assert_eq!(replay.errors.len(), 1, "{:?}", replay.errors);
+    assert!(replay.errors[0].error.contains("Changed outside OpenTag"));
+    assert_eq!(fs::read(&created).unwrap(), b"edited elsewhere");
+    assert_eq!(fs::read(&replaced).unwrap(), b"old image");
+    assert_eq!(fs::read(&audio).unwrap(), original);
+}
+
+#[test]
+fn unchanged_side_files_are_not_recorded() {
+    let dir = tempfile::tempdir().unwrap();
+    let image = dir.path().join("folder.jpg");
+    fs::write(&image, b"same").unwrap();
+    let mut history = journal(dir.path());
+    let mut capture = history.begin("Tag source import", None, &[]);
+    history.capture_side_file(&mut capture, &image).unwrap();
+    fs::write(&image, b"same").unwrap();
+    history
+        .capture_side_file(&mut capture, &dir.path().join("never-written.jpg"))
+        .unwrap();
+    history.commit(capture, &[], &[]);
+    assert!(history.state().undo.is_none());
+    assert_eq!(snapshots(dir.path()), 0, "no copies are kept");
+    // A folder in place of the image cannot be captured.
+    let mut capture = history.begin("Tag source import", None, &[]);
+    assert!(history.capture_side_file(&mut capture, dir.path()).is_err());
+    history.commit(capture, &[], &[]);
+}
+
+#[test]
 fn deleted_or_recreated_files_and_occupied_rename_sources_are_refused() {
     let dir = tempfile::tempdir().unwrap();
     let source = dir.path().join("a.wav");
