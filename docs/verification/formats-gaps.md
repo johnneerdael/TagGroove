@@ -13,7 +13,7 @@ a desktop.
 
 | Area | Before | Now |
 | --- | --- | --- |
-| Nero file-wide fields | Filled fields the iTunes tag lacks, but an edit or removal only reached the iTunes tag, so a removed field came back from Nero | Editing or removing a field the Nero `meta` box holds changes it there too (`NeroTags::sync_global`). Fields Nero does not hold are not added. The `tags` box is rewritten in place with a `free` box after it when it fits, otherwise together with the chapters. Chapter rows apply the same rule (`subsongs::write_mp4_rows`) |
+| Nero file-wide fields | Filled fields the iTunes tag lacks, but an edit or removal only reached the iTunes tag, so a removed field came back from Nero | Editing or removing a field the Nero `meta` box holds changes it there too (`NeroTags::sync_global`). Fields Nero does not hold are not added, and Nero's value limits only apply to the fields it holds. MP4 user mappings apply to these fields on read and write as they do to the iTunes tag. The `tags` box is rewritten in place with a `free` box after it when it fits, otherwise together with the chapters. Chapter rows apply the same rule (`subsongs::write_mp4_rows`) |
 | `_TAG` of MP4 files with Nero tags | `MP4` | `MP4 Nero`, as the examined binary lists them; `_TAG_READ` stays `MP4` |
 | Nero covers (`cvrx`) | Kept, not read | Read (`NeroTags::covers`) and shown as the file's covers when the iTunes tag has none. Any cover edit stores the shown covers in `covr` and then drops the `cvrx` box, so an edited or removed cover cannot come back from Nero. Field edits leave `cvrx` byte for byte |
 | `udta/indx` | Kept, not looked at | Still kept byte for byte through chapter and Nero rewrites (now covered by a test). The examined binary reads it as a count and per entry a 64-bit value and a length-prefixed string, and writes it back |
@@ -62,9 +62,13 @@ a desktop.
 All on this Mac without launching the app.
 
 - `AR=/usr/bin/ar cargo test -p tag-core`: every suite green, including the
-  new `tests/formats_gaps.rs` (11 tests, all fixtures built by hand). Run
-  against the `main` sources, 10 of them fail; the remaining one checks that
-  the hand-built MP4 reads like a real file.
+  new `tests/formats_gaps.rs` (12 tests, all fixtures built by hand). The
+  first 11 were run against the `main` sources: 10 fail, and the remaining
+  one checks that the hand-built MP4 reads like a real file.
+  - Nero with MP4 user mappings (ALBUM → COLLECTION, GENRE → STYLE): the
+    Nero value fills the mapped name, and deleting the mapped field (from the
+    file or from chapter rows) removes the Nero value; a COMMENT longer than
+    Nero's limit is written when Nero does not hold COMMENT.
   - MP4: a minimal one-track AAC file built box by box. File-wide Nero
     fields fill gaps, `_TAG` is `MP4 Nero`; an unrelated edit leaves the
     `tags` box byte for byte; removing a Nero-held field shrinks the box in

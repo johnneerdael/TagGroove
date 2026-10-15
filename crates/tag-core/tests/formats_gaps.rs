@@ -14,8 +14,8 @@ use lofty::{
 use std::{fs, path::Path};
 use tag_core::{
     add_cover_bytes_with_options, read_entry, read_entry_with_options,
-    remove_all_covers_with_options, write_fields, write_fields_with_options, AudioEntry, Fields,
-    TagOptions,
+    remove_all_covers_with_options, write_chapter_rows, write_fields, write_fields_with_options,
+    AudioEntry, Fields, TagOptions, UserFieldMapping,
 };
 
 fn fields(values: &[(&str, &[&str])]) -> Fields {
@@ -308,6 +308,87 @@ fn file_wide_nero_fields_fill_gaps_and_follow_edits() {
     assert_eq!(value(&entry, "ALBUM").as_deref(), Some("Shared"));
     assert_eq!(entry.chapters.len(), 2);
     assert_eq!(value(&entry, "COMMENT").as_deref(), Some("Note"));
+}
+
+#[test]
+fn nero_fields_follow_user_mappings_and_only_held_fields_are_limited() {
+    let dir = tempfile::tempdir().unwrap();
+    let udta = [
+        itunes(&[
+            item(b"\xa9nam", 1, b"Song"),
+            item(b"\xa9alb", 1, b"iTunes album"),
+        ]),
+        chpl(&[(0, "One"), (2_000_000, "Two")]),
+        boxed(
+            b"tags",
+            &nero_meta(&[("album", "Nero album"), ("genre", "Nero genre")]),
+        ),
+    ]
+    .concat();
+    let options = TagOptions {
+        mappings: vec![
+            UserFieldMapping {
+                tag_type: "MP4".into(),
+                source: "ALBUM".into(),
+                target: "COLLECTION".into(),
+            },
+            UserFieldMapping {
+                tag_type: "MP4".into(),
+                source: "GENRE".into(),
+                target: "STYLE".into(),
+            },
+        ],
+        ..TagOptions::default()
+    };
+    let rules = options.mappings.clone();
+    let path = dir.path().join("mapped.m4b");
+    fs::write(&path, mp4(&udta)).unwrap();
+    let entry = read_entry_with_options(&path, &rules, &options).unwrap();
+    assert_eq!(value(&entry, "COLLECTION").as_deref(), Some("iTunes album"));
+    assert_eq!(value(&entry, "ALBUM"), None);
+    // Nero fills gaps under the mapped name too.
+    assert_eq!(value(&entry, "STYLE").as_deref(), Some("Nero genre"));
+    assert_eq!(value(&entry, "GENRE"), None);
+
+    // Deleting the mapped field removes the Nero value it stands for.
+    write_fields_with_options(
+        &path,
+        &fields(&[("COLLECTION", &[])]),
+        false,
+        &rules,
+        &options,
+    )
+    .unwrap();
+    let entry = read_entry_with_options(&path, &rules, &options).unwrap();
+    assert_eq!(value(&entry, "COLLECTION"), None);
+    assert_eq!(value(&entry, "ALBUM"), None);
+    assert!(contains(&fs::read(&path).unwrap(), b"Nero album").is_none());
+
+    // Chapter rows apply the mapping as well.
+    write_chapter_rows(
+        &path,
+        &[
+            (1, fields(&[("STYLE", &[])])),
+            (2, fields(&[("STYLE", &[])])),
+        ],
+        false,
+        &options,
+    )
+    .unwrap();
+    let entry = read_entry_with_options(&path, &rules, &options).unwrap();
+    assert_eq!(value(&entry, "STYLE"), None);
+    assert!(contains(&fs::read(&path).unwrap(), b"Nero genre").is_none());
+
+    // A value too long for Nero is fine for a field Nero does not hold.
+    let path = dir.path().join("long.m4b");
+    fs::write(&path, mp4(&udta)).unwrap();
+    let long = "c".repeat(0x10_0000 + 1);
+    let written = write_fields(&path, &fields(&[("COMMENT", &[long.as_str()])])).unwrap();
+    assert_eq!(
+        value(&written, "COMMENT").map(|v| v.len()),
+        Some(long.len())
+    );
+    assert_eq!(tags_box(&fs::read(&path).unwrap()), tags_box(&mp4(&udta)));
 }
 
 #[test]

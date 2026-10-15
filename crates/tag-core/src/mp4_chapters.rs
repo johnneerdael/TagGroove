@@ -322,15 +322,18 @@ fn scan_file(file: &mut fs::File) -> Result<Chapters, String> {
 
 /// The CHAPTERS field, `_SUBSONG_COUNT` and the chapter list of an MP4
 /// file, with the fields of each chapter from Nero tags. File-wide Nero
-/// fields fill in fields the iTunes tag does not have, and `_TAG` names the
-/// Nero tags after the iTunes tag, as Mp3tag lists them. Files whose chapter
-/// boxes cannot be read simply show none.
-pub(super) fn describe(path: &Path, entry: &mut AudioEntry) {
+/// fields fill in fields the iTunes tag does not have, under the names the
+/// MP4 user mappings `rules` give them, and `_TAG` names the Nero tags after
+/// the iTunes tag, as Mp3tag lists them. Files whose chapter boxes cannot be
+/// read simply show none.
+pub(super) fn describe(path: &Path, entry: &mut AudioEntry, rules: &[UserFieldMapping]) {
     let Ok(chapters) = scan(path) else {
         return;
     };
     if let Some(nero) = &chapters.nero_tags {
-        for (name, values) in nero.global_fields() {
+        let global = nero.global_fields();
+        let global = map_read_fields(&global, TagType::Mp4Ilst, rules).unwrap_or(global);
+        for (name, values) in global {
             if !entry.fields.keys().any(|k| k.eq_ignore_ascii_case(&name)) {
                 entry.fields.insert(name, values);
             }

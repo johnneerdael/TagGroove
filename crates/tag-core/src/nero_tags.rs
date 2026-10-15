@@ -286,6 +286,15 @@ impl NeroTags {
         };
         let mut changed = false;
         for (name, list) in updates {
+            let matches = |field: &Field| {
+                matches!(field, Field::Text { name: stored, .. }
+                    if field_name(stored).eq_ignore_ascii_case(name))
+            };
+            // Fields Nero does not hold are only in the iTunes tag, whose
+            // limits apply to them.
+            if !global.iter().any(matches) {
+                continue;
+            }
             let list: Vec<String> = list.iter().filter(|v| !v.is_empty()).cloned().collect();
             if list.len() > 0xFFFF
                 || list
@@ -294,10 +303,6 @@ impl NeroTags {
             {
                 return Err(format!("{name} cannot be stored in the Nero tag"));
             }
-            let matches = |field: &Field| {
-                matches!(field, Field::Text { name: stored, .. }
-                    if field_name(stored).eq_ignore_ascii_case(name))
-            };
             if list.is_empty() {
                 let before = global.len();
                 global.retain(|field| !matches(field));
@@ -564,6 +569,14 @@ mod tests {
         assert!(!NeroTags::default().sync_global(&updates).unwrap());
         assert!(tags
             .sync_global(&Fields::from([field("ALBUM", &["a\0b"])]))
+            .is_err());
+        // Limits only apply to fields Nero holds.
+        let long = "x".repeat(VALUE_LIMIT + 1);
+        assert!(!tags
+            .sync_global(&Fields::from([field("COMMENT", &[long.as_str()])]))
+            .unwrap());
+        assert!(tags
+            .sync_global(&Fields::from([field("ALBUM", &[long.as_str()])]))
             .is_err());
     }
 }

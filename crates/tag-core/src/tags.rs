@@ -807,7 +807,7 @@ fn read_description(
     let mut entry =
         describe_with_native(&path, &file, &native, include_cover_data, rules, options)?;
     if kind == FileType::Mp4 {
-        mp4_chapters::describe(&path, &mut entry);
+        mp4_chapters::describe(&path, &mut entry, rules);
     }
     name_placeholders(&mut entry.technical, &placeholders);
     Ok(entry)
@@ -1728,7 +1728,8 @@ fn write_fields_result(
             if file.file_type() == FileType::Mp4 {
                 // First, so the read-back of the iTunes tag sees no stale
                 // file-wide Nero value.
-                mp4_chapters::sync_nero_fields(staging, staged_path, &updates)?;
+                let native = map_write_fields(&updates, TagType::Mp4Ilst, rules)?;
+                mp4_chapters::sync_nero_fields(staging, staged_path, &native)?;
             }
             if let Some(values) = chapters {
                 if !updates.is_empty() {
