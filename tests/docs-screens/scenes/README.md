@@ -33,7 +33,21 @@ sorted by file name as `01_low_tide`, `02 - Lanterns On The Water`,
 `07 Fog Horn (Interlude)`, `08 - Harbour Lights`, `track04`. Scenes must not
 save changes to the files, because later scenes expect the original album.
 
-Push your branch to run the **Docs screenshots** workflow (it runs on every
-push that touches `tests/docs-screens/`). Then copy the results in with
-`scripts/docs-screens-fetch.sh [run-id] [scene …]`. Never run the screenshot
-script or the app on your own machine.
+## Capture availability
+
+New app-image capture is paused until a screenshot workload is routed
+through the review gate described in `.github/CI_LOCKDOWN.md`. The former
+automatic workflow was removed and its legacy ID must remain disabled.
+Pushing a scene does not capture it. Do not restore automatic triggers or
+dispatch a legacy workflow.
+
+Keep proposed scenes in the relevant workstream file and describe the
+required image in the PR. Use existing verified guide images or text that
+explains the state until reviewed capture support is available. Never run
+the screenshot script or the app on a writer's machine for guide work.
+
+For an already-existing historical artifact only,
+`scripts/docs-screens-fetch.sh <run-id> [scene …]` downloads `docs-screens`
+from the explicit run. It does not start capture or discover a current
+workflow. Verify that the artifact's source matches the page before using
+it; artifacts may have expired.

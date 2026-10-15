@@ -6,11 +6,12 @@
 # Usage (CI only): scripts/docs-screenshots.sh <output-dir> [scene ...]
 # Needs a debug build (target/debug/opentag), ffmpeg, xvfb-run, xdotool and
 # ImageMagick. Real app windows open here, so it refuses to run outside CI and
-# outside Linux; .github/workflows/docs-screenshots.yml is the only caller.
+# outside Linux. This dormant runner has no active workflow caller; new
+# capture must be routed through the review gate before CI execution.
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 if [[ -z "${CI:-}" || "$(uname -s)" != Linux ]]; then
-  echo "Refusing to open app windows here. Docs screenshots are captured in CI (Linux, xvfb): run the Docs screenshots workflow." >&2
+  echo "Refusing to open app windows here. New docs capture is paused pending review-gated CI support; see docs/PUBLISHING.md." >&2
   exit 2
 fi
 bin="$root/target/debug/opentag"

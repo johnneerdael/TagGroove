@@ -31,7 +31,8 @@ lead so this guide gets fixed.
    map; read the code that implements the feature; write the page with the
    template for its type (§ 3); verify every example (§ 4); remove
    `status: draft`.
-4. Need screenshots? Add scenes, push, fetch (§ 8).
+4. Need screenshots? Read the current capture availability in § 8. Keep
+   proposed scenes for reviewed capture support; pushing does not capture them.
 5. Before pushing: `mkdocs build --strict` and `python3 scripts/docs-status.py`
    (§ 11, § 12) must pass. Add finished pages to the public navigation in
    `mkdocs.yml` as described in `docs/PUBLISHING.md`. Drafts stay out of
@@ -55,7 +56,7 @@ lead so this guide gets fixed.
    *Orquesta Alba*. Never quote real lyrics, and never use real albums as
    tagging examples.
 4. **Never launch the app on your own machine for docs work.** That includes
-   screenshots. They are made in CI (see section 8).
+   screenshots. New capture is pending review-gated CI support (section 8).
 5. **Write for one person who is trying to get something done.** Every page
    answers: what is this, when would I use it, how do I do it, what can go
    wrong.
@@ -286,28 +287,27 @@ warning, nothing is.
 
 ## 8. Screenshots
 
-Screenshots come from CI, never from a writer's machine.
+Screenshots must come from reviewed CI capture, never from a writer's
+machine. New capture is currently paused: the former automatic workflow
+was removed, and its legacy ID must stay disabled. See
+`docs/PUBLISHING.md` and `.github/CI_LOCKDOWN.md`.
 
-- **Pipeline:** `.github/workflows/docs-screenshots.yml` builds the debug app
-  on Linux and runs it under xvfb with the Juniper Vale fixtures
-  (`tests/docs-screens/fixtures.sh`). `tests/docs-screens/screens.js` drives
-  the app through named *scenes*, and `scripts/docs-screenshots.sh` captures
-  each scene in Light and Dark at 2× scale. The PNGs are uploaded as the
-  `docs-screens` artifact.
-- **Getting them into the guide:** `scripts/docs-screens-fetch.sh [run-id] [scene…]`
-  downloads the artifact and copies `<scene>-light.png` and `<scene>-dark.png`
-  into `docs/user-guide/assets/screens/`. Commit only the scenes your pages use.
-- **Requesting a new screen:** script it yourself in your workstream's scene
-  file, `tests/docs-screens/scenes/<workstream>.js`. Never put it in
-  `screens.js`; that file holds only the core scenes. The README in that
-  folder lists the helpers and the fixture album, and `converters.js` is a
-  working model. Push your branch: the workflow runs on every push that
-  touches `tests/docs-screens/`. Once the workflow is on main you can also
-  start it by hand for selected scenes:
-  `gh workflow run docs-screenshots.yml --ref <branch> -f scenes="<name> <name>"`.
-  A failing scene fails the run, and its error is in the log under
-  "Capture screenshots". If you can't script a scene, describe it in your
-  PR and the docs lead will add it.
+- **Current process:** reuse verified existing images when they accurately
+  show the feature. Otherwise explain the visible state in text and record
+  the requested image in the PR. Pushing a scene does not capture it. Do not
+  restore or manually dispatch the legacy workflow.
+- **Preparing a scene:** add it to
+  `tests/docs-screens/scenes/<workstream>.js` for future review-gated capture.
+  Keep `screens.js` for the core scenes. The scene README lists the helpers
+  and Juniper Vale fixture album; `converters.js` is a working model.
+  The dormant runner is `scripts/docs-screenshots.sh`; preparing a scene
+  does not authorize executing it.
+- **Historical artifacts only:** `scripts/docs-screens-fetch.sh <run-id> [scene…]`
+  downloads `docs-screens` from an explicit existing run and copies selected
+  PNGs into `docs/user-guide/assets/screens/`. It starts no workload and
+  cannot discover or dispatch a replacement capture workflow. Check source
+  revision and image accuracy before reusing an artifact. Commit only the
+  images the page uses.
 - **Embedding:** always both variants, so each colour scheme shows the
   matching screenshot:
 

@@ -2,6 +2,7 @@
 
 from html.parser import HTMLParser
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -10,6 +11,24 @@ import unittest
 
 
 HOOK = Path(__file__).resolve().parents[1] / "hooks" / "publication.py"
+
+
+class ScreenshotArtifactTests(unittest.TestCase):
+    def test_fetch_requires_an_explicit_run_without_querying_github(self):
+        root = HOOK.parents[2]
+        with tempfile.TemporaryDirectory() as directory:
+            fake_gh = Path(directory) / "gh"
+            fake_gh.write_text("#!/bin/sh\necho UNEXPECTED_GITHUB_CALL >&2\nexit 99\n")
+            fake_gh.chmod(0o755)
+            result = subprocess.run(
+                ["bash", str(root / "scripts" / "docs-screens-fetch.sh")],
+                capture_output=True,
+                text=True,
+                env={**os.environ, "PATH": directory + os.pathsep + os.environ["PATH"]},
+            )
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertIn("paused pending review-gated CI support", result.stderr)
+        self.assertNotIn("UNEXPECTED_GITHUB_CALL", result.stderr)
 
 
 class PublicationTests(unittest.TestCase):

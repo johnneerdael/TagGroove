@@ -8,8 +8,9 @@ The public guide is <https://johnneerdael.github.io/opentag/>. Its source is
 Read `docs/user-guide/_meta/style.md` and the topic's brief before writing.
 Keep instructions specific to OpenTag's actual behavior. Check the relevant
 source and examples; record runtime checks separately from source or test
-evidence. Use the screenshot workflow for app images rather than a personal
-music library.
+evidence. Reuse existing verified guide images where appropriate. New app
+captures are pending review-gated CI support; follow the screenshot section
+below rather than launching the app against a personal music library.
 
 The complete writing plan lives in `docs/user-guide/_meta/planned-nav.yml`.
 A page marked `status: draft` stays in the repository but is excluded from
