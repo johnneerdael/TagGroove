@@ -117,13 +117,13 @@ fn remove_tag_strips_only_the_kinds_selected_for_mpeg() {
     let tmp = tempfile::tempdir().unwrap();
     let path = tmp.path().join("all.mp3");
     mp3_with_all_kinds(&path);
-    assert_eq!(tag_kinds(&path), "ID3v2.4 ID3v1 APE");
+    assert_eq!(tag_kinds(&path), "ID3v2.4 ID3v1 APEv2");
 
     let mut options = TagOptions::default();
     options.mpeg.remove_id3v2 = false;
     options.mpeg.remove_ape = false;
     let entry = remove_tags_with_options(&path, false, &options).unwrap();
-    assert_eq!(entry.technical["_TAG"], ["ID3v2.4 APE"]);
+    assert_eq!(entry.technical["_TAG"], ["ID3v2.4 APEv2"]);
 
     // Nothing selected is present any more: the file is left alone.
     let before = fs::read(&path).unwrap();
