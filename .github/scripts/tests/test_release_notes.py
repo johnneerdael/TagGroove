@@ -59,6 +59,17 @@ class ValidationTests(unittest.TestCase):
             with self.subTest(placeholder=placeholder), self.assertRaisesRegex(ValueError, 'template placeholders'):
                 self.notes.validate_release_notes(f'## Release notes\n- {placeholder}')
 
+    def test_literal_todo_and_tbd_values_in_prose_and_examples_are_accepted(self):
+        for text in ('- Preserve TODO values in title tags.', '- Write the literal `TBD` album name.',
+                     '- Retain placeholder-like title values.\n```text\nTODO\nTBD\n[Describe the changes]\n```'):
+            with self.subTest(text=text):
+                self.assertEqual(self.notes.validate_release_notes('## Release notes\n' + text), text)
+
+    def test_placeholder_only_todo_and_tbd_lines_still_fail(self):
+        for placeholder in ('TODO', '- TBD', '**TODO**', '[TBD]', '<TODO>'):
+            with self.subTest(placeholder=placeholder), self.assertRaises(ValueError):
+                self.notes.validate_release_notes('## Release notes\n' + placeholder)
+
     def test_only_level_two_heading_satisfies_dedicated_release_section(self):
         for depth in (1, 3, 4, 5, 6):
             body = f'## Validation\n{"#" * depth} Release notes\n- Validate cover-art fixtures.'
@@ -116,8 +127,21 @@ class GenerationTests(unittest.TestCase):
                 result = self.notes.render_release_notes('owner/repo', [commit], lambda sha: [historical], set())
                 self.assertIn('Keep the selected album.', result)
                 self.assertNotIn('Private results', result)
+                self.assertNotIn(legacy, result)
+                self.assertNotIn('Release notes', result)
                 with self.assertRaises(ValueError):
                     self.notes.render_release_notes('owner/repo', [commit], lambda sha: [historical], {commit.sha})
+
+    def test_historical_substantive_notes_and_literal_examples_remain_published(self):
+        commit = self.notes.Commit('a' * 40, 'Merge old PR', '')
+        body = ('## Summary\nKeep the selected album.\n## Release notes\n'
+                '- Preserve TODO title values.\n```text\nTODO\n```\n## Validation\nPrivate results.')
+        pull = dict(number=1, title='Old change', merged_at='now', body=body)
+        result = self.notes.render_release_notes('owner/repo', [commit], lambda sha: [pull], set())
+        self.assertIn('Keep the selected album.', result)
+        self.assertIn('Preserve TODO title values.', result)
+        self.assertIn('```text\nTODO\n```', result)
+        self.assertNotIn('Private results', result)
 
     def test_first_parent_range_keeps_docs_only_changes_and_excludes_feature_commits(self):
         with tempfile.TemporaryDirectory() as directory:

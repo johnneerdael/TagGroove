@@ -29,7 +29,7 @@ def strip_comments(text: str) -> str:
     return re.sub(r"<!--.*?(?:-->|\Z)", "", text, flags=re.DOTALL)
 
 
-def markdown_lines(text: str) -> list[tuple[str, int, str]]:
+def markdown_lines(text: str, *, skip_fenced: bool = False) -> list[tuple[str, int, str]]:
     """Return lines with ATX heading metadata, ignoring headings in fenced code."""
     result = []
     fence = ""
@@ -41,7 +41,10 @@ def markdown_lines(text: str) -> list[tuple[str, int, str]]:
                 fence = token
             elif token[0] == fence[0] and len(token) >= len(fence):
                 fence = ""
-            result.append((line, 0, ""))
+            if not skip_fenced:
+                result.append((line, 0, ""))
+            continue
+        if skip_fenced and fence:
             continue
         heading = re.match(r"^\s{0,3}(#{1,6})\s+(.+?)\s*#*\s*$", line) if not fence else None
         result.append((line, len(heading.group(1)) if heading else 0,
@@ -88,6 +91,12 @@ def has_template_placeholder(line: str) -> bool:
     return False
 
 
+def placeholder_only(line: str) -> bool:
+    value = plain_content(line).strip('<> ')
+    value = re.sub(r'^internal(?: changes?)?\s*:\s*', '', value)
+    return value in {'todo', 'tbd', 'n/a', 'na', 'not applicable'} or has_template_placeholder(line)
+
+
 def validate_release_notes(body: str) -> str:
     section = release_section(body)
     if section is None:
@@ -96,8 +105,8 @@ def validate_release_notes(body: str) -> str:
     internal = []
     in_internal = False
     internal_level = 0
-    for line, depth, title in markdown_lines(section):
-        if re.search(r"\b(?:TODO|TBD)\b", line, re.IGNORECASE):
+    for line, depth, title in markdown_lines(section, skip_fenced=True):
+        if placeholder_only(line) and re.search(r"\b(?:TODO|TBD)\b", line, re.IGNORECASE):
             raise ValueError("Release notes must replace TODO/TBD placeholders with actual changes.")
         if has_template_placeholder(line):
             raise ValueError("Release notes must replace template placeholders with actual changes.")
@@ -136,7 +145,8 @@ def historical_description(body: str) -> str:
     skipped_level = 0
     skipped_label = False
     review_section = re.compile(r"\b(?:validation|tests?|testing|checklist|test\s*plan|screenshots?|review|verification|not changed)\b", re.IGNORECASE)
-    for line, depth, title in markdown_lines(body):
+    lines = markdown_lines(body)
+    for index, (line, depth, title) in enumerate(lines):
         if re.search(r"(?:generated (?:with|by)|co-authored-by:|\b(?:claude|codex) (?:code|agent)\b)", line, re.IGNORECASE):
             break
         if re.search(r"!\[|<img\b|img\.shields\.io/", line, re.IGNORECASE):
@@ -149,6 +159,14 @@ def historical_description(body: str) -> str:
             if review_section.search(title):
                 skipped_level = depth
                 continue
+            if re.fullmatch(r'release[ -]+notes\s*:?', title, re.IGNORECASE):
+                end = next((stop for stop in range(index + 1, len(lines))
+                            if lines[stop][1] and lines[stop][1] <= depth), len(lines))
+                values = [text for text, level, _ in lines[index + 1:end]
+                          if not level and plain_content(text)]
+                if all(placeholder_only(text) for text in values):
+                    skipped_level = depth
+                    continue
             if title.casefold() in {"summary", "description", "changes", "what changed"}:
                 continue
         if skipped_level:
