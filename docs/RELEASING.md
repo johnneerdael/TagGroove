@@ -1,7 +1,5 @@
 # Publishing OpenTag releases
 
-> **Changing:** two open pull requests replace parts of this page. PR #17 (`feat/core-parity`) publishes `0.x` versions as full releases labelled "Release (pre-1.0)", with only a suffix such as `-beta.1` or the explicit input making a prerelease. PR #22 (`ci/release-on-merge`) publishes a full release `0.2.<patch>` for every merge to `main`. Until they merge, the text below describes the workflow on `main`.
-
 `.github/workflows/release.yml` builds the same validated commit for five desktop targets, an Android arm64 APK, and an iOS arm64 simulator app. Only the final job can publish. It waits for every required build, verifies platform manifests and SHA256 hashes, creates or reuses an unpublished draft, uploads the complete asset set, verifies GitHub's asset digests, and then publishes.
 
 Current `0.1.0` packages are development prereleases. Android and iOS packages are **UI previews**: document editing and save-back integration is still in progress in this release source. Desktop feature parity and remaining runtime qualification are recorded in [PARITY.md](PARITY.md).

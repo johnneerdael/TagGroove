@@ -66,9 +66,7 @@ In open pull requests: more metadata sources (iTunes, Deezer, LRCLIB, Cover Art 
 
 ## Download
 
-Get installers from [GitHub Releases](https://github.com/johnneerdael/opentag/releases). Assets name their operating system and architecture and come with a checksum list. Windows builds are unsigned and macOS builds are ad-hoc signed, not notarized. Parity is still incomplete before 1.0; see the [parity ledger](docs/PARITY.md).
-
-Release automation is changing in open pull requests: `0.x` versions become full releases labelled "Release (pre-1.0)" (PR #17), and every merge to `main` publishes a new full release `0.2.<patch>` with all platform builds (PR #22). Only versions with a suffix such as `-beta.1` stay prereleases. The only release so far, v0.1.0, is a prerelease. See [release automation](docs/RELEASING.md) for targets, signing and publishing.
+Get installers from the [latest GitHub release](https://github.com/johnneerdael/opentag/releases/latest). Every merge to `main` publishes a new full release with all platform builds (versions `0.2.1`, `0.2.2`, …); before 1.0 the release notes say "Release (pre-1.0)", and only versions with a suffix such as `-beta.1` are prereleases. Assets name their operating system and architecture and come with a checksum list. Windows builds are unsigned and macOS builds are ad-hoc signed, not notarized. The [parity ledger](docs/PARITY.md) tracks what is still incomplete before 1.0. See [release automation](docs/RELEASING.md) for targets, signing and publishing.
 
 ## Develop
 
