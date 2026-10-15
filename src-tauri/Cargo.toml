@@ -50,3 +50,11 @@ trash = "5"
 # Cover window Copy/Paste cover (image data) and Edit → Copy as Text (WebKit only
 # allows navigator.clipboard during a user gesture).
 arboard = { version = "3", default-features = false, features = ["image-data"] }
+
+# Modifier keys held during a native file drop (File List: Ctrl+drop adds files).
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSEvent"] }
+[target.'cfg(target_os = "windows")'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_UI_Input_KeyboardAndMouse"] }
+[target.'cfg(target_os = "linux")'.dependencies]
+gdk = "0.18"

@@ -5,7 +5,7 @@ import ts from 'typescript';
 
 const source = await readFile(new URL('../src/action-ui.ts', import.meta.url), 'utf8');
 const javascript = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 } }).outputText;
-const { actionListKey, actionCatalog, panelKey, moveItem, renameGroup, removeGroup, applyPreset, menuSegments, resolvePathChanges, rebaseCaseOnly, mnemonicMarkup, sortGroups, enabledSummary, copyName, codepageChoices, qualityPresets } = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);
+const { actionListKey, moveMarked, markAll, clickMark, actionCatalog, panelKey, moveItem, renameGroup, removeGroup, applyPreset, menuSegments, resolvePathChanges, rebaseCaseOnly, mnemonicMarkup, sortGroups, enabledSummary, copyName, codepageChoices, qualityPresets } = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);
 const library = () => ({groups:[{name:'First',enabled:true,actions:[{type:'format_value',field:'TITLE',template:'text'}]},{name:'Second',enabled:false,actions:[]}],presets:[{name:'Only first',enabled_groups:['First']}]});
 
 test('catalog exposes every documented action type exactly once', () => {
@@ -76,7 +76,31 @@ test('Actions dialog keys follow the keyboard reference', () => {
   assert.equal(actionListKey(key('PageUp', { altKey: true }), false), 'top');
   assert.equal(actionListKey(key('PageDown', { altKey: true }), false), 'bottom');
   assert.equal(actionListKey(key('ArrowUp'), false), undefined, 'plain arrows move the selection');
-  assert.equal(actionListKey(key('a', { ctrlKey: true }), false), undefined);
+  assert.equal(actionListKey(key('a', { ctrlKey: true }), false), 'select-all');
+  assert.equal(actionListKey(key('A', { ctrlKey: true, shiftKey: true }), false), 'invert');
+  assert.equal(actionListKey(key('a', { metaKey: true }), true), 'select-all');
+  assert.equal(actionListKey(key('a', { ctrlKey: true }), true), undefined, 'macOS uses Command');
+  assert.equal(actionListKey(key('E', { ctrlKey: true, shiftKey: true }), false), undefined);
+});
+
+test('Actions dialog multi-selection: Ctrl+A, Ctrl+Shift+A, clicks and block moves', () => {
+  assert.deepEqual([...markAll(4, new Set([1]), false)], [0, 1, 2, 3]);
+  assert.deepEqual([...markAll(4, new Set([1, 3]), true)], [0, 2]);
+  assert.deepEqual([...clickMark(new Set([0]), 0, 2, { toggle: false, range: false })], [2]);
+  assert.deepEqual([...clickMark(new Set([0]), 0, 2, { toggle: true, range: false })].sort(), [0, 2]);
+  assert.deepEqual([...clickMark(new Set([0, 2]), 0, 2, { toggle: true, range: false })], [0]);
+  assert.deepEqual([...clickMark(new Set([3]), 3, 1, { toggle: false, range: true })], [1, 2, 3]);
+  const items = ['a', 'b', 'c', 'd', 'e'];
+  let moved = moveMarked(items, new Set([1, 3]), 'up');
+  assert.deepEqual(moved.items, ['b', 'a', 'd', 'c', 'e']);
+  assert.deepEqual([...moved.marked], [0, 2]);
+  moved = moveMarked(moved.items, moved.marked, 'up');
+  assert.deepEqual(moved.items, ['b', 'd', 'a', 'c', 'e'], 'a marked item at the top stays while the others move');
+  assert.deepEqual(moveMarked(items, new Set([0, 2]), 'down').items, ['b', 'a', 'd', 'c', 'e']);
+  assert.deepEqual(moveMarked(items, new Set([1, 3]), 'bottom').items, ['a', 'c', 'e', 'b', 'd']);
+  assert.deepEqual(moveMarked(items, new Set([2, 4]), 'top').items, ['c', 'e', 'a', 'b', 'd']);
+  assert.deepEqual([...moveMarked(items, new Set([2, 4]), 'top').marked], [0, 1]);
+  assert.deepEqual(items, ['a', 'b', 'c', 'd', 'e']);
 });
 
 test('list folders follow folder renames that change only the letter case', () => {

@@ -17,6 +17,7 @@ mod history;
 mod list_behaviour;
 #[cfg(any(target_os = "android", test))]
 mod managed_actions;
+mod mp3tag_columns;
 mod playlists;
 mod progress;
 mod rename_plan;
@@ -1039,6 +1040,8 @@ pub fn run() {
             file_ops::save_directory_state,
             file_ops::remember_directories,
             file_ops::trash_files,
+            file_ops::delete_files_permanently,
+            file_ops::modifier_keys,
             file_ops::transfer_files,
             file_ops::reveal_files,
             file_ops::open_directory,
@@ -1047,6 +1050,7 @@ pub fn run() {
             columns::load_columns,
             columns::save_columns,
             columns::import_columns,
+            mp3tag_columns::import_mp3tag_columns,
             columns::export_columns,
             columns::evaluate_columns,
             tag_panel::load_tag_panel,

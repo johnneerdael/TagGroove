@@ -15,7 +15,18 @@ export type ApplyCover = {url:string;replace_existing:boolean;save_as:string|nul
 export type TagSourceCredentials = {discogs_token_set:boolean};
 export type FieldRow = {name:string;value:string;perTrack:boolean;editable:boolean};
 /** Covers-only sources (Mp3tag's Tag Sources → Covers) write artwork and no fields. */
-export type OpenOptions = {coversOnly?:boolean};
+/** `quick` (Ctrl+Shift+I) skips entering the search: it searches at once with the prefilled values. */
+export type OpenOptions = {coversOnly?:boolean;quick?:boolean};
+export type SourceChoice = {provider:Provider;coversOnly:boolean};
+const PROVIDERS:Provider[] = ['musicbrainz','discogs','freedb','local_freedb'];
+/** The remembered Tag Sources menu entry of Ctrl+I: any source, tags or covers only (MusicBrainz before anything was used). */
+export function lastSource(stored:string|null):SourceChoice {
+  try {
+    const value = JSON.parse(stored || 'null') as Partial<SourceChoice>|null;
+    if (value && PROVIDERS.includes(value.provider as Provider)) return {provider:value.provider as Provider,coversOnly:!!value.coversOnly && !isFreedb(value.provider as Provider)};
+  } catch { /* Older builds stored a bare provider name. */ }
+  return {provider:stored === 'discogs' ? 'discogs' : 'musicbrainz',coversOnly:false};
+}
 
 const localFreedbPage = 'tag-sources-local-freedb';
 /**
@@ -256,7 +267,7 @@ const storage = {
 export class TagSourcesUI {
   private showing = false;
   constructor(private host:TagSourcesHost) {}
-  get lastProvider():Provider { return storage.get('opentag.tagSources.last') === 'discogs' ? 'discogs' : 'musicbrainz'; }
+  get last():SourceChoice { return lastSource(storage.get('opentag.tagSources.last')); }
 
   /** The Discogs token stays in its own private file, never in the shared Options store. */
   async token() {
@@ -295,12 +306,12 @@ export class TagSourcesUI {
     if (reason) throw new Error(reason);
     this.showing = true;
     const coversOnly = !!options.coversOnly && !isFreedb(provider), freedb = isFreedb(provider);
-    if (!coversOnly && !freedb) storage.set('opentag.tagSources.last',provider);
+    storage.set('opentag.tagSources.last',JSON.stringify({provider,coversOnly}));
     const files = this.host.files(), name = coversOnly ? `${providerName(provider)} cover art` : providerName(provider), prefill = searchPrefill(files);
     const toc = discToc(files.map(f => f.length));
     const disabledKey = `opentag.tagSources.disabled.${provider}`, saveCoverKey = 'opentag.tagSources.saveCover';
     let results:SearchResult[] = [], total:number|null = null, lastQuery:Record<string,unknown>|null = null, chosen = -1;
-    let release:SourceRelease|undefined, slots:(string|null)[] = [], enabled = new Set<string>(), trackField = 'TITLE';
+    let release:SourceRelease|undefined, slots:(string|null)[] = [], enabled = new Set<string>(), selectedFields = new Set<string>(), trackField = 'TITLE';
     let searchTicket = 0, releaseTicket = 0, imageTicket = 0, working = false, coverIndex = 0;
     const dialog = document.createElement('dialog');
     dialog.className = 'tag-source-dialog';
@@ -338,6 +349,21 @@ export class TagSourcesUI {
       const target = event.target as HTMLElement, key = event.key.toLowerCase();
       if ((event.ctrlKey || event.metaKey) && !event.shiftKey && !event.altKey && (key === 'e' || key === 'd') && !coversOnly) {
         event.preventDefault(); event.stopPropagation(); toggleAll(key === 'e'); return;
+      }
+      // Ctrl+A / Ctrl+Shift+A select or invert the selected fields; Space enables or disables every selected field.
+      const inFields = !!target.closest('.ts-fields') && !target.matches('input:not([type=checkbox])');
+      if (inFields && (event.ctrlKey || event.metaKey) && !event.altKey && key === 'a') {
+        event.preventDefault(); event.stopPropagation();
+        const names = fieldRows(release).map(row => row.name);
+        selectedFields = new Set(event.shiftKey ? names.filter(name => !selectedFields.has(name)) : names);
+        paintSelection(); return;
+      }
+      if (inFields && event.key === ' ' && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        const focused = target.closest<HTMLElement>('tr[data-row]')?.dataset.row;
+        if (!focused) return;
+        if (!selectedFields.has(focused)) { selectedFields = new Set([focused]); paintSelection(); }
+        event.preventDefault(); event.stopPropagation();
+        setFields([...selectedFields],!enabled.has(focused)); return;
       }
       if (event.key === 'F2') {
         const input = target.closest('tr')?.querySelector<HTMLInputElement>('.ts-value,.ts-track-value');
@@ -487,7 +513,7 @@ export class TagSourcesUI {
         return `<tr data-index="${index}" class="${track ? '' : 'ts-unmatched'}"><td class="ts-num">${track ? html(track.position || String(index+1)) : ''}</td><td>${track ? `<input class="ts-track-value" data-track="${index}" value="${html(trackValue(track))}" aria-label="${html(trackField)} of track ${html(track.position || String(index+1))}" autocomplete="off" spellcheck="false">` : '<em>Not written</em>'}</td><td class="ts-num ts-wide">${track ? duration(track.length) : ''}</td><td title="${html(fileName(path))}">${path ? html(fileName(path)) : '<em>No file</em>'}</td><td class="ts-num ts-wide ${warn ? 'ts-warn' : ''}" ${warn ? 'title="Length differs from the track by more than 10 seconds"' : ''}>${fileLength(path)}</td><td class="ts-move"><button data-move="-1" aria-label="Move ${html(fileName(path) || 'empty slot')} up" ${index === 0 || !path ? 'disabled' : ''}>↑</button><button data-move="1" aria-label="Move ${html(fileName(path) || 'empty slot')} down" ${index === slots.length-1 || !path ? 'disabled' : ''}>↓</button></td></tr>`;
       }).join('')}</tbody></table>`;
     };
-    const fieldMarkup = () => `<table class="ts-table ts-fields" aria-label="Fields to write"><tbody>${fieldRows(release!).map(row => `<tr data-row="${html(row.name)}"><td class="ts-check"><input type="checkbox" data-field="${html(row.name)}" aria-label="Write ${html(row.name)}" ${enabled.has(row.name) ? 'checked' : ''}></td><th scope="row" title="${html(row.name)}">${html(row.name)}</th><td>${row.editable
+    const fieldMarkup = () => `<table class="ts-table ts-fields" aria-label="Fields to write"><tbody>${fieldRows(release!).map(row => `<tr data-row="${html(row.name)}" tabindex="-1" class="${selectedFields.has(row.name) ? 'selected' : ''}" aria-selected="${selectedFields.has(row.name)}"><td class="ts-check"><input type="checkbox" data-field="${html(row.name)}" aria-label="Write ${html(row.name)}" ${enabled.has(row.name) ? 'checked' : ''}></td><th scope="row" title="${html(row.name)}">${html(row.name)}</th><td>${row.editable
       ? `<input class="ts-value" data-value="${html(row.name)}" value="${html(row.value)}" aria-label="${html(row.name)} value" autocomplete="off" spellcheck="false">${row.perTrack && release!.tracks.length > 1 ? '<small>all tracks</small>' : ''}`
       : `<span class="ts-summary" title="${html(row.value)}">${html(row.value)}</span><button type="button" class="ts-edit-tracks" data-track-field="${html(row.name)}">Edit per track</button>`}</td></tr>`).join('')}</tbody></table>`;
     const renderFields = () => { const list = dialog.querySelector('.ts-field-list'); if (list) list.innerHTML = fieldMarkup(); };
@@ -559,9 +585,15 @@ export class TagSourcesUI {
       if (working || !slots[index] || index === to) return;
       slots = moveSlotTo(slots,index,to); renderMatches({index:to,selector,delta:to < index ? -1 : 1});
     };
+    const paintSelection = () => dialog.querySelectorAll<HTMLTableRowElement>('.ts-fields tr[data-row]').forEach(row => { const on = selectedFields.has(row.dataset.row!); row.classList.toggle('selected',on); row.setAttribute('aria-selected',String(on)); });
+    const setFields = (names:string[], on:boolean) => {
+      names.forEach(name => on ? enabled.add(name) : enabled.delete(name));
+      dialog.querySelectorAll<HTMLInputElement>('.ts-fields input[type=checkbox][data-field]').forEach(box => { if (names.includes(box.dataset.field!)) box.checked = on; });
+      syncReview();
+    };
     const toggleAll = (on:boolean) => { if (!release) return; enabled = on ? new Set(fieldRows(release).map(row => row.name)) : new Set(); dialog.querySelectorAll<HTMLInputElement>('.ts-fields input[type=checkbox]').forEach(box => box.checked = on); syncReview(); };
     const showReview = (loaded:SourceRelease) => {
-      release = loaded; coverIndex = 0;
+      release = loaded; coverIndex = 0; selectedFields = new Set();
       slots = autoMatch(loaded.tracks,files);
       trackField = trackFields().includes('TITLE') ? 'TITLE' : trackFields()[0];
       const disabled = new Set<string>(JSON.parse(storage.get(disabledKey) || '[]'));
@@ -586,7 +618,17 @@ export class TagSourcesUI {
           editField(loaded,input.dataset.value!,input.value);
           if (input.dataset.value === trackField) renderMatches();
         });
+        let anchorField:string|undefined;
         fields.addEventListener('click',event => {
+          const header = (event.target as Element).closest<HTMLElement>('.ts-fields tr[data-row] th');
+          if (header) {
+            // Field names select rows: click selects one, ⌘/Ctrl+click toggles, Shift+click selects a range.
+            const name = header.closest<HTMLElement>('tr')!.dataset.row!, names = fieldRows(loaded).map(row => row.name);
+            if (event.shiftKey && anchorField) { const [a,b] = [names.indexOf(anchorField),names.indexOf(name)].sort((x,y) => x-y); selectedFields = new Set(names.slice(a,b+1)); }
+            else if (event.ctrlKey || event.metaKey) { if (selectedFields.has(name)) selectedFields.delete(name); else selectedFields.add(name); anchorField = name; }
+            else { selectedFields = new Set([name]); anchorField = name; }
+            paintSelection(); header.closest<HTMLElement>('tr')!.focus(); return;
+          }
           const button = (event.target as Element).closest<HTMLButtonElement>('.ts-edit-tracks');
           if (!button) return;
           trackField = button.dataset.trackField!; $<HTMLSelectElement>('#ts-track-field').value = trackField;
@@ -627,5 +669,6 @@ export class TagSourcesUI {
     dialog.showModal();
     if (freedb) (toc ? $<HTMLButtonElement>('#ts-search') : $<HTMLInputElement>('#ts-text')).focus();
     else { const artist = $<HTMLInputElement>('#ts-artist'); artist.focus(); artist.select(); }
+    if (options.quick && !$<HTMLButtonElement>('#ts-search').disabled) void search();
   }
 }
