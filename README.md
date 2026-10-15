@@ -23,7 +23,7 @@ OpenTag is at **0.x**, before 1.0. The desktop editor covers most of Mp3tag's do
 
 A user guide with tutorials and recipes is being written and will be published at `https://johnneerdael.github.io/opentag/`.
 
-In progress on branches: more metadata sources (iTunes, Deezer, LRCLIB, Cover Art Archive, AcoustID, Last.fm, fanart.tv), gnudb compliance with remote text search, and wider compatibility with community `.src` web sources.
+In open pull requests: more metadata sources (iTunes, Deezer, LRCLIB, Cover Art Archive, AcoustID, Last.fm, fanart.tv; #18), gnudb compliance with remote text search (#19), and running community `.src` web sources unchanged (#20).
 
 ## Features
 
@@ -66,7 +66,9 @@ In progress on branches: more metadata sources (iTunes, Deezer, LRCLIB, Cover Ar
 
 ## Download
 
-Get installers from [GitHub Releases](https://github.com/johnneerdael/opentag/releases). 0.x versions are regular releases, labelled "Release (pre-1.0)", so the newest build is the one GitHub shows as latest. Only versions with a suffix such as `-beta.1` are published as prereleases. Parity is still incomplete; see the [parity ledger](docs/PARITY.md). Assets name their operating system and architecture and come with a checksum list. Windows builds are unsigned and macOS builds are ad-hoc signed, not notarized. See [release automation](docs/RELEASING.md) for targets, signing and publishing.
+Get installers from [GitHub Releases](https://github.com/johnneerdael/opentag/releases). Assets name their operating system and architecture and come with a checksum list. Windows builds are unsigned and macOS builds are ad-hoc signed, not notarized. Parity is still incomplete before 1.0; see the [parity ledger](docs/PARITY.md).
+
+Release automation is changing in open pull requests: `0.x` versions become full releases labelled "Release (pre-1.0)" (PR #17), and every merge to `main` publishes a new full release `0.2.<patch>` with all platform builds (PR #22). Only versions with a suffix such as `-beta.1` stay prereleases. The only release so far, v0.1.0, is a prerelease. See [release automation](docs/RELEASING.md) for targets, signing and publishing.
 
 ## Develop
 

@@ -10,7 +10,7 @@ The catalog currently has **1533 section, functional-reference and authored acce
 
 ## Evidence and major acceptance gaps
 
-Updated 2026-10-15 for `main` at `08dc952`. The [parity ledger](PARITY.md) and the [remaining-gaps register](research/remaining-gaps.md) carry the detail; this table only marks where each area's evidence stops.
+Updated 2026-10-15 for `main` at `9633497` plus the UI translations of PR #17. The [parity ledger](PARITY.md) and the [remaining-gaps register](research/remaining-gaps.md) carry the detail; this table only marks where each area's evidence stops.
 
 | Area | Current evidence boundary | Required acceptance work |
 | --- | --- | --- |

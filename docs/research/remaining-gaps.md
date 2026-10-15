@@ -8,7 +8,7 @@ Legend: **Impact** H = daily tagging workflows, M = regular but not daily, L = r
 
 ## Counts per area
 
-Recounted for `main` at `08dc952` plus the UI translations of `feat/core-parity` at `b82cba3` (2026-10-15, after batch 8). The per-area tables further down are the original audit snapshot; the "Closed after this audit" sections at the end record what changed since, and [Open after batch 8](#open-after-batch-8) lists what remains. Each open row counts once, even where it touches several reference items. "At audit" repeats the original counts.
+Recounted for `main` at `9633497` plus the UI translations of PR #17 (`feat/core-parity`) (2026-10-15, after batch 8). The per-area tables further down are the original audit snapshot; the "Closed after this audit" sections at the end record what changed since, and [Open after batch 8](#open-after-batch-8) lists what remains. Each open row counts once, even where it touches several reference items. "At audit" repeats the original counts.
 
 | Area | Items checked | OK | Partial | Missing | At audit (OK / P / M) | Notes |
 |---|---:|---:|---:|---:|---|---|
@@ -342,7 +342,7 @@ Still English: backend messages added after the catalog snapshot, operating-syst
 
 ## Open after batch 8
 
-Everything below is open in `main` at `08dc952` plus `feat/core-parity` at `b82cba3`. Items on a branch that has not merged are marked "in progress". The per-item gaps in each verification note still apply.
+Everything below is open in `main` at `9633497` plus PR #17. Items in another open pull request are marked "in progress". The per-item gaps in each verification note still apply.
 
 | Area | Open item | Kind |
 |---|---|---|
