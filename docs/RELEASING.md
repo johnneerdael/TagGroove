@@ -1,5 +1,7 @@
 # Publishing OpenTag releases
 
+**Emergency review-first workflow:** use the new `reviewed-release.yml` path and follow [CI_LOCKDOWN.md](../.github/CI_LOCKDOWN.md). Legacy automatic workflows remain disabled. Application builds and publication require a completed clean Codex code review and immutable validation proof; direct bootstrap commits do not release. The historical workflow references below are being migrated separately.
+
 `.github/workflows/release.yml` builds the same validated commit for five desktop targets, an Android arm64 APK, and an iOS arm64 simulator app. Only the final job can publish. It waits for every required build, verifies platform manifests and SHA256 hashes, creates or reuses an unpublished draft, uploads the complete asset set, verifies GitHub's asset digests, and then publishes.
 
 Every merge to `main` publishes a full GitHub release (not a prerelease) marked as the latest release, so testers can always download the newest build. Pre-1.0 releases say "Release (pre-1.0)" in their notes. Android and iOS packages are **UI previews**: document editing and save-back integration is still in progress. Desktop feature parity and remaining runtime qualification are recorded in [PARITY.md](PARITY.md).
