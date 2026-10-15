@@ -1,0 +1,57 @@
+name: Docs screenshots
+
+# Captures the user guide's app screenshots in Light and Dark on Linux (xvfb)
+# and uploads them as the `docs-screens` artifact. Screenshots are never taken
+# on a developer's machine. To use them in the guide:
+#   scripts/docs-screens-fetch.sh [run-id]
+# copies the PNGs into docs/user-guide/assets/screens/.
+on:
+  workflow_dispatch:
+    inputs:
+      scenes:
+        description: Space-separated scene names (empty = all scenes)
+        type: string
+        default: ''
+  push:
+    paths:
+      - tests/docs-screens/**
+      - scripts/docs-screenshots.sh
+      - .github/workflows/docs-screenshots.yml
+permissions:
+  contents: read
+concurrency:
+  group: docs-screenshots-${{ github.ref_name }}
+  cancel-in-progress: true
+jobs:
+  capture:
+    name: Capture (Linux, Light and Dark)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: native-e2e
+      - name: Linux UI and capture dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf \
+            ffmpeg xvfb xauth dbus-x11 xdotool x11-utils imagemagick pngquant fonts-inter fonts-noto-color-emoji
+      - run: npm ci
+      - name: Build the debug app
+        run: npx tauri build --debug --no-bundle --config '{"identifier":"org.opentag.editor.usertest","productName":"OpenTag UserTest"}'
+      - name: Capture screenshots
+        env:
+          SCENES: ${{ inputs.scenes }}
+        run: scripts/docs-screenshots.sh docs-screens $SCENES
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: docs-screens
+          path: docs-screens/
+          if-no-files-found: error
