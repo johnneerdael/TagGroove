@@ -16,7 +16,8 @@
   const rows = () => [...document.querySelectorAll('tr[data-path]')];
   const row = name => rows().find(r => r.dataset.path.endsWith('/' + name));
   const pathOf = name => row(name).dataset.path;
-  const clickRow = async name => { const r = await waitFor(() => row(name), 8000, 'row ' + name); r.querySelector('td').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })); await sleep(250); };
+  // A second click on the only selected row starts the slow-click rename (the cell editor opens after 550 ms and takes focus), so an already selected row is only focused.
+  const clickRow = async name => { const r = await waitFor(() => row(name), 8000, 'row ' + name); if (r.classList.contains('selected') && rows().filter(x => x.classList.contains('selected')).length === 1) { r.focus(); await sleep(50); return; } r.querySelector('td').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })); await sleep(250); };
   const scan = async name => (await inv('scan_files', { paths: [pathOf(name)], recursive: false })).entries[0];
   const idle = () => waitFor(() => !document.querySelector('footer.status.busy'), 10000, 'idle');
   const done = async (pattern, what) => { await waitFor(() => pattern.test(status()) && !document.querySelector('footer.status.busy'), 10000, what + ' (status "' + status() + '" errors "' + errorsText() + '")'); };
