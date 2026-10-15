@@ -52,7 +52,7 @@ def markdown_lines(text: str) -> list[tuple[str, int, str]]:
 def release_section(body: str) -> str | None:
     lines = markdown_lines(body)
     start = next((index for index, (_, depth, title) in enumerate(lines)
-                  if depth and re.fullmatch(r"release[ -]+notes\s*:?", title, re.IGNORECASE)), None)
+                  if depth == 2 and re.fullmatch(r"release[ -]+notes\s*:?", title, re.IGNORECASE)), None)
     if start is None:
         return None
     level = lines[start][1]
@@ -75,6 +75,19 @@ def is_vague(content: str) -> bool:
         r"todo|tbd|coming soon)", content))
 
 
+def has_template_placeholder(line: str) -> bool:
+    # Only recognize enclosed template instructions, never Markdown link labels.
+    for match in re.finditer(r"\[([^\]\n]+)\](?!\s*[\[(])|<([^>\n]+)>", line):
+        text = (match[1] or match[2]).strip()
+        if re.fullmatch(
+                r"(?:describe|explain|insert|add|replace|write)"
+                r"(?:\s+(?:this(?:\s+placeholder)?\s+)?with)?\s+"
+                r"(?:(?:the|actual|your)\s+)?(?:changes?|release notes)(?:\s+here)?[.!]?",
+                text, re.IGNORECASE):
+            return True
+    return False
+
+
 def validate_release_notes(body: str) -> str:
     section = release_section(body)
     if section is None:
@@ -86,7 +99,7 @@ def validate_release_notes(body: str) -> str:
     for line, depth, title in markdown_lines(section):
         if re.search(r"\b(?:TODO|TBD)\b", line, re.IGNORECASE):
             raise ValueError("Release notes must replace TODO/TBD placeholders with actual changes.")
-        if re.search(r"(?:\[|<)\s*(?:describe|explain|insert|add|replace|write)\b", line, re.IGNORECASE):
+        if has_template_placeholder(line):
             raise ValueError("Release notes must replace template placeholders with actual changes.")
         if depth:
             if internal_level and depth <= internal_level:

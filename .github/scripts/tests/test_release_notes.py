@@ -45,6 +45,29 @@ class ValidationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.notes.validate_release_notes('```markdown\n## Release notes\nFixed tags.\n```')
 
+    def test_substantive_markdown_links_are_not_template_placeholders(self):
+        for label in ('Add cover-art support', 'Replace saved covers', 'Write tag values',
+                      'Describe the changes'):
+            with self.subTest(label=label):
+                body = f'## Release notes\n- [{label}](https://example.invalid/change)'
+                self.assertEqual(self.notes.validate_release_notes(body), body.split('\n', 1)[1])
+        self.notes.validate_release_notes('## Release notes\n- [Add cover-art support][covers]\n\n[covers]: https://example.invalid/covers')
+
+    def test_known_bracket_and_angle_template_placeholders_still_fail(self):
+        for placeholder in ('[Describe the changes]', '<Insert release notes here>',
+                            '[Replace with actual changes]', '[Write your release notes]'):
+            with self.subTest(placeholder=placeholder), self.assertRaisesRegex(ValueError, 'template placeholders'):
+                self.notes.validate_release_notes(f'## Release notes\n- {placeholder}')
+
+    def test_only_level_two_heading_satisfies_dedicated_release_section(self):
+        for depth in (1, 3, 4, 5, 6):
+            body = f'## Validation\n{"#" * depth} Release notes\n- Validate cover-art fixtures.'
+            with self.subTest(depth=depth), self.assertRaisesRegex(ValueError, '## Release notes'):
+                self.notes.validate_release_notes(body)
+        body = ('## Validation\n### Release notes\n- Private test result.\n'
+                '## Release notes\n- Preserve album covers.\n## Validation\n- More tests.')
+        self.assertEqual(self.notes.validate_release_notes(body), '- Preserve album covers.')
+
 
 class GenerationTests(unittest.TestCase):
     def setUp(self):
@@ -65,6 +88,15 @@ class GenerationTests(unittest.TestCase):
         pr = dict(number=18, title='Fix tags', body='## Summary\nFix tags.', merged_at='now')
         with self.assertRaisesRegex(ValueError, '#18'):
             self.notes.render_release_notes('owner/repo', [commit], lambda sha: [pr], {commit.sha})
+
+    def test_nested_validation_notes_cannot_be_published_as_a_dedicated_section(self):
+        commit = self.notes.Commit('a' * 40, 'Merge PR', '')
+        pull = dict(number=18, title='Fix tags', merged_at='now',
+                    body='## Validation\n### Release notes\n- Private cover-art test result.')
+        with self.assertRaisesRegex(ValueError, '#18'):
+            self.notes.render_release_notes('owner/repo', [commit], lambda sha: [pull], {commit.sha})
+        historical = self.notes.render_release_notes('owner/repo', [commit], lambda sha: [pull], set())
+        self.assertNotIn('Private cover-art test result', historical)
 
     def test_historical_pr_and_direct_commit_keep_sanitized_explanation(self):
         commits = [self.notes.Commit('a' * 40, 'Merge old PR', ''), self.notes.Commit('b' * 40, 'Repair tags', 'Retain original cover values.')]
