@@ -166,6 +166,79 @@ pub async fn trash_files(paths: Vec<String>) -> Result<TrashResult, String> {
     })
     .await
 }
+/// Remove regular files from the disk without the trash; they cannot be restored.
+pub fn delete_paths(paths: &[String]) -> TrashResult {
+    trash_paths(paths, |path| {
+        std::fs::remove_file(path).map_err(|e| format!("Cannot delete the file: {e}"))
+    })
+}
+/// Edit → Delete permanently (Ctrl+Shift+Del).
+#[tauri::command]
+pub async fn delete_files_permanently(paths: Vec<String>) -> Result<TrashResult, String> {
+    super::io(move || {
+        super::reject_provider_operation(&paths, "Delete")?;
+        Ok(delete_paths(&paths))
+    })
+    .await
+}
+
+/// Modifier keys held at this moment. Native file drops carry no key state, so
+/// the File List asks when files are dropped: Ctrl (⌘ on macOS) adds them to the
+/// list, a plain drop replaces it.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct ModifierKeys {
+    pub control: bool,
+    pub command: bool,
+}
+#[cfg(target_os = "macos")]
+fn held_modifiers() -> ModifierKeys {
+    use objc2_app_kit::{NSEvent, NSEventModifierFlags};
+    let flags = NSEvent::modifierFlags_class();
+    ModifierKeys {
+        control: flags.contains(NSEventModifierFlags::Control),
+        command: flags.contains(NSEventModifierFlags::Command),
+    }
+}
+#[cfg(target_os = "windows")]
+fn held_modifiers() -> ModifierKeys {
+    use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
+        GetAsyncKeyState, VK_CONTROL, VK_LWIN, VK_RWIN,
+    };
+    // The high bit is set while the key is down.
+    let down = |key: u16| unsafe { GetAsyncKeyState(i32::from(key)) } < 0;
+    ModifierKeys {
+        control: down(VK_CONTROL),
+        command: down(VK_LWIN) || down(VK_RWIN),
+    }
+}
+#[cfg(target_os = "linux")]
+fn held_modifiers() -> ModifierKeys {
+    // GDK_CONTROL_MASK and GDK_META_MASK.
+    let state = gdk::Display::default()
+        .and_then(|display| gdk::Keymap::for_display(&display))
+        .map(|keymap| keymap.modifier_state())
+        .unwrap_or(0);
+    ModifierKeys {
+        control: state & (1 << 2) != 0,
+        command: state & (1 << 28) != 0,
+    }
+}
+#[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
+fn held_modifiers() -> ModifierKeys {
+    ModifierKeys::default()
+}
+#[tauri::command]
+pub async fn modifier_keys(app: tauri::AppHandle) -> Result<ModifierKeys, String> {
+    // GDK may only be used on the main thread.
+    let (sender, receiver) = std::sync::mpsc::channel();
+    app.run_on_main_thread(move || {
+        let _ = sender.send(held_modifiers());
+    })
+    .map_err(|e| e.to_string())?;
+    tauri::async_runtime::spawn_blocking(move || receiver.recv().map_err(|e| e.to_string()))
+        .await
+        .map_err(|e| e.to_string())?
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -553,6 +626,25 @@ mod tests {
         assert_eq!(result.removed, vec![ok.to_string_lossy().into_owned()]);
         assert_eq!(result.errors.len(), 3);
         assert!(dir.path().is_dir() && fails.exists());
+    }
+
+    #[test]
+    fn permanent_delete_removes_regular_files_only() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("a.mp3");
+        std::fs::write(&file, b"x").unwrap();
+        let paths: Vec<String> = [
+            file.clone(),
+            dir.path().join("missing.mp3"),
+            dir.path().to_path_buf(),
+        ]
+        .iter()
+        .map(|p| p.to_string_lossy().into_owned())
+        .collect();
+        let result = delete_paths(&paths);
+        assert_eq!(result.removed, vec![paths[0].clone()]);
+        assert_eq!(result.errors.len(), 2);
+        assert!(!file.exists() && dir.path().is_dir());
     }
 
     #[cfg(desktop)]

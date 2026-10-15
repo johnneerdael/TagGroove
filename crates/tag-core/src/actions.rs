@@ -654,6 +654,15 @@ fn decode_codepage(value: &str, codepage: &str) -> Result<String, String> {
         }
         return String::from_utf8(bytes).map_err(|error| error.to_string());
     }
+    // DOS/OEM pages other than 866 have no WHATWG encoding.
+    if let Some(decoded) = label
+        .parse::<u16>()
+        .ok()
+        .and_then(|page| crate::oem_codepages::decode(page, &bytes))
+    {
+        return decoded
+            .map_err(|byte| format!("Byte 0x{byte:02X} is undefined in codepage {codepage}"));
+    }
     let encoding = encoding_rs::Encoding::for_label(label.as_bytes())
         .ok_or_else(|| format!("Unsupported codepage {codepage}"))?;
     encoding
@@ -2405,6 +2414,27 @@ mod tests {
         assert_eq!(decode_codepage("\u{80}", "28591").unwrap(), "\u{80}");
         assert_eq!(decode_codepage("\u{80}", "1252").unwrap(), "€");
         assert!(decode_codepage("\u{80}", "20127").is_err());
+    }
+    #[test]
+    fn codepage_conversion_covers_dos_oem_pages() {
+        // "Größe" written in the DOS console's code page 437 and 850.
+        assert_eq!(decode_codepage("Gr\u{94}\u{e1}e", "437").unwrap(), "Größe");
+        assert_eq!(
+            decode_codepage("Gr\u{94}\u{e1}e", "cp850").unwrap(),
+            "Größe"
+        );
+        // "Łódź" in code page 852 (Latin 2).
+        assert_eq!(
+            decode_codepage("\u{9d}\u{a2}d\u{ab}", "852").unwrap(),
+            "Łódź"
+        );
+        // Box drawing in 437 and the euro sign that 858 adds over 850.
+        assert_eq!(decode_codepage("\u{c9}\u{cd}", "437").unwrap(), "╔═");
+        assert_eq!(decode_codepage("\u{d5}", "858").unwrap(), "€");
+        assert_eq!(decode_codepage("\u{d5}", "850").unwrap(), "ı");
+        // ASCII stays ASCII, and undefined bytes are refused.
+        assert_eq!(decode_codepage("100%", "864").unwrap(), "100%");
+        assert!(decode_codepage("\u{d5}", "857").is_err());
     }
     #[test]
     fn context_sensitive_action_evaluation_uses_real_app_options() {

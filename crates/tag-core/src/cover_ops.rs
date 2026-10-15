@@ -226,6 +226,28 @@ pub fn adjust_covers_with_options(
     resize: Option<&CoverResize>,
     options: &TagOptions,
 ) -> Result<AudioEntry, String> {
+    check_adjust_parameters(quality, resize)?;
+    transform_covers(path, options, |original| {
+        let Some(data) = adjust_image(
+            original.data(),
+            original.mime_type(),
+            format,
+            quality,
+            resize,
+        )?
+        else {
+            // A cover that keeps its size and format is left byte for byte.
+            return Ok(Some(original.clone()));
+        };
+        let mut picture =
+            Picture::from_reader(&mut Cursor::new(data)).map_err(|e| e.to_string())?;
+        picture.set_pic_type(original.pic_type());
+        picture.set_description(original.description().map(str::to_owned));
+        Ok(Some(picture))
+    })
+}
+
+fn check_adjust_parameters(quality: u8, resize: Option<&CoverResize>) -> Result<(), String> {
     if quality > 100 {
         return Err("JPEG quality must be between 0 and 100".into());
     }
@@ -234,63 +256,79 @@ pub fn adjust_covers_with_options(
             return Err("Cover size must be between 1 and 32768 pixels".into());
         }
     }
-    transform_covers(path, options, |original| {
-        let mut image = image::load_from_memory(original.data()).map_err(|e| e.to_string())?;
-        let size = (image.width(), image.height());
-        if let Some(options) = resize {
-            image = resize_image(image, options)?;
+    Ok(())
+}
+
+/// Adjust Cover applied to one image outside a file (Manage Covers). `None`
+/// means the image keeps its size and format and stays as it is.
+pub fn adjust_cover_image(
+    data: &[u8],
+    format: CoverImageFormat,
+    quality: u8,
+    resize: Option<&CoverResize>,
+) -> Result<Option<Vec<u8>>, String> {
+    check_adjust_parameters(quality, resize)?;
+    let mime = picture_from_bytes(data.to_vec())?.mime_type().cloned();
+    adjust_image(data, mime.as_ref(), format, quality, resize)
+}
+
+fn adjust_image(
+    data: &[u8],
+    mime: Option<&lofty::picture::MimeType>,
+    format: CoverImageFormat,
+    quality: u8,
+    resize: Option<&CoverResize>,
+) -> Result<Option<Vec<u8>>, String> {
+    let mut image = image::load_from_memory(data).map_err(|e| e.to_string())?;
+    let size = (image.width(), image.height());
+    if let Some(options) = resize {
+        image = resize_image(image, options)?;
+    }
+    let original_format = match mime {
+        Some(lofty::picture::MimeType::Jpeg) => Some(ImageFormat::Jpeg),
+        Some(lofty::picture::MimeType::Png) => Some(ImageFormat::Png),
+        Some(lofty::picture::MimeType::Gif) => Some(ImageFormat::Gif),
+        Some(lofty::picture::MimeType::Bmp) => Some(ImageFormat::Bmp),
+        Some(lofty::picture::MimeType::Unknown(mime)) if mime == "image/webp" => {
+            Some(ImageFormat::WebP)
         }
-        let original_format = match original.mime_type() {
-            Some(lofty::picture::MimeType::Jpeg) => Some(ImageFormat::Jpeg),
-            Some(lofty::picture::MimeType::Png) => Some(ImageFormat::Png),
-            Some(lofty::picture::MimeType::Gif) => Some(ImageFormat::Gif),
-            Some(lofty::picture::MimeType::Bmp) => Some(ImageFormat::Bmp),
-            Some(lofty::picture::MimeType::Unknown(mime)) if mime == "image/webp" => {
-                Some(ImageFormat::WebP)
-            }
-            _ => image::guess_format(original.data()).ok(),
-        };
-        let output_format = match format {
-            CoverImageFormat::Jpeg => ImageFormat::Jpeg,
-            CoverImageFormat::Png => ImageFormat::Png,
-            CoverImageFormat::Original => original_format
-                .filter(|f| {
-                    matches!(
-                        f,
-                        ImageFormat::Jpeg
-                            | ImageFormat::Png
-                            | ImageFormat::Gif
-                            | ImageFormat::Bmp
-                            | ImageFormat::WebP
-                    )
-                })
-                .ok_or("The original cover format cannot be written; select JPEG or PNG")?,
-        };
-        // A cover that keeps its size and format is left byte for byte.
-        if (image.width(), image.height()) == size && original_format == Some(output_format) {
-            return Ok(Some(original.clone()));
-        }
-        let mut encoded = Cursor::new(Vec::new());
-        if output_format == ImageFormat::Jpeg {
-            image::codecs::jpeg::JpegEncoder::new_with_quality(&mut encoded, quality)
-                .encode_image(&image.to_rgb8())
-                .map_err(|e| e.to_string())?;
-        } else if output_format == ImageFormat::Png {
-            image
-                .write_to(&mut encoded, output_format)
-                .map_err(|e| e.to_string())?;
-        } else {
-            // GIF, BMP and WebP encoders take 8-bit RGBA.
-            DynamicImage::ImageRgba8(image.to_rgba8())
-                .write_to(&mut encoded, output_format)
-                .map_err(|e| e.to_string())?;
-        }
-        encoded.set_position(0);
-        let mut picture = Picture::from_reader(&mut encoded).map_err(|e| e.to_string())?;
-        picture.set_pic_type(original.pic_type());
-        picture.set_description(original.description().map(str::to_owned));
-        Ok(Some(picture))
-    })
+        _ => image::guess_format(data).ok(),
+    };
+    let output_format = match format {
+        CoverImageFormat::Jpeg => ImageFormat::Jpeg,
+        CoverImageFormat::Png => ImageFormat::Png,
+        CoverImageFormat::Original => original_format
+            .filter(|f| {
+                matches!(
+                    f,
+                    ImageFormat::Jpeg
+                        | ImageFormat::Png
+                        | ImageFormat::Gif
+                        | ImageFormat::Bmp
+                        | ImageFormat::WebP
+                )
+            })
+            .ok_or("The original cover format cannot be written; select JPEG or PNG")?,
+    };
+    if (image.width(), image.height()) == size && original_format == Some(output_format) {
+        return Ok(None);
+    }
+    let mut encoded = Cursor::new(Vec::new());
+    if output_format == ImageFormat::Jpeg {
+        image::codecs::jpeg::JpegEncoder::new_with_quality(&mut encoded, quality)
+            .encode_image(&image.to_rgb8())
+            .map_err(|e| e.to_string())?;
+    } else if output_format == ImageFormat::Png {
+        image
+            .write_to(&mut encoded, output_format)
+            .map_err(|e| e.to_string())?;
+    } else {
+        // GIF, BMP and WebP encoders take 8-bit RGBA.
+        DynamicImage::ImageRgba8(image.to_rgba8())
+            .write_to(&mut encoded, output_format)
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(Some(encoded.into_inner()))
 }
 
 #[cfg(test)]
@@ -454,6 +492,47 @@ mod tests {
         assert_eq!(image::guess_format(&bytes).unwrap(), ImageFormat::Gif);
         let image = image::load_from_memory(&bytes).unwrap();
         assert_eq!((image.width(), image.height()), (100, 100));
+    }
+
+    #[test]
+    fn single_images_adjust_like_the_action_and_keep_bmp_and_webp() {
+        let encode = |format| {
+            let mut bytes = Cursor::new(Vec::new());
+            DynamicImage::ImageRgb8(RgbImage::new(400, 200))
+                .write_to(&mut bytes, format)
+                .unwrap();
+            bytes.into_inner()
+        };
+        let max = |pixels| CoverResize {
+            pixels,
+            size_mode: CoverSizeMode::Maximum,
+            scale_mode: CoverScaleMode::Proportional,
+        };
+        for format in [ImageFormat::Png, ImageFormat::Bmp, ImageFormat::WebP] {
+            let data = encode(format);
+            // Within the size and in its own format: nothing to do.
+            assert_eq!(
+                adjust_cover_image(&data, CoverImageFormat::Original, 90, Some(&max(800))).unwrap(),
+                None,
+                "{format:?}"
+            );
+            let resized =
+                adjust_cover_image(&data, CoverImageFormat::Original, 90, Some(&max(100)))
+                    .unwrap()
+                    .unwrap();
+            assert_eq!(image::guess_format(&resized).unwrap(), format);
+            let image = image::load_from_memory(&resized).unwrap();
+            assert_eq!((image.width(), image.height()), (100, 50), "{format:?}");
+        }
+        let jpeg = adjust_cover_image(&encode(ImageFormat::Png), CoverImageFormat::Jpeg, 80, None)
+            .unwrap()
+            .unwrap();
+        assert_eq!(image::guess_format(&jpeg).unwrap(), ImageFormat::Jpeg);
+        assert!(
+            adjust_cover_image(&encode(ImageFormat::Png), CoverImageFormat::Jpeg, 101, None)
+                .is_err()
+        );
+        assert!(adjust_cover_image(b"not an image", CoverImageFormat::Png, 80, None).is_err());
     }
 
     #[test]

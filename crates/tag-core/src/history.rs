@@ -12,6 +12,10 @@
 //! leaves the hard-linked snapshot sharing every other block with the new
 //! file, so it costs the rewritten region plus a small overhead; full copies
 //! and full rewrites cost the whole file.
+//!
+//! Operations may also create or replace small files beside the audio, such
+//! as a cover image saved by a tag source import. These side files are copied
+//! whole, absent or not, and undo puts back exactly what was there before.
 use crate::{FileError, TagOptions};
 use serde::Serialize;
 use std::{
@@ -172,18 +176,32 @@ impl FileRecord {
         }
     }
 }
+/// A file that is not audio, created or replaced by an operation: its
+/// complete bytes on each side, or `None` where it did not exist.
+#[derive(Clone, Debug)]
+struct SideFile {
+    path: PathBuf,
+    before: Option<Blob>,
+    after: Option<Blob>,
+}
 #[derive(Clone, Debug)]
 struct Record {
     label: String,
     group: Option<String>,
     files: Vec<FileRecord>,
     directories: Vec<(PathBuf, PathBuf)>,
+    side_files: Vec<SideFile>,
 }
 impl Record {
     fn blobs(&self) -> impl Iterator<Item = &Blob> {
         self.files
             .iter()
             .flat_map(|f| [f.before.blob.as_ref(), f.after.blob.as_ref()])
+            .chain(
+                self.side_files
+                    .iter()
+                    .flat_map(|f| [f.before.as_ref(), f.after.as_ref()]),
+            )
             .flatten()
     }
     fn bytes(&self) -> u64 {
@@ -204,6 +222,7 @@ pub struct Capture {
     label: String,
     group: Option<String>,
     files: Vec<Captured>,
+    side_files: Vec<(PathBuf, Option<Blob>)>,
     abandoned: Option<String>,
 }
 
@@ -347,6 +366,7 @@ impl Journal {
             label: label.into(),
             group: group.map(str::to_owned),
             files: Vec::new(),
+            side_files: Vec::new(),
             abandoned: None,
         };
         if group.is_some() && self.abandoned_group.as_deref() == group {
@@ -420,6 +440,86 @@ impl Journal {
         capture
     }
 
+    /// Call before the operation of `capture` creates or replaces `path`, a
+    /// file that is not audio (a saved cover image). Undo then puts back the
+    /// previous file or removes the new one. A capture that is not recorded
+    /// ignores the call; an error means the file should not be written.
+    pub fn capture_side_file(&mut self, capture: &mut Capture, path: &Path) -> Result<(), String> {
+        if capture.abandoned.is_some() {
+            return Ok(());
+        }
+        let path = side_path(path)?;
+        if capture.side_files.iter().any(|(known, _)| *known == path) {
+            return Ok(());
+        }
+        let before = match fs::symlink_metadata(&path) {
+            Ok(metadata) if metadata.is_file() => Some(self.copy_blob(&path)?),
+            Ok(_) => return Err(format!("{} is not a regular file", path.display())),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+            Err(error) => return Err(error.to_string()),
+        };
+        capture.side_files.push((path, before));
+        Ok(())
+    }
+
+    /// A complete copy: side files are small and may be rewritten in place.
+    fn copy_blob(&mut self, source: &Path) -> Result<Blob, String> {
+        let path = self.blob_path();
+        if let Err(error) = fs::copy(source, &path) {
+            let _ = fs::remove_file(&path);
+            return Err(error.to_string());
+        }
+        let fingerprint = fingerprint(&path)?;
+        Ok(Blob {
+            path,
+            cost: fingerprint.len,
+            fingerprint,
+            linked: false,
+        })
+    }
+
+    /// Side files as the operation left them; unchanged ones are dropped.
+    /// Also returns how many could not be recorded.
+    fn commit_side_files(
+        &mut self,
+        captured: Vec<(PathBuf, Option<Blob>)>,
+    ) -> (Vec<SideFile>, usize) {
+        let mut recorded = Vec::new();
+        let mut lost = 0;
+        for (path, before) in captured {
+            let after = if path.is_file() {
+                match self.copy_blob(&path) {
+                    Ok(blob) => Some(blob),
+                    Err(_) => {
+                        before.iter().for_each(discard);
+                        lost += 1;
+                        continue;
+                    }
+                }
+            } else {
+                None
+            };
+            let unchanged = match (&before, &after) {
+                (None, None) => true,
+                (Some(old), Some(new)) => same_bytes(&old.path, &new.path),
+                _ => false,
+            };
+            if unchanged {
+                [before.as_ref(), after.as_ref()]
+                    .into_iter()
+                    .flatten()
+                    .for_each(discard);
+                continue;
+            }
+            recorded.push(SideFile {
+                path,
+                before,
+                after,
+            });
+        }
+        (recorded, lost)
+    }
+
     /// Record what the operation changed. `renamed` maps an input path (as
     /// passed to `begin`, or canonical) to its final path; `directories` lists
     /// directory moves in the order they happened.
@@ -434,6 +534,16 @@ impl Journal {
             .map(|(from, to)| (PathBuf::from(from), PathBuf::from(to)))
             .collect();
         let writes = unwatch(capture.files.iter().map(|f| &f.path));
+        let (side_files, side_lost) = if capture.abandoned.is_some() {
+            capture
+                .side_files
+                .iter()
+                .filter_map(|(_, blob)| blob.as_ref())
+                .for_each(discard);
+            (Vec::new(), 0)
+        } else {
+            self.commit_side_files(capture.side_files)
+        };
         if let Some(reason) = capture.abandoned {
             if capture.group.is_some() {
                 if let Some(record) = self.undo.pop_if(|top| top.group == capture.group) {
@@ -446,7 +556,7 @@ impl Journal {
             return;
         }
         let mut files = Vec::new();
-        let mut lost = 0;
+        let mut lost = side_lost;
         for captured in capture.files {
             let to = renamed
                 .iter()
@@ -498,7 +608,7 @@ impl Journal {
                 cost,
             });
         }
-        if files.is_empty() && directories.is_empty() {
+        if files.is_empty() && directories.is_empty() && side_files.is_empty() {
             if lost > 0 {
                 self.notice = Some(format!(
                     "{} cannot be undone for {lost} file{}.",
@@ -551,12 +661,26 @@ impl Journal {
                     top.files.push(file);
                 }
             }
+            for side in side_files {
+                match top.side_files.iter_mut().find(|f| f.path == side.path) {
+                    // The step still starts from the first write's previous file.
+                    Some(existing) => {
+                        let SideFile { before, after, .. } = side;
+                        before.iter().for_each(discard);
+                        if let Some(old) = std::mem::replace(&mut existing.after, after) {
+                            discard(&old);
+                        }
+                    }
+                    None => top.side_files.push(side),
+                }
+            }
         } else {
             self.undo.push(Record {
                 label: capture.label.clone(),
                 group: capture.group.clone(),
                 files,
                 directories,
+                side_files,
             });
         }
         let limit = self.limits.bytes;
@@ -756,11 +880,93 @@ impl Journal {
                 }
             }
         }
-        if record.files.is_empty() && record.directories.is_empty() {
+        // 4. Put back or remove the side files the operation created or replaced.
+        for mut side in std::mem::take(&mut record.side_files) {
+            let path = rebase(&side.path, &moves);
+            let (from, to) = if backward {
+                (&side.after, &side.before)
+            } else {
+                (&side.before, &side.after)
+            };
+            let outcome = if !holds(from.as_ref(), &path) {
+                Err(format!(
+                    "Changed outside OpenTag after {}; it was not {verb}",
+                    record.label
+                ))
+            } else {
+                put(to.as_ref(), &path).map_err(|error| format!("It was not {verb}: {error}"))
+            };
+            match outcome {
+                Ok(()) => {
+                    side.path = path;
+                    record.side_files.push(side);
+                }
+                Err(error) => {
+                    replay.errors.push(FileError {
+                        path: display(&path),
+                        error,
+                    });
+                    [side.before.as_ref(), side.after.as_ref()]
+                        .into_iter()
+                        .flatten()
+                        .for_each(discard);
+                }
+            }
+        }
+        if record.files.is_empty() && record.directories.is_empty() && record.side_files.is_empty()
+        {
             return (None, replay, moved);
         }
         (Some(record), replay, moved)
     }
+}
+
+/// A side file's path: its folder resolved, the file itself possibly absent.
+fn side_path(path: &Path) -> Result<PathBuf, String> {
+    let name = path
+        .file_name()
+        .ok_or_else(|| format!("{} is not a file name", path.display()))?;
+    let folder = path
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or(Path::new("."))
+        .canonicalize()
+        .map_err(|e| e.to_string())?;
+    Ok(folder.join(name))
+}
+
+fn same_bytes(a: &Path, b: &Path) -> bool {
+    matches!((fs::read(a), fs::read(b)), (Ok(a), Ok(b)) if a == b)
+}
+
+/// Whether `path` is exactly `blob` (or absent for `None`).
+fn holds(blob: Option<&Blob>, path: &Path) -> bool {
+    match blob {
+        None => {
+            matches!(fs::symlink_metadata(path), Err(e) if e.kind() == std::io::ErrorKind::NotFound)
+        }
+        Some(blob) => path.is_file() && same_bytes(&blob.path, path),
+    }
+}
+
+/// Make `path` hold `blob` (written through a sibling staging file), or remove it.
+fn put(blob: Option<&Blob>, path: &Path) -> Result<(), String> {
+    let Some(blob) = blob else {
+        return fs::remove_file(path).map_err(|e| e.to_string());
+    };
+    if fingerprint(&blob.path).ok() != Some(blob.fingerprint) {
+        return Err("The undo snapshot was modified".into());
+    }
+    let folder = path.parent().ok_or("The file has no folder")?;
+    let mut staging = tempfile::Builder::new()
+        .prefix(".opentag-")
+        .tempfile_in(folder)
+        .map_err(|e| e.to_string())?;
+    let mut source = fs::File::open(&blob.path).map_err(|e| e.to_string())?;
+    std::io::copy(&mut source, staging.as_file_mut()).map_err(|e| e.to_string())?;
+    staging.as_file().sync_all().map_err(|e| e.to_string())?;
+    staging.persist(path).map_err(|e| e.error.to_string())?;
+    Ok(())
 }
 
 impl Drop for Journal {

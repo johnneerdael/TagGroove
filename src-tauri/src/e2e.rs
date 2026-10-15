@@ -4,7 +4,7 @@
 //! backend and real files. Release builds never read the variable unless they
 //! are profiling builds compiled with the off-by-default `e2e` feature.
 
-fn enabled() -> bool {
+pub(crate) fn enabled() -> bool {
     cfg!(any(debug_assertions, feature = "e2e")) && std::env::var_os("OPENTAG_E2E_SCRIPT").is_some()
 }
 
