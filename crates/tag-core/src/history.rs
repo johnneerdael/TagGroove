@@ -926,12 +926,12 @@ fn side_path(path: &Path) -> Result<PathBuf, String> {
     let name = path
         .file_name()
         .ok_or_else(|| format!("{} is not a file name", path.display()))?;
-    let folder = path
-        .parent()
-        .filter(|p| !p.as_os_str().is_empty())
-        .unwrap_or(Path::new("."))
-        .canonicalize()
-        .map_err(|e| e.to_string())?;
+    let folder = dunce::canonicalize(
+        path.parent()
+            .filter(|p| !p.as_os_str().is_empty())
+            .unwrap_or(Path::new(".")),
+    )
+    .map_err(|e| e.to_string())?;
     Ok(folder.join(name))
 }
 

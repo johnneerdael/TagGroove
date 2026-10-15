@@ -981,8 +981,8 @@ mod tests {
             request.source = TextSource::File { path: template };
             let preview = preview_text(&request).unwrap();
             assert_eq!(
-                fs::canonicalize(preview.source_path.unwrap()).unwrap(),
-                fs::canonicalize(album.join("Album tracks.txt")).unwrap()
+                dunce::canonicalize(preview.source_path.unwrap()).unwrap(),
+                dunce::canonicalize(album.join("Album tracks.txt")).unwrap()
             );
             assert_eq!(preview.items[1].fields["TITLE"], ["Two"]);
         }
