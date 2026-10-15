@@ -59,9 +59,10 @@ fn unsupported_id3_frames_are_removed_and_everything_else_is_kept() {
         "http://musicbrainz.org",
         b"mbid".to_vec(),
     )));
+    // A binary identifier is not shown as UNIQUEFILEID (text ones are).
     tag.insert(Frame::UniqueFileIdentifier(UniqueFileIdentifierFrame::new(
         "http://example.com",
-        b"other".to_vec(),
+        vec![0xFF, 0xFE, 0, 1],
     )));
     tag.save_to_path(&path, WriteOptions::default().use_id3v23(true))
         .unwrap();

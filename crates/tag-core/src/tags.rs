@@ -26,7 +26,7 @@ mod tag_policy;
 mod tag_types;
 #[path = "technical.rs"]
 mod technical;
-use crate::preferences::TagOptions;
+use crate::{id3_frames::ReadSeek, preferences::TagOptions};
 use base64::{engine::general_purpose::STANDARD, Engine};
 pub use cover_manage::*;
 pub use cover_ops::*;
@@ -58,6 +58,7 @@ pub use media_info::{audio_digest, AudioDigest};
 pub use optimize::*;
 use serde::{Deserialize, Serialize};
 use std::{
+    borrow::Cow,
     collections::{BTreeMap, HashSet},
     fs,
     io::{Seek, SeekFrom},
@@ -184,6 +185,51 @@ fn strict_or_lenient_id3v1<T>(
     }
 }
 
+/// Read an MP4 file. Items whose integer data lofty's strict reader rejects
+/// (see [`crate::mp4_metadata::legacy_integer_items`]) are read leniently and
+/// kept verbatim; any other malformed item still fails the read.
+fn read_mp4<R: std::io::Read + Seek>(
+    reader: &mut R,
+    mut options: ParseOptions,
+) -> Result<Mp4File, String> {
+    let start = reader.stream_position().map_err(|e| e.to_string())?;
+    let error = match Mp4File::read_from(reader, options) {
+        Ok(file) => return Ok(file),
+        Err(error) => error_message(&error),
+    };
+    if !error.contains("unexpected atom size for type \"BE") {
+        return Err(error);
+    }
+    reader
+        .seek(SeekFrom::Start(start))
+        .map_err(|e| e.to_string())?;
+    let (legacy, items) =
+        crate::mp4_metadata::legacy_integer_items(reader).map_err(|e| e.to_string())?;
+    if legacy.is_empty() {
+        return Err(error);
+    }
+    reader
+        .seek(SeekFrom::Start(start))
+        .map_err(|e| e.to_string())?;
+    let mut file = Mp4File::read_from(reader, options.parsing_mode(ParsingMode::Relaxed))
+        .map_err(|e| error_message(&e))?;
+    let mut ilst = file.ilst().cloned().unwrap_or_default();
+    // Only the items the lenient reader dropped are restored; lofty itself
+    // keeps an 8-byte `plID`.
+    let dropped: Vec<_> = legacy
+        .into_iter()
+        .filter(|atom| ilst.get(atom.ident()).is_none())
+        .collect();
+    if ilst.len() + dropped.len() != items {
+        return Err(error);
+    }
+    for atom in dropped {
+        ilst.insert(atom);
+    }
+    file.set_ilst(ilst);
+    Ok(file)
+}
+
 fn load(path: &Path) -> Result<TaggedFile, String> {
     if subsongs::split_path(path).is_some() {
         return Err(subsongs::ROW_OPERATION.into());
@@ -191,18 +237,22 @@ fn load(path: &Path) -> Result<TaggedFile, String> {
     if let Some(stream) = container_formats::detect_stream(path) {
         return container_formats::raw_streams::load(path, stream);
     }
+    let mut source = fs::File::open(path).map_err(|e| e.to_string())?;
     let mut file = strict_or_lenient_id3v1(|mode| {
-        Probe::open(path)
-            .map_err(|e| e.to_string())?
-            .guess_file_type()
-            .map_err(|e| e.to_string())?
-            .options(
-                ParseOptions::new()
-                    .implicit_conversions(false)
-                    .parsing_mode(mode),
-            )
-            .read()
-            .map_err(|e| error_message(&e))
+        crate::id3_frames::read_with_fallback(&mut source, |reader| {
+            reader.seek(SeekFrom::Start(0)).map_err(|e| e.to_string())?;
+            let probe = Probe::new(std::io::BufReader::new(reader))
+                .guess_file_type()
+                .map_err(|e| e.to_string())?;
+            let options = ParseOptions::new()
+                .implicit_conversions(false)
+                .parsing_mode(mode);
+            if probe.file_type() == Some(FileType::Mp4) {
+                return read_mp4(&mut probe.into_inner(), options).map(TaggedFile::from);
+            }
+            probe.options(options).read().map_err(|e| error_message(&e))
+        })
+        .map(|(file, _)| file)
     })?;
     if file.tag(TagType::Ape).is_some() {
         let native = native_tags(
@@ -288,10 +338,13 @@ struct NativeTags {
 // Lofty 0.25 generic conversions discard unknown APE and Vorbis items. Keep
 // their concrete tags, including flags, vendor and binary items, separately.
 fn native_tags(reader: &mut fs::File, kind: FileType) -> Result<NativeTags, String> {
-    strict_or_lenient_id3v1(|mode| native_tags_with(reader, kind, mode))
+    strict_or_lenient_id3v1(|mode| {
+        crate::id3_frames::read_with_fallback(reader, |reader| native_tags_with(reader, kind, mode))
+            .map(|(native, _)| native)
+    })
 }
 fn native_tags_with(
-    reader: &mut fs::File,
+    mut reader: &mut dyn ReadSeek,
     kind: FileType,
     mode: ParsingMode,
 ) -> Result<NativeTags, String> {
@@ -303,7 +356,7 @@ fn native_tags_with(
     let mut native = NativeTags::default();
     match kind {
         FileType::Flac => {
-            let file = FlacFile::read_from(reader, options).map_err(|e| error_message(&e))?;
+            let file = FlacFile::read_from(&mut reader, options).map_err(|e| error_message(&e))?;
             native.id3 = file.id3v2().cloned();
             let mut tag = file.vorbis_comments().cloned().unwrap_or_default();
             for (picture, info) in file.pictures() {
@@ -314,7 +367,7 @@ fn native_tags_with(
         }
         FileType::Vorbis => {
             native.vorbis = Some(
-                VorbisFile::read_from(reader, options)
+                VorbisFile::read_from(&mut reader, options)
                     .map_err(|e| error_message(&e))?
                     .vorbis_comments()
                     .clone(),
@@ -322,7 +375,7 @@ fn native_tags_with(
         }
         FileType::Opus => {
             native.vorbis = Some(
-                OpusFile::read_from(reader, options)
+                OpusFile::read_from(&mut reader, options)
                     .map_err(|e| error_message(&e))?
                     .vorbis_comments()
                     .clone(),
@@ -330,51 +383,50 @@ fn native_tags_with(
         }
         FileType::Speex => {
             native.vorbis = Some(
-                SpeexFile::read_from(reader, options)
+                SpeexFile::read_from(&mut reader, options)
                     .map_err(|e| error_message(&e))?
                     .vorbis_comments()
                     .clone(),
             )
         }
         FileType::Mpeg => {
-            let file = MpegFile::read_from(reader, options).map_err(|e| error_message(&e))?;
+            let file = MpegFile::read_from(&mut reader, options).map_err(|e| error_message(&e))?;
             native.ape = file.ape().cloned();
             native.id3 = file.id3v2().cloned();
         }
         FileType::Ape => {
-            let file = ApeFile::read_from(reader, options).map_err(|e| error_message(&e))?;
+            let file = ApeFile::read_from(&mut reader, options).map_err(|e| error_message(&e))?;
             native.ape = file.ape().cloned();
             native.id3 = file.id3v2().cloned();
         }
         FileType::Mpc => {
-            let file = MpcFile::read_from(reader, options).map_err(|e| error_message(&e))?;
+            let file = MpcFile::read_from(&mut reader, options).map_err(|e| error_message(&e))?;
             native.ape = file.ape().cloned();
             native.id3 = file.id3v2().cloned();
         }
         FileType::WavPack => {
-            native.ape = WavPackFile::read_from(reader, options)
+            native.ape = WavPackFile::read_from(&mut reader, options)
                 .map_err(|e| error_message(&e))?
                 .ape()
                 .cloned()
         }
         FileType::Aac => {
-            native.id3 = AacFile::read_from(reader, options)
+            native.id3 = AacFile::read_from(&mut reader, options)
                 .map_err(|e| error_message(&e))?
                 .id3v2()
                 .cloned()
         }
         FileType::Wav => {
-            let file = WavFile::read_from(reader, options).map_err(|e| error_message(&e))?;
+            let file = WavFile::read_from(&mut reader, options).map_err(|e| error_message(&e))?;
             native.id3 = file.id3v2().cloned();
             native.riff = file.riff_info().cloned();
         }
         FileType::Aiff => {
-            let file = AiffFile::read_from(reader, options).map_err(|e| error_message(&e))?;
+            let file = AiffFile::read_from(&mut reader, options).map_err(|e| error_message(&e))?;
             native.id3 = file.id3v2().cloned();
         }
         FileType::Mp4 => {
-            let file = Mp4File::read_from(reader, options).map_err(|e| error_message(&e))?;
-            native.ilst = file.ilst().cloned();
+            native.ilst = read_mp4(&mut reader, options)?.ilst().cloned();
         }
         _ => {}
     }
@@ -629,14 +681,19 @@ fn read_description(
         .implicit_conversions(false)
         .parsing_mode(ParsingMode::Strict);
     let mut reader = probe.into_inner();
+    // Stored identifiers of encrypted ID3v2 frames read as placeholders.
+    let mut placeholders = Vec::new();
     macro_rules! read {
         ($ty:ty,$snapshot:expr) => {{
-            let media = strict_or_lenient_id3v1(|mode| {
-                reader.seek(SeekFrom::Start(0)).map_err(|e| e.to_string())?;
-                let mut options = parse_options;
-                <$ty>::read_from(&mut reader, options.parsing_mode(mode))
-                    .map_err(|e| error_message(&e))
+            let (media, names) = strict_or_lenient_id3v1(|mode| {
+                crate::id3_frames::read_with_fallback(&mut reader, |mut reader| {
+                    reader.seek(SeekFrom::Start(0)).map_err(|e| e.to_string())?;
+                    let mut options = parse_options;
+                    <$ty>::read_from(&mut reader, options.parsing_mode(mode))
+                        .map_err(|e| error_message(&e))
+                })
             })?;
+            placeholders = names;
             let native: NativeTags = ($snapshot)(&media);
             (TaggedFile::from(media), native)
         }};
@@ -652,11 +709,15 @@ fn read_description(
             technical: technical::mpeg(f.properties()),
             ..Default::default()
         }),
-        FileType::Mp4 => read!(Mp4File, |f: &Mp4File| NativeTags {
-            ilst: f.ilst().cloned(),
-            technical: technical::mp4(f.properties()),
-            ..Default::default()
-        }),
+        FileType::Mp4 => {
+            let media = read_mp4(&mut reader, parse_options)?;
+            let native = NativeTags {
+                ilst: media.ilst().cloned(),
+                technical: technical::mp4(media.properties()),
+                ..Default::default()
+            };
+            (TaggedFile::from(media), native)
+        }
         FileType::Wav => read!(WavFile, |f: &WavFile| NativeTags {
             id3: f.id3v2().cloned(),
             riff: f.riff_info().cloned(),
@@ -717,7 +778,31 @@ fn read_description(
     if kind == FileType::Mp4 {
         mp4_chapters::describe(&path, &mut entry);
     }
+    name_placeholders(&mut entry.technical, &placeholders);
     Ok(entry)
+}
+
+/// List encrypted ID3v2 frames read as placeholders under their stored
+/// identifiers in `%_id3v2_unknown_frames%`.
+fn name_placeholders(technical: &mut Fields, names: &[(String, String)]) {
+    if names.is_empty() {
+        return;
+    }
+    if let Some(values) = technical.get_mut("_ID3V2_UNKNOWN_FRAMES") {
+        let mut ids: Vec<String> = values
+            .join(", ")
+            .split(", ")
+            .map(|id| {
+                names
+                    .iter()
+                    .find(|(placeholder, _)| placeholder == id)
+                    .map_or_else(|| id.to_owned(), |(_, stored)| stored.clone())
+            })
+            .collect();
+        ids.sort_unstable();
+        ids.dedup();
+        *values = vec![ids.join(", ")];
+    }
 }
 
 fn audio_extension(path: &Path, allowed: Option<&[String]>) -> bool {
@@ -1031,9 +1116,14 @@ where
                 original,
                 staged_path,
                 stream,
-                |staging, original, staged_path| mutation(staging, load(original)?, staged_path),
+                |staging, original, staged_path| {
+                    crate::ape_footer::strip_colliding_header(staging)?;
+                    mutation(staging, load(original)?, staged_path)
+                },
             ),
             None => {
+                // lofty's writers would take such an APE header for ID3v1.
+                crate::ape_footer::strip_colliding_header(staging)?;
                 let file = load(original)?;
                 let flac_id3 =
                     file.file_type() == FileType::Flac && file.tag(TagType::Id3v2).is_some();
@@ -1167,13 +1257,34 @@ fn normalized_updates(updates: &Fields, kind: TagType) -> Result<Fields, String>
 /// How a write treats an ID3v2 tag: keep its revision (non-MPEG formats) or
 /// convert it to the configured MPEG revision and encoding.
 #[derive(Clone, Copy)]
-enum Id3Write {
+enum Id3Revision {
     Preserve([u8; 3]),
     Convert(mapping::Id3Target),
 }
+/// How a write treats native tags: the ID3v2 revision, and the Options →
+/// Tags → Advanced settings for MP4 atoms and ID3v2 frames.
+#[derive(Clone, Copy)]
+struct Id3Write {
+    revision: Id3Revision,
+    reuse_id3v2_frames: bool,
+    reuse_mp4_atoms: bool,
+    mp4_single_atom: bool,
+}
 impl Id3Write {
     fn preserving(options: &TagOptions) -> Self {
-        Self::Preserve(options.comment_language())
+        Self::with(Id3Revision::Preserve(options.comment_language()), options)
+    }
+    fn converting(target: mapping::Id3Target, options: &TagOptions) -> Self {
+        Self::with(Id3Revision::Convert(target), options)
+    }
+    fn with(revision: Id3Revision, options: &TagOptions) -> Self {
+        let advanced = &options.advanced;
+        Self {
+            revision,
+            reuse_id3v2_frames: advanced.reuse_id3v2_frames,
+            reuse_mp4_atoms: advanced.reuse_mp4_atoms,
+            mp4_single_atom: advanced.mp4_single_atom,
+        }
     }
 }
 
@@ -1197,14 +1308,23 @@ fn save_preserving_native(
     match tag.tag_type() {
         TagType::Id3v2 => {
             let mut native = originals.id3.unwrap_or_default();
-            let target = match id3 {
-                Id3Write::Preserve(language) => mapping::Id3Target::preserving(&native, language),
-                Id3Write::Convert(target) => {
+            let target = match id3.revision {
+                Id3Revision::Preserve(language) => {
+                    mapping::Id3Target::preserving(&native, language)
+                }
+                Id3Revision::Convert(target) => {
                     mapping::convert_id3_version(&mut native, &target)?;
                     target
                 }
             };
-            mapping::patch_id3(&mut native, updates, &target)?;
+            let mut updates = Cow::Borrowed(updates);
+            if !id3.reuse_id3v2_frames {
+                let moved = mapping::remap_id3(&mut native, &updates, &target);
+                if !moved.is_empty() {
+                    updates.to_mut().extend(moved);
+                }
+            }
+            mapping::patch_id3(&mut native, &updates, &target)?;
             if covers_changed {
                 native.retain(|frame| !matches!(frame, Frame::Picture(_)));
                 let pictures: Id3v2Tag = tag.clone().into();
@@ -1221,14 +1341,21 @@ fn save_preserving_native(
         }
         TagType::Mp4Ilst => {
             let mut native = originals.ilst.unwrap_or_default();
-            mapping::patch_mp4(&mut native, updates)?;
+            let mut updates = Cow::Borrowed(updates);
+            if !id3.reuse_mp4_atoms {
+                let moved = mapping::remap_mp4(&mut native, &updates);
+                if !moved.is_empty() {
+                    updates.to_mut().extend(moved);
+                }
+            }
+            mapping::patch_mp4(&mut native, &updates)?;
             if covers_changed {
                 native.remove_pictures();
                 for picture in tag.pictures() {
                     native.insert_picture(picture.clone());
                 }
             }
-            crate::mp4_metadata::save(staging, &native)
+            crate::mp4_metadata::save(staging, &native, id3.mp4_single_atom)
         }
         TagType::VorbisComments => {
             let mut native = originals.vorbis.unwrap_or_default();
@@ -1298,7 +1425,8 @@ fn save_preserving_native(
                 .map_err(|e| e.to_string())?;
             native
                 .save_to(staging, WriteOptions::default())
-                .map_err(|e| error_message(&e))
+                .map_err(|e| error_message(&e))?;
+            crate::ape_footer::strip_colliding_header(staging)
         }
         TagType::RiffInfo => {
             let mut native = originals.riff.unwrap_or_default();

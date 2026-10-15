@@ -416,3 +416,71 @@ fn oversized_library_values_are_written_last() {
         ]
     );
 }
+
+#[test]
+fn legacy_zero_based_wm_track_is_shown_and_kept_in_step() {
+    let legacy = |value: Vec<u8>, kind: u16| {
+        file(&[
+            file_properties(0),
+            content(["T", "", "", "", ""]),
+            extended(&[("WM/Track", kind, value)]),
+        ])
+    };
+    // DWORD and string forms: WM/Track 4 is the fifth track.
+    for bytes in [
+        legacy(4u32.to_le_bytes().to_vec(), 3),
+        legacy(utf16z("4"), 0),
+    ] {
+        let asf = parse(&bytes);
+        let fields = local_fields(&asf);
+        assert_eq!(fields["TRACK"], ["5"]);
+        assert!(!fields.contains_key("WM/Track"));
+    }
+
+    // WM/TrackNumber wins over the legacy attribute.
+    let both = file(&[
+        file_properties(0),
+        extended(&[
+            ("WM/Track", 3, 0u32.to_le_bytes().to_vec()),
+            ("WM/TrackNumber", 3, 9u32.to_le_bytes().to_vec()),
+        ]),
+    ]);
+    assert_eq!(local_fields(&parse(&both))["TRACK"], ["9"]);
+
+    // Writing TRACK adds WM/TrackNumber and moves WM/Track along, in its type.
+    let bytes = legacy(4u32.to_le_bytes().to_vec(), 3);
+    let mut asf = parse(&bytes);
+    apply_fields(
+        &mut asf,
+        &Fields::from([("TRACK".into(), vec!["12/14".into()])]),
+    )
+    .unwrap();
+    let value = |asf: &Asf, name: &str| {
+        asf.attributes
+            .iter()
+            .find(|a| a.name == name)
+            .map(|a| a.value.clone())
+    };
+    assert_eq!(value(&asf, "WM/Track"), Some(Value::Dword(11)));
+    assert_eq!(
+        value(&asf, "WM/TrackNumber"),
+        Some(Value::Unicode("12/14".into()))
+    );
+    assert_eq!(local_fields(&asf)["TRACK"], ["12/14"]);
+
+    // Removing TRACK removes both; other edits leave WM/Track alone.
+    apply_fields(&mut asf, &Fields::from([("TRACK".into(), vec![])])).unwrap();
+    assert_eq!(value(&asf, "WM/Track"), None);
+    assert!(!local_fields(&asf).contains_key("TRACK"));
+    let mut asf = parse(&bytes);
+    apply_fields(
+        &mut asf,
+        &Fields::from([("ALBUM".into(), vec!["Album".into()])]),
+    )
+    .unwrap();
+    assert_eq!(value(&asf, "WM/Track"), Some(Value::Dword(4)));
+    let header = asf.render(tail(&bytes, &asf)).unwrap();
+    let mut written = header;
+    written.extend_from_slice(&bytes[asf.header_size as usize..]);
+    assert_eq!(local_fields(&parse(&written))["TRACK"], ["5"]);
+}

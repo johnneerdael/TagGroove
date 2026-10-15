@@ -11,6 +11,9 @@ use lofty::picture::MimeType;
 use std::io::{Read, Write};
 
 const PICTURE: &str = "WM/Picture";
+/// The track number older Windows Media writers stored zero-based. It is
+/// shown as TRACK when the file has no WM/TrackNumber.
+const LEGACY_TRACK: &str = "WM/Track";
 const RATING: &str = "WM/SharedUserRating";
 /// The values Windows Media Player stores for one to five stars.
 const RATING_VALUES: [u32; 6] = [0, 1, 25, 50, 75, 99];
@@ -126,8 +129,21 @@ fn local_fields(asf: &Asf) -> Fields {
     let mut fields = Fields::new();
     let mut seen: std::collections::HashMap<(String, String), Option<header::Location>> =
         std::collections::HashMap::new();
+    let legacy = |attribute: &Attribute| {
+        attribute.name.eq_ignore_ascii_case(LEGACY_TRACK)
+            && legacy_track(attribute).is_some()
+            && !asf.attributes.iter().any(|other| {
+                field_name(&other.name).eq_ignore_ascii_case("TRACK") && display(other).is_some()
+            })
+    };
     for attribute in &asf.attributes {
         if attribute.name.eq_ignore_ascii_case(PICTURE) {
+            continue;
+        }
+        if legacy(attribute) {
+            if let Some(track) = legacy_track(attribute) {
+                fields.entry("TRACK".into()).or_default().push(track);
+            }
             continue;
         }
         let Some(value) = display(attribute) else {
@@ -150,6 +166,18 @@ fn local_fields(asf: &Asf) -> Fields {
         fields.entry(key).or_default().push(value);
     }
     fields
+}
+
+/// The one-based TRACK of a zero-based WM/Track value.
+fn legacy_track(attribute: &Attribute) -> Option<String> {
+    let index = match &attribute.value {
+        Value::Dword(n) => u64::from(*n),
+        Value::Word(n) => u64::from(*n),
+        Value::Qword(n) => *n,
+        Value::Unicode(text) => text.trim().parse().ok()?,
+        _ => return None,
+    };
+    index.checked_add(1).map(|track| track.to_string())
 }
 
 fn picture_of(attribute: &Attribute) -> Option<Picture> {
@@ -338,8 +366,41 @@ fn apply_fields(asf: &mut Asf, updates: &Fields) -> Result<Fields, String> {
         asf.attributes.retain(|attribute| !matches(attribute));
         let at = position.unwrap_or(asf.attributes.len());
         asf.attributes.splice(at..at, attributes);
+        if field.eq_ignore_ascii_case("TRACK") {
+            update_legacy_track(asf, values);
+        }
     }
     Ok(expected)
+}
+
+/// A WM/Track attribute follows TRACK zero-based in its own type, so older
+/// players agree with WM/TrackNumber; it is dropped when TRACK is removed or
+/// is not a plain number.
+fn update_legacy_track(asf: &mut Asf, values: &[String]) {
+    let index = match values {
+        [value] => value
+            .split('/')
+            .next()
+            .and_then(|n| n.trim().parse::<u64>().ok())
+            .and_then(|n| n.checked_sub(1)),
+        _ => None,
+    };
+    asf.attributes.retain_mut(|attribute| {
+        if !attribute.name.eq_ignore_ascii_case(LEGACY_TRACK) {
+            return true;
+        }
+        let Some(index) = index else {
+            return false;
+        };
+        attribute.value = match &attribute.value {
+            Value::Dword(_) => u32::try_from(index).map(Value::Dword),
+            Value::Word(_) => u16::try_from(index).map(Value::Word),
+            Value::Qword(_) => Ok(Value::Qword(index)),
+            _ => Ok(Value::Unicode(index.to_string())),
+        }
+        .unwrap_or_else(|_| Value::Unicode(index.to_string()));
+        true
+    });
 }
 
 pub(super) fn write_fields(

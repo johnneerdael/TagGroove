@@ -1514,7 +1514,8 @@ mod tests {
         let mut frames = Vec::new();
         frames.extend(frame(b"TIT2", b"\0Title"));
         frames.extend(frame(b"TPE1", b"\0Artist"));
-        frames.extend(frame(b"COMM", b"\0engNote\0Text"));
+        // A COMM frame with a description would be "COMMENT Note".
+        frames.extend(frame(b"COMM", b"\0eng\0Text"));
         frames.extend(frame(b"PRIV", b"WM/MediaClassPrimaryID\0\x01\x02"));
         frames.extend(frame(
             b"GEOB",

@@ -1,20 +1,25 @@
-//! TTA (True Audio), TAK and OptimFROG: raw lossless streams that, like MP3,
-//! carry a leading ID3v2 tag and trailing APE and ID3v1 tags. Mp3tag treats
-//! TTA like MP3 (Options → Tags → Mpeg) and the others like Monkey's Audio
-//! (Ape, Mpc). lofty cannot parse these streams, so their tags are read and
-//! written on a stand-in: the file's own tag bytes around a minimal MPEG
-//! (TTA) or Monkey's Audio (TAK, OptimFROG) stream. The shared tag policies
-//! run unchanged on the stand-in; its tags are then spliced around the
-//! untouched audio bytes, which are verified to be identical.
+//! TTA (True Audio), TAK, OptimFROG, AAC (ADTS) and WavPack: raw streams
+//! that, like MP3, carry a leading ID3v2 tag and trailing APE and ID3v1 tags.
+//! Mp3tag treats TTA and AAC like MP3 (Options → Tags → Mpeg) and the others
+//! like Monkey's Audio (Ape, Mpc). lofty cannot parse TTA, TAK and OptimFROG,
+//! reads no APE tag in AAC and no ID3v2 tag in WavPack, so the tags of all
+//! five are read and written on a stand-in: the file's own tag bytes around a
+//! minimal MPEG (TTA, AAC) or Monkey's Audio (TAK, OptimFROG, WavPack)
+//! stream. The shared tag policies run unchanged on the stand-in; its tags
+//! are then spliced around the untouched audio bytes, which are verified to
+//! be identical. lofty still reads the AAC and WavPack stream properties,
+//! from the audio bytes alone.
 use super::*;
-use lofty::{ape::ApeFile, mpeg::MpegFile};
-use std::io::Cursor;
+use lofty::{aac::AacFile, ape::ApeFile, mpeg::MpegFile};
+use std::io::{Cursor, Read};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(in crate::tags) enum Stream {
     Tta,
     Tak,
     OptimFrog,
+    Aac,
+    WavPack,
 }
 
 impl Stream {
@@ -23,6 +28,10 @@ impl Stream {
             b"TTA1" => Some(Self::Tta),
             b"tBaK" => Some(Self::Tak),
             b"OFR " => Some(Self::OptimFrog),
+            b"wvpk" => Some(Self::WavPack),
+            // ADTS sync: twelve set bits, then the MPEG version and a layer
+            // of 0 (MPEG audio never uses layer 0).
+            [0xFF, second, ..] if second & 0xF6 == 0xF0 => Some(Self::Aac),
             _ => None,
         }
     }
@@ -31,6 +40,8 @@ impl Stream {
             Self::Tta => "TTA",
             Self::Tak => "TAK",
             Self::OptimFrog => "OptimFROG",
+            Self::Aac => "AAC",
+            Self::WavPack => "WavPack",
         }
     }
     fn codec(self) -> &'static str {
@@ -38,20 +49,26 @@ impl Stream {
             Self::Tta => "True Audio",
             Self::Tak => "TAK",
             Self::OptimFrog => "OptimFROG",
+            Self::Aac => "AAC",
+            Self::WavPack => "WavPack",
         }
+    }
+    /// Whether the stream follows Options → Tags → Mpeg (otherwise Ape, Mpc).
+    fn mpeg_policy(self) -> bool {
+        matches!(self, Self::Tta | Self::Aac)
     }
     /// A minimal stream lofty parses as the format whose tag policy applies.
     fn stand_in(self) -> Vec<u8> {
         match self {
             // Two MPEG-1 Layer III frames (32 kbit/s, 32 kHz, mono): lofty
             // confirms a frame sync by finding the next frame.
-            Self::Tta => {
+            Self::Tta | Self::Aac => {
                 let mut frame = [0u8; 144];
                 frame[..4].copy_from_slice(&[0xFF, 0xFB, 0x18, 0xC0]);
                 frame.repeat(2)
             }
             // A Monkey's Audio 3.99 descriptor and header with one frame.
-            Self::Tak | Self::OptimFrog => {
+            Self::Tak | Self::OptimFrog | Self::WavPack => {
                 let mut bytes = b"MAC ".to_vec();
                 bytes.extend(3990u16.to_le_bytes());
                 bytes.extend(0u16.to_le_bytes());
@@ -96,7 +113,9 @@ pub(in crate::tags) fn leading_tags(file: &mut fs::File, length: u64) -> Result<
 /// then a Lyrics3v2 block and an ID3v1 tag, the order lofty reads them in.
 fn trailing_tags(file: &mut fs::File, floor: u64, length: u64) -> Result<u64, String> {
     let mut end = length;
-    if end >= floor + 128 && read_at(file, end - 128, 3)? == b"TAG" {
+    let lookalike = crate::ape_footer::id3v1_lookalike(file).map_err(|e| e.to_string())?;
+    if end >= floor + 128 && read_at(file, end - 128, 3)? == b"TAG" && lookalike != Some(end - 128)
+    {
         end -= 128;
     }
     if end >= floor + 15 && read_at(file, end - 9, 9)? == b"LYRICS200" {
@@ -178,13 +197,13 @@ fn split_stand_in(bytes: &[u8], stream: Stream) -> Result<(&[u8], &[u8]), String
 
 fn parse_stand_in(bytes: &[u8], stream: Stream) -> Result<(TaggedFile, NativeTags), String> {
     let (mut file, native) = strict_or_lenient_id3v1(|mode| {
-        let mut reader = Cursor::new(bytes);
         let options = ParseOptions::new()
             .implicit_conversions(false)
             .read_properties(false)
             .parsing_mode(mode);
-        Ok(match stream {
-            Stream::Tta => {
+        let read = |mut reader: &mut dyn ReadSeek| {
+            reader.seek(SeekFrom::Start(0)).map_err(|e| e.to_string())?;
+            Ok(if stream.mpeg_policy() {
                 let file =
                     MpegFile::read_from(&mut reader, options).map_err(|e| error_message(&e))?;
                 let native = NativeTags {
@@ -193,8 +212,7 @@ fn parse_stand_in(bytes: &[u8], stream: Stream) -> Result<(TaggedFile, NativeTag
                     ..Default::default()
                 };
                 (TaggedFile::from(file), native)
-            }
-            Stream::Tak | Stream::OptimFrog => {
+            } else {
                 let file =
                     ApeFile::read_from(&mut reader, options).map_err(|e| error_message(&e))?;
                 let native = NativeTags {
@@ -203,8 +221,10 @@ fn parse_stand_in(bytes: &[u8], stream: Stream) -> Result<(TaggedFile, NativeTag
                     ..Default::default()
                 };
                 (TaggedFile::from(file), native)
-            }
-        })
+            })
+        };
+        crate::id3_frames::read_with_fallback(&mut Cursor::new(bytes), read)
+            .map(|(parsed, _)| parsed)
     })?;
     ape_pictures(&native, &mut file)?;
     Ok((file, native))
@@ -223,6 +243,71 @@ struct Properties {
     bits: Option<u8>,
     /// Samples per channel.
     samples: u64,
+}
+
+/// The audio bytes of a file as a stream of their own, so lofty reads the
+/// stream properties without seeing the tags around them.
+struct Window<'a> {
+    file: &'a mut fs::File,
+    range: Range<u64>,
+    position: u64,
+}
+impl Read for Window<'_> {
+    fn read(&mut self, buffer: &mut [u8]) -> std::io::Result<usize> {
+        let left = (self.range.end - self.range.start).saturating_sub(self.position);
+        let take = buffer
+            .len()
+            .min(usize::try_from(left).unwrap_or(usize::MAX));
+        if take == 0 {
+            return Ok(0);
+        }
+        self.file
+            .seek(SeekFrom::Start(self.range.start + self.position))?;
+        let read = self.file.read(&mut buffer[..take])?;
+        self.position += read as u64;
+        Ok(read)
+    }
+}
+impl Seek for Window<'_> {
+    fn seek(&mut self, to: SeekFrom) -> std::io::Result<u64> {
+        let length = (self.range.end - self.range.start) as i128;
+        let target = match to {
+            SeekFrom::Start(at) => i128::from(at),
+            SeekFrom::Current(delta) => i128::from(self.position) + i128::from(delta),
+            SeekFrom::End(delta) => length + i128::from(delta),
+        };
+        self.position = u64::try_from(target).map_err(|_| {
+            std::io::Error::new(std::io::ErrorKind::InvalidInput, "seek before the stream")
+        })?;
+        Ok(self.position)
+    }
+}
+
+/// Stream properties lofty reads from the audio bytes (AAC, WavPack).
+fn lofty_properties(
+    file: &mut fs::File,
+    layout: &Layout,
+) -> Result<lofty::properties::FileProperties, String> {
+    let mut window = Window {
+        file,
+        range: layout.audio.clone(),
+        position: 0,
+    };
+    let options = ParseOptions::new()
+        .read_tags(false)
+        .parsing_mode(ParsingMode::Strict);
+    Ok(match layout.stream {
+        Stream::Aac => AacFile::read_from(&mut window, options)
+            .map_err(|e| error_message(&e))?
+            .properties()
+            .to_owned()
+            .into(),
+        _ => WavPackFile::read_from(&mut window, options)
+            .map_err(|e| error_message(&e))?
+            .properties()
+            .to_owned()
+            .into(),
+    })
 }
 
 /// Little-endian bit reader (TAK stores its stream info LSB first).
@@ -326,6 +411,8 @@ fn properties(file: &mut fs::File, layout: &Layout) -> Result<Properties, String
             }
             Err(invalid(stream, "missing stream information"))
         }
+        // lofty reads these (`lofty_properties`).
+        Stream::Aac | Stream::WavPack => Err(invalid(stream, "unexpected stream header")),
     }
 }
 
@@ -340,23 +427,43 @@ pub(in crate::tags) fn read(
     let layout = layout(&mut source, stream)?;
     let (file, native) = parse_stand_in(&stand_in_bytes(&mut source, &layout)?, stream)?;
     let mut entry = describe_with_native(path, &file, &native, include_cover_data, rules, options)?;
-    let properties = properties(&mut source, &layout)?;
-    let duration = if properties.sample_rate > 0 {
-        properties.samples as f64 / f64::from(properties.sample_rate)
-    } else {
-        0.0
-    };
     let audio = layout.audio.end - layout.audio.start;
+    let bitrate = |duration: f64| {
+        if duration > 0.0 {
+            (audio as f64 * 8.0 / duration / 1000.0).round() as u32
+        } else {
+            0
+        }
+    };
+    let (duration, bits) = match stream {
+        Stream::Aac | Stream::WavPack => {
+            let properties = lofty_properties(&mut source, &layout)?;
+            let duration = properties.duration().as_secs_f64();
+            entry.bitrate = properties
+                .audio_bitrate()
+                .or(properties.overall_bitrate())
+                .unwrap_or_else(|| bitrate(duration));
+            entry.sample_rate = properties.sample_rate().unwrap_or(0);
+            entry.channels = properties.channels().unwrap_or(0);
+            (duration, properties.bit_depth())
+        }
+        _ => {
+            let properties = properties(&mut source, &layout)?;
+            let duration = if properties.sample_rate > 0 {
+                properties.samples as f64 / f64::from(properties.sample_rate)
+            } else {
+                0.0
+            };
+            entry.bitrate = bitrate(duration);
+            entry.sample_rate = properties.sample_rate;
+            entry.channels = properties.channels;
+            (duration, properties.bits)
+        }
+    };
     entry.format = stream.format().into();
     entry.duration = duration;
-    entry.bitrate = if duration > 0.0 {
-        (audio as f64 * 8.0 / duration / 1000.0).round() as u32
-    } else {
-        0
-    };
-    entry.sample_rate = properties.sample_rate;
-    entry.channels = properties.channels;
-    // Replace the stand-in's stream fields.
+    // Replace the stand-in's stream fields, and the bitrate type and encoder
+    // that were looked up as if the real stream were the stand-in's format.
     for name in [
         "_BITRATE",
         "_BITSPERSAMPLE",
@@ -364,6 +471,8 @@ pub(in crate::tags) fn read(
         "_LENGTH_SECONDS",
         "_MODE",
         "_SAMPLERATE",
+        "_TOOL",
+        "_VBR",
     ] {
         entry.technical.remove(name);
     }
@@ -372,7 +481,7 @@ pub(in crate::tags) fn read(
         .insert("_CODEC".into(), vec![stream.codec().into()]);
     technical::stream_fields(
         &mut entry.technical,
-        properties.bits,
+        bits,
         Some(entry.bitrate),
         Some(entry.sample_rate),
         Some(entry.channels),

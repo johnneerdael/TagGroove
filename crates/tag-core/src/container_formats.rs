@@ -2,8 +2,9 @@
 //! DSDIFF edited-master text) and Matroska/WebM (EBML Tags, chapters and
 //! image attachments). Every mutation uses the shared sibling staging, then
 //! checks the read-back metadata and that the media payload is byte-identical.
-//! TTA, TAK and OptimFROG streams are detected here too; their MP3-style tags
-//! go through the MPEG and APE tag policies (see `raw_streams`).
+//! TTA, TAK, OptimFROG, AAC (ADTS) and WavPack streams are detected here too;
+//! their MP3-style tags go through the MPEG and APE tag policies (see
+//! `raw_streams`).
 use super::*;
 use std::{
     io::{Read, Write},
@@ -55,8 +56,8 @@ pub(super) fn id3v2_size(header: &[u8]) -> Option<u64> {
     Some(10 + body + if flags & 0x10 != 0 { 10 } else { 0 })
 }
 
-/// Identify a TTA, TAK or OptimFROG stream by the magic after any leading
-/// ID3v2 tags.
+/// Identify a TTA, TAK, OptimFROG, AAC (ADTS) or WavPack stream by the
+/// magic after any leading ID3v2 tags.
 pub(super) fn detect_stream(path: &Path) -> Option<raw_streams::Stream> {
     let mut file = fs::File::open(path).ok()?;
     let length = file.metadata().ok()?.len();
