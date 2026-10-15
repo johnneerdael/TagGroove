@@ -120,6 +120,20 @@ fn filename_rearrangement_table_runs_its_written_old_and_new_patterns() {
 }
 
 #[test]
+fn advanced_rearrangement_walkthrough_combines_the_written_patterns_and_folders() {
+    let examples = text_blocks(FILENAME_FILENAME);
+    assert_eq!(examples.len(), 4);
+    let fields = Fields::new();
+    let result = FilenameConverter::compile(&examples[1], &examples[2])
+        .unwrap()
+        .render(&examples[0], &EvalContext::new(&fields))
+        .unwrap();
+    assert_eq!(result.target, examples[3]);
+    assert_eq!(result.captures["1"], ["Juniper Vale"]);
+    assert_eq!(result.captures["5"], ["2024"]);
+}
+
+#[test]
 fn tag_to_tag_table_calculates_the_published_results() {
     let mut count = 0;
     for line in TAG_TAG

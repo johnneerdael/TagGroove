@@ -58,6 +58,52 @@ earlier root omitted from the matching pattern. Use an absolute destination
 when moving several source folders into one new layout. Preview the full
 paths before applying.
 
+## Combine folder captures, functions and literal brackets
+
+Suppose this incoming file needs a new archive layout:
+
+```text
+D:\Incoming\Juniper Vale - Harbour Lights\03 Paper Boats (2024_DEMO).mp3
+```
+
+Set **Old filename pattern** to:
+
+```text
+%1 - %2\%3 %4 (%5_DEMO)
+```
+
+The pattern captures five parts: `%1` is `Juniper Vale`, `%2` is
+`Harbour Lights`, `%3` is `03`, `%4` is `Paper Boats`, and `%5` is `2024`.
+`_DEMO` is fixed text describing the source naming convention, so it does
+not become part of the year capture.
+
+Set **New filename pattern** to:
+
+```text
+D:\Archive\$upper(%1) - %2 '['%5']'\$num(%3,2). %4 (Demo)
+```
+
+The expected destination is:
+
+```text
+D:\Archive\JUNIPER VALE - Harbour Lights [2024]\03. Paper Boats (Demo).mp3
+```
+
+Work through it before applying:
+
+1. `D:\Archive\` gives the absolute destination root. On macOS or Linux,
+   choose the intended absolute root there instead.
+2. `$upper(%1)` capitalizes the captured artist, without changing a tag.
+3. `%2` retains the captured album. `'['%5']'` writes actual square brackets
+   around the captured year; unquoted brackets would mark an optional section.
+4. The next backslash starts the filename inside that new album folder.
+5. `$num(%3,2)` pads the captured track number, and `%4` retains the title.
+6. `(Demo)` adds a normalized suffix, and the converter keeps `.mp3`.
+
+Preview the full destination. Unlike a relative output, this layout does
+not nest a new album folder inside the incoming album folder. Check that
+the chosen archive root is writable and the destination is not occupied.
+
 ## Gotchas
 
 - `%10`, an undefined numbered part, or a repeated number in the old
