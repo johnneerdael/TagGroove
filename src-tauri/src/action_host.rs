@@ -198,6 +198,20 @@ fn action_name(name: &str, origin: NameOrigin, separator: &str) -> String {
     }
 }
 
+/// The files an export must not replace for one input: the file itself, or
+/// for a chapter or cue sheet row its file and the audio it plays from (a
+/// row path is no file name on Windows).
+fn protected_files(path: &Path) -> Vec<PathBuf> {
+    match path.to_str().and_then(tag_core::subsong_parts) {
+        Some((file, _)) => {
+            let mut files = vec![PathBuf::from(file)];
+            files.extend(tag_core::subsong_file(path).ok().filter(|f| f != &files[0]));
+            files
+        }
+        None => vec![path.to_path_buf()],
+    }
+}
+
 fn relative_to_file(path: &str, source: &Path) -> PathBuf {
     let path = Path::new(path);
     if path.is_absolute() {
@@ -269,12 +283,17 @@ impl NativeHost {
     }
     fn protect_output(&self, target: &Path, states: &[ActionState]) -> Result<(), String> {
         let target = normalized_output(target)?;
-        let protected = self.inputs.iter().cloned().chain(
-            states
-                .iter()
-                .map(state_path)
-                .collect::<Result<Vec<_>, _>>()?,
-        );
+        let protected = self
+            .inputs
+            .iter()
+            .cloned()
+            .chain(
+                states
+                    .iter()
+                    .map(state_path)
+                    .collect::<Result<Vec<_>, _>>()?,
+            )
+            .flat_map(|path| protected_files(&path));
         for source in protected {
             let source = self.resolve(&source);
             let source = normalized_output(&source)?;
@@ -1807,6 +1826,29 @@ mod tests {
             // WAV has no audio MD5: the export still succeeds, with nothing.
             format!("{}:{}:", hashes["_MD5"][0], hashes["_CRC"][0])
         );
+    }
+    #[test]
+    fn chapter_and_cue_rows_protect_their_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let audio = dir.path().join("disc.flac");
+        fs::write(&audio, b"x").unwrap();
+        let cue = dir.path().join("disc.cue");
+        fs::write(
+            &cue,
+            "FILE \"disc.flac\" WAVE\n  TRACK 01 AUDIO\n    INDEX 01 00:00:00\n",
+        )
+        .unwrap();
+        let row = tag_core::subsong_path(&cue.to_string_lossy(), 1);
+        let protected = protected_files(Path::new(&row));
+        assert_eq!(protected[0], cue);
+        assert_eq!(
+            dunce::canonicalize(&protected[1]).unwrap(),
+            dunce::canonicalize(&audio).unwrap()
+        );
+        let book = dir.path().join("book.m4b");
+        let chapter = tag_core::subsong_path(&book.to_string_lossy(), 2);
+        assert_eq!(protected_files(Path::new(&chapter)), [book]);
+        assert_eq!(protected_files(&audio), [audio]);
     }
     #[test]
     fn output_alias_through_missing_parent_never_replaces_input_audio() {
