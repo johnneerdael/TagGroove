@@ -195,28 +195,34 @@ fn split_stand_in(bytes: &[u8], stream: Stream) -> Result<(&[u8], &[u8]), String
 
 fn parse_stand_in(bytes: &[u8], stream: Stream) -> Result<(TaggedFile, NativeTags), String> {
     let (mut file, native) = strict_or_lenient_id3v1(|mode| {
-        let mut reader = Cursor::new(bytes);
         let options = ParseOptions::new()
             .implicit_conversions(false)
             .read_properties(false)
             .parsing_mode(mode);
-        Ok(if stream.mpeg_policy() {
-            let file = MpegFile::read_from(&mut reader, options).map_err(|e| error_message(&e))?;
-            let native = NativeTags {
-                id3: file.id3v2().cloned(),
-                ape: file.ape().cloned(),
-                ..Default::default()
-            };
-            (TaggedFile::from(file), native)
-        } else {
-            let file = ApeFile::read_from(&mut reader, options).map_err(|e| error_message(&e))?;
-            let native = NativeTags {
-                id3: file.id3v2().cloned(),
-                ape: file.ape().cloned(),
-                ..Default::default()
-            };
-            (TaggedFile::from(file), native)
-        })
+        let read = |mut reader: &mut dyn ReadSeek| {
+            reader.seek(SeekFrom::Start(0)).map_err(|e| e.to_string())?;
+            Ok(if stream.mpeg_policy() {
+                let file =
+                    MpegFile::read_from(&mut reader, options).map_err(|e| error_message(&e))?;
+                let native = NativeTags {
+                    id3: file.id3v2().cloned(),
+                    ape: file.ape().cloned(),
+                    ..Default::default()
+                };
+                (TaggedFile::from(file), native)
+            } else {
+                let file =
+                    ApeFile::read_from(&mut reader, options).map_err(|e| error_message(&e))?;
+                let native = NativeTags {
+                    id3: file.id3v2().cloned(),
+                    ape: file.ape().cloned(),
+                    ..Default::default()
+                };
+                (TaggedFile::from(file), native)
+            })
+        };
+        crate::id3_frames::read_with_fallback(&mut Cursor::new(bytes), read)
+            .map(|(parsed, _)| parsed)
     })?;
     ape_pictures(&native, &mut file)?;
     Ok((file, native))

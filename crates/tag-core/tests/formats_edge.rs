@@ -481,3 +481,160 @@ fn legacy_eight_byte_integer_atoms_are_read_kept_and_editable() {
     assert!(contains(&after, &cnid).is_none());
     assert!(strict(&path).is_ok());
 }
+
+/// Twenty MPEG-1 Layer III frames (128 kbit/s, 44.1 kHz).
+fn mpeg_frames() -> Vec<u8> {
+    let mut frame = vec![0u8; 417];
+    frame[..4].copy_from_slice(&[0xFF, 0xFB, 0x90, 0x00]);
+    frame.repeat(20)
+}
+fn syncsafe(value: usize) -> [u8; 4] {
+    [
+        ((value >> 21) & 127) as u8,
+        ((value >> 14) & 127) as u8,
+        ((value >> 7) & 127) as u8,
+        (value & 127) as u8,
+    ]
+}
+/// zlib data holding `data` in one stored (uncompressed) deflate block.
+fn zlib(data: &[u8]) -> Vec<u8> {
+    let mut bytes = vec![0x78, 0x01, 0x01];
+    let length = data.len() as u16;
+    bytes.extend(length.to_le_bytes());
+    bytes.extend((!length).to_le_bytes());
+    bytes.extend(data);
+    let (mut a, mut b) = (1u32, 0u32);
+    for byte in data {
+        a = (a + u32::from(*byte)) % 65521;
+        b = (b + a) % 65521;
+    }
+    bytes.extend(((b << 16) | a).to_be_bytes());
+    bytes
+}
+fn raw_frame(major: u8, id: &[u8; 4], flags: [u8; 2], body: &[u8]) -> Vec<u8> {
+    let mut bytes = id.to_vec();
+    if major == 3 {
+        bytes.extend((body.len() as u32).to_be_bytes());
+    } else {
+        bytes.extend(syncsafe(body.len()));
+    }
+    bytes.extend(flags);
+    bytes.extend(body);
+    bytes
+}
+fn raw_tag(major: u8, frames: &[Vec<u8>], padding: usize) -> Vec<u8> {
+    let body = frames.concat();
+    let mut bytes = b"ID3".to_vec();
+    bytes.extend([major, 0, 0]);
+    bytes.extend(syncsafe(body.len() + padding));
+    bytes.extend(body);
+    bytes.resize(bytes.len() + padding, 0);
+    bytes
+}
+
+#[test]
+fn compressed_and_encrypted_id3v23_frames_are_read_and_kept() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("flags.mp3");
+    let album = b"\x00Compressed album";
+    let mut compressed_body = (album.len() as u32).to_be_bytes().to_vec();
+    compressed_body.extend(zlib(album));
+    let compressed = raw_frame(3, b"TALB", [0, 0x80], &compressed_body);
+    let encrypted = raw_frame(3, b"TXXX", [0, 0x40], b"\x81\x13\x37opaque cipher bytes");
+    let title = raw_frame(3, b"TIT2", [0, 0], b"\x00Plain title");
+    let tag = raw_tag(3, &[title, compressed.clone(), encrypted.clone()], 256);
+    let audio = mpeg_frames();
+    fs::write(&path, [tag.as_slice(), audio.as_slice()].concat()).unwrap();
+
+    // lofty alone fails on the encrypted ID3v2.3 frame.
+    assert!(lofty::probe::Probe::open(&path)
+        .unwrap()
+        .options(
+            lofty::config::ParseOptions::new().parsing_mode(lofty::config::ParsingMode::Strict)
+        )
+        .read()
+        .is_err());
+    let entry = read_entry(&path).unwrap();
+    assert_eq!(value(&entry, "TITLE").as_deref(), Some("Plain title"));
+    assert_eq!(value(&entry, "ALBUM").as_deref(), Some("Compressed album"));
+    assert_eq!(technical(&entry, "_ID3V2_UNKNOWN_FRAMES"), "TXXX");
+
+    // Editing another field copies both frames byte for byte; the tag keeps
+    // its size (it is rewritten in place) and the audio is untouched.
+    write_fields(&path, &fields(&[("ARTIST", &["Someone"])])).unwrap();
+    let after = fs::read(&path).unwrap();
+    assert!(contains(&after, &compressed).is_some());
+    assert!(contains(&after, &encrypted).is_some());
+    let reread = read_entry(&path).unwrap();
+    assert_eq!(value(&reread, "ARTIST").as_deref(), Some("Someone"));
+    assert_eq!(value(&reread, "ALBUM").as_deref(), Some("Compressed album"));
+    assert_eq!(value(&reread, "TITLE").as_deref(), Some("Plain title"));
+    let start = contains(&after, &audio[..417 * 2]).unwrap();
+    assert_eq!(&after[start..start + audio.len()], audio.as_slice());
+    assert_eq!(start, tag.len(), "the tag was rewritten in place");
+
+    // Editing the compressed field writes it plain; the encrypted frame stays.
+    write_fields(&path, &fields(&[("ALBUM", &["New album"])])).unwrap();
+    let after = fs::read(&path).unwrap();
+    assert!(contains(&after, &compressed).is_none());
+    assert!(contains(&after, &encrypted).is_some());
+    assert_eq!(
+        value(&read_entry(&path).unwrap(), "ALBUM").as_deref(),
+        Some("New album")
+    );
+
+    // Utils → Remove unsupported fields drops the encrypted frame.
+    tag_core::remove_unsupported_fields_with_options(&path, false, &TagOptions::default()).unwrap();
+    let after = fs::read(&path).unwrap();
+    assert!(contains(&after, &encrypted).is_none());
+    assert!(technical(&read_entry(&path).unwrap(), "_ID3V2_UNKNOWN_FRAMES").is_empty());
+}
+
+#[test]
+fn id3v24_flagged_frames_are_kept_in_v24_and_block_a_conversion() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("flags24.mp3");
+    let album = b"\x03Album \xc3\xa9";
+    let mut compressed_body = syncsafe(album.len()).to_vec();
+    compressed_body.extend(zlib(album));
+    let compressed = raw_frame(4, b"TALB", [0, 0x09], &compressed_body);
+    let mut encrypted_body = vec![0x82];
+    encrypted_body.extend(syncsafe(12));
+    encrypted_body.extend(b"cipher-bytes");
+    let encrypted = raw_frame(4, b"TPE2", [0, 0x05], &encrypted_body);
+    let tag = raw_tag(4, &[compressed.clone(), encrypted.clone()], 64);
+    let audio = mpeg_frames();
+    let original = [tag.as_slice(), audio.as_slice()].concat();
+    fs::write(&path, &original).unwrap();
+    let entry = read_entry(&path).unwrap();
+    assert_eq!(value(&entry, "ALBUM").as_deref(), Some("Album é"));
+    assert_eq!(technical(&entry, "_ID3V2_UNKNOWN_FRAMES"), "TPE2");
+
+    // The default ID3v2.3 target cannot carry the encrypted frame over.
+    let error = write_fields(&path, &fields(&[("TITLE", &["T"])])).unwrap_err();
+    assert!(error.contains("Encrypted"), "{error}");
+    assert_eq!(fs::read(&path).unwrap(), original);
+
+    // Writing ID3v2.4 keeps both frames byte for byte.
+    let mut options = TagOptions::default();
+    options.mpeg.id3v2_format = tag_core::Id3v2Format::V24Utf8;
+    options.mpeg.write_id3v1 = false;
+    write_fields_with_options(&path, &fields(&[("TITLE", &["T"])]), false, &[], &options).unwrap();
+    let after = fs::read(&path).unwrap();
+    assert!(contains(&after, &compressed).is_some());
+    assert!(contains(&after, &encrypted).is_some());
+    assert!(after.ends_with(&audio));
+    let reread = read_entry_with_options(&path, &[], &options).unwrap();
+    assert_eq!(value(&reread, "TITLE").as_deref(), Some("T"));
+    assert_eq!(value(&reread, "ALBUM").as_deref(), Some("Album é"));
+
+    // Removing the encrypted frame lets the conversion through; the
+    // compressed album is converted and written plain.
+    tag_core::remove_unsupported_fields_with_options(&path, false, &options).unwrap();
+    write_fields(&path, &fields(&[("TITLE", &["T3"])])).unwrap();
+    let after = fs::read(&path).unwrap();
+    assert!(after.starts_with(b"ID3\x03"));
+    let reread = read_entry(&path).unwrap();
+    assert_eq!(value(&reread, "ALBUM").as_deref(), Some("Album é"));
+    assert_eq!(value(&reread, "TITLE").as_deref(), Some("T3"));
+}

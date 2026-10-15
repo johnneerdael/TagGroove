@@ -1534,6 +1534,14 @@ impl Id3Target {
             language,
         }
     }
+    /// The ID3v2 major revision written: 3 or 4.
+    pub(super) fn major(&self) -> u8 {
+        if self.version == Id3v2Version::V3 {
+            3
+        } else {
+            4
+        }
+    }
     fn encoding(&self) -> TextEncoding {
         if self.latin1 {
             TextEncoding::Latin1
@@ -1553,12 +1561,31 @@ pub(super) fn save_id3(
     tag: &Id3v2Tag,
     target: &Id3Target,
 ) -> Result<(), String> {
-    let render = |padding| render_id3_padded(tag, target, Some(padding));
+    // Unedited compressed and encrypted frames are copied from the stored tag.
+    let split;
+    let (tag, copied) = if crate::id3_frames::needs_split(tag) {
+        let (stored, original) = if crate::id3_frames::has_flagged(tag) {
+            let stored = crate::id3_frames::scan(file).map_err(|e| e.to_string())?;
+            (stored, super::native_tags(file, kind)?.id3)
+        } else {
+            (None, None)
+        };
+        split = crate::id3_frames::Passthrough::split(
+            tag,
+            target.major(),
+            original.as_ref(),
+            stored.as_ref(),
+        )?;
+        (&split.0, &split.1)
+    } else {
+        (tag, &crate::id3_frames::Passthrough::NONE)
+    };
+    let render = |padding| copied.splice(render_id3_padded(tag, target, Some(padding))?, padding);
     if crate::id3_padding::save_in_place(file, kind, render)? {
         return Ok(());
     }
     crate::write_cost::rewrote_all();
-    if target.version == Id3v2Version::V3 {
+    if target.version == Id3v2Version::V3 || !copied.is_empty() {
         id3_v23::save(file, kind, &render(crate::id3_padding::PADDING)?)
     } else {
         std::io::Seek::seek(file, std::io::SeekFrom::Start(0)).map_err(|e| e.to_string())?;
@@ -1575,7 +1602,11 @@ pub(super) fn save_id3(
 /// Serialize a complete ID3v2 tag for containers that embed it as an opaque
 /// block (DSF, DSDIFF). An empty result means the tag has no frames.
 pub(super) fn render_id3(tag: &Id3v2Tag, target: &Id3Target) -> Result<Vec<u8>, String> {
-    render_id3_padded(tag, target, None)
+    if !crate::id3_frames::needs_split(tag) {
+        return render_id3_padded(tag, target, None);
+    }
+    let (tag, _) = crate::id3_frames::Passthrough::split(tag, target.major(), None, None)?;
+    render_id3_padded(&tag, target, None)
 }
 
 /// [`render_id3`] with exactly `padding` bytes of padding, or the writer's
@@ -1729,17 +1760,20 @@ pub(super) fn convert_id3_version(tag: &mut Id3v2Tag, target: &Id3Target) -> Res
             value,
         )));
     }
-    // Data length indicators only describe compressed or encrypted v2.4 frames.
+    // Compressed frames were decompressed on read and are written plain in
+    // the other revision; encrypted ones cannot be converted.
     let mut failure = None;
     tag.retain_mut(|frame| {
         let mut flags = frame.flags();
-        if flags.data_length_indicator.is_some() {
-            if flags.compression || flags.encryption.is_some() {
-                failure = Some("Compressed or encrypted ID3v2.4 frames cannot be converted; original file preserved".to_owned());
-            } else {
-                flags.data_length_indicator = None;
-                frame.set_flags(flags);
-            }
+        if flags.encryption.is_some() || crate::id3_frames::is_placeholder(frame) {
+            failure = Some(
+                "Encrypted ID3v2 frames cannot be converted to another ID3v2 revision; original file preserved"
+                    .to_owned(),
+            );
+        } else if flags.compression || flags.data_length_indicator.is_some() {
+            flags.compression = false;
+            flags.data_length_indicator = None;
+            frame.set_flags(flags);
         }
         true
     });
