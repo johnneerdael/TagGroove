@@ -1,7 +1,7 @@
 //! Manage Covers and the cover window context menu: aggregated cover sets of
 //! the selection, whole-list cover plans, extraction, and clipboard images.
 //! Every mutation is journaled for undo like the other tag commands.
-use super::{auxiliary_input, batch, history, io, mutate_document, settings};
+use super::{auxiliary_input, history, io, mutate_document, settings, whole_file_batch};
 use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
@@ -261,7 +261,7 @@ pub async fn apply_cover_plan(
     io(move || {
         let changes = resolve_plan(&paths, items)?;
         history::record(history_label(&label), None, &paths, || {
-            Ok(batch(&paths, |p| {
+            Ok(whole_file_batch(&paths, |p| {
                 mutate_document(p, |p| {
                     tag_core::apply_cover_changes_with_options(
                         p,
@@ -285,7 +285,7 @@ pub async fn add_cover_image(
     io(move || {
         let (data, label) = image.load()?;
         history::record("Add cover", None, &paths, || {
-            Ok(batch(&paths, |p| {
+            Ok(whole_file_batch(&paths, |p| {
                 mutate_document(p, |p| {
                     tag_core::add_cover_bytes_with_options(
                         p,

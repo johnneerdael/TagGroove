@@ -1,5 +1,7 @@
 # Chapters: MP4 chapter writing, chapters as rows, Matroska trees, cue sheet tracks
 
+> Updated by [chapter-fields](chapter-fields.md): per-chapter fields beyond TITLE, row consolidation, cue sheets across FILE lines, whole-file commands on rows and a 0-based `%_subsong%`. Statements below that it changes are marked.
+
 Scope: writing MP4 chapters, Options → Tags → Advanced → List chapters as separate files, nested Matroska chapters and the Segment Info title, and per-track entries for loaded cue sheets. References: `customization/options/tags/advanced`, `format` (`%_subsong%`, `%_subsong_count%`), `file-formats`, `playlists`, `menus/file`, `utils`.
 
 Nothing was launched on a desktop. The evidence is unit and integration tests (`cargo test`, `node --test`) and the headless CI suite `tests/e2e/chapters.js`.
@@ -45,7 +47,7 @@ Nothing was launched on a desktop. The evidence is unit and integration tests (`
 - A row's path is the file path, U+0001 and the 1-based chapter number. Windows paths cannot contain U+0001 and other systems practically never do.
 - A row shows the file's name, format and fields, with `TITLE` set to the chapter title. Cue sheet tracks also set `ARTIST` (PERFORMER), `COMPOSER` (SONGWRITER), `ISRC`, track ReplayGain and `TRACK`.
 - `CHAPTERS` and `CUESHEET` are hidden on rows.
-- Rows add `%_subsong%` (1-based), `%_subsong_count%`, and `%_length%`/`%_length_seconds%` and the duration of the chapter: to the next chapter, the stored end, or the file's end.
+- Rows add `%_subsong%` (1-based; now 0-based, see chapter-fields), `%_subsong_count%`, and `%_length%`/`%_length_seconds%` and the duration of the chapter: to the next chapter, the stored end, or the file's end.
 - Covers and the other information fields are the file's. `%_path%` is the file path.
 
 **Editing rows.** Saving a row writes into the chapter:
@@ -53,7 +55,7 @@ Nothing was launched on a desktop. The evidence is unit and integration tests (`
 - For embedded cue sheets, ARTIST, COMPOSER and ISRC are also stored per track.
 - Every other field is a file field, shared by all rows of the file. Rows saved together must give it the same value; otherwise the save is refused with "… is stored once for <file>, not per chapter".
 - Rows of one file are written together in one undo step (`save_fields_batch` and `save_fields` group them; `history::record` snapshots the file). Undo and Redo return the rows again.
-- `CHAPTERS`, `CUESHEET` and covers cannot be edited on rows. Whole-file commands are disabled with a reason for rows (`src/chapters.ts`): Remove tag, covers, Strip chapters MP4, the Utils, Tag → Filename, Filename → Filename, Save a copy, file copy/move/delete/reveal and playlists. Tag-core refuses them too.
+- `CHAPTERS`, `CUESHEET` and covers cannot be edited on rows. Whole-file commands are disabled with a reason for rows (now they run on the row's file, see chapter-fields) (`src/chapters.ts`): Remove tag, covers, Strip chapters MP4, the Utils, Tag → Filename, Filename → Filename, Save a copy, file copy/move/delete/reveal and playlists. Tag-core refuses them too.
 - Actions, Tag → Tag, Filename → Tag (named after the file), Text File → Tag, tag sources, Extended Tags, Copy/Paste tags and exports reach rows through the same row paths and the backend's row reading and writing. Of these, only the tag panel save and Undo are exercised end to end.
 
 **Evidence:**
@@ -87,7 +89,7 @@ Nothing was launched on a desktop. The evidence is unit and integration tests (`
 ## Cue sheet tracks
 
 **Reading** (`crates/tag-core/src/cue.rs`, `crates/tag-core/src/playlist.rs`). Loading a cue sheet (File → Load playlist/cue sheet, dropping it, or `/fn:`) now reads its TRACK blocks.
-- A `FILE` that holds more than one track (an image) is listed as one row per track. A `FILE` with a single track still loads that file itself, so cue sheets exported by OpenTag load back as before.
+- A `FILE` that holds more than one track (an image) is listed as one row per track. A `FILE` with a single track still loads that file itself, so cue sheets exported by OpenTag load back as before. (Now every AUDIO track is a row, as in Mp3tag; see chapter-fields.)
 - Fields of a track row:
   - From the TRACK block: `TITLE`, `ARTIST` (PERFORMER), `COMPOSER` (SONGWRITER), `ISRC`, track ReplayGain (`REM`) and `TRACK` (its number).
   - From the album lines: `ALBUM` (TITLE), `ALBUMARTIST` (PERFORMER, also the ARTIST of tracks without one), `GENRE`, `YEAR` (`REM DATE`), `COMMENT`, `DISCNUMBER`, `TOTALDISCS` and album ReplayGain.
@@ -117,6 +119,9 @@ Nothing was launched on a desktop. The evidence is unit and integration tests (`
 - **`%_subsong%` is 1-based.** The documentation does not say; this is unverified against Mp3tag.
 
 ## Remaining gaps
+
+The first four items are addressed in [chapter-fields](chapter-fields.md); its own remaining gaps replace them.
+
 
 - Per-chapter fields other than TITLE (Nero per-chapter tags, Matroska chapter-targeted tags, ID3v2 `CHAP` sub-frames) and their consolidation into file tags.
 - Cue sheets with more than one FILE per track (tracks spanning files), and `INDEX 00` pregaps, which belong to the previous track. FLAC's binary CUESHEET block has no titles and is not listed.

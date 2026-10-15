@@ -43,7 +43,7 @@ import { PlaylistUI, isPlaylistPath, playlistOptionsPage, exportOptionsPage, pla
 import { listen } from '@tauri-apps/api/event';
 import { CoverUI, type FolderImage } from './covers';
 import { imageExtensions, type CoverInfo } from './cover-model';
-import { chapterRowReason } from './chapters';
+import { chapterRowReason, replaceFileRows, rowFile } from './chapters';
 import logoLightUrl from '../assets/brand/OpenTag-Brand-Kit/01-logos/horizontal/opentag-logo-light.svg';
 import markLightUrl from '../assets/brand/OpenTag-Brand-Kit/01-logos/marks/opentag-mark-color.svg';
 import artworkLightUrl from '../assets/brand/OpenTag-Brand-Kit/04-in-app/opentag-default-artwork-light-1024.svg';
@@ -767,7 +767,7 @@ function operationReason(op:Operation):string {
   if((['action','tags-filename','filename-filename','text-tags','tag-tag','playlist-all','playlist-selected','playlist-generate','playlist-folders','csv'].includes(op)||op.startsWith('file-'))&&policy.unsupportedReason)return policy.unsupportedReason;
   if((op==='undo'||op==='redo')&&runtimePlatform.document_access_supported)return 'Undo is not available for provider documents.';
   if((['save','add-cover','remove-cover','cover-manage','remove-tags','remove-tag-types','strip-mp4-chapters','filename-tags',...Object.keys(utilOperations)].includes(op)||tagSourceOperations.includes(op))&&policy.mutationReason)return policy.mutationReason;
-  if(op==='strip-mp4-chapters'&&!mp4ChapterFiles(paths().map(path=>entries.get(path)??{})).files)return 'No selected MP4 file has chapters.';
+  if(op==='strip-mp4-chapters'&&!mp4ChapterFiles(selectedFiles()).files)return 'No selected MP4 file has chapters.';
   if(op==='reload'&&policy.reloadReason)return policy.reloadReason;
   if(op==='number'&&dirtySelected()&&!sourcePolicy().unsupportedReason)return 'Save pending changes first.';
   if(/^(dir|file)-/.test(op)&&fileOps.reason(op as FileOperation))return fileOps.reason(op as FileOperation);
@@ -1276,11 +1276,29 @@ function cancelProgress(){
 }
 // Files applyRenamed dropped from the list; the accept() that follows it does not list them again.
 const movedOut=new Set<string>();
-function accept(batch: Batch, message: string, clearDrafts = true) {
-  batch.entries.forEach(entry=>{if(!movedOut.has(entry.path))storeEntry(entry);});movedOut.clear();reconcileDrafts(drafts,batch.entries.map(entry=>entry.path),clearDrafts);if(clearDrafts)batch.entries.forEach(entry=>{copyOverrides.delete(entry.path);workingReadErrors.delete(entry.path);pendingCovers.delete(entry.path);});
+// `whole` names the files a whole-file command ran on: their listed chapter rows are replaced by what came back.
+function accept(batch: Batch, message: string, clearDrafts = true, whole: string[] = []) {
+  const order=[...entries.keys()],next=replaceFileRows(order,batch.entries.map(entry=>entry.path),whole);
+  if(next!==order)spliceRows(order,next);
+  batch.entries.forEach(entry=>{if(!movedOut.has(entry.path))storeEntry(entry);});movedOut.clear();
+  if(next!==order){const listed=next.flatMap(path=>{const entry=entries.get(path);return entry?[[path,entry] as const]:[];}),placed=new Set(next),rest=[...entries].filter(([path])=>!placed.has(path));entries.clear();[...listed,...rest].forEach(([path,entry])=>entries.set(path,entry));changedData();}reconcileDrafts(drafts,batch.entries.map(entry=>entry.path),clearDrafts);if(clearDrafts)batch.entries.forEach(entry=>{copyOverrides.delete(entry.path);workingReadErrors.delete(entry.path);pendingCovers.delete(entry.path);});
   errors=batch.errors;status=`${message}: ${batch.entries.length} file${batch.entries.length===1?'':'s'}${errors.length?`, ${errors.length} failed`:''}`;
   if(noticeLabels[message]&&batch.entries.length)queuedNotices.push([noticeLabels[message],status]);
   if(message==='Renamed'&&batch.entries.length)autoPlaylistPending=true;
+}
+// One entry per selected file: chapter rows of a file count once.
+function selectedFiles(){return[...new Map(paths().map(path=>[rowFile(path),entries.get(path)??{}] as const)).values()];}
+// Rows (or a file) replaced by a file's new rows leave the list; their selection moves to the new rows.
+function spliceRows(order:string[],next:string[]){
+  const kept=new Set(next),added=next.filter(path=>!entries.has(path));
+  for(const path of order){
+    if(kept.has(path))continue;
+    const file=rowFile(path),wasSelected=selected.has(path);
+    invalidateCovers(path);entries.delete(path);drafts.delete(path);pendingCovers.delete(path);selected.delete(path);
+    const replacements=added.filter(other=>rowFile(other)===file);
+    if(wasSelected)replacements.forEach(other=>selected.add(other));
+    if(anchor===path)anchor=replacements[0];
+  }
 }
 function applyRenamed(batch:Batch){
   const changes=resolvePathChanges([...entries.keys()],batch.renamed||[],batch.moved_directories||[]);
@@ -1342,7 +1360,7 @@ async function mutate(command: string, args: Record<string,unknown>, message: st
     let batch:Batch;
     try{batch=await invoke<Batch>(command,{paths:targets,...args});}
     catch(error){await reconcileWorkingEntries(targets);throw error;}
-    accept(batch,message);
+    accept(batch,message,true,targets.map(rowFile));
     await reconcileWorkingEntries(batch.errors.map(error=>error.path));
     return batch;
   });
@@ -1547,7 +1565,8 @@ async function replayHistory(kind:'undo'|'redo'){
     const batch=await invoke<Batch&{label:string;history:HistoryState}>(kind==='undo'?'undo_last':'redo_last');
     const restored=batch.entries.length;applyRenamed(batch);history=batch.history;
     // Restored files that are no longer listed stay out of the list; drafts are kept.
-    accept({...batch,entries:batch.entries.filter(entry=>entries.has(entry.path))},'',false);
+    const listedFiles=new Set([...entries.keys()].map(rowFile));
+    accept({...batch,entries:batch.entries.filter(entry=>entries.has(entry.path)||listedFiles.has(rowFile(entry.path)))},'',false);
     status=`${kind==='undo'?'Undid':'Redid'} ${batch.label}: ${restored} file${restored===1?'':'s'}${errors.length?`, ${errors.length} not ${kind==='undo'?'undone':'redone'}`:''}`;
   });
 }
@@ -1698,7 +1717,7 @@ async function runUtil(util:Util){
   const button=dialog.querySelector<HTMLButtonElement>('#run-util')!;button.focus();
   button.addEventListener('click',async()=>{
     button.disabled=true;
-    const result=await run(`${spec.label}…`,async()=>{const batch=await invoke<Batch>('apply_util',{paths:targets,util});accept(batch,done);return batch;});
+    const result=await run(`${spec.label}…`,async()=>{const batch=await invoke<Batch>('apply_util',{paths:targets,util});accept(batch,done,true,targets.map(rowFile));return batch;});
     if(result&&!result.errors.length)dialog.close();else{modalError(dialog,result?result.errors.map(error=>`${displayName(error.path)}: ${publicMessage(error.error)}`).join('\n'):errors.map(error=>publicMessage(error.error)).join('\n'));button.disabled=false;}
   });
 }
@@ -1775,7 +1794,7 @@ async function operateImpl(op: Operation) {
   if(op==='panel-defaults'){tagPanel.applyDefaults();return;}
   if(op==='add-cover'||op==='remove-cover'||op==='cover-manage'){await coverUI.run(op==='add-cover'?'add':op==='remove-cover'?'remove':'manage');return;}
   if(op==='remove-tags'){if(await messages.confirm('confirm_remove_tags',removeTagPrompt(selected.size,optionsUI.settings.tags),'Remove tag'))await mutate('remove_tags',{},'Removed tags');return;}
-  if(op==='strip-mp4-chapters'){const found=mp4ChapterFiles(paths().map(path=>entries.get(path)??{}));if(await messages.confirm('confirm_remove_tags',stripChaptersPrompt(found),'Strip chapters MP4'))await mutate('strip_mp4_chapters',{},'Stripped MP4 chapters');return;}
+  if(op==='strip-mp4-chapters'){const found=mp4ChapterFiles(selectedFiles());if(await messages.confirm('confirm_remove_tags',stripChaptersPrompt(found),'Strip chapters MP4'))await mutate('strip_mp4_chapters',{},'Stripped MP4 chapters');return;}
   if(op==='remove-tag-types'){removeTagTypesDialog({modal,modalError,tags:()=>paths().map(path=>entries.get(path)?.technical?._TAG?.[0]),remove:async kinds=>{await mutate('remove_tag_types',{kinds:kinds as RemovableTag[]},'Removed tag types');}});return;}
   if(op==='copy-text'){copyAsTextDialog({modal,modalError,values:()=>optionsUI.page('copy-as-text'),remember:values=>desktop?optionsUI.updatePage('copy-as-text',values):Promise.resolve(),count:()=>selected.size,
     evaluate:async(format,limit)=>{const targets=paths().slice(0,limit),items=targets.map(path=>columnItem(entries.get(path)!));if(!desktop)return items.map(item=>quickValue(format,item.fields)??'');const result=await invoke<{values:string[][];errors:string[]}>('evaluate_columns',{items,templates:[format]});if(result.errors.length)throw new Error(result.errors[0]);return result.values.map(row=>row[0]??'');},

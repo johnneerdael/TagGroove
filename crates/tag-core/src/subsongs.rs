@@ -4,21 +4,21 @@
 //!
 //! A row is addressed by its file path, a U+0001 separator and the 1-based
 //! subsong number, which no real path contains on Windows and practically
-//! none elsewhere. Rows show the file's fields with the chapter's TITLE (and
-//! for cue sheet tracks ARTIST, COMPOSER, ISRC and TRACK) and offer
-//! `%_subsong%`, `%_subsong_count%` and the chapter's length.
+//! none elsewhere. Rows show the file's fields overlaid with the chapter's
+//! own (its TITLE and, where the format stores them, further fields) and
+//! offer `%_subsong%` (0-based), `%_subsong_count%` and the chapter's length.
+//! Files need at least two chapters to be listed as rows.
 //!
-//! Chapters come from MP4 (Nero and QuickTime) and Matroska files (the
-//! CHAPTERS field), ID3v2 `CHAP` frames and cue sheets embedded in a
-//! CUESHEET field; a loaded cue sheet lists the tracks of files that hold
-//! more than one. Editing a row writes the chapter's own fields into that
-//! chapter and every other field into the file's tag, shared by all rows.
+//! Chapters come from MP4 (Nero and QuickTime, with Nero per-chapter tags)
+//! and Matroska files (the CHAPTERS field, with chapter-targeted tags),
+//! ID3v2 `CHAP` frames (with their sub-frames) and cue sheets embedded in a
+//! CUESHEET field; a loaded cue sheet lists its tracks. Saving rows works
+//! like Mp3tag's sub-tracks: a field with the same value on every row of a
+//! file is a file field, and a field whose rows differ is stored with each
+//! chapter instead.
 use super::*;
 use crate::cue::CueSheet;
-use lofty::{
-    id3::v2::{FrameId, Id3v2Version, TextInformationFrame},
-    TextEncoding,
-};
+use lofty::id3::v2::FrameList;
 
 /// Separates the file path and the subsong number in a row path.
 pub const SUBSONG_SEPARATOR: char = '\u{1}';
@@ -31,10 +31,12 @@ pub(crate) const ROW_OPERATION: &str =
 /// Where a file's chapters are stored.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub(crate) enum ChapterSource {
-    /// The CHAPTERS field (MP4 and Matroska).
+    /// The CHAPTERS field of an MP4 file, with Nero per-chapter tags.
     #[default]
-    Field,
-    /// ID3v2 `CHAP` frames.
+    Mp4,
+    /// The CHAPTERS field of a Matroska file, with chapter-targeted tags.
+    Matroska,
+    /// ID3v2 `CHAP` frames and their sub-frames.
     Id3,
     /// A cue sheet in the CUESHEET field.
     Cue,
@@ -49,7 +51,7 @@ pub struct ChapterInfo {
     #[serde(default)]
     pub end: Option<u64>,
     pub title: String,
-    /// Further fields stored with this chapter (cue sheet tracks).
+    /// Further fields stored with this chapter.
     #[serde(default, skip_serializing_if = "Fields::is_empty")]
     pub fields: Fields,
     #[serde(skip)]
@@ -152,9 +154,10 @@ pub(crate) fn normalize_chapters(updates: &mut Fields) -> Result<(), String> {
     Ok(())
 }
 
-/// Record `chapters` on `entry`, with `_SUBSONG_COUNT`.
+/// Record `chapters` on `entry`, with `_SUBSONG_COUNT`. As in Mp3tag, a
+/// file with fewer than two chapters is a single subsong.
 pub(crate) fn attach(entry: &mut AudioEntry, chapters: Vec<ChapterInfo>) {
-    if chapters.is_empty() {
+    if chapters.len() < 2 {
         return;
     }
     entry
@@ -173,22 +176,39 @@ fn put(fields: &mut Fields, name: &str, values: Vec<String>) {
     }
 }
 
+/// The sub-frames of a `CHAP` frame as a tag of their own.
+fn sub_frames(children: &FrameList<'static>) -> Id3v2Tag {
+    let mut tag = Id3v2Tag::new();
+    for frame in children.iter() {
+        tag.insert(frame.clone());
+    }
+    tag
+}
+
 /// Chapters of an ID3v2 tag in start order, with each `CHAP` element ID.
+/// Text, URL and comment sub-frames are the chapter's fields (TIT2 is its
+/// title); pictures and other sub-frames are kept but not shown.
 pub(crate) fn id3_chapters(tag: &Id3v2Tag) -> Vec<(String, ChapterInfo)> {
+    let version = tag.original_version();
     let mut chapters: Vec<(String, ChapterInfo)> = tag
         .into_iter()
         .filter_map(|frame| match frame {
-            Frame::Chapter(chapter) => Some((
-                chapter.id.to_string(),
-                ChapterInfo {
-                    start: u64::from(chapter.times.start),
-                    end: (chapter.times.end > chapter.times.start)
-                        .then_some(u64::from(chapter.times.end)),
-                    title: chapter.title().unwrap_or_default().to_string(),
-                    fields: Fields::new(),
-                    source: ChapterSource::Id3,
-                },
-            )),
+            Frame::Chapter(chapter) => {
+                let mut fields =
+                    mapping::id3_fields_with(&sub_frames(&chapter.children), version, false);
+                fields.remove("TITLE");
+                Some((
+                    chapter.id.to_string(),
+                    ChapterInfo {
+                        start: u64::from(chapter.times.start),
+                        end: (chapter.times.end > chapter.times.start)
+                            .then_some(u64::from(chapter.times.end)),
+                        title: chapter.title().unwrap_or_default().to_string(),
+                        fields,
+                        source: ChapterSource::Id3,
+                    },
+                ))
+            }
             _ => None,
         })
         .collect();
@@ -202,7 +222,9 @@ pub(crate) fn embedded_cue_chapters(fields: &Fields) -> Vec<ChapterInfo> {
         return Vec::new();
     };
     let sheet = CueSheet::parse(text);
-    (0..sheet.tracks.len())
+    sheet
+        .subsongs()
+        .into_iter()
         .map(|index| {
             let (start, end) = sheet.track_time(index);
             let mut fields = sheet.own_track_fields(index);
@@ -238,11 +260,19 @@ fn row(parent: &AudioEntry, path: String, index: usize, count: usize) -> AudioEn
         put(&mut fields, name, values.clone());
     }
     put(&mut fields, "TITLE", vec![chapter.title.clone()]);
+    // Mp3tag numbers the sub-tracks of an MP4 file that has no numbers.
+    if chapter.source == ChapterSource::Mp4 {
+        for (name, value) in [("TRACK", index + 1), ("TOTALTRACKS", count)] {
+            if key(&fields, name).is_none() {
+                fields.insert(name.into(), vec![value.to_string()]);
+            }
+        }
+    }
     let seconds = (end - chapter.start) as f64 / 1000.0;
     let mut technical = parent.technical.clone();
     let rounded = seconds.round() as u64;
     for (name, value) in [
-        ("_SUBSONG", (index + 1).to_string()),
+        ("_SUBSONG", index.to_string()),
         ("_SUBSONG_COUNT", count.to_string()),
         ("_LENGTH_SECONDS", rounded.to_string()),
         ("_LENGTH", format_length(rounded)),
@@ -304,6 +334,14 @@ fn cue_audio(cue: &Path, location: Option<&str>) -> Result<PathBuf, String> {
         .ok_or_else(|| format!("{location}: file not found"))
 }
 
+/// The sheet position of subsong `number` (1-based) of a cue sheet.
+fn cue_track(sheet: &CueSheet, number: usize) -> Result<usize, String> {
+    number
+        .checked_sub(1)
+        .and_then(|n| sheet.subsongs().get(n).copied())
+        .ok_or_else(|| format!("Track {number} is no longer in the cue sheet"))
+}
+
 /// The track of a loaded cue sheet as a row.
 fn cue_row(
     cue: &Path,
@@ -313,20 +351,17 @@ fn cue_row(
     options: &TagOptions,
 ) -> Result<AudioEntry, String> {
     let (sheet, _, _) = read_sheet(cue)?;
-    let track = sheet
-        .tracks
-        .get(number - 1)
-        .ok_or_else(|| format!("Track {number} is no longer in the cue sheet"))?;
-    let audio = cue_audio(cue, track.file.as_deref())?;
+    let index = cue_track(&sheet, number)?;
+    let audio = cue_audio(cue, sheet.tracks[index].file.as_deref())?;
     let mut parent = read_description(&audio, include_cover_data, rules, options)?;
-    let (start, end) = sheet.track_time(number - 1);
-    let mut fields = sheet.track_fields(number - 1);
+    let (start, end) = sheet.track_time(index);
+    let mut fields = sheet.track_fields(index);
     let title = fields
         .remove("TITLE")
         .map(|t| t.join("; "))
         .unwrap_or_default();
     parent.fields = Fields::new();
-    let count = sheet.tracks.len();
+    let count = sheet.subsongs().len();
     parent.chapters = vec![ChapterInfo {
         start,
         end,
@@ -342,8 +377,22 @@ fn cue_row(
     );
     entry
         .technical
-        .insert("_SUBSONG".into(), vec![number.to_string()]);
+        .insert("_SUBSONG".into(), vec![(number - 1).to_string()]);
     Ok(entry)
+}
+
+/// The audio file a path plays from: a chapter row's file, a cue sheet
+/// track's FILE, or the path itself.
+pub fn subsong_file(path: &Path) -> Result<PathBuf, String> {
+    let Some((file, number)) = split_path(path) else {
+        return Ok(path.to_path_buf());
+    };
+    if !is_cue(&file) {
+        return Ok(file);
+    }
+    let (sheet, _, _) = read_sheet(&file)?;
+    let index = cue_track(&sheet, number)?;
+    cue_audio(&file, sheet.tracks[index].file.as_deref())
 }
 
 /// Read one row.
@@ -378,6 +427,66 @@ fn conflict(name: &str, filename: &str) -> String {
     )
 }
 
+fn refuse_whole_file_fields(name: &str) -> Result<(), String> {
+    if name.eq_ignore_ascii_case(CHAPTERS_FIELD) || name.eq_ignore_ascii_case(CUESHEET_FIELD) {
+        return Err(format!(
+            "{name} cannot be edited on a chapter row; turn off List chapters as separate files to edit it"
+        ));
+    }
+    Ok(())
+}
+
+/// The values of `name`, or none when every value is empty.
+fn values_of(fields: &Fields, name: &str) -> Vec<String> {
+    key(fields, name)
+        .map(|k| fields[k].clone())
+        .filter(|values| values.iter().any(|v| !v.is_empty()))
+        .unwrap_or_default()
+}
+
+/// How the edited rows of a file are stored: file field changes and, per
+/// chapter, changes of the chapter's own fields.
+#[derive(Debug, Default, PartialEq)]
+struct Plan {
+    file: Fields,
+    chapters: Vec<Fields>,
+}
+
+/// Mp3tag's rule for sub-tracks: a field that has the same value on every
+/// row is a file field (and leaves the chapters); otherwise the file loses it
+/// and each chapter stores its own value. Only the `changed` fields are
+/// looked at, so untouched fields keep how they are stored.
+fn consolidate(parent: &AudioEntry, views: &[Fields], changed: &[String]) -> Plan {
+    let mut plan = Plan {
+        file: Fields::new(),
+        chapters: vec![Fields::new(); views.len()],
+    };
+    for name in changed {
+        let values: Vec<Vec<String>> = views.iter().map(|v| values_of(v, name)).collect();
+        let file = values_of(&parent.fields, name);
+        if values.iter().all(|v| *v == values[0]) {
+            if file != values[0] {
+                plan.file.insert(name.clone(), values[0].clone());
+            }
+            for (index, chapter) in parent.chapters.iter().enumerate() {
+                if key(&chapter.fields, name).is_some() {
+                    plan.chapters[index].insert(name.clone(), Vec::new());
+                }
+            }
+        } else {
+            if !file.is_empty() {
+                plan.file.insert(name.clone(), Vec::new());
+            }
+            for (index, chapter) in parent.chapters.iter().enumerate() {
+                if values_of(&chapter.fields, name) != values[index] {
+                    plan.chapters[index].insert(name.clone(), values[index].clone());
+                }
+            }
+        }
+    }
+    plan
+}
+
 /// Write the edits of several rows (`number`, updates) of one file and
 /// return those rows as read back.
 pub(super) fn write_rows(
@@ -403,81 +512,79 @@ pub(super) fn write_rows(
         ));
     }
     let source = parent.chapters[0].source;
-    let mut shared = Fields::new();
-    let mut titles: Vec<(usize, String)> = Vec::new();
-    let mut tracks: Vec<(usize, Fields)> = Vec::new();
-    for (number, updates) in rows {
-        let index = number - 1;
-        let mut own = Fields::new();
-        for (name, values) in updates {
-            if name.eq_ignore_ascii_case(CHAPTERS_FIELD)
-                || name.eq_ignore_ascii_case(CUESHEET_FIELD)
-            {
-                return Err(format!(
-                    "{name} cannot be edited on a chapter row; turn off List chapters as separate files to edit it"
-                ));
-            }
-            if name.eq_ignore_ascii_case("TITLE") {
-                titles.push((index, values.join("; ")));
-                own.insert("TITLE".into(), values.clone());
-            } else if source == ChapterSource::Cue
-                && (CueSheet::track_field(name) || name.eq_ignore_ascii_case("TRACK"))
-            {
-                own.insert(name.to_ascii_uppercase(), values.clone());
-            } else {
-                match shared.iter().find(|(k, _)| k.eq_ignore_ascii_case(name)) {
-                    Some((_, other)) if other != values => {
-                        return Err(conflict(name, &parent.filename))
-                    }
-                    Some(_) => {}
-                    None => {
-                        shared.insert(name.clone(), values.clone());
-                    }
+    if source == ChapterSource::Cue {
+        write_embedded_cue_rows(file, &parent, rows, rules, options)?;
+    } else {
+        let mut views: Vec<Fields> = (0..count)
+            .map(|index| row(&parent, String::new(), index, count).fields)
+            .collect();
+        let mut titles: Vec<Option<String>> = vec![None; count];
+        let mut changed: Vec<String> = Vec::new();
+        for (number, updates) in rows {
+            let index = number - 1;
+            for (name, values) in updates {
+                refuse_whole_file_fields(name)?;
+                if name.eq_ignore_ascii_case("TITLE") {
+                    titles[index] = Some(values.join("; "));
+                    continue;
+                }
+                put(&mut views[index], name, values.clone());
+                if !changed.iter().any(|c| c.eq_ignore_ascii_case(name)) {
+                    changed.push(name.clone());
                 }
             }
         }
-        if !own.is_empty() {
-            tracks.push((index, own));
-        }
-    }
-    match source {
-        ChapterSource::Field => {
-            if !titles.is_empty() {
-                let mut values: Vec<String> = parent
+        let plan = consolidate(&parent, &views, &changed);
+        let title = |index: usize| {
+            titles[index]
+                .clone()
+                .unwrap_or_else(|| parent.chapters[index].title.clone())
+        };
+        let chapter_values: Vec<String> = (0..count)
+            .map(|index| chapter_value(parent.chapters[index].start * 1_000_000, &title(index)))
+            .collect();
+        let retitled = titles.iter().any(Option::is_some);
+        match source {
+            ChapterSource::Mp4 => write_mp4_rows(
+                file,
+                &parent,
+                &plan,
+                retitled.then_some(chapter_values.as_slice()),
+                &title,
+                rules,
+                options,
+            )?,
+            ChapterSource::Matroska => {
+                let mut fields = plan.file.clone();
+                if retitled {
+                    fields.insert(CHAPTERS_FIELD.into(), chapter_values);
+                }
+                let chapters: Vec<(usize, Fields)> = plan
                     .chapters
                     .iter()
-                    .map(|c| chapter_value(c.start * 1_000_000, &c.title))
+                    .cloned()
+                    .enumerate()
+                    .filter(|(_, f)| !f.is_empty())
                     .collect();
-                for (index, title) in &titles {
-                    values[*index] =
-                        chapter_value(parent.chapters[*index].start * 1_000_000, title);
+                if !fields.is_empty() || !chapters.is_empty() {
+                    container_formats::write_chapter_rows(file, &fields, chapters, rules, options)?;
                 }
-                shared.insert(CHAPTERS_FIELD.into(), values);
             }
-            write_fields_result(file, &shared, false, rules, options)?;
-        }
-        ChapterSource::Id3 => {
-            if !shared.is_empty() {
-                write_fields_result(file, &shared, false, rules, options)?;
+            ChapterSource::Id3 => {
+                let mut chapters = plan.chapters.clone();
+                for (index, title) in titles.iter().enumerate() {
+                    if let Some(title) = title {
+                        let values = if title.is_empty() {
+                            Vec::new()
+                        } else {
+                            vec![title.clone()]
+                        };
+                        chapters[index].insert("TITLE".into(), values);
+                    }
+                }
+                write_id3_rows(file, &plan.file, &chapters, rules, options)?;
             }
-            if !titles.is_empty() {
-                write_id3_titles(file, &titles, rules, options)?;
-            }
-        }
-        ChapterSource::Cue => {
-            let name = key(&parent.fields, CUESHEET_FIELD)
-                .cloned()
-                .ok_or("The embedded cue sheet is missing")?;
-            let text = parent.fields[&name].first().cloned().unwrap_or_default();
-            let mut sheet = CueSheet::parse(&text);
-            sheet.apply(&tracks)?;
-            let rendered = sheet.render();
-            if rendered != text {
-                shared.insert(name, vec![rendered]);
-            }
-            if !shared.is_empty() {
-                write_fields_result(file, &shared, false, rules, options)?;
-            }
+            ChapterSource::Cue => unreachable!("handled above"),
         }
     }
     let parent = read_description(file, include_cover_data, rules, options)?;
@@ -492,62 +599,215 @@ pub(super) fn write_rows(
         .collect()
 }
 
-/// Set the TIT2 sub-frames of `CHAP` frames (0-based in start order).
-fn write_id3_titles(
+/// Rows of a cue sheet in a CUESHEET field: TITLE, ARTIST, COMPOSER, ISRC
+/// and the track ReplayGain values are written into the track's lines, other
+/// fields are file fields that the rows must agree on.
+fn write_embedded_cue_rows(
     file: &Path,
-    titles: &[(usize, String)],
+    parent: &AudioEntry,
+    rows: &[(usize, Fields)],
     rules: &[UserFieldMapping],
     options: &TagOptions,
 ) -> Result<(), String> {
-    staged_mutation_with_mappings(file, false, rules, options, |staging, tagged, _| {
-        let kind = tagged.file_type();
-        let mut tag = native_tags(staging, kind)?
-            .id3
-            .ok_or("The ID3v2 tag with the chapters is missing")?;
-        let ids: Vec<String> = id3_chapters(&tag).into_iter().map(|(id, _)| id).collect();
-        let encoding = if tag.original_version() == Id3v2Version::V3 {
-            TextEncoding::UTF16
-        } else {
-            TextEncoding::UTF8
-        };
-        for (index, title) in titles {
-            let id = ids
-                .get(*index)
-                .ok_or("A chapter disappeared while saving")?;
-            tag.retain_mut(|frame| {
-                if let Frame::Chapter(chapter) = frame {
-                    if chapter.id == id.as_str() {
-                        chapter.children.retain(|f| f.id().as_str() != "TIT2");
-                        if !title.is_empty() {
-                            chapter
-                                .children
-                                .insert(Frame::Text(TextInformationFrame::new(
-                                    FrameId::Valid("TIT2".into()),
-                                    encoding,
-                                    title.clone(),
-                                )));
-                        }
-                    }
+    let name = key(&parent.fields, CUESHEET_FIELD)
+        .cloned()
+        .ok_or("The embedded cue sheet is missing")?;
+    let text = parent.fields[&name].first().cloned().unwrap_or_default();
+    let mut sheet = CueSheet::parse(&text);
+    let mut shared = Fields::new();
+    let mut tracks: Vec<(usize, Fields)> = Vec::new();
+    for (number, updates) in rows {
+        let index = cue_track(&sheet, *number)?;
+        let mut own = Fields::new();
+        for (name, values) in updates {
+            refuse_whole_file_fields(name)?;
+            if name.eq_ignore_ascii_case("TITLE")
+                || CueSheet::track_field(name)
+                || name.eq_ignore_ascii_case("TRACK")
+            {
+                own.insert(name.to_ascii_uppercase(), values.clone());
+                continue;
+            }
+            match shared.iter().find(|(k, _)| k.eq_ignore_ascii_case(name)) {
+                Some((_, other)) if other != values => {
+                    return Err(conflict(name, &parent.filename))
                 }
-                true
-            });
-        }
-        let target = mapping::Id3Target::preserving(&tag, options.comment_language());
-        staging
-            .seek(SeekFrom::Start(0))
-            .map_err(|e| e.to_string())?;
-        mapping::save_id3(staging, kind, &tag, &target)?;
-        let written = native_tags(staging, kind)?
-            .id3
-            .map(|tag| id3_chapters(&tag))
-            .unwrap_or_default();
-        for (index, title) in titles {
-            if written.get(*index).map(|(_, c)| c.title.as_str()) != Some(title.as_str()) {
-                return Err("The ID3v2 chapter title could not be written".into());
+                Some(_) => {}
+                None => {
+                    shared.insert(name.clone(), values.clone());
+                }
             }
         }
-        Ok(())
-    })
+        if !own.is_empty() {
+            tracks.push((index, own));
+        }
+    }
+    sheet.apply(&tracks)?;
+    let rendered = sheet.render();
+    if rendered != text {
+        shared.insert(name, vec![rendered]);
+    }
+    if !shared.is_empty() {
+        write_fields_result(file, &shared, false, rules, options)?;
+    }
+    Ok(())
+}
+
+/// MP4 rows: file fields in the iTunes tag, titles in the Nero chapter list
+/// and the QuickTime chapter track, and the fields of each chapter in Nero
+/// tags (`udta/tags`), all in one write. Nero tags are written when a
+/// chapter has fields of its own or the file already has them; each
+/// chapter's set also holds its title, as Mp3tag writes it.
+fn write_mp4_rows(
+    file: &Path,
+    parent: &AudioEntry,
+    plan: &Plan,
+    chapter_values: Option<&[String]>,
+    title: &dyn Fn(usize) -> String,
+    rules: &[UserFieldMapping],
+    options: &TagOptions,
+) -> Result<(), String> {
+    let existing = mp4_chapters::scan(file)?.nero_tags;
+    let mut sets: Vec<Fields> = parent.chapters.iter().map(|c| c.fields.clone()).collect();
+    for (set, changes) in sets.iter_mut().zip(&plan.chapters) {
+        for (name, values) in changes {
+            put(set, name, values.clone());
+        }
+    }
+    let changed = plan.chapters.iter().any(|f| !f.is_empty());
+    let nero = if existing.is_some() || sets.iter().any(|s| !s.is_empty()) {
+        let mut nero = existing.unwrap_or_default();
+        nero.truncate(sets.len());
+        for (index, set) in sets.iter_mut().enumerate() {
+            put(set, "TITLE", vec![title(index)]);
+            nero.set_chapter(index, set)?;
+        }
+        Some(nero)
+    } else {
+        None
+    };
+    let rewrite_chapters = chapter_values.is_some() || (changed && nero.is_some());
+    if plan.file.is_empty() && !rewrite_chapters {
+        return Ok(());
+    }
+    let values: Vec<String> = match chapter_values {
+        Some(values) => values.to_vec(),
+        None => parent
+            .chapters
+            .iter()
+            .map(|c| chapter_value(c.start * 1_000_000, &c.title))
+            .collect(),
+    };
+    staged_mutation_with_mappings(
+        file,
+        false,
+        rules,
+        options,
+        |staging, tagged, staged_path| {
+            if !plan.file.is_empty() {
+                write_tag_fields(staging, tagged, staged_path, &plan.file, rules, options)?;
+            }
+            if rewrite_chapters {
+                mp4_chapters::write_with_tags(staging, staged_path, &values, nero.as_ref())?;
+            }
+            Ok(())
+        },
+    )
+    .map(|_| ())
+}
+
+/// ID3v2 rows: file fields in the tag, and each chapter's changes (TITLE
+/// included) in the sub-frames of its `CHAP` frame (0-based in start order),
+/// in one write. Other sub-frames, such as pictures, are kept.
+fn write_id3_rows(
+    file: &Path,
+    shared: &Fields,
+    chapters: &[Fields],
+    rules: &[UserFieldMapping],
+    options: &TagOptions,
+) -> Result<(), String> {
+    if shared.is_empty() && chapters.iter().all(Fields::is_empty) {
+        return Ok(());
+    }
+    staged_mutation_with_mappings(
+        file,
+        false,
+        rules,
+        options,
+        |staging, tagged, staged_path| {
+            let kind = tagged.file_type();
+            if !shared.is_empty() {
+                write_tag_fields(staging, tagged, staged_path, shared, rules, options)?;
+            }
+            if chapters.iter().all(Fields::is_empty) {
+                return Ok(());
+            }
+            let mut tag = native_tags(staging, kind)?
+                .id3
+                .ok_or("The ID3v2 tag with the chapters is missing")?;
+            let ids: Vec<String> = id3_chapters(&tag).into_iter().map(|(id, _)| id).collect();
+            // MPEG saves use the configured revision, as every MPEG save does.
+            let target = if kind == FileType::Mpeg {
+                let target = tag_policy::id3_target(options);
+                mapping::convert_id3_version(&mut tag, &target)?;
+                target
+            } else {
+                mapping::Id3Target::preserving(&tag, options.comment_language())
+            };
+            let mut expected = Vec::new();
+            for (index, updates) in chapters.iter().enumerate() {
+                if updates.is_empty() {
+                    continue;
+                }
+                let id = ids.get(index).ok_or("A chapter disappeared while saving")?;
+                let native_updates = normalized_updates(
+                    &map_write_fields(updates, TagType::Id3v2, rules)?,
+                    TagType::Id3v2,
+                )?;
+                let mut failed = None;
+                tag.retain_mut(|frame| {
+                    if let Frame::Chapter(chapter) = frame {
+                        if chapter.id == id.as_str() && failed.is_none() {
+                            let mut own = sub_frames(&chapter.children);
+                            match mapping::patch_id3(&mut own, &native_updates, &target) {
+                                Ok(()) => {
+                                    let mut children = FrameList::new();
+                                    for frame in own {
+                                        children.insert(frame);
+                                    }
+                                    chapter.children = children;
+                                }
+                                Err(error) => failed = Some(error),
+                            }
+                        }
+                    }
+                    true
+                });
+                if let Some(error) = failed {
+                    return Err(error);
+                }
+                expected.push((index, native_updates));
+            }
+            staging
+                .seek(SeekFrom::Start(0))
+                .map_err(|e| e.to_string())?;
+            mapping::save_id3(staging, kind, &tag, &target)?;
+            let written = native_tags(staging, kind)?
+                .id3
+                .map(|tag| id3_chapters(&tag))
+                .unwrap_or_default();
+            for (index, updates) in expected {
+                let (_, chapter) = written
+                    .get(index)
+                    .ok_or("The ID3v2 chapters could not be written")?;
+                let mut stored = chapter.fields.clone();
+                put(&mut stored, "TITLE", vec![chapter.title.clone()]);
+                verify_readback(&stored, &updates, TagType::Id3v2, target.latin1)
+                    .map_err(|e| format!("Chapter {}: {e}", index + 1))?;
+            }
+            Ok(())
+        },
+    )
     .map(|_| ())
 }
 
@@ -557,8 +817,8 @@ fn write_cue_rows(cue: &Path, rows: &[(usize, Fields)]) -> Result<(), String> {
     let (mut sheet, text, encoding) = read_sheet(cue)?;
     let indexed: Vec<(usize, Fields)> = rows
         .iter()
-        .map(|(number, updates)| (number.saturating_sub(1), updates.clone()))
-        .collect();
+        .map(|(number, updates)| Ok((cue_track(&sheet, *number)?, updates.clone())))
+        .collect::<Result<_, String>>()?;
     sheet.apply(&indexed)?;
     let rendered = sheet.render();
     if rendered == text {
@@ -641,14 +901,14 @@ mod tests {
                     end: None,
                     title: "One".into(),
                     fields: Fields::new(),
-                    source: ChapterSource::Field,
+                    source: ChapterSource::Mp4,
                 },
                 ChapterInfo {
                     start: 4000,
                     end: None,
                     title: String::new(),
                     fields: Fields::from([("ARTIST".into(), vec!["Guest".into()])]),
-                    source: ChapterSource::Field,
+                    source: ChapterSource::Mp4,
                 },
             ],
         };
@@ -658,13 +918,106 @@ mod tests {
         assert_eq!(rows[0].fields["TITLE"], ["One"]);
         assert_eq!(rows[0].fields["ARTIST"], ["Author"]);
         assert!(!rows[0].fields.contains_key("CHAPTERS"));
-        assert_eq!(rows[0].technical["_SUBSONG"], ["1"]);
+        assert_eq!(rows[0].technical["_SUBSONG"], ["0"]);
         assert_eq!(rows[0].technical["_LENGTH"], ["0:04"]);
+        // MP4 sub-tracks without numbers are numbered.
+        assert_eq!(rows[0].fields["TRACK"], ["1"]);
+        assert_eq!(rows[1].fields["TRACK"], ["2"]);
+        assert_eq!(rows[1].fields["TOTALTRACKS"], ["2"]);
         assert_eq!(rows[1].duration, 6.0);
         assert!(!rows[1].fields.contains_key("TITLE"));
         assert_eq!(rows[1].fields["ARTIST"], ["Guest"]);
         assert_eq!(rows[1].technical["_SUBSONG_COUNT"], ["2"]);
         let expanded = expand_chapter_rows(vec![parent.clone(), rows[0].clone()]);
         assert_eq!(expanded.len(), 3);
+        // A single chapter is not a subsong of its own.
+        let mut single = parent.clone();
+        single.chapters.clear();
+        single.technical.clear();
+        attach(&mut single, parent.chapters[..1].to_vec());
+        assert!(single.chapters.is_empty() && single.technical.is_empty());
+    }
+
+    fn values(pairs: &[(&str, &[&str])]) -> Fields {
+        pairs
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.iter().map(|s| s.to_string()).collect()))
+            .collect()
+    }
+
+    #[test]
+    fn equal_values_are_file_fields_and_differing_ones_belong_to_chapters() {
+        let chapter = |fields: Fields| ChapterInfo {
+            start: 0,
+            end: None,
+            title: String::new(),
+            fields,
+            source: ChapterSource::Id3,
+        };
+        let parent = AudioEntry {
+            path: "/a/show.mp3".into(),
+            filename: "show.mp3".into(),
+            format: "MP3".into(),
+            duration: 9.0,
+            bitrate: 0,
+            sample_rate: 0,
+            channels: 0,
+            size: 0,
+            fields: values(&[("ARTIST", &["Host"]), ("ALBUM", &["Show"])]),
+            covers: Vec::new(),
+            technical: Fields::new(),
+            chapters: vec![
+                chapter(values(&[("ARTIST", &["Guest"])])),
+                chapter(Fields::new()),
+                chapter(Fields::new()),
+            ],
+        };
+        let view = |pairs: &[(&str, &[&str])]| values(pairs);
+        // ALBUM edited the same on every row: a file field. ARTIST made equal:
+        // back to the file, out of chapter 1. COMMENT differs: per chapter.
+        let views = [
+            view(&[
+                ("ARTIST", &["Host"]),
+                ("ALBUM", &["New"]),
+                ("COMMENT", &["a"]),
+            ]),
+            view(&[("ARTIST", &["Host"]), ("ALBUM", &["New"])]),
+            view(&[
+                ("ARTIST", &["Host"]),
+                ("ALBUM", &["New"]),
+                ("COMMENT", &["c"]),
+            ]),
+        ];
+        let plan = consolidate(
+            &parent,
+            &views,
+            &["ALBUM".into(), "ARTIST".into(), "COMMENT".into()],
+        );
+        assert_eq!(plan.file, values(&[("ALBUM", &["New"])]));
+        assert_eq!(
+            plan.chapters,
+            [
+                values(&[("ARTIST", &[]), ("COMMENT", &["a"])]),
+                Fields::new(),
+                values(&[("COMMENT", &["c"])]),
+            ]
+        );
+        // A file field one row changes leaves the file and every chapter
+        // keeps its value.
+        let views = [
+            view(&[("ALBUM", &["Show"])]),
+            view(&[("ALBUM", &["Special"])]),
+            view(&[("ALBUM", &["Show"])]),
+        ];
+        let plan = consolidate(&parent, &views, &["ALBUM".into()]);
+        assert_eq!(plan.file, values(&[("ALBUM", &[])]));
+        assert_eq!(
+            plan.chapters,
+            [
+                values(&[("ALBUM", &["Show"])]),
+                values(&[("ALBUM", &["Special"])]),
+                values(&[("ALBUM", &["Show"])]),
+            ]
+        );
     }
 }

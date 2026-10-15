@@ -328,6 +328,10 @@ pub fn technical_fields(entry: &AudioEntry, index: usize) -> Fields {
         ),
         ("_FILE_SIZE", human_size(entry.size)),
         ("_COVERS", entry.covers.len().to_string()),
+        // A file without chapters is subsong 0 of 1; chapter rows and files
+        // with chapters carry their own values.
+        ("_SUBSONG", "0".to_string()),
+        ("_SUBSONG_COUNT", "1".to_string()),
         ("_COUNTER", index.to_string()),
         ("_APP", app_name()),
         // App table property; this is not advertised as an original placeholder.

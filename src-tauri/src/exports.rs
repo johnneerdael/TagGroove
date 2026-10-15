@@ -752,9 +752,18 @@ mod tests {
         std::fs::write(&document.filename, &document.text).unwrap();
         let loaded =
             tag_core::playlist::load_playlist(Path::new(&document.filename), None).unwrap();
+        // As in Mp3tag, a cue sheet lists its tracks, each playing its FILE.
+        let cue = document.filename.clone();
         assert_eq!(
             loaded.files,
-            [root.join("disc/b.mp3"), root.join("disc/a.flac")]
+            [
+                std::path::PathBuf::from(tag_core::subsong_path(&cue, 1)),
+                std::path::PathBuf::from(tag_core::subsong_path(&cue, 2))
+            ]
+        );
+        assert_eq!(
+            dunce::canonicalize(tag_core::subsong_file(&loaded.files[1]).unwrap()).unwrap(),
+            dunce::canonicalize(root.join("disc").join("a.flac")).unwrap()
         );
     }
 

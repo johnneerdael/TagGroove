@@ -3,7 +3,9 @@
 //!
 //! Chapters of the default edition are exposed as the multi-value field
 //! CHAPTERS, one "HH:MM:SS.mmm Title" value per chapter, and as
-//! `_SUBSONG_COUNT`. Writing CHAPTERS rebuilds that edition.
+//! `_SUBSONG_COUNT`. Writing CHAPTERS rebuilds that edition. Tags bound to
+//! a chapter (TagChapterUID, target type value 30) are the fields of that
+//! chapter's row.
 //!
 //! Writing never moves clusters or cues. Old Tags/Chapters/Attachments are
 //! overwritten by EBML Void elements and their replacements are placed in a
@@ -34,6 +36,7 @@ const VIDEO: u32 = 0xE0;
 const PIXEL_WIDTH: u32 = 0xB0;
 const PIXEL_HEIGHT: u32 = 0xBA;
 const TAG_TRACK_UID: u32 = 0x63C5;
+const TAG_CHAPTER_UID: u32 = 0x63C4;
 const SAMPLING_FREQUENCY: u32 = 0xB5;
 const CHANNELS: u32 = 0x9F;
 const BIT_DEPTH: u32 = 0x6264;
@@ -440,6 +443,8 @@ struct MkvTag {
     level: u64,
     /// Bound to a track, edition, chapter or attachment UID.
     scoped: bool,
+    /// The chapter UID the tag is bound to.
+    chapter: Option<u64>,
     simple: Vec<SimpleTag>,
     extra: Vec<Vec<u8>>,
 }
@@ -449,6 +454,20 @@ impl MkvTag {
             targets: Some(element(TARGETS, &uint_element(TARGET_TYPE_VALUE, level))),
             level,
             scoped: false,
+            chapter: None,
+            simple: Vec::new(),
+            extra: Vec::new(),
+        }
+    }
+    /// A tag for the chapter with `uid`, at the track/chapter level.
+    fn for_chapter(uid: u64) -> Self {
+        let mut targets = uint_element(TARGET_TYPE_VALUE, ITEM_LEVEL);
+        targets.extend(uint_element(TAG_CHAPTER_UID, uid));
+        Self {
+            targets: Some(element(TARGETS, &targets)),
+            level: ITEM_LEVEL,
+            scoped: true,
+            chapter: Some(uid),
             simple: Vec::new(),
             extra: Vec::new(),
         }
@@ -458,6 +477,7 @@ impl MkvTag {
             targets: None,
             level: DEFAULT_LEVEL,
             scoped: false,
+            chapter: None,
             simple: Vec::new(),
             extra: Vec::new(),
         };
@@ -469,6 +489,9 @@ impl MkvTag {
                             tag.level = uint(target.data);
                         } else if TARGET_UIDS.contains(&target.id) && uint(target.data) != 0 {
                             tag.scoped = true;
+                            if target.id == TAG_CHAPTER_UID {
+                                tag.chapter = Some(uint(target.data));
+                            }
                         }
                     }
                     tag.targets = Some(child.whole.to_vec());
@@ -684,6 +707,68 @@ impl Model {
                 "Matroska stores sort titles inside the matching title; set the title first".into(),
             ),
         }
+    }
+
+    /// The SimpleTag name of `field` in a chapter tag.
+    fn chapter_name(&self, field: &str) -> String {
+        self.rules
+            .iter()
+            .find(|r| r.level == ITEM_LEVEL && !r.sort && r.field.eq_ignore_ascii_case(field))
+            .map_or_else(|| field.to_ascii_uppercase(), |r| r.name.clone())
+    }
+
+    /// Fields of the tags bound to the chapter with `uid`. A TITLE there is
+    /// left out: the chapter's display string is its title.
+    fn chapter_fields(&self, uid: u64) -> Fields {
+        let mut fields = Fields::new();
+        for tag in self.tags.iter().filter(|t| t.chapter == Some(uid)) {
+            for simple in &tag.simple {
+                let Some(value) = simple.value.as_ref().filter(|v| !v.is_empty()) else {
+                    continue;
+                };
+                let name = self
+                    .rule_at(tag.level, &simple.name, false)
+                    .map_or_else(|| simple.name.to_ascii_uppercase(), |r| r.field.to_owned());
+                if !name.is_empty() && name != "TITLE" {
+                    fields.entry(name).or_default().push(value.clone());
+                }
+            }
+        }
+        fields
+    }
+
+    /// Replace `field` in the tags of the chapter with `uid`.
+    fn set_chapter(&mut self, uid: u64, field: &str, values: &[String]) -> Result<(), String> {
+        if uid == 0 {
+            return Err("A Matroska chapter without a UID cannot have fields of its own".into());
+        }
+        if field.eq_ignore_ascii_case("TITLE") {
+            return Err("The chapter title is stored in the chapter itself".into());
+        }
+        let name = self.chapter_name(field);
+        let mut home = None;
+        for (index, tag) in self.tags.iter_mut().enumerate() {
+            if tag.chapter == Some(uid) {
+                home.get_or_insert(index);
+                tag.simple.retain(|s| !s.is(&name) && !s.is(field));
+            }
+        }
+        let values: Vec<&String> = values.iter().filter(|v| !v.is_empty()).collect();
+        if !values.is_empty() {
+            let index = match home {
+                Some(index) => index,
+                None => {
+                    self.tags.push(MkvTag::for_chapter(uid));
+                    self.tags.len() - 1
+                }
+            };
+            for value in values {
+                self.tags[index].simple.push(SimpleTag::new(&name, value));
+            }
+        }
+        self.tags
+            .retain(|t| t.chapter.is_none() || !t.simple.is_empty() || !t.extra.is_empty());
+        Ok(())
     }
 
     fn apply(&mut self, updates: &Fields) -> Result<(), String> {
@@ -1433,8 +1518,12 @@ pub(super) fn describe(path: &Path, options: &TagOptions) -> Result<Description,
             start: c.start / 1_000_000,
             end: c.end.map(|end| end / 1_000_000),
             title: c.title.clone(),
-            fields: Fields::new(),
-            source: Default::default(),
+            fields: if c.uid == 0 {
+                Fields::new()
+            } else {
+                model.chapter_fields(c.uid)
+            },
+            source: super::subsongs::ChapterSource::Matroska,
         })
         .collect();
     video_fields(&parsed, &mut technical);
@@ -1497,8 +1586,15 @@ pub(super) fn write(
         tags: parsed.tags.clone(),
     };
     let mut chapters = None;
+    let rows = match edit {
+        Edit::Rows { chapters, .. } => chapters.as_slice(),
+        _ => &[],
+    };
     let (tags_changed, chapters_changed, attachments_changed) = match edit {
-        Edit::Fields(updates) => {
+        Edit::Fields(updates)
+        | Edit::Rows {
+            fields: updates, ..
+        } => {
             let mut updates = updates.clone();
             let key = updates
                 .keys()
@@ -1510,11 +1606,45 @@ pub(super) fn write(
                 chapters = rebuilt_chapters(parsed.chapters.as_ref(), values, duration)?;
             }
             model.apply(&updates)?;
-            (!updates.is_empty(), values.is_some(), false)
+            if values.is_some() {
+                // Tags of chapters that are gone go with them.
+                let kept: Vec<u64> = match &chapters {
+                    Some(element) => children(element)?
+                        .first()
+                        .map(|c| parse_chapters(c.data))
+                        .transpose()?
+                        .map(|e| e.flat().iter().map(|c| c.uid).collect())
+                        .unwrap_or_default(),
+                    None => Vec::new(),
+                };
+                model
+                    .tags
+                    .retain(|t| t.chapter.is_none_or(|uid| kept.contains(&uid)));
+            }
+            // Chapter UIDs, by position; edits keep the chapter count.
+            let uids: Vec<u64> = parsed
+                .chapters
+                .as_ref()
+                .map(|e| e.flat().iter().map(|c| c.uid).collect())
+                .unwrap_or_default();
+            for (index, fields) in rows {
+                let uid = *uids
+                    .get(*index)
+                    .ok_or("A chapter disappeared while saving")?;
+                for (field, values) in fields {
+                    model.set_chapter(uid, field, values)?;
+                }
+            }
+            (
+                !updates.is_empty() || rows.iter().any(|(_, f)| !f.is_empty()),
+                values.is_some(),
+                false,
+            )
         }
         Edit::Pictures(_) => (false, false, true),
         Edit::Remove => {
-            model.tags.retain(|t| t.scoped);
+            // Chapter tags go with the chapters.
+            model.tags.retain(|t| t.scoped && t.chapter.is_none());
             (true, parsed.chapters.is_some(), true)
         }
     };
@@ -1725,7 +1855,10 @@ pub(super) fn write(
 /// byte-identical at the same offset.
 pub(super) fn verify_media(original: &Path, staged: &Path, edit: &Edit) -> Result<(), String> {
     let chapters = match edit {
-        Edit::Fields(updates) => updates
+        Edit::Fields(updates)
+        | Edit::Rows {
+            fields: updates, ..
+        } => updates
             .keys()
             .any(|k| k.eq_ignore_ascii_case(CHAPTERS_FIELD)),
         Edit::Pictures(_) => false,

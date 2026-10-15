@@ -16,6 +16,8 @@ mod media_info;
 mod mp4_chapters;
 #[path = "mp4_layout.rs"]
 mod mp4_layout;
+#[path = "nero_tags.rs"]
+mod nero_tags;
 #[path = "optimize.rs"]
 mod optimize;
 #[path = "subsongs.rs"]
@@ -65,7 +67,8 @@ use std::{
     path::{Path, PathBuf},
 };
 pub use subsongs::{
-    chapter_rows, expand_chapter_rows, subsong_parts, subsong_path, ChapterInfo, SUBSONG_SEPARATOR,
+    chapter_rows, expand_chapter_rows, subsong_file, subsong_parts, subsong_path, ChapterInfo,
+    SUBSONG_SEPARATOR,
 };
 pub use tag_types::*;
 
@@ -1791,20 +1794,33 @@ fn remove_tags_result(
     if let Some(kind) = container_formats::detect(path) {
         return container_formats::remove_tags(path, kind, include_cover_data, options);
     }
-    if tag_policy::removed_kinds(&load(path)?, options)?.is_empty() {
+    let loaded = load(path)?;
+    // Nero tags (per-chapter fields of MP4 files) go with the iTunes tag.
+    let nero = loaded.file_type() == FileType::Mp4
+        && mp4_chapters::scan(path).is_ok_and(|c| c.nero_tags.is_some());
+    if !nero && tag_policy::removed_kinds(&loaded, options)?.is_empty() {
         return read_description(path, include_cover_data, &options.mappings, options);
     }
-    staged_mutation(path, include_cover_data, options, |staging, file, _| {
-        for kind in tag_policy::removed_kinds(&file, options)? {
-            staging
-                .seek(SeekFrom::Start(0))
-                .map_err(|e| e.to_string())?;
-            crate::write_cost::rewrote_all();
-            kind.remove_from(staging, WriteOptions::default())
-                .map_err(|e| e.to_string())?;
-        }
-        Ok(())
-    })
+    staged_mutation(
+        path,
+        include_cover_data,
+        options,
+        |staging, file, staged_path| {
+            for kind in tag_policy::removed_kinds(&file, options)? {
+                staging
+                    .seek(SeekFrom::Start(0))
+                    .map_err(|e| e.to_string())?;
+                crate::write_cost::rewrote_all();
+                kind.remove_from(staging, WriteOptions::default())
+                    .map_err(|e| e.to_string())?;
+            }
+            if nero {
+                staging.sync_all().map_err(|e| e.to_string())?;
+                mp4_chapters::strip_nero_tags(staging, staged_path)?;
+            }
+            Ok(())
+        },
+    )
 }
 
 pub fn add_cover(path: &Path, image: &Path) -> Result<AudioEntry, String> {

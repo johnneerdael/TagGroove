@@ -1,7 +1,7 @@
 // Native e2e for Options → Tags → Advanced → List chapters as separate
 // files: MP4 and ID3v2 chapters listed as rows, chapter titles edited in the
-// tag panel and saved into the file, Undo, whole-file commands refused for
-// rows, and a loaded cue sheet listed per track with edits written into the
+// tag panel and saved into the file, Undo, renaming refused for rows while
+// Remove tag stays available, and a loaded cue sheet listed per track with edits written into the
 // sheet. Fixtures come from tests/e2e/chapters-fixtures.sh. The first page
 // load turns the option on and reloads into the same folder.
 (async () => {
@@ -61,7 +61,7 @@
         if (!paths.includes(expected)) throw new Error(paths.map(p => p.replace(SEP, '#')).join(', '));
       if (paths.includes(book) || paths.includes(podcast)) throw new Error('the files are listed as well');
       const [second] = (await scan(book + SEP + '2'));
-      if (second.fields.TITLE?.[0] !== 'Second part' || second.fields.ARTIST?.[0] !== 'Narrator' || second.technical._SUBSONG?.[0] !== '2' || second.technical._SUBSONG_COUNT?.[0] !== '2')
+      if (second.fields.TITLE?.[0] !== 'Second part' || second.fields.ARTIST?.[0] !== 'Narrator' || second.technical._SUBSONG?.[0] !== '1' || second.technical._SUBSONG_COUNT?.[0] !== '2')
         throw new Error(JSON.stringify([second.fields, second.technical._SUBSONG]));
       return `${paths.length} rows; row 2 "${second.fields.TITLE[0]}", ${second.technical._LENGTH?.[0]}`;
     });
@@ -92,11 +92,11 @@
       return titles;
     });
 
-    await step('whole-file commands are refused for chapter rows', async () => {
+    await step('renaming is refused for chapter rows; Remove tag works on their file', async () => {
       await click(chapterRow('book.m4b', 1));
-      const refused = ['remove-tags', 'strip-mp4-chapters', 'tags-filename'].filter(name => op(name));
-      for (const name of refused) if (!op(name).disabled || !/Chapter rows only support editing tag fields/.test(op(name).title)) throw new Error(`${name} enabled: ${op(name).title}`);
-      if (op('extended')?.disabled) throw new Error('Extended tags disabled');
+      const refused = ['tags-filename', 'filename-filename'].filter(name => op(name));
+      for (const name of refused) if (!op(name).disabled || !/not files of their own/.test(op(name).title)) throw new Error(`${name} enabled: ${op(name).title}`);
+      for (const name of ['remove-tags', 'strip-mp4-chapters', 'extended']) if (op(name)?.disabled) throw new Error(`${name} disabled: ${op(name).title}`);
       await click(fileRow('image.flac'));
       if (op('remove-tags')?.disabled) throw new Error('Remove tag disabled for an ordinary file');
       return refused.join(', ') + ' disabled';

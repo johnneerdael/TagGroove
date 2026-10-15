@@ -121,7 +121,7 @@ fn id3v2_chapters_are_rows_and_titles_are_written_into_chap_frames() {
         assert_eq!(rows, [subsong_path(&file, 1), subsong_path(&file, 2)]);
         assert_eq!(listed.entries[1].fields["TITLE"], ["Two"]);
         assert_eq!(listed.entries[1].fields["ARTIST"], ["Host"]);
-        assert_eq!(listed.entries[1].technical["_SUBSONG"], ["2"]);
+        assert_eq!(listed.entries[1].technical["_SUBSONG"], ["1"]);
 
         let row = write_fields_with_options(
             Path::new(&rows[0]),
@@ -135,7 +135,9 @@ fn id3v2_chapters_are_rows_and_titles_are_written_into_chap_frames() {
         assert_eq!(row.fields["ALBUM"], ["Show"]);
         let entry = read_entry(&path).unwrap();
         assert_eq!(entry.fields["TITLE"], ["Episode"], "the file title is kept");
-        assert_eq!(entry.fields["ALBUM"], ["Show"]);
+        // Only the first row has ALBUM: it is a sub-frame of that chapter.
+        assert!(!entry.fields.contains_key("ALBUM"));
+        assert_eq!(entry.chapters[0].fields["ALBUM"], ["Show"]);
         assert_eq!(entry.chapters[0].title, "Opening – é");
         assert_eq!(entry.chapters[1].title, "Two");
         assert_eq!(
@@ -155,6 +157,69 @@ fn id3v2_chapters_are_rows_and_titles_are_written_into_chap_frames() {
         let entry = read_entry(&path).unwrap();
         assert_eq!(entry.chapters.len(), 2);
         assert_eq!(entry.chapters[1].title, "");
+
+        // Differing fields go into the CHAP sub-frames (TPE1, TIT3, WXXX),
+        // equal ones into the tag; the chapters keep their times.
+        let rows = write_chapter_rows(
+            &path,
+            &[
+                (
+                    1,
+                    fields(&[
+                        ("ARTIST", &["Guest"]),
+                        ("SUBTITLE", &["Part A"]),
+                        ("WWW", &["https://example.com/1"]),
+                        ("ALBUM", &["Show"]),
+                    ]),
+                ),
+                (
+                    2,
+                    fields(&[("SUBTITLE", &["Part B"]), ("ALBUM", &["Show"])]),
+                ),
+            ],
+            false,
+            &options,
+        )
+        .unwrap();
+        assert_eq!(rows[0].fields["ARTIST"], ["Guest"]);
+        assert_eq!(rows[1].fields["ARTIST"], ["Host"]);
+        assert_eq!(rows[1].fields["SUBTITLE"], ["Part B"]);
+        assert!(!rows[1].fields.contains_key("WWW"));
+        let entry = read_entry(&path).unwrap();
+        assert!(!entry.fields.contains_key("ARTIST"));
+        assert!(!entry.fields.contains_key("SUBTITLE"));
+        assert_eq!(entry.fields["ALBUM"], ["Show"]);
+        assert_eq!(
+            entry.chapters[0].fields,
+            fields(&[
+                ("ARTIST", &["Guest"]),
+                ("SUBTITLE", &["Part A"]),
+                ("WWW", &["https://example.com/1"]),
+            ])
+        );
+        assert_eq!(
+            entry.chapters[1].fields,
+            fields(&[("ARTIST", &["Host"]), ("SUBTITLE", &["Part B"])])
+        );
+        assert_eq!(entry.chapters[0].title, "Opening – é");
+        assert_eq!(
+            probe(&path, "chapter=start_time,end_time", &[]),
+            "0.000000,0.400000\n0.400000,1.000000\n"
+        );
+        // One value on every row again: back in the tag, out of the chapters.
+        write_chapter_rows(
+            &path,
+            &[(2, fields(&[("ARTIST", &["Guest"])]))],
+            false,
+            &options,
+        )
+        .unwrap();
+        let entry = read_entry(&path).unwrap();
+        assert_eq!(entry.fields["ARTIST"], ["Guest"]);
+        assert!(!entry.chapters[0].fields.contains_key("ARTIST"));
+        assert!(!entry.chapters[1].fields.contains_key("ARTIST"));
+        assert_eq!(entry.chapters[1].fields["SUBTITLE"], ["Part B"]);
+        assert_eq!(audio(&path), sound);
     }
 }
 
@@ -197,7 +262,7 @@ fn embedded_cue_sheets_list_their_tracks_and_rows_edit_the_sheet() {
     assert!(!first.fields.contains_key("CUESHEET"));
     assert_eq!(second.fields["ARTIST"], ["Guest"]);
     assert_eq!(second.fields["ALBUM"], ["Live"]);
-    assert_eq!(second.technical["_SUBSONG"], ["2"]);
+    assert_eq!(second.technical["_SUBSONG"], ["1"]);
     assert!((first.duration - 1.0).abs() < 0.01, "{}", first.duration);
 
     let rows = write_chapter_rows(
@@ -299,4 +364,118 @@ fn loaded_cue_sheets_list_tracks_and_rows_write_the_sheet() {
     assert!(write_fields(Path::new(&rows[0]), &fields(&[("LYRICIST", &["x"])])).is_err());
     assert!(tag_core::remove_tags(Path::new(&rows[0])).is_err());
     assert_eq!(read_entry(&image).unwrap().fields["TITLE"], ["Whole image"]);
+}
+
+#[test]
+fn matroska_rows_keep_differing_fields_in_chapter_tags() {
+    if !tools() {
+        eprintln!("Skipping Matroska chapter fields: ffmpeg is required");
+        return;
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let meta = dir.path().join("chapters.txt");
+    fs::write(
+        &meta,
+        ";FFMETADATA1\n[CHAPTER]\nTIMEBASE=1/1000\nSTART=0\nEND=1000\ntitle=Opening\n\
+         [CHAPTER]\nTIMEBASE=1/1000\nSTART=1000\nEND=2000\ntitle=Second part\n",
+    )
+    .unwrap();
+    let path = dir.path().join("film.mka");
+    let meta = meta.to_string_lossy();
+    ffmpeg(
+        &[
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=duration=2",
+            "-i",
+            &meta,
+            "-map",
+            "0",
+            "-map_chapters",
+            "1",
+            "-c:a",
+            "flac",
+            "-metadata",
+            "title=Film",
+            "-metadata",
+            "artist=Crew",
+        ],
+        &path,
+    );
+    let sound = audio(&path);
+    let options = listing();
+    let rows = write_chapter_rows(
+        &path,
+        &[(1, fields(&[("COMMENT", &["Intro scene"])]))],
+        false,
+        &options,
+    )
+    .unwrap();
+    assert_eq!(rows[0].fields["COMMENT"], ["Intro scene"]);
+    let entry = read_entry(&path).unwrap();
+    assert!(!entry.fields.contains_key("COMMENT"));
+    assert_eq!(entry.chapters[0].fields["COMMENT"], ["Intro scene"]);
+    assert!(entry.chapters[1].fields.is_empty());
+    // ffprobe still reads both chapters and the tags; the audio is unchanged.
+    assert_eq!(
+        probe(&path, "chapter=start_time:chapter_tags=title", &[]),
+        "0.000000,Opening\n1.000000,Second part\n"
+    );
+    assert_eq!(audio(&path), sound);
+    // The same value on both rows: a file tag again.
+    write_chapter_rows(
+        &path,
+        &[(2, fields(&[("COMMENT", &["Intro scene"])]))],
+        false,
+        &options,
+    )
+    .unwrap();
+    let entry = read_entry(&path).unwrap();
+    assert_eq!(entry.fields["COMMENT"], ["Intro scene"]);
+    assert!(entry.chapters.iter().all(|c| c.fields.is_empty()));
+    assert_eq!(audio(&path), sound);
+}
+
+#[test]
+fn cue_tracks_play_from_the_file_of_their_index_01() {
+    if !tools() {
+        eprintln!("Skipping cue sheets across files: ffmpeg is required");
+        return;
+    }
+    let dir = tempfile::tempdir().unwrap();
+    for name in ["disc-1.flac", "disc-2.flac"] {
+        ffmpeg(
+            &["-f", "lavfi", "-i", "sine=duration=2", "-c:a", "flac"],
+            &dir.path().join(name),
+        );
+    }
+    let cue = dir.path().join("gaps.cue");
+    fs::write(
+        &cue,
+        "PERFORMER \"The Duo\"\r\nFILE \"disc-1.flac\" WAVE\r\n  TRACK 01 AUDIO\r\n    TITLE \"First\"\r\n    INDEX 01 00:00:00\r\n  TRACK 02 AUDIO\r\n    TITLE \"Second\"\r\n    INDEX 00 00:01:50\r\nFILE \"disc-2.flac\" WAVE\r\n    INDEX 01 00:00:00\r\n",
+    )
+    .unwrap();
+    let loaded = load_playlist(&cue, None).unwrap();
+    let base = cue.to_string_lossy().into_owned();
+    let rows: Vec<String> = loaded
+        .files
+        .iter()
+        .map(|p| p.to_string_lossy().into_owned())
+        .collect();
+    assert_eq!(rows, [subsong_path(&base, 1), subsong_path(&base, 2)]);
+    let scanned = scan_paths_with_options(&rows, false, &TagOptions::default(), None);
+    assert!(scanned.errors.is_empty(), "{:?}", scanned.errors);
+    let (first, second) = (&scanned.entries[0], &scanned.entries[1]);
+    assert_eq!(first.filename, "disc-1.flac");
+    assert_eq!(second.filename, "disc-2.flac");
+    // Track 1 keeps the pregap of track 2 at the end of its file.
+    assert!((first.duration - 2.0).abs() < 0.01, "{}", first.duration);
+    assert!((second.duration - 2.0).abs() < 0.01, "{}", second.duration);
+    assert_eq!(second.fields["TITLE"], ["Second"]);
+    assert_eq!(second.technical["_SUBSONG"], ["1"]);
+    assert_eq!(
+        dunce::canonicalize(tag_core::subsong_file(Path::new(&rows[1])).unwrap()).unwrap(),
+        dunce::canonicalize(dir.path().join("disc-2.flac")).unwrap()
+    );
 }
