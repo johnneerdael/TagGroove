@@ -30,7 +30,7 @@ export function menuTree(leaves:Leaf[], prefix:string[] = []):string {
     else if (!branches.has(segment.label)) { branches.add(segment.label); slots.push({branch:segment.label,raw}); }
   }
   return slots.map(slot => 'branch' in slot
-    ? `<details class="group-submenu web-submenu"><summary>${mnemonicMarkup(slot.raw)}</summary><div>${menuTree(leaves,[...prefix,slot.branch])}</div></details>`
+    ? `<details class="group-submenu web-submenu"><summary translate="no">${mnemonicMarkup(slot.raw)}</summary><div>${menuTree(leaves,[...prefix,slot.branch])}</div></details>`
     : slot.leaf.markup(slot.raw)).join('');
 }
 
@@ -108,8 +108,8 @@ export class WebSourcesUI {
   /** Web sources and their configuration entries for the Tag Sources menu. */
   menuHTML() {
     const reason = this.host.reason(), last = this.host.last();
-    const sources = menuTree(this.listing.sources.map((source,index) => ({menu:source.menu,markup:raw => `<button data-web-source="${index}" ${reason ? 'disabled' : ''} title="${html(reason || source.name)}"><span>${mnemonicMarkup(raw)}…</span>${source.id === last ? `<small>${this.host.shortcut}</small>` : ''}</button>`})));
-    const settings = menuTree(this.listing.settings.map((entry,index) => ({menu:entry.menu,markup:raw => `<button data-web-settings="${index}"><span>${mnemonicMarkup(raw)}…</span></button>`})));
+    const sources = menuTree(this.listing.sources.map((source,index) => ({menu:source.menu,markup:raw => `<button data-web-source="${index}" ${reason ? 'disabled' : ''} title="${html(reason || source.name)}"><span translate="no">${mnemonicMarkup(raw)}…</span>${source.id === last ? `<small>${this.host.shortcut}</small>` : ''}</button>`})));
+    const settings = menuTree(this.listing.settings.map((entry,index) => ({menu:entry.menu,markup:raw => `<button data-web-settings="${index}"><span translate="no">${mnemonicMarkup(raw)}…</span></button>`})));
     const problems = this.listing.problems.length ? `<p class="menu-note" title="${html(this.listing.problems.map(p => `${p.file}: ${p.error}`).join('\n'))}">${this.listing.problems.length} tag source file${this.listing.problems.length === 1 ? '' : 's'} could not be read.</p>` : '';
     return `${sources ? `<hr>${sources}` : ''}${problems}${settings ? `<hr>${settings}` : ''}<hr>`;
   }
@@ -163,7 +163,8 @@ export class WebSourcesUI {
     let form:SettingsForm;
     try { form = await this.host.invoke<SettingsForm>('web_source_settings',{id:entry.id}); } catch (error) { this.host.fail(error); return; }
     this.showing = true;
-    const language = navigator.language || 'en', title = localized(form.schema,form.schema.key,language)?.title || form.schema.title || menuLabel(entry.menu);
+    // The UI language (Options → Language) picks the source's own translations.
+    const language = document.documentElement.lang || navigator.language || 'en', title = localized(form.schema,form.schema.key,language)?.title || form.schema.title || menuLabel(entry.menu);
     const dialog = document.createElement('dialog');
     dialog.className = 'tag-source-dialog web-settings-dialog';
     dialog.setAttribute('aria-label',title);

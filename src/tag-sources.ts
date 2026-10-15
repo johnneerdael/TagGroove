@@ -555,7 +555,7 @@ export class TagSourcesUI {
     const rowAttributes = (i:number) => `tabindex="${i === Math.max(chosen,0) ? 0 : -1}" data-index="${i}" aria-selected="${i === chosen}" class="${i === chosen ? 'selected' : ''}"`;
     const resultMarkup = () => {
       if (!results.length) return '';
-      if (web) return `<table class="ts-table ts-results" aria-label="Search results"><thead><tr>${webColumns.map(column => `<th>${html(column)}</th>`).join('')}</tr></thead><tbody>${results.map((_,i) => `<tr ${rowAttributes(i)}>${(webRows[i]?.values || []).map(value => `<td title="${html(value)}">${html(value)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+      if (web) return `<table class="ts-table ts-results" aria-label="Search results"><thead><tr>${webColumns.map(column => `<th>${html(column)}</th>`).join('')}</tr></thead><tbody translate="no">${results.map((_,i) => `<tr ${rowAttributes(i)}>${(webRows[i]?.values || []).map(value => `<td title="${html(value)}">${html(value)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
       const mb = provider === 'musicbrainz';
       const head = freedb ? '<th>Artist</th><th>Title</th><th class="ts-num">Year</th><th class="ts-wide">Genre</th><th class="ts-wide">Category</th><th class="ts-wide">Disc ID</th><th class="ts-num ts-wide">Tracks</th>'
         : `${mb ? '<th class="ts-num ts-wide">Score</th>' : ''}<th>Artist</th><th>Title</th><th class="ts-num">Year</th><th class="ts-wide">Country</th><th class="ts-wide">Label</th><th class="ts-wide">Cat. no.</th><th class="ts-wide">Format</th>${mb ? '<th class="ts-num ts-wide">Tracks</th>' : ''}`;
@@ -563,7 +563,7 @@ export class TagSourcesUI {
         ? `<td title="${html(r.artist)}">${html(r.artist)}</td><td title="${html(r.title)}">${html(r.title)}</td><td class="ts-num">${html(r.year)}</td><td class="ts-wide">${html(r.format)}</td><td class="ts-wide">${html(freedbId(r).category)}</td><td class="ts-wide">${html(freedbId(r).disc)}</td><td class="ts-num ts-wide">${r.track_count ?? ''}</td>`
         : `${mb ? `<td class="ts-num ts-wide">${r.score ?? ''}</td>` : ''}<td title="${html(r.artist)}">${html(r.artist)}</td><td title="${html(r.title)}">${html(r.title)}</td><td class="ts-num">${html(r.year)}</td><td class="ts-wide">${html(r.country)}</td><td class="ts-wide" title="${html(r.label)}">${html(r.label)}</td><td class="ts-wide" title="${html(r.catalog_number)}">${html(r.catalog_number)}</td><td class="ts-wide" title="${html(r.format)}">${html(r.format)}</td>${mb ? `<td class="ts-num ts-wide">${r.track_count ?? ''}</td>` : ''}`;
       const more = total != null && results.length < total ? `<p class="ts-more"><button type="button" id="ts-more">More results</button><span>${results.length} of ${total} shown</span></p>` : '';
-      return `<table class="ts-table ts-results" aria-label="Search results"><thead><tr>${head}</tr></thead><tbody>${results.map((r,i) => `<tr tabindex="${i === Math.max(chosen,0) ? 0 : -1}" data-index="${i}" aria-selected="${i === chosen}" class="${i === chosen ? 'selected' : ''}">${cells(r)}</tr>`).join('')}</tbody></table>${more}`;
+      return `<table class="ts-table ts-results" aria-label="Search results"><thead><tr>${head}</tr></thead><tbody translate="no">${results.map((r,i) => `<tr tabindex="${i === Math.max(chosen,0) ? 0 : -1}" data-index="${i}" aria-selected="${i === chosen}" class="${i === chosen ? 'selected' : ''}">${cells(r)}</tr>`).join('')}</tbody></table>${more}`;
     };
     const chosenMarkup = () => {
       const r = results[chosen];
