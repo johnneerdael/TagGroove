@@ -421,10 +421,9 @@ pub(crate) fn context_values<'a>(
             .to_string()])));
     }
     if name.eq_ignore_ascii_case("_WORKINGDIR") || name.eq_ignore_ascii_case("_WORKINGPATH") {
-        return Ok(context
-            .working_directory
-            .filter(|path| !path.is_empty())
-            .map(|path| Cow::Owned(vec![working_directory_value(path, name)])));
+        if let Some(path) = context.working_directory.filter(|path| !path.is_empty()) {
+            return Ok(Some(Cow::Owned(vec![working_directory_value(path, name)])));
+        }
     }
     Ok(field_values(context.fields, name).map(|values| Cow::Borrowed(values.as_slice())))
 }

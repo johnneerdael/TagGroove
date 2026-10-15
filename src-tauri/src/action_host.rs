@@ -1531,7 +1531,7 @@ mod tests {
         let audio = fixture(dir.path(), "input.wav");
         let config_dir = dir.path().join("config/export");
         fs::create_dir_all(&config_dir).unwrap();
-        let script = "$filename(txt,utf-8)$loop(%_filename%)%_md5%:%_crc%$loopend()";
+        let script = "$filename(txt,utf-8)$loop(%_filename%)%_md5%:%_crc%:[%_md5audio%]$loopend()";
         let mut bytes = vec![0xff, 0xfe];
         bytes.extend(script.encode_utf16().flat_map(u16::to_le_bytes));
         fs::write(config_dir.join("Checksums.mte"), bytes).unwrap();
@@ -1557,7 +1557,8 @@ mod tests {
         let hashes = crate::file_hashes::compute(&audio, &["_MD5".into(), "_CRC".into()]).unwrap();
         assert_eq!(
             fs::read_to_string(dir.path().join("checksums.txt")).unwrap(),
-            format!("{}:{}", hashes["_MD5"][0], hashes["_CRC"][0])
+            // WAV has no audio MD5: the export still succeeds, with nothing.
+            format!("{}:{}:", hashes["_MD5"][0], hashes["_CRC"][0])
         );
     }
     #[test]

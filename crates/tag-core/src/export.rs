@@ -744,6 +744,10 @@ impl ScriptExtension for Engine<'_> {
                 drop(state);
                 let value=self.supplied_hash(&name).ok_or_else(||format!("{name} requires an actual supplied file hash; the pure export renderer does not read files"))?;
                 let expected = if name == "_CRC" { 8 } else { 32 };
+                // An empty audio MD5 means the format has none.
+                if name == "_MD5AUDIO" && value.is_empty() {
+                    return Ok(Some(vec![value]));
+                }
                 if value.len() != expected || !value.bytes().all(|byte| byte.is_ascii_hexdigit()) {
                     return Err(format!("Invalid supplied {name} hash"));
                 }

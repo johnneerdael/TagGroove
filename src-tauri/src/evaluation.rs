@@ -283,11 +283,7 @@ pub fn technical_fields(entry: &AudioEntry, index: usize) -> Fields {
         ),
         (
             "_LENGTH",
-            format!(
-                "{}:{:02}",
-                entry.duration as u64 / 60,
-                entry.duration as u64 % 60
-            ),
+            tag_core::format_length(entry.duration.round() as u64),
         ),
         ("_FILE_SIZE_BYTES", entry.size.to_string()),
         ("_FILE_SIZE_KB", (entry.size / 1024).to_string()),

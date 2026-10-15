@@ -10,6 +10,8 @@ mod cover_manage;
 mod cover_ops;
 #[path = "mapping.rs"]
 mod mapping;
+#[path = "media_info.rs"]
+mod media_info;
 #[path = "mp4_chapters.rs"]
 mod mp4_chapters;
 #[path = "mp4_layout.rs"]
@@ -50,6 +52,7 @@ pub use mapping::{
     field_mapping, map_read_fields, map_write_fields, validate_user_mappings, FieldMapping,
     UserFieldMapping, FIELD_MAPPINGS,
 };
+pub use media_info::{audio_digest, AudioDigest};
 pub use optimize::*;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -59,6 +62,21 @@ use std::{
     path::{Path, PathBuf},
 };
 pub use tag_types::*;
+
+/// `%_length%`: `m:ss`, or `h:mm:ss` from one hour on, of whole seconds
+/// rounded like `%_length_seconds%`.
+pub fn format_length(seconds: u64) -> String {
+    if seconds >= 3600 {
+        format!(
+            "{}:{:02}:{:02}",
+            seconds / 3600,
+            seconds / 60 % 60,
+            seconds % 60
+        )
+    } else {
+        format!("{}:{:02}", seconds / 60, seconds % 60)
+    }
+}
 use walkdir::WalkDir;
 
 pub(crate) fn error_message(error: &dyn std::error::Error) -> String {
@@ -646,6 +664,9 @@ fn read_description(
     };
     if kind == FileType::Mp4 {
         native.technical.extend(mp4_chapters::technical(&path));
+        native
+            .technical
+            .extend(mp4_chapters::header_technical(&path));
     }
     // Enrich APE covers from the already parsed native tag, without a second
     // file read.
