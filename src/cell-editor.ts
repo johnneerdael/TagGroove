@@ -6,9 +6,15 @@ export type CellEditorHost={
   label?:(target:CellTarget)=>string;
   /** Apply the edit; resolves to the file's path afterwards (renames change it). */
   commit:(target:CellTarget,value:string)=>Promise<string|undefined>|string|undefined;
-  next:(target:CellTarget,direction:1|-1)=>CellTarget|undefined;
+  /** The next cell for Tab (1), Shift+Tab (-1) or Enter with "select next file" ('down'). */
+  next:(target:CellTarget,direction:Move)=>CellTarget|undefined;
   ended?:()=>void;
+  /** Options → General → Automatically select next file when editing in file view. */
+  advance?:()=>boolean;
+  /** Inline auto-completion while typing. */
+  complete?:(input:HTMLInputElement,event:Event,target:CellTarget)=>void;
 };
+export type Move=1|-1|'down';
 
 /** Next editable cell: along the row, then wrapping to the adjacent row. */
 export function adjacentCell(rows:string[],columns:string[],target:CellTarget,direction:1|-1):CellTarget|undefined{
@@ -40,10 +46,11 @@ export class CellEditor{
     this.input=input;this.target=target;
     input.addEventListener('keydown',event=>{
       event.stopPropagation();
-      if(event.key==='Enter'){event.preventDefault();void this.finish();}
+      if(event.key==='Enter'){event.preventDefault();void this.finish(this.host.advance?.()?'down':undefined);}
       else if(event.key==='Escape'){event.preventDefault();this.cancel();}
       else if(event.key==='Tab'){event.preventDefault();void this.finish(event.shiftKey?-1:1);}
     });
+    input.addEventListener('input',event=>{if(this.target)this.host.complete?.(input,event,this.target);});
     input.addEventListener('blur',()=>{if(input.isConnected&&this.input===input&&!this.finishing)void this.finish();});
     input.addEventListener('click',event=>event.stopPropagation());
     input.addEventListener('dblclick',event=>event.stopPropagation());
@@ -68,7 +75,7 @@ export class CellEditor{
     const input=this.input;this.input=undefined;this.target=undefined;
     if(input){input.remove();this.host.ended?.();}
   }
-  async finish(move?:1|-1){
+  async finish(move?:Move){
     const input=this.input,target=this.target;if(!input||!target||this.finishing)return;
     this.finishing=true;const value=input.value;
     this.input=undefined;this.target=undefined;input.remove();

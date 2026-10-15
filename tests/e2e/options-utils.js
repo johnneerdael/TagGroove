@@ -102,7 +102,7 @@
     await step('Tools menu runs the first tool with ⌘1 without a shell', async () => {
       await clickRow('sine-a.mp3');
       const item = document.querySelector('[data-tool="0"]');
-      if (!item || !/Copy beside/.test(item.textContent) || !/⌘ 1/.test(item.textContent)) throw new Error('menu item ' + item?.textContent);
+      if (!item || !/Copy beside/.test(item.textContent) || !/⌘ 1|Ctrl 1/.test(item.textContent)) throw new Error('menu item ' + item?.textContent);
       row('sine-a.mp3').focus(); key('1', { metaKey: true, code: 'Digit1' });
       await waitFor(() => /Started Copy beside/.test(status()), 5000, 'tool status');
       const album = row('sine-a.mp3').dataset.path.replace(/\/[^/]+$/, '');

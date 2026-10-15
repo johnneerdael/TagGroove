@@ -12,15 +12,20 @@ mod evaluation;
 mod exports;
 mod file_hashes;
 mod file_ops;
+mod filter_cache;
 mod history;
 #[cfg(any(target_os = "android", test))]
 mod managed_actions;
+mod playlists;
 mod progress;
 mod rename_plan;
 mod settings;
 mod sources;
 mod tag_panel;
+mod updates;
 mod utilities;
+#[cfg(desktop)]
+mod window_state;
 
 fn export_library_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(action_host::library_path(app)?.with_file_name("exports.json"))
@@ -50,6 +55,7 @@ async fn run_export(
     app: tauri::AppHandle,
     paths: Vec<String>,
     columns: Option<Vec<evaluation::ColumnSpec>>,
+    per_directory: Option<bool>,
 ) -> Result<action_host::ActionResult, String> {
     let path = export_library_path(&app)?;
     let mut settings = evaluation_settings(columns)?;
@@ -64,9 +70,21 @@ async fn run_export(
             .iter()
             .find(|c| Some(&c.id) == library.preferences.configuration.as_ref())
             .ok_or("Select an export configuration")?;
-        settings.export_write_bom = library.preferences.write_bom;
-        settings.export_create_directories = library.preferences.create_directories;
+        (
+            settings.export_write_bom,
+            settings.export_create_directories,
+        ) = exports::current_output_options(&library.preferences);
         settings.export_template_inline = true;
+        let (filename, partition) = if per_directory.unwrap_or(false) {
+            let (filename, partition) =
+                exports::per_directory(&library.preferences.filename, &configuration.template);
+            (filename, Some(partition))
+        } else {
+            (
+                library.preferences.filename.clone(),
+                library.preferences.partition.clone(),
+            )
+        };
         Ok(action_host::execute(
             &paths,
             &[tag_core::actions::ActionGroup {
@@ -74,9 +92,9 @@ async fn run_export(
                 enabled: true,
                 actions: vec![tag_core::actions::ActionSpec::Export {
                     template: configuration.template.clone(),
-                    filename_template: library.preferences.filename,
+                    filename_template: filename,
                     append: library.preferences.append,
-                    partition_template: library.preferences.partition,
+                    partition_template: partition,
                 }],
             }],
             settings,
@@ -178,34 +196,24 @@ async fn get_covers(path: String) -> Result<Vec<tag_core::CoverInfo>, String> {
     .await
 }
 
-#[derive(Deserialize)]
-struct FilterItem {
-    path: String,
-    fields: Fields,
-    raw_fields: Option<Fields>,
-}
+static FILTER_CACHE: Mutex<Option<filter_cache::FilterCache>> = Mutex::new(None);
 
+/// Match the listed files against `query`. The window sends only files whose
+/// filter fields changed since its previous query (see `filter_cache`).
 #[tauri::command]
 async fn filter_matches(
     query: String,
-    items: Vec<FilterItem>,
-    columns: Option<Vec<evaluation::ColumnSpec>>,
-) -> Result<Vec<String>, String> {
-    let settings = evaluation_settings(columns)?;
+    request: filter_cache::FilterRequest,
+) -> Result<filter_cache::FilterOutcome, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        let filter = tag_core::compile_filter(&query)?;
-        let mut matching = Vec::new();
-        for item in items {
-            if settings.matches(
-                &filter,
-                &item.fields,
-                item.raw_fields.as_ref().unwrap_or(&item.fields),
-                &item.path,
-            )? {
-                matching.push(item.path);
-            }
-        }
-        Ok(matching)
+        let mut cache = FILTER_CACHE
+            .lock()
+            .map_err(|_| "Filter cache lock failed".to_string())?;
+        cache
+            .get_or_insert_with(Default::default)
+            .matches(&query, request, |columns| {
+                evaluation_settings(Some(columns))
+            })
     })
     .await
     .map_err(|e| e.to_string())?
@@ -890,41 +898,21 @@ async fn export_csv(paths: Vec<String>, output_path: String) -> Result<(), Strin
     .await
 }
 
-#[tauri::command]
-async fn export_playlist(paths: Vec<String>, output_path: String) -> Result<(), String> {
-    io(move || {
-        let output = Path::new(&output_path);
-        let entries = export_entries(&paths, output)?;
-        let mut text = String::from("#EXTM3U\n");
-        for entry in entries {
-            let get = |key: &str| {
-                export_field(&entry.fields, &entry.format, key, " / ").replace(['\r', '\n'], " ")
-            };
-            let relative = tag_core::operations::playlist_path(Path::new(&entry.path), output);
-            let path = relative.to_string_lossy();
-            if path.contains(['\r', '\n']) {
-                return Err("Playlist paths cannot contain line breaks".into());
-            }
-            text.push_str(&format!(
-                "#EXTINF:{},{} - {}\n{}\n",
-                entry.duration.round() as u64,
-                get("ARTIST"),
-                get("TITLE"),
-                path.replace('\\', "/")
-            ));
-        }
-        write_export(output, &text)
-    })
-    .await
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     e2e::install(file_ops::install(tauri::Builder::default()))
         .setup(|app| {
             let _ = APP_HANDLE.set(app.handle().clone());
             tauri::Manager::manage(app, settings::SettingsStore::open(app.handle()));
+            #[cfg(desktop)]
+            if let Some(window) = tauri::Manager::get_webview_window(app, "main") {
+                window_state::restore(&window);
+            }
             Ok(())
+        })
+        .on_window_event(|_window, _event| {
+            #[cfg(desktop)]
+            window_state::track(_window, _event);
         })
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_document_access::init())
@@ -979,7 +967,9 @@ pub fn run() {
             history::redo_last,
             history::convert_tag_to_tag,
             export_csv,
-            export_playlist,
+            playlists::read_playlist,
+            playlists::plan_playlists,
+            playlists::create_playlists,
             file_ops::load_directory_state,
             file_ops::save_directory_state,
             file_ops::remember_directories,
@@ -1008,18 +998,30 @@ pub fn run() {
             sources::tag_source_image,
             sources::tag_source_cancel,
             sources::tag_source_apply,
+            sources::tag_source_open_page,
+            sources::tag_source_save_cover,
             sources::load_tag_source_settings,
             sources::save_tag_source_settings,
             utilities::remove_tag_types,
+            utilities::apply_util,
+            utilities::strip_mp4_chapters,
             utilities::run_tool,
             utilities::export_configuration,
             utilities::import_configuration,
             utilities::open_configuration_folder,
             utilities::open_help_page,
-            utilities::write_clipboard_text
+            utilities::write_clipboard_text,
+            updates::check_for_updates,
+            updates::open_release_page
         ])
-        .run(tauri::generate_context!())
-        .expect("Unable to run OpenTag");
+        .build(tauri::generate_context!())
+        .expect("Unable to run OpenTag")
+        .run(|_app, _event| {
+            #[cfg(desktop)]
+            if let tauri::RunEvent::Exit = _event {
+                window_state::save(_app);
+            }
+        });
 }
 
 #[cfg(test)]
@@ -1254,18 +1256,30 @@ mod tests {
         .unwrap()
         .contains("provider"));
         assert!(tauri::async_runtime::block_on(export_csv(paths.clone(), output.clone())).is_err());
+        let playlist_request = |paths: Vec<String>, output: String| playlists::PlaylistRequest {
+            paths,
+            filename_template: "list.m3u8".into(),
+            partition_template: None,
+            base_directory: None,
+            output_path: Some(output),
+            playlist: None,
+            columns: None,
+        };
         assert!(
-            tauri::async_runtime::block_on(export_playlist(paths.clone(), output.clone())).is_err()
+            tauri::async_runtime::block_on(playlists::create_playlists(playlist_request(
+                paths.clone(),
+                output.clone()
+            )))
+            .is_err()
         );
-        assert!(!Path::new(&output).exists());
-        assert!(tauri::async_runtime::block_on(export_csv(
-            Vec::new(),
-            "content://command-fixture/output".into()
+        assert!(tauri::async_runtime::block_on(playlists::read_playlist(
+            "content://command-fixture/list.m3u8".into()
         ))
         .err()
         .unwrap()
         .contains("provider"));
-        assert!(tauri::async_runtime::block_on(export_playlist(
+        assert!(!Path::new(&output).exists());
+        assert!(tauri::async_runtime::block_on(export_csv(
             Vec::new(),
             "content://command-fixture/output".into()
         ))
@@ -1656,14 +1670,19 @@ mod tests {
             format!("TITLE;ARTIST;ALBUM;TRACK;YEAR;GENRE;COMMENT;PATH\r\n\"Café; 猫 \"\"live\"\"\";Mémoire\\\\Guest 猫;Native album;03/06;2020-04-18;Ambient;\"first line\nsecond line\";{}\r\n", entry.path),
         );
         let playlist = root.join("list.m3u8");
-        tauri::async_runtime::block_on(export_playlist(
+        tauri::async_runtime::block_on(playlists::create_playlists(playlists::PlaylistRequest {
             paths,
-            playlist.to_string_lossy().into_owned(),
-        ))
+            filename_template: String::new(),
+            partition_template: None,
+            base_directory: None,
+            output_path: Some(playlist.to_string_lossy().into_owned()),
+            playlist: None,
+            columns: None,
+        }))
         .unwrap();
         assert_eq!(
             std::fs::read_to_string(playlist).unwrap(),
-            "#EXTM3U\n#EXTINF:0,Mémoire / Guest 猫 - Café; 猫 \"live\"\nCafé 猫.flac\n",
+            "#EXTM3U\r\n#EXTINF:0,Mémoire - Café; 猫 \"live\"\r\nCafé 猫.flac\r\n",
         );
         assert_eq!(std::fs::read(path).unwrap(), before);
     }

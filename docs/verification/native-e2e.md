@@ -2,6 +2,10 @@
 
 Checkpoint: 2026-10-14, branch `feat/core-parity` after merging tag-panel, tag-prefs, edit-history, tag-sources, file-list and file-ops. macOS arm64, WKWebView, debug bundle built with the isolated identifier `org.opentag.editor.usertest` so the regular profile's settings are untouched.
 
+## Where native suites run
+
+Native suites open real app windows, so they run **headless in CI**: the `native-e2e` job in `.github/workflows/build.yml` builds the debug app once on Ubuntu and runs every offline suite (`core-workflows`, `covers`, `actions`, `options-utils`, `playlists`, `freedb-local`, `formats-3`) under `xvfb-run`, uploading each suite's output as an artifact. `scripts/e2e-native.sh`, `e2e-perf.sh` and `e2e-undo-bulk.sh` refuse to start outside CI unless `OPENTAG_E2E_ALLOW_LOCAL=1` is set, so test windows never appear on a working desktop by accident. The hook no longer pins the window on top. Scripts write shortcuts with the Command key; on non-Apple platforms the hook translates synthetic `metaKey` events to `ctrlKey`, matching how the app picks its primary modifier.
+
 ## How it works
 
 External accessibility automation could not deliver clicks, keys or values into the WKWebView content (element presses on native buttons worked; table rows, coordinate clicks and AX value changes did not). A debug-only hook replaces it: when a **debug** build starts with `OPENTAG_E2E_SCRIPT=<file>`, `src-tauri/src/e2e.rs` evaluates the script in the main webview after page load, and the script reports through the `e2e_report` / `e2e_exit` commands. Release builds and debug builds without the variable ignore both commands and never read the variable's file.

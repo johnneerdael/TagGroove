@@ -1545,30 +1545,56 @@ impl Id3Target {
     }
 }
 
+/// Write `tag` into `file`: in place when it fits the existing tag and its
+/// padding, otherwise as a full rewrite that reserves padding for later edits.
 pub(super) fn save_id3(
     file: &mut std::fs::File,
     kind: lofty::file::FileType,
     tag: &Id3v2Tag,
     target: &Id3Target,
 ) -> Result<(), String> {
+    let render = |padding| render_id3_padded(tag, target, Some(padding));
+    if crate::id3_padding::save_in_place(file, kind, render)? {
+        return Ok(());
+    }
     crate::write_cost::rewrote_all();
     if target.version == Id3v2Version::V3 {
-        id3_v23::save(file, kind, tag, target.latin1)
+        id3_v23::save(file, kind, &render(crate::id3_padding::PADDING)?)
     } else {
-        tag.save_to(file, WriteOptions::default().use_id3v23(false))
-            .map_err(|e| e.to_string())
+        std::io::Seek::seek(file, std::io::SeekFrom::Start(0)).map_err(|e| e.to_string())?;
+        tag.save_to(
+            file,
+            WriteOptions::default()
+                .use_id3v23(false)
+                .preferred_padding(crate::id3_padding::PADDING),
+        )
+        .map_err(|e| e.to_string())
     }
 }
 
 /// Serialize a complete ID3v2 tag for containers that embed it as an opaque
 /// block (DSF, DSDIFF). An empty result means the tag has no frames.
 pub(super) fn render_id3(tag: &Id3v2Tag, target: &Id3Target) -> Result<Vec<u8>, String> {
+    render_id3_padded(tag, target, None)
+}
+
+/// [`render_id3`] with exactly `padding` bytes of padding, or the writer's
+/// default amount when `None`.
+fn render_id3_padded(
+    tag: &Id3v2Tag,
+    target: &Id3Target,
+    padding: Option<u32>,
+) -> Result<Vec<u8>, String> {
     if target.version == Id3v2Version::V3 {
-        return id3_v23::serialize(tag, target.latin1);
+        return id3_v23::serialize_padded(tag, target.latin1, padding);
+    }
+    let mut options = WriteOptions::default().use_id3v23(false);
+    if let Some(padding) = padding {
+        options = options.preferred_padding(padding);
     }
     let mut bytes = Vec::new();
     if !tag.is_empty() {
-        tag.dump_to(&mut bytes, WriteOptions::default().use_id3v23(false))
+        tag.dump_to(&mut bytes, options)
             .map_err(|e| e.to_string())?;
     }
     Ok(bytes)

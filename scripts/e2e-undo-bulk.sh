@@ -6,6 +6,10 @@
 # region only where it can confirm the clone (APFS). Requires ffmpeg.
 # Usage: scripts/e2e-undo-bulk.sh [files] [--no-build]
 set -euo pipefail
+if [[ -z "${CI:-}" && -z "${OPENTAG_E2E_ALLOW_LOCAL:-}" ]]; then
+  echo "Refusing to open test windows on this desktop; set OPENTAG_E2E_ALLOW_LOCAL=1 to override." >&2
+  exit 2
+fi
 [[ "$(uname)" == "Darwin" ]] || { echo "e2e-undo-bulk.sh needs macOS (APFS clones)" >&2; exit 2; }
 root="$(cd "$(dirname "$0")/.." && pwd)"
 files="${1:-100}"

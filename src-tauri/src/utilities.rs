@@ -1,4 +1,5 @@
-//! Utils → Remove Tag Types, Options → Tools (user-defined external programs)
+//! Utils → Remove Tag Types, Remove Unsupported Fields, Optimize and Strip
+//! chapters MP4, Options → Tools (user-defined external programs)
 //! and File → Save/Load configuration (https://docs.mp3tag.de/utils/,
 //! https://docs.mp3tag.de/customization/options/tools/, menus/file).
 use crate::{batch, history, io, mutate_document, settings};
@@ -29,6 +30,59 @@ pub async fn remove_tag_types(
                         false,
                         &settings::tag_options(),
                     )
+                })
+            }))
+        })
+    })
+    .await
+}
+
+/// Utils that rewrite files without changing the displayed tags.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Util {
+    RemoveUnsupportedFields,
+    Optimize,
+}
+impl Util {
+    fn label(self) -> &'static str {
+        match self {
+            Self::RemoveUnsupportedFields => "Remove unsupported fields",
+            Self::Optimize => "Optimize",
+        }
+    }
+}
+
+/// Run a util on each file as one undo step. Files the util has nothing to
+/// do for are returned unchanged; unsupported formats are reported per file.
+#[tauri::command]
+pub async fn apply_util(paths: Vec<String>, util: Util) -> Result<ScanResult, String> {
+    io(move || {
+        crate::reject_provider_operation(&paths, util.label())?;
+        history::record(util.label(), None, &paths, || {
+            let options = settings::tag_options();
+            Ok(batch(&paths, |p| {
+                mutate_document(p, |p| match util {
+                    Util::RemoveUnsupportedFields => {
+                        tag_core::remove_unsupported_fields_with_options(p, false, &options)
+                    }
+                    Util::Optimize => tag_core::optimize_with_options(p, false, &options),
+                })
+            }))
+        })
+    })
+    .await
+}
+
+/// Utils → Strip chapters MP4. Files without MP4 chapters are left untouched.
+#[tauri::command]
+pub async fn strip_mp4_chapters(paths: Vec<String>) -> Result<ScanResult, String> {
+    io(move || {
+        crate::reject_provider_operation(&paths, "Stripping MP4 chapters")?;
+        history::record("Strip chapters MP4", None, &paths, || {
+            Ok(batch(&paths, |p| {
+                mutate_document(p, |p| {
+                    tag_core::strip_mp4_chapters_with_options(p, false, &settings::tag_options())
                 })
             }))
         })
@@ -630,6 +684,28 @@ mod tests {
             );
             assert_eq!(fs::read_dir(fresh.path()).unwrap().count(), 0, "{invalid}");
         }
+    }
+
+    #[test]
+    fn apply_util_reports_unsupported_formats_per_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let mp3 = dir.path().join("song.mp3");
+        let mut audio = Vec::new();
+        for frame in 0..20u32 {
+            audio.extend([0xFF, 0xFB, 0x90, 0x64]);
+            audio.extend((0..413u32).map(|i| ((i + frame * 7) % 200) as u8));
+        }
+        fs::write(&mp3, &audio).unwrap();
+        let key = mp3.to_string_lossy().into_owned();
+        let result =
+            tauri::async_runtime::block_on(apply_util(vec![key.clone()], Util::Optimize)).unwrap();
+        assert!(result.entries.is_empty());
+        assert!(result.errors[0].error.contains("FLAC and MP4"));
+        let result =
+            tauri::async_runtime::block_on(apply_util(vec![key], Util::RemoveUnsupportedFields))
+                .unwrap();
+        assert_eq!(result.entries.len(), 1, "nothing to remove is not an error");
+        assert_eq!(fs::read(&mp3).unwrap(), audio);
     }
 
     #[test]

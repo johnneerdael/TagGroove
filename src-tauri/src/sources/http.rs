@@ -1,10 +1,11 @@
 //! Network hygiene for tag sources: one shared rustls client, a trusted host
 //! list (also enforced on redirects), serialised per-service rate limits, size
 //! limits and superseded-request cancellation.
+use crate::settings::{Network, ProxyMode};
 use reqwest::{header, StatusCode, Url};
 use serde_json::Value;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, Mutex as StdMutex};
 use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 
@@ -61,39 +62,77 @@ pub fn parse_trusted(url: &str) -> Result<Url, String> {
         .ok_or_else(|| "This image address is not from a supported tag source.".to_string())
 }
 
-fn client() -> Result<&'static reqwest::Client, String> {
-    static CLIENT: OnceLock<Result<reqwest::Client, String>> = OnceLock::new();
-    CLIENT
-        .get_or_init(|| {
-            let mut roots = rustls::RootCertStore::empty();
-            roots.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
-            let mut tls = rustls::ClientConfig::builder_with_provider(Arc::new(
-                rustls::crypto::ring::default_provider(),
-            ))
-            .with_safe_default_protocol_versions()
-            .map_err(|e| e.to_string())?
-            .with_root_certificates(roots)
-            .with_no_client_auth();
-            tls.alpn_protocols = vec![b"http/1.1".to_vec()];
-            reqwest::Client::builder()
-                .tls_backend_preconfigured(tls)
-                .user_agent(USER_AGENT)
-                .connect_timeout(Duration::from_secs(10))
-                .timeout(Duration::from_secs(30))
-                .redirect(reqwest::redirect::Policy::custom(|attempt| {
-                    if attempt.previous().len() >= 5 {
-                        attempt.error("too many redirects")
-                    } else if trusted(attempt.url()) {
-                        attempt.follow()
-                    } else {
-                        attempt.error("untrusted redirect")
-                    }
-                }))
-                .build()
-                .map_err(|e| format!("Network client could not start: {e}"))
+/// A client builder with OpenTag's TLS roots, user agent and the timeout and
+/// proxy from Options → Networking.
+pub(crate) fn builder(network: &Network) -> Result<reqwest::ClientBuilder, String> {
+    let mut roots = rustls::RootCertStore::empty();
+    roots.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+    let mut tls = rustls::ClientConfig::builder_with_provider(Arc::new(
+        rustls::crypto::ring::default_provider(),
+    ))
+    .with_safe_default_protocol_versions()
+    .map_err(|e| e.to_string())?
+    .with_root_certificates(roots)
+    .with_no_client_auth();
+    tls.alpn_protocols = vec![b"http/1.1".to_vec()];
+    let timeout = Duration::from_secs(network.timeout);
+    let builder = reqwest::Client::builder()
+        .tls_backend_preconfigured(tls)
+        .user_agent(USER_AGENT)
+        .connect_timeout(timeout.min(Duration::from_secs(10)))
+        .timeout(timeout);
+    Ok(match network.proxy {
+        // reqwest reads the system configuration unless told otherwise.
+        ProxyMode::System => builder,
+        ProxyMode::None => builder.no_proxy(),
+        ProxyMode::Manual => builder.proxy(
+            reqwest::Proxy::all(network.proxy_address()?)
+                .map_err(|e| format!("The proxy cannot be used: {e}"))?,
+        ),
+    })
+}
+
+type CachedClient = StdMutex<Option<(Network, reqwest::Client)>>;
+
+/// A client from `slot`, rebuilt when the networking options change.
+fn cached_client(
+    slot: &CachedClient,
+    redirect: fn() -> reqwest::redirect::Policy,
+) -> Result<reqwest::Client, String> {
+    let network = crate::settings::network();
+    let mut cached = slot.lock().map_err(|_| "Network client lock failed")?;
+    if let Some((_, client)) = cached.as_ref().filter(|(config, _)| *config == network) {
+        return Ok(client.clone());
+    }
+    let client = builder(&network)?
+        .redirect(redirect())
+        .build()
+        .map_err(|e| format!("Network client could not start: {e}"))?;
+    *cached = Some((network, client.clone()));
+    Ok(client)
+}
+
+/// The tag source client: redirects are followed only to trusted hosts.
+fn client() -> Result<reqwest::Client, String> {
+    static CLIENT: CachedClient = StdMutex::new(None);
+    cached_client(&CLIENT, || {
+        reqwest::redirect::Policy::custom(|attempt| {
+            if attempt.previous().len() >= 5 {
+                attempt.error("too many redirects")
+            } else if trusted(attempt.url()) {
+                attempt.follow()
+            } else {
+                attempt.error("untrusted redirect")
+            }
         })
-        .as_ref()
-        .map_err(Clone::clone)
+    })
+}
+
+/// The freedb server is user-configured (Options → Tag Sources → freedb), so
+/// it is not on the trusted list; its client never follows redirects.
+fn freedb_client() -> Result<reqwest::Client, String> {
+    static CLIENT: CachedClient = StdMutex::new(None);
+    cached_client(&CLIENT, reqwest::redirect::Policy::none)
 }
 
 /// Requests through one gate run one at a time, at least `spacing` apart.
@@ -108,6 +147,7 @@ pub static DISCOGS: Gate = Gate::new();
 pub static IMAGES: Gate = Gate::new();
 /// Cover Art Archive listings can take many seconds; keep them off the image gate.
 pub static ARCHIVE: Gate = Gate::new();
+pub static FREEDB: Gate = Gate::new();
 
 pub struct Service {
     pub name: &'static str,
@@ -125,6 +165,17 @@ async fn send(
     channel: Channel,
     ticket: u64,
 ) -> Result<reqwest::Response, String> {
+    send_with(&client()?, service, url, accept, channel, ticket).await
+}
+
+async fn send_with(
+    client: &reqwest::Client,
+    service: &Service,
+    url: &Url,
+    accept: &str,
+    channel: Channel,
+    ticket: u64,
+) -> Result<reqwest::Response, String> {
     let mut last = service.gate.0.lock().await;
     if let Some(previous) = *last {
         let wait = service.spacing.saturating_sub(previous.elapsed());
@@ -135,7 +186,7 @@ async fn send(
     if stale(channel, ticket) {
         return Err(CANCELLED.into());
     }
-    let mut request = client()?.get(url.clone()).header(header::ACCEPT, accept);
+    let mut request = client.get(url.clone()).header(header::ACCEPT, accept);
     if let Some(token) = service.token.as_deref().filter(|t| !t.is_empty()) {
         request = request.header(header::AUTHORIZATION, format!("Discogs token={token}"));
     }
@@ -168,7 +219,7 @@ pub fn status_message(service: &str, status: StatusCode, authenticated: bool) ->
     }
 }
 
-async fn read_limited(
+pub(crate) async fn read_limited(
     mut response: reqwest::Response,
     limit: usize,
     service: &str,
@@ -230,6 +281,70 @@ pub async fn json(
         StatusCode::SERVICE_UNAVAILABLE,
         false,
     ))
+}
+
+const MAX_TEXT_BYTES: usize = 1024 * 1024;
+
+/// A CDDB protocol response from the configured freedb server, as text.
+pub async fn freedb_text(
+    service: &Service,
+    url: &Url,
+    channel: Channel,
+    ticket: u64,
+) -> Result<String, String> {
+    if !matches!(url.scheme(), "http" | "https") || url.host_str().is_none() {
+        return Err(
+            "The freedb server address is not valid. Check Options → Tag Sources → freedb.".into(),
+        );
+    }
+    let response = send_with(
+        &freedb_client()?,
+        service,
+        url,
+        "text/plain",
+        channel,
+        ticket,
+    )
+    .await?;
+    let status = response.status();
+    if status.is_redirection() {
+        return Err(format!(
+            "{} redirected to another address. Check the server in Options → Tag Sources → freedb.",
+            service.name
+        ));
+    }
+    if !status.is_success() {
+        return Err(match status.as_u16() {
+            404 => format!(
+                "{} has no CDDB program at this path. Check Options → Tag Sources → freedb.",
+                service.name
+            ),
+            _ => status_message(service.name, status, false),
+        });
+    }
+    let body = read_limited(response, MAX_TEXT_BYTES, service.name).await?;
+    if stale(channel, ticket) {
+        return Err(CANCELLED.into());
+    }
+    Ok(String::from_utf8_lossy(&body).into_owned())
+}
+
+/// Release pages that "Preview" may open in the browser.
+pub fn release_page(url: &str) -> Result<Url, String> {
+    Url::parse(url)
+        .ok()
+        .filter(|url| {
+            let host = url.host_str().unwrap_or_default().to_ascii_lowercase();
+            url.scheme() == "https"
+                && url.username().is_empty()
+                && url.password().is_none()
+                && url.port().is_none()
+                && matches!(
+                    host.as_str(),
+                    "musicbrainz.org" | "www.discogs.com" | "discogs.com" | "gnudb.org"
+                )
+        })
+        .ok_or_else(|| "This address is not a tag source release page.".to_string())
 }
 
 pub async fn image(url: &str, channel: Channel, ticket: u64) -> Result<Image, String> {
@@ -359,5 +474,80 @@ mod tests {
     #[test]
     fn client_builds_with_the_ring_provider() {
         assert!(client().is_ok());
+        assert!(freedb_client().is_ok());
+    }
+
+    #[test]
+    fn preview_opens_only_release_pages_of_known_sources() {
+        for good in [
+            "https://musicbrainz.org/release/d073287b-d1bd-4f11-a933-a4386f8cf701",
+            "https://www.discogs.com/release/1225",
+            "https://gnudb.org/cd/ro7a0a6b09",
+        ] {
+            assert!(release_page(good).is_ok(), "{good}");
+        }
+        for bad in [
+            "http://musicbrainz.org/release/x",
+            "https://example.com/",
+            "file:///etc/passwd",
+            "javascript:alert(1)",
+            "https://musicbrainz.org.evil.com/",
+        ] {
+            assert!(release_page(bad).is_err(), "{bad}");
+        }
+    }
+
+    #[test]
+    fn networking_options_configure_the_client() {
+        for proxy in [ProxyMode::System, ProxyMode::None, ProxyMode::Manual] {
+            let network = Network {
+                timeout: 12,
+                proxy,
+                proxy_url: "127.0.0.1:3128".into(),
+            };
+            assert!(builder(&network).unwrap().build().is_ok(), "{proxy:?}");
+        }
+        let broken = Network {
+            proxy: ProxyMode::Manual,
+            proxy_url: "user:secret@proxy:1".into(),
+            ..Network::default()
+        };
+        assert!(builder(&broken).is_err());
+    }
+
+    #[test]
+    fn manual_proxy_carries_requests() {
+        // A one-shot proxy on loopback answers the tunnel request with 403.
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let seen = std::thread::spawn(move || {
+            use std::io::{Read, Write};
+            let (mut socket, _) = listener.accept().unwrap();
+            let mut request = [0; 512];
+            let n = socket.read(&mut request).unwrap();
+            socket
+                .write_all(b"HTTP/1.1 403 Forbidden\r\ncontent-length: 0\r\n\r\n")
+                .unwrap();
+            String::from_utf8_lossy(&request[..n]).into_owned()
+        });
+        let network = Network {
+            timeout: 5,
+            proxy: ProxyMode::Manual,
+            proxy_url: format!("127.0.0.1:{port}"),
+        };
+        let result = tauri::async_runtime::block_on(tauri::async_runtime::spawn(async move {
+            let client = builder(&network).unwrap().build().unwrap();
+            client
+                .get("https://musicbrainz.org/ws/2/release/x")
+                .send()
+                .await
+                .map(|_| ())
+        }))
+        .unwrap();
+        assert!(result.is_err(), "the proxy refused the tunnel");
+        assert!(seen
+            .join()
+            .unwrap()
+            .starts_with("CONNECT musicbrainz.org:443"));
     }
 }

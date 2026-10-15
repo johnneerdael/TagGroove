@@ -48,6 +48,48 @@ jobs:
         with:
           name: OpenTag-${{ matrix.os }}
           path: target/release/bundle/
+  native-e2e:
+    name: Native UI workflows (headless)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: native-e2e
+      - name: Linux UI dependencies
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf ffmpeg xvfb xauth dbus-x11
+      - run: npm ci
+      - name: Build the debug app once
+        run: |
+          npx tauri build --debug --no-bundle \
+            --config '{"identifier":"org.opentag.editor.usertest","productName":"OpenTag UserTest"}'
+      - name: Run native suites under xvfb
+        run: |
+          set -o pipefail
+          mkdir -p e2e-output
+          status=0
+          for suite in core-workflows covers actions options-utils playlists freedb-local formats-3 general-options; do
+            fixtures=""
+            [[ -x "tests/e2e/$suite-fixtures.sh" ]] && fixtures="$PWD/tests/e2e/$suite-fixtures.sh"
+            echo "::group::$suite"
+            if ! OPENTAG_E2E_OFFLINE=1 OPENTAG_E2E_FIXTURES="$fixtures" dbus-run-session -- xvfb-run -a scripts/e2e-native.sh "tests/e2e/$suite.js" --no-build 2>&1 | tee "e2e-output/$suite.txt"; then
+              echo "::error::Native suite $suite failed"
+              status=1
+            fi
+            echo "::endgroup::"
+          done
+          exit $status
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-e2e-output
+          path: e2e-output/
   android:
     name: Android document integration
     runs-on: ubuntu-24.04

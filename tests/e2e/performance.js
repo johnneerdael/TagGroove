@@ -71,7 +71,7 @@
       if (loaded) covers.push(performance.now() - t);
     }
     await both('select_arrow', arrows);
-    for (const name of ['workspace render', 'selection refresh', 'table window', 'table selection', 'sort', 'filter']) { const list = timings.filter(t => t.name === name).map(t => t.ms); if (list.length) await perf(`phase ${name.replace(/ /g, '_')}`, stats(list)); }
+    for (const name of ['workspace render', 'selection refresh', 'list refresh', 'table window', 'table selection', 'sort', 'filter']) { const list = timings.filter(t => t.name === name).map(t => t.ms); if (list.length) await perf(`phase ${name.replace(/ /g, '_')}`, stats(list)); }
     await perf('cover_hydrate_after_arrow', `${stats(covers)} ${ipc('get_covers', 0)}`);
 
     // 3. Sort by a column (header click), then restore filename order.
@@ -95,6 +95,11 @@
     await settled(); await waitFor(() => !document.querySelector('.filterbar .count')?.textContent.includes('Filtering'), 60000, 'filter result');
     await both('filter_keystroke', typed);
     await perf('filter_type_to_result', `ms=${round(performance.now() - filterStart)} visible=${rows().length} count="${document.querySelector('.filterbar .count')?.textContent}" ${ipcSince(filterStart)}`);
+    // A second query over the same files (the backend already holds their filter fields).
+    input = document.querySelector('#filter'); const requeryStart = performance.now();
+    input.value = 'mix'; input.dispatchEvent(new Event('input', { bubbles: true }));
+    await sleep(150); await settled(); await waitFor(() => !document.querySelector('.filterbar .count')?.textContent.includes('Filtering'), 60000, 'requery result');
+    await perf('filter_requery', `ms=${round(performance.now() - requeryStart)} visible=${rows().length} ${ipcSince(requeryStart)}`);
     input = document.querySelector('#filter'); input.value = ''; const clearStart = performance.now(); input.dispatchEvent(new Event('input', { bubbles: true })); await settled();
     await perf('filter_clear', `ms=${round(performance.now() - clearStart)}`);
     input.blur?.();

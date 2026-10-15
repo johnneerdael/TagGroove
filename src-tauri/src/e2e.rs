@@ -8,6 +8,20 @@ fn enabled() -> bool {
     cfg!(any(debug_assertions, feature = "e2e")) && std::env::var_os("OPENTAG_E2E_SCRIPT").is_some()
 }
 
+/// Scripts write shortcuts with the macOS Command key. Elsewhere the app's
+/// primary modifier is Ctrl (it checks `navigator.platform`), so synthetic
+/// events created with `metaKey` are translated to `ctrlKey`.
+const SHORTCUT_PRELUDE: &str = r#"(() => {
+  if (/Mac|iPhone|iPad/.test(navigator.platform) || window.__opentagShortcutPrelude) return;
+  window.__opentagShortcutPrelude = true;
+  const Native = window.KeyboardEvent;
+  window.KeyboardEvent = class extends Native {
+    constructor(type, init = {}) {
+      super(type, init.metaKey ? { ...init, metaKey: false, ctrlKey: true } : init);
+    }
+  };
+})();"#;
+
 pub fn install(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry> {
     if !enabled() {
         return builder;
@@ -19,14 +33,14 @@ pub fn install(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry
         let Some(path) = std::env::var_os("OPENTAG_E2E_SCRIPT") else {
             return;
         };
-        // Hidden or covered webviews suspend animation frames; keep the window
-        // visible. Never take keyboard focus: the user's typing in other apps
-        // would land in the scripted window.
-        #[cfg(desktop)]
-        let _ = webview.window().set_always_on_top(true);
+        // The scripted window must never pin itself above or take focus from a
+        // user's windows; native suites run headless in CI (xvfb).
         match std::fs::read_to_string(&path) {
             Ok(script) => {
-                if let Err(error) = webview.eval(&script) {
+                if let Err(error) = webview.eval(format!(
+                    "window.OPENTAG_E2E_OFFLINE = {};\n{SHORTCUT_PRELUDE}\n{script}",
+                    std::env::var_os("OPENTAG_E2E_OFFLINE").is_some()
+                )) {
                     eprintln!("[e2e] script could not be evaluated: {error}");
                 }
             }

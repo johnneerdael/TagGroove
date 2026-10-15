@@ -1,4 +1,5 @@
-// Utils → Remove Tag Types, Edit → Copy as Text… and Repeat, Help → Keyboard
+// Utils → Remove Tag Types, Remove Unsupported Fields, Optimize and Strip
+// chapters MP4, Edit → Copy as Text… and Repeat, Help → Keyboard
 // shortcuts, and File → Save/Load configuration
 // (https://docs.mp3tag.de/utils/, menus/edit, menus/help, menus/file, keyboard).
 import type { HistoryState } from './edit-history';
@@ -6,6 +7,21 @@ import type { HistoryState } from './edit-history';
 const html=(value:unknown)=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 export type Modal=(title:string,content:string,buttons:string)=>HTMLDialogElement;
 export type ModalError=(dialog:HTMLDialogElement,error:unknown)=>void;
+
+// Remove unsupported fields, Optimize ---------------------------------------------
+export type Util='remove_unsupported_fields'|'optimize';
+export const UTILS:Record<Util,{label:string;formats:string[];applies:string;effect:string}>={
+  remove_unsupported_fields:{label:'Remove unsupported fields',formats:['MP3','AAC','AIFF','WAV'],applies:'MP3 files (ID3v2 tags, also in AAC, AIFF and WAV)',
+    effect:'ID3v2 frames OpenTag cannot display (listed by %_id3v2_unknown_frames%, such as PRIV or GEOB) are removed permanently.'},
+  optimize:{label:'Optimize',formats:['FLAC','MP4'],applies:'FLAC and MP4 files',
+    effect:'FLAC files get exactly 4 KB of padding. MP4 files lose their free space and get the movie and tag data before the audio data.'},
+};
+/** How many of the selected files a util applies to, by their format. */
+export function utilTargets(util:Util,formats:string[]){return formats.filter(format=>UTILS[util].formats.includes(format)).length;}
+export function utilMessage(util:Util,formats:string[]){
+  const spec=UTILS[util],count=utilTargets(util,formats),other=formats.length-count;
+  return `${spec.label} for ${count} of ${formats.length} selected file${formats.length===1?'':'s'}? ${spec.effect}${other?` ${other} file${other===1?' is':'s are'} skipped: this applies to ${spec.applies}.`:''} Files that need no change are not rewritten. Edit → Undo restores the files during this session.`;
+}
 
 // Remove tag types ---------------------------------------------------------------
 export type RemovableTag='id3v1'|'id3v2'|'ape';
@@ -24,7 +40,7 @@ export function tagKindCounts(tags:(string|undefined)[]):Record<RemovableTag,num
 export type RemoveTagTypesHost={modal:Modal;modalError:ModalError;tags:()=>(string|undefined)[];remove:(kinds:RemovableTag[])=>Promise<void>};
 export function removeTagTypesDialog(host:RemoveTagTypesHost){
   const tags=host.tags(),counts=tagKindCounts(tags);
-  const dialog=host.modal('Remove tag types',`<p>Remove the checked tag types from ${tags.length} selected file${tags.length===1?'':'s'}. Applies to MP3, APE, Musepack and WavPack files; Options → Tags is not used.</p>
+  const dialog=host.modal('Remove tag types',`<p>Remove the checked tag types from ${tags.length} selected file${tags.length===1?'':'s'}. Applies to MP3, TTA, APE, Musepack, WavPack, TAK and OptimFROG files; Options → Tags is not used.</p>
     <fieldset class="numbering-section"><legend>Tag types</legend>${REMOVABLE_TAGS.map(([kind,label])=>`<label class="action-check"><input type="checkbox" data-tag-kind="${kind}" ${counts[kind]?'':'disabled'}> ${label} <small>(${counts[kind]} file${counts[kind]===1?'':'s'})</small></label>`).join('')}</fieldset>
     <p>APEv2 tags can hold MP3GAIN_UNDO and ReplayGain values; removing them erases that information permanently. Edit → Undo restores the files during this session.</p>`,'<button id="remove-tag-types" class="primary" disabled>Remove</button>');
   dialog.classList.add('remove-tag-types-dialog');
@@ -37,6 +53,20 @@ export function removeTagTypesDialog(host:RemoveTagTypesHost){
   });
   dialog.querySelector<HTMLInputElement>('[data-tag-kind]:not(:disabled)')?.focus();
   return dialog;
+}
+
+// Strip chapters MP4 -------------------------------------------------------------
+/** Selected MP4 files with chapters, from their `_SUBSONG_COUNT` and format. */
+export function mp4ChapterFiles(entries:{format?:string;technical?:Record<string,string[]|undefined>}[]):{files:number;chapters:number}{
+  let files=0,chapters=0;
+  for(const entry of entries){
+    const count=Number(entry.technical?._SUBSONG_COUNT?.[0]||0);
+    if(entry.format==='MP4'&&count>0){files++;chapters+=count;}
+  }
+  return{files,chapters};
+}
+export function stripChaptersPrompt(found:{files:number;chapters:number}):string{
+  return`Permanently remove ${found.chapters} chapter${found.chapters===1?'':'s'} from ${found.files} MP4 file${found.files===1?'':'s'}? The chapter boxes become free space; audio, video and tags are not changed.`;
 }
 
 // Copy as Text --------------------------------------------------------------------

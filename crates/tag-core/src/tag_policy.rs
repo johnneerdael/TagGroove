@@ -303,7 +303,13 @@ pub(super) fn write(
             .seek(SeekFrom::Start(0))
             .map_err(|e| e.to_string())?;
         if !tag.is_empty() || has(TagType::Id3v1) {
-            crate::write_cost::rewrote_all();
+            // An existing ID3v1 tag is overwritten in place (the last 128
+            // bytes); adding or removing one changes the file length.
+            if tag.is_empty() || !has(TagType::Id3v1) {
+                crate::write_cost::rewrote_all();
+            } else {
+                crate::write_cost::rewrote_region(128);
+            }
             tag.save_to(staging, WriteOptions::default())
                 .map_err(|e| error_message(&e))?;
         }
