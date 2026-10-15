@@ -13442,7 +13442,7 @@
       "key": "Ctrl+A",
       "command": "Select all",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "Handler exists in src/main.ts; scope/modifier/runtime qualification still OPEN",
+      "ui_evidence": "OK: src/main.ts keydown (⌘A on macOS). Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13450,7 +13450,7 @@
       "key": "Ctrl+Shift+A",
       "command": "Invert selection",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/list-commands.ts listShortcut. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13458,7 +13458,7 @@
       "key": "Ctrl+B",
       "command": "Restore all input fields",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "New: src/keyboard.ts windowShortcut → Edit → Discard pending changes; works while typing in the tag panel. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13466,7 +13466,7 @@
       "key": "Ctrl+C",
       "command": "Copy tag or selected text",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/edit-history.ts editShortcut; text fields keep native copy. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13474,7 +13474,7 @@
       "key": "Ctrl+Shift+C",
       "command": "Copy file",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/file-ops.ts fileShortcut. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13482,7 +13482,7 @@
       "key": "Ctrl+D",
       "command": "Change directory",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/file-ops.ts fileShortcut. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13490,7 +13490,7 @@
       "key": "Ctrl+Shift+D",
       "command": "Upper directory",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/file-ops.ts fileShortcut. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13498,7 +13498,7 @@
       "key": "Del",
       "command": "Remove file (without deleting it)",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/list-commands.ts listShortcut; on Mac keyboards ⌫ as well. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13506,7 +13506,7 @@
       "key": "Ctrl+Del",
       "command": "Delete file (to Windows Recycle Bin if activated in Windows and available on that drive)",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/file-ops.ts fileShortcut (⌘⌫ on macOS). Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13514,7 +13514,7 @@
       "key": "Ctrl+Shift+Del",
       "command": "Delete file (WARNING: the file will be removed from your harddrive!)",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "Missing: no permanent-delete operation. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13522,7 +13522,7 @@
       "key": "Ctrl+E",
       "command": "Export",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/main.ts keydown. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13530,7 +13530,7 @@
       "key": "Ctrl+Shift+E",
       "command": "Export (with an export file for each different directory)",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/main.ts keydown. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13538,7 +13538,7 @@
       "key": "Ctrl+F",
       "command": "Find",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/list-commands.ts listShortcut. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13546,7 +13546,7 @@
       "key": "Ctrl+G",
       "command": "Select similar files",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/list-commands.ts listShortcut. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13554,7 +13554,7 @@
       "key": "Ctrl+Shift+G",
       "command": "Select next similar files",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/list-commands.ts listShortcut. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13562,7 +13562,7 @@
       "key": "Ctrl+H",
       "command": "Add directory",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/file-ops.ts fileShortcut (physical Ctrl on macOS: ⌘H hides the app). Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13570,7 +13570,7 @@
       "key": "Ctrl+K",
       "command": "Auto-numbering wizard",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/main.ts keydown. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13578,7 +13578,7 @@
       "key": "Ctrl+Shift+K",
       "command": "Auto-numbering wizard (with counter reset for each subfolder)",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "New: src/keyboard.ts windowShortcut → Auto-numbering with Next disc on change of directory + Reset track counter preset (no DISCNUMBER written). Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13586,7 +13586,7 @@
       "key": "Ctrl+L",
       "command": "freedb (local) …",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/main.ts keydown. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13594,7 +13594,7 @@
       "key": "Ctrl+M",
       "command": "Favorite directory",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/file-ops.ts fileShortcut (physical Ctrl on macOS: ⌘M minimizes). Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13602,7 +13602,7 @@
       "key": "Ctrl+Alt+M",
       "command": "Manage covers…",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/covers.ts install (⌘⌥M); AltGr+M typing a character (µ) is left to the text field. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13610,7 +13610,7 @@
       "key": "Ctrl+N",
       "command": "Select next file",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/list-commands.ts listShortcut. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13618,7 +13618,7 @@
       "key": "Ctrl+O",
       "command": "Options …",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/main.ts keydown. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13626,7 +13626,7 @@
       "key": "Ctrl+P",
       "command": "Playlist (all files)",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/main.ts keydown. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13634,7 +13634,7 @@
       "key": "Ctrl+Shift+P",
       "command": "Playlist (all files) with one playlist for each subfolder",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "Partial: opens Generate playlists, which uses the selection when one exists. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13642,7 +13642,7 @@
       "key": "Ctrl+Q",
       "command": "Show/hide Tag Panel",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/tag-panel.ts install (physical Ctrl on macOS: ⌘Q quits). Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13650,7 +13650,7 @@
       "key": "Ctrl+R",
       "command": "Remove tag",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/remove-tag.ts removeTagShortcut (remove-mapping batch). Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13658,7 +13658,7 @@
       "key": "Ctrl+S",
       "command": "Save tag",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "Handler exists in src/main.ts; scope/modifier/runtime qualification still OPEN",
+      "ui_evidence": "OK: src/main.ts keydown. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13666,7 +13666,7 @@
       "key": "Ctrl+T",
       "command": "Read tag",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "New: src/keyboard.ts windowShortcut → File → Reload tags. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13674,7 +13674,7 @@
       "key": "Ctrl+Shift+T",
       "command": "Play",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/file-ops.ts fileShortcut. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13682,7 +13682,7 @@
       "key": "Ctrl+U",
       "command": "Unselect all",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/list-commands.ts listShortcut. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13690,7 +13690,7 @@
       "key": "Ctrl+V",
       "command": "Paste tag or text",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/edit-history.ts editShortcut. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13698,7 +13698,7 @@
       "key": "Ctrl+Shift+V",
       "command": "Move file",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/file-ops.ts fileShortcut. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13706,7 +13706,7 @@
       "key": "Ctrl+X",
       "command": "Cut tag or selected text",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/edit-history.ts editShortcut. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13714,7 +13714,7 @@
       "key": "Ctrl+Z",
       "command": "Undo",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/edit-history.ts editShortcut. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13722,7 +13722,7 @@
       "key": "Ctrl+1, 2, ..., 0",
       "command": "User-defined Tool 1 to 10.",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/tools.ts toolShortcutIndex. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13730,7 +13730,7 @@
       "key": "Del",
       "command": "Remove",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/list-commands.ts listShortcut; on Mac keyboards ⌫ as well. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13738,7 +13738,7 @@
       "key": "F2",
       "command": "Rename first file or edit first editable column",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/list-commands.ts listShortcut. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13746,7 +13746,7 @@
       "key": "F3",
       "command": "Filter",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: focuses the filter, which is always shown. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13754,7 +13754,7 @@
       "key": "F4",
       "command": "Play selected file(s)",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/file-ops.ts fileShortcut. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13762,7 +13762,7 @@
       "key": "F5",
       "command": "Refresh",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/list-commands.ts listShortcut. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13770,7 +13770,7 @@
       "key": "Alt+Right arrow",
       "command": "Forward in directory history",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/file-ops.ts fileShortcut (outside text fields). Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13778,7 +13778,7 @@
       "key": "Alt+Left arrow",
       "command": "Backward in directory history",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/file-ops.ts fileShortcut (outside text fields). Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13786,7 +13786,7 @@
       "key": "Alt+Enter",
       "command": "File properties",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "New: src/keyboard.ts windowShortcut → Open in Finder/Explorer/file manager; no system properties sheet exists cross-platform. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13794,7 +13794,7 @@
       "key": "Alt+T",
       "command": "Extended tags dialog",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "New: src/keyboard.ts windowShortcut → View → Extended tags (⌃⌥T while typing on macOS). Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13802,7 +13802,7 @@
       "key": "Alt+Drag’n’Drop",
       "command": "Change order of files in list of files.",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "Missing: no manual File List order. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13810,7 +13810,7 @@
       "key": "Alt+Arrow down",
       "command": "Change order of files in list of files.",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "Differs: moves the selection; no manual File List order. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13818,7 +13818,7 @@
       "key": "Alt+Arrow up",
       "command": "Change order of files in list of files.",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "Differs: moves the selection; no manual File List order. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13826,7 +13826,7 @@
       "key": "Alt+Page down",
       "command": "Move selected files to end in list of files.",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "Differs: moves the selection; no manual File List order. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13834,7 +13834,7 @@
       "key": "Alt+Page up",
       "command": "Move selected files to beginning in list of files.",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "Differs: moves the selection; no manual File List order. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13842,7 +13842,7 @@
       "key": "Alt+1",
       "command": "Tag - Filename",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/edit-history.ts editShortcut (⌃⌥digit while typing on macOS). Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13850,7 +13850,7 @@
       "key": "Alt+2",
       "command": "Filename - Tag",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/edit-history.ts editShortcut (⌃⌥digit while typing on macOS). Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13858,7 +13858,7 @@
       "key": "Alt+3",
       "command": "Filename - Filename",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/edit-history.ts editShortcut (⌃⌥digit while typing on macOS). Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13866,7 +13866,7 @@
       "key": "Alt+4",
       "command": "Text file - Tag",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/edit-history.ts editShortcut (⌃⌥digit while typing on macOS). Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13874,7 +13874,7 @@
       "key": "Alt+5",
       "command": "Tag - Tag",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/edit-history.ts editShortcut (⌃⌥digit while typing on macOS). Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13882,7 +13882,7 @@
       "key": "Alt+6",
       "command": "Actions",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "Handler exists in src/main.ts; scope/modifier/runtime qualification still OPEN",
+      "ui_evidence": "OK: src/keyboard.ts windowShortcut (⌃⌥6 while typing on macOS; Option+6 types §). Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13890,7 +13890,7 @@
       "key": "Alt+Shift+6",
       "command": "Quick action",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "Handler exists in src/main.ts; scope/modifier/runtime qualification still OPEN",
+      "ui_evidence": "OK: src/keyboard.ts windowShortcut (⌃⌥⇧6 while typing on macOS). Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13898,7 +13898,7 @@
       "key": "F2",
       "command": "Rename action group",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "F2/F4 subset exists in src/action-ui.ts; complete scope OPEN",
+      "ui_evidence": "OK: src/action-ui.ts group row keydown. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13906,7 +13906,7 @@
       "key": "F4",
       "command": "Edit action (group)",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "F2/F4 subset exists in src/action-ui.ts; complete scope OPEN",
+      "ui_evidence": "OK: src/action-ui.ts group row and group editor keydown. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13914,7 +13914,7 @@
       "key": "Insert",
       "command": "New action (group)",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "New: src/action-ui.ts actionListKey: New group / New action. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13922,7 +13922,7 @@
       "key": "Delete",
       "command": "Delete action (group)",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "New: src/action-ui.ts actionListKey: Remove group / action (⌫ on Mac keyboards). Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13930,7 +13930,7 @@
       "key": "Space",
       "command": "Enable action group",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "New: src/action-ui.ts actionListKey: toggles the focused group row. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13938,7 +13938,7 @@
       "key": "Ctrl+A",
       "command": "Select all actions or action groups",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "Missing: the lists select one item at a time. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13946,7 +13946,7 @@
       "key": "Ctrl+Shift+A",
       "command": "Invert selection of actions or action groups",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "Missing: the lists select one item at a time. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13954,7 +13954,7 @@
       "key": "Ctrl+E",
       "command": "Enable all action groups",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "New: src/action-ui.ts actionListKey: enable all groups. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13962,7 +13962,7 @@
       "key": "Ctrl+D",
       "command": "Disable all action groups",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "New: src/action-ui.ts actionListKey: disable all groups. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13970,7 +13970,7 @@
       "key": "Ctrl+S",
       "command": "Save current order and enabled state of action groups",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "New: src/action-ui.ts actionListKey: Save groups. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13978,7 +13978,7 @@
       "key": "Alt+Up",
       "command": "Move action or action group up",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "New: src/action-ui.ts actionListKey (groups and actions). Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13986,7 +13986,7 @@
       "key": "Alt+Down",
       "command": "Move action or action group down",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "New: src/action-ui.ts actionListKey (groups and actions). Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13994,7 +13994,7 @@
       "key": "Alt+Page Up",
       "command": "Move action or action group to beginning of list",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "New: src/action-ui.ts actionListKey: move to the beginning. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -14002,7 +14002,7 @@
       "key": "Alt+Page Down",
       "command": "Move action or action group to end of list",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "New: src/action-ui.ts actionListKey: move to the end. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -14010,7 +14010,7 @@
       "key": "Ctrl+I",
       "command": "Last used Tag Source",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "Partial: remembers MusicBrainz or Discogs only. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -14018,7 +14018,7 @@
       "key": "Ctrl+Shift+I",
       "command": "Last used Tag Source (Quick)",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "Partial: same as Ctrl+I; the search step is not skipped. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -14026,7 +14026,7 @@
       "key": "F2",
       "command": "Edit value of selected field",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/tag-sources.ts review keydown. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -14034,7 +14034,7 @@
       "key": "Space",
       "command": "Enable selected field",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: field checkboxes. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -14042,7 +14042,7 @@
       "key": "Ctrl+A",
       "command": "Select all fields",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "Missing: fields are not multi-selectable. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -14050,7 +14050,7 @@
       "key": "Ctrl+Shift+A",
       "command": "Invert selection of fields",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "Missing: fields are not multi-selectable. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -14058,7 +14058,7 @@
       "key": "Ctrl+E",
       "command": "Enable all fields",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/tag-sources.ts review keydown. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -14066,7 +14066,7 @@
       "key": "Ctrl+D",
       "command": "Disable all fields",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/tag-sources.ts review keydown. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -14074,7 +14074,7 @@
       "key": "Alt+Up",
       "command": "Move file up",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/tag-sources.ts review keydown. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -14082,7 +14082,7 @@
       "key": "Alt+Down",
       "command": "Move file down",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/tag-sources.ts review keydown. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -14090,7 +14090,7 @@
       "key": "Alt+Page Up",
       "command": "Move file to beginning of list",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "New: src/tag-sources.ts moveSlotTo: file to the beginning. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -14098,7 +14098,7 @@
       "key": "Alt+Page Down",
       "command": "Move file to end of list",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "New: src/tag-sources.ts moveSlotTo: file to the end. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -14106,7 +14106,7 @@
       "key": "F4",
       "command": "Edit selected item",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "Missing: no toolbar customization dialog. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -14114,7 +14114,7 @@
       "key": "Space",
       "command": "Show/hide selected item",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "Missing: no toolbar customization dialog. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -14122,7 +14122,7 @@
       "key": "Ctrl+E",
       "command": "Show all items",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "Missing: no toolbar customization dialog. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -14130,7 +14130,7 @@
       "key": "Ctrl+D",
       "command": "Hide all items",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "Missing: no toolbar customization dialog. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -14138,7 +14138,7 @@
       "key": "Alt+Up",
       "command": "Move item up",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "Missing: no toolbar customization dialog. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -14146,7 +14146,7 @@
       "key": "Alt+Down",
       "command": "Move item down",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "Missing: no toolbar customization dialog. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -14154,7 +14154,7 @@
       "key": "Alt+Page Up",
       "command": "Move item to beginning of list",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "Missing: no toolbar customization dialog. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -14162,7 +14162,7 @@
       "key": "Alt+Page Down",
       "command": "Move item to end of list",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "Missing: no toolbar customization dialog. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -14170,7 +14170,7 @@
       "key": "Ctrl+Space",
       "command": "Displays format string helper menu (e.g., at converters or actions)",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "New: src/helper-menu.ts helperKey (physical Ctrl; ⌃⌥Space also on macOS). Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -14178,7 +14178,7 @@
       "key": "Ctrl+Tab",
       "command": "Quick forward navigation between sub-windows (Tag Panel, Filter, File View)",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "New: src/keyboard.ts windowShortcut + src/keyboard.ts nextPane: Tag Panel → Filter → File List (physical Ctrl on macOS). Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -14186,7 +14186,7 @@
       "key": "Ctrl+Shift+Tab",
       "command": "Quick backward navigation between sub-windows (Tag Panel, Filter, File View)",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "New: src/keyboard.ts windowShortcut + nextPane, backwards. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -14194,7 +14194,7 @@
       "key": "Ctrl+Num++",
       "command": "Automatically size the File List columns to match the content",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "New: src/keyboard.ts windowShortcut → View → Auto-size columns (src/columns.ts fitColumns); also double-click a header divider. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -14202,7 +14202,7 @@
       "key": "Shift+Del",
       "command": "Remove format strings which are not longer needed from drop-down lists.",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "New: src/helper-menu.ts helperKey: removes the input value from its drop-down history. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -14210,7 +14210,7 @@
       "key": "Shift+Enter",
       "command": "Add the contents of the current Tag Panel field to the list of custom list values for that field",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "No matching handler identified in inspected UI; OPEN",
+      "ui_evidence": "OK: src/tag-panel.ts comboKey. Keyboard batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     }
   ],
