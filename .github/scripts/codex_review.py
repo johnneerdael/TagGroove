@@ -212,8 +212,10 @@ class GitHub:
             comment["_reviewed_commits"] = resolved
         threads = self.threads(number)
         current = self.get(f"pulls/{number}")
-        if (current["head"]["sha"], current["state"], current["draft"], current["base"]["ref"], current.get("body")) != (
-                pr["head"]["sha"], pr["state"], pr["draft"], pr["base"]["ref"], pr.get("body")):
+        if (current["head"]["sha"], current["state"], current["draft"], current["base"]["ref"], current.get("body"),
+                current.get("requested_reviewers"), current.get("requested_teams")) != (
+                pr["head"]["sha"], pr["state"], pr["draft"], pr["base"]["ref"], pr.get("body"),
+                pr.get("requested_reviewers"), pr.get("requested_teams")):
             raise RuntimeError("PR changed while reading review state")
         review_pr = dict(pr)
         if merged and pr.get("merged") and pr["state"] == "closed" and pr["base"]["ref"] == "main":

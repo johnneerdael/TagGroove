@@ -38,6 +38,24 @@ jobs:
           PR_MERGE: ${{ inputs.merge_sha }}
           PR_NUMBER: ${{ inputs.pr_number }}
         run: python3 .github/scripts/review_gate.py verify --pr "$PR_NUMBER"
+  tooling:
+    needs: authorize
+    if: needs.authorize.outputs.ready == 'true'
+    name: Review and release tooling tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.merge_sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python3 -m unittest discover -s .github/scripts/tests -v
+      - run: node --test tests/release.test.mjs
   desktop:
     needs: authorize
     if: needs.authorize.outputs.ready == 'true'
