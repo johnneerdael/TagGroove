@@ -141,7 +141,8 @@
       await inv('save_export_library', { library });
       document.body.focus(); key('a', { metaKey: true }); await sleep(200);
       key('e', { metaKey: true });
-      await waitFor(() => inv('read_playlist', { path: album + '/export.m3u8' }), 8000, 'export (' + status() + ')');
+      const state = () => `${status()}; busy ${!!document.querySelector('footer.status.busy')}; selected ${document.querySelectorAll('tr.selected').length}; focus ${document.activeElement?.tagName}; dialog ${document.querySelector('dialog[open]')?.className || 'none'}; errors ${document.querySelector('section.errors')?.textContent?.slice(0, 300) || 'none'}`;
+      await waitFor(() => inv('read_playlist', { path: album + '/export.m3u8' }), 8000, 'export (' + state() + ')');
       await relaunch(album + '/export.m3u8', anyFile);
       await waitFor(() => /export\.m3u8$/.test(document.querySelector('.location .path')?.textContent || ''), 15000, 'playlist location');
       await idle();
