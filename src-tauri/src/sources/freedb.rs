@@ -328,7 +328,7 @@ impl Xmcd {
             .map(|(_, v)| v.as_str())
             .unwrap_or_default()
     }
-    fn track_count(&self) -> usize {
+    pub fn track_count(&self) -> usize {
         self.values
             .iter()
             .filter_map(|(k, _)| k.strip_prefix("TTITLE")?.parse::<usize>().ok())
@@ -619,10 +619,7 @@ pub fn decode(bytes: &[u8]) -> String {
     }
 }
 
-/// Every entry with this disc ID in a local freedb folder: `<category>/<discid>`
-/// files (Unix layout) or `<category>/<xx>to<yy>` files holding several
-/// entries after `#FILENAME=<discid>` lines (Windows layout).
-pub fn local_lookup(directory: &Path, disc_id: &str) -> Result<Vec<(String, String)>, String> {
+pub fn check_local_directory(directory: &Path) -> Result<(), String> {
     if directory.as_os_str().is_empty() {
         return Err(
             "Choose your local freedb folder in Options → Tag Sources → Local freedb.".into(),
@@ -634,6 +631,14 @@ pub fn local_lookup(directory: &Path, disc_id: &str) -> Result<Vec<(String, Stri
             directory.display()
         ));
     }
+    Ok(())
+}
+
+/// Every entry with this disc ID in a local freedb folder: `<category>/<discid>`
+/// files (Unix layout) or `<category>/<xx>to<yy>` files holding several
+/// entries after `#FILENAME=<discid>` lines (Windows layout).
+pub fn local_lookup(directory: &Path, disc_id: &str) -> Result<Vec<(String, String)>, String> {
+    check_local_directory(directory)?;
     let prefix = u8::from_str_radix(&disc_id[..2], 16).map_err(|e| e.to_string())?;
     let mut categories: Vec<_> = std::fs::read_dir(directory)
         .map_err(|e| format!("The local freedb folder could not be read: {e}"))?
