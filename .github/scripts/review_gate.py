@@ -41,12 +41,12 @@ def check_pr(api, number, source=None):
     pr, (ready, reason) = api.snapshot(number)
     if not ready:
         raise RuntimeError(reason)
+    if pr.get('mergeable') is not True:
+        raise RuntimeError('PR is not mergeable')
     head, base, merge = pr['head']['sha'], api.get('git/ref/heads/main')['object']['sha'], pr.get('merge_commit_sha')
     shas(head, base, merge)
     if source is not None and tuple(source) != (head, base, merge):
         raise RuntimeError('Dispatch revision changed; fresh review/validation required')
-    if pr.get('mergeable') is not True:
-        raise RuntimeError('PR is not mergeable')
     parents = api.get(f'git/commits/{merge}')['parents']
     if [item['sha'] for item in parents] != [base, head]:
         raise RuntimeError('Test merge does not bind current main and reviewed head')

@@ -6,6 +6,8 @@ Only trusted metadata authorization can run before review. `review-controller.ym
 
 The dispatched workflow repeats authorization against the exact current main/head/test-merge triple. Its reusable build independently authenticates the calling main workflow and repeats the same read-only preflight before any application code, dependencies or tests run. PR code receives no repository signing secrets, checkout credentials or shared build caches. Successful builds receive `Reviewed PR builds` proof bound to the reviewed head, current base and immutable test merge; every required workload must succeed.
 
+Conflicting PRs and pending test-merge calculations remain blocked without dispatching application jobs. When the reviewed source contains `mkdocs.yml`, validation also runs the pinned guide toolchain, publication tests, writing-plan check and strict documentation build. This build has no Pages upload or deployment permissions.
+
 On a main push, `reviewed-release.yml` is dispatched only for a uniquely associated merged PR with clean final-head Codex review and successful trusted validation proof. The published source must have the exact validated parents and tree. The release workflow verifies this before building/signing and again before publication. Direct main containment/bootstrap commits have no source PR and authorize no release. Existing platform, version, signature, checksum and complete-asset checks remain in the new release workflow.
 
 Enable only the new controller, metadata signal, reviewed PR workflow, reusable reviewed build and reviewed release paths after installation. Require `Codex review` and `Reviewed PR builds` plus applicable checks through main branch protection/rulesets. Run a manual metadata recheck with:

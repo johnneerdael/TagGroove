@@ -207,3 +207,32 @@ jobs:
           name: OpenTag-android-arm64-debug
           path: src-tauri/gen/android/app/build/outputs/apk/universal/debug/*.apk
           if-no-files-found: error
+
+  docs:
+    needs: authorize
+    if: needs.authorize.outputs.ready == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      NO_MKDOCS_2_WARNING: 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.merge_sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        if: hashFiles('mkdocs.yml') != ''
+        with:
+          python-version: '3.12'
+      - name: Install the pinned user-guide toolchain
+        if: hashFiles('mkdocs.yml') != ''
+        run: python -m pip install -r docs/site-requirements.txt
+      - name: Check documentation publication boundaries and rendered content
+        if: hashFiles('mkdocs.yml') != ''
+        run: python -m unittest discover -s docs/tests -v
+      - name: Check the complete user-guide writing plan
+        if: hashFiles('mkdocs.yml') != ''
+        run: python scripts/docs-status.py
+      - name: Build the user guide strictly
+        if: hashFiles('mkdocs.yml') != ''
+        run: python -m mkdocs build --strict
