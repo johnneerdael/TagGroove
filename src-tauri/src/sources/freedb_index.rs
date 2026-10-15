@@ -4,14 +4,12 @@
 //! artist, title, year, genre and track count. Searches stream the index and
 //! keep every disc whose artist and title contain all words of the query.
 use super::freedb;
-use super::model::SearchResult;
+use super::model::{SearchResult, PAGE_SIZE};
 use std::io::{BufRead, BufWriter, Write};
 use std::path::{Path, PathBuf};
 use tag_core::parallel::Progress;
 
 const HEADER: &str = "# OpenTag local freedb index 1";
-/// Results shown for one search; the total still counts every match.
-pub const MAX_RESULTS: usize = 500;
 
 #[derive(Debug, PartialEq, serde::Serialize)]
 pub struct IndexStatus {
@@ -182,8 +180,9 @@ fn words(text: &str) -> Vec<String> {
         .collect()
 }
 
-/// Discs whose artist and title contain every word of `query`, in index order.
-pub fn search(index: &Path, directory: &Path, query: &str) -> Result<Found, String> {
+/// Discs whose artist and title contain every word of `query`, in index
+/// order: one page of results and the number of all matches.
+pub fn search(index: &Path, directory: &Path, query: &str, page: u32) -> Result<Found, String> {
     let wanted = words(query);
     if wanted.is_empty() {
         return Err("Enter words from the artist or album title.".into());
@@ -201,6 +200,7 @@ pub fn search(index: &Path, directory: &Path, query: &str) -> Result<Found, Stri
     }
     let mut results = Vec::new();
     let mut total = 0u32;
+    let first = page.saturating_mul(PAGE_SIZE);
     for line in lines.map_while(Result::ok) {
         let parts: Vec<&str> = line.split('\t').collect();
         let [category, disc_id, artist, title, year, genre, tracks] = parts[..] else {
@@ -215,7 +215,7 @@ pub fn search(index: &Path, directory: &Path, query: &str) -> Result<Found, Stri
             continue;
         }
         total = total.saturating_add(1);
-        if results.len() < MAX_RESULTS {
+        if total > first && results.len() < PAGE_SIZE as usize {
             results.push(SearchResult {
                 id: format!("{category}/{disc_id}"),
                 title: title.to_owned(),
@@ -281,7 +281,7 @@ mod tests {
                 discs: 0
             }
         );
-        assert!(search(&index, &freedb, "fixture")
+        assert!(search(&index, &freedb, "fixture", 0)
             .unwrap_err()
             .contains("Build the text index"));
         assert_eq!(
@@ -292,19 +292,21 @@ mod tests {
         assert_eq!(built.discs, 3);
         assert_eq!(built.directory.as_deref(), Some(&*freedb.to_string_lossy()));
 
-        let found = search(&index, &freedb, "FIXTURE").unwrap();
+        let found = search(&index, &freedb, "FIXTURE", 0).unwrap();
         assert_eq!(found.total, 2);
         let ids: Vec<_> = found.results.iter().map(|r| r.id.as_str()).collect();
         assert_eq!(ids, ["jazz/1000000f", "rock/0a000802"]);
         assert_eq!(found.results[1].year, "2001");
         assert_eq!(found.results[1].track_count, Some(2));
         assert_eq!(found.results[1].format, "rock");
-        let accents = search(&index, &freedb, "cafe night").unwrap();
+        let next = search(&index, &freedb, "fixture", 1).unwrap();
+        assert!(next.results.is_empty() && next.total == 2);
+        let accents = search(&index, &freedb, "cafe night", 0).unwrap();
         assert_eq!(accents.results[0].title, "Night Set");
         assert_eq!(accents.results[0].artist, "Café Quartet");
-        assert_eq!(search(&index, &freedb, "fixture jazz").unwrap().total, 0);
-        assert!(search(&index, &freedb, " - ").is_err());
-        assert!(search(&index, &dir.path().join("elsewhere"), "fixture")
+        assert_eq!(search(&index, &freedb, "fixture jazz", 0).unwrap().total, 0);
+        assert!(search(&index, &freedb, " - ", 0).is_err());
+        assert!(search(&index, &dir.path().join("elsewhere"), "fixture", 0)
             .unwrap_err()
             .contains("another local freedb folder"));
 

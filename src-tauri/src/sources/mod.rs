@@ -159,7 +159,7 @@ async fn freedb_search(
             let directory = PathBuf::from(&settings.local_directory);
             let found = tauri::async_runtime::spawn_blocking(move || {
                 freedb::check_local_directory(&directory)?;
-                freedb_index::search(&index, &directory, &query.text)
+                freedb_index::search(&index, &directory, &query.text, query.page)
             })
             .await
             .map_err(|e| e.to_string())??;
@@ -358,16 +358,16 @@ pub async fn local_freedb_index_status(
         .map_err(|e| e.to_string())
 }
 
-/// Build the text index of the local freedb folder saved in Options. `job`
+/// Build the text index of a local freedb folder (as typed in Options). `job`
 /// reports progress per file and can be cancelled with `cancel_job`.
 #[tauri::command]
 pub async fn build_local_freedb_index(
     app: tauri::AppHandle,
+    directory: String,
     job: Option<String>,
 ) -> Result<freedb_index::IndexStatus, String> {
     let index = local_index_path(&app)?;
-    let directory =
-        PathBuf::from(freedb::settings_from(&crate::settings::current()).local_directory);
+    let directory = PathBuf::from(directory.trim());
     tauri::async_runtime::spawn_blocking(move || {
         let job = crate::progress::Job::new(job);
         freedb_index::build(&directory, &index, &job)?;
