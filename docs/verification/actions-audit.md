@@ -23,7 +23,7 @@ Sources compared: every page under the Mp3tag 3.36.1 documentation `actions/`, `
 | | Export duplicate covers | yes | yes | host (existing) |
 | Format Value | Field (entered or from drop-down), `_FILENAME`, `_DIRECTORY`, format strings + scripting | yes | yes; field and format helpers, history | Rust (existing), e2e |
 | Generate Playlists | Runs after all other actions | yes | yes | host (existing) |
-| Guess Values | Source format, guessing pattern, `%dummy%`, same field on both sides | yes | yes; pattern helper offers `%dummy%` | Rust (existing) |
+| Guess Values | Source format, guessing pattern, `%dummy%`, same field on both sides; a source that does not match leaves the file unchanged and the group continues | yes | yes; pattern helper offers `%dummy%` | Rust (existing) |
 | Import Cover from File | Format-string filename, relative or absolute | yes | yes | host |
 | | Import cover as (cover type) | **missing** | implemented (`picture_type`, default front cover) | Rust, host (real WAV) |
 | | Delete existing covers | **missing** | implemented; the image is decoded first so missing/invalid images never remove art | host (file bytes unchanged on failure) |

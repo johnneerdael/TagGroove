@@ -1605,6 +1605,13 @@ impl CompiledFilenamePattern {
     }
 
     pub fn parse(&self, filename: &str) -> Result<Fields, String> {
+        self.try_parse(filename)?
+            .ok_or_else(|| "Filename does not completely match the pattern".into())
+    }
+
+    /// Like [`parse`](Self::parse), with a filename that does not match the
+    /// pattern as `None`: Filename → Tag leaves such files unchanged.
+    pub fn try_parse(&self, filename: &str) -> Result<Option<Fields>, String> {
         if filename.len() > MAX_OUTPUT {
             return Err("Filename pattern input limit exceeded".into());
         }
@@ -1618,7 +1625,7 @@ impl CompiledFilenamePattern {
                 let components: Vec<&str> = normalized.split('\\').collect();
                 let required = pattern.matches('\\').count() + 1;
                 if components.len() < required {
-                    return Err("Filename path has too few folders for the pattern".into());
+                    return Ok(None);
                 }
                 components[components.len() - required..].join("\\")
             }
@@ -1642,10 +1649,9 @@ impl CompiledFilenamePattern {
         } else {
             filename
         };
-        let captures = self
-            .expression
-            .captures(candidate)
-            .ok_or("Filename does not completely match the pattern")?;
+        let Some(captures) = self.expression.captures(candidate) else {
+            return Ok(None);
+        };
         let mut fields = Fields::new();
         for (i, name) in self.names.iter().enumerate() {
             if name == "DUMMY" {
@@ -1657,7 +1663,7 @@ impl CompiledFilenamePattern {
                 .or_default()
                 .push(value.to_owned());
         }
-        Ok(fields)
+        Ok(Some(fields))
     }
 }
 
