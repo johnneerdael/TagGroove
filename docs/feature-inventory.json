@@ -13514,7 +13514,7 @@
       "key": "Ctrl+Shift+Del",
       "command": "Delete file (WARNING: the file will be removed from your harddrive!)",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "Missing: no permanent-delete operation. Keyboard batch 2026-10-15; acceptance stays OPEN",
+      "ui_evidence": "New: src/keyboard.ts windowShortcut → Edit → Delete files permanently (⌘⇧⌫ or ⌘⇧Del on macOS); delete_files_permanently in src-tauri/src/file_ops.rs; confirmed through Options → Messages like Delete files. Keyboard UI batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13634,7 +13634,7 @@
       "key": "Ctrl+Shift+P",
       "command": "Playlist (all files) with one playlist for each subfolder",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "Partial: opens Generate playlists, which uses the selection when one exists. Keyboard batch 2026-10-15; acceptance stays OPEN",
+      "ui_evidence": "New: src/keyboard.ts windowShortcut → File → Playlist per folder (all files): src/playlist-ui.ts createPerFolder, partition %_folderpath%, Options → Playlist file name in each folder. Keyboard UI batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13922,7 +13922,7 @@
       "key": "Delete",
       "command": "Delete action (group)",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "New: src/action-ui.ts actionListKey: Remove group / action (⌫ on Mac keyboards). Keyboard batch 2026-10-15; acceptance stays OPEN",
+      "ui_evidence": "New: src/action-ui.ts actionListKey: Remove group / action (⌫ on Mac keyboards); applies to every selected group or action. Keyboard UI batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13930,7 +13930,7 @@
       "key": "Space",
       "command": "Enable action group",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "New: src/action-ui.ts actionListKey: toggles the focused group row. Keyboard batch 2026-10-15; acceptance stays OPEN",
+      "ui_evidence": "New: src/action-ui.ts actionListKey: toggles the focused group row; applies to every selected group or action. Keyboard UI batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13938,7 +13938,7 @@
       "key": "Ctrl+A",
       "command": "Select all actions or action groups",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "Missing: the lists select one item at a time. Keyboard batch 2026-10-15; acceptance stays OPEN",
+      "ui_evidence": "New: src/action-ui.ts actionListKey select-all and markAll; groups and actions are multi-selectable (⌘/Ctrl+click, Shift+click). Keyboard UI batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13946,7 +13946,7 @@
       "key": "Ctrl+Shift+A",
       "command": "Invert selection of actions or action groups",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "Missing: the lists select one item at a time. Keyboard batch 2026-10-15; acceptance stays OPEN",
+      "ui_evidence": "New: src/action-ui.ts actionListKey invert and markAll. Keyboard UI batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13978,7 +13978,7 @@
       "key": "Alt+Up",
       "command": "Move action or action group up",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "New: src/action-ui.ts actionListKey (groups and actions). Keyboard batch 2026-10-15; acceptance stays OPEN",
+      "ui_evidence": "New: src/action-ui.ts actionListKey (groups and actions); applies to every selected group or action. Keyboard UI batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13986,7 +13986,7 @@
       "key": "Alt+Down",
       "command": "Move action or action group down",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "New: src/action-ui.ts actionListKey (groups and actions). Keyboard batch 2026-10-15; acceptance stays OPEN",
+      "ui_evidence": "New: src/action-ui.ts actionListKey (groups and actions); applies to every selected group or action. Keyboard UI batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -13994,7 +13994,7 @@
       "key": "Alt+Page Up",
       "command": "Move action or action group to beginning of list",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "New: src/action-ui.ts actionListKey: move to the beginning. Keyboard batch 2026-10-15; acceptance stays OPEN",
+      "ui_evidence": "New: src/action-ui.ts actionListKey: move to the beginning; applies to every selected group or action. Keyboard UI batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -14002,7 +14002,7 @@
       "key": "Alt+Page Down",
       "command": "Move action or action group to end of list",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "New: src/action-ui.ts actionListKey: move to the end. Keyboard batch 2026-10-15; acceptance stays OPEN",
+      "ui_evidence": "New: src/action-ui.ts actionListKey: move to the end; applies to every selected group or action. Keyboard UI batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -14010,7 +14010,7 @@
       "key": "Ctrl+I",
       "command": "Last used Tag Source",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "Partial: remembers MusicBrainz or Discogs only. Keyboard batch 2026-10-15; acceptance stays OPEN",
+      "ui_evidence": "New: src/keyboard.ts windowShortcut → Tag Sources → Last used; src/tag-sources.ts lastSource remembers every source, tags or covers only. Keyboard UI batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -14018,7 +14018,7 @@
       "key": "Ctrl+Shift+I",
       "command": "Last used Tag Source (Quick)",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "Partial: same as Ctrl+I; the search step is not skipped. Keyboard batch 2026-10-15; acceptance stays OPEN",
+      "ui_evidence": "New: Tag Sources → Last used (quick search): the dialog searches at once with the prefilled values; the result list is still shown. Keyboard UI batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -14034,7 +14034,7 @@
       "key": "Space",
       "command": "Enable selected field",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "OK: field checkboxes. Keyboard batch 2026-10-15; acceptance stays OPEN",
+      "ui_evidence": "OK: Space enables or disables every selected field (src/tag-sources.ts review keydown). Keyboard UI batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -14042,7 +14042,7 @@
       "key": "Ctrl+A",
       "command": "Select all fields",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "Missing: fields are not multi-selectable. Keyboard batch 2026-10-15; acceptance stays OPEN",
+      "ui_evidence": "New: src/tag-sources.ts review keydown selects every field row. Keyboard UI batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -14050,7 +14050,7 @@
       "key": "Ctrl+Shift+A",
       "command": "Invert selection of fields",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "Missing: fields are not multi-selectable. Keyboard batch 2026-10-15; acceptance stays OPEN",
+      "ui_evidence": "New: src/tag-sources.ts review keydown inverts the selected field rows. Keyboard UI batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -14106,7 +14106,7 @@
       "key": "F4",
       "command": "Edit selected item",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "Missing: no toolbar customization dialog. Keyboard batch 2026-10-15; acceptance stays OPEN",
+      "ui_evidence": "New: View → Toolbars → Customize toolbar (src/toolbar.ts toolbarKey): renames the selected item (Mp3tag edits the item). Keyboard UI batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -14114,7 +14114,7 @@
       "key": "Space",
       "command": "Show/hide selected item",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "Missing: no toolbar customization dialog. Keyboard batch 2026-10-15; acceptance stays OPEN",
+      "ui_evidence": "New: View → Toolbars → Customize toolbar (src/toolbar.ts toolbarKey): shows or hides the selected item. Keyboard UI batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -14122,7 +14122,7 @@
       "key": "Ctrl+E",
       "command": "Show all items",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "Missing: no toolbar customization dialog. Keyboard batch 2026-10-15; acceptance stays OPEN",
+      "ui_evidence": "New: View → Toolbars → Customize toolbar (src/toolbar.ts toolbarKey): shows all items. Keyboard UI batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -14130,7 +14130,7 @@
       "key": "Ctrl+D",
       "command": "Hide all items",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "Missing: no toolbar customization dialog. Keyboard batch 2026-10-15; acceptance stays OPEN",
+      "ui_evidence": "New: View → Toolbars → Customize toolbar (src/toolbar.ts toolbarKey): hides all items. Keyboard UI batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -14138,7 +14138,7 @@
       "key": "Alt+Up",
       "command": "Move item up",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "Missing: no toolbar customization dialog. Keyboard batch 2026-10-15; acceptance stays OPEN",
+      "ui_evidence": "New: View → Toolbars → Customize toolbar (src/toolbar.ts toolbarKey): moves the item up. Keyboard UI batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -14146,7 +14146,7 @@
       "key": "Alt+Down",
       "command": "Move item down",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "Missing: no toolbar customization dialog. Keyboard batch 2026-10-15; acceptance stays OPEN",
+      "ui_evidence": "New: View → Toolbars → Customize toolbar (src/toolbar.ts toolbarKey): moves the item down. Keyboard UI batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -14154,7 +14154,7 @@
       "key": "Alt+Page Up",
       "command": "Move item to beginning of list",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "Missing: no toolbar customization dialog. Keyboard batch 2026-10-15; acceptance stays OPEN",
+      "ui_evidence": "New: View → Toolbars → Customize toolbar (src/toolbar.ts toolbarKey): moves the item to the beginning. Keyboard UI batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {
@@ -14162,7 +14162,7 @@
       "key": "Alt+Page Down",
       "command": "Move item to end of list",
       "url": "https://docs.mp3tag.de/keyboard/",
-      "ui_evidence": "Missing: no toolbar customization dialog. Keyboard batch 2026-10-15; acceptance stays OPEN",
+      "ui_evidence": "New: View → Toolbars → Customize toolbar (src/toolbar.ts toolbarKey): moves the item to the end. Keyboard UI batch 2026-10-15; acceptance stays OPEN",
       "acceptance": "OPEN"
     },
     {

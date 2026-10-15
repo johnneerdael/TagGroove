@@ -329,6 +329,82 @@ pub async fn stage_cover_data(data_base64: String, label: String) -> Result<Stag
     .await
 }
 
+/// Settings of the Adjust Cover action, as the action editor sends them.
+#[derive(Deserialize)]
+pub struct AdjustSettings {
+    format: tag_core::actions::CoverImageFormat,
+    quality: u8,
+    resize: Option<tag_core::actions::CoverResize>,
+}
+
+/// Where Manage Covers takes an image to adjust from.
+#[derive(Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdjustSource {
+    /// A cover of an audio file, by its position in that file.
+    Cover { path: String, index: usize },
+    /// An image staged earlier in the dialog.
+    Staged(String),
+}
+
+/// Manage Covers → Adjust: resize or convert one cover and stage the result.
+/// An image that would stay as it is is staged unchanged.
+#[tauri::command]
+pub async fn stage_adjusted_cover(
+    source: AdjustSource,
+    settings: AdjustSettings,
+) -> Result<StagedImage, String> {
+    io(move || {
+        let data = match source {
+            AdjustSource::Cover { path, index } => cover_bytes(Path::new(&path), index)?.0,
+            AdjustSource::Staged(token) => ImageSource::Staged(token).load()?.0,
+        };
+        let adjusted = tag_core::adjust_cover_image(
+            &data,
+            settings.format,
+            settings.quality,
+            settings.resize.as_ref(),
+        )?;
+        stage(adjusted.unwrap_or(data), "Adjusted cover")
+    })
+    .await
+}
+
+/// Add cover's start folder (Options → Directories → Cover art directory): the
+/// option evaluated for the first selected file, relative to its folder; else
+/// the file's folder when it holds an image, else the working folder.
+#[tauri::command]
+pub async fn cover_start_directory(path: String, template: String) -> Result<String, String> {
+    let settings = super::evaluation_settings(None)?;
+    io(move || start_directory(Path::new(&path), &template, &settings)).await
+}
+
+fn start_directory(
+    audio: &Path,
+    template: &str,
+    settings: &crate::evaluation::EvaluationSettings,
+) -> Result<String, String> {
+    let folder = audio.parent().unwrap_or(Path::new("."));
+    if !template.trim().is_empty() {
+        let entry = settings::read_summary(audio)?;
+        let technical = super::preview_technical_fields(&entry, 1);
+        let value = settings.evaluate(template, &entry.fields, &technical, &entry.path, true)?;
+        let candidate = folder.join(value.trim());
+        if !value.trim().is_empty() && candidate.is_dir() {
+            return Ok(candidate.to_string_lossy().into_owned());
+        }
+    }
+    if !crate::list_behaviour::folder_images(folder).is_empty() {
+        return Ok(folder.to_string_lossy().into_owned());
+    }
+    Ok(settings
+        .working_directory
+        .as_deref()
+        .filter(|working| Path::new(working).is_dir())
+        .map(str::to_owned)
+        .unwrap_or_else(|| folder.to_string_lossy().into_owned()))
+}
+
 fn cover_bytes(path: &Path, index: usize) -> Result<(Vec<u8>, String), String> {
     super::require_audio_handle(path)?;
     let entry = settings::read_full(path)?;
@@ -589,6 +665,114 @@ mod tests {
 
     fn run<T>(future: impl std::future::Future<Output = T>) -> T {
         tauri::async_runtime::block_on(future)
+    }
+
+    #[test]
+    fn manage_covers_adjust_stages_a_resized_copy_and_keeps_fitting_images() {
+        let dir = tempfile::tempdir().unwrap();
+        let song = wav(dir.path(), "song.wav");
+        let image = dir.path().join("big.png");
+        std::fs::write(&image, png(400, 200)).unwrap();
+        run(add_cover_image(
+            vec![song.clone()],
+            ImageSource::Path(image.to_string_lossy().into_owned()),
+            None,
+        ))
+        .unwrap();
+        let settings = |format, pixels| AdjustSettings {
+            format,
+            quality: 90,
+            resize: Some(tag_core::actions::CoverResize {
+                pixels,
+                size_mode: tag_core::actions::CoverSizeMode::Maximum,
+                scale_mode: tag_core::actions::CoverScaleMode::Proportional,
+            }),
+        };
+        use tag_core::actions::CoverImageFormat::{Jpeg, Original};
+        let resized = run(stage_adjusted_cover(
+            AdjustSource::Cover {
+                path: song.clone(),
+                index: 0,
+            },
+            settings(Original, 100),
+        ))
+        .unwrap();
+        assert_eq!(
+            (resized.mime.as_str(), resized.width, resized.height),
+            ("image/png", Some(100), Some(50))
+        );
+        // A staged image can be adjusted again, here to JPEG.
+        let jpeg = run(stage_adjusted_cover(
+            AdjustSource::Staged(resized.token.clone()),
+            settings(Jpeg, 100),
+        ))
+        .unwrap();
+        assert_eq!(
+            (jpeg.mime.as_str(), jpeg.width, jpeg.height),
+            ("image/jpeg", Some(100), Some(50))
+        );
+        // Within the size and format, the bytes are staged unchanged.
+        let same = run(stage_adjusted_cover(
+            AdjustSource::Cover {
+                path: song.clone(),
+                index: 0,
+            },
+            settings(Original, 800),
+        ))
+        .unwrap();
+        assert_eq!(STANDARD.decode(&same.data_base64).unwrap(), png(400, 200));
+        // The file itself is untouched until a plan is applied.
+        assert_eq!(
+            settings::read_full(Path::new(&song)).unwrap().covers[0].width,
+            Some(400)
+        );
+        assert!(run(stage_adjusted_cover(
+            AdjustSource::Cover {
+                path: song,
+                index: 3
+            },
+            settings(Original, 100),
+        ))
+        .is_err());
+    }
+
+    #[test]
+    fn add_cover_starts_in_the_cover_art_directory_then_an_image_folder_then_the_working_folder() {
+        let dir = tempfile::tempdir().unwrap();
+        let album = dir.path().join("Album");
+        let art = album.join("Artwork");
+        std::fs::create_dir_all(&art).unwrap();
+        let song = wav(&album, "song.wav");
+        let album = Path::new(&song).parent().unwrap().to_path_buf();
+        let working = dir.path().canonicalize().unwrap();
+        let settings = crate::evaluation::EvaluationSettings {
+            working_directory: Some(working.to_string_lossy().into_owned()),
+            ..Default::default()
+        };
+        let start =
+            |template: &str| start_directory(Path::new(&song), template, &settings).unwrap();
+        // Relative names and placeholders resolve against the file's folder.
+        assert_eq!(start("Artwork"), album.join("Artwork").to_string_lossy());
+        assert_eq!(
+            start("$left(Artworks,7)"),
+            album.join("Artwork").to_string_lossy()
+        );
+        assert_eq!(
+            start(&art.canonicalize().unwrap().to_string_lossy()),
+            art.canonicalize().unwrap().to_string_lossy()
+        );
+        // No option, or a folder that does not exist: the working folder,
+        // unless the file's folder holds an image.
+        assert_eq!(start(""), working.to_string_lossy());
+        assert_eq!(start("Missing"), working.to_string_lossy());
+        std::fs::write(album.join("front.JPG"), png(2, 2)).unwrap();
+        assert_eq!(start("Missing"), album.to_string_lossy());
+        let without = crate::evaluation::EvaluationSettings::default();
+        std::fs::remove_file(album.join("front.JPG")).unwrap();
+        assert_eq!(
+            start_directory(Path::new(&song), "", &without).unwrap(),
+            album.to_string_lossy()
+        );
     }
 
     #[test]

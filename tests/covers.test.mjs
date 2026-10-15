@@ -5,7 +5,7 @@ import ts from 'typescript';
 const source=await readFile(new URL('../src/cover-model.ts',import.meta.url),'utf8');
 const js=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
 const model=await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
-const {coverDetails,formatSize,imageFormat,pictureTypeLabel,selectionCovers,keepPlan,distinctPlan,managedFromSet,newManaged,replaceManaged,moveManaged,dropManaged,planItems,planChanged,presence,coverMenu,coverFileName,coverExtension,isImagePath,insideRect,PICTURE_TYPES}=model;
+const {adjustSource,applyAdjusted,coverDetails,formatSize,imageFormat,pictureTypeLabel,selectionCovers,keepPlan,distinctPlan,managedFromSet,newManaged,replaceManaged,moveManaged,dropManaged,planItems,planChanged,presence,coverMenu,coverFileName,coverExtension,isImagePath,insideRect,PICTURE_TYPES}=model;
 
 const cover=(digest,type='CoverFront',description='',extra={})=>({index:0,mime:'image/jpeg',description,picture_type:type,data_base64:'',size:250880,width:1200,height:1200,digest,...extra});
 
@@ -107,4 +107,22 @@ test('extract names, image paths and drop coordinates',()=>{
  assert.ok(isImagePath('/a/Cover.JPEG'));assert.ok(isImagePath('C:\\x\\a.webp'));assert.ok(!isImagePath('/a/song.mp3'));assert.ok(!isImagePath('/a/png'));
  const rect={left:10,top:20,right:110,bottom:120};
  assert.ok(insideRect({x:40,y:80},rect,2));assert.ok(!insideRect({x:5,y:80},rect,1));assert.ok(!insideRect({x:300,y:80},rect,2));
+});
+
+test('Manage Covers adjusts staged images or the first file holding a cover, and only replaces changed ones',()=>{
+ const set={files:3,errors:[],covers:[{...cover('a'),files:[1,2],index:1,data_base64:'AAA'},{...cover('b','CoverBack'),files:[0],index:0,data_base64:'BBB'}]};
+ const paths=['/one.mp3','/two.mp3','/three.mp3'];
+ const list=managedFromSet(set);
+ assert.deepEqual(adjustSource(list[0],set,paths),{cover:{path:'/two.mp3',index:1}});
+ assert.deepEqual(adjustSource(list[1],set,paths),{cover:{path:'/one.mp3',index:0}});
+ const staged={token:'t1',mime:'image/png',size:3,width:10,height:10,data_base64:'NEW',label:'Adjusted cover'};
+ const added=newManaged(list,staged,'n0',3);
+ assert.deepEqual(adjustSource(added,set,paths),{staged:'t1'});
+ assert.equal(adjustSource({...added,image:{path:'/cover.jpg'}},set,paths),null);
+ assert.equal(adjustSource({...list[0],original:{digest:'zzz',picture_type:'CoverFront',description:''}},set,paths),null);
+ const result=applyAdjusted(list,new Map([[list[0].id,{...staged,data_base64:'AAA'}],[list[1].id,staged]]));
+ assert.equal(result.changed,1);
+ assert.equal(result.list[0],list[0]);
+ assert.deepEqual([result.list[1].image,result.list[1].picture_type,result.list[1].width],[{staged:'t1'},'CoverBack',10]);
+ assert.ok(planChanged(list,result.list));
 });

@@ -71,3 +71,21 @@ export function neighbourFile(list: string[], current: string, step: 1 | -1) {
   const index = list.indexOf(current);
   return index < 0 ? undefined : list[index + step];
 }
+
+/** Fields copied in the Extended Tags field list (Cut / Copy / Paste). */
+export type FieldClip = { name: string; values: string[] };
+/** Clipboard text of copied fields: one `NAME=value` line per value. */
+export function fieldClipText(fields: FieldClip[]) {
+  return fields.flatMap(({ name, values }) => (values.length ? values : ['']).map(value => `${name}=${value}`)).join('\n');
+}
+/**
+ * Paste copied fields into the dialog rows: a field already listed (and not
+ * removed) gets the copied values, any other field is added. Returns the row to
+ * update (by index) or the field to add, in clipboard order.
+ */
+export function pasteFields(rows: { name: string; removed: boolean }[], clip: FieldClip[]) {
+  return clip.map(field => {
+    const index = rows.findIndex(row => !row.removed && fieldNameIdentity(row.name.trim()) === fieldNameIdentity(field.name));
+    return index >= 0 ? { index, field } : { index: -1, field };
+  });
+}

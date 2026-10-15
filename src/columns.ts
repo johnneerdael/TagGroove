@@ -201,8 +201,9 @@ export class ColumnValueCache{
 
 const ariaSort=(sort:SortKey[],id:string)=>{const key=sort.find(item=>item.id===id);return key?key.ascending?'ascending':'descending':'none';};
 const sortLabel=(column:ColumnDef,sort:SortKey[])=>`${html(column.name)}${sortIndicator(sort,column.id)}`;
-export function headerMarkup(columns:ColumnDef[],sort:SortKey[]){
-  return columns.map(column=>`<th style="width:${column.width}px" data-col="${html(column.id)}" class="align-${column.align}" aria-sort="${ariaSort(sort,column.id)}"><button data-sort="${html(column.id)}" title="${html(`${column.name} — click to sort, Shift+click to add a sort criterion`)}">${sortLabel(column,sort)}</button><span class="col-resize" data-resize="${html(column.id)}" aria-hidden="true" title="Drag to resize; double-click to fit the contents"></span></th>`).join('');
+/** Header cells; with `shuffle`, the first cell starts with the icon-column button that puts the files in random order. */
+export function headerMarkup(columns:ColumnDef[],sort:SortKey[],shuffle=false){
+  return columns.map((column,index)=>`<th style="width:${column.width}px" data-col="${html(column.id)}" class="align-${column.align}" aria-sort="${ariaSort(sort,column.id)}">${shuffle&&index===0?'<button type="button" class="shuffle-list" data-shuffle title="Random order: shuffle the file list" aria-label="Random order">⤮</button>':''}<button data-sort="${html(column.id)}" title="${html(`${column.name} — click to sort, Shift+click to add a sort criterion`)}">${sortLabel(column,sort)}</button><span class="col-resize" data-resize="${html(column.id)}" aria-hidden="true" title="Drag to resize; double-click to fit the contents"></span></th>`).join('');
 }
 /** Show `sort` in header cells made by `headerMarkup`, keeping the cells and their listeners. */
 export function updateSortHeader(cells:Iterable<HTMLElement>,columns:ColumnDef[],sort:SortKey[]){
