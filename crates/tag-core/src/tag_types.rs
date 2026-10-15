@@ -1,5 +1,5 @@
 //! Utils → Remove Tag Types (https://docs.mp3tag.de/utils/): strip chosen tag
-//! kinds from MPEG, TTA and APE-family files regardless of Options → Tags.
+//! kinds from MPEG, AAC, TTA and APE-family files regardless of Options → Tags.
 use super::*;
 
 /// A tag kind that can be removed on its own.
@@ -34,7 +34,7 @@ pub fn remove_tag_kinds_with_options(
     }
     let file = load(path)?;
     if tag_policy::policy(file.file_type()).is_none() {
-        return Err("Tag types can only be removed from MPEG, TTA, APE, Musepack, WavPack, TAK and OptimFROG files".into());
+        return Err("Tag types can only be removed from MPEG, AAC, TTA, APE, Musepack, WavPack, TAK and OptimFROG files".into());
     }
     if !kinds.iter().any(|kind| file.tag(kind.tag_type()).is_some()) {
         return if include_cover_data {
