@@ -279,13 +279,22 @@ test('backend extraction includes technical function prefixes and other diagnost
   assert.deepEqual(extractBackendSource(source),['$fmtDate expects an integer Unix timestamp','$loopend takes no arguments','${name} expects {count} arguments','the regular expression is not valid: {value}','a quoted parameter is not closed','[IndexFormat] has no %_url% field','"{value}" is not a number'].sort());
   const actual=extractBackend();for(const testOnly of ['grant revoked','read only','source changed','partial provider write','fresh read failed'])assert.ok(!actual.includes(testOnly),testOnly);for(const key of ['$loopend takes no arguments','$replace requires complete search/replacement pairs','$getenv(MP3TAGAPP) requires the application directory context'])assert.ok(actual.includes(key),key);
 });
-test('internal URI exclusion keeps real save and restore diagnostics containing during',async()=>{
+test('test-only exclusions keep real URI, lock and save/restore diagnostics',async()=>{
   const expected=['The file changed during editing; reload it before saving','The file changed during restore; reload it and try again','The cue sheet changed during editing; reload it before saving','Tag disappeared during editing'];
   for(const [file,messages] of [['tags.rs',[expected[0],expected[3]]],['history.rs',[expected[1]]],['subsongs.rs',[expected[2]]]]){
     const source=await readFile(new URL(`../crates/tag-core/src/${file}`,import.meta.url),'utf8'),actual=extractBackendSource(source);for(const key of messages)assert.ok(actual.includes(key),key);
   }
   const internal=`fn run(){Err("Document URI is unavailable".into());Err("Document manifest is unavailable".into());Err("Injected copy failure".into());Err("Fixture lookup failed".into());}`;
-  assert.deepEqual(extractBackendSource(internal),[]);
+  assert.deepEqual(extractBackendSource(internal),['Document URI is unavailable','Document manifest is unavailable']);
+});
+test('parser loop diagnostics are collected while their command tokens remain unchanged',async()=>{
+  const source=await readFile(new URL('../src-tauri/src/sources/web/engine.rs',import.meta.url),'utf8'),actual=extractBackendSource(source),messages=['json_foreach_end without json_foreach','json_foreach_end without a running json_foreach','json_foreach_counter outside json_foreach'];
+  for(const key of messages){assert.ok(actual.includes(key),key);for(const locale of ['de','nl']){const shown=new Translator(locale,catalogs[locale]).translate(key);assert.notEqual(shown,key);assert.deepEqual(shown.match(/json_foreach(?:_end|_counter)?/g),key.match(/json_foreach(?:_end|_counter)?/g));}}
+});
+test('production URI, manifest, lock and parser diagnostics survive test-only exclusions',async()=>{
+  const cases=JSON.parse(await readFile(new URL('./fixtures/owned-backend-diagnostics.json',import.meta.url),'utf8'));
+  for(const item of cases)for(const file of item.producers){const rust=await readFile(new URL(`../${file}`,import.meta.url),'utf8');assert.ok(extractBackendSource(rust).includes(item.error),`${file}: ${item.error}`);}
+  const actual=extractBackend();for(const key of ['Unknown fixture URI','fixture provider publication failed','fixture source changed','fixture source is read-only'])assert.ok(!actual.includes(key),key);
 });
 test('all function-prefixed catalog diagnostics retain literal tokens and raw function names',()=>{
   const keys=Object.keys(english).filter(key=>key.startsWith('$'));

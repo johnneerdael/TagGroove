@@ -1,0 +1,110 @@
+[
+  {
+    "error": "Expected an Android content document URI",
+    "producers": [
+      "crates/document-access/src/lib.rs"
+    ]
+  },
+  {
+    "error": "Converter plan lock failed",
+    "producers": [
+      "src-tauri/src/converters.rs"
+    ]
+  },
+  {
+    "error": "Staged image lock failed",
+    "producers": [
+      "src-tauri/src/covers.rs"
+    ]
+  },
+  {
+    "error": "Document store lock failed",
+    "producers": [
+      "src-tauri/src/documents.rs"
+    ]
+  },
+  {
+    "error": "Duplicate document URI in manifests",
+    "producers": [
+      "src-tauri/src/documents/engine.rs"
+    ]
+  },
+  {
+    "error": "Expected a provider content URI",
+    "producers": [
+      "src-tauri/src/documents/engine.rs"
+    ]
+  },
+  {
+    "error": "Invalid document manifest identity/version",
+    "producers": [
+      "src-tauri/src/documents/engine.rs"
+    ]
+  },
+  {
+    "error": "Mobile artwork input must be a provider content URI",
+    "producers": [
+      "src-tauri/src/documents/engine.rs"
+    ]
+  },
+  {
+    "error": "Undo history lock failed",
+    "producers": [
+      "src-tauri/src/history.rs"
+    ]
+  },
+  {
+    "error": "File operation lock failed",
+    "producers": [
+      "src-tauri/src/lib.rs"
+    ]
+  },
+  {
+    "error": "Filter cache lock failed",
+    "producers": [
+      "src-tauri/src/lib.rs"
+    ]
+  },
+  {
+    "error": "Library lock failed",
+    "producers": [
+      "src-tauri/src/library.rs"
+    ]
+  },
+  {
+    "error": "Rename plan lock failed",
+    "producers": [
+      "src-tauri/src/rename_plan.rs"
+    ]
+  },
+  {
+    "error": "Network client lock failed",
+    "producers": [
+      "src-tauri/src/sources/http.rs"
+    ]
+  },
+  {
+    "error": "json_foreach_counter outside json_foreach",
+    "producers": [
+      "src-tauri/src/sources/web/engine.rs"
+    ]
+  },
+  {
+    "error": "json_foreach_end without a running json_foreach",
+    "producers": [
+      "src-tauri/src/sources/web/engine.rs"
+    ]
+  },
+  {
+    "error": "json_foreach_end without json_foreach",
+    "producers": [
+      "src-tauri/src/sources/web/engine.rs"
+    ]
+  },
+  {
+    "error": "Clipboard lock failed",
+    "producers": [
+      "src-tauri/src/utilities.rs"
+    ]
+  }
+]

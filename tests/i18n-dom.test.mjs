@@ -619,6 +619,12 @@ test('production save and restore conflict frames translate during diagnostics a
     }finally{p.close();}
   }
 });
+test('owned technical diagnostics translate in production error rows while their URI and parser tokens stay unchanged',async()=>{
+  const cases=JSON.parse(await readFile(new URL('./fixtures/owned-backend-diagnostics.json',import.meta.url),'utf8')),custom={...Object.fromEntries(cases.map(item=>[item.error,`Diagnostic: ${item.error}`])),Help:'Wrong file'};
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]])for(const {error} of cases){
+    const p=page();try{const t=new Translator(locale,catalog),e={path:'Help',error};p.body.innerHTML=mainTemplate(node=>node.head.text==='<p><strong translate="no">',{e,esc,displayName:path=>path,publicMessage:value=>value});p.translate(locale,catalog);const row=p.body.querySelector('p');assert.notEqual(t.t(error),error);assert.equal(row.textContent,`Help: ${t.t(error)}`);assert.deepEqual(row.textContent.match(/URI|json_foreach(?:_end|_counter)?/g),error.match(/URI|json_foreach(?:_end|_counter)?/g));p.translateTree(p.body);assert.equal(row.textContent,`Help: ${t.t(error)}`);p.translate('en');assert.equal(row.textContent,`Help: ${error}`);}finally{p.close();}
+  }
+});
 test('real Cut/Paste failure statuses translate UI operation names while authored same-spelling names stay raw',()=>{
   const declaration=parsed.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text==='stageTagUpdates');
   const js=ts.transpileModule(declaration.getText(parsed),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
@@ -707,12 +713,12 @@ test('real source statuses retain owned label parts and raw authored titles acro
 });
 test('actual web-source search/release dialogs render structured script failures once across live languages',async()=>{
   const frame='line {line} ({text}): {error}',debug='Debug output is in {directory}';
-  const custom={[frame]:'{error} (source {text}, line {line})',[debug]:'Debug files: {directory}','this block has no {name}':'Missing {name}','{value} was not found':'Not found: {value}',Help:'Wrong identity',Endif:'Wrong command','Missing Endif':'Wrong second translation','Not found: "Alpha): Beta"':'Wrong second translation'};
-  const commands=['IfVar Alpha): Beta','If "Alpha): Beta"',String.raw`If "Alpha\"): Beta"`,'FindLine "Alpha): Beta"'];
+  const custom={[frame]:'{error} (source {text}, line {line})',[debug]:'Debug files: {directory}','this block has no {name}':'Missing {name}','{value} was not found':'Not found: {value}',Help:'Wrong identity',Endif:'Wrong command','Missing Endif':'Wrong second translation','Not found: "Alpha): Beta"':'Wrong second translation','json_foreach_end without json_foreach':'json_foreach_end needs json_foreach','json_foreach_counter outside json_foreach':'json_foreach_counter needs json_foreach'};
+  const commands=['IfVar Alpha): Beta','If "Alpha): Beta"',String.raw`If "Alpha\"): Beta"`,'FindLine "Alpha): Beta"','json_foreach_end','json_foreach_counter'];
   for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]])for(const failedCommand of ['web_source_search','web_source_release'])for(const command of commands){
     const p=page();let active=new Translator('en');const listeners=new Set(),calls=[];
     try{
-      const payload={file:'Help  Title): .src',section:failedCommand==='web_source_search'?'[ParserScriptIndex]':'[ParserScriptAlbum]',line:17,command,message:command.startsWith('FindLine')?'"Alpha): Beta" was not found':'this block has no Endif',debug_path:command.startsWith('FindLine')?'/Help  Title): /debug':null};
+      const payload={file:'Help  Title): .src',section:failedCommand==='web_source_search'?'[ParserScriptIndex]':'[ParserScriptAlbum]',line:17,command,message:command==='json_foreach_end'?'json_foreach_end without json_foreach':command==='json_foreach_counter'?'json_foreach_counter outside json_foreach':command.startsWith('FindLine')?'"Alpha): Beta" was not found':'this block has no Endif',debug_path:command.startsWith('FindLine')?'/Help  Title): /debug':null};
       // Capture the production main host so the real formatter and language subscription wiring run.
       const host=rendererVariable(parsed,'tagSourcesUI',{TagSourcesUI:class{constructor(host){return host;}},webScriptErrorText,t:(key,params)=>active.t(key,params),translate:text=>active.translate(text),onLanguageChange:listener=>{listeners.add(listener);return()=>listeners.delete(listener);}});
       Object.assign(host,{files:()=>[],reason:()=>'',options:()=>({}),evaluate:async()=>'',invoke:async name=>{
@@ -722,7 +728,7 @@ test('actual web-source search/release dialogs render structured script failures
       const ui=new TagSourcesUI(host);await ui.open('web',{web:{id:'fixture',name:'Help',search_by:[]}});
       const dialog=p.body.querySelector('dialog');dialog.querySelector('#ts-search').click();await new Promise(resolve=>setTimeout(resolve,0));
       assert.ok(calls.includes(failedCommand));const error=dialog.querySelector('.dialog-error');assert.ok(error);assert.equal(error.getAttribute('translate'),'no');
-      const expected=t=>{const leaf=payload.message.startsWith('this block')?t.t('this block has no {name}',{name:'Endif'}):t.t('{value} was not found',{value:'"Alpha): Beta"'});return `${payload.file} ${payload.section} ${t.t(frame,{line:17,text:command,error:leaf})}`+(payload.debug_path===null?'':`. ${t.t(debug,{directory:payload.debug_path})}`);};
+      const expected=t=>{const leaf=payload.message.startsWith('json_foreach')?t.t(payload.message):payload.message.startsWith('this block')?t.t('this block has no {name}',{name:'Endif'}):t.t('{value} was not found',{value:'"Alpha): Beta"'});return `${payload.file} ${payload.section} ${t.t(frame,{line:17,text:command,error:leaf})}`+(payload.debug_path===null?'':`. ${t.t(debug,{directory:payload.debug_path})}`);};
       assert.equal(error.textContent,expected(active));
       for(const [language,strings] of [[locale,catalog],['en',{}],[locale,catalog]]){
         active=p.translate(language,strings);listeners.forEach(listener=>listener());p.translateTree(dialog);await p.window.happyDOM.waitUntilComplete();

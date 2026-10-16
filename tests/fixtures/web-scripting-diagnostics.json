@@ -33,5 +33,15 @@
     "script": "SayDate",
     "page": "Title",
     "error": "no number at the current position: \"Title\""
+  },
+  {
+    "script": "json_foreach_end",
+    "page": "{}",
+    "error": "json_foreach_end without json_foreach"
+  },
+  {
+    "script": "json \"on\"\njson_foreach_counter",
+    "page": "{}",
+    "error": "json_foreach_counter outside json_foreach"
   }
 ]
