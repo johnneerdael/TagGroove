@@ -12,6 +12,8 @@ override a bundled translation without changing your music metadata.
    system language. For example, `nl-BE` can use Dutch; English is the fallback.
 3. Choose **OK**. The interface changes immediately; no restart is needed.
 
+Progress labels also translate when system number formatting uses another digit set.
+
 The catalog name in **System default** is shown as its author supplied it.
 Field names such as `ARTIST`, format strings such as `%artist%`, and functions
 such as `$upper(...)` keep the same syntax. Filenames, tag values and names you

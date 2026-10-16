@@ -32,6 +32,18 @@ test('parsing reports names, including plural selectors, and rejects malformed p
   assert.throws(()=>parse('{n, plural, one {x}'),/Malformed|Unclosed/);
   assert.equal(new Translator('en',{}).t('Literal {not a placeholder} stays'),'Literal {not a placeholder} stays');
 });
+test('numeric guards and plural decisions accept locale digits and grouping while retaining display glyphs',()=>{
+  const key='{count} files',catalog={[key]:'{count, plural, =1000002 {# exact} one {# one} other {# other}}',一:'Wrong count'};
+  const locales=['ar-EG','fa-IR','bn-BD','hi-IN-u-nu-deva','fr-FR','de-CH','en-IN',...Intl.supportedValuesOf('numberingSystem').map(system=>`en-u-nu-${system}`)];
+  for(const locale of locales)for(const count of [1,2,1000002]){
+    const shown=count.toLocaleString(locale),t=new Translator('en',catalog),expected=`${shown} ${count===1000002?'exact':count===1?'one':'other'}`;
+    assert.equal(t.translate(`${shown} files`),expected,locale);assert.equal(t.t(key,{count:shown}),expected,locale);
+    assert.equal(t.translate('Choose files'),'Choose files');
+  }
+  const t=new Translator('en',catalog);
+  assert.equal(t.t(key,{count:1.5}),'1.5 other');assert.equal(t.t(key,{count:'1.5'}),'1.5 other');assert.equal(t.t(key,{count:'١٫٥'}),'١٫٥ other');
+  assert.equal(new Translator('fr',{[key]:'{count, plural, one {# one} other {# other}}'}).t(key,{count:'١٫٠٠٢'}),'١٫٠٠٢ one');
+});
 test('rendered English text is translated by exact key or by key pattern, keeping its values and whitespace',()=>{
   const de=new Translator('de',{'Save tags':'Tags speichern','Open in {fileManager}':'In {fileManager} öffnen','Saved tags: {saved} files':'Tags gespeichert: {saved} Dateien',
     'Update check failed: {error}':'Update-Prüfung fehlgeschlagen: {error}','Select files first.':'Wählen Sie zuerst Dateien aus.','Copy of {name}':'Kopie von {name}','{count} files':'{count} Dateien','Moved {plural} to the Trash':'{plural} in den Papierkorb verschoben'});

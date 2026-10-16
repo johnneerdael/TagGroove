@@ -21,7 +21,9 @@ const SHORTCUT = /^(?:(?:⌘|⌥|⇧|⌃|⌫|Ctrl|Alt|Shift|Option|Cmd|Del|Num|E
 /** Count-only producer roles: keep paths and UI summaries under distinct names.
  * They only match digits, so "{count} file" never matches "Choose a file". */
 const NUMERIC = /^(length|count|size|total|done|restored|missing|unmatched|pending|saved|failed|skipped|selectedCount|tracks|discs|chapters|selected|shown|started|removed|files|matched|n|i|index|position|lastHits|lastStored|max)\d*$/;
-const NUMBER = '(\\d(?:[\\d.,\\u00a0\\u202f\' ]*\\d)?)';
+// Han decimal numbering uses these ten symbols rather than Unicode Nd digits.
+const HAN_DIGITS = '〇一二三四五六七八九';
+const NUMBER = `([\\p{Nd}${HAN_DIGITS}](?:[\\p{Nd}${HAN_DIGITS}.,\\u00a0\\u202f\\u066b\\u066c'’ ]*[\\p{Nd}${HAN_DIGITS}])?)`;
 export const normalize = (text: string) => text.replace(/\s+/g, ' ').trim();
 
 type Node = string | {name: string} | {name: string; plural: [string, Node[]][]};
@@ -79,7 +81,24 @@ export function placeholders(source: string): Set<string> {
   return names;
 }
 
-const number = (value: unknown) => typeof value === 'number' ? value : Number(String(value ?? '').replace(/[\s,.  '](?=\d{3}\b)/g, ''));
+/** Decode locale-formatted counts only for plural decisions; displayed values stay untouched. */
+const number = (value: unknown) => {
+  if (typeof value === 'number') return value;
+  const digits = String(value ?? '').replace(/[\p{Nd}〇一二三四五六七八九]/gu, digit => {
+    if (digit >= '0' && digit <= '9') return digit;
+    const han = HAN_DIGITS.indexOf(digit);
+    if (han >= 0) return String(han);
+    const code = digit.codePointAt(0)!;
+    let zero = code;
+    // Decimal digit sets are consecutive 0–9 runs; adjacent sets (math digits)
+    // can share a run, so retain the position modulo ten.
+    while (zero > 0 && /\p{Nd}/u.test(String.fromCodePoint(zero - 1))) zero--;
+    return String((code - zero) % 10);
+  }).replace(/[٬’]/g, '');
+  if (digits.includes('٫')) return Number(digits.replace(/٫/g, '.'));
+  const grouped = /^\d{1,3}(?:,\d{2})+,\d{3}$/.test(digits) ? digits.replace(/,/g, '') : digits;
+  return Number(grouped.replace(/[\s,.  '](?=\d{3}\b)/g, ''));
+};
 
 /** Fill a parsed translation. */
 export function render(nodes: Node[], params: Record<string, unknown>, rules: Intl.PluralRules, hash?: string): string {
@@ -129,7 +148,7 @@ export class Translator {
       // Keys that are mostly values ("{name}…") would match nearly any text.
       if (!/\p{L}{2,}/u.test(literal)) continue;
       const source = normalized.split(PLACEHOLDER).map((part, i) => i % 2 ? NUMERIC.test(part) ? NUMBER : '([\\s\\S]*?)' : escapeRegex(part).replace(/ /g, '\\s+')).join('');
-      this.patterns.push({regex: new RegExp(`^${source}$`, 'd'), names, value: nodes, literal: literal.length});
+      this.patterns.push({regex: new RegExp(`^${source}$`, 'du'), names, value: nodes, literal: literal.length});
     }
     this.patterns.sort((a, b) => b.literal - a.literal);
   }
@@ -178,7 +197,7 @@ export class Translator {
       const spacing = new Map<string, {before: string; after: string}>();
       pattern.names.forEach((param, i) => {
         const value = match[i + 1];
-        params[param] = !verbatim && depth < 2 && !VERBATIM.test(param) && normalize(value) !== name && /\p{L}/u.test(value) ? this.translate(value, depth + 1) : value;
+        params[param] = !verbatim && depth < 2 && !VERBATIM.test(param) && !NUMERIC.test(param) && normalize(value) !== name && /\p{L}/u.test(value) ? this.translate(value, depth + 1) : value;
         const [start, end] = match.indices![i + 1];
         spacing.set(param, {before: /\s*$/.exec(core.slice(0, start))![0], after: /^\s*/.exec(core.slice(end))![0]});
       });

@@ -482,6 +482,25 @@ test('freedb server names keep their authored spelling through empty/nonempty ed
     }finally{p.close();}
   }
 });
+test('real library progress localizes with OS-formatted Unicode and grouped counts',async()=>{
+  const original=Number.prototype.toLocaleString,key='Processing files … {done} of {total}';
+  for(const osLocale of ['ar-EG','fa-IR','bn-BD','hi-IN-u-nu-deva','de-CH','en-IN','zh-Hans-u-nu-hanidec'])for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',{[key]:'Progress: {done} / {total}'}]]){
+    const p=page(),seen=[],expected=[];
+    try{
+      Number.prototype.toLocaleString=function(language,options){return original.call(this,language??osLocale,options);};
+      const status={created:false,files:0,last_hits:0,last_stored:0},draft={pages:{library:{}}},t=new Translator(locale,catalog);
+      const options=libraryOptionsPage({status:async()=>status,cleanup:async()=>({checked:1,removed:0,cancelled:false}),progress:async(_job,update)=>{
+        for(const [done,total] of [[1,2],[1000002,2000003]]){
+          update(done,total);p.translateTree(p.body);
+          seen.push(p.body.querySelector('#library-status').textContent);expected.push(t.t(key,{done:original.call(done,osLocale),total:original.call(total,osLocale)}));
+        }
+        return()=>{};
+      }}),control=options.controls.flatMap(control=>control.controls??[control]).find(control=>control.id==='library-maintenance');
+      p.body.innerHTML=control.render(draft);control.bind(p.body,draft,()=>{});p.translate(locale,catalog);p.body.querySelector('#library-cleanup').click();
+      await p.window.happyDOM.waitUntilComplete();assert.equal(seen.length,2);assert.deepEqual(seen,expected,`${osLocale} → ${locale}`);
+    }finally{Number.prototype.toLocaleString=original;p.close();}
+  }
+});
 test('symbol-only catalog output replays original production control sources across languages',async()=>{
   for(const output of ['✓','42','…']){
     const p=page();
