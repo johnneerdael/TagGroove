@@ -140,6 +140,7 @@ pub fn import_group(path: &Path, legacy_encoding: Option<&str>) -> Result<MtaImp
 /// One file of a bulk `.mta` import.
 #[derive(Serialize)]
 pub struct GroupFileImport {
+    /// The caller's provider URI, or an imported native child-file path.
     pub path: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub imported: Option<MtaImport>,

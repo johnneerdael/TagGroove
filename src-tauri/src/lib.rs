@@ -149,11 +149,24 @@ async fn import_action_groups(
         let mut results = Vec::with_capacity(paths.len());
         // An input that cannot be read is one failed entry, not a failed call.
         for path in paths {
-            match auxiliary_input(&path) {
-                Ok(input) => results.extend(action_host::import_groups(
-                    &[input],
-                    legacy_encoding.as_deref(),
-                )),
+            match auxiliary_group_input(&path) {
+                Ok((input, name)) => {
+                    let mut imported =
+                        action_host::import_groups(&[input], legacy_encoding.as_deref());
+                    if path.starts_with("content://") {
+                        for result in &mut imported {
+                            result.path = path.clone();
+                            if let (Some(imported), Some(name)) = (&mut result.imported, &name) {
+                                if let Some(stem) =
+                                    Path::new(name).file_stem().filter(|stem| !stem.is_empty())
+                                {
+                                    imported.group.name = stem.to_string_lossy().into_owned();
+                                }
+                            }
+                        }
+                    }
+                    results.extend(imported);
+                }
                 Err(error) => results.push(action_host::GroupFileImport {
                     path,
                     imported: None,
@@ -313,6 +326,22 @@ fn auxiliary_input(path: &str) -> Result<PathBuf, String> {
         return result;
     }
     documents::snapshot_input(
+        APP_HANDLE.get().ok_or("Document access is unavailable")?,
+        path,
+    )
+}
+// Bulk group imports also need the display filename already returned by the
+// provider snapshot; the private snapshot's UUID is not an action group name.
+fn auxiliary_group_input(path: &str) -> Result<(PathBuf, Option<String>), String> {
+    #[cfg(not(target_os = "android"))]
+    if !path.starts_with("content://") {
+        return Ok((PathBuf::from(path), None));
+    }
+    #[cfg(test)]
+    if let Some(result) = documents::command_fixture::snapshot_input_with_name(path) {
+        return result.map(|(path, name)| (path, Some(name)));
+    }
+    documents::snapshot_input_with_name(
         APP_HANDLE.get().ok_or("Document access is unavailable")?,
         path,
     )
@@ -1389,6 +1418,46 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn bulk_group_import_keeps_provider_uris_and_expands_local_folder_paths() {
+        use documents::command_fixture::Session;
+        let dir = tempfile::tempdir().unwrap();
+        let audio = dir.path().join("provider.wav");
+        wav(&audio);
+        let session = Session::import(&dir.path().join("private"), &audio, "provider.wav", true);
+        let source = dir.path().join("Titles.mta");
+        std::fs::write(&source, "[#0]\nT=9\nF=TITLE\n1=Imported\n").unwrap();
+        let uri = format!("{}/titles", session.uri);
+        session.add_input(&uri, &source, "Titles.mta");
+        let bad = dir.path().join("Broken.mta");
+        std::fs::write(&bad, "not an action group").unwrap();
+        let bad_uri = format!("{}/broken", session.uri);
+        session.add_input(&bad_uri, &bad, "Broken.mta");
+        let folder = dir.path().join("groups");
+        std::fs::create_dir(&folder).unwrap();
+        let local = folder.join("Local.mta");
+        std::fs::copy(&source, &local).unwrap();
+        let results = tauri::async_runtime::block_on(import_action_groups(
+            vec![
+                uri.clone(),
+                bad_uri.clone(),
+                folder.to_string_lossy().into_owned(),
+            ],
+            None,
+        ))
+        .unwrap();
+        assert_eq!(results.len(), 3);
+        assert_eq!(results[0].path, uri);
+        assert!(results[0].imported.is_some());
+        assert_eq!(results[0].imported.as_ref().unwrap().group.name, "Titles");
+        assert!(results[0].error.is_none());
+        assert_eq!(results[1].path, bad_uri);
+        assert!(results[1].imported.is_none());
+        assert!(results[1].error.is_some());
+        assert_eq!(results[2].path, local.to_string_lossy());
+        assert_eq!(results[2].imported.as_ref().unwrap().group.name, "Local");
+    }
 
     #[test]
     fn bulk_group_import_reports_an_unreadable_input_and_imports_the_rest() {

@@ -216,6 +216,20 @@ pub fn snapshot_input(app: &tauri::AppHandle, path: &str) -> Result<PathBuf, Str
     #[cfg(not(target_os = "android"))]
     Ok(PathBuf::from(path))
 }
+pub(crate) fn snapshot_input_with_name(
+    app: &tauri::AppHandle,
+    path: &str,
+) -> Result<(PathBuf, Option<String>), String> {
+    initialize(app)?;
+    #[cfg(target_os = "android")]
+    return android::with_store(|store| {
+        store
+            .snapshot_input_with_name(path)
+            .map(|(path, name)| (path, Some(name)))
+    });
+    #[cfg(not(target_os = "android"))]
+    Ok((PathBuf::from(path), None))
+}
 pub fn save_copy(
     app: &tauri::AppHandle,
     path: &str,

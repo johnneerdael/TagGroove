@@ -146,6 +146,28 @@ action-host tests and all 277 application-library tests passed, with the
 same four explicit skips. The core files are unchanged from the full
 728-test integrated-workspace run above.
 
+## Provider import identity follow-up
+
+The review of `bac7b5b` found that successful bulk imports of provider
+`content://` files returned the private snapshot path instead of the caller's
+URI. A real Store/SAF command fixture reproduced this, including the adjacent
+case where the imported group name was the snapshot UUID rather than the
+provider's display filename. The `.mta` content does not carry the group name;
+ordinary imports derive it from the filename.
+
+Bulk imports now keep the original URI on both success and failure, and
+derive successful group names from the display filename already returned by
+the existing provider snapshot operation. Internal helpers retain that
+metadata; the provider trait, Android bridge and frontend command schema are
+unchanged, and no additional provider request is made. Local folder imports
+still return individual child-file paths and names. The combined regression
+failed before each correction and passes after both; the previous per-file
+unreadable-input continuation regression also passes.
+All 278 application-library tests passed with four explicit skips, including
+the existing Store and image-snapshot protection tests. Clippy and formatting
+also passed. This fixture verifies the shared Store/command path; device
+provider behavior still requires the reviewed Android integration workload.
+
 ## Not covered
 
 - The `.mta` type IDs for Adjust Cover, Set Cover Properties and Generate Playlists, and the guessed schemas for types 4, 6 and 11–15, need `.mta` files saved by Mp3tag.
