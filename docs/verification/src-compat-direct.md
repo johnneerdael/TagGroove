@@ -145,3 +145,26 @@ unchanged frontend retains the 384 UI/model tests and production build qualified
 at `80cad18d21a43c456fe9ec3c24c41ff2b4c11223`; those are not claimed as new runs
 for this decoder-only correction. A new exact-head Codex code review and trusted
 platform validation are still required before merging.
+
+## Retained-line join growth
+
+`JoinLines` and `JoinUntil` now share a cumulative 16 MiB append budget for one
+script run. Repeated and overlapping copies count toward that budget; replacing
+input does not reset it. Checks precede allocation and mutation, and successful
+joins append directly while preserving retained lines and cursor positions.
+Six regressions cover bounded repeated loops, the exact byte limit, UTF-8,
+refusal state, navigation, overlap and input switches. Two bounded old-code
+probes failed the expected-limit assertions; all 21 updated engine tests pass.
+
+Fresh workspace qualification passed **992 Rust tests**, zero failures and six
+explicit ignores across 67 result summaries, plus all-target Clippy with warnings
+denied, the strict 172-page guide and eight publication tests. The unchanged
+frontend retains the 384 UI/model tests and production build qualified at
+`80cad18`. Stale dependency build metadata first prevented compilation; scoped
+regeneration in this worktree's own target recovered it without source changes.
+Disk guards held testing until sufficient reserve was available. Both tests and
+Clippy then exited successfully; the final reserve check fell below the
+conservative 2.3 GiB threshold while remaining above the journal's 2 GiB minimum.
+Root subsequently archived only superseded test executables to restore headroom.
+A fresh final-head Codex code review and trusted platform validation remain
+required.

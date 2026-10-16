@@ -13,6 +13,8 @@ use std::fmt;
 const STEP_LIMIT: usize = 2_000_000;
 /// Total size of all output buffers.
 const OUTPUT_LIMIT: usize = 16 * 1024 * 1024;
+/// Cumulative bytes appended by retained-line joins during one run.
+const JOIN_GROWTH_LIMIT: usize = 16 * 1024 * 1024;
 /// Debug files without an explicit size limit stop growing at this size.
 const DEBUG_LIMIT: usize = 10 * 1024 * 1024;
 /// The output Say commands write to until OutputTo names another; the index
@@ -380,6 +382,7 @@ struct Machine<'a> {
     outputs: BTreeMap<String, String>,
     current: String,
     size: usize,
+    joined_bytes: usize,
     trim: bool,
     json: Option<Json>,
     repeats: HashMap<usize, usize>,
@@ -583,6 +586,7 @@ impl<'a> Machine<'a> {
             outputs: BTreeMap::new(),
             current: DEFAULT_OUTPUT.into(),
             size: 0,
+            joined_bytes: 0,
             trim: true,
             json: None,
             repeats: HashMap::new(),
@@ -1118,7 +1122,7 @@ impl<'a> Machine<'a> {
                         .find(|&i| self.lines[i].contains(needle))
                         .unwrap_or(self.lines.len() - 1);
                 }
-                self.join(last);
+                self.join(last)?;
             }
             "joinlines" => {
                 let n = parse_number(arg(0), "The line count")?;
@@ -1127,7 +1131,7 @@ impl<'a> Machine<'a> {
                 } else {
                     (self.line + n as usize).min(self.lines.len() - 1)
                 };
-                self.join(last);
+                self.join(last)?;
             }
             "killtag" => {
                 let replaced = kill_tag(self.line_text(), arg(0), arg(1));
@@ -1381,13 +1385,32 @@ impl<'a> Machine<'a> {
     /// Append the following lines up to `last` to the current line. The
     /// following lines stay where they are, so line counts in a script
     /// (`MoveLine -6` back to an attribute line) still hold after a join.
-    fn join(&mut self, last: usize) {
+    fn join(&mut self, last: usize) -> Result<(), String> {
         if last <= self.line {
-            return;
+            return Ok(());
         }
-        let joined: String = self.lines[self.line + 1..=last].concat();
+        let appended = self.lines[self.line + 1..=last]
+            .iter()
+            .try_fold(0usize, |bytes, line| bytes.checked_add(line.len()));
+        let growth = appended.and_then(|bytes| self.joined_bytes.checked_add(bytes));
+        let Some((appended, growth)) = appended
+            .zip(growth)
+            .filter(|(_, growth)| *growth <= JOIN_GROWTH_LIMIT)
+        else {
+            return Err("joining lines would exceed the 16 MB append limit for one run".into());
+        };
+        // Preflight the entire append before allocating or touching any state.
+        // Disjoint slices keep the retained lines unchanged without a concat
+        // allocation or rebuilding the current prefix on every join.
         let index = self.line;
-        self.lines[index].push_str(&joined);
+        let (before, following) = self.lines.split_at_mut(index + 1);
+        let current = &mut before[index];
+        current.reserve(appended);
+        for line in following.iter().take(last - index) {
+            current.push_str(line);
+        }
+        self.joined_bytes = growth;
+        Ok(())
     }
 }
 
@@ -2052,6 +2075,130 @@ Say "after"
         );
         assert_eq!(limited.files.len(), 1);
         assert!(!limited.files[0].content.contains("Say"));
+    }
+
+    fn one_step(machine: &mut Machine<'_>, text: &str) -> Result<usize, String> {
+        let command = Script::compile(&[(1, text.to_owned())]).unwrap();
+        machine.step(&command, 0)
+    }
+
+    fn repeated_join_error(command: &str) -> ScriptError {
+        // At most 17 MiB even before the guard exists; never reproduce the
+        // unbounded two-million-step allocation pattern in a test.
+        let input = format!("A\n{}", "é".repeat(512 * 1024));
+        error(&format!("Do\n{command}\nWhile \"A\" 17"), &input)
+    }
+
+    #[test]
+    fn join_lines_repeated_growth_stops_before_the_step_guard() {
+        let error = repeated_join_error("JoinLines 1");
+        assert_eq!(error.line, 2);
+        assert_eq!(error.command, "JoinLines 1");
+        assert!(error.message.contains("16 MB append limit"));
+    }
+
+    #[test]
+    fn join_until_repeated_growth_stops_before_the_step_guard() {
+        let error = repeated_join_error("JoinUntil \"missing\"");
+        assert_eq!(error.line, 2);
+        assert_eq!(error.command, "JoinUntil \"missing\"");
+        assert!(error.message.contains("16 MB append limit"));
+    }
+
+    #[test]
+    fn join_exact_byte_limit_keeps_cursor_and_retained_lines_on_refusal() {
+        let env = Environment::default();
+        let payload = "é".repeat(512 * 1024); // 1 MiB in UTF-8, not 1 MiB characters.
+        let input = format!("A\n{payload}");
+        let mut machine = Machine::new(&input, &env);
+        one_step(&mut machine, "GotoChar 2").unwrap();
+        for _ in 0..16 {
+            one_step(&mut machine, "JoinLines 1").unwrap();
+        }
+        assert_eq!(machine.lines[0].len(), 1 + 16 * 1024 * 1024);
+        let before = (machine.lines.clone(), machine.line, machine.pos);
+        for command in ["JoinLines 1", "JoinUntil \"missing\""] {
+            assert!(one_step(&mut machine, command).is_err(), "{command}");
+            assert_eq!(
+                (&machine.lines, machine.line, machine.pos),
+                (&before.0, before.1, before.2)
+            );
+        }
+        one_step(&mut machine, "MoveLine 1").unwrap();
+        one_step(&mut machine, "GotoChar 2").unwrap();
+        one_step(&mut machine, "SayRest").unwrap();
+        assert_eq!(machine.outputs[DEFAULT_OUTPUT], &payload[2..]);
+        assert_eq!(machine.lines.len(), 2);
+    }
+
+    #[test]
+    fn overlapping_joins_keep_each_following_line_at_its_position() {
+        let env = Environment::default();
+        let mut machine = Machine::new("A\nBB\nZ", &env);
+        one_step(&mut machine, "GotoChar 2").unwrap();
+        one_step(&mut machine, "JoinUntil \"Z\"").unwrap();
+        assert_eq!((machine.line, machine.pos), (0, 1));
+        one_step(&mut machine, "MoveLine 1").unwrap();
+        one_step(&mut machine, "JoinLines 1").unwrap();
+        one_step(&mut machine, "MoveLine -1").unwrap();
+        one_step(&mut machine, "JoinLines 1").unwrap();
+        assert_eq!(machine.lines, ["ABBZBBZ", "BBZ", "Z"]);
+        assert_eq!((machine.line, machine.pos), (0, 0));
+        one_step(&mut machine, "MoveLine 2").unwrap();
+        one_step(&mut machine, "SayRest").unwrap();
+        assert_eq!(machine.outputs[DEFAULT_OUTPUT], "Z");
+    }
+
+    #[test]
+    fn join_budget_survives_use_replacement_and_json_input_switches() {
+        let env = Environment::default();
+        let input = format!("A\n{}", "x".repeat(1024 * 1024));
+        let mut machine = Machine::new(&input, &env);
+        for _ in 0..16 {
+            one_step(&mut machine, "JoinLines 1").unwrap();
+        }
+        for command in [
+            "Set \"fresh\" \"A\"",
+            "OutputTo \"fresh\"",
+            "SayNewline",
+            "Say \"B\"",
+            "Use \"%fresh%\"",
+        ] {
+            one_step(&mut machine, command).unwrap();
+        }
+        assert_eq!(machine.lines, ["A", "B"]);
+        assert!(one_step(&mut machine, "JoinLines 1").is_err());
+        one_step(&mut machine, "Replace \"A\" \"C\"").unwrap();
+        assert!(one_step(&mut machine, "JoinUntil \"missing\"").is_err());
+        one_step(&mut machine, "UseFormat \"%_current%\"").unwrap();
+        assert!(one_step(&mut machine, "JoinLines 1").is_err());
+        machine.set_input(r#"{"x":"A\nB"}"#);
+        one_step(&mut machine, "json \"on\" \"current\"").unwrap();
+        one_step(&mut machine, "json_select \"x\"").unwrap();
+        assert_eq!(machine.lines, ["A", "B"]);
+        assert!(one_step(&mut machine, "JoinLines 1").is_err());
+        one_step(&mut machine, "json \"off\"").unwrap();
+        one_step(&mut machine, "Use \"%fresh%\"").unwrap();
+        assert!(one_step(&mut machine, "JoinLines 1").is_err());
+    }
+
+    #[test]
+    fn a_refused_join_does_not_spend_the_remaining_byte_allowance() {
+        let env = Environment::default();
+        let input = format!("A\nQ{}", "x".repeat(1024 * 1024 - 1));
+        let mut machine = Machine::new(&input, &env);
+        for _ in 0..15 {
+            one_step(&mut machine, "JoinLines 1").unwrap();
+        }
+        one_step(&mut machine, "MoveLine 1").unwrap();
+        one_step(&mut machine, "Replace \"Q\" \"\"").unwrap();
+        one_step(&mut machine, "MoveLine -1").unwrap();
+        one_step(&mut machine, "JoinLines 1").unwrap(); // One byte still available.
+        assert!(one_step(&mut machine, "JoinLines 1").is_err());
+        machine.set_input("A\nB");
+        one_step(&mut machine, "JoinUntil \"missing\"").unwrap();
+        assert_eq!(machine.lines, ["AB", "B"]);
+        assert!(one_step(&mut machine, "JoinLines 1").is_err());
     }
 
     #[test]
