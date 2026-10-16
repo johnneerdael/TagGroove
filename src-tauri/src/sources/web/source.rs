@@ -207,9 +207,9 @@ fn encoding(value: &str) -> Result<Encoding, String> {
         "utf-8" | "utf8" => Encoding::Utf8,
         "iso-8859-1" | "latin1" | "latin-1" => Encoding::Latin1,
         "ansi" => Encoding::Ansi,
-        other => {
+        value => {
             return Err(format!(
-                "[Encoding]={other} is not one of utf-8, iso-8859-1, url, url-utf-8 or ansi"
+                "[Encoding]={value} is not one of utf-8, iso-8859-1, url, url-utf-8 or ansi"
             ))
         }
     })
@@ -395,6 +395,14 @@ impl SourceFile {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn encoding_diagnostic_keeps_authored_token() {
+        assert_eq!(
+            encoding("Title").unwrap_err(),
+            "[Encoding]=title is not one of utf-8, iso-8859-1, url, url-utf-8 or ansi"
+        );
+    }
 
     #[test]
     fn search_label_ownership_distinguishes_defaults_from_authored_identical_text() {

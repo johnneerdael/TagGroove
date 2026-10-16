@@ -274,6 +274,21 @@ test('backend extraction follows actual local error factories without collecting
   `;
   assert.deepEqual(extractBackendSource(source),['Cannot inspect destination: {value}','Destination is not a folder','Invalid media file: {what}','Unknown script instruction','Verification failed; original preserved','bad sample header','line {line} ({text}): {error}'].sort());
 });
+test('backend extraction includes technical function prefixes and other diagnostic prefixes only in real error contexts',()=>{
+  const source=`fn private(){let format="$replace requires private raw data";Err("$loopend takes no arguments".into());Err(format!("\${name} expects {count} arguments"));value.map_err(|_| "$fmtDate expects an integer Unix timestamp");value.map_err(|_| { format!("the regular expression is not valid: {value}") });Err("a quoted parameter is not closed".into());Err("[IndexFormat] has no %_url% field".into());Err(format!("\\\"{value}\\\" is not a number"));}`;
+  assert.deepEqual(extractBackendSource(source),['$fmtDate expects an integer Unix timestamp','$loopend takes no arguments','${name} expects {count} arguments','the regular expression is not valid: {value}','a quoted parameter is not closed','[IndexFormat] has no %_url% field','"{value}" is not a number'].sort());
+  const actual=extractBackend();for(const testOnly of ['grant revoked','read only','source changed','partial provider write','fresh read failed'])assert.ok(!actual.includes(testOnly),testOnly);for(const key of ['$loopend takes no arguments','$replace requires complete search/replacement pairs','$getenv(MP3TAGAPP) requires the application directory context'])assert.ok(actual.includes(key),key);
+});
+test('all function-prefixed catalog diagnostics retain literal tokens and raw function names',()=>{
+  const keys=Object.keys(english).filter(key=>key.startsWith('$'));
+  for(const locale of ['de','nl'])for(const key of keys){
+    assert.deepEqual(catalogs[locale][key].match(/\$[A-Za-z_]\w*(?:\([A-Z]+\))?/g),key.match(/\$[A-Za-z_]\w*(?:\([A-Z]+\))?/g),key);
+    assert.notEqual(catalogs[locale][key],key,key);
+  }
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',{'${name} is not available here':'Unavailable: ${name}',Title:'Wrong function'}]]){
+    const t=new Translator(locale,catalog);assert.equal(t.translate('$Title is not available here'),t.t('${name} is not available here',{name:'Title'}));assert.ok(t.translate('$Title is not available here').includes('$Title'));
+  }
+});
 test('production destination and sibling wrapped error messages are part of the backend snapshot',()=>{
   const actual=extractBackend();
   for(const key of ['The destination is not a folder','Cannot open the destination folder: {e}','Library database: {e}','ASF {location} object limits exceeded','Invalid DSF file: {what}','Invalid Matroska file: {what}','The MP4 structure cannot be rewritten safely: {what}','Invalid {value} file: {what}','The optimized FLAC file did not verify; the original file was kept','The rewritten MP4 file did not verify; the original file was kept','Invalid chapter {value}: use HH:MM:SS.mmm followed by the title','{name} is stored once for {filename}, not per chapter; give its chapter rows the same value','The downloaded cover is not a supported image.','{name} did not respond in time. Check your connection and try again.','The freedb server answered: {code} {value}','{name} is not a known command','{name} takes {min} parameter','{name} takes {min} parameters','this block has no {name}','line {line} ({text}): {error}'])assert.ok(actual.includes(key),key);

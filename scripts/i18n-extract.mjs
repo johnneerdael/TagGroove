@@ -369,7 +369,7 @@ export function extract() {
 // Backend messages shown in the UI: error texts of the Rust commands, with `{}` values as placeholders.
 // They are a snapshot (src/i18n/backend-keys.json, `--backend` refreshes it): a message added later shows in English.
 const BACKEND_DIRS = ['src-tauri/src', 'crates/tag-core/src', 'crates/library/src', 'crates/document-access/src'];
-const BACKEND_MESSAGE = /(?:\bErr\(|\.ok_or\(|ok_or_else\(\|\|\s*|map_err\(\|[^|]*\|\s*)\s*(?:format!\(\s*)?"((?:[^"\\]|\\.)*)"/g;
+const BACKEND_MESSAGE = /(?:\bErr\(|\.ok_or\(|ok_or_else\(\|\|\s*|map_err\(\|[^|]*\|\s*)\s*(?:\{\s*)?(?:format!\(\s*)?"((?:[^"\\]|\\.)*)"/g;
 const INTERNAL = /Injected|fixture|json_foreach|^Invalid document|URI|manifest|lock failed|poisoned/i;
 // Keep offsets while ignoring quoted text/comments when locating error calls
 // and local helper bodies. This only balances delimiters, not Rust grammar.
@@ -414,7 +414,8 @@ const backendKey = text => {
 export function extractBackendSource(source){
   const tests=source.search(/#\[cfg\(test\)\]\s*mod tests/);if(tests>=0)source=source.slice(0,tests);
   const code=rustCode(source),keys=new Set(),roots=[],names=new Set();
-  const add=(message,wrapped=false)=>{const key=backendKey(message);if(!INTERNAL.test(key)&&(wrapped?common(key):/^[A-Z{]/.test(key)&&/\p{L}{2,}[\s,]+\p{L}{2,}/u.test(bare(key))))keys.add(key);};
+  // Error prose may begin with a function token, quote, header or lowercase word.
+  const add=(message,wrapped=false)=>{const key=backendKey(message);if(!INTERNAL.test(key)&&common(key)&&(wrapped||/\p{L}{2,}[\s,]+\p{L}{2,}/u.test(bare(key))))keys.add(key);};
   for(const match of source.matchAll(BACKEND_MESSAGE))if(code.slice(match.index,match.index+2).trim())add(match[1]);
   for(const match of code.matchAll(/\bErr\s*\(|\.(?:map_err|ok_or|ok_or_else)\s*\(/g)){
     const start=match.index+match[0].lastIndexOf('('),end=rustEnd(code,start);roots.push([start,end]);
@@ -451,7 +452,7 @@ export function extractBackendSource(source){
 }
 export function extractBackend() {
   const files = [];
-  const walk = dir => {for (const name of readdirSync(dir)) {const path = join(dir, name);if (statSync(path).isDirectory()) walk(path);else if (name.endsWith('.rs')) files.push(path);}};
+  const walk = dir => {for (const name of readdirSync(dir)) {const path = join(dir, name);if (statSync(path).isDirectory()) walk(path);else if (name.endsWith('.rs') && name !== 'tests.rs') files.push(path);}};
   for (const dir of BACKEND_DIRS) walk(root + dir);
   const keys = new Set();
   for (const file of files.sort()) {

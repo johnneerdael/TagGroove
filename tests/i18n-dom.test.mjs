@@ -581,6 +581,35 @@ test('production backend error frames translate wrapped diagnostics and preserve
     }finally{p.close();}
   }
 });
+test('real format and export diagnostics translate function prose while tokens and error paths stay raw',async()=>{
+  const cases=JSON.parse(await readFile(new URL('./fixtures/scripting-diagnostics.json',import.meta.url),'utf8'));
+  const arity='${name} expects {minimum}..={maximum} arguments, received {count}',keys=cases.map(item=>item.error.startsWith('$upper expects')?arity:item.error),custom={...Object.fromEntries(keys.map(key=>[key,`Diagnostic: ${key}`])),upper:'Wrong function token',Help:'Wrong file'};
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]]){
+    const p=page();try{
+      for(const [index,item] of cases.entries()){
+        const t=new Translator(locale,catalog),e={path:'Help',error:item.error},expected=t.t(keys[index],keys[index]===arity?{name:'upper',minimum:1,maximum:1,count:2}:{});
+        assert.notEqual(expected,item.error);p.body.innerHTML=mainTemplate(node=>node.head.text==='<p><strong translate="no">',{e,esc,displayName:path=>path,publicMessage:value=>value});p.translate(locale,catalog);
+        const shown=p.body.querySelector('p');assert.equal(shown.textContent,`Help: ${expected}`,`${locale} ${item.input}`);assert.deepEqual(shown.textContent.match(/\$[A-Za-z_]\w*(?:\([A-Z]+\))?/g),item.error.match(/\$[A-Za-z_]\w*(?:\([A-Z]+\))?/g));
+        p.translateTree(p.body);assert.equal(shown.textContent,`Help: ${expected}`);p.translate('en');assert.equal(shown.textContent,`Help: ${item.error}`);
+      }
+    }finally{p.close();}
+  }
+});
+test('web-script prefix diagnostics localize their scaffold without looking up authored or library payloads',async()=>{
+  const fixtures=JSON.parse(await readFile(new URL('./fixtures/web-scripting-diagnostics.json',import.meta.url),'utf8'));
+  const cases=[...fixtures.map(item=>item.error), '"Help/Title" is not a file name in the sources folder','[IndexFormat] has no %_url% field','[Encoding]=title is not one of utf-8, iso-8859-1, url, url-utf-8 or ansi',...['the regular expression is not valid: ','the regular expression failed: ','the input is not valid JSON: '].map(prefix=>prefix+'Title')];
+  const extra={'no number at the current position: "{value}"':'No number: {value}','"{value}" was not found in the current line':'Missing in line: {value}','"{value}" is not a number':'Not numeric: {value}','"{name}" is not a file name in the sources folder':'Not a source file: {name}','[Encoding]={value} is not one of utf-8, iso-8859-1, url, url-utf-8 or ansi':'Invalid encoding: {value}','the regular expression is not valid: {value}':'Invalid regex: {value}','the regular expression failed: {value}':'Failed regex: {value}','the input is not valid JSON: {value}':'Invalid JSON: {value}'};
+  const custom={...Object.fromEntries(cases.map(key=>[key,`Diagnostic: ${key}`])),...extra,Title:'Wrong payload',title:'Wrong encoding','Help/Title':'Wrong file'};
+  // Remove exact dynamic examples so their raw capture roles, rather than an exact key, are exercised.
+  for(const key of cases)if(key.includes('Title')||key.startsWith('[Encoding]'))delete custom[key];
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]])for(const error of cases){
+    const p=page();try{
+      const t=new Translator(locale,catalog),expected=t.translate(error),e={path:'Help',error};assert.notEqual(expected,error,`${locale} ${error}`);
+      assert.ok(!expected.includes('Wrong'));if(error.includes('Title'))assert.ok(expected.includes('Title'));if(error.startsWith('[Encoding]'))assert.ok(expected.includes('title'));
+      p.body.innerHTML=mainTemplate(node=>node.head.text==='<p><strong translate="no">',{e,esc,displayName:path=>path,publicMessage:value=>value});p.translate(locale,catalog);const row=p.body.querySelector('p');assert.equal(row.textContent,`Help: ${expected}`);p.translateTree(p.body);assert.equal(row.textContent,`Help: ${expected}`);p.translate('en');assert.equal(row.textContent,`Help: ${error}`);
+    }finally{p.close();}
+  }
+});
 test('real Cut/Paste failure statuses translate UI operation names while authored same-spelling names stay raw',()=>{
   const declaration=parsed.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text==='stageTagUpdates');
   const js=ts.transpileModule(declaration.getText(parsed),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;

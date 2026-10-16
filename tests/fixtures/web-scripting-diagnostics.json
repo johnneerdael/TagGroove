@@ -1,0 +1,37 @@
+[
+  {
+    "script": "Say \"Title",
+    "page": "Help",
+    "error": "a quoted parameter is not closed"
+  },
+  {
+    "script": "FindInLine \"Title\"",
+    "page": "Help",
+    "error": "\"Title\" was not found in the current line"
+  },
+  {
+    "script": "IfGreater \"Title\"\nEndif",
+    "page": "Help",
+    "error": "\"Title\" is not a number"
+  },
+  {
+    "script": "GotoLine 2",
+    "page": "Help",
+    "error": "the input has only 1 lines"
+  },
+  {
+    "script": "MoveLine 2",
+    "page": "Help",
+    "error": "moving 2 lines leaves the input (line 1 of 1)"
+  },
+  {
+    "script": "json \"on\"\njson_unselect_object",
+    "page": "{}",
+    "error": "no selected object to leave"
+  },
+  {
+    "script": "SayDate",
+    "page": "Title",
+    "error": "no number at the current position: \"Title\""
+  }
+]

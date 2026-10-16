@@ -705,8 +705,9 @@ pub async fn web_source_search(
             .filter(http::web_allowed)
             .ok_or_else(|| {
                 format!(
-                    "{} produced an address OpenTag cannot open: {raw}",
-                    file.name
+                    "{name} produced an address OpenTag cannot open: {url}",
+                    name = file.name,
+                    url = raw
                 )
             })?;
         http::register_web_url(&url);
@@ -868,6 +869,19 @@ mod tests {
         {"type":"bool","key":"comment","title":"Comment","default":false},
         {"type":"string","key":"lang","title":"Language","choices":["en","de"],"default":"en"},
         {"type":"number","key":"limit","title":"Limit","default":3}]}"#;
+
+    #[test]
+    fn source_header_diagnostics_keep_file_names_and_tokens() {
+        assert_eq!(
+            plain_name("Help/Title").unwrap_err(),
+            "\"Help/Title\" is not a file name in the sources folder"
+        );
+        let file = SourceFile::default();
+        assert_eq!(
+            index_results(&file, "", &Url::parse("https://example.invalid").unwrap()).unwrap_err(),
+            "[IndexFormat] has no %_url% field"
+        );
+    }
 
     #[test]
     fn listing_menu_names_problems_and_settings() {
