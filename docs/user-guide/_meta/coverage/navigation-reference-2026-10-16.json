@@ -1,0 +1,1181 @@
+{
+  "baseline_main": "5f4112efd8297cc8a183a47b76e76720490b4238",
+  "local_base": "199b0f8",
+  "scope": "Eight navigation-reference pages, reference landing/nav, one actual-helper documentation test; no app source edits",
+  "sources": [
+    {
+      "url": "https://docs.mp3tag.de/command-line/",
+      "sha256": "840574a89a5e529abda149d6222f3a1e073efd38421021149b5d66b819b3ba20"
+    },
+    {
+      "url": "https://docs.mp3tag.de/keyboard/",
+      "sha256": "31664192d6281a0f23ca322845189d472f120c2a997117cd7f4d330beaae113b"
+    },
+    {
+      "url": "https://docs.mp3tag.de/menus/",
+      "sha256": "5341d2a7d952f1383b86971a8feb8dc54710c805ee3d64f1b6eda5c778f9ebeb"
+    },
+    {
+      "url": "https://docs.mp3tag.de/menus/file/",
+      "sha256": "2a596a2431a33a542afff57e9a049169320acc5c40313e8cc1c1c2b62799ff40"
+    },
+    {
+      "url": "https://docs.mp3tag.de/menus/edit/",
+      "sha256": "98db5735106b2e4e46908e6724464d1dc716feabb7be26a46c530d5ad5713864"
+    },
+    {
+      "url": "https://docs.mp3tag.de/menus/view/",
+      "sha256": "1d46bbc8c338f9fa99224bf5bdc4f83369257055e7616f39572548c4a480f4ce"
+    },
+    {
+      "url": "https://docs.mp3tag.de/menus/convert/",
+      "sha256": "582812d9f517378104f945fd15650d080b9933ee2ab8ca480b8c1c2921ede657"
+    },
+    {
+      "url": "https://docs.mp3tag.de/menus/tag-sources/",
+      "sha256": "aeae66b0e7a14fb85427b6dee663cd2be2f94840e3d67a33dbb630b7b239c560"
+    }
+  ],
+  "semantic_topic_map": [
+    {
+      "source": "command-line",
+      "fact": "open a folder using /fp: and set working directory",
+      "guide_page": "reference/command-line.md",
+      "section": "Supported arguments",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "command-line",
+      "fact": "open a file using /fn: and use its parent",
+      "guide_page": "reference/command-line.md",
+      "section": "Supported arguments",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "command-line",
+      "fact": "append using /add without replacing the working directory",
+      "guide_page": "reference/command-line.md",
+      "section": "Supported arguments",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "command-line",
+      "fact": "interactive application rather than additional batch-write commands",
+      "guide_page": "reference/command-line.md",
+      "section": "Supported arguments",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Ctrl+A",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Files, tags and selection",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Ctrl+Shift+A",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Files, tags and selection",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Ctrl+B",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Files, tags and selection",
+      "disposition": "different-in-current-baseline; explained"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Ctrl+C",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Files, tags and selection",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Ctrl+Shift+C",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Remove, delete, copy and move",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Ctrl+D",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Folders and windows",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Ctrl+Shift+D",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Folders and windows",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Del",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Remove, delete, copy and move",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Ctrl+Del",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Remove, delete, copy and move",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Ctrl+Shift+Del",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Remove, delete, copy and move",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Ctrl+E",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Converters, actions, export and sources",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Ctrl+Shift+E",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Converters, actions, export and sources",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Ctrl+F",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Files, tags and selection",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Ctrl+G",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Files, tags and selection",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Ctrl+Shift+G",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Files, tags and selection",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Ctrl+H",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Folders and windows",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Ctrl+K",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Converters, actions, export and sources",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Ctrl+Shift+K",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Converters, actions, export and sources",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Ctrl+L",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Converters, actions, export and sources",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Ctrl+M",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Folders and windows",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Ctrl+Alt+M",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Converters, actions, export and sources",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Ctrl+N",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Files, tags and selection",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Ctrl+O",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Folders and windows",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Ctrl+P",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Converters, actions, export and sources",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Ctrl+Shift+P",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Converters, actions, export and sources",
+      "disposition": "different-in-current-baseline; explained"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Ctrl+Q",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Folders and windows",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Ctrl+R",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Files, tags and selection",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Ctrl+S",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Files, tags and selection",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Ctrl+T",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Files, tags and selection",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Ctrl+Shift+T",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Files, tags and selection",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Ctrl+U",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Files, tags and selection",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Ctrl+V",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Files, tags and selection",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Ctrl+Shift+V",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Remove, delete, copy and move",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Ctrl+X",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Files, tags and selection",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Ctrl+Z",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Files, tags and selection",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Ctrl+1, 2, ..., 0",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Converters, actions, export and sources",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Del",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Remove, delete, copy and move",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "F2",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Files, tags and selection",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "F3",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Files, tags and selection",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "F4",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Files, tags and selection",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "F5",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Files, tags and selection",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Alt+Right arrow",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Folders and windows",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Alt+Left arrow",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Folders and windows",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Alt+Enter",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Remove, delete, copy and move",
+      "disposition": "different-in-current-baseline; explained"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Alt+T",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Files, tags and selection",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Alt+Drag’n’Drop",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Manual file order",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Alt+Arrow down",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Manual file order",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Alt+Arrow up",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Manual file order",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Alt+Page down",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Manual file order",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#General",
+      "fact": "Alt+Page up",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Manual file order",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Convert",
+      "fact": "Alt+1",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Converters, actions, export and sources",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Convert",
+      "fact": "Alt+2",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Converters, actions, export and sources",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Convert",
+      "fact": "Alt+3",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Converters, actions, export and sources",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Convert",
+      "fact": "Alt+4",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Converters, actions, export and sources",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Convert",
+      "fact": "Alt+5",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Converters, actions, export and sources",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Actions",
+      "fact": "Alt+6",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Dialog keys",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Actions",
+      "fact": "Alt+Shift+6",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Dialog keys",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Actions",
+      "fact": "F2",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Dialog keys",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Actions",
+      "fact": "F4",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Dialog keys",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Actions",
+      "fact": "Insert",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Dialog keys",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Actions",
+      "fact": "Delete",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Dialog keys",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Actions",
+      "fact": "Space",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Dialog keys",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Actions",
+      "fact": "Ctrl+A",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Dialog keys",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Actions",
+      "fact": "Ctrl+Shift+A",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Dialog keys",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Actions",
+      "fact": "Ctrl+E",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Dialog keys",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Actions",
+      "fact": "Ctrl+D",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Dialog keys",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Actions",
+      "fact": "Ctrl+S",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Dialog keys",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Actions",
+      "fact": "Alt+Up",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Dialog keys",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Actions",
+      "fact": "Alt+Down",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Dialog keys",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Actions",
+      "fact": "Alt+Page Up",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Dialog keys",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Actions",
+      "fact": "Alt+Page Down",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Dialog keys",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Tag Sources",
+      "fact": "Ctrl+I",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Dialog keys",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Tag Sources",
+      "fact": "Ctrl+Shift+I",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Dialog keys",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Tag Sources",
+      "fact": "F2",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Dialog keys",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Tag Sources",
+      "fact": "Space",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Dialog keys",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Tag Sources",
+      "fact": "Ctrl+A",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Dialog keys",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Tag Sources",
+      "fact": "Ctrl+Shift+A",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Dialog keys",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Tag Sources",
+      "fact": "Ctrl+E",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Dialog keys",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Tag Sources",
+      "fact": "Ctrl+D",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Dialog keys",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Tag Sources",
+      "fact": "Alt+Up",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Dialog keys",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Tag Sources",
+      "fact": "Alt+Down",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Dialog keys",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Tag Sources",
+      "fact": "Alt+Page Up",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Dialog keys",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Tag Sources",
+      "fact": "Alt+Page Down",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Dialog keys",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Toolbar Customization",
+      "fact": "F4",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Dialog keys",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Toolbar Customization",
+      "fact": "Space",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Dialog keys",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Toolbar Customization",
+      "fact": "Ctrl+E",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Dialog keys",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Toolbar Customization",
+      "fact": "Ctrl+D",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Dialog keys",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Toolbar Customization",
+      "fact": "Alt+Up",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Dialog keys",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Toolbar Customization",
+      "fact": "Alt+Down",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Dialog keys",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Toolbar Customization",
+      "fact": "Alt+Page Up",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Dialog keys",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Toolbar Customization",
+      "fact": "Alt+Page Down",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Dialog keys",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Useful helpers",
+      "fact": "Ctrl+Space",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Helpers and menus",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Useful helpers",
+      "fact": "Ctrl+Tab",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Folders and windows",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Useful helpers",
+      "fact": "Ctrl+Shift+Tab",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Folders and windows",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Useful helpers",
+      "fact": "Ctrl+Num++",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Folders and windows",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Useful helpers",
+      "fact": "Shift+Del",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Helpers and menus",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "keyboard#Useful helpers",
+      "fact": "Shift+Enter",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Helpers and menus",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/file#save-tag",
+      "fact": "Save tag",
+      "guide_page": "reference/menus/file.md",
+      "section": "Tags and copies",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/file#remove-tag",
+      "fact": "Remove tag",
+      "guide_page": "reference/menus/file.md",
+      "section": "Tags and copies",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/file#read-tag",
+      "fact": "Read tag",
+      "guide_page": "reference/menus/file.md",
+      "section": "Tags and copies",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/file#playlist-all-files",
+      "fact": "Playlist (all files)",
+      "guide_page": "reference/menus/file.md",
+      "section": "Playlists and reports",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/file#playlist-selected-files",
+      "fact": "Playlist (selected files)",
+      "guide_page": "reference/menus/file.md",
+      "section": "Playlists and reports",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/file#generate-playlists",
+      "fact": "Generate Playlists…",
+      "guide_page": "reference/menus/file.md",
+      "section": "Playlists and reports",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/file#export",
+      "fact": "Export",
+      "guide_page": "reference/menus/file.md",
+      "section": "Playlists and reports",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/file#change-directory",
+      "fact": "Change directory…",
+      "guide_page": "reference/menus/file.md",
+      "section": "Load and navigate",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/file#add-directory",
+      "fact": "Add directory…",
+      "guide_page": "reference/menus/file.md",
+      "section": "Load and navigate",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/file#load-playlistcuesheet",
+      "fact": "Load Playlist/Cuesheet…",
+      "guide_page": "reference/menus/file.md",
+      "section": "Load and navigate",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/file#favorite-directory",
+      "fact": "Favorite directory",
+      "guide_page": "reference/menus/file.md",
+      "section": "Load and navigate",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/file#open-in-explorer",
+      "fact": "Open in Explorer",
+      "guide_page": "reference/menus/file.md",
+      "section": "Load and navigate",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/file#options",
+      "fact": "Options…",
+      "guide_page": "reference/menus/file.md",
+      "section": "Configuration and closing",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/file#save-configuration",
+      "fact": "Save configuration…",
+      "guide_page": "reference/menus/file.md",
+      "section": "Configuration and closing",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/file#open-configuration-folder",
+      "fact": "Open configuration folder",
+      "guide_page": "reference/menus/file.md",
+      "section": "Configuration and closing",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/file#exit",
+      "fact": "Exit",
+      "guide_page": "reference/menus/file.md",
+      "section": "Configuration and closing",
+      "disposition": "different-in-current-baseline; OS close controls explained"
+    },
+    {
+      "source": "menus/edit#undo",
+      "fact": "Undo",
+      "guide_page": "reference/menus/edit.md",
+      "section": "History and tag clipboard",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/edit#redo",
+      "fact": "Redo",
+      "guide_page": "reference/menus/edit.md",
+      "section": "History and tag clipboard",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/edit#repeat",
+      "fact": "Repeat",
+      "guide_page": "reference/menus/edit.md",
+      "section": "History and tag clipboard",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/edit#copy",
+      "fact": "Copy",
+      "guide_page": "reference/menus/edit.md",
+      "section": "History and tag clipboard",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/edit#copy-as-text",
+      "fact": "Copy as Text…",
+      "guide_page": "reference/menus/edit.md",
+      "section": "History and tag clipboard",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/edit#cut",
+      "fact": "Cut",
+      "guide_page": "reference/menus/edit.md",
+      "section": "History and tag clipboard",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/edit#paste",
+      "fact": "Paste",
+      "guide_page": "reference/menus/edit.md",
+      "section": "History and tag clipboard",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/edit#find",
+      "fact": "Find",
+      "guide_page": "reference/menus/edit.md",
+      "section": "Selection and finding",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/edit#cover",
+      "fact": "Cover",
+      "guide_page": "reference/menus/edit.md",
+      "section": "Names, transfers and deletion",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/edit#rename",
+      "fact": "Rename",
+      "guide_page": "reference/menus/edit.md",
+      "section": "Names, transfers and deletion",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/edit#copy-1",
+      "fact": "Copy…",
+      "guide_page": "reference/menus/edit.md",
+      "section": "Names, transfers and deletion",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/edit#move",
+      "fact": "Move…",
+      "guide_page": "reference/menus/edit.md",
+      "section": "Names, transfers and deletion",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/edit#remove",
+      "fact": "Remove",
+      "guide_page": "reference/menus/edit.md",
+      "section": "Names, transfers and deletion",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/edit#delete",
+      "fact": "Delete…",
+      "guide_page": "reference/menus/edit.md",
+      "section": "Names, transfers and deletion",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/edit#select-all-files",
+      "fact": "Select all files",
+      "guide_page": "reference/menus/edit.md",
+      "section": "Selection and finding",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/edit#invert-selection",
+      "fact": "Invert selection",
+      "guide_page": "reference/menus/edit.md",
+      "section": "Selection and finding",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/edit#unselect-all",
+      "fact": "Unselect all",
+      "guide_page": "reference/menus/edit.md",
+      "section": "Selection and finding",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/edit#select-next-file",
+      "fact": "Select next file",
+      "guide_page": "reference/menus/edit.md",
+      "section": "Selection and finding",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/edit#select-similar-files",
+      "fact": "Select similar files",
+      "guide_page": "reference/menus/edit.md",
+      "section": "Selection and finding",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/edit#select-next-similar-files",
+      "fact": "Select next similar files",
+      "guide_page": "reference/menus/edit.md",
+      "section": "Selection and finding",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/view#refresh",
+      "fact": "Refresh",
+      "guide_page": "reference/menus/view.md",
+      "section": "Panels, fields and filtering",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/view#sort-by",
+      "fact": "Sort by",
+      "guide_page": "reference/menus/view.md",
+      "section": "Sort and columns",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/view#tag-panel",
+      "fact": "Tag Panel",
+      "guide_page": "reference/menus/view.md",
+      "section": "Panels, fields and filtering",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/view#extended-tags",
+      "fact": "Extended Tags…",
+      "guide_page": "reference/menus/view.md",
+      "section": "Panels, fields and filtering",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/view#filter",
+      "fact": "Filter",
+      "guide_page": "reference/menus/view.md",
+      "section": "Panels, fields and filtering",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/view#toolbars",
+      "fact": "Toolbars",
+      "guide_page": "reference/menus/view.md",
+      "section": "Toolbars and positions",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/view#columns",
+      "fact": "Columns",
+      "guide_page": "reference/menus/view.md",
+      "section": "Sort and columns",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/convert#tag---filename",
+      "fact": "Tag - Filename",
+      "guide_page": "reference/menus/convert.md",
+      "section": "Read the direction before applying",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/convert#filename---tag",
+      "fact": "Filename - Tag",
+      "guide_page": "reference/menus/convert.md",
+      "section": "Read the direction before applying",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/convert#filename---filename",
+      "fact": "Filename - Filename",
+      "guide_page": "reference/menus/convert.md",
+      "section": "Read the direction before applying",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/convert#text-file---tag-import",
+      "fact": "Text file - Tag (Import)",
+      "guide_page": "reference/menus/convert.md",
+      "section": "Read the direction before applying",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/convert#tag---tag",
+      "fact": "Tag - Tag",
+      "guide_page": "reference/menus/convert.md",
+      "section": "Read the direction before applying",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/convert#auto-numbering-wizard",
+      "fact": "Auto-numbering wizard…",
+      "guide_page": "reference/menus/convert.md",
+      "section": "Read the direction before applying",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/tag-sources#freedb-",
+      "fact": "freedb …",
+      "guide_page": "reference/menus/tag-sources.md",
+      "section": "Built-in source commands",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/tag-sources#freedb-local",
+      "fact": "freedb (local)…",
+      "guide_page": "reference/menus/tag-sources.md",
+      "section": "Built-in source commands",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/tag-sources#discogs-musicbrainz-",
+      "fact": "Discogs, MusicBrainz, …",
+      "guide_page": "reference/menus/tag-sources.md",
+      "section": "Built-in source commands",
+      "disposition": "explained-current-baseline"
+    },
+    {
+      "source": "menus/convert",
+      "fact": "preview-only Shift gesture addressed through current explicit preview/apply workflow",
+      "guide_page": "reference/menus/convert.md",
+      "section": "Preview and write behavior",
+      "disposition": "different-in-current-shortcut-router; explained"
+    },
+    {
+      "source": "menus",
+      "fact": "main menus plus cover/format/field helper contexts",
+      "guide_page": "reference/menus/index.md",
+      "section": "Other menus",
+      "disposition": "overview-complete; detailed remaining context-menu chapters stay drafts"
+    },
+    {
+      "source": "current implementation",
+      "fact": "macOS physical Control exceptions, Option typing and AltGr protection",
+      "guide_page": "reference/keyboard-shortcuts.md",
+      "section": "Platform and focus rules",
+      "disposition": "source-checked; nine written examples executed"
+    },
+    {
+      "source": "current implementation",
+      "fact": "second-instance forwarding and macOS opened documents",
+      "guide_page": "reference/command-line.md",
+      "section": "Existing windows, ordering and troubleshooting",
+      "disposition": "source-checked; pure frontend launch contracts tested; no installed-shell session"
+    }
+  ],
+  "implementation_sha256": {
+    "src/main.ts": "82980731c3bd981aa57afd7ccdbc6b785f30e441ff50b7aea82a1360691667b8",
+    "src/keyboard.ts": "66144e6c5760749c3173c8dc28bd1c856dcddbec31afd9a949426644e3926061",
+    "src/edit-history.ts": "8bff30cfa68e212916156b16bb6d7a9b105b4363a7d8eb4da29b8912ba57cb0a",
+    "src/file-ops.ts": "9009f23df8f5f290405277dc36d13a235457bf46ff11f163c0fa1b411bdcec75",
+    "src/list-commands.ts": "e98a94bb76673d9ecaa966627c08a5b57f40d7b0ea0f1698f3bdcce16789d720",
+    "src/list-behaviour.ts": "d6739b158d1005e7cf9daa7fbb90a5ad8adfba12cdadaf464ae52c6954b1ea33",
+    "src-tauri/src/file_ops.rs": "badc5a5e34e3aa4017dedfa7abb6100156a8c1207990c250ba1dff474d980352",
+    "src/tag-panel.ts": "843a7c2e0814bc4934498c4cb15970b57745d163577b3ae19078af1c903cf0e3",
+    "src/helper-menu.ts": "0e64bac80b4d117a5241587d7038fd36e0e5429bb6ebd477a30bbc7aca884ba9",
+    "src/tools.ts": "412b8ff9827b68909ff0b72614df1bc61be9b0b9d7b51b32f5fcd2614eb1e6b6",
+    "src/tag-sources.ts": "5fbf3508e199b89ad7cbc93c1251e94f388c416832650a845aafdd494c3480fc",
+    "src/menubar.ts": "ce94b50dd08af0d0b46781aa69d81cd2c9900ec4672d3b6391c42a67221f7a15",
+    "src/toolbar.ts": "a984a89b1907927b3662668aa2fd724fa8a8941f706685a10be93cec309c62c9",
+    "src/action-ui.ts": "0ab3fd434ac7729218cd8b45293014e3c232b7c1890f2bfdf1d91df5d08e4868"
+  },
+  "guide_sha256": {
+    "command-line.md": "f3a99031fc1ca2862c28c73234dd818b7b6f2f631030a72b9287e006e68ec6b7",
+    "keyboard-shortcuts.md": "5657706e5aba60d1dc152ecbc8de019a09d569843fcf73e5d4041f08a14b24fc",
+    "menus/index.md": "a41860910be14445960f721e51f1448b335451f08cb90b2b70e08abe7ea8973f",
+    "menus/file.md": "59272e2ef6001cc78030ef897816abcc5a182709ccc7ee6bde03d1b3fd0a67d5",
+    "menus/edit.md": "31bd3d73f1764cc9f3a80654f40b8a8fced11a815555c34009fa303809916c9b",
+    "menus/view.md": "f4030efaccf921f6f54fbeb85069e820a35d622da8479368bfef2f948df46e58",
+    "menus/convert.md": "ff491466ac13090cee145b03aa4b6a633504d3e806aeef09d003a08a0100005b",
+    "menus/tag-sources.md": "8b0b838728a4dc3d7799ad4f5c97d1cd821b6d2d1218d828bea8542432821848"
+  },
+  "validation": {
+    "node": "42 passed: one new written-platform-routing test (9cases) +41existingkeyboard/file/list/history contracts",
+    "strict_build": "passed at88completed pages",
+    "publication_tests": "8 passed",
+    "independent_review": "pending",
+    "diff_check": "passed"
+  },
+  "limits": [
+    "No installed Windows/Linux/macOS launch, keyboard or native UI session was performed for this batch.",
+    "CLI argument parsing traced to actual Rust parse_launch and existing parser contracts; the new written-case test executes TypeScript focus/platform helpers.",
+    "The observed menu map is not proof of live remote-provider availability or every format save-back capability.",
+    "PR17/18/19/20/26/27/28 are not folded into this baseline; reconcile affected source/provider/encoding/language claims after merging.",
+    "Root PR19 guide prep owns freedb/local-freedb workflows and their two option pages; these remain untouched by this batch.",
+    "Topic and key inventories are tracking aids, not semantic completeness or runtime-parity certification."
+  ]
+}

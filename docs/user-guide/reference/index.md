@@ -11,6 +11,9 @@ Use the reference to look up exact field names, syntax, storage mappings, and su
 | [Format strings](format-strings.md) | Placeholders, functions, and rules for constructing a value. |
 | [Placeholders](placeholders.md) | File information and other values available inside format strings. |
 | [Regular expressions](regular-expressions.md) | Pattern syntax, replacements, escaping, and Boost-specific behavior. |
+| [Command line](command-line.md) | Open or append files/folders with platform-specific shell examples. |
+| [Keyboard shortcuts](keyboard-shortcuts.md) | Focus-sensitive commands, platform modifiers and dialog keys. |
+| [Menu reference](menus/index.md) | Visible commands, their input scope and write behavior. |
 
 ## Choose the right kind of name
 
@@ -22,7 +25,7 @@ Technical information such as duration describes a file; editing a similarly nam
 
 These pages describe the inspected OpenTag source and executable documentation examples. Recognition of an extension does not establish playback, DRM support, or compatibility with every application that reads that format. Native/runtime checks and release availability are separate from source inspection.
 
-Additional menu, options, keyboard, and automation references are published as their checked pages become available. Unfinished pages remain outside the public navigation and search.
+Additional context-menu, options and automation references are published as their checked pages become available. Unfinished pages remain outside the public navigation and search.
 
 ## Related
 
@@ -30,4 +33,4 @@ Additional menu, options, keyboard, and automation references are published as t
 - [Field vocabulary](field-names.md)
 - [Formats and capabilities](file-formats.md)
 
-<!-- verified: sourcebaseline007a806; links intentionally limited to completed baseline pages plus this source-checked reference batch. -->
+<!-- Source baseline for vocabulary:007a806; navigation references checked against main5f4112e. Links stay limited to completed pages. -->

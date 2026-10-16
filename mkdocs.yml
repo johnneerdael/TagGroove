@@ -200,6 +200,15 @@ nav:
   - Field names: reference/field-names.md
   - Tag mapping table: reference/tag-mapping.md
   - Supported file formats: reference/file-formats.md
+  - Command line: reference/command-line.md
+  - Keyboard shortcuts: reference/keyboard-shortcuts.md
+  - Menus:
+    - reference/menus/index.md
+    - File: reference/menus/file.md
+    - Edit: reference/menus/edit.md
+    - View: reference/menus/view.md
+    - Convert: reference/menus/convert.md
+    - Tag Sources: reference/menus/tag-sources.md
   - Options:
     - reference/options/index.md
     - General: reference/options/general.md
