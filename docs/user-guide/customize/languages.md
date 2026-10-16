@@ -76,6 +76,9 @@ labels.
   session. A missing folder is an empty successful reload; an invalid individual
   catalog is reported and left out of that reload.
 - Catalogs use OpenTag's JSON format; Mp3tag `.lng` files are not supported.
+- Custom catalogs keep the interface's left-to-right layout. Selecting a
+  right-to-left language, such as Arabic or Hebrew, does not switch the
+  direction of controls, menus or navigation.
 - System-owned controls and some operating-system, library or newly added
   backend messages can remain in their original language or English.
 - Installed web sources keep their own names and authored settings prose;

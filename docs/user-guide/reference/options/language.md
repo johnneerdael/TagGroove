@@ -67,6 +67,10 @@ their authored names, search labels, result column names and settings prose.
 OpenTag-owned controls and default search labels still follow
 the selected application language.
 
+Catalogs change interface text but keep the current left-to-right layout.
+A right-to-left catalog, such as Arabic or Hebrew, does not switch the document
+direction or mirror controls, menus and navigation.
+
 Some operating-system controls, library messages and backend text added after
 the catalog snapshot remain outside the catalog. A translated UI is not a
 claim of identical wording or runtime behavior to another tagging program.
