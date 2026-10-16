@@ -257,6 +257,97 @@ fn renames_and_directory_moves_reverse_and_reapply() {
     assert!(final_second.exists() && moved.join("cover.jpg").exists());
 }
 
+fn preserved_timestamp_edit_after_move(rename_file: bool, move_folder: bool) {
+    let tmp = tempfile::tempdir().unwrap();
+    let root = dunce::canonicalize(tmp.path()).unwrap();
+    let album = root.join("Album");
+    fs::create_dir(&album).unwrap();
+    let original_path = album.join("01.wav");
+    wav(&original_path);
+    let options = tag_core::TagOptions {
+        preserve_modified_time: true,
+        ..Default::default()
+    };
+    tag_core::write_fields_with_options(
+        &original_path,
+        &fields(&[("TITLE", &["One"])]),
+        false,
+        &[],
+        &options,
+    )
+    .unwrap();
+    let original = fs::read(&original_path).unwrap();
+    let modified = fs::metadata(&original_path).unwrap().modified().unwrap();
+    let original_key = canonical(&original_path);
+    let mut history = journal(&root);
+    let capture = history.begin("Move and save", None, std::slice::from_ref(&original_key));
+    let mut edited_path = original_path.clone();
+    if rename_file {
+        edited_path = album.join("One.wav");
+        tag_core::operations::rename_no_clobber(&original_path, &edited_path).unwrap();
+    }
+    let moved = root.join("Moved album");
+    if move_folder {
+        tag_core::operations::rename_directory_no_clobber(&album, &moved).unwrap();
+        edited_path = moved.join(edited_path.file_name().unwrap());
+    }
+    tag_core::write_fields_with_options(
+        &edited_path,
+        &fields(&[("TITLE", &["Uno"])]),
+        false,
+        &[],
+        &options,
+    )
+    .unwrap();
+    let edited = fs::read(&edited_path).unwrap();
+    assert_ne!(edited, original);
+    assert_eq!(edited.len(), original.len());
+    assert_eq!(
+        fs::metadata(&edited_path).unwrap().modified().unwrap(),
+        modified
+    );
+    let renames = if rename_file {
+        vec![(original_key, key(&edited_path))]
+    } else {
+        Vec::new()
+    };
+    let directories = if move_folder {
+        vec![(key(&album), key(&moved))]
+    } else {
+        Vec::new()
+    };
+    history.commit(capture, &renames, &directories);
+    let replay = history.undo().unwrap();
+    assert!(replay.errors.is_empty(), "{:?}", replay.errors);
+    assert!(
+        fs::read(&original_path).unwrap() == original,
+        "undo restores exact original bytes"
+    );
+    assert!(!edited_path.exists());
+    let replay = history.redo().unwrap();
+    assert!(replay.errors.is_empty(), "{:?}", replay.errors);
+    assert!(
+        fs::read(&edited_path).unwrap() == edited,
+        "redo restores exact edited bytes"
+    );
+    assert!(!original_path.exists());
+}
+
+#[test]
+fn renamed_same_size_timestamp_preserving_save_restores_tags_and_name() {
+    preserved_timestamp_edit_after_move(true, false);
+}
+
+#[test]
+fn moved_folder_same_size_timestamp_preserving_save_restores_tags_and_folder() {
+    preserved_timestamp_edit_after_move(false, true);
+}
+
+#[test]
+fn renamed_file_and_folder_timestamp_preserving_save_restores_all_changes() {
+    preserved_timestamp_edit_after_move(true, true);
+}
+
 fn names(dir: &Path) -> Vec<String> {
     let mut names: Vec<_> = fs::read_dir(dir)
         .unwrap()

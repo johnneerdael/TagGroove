@@ -53,3 +53,27 @@ cache entries were cleared before the successful Rust rerun.
 
 Native Windows CI is required before merge; no CI or release failure was
 bypassed or blindly retried.
+
+## Review follow-up: saves after file or folder moves
+
+The first review found that staged-write evidence was keyed only by the original
+path. Supported Actions can rename a file or move its folder before saving it.
+Three new production regressions reproduce lost tag restoration after a file
+rename, a directory move, or both under the Windows identity model.
+
+The tracker now retains the original journal identity and an index of each
+watched file's current path. Successful core file/folder moves update that
+index; staged writes and commit use the same original identity. Directory
+updates use component-prefix ranges, and per-file writes keep indexed lookup.
+Copied moves force full snapshot cost rather than claiming block sharing with
+an old-volume snapshot. Pure renames still retain no audio snapshot, and
+unrelated sibling paths are not rebased.
+
+All three new regressions fail before this follow-up and pass afterward, with
+exact original and edited bytes restored by undo/redo. The repaired Windows
+identity model passes 133 core unit, 21 history and eight raw-stream tests.
+Integrated native-macOS validation passes 728 locked Rust workspace tests
+(four opt-in cases ignored); workspace Clippy, formatting and diff checks pass.
+UI, production build and strict-guide checks passed earlier in the same PR;
+this follow-up changes only core bookkeeping, move notifications and tests.
+Actual Windows CI remains required before merge.

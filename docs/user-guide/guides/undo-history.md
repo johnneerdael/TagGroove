@@ -19,3 +19,7 @@ undo step when the save keeps the file size and modification date unchanged.
 Undo restores the previous tags; Redo reapplies the save, subject to the
 normal history limits. A request that writes nothing adds no step and keeps
 an existing redo step.
+
+This also applies when an action renames a file or moves its folder before
+saving its tags. Undo restores both the previous location and tags; Redo
+reapplies the location and saved tags together.
