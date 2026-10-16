@@ -54,7 +54,7 @@ use lofty::{
 };
 pub use mapping::{
     field_mapping, map_read_fields, map_write_fields, validate_user_mappings, FieldMapping,
-    UserFieldMapping, FIELD_MAPPINGS,
+    UserFieldMapping, FIELD_MAPPINGS, LYRICS_LANGUAGE_REQUIRED,
 };
 pub use media_info::{audio_digest, AudioDigest};
 pub use optimize::*;
@@ -1332,6 +1332,35 @@ fn normalized_updates(updates: &Fields, kind: TagType) -> Result<Fields, String>
     Ok(output)
 }
 
+/// Prepare only the raw lyrics changed by this source import for one target.
+fn source_lyrics_updates(
+    source: &Fields,
+    changes: &Fields,
+    kind: TagType,
+    rules: &[UserFieldMapping],
+) -> Result<Fields, String> {
+    let mut output = source.clone();
+    if kind == TagType::Id3v2 {
+        for name in changes.keys() {
+            let native = map_write_fields(&[(name.clone(), Vec::new())].into(), kind, rules)?;
+            if native.keys().any(|key| {
+                key.eq_ignore_ascii_case("UNSYNCEDLYRICS")
+                    || key.to_ascii_uppercase().starts_with("UNSYNCEDLYRICS ")
+            }) {
+                if let Some((_, values)) = output
+                    .iter_mut()
+                    .find(|(key, _)| key.eq_ignore_ascii_case(name))
+                {
+                    for value in values {
+                        *value = format!("XXX||{value}");
+                    }
+                }
+            }
+        }
+    }
+    Ok(output)
+}
+
 /// How a write treats an ID3v2 tag: keep its revision (non-MPEG formats) or
 /// convert it to the configured MPEG revision and encoding.
 #[derive(Clone, Copy)]
@@ -1683,13 +1712,43 @@ fn write_fields_result(
     rules: &[UserFieldMapping],
     options: &TagOptions,
 ) -> Result<AudioEntry, String> {
+    write_fields_result_with_lyrics(path, updates, include_cover_data, rules, options, false)
+}
+
+/// Write source-import fields whose lyric values are raw text, even when they
+/// contain `||`. Only an ID3v2 target receives the unknown-language prefix.
+pub fn write_source_fields_with_options(
+    path: &Path,
+    updates: &Fields,
+    include_cover_data: bool,
+    rules: &[UserFieldMapping],
+    options: &TagOptions,
+) -> Result<AudioEntry, String> {
+    write_fields_result_with_lyrics(path, updates, include_cover_data, rules, options, true)
+}
+
+fn write_fields_result_with_lyrics(
+    path: &Path,
+    updates: &Fields,
+    include_cover_data: bool,
+    rules: &[UserFieldMapping],
+    options: &TagOptions,
+    raw_lyrics: bool,
+) -> Result<AudioEntry, String> {
     if updates.is_empty() {
         return read_description(path, include_cover_data, rules, options);
     }
     if let Some((file, number)) = subsongs::split_path(path) {
+        let updates = if raw_lyrics
+            && load(&file).is_ok_and(|file| file.primary_tag_type() == TagType::Id3v2)
+        {
+            source_lyrics_updates(updates, updates, TagType::Id3v2, rules)?
+        } else {
+            updates.clone()
+        };
         let mut rows = subsongs::write_rows(
             &file,
-            &[(number, updates.clone())],
+            &[(number, updates)],
             include_cover_data,
             rules,
             options,
@@ -1700,10 +1759,19 @@ fn write_fields_result(
         return asf::write_fields(path, updates, include_cover_data, rules, options);
     }
     if let Some(kind) = container_formats::detect(path) {
+        let updates = if raw_lyrics
+            && matches!(
+                kind,
+                container_formats::Kind::Dsf | container_formats::Kind::Dff
+            ) {
+            source_lyrics_updates(updates, updates, TagType::Id3v2, rules)?
+        } else {
+            updates.clone()
+        };
         return container_formats::write_fields(
             path,
             kind,
-            updates,
+            &updates,
             include_cover_data,
             rules,
             options,
@@ -1733,11 +1801,27 @@ fn write_fields_result(
             }
             if let Some(values) = chapters {
                 if !updates.is_empty() {
-                    write_tag_fields(staging, file, staged_path, &updates, rules, options)?;
+                    write_tag_fields_with_lyrics(
+                        staging,
+                        file,
+                        staged_path,
+                        &updates,
+                        rules,
+                        options,
+                        raw_lyrics,
+                    )?;
                 }
                 return mp4_chapters::write(staging, staged_path, &values);
             }
-            write_tag_fields(staging, file, staged_path, &updates, rules, options)
+            write_tag_fields_with_lyrics(
+                staging,
+                file,
+                staged_path,
+                &updates,
+                rules,
+                options,
+                raw_lyrics,
+            )
         },
     )
 }
@@ -1745,11 +1829,23 @@ fn write_fields_result(
 /// Write field changes into the tags of a staged lofty-readable file.
 fn write_tag_fields(
     staging: &mut fs::File,
+    file: TaggedFile,
+    staged_path: &Path,
+    updates: &Fields,
+    rules: &[UserFieldMapping],
+    options: &TagOptions,
+) -> Result<(), String> {
+    write_tag_fields_with_lyrics(staging, file, staged_path, updates, rules, options, false)
+}
+
+fn write_tag_fields_with_lyrics(
+    staging: &mut fs::File,
     mut file: TaggedFile,
     staged_path: &Path,
     updates: &Fields,
     rules: &[UserFieldMapping],
     options: &TagOptions,
+    raw_lyrics: bool,
 ) -> Result<(), String> {
     if tag_policy::policy(file.file_type()).is_some() {
         let updates = normalized_updates(updates, TagType::Ape)?;
@@ -1758,9 +1854,20 @@ fn write_tag_fields(
             &file,
             rules,
             options,
-            tag_policy::Change::Fields(&updates),
+            if raw_lyrics {
+                tag_policy::Change::RawLyricsFields(&updates)
+            } else {
+                tag_policy::Change::Fields(&updates)
+            },
         )?;
-        return tag_policy::verify_fields(staged_path, rules, options, written, &updates);
+        return tag_policy::verify_fields(
+            staged_path,
+            rules,
+            options,
+            written,
+            &updates,
+            raw_lyrics,
+        );
     }
     let primary = file.primary_tag_type();
     let updates = normalized_updates(updates, primary)?;
@@ -1802,7 +1909,12 @@ fn write_tag_fields(
             Some(values) if kind == TagType::RiffInfo => values,
             _ => &updates,
         };
-        let native_updates = normalized_updates(&map_write_fields(source, kind, rules)?, kind)?;
+        let source = if raw_lyrics {
+            source_lyrics_updates(source, &updates, kind, rules)?
+        } else {
+            source.clone()
+        };
+        let native_updates = normalized_updates(&map_write_fields(&source, kind, rules)?, kind)?;
         save_preserving_native(
             staging,
             file.file_type(),
@@ -1816,7 +1928,13 @@ fn write_tag_fields(
         .seek(SeekFrom::Start(0))
         .map_err(|e| e.to_string())?;
     let actual = read_entry_summary_with_options(staged_path, &[], options)?.fields;
-    let native_updates = normalized_updates(&map_write_fields(&updates, primary, rules)?, primary)?;
+    let expected = if raw_lyrics {
+        source_lyrics_updates(&updates, &updates, primary, rules)?
+    } else {
+        updates.clone()
+    };
+    let native_updates =
+        normalized_updates(&map_write_fields(&expected, primary, rules)?, primary)?;
     verify_readback(&actual, &native_updates, primary, false)
 }
 

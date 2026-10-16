@@ -790,3 +790,13 @@ change and fresh qualification. The five affected format, regex and web-source
 pages describe the revised grammar, cursor, JSON and output behavior; their
 written native examples pass under LF and CRLF. This reconciliation does not
 claim a complete downloaded-script corpus or full semantic Mp3tag parity.
+
+
+## PR18 provider features on actual main
+
+The `pr18-feature-only-2026-10-16.json` ledger records the provider-only
+preparation on main `1fe6a800ac1096494b33d3b461286ad2d91e1a13`. It retains
+the 164 published chapter entries and adds six completed source chapters.
+This checkpoint excludes the independently reviewed, unmerged PR17 Language
+implementation. Existing guide receipts continue to describe their exact
+source baselines; they are not new native, live-provider or publication proof.

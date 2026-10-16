@@ -5,11 +5,18 @@
 //! [`SourceRelease`]; matching, field selection and writing are shared, so
 //! further sources plug in by adding a module that produces them, as
 //! `freedb` does for gnudb and local freedb folders.
+mod acoustid;
 mod credentials;
+mod deezer;
 mod discogs;
+mod fanart;
 mod freedb;
 mod freedb_index;
 pub(crate) mod http;
+mod itunes;
+mod keys;
+mod lastfm;
+mod lrclib;
 mod model;
 mod musicbrainz;
 pub(crate) mod web;
@@ -21,7 +28,6 @@ pub use model::{Provider, SearchPage, SearchQuery, SourceRelease};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::time::Duration;
 use tag_core::{AudioEntry, Fields, ScanResult};
 
 fn settings_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
@@ -58,6 +64,24 @@ async fn discogs_token(app: &tauri::AppHandle, provider: Provider) -> Result<Str
         .map_err(|e| e.to_string())?
 }
 
+/// The private credentials file (user API keys); never the keychain.
+async fn saved_credentials(app: &tauri::AppHandle) -> Result<credentials::Credentials, String> {
+    let path = settings_path(app)?;
+    tauri::async_runtime::spawn_blocking(move || credentials::load(&path))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// The user's key, else the build's; without either the source cannot run.
+fn required_key(
+    service: &str,
+    user: &str,
+    built_in: Option<&'static str>,
+) -> Result<String, String> {
+    keys::choose(user, built_in)
+        .ok_or_else(|| format!("{service} needs an API key. Add one in Tag Sources → API keys…."))
+}
+
 /// Cover Art Archive size from Options → Tag Sources (`pages.tag-sources`).
 fn cover_size() -> musicbrainz::CoverSize {
     cover_size_from(&crate::settings::current())
@@ -71,42 +95,114 @@ fn cover_size_from(settings: &crate::settings::Settings) -> musicbrainz::CoverSi
         .unwrap_or_default()
 }
 
-fn freedb_service(settings: &freedb::FreedbSettings) -> http::Service {
-    http::Service {
-        name: freedb::server_name(settings),
-        gate: &http::FREEDB,
-        spacing: Duration::from_millis(500),
-        token: None,
-        retry_busy: false,
+/// Options → Tag Sources → Online services (`pages.tag-sources-online`).
+#[derive(Debug, Default, PartialEq)]
+struct Online {
+    itunes_country: String,
+    itunes_cover: itunes::CoverSize,
+    deezer_cover: deezer::CoverSize,
+    lrclib_synced: bool,
+    lastfm_genres: usize,
+    fpcalc: String,
+}
+fn online() -> Online {
+    online_from(&crate::settings::current())
+}
+fn online_from(settings: &crate::settings::Settings) -> Online {
+    let page = settings.pages.get("tag-sources-online");
+    let value = |key: &str| page.and_then(|p| p.get(key)).cloned();
+    let text = |key: &str| {
+        value(key)
+            .and_then(|v| v.as_str().map(str::to_owned))
+            .unwrap_or_default()
+    };
+    Online {
+        itunes_country: itunes::country(&text("itunes_country")),
+        itunes_cover: value("itunes_cover_size")
+            .and_then(|v| serde_json::from_value(v).ok())
+            .unwrap_or_default(),
+        deezer_cover: value("deezer_cover_size")
+            .and_then(|v| serde_json::from_value(v).ok())
+            .unwrap_or_default(),
+        lrclib_synced: value("lrclib_synced")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false),
+        lastfm_genres: value("lastfm_genres")
+            .and_then(|v| v.as_u64().or_else(|| v.as_str()?.parse().ok()))
+            .map_or(1, |n| n.clamp(1, 10) as usize),
+        fpcalc: text("fpcalc").trim().to_owned(),
     }
 }
 
+fn freedb_service(settings: &freedb::FreedbSettings) -> http::Service {
+    http::Service::new(freedb::server_name(settings), &http::FREEDB, 500)
+}
+
+/// Each service's own gate and spacing, from its published limits.
 fn service(provider: Provider, discogs_token: String) -> http::Service {
     match provider {
         Provider::Freedb | Provider::LocalFreedb | Provider::Web => {
             freedb_service(&freedb::settings_from(&crate::settings::current()))
         }
-        // MusicBrainz allows one request per second per client.
-        Provider::Musicbrainz => http::Service {
-            name: "MusicBrainz",
-            gate: &http::MUSICBRAINZ,
-            spacing: Duration::from_millis(1100),
-            token: None,
+        // MusicBrainz allows one request per second per client. AcoustID
+        // releases and fanart.tv's album search come from MusicBrainz.
+        Provider::Musicbrainz | Provider::Acoustid => http::Service {
             retry_busy: true,
+            ..http::Service::new("MusicBrainz", &http::MUSICBRAINZ, 1100)
         },
         // Discogs allows 60 authenticated or 25 anonymous requests per minute.
         Provider::Discogs => {
-            let token = Some(discogs_token).filter(|t| !t.is_empty());
-            let spacing = Duration::from_millis(if token.is_some() { 1100 } else { 2500 });
+            let auth = keys::discogs_auth(&discogs_token, keys::discogs_app());
+            let spacing = if matches!(auth, http::Auth::None) {
+                2500
+            } else {
+                1100
+            };
             http::Service {
-                name: "Discogs",
-                gate: &http::DISCOGS,
-                spacing,
-                token,
-                retry_busy: false,
+                auth,
+                ..http::Service::new("Discogs", &http::DISCOGS, spacing)
             }
         }
+        // Apple: "approximately 20 calls per minute".
+        Provider::Itunes => http::Service::new("iTunes", &http::ITUNES, 3100),
+        // Deezer: 50 requests per 5 seconds.
+        Provider::Deezer => http::Service::new("Deezer", &http::DEEZER, 120),
+        // LRCLIB publishes no limit; stay gentle and retry once when busy.
+        Provider::Lrclib => http::Service {
+            retry_busy: true,
+            ..http::Service::new("LRCLIB", &http::LRCLIB, 200)
+        },
+        Provider::Lastfm => http::Service {
+            auth: http::Auth::Key,
+            ..http::Service::new("Last.fm", &http::LASTFM, 250)
+        },
+        Provider::Fanart => http::Service::new("MusicBrainz", &http::MUSICBRAINZ, 1100),
     }
+}
+
+/// AcoustID: "Do not make more than 3 requests per second."
+fn acoustid_service() -> http::Service {
+    http::Service {
+        auth: http::Auth::Key,
+        ..http::Service::new("AcoustID", &http::ACOUSTID, 350)
+    }
+}
+
+/// fanart.tv: the project key, and the user's key as the personal client key
+/// (or as the project key when the build has none).
+fn fanart_service(user: &str) -> Result<http::Service, String> {
+    let user = user.trim().to_owned();
+    let headers = match keys::fanart() {
+        Some(project) => vec![("api-key", project.to_owned()), ("client-key", user)],
+        None if !user.is_empty() => vec![("api-key", user)],
+        None => {
+            return Err("fanart.tv needs an API key. Add one in Tag Sources → API keys….".into())
+        }
+    };
+    Ok(http::Service {
+        auth: http::Auth::Headers(headers),
+        ..http::Service::new("fanart.tv", &http::FANART, 250)
+    })
 }
 
 /// Web sources are run by `web_source_search` and `web_source_release`.
@@ -120,21 +216,228 @@ pub async fn tag_source_search(
     ticket: u64,
 ) -> Result<SearchPage, String> {
     http::claim(Channel::Search, ticket);
-    if provider == Provider::Web {
-        return Err(WEB_COMMANDS.into());
+    match provider {
+        Provider::Web => Err(WEB_COMMANDS.into()),
+        Provider::Freedb | Provider::LocalFreedb => {
+            freedb_search(&app, provider, query, ticket).await
+        }
+        Provider::Musicbrainz | Provider::Discogs => {
+            let token = discogs_token(&app, provider).await?;
+            let url = match provider {
+                Provider::Discogs => discogs::search_query(&query)?,
+                _ => musicbrainz::search_query(&query)?,
+            };
+            let body = http::json(&service(provider, token), &url, Channel::Search, ticket).await?;
+            Ok(match provider {
+                Provider::Discogs => discogs::parse_search(&body),
+                _ => musicbrainz::parse_search(&body),
+            })
+        }
+        Provider::Itunes => {
+            let url = itunes::search_query(&query, &online().itunes_country)?;
+            let body = http::json(
+                &service(provider, String::new()),
+                &url,
+                Channel::Search,
+                ticket,
+            )
+            .await?;
+            Ok(itunes::parse_search(&body))
+        }
+        Provider::Deezer => {
+            let service = service(provider, String::new());
+            if query.mode == model::SearchMode::Barcode {
+                let url = deezer::barcode_url(&query.text)?;
+                let body = http::json(&service, &url, Channel::Search, ticket).await?;
+                return deezer::parse_album_result(&body);
+            }
+            let url = deezer::search_query(&query)?;
+            deezer::parse_search(&http::json(&service, &url, Channel::Search, ticket).await?)
+        }
+        Provider::Lrclib => lrclib_search(query, ticket).await,
+        Provider::Acoustid => acoustid_search(&app, query, ticket).await,
+        Provider::Lastfm => {
+            let key = required_key(
+                "Last.fm",
+                &saved_credentials(&app).await?.lastfm_key,
+                keys::lastfm(),
+            )?;
+            let service = service(provider, String::new());
+            if query.mode == model::SearchMode::ArtistAlbum {
+                let id = lastfm::name_id(&query.artist, &query.album)?;
+                let url = lastfm::info_url(&id, &key)?;
+                return match http::json_optional(&service, &url, Channel::Search, ticket).await? {
+                    Some(body) => lastfm::parse_info_result(&body, &id),
+                    None => Ok(SearchPage {
+                        results: Vec::new(),
+                        total: Some(0),
+                    }),
+                };
+            }
+            let url = lastfm::search_url(&query, &key)?;
+            lastfm::parse_search(&http::json(&service, &url, Channel::Search, ticket).await?)
+        }
+        Provider::Fanart => {
+            // Albums are found on MusicBrainz; the key is only needed for artwork.
+            required_key_for_fanart(&app).await?;
+            let url = fanart::search_query(&query)?;
+            let body = http::json(
+                &service(provider, String::new()),
+                &url,
+                Channel::Search,
+                ticket,
+            )
+            .await?;
+            Ok(fanart::parse_search(&body))
+        }
     }
-    if matches!(provider, Provider::Freedb | Provider::LocalFreedb) {
-        return freedb_search(&app, provider, query, ticket).await;
+}
+
+async fn required_key_for_fanart(app: &tauri::AppHandle) -> Result<http::Service, String> {
+    fanart_service(&saved_credentials(app).await?.fanart_key)
+}
+
+/// LRCLIB: each selected file's lyrics (one result for all of them), or a
+/// free-text search listing lyrics records.
+async fn lrclib_search(query: SearchQuery, ticket: u64) -> Result<SearchPage, String> {
+    let service = service(Provider::Lrclib, String::new());
+    match query.mode {
+        model::SearchMode::Text => {
+            let url = lrclib::text_search_url(&query.text)?;
+            Ok(lrclib::parse_search(
+                &http::json(&service, &url, Channel::Search, ticket).await?,
+            ))
+        }
+        model::SearchMode::Files => {
+            if query.files.is_empty() {
+                return Err("Select the files to look up.".into());
+            }
+            let mut found = lrclib::FilesFound::default();
+            let mut first_error = None;
+            for file in &query.files {
+                match lrclib_lookup(&service, file, ticket).await {
+                    Ok(Some(record)) => {
+                        lrclib::remember(&record);
+                        if record
+                            .get("syncedLyrics")
+                            .and_then(serde_json::Value::as_str)
+                            .is_some_and(|s| !s.trim().is_empty())
+                        {
+                            found.synced += 1;
+                        }
+                        found.ids.push(
+                            record
+                                .get("id")
+                                .and_then(serde_json::Value::as_u64)
+                                .map(|id| id.to_string()),
+                        );
+                    }
+                    Ok(None) => found.ids.push(None),
+                    Err(error) if error == http::CANCELLED => return Err(error),
+                    Err(error) => {
+                        found.failed += 1;
+                        first_error.get_or_insert(error);
+                        found.ids.push(None);
+                    }
+                }
+            }
+            if found.failed == query.files.len() {
+                return Err(first_error.unwrap_or_default());
+            }
+            Ok(SearchPage {
+                results: vec![lrclib::files_result(&found)],
+                total: Some(1),
+            })
+        }
+        _ => Err("LRCLIB looks up the selected files, search words or a lyrics record ID.".into()),
     }
-    let token = discogs_token(&app, provider).await?;
-    let url = match provider {
-        Provider::Discogs => discogs::search_query(&query)?,
-        _ => musicbrainz::search_query(&query)?,
+}
+
+/// The exact signature first, then the closest search hit.
+async fn lrclib_lookup(
+    service: &http::Service,
+    file: &model::FileSignature,
+    ticket: u64,
+) -> Result<Option<serde_json::Value>, String> {
+    let has_lyrics = |record: &serde_json::Value| {
+        ["plainLyrics", "syncedLyrics"].iter().any(|key| {
+            record
+                .get(key)
+                .and_then(serde_json::Value::as_str)
+                .is_some_and(|s| !s.trim().is_empty())
+        })
     };
-    let body = http::json(&service(provider, token), &url, Channel::Search, ticket).await?;
-    Ok(match provider {
-        Provider::Discogs => discogs::parse_search(&body),
-        _ => musicbrainz::parse_search(&body),
+    if let Some(url) = lrclib::get_url(file) {
+        if let Some(record) = http::json_optional(service, &url, Channel::Search, ticket).await? {
+            if has_lyrics(&record) {
+                return Ok(Some(record));
+            }
+        }
+    }
+    let Some(url) = lrclib::file_search_url(file) else {
+        return Ok(None);
+    };
+    let hits = http::json(service, &url, Channel::Search, ticket).await?;
+    Ok(lrclib::best_hit(&hits, file))
+}
+
+/// AcoustID: fingerprint each file with fpcalc, look the fingerprints up and
+/// rank the releases that hold the most files.
+async fn acoustid_search(
+    app: &tauri::AppHandle,
+    query: SearchQuery,
+    ticket: u64,
+) -> Result<SearchPage, String> {
+    if cfg!(mobile) {
+        return Err(
+            "AcoustID needs the fpcalc program, which is not available on this device.".into(),
+        );
+    }
+    let key = required_key(
+        "AcoustID",
+        &saved_credentials(app).await?.acoustid_key,
+        keys::acoustid(),
+    )?;
+    if query.mode != model::SearchMode::Fingerprint || query.files.is_empty() {
+        return Err("AcoustID identifies the selected files by their audio fingerprints.".into());
+    }
+    let fpcalc = acoustid::find_fpcalc(&online().fpcalc)?;
+    let service = acoustid_service();
+    let mut matches = Vec::new();
+    let mut first_error = None;
+    for file in &query.files {
+        if http::stale(Channel::Search, ticket) {
+            return Err(http::CANCELLED.into());
+        }
+        let (program, path) = (fpcalc.clone(), PathBuf::from(&file.path));
+        let fingerprint =
+            tauri::async_runtime::spawn_blocking(move || acoustid::fingerprint(&program, &path))
+                .await
+                .map_err(|e| e.to_string())?;
+        let (duration, fingerprint) = match fingerprint {
+            Ok(found) => found,
+            Err(error) => {
+                first_error.get_or_insert(error);
+                matches.push(acoustid::FileMatch::default());
+                continue;
+            }
+        };
+        let form = acoustid::lookup_form(&key, duration, &fingerprint);
+        let form: Vec<(&str, &str)> = form.iter().map(|(k, v)| (*k, v.as_str())).collect();
+        let body =
+            http::json_post(&service, acoustid::LOOKUP, &form, Channel::Search, ticket).await?;
+        matches.push(acoustid::parse_lookup(&body)?);
+    }
+    if let Some(error) = first_error.filter(|_| matches.iter().all(|m| m.releases.is_empty())) {
+        return Err(error);
+    }
+    acoustid::remember(&matches);
+    let paths: Vec<String> = query.files.iter().map(|f| f.path.clone()).collect();
+    acoustid::remember_files(&paths, &matches);
+    let results = acoustid::rank(&matches);
+    Ok(SearchPage {
+        total: Some(results.len() as u32),
+        results,
     })
 }
 
@@ -142,6 +445,7 @@ fn import_options(settings: &freedb::FreedbSettings) -> freedb::ImportOptions {
     freedb::ImportOptions {
         comment_disc_id: settings.comment_disc_id,
         disc_id_field: settings.disc_id_field,
+        cover_size: cover_size(),
     }
 }
 
@@ -149,8 +453,10 @@ fn local_index_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(settings_path(app)?.with_file_name("local-freedb-index.tsv"))
 }
 
-/// Disc ID from the selected files (a `cddb query` with their TOC) or typed
-/// in; local folders also search their text index.
+/// Local freedb folders look discs up by the disc ID of the selected files,
+/// a typed disc ID or their text index. Servers are asked with a `cddb query`
+/// of the files' track layout or gnudb's artist and album `search`; a typed
+/// disc ID is never sent to them (gnudb only reads entries a query listed).
 async fn freedb_search(
     app: &tauri::AppHandle,
     provider: Provider,
@@ -158,27 +464,26 @@ async fn freedb_search(
     ticket: u64,
 ) -> Result<SearchPage, String> {
     let settings = freedb::settings_from(&crate::settings::current());
-    let gnudb = freedb::server_name(&settings) == "gnudb";
-    let disc_id = match query.mode {
-        model::SearchMode::Toc => freedb::Toc::from_lengths(&query.lengths)?.disc_id(),
-        model::SearchMode::DiscId => freedb::disc_id(&query.text)?,
-        model::SearchMode::Text if provider == Provider::LocalFreedb => {
-            let index = local_index_path(app)?;
-            let directory = PathBuf::from(&settings.local_directory);
-            let found = tauri::async_runtime::spawn_blocking(move || {
-                freedb::check_local_directory(&directory)?;
-                freedb_index::search(&index, &directory, &query.text, query.page)
-            })
-            .await
-            .map_err(|e| e.to_string())??;
-            return Ok(SearchPage {
-                results: found.results,
-                total: Some(found.total),
-            });
-        }
-        _ => return Err("freedb servers search by disc ID: computed from the selected files or typed in. Text search is available for a local freedb folder with a text index.".into()),
-    };
     let results = if provider == Provider::LocalFreedb {
+        let disc_id = match query.mode {
+            model::SearchMode::Toc => freedb::Toc::from_lengths(&query.lengths)?.disc_id(),
+            model::SearchMode::DiscId => freedb::disc_id(&query.text)?,
+            model::SearchMode::Text => {
+                let index = local_index_path(app)?;
+                let directory = PathBuf::from(&settings.local_directory);
+                let found = tauri::async_runtime::spawn_blocking(move || {
+                    freedb::check_local_directory(&directory)?;
+                    freedb_index::search(&index, &directory, &query.text, query.page)
+                })
+                .await
+                .map_err(|e| e.to_string())??;
+                return Ok(SearchPage {
+                    results: found.results,
+                    total: Some(found.total),
+                });
+            }
+            _ => return Err("A local freedb folder is searched by disc ID or, with a text index, by artist and album words.".into()),
+        };
         let directory = PathBuf::from(&settings.local_directory);
         let options = import_options(&settings);
         tauri::async_runtime::spawn_blocking(move || {
@@ -199,39 +504,37 @@ async fn freedb_search(
         })
         .await
         .map_err(|e| e.to_string())??
-    } else if query.mode == model::SearchMode::Toc {
-        let toc = freedb::Toc::from_lengths(&query.lengths)?;
-        let url = freedb::command_url(&settings, &toc.query_command())?;
+    } else {
+        let gnudb = freedb::offers_gnudb_commands(&settings);
+        let toc = query.mode == model::SearchMode::Toc;
+        let url = match query.mode {
+            model::SearchMode::Toc => freedb::command_url(
+                &settings,
+                &freedb::Toc::from_lengths(&query.lengths)?.query_command(),
+            )?,
+            model::SearchMode::ArtistAlbum => {
+                freedb::search_url(&settings, &query.artist, &query.album, query.lengths.len())?
+            }
+            _ => return Err(REMOTE_LOOKUPS.into()),
+        };
         let body =
             http::freedb_text(&freedb_service(&settings), &url, Channel::Search, ticket).await?;
-        freedb::parse_query(&body)?
+        let matches = if toc {
+            freedb::parse_query(&body)?
+        } else {
+            freedb::parse_search(&body)?
+        };
+        freedb::remember_listed(&settings, &matches);
+        matches
             .iter()
             .map(|found| freedb::match_result(found, provider, gnudb))
             .collect()
-    } else {
-        // Without a TOC the server can only be asked category by category.
-        let mut results = Vec::new();
-        for category in freedb::CATEGORIES {
-            let url = freedb::command_url(&settings, &format!("cddb read {category} {disc_id}"))?;
-            let body = http::freedb_text(&freedb_service(&settings), &url, Channel::Search, ticket)
-                .await?;
-            if let Some(text) = freedb::parse_read(&body)? {
-                let release = freedb::release(
-                    &freedb::parse_xmcd(&text),
-                    provider,
-                    category,
-                    &disc_id,
-                    import_options(&settings),
-                    gnudb,
-                )?;
-                results.push(freedb::search_result(&release, category));
-            }
-        }
-        results
     };
     let total = Some(results.len() as u32);
     Ok(SearchPage { results, total })
 }
+
+const REMOTE_LOOKUPS: &str = "The freedb server finds discs by the track layout of the selected files or by artist and album. A typed disc ID can only be looked up in a local freedb folder.";
 
 async fn freedb_release(
     provider: Provider,
@@ -260,6 +563,10 @@ async fn freedb_release(
         .await
         .map_err(|e| e.to_string())?;
     }
+    // gnudb: `cddb read` only with the category and gnucdid a query returned.
+    if !freedb::was_listed(&settings, &category, &disc_id) {
+        return Err(freedb::LOOK_UP_FIRST.into());
+    }
     let url = freedb::command_url(&settings, &format!("cddb read {category} {disc_id}"))?;
     let body =
         http::freedb_text(&freedb_service(&settings), &url, Channel::Release, ticket).await?;
@@ -271,22 +578,40 @@ async fn freedb_release(
         &category,
         &disc_id,
         options,
-        freedb::server_name(&settings) == "gnudb",
+        freedb::offers_gnudb_commands(&settings),
     )
 }
 
+/// gnudb's cover art search (`artsearch`) for Tag Sources → freedb: Cover Art
+/// Archive images of the releases matching the artist and album.
+#[tauri::command]
+pub async fn freedb_cover_search(
+    artist: String,
+    album: String,
+    ticket: u64,
+) -> Result<Vec<model::SourceCover>, String> {
+    http::claim(Channel::Release, ticket);
+    let settings = freedb::settings_from(&crate::settings::current());
+    let url = freedb::artsearch_url(&settings, &artist, &album)?;
+    let body =
+        http::freedb_text(&freedb_service(&settings), &url, Channel::Release, ticket).await?;
+    freedb::parse_artsearch(&body, cover_size())
+}
+
 /// Look up a release by ID or address (search results pass their own ID).
+/// `files` are the selected files, for sources that look files up one by one.
 #[tauri::command]
 pub async fn tag_source_release(
     app: tauri::AppHandle,
     provider: Provider,
     input: String,
     ticket: u64,
+    files: Option<Vec<model::FileSignature>>,
 ) -> Result<SourceRelease, String> {
     http::claim(Channel::Release, ticket);
     let service = service(provider, discogs_token(&app, provider).await?);
     match provider {
-        Provider::Musicbrainz => {
+        Provider::Musicbrainz | Provider::Acoustid => {
             let id = musicbrainz::release_id(&input)?;
             let body = http::json(
                 &service,
@@ -295,7 +620,11 @@ pub async fn tag_source_release(
                 ticket,
             )
             .await?;
-            musicbrainz::parse_release(&body, cover_size())
+            let mut release = musicbrainz::parse_release(&body, cover_size())?;
+            if provider == Provider::Acoustid {
+                acoustid::annotate(&mut release);
+            }
+            Ok(release)
         }
         Provider::Discogs => {
             let id = discogs::release_id(&input)?;
@@ -310,7 +639,91 @@ pub async fn tag_source_release(
         }
         Provider::Freedb | Provider::LocalFreedb => freedb_release(provider, &input, ticket).await,
         Provider::Web => Err(WEB_COMMANDS.into()),
+        Provider::Itunes => {
+            let settings = online();
+            let id = itunes::release_id(&input)?;
+            let url = itunes::release_url(&id, &settings.itunes_country);
+            let body = http::json(&service, &url, Channel::Release, ticket).await?;
+            itunes::parse_release(&body, settings.itunes_cover)
+        }
+        Provider::Deezer => {
+            let id = deezer::release_id(&input)?;
+            let album = http::json(
+                &service,
+                &deezer::release_url(&id),
+                Channel::Release,
+                ticket,
+            )
+            .await?;
+            deezer::check(&album)?;
+            let tracks = deezer::load_tracks(&id, |url| {
+                let service = &service;
+                async move { http::json(service, &url, Channel::Release, ticket).await }
+            })
+            .await?;
+            deezer::parse_release(&album, &tracks, online().deezer_cover)
+        }
+        Provider::Lrclib => lrclib_release(&service, &input, files, ticket).await,
+        Provider::Lastfm => {
+            let key = required_key(
+                "Last.fm",
+                &saved_credentials(&app).await?.lastfm_key,
+                keys::lastfm(),
+            )?;
+            let url = lastfm::info_url(&input, &key)?;
+            let body = http::json_optional(&service, &url, Channel::Release, ticket)
+                .await?
+                .ok_or("Last.fm could not find this album.")?;
+            lastfm::parse_release(&body, &input, online().lastfm_genres)
+        }
+        Provider::Fanart => {
+            let id = fanart::release_group_id(&input)?;
+            let fanart = required_key_for_fanart(&app).await?;
+            let body =
+                http::json_optional(&fanart, &fanart::album_url(&id), Channel::Release, ticket)
+                    .await?
+                    .ok_or("fanart.tv has no artwork for this album.")?;
+            fanart::parse_album(&body, &id)
+        }
     }
+}
+
+/// The MusicBrainz recordings the last AcoustID search identified each file
+/// as, so the review pairs files with their own tracks.
+#[tauri::command]
+pub fn acoustid_file_matches() -> HashMap<String, Vec<acoustid::FileRecording>> {
+    acoustid::file_matches()
+}
+
+/// The selected files' lyrics (`files:…`) or one lyrics record.
+async fn lrclib_release(
+    service: &http::Service,
+    input: &str,
+    files: Option<Vec<model::FileSignature>>,
+    ticket: u64,
+) -> Result<SourceRelease, String> {
+    let record = |id: String| async move {
+        match lrclib::remembered(&id) {
+            Some(record) => Ok(record),
+            None => http::json(service, &lrclib::record_url(&id), Channel::Release, ticket).await,
+        }
+    };
+    let synced = online().lrclib_synced;
+    if let Some(ids) = lrclib::file_ids(input) {
+        let files = files.unwrap_or_default();
+        if files.len() != ids.len() {
+            return Err("The selection changed since the search. Search again.".into());
+        }
+        let mut records = Vec::new();
+        for id in ids {
+            records.push(match id {
+                Some(id) => Some(record(id).await?),
+                None => None,
+            });
+        }
+        return Ok(lrclib::files_release(&files, &records, synced));
+    }
+    lrclib::record_release(&record(lrclib::record_id(input)?).await?, synced)
 }
 
 /// Tag Sources "Preview": open the release page in the default browser.
@@ -327,13 +740,7 @@ pub async fn tag_source_open_page(url: String) -> Result<(), String> {
 #[tauri::command]
 pub async fn tag_source_covers(id: String, ticket: u64) -> Result<Vec<model::SourceCover>, String> {
     let id = musicbrainz::release_id(&id)?;
-    let archive = http::Service {
-        name: "Cover Art Archive",
-        gate: &http::ARCHIVE,
-        spacing: Duration::ZERO,
-        token: None,
-        retry_busy: false,
-    };
+    let archive = http::Service::new("Cover Art Archive", &http::ARCHIVE, 0);
     let listing = http::json(
         &archive,
         &musicbrainz::cover_listing_url(&id),
@@ -414,6 +821,9 @@ pub async fn save_tag_source_settings(
 pub struct ApplyItem {
     pub path: String,
     pub updates: Fields,
+    /// LRCLIB supplies raw text, rather than ID3's language||lyrics syntax.
+    #[serde(default)]
+    pub raw_lyrics: bool,
 }
 #[derive(Debug, Deserialize)]
 pub struct ApplyCover {
@@ -465,10 +875,19 @@ fn apply_one(
     updates: &Fields,
     cover: Option<&Path>,
     replace: bool,
+    raw_lyrics: bool,
 ) -> Result<AudioEntry, String> {
     let options = crate::settings::tag_options();
     let mut entry = if updates.is_empty() {
         crate::settings::read_summary(path)?
+    } else if raw_lyrics {
+        tag_core::write_source_fields_with_options(
+            path,
+            updates,
+            false,
+            &options.mappings,
+            &options,
+        )?
     } else {
         crate::settings::write_summary(path, updates)?
     };
@@ -533,9 +952,9 @@ fn write_import(
         }
         None => None,
     };
-    let updates: HashMap<&str, &Fields> = items
+    let updates: HashMap<&str, &ApplyItem> = items
         .iter()
-        .map(|item| (item.path.as_str(), &item.updates))
+        .map(|item| (item.path.as_str(), item))
         .collect();
     let paths: Vec<String> = items.iter().map(|item| item.path.clone()).collect();
     crate::history::record_with_side_files("Tag source import", None, &paths, |before_write| {
@@ -547,7 +966,13 @@ fn write_import(
                 .ok_or("File is not part of this import")?;
             crate::mutate_document(path, |working| {
                 let cover = cover_target(working, cover_path.as_deref(), options.preserve)?;
-                apply_one(working, fields, cover, options.replace)
+                apply_one(
+                    working,
+                    &fields.updates,
+                    cover,
+                    options.replace,
+                    fields.raw_lyrics,
+                )
             })
         });
         if let (Some(template), Some(image)) = (&options.save_as, image) {
@@ -709,6 +1134,7 @@ mod tests {
             &updates,
             Some(&png(dir.path(), "cover.png", 2)),
             true,
+            false,
         )
         .unwrap();
         assert_eq!(entry.covers.len(), 1, "existing artwork was replaced");
@@ -720,13 +1146,52 @@ mod tests {
             &Fields::new(),
             Some(&png(dir.path(), "back.png", 3)),
             false,
+            false,
         );
         // Formats that cannot hold two untitled front covers report it per file.
         if let Ok(entry) = appended {
             assert_eq!(entry.covers.len(), 2);
         }
-        let unchanged = apply_one(&audio, &Fields::new(), None, false).unwrap();
+        let unchanged = apply_one(&audio, &Fields::new(), None, false, false).unwrap();
         assert_eq!(unchanged.fields["ALBUM"], ["Discovery"]);
+    }
+
+    /// LRCLIB lyrics have no language: ID3v2 files get "XXX", others the plain text.
+    #[test]
+    fn lyrics_without_a_language_are_written_to_id3_and_other_tags() {
+        let dir = tempfile::tempdir().unwrap();
+        let wav_file = dir.path().join("a.wav");
+        wav(&wav_file);
+        let updates: Fields = [(
+            "UNSYNCEDLYRICS".to_string(),
+            vec!["Line one\nLine two".to_string()],
+        )]
+        .into();
+        apply_one(&wav_file, &updates, None, false, true).unwrap();
+        let lyrics = &tag_core::read_entry(&wav_file).unwrap().fields["UNSYNCEDLYRICS"];
+        assert_eq!(
+            lyrics,
+            &["XXX||Line one\nLine two"],
+            "WAV keeps lyrics in ID3v2"
+        );
+    }
+
+    #[test]
+    fn raw_online_lyrics_keep_literal_language_delimiters() {
+        let dir = tempfile::tempdir().unwrap();
+        for (index, text) in ["A line || another line", "eng||literal lyric text"]
+            .iter()
+            .enumerate()
+        {
+            let audio = dir.path().join(format!("{index}.wav"));
+            wav(&audio);
+            let updates: Fields = [("UNSYNCEDLYRICS".to_string(), vec![text.to_string()])].into();
+            apply_one(&audio, &updates, None, false, true).unwrap();
+            assert_eq!(
+                tag_core::read_entry(&audio).unwrap().fields["UNSYNCEDLYRICS"],
+                [format!("XXX||{text}")]
+            );
+        }
     }
 
     #[test]
@@ -749,6 +1214,48 @@ mod tests {
     }
 
     #[test]
+    fn online_service_options_have_safe_defaults() {
+        let mut settings = crate::settings::Settings::default();
+        let defaults = online_from(&settings);
+        assert_eq!(defaults.itunes_country, "US");
+        assert_eq!(defaults.itunes_cover, itunes::CoverSize::Large);
+        assert_eq!(defaults.deezer_cover, deezer::CoverSize::Xl);
+        assert_eq!(defaults.lastfm_genres, 1);
+        assert!(!defaults.lrclib_synced && defaults.fpcalc.is_empty());
+        settings.pages.insert(
+            "tag-sources-online".into(),
+            serde_json::json!({"itunes_country": "nl", "itunes_cover_size": "3000", "deezer_cover_size": "500",
+                "lrclib_synced": true, "lastfm_genres": "3", "fpcalc": " /usr/bin/fpcalc "}),
+        );
+        let chosen = online_from(&settings);
+        assert_eq!(chosen.itunes_country, "NL");
+        assert_eq!(chosen.itunes_cover, itunes::CoverSize::Huge);
+        assert_eq!(chosen.deezer_cover, deezer::CoverSize::Big);
+        assert_eq!(chosen.lastfm_genres, 3);
+        assert!(chosen.lrclib_synced);
+        assert_eq!(chosen.fpcalc, "/usr/bin/fpcalc");
+    }
+
+    #[test]
+    fn keyed_services_need_a_key_and_keep_it_out_of_addresses() {
+        assert!(required_key("Last.fm", "", None)
+            .unwrap_err()
+            .contains("API keys"));
+        assert_eq!(required_key("Last.fm", " mine ", None).unwrap(), "mine");
+        if keys::fanart().is_none() {
+            assert!(fanart_service("").is_err());
+            let service = fanart_service("personal").unwrap();
+            assert!(
+                matches!(&service.auth, http::Auth::Headers(h) if h == &[("api-key", "personal".to_owned())])
+            );
+        }
+        assert!(matches!(
+            service(Provider::Lastfm, String::new()).auth,
+            http::Auth::Key
+        ));
+    }
+
+    #[test]
     fn cover_size_comes_from_the_options_page() {
         let mut settings = crate::settings::Settings::default();
         assert_eq!(cover_size_from(&settings), musicbrainz::CoverSize::Medium);
@@ -767,6 +1274,7 @@ mod tests {
     #[test]
     fn apply_items_must_be_unique_and_write_something() {
         let item = |path: &str, updates: Fields| ApplyItem {
+            raw_lyrics: false,
             path: path.into(),
             updates,
         };
@@ -787,6 +1295,7 @@ mod tests {
         let audio = dir.path().join("a.wav");
         wav(&audio);
         let items = vec![ApplyItem {
+            raw_lyrics: false,
             path: audio.to_string_lossy().into(),
             updates: [("TITLE".to_string(), vec!["New".to_string()])].into(),
         }];
@@ -815,6 +1324,7 @@ mod tests {
         wav(&a);
         wav(&b);
         let item = |path: &Path, title: &str| ApplyItem {
+            raw_lyrics: false,
             path: path.to_string_lossy().into(),
             updates: [("TITLE".to_string(), vec![title.to_string()])].into(),
         };
@@ -842,7 +1352,7 @@ mod tests {
         for (path, album) in [(&a, "One/Two"), (&b, "Ignored"), (&c, "Disc: 2")] {
             wav(path);
             let fields: Fields = [("ALBUM".to_string(), vec![album.to_string()])].into();
-            apply_one(path, &fields, None, false).unwrap();
+            apply_one(path, &fields, None, false, false).unwrap();
         }
         let entries: Vec<AudioEntry> = [&a, &b, &c]
             .iter()
@@ -893,6 +1403,7 @@ mod tests {
             &[("ALBUM".into(), vec!["Old Album".into()])].into(),
             None,
             false,
+            false,
         )
         .unwrap();
         let mut png = Vec::new();
@@ -903,6 +1414,7 @@ mod tests {
         let items = vec![ApplyItem {
             path: path.clone(),
             updates: [("ALBUM".into(), vec!["Fresh Album".into()])].into(),
+            raw_lyrics: false,
         }];
         let evaluation = crate::evaluation_settings(Some(vec![crate::evaluation::ColumnSpec {
             name: "Imported column".into(),
@@ -974,6 +1486,7 @@ mod tests {
             .unwrap();
         let image = http::Image::validate(png.clone()).unwrap();
         let items = vec![ApplyItem {
+            raw_lyrics: false,
             path: audio.to_string_lossy().into_owned(),
             updates: [("ALBUM".to_string(), vec!["Album".to_string()])].into(),
         }];
@@ -1043,6 +1556,18 @@ mod tests {
         .contains("not from a supported tag source"));
     }
 
+    #[test]
+    fn remote_freedb_reads_need_a_query_first() {
+        // Refused before any request: the entry was never listed by a query or search.
+        let error = tauri::async_runtime::block_on(freedb_release(
+            Provider::Freedb,
+            "rock/7a0a6b09",
+            u64::MAX,
+        ))
+        .unwrap_err();
+        assert_eq!(error, freedb::LOOK_UP_FIRST);
+    }
+
     /// gnudb answers only registered applications; this records what it says to OpenTag.
     #[test]
     #[ignore]
@@ -1061,6 +1586,32 @@ mod tests {
             Ok(matches) => println!("gnudb matches: {matches:?}"),
             Err(error) => assert!(error.contains("does not accept requests"), "{error}"),
         }
+    }
+
+    /// Manual check of the keyless round-4 services:
+    /// `cargo test -p opentag live_round_four -- --ignored`.
+    #[test]
+    #[ignore]
+    fn live_round_four_itunes_deezer_and_lrclib() {
+        use tauri::async_runtime::block_on;
+        let get = |provider, url: String| {
+            block_on(http::json(
+                &service(provider, String::new()),
+                &url,
+                Channel::Release,
+                u64::MAX,
+            ))
+            .unwrap()
+        };
+        let apple = get(Provider::Itunes, itunes::release_url("697194953", "US"));
+        let release = itunes::parse_release(&apple, itunes::CoverSize::Large).unwrap();
+        assert_eq!(release.fields["ALBUM"], ["Discovery"]);
+        let album = get(Provider::Deezer, deezer::release_url("302127"));
+        let tracks = get(Provider::Deezer, deezer::tracks_url("302127"));
+        let release = deezer::parse_release(&album, &tracks, deezer::CoverSize::Xl).unwrap();
+        assert_eq!(release.tracks[0].fields["ISRC"], ["GBDUW0000053"]);
+        let lyrics = get(Provider::Lrclib, lrclib::record_url("250327"));
+        assert!(lrclib::record_release(&lyrics, false).is_ok());
     }
 
     /// Manual check against the live services: `cargo test -p opentag live_ -- --ignored`.
@@ -1090,7 +1641,7 @@ mod tests {
                         )
                         .await?,
                     ),
-                    Provider::Freedb | Provider::LocalFreedb | Provider::Web => unreachable!(),
+                    _ => unreachable!(),
                 }
             })
         };
@@ -1103,13 +1654,7 @@ mod tests {
         assert_eq!(mb.fields["ALBUM"], ["Discovery"]);
         let discogs = run(Provider::Discogs, "1225", u64::MAX).unwrap();
         assert_eq!(discogs.fields["DISCOGS_RELEASE_ID"], ["1225"]);
-        let archive = http::Service {
-            name: "Cover Art Archive",
-            gate: &http::ARCHIVE,
-            spacing: Duration::ZERO,
-            token: None,
-            retry_busy: false,
-        };
+        let archive = http::Service::new("Cover Art Archive", &http::ARCHIVE, 0);
         let listing = tauri::async_runtime::block_on(http::json(
             &archive,
             &musicbrainz::cover_listing_url(&mb.id),

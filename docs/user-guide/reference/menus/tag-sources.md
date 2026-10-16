@@ -12,18 +12,23 @@ matching before importing it.
 | **MusicBrainz…** | Search or look up a MusicBrainz release and review its fields/tracks |
 | **Discogs…** | Search or look up a Discogs release |
 | **Discogs Release ID…** | Open a specific release using its ID/address rather than a broad search |
-| **freedb…** | Query the configured online CDDB-compatible server using selected-file timing or an entered disc ID |
+| **freedb…** | Query the configured server by selected-file track layout, or search gnudb by artist and album |
 | **freedb (local)…** | Search a configured local freedb database/index; Primary+L |
+| **Covers: freedb (gnudb)…** | Search gnudb artwork without importing tag fields |
 | **Covers: MusicBrainz…** | Look up artwork without importing tag fields |
 | **Covers: Discogs…** | Look up artwork without importing tag fields |
 | **Discogs access token…** | Configure the token used by the Discogs connection |
 | **Options…** | Open the Tag Sources preferences |
 
-The baseline freedb dialog offers **Disc ID of the selected files** and
-**freedb disc ID**. The local database can also expose **Artist and album
-words** through its text index. This is a lookup from files/identifiers; the
-current dialog does not expose a physical-CD-drive selector. Online freedb
-free-text search is not one of this baseline dialog's modes.
+The remote [freedb dialog](../../tag-sources/freedb.md) offers **Track layout
+of the selected files** and **Artist and album**. Text and artwork searches
+require a recognized gnudb host. OpenTag asks for matches before reading the
+chosen entry; it does not read a remote entry from a typed disc ID.
+
+The [local database](../../tag-sources/local-freedb.md) supports a disc ID
+derived from the selected files or typed directly, plus **Artist and album
+words** through its text index. These are lookups from files/identifiers;
+the dialog does not expose a physical-CD-drive selector.
 
 Configure provider/server and local-index settings under
 [Options → Tag Sources](../options/tag-sources.md),
@@ -80,4 +85,4 @@ Primary+A/Primary+Shift+A for selection and Primary+E/D to enable/disable all.
 Alt+Up/Down or Alt+Page Up/Down moves file rows for matching. See
 [keyboard shortcuts](../keyboard-shortcuts.md) for the complete focus rules.
 
-<!-- Source baseline main5f4112e. Pending application PRs can change provider, language or protocol behavior; reconcile after integration. No remote-service or native-runtime validation is claimed here. -->
+<!-- Source: integrated PR19 src/main.ts Tag Sources menu; src/tag-sources.ts freedbModes and sourceOperation. No remote-service or native-runtime validation is claimed here. -->

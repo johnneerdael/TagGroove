@@ -1,0 +1,4 @@
+{"data": [
+ {"id": 302127, "title": "Discovery", "link": "https://www.deezer.com/album/302127", "cover_medium": "https://cdn-images.dzcdn.net/images/cover/5718f7c81c27e0b2417e2a4c45224f8a/250x250-000000-80-0-0.jpg", "nb_tracks": 14, "record_type": "album", "artist": {"id": 27, "name": "Daft Punk"}, "type": "album"},
+ {"id": 1, "title": "Discovery (Live)", "link": "https://www.deezer.com/album/1", "cover_medium": "", "nb_tracks": 3, "record_type": "single", "artist": {"id": 28, "name": "Someone"}, "type": "album"}
+], "total": 2}

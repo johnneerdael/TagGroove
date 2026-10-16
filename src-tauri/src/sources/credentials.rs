@@ -1,7 +1,9 @@
 //! The Discogs personal access token, kept in `tag-sources.json` beside the
 //! other configuration files rather than in the shared Options store, or, when
 //! the user chooses it, in the system keychain. It never travels back to the
-//! webview, which only learns whether one is set and where it is kept.
+//! webview, which only learns whether one is set and where it is kept. The
+//! user's own API keys for AcoustID, Last.fm and fanart.tv live in the same
+//! private file and are never shown again either.
 //!
 //! The keychain is opt-in and only touched when the token is saved, moved or
 //! needed for a Discogs request. A plain-text token stays in the private file
@@ -17,6 +19,12 @@ pub struct Credentials {
     /// The token is in the system keychain; `discogs_token` is then empty.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub discogs_token_in_keychain: bool,
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub acoustid_key: String,
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub lastfm_key: String,
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub fanart_key: String,
 }
 
 #[derive(Debug, PartialEq, Serialize)]
@@ -25,6 +33,14 @@ pub struct CredentialsView {
     pub discogs_token_in_keychain: bool,
     /// Whether this platform build has a keychain to offer.
     pub keychain_available: bool,
+    /// This build carries OpenTag's Discogs application key.
+    pub discogs_app_key: bool,
+    pub acoustid_key_set: bool,
+    pub acoustid_built_in: bool,
+    pub lastfm_key_set: bool,
+    pub lastfm_built_in: bool,
+    pub fanart_key_set: bool,
+    pub fanart_built_in: bool,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -34,6 +50,10 @@ pub struct CredentialsUpdate {
     pub discogs_token: Option<String>,
     /// Where to keep the token; absent keeps the current place.
     pub keychain: Option<bool>,
+    /// New API keys, or empty strings to remove them; absent keeps them.
+    pub acoustid_key: Option<String>,
+    pub lastfm_key: Option<String>,
+    pub fanart_key: Option<String>,
 }
 
 /// One secret in a credential store. The app uses the system keychain; tests
@@ -132,6 +152,16 @@ impl SecretStore for NoKeychain {
     }
 }
 
+fn validated_key(service: &str, key: &str) -> Result<String, String> {
+    let key = key.trim().to_owned();
+    if key.len() > 200 || key.chars().any(|c| !c.is_ascii_graphic()) {
+        return Err(format!(
+            "The {service} API key contains unexpected characters. Paste the key exactly as {service} shows it."
+        ));
+    }
+    Ok(key)
+}
+
 fn validated(token: &str) -> Result<String, String> {
     let token = token.trim().to_owned();
     if token.len() > 200 || token.chars().any(|c| !c.is_ascii_graphic()) {
@@ -143,10 +173,18 @@ fn validated(token: &str) -> Result<String, String> {
 impl Credentials {
     /// Never reads the keychain: a keychain entry counts as set.
     pub fn view(&self, store: &dyn SecretStore) -> CredentialsView {
+        use super::keys;
         CredentialsView {
             discogs_token_set: self.discogs_token_in_keychain || !self.discogs_token.is_empty(),
             discogs_token_in_keychain: self.discogs_token_in_keychain,
             keychain_available: store.available(),
+            discogs_app_key: keys::discogs_app().is_some(),
+            acoustid_key_set: !self.acoustid_key.is_empty(),
+            acoustid_built_in: keys::acoustid().is_some(),
+            lastfm_key_set: !self.lastfm_key.is_empty(),
+            lastfm_built_in: keys::lastfm().is_some(),
+            fanart_key_set: !self.fanart_key.is_empty(),
+            fanart_built_in: keys::fanart().is_some(),
         }
     }
 
@@ -185,11 +223,26 @@ pub fn update(
     store: &dyn SecretStore,
     update: CredentialsUpdate,
 ) -> Result<CredentialsView, String> {
-    let current = load(path)?;
+    let mut current = load(path)?;
+    let mut keys_changed = false;
+    for (service, slot, value) in [
+        ("AcoustID", &mut current.acoustid_key, &update.acoustid_key),
+        ("Last.fm", &mut current.lastfm_key, &update.lastfm_key),
+        ("fanart.tv", &mut current.fanart_key, &update.fanart_key),
+    ] {
+        if let Some(value) = value {
+            let key = validated_key(service, value)?;
+            keys_changed |= *slot != key;
+            *slot = key;
+        }
+    }
     let keychain = update.keychain.unwrap_or(current.discogs_token_in_keychain);
     let token = match &update.discogs_token {
         Some(token) => validated(token)?,
         None if keychain == current.discogs_token_in_keychain => {
+            if keys_changed {
+                save(path, &current)?;
+            }
             return Ok(current.view(store));
         }
         None => current.discogs_token(store)?,
@@ -205,6 +258,7 @@ pub fn update(
         let next = Credentials {
             discogs_token: String::new(),
             discogs_token_in_keychain: true,
+            ..current.clone()
         };
         save(path, &next)?;
         return Ok(next.view(store));
@@ -212,6 +266,7 @@ pub fn update(
     let next = Credentials {
         discogs_token: token,
         discogs_token_in_keychain: false,
+        ..current.clone()
     };
     save(path, &next)?;
     if current.discogs_token_in_keychain {
@@ -227,14 +282,64 @@ mod tests {
     fn set(token: &str) -> CredentialsUpdate {
         CredentialsUpdate {
             discogs_token: Some(token.into()),
-            keychain: None,
+            ..Default::default()
         }
     }
     fn stored(keychain: bool) -> CredentialsUpdate {
         CredentialsUpdate {
-            discogs_token: None,
             keychain: Some(keychain),
+            ..Default::default()
         }
+    }
+
+    #[test]
+    fn api_keys_are_saved_privately_kept_with_the_token_and_never_viewed() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("tag-sources.json");
+        let store = MemoryStore::default();
+        let view = update(
+            &path,
+            &store,
+            CredentialsUpdate {
+                lastfm_key: Some(" lastfm-key ".into()),
+                acoustid_key: Some("acoustid-key".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert!(view.lastfm_key_set && view.acoustid_key_set && !view.fanart_key_set);
+        let json = serde_json::to_string(&view).unwrap();
+        assert!(!json.contains("lastfm-key") && !json.contains("acoustid-key"));
+        assert_eq!(load(&path).unwrap().lastfm_key, "lastfm-key");
+        // Moving or replacing the Discogs token keeps the API keys.
+        update(&path, &store, set("token")).unwrap();
+        update(&path, &store, stored(true)).unwrap();
+        update(&path, &store, stored(false)).unwrap();
+        let saved = load(&path).unwrap();
+        assert_eq!(
+            (saved.acoustid_key.as_str(), saved.discogs_token.as_str()),
+            ("acoustid-key", "token")
+        );
+        // An empty key removes it; a malformed key changes nothing.
+        let bad = CredentialsUpdate {
+            fanart_key: Some("a b".into()),
+            lastfm_key: Some(String::new()),
+            ..Default::default()
+        };
+        assert!(update(&path, &store, bad)
+            .unwrap_err()
+            .contains("fanart.tv"));
+        assert_eq!(load(&path).unwrap().lastfm_key, "lastfm-key");
+        let cleared = update(
+            &path,
+            &store,
+            CredentialsUpdate {
+                lastfm_key: Some(String::new()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert!(!cleared.lastfm_key_set && cleared.acoustid_key_set);
     }
 
     #[test]

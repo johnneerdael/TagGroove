@@ -1,25 +1,19 @@
 //! freedb sources (Mp3tag's Tag Sources → freedb and freedb (local)): disc
 //! IDs from track lengths, the CDDB protocol over HTTP (gnudb by default) and
 //! folders of xmcd files from a freedb snapshot.
+//!
+//! Servers follow gnudb's access policy (docs/verification/gnudb.md): every
+//! request carries a valid-looking email and OpenTag's registered name, an
+//! entry is read only after a `cddb query` or `search` listed it, and 429
+//! stops the lookup. Nothing is ever submitted.
 use super::model::*;
+use super::musicbrainz::CoverSize;
 use reqwest::Url;
+use std::collections::HashSet;
 use std::path::Path;
+use std::sync::Mutex;
 use tag_core::Fields;
 
-/// The eleven freedb categories; `cddb read` needs one of them.
-pub const CATEGORIES: [&str; 11] = [
-    "blues",
-    "classical",
-    "country",
-    "data",
-    "folk",
-    "jazz",
-    "misc",
-    "newage",
-    "reggae",
-    "rock",
-    "soundtrack",
-];
 const FRAMES_PER_SECOND: f64 = 75.0;
 /// Audio CDs start two seconds (150 frames) into the disc.
 const LEAD_IN: u32 = 150;
@@ -103,7 +97,19 @@ pub fn disc_id(input: &str) -> Result<String, String> {
     }
 }
 
-/// Release IDs are `category/discid`, as the search results return them.
+/// The ID of an entry as a server lists it: a freedb disc ID or gnudb's
+/// gnucdid, which looks the same (eight hexadecimal digits) but is assigned
+/// by gnudb; a few more digits are accepted.
+fn entry_key(input: &str) -> Result<String, String> {
+    let id = input.trim();
+    if (8..=16).contains(&id.len()) && id.chars().all(|c| c.is_ascii_hexdigit()) {
+        Ok(id.to_ascii_lowercase())
+    } else {
+        Err("This freedb entry ID is not valid.".into())
+    }
+}
+
+/// Release IDs are `category/id`, as the search results return them.
 pub fn entry_id(input: &str) -> Result<(String, String), String> {
     let (category, id) = input
         .trim()
@@ -118,7 +124,7 @@ pub fn entry_id(input: &str) -> Result<(String, String), String> {
     {
         return Err("This freedb category is not valid.".into());
     }
-    Ok((category, disc_id(id)?))
+    Ok((category, entry_key(id)?))
 }
 
 /// Options → Tag Sources → freedb and → Local freedb.
@@ -181,15 +187,80 @@ pub fn settings_from(settings: &crate::settings::Settings) -> FreedbSettings {
 
 /// Display name for messages: gnudb when the default server is used.
 pub fn server_name(settings: &FreedbSettings) -> &'static str {
-    if settings.address.to_ascii_lowercase().ends_with("gnudb.org") {
+    let address = settings.address.trim().to_ascii_lowercase();
+    if address == "gnudb.org" || address.ends_with(".gnudb.org") {
         "gnudb"
     } else {
         "The freedb server"
     }
 }
 
-/// A CDDB command as an HTTP GET with the `hello` handshake and protocol 6 (UTF-8).
-pub fn command_url(settings: &FreedbSettings, command: &str) -> Result<Url, String> {
+/// Whether the server takes gnudb's own commands (`search`, `artsearch`).
+/// Standard CDDB servers do not, and may reject or stall them; offline test
+/// runs put a mock server on this computer in gnudb's place.
+pub fn offers_gnudb_commands(settings: &FreedbSettings) -> bool {
+    let address = settings.address.trim();
+    server_name(settings) == "gnudb"
+        || (super::http::offline_test_run()
+            && (address.eq_ignore_ascii_case("localhost")
+                || address
+                    .parse::<std::net::IpAddr>()
+                    .is_ok_and(|ip| ip.is_loopback())))
+}
+
+/// The application name OpenTag is registered under at gnudb. gnudb asks
+/// clients for a long, descriptive name of their own; do not change it.
+pub const APPLICATION: &str = "OpenTagAudioTagEditor";
+/// The developer contact sent in the handshake when the user has not entered
+/// an email address (john@neerdael.nl).
+const DEVELOPER_CONTACT: (&str, &str) = ("john", "neerdael.nl");
+
+/// `v0.2.0`: the version in the handshake, as registered with gnudb.
+pub fn application_version() -> String {
+    format!("v{}", env!("CARGO_PKG_VERSION"))
+}
+
+/// A valid-looking email address: `user@domain.tld` without spaces.
+pub fn valid_email(email: &str) -> bool {
+    let Some((user, domain)) = email.split_once('@') else {
+        return false;
+    };
+    let labels: Vec<&str> = domain.split('.').collect();
+    !user.is_empty()
+        && user.len() <= 64
+        && user
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '%' | '+' | '-'))
+        && labels.len() >= 2
+        && labels.iter().all(|label| {
+            !label.is_empty()
+                && label.len() <= 63
+                && label.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
+        })
+        && labels
+            .last()
+            .is_some_and(|tld| tld.len() >= 2 && tld.chars().all(|c| c.is_ascii_alphabetic()))
+}
+
+/// The handshake takes the user and domain of the email address from
+/// Options; without a valid one the developer contact is sent.
+fn hello_identity(email: &str) -> (String, String) {
+    let email = email.trim();
+    match email.split_once('@') {
+        Some((user, domain)) if valid_email(email) => (user.to_owned(), domain.to_owned()),
+        _ => (DEVELOPER_CONTACT.0.into(), DEVELOPER_CONTACT.1.into()),
+    }
+}
+
+/// `hello=<user> <domain> OpenTagAudioTagEditor v<version>` (spaces become `+`).
+pub fn hello(email: &str) -> String {
+    let (user, domain) = hello_identity(email);
+    format!("{user} {domain} {APPLICATION} {}", application_version())
+}
+
+/// A request to the CDDB program: the given parameters, then the `hello`
+/// handshake and protocol level 6 (UTF-8).
+fn request_url(settings: &FreedbSettings, params: &[(&str, &str)]) -> Result<Url, String> {
     let invalid =
         || "The freedb server address is not valid. Check Options → Tag Sources → freedb.";
     let address = settings.address.trim();
@@ -212,32 +283,102 @@ pub fn command_url(settings: &FreedbSettings, command: &str) -> Result<Url, Stri
     if url.query().is_some() || url.fragment().is_some() {
         return Err(invalid().into());
     }
-    let (user, host) = hello_identity(&settings.email);
     url.query_pairs_mut()
-        .append_pair("cmd", command)
-        .append_pair(
-            "hello",
-            &format!("{user} {host} OpenTag {}", env!("CARGO_PKG_VERSION")),
-        )
+        .extend_pairs(params)
+        .append_pair("hello", &hello(&settings.email))
         .append_pair("proto", "6");
     Ok(url)
 }
 
-/// The handshake takes the user and host of the configured email address.
-fn hello_identity(email: &str) -> (String, String) {
-    let clean = |value: &str| -> String {
-        value
-            .chars()
-            .filter(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_'))
-            .collect()
-    };
-    match email.trim().split_once('@') {
-        Some((user, host)) if !clean(user).is_empty() && !clean(host).is_empty() => {
-            (clean(user), clean(host))
-        }
-        _ => ("opentag".into(), "localhost".into()),
+/// A CDDB command (`cddb query …`, `cddb read …`) as an HTTP GET.
+pub fn command_url(settings: &FreedbSettings, command: &str) -> Result<Url, String> {
+    request_url(settings, &[("cmd", command)])
+}
+
+fn search_terms<'a>(artist: &'a str, album: &'a str) -> Result<(&'a str, &'a str), String> {
+    let (artist, album) = (artist.trim(), album.trim());
+    if artist.is_empty() && album.is_empty() {
+        return Err("Enter the artist or the album to search for.".into());
+    }
+    Ok((artist, album))
+}
+
+/// gnudb's text search: `cmd=search&artist=…&album=…&tracks=N`. The track
+/// count (the selected files) is left out when it is not a CD's.
+pub fn search_url(
+    settings: &FreedbSettings,
+    artist: &str,
+    album: &str,
+    tracks: usize,
+) -> Result<Url, String> {
+    if !offers_gnudb_commands(settings) {
+        return Err(NO_TEXT_SEARCH.into());
+    }
+    let (artist, album) = search_terms(artist, album)?;
+    let count = tracks.to_string();
+    let mut params = vec![("cmd", "search"), ("artist", artist), ("album", album)];
+    if (1..=99).contains(&tracks) {
+        params.push(("tracks", &count));
+    }
+    request_url(settings, &params)
+}
+
+/// gnudb's cover art search: `cmd=artsearch&artist=…&album=…`.
+pub fn artsearch_url(settings: &FreedbSettings, artist: &str, album: &str) -> Result<Url, String> {
+    if !offers_gnudb_commands(settings) {
+        return Err(NO_COVER_SEARCH.into());
+    }
+    let (artist, album) = search_terms(artist, album)?;
+    request_url(
+        settings,
+        &[("cmd", "artsearch"), ("artist", artist), ("album", album)],
+    )
+}
+
+/// Entries the server listed in this session, per server. gnudb only allows
+/// `cddb read` with the category and ID a `cddb query` (or search) returned;
+/// its IDs cannot be computed by clients.
+static LISTED: Mutex<Option<HashSet<String>>> = Mutex::new(None);
+const MAX_LISTED: usize = 20_000;
+
+fn listed_key(settings: &FreedbSettings, category: &str, id: &str) -> String {
+    format!(
+        "{}://{}:{}{}|{category}/{id}",
+        settings.protocol,
+        settings.address.trim().to_ascii_lowercase(),
+        settings.port.unwrap_or_default(),
+        settings.path.trim()
+    )
+}
+
+/// Remember the matches a query or search returned, so they may be read.
+pub fn remember_listed(settings: &FreedbSettings, matches: &[Match]) {
+    let mut listed = LISTED
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let listed = listed.get_or_insert_with(HashSet::new);
+    if listed.len() + matches.len() > MAX_LISTED {
+        listed.clear();
+    }
+    for found in matches {
+        listed.insert(listed_key(settings, &found.category, &found.disc_id));
     }
 }
+
+/// Whether the server listed this entry in a query or search of this session.
+pub fn was_listed(settings: &FreedbSettings, category: &str, id: &str) -> bool {
+    LISTED
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .as_ref()
+        .is_some_and(|listed| listed.contains(&listed_key(settings, category, id)))
+}
+
+pub const NO_TEXT_SEARCH: &str = "Searching by artist and album is a gnudb feature that this freedb server does not offer. Look the disc up by the track layout of the selected files.";
+pub const NO_COVER_SEARCH: &str =
+    "Cover art search is a gnudb feature that this freedb server does not offer.";
+
+pub const LOOK_UP_FIRST: &str = "Look the disc up first: OpenTag reads a freedb entry only after the server listed it for the selected files' track layout or for an artist and album search.";
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Match {
@@ -258,34 +399,56 @@ fn status(body: &str) -> Result<(u16, &str, Vec<&str>), String> {
     Ok((code, first[3..].trim(), rest))
 }
 
-fn server_error(code: u16, message: &str) -> String {
-    if message.to_ascii_lowercase().contains("unknown application") {
+pub const TOO_MANY_REQUESTS: &str = "The freedb server answered 429 Too Many Requests. OpenTag does not retry on its own; wait a while and try again later.";
+
+fn server_error(code: u16, value: &str) -> String {
+    if value.to_ascii_lowercase().contains("unknown application") {
         return format!(
-            "The freedb server does not accept requests from OpenTag (it answered “{message}”). gnudb only answers applications its operator has registered. Choose another CDDB server in Options → Tag Sources → freedb, or use a local freedb folder."
+            "The freedb server does not accept requests from OpenTag (it answered “{value}”). gnudb only answers applications its operator has registered. Choose another CDDB server in Options → Tag Sources → freedb, or use a local freedb folder."
         );
     }
     match code {
-        409 => "The freedb server rejected the handshake. Enter your email address in Options → Tag Sources → freedb.".into(),
+        429 => TOO_MANY_REQUESTS.into(),
+        409 => "The freedb server rejected the handshake. Check your email address in Options → Tag Sources → freedb.".into(),
+        401 => "The freedb server has no such entry.".into(),
+        402 => "The freedb server reported a server error. Try again later.".into(),
         403 => "The freedb entry is damaged on the server.".into(),
-        _ => format!("The freedb server answered: {code} {message}"),
+        _ => format!("The freedb server answered: {code} {value}"),
     }
 }
 
-/// `cddb query`: 200 is one exact match, 210/211 list exact or inexact matches.
-pub fn parse_query(body: &str) -> Result<Vec<Match>, String> {
+/// Matches of a `cddb query` or `search`: 200 is one exact match on the
+/// status line or a list (gnudb's search), 210/211 list exact or inexact
+/// matches, 202 is none. 401–403 and 429 are errors.
+fn parse_matches(body: &str) -> Result<Vec<Match>, String> {
     let (code, message, lines) = status(body)?;
     match code {
-        200 => Ok(parse_match(message).into_iter().collect()),
-        210 | 211 => Ok(lines.into_iter().filter_map(parse_match).collect()),
+        200 | 210 | 211 => {
+            let mut matches: Vec<Match> = lines.into_iter().filter_map(parse_match).collect();
+            if matches.is_empty() && code == 200 {
+                matches.extend(parse_match(message));
+            }
+            Ok(matches)
+        }
         202 => Ok(Vec::new()),
         _ => Err(server_error(code, message)),
     }
 }
 
+/// `cddb query` with the disc layout.
+pub fn parse_query(body: &str) -> Result<Vec<Match>, String> {
+    parse_matches(body)
+}
+
+/// gnudb's `search`: `category gnucdid Artist / Album` lines.
+pub fn parse_search(body: &str) -> Result<Vec<Match>, String> {
+    parse_matches(body)
+}
+
 fn parse_match(line: &str) -> Option<Match> {
     let mut parts = line.trim().splitn(3, ' ');
     let category = parts.next()?.to_ascii_lowercase();
-    let id = disc_id(parts.next()?).ok()?;
+    let id = entry_key(parts.next()?).ok()?;
     let (artist, title) = split_title(parts.next().unwrap_or_default());
     (!category.is_empty() && category.chars().all(|c| c.is_ascii_alphanumeric())).then_some(Match {
         category,
@@ -305,6 +468,126 @@ pub fn parse_read(body: &str) -> Result<Option<String>, String> {
     }
 }
 
+/// gnudb's `artsearch`: Cover Art Archive image addresses and MusicBrainz
+/// release IDs, one per line.
+pub fn parse_artsearch(body: &str, size: CoverSize) -> Result<Vec<SourceCover>, String> {
+    let (code, message, lines) = status(body)?;
+    match code {
+        200 | 210 | 211 => {
+            let (urls, ids): (Vec<String>, Vec<String>) = lines
+                .iter()
+                .flat_map(|line| line.split_whitespace())
+                .map(str::to_owned)
+                .partition(|token| token.contains("://"));
+            Ok(cover_art(&urls, &ids, size))
+        }
+        202 => Ok(Vec::new()),
+        _ => Err(server_error(code, message)),
+    }
+}
+
+fn is_mbid(value: &str) -> bool {
+    value.len() == 36
+        && value.char_indices().all(|(i, c)| match i {
+            8 | 13 | 18 | 23 => c == '-',
+            _ => c.is_ascii_hexdigit(),
+        })
+}
+
+fn size_suffix(size: CoverSize) -> &'static str {
+    match size {
+        CoverSize::Small => "-250",
+        CoverSize::Medium => "-500",
+        CoverSize::Large => "-1200",
+        CoverSize::Original => "",
+    }
+}
+
+/// Cover art from gnudb (`# Cover:`/`# Artid:` lines or `artsearch`): the
+/// listed Cover Art Archive images in the size chosen in Options → Tag
+/// Sources, then the front cover of each release ID without a listed image.
+pub fn cover_art(urls: &[String], ids: &[String], size: CoverSize) -> Vec<SourceCover> {
+    let mut covers: Vec<SourceCover> = Vec::new();
+    let mut releases: Vec<String> = Vec::new();
+    for (release, cover) in urls.iter().filter_map(|url| archive_image(url, size)) {
+        if !covers.iter().any(|c| c.url == cover.url) {
+            covers.push(cover);
+        }
+        if !releases.contains(&release) {
+            releases.push(release);
+        }
+    }
+    for id in ids.iter().map(|id| id.trim().to_ascii_lowercase()) {
+        if is_mbid(&id) && !releases.contains(&id) {
+            let mut cover = super::musicbrainz::front_cover(&id, size);
+            cover.kind = format!("Front, release {}", &id[..8]);
+            covers.push(cover);
+            releases.push(id);
+        }
+    }
+    covers
+}
+
+/// `https://coverartarchive.org/release/<mbid>/<image>-500.jpg` in another size.
+fn archive_image(url: &str, size: CoverSize) -> Option<(String, SourceCover)> {
+    let url = Url::parse(url.trim()).ok()?;
+    if !super::http::trusted(&url) || url.host_str()? != "coverartarchive.org" {
+        return None;
+    }
+    let mut segments = url.path_segments()?;
+    let (kind, release, file) = (segments.next()?, segments.next()?, segments.next()?);
+    let release = release.to_ascii_lowercase();
+    if kind != "release" || segments.next().is_some() || !is_mbid(&release) {
+        return None;
+    }
+    let (stem, extension) = file.rsplit_once('.').unwrap_or((file, ""));
+    let image = stem.split('-').next().unwrap_or_default();
+    let numbered = !image.is_empty() && image.chars().all(|c| c.is_ascii_digit());
+    if !numbered && image != "front" && image != "back" {
+        return None;
+    }
+    let base = format!("https://coverartarchive.org/release/{release}/{image}");
+    // Numbered images carry an extension: thumbnails are JPEG, the original keeps its type.
+    let (url, thumb) = if numbered {
+        let original = match extension.to_ascii_lowercase().as_str() {
+            "png" => "png",
+            "gif" => "gif",
+            "webp" => "webp",
+            _ => "jpg",
+        };
+        let extension = if size == CoverSize::Original {
+            original
+        } else {
+            "jpg"
+        };
+        (
+            format!("{base}{}.{extension}", size_suffix(size)),
+            format!("{base}-250.jpg"),
+        )
+    } else {
+        (
+            format!("{base}{}", size_suffix(size)),
+            format!("{base}-250"),
+        )
+    };
+    let cover = SourceCover {
+        url,
+        thumb: Some(thumb),
+        kind: format!(
+            "{}, release {}",
+            match image {
+                "front" => "Front",
+                "back" => "Back",
+                _ => "Cover",
+            },
+            &release[..8]
+        ),
+        width: None,
+        height: None,
+    };
+    Some((release, cover))
+}
+
 /// `Artist / Title`; without a separator artist and title are the same.
 pub fn split_title(value: &str) -> (String, String) {
     match value.split_once(" / ") {
@@ -319,6 +602,10 @@ pub struct Xmcd {
     values: Vec<(String, String)>,
     pub offsets: Vec<u32>,
     pub disc_length: Option<u32>,
+    /// gnudb's `# Cover:` lines: Cover Art Archive image addresses.
+    pub covers: Vec<String>,
+    /// gnudb's `# Artid:` lines: MusicBrainz release IDs with cover art.
+    pub art_ids: Vec<String>,
 }
 impl Xmcd {
     pub fn get(&self, key: &str) -> &str {
@@ -352,6 +639,10 @@ pub fn parse_xmcd(text: &str) -> Xmcd {
                 in_offsets = false;
                 if let Some(rest) = comment.strip_prefix("Disc length:") {
                     xmcd.disc_length = rest.split_whitespace().next().and_then(|n| n.parse().ok());
+                } else if let Some(url) = comment.strip_prefix("Cover:") {
+                    xmcd.covers.push(url.trim().to_owned());
+                } else if let Some(id) = comment.strip_prefix("Artid:") {
+                    xmcd.art_ids.push(id.trim().to_ascii_lowercase());
                 }
             }
             continue;
@@ -442,6 +733,8 @@ fn extended_data(extd: &str) -> (String, String) {
 pub struct ImportOptions {
     pub comment_disc_id: bool,
     pub disc_id_field: bool,
+    /// Size of the Cover Art Archive images gnudb entries point to.
+    pub cover_size: CoverSize,
 }
 
 pub fn release_url(provider: Provider, category: &str, disc_id: &str) -> String {
@@ -497,13 +790,21 @@ pub fn release(
         genre.to_owned()
     };
     put_one(&mut fields, "GENRE", genre);
+    // The entry's own DISCID line names the freedb disc ID; gnudb lists
+    // entries by its gnucdid instead.
+    let freedb_id = xmcd
+        .get("DISCID")
+        .split(',')
+        .next()
+        .and_then(|id| self::disc_id(id).ok())
+        .unwrap_or_else(|| disc_id.to_owned());
     if options.comment_disc_id {
-        put_one(&mut fields, "COMMENT", disc_id);
+        put_one(&mut fields, "COMMENT", freedb_id.clone());
     } else {
         put_one(&mut fields, "COMMENT", extd_comment);
     }
     if options.disc_id_field {
-        put_one(&mut fields, "DISCID", disc_id);
+        put_one(&mut fields, "DISCID", freedb_id);
     }
 
     let lengths = track_lengths(xmcd, count);
@@ -541,6 +842,7 @@ pub fn release(
             }
         })
         .collect();
+    let covers = cover_art(&xmcd.covers, &xmcd.art_ids, options.cover_size);
     Ok(SourceRelease {
         provider,
         id: format!("{category}/{disc_id}"),
@@ -553,8 +855,10 @@ pub fn release(
         artist,
         fields,
         tracks,
-        covers: Vec::new(),
-        more_covers: false,
+        // Without cover lines gnudb's cover art search is asked on demand;
+        // other servers do not have it.
+        more_covers: server_is_gnudb && provider == Provider::Freedb && covers.is_empty(),
+        covers,
     })
 }
 
@@ -722,7 +1026,21 @@ fn windows_entry(text: &str, disc_id: &str) -> Option<String> {
 mod tests {
     use super::*;
 
+    #[test]
+    fn server_errors_keep_remote_reply_text_as_data() {
+        assert_eq!(
+            server_error(400, "Help"),
+            "The freedb server answered: 400 Help"
+        );
+        let reply = "unknown application: Help  Title";
+        assert!(server_error(400, reply).contains(&format!("“{reply}”")));
+    }
+
     const ENTRY: &str = include_str!("fixtures/freedb-entry.xmcd");
+    /// gnudb's documented `search` and `artsearch` answers (gnudb.org/howtognudb.php).
+    const SEARCH: &str = include_str!("fixtures/gnudb-search.txt");
+    const ARTSEARCH: &str = include_str!("fixtures/gnudb-artsearch.txt");
+    const GNUDB_ENTRY: &str = include_str!("fixtures/gnudb-read.txt");
 
     /// libdiscid's reference disc: ten tracks, lead-out at frame 206535.
     const OFFSETS: [u32; 10] = [
@@ -773,17 +1091,29 @@ mod tests {
         assert!(entry_id("7a0a6b09").is_err());
     }
 
+    fn hello_of(url: &Url) -> String {
+        url.query_pairs()
+            .find(|(key, _)| key == "hello")
+            .map(|(_, value)| value.into_owned())
+            .unwrap()
+    }
+
     #[test]
     fn command_urls_carry_the_handshake_and_protocol() {
         let mut settings = FreedbSettings::default();
         let url = command_url(&settings, "cddb read rock 7a0a6b09").unwrap();
         assert_eq!(url.scheme(), "https");
         assert_eq!(url.host_str(), Some("gnudb.gnudb.org"));
+        assert_eq!(url.port_or_known_default(), Some(443));
         assert_eq!(url.path(), "/~cddb/cddb.cgi");
         let query = url.query().unwrap();
-        assert!(query.starts_with("cmd=cddb+read+rock+7a0a6b09&hello=opentag+localhost+OpenTag+"));
-        assert!(query.ends_with("&proto=6"));
-        settings.email = "me@example.org".into();
+        let version = env!("CARGO_PKG_VERSION");
+        assert_eq!(
+            query,
+            format!("cmd=cddb+read+rock+7a0a6b09&hello=john+neerdael.nl+OpenTagAudioTagEditor+v{version}&proto=6")
+        );
+        assert!(!query.contains("localhost") && !query.contains("opentag+"));
+        settings.email = " me.too+tags@example.org ".into();
         settings.protocol = "http".into();
         settings.port = Some(8880);
         settings.path = "cddb.cgi".into();
@@ -792,10 +1122,10 @@ mod tests {
             url.as_str().split('?').next().unwrap(),
             "http://gnudb.gnudb.org:8880/cddb.cgi"
         );
-        assert!(url
-            .query()
-            .unwrap()
-            .contains("hello=me+example.org+OpenTag"));
+        assert_eq!(
+            hello_of(&url),
+            format!("me.too+tags example.org OpenTagAudioTagEditor v{version}")
+        );
         for bad in ["", "evil.com/x", "user@host", "host:1"] {
             settings.address = bad.into();
             assert!(command_url(&settings, "x").is_err(), "{bad}");
@@ -803,6 +1133,137 @@ mod tests {
         settings.address = "gnudb.gnudb.org".into();
         settings.path = "/cgi?x=1".into();
         assert!(command_url(&settings, "x").is_err());
+    }
+
+    #[test]
+    fn the_handshake_falls_back_to_the_developer_contact() {
+        let version = env!("CARGO_PKG_VERSION");
+        let developer = format!("john neerdael.nl OpenTagAudioTagEditor v{version}");
+        for email in [
+            "",
+            "   ",
+            "not an email",
+            "me@localhost",
+            "@example.org",
+            "me@",
+            "me@exa mple.org",
+            "me@example.c0m",
+            "me@@example.org",
+            "a b@example.org",
+            "me@.example.org",
+        ] {
+            assert_eq!(hello(email), developer, "{email:?}");
+            assert!(!valid_email(email.trim()), "{email:?}");
+        }
+        assert_eq!(
+            hello("Jane.Doe@Mail.Example.co.uk"),
+            format!("Jane.Doe Mail.Example.co.uk OpenTagAudioTagEditor v{version}")
+        );
+        assert!(APPLICATION.len() >= 16 && !APPLICATION.contains(' '));
+        assert_eq!(application_version(), format!("v{version}"));
+    }
+
+    #[test]
+    fn text_and_cover_searches_use_gnudbs_commands() {
+        let settings = FreedbSettings::default();
+        let url = search_url(&settings, " bob dylan ", "New", 4).unwrap();
+        let query = url.query().unwrap();
+        assert!(
+            query.starts_with("cmd=search&artist=bob+dylan&album=New&tracks=4&hello=john+neerdael.nl+OpenTagAudioTagEditor+v"),
+            "{query}"
+        );
+        assert!(query.ends_with("&proto=6"));
+        let without_tracks = search_url(&settings, "A&B", "", 0).unwrap();
+        assert!(without_tracks
+            .query()
+            .unwrap()
+            .starts_with("cmd=search&artist=A%26B&album=&hello="));
+        assert!(!search_url(&settings, "A", "B", 120)
+            .unwrap()
+            .query()
+            .unwrap()
+            .contains("tracks="));
+        assert!(search_url(&settings, " ", "", 3).is_err());
+        let art = artsearch_url(&settings, "Katie Melua", "Piece by Piece").unwrap();
+        assert!(art
+            .query()
+            .unwrap()
+            .starts_with("cmd=artsearch&artist=Katie+Melua&album=Piece+by+Piece&hello="));
+        assert!(artsearch_url(&settings, "", "").is_err());
+    }
+
+    #[test]
+    fn gnudb_commands_go_only_to_gnudb() {
+        let gnudb = FreedbSettings::default();
+        assert!(offers_gnudb_commands(&gnudb));
+        for address in [
+            "cddb.example.org",
+            "127.0.0.1",
+            "localhost",
+            "gnudb.org.example.com",
+        ] {
+            let other = FreedbSettings {
+                address: address.into(),
+                ..Default::default()
+            };
+            // Outside offline test runs a local server is a standard CDDB server too.
+            assert!(!offers_gnudb_commands(&other), "{address}");
+            assert_eq!(search_url(&other, "A", "B", 2).unwrap_err(), NO_TEXT_SEARCH);
+            assert_eq!(
+                artsearch_url(&other, "A", "B").unwrap_err(),
+                NO_COVER_SEARCH
+            );
+            // Standard commands still work.
+            assert!(command_url(&other, "cddb query 830abf0a 1 150 10").is_ok());
+        }
+        // An entry without cover lines offers gnudb's cover art search only on gnudb.
+        let entry = parse_xmcd(ENTRY);
+        let release_from = |provider, gnudb| {
+            release(
+                &entry,
+                provider,
+                "rock",
+                "1f026a03",
+                ImportOptions::default(),
+                gnudb,
+            )
+            .unwrap()
+        };
+        assert!(release_from(Provider::Freedb, true).more_covers);
+        assert!(!release_from(Provider::Freedb, false).more_covers);
+        assert!(!release_from(Provider::LocalFreedb, false).more_covers);
+        let with_lines = parse_xmcd(&parse_read(GNUDB_ENTRY).unwrap().unwrap());
+        assert!(
+            !release(
+                &with_lines,
+                Provider::Freedb,
+                "folk",
+                "2407ef04",
+                ImportOptions::default(),
+                true
+            )
+            .unwrap()
+            .more_covers
+        );
+    }
+
+    #[test]
+    fn entries_are_read_only_after_the_server_listed_them() {
+        let settings = FreedbSettings {
+            address: "listed.example.org".into(),
+            ..Default::default()
+        };
+        let other = FreedbSettings {
+            address: "other.example.org".into(),
+            ..Default::default()
+        };
+        assert!(!was_listed(&settings, "folk", "2407ef04"));
+        let found = parse_search(SEARCH).unwrap();
+        remember_listed(&settings, &found);
+        assert!(was_listed(&settings, "folk", "2407ef04"));
+        assert!(was_listed(&settings, "folk", "2c05bb04"));
+        assert!(!was_listed(&settings, "rock", "2407ef04"));
+        assert!(!was_listed(&other, "folk", "2407ef04"));
     }
 
     #[test]
@@ -875,6 +1336,124 @@ mod tests {
     }
 
     #[test]
+    fn response_codes_follow_the_gnudb_documentation() {
+        let found = parse_search(SEARCH).unwrap();
+        assert_eq!(found.len(), 2);
+        assert_eq!(
+            found[0],
+            Match {
+                category: "folk".into(),
+                disc_id: "2407ef04".into(),
+                artist: "Bob Dylan".into(),
+                title: "New York 19.10.1994 (Cd2)".into()
+            }
+        );
+        assert!(parse_search("202 No match found\r\n").unwrap().is_empty());
+        let exact = "210 Found exact matches, list follows (until terminating `.')\r\nrock 7a0a6b09 A / B\r\n.\r\n";
+        assert_eq!(parse_query(exact).unwrap().len(), 1);
+        for body in [
+            "429 Too Many Requests\r\n",
+            "429 Too Many Requests, list follows\r\nrock 7a0a6b09 A / B\r\n.\r\n",
+        ] {
+            for error in [
+                parse_query(body).unwrap_err(),
+                parse_search(body).unwrap_err(),
+                parse_read(body).unwrap_err(),
+                parse_artsearch(body, CoverSize::Medium).unwrap_err(),
+            ] {
+                assert_eq!(error, TOO_MANY_REQUESTS);
+                assert!(error.contains("try again later"));
+            }
+        }
+        assert!(parse_query("403 Database entry is corrupt")
+            .unwrap_err()
+            .contains("damaged"));
+        assert!(parse_read("402 Server error.")
+            .unwrap_err()
+            .contains("server error"));
+        assert!(parse_search("401 Specified CDDB entry not found.")
+            .unwrap_err()
+            .contains("no such entry"));
+    }
+
+    #[test]
+    fn cover_art_comes_from_artsearch_and_entry_lines() {
+        let covers = parse_artsearch(ARTSEARCH, CoverSize::Medium).unwrap();
+        // Four listed images, then the front cover of the three other releases.
+        assert_eq!(covers.len(), 7);
+        assert_eq!(
+            covers[0].url,
+            "https://coverartarchive.org/release/16efdbf1-47c9-4179-ad23-4c7bc7fda547/32779693860-500.jpg"
+        );
+        assert_eq!(
+            covers[0].thumb.as_deref(),
+            Some("https://coverartarchive.org/release/16efdbf1-47c9-4179-ad23-4c7bc7fda547/32779693860-250.jpg")
+        );
+        assert_eq!(covers[0].kind, "Cover, release 16efdbf1");
+        assert_eq!(
+            covers[4].url,
+            "https://coverartarchive.org/release/5c7ff4fc-bc24-4375-b587-c57ad158e361/front-500"
+        );
+        assert_eq!(covers[4].kind, "Front, release 5c7ff4fc");
+        assert!(covers
+            .iter()
+            .all(|c| super::super::http::trusted(&Url::parse(&c.url).unwrap())));
+        let large = parse_artsearch(ARTSEARCH, CoverSize::Original).unwrap();
+        assert_eq!(
+            large[1].url,
+            "https://coverartarchive.org/release/2e796f5f-082e-427a-9a49-f3ed54e69406/37994282199.jpg"
+        );
+        assert!(parse_artsearch("202 No match found", CoverSize::Medium)
+            .unwrap()
+            .is_empty());
+        // Only Cover Art Archive images over HTTPS are offered.
+        let foreign = cover_art(
+            &[
+                "https://evil.example/release/16efdbf1-47c9-4179-ad23-4c7bc7fda547/1-500.jpg"
+                    .into(),
+                "http://coverartarchive.org/release/16efdbf1-47c9-4179-ad23-4c7bc7fda547/1-500.jpg"
+                    .into(),
+                "https://coverartarchive.org/release/not-an-id/1-500.jpg".into(),
+                "https://coverartarchive.org/release/16efdbf1-47c9-4179-ad23-4c7bc7fda547/../x.jpg"
+                    .into(),
+            ],
+            &["../../etc".into()],
+            CoverSize::Medium,
+        );
+        assert!(foreign.is_empty(), "{foreign:?}");
+
+        let entry = parse_read(GNUDB_ENTRY).unwrap().unwrap();
+        let xmcd = parse_xmcd(&entry);
+        assert_eq!(xmcd.covers.len(), 1);
+        assert_eq!(xmcd.art_ids.len(), 2);
+        let release = release(
+            &xmcd,
+            Provider::Freedb,
+            "folk",
+            "2407ef04",
+            ImportOptions {
+                comment_disc_id: true,
+                disc_id_field: true,
+                cover_size: CoverSize::Large,
+            },
+            true,
+        )
+        .unwrap();
+        let urls: Vec<_> = release.covers.iter().map(|c| c.url.as_str()).collect();
+        assert_eq!(
+            urls,
+            [
+                "https://coverartarchive.org/release/8763f781-57b1-4c84-90da-5cb7180873da/38592060423-1200.jpg",
+                "https://coverartarchive.org/release/95ade33a-58ff-4466-9d12-239dcdba0ccc/front-1200"
+            ]
+        );
+        // DISCID is the entry's freedb disc ID, not gnudb's gnucdid.
+        assert_eq!(release.id, "folk/2407ef04");
+        assert_eq!(release.fields["DISCID"], ["1a018c02"]);
+        assert_eq!(release.fields["COMMENT"], ["1a018c02"]);
+    }
+
+    #[test]
     fn xmcd_entries_map_to_album_and_track_fields() {
         let xmcd = parse_xmcd(ENTRY);
         assert_eq!(xmcd.offsets, [150, 15150, 33150]);
@@ -913,6 +1492,7 @@ mod tests {
             ImportOptions {
                 comment_disc_id: true,
                 disc_id_field: true,
+                ..Default::default()
             },
             false,
         )

@@ -27,7 +27,7 @@ Utils → Save image to disc writes an image next to the audio. Those files now 
 - Options → Tag Sources → freedb holds a named list of servers (name, protocol, address, path, port) with New and Delete. The selected entry is the server in use; it is written to the page's existing `protocol`/`address`/`path`/`port` values, so the backend reads the server exactly as before. A server saved by an earlier build that matches no list entry joins the list as "Custom server".
 - "Current list of freedb servers" restores the list. Mp3tag downloads it; OpenTag has no list service, so the button restores the list shipped with OpenTag (gnudb over HTTPS and over HTTP), and like Mp3tag's it discards changes made to the list. The email address stays a single setting for every server.
 - Local freedb text search. Options → Tag Sources → Local freedb has a Build index button with progress and Cancel. The index (`local-freedb-index.tsv` in the configuration folder) has one line per disc: category, disc ID, artist, title, year, genre and track count, read from both folder layouts. A build replaces the index only when it completes. freedb (local) gains the search type "Artist and album words": every word must occur in the disc's artist or title, ignoring case and accents. Results are paged 50 at a time with the total. Searching with an index built for another folder asks for a rebuild.
-- freedb servers still search only by disc ID. CDDB has no text search command, and gnudb's web search is out of scope (`remaining-gaps.md`, Out of scope).
+- freedb servers search by the files' track layout or, since `feat/gnudb`, by artist and album with gnudb's CDDB `search` command (`gnudb.md`). A typed disc ID is no longer sent to a server.
 
 ### Discogs token in the system keychain
 
@@ -59,7 +59,7 @@ Local checks: `AR=/usr/bin/ar npm test` and `AR=/usr/bin/ar cargo clippy --works
 
 ## Remaining gaps
 
-- freedb servers: no text search (no CDDB command) and no audio-CD lookup; both stay out of scope.
+- freedb servers: no audio-CD lookup (out of scope). Text search on servers was added later with gnudb's `search` command (`gnudb.md`).
 - The server list is not downloaded; "Current list of freedb servers" restores OpenTag's built-in list.
 - Ctrl+Shift+I's exact behaviour in Mp3tag is undocumented; the reading above is OpenTag's.
 - Saved cover files are journaled only for local folders. Provider documents (Android) are not journaled, as before.

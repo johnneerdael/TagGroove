@@ -1,0 +1,16 @@
+{"album": {"artist": "Daft Punk", "mbid": "48140466-cff6-3222-bd55-63c27e43190d", "name": "Discovery",
+  "url": "https://www.last.fm/music/Daft+Punk/Discovery",
+  "image": [
+    {"size": "medium", "#text": "https://lastfm.freetls.fastly.net/i/u/64s/a.png"},
+    {"size": "large", "#text": "https://lastfm.freetls.fastly.net/i/u/174s/a.png"},
+    {"size": "extralarge", "#text": "https://lastfm.freetls.fastly.net/i/u/300x300/a.png"},
+    {"size": "mega", "#text": ""}],
+  "tags": {"tag": [
+    {"name": "electronic", "url": "https://www.last.fm/tag/electronic"},
+    {"name": "french house", "url": "https://www.last.fm/tag/french+house"},
+    {"name": "seen live", "url": "https://www.last.fm/tag/seen+live"},
+    {"name": "2001", "url": "https://www.last.fm/tag/2001"},
+    {"name": "House", "url": "https://www.last.fm/tag/house"}]},
+  "tracks": {"track": [
+    {"name": "Aerodynamic", "duration": 207, "@attr": {"rank": 2}, "artist": {"name": "Daft Punk"}},
+    {"name": "One More Time", "duration": 320, "@attr": {"rank": 1}, "artist": {"name": "Daft Punk"}}]}}}
