@@ -292,7 +292,9 @@ fn write_debug(folder: &Path, files: &[engine::DebugFile]) -> Option<PathBuf> {
 #[serde(untagged)]
 pub enum WebSourceError {
     Plain(String),
-    Script { web_source_script: ScriptFailure },
+    Script {
+        web_source_script: Box<ScriptFailure>,
+    },
 }
 #[derive(Clone, Debug, Serialize)]
 pub struct ScriptFailure {
@@ -346,14 +348,14 @@ fn script_failure(
     debug_path: Option<PathBuf>,
 ) -> WebSourceError {
     WebSourceError::Script {
-        web_source_script: ScriptFailure {
+        web_source_script: Box::new(ScriptFailure {
             file: block.file.clone(),
             section: section.into(),
             line: error.line,
             command: error.command,
             message: error.message,
             debug_path: debug_path.map(|path| path.to_string_lossy().into_owned()),
-        },
+        }),
     }
 }
 
