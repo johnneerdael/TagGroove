@@ -179,3 +179,11 @@ Current-head local validation is recorded in the feature-only coverage ledger;
 older aggregate counts above describe their historical source. Native UI suites
 are configured for trusted reviewed CI; no local app window or current remote
 CI success is claimed by this integration.
+
+A finite independent integration review caught two historical fpcalc error
+guidance strings naming a nonexistent AcoustID Options subpage. Both now name
+**Tag Sources → Online services**. The real missing-program producer first
+failed the corrected guidance assertion, then all seven AcoustID module tests
+passed. This message/assertion-only followup uses the 951-test full-workspace
+feature checkpoint as its broader baseline; final focused tests and full
+all-target Clippy qualify the correction without claiming another full run.

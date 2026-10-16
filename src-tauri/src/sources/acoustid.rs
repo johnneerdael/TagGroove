@@ -25,7 +25,7 @@ pub fn find_fpcalc(configured: &str) -> Result<PathBuf, String> {
             Ok(path)
         } else {
             Err(format!(
-                "fpcalc was not found at {configured}. Check Options → Tag Sources → AcoustID."
+                "fpcalc was not found at {configured}. Check Options → Tag Sources → Online services."
             ))
         };
     }
@@ -50,7 +50,7 @@ pub fn find_fpcalc(configured: &str) -> Result<PathBuf, String> {
         .into_iter()
         .map(|folder| folder.join(name))
         .find(|candidate| candidate.is_file())
-        .ok_or_else(|| "AcoustID needs Chromaprint's fpcalc program. Install Chromaprint (fpcalc) and, if it is not found automatically, choose it in Options → Tag Sources → AcoustID.".into())
+        .ok_or_else(|| "AcoustID needs Chromaprint's fpcalc program. Install Chromaprint (fpcalc) and, if it is not found automatically, choose it in Options → Tag Sources → Online services.".into())
 }
 
 /// `fpcalc -json` output: the file's length and its compressed fingerprint.
@@ -415,9 +415,10 @@ mod tests {
         assert!(form.contains(&("duration", "320".to_owned())));
         assert!(form.contains(&("clientversion", env!("CARGO_PKG_VERSION").to_owned())));
         assert!(form.contains(&("meta", "recordings releases compress".to_owned())));
-        assert!(find_fpcalc("/no/such/fpcalc")
-            .unwrap_err()
-            .contains("/no/such/fpcalc"));
+        assert_eq!(
+            find_fpcalc("/no/such/fpcalc").unwrap_err(),
+            "fpcalc was not found at /no/such/fpcalc. Check Options → Tag Sources → Online services."
+        );
     }
 
     #[test]

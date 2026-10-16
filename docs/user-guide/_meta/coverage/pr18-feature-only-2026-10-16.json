@@ -34,7 +34,7 @@
     "src-tauri/src/sources/http.rs": "893b8d1d65f61da23e66f7e77774539e471da0b2e8fd65e2f1b3e187870e3ce9",
     "src-tauri/src/sources/lrclib.rs": "8c84f0a96547c4b95c40943f4852f97f6d5f93855adceebabd5fc42d83559111",
     "src-tauri/src/sources/model.rs": "6dc774d5b962f2bbd124efdc5982da7f7aedd1e4b15d09db068abfde47109652",
-    "src-tauri/src/sources/acoustid.rs": "1830e1644f5f4b73d3b3bf8987286f6c88a44a63bedd7b7e4d15f211ff88b10d",
+    "src-tauri/src/sources/acoustid.rs": "86ed569026bc87dc73201546ea65b628d52e6d1e91751882e13f83e05b2742f7",
     "src-tauri/src/sources/deezer.rs": "77d7661cbbdeed81d924e82bb857cb8d56e3d4ad9551f16411269dea53d1f761",
     "src/main.ts": "d346185a2c3898f5d11b7c00b6ede9410abf2d84494403972c968c7728cc73a7",
     "src/tag-sources.ts": "433a95fd4a32cdf7084f33b99316ae5c8f7572e0747515d9a79d64c36b79484d",
@@ -107,6 +107,34 @@
       "strict_guide": {
         "path": "/tmp/opentag-pr18-feature-only-guide.log",
         "sha256": "612f278924c3be160e97f55e8575275e2d793186adc0c81b0fad49a0aecea49b"
+      }
+    },
+    "post_review_fpcalc_guidance": {
+      "change": "Two error guidance literals now point to actual Options \u2192 Tag Sources \u2192 Online services page; configured-missing-path assertion strengthened. No finder/process/provider behavior changed.",
+      "red": "Actual configured-path producer failed old guidance assertion (1failed), then full AcoustID module7passed.",
+      "baseline_full_workspace": "951pass/0fail/5ignored on6963ac3; reused for unchanged bodies outside this message/assertion-only followup.",
+      "final_focused_native": "7pass/0fail, own18target, AR explicit; no fullsuite rerun claimed.",
+      "red_log": "/tmp/opentag-pr18-feature-only-fpcalc-red.log",
+      "green_log": "/tmp/opentag-pr18-feature-only-fpcalc-green.log",
+      "clippy": "Fresh full workspace/all-targets -Dwarnings exit0",
+      "fmt": "PASS",
+      "logs": {
+        "red": {
+          "path": "/tmp/opentag-pr18-feature-only-fpcalc-red.log",
+          "sha256": "9ed46051b8a844dbca571bde237ca5d5631de77a8c45fa24afdc5a2eff408089"
+        },
+        "green": {
+          "path": "/tmp/opentag-pr18-feature-only-fpcalc-green.log",
+          "sha256": "84d379db18d4a216c3648f5a436d6edffd3c8be09720ca3632185a69d13577aa"
+        },
+        "clippy": {
+          "path": "/tmp/opentag-pr18-feature-only-fpcalc-clippy.log",
+          "sha256": "a9bf5ba3e2d1e4f1f5ba8d81a7b6cd2bb5156158f67197c06a64f5344e95a255"
+        },
+        "fmt": {
+          "path": "/tmp/opentag-pr18-feature-only-fpcalc-fmt.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
       }
     }
   },
