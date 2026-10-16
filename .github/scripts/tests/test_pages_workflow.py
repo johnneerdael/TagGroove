@@ -97,6 +97,32 @@ class PagesTrustTests(unittest.TestCase):
         for key in ["pr_number", "head_sha", "source_sha"]:
             self.assertIn(f"{key}: ${{{{ inputs.{key} }}}}", job)
 
+    def test_target_template_authenticates_source_before_packaging_and_write_deployment(self):
+        path = WORKFLOWS.parent / "guide-pages-target.yml"
+        self.assertFalse((WORKFLOWS / path.name).exists())
+        source = path.read_text()
+        header = source.split("jobs:")[0]
+        self.assertIn("paths: ['site/**']", header)
+        for trigger in ["pull_request", "pull_request_target", "workflow_dispatch", "schedule"]:
+            self.assertNotIn(f"  {trigger}:", header)
+        package = re.search(r"^  package:\n(.*?)(?=^  deploy:)", source, re.M | re.S)[1]
+        deploy = source.split("  deploy:\n", 1)[1]
+        self.assertIn("github.repository == 'johnneerdael/audio-tag-guide'", package)
+        for job in [package, deploy]:
+            self.assertIn("ref: ${{ github.sha }}", job)
+            self.assertIn("repository: johnneerdael/opentag\n          ref: main", job)
+            self.assertIn("python3 trusted/.github/scripts/guide_pages.py verify-target", job)
+            self.assertNotIn("secrets.", job)
+        self.assertNotIn("pages: write", package)
+        self.assertNotIn("id-token: write", package)
+        self.assertLess(package.index("verify-target"), package.index("actions/upload-pages-artifact"))
+        self.assertIn("path: publication/site", package)
+        self.assertIn("needs: package", deploy)
+        self.assertLess(deploy.index("verify-target"), deploy.index("actions/deploy-pages"))
+        self.assertIn("pages: write", deploy)
+        self.assertIn("id-token: write", deploy)
+        self.assertIn("name: github-pages", deploy)
+
 
 if __name__ == "__main__":
     unittest.main()

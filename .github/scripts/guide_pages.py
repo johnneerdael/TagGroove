@@ -15,16 +15,21 @@ import tempfile
 import time
 from urllib.parse import urlsplit
 
+from review_gate import GitHub, check_release
+
 
 CANONICAL = "https://johnneerdael.github.io/audio-tag-guide/"
-SOURCE_REPOSITORY = "https://github.com/johnneerdael/opentag"
+SOURCE_PROJECT = "johnneerdael/opentag"
+SOURCE_REPOSITORY = f"https://github.com/{SOURCE_PROJECT}"
 TARGET = "git@github.com:johnneerdael/audio-tag-guide.git"
 MARKER = "publication-source.json"
 KNOWN_HOSTS = Path(__file__).resolve().parents[1] / "guide-pages-known-hosts"
+TARGET_TEMPLATE = Path(__file__).resolve().parents[1] / "guide-pages-target.yml"
+TARGET_WORKFLOW = ".github/workflows/static-pages.yml"
 
 
 def identity(source, head, pr):
-    if not all(re.fullmatch(r"[0-9a-f]{40}", value) for value in (source, head)):
+    if not all(isinstance(value, str) and re.fullmatch(r"[0-9a-f]{40}", value) for value in (source, head)):
         raise ValueError("Publication requires full source and reviewed-head SHAs")
     if not isinstance(pr, int) or isinstance(pr, bool) or pr <= 0:
         raise ValueError("Publication requires a positive reviewed PR number")
@@ -124,7 +129,8 @@ def prepare(site, redirects, source, head, pr):
     (site / ".nojekyll").write_text("")
     marker = dict(schema=1, source_repository=SOURCE_REPOSITORY, source_commit=source,
                   reviewed_head=head, reviewed_pr=pr, canonical_url=CANONICAL,
-                  completed_pages=len(public_routes), static_tree_sha256=tree_digest(site))
+                  completed_pages=len(public_routes), static_tree_sha256=tree_digest(site),
+                  target_workflow_sha256=hashlib.sha256(TARGET_TEMPLATE.read_bytes()).hexdigest())
     (site / MARKER).write_text(json.dumps(marker, indent=2) + "\n")
     redirects.mkdir(parents=True)
     for path in files(site):
@@ -151,7 +157,8 @@ def validate_site(site, source, head, pr):
     marker = json.loads((site / MARKER).read_text())
     expected = dict(schema=1, source_repository=SOURCE_REPOSITORY, source_commit=source,
                     reviewed_head=head, reviewed_pr=pr, canonical_url=CANONICAL,
-                    completed_pages=len(public_routes), static_tree_sha256=tree_digest(site))
+                    completed_pages=len(public_routes), static_tree_sha256=tree_digest(site),
+                    target_workflow_sha256=hashlib.sha256(TARGET_TEMPLATE.read_bytes()).hexdigest())
     if marker != expected or not (site / ".nojekyll").is_file() or (site / ".nojekyll").read_bytes():
         raise ValueError("Static artifact provenance or content digest does not match the approved source")
     return expected
@@ -164,22 +171,51 @@ def git(directory, *args, env=None):
         "-C", str(directory), *args], env=env, check=True, capture_output=True, text=True).stdout.strip()
 
 
+def target_control(checkout):
+    controls = files(checkout / ".github")
+    expected = checkout / TARGET_WORKFLOW
+    if controls != [expected] or expected.read_bytes() != TARGET_TEMPLATE.read_bytes():
+        raise ValueError("Target deployment control must match the reviewed source template")
+
+
+def authorize_target(site, checkout, api=None):
+    """Use only trusted source-main code and public metadata, never artifact code."""
+    target_control(checkout)
+    if site.resolve() != (checkout / "site").resolve():
+        raise ValueError("Only the target's site directory may be packaged")
+    files(site)
+    marker = json.loads((site / MARKER).read_text())
+    if not isinstance(marker, dict):
+        raise ValueError("Publication provenance must be an object")
+    source, head, pr = (marker.get(name) for name in ("source_commit", "reviewed_head", "reviewed_pr"))
+    validate_site(site, source, head, pr)
+    api = api or GitHub(SOURCE_PROJECT)
+    if api.repo != SOURCE_PROJECT or api.get("git/ref/heads/main")["object"]["sha"] != source:
+        raise RuntimeError("Only current source main can authorize neutral publication")
+    check_release(api, pr, head, source)
+    if api.get("git/ref/heads/main")["object"]["sha"] != source:
+        raise RuntimeError("Source main changed during target authorization")
+    return marker
+
+
 def publish_checkout(site, checkout, source, head, pr, env=None):
     validate_site(site, source, head, pr)
     if (checkout / ".git").is_symlink() or not (checkout / ".git").is_dir():
         raise ValueError("Publisher requires its own ordinary Git clone")
-    for path in checkout.iterdir():
-        if path.name == ".git":
-            continue
-        if path.is_dir() and not path.is_symlink():
-            shutil.rmtree(path)
-        else:
-            path.unlink()
+    target_control(checkout)
+    published = checkout / "site"
+    if published.is_symlink():
+        raise ValueError("Target site directory cannot be a symlink")
+    if published.exists():
+        if not published.is_dir():
+            raise ValueError("Target site must be a directory")
+        shutil.rmtree(published)
+    published.mkdir()
     for path in files(site):
-        output = checkout / path.relative_to(site)
+        output = published / path.relative_to(site)
         output.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(path, output)
-    git(checkout, "add", "--all", env=env)
+    git(checkout, "add", "--all", "--", "site", env=env)
     changes = git(checkout, "diff", "--cached", "--name-only", env=env)
     if changes:
         git(checkout, "commit", "-m", f"Publish user guide from {source}", env=env)
@@ -228,28 +264,40 @@ def fetch_marker(source):
         connection.close()
 
 
-def wait_for_publication(expected, fetch=None, attempts=30):
+def wait_for_publication(expected, fetch=None, timeout=660):
     fetch = fetch or (lambda: fetch_marker(expected["source_commit"]))
-    for attempt in range(attempts):
+    deadline = time.monotonic() + timeout
+    while True:
         try:
             if json.loads(fetch()) == expected:
                 return
         except (OSError, ValueError, http.client.HTTPException):
             pass
-        if attempt + 1 < attempts:
-            time.sleep(8)
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+        time.sleep(min(8, remaining))
     raise TimeoutError("Neutral Pages has not published the expected source/tree; legacy deployment remains blocked")
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=["prepare", "publish", "wait"])
+    parser.add_argument("command", choices=["prepare", "publish", "wait", "verify-target"])
     parser.add_argument("--site", type=Path, required=True)
     parser.add_argument("--redirects", type=Path)
-    parser.add_argument("--source", required=True)
-    parser.add_argument("--head", required=True)
-    parser.add_argument("--pr", type=int, required=True)
+    parser.add_argument("--checkout", type=Path)
+    parser.add_argument("--source")
+    parser.add_argument("--head")
+    parser.add_argument("--pr", type=int)
     args = parser.parse_args()
+    if args.command == "verify-target":
+        if args.checkout is None:
+            parser.error("verify-target requires --checkout")
+        marker = authorize_target(args.site, args.checkout)
+        print(f"Source review and current main authorize {marker['source_commit']}")
+        return
+    if args.source is None or args.head is None or args.pr is None:
+        parser.error("prepare, publish and wait require --source, --head and --pr")
     if args.command == "prepare":
         if args.redirects is None:
             parser.error("prepare requires --redirects")

@@ -3,7 +3,8 @@
 The public guide is <https://johnneerdael.github.io/audio-tag-guide/>. Its source is
 `docs/user-guide/`, and `mkdocs.yml` defines the public navigation and theme.
 Keep authoring in `johnneerdael/opentag`. The separate public
-`johnneerdael/audio-tag-guide` repository contains generated static output only.
+`johnneerdael/audio-tag-guide` repository contains generated static output and
+one reviewed deployment workflow.
 The neutral publication path avoids privacy-list URL rules that also match
 the project's name. Readers do not need to disable their privacy protection.
 The header keeps ordinary source navigation while omitting optional automatic
@@ -78,13 +79,22 @@ Coverage is a writing plan, not a feature-parity claim.
    source/review provenance and a content digest before committing the output
    to the fixed neutral repository. It rejects repository-control directories,
    symlinks, hardlinks, custom-domain overrides and leaked writer-only material.
-   No artifact code runs.
-6. The job waits for the neutral site's HTTPS `publication-source.json` to match
+   The output replaces only `site/`; the separately installed target workflow must
+   match the reviewed source template byte for byte. No artifact code runs.
+6. The target workflow checks the source repository's merged-PR review, trusted
+   validation proof, current main and static-tree digest using trusted source
+   main code before uploading a Pages artifact. Its read-only package job must
+   succeed before a separate Pages/OIDC deployment job can start; that job
+   repeats the source check before deployment.
+7. The source job waits for the neutral site's HTTPS
+   `publication-source.json` to match
    the expected source, review and complete static-tree digest. Only then does
    it recheck approval/current main and deploy old-site redirects through the
    existing Pages action. A missing/stale marker or source drift prevents that
    redirect deployment; a concurrent target update is never force-pushed away.
-7. Open the canonical public site. Confirm the changed page, navigation,
+   The marker wait uses an eleven-minute monotonic deadline within the source
+   deployment job's thirty-minute limit.
+8. Open the canonical public site. Confirm the changed page, navigation,
    search, styles and an image. Also check an old deep link with its query and
    fragment. A local build, Git push or uploaded artifact is not publication.
 
@@ -95,11 +105,27 @@ query and fragment under the fixed canonical host/base; with JavaScript off,
 the plain link still provides a route to the guide. No external stylesheet or
 script is required for these redirects.
 
-The neutral repository uses **Deploy from a branch**, `main`, `/ (root)`.
-The generated `.nojekyll` keeps it a static site. Do not add source, workflows
-or credentials to that repository. Its built-in Pages publication is triggered
-by the scoped SSH deployment push, not a source-repository PAT or a schedule.
-GitHub documents these [Pages publishing sources](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site).
+The neutral repository uses **GitHub Actions** as its Pages source. After the
+source change has passed review and validation and merged normally, an
+administrator installs the exact reviewed `.github/guide-pages-target.yml` from
+source main as `.github/workflows/static-pages.yml` in the target repository.
+Source main must already contain the `verify-target` command. Configure the
+target `github-pages` environment to allow only `main`, then select **GitHub
+Actions** under the target's **Settings → Pages**. Keep the existing public
+site until the first authorized target deployment succeeds.
+
+The target workflow runs only on changes under `site/` on `main`, so installing
+its control file alone does not start a deployment. The source publisher's next
+approved run creates or replaces `site/` and triggers that workflow over SSH.
+The publisher fails closed if the control file is missing, altered or accompanied
+by another file under `.github`; it cannot stage or replace that control file.
+Target uploads contain only `site/`, excluding the control workflow and any old
+bootstrap files at the repository root. Do not add application source or
+credentials to the target repository. This route uses ordinary push-triggered
+Actions because GitHub documents that deploy-key pushes can fail to trigger
+[branch-based Pages publication](https://docs.github.com/en/pages/setting-up-a-github-pages-site-with-jekyll/about-jekyll-build-errors-for-github-pages-sites).
+No PAT or scheduled target publication is needed. GitHub describes the separate
+artifact and deployment jobs in its [custom Pages workflow guidance](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages).
 
 The source `github-pages` environment should permit only `main` and hold
 `DOCS_PAGES_DEPLOY_KEY`. The corresponding public deploy key grants write access
@@ -122,8 +148,8 @@ review-controller operations and the validation retry procedure.
 If the site is missing, first check that the docs files and reviewed Pages
 workflow are actually merged to `main`, then inspect the approved source's
 **Reviewed main release → user-guide** jobs. A feature branch cannot publish.
-Check the neutral repository's built-in Pages deployment and compare its live
-publication marker with the approved source. An SSH failure needs deployment
+Check the neutral repository's **Deploy reviewed static guide** workflow and
+compare its live publication marker with the approved source. An SSH failure needs deployment
 key/host-key investigation; a marker timeout can mean the target publication
 failed or has not reached the public site. Do not deploy redirects to conceal
 that failure, enable legacy workflows or widen token permissions.

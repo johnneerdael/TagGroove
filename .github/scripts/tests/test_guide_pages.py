@@ -7,13 +7,24 @@ import re
 import shlex
 import stat
 import subprocess
+import sys
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 
 SCRIPT = Path(__file__).resolve().parents[1] / "guide_pages.py"
+sys.path.insert(0, str(SCRIPT.parent))
+TEMPLATE = SCRIPT.parents[1] / "guide-pages-target.yml"
 SOURCE, HEAD = "a" * 40, "b" * 40
+
+
+class Clock:
+    def __init__(self):
+        self.now = 0
+
+    def sleep(self, seconds):
+        self.now += seconds
 
 
 class PublicationTests(unittest.TestCase):
@@ -47,12 +58,17 @@ class PublicationTests(unittest.TestCase):
             "-C", str(directory), *args], text=True).strip()
 
     def repository(self):
+        self.assertTrue(TEMPLATE.is_file(), "The reviewed target Actions control is missing")
         bare, checkout = self.root / "target.git", self.root / "checkout"
         subprocess.run(["git", "init", "--bare", "--initial-branch=main", str(bare)],
                        check=True, capture_output=True)
         subprocess.run(["git", "clone", str(bare), str(checkout)],
                        check=True, capture_output=True)
-        (checkout / "old.html").write_text("Old publication")
+        control = checkout / ".github/workflows/static-pages.yml"
+        control.parent.mkdir(parents=True)
+        control.write_bytes(TEMPLATE.read_bytes())
+        (checkout / "site").mkdir()
+        (checkout / "site/old.html").write_text("Old publication")
         self.git(checkout, "add", ".")
         self.git(checkout, "commit", "-m", "Initial static target")
         self.git(checkout, "push", "origin", "HEAD:main")
@@ -91,11 +107,12 @@ class PublicationTests(unittest.TestCase):
         bare, checkout = self.repository()
         self.pages.publish_checkout(self.site, checkout, SOURCE, HEAD, 34)
         first = self.git(bare, "rev-parse", "main")
-        self.assertFalse((checkout / "old.html").exists())
+        self.assertFalse((checkout / "site/old.html").exists())
         self.assertTrue((checkout / ".git").is_dir())
-        published = json.loads(self.git(bare, "show", "main:publication-source.json"))
+        self.assertEqual((checkout / ".github/workflows/static-pages.yml").read_bytes(), TEMPLATE.read_bytes())
+        published = json.loads(self.git(bare, "show", "main:site/publication-source.json"))
         self.assertEqual(published["source_commit"], SOURCE)
-        self.assertEqual(self.git(bare, "show", "main:.nojekyll"), "")
+        self.assertEqual(self.git(bare, "show", "main:site/.nojekyll"), "")
         self.pages.publish_checkout(self.site, checkout, SOURCE, HEAD, 34)
         self.assertEqual(self.git(bare, "rev-parse", "main"), first)
 
@@ -114,7 +131,82 @@ class PublicationTests(unittest.TestCase):
             if name.startswith(".github/"):
                 (self.site / ".github").rmdir()
             self.assertEqual(self.git(bare, "rev-parse", "main"), original)
-            self.assertTrue((checkout / "old.html").exists())
+            self.assertTrue((checkout / "site/old.html").exists())
+
+    def test_missing_or_changed_target_control_fails_before_replacing_static_files(self):
+        self.prepare()
+        bare, checkout = self.repository()
+        before = self.git(bare, "rev-parse", "main")
+        control = checkout / ".github/workflows/static-pages.yml"
+        for value in [None, b"unreviewed deployment control"]:
+            if value is None:
+                control.unlink()
+            else:
+                control.write_bytes(value)
+            with self.assertRaises(ValueError):
+                self.pages.publish_checkout(self.site, checkout, SOURCE, HEAD, 34)
+            self.assertTrue((checkout / "site/old.html").exists())
+            self.assertEqual(self.git(bare, "rev-parse", "main"), before)
+
+    def source_api(self):
+        base, tested = "c" * 40, "d" * 40
+        api = Mock(repo="johnneerdael/opentag")
+        api.snapshot.return_value = (dict(number=34, state="closed", merged=True,
+            base=dict(ref="main"), head=dict(sha=HEAD), merge_commit_sha=SOURCE,
+            body="## Release notes\nInternal: Publish the reviewed documentation."), (True, "Clean"))
+        api.pages.return_value = [dict(context="Reviewed PR builds", state="success",
+            description=f"Passed {base} {tested}", target_url="https://github.com/johnneerdael/opentag/actions/runs/7",
+            creator=dict(login="github-actions[bot]", type="Bot"))]
+
+        def get(path):
+            if path == "git/ref/heads/main":
+                return dict(object=dict(sha=SOURCE))
+            if path == "actions/runs/7":
+                return dict(path=".github/workflows/reviewed-pr.yml", event="workflow_dispatch",
+                    head_branch="main", head_sha=base, status="completed", conclusion="success",
+                    display_title=f"Reviewed PR #34 @ {HEAD} + {base}")
+            if path.startswith("compare/"):
+                return dict(status="identical")
+            return dict(parents=[dict(sha=base), dict(sha=HEAD)], tree=dict(sha="e" * 40))
+        api.get.side_effect = get
+        return api
+
+    def test_target_authentication_reuses_source_review_gate_and_rejects_marker_only_claims(self):
+        self.prepare()
+        _, checkout = self.repository()
+        self.pages.publish_checkout(self.site, checkout, SOURCE, HEAD, 34)
+        api = self.source_api()
+        self.pages.authorize_target(checkout / "site", checkout, api=api)
+        api.snapshot.assert_called_once_with(34, merged=True)
+        api.post.assert_not_called()
+        api.snapshot.return_value = (api.snapshot.return_value[0], (False, "Unapproved head"))
+        with self.assertRaises(RuntimeError):
+            self.pages.authorize_target(checkout / "site", checkout, api=api)
+        api = self.source_api()
+        api.pages.return_value = []
+        with self.assertRaises(RuntimeError):
+            self.pages.authorize_target(checkout / "site", checkout, api=api)
+        api = self.source_api()
+        original = api.get.side_effect
+        api.get.side_effect = lambda path: dict(object=dict(sha="f" * 40)) if path == "git/ref/heads/main" else original(path)
+        with self.assertRaises(RuntimeError):
+            self.pages.authorize_target(checkout / "site", checkout, api=api)
+
+    def test_default_wait_allows_a_nine_minute_publication_and_a_full_deadline(self):
+        marker = self.prepare()
+        clock = Clock()
+        with patch.object(self.pages.time, "monotonic", side_effect=lambda: clock.now), \
+                patch.object(self.pages.time, "sleep", side_effect=clock.sleep):
+            try:
+                self.pages.wait_for_publication(marker, fetch=lambda: json.dumps(marker if clock.now >= 540 else {}).encode())
+            except TimeoutError:
+                self.fail("Marker wait expired before a valid nine-minute Pages publication")
+        self.assertGreaterEqual(clock.now, 540)
+        clock = Clock()
+        with patch.object(self.pages.time, "monotonic", side_effect=lambda: clock.now), \
+                patch.object(self.pages.time, "sleep", side_effect=clock.sleep), self.assertRaises(TimeoutError):
+            self.pages.wait_for_publication(marker, fetch=lambda: b"{}")
+        self.assertGreaterEqual(clock.now, 660)
 
     def test_symlink_hardlink_wrong_source_and_modified_bytes_fail_closed(self):
         self.prepare()
@@ -166,15 +258,19 @@ class PublicationTests(unittest.TestCase):
         expected = self.prepare()
         wrong = {**expected, "source_commit": "c" * 40}
         observed = iter([b"not json", json.dumps(wrong).encode(), json.dumps(expected).encode()])
-        with patch.object(self.pages.time, "sleep"):
-            self.pages.wait_for_publication(expected, fetch=lambda: next(observed), attempts=3)
-        with patch.object(self.pages.time, "sleep"), self.assertRaises(TimeoutError):
-            self.pages.wait_for_publication(expected, fetch=lambda: json.dumps(wrong).encode(), attempts=2)
+        clock = Clock()
+        with patch.object(self.pages.time, "monotonic", side_effect=lambda: clock.now), \
+                patch.object(self.pages.time, "sleep", side_effect=clock.sleep):
+            self.pages.wait_for_publication(expected, fetch=lambda: next(observed), timeout=16)
+        clock = Clock()
+        with patch.object(self.pages.time, "monotonic", side_effect=lambda: clock.now), \
+                patch.object(self.pages.time, "sleep", side_effect=clock.sleep), self.assertRaises(TimeoutError):
+            self.pages.wait_for_publication(expected, fetch=lambda: json.dumps(wrong).encode(), timeout=8)
 
     def test_credential_is_not_required_for_prepare_or_marker_wait(self):
         with patch.dict(os.environ, {}, clear=True):
             marker = self.prepare()
-            self.pages.wait_for_publication(marker, fetch=lambda: json.dumps(marker).encode(), attempts=1)
+            self.pages.wait_for_publication(marker, fetch=lambda: json.dumps(marker).encode(), timeout=0)
 
     def test_only_fixed_target_transport_receives_a_temporary_key_file_and_cleans_on_failure(self):
         self.prepare()

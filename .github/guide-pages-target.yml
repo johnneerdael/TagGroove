@@ -1,0 +1,73 @@
+# Install this exact reviewed template as .github/workflows/static-pages.yml
+# in johnneerdael/audio-tag-guide; it is not a source-repository entrypoint.
+name: Deploy reviewed static guide
+on:
+  push:
+    branches: [main]
+    paths: ['site/**']
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+  actions: read
+concurrency:
+  group: static-guide-pages
+  cancel-in-progress: false
+jobs:
+  package:
+    if: github.repository == 'johnneerdael/audio-tag-guide' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: publication
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: johnneerdael/opentag
+          ref: main
+          path: trusted
+          sparse-checkout: .github
+          persist-credentials: false
+      - name: Require approved source and current main before packaging
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 trusted/.github/scripts/guide_pages.py verify-target --site publication/site --checkout publication
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: publication/site
+  deploy:
+    needs: package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      actions: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: publication
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: johnneerdael/opentag
+          ref: main
+          path: trusted
+          sparse-checkout: .github
+          persist-credentials: false
+      - name: Recheck source approval and current main before deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 trusted/.github/scripts/guide_pages.py verify-target --site publication/site --checkout publication
+      - uses: actions/deploy-pages@v4
+        id: deployment
