@@ -10,7 +10,7 @@ import { createAppearance, type AppearanceState } from './theme';
 import { installMenubar } from './menubar';
 import { ExportUI, offerOpenOutputs, type ExportLibrary, type ExportConfiguration } from './export-ui';
 import { OptionsUI, registerOptionsPage, naturalCollator, setNotificationAreaSupport, windowTitle, type Settings, type SettingsResponse } from './options-ui';
-import { createNumberingReview, numberingCounter, recallNumbering, rememberNumbering, type NumberingRequest, type NumberingUpdate } from './numbering-review';
+import { createNumberingReview, numberingCounter, numberingTotal, recallNumbering, rememberNumbering, type NumberingRequest, type NumberingUpdate } from './numbering-review';
 import { open, save, ask, message } from '@tauri-apps/plugin-dialog';
 import { Messages, messagesOptionsPage, coverChoice, type MessageKey } from './messages';
 import { appearanceOptions, completeInput, generalOptions, insideFolders, networkingOptionsPage, releaseNotesUrl, showReleaseNotes, updateMessage, updateOptions, updatesOptionsPage, type UpdateCheck } from './general-options';
@@ -1634,7 +1634,8 @@ function tagToTag(){
 function numbering(options:{perFolder?:boolean}={}) {
   const storage={getItem:(key:string)=>window.localStorage.getItem(key),setItem:(key:string,value:string)=>window.localStorage.setItem(key,value)};
   const directoryAvailable=paths().every(path=>!providerEntry(entries.get(path)!));
-  const memory=recallNumbering(storage,options.perFolder&&directoryAvailable);
+  const perFolder=!!options.perFolder&&directoryAvailable; // Provider documents have no folders to number by.
+  const memory=recallNumbering(storage,perFolder);
   const names=[...new Set(['ALBUM','DISCNUMBER','ALBUMARTIST',...paths().flatMap(path=>Object.keys(merged(entries.get(path)!))),...[memory.next_disc_on_field,memory.reset_disc_on_field].filter(Boolean)])].sort();
   const fieldOptions=(chosen:string)=>`<option value="">Do not change counter</option>${names.map(name=>`<option value="${esc(name)}" ${name===chosen?'selected':''}>${esc(name)}</option>`).join('')}`;
   const counter=(id:string,label:string,initial:number,max=4_294_967_295)=>`<label class="field"><span>${label}</span><input id="${id}" type="number" min="1" max="${max}" step="1" value="${initial}"></label>`;
@@ -1658,8 +1659,7 @@ function numbering(options:{perFolder?:boolean}={}) {
   const request=():NumberingRequest=>({
     items:paths().map(path=>({path,fields:merged(entries.get(path)!)})),
     options:{
-      track_start:count('number-start','Track start'),track_digits:count('number-digits','Track digits',10),track_total:checked('number-total')&&!options.perFolder?count('number-total-value','Total tracks'):null,
-      count_track_total:!!options.perFolder&&checked('number-total'),
+      track_start:count('number-start','Track start'),track_digits:count('number-digits','Track digits',10),...numberingTotal(perFolder,checked('number-total'),()=>count('number-total-value','Total tracks')),
       disc_enabled:checked('number-disc-enabled'),disc_start:checked('number-disc-enabled')?count('number-disc-start','Disc start'):1,disc_digits:checked('number-disc-enabled')?count('number-disc-digits','Disc digits',10):1,
       disc_total:checked('number-disc-enabled')&&checked('number-disc-total')?count('number-disc-total-value','Total discs'):null,
       next_disc_on_directory:directoryAvailable&&checked('number-directory'),next_disc_on_field:value(dialog,'number-next-field')||null,
@@ -1673,7 +1673,7 @@ function numbering(options:{perFolder?:boolean}={}) {
   let generation=0,pending=false;
   const sync=()=>{
     const disable=(id:string,disabled:boolean)=>{dialog.querySelector<HTMLInputElement>(`#${id}`)!.disabled=disabled;};
-    disable('number-total-value',!checked('number-total')||!!options.perFolder); // Ctrl+Shift+K counts each folder's total.
+    disable('number-total-value',!checked('number-total')||perFolder); // Ctrl+Shift+K counts each folder's total.
     for(const id of ['number-disc-start','number-disc-digits','number-disc-total'])disable(id,!checked('number-disc-enabled'));
     disable('number-disc-total-value',!checked('number-disc-enabled')||!checked('number-disc-total'));
     preview.disabled=pending||busy;
@@ -1710,7 +1710,7 @@ function numbering(options:{perFolder?:boolean}={}) {
         disc_total:checked('number-disc-total'),disc_total_value:kept('number-disc-total-value',memory.disc_total_value),
         next_disc_on_directory:directoryAvailable?checked('number-directory'):memory.next_disc_on_directory,next_disc_on_field:value(dialog,'number-next-field'),
         reset_track_on_next_disc:checked('number-reset-track'),reset_disc_on_field:value(dialog,'number-reset-field'),
-      },options.perFolder&&directoryAvailable);
+      },perFolder);
       for(const row of plan){const entry=entries.get(row.path)!;for(const [key,values] of Object.entries(row.fields))updateDraft(row.path,panelKey({format:entry.format,fields:merged(entry)},key),values);}
       status=`Numbers are pending for ${plan.length} files. Save tags to write them.`;dialog.close();render();
     }catch(error){modalError(dialog,error);sync();}

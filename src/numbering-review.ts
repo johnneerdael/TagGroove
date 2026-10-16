@@ -85,6 +85,15 @@ function stored(storage: MemoryStorage | undefined): Partial<NumberingMemory> {
 }
 
 /** Remembered options, each falling back to its default when missing or invalid; `perFolder` applies Ctrl+Shift+K's options on top. */
+/**
+ * The track total of a numbering request. Ctrl+Shift+K counts each folder's
+ * total only where it numbers per folder (`perFolder`: the shortcut, with local
+ * folders known); otherwise the entered total is saved.
+ */
+export function numberingTotal(perFolder: boolean, saveTotal: boolean, entered: () => number): Pick<NumberingOptions, 'track_total' | 'count_track_total'> {
+  return {track_total: saveTotal && !perFolder ? entered() : null, count_track_total: perFolder && saveTotal};
+}
+
 export function recallNumbering(storage: MemoryStorage | undefined, perFolder = false): NumberingMemory {
   const defaults = numberingDefaults(), saved = stored(storage) as Record<string, unknown>;
   const result = {...defaults} as Record<string, unknown>;

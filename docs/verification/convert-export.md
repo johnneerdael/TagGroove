@@ -60,9 +60,9 @@ Tests: `exports_without_an_encoding_argument_are_ansi_as_in_mp3tag` (tag-core ex
 
 ## Ctrl+Shift+K: totals per folder
 
-Confirmed: the per-folder wizard restarted the track counter in each folder but saved the selection count as every folder's total, which gave `3/30`. `NumberingOptions.count_track_total` makes the total the last track number before the counter restarts. That is the folder's track count when numbering starts at 1. Ctrl+Shift+K sends it when "Save total track count" is ticked, and disables the "Total tracks" value. Ctrl+K still uses the entered total. Per-folder totals are not documented; this follows from "counter reset for each subfolder" (keyboard reference).
+Confirmed: the per-folder wizard restarted the track counter in each folder but saved the selection count as every folder's total, which gave `3/30`. `NumberingOptions.count_track_total` makes the total the last track number before the counter restarts. That is the folder's track count when numbering starts at 1. Ctrl+Shift+K sends it when "Save total track count" is ticked, and disables the "Total tracks" value. Provider documents (Android) have no folders, so the shortcut does not number them per folder and keeps the entered total, like Ctrl+K (`numberingTotal`; Codex review finding). Ctrl+K still uses the entered total. Per-folder totals are not documented; this follows from "counter reset for each subfolder" (keyboard reference).
 
-Tests: `per_folder_numbering_counts_each_folders_own_total` (tag-core numbering).
+Tests: `per_folder_numbering_counts_each_folders_own_total` (tag-core numbering), and `only per-folder numbering counts totals; provider documents keep the entered total` (`tests/numbering-review.test.mjs`).
 
 ## Not changed
 
