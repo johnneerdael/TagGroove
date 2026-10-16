@@ -98,11 +98,13 @@ pub enum RollbackOperation {
 pub enum ConverterMessage {
     Message(String),
     External(String),
+    Rename(Box<tag_core::operations::RenameFailure>),
 }
 impl ConverterMessage {
-    fn text(&self) -> &str {
+    fn text(&self) -> std::borrow::Cow<'_, str> {
         match self {
-            Self::Message(text) | Self::External(text) => text,
+            Self::Message(text) | Self::External(text) => std::borrow::Cow::Borrowed(text),
+            Self::Rename(error) => std::borrow::Cow::Owned(error.to_string()),
         }
     }
 }
@@ -298,7 +300,7 @@ fn same_metadata(a: &fs::Metadata, b: &fs::Metadata) -> bool {
 }
 
 fn digest_file(path: &Path) -> Result<([u8; 32], fs::Metadata), String> {
-    digest_message(path).map_err(|error| error.text().to_owned())
+    digest_message(path).map_err(|error| error.text().into_owned())
 }
 fn digest_message(path: &Path) -> Result<([u8; 32], fs::Metadata), ConverterMessage> {
     let mut file = fs::File::open(path).map_err(|e| ConverterMessage::External(e.to_string()))?;
@@ -608,6 +610,13 @@ fn apply_filename(
     request: &FilenameRequest,
     token: &str,
 ) -> Result<FilenameResult, ConverterError> {
+    apply_filename_with(request, token, |_| Ok(()))
+}
+fn apply_filename_with(
+    request: &FilenameRequest,
+    token: &str,
+    mut before_step: impl FnMut(usize) -> Result<(), String>,
+) -> Result<FilenameResult, ConverterError> {
     let plan = consume(token, request_hash("filename", request)?)?;
     let Operation::Filename(moves) = &plan.operation else {
         return Err("Wrong converter preview kind".into());
@@ -620,6 +629,7 @@ fn apply_filename(
     };
     let operation = (|| {
         for (index, (source, movement)) in plan.sources.iter().zip(moves).enumerate() {
+            before_step(index)?;
             source.validate()?;
             if source.canonical != movement.target {
                 tag_core::operations::rename_no_clobber(&source.canonical, &movement.target)?;
@@ -645,8 +655,8 @@ fn apply_filename(
                 if digest_message(target)?.0 != source.hash {
                     return Err("Moved file changed externally; retained at destination".into());
                 }
-                tag_core::operations::rename_no_clobber(target, &source.canonical)
-                    .map_err(ConverterMessage::External)
+                tag_core::operations::rename_no_clobber_diagnostic(target, &source.canonical)
+                    .map_err(|error| ConverterMessage::Rename(Box::new(error)))
             })();
             if let Err(error) = restored {
                 rollback.push(RollbackItem {
@@ -1116,6 +1126,63 @@ mod tests {
         assert_eq!(fs::read(&paths[0]).unwrap(), b"External Help one");
         assert_eq!(fs::read(&paths[1]).unwrap(), b"External Title two");
         assert_eq!(fs::read(&paths[2]).unwrap(), originals[2]);
+        let wire: tauri::ipc::InvokeError = error.clone().into();
+        assert_eq!(wire.0, serde_json::to_value(error).unwrap());
+    }
+
+    #[test]
+    fn rename_rollback_reports_owned_create_failure_when_old_source_reappears() {
+        let dir = tempfile::tempdir().unwrap();
+        #[cfg(unix)]
+        let names = ["Help: Src; One - Title.wav", "Other - Help.wav"];
+        #[cfg(not(unix))]
+        let names = ["Help; Src One - Title.wav", "Other - Help.wav"];
+        let paths = names.map(|name| dir.path().join(name));
+        wav(&paths[0], "Original Help");
+        wav(&paths[1], "Original Title");
+        let original = fs::read(&paths[0]).unwrap();
+        let untouched = fs::read(&paths[1]).unwrap();
+        let request = filename_request(&paths, "%2 - %1");
+        let preview = preview_filename(&request, &EvaluationSettings::default()).unwrap();
+        let moved = PathBuf::from(&preview.items[0].target);
+        let error = apply_filename_with(&request, &preview.plan_token, |index| {
+            if index == 1 {
+                fs::write(&paths[0], b"External source replacement").unwrap();
+                Err("Select files first.".into())
+            } else {
+                Ok(())
+            }
+        })
+        .unwrap_err();
+        let ConverterError::Rollback {
+            converter_rollback: failure,
+        } = &error
+        else {
+            panic!("expected rollback")
+        };
+        assert_eq!(failure.failures.len(), 1);
+        let ConverterMessage::Rename(problem) = &failure.failures[0].error else {
+            panic!(
+                "owned helper provenance was lost: {}",
+                failure.failures[0].error.text()
+            )
+        };
+        let tag_core::operations::RenameFailure::CannotCreate {
+            path,
+            error: reason,
+        } = problem.as_ref()
+        else {
+            panic!("expected owned create failure")
+        };
+        assert_eq!(Path::new(path), dunce::canonicalize(&paths[0]).unwrap());
+        assert!(!reason.is_empty());
+        assert_eq!(
+            problem.to_string(),
+            format!("Cannot create {path}: {reason}")
+        );
+        assert_eq!(fs::read(&paths[0]).unwrap(), b"External source replacement");
+        assert_eq!(fs::read(&moved).unwrap(), original);
+        assert_eq!(fs::read(&paths[1]).unwrap(), untouched);
         let wire: tauri::ipc::InvokeError = error.clone().into();
         assert_eq!(wire.0, serde_json::to_value(error).unwrap());
     }
