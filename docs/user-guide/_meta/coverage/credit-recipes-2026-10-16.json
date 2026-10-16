@@ -60,7 +60,7 @@
   "page_sha256": {
     "cookbook/album-artist-from-artist.md": "c4eb8910bda347cd88d2859ac892d2f583f668f914ed8470f5cbc059564bc7e8",
     "cookbook/strip-track-numbers-from-titles.md": "d8650bbf54f04515736de687c1014dd92ccfebc1b6fc4fbf3976a4dc94059778",
-    "cookbook/the-artist-sort-names.md": "da4c13e8a490f10271b2f44aba32439671ff1028140360242db03080b04d6e08"
+    "cookbook/the-artist-sort-names.md": "1f570d77a46cb7c85a346701dc6cae2220305e9751f3e2051d8ea041413f2d43"
   },
   "application_source_sha256": {
     "crates/tag-core/src/actions.rs": "70c80252ff553159f5c7a5563c0cc14ef0ca23f804da8071fd2dac94c97828ac",

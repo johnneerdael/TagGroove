@@ -46,7 +46,8 @@ Artist credit unchanged.
 
 The extra-space and empty examples are reasons to stop and correct the
 source, not desirable sort names. The rule preserves text it does not
-recognize and moves exactly one ordinary space after a leading “The”.
+recognize. It matches one literal space after a leading “The”; extra spaces
+belong to the captured name and survive.
 
 ## The solution
 
