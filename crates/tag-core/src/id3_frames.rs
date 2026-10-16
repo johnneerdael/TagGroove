@@ -213,30 +213,50 @@ fn encrypted_patches(reader: &mut (impl Read + Seek)) -> io::Result<Option<(Patc
 }
 
 /// Bytes shown instead of the stored ones, by offset.
-type Patches = Vec<(u64, Vec<u8>)>;
+type Patches = crate::ape_footer::Patches;
 
-/// A reader that shows the file with some bytes replaced: each encrypted
-/// ID3v2 frame renamed to a placeholder without flags, so lofty reads its
-/// stored bytes as binary data, and the "TAG" of an APE header that sits
-/// where an ID3v1 tag would (see `ape_footer`).
+/// A reader that shows the file with some bytes replaced and some appended:
+/// each encrypted ID3v2 frame renamed to a placeholder without flags, so
+/// lofty reads its stored bytes as binary data, and the view of a trailing
+/// APE tag lofty would misread (see `ape_footer`).
 pub(crate) struct Overlay<R> {
     inner: R,
     patches: Patches,
+    /// Bytes after the end of `inner`.
+    tail: Vec<u8>,
+    length: u64,
     position: u64,
 }
 impl<R: Read + Seek> Overlay<R> {
-    fn new(mut inner: R, patches: Patches) -> io::Result<Self> {
+    fn new(mut inner: R, patches: Patches, tail: Vec<u8>) -> io::Result<Self> {
         let position = inner.stream_position()?;
+        let length = inner.seek(SeekFrom::End(0))?;
+        inner.seek(SeekFrom::Start(position))?;
         Ok(Self {
             inner,
             patches,
+            tail,
+            length,
             position,
         })
     }
 }
 impl<R: Read> Read for Overlay<R> {
     fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
-        let read = self.inner.read(buffer)?;
+        if self.position >= self.length {
+            let tail = self
+                .tail
+                .get((self.position - self.length) as usize..)
+                .unwrap_or_default();
+            let read = tail.len().min(buffer.len());
+            buffer[..read].copy_from_slice(&tail[..read]);
+            self.position += read as u64;
+            return Ok(read);
+        }
+        let take = buffer
+            .len()
+            .min(usize::try_from(self.length - self.position).unwrap_or(usize::MAX));
+        let read = self.inner.read(&mut buffer[..take])?;
         let window = self.position..self.position + read as u64;
         for (offset, bytes) in &self.patches {
             for (index, byte) in bytes.iter().enumerate() {
@@ -252,38 +272,59 @@ impl<R: Read> Read for Overlay<R> {
 }
 impl<R: Seek> Seek for Overlay<R> {
     fn seek(&mut self, to: SeekFrom) -> io::Result<u64> {
-        self.position = self.inner.seek(to)?;
-        Ok(self.position)
+        let end = self.length + self.tail.len() as u64;
+        let target = match to {
+            SeekFrom::Start(at) => Some(at),
+            SeekFrom::Current(delta) => self.position.checked_add_signed(delta),
+            SeekFrom::End(delta) => end.checked_add_signed(delta),
+        }
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "seek before the start"))?;
+        self.inner.seek(SeekFrom::Start(target.min(self.length)))?;
+        self.position = target;
+        Ok(target)
     }
 }
 
-/// Read with `read`, through an [`Overlay`] that masks an APE header taken
-/// for an ID3v1 tag; when that fails on a tag with encrypted frames, read
-/// again with those frames renamed. Also returns the placeholder names used.
+/// What [`read_with_fallback`] read, the placeholder names it used, and
+/// whether lofty saw the phantom ID3v1 tag of `ape_footer` (an ID3v1 tag it
+/// reports is then not in the file).
+pub(crate) type Fallback<T> = (T, Vec<(String, String)>, bool);
+
+/// Read with `read`, through an [`Overlay`] that fixes how lofty sees a
+/// trailing APE tag; when that fails on a tag with encrypted frames, read
+/// again with those frames renamed.
 pub(crate) fn read_with_fallback<R: Read + Seek, T>(
     reader: &mut R,
     mut read: impl FnMut(&mut dyn ReadSeek) -> Result<T, String>,
-) -> Result<(T, Vec<(String, String)>), String> {
-    let mut patches: Patches = crate::ape_footer::id3v1_lookalike(reader)
-        .map_err(|e| e.to_string())?
-        .map(|at| vec![(at, b"X".to_vec())])
-        .unwrap_or_default();
-    let first = if patches.is_empty() {
+) -> Result<Fallback<T>, String> {
+    let crate::ape_footer::View {
+        mut patches,
+        append,
+        phantom,
+    } = crate::ape_footer::read_view(reader).map_err(|e| e.to_string())?;
+    let tail = if append {
+        crate::ape_footer::PHANTOM.to_vec()
+    } else {
+        Vec::new()
+    };
+    let first = if patches.is_empty() && tail.is_empty() {
         read(reader)
     } else {
-        let mut overlay = Overlay::new(&mut *reader, patches.clone()).map_err(|e| e.to_string())?;
+        let mut overlay =
+            Overlay::new(&mut *reader, patches.clone(), tail.clone()).map_err(|e| e.to_string())?;
         read(&mut overlay)
     };
     let error = match first {
-        Ok(value) => return Ok((value, Vec::new())),
+        Ok(value) => return Ok((value, Vec::new(), phantom)),
         Err(error) => error,
     };
     match encrypted_patches(reader) {
         Ok(Some((encrypted, tag))) => {
             patches.extend(encrypted);
-            let mut overlay = Overlay::new(&mut *reader, patches).map_err(|e| e.to_string())?;
+            let mut overlay =
+                Overlay::new(&mut *reader, patches, tail).map_err(|e| e.to_string())?;
             let value = read(&mut overlay)?;
-            Ok((value, placeholder_names(&tag)))
+            Ok((value, placeholder_names(&tag), phantom))
         }
         _ => Err(error),
     }
@@ -480,7 +521,7 @@ mod tests {
         let mut cursor = Cursor::new(bytes.clone());
         let (patches, _) = encrypted_patches(&mut cursor).unwrap().unwrap();
         cursor.set_position(0);
-        let mut overlay = Overlay::new(cursor, patches).unwrap();
+        let mut overlay = Overlay::new(cursor, patches, b"tail".to_vec()).unwrap();
         let mut seen = Vec::new();
         // Read in small pieces so patches straddle buffer boundaries.
         let mut buffer = [0u8; 7];
@@ -495,7 +536,16 @@ mod tests {
         assert_eq!(&seen[at..at + 4], b"Y000");
         assert_eq!(&seen[at + 8..at + 10], [0, 0]);
         assert_eq!(&seen[..at], &bytes[..at]);
-        assert_eq!(&seen[at + 10..], &bytes[at + 10..]);
+        assert_eq!(&seen[at + 10..bytes.len()], &bytes[at + 10..]);
+        // The tail follows the file, also after seeking from the end.
+        assert_eq!(&seen[bytes.len()..], b"tail");
+        assert_eq!(
+            overlay.seek(SeekFrom::End(-6)).unwrap(),
+            bytes.len() as u64 - 2
+        );
+        let mut end = Vec::new();
+        overlay.read_to_end(&mut end).unwrap();
+        assert_eq!(end, [&bytes[bytes.len() - 2..], b"tail"].concat());
     }
 
     #[test]

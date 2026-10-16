@@ -89,6 +89,83 @@ impl Stream {
     }
 }
 
+/// Bytes of junk or padding searched after the leading ID3v2 tags for the
+/// first ADTS frame.
+const ADTS_SEARCH: usize = 64 << 10;
+/// ADTS frames that must follow each other for a frame sync found after junk
+/// to count.
+const ADTS_CONFIRM: usize = 3;
+
+/// Sampling frequency index, channel configuration and length of the ADTS
+/// frame header at the start of `bytes`.
+fn adts_header(bytes: &[u8]) -> Option<(u8, u8, usize)> {
+    let [0xFF, second, third, fourth, fifth, sixth, ..] = *bytes else {
+        return None;
+    };
+    if second & 0xF6 != 0xF0 {
+        return None;
+    }
+    let frequency = (third >> 2) & 0xF;
+    let channels = ((third & 1) << 2) | (fourth >> 6);
+    let length =
+        (usize::from(fourth & 3) << 11) | (usize::from(fifth) << 3) | usize::from(sixth >> 5);
+    let header = if second & 1 == 0 { 9 } else { 7 };
+    (frequency < 13 && length > header).then_some((frequency, channels, length))
+}
+
+/// Whether `bytes` start with an MPEG audio frame header (layer I–III).
+fn mpeg_header(bytes: &[u8]) -> bool {
+    matches!(*bytes, [0xFF, second, third, ..]
+        if second & 0xE0 == 0xE0 && second & 0x06 != 0 && third >> 4 != 15 && (third >> 2) & 3 != 3)
+}
+
+/// The offset in `bytes` of the first of [`ADTS_CONFIRM`] consecutive ADTS
+/// frames of the same format, within the first [`ADTS_SEARCH`] bytes. The
+/// search stops at an MPEG audio frame: that is an MPEG stream.
+fn adts_after_junk(bytes: &[u8]) -> Option<usize> {
+    for start in 0..bytes.len().min(ADTS_SEARCH) {
+        if mpeg_header(&bytes[start..]) {
+            return None;
+        }
+        let Some((frequency, channels, _)) = adts_header(&bytes[start..]) else {
+            continue;
+        };
+        let mut at = start;
+        let confirmed = (0..ADTS_CONFIRM).all(|_| match bytes.get(at..).and_then(adts_header) {
+            Some((f, c, length)) if (f, c) == (frequency, channels) => {
+                at += length;
+                true
+            }
+            _ => false,
+        });
+        if confirmed {
+            return Some(start);
+        }
+    }
+    None
+}
+
+/// Where the ADTS stream of an `.aac` file starts when junk or padding sits
+/// between its leading ID3v2 tags (ending at `prefix`) and the first frame.
+/// Only `.aac` files are searched, as Mp3tag tells formats by extension and
+/// other streams (FLAC frames, for one) can look like ADTS frames.
+pub(in crate::tags) fn adts_start(
+    file: &mut fs::File,
+    path: &Path,
+    prefix: u64,
+    length: u64,
+) -> Result<Option<u64>, String> {
+    let aac = path
+        .extension()
+        .is_some_and(|e| e.eq_ignore_ascii_case("aac"));
+    if !aac || prefix == 0 || prefix >= length {
+        return Ok(None);
+    }
+    let window = (length - prefix).min((ADTS_SEARCH + ADTS_CONFIRM * 0x2000) as u64);
+    let bytes = read_at(file, prefix, window as usize)?;
+    Ok(adts_after_junk(&bytes).map(|at| prefix + at as u64))
+}
+
 fn invalid(stream: Stream, what: &str) -> String {
     format!("Invalid {} file: {what}", stream.format())
 }
@@ -145,22 +222,31 @@ fn trailing_tags(file: &mut fs::File, floor: u64, length: u64) -> Result<u64, St
 
 struct Layout {
     stream: Stream,
-    /// Leading ID3v2 bytes; the stream starts here.
+    /// Leading ID3v2 bytes; the audio bytes start here.
     prefix: u64,
+    /// The stream header or first frame: `prefix`, or later after junk.
+    start: u64,
     audio: Range<u64>,
     length: u64,
 }
 
-fn layout(file: &mut fs::File, stream: Stream) -> Result<Layout, String> {
+fn layout(file: &mut fs::File, path: &Path, stream: Stream) -> Result<Layout, String> {
     let length = file.metadata().map_err(|e| e.to_string())?.len();
     let prefix = leading_tags(file, length)?;
-    if prefix + 4 > length || Stream::from_magic(&read_at(file, prefix, 4)?) != Some(stream) {
-        return Err(invalid(stream, "missing stream header"));
-    }
-    let end = trailing_tags(file, prefix + 4, length)?;
+    let start =
+        if prefix + 4 <= length && Stream::from_magic(&read_at(file, prefix, 4)?) == Some(stream) {
+            Some(prefix)
+        } else if stream == Stream::Aac {
+            adts_start(file, path, prefix, length)?
+        } else {
+            None
+        }
+        .ok_or_else(|| invalid(stream, "missing stream header"))?;
+    let end = trailing_tags(file, start + 4, length)?;
     Ok(Layout {
         stream,
         prefix,
+        start,
         audio: prefix..end,
         length,
     })
@@ -224,7 +310,7 @@ fn parse_stand_in(bytes: &[u8], stream: Stream) -> Result<(TaggedFile, NativeTag
             })
         };
         crate::id3_frames::read_with_fallback(&mut Cursor::new(bytes), read)
-            .map(|(parsed, _)| parsed)
+            .map(|((file, native), _, phantom)| (without_phantom(file, phantom), native))
     })?;
     ape_pictures(&native, &mut file)?;
     Ok((file, native))
@@ -233,7 +319,7 @@ fn parse_stand_in(bytes: &[u8], stream: Stream) -> Result<(TaggedFile, NativeTag
 /// The tags of `path` as lofty sees them on the stand-in.
 pub(in crate::tags) fn load(path: &Path, stream: Stream) -> Result<TaggedFile, String> {
     let mut file = fs::File::open(path).map_err(|e| e.to_string())?;
-    let layout = layout(&mut file, stream)?;
+    let layout = layout(&mut file, path, stream)?;
     Ok(parse_stand_in(&stand_in_bytes(&mut file, &layout)?, stream)?.0)
 }
 
@@ -290,7 +376,7 @@ fn lofty_properties(
 ) -> Result<lofty::properties::FileProperties, String> {
     let mut window = Window {
         file,
-        range: layout.audio.clone(),
+        range: layout.start..layout.audio.end,
         position: 0,
     };
     let options = ParseOptions::new()
@@ -348,7 +434,7 @@ fn tak_stream_info(data: &[u8]) -> Option<Properties> {
 
 fn properties(file: &mut fs::File, layout: &Layout) -> Result<Properties, String> {
     let stream = layout.stream;
-    let start = layout.prefix + 4;
+    let start = layout.start + 4;
     let available = layout.audio.end.saturating_sub(start);
     let header = |file: &mut fs::File, length: u64| {
         if available < length {
@@ -424,7 +510,7 @@ pub(in crate::tags) fn read(
     options: &TagOptions,
 ) -> Result<AudioEntry, String> {
     let mut source = fs::File::open(path).map_err(|e| e.to_string())?;
-    let layout = layout(&mut source, stream)?;
+    let layout = layout(&mut source, path, stream)?;
     let (file, native) = parse_stand_in(&stand_in_bytes(&mut source, &layout)?, stream)?;
     let mut entry = describe_with_native(path, &file, &native, include_cover_data, rules, options)?;
     let audio = layout.audio.end - layout.audio.start;
@@ -500,7 +586,7 @@ pub(in crate::tags) fn stage(
     mutation: impl FnOnce(&mut fs::File, &Path, &Path) -> Result<(), String>,
 ) -> Result<(), String> {
     let mut source = fs::File::open(original).map_err(|e| e.to_string())?;
-    let layout = layout(&mut source, stream)?;
+    let layout = layout(&mut source, original, stream)?;
     let bytes = stand_in_bytes(&mut source, &layout)?;
     // Beside the staging file: that directory is known to be writable.
     let dir = tempfile::Builder::new()
@@ -581,6 +667,66 @@ mod tests {
             probe.read().unwrap();
             assert_eq!(split_stand_in(&bytes, stream).unwrap(), (&[][..], &[][..]));
         }
+    }
+
+    fn adts_frame(length: usize) -> Vec<u8> {
+        let mut frame = vec![
+            0xFF,
+            0xF1,
+            (1 << 6) | (4 << 2),
+            (2 << 6) | ((length >> 11) & 3) as u8,
+            ((length >> 3) & 0xFF) as u8,
+            (((length & 7) << 5) | 0x1F) as u8,
+            0xFC,
+        ];
+        frame.resize(length, 0x11);
+        frame
+    }
+
+    #[test]
+    fn adts_after_junk_needs_consecutive_frames_and_no_mpeg_frame() {
+        let frames = [adts_frame(100), adts_frame(90), adts_frame(120)].concat();
+        let mut bytes = vec![0u8; 50];
+        bytes.extend(b"junk");
+        bytes.extend(&frames);
+        assert_eq!(adts_after_junk(&bytes), Some(54));
+        // A lone sync in the junk is passed over.
+        let mut lone = adts_frame(40)[..7].to_vec();
+        lone.extend(&bytes);
+        assert_eq!(adts_after_junk(&lone), Some(61));
+        // Two frames are not enough.
+        assert_eq!(adts_after_junk(&bytes[..bytes.len() - 120]), None);
+        // An MPEG frame first: an MPEG stream, whatever follows.
+        let mut mpeg = vec![0xFF, 0xFB, 0x90, 0x00, 0, 0];
+        mpeg.extend(&bytes);
+        assert_eq!(adts_after_junk(&mpeg), None);
+        // Junk longer than the search window.
+        let mut long = vec![0u8; ADTS_SEARCH];
+        long.extend(&frames);
+        assert_eq!(adts_after_junk(&long), None);
+    }
+
+    #[test]
+    fn only_aac_files_are_searched_after_junk() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut bytes = b"ID3\x04\0\0\0\0\0\0".to_vec();
+        bytes.extend([0u8; 20]);
+        bytes.extend([adts_frame(100), adts_frame(90), adts_frame(120)].concat());
+        for (name, found) in [("a.aac", Some(30)), ("a.AAC", Some(30)), ("a.flac", None)] {
+            let path = dir.path().join(name);
+            fs::write(&path, &bytes).unwrap();
+            let mut file = fs::File::open(&path).unwrap();
+            let length = bytes.len() as u64;
+            assert_eq!(
+                adts_start(&mut file, &path, 10, length).unwrap(),
+                found,
+                "{name}"
+            );
+        }
+        // Without a leading ID3v2 tag nothing is searched.
+        let path = dir.path().join("a.aac");
+        let mut file = fs::File::open(&path).unwrap();
+        assert_eq!(adts_start(&mut file, &path, 0, 10).unwrap(), None);
     }
 
     #[test]
