@@ -81,6 +81,8 @@ The key labelled Delete on many Mac keyboards sends Backspace. OpenTag accepts
 that key for these file-list operations. Confirm the command's wording:
 removing a row, trashing a file and permanently deleting it have different
 effects. File moves/deletions are not ordinary pending tag edits.
+For filesystem properties, reveal the file and use the file manager's
+properties/info command.
 
 ## Folders and windows
 

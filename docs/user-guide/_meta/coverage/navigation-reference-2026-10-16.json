@@ -1155,7 +1155,7 @@
   },
   "guide_sha256": {
     "command-line.md": "f3a99031fc1ca2862c28c73234dd818b7b6f2f631030a72b9287e006e68ec6b7",
-    "keyboard-shortcuts.md": "5657706e5aba60d1dc152ecbc8de019a09d569843fcf73e5d4041f08a14b24fc",
+    "keyboard-shortcuts.md": "ac36ce44db7c71e28ff9fc372c876a287912df9997f3206b70cb3cf0cf207246",
     "menus/index.md": "a41860910be14445960f721e51f1448b335451f08cb90b2b70e08abe7ea8973f",
     "menus/file.md": "59272e2ef6001cc78030ef897816abcc5a182709ccc7ee6bde03d1b3fd0a67d5",
     "menus/edit.md": "31bd3d73f1764cc9f3a80654f40b8a8fced11a815555c34009fa303809916c9b",
@@ -1167,7 +1167,12 @@
     "node": "42 passed: one new written-platform-routing test (9cases) +41existingkeyboard/file/list/history contracts",
     "strict_build": "passed at88completed pages",
     "publication_tests": "8 passed",
-    "independent_review": "pending",
+    "independent_review": {
+      "reviewer": "root",
+      "scope": "Read all8pages, canonical CLI/File/Edit/View/Convert/TagSources and all keyboard rows; spot-checked actual launch parse/install/mac opened route, keyboard/edit/file/list helpers, filter toggle and menu assembly. Did not independently recompute every157ledger mapping.",
+      "result": "No actionable current5f correctness finding; added filesystem-properties/info route after review clarification.",
+      "limits": "Current5f baseline only; future18/19/20source reconciliation still required; no native UI/runtime proof."
+    },
     "diff_check": "passed"
   },
   "limits": [
