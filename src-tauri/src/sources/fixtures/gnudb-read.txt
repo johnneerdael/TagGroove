@@ -1,0 +1,26 @@
+210 folk 2407ef04 CD database entry follows (until terminating `.')
+# xmcd
+#
+# Track frame offsets:
+#	150
+#	15150
+#
+# Disc length: 420 seconds
+#
+# Revision: 1
+# Submitted via: OpenTag test fixture
+# Cover: https://coverartarchive.org/release/8763f781-57b1-4c84-90da-5cb7180873da/38592060423-500.jpg
+# Artid: 8763f781-57b1-4c84-90da-5cb7180873da
+# Artid: 95ade33a-58ff-4466-9d12-239dcdba0ccc
+#
+DISCID=1a018c02
+DTITLE=Fixture Artist / Fixture Album
+DYEAR=2004
+DGENRE=Folk
+TTITLE0=First Song
+TTITLE1=Second Song
+EXTD=
+EXTT0=
+EXTT1=
+PLAYORDER=
+.
