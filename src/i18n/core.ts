@@ -197,7 +197,7 @@ export class Translator {
     const shortcut = this.shortcut(core);
     if (shortcut !== null) return shortcut;
     // Marks rendered in the same text node as a label stay around its translation.
-    const marked = /^([✓✔●•►▸▾★☆]\s*)?(.*?)(\s*[↑↓▲▼›»])?$/u.exec(core)!;
+    const marked = /^([✓✔●•►▸▾★☆]\s*)?(.*?)(\s*[↑↓▲▼›»])?$/su.exec(core)!;
     if ((marked[1] || marked[3]) && marked[2] && marked[2] !== core) {
       const inner = this.translate(marked[2], depth, verbatim || name || false);
       if (inner !== marked[2]) return `${marked[1] ?? ''}${inner}${marked[3] ?? ''}`;

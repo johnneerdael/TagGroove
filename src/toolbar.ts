@@ -87,7 +87,12 @@ export const userLabel=(item:ToolbarItem)=>!isSeparator(item.id)&&!isSpacer(item
 export const itemLabel=(item:ToolbarItem)=>isSeparator(item.id)?'Separator':isSpacer(item.id)?'Spacer':item.label||TOOLBAR_COMMANDS[item.id]?.label
   ||(item.id.startsWith(TOOL_PREFIX)?item.id.slice(TOOL_PREFIX.length):item.id.startsWith(ACTION_PREFIX)?item.id.slice(ACTION_PREFIX.length):item.id);
 /** Status-bar hint of any toolbar item. */
-export const itemHint=(id:string)=>TOOLBAR_COMMANDS[id]?.hint||(id.startsWith(TOOL_PREFIX)?`Tool: start ${id.slice(TOOL_PREFIX.length)} for the selected files`:id.startsWith(ACTION_PREFIX)?`Action group: apply ${id.slice(ACTION_PREFIX.length)} to the selected files`:'');
+export function itemHint(id:string){
+  if(TOOLBAR_COMMANDS[id])return TOOLBAR_COMMANDS[id].hint;
+  if(id.startsWith(TOOL_PREFIX)){const name=id.slice(TOOL_PREFIX.length);return`Tool: start ${name} for the selected files`;}
+  if(id.startsWith(ACTION_PREFIX)){const name=id.slice(ACTION_PREFIX.length);return`Action group: apply ${name} to the selected files`;}
+  return'';
+}
 /** A new separator or spacer id not used in `items`. */
 export function dividerId(items:ToolbarItem[],kind:typeof SEPARATOR|typeof SPACER){let n=1;while(items.some(item=>item.id===`${kind}-${n}`))n++;return`${kind}-${n}`;}
 

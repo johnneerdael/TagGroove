@@ -21,6 +21,7 @@ const {PICTURE_TYPES}=await load('cover-model.ts');
 const {contextMenuMarkup,RowContextMenu}=await load('row-context-menu.ts');
 const {ExtendedTags}=await import(await moduleUrl('extended-tags.ts',{"import './extended-tags.css';":'',"'./tag-edits'":JSON.stringify(await moduleUrl('tag-edits.ts')),"'./row-context-menu'":JSON.stringify(await moduleUrl('row-context-menu.ts'))}));
 const {ToolsUI,toolsOptionsPage}=await load('tools.ts'),{installHelperMenus}=await load('helper-menu.ts');
+const {customizeToolbar,itemHint,itemLabel,userLabel,visibleItems,isSeparator,isSpacer,TOOLBAR_COMMANDS}=await load('toolbar.ts');
 const {copyAsTextDialog}=await load('utils-ui.ts'),{PlaylistUI}=await load('playlist-ui.ts'),{openTagToTag}=await load('tag-tag-ui.ts');
 const {offerOpenOutputs,ExportUI}=await load('export-ui.ts');
 const {FileOpsUI,nameList,defaultDirectoryState}=await load('file-ops.ts');
@@ -248,6 +249,34 @@ test('an unavailable language remains an editable preference through the real Op
       p.body.querySelector('#options-ok').click();await p.window.happyDOM.waitUntilComplete();
       assert.equal(saved.pages.language.language,chooseEnglish?'en':stored);assert.equal(ui.settings.pages.language.language,chooseEnglish?'en':stored);
     }finally{for(const [name,descriptor] of Object.entries(globals))if(descriptor)Object.defineProperty(globalThis,name,descriptor);else delete globalThis[name];p.close();}
+  }
+});
+test('toolbar hints preserve source names independently of renamed labels and translate once through hover status',async()=>{
+  const toolKey='Tool: start {name} for the selected files',actionKey='Action group: apply {name} to the selected files';
+  const custom={Help:'Assistance',Title:'Heading',Ready:'Help',[toolKey]:actionKey,[actionKey]:'Use {name}','Select files first.':'Choose files.','Save pending changes first.':'Save first.'};
+  const functions=['button','customToolbarMarkup','bindToolbarHints'].map(name=>parsed.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text===name).getText(parsed)).join('\n');
+  const js=ts.transpileModule(functions,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]])for(const disabled of [false,true]){
+    const p=page(),config={shown:true,items:[{id:'tool:Help',visible:true},{id:'action:Title',label:'Help',visible:true},{id:'save',label:'Help',visible:true},{id:'tool:My  Files\nTitle',visible:true}]};let saved;
+    try{
+      const t=new Translator(locale,catalog),expected=id=>id.startsWith('tool:')?t.t(toolKey,{name:id.slice(5)}):id.startsWith('action:')?t.t(actionKey,{name:id.slice(7)}):t.translate(itemHint(id));
+      customizeToolbar({config:()=>config,save:async value=>{saved=structuredClone(value);},mac:()=>false,custom:{choices:()=>[]}});p.translate(locale,catalog);
+      const check=items=>[...p.body.querySelectorAll('.toolbar-items [data-item]')].forEach((row,i)=>{assert.equal(row.querySelector('span').textContent,itemLabel(items[i]));assert.equal(row.querySelector('small').textContent,expected(items[i].id));});check(config.items);
+      p.body.querySelector('[data-item="1"]').click();p.body.querySelector('[data-tb="edit"]').click();const input=p.body.querySelector('.toolbar-rename');input.value='Other';input.dispatchEvent(new p.window.KeyboardEvent('keydown',{key:'Enter',bubbles:true}));p.translateTree(p.body);
+      const items=config.items.map((item,i)=>i===1?{...item,label:'Other'}:item);check(items);
+      p.body.querySelector('#toolbar-ok').click();await p.window.happyDOM.waitUntilComplete();assert.deepEqual(saved.items,items);assert.equal(config.items[1].label,'Help');
+      const values={esc,itemHint,itemLabel,userLabel,visibleItems,isSeparator,isSpacer,TOOLBAR_COMMANDS,customToolbar:saved,customItemReason:()=>disabled?'Select files first.':'',enabled:()=>!disabled,operationReason:()=>disabled?'Save pending changes first.':'',glyphs:{},translateNow:p.translateTree};
+      const {render,bind}=new Function(...Object.keys(values),`${js};return{render:customToolbarMarkup,bind:bindToolbarHints};`)(...Object.values(values));
+      p.body.innerHTML=`${render()}<span class="status-message">Ready</span>`;p.translate(locale,catalog);bind();
+      const status=p.body.querySelector('.status-message'),before=status.textContent,toolbar=p.body.querySelector('.toolbar');
+      for(const [i,button] of [...toolbar.querySelectorAll('button')].entries()){
+        const item=items[i],reason=disabled?t.t(item.id==='save'?'Save pending changes first.':'Select files first.'):'';
+        assert.equal(button.dataset.hint,expected(item.id));assert.equal(button.title,reason||itemLabel(item));
+        button.dispatchEvent(new p.window.Event('pointerover',{bubbles:true}));p.translateTree(status);await p.window.happyDOM.waitUntilComplete();assert.equal(status.textContent,expected(item.id)+(reason?` — ${reason}`:''));
+        toolbar.dispatchEvent(new p.window.Event('pointerleave'));p.translateTree(status);assert.equal(status.textContent,before);
+      }
+      p.translate('en');assert.equal(status.textContent,'Ready');assert.equal(toolbar.querySelector('button').dataset.hint,'Tool: start Help for the selected files');
+    }finally{p.close();}
   }
 });
 test('preset removal preserves authored option names and values through the real groups save path',async()=>{

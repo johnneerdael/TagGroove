@@ -57,6 +57,11 @@ test('rendered English text is translated by exact key or by key pattern, keepin
   assert.equal(de.translate('12'),'12');
   assert.equal(new Translator('en',{}).active,false);
 });
+test('unknown multiline labels remain raw and marked scaffolds still translate under partial catalogs',()=>{
+  const t=new Translator('en',{'Tool: start {name} for the selected files':'Run {name}',Help:'Assistance'}),name='My  Files\nTitle';
+  assert.equal(t.translate(`Show ${name}`,0,name),`Show ${name}`);
+  assert.equal(t.translate(`✓ Tool: start ${name} for the selected files ↓`),`✓ Run ${name} ↓`);
+});
 test('shortcut labels use the local names of keys',()=>{
   const de=new Translator('de',{'@keys':{Ctrl:'Strg',Shift:'Umschalt',Del:'Entf','Page Up':'Bild auf'}});
   assert.equal(de.active,true);

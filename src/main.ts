@@ -907,14 +907,16 @@ function customToolbarChoices():ToolbarChoice[]{
 /** Status-bar hints of the toolbar buttons (Mp3tag shows them while hovering a button). */
 function bindToolbarHints(){
   const toolbars=document.querySelectorAll<HTMLElement>('.toolbar');if(!toolbars.length)return;
+  let previous:Node[]|undefined;
   const show=(event:Event)=>{
     const button=(event.target as Element).closest<HTMLButtonElement>('button[data-hint]'),el=document.querySelector<HTMLElement>('.status-message');if(!button||!el)return;
-    if(!el.classList.contains('hint'))el.dataset.before=el.textContent||'';
+    if(!el.classList.contains('hint'))previous=[...el.childNodes];
     // A disabled button's tooltip says why it is disabled.
-    const label=button.querySelector('span:not(.icon)')?.textContent,reason=button.disabled&&button.title!==label?button.title:'';
-    el.textContent=reason?`${button.dataset.hint} — ${reason}`:button.dataset.hint!;el.classList.add('hint');
+    const id=button.dataset.customItem||button.dataset.op||'',reason=button.disabled?(button.dataset.customItem?customItemReason(id):operationReason(id as Operation)):'';
+    // Render source UI parts once; data-hint/title may already be translated.
+    el.innerHTML=`<span>${esc(itemHint(id))}</span>${reason?` — <span>${esc(reason)}</span>`:''}`;el.classList.add('hint');translateNow(el);
   };
-  const hide=()=>{const el=document.querySelector<HTMLElement>('.status-message');if(el?.classList.contains('hint')){el.textContent=el.dataset.before??status;el.classList.remove('hint');}};
+  const hide=()=>{const el=document.querySelector<HTMLElement>('.status-message');if(el?.classList.contains('hint')){el.replaceChildren(...previous??[document.createTextNode(status)]);previous=undefined;el.classList.remove('hint');translateNow(el);}};
   toolbars.forEach(toolbar=>{
     toolbar.addEventListener('pointerover',show);toolbar.addEventListener('focusin',show);
     toolbar.addEventListener('pointerleave',hide);toolbar.addEventListener('focusout',hide);
