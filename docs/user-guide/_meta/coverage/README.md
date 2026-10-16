@@ -271,3 +271,16 @@ separate column display/sort keys. LF and CRLF variants use the same written
 examples. The ledger records source/topic evidence and a bounded local browser
 sample; it does not establish player behavior or complete canonical coverage.
 The public baseline remains 97 pages. Finite peer review is pending.
+
+## Local inspection recipes
+
+Three recipes for missing fields, embedded-cover counts and bitrate thresholds
+bring the local checkpoint to 127 authored pages and 60 drafts. Four core tests
+execute fourteen written query-table cases, three main solution fences and
+additional edge cases under LF/CRLF. A generated MP3 supplies real codec,
+bitrate and zero/one-cover information while retaining the audio payload and
+external PNG. The recipes distinguish absence from empty values, external art
+from embedded counts, zero readings from positive bitrates, and filtering
+visibility from selection. Narrow query tables scroll without splitting
+expressions. This is not a native UI/player/quality test or a full canonical
+audit. The public baseline remains 97 pages; finite peer review is pending.

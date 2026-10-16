@@ -259,6 +259,10 @@ nav:
     - Playlist: reference/options/playlist.md
     - Tools: reference/options/tools.md
 - Cookbook:
+  - Inspect your files:
+    - Find missing fields: cookbook/find-missing-fields.md
+    - Find missing embedded covers: cookbook/find-missing-covers.md
+    - Find low bitrates: cookbook/find-low-bitrate.md
   - Cover artwork:
     - Embed each folder image: cookbook/embed-folder-jpg.md
     - Shrink oversized covers: cookbook/resize-covers.md
