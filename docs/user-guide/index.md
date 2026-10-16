@@ -87,6 +87,14 @@ to edit and save its tags, then give the files consistent names.
 | Edit shared fields and decide when to save | [The tag panel](guides/tag-panel.md) and [Editing, saving and undo](getting-started/editing-and-saving.md) |
 | Transfer or remove stored tags | [Cut, copy and paste tags](guides/copy-paste-tags.md) and [Removing tags](guides/remove-tags.md) |
 | Inspect the list, unfamiliar fields and artwork | [The file list](guides/file-list.md), [Extended tags](guides/extended-tags.md) and [Working with covers](guides/covers.md) |
+| Understand metadata and native storage | [What tags are](concepts/what-are-tags.md), [tag formats](concepts/tag-formats.md) and [track/disc numbers](concepts/track-and-disc-numbers.md) |
+| Set up your workspace and locate text | [Configure columns](customize/columns.md), [customize the tag panel](customize/tag-panel.md) and [Find](guides/find.md) |
+| Clean text and artist credits in a safe order | [Trim spaces](cookbook/trim-spaces.md), [trailing annotations](cookbook/remove-text-in-brackets.md), [artist lists](cookbook/split-multiple-artists.md) and [Artist - Title](cookbook/split-artist-title.md) |
+| Correct text encoding or keep only reviewed fields | [Capitalization exceptions](cookbook/fix-capitalisation.md), [mojibake repair](cookbook/fix-mojibake.md) and [a field keep list](cookbook/remove-junk-fields.md) |
+| Work through an album's numbering | [Split track totals](cookbook/split-track-total.md), [number per folder](cookbook/number-tracks-per-folder.md), [disc numbers](cookbook/disc-numbers-from-folders.md) and [year text](cookbook/year-from-date.md) |
+| Understand and manage embedded artwork | [Cover-art concepts](concepts/cover-art.md), [embed folder images](cookbook/embed-folder-jpg.md), [resize covers](cookbook/resize-covers.md) and [keep front covers](cookbook/keep-only-front-cover.md) |
+| Inspect incomplete or unusual files | [Missing fields](cookbook/find-missing-fields.md), [missing embedded covers](cookbook/find-missing-covers.md) and [bitrate thresholds](cookbook/find-low-bitrate.md) |
+| Keep display, sort order and loudness metadata distinct | [Sort fields and compilations](concepts/sort-fields.md) and [ReplayGain](concepts/replaygain.md) |
 | Combine fields, functions and fallback values | [Format strings from zero](learn/format-strings-from-zero.md), then the [64-function reference](reference/scripting/index.md) |
 | Match, capture and clean patterned text | [Regular expressions from zero](learn/regex-from-zero.md), then [regex syntax and examples](reference/regular-expressions.md) |
 | Repeat several changes in order | [Build your first action group](learn/first-action-group.md), then [all action types](actions/index.md) |

@@ -1,0 +1,20 @@
+{
+  "head": "55fd3555d7f37a4347aa4eafb19cb0f1f6017a00",
+  "source_main": "dbcd9ce43c64e459c20553f9d14b5d77534847a0",
+  "pages_reviewed": [
+    "getting-started/editing-and-saving.md",
+    "guides/tag-panel.md",
+    "guides/copy-paste-tags.md",
+    "guides/remove-tags.md"
+  ],
+  "page_hashes_verified": 4,
+  "source_hashes_verified": 17,
+  "review": "Read all four new chapters, written Node/core examples, clipboardmodel and actual main keepField/saveOnMove/saveDrafts/replayHistory/clipTags/coverTargets command paths; checked tag-panel parsing/key/choice definitions and remove command/menu wiring. No concrete contradiction found in reviewed scope.",
+  "independent_execution": "node --test tests/guide-basic-editing.test.mjs:4passed0failed at immutable55fd with cleanworktree",
+  "prior_customization_review": "/tmp/opentag-guide-customization-independent-review.json remains separate for threepreservedchapters",
+  "limits": [
+    "Finite source/example review; not every factualstatement independently reproduced",
+    "No native application or save-back, browser rerun or fullcanonicalsemanticcoverage claim",
+    "Reconcile source/menu semantics after pending17-20actualmerges beforefuturePR"
+  ]
+}

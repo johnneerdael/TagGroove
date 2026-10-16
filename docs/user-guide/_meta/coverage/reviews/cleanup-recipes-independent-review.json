@@ -1,0 +1,128 @@
+{
+  "reviewer": "correctness",
+  "reviewed_at": "2026-10-16T07:04:14.636743+00:00",
+  "agent": "/root/pr20_owner",
+  "head": "4f17120ebd101460d1bd1b272ed1fbd1f80e904c",
+  "parent": "55fd3555d7f37a4347aa4eafb19cb0f1f6017a00",
+  "source_main": "dbcd9ce43c64e459c20553f9d14b5d77534847a0",
+  "scope": "Finite independent read-only review of four cleanup cookbook pages, actual written core tests and cleanup-recipes semantic ledger; previous customization/basic-editing batches excluded",
+  "findings": [],
+  "pages_reviewed": [
+    "docs/user-guide/cookbook/trim-spaces.md",
+    "docs/user-guide/cookbook/remove-text-in-brackets.md",
+    "docs/user-guide/cookbook/split-multiple-artists.md",
+    "docs/user-guide/cookbook/split-artist-title.md"
+  ],
+  "semantic_checks": [
+    {
+      "topic": "Spacing",
+      "result": "PASS",
+      "evidence": "Three ordered regex rows use whole-value A/z edges and horizontal space/tab runs; existing TITLE values are processed independently. Newline example keeps the line break. Preview formulas preserve the actual single-space replacement and distinguish edge trim from interior compression. First-value converter warning, pending-edit selection, immediate Apply and session Undo timing match current source."
+    },
+    {
+      "topic": "Known remaster suffix",
+      "result": "PASS",
+      "evidence": "Matched bracket pairs and optional one-space/four-digit year; two changed plus five deliberate nonmatches; z prevents matching a suffix before trailing Notes on another line. Sequential exposure of square suffix after parenthesized suffix is described; no implicit repeat loop. Broader nonnested pattern and empty replacement semantics match source."
+    },
+    {
+      "topic": "Artist lists",
+      "result": "PASS",
+      "evidence": "Edge/run cleaning occurs before literal-semicolon split, which trims pieces but can keep empty pieces without preprocessing. Exact duplicate removal retains first occurrence and case-distinct values; unchecked option truncates to first. Existing lists, AC/DC and ampersand-containing names, invalid empty input, literal semicolon limitation and native/player boundaries are taught accurately."
+    },
+    {
+      "topic": "Artist/title credit",
+      "result": "PASS",
+      "evidence": "Guess Values evaluates old TITLE, matches complete source with lazy captures and literal delimiter, overwrites matching destinations, and leaves fields alone on nonmatch. Later Format Value trims still run, including nonmatch rows; first-delimiter ambiguity and first-value limitations are explicit. Save groups and immediate action application are separated."
+    },
+    {
+      "topic": "Regex engine",
+      "result": "PASS",
+      "evidence": "actions.rs regex_values uses regex-compat; bridge.cpp uses Boost Perl without no_mod_m, and vendored regbase documents no_mod_m disables m. Whole-value A/z examples execute through the real core/Boost implementation, not JavaScript regex."
+    }
+  ],
+  "written_tests": {
+    "path": "crates/tag-core/tests/cleanup_recipe_guide.rs",
+    "sha256": "29b6a587e5eb90eb02c9a835b27a29fd4ed1a0429cfa606b262fc0c60a046f08",
+    "review": "Reads the actual marked Markdown tables without trimming code content, checks row counts and step order, constructs the authored action variants/options, runs each action sequentially and compares whole value lists. Both normalized LF and CRLF page forms run; formulas use actual evaluate().",
+    "independently_executed": true,
+    "execution": "/tmp/opentag-guide-combined-target/debug/deps/cleanup_recipe_guide-b972ea11f12b3422 --test-threads=1",
+    "binary_provenance": "Guide owner supplied the existing compiled six-test binary as the exact unchanged 4f source after successful 523 full-core and six focused checks; no cold rebuild or Cargo/global cache mutation by peer. Page/test/source hashes independently checked against immutable git objects.",
+    "passed": 6,
+    "failed": 0,
+    "ignored": 0,
+    "log": "/tmp/opentag-guide-cleanup-recipes-peer-tests.log"
+  },
+  "ledger_checks": {
+    "path": "docs/user-guide/_meta/coverage/cleanup-recipes-2026-10-16.json",
+    "hash_checks": [
+      {
+        "path": "docs/user-guide/cookbook/trim-spaces.md",
+        "hash_matches": true
+      },
+      {
+        "path": "docs/user-guide/cookbook/remove-text-in-brackets.md",
+        "hash_matches": true
+      },
+      {
+        "path": "docs/user-guide/cookbook/split-multiple-artists.md",
+        "hash_matches": true
+      },
+      {
+        "path": "docs/user-guide/cookbook/split-artist-title.md",
+        "hash_matches": true
+      },
+      {
+        "path": "crates/tag-core/src/actions.rs",
+        "hash_matches": true,
+        "source_main_matches": true
+      },
+      {
+        "path": "crates/tag-core/src/script.rs",
+        "hash_matches": true,
+        "source_main_matches": true
+      },
+      {
+        "path": "crates/regex-compat/src/lib.rs",
+        "hash_matches": true,
+        "source_main_matches": true
+      },
+      {
+        "path": "src/action-ui.ts",
+        "hash_matches": true,
+        "source_main_matches": true
+      },
+      {
+        "path": "src/tag-tag-ui.ts",
+        "hash_matches": true,
+        "source_main_matches": true
+      },
+      {
+        "path": "src-tauri/src/action_host.rs",
+        "hash_matches": true,
+        "source_main_matches": true
+      },
+      {
+        "path": "src-tauri/src/history.rs",
+        "hash_matches": true,
+        "source_main_matches": true
+      }
+    ],
+    "all_page_and_source_hashes_match": true,
+    "all_audited_source_files_match_main": true,
+    "bounds": "Correctly labels 108 local authored pages / 79 drafts versus 97 public pages / 90 drafts, canonical sources as checklists rather than full canonical coverage, independent review pending at the authored checkpoint, and no installed-native/player/cross-platform verification claim."
+  },
+  "author_validation_not_repeated": {
+    "full_core": 523,
+    "ui": 347,
+    "publication": 8,
+    "strict_local_pages": 108,
+    "browser": "Local browser receipt described in ledger; not independently rerun or treated as public deployment proof."
+  },
+  "limits": [
+    "Read immutable exact commit and existing compiled focused binary only; no repository edits, application/P2 changes, commits, pushes, publishing, PR/review requests or CI.",
+    "No independent full suite, fresh canonical website retrieval, live/native application save/Undo or player-compatibility test. Core action states and source timing agree with teaching; native outcomes are not claimed.",
+    "No review of previous three customization or four basic-editing pages beyond their parent identity.",
+    "Finite local peer review is not GitHub CODE approval or queue/publish authorization."
+  ],
+  "stopped": true
+}

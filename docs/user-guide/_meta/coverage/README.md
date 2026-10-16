@@ -284,3 +284,16 @@ from embedded counts, zero readings from positive bitrates, and filtering
 visibility from selection. Narrow query tables scroll without splitting
 expressions. This is not a native UI/player/quality test or a full canonical
 audit. The public baseline remains 97 pages; finite peer review is pending.
+
+## Cumulative 127-page publication candidate
+
+The publication branch collects thirty completed chapters on main `dbcd9ce`,
+retaining all 97 mature pages and their navigation. The new candidate ledger
+`publication-candidate-127-2026-10-16.json` records 127 completed pages, 60
+remaining drafts, current page/source hashes and final validation. Original
+finite peer receipts are preserved unchanged in `reviews/`; they do not replace
+the required clean GitHub CODE review of the final PR head. The single filter
+recipe wording finding is corrected separately and its original receipt kept.
+Historical local-only milestones above remain provenance, not current approval
+or publication claims. The candidate still requires external review, trusted
+validation, approved merge and actual expanded Pages verification.

@@ -1,0 +1,69 @@
+{
+  "reviewer": "pr20_owner",
+  "commit": "e4940f1f86efb9c7b4e64eeb0f7e0bbae70fb063",
+  "source_main": "dbcd9ce43c64e459c20553f9d14b5d77534847a0",
+  "findings": [],
+  "scope": "Finite read-only review of cover-art, sort-fields and ReplayGain chapters, actual written core/model tests and media-concepts ledger.",
+  "reviewed_evidence": [
+    {
+      "topic": "Cover identity, partial membership and timing",
+      "paths": [
+        "src/cover-model.ts:29-70,105-113",
+        "crates/tag-core/src/cover_manage.rs",
+        "src/covers.ts",
+        "crates/tag-core/src/cover_ops.rs"
+      ],
+      "assessment": "Image digest, role, description and ordered list comparison explain shared/varying states. Existing partial entries preserve membership unless all_files chosen; new staged images use all_files. Manage OK, direct mutation and external extraction are distinguished. MP4 Other and ID3v1 limits are scoped without all-format claims."
+    },
+    {
+      "topic": "Alternate sort fields, native compilation flags and list sorting",
+      "paths": [
+        "src/columns.ts:sortTemplate/defaultLayout",
+        "crates/tag-core/src/mapping.rs:2062,2499-2502",
+        "crates/tag-core/tests/media_concept_guide.rs:57-120"
+      ],
+      "assessment": "Artist display versus separate optional sort expression matches source/model. Native ID3/MP4 1-or-deletion constraints and unsupported zero/true behavior match actual generated-MP3 fixtures and mapping; no player-grouping guarantee."
+    },
+    {
+      "topic": "ReplayGain metadata and conditional APE migration",
+      "paths": [
+        "crates/tag-core/src/tag_policy.rs:249-277",
+        "crates/tag-core/tests/media_concept_guide.rs:123-202"
+      ],
+      "assessment": "All migration conditions and existing-field precedence match production source. Written roundtrip/deletion and three migration cases use generated MP3s and retain audio bytes. Invented gain values are expressly not analysis/normalization instructions; original audio, metadata and playback behavior are separated."
+    }
+  ],
+  "hash_validation": {
+    "page_count": 3,
+    "source_count": 9,
+    "matched": 12,
+    "all_match": true,
+    "app_sources_identical_to_dbcd": true,
+    "details": "/tmp/opentag-guide-media-concepts-peer-hashes.json",
+    "worktree_head_matches": true,
+    "written_test_files_match_immutable_commit": true
+  },
+  "focused_execution": {
+    "core": {
+      "binary": "/tmp/opentag-guide-combined-target/debug/deps/media_concept_guide-13cbeab9895a6720",
+      "result": "4 passed,0 failed, exit0;0.24s",
+      "cache_reused": true
+    },
+    "node": {
+      "command": "node --test tests/guide-media-concepts.test.mjs",
+      "result": "2 passed,0 failed,exit0",
+      "coverage": "actual selectionCovers six written cover identity/order cases + default/custom sort-template selection"
+    },
+    "newline_forms": "Core and model written examples execute LF and CRLF."
+  },
+  "residual_risks": [
+    "No source edits, commit/push/PR/CI, REA or deferred P2 work.",
+    "Local124 completed/63 drafts is unpublished author-local progress, not public deployment or canonical completeness.",
+    "External ReplayGain model is explained conservatively and cited by author; peer did not refetch external specification."
+  ],
+  "testing_gaps": [
+    "No full/cold build or full545core/352UI/publication/strict rerun.",
+    "No native UI/player/all-format execution; generated MP3 core and pure frontend models only.",
+    "No fresh browser or global canonical coverage audit."
+  ]
+}
