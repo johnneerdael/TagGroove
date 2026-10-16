@@ -136,6 +136,16 @@ Keyboard UI 18/18. They used generated fixture files and a dedicated
 and all 312 JavaScript tests passed. These local macOS results
 do not establish the result of the next reviewed Linux or Windows CI run.
 
+The subsequent review of `3578e1e` found that skipping an earlier duplicate
+did not advance the matching-cover ordinal. A new real-WAV regression
+exports A, appends B, and exports again; before the fix B overwrote the
+unsuffixed A image. Advancing the ordinal when suppressing a duplicate
+keeps A and writes B to the numbered destination. This does not change
+the duplicate identity or same-writer replacement rules above. All 44
+action-host tests and all 277 application-library tests passed, with the
+same four explicit skips. The core files are unchanged from the full
+728-test integrated-workspace run above.
+
 ## Not covered
 
 - The `.mta` type IDs for Adjust Cover, Set Cover Properties and Generate Playlists, and the guessed schemas for types 4, 6 and 11–15, need `.mta` files saved by Mp3tag.

@@ -607,6 +607,8 @@ impl ActionHost for NativeHost<'_> {
                     // content. Take it before per-file multi-cover numbering.
                     let identity = (normalized_output(&target)?, digest);
                     if !export_duplicates && self.exported_covers.contains_key(&identity) {
+                        // A skipped cover still occupies its output position.
+                        count += 1;
                         continue;
                     }
                     if count > 0 {
@@ -1689,6 +1691,40 @@ mod tests {
         assert_eq!(fs::read(&output).unwrap(), image(3));
         // Undo was given the image from before the run, once.
         assert_eq!(replaced.len(), 1);
+    }
+
+    #[test]
+    fn cover_export_appends_new_images_after_suppressed_existing_covers() {
+        let dir = tempfile::tempdir().unwrap();
+        let (path, original) = covered_fixture(dir.path(), "a.wav", false);
+        let mut other = std::io::Cursor::new(Vec::new());
+        image::DynamicImage::ImageRgb8(image::RgbImage::new(2, 2))
+            .write_to(&mut other, image::ImageFormat::Png)
+            .unwrap();
+        let other = other.into_inner();
+        fs::write(dir.path().join("other.png"), &other).unwrap();
+        let export = || ActionSpec::ExportCover {
+            filename_template: "art".into(),
+            picture_type: None,
+            export_duplicates: false,
+        };
+        let result = run(
+            &path,
+            vec![
+                export(),
+                ActionSpec::ImportCover {
+                    filename_template: "other.png".into(),
+                    picture_type: None,
+                    delete_existing: false,
+                },
+                export(),
+            ],
+            EvaluationSettings::default(),
+        );
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert_eq!(fs::read(dir.path().join("art.png")).unwrap(), original);
+        assert_eq!(fs::read(dir.path().join("art (1).png")).unwrap(), other);
+        assert!(!dir.path().join("art (2).png").exists());
     }
 
     #[test]

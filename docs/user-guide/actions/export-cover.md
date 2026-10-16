@@ -32,6 +32,10 @@ The image's format determines the extension: a JPEG becomes `folder.jpg`,
 a PNG becomes `folder.png`, and a WebP becomes `folder.webp`. An extension
 entered in the format is corrected to the image's type. Additional covers
 exported from one file receive a suffix such as `folder (1).png`.
+The suffix follows the cover's position among the selected cover types,
+including earlier covers skipped as duplicates. Appending another embedded
+cover and exporting again keeps the first image and writes the new one to
+its numbered name.
 
 ## Names and duplicate covers
 
