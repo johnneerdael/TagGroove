@@ -179,3 +179,17 @@ package passed 498 tests with no failures or ignored cases; all 336 Node UI
 tests and eight publication tests passed. Strict build, writing plan, formatting
 and focused Clippy passed. These are local checks; the final head still
 requires its own clean GitHub Codex review, trusted CI and deployment proof.
+
+## Expanded live publication
+
+`publication-expanded-2026-10-16.json` records PR 30’s reviewed deployment from
+main `432d354`. All 97 public routes return HTTP 200 and exactly match the
+approved build. Search contains exactly those 97 routes and 825 section
+entries; its bytes match too. All nineteen referenced same-origin assets,
+including the actual search worker, return nonempty HTTP 200 responses.
+Actual isolated-profile Chrome checks verified tutorial palettes, command
+search and result navigation, representative 390px tables and tutorials, and
+pointer-only nested mobile navigation to Format Value. No page errors were
+observed. This does not establish native application behavior or completeness
+of the remaining ninety drafts. The next local three-page batch is separate
+from this public milestone.
