@@ -125,6 +125,29 @@ test('the actual Language options preserve authored catalog names in System defa
   }
 });
 
+test('the real language reload retains an active catalog on command failure and replaces it on an empty successful snapshot',async()=>{
+  const p=page(),storage=Object.getOwnPropertyDescriptor(globalThis,'localStorage');
+  Object.defineProperty(globalThis,'localStorage',{configurable:true,value:p.window.localStorage});
+  try{
+    const english=JSON.parse(await source('i18n/catalogs/en.json'));
+    const jsonModule=value=>JSON.stringify(`data:text/javascript;base64,${Buffer.from(`export default ${JSON.stringify(value)};`).toString('base64')}`);
+    const indexUrl=await moduleUrl('i18n/index.ts',{"'./core'":JSON.stringify(await moduleUrl('i18n/core.ts')),"'./dom'":JSON.stringify(await moduleUrl('i18n/dom.ts')),"'./catalogs/en.json'":jsonModule(english),"'./catalogs/nl.json'":jsonModule(catalogs.nl),"'./catalogs/de.json'":jsonModule(catalogs.de)});
+    const i18n=await import(indexUrl),{languageOptionsPage,languageSetting}=await import(await moduleUrl('language-options.ts',{"'./i18n'":JSON.stringify(indexUrl)}));
+    i18n.setUserCatalogs([{file:'fr.json',catalog:{...english,'@meta':{name:'Français'},'Save tags':'Enregistrer'}}]);i18n.setLanguage('fr');
+    const languagePage=languageOptionsPage({}),controls=languagePage.controls;
+    let failed=true,renders=0;
+    const declaration=parsed.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text==='applyLanguage');
+    const js=ts.transpileModule(declaration.getText(parsed),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
+    const values={desktop:true,invoke:async command=>{assert.equal(command,'language_catalogs');if(failed)throw new Error('languages: access denied');return {catalogs:[],errors:[]};},languagePage,setUserCatalogs:i18n.setUserCatalogs,setLanguage:i18n.setLanguage,languageSetting,optionsUI:{page:()=>({language:'fr'})},publicMessage:error=>error.message,applyNotificationArea:()=>{},render:()=>{renders++;}};
+    const apply=new Function(...Object.keys(values),`let shownTitle='';${js};return applyLanguage;`)(...Object.values(values));
+    await apply();assert.equal(i18n.currentLanguage(),'fr');assert.equal(i18n.translate('Save tags'),'Enregistrer');assert.equal(renders,0);
+    assert.ok(controls[0].choices.some(([value])=>value==='fr'));
+    p.body.innerHTML=controls.map(controlMarkup).join('');assert.ok(p.body.textContent.includes('languages: access denied'));
+    failed=false;await apply();assert.equal(i18n.currentLanguage(),'en');assert.equal(i18n.translate('Save tags'),'Save tags');assert.equal(renders,1);
+    assert.ok(!controls[0].choices.some(([value])=>value==='fr'));
+    p.body.innerHTML=controls.map(controlMarkup).join('');assert.ok(!p.body.textContent.includes('access denied'));
+  }finally{if(storage)Object.defineProperty(globalThis,'localStorage',storage);else delete globalThis.localStorage;p.close();}
+});
 test('web-source result headers and search labels remain authored while application table/search controls translate',()=>{
   const custom={ARTIST:'Performer',Artist:'Performer',Help:'Assistance',Title:'Name',Search:'Find','Artist + Album':'Performer + Record','Search results':'Found records',Preview:'Inspect','Release artwork':'Release image','More results':'Show more','{length} of {total} shown':'{length} / {total} displayed'};
   for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]]){

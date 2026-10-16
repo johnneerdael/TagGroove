@@ -18,7 +18,9 @@ interface. Choose **OK** to apply it immediately.
 
 The language choice is saved with the application configuration. OpenTag
 reads user catalogs at startup and after Options **OK**; reopen the page after
-that reload to select a newly added language.
+that reload to select a newly added language. If the folder cannot be read,
+OpenTag reports the failure and retains catalogs already loaded in this
+session. A missing folder is a successful empty reload.
 
 Application-owned accessible labels follow the selected language too, including
 cover types and states. Authored cover descriptions and folder-image names

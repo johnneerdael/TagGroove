@@ -29,33 +29,43 @@ fn languages_directory(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(crate::utilities::configuration_directory(app)?.join("languages"))
 }
 
-/// Read every `*.json` of `directory` except files starting with `_` (the template).
-pub fn read_catalogs(directory: &Path) -> UserCatalogs {
+/// Read a complete listing, except files starting with `_` (the template).
+/// An absent folder is empty; enumeration failures must not replace a good snapshot.
+pub fn read_catalogs(directory: &Path) -> Result<UserCatalogs, String> {
     let mut result = UserCatalogs::default();
-    let Ok(entries) = fs::read_dir(directory) else {
-        return result;
+    let entries = match fs::read_dir(directory) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(result),
+        Err(error) => return Err(format!("{}: {error}", directory.display())),
     };
-    let mut paths: Vec<PathBuf> = entries
-        .filter_map(|entry| entry.ok().map(|entry| entry.path()))
-        .filter(|path| {
-            path.is_file()
-                && path
-                    .extension()
-                    .is_some_and(|ext| ext.eq_ignore_ascii_case("json"))
-                && !path
-                    .file_name()
-                    .and_then(|name| name.to_str())
-                    .is_some_and(|name| name.starts_with('_'))
-        })
-        .collect();
+    let mut paths = Vec::new();
+    for entry in entries {
+        let path = entry
+            .map_err(|error| format!("{}: {error}", directory.display()))?
+            .path();
+        if !path
+            .extension()
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("json"))
+            || path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.starts_with('_'))
+        {
+            continue;
+        }
+        let metadata =
+            fs::metadata(&path).map_err(|error| format!("{}: {error}", path.display()))?;
+        if metadata.is_file() {
+            paths.push((path, metadata.len()));
+        }
+    }
     paths.sort();
-    for path in paths {
+    for (path, size) in paths {
         let file = path
             .file_name()
             .map(|name| name.to_string_lossy().into_owned())
             .unwrap_or_default();
         let read = || -> Result<serde_json::Value, String> {
-            let size = fs::metadata(&path).map_err(|e| e.to_string())?.len();
             if size > CATALOG_LIMIT {
                 return Err("the file is too large".into());
             }
@@ -74,7 +84,7 @@ pub fn read_catalogs(directory: &Path) -> UserCatalogs {
             Err(error) => result.errors.push(format!("{file}: {error}")),
         }
     }
-    result
+    Ok(result)
 }
 
 /// Catalog files of the languages folder; a missing folder has none.
@@ -83,7 +93,7 @@ pub async fn language_catalogs(app: tauri::AppHandle) -> Result<UserCatalogs, St
     let directory = languages_directory(&app)?;
     tauri::async_runtime::spawn_blocking(move || read_catalogs(&directory))
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?
 }
 
 /// Create the languages folder with a current `_template.json` (the English catalog).
@@ -139,8 +149,9 @@ mod tests {
         fs::write(dir.path().join("broken.json"), "{").unwrap();
         fs::write(dir.path().join("list.json"), "[]").unwrap();
         fs::write(dir.path().join("notes.txt"), "{}").unwrap();
+        fs::create_dir(dir.path().join("subfolder.json")).unwrap();
         prepare(dir.path(), r#"{"Save tags":"Save tags"}"#).unwrap();
-        let result = read_catalogs(dir.path());
+        let result = read_catalogs(dir.path()).unwrap();
         let files: Vec<&str> = result.catalogs.iter().map(|c| c.file.as_str()).collect();
         assert_eq!(files, ["de.json", "fr.json"]);
         assert_eq!(result.catalogs[1].catalog["Save tags"], "Enregistrer");
@@ -151,10 +162,30 @@ mod tests {
     }
 
     #[test]
+    fn an_unenumerable_languages_path_is_reported_instead_of_an_empty_snapshot() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("languages");
+        fs::write(&path, "not a directory").unwrap();
+        let error = read_catalogs(&path).unwrap_err();
+        assert!(error.starts_with(&format!("{}: ", path.display())));
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn uncertain_catalog_metadata_does_not_publish_a_partial_snapshot() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join("fr.json"), r#"{"Save tags":"Enregistrer"}"#).unwrap();
+        let broken = dir.path().join("unreadable.json");
+        std::os::unix::fs::symlink(dir.path().join("missing"), &broken).unwrap();
+        let error = read_catalogs(dir.path()).unwrap_err();
+        assert!(error.starts_with(&format!("{}: ", broken.display())));
+    }
+
+    #[test]
     fn a_missing_folder_has_no_catalogs_and_an_invalid_template_is_refused() {
         let dir = tempfile::tempdir().unwrap();
         assert_eq!(
-            read_catalogs(&dir.path().join("missing")),
+            read_catalogs(&dir.path().join("missing")).unwrap(),
             UserCatalogs::default()
         );
         assert!(prepare(&dir.path().join("languages"), "{").is_err());
