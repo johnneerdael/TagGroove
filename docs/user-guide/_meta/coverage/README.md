@@ -297,3 +297,17 @@ recipe wording finding is corrected separately and its original receipt kept.
 Historical local-only milestones above remain provenance, not current approval
 or publication claims. The candidate still requires external review, trusted
 validation, approved merge and actual expanded Pages verification.
+
+## Local folder-layout recipes after PR31 preparation
+
+Three local recipes cover artist/album, multi-disc and compilation paths,
+raising authored content to 130 pages with 57 drafts. They remain separate
+from frozen PR31's 127-page source. Four tests execute fourteen written
+primary cases and six variation results under LF/CRLF through actual core
+filename mode and the actual pure host path helper. The host helper is
+extracted into a temporary std-only Rust harness using the existing compiler;
+no Tauri app or real rename/move is run. The ledger records this test-only
+requirement and the narrow limits. Missing first components, relative roots,
+extension retention, write timing and re-nesting are explained explicitly;
+no all-platform collision/alias guarantee is made. The public baseline remains
+97 pages at this checkpoint; PR31 is awaiting its existing trusted CI.
