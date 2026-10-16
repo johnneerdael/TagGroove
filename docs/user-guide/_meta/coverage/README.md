@@ -747,3 +747,38 @@ Official Apple/Tauri/AppImage guidance was checked for the scoped app-opening
 and runtime procedures. This trio awaits peer and later actual-main
 reconciliation, exact final-head CODE, trusted CI and publication. Original
 P2/REA work and source17–20's feature behavior remain untouched.
+
+
+## Publish the 164-page reviewed candidate
+
+The user's request to publish the detailed guide lifts the earlier local
+source-queue hold. This publication candidate starts from actual main325 and
+integrates exactly the 27 independently peer-clean chapters through e297.
+The next automation/HTML/Cookbook drafts are separately checkpointed at07af
+with draft status and are excluded. Historical author/peer receipts retain
+their original hold language; this entry records the later authorization.
+
+All nine finite clean peer receipts are preserved, including the corrected
+25bd learning footer followup and the desktop-platform peer. Each of the27
+current chapter bytes matches its exact peer-reviewed commit. No other
+reader-facing page is changed. Source/config/dependency/workflow identity
+is checked against325 rather than inferred from the old writing branch.
+
+Fresh combined checks pass34 Rust example tests across all five new guide
+targets and the required existing user_guide target,10 new guide-contract
+Node tests, eight publication tests, strict build and focused Clippy.
+Navigation/search have164ready routes and1378sections;23drafts remain out of
+HTML/navigation/search. All prior137navigation entries retain their order.
+Every one of the164built HTML pages and search JSON is byte-identical to the
+reviewed e297 build, so its scoped browser evidence is reused with its
+existing qualifications. All164completed pages have no original draft-brief
+markers. No native app/OS/browser run or public164 deployment is invented.
+
+`publication-candidate-164-2026-10-16.json` binds the peer chain, exact page
+hashes, output/source aggregates, fresh commands/logs and remaining gates.
+Open a ready PR only after this final local checkpoint. GitHub must still
+complete a clean CODE review of that exact final head before the trusted
+controller authorizes current-main/testmerge CI. Root owns the protected
+merge and actual release/Pages verification. Full canonical semantic
+completion, the remaining23drafts and original deferred P2/REA work are not
+claimed complete by this publication step.
