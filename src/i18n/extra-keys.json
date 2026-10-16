@@ -61,5 +61,11 @@
  "Cover art search is a gnudb feature that this freedb server does not offer.",
  "Look the disc up first: OpenTag reads a freedb entry only after the server listed it for the selected files' track layout or for an artist and album search.",
  "The freedb server answered 429 Too Many Requests. OpenTag does not retry on its own; wait a while and try again later.",
- "{name} answered 429 Too Many Requests. OpenTag does not retry on its own; wait a while and try again later."
+ "{name} answered 429 Too Many Requests. OpenTag does not retry on its own; wait a while and try again later.",
+ "Action {name}",
+ "Actions ({count} groups)",
+ "Remove tags",
+ "Add cover",
+ "Tag source import",
+ "Edit covers"
 ]

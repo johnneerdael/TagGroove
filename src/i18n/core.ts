@@ -20,7 +20,62 @@ const PARTS_ONLY = new Set([
   'Destination exists or another file maps to {value}',
   'Line {line}: {error}',
   'The cover image could not be saved: {error}',
+  'Action {name}',
+  'Actions ({count} groups)',
 ]);
+/** Canonical English history framing owns one space; padding within names belongs to the name. */
+const HISTORY_FRAMES = new Set([
+  "{kind} {label} ({files} file)",
+  "{kind} {label} ({files} files)",
+  "Redo {label} ({files} file)",
+  "Redo {label} ({files} files)",
+  "Undoing {label}…",
+  "Redoing {label}…",
+  "Undid {label}: {restored} file",
+  "Undid {label}: {restored} file, {length} not undone",
+  "Undid {label}: {restored} file, {length} not redone",
+  "Undid {label}: {restored} files",
+  "Undid {label}: {restored} files, {length} not undone",
+  "Undid {label}: {restored} files, {length} not redone",
+  "Redid {label}: {restored} file",
+  "Redid {label}: {restored} file, {length} not undone",
+  "Redid {label}: {restored} file, {length} not redone",
+  "Redid {label}: {restored} files",
+  "Redid {label}: {restored} files, {length} not undone",
+  "Redid {label}: {restored} files, {length} not redone",
+]);
+/** Native history producers use these fixed labels or the Action name/count scaffolds. */
+const HISTORY_LABELS = new Set([
+  "Save tags",
+  "Remove tags",
+  "Add cover",
+  "Remove cover",
+  "Filename → Tag",
+  "Quick action",
+  "Tag → Filename",
+  "Tag → Tag",
+  "Filename → Filename",
+  "Text File → Tag",
+  "Tag source import",
+  "Remove tag types",
+  "Remove unsupported fields",
+  "Optimize",
+  "Strip chapters MP4",
+  "Manage covers",
+  "Replace cover",
+  "Cut cover",
+  "Set cover type",
+  "Set cover description",
+  "Edit covers",
+]);
+/** Format operation-owned text directly, retaining original names and unknown labels as data. */
+export function historyLabelText(label: string, t: (key: string, params?: Record<string, unknown>) => string): string {
+  if (label.startsWith('Action ')) return t('Action {name}', {name: label.slice('Action '.length)});
+  const groups = /^Actions \((\d+) groups\)$/.exec(label);
+  if (groups) return t('Actions ({count} groups)', {count: groups[1]});
+  return HISTORY_LABELS.has(label) ? t(label) : label;
+}
+
 const PLURAL_CATEGORIES = new Set(['zero', 'one', 'two', 'few', 'many', 'other']);
 /** Data identities (files, fields, configuration keys) and authored text are never looked up themselves.
  * The audited backend source role names mapped fields, export configurations and action-context keys. */
@@ -126,7 +181,7 @@ export function render(nodes: Node[], params: Record<string, unknown>, rules: In
   return out;
 }
 
-type Pattern = {regex: RegExp; names: string[]; value: Node[]; literal: number; sourceError: boolean};
+type Pattern = {regex: RegExp; names: string[]; value: Node[]; literal: number; sourceError: boolean; history: boolean};
 const escapeRegex = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /** Compiled catalog of one language. */
@@ -158,9 +213,10 @@ export class Translator {
       const literal = normalized.replace(PLACEHOLDER, '');
       // Keys that are mostly values ("{name}…") would match nearly any text.
       if (!/\p{L}{2,}/u.test(literal)) continue;
-      const source = normalized.split(PLACEHOLDER).map((part, i) => i % 2 ? NUMERIC.test(part) ? NUMBER : '([\\s\\S]*?)' : escapeRegex(part).replace(/ /g, '\\s+')).join('');
+      const history = HISTORY_FRAMES.has(normalized);
+      const source = normalized.split(PLACEHOLDER).map((part, i) => i % 2 ? NUMERIC.test(part) ? NUMBER : '([\\s\\S]*?)' : escapeRegex(part).replace(/ /g, history ? ' ' : '\\s+')).join('');
       const sourceError = normalized === 'line {line} ({text}): {error}';
-      this.patterns.push({regex: new RegExp(`^${source}$`, 'du'), names, value: nodes, literal: literal.length, sourceError});
+      this.patterns.push({regex: new RegExp(`^${source}$`, 'du'), names, value: nodes, literal: literal.length, sourceError, history});
     }
     // Retain the ordinary legacy frame fallback. Native web-source commands
     // transport structured parts and render them explicitly in TagSourcesUI.
@@ -211,7 +267,10 @@ export class Translator {
       const spacing = new Map<string, {before: string; after: string}>();
       pattern.names.forEach((param, i) => {
         const value = match[i + 1];
-        params[param] = !verbatim && depth < 2 && !VERBATIM.test(param) && !NUMERIC.test(param) && normalize(value) !== name && /\p{L}/u.test(value) ? this.translate(value, depth + 1) : value;
+        const protectedValue = verbatim || normalize(value) === name;
+        params[param] = !protectedValue && pattern.history && param === 'label'
+          ? historyLabelText(value, (key, values) => this.t(key, values))
+          : !protectedValue && depth < 2 && !VERBATIM.test(param) && !NUMERIC.test(param) && /\p{L}/u.test(value) ? this.translate(value, depth + 1) : value;
         const [start, end] = match.indices![i + 1];
         spacing.set(param, {before: /\s*$/.exec(core.slice(0, start))![0], after: /^\s*/.exec(core.slice(end))![0]});
       });

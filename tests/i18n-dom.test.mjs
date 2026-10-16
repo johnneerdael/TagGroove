@@ -835,6 +835,60 @@ test('actual invoke normalizes only covered command replies before callers merge
   }
 });
 
+test('actual history menus replay progress completion and typed errors translate owned labels once',async()=>{
+  const {historyLabel}=await load('edit-history.ts'),{redoOrRepeat}=await load('utils-ui.ts');
+  const native=await readFile(new URL('../src-tauri/src/lib.rs',import.meta.url),'utf8');
+  assert.ok(native.includes('format!("Action {}", group.name)'));assert.ok(native.includes('format!("Actions ({} groups)", enabled.len())'));
+  const declaration=parsed.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text==='replayHistory');
+  const replay=ts.transpileModule(declaration.getText(parsed),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
+  const runReplay=new Function('label','kind','files','failures',`return(async()=>{
+    let history={undo:{label,files},redo:{label,files},notice:null},status='',progress;
+    const errors=Array.from({length:failures},()=>({path:'Help',error:'raw'})),entries=new Map(),rowFile=path=>path,applyRenamed=()=>{},accept=()=>{};
+    const invoke=async()=>({label,entries:Array.from({length:files},(_,i)=>({path:String(i)})),history}),run=async(text,job)=>{progress=text;await job();};
+    ${replay};await replayHistory(kind);return{progress,status,history};})()`);
+  const english=JSON.parse(await source('i18n/catalogs/en.json'));
+  const custom={...english,'Action {name}':'Copy of {name}','Actions ({count} groups)':'Copy of {count} groups','Copy of Help':'Again',Help:'Wrong name','Action Help':'Wrong action-like name','Actions (2 groups)':'Wrong count-like name'};
+  const reordered={...custom,'Action {name}':'[{name}] applied','Actions ({count} groups)':'[{count}] groups applied','[Help] applied':'Again'};
+  const cases=['Help','Action Help','Actions (2 groups)','  Help  ','Help\nTitle'].map(name=>({label:`Action ${name}`,key:'Action {name}',params:{name}}));
+  cases.push({label:'Actions (2 groups)',key:'Actions ({count} groups)',params:{count:'2'}});
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom],['en',reordered]])for(const [i,item] of cases.entries())for(const kind of ['undo','redo']){
+    const files=i%2+1,failures=i%2,observed=await runReplay(item.label,kind,files,failures),step={label:item.label,files};
+    const raw={menu:kind==='undo'?historyLabel('Undo',step):redoOrRepeat({redo:step},undefined).label,progress:observed.progress,status:observed.status};
+    assert.equal(observed.history[kind].label,item.label);assert.ok(observed.progress.startsWith(kind==='undo'?'Undoing ':'Redoing '));
+    const p=page();try{
+      for(const [language,strings] of [[locale,catalog],['en',{}],[locale,catalog]]){
+        const tr=new Translator(language,strings),t=(key,params)=>tr.t(key,params),label=t(item.key,item.params),verb=t(kind==='undo'?'undone':'redone');
+        if(language!=='en'||strings===custom||strings===reordered)assert.notEqual(label,item.label);
+        const menuKey=kind==='undo'?`{kind} {label} ({files} file${files===1?'':'s'})`:`Redo {label} ({files} file${files===1?'':'s'})`;
+        const expected={menu:t(menuKey,{kind:t('Undo'),label,files}),progress:t(`${kind==='undo'?'Undoing':'Redoing'} {label}…`,{label}),status:t(`${kind==='undo'?'Undid':'Redid'} {label}: {restored} file${files===1?'':'s'}${failures?`, {length} not ${kind==='undo'?'undone':'redone'}`:''}`,{label,restored:files,length:failures})};
+        const diagnostic={kind:'history_changed',label:item.label,direction:kind},e={path:'Help',error:batchErrorText(diagnostic),diagnostic};
+        p.body.innerHTML=Object.entries(raw).map(([key,text])=>`<p data-history="${key}">${esc(text)}</p>`).join('')+mainTemplate(node=>node.head.text==='<p><strong translate="no">',{e,esc,displayName:path=>path,publicMessage:value=>value,t,translate:text=>tr.translate(text)});
+        p.translate(language,strings);p.translateTree(p.body);
+        for(const [key,text] of Object.entries(expected))assert.equal(p.body.querySelector(`[data-history="${key}"]`).textContent,text,`${language} ${key} ${JSON.stringify(item.label)}`);
+        const expectedError=t('Changed outside OpenTag after {value}; it was not {verb}',{value:label,verb});
+        assert.equal(p.body.querySelector('span[translate="no"]').textContent,expectedError);assert.equal(p.body.querySelector('strong').textContent,'Help:');
+        assert.equal(e.diagnostic.label,item.label);assert.equal(observed.history[kind].label,item.label);
+      }
+    }finally{p.close();}
+  }
+});
+test('native fixed history label producers have registered exact translations and unknown labels remain raw',async()=>{
+  const sources={};for(const name of ['lib','history','converters','sources/mod','utilities','covers'])sources[name]=await readFile(new URL(`../src-tauri/src/${name}.rs`,import.meta.url),'utf8');
+  const labels=new Set();
+  for(const text of Object.values(sources)){const production=text.split(/#\[cfg\(test\)\]\s*mod tests/)[0];for(const match of production.matchAll(/(?:history::)?\brecord(?:_[a-z_]+)?\s*\(\s*"([^"]+)"/g))labels.add(match[1]);}
+  for(const [name,start] of [['utilities','impl Util {'],['covers','fn history_label(']])for(const match of sources[name].split(start)[1].split('\n}\n')[0].matchAll(/"([^"]+)"/g))labels.add(match[1]);
+  assert.equal(labels.size,21);const generated=englishCatalog();
+  for(const label of labels)assert.equal(generated[label],label,`register native history label ${label}`);
+  const {historyLabelText}=await load('i18n/core.ts');assert.equal(typeof historyLabelText,'function');
+  for(const locale of ['de','nl']){
+    const tr=new Translator(locale,catalogs[locale]),t=(key,params)=>tr.t(key,params);
+    for(const label of labels)assert.equal(historyLabelText(label,t),t(label));
+    for(const label of ['Help','Help / action 1: Title; it was not undone','  unknown label  ']){
+      assert.equal(historyLabelText(label,t),label);
+      assert.equal(batchErrorText({kind:'history_changed',label,direction:'undo'},t,text=>tr.translate(text)),t('Changed outside OpenTag after {value}; it was not {verb}',{value:label,verb:t('undone')}));
+    }
+  }
+});
 test('conditional empty rename diagnostics register owned keys without translating identical external text',async()=>{
   const producer=await readFile(new URL('../crates/tag-core/src/actions.rs',import.meta.url),'utf8');
   const conditional=/ErrorCause::owned\(if renames_file\s*\{\s*"([^"]+)"\s*\}\s*else\s*\{\s*"([^"]+)"\s*\}\)/.exec(producer);

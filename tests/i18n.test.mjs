@@ -416,7 +416,7 @@ for(const locale of ['nl','de']){
     if(locale==='de')assert.equal(new Translator(locale,catalog).translate('Ctrl Shift Del'),'Strg Umschalt Entf');
   });
   test(`rendered English text reaches the right ${locale} translation`,()=>{
-    const partsOnly=new Set(['{value} / action {value2}: {error}','Changed outside OpenTag after {value}; it was not {verb}','It was not {verb}: {error}','Folders and side files could not be {verb}: {error}','Destination exists or another file maps to {value}','Line {line}: {error}','The cover image could not be saved: {error}']);
+    const partsOnly=new Set(['{value} / action {value2}: {error}','Changed outside OpenTag after {value}; it was not {verb}','It was not {verb}: {error}','Folders and side files could not be {verb}: {error}','Destination exists or another file maps to {value}','Line {line}: {error}','The cover image could not be saved: {error}','Action {name}','Actions ({count} groups)']);
     const translator=new Translator(locale,catalogs[locale]),wrong=[];
     for(const key of Object.keys(english)){
       if(key.startsWith('@'))continue;
