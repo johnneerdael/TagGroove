@@ -613,6 +613,68 @@ mod tests {
     }
 
     #[test]
+    fn tag_to_tag_metadata_outputs_follow_preview_contract() {
+        let _journal = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
+        TEST_ROOTS.lock().unwrap().push(root.clone());
+        let audio = root.join("preview.wav");
+        wav(&audio, "Unchanged");
+        let path = audio.to_string_lossy().into_owned();
+        let separator = char::from(92).to_string().repeat(2);
+        let cases = [
+            (separator.clone(), vec![]),
+            (
+                format!(" Jazz {separator} {separator} Blues{separator}"),
+                vec!["Jazz", "Blues"],
+            ),
+            (" Live ".into(), vec![" Live "]),
+            (format!("AC{}DC", char::from(92)), vec![r"AC\DC"]),
+            (
+                format!("{0}Jazz{0}{separator}{0}", char::from(0x85)),
+                vec!["Jazz"],
+            ),
+            (
+                format!("{0}Jazz{0}{separator}", char::from_u32(0xfeff).unwrap()),
+                vec!["\u{feff}Jazz\u{feff}"],
+            ),
+        ];
+        for (template, expected) in cases {
+            tag_core::write_fields(
+                &audio,
+                &Fields::from([("GENRE".into(), vec!["Previous".into()])]),
+            )
+            .unwrap();
+            let before = std::fs::read(&audio).unwrap();
+            let preview = run(crate::preview_format(
+                vec![path.clone()],
+                template.clone(),
+                None,
+                Some(false),
+            ));
+            assert_eq!(preview[0].value, template);
+            let result = run(convert_tag_to_tag(
+                vec![path.clone()],
+                "GENRE".into(),
+                template.clone(),
+                None,
+            ));
+            assert!(result.errors.is_empty(), "{:?}", result.errors);
+            let fields = tag_core::read_entry_summary(&audio).unwrap().fields;
+            assert_eq!(
+                fields.get("GENRE").map(Vec::as_slice).unwrap_or(&[]),
+                expected,
+                "{template:?}"
+            );
+            assert_eq!(fields["TITLE"], ["Unchanged"]);
+            let undo = run(undo_last());
+            assert!(undo.result.errors.is_empty(), "{:?}", undo.result.errors);
+            assert_eq!(std::fs::read(&audio).unwrap(), before);
+        }
+        TEST_ROOTS.lock().unwrap().retain(|r| r != &root);
+    }
+
+    #[test]
     fn commands_record_grouped_saves_tag_conversions_and_renames() {
         let _journal = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let dir = tempfile::tempdir().unwrap();

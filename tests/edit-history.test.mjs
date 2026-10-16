@@ -10,7 +10,7 @@ const load = async name => {
 };
 const { historyLabel, editShortcut } = await load('edit-history');
 const { copyTags, clipboardText, pastePlan, cutPlan } = await load('tag-clipboard');
-const { tagTagFieldOptions, validateTagTarget, tagTagOutcome, tagTagKey } = await load('tag-tag-ui');
+const { tagTagFieldOptions, validateTagTarget, tagTagOutcome, tagTagKey, openTagToTag } = await load('tag-tag-ui');
 
 const key = (key, modifiers = {}) => ({ key, code: /^[0-9]$/.test(key) ? `Digit${key}` : `Key${key.toUpperCase()}`, ctrlKey: false, metaKey: false, shiftKey: false, altKey: false, ...modifiers });
 const idle = { typing: false, textSelected: false, mac: false };
@@ -101,4 +101,47 @@ test('Tag → Tag field choices, targets and previews follow Format Value rules'
   assert.equal(tagTagOutcome('_FILENAME', '').removed, true);
   assert.equal(tagTagOutcome('_DIRECTORY', 'Album').label, 'New folder name');
   assert.notEqual(tagTagKey({ field: 'A', template: '%b%', paths: ['/1'] }), tagTagKey({ field: 'A', template: '%b%', paths: ['/2'] }));
+});
+
+const metadataSeparator = String.fromCharCode(92).repeat(2);
+
+test('Tag → Tag metadata preview normalizes only delimited output', () => {
+  const sep = metadataSeparator;
+  for (const value of [sep, ` ${sep} ${sep} `]) assert.deepEqual(tagTagOutcome('GENRE', value), { label: 'GENRE', value: 'Field will be removed', removed: true });
+  const mixed = ` Jazz ${sep} ${sep} Blues${sep}`;
+  assert.deepEqual(tagTagOutcome('GENRE', mixed), { label: 'GENRE', value: `Jazz ${sep} Blues`, removed: false });
+  const nel = String.fromCodePoint(0x85), bom = String.fromCodePoint(0xfeff);
+  assert.equal(tagTagOutcome('GENRE', `${nel}Jazz${nel}${sep}${nel}`).value, 'Jazz');
+  assert.equal(tagTagOutcome('GENRE', `${bom}Jazz${bom}${sep}`).value, `${bom}Jazz${bom}`);
+  for (const value of [' Live ', ' ', `AC${String.fromCharCode(92)}DC`]) assert.deepEqual(tagTagOutcome('GENRE', value), { label: 'GENRE', value, removed: false });
+  assert.equal(tagTagOutcome('_DIRECTORY', mixed).value, mixed);
+  assert.equal(tagTagOutcome('_FILENAME', mixed, 'old.mp3').value, mixed + '.mp3');
+});
+
+test('Tag → Tag renders removed and normalized metadata while applying the reviewed expression', async () => {
+  const sep = metadataSeparator;
+  for (const [raw, rendered] of [[sep, '<em>Field will be removed</em>'], [` Jazz ${sep} ${sep} Blues${sep}`, `GENRE: Jazz ${sep} Blues`]]) {
+    const control = value => ({ value, disabled: false, addEventListener(event, handler) { this[event] = handler; }, focus() {}, select() {} });
+    const controls = new Map([
+      ['#tag-tag-field', control('GENRE')], ['#tag-tag-template', control(raw)],
+      ['#tag-tag-apply', control('')], ['.converter-status', { textContent: '' }],
+      ['#tag-tag-preview', { innerHTML: '' }],
+    ]);
+    const dialog = { open: true, querySelector: selector => controls.get(selector), setAttribute() {}, addEventListener() {}, close() { this.open = false; } };
+    const applied = [], previews = [];
+    openTagToTag({
+      modal: () => dialog, modalError: (_dialog, error) => { throw error; }, esc: value => String(value),
+      paths: () => ['/track.mp3'], fieldNames: () => ['GENRE'], displayName: () => 'track.mp3', canApply: () => true,
+      storage: { getItem: () => JSON.stringify({ field: 'GENRE', template: raw }), setItem() {} },
+      preview: async (...args) => { previews.push(args); return [{ path: '/track.mp3', value: raw }]; },
+      apply: async request => { applied.push(request); },
+    });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(previews, [[['/track.mp3'], raw, false]]);
+    assert.ok(controls.get('#tag-tag-preview').innerHTML.includes(rendered), controls.get('#tag-tag-preview').innerHTML);
+    assert.equal(controls.get('#tag-tag-apply').disabled, false, 'metadata removal is valid and can be applied');
+    await controls.get('#tag-tag-apply').click();
+    assert.deepEqual(applied, [{ field: 'GENRE', template: raw, paths: ['/track.mp3'] }]);
+    assert.equal(dialog.open, false);
+  }
 });

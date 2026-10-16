@@ -369,6 +369,31 @@ the 97/187 writing-plan check passed. Production code is unchanged from the
 affected-guide audit confirmed the two sibling wording corrections and found
 no further concrete mismatch in its bounded scope.
 
+## Tag → Tag preview follows metadata output rules
+
+A follow-up check of the newly documented delimiter-only removal found that
+the generic format preview returned raw text, while the dialog treated every
+nonempty result as a stored value. The production dialog outcome now applies
+the same metadata-only splitting, trimming and empty-component removal as
+Format Value before rendering. Single-value whitespace and a single
+backslash remain unchanged; filename and directory outcomes bypass this
+metadata normalization. Unicode White_Space matches Rust trimming, including
+NEL removal and retaining BOM characters.
+
+Both outcome and production dialog-renderer regressions failed against
+`73ba02d` and pass after the fix. The renderer fixture verifies the removal
+warning, normalized mixed list, valid Apply state and unchanged reviewed
+expression passed to the apply callback. A separate real command fixture
+runs `preview_format` and `convert_tag_to_tag` for six cases, checks stored
+values and unrelated fields, and verifies byte-exact Undo. These are local
+model/command checks, not native browser or Windows execution.
+
+The final locked workspace passed 822 Rust tests (four explicit skips),
+including 295 application-library tests. All 338 frontend tests, the
+TypeScript/Vite build, workspace all-target Clippy with warnings denied,
+formatting/diff checks, strict 97-page guide build, eight publication tests
+and the 97/187 writing-plan check passed.
+
 ## Not covered
 
 - The `.mta` type IDs for Adjust Cover, Set Cover Properties and Generate Playlists, and the guessed schemas for types 4, 6 and 11–15, need `.mta` files saved by Mp3tag.

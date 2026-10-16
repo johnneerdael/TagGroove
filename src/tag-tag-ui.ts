@@ -43,7 +43,12 @@ export function tagTagOutcome(field: string, value: string, currentName = '') {
     return { label: 'New filename', value: extension && !value.toLowerCase().endsWith(extension.toLowerCase()) ? value + extension : value, removed: false };
   }
   if (target === '_DIRECTORY') return value ? { label: 'New folder name', value, removed: false } : { label: 'New folder name', value: 'Error: the folder name is empty', removed: true };
-  return value ? { label: field, value, removed: false } : { label: field, value: 'Field will be removed', removed: true };
+  // Match Format Value's str::trim only for delimited metadata output.
+  // Unicode White_Space also keeps the Rust/JS differences (NEL and BOM) aligned.
+  const values = value.includes('\\\\')
+    ? value.split('\\\\').map(part => part.replace(/^\p{White_Space}+|\p{White_Space}+$/gu, '')).filter(Boolean)
+    : value ? [value] : [];
+  return values.length ? { label: field, value: values.join(' \\\\ '), removed: false } : { label: field, value: 'Field will be removed', removed: true };
 }
 
 export const tagTagKey = (request: TagTagRequest) => JSON.stringify([request.field, request.template, request.paths]);

@@ -36,8 +36,10 @@ the result is `Juniper Vale` only when `ALBUMARTIST` is empty. Entering
 For ordinary metadata fields, two consecutive backslashes (`\\`) in the
 evaluated output separate values, as in [Format Value](../actions/format-value.md#write-one-or-several-field-values).
 With that delimiter, each component is trimmed and empty components are
-dropped; no remaining values removes the field. Without it, a nonempty
-output is one value whose surrounding whitespace is kept.
+dropped; if no values remain, the field is removed. The preview shows the
+surviving values joined with ` \\ `, or **Field will be removed** if none
+remain. Without the delimiter, a nonempty output is one value whose
+surrounding whitespace is kept.
 
 A bare placeholder reads only the first existing value. For example,
 `$meta_sep(artist,\\)` writes the existing artists as separate values, while
