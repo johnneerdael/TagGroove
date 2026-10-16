@@ -187,3 +187,27 @@ failed the corrected guidance assertion, then all seven AcoustID module tests
 passed. This message/assertion-only followup uses the 951-test full-workspace
 feature checkpoint as its broader baseline; final focused tests and full
 all-target Clippy qualify the correction without claiming another full run.
+
+## Native provider-suite shortcut qualification
+
+The new `sources-4` suite was run locally against the frozen `8d0c87f`
+production source in a dedicated ad-hoc debug bundle and app-data identity,
+`org.opentag.editor.e2e.pr18direct`, with generated audio and loopback-only
+provider answers. Its first run passed 19 checks before timing out at the
+repeat-source shortcut: the test sent physical Control on macOS, while the
+application correctly requires Command. The test now sends `metaKey`, as the
+existing `sources-3` suite does; the existing debug prelude converts it to
+Control on Windows/Linux. The dialog assertion and every later assertion are
+unchanged. Production code is unchanged.
+
+Replaying only this suite with the same executable and `--no-build` passed
+**40 checks, zero failures**, including LRCLIB writes and Undo, iTunes metadata
+and covers, repeating iTunes, Deezer fields, key storage, Last.fm genres,
+fanart.tv artwork and AcoustID fingerprint pairing and per-file writes. The
+fixture server and app stopped; only the dedicated test identity's state was
+removed. This is actual local macOS native UI evidence, not live-provider,
+Windows/Linux source-suite, mobile or release validation. The extraction ledger
+records the preceding feature/message baseline; this test-only followup retains
+its full Rust/UI/build results because production, native include fixtures and
+dependencies are unchanged. The prior trusted-main premerge workflow did not yet
+list this new suite, so its common native jobs are separate evidence.

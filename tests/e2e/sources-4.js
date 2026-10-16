@@ -84,7 +84,7 @@
     await check(disk.every(e => e.covers.length === 1), 'iTunes cover written to both files');
 
     // Ctrl+I repeats iTunes.
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'i', ctrlKey: true, bubbles: true, cancelable: true }));
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'i', metaKey: true, bubbles: true, cancelable: true }));
     d = await waitFor(sourceDialog, 5000, 'Ctrl+I dialog');
     await check(d.getAttribute('aria-label') === 'iTunes', 'Ctrl+I reopens ' + d.getAttribute('aria-label'));
     await closeSource(d);
