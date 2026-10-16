@@ -792,3 +792,20 @@ the 164 published chapter entries and adds six completed source chapters.
 This checkpoint excludes the independently reviewed, unmerged PR17 Language
 implementation. Existing guide receipts continue to describe their exact
 source baselines; they are not new native, live-provider or publication proof.
+
+## PR #20 source reconciliation
+
+`docs/verification/src-compat-direct.md` records the direct-main compatibility
+change and fresh qualification. The five affected format, regex and web-source
+pages describe the revised grammar, cursor, JSON and output behavior; their
+written native examples pass under LF and CRLF. This reconciliation does not
+claim a complete downloaded-script corpus or full semantic Mp3tag parity.
+
+## Local combined provider and compatibility preparation
+
+The local integration preparation combines the independently prepared PR18
+providers, PR19 gnudb workflow and PR20 web-source compatibility changes. It
+preserves the combined 172 completed navigation entries and 15 drafts; PR17
+Language behavior remains separate. This is preparation for reconciliation
+against the actual feature merges, not evidence that all three are merged or
+published. Earlier per-PR receipts retain their pinned source and limitations.
