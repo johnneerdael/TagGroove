@@ -1997,7 +1997,7 @@ mod tests {
         assert_eq!(fs::read(&output).unwrap(), image(2));
         // Capture the original absence once; later same-run replacements
         // reuse it instead of snapshotting an intermediate image.
-        assert_eq!(replaced, [output.clone()]);
+        assert_eq!(replaced.as_slice(), std::slice::from_ref(&output));
         let result = run(&groups[1..], &mut replaced);
         assert!(result.errors.is_empty(), "{:?}", result.errors);
         assert_eq!(fs::read(&output).unwrap(), image(3));

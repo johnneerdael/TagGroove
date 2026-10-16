@@ -309,6 +309,24 @@ and [API contract](https://doc.rust-lang.org/std/fs/fn.rename.html). No speculat
 replacement workaround was added; this source check is not native Windows
 runtime validation.
 
+## Integration with the published guide expansion
+
+Main `432d354cb559a2f4f6bd15d558afadf46d080b0e` is integrated. Its mature
+97-page navigation is retained unchanged. Import/Export Cover keep the
+expanded tutorials, controls, naming tables and caveats, with the tested
+new behavior reconciled into those explanations. Action ordering, import
+text paths, playlist paths, natural export sorting, seeded examples and
+the Actions-menu undo wording were reconciled too. A finite independent
+review of all seven guide deltas found no further actionable mismatch.
+
+The integrated workspace passed 819 Rust tests (the same four explicit
+skips), including 293 application-library tests. All 336 Node tests,
+TypeScript/Vite build, strict 97-page guide build, eight publication tests
+and the 97/187 writing-plan check passed. Workspace Clippy and formatting
+passed after a test-only clone-to-slice assertion cleanup; its affected
+regression passed again. This is local validation, pending final-head
+Codex review and trusted multi-platform CI.
+
 ## Not covered
 
 - The `.mta` type IDs for Adjust Cover, Set Cover Properties and Generate Playlists, and the guessed schemas for types 4, 6 and 11–15, need `.mta` files saved by Mp3tag.

@@ -1,13 +1,69 @@
----
-status: draft
----
-
 # Tags → Mpeg
 
-!!! abstract "This page is being written"
+Open **File → Options… → Tags → Mpeg** to control ID3v1, ID3v2, and APE tags in MPEG-family audio. This policy also serves raw AAC and TTA through OpenTag's format adapters. An AAC stream inside an MP4/M4A container instead uses MP4 tags.
 
-    It will cover:
+!!! tip "New to this?"
+    A file can hold several independent tag blocks with conflicting values. Check what is read before choosing what to write or remove. Try a copied file before changing a library-wide policy.
 
-    - Read/write/remove ID3v1, ID3v2 (version and encoding), APEv2; ID3v2 only if ID3v1 too small
+## Read
 
-    Until then, the [reference section](../index.md) has the details.
+All three reading switches default to on. OpenTag displays one enabled, present tag type, in this priority order:
+
+| Priority | Switch | Reads |
+|---|---|---|
+| 1 | **APE** | APEv1 or APEv2. |
+| 2 | **ID3v2** | ID3v2 metadata. |
+| 3 | **ID3v1** | The older fixed-size tag. |
+
+If a higher-priority enabled type is absent, the next present type is used. Contents are not assembled field by field from all three. For example, a file with an APE title and a different ID3v2 title shows the APE title while APE reading is enabled. Disabling APE reading reveals the ID3v2 view; it does not remove APE from the file.
+
+The file's technical tag information identifies present/read tag types. When diagnosing another player's different result, inspect that information rather than assuming the visible value is the only stored value.
+
+## Write
+
+| Setting | Default | Effect |
+|---|---|---|
+| **ID3v1** | On | Write the limited legacy tag. Long text, extra fields, Unicode outside its character repertoire, multiple values, and artwork cannot all be represented. |
+| **ID3v2** | On | Write the richer ID3v2 tag using the selected revision/encoding. |
+| **ID3v2 only if ID3v1 too small** | Off | When both ID3v1 and ID3v2 writing are enabled, create ID3v2 only if needed. An existing ID3v2 tag is still updated. |
+| **APEv2 (also updates an existing ID3v1 tag)** | Off | Write APEv2, upgrading an existing APEv1 tag. If an ID3v1 tag already exists it is updated too, even when the explicit ID3v1 writing switch is off. |
+
+At least one write type must remain enabled. Saving synchronizes written types from the displayed field set, so enabling a second type is not a promise to preserve a conflicting hidden tag independently.
+
+### When ID3v1 is too small
+
+OpenTag checks more than text length. Artwork, custom fields, multiple values, a user-defined genre, and characters outside Latin-1 require ID3v2. In the inspected implementation, title/artist/album fit only within 30 characters; comment space is 28 characters when a track is present, otherwise 30; year must be four digits; a track must fit its legacy positive byte value. A `TRACK` value containing a total, such as `3/8`, needs ID3v2 to preserve that text.
+
+| Metadata in a file without ID3v2 | With conditional ID3v2 writing |
+|---|---|
+| Short title, artist, album, four-digit year, standard genre | ID3v1 may suffice. |
+| Same fields plus embedded front cover | ID3v2 is needed. |
+| Same fields plus `MOOD=Reflective` | ID3v2 is needed. |
+| Existing ID3v2, even if values would fit ID3v1 | Existing ID3v2 is updated. |
+
+### ID3v2 version and encoding
+
+| Choice | Use and tradeoff |
+|---|---|
+| **ID3v2.4 UTF-8** | Unicode in ID3v2.4. Choose when all consuming players support this revision. |
+| **ID3v2.3 UTF-16** | Default. Unicode in ID3v2.3; a practical compatibility choice for older consumers that support Unicode but not v2.4. |
+| **ID3v2.3 ISO-8859-1** | Legacy non-Unicode output for a device that specifically requires it. Characters outside Latin-1 are written as `?`, so names in other scripts can lose information. |
+
+Changing this setting affects future writes; it does not convert every loaded file immediately. Keep Unicode unless a known consuming device requires another format, then test its actual display on a copy.
+
+## Remove
+
+**ID3v1**, **ID3v2**, and **APE** removal all default to on. **File → Remove tag…** removes the selected types that exist. Saving also removes a checked type when it is not written. Thus disabling **Write APEv2** while leaving **Remove APE** enabled can remove an existing APE tag during an ordinary save.
+
+If every Remove switch is off, the remove command reports that no types are selected. Disabling Read alone never requests deletion. A type left unread and unwritten is retained only if the removal policy also leaves it alone.
+
+Mp3tag's original reference specifically couples ID3v1 removal with removal of a dependent Lyrics3 tag. OpenTag has Lyrics3-aware raw-stream layout handling, but this guide has no verified equivalent guarantee for every MPEG removal path. Do not use the ID3v1 checkbox as a general Lyrics3-cleanup promise.
+
+## Related
+
+- [Tags overview](tags.md)
+- [Ape, Mpc policy](tags-ape-mpc.md)
+- [Advanced settings](tags-advanced.md)
+- [Field mappings](tags-mapping.md)
+
+<!-- verified: crates/tag-core/src/preferences.rs MpegTagOptions; crates/tag-core/src/tag_policy.rs read_order, id3v1_sufficient, write, removed_kinds; crates/tag-core/src/raw_streams.rs mpeg_policy; crates/tag-core/src/mapping.rs latin1_lossy; crates/tag-core/tests/tag_policy.rs. Lyrics3 coupling remains explicitly unverified. -->

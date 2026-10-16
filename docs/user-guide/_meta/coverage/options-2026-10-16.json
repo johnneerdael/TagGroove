@@ -1,0 +1,1561 @@
+{
+  "baseline": "007a806",
+  "commit": "312b0f0",
+  "semantic_checklist": [
+    {
+      "source_key": "customization/options",
+      "detail": "Options reachable through File menu",
+      "guide_page": "reference/options/index.md",
+      "section": "Choose and save a page",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options",
+      "detail": "Complete category overview",
+      "guide_page": "reference/options/index.md",
+      "section": "Pages",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/appearance",
+      "detail": "Color mode light/dark/system",
+      "guide_page": "reference/options/appearance.md",
+      "section": "Color mode",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/appearance",
+      "detail": "Original Windows version caveat distinguished",
+      "guide_page": "reference/options/appearance.md",
+      "section": "Color mode",
+      "disposition": "different",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/appearance",
+      "detail": "Historical symbols switch unavailable",
+      "guide_page": "reference/options/appearance.md",
+      "section": "Symbols",
+      "disposition": "unsupported",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/appearance",
+      "detail": "Toolbar scaling to200percent",
+      "guide_page": "reference/options/appearance.md",
+      "section": "Toolbar scaling",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/appearance",
+      "detail": "Whole UI including toolbar scaling to200percent",
+      "guide_page": "reference/options/appearance.md",
+      "section": "User interface scaling",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/appearance",
+      "detail": "Alternating colors and true grid versus tri-state checkbox",
+      "guide_page": "reference/options/appearance.md",
+      "section": "Display grid lines in file view",
+      "disposition": "different",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/directories",
+      "detail": "Recursive subfolders",
+      "guide_page": "reference/options/directories.md",
+      "section": "Subfolders",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/directories",
+      "detail": "Favorite path and command access",
+      "guide_page": "reference/options/directories.md",
+      "section": "Favorite directory",
+      "disposition": "different",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/directories",
+      "detail": "Startup Empty/Previous/Favorite modes",
+      "guide_page": "reference/options/directories.md",
+      "section": "Startup directory",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/directories",
+      "detail": "Absolute relative and placeholder cover directory",
+      "guide_page": "reference/options/directories.md",
+      "section": "Cover art directory",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/directories",
+      "detail": "Invalid/empty cover path first-selected image-folder fallback and working directory",
+      "guide_page": "reference/options/directories.md",
+      "section": "Cover art directory",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/export",
+      "detail": "Original delegates to export-feature reference; actual Options controls explained",
+      "guide_page": "reference/options/export.md",
+      "section": "Export options",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/export",
+      "detail": "Selection-dialog bypass",
+      "guide_page": "reference/options/export.md",
+      "section": "Show selection dialog",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/export",
+      "detail": "BOM and folder creation controls",
+      "guide_page": "reference/options/export.md",
+      "section": "Write BOM",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/field-values",
+      "detail": "Custom choices by field and consistency purpose",
+      "guide_page": "reference/options/field-values.md",
+      "section": "Choose a field and enter values",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/field-values",
+      "detail": "Choices in panel, in-place, Extended tags",
+      "guide_page": "reference/options/field-values.md",
+      "section": "Where choices appear",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/field-values",
+      "detail": "Prefer existing selected values while empty field still offers custom",
+      "guide_page": "reference/options/field-values.md",
+      "section": "Where choices appear",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/field-values",
+      "detail": "User-defined genres only",
+      "guide_page": "reference/options/field-values.md",
+      "section": "Genres",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/field-values",
+      "detail": "Restart requirement differs in OpenTag",
+      "guide_page": "reference/options/field-values.md",
+      "section": "Genres",
+      "disposition": "different",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/field-values",
+      "detail": "ID3v1 custom-genre limitation",
+      "guide_page": "reference/options/field-values.md",
+      "section": "Genres",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/field-values",
+      "detail": "Text import one value per line and export sharing/backups",
+      "guide_page": "reference/options/field-values.md",
+      "section": "Import, export, and quick addition",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/field-values",
+      "detail": "ShiftEnter quick-add",
+      "guide_page": "reference/options/field-values.md",
+      "section": "Import, export, and quick addition",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/files",
+      "detail": "Restrict read by supported extensions",
+      "guide_page": "reference/options/files.md",
+      "section": "Read files",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/files",
+      "detail": "Backslash in value replaced during rename",
+      "guide_page": "reference/options/files.md",
+      "section": "Rename files from tags",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/files",
+      "detail": "Empty replacement removes separators",
+      "guide_page": "reference/options/files.md",
+      "section": "Rename files from tags",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/files",
+      "detail": "Preserve modified date when writing/removing tags",
+      "guide_page": "reference/options/files.md",
+      "section": "Write files",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/general",
+      "detail": "Working directory in title",
+      "guide_page": "reference/options/general.md",
+      "section": "General",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/general",
+      "detail": "Next row after in-place edit",
+      "guide_page": "reference/options/general.md",
+      "section": "General",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/general",
+      "detail": "Completion toggle",
+      "guide_page": "reference/options/general.md",
+      "section": "General",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/general",
+      "detail": "Natural numeric ordering",
+      "guide_page": "reference/options/general.md",
+      "section": "General",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/general",
+      "detail": "Select incoming files",
+      "guide_page": "reference/options/general.md",
+      "section": "General",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/general",
+      "detail": "Keep files moved outside working root",
+      "guide_page": "reference/options/general.md",
+      "section": "General",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/general",
+      "detail": "Persistent notification icon",
+      "guide_page": "reference/options/general.md",
+      "section": "Notification area",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/general",
+      "detail": "Minimize hides taskbar entry and restoring window",
+      "guide_page": "reference/options/general.md",
+      "section": "Notification area",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/general",
+      "detail": "Windows/Linux/macOS scope",
+      "guide_page": "reference/options/general.md",
+      "section": "Notification area",
+      "disposition": "different",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/language",
+      "detail": "Select interface language",
+      "guide_page": "reference/options/language.md",
+      "section": "Choose a language",
+      "disposition": "held-draft",
+      "publication": "held-draft-pending-language-code"
+    },
+    {
+      "source_key": "customization/options/language",
+      "detail": "Mp3tag restart versus OpenTag application onOK",
+      "guide_page": "reference/options/language.md",
+      "section": "Language options",
+      "disposition": "held-draft",
+      "publication": "held-draft-pending-language-code"
+    },
+    {
+      "source_key": "customization/options/language",
+      "detail": "Translation extension workflow and format difference",
+      "guide_page": "reference/options/language.md",
+      "section": "Add or update a translation",
+      "disposition": "held-draft",
+      "publication": "held-draft-pending-language-code"
+    },
+    {
+      "source_key": "customization/options/library",
+      "detail": "Normal uncached metadata discarded between sessions",
+      "guide_page": "reference/options/library.md",
+      "section": "Enable Library",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/library",
+      "detail": "Persistent database in config directory",
+      "guide_page": "reference/options/library.md",
+      "section": "Enable Library",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/library",
+      "detail": "Modification time updated cache invalidation",
+      "guide_page": "reference/options/library.md",
+      "section": "Enable Library",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/library",
+      "detail": "Original binary-images-in-database behavior explicitly differs",
+      "guide_page": "reference/options/library.md",
+      "section": "Enable Library",
+      "disposition": "different",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/library",
+      "detail": "Only listed directories stored, outside still editable",
+      "guide_page": "reference/options/library.md",
+      "section": "Only include these directories",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/library",
+      "detail": "Internal deletes/moves update cache",
+      "guide_page": "reference/options/library.md",
+      "section": "Enable Library",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/library",
+      "detail": "External moves/deletes orphan detection",
+      "guide_page": "reference/options/library.md",
+      "section": "Cleanup Library",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/library",
+      "detail": "Cleanup inaccessible entries consequence",
+      "guide_page": "reference/options/library.md",
+      "section": "Cleanup Library",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/library",
+      "detail": "Possible limited performance gain and I/O bottleneck",
+      "guide_page": "reference/options/library.md",
+      "section": "Performance and stale values",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/library",
+      "detail": "Original Defender exclusion names different executable, not a prerequisite",
+      "guide_page": "reference/options/library.md",
+      "section": "Performance and stale values",
+      "disposition": "different",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/library",
+      "detail": "SSD versus slow portable settings drive",
+      "guide_page": "reference/options/library.md",
+      "section": "Performance and stale values",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/messages",
+      "detail": "Post-save except inline editing",
+      "guide_page": "reference/options/messages.md",
+      "section": "Completion notifications",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/messages",
+      "detail": "Post-action/renaming and pending numbering distinction",
+      "guide_page": "reference/options/messages.md",
+      "section": "Completion notifications",
+      "disposition": "different",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/messages",
+      "detail": "Post-tag-removal message",
+      "guide_page": "reference/options/messages.md",
+      "section": "Completion notifications",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/messages",
+      "detail": "Pre-remove tags",
+      "guide_page": "reference/options/messages.md",
+      "section": "Confirmations and warnings",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/messages",
+      "detail": "Pre-cut tags",
+      "guide_page": "reference/options/messages.md",
+      "section": "Confirmations and warnings",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/messages",
+      "detail": "Pre-paste tags",
+      "guide_page": "reference/options/messages.md",
+      "section": "Confirmations and warnings",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/messages",
+      "detail": "Post-export open with associated application",
+      "guide_page": "reference/options/messages.md",
+      "section": "Confirmations and warnings",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/messages",
+      "detail": "Pre-file-delete and OS behavior distinguished",
+      "guide_page": "reference/options/messages.md",
+      "section": "Confirmations and warnings",
+      "disposition": "different",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/messages",
+      "detail": "Action warning/errors",
+      "guide_page": "reference/options/messages.md",
+      "section": "Confirmations and warnings",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/messages",
+      "detail": "Unsaved panel edits and autosaving separate",
+      "guide_page": "reference/options/messages.md",
+      "section": "Confirmations and warnings",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/messages",
+      "detail": "Existing covers preserve prompt on import",
+      "guide_page": "reference/options/messages.md",
+      "section": "Existing artwork without a question",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/messages",
+      "detail": "Remember no-more-prompts cover decision",
+      "guide_page": "reference/options/messages.md",
+      "section": "Existing artwork without a question",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/networking",
+      "detail": "Internet timeout seconds",
+      "guide_page": "reference/options/networking.md",
+      "section": "Timeout",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/networking",
+      "detail": "Proxy route configuration",
+      "guide_page": "reference/options/networking.md",
+      "section": "Proxy",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/playlist",
+      "detail": "Extended format-string labels and player can use them instead of reading tags",
+      "guide_page": "reference/options/playlist.md",
+      "section": "Write extended info",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/playlist",
+      "detail": "Relative entries where possible",
+      "guide_page": "reference/options/playlist.md",
+      "section": "Relative entries",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/playlist",
+      "detail": "Auto-create after save or rename",
+      "guide_page": "reference/options/playlist.md",
+      "section": "Automatic playlists",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/playlist",
+      "detail": "Filename literal or format string with paths",
+      "guide_page": "reference/options/playlist.md",
+      "section": "Filename of playlist",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/playlist",
+      "detail": "Loaded-playlist filename placeholders",
+      "guide_page": "reference/options/playlist.md",
+      "section": "Filename of playlist",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/playlist",
+      "detail": "m3u8 UTF8 Unicode",
+      "guide_page": "reference/options/playlist.md",
+      "section": "Encoding and extension",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/playlist",
+      "detail": "Filename confirmation edits literal not reevaluated",
+      "guide_page": "reference/options/playlist.md",
+      "section": "Confirm the filename",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/playlist",
+      "detail": "Do-not-create-directories restriction",
+      "guide_page": "reference/options/playlist.md",
+      "section": "Don't create directories",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tag-panel",
+      "detail": "Original delegates to customization; OpenTag editor reference supplied",
+      "guide_page": "reference/options/tag-panel.md",
+      "section": "Tag Panel options",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tag-panel",
+      "detail": "Full editor controls and save/cancel/defaults",
+      "guide_page": "reference/options/tag-panel.md",
+      "section": "Field controls",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tag-sources",
+      "detail": "Default image filename uses tag placeholders",
+      "guide_page": "reference/options/tag-sources.md",
+      "section": "Default file name for cover art",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tag-sources",
+      "detail": "Original huge versus250/500/1200 MusicBrainz source-wide size",
+      "guide_page": "reference/options/tag-sources.md",
+      "section": "MusicBrainz cover size",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tag-sources",
+      "detail": "Further freedb/local configuration links",
+      "guide_page": "reference/options/tag-sources.md",
+      "section": "Related",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tag-sources/freedb",
+      "detail": "Historic freedb discontinued; gnudb default",
+      "guide_page": "reference/options/tag-sources-freedb.md",
+      "section": "Tag Sources → freedb",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tag-sources/freedb",
+      "detail": "Named server configurations",
+      "guide_page": "reference/options/tag-sources-freedb.md",
+      "section": "Server fields",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tag-sources/freedb",
+      "detail": "Current-list resets custom changes, shipped not fetched inOpenTag",
+      "guide_page": "reference/options/tag-sources-freedb.md",
+      "section": "Server list",
+      "disposition": "different",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tag-sources/freedb",
+      "detail": "Hostname address",
+      "guide_page": "reference/options/tag-sources-freedb.md",
+      "section": "Server fields",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tag-sources/freedb",
+      "detail": "Endpoint path",
+      "guide_page": "reference/options/tag-sources-freedb.md",
+      "section": "Server fields",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tag-sources/freedb",
+      "detail": "Port",
+      "guide_page": "reference/options/tag-sources-freedb.md",
+      "section": "Server fields",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tag-sources/freedb",
+      "detail": "Email handshake purpose and empty baseline fallback",
+      "guide_page": "reference/options/tag-sources-freedb.md",
+      "section": "Server fields",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tag-sources/freedb",
+      "detail": "Copy discID toCOMMENT",
+      "guide_page": "reference/options/tag-sources-freedb.md",
+      "section": "Disc ID fields",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tag-sources/freedb",
+      "detail": "Copy discID toDISCID",
+      "guide_page": "reference/options/tag-sources-freedb.md",
+      "section": "Disc ID fields",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tag-sources/local-freedb",
+      "detail": "Historical snapshot limitation",
+      "guide_page": "reference/options/tag-sources-local-freedb.md",
+      "section": "Local freedb folder",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tag-sources/local-freedb",
+      "detail": "Local database path",
+      "guide_page": "reference/options/tag-sources-local-freedb.md",
+      "section": "Local freedb folder",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tag-sources/local-freedb",
+      "detail": "Original audio-based local lookup limitation differs: OpenTag TOC-derived discID",
+      "guide_page": "reference/options/tag-sources-local-freedb.md",
+      "section": "Local freedb folder",
+      "disposition": "different",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tag-sources/local-freedb",
+      "detail": "Text search requires index",
+      "guide_page": "reference/options/tag-sources-local-freedb.md",
+      "section": "Text index",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags",
+      "detail": "Autosave on losing selection focus through mouse/keys",
+      "guide_page": "reference/options/tags.md",
+      "section": "Save tags when changing selection",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags",
+      "detail": "Select-next keyboard panel focus workflow",
+      "guide_page": "reference/options/tags.md",
+      "section": "Save tags when changing selection",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags",
+      "detail": "Extended-dialog ask/ignore/save modes plus pending OpenTag mode",
+      "guide_page": "reference/options/tags.md",
+      "section": "Save mode at extended tag dialog",
+      "disposition": "different",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags",
+      "detail": "Embedded-missing folder image fallback",
+      "guide_page": "reference/options/tags.md",
+      "section": "Folder images in the tag panel",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags",
+      "detail": "Restrict display to embedded art",
+      "guide_page": "reference/options/tags.md",
+      "section": "Folder images in the tag panel",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags",
+      "detail": "Four child pages mapped",
+      "guide_page": "reference/options/tags.md",
+      "section": "Read, write, and remove policies",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags/advanced",
+      "detail": "ISO6392 comment language eng and German example",
+      "guide_page": "reference/options/tags-advanced.md",
+      "section": "ID3v2 comment language code",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags/advanced",
+      "detail": "Historical Windows/iTunes reader caveat qualified as unverified current behavior",
+      "guide_page": "reference/options/tags-advanced.md",
+      "section": "ID3v2 comment language code",
+      "disposition": "qualification",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags/advanced",
+      "detail": "POPM raw versus app-specific rating display and reload",
+      "guide_page": "reference/options/tags-advanced.md",
+      "section": "Always display POPULARIMETER values for ID3v2 ratings",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags/advanced",
+      "detail": "Chapters separate rows and reload-directory requirement",
+      "guide_page": "reference/options/tags-advanced.md",
+      "section": "List chapters as separate files",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags/advanced",
+      "detail": "Global versus chapter title editing",
+      "guide_page": "reference/options/tags-advanced.md",
+      "section": "List chapters as separate files",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags/advanced",
+      "detail": "subsong count/index technical fields",
+      "guide_page": "reference/options/tags-advanced.md",
+      "section": "List chapters as separate files",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags/advanced",
+      "detail": "Matroska target-level semantics track/disc example",
+      "guide_page": "reference/options/tags-advanced.md",
+      "section": "Use recommended mapping for Matroska video",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags/advanced",
+      "detail": "Video recommended mapping and titleT30 compatibility choice",
+      "guide_page": "reference/options/tags-advanced.md",
+      "section": "Use recommended mapping for Matroska video",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags/advanced",
+      "detail": "Multiple MP4 values one atom with multiple data entries vs multiple atoms",
+      "guide_page": "reference/options/tags-advanced.md",
+      "section": "Use single MP4 atom for multiple values",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags/advanced",
+      "detail": "Unchanged MP4 atoms reuse and remap only on value change",
+      "guide_page": "reference/options/tags-advanced.md",
+      "section": "Reuse unmodified MP4 atoms",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags/advanced",
+      "detail": "Unchanged ID3v2 frames reuse and remap only on value change",
+      "guide_page": "reference/options/tags-advanced.md",
+      "section": "Reuse unmodified ID3v2 frames",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags/ape",
+      "detail": "APEv2-family format scope",
+      "guide_page": "reference/options/tags-ape-mpc.md",
+      "section": "Tags → Ape, Mpc",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags/ape",
+      "detail": "Read ID3v1",
+      "guide_page": "reference/options/tags-ape-mpc.md",
+      "section": "Read",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags/ape",
+      "detail": "Read APEv1/v2 higher priority",
+      "guide_page": "reference/options/tags-ape-mpc.md",
+      "section": "Read",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags/ape",
+      "detail": "Write ID3v1",
+      "guide_page": "reference/options/tags-ape-mpc.md",
+      "section": "Write",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags/ape",
+      "detail": "Write APEv2 upgradesAPEv1 and updates existingID3v1",
+      "guide_page": "reference/options/tags-ape-mpc.md",
+      "section": "Write",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags/ape",
+      "detail": "Remove ID3v1",
+      "guide_page": "reference/options/tags-ape-mpc.md",
+      "section": "Remove",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags/ape",
+      "detail": "Remove hiddenID3v2",
+      "guide_page": "reference/options/tags-ape-mpc.md",
+      "section": "Remove",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags/ape",
+      "detail": "Remove APEv1/v2",
+      "guide_page": "reference/options/tags-ape-mpc.md",
+      "section": "Remove",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags/mapping",
+      "detail": "Readable names versus native frame/atom IDs",
+      "guide_page": "reference/options/tags-mapping.md",
+      "section": "Field names versus native identifiers",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags/mapping",
+      "detail": "Tag-type-specific aliases five supported families",
+      "guide_page": "reference/options/tags-mapping.md",
+      "section": "Add and edit a rule",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags/mapping",
+      "detail": "Forward SourceToTarget reading",
+      "guide_page": "reference/options/tags-mapping.md",
+      "section": "Reading mapped fields",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags/mapping",
+      "detail": "DATEtoYEAR full date value not transformed",
+      "guide_page": "reference/options/tags-mapping.md",
+      "section": "Reading mapped fields",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags/mapping",
+      "detail": "Reverse TargetToSource saving",
+      "guide_page": "reference/options/tags-mapping.md",
+      "section": "Saving mapped fields",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags/mapping",
+      "detail": "Many sources one target writes all",
+      "guide_page": "reference/options/tags-mapping.md",
+      "section": "Saving mapped fields",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags/mapping",
+      "detail": "One source multiple targets invalid",
+      "guide_page": "reference/options/tags-mapping.md",
+      "section": "Add and edit a rule",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags/mpeg",
+      "detail": "MPEG MP3/TTA policy with OpenTagAAC adapter",
+      "guide_page": "reference/options/tags-mpeg.md",
+      "section": "Tags → Mpeg",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags/mpeg",
+      "detail": "One displayed type, priorityAPE ID3v2 ID3v1 and tag information",
+      "guide_page": "reference/options/tags-mpeg.md",
+      "section": "Read",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags/mpeg",
+      "detail": "Read each existing tag type",
+      "guide_page": "reference/options/tags-mpeg.md",
+      "section": "Read",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags/mpeg",
+      "detail": "Write ID3v1",
+      "guide_page": "reference/options/tags-mpeg.md",
+      "section": "Write",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags/mpeg",
+      "detail": "Write APEv2 upgradesAPEv1 updatesID3v1",
+      "guide_page": "reference/options/tags-mpeg.md",
+      "section": "Write",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags/mpeg",
+      "detail": "Write ID3v2",
+      "guide_page": "reference/options/tags-mpeg.md",
+      "section": "Write",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags/mpeg",
+      "detail": "ConditionalID3v2 existing block always updated and customgenre requiresv2",
+      "guide_page": "reference/options/tags-mpeg.md",
+      "section": "When ID3v1 is too small",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags/mpeg",
+      "detail": "ID3v2.4 UTF8 Unicode compatibility",
+      "guide_page": "reference/options/tags-mpeg.md",
+      "section": "ID3v2 version and encoding",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags/mpeg",
+      "detail": "ID3v2.3 UTF16 Unicode",
+      "guide_page": "reference/options/tags-mpeg.md",
+      "section": "ID3v2 version and encoding",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags/mpeg",
+      "detail": "ID3v2.3 Latin1 legacy consumer and loss",
+      "guide_page": "reference/options/tags-mpeg.md",
+      "section": "ID3v2 version and encoding",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags/mpeg",
+      "detail": "RemoveID3v1 Lyrics3 coupling explicitly unverified OpenTag",
+      "guide_page": "reference/options/tags-mpeg.md",
+      "section": "Remove",
+      "disposition": "qualification",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags/mpeg",
+      "detail": "RemoveID3v2",
+      "guide_page": "reference/options/tags-mpeg.md",
+      "section": "Remove",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags/mpeg",
+      "detail": "RemoveAPEv1/v2",
+      "guide_page": "reference/options/tags-mpeg.md",
+      "section": "Remove",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tools",
+      "detail": "99tools and menu access",
+      "guide_page": "reference/options/tools.md",
+      "section": "Add, edit, and reorder",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tools",
+      "detail": "First10numeric shortcuts with macOS modifier difference",
+      "guide_page": "reference/options/tools.md",
+      "section": "Add, edit, and reorder",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tools",
+      "detail": "New/remove/edit list",
+      "guide_page": "reference/options/tools.md",
+      "section": "Add, edit, and reorder",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tools",
+      "detail": "Name label",
+      "guide_page": "reference/options/tools.md",
+      "section": "Name, Path, and Parameter",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tools",
+      "detail": "Full executable path",
+      "guide_page": "reference/options/tools.md",
+      "section": "Name, Path, and Parameter",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tools",
+      "detail": "Optional arguments and7placeholders all listed",
+      "guide_page": "reference/options/tools.md",
+      "section": "Placeholders",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tools",
+      "detail": "One launch per selected file option",
+      "guide_page": "reference/options/tools.md",
+      "section": "For all selected files",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tools",
+      "detail": "Default doubleclick tool",
+      "guide_page": "reference/options/tools.md",
+      "section": "Default tool",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tools",
+      "detail": "Noaction falls back Extended tags inOpenTag",
+      "guide_page": "reference/options/tools.md",
+      "section": "Default tool",
+      "disposition": "different",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tools",
+      "detail": "Original external examples replaced by standalone tool example and argument table",
+      "guide_page": "reference/options/tools.md",
+      "section": "Name, Path, and Parameter",
+      "disposition": "different",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/updates",
+      "detail": "Check onstartup",
+      "guide_page": "reference/options/updates.md",
+      "section": "Check for updates on startup",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/updates",
+      "detail": "Include development/beta",
+      "guide_page": "reference/options/updates.md",
+      "section": "Also include development builds (beta)",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/updates",
+      "detail": "Release notes default browser after first changed-version launch",
+      "guide_page": "reference/options/updates.md",
+      "section": "Display release notes for new versions",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration"
+    },
+    {
+      "source_key": "customization/options/tags",
+      "detail": "Blank file-list click and Unselect all can save departed pending tags when autosave enabled",
+      "guide_page": "reference/options/tags.md",
+      "section": "Save tags when changing selection",
+      "disposition": "explained",
+      "publication": "ready-for-nav-integration",
+      "evidence": "baseline src/main.ts blank-list click -> unselect-all -> choose([]) -> saveOnMove(previous)"
+    }
+  ],
+  "limitations": [
+    "Source inspection only; no app launch, runtime UI parity or release availability validation.",
+    "Language content is complete but stays draft until the language implementation is integrated.",
+    "Lyrics3 removal coupling and current third-party comment-reader behavior explicitly qualified.",
+    "No shared nav or hooks edited; local branch tests requiring public nav fail until integration.",
+    "Disposable copy with exact candidate nav passed8publication tests and strict build."
+  ],
+  "independent_review": {
+    "reviewer": "/root/pr25_owner",
+    "finding": "P2 blank-area deselection autosave omitted",
+    "resolution": "Added explicit blank-area and Unselect all behavior; static trace confirmed, no runtime claim",
+    "additional_findings": [
+      "Retained historical localized Windows versus iTunes comment-language distinction with explicit current-runtime-unverified qualifier.",
+      "Retained original Matroska PART_NUMBER trackT30/discT50 example."
+    ]
+  },
+  "page_sha256": {
+    "language.md": "ad93eb704bfca00aa11f8cdc56cdc7cddfbde0ad3e565472837042e7f6dbf617",
+    "playlist.md": "c60dea94814522cd8f71ac440833c4e2bd51a97d095d9c4ce314623499f4abd6",
+    "tag-sources-local-freedb.md": "d2ba6310230adcb7c9b6330e0887353374eed5c468745deb20bff811fe3a7964",
+    "messages.md": "b7dfee70f387cc08776d9b2e51670f7cbcaac077ccad4634739e9e38a24d43cd",
+    "tags-mapping.md": "74a551189706a87bd93e9d7df003059b0791d594681237451c544b8b6340b864",
+    "tag-panel.md": "a251532d006c6c96e68aa1d0daab0b60a81ef09722af5240874cf86e54af3d2f",
+    "networking.md": "886b6322836092c2910ed4c98e917d2837832ec02878914419a0ddfa4d7d0570",
+    "tag-sources.md": "bd0c021203a4903e93f29f0af4b2a5102804f64584de338f4a8f35e917cf3bfc",
+    "tags-ape-mpc.md": "363c23561b6173c7289f31112a0576b213545f13e0068b09b056f2ecff5dfd0c",
+    "appearance.md": "bd8c368e5c587548452775754e588835e02f642cca855e4d987c843a371fc915",
+    "general.md": "c78b6f4d5e57c2b95e026ba0509cf2b07a0a5713a5a705bba1081e8b3545e16a",
+    "library.md": "048337b5efacb341cc1b909a247b49638e4c971a7ed969f9cc2f8360a8d15a24",
+    "index.md": "8ab9adf1d40df032a24ac453f00ad8d5ebf9075a4ab0911df7579959c6699b7e",
+    "tag-sources-freedb.md": "db8c8cf7dc82b9a105d906b2301759aa36cd2cd5ed1a55390f2598abc01a47dd",
+    "tags.md": "9e5dd56d38bbc4391f65457bf3d0459480b59400aad6cdf295cebb8e1dea4470",
+    "tags-advanced.md": "ebacbe3857358e991732c481c837b0d8dda5fc5e169a92b516146408d865a6f5",
+    "files.md": "2823f3d77d80d2d4eebbafb29284119b94b9ae9cb3550e6d66c8eb7625a32787",
+    "field-values.md": "0c9b547cf5a9831e0d3ab1e7512133824bbaed1f1097b1c8f521c52abaeedf44",
+    "export.md": "e242f768f1eb37cc781b3e3ba15feee7924516ff80bfd44429cb7c0f6089a292",
+    "updates.md": "d159fb2e307fe649709a87fdb91b586abd34d64545baffe56e3f08f0e0e50caf",
+    "directories.md": "f769d13aaadd928e7a7af7ee54e1307d7fcd249812b8a335bd52897263a51b41",
+    "tools.md": "9a56b85ade9e17de757294588d0cadb37e45676d72417f15b13138433aae118c",
+    "tags-mpeg.md": "ae5aea0267c9ad4327d8bf7eb0849fc698b78f678ca054f9e236b9784e82a3ba"
+  },
+  "source_mapping": [
+    {
+      "source_url": "https://docs.mp3tag.de/customization/options/",
+      "source_sha256": "1a3fb223a05dd3e968d9c5940f4e94d6e19c0ee39b3bd963f10212d1e98707f0",
+      "guide_page": "reference/options/index.md",
+      "semantic_rows": [
+        0,
+        1
+      ]
+    },
+    {
+      "source_url": "https://docs.mp3tag.de/customization/options/appearance/",
+      "source_sha256": "a1a15eba716a79640955dace1921c9c73e915b27aedc03087b134f2777deaa92",
+      "guide_page": "reference/options/appearance.md",
+      "semantic_rows": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ]
+    },
+    {
+      "source_url": "https://docs.mp3tag.de/customization/options/directories/",
+      "source_sha256": "0d3065c684a2bc741766b67f11306dc3c293103be899a6d31a4763e21bd89e3d",
+      "guide_page": "reference/options/directories.md",
+      "semantic_rows": [
+        8,
+        9,
+        10,
+        11,
+        12
+      ]
+    },
+    {
+      "source_url": "https://docs.mp3tag.de/customization/options/export/",
+      "source_sha256": "a350057d03ebb996d5c494249806e5782cb57d2455a74d5fed7bebba06b5e791",
+      "guide_page": "reference/options/export.md",
+      "semantic_rows": [
+        13,
+        14,
+        15
+      ]
+    },
+    {
+      "source_url": "https://docs.mp3tag.de/customization/options/field-values/",
+      "source_sha256": "cef08824e53bcc5de1ed7519374d7a240f9c81a8af512b6b661c8617fea1ef75",
+      "guide_page": "reference/options/field-values.md",
+      "semantic_rows": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ]
+    },
+    {
+      "source_url": "https://docs.mp3tag.de/customization/options/files/",
+      "source_sha256": "52128d61fe45773d2ecbb668e817b23931fe6304e021f531ef88347259245983",
+      "guide_page": "reference/options/files.md",
+      "semantic_rows": [
+        24,
+        25,
+        26,
+        27
+      ]
+    },
+    {
+      "source_url": "https://docs.mp3tag.de/customization/options/general/",
+      "source_sha256": "3ba617087dc24b8b6e221a73efaabd65aa103e092a65d918d675dff111a98922",
+      "guide_page": "reference/options/general.md",
+      "semantic_rows": [
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36
+      ]
+    },
+    {
+      "source_url": "https://docs.mp3tag.de/customization/options/language/",
+      "source_sha256": "2fd4e455b441c4a58b3bddb93d77278ad85a5008f2f8c500fd10e129d048fcee",
+      "guide_page": "reference/options/language.md",
+      "semantic_rows": [
+        37,
+        38,
+        39
+      ]
+    },
+    {
+      "source_url": "https://docs.mp3tag.de/customization/options/library/",
+      "source_sha256": "131136398ce012a078512db4fe993ef47dc9e26d2838a24ca2f7e27ce2693632",
+      "guide_page": "reference/options/library.md",
+      "semantic_rows": [
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47,
+        48,
+        49,
+        50
+      ]
+    },
+    {
+      "source_url": "https://docs.mp3tag.de/customization/options/messages/",
+      "source_sha256": "7b37b16ce33efe0e2d5945441ad86da1af30d824955fc1a90ad0cf9f6fcdcc7e",
+      "guide_page": "reference/options/messages.md",
+      "semantic_rows": [
+        51,
+        52,
+        53,
+        54,
+        55,
+        56,
+        57,
+        58,
+        59,
+        60,
+        61,
+        62
+      ]
+    },
+    {
+      "source_url": "https://docs.mp3tag.de/customization/options/networking/",
+      "source_sha256": "8c3a58f329ff50d85dec42aa49e0bd7b8a6a79a62f1f7df860a13007e7f59886",
+      "guide_page": "reference/options/networking.md",
+      "semantic_rows": [
+        63,
+        64
+      ]
+    },
+    {
+      "source_url": "https://docs.mp3tag.de/customization/options/playlist/",
+      "source_sha256": "54f3c7c6024ebd8064618a8aababaf28e408e75c0663fb59885abbb9c1bf26ba",
+      "guide_page": "reference/options/playlist.md",
+      "semantic_rows": [
+        65,
+        66,
+        67,
+        68,
+        69,
+        70,
+        71,
+        72
+      ]
+    },
+    {
+      "source_url": "https://docs.mp3tag.de/customization/options/tag-panel/",
+      "source_sha256": "dda9fb42eb6d7a8f0eaafb9eb8a54891ff19ae431cd86202a4edcbaa7bb3798c",
+      "guide_page": "reference/options/tag-panel.md",
+      "semantic_rows": [
+        73,
+        74
+      ]
+    },
+    {
+      "source_url": "https://docs.mp3tag.de/customization/options/tag-sources/",
+      "source_sha256": "e0f566aea92fff7d81f53127475a711d2b97a1cbb403a491167a34e843c633da",
+      "guide_page": "reference/options/tag-sources.md",
+      "semantic_rows": [
+        75,
+        76,
+        77
+      ]
+    },
+    {
+      "source_url": "https://docs.mp3tag.de/customization/options/tag-sources/freedb/",
+      "source_sha256": "e2d4891619221610f3069fbd4b2afbfa451df976b714f316229add66092cb638",
+      "guide_page": "reference/options/tag-sources-freedb.md",
+      "semantic_rows": [
+        78,
+        79,
+        80,
+        81,
+        82,
+        83,
+        84,
+        85,
+        86
+      ]
+    },
+    {
+      "source_url": "https://docs.mp3tag.de/customization/options/tag-sources/local-freedb/",
+      "source_sha256": "96916cee9765446ba4537f5703ef1c5639051b24b8ab65c6fa48293643239454",
+      "guide_page": "reference/options/tag-sources-local-freedb.md",
+      "semantic_rows": [
+        87,
+        88,
+        89,
+        90
+      ]
+    },
+    {
+      "source_url": "https://docs.mp3tag.de/customization/options/tags/",
+      "source_sha256": "0ab3f458a057c11882923afa32ca4093b91d400c495e46231fb46393a261541a",
+      "guide_page": "reference/options/tags.md",
+      "semantic_rows": [
+        91,
+        92,
+        93,
+        94,
+        95,
+        96,
+        149
+      ]
+    },
+    {
+      "source_url": "https://docs.mp3tag.de/customization/options/tags/advanced/",
+      "source_sha256": "3d8a0cf4141c4d7cb1ae39c906fb3bf874a2a85ed0ff9263c3f17994ea00172a",
+      "guide_page": "reference/options/tags-advanced.md",
+      "semantic_rows": [
+        97,
+        98,
+        99,
+        100,
+        101,
+        102,
+        103,
+        104,
+        105,
+        106,
+        107
+      ]
+    },
+    {
+      "source_url": "https://docs.mp3tag.de/customization/options/tags/ape/",
+      "source_sha256": "f53c47887c0c298c7815ab34eb6c208e0324152aadc996bd63e75188f3e3e3c0",
+      "guide_page": "reference/options/tags-ape-mpc.md",
+      "semantic_rows": [
+        108,
+        109,
+        110,
+        111,
+        112,
+        113,
+        114,
+        115
+      ]
+    },
+    {
+      "source_url": "https://docs.mp3tag.de/customization/options/tags/mapping/",
+      "source_sha256": "3f1e6ef775b36883cf59ef682e3e613efcc24f2315a8e86ebb72f79001676ec8",
+      "guide_page": "reference/options/tags-mapping.md",
+      "semantic_rows": [
+        116,
+        117,
+        118,
+        119,
+        120,
+        121,
+        122
+      ]
+    },
+    {
+      "source_url": "https://docs.mp3tag.de/customization/options/tags/mpeg/",
+      "source_sha256": "8459cfb438c9d1bbe19ee684b93188b13194d86357a0f34a0bc5fa46ba3e6221",
+      "guide_page": "reference/options/tags-mpeg.md",
+      "semantic_rows": [
+        123,
+        124,
+        125,
+        126,
+        127,
+        128,
+        129,
+        130,
+        131,
+        132,
+        133,
+        134,
+        135
+      ]
+    },
+    {
+      "source_url": "https://docs.mp3tag.de/customization/options/tools/",
+      "source_sha256": "8c08e00ab51a960d5df47d41f219b347b344dba3fffa307f8dec2462d4ade971",
+      "guide_page": "reference/options/tools.md",
+      "semantic_rows": [
+        136,
+        137,
+        138,
+        139,
+        140,
+        141,
+        142,
+        143,
+        144,
+        145
+      ]
+    },
+    {
+      "source_url": "https://docs.mp3tag.de/customization/options/updates/",
+      "source_sha256": "b968ed8ae6b1362de0b76c2dbc227d845462037e98fec5ca76649e380f85f2f7",
+      "guide_page": "reference/options/updates.md",
+      "semantic_rows": [
+        146,
+        147,
+        148
+      ]
+    }
+  ]
+}

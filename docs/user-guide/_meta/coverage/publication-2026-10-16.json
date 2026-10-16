@@ -1,0 +1,256 @@
+{
+  "base": "https://johnneerdael.github.io/opentag/",
+  "pages": [
+    {
+      "path": "",
+      "status": 200,
+      "title": "OpenTag user guide",
+      "sha256": "bfb4add7ee2f7865c088bb00095e41eaaf06d7c872f3f03ed1556d970ab49953",
+      "matches_local_approved_build": true
+    },
+    {
+      "path": "learn/first-tagging-session/",
+      "status": 200,
+      "title": "Your first tagging session - OpenTag user guide",
+      "sha256": "2c8d222b99e58dd51b6fb0b597029ccebd802613db3f82576897256fea62802e",
+      "matches_local_approved_build": true
+    },
+    {
+      "path": "reference/format-strings/",
+      "status": 200,
+      "title": "Format strings - OpenTag user guide",
+      "sha256": "1395c0dd265476e3c064b2c0331242f2b38c823aa6f6407765038c8fbe650eeb",
+      "matches_local_approved_build": true
+    },
+    {
+      "path": "reference/placeholders/",
+      "status": 200,
+      "title": "Placeholders - OpenTag user guide",
+      "sha256": "905d63a758c2815920849b6cefd9aeebf9682c216d1aade244f532407516275f",
+      "matches_local_approved_build": true
+    },
+    {
+      "path": "reference/regular-expressions/",
+      "status": 200,
+      "title": "Regular expressions - OpenTag user guide",
+      "sha256": "1102a2b827e79853a674a1bf2cac548174b902d3fe672568e380ccb26728e035",
+      "matches_local_approved_build": true
+    },
+    {
+      "path": "cookbook/rename-zero-padded-track-numbers/",
+      "status": 200,
+      "title": "Zero-padded track numbers - OpenTag user guide",
+      "sha256": "2e39b7c2890e7e0b3689813057992546a2572492b383502461849c151413210c",
+      "matches_local_approved_build": true
+    },
+    {
+      "path": "cookbook/tags-from-folder-and-filename/",
+      "status": 200,
+      "title": "Tags from folder and file names - OpenTag user guide",
+      "sha256": "8008bbaaf07311795c4943b25dffbda339466d7e70e27af17fc3198d62375ff8",
+      "matches_local_approved_build": true
+    },
+    {
+      "path": "cookbook/feat-artists-to-title/",
+      "status": 200,
+      "title": "Move guest artists to titles - OpenTag user guide",
+      "sha256": "df72dc921d036d31d3316baab56013f6a245d7840fe5cbd951f23ba903548c0f",
+      "matches_local_approved_build": true
+    }
+  ],
+  "search": {
+    "status": 200,
+    "unique_page_locations": [
+      "",
+      "cookbook/feat-artists-to-title/",
+      "cookbook/rename-zero-padded-track-numbers/",
+      "cookbook/tags-from-folder-and-filename/",
+      "learn/first-tagging-session/",
+      "reference/format-strings/",
+      "reference/placeholders/",
+      "reference/regular-expressions/"
+    ],
+    "entries": 86,
+    "only_initial_eight": true
+  },
+  "image": {
+    "url": "https://johnneerdael.github.io/opentag/assets/brand/mark.svg",
+    "status": 200,
+    "content_type": "image/svg+xml",
+    "bytes": 3124
+  },
+  "verified_utc": "2026-10-16T00:29:15.307887+00:00",
+  "source_commit": "5f4112efd8297cc8a183a47b76e76720490b4238",
+  "approved_pr_head": "93cc2a92d8e6d05adeb9415bb5335516ed413460",
+  "release_run": 38829167747,
+  "pages_job": 116743924962,
+  "deployment_id": 7107679677,
+  "browser_ui": "Not verified: two tab-creation timeouts and a subsequent browser-inventory timeout reset Cua. No browser installation changes attempted.",
+  "navigation_verification": "Public HTML byte-matches approved build; interactive browser navigation/search not verified after bounded tool failures.",
+  "same_origin_asset_verification": {
+    "source_commit": "5f4112efd8297cc8a183a47b76e76720490b4238",
+    "verified_utc": "2026-10-16T01:09:27.113168+00:00",
+    "pages_checked": 8,
+    "same_origin_assets_checked": 19,
+    "search_worker_urls": [
+      "https://johnneerdael.github.io/opentag/assets/javascripts/workers/search.2c215733.min.js"
+    ],
+    "failures": [],
+    "assets": [
+      {
+        "url": "https://johnneerdael.github.io/opentag/assets/brand/favicon.png",
+        "status": 200,
+        "content_type": "image/png",
+        "exit_code": 0,
+        "bytes": 69351,
+        "sha256": "1f4c4be4f8d6466a48db35e87a2d5bfba76c020153a92144c8ef32af83ed443d"
+      },
+      {
+        "url": "https://johnneerdael.github.io/opentag/assets/brand/logo-on-dark.svg#only-dark",
+        "status": 200,
+        "content_type": "image/svg+xml",
+        "exit_code": 0,
+        "bytes": 5375,
+        "sha256": "780e78c1943a0a22307776d46263de69413b07cfed63d85d9ed445c4ae87ea78"
+      },
+      {
+        "url": "https://johnneerdael.github.io/opentag/assets/brand/logo-on-light.svg#only-light",
+        "status": 200,
+        "content_type": "image/svg+xml",
+        "exit_code": 0,
+        "bytes": 5376,
+        "sha256": "a01370876f6e0b85ae1b0e62b6d89669198b83f92e74e4cfbc2bfa62eb756901"
+      },
+      {
+        "url": "https://johnneerdael.github.io/opentag/assets/brand/mark.svg",
+        "status": 200,
+        "content_type": "image/svg+xml",
+        "exit_code": 0,
+        "bytes": 3124,
+        "sha256": "d3e0e1c6f459669ccf460ccd35a973174e1f4f236845bcd2a5c3ff54330dbb78"
+      },
+      {
+        "url": "https://johnneerdael.github.io/opentag/assets/javascripts/bundle.d7400e89.min.js",
+        "status": 200,
+        "content_type": "application/javascript; charset=utf-8",
+        "exit_code": 0,
+        "bytes": 114286,
+        "sha256": "f288ab99e197c406766aea4581ba6e902d7d0e28c013bdd3cd3fab6cc77fb7c8"
+      },
+      {
+        "url": "https://johnneerdael.github.io/opentag/assets/javascripts/workers/search.2c215733.min.js",
+        "status": 200,
+        "content_type": "application/javascript; charset=utf-8",
+        "exit_code": 0,
+        "bytes": 39481,
+        "sha256": "cfb35333fafd6d2eb148eba21452849fb7fbde32fdfbf986836573f963106188"
+      },
+      {
+        "url": "https://johnneerdael.github.io/opentag/assets/screens/extended-tags-dark.png#only-dark",
+        "status": 200,
+        "content_type": "image/png",
+        "exit_code": 0,
+        "bytes": 100847,
+        "sha256": "1ec3cac70171e0f3de5ca87c8a897c26a10bfe1e4a39857b9bf920ee21fb5948"
+      },
+      {
+        "url": "https://johnneerdael.github.io/opentag/assets/screens/extended-tags-light.png#only-light",
+        "status": 200,
+        "content_type": "image/png",
+        "exit_code": 0,
+        "bytes": 111352,
+        "sha256": "ebe8501137291580dbfe2f1e851e25527c5d82b9b74ddcd7e01e69f0d214b3b6"
+      },
+      {
+        "url": "https://johnneerdael.github.io/opentag/assets/screens/main-window-dark.png#only-dark",
+        "status": 200,
+        "content_type": "image/png",
+        "exit_code": 0,
+        "bytes": 83426,
+        "sha256": "e1627bbd11c1d674a6e979197f2e3d400873a11a7375f98d718a181b26dbed1c"
+      },
+      {
+        "url": "https://johnneerdael.github.io/opentag/assets/screens/main-window-light.png#only-light",
+        "status": 200,
+        "content_type": "image/png",
+        "exit_code": 0,
+        "bytes": 82974,
+        "sha256": "de56a0fe6a0ee3ec2b1628799d7113525d31c80cfd16671d726f4195c50457cf"
+      },
+      {
+        "url": "https://johnneerdael.github.io/opentag/assets/screens/menu-convert-dark.png#only-dark",
+        "status": 200,
+        "content_type": "image/png",
+        "exit_code": 0,
+        "bytes": 88580,
+        "sha256": "88e6564a902f8a3b8a74c7de0b4ddbcaa4c244be9bbde77ae8ffa4a85e4589a8"
+      },
+      {
+        "url": "https://johnneerdael.github.io/opentag/assets/screens/menu-convert-light.png#only-light",
+        "status": 200,
+        "content_type": "image/png",
+        "exit_code": 0,
+        "bytes": 91569,
+        "sha256": "eaca35c0f86ecc308be0e029afb2e59a3251308d7e0ea3468b867f7be37a2be3"
+      },
+      {
+        "url": "https://johnneerdael.github.io/opentag/assets/screens/tag-panel-keep-dark.png#only-dark",
+        "status": 200,
+        "content_type": "image/png",
+        "exit_code": 0,
+        "bytes": 79762,
+        "sha256": "988d58d0bb2ee64f1f80aaa021b3decd18a07ec3fcb2cb469a7ff45f2ec39148"
+      },
+      {
+        "url": "https://johnneerdael.github.io/opentag/assets/screens/tag-panel-keep-light.png#only-light",
+        "status": 200,
+        "content_type": "image/png",
+        "exit_code": 0,
+        "bytes": 81536,
+        "sha256": "3acb3c7c66d126bf7ed870bc90e2f3d86285083d645c4327be9cf44ab9a0e4a7"
+      },
+      {
+        "url": "https://johnneerdael.github.io/opentag/assets/screens/tag-to-filename-dark.png#only-dark",
+        "status": 200,
+        "content_type": "image/png",
+        "exit_code": 0,
+        "bytes": 95852,
+        "sha256": "328a8b4c35b751590895ff2625fd1d5df97ac36af32964dcd64528296d572e16"
+      },
+      {
+        "url": "https://johnneerdael.github.io/opentag/assets/screens/tag-to-filename-light.png#only-light",
+        "status": 200,
+        "content_type": "image/png",
+        "exit_code": 0,
+        "bytes": 107091,
+        "sha256": "f2e73be34e6c83bc8c09d9948ae662df6e6265e51fef4fbba4376f1196b2f8a6"
+      },
+      {
+        "url": "https://johnneerdael.github.io/opentag/assets/stylesheets/main.ec1eaa64.min.css",
+        "status": 200,
+        "content_type": "text/css; charset=utf-8",
+        "exit_code": 0,
+        "bytes": 139846,
+        "sha256": "ec1eaa640ab3790ea234d5a09da26015eb070222da8185a1e532d99cb022d68d"
+      },
+      {
+        "url": "https://johnneerdael.github.io/opentag/assets/stylesheets/palette.ab4e12ef.min.css",
+        "status": 200,
+        "content_type": "text/css; charset=utf-8",
+        "exit_code": 0,
+        "bytes": 12641,
+        "sha256": "ab4e12ef511f9c36de818455892c5c57cc3f98a8c86c36fa609601a88a720da2"
+      },
+      {
+        "url": "https://johnneerdael.github.io/opentag/stylesheets/opentag.css",
+        "status": 200,
+        "content_type": "text/css; charset=utf-8",
+        "exit_code": 0,
+        "bytes": 6234,
+        "sha256": "1bb9aba6e23e0c99534730d410556d4c610873bc952276b445ebb42f47bf27ef"
+      }
+    ],
+    "limits": "HTTP availability only, no live browser execution; external font stylesheets excluded",
+    "checker_correction": "Initial checker double-applied config.base when resolving nested search URLs. Actual bundle passes config.search directly to new Worker(), relative to document URL. All8configurations resolve to the same existing worker; initial7constructed404URLs were not site references."
+  }
+}
