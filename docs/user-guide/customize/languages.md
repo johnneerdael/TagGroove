@@ -63,6 +63,11 @@ replaces that bundled catalog; removing it restores the bundled version on
 the next reload. An `en.json` override also applies to native dialogs and tray
 labels.
 
+At desktop startup, the interface waits for the saved language and available
+catalogs before it becomes visible and interactive. If settings cannot be read,
+OpenTag tries the last remembered language. Missing or unreadable catalogs still
+use the fallback and warning behavior below.
+
 ## Gotchas
 
 - Missing entries or entries with mismatched placeholders fall back to

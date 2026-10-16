@@ -152,7 +152,7 @@ test('launch locations reach the real header and native-title renderers with the
         const locationView=rendererVariable(parsed,'locationView',{entry:undefined,providerEntry:()=>false,providerState:undefined,sourcePresentation,location,locationIsData});
         p.body.innerHTML=rendererVariable(parsed,'locationMarkup',{esc,locationView});p.translate(locale,catalog);
         assert.equal(p.body.querySelector('.path').textContent,shown);assert.equal(p.body.querySelector('.path').title,shown);
-        const values={translate:text=>t.translate(text),windowTitle,location,locationIsData,optionsUI:{settings:defaultSettings()},desktop:true,getCurrentWindow:()=>({setTitle:async title=>titles.push(title)})};
+        const values={app:{inert:false},translate:text=>t.translate(text),windowTitle,location,locationIsData,optionsUI:{settings:defaultSettings()},desktop:true,getCurrentWindow:()=>({setTitle:async title=>titles.push(title)})};
         new Function(...Object.keys(values),`let shownTitle='';${js};return syncWindowTitle;`)(...Object.values(values))();
         assert.deepEqual(titles,[t.t('OpenTag — {location}',{location:shown})]);return true;
       }});
@@ -224,7 +224,7 @@ test('the native window-title wrapper translates generated locations once and pr
     const cases=[['Provider documents',false,t.t('Provider documents')],['2 added locations',false,t.t('{length} added locations',{length:2})],['No folder loaded',false,null],['No folder loaded',true,'No folder loaded'],['Provider documents',true,'Provider documents'],['2 added locations',true,'2 added locations'],['/My  Files/Help\nTitle',true,'/My  Files/Help\nTitle']];
     for(const [location,locationIsData,label] of cases)for(const show of [false,true]){
       const settings=defaultSettings();settings.general.show_directory_in_title=show;const calls=[];
-      const values={translate:text=>t.translate(text),windowTitle,location,locationIsData,optionsUI:{settings},desktop:true,getCurrentWindow:()=>({setTitle:async title=>{calls.push(title);}})};
+      const values={app:{inert:false},translate:text=>t.translate(text),windowTitle,location,locationIsData,optionsUI:{settings},desktop:true,getCurrentWindow:()=>({setTitle:async title=>{calls.push(title);}})};
       const sync=new Function(...Object.keys(values),`let shownTitle='';${js};return syncWindowTitle;`)(...Object.values(values));
       sync();await Promise.resolve();
       assert.deepEqual(calls,[show&&label!==null?t.t('OpenTag — {location}',{location:label}):'OpenTag']);
@@ -425,7 +425,7 @@ test('the production Language page exposes its folder action only after a native
       const languagePage=rendererVariable(parsed,'languagePage',{desktop,ENGLISH:english,languageOptionsPage,onLanguageChange:()=>()=>{},invoke:async(command,args)=>{calls.push([command,args]);}});
       if(family&&desktop){
         const values={languagePage,render:()=>{},syncNativeAppearance:()=>{},optionsReady:Promise.resolve(),fileOps:{initialize:async()=>{}},run:async()=>{}};
-        await new Function(...Object.keys(values),`let runtimePlatform={},nativeAppearanceReady=false;${js}`)(...Object.values(values))({family,folder_picker_supported:family==='desktop',document_access_supported:family!=='desktop'});
+        await new Function(...Object.keys(values),`let runtimePlatform={},nativeAppearanceReady=false,directoriesReady=Promise.resolve();${js}`)(...Object.values(values))({family,folder_picker_supported:family==='desktop',document_access_supported:family!=='desktop'});
       }
       p.body.innerHTML=languagePage.controls.map(controlMarkup).join('');p.translate('de');
       const button=p.body.querySelector('[data-option-button="open-languages-folder"]'),supported=desktop&&family==='desktop';

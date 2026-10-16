@@ -12,7 +12,7 @@ import { ExportUI, offerOpenOutputs, type ExportLibrary, type ExportConfiguratio
 import { OptionsUI, registerOptionsPage, naturalCollator, setNotificationAreaSupport, windowTitle, type Settings, type SettingsResponse } from './options-ui';
 import { createNumberingReview, numberingCounter, numberingTotal, recallNumbering, rememberNumbering, type NumberingRequest, type NumberingUpdate } from './numbering-review';
 import { open, save, ask, message } from './i18n/dialog';
-import { ENGLISH, setUserCatalogs, installTranslation, setLanguage, t, translate, translateNow, onLanguageChange } from './i18n';
+import { ENGLISH, setUserCatalogs, installTranslation, setLanguage, t, translate, translateNow, onLanguageChange, languageChoice } from './i18n';
 import { languageOptionsPage, languageSetting, languageReadWarnings, languageWarningText, type CatalogReadError } from './language-options';
 import { Messages, messagesOptionsPage, coverChoice, type MessageKey } from './messages';
 import { appearanceOptions, notificationAreaKey, completeInput, generalOptions, insideFolders, networkingOptionsPage, releaseNotesUrl, showReleaseNotes, updateMessage, updateOptions, updatesOptionsPage, type UpdateCheck } from './general-options';
@@ -159,6 +159,10 @@ function updateLayout(next:MainLayout,rerender=false){
 }
 applyLayoutVars();
 const app = document.querySelector<HTMLDivElement>('#app')!;
+// Keep layout/DOM initialization available while native catalogs and settings load.
+app.style.visibility = desktop ? 'hidden' : '';
+app.inert = desktop;
+document.addEventListener('keydown',event=>{if(app.inert){event.preventDefault();event.stopImmediatePropagation();}},true);
 const entries = new Map<string, Entry>();
 const drafts = new Map<string, Fields>();
 // Covers pasted with Paste/Cut tags, written by the next save. A file with pending covers always has a (possibly empty) draft.
@@ -395,18 +399,18 @@ const rowMenu=new RowContextMenu({
   activate:id=>{if(id.startsWith('tool:'))void toolsUI.run(Number(id.slice(5)));else void operate(id.slice(3) as Operation);},
 });
 let shownTitle='';
-function syncWindowTitle(){const title=translate(windowTitle(location,optionsUI.settings,{isData:locationIsData,translate}));if(desktop&&title!==shownTitle){shownTitle=title;void getCurrentWindow().setTitle(title).catch(()=>{shownTitle='';});}}
+function syncWindowTitle(){if(app.inert)return;const title=translate(windowTitle(location,optionsUI.settings,{isData:locationIsData,translate}));if(desktop&&title!==shownTitle){shownTitle=title;void getCurrentWindow().setTitle(title).catch(()=>{shownTitle='';});}}
 // Read preferences change which tag is displayed, so reload files without pending edits.
 // Options → Language: catalogs from the languages folder (read again on every OK) and the chosen language.
 // A copied template takes its locale from its filename, rather than overriding English.
 const languagePage=languageOptionsPage({warningText:warning=>languageWarningText(warning,t),onLanguageChange,folderSupported:false,openFolder:desktop?()=>invoke<void>('open_languages_folder',{template:`${JSON.stringify({...ENGLISH,'@meta':{name:''}},null,1)}\n`}):undefined});
 registerOptionsPage(languagePage);
-async function applyLanguage(){
+async function applyLanguage(choice=languageSetting(optionsUI.page('language'))){
   if(desktop){
     try{const found=await invoke<{catalogs:{file:string;catalog:unknown}[];errors:CatalogReadError[]}>('language_catalogs');languagePage.refresh([...languageReadWarnings(found.errors),...setUserCatalogs(found.catalogs)]);}
     catch(error){languagePage.refresh([{message:publicMessage(error)}]);}
   }
-  if(setLanguage(languageSetting(optionsUI.page('language')))){shownTitle='';void applyNotificationArea();render();}
+  if(setLanguage(choice)){shownTitle='';void applyNotificationArea();render();}
 }
 async function optionsApplied(next:Settings,previous:Settings){
   await applyLanguage();
@@ -2020,15 +2024,16 @@ if(desktop){
   void actionUI.initialize().catch(error=>{errors=[{path:'Action groups',error:String(error)}];render();});
   void invoke<ColumnLayout|null>('load_columns').then(layout=>{if(layout){columnLayout=normalizeLayout(layout);render();}}).catch(error=>{errors=[{path:'Columns',error:String(error)}];render();});
   void tagPanel.initialize().catch(error=>{errors=[{path:'Tag panel',error:String(error)}];render();});
-  const optionsReady=optionsUI.initialize().then(response=>{collator=naturalCollator(response.settings);toolbarConfig=normalizeToolbar(response.settings.pages.toolbar);customToolbar=normalizeCustomToolbar(response.settings.pages['custom-toolbar']);if(response.settings.pages.layout)updateLayout(normalizeMainLayout(response.settings.pages.layout));void applyLanguage();void applyNotificationArea();changedData();applyAppearancePrefs();if(response.warning)errors=[...errors,{path:'Options',error:response.warning}];render();}).catch(error=>{errors=[...errors,{path:'Options',error:String(error)}];render();});
+  const optionsReady=optionsUI.initialize().then(async response=>{collator=naturalCollator(response.settings);toolbarConfig=normalizeToolbar(response.settings.pages.toolbar);customToolbar=normalizeCustomToolbar(response.settings.pages['custom-toolbar']);if(response.settings.pages.layout)updateLayout(normalizeMainLayout(response.settings.pages.layout));await applyLanguage();void applyNotificationArea();changedData();applyAppearancePrefs();if(response.warning)errors=[...errors,{path:'Options',error:response.warning}];render();}).catch(async error=>{errors=[...errors,{path:'Options',error:String(error)}];await applyLanguage(languageChoice());}).finally(()=>{render();translateNow(app);app.inert=false;app.style.visibility='';syncWindowTitle();});
+  let directoriesReady=Promise.resolve();
   void Promise.all([optionsReady,versionReady]).then(([,version])=>version?startupUpdates(version):undefined);
-  void invoke<typeof runtimePlatform>('runtime_platform').then(async platform=>{runtimePlatform=platform;nativeAppearanceReady=platform.family==='desktop';languagePage.setFolderSupport(platform.family==='desktop');render();syncNativeAppearance();if(platform.folder_picker_supported)void optionsReady.then(()=>fileOps.initialize()).catch(error=>{errors=[{path:'Directories',error:String(error)}];render();});if(platform.document_access_supported)await run('Restoring recovery copies…',async()=>{const batch=await invoke<Batch>('restore_document_recovery');accept(batch,'Restored recovery copies',false);location='Provider documents';locationIsData=false;if(!selected.size&&batch.entries.length){selected.add(batch.entries[0].path);anchor=batch.entries[0].path;}if(!batch.entries.length&&!batch.errors.length)status='Ready';});}).catch(error=>{errors=[{path:'Platform',error:String(error)}];render();});
+  const platformReady=invoke<typeof runtimePlatform>('runtime_platform').then(async platform=>{runtimePlatform=platform;nativeAppearanceReady=platform.family==='desktop';languagePage.setFolderSupport(platform.family==='desktop');render();syncNativeAppearance();if(platform.folder_picker_supported)directoriesReady=optionsReady.then(()=>fileOps.initialize()).catch(error=>{errors=[{path:'Directories',error:String(error)}];render();});if(platform.document_access_supported){await optionsReady;await run('Restoring recovery copies…',async()=>{const batch=await invoke<Batch>('restore_document_recovery');accept(batch,'Restored recovery copies',false);location='Provider documents';locationIsData=false;if(!selected.size&&batch.entries.length){selected.add(batch.entries[0].path);anchor=batch.entries[0].path;}if(!batch.entries.length&&!batch.errors.length)status='Ready';});}}).catch(error=>{errors=[{path:'Platform',error:String(error)}];render();});
   void listen<{job:string;done:number;total:number}>('opentag://progress',event=>{const job=progressJob;if(!job||event.payload.job!==job.id)return;job.done=event.payload.done;job.total=event.payload.total;showProgress();}).catch(()=>{/* Progress is optional; operations still complete. */});
   void webSourcesUI.refresh();
   // Sources copied into the folder by hand appear when the window is used again.
   void listen('opentag://web-sources',()=>void webSourcesUI.refresh()).catch(()=>{/* The menu also refreshes on focus. */});
   window.addEventListener('focus',()=>void webSourcesUI.refresh());
-  void listen('opentag://launch',()=>{if(runtimePlatform.folder_picker_supported)void fileOps.takeLaunches().catch(error=>{errors=[{path:'Command line',error:String(error)}];render();});}).catch(error=>{errors=[{path:'Command line',error:String(error)}];render();});
+  void listen('opentag://launch',()=>{void platformReady.then(async()=>{await directoriesReady;if(runtimePlatform.folder_picker_supported)await fileOps.takeLaunches();}).catch(error=>{errors=[{path:'Command line',error:String(error)}];render();});}).catch(error=>{errors=[{path:'Command line',error:String(error)}];render();});
   void getCurrentWindow().onCloseRequested(async event => {
     if(busy){event.preventDefault();return;}
     if(!drafts.size&&!actionUI.hasUnsavedChanges)return;
@@ -2038,7 +2043,8 @@ if(desktop){
       await getCurrentWindow().destroy();
     }
   }).catch(error=>{errors=[{path:'Window',error:String(error)}];render();});
-  void getCurrentWebview().onDragDropEvent(event=>{
+  void getCurrentWebview().onDragDropEvent(async event=>{
+    await optionsReady;await platformReady;await directoriesReady;
     document.querySelector('.drop-overlay')?.remove();
     // A cover dragged out of the cover window is not dropped back in.
     if(coverUI.draggingOut)return;

@@ -25,6 +25,11 @@ as separate entries, with each filename and count kept together. OpenTag's
 warning text follows the selected language; parser and operating-system details
 keep their original wording.
 
+The desktop interface becomes visible after its initial settings and catalog
+load settles. This includes overrides of shipped languages and custom catalogs
+selected by **System default**. A settings-read failure tries the device's last
+remembered language; unavailable catalogs follow the fallback rules below.
+
 Application-owned accessible labels follow the selected language too, including
 cover types and states. Type labels in the cover viewer and **Extract cover**
 dialog follow that language beside unchanged counters and image properties.
