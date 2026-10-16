@@ -83,9 +83,10 @@ filesystem, network share or device. Preview and test the actual destination.
 
 Required empty fields need attention before applying. A missing artist can
 leave a leading separator and change the destination root: stop and correct
-that field rather than applying the unexpected path. A missing album leaves
-an empty component, a missing title can produce an incomplete name, and a
-missing/nonnumeric track can become `00`. Do not treat a syntactically valid
+that field rather than applying the unexpected path. A missing album can leave
+an empty component, or only the optional year suffix when `YEAR` is present.
+A missing title can produce an incomplete name, and a missing/nonnumeric track
+can become `00`. Do not treat a syntactically valid
 format string as proof of correct metadata.
 
 ## Variations

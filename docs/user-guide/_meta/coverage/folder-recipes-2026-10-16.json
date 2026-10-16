@@ -50,7 +50,7 @@
     ]
   },
   "page_sha256": {
-    "cookbook/rename-into-artist-album-folders.md": "bcfc59de22c62f3b4369be763d8cb63bb6b759f7440068538a9a1f3a4915430e",
+    "cookbook/rename-into-artist-album-folders.md": "2b7f8471b49ff178949b8e13423240f44e4473e54dae4da2befff4190e6ecc9b",
     "cookbook/rename-multi-disc-albums.md": "eda5efacdb21a81f777334f0c802b063495f518205ef999fb2338846e7448999",
     "cookbook/rename-compilations.md": "a03a6d9f9de650574199aa0dd84e87ed8f1e3e64e60f5421ad7ce422f865c2e2"
   },
@@ -107,7 +107,12 @@
       "receipt": "/tmp/opentag-guide-folder-recipes-browser/results.json",
       "visual_inspection": "Desktop and final390px multi-disc table manually viewed. Initial list fragmentation and comment/table separation corrected; final HTML has one ordered list with6/6/7steps and one real table per solution. Browser explicitly asserts a rendered table exists. All8 fences have copy controls (2/3/3), no clipboard API claim."
     },
-    "independent_review": "pending",
+    "independent_review": {
+      "receipt": "reviews/folder-recipes-independent-review.json",
+      "reviewed_head": "f26d839c293df48135744cef517e3fcabe925b2f",
+      "result": "Finite review: 4/4 written tests and 10 page/source hashes verified. One P3 prose finding corrected: missing ALBUM can leave an empty component or the optional year suffix, depending on YEAR. Original receipt retained unchanged.",
+      "correction_checks": "Affected folder_recipe_guide: 4 passed, zero failed; strict 130-page build and git diff --check passed. Formula/test source unchanged by the wording correction."
+    },
     "rendered_solution_structure": {
       "artist": {
         "ordered_lists": 1,

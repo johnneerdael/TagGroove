@@ -311,3 +311,18 @@ requirement and the narrow limits. Missing first components, relative roots,
 extension retention, write timing and re-nesting are explained explicitly;
 no all-platform collision/alias guarantee is made. The public baseline remains
 97 pages at this checkpoint; PR31 is awaiting its existing trusted CI.
+
+## Actual 127-page publication and local recipe correction
+
+PR31 merged as `3f6639c`; GitHub Pages deployment 7115366569 succeeded for
+that source. `publication-127-2026-10-16.json` records the deployment API
+evidence and actual public Chrome checks: new homepage links, two new
+chapters, search/result navigation, light/dark, sampled 390px tables with
+real horizontal scrolling, and clipped pointer-only nested drawer navigation.
+The same-profile search response matches 127 routes / 1,040 entries and the
+verified public hash. Two initial harness waits selected search-panel
+headings instead of the main article; the receipt retains that diagnosis.
+The public guide has 127 completed pages and 60 drafts remain excluded. The
+three subsequent folder-layout recipes remain local-only (130 authored / 57 drafts).
+Their finite peer receipt is preserved unchanged; its single P3 finding is
+corrected by qualifying a missing album as empty or year-suffix-only.
