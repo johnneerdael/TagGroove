@@ -127,9 +127,10 @@
     "first-use-v0.2.12-inspection.json": "d0a7bf6d6c31018e1511e2327ba8ed5bf7aadd58253c46fe20143fe58a33a638",
     "first-use-v0.2.12-release-manifest.json": "2858e387ac6679adcabc6223951ac0a44f2611e4cbda2022d1e7d487b76cea4b",
     "reviews/folder-recipes-independent-review.json": "15d308f8c72f13f0a702294b918595fdf9d142f3a4e50c81bf3096f1a3700486",
-    "reviews/playlist-chapters-independent-review.json": "0b60f0813bab208ed49d488295263da0cb92d2faf4b73216ce656964f0597b58"
+    "reviews/playlist-chapters-independent-review.json": "0b60f0813bab208ed49d488295263da0cb92d2faf4b73216ce656964f0597b58",
+    "reviews/publication-137-independent-review.json": "25950ba02278ba7f1edc16dc571b799b2f47dfc5fe2cabff4d6a3646f53f3477"
   },
-  "review_status": "Foundation/cumulative finite peer running; exactfinalhead GitHub Codex CODE and trustedCI required before rootmerge.",
+  "review_status": "Finite independent peer19 check clean at content527d00d832ab076b45f9da2bf7849846f0ff6e46; receipt copied unchanged afterward, with no chapter/source/nav/example changes. This is not a substitute for exactfinalhead GitHub CODE or trustedCI.",
   "release_facts": "Explicitly pinned actualv0.2.12/source3f; rawmanifest/read-only2package metadata included; no installer executed.",
   "limits": [
     "Original deferredP2/pathalias/outputoverwrite work untouched; no universal collision/rollback guarantees",

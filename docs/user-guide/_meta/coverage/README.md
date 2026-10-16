@@ -369,3 +369,12 @@ is a writing/publication milestone, not complete canonical semantic coverage
 or authorization to describe unmerged PR17–20 features as available. Actual
 publication still requires final-head GitHub CODE review, trusted CI, merge
 and a new live Pages receipt.
+
+The finite independent cumulative peer review at `527d00d` found no actionable
+issue; its original receipt is preserved as
+`reviews/publication-137-independent-review.json`. It checked all four
+foundation pages, reused the prior six-page receipts, matched source/page/
+provenance hashes, independently inspected generated navigation/search/HTML
+and current release metadata, and ran the supplied focused core/model checks.
+Copying that receipt changes only authoring evidence. Final-head GitHub CODE,
+trusted CI and actual publication proof remain separate requirements.
