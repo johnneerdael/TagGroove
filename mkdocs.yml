@@ -135,6 +135,8 @@ validation:
 
 nav:
 - Home: index.md
+- Get started:
+  - Editing, saving and undo: getting-started/editing-and-saving.md
 - Learn:
   - Tutorials:
     - Your first tagging session: learn/first-tagging-session.md
@@ -144,14 +146,27 @@ nav:
     - Build your first action group: learn/first-action-group.md
     - Export a CD catalogue: learn/export-a-cd-catalogue.md
   - Concepts:
+    - What tags are: concepts/what-are-tags.md
+    - Tag formats: concepts/tag-formats.md
+    - Track and disc numbers: concepts/track-and-disc-numbers.md
+    - Cover art: concepts/cover-art.md
+    - Sort fields and compilations: concepts/sort-fields.md
+    - ReplayGain and loudness: concepts/replaygain.md
     - Multi-value fields: concepts/multi-value-fields.md
     - Text encodings and codepages: concepts/text-encodings.md
 - Guides:
   - Everyday editing:
     - The file list: guides/file-list.md
+    - The tag panel: guides/tag-panel.md
+    - Cut, copy and paste tags: guides/copy-paste-tags.md
+    - Removing tags: guides/remove-tags.md
     - Extended tags: guides/extended-tags.md
     - Working with covers: guides/covers.md
     - Filtering the file list: guides/filter.md
+    - Find text: guides/find.md
+  - Customization:
+    - File-list columns: customize/columns.md
+    - Tag panel: customize/tag-panel.md
 - Automate:
   - Converters:
     - converters/index.md
@@ -244,9 +259,30 @@ nav:
     - Playlist: reference/options/playlist.md
     - Tools: reference/options/tools.md
 - Cookbook:
+  - Inspect your files:
+    - Find missing fields: cookbook/find-missing-fields.md
+    - Find missing embedded covers: cookbook/find-missing-covers.md
+    - Find low bitrates: cookbook/find-low-bitrate.md
+  - Cover artwork:
+    - Embed each folder image: cookbook/embed-folder-jpg.md
+    - Shrink oversized covers: cookbook/resize-covers.md
+    - Keep each file’s front covers: cookbook/keep-only-front-cover.md
+  - Numbers and dates:
+    - Read or split track totals: cookbook/split-track-total.md
+    - Number tracks per folder: cookbook/number-tracks-per-folder.md
+    - Disc numbers from folders: cookbook/disc-numbers-from-folders.md
+    - Keep only the year: cookbook/year-from-date.md
+  - Clean text and credits:
+    - Remove extra spaces: cookbook/trim-spaces.md
+    - Remove trailing remaster annotations: cookbook/remove-text-in-brackets.md
+    - Split artist lists: cookbook/split-multiple-artists.md
+    - Split Artist - Title credits: cookbook/split-artist-title.md
   - Rename files and folders:
     - Zero-padded track numbers in filenames: cookbook/rename-zero-padded-track-numbers.md
   - Fix and tidy tags:
+    - Capitalization with exceptions: cookbook/fix-capitalisation.md
+    - Repair confirmed mojibake: cookbook/fix-mojibake.md
+    - Keep a reviewed field list: cookbook/remove-junk-fields.md
     - Move “feat.” artists out of the artist field: cookbook/feat-artists-to-title.md
   - Import tags:
     - Tag files from folder and file names: cookbook/tags-from-folder-and-filename.md

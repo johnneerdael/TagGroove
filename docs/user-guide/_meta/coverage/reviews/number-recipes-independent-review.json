@@ -1,0 +1,142 @@
+{
+  "reviewer": "correctness",
+  "reviewed_at": "2026-10-16T07:22:47.930478+00:00",
+  "agent": "/root/pr20_owner",
+  "head": "8a211aeb27b6ca623d463158fd55b69242be18fa",
+  "source_main": "dbcd9ce43c64e459c20553f9d14b5d77534847a0",
+  "scope": "Finite independent read-only review of four number/date cookbook pages, written core/model examples and number-recipes ledger only",
+  "findings": [],
+  "pages_reviewed": [
+    "docs/user-guide/cookbook/split-track-total.md",
+    "docs/user-guide/cookbook/number-tracks-per-folder.md",
+    "docs/user-guide/cookbook/disc-numbers-from-folders.md",
+    "docs/user-guide/cookbook/year-from-date.md"
+  ],
+  "semantic_checks": [
+    {
+      "topic": "Track/total extraction",
+      "result": "PASS",
+      "evidence": "Whole-value positive decimal regex and pattern-specific identity guard preserve nonmatches; total extraction precedes shortening TRACK, and reversed order loses the source total as documented. One-value and double-backslash exclusions match Format Value output rules. TRACKTOTAL is custom, while MP4 TOTALTRACKS shares trkn and persists when only the current number changes; simultaneous conflicting native totals and u16 bounds are accurately qualified."
+    },
+    {
+      "topic": "Per-folder numbering",
+      "result": "PASS",
+      "evidence": "Actual selected list order drives adjacent folder transitions, not global folder grouping. Shortcut overrides directory transition/reset and disc writing but does not clear remembered field resets, which the instructions explicitly clear. Total is the final assigned number of each run; start5/count3 yields7. Partial/interleaved examples match core. Preview limit100 and reviewed-plan invalidation match frontend; Stage numbers updates drafts and Save writes, with selection-autosave caveat."
+    },
+    {
+      "topic": "Disc from folders",
+      "result": "PASS",
+      "evidence": "Immediate _DIRECTORY context, case-insensitive CD prefix, permitted separators/leading zeros and positive whole-value capture match the expression. The guard avoids writing a nonmatching folder name, preserves the existing single-value fallback and excludes double-backslash splitting. No total/rename/ancestor lookup is claimed; literal Guess Values alternative is accurately distinguished."
+    },
+    {
+      "topic": "Year extraction",
+      "result": "PASS",
+      "evidence": "Left4 examples preserve the significant trailing space in May . Whole-value regex action processes each current YEAR value, leaves nonmatches/timestamps unchanged and extracts four digits from invalid-calendar-shaped input, as explicitly taught. Storage/read-back/player and immediate-action vs saved-workflow limits are preserved."
+    }
+  ],
+  "ledger": {
+    "path": "docs/user-guide/_meta/coverage/number-recipes-2026-10-16.json",
+    "hash_checks": [
+      {
+        "path": "docs/user-guide/cookbook/split-track-total.md",
+        "hash_matches": true
+      },
+      {
+        "path": "docs/user-guide/cookbook/number-tracks-per-folder.md",
+        "hash_matches": true
+      },
+      {
+        "path": "docs/user-guide/cookbook/disc-numbers-from-folders.md",
+        "hash_matches": true
+      },
+      {
+        "path": "docs/user-guide/cookbook/year-from-date.md",
+        "hash_matches": true
+      },
+      {
+        "path": "crates/tag-core/src/actions.rs",
+        "hash_matches": true,
+        "main_matches": true
+      },
+      {
+        "path": "crates/tag-core/src/script.rs",
+        "hash_matches": true,
+        "main_matches": true
+      },
+      {
+        "path": "crates/tag-core/src/numbering.rs",
+        "hash_matches": true,
+        "main_matches": true
+      },
+      {
+        "path": "crates/tag-core/src/mapping.rs",
+        "hash_matches": true,
+        "main_matches": true
+      },
+      {
+        "path": "src/numbering-review.ts",
+        "hash_matches": true,
+        "main_matches": true
+      },
+      {
+        "path": "src/main.ts",
+        "hash_matches": true,
+        "main_matches": true
+      },
+      {
+        "path": "src/tag-tag-ui.ts",
+        "hash_matches": true,
+        "main_matches": true
+      },
+      {
+        "path": "src-tauri/src/action_host.rs",
+        "hash_matches": true,
+        "main_matches": true
+      },
+      {
+        "path": "src-tauri/src/history.rs",
+        "hash_matches": true,
+        "main_matches": true
+      }
+    ],
+    "all_thirteen_hashes_match": true,
+    "all_nine_source_files_match_main": true,
+    "bounds": "Local112/75 drafts and public97/90 drafts are separated; no universal native storage, player, native UI or canonical semantic-completeness claim. Browser evidence is local-only author evidence, not publication proof."
+  },
+  "independently_executed": [
+    {
+      "kind": "Core written examples",
+      "test_source": "crates/tag-core/tests/number_recipe_guide.rs",
+      "test_source_sha256": "2c5c2514711cc074ea11b38557b2287d258ab80f18cb19d712c87e6d9b3766e2",
+      "command": "/tmp/opentag-guide-combined-target/debug/deps/number_recipe_guide-27cccc4fc41fb524 --test-threads=1",
+      "passed": 6,
+      "failed": 0,
+      "log": "/tmp/opentag-guide-number-recipes-peer-core.log",
+      "provenance": "Existing binary supplied by guide owner for exact immutable checkpoint; no cold build/Cargo invocation. Reads compiled actual Markdown fences/tables, executes actual ordered actions/numbering core under LF/CRLF, including reverse-order and interleaved-run controls."
+    },
+    {
+      "kind": "Frontend numbering-review written contract",
+      "test_source": "tests/guide-numbering-recipe.test.mjs",
+      "test_source_sha256": "8b45e62c57b6801a5eb274e798c996fefac91457af100d98916b8b75e8a8f0cf",
+      "command": "node --test /tmp/opentag-guide-numbering-peer.test.mjs",
+      "passed": 1,
+      "failed": 0,
+      "log": "/tmp/opentag-guide-number-recipes-peer-node.log",
+      "provenance": "Exact immutable test, numbering-review.ts and recipe strings; temporary loader changes only TypeScript dependency path and source/document reads. Exercises actual defaults, shortcut total mode, disabled entered-total callback, begin/complete/take and selection-order invalidation."
+    }
+  ],
+  "author_validation_not_repeated": {
+    "full_core": 529,
+    "full_ui": 348,
+    "publication": 8,
+    "strict_local_pages": 112,
+    "browser_receipt": "/tmp/opentag-guide-number-browser/results.json"
+  },
+  "limits": [
+    "No repository edits, source/P2 fixes, commits, push, PR/publishing/review requests or CI.",
+    "No full suite/cold rebuild, fresh canonical recrawl, native application save/Undo, real cross-platform storage or player compatibility test.",
+    "Prior customization/basic/cleanup batches are preserved parents, not re-audited here.",
+    "Finite peer review is not GitHub CODE approval or queue authorization."
+  ],
+  "stopped": true
+}

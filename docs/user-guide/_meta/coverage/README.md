@@ -179,3 +179,121 @@ package passed 498 tests with no failures or ignored cases; all 336 Node UI
 tests and eight publication tests passed. Strict build, writing plan, formatting
 and focused Clippy passed. These are local checks; the final head still
 requires its own clean GitHub Codex review, trusted CI and deployment proof.
+
+## Expanded live publication
+
+`publication-expanded-2026-10-16.json` records PR 30’s reviewed deployment from
+main `432d354`. All 97 public routes return HTTP 200 and exactly match the
+approved build. Search contains exactly those 97 routes and 825 section
+entries; its bytes match too. All nineteen referenced same-origin assets,
+including the actual search worker, return nonempty HTTP 200 responses.
+Actual isolated-profile Chrome checks verified tutorial palettes, command
+search and result navigation, representative 390px tables and tutorials, and
+pointer-only nested mobile navigation to Format Value. No page errors were
+observed. This does not establish native application behavior or completeness
+of the remaining ninety drafts. The next local three-page batch is separate
+from this public milestone.
+
+## Next local basic-editing checkpoint
+
+`basic-editing-2026-10-16.json` records four authored pages on editing and
+saving, the tag panel, tag copy/cut/paste and removal. They build on the three
+preserved customization/Find pages. The local navigation has 104 completed
+pages and 83 drafts; the public site still has 97 completed pages. This batch
+is held locally for finite independent review and later queue integration.
+Examples read the actual written tables under LF and CRLF, exercising the
+application models and real core tag-block removal on generated MP3 fixtures.
+The evidence does not claim native UI verification or completion of every
+canonical topic. The source baseline includes merged PR 28 (`dbcd9ce`), while
+unmerged language/provider/freedb/web-source changes remain out of scope.
+
+## Local cleanup recipes
+
+`cleanup-recipes-2026-10-16.json` records four new text/credit recipes, bringing
+the local checkpoint to 108 authored pages and 79 drafts. The public site
+remains at 97 pages. Six tests execute the actual written action tables in
+order and their before/after cases under LF and CRLF. This includes deliberate
+nonmatches, multiline anchors, existing value lists, exact deduplication and
+Guess Values ambiguity. Independent review is pending; these are source/core
+examples, not native UI or player-compatibility verification.
+
+## Local number and date recipes
+
+`number-recipes-2026-10-16.json` records four further cookbook pages, bringing
+the local checkpoint to 112 authored pages and 75 drafts. They explain
+guarded track/disc extraction, per-folder totals, and date-shape cleanup,
+including native MP4 pair/custom-field distinctions and explicit preview,
+staging, save and undo timing. Six actual core tests and one frontend model
+test read the written examples under LF and CRLF. The public baseline
+remains 97 pages; independent review and queue integration are still pending.
+These chapters do not establish full canonical coverage or native UI parity.
+
+## Local cover recipes
+
+`cover-recipes-2026-10-16.json` records three practical artwork recipes,
+bringing the local checkpoint to 115 authored pages and 72 drafts. Four
+core tests execute the written import counts, filename candidates, resize
+dimensions and per-file front-cover membership on generated image/MP3
+fixtures. Two model tests verify the written roles, partial membership and
+planned-cover flags under LF and CRLF. These are local source/core/model
+checks, not installed UI, universal native-format or player certification.
+The public baseline remains 97 pages and independent review is pending.
+
+## Local text-quality recipes
+
+`text-quality-recipes-2026-10-16.json` records three further recipes, bringing
+the local checkpoint to 118 authored pages and 69 drafts. They teach an
+explicit capitalization policy, a diagnosed UTF-8 repair, and a reviewed
+field keep-list with artwork selectors. Five tests read the actual ordered
+actions, formulas, field inventory and error cases under LF and CRLF.
+These core/source checks do not certify native UI, universal encoding
+recovery or complete container cleanup. The public baseline remains 97
+pages and finite independent review is pending.
+
+## Local foundational tag concepts
+
+`tag-concepts-2026-10-16.json` records three explanation pages, bringing the
+local checkpoint to 121 authored pages and 66 drafts. Three core tests read
+the actual field snapshots, expressions and tag-priority tables under LF and
+CRLF. An independently generated MP3 carries three conflicting tag blocks;
+read options choose the expected title/album without merging or changing
+file bytes. This does not certify other players or every native format.
+The public baseline is still 97 pages, and finite peer review is pending.
+
+## Local cover, sorting and loudness concepts
+
+Three independently authored concept chapters raise the local checkpoint to
+124 completed pages and 63 drafts. Four written-table core tests exercise
+sort-field roundtrips/fallbacks, compilation validation, ReplayGain field
+roundtrip/deletion and conditional undisplayed-APE migration in generated MP3
+files. Two frontend-model tests cover six picture-identity/order cases and
+separate column display/sort keys. LF and CRLF variants use the same written
+examples. The ledger records source/topic evidence and a bounded local browser
+sample; it does not establish player behavior or complete canonical coverage.
+The public baseline remains 97 pages. Finite peer review is pending.
+
+## Local inspection recipes
+
+Three recipes for missing fields, embedded-cover counts and bitrate thresholds
+bring the local checkpoint to 127 authored pages and 60 drafts. Four core tests
+execute fourteen written query-table cases, three main solution fences and
+additional edge cases under LF/CRLF. A generated MP3 supplies real codec,
+bitrate and zero/one-cover information while retaining the audio payload and
+external PNG. The recipes distinguish absence from empty values, external art
+from embedded counts, zero readings from positive bitrates, and filtering
+visibility from selection. Narrow query tables scroll without splitting
+expressions. This is not a native UI/player/quality test or a full canonical
+audit. The public baseline remains 97 pages; finite peer review is pending.
+
+## Cumulative 127-page publication candidate
+
+The publication branch collects thirty completed chapters on main `dbcd9ce`,
+retaining all 97 mature pages and their navigation. The new candidate ledger
+`publication-candidate-127-2026-10-16.json` records 127 completed pages, 60
+remaining drafts, current page/source hashes and final validation. Original
+finite peer receipts are preserved unchanged in `reviews/`; they do not replace
+the required clean GitHub CODE review of the final PR head. The single filter
+recipe wording finding is corrected separately and its original receipt kept.
+Historical local-only milestones above remain provenance, not current approval
+or publication claims. The candidate still requires external review, trusted
+validation, approved merge and actual expanded Pages verification.

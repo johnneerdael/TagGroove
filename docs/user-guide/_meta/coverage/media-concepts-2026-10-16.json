@@ -1,0 +1,145 @@
+{
+  "scope": "Three local conceptual chapters; no PR, publication, native UI or player test.",
+  "base_checkpoint": "79c2f49f8d2745974540d4705fc037115424e804",
+  "source_main": "dbcd9ce43c64e459c20553f9d14b5d77534847a0",
+  "canonical_source_pointers": [
+    {
+      "url": "https://docs.mp3tag.de/actions/adjust-cover/",
+      "sha256": "038bc173a6dd0d7c609254e1d664a7550d18aa805ed2f12c84e1eead41daea55"
+    },
+    {
+      "url": "https://docs.mp3tag.de/actions/remove-fields-except/",
+      "sha256": "536bf601c59be8896f6040827a3434e0fab9ea87870e278be7f2bb7cd5a57aee"
+    },
+    {
+      "url": "https://docs.mp3tag.de/customization/options/tags/",
+      "sha256": "0ab3f458a057c11882923afa32ca4093b91d400c495e46231fb46393a261541a"
+    },
+    {
+      "url": "https://docs.mp3tag.de/extended-tags/",
+      "sha256": "ac6e164ef4ef4b44e5ffd9364539e393e8ddacde399e0dcbee5abd2c1cb4136c"
+    },
+    {
+      "url": "https://docs.mp3tag.de/manage-covers/",
+      "sha256": "b72b3b769a3e6455f81b2b314ced28530ddeb767b412fc4256b636cb21d5fb87"
+    },
+    {
+      "url": "https://docs.mp3tag.de/mapping-table/",
+      "sha256": "5723424880a496c530117b0babff90832fc5402f88684e6430fa35f6a98938b0"
+    },
+    {
+      "url": "https://docs.mp3tag.de/mapping/",
+      "sha256": "fa5106511c8c508e13c3fa18cc40f90bb36e50daea39148cf5718ac0b2708c42"
+    },
+    {
+      "url": "https://docs.mp3tag.de/menus/cover/",
+      "sha256": "3574949c1aa78283be2b46b4bc58b3c92c848f53b2e15589ae3f412b171c51ad"
+    }
+  ],
+  "source_usage": "Canonical pages are topic/syntax checklists, not prose sources; actual OpenTag source defines behavior. Independent invented examples. The snapshot contains no dedicated ReplayGain concept chapter; this chapter expands its gain-field preservation and general tagging topics.",
+  "supplemental_source": {
+    "url": "https://wiki.hydrogenaudio.org/index.php?title=ReplayGain_1.0_specification",
+    "purpose": "General track/album gain and peak/playback distinction; primary ReplayGain specification search snippets available, full fetch returned403. No measurement algorithm, target loudness or player-specific behavior asserted."
+  },
+  "topics": {
+    "concepts/cover-art.md": [
+      "Folder images versus embedded per-file data and unsaved preview",
+      "Image bytes/role/description/order identity, common selection versus varying, partial membership and deliberate Apply to all",
+      "ID3v1 no artwork and MP4 Other role limitation, links to exact format reference",
+      "Dimensions versus compressed size, duplicated storage, JPEG/PNG/alpha tradeoffs, no universal player limit",
+      "Real adjustment versus suffix/display change, upscaling/no-op/quality behavior",
+      "Manage OK/direct write/external extraction/session Undo lifecycle; original files and partial outcomes"
+    ],
+    "concepts/sort-fields.md": [
+      "Display credit versus alternate sort text; artist/albumartist/album/title/composer sort counterparts",
+      "Independent list sorting and native mapping versus player conventions; three actual expressions and first-value fallback",
+      "Separate album artist/Various Artists/compilation flag; no automatic credits or universal player grouping",
+      "ID3v2/MP4 1-or-deletion versus arbitrary text native paths; rejected0/true leaves file unchanged",
+      "Extended tags staging versus immediate paths, readback/cache/Undo and originals"
+    ],
+    "concepts/replaygain.md": [
+      "Track/album gain and peak concepts distinct from encoded audio/percent/bitrate",
+      "Four invented metadata values, placeholder/readback; no invented analysis or auto-normalization promise",
+      "Custom-field storage limits and no arbitrary loudness aliases",
+      "Undisplayed APE migration requires MPEG ordinary save/removeAPE/writeID3v2, absent existing field precedence; three written scenarios",
+      "Specific migration not general Remove tag guarantee; keep lists and MP3GAIN_UNDO versus app session history",
+      "Measurement freshness after source changes and receiving-player settings separate from metadata save"
+    ]
+  },
+  "page_sha256": {
+    "concepts/cover-art.md": "4c21fc7b2c973b6c038b98dce9dbbabb7dd823a6c97029e99a41980d32f06f00",
+    "concepts/sort-fields.md": "95546de7591fc0a1c923f30683727a50887fab9c84c3acf45ab3ce194cc8c1ce",
+    "concepts/replaygain.md": "44732df9ec516ef6aef57bdca34f2877486ed7fc9ac3f1f8e2a7204e561ccbf7"
+  },
+  "source_sha256": {
+    "crates/tag-core/src/tags.rs": "4e9ab3942b42b9e22b776334d2dd8acb00849eaa7c65c892324ee4879f76f7a5",
+    "crates/tag-core/src/mapping.rs": "b36b8c65965547409b30e7e8b755aa5440d9b1a38c29622cc2db4c7ac8f374c7",
+    "crates/tag-core/src/tag_policy.rs": "3a3f246169947687223ed4c126ecec53bc7d826b713e2a50ace6edef78cd8e31",
+    "crates/tag-core/src/cover_manage.rs": "b9dbbb5ca979d89d7e88cdbcbc55037f4fdf85279bc00d808ab4a88ae7c914a6",
+    "crates/tag-core/src/cover_ops.rs": "3125445aa0344b5937bca2fae7c83662f78948318822754e35ea98277ff3e5c7",
+    "src/cover-model.ts": "6965da2e78738f7294ea92212ec22941cd9b85fffa824ed36055c3008ca14ca8",
+    "src/columns.ts": "feb41073aaa817b1e0de9b192a709e1bd7467f7505e9caf11ed2398051322bea",
+    "src/covers.ts": "8cc7fc122d978c82492812144f1fe2c917fa58c18672b83e0037393c2d9a9e9d",
+    "src/main.ts": "f9c0a56f1eba4f77bc47531a08fcd63427a2b845bc36a784b27da43146309c76"
+  },
+  "example_contracts": {
+    "new_core_tests": 4,
+    "new_model_tests": 2,
+    "sort": "Seven written fields saved/read back in generated MP3; three actual expressions and missing-sort fallback; four compilation1/error/error/deletion cases with byte-identical file on error",
+    "replaygain": "Four written fields roundtrip and explicit deletion; three written undisplayedAPE/ID3 conflict scenarios assert gains, title, artist, removedAPE and unchanged audio payload",
+    "covers": "Four written definitions/six role/description/order/missing/common cases execute actual selectionCovers model",
+    "columns": "Actual default Artist sort value and custom written separate display/key, emptykeyfallback",
+    "newline_forms": "All written tables tested under normalizedLF andCRLF; inner backtick value whitespace preserved"
+  },
+  "validation": {
+    "focused_core": "4 passed",
+    "focused_models": "2 passed",
+    "full_core": {
+      "passed": 545,
+      "failed": 0,
+      "ignored": 0
+    },
+    "full_ui": "352 passed,0 failed",
+    "publication": "8 passed",
+    "strict": "124 completed/63 drafts strict build passed",
+    "browser": {
+      "scope": "Generated local124-page guide at dbcd9ce plus twenty-seven local chapters; no public/native claim",
+      "checks": [
+        "Sort fields explanation renders in light palette",
+        "Actual rendered Related link navigates sort fields to general tag explanation",
+        "concepts/sort-fields/ fits390px document with local table scrolling",
+        "concepts/replaygain/ fits390px document with local table scrolling",
+        "concepts/cover-art/ fits390px document with local table scrolling",
+        "Actual local search finds REPLAYGAIN_TRACK_GAIN and opens the loudness concept"
+      ],
+      "errors": [],
+      "screenshots": [
+        "/tmp/opentag-guide-media-concepts-browser/desktop-sort-fields-light.png",
+        "/tmp/opentag-guide-media-concepts-browser/mobile390-sort-fields-table.png",
+        "/tmp/opentag-guide-media-concepts-browser/mobile390-gain-preservation-table.png",
+        "/tmp/opentag-guide-media-concepts-browser/mobile390-cover-identity-table.png"
+      ],
+      "success": true,
+      "profile_removed": true,
+      "receipt": "/tmp/opentag-guide-media-concepts-browser/results.json",
+      "visual_inspection": "Desktop sort fields and390px gain-preservation screenshots manually viewed; headings/table cells readable, no document-level horizontal overflow."
+    },
+    "fmt": "passed",
+    "focused_clippy": "passed",
+    "independent_review": "pending"
+  },
+  "local_completed_pages": 124,
+  "local_remaining_drafts": 63,
+  "public_baseline": {
+    "completed_pages": 97,
+    "drafts": 90,
+    "source": "dbcd9ce",
+    "twenty_seven_local_pages_unpublished": true
+  },
+  "limits": [
+    "Only generatedMP3 fixtures and actualpurefrontendmodels executed; not everytagfamily/player/native saveback tested.",
+    "Source search contains no gain analyzer in the inspected current application; no measurement/playback claim.",
+    "Pagecounts/topicchecklists do not prove full canonical semantic coverage; audit remainsopen.",
+    "NoPR/push and noapp/P2/REAchanges; future17-20features not assumed current."
+  ]
+}

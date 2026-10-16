@@ -1,0 +1,163 @@
+{
+  "scope": "Three local cover recipes; no PR/publication.",
+  "base_checkpoint": "8a211aeb27b6ca623d463158fd55b69242be18fa",
+  "source_main": "dbcd9ce43c64e459c20553f9d14b5d77534847a0",
+  "canonical_source_pointers": [
+    {
+      "url": "https://docs.mp3tag.de/actions/adjust-cover/",
+      "sha256": "038bc173a6dd0d7c609254e1d664a7550d18aa805ed2f12c84e1eead41daea55"
+    },
+    {
+      "url": "https://docs.mp3tag.de/actions/import-cover/",
+      "sha256": "1456d0252f43fa66dc93145a5ca36c0fe38a224416bafe8b779c443701fe7876"
+    },
+    {
+      "url": "https://docs.mp3tag.de/manage-covers/",
+      "sha256": "b72b3b769a3e6455f81b2b314ced28530ddeb767b412fc4256b636cb21d5fb87"
+    },
+    {
+      "url": "https://docs.mp3tag.de/menus/cover/",
+      "sha256": "3574949c1aa78283be2b46b4bc58b3c92c848f53b2e15589ae3f412b171c51ad"
+    }
+  ],
+  "source_usage": "Canonical cover/action controls are topic checklists; prose, practice data and generated image/audio fixtures independently authored. Not parity or all-format evidence.",
+  "topics": {
+    "cookbook/embed-folder-jpg.md": {
+      "Prepare one album copy": [
+        "externalfolderpreview versus embedded, writableartworkcapablelocaltags",
+        "sourcefolderconvention and noonline lookup"
+      ],
+      "Run the import once": [
+        "actualthreecontrols/template/FrontCover/keepoldpictures",
+        "technicalfolderpathalreadyendsseparator, relativeperfile versus absoluteoneimage",
+        "immediateaction versus savedgroup"
+      ],
+      "Understand adding versus replacing": [
+        "fiveactualcount/refusal cases on generatedMP3",
+        "deletionclearsallback/booklet, explicitManagealternative",
+        "invalidsourcecheckedbeforedelete; laterwriteerrors and continuationqualified"
+      ],
+      "Use a wildcard only when needed": [
+        "fourexactwritten candidates withuppercaseextension/natural2before10/nonimage/folderskip",
+        "filename-component matching notrecursivequality selection"
+      ],
+      "Verify and recover": [
+        "ID3v1noart/capabilitylimits, localactionsonly, inspecterrors/current-sessionUndo/backups"
+      ]
+    },
+    "cookbook/resize-covers.md": {
+      "Choose the scope before applying": [
+        "actionallpictures versus selectedManageAdjust, separateOKcommit",
+        "resamplingloss/square/encoding goals"
+      ],
+      "Apply a maximum-size proportional resize": [
+        "actualsettingsOriginal/High90/600maximumproportional",
+        "fouractualdimensionsinclunchangedsmallimagebytes",
+        "size-ratioexplanation andsource-tracedrole/descriptionretention"
+      ],
+      "Distinguish maximum, minimum and square policies": [
+        "sixactualdimensioncases, minimumcanenlarge",
+        "stretchversuscentercrop, smallmaximumstaysunchangedevenwithsquaremode"
+      ],
+      "Choose encoding deliberately": [
+        "Originalwritableformats, JPEGtransparencyloss versusPNG",
+        "sameformat/samedimensionsquality-onlyno-op, no guaranteedbytebudget"
+      ],
+      "Save timing and recovery": [
+        "actionimmediate/Savegroupsdefinition/ManageOK/directimmediate",
+        "readback/playerverificationlimits, recordedUndo/backups"
+      ]
+    },
+    "cookbook/keep-only-front-cover.md": {
+      "Use role-aware practice files": [
+        "fourcatalogroles/descriptions andthreeMP3filemembershipcases",
+        "filewithoutfrontendswithnoembeddedpictures; noimageidentityrecognition"
+      ],
+      "Remove only the unwanted cover rows": [
+        "CommandCtrl/Shift coverrowselection, removeplanthenOK",
+        "readerrorsmustnotbeinterpretedempty, perfilewriteerrors"
+      ],
+      "Preserve partial membership": [
+        "twoactualpresence labels In1of3",
+        "keeporiginal membership/all_filesfalse; ApplyAll intentionalredistribution",
+        "samefilemultiplefrontsretainedunlessexplicitoccurrenceremoval"
+      ],
+      "Respect formats without Front/Back roles": [
+        "MP4normalizesOther, no automaticfrontrecognition",
+        "otherrole/descriptionconstraints andfolderfallbacknotrecovery"
+      ],
+      "Recover a mistaken cleanup": [
+        "CancelbeforeOK, recordeddesktopUndoafterwrite, partialfailure/backups"
+      ]
+    }
+  },
+  "page_sha256": {
+    "cookbook/embed-folder-jpg.md": "a8e78e1062653c08ccd74d2a1002fb37ac6fd7c17a9b30f4217f8ee4df802c94",
+    "cookbook/resize-covers.md": "0441fe0ffaed26030545cd5007fdabcf5e0df2954744331022fa0484b58309a3",
+    "cookbook/keep-only-front-cover.md": "64f8cabf9c57e776b74ae4d4b95c1cd9851b89fb888bd0362ab18ab57e765d2a"
+  },
+  "source_sha256": {
+    "src/covers.ts": "8cc7fc122d978c82492812144f1fe2c917fa58c18672b83e0037393c2d9a9e9d",
+    "src/cover-model.ts": "6965da2e78738f7294ea92212ec22941cd9b85fffa824ed36055c3008ca14ca8",
+    "src/action-ui.ts": "0ab3fd434ac7729218cd8b45293014e3c232b7c1890f2bfdf1d91df5d08e4868",
+    "src-tauri/src/action_host.rs": "6da0c08ead3c66a3b4f266629573c2d0316de56a2671e870121f1518bc037486",
+    "src-tauri/src/covers.rs": "bba8c2fa3fe3fd1bb6f0004edb778f0890097161aafb9af5d6f40b25aa2bdd30",
+    "crates/tag-core/src/actions.rs": "70c80252ff553159f5c7a5563c0cc14ef0ca23f804da8071fd2dac94c97828ac",
+    "crates/tag-core/src/cover_manage.rs": "b9dbbb5ca979d89d7e88cdbcbc55037f4fdf85279bc00d808ab4a88ae7c914a6",
+    "crates/tag-core/src/cover_ops.rs": "3125445aa0344b5937bca2fae7c83662f78948318822754e35ea98277ff3e5c7",
+    "crates/tag-core/src/tags.rs": "4e9ab3942b42b9e22b776334d2dd8acb00849eaa7c65c892324ee4879f76f7a5"
+  },
+  "example_contracts": {
+    "embed": "actualsettingstemplate\u2192coreeffect/resolvedsource;5count/refusalcases on generatedMP3 withaudio retained andinvalidsourcebyteunchanged",
+    "wildcard": "4written filesystemcandidates; uppercaseFront2.PNGchosen beforefront10;invalidimage/folderskipped",
+    "resize": "actualsettingsplus4maximumdimensioncases and6alternativepolicy/scalingcases ongeneratedPNG; no-opreturnsNonekeepingbytes",
+    "fronts": "actual4picturecatalog/3filebeforeafterlists on coreMP3, plus ApplyAllcounterexample describedinprose",
+    "frontend": "2actualmodeltests checkwrittenFrontCoverlabel, managedplan/originalmembership flags and2presence labels",
+    "newline_forms": "Allactualtables parse/execute undernormalizedLFandCRLF; significantcodewhitespacepreserved"
+  },
+  "validation": {
+    "focused_core": "4passed0failed",
+    "focused_node": "2passed0failed",
+    "full_core": {
+      "passed": 533,
+      "failed": 0,
+      "ignored": 0
+    },
+    "full_ui": "350 passed before final visible-role-label readability edit; final affected2modeltests passed",
+    "publication": "8 passed",
+    "strict": "Final115completed/72drafts strictbuildpassed",
+    "fmt": "passed",
+    "focused_clippy": "passed",
+    "browser": {
+      "scope": "Generated local115-page guide at dbcd9ce plus eighteen local chapters; no public/native claim",
+      "success": true,
+      "checks": [
+        "Folder-image import recipe renders in light palette",
+        "Actual rendered link navigates import recipe to resize recipe",
+        "cookbook/embed-folder-jpg/ fits390px document with local table scrolling",
+        "cookbook/resize-covers/ fits390px document with local table scrolling",
+        "cookbook/keep-only-front-cover/ fits390px document with local table scrolling",
+        "Actual local search worker finds the Archive membership example and opens its recipe"
+      ],
+      "errors": [],
+      "profile_removed": true,
+      "receipt": "/tmp/opentag-guide-cover-browser/results.json",
+      "visual_inspection": "Desktop import introduction and final390px visible-role catalog manually viewed; improved Front/Back Cover wrapping, readable hierarchy, no documentoverflow"
+    },
+    "independent_review": "pending"
+  },
+  "local_completed_pages": 115,
+  "local_remaining_drafts": 72,
+  "public_baseline": {
+    "completed_pages": 97,
+    "drafts": 90,
+    "source": "dbcd9ce",
+    "these_eighteen_local_pages_not_published": true
+  },
+  "limits": [
+    "Generatedcoreimage/MP3fixtureandmodel/sourceevidence only; no installednativeUI/device/player/allformatssaveback claim.",
+    "Pagecounts/canonicaltopicpointersnotfullsemanticcoverage; remainingtopicfamilies/placeholderauditopen.",
+    "Queuehold: noPR/push. Pendinglanguage/provider/freedb/webchangesnotassumedcurrent.",
+    "OriginaldeferredP2/source/REAworkuntouched."
+  ]
+}

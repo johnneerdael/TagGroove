@@ -1,0 +1,194 @@
+{
+  "scope": "Four authored local basic-editing guides, layered on the three preserved customization/Find chapters; not published and no PR.",
+  "source_main": "dbcd9ce43c64e459c20553f9d14b5d77534847a0",
+  "preserved_customization_commit": "f70578d6eee342b7f60607921d9882d47bd95c7b",
+  "local_base_after_cherry_pick": "30c816c",
+  "canonical_snapshot": [
+    {
+      "url": "https://docs.mp3tag.de/customization/options/files/",
+      "sha256": "52128d61fe45773d2ecbb668e817b23931fe6304e021f531ef88347259245983"
+    },
+    {
+      "url": "https://docs.mp3tag.de/customization/options/tags/",
+      "sha256": "0ab3f458a057c11882923afa32ca4093b91d400c495e46231fb46393a261541a"
+    },
+    {
+      "url": "https://docs.mp3tag.de/customization/tag-panel/",
+      "sha256": "6462c53ce555e84205f5ee183b7ac0efa79f4302dd2082b9e6f634bc8fef1d14"
+    },
+    {
+      "url": "https://docs.mp3tag.de/menus/edit/",
+      "sha256": "98db5735106b2e4e46908e6724464d1dc716feabb7be26a46c530d5ad5713864"
+    },
+    {
+      "url": "https://docs.mp3tag.de/menus/file/",
+      "sha256": "2a596a2431a33a542afff57e9a049169320acc5c40313e8cc1c1c2b62799ff40"
+    },
+    {
+      "url": "https://docs.mp3tag.de/utils/",
+      "sha256": "995d051373a503d2fde160fc1f15f8a550114dfeb60b239f5f9bf98003bf043f"
+    }
+  ],
+  "canonical_scope": "File/Edit save/read/remove/clipboard/undo tasks plus tag-panel interaction and linked customization/options facts. These guide pages teach selected canonical tasks; they do not close all Utils/options/file-opening or full canonical coverage.",
+  "topics": {
+    "getting-started/editing-and-saving.md": {
+      "Make one change you can recognize": [
+        "invented album edit, pending marker, explicit save/reload, literal panel text"
+      ],
+      "Save the intended selection": [
+        "selected pending files only, global unsaved count, hidden selected rows, partial-success/cancel example"
+      ],
+      "Discard, reload or undo": [
+        "loaded versus fresh storage versus recorded history, pending drafts retained over undo, session limits, operation scope, redo/repeat distinction"
+      ],
+      "Know which commands write immediately": [
+        "pending fields/cells/clipboard/numbering versus filenames/actions/converters/remove/direct cover versus managed cover OK"
+      ],
+      "Check automatic saving and prompts": [
+        "defaultoff local-only selection save, extending selection, ExtendedTags separate mode, disabled discard prompts do not save"
+      ],
+      "Respect storage and access limits": [
+        "modification time preservation not all dates/bytes, write/remove policies, source read-only/unknown/recovery, supported field-only SaveCopy"
+      ]
+    },
+    "guides/tag-panel.md": {
+      "Set one album for several tracks": [
+        "selection count, mixed-title preservation, pending album edit/save"
+      ],
+      "Read the mixed-value state": [
+        "shared versus placeholder, actual Keep/Blank options, native literal inputs, multi-value split trimming and empty retention versus FormatValue dropping empties"
+      ],
+      "Choose and remember suggestions": [
+        "selected/custom/genre entries, autocomplete, keyboardpopup handling, ShiftEnter single-line values persist not tags"
+      ],
+      "Work with checkboxes, multiline fields and defaults": [
+        "on/off/mixed and1/removal, linebreak versus value separator, automatic nonkeep visible defaults and pending protections, explicitDefaultValues can replace pending edits"
+      ],
+      "Show, arrange and navigate the panel": [
+        "CtrlQ platforms, empty-area context, visibility not deletion, dock/float/compact panes, mnemonics/Option text distinction, Directory navigation not rename"
+      ],
+      "Inspect the cover separately": [
+        "saved/pending/folder-preview distinction and separate commit rules"
+      ],
+      "Gotchas": [
+        "hidden selection and storage policy effects, field label vsidentifier, sourcecopy limits"
+      ]
+    },
+    "guides/copy-paste-tags.md": {
+      "Copy one file to several targets": [
+        "source includes pending fields, app clipboard and system textual form, explicit confirm/pending/save sequence"
+      ],
+      "Understand replacement before saving": [
+        "actual field-set replacement and target-only removal, multiple values and storage limits, targeted field alternative"
+      ],
+      "Transfer several files in order": [
+        "table order not click order,1\u2192many,matchingcounts,refusal mismatch, no automaticmatching"
+      ],
+      "Include or leave artwork deliberately": [
+        "verified empty clears versus unknown leaves covers, roles/order, folder-preview excluded, pendingartwork discard andprovider SaveCopy fields-only"
+      ],
+      "Cut without deleting the audio": [
+        "copy then pending removal, separate source/target saves, artwork-copy failure warning, discard versus recordedUndo, no filerename"
+      ],
+      "Copy a readable text report": [
+        "actual3/8format example, fivepreviewlimit/fullselectioncopy, newlineentry limits,10expressionhistory, text versus structuredtags/export"
+      ],
+      "Gotchas": [
+        "typing focus, fullalbum1source replacement, messagepreferences, sessionhistory"
+      ]
+    },
+    "guides/remove-tags.md": {
+      "Choose the right kind of removal": [
+        "singlefield versus tagfamily versus listrow, pending versus immediate actions"
+      ],
+      "Remove a legacy ID3v1 block from an MP3": [
+        "stepwise copiedfixture3blocks, checkboxcounts andabsenttypes, explicit3removal examples, remaininguniquevalues notmerged, supportedlocalformatfamilies"
+      ],
+      "Use the configured Remove tag command": [
+        "Mpeg andApeMpc remove sets versus other nativepaths, alluncheckederror/absentnoop, opaquecontainerlimits, artwork/folderpreview"
+      ],
+      "Keep information that matters": [
+        "ReplayGain/MP3GAIN_UNDO, ID3v2art/customfield limits, independentread/write/remove policy, unverifiedLyrics3coupling, Nerochaptertagdistinction"
+      ],
+      "Check errors and undo": [
+        "partialresults, readonly/access failure, recordeddesktopUndo/Redo and durablebackups"
+      ]
+    }
+  },
+  "page_sha256": {
+    "getting-started/editing-and-saving.md": "a3184c4188a8ba702659fb69b5e1e32dc41a12d2b98939656b43b1ad6a293058",
+    "guides/tag-panel.md": "34e765e84e6a0ba2b737be0773094f91ffc0aa21266cb521d3713d964dbb0d2e",
+    "guides/copy-paste-tags.md": "1a558f7307540376961cbb5ceb33af5ea01dc41c468b89317095ff021b2b3184",
+    "guides/remove-tags.md": "a4c67415df3b390ccfda03ada498ebe9550f4ae23345208738e561014a7dbbc2"
+  },
+  "source_sha256": {
+    "src/main.ts": "f9c0a56f1eba4f77bc47531a08fcd63427a2b845bc36a784b27da43146309c76",
+    "src/tag-panel.ts": "843a7c2e0814bc4934498c4cb15970b57745d163577b3ae19078af1c903cf0e3",
+    "src/tag-clipboard.ts": "d645c75104f2faa4a0c37c526187e0a6395aba34fe159f43932fea287b70be9a",
+    "src/tag-edits.ts": "d2110f48191ac6e42f6331b94546ab6fc0205ca75ff95b99afe3b31ad84ebf30",
+    "src/edit-history.ts": "8bff30cfa68e212916156b16bb6d7a9b105b4363a7d8eb4da29b8912ba57cb0a",
+    "src/document-state.ts": "fb8b773b4d6c783f490cccb3cdfbed07447d1deba9edf02afc5e1ce6766a19b3",
+    "src/list-behaviour.ts": "d6739b158d1005e7cf9daa7fbb90a5ad8adfba12cdadaf464ae52c6954b1ea33",
+    "src/remove-tag.ts": "59947c6859bb789c4dcfffd117956df0f31aa25d01e863981174ad5d392005c0",
+    "src/utils-ui.ts": "3a2cdafbf85175a023fad844cccc59730ffcfa104b3921d8494c1ecb02e0224e",
+    "src/options-ui.ts": "f745bbf8d596fdffa51de0c8c02d5180def53eefeef11a690c1805da221c8446",
+    "src-tauri/src/history.rs": "515b8dba35538f964c7502d1fc01c667a9790ce1748d3ab58e99670bc19914a1",
+    "src-tauri/src/lib.rs": "77b79c1faad0bf31d07bd5974d91980c4b62dcd919a9aad8217e0f2547acef49",
+    "src-tauri/src/utilities.rs": "404b520370424704d6ecccad37d44c63ab6bd522a30622fe203333d261efca5e",
+    "crates/tag-core/src/tags.rs": "4e9ab3942b42b9e22b776334d2dd8acb00849eaa7c65c892324ee4879f76f7a5",
+    "crates/tag-core/src/tag_policy.rs": "3a3f246169947687223ed4c126ecec53bc7d826b713e2a50ace6edef78cd8e31",
+    "crates/tag-core/src/tag_types.rs": "5f8becddc7b84b0e6d7448a48eaa7a557559a67d33b28d2c245b5e86c607892a",
+    "crates/tag-core/src/raw_streams.rs": "9c96b83449e1ba0e2dbbf2f6fbf009ef0f355540501bbece97a3b91e3270fe93"
+  },
+  "checks": {
+    "baseline_models": "56passed0failed",
+    "new_node_examples": "4passed,actual written LF andCRLF cases for5panelchoices,field-set replacement,4countmappingcases and3filepartialsave",
+    "new_core_examples": "2passed,actual written expression plus3real MP3 tagkind removal rows underLF/CRLF;MPEGpayload retained",
+    "full_ui": "347passed0failed before final panel result-table readability change; final affected4Node tests rerun andpassed",
+    "full_core": {
+      "passed": 517,
+      "failed": 0,
+      "ignored": 0
+    },
+    "publication": "8passed",
+    "strict": "Final104-page strict build passed;83drafts excluded",
+    "fmt": "passed",
+    "focused_clippy": "passed for both newbasic andpreservedcustomization target",
+    "diff_check": "passed",
+    "browser": {
+      "scope": "Local generated docs only",
+      "success": true,
+      "checks": [
+        "Beginner save guide renders in light palette",
+        "Actual rendered link navigates saving guide to tag-panel guide",
+        "guides/tag-panel/ fits390px document with local table scrolling",
+        "guides/copy-paste-tags/ fits390px document with local table scrolling",
+        "guides/remove-tags/ fits390px document with local table scrolling",
+        "getting-started/editing-and-saving/ fits390px document with local table scrolling",
+        "Actual local search worker finds newclipboard guide and result opens correct H1"
+      ],
+      "errors": [],
+      "temporary_profile_removed": true,
+      "receipt": "/tmp/opentag-guide-basic-browser/results.json",
+      "visual_inspection": "Desktop beginner save lesson and390px panel table manually viewed; readable layout. Final screenshots wait for header animation.",
+      "harness_note": "First attempt selected hidden sidebar link; bounded correction scopes actualbodylink. No guide/source change needed for browser navigation."
+    },
+    "independent_review": "pending"
+  },
+  "public_state": {
+    "ready_pages": 97,
+    "remaining_drafts": 90,
+    "these_seven_local_pages_are_not_live": true,
+    "source_commit": "dbcd9ce43c64e459c20553f9d14b5d77534847a0",
+    "deployment_id": 7112435533,
+    "search_sections": 827,
+    "verification_receipt": "/tmp/opentag-pr28-live-guide-current.json"
+  },
+  "remaining_local_drafts": 83,
+  "limits": [
+    "Source/model/corefixture evidence only, no installed native UI or universal format/save-back claim.",
+    "Canonical topic maps and page counts are not full semantic coverage.",
+    "Pending language/provider/freedb/webfeature changes are not assumed current; reassess afteractual merges.",
+    "Deferred P2 source issues untouched."
+  ]
+}

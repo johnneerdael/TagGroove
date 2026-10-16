@@ -1,0 +1,143 @@
+{
+  "scope": "Three local chapters; not part of merged PR30 or public97 milestone. Ready for finite independent source review; no new PR/push.",
+  "base_guide": "86494e712fc9a8d8760a18718fe90d0929895e92",
+  "source_main": "432d354cb559a2f4f6bd15d558afadf46d080b0e",
+  "source_reconciliation": "Source unchanged from approved97 baseline; no pending17/18/19/20/28 behavior assumed.",
+  "canonical": [
+    {
+      "url": "https://docs.mp3tag.de/customization/file-list/",
+      "sha256": "f80d693f03371ef5c98cc2df09b1792c8a2643650d7b45d764897ab07fa71b75"
+    },
+    {
+      "url": "https://docs.mp3tag.de/customization/tag-panel/",
+      "sha256": "6462c53ce555e84205f5ee183b7ac0efa79f4302dd2082b9e6f634bc8fef1d14"
+    },
+    {
+      "url": "https://docs.mp3tag.de/find/",
+      "sha256": "580036f7d8b349d1d8caddc7c306d964261748b1b03481afab0a7484eaf7b141"
+    }
+  ],
+  "topics": {
+    "customize/columns.md": {
+      "Add an editable recording-code column": [
+        "stepwise ISRC Name/Value/Field setup and actual display/sort examples",
+        "pending tag edits versus immediate filename edits"
+      ],
+      "Understand Name, Value, Field and Sort by": [
+        "display expression versus edit target",
+        "single placeholder target and readonly empty target",
+        "empty Sort by reuses Value"
+      ],
+      "Sort and alignment rules": [
+        "numeric comparison versus display padding",
+        "Numeric toggles alignment unless Center",
+        "secondary sorting and column-context limits"
+      ],
+      "Add, duplicate, move, hide or remove": [
+        "control and header routes",
+        "width24\u20134000",
+        "visibility versus data removal"
+      ],
+      "Save, load and import a layout": [
+        "draft Load/Save versus OK and quick header persistence",
+        "JSON roundtrip and INI import report"
+      ]
+    },
+    "customize/tag-panel.md": {
+      "Add a Mood control": [
+        "stepwise control setup and choosing edit scope"
+      ],
+      "Every field setting": [
+        "name mnemonic and escaped ampersand",
+        "field/type/default/size/rows limits"
+      ],
+      "Understand defaults before selecting a batch": [
+        "literal keep/blank/default expressions",
+        "automatic multi-selection defaults while visible",
+        "pending fields protected"
+      ],
+      "Choose Text, Check or Multiline": [
+        "dropdown suggestions and multi-value delimiter",
+        "checkbox truth states versus1/blank written values",
+        "multiline text behavior"
+      ],
+      "Arrange, hide or remove controls": [
+        "100field cap,1\u201320rows,field uniqueness",
+        "relative width and line arrangement,shown state"
+      ],
+      "Directory and separator controls": [
+        "selection versus typed/browsed directory load",
+        "separator layout varies by docking"
+      ],
+      "Supply consistent suggested values": [
+        "field values distinct from panel layout",
+        "custom values import/export"
+      ],
+      "Save, load and import a panel layout": [
+        "dialog draft/OK versus immediate panel-menu Load",
+        "JSON preserves show state on dialog Load",
+        "INI import and source-format limits"
+      ]
+    },
+    "guides/find.md": {
+      "Find a title and select its file": [
+        "visible list and pending merged metadata",
+        "nonmodal actions and selection defaults caveat"
+      ],
+      "Choose a matching strategy": [
+        "all six actual labels",
+        "eight written strategies/empty/case cases"
+      ],
+      "Read match counts correctly": [
+        "three matches versus two distinct files",
+        "metadata field values versus filename leaf"
+      ],
+      "Sort and navigate results": [
+        "display2000cap versus all results",
+        "individual row or all files, no multi-row selection"
+      ],
+      "Refresh an outdated result set": [
+        "snapshot results and current visible selection filter"
+      ],
+      "Regular expressions use the Find dialect": [
+        "JavaScript u/iu distinct from Boost contexts",
+        "invalid pattern and explicit case control link"
+      ],
+      "Reuse or remove criteria": [
+        "history remembers text not matching strategy",
+        "history deletion/favorites routes"
+      ]
+    }
+  },
+  "page_sha256": {
+    "customize/columns.md": "ef543ef4690c3f8a232d9d721bebe631c3cc77f815f92703e0214fd4b8f8462f",
+    "customize/tag-panel.md": "affddf114cd350b6cdb078163df2e76414ac167d6fe3e10532f1a28160a15385",
+    "guides/find.md": "2d9129474c0805627ff01eb6ffa8fb048603d9b64954472dd9f2de43d0b8e976"
+  },
+  "source_sha256": {
+    "src/main.ts": "f9c0a56f1eba4f77bc47531a08fcd63427a2b845bc36a784b27da43146309c76",
+    "src/columns.ts": "feb41073aaa817b1e0de9b192a709e1bd7467f7505e9caf11ed2398051322bea",
+    "src/tag-panel.ts": "843a7c2e0814bc4934498c4cb15970b57745d163577b3ae19078af1c903cf0e3",
+    "src/find.ts": "33bd626484cc3f41b3958c7c0c0e1b1b52ad757e6043281472d484793959755d",
+    "src-tauri/src/columns.rs": "36b445d201b065cb79473b151c2fdffdf5332ed4950b1496b91e67a14415cb31",
+    "src-tauri/src/mp3tag_columns.rs": "8fad3cfda8381ff7fc1ea18a9a9ab4981de4a232571f9c33f395a2f57c2b6e2f",
+    "src-tauri/src/tag_panel.rs": "178235c4992d2f126d94152768c2358c9968d7df84dad5ecbec25988b639ac91",
+    "src-tauri/src/mp3tag_tag_panel.rs": "814d1c487d3a04951cc5b4ed4451c86151e1e6635719948d4e8f67a93f5ecc1d"
+  },
+  "validation": {
+    "tag_core": "499passed0failed0ignored full package incl one new actual-written column test",
+    "ui": "341passed0failed full UI command incl five new actual-model tests",
+    "publication": "8passed",
+    "strict_build": "100local ready pages,87drafts; not published",
+    "fmt": "passed",
+    "focused_clippy": "passed customization_guide",
+    "diff_check": "passed",
+    "independent_review": "pending",
+    "native_runtime": "not checked"
+  },
+  "limitations": [
+    "Current facts derived from application source and written-example/model tests, not installed UI/save-back validation.",
+    "Canonical structural coverage and these topics do not certify every original paragraph or future features.",
+    "Still need finite independent review and final-base reconciliation before new PR."
+  ]
+}

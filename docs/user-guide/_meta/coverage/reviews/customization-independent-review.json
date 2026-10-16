@@ -1,0 +1,119 @@
+{
+  "reviewed_at": "2026-10-16T04:45:48.424050+00:00",
+  "reviewer": "/root/finish_sources_pr18",
+  "commit": "f70578d6eee342b7f60607921d9882d47bd95c7b",
+  "baseline": "432d354cb559a2f4f6bd15d558afadf46d080b0e",
+  "result": "No actionable findings in the finite requested documentation/test scope",
+  "findings": [],
+  "files_reviewed": [
+    "docs/user-guide/customize/columns.md",
+    "docs/user-guide/customize/tag-panel.md",
+    "docs/user-guide/guides/find.md",
+    "tests/guide-customization.test.mjs",
+    "crates/tag-core/tests/customization_guide.rs",
+    "docs/user-guide/_meta/coverage/customization-2026-10-16.json",
+    "src/main.ts",
+    "src/columns.ts",
+    "src/tag-panel.ts",
+    "src/find.ts",
+    "src-tauri/src/columns.rs",
+    "src-tauri/src/mp3tag_columns.rs",
+    "src-tauri/src/tag_panel.rs",
+    "src-tauri/src/mp3tag_tag_panel.rs"
+  ],
+  "verified_claims": [
+    {
+      "topic": "Column display versus editable target",
+      "evidence": "src/columns.ts:40-48, 291-355; src/main.ts:1870-1890; src-tauri/src/columns.rs:63-135",
+      "conclusion": "Single placeholder tag/filename edit targets, technical rejection, required display expression, draft configuration apply and JSON export behavior agree with prose."
+    },
+    {
+      "topic": "Column sorting and configuration persistence",
+      "evidence": "src/columns.ts:90-119, 336-350; src/main.ts:530-542,575-580",
+      "conclusion": "Numeric leading-number behavior, alignment toggle, secondary sort, dialog save-before-apply and direct header application match."
+    },
+    {
+      "topic": "Panel field defaults and metadata staging",
+      "evidence": "src/tag-panel.ts:113-123,169-182,367-425; src/main.ts:973-981",
+      "conclusion": "Literal defaults, keep/blank, protected pending values, multi-selection automatic fill, explicit defaults, draft configuration and direct panel Load distinction match."
+    },
+    {
+      "topic": "Panel checks, field controls and imports",
+      "evidence": "src/tag-panel.ts:79-96,193-222,346-355; src-tauri/src/tag_panel.rs:146-213,237-272; src-tauri/src/mp3tag_tag_panel.rs:1-180",
+      "conclusion": "Mnemonic, checkbox mapping, 100-field and 1-20-row limits, uniqueness, directory/separator exclusions and import report semantics agree."
+    },
+    {
+      "topic": "Find scope, matching and selection",
+      "evidence": "src/find.ts:9-36,51-95; src/main.ts:569-573",
+      "conclusion": "Visible merged/pending metadata, filename leaf, information-field exclusion, Unicode word boundaries, exact u/iu flags, snapshot list, 2000 displayed rows versus all matching selections, and no arbitrary result-row multiselection agree."
+    }
+  ],
+  "source_hash_checks": {
+    "src/main.ts": {
+      "sha256": "f9c0a56f1eba4f77bc47531a08fcd63427a2b845bc36a784b27da43146309c76",
+      "claimed_hash_matches": true,
+      "byte_identical_to_main432d": true
+    },
+    "src/columns.ts": {
+      "sha256": "feb41073aaa817b1e0de9b192a709e1bd7467f7505e9caf11ed2398051322bea",
+      "claimed_hash_matches": true,
+      "byte_identical_to_main432d": true
+    },
+    "src/tag-panel.ts": {
+      "sha256": "843a7c2e0814bc4934498c4cb15970b57745d163577b3ae19078af1c903cf0e3",
+      "claimed_hash_matches": true,
+      "byte_identical_to_main432d": true
+    },
+    "src/find.ts": {
+      "sha256": "33bd626484cc3f41b3958c7c0c0e1b1b52ad757e6043281472d484793959755d",
+      "claimed_hash_matches": true,
+      "byte_identical_to_main432d": true
+    },
+    "src-tauri/src/columns.rs": {
+      "sha256": "36b445d201b065cb79473b151c2fdffdf5332ed4950b1496b91e67a14415cb31",
+      "claimed_hash_matches": true,
+      "byte_identical_to_main432d": true
+    },
+    "src-tauri/src/mp3tag_columns.rs": {
+      "sha256": "8fad3cfda8381ff7fc1ea18a9a9ab4981de4a232571f9c33f395a2f57c2b6e2f",
+      "claimed_hash_matches": true,
+      "byte_identical_to_main432d": true
+    },
+    "src-tauri/src/tag_panel.rs": {
+      "sha256": "178235c4992d2f126d94152768c2358c9968d7df84dad5ecbec25988b639ac91",
+      "claimed_hash_matches": true,
+      "byte_identical_to_main432d": true
+    },
+    "src-tauri/src/mp3tag_tag_panel.rs": {
+      "sha256": "814d1c487d3a04951cc5b4ed4451c86151e1e6635719948d4e8f67a93f5ecc1d",
+      "claimed_hash_matches": true,
+      "byte_identical_to_main432d": true
+    }
+  },
+  "page_hash_checks": {
+    "customize/columns.md": {
+      "claimed_hash_matches": true
+    },
+    "customize/tag-panel.md": {
+      "claimed_hash_matches": true
+    },
+    "guides/find.md": {
+      "claimed_hash_matches": true
+    }
+  },
+  "executed_validation": [
+    {
+      "command": "node --test tests/guide-customization.test.mjs",
+      "result": "5 passed, 0 failed, 0 skipped",
+      "scope": "Actual TypeScript model functions and written Markdown example tables"
+    }
+  ],
+  "limits": [
+    "Read-only review; no edits, commits, push, PR creation, publication, app launch or native UI/save-back validation.",
+    "Rust customization_guide test read against written examples; not rerun by independent reviewer. Full 499 tag-core/341 UI and strict100-page claims remain author-reported checkpoint evidence, not repeated here.",
+    "Reviewed current merged-main432d semantics only; pending PR17/18/19/20/28 features are not assumed.",
+    "No certification of every canonical Mp3tag paragraph or broad application review; original deferred five P2 findings untouched.",
+    "Batch remains local and unpublished until root authorizes final-base reconciliation and new PR after current queue."
+  ],
+  "worktree_clean_after_review": true
+}

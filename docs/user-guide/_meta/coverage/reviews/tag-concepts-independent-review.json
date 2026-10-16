@@ -1,0 +1,73 @@
+{
+  "reviewer": "pr20_owner",
+  "commit": "79c2f49f8d2745974540d4705fc037115424e804",
+  "source_main": "dbcd9ce43c64e459c20553f9d14b5d77534847a0",
+  "scope": [
+    "concepts/what-are-tags.md",
+    "concepts/tag-formats.md",
+    "concepts/track-and-disc-numbers.md",
+    "crates/tag-core/tests/tag_concept_guide.rs",
+    "_meta/coverage/tag-concepts-2026-10-16.json"
+  ],
+  "findings": [],
+  "reviewed_evidence": [
+    {
+      "topic": "Logical fields, raw versus enriched information and calculation versus writes",
+      "paths": [
+        "crates/tag-core/src/tags.rs:Fields,technical_fields",
+        "src-tauri/src/evaluation.rs:information/default_columns",
+        "crates/tag-core/src/script.rs:1269-1273",
+        "src/main.ts:saveDrafts,draftField"
+      ],
+      "assessment": "Written snapshots correctly distinguish multi-value ARTIST from slash TRACK, first value from meta_sep, path from TITLE and computed information from writable tags. Calculation alone performs no write."
+    },
+    {
+      "topic": "Conflicting native MP3 blocks and read/write/remove policy",
+      "paths": [
+        "crates/tag-core/src/tag_policy.rs:16-44,189-246",
+        "crates/tag-core/src/tags.rs:538-546",
+        "crates/tag-core/src/preferences.rs:7-15,37-51",
+        "crates/tag-core/src/raw_streams.rs:mpeg_policy,read/write routing"
+      ],
+      "assessment": "APE -> ID3v2 -> ID3v1 reads choose one enabled present tag, without merging ALBUM from another. Ordinary write/remove interaction and MPEG UTF16 default agree with source. Raw AAC/TTA policy statement agrees with raw_streams adapter, not only FileType policy."
+    },
+    {
+      "topic": "Native track/disc pairs and numbering workflow",
+      "paths": [
+        "crates/tag-core/src/mapping.rs:342-343,873-874,1496-1525,2425-2473",
+        "crates/tag-core/src/numbering.rs:83-140",
+        "src/numbering-review.ts:89-94",
+        "src/main.ts:1690-1715"
+      ],
+      "assessment": "TRCK/TPOS and MP4 trkn/disk, TOTALTRACKS/TOTALDISCS readback and u16/conflict restrictions match. Adjacent reset boundaries and run-ending total are correct. Preview then pending stage then Save tags matches production flow."
+    }
+  ],
+  "hash_validation": {
+    "matched": 12,
+    "page_count": 3,
+    "source_count": 9,
+    "all_match": true,
+    "all_app_sources_identical_to_pinned_main": true,
+    "details": "/tmp/opentag-guide-tag-concepts-peer-hashes.json"
+  },
+  "focused_execution": {
+    "command": "/tmp/opentag-guide-combined-target/debug/deps/tag_concept_guide-8667f1ae203cd03f",
+    "result": "3 passed, 0 failed, 0 ignored; exit 0",
+    "seconds": 0.07,
+    "reused_existing_binary": true,
+    "cold_build": false,
+    "log": "/tmp/opentag-guide-tag-concepts-peer-tests.log",
+    "scope": "Two actual core snapshot-expression tests plus independently seeded MP3 three-block/four-policy read test, each normalizing and executing LF and CRLF written tables; native fixture confirms unchanged file bytes/audio across reads."
+  },
+  "residual_risks": [
+    "This is a finite local peer review, not GitHub CODE approval or publication.",
+    "No full/cold builds, application changes, PR writes, CI, REA or deferred P2 work performed.",
+    "121 local completed pages and 66 drafts remain an author-local state; public baseline remains 97 completed/90 drafts in this ledger.",
+    "No all-format, player or installed-native-UI qualification; only the described generated MP3 core fixture ran."
+  ],
+  "testing_gaps": [
+    "Author-reported full core541/UI350/publication8/strict121 were not rerun.",
+    "Browser screenshots/live navigation and canonical website content were not rechecked; pinned canonical pointers were treated as author topic/syntax checklists.",
+    "No global canonical-semantic completeness audit performed."
+  ]
+}

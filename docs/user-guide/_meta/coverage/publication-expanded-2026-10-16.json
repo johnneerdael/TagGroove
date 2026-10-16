@@ -1,0 +1,1123 @@
+{
+  "verified_utc": "2026-10-16T04:40:39.158874+00:00",
+  "base": "https://johnneerdael.github.io/opentag/",
+  "source_commit": "432d354cb559a2f4f6bd15d558afadf46d080b0e",
+  "approved_pr_head": "86494e712fc9a8d8760a18718fe90d0929895e92",
+  "pr": 30,
+  "release_run": 38851568356,
+  "pages_authorize_job": 116813779743,
+  "pages_build_job": 116813841150,
+  "pages_deploy_job": 116813972584,
+  "deployment_id": 7111029455,
+  "deployment_state": "success",
+  "http": {
+    "routes": 97,
+    "all_status200": true,
+    "all_byte_identical_to_approved_build": true,
+    "pages": [
+      {
+        "page": "index.md",
+        "route": "",
+        "status": 200,
+        "bytes": 83143,
+        "source_sha256": "e625bf1907c9d18e2ff2a26527f01839bb34d011c21dd25489f650b9cd7217e3",
+        "public_sha256": "e625bf1907c9d18e2ff2a26527f01839bb34d011c21dd25489f650b9cd7217e3",
+        "byte_identical": true
+      },
+      {
+        "page": "learn/first-tagging-session.md",
+        "route": "learn/first-tagging-session/",
+        "status": 200,
+        "bytes": 92663,
+        "source_sha256": "9eccd75acd5049eb604a1daa2507f5f60a85282395caa2d633e3422c1740682f",
+        "public_sha256": "9eccd75acd5049eb604a1daa2507f5f60a85282395caa2d633e3422c1740682f",
+        "byte_identical": true
+      },
+      {
+        "page": "learn/format-strings-from-zero.md",
+        "route": "learn/format-strings-from-zero/",
+        "status": 200,
+        "bytes": 91139,
+        "source_sha256": "a9900fce91f759bc878dc26a78435dfa4f1ae3f64f63b14ce640fde088dcc878",
+        "public_sha256": "a9900fce91f759bc878dc26a78435dfa4f1ae3f64f63b14ce640fde088dcc878",
+        "byte_identical": true
+      },
+      {
+        "page": "learn/rename-files-and-folders.md",
+        "route": "learn/rename-files-and-folders/",
+        "status": 200,
+        "bytes": 88083,
+        "source_sha256": "a98201a555502b31a4e0510bd4cbeea88f0673833ef7596ec12021d36245d53b",
+        "public_sha256": "a98201a555502b31a4e0510bd4cbeea88f0673833ef7596ec12021d36245d53b",
+        "byte_identical": true
+      },
+      {
+        "page": "learn/regex-from-zero.md",
+        "route": "learn/regex-from-zero/",
+        "status": 200,
+        "bytes": 91667,
+        "source_sha256": "7d11ed17aca9b534eb70cca2f7a1608ff54df91394715f14f29f72e48ea492af",
+        "public_sha256": "7d11ed17aca9b534eb70cca2f7a1608ff54df91394715f14f29f72e48ea492af",
+        "byte_identical": true
+      },
+      {
+        "page": "learn/first-action-group.md",
+        "route": "learn/first-action-group/",
+        "status": 200,
+        "bytes": 88946,
+        "source_sha256": "495d01c3298342a741d2ec74ffb1dc2a52ff7d01dd1fff8b0b457526e0274ffe",
+        "public_sha256": "495d01c3298342a741d2ec74ffb1dc2a52ff7d01dd1fff8b0b457526e0274ffe",
+        "byte_identical": true
+      },
+      {
+        "page": "learn/export-a-cd-catalogue.md",
+        "route": "learn/export-a-cd-catalogue/",
+        "status": 200,
+        "bytes": 86168,
+        "source_sha256": "4f3f82718ebe5e30707441823719189787d3d6a695cec34cfb0bac8382ffa124",
+        "public_sha256": "4f3f82718ebe5e30707441823719189787d3d6a695cec34cfb0bac8382ffa124",
+        "byte_identical": true
+      },
+      {
+        "page": "concepts/multi-value-fields.md",
+        "route": "concepts/multi-value-fields/",
+        "status": 200,
+        "bytes": 86385,
+        "source_sha256": "7bbc63baa6989523363e77dc237fddeffafa0bff1da4153fab946a03ca8e8092",
+        "public_sha256": "7bbc63baa6989523363e77dc237fddeffafa0bff1da4153fab946a03ca8e8092",
+        "byte_identical": true
+      },
+      {
+        "page": "concepts/text-encodings.md",
+        "route": "concepts/text-encodings/",
+        "status": 200,
+        "bytes": 87266,
+        "source_sha256": "431752a32e05c295a483fb3a82c34a40fbe712d96f239d9d575422eaa7a8490d",
+        "public_sha256": "431752a32e05c295a483fb3a82c34a40fbe712d96f239d9d575422eaa7a8490d",
+        "byte_identical": true
+      },
+      {
+        "page": "guides/file-list.md",
+        "route": "guides/file-list/",
+        "status": 200,
+        "bytes": 92583,
+        "source_sha256": "9212e3a2d79fcb25eea5489642e4dcdaccf8ce35bb574f91a8585a7f356d9d19",
+        "public_sha256": "9212e3a2d79fcb25eea5489642e4dcdaccf8ce35bb574f91a8585a7f356d9d19",
+        "byte_identical": true
+      },
+      {
+        "page": "guides/extended-tags.md",
+        "route": "guides/extended-tags/",
+        "status": 200,
+        "bytes": 90077,
+        "source_sha256": "96cb1e6549defb0afda583f84ba2f7e57a6c5ab1dabb7042fb41ea432870d0e5",
+        "public_sha256": "96cb1e6549defb0afda583f84ba2f7e57a6c5ab1dabb7042fb41ea432870d0e5",
+        "byte_identical": true
+      },
+      {
+        "page": "guides/covers.md",
+        "route": "guides/covers/",
+        "status": 200,
+        "bytes": 93183,
+        "source_sha256": "1f2d191d45dd68275711f2b39ff23a5a545413401e18c2b50afc7fb6ee7f3d47",
+        "public_sha256": "1f2d191d45dd68275711f2b39ff23a5a545413401e18c2b50afc7fb6ee7f3d47",
+        "byte_identical": true
+      },
+      {
+        "page": "guides/filter.md",
+        "route": "guides/filter/",
+        "status": 200,
+        "bytes": 84981,
+        "source_sha256": "3c8daaeafa562dab26f34fb87bb00b1555d8a5276a0466f039d6d407e4143905",
+        "public_sha256": "3c8daaeafa562dab26f34fb87bb00b1555d8a5276a0466f039d6d407e4143905",
+        "byte_identical": true
+      },
+      {
+        "page": "converters/index.md",
+        "route": "converters/",
+        "status": 200,
+        "bytes": 78851,
+        "source_sha256": "9507223e6dc9c08706e227779f1065f1c01380ffc96464d503bddafc47b3ca73",
+        "public_sha256": "9507223e6dc9c08706e227779f1065f1c01380ffc96464d503bddafc47b3ca73",
+        "byte_identical": true
+      },
+      {
+        "page": "converters/tag-to-filename.md",
+        "route": "converters/tag-to-filename/",
+        "status": 200,
+        "bytes": 82005,
+        "source_sha256": "99938dd2db39609340db2afda27155eb6c8aaa4aae02015322cbd74400196535",
+        "public_sha256": "99938dd2db39609340db2afda27155eb6c8aaa4aae02015322cbd74400196535",
+        "byte_identical": true
+      },
+      {
+        "page": "converters/filename-to-tag.md",
+        "route": "converters/filename-to-tag/",
+        "status": 200,
+        "bytes": 82045,
+        "source_sha256": "01d74d71714458b289a70ae94e0031efb8dcb845037567953d36f5df12e8984e",
+        "public_sha256": "01d74d71714458b289a70ae94e0031efb8dcb845037567953d36f5df12e8984e",
+        "byte_identical": true
+      },
+      {
+        "page": "converters/filename-to-filename.md",
+        "route": "converters/filename-to-filename/",
+        "status": 200,
+        "bytes": 86323,
+        "source_sha256": "61d39aa3930c283e89ab9b590e2872e7721524fd644125c4de85eb87fe0c0916",
+        "public_sha256": "61d39aa3930c283e89ab9b590e2872e7721524fd644125c4de85eb87fe0c0916",
+        "byte_identical": true
+      },
+      {
+        "page": "converters/text-file-to-tag.md",
+        "route": "converters/text-file-to-tag/",
+        "status": 200,
+        "bytes": 86448,
+        "source_sha256": "e54fcc9fdc700522833b7e184d5aab4aafb5cdca6180909f1300966d30ff9402",
+        "public_sha256": "e54fcc9fdc700522833b7e184d5aab4aafb5cdca6180909f1300966d30ff9402",
+        "byte_identical": true
+      },
+      {
+        "page": "converters/tag-to-tag.md",
+        "route": "converters/tag-to-tag/",
+        "status": 200,
+        "bytes": 81816,
+        "source_sha256": "85d92399f4352bbeca9d600b09d2c23670bc6d591ca596eb3131bff6d590eb80",
+        "public_sha256": "85d92399f4352bbeca9d600b09d2c23670bc6d591ca596eb3131bff6d590eb80",
+        "byte_identical": true
+      },
+      {
+        "page": "converters/auto-numbering.md",
+        "route": "converters/auto-numbering/",
+        "status": 200,
+        "bytes": 86839,
+        "source_sha256": "dd1a2bef456d029d5afa88c885ab1eea70e4c70682f95a2e9d9eb2d94e7dc5a6",
+        "public_sha256": "dd1a2bef456d029d5afa88c885ab1eea70e4c70682f95a2e9d9eb2d94e7dc5a6",
+        "byte_identical": true
+      },
+      {
+        "page": "actions/index.md",
+        "route": "actions/",
+        "status": 200,
+        "bytes": 91260,
+        "source_sha256": "23d208b07772782d2a3fe49f58a94d136a4fb1d0eb93de00e6f6016222d3241f",
+        "public_sha256": "23d208b07772782d2a3fe49f58a94d136a4fb1d0eb93de00e6f6016222d3241f",
+        "byte_identical": true
+      },
+      {
+        "page": "actions/adjust-cover.md",
+        "route": "actions/adjust-cover/",
+        "status": 200,
+        "bytes": 81770,
+        "source_sha256": "4ff4c49b48be6ff19e08b39dbce1df629f6e351b9fe94c69c7d21379cfae3ee4",
+        "public_sha256": "4ff4c49b48be6ff19e08b39dbce1df629f6e351b9fe94c69c7d21379cfae3ee4",
+        "byte_identical": true
+      },
+      {
+        "page": "actions/case-conversion.md",
+        "route": "actions/case-conversion/",
+        "status": 200,
+        "bytes": 82103,
+        "source_sha256": "e8893c24663c964855215298b130483bcfa698fed343cbe295a5e560ba022d28",
+        "public_sha256": "e8893c24663c964855215298b130483bcfa698fed343cbe295a5e560ba022d28",
+        "byte_identical": true
+      },
+      {
+        "page": "actions/convert-codepage.md",
+        "route": "actions/convert-codepage/",
+        "status": 200,
+        "bytes": 82320,
+        "source_sha256": "bafdaed568c10bebfc1793f17d5ae4a8c10bba774c5968502337fd29638b20e2",
+        "public_sha256": "bafdaed568c10bebfc1793f17d5ae4a8c10bba774c5968502337fd29638b20e2",
+        "byte_identical": true
+      },
+      {
+        "page": "actions/export.md",
+        "route": "actions/export/",
+        "status": 200,
+        "bytes": 82332,
+        "source_sha256": "7e870b4a866e9add8060409c74e6d1283bd91f5c51ad075f5171f9e76c44644e",
+        "public_sha256": "7e870b4a866e9add8060409c74e6d1283bd91f5c51ad075f5171f9e76c44644e",
+        "byte_identical": true
+      },
+      {
+        "page": "actions/export-cover.md",
+        "route": "actions/export-cover/",
+        "status": 200,
+        "bytes": 81336,
+        "source_sha256": "98eddc8cbe6b23a47de35575d67b923f6f37db714e44249de0b87d3b7a469963",
+        "public_sha256": "98eddc8cbe6b23a47de35575d67b923f6f37db714e44249de0b87d3b7a469963",
+        "byte_identical": true
+      },
+      {
+        "page": "actions/format-value.md",
+        "route": "actions/format-value/",
+        "status": 200,
+        "bytes": 81863,
+        "source_sha256": "86a565e7e4797953db0900b5da9c99ca5b377f1f0e1da43fa3e6fd849d7dc340",
+        "public_sha256": "86a565e7e4797953db0900b5da9c99ca5b377f1f0e1da43fa3e6fd849d7dc340",
+        "byte_identical": true
+      },
+      {
+        "page": "actions/generate-playlists.md",
+        "route": "actions/generate-playlists/",
+        "status": 200,
+        "bytes": 80839,
+        "source_sha256": "c7fef6f6d2ce6a7753747dc16b12a17320273f26480fc00baae8c5a9d6f5e7f8",
+        "public_sha256": "c7fef6f6d2ce6a7753747dc16b12a17320273f26480fc00baae8c5a9d6f5e7f8",
+        "byte_identical": true
+      },
+      {
+        "page": "actions/guess-values.md",
+        "route": "actions/guess-values/",
+        "status": 200,
+        "bytes": 81904,
+        "source_sha256": "67a959945c18cd207d80c6227bbbb811bf9e55697fa83eeeea679b5d262645ac",
+        "public_sha256": "67a959945c18cd207d80c6227bbbb811bf9e55697fa83eeeea679b5d262645ac",
+        "byte_identical": true
+      },
+      {
+        "page": "actions/import-cover.md",
+        "route": "actions/import-cover/",
+        "status": 200,
+        "bytes": 81397,
+        "source_sha256": "24582051ebb2e285c063073af505876ab601c4e3e23c97547efe2aa7507759eb",
+        "public_sha256": "24582051ebb2e285c063073af505876ab601c4e3e23c97547efe2aa7507759eb",
+        "byte_identical": true
+      },
+      {
+        "page": "actions/import-text-file.md",
+        "route": "actions/import-text-file/",
+        "status": 200,
+        "bytes": 81058,
+        "source_sha256": "fa253f006d51ce2898e0b53f73f3470e6084f7bd12b9d2cc464a90259adb9aa2",
+        "public_sha256": "fa253f006d51ce2898e0b53f73f3470e6084f7bd12b9d2cc464a90259adb9aa2",
+        "byte_identical": true
+      },
+      {
+        "page": "actions/merge-duplicate-fields.md",
+        "route": "actions/merge-duplicate-fields/",
+        "status": 200,
+        "bytes": 79581,
+        "source_sha256": "1844db1d201e815247735829c255607b86229354103ece38dfb5b9fee3b33492",
+        "public_sha256": "1844db1d201e815247735829c255607b86229354103ece38dfb5b9fee3b33492",
+        "byte_identical": true
+      },
+      {
+        "page": "actions/remove-duplicate-fields.md",
+        "route": "actions/remove-duplicate-fields/",
+        "status": 200,
+        "bytes": 79818,
+        "source_sha256": "97e5dde6a9c7542136266597dc1ac388455357327a7d4a46f4f935ce56dee308",
+        "public_sha256": "97e5dde6a9c7542136266597dc1ac388455357327a7d4a46f4f935ce56dee308",
+        "byte_identical": true
+      },
+      {
+        "page": "actions/remove-fields.md",
+        "route": "actions/remove-fields/",
+        "status": 200,
+        "bytes": 78933,
+        "source_sha256": "bd3725a7d9fc119c5a3db8af9eb4749883dde1583ea8e26aca6ac4fc60c6aa7d",
+        "public_sha256": "bd3725a7d9fc119c5a3db8af9eb4749883dde1583ea8e26aca6ac4fc60c6aa7d",
+        "byte_identical": true
+      },
+      {
+        "page": "actions/remove-fields-except.md",
+        "route": "actions/remove-fields-except/",
+        "status": 200,
+        "bytes": 79464,
+        "source_sha256": "d34bc05dc2b7e32d0ce902301c72637d7ea7605317dbe8bc87105ca3a06e2f82",
+        "public_sha256": "d34bc05dc2b7e32d0ce902301c72637d7ea7605317dbe8bc87105ca3a06e2f82",
+        "byte_identical": true
+      },
+      {
+        "page": "actions/replace.md",
+        "route": "actions/replace/",
+        "status": 200,
+        "bytes": 82018,
+        "source_sha256": "f7911923a07afadb757c5296c4bc69a72f90a1071490b5c076222918816f73a4",
+        "public_sha256": "f7911923a07afadb757c5296c4bc69a72f90a1071490b5c076222918816f73a4",
+        "byte_identical": true
+      },
+      {
+        "page": "actions/replace-regexp.md",
+        "route": "actions/replace-regexp/",
+        "status": 200,
+        "bytes": 83288,
+        "source_sha256": "414b7b78fee2eb490f88e92ba966f5e9caf1c19c5d80e09886f81016aea0f3d4",
+        "public_sha256": "414b7b78fee2eb490f88e92ba966f5e9caf1c19c5d80e09886f81016aea0f3d4",
+        "byte_identical": true
+      },
+      {
+        "page": "actions/set-cover-properties.md",
+        "route": "actions/set-cover-properties/",
+        "status": 200,
+        "bytes": 80521,
+        "source_sha256": "99dea9bd1864ae149f02f5bb94aae44e325c5966ff079301dc116885118e335d",
+        "public_sha256": "99dea9bd1864ae149f02f5bb94aae44e325c5966ff079301dc116885118e335d",
+        "byte_identical": true
+      },
+      {
+        "page": "actions/split-field.md",
+        "route": "actions/split-field/",
+        "status": 200,
+        "bytes": 79853,
+        "source_sha256": "e1191815ef6378b5d65af6d165a7fae9617df1cb31495d12ba0671556e3e7c15",
+        "public_sha256": "e1191815ef6378b5d65af6d165a7fae9617df1cb31495d12ba0671556e3e7c15",
+        "byte_identical": true
+      },
+      {
+        "page": "tag-sources/web-sources.md",
+        "route": "tag-sources/web-sources/",
+        "status": 200,
+        "bytes": 86216,
+        "source_sha256": "634e57151c9ade2b2a40a3f0a61dcbe1dd23301b6eab663a0c176bd11e43cd8b",
+        "public_sha256": "634e57151c9ade2b2a40a3f0a61dcbe1dd23301b6eab663a0c176bd11e43cd8b",
+        "byte_identical": true
+      },
+      {
+        "page": "tag-sources/writing-web-sources.md",
+        "route": "tag-sources/writing-web-sources/",
+        "status": 200,
+        "bytes": 103676,
+        "source_sha256": "24c94e2ebbf38760233b2f3cf8bf4fbac33591b45c992fa7c3c8af05e3798df0",
+        "public_sha256": "24c94e2ebbf38760233b2f3cf8bf4fbac33591b45c992fa7c3c8af05e3798df0",
+        "byte_identical": true
+      },
+      {
+        "page": "tag-sources/web-source-reference.md",
+        "route": "tag-sources/web-source-reference/",
+        "status": 200,
+        "bytes": 206696,
+        "source_sha256": "556cae0ccd822f8fb24927d1d07f91e8067fe0bb1b70bd4b08e0f8acaac24183",
+        "public_sha256": "556cae0ccd822f8fb24927d1d07f91e8067fe0bb1b70bd4b08e0f8acaac24183",
+        "byte_identical": true
+      },
+      {
+        "page": "export/index.md",
+        "route": "export/",
+        "status": 200,
+        "bytes": 86642,
+        "source_sha256": "8cf73e3b51e357cdf314dcb6f054646260bd2840b2d4760e232924ed996e055a",
+        "public_sha256": "8cf73e3b51e357cdf314dcb6f054646260bd2840b2d4760e232924ed996e055a",
+        "byte_identical": true
+      },
+      {
+        "page": "export/template-language.md",
+        "route": "export/template-language/",
+        "status": 200,
+        "bytes": 92439,
+        "source_sha256": "02d8e3cb205eec260cfad574dabbffbf92c3ee1c49169e7d8f41c0bca1b1ae3e",
+        "public_sha256": "02d8e3cb205eec260cfad574dabbffbf92c3ee1c49169e7d8f41c0bca1b1ae3e",
+        "byte_identical": true
+      },
+      {
+        "page": "export/template-gallery.md",
+        "route": "export/template-gallery/",
+        "status": 200,
+        "bytes": 84078,
+        "source_sha256": "34621a91482e9a6f6b082d6a1d3fe57cef5fd01c28c24de6afa9e5dba02d8eff",
+        "public_sha256": "34621a91482e9a6f6b082d6a1d3fe57cef5fd01c28c24de6afa9e5dba02d8eff",
+        "byte_identical": true
+      },
+      {
+        "page": "export/csv.md",
+        "route": "export/csv/",
+        "status": 200,
+        "bytes": 84822,
+        "source_sha256": "656ce4e24bb73bd999346d5930d5222ab9051ab34eb904098e3893f6bd605f19",
+        "public_sha256": "656ce4e24bb73bd999346d5930d5222ab9051ab34eb904098e3893f6bd605f19",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/index.md",
+        "route": "reference/",
+        "status": 200,
+        "bytes": 77108,
+        "source_sha256": "d45455fd769fe0f418904e12ee3987f47a1a8ccc0d947cf0cb92f1ccbaebbcdd",
+        "public_sha256": "d45455fd769fe0f418904e12ee3987f47a1a8ccc0d947cf0cb92f1ccbaebbcdd",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/format-strings.md",
+        "route": "reference/format-strings/",
+        "status": 200,
+        "bytes": 112028,
+        "source_sha256": "a54a914a9bf4fc550d09d3156b9435134bb727f88af3788f54a004d948fa5a1d",
+        "public_sha256": "a54a914a9bf4fc550d09d3156b9435134bb727f88af3788f54a004d948fa5a1d",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/placeholders.md",
+        "route": "reference/placeholders/",
+        "status": 200,
+        "bytes": 98187,
+        "source_sha256": "73e981b5bd1736526db67b2866123bf626237e9c114d353017bc34b5a055b713",
+        "public_sha256": "73e981b5bd1736526db67b2866123bf626237e9c114d353017bc34b5a055b713",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/scripting/index.md",
+        "route": "reference/scripting/",
+        "status": 200,
+        "bytes": 87802,
+        "source_sha256": "e1d6390d76651933bb0506db265e1cd3fa74fd21428f09ce3504709592b0b611",
+        "public_sha256": "e1d6390d76651933bb0506db265e1cd3fa74fd21428f09ce3504709592b0b611",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/scripting/text.md",
+        "route": "reference/scripting/text/",
+        "status": 200,
+        "bytes": 106238,
+        "source_sha256": "55dcb2dbf1778c867c3eb5f74c5b3abc4b0fb6853ca04411142adb06a7c04e43",
+        "public_sha256": "55dcb2dbf1778c867c3eb5f74c5b3abc4b0fb6853ca04411142adb06a7c04e43",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/scripting/search-compare.md",
+        "route": "reference/scripting/search-compare/",
+        "status": 200,
+        "bytes": 90146,
+        "source_sha256": "9f15c43b4f80f346a921720db334107bbf29453450d20cebde77883def35bc1b",
+        "public_sha256": "9f15c43b4f80f346a921720db334107bbf29453450d20cebde77883def35bc1b",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/scripting/conditions.md",
+        "route": "reference/scripting/conditions/",
+        "status": 200,
+        "bytes": 101686,
+        "source_sha256": "1a2c4538699bd578f0f4f8a6e5a7afe5faeef4ceaf4907e61ae3bae34754dfd8",
+        "public_sha256": "1a2c4538699bd578f0f4f8a6e5a7afe5faeef4ceaf4907e61ae3bae34754dfd8",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/scripting/numbers.md",
+        "route": "reference/scripting/numbers/",
+        "status": 200,
+        "bytes": 88872,
+        "source_sha256": "a1706adc47e6f319532f817f08da36164193d8ab397e7ea25bebf4ee5423d860",
+        "public_sha256": "a1706adc47e6f319532f817f08da36164193d8ab397e7ea25bebf4ee5423d860",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/scripting/dates-durations.md",
+        "route": "reference/scripting/dates-durations/",
+        "status": 200,
+        "bytes": 85196,
+        "source_sha256": "17f05ef3baa1ea194518018628da192b5d55b52a0f037cf6a38154427a19abf3",
+        "public_sha256": "17f05ef3baa1ea194518018628da192b5d55b52a0f037cf6a38154427a19abf3",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/scripting/lists-metadata.md",
+        "route": "reference/scripting/lists-metadata/",
+        "status": 200,
+        "bytes": 94479,
+        "source_sha256": "7ea688b76b38660eeb0c3809c20f3c3cd24be9700ce0299c24123665ea23f8b5",
+        "public_sha256": "7ea688b76b38660eeb0c3809c20f3c3cd24be9700ce0299c24123665ea23f8b5",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/regular-expressions.md",
+        "route": "reference/regular-expressions/",
+        "status": 200,
+        "bytes": 122068,
+        "source_sha256": "ec9e4a3068e486aac95ca5688b509702a60fe7cf76f6f1eab1805e053dd0e0c8",
+        "public_sha256": "ec9e4a3068e486aac95ca5688b509702a60fe7cf76f6f1eab1805e053dd0e0c8",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/filter-syntax.md",
+        "route": "reference/filter-syntax/",
+        "status": 200,
+        "bytes": 94987,
+        "source_sha256": "713532317429ca0c9c803a3189f8fcc8be312eb92d8da0c01fd19f06c2f1e477",
+        "public_sha256": "713532317429ca0c9c803a3189f8fcc8be312eb92d8da0c01fd19f06c2f1e477",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/field-names.md",
+        "route": "reference/field-names/",
+        "status": 200,
+        "bytes": 112404,
+        "source_sha256": "52c67421f379245d672fb27cfadffc89e69259cd0e2f8831fd3934f106244a8f",
+        "public_sha256": "52c67421f379245d672fb27cfadffc89e69259cd0e2f8831fd3934f106244a8f",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/tag-mapping.md",
+        "route": "reference/tag-mapping/",
+        "status": 200,
+        "bytes": 116924,
+        "source_sha256": "6316e49ffb79786486e08bb085be752e52940409fca182b1df51a242093182fc",
+        "public_sha256": "6316e49ffb79786486e08bb085be752e52940409fca182b1df51a242093182fc",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/file-formats.md",
+        "route": "reference/file-formats/",
+        "status": 200,
+        "bytes": 109854,
+        "source_sha256": "26f1d4b5f6c5d8e1463de950180f12ff2f6234ca857e92059d7f083766651ba5",
+        "public_sha256": "26f1d4b5f6c5d8e1463de950180f12ff2f6234ca857e92059d7f083766651ba5",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/keyboard-shortcuts.md",
+        "route": "reference/keyboard-shortcuts/",
+        "status": 200,
+        "bytes": 89963,
+        "source_sha256": "323828cc86b5d1f73a0d4482ffc288b2dd295a7dc6430443e87dc0d6d96dd6bb",
+        "public_sha256": "323828cc86b5d1f73a0d4482ffc288b2dd295a7dc6430443e87dc0d6d96dd6bb",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/command-line.md",
+        "route": "reference/command-line/",
+        "status": 200,
+        "bytes": 83440,
+        "source_sha256": "49f8d326846a5efc5c25a25bca79b40c51e7753f4e1e8d646142c8f7418ca780",
+        "public_sha256": "49f8d326846a5efc5c25a25bca79b40c51e7753f4e1e8d646142c8f7418ca780",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/menus/index.md",
+        "route": "reference/menus/",
+        "status": 200,
+        "bytes": 77259,
+        "source_sha256": "e94e36f9f639b945ee9508706a3e6bcab17a152a7b317a6f2abf162056948e81",
+        "public_sha256": "e94e36f9f639b945ee9508706a3e6bcab17a152a7b317a6f2abf162056948e81",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/menus/file.md",
+        "route": "reference/menus/file/",
+        "status": 200,
+        "bytes": 83947,
+        "source_sha256": "6eb0e86e7fd8b49a495589f38bdedba3dd614ca08e8e34e3e21c082eeccdce4a",
+        "public_sha256": "6eb0e86e7fd8b49a495589f38bdedba3dd614ca08e8e34e3e21c082eeccdce4a",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/menus/edit.md",
+        "route": "reference/menus/edit/",
+        "status": 200,
+        "bytes": 82367,
+        "source_sha256": "2872714c469e82518baa31ed14585cfdad5bca6341177f9ba7e470ec470cb0c3",
+        "public_sha256": "2872714c469e82518baa31ed14585cfdad5bca6341177f9ba7e470ec470cb0c3",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/menus/view.md",
+        "route": "reference/menus/view/",
+        "status": 200,
+        "bytes": 80642,
+        "source_sha256": "bf18514e003f6bb98f2574dcf94436fd170ec6206a4cb3d38aab669f4c08aff7",
+        "public_sha256": "bf18514e003f6bb98f2574dcf94436fd170ec6206a4cb3d38aab669f4c08aff7",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/menus/convert.md",
+        "route": "reference/menus/convert/",
+        "status": 200,
+        "bytes": 78734,
+        "source_sha256": "a66f2903f25018252a857b213deb8170644a35d476e12d40d3571e1203e64f9c",
+        "public_sha256": "a66f2903f25018252a857b213deb8170644a35d476e12d40d3571e1203e64f9c",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/menus/actions.md",
+        "route": "reference/menus/actions/",
+        "status": 200,
+        "bytes": 82711,
+        "source_sha256": "7ef5e314893be48f9b3a0ee538bcec81b649e1580bb850c634ef7a6c415e6218",
+        "public_sha256": "7ef5e314893be48f9b3a0ee538bcec81b649e1580bb850c634ef7a6c415e6218",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/menus/tag-sources.md",
+        "route": "reference/menus/tag-sources/",
+        "status": 200,
+        "bytes": 81440,
+        "source_sha256": "03499fda012bda11d95e85e5076dbbefd0614170896c28e919d7125f0c93945f",
+        "public_sha256": "03499fda012bda11d95e85e5076dbbefd0614170896c28e919d7125f0c93945f",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/menus/help.md",
+        "route": "reference/menus/help/",
+        "status": 200,
+        "bytes": 81532,
+        "source_sha256": "a43b6dd82c0707faa3d82b28d578756a0bb49890942a30ec7db56c0ccd0c3b6f",
+        "public_sha256": "a43b6dd82c0707faa3d82b28d578756a0bb49890942a30ec7db56c0ccd0c3b6f",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/menus/context-menus.md",
+        "route": "reference/menus/context-menus/",
+        "status": 200,
+        "bytes": 98053,
+        "source_sha256": "164dc5fd626501e0ac72de7d1e85c0e6c31fbbaef286c22c6534f567a1355416",
+        "public_sha256": "164dc5fd626501e0ac72de7d1e85c0e6c31fbbaef286c22c6534f567a1355416",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/options/index.md",
+        "route": "reference/options/",
+        "status": 200,
+        "bytes": 80375,
+        "source_sha256": "df6c01819f29168f285401cd05924735349150111b0ff3932b03da664605ec13",
+        "public_sha256": "df6c01819f29168f285401cd05924735349150111b0ff3932b03da664605ec13",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/options/general.md",
+        "route": "reference/options/general/",
+        "status": 200,
+        "bytes": 79333,
+        "source_sha256": "8eec45dff6545f258b7d7ef83d647b0ee6e3759a9dcd9e78cc198d050373794f",
+        "public_sha256": "8eec45dff6545f258b7d7ef83d647b0ee6e3759a9dcd9e78cc198d050373794f",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/options/messages.md",
+        "route": "reference/options/messages/",
+        "status": 200,
+        "bytes": 80813,
+        "source_sha256": "a9f4ee6a277a04e84364baeac643ca684505b47e0fd18c2ff1ca9bbe92d8ddfc",
+        "public_sha256": "a9f4ee6a277a04e84364baeac643ca684505b47e0fd18c2ff1ca9bbe92d8ddfc",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/options/files.md",
+        "route": "reference/options/files/",
+        "status": 200,
+        "bytes": 79582,
+        "source_sha256": "807c55cd9eb5a867b8992c50572dec46fb133167942b307a4dd51e94f253780f",
+        "public_sha256": "807c55cd9eb5a867b8992c50572dec46fb133167942b307a4dd51e94f253780f",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/options/directories.md",
+        "route": "reference/options/directories/",
+        "status": 200,
+        "bytes": 79852,
+        "source_sha256": "c198736bb03e2fb547a209a6af254365256a622472ea06961432cadc38d1bd1c",
+        "public_sha256": "c198736bb03e2fb547a209a6af254365256a622472ea06961432cadc38d1bd1c",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/options/appearance.md",
+        "route": "reference/options/appearance/",
+        "status": 200,
+        "bytes": 79652,
+        "source_sha256": "3ad82799ab36c1297a3df099f560bcabffe488f992e9fd6355266b366d0bc0a8",
+        "public_sha256": "3ad82799ab36c1297a3df099f560bcabffe488f992e9fd6355266b366d0bc0a8",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/options/library.md",
+        "route": "reference/options/library/",
+        "status": 200,
+        "bytes": 81490,
+        "source_sha256": "e7439ff9b91006baf6e0ea9495eaf331bbec0d691165a7481c11236c40810fc2",
+        "public_sha256": "e7439ff9b91006baf6e0ea9495eaf331bbec0d691165a7481c11236c40810fc2",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/options/tags.md",
+        "route": "reference/options/tags/",
+        "status": 200,
+        "bytes": 81562,
+        "source_sha256": "e97567b53dc7cf60f90ea3357f09f1f6f9df5dd6caed6babea118d19056f3244",
+        "public_sha256": "e97567b53dc7cf60f90ea3357f09f1f6f9df5dd6caed6babea118d19056f3244",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/options/tags-mpeg.md",
+        "route": "reference/options/tags-mpeg/",
+        "status": 200,
+        "bytes": 88354,
+        "source_sha256": "f701cf2e61cfdbe341965417d637f6fbaf6f2297c86e93fd5198c6d5e1b91cb8",
+        "public_sha256": "f701cf2e61cfdbe341965417d637f6fbaf6f2297c86e93fd5198c6d5e1b91cb8",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/options/tags-ape-mpc.md",
+        "route": "reference/options/tags-ape-mpc/",
+        "status": 200,
+        "bytes": 81942,
+        "source_sha256": "d538fe6fb3b32d96849a5aae70f829d8cc639ea1ef3193676d3f4e3b760604b3",
+        "public_sha256": "d538fe6fb3b32d96849a5aae70f829d8cc639ea1ef3193676d3f4e3b760604b3",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/options/tags-mapping.md",
+        "route": "reference/options/tags-mapping/",
+        "status": 200,
+        "bytes": 81587,
+        "source_sha256": "8f3221481ade39df6d63d7381c32cbf61e29410923fe4104573b3973362d6465",
+        "public_sha256": "8f3221481ade39df6d63d7381c32cbf61e29410923fe4104573b3973362d6465",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/options/tags-advanced.md",
+        "route": "reference/options/tags-advanced/",
+        "status": 200,
+        "bytes": 85805,
+        "source_sha256": "26456ed52dc1359c3651d4f58fe96c67e0c926badcb5fd0a51406f6c11469a5a",
+        "public_sha256": "26456ed52dc1359c3651d4f58fe96c67e0c926badcb5fd0a51406f6c11469a5a",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/options/tag-panel.md",
+        "route": "reference/options/tag-panel/",
+        "status": 200,
+        "bytes": 81727,
+        "source_sha256": "77510a2476a8fe2d747c3dd3e207688493211533ce684031ffe41f96affe92ee",
+        "public_sha256": "77510a2476a8fe2d747c3dd3e207688493211533ce684031ffe41f96affe92ee",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/options/field-values.md",
+        "route": "reference/options/field-values/",
+        "status": 200,
+        "bytes": 80893,
+        "source_sha256": "eee1c9679af68a054e13b3abbb8f2c972eb48fd1bf0721527811b958f8d57f91",
+        "public_sha256": "eee1c9679af68a054e13b3abbb8f2c972eb48fd1bf0721527811b958f8d57f91",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/options/networking.md",
+        "route": "reference/options/networking/",
+        "status": 200,
+        "bytes": 77800,
+        "source_sha256": "f20cbf1e1e1ba2973b4a7e2c38ca979895ea5d9eb3f686b837f201e6e80cf9e7",
+        "public_sha256": "f20cbf1e1e1ba2973b4a7e2c38ca979895ea5d9eb3f686b837f201e6e80cf9e7",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/options/updates.md",
+        "route": "reference/options/updates/",
+        "status": 200,
+        "bytes": 78772,
+        "source_sha256": "2cfd7227d04ddffd10d72f7b68235ce42db68383a2afac24f329842289c96d3a",
+        "public_sha256": "2cfd7227d04ddffd10d72f7b68235ce42db68383a2afac24f329842289c96d3a",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/options/tag-sources.md",
+        "route": "reference/options/tag-sources/",
+        "status": 200,
+        "bytes": 80695,
+        "source_sha256": "3e93cd412c57cf9bae73aa2f816e9d4a410bd7046cab93741421edf50b64d60f",
+        "public_sha256": "3e93cd412c57cf9bae73aa2f816e9d4a410bd7046cab93741421edf50b64d60f",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/options/tag-sources-freedb.md",
+        "route": "reference/options/tag-sources-freedb/",
+        "status": 200,
+        "bytes": 80305,
+        "source_sha256": "70d5f0df62b9abfdf422d8058166711fb1fc81a957b1774b8c80abfbaafd792c",
+        "public_sha256": "70d5f0df62b9abfdf422d8058166711fb1fc81a957b1774b8c80abfbaafd792c",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/options/tag-sources-local-freedb.md",
+        "route": "reference/options/tag-sources-local-freedb/",
+        "status": 200,
+        "bytes": 79015,
+        "source_sha256": "cbcf26a5b1d349f0180738ee1bd0e5c6b9bd0d929fcfd408a6a4bc8aa8b923ad",
+        "public_sha256": "cbcf26a5b1d349f0180738ee1bd0e5c6b9bd0d929fcfd408a6a4bc8aa8b923ad",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/options/export.md",
+        "route": "reference/options/export/",
+        "status": 200,
+        "bytes": 79937,
+        "source_sha256": "aa25366ca6d1fffe9ed4dd6fd050b1374e783c4c63b0578dbc08335048e128ba",
+        "public_sha256": "aa25366ca6d1fffe9ed4dd6fd050b1374e783c4c63b0578dbc08335048e128ba",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/options/playlist.md",
+        "route": "reference/options/playlist/",
+        "status": 200,
+        "bytes": 84768,
+        "source_sha256": "eb2f41f25fd6b8508167cdc56cd9cf806a768761552c1081d118b856494102b0",
+        "public_sha256": "eb2f41f25fd6b8508167cdc56cd9cf806a768761552c1081d118b856494102b0",
+        "byte_identical": true
+      },
+      {
+        "page": "reference/options/tools.md",
+        "route": "reference/options/tools/",
+        "status": 200,
+        "bytes": 83253,
+        "source_sha256": "f5d0ed8f32ffa137596d2b78d62d026106ced1c28d71b25f8432652ee2f07098",
+        "public_sha256": "f5d0ed8f32ffa137596d2b78d62d026106ced1c28d71b25f8432652ee2f07098",
+        "byte_identical": true
+      },
+      {
+        "page": "cookbook/rename-zero-padded-track-numbers.md",
+        "route": "cookbook/rename-zero-padded-track-numbers/",
+        "status": 200,
+        "bytes": 82689,
+        "source_sha256": "31bc64752a45757d5353bf1ea1af0db8d8a88a1ead36360b04e6175cc825149f",
+        "public_sha256": "31bc64752a45757d5353bf1ea1af0db8d8a88a1ead36360b04e6175cc825149f",
+        "byte_identical": true
+      },
+      {
+        "page": "cookbook/feat-artists-to-title.md",
+        "route": "cookbook/feat-artists-to-title/",
+        "status": 200,
+        "bytes": 86079,
+        "source_sha256": "2bff96c13f3dcc822407dca59f203d5e4e2c0570f95348823c1cf86fac95bc8a",
+        "public_sha256": "2bff96c13f3dcc822407dca59f203d5e4e2c0570f95348823c1cf86fac95bc8a",
+        "byte_identical": true
+      },
+      {
+        "page": "cookbook/tags-from-folder-and-filename.md",
+        "route": "cookbook/tags-from-folder-and-filename/",
+        "status": 200,
+        "bytes": 84249,
+        "source_sha256": "59ae36558d07545fe01c1e1bcc6f6edd3ab597731c6ae3495b933cb0e45e9348",
+        "public_sha256": "59ae36558d07545fe01c1e1bcc6f6edd3ab597731c6ae3495b933cb0e45e9348",
+        "byte_identical": true
+      }
+    ]
+  },
+  "search": {
+    "status": 200,
+    "sections": 825,
+    "routes": 97,
+    "exact_ready_pages": true,
+    "missing": [],
+    "unexpected": [],
+    "source_sha256": "0062d5a2a9cf60c0941dfcd19a624c5a801bbdb18f0d8b306b60b8ce56cc0222",
+    "public_sha256": "0062d5a2a9cf60c0941dfcd19a624c5a801bbdb18f0d8b306b60b8ce56cc0222"
+  },
+  "assets": {
+    "source": "432d354cb559a2f4f6bd15d558afadf46d080b0e",
+    "pages_inspected": 97,
+    "assets": [
+      {
+        "url": "https://johnneerdael.github.io/opentag/assets/brand/favicon.png",
+        "status": 200,
+        "bytes": 69351,
+        "error": ""
+      },
+      {
+        "url": "https://johnneerdael.github.io/opentag/assets/brand/logo-on-dark.svg",
+        "status": 200,
+        "bytes": 5375,
+        "error": ""
+      },
+      {
+        "url": "https://johnneerdael.github.io/opentag/assets/brand/logo-on-light.svg",
+        "status": 200,
+        "bytes": 5376,
+        "error": ""
+      },
+      {
+        "url": "https://johnneerdael.github.io/opentag/assets/brand/mark.svg",
+        "status": 200,
+        "bytes": 3124,
+        "error": ""
+      },
+      {
+        "url": "https://johnneerdael.github.io/opentag/assets/javascripts/bundle.d7400e89.min.js",
+        "status": 200,
+        "bytes": 114286,
+        "error": ""
+      },
+      {
+        "url": "https://johnneerdael.github.io/opentag/assets/javascripts/workers/search.2c215733.min.js",
+        "status": 200,
+        "bytes": 39481,
+        "error": ""
+      },
+      {
+        "url": "https://johnneerdael.github.io/opentag/assets/screens/extended-tags-dark.png",
+        "status": 200,
+        "bytes": 100847,
+        "error": ""
+      },
+      {
+        "url": "https://johnneerdael.github.io/opentag/assets/screens/extended-tags-light.png",
+        "status": 200,
+        "bytes": 111352,
+        "error": ""
+      },
+      {
+        "url": "https://johnneerdael.github.io/opentag/assets/screens/main-window-dark.png",
+        "status": 200,
+        "bytes": 83426,
+        "error": ""
+      },
+      {
+        "url": "https://johnneerdael.github.io/opentag/assets/screens/main-window-light.png",
+        "status": 200,
+        "bytes": 82974,
+        "error": ""
+      },
+      {
+        "url": "https://johnneerdael.github.io/opentag/assets/screens/menu-convert-dark.png",
+        "status": 200,
+        "bytes": 88580,
+        "error": ""
+      },
+      {
+        "url": "https://johnneerdael.github.io/opentag/assets/screens/menu-convert-light.png",
+        "status": 200,
+        "bytes": 91569,
+        "error": ""
+      },
+      {
+        "url": "https://johnneerdael.github.io/opentag/assets/screens/tag-panel-keep-dark.png",
+        "status": 200,
+        "bytes": 79762,
+        "error": ""
+      },
+      {
+        "url": "https://johnneerdael.github.io/opentag/assets/screens/tag-panel-keep-light.png",
+        "status": 200,
+        "bytes": 81536,
+        "error": ""
+      },
+      {
+        "url": "https://johnneerdael.github.io/opentag/assets/screens/tag-to-filename-dark.png",
+        "status": 200,
+        "bytes": 95852,
+        "error": ""
+      },
+      {
+        "url": "https://johnneerdael.github.io/opentag/assets/screens/tag-to-filename-light.png",
+        "status": 200,
+        "bytes": 107091,
+        "error": ""
+      },
+      {
+        "url": "https://johnneerdael.github.io/opentag/assets/stylesheets/main.ec1eaa64.min.css",
+        "status": 200,
+        "bytes": 139846,
+        "error": ""
+      },
+      {
+        "url": "https://johnneerdael.github.io/opentag/assets/stylesheets/palette.ab4e12ef.min.css",
+        "status": 200,
+        "bytes": 12641,
+        "error": ""
+      },
+      {
+        "url": "https://johnneerdael.github.io/opentag/stylesheets/opentag.css",
+        "status": 200,
+        "bytes": 6750,
+        "error": ""
+      }
+    ],
+    "success": true,
+    "worker_resolution": "new Worker(config.search): resolve directly against document URL"
+  },
+  "browser": {
+    "scope": [
+      "1440px format-string lesson loads with copyable worked examples",
+      "Long tutorial rendered in light and slate palettes",
+      "All59 command headings rendered and JSON command anchor navigates",
+      "Native mapping tables render at desktop size",
+      "390px mapping table stays within document; wide content has local scrolling",
+      "390px keyboard tables and complete web-source tutorial have no document-level horizontal overflow",
+      "Mobile drawer opens and navigates to detailed Format Value action",
+      "Actual search worker returns web-source command reference for json_select_many",
+      "Search result navigation opens detailed command reference",
+      "New editing-family Extended Tags guide is publicly rendered"
+    ],
+    "errors": [],
+    "success": true,
+    "pointer_navigation": {
+      "steps": [
+        {
+          "text": "Web sources",
+          "for": "__nav_4_4",
+          "href": null,
+          "box": {
+            "x": 0,
+            "y": 0,
+            "width": 242,
+            "height": 112
+          },
+          "x": 121,
+          "y": 56,
+          "hit": "LABEL"
+        },
+        {
+          "text": "",
+          "for": "__nav_4_2",
+          "href": null,
+          "box": {
+            "x": 206,
+            "y": 173,
+            "width": 20,
+            "height": 24
+          },
+          "x": 216,
+          "y": 185,
+          "hit": "SPAN"
+        },
+        {
+          "text": "Action types",
+          "for": "__nav_4_2_2",
+          "href": null,
+          "box": {
+            "x": -0.4327545166015625,
+            "y": 112,
+            "width": 242.00001525878906,
+            "height": 48
+          },
+          "x": 120.56725311279297,
+          "y": 136,
+          "hit": "LABEL"
+        },
+        {
+          "text": "Format value",
+          "href": "https://johnneerdael.github.io/opentag/actions/format-value/",
+          "box": {
+            "x": -0.00774383544921875,
+            "y": 357,
+            "width": 242.00003051757812,
+            "height": 48
+          },
+          "x": 120.99227142333984,
+          "y": 381,
+          "hit": "A"
+        }
+      ],
+      "scope": "Actual pointer-only nested mobile navigation on public97-page guide deployed from main432d354",
+      "final": {
+        "url": "https://johnneerdael.github.io/opentag/actions/format-value/",
+        "h1": "Format Value\u00b6",
+        "drawerClosed": true
+      },
+      "errors": [],
+      "success": true,
+      "profile_removed": true
+    },
+    "profiles_removed": true,
+    "visual_inspection": [
+      "desktop light format-string lesson: readable hierarchy/examples/navigation",
+      "390px dark mapping introduction: readable spacing and no document overflow",
+      "390px Format Value final destination: sidebar fully off-screen after CSS transition; heading/body readable"
+    ],
+    "limitations": [
+      "Native OpenTag UI/save-back not checked",
+      "Other browser engines and every page interaction not checked"
+    ],
+    "harness_note": "First pointer attempt asserted H1 immediately after URL changed; final bounded check waits for destination H1 and closed drawer, then succeeds. No source change."
+  },
+  "remaining_drafts": 90,
+  "full_canonical_semantic_coverage": "Not complete. Ninety drafts and later source reconciliation remain.",
+  "local_evidence_directory": "/tmp/opentag-expanded-live-guide"
+}
