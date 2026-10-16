@@ -218,6 +218,34 @@ and the core renderer regression. Clippy with warnings denied, formatting,
 strict guide build and all eight publication tests passed. JavaScript and
 frontend sources are unchanged from the preceding 318-test/build validation.
 
+## Command-level symlink undo follow-up
+
+The review of `454087b` found that the earlier host symlink fixture used a
+no-op side-file hook. The actual `execute_action_groups` command first called
+the undo journal, which refused a symbolic link. A command-level fixture
+with journaling enabled reproduced both files warning before any export.
+
+Side-file snapshots now retain a link's target verbatim in a verified,
+bounded journal descriptor. Capture probes link creation in a private
+sibling directory before permitting replacement; unsupported or denied
+creation fails visibly. Replay checks the current entry kind and link
+target before restoring a sibling-staged symlink or regular image. The
+probe/staging directory is removed on success or failure. Audio snapshot,
+fingerprint and write-accounting logic is unchanged.
+
+The real command regression now verifies the first exported image, the
+second file's collision, Undo restoring the original relative link, Redo
+restoring the exported regular file, an unchanged original link target,
+and visible refusal after an external entry substitution. The core journal
+also round-trips relative and dangling link targets; the app continues to
+refuse dangling output aliases before writing. A failed link-creation probe
+has an explicit cleanup regression. These runtime fixtures ran on macOS;
+Windows link creation is capability-checked, with directory symlink side
+entries refused rather than restored with the wrong link kind. The workspace
+passed 750 Rust tests (the same four explicit skips), including 289 passing
+application-library tests and all 49 action-host tests. Clippy, formatting,
+strict guide build and all eight publication tests passed.
+
 ## Not covered
 
 - The `.mta` type IDs for Adjust Cover, Set Cover Properties and Generate Playlists, and the guessed schemas for types 4, 6 and 11–15, need `.mta` files saved by Mp3tag.

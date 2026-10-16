@@ -273,6 +273,124 @@ mod tests {
         tauri::async_runtime::block_on(future).unwrap()
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn action_cover_symlink_replacement_is_journaled_through_the_command() {
+        let _journal = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
+        TEST_ROOTS.lock().unwrap().push(root.clone());
+        let a = root.join("a.wav");
+        let b = root.join("b.wav");
+        wav(&a, "Alpha");
+        wav(&b, "Beta");
+        let image = |width| {
+            let mut bytes = std::io::Cursor::new(Vec::new());
+            image::DynamicImage::ImageRgb8(image::RgbImage::new(width, width))
+                .write_to(&mut bytes, image::ImageFormat::Png)
+                .unwrap();
+            bytes.into_inner()
+        };
+        let (first, previous) = (image(2), image(3));
+        let original = root.join("original.png");
+        let first_image = root.join("first.png");
+        std::fs::write(&original, &previous).unwrap();
+        std::fs::write(&first_image, &first).unwrap();
+        tag_core::add_cover(&a, &first_image).unwrap();
+        tag_core::add_cover(&b, &original).unwrap();
+        let target = root.join("shared.png");
+        std::os::unix::fs::symlink("original.png", &target).unwrap();
+        let text = |p: &Path| p.to_string_lossy().into_owned();
+        let group = tag_core::actions::ActionGroup {
+            name: "Cover link".into(),
+            enabled: true,
+            actions: vec![tag_core::actions::ActionSpec::ExportCover {
+                filename_template: "shared".into(),
+                picture_type: None,
+                export_duplicates: false,
+            }],
+        };
+        let result = run(crate::execute_action_groups(
+            vec![text(&a), text(&b)],
+            vec![group],
+            None,
+        ));
+        assert_eq!(result.errors.len(), 1, "{:?}", result.errors);
+        assert!(result.errors[0].path.ends_with("b.wav"));
+        assert!(result.errors[0]
+            .error
+            .contains("already written for another file"));
+        assert_eq!(std::fs::read(&target).unwrap(), first);
+        assert!(!std::fs::symlink_metadata(&target)
+            .unwrap()
+            .file_type()
+            .is_symlink());
+        assert_eq!(std::fs::read(&original).unwrap(), previous);
+        let undone = run(undo_last());
+        assert!(
+            undone.result.errors.is_empty(),
+            "{:?}",
+            undone.result.errors
+        );
+        assert_eq!(
+            std::fs::read_link(&target).unwrap(),
+            Path::new("original.png")
+        );
+        assert_eq!(std::fs::read(&target).unwrap(), previous);
+        let redone = run(redo_last());
+        assert!(
+            redone.result.errors.is_empty(),
+            "{:?}",
+            redone.result.errors
+        );
+        assert!(!std::fs::symlink_metadata(&target)
+            .unwrap()
+            .file_type()
+            .is_symlink());
+        assert_eq!(std::fs::read(&target).unwrap(), first);
+        assert_eq!(std::fs::read(&original).unwrap(), previous);
+        // An externally substituted link is a different directory entry,
+        // even when it exposes the exact bytes the journal expects.
+        std::fs::remove_file(&target).unwrap();
+        std::os::unix::fs::symlink("first.png", &target).unwrap();
+        let refused = run(undo_last());
+        assert!(refused
+            .result
+            .errors
+            .iter()
+            .any(|error| error.error.contains("Changed outside")));
+        assert_eq!(std::fs::read_link(&target).unwrap(), Path::new("first.png"));
+        // The app's existing full-alias protection rejects a dangling
+        // destination visibly before any cover write or link replacement.
+        let dangling = root.join("dangling.png");
+        std::os::unix::fs::symlink("missing.png", &dangling).unwrap();
+        let result = run(crate::execute_action_groups(
+            vec![text(&a)],
+            vec![tag_core::actions::ActionGroup {
+                name: "Dangling link".into(),
+                enabled: true,
+                actions: vec![tag_core::actions::ActionSpec::ExportCover {
+                    filename_template: "dangling".into(),
+                    picture_type: None,
+                    export_duplicates: false,
+                }],
+            }],
+            None,
+        ));
+        assert_eq!(result.errors.len(), 1, "{:?}", result.errors);
+        assert_eq!(
+            std::fs::read_link(&dangling).unwrap(),
+            Path::new("missing.png")
+        );
+        assert!(!root.join("missing.png").exists());
+        assert!(!std::fs::read_dir(&root).unwrap().any(|entry| entry
+            .unwrap()
+            .file_name()
+            .to_string_lossy()
+            .starts_with(".opentag-link-")));
+        TEST_ROOTS.lock().unwrap().retain(|r| r != &root);
+    }
+
     #[test]
     fn commands_record_grouped_saves_tag_conversions_and_renames() {
         let _journal = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());

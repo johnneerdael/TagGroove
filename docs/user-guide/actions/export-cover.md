@@ -71,7 +71,10 @@ This includes returning to its original cover: exporting the first image,
 then a different image, then the first again leaves the first image on disk,
 even with **Export duplicate covers** off.
 On macOS and Linux, exporting to an image symlink replaces the link entry;
-the file it pointed to stays unchanged. That output name retains its owner
+the file it pointed to stays unchanged. With the undo step available, Undo
+restores the original link and Redo restores the exported image. If link
+undo cannot be prepared, the action reports a warning before replacing it.
+A dangling destination link is refused. That output name retains its owner
 for later exports in the run.
 Another file that finds those same image bytes already there does not take
 over ownership of the output name.

@@ -16,6 +16,8 @@
 //! Operations may also create or replace small files beside the audio, such
 //! as a cover image saved by a tag source import. These side files are copied
 //! whole, absent or not, and undo puts back exactly what was there before.
+//! Symbolic-link side entries retain their link target verbatim; their
+//! referents are never captured or changed.
 use crate::{FileError, TagOptions};
 use serde::Serialize;
 use std::{
@@ -150,6 +152,8 @@ struct Blob {
     linked: bool,
     /// Bytes this snapshot keeps on disk.
     cost: u64,
+    /// Side-file links retain the entry target verbatim, not its referent.
+    symlink_target: Option<PathBuf>,
 }
 #[derive(Clone, Debug)]
 struct Side {
@@ -177,7 +181,7 @@ impl FileRecord {
     }
 }
 /// A file that is not audio, created or replaced by an operation: its
-/// complete bytes on each side, or `None` where it did not exist.
+/// complete bytes or symlink entry on each side, or `None` where absent.
 #[derive(Clone, Debug)]
 struct SideFile {
     path: PathBuf,
@@ -351,6 +355,7 @@ impl Journal {
             path,
             linked,
             cost: expected.len,
+            symlink_target: None,
         };
         if blob.fingerprint.len != expected.len {
             discard(&blob);
@@ -452,14 +457,54 @@ impl Journal {
         if capture.side_files.iter().any(|(known, _)| *known == path) {
             return Ok(());
         }
-        let before = match fs::symlink_metadata(&path) {
-            Ok(metadata) if metadata.is_file() => Some(self.copy_blob(&path)?),
-            Ok(_) => return Err(format!("{} is not a regular file", path.display())),
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
-            Err(error) => return Err(error.to_string()),
-        };
+        let before = self.copy_side_file(&path)?;
         capture.side_files.push((path, before));
         Ok(())
+    }
+
+    fn copy_side_file(&mut self, source: &Path) -> Result<Option<Blob>, String> {
+        match fs::symlink_metadata(source) {
+            Ok(metadata) if metadata.file_type().is_symlink() => {
+                #[cfg(windows)]
+                {
+                    use std::os::windows::fs::FileTypeExt;
+                    if metadata.file_type().is_symlink_dir() {
+                        return Err("Cannot capture a directory symlink as a side file".into());
+                    }
+                }
+                let target = fs::read_link(source).map_err(|e| e.to_string())?;
+                // Prove this platform can recreate the entry before allowing
+                // its replacement. The private sibling probe is always removed.
+                let folder = source.parent().ok_or("The side file has no folder")?;
+                let _probe = stage_side_link(&target, folder)?;
+                let path = self.blob_path();
+                if let Err(error) = fs::write(&path, target.as_os_str().as_encoded_bytes()) {
+                    let _ = fs::remove_file(&path);
+                    return Err(error.to_string());
+                }
+                let fingerprint = match fingerprint(&path) {
+                    Ok(print) => print,
+                    Err(error) => {
+                        let _ = fs::remove_file(&path);
+                        return Err(error);
+                    }
+                };
+                Ok(Some(Blob {
+                    path,
+                    cost: fingerprint.len,
+                    fingerprint,
+                    linked: false,
+                    symlink_target: Some(target),
+                }))
+            }
+            Ok(metadata) if metadata.is_file() => self.copy_blob(source).map(Some),
+            Ok(_) => Err(format!(
+                "{} is not a regular file or symlink",
+                source.display()
+            )),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(error) => Err(error.to_string()),
+        }
     }
 
     /// A complete copy: side files are small and may be rewritten in place.
@@ -475,6 +520,7 @@ impl Journal {
             cost: fingerprint.len,
             fingerprint,
             linked: false,
+            symlink_target: None,
         })
     }
 
@@ -487,21 +533,19 @@ impl Journal {
         let mut recorded = Vec::new();
         let mut lost = 0;
         for (path, before) in captured {
-            let after = if path.is_file() {
-                match self.copy_blob(&path) {
-                    Ok(blob) => Some(blob),
-                    Err(_) => {
-                        before.iter().for_each(discard);
-                        lost += 1;
-                        continue;
-                    }
+            let after = match self.copy_side_file(&path) {
+                Ok(after) => after,
+                Err(_) => {
+                    before.iter().for_each(discard);
+                    lost += 1;
+                    continue;
                 }
-            } else {
-                None
             };
             let unchanged = match (&before, &after) {
                 (None, None) => true,
-                (Some(old), Some(new)) => same_bytes(&old.path, &new.path),
+                (Some(old), Some(new)) => {
+                    old.symlink_target == new.symlink_target && same_bytes(&old.path, &new.path)
+                }
                 _ => false,
             };
             if unchanged {
@@ -945,7 +989,13 @@ fn holds(blob: Option<&Blob>, path: &Path) -> bool {
         None => {
             matches!(fs::symlink_metadata(path), Err(e) if e.kind() == std::io::ErrorKind::NotFound)
         }
-        Some(blob) => path.is_file() && same_bytes(&blob.path, path),
+        Some(blob) => match &blob.symlink_target {
+            Some(target) => fs::read_link(path).is_ok_and(|current| current == *target),
+            None => {
+                fs::symlink_metadata(path).is_ok_and(|metadata| metadata.is_file())
+                    && same_bytes(&blob.path, path)
+            }
+        },
     }
 }
 
@@ -958,6 +1008,14 @@ fn put(blob: Option<&Blob>, path: &Path) -> Result<(), String> {
         return Err("The undo snapshot was modified".into());
     }
     let folder = path.parent().ok_or("The file has no folder")?;
+    if let Some(target) = &blob.symlink_target {
+        if fs::read(&blob.path).map_err(|e| e.to_string())? != target.as_os_str().as_encoded_bytes()
+        {
+            return Err("The undo link snapshot was modified".into());
+        }
+        let (_directory, staging) = stage_side_link(target, folder)?;
+        return fs::rename(staging, path).map_err(|e| e.to_string());
+    }
     let mut staging = tempfile::Builder::new()
         .prefix(".opentag-")
         .tempfile_in(folder)
@@ -967,6 +1025,30 @@ fn put(blob: Option<&Blob>, path: &Path) -> Result<(), String> {
     staging.as_file().sync_all().map_err(|e| e.to_string())?;
     staging.persist(path).map_err(|e| e.error.to_string())?;
     Ok(())
+}
+
+/// A private sibling directory owns the temporary link until its atomic rename.
+/// Capture uses the same helper as a capability probe before any replacement.
+fn stage_side_link(target: &Path, folder: &Path) -> Result<(tempfile::TempDir, PathBuf), String> {
+    let directory = tempfile::Builder::new()
+        .prefix(".opentag-link-")
+        .tempdir_in(folder)
+        .map_err(|e| e.to_string())?;
+    let staging = directory.path().join("entry");
+    #[cfg(unix)]
+    let created = std::os::unix::fs::symlink(target, &staging);
+    #[cfg(windows)]
+    let created = std::os::windows::fs::symlink_file(target, &staging);
+    #[cfg(not(any(unix, windows)))]
+    let created: std::io::Result<()> = Err(std::io::Error::new(
+        std::io::ErrorKind::Unsupported,
+        "Side-file symlink undo is unavailable on this platform",
+    ));
+    created.map_err(|e| format!("Cannot prepare symlink undo: {e}"))?;
+    if fs::read_link(&staging).map_err(|e| e.to_string())? != target {
+        return Err("The undo symlink target was not preserved".into());
+    }
+    Ok((directory, staging))
 }
 
 impl Drop for Journal {
@@ -1159,5 +1241,19 @@ mod tests {
             cfg!(unix)
         );
         assert_eq!(volume_id(&dir).is_some(), cfg!(unix));
+    }
+}
+
+#[cfg(all(test, unix))]
+mod side_link_tests {
+    #[test]
+    fn failed_link_creation_removes_its_private_staging_directory() {
+        let folder = tempfile::tempdir().unwrap();
+        // The OS rejects NUL inside a link target after creating the private
+        // staging directory; that failure must leave no sibling probe behind.
+        assert!(
+            super::stage_side_link(std::path::Path::new("invalid\0target"), folder.path()).is_err()
+        );
+        assert_eq!(std::fs::read_dir(folder.path()).unwrap().count(), 0);
     }
 }

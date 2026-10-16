@@ -401,6 +401,41 @@ fn side_files_created_or_replaced_are_removed_or_restored() {
     assert_eq!(fs::read(&audio).unwrap(), original);
 }
 
+#[cfg(unix)]
+#[test]
+fn side_file_symlinks_restore_relative_and_dangling_targets_verbatim() {
+    use std::io::Write;
+    for link_target in ["original.jpg", "missing.jpg"] {
+        let dir = tempfile::tempdir().unwrap();
+        let original = dir.path().join("original.jpg");
+        fs::write(&original, b"original target").unwrap();
+        let output = dir.path().join("cover.jpg");
+        std::os::unix::fs::symlink(link_target, &output).unwrap();
+        let mut history = journal(dir.path());
+        let mut capture = history.begin("Cover link", None, &[]);
+        history.capture_side_file(&mut capture, &output).unwrap();
+        let mut staged = tempfile::NamedTempFile::new_in(dir.path()).unwrap();
+        staged.write_all(b"exported image").unwrap();
+        staged.persist(&output).unwrap();
+        history.commit(capture, &[], &[]);
+        let undo = history.undo().unwrap();
+        assert!(undo.errors.is_empty(), "{:?}", undo.errors);
+        assert_eq!(fs::read_link(&output).unwrap(), Path::new(link_target));
+        assert_eq!(fs::read(&original).unwrap(), b"original target");
+        assert!(!dir.path().join("missing.jpg").exists());
+        let redo = history.redo().unwrap();
+        assert!(redo.errors.is_empty(), "{:?}", redo.errors);
+        assert!(fs::symlink_metadata(&output).unwrap().is_file());
+        assert_eq!(fs::read(output).unwrap(), b"exported image");
+        assert_eq!(fs::read(original).unwrap(), b"original target");
+        assert!(!fs::read_dir(dir.path()).unwrap().any(|entry| entry
+            .unwrap()
+            .file_name()
+            .to_string_lossy()
+            .starts_with(".opentag-")));
+    }
+}
+
 #[test]
 fn unchanged_side_files_are_not_recorded() {
     let dir = tempfile::tempdir().unwrap();
