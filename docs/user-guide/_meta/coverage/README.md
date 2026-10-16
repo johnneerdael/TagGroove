@@ -342,3 +342,15 @@ real CUE edits change the sheet and retain referenced audio bytes. Broader
 chapter/container/player behavior remains source evidence, not a native UI
 or every-format qualification. Filesystem overwrite/alias risks are bounded
 and original deferred P2 work remains outside this documentation batch.
+
+## Local first-use foundation
+
+Four completed first-use pages add installation, orientation, opening files
+and a beginner starting path, bringing the local writing checkpoint to 137
+completed pages and 50 drafts. Public content remains at 127 pages. The
+previous playlist/chapter peer receipt is preserved unchanged in `reviews/`.
+The first-use ledger separates current v0.2.12 package/source evidence and
+official OS guidance from native installation qualification. Written scan
+examples and loading/count contracts use actual core/controllers; installation
+commands are documentation, not agent-executed installers. Draft platform
+chapters, migration and remaining canonical details remain unfinished.

@@ -136,6 +136,10 @@ validation:
 nav:
 - Home: index.md
 - Get started:
+  - getting-started/index.md
+  - Download and install: getting-started/install.md
+  - The main window: getting-started/main-window.md
+  - Opening files: getting-started/opening-files.md
   - Editing, saving and undo: getting-started/editing-and-saving.md
 - Learn:
   - Tutorials:

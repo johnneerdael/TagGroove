@@ -1,0 +1,27 @@
+{
+  "source": "3f6639c6264378bf7059abdb1ab1fb30e4792179",
+  "tag": "v0.2.12",
+  "inspection": "Read-only archive metadata; no installer or app execution",
+  "packages": {
+    "OpenTag-v0.2.12-macos-arm64.app.tar.gz": {
+      "sha256": "04f2d88fe18052ccf854ec32af64cbf38962bd69b6d06724b0948ad2d77c094f",
+      "size": 11882456,
+      "matches_manifest": true,
+      "info_plist": {
+        "CFBundleName": "OpenTag",
+        "CFBundleIdentifier": "org.opentag.editor",
+        "CFBundleShortVersionString": "0.2.12",
+        "CFBundleVersion": "0.2.12",
+        "LSMinimumSystemVersion": "10.13",
+        "CFBundleExecutable": "opentag"
+      },
+      "bundle_member": "OpenTag.app/Contents/Info.plist"
+    },
+    "OpenTag-v0.2.12-linux-x64.deb": {
+      "sha256": "bcbe4de0418d3bfcbab63de3501b218abcf10d51fa7bbc66c34505fb02e8dcab",
+      "size": 15592188,
+      "matches_manifest": true,
+      "control": "Package: open-tag\nVersion: 0.2.12\nArchitecture: amd64\nInstalled-Size: 48546\nMaintainer: OpenTag\nPriority: optional\nHomepage: https://github.com/johnneerdael/opentag\nDepends: libayatana-appindicator3-1, libwebkit2gtk-4.1-0, libgtk-3-0\nDescription: Open source audio metadata editor\n OpenTag \u2014 Tag, Organize, Enjoy. An open source music metadata editor built with Tauri 2 and Rust.\n"
+    }
+  }
+}
