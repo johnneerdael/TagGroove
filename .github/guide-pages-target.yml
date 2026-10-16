@@ -1,0 +1,57 @@
+# Install this exact reviewed template as .github/workflows/static-pages.yml
+# in johnneerdael/audio-tag-guide; it is not a source-repository entrypoint.
+name: Deploy reviewed static guide
+on:
+  push:
+    branches: [main]
+    paths: ['site/**']
+permissions:
+  contents: read
+concurrency:
+  group: static-guide-pages
+  cancel-in-progress: false
+jobs:
+  package:
+    if: github.repository == 'johnneerdael/audio-tag-guide' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: publication
+          persist-credentials: false
+      - name: Read trusted source main without a cross-repository token
+        run: |
+          git -c core.hooksPath=/dev/null clone --depth=1 --single-branch --branch=main --filter=blob:none --sparse https://github.com/johnneerdael/opentag.git trusted
+          git -C trusted sparse-checkout set .github
+      - name: Verify signed source approval and current main before packaging
+        run: python3 trusted/.github/scripts/guide_pages.py verify-target --site publication/site --checkout publication
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: publication/site
+  deploy:
+    needs: package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: publication
+          persist-credentials: false
+      - name: Read trusted source main without a cross-repository token
+        run: |
+          git -c core.hooksPath=/dev/null clone --depth=1 --single-branch --branch=main --filter=blob:none --sparse https://github.com/johnneerdael/opentag.git trusted
+          git -C trusted sparse-checkout set .github
+      - name: Recheck signed source approval and current main before deployment
+        run: python3 trusted/.github/scripts/guide_pages.py verify-target --site publication/site --checkout publication
+      - uses: actions/deploy-pages@v4
+        id: deployment

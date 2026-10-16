@@ -1,0 +1,7 @@
+{# Keep source navigation without mounting optional repository-facts requests. #}
+<a href="{{ config.repo_url | e }}" title="{{ lang.t('source') | e }}" class="md-source">
+  <div class="md-source__icon md-icon">
+    {% include ".icons/" ~ (config.theme.icon.repo or "fontawesome/brands/git-alt") ~ ".svg" %}
+  </div>
+  <div class="md-source__repository">{{ config.repo_name | e }}</div>
+</a>
