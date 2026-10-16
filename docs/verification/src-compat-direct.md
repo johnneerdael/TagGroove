@@ -150,6 +150,29 @@ at `80cad18d21a43c456fe9ec3c24c41ff2b4c11223`; those are not claimed as new runs
 for this decoder-only correction. A new exact-head Codex code review and trusted
 platform validation are still required before merging.
 
+## Retained-line join growth
+
+`JoinLines` and `JoinUntil` now share a cumulative 16 MiB append budget for one
+script run. Repeated and overlapping copies count toward that budget; replacing
+input does not reset it. Checks precede allocation and mutation, and successful
+joins append directly while preserving retained lines and cursor positions.
+Six regressions cover bounded repeated loops, the exact byte limit, UTF-8,
+refusal state, navigation, overlap and input switches. Two bounded old-code
+probes failed the expected-limit assertions; all 21 updated engine tests pass.
+
+Fresh workspace qualification passed **992 Rust tests**, zero failures and six
+explicit ignores across 67 result summaries, plus all-target Clippy with warnings
+denied, the strict 172-page guide and eight publication tests. The unchanged
+frontend retains the 384 UI/model tests and production build qualified at
+`80cad18`. Stale dependency build metadata first prevented compilation; scoped
+regeneration in this worktree's own target recovered it without source changes.
+Disk guards held testing until sufficient reserve was available. Both tests and
+Clippy then exited successfully; the final reserve check fell below the
+conservative 2.3 GiB threshold while remaining above the journal's 2 GiB minimum.
+Root subsequently archived only superseded test executables to restore headroom.
+A fresh final-head Codex code review and trusted platform validation remain
+required.
+
 ## Earlier local provider and gnudb preparation
 
 The following describes an earlier preparation, before the current PR17
@@ -168,15 +191,26 @@ review, trusted CI, actual-main, release, live-provider or publication claim.
 ## Local PR17 integration awaiting qualification
 
 The local translation preparation at `efa7e868aea2365b66848da78dd9866cbf6f1d08`
-now incorporates PR20 checkpoint `01d44e5255f2ae1fb7eee61219968e3cd6ff47cf`,
+now incorporates PR20 checkpoint `403bf9a2275075d29f5685947c604c9928d554cb`,
 which contains actual main `21de24598ac0170faa5be7f4e408389c69af30ac`.
-The literal-parser and numeric-reference corrections retain PR17's typed
+The literal-parser, numeric-reference and retained-line growth corrections retain PR17's typed
 errors, raw diagnostic data and existing localization boundaries. The sole
-merge conflict joined historical verification notes. The 2,926-entry catalogs,
-Windows fallback controls and hosted-only cleanup remain unchanged.
+merge conflict joined historical verification notes. All 2,926 existing catalog
+entries, Windows fallback controls and hosted-only cleanup are retained. The
+new owned join-limit diagnostic has Dutch and German translations; catalogs
+now contain 2,927 entries. The six incoming join regressions remain unchanged.
 
 No new native or history tests have run for this merged preparation. Earlier
 PR17 and PR20 counts retain their original source scopes. Further PR20 review
 corrections must be integrated before final local qualification, current-main
 adaptation, exact-head GitHub Codex review and trusted platform CI. This local
 checkpoint makes no remote-review, merge, release or publication claim.
+
+The local translation merge additionally passed 537 UI/model tests and the
+production build, including the existing search/release dialog regression
+extended with both join-limit errors under Dutch, German and custom English.
+Its raw command and filename roles and single-pass translation checks remain
+active. Catalog extraction is stable at 2,927 entries with all previous entries
+preserved. The strict local 174-page guide and eight publication tests pass.
+These lightweight checks do not requalify the native interpreter or history
+paths; the retired earlier PR17 targets are not live caches for this source.

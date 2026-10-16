@@ -1939,7 +1939,12 @@ the downloaded input. File names are sanitized and kept under sources/debug.
 Check those files before changing an extraction pattern blindly.
 
 The checked engine stops after 2,000,000 command steps and checks appended
-output against a 16 MB cumulative byte budget. Debug traces have a default
+output against a 16 MB cumulative byte budget. JoinLines and JoinUntil also
+share a 16 MiB budget for bytes appended during one run. Every copy counts,
+including repeated joins and overlapping retained lines; changing or replacing
+the input does not reset it. A join that would exceed the allowance fails
+before appending or moving the cursor. This bounds join growth rather than
+setting a universal size limit for all input transformations. Debug traces have a default
 10 MB cap. These guardrails do not certify
 that a source handles every response size, provider rule or future page layout.
 Keep requests and scripts small while developing, preserve a working copy and

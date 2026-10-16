@@ -2596,6 +2596,7 @@
  "in a private file in OpenTag's configuration folder": "in a private file in OpenTag's configuration folder",
  "in the system keychain": "in the system keychain",
  "item location boxes are not supported": "item location boxes are not supported",
+ "joining lines would exceed the 16 MB append limit for one run": "joining lines would exceed the 16 MB append limit for one run",
  "json_foreach_counter outside json_foreach": "json_foreach_counter outside json_foreach",
  "json_foreach_end without a running json_foreach": "json_foreach_end without a running json_foreach",
  "json_foreach_end without json_foreach": "json_foreach_end without json_foreach",

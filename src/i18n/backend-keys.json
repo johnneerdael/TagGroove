@@ -789,6 +789,7 @@
  "iTunes returned {count} of {total} album tracks. The incomplete album cannot be imported.",
  "iTunes searches by artist and album, free text or barcode.",
  "item location boxes are not supported",
+ "joining lines would exceed the 16 MB append limit for one run",
  "json_foreach_counter outside json_foreach",
  "json_foreach_end without a running json_foreach",
  "json_foreach_end without json_foreach",

@@ -2399,6 +2399,7 @@
  "in a private file in OpenTag's configuration folder": "in einer privaten Datei im Konfigurationsordner von OpenTag",
  "in the system keychain": "im Schlüsselbund des Systems",
  "item location boxes are not supported": "Elementpositions-Boxen werden nicht unterstützt",
+ "joining lines would exceed the 16 MB append limit for one run": "Das Zusammenfügen der Zeilen würde das Limit von 16 MB für angehängte Daten pro Durchlauf überschreiten",
  "line {line} ({text}): {error}": "Zeile {line} ({text}): {error}",
  "metadata element too large": "Metadatenelement ist zu groß",
  "missing DSD chunk": "DSD-Chunk fehlt",

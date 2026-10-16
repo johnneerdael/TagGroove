@@ -2386,6 +2386,7 @@
  "in a private file in OpenTag's configuration folder": "in een privébestand in de configuratiemap van OpenTag",
  "in the system keychain": "in de sleutelhanger van het systeem",
  "item location boxes are not supported": "itemlocatieboxen worden niet ondersteund",
+ "joining lines would exceed the 16 MB append limit for one run": "Het samenvoegen van regels zou de limiet van 16 MB aan toegevoegde gegevens per uitvoering overschrijden",
  "line {line} ({text}): {error}": "regel {line} ({text}): {error}",
  "metadata element too large": "metadata-element is te groot",
  "missing DSD chunk": "DSD-chunk ontbreekt",
