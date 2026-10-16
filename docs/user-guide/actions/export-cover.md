@@ -40,8 +40,9 @@ filename characters cleaned.
 
 **Export duplicate covers** controls repeats within the current run, not
 whether existing image files can be replaced. With it off, an identical
-image requested for the same name is skipped. With it on, repeated covers
-are processed, but identical bytes already at a destination need no rewrite.
+image requested for the same name is skipped while that image remains in
+an output from this run. With it on, repeated covers are processed, but
+identical bytes already at a destination need no rewrite.
 
 ## Existing files and warnings
 
@@ -54,6 +55,9 @@ to retain beyond the current session.
 When two selected files try to export different images to the same name in
 one run, the later file gets a warning and the earlier image stays. A file
 may replace its own earlier export after another action changes its cover.
+This includes returning to its original cover: exporting the first image,
+then a different image, then the first again leaves the first image on disk,
+even with **Export duplicate covers** off.
 Another file that finds those same image bytes already there does not take
 over ownership of the output name.
 

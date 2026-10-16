@@ -359,7 +359,9 @@ fn template_path(name: &str, source: &Path) -> PathBuf {
 struct NativeHost<'a> {
     settings: EvaluationSettings,
     directories: Vec<PathChange>,
-    exported_covers: HashSet<(String, [u8; 32])>,
+    /// Requested name and digest, with the actual (possibly numbered) files
+    /// still holding that image. Replaced output is no longer a duplicate.
+    exported_covers: BTreeMap<(String, [u8; 32]), HashSet<String>>,
     /// Cover images written by this run, by normalized destination: the
     /// image's digest and the input file that wrote it.
     written_covers: BTreeMap<String, ([u8; 32], String)>,
@@ -604,7 +606,7 @@ impl ActionHost for NativeHost<'_> {
                     // Duplicate identity is the requested destination plus
                     // content. Take it before per-file multi-cover numbering.
                     let identity = (normalized_output(&target)?, digest);
-                    if !export_duplicates && self.exported_covers.contains(&identity) {
+                    if !export_duplicates && self.exported_covers.contains_key(&identity) {
                         continue;
                     }
                     if count > 0 {
@@ -615,6 +617,10 @@ impl ActionHost for NativeHost<'_> {
                     self.protect_output(&target, std::slice::from_ref(state))?;
                     let destination = normalized_output(&target)?;
                     let (writer, _) = self.identity(state);
+                    let previous = self
+                        .written_covers
+                        .get(&destination)
+                        .map(|(digest, _)| *digest);
                     match self.written_covers.get(&destination) {
                         // That image is already there; whoever wrote it keeps the name.
                         Some((written, _)) if *written == digest => {}
@@ -629,7 +635,8 @@ impl ActionHost for NativeHost<'_> {
                         // Undo already knows the file from before the run.
                         Some(_) => {
                             atomic_output(&target, &bytes, false)?;
-                            self.written_covers.insert(destination, (digest, writer));
+                            self.written_covers
+                                .insert(destination.clone(), (digest, writer));
                         }
                         None => {
                             // First use of this name in the run: undo keeps the
@@ -642,10 +649,20 @@ impl ActionHost for NativeHost<'_> {
                             if !fs::read(&target).is_ok_and(|existing| existing == bytes) {
                                 atomic_output(&target, &bytes, false)?;
                             }
-                            self.written_covers.insert(destination, (digest, writer));
+                            self.written_covers
+                                .insert(destination.clone(), (digest, writer));
                         }
                     }
-                    self.exported_covers.insert(identity);
+                    if previous.is_some_and(|previous| previous != digest) {
+                        self.exported_covers.retain(|_, outputs| {
+                            outputs.remove(&destination);
+                            !outputs.is_empty()
+                        });
+                    }
+                    self.exported_covers
+                        .entry(identity)
+                        .or_default()
+                        .insert(destination);
                     count += 1;
                 }
             }
@@ -1017,7 +1034,7 @@ pub fn execute_with_side_files(
     let mut host = NativeHost {
         settings,
         directories: Vec::new(),
-        exported_covers: HashSet::new(),
+        exported_covers: BTreeMap::new(),
         written_covers: BTreeMap::new(),
         before_replace,
         identities: initial.clone(),
@@ -1672,6 +1689,70 @@ mod tests {
         assert_eq!(fs::read(&output).unwrap(), image(3));
         // Undo was given the image from before the run, once.
         assert_eq!(replaced.len(), 1);
+    }
+
+    #[test]
+    fn cover_export_does_not_reexport_unchanged_secondary_images() {
+        let dir = tempfile::tempdir().unwrap();
+        let (path, original) = covered_fixture(dir.path(), "a.wav", false);
+        let mut other = std::io::Cursor::new(Vec::new());
+        image::DynamicImage::ImageRgb8(image::RgbImage::new(2, 2))
+            .write_to(&mut other, image::ImageFormat::Png)
+            .unwrap();
+        let other = other.into_inner();
+        let image = dir.path().join("other.png");
+        fs::write(&image, &other).unwrap();
+        tag_core::add_cover(&path, &image).unwrap();
+        let mut group = cover_export_group("art", false);
+        group
+            .actions
+            .extend(cover_export_group("art", false).actions);
+        let result = execute(
+            &[path.to_string_lossy().into_owned()],
+            &[group],
+            EvaluationSettings::default(),
+        );
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert_eq!(fs::read(dir.path().join("art.png")).unwrap(), original);
+        assert_eq!(fs::read(dir.path().join("art (1).png")).unwrap(), other);
+        assert!(!dir.path().join("art (2).png").exists());
+    }
+
+    #[test]
+    fn cover_export_can_return_to_an_earlier_image_in_the_same_run() {
+        let dir = tempfile::tempdir().unwrap();
+        let (path, original) = covered_fixture(dir.path(), "a.wav", false);
+        fs::write(dir.path().join("original.png"), &original).unwrap();
+        let mut other = std::io::Cursor::new(Vec::new());
+        image::DynamicImage::ImageRgb8(image::RgbImage::new(2, 2))
+            .write_to(&mut other, image::ImageFormat::Png)
+            .unwrap();
+        let other = other.into_inner();
+        assert_ne!(original, other);
+        fs::write(dir.path().join("other.png"), &other).unwrap();
+        let export = || ActionSpec::ExportCover {
+            filename_template: "art".into(),
+            picture_type: None,
+            export_duplicates: false,
+        };
+        let import = |name: &str| ActionSpec::ImportCover {
+            filename_template: name.into(),
+            picture_type: None,
+            delete_existing: true,
+        };
+        let result = run(
+            &path,
+            vec![
+                export(),
+                import("other.png"),
+                export(),
+                import("original.png"),
+                export(),
+            ],
+            EvaluationSettings::default(),
+        );
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert_eq!(fs::read(dir.path().join("art.png")).unwrap(), original);
     }
 
     #[test]

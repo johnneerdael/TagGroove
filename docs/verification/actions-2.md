@@ -35,6 +35,7 @@ The Export Cover page documents one option about repeats: with "Export duplicate
 - When another selected file wrote a different image to the same name earlier in the same run, the later file gets a warning and the first image stays. The same image from a later file is no collision, also when duplicates are exported (it would write the same bytes again).
 - A file that finds the image already there writes nothing and does not take the name over, so the file that wrote it can still replace it later in the run.
 - When the same file exports again to a name it wrote earlier in the run (its cover changed in between, in the same or a later group), the later export replaces the earlier one, so the actions apply in order.
+- A return to an earlier image also replaces the file's own newer output, even with duplicate export off. Duplicate tracking keeps the actual destinations that still hold an image, numbered outputs included; replacing a destination drops its stale digest reference. Repeating an export with several unchanged covers still suppresses duplicates.
 - The existing protections stay: an output that is an input audio file, a chapter or cue sheet row's file, or an alias of one through `..` or a symlink is refused.
 
 The duplicate check that keys on destination plus image content is unchanged. So is the per-file numbering of several covers (`cover.png`, `cover (1).png`).
@@ -87,7 +88,7 @@ Import Cover and Export Cover action pages. The other unfinished action
 references remain drafts and outside the published navigation. The strict
 guide build, eight publication tests, writing-plan check and 60 review-gate
 tests passed. The TypeScript/Vite build and all 312 JavaScript tests passed.
-The integrated Rust workspace passed 706 tests with four tests ignored:
+The integrated Rust workspace passed 708 tests with four tests ignored:
 two live-provider checks, a real-system-trash probe and a filter benchmark.
 It ran with a separate `TMPDIR` and one test thread to keep undo
 journals separate from concurrent worktree checks.
@@ -107,6 +108,12 @@ warnings, and the final exported image contains the changed cover.
 - `AR=/usr/bin/ar npm test`: 312 UI tests and the whole Rust workspace pass.
 - `AR=/usr/bin/ar cargo clippy --workspace --all-targets -- -D warnings`: clean.
 - `cargo fmt --all -- --check`: clean.
+
+Further review follow-up: `cover_export_can_return_to_an_earlier_image_in_the_same_run`
+failed against `b79b5e2` because the final output retained the intermediate
+image. The corrected tracking passes that regression and
+`cover_export_does_not_reexport_unchanged_secondary_images`, alongside all
+43 Rust action-host tests.
 
 ## Not covered
 
