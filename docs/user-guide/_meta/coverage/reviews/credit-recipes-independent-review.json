@@ -1,0 +1,98 @@
+{
+  "reviewer": "PR19 owner, independent finite read-only credit/title/sort recipe peer",
+  "reviewed_commit": "2ff5991f6b1def003bc0d37f791e039697f9a3f4",
+  "base_checkpoint": "8736ea14dc51d0a5e67e6db7494271588dd9373c",
+  "application_source": "325007c47bef4ee53a4aa9b086038157ee3e62dc",
+  "result": "No actionable findings",
+  "findings": [],
+  "worktree": "/Users/jneerdael/Scripts/opentag-worktrees/codex-guide-credit-recipes",
+  "hash_checks": {
+    "application_sources": {
+      "crates/tag-core/src/actions.rs": true,
+      "crates/tag-core/src/script.rs": true,
+      "crates/tag-core/src/filter.rs": true,
+      "crates/regex-compat/src/lib.rs": true,
+      "crates/regex-compat/src/bridge.cpp": true,
+      "src/main.ts": true,
+      "src/action-ui.ts": true,
+      "src-tauri/src/history.rs": true,
+      "src-tauri/src/evaluation.rs": true
+    },
+    "three_pages": {
+      "cookbook/album-artist-from-artist.md": true,
+      "cookbook/strip-track-numbers-from-titles.md": true,
+      "cookbook/the-artist-sort-names.md": true
+    },
+    "test_source": true,
+    "public137_receipt": true
+  },
+  "existing_core_test": {
+    "binary": "/tmp/opentag-guide-combined-target/debug/deps/credit_recipe_guide-b9a942d96790b900",
+    "sha256": "8c100dd0252e3e31e205d1377ae73d0b6d660b75a850fe398792a3315f744adf",
+    "passed": 5,
+    "failed": 0,
+    "ignored": 0,
+    "all_three_exact_current_pages_embedded": true,
+    "candidate_source_path_in_binary": true,
+    "written_cases": 36,
+    "literal_filter_pattern_formula_fences": 8,
+    "scope": "Actual compile_filter/evaluate/apply_action_spec against written LF/CRLF metadata snapshots. No native file write/UI/player assertion."
+  },
+  "additional_bounded_probe": {
+    "question": "Does the exact written whole-value artist-sort regex leave terminal LF/CRLF names unchanged?",
+    "result": "Confirmed unchanged for The Lanterns plus terminal LF, terminal CRLF, double LF and internal LF followed by another name.",
+    "receipt": "/tmp/opentag-credit-peer-sort-edge.txt",
+    "method": "Tiny temporary Rust main linked to existing credit-source-qualified tag_core rlib; no Cargo/cold/full build or repository edits.",
+    "library": "/tmp/opentag-guide-combined-target/debug/deps/libtag_core-d0c1b13f0170bc9a.rlib",
+    "library_sha256": "ad460abb573077c5178c752be443163e3426fa1629c0ed8df5b7988a4ee03412",
+    "harness_note": "Initial temporary fence extraction selected excess prose and failed Rust compilation; extraction was corrected to the actual marked formula before any behavioral observations."
+  },
+  "teaching_review": [
+    {
+      "page": "cookbook/album-artist-from-artist.md",
+      "checked": "Album-level credit decision precedes writes; compilation caveat; MISSING/PRESENT handles absent versus empty/whitespace; scalar if2 reads first values; existing list protection comes from filter/selection; list-aware meta_sep has separator-dependent trim/drop-empty and literal-backslash limits; immediate Tag\u2192Tag versus quick action and bounded Undo.",
+      "conclusion": "Primary and list-aware policies match actual filters/evaluator/action. No automatic musical-credit inference, list-lossless or player/native-write guarantee."
+    },
+    {
+      "page": "cookbook/strip-track-numbers-from-titles.md",
+      "checked": "Whole-value start anchor and horizontal whitespace; bounded digits/delimiters; positive/nonmatch/interior-number/newline/empty examples; first-value preview explicitly cancelled before per-value action; empty scripting argument versus apostrophe distinction; TRACK/name preserved; selection and immediate write/retry limits.",
+      "conclusion": "Pattern and worked results match actual Boost-compatible action and scripting core. Meaningful numbers and empty-output risks are explained; no first-value preview claim about entire lists."
+    },
+    {
+      "page": "cookbook/the-artist-sort-names.md",
+      "checked": "ARTISTSORT instead of ARTIST, first-credit policy leaves Artist list unchanged; missing-target filter excludes curated/empty-present sort lists; default insensitive versus fourth argument0; captured article spelling and extra spaces; newline nonmatch; quoted comma replacement; player/custom-column/album-sort distinctions.",
+      "conclusion": "Case, nonmatch, list and spacing policies are accurate. Whole-value trailing-line-break edge independently corroborated, so no anchor finding."
+    }
+  ],
+  "source_reads": [
+    "crates/tag-core/src/actions.rs:821-827 RegexReplace per-value",
+    "crates/tag-core/src/actions.rs:829-860 FormatValue uses format_values",
+    "crates/tag-core/src/script.rs:1399-1404 regexp flag and native regex call",
+    "crates/tag-core/src/script.rs:1438-1440 if2 fallback",
+    "crates/tag-core/src/script.rs:1498-1508 meta_sep",
+    "crates/tag-core/src/filter.rs presence operation parser",
+    "crates/regex-compat/src/bridge.cpp:37-45 Perl/insensitive compile and73-77 replace",
+    "Existing mature Tag\u2192Tag/action/history/selection contracts preserved from independently reviewed source and linked guide"
+  ],
+  "navigation_and_limits": {
+    "previous_local_nav": 140,
+    "candidate_nav": 143,
+    "old_relative_order_retained": true,
+    "drafts": 44,
+    "generated_routes": 143,
+    "search_entries": 1181,
+    "exact_nav_search": true,
+    "draft_search_routes": 0,
+    "draft_html": 0,
+    "search_sha256": "df047f560bfa4d58e4fb86b012ae89600fec1d37735c558689a2b1217e7eb0d6",
+    "matches_ledger": true,
+    "public_count": 137,
+    "qualification": "Six post-publication Help/credit pages remain local; no public143 claim. App, dependencies and workflows unchanged. No P2/REA or pending17-20 behavior introduced."
+  },
+  "limits": [
+    "Finite read-only peer; no repository edits, new committed tests, application/Cargo rebuild, full suite, native app/UI/player/storage validation, GitHub action or publication.",
+    "Metadata snapshot correctness is distinct from native tag-format roundtrip and player support, as the pages state.",
+    "Guide owner strict/publication/browser receipts are retained evidence; peer independently checked hashes, existing five core tests, bounded regex edge and generated boundaries.",
+    "44 drafts and full canonical semantic coverage remain unfinished; PR19 remains frozen at c4d925f31e09ecdb96e04851518d9cfee6fffb48."
+  ]
+}

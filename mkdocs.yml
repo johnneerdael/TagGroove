@@ -170,6 +170,9 @@ nav:
     - Filtering the file list: guides/filter.md
     - Find text: guides/find.md
   - Customization:
+    - Save and restore configuration: customize/configuration.md
+    - Toolbars: customize/toolbars.md
+    - External tools: customize/tools.md
     - File-list columns: customize/columns.md
     - Tag panel: customize/tag-panel.md
 - Automate:

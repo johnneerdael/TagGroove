@@ -422,3 +422,39 @@ eight publication checks and eight bounded generated-doc browser checks pass.
 The credit ledger records source/canonical examples and explicit limits.
 These three recipes, like the prior three Help pages, remain local-only pending source
 queue reconciliation and final-head review/publication.
+
+## Local configuration, toolbar and external-tool workflows
+
+`configuration-tools-2026-10-16.json` records three independently authored
+chapters on named configuration backups/restores, main/custom toolbar setup,
+and external tool definitions. The local checkpoint has 146 written pages and
+41 drafts. The actual public milestone remains 137 pages; Help, credit recipes
+and these customization chapters are nine local unpublished pages. All 143
+previous local navigation entries retain their order. Generated HTML and search
+contain exactly the 146 ready routes and 1,207 entries, with no draft leakage.
+
+The examples execute the actual standalone toolbar/ToolsUI models and exact
+pure Rust argument/placeholder/invocation helpers, under LF and CRLF. Three new
+checks plus ten related existing checks pass. Configuration validation and
+sequential replacement paths were read; no native configuration import,
+personal-data access or configured external program was executed. Eight
+publication tests, strict build and eight sampled local documentation browser
+checks pass. Long JSON output cells wrap within bounded columns; literal
+Parameter inputs remain separate and exact. An earlier browser/build overlap
+caused a missing search-index request; its failed receipt is retained and the
+sequential final run has no page errors. This is not public146 verification or
+a native/all-platform tool qualification.
+
+`reviews/credit-recipes-independent-review.json` preserves the unchanged finite
+independent receipt for the preceding three recipes at exact `2ff5991`. It does
+not review this customization trio. The trio still needs its own finite peer
+review and eventual source reconciliation, exact-head GitHub CODE review,
+trusted validation and actual deployment before publication.
+
+`reviews/scripting-canonical-inventory-2026-10-16.json` preserves the root's
+read-only live-primary inventory: 64 unique scripting function names and twenty
+exact date-format tokens, including the separate EEEE/EE alias row, are
+represented in the seven mature function references. This is **structural
+coverage only**. It does not prove that overloads, optional arguments, examples,
+edge cases, platform differences or every canonical semantic detail have been
+taught. It does not close the broader placeholder or full-guide audit.
