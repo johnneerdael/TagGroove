@@ -54,7 +54,18 @@ pub fn trusted(url: &Url) -> bool {
                 | "api.discogs.com"
                 | "i.discogs.com"
                 | "img.discogs.com"
-        ) || host.ends_with(".archive.org"))
+                | "itunes.apple.com"
+                | "api.deezer.com"
+                | "cdn-images.dzcdn.net"
+                | "e-cdns-images.dzcdn.net"
+                | "lrclib.net"
+                | "api.acoustid.org"
+                | "ws.audioscrobbler.com"
+                | "lastfm.freetls.fastly.net"
+                | "webservice.fanart.tv"
+                | "assets.fanart.tv"
+        ) || host.ends_with(".archive.org")
+            || host.ends_with(".mzstatic.com"))
 }
 pub fn parse_trusted(url: &str) -> Result<Url, String> {
     Url::parse(url)
@@ -149,24 +160,47 @@ pub static IMAGES: Gate = Gate::new();
 /// Cover Art Archive listings can take many seconds; keep them off the image gate.
 pub static ARCHIVE: Gate = Gate::new();
 pub static FREEDB: Gate = Gate::new();
+pub static ITUNES: Gate = Gate::new();
+pub static DEEZER: Gate = Gate::new();
+pub static LRCLIB: Gate = Gate::new();
+pub static ACOUSTID: Gate = Gate::new();
+pub static LASTFM: Gate = Gate::new();
+pub static FANART: Gate = Gate::new();
+
+/// How a request identifies itself beyond the user agent. Secrets travel only
+/// in headers or in the request itself, never in error messages.
+#[derive(Clone, Default)]
+pub enum Auth {
+    #[default]
+    None,
+    /// A Discogs personal access token.
+    DiscogsToken(String),
+    /// OpenTag's own Discogs application key and secret ("key/secret" requests).
+    DiscogsApp { key: String, secret: String },
+    /// API keys sent as request headers (fanart.tv).
+    Headers(Vec<(&'static str, String)>),
+    /// An API key carried in the address or form of the request (AcoustID, Last.fm).
+    Key,
+}
 
 pub struct Service {
     pub name: &'static str,
     pub gate: &'static Gate,
     pub spacing: Duration,
-    pub token: Option<String>,
-    /// MusicBrainz answers 503 when its global limit is hit; one retry is polite.
+    pub auth: Auth,
+    /// MusicBrainz and LRCLIB answer 503 when busy; one retry is polite.
     pub retry_busy: bool,
 }
-
-async fn send(
-    service: &Service,
-    url: &Url,
-    accept: &str,
-    channel: Channel,
-    ticket: u64,
-) -> Result<reqwest::Response, String> {
-    send_with(&client()?, service, url, accept, channel, ticket).await
+impl Service {
+    pub fn new(name: &'static str, gate: &'static Gate, spacing_ms: u64) -> Self {
+        Service {
+            name,
+            gate,
+            spacing: Duration::from_millis(spacing_ms),
+            auth: Auth::None,
+            retry_busy: false,
+        }
+    }
 }
 
 /// The port of the local fixture server scripted offline test runs use in
@@ -195,11 +229,13 @@ fn route(url: &Url, offline: bool) -> Url {
     Url::parse(&local).unwrap_or_else(|_| url.clone())
 }
 
+/// One request through the service's gate; `form` makes it a form POST.
 async fn send_with(
     client: &reqwest::Client,
     service: &Service,
     url: &Url,
     accept: &str,
+    form: Option<&str>,
     channel: Channel,
     ticket: u64,
 ) -> Result<reqwest::Response, String> {
@@ -214,13 +250,35 @@ async fn send_with(
         return Err(CANCELLED.into());
     }
     let target = routed(url);
-    let mut request = client.get(target).header(header::ACCEPT, accept);
-    if let Some(token) = service.token.as_deref().filter(|t| !t.is_empty()) {
-        request = request.header(header::AUTHORIZATION, format!("Discogs token={token}"));
+    let mut request = match form {
+        Some(body) => client
+            .post(target)
+            .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded")
+            .body(body.to_owned()),
+        None => client.get(target),
+    }
+    .header(header::ACCEPT, accept);
+    match &service.auth {
+        Auth::DiscogsToken(token) if !token.is_empty() => {
+            request = request.header(header::AUTHORIZATION, format!("Discogs token={token}"));
+        }
+        Auth::DiscogsApp { key, secret } => {
+            request = request.header(
+                header::AUTHORIZATION,
+                format!("Discogs key={key}, secret={secret}"),
+            );
+        }
+        Auth::Headers(headers) => {
+            for (name, value) in headers.iter().filter(|(_, value)| !value.is_empty()) {
+                request = request.header(*name, value);
+            }
+        }
+        _ => {}
     }
     let result = request.send().await;
     *last = Some(Instant::now());
-    result.map_err(|error| network_message(service.name, &error))
+    // Addresses may carry API keys; errors never show them.
+    result.map_err(|error| network_message(service.name, &error.without_url()))
 }
 
 pub fn network_message(service: &str, error: &reqwest::Error) -> String {
@@ -235,10 +293,18 @@ pub fn network_message(service: &str, error: &reqwest::Error) -> String {
     }
 }
 
-pub fn status_message(service: &str, status: StatusCode, authenticated: bool) -> String {
+pub fn status_message(service: &str, status: StatusCode, auth: &Auth) -> String {
+    match (status.as_u16(), auth) {
+        (401 | 403, Auth::DiscogsToken(_)) => "Discogs rejected the personal access token. Update it in Tag Sources → Discogs access token….".into(),
+        (401 | 403, Auth::DiscogsApp { .. }) => "Discogs refused OpenTag's application key. Add a personal access token in Tag Sources → Discogs access token….".into(),
+        (401 | 403, Auth::None) if service == "Discogs" => "Discogs requires a personal access token for this request. Add one in Tag Sources → Discogs access token….".into(),
+        (400 | 401 | 403, Auth::Key | Auth::Headers(_)) => format!("{service} rejected the request. Check the API key in Tag Sources → API keys…."),
+        _ => plain_status_message(service, status),
+    }
+}
+
+fn plain_status_message(service: &str, status: StatusCode) -> String {
     match status.as_u16() {
-        401 | 403 if service == "Discogs" && authenticated => "Discogs rejected the personal access token. Update it in Tag Sources → Options.".into(),
-        401 | 403 if service == "Discogs" => "Discogs requires a personal access token for this request. Add one in Tag Sources → Options.".into(),
         404 => format!("{service} could not find this release."),
         429 => format!("{service} rate limit reached. Wait a minute and try again."),
         503 => format!("{service} is busy. Try again in a moment."),
@@ -263,7 +329,7 @@ pub(crate) async fn read_limited(
     while let Some(chunk) = response
         .chunk()
         .await
-        .map_err(|e| network_message(service, &e))?
+        .map_err(|e| network_message(service, &e.without_url()))?
     {
         if body.len() + chunk.len() > limit {
             return Err(too_large());
@@ -279,35 +345,85 @@ pub async fn json(
     channel: Channel,
     ticket: u64,
 ) -> Result<Value, String> {
+    fetch_json(service, url, None, false, channel, ticket)
+        .await?
+        .ok_or_else(|| plain_status_message(service.name, StatusCode::NOT_FOUND))
+}
+
+/// Like [`json`], but "not found" (404) is an answer rather than an error.
+pub async fn json_optional(
+    service: &Service,
+    url: &str,
+    channel: Channel,
+    ticket: u64,
+) -> Result<Option<Value>, String> {
+    fetch_json(service, url, None, true, channel, ticket).await
+}
+
+/// A form POST (AcoustID prefers it for long fingerprints).
+pub async fn json_post(
+    service: &Service,
+    url: &str,
+    form: &[(&str, &str)],
+    channel: Channel,
+    ticket: u64,
+) -> Result<Value, String> {
+    let body = Url::parse_with_params("http://form.invalid/", form)
+        .map_err(|e| e.to_string())?
+        .query()
+        .unwrap_or_default()
+        .to_owned();
+    fetch_json(service, url, Some(&body), false, channel, ticket)
+        .await?
+        .ok_or_else(|| plain_status_message(service.name, StatusCode::NOT_FOUND))
+}
+
+async fn fetch_json(
+    service: &Service,
+    url: &str,
+    form: Option<&str>,
+    optional: bool,
+    channel: Channel,
+    ticket: u64,
+) -> Result<Option<Value>, String> {
     let url = Url::parse(url)
         .ok()
         .filter(trusted)
         .ok_or("Unsupported tag source address")?;
+    let client = client()?;
     for attempt in 0..2 {
-        let response = send(service, &url, "application/json", channel, ticket).await?;
+        let response = send_with(
+            &client,
+            service,
+            &url,
+            "application/json",
+            form,
+            channel,
+            ticket,
+        )
+        .await?;
         let status = response.status();
         if status == StatusCode::SERVICE_UNAVAILABLE && service.retry_busy && attempt == 0 {
             tokio::time::sleep(Duration::from_secs(1)).await;
             continue;
         }
+        if status == StatusCode::NOT_FOUND && optional {
+            return Ok(None);
+        }
         if !status.is_success() {
-            return Err(status_message(
-                service.name,
-                status,
-                service.token.is_some(),
-            ));
+            return Err(status_message(service.name, status, &service.auth));
         }
         let body = read_limited(response, MAX_JSON_BYTES, service.name).await?;
         if stale(channel, ticket) {
             return Err(CANCELLED.into());
         }
         return serde_json::from_slice(&body)
+            .map(Some)
             .map_err(|_| format!("{} returned an unreadable response.", service.name));
     }
-    Err(status_message(
+    Err(plain_status_message(
         service.name,
         StatusCode::SERVICE_UNAVAILABLE,
-        false,
     ))
 }
 
@@ -333,6 +449,7 @@ pub async fn freedb_text(
         service,
         url,
         "text/plain",
+        None,
         channel,
         ticket,
     )
@@ -351,7 +468,7 @@ pub async fn freedb_text(
                 service.name
             ),
             429 => format!("{} answered 429 Too Many Requests. OpenTag does not retry on its own; wait a while and try again later.", service.name),
-            _ => status_message(service.name, status, false),
+            _ => plain_status_message(service.name, status),
         });
     }
     let body = read_limited(response, MAX_TEXT_BYTES, service.name).await?;
@@ -377,7 +494,14 @@ pub fn release_page(url: &str) -> Result<Url, String> {
                 && url.port().is_none()
                 && matches!(
                     host.as_str(),
-                    "musicbrainz.org" | "www.discogs.com" | "discogs.com" | "gnudb.org"
+                    "musicbrainz.org"
+                        | "www.discogs.com"
+                        | "discogs.com"
+                        | "gnudb.org"
+                        | "music.apple.com"
+                        | "www.deezer.com"
+                        | "www.last.fm"
+                        | "fanart.tv"
                 )
         })
         .ok_or_else(|| "This address is not a tag source release page.".to_string())
@@ -559,18 +683,12 @@ pub async fn image(url: &str, channel: Channel, ticket: u64) -> Result<Image, St
     if !image_target_allowed(&url, offline_test_run()) {
         return Err(OFFLINE.into());
     }
-    let service = Service {
-        name: "The image server",
-        gate: &IMAGES,
-        spacing: Duration::ZERO,
-        token: None,
-        retry_busy: false,
-    };
-    let response = send_with(&client, &service, &url, "image/*", channel, ticket).await?;
+    let service = Service::new("The image server", &IMAGES, 0);
+    let response = send_with(&client, &service, &url, "image/*", None, channel, ticket).await?;
     if !response.status().is_success() {
         return Err(match response.status().as_u16() {
             404 => "This release has no image at that address.".into(),
-            _ => status_message(service.name, response.status(), false),
+            _ => plain_status_message(service.name, response.status()),
         });
     }
     let bytes = read_limited(response, MAX_IMAGE_BYTES, service.name).await?;
@@ -624,6 +742,12 @@ mod tests {
             "https://ia800.us.archive.org/a.jpg",
             "https://i.discogs.com/x.jpeg",
             "https://coverartarchive.org/release/x/front-250",
+            "https://is1-ssl.mzstatic.com/image/thumb/x/600x600bb.jpg",
+            "https://cdn-images.dzcdn.net/images/cover/x/1000x1000-000000-80-0-0.jpg",
+            "https://lrclib.net/api/get?track_name=x",
+            "https://api.acoustid.org/v2/lookup",
+            "https://ws.audioscrobbler.com/2.0/?method=album.getinfo",
+            "https://assets.fanart.tv/fanart/music/x/albumcover/y.jpg",
         ] {
             assert!(trusted(&Url::parse(good).unwrap()), "{good}");
         }
@@ -631,6 +755,8 @@ mod tests {
             "http://coverartarchive.org/x",
             "https://example.com/x",
             "https://evilarchive.org/x",
+            "https://evilmzstatic.com/x",
+            "http://itunes.apple.com/search",
             "https://musicbrainz.org:8443/x",
             "https://user@i.discogs.com/x",
             "file:///etc/passwd",
@@ -638,6 +764,18 @@ mod tests {
             assert!(!trusted(&Url::parse(bad).unwrap()), "{bad}");
         }
         assert!(parse_trusted("not a url").is_err());
+    }
+
+    #[test]
+    fn offline_test_runs_send_built_in_sources_to_the_fixture_server() {
+        let url = Url::parse("https://itunes.apple.com/search?term=a+b&country=US").unwrap();
+        assert_eq!(route(&url, false), url);
+        assert_eq!(
+            route(&url, true).as_str(),
+            "http://127.0.0.1:18766/itunes.apple.com/search?term=a+b&country=US"
+        );
+        let user_server = Url::parse("http://freedb.example.org/~cddb/cddb.cgi").unwrap();
+        assert_eq!(route(&user_server, true), user_server);
     }
 
     #[test]
@@ -664,13 +802,24 @@ mod tests {
 
     #[test]
     fn status_messages_explain_tokens_limits_and_outages() {
-        assert!(status_message("Discogs", StatusCode::UNAUTHORIZED, true).contains("rejected"));
-        assert!(status_message("Discogs", StatusCode::UNAUTHORIZED, false).contains("requires"));
+        let token = Auth::DiscogsToken("t".into());
+        let app = Auth::DiscogsApp {
+            key: "k".into(),
+            secret: "s".into(),
+        };
+        let unauthorized = |auth: &Auth| status_message("Discogs", StatusCode::UNAUTHORIZED, auth);
+        assert!(unauthorized(&token).contains("rejected the personal access token"));
+        assert!(unauthorized(&app).contains("application key"));
+        assert!(!unauthorized(&app).contains("secret="));
+        assert!(unauthorized(&Auth::None).contains("requires"));
+        assert!(status_message("Last.fm", StatusCode::FORBIDDEN, &Auth::Key).contains("API key"));
         assert!(
-            status_message("MusicBrainz", StatusCode::TOO_MANY_REQUESTS, false)
+            status_message("MusicBrainz", StatusCode::TOO_MANY_REQUESTS, &Auth::None)
                 .contains("rate limit")
         );
-        assert!(status_message("MusicBrainz", StatusCode::BAD_GATEWAY, false).contains("502"));
+        assert!(
+            status_message("MusicBrainz", StatusCode::BAD_GATEWAY, &Auth::None).contains("502")
+        );
         assert!(
             USER_AGENT.starts_with("OpenTag/")
                 && USER_AGENT.ends_with("( https://github.com/johnneerdael/opentag )")
@@ -704,6 +853,10 @@ mod tests {
             "https://musicbrainz.org/release/d073287b-d1bd-4f11-a933-a4386f8cf701",
             "https://www.discogs.com/release/1225",
             "https://gnudb.org/cd/ro7a0a6b09",
+            "https://music.apple.com/us/album/discovery/697194953?uo=4",
+            "https://www.deezer.com/album/302127",
+            "https://www.last.fm/music/Daft+Punk/Discovery",
+            "https://fanart.tv/artist/f4a31f0a-51dd-4fa7-986d-3095c40c5ed9/",
         ] {
             assert!(release_page(good).is_ok(), "{good}");
         }
@@ -836,6 +989,119 @@ mod tests {
         ))
         .unwrap_err()
         .contains("cannot open"));
+    }
+
+    /// Requests carry their credentials as headers; failures never show the address.
+    #[test]
+    fn credentials_travel_in_headers_and_never_in_errors() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let server = std::thread::spawn(move || {
+            use std::io::{Read, Write};
+            let mut requests = Vec::new();
+            for _ in 0..3 {
+                let (mut socket, _) = listener.accept().unwrap();
+                // Read the head and, for the POST, its whole body.
+                let mut request = Vec::new();
+                let mut chunk = [0; 4096];
+                loop {
+                    let n = socket.read(&mut chunk).unwrap();
+                    request.extend_from_slice(&chunk[..n]);
+                    let text = String::from_utf8_lossy(&request).to_ascii_lowercase();
+                    let Some(end) = text.find("\r\n\r\n") else {
+                        continue;
+                    };
+                    let length = text
+                        .lines()
+                        .find_map(|l| l.strip_prefix("content-length:"))
+                        .and_then(|v| v.trim().parse::<usize>().ok())
+                        .unwrap_or(0);
+                    if n == 0 || request.len() >= end + 4 + length {
+                        break;
+                    }
+                }
+                requests.push(String::from_utf8_lossy(&request).into_owned());
+                socket
+                    .write_all(
+                        b"HTTP/1.1 200 OK\r\nconnection: close\r\ncontent-length: 2\r\n\r\n{}",
+                    )
+                    .unwrap();
+            }
+            requests
+        });
+        let url = Url::parse(&format!("http://127.0.0.1:{port}/x")).unwrap();
+        let client = client().unwrap();
+        let run = |service: Service, form: Option<&'static str>| {
+            let (client, url) = (client.clone(), url.clone());
+            tauri::async_runtime::block_on(async move {
+                send_with(
+                    &client,
+                    &service,
+                    &url,
+                    "application/json",
+                    form,
+                    Channel::Search,
+                    u64::MAX,
+                )
+                .await
+                .map(|_| ())
+            })
+        };
+        let gate: &'static Gate = Box::leak(Box::new(Gate::new()));
+        let with = |auth| Service {
+            auth,
+            ..Service::new("Test", gate, 0)
+        };
+        run(
+            with(Auth::DiscogsApp {
+                key: "app-key".into(),
+                secret: "app-secret".into(),
+            }),
+            None,
+        )
+        .unwrap();
+        run(
+            with(Auth::Headers(vec![
+                ("api-key", "project".into()),
+                ("client-key", String::new()),
+            ])),
+            None,
+        )
+        .unwrap();
+        run(with(Auth::Key), Some("client=k&fingerprint=AQ")).unwrap();
+        let requests = server.join().unwrap();
+        let lower: Vec<String> = requests.iter().map(|r| r.to_ascii_lowercase()).collect();
+        assert!(lower[0].contains("authorization: discogs key=app-key, secret=app-secret"));
+        assert!(lower[1].contains("api-key: project") && !lower[1].contains("client-key"));
+        assert!(lower[2].starts_with("post /x") && lower[2].ends_with("client=k&fingerprint=aq"));
+        assert!(lower[2].contains("content-type: application/x-www-form-urlencoded"));
+
+        // Nothing listens on the closed port: the error names the service only.
+        let closed = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let closed_port = closed.local_addr().unwrap().port();
+        drop(closed);
+        let secret_url = Url::parse(&format!(
+            "http://127.0.0.1:{closed_port}/?api_key=SECRET123"
+        ))
+        .unwrap();
+        let error = tauri::async_runtime::block_on(async {
+            send_with(
+                &client,
+                &with(Auth::Key),
+                &secret_url,
+                "application/json",
+                None,
+                Channel::Search,
+                u64::MAX,
+            )
+            .await
+            .map(|_| ())
+        })
+        .unwrap_err();
+        assert!(
+            error.contains("Test") && !error.contains("SECRET123"),
+            "{error}"
+        );
     }
 
     #[test]

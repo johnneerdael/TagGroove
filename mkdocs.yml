@@ -223,7 +223,13 @@ nav:
     - Template gallery: export/template-gallery.md
     - Export CSV: export/csv.md
     - Playlists and cue sheets: guides/playlists.md
-  - Web sources:
+  - Tag sources:
+    - Search, review and save: tag-sources/index.md
+    - Discogs: tag-sources/discogs.md
+    - iTunes / Apple Music: tag-sources/itunes.md
+    - Deezer: tag-sources/deezer.md
+    - LRCLIB lyrics: tag-sources/lrclib.md
+    - AcoustID fingerprints: tag-sources/acoustid.md
     - Install and use sources: tag-sources/web-sources.md
     - Write a web source: tag-sources/writing-web-sources.md
     - Parser reference: tag-sources/web-source-reference.md

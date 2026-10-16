@@ -833,3 +833,54 @@ fn existing_id3v2_gain_values_win_over_a_removed_ape_tag() {
     assert_eq!(v2.fields["REPLAYGAIN_TRACK_GAIN"], ["-1.00 dB"]);
     assert_eq!(v2.fields["MP3GAIN_UNDO"], ["+004,+004,N"]);
 }
+
+#[test]
+fn raw_source_lyrics_are_prefixed_only_in_id3_when_mpeg_also_writes_ape() {
+    let tmp = tempfile::tempdir().unwrap();
+    for (index, lyrics) in ["A line || another line", "eng||literal lyric text"]
+        .iter()
+        .enumerate()
+    {
+        let path = tmp.path().join(format!("raw-{index}.mp3"));
+        let original_audio = mp3(&path);
+        let mut options = TagOptions::default();
+        options.mpeg.write_ape = true;
+        tag_core::write_source_fields_with_options(
+            &path,
+            &fields(&[("UNSYNCEDLYRICS", &[lyrics])]),
+            false,
+            &[],
+            &options,
+        )
+        .unwrap();
+        let id3 = read_entry_with_options(&path, &[], &reading("id3v2")).unwrap();
+        let ape = read_entry_with_options(&path, &[], &reading("ape")).unwrap();
+        assert_eq!(id3.fields["UNSYNCEDLYRICS"], [format!("XXX||{lyrics}")]);
+        assert_eq!(ape.fields["UNSYNCEDLYRICS"], [*lyrics]);
+        assert_eq!(audio(&path), original_audio);
+    }
+}
+
+#[test]
+fn source_writes_preserve_existing_explicit_id3_lyrics_when_editing_other_fields() {
+    let tmp = tempfile::tempdir().unwrap();
+    let path = tmp.path().join("existing.mp3");
+    mp3(&path);
+    write_fields(
+        &path,
+        &fields(&[("UNSYNCEDLYRICS", &["eng||Existing lyrics"])]),
+    )
+    .unwrap();
+    tag_core::write_source_fields_with_options(
+        &path,
+        &fields(&[("TITLE", &["New title"])]),
+        false,
+        &[],
+        &TagOptions::default(),
+    )
+    .unwrap();
+    assert_eq!(
+        read_entry(&path).unwrap().fields["UNSYNCEDLYRICS"],
+        ["eng||Existing lyrics"]
+    );
+}

@@ -1371,6 +1371,7 @@ pub fn run() {
             settings::save_settings,
             sources::tag_source_search,
             sources::tag_source_release,
+            sources::acoustid_file_matches,
             sources::tag_source_covers,
             sources::freedb_cover_search,
             sources::tag_source_image,
