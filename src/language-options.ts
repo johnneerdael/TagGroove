@@ -3,7 +3,7 @@
 // Dutch, German); a catalog file in the configuration folder's languages folder
 // adds another language or replaces a shipped one. Unlike Mp3tag, the choice
 // applies at once.
-import type {OptionsPage, SelectChoice} from './options-ui';
+import type {OptionControl, OptionsPage, SelectChoice} from './options-ui';
 import {availableLanguages, systemLanguage, type Language} from './i18n';
 
 export const LANGUAGE_DEFAULTS = {language: 'system'};
@@ -19,11 +19,20 @@ export function languageChoices(languages: Language[] = availableLanguages(), sy
 export type LanguageHost = {
   /** Opens the languages folder of the configuration folder, with a current template (desktop only). */
   openFolder?: () => Promise<void>;
+  /** Initial folder-opening capability; false until the native platform is known. */
+  folderSupported?: boolean;
 };
 
-export function languageOptionsPage(host: LanguageHost): OptionsPage & {refresh: (warnings: string[]) => void} {
+export function languageOptionsPage(host: LanguageHost): OptionsPage & {refresh: (warnings: string[]) => void; setFolderSupport: (supported: boolean) => void} {
   const choices = languageChoices();
   const status = {kind: 'note' as const, text: ''};
+  const folderButton:OptionControl|undefined=host.openFolder?{kind:'button',id:'open-languages-folder',label:'Open languages folder',run:()=>host.openFolder!()}:undefined;
+  const otherLanguages:OptionControl[]=[
+    {kind: 'note', text: 'To add a language, open the languages folder, copy _template.json to a file named after the language (for example fr.json or pt-BR.json), set its name and translate the values. Keep the placeholders in braces as they are. A file named nl.json or de.json replaces the shipped translation. OpenTag reads the folder at startup and when you choose OK.'},
+    status,
+  ];
+  const setFolderSupport=(supported:boolean)=>{otherLanguages.splice(2,otherLanguages.length-2,...(supported&&folderButton?[folderButton]:[]));};
+  setFolderSupport(host.folderSupported!==false);
   const page = {
     id: 'language', label: 'Language', order: 47, defaults: {...LANGUAGE_DEFAULTS},
     description: 'Choose the language of the user interface. The change applies right away.',
@@ -32,12 +41,9 @@ export function languageOptionsPage(host: LanguageHost): OptionsPage & {refresh:
         missingChoiceLabel: (name:string) => `Unavailable: ${name} (using English)`,
         matchesChoice: (stored:unknown,value:string) => stored === value || value !== 'system' && typeof stored === 'string' && stored.toLowerCase() === value.toLowerCase()},
       {kind: 'note' as const, text: 'Format strings, field names, placeholders and scripting functions stay the same in every language. Names you gave columns, tag panel fields, action groups and tools are shown as you entered them.'},
-      {kind: 'group' as const, label: 'Other languages', controls: [
-        {kind: 'note' as const, text: 'To add a language, open the languages folder, copy _template.json to a file named after the language (for example fr.json or pt-BR.json), set its name and translate the values. Keep the placeholders in braces as they are. A file named nl.json or de.json replaces the shipped translation. OpenTag reads the folder at startup and when you choose OK.'},
-        status,
-        ...(host.openFolder ? [{kind: 'button' as const, id: 'open-languages-folder', label: 'Open languages folder', run: () => host.openFolder!()}] : []),
-      ]},
+      {kind: 'group' as const, label: 'Other languages', controls: otherLanguages},
     ],
+    setFolderSupport,
     /** Update the list after reading the languages folder, with problems found in its files. */
     refresh(warnings: string[]) {
       choices.splice(0, choices.length, ...languageChoices());

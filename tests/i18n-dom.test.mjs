@@ -231,6 +231,28 @@ test('the native window-title wrapper translates generated locations once and pr
     }
   }
 });
+test('the production Language page exposes its folder action only after a native desktop platform report',async()=>{
+  const provider=`data:text/javascript;base64,${Buffer.from('export const availableLanguages=()=>[];export const systemLanguage=()=>"en";').toString('base64')}`;
+  const {languageOptionsPage}=await import(await moduleUrl('language-options.ts',{"'./i18n'":JSON.stringify(provider)})),english=JSON.parse(await source('i18n/catalogs/en.json'));
+  let callback;const visit=node=>{if(ts.isCallExpression(node)&&node.expression.getText(parsed)==='invoke'&&node.arguments[0]?.text==='runtime_platform')callback=node.parent.parent.arguments[0];ts.forEachChild(node,visit);};visit(parsed);assert.ok(callback);
+  const js=ts.transpileModule(`return (${callback.getText(parsed)});`,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
+  for(const [desktop,family] of [[true,'android'],[true,'ios'],[true,'desktop'],[false,'desktop'],[true,undefined]]){
+    const p=page(),calls=[];
+    try{
+      const languagePage=rendererVariable(parsed,'languagePage',{desktop,ENGLISH:english,languageOptionsPage,invoke:async(command,args)=>{calls.push([command,args]);}});
+      if(family&&desktop){
+        const values={languagePage,render:()=>{},syncNativeAppearance:()=>{},optionsReady:Promise.resolve(),fileOps:{initialize:async()=>{}},run:async()=>{}};
+        await new Function(...Object.keys(values),`let runtimePlatform={},nativeAppearanceReady=false;${js}`)(...Object.values(values))({family,folder_picker_supported:family==='desktop',document_access_supported:family!=='desktop'});
+      }
+      p.body.innerHTML=languagePage.controls.map(controlMarkup).join('');p.translate('de');
+      const button=p.body.querySelector('[data-option-button="open-languages-folder"]'),supported=desktop&&family==='desktop';
+      assert.equal(!!button,supported,`${desktop?'native':'browser'} / ${family??'unknown'}`);
+      assert.ok(p.body.querySelector('[data-option="pages.language.language"]'));
+      if(supported){assert.equal(button.textContent,new Translator('de',catalogs.de).t('Open languages folder'));const action=languagePage.controls.find(control=>control.kind==='group').controls.find(control=>control.id==='open-languages-folder');await action.run();assert.equal(calls[0][0],'open_languages_folder');assert.equal(JSON.parse(calls[0][1].template)['@meta'].name,'');}
+      else assert.deepEqual(calls,[]);
+    }finally{p.close();}
+  }
+});
 test('an unavailable language remains an editable preference through the real Options save path',async()=>{
   const languages=[{locale:'en',name:'English',source:'bundled',catalog:{}},{locale:'pt-PT',name:'Português',source:'user',file:'pt-PT.json',catalog:{}}];
   const provider=`data:text/javascript;base64,${Buffer.from(`export const availableLanguages=()=>${JSON.stringify(languages)};export const systemLanguage=()=> 'pt-PT';`).toString('base64')}`;

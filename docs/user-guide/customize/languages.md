@@ -19,6 +19,9 @@ assigned to columns, tools or action groups stay as entered.
 
 ## Add a catalog in the desktop app
 
+The folder-opening action is available only in native desktop builds.
+Language selection remains available in mobile builds and browser preview.
+
 1. In **Language**, choose **Open languages folder**. OpenTag creates the
    `languages` folder inside its active configuration folder and writes the
    current `_template.json` there.

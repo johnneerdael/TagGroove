@@ -13,7 +13,7 @@ interface. Choose **OK** to apply it immediately.
 |---|---|
 | **Language** | Lists **System default**, the bundled English/Dutch/German catalogs, and valid user catalogs. Each catalog uses its authored display name; user entries also show their filename. |
 | **System default** | The default choice. Matches preferred system languages to available catalogs by exact locale, then base language, with English fallback. Its parentheses show the resolved catalog name. |
-| **Open languages folder** | Available in the desktop app. Opens the active configuration folder's `languages` directory and refreshes `_template.json`. |
+| **Open languages folder** | Available only in the native desktop app; hidden in mobile builds and browser preview. Opens the active configuration folder's `languages` directory and refreshes `_template.json`. |
 | File warning | Reports files that could not be read or entries that are missing or invalid. Missing translations and entries with invalid placeholders use English. |
 
 The language choice is saved with the application configuration. OpenTag
