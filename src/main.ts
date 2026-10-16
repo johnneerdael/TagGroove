@@ -1478,7 +1478,8 @@ function reviewedConverter(kind:'filename'|'text') {
   };
   const syncControls=()=>{
     const count=paths().length,blocked=applying||picking||busy||dirtySelected()||!count;
-    apply.textContent=`${rename?'Rename':'Save tags to'} ${count} file${count===1?'':'s'}`;
+    const planned=review.planned??count; // Unmatched files are left unchanged.
+    apply.textContent=`${rename?'Rename':'Save tags to'} ${planned} file${planned===1?'':'s'}`;
     let ready=false,inputsValid=false;
     try{const request=readRequest();inputsValid=true;ready=review.canApply(request,context());}catch{/* Missing inputs remain visible and can be completed. */}
     apply.disabled=blocked||!ready;previewButton.disabled=blocked||review.pending||!inputsValid;
@@ -1518,9 +1519,9 @@ function reviewedConverter(kind:'filename'|'text') {
     finally{picking=false;if(dialog.open){syncControls();dialog.querySelector<HTMLInputElement>('#text-source-path')!.focus({preventScroll:true});}}
   });
   const fieldRows=(fields:Fields)=>`<dl class="converter-values">${Object.entries(fields).map(([name,values])=>`<dt>${esc(name)}</dt><dd>${values.length?values.map((value,index)=>`<span>${values.length>1?`${index+1}. `:''}${value===''?'<em>(empty)</em>':esc(value)}</span>`).join(''):'<em>No values</em>'}</dd>`).join('')}</dl>`;
-  const previewMarkup=(items:Item[])=>`<div class="preview" tabindex="0" role="region" aria-label="Reviewed conversion results">${items.map(item=>'target' in item?
+  const previewMarkup=(items:Item[],unmatched:string[])=>`<div class="preview" tabindex="0" role="region" aria-label="Reviewed conversion results">${items.map(item=>'target' in item?
     `<div><small>${esc(item.path)}</small><strong>${esc(item.target)}</strong>${fieldRows(item.captures)}</div>`:
-    `<div><small>Source line ${item.source_line} → selected file ${item.selection_index+1}</small><strong>${esc(item.path)}</strong>${fieldRows(item.fields)}</div>`).join('')}</div>`;
+    `<div><small>Source line ${item.source_line} → selected file ${item.selection_index+1}</small><strong>${esc(item.path)}</strong>${fieldRows(item.fields)}</div>`).join('')}${unmatched.map(path=>`<div class="no-match"><small>${esc(path)}</small>No match, not changed</div>`).join('')}</div>`;
   previewButton.addEventListener('click',async()=>{
     let attempt:ReturnType<typeof review.begin>|undefined;
     previewButton.focus({preventScroll:true});
@@ -1531,7 +1532,7 @@ function reviewedConverter(kind:'filename'|'text') {
       window.clearTimeout(expiryTimer);previewArea.replaceChildren();dialog.querySelector('.dialog-error')?.remove();progress.textContent='Reading files and preparing preview…';syncControls();
       const response=await invoke<ConverterPreview<Item>>(rename?'preview_filename_conversion':'preview_text_import',{request:attempt.request});
       if(!dialog.open)return;
-      const markup=previewMarkup(response.items);
+      const markup=previewMarkup(response.items,response.unmatched??[]);
       if(!review.complete(attempt,response,readRequest(),context())){review.fail(attempt);return;}
       previewArea.innerHTML=markup;progress.textContent=`Reviewed ${response.items.length} file${response.items.length===1?'':'s'}${response.source_path?` from ${response.source_path}`:''}. Apply uses these exact results.`;
       expiryTimer=window.setTimeout(()=>{if(dialog.open)invalidate('The preview expired. Run Preview again.');},300_000);
@@ -1659,7 +1660,8 @@ function numbering(options:{perFolder?:boolean}={}) {
   const request=():NumberingRequest=>({
     items:paths().map(path=>({path,fields:merged(entries.get(path)!)})),
     options:{
-      track_start:count('number-start','Track start'),track_digits:count('number-digits','Track digits',10),track_total:checked('number-total')?count('number-total-value','Total tracks'):null,
+      track_start:count('number-start','Track start'),track_digits:count('number-digits','Track digits',10),track_total:checked('number-total')&&!options.perFolder?count('number-total-value','Total tracks'):null,
+      count_track_total:!!options.perFolder&&checked('number-total'),
       disc_enabled:checked('number-disc-enabled'),disc_start:checked('number-disc-enabled')?count('number-disc-start','Disc start'):1,disc_digits:checked('number-disc-enabled')?count('number-disc-digits','Disc digits',10):1,
       disc_total:checked('number-disc-enabled')&&checked('number-disc-total')?count('number-disc-total-value','Total discs'):null,
       next_disc_on_directory:directoryAvailable&&checked('number-directory'),next_disc_on_field:value(dialog,'number-next-field')||null,
@@ -1673,7 +1675,7 @@ function numbering(options:{perFolder?:boolean}={}) {
   let generation=0,pending=false;
   const sync=()=>{
     const disable=(id:string,disabled:boolean)=>{dialog.querySelector<HTMLInputElement>(`#${id}`)!.disabled=disabled;};
-    disable('number-total-value',!checked('number-total'));
+    disable('number-total-value',!checked('number-total')||!!options.perFolder); // Ctrl+Shift+K counts each folder's total.
     for(const id of ['number-disc-start','number-disc-digits','number-disc-total'])disable(id,!checked('number-disc-enabled'));
     disable('number-disc-total-value',!checked('number-disc-enabled')||!checked('number-disc-total'));
     preview.disabled=pending||busy;

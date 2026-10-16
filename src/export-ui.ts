@@ -24,6 +24,33 @@ export function removeExportConfiguration(library:ExportLibrary,id:string):Expor
   const result=structuredClone(library);result.configurations=result.configurations.filter(c=>c.id!==id);
   if(result.preferences.configuration===id)result.preferences.configuration=result.configurations[0]?.id??null;return result;
 }
+/**
+ * The export file name after choosing a configuration, as Mp3tag prefills it:
+ * `$filename(ext)` gives the current name that extension, `$filename(name)`
+ * replaces the name (a bare name stays in the current folder). Without
+ * `$filename`, or with an empty field (the configuration's default), the field is kept.
+ */
+export function configurationFilename(current:string,template:string):string {
+  const head=template.replace(/^\uFEFF/,'').trimStart();
+  if(!current.trim()||head.slice(0,10).toLowerCase()!=='$filename(')return current;
+  let argument='',depth=0,quoted=false;
+  for(const character of head.slice(10)){
+    if(character==="'")quoted=!quoted;
+    else if(!quoted&&character==='(')depth++;
+    else if(!quoted&&character===')'){if(!depth)break;depth--;}
+    else if(!quoted&&!depth&&character===',')break;
+    argument+=character;
+  }
+  argument=argument.trim();
+  if(!argument)return current;
+  const leaf=Math.max(current.lastIndexOf('/'),current.lastIndexOf('\\'))+1;
+  if(!/[./\\:]/.test(argument)){
+    const dot=current.lastIndexOf('.');
+    return `${dot>leaf?current.slice(0,dot):current}.${argument}`;
+  }
+  const folder=/[/\\]/.test(argument)||/^([A-Za-z]:|%_(working|folder)path%)/i.test(argument);
+  return folder?argument:current.slice(0,leaf)+argument;
+}
 
 type ExportHost={
   load:()=>Promise<ExportLibrary>;save:(library:ExportLibrary)=>Promise<void>;
@@ -102,7 +129,9 @@ export class ExportUI {
       <div class="dialog-footer"><button id="export-cancel">Cancel</button><button id="export-save">Save configurations</button><button class="primary" id="export-run">Export</button></div>`;
       const on=(id:string,handler:()=>void)=>dialog.querySelector(`#${id}`)!.addEventListener('click',handler);
       const list=dialog.querySelector<HTMLElement>('#export-list')!;
-      const choose=(id:string)=>{if(id===library.preferences.configuration)return;capture();library.preferences.configuration=id;render();dialog.querySelector<HTMLElement>('#export-list')!.focus();};
+      // Choosing a configuration prefills the file name from its $filename (Mp3tag behaviour).
+      const select=(id:string|null)=>{library.preferences.configuration=id;const chosen=active();if(chosen)library.preferences.filename=configurationFilename(library.preferences.filename,chosen.template);};
+      const choose=(id:string)=>{if(id===library.preferences.configuration)return;capture();select(id);render();dialog.querySelector<HTMLElement>('#export-list')!.focus();};
       let renameTimer:ReturnType<typeof setTimeout>|undefined;
       const cancelTimer=()=>{if(renameTimer!==undefined){clearTimeout(renameTimer);renameTimer=undefined;}};
       list.addEventListener('click',event=>{
@@ -119,11 +148,11 @@ export class ExportUI {
         if(event.key==='ArrowDown')move(index+1);else if(event.key==='ArrowUp')move(index-1);else if(event.key==='Home')move(0);else if(event.key==='End')move(ids.length-1);
         else if(event.key==='Enter'){event.preventDefault();dialog.querySelector<HTMLTextAreaElement>('#export-template')!.focus();}
       });
-      on('export-new',()=>{capture();const id=crypto.randomUUID();library.configurations.push({id,name:uniqueName(library,'New export'),template:'$filename(txt,utf-8)$loop(1)%title%$char(13)$char(10)$loopend()'});library.preferences.configuration=id;render();rename();});
+      on('export-new',()=>{capture();const id=crypto.randomUUID();library.configurations.push({id,name:uniqueName(library,'New export'),template:'$filename(txt,utf-8)$loop(1)%title%$char(13)$char(10)$loopend()'});select(id);render();rename();});
       on('export-rename',()=>rename());
       on('export-copy',()=>{capture();library=copyExportConfiguration(library,library.preferences.configuration!,crypto.randomUUID());render();});
-      on('export-remove',()=>{capture();library=removeExportConfiguration(library,library.preferences.configuration!);render();});
-      on('export-import',()=>{capture();const encoding=value('export-encoding');void perform(async()=>{const path=await this.host.pickTemplate();if(!path)return;const imported=await this.host.import(path,encoding);imported.name=uniqueName(library,imported.name);library.configurations.push(imported);library.preferences.configuration=imported.id;render();});});
+      on('export-remove',()=>{capture();library=removeExportConfiguration(library,library.preferences.configuration!);select(library.preferences.configuration);render();});
+      on('export-import',()=>{capture();const encoding=value('export-encoding');void perform(async()=>{const path=await this.host.pickTemplate();if(!path)return;const imported=await this.host.import(path,encoding);imported.name=uniqueName(library,imported.name);library.configurations.push(imported);select(imported.id);render();});});
       on('export-browse',()=>{capture();void perform(async()=>{const path=await this.host.pickOutput(library.preferences.filename);if(path){library.preferences.filename=path;dialog.querySelector<HTMLInputElement>('#export-filename')!.value=path;}});});
       on('export-save',()=>{capture();const snapshot=structuredClone(library);void perform(async()=>{await this.host.save(snapshot);if(dialog.open){render();dialog.querySelector<HTMLElement>('#export-status')!.textContent='Export configurations and options saved.';}});});
       on('export-run',()=>{capture();const reason=this.host.reason();if(reason){error(reason);return;}const snapshot=structuredClone(library);void perform(async()=>{await this.host.execute(snapshot,perDirectory);dialog.close();});});

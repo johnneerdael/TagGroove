@@ -1,5 +1,7 @@
 export type NumberingOptions = {
   track_start: number; track_digits: number; track_total: number | null;
+  /** Totals are the last track number before the counter restarts (Ctrl+Shift+K: per folder). */
+  count_track_total?: boolean;
   disc_enabled: boolean; disc_start: number; disc_digits: number; disc_total: number | null;
   next_disc_on_directory: boolean; next_disc_on_field: string | null;
   reset_track_on_next_disc: boolean; reset_disc_on_field: string | null;

@@ -565,3 +565,79 @@ fn static_hash_requests_include_filename_partition_and_meta_without_raw_literals
         Vec::<String>::new()
     );
 }
+
+#[test]
+fn exports_without_an_encoding_argument_are_ansi_as_in_mp3tag() {
+    let options = ExportOptions {
+        bom: true,
+        ..options()
+    };
+    for template in [
+        "$loop(1)%title%$loopend()",
+        "$filename(txt)$loop(1)%title%$loopend()",
+    ] {
+        let docs = render_export(template, &rows()[..1], &options).unwrap();
+        assert_eq!(docs[0].encoding, "ansi", "{template}");
+        // Write BOM applies only to UTF-8 and UTF-16 chosen with $filename.
+        assert!(!docs[0].bom);
+    }
+    let mut single = rows();
+    single.truncate(1);
+    single[0]
+        .fields
+        .insert("TITLE".into(), vec!["Café 猫".into()]);
+    let docs = render_export("$loop(1)%title%$loopend()", &single, &options).unwrap();
+    // Without a system codepage: Windows-1252, unmappable characters as '?'.
+    assert_eq!(
+        encode_export_document(&docs[0], None).unwrap(),
+        b"Caf\xe9 ?"
+    );
+    let docs = render_export(
+        "$filename(txt,utf-8)$loop(1)%title%$loopend()",
+        &single,
+        &options,
+    )
+    .unwrap();
+    assert_eq!(docs[0].encoding, "utf-8");
+    assert!(docs[0].bom);
+}
+
+#[test]
+fn working_folder_reaches_the_export_body_and_file_name() {
+    let options = ExportOptions {
+        filename: "%_workingpath%%_workingdir%.txt".into(),
+        working_directory: Some("/music/Rock/".into()),
+        ..options()
+    };
+    let docs = render_export(
+        "$filename(lst,utf-8)$loop(1)%_workingdir%|%_workingpath%|%title%$char(10)$loopend()",
+        &rows()[..1],
+        &options,
+    )
+    .unwrap();
+    assert_eq!(docs[0].filename, "/music/Rock/Rock.lst");
+    let separator = std::path::MAIN_SEPARATOR;
+    assert_eq!(
+        docs[0].text,
+        format!("Rock|/music/Rock{separator}|Second\n")
+    );
+    // A typed export name is evaluated with the working folder, too.
+    let typed = ExportOptions {
+        filename_override: Some("%_workingpath%list-%_workingdir%.txt".into()),
+        ..options.clone()
+    };
+    let docs = render_export("$loop(1)%title%$loopend()", &rows()[..1], &typed).unwrap();
+    assert_eq!(docs[0].filename, "/music/Rock/list-Rock.txt");
+    // Before a folder is opened both are empty.
+    let none = ExportOptions {
+        working_directory: None,
+        ..options
+    };
+    let docs = render_export(
+        "$loop(1)[%_workingdir%]%title%$loopend()",
+        &rows()[..1],
+        &none,
+    )
+    .unwrap();
+    assert_eq!(docs[0].text, "Second");
+}

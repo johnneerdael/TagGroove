@@ -128,3 +128,25 @@ test('picker value synchronization ignores duplicate commits but tracks checkbox
   assert.equal(changed(['file', '/records.txt', '', true]), true);
   assert.equal(changed(['text', '/records.txt', 'literal records', true]), true);
 });
+test('files left unchanged must account for the rest of the selection, and an empty plan never applies', () => {
+  const three = {paths: ['/a.mp3', '/odd.mp3', '/b.mp3'], old_pattern: '%1 - %2', new_pattern: '%2 - %1', columns: []};
+  const renamed = [{path: '/a.mp3', target: '/x.mp3', captures: {}}, {path: '/b.mp3', target: '/y.mp3', captures: {}}];
+  assert.doesNotThrow(() => validateFilenameItems(three, renamed, ['/odd.mp3']));
+  assert.throws(() => validateFilenameItems(three, renamed), /selected files/);
+  assert.throws(() => validateFilenameItems(three, renamed, ['/other.mp3']), /selected files/);
+  assert.throws(() => validateFilenameItems(three, [renamed[1], renamed[0]], ['/odd.mp3']), /selected files/);
+  const state = createConverterReview(validateFilenameItems), attempt = state.begin(three, 'workspace');
+  assert.equal(state.complete(attempt, {plan_token: 'partial', items: renamed, unmatched: ['/odd.mp3']}, three, 'workspace'), true);
+  assert.equal(state.planned, 2);
+  assert.equal(state.canApply(three, 'workspace'), true);
+  const none = state.begin(three, 'workspace');
+  assert.equal(state.complete(none, {plan_token: 'none', items: [], unmatched: three.paths}, three, 'workspace'), true);
+  assert.equal(state.planned, 0);
+  assert.equal(state.canApply(three, 'workspace'), false);
+  assert.throws(() => state.take(three, 'workspace'), /Preview again/);
+  const text = {paths: ['/a.mp3', '/b.mp3', '/c.mp3']};
+  const keyed = [{selection_index: 2, source_line: 1, path: '/c.mp3', fields: {TITLE: ['C']}}, {selection_index: 0, source_line: 4, path: '/a.mp3', fields: {TITLE: ['A']}}];
+  assert.doesNotThrow(() => validateTextItems(text, keyed, ['/b.mp3']));
+  assert.throws(() => validateTextItems(text, keyed), /selected files/);
+  assert.throws(() => validateTextItems(text, keyed, ['/a.mp3']), /selected files/);
+});

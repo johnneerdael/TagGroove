@@ -39,10 +39,23 @@ impl FilenameConverter {
         source: &str,
         context: &EvalContext<'_>,
     ) -> Result<FilenameConversion, String> {
+        self.try_render(source, context)?
+            .ok_or_else(|| "Filename does not completely match the pattern".into())
+    }
+
+    /// Like [`render`](Self::render), with a source whose name does not match
+    /// the old pattern as `None`: Filename → Filename leaves such files unchanged.
+    pub fn try_render(
+        &self,
+        source: &str,
+        context: &EvalContext<'_>,
+    ) -> Result<Option<FilenameConversion>, String> {
         if source.contains(['\r', '\n', '\0']) {
             return Err("Source filename contains a control character".into());
         }
-        let captures = self.old_pattern.parse(source)?;
+        let Some(captures) = self.old_pattern.try_parse(source)? else {
+            return Ok(None);
+        };
         let mut fields = context.fields.clone();
         fields.extend(captures.clone());
         let context = EvalContext {
@@ -80,11 +93,11 @@ impl FilenameConverter {
         if target.len() > context.max_output_bytes {
             return Err("Filename converter output limit exceeded".into());
         }
-        Ok(FilenameConversion {
+        Ok(Some(FilenameConversion {
             source: source.to_owned(),
             target,
             captures,
-        })
+        }))
     }
 }
 
@@ -275,7 +288,9 @@ impl TextTagConverter {
         }
         let text = text.strip_prefix('\u{feff}').unwrap_or(text);
         let lines = text_lines(text);
-        if lines.len() != selected_paths.len() {
+        // Sequential records pair line N with selected file N. Keyed records
+        // find their file by name, so the list may name other files too.
+        if self.key.is_none() && lines.len() != selected_paths.len() {
             return Err(format!(
                 "Text import has {} lines for {} selected files; no changes planned",
                 lines.len(),
@@ -338,9 +353,12 @@ impl TextTagConverter {
                 }
                 let key = match_key(value, kind, options)
                     .map_err(|error| format!("Text import line {number}: {error}"))?;
-                *selected_keys.get(&key).ok_or_else(|| {
-                    format!("Text import line {number} does not match a selected file: {value}")
-                })?
+                // A record for a file that is not selected is skipped, and a
+                // selected file without a record is left unchanged.
+                let Some(&selection_index) = selected_keys.get(&key) else {
+                    continue;
+                };
+                selection_index
             } else {
                 index
             };
@@ -355,6 +373,9 @@ impl TextTagConverter {
                 path: selected_paths[selection_index].clone(),
                 fields,
             });
+        }
+        if plans.is_empty() && !selected_paths.is_empty() {
+            return Err("No text import line matches a selected file; no changes planned".into());
         }
         Ok(plans)
     }

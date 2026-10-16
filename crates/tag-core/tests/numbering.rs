@@ -213,3 +213,54 @@ fn invalid_settings_and_overflow_return_no_partial_plan() {
         .unwrap()
         .is_empty());
 }
+
+#[test]
+fn per_folder_numbering_counts_each_folders_own_total() {
+    // Ctrl+Shift+K: the counter restarts in each folder, so does the total.
+    let input = [
+        item("/m/one/1.flac", &["A"], "1"),
+        item("/m/one/2.flac", &["A"], "1"),
+        item("/m/one/3.flac", &["A"], "1"),
+        item("/m/two/1.flac", &["B"], "1"),
+        item("/m/two/2.flac", &["B"], "1"),
+    ];
+    let options = NumberingOptions {
+        track_total: Some(5),
+        count_track_total: true,
+        next_disc_on_directory: true,
+        reset_track_on_next_disc: true,
+        ..Default::default()
+    };
+    let plan = plan_numbering(&input, &options).unwrap();
+    assert_eq!(tracks(&plan), ["01/3", "02/3", "03/3", "01/2", "02/2"]);
+    // A start above 1 counts to the run's last track number.
+    let options = NumberingOptions {
+        track_start: 4,
+        ..options
+    };
+    assert_eq!(
+        tracks(&plan_numbering(&input, &options).unwrap()),
+        ["04/6", "05/6", "06/6", "04/5", "05/5"]
+    );
+    // Without a counter restart the whole selection is one run.
+    let options = NumberingOptions {
+        track_start: 1,
+        count_track_total: true,
+        ..Default::default()
+    };
+    assert_eq!(
+        tracks(&plan_numbering(&input, &options).unwrap()),
+        ["01/5", "02/5", "03/5", "04/5", "05/5"]
+    );
+    // The entered total is used unless counting is requested.
+    let options = NumberingOptions {
+        track_total: Some(5),
+        next_disc_on_directory: true,
+        reset_track_on_next_disc: true,
+        ..Default::default()
+    };
+    assert_eq!(
+        tracks(&plan_numbering(&input, &options).unwrap()),
+        ["01/5", "02/5", "03/5", "01/5", "02/5"]
+    );
+}

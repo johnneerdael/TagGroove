@@ -4,7 +4,7 @@ import {readFile} from 'node:fs/promises';
 import ts from 'typescript';
 const source=await readFile(new URL('../src/export-ui.ts',import.meta.url),'utf8');
 const js=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
-const {copyExportConfiguration,removeExportConfiguration,renameExportConfiguration}=await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
+const {configurationFilename,copyExportConfiguration,removeExportConfiguration,renameExportConfiguration}=await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
 const library=()=>({version:1,configurations:[{id:'a',name:'Text',template:'%title%'},{id:'b',name:'Text copy',template:'%album%'}],preferences:{configuration:'a',filename:'out.txt',append:true,partition:null,write_bom:true,create_directories:false}});
 test('duplicate gets independent identity, unique name, and preserves source and preferences',()=>{
  const source=library(),result=copyExportConfiguration(source,'a','c');
@@ -39,4 +39,18 @@ test('rename in place keeps names nonempty and unique without touching the sourc
  assert.throws(()=>renameExportConfiguration(source,'a','text COPY'),/already exists/);
  assert.throws(()=>renameExportConfiguration(source,'a','  '),/Enter a name/);
  assert.throws(()=>renameExportConfiguration(source,'zz','x'),/exist/);
+});
+test('choosing a configuration prefills the export file name from its $filename',()=>{
+ const html='$filename(html,utf-8)<html>$loop(1)%title%$loopend()';
+ assert.equal(configurationFilename('export.txt',html),'export.html');
+ assert.equal(configurationFilename('C:\\Lists\\%album%.txt',html),'C:\\Lists\\%album%.html');
+ assert.equal(configurationFilename('/lists/name',' $FILENAME(csv)'),'/lists/name.csv');
+ assert.equal(configurationFilename('/lists/v1.0/export.txt','\uFEFF$filename(tracks.cue,utf-8)'),'/lists/v1.0/tracks.cue');
+ assert.equal(configurationFilename('out/export.txt','$filename(%_workingpath%list.m3u)'),'%_workingpath%list.m3u');
+ assert.equal(configurationFilename('out/export.txt','$filename(/abs/list.json)'),'/abs/list.json');
+ assert.equal(configurationFilename('out/export.txt','$filename($lower(%album%).htm,ansi)'),'out/$lower(%album%).htm');
+ // No $filename, an empty argument or an empty field (the configuration's default) keeps the field.
+ assert.equal(configurationFilename('out/export.txt','$loop(1)%title%$loopend()'),'out/export.txt');
+ assert.equal(configurationFilename('out/export.txt','$filename(,utf-16)body'),'out/export.txt');
+ assert.equal(configurationFilename('',html),'');
 });

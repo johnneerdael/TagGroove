@@ -611,6 +611,37 @@ mod tests {
     }
 
     #[test]
+    fn exports_receive_the_working_folder_in_body_and_file_name() {
+        use tag_core::actions::{ActionGroup, ActionSpec};
+        let directory = tempfile::tempdir().unwrap();
+        let working = directory.path().join("Working");
+        fs::create_dir(&working).unwrap();
+        let entry = audio_with_cover(&working);
+        let group = ActionGroup {
+            name: "Working folder".into(),
+            enabled: true,
+            actions: vec![ActionSpec::Export {
+                template: "$filename(txt,utf-8)$loop(1)%_workingdir%|%_filename_ext%$loopend()"
+                    .into(),
+                filename_template: "%_workingpath%%_workingdir%-list.txt".into(),
+                append: false,
+                partition_template: None,
+            }],
+        };
+        let settings = EvaluationSettings {
+            working_directory: Some(working.to_string_lossy().into_owned()),
+            ..Default::default()
+        };
+        let result =
+            crate::action_host::execute(std::slice::from_ref(&entry.path), &[group], settings);
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert_eq!(
+            fs::read_to_string(working.join("Working-list.txt")).unwrap(),
+            "Working|measured.wav"
+        );
+    }
+
+    #[test]
     fn actual_table_values_and_raw_tag_list_are_distinct() {
         let raw = Fields::from([
             ("DATE".into(), vec!["2026-10-14".into()]),

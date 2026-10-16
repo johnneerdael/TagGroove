@@ -558,9 +558,8 @@ fn write_import(
 /// reduced to a single safe file name (the extension comes from the image).
 /// `counter` is the file's 1-based position among the written files.
 fn cover_file_name(entry: &AudioEntry, template: &str, counter: usize) -> Result<String, String> {
-    let fields = crate::evaluation::enriched_fields(entry, counter);
-    let name =
-        tag_core::evaluate_filename_with_context(template, &tag_core::EvalContext::new(&fields))?;
+    // The shared context: columns, working folder and folder separator.
+    let name = crate::evaluation_settings(None)?.filename(template, entry, counter)?;
     let name: String = name
         .chars()
         .map(|c| {
@@ -849,6 +848,10 @@ mod tests {
             cover_file_name(&entries[1], "cover %_counter%", 2).unwrap(),
             "cover 2"
         );
+        // Column scripting works as in every other format string.
+        assert!(cover_file_name(&entries[2], "$columnValues(,' ')", 1)
+            .unwrap()
+            .contains("Disc_ 2"));
     }
 
     #[test]

@@ -10,7 +10,7 @@ use std::{
     sync::Mutex,
     time::Instant,
 };
-use tag_core::{AudioEntry, EvalContext, Fields, ScanResult, TextImportOptions, TextTagImport};
+use tag_core::{AudioEntry, Fields, ScanResult, TextImportOptions, TextTagImport};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -25,6 +25,9 @@ pub struct FilenameRequest {
 pub struct FilenamePreview {
     pub plan_token: String,
     pub items: Vec<FilenameItem>,
+    /// Selected files whose name does not match the old pattern. They are
+    /// left unchanged, as Filename → Tag leaves them.
+    pub unmatched: Vec<String>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -69,6 +72,9 @@ pub struct TextPreview {
     pub items: Vec<TextTagImport>,
     /// The text file read, after evaluating a format-string source.
     pub source_path: Option<String>,
+    /// Selected files that no record names (keyed records only). They are
+    /// left unchanged.
+    pub unmatched: Vec<String>,
 }
 
 #[tauri::command]
@@ -230,6 +236,8 @@ impl Snapshot {
 }
 
 struct Move {
+    /// Position of the file in the request's selection.
+    selection_index: usize,
     raw_target: PathBuf,
     target: PathBuf,
     ancestor: PathBuf,
@@ -398,18 +406,18 @@ fn preview_filename(
     let mut sources = Vec::new();
     let mut moves = Vec::new();
     let mut items = Vec::new();
+    let mut unmatched = Vec::new();
     for (index, (source, entry)) in loaded.into_iter().enumerate() {
         let fields = crate::evaluation::enriched_fields(&entry, index + 1);
         let columns =
             settings.column_values(&fields, &entry.fields, &request.paths[index], true)?;
-        let mut context = EvalContext::new(&fields);
-        context.raw_fields = Some(&entry.fields);
-        context.columns = Some(&columns);
-        context.app_directory = Some(&settings.app_directory);
-        context.app_data_directory = Some(&settings.app_data_directory);
-        context.ansi_codepage = settings.ansi_codepage().or(context.ansi_codepage);
-        context.timestamp_seconds = Some(settings.timestamp_seconds);
-        let rendered = converter.render(&entry.path, &context)?;
+        // The shared context: working folder, folder separator and clock as
+        // in Tag → Filename and actions.
+        let context = settings.context(&fields, &entry.fields, Some(&columns));
+        let Some(rendered) = converter.try_render(&entry.path, &context)? else {
+            unmatched.push(request.paths[index].clone());
+            continue;
+        };
         let raw_target = super::filename_target(&entry, rendered.target)?;
         let target = crate::action_host::normalized_rename_target(&raw_target)?;
         let (ancestor, ancestor_metadata) = destination_ancestor(&target)?;
@@ -419,6 +427,7 @@ fn preview_filename(
             captures: rendered.captures,
         });
         moves.push(Move {
+            selection_index: index,
             raw_target,
             target,
             ancestor,
@@ -439,6 +448,7 @@ fn preview_filename(
     Ok(FilenamePreview {
         plan_token: remember(plan)?,
         items,
+        unmatched,
     })
 }
 
@@ -460,7 +470,7 @@ fn apply_filename(request: &FilenameRequest, token: &str) -> Result<FilenameResu
                 tag_core::operations::rename_no_clobber(&source.canonical, &movement.target)?;
                 completed.push(index);
                 result.renamed.push(PathChange {
-                    from: request.paths[index].clone(),
+                    from: request.paths[movement.selection_index].clone(),
                     to: movement.target.to_string_lossy().into_owned(),
                 });
             }
@@ -580,10 +590,19 @@ fn preview_text(request: &TextRequest) -> Result<TextPreview, String> {
         .text_source
         .as_ref()
         .map(|source| source.requested.to_string_lossy().into_owned());
+    let planned: HashSet<usize> = items.iter().map(|item| item.selection_index).collect();
+    let unmatched = request
+        .paths
+        .iter()
+        .enumerate()
+        .filter(|(index, _)| !planned.contains(index))
+        .map(|(_, path)| path.clone())
+        .collect();
     Ok(TextPreview {
         plan_token: remember(plan)?,
         items,
         source_path,
+        unmatched,
     })
 }
 
@@ -827,6 +846,63 @@ mod tests {
     }
 
     #[test]
+    fn non_matching_file_is_left_unchanged_and_matching_files_rename_together() {
+        let dir = tempfile::tempdir().unwrap();
+        let a = dir.path().join("A - One.wav");
+        let odd = dir.path().join("no separator.wav");
+        let b = dir.path().join("B - Two.wav");
+        wav(&a, "One");
+        wav(&odd, "Odd");
+        wav(&b, "Two");
+        let before = fs::read(&odd).unwrap();
+        let request = filename_request(&[a.clone(), odd.clone(), b.clone()], "%2 - %1");
+        let preview = preview_filename(&request, &EvaluationSettings::default()).unwrap();
+        assert_eq!(preview.items.len(), 2);
+        assert_eq!(preview.items[0].path, request.paths[0]);
+        assert_eq!(preview.items[1].path, request.paths[2]);
+        assert_eq!(preview.unmatched, [request.paths[1].clone()]);
+        let result = apply_filename(&request, &preview.plan_token).unwrap();
+        assert_eq!(result.renamed.len(), 2);
+        assert_eq!(result.renamed[1].from, request.paths[2]);
+        assert!(dir.path().join("One - A.wav").exists());
+        assert!(dir.path().join("Two - B.wav").exists());
+        assert_eq!(fs::read(&odd).unwrap(), before);
+        // Nothing matches: a preview with no planned rename.
+        let request = filename_request(std::slice::from_ref(&odd), "%2 - %1");
+        let preview = preview_filename(&request, &EvaluationSettings::default()).unwrap();
+        assert!(preview.items.is_empty());
+        assert_eq!(preview.unmatched.len(), 1);
+        assert!(apply_filename(&request, &preview.plan_token)
+            .unwrap()
+            .renamed
+            .is_empty());
+        assert!(odd.exists());
+    }
+
+    #[test]
+    fn new_filename_pattern_uses_the_working_folder_and_folder_separator() {
+        let dir = tempfile::tempdir().unwrap();
+        let working = dir.path().join("Working");
+        fs::create_dir(&working).unwrap();
+        let a = working.join("AC - DC.wav");
+        wav(&a, "Title/Part");
+        let request = filename_request(std::slice::from_ref(&a), "%_workingdir% %2 %title%");
+        let settings = EvaluationSettings {
+            working_directory: Some(working.to_string_lossy().into_owned()),
+            folder_separator: "+".into(),
+            ..Default::default()
+        };
+        let preview = preview_filename(&request, &settings).unwrap();
+        assert!(
+            preview.items[0]
+                .target
+                .ends_with("Working DC Title+Part.wav"),
+            "{}",
+            preview.items[0].target
+        );
+    }
+
+    #[test]
     fn case_only_rearrangement_renames_without_doubling_the_extension() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("artist - song.wav");
@@ -960,6 +1036,38 @@ mod tests {
         assert_eq!(entry.fields["TITLE"], ["Café 猫"]);
         assert_eq!(entry.fields["ARTIST"], ["Keep artist"]);
         assert!(apply_text(&request, &preview.plan_token).is_err());
+    }
+
+    #[test]
+    fn keyed_text_list_longer_than_the_selection_imports_only_the_named_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let a = dir.path().join("a.wav");
+        let b = dir.path().join("b.wav");
+        let c = dir.path().join("c.wav");
+        wav(&a, "Original A");
+        wav(&b, "Original B");
+        wav(&c, "Original C");
+        let before_b = fs::read(&b).unwrap();
+        let mut request = text_request(
+            &[a.clone(), b.clone(), c.clone()],
+            "z.wav|Elsewhere\nc.wav|Third\nx.wav|Other\na.wav|First\n",
+        );
+        request.mask = "%_filename_ext%|%title%".into();
+        let preview = preview_text(&request).unwrap();
+        assert_eq!(preview.items.len(), 2);
+        assert_eq!(preview.unmatched, [request.paths[1].clone()]);
+        let result = apply_text(&request, &preview.plan_token).unwrap();
+        assert!(result.errors.is_empty());
+        let title =
+            |path: &Path| tag_core::read_entry_summary(path).unwrap().fields["TITLE"].clone();
+        assert_eq!(title(&a), ["First"]);
+        assert_eq!(title(&c), ["Third"]);
+        assert_eq!(fs::read(&b).unwrap(), before_b);
+        // A list naming none of the selected files plans nothing.
+        request.source = TextSource::Text {
+            text: "x.wav|Other\ny.wav|Other".into(),
+        };
+        assert!(preview_text(&request).is_err());
     }
 
     #[test]
