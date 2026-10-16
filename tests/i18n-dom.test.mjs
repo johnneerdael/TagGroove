@@ -25,6 +25,7 @@ const {offerOpenOutputs}=await load('export-ui.ts');
 const {FileOpsUI,nameList}=await load('file-ops.ts');
 const {copiedMessage}=await load('tag-clipboard.ts');
 const {cleanupText}=await load('library.ts');
+const {sourcePresentation}=await load('document-state.ts');
 const {removeTagParts}=await load('remove-tag.ts');
 const {Messages}=await load('messages.ts');
 const {WebSourcesUI,settingsMarkup,readSettings}=await import(await moduleUrl('web-sources.ts',{"'./action-ui'":JSON.stringify(await moduleUrl('action-ui.ts'))}));
@@ -125,6 +126,75 @@ test('the actual Language options preserve authored catalog names in System defa
   }
 });
 
+test('application mutations equal to previous translations become fresh sources at observer and synchronous boundaries',async()=>{
+  const custom={'Previewing…':'Preview',Preview:'Inspect',Inspect:'Wrong'};
+  for(const boundary of ['observer','manual','language-off']){
+    const p=page();
+    try{
+      p.body.innerHTML='<button title="Previewing…">Previewing…</button><input type="button" value="Previewing…"><textarea title="Previewing…">Help</textarea>';
+      p.translate('en',custom);const button=p.body.querySelector('button'),input=p.body.querySelector('input'),textarea=p.body.querySelector('textarea');
+      for(let pass=0;pass<2;pass++)p.translateTree(p.body);
+      await p.window.happyDOM.waitUntilComplete();
+      assert.equal(button.textContent,'Preview');assert.equal(button.title,'Preview');assert.equal(input.getAttribute('value'),'Preview');
+      // Multiple real app writes must be invalidated as a batch, before any own output is produced.
+      button.firstChild.data='Other';button.firstChild.data='Preview';button.title='Other';button.title='Preview';input.setAttribute('value','Preview');textarea.title='Preview';
+      if(boundary==='manual')p.translateTree(p.body);
+      if(boundary==='language-off'){
+        p.translate('en');assert.equal(button.textContent,'Preview');assert.equal(button.title,'Preview');assert.equal(input.getAttribute('value'),'Preview');
+        p.translate('en',custom);
+      }
+      await p.window.happyDOM.waitUntilComplete();
+      assert.equal(button.textContent,'Inspect');assert.equal(button.title,'Inspect');assert.equal(input.getAttribute('value'),'Inspect');assert.equal(textarea.title,'Inspect');assert.equal(textarea.value,'Help');
+      p.translateTree(p.body);await p.window.happyDOM.waitUntilComplete();assert.equal(button.textContent,'Inspect');
+      p.translate('en');assert.equal(button.textContent,'Preview');assert.equal(button.title,'Preview');assert.equal(input.getAttribute('value'),'Preview');
+    }finally{p.close();}
+  }
+});
+test('production converter controls translate their pending and ready sources once',async()=>{
+  const p=page();
+  try{
+    p.body.innerHTML='<dialog open><button id="apply"></button><button id="preview"></button><button id="close"></button></dialog>';
+    const dialog=p.body.querySelector('dialog'),previewButton=dialog.querySelector('#preview'),review={pending:true,canApply:()=>false};
+    const sync=rendererVariable(parsed,'syncControls',{paths:()=>['Help'],applying:false,picking:false,busy:false,dirtySelected:()=>false,rename:true,apply:dialog.querySelector('#apply'),readRequest:()=>({}),review,context:()=>'',previewButton,closeButton:dialog.querySelector('#close'),dialog});
+    sync();p.translate('en',{'Previewing…':'Preview',Preview:'Inspect',Inspect:'Wrong'});p.translateTree(dialog);await p.window.happyDOM.waitUntilComplete();assert.equal(previewButton.textContent,'Preview');
+    review.pending=false;sync();p.translateTree(dialog);await p.window.happyDOM.waitUntilComplete();assert.equal(previewButton.textContent,'Inspect');
+    review.pending=true;sync();await p.window.happyDOM.waitUntilComplete();assert.equal(previewButton.textContent,'Preview');
+    p.translate('en');assert.equal(previewButton.textContent,'Previewing…');
+  }finally{p.close();}
+});
+for(const locale of ['de','nl'])test(`${locale}: provider source locations and names stay raw while unavailable fallbacks translate`,()=>{
+  const p=page(),t=new Translator(locale,catalogs[locale]);
+  try{
+    let state={uri:'Help',name:'Title',writable:true,persisted:true,state:'ready',error:null};
+    const declaration=parsed.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text==='sourceMarkup');
+    const js=ts.transpileModule(declaration.getText(parsed),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
+    const access={states:{fixture:state},refreshError:null};
+    const values={active:()=>({path:'fixture'}),providerEntry:()=>true,documentAccess:access,sourcePresentation,sourcePolicy:()=>({mutationReason:'',unsupportedReason:''}),esc,workingMetadataNotice:()=>'',publicMessage:value=>value,button:(_op,label)=>`<button>${label}</button>`};
+    const render=new Function(...Object.keys(values),`${js};return sourceMarkup;`)(...Object.values(values));
+    p.body.innerHTML=render('files');p.translate(locale);
+    assert.equal(p.body.querySelector('.source-location').textContent,'Help');assert.equal(p.body.querySelector('.source-location').title,'Help');assert.equal(p.body.querySelector('.source-access > div > span').textContent,'Title');
+    assert.equal(p.body.querySelector('.source-access strong').textContent,t.t('Source writable'));
+    assert.equal(p.body.querySelector('button').textContent,t.t('Save a copy…'));
+    const locationHeader=()=>{
+      const locationView=rendererVariable(parsed,'locationView',{entry:{path:'fixture'},providerEntry:()=>true,providerState:access.states.fixture,sourcePresentation,location:'Help',locationIsData:true});
+      return rendererVariable(parsed,'locationMarkup',{esc,locationView});
+    };
+    p.body.innerHTML=locationHeader();p.translate(locale);assert.equal(p.body.querySelector('.path').textContent,'Help');assert.equal(p.body.querySelector('.path').title,'Help');
+    access.states.fixture={...state,uri:'Source location unavailable',name:'Provider document'};p.body.innerHTML=render('files');p.translate(locale);
+    assert.equal(p.body.querySelector('.source-location').textContent,'Source location unavailable');assert.equal(p.body.querySelector('.source-access > div > span').textContent,'Provider document');
+    p.body.innerHTML=locationHeader();p.translate(locale);assert.equal(p.body.querySelector('.path').textContent,'Source location unavailable');
+    for(const next of [{...state,uri:'',name:''},undefined]){
+      access.states.fixture=next;p.body.innerHTML=render('files');p.translate(locale);
+      assert.equal(p.body.querySelector('.source-location').textContent,t.t('Source location unavailable'));assert.equal(p.body.querySelector('.source-location').title,t.t('Source location unavailable'));assert.equal(p.body.querySelector('.source-access > div > span').textContent,t.t('Provider document'));
+      p.body.innerHTML=locationHeader();p.translate(locale);assert.equal(p.body.querySelector('.path').textContent,t.t('Source location unavailable'));assert.equal(p.body.querySelector('.path').title,t.t('Source location unavailable'));
+    }
+    for(const [location,locationIsData,expected] of [['No folder loaded',false,t.t('No folder loaded')],['2 added locations',false,t.t('{length} added locations',{length:2})],['No folder loaded',true,'No folder loaded'],['2 added locations',true,'2 added locations'],['Help',true,'Help']]){
+      const locationView=rendererVariable(parsed,'locationView',{entry:undefined,providerEntry:()=>false,providerState:undefined,sourcePresentation,location,locationIsData});
+      p.body.innerHTML=rendererVariable(parsed,'locationMarkup',{esc,locationView});p.translate(locale);
+      assert.equal(p.body.querySelector('.path').textContent,expected);assert.equal(p.body.querySelector('.path').title,expected);
+    }
+  }finally{p.close();}
+});
 test('the real language reload retains an active catalog on command failure and replaces it on an empty successful snapshot',async()=>{
   const p=page(),storage=Object.getOwnPropertyDescriptor(globalThis,'localStorage');
   Object.defineProperty(globalThis,'localStorage',{configurable:true,value:p.window.localStorage});

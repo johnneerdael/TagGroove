@@ -59,6 +59,9 @@ labels.
   Malformed JSON files are not loaded.
 - If a selected added language disappears, OpenTag falls back to English.
   **System default** instead follows the available system-language matches.
+- A folder scan I/O failure warns and keeps catalogs already loaded in this
+  session. A missing folder is an empty successful reload; an invalid individual
+  catalog is reported and left out of that reload.
 - Catalogs use OpenTag's JSON format; Mp3tag `.lng` files are not supported.
 - System-owned controls and some operating-system, library or newly added
   backend messages can remain in their original language or English.

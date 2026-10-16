@@ -28,7 +28,8 @@ remain unchanged.
 
 Status messages translate their application text, including copied/cut-tag
 summaries and saved-cover notices. Paths and field identifiers within those
-messages keep their original spelling.
+messages keep their original spelling. Source locations and names also keep
+their spelling; unavailable-source and empty-location notices translate.
 
 ## Catalog files
 

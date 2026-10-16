@@ -135,9 +135,25 @@ test('add directory appends without changing the working directory', async () =>
   const {ui, host} = harness();
   host.picks.push(['/a', '/b']);
   await ui.operate('dir-add');
-  assert.deepEqual(host.loads[0][1], {replace: false, recursive: true, location: '2 added locations'});
+  assert.deepEqual(host.loads[0][1], {replace: false, recursive: true, location: '2 added locations', locationIsData: false});
   assert.equal(ui.history.current, undefined);
   assert.equal(ui.reason('dir-up'), 'Change to a directory first.');
+});
+
+test('location producers distinguish generated summaries from same-spelling authored paths', async () => {
+  const {ui, host} = harness();
+  for (const path of ['No folder loaded', '2 added locations', 'Help']) {
+    host.picks.push([path]);
+    await ui.operate('dir-add');
+    assert.equal(host.loads.at(-1)[1].location, path);
+    assert.notEqual(host.loads.at(-1)[1].locationIsData, false);
+  }
+  await ui.replaceWith(['/one', '/two']);
+  assert.equal(host.loads.at(-1)[1].location, '2 dropped locations');
+  assert.equal(host.loads.at(-1)[1].locationIsData, false);
+  await ui.replaceWith(['2 dropped locations']);
+  assert.equal(host.loads.at(-1)[1].location, '2 dropped locations');
+  assert.notEqual(host.loads.at(-1)[1].locationIsData, false);
 });
 
 test('a failed scan keeps the previous working directory', async () => {

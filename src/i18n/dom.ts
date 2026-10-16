@@ -20,6 +20,7 @@ export class DomTranslator {
   private texts = new WeakMap<Text, Shown>();
   private attributes = new WeakMap<Element, Map<string, Shown>>();
   private observer?: MutationObserver;
+  private pending: MutationRecord[] = [];
 
   constructor(private root: HTMLElement, private translator: () => Translator) {}
 
@@ -30,17 +31,24 @@ export class DomTranslator {
       this.observer = new MutationObserver(records => this.mutated(records));
       this.observer.observe(this.root, {subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: [...ATTRIBUTES, 'value']});
     }
+    this.flush();
     this.walk(this.root);
+    this.flush();
     if (!active) {this.observer?.disconnect();this.observer = undefined;}
-    this.observer?.takeRecords();
   }
 
   /** Translate a subtree now, for markup measured before the observer runs. */
-  translateTree(node: Node) {if (this.translator().active) this.walk(node);}
+  translateTree(node: Node) {if (this.translator().active) {this.flush();this.walk(node);this.flush();}}
 
   private skipped(element: Element | null) {return !!element?.closest(SKIP);}
 
   private mutated(records: MutationRecord[]) {
+    // Every observed application write is a new source, even when it equals
+    // our last output. Invalidate the whole batch before producing any output.
+    for (const record of records) {
+      if (record.type === 'characterData') this.texts.delete(record.target as Text);
+      else if (record.type === 'attributes' && record.attributeName) this.attributes.get(record.target as Element)?.delete(record.attributeName);
+    }
     for (const record of records) {
       if (record.type === 'childList') record.addedNodes.forEach(node => {if (node.isConnected) this.walk(node);});
       else if (record.type === 'characterData') {const node = record.target as Text;if (!this.skipped(node.parentElement)) this.text(node);}
@@ -49,7 +57,24 @@ export class DomTranslator {
         if (!this.skipped(element)) this.attribute(element, record.attributeName);
       }
     }
-    this.observer?.takeRecords();
+    this.flush();
+  }
+
+  private flush() {
+    const records = this.pending.splice(0);
+    records.push(...this.observer?.takeRecords() ?? []);
+    if (records.length) this.mutated(records);
+  }
+
+  /** Suppress exactly our own write, retaining any other queued application mutations. */
+  private write(target: Node, attribute: string | undefined, change: () => void) {
+    this.pending.push(...this.observer?.takeRecords() ?? []);
+    change();
+    let own = true;
+    for (const record of this.observer?.takeRecords() ?? []) {
+      if (own && record.target === target && (attribute === undefined ? record.type === 'characterData' : record.type === 'attributes' && record.attributeName === attribute)) own = false;
+      else this.pending.push(record);
+    }
   }
 
   private walk(start: Node) {
@@ -79,7 +104,7 @@ export class DomTranslator {
     if (!/\p{L}/u.test(current)) return;
     const next = this.next(current, this.texts.get(node), node.parentElement);
     this.texts.set(node, next);
-    if (next.shown !== current) node.data = next.shown;
+    if (next.shown !== current) this.write(node, undefined, () => {node.data = next.shown;});
   }
 
   private attribute(element: Element, name: string) {
@@ -90,6 +115,6 @@ export class DomTranslator {
     if (!map) {map = new Map();this.attributes.set(element, map);}
     const next = this.next(current, map.get(name), element);
     map.set(name, next);
-    if (next.shown !== current) element.setAttribute(name, next.shown);
+    if (next.shown !== current) this.write(element, name, () => element.setAttribute(name, next.shown));
   }
 }

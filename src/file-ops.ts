@@ -64,7 +64,7 @@ export function startupChoice(value:unknown):Startup{return value==='previous'||
 export function launchDirectory(request:LaunchRequest){return request.directories[0]??(request.files[0]?parentDirectory(request.files[0]):undefined);}
 
 type Selection={path:string;name:string};
-type LoadOptions={replace:boolean;recursive:boolean;location:string};
+type LoadOptions={replace:boolean;recursive:boolean;location:string;locationIsData?:boolean};
 export type FileOpsHost={
   invoke:<T>(command:string,args?:Record<string,unknown>)=>Promise<T>;
   pickDirectories:(title:string,multiple:boolean)=>Promise<string[]>;
@@ -146,7 +146,7 @@ export class FileOpsUI {
     if(op==='folder'||op==='dir-add'){
       const replace=op==='folder';if(replace&&!await this.confirmDiscard())return;
       const picked=await this.host.pickDirectories(replace?'Change directory':'Add directory',!replace);
-      if(picked.length)await this.open(picked,{replace,directories:picked,location:picked.length===1?picked[0]:`${picked.length} added locations`,working:replace?picked[0]:undefined,confirmed:true});
+      if(picked.length)await this.open(picked,{replace,directories:picked,location:picked.length===1?picked[0]:`${picked.length} added locations`,locationIsData:picked.length===1,working:replace?picked[0]:undefined,confirmed:true});
       return;
     }
     if(op==='dir-up'){await this.openDirectory(parentDirectory(this.history.current!)!,{replace:true});return;}
@@ -194,7 +194,7 @@ export class FileOpsUI {
   /** A plain drop on the window replaces the File List with the dropped files, folders and playlists. */
   async replaceWith(paths:string[]){
     if(!paths.length||this.host.openReason())return false;
-    return this.open(paths,{replace:true,directories:[],location:paths.length===1?paths[0]:`${paths.length} dropped locations`});
+    return this.open(paths,{replace:true,directories:[],location:paths.length===1?paths[0]:`${paths.length} dropped locations`,locationIsData:paths.length===1});
   }
   /** Open one folder as the working directory. */
   async openDirectory(path:string,options:{replace:boolean}){
@@ -204,9 +204,9 @@ export class FileOpsUI {
     const pending=this.host.pendingCount();
     return !pending||this.host.confirm(`Change directory and discard pending tag changes in ${plural(pending)}?`,'Unsaved changes');
   }
-  private async open(paths:string[],options:{replace:boolean;directories:string[];location:string;working?:string;confirmed?:boolean}){
+  private async open(paths:string[],options:{replace:boolean;directories:string[];location:string;locationIsData?:boolean;working?:string;confirmed?:boolean}){
     if(options.replace&&!options.confirmed&&!await this.confirmDiscard())return false;
-    const loaded=await this.host.load(paths,{replace:options.replace,recursive:this.host.preferences().subfolders,location:options.location});
+    const loaded=await this.host.load(paths,{replace:options.replace,recursive:this.host.preferences().subfolders,location:options.location,...(options.locationIsData===false?{locationIsData:false}:{})});
     if(!loaded)return false;
     if(options.working)this.history.visit(options.working);
     if(options.directories.length)try{this.state=await this.host.invoke<DirectoryState>('remember_directories',{paths:options.directories});}catch{/* Recent folders are a convenience; loading already succeeded. */}
