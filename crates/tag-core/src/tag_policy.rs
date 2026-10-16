@@ -107,6 +107,7 @@ pub(super) fn displayed_pictures(file: &TaggedFile, options: &TagOptions) -> Vec
 
 pub(super) enum Change<'a> {
     Fields(&'a Fields),
+    RawLyricsFields(&'a Fields),
     Pictures(Vec<Picture>),
 }
 
@@ -205,7 +206,7 @@ pub(super) fn write(
         .map(|tag| tag.pictures().to_vec())
         .unwrap_or_default();
     let (mut updates, covers_changed) = match &change {
-        Change::Fields(updates) => {
+        Change::Fields(updates) | Change::RawLyricsFields(updates) => {
             for (name, values) in updates.iter() {
                 full.retain(|key, _| !key.eq_ignore_ascii_case(name));
                 if !values.is_empty() {
@@ -314,7 +315,13 @@ pub(super) fn write(
                 tag.push_picture(picture.clone());
             }
         }
-        let native_updates = normalized_updates(&map_write_fields(source, kind, rules)?, kind)?;
+        let source = match &change {
+            Change::RawLyricsFields(changes) => {
+                source_lyrics_updates(source, changes, kind, rules)?
+            }
+            _ => source.clone(),
+        };
+        let native_updates = normalized_updates(&map_write_fields(&source, kind, rules)?, kind)?;
         staging
             .seek(SeekFrom::Start(0))
             .map_err(|e| e.to_string())?;
@@ -375,6 +382,7 @@ pub(super) fn verify_fields(
     options: &TagOptions,
     written: TagType,
     updates: &Fields,
+    raw_lyrics: bool,
 ) -> Result<(), String> {
     // Native names: `native_updates` below are already mapped back to sources.
     let entry = read_description(staged_path, false, &[], &reading_only(options, written))?;
@@ -386,7 +394,12 @@ pub(super) fn verify_fields(
             Err("The ID3v1 tag could not be written".into())
         };
     }
-    let native_updates = normalized_updates(&map_write_fields(updates, written, rules)?, written)?;
+    let updates = if raw_lyrics {
+        source_lyrics_updates(updates, updates, written, rules)?
+    } else {
+        updates.clone()
+    };
+    let native_updates = normalized_updates(&map_write_fields(&updates, written, rules)?, written)?;
     let latin1 = written == TagType::Id3v2
         && file_kind(staged_path)? == FileType::Mpeg
         && options.mpeg.id3v2_format == Id3v2Format::V23Latin1;

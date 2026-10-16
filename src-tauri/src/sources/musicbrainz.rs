@@ -36,7 +36,7 @@ fn list<'a>(value: &'a Value, key: &str) -> &'a [Value] {
         .unwrap_or_default()
 }
 
-fn lucene(value: &str) -> String {
+pub(super) fn lucene(value: &str) -> String {
     let escaped: String = value
         .trim()
         .chars()
@@ -73,7 +73,7 @@ pub fn search_query(query: &SearchQuery) -> Result<String, String> {
             format!("catno:{}", lucene(&query.text))
         }
         SearchMode::CatalogNumber => String::new(),
-        SearchMode::Toc | SearchMode::DiscId => {
+        SearchMode::Toc | SearchMode::DiscId | SearchMode::Files | SearchMode::Fingerprint => {
             return Err("MusicBrainz searches by artist, album or text.".into())
         }
     };
@@ -107,7 +107,7 @@ pub fn release_id(input: &str) -> Result<String, String> {
         .map(str::to_owned)
         .ok_or_else(|| "Enter a MusicBrainz release ID (MBID) or release address.".into())
 }
-fn is_mbid(value: &str) -> bool {
+pub(super) fn is_mbid(value: &str) -> bool {
     value.len() == 36
         && value.char_indices().all(|(i, c)| match i {
             8 | 13 | 18 | 23 => c == '-',
@@ -126,7 +126,7 @@ pub fn front_thumb_url(id: &str) -> String {
 }
 
 /// Join an artist credit with its join phrases: `A feat. B`.
-fn credit(value: &Value) -> String {
+pub(super) fn credit(value: &Value) -> String {
     list(value, "artist-credit")
         .iter()
         .map(|part| {

@@ -1,0 +1,13 @@
+{"resultCount": 5, "results": [
+ {"wrapperType": "collection", "collectionType": "Album", "artistId": 5468295, "collectionId": 697194953, "artistName": "Daft Punk", "collectionName": "Discovery",
+  "collectionViewUrl": "https://music.apple.com/us/album/discovery/697194953?uo=4",
+  "artworkUrl100": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/fd/4a/77/fd4a77db/dj.qrikkdwj.jpg/100x100bb.jpg",
+  "trackCount": 3, "copyright": "℗ 2001 Daft Life Limited", "country": "USA", "releaseDate": "2001-03-12T08:00:00Z", "primaryGenreName": "Dance"},
+ {"wrapperType": "track", "kind": "song", "artistId": 5468295, "collectionId": 697194953, "trackId": 697195570, "artistName": "Daft Punk", "trackName": "Aerodynamic",
+  "discCount": 1, "discNumber": 1, "trackCount": 3, "trackNumber": 2, "trackTimeMillis": 212253, "trackExplicitness": "notExplicit"},
+ {"wrapperType": "track", "kind": "song", "artistId": 5468295, "collectionId": 697194953, "trackId": 697195462, "artistName": "Daft Punk", "trackName": "One More Time",
+  "discCount": 1, "discNumber": 1, "trackCount": 3, "trackNumber": 1, "trackTimeMillis": 320357, "trackExplicitness": "notExplicit"},
+ {"wrapperType": "track", "kind": "music-video", "trackId": 1, "trackName": "One More Time (Video)", "discNumber": 1, "trackNumber": 1},
+ {"wrapperType": "track", "kind": "song", "artistId": 5468295, "collectionId": 697194953, "trackId": 697195580, "artistName": "Daft Punk", "trackName": "Digital Love",
+  "discCount": 1, "discNumber": 1, "trackCount": 3, "trackNumber": 3, "trackTimeMillis": 301000, "trackExplicitness": "explicit"}
+]}

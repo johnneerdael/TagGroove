@@ -1,8 +1,8 @@
 import type { OptionsDraft, OptionsPage } from './options-ui';
 import type { WebResult, WebSearchPage, WebSourceInfo } from './web-sources';
 type Fields = Record<string, string[]>;
-export type Provider = 'musicbrainz'|'discogs'|'freedb'|'local_freedb'|'web';
-export type SearchMode = 'artist_album'|'text'|'release_id'|'barcode'|'catalog_number'|'toc'|'disc_id';
+export type Provider = 'musicbrainz'|'discogs'|'freedb'|'local_freedb'|'web'|'itunes'|'deezer'|'lrclib'|'acoustid'|'lastfm'|'fanart';
+export type SearchMode = 'artist_album'|'text'|'release_id'|'barcode'|'catalog_number'|'toc'|'disc_id'|'files'|'fingerprint';
 export type SearchResult = {id:string;title:string;artist:string;year:string;country:string;label:string;catalog_number:string;format:string;track_count:number|null;score:number|null;barcode:string;thumb:string|null;url:string};
 export type SearchPage = {results:SearchResult[];total:number|null};
 export type SourceTrack = {position:string;disc:number;number:number;title:string;artist:string;length:number|null;fields:Fields};
@@ -10,10 +10,26 @@ export type SourceCover = {url:string;thumb:string|null;kind:string;width:number
 export type SourceRelease = {provider:Provider;id:string;url:string;title:string;artist:string;fields:Fields;tracks:SourceTrack[];covers:SourceCover[];more_covers:boolean};
 /** Selected file values as shown in the file list (native field casing already resolved). */
 export type SourceFile = {path:string;name:string;title:string;artist:string;album:string;album_artist:string;track:string;disc:string;length:number};
-export type ApplyItem = {path:string;updates:Fields};
+export type ApplyItem = {path:string;updates:Fields;raw_lyrics?:boolean};
 /** `save_as` is Utils → Save image to disc: the file name format from Options → Tag Sources. */
 export type ApplyCover = {url:string;replace_existing:boolean;save_as:string|null;preserve_existing?:boolean};
-export type TagSourceCredentials = {discogs_token_set:boolean;discogs_token_in_keychain:boolean;keychain_available:boolean};
+export type TagSourceCredentials = {discogs_token_set:boolean;discogs_token_in_keychain:boolean;keychain_available:boolean;
+  /** This build carries OpenTag's Discogs application key: Discogs works without a token. */
+  discogs_app_key?:boolean;
+  acoustid_key_set?:boolean;acoustid_built_in?:boolean;lastfm_key_set?:boolean;lastfm_built_in?:boolean;fanart_key_set?:boolean;fanart_built_in?:boolean};
+/** Services that need an API key: the user's own (Tag Sources → API keys…) or one built into this build. */
+export const KEYED_SOURCES = [
+  {provider:'acoustid',name:'AcoustID',key:'acoustid',register:'https://acoustid.org/new-application',note:'Free for non-commercial use. Also needs Chromaprint\'s fpcalc program (Options → Tag Sources → Online services).'},
+  {provider:'lastfm',name:'Last.fm',key:'lastfm',register:'https://www.last.fm/api/account/create',note:'Non-commercial use; album tags become GENRE.'},
+  {provider:'fanart',name:'fanart.tv',key:'fanart',register:'https://fanart.tv/get-an-api-key/',note:'Enter your personal API key: it is sent with OpenTag\'s project key (as client_key). A build without a project key uses yours as the project key.'},
+] as const;
+/** Why a key-gated source cannot run yet, or '' when it can. */
+export function sourceKeyReason(provider:Provider, credentials:TagSourceCredentials|null) {
+  const source = KEYED_SOURCES.find(s => s.provider === provider);
+  if (!source || !credentials) return '';
+  const record = credentials as Record<string,unknown>;
+  return record[`${source.key}_key_set`] || record[`${source.key}_built_in`] ? '' : `${source.name} needs an API key. Add one in Tag Sources → API keys….`;
+}
 export type FieldRow = {name:string;value:string;perTrack:boolean;editable:boolean};
 /**
  * Covers-only sources (Mp3tag's Tag Sources → Covers) write artwork and no
@@ -34,7 +50,7 @@ export type LocalIndexHost = {
 };
 
 /** Tag Sources menu commands that open a source dialog. */
-export const SOURCE_OPERATIONS = ['source-musicbrainz','source-discogs','source-discogs-release','source-freedb','source-local-freedb','source-cover-freedb','source-cover-musicbrainz','source-cover-discogs'] as const;
+export const SOURCE_OPERATIONS = ['source-musicbrainz','source-discogs','source-discogs-release','source-freedb','source-local-freedb','source-cover-freedb','source-cover-musicbrainz','source-cover-discogs','source-itunes','source-deezer','source-lastfm','source-acoustid','source-lrclib','source-cover-itunes','source-cover-deezer','source-cover-fanart'] as const;
 export type SourceOperation = typeof SOURCE_OPERATIONS[number];
 export type SourceRequest = {provider:Provider;coversOnly:boolean;releaseId:boolean};
 export function sourceRequest(op:string):SourceRequest|null {
@@ -113,6 +129,75 @@ export function initialSlots(tracks:SourceTrack[], files:SourceFile[], suggest:S
   return suggest === 'title' ? suggestByTitle(tracks,files) : suggest === 'length' ? suggestByLength(tracks,files) : autoMatch(tracks,files);
 }
 
+/** AcoustID: a recording a file was identified as, with the AcoustID of the match that named it. */
+export type FileRecording = {recording:string;acoustid:string};
+/** The recordings each file was identified as, best first. */
+export const fingerprintRecordings = (matches:Record<string,FileRecording[]>) => Object.fromEntries(Object.entries(matches).map(([path,list]) => [path,list.map(m => m.recording)]));
+/**
+ * ACOUSTID_ID belongs to the file, not the track: a file saved on a track
+ * gets the AcoustID its own fingerprint matched for that track's recording,
+ * and none when it was not identified as that recording (a file moved there
+ * by hand). Applies only while ACOUSTID_ID is checked.
+ */
+export function fileAcoustIds(items:ApplyItem[], release:SourceRelease, slots:(string|null)[], matches:Record<string,FileRecording[]>, withCover = false):ApplyItem[] {
+  return items.flatMap(item => {
+    if (!('ACOUSTID_ID' in item.updates)) return [item];
+    const track = release.tracks[slots.indexOf(item.path)], recording = track?.fields.MUSICBRAINZ_TRACKID?.[0];
+    const own = recording ? (matches[item.path] || []).find(m => m.recording === recording) : undefined;
+    const updates = {...item.updates};
+    if (own?.acoustid) updates.ACOUSTID_ID = [own.acoustid]; else delete updates.ACOUSTID_ID;
+    return Object.keys(updates).length || withCover ? [{path:item.path,updates}] : [];
+  });
+}
+/**
+ * AcoustID: each file goes to the track of the recording its fingerprint
+ * was identified as (`matches`: path → recording IDs, best first; a track's
+ * recording is its MUSICBRAINZ_TRACKID). Files without a match, and tracks
+ * no file was identified as, are paired by `pair`: a Suggest sorting choice
+ * (`initialSlots`) or another pairing such as selection order.
+ */
+type Pairing = (tracks:SourceTrack[], files:SourceFile[])=>(string|null)[];
+export function fingerprintSlots(tracks:SourceTrack[], files:SourceFile[], matches:Record<string,string[]>, pair:SuggestSorting|Pairing = '') {
+  const fallback:Pairing = typeof pair === 'function' ? pair : (t,f) => initialSlots(t,f,pair);
+  const byRecording = new Map<string,number[]>();
+  tracks.forEach((track,index) => {
+    const recording = track.fields.MUSICBRAINZ_TRACKID?.[0];
+    if (recording === undefined) return;
+    let indices = byRecording.get(recording);
+    if (!indices) byRecording.set(recording,indices = []);
+    indices.push(index);
+  });
+  const candidates = files.map(file => [...new Set((matches[file.path] || []).flatMap(recording => byRecording.get(recording) || []))]);
+  const owners:(number|undefined)[] = tracks.map(() => undefined), assigned:(number|undefined)[] = files.map(() => undefined);
+  for (let file = 0; file < files.length; file++) {
+    // Breadth-first search takes a direct free choice before moving an earlier
+    // file. Reassign only along a shortest path to one more compatible track.
+    const queue = [file], route = new Map<number,number>();
+    let free:number|undefined;
+    for (let at = 0; at < queue.length && free === undefined; at++) {
+      const current = queue[at];
+      for (const track of candidates[current]) {
+        if (route.has(track)) continue;
+        route.set(track,current);
+        const owner = owners[track];
+        if (owner === undefined) { free = track; break; }
+        queue.push(owner);
+      }
+    }
+    while (free !== undefined) {
+      const current = route.get(free)!, previous = assigned[current];
+      owners[free] = current;
+      assigned[current] = free;
+      free = previous;
+    }
+  }
+  const slots = owners.map(owner => owner === undefined ? null : files[owner].path);
+  const used = new Set(slots.filter((path):path is string => path !== null));
+  const open = tracks.flatMap((_,i) => slots[i] ? [] : [i]), rest = fallback(open.map(i => tracks[i]),files.filter(f => !used.has(f.path)));
+  open.forEach((track,k) => { slots[track] = rest[k] ?? null; });
+  return [...slots,...rest.slice(open.length)];
+}
+
 /** Field selection in the review: a click selects one, Ctrl/⌘ toggles one, Shift extends from the anchor. */
 export function selectFields(names:string[], selected:ReadonlySet<string>, anchor:string|null, name:string, mode:'single'|'toggle'|'range') {
   if (mode === 'toggle') { const next = new Set(selected); if (next.has(name)) next.delete(name); else next.add(name); return {selected:next,anchor:name}; }
@@ -131,13 +216,13 @@ export function toggleEnabled(enabled:ReadonlySet<string>, selected:ReadonlySet<
   return next;
 }
 
-const localFreedbPage = 'tag-sources-local-freedb', freedbPage = 'tag-sources-freedb';
+const localFreedbPage = 'tag-sources-local-freedb', freedbPage = 'tag-sources-freedb', onlinePage = 'tag-sources-online';
 /**
  * Options → Tag Sources with its freedb and Local freedb pages (Mp3tag:
  * Options › Tag Sources › freedb / Local freedb). Values persist under
  * `pages.<id>`; the backend reads them through the shared settings.
  */
-export function tagSourcesOptionsPages(pickFolder:()=>Promise<string|null>, index?:LocalIndexHost):OptionsPage[] {
+export function tagSourcesOptionsPages(pickFolder:()=>Promise<string|null>, index?:LocalIndexHost, keys?:()=>Promise<void>|void):OptionsPage[] {
   const directoryPath = `pages.${localFreedbPage}.directory`;
   const directory = (draft:OptionsDraft) => String((draft.pages[localFreedbPage] as Record<string,unknown>|undefined)?.directory ?? '');
   const setDirectory = (draft:OptionsDraft, value:string) => { draft.pages[localFreedbPage] = {...draft.pages[localFreedbPage],directory:value}; };
@@ -245,17 +330,74 @@ export function tagSourcesOptionsPages(pickFolder:()=>Promise<string|null>, inde
         render:draft => `<div class="field"><span>TEXT INDEX</span><p id="local-freedb-index-status" role="status">${html(indexText(indexStatus,draft))}</p><div class="action-input"><button type="button" id="local-freedb-index-build">Build index</button><button type="button" id="local-freedb-index-cancel" hidden>Cancel</button></div></div>`,
         bind:(root,draft) => bindIndex(root,draft)},
       ]},
+    {id:onlinePage,label:'Online services',parent:'tag-sources',order:3,
+      description:'iTunes, Deezer, Last.fm, AcoustID, LRCLIB lyrics and fanart.tv artwork (Tag Sources menu). Each service has its own terms; OpenTag identifies itself to them and keeps to their request limits.',
+      defaults:{itunes_country:'US',itunes_cover_size:'1200',deezer_cover_size:'1000',lrclib_synced:false,lastfm_genres:'1',fpcalc:''},
+      controls:[
+        {kind:'group',label:'API keys',controls:[
+          {kind:'button',id:'tag-source-keys',label:'API keys…',run:async () => { await keys?.(); }},
+          {kind:'note',text:'AcoustID, Last.fm and fanart.tv need an API key: one built into this build of OpenTag, or your own (Tag Sources → API keys…). Keys are kept in a private file, never in these options.'},
+        ]},
+        {kind:'group',label:'iTunes',controls:[
+          {kind:'text',path:`pages.${onlinePage}.itunes_country`,label:'Store country (two letters)',placeholder:'US',maxLength:2},
+          {kind:'select',path:`pages.${onlinePage}.itunes_cover_size`,label:'Cover size',choices:[['1200','1200 pixels (default)'],['600','600 pixels'],['3000','3000 pixels']]},
+        ]},
+        {kind:'group',label:'Deezer',controls:[
+          {kind:'select',path:`pages.${onlinePage}.deezer_cover_size`,label:'Cover size',choices:[['1000','1000 pixels (default)'],['500','500 pixels']]},
+        ]},
+        {kind:'group',label:'LRCLIB lyrics',controls:[
+          {kind:'checkbox',path:`pages.${onlinePage}.lrclib_synced`,label:'Write synchronized lyrics (LRC time stamps) when available'},
+          {kind:'note',text:'Lyrics are written to UNSYNCEDLYRICS. Without this option the plain text is written; with it, the LRC text with time stamps, which many players show in sync.'},
+        ]},
+        {kind:'group',label:'Last.fm',controls:[
+          {kind:'select',path:`pages.${onlinePage}.lastfm_genres`,label:'Tags written to GENRE',choices:[['1','The top tag'],['2','The top 2 tags'],['3','The top 3 tags'],['5','The top 5 tags']]},
+        ]},
+        {kind:'group',label:'AcoustID',controls:[
+          {kind:'text',path:`pages.${onlinePage}.fpcalc`,label:'fpcalc program',placeholder:'Found automatically when installed'},
+          {kind:'note',text:'AcoustID identifies files by their audio fingerprint, computed by Chromaprint\'s fpcalc. OpenTag does not include it: install Chromaprint (for example from acoustid.org/chromaprint or a package manager) and enter its path if it is not found.'},
+        ]},
+      ],
+      validate:draft => {
+        const country = String((draft.pages[onlinePage] as Record<string,unknown>|undefined)?.itunes_country ?? '').trim();
+        return country && !/^[A-Za-z]{2}$/.test(country) ? 'Enter the iTunes store country as two letters, for example US or NL.' : undefined;
+      }},
   ];
 }
 
 export const isFreedb = (provider:Provider) => provider === 'freedb' || provider === 'local_freedb';
-export const providerName = (provider:Provider) => ({musicbrainz:'MusicBrainz',discogs:'Discogs',freedb:'freedb',local_freedb:'freedb (local)',web:'Web source'})[provider];
-/** Search types offered by the current source; typed disc IDs stay local. */
+export const providerName = (provider:Provider) => ({musicbrainz:'MusicBrainz',discogs:'Discogs',freedb:'freedb',local_freedb:'freedb (local)',web:'Web source',itunes:'iTunes',deezer:'Deezer',lrclib:'LRCLIB lyrics',acoustid:'AcoustID',lastfm:'Last.fm',fanart:'fanart.tv'})[provider];
+/** Search types each source offers (MusicBrainz and Discogs share theirs). */
 export function searchModes(provider:Provider, releaseOnly = false):[SearchMode,string][] {
   if (releaseOnly) return [['release_id','Release ID or address']];
   if (isFreedb(provider)) return freedbModes(provider);
-  return [['artist_album','Artist and album'],['text','Free text'],['release_id',provider === 'musicbrainz' ? 'Release ID (MBID) or address' : 'Release ID or address'],['barcode','Barcode'],['catalog_number','Catalog number']];
+  switch (provider) {
+    case 'itunes': return [['artist_album','Artist and album'],['text','Free text'],['release_id','Album ID or Apple Music address'],['barcode','Barcode (UPC)']];
+    case 'deezer': return [['artist_album','Artist and album'],['text','Free text'],['release_id','Album ID or address'],['barcode','Barcode (UPC)']];
+    case 'lastfm': return [['artist_album','Artist and album'],['text','Album title words'],['release_id','MusicBrainz release ID']];
+    case 'fanart': return [['artist_album','Artist and album'],['text','Free text'],['release_id','Release group ID or address']];
+    case 'lrclib': return [['files','Each selected file (title, artist, album, length)'],['text','Free text'],['release_id','Lyrics record ID']];
+    case 'acoustid': return [['fingerprint','Audio fingerprints of the selected files']];
+    default: return [['artist_album','Artist and album'],['text','Free text'],['release_id',provider === 'musicbrainz' ? 'Release ID (MBID) or address' : 'Release ID or address'],['barcode','Barcode'],['catalog_number','Catalog number']];
+  }
 }
+type ResultColumn = [label:string, value:(r:SearchResult)=>string, className?:string];
+/** Result list columns of the sources added after MusicBrainz, Discogs and freedb. */
+export function resultColumns(provider:Provider):ResultColumn[]|null {
+  const artist:ResultColumn = ['Artist',r => r.artist], title:ResultColumn = ['Title',r => r.title], year:ResultColumn = ['Year',r => r.year,'ts-num'];
+  const tracks:ResultColumn = ['Tracks',r => r.track_count == null ? '' : String(r.track_count),'ts-num ts-wide'], type:ResultColumn = ['Type',r => r.format,'ts-wide'];
+  const score:ResultColumn = ['Score',r => r.score == null ? '' : String(r.score),'ts-num ts-wide'];
+  switch (provider) {
+    case 'itunes': return [artist,title,year,['Country',r => r.country,'ts-wide'],type,tracks];
+    case 'deezer': return [artist,title,type,tracks];
+    case 'lastfm': return [artist,title,tracks];
+    case 'fanart': return [score,artist,title,year,type];
+    case 'lrclib': return [title,artist,['Album',r => r.label,'ts-wide'],['Length',r => duration(r.track_count),'ts-num ts-wide'],['Lyrics',r => r.format]];
+    case 'acoustid': return [score,artist,title,year,['Country',r => r.country,'ts-wide'],['Files',r => r.format],tracks];
+    default: return null;
+  }
+}
+/** The selected files as per-file sources (LRCLIB, AcoustID) need them. */
+export const fileSignatures = (files:SourceFile[]) => files.map(({path,title,artist,album,track,disc,length}) => ({path,title,artist,album,track,disc,length:Number.isFinite(length) ? length : 0}));
 const fieldOrder = ['TITLE','ARTIST','ALBUM','ALBUMARTIST','YEAR','TRACK','DISCNUMBER','GENRE','STYLE','COMPOSER','PUBLISHER','CATALOGNUMBER','BARCODE','ISRC'];
 /** OpenTag's multi-value separator, as in the tag panel. */
 const MULTI = ' \\\\ ';
@@ -409,13 +551,15 @@ export function editField(release:SourceRelease, name:string, text:string, track
 }
 
 /** Per-file updates for matched tracks, limited to the checked fields. */
-export function buildApplyItems(release:SourceRelease, slots:(string|null)[], enabled:ReadonlySet<string>):ApplyItem[] {
+export function buildApplyItems(release:SourceRelease, slots:(string|null)[], enabled:ReadonlySet<string>, withCover = false):ApplyItem[] {
   return release.tracks.flatMap((track,index) => {
     const path = slots[index];
     if (!path) return [];
     const updates:Fields = {};
     for (const [name,values] of Object.entries({...release.fields,...track.fields})) if (enabled.has(name) && values.length) updates[name] = [...values];
-    return [{path,updates}];
+    // A matched file needs a selected value or a cover to write.
+    if (!Object.keys(updates).length && !withCover) return [];
+    return [{path,updates,...(release.provider === 'lrclib' ? {raw_lyrics:true} : {})}];
   });
 }
 
@@ -433,6 +577,8 @@ type TagSourcesHost = {
   pickSave:(name:string)=>Promise<string|null>;
   /** A format string evaluated for one file (web sources fill their search fields with it). */
   evaluate:(path:string, template:string)=>Promise<string>;
+  /** API keys or the token changed: menu entries that need a key may change state. */
+  changed?:()=>void;
 };
 const storage = {
   get(key:string) { try { return window.localStorage.getItem(key); } catch { return null; } },
@@ -441,7 +587,16 @@ const storage = {
 
 export class TagSourcesUI {
   private showing = false;
+  /** What the backend says about keys and tokens (no secrets); null until loaded. */
+  private credentials:TagSourceCredentials|null = null;
   constructor(private host:TagSourcesHost) {}
+  /** Read which keys exist so key-gated sources can be enabled. */
+  async refreshCredentials() {
+    try { this.credentials = await this.host.invoke<TagSourceCredentials>('load_tag_source_settings'); } catch { this.credentials = null; }
+    this.host.changed?.();
+  }
+  /** Why a Tag Sources command cannot run for lack of an API key, or ''. */
+  keyReason(op:string) { const request = sourceRequest(op); return request ? sourceKeyReason(request.provider,this.credentials) : ''; }
   /** The tag source Ctrl+I opens again. */
   get lastOperation():SourceOperation { return lastSourceOperation(storage.get('opentag.tagSources.lastSource'),storage.get('opentag.tagSources.last')); }
   /** The id of the web source used last, when the last tag source was one (Ctrl+I runs it again). */
@@ -469,7 +624,7 @@ export class TagSourcesUI {
       <label class="field"><span>PERSONAL ACCESS TOKEN</span><input id="ts-token" type="password" autocomplete="off" spellcheck="false" placeholder="${credentials.discogs_token_set ? 'Saved. Enter a new token to replace it.' : 'Not set'}"></label>
       <label class="action-check"><input id="ts-token-clear" type="checkbox" ${credentials.discogs_token_set ? '' : 'disabled'}> Remove the saved token</label>
       ${credentials.keychain_available ? `<label class="action-check"><input id="ts-token-keychain" type="checkbox" ${credentials.discogs_token_in_keychain ? 'checked' : ''}> Keep the token in the system keychain</label>` : ''}
-      <p>Create a token on Discogs under Settings → Developers. Release lookups and searches also work without one at a lower rate limit; with a token, searches show cover thumbnails. The token is not shown again.</p>
+      <p>${credentials.discogs_app_key ? 'Discogs works without a token: this build of OpenTag signs its requests with its own Discogs application key (60 requests a minute, cover thumbnails included). A personal token, created on Discogs under Settings → Developers, is used instead when you save one.' : 'Create a token on Discogs under Settings → Developers. Release lookups and searches also work without one at a lower rate limit; with a token, searches show cover thumbnails.'} The token is not shown again.</p>
       <p class="ts-token-place" role="status">${credentials.discogs_token_set ? `The saved token is kept ${where}.` : 'No token is saved.'}${credentials.keychain_available ? ' Changing the keychain option moves a saved token when you select Save.' : ''}</p></div>
       <div class="dialog-footer"><button data-close>Cancel</button><button class="primary" id="ts-save-token">Save</button></div>`;
     document.body.append(dialog);
@@ -485,7 +640,7 @@ export class TagSourcesUI {
       save.disabled = true;
       // An empty token field keeps the saved token (possibly moving it).
       const update = {discogs_token:clear.checked ? '' : token.value.trim() || null,keychain:keychain && !clear.checked ? keychain.checked : null};
-      try { await this.host.invoke('save_tag_source_settings',{update}); dialog.close(); }
+      try { this.credentials = await this.host.invoke<TagSourceCredentials>('save_tag_source_settings',{update}); this.host.changed?.(); dialog.close(); }
       catch (e) { error(e); sync(); }
     });
     sync();
@@ -493,20 +648,65 @@ export class TagSourcesUI {
     token.focus();
   }
 
+  /** Tag Sources → API keys…: the user's own keys for AcoustID, Last.fm and fanart.tv, kept like the Discogs token. */
+  async keys() {
+    if (this.showing) return;
+    this.showing = true;
+    let credentials:TagSourceCredentials;
+    try { credentials = await this.host.invoke<TagSourceCredentials>('load_tag_source_settings'); } catch (error) { this.showing = false; throw error; }
+    const record = credentials as Record<string,unknown>;
+    const dialog = document.createElement('dialog');
+    dialog.className = 'tag-source-dialog ts-token-dialog ts-keys-dialog';
+    dialog.setAttribute('aria-label','API keys');
+    dialog.innerHTML = `<header>API keys</header><div class="dialog-content">
+      ${KEYED_SOURCES.map(source => {
+        const set = !!record[`${source.key}_key_set`], builtIn = !!record[`${source.key}_built_in`];
+        return `<fieldset class="ts-key" data-key="${source.key}"><legend>${html(source.name)}</legend>
+          <label class="field"><span>YOUR API KEY</span><input id="ts-key-${source.key}" type="password" autocomplete="off" spellcheck="false" placeholder="${set ? 'Saved. Enter a new key to replace it.' : builtIn ? 'Not needed: this build has a key' : 'Not set'}"></label>
+          <label class="action-check"><input id="ts-key-clear-${source.key}" type="checkbox" ${set ? '' : 'disabled'}> Remove the saved key</label>
+          <p class="ts-key-state" role="status">${set ? 'Your key is saved.' : builtIn ? 'This build of OpenTag includes a key.' : `No key: ${html(source.name)} stays unavailable until you add one.`} ${html(source.note)} Register at ${html(source.register)}.</p></fieldset>`;
+      }).join('')}
+      <p>Keys are kept in a private file in OpenTag's configuration folder and are not shown again.</p></div>
+      <div class="dialog-footer"><button data-close>Cancel</button><button class="primary" id="ts-save-keys">Save</button></div>`;
+    document.body.append(dialog);
+    const save = dialog.querySelector<HTMLButtonElement>('#ts-save-keys')!;
+    const input = (key:string) => dialog.querySelector<HTMLInputElement>(`#ts-key-${key}`)!, clear = (key:string) => dialog.querySelector<HTMLInputElement>(`#ts-key-clear-${key}`)!;
+    const sync = () => { for (const {key} of KEYED_SOURCES) input(key).disabled = clear(key).checked; save.disabled = !KEYED_SOURCES.some(({key}) => clear(key).checked || input(key).value.trim()); };
+    dialog.addEventListener('input',sync); dialog.addEventListener('change',sync);
+    dialog.querySelector('[data-close]')!.addEventListener('click',() => dialog.close());
+    dialog.addEventListener('close',() => { this.showing = false; dialog.remove(); });
+    save.addEventListener('click',async () => {
+      save.disabled = true;
+      const update:Record<string,string|null> = {};
+      for (const {key} of KEYED_SOURCES) update[`${key}_key`] = clear(key).checked ? '' : input(key).value.trim() || null;
+      try { this.credentials = await this.host.invoke<TagSourceCredentials>('save_tag_source_settings',{update}); this.host.changed?.(); dialog.close(); }
+      catch (e) {
+        let p = dialog.querySelector('.dialog-error'); if (!p) { p = document.createElement('p'); p.className = 'dialog-error'; p.setAttribute('role','alert'); dialog.querySelector('.dialog-content')!.append(p); }
+        p.textContent = String(e).replace(/^Error: /,''); sync();
+      }
+    });
+    sync();
+    dialog.showModal();
+    input(KEYED_SOURCES[0].key).focus();
+  }
+
   async open(provider:Provider, options:OpenOptions = {}) {
     if (this.showing) return;
-    const reason = this.host.reason();
+    const reason = this.host.reason() || sourceKeyReason(provider,this.credentials);
     if (reason) throw new Error(reason);
     const web = provider === 'web' ? options.web : undefined;
     if (provider === 'web' && !web) throw new Error('This web source is no longer installed.');
     this.showing = true;
-    const coversOnly = !!options.coversOnly && provider !== 'local_freedb' && !web, freedb = isFreedb(provider), releaseOnly = !!options.releaseId && provider === 'discogs' && !coversOnly;
+    const coversOnly = (!!options.coversOnly || provider === 'fanart') && provider !== 'local_freedb' && !web, freedb = isFreedb(provider), releaseOnly = !!options.releaseId && provider === 'discogs' && !coversOnly;
+    const perFile = provider === 'lrclib' || provider === 'acoustid', columns = resultColumns(provider);
     storage.set('opentag.tagSources.lastSource',web ? `web:${web.id}` : sourceOperation({provider,coversOnly,releaseId:releaseOnly}));
     const files = this.host.files(), name = web ? options.title || web.name : coversOnly ? `${providerName(provider)} cover art` : releaseOnly ? 'Discogs Release ID' : providerName(provider), prefill = searchPrefill(files);
     const toc = discToc(files.map(f => f.length));
     const disabledKey = `opentag.tagSources.disabled.${provider}`, saveCoverKey = 'opentag.tagSources.saveCover', suggestKey = 'opentag.tagSources.suggestSorting';
     let results:SearchResult[] = [], total:number|null = null, lastQuery:Record<string,unknown>|null = null, chosen = -1;
     let release:SourceRelease|undefined, slots:(string|null)[] = [], enabled = new Set<string>(), trackField = 'TITLE';
+    /** AcoustID: the recordings each file was identified as. */
+    let fingerprints:Record<string,FileRecording[]>|null = null;
     let fieldSelection = new Set<string>(), fieldAnchor:string|null = null, dragging = -1;
     const savedSuggest = storage.get(suggestKey);
     let suggest:SuggestSorting = savedSuggest === 'title' || savedSuggest === 'length' ? savedSuggest : '';
@@ -591,13 +791,14 @@ export class TagSourcesUI {
     const resultMarkup = () => {
       if (!results.length) return '';
       if (web) return `<table class="ts-table ts-results" aria-label="Search results"><thead><tr>${webColumns.map(column => `<th>${html(column)}</th>`).join('')}</tr></thead><tbody>${results.map((_,i) => `<tr ${rowAttributes(i)}>${(webRows[i]?.values || []).map(value => `<td title="${html(value)}">${html(value)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+      const more = total != null && results.length < total ? `<p class="ts-more"><button type="button" id="ts-more">More results</button><span>${results.length} of ${total} shown</span></p>` : '';
+      if (columns) return `<table class="ts-table ts-results" aria-label="Search results"><thead><tr>${columns.map(([label,,cls]) => `<th class="${cls || ''}">${html(label)}</th>`).join('')}</tr></thead><tbody>${results.map((r,i) => `<tr ${rowAttributes(i)}>${columns.map(([,value,cls]) => `<td class="${cls || ''}" title="${html(value(r))}">${html(value(r))}</td>`).join('')}</tr>`).join('')}</tbody></table>${more}`;
       const mb = provider === 'musicbrainz';
       const head = freedb ? `<th>Artist</th><th>Title</th><th class="ts-num">Year</th><th class="ts-wide">Genre</th><th class="ts-wide">Category</th><th class="ts-wide">${idLabel}</th><th class="ts-num ts-wide">Tracks</th>`
         : `${mb ? '<th class="ts-num ts-wide">Score</th>' : ''}<th>Artist</th><th>Title</th><th class="ts-num">Year</th><th class="ts-wide">Country</th><th class="ts-wide">Label</th><th class="ts-wide">Cat. no.</th><th class="ts-wide">Format</th>${mb ? '<th class="ts-num ts-wide">Tracks</th>' : ''}`;
       const cells = (r:SearchResult) => freedb
         ? `<td title="${html(r.artist)}">${html(r.artist)}</td><td title="${html(r.title)}">${html(r.title)}</td><td class="ts-num">${html(r.year)}</td><td class="ts-wide">${html(r.format)}</td><td class="ts-wide">${html(freedbId(r).category)}</td><td class="ts-wide">${html(freedbId(r).disc)}</td><td class="ts-num ts-wide">${r.track_count ?? ''}</td>`
         : `${mb ? `<td class="ts-num ts-wide">${r.score ?? ''}</td>` : ''}<td title="${html(r.artist)}">${html(r.artist)}</td><td title="${html(r.title)}">${html(r.title)}</td><td class="ts-num">${html(r.year)}</td><td class="ts-wide">${html(r.country)}</td><td class="ts-wide" title="${html(r.label)}">${html(r.label)}</td><td class="ts-wide" title="${html(r.catalog_number)}">${html(r.catalog_number)}</td><td class="ts-wide" title="${html(r.format)}">${html(r.format)}</td>${mb ? `<td class="ts-num ts-wide">${r.track_count ?? ''}</td>` : ''}`;
-      const more = total != null && results.length < total ? `<p class="ts-more"><button type="button" id="ts-more">More results</button><span>${results.length} of ${total} shown</span></p>` : '';
       return `<table class="ts-table ts-results" aria-label="Search results"><thead><tr>${head}</tr></thead><tbody>${results.map((r,i) => `<tr tabindex="${i === Math.max(chosen,0) ? 0 : -1}" data-index="${i}" aria-selected="${i === chosen}" class="${i === chosen ? 'selected' : ''}">${cells(r)}</tr>`).join('')}</tbody></table>${more}`;
     };
     const chosenMarkup = () => {
@@ -605,7 +806,7 @@ export class TagSourcesUI {
       if (!r) return '';
       if (web) return `<img class="ts-thumb" alt="Release artwork" hidden><div><strong>${html(r.title)}</strong>${r.url ? `<span class="ts-url">${html(r.url)} ${preview(r.url)}</span>` : ''}</div>`;
       const details = freedb ? [r.year,r.format,`${idLabel} ${freedbId(r).disc}`] : [r.year,r.country,r.label,r.catalog_number,r.format,r.barcode && `Barcode ${r.barcode}`];
-      return `${freedb ? '' : '<img class="ts-thumb" alt="Release artwork" hidden>'}<div><strong>${html(r.artist)} – ${html(r.title)}</strong><span>${details.filter(Boolean).map(html).join(' · ')}</span>${r.url ? `<span class="ts-url">${html(r.url)} ${preview(r.url)}</span>` : ''}</div>`;
+      return `${freedb || provider === 'lrclib' ? '' : '<img class="ts-thumb" alt="Release artwork" hidden>'}<div><strong>${html(r.artist)} – ${html(r.title)}</strong><span>${details.filter(Boolean).map(html).join(' · ')}</span>${r.url ? `<span class="ts-url">${html(r.url)} ${preview(r.url)}</span>` : ''}</div>`;
     };
 
     const choose = (index:number, focus = false) => {
@@ -616,6 +817,8 @@ export class TagSourcesUI {
       if (thumb) void loadImage(results[index]?.thumb,thumb);
       syncSearch();
     };
+    const modeNote = (mode:SearchMode) => mode === 'files' ? `Each of the ${files.length} selected file${files.length === 1 ? '' : 's'} is looked up by its title, artist, album and length.`
+      : mode === 'fingerprint' ? `Each of the ${files.length} selected file${files.length === 1 ? '' : 's'} is fingerprinted with fpcalc and identified on AcoustID; releases that hold the most files are listed first.` : tocText();
     const tocText = () => toc ? `Disc ID ${toc.id}: ${toc.tracks} track${toc.tracks === 1 ? '' : 's'} from the selected files in file list order, ${duration(toc.seconds-2)} in total.` : 'The disc ID needs the length of every selected file (at most 99 files).';
     const syncSearch = () => {
       if (web) {
@@ -624,7 +827,8 @@ export class TagSourcesUI {
         return;
       }
       const mode = $<HTMLSelectElement>('#ts-mode').value as SearchMode, pair = mode === 'artist_album';
-      $('#ts-pair').hidden = !pair; $('#ts-text-field').hidden = pair || mode === 'toc'; $('#ts-toc').hidden = mode !== 'toc';
+      const noted = mode === 'toc' || mode === 'files' || mode === 'fingerprint';
+      $('#ts-pair').hidden = !pair; $('#ts-text-field').hidden = pair || noted; $('#ts-toc').hidden = !noted; $('#ts-toc').textContent = modeNote(mode);
       $('#ts-text-label').textContent = mode === 'release_id' ? 'RELEASE ID OR ADDRESS' : mode === 'barcode' ? 'BARCODE' : mode === 'catalog_number' ? 'CATALOG NUMBER' : mode === 'disc_id' ? 'DISC ID' : 'SEARCH TEXT';
       $<HTMLButtonElement>('#ts-search').textContent = mode === 'release_id' ? 'Look up' : 'Search';
       dialog.querySelectorAll<HTMLInputElement|HTMLSelectElement|HTMLButtonElement>('.dialog-content input,.dialog-content select,.dialog-content button').forEach(control => control.disabled = working);
@@ -655,11 +859,11 @@ export class TagSourcesUI {
       clearError();
       if (web) { await searchWeb(); return; }
       const mode = $<HTMLSelectElement>('#ts-mode').value as SearchMode;
-      const query = more && lastQuery ? {...lastQuery,page:Number(lastQuery.page)+1} : {mode,artist:$<HTMLInputElement>('#ts-artist').value,album:$<HTMLInputElement>('#ts-album').value,text:$<HTMLInputElement>('#ts-text').value,lengths:files.map(f => f.length),page:0};
+      const query:Record<string,unknown> = more && lastQuery ? {...lastQuery,page:Number(lastQuery.page)+1} : {mode,artist:$<HTMLInputElement>('#ts-artist').value,album:$<HTMLInputElement>('#ts-album').value,text:$<HTMLInputElement>('#ts-text').value,lengths:files.map(f => f.length),page:0,...(perFile ? {files:fileSignatures(files)} : {})};
       if (!more && mode === 'release_id') { await loadRelease(query.text as string); return; }
       const ticket = searchTicket = nextTicket();
       if (coversOnly && provider === 'freedb' && mode === 'artist_album') { await searchCovers(String(query.artist),String(query.album)); return; }
-      status(more ? 'Loading more results…' : `Searching ${name}…`);
+      status(more ? 'Loading more results…' : mode === 'fingerprint' ? `Fingerprinting ${files.length} file${files.length === 1 ? '' : 's'} and asking AcoustID…` : mode === 'files' ? `Looking up lyrics for ${files.length} file${files.length === 1 ? '' : 's'}…` : `Searching ${name}…`);
       if (more) $<HTMLButtonElement>('#ts-more').disabled = true;
       try {
         const found = await this.host.invoke<SearchPage>('tag_source_search',{provider,query,ticket});
@@ -673,9 +877,10 @@ export class TagSourcesUI {
         } else { results = found.results; total = found.total; chosen = -1; }
         $('.ts-result-area').innerHTML = resultMarkup();
         const shown = results.length, all = total != null && total > shown ? ` (${total} in total)` : '';
-        status(shown ? `${shown} release${shown === 1 ? '' : 's'} found${all}. Choose one and select Next.` : freedb && mode === 'text' ? 'No disc in the text index matches these words.' : freedb && mode === 'toc' && provider === 'freedb' ? 'No disc with this track layout was found. Try searching by artist and album.' : freedb && mode === 'artist_album' ? `No disc with ${files.length} track${files.length === 1 ? '' : 's'} matches this artist and album.` : freedb ? 'No disc with this ID was found.' : 'No releases found. Try fewer words, another spelling or a different search type.');
-        // Ctrl+Shift+I: a single result opens without the list.
-        if (auto && !more && shown === 1) void loadRelease(results[0].id);
+        status(mode === 'files' && shown ? `${results[0].title}.` : shown ? `${shown} ${provider === 'lrclib' ? `lyrics record${shown === 1 ? '' : 's'}` : `release${shown === 1 ? '' : 's'}`} found${all}. Choose one and select Next.` : freedb && mode === 'text' ? 'No disc in the text index matches these words.' : freedb && mode === 'toc' && provider === 'freedb' ? 'No disc with this track layout was found. Try searching by artist and album.' : freedb && mode === 'artist_album' ? `No disc with ${files.length} track${files.length === 1 ? '' : 's'} matches this artist and album.` : freedb ? 'No disc with this ID was found.' : mode === 'fingerprint' ? 'AcoustID knows no release for these files.' : 'No releases found. Try fewer words, another spelling or a different search type.');
+        // Ctrl+Shift+I: a single result opens without the list; so does the
+        // lookup of the selected files' lyrics, which always has one.
+        if ((auto || mode === 'files') && !more && shown === 1) void loadRelease(results[0].id);
         if (more) { choose(chosen); dialog.querySelector<HTMLTableRowElement>(`.ts-results tr[data-index="${shown-found.results.length}"]`)?.scrollIntoView({block:'nearest'}); }
         else { $('.ts-chosen').innerHTML = ''; if (shown) choose(0); else syncSearch(); }
       } catch (e) {
@@ -705,9 +910,11 @@ export class TagSourcesUI {
       const ticket = releaseTicket = nextTicket();
       working = true; syncSearch(); status('Loading release…');
       try {
-        const loaded = web ? await this.host.invoke<SourceRelease>('web_source_release',{source:web.id,url:input,ticket}) : await this.host.invoke<SourceRelease>('tag_source_release',{provider,input,ticket});
+        const loaded = web ? await this.host.invoke<SourceRelease>('web_source_release',{source:web.id,url:input,ticket}) : await this.host.invoke<SourceRelease>('tag_source_release',{provider,input,ticket,...(provider === 'lrclib' ? {files:fileSignatures(files)} : {})});
         if (ticket !== releaseTicket || !dialog.open) return;
         working = false;
+        if (provider === 'acoustid') fingerprints = await this.host.invoke<Record<string,FileRecording[]>>('acoustid_file_matches').catch(() => null);
+        if (ticket !== releaseTicket || !dialog.open) return;
         showReview(loaded);
         const moreCovers = () => provider === 'freedb' ? this.host.invoke<SourceCover[]>('freedb_cover_search',{artist:loaded.artist,album:loaded.title,ticket}) : this.host.invoke<SourceCover[]>('tag_source_covers',{id:loaded.id,ticket});
         if (loaded.more_covers) void moreCovers().then(covers => {
@@ -732,7 +939,7 @@ export class TagSourcesUI {
         <label class="field" id="ts-text-field" hidden><span id="ts-text-label">SEARCH TEXT</span><input id="ts-text" autocomplete="off" spellcheck="false"></label>
         <p class="ts-toc" id="ts-toc" hidden>${html(tocText())}</p>
         <button id="ts-search" class="ts-search-button">Search</button></div>
-        <p class="ts-status" role="status" aria-live="polite">${files.length} selected file${files.length === 1 ? '' : 's'}. ${provider === 'local_freedb' ? 'Look up the disc these files were ripped from.' : freedb && coversOnly ? 'Search gnudb’s cover art by artist and album, or look the disc up by the track layout of the files.' : freedb ? `Look up the disc these files were ripped from by their track layout, or search by artist and album (${files.length} track${files.length === 1 ? '' : 's'}). A typed disc ID can only be looked up in a local freedb folder.` : releaseOnly ? 'Enter the Discogs release ID shown on the release page, or its address.' : 'Search for the album these files belong to.'}</p>
+        <p class="ts-status" role="status" aria-live="polite">${files.length} selected file${files.length === 1 ? '' : 's'}. ${provider === 'local_freedb' ? 'Look up the disc these files were ripped from.' : freedb && coversOnly ? 'Search gnudb’s cover art by artist and album, or look the disc up by the track layout of the files.' : freedb ? `Look up the disc these files were ripped from by their track layout, or search by artist and album (${files.length} track${files.length === 1 ? '' : 's'}). A typed disc ID can only be looked up in a local freedb folder.` : releaseOnly ? 'Enter the Discogs release ID shown on the release page, or its address.' : provider === 'lrclib' ? 'Look up the lyrics of these files.' : provider === 'acoustid' ? 'Identify these files by how they sound.' : 'Search for the album these files belong to.'}</p>
         <div class="ts-result-area">${resultMarkup()}</div><div class="ts-chosen">${chosenMarkup()}</div></div>
         <div class="dialog-footer"><button data-close>Cancel</button><button class="primary" id="ts-next" disabled>Next</button></div>`;
       if (web) dialog.querySelector('.ts-web-unused')?.remove();
@@ -807,7 +1014,9 @@ export class TagSourcesUI {
         if (dialog.open) note.textContent = `Saved to ${saved}`;
       } catch (e) { if (dialog.open) { note.textContent = ''; error(e); } }
     };
-    const items = ():ApplyItem[] => coversOnly ? files.map(file => ({path:file.path,updates:{}})) : buildApplyItems(release!,slots,enabled);
+    const items = ():ApplyItem[] => coversOnly ? files.map(file => ({path:file.path,updates:{}}))
+      : fingerprints ? fileAcoustIds(buildApplyItems(release!,slots,enabled,!!coverChoice()),release!,slots,fingerprints,!!coverChoice()) : buildApplyItems(release!,slots,enabled,!!coverChoice());
+
     const coverChoice = ():ApplyCover|null => {
       const write = dialog.querySelector<HTMLInputElement>('#ts-cover-write'), cover = release?.covers[coverIndex];
       if (!write?.checked || !cover) return null;
@@ -823,6 +1032,8 @@ export class TagSourcesUI {
       const save = dialog.querySelector<HTMLInputElement>('#ts-cover-save'); if (save) save.disabled = working || !cover;
       apply.disabled = working || !count || nothing;
       if (coversOnly) { $('.ts-status').textContent = working ? 'Writing cover art…' : cover ? `The chosen artwork is written to ${count} selected file${count === 1 ? '' : 's'}; their fields do not change.` : 'Choose the artwork to write.'; return; }
+      // AcoustID: only ACOUSTID_ID checked, and no file is on its own recording's track.
+      if (!working && !nothing && !count && fingerprints && slots.some(Boolean)) { $('.ts-status').textContent = 'No file is on the track of the recording it was identified as, so there is no AcoustID to write. Check more fields or move the files back.'; return; }
       const unmatched = files.length - count, missing = release!.tracks.length - count;
       $('.ts-status').textContent = working ? 'Writing tags…' : nothing ? 'Choose at least one field or the cover art to write.' : `${count} of ${release!.tracks.length} tracks have a file.${missing > 0 ? ` ${missing} track${missing === 1 ? ' has' : 's have'} no file.` : ''}${unmatched > 0 ? ` ${unmatched} selected file${unmatched === 1 ? ' is' : 's are'} not matched and will not change.` : ''} Saving writes the checked fields immediately.`;
     };
@@ -851,16 +1062,24 @@ export class TagSourcesUI {
       showFieldSelection();
       dialog.querySelector<HTMLTableRowElement>(`.ts-fields tr[data-row="${CSS.escape(name)}"]`)?.focus();
     };
+    /**
+     * Every pairing of files and tracks: the selected files' lyrics keep one
+     * track per file, AcoustID keeps each identified file on its own track,
+     * and `pair` arranges the rest.
+     */
+    const pairFiles = (loaded:SourceRelease, pair:Pairing) => provider === 'lrclib' && !loaded.id && loaded.tracks.length === files.length ? files.map(f => f.path)
+      : fingerprints ? fingerprintSlots(loaded.tracks,files,fingerprintRecordings(fingerprints),pair) : pair(loaded.tracks,files);
     const applySuggestion = (kind:SuggestSorting) => {
       suggest = kind; storage.set(suggestKey,kind);
       dialog.querySelectorAll<HTMLInputElement>('[data-suggest]').forEach(box => box.checked = box.dataset.suggest === kind);
-      slots = initialSlots(release!.tracks,files,kind); renderMatches();
+      slots = pairFiles(release!,(t,f) => initialSlots(t,f,kind)); renderMatches();
     };
     const showReview = (loaded:SourceRelease) => {
       // A web source that returns only album values (or only artwork) applies them to every selected file.
       if (web && !loaded.tracks.length) loaded.tracks = files.map((_,i) => ({position:String(i+1),disc:1,number:i+1,title:'',artist:'',length:null,fields:{}}));
       release = loaded; coverIndex = 0; fieldSelection = new Set(); fieldAnchor = null;
-      slots = initialSlots(loaded.tracks,files,suggest);
+      // The selected files' lyrics hold one track per file, in file list order.
+      slots = pairFiles(loaded,(t,f) => initialSlots(t,f,suggest));
       trackField = trackFields().includes('TITLE') ? 'TITLE' : trackFields()[0];
       const disabled = new Set<string>(JSON.parse(storage.get(disabledKey) || '[]'));
       enabled = coversOnly ? new Set() : new Set(fieldRows(loaded).map(row => row.name).filter(field => !disabled.has(field)));
@@ -872,7 +1091,7 @@ export class TagSourcesUI {
         ${loaded.url ? `<p class="ts-url">${html(loaded.url)} ${preview(loaded.url)}</p>` : ''}<p class="ts-status" role="status" aria-live="polite"></p></div>
         <div class="dialog-footer"><button id="ts-back">Back</button><button data-close>Cancel</button><button class="primary" id="ts-apply"></button></div>`;
       $('[data-close]').addEventListener('click',() => dialog.close());
-      $('#ts-back').addEventListener('click',() => { clearError(); renderSearch(results.length || web ? undefined : freedb ? freedbStart : 'release_id'); });
+      $('#ts-back').addEventListener('click',() => { clearError(); renderSearch(results.length || web ? undefined : freedb ? freedbStart : modes.some(([mode]) => mode === 'release_id') ? 'release_id' : undefined); });
       if (!coversOnly) {
         $('#ts-all').addEventListener('click',() => toggleAll(true));
         $('#ts-none').addEventListener('click',() => toggleAll(false));
@@ -893,9 +1112,9 @@ export class TagSourcesUI {
           renderMatches(); dialog.querySelector<HTMLInputElement>('.ts-track-value')?.focus();
         });
         $('#ts-track-field').addEventListener('change',event => { trackField = (event.target as HTMLSelectElement).value; renderMatches(); });
-        $('#ts-rematch').addEventListener('click',() => { slots = autoMatch(loaded.tracks,files); renderMatches(); });
+        $('#ts-rematch').addEventListener('click',() => { slots = pairFiles(loaded,autoMatch); renderMatches(); });
         dialog.querySelectorAll<HTMLInputElement>('[data-suggest]').forEach(box => box.addEventListener('change',() => applySuggestion(box.checked ? box.dataset.suggest as SuggestSorting : '')));
-        $('#ts-order').addEventListener('click',() => { slots = autoMatch(loaded.tracks,files.map(f => ({...f,track:'',title:'',name:''}))); renderMatches(); });
+        $('#ts-order').addEventListener('click',() => { slots = pairFiles(loaded,(t,f) => autoMatch(t,f.map(file => ({...file,track:'',title:'',name:''})))); renderMatches(); });
         const matches = $('.ts-match-area');
         matches.addEventListener('click',event => {
           const button = (event.target as Element).closest<HTMLButtonElement>('button[data-move]');
@@ -949,11 +1168,12 @@ export class TagSourcesUI {
     dialog.showModal();
     if (web) { const first = dialog.querySelector<HTMLInputElement>('#ts-web-0'); (first || $<HTMLButtonElement>('#ts-search')).focus(); first?.select(); }
     else if (freedb) (toc ? $<HTMLButtonElement>('#ts-search') : $<HTMLInputElement>(provider === 'local_freedb' ? '#ts-text' : '#ts-artist')).focus();
+    else if (perFile) $<HTMLButtonElement>('#ts-search').focus();
     else if (releaseOnly) $<HTMLInputElement>('#ts-text').focus();
     else { const artist = $<HTMLInputElement>('#ts-artist'); artist.focus(); artist.select(); }
     // Ctrl+Shift+I skips entering the search: the selection's album and artist
     // (or the disc ID of the files) are searched at once.
-    const ready = web ? false : freedb ? !!toc : !releaseOnly && !!(prefill.artist || prefill.album);
+    const ready = web ? false : freedb ? !!toc : perFile ? files.length > 0 : !releaseOnly && !!(prefill.artist || prefill.album);
     if (options.quick && ready) void search(false,true);
   }
 }

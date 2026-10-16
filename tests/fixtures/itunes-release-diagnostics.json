@@ -1,0 +1,44 @@
+[
+  {
+    "total": 201,
+    "songs": 200,
+    "error": "iTunes returned 200 of 201 album tracks. The incomplete album cannot be imported.",
+    "de": "iTunes hat 200 von 201 Albumtiteln zurückgegeben. Das unvollständige Album kann nicht importiert werden.",
+    "nl": "iTunes gaf 200 van de 201 albumnummers terug. Het onvolledige album kan niet worden geïmporteerd."
+  },
+  {
+    "total": 400,
+    "songs": 200,
+    "error": "iTunes returned 200 of 400 album tracks. The incomplete album cannot be imported.",
+    "de": "iTunes hat 200 von 400 Albumtiteln zurückgegeben. Das unvollständige Album kann nicht importiert werden.",
+    "nl": "iTunes gaf 200 van de 400 albumnummers terug. Het onvolledige album kan niet worden geïmporteerd."
+  },
+  {
+    "total": 3,
+    "songs": 2,
+    "error": "iTunes returned 2 of 3 album tracks. The incomplete album cannot be imported.",
+    "de": "iTunes hat 2 von 3 Albumtiteln zurückgegeben. Das unvollständige Album kann nicht importiert werden.",
+    "nl": "iTunes gaf 2 van de 3 albumnummers terug. Het onvolledige album kan niet worden geïmporteerd."
+  },
+  {
+    "total": 2,
+    "songs": 0,
+    "error": "iTunes returned 0 of 2 album tracks. The incomplete album cannot be imported.",
+    "de": "iTunes hat 0 von 2 Albumtiteln zurückgegeben. Das unvollständige Album kann nicht importiert werden.",
+    "nl": "iTunes gaf 0 van de 2 albumnummers terug. Het onvolledige album kan niet worden geïmporteerd."
+  },
+  {
+    "total": null,
+    "songs": 199,
+    "error": "iTunes returned a capped track list without a valid album track count. The complete album cannot be verified.",
+    "de": "iTunes hat eine begrenzte Titelliste ohne gültige Gesamtzahl der Albumtitel zurückgegeben. Das vollständige Album kann nicht überprüft werden.",
+    "nl": "iTunes gaf een begrensde nummerlijst zonder geldig totaal aantal albumnummers terug. Het volledige album kan niet worden gecontroleerd."
+  },
+  {
+    "total": 0,
+    "songs": 200,
+    "error": "iTunes returned a capped track list without a valid album track count. The complete album cannot be verified.",
+    "de": "iTunes hat eine begrenzte Titelliste ohne gültige Gesamtzahl der Albumtitel zurückgegeben. Das vollständige Album kann nicht überprüft werden.",
+    "nl": "iTunes gaf een begrensde nummerlijst zonder geldig totaal aantal albumnummers terug. Het volledige album kan niet worden gecontroleerd."
+  }
+]

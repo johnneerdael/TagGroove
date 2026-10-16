@@ -13,6 +13,17 @@ pub enum Provider {
     LocalFreedb,
     /// A user-installed web source script (`.src`).
     Web,
+    /// Apple's iTunes Search API.
+    Itunes,
+    Deezer,
+    /// LRCLIB lyrics, looked up per file.
+    Lrclib,
+    /// AcoustID fingerprint lookup; the chosen release comes from MusicBrainz.
+    Acoustid,
+    /// Last.fm album information (genre tags).
+    Lastfm,
+    /// fanart.tv artwork for a MusicBrainz release group.
+    Fanart,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize)]
@@ -27,6 +38,10 @@ pub enum SearchMode {
     Toc,
     /// freedb: an eight-digit disc ID typed by the user.
     DiscId,
+    /// LRCLIB: each selected file by its own title, artist, album and length.
+    Files,
+    /// AcoustID: the audio fingerprints of the selected files.
+    Fingerprint,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
@@ -44,6 +59,23 @@ pub struct SearchQuery {
     /// Zero-based result page; each page holds up to [`PAGE_SIZE`] results.
     #[serde(default)]
     pub page: u32,
+    /// The selected files, in file list order (`Files` and `Fingerprint` modes).
+    #[serde(default)]
+    pub files: Vec<FileSignature>,
+}
+
+/// What a per-file source needs to know about one selected file.
+#[derive(Clone, Debug, Default, PartialEq, Deserialize)]
+#[serde(default)]
+pub struct FileSignature {
+    pub path: String,
+    pub title: String,
+    pub artist: String,
+    pub album: String,
+    pub track: String,
+    pub disc: String,
+    /// Seconds.
+    pub length: f64,
 }
 
 pub const PAGE_SIZE: u32 = 50;
