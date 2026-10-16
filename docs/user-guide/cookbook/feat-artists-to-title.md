@@ -69,7 +69,9 @@ before the artist field loses it.
 5. Save the group, make sure only this group is checked, and run it.
 
 The action group stays in the **Actions** menu. Next time, filter, select and
-pick it from the menu.
+pick it from the menu. Actions write immediately. If one action reports a
+warning for a file, its remaining actions and later checked groups still
+run. Review the warnings and the resulting fields before repeating a group.
 
 ## How it works
 

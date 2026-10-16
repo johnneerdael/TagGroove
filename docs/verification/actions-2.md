@@ -82,12 +82,23 @@ A saved library, even an empty one, is loaded as saved, so removed examples do n
 
 ## Checks
 
+The takeover integrated `main` at `5f4112e` once and completed the public
+Import Cover and Export Cover action pages. The other unfinished action
+references remain drafts and outside the published navigation. The strict
+guide build, eight publication tests, writing-plan check and 60 review-gate
+tests passed. The TypeScript/Vite build and all 312 JavaScript tests passed.
+The integrated Rust workspace passed 706 tests with four live-network tests
+ignored. It ran with a separate `TMPDIR` and one test thread to keep undo
+journals separate from concurrent worktree checks.
+
+
 Review follow-up (2026-10-16): both new regressions were run against the
 previous production implementation before restoring the fixes. The cover
 ownership case failed because the original writer received a cross-file
 collision after the other file's equal-image export. The wildcard case
 failed with `failed to parse picture` for the first WebP match. With the
-fixes restored, all 41 native action-host tests passed. The ownership case
+fixes restored, all 41 Rust action-host tests passed using real WAV fixtures.
+No application window was opened. The ownership case
 enables duplicate export so it reaches the reviewed no-op branch; it checks
 that the original writer succeeds, the other file retains its expected
 warnings, and the final exported image contains the changed cover.

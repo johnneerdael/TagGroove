@@ -139,6 +139,9 @@ nav:
     - Zero-padded track numbers: cookbook/rename-zero-padded-track-numbers.md
     - Tags from folder and file names: cookbook/tags-from-folder-and-filename.md
     - Move guest artists to titles: cookbook/feat-artists-to-title.md
+  - Cover actions:
+    - Import cover from file: actions/import-cover.md
+    - Export cover to file: actions/export-cover.md
   - Reference:
     - Format strings: reference/format-strings.md
     - Placeholders: reference/placeholders.md
