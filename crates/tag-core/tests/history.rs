@@ -528,6 +528,50 @@ fn side_file_symlinks_restore_relative_and_dangling_targets_verbatim() {
 }
 
 #[test]
+fn side_file_captures_across_directory_moves_keep_the_earliest_image() {
+    let dir = tempfile::tempdir().unwrap();
+    // Directory records use the same canonical roots as the command path
+    // and the existing directory-move journal fixtures.
+    let root = dunce::canonicalize(dir.path()).unwrap();
+    let old = root.join("Album");
+    let middle = root.join("Renamed");
+    let final_folder = root.join("Final");
+    fs::create_dir(&old).unwrap();
+    fs::write(old.join("cover.png"), b"original image").unwrap();
+    let mut history = journal(dir.path());
+    let mut capture = history.begin("Move cover", None, &[]);
+    history
+        .capture_side_file(&mut capture, &old.join("cover.png"))
+        .unwrap();
+    fs::write(old.join("cover.png"), b"intermediate image").unwrap();
+    fs::rename(&old, &middle).unwrap();
+    history
+        .capture_side_file(&mut capture, &middle.join("cover.png"))
+        .unwrap();
+    fs::write(middle.join("cover.png"), b"final image").unwrap();
+    fs::rename(&middle, &final_folder).unwrap();
+    history.commit(
+        capture,
+        &[],
+        &[
+            (key(&old), key(&middle)),
+            (key(&middle), key(&final_folder)),
+        ],
+    );
+    let undo = history.undo().unwrap();
+    assert!(undo.errors.is_empty(), "{:?}", undo.errors);
+    assert_eq!(fs::read(old.join("cover.png")).unwrap(), b"original image");
+    assert!(!middle.exists() && !final_folder.exists());
+    let redo = history.redo().unwrap();
+    assert!(redo.errors.is_empty(), "{:?}", redo.errors);
+    assert_eq!(
+        fs::read(final_folder.join("cover.png")).unwrap(),
+        b"final image"
+    );
+    assert!(!old.exists() && !middle.exists());
+}
+
+#[test]
 fn unchanged_side_files_are_not_recorded() {
     let dir = tempfile::tempdir().unwrap();
     let image = dir.path().join("folder.jpg");

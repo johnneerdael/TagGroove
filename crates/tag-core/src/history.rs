@@ -588,10 +588,24 @@ impl Journal {
     fn commit_side_files(
         &mut self,
         captured: Vec<(PathBuf, Option<Blob>)>,
+        directories: &[(PathBuf, PathBuf)],
     ) -> (Vec<SideFile>, usize) {
+        let mut final_paths = BTreeMap::new();
+        for (path, before) in captured {
+            // Repeated captures across directory moves describe one entry.
+            // Retain its earliest snapshot, before any action changed it.
+            match final_paths.entry(rebase(&path, directories)) {
+                std::collections::btree_map::Entry::Vacant(entry) => {
+                    entry.insert(before);
+                }
+                std::collections::btree_map::Entry::Occupied(_) => {
+                    before.iter().for_each(discard);
+                }
+            }
+        }
         let mut recorded = Vec::new();
         let mut lost = 0;
-        for (path, before) in captured {
+        for (path, before) in final_paths {
             let after = match self.copy_side_file(&path) {
                 Ok(after) => after,
                 Err(_) => {
@@ -645,7 +659,7 @@ impl Journal {
                 .for_each(discard);
             (Vec::new(), 0)
         } else {
-            self.commit_side_files(capture.side_files)
+            self.commit_side_files(capture.side_files, &directories)
         };
         if let Some(reason) = capture.abandoned {
             if capture.group.is_some() {

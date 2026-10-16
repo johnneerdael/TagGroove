@@ -78,6 +78,10 @@ A dangling destination link is refused. That output name retains its owner
 for later exports in the run.
 Another file that finds those same image bytes already there does not take
 over ownership of the output name.
+If a later action moves the audio folder, the exported covers move with it.
+Their output ownership follows the move, and Undo restores a replaced image
+in the restored folder. Repeated exports in the same run keep the snapshot
+from before the first replacement.
 
 Output that would replace an input audio file, including an alias through a
 symlink, is refused. A warning does not stop the file's remaining actions

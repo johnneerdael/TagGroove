@@ -377,6 +377,25 @@ impl NativeHost<'_> {
         }
         current
     }
+    fn move_cover_outputs(&mut self, from: &str, to: &str) {
+        let moved = |path: String| match Path::new(&path).strip_prefix(from) {
+            Ok(suffix) => Path::new(to).join(suffix).to_string_lossy().into_owned(),
+            Err(_) => path,
+        };
+        // Destination entries move; original input identities remain stable.
+        self.written_covers = std::mem::take(&mut self.written_covers)
+            .into_iter()
+            .map(|(path, owner)| (moved(path), owner))
+            .collect();
+        let mut exported: BTreeMap<_, HashSet<_>> = BTreeMap::new();
+        for ((path, digest), outputs) in std::mem::take(&mut self.exported_covers) {
+            exported
+                .entry((moved(path), digest))
+                .or_default()
+                .extend(outputs.into_iter().map(&moved));
+        }
+        self.exported_covers = exported;
+    }
     fn synchronize(&self, state: &mut ActionState) -> Result<(), String> {
         let path = self.resolve(&state_path(state)?);
         state
@@ -556,11 +575,13 @@ impl ActionHost for NativeHost<'_> {
                     if target.starts_with(source) {
                         return Err("Cannot move a directory inside itself".into());
                     }
+                    let from = normalized_output(source)?;
                     tag_core::operations::rename_directory_no_clobber(source, &target)?;
                     self.directories.push(PathChange {
                         from: source.to_string_lossy().into_owned(),
                         to: target.to_string_lossy().into_owned(),
                     });
+                    self.move_cover_outputs(&from, &normalized_output(&target)?);
                 }
                 self.synchronize(state)?;
             }
@@ -1750,6 +1771,68 @@ mod tests {
         );
         assert!(album.join("a.wav.m3u8").is_file());
         assert!(!dir.path().join("AC").exists());
+    }
+
+    #[test]
+    fn cover_export_ownership_follows_a_later_directory_move() {
+        let dir = tempfile::tempdir().unwrap();
+        let album = dir.path().join("Album");
+        fs::create_dir(&album).unwrap();
+        let (a, original) = covered_fixture(&album, "a.wav", false);
+        let (b, _) = covered_fixture(&album, "b.wav", false);
+        let mut bytes = std::io::Cursor::new(Vec::new());
+        image::DynamicImage::ImageRgb8(image::RgbImage::new(2, 2))
+            .write_to(&mut bytes, image::ImageFormat::Png)
+            .unwrap();
+        let other = dir.path().join("other.png");
+        fs::write(&other, bytes.into_inner()).unwrap();
+        tag_core::import_cover_with_options(
+            &b,
+            &other,
+            Some("CoverBack"),
+            true,
+            &crate::settings::tag_options(),
+        )
+        .unwrap();
+        let group = ActionGroup {
+            name: "Moved output".into(),
+            enabled: true,
+            actions: vec![
+                ActionSpec::ExportCover {
+                    filename_template: "shared".into(),
+                    picture_type: None,
+                    export_duplicates: false,
+                },
+                ActionSpec::FormatValue {
+                    field: "_DIRECTORY".into(),
+                    template: "Moved".into(),
+                },
+                ActionSpec::ExportCover {
+                    filename_template: "shared".into(),
+                    picture_type: Some("CoverBack".into()),
+                    export_duplicates: false,
+                },
+            ],
+        };
+        let result = execute(
+            &[
+                a.to_string_lossy().into_owned(),
+                b.to_string_lossy().into_owned(),
+            ],
+            &[group],
+            EvaluationSettings::default(),
+        );
+        assert_eq!(
+            fs::read(dir.path().join("Moved/shared.png")).unwrap(),
+            original
+        );
+        assert_eq!(result.errors.len(), 2, "{:?}", result.errors);
+        assert!(result
+            .errors
+            .iter()
+            .all(|error| error.path.ends_with("b.wav")
+                && error.error.contains("already written for another file")));
+        assert!(!album.exists());
     }
 
     #[test]

@@ -258,6 +258,33 @@ all eight publication tests passed. Frontend source is unchanged from the
 318-test/production-build validation. Trusted reviewed multi-platform CI
 is still required for this final merged head.
 
+## Cover paths across later directory moves
+
+The review of `53dd263` found that a captured cover's old path was used for
+its post-action snapshot after a later directory move. The actual command
+regression failed Undo with an external-change warning at the obsolete
+path. Commit now rebases captures through the reported directory moves
+before reading their final state. Captures converging on one final entry
+keep only the earliest before snapshot, avoiding intermediate replacements
+being mistaken for the original image.
+
+The command fixture covers one move and repeated changed exports across two
+moves, checking exact audio and image bytes through Undo and Redo. An
+adjacent image-level fixture proved that cover ownership/digest maps also
+retained obsolete directory paths: a back-only export after the move could
+overwrite another input's front image. Those maps now follow successful
+folder moves while writer identities remain the original inputs. The
+fixture failed on the actual overwritten image bytes before that fix.
+A direct core fixture separately exercises repeated captures converging on
+one entry; it uses canonical directory records, matching the command's
+canonical AudioEntry paths and existing directory-move journal fixtures.
+This does not add generic normalization of caller-supplied directory aliases.
+
+The latest application suite passed 291 tests with the same four explicit
+skips, including all 50 action-host tests. Core checks passed all 23 history
+tests, eight raw-stream tests and 138 unit tests. Workspace Clippy,
+formatting, strict guide build and all eight publication tests passed.
+
 ## Not covered
 
 - The `.mta` type IDs for Adjust Cover, Set Cover Properties and Generate Playlists, and the guessed schemas for types 4, 6 and 11–15, need `.mta` files saved by Mp3tag.

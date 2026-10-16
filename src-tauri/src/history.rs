@@ -392,6 +392,112 @@ mod tests {
     }
 
     #[test]
+    fn action_cover_undo_follows_later_directory_moves_and_keeps_the_first_snapshot() {
+        let _journal = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        for repeat_after_move in [false, true] {
+            let dir = tempfile::tempdir().unwrap();
+            let root = dunce::canonicalize(dir.path()).unwrap();
+            TEST_ROOTS.lock().unwrap().push(root.clone());
+            let album = root.join("Album");
+            std::fs::create_dir(&album).unwrap();
+            let audio = album.join("a.wav");
+            wav(&audio, "Original");
+            let image = |width| {
+                let mut bytes = std::io::Cursor::new(Vec::new());
+                image::DynamicImage::ImageRgb8(image::RgbImage::new(width, width))
+                    .write_to(&mut bytes, image::ImageFormat::Png)
+                    .unwrap();
+                bytes.into_inner()
+            };
+            let (embedded, previous, later) = (image(2), image(3), image(4));
+            let input = root.join("input.png");
+            let next = root.join("next.png");
+            std::fs::write(&input, &embedded).unwrap();
+            std::fs::write(&next, &later).unwrap();
+            tag_core::add_cover(&audio, &input).unwrap();
+            let before_audio = std::fs::read(&audio).unwrap();
+            std::fs::write(album.join("shared.png"), &previous).unwrap();
+            let export = || tag_core::actions::ActionSpec::ExportCover {
+                filename_template: "shared".into(),
+                picture_type: None,
+                export_duplicates: false,
+            };
+            let rename = |name: &str| tag_core::actions::ActionSpec::FormatValue {
+                field: "_DIRECTORY".into(),
+                template: name.into(),
+            };
+            let mut actions = vec![export(), rename("Renamed")];
+            if repeat_after_move {
+                actions.extend([
+                    tag_core::actions::ActionSpec::ImportCover {
+                        filename_template: next.to_string_lossy().into_owned(),
+                        picture_type: None,
+                        delete_existing: true,
+                    },
+                    export(),
+                    rename("Final"),
+                    export(),
+                ]);
+            }
+            let final_folder = root.join(if repeat_after_move {
+                "Final"
+            } else {
+                "Renamed"
+            });
+            let result = run(crate::execute_action_groups(
+                vec![audio.to_string_lossy().into_owned()],
+                vec![tag_core::actions::ActionGroup {
+                    name: "Move cover folder".into(),
+                    enabled: true,
+                    actions,
+                }],
+                None,
+            ));
+            assert!(result.errors.is_empty(), "{:?}", result.errors);
+            let after_image = if repeat_after_move { &later } else { &embedded };
+            assert_eq!(
+                std::fs::read(final_folder.join("shared.png")).unwrap(),
+                *after_image
+            );
+            let after_audio = std::fs::read(final_folder.join("a.wav")).unwrap();
+            assert!(!album.exists());
+            let undone = run(undo_last());
+            assert!(
+                undone.result.errors.is_empty(),
+                "{:?}",
+                undone.result.errors
+            );
+            assert_eq!(std::fs::read(album.join("shared.png")).unwrap(), previous);
+            assert_eq!(std::fs::read(&audio).unwrap(), before_audio);
+            assert!(!final_folder.exists());
+            let redone = run(redo_last());
+            assert!(
+                redone.result.errors.is_empty(),
+                "{:?}",
+                redone.result.errors
+            );
+            assert_eq!(
+                std::fs::read(final_folder.join("shared.png")).unwrap(),
+                *after_image
+            );
+            assert_eq!(
+                std::fs::read(final_folder.join("a.wav")).unwrap(),
+                after_audio
+            );
+            assert!(!album.exists());
+            // Leave no undo step in the shared command journal for the next
+            // fixture; its first command will clear this final redo step.
+            let cleanup = run(undo_last());
+            assert!(
+                cleanup.result.errors.is_empty(),
+                "{:?}",
+                cleanup.result.errors
+            );
+            TEST_ROOTS.lock().unwrap().retain(|r| r != &root);
+        }
+    }
+
+    #[test]
     fn commands_record_grouped_saves_tag_conversions_and_renames() {
         let _journal = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let dir = tempfile::tempdir().unwrap();
