@@ -537,6 +537,18 @@ test('real library progress localizes with OS-formatted Unicode and grouped coun
     }finally{Number.prototype.toLocaleString=original;p.close();}
   }
 });
+test('production backend error frames translate wrapped diagnostics and preserve paths, commands and replies',()=>{
+  const cases=[['The destination is not a folder',{}],['Cannot open the destination folder: {e}',{e:'Permission denied (os error 13)'}],['Invalid DSF file: {what}',{what:'the file is truncated'}],['The MP4 structure cannot be rewritten safely: {what}',{what:'the file ends inside a box header'}],['Library database: {e}',{e:'disk full'}],['ASF {location} object limits exceeded',{location:'Content'}],['{name} did not respond in time. Check your connection and try again.',{name:'MusicBrainz'}],['The freedb server answered: {code} {value}',{code:400,value:'Help'}],['Invalid chapter {value}: use HH:MM:SS.mmm followed by the title',{value:'"Help  Title"'}],['{name} is stored once for {filename}, not per chapter; give its chapter rows the same value',{name:'TITLE',filename:'Help.m4a'}],['line {line} ({text}): {error}',{line:17,text:'Help',error:'Help is not a known command'}],['line {line} ({text}): {error}',{line:17,text:'If "Help"',error:'this block has no Endif'}]];
+  const extra=['{name} is not a known command','this block has no {name}'],custom={...Object.fromEntries([...cases.map(([key])=>key),...extra].map(key=>[key,`Diagnostic: ${[...new Set(key.match(/\{\w+\}/g)??[])].join(' / ')}`])),Help:'Assistance',TITLE:'Wrong field',MusicBrainz:'Wrong provider',Content:'Wrong header',Endif:'Wrong command','Help.m4a':'Wrong file','"Help  Title"':'Wrong chapter'};
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]])for(const [key,params] of cases){
+    const p=page();try{
+      const t=new Translator(locale,catalog),error=new Translator('en').t(key,params),e={path:'Help',error},expected={...params};
+      for(const role of ['what','error'])if(role in expected)expected[role]=t.translate(expected[role]);
+      p.body.innerHTML=mainTemplate(node=>node.head.text==='<p><strong translate="no">',{e,esc,displayName:path=>path,publicMessage:value=>value});p.translate(locale,catalog);
+      assert.equal(p.body.querySelector('strong').textContent,'Help:');assert.equal(p.body.querySelector('p').textContent,`Help: ${t.t(key,expected)}`);
+    }finally{p.close();}
+  }
+});
 test('symbol-only catalog output replays original production control sources across languages',async()=>{
   for(const output of ['✓','42','…']){
     const p=page();

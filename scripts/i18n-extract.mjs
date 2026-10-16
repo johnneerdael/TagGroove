@@ -371,6 +371,84 @@ export function extract() {
 const BACKEND_DIRS = ['src-tauri/src', 'crates/tag-core/src', 'crates/library/src', 'crates/document-access/src'];
 const BACKEND_MESSAGE = /(?:\bErr\(|\.ok_or\(|ok_or_else\(\|\|\s*|map_err\(\|[^|]*\|\s*)\s*(?:format!\(\s*)?"((?:[^"\\]|\\.)*)"/g;
 const INTERNAL = /Injected|fixture|json_foreach|^Invalid document|URI|manifest|lock failed|poisoned/i;
+// Keep offsets while ignoring quoted text/comments when locating error calls
+// and local helper bodies. This only balances delimiters, not Rust grammar.
+const RUST_TOKENS = /r(#+)?"[\s\S]*?"\1|"(?:[^"\\]|\\.)*"|'(?:\\(?:u\{[\da-fA-F]+\}|x[\da-fA-F]{2}|.)|[^'\\])'|\/\/[^\n]*|\/\*[\s\S]*?\*\//gu;
+const rustCode = source => source.replace(RUST_TOKENS, token => token.replace(/[^\n]/g, ' '));
+function rustEnd(code, start, open='(', close=')') {
+  let depth=1;for(let index=start+1;index<code.length;index++){if(code[index]===open)depth++;else if(code[index]===close&&!--depth)return index;}
+  return code.length;
+}
+function rustArguments(code,start,end){
+  const args=[];let from=start+1,depth=0;
+  for(let index=from;index<end;index++){if('([{'.includes(code[index]))depth++;else if(')]}'.includes(code[index]))depth--;else if(code[index]===','&&!depth){args.push([from,index]);from=index+1;}}
+  args.push([from,end]);return args;
+}
+function rustMessages(source, returned=true){
+  const code=rustCode(source),messages=new Set(),macros=[];
+  const dataField=at=>{const field=/\b([A-Za-z_]\w*)\s*(?::|=)\s*$/.exec(code.slice(0,at));return field&&!['error','message','what','reason'].includes(field[1]);};
+  for(const match of code.matchAll(/\b(?:format|write)!\s*\(/g)){
+    const start=match.index+match[0].lastIndexOf('('),end=rustEnd(code,start);macros.push([start,end]);
+    if(returned&&dataField(match.index))continue;
+    const first=[...source.slice(start+1,end).matchAll(RUST_TOKENS)].find(token=>token[0].startsWith('"'));if(first)messages.add(first[0].slice(1,-1));
+  }
+  for(const match of source.matchAll(RUST_TOKENS)){
+    if(!match[0].startsWith('"'))continue;
+    if(macros.some(([start,end])=>match.index>start&&match.index<end))continue;
+    if(returned&&dataField(match.index))continue;
+    const after=match.index+match[0].length;
+    if(!returned||/^\s*\.(?:into|to_string|to_owned)\s*\(/.test(code.slice(after)))messages.add(match[0].slice(1,-1));
+  }
+  return [...messages];
+}
+const backendKey = text => {
+  const used=new Map();
+  return text.replace(/\\n/g,' ').replace(/\\"/g,'"').replace(/\\\\/g,'\\')
+    .replace(/\{\{|\}\}|\{([A-Za-z_][A-Za-z0-9_]*)?(?::[^}]*)?\}/g,(all,name)=>{
+      if(all==='{{')return'{';if(all==='}}')return'}';
+      const base=name?name.replace(/_([a-z])/g,(_,c)=>c.toUpperCase()):'value',count=(used.get(base)??0)+1;
+      used.set(base,count);return`{${count>1?base+count:base}}`;
+    }).replace(/\s+/g,' ').trim();
+};
+/** Direct errors plus static local factories reached from actual error contexts. */
+export function extractBackendSource(source){
+  const tests=source.search(/#\[cfg\(test\)\]\s*mod tests/);if(tests>=0)source=source.slice(0,tests);
+  const code=rustCode(source),keys=new Set(),roots=[],names=new Set();
+  const add=(message,wrapped=false)=>{const key=backendKey(message);if(!INTERNAL.test(key)&&(wrapped?common(key):/^[A-Z{]/.test(key)&&/\p{L}{2,}[\s,]+\p{L}{2,}/u.test(bare(key))))keys.add(key);};
+  for(const match of source.matchAll(BACKEND_MESSAGE))if(code.slice(match.index,match.index+2).trim())add(match[1]);
+  for(const match of code.matchAll(/\bErr\s*\(|\.(?:map_err|ok_or|ok_or_else)\s*\(/g)){
+    const start=match.index+match[0].lastIndexOf('('),end=rustEnd(code,start);roots.push([start,end]);
+    const body=code.slice(start+1,end),alias=/^\s*([A-Za-z_]\w*)\s*$/.exec(body);if(alias)names.add(alias[1]);
+    for(const call of body.matchAll(/\b([A-Za-z_]\w*)\s*\(/g))names.add(call[1]);
+  }
+  const factories=new Map(),errorTypes=new Set();
+  const register=(name,header,body)=>{
+    const messages=rustMessages(body);messages.forEach(message=>add(message,true));
+    const types=[...rustCode(body).matchAll(/\b(\w*Error)\s*\{/g)].map(match=>match[1]);types.forEach(type=>errorTypes.add(type));
+    if(!messages.length&&!types.length)return;
+    const parameters=header.split(',').map((parameter,index)=>/^\s*(?:mut\s+)?(error|message|what)\s*:\s*(?:&\s*)?(?:str|String)\b/.test(parameter)?index:-1).filter(index=>index>=0);
+    factories.set(name,new Set([...(factories.get(name)??[]),...parameters]));
+  };
+  for(const name of names){
+    for(const match of code.matchAll(new RegExp(`\\bfn\\s+${name}\\s*\\(`,'g'))){
+      const args=match.index+match[0].lastIndexOf('('),end=rustEnd(code,args),start=code.indexOf('{',end);if(start<0)continue;
+      register(name,source.slice(args+1,end),source.slice(start+1,rustEnd(code,start,'{','}')));
+    }
+    for(const match of code.matchAll(new RegExp(`\\blet\\s+${name}\\s*=\\s*\\|([^|]*)\\|`,'g'))){
+      const from=match.index+match[0].length,start=code.slice(from).search(/\S/)+from,end=code[start]==='{'?rustEnd(code,start,'{','}'):code.indexOf(';',from);
+      register(name,source.slice(match.index,from).match(/\|([^|]*)\|/)[1],source.slice(from,end<0?source.length:end));
+    }
+  }
+  for(const [start,end] of roots)for(const match of code.slice(start+1,end).matchAll(/\b([A-Za-z_]\w*)\s*\(/g)){
+    const parameters=factories.get(match[1]);if(!parameters?.size)continue;
+    const at=start+1+match.index+match[0].lastIndexOf('('),args=rustArguments(code,at,rustEnd(code,at));
+    for(const index of parameters)if(args[index])rustMessages(source.slice(...args[index]),false).forEach(message=>add(message,true));
+  }
+  for(const type of errorTypes)for(const match of code.matchAll(new RegExp(`\\bimpl\\s+(?:\\w+::)*Display\\s+for\\s+${type}\\s*\\{`,'g'))){
+    const start=match.index+match[0].lastIndexOf('{');rustMessages(source.slice(start+1,rustEnd(code,start,'{','}'))).forEach(message=>add(message,true));
+  }
+  return [...keys].sort();
+}
 export function extractBackend() {
   const files = [];
   const walk = dir => {for (const name of readdirSync(dir)) {const path = join(dir, name);if (statSync(path).isDirectory()) walk(path);else if (name.endsWith('.rs')) files.push(path);}};
@@ -378,18 +456,7 @@ export function extractBackend() {
   const keys = new Set();
   for (const file of files.sort()) {
     let source = readFileSync(file, 'utf8');
-    const tests = source.search(/#\[cfg\(test\)\]\s*mod tests/);if (tests >= 0) source = source.slice(0, tests);
-    for (const match of source.matchAll(BACKEND_MESSAGE)) {
-      const used = new Map();
-      let key = match[1].replace(/\\n/g, ' ').replace(/\\"/g, '"').replace(/\\\\/g, '\\')
-        .replace(/\{\{|\}\}|\{([A-Za-z_][A-Za-z0-9_]*)?(?::[^}]*)?\}/g, (all, name) => {
-          if (all === '{{') return '{';if (all === '}}') return '}';
-          const base = name ? name.replace(/_([a-z])/g, (_, c) => c.toUpperCase()) : 'value', count = (used.get(base) ?? 0) + 1;
-          used.set(base, count);return `{${count > 1 ? base + count : base}}`;
-        }).replace(/\s+/g, ' ').trim();
-      if (!/^[A-Z{]/.test(key) || !/\p{L}{2,}[\s,]+\p{L}{2,}/u.test(bare(key)) || INTERNAL.test(key)) continue;
-      keys.add(key);
-    }
+    for (const key of extractBackendSource(source)) keys.add(key);
   }
   return [...keys].sort((a, b) => a < b ? -1 : a > b ? 1 : 0);
 }

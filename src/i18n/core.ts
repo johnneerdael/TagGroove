@@ -20,7 +20,7 @@ const VERBATIM = /^(name|nameOf|path|file|filename|fileName|location|outputPath|
 const SHORTCUT = /^(?:(?:⌘|⌥|⇧|⌃|⌫|Ctrl|Alt|Shift|Option|Cmd|Del|Num|Enter|Esc|Tab|Space|Page Up|Page Down|Home|End|Ins|F\d{1,2}|[A-Z0-9]|[←→↑↓+\/·]|,)[\s+/]*)+$/;
 /** Count-only producer roles: keep paths and UI summaries under distinct names.
  * They only match digits, so "{count} file" never matches "Choose a file". */
-const NUMERIC = /^(length|count|size|total|done|restored|missing|unmatched|pending|saved|failed|skipped|selectedCount|tracks|discs|chapters|selected|shown|started|removed|files|lines|matched|n|i|index|position|lastHits|lastStored|max)\d*$/;
+const NUMERIC = /^(length|count|size|total|done|restored|missing|unmatched|pending|saved|failed|skipped|selectedCount|tracks|discs|chapters|selected|shown|started|removed|files|line|lines|matched|n|i|index|position|lastHits|lastStored|min|max)\d*$/;
 // Han decimal numbering uses these ten symbols rather than Unicode Nd digits.
 const HAN_DIGITS = '〇一二三四五六七八九';
 const NUMBER = `([\\p{Nd}${HAN_DIGITS}](?:[\\p{Nd}${HAN_DIGITS}.,\\u00a0\\u202f\\u066b\\u066c'’ ]*[\\p{Nd}${HAN_DIGITS}])?)`;
@@ -116,7 +116,7 @@ export function render(nodes: Node[], params: Record<string, unknown>, rules: In
   return out;
 }
 
-type Pattern = {regex: RegExp; names: string[]; value: Node[]; literal: number};
+type Pattern = {regex: RegExp; names: string[]; value: Node[]; literal: number; sourceError: boolean};
 const escapeRegex = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /** Compiled catalog of one language. */
@@ -148,9 +148,11 @@ export class Translator {
       // Keys that are mostly values ("{name}…") would match nearly any text.
       if (!/\p{L}{2,}/u.test(literal)) continue;
       const source = normalized.split(PLACEHOLDER).map((part, i) => i % 2 ? NUMERIC.test(part) ? NUMBER : '([\\s\\S]*?)' : escapeRegex(part).replace(/ /g, '\\s+')).join('');
-      this.patterns.push({regex: new RegExp(`^${source}$`, 'du'), names, value: nodes, literal: literal.length});
+      this.patterns.push({regex: new RegExp(`^${source}$`, 'du'), names, value: nodes, literal: literal.length, sourceError: normalized === 'line {line} ({text}): {error}'});
     }
-    this.patterns.sort((a, b) => b.literal - a.literal);
+    // ScriptError's explicit frame owns its command text; match it before a
+    // leaf diagnostic can swallow that frame into a field/name capture.
+    this.patterns.sort((a, b) => Number(b.sourceError) - Number(a.sourceError) || b.literal - a.literal);
   }
 
   /** Whether this translator changes anything (English has nothing to do). */

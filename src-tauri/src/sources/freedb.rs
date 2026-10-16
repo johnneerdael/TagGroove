@@ -258,16 +258,16 @@ fn status(body: &str) -> Result<(u16, &str, Vec<&str>), String> {
     Ok((code, first[3..].trim(), rest))
 }
 
-fn server_error(code: u16, message: &str) -> String {
-    if message.to_ascii_lowercase().contains("unknown application") {
+fn server_error(code: u16, value: &str) -> String {
+    if value.to_ascii_lowercase().contains("unknown application") {
         return format!(
-            "The freedb server does not accept requests from OpenTag (it answered “{message}”). gnudb only answers applications its operator has registered. Choose another CDDB server in Options → Tag Sources → freedb, or use a local freedb folder."
+            "The freedb server does not accept requests from OpenTag (it answered “{value}”). gnudb only answers applications its operator has registered. Choose another CDDB server in Options → Tag Sources → freedb, or use a local freedb folder."
         );
     }
     match code {
         409 => "The freedb server rejected the handshake. Enter your email address in Options → Tag Sources → freedb.".into(),
         403 => "The freedb entry is damaged on the server.".into(),
-        _ => format!("The freedb server answered: {code} {message}"),
+        _ => format!("The freedb server answered: {code} {value}"),
     }
 }
 
@@ -721,6 +721,16 @@ fn windows_entry(text: &str, disc_id: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn server_errors_keep_remote_reply_text_as_data() {
+        assert_eq!(
+            server_error(400, "Help"),
+            "The freedb server answered: 400 Help"
+        );
+        let reply = "unknown application: Help  Title";
+        assert!(server_error(400, reply).contains(&format!("“{reply}”")));
+    }
 
     const ENTRY: &str = include_str!("fixtures/freedb-entry.xmcd");
 

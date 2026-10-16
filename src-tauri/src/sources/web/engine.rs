@@ -31,7 +31,13 @@ impl fmt::Display for ScriptError {
         if self.line == 0 {
             write!(f, "{}", self.message)
         } else {
-            write!(f, "line {} ({}): {}", self.line, self.command, self.message)
+            write!(
+                f,
+                "line {line} ({text}): {error}",
+                line = self.line,
+                text = self.command,
+                error = self.message
+            )
         }
     }
 }
@@ -212,7 +218,11 @@ impl Script {
             };
             if args.len() < *min || args.len() > *max {
                 return Err(fail(if min == max {
-                    format!("{name} takes {min} parameter{}", plural(*min))
+                    if *min == 1 {
+                        format!("{name} takes {min} parameter")
+                    } else {
+                        format!("{name} takes {min} parameters")
+                    }
                 } else {
                     format!("{name} takes {min} to {max} parameters")
                 }));
@@ -291,22 +301,14 @@ impl Script {
         }
         if let Some(&open) = blocks.last() {
             let command = &commands[open];
-            let missing = match command.name.as_str() {
+            let name = match command.name.as_str() {
                 "do" => "While",
                 "json_foreach" | "json_foreach_reverse" => "json_foreach_end",
                 _ => "Endif",
             };
-            return Err(unbalanced(command, &format!("this block has no {missing}")));
+            return Err(unbalanced(command, &format!("this block has no {name}")));
         }
         Ok(Script { commands })
-    }
-}
-
-fn plural(count: usize) -> &'static str {
-    if count == 1 {
-        ""
-    } else {
-        "s"
     }
 }
 
@@ -1395,6 +1397,23 @@ mod tests {
         run(&script(text), input, &Environment::default())
             .result
             .unwrap_err()
+    }
+
+    #[test]
+    fn wrapped_compile_errors_keep_source_text_and_complete_message_frames() {
+        for (text, message) in [
+            ("Help", "Help is not a known command"),
+            ("GotoChar", "GotoChar takes 1 parameter"),
+            ("SayRest x", "SayRest takes 0 parameters"),
+            ("FindLine", "FindLine takes 1 to 3 parameters"),
+            ("Else", "Else without If"),
+            ("If \"Help\"", "this block has no Endif"),
+        ] {
+            let error = Script::compile(&[(17, text.into())]).unwrap_err();
+            assert_eq!(error.command, text);
+            assert_eq!(error.message, message);
+            assert_eq!(error.to_string(), format!("line 17 ({text}): {message}"));
+        }
     }
 
     #[test]

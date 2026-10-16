@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile, readdir} from 'node:fs/promises';
 import ts from 'typescript';
-import {extract, extractFile, englishCatalog, extractFrozen, extractBackend} from '../scripts/i18n-extract.mjs';
+import {extract, extractFile, englishCatalog, extractFrozen, extractBackend, extractBackendSource} from '../scripts/i18n-extract.mjs';
 const load=async file=>{
   const source=await readFile(new URL(`../src/${file}`,import.meta.url),'utf8');
   const js=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
@@ -252,6 +252,31 @@ test('the language follows the choice, then the system languages by region and b
 test('the backend catalog keys follow the current merged Rust error producers',async()=>{
   const stored=JSON.parse(await readFile(new URL('../src/i18n/backend-keys.json',import.meta.url),'utf8'));
   assert.deepEqual(stored,extractBackend(),'Run node scripts/i18n-extract.mjs --backend, then translate the new keys in every catalog.');
+});
+test('backend extraction follows actual local error factories without collecting raw data or pass-through adapters',()=>{
+  const source=`
+    fn label() -> String { "An unrelated display label".into() }
+    fn external(error: IoError) -> String { error.to_string() }
+    fn invalid(what: &str) -> String { format!("Invalid media file: {what}") }
+    fn fail(error: String) -> Vec<FileError> { let path="Another private raw path".to_string(); vec![FileError { path: "A private raw path".to_owned(), error }] }
+    fn run() {
+      let failed = || "Verification failed; original preserved".to_string();
+      let frame = |message: String| ScriptError { command: "A raw source command".into(), message };
+      Err(fail(/* "A quoted comment is not a message" */ "Destination is not a folder".into()));
+      Err(fail(format!("Cannot inspect destination: {value}", "A raw format argument")));
+      Err(invalid("bad sample header"));
+      Err(failed()); Err(frame("Unknown script instruction".into()));
+      value.map_err(external);
+    }
+    impl fmt::Display for ScriptError { fn fmt(&self, f: &mut Formatter) { write!(f,"line {line} ({text}): {error}",line=self.line,text=self.command,error=self.message); } }
+    // Err("A commented-out error should not appear".into());
+    #[cfg(test)] mod tests { fn hidden() { Err("A test-only error should not appear".into()); } }
+  `;
+  assert.deepEqual(extractBackendSource(source),['Cannot inspect destination: {value}','Destination is not a folder','Invalid media file: {what}','Unknown script instruction','Verification failed; original preserved','bad sample header','line {line} ({text}): {error}'].sort());
+});
+test('production destination and sibling wrapped error messages are part of the backend snapshot',()=>{
+  const actual=extractBackend();
+  for(const key of ['The destination is not a folder','Cannot open the destination folder: {e}','Library database: {e}','ASF {location} object limits exceeded','Invalid DSF file: {what}','Invalid Matroska file: {what}','The MP4 structure cannot be rewritten safely: {what}','Invalid {value} file: {what}','The optimized FLAC file did not verify; the original file was kept','The rewritten MP4 file did not verify; the original file was kept','Invalid chapter {value}: use HH:MM:SS.mmm followed by the title','{name} is stored once for {filename}, not per chapter; give its chapter rows the same value','The downloaded cover is not a supported image.','{name} did not respond in time. Check your connection and try again.','The freedb server answered: {code} {value}','{name} is not a known command','{name} takes {min} parameter','{name} takes {min} parameters','this block has no {name}','line {line} ({text}): {error}'])assert.ok(actual.includes(key),key);
 });
 test('extraction keeps scalar names and text joins while splitting actual HTML helpers and arrays',()=>{
   const keys=new Set(),collect=text=>extractFile('fixture.ts',text,key=>keys.add(key));
