@@ -581,3 +581,54 @@ in `reviews/library-values-independent-review.json`. Full canonical
 semantic coverage, the remaining32 drafts and actual publication still
 require further work. This local batch awaits its own independent review,
 then eventual source reconciliation, final-head CODE and trusted CI.
+
+
+## Local learning-workflow checkpoint
+
+Three more source-grounded tutorials complete the local learning sequence
+for tags from filenames, a bounded album cleanup and per-album cover art.
+The local milestone is158 authored pages and29drafts, while the verified
+public site remains137. All prior155navigation entries retain their order;
+search/navigation contain exactly158routes and1321sections without draft
+HTML, search or navigation leakage. These counts do not prove canonical
+semantic completion, and21completed local chapters remain unpublished.
+
+The filename tutorial teaches matching versus meaning, trailing folder
+levels, literal separators, discarded values and a Deluxe-name miscapture
+before relating that extraction to Guess Values in an existing tag. The
+cleanup tutorial surveys a copied album, filters absent Album Artist,
+builds six explicit ordered actions and verifies retained metadata before
+separately staging/saving track numbers and applying a reviewed rename.
+The cover tutorial distinguishes embedded pictures from sidecars, clears
+hidden selections, imports each album's own image, avoids accidental repeat
+imports and separates all-cover resizing from selective Manage covers plans.
+The online covers-only route is source-grounded; no live provider success
+or player compatibility is inferred from the local examples.
+
+Seven focused actual-core tests execute the written patterns, table rows
+and controls under LF/CRLF Markdown, including temporary MP3 files with
+different images per album. They verify that embedded artwork changes while
+audio bytes and source images remain intact, plus count filters and actual
+resize dimensions/no-op decisions. Thirty-four existing action/cover/column/
+numbering models,16source-routing/matching models, eight publication tests, strict build, focused new-test
+Clippy, formatting and whitespace checks pass. The narrow test target uses
+application/dependency/workflow source byte-identical to main325; it does
+not reuse the altered17–20 native binaries or claim a fullworkspace matrix.
+
+Ten generated-doc browser checks cover palettes, the Deluxe counterexample,
+actual Guess Values navigation, all seven/eight/eight lesson stages,390px
+bounds/tables, the horizontally scrollable six-action table, the copyable
+cover filter and actual search navigation. Visual inspection prompted use
+of the existing native-mapping-table wrapper so regexes and field identifiers
+stay intact when the table scrolls on a narrow screen. No CSS/app change was
+needed. A numeric-heading CSS selector and a programmatic-focus search
+interaction were corrected in the isolated test harness before the final
+clean run; failures are retained alongside the local browser receipt.
+Owned temporary browser profiles and the HTTP server are closed.
+
+The ledger `learn-workflows-2026-10-16.json` records source/page/test and
+binary hashes, canonical topic pointers, commands, outputs and limits.
+The preceding finite clean text-exchange peer and root visual receipts are
+retained unchanged under `reviews/`. This trio awaits its own independent
+review; publication still requires later source reconciliation, exact
+final-head CODE and trusted CI. Original deferred P2/REA work is untouched.

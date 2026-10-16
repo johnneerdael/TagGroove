@@ -144,6 +144,9 @@ nav:
 - Learn:
   - Tutorials:
     - Your first tagging session: learn/first-tagging-session.md
+    - Get tags from filenames: learn/tags-from-filenames.md
+    - Clean up a messy library: learn/clean-a-messy-library.md
+    - Give every album a cover: learn/give-every-album-a-cover.md
     - Format strings from zero: learn/format-strings-from-zero.md
     - Rename files and folders: learn/rename-files-and-folders.md
     - Regular expressions from zero: learn/regex-from-zero.md
