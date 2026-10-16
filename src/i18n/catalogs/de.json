@@ -2594,7 +2594,7 @@
  "{name} copy {count}": "{name} - Kopie {count}",
  "{name} could not find this release.": "{name} konnte diese Veröffentlichung nicht finden.",
  "{name} did not respond in time. Check your connection and try again.": "{name} hat nicht rechtzeitig geantwortet. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
- "{name} failed": "{name} fehlgeschlagen",
+ "{operation} failed": "{operation} fehlgeschlagen",
  "{name} is busy. Try again in a moment.": "{name} ist ausgelastet. Versuchen Sie es gleich erneut.",
  "{name} is larger than 4 MB": "{name} ist größer als 4 MB",
  "{name} is not a .src, .inc or .settings file": "{name} ist keine .src-, .inc- oder .settings-Datei",

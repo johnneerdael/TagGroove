@@ -416,6 +416,8 @@ type Invoke = <T>(command:string, args?:Record<string,unknown>) => Promise<T>;
 type TagSourcesHost = {
   /** Structured errors are rendered once and refreshed from their raw payload. */
   webScriptError?:(error:WebScriptError)=>string;
+  /** Format a source-label scaffold once: installed source labels are authored. */
+  sourceMessage?:(key:string,name:string,authored:boolean)=>string;
   onLanguageChange?:(listener:()=>void)=>()=>void;
   invoke:Invoke;files:()=>SourceFile[];reason:()=>string;
   apply:(items:ApplyItem[], cover:ApplyCover|null)=>Promise<void>;
@@ -513,24 +515,34 @@ export class TagSourcesUI {
     dialog.setAttribute('aria-labelledby',titleId);
     document.body.append(dialog);
     const $ = <T extends Element = HTMLElement>(selector:string) => dialog.querySelector<T>(selector)!;
-    const status = (message:string) => { const el = dialog.querySelector('.ts-status'); if (el) el.textContent = message; };
-    let scriptError:WebScriptError|undefined;
-    const refreshScriptError = () => {
-      const p = dialog.querySelector('.dialog-error');
-      if (p && scriptError) p.textContent = (this.host.webScriptError ?? webScriptErrorText)(scriptError);
+    const sourceMessage = (key:string) => this.host.sourceMessage?.(key,name,!!web) ?? key.replace(/\{name\}/g,()=>name);
+    let sourceStatus:string|undefined;
+    const status = (message:string, sourceContext=false) => {
+      sourceStatus = sourceContext ? message : undefined;
+      const el = dialog.querySelector('.ts-status');
+      if (el) {
+        if (sourceContext) el.setAttribute('translate','no'); else el.removeAttribute('translate');
+        el.textContent = sourceContext ? sourceMessage(message) : message;
+      }
     };
-    const stopLanguage = this.host.onLanguageChange?.(refreshScriptError);
-    const error = (message:unknown) => {
+    let scriptError:WebScriptError|undefined, sourceErrorKey:string|undefined;
+    const refreshError = () => {
+      const p = dialog.querySelector('.dialog-error');
+      if (p && sourceErrorKey) p.textContent = sourceMessage(sourceErrorKey);
+      else if (p && scriptError) p.textContent = (this.host.webScriptError ?? webScriptErrorText)(scriptError);
+    };
+    const stopLanguage = this.host.onLanguageChange?.(() => { refreshError(); if (sourceStatus) status(sourceStatus,true); });
+    const error = (message:unknown, sourceContext=false) => {
       const failure = webScriptFailure(message);
       const text = failure ? '' : String(message).replace(/^Error: /,'');
       if (text.startsWith('Cancelled:')) return;
       let p = dialog.querySelector('.dialog-error');
       if (!p) { p = document.createElement('p'); p.className = 'dialog-error'; p.setAttribute('role','alert'); dialog.querySelector('.dialog-content')!.append(p); }
-      scriptError = failure;
-      if (failure) { p.setAttribute('translate','no'); refreshScriptError(); }
+      scriptError = failure; sourceErrorKey = sourceContext ? text : undefined;
+      if (failure || sourceContext) { p.setAttribute('translate','no'); refreshError(); }
       else { p.removeAttribute('translate'); p.textContent = text; }
     };
-    const clearError = () => { scriptError = undefined; dialog.querySelector('.dialog-error')?.remove(); };
+    const clearError = () => { scriptError = undefined; sourceErrorKey = undefined; dialog.querySelector('.dialog-error')?.remove(); };
     const loadImage = async (url:string|null|undefined, image:HTMLImageElement) => {
       const ticket = imageTicket = nextTicket();
       image.hidden = true; image.removeAttribute('src');
@@ -638,7 +650,7 @@ export class TagSourcesUI {
       const values = web!.search_by.map((_,i) => $<HTMLInputElement>(`#ts-web-${i}`).value);
       webValues = values;
       const ticket = searchTicket = nextTicket();
-      status(`Searching ${name}…`);
+      status('Searching {name}…',true);
       try {
         const page = await this.host.invoke<WebSearchPage>('web_source_search',{source:web!.id,values,ticket});
         if (ticket !== searchTicket || !dialog.open) return;
@@ -660,7 +672,8 @@ export class TagSourcesUI {
       const query = more && lastQuery ? {...lastQuery,page:Number(lastQuery.page)+1} : {mode,artist:$<HTMLInputElement>('#ts-artist').value,album:$<HTMLInputElement>('#ts-album').value,text:$<HTMLInputElement>('#ts-text').value,lengths:files.map(f => f.length),page:0};
       if (!more && mode === 'release_id') { await loadRelease(query.text as string); return; }
       const ticket = searchTicket = nextTicket();
-      status(more ? 'Loading more results…' : freedb && mode === 'disc_id' && provider === 'freedb' ? `Searching ${name} in every category…` : `Searching ${name}…`);
+      if (more) status('Loading more results…');
+      else status(freedb && mode === 'disc_id' && provider === 'freedb' ? 'Searching {name} in every category…' : 'Searching {name}…',true);
       if (more) $<HTMLButtonElement>('#ts-more').disabled = true;
       try {
         const found = await this.host.invoke<SearchPage>('tag_source_search',{provider,query,ticket});
@@ -686,7 +699,7 @@ export class TagSourcesUI {
       }
     };
     const loadRelease = async (input:string) => {
-      if (!input.trim()) { error(`Enter a ${name} release ID or address.`); return; }
+      if (!input.trim()) { error('Enter a {name} release ID or address.',true); return; }
       clearError();
       const ticket = releaseTicket = nextTicket();
       working = true; syncSearch(); status('Loading release…');

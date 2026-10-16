@@ -25,7 +25,7 @@ const {customizeToolbar,itemHint,itemLabel,userLabel,visibleItems,isSeparator,is
 const {copyAsTextDialog}=await load('utils-ui.ts'),{PlaylistUI}=await load('playlist-ui.ts'),{openTagToTag}=await load('tag-tag-ui.ts');
 const {offerOpenOutputs,ExportUI}=await load('export-ui.ts');
 const {FileOpsUI,nameList,defaultDirectoryState}=await load('file-ops.ts');
-const {copiedMessage}=await load('tag-clipboard.ts');
+const {copiedMessage,pastePlan,copyTags}=await load('tag-clipboard.ts');
 const {cleanupText,libraryOptionsPage}=await load('library.ts');
 const {mappingOptionsPage}=await load('field-mapping.ts');
 const {sourcePresentation}=await load('document-state.ts');
@@ -546,6 +546,61 @@ test('production backend error frames translate wrapped diagnostics and preserve
       for(const role of ['what','error'])if(role in expected)expected[role]=t.translate(expected[role]);
       p.body.innerHTML=mainTemplate(node=>node.head.text==='<p><strong translate="no">',{e,esc,displayName:path=>path,publicMessage:value=>value});p.translate(locale,catalog);
       assert.equal(p.body.querySelector('strong').textContent,'Help:');assert.equal(p.body.querySelector('p').textContent,`Help: ${t.t(key,expected)}`);
+    }finally{p.close();}
+  }
+});
+test('real Cut/Paste failure statuses translate UI operation names while authored same-spelling names stay raw',()=>{
+  const declaration=parsed.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text==='stageTagUpdates');
+  const js=ts.transpileModule(declaration.getText(parsed),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
+  const statusMarkup=new Function('esc','status','return `'+main.match(/<span class="status-message"[^>]*>[\s\S]*?<\/span>/)[0]+'`;');
+  const custom={'{operation} failed':'Failure: {operation}','Paste tags':'Help','Cut tags':'Title',Help:'Wrong second translation',Title:'Wrong second translation','Copy of {name}':'Duplicate {name}'};
+  const clipboard=copyTags(['Help','Title'].map(name=>({name,fields:{TITLE:[name]},covers:0}))),targets=['A','B','C'].map(path=>({path,fields:{TITLE:['unchanged']}}));
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]])for(const operation of ['Paste tags','Cut tags']){
+    const p=page();try{
+      const t=new Translator(locale,catalog);let renders=0;
+      const stage=new Function('render',`let errors=[],status='';${js};return {run:stageTagUpdates,state:()=>({errors,status})};`)(()=>{renders++;});
+      const plan=operation==='Paste tags'?()=>pastePlan(clipboard,targets):()=>{throw new Error('Select files first.');};
+      stage.run(plan,operation,()=>{throw new Error('Success callback must not run');});
+      const state=stage.state();assert.equal(renders,1);assert.equal(state.status,`${operation} failed`);assert.deepEqual(targets.map(target=>target.fields),targets.map(()=>({TITLE:['unchanged']})));
+      p.body.innerHTML=statusMarkup(esc,state.status);p.translate(locale,catalog);
+      const expected=locale==='de'?`${t.t(operation)} fehlgeschlagen`:locale==='nl'?`${t.t(operation)} mislukt`:`Failure: ${t.t(operation)}`;
+      assert.equal(p.body.textContent,expected);p.translateTree(p.body);assert.equal(p.body.textContent,expected);p.translate('en');assert.equal(p.body.textContent,`${operation} failed`);
+      const context=(e,translator)=>mainTemplate(node=>node.head.text==='<p><strong translate="no">',{e,esc,displayName:path=>path,publicMessage:value=>value,translate:text=>translator.translate(text)});
+      for(const [language,strings] of [[locale,catalog],['en',{}],[locale,catalog]]){
+        const current=new Translator(language,strings);
+        p.body.innerHTML=context(state.errors[0],current)+context({path:operation,error:'Select files first.'},current);p.translate(language,strings);
+        const rows=p.body.querySelectorAll('p');assert.equal(rows[0].querySelector('strong').textContent,current.t(operation)+':');assert.equal(rows[1].querySelector('strong').textContent,operation+':');
+        assert.equal(rows[0].textContent,`${current.t(operation)}: ${current.translate(state.errors[0].error)}`);assert.equal(rows[1].textContent,`${operation}: ${current.t('Select files first.')}`);
+        p.translateTree(p.body);assert.equal(rows[0].querySelector('strong').textContent,current.t(operation)+':');
+      }
+      assert.equal(t.translate(`Copy of ${operation}`),t.t('Copy of {name}',{name:operation}));
+      assert.equal(state.errors[0].path,operation);assert.equal(state.errors[0].error,operation==='Paste tags'?'The clipboard holds tags of 2 files. Select 1 or 2 files to paste them.':'Select files first.');
+    }finally{p.close();}
+  }
+});
+test('real source statuses retain owned label parts and raw authored titles across live languages',async()=>{
+  const custom={'Searching {name}…':'Find {name}','Searching {name} in every category…':'Find {name} in all categories','Enter a {name} release ID or address.':'Enter an address for {name}.','freedb (local)':'Local index','MusicBrainz cover art':'MusicBrainz images','Discogs cover art':'Discogs images','Discogs Release ID':'Discogs lookup','Local index':'Wrong second lookup','MusicBrainz images':'Wrong second lookup',Help:'Wrong authored name'};
+  const cases=[{provider:'local_freedb',name:'freedb (local)'},{provider:'musicbrainz',coversOnly:true,name:'MusicBrainz cover art'},{provider:'discogs',coversOnly:true,name:'Discogs cover art'},{provider:'freedb',every:true,name:'freedb'},{provider:'discogs',releaseId:true,empty:true,name:'Discogs Release ID'},...['Help','freedb (local)','MusicBrainz cover art'].map(name=>({provider:'web',name}))];
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]])for(const request of cases){
+    const p=page();let active=new Translator('en');const listeners=new Set();let finish;
+    try{
+      const host=rendererVariable(parsed,'tagSourcesUI',{TagSourcesUI:class{constructor(host){return host;}},webScriptErrorText,t:(key,params)=>active.t(key,params),translate:text=>active.translate(text),onLanguageChange:listener=>{listeners.add(listener);return()=>listeners.delete(listener);}});
+      Object.assign(host,{files:()=>[],reason:()=>'',options:()=>({}),evaluate:async()=>'',invoke:async name=>{
+        if(name==='tag_source_search'||name==='web_source_search')return await new Promise(resolve=>{finish=resolve;});
+      }});
+      await new TagSourcesUI(host).open(request.provider,{coversOnly:request.coversOnly,releaseId:request.releaseId,web:request.provider==='web'?{id:'fixture',name:request.name,search_by:[]}:undefined});
+      const dialog=p.body.querySelector('dialog');if(request.every){dialog.querySelector('#ts-mode').value='disc_id';dialog.querySelector('#ts-text').value='12345678';}
+      dialog.querySelector('#ts-search').click();await new Promise(resolve=>setTimeout(resolve,0));
+      const key=request.empty?'Enter a {name} release ID or address.':request.every?'Searching {name} in every category…':'Searching {name}…';
+      const element=dialog.querySelector(request.empty?'.dialog-error':'.ts-status');assert.ok(element);assert.equal(element.getAttribute('translate'),'no');
+      for(const [language,strings] of [[locale,catalog],['en',{}],[locale,catalog]]){
+        active=p.translate(language,strings);listeners.forEach(listener=>listener());p.translateTree(dialog);await p.window.happyDOM.waitUntilComplete();
+        const label=request.provider==='web'?request.name:active.translate(request.name);
+        assert.equal(element.textContent,active.t(key,{name:label}));assert.equal(dialog.querySelector('header').textContent,label);
+        assert.equal(dialog.querySelector('[data-close]').textContent,active.t('Cancel'));
+      }
+      if(finish){finish(request.provider==='web'?{direct:false,columns:[],results:[]}:{results:[],total:0});await new Promise(resolve=>setTimeout(resolve,0));assert.equal(dialog.querySelector('.ts-status').hasAttribute('translate'),false);}
+      dialog.close();assert.equal(listeners.size,0);
     }finally{p.close();}
   }
 });

@@ -83,7 +83,10 @@ labels.
 
 Web-source script errors keep the source filename, command and debug-folder
 path unchanged while translating the diagnostic. An open source dialog updates
-that diagnostic when the interface language changes.
+that diagnostic when the interface language changes. Cut/Paste failure labels
+also follow the interface language; filenames in the same error list stay unchanged.
+Search statuses translate built-in local/cover labels while preserving the titles
+of installed web sources.
 
 To contribute a translation, keep its keys and placeholders intact and submit
 it through the repository's pull-request workflow.

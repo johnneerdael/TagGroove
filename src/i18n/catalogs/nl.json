@@ -2581,7 +2581,7 @@
  "{name} copy {count}": "{name} kopie {count}",
  "{name} could not find this release.": "{name} kon deze uitgave niet vinden.",
  "{name} did not respond in time. Check your connection and try again.": "{name} heeft niet op tijd gereageerd. Controleer uw verbinding en probeer het opnieuw.",
- "{name} failed": "{name} mislukt",
+ "{operation} failed": "{operation} mislukt",
  "{name} is busy. Try again in a moment.": "{name} is bezet. Probeer het over een ogenblik opnieuw.",
  "{name} is larger than 4 MB": "{name} is groter dan 4 MB",
  "{name} is not a .src, .inc or .settings file": "{name} is geen .src-, .inc- of .settings-bestand",
