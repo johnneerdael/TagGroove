@@ -1,0 +1,102 @@
+{
+  "base_guide": "d5ebd8ba8045d8536d43c6b75922e052ce63a206",
+  "source_main": "4e4d5fc20b263d094b9861b0169e8a75189fa1cb",
+  "scope": "3 local editing workflow pages; not in PR30; final publication and independent review pending",
+  "canonical": [
+    {
+      "source": "extended-tags",
+      "page": "guides/extended-tags.md",
+      "facts": [
+        "single-file caption and selected-file count",
+        "all exposed fields and cover area",
+        "previous/next by displayedorder",
+        "all4navigation save modes",
+        "text pending Keep changes versus immediate cover commands",
+        "mixed values preserve untouched perfile lists",
+        "field add/remove/rename versus value edits",
+        "individual value controls and multiline textarea",
+        "field identity/duplicate rejection",
+        "cut/copy/paste fields and mixed-copy restriction",
+        "image drag/drop scope and extraction"
+      ]
+    },
+    {
+      "source": "manage-covers",
+      "page": "guides/covers.md",
+      "facts": [
+        "full/partial presence circles and counts",
+        "multi-selection and range selection",
+        "button/Altkey/drag reordering preservesselectedorder",
+        "apply partialcover toall",
+        "replace preservesrole/description/position andmembership",
+        "adjuststages imagechanges untilOK",
+        "type anddescription selectedcovers",
+        "newcover frontrole and unique descriptions",
+        "newcover allfiles versus existingpartial membership",
+        "external extraction beforeOK not canceled",
+        "directcover writes versus managedplan",
+        "nativeclipboard/dragout qualified byplatform"
+      ]
+    },
+    {
+      "source": "menus/cover",
+      "page": "guides/covers.md",
+      "facts": [
+        "saved embedded versus folderpreview versus error/loading",
+        "common/varied coverstate",
+        "directremove displayed versus allvarying",
+        "larger viewer and aspectdisplay",
+        "startfolder and imageformat links"
+      ]
+    },
+    {
+      "source": "customization/file-list",
+      "page": "guides/file-list.md",
+      "scope": "Workflow overview only; customize/columns.md remains draft and its full canonical control audit remains open",
+      "facts": [
+        "columnvalue versus editablefield target",
+        "header/shiftsecondary sort and numeric rules",
+        "unsorted versus lostmanualhistory",
+        "manualrow move/Alt drag/shuffle",
+        "filtered positions preservehiddenrows",
+        "selection andsimilarity activeallcriteria",
+        "F2firsteditablefilename versus delayedcellclick",
+        "cell Enter/Escape/Tab and pendingtag versus immediaterename",
+        "status selected/listed/technicalprops",
+        "removefromlist versus refresh/reload/deletion",
+        "shortcutfocus/platform and automaticdefaults/saveonmove"
+      ]
+    }
+  ],
+  "routing_note": "Canonical manage-list is history management, now routed to reference/menus/context-menus.md in PR30; it is not an audio-file ordering source.",
+  "validation": {
+    "node": "50passed:3new tests execute4writtenmoves,2perfilemixedrename rows and2covermembership rows;47relatedexistingmodeltests",
+    "publication": "8passed",
+    "strict_build": "passed at97localready pages",
+    "writing_plan": "97/187ready,90drafts;3newpagesnotpublished",
+    "diff_check": "passed",
+    "independent_review": "pending",
+    "native_runtime": "notrun; source/model evidence only"
+  },
+  "page_sha256": {
+    "guides/file-list.md": "2b36b84fcf721449593f4621d19fa5a40f629ac51cbe6de86efa75870a4f0e8b",
+    "guides/extended-tags.md": "0a2fef49f39119fb9f2f84a492ac767d9a2c9a7f6f11dd4724748782e8950146",
+    "guides/covers.md": "17fac6b287b0aeb43bb73b98aee7222aa49078d0590d3d6bc3feb3ca4e6f695f"
+  },
+  "source_sha256": {
+    "src/main.ts": "f9c0a56f1eba4f77bc47531a08fcd63427a2b845bc36a784b27da43146309c76",
+    "src/extended-tags.ts": "0da8469a711e78e41cc674abd914ef282f7520c0f735305b54affbc38a9665e8",
+    "src/tag-edits.ts": "d2110f48191ac6e42f6331b94546ab6fc0205ca75ff95b99afe3b31ad84ebf30",
+    "src/covers.ts": "8cc7fc122d978c82492812144f1fe2c917fa58c18672b83e0037393c2d9a9e9d",
+    "src/cover-model.ts": "6965da2e78738f7294ea92212ec22941cd9b85fffa824ed36055c3008ca14ca8",
+    "src/list-behaviour.ts": "d6739b158d1005e7cf9daa7fbb90a5ad8adfba12cdadaf464ae52c6954b1ea33",
+    "src/list-commands.ts": "e98a94bb76673d9ecaa966627c08a5b57f40d7b0ea0f1698f3bdcce16789d720",
+    "src/cell-editor.ts": "890eb181eba8caa32694d4fd707462a60f42fe480d4bd7dcfff6ab0ed3be2322",
+    "src/columns.ts": "feb41073aaa817b1e0de9b192a709e1bd7467f7505e9caf11ed2398051322bea",
+    "src-tauri/src/covers.rs": "bba8c2fa3fe3fd1bb6f0004edb778f0890097161aafb9af5d6f40b25aa2bdd30"
+  },
+  "future_reconciliation": [
+    "Current feature PR17/18/19/20/28 are not assumed merged; compare finalmain before publication.",
+    "Underlying filesystem andformat limits remain source-specific; no all-platform installed qualification claim."
+  ]
+}

@@ -148,6 +148,9 @@ nav:
     - Text encodings and codepages: concepts/text-encodings.md
 - Guides:
   - Everyday editing:
+    - The file list: guides/file-list.md
+    - Extended tags: guides/extended-tags.md
+    - Working with covers: guides/covers.md
     - Filtering the file list: guides/filter.md
 - Automate:
   - Converters:
