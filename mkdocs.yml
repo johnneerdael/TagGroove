@@ -213,7 +213,10 @@ nav:
     - Edit: reference/menus/edit.md
     - View: reference/menus/view.md
     - Convert: reference/menus/convert.md
+    - Actions: reference/menus/actions.md
     - Tag Sources: reference/menus/tag-sources.md
+    - Help: reference/menus/help.md
+    - Context and helper menus: reference/menus/context-menus.md
   - Options:
     - reference/options/index.md
     - General: reference/options/general.md

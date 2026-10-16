@@ -11,10 +11,10 @@ follow the current desktop interface's English labels.
 | [Edit](edit.md) | Undo, tag clipboard, selection, file transfers and deletion |
 | [View](view.md) | Filter, tag panel, columns, sorting, toolbars and layout |
 | [Convert](convert.md) | Generate names or fields from existing data, import text and number tracks |
-| Actions | Saved groups and quick actions; see the [action guide](../../actions/index.md) |
+| [Actions](actions.md) | Saved groups, Quick settings and explicit direct runs |
 | [Tag Sources](tag-sources.md) | Search metadata providers, review results and manage installed sources |
 | Tools | External tools and supported file-format utilities |
-| Help | Documentation, shortcuts, issues, updates, releases and app information |
+| [Help](help.md) | Documentation, shortcuts, issues, updates, releases and app information |
 
 ## Choose the scope first
 
@@ -29,7 +29,8 @@ The linked workflow page identifies that command's write step.
 
 ## Other menus
 
-Right-clicking a file row or the cover area offers commands for that context.
+[Context and helper menus](context-menus.md) explain the commands offered by
+a file row, tag panel, cover window, Extended tags field and helper input.
 The helper button beside a supported format-string or field-name input opens
 a helper menu. **Control+Space** opens the focused input's supported helper.
 These helpers insert syntax or remembered values; they do not apply an action
