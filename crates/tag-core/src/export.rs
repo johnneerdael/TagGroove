@@ -42,6 +42,8 @@ pub struct ExportOptions {
     pub filename: String,
     pub filename_override: Option<String>,
     pub base_directory: String,
+    /// Used unless `$filename` names an encoding. Mp3tag writes ANSI by
+    /// default: UTF-8 and UTF-16 are chosen with `$filename(name,enc)`.
     pub encoding: String,
     pub bom: bool,
     pub partition: Option<String>,
@@ -55,6 +57,9 @@ pub struct ExportOptions {
     pub environment: Option<BTreeMap<String, String>>,
     pub app_directory: Option<String>,
     pub app_data_directory: Option<String>,
+    /// Folder the file list was last changed to (`%_workingdir%`,
+    /// `%_workingpath%`), in the body and the export file name.
+    pub working_directory: Option<String>,
     pub max_output_bytes: usize,
     pub max_steps: usize,
 }
@@ -64,7 +69,7 @@ impl Default for ExportOptions {
             filename: "export.txt".into(),
             filename_override: None,
             base_directory: ".".into(),
-            encoding: "utf-8".into(),
+            encoding: "ansi".into(),
             bom: false,
             partition: None,
             natural_sort: false,
@@ -77,6 +82,7 @@ impl Default for ExportOptions {
             environment: None,
             app_directory: None,
             app_data_directory: None,
+            working_directory: None,
             max_output_bytes: 256 * 1024 * 1024,
             max_steps: 10_000_000,
         }
@@ -594,6 +600,7 @@ impl<'a> Engine<'a> {
         context.environment = self.options.environment.as_ref();
         context.app_directory = self.options.app_directory.as_deref();
         context.app_data_directory = self.options.app_data_directory.as_deref();
+        context.working_directory = self.options.working_directory.as_deref();
         template.evaluate_value_with_context(&context)
     }
     fn render_loop(&self, plan: &LoopPlan) -> Result<ScriptValue, String> {

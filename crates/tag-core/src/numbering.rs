@@ -13,6 +13,10 @@ pub struct NumberingOptions {
     pub track_start: u32,
     pub track_digits: u8,
     pub track_total: Option<u32>,
+    /// Save as the total the last track number before the track counter
+    /// restarts, instead of `track_total`: per folder for Ctrl+Shift+K.
+    #[serde(default)]
+    pub count_track_total: bool,
     pub disc_enabled: bool,
     pub disc_start: u32,
     pub disc_digits: u8,
@@ -29,6 +33,7 @@ impl Default for NumberingOptions {
             track_start: 1,
             track_digits: 2,
             track_total: None,
+            count_track_total: false,
             disc_enabled: false,
             disc_start: 1,
             disc_digits: 1,
@@ -81,7 +86,10 @@ pub fn plan_numbering(
     } else {
         1
     };
-    let mut updates = Vec::with_capacity(items.len());
+    // Track and disc number of each item and the counter run it belongs to,
+    // with the last track number of each run.
+    let mut numbers = Vec::with_capacity(items.len());
+    let mut runs = vec![options.track_start];
     for (index, item) in items.iter().enumerate() {
         if index > 0 {
             let previous = &items[index - 1];
@@ -102,6 +110,7 @@ pub fn plan_numbering(
                     .ok_or("Disc number exceeds the supported range")?;
             }
             track = if reset || (next && options.reset_track_on_next_disc) {
+                runs.push(options.track_start);
                 options.track_start
             } else {
                 track
@@ -109,9 +118,19 @@ pub fn plan_numbering(
                     .ok_or("Track number exceeds the supported range")?
             };
         }
+        *runs.last_mut().unwrap() = track;
+        numbers.push((track, disc, runs.len() - 1));
+    }
+    let mut updates = Vec::with_capacity(items.len());
+    for (item, (track, disc, run)) in items.iter().zip(numbers) {
+        let total = if options.count_track_total {
+            Some(runs[run])
+        } else {
+            options.track_total
+        };
         let mut fields = Fields::from([(
             "TRACK".into(),
-            vec![formatted(track, options.track_digits, options.track_total)],
+            vec![formatted(track, options.track_digits, total)],
         )]);
         if options.disc_enabled {
             fields.insert(

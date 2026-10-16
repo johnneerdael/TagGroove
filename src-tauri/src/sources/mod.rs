@@ -14,6 +14,7 @@ mod model;
 mod musicbrainz;
 pub(crate) mod web;
 
+use crate::evaluation::EvaluationSettings;
 use base64::Engine;
 use http::Channel;
 pub use model::{Provider, SearchPage, SearchQuery, SourceRelease};
@@ -486,8 +487,10 @@ fn apply_one(
 pub async fn tag_source_apply(
     items: Vec<ApplyItem>,
     cover: Option<ApplyCover>,
+    columns: Option<Vec<crate::evaluation::ColumnSpec>>,
 ) -> Result<ScanResult, String> {
     validate_items(&items, cover.is_some())?;
+    let evaluation = crate::evaluation_settings(columns)?;
     let save_as = cover
         .as_ref()
         .and_then(|c| c.save_as.clone())
@@ -505,7 +508,7 @@ pub async fn tag_source_apply(
         preserve: cover.as_ref().is_some_and(|c| c.preserve_existing),
         save_as,
     };
-    crate::io(move || write_import(&items, image.as_ref(), &options)).await
+    crate::io(move || write_import(&items, image.as_ref(), &options, &evaluation)).await
 }
 
 struct ImportCover {
@@ -519,6 +522,7 @@ fn write_import(
     items: &[ApplyItem],
     image: Option<&http::Image>,
     options: &ImportCover,
+    evaluation: &EvaluationSettings,
 ) -> Result<ScanResult, String> {
     let staging = tempfile::tempdir().map_err(|e| e.to_string())?;
     let cover_path = match image {
@@ -547,7 +551,8 @@ fn write_import(
             })
         });
         if let (Some(template), Some(image)) = (&options.save_as, image) {
-            let errors = save_cover_files(&result.entries, template, image, before_write);
+            let errors =
+                save_cover_files(&result.entries, template, image, evaluation, before_write);
             result.errors.extend(errors);
         }
         Ok(result)
@@ -557,10 +562,17 @@ fn write_import(
 /// The file name for a saved cover: the format evaluated on one written file,
 /// reduced to a single safe file name (the extension comes from the image).
 /// `counter` is the file's 1-based position among the written files.
-fn cover_file_name(entry: &AudioEntry, template: &str, counter: usize) -> Result<String, String> {
-    let fields = crate::evaluation::enriched_fields(entry, counter);
+fn cover_file_name(
+    entry: &AudioEntry,
+    template: &str,
+    counter: usize,
+    evaluation: &EvaluationSettings,
+) -> Result<String, String> {
+    // Cover names use the written tags, so pre-import column snapshots are stale.
+    // Keep the operation's captured app folders, clock and separator settings.
+    let technical = crate::evaluation::technical_fields(entry, counter);
     let name =
-        tag_core::evaluate_filename_with_context(template, &tag_core::EvalContext::new(&fields))?;
+        evaluation.evaluate_filename(template, &entry.fields, &technical, &entry.path, false)?;
     let name: String = name
         .chars()
         .map(|c| {
@@ -585,6 +597,7 @@ fn save_cover_files(
     entries: &[AudioEntry],
     template: &str,
     image: &http::Image,
+    evaluation: &EvaluationSettings,
     before_write: &mut dyn FnMut(&Path) -> Result<(), String>,
 ) -> Vec<tag_core::FileError> {
     let mut folders = std::collections::HashSet::new();
@@ -596,7 +609,7 @@ fn save_cover_files(
         if !folders.insert(folder.to_path_buf()) {
             continue;
         }
-        let saved = cover_file_name(entry, template, index + 1).and_then(|name| {
+        let saved = cover_file_name(entry, template, index + 1, evaluation).and_then(|name| {
             let target = folder.join(format!("{name}.{}", image.extension));
             before_write(&target)?;
             write_atomically(&target, &image.bytes)
@@ -785,6 +798,7 @@ mod tests {
                 preserve_existing: false,
                 save_as: None,
             }),
+            None,
         ))
         .unwrap_err();
         assert!(error.contains("not from a supported tag source"));
@@ -806,6 +820,7 @@ mod tests {
         };
         let result = tauri::async_runtime::block_on(tag_source_apply(
             vec![item(&a, "One"), item(&b, "Two")],
+            None,
             None,
         ))
         .unwrap();
@@ -838,16 +853,102 @@ mod tests {
             .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
             .unwrap();
         let image = http::Image::validate(png).unwrap();
-        let errors = save_cover_files(&entries, "%album% cover", &image, &mut |_| Ok(()));
+        let evaluation = crate::evaluation_settings(None).unwrap();
+        let errors = save_cover_files(&entries, "%album% cover", &image, &evaluation, &mut |_| {
+            Ok(())
+        });
         assert!(errors.is_empty(), "{errors:?}");
         assert!(dir.path().join("One_Two cover.png").is_file());
         assert!(!dir.path().join("Ignored cover.png").exists());
         assert!(other.join("Disc_ 2 cover.png").is_file());
-        assert_eq!(cover_file_name(&entries[0], "", 1).unwrap(), "folder");
-        assert_eq!(cover_file_name(&entries[0], "..", 1).unwrap(), "folder");
         assert_eq!(
-            cover_file_name(&entries[1], "cover %_counter%", 2).unwrap(),
+            cover_file_name(&entries[0], "", 1, &evaluation).unwrap(),
+            "folder"
+        );
+        assert_eq!(
+            cover_file_name(&entries[0], "..", 1, &evaluation).unwrap(),
+            "folder"
+        );
+        assert_eq!(
+            cover_file_name(&entries[1], "cover %_counter%", 2, &evaluation).unwrap(),
             "cover 2"
+        );
+        // Column scripting works as in every other format string.
+        assert!(
+            cover_file_name(&entries[2], "$columnValues(,' ')", 1, &evaluation)
+                .unwrap()
+                .contains("Disc_ 2")
+        );
+    }
+
+    #[test]
+    fn saved_cover_names_recompute_custom_columns_after_the_import() {
+        let dir = tempfile::tempdir().unwrap();
+        let audio = dir.path().join("a.wav");
+        wav(&audio);
+        let audio = dunce::canonicalize(audio).unwrap();
+        let path = audio.to_string_lossy().into_owned();
+        apply_one(
+            &audio,
+            &[("ALBUM".into(), vec!["Old Album".into()])].into(),
+            None,
+            false,
+        )
+        .unwrap();
+        let mut png = Vec::new();
+        image::DynamicImage::new_rgb8(2, 2)
+            .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
+            .unwrap();
+        let image = http::Image::validate(png.clone()).unwrap();
+        let items = vec![ApplyItem {
+            path: path.clone(),
+            updates: [("ALBUM".into(), vec!["Fresh Album".into()])].into(),
+        }];
+        let evaluation = crate::evaluation_settings(Some(vec![crate::evaluation::ColumnSpec {
+            name: "Imported column".into(),
+            template: "$upper(%album%)".into(),
+            values: [(path, "STALE SNAPSHOT".into())].into(),
+        }]))
+        .unwrap();
+        let cover = |template: &str| ImportCover {
+            replace: true,
+            preserve: false,
+            save_as: Some(template.into()),
+        };
+        let result = write_import(
+            &items,
+            Some(&image),
+            &cover("$columnNames(,)-$columnValues(,)-%_counter%"),
+            &evaluation,
+        )
+        .unwrap();
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert_eq!(result.entries[0].fields["ALBUM"], ["Fresh Album"]);
+        assert!(
+            !dir.path()
+                .join("Imported column-STALE SNAPSHOT-1.png")
+                .exists(),
+            "cover name must not use the pre-import column snapshot"
+        );
+        let fresh_cover = dir.path().join("Imported column-FRESH ALBUM-1.png");
+        assert!(
+            fresh_cover.is_file(),
+            "cover name must use the imported album value"
+        );
+        assert_eq!(std::fs::read(fresh_cover).unwrap(), png);
+
+        let default_evaluation = crate::evaluation_settings(None).unwrap();
+        let result = write_import(
+            &items,
+            Some(&image),
+            &cover("%album% cover"),
+            &default_evaluation,
+        )
+        .unwrap();
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert_eq!(
+            std::fs::read(dir.path().join("Fresh Album cover.png")).unwrap(),
+            png
         );
     }
 
@@ -882,7 +983,13 @@ mod tests {
             save_as: Some(template.into()),
         };
         let run = |options: &ImportCover| {
-            let result = write_import(&items, Some(&image), options).unwrap();
+            let result = write_import(
+                &items,
+                Some(&image),
+                options,
+                &crate::evaluation_settings(None).unwrap(),
+            )
+            .unwrap();
             assert!(result.errors.is_empty(), "{:?}", result.errors);
         };
         run(&save("%album%"));
