@@ -398,3 +398,27 @@ it verified the source/page hashes, recovery and identity boundaries, focused
 existing history checks and generated navigation/search/HTML exclusion.
 These three pages remain local-only and require actual-main reconciliation
 and a fresh final-head publication review when later integrated.
+
+## Actual 137-page publication and local credit recipes
+
+`publication-137-2026-10-16.json` preserves the actual PR32 Pages/public
+receipt for source `325007c`: successful exact-source deployment, all 137 HTML
+and 19 referenced assets matching the reviewed build, the 137-route/1,116-entry
+search index, and eleven actual public Chrome checks with no observed errors.
+Root independently accepted the final closed-drawer mobile visual and search/
+ten-new-route proof. The first homepage locator assumed a relative attribute;
+observed response/DOM evidence identified Material's absolute-URL normalization,
+and the corrected actual navigation passed. No site/source change was needed.
+Application release/packages remain separate evidence.
+
+Three further local recipes explain a reviewed primary album credit, a strict
+numbered-title prefix and a leading-article sort field. The writing milestone
+is 143 completed / 44 drafts, while the public site remains 137 completed / 50 excluded
+drafts. Five real core tests read thirty-six table rows and eight literal
+filter/formula/pattern blocks under LF/CRLF, including empty/nonmatch/list
+behavior and actual source-preservation boundaries. They caught and corrected
+a local empty-replacement quoting error before any publication. Strict 143,
+eight publication checks and eight bounded generated-doc browser checks pass.
+The credit ledger records source/canonical examples and explicit limits.
+These three recipes, like the prior three Help pages, remain local-only pending source
+queue reconciliation and final-head review/publication.

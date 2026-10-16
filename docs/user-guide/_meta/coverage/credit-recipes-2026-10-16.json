@@ -1,0 +1,108 @@
+{
+  "scope": "Three independently authored local cookbook recipes; no app/P2/dependency/workflow changes, no new PR/push.",
+  "base_checkpoint": "8736ea14dc51d0a5e67e6db7494271588dd9373c",
+  "source_main": "325007c47bef4ee53a4aa9b086038157ee3e62dc",
+  "app_code_unchanged_from_previous_3f": true,
+  "writing_checkpoint": {
+    "ready": 143,
+    "drafts": 44,
+    "plan": 187,
+    "published_ready": 137,
+    "published_excluded_drafts": 50,
+    "qualification": "Six post-publication local pages include Help3 and credit/title/sort3. Counts are authoring milestones, not full canonical semantic coverage."
+  },
+  "canonical_source_pointers": [
+    {
+      "url": "https://docs.mp3tag.de/actions/replace-regexp/",
+      "sha256": "fb1f70b4f6e24658311f66b0ba2bbbda417b74d09081bd0c3957d891194f921c"
+    },
+    {
+      "url": "https://docs.mp3tag.de/filter/",
+      "sha256": "65775e4aba586090abf1af898c5aae82ddefffb3cc3de57b35c824b5f375bbcc"
+    },
+    {
+      "url": "https://docs.mp3tag.de/getting-started/first-steps/",
+      "sha256": "70f97827e17a465f263dbe6ec9f656056ccfbb84e96b9a34ebc505a859414dff"
+    },
+    {
+      "url": "https://docs.mp3tag.de/scripting/",
+      "sha256": "9296fcbcfc59338bc44f44765c8b766f30c61601f3fd124ffa65c9559fb575b0"
+    }
+  ],
+  "canonical_semantic_mapping": {
+    "First Steps / Copying one field / Scripting conditions and metadata": {
+      "teaching": [
+        "Album-level credit decision before copying; compilation caveat, missing-field selection and hidden selections",
+        "Exact $if2 first-value fallback versus field/list preservation; presence/empty/whitespace distinction",
+        "List-aware $meta_sep with double-backslash separator, conditional split/trim/drop-empty behavior; native storage bounds"
+      ],
+      "limits": "No inference of musical credit, no blanket lossless copy or native/player guarantee."
+    },
+    "First Steps / Replacing text / Regex action": {
+      "teaching": [
+        "Anchored numbered-prefix policy preserving interior numbers/nonmatches; delimiter/spacing/digit-bound decisions",
+        "First-value readonly converter preview then Cancel, versus each-value immediate regex action",
+        "Explicit empty scripting argument, literal apostrophe escape distinction, empty output caution",
+        "Whole-value anchors/horizontal whitespace and newline retention; TRACK and filename unchanged"
+      ],
+      "limits": "Recognized shape does not prove a number is unwanted; native empty-string normalization differs."
+    },
+    "Field copying / Artist sort metadata / Regex captures": {
+      "teaching": [
+        "Keep displayed ARTIST, derive ARTISTSORT only on reviewed missing targets",
+        "First-value collaboration policy and retained original Artist list",
+        "Case-insensitive capture preservation, quoted comma replacement, whole-value/no-linebreak match",
+        "Case-sensitive fourth argument0 examples; album-level sort variation and custom-column/player sorting distinction"
+      ],
+      "limits": "No universal player support, personal surname inference or automatic sorting of each collaborator."
+    }
+  },
+  "page_sha256": {
+    "cookbook/album-artist-from-artist.md": "c4eb8910bda347cd88d2859ac892d2f583f668f914ed8470f5cbc059564bc7e8",
+    "cookbook/strip-track-numbers-from-titles.md": "d8650bbf54f04515736de687c1014dd92ccfebc1b6fc4fbf3976a4dc94059778",
+    "cookbook/the-artist-sort-names.md": "da4c13e8a490f10271b2f44aba32439671ff1028140360242db03080b04d6e08"
+  },
+  "application_source_sha256": {
+    "crates/tag-core/src/actions.rs": "70c80252ff553159f5c7a5563c0cc14ef0ca23f804da8071fd2dac94c97828ac",
+    "crates/tag-core/src/script.rs": "b070a9db9820b53c22f50d43a6986b465e5fce56e86dd7aa835d333c5b385ec0",
+    "crates/tag-core/src/filter.rs": "1a5e77f544bbc1b1c54dc42a1ad1b5f84e77aaac8e5d85aa901b6777048f6bb8",
+    "crates/regex-compat/src/lib.rs": "5567488ef33024c40784d4f18ab3525e1dc14f9dd35d9e4de66e0e7ec608671d",
+    "crates/regex-compat/src/bridge.cpp": "8aa703453a14c72257426f1e4d3efe933c1377a67c3fd6bd80d36a66d470613e",
+    "src/main.ts": "f9c0a56f1eba4f77bc47531a08fcd63427a2b845bc36a784b27da43146309c76",
+    "src/action-ui.ts": "0ab3fd434ac7729218cd8b45293014e3c232b7c1890f2bfdf1d91df5d08e4868",
+    "src-tauri/src/history.rs": "515b8dba35538f964c7502d1fc01c667a9790ce1748d3ab58e99670bc19914a1",
+    "src-tauri/src/evaluation.rs": "bc66c581e6ff3826bb0f856ec51ce8d5bdcbfd8ede0880974f27fd94214af6cf"
+  },
+  "test_sha256": "153174bc3785ad5e9cedc865304f093cbd1a1b24e395f2d0494b77104be81cbd",
+  "validation": {
+    "core": "Five focused credit_recipe_guide tests passed:36 written table rows and all8 filter/pattern/formula fences, LF/CRLF page forms, actual compile_filter/evaluate/apply_action_spec, multi-value and unchanged-field/nonmatch/empty cases. Additional actual CRLF metadata preview case preserves the second line. No native file write/UI/player claim.",
+    "package_requirement": "Existing tag-core/regex bridge and serde_json dev configuration only; no new dependencies/features or model replica. No full package/UI matrix repeated for this local additive target.",
+    "checks": "Strict build143, publication8, fmt check, focusedClippy -Dwarnings, gitdiffcheck and app-source byte identity to actual main325 passed.",
+    "generated": {
+      "routes": 143,
+      "entries": 1181,
+      "nav_search_exact": true,
+      "search_sha256": "8ee197e1a83468f12c03921a61edb0d5199586b86dde71b06f341b8c13ba22c8"
+    },
+    "browser": {
+      "receipt": "/tmp/opentag-guide-credit-recipes-browser/results.json",
+      "checks": 8,
+      "errors": 0,
+      "scope": "Actual generated-doc8copycontrols, renderedtables,390px three-page reading, horizontal wheel, light/dark, relatedlink and search; guide owner viewed final samples. No public143/native qualification. Metadata card layout checked4paragraphs per recipe.",
+      "prior_sample": "before-card-layout/ retains pre-layout successful sample; final sample follows paragraph spacing correction."
+    },
+    "caught_local_example_error": "The initial uncommitted preview used two apostrophes for an empty replacement, which actual evaluator returned as a literal apostrophe. Corrected written formula to an empty third argument and explained the distinction; all5 tests then passed. No product/source change or published erroneous recipe."
+  },
+  "public137_receipt": {
+    "path": "publication-137-2026-10-16.json",
+    "sha256": "7e38d7be9888f42472c79c30b8c49850ae0700e1d1086b646406b7b3d27f8c78",
+    "summary": "Actual deployment7117330649/source325 success;137HTML/search1116entries and19assets byte-identical,11publicChromechecks pass. Root independently accepted closed-drawer visual/search/all10newroutes. Application package/release verification separate."
+  },
+  "review": "Local author checkpoint ready for finite independent review; no new GitHub CODE/CI/PR for these3 pages. Preserve source/feature queue gate and reconcile17\u201320 before eventual publication.",
+  "remaining": [
+    "44planned topics remain drafts, including glossary/platform/provider/migration/tutorial/utility families",
+    "Full94canonical-source semantic completeness is unproven; these are scoped original recipes mapped to canonical topics",
+    "Metadata snapshots and model results do not establish all native storage/player behavior",
+    "Source-specific future17\u201320 changes require actual-main reconciliation; original deferredP2/REA work untouched"
+  ]
+}
