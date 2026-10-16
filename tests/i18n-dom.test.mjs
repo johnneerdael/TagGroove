@@ -26,7 +26,7 @@ const {FileOpsUI,nameList,defaultDirectoryState}=await load('file-ops.ts');
 const {copiedMessage}=await load('tag-clipboard.ts');
 const {cleanupText}=await load('library.ts');
 const {sourcePresentation}=await load('document-state.ts');
-const {tagSourcesOptionsPages}=await load('tag-sources.ts');
+const {tagSourcesOptionsPages,TagSourcesUI}=await load('tag-sources.ts');
 const {removeTagParts}=await load('remove-tag.ts');
 const {Messages}=await load('messages.ts');
 const {WebSourcesUI,settingsMarkup,readSettings}=await import(await moduleUrl('web-sources.ts',{"'./action-ui'":JSON.stringify(await moduleUrl('action-ui.ts'))}));
@@ -370,6 +370,34 @@ test('the real language reload retains an active catalog on command failure and 
     assert.equal(p.body.querySelector('select').selectedOptions[0].textContent,'Unavailable: pt-BR (using English)');
     p.body.innerHTML=controlMarkup(controls[0],{pages:{language:{language:'system'}}});assert.equal(p.body.querySelector('select').value,'system');
   }finally{if(storage)Object.defineProperty(globalThis,'localStorage',storage);else delete globalThis.localStorage;p.close();}
+});
+test('source dialogs keep authored accessible names through search and review while built-in labels translate',async()=>{
+  const custom={Help:'Assistance',Title:'Heading','freedb (local)':'Local catalog','MusicBrainz cover art':'MusicBrainz images',Search:'Find',Cancel:'Dismiss',Back:'Previous'};
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]])for(const request of [{provider:'web',name:'Help'},{provider:'web',name:'Title',title:'Help'},{provider:'web',name:'MiXeD < & >'},{provider:'local_freedb',name:'freedb (local)'},{provider:'musicbrainz',name:'MusicBrainz cover art',coversOnly:true}]){
+    const p=page();
+    try{
+      const calls=[],ui=new TagSourcesUI({files:()=>[],reason:()=>'',options:()=>({}),evaluate:async()=>'',invoke:async command=>{
+        calls.push(command);
+        if(command==='web_source_search')return{direct:true,columns:[],results:[{url:'https://example.invalid/release'}]};
+        if(command==='tag_source_search')return{results:[{id:'fixture',artist:'Help',title:'Title',year:'',country:'',label:'',catalog_number:'',format:'',track_count:0,score:0,url:''}],total:1};
+        if(command==='web_source_release'||command==='tag_source_release')return{provider:request.provider,id:'fixture',url:'',artist:'Help',title:'Title',fields:{},tracks:[],covers:[]};
+      }});
+      await ui.open(request.provider,{coversOnly:request.coversOnly,title:request.title,web:request.provider==='web'?{id:'fixture',name:request.name,search_by:[]}:undefined});
+      const dialog=p.body.querySelector('dialog'),name=request.title||request.name,t=p.translate(locale,catalog),expected=request.provider==='web'?name:t.translate(name);
+      if(request.provider==='local_freedb')assert.equal(expected,locale==='de'?'freedb (lokal)':locale==='nl'?'freedb (lokaal)':'Local catalog');
+      const accessibleName=()=>dialog.hasAttribute('aria-labelledby')?p.window.document.getElementById(dialog.getAttribute('aria-labelledby')).textContent:dialog.getAttribute('aria-label');
+      assert.equal(accessibleName(),expected);assert.equal(dialog.querySelector('header').textContent,expected);
+      assert.equal(dialog.querySelector('[data-close]').textContent,t.t('Cancel'));
+      assert.equal(dialog.querySelector('#ts-search').textContent,t.t('Search'));
+      dialog.querySelector('#ts-search').click();await new Promise(resolve=>setTimeout(resolve,0));
+      if(request.provider!=='web'){dialog.querySelector('#ts-next').click();await new Promise(resolve=>setTimeout(resolve,0));}
+      p.translateTree(dialog);
+      assert.deepEqual(calls,request.provider==='web'?['web_source_search','web_source_release']:['tag_source_search','tag_source_release']);assert.equal(accessibleName(),expected);
+      assert.equal(dialog.querySelector('header').textContent,`${expected}: Help – Title`);assert.equal(dialog.querySelector('#ts-back').textContent,t.t('Back'));
+      dialog.querySelector('#ts-back').click();p.translateTree(dialog);assert.equal(accessibleName(),expected);assert.equal(dialog.querySelector('header').textContent,expected);
+      p.translate('en');assert.equal(accessibleName(),name);dialog.close();
+    }finally{p.close();}
+  }
 });
 test('web-source result headers and search labels remain authored while application table/search controls translate',()=>{
   const custom={ARTIST:'Performer',Artist:'Performer',Help:'Assistance',Title:'Name',Search:'Find','Artist + Album':'Performer + Record','Search results':'Found records',Preview:'Inspect','Release artwork':'Release image','More results':'Show more','{length} of {total} shown':'{length} / {total} displayed'};

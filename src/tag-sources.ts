@@ -395,6 +395,7 @@ export function buildApplyItems(release:SourceRelease, slots:(string|null)[], en
 /** Ticket numbers only grow, including across webview reloads, so the backend can drop superseded work. */
 let lastTicket = Date.now()*1000;
 export const nextTicket = () => ++lastTicket;
+let dialogTitleId = 0;
 
 type Invoke = <T>(command:string, args?:Record<string,unknown>) => Promise<T>;
 type TagSourcesHost = {
@@ -489,7 +490,9 @@ export class TagSourcesUI {
     if (web) webValues = await Promise.all(web.search_by.map(field => files[0] ? this.host.evaluate(files[0].path,field.format).catch(() => '') : Promise.resolve('')));
     const dialog = document.createElement('dialog');
     dialog.className = 'tag-source-dialog';
-    dialog.setAttribute('aria-label',name);
+    const titleId = `ts-source-title-${++dialogTitleId}`;
+    const nameMarkup = `<span id="${titleId}" ${web ? 'translate="no"' : ''}>${html(name)}</span>`;
+    dialog.setAttribute('aria-labelledby',titleId);
     document.body.append(dialog);
     const $ = <T extends Element = HTMLElement>(selector:string) => dialog.querySelector<T>(selector)!;
     const status = (message:string) => { const el = dialog.querySelector('.ts-status'); if (el) el.textContent = message; };
@@ -683,7 +686,7 @@ export class TagSourcesUI {
     const renderSearch = (mode?:SearchMode) => {
       release = undefined;
       const searchFields = web ? `<div class="ts-search ts-web-search">${web.search_by.map((field,i) => `<label class="field"><span ${field.default_label?'':'translate="no"'}>${html(field.label)}</span><input id="ts-web-${i}" value="${html(webValues[i] || '')}" autocomplete="off" spellcheck="false"></label>`).join('')}<button id="ts-search" class="ts-search-button">Search</button></div>` : '';
-      dialog.innerHTML = `<header data-verbatim="${html(name)}">${html(name)}</header><div class="dialog-content">
+      dialog.innerHTML = `<header>${nameMarkup}</header><div class="dialog-content">
         ${searchFields}<div class="ts-search ${web ? 'ts-web-unused' : ''} ${modes.length === 1 ? 'ts-single-mode' : ''}"><label class="field" ${modes.length === 1 ? 'hidden' : ''}><span>SEARCH BY</span><select id="ts-mode">${modes.map(([value,label]) => `<option value="${value}">${html(label)}</option>`).join('')}</select></label>
         <div class="field-pair" id="ts-pair"><label class="field"><span>ARTIST</span><input id="ts-artist" value="${html(prefill.artist)}" autocomplete="off" spellcheck="false"></label><label class="field"><span>ALBUM</span><input id="ts-album" value="${html(prefill.album)}" autocomplete="off" spellcheck="false"></label></div>
         <label class="field" id="ts-text-field" hidden><span id="ts-text-label">SEARCH TEXT</span><input id="ts-text" autocomplete="off" spellcheck="false"></label>
@@ -823,7 +826,7 @@ export class TagSourcesUI {
       enabled = coversOnly ? new Set() : new Set(fieldRows(loaded).map(row => row.name).filter(field => !disabled.has(field)));
       const fieldSection = `<section class="ts-field-section" aria-label="Fields"><div class="ts-tools"><strong>Fields</strong><button id="ts-all" title="Enable all fields (Ctrl+E)">All</button><button id="ts-none" title="Disable all fields (Ctrl+D)">None</button></div><div class="ts-field-list">${fieldMarkup()}</div><p class="ts-hint">Values can be changed before saving; separate multiple values with \\\\.</p></section>`;
       const matchSection = `<section class="ts-match-section" aria-label="Track and file matching"><div class="ts-tools"><strong>Tracks and files</strong><label class="ts-track-field">Track column <select id="ts-track-field">${trackFields().map(field => `<option translate="no" ${field === trackField ? 'selected' : ''}>${html(field)}</option>`).join('')}</select></label><button id="ts-rematch">Auto-match</button><button id="ts-order">Selection order</button></div><div class="ts-tools ts-suggest"><strong>Suggest sorting</strong><label class="action-check" title="Pair files with the closest track title; remembered for the next import"><input type="checkbox" id="ts-suggest-title" data-suggest="title" ${suggest === 'title' ? 'checked' : ''}> Title</label><label class="action-check" title="Pair files with the track of the closest length; remembered for the next import"><input type="checkbox" id="ts-suggest-length" data-suggest="length" ${suggest === 'length' ? 'checked' : ''}> Length</label></div><div class="ts-match-area"></div><p class="ts-hint">Drag a file to another track, or use the arrows (Alt+↑/↓, Alt+Page Up/Down).</p></section>`;
-      dialog.innerHTML = `<header translate="no">${html(name)}: ${html(loaded.artist)} – ${html(loaded.title)}</header><div class="dialog-content">
+      dialog.innerHTML = `<header>${nameMarkup}: <span translate="no">${html(loaded.artist)} – ${html(loaded.title)}</span></header><div class="dialog-content">
         <div class="ts-review ${coversOnly ? 'ts-cover-only' : ''}">${coversOnly ? '' : fieldSection}<section class="ts-cover" aria-label="Artwork"></section></div>
         ${coversOnly ? '' : matchSection}
         ${loaded.url ? `<p class="ts-url"><span translate="no">${html(loaded.url)}</span> ${preview(loaded.url)}</p>` : ''}<p class="ts-status" role="status" aria-live="polite"></p></div>

@@ -31,7 +31,7 @@ remain unchanged.
 Status messages translate their application text, including copied/cut-tag
 summaries and saved-cover notices. Paths and field identifiers within those
 messages keep their original spelling. Source locations and names also keep
-their spelling; unavailable-source and empty-location notices translate. The
+their spelling, including web-source dialog names announced by assistive technology; unavailable-source and empty-location notices translate. The
 window title also translates generated location summaries, including desktop
 startup and forwarded launches, when directory display is enabled, while actual paths retain their spelling. Freedb
 server names stay as entered during editing; clearing a name shows the translated

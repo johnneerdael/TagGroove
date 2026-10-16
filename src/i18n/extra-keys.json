@@ -35,5 +35,6 @@
  "{message}: {length} file, {length2} failed, {skipped} didn't match",
  "{message}: {length} files, {length2} failed, {skipped} didn't match",
  "Cleanup cancelled after {plural}; {removalSummary}.",
- "Artist + Album"
+ "Artist + Album",
+ "freedb (local)"
 ]

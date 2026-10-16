@@ -2336,6 +2336,7 @@
  "e.g. windows-1252": "bijv. windows-1252",
  "file manager": "bestandsbeheerder",
  "for all selected files (otherwise only the first selected file)": "voor alle geselecteerde bestanden (anders alleen het eerste geselecteerde bestand)",
+ "freedb (local)": "freedb (lokaal)",
  "freedb disc ID": "freedb-schijf-ID",
  "freedb server": "freedb-server",
  "gnudb only answers applications that its operator has registered. If gnudb refuses OpenTag, use another CDDB server or a local freedb folder.": "gnudb beantwoordt alleen applicaties die de beheerder heeft geregistreerd. Als gnudb OpenTag weigert, gebruik dan een andere CDDB-server of een lokale freedb-map.",
