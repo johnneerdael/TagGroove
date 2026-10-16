@@ -249,3 +249,13 @@ actions, formulas, field inventory and error cases under LF and CRLF.
 These core/source checks do not certify native UI, universal encoding
 recovery or complete container cleanup. The public baseline remains 97
 pages and finite independent review is pending.
+
+## Local foundational tag concepts
+
+`tag-concepts-2026-10-16.json` records three explanation pages, bringing the
+local checkpoint to 121 authored pages and 66 drafts. Three core tests read
+the actual field snapshots, expressions and tag-priority tables under LF and
+CRLF. An independently generated MP3 carries three conflicting tag blocks;
+read options choose the expected title/album without merging or changing
+file bytes. This does not certify other players or every native format.
+The public baseline is still 97 pages, and finite peer review is pending.

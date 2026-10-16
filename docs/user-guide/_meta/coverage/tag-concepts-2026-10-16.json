@@ -1,0 +1,179 @@
+{
+  "scope": "Three local foundational concept pages; no PR or publication.",
+  "base_checkpoint": "4d63d1f98508611906800ca42fd8dad787892c02",
+  "source_main": "dbcd9ce43c64e459c20553f9d14b5d77534847a0",
+  "canonical_source_pointers": [
+    {
+      "url": "https://docs.mp3tag.de/converters/auto-numbering/",
+      "sha256": "2407cf77806ff983cec02927eb7c78965891285d9ea2bcad3ca3b928026df98e"
+    },
+    {
+      "url": "https://docs.mp3tag.de/customization/options/tags/",
+      "sha256": "0ab3f458a057c11882923afa32ca4093b91d400c495e46231fb46393a261541a"
+    },
+    {
+      "url": "https://docs.mp3tag.de/customization/options/tags/mpeg/",
+      "sha256": "8459cfb438c9d1bbe19ee684b93188b13194d86357a0f34a0bc5fa46ba3e6221"
+    },
+    {
+      "url": "https://docs.mp3tag.de/file-formats/",
+      "sha256": "1934e17bdad39d5ad8ec1fd5401663625f5585e7f42b2a41eb96332e72d1a8ad"
+    },
+    {
+      "url": "https://docs.mp3tag.de/format/",
+      "sha256": "ce27f4da8eb9305b439522ce63c5aaebcf510a6e7ea76e54c17b8e373eabf0d1"
+    },
+    {
+      "url": "https://docs.mp3tag.de/mapping-table/",
+      "sha256": "5723424880a496c530117b0babff90832fc5402f88684e6430fa35f6a98938b0"
+    },
+    {
+      "url": "https://docs.mp3tag.de/mapping/",
+      "sha256": "fa5106511c8c508e13c3fa18cc40f90bb36e50daea39148cf5718ac0b2708c42"
+    },
+    {
+      "url": "https://docs.mp3tag.de/scripting/",
+      "sha256": "9296fcbcfc59338bc44f44765c8b766f30c61601f3fd124ffa65c9559fb575b0"
+    }
+  ],
+  "source_usage": "Original pages are topic/syntax checklists; independent conceptual teaching and invented data. General player-cache discussion is a troubleshooting possibility, not an observed player test.",
+  "topics": {
+    "concepts/what-are-tags.md": {
+      "One recording, several descriptions": [
+        "metadata title, filename and player database/cache are separate",
+        "renaming/export/editing do not automatically synchronize every representation"
+      ],
+      "Fields hold values": [
+        "logical name/value/list distinctions; artist versus albumartist",
+        "separate raw metadata and information snapshot, slash string versus list/punctuation"
+      ],
+      "Reading a value is not writing it": [
+        "five actual expressions and first-value versus explicit join",
+        "naming stem calculation not automatic rename, technical info not writable audio transformation"
+      ],
+      "The field name and native storage are different": [
+        "logical names map to native frames/items",
+        "one file can carry conflicting blocks, native capacity limits"
+      ],
+      "Pending edits and saved files": [
+        "panel/ExtendedTags pending versus immediate converters/actions",
+        "operation result/readback/consumer cache investigation and backups"
+      ]
+    },
+    "concepts/tag-formats.md": {
+      "Choose a format by the file, not by its name alone": [
+        "audio codec/container/metadata separation and rawAAC versusMP4 path",
+        "eight-family orientation with exact capability reference; AIFF ID3v2 scope"
+      ],
+      "One MP3 can contain conflicting blocks": [
+        "three independently seeded nativeblocks and four actual read-switch scenarios",
+        "APE thenID3v2 thenID3v1 priority, no cross-block ALBUM merge",
+        "read-only behavior leaves physical file bytes intact; reload after resolving pending edits"
+      ],
+      "Read, Write and Remove are independent decisions": [
+        "display selection versus synchronized write targets versus deletion policy",
+        "ordinarysave canremove unwritten selectedtype; Mpeg/Ape-family versus nativecontainer scopes"
+      ],
+      "Revision, encoding and logical field names": [
+        "MPEGv2.3UTF16 default, v2.4UTF8 and legacyLatin1 tradeoff",
+        "native names DATE/YEAR differ, mapping is not automatic identity"
+      ],
+      "Know what a successful write establishes": [
+        "readable versus writable, opaque preservation limits",
+        "fixture proof not all-format/player/runtime qualification"
+      ]
+    },
+    "concepts/track-and-disc-numbers.md": {
+      "Separate the number from its display": [
+        "single slash values versus multivalue lists/fractions",
+        "five actual expressions; saved track3 versus operationcounter5",
+        "num prefix/padding disc/track filename stem and total loss"
+      ],
+      "Padding is a representation choice": [
+        "numeric metadata canlosezeros, filenames canpad separately",
+        "minimumwidthnottruncation and nonnumeric vinylside caution"
+      ],
+      "Totals and native storage differ by format": [
+        "TRCK/TPOS versusMP4trkn/disk pairs and native totals",
+        "16-bit MP4 constraints/conflicts, custom TRACKTOTAL/DISCTOTAL notuniversalaliases",
+        "native TRACKNUMBER spelling and actual-field inspection"
+      ],
+      "Order files before assigning new numbers": [
+        "sort not metadata write, preview/staging/save lifecycle",
+        "adjacent boundary resets, per-folder finalnumbertotal versus fixedtotal",
+        "disc writing and reset controls independent, no audio inference"
+      ],
+      "Check copies and saved results": [
+        "preview/name not savednativeproof, immediate othercommands contrasted with stagednumbering",
+        "partialoutcomes, recorded desktopundo and originals"
+      ]
+    }
+  },
+  "page_sha256": {
+    "concepts/what-are-tags.md": "f6fbc1f838d4e16c2931c882e1abb3fa8056f3527d261aa9ad7779dcccc610fa",
+    "concepts/tag-formats.md": "f40154250a21d53533241a0a4a2e6a84c3ecdeebb23251a87bdb9c1259923a08",
+    "concepts/track-and-disc-numbers.md": "53d7cb880f7d56cc2770a96af09c8f0ff002aae55c820e675f147a6d460035e3"
+  },
+  "source_sha256": {
+    "crates/tag-core/src/tags.rs": "4e9ab3942b42b9e22b776334d2dd8acb00849eaa7c65c892324ee4879f76f7a5",
+    "crates/tag-core/src/tag_policy.rs": "3a3f246169947687223ed4c126ecec53bc7d826b713e2a50ace6edef78cd8e31",
+    "crates/tag-core/src/preferences.rs": "9477aef27260b9b8057e963e6c3aeed97161a1e440293915e9af9f6a10f4f324",
+    "crates/tag-core/src/mapping.rs": "b36b8c65965547409b30e7e8b755aa5440d9b1a38c29622cc2db4c7ac8f374c7",
+    "crates/tag-core/src/script.rs": "b070a9db9820b53c22f50d43a6986b465e5fce56e86dd7aa835d333c5b385ec0",
+    "crates/tag-core/src/numbering.rs": "71371201b83fb5e10dd163316d8fccecc74a9123a7bd9b7afbbd0de98ca0cdd9",
+    "src-tauri/src/evaluation.rs": "bc66c581e6ff3826bb0f856ec51ce8d5bdcbfd8ede0880974f27fd94214af6cf",
+    "src/numbering-review.ts": "cd7eef712af37b2873ffe6a67008375c89d5e5b0826d039621411a5e84b3bd8e",
+    "src/main.ts": "f9c0a56f1eba4f77bc47531a08fcd63427a2b845bc36a784b27da43146309c76"
+  },
+  "example_contracts": {
+    "tag_basics": "4raw metadata +1information rows and5actualexpressions, raw/enriched maps remain unchanged",
+    "number_concept": "3raw metadata +1operationinformation rows and5actualexpressions",
+    "tag_priority": "3nativeblocks seeded from writtenTITLE/ALBUM table on independentlygenerated MPEGframes;4writtenReadswitch cases assertTITLE/ALBUM, no merge and byte-identical file after reads",
+    "newline_forms": "All written tables execute under normalizedLF andCRLF with literal code values preserved",
+    "new_core_tests": 3
+  },
+  "validation": {
+    "focused_core": "3 passed, 0 failed",
+    "full_core": {
+      "passed": 541,
+      "failed": 0,
+      "ignored": 0
+    },
+    "full_ui": "350 passed, 0 failed",
+    "publication": "8 passed",
+    "strict": "121 completed / 66 drafts strict build passed",
+    "fmt": "passed",
+    "focused_clippy": "passed",
+    "browser": {
+      "scope": "Generated local121-page guide at dbcd9ce plus twenty-four local chapters; no public/native claim",
+      "success": true,
+      "checks": [
+        "Foundational tag explanation renders in light palette",
+        "Actual rendered link navigates basic tags to native formats explanation",
+        "concepts/what-are-tags/ fits390px document with local table scrolling",
+        "concepts/tag-formats/ fits390px document with local table scrolling",
+        "concepts/track-and-disc-numbers/ fits390px document with local table scrolling",
+        "Actual local search finds the conflicting Archive Title example and opens its explanation"
+      ],
+      "errors": [],
+      "profile_removed": true,
+      "receipt": "/tmp/opentag-guide-tag-concepts-browser/results.json",
+      "visual_inspection": "390px read-priority matrix manually viewed; controls/results readable with no document-level overflow"
+    },
+    "independent_review": "pending"
+  },
+  "local_completed_pages": 121,
+  "local_remaining_drafts": 66,
+  "public_baseline": {
+    "completed_pages": 97,
+    "drafts": 90,
+    "source": "dbcd9ce",
+    "twenty_four_local_pages_unpublished": true
+  },
+  "limits": [
+    "Native file proof is limited to the generatedMP3read-priority fixture; no installedUI/player/allformatroundtrip claim.",
+    "Families/concepts and page counts do not establish complete canonicalsemanticcoverage; remainingtopic/placeholder audit stillopen.",
+    "Queue gate held: noPR/push; unmergedlanguage/provider/freedb/webfeatures notassumedcurrent.",
+    "OriginalP2/source/REA changes untouched."
+  ]
+}

@@ -146,6 +146,9 @@ nav:
     - Build your first action group: learn/first-action-group.md
     - Export a CD catalogue: learn/export-a-cd-catalogue.md
   - Concepts:
+    - What tags are: concepts/what-are-tags.md
+    - Tag formats: concepts/tag-formats.md
+    - Track and disc numbers: concepts/track-and-disc-numbers.md
     - Multi-value fields: concepts/multi-value-fields.md
     - Text encodings and codepages: concepts/text-encodings.md
 - Guides:
