@@ -1,0 +1,258 @@
+{
+  "scope": "Four local first-use chapters only; independent prose, source/core/controller and generated-doc browser evidence. No native installation or public publication claim.",
+  "base_checkpoint": "29c37f8477e9b339218a5ed921a80716e1cb79c6",
+  "source_main": "3f6639c6264378bf7059abdb1ab1fb30e4792179",
+  "writing_checkpoint": {
+    "ready": 137,
+    "drafts": 50,
+    "planned_topics": 187,
+    "published_ready": 127,
+    "published_excluded_drafts": 60,
+    "qualification": "Counts describe authored/navigation state, not full semantic coverage or current GitHub approval."
+  },
+  "canonical_source_pointers": [
+    {
+      "url": "https://docs.mp3tag.de/customization/options/directories/",
+      "sha256": "0d3065c684a2bc741766b67f11306dc3c293103be899a6d31a4763e21bd89e3d"
+    },
+    {
+      "url": "https://docs.mp3tag.de/customization/options/files/",
+      "sha256": "52128d61fe45773d2ecbb668e817b23931fe6304e021f531ef88347259245983"
+    },
+    {
+      "url": "https://docs.mp3tag.de/getting-started/first-steps/",
+      "sha256": "70f97827e17a465f263dbe6ec9f656056ccfbb84e96b9a34ebc505a859414dff"
+    },
+    {
+      "url": "https://docs.mp3tag.de/getting-started/installation/",
+      "sha256": "265e5f015646cc14549cc23d1179befa32a3d4c7a40acd6962e609917637dd94"
+    },
+    {
+      "url": "https://docs.mp3tag.de/getting-started/main-window/",
+      "sha256": "648b8ee6826f1aa60354f311f9f38994e86975e26faea2958146e16c49c5a1c7"
+    },
+    {
+      "url": "https://docs.mp3tag.de/getting-started/overview/",
+      "sha256": "0b8d409e3d29c0d94501009d8b468dcccdb98ecbcc5b03d7d84447a05b02aa6b"
+    },
+    {
+      "url": "https://docs.mp3tag.de/menus/file/",
+      "sha256": "2a596a2431a33a542afff57e9a049169320acc5c40313e8cc1c1c2b62799ff40"
+    }
+  ],
+  "canonical_semantic_mapping": {
+    "Overview / Documentation / Design Philosophy": {
+      "covered": [
+        "Reader starting path and desktop versus preview scope",
+        "Fields versus filenames, mixed storage formats and custom-field player limits",
+        "Progression from editing to converters, actions, scripting, regex, export and online lookup reference"
+      ],
+      "limits": "No project philosophy quotation, full parity or native-player qualification; original prose/examples."
+    },
+    "Download and Installation / Download": {
+      "covered": [
+        "Exact v0.2.12 seven platform groups and thirteen runtime assets; architectures; source ZIP distinction",
+        "Per-file SHA256 comparison and official release trust/signing boundaries"
+      ]
+    },
+    "Installation / Standard / Portable / Store": {
+      "covered": [
+        "Actual DMG/app archive, Windows setup, Linux AppImage/DEB/RPM, Android APK and iOS simulator handling",
+        "No v0.2.12 Windows portable or Store package; separate per-user settings identity",
+        "Ad-hoc/not-notarized Mac, unsigned Windows/Linux, signed Android preview and unsigned simulator limits"
+      ],
+      "differences": "Mp3tag installer modes and app locations are not inherited."
+    },
+    "Requirements / Check Installation Mode": {
+      "covered": [
+        "Architecture/release matching; Linux Ubuntu24.04 build/dependencies without older-distro qualification",
+        "Windows Tauri default WebView2 bootstrapper online requirement if missing",
+        "About version and source/access mode; developer tools not end-user prerequisites"
+      ],
+      "unproven": [
+        "Complete minimum-OS/runtime matrix for installed OpenTag",
+        "Native first launch, installer associations, organization/device policy results"
+      ]
+    },
+    "Backup and Restore Configuration": {
+      "covered": [
+        "Actual OpenTag JSON Save/Load configuration commands, included supported saved configuration files, reload/replacement decision",
+        "Pending edits/audio/Discogs token/external source resources excluded; configuration folder lookup; update versus music backup distinction"
+      ],
+      "differences": "Does not copy Mp3tag ZIP restore semantics or portable/Store config paths. No whole-bundle atomic rollback guarantee."
+    },
+    "First Steps / Saving Tags to Files": {
+      "covered": [
+        "One-file copied-album practice edit, pending marker, selected save and re-read",
+        "Keep versus explicit clear, selection autosave preference and configurable discard prompts",
+        "Save failures/partial success, pending discard versus recorded session Undo"
+      ],
+      "existing_deep_pages": [
+        "getting-started/editing-and-saving.md",
+        "learn/first-tagging-session.md",
+        "guides/tag-panel.md"
+      ]
+    },
+    "First Steps / Renaming / Importing names / Replacing text / Copying fields": {
+      "covered": [
+        "Task routing table with immediate converter/action write timing versus pending UI edits",
+        "Calculated expressions require converter/action context; tutorial progression"
+      ],
+      "existing_deep_pages": [
+        "converters/tag-to-filename.md",
+        "converters/filename-to-tag.md",
+        "converters/tag-to-tag.md",
+        "actions/index.md",
+        "learn/format-strings-from-zero.md",
+        "learn/regex-from-zero.md"
+      ],
+      "limits": "This orientation links completed worked lessons rather than duplicating every converter/cleanup example."
+    },
+    "Main Window / File List / Columns / Editing / Sorting / Customization": {
+      "covered": [
+        "Filename versus stored/calculated/technical columns and editable-cell limits",
+        "Loaded/visible/selected/pending separation; exact count producer examples",
+        "Selection before batch writes and deep file-list/column links"
+      ],
+      "existing_deep_pages": [
+        "guides/file-list.md",
+        "customize/columns.md"
+      ],
+      "limits": "Detailed F2/Tab/Shift sorting/manual-order cases remain in mature linked chapters; not re-tested as native UI here."
+    },
+    "Main Window / Tag Panel / Multiple Fields / Editing / Cover / Customization": {
+      "covered": [
+        "Shared versus keep-current selection state, explicit clearing and save timing",
+        "Existing reviewed light/dark screenshot, cover-controls region, customization links",
+        "Wide panel docks/recovery and compact Files/Tags layout"
+      ],
+      "existing_deep_pages": [
+        "guides/tag-panel.md",
+        "guides/covers.md",
+        "concepts/multi-value-fields.md",
+        "customize/tag-panel.md"
+      ],
+      "limits": "No claim of unimplemented matching-cover drag/inspect behavior or new app screenshot capture."
+    },
+    "Main Window / Filter / Status Bar / Menus / Toolbar": {
+      "covered": [
+        "F3 hide clears applied restriction and remembers text for show",
+        "Exact filtering-pending versus complete counts; status/error/unsaved indicators; Dismiss not retry",
+        "Location/menu/toolbars/disabled reasons/appearance and current access mode",
+        "Counts/summary purpose, menu references and optional toolbar placement"
+      ],
+      "limits": "No inherited canonical any-word filter or unconditional autosave claim."
+    },
+    "File opening and directory option topics": {
+      "covered": [
+        "Replace versus append/primary-modifier drop, working-directory distinction, pending-discard decisions",
+        "Recursion/default and folder-only extension restrictions with real scan cases",
+        "Favorites order, first-favorite CtrlM, recent versus back/forward/parent history",
+        "Startup restoration and queued-launch priority; explicit file manager association limits",
+        "Playlist/CUE references, source-specific document access/preview limits"
+      ],
+      "limits": "No universal path-alias/dedup/collision guarantee, no installer association/native document access proof."
+    }
+  },
+  "page_sha256": {
+    "getting-started/index.md": "38bb03427998645f1e36f244f6fc3332471853d29c18788acc05c7be18b91a69",
+    "getting-started/install.md": "6379e815b638be261f0e0ae1b714f9efc9ea51ecba40a8c858ae078da420f30c",
+    "getting-started/opening-files.md": "40f688f1224715a2654057cdbbaae59affe5436de81113a54b220406d4cb7e9e",
+    "getting-started/main-window.md": "9507c6b3d9a3743a861af037ac2b79954a438b84f6e8fe1722dbf2a7b2719ecc"
+  },
+  "application_source_sha256": {
+    "src/main.ts": "f9c0a56f1eba4f77bc47531a08fcd63427a2b845bc36a784b27da43146309c76",
+    "src/file-ops.ts": "9009f23df8f5f290405277dc36d13a235457bf46ff11f163c0fa1b411bdcec75",
+    "src/panel-dock.ts": "8e34696e3bbd44e6c3903165dbb9d7e83d40141b8899a80c56c2e3a1e371534e",
+    "src/options-ui.ts": "f745bbf8d596fdffa51de0c8c02d5180def53eefeef11a690c1805da221c8446",
+    "src/list-behaviour.ts": "d6739b158d1005e7cf9daa7fbb90a5ad8adfba12cdadaf464ae52c6954b1ea33",
+    "src/chapters.ts": "7708526677dd5526ad85e662c6e097cf0888f7df4394fafe8e767aae45db3ffa",
+    "src-tauri/src/file_ops.rs": "badc5a5e34e3aa4017dedfa7abb6100156a8c1207990c250ba1dff474d980352",
+    "src-tauri/src/settings.rs": "756a5a5e847be1cae1107c861b733c100dd014bd33b11e0521d6d40d85bb5c4e",
+    "src-tauri/src/utilities.rs": "404b520370424704d6ecccad37d44c63ab6bd522a30622fe203333d261efca5e",
+    "src-tauri/tauri.conf.json": "bb8dfab22c5e3deb84f9ed6b46aac525ae2eb35bedd005341d6b262dda7176e3",
+    "src-tauri/gen/android/app/build.gradle.kts": "0da3ef527fed088410b911e4ba172c3306bfb209507d479ff20e0403042e57c0",
+    "crates/tag-core/src/tags.rs": "4e9ab3942b42b9e22b776334d2dd8acb00849eaa7c65c892324ee4879f76f7a5",
+    "docs/RELEASING.md": "7d585d16cdb8e69685e4a8bc90d21791ff43a9f3ca70ab15522c39eeffeb6391",
+    "src/list-commands.ts": "e98a94bb76673d9ecaa966627c08a5b57f40d7b0ea0f1698f3bdcce16789d720"
+  },
+  "release_evidence": {
+    "release": "v0.2.12",
+    "source": "3f6639c6264378bf7059abdb1ab1fb30e4792179",
+    "api_receipt": "/tmp/opentag-guide-first-use-release-api.json",
+    "committed_metadata": [
+      "first-use-v0.2.12-release-manifest.json",
+      "first-use-v0.2.12-inspection.json"
+    ],
+    "byte_verified_packages": [
+      "OpenTag-v0.2.12-macos-arm64.app.tar.gz",
+      "OpenTag-v0.2.12-linux-x64.deb"
+    ],
+    "method": "Read-only tar Info.plist and Debian ar/control metadata, hashes/sizes matched manifest. No executable, installer, app or user data run/changed.",
+    "bounds": "Manifest lists all13 packages; our full-byte verification is only two archives. Other13asset verification belongs to root release receipt. Info.plist minimum is metadata, not a qualified OS support promise."
+  },
+  "official_platform_sources": [
+    {
+      "url": "https://support.apple.com/en-us/102445",
+      "used_for": "App-specific trusted-download exception and separate damaged/malware alerts; no global Gatekeeper disable."
+    },
+    {
+      "url": "https://v2.tauri.app/distribute/windows-installer/",
+      "used_for": "Default WebView2 download bootstrapper when runtime absent; actual config does not override."
+    },
+    {
+      "url": "https://docs.appimage.org/introduction/quickstart.html",
+      "used_for": "Executable permission and launch approach; not OpenTag runtime qualification."
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.utility/get-filehash",
+      "used_for": "LiteralPath/SHA256 one-file checksum command."
+    },
+    {
+      "url": "https://support.google.com/android/answer/9457058?hl=en",
+      "used_for": "Downloaded APK/device-policy/Play Protect guidance; no invented uniform settings menu."
+    }
+  ],
+  "validation": {
+    "core": "Full tag-core --locked 560/560; new first_use_guide1 test executes4 written scan cases under LF/CRLF, generated MPEG/WAV and file-byte preservation.",
+    "ui": "Full npm test:ui358/358;3 new tests execute actual FileOpsUI at host seams and AST-extracted production countText on actual written LF/CRLF tables. No DOM/native picker assertion.",
+    "publication": "8/8 publication tests; strict MkDocs; docs-status137/187; final generated route/search inventory recorded separately below.",
+    "format": "cargo fmt check, focused clippy -Dwarnings, git diff --check and app-source byte identity to3f passed.",
+    "test_harness_corrections": [
+      "Initial pending-filter assertion incorrectly concatenated completed visible count; actual countText source proved pending branch omits it. Written pending column added, model3/3/fullUI358passed.",
+      "Initial scan assertion compared canonical output to macOS /var alias temp root; normalize expected root with existing dunce canonicalizer. Focused1/fullcore560passed. No product change."
+    ],
+    "requirements": "Existing pinned MkDocs environment, project TypeScript and current Rust; no new dependencies or preserve_order features; install/checksum command examples not executed as installations.",
+    "generated_inventory": {
+      "ready_nav": 137,
+      "search_routes": 137,
+      "search_entries": 1116,
+      "nav_search_exact": true,
+      "search_sha256": "85f47d0e92947d3b145f7a87c3e8b97a3d4836c933d1d2289b4cf00d421ed56c"
+    },
+    "browser": {
+      "receipt": "/tmp/opentag-guide-first-use-browser/results.json",
+      "checks": 8,
+      "errors": 0,
+      "scope": "Actual generated docs only: starting link, platform tab,3mobile tables/overflow,real horizontal wheel,light/dark,search result. Hidden palette input activated through DOM; not claimed as pointer interaction. First two harness failures retained: assumed tab IDs and attempted hidden input click. Existing app screenshots reused; no native app launch.",
+      "final_visual_adjustment": "Platform table given local48rem inner minimum to avoid narrow squeezed/tall rows; actual horizontal scrolling retained. Latest selection-summary prose row added after sample, source verified."
+    }
+  },
+  "review": {
+    "previous_batch": "reviews/playlist-chapters-independent-review.json preserved unchanged; clean29c finitepeer19 source/core/controller evidence",
+    "this_batch": "Not independently reviewed or GitHub CODE approved yet."
+  },
+  "remaining_gaps": [
+    "50planned topics remain draft; language/provider/freedb/pending-source feature reconciliation before eventual publication",
+    "Detailed platform/help/migration chapters still drafts; this cross-platform start page does not certify them complete",
+    "Whole94canonical-source semantic completeness remains unproven; topic/heading/page counts are not proof",
+    "No installer execution, native UI/device/player/network-provider/OS matrix qualification or REA/P2 work"
+  ],
+  "evidence_files_sha256": {
+    "crates/tag-core/tests/first_use_guide.rs": "4079d6dab476e7bb3338fe3d2886a93d82a9e79556c98f564b57ab08153bca0f",
+    "tests/guide-first-use.test.mjs": "351e01434cb172c2825cf963b3f496969afc59c6b59db68a89b53ee57817c853",
+    "docs/user-guide/_meta/coverage/reviews/playlist-chapters-independent-review.json": "0b60f0813bab208ed49d488295263da0cb92d2faf4b73216ce656964f0597b58",
+    "docs/user-guide/_meta/coverage/first-use-v0.2.12-inspection.json": "d0a7bf6d6c31018e1511e2327ba8ed5bf7aadd58253c46fe20143fe58a33a638",
+    "docs/user-guide/_meta/coverage/first-use-v0.2.12-release-manifest.json": "2858e387ac6679adcabc6223951ac0a44f2611e4cbda2022d1e7d487b76cea4b"
+  }
+}

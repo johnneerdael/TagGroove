@@ -1,0 +1,224 @@
+{
+  "purpose": "Actual expanded127-page guide publication and bounded live browser receipt. No native application or full canonical-completeness claim.",
+  "merged_source": "3f6639c6264378bf7059abdb1ab1fb30e4792179",
+  "approved_pr_head": "206ea1846c514b4c44414d1c63c57e9b7f67730b",
+  "pull_request": 31,
+  "source_review_and_validation": "Root merged only after qualified final-head CODE and full trustedCI38876333300; final merge proof /tmp/opentag-pr31-final-merge-proof.json. Not independently recomputed in this browser pass.",
+  "deployment": {
+    "id": 7115366569,
+    "ref": "main",
+    "source_sha": "3f6639c6264378bf7059abdb1ab1fb30e4792179",
+    "environment": "github-pages",
+    "state": "success",
+    "completed_at": "2026-10-16T09:15:45Z",
+    "environment_url": "https://johnneerdael.github.io/opentag/",
+    "job_url": "https://github.com/johnneerdael/opentag/actions/runs/38879065899/job/116901507621",
+    "verification": "Independently read deployment record and statuses through GitHubAPI during this pass."
+  },
+  "published_ready_pages": 127,
+  "remaining_drafts": 60,
+  "live_browser": {
+    "scope": "Actual public127-page guide browser QA after root-verified deployment7115366569 for source3f6639c6264378bf7059abdb1ab1fb30e4792179; not native application or fullcanonical qualification",
+    "started_at": "2026-10-16T09:22:31.613Z",
+    "documents": [
+      {
+        "url": "https://johnneerdael.github.io/opentag/cookbook/find-missing-fields/",
+        "status": 200
+      },
+      {
+        "url": "https://johnneerdael.github.io/opentag/",
+        "status": 200
+      }
+    ],
+    "same_origin_http_errors": [],
+    "checks": [
+      "Actual public homepage link opens new foundational tag chapter",
+      "Actual public homepage link opens newly completed inspection recipe",
+      "Missing-field recipe renders in light palette",
+      "Actual public recipe renders in dark palette",
+      "Actual recipe Related link navigates to complete filter workflow",
+      "cookbook/find-missing-fields/ fits390px document with local table scrolling",
+      "Actual horizontal wheel scrolling reveals matching IDs without splitting filter text",
+      "cookbook/find-missing-covers/ fits390px document with local table scrolling",
+      "cookbook/find-low-bitrate/ fits390px document with local table scrolling",
+      "Actual public search finds the positive measured bitrate recipe and opens it",
+      "Actual clipped hit-tested mobile drawer clicks open Cookbook inspection recipe and close drawer"
+    ],
+    "errors": [],
+    "screenshots": [
+      "/tmp/opentag-guide-127-public-browser/desktop-public-tag-concept.png",
+      "/tmp/opentag-guide-127-public-browser/desktop-missing-fields-light.png",
+      "/tmp/opentag-guide-127-public-browser/desktop-missing-fields-dark.png",
+      "/tmp/opentag-guide-127-public-browser/mobile390-missing-fields-table.png",
+      "/tmp/opentag-guide-127-public-browser/mobile390-missing-fields-scrolled-results.png",
+      "/tmp/opentag-guide-127-public-browser/mobile390-missing-covers-table.png",
+      "/tmp/opentag-guide-127-public-browser/mobile390-low-bitrate-table.png",
+      "/tmp/opentag-guide-127-public-browser/desktop-public-search-destination.png",
+      "/tmp/opentag-guide-127-public-browser/mobile390-home.png",
+      "/tmp/opentag-guide-127-public-browser/mobile390-pointer-missing-covers.png"
+    ],
+    "console": [],
+    "failed_requests": [],
+    "prior_attempts": [
+      "attempt1/results.json",
+      "attempt2/results.json"
+    ],
+    "search_index": {
+      "status": 200,
+      "url": "https://johnneerdael.github.io/opentag/search/search_index.json",
+      "sha256": "081182a8c29ae642c60113cdf0897304d2068db1238a2655dc9f10322970df60",
+      "routes": 127,
+      "sections": 1040,
+      "scope": "Same-profile actual public fetch; worker request association not assumed"
+    },
+    "search_before": {
+      "url": "https://johnneerdael.github.io/opentag/cookbook/find-missing-fields/",
+      "globalH1": "ReplayGain and loudness",
+      "mainH1": "Find files with missing fields\u00b6",
+      "headings": [
+        {
+          "text": "ReplayGain and loudness",
+          "class": ""
+        },
+        {
+          "text": "Find files below a bitrate threshold",
+          "class": ""
+        },
+        {
+          "text": "Read disc numbers from CD1 and CD2 folders",
+          "class": ""
+        },
+        {
+          "text": "Customize file-list columns",
+          "class": ""
+        },
+        {
+          "text": "The file list",
+          "class": ""
+        },
+        {
+          "text": "Reference",
+          "class": ""
+        },
+        {
+          "text": "Field names",
+          "class": ""
+        },
+        {
+          "text": "Supported file formats",
+          "class": ""
+        },
+        {
+          "text": "Placeholders",
+          "class": ""
+        },
+        {
+          "text": "Search and compare",
+          "class": ""
+        },
+        {
+          "text": "Find files with missing fields\u00b6",
+          "class": ""
+        }
+      ],
+      "query": "positive measured"
+    },
+    "selected_result": {
+      "href": "https://johnneerdael.github.io/opentag/cookbook/find-low-bitrate/?h=",
+      "text": "Find files below a bitrate threshold"
+    },
+    "search_after": {
+      "url": "https://johnneerdael.github.io/opentag/cookbook/find-low-bitrate/?h=",
+      "globalH1": "ReplayGain and loudness",
+      "mainH1": "Find files below a bitrate threshold\u00b6",
+      "headings": [
+        {
+          "text": "ReplayGain and loudness",
+          "class": ""
+        },
+        {
+          "text": "Find files below a bitrate threshold",
+          "class": ""
+        },
+        {
+          "text": "Read disc numbers from CD1 and CD2 folders",
+          "class": ""
+        },
+        {
+          "text": "Customize file-list columns",
+          "class": ""
+        },
+        {
+          "text": "The file list",
+          "class": ""
+        },
+        {
+          "text": "Reference",
+          "class": ""
+        },
+        {
+          "text": "Field names",
+          "class": ""
+        },
+        {
+          "text": "Supported file formats",
+          "class": ""
+        },
+        {
+          "text": "Placeholders",
+          "class": ""
+        },
+        {
+          "text": "Search and compare",
+          "class": ""
+        },
+        {
+          "text": "Find files below a bitrate threshold\u00b6",
+          "class": ""
+        }
+      ]
+    },
+    "pointer": [
+      {
+        "x": 90.9385986328125,
+        "y": 478,
+        "text": "Cookbook",
+        "for": "__nav_7",
+        "ok": true
+      },
+      {
+        "x": 121,
+        "y": 136,
+        "text": "Inspect your files",
+        "for": "__nav_7_1",
+        "ok": true
+      },
+      {
+        "x": 121,
+        "y": 197,
+        "text": "Find missing embedded covers",
+        "href": "https://johnneerdael.github.io/opentag/cookbook/find-missing-covers/",
+        "ok": true
+      }
+    ],
+    "success": true,
+    "profile_removed": true,
+    "completed_at": "2026-10-16T09:22:35.834Z",
+    "manual_visual_review": "Viewed final390px closed-drawer missing-cover recipe, desktop public search destination and dark missing-field recipe screenshots; readable layout. Earlier query/table and homepage captures retained.",
+    "harness_diagnosis": "Two initial waits used the global first h1, which belongs to the retained search-result panel (ReplayGain), while the actual main article and URL already navigated correctly. Scoped .md-content h1 resolves this; actualbefore/afterDOM evidence is included. No website change or retry of deployment."
+  },
+  "other_http_verification": "Root separately compared all127publicHTML bodies, searchJSON and18same-origin assets with approvedbuild. This receipt independently repeats only bounded browser routes and same-profile searchJSON, not that full HTTP sweep.",
+  "local_unpublished_work": {
+    "folder_recipe_checkpoint": "f26d839c293df48135744cef517e3fcabe925b2f",
+    "new_local_chapters": 3,
+    "local_authored_pages": 130,
+    "local_remaining_drafts": 57,
+    "state": "Separate local-only branch; not included in published127. P3prose correction and finite peer receipt retained."
+  },
+  "limits": [
+    "One existing headlessChrome installation with temporaryisolatedprofile; not everybrowserengine/device/native app.",
+    "Actual URL, DOM, click/search/pointer/scroll/theme andsampledreadability evidence; no player/saveback/runtimeparity proof.",
+    "No site/source/environment changes to resolve initialtimeouts: confirmed globalh1 selectedsearchresultheading; .md-content h1 verifies actualdestination. Original failed harness attempts preserved underbrowser receipt path.",
+    "Complete canonical94page semanticcoverage remainsunproven;60planned topics remain unpublished drafts."
+  ]
+}

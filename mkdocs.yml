@@ -136,6 +136,10 @@ validation:
 nav:
 - Home: index.md
 - Get started:
+  - getting-started/index.md
+  - Download and install: getting-started/install.md
+  - The main window: getting-started/main-window.md
+  - Opening files: getting-started/opening-files.md
   - Editing, saving and undo: getting-started/editing-and-saving.md
 - Learn:
   - Tutorials:
@@ -164,6 +168,7 @@ nav:
     - Removing tags: guides/remove-tags.md
     - Extended tags: guides/extended-tags.md
     - Working with covers: guides/covers.md
+    - Chapters and cue sheets as rows: guides/chapters.md
     - Filtering the file list: guides/filter.md
     - Find text: guides/find.md
   - Customization:
@@ -204,6 +209,7 @@ nav:
     - Export template language: export/template-language.md
     - Template gallery: export/template-gallery.md
     - Export CSV: export/csv.md
+    - Playlists and cue sheets: guides/playlists.md
   - Web sources:
     - Install and use sources: tag-sources/web-sources.md
     - Write a web source: tag-sources/writing-web-sources.md
@@ -266,6 +272,8 @@ nav:
     - Find missing fields: cookbook/find-missing-fields.md
     - Find missing embedded covers: cookbook/find-missing-covers.md
     - Find low bitrates: cookbook/find-low-bitrate.md
+  - Playlists:
+    - One playlist per album folder: cookbook/playlist-per-album.md
   - Cover artwork:
     - Embed each folder image: cookbook/embed-folder-jpg.md
     - Shrink oversized covers: cookbook/resize-covers.md
@@ -281,6 +289,9 @@ nav:
     - Split artist lists: cookbook/split-multiple-artists.md
     - Split Artist - Title credits: cookbook/split-artist-title.md
   - Rename files and folders:
+    - Artist and album folders: cookbook/rename-into-artist-album-folders.md
+    - Keep multi-disc paths distinct: cookbook/rename-multi-disc-albums.md
+    - Keep compilations together: cookbook/rename-compilations.md
     - Zero-padded track numbers in filenames: cookbook/rename-zero-padded-track-numbers.md
   - Fix and tidy tags:
     - Capitalization with exceptions: cookbook/fix-capitalisation.md

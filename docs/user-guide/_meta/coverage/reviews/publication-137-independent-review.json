@@ -1,0 +1,187 @@
+{
+  "reviewer": "PR19 owner, independent finite foundation and cumulative publication peer review",
+  "reviewed_commit": "527d00d832ab076b45f9da2bf7849846f0ff6e46",
+  "actual_main_verified": "3f6639c6264378bf7059abdb1ab1fb30e4792179",
+  "foundation_checkpoint": "60a465a7552a0a91695afa6d8e6810bc30f47098",
+  "worktree": "/Users/jneerdael/Scripts/opentag-worktrees/codex-publish-guide-137",
+  "result": "No actionable findings",
+  "findings": [],
+  "scope": "Four new first-use chapters in full; reuse preserved independent receipts for six folder/playlist/chapter pages; cumulative navigation/home/source/release/draft qualification.",
+  "hash_checks": {
+    "source_hashes": {
+      "crates/tag-core/src/script.rs": true,
+      "src-tauri/src/lib.rs": true,
+      "src-tauri/src/evaluation.rs": true,
+      "src-tauri/src/rename_plan.rs": true,
+      "src/main.ts": true,
+      "src/options-ui.ts": true,
+      "crates/tag-core/src/mapping.rs": true,
+      "crates/tag-core/src/playlist.rs": true,
+      "crates/tag-core/src/cue.rs": true,
+      "crates/tag-core/src/subsongs.rs": true,
+      "crates/tag-core/src/tags.rs": true,
+      "crates/tag-core/src/actions.rs": true,
+      "src/playlist-ui.ts": true,
+      "src/chapters.ts": true,
+      "src/utils-ui.ts": true,
+      "src-tauri/src/playlists.rs": true,
+      "src-tauri/src/settings.rs": true,
+      "src-tauri/src/utilities.rs": true,
+      "src-tauri/src/action_host.rs": true,
+      "crates/tag-core/src/mp4_metadata.rs": true,
+      "src/list-behaviour.ts": true,
+      "src/file-ops.ts": true,
+      "src/panel-dock.ts": true,
+      "src-tauri/src/file_ops.rs": true,
+      "src-tauri/tauri.conf.json": true,
+      "src-tauri/gen/android/app/build.gradle.kts": true,
+      "docs/RELEASING.md": true,
+      "src/list-commands.ts": true
+    },
+    "new_page_hashes": {
+      "cookbook/playlist-per-album.md": true,
+      "cookbook/rename-compilations.md": true,
+      "cookbook/rename-into-artist-album-folders.md": true,
+      "cookbook/rename-multi-disc-albums.md": true,
+      "getting-started/index.md": true,
+      "getting-started/install.md": true,
+      "getting-started/main-window.md": true,
+      "getting-started/opening-files.md": true,
+      "guides/chapters.md": true,
+      "guides/playlists.md": true
+    },
+    "provenance_hashes": {
+      "folder-recipes-2026-10-16.json": true,
+      "playlist-chapters-2026-10-16.json": true,
+      "first-use-2026-10-16.json": true,
+      "first-use-v0.2.12-inspection.json": true,
+      "first-use-v0.2.12-release-manifest.json": true,
+      "reviews/folder-recipes-independent-review.json": true,
+      "reviews/playlist-chapters-independent-review.json": true
+    }
+  },
+  "navigation": {
+    "old_count": 127,
+    "new_count": 137,
+    "all_prior_entries_retained": true,
+    "prior_relative_order_retained": true,
+    "scope": "Additive navigation and homepage links; no replacement of mature guide structure."
+  },
+  "generated_site": {
+    "ready_routes": 137,
+    "search_routes": 137,
+    "search_entries": 1116,
+    "nav_search_exact": true,
+    "draft_topics": 50,
+    "draft_in_nav": 0,
+    "draft_search_routes": 0,
+    "draft_html": 0,
+    "search_sha256": "018c2fb763869ea618c4aee53dbf62a31aebd7abfed3adbafdd71aca8f5caebd",
+    "manifest_hash_matches": true
+  },
+  "release": {
+    "live_latest": "v0.2.12",
+    "published_at": "2026-10-16T09:32:08Z",
+    "source": "3f6639c6264378bf7059abdb1ab1fb30e4792179",
+    "package_assets": 13,
+    "total_assets": 15,
+    "all_recorded_package_names_sizes_digests_match_live": true,
+    "additional_assets": [
+      "SHA256SUMS",
+      "release-manifest.json"
+    ],
+    "read_only_archive_recheck": "Existing macOS arm64 app archive and Linux x64 DEB full hashes/sizes match committed manifest; independently read Info.plist and Debian control metadata and matched committed inspection exactly. No package executable or installer run.",
+    "qualification": "Release wording is explicitly v0.2.12/source3f. Signing, mobile previews, Linux compatibility and downloaded WebView2 default are accurately scoped; no installer/OS/device runtime qualification inferred."
+  },
+  "focused_tests": {
+    "existing_core": {
+      "command": "/tmp/opentag-guide-combined-target/debug/deps/first_use_guide-8d604d29b423aa6b",
+      "sha256": "c262c8ee304fcc8283ec343ac68857f48e5858f33c372aeafacb0d0b38880d69",
+      "passed": 1,
+      "failed": 0,
+      "cases": "Four written folder scan/restriction cases, LF/CRLF, actual generated MPEG/WAV and unchanged file bytes. Exact current opening-files page bytes embedded."
+    },
+    "node": {
+      "command": "node --test tests/guide-first-use.test.mjs",
+      "passed": 3,
+      "failed": 0,
+      "scope": "Actual FileOpsUI replacement/append/startup routes and AST-extracted production countText using current written tables."
+    }
+  },
+  "content_review": [
+    {
+      "page": "getting-started/index.md",
+      "checked": "One-file copied practice path, pending edit versus Save/readback, keep/clear distinction, selection autosave preference, immediate converter/action timing, pending discard versus recorded session Undo.",
+      "evidence": [
+        "src/main.ts save/reload/dirty-state and operation routes",
+        "src/list-behaviour.ts autoSaveTargets",
+        "src/options-ui.ts TAGS_PAGE_DEFAULTS and field labels"
+      ]
+    },
+    {
+      "page": "getting-started/install.md",
+      "checked": "Exact v0.2.12 package names/architectures/signing; one-file checksums; app-specific macOS exception; Windows runtime bootstrapper; Linux dependencies; Android/iOS preview limits; config bundle versus audio backup; updater opens rather than installs.",
+      "evidence": [
+        "Live release metadata and committed manifest",
+        "Read-only existing archive metadata",
+        "src-tauri/tauri.conf.json",
+        "docs/RELEASING.md",
+        "src-tauri/src/utilities.rs:316-403 configuration allowlist/restore",
+        "src/main.ts:1818-1824 bundle prompts/reload"
+      ]
+    },
+    {
+      "page": "getting-started/opening-files.md",
+      "checked": "Replace/append/working-directory difference, folder recursion/default/restriction versus explicit file, count/error inspection, favorites/history and launch-over-startup precedence, proper Ctrl-only shortcuts, ordinary local versus provider limitations.",
+      "evidence": [
+        "src/file-ops.ts:95-118 initialization/launch",
+        "src/file-ops.ts:145-158 loading/history",
+        "src/main.ts:1333-1344 playlist expansion/context",
+        "actual focused core/controller tests"
+      ]
+    },
+    {
+      "page": "getting-started/main-window.md",
+      "checked": "Existing screenshot scope, loaded/visible/selected/pending independence, countText pending/completed branches, filter hiding/reset/restore, selection summary totals, dock/compact/toolbar controls, disabled/error handling and Dismiss semantics.",
+      "evidence": [
+        "src/main.ts:895-957 filter/render/countText",
+        "src/list-commands.ts:65-73 listSummary",
+        "src/panel-dock.ts dock/filter controls",
+        "src/options-ui.ts and runtime access policy"
+      ]
+    }
+  ],
+  "prior_reviews": {
+    "folder_recipes": "Preserved original independent receipt. Single P3 missing-album claim is corrected in current page: empty component or optional year suffix when YEAR present. Exact source/page hashes and final ledger agree.",
+    "playlist_chapters": "Preserved original clean29c independent receipt and all three page hashes match. PR26 Nero/artwork and PR27 safe M3U fallback qualifications retained.",
+    "full_suite_evidence": "Guide owner historical560-core/358-UI receipts are provenance; not rerun in this finite peer check. Current app/config/dependencies/workflows match3f and focused checks above were independently executed."
+  },
+  "official_sources_rechecked": [
+    {
+      "url": "https://support.apple.com/en-us/102445",
+      "fact": "Trusted app-specific Open Anyway procedure after attempted launch; managed/security-alert limits remain qualified."
+    },
+    {
+      "url": "https://v2.tauri.app/distribute/windows-installer/",
+      "fact": "Default downloadBootstrapper runs only when WebView2 absent and requires internet."
+    },
+    {
+      "url": "https://docs.appimage.org/introduction/quickstart.html",
+      "fact": "Make executable and launch; no universal distro qualification."
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.utility/get-filehash?view=powershell-7.5",
+      "fact": "LiteralPath and SHA256 invocation are valid."
+    },
+    {
+      "url": "https://support.google.com/android/answer/9457058?hl=en",
+      "fact": "Outside-store download, Play Protect and device/manufacturer qualification consistent."
+    }
+  ],
+  "limits": [
+    "No source/repository edits, rebuilds, full suites, push, PR, CODE, CI, installer/app/native UI/device/player execution or public137 publication.",
+    "No claim of full canonical semantic completeness, universal path-alias/collision/rollback safety or pending PR17-20 availability.",
+    "Existing browser receipt inspected as provenance; no new browser interaction executed by this reviewer.",
+    "Exact reviewed527 immutable source must still receive final-head GitHub CODE and trustedCI before root merge; successful local site is not publication."
+  ]
+}

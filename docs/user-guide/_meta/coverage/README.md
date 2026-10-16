@@ -295,10 +295,91 @@ Historical local-only milestones above remain provenance, not current approval
 or publication claims. The candidate still requires external review, trusted
 validation, approved merge and actual expanded Pages verification.
 
-## Language integration on the reviewed 127-page guide
+## Local folder-layout recipes after PR31 preparation
 
-PR17 integrates main `3f6639c` once, preserving all thirty PR31 chapters,
+Three local recipes cover artist/album, multi-disc and compilation paths,
+raising authored content to 130 pages with 57 drafts. They remain separate
+from frozen PR31's 127-page source. Four tests execute fourteen written
+primary cases and six variation results under LF/CRLF through actual core
+filename mode and the actual pure host path helper. The host helper is
+extracted into a temporary std-only Rust harness using the existing compiler;
+no Tauri app or real rename/move is run. The ledger records this test-only
+requirement and the narrow limits. Missing first components, relative roots,
+extension retention, write timing and re-nesting are explained explicitly;
+no all-platform collision/alias guarantee is made. The public baseline remains
+97 pages at this checkpoint; PR31 is awaiting its existing trusted CI.
+
+## Actual 127-page publication and local recipe correction
+
+PR31 merged as `3f6639c`; GitHub Pages deployment 7115366569 succeeded for
+that source. `publication-127-2026-10-16.json` records the deployment API
+evidence and actual public Chrome checks: new homepage links, two new
+chapters, search/result navigation, light/dark, sampled 390px tables with
+real horizontal scrolling, and clipped pointer-only nested drawer navigation.
+The same-profile search response matches 127 routes / 1,040 entries and the
+verified public hash. Two initial harness waits selected search-panel
+headings instead of the main article; the receipt retains that diagnosis.
+The public guide has 127 completed pages and 60 drafts remain excluded. The
+three subsequent folder-layout recipes remain local-only (130 authored / 57 drafts).
+Their finite peer receipt is preserved unchanged; its single P3 finding is
+corrected by qualifying a missing album as empty or year-suffix-only.
+
+## Local playlists and chapter-row teaching
+
+One three-page local batch adds a full playlist/CUE guide, a chapter-row
+explanation and a per-album playlist recipe. The local writing checkpoint
+reaches 133 completed pages and 54 drafts; public content remains 127 pages.
+The canonical Playlists page's load/add/save/generator topics map to the
+committed playlist-chapters ledger. Incoming Nero/artwork and safe M3U
+encoding notes are preserved. Six core tests execute written M3U8/PLS/CUE
+text, saved WAV fields, encoding choices, row edits and rejection cases with
+LF/CRLF. Three production controller/model tests use request/control seams,
+including a deterministic clock, to verify scope and row restrictions. The
+real CUE edits change the sheet and retain referenced audio bytes. Broader
+chapter/container/player behavior remains source evidence, not a native UI
+or every-format qualification. Filesystem overwrite/alias risks are bounded
+and original deferred P2 work remains outside this documentation batch.
+
+## Local first-use foundation
+
+Four completed first-use pages add installation, orientation, opening files
+and a beginner starting path, bringing the local writing checkpoint to 137
+completed pages and 50 drafts. Public content remains at 127 pages. The
+previous playlist/chapter peer receipt is preserved unchanged in `reviews/`.
+The first-use ledger separates current v0.2.12 package/source evidence and
+official OS guidance from native installation qualification. Written scan
+examples and loading/count contracts use actual core/controllers; installation
+commands are documentation, not agent-executed installers. Draft platform
+chapters, migration and remaining canonical details remain unfinished.
+
+## Cumulative 137-page publication candidate
+
+The next publication candidate on main `3f6639c` preserves all 127 public
+chapters and adds ten completed pages: three folder-layout recipes, three
+playlist/CUE/chapter pages and four first-use chapters. Fifty planned topics
+remain drafts. The `publication-candidate-137-2026-10-16.json` manifest records
+that final scope, source identity and validation. Original finite six-page
+peer receipts remain unchanged; foundation/cumulative peer review is separate.
+Native installers, mobile save-back and universal filesystem safety remain
+unqualified. Current release facts are explicitly pinned to v0.2.12. This
+is a writing/publication milestone, not complete canonical semantic coverage
+or authorization to describe unmerged PR17–20 features as available. Actual
+publication still requires final-head GitHub CODE review, trusted CI, merge
+and a new live Pages receipt.
+
+The finite independent cumulative peer review at `527d00d` found no actionable
+issue; its original receipt is preserved as
+`reviews/publication-137-independent-review.json`. It checked all four
+foundation pages, reused the prior six-page receipts, matched source/page/
+provenance hashes, independently inspected generated navigation/search/HTML
+and current release metadata, and ran the supplied focused core/model checks.
+Copying that receipt changes only authoring evidence. Final-head GitHub CODE,
+trusted CI and actual publication proof remain separate requirements.
+
+## Language integration on the reviewed 137-page guide
+
+PR17 integrates main `325007c` once, preserving all forty PR31/32 chapters,
 their tests and navigation. Its two implemented Language pages bring the
-combined source to 129 current pages and 58 drafts. The existing guide JSON
+combined source to 139 current pages and 48 drafts. The existing guide JSON
 receipts retain their historical source hashes and counts. This integration
 requires its own exact-head review and trusted validation before publication.
