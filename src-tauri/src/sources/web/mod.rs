@@ -1071,6 +1071,36 @@ mod tests {
     use super::*;
     use std::io::{Read, Write};
 
+    #[test]
+    fn whole_direct_addresses_still_use_the_web_url_policy() {
+        let file = source::load("Direct.src", &|_| {
+            Ok(
+                "[SearchBy]=URL||%www%||%s\n[PreviewUrl]=%s\n[ParserScriptAlbum]=...\nSayRest\n"
+                    .into(),
+            )
+        })
+        .unwrap();
+        for (address, allowed) in [
+            ("https://host.example/release?id=1&view=full#tracks", true),
+            (
+                "https://host.example/a%2Fb/space%20here?q=rock%26roll#part%202",
+                true,
+            ),
+            ("file:///tmp/release", false),
+            ("javascript:alert(1)", false),
+            ("https://user:secret@host.example/release", false),
+        ] {
+            for raw in [
+                file.direct_url(&[address.into()]),
+                file.direct_preview(&[address.into()]).unwrap(),
+            ] {
+                let url = Url::parse(&raw).unwrap();
+                assert_eq!(http::web_allowed(&url), allowed, "{address}");
+                assert_eq!(url.as_str(), address);
+            }
+        }
+    }
+
     fn write(folder: &Path, name: &str, text: &str) {
         std::fs::write(folder.join(name), text).unwrap();
     }

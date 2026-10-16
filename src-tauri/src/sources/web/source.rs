@@ -26,9 +26,8 @@ pub enum Encoding {
     UrlUtf8,
     /// Percent-encoded ISO-8859-1 (`url`).
     Url,
-    /// UTF-8 as typed (`utf-8`), also used when the key is absent: sources
-    /// that search by a stored address (`[SearchBy]=…||%www%||%s`) often
-    /// leave `[Encoding]` out and need `:` and `/` to stay as they are.
+    /// UTF-8 search words with reserved delimiters escaped, used by default.
+    /// Complete-address direct fields bypass word encoding separately.
     #[default]
     Utf8,
     /// ISO-8859-1 as typed (`iso-8859-1`).
@@ -403,8 +402,20 @@ impl SourceFile {
         Self::fill(self.index_url.trim(), &self.query(values))
     }
 
+    /// With no album base, one bare substitution supplies the complete address.
+    /// The caller still parses and validates it through the web URL policy.
+    fn whole_address_field(&self) -> bool {
+        self.direct()
+            && self.album_url.trim().is_empty()
+            && self.search_by.len() == 1
+            && self.search_by[0].template == "%s"
+    }
+
     /// The album page of a source without an index step.
     pub fn direct_url(&self, values: &[String]) -> String {
+        if self.whole_address_field() {
+            return values.first().cloned().unwrap_or_default();
+        }
         Self::fill(self.album_url.trim(), &self.query(values))
     }
 
@@ -412,8 +423,14 @@ impl SourceFile {
     /// of the first search field), if the source has one.
     pub fn direct_preview(&self, values: &[String]) -> Option<String> {
         let template = self.preview_url.trim();
-        let words = self.words(values.first().map(String::as_str).unwrap_or_default());
-        (!template.is_empty()).then(|| Self::fill(template, &words))
+        if template.is_empty() {
+            return None;
+        }
+        let value = values.first().map(String::as_str).unwrap_or_default();
+        if template == "%s" && self.whole_address_field() {
+            return Some(value.to_owned());
+        }
+        Some(Self::fill(template, &self.words(value)))
     }
 
     /// `[IndexFormat]` field names without their percent signs or the spaces
@@ -627,6 +644,61 @@ mod tests {
         );
         assert_eq!(by_url.direct_preview(&[]), None);
         assert_eq!(by_url.index_fields(), ["Title", "_url", "Year", ""]);
+    }
+
+    #[test]
+    fn whole_direct_addresses_keep_queries_fragments_and_existing_escapes() {
+        for encoding in ["", "[Encoding]=url-utf-8\n"] {
+            let definition =
+                format!("[SearchBy]=URL||%www%||%s\n{encoding}[ParserScriptAlbum]=...\nSayRest\n");
+            let source = load("Direct.src", &|_| Ok(definition.clone())).unwrap();
+            for address in [
+                "https://host.example/release?id=1&view=full#tracks",
+                "https://host.example/a%2Fb/space%20here?q=rock%26roll&view=full#part%202",
+            ] {
+                let raw = source.direct_url(&[address.into()]);
+                assert_eq!(raw, address, "a complete address is not a search term");
+            }
+        }
+    }
+
+    #[test]
+    fn direct_preview_reuses_only_an_unambiguous_whole_address() {
+        let address = "https://host.example/a%2Fb?id=1&view=full#tracks";
+        let read = files(&[
+            ("Whole.src", "[SearchBy]=URL||%www%||%s\n[PreviewUrl]=%s\n[ParserScriptAlbum]=...\nSayRest\n"),
+            ("Nested.src", "[SearchBy]=URL||%www%||%s\n[PreviewUrl]=https://preview.example/?url=%s\n[Encoding]=url-utf-8\n[ParserScriptAlbum]=...\nSayRest\n"),
+            ("Id.src", "[AlbumUrl]=https://host.example/release/%s\n[SearchBy]=ID||%id%||%s\n[PreviewUrl]=%s\n[Encoding]=url-utf-8\n[ParserScriptAlbum]=...\nSayRest\n"),
+            ("Many.src", "[SearchBy]=ID||%id%||https://host.example/release/%s||View||%view%||?view=%s\n[Encoding]=url-utf-8\n[ParserScriptAlbum]=...\nSayRest\n"),
+            ("Search.src", "[IndexUrl]=https://host.example/?q=%s\n[SearchBy]=Query||%title%||%s\n[Encoding]=url-utf-8\n[ParserScriptIndex]=...\nSayRest\n[ParserScriptAlbum]=...\nSayRest\n"),
+        ]);
+        assert_eq!(
+            load("Whole.src", &read)
+                .unwrap()
+                .direct_preview(&[address.into()])
+                .as_deref(),
+            Some(address)
+        );
+        assert_eq!(load("Nested.src", &read).unwrap().direct_preview(&[address.into()]).as_deref(), Some("https://preview.example/?url=https%3A%2F%2Fhost.example%2Fa%252Fb%3Fid%3D1%26view%3Dfull%23tracks"));
+        let id = load("Id.src", &read).unwrap();
+        assert_eq!(
+            id.direct_url(&["12&view=full".into()]),
+            "https://host.example/release/12%26view%3Dfull"
+        );
+        assert_eq!(
+            id.direct_preview(&[address.into()]).as_deref(),
+            Some("https%3A%2F%2Fhost.example%2Fa%252Fb%3Fid%3D1%26view%3Dfull%23tracks")
+        );
+        let many = load("Many.src", &read).unwrap();
+        assert_eq!(
+            many.direct_url(&["12&view=full".into(), "x#frag".into()]),
+            "https://host.example/release/12%26view%3Dfull?view=x%23frag"
+        );
+        let search = load("Search.src", &read).unwrap();
+        assert_eq!(
+            search.search_url(&["one & two? #three%".into()]),
+            "https://host.example/?q=one%20%26%20two%3F%20%23three%25"
+        );
     }
 
     #[test]
