@@ -572,7 +572,12 @@ impl Journal {
                 lost += 1;
                 continue;
             };
-            let content = after != captured.fingerprint;
+            // A confirmed staged replacement still needs its snapshot when size
+            // and mtime are preserved and the platform supplies no file identity.
+            let content = after != captured.fingerprint
+                || writes
+                    .get(&captured.path)
+                    .is_some_and(|write| write.count > 0);
             if !content && to == captured.path {
                 discard(&captured.blob);
                 continue;

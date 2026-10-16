@@ -478,6 +478,88 @@ fn grouped_saves_merge_and_unchanged_files_are_not_recorded() {
     assert!(history.state().redo.is_none());
 }
 
+#[test]
+fn same_size_preserved_timestamp_edits_keep_every_undo_and_redo_step() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("same-size.wav");
+    wav(&path);
+    let options = tag_core::TagOptions {
+        preserve_modified_time: true,
+        ..Default::default()
+    };
+    tag_core::write_fields_with_options(&path, &fields(&[("TITLE", &["0"])]), false, &[], &options)
+        .unwrap();
+    let original = fs::read(&path).unwrap();
+    let modified = fs::metadata(&path).unwrap().modified().unwrap();
+    let mut history = journal(dir.path());
+    for index in 1..=3 {
+        let before = fs::read(&path).unwrap();
+        let capture = history.begin(&format!("Save {index}"), None, &[key(&path)]);
+        tag_core::write_fields_with_options(
+            &path,
+            &fields(&[("TITLE", &[&index.to_string()])]),
+            false,
+            &[],
+            &options,
+        )
+        .unwrap();
+        let after = fs::read(&path).unwrap();
+        assert_ne!(after, before, "each save changes the stored title");
+        assert_eq!(after.len(), original.len());
+        assert_eq!(fs::metadata(&path).unwrap().modified().unwrap(), modified);
+        history.commit(capture, &[], &[]);
+        assert_eq!(history.state().undo.unwrap().label, format!("Save {index}"));
+    }
+    let latest = fs::read(&path).unwrap();
+    for index in (1..=3).rev() {
+        assert_eq!(history.state().undo.unwrap().label, format!("Save {index}"));
+        history.undo().unwrap();
+        assert_eq!(
+            read_entry(&path).unwrap().fields["TITLE"],
+            [(index - 1).to_string()]
+        );
+    }
+    assert_eq!(fs::read(&path).unwrap(), original);
+    assert!(history.state().undo.is_none());
+    for index in 1..=3 {
+        assert_eq!(history.state().redo.unwrap().label, format!("Save {index}"));
+        history.redo().unwrap();
+        assert_eq!(
+            read_entry(&path).unwrap().fields["TITLE"],
+            [index.to_string()]
+        );
+    }
+    assert_eq!(fs::read(&path).unwrap(), latest);
+    assert!(history.state().redo.is_none());
+}
+
+#[test]
+fn an_empty_write_request_adds_no_step_and_keeps_redo() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("no-write.wav");
+    wav(&path);
+    fs::File::options()
+        .write(true)
+        .open(&path)
+        .unwrap()
+        .set_modified(std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_500_000_000))
+        .unwrap();
+    let original = fs::read(&path).unwrap();
+    let mut history = journal(dir.path());
+    let capture = history.begin("Changed title", None, &[key(&path)]);
+    write_fields(&path, &fields(&[("TITLE", &["Changed"])])).unwrap();
+    history.commit(capture, &[], &[]);
+    history.undo().unwrap();
+    let capture = history.begin("Empty write", None, &[key(&path)]);
+    write_fields(&path, &Fields::new()).unwrap();
+    history.commit(capture, &[], &[]);
+    assert_eq!(fs::read(&path).unwrap(), original);
+    assert!(history.state().undo.is_none());
+    assert_eq!(history.state().redo.unwrap().label, "Changed title");
+    history.redo().unwrap();
+    assert_eq!(read_entry(&path).unwrap().fields["TITLE"], ["Changed"]);
+}
+
 fn snapshots(dir: &Path) -> usize {
     fs::read_dir(dir.join("journal"))
         .unwrap()
