@@ -146,12 +146,11 @@ fn inline_optional_quote_whitespace_and_numeric_examples_are_literal() {
         evaluate(example, &values).unwrap(),
         "Kofi, the Tidewater Band"
     );
-    for invalid in [
-        "%%",
-        "%title",
-        "%artist%'s best",
-        "$replace(%title%, (Interlude),)",
-    ] {
+    values.insert("TITLE".into(), vec!["Fog Horn (Interlude)".into()]);
+    let nested_literal = "$replace(%title%, (Interlude),)";
+    assert!(FORMAT.contains(nested_literal));
+    assert_eq!(evaluate(nested_literal, &values).unwrap(), "Fog Horn");
+    for invalid in ["%%", "%title", "%artist%'s best"] {
         assert!(FORMAT.contains(invalid));
         assert!(
             evaluate(invalid, &values).is_err(),

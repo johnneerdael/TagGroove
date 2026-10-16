@@ -119,14 +119,17 @@ fn index_extension_builds_the_written_search_row_and_keeps_the_album_parser() {
         .result
         .unwrap();
     assert_eq!(
-        result[""],
+        result[web_engine::DEFAULT_OUTPUT],
         format!("{}\r\n", labelled(TUTORIAL, "Index row").unwrap())
     );
     assert_eq!(
         format!(
             "{}{}",
             file.album_url,
-            result[""].split('|').next().unwrap()
+            result[web_engine::DEFAULT_OUTPUT]
+                .split('|')
+                .next()
+                .unwrap()
         ),
         "http://127.0.0.1:8766/release/harbour.json"
     );

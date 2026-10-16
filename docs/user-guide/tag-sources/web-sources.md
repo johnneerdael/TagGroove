@@ -28,9 +28,10 @@ source before installing another version with the same filenames.
 **Tag Sources → Open sources folder** opens
 `data/sources` inside OpenTag's configuration folder. **File → Open
 configuration folder** is another way to find it. Files can be copied there
-manually; returning focus to OpenTag refreshes the source list. Keep includes
-and schemas in that same folder. An include is a plain filename, not an
-arbitrary path outside the source folder.
+manually; returning focus to OpenTag refreshes the source list. Complete
+script sets can occupy subfolders. Keep companions beside their source;
+include and schema filenames are found there regardless of case, with the
+source root as a fallback. An include cannot name an arbitrary outside path.
 
 Save new source files as UTF-8. Unicode BOMs are recognized; otherwise valid
 UTF-8 is used, with Windows-1252 as the legacy fallback. If characters are

@@ -166,6 +166,8 @@ struct Parser {
     chars: Vec<char>,
     pos: usize,
     functions: BTreeMap<String, (usize, usize)>,
+    /// Whether parentheses in argument text nest (see [`Parser::sequence`]).
+    nesting: bool,
 }
 
 impl Parser {
@@ -175,11 +177,24 @@ impl Parser {
         }
         let mut nodes = Vec::new();
         let mut literal = String::new();
+        // Inside function arguments, parentheses in literal text nest as in
+        // Mp3tag, so `$regexp(%artist%,^(va|v\.a\.)$,Various)` has three
+        // arguments; commas and `)` within them belong to the text. An
+        // escaped `\(` or `\)` is text: it neither nests nor ends the call.
+        let arguments = self.nesting && stops.contains(&')');
+        let mut parentheses = 0usize;
         while let Some(&ch) = self.chars.get(self.pos) {
-            if stops.contains(&ch) {
+            let escaped =
+                arguments && literal.chars().rev().take_while(|c| *c == '\\').count() % 2 == 1;
+            if parentheses == 0 && stops.contains(&ch) && !(escaped && ch == ')') {
                 break;
             }
             if !matches!(ch, '\'' | '%' | '[' | ']' | '$') {
+                if arguments && !escaped && ch == '(' {
+                    parentheses += 1;
+                } else if arguments && !escaped && ch == ')' && parentheses > 0 {
+                    parentheses -= 1;
+                }
                 literal.push(ch);
                 self.pos += 1;
                 continue;
@@ -252,6 +267,14 @@ impl Parser {
                         .iter()
                         .collect::<String>()
                         .to_ascii_lowercase();
+                    // A `$` that does not start a function name is text: the end
+                    // anchor in `^(va)$` or a reference such as `$1` in an
+                    // unquoted regular expression replacement.
+                    if name.is_empty() || name.starts_with(|c: char| c.is_ascii_digit()) {
+                        literal.push('$');
+                        literal.extend(&self.chars[start..self.pos]);
+                        continue;
+                    }
                     if self.chars.get(self.pos) != Some(&'(') {
                         return Err(format!("Expected function call after ${name}"));
                     }
@@ -261,48 +284,20 @@ impl Parser {
                         return Err(format!("Unsupported scripting function: ${name}"));
                     }
                     self.pos += 1;
-                    let mut args = Vec::new();
-                    if self.chars.get(self.pos) == Some(&')') {
-                        self.pos += 1;
-                    } else {
-                        loop {
-                            args.push(self.sequence(&[',', ')'], depth + 1)?);
-                            let maximum = self
-                                .functions
-                                .get(&name)
-                                .map(|(_, maximum)| *maximum)
-                                .unwrap_or_else(|| {
-                                    if ["add", "sub", "mul", "div", "mod"].contains(&name.as_str())
-                                    {
-                                        64
-                                    } else {
-                                        63
-                                    }
-                                });
-                            if args.len() > maximum {
-                                return Err(format!(
-                                    "${name} supports at most {maximum} arguments"
-                                ));
-                            }
-                            match self.chars.get(self.pos) {
-                                Some(',') => self.pos += 1,
-                                Some(')') => {
-                                    self.pos += 1;
-                                    break;
-                                }
-                                _ => return Err(format!("Unterminated function ${name}")),
-                            }
+                    // Text that only parses without nesting (an unbalanced
+                    // `(` in an argument) keeps its earlier meaning.
+                    let open = self.pos;
+                    let node = match self.call(name.clone(), depth) {
+                        Err(_) if self.nesting => {
+                            self.pos = open;
+                            self.nesting = false;
+                            let flat = self.call(name, depth);
+                            self.nesting = true;
+                            flat?
                         }
-                    }
-                    if let Some((minimum, maximum)) = self.functions.get(&name) {
-                        if !(*minimum..=*maximum).contains(&args.len()) {
-                            return Err(format!("${name} expects {minimum}..={maximum} arguments"));
-                        }
-                        nodes.push(Node::Extension(name, args));
-                    } else {
-                        validate_arity(&name, args.len())?;
-                        nodes.push(Node::Function(name, args));
-                    }
+                        result => result?,
+                    };
+                    nodes.push(node);
                 }
                 _ => unreachable!(),
             }
@@ -311,6 +306,48 @@ impl Parser {
             nodes.push(Node::Literal(literal));
         }
         Ok(nodes)
+    }
+
+    /// The arguments and closing parenthesis of `$name(`, as a node.
+    fn call(&mut self, name: String, depth: usize) -> Result<Node, String> {
+        let mut args = Vec::new();
+        if self.chars.get(self.pos) == Some(&')') {
+            self.pos += 1;
+        } else {
+            loop {
+                args.push(self.sequence(&[',', ')'], depth + 1)?);
+                let maximum = self
+                    .functions
+                    .get(&name)
+                    .map(|(_, maximum)| *maximum)
+                    .unwrap_or_else(|| {
+                        if ["add", "sub", "mul", "div", "mod"].contains(&name.as_str()) {
+                            64
+                        } else {
+                            63
+                        }
+                    });
+                if args.len() > maximum {
+                    return Err(format!("${name} supports at most {maximum} arguments"));
+                }
+                match self.chars.get(self.pos) {
+                    Some(',') => self.pos += 1,
+                    Some(')') => {
+                        self.pos += 1;
+                        break;
+                    }
+                    _ => return Err(format!("Unterminated function ${name}")),
+                }
+            }
+        }
+        if let Some((minimum, maximum)) = self.functions.get(&name) {
+            if !(*minimum..=*maximum).contains(&args.len()) {
+                return Err(format!("${name} expects {minimum}..={maximum} arguments"));
+            }
+            return Ok(Node::Extension(name, args));
+        }
+        validate_arity(&name, args.len())?;
+        Ok(Node::Function(name, args))
     }
 }
 
@@ -734,6 +771,7 @@ impl CompiledTemplate {
             chars: template.chars().collect(),
             pos: 0,
             functions: allowed,
+            nesting: true,
         };
         Ok(Self {
             nodes: parser.sequence(&[], 0)?,

@@ -15,6 +15,10 @@ const STEP_LIMIT: usize = 2_000_000;
 const OUTPUT_LIMIT: usize = 16 * 1024 * 1024;
 /// Debug files without an explicit size limit stop growing at this size.
 const DEBUG_LIMIT: usize = 10 * 1024 * 1024;
+/// The output Say commands write to until OutputTo names another; the index
+/// script's results are read from it (published scripts return to it with
+/// `OutputTo "Output"`).
+pub const DEFAULT_OUTPUT: &str = "OUTPUT";
 /// What `$verticalBar()` produces: a pipe that is content rather than the
 /// separator between track values. It becomes `|` once values are split.
 pub const VERTICAL_BAR: char = '\u{E000}';
@@ -134,8 +138,10 @@ const IFS: &[&str] = &[
 ];
 
 /// Split a command line into its name and parameters. Parameters are quoted
-/// strings (`\"` is a quote inside one) or bare words such as numbers; a `#`
-/// outside quotes starts a comment.
+/// strings or bare words such as numbers; a `#` outside quotes starts a
+/// comment. Inside quotes `\"` is a quote and `\\` a backslash; any other
+/// backslash stays, so regular expressions keep `\s` or `\d` (published
+/// scripts write `"\\s*\\(\\d+\\)$"` and `"\s+"` for the same pattern).
 fn tokenize(line: &str) -> Result<(String, Vec<String>), String> {
     let mut chars = line.trim().chars().peekable();
     let mut name = String::new();
@@ -158,9 +164,8 @@ fn tokenize(line: &str) -> Result<(String, Vec<String>), String> {
                 let mut closed = false;
                 while let Some(c) = chars.next() {
                     match c {
-                        '\\' if chars.peek() == Some(&'"') => {
-                            arg.push('"');
-                            chars.next();
+                        '\\' if matches!(chars.peek(), Some('"' | '\\')) => {
+                            arg.extend(chars.next());
                         }
                         '"' => {
                             closed = true;
@@ -329,13 +334,16 @@ pub struct DebugFile {
 }
 
 pub struct Outcome {
-    /// Output buffers by upper-case name; the index script's results are in `""`.
+    /// Output buffers by upper-case name; the index script's results are in
+    /// [`DEFAULT_OUTPUT`].
     pub result: Result<BTreeMap<String, String>, ScriptError>,
     pub files: Vec<DebugFile>,
 }
 
 struct Each {
     items: Vec<Value>,
+    /// Member names when iterating an object; json_foreach_counter emits them.
+    keys: Option<Vec<String>>,
     index: usize,
     /// JSON context depth when the loop started.
     depth: usize,
@@ -343,6 +351,9 @@ struct Each {
 
 struct Json {
     root: Value,
+    /// The text input and cursor when JSON mode started; `json "off"`
+    /// returns to them, so a script can go on reading the page.
+    text: (Vec<String>, usize, usize),
     /// Selected objects and loop elements; the last one is current.
     stack: Vec<Value>,
     loops: Vec<Each>,
@@ -570,7 +581,7 @@ impl<'a> Machine<'a> {
             line: 0,
             pos: 0,
             outputs: BTreeMap::new(),
-            current: String::new(),
+            current: DEFAULT_OUTPUT.into(),
             size: 0,
             trim: true,
             json: None,
@@ -676,6 +687,16 @@ impl<'a> Machine<'a> {
         })
     }
 
+    /// `If ""` and `IfNot ""` test whether the current line has nothing left
+    /// at the cursor (scripts use them on a selected JSON value).
+    fn starts_with(&self, text: &str) -> bool {
+        if text.is_empty() {
+            self.rest().is_empty()
+        } else {
+            self.rest().starts_with(text)
+        }
+    }
+
     fn find_line(&mut self, needle: &str, nth: usize, ignore_case: bool) -> bool {
         let needle_lower = needle.to_lowercase();
         let contains = |text: &str| {
@@ -730,8 +751,8 @@ impl<'a> Machine<'a> {
                 .unwrap_or_default()
         };
         Ok(match command.name.as_str() {
-            "if" | "while" => self.rest().starts_with(args[0].as_str()),
-            "ifnot" => !self.rest().starts_with(args[0].as_str()),
+            "if" | "while" => self.starts_with(&args[0]),
+            "ifnot" => !self.starts_with(&args[0]),
             "ifoutput" => self.output(&args[0]).is_some_and(|v| !v.is_empty()),
             "ifnotoutput" => self.output(&args[0]).is_none_or(|v| v.is_empty()),
             "ifgreater" | "ifless" => {
@@ -819,10 +840,14 @@ impl<'a> Machine<'a> {
                     .transpose()?
                     .unwrap_or(1)
                     .max(1);
-                if !self.find_line(arg(0), nth as usize, command.name == "findlinenocase")
-                    && !flag(&args, 2)
-                {
-                    return Err(format!("\"{}\" was not found", arg(0)));
+                if !self.find_line(arg(0), nth as usize, command.name == "findlinenocase") {
+                    if !flag(&args, 2) {
+                        return Err(format!("\"{}\" was not found", arg(0)));
+                    }
+                    // The search ran to the end of the input, where `If ""`
+                    // holds (scripts test that before trying another marker).
+                    self.line = self.lines.len() - 1;
+                    self.pos = self.line_text().len();
                 }
             }
             "findinline" => {
@@ -851,6 +876,8 @@ impl<'a> Machine<'a> {
                     self.pos = at;
                 } else if !flag(&args, 2) {
                     return Err(format!("\"{needle}\" was not found in the current line"));
+                } else {
+                    self.pos = self.line_text().len();
                 }
             }
             "gotochar" => {
@@ -997,8 +1024,9 @@ impl<'a> Machine<'a> {
                     },
                     None => rest.len(),
                 };
+                // The cursor stays: scripts read several values from the same
+                // stretch of a line, each SayRegexp bounded by the same end mark.
                 let matches = expression.find_all(&rest[..end])?;
-                self.pos += end;
                 let separator = args.get(1).map_or(" ", String::as_str);
                 self.say(&matches.join(separator))?;
             }
@@ -1013,16 +1041,11 @@ impl<'a> Machine<'a> {
                 self.say(&value)?;
             }
             "set" => {
-                let name = arg(0).to_uppercase();
-                match args.get(1) {
-                    Some(value) => {
-                        self.size += value.len();
-                        self.outputs.insert(name, value.clone());
-                    }
-                    None => {
-                        self.outputs.remove(&name);
-                    }
-                }
+                // Without a value the output is emptied but still exists, so
+                // `%name%` in later parameters becomes nothing.
+                let value = args.get(1).cloned().unwrap_or_default();
+                self.size += value.len();
+                self.outputs.insert(arg(0).to_uppercase(), value);
             }
             "skipchars" => {
                 let skip = arg(0);
@@ -1051,7 +1074,12 @@ impl<'a> Machine<'a> {
             }
             "else" => next = command.target + 1,
             "endif" => {}
-            "outputto" => self.current = arg(0).to_uppercase(),
+            "outputto" => {
+                self.current = match arg(0).to_uppercase() {
+                    name if name.is_empty() => DEFAULT_OUTPUT.into(),
+                    name => name,
+                }
+            }
             "do" => {
                 self.repeats.insert(index, 0);
             }
@@ -1068,22 +1096,19 @@ impl<'a> Machine<'a> {
                     next = start + 1;
                 }
             }
+            // Replace and RegexpReplace change the current line, as KillTag
+            // does: scripts strip the tags of one found line and then search
+            // the following lines for markup.
             "replace" => {
                 if !arg(0).is_empty() {
-                    let text = self.input_text().replace(arg(0), arg(1));
-                    let (line, pos) = (self.line, self.pos);
-                    self.lines = split_lines(&text);
-                    (self.line, self.pos) = (line, pos);
-                    self.clamp();
+                    let text = self.line_text().replace(arg(0), arg(1));
+                    self.replace_line(&text);
                 }
             }
             "regexpreplace" => {
-                let text = regex_compat::replace(&self.input_text(), arg(0), arg(1), true)
+                let text = regex_compat::replace(self.line_text(), arg(0), arg(1), true)
                     .map_err(|e| format!("the regular expression failed: {e}"))?;
-                let (line, pos) = (self.line, self.pos);
-                self.lines = split_lines(&text);
-                (self.line, self.pos) = (line, pos);
-                self.clamp();
+                self.replace_line(&text);
             }
             "joinuntil" => {
                 let needle = arg(0);
@@ -1106,9 +1131,7 @@ impl<'a> Machine<'a> {
             }
             "killtag" => {
                 let replaced = kill_tag(self.line_text(), arg(0), arg(1));
-                let line = self.line;
-                self.lines[line] = replaced;
-                self.clamp();
+                self.replace_line(&replaced);
             }
             "trim" => self.trim = !arg(0).eq_ignore_ascii_case("off"),
             "unspace" => {
@@ -1153,26 +1176,58 @@ impl<'a> Machine<'a> {
             }),
             "json" => {
                 if arg(0).eq_ignore_ascii_case("off") {
-                    self.json = None;
+                    if let Some(json) = self.json.take() {
+                        (self.lines, self.line, self.pos) = json.text;
+                    }
                 } else {
+                    // "current" reads the transformed input from the cursor on,
+                    // so a script can stop at the line holding a page's JSON.
+                    // Text after the JSON value is ignored.
                     let text = if arg(1).eq_ignore_ascii_case("current") {
-                        self.input_text()
+                        let mut text = self.rest().to_owned();
+                        for line in &self.lines[self.line + 1..] {
+                            text.push('\n');
+                            text.push_str(line);
+                        }
+                        text
                     } else {
                         self.original.to_owned()
                     };
-                    let root: Value = serde_json::from_str(text.trim_start_matches('\u{feff}'))
-                        .map_err(|e| format!("the input is not valid JSON: {e}"))?;
+                    let root: Value =
+                        serde_json::Deserializer::from_str(text.trim_start_matches('\u{feff}'))
+                            .into_iter::<Value>()
+                            .next()
+                            .unwrap_or_else(|| serde_json::from_str(""))
+                            .map_err(|e| format!("the input is not valid JSON: {e}"))?;
+                    let text = match self.json.take() {
+                        Some(json) => json.text,
+                        None => (self.lines.clone(), self.line, self.pos),
+                    };
                     self.json = Some(Json {
                         root,
+                        text,
                         stack: Vec::new(),
                         loops: Vec::new(),
                     });
                 }
             }
             "json_foreach" | "json_foreach_reverse" => {
-                let mut items = self.json_array(arg(0))?;
+                // Objects are iterated member by member (their names are the
+                // counter); anything else that is not an array is empty.
+                let (mut items, mut keys): (Vec<Value>, Option<Vec<String>>) =
+                    match json_lookup(self.json()?.current(), arg(0)).cloned() {
+                        Some(Value::Array(items)) => (items, None),
+                        Some(Value::Object(members)) => {
+                            let (keys, items) = members.into_iter().unzip();
+                            (items, Some(keys))
+                        }
+                        _ => (Vec::new(), None),
+                    };
                 if command.name == "json_foreach_reverse" {
                     items.reverse();
+                    if let Some(keys) = keys.as_mut() {
+                        keys.reverse();
+                    }
                 }
                 self.set_input(&items.len().to_string());
                 let json = self.json()?;
@@ -1183,6 +1238,7 @@ impl<'a> Machine<'a> {
                     json.stack.push(items[0].clone());
                     json.loops.push(Each {
                         items,
+                        keys,
                         index: 0,
                         depth,
                     });
@@ -1215,24 +1271,33 @@ impl<'a> Machine<'a> {
                 let Some(each) = json.loops.last() else {
                     return Err("json_foreach_counter outside json_foreach".into());
                 };
-                let counter = format!("{:0width$}", each.index + 1);
-                self.set_input(&counter);
+                let counter = match &each.keys {
+                    Some(keys) => keys[each.index].clone(),
+                    None => format!("{:0width$}", each.index + 1),
+                };
+                // Unlike json_foreach it writes to the output: published
+                // scripts follow it with Say "|" directly.
+                self.say(&counter)?;
             }
             "json_select_object" => {
+                // A missing object leaves the selection as it is (scripts
+                // test the input and only then unselect).
                 let key = arg(0).to_owned();
                 let json = self.json()?;
-                let found = json_lookup(json.current(), &key).cloned();
-                let present = found.as_ref().is_some_and(|v| v.is_object());
-                json.stack.push(found.unwrap_or(Value::Null));
+                let found = json_lookup(json.current(), &key)
+                    .filter(|v| v.is_object())
+                    .cloned();
+                let present = found.is_some();
+                json.stack.extend(found);
                 self.set_input(if present { &key } else { "" });
             }
             "json_unselect_object" => {
+                // Leaving more objects than were selected stays where it is.
                 let json = self.json()?;
                 let floor = json.loops.last().map_or(0, |each| each.depth + 1);
-                if json.stack.len() <= floor {
-                    return Err("no selected object to leave".into());
+                if json.stack.len() > floor {
+                    json.stack.pop();
                 }
-                json.stack.pop();
             }
             "json_select" => {
                 let json = self.json()?;
@@ -1247,11 +1312,13 @@ impl<'a> Machine<'a> {
                 let text = if n == -1 {
                     items.iter().map(json_text).collect::<Vec<_>>().join(arg(2))
                 } else {
-                    usize::try_from(n - 1)
-                        .ok()
-                        .and_then(|i| items.get(i))
-                        .map(json_text)
-                        .unwrap_or_default()
+                    let item = usize::try_from(n - 1).ok().and_then(|i| items.get(i));
+                    // An object element is selected like json_select_object, so
+                    // json_select reads its members until json_unselect_object.
+                    if let Some(object @ Value::Object(_)) = item {
+                        self.json()?.stack.push(object.clone());
+                    }
+                    item.map(json_text).unwrap_or_default()
                 };
                 self.set_input(&text);
             }
@@ -1300,12 +1367,25 @@ impl<'a> Machine<'a> {
         Ok(next)
     }
 
-    /// Join the current line with the following lines up to `last`.
+    /// Put `text` in place of the current line; line breaks in it start new
+    /// lines after it. The cursor returns to the start of the line (scripts
+    /// search the changed line again with FindInLine).
+    fn replace_line(&mut self, text: &str) {
+        let index = self.line;
+        self.lines
+            .splice(index..=index, split_lines(text))
+            .for_each(drop);
+        self.pos = 0;
+    }
+
+    /// Append the following lines up to `last` to the current line. The
+    /// following lines stay where they are, so line counts in a script
+    /// (`MoveLine -6` back to an attribute line) still hold after a join.
     fn join(&mut self, last: usize) {
         if last <= self.line {
             return;
         }
-        let joined: String = self.lines.drain(self.line + 1..=last).collect();
+        let joined: String = self.lines[self.line + 1..=last].concat();
         let index = self.line;
         self.lines[index].push_str(&joined);
     }
@@ -1389,12 +1469,34 @@ mod tests {
         outputs_with(text, input, &Environment::default())
     }
     fn out(text: &str, input: &str) -> String {
-        outputs(text, input).remove("").unwrap_or_default()
+        outputs(text, input)
+            .remove(DEFAULT_OUTPUT)
+            .unwrap_or_default()
     }
     fn error(text: &str, input: &str) -> ScriptError {
         run(&script(text), input, &Environment::default())
             .result
             .unwrap_err()
+    }
+
+    #[test]
+    fn wrapped_compile_errors_keep_source_text_and_complete_message_frames() {
+        for (text, message) in [
+            ("Help", "Help is not a known command"),
+            ("GotoChar", "GotoChar takes 1 parameter"),
+            ("SayRest x", "SayRest takes 0 parameters"),
+            ("FindLine", "FindLine takes 1 to 3 parameters"),
+            ("Else", "Else without If"),
+            ("If \"Help\"", "this block has no Endif"),
+            ("If \"Alpha): Beta\"", "this block has no Endif"),
+            (r#"If "Alpha\"): Beta""#, "this block has no Endif"),
+            ("Help \"Alpha): Beta\"", "Help is not a known command"),
+        ] {
+            let error = Script::compile(&[(17, text.into())]).unwrap_err();
+            assert_eq!(error.command, text);
+            assert_eq!(error.message, message);
+            assert_eq!(error.to_string(), format!("line 17 ({text}): {message}"));
+        }
     }
 
     #[test]
@@ -1493,11 +1595,18 @@ mod tests {
             error("FindLine \"Nope\"", page).message,
             "\"Nope\" was not found"
         );
-        assert_eq!(out("FindLine \"Nope\" 1 1\nSayNChars 6", page), "<html>");
+        // Without an error the cursor ends up past the text searched.
+        assert_eq!(
+            out("FindLine \"Nope\" 1 1\nIf \"\"\nSay \"end\"\nEndif\nGotoLine 1\nIfNot \"\"\nSayNChars 6\nEndif", page),
+            "end<html>"
+        );
         assert!(error("FindInLine \"Nope\"", page)
             .message
             .contains("current line"));
-        assert_eq!(out("FindInLine \"Nope\" 1 1\nSayNChars 2", page), "<h");
+        assert_eq!(
+            out("FindInLine \"Nope\" 1 1\nMoveChar -2\nSayNChars 2", page),
+            "l>"
+        );
         assert!(error("MoveLine 9", page)
             .message
             .contains("leaves the input"));
@@ -1551,6 +1660,14 @@ mod tests {
         assert_eq!(out("SayRegexp \"\\d+\" \", \" \"b\"", "a 12 b 345 c"), "12");
         assert_eq!(out("SayRegexp \"\\d+\" \", \" \"zzz\"", "a 12 b 345 c"), "");
         assert!(error("SayRegexp \"(\"", "x").message.contains("not valid"));
+        // The cursor stays where it was.
+        assert_eq!(
+            out(
+                "SayRegexp \"\\d+\" \",\" \"b\"\nSay \"|\"\nSayRest",
+                "a 12 b 345"
+            ),
+            "12|a 12 b 345"
+        );
     }
 
     #[test]
@@ -1561,7 +1678,7 @@ mod tests {
         );
         assert_eq!(o.get("ARTIST").unwrap(), "BA");
         assert_eq!(o.get("YEAR").unwrap(), "1999");
-        assert!(!o.contains_key("ALBUM"));
+        assert_eq!(o["ALBUM"], "");
         assert_eq!(o.get("X").unwrap(), "");
         let input = "abc 42";
         assert_eq!(
@@ -1616,7 +1733,7 @@ mod tests {
             "",
             &env,
         );
-        assert_eq!(o[""], "de+!");
+        assert_eq!(o[DEFAULT_OUTPUT], "de+!");
     }
 
     #[test]
@@ -1626,7 +1743,7 @@ mod tests {
         assert_eq!(outputs(text, input)["TITLE"], "One|Two|Three|");
         let limited = "OutputTo \"TITLE\"\nDo\nFindInLine \"<li>\"\nSayUntil \"<\"\nSay \"|\"\nMoveLine 1\nWhile \"<li>\" 2";
         assert_eq!(outputs(limited, input)["TITLE"], "One|Two|");
-        let endless = error("Do\nSay \"\"\nWhile \"\"", "x");
+        let endless = error("Do\nSay \"\"\nWhile \"x\"", "x");
         assert!(endless.message.contains("ran too long"));
     }
 
@@ -1643,9 +1760,27 @@ mod tests {
             ),
             "x 34/12 y"
         );
+        // Both work on the current line only and return to its start.
         assert_eq!(
-            out("RegexpReplace \"\\n\" \" \"\nSayRest", "a\nb\nc"),
-            "a b c"
+            out(
+                "FindInLine \"b\"\nReplace \"a\" \"A\"\nFindInLine \"b\"\nSayRest",
+                "abcb"
+            ),
+            "cb"
+        );
+        assert_eq!(
+            out(
+                "RegexpReplace \"<[^>]+>\" \"\"\nSayRest\nMoveLine 1\nReplace \"x\" \"y\"\nSay \"|\"\nSayRest\nMoveLine 1\nSay \"|\"\nSayRest",
+                "<b>a</b>\n<i>x</i>\n<u>x</u>"
+            ),
+            "a|<i>y</i>|<u>x</u>"
+        );
+        assert_eq!(
+            out(
+                "RegexpReplace \"<br>\" \"\\n\"\nSayRest\nMoveLine 1\nSay \"|\"\nSayRest",
+                "a<br>b\nc"
+            ),
+            "a|b"
         );
         assert_eq!(
             out("JoinUntil \"</p>\"\nSayRest", "<p>a\n b\n c</p>\nafter"),
@@ -1653,6 +1788,14 @@ mod tests {
         );
         assert_eq!(out("JoinUntil \"never\"\nSayRest", "a\nb"), "ab");
         assert_eq!(out("JoinLines 1\nSayRest", "a\nb\nc"), "ab");
+        // The joined lines stay in place after the joined one.
+        assert_eq!(
+            out(
+                "JoinLines 1\nMoveLine 1\nSayRest\nGotoLine 3\nSayRest",
+                "a\nb\nc"
+            ),
+            "bc"
+        );
         assert_eq!(out("JoinLines -1\nSayRest", "a\nb\nc"), "abc");
         assert_eq!(out("JoinLines 9\nSayRest", "a\nb"), "ab");
         assert_eq!(
@@ -1709,6 +1852,7 @@ mod tests {
     #[test]
     fn json_selection_and_iteration() {
         let doc = r#"{"title":"Album","year":1999,"live":false,"nothing":null,
+            "credits":{"producer":"P","engineer":"E"},
             "artist":{"name":"Band","id":7},
             "genres":["Rock","Pop"],
             "tracks":[{"title":"One","length":61000,"artists":[{"name":"A"},{"name":"B"}]},
@@ -1758,7 +1902,6 @@ SayDuration "ms"
 Say "|"
 OutputTo "TRACK"
 json_foreach_counter 2
-SayRest
 Say "|"
 OutputTo "COUNT"
 json_foreach_end
@@ -1792,6 +1935,14 @@ json_select_many_count "tracks" "title" 1
 SayRest
 json_select_many_count "tracks" "artists"
 SayRest
+OutputTo "ROLES"
+json_foreach "credits"
+json_foreach_counter
+Say "="
+json_select ""
+SayRest
+Say ";"
+json_foreach_end
 OutputTo "EMPTY"
 json_foreach "missing"
 Say "never"
@@ -1818,6 +1969,8 @@ Say "after"
         assert_eq!(o["NESTED"], "A+B;;;");
         assert_eq!(o["N"], "3231");
         assert_eq!(o["EMPTY"], "after");
+        // Objects are iterated in document order; the counter is the name.
+        assert_eq!(o["ROLES"], "producer=P;engineer=E;");
     }
 
     #[test]
@@ -1828,10 +1981,24 @@ Say "after"
         assert!(error("json \"on\"", "not json")
             .message
             .contains("not valid JSON"));
-        assert!(error("json \"on\"\njson_unselect_object", "{}")
-            .message
-            .contains("no selected object"));
-        // "current" parses the transformed input instead of the download.
+        // A failed selection is not entered, and unselecting at the top stays.
+        assert_eq!(
+            out(
+                "json \"on\"\njson_select_object \"none\"\njson_select \"x\"\nSayRest\njson_unselect_object\njson_unselect_object\njson_select \"x\"\nSayRest",
+                "{\"x\":1}"
+            ),
+            "11"
+        );
+        // "current" parses the transformed input from the cursor instead of
+        // the download; text after the JSON value is ignored.
+        assert_eq!(
+            out(
+                "FindLine \"<script\"\nMoveLine 1\njson \"on\" \"current\"\njson_select \"a\"\nSayRest\njson \"off\"\nMoveLine 1\nSayRest",
+                "<html>\n<script>\n{\"a\":\"page\"}\n</script></html>"
+            ),
+            // `json "off"` returns to the page where JSON mode started.
+            "page</script></html>"
+        );
         assert_eq!(
             out(
                 "Replace \"'\" \"\\\"\"\njson \"on\" \"current\"\njson_select \"a\"\nSayRest",
@@ -1841,7 +2008,7 @@ Say "after"
         );
         assert_eq!(
             out("json \"on\"\njson_select_object \"missing\"\nIfNot \"missing\"\nSay \"absent\"\nEndif\njson_unselect_object\njson \"off\"\nSayRest", "{\"x\":1}"),
-            "absent"
+            "absent{\"x\":1}"
         );
     }
 

@@ -170,21 +170,25 @@ These characters mean something. To get them as plain text, quote them.
 | Character | Special meaning | Write it literally as |
 |---|---|---|
 | `%` | Starts and ends a placeholder | `'%'` |
-| `$` | Starts a function | `'$'` |
+| `$` | Starts a named function; an end anchor or `$1` is literal | `'$'` |
 | `[` `]` | Optional section | `'['` `']'` |
 | `'` | Starts and ends quoted text | `''` |
 | `,` | Separates function arguments (only inside a function's brackets) | `','` |
 | `)` | Ends a function (only inside a function's brackets) | `')'` |
-| `(` | Nothing: always plain text | `(` |
+| `(` | Nests literal parentheses inside function arguments | `'('` when quoting the text |
 | `\` `/` | A folder level, when the result is a file name | `_` or another character (see [file names](#file-and-folder-names)) |
 
-Backslash is **not** an escape character in format strings. `\%` is a
-backslash followed by the start of a placeholder.
+Backslash does not escape placeholders or optional sections: `\%` is a
+backslash followed by the start of a placeholder. In function arguments,
+escaped parentheses `\(` and `\)` remain literal rather than nesting or
+closing the call. Balanced unquoted parentheses nest, keeping their commas
+in the same argument. Text accepted only without nesting, such as an
+unbalanced opening parenthesis, retains its earlier interpretation.
 
 !!! warning "Gotcha: `)` and `,` inside function arguments"
-    `$replace(%title%, (Interlude),)` doesn't do what it looks like: the `)`
-    after *Interlude* ends the function early, and OpenTag reports the
-    wrong number of arguments. Quote the text that contains it:
+    Balanced text such as `$replace(%title%, (Interlude),)` is accepted, but
+    quoting makes the literal text clear and also protects commas outside a
+    balanced group. For example:
 
     ```text
     $replace(%title%,' (Interlude)',)
@@ -399,7 +403,7 @@ nothing is changed. The messages are:
 | Empty field placeholder | `%%` | Write `'%'` |
 | Unterminated quoted literal | An odd number of `'` | Close the quote, or write `''` for an apostrophe |
 | Unterminated optional section / Unexpected closing optional bracket | Unbalanced `[` `]` | Balance them, or quote them: `'['` |
-| Expected function call after $… | A `$` not followed by a name and `(` | Write `'$'` for a dollar sign |
+| Expected function call after $… | A function-like name after `$` without `(` | Complete the call or quote the text; bare `$` and `$1` are already literal |
 | Unsupported scripting function: $… | A misspelt or unknown function | Check the function name in the ► helper menu |
 | $… expects n..=m arguments | Too many or too few arguments, often from an unquoted `,` or `)` | Quote commas and brackets in arguments |
 | $replace requires complete search/replacement pairs | An odd number of search and replace arguments | Add the missing replacement (it may be empty) |

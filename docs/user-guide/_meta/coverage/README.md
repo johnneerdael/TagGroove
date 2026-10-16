@@ -782,3 +782,11 @@ controller authorizes current-main/testmerge CI. Root owns the protected
 merge and actual release/Pages verification. Full canonical semantic
 completion, the remaining23drafts and original deferred P2/REA work are not
 claimed complete by this publication step.
+
+## PR #20 source reconciliation
+
+`docs/verification/src-compat-direct.md` records the direct-main compatibility
+change and fresh qualification. The five affected format, regex and web-source
+pages describe the revised grammar, cursor, JSON and output behavior; their
+written native examples pass under LF and CRLF. This reconciliation does not
+claim a complete downloaded-script corpus or full semantic Mp3tag parity.

@@ -237,6 +237,46 @@ fn documented_function_families() {
 }
 
 #[test]
+fn parentheses_in_arguments_nest() {
+    // Web source search fields use unquoted groups in regular expressions.
+    assert_eq!(
+        evaluate(
+            "$regexp(V.A.,^(va|various artists|v\\.a\\.)$,Various,1)",
+            &fields()
+        )
+        .unwrap(),
+        "Various"
+    );
+    assert_eq!(
+        evaluate("$regexp(The Band,(?i)\\bthe\\b ,)", &fields()).unwrap(),
+        "Band"
+    );
+    assert_eq!(
+        evaluate("$regexp(Bob''s Song,(?i)''s( |$),$1)", &fields()).unwrap(),
+        "Bob Song"
+    );
+    // A comma inside parentheses is text, not an argument separator.
+    assert_eq!(evaluate("$upper(a(b,c)d)", &fields()).unwrap(), "A(B,C)D");
+    // Text that only reads without nesting keeps its earlier meaning.
+    assert_eq!(evaluate("$upper(a(b)", &fields()).unwrap(), "A(B");
+    // Escaped parentheses are text and do not nest.
+    let paren: Fields = [("TITLE".into(), vec!["a (live) b".into()])].into();
+    assert_eq!(
+        evaluate("$regexp(%title%,\\(,open )", &paren).unwrap(),
+        "a open live) b"
+    );
+    assert_eq!(
+        evaluate("$upper($regexp(%title%,\\),!))", &paren).unwrap(),
+        "A (LIVE! B"
+    );
+    // Text that only reads without nesting keeps its earlier meaning (an
+    // unbalanced `(` in an argument); a class in quotes is unaffected.
+    assert_eq!(evaluate("$replace(a(b,(,)", &fields()).unwrap(), "ab");
+    assert_eq!(evaluate("$regexp(a(b,'[(]',-)", &fields()).unwrap(), "a-b");
+    assert_eq!(evaluate("$len(()", &fields()).unwrap(), "1");
+}
+
+#[test]
 fn regex_boost_references_and_ascii_digits() {
     assert_eq!(
         evaluate(

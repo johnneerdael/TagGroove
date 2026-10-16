@@ -336,9 +336,10 @@ in single quotes** to keep their syntax literal:
 $regexp(%title%,'^(\d+)[ ._-]+(.+)$','$2 [$1]')
 ```
 
-Without the quotes, OpenTag would read `$2` as the start of a function and
-the first `)` as the end of `$regexp`, and report an error. Inside quotes,
-write an apostrophe as `''`:
+Balanced unquoted groups can also work: argument parentheses nest, and
+dollar captures such as `$2` remain literal. Quotes still protect other
+format syntax, including optional-section brackets and argument commas.
+Inside quotes, write an apostrophe as `''`:
 
 ```text
 $regexp(%title%,'(?<![\w''])(\w)','\u$1')
