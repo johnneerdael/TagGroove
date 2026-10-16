@@ -253,6 +253,11 @@ nav:
     - Playlist: reference/options/playlist.md
     - Tools: reference/options/tools.md
 - Cookbook:
+  - Numbers and dates:
+    - Read or split track totals: cookbook/split-track-total.md
+    - Number tracks per folder: cookbook/number-tracks-per-folder.md
+    - Disc numbers from folders: cookbook/disc-numbers-from-folders.md
+    - Keep only the year: cookbook/year-from-date.md
   - Clean text and credits:
     - Remove extra spaces: cookbook/trim-spaces.md
     - Remove trailing remaster annotations: cookbook/remove-text-in-brackets.md

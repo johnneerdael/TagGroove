@@ -216,3 +216,14 @@ order and their before/after cases under LF and CRLF. This includes deliberate
 nonmatches, multiline anchors, existing value lists, exact deduplication and
 Guess Values ambiguity. Independent review is pending; these are source/core
 examples, not native UI or player-compatibility verification.
+
+## Local number and date recipes
+
+`number-recipes-2026-10-16.json` records four further cookbook pages, bringing
+the local checkpoint to 112 authored pages and 75 drafts. They explain
+guarded track/disc extraction, per-folder totals, and date-shape cleanup,
+including native MP4 pair/custom-field distinctions and explicit preview,
+staging, save and undo timing. Six actual core tests and one frontend model
+test read the written examples under LF and CRLF. The public baseline
+remains 97 pages; independent review and queue integration are still pending.
+These chapters do not establish full canonical coverage or native UI parity.
