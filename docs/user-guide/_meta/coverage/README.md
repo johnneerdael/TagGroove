@@ -193,3 +193,16 @@ pointer-only nested mobile navigation to Format Value. No page errors were
 observed. This does not establish native application behavior or completeness
 of the remaining ninety drafts. The next local three-page batch is separate
 from this public milestone.
+
+## Next local basic-editing checkpoint
+
+`basic-editing-2026-10-16.json` records four authored pages on editing and
+saving, the tag panel, tag copy/cut/paste and removal. They build on the three
+preserved customization/Find pages. The local navigation has 104 completed
+pages and 83 drafts; the public site still has 97 completed pages. This batch
+is held locally for finite independent review and later queue integration.
+Examples read the actual written tables under LF and CRLF, exercising the
+application models and real core tag-block removal on generated MP3 fixtures.
+The evidence does not claim native UI verification or completion of every
+canonical topic. The source baseline includes merged PR 28 (`dbcd9ce`), while
+unmerged language/provider/freedb/web-source changes remain out of scope.

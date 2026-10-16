@@ -135,6 +135,8 @@ validation:
 
 nav:
 - Home: index.md
+- Get started:
+  - Editing, saving and undo: getting-started/editing-and-saving.md
 - Learn:
   - Tutorials:
     - Your first tagging session: learn/first-tagging-session.md
@@ -149,6 +151,9 @@ nav:
 - Guides:
   - Everyday editing:
     - The file list: guides/file-list.md
+    - The tag panel: guides/tag-panel.md
+    - Cut, copy and paste tags: guides/copy-paste-tags.md
+    - Removing tags: guides/remove-tags.md
     - Extended tags: guides/extended-tags.md
     - Working with covers: guides/covers.md
     - Filtering the file list: guides/filter.md

@@ -84,6 +84,8 @@ to edit and save its tags, then give the files consistent names.
 
 | What you want to learn | Start here |
 | --- | --- |
+| Edit shared fields and decide when to save | [The tag panel](guides/tag-panel.md) and [Editing, saving and undo](getting-started/editing-and-saving.md) |
+| Transfer or remove stored tags | [Cut, copy and paste tags](guides/copy-paste-tags.md) and [Removing tags](guides/remove-tags.md) |
 | Inspect the list, unfamiliar fields and artwork | [The file list](guides/file-list.md), [Extended tags](guides/extended-tags.md) and [Working with covers](guides/covers.md) |
 | Combine fields, functions and fallback values | [Format strings from zero](learn/format-strings-from-zero.md), then the [64-function reference](reference/scripting/index.md) |
 | Match, capture and clean patterned text | [Regular expressions from zero](learn/regex-from-zero.md), then [regex syntax and examples](reference/regular-expressions.md) |
