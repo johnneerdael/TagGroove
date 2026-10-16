@@ -41,3 +41,40 @@ These local checks establish fixture isolation and protocol responses. They do
 not establish native provider UI success on Linux, macOS or Windows. The new
 final head still requires a clean Codex review and a fresh trusted validation
 run that executes those native suites before merge.
+
+## Windows profile cleanup follow-up
+
+The isolated-port head `33188e5ff089446bee1b78336ef48bb938dd2146`
+executed GNUdb's 22 assertions and the provider suite's 40 assertions successfully
+on Linux, macOS and Windows in run `38948648968`, test merge
+`0fe00c089369cefee5dfc0f92e0ff2438f8f4bd2`. Each saved suite log ends with
+`SUMMARY done` and has no failed assertion. This is offline fixture evidence,
+not live-service validation.
+
+Windows job `117134332084` still failed before launching four later suites:
+`keyboard-ui`, `launch-forwarding`, `export-lists` and `chapters`. Artifact
+`12068491046` shows only `rm: cannot remove ... Device or resource busy`
+for the disposable test identifier's `EBWebView` profile files in those four
+logs; they contain no application assertion or summary. The other 22 suites
+completed. No retry or application change was used to conceal that failure.
+
+The existing pending translation branch at
+`bf1114a73149d4e24866506eb631c1bc4c6eeeaa` already has a cleanup fix. This
+follow-up brings over its fifteen cleanup attempts, two seconds apart, and
+stops leftover WebView2 helpers only when both `GITHUB_ACTIONS=true` and
+`RUNNER_ENVIRONMENT=github-hosted`. The existing test-identifier restriction
+also applies. A GitHub-hosted job owns its disposable VM; local and self-hosted
+runs never issue that process-termination command. Their file cleanup receives
+the longer retry window without terminating other applications.
+
+A portable regression executes the actual script's cleanup block with fake
+`taskkill`, `rm`, `sleep` and path commands. It verifies termination precedes
+cleanup only for the hosted case, rejects generic-CI and self-hosted termination,
+leaves a production identifier untouched, and tolerates seven simulated busy
+attempts before success. It fails against both the old five-attempt block and
+the translation branch's broader generic-CI termination condition. No real
+Windows application or process was launched, terminated or removed locally.
+
+The 186 successful provider/GNUdb assertions above belong to the historical
+`33188e5` head. The cleanup follow-up requires its own final-head Codex review
+and fresh trusted cross-platform CI before merge.
