@@ -6,6 +6,8 @@
 //! output by `[IndexFormat]` into result rows. Choosing a row downloads the
 //! album page and runs `[ParserScriptAlbum]`, whose output buffers become a
 //! [`SourceRelease`] for the shared review and import step.
+#[cfg(test)]
+mod compat;
 mod engine;
 mod source;
 
@@ -37,7 +39,11 @@ pub fn folder(app: &tauri::AppHandle) -> Result<PathBuf, String> {
         .join("sources"))
 }
 
-/// Source files are addressed by their plain file name inside the folder.
+/// Subfolders of the sources folder searched for sources (a downloaded
+/// archive unpacked with its own folder).
+const MAX_DEPTH: usize = 3;
+
+/// One plain file or folder name.
 fn plain_name(name: &str) -> Result<&str, String> {
     let ok = !name.is_empty()
         && name != "."
@@ -48,9 +54,44 @@ fn plain_name(name: &str) -> Result<&str, String> {
         .ok_or_else(|| format!("\"{name}\" is not a file name in the sources folder"))
 }
 
+/// Source files are addressed by their `/`-separated path inside the folder.
+fn relative_name(name: &str) -> Result<Vec<&str>, String> {
+    let parts: Vec<&str> = name.split('/').collect();
+    if parts.len() > MAX_DEPTH + 1 || parts.iter().any(|part| plain_name(part).is_err()) {
+        return Err(format!("\"{name}\" is not a file in the sources folder"));
+    }
+    Ok(parts)
+}
+
+/// The file `name` in the sources folder. Names written in scripts
+/// (`[Include]`, `[Settings]`) match regardless of case, as on Windows.
+fn locate(folder: &Path, name: &str) -> Result<PathBuf, String> {
+    let parts = relative_name(name)?;
+    let exact = parts
+        .iter()
+        .fold(folder.to_path_buf(), |path, part| path.join(part));
+    if exact.exists() {
+        return Ok(exact);
+    }
+    let mut path = folder.to_path_buf();
+    for part in parts {
+        let lower = part.to_lowercase();
+        path = std::fs::read_dir(&path)
+            .ok()
+            .and_then(|entries| {
+                entries
+                    .flatten()
+                    .find(|entry| entry.file_name().to_string_lossy().to_lowercase() == lower)
+            })
+            .map(|entry| entry.path())
+            .ok_or_else(|| format!("{name} was not found in the sources folder"))?;
+    }
+    Ok(path)
+}
+
 fn reader(folder: &Path) -> impl Fn(&str) -> Result<String, String> + '_ {
     move |name: &str| {
-        let path = folder.join(plain_name(name)?);
+        let path = locate(folder, name)?;
         let size = std::fs::metadata(&path)
             .map_err(|_| format!("{name} was not found in the sources folder"))?
             .len();
@@ -63,8 +104,18 @@ fn reader(folder: &Path) -> impl Fn(&str) -> Result<String, String> + '_ {
 }
 
 fn load(folder: &Path, id: &str) -> Result<SourceFile, String> {
-    plain_name(id)?;
-    source::load(id, &reader(folder))
+    relative_name(id)?;
+    let mut file = source::load(id, &reader(folder))?;
+    // A schema next to a source in a subfolder belongs to it.
+    if let Some(settings) = file.settings.take() {
+        let settings = settings.replace('\\', "/");
+        file.settings = Some(
+            source::sibling(id, &settings)
+                .filter(|path| locate(folder, path).is_ok())
+                .unwrap_or(settings),
+        );
+    }
+    Ok(file)
 }
 
 fn extension(name: &str) -> String {
@@ -75,10 +126,15 @@ fn extension(name: &str) -> String {
 fn stem(name: &str) -> &str {
     name.rsplit_once('.').map_or(name, |(stem, _)| stem)
 }
+/// The menu path of a file: its name without extension; the folders it is
+/// in are not part of it, so unpacked archives look as in Mp3tag.
+fn menu_path(id: &str) -> String {
+    stem(id.rsplit('/').next().unwrap_or(id)).to_owned()
+}
 
 #[derive(Clone, Debug, Serialize)]
 pub struct WebSourceInfo {
-    /// File name in the sources folder.
+    /// File path in the sources folder (`/`-separated).
     pub id: String,
     /// Menu path: `#` separates submenus, `&` marks the access key.
     pub menu: String,
@@ -110,28 +166,45 @@ fn menu_order(a: &str, b: &str) -> std::cmp::Ordering {
     key(a).cmp(&key(b)).then_with(|| a.cmp(b))
 }
 
-/// Every source and configuration schema in `folder`.
+/// `/`-separated paths of the files in `folder` and its subfolders.
+fn files_in(folder: &Path, prefix: &str, depth: usize, names: &mut Vec<String>) {
+    let Ok(entries) = std::fs::read_dir(folder) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let Ok(name) = entry.file_name().into_string() else {
+            continue;
+        };
+        if plain_name(&name).is_err() {
+            continue;
+        }
+        let path = format!("{prefix}{name}");
+        match entry.file_type() {
+            Ok(kind) if kind.is_file() => names.push(path),
+            Ok(kind) if kind.is_dir() && depth < MAX_DEPTH && name != "debug" => {
+                files_in(&entry.path(), &format!("{path}/"), depth + 1, names)
+            }
+            _ => {}
+        }
+    }
+}
+
+/// Every source and configuration schema in `folder`, including those in
+/// subfolders.
 pub fn list(folder: &Path) -> Listing {
     let mut listing = Listing {
         folder: folder.to_string_lossy().into_owned(),
         ..Listing::default()
     };
-    let Ok(entries) = std::fs::read_dir(folder) else {
-        return listing;
-    };
-    let mut names: Vec<String> = entries
-        .flatten()
-        .filter(|entry| entry.file_type().is_ok_and(|kind| kind.is_file()))
-        .filter_map(|entry| entry.file_name().into_string().ok())
-        .filter(|name| plain_name(name).is_ok())
-        .collect();
-    names.sort_by(|a, b| menu_order(a, b));
+    let mut names = Vec::new();
+    files_in(folder, "", 0, &mut names);
+    names.sort_by(|a, b| menu_order(&menu_path(a), &menu_path(b)).then_with(|| a.cmp(b)));
     for name in names {
         match extension(&name).as_str() {
             "src" => match load(folder, &name) {
                 Ok(file) => listing.sources.push(WebSourceInfo {
-                    id: name.clone(),
-                    menu: stem(&name).to_owned(),
+                    menu: menu_path(&name),
+                    id: name,
                     direct: file.direct(),
                     name: file.name,
                     search_by: file.search_by,
@@ -140,8 +213,8 @@ pub fn list(folder: &Path) -> Listing {
             },
             "settings" => match schema(folder, &name) {
                 Ok(_) => listing.settings.push(WebSettingsInfo {
-                    id: name.clone(),
-                    menu: stem(&name).to_owned(),
+                    menu: menu_path(&name),
+                    id: name,
                 }),
                 Err(error) => listing.problems.push(Problem { file: name, error }),
             },
@@ -153,7 +226,8 @@ pub fn list(folder: &Path) -> Listing {
 
 /// A `.settings` configuration schema: an object with a `key` and `settings`.
 fn schema(folder: &Path, id: &str) -> Result<Value, String> {
-    if extension(plain_name(id)?) != "settings" {
+    relative_name(id)?;
+    if extension(id) != "settings" {
         return Err(format!("{id} is not a .settings file"));
     }
     let schema: Value = serde_json::from_str(&reader(folder)(id)?)
@@ -345,19 +419,147 @@ pub struct WebSearchPage {
     pub direct: bool,
 }
 
-/// `_url` is appended to `[AlbumUrl]`; relative addresses resolve against the page.
+/// `_url` takes the place of `%s` in `[AlbumUrl]` or is appended to it;
+/// relative addresses resolve against the page.
 fn album_address(file: &SourceFile, raw: &str, page: &Url) -> Option<Url> {
     let base = file.album_url.trim();
     let candidate = if base.is_empty() || Url::parse(raw).is_ok() {
         raw.to_owned()
+    } else if base.contains("%s") {
+        base.replace("%s", raw)
     } else {
         format!("{base}{raw}")
     };
     page.join(&candidate).ok().filter(http::web_allowed)
 }
 
+/// A value as written: `$verticalBar()` (evaluated by SayFormat, or left as
+/// text by `Replace "|" "$verticalBar()"` on the input) is a literal pipe.
 fn content(value: &str) -> String {
-    value.replace(engine::VERTICAL_BAR, "|").trim().to_owned()
+    const BAR: &[u8] = b"$verticalbar()";
+    let mut text = String::with_capacity(value.len());
+    let mut rest = value;
+    while let Some(ch) = rest.chars().next() {
+        if ch == '$'
+            && rest
+                .as_bytes()
+                .get(..BAR.len())
+                .is_some_and(|prefix| prefix.eq_ignore_ascii_case(BAR))
+        {
+            text.push('|');
+            // The matched marker is ASCII, so its end is a UTF-8 boundary.
+            rest = &rest[BAR.len()..];
+        } else {
+            text.push(if ch == engine::VERTICAL_BAR { '|' } else { ch });
+            rest = &rest[ch.len_utf8()..];
+        }
+    }
+    text.trim().to_owned()
+}
+
+/// A semicolon-terminated HTML reference. The WHATWG named set includes
+/// non-BMP characters and references that expand to two Unicode scalars.
+fn entity(name: &str) -> Option<String> {
+    let (first, second) = if let Some(number) = name.strip_prefix('#') {
+        let (digits, radix) = match number.strip_prefix(['x', 'X']) {
+            Some(hex) => (hex, 16),
+            None => (number, 10),
+        };
+        if digits.is_empty()
+            || !digits.bytes().all(|byte| {
+                if radix == 16 {
+                    byte.is_ascii_hexdigit()
+                } else {
+                    byte.is_ascii_digit()
+                }
+            })
+        {
+            return None;
+        }
+        // With a nonempty valid digit sequence, a parse error only means
+        // overflow: HTML replaces it just like any other out-of-range scalar.
+        let code = u32::from_str_radix(digits, radix).unwrap_or(0x11_0000);
+        let mut scalar = char::from_u32(code)
+            .filter(|ch| *ch != '\0')
+            .unwrap_or('\u{fffd}');
+        if (0x80..=0x9f).contains(&code) {
+            scalar = web_atoms::C1_REPLACEMENTS[(code - 0x80) as usize].unwrap_or(scalar);
+        }
+        (scalar as u32, 0)
+    } else {
+        *web_atoms::NAMED_ENTITIES.get(&format!("{name};"))?
+    };
+    let mut text = char::from_u32(first).filter(|c| *c != '\0')?.to_string();
+    if second != 0 {
+        text.push(char::from_u32(second)?);
+    }
+    Some(text)
+}
+
+/// Text as Mp3tag stores what a script output: HTML character references
+/// (`&amp;`, `&#233;`, `&#x2019;`) and `\uXXXX` escapes are decoded. Scripts
+/// rely on both, for example `Replace "\\\"" "&quot;"` to keep quotes out
+/// of a pattern and `Say "\\u0009"` for a tab.
+fn unescape(text: &str) -> String {
+    if !text.contains(['&', '\\']) {
+        return text.to_owned();
+    }
+    let hex4 = |s: &str| {
+        s.get(..4)
+            .filter(|h| h.bytes().all(|b| b.is_ascii_hexdigit()))
+            .and_then(|h| u32::from_str_radix(h, 16).ok())
+    };
+    let mut output = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(at) = rest.find(['&', '\\']) {
+        output.push_str(&rest[..at]);
+        rest = &rest[at..];
+        if rest.starts_with('&') {
+            let end = rest[1..]
+                .bytes()
+                .take_while(|byte| byte.is_ascii_alphanumeric() || *byte == b'#')
+                .count();
+            let decoded = (rest.as_bytes().get(end + 1) == Some(&b';'))
+                .then(|| entity(&rest[1..=end]))
+                .flatten()
+                .map(|text| (text, end + 2));
+            match decoded {
+                Some((text, used)) => {
+                    output.push_str(&text);
+                    rest = &rest[used..];
+                }
+                None => {
+                    output.push('&');
+                    rest = &rest[1..];
+                }
+            }
+            continue;
+        }
+        let Some(high) = rest.strip_prefix("\\u").and_then(hex4) else {
+            output.push('\\');
+            rest = &rest[1..];
+            continue;
+        };
+        let pair = (0xD800..0xDC00).contains(&high).then(|| {
+            rest[6..]
+                .strip_prefix("\\u")
+                .and_then(hex4)
+                .filter(|low| (0xDC00..0xE000).contains(low))
+        });
+        match pair.flatten() {
+            Some(low) => {
+                let code = 0x10000 + ((high - 0xD800) << 10) + (low - 0xDC00);
+                output.extend(char::from_u32(code));
+                rest = &rest[12..];
+            }
+            None => {
+                output.extend(char::from_u32(high).filter(|c| *c != '\0'));
+                rest = &rest[6..];
+            }
+        }
+    }
+    output.push_str(rest);
+    output
 }
 
 /// Search results: one per output line, its values split at `|` and named by
@@ -368,7 +570,7 @@ fn index_results(file: &SourceFile, output: &str, page: &Url) -> Result<WebSearc
     let url_at = position("_url").ok_or("[IndexFormat] has no %_url% field")?;
     let (cover_at, preview_at) = (position("_coverurl"), position("_preview"));
     let visible: Vec<usize> = (0..names.len())
-        .filter(|&i| !names[i].starts_with('_'))
+        .filter(|&i| !names[i].is_empty() && !names[i].starts_with('_'))
         .collect();
     let mut results = Vec::new();
     for line in output.split('\n') {
@@ -376,7 +578,7 @@ fn index_results(file: &SourceFile, output: &str, page: &Url) -> Result<WebSearc
         if line.trim().is_empty() {
             continue;
         }
-        let values: Vec<String> = line.split('|').map(content).collect();
+        let values: Vec<String> = line.split('|').map(|v| content(&unescape(v))).collect();
         let get = |index: usize| values.get(index).map(String::as_str).unwrap_or_default();
         let Some(url) = album_address(file, get(url_at), page).filter(|_| !get(url_at).is_empty())
         else {
@@ -406,17 +608,28 @@ fn index_results(file: &SourceFile, output: &str, page: &Url) -> Result<WebSearc
 
 /// Values of one field: `\\` separates multiple values.
 fn field_values(text: &str) -> Vec<String> {
-    text.split("\\\\")
+    unescape(text)
+        .split("\\\\")
         .map(content)
         .filter(|v| !v.is_empty())
         .collect()
 }
 
-/// `m:ss`, `h:mm:ss` or seconds.
+/// `m:ss`, `h:mm:ss`, or a plain number of milliseconds. Mp3tag documents
+/// no format for `_LENGTH`; its own MusicBrainz source writes the API's
+/// milliseconds there, and so do the iTunes sources, so a plain number is
+/// read as milliseconds whatever its size.
 fn parse_length(text: &str) -> Option<f64> {
     let text = text.trim();
     if text.is_empty() {
         return None;
+    }
+    if !text.contains(':') {
+        return text
+            .parse::<f64>()
+            .ok()
+            .filter(|ms| *ms >= 0.0)
+            .map(|ms| ms / 1000.0);
     }
     text.split(':').try_fold(0.0, |total, part| {
         part.trim()
@@ -438,37 +651,51 @@ fn leading_number(text: &str) -> Option<u32> {
 
 /// Album output buffers as a release. A buffer containing `|` holds one value
 /// per track (`Title 1|Title 2|`); others apply to the whole album.
-/// `COVERURL` lists cover images and `_LENGTH` track lengths; other buffers
-/// starting with `_` are internal and not written.
+/// `COVERURL` lists cover images and `_LENGTH` track lengths. `TRACKS` lists
+/// the tracks (one `|` each): it sets their number and gives their titles
+/// when there is no `TITLE`. Other buffers starting with `_` are internal and
+/// not written.
 fn release_from(outputs: BTreeMap<String, String>, page: &Url, id: &str) -> SourceRelease {
     let mut album = Fields::new();
     let mut per_track: Vec<(String, Vec<String>)> = Vec::new();
     let mut covers: Vec<String> = Vec::new();
     let mut lengths: Vec<String> = Vec::new();
+    let mut track_list: Option<Vec<String>> = None;
     let pieces = |value: &str| -> Vec<String> {
         let value = value.strip_suffix('|').unwrap_or(value);
         value.split('|').map(str::to_owned).collect()
     };
     for (name, value) in outputs {
         let value = value.replace("\r\n", "\n");
-        if name.is_empty() || name == "CURRENTURL" {
+        if name.is_empty() || name == engine::DEFAULT_OUTPUT || name == "CURRENTURL" {
             continue;
         }
         match name.as_str() {
-            "COVERURL" | "_COVERURL" => covers.extend(pieces(&value).iter().map(|c| content(c))),
+            "COVERURL" | "_COVERURL" => {
+                covers.extend(pieces(&value).iter().map(|c| content(&unescape(c))))
+            }
             "_LENGTH" => lengths = pieces(&value),
+            "TRACKS" => track_list = (!value.is_empty()).then(|| pieces(&value)),
             internal if internal.starts_with('_') => {}
             _ if value.contains('|') => per_track.push((name, pieces(&value))),
             _ => model::put(&mut album, &name, field_values(&value)),
         }
     }
-    let count = per_track
-        .iter()
-        .find(|(name, _)| name == "TITLE")
-        .or_else(|| per_track.iter().max_by_key(|(_, values)| values.len()))
-        .map_or(0, |(_, values)| values.len());
+    if let Some(titles) = &track_list {
+        let named = titles.iter().any(|title| !content(title).is_empty());
+        if named && !per_track.iter().any(|(name, _)| name == "TITLE") {
+            per_track.push(("TITLE".into(), titles.clone()));
+        }
+    }
+    let count = track_list.as_ref().map(Vec::len).unwrap_or_else(|| {
+        per_track
+            .iter()
+            .find(|(name, _)| name == "TITLE")
+            .or_else(|| per_track.iter().max_by_key(|(_, values)| values.len()))
+            .map_or(0, |(_, values)| values.len())
+    });
     let first = |fields: &Fields, key: &str| fields.get(key).and_then(|v| v.first()).cloned();
-    let tracks = (0..count)
+    let tracks: Vec<SourceTrack> = (0..count)
         .map(|index| {
             let mut fields = Fields::new();
             for (name, values) in &per_track {
@@ -485,7 +712,10 @@ fn release_from(outputs: BTreeMap<String, String>, page: &Url, id: &str) -> Sour
                     .as_deref()
                     .and_then(leading_number)
                     .unwrap_or(index as u32 + 1),
-                title: first(&fields, "TITLE").unwrap_or_default(),
+                // A single-track release often gives TITLE for the album.
+                title: first(&fields, "TITLE")
+                    .or_else(|| (count == 1).then(|| first(&album, "TITLE")).flatten())
+                    .unwrap_or_default(),
                 artist: first(&fields, "ARTIST")
                     .or_else(|| first(&album, "ARTIST"))
                     .unwrap_or_default(),
@@ -510,7 +740,10 @@ fn release_from(outputs: BTreeMap<String, String>, page: &Url, id: &str) -> Sour
         provider: Provider::Web,
         id: id.to_owned(),
         url: page.to_string(),
-        title: first(&album, "ALBUM").unwrap_or_default(),
+        // ALBUM may be given per track (`Album|Album|`).
+        title: first(&album, "ALBUM")
+            .or_else(|| tracks.first().and_then(|t| first(&t.fields, "ALBUM")))
+            .unwrap_or_default(),
         artist: first(&album, "ALBUMARTIST")
             .or_else(|| first(&album, "ARTIST"))
             .unwrap_or_default(),
@@ -633,10 +866,18 @@ pub async fn web_source_search(
                 )
             })?;
         http::register_web_url(&url);
+        let preview = file
+            .direct_preview(&values)
+            .and_then(|raw| Url::parse(&raw).ok())
+            .filter(http::web_allowed);
+        if let Some(preview) = &preview {
+            http::register_web_url(preview);
+        }
         return Ok(WebSearchPage {
             columns: Vec::new(),
             results: vec![WebResult {
                 url: url.to_string(),
+                preview: preview.map(String::from),
                 ..WebResult::default()
             }],
             direct: true,
@@ -659,7 +900,10 @@ pub async fn web_source_search(
         let outputs = execute(&folder, &source, block, "index", &page, vars, debug)?;
         index_results(
             &file,
-            outputs.get("").map(String::as_str).unwrap_or_default(),
+            outputs
+                .get(engine::DEFAULT_OUTPUT)
+                .map(String::as_str)
+                .unwrap_or_default(),
             &page.url,
         )
     })
@@ -781,6 +1025,36 @@ mod tests {
     use super::*;
     use std::io::{Read, Write};
 
+    #[test]
+    fn whole_direct_addresses_still_use_the_web_url_policy() {
+        let file = source::load("Direct.src", &|_| {
+            Ok(
+                "[SearchBy]=URL||%www%||%s\n[PreviewUrl]=%s\n[ParserScriptAlbum]=...\nSayRest\n"
+                    .into(),
+            )
+        })
+        .unwrap();
+        for (address, allowed) in [
+            ("https://host.example/release?id=1&view=full#tracks", true),
+            (
+                "https://host.example/a%2Fb/space%20here?q=rock%26roll#part%202",
+                true,
+            ),
+            ("file:///tmp/release", false),
+            ("javascript:alert(1)", false),
+            ("https://user:secret@host.example/release", false),
+        ] {
+            for raw in [
+                file.direct_url(&[address.into()]),
+                file.direct_preview(&[address.into()]).unwrap(),
+            ] {
+                let url = Url::parse(&raw).unwrap();
+                assert_eq!(http::web_allowed(&url), allowed, "{address}");
+                assert_eq!(url.as_str(), address);
+            }
+        }
+    }
+
     fn write(folder: &Path, name: &str, text: &str) {
         std::fs::write(folder.join(name), text).unwrap();
     }
@@ -892,6 +1166,38 @@ mod tests {
     }
 
     #[test]
+    fn literal_pipe_markers_preserve_unicode_case_and_nonmarkers() {
+        let input = format!(
+            " \t猫$verticalBar()é{}$VERTICALBAR()🙂$VeRtIcAlBaR()尾\n",
+            engine::VERTICAL_BAR
+        );
+        assert_eq!(content(&input), "猫|é||🙂|尾");
+        for value in [
+            "$verticalBar(",
+            "$verticalBar ()",
+            "$verticalBar( )",
+            "$vertıcalBar()",
+            "$verticalBar()x",
+        ] {
+            let expected = if value == "$verticalBar()x" {
+                "|x"
+            } else {
+                value
+            };
+            assert_eq!(content(value), expected);
+        }
+        assert_eq!(content("$vertical$verticalBar()bar()"), "$vertical|bar()");
+    }
+
+    #[test]
+    fn near_limit_pipe_markers_decode_without_changing_other_text() {
+        let marker = "$VeRtIcAlBaR()";
+        let count = (16 * 1024 * 1024 - 16) / marker.len();
+        let input = format!(" 猫{}尾 ", marker.repeat(count));
+        assert_eq!(content(&input), format!("猫{}尾", "|".repeat(count)));
+    }
+
+    #[test]
     fn index_output_becomes_search_results() {
         let file = SourceFile {
             album_url: "https://shop.example/album/".into(),
@@ -990,8 +1296,192 @@ mod tests {
         assert!(release.tracks.is_empty());
         assert_eq!(release.covers.len(), 2);
         assert_eq!(parse_length("1:02:03"), Some(3723.0));
-        assert_eq!(parse_length("61.5"), Some(61.5));
+        assert_eq!(parse_length("61500"), Some(61.5));
+        assert_eq!(parse_length("5000"), Some(5.0));
+        assert_eq!(parse_length("10800000"), Some(10800.0));
+        assert_eq!(parse_length("3:00:00"), Some(10800.0));
         assert_eq!(parse_length("x"), None);
+    }
+
+    #[test]
+    fn numeric_html_references_apply_the_c1_replacement_table() {
+        // WHATWG numeric-character-reference end state: unmapped C1 controls
+        // remain themselves, rather than all being replaced or discarded.
+        let expected = [
+            '€', '\u{81}', '‚', 'ƒ', '„', '…', '†', '‡', 'ˆ', '‰', 'Š', '‹', 'Œ', '\u{8d}', 'Ž',
+            '\u{8f}', '\u{90}', '‘', '’', '“', '”', '•', '–', '—', '˜', '™', 'š', '›', 'œ',
+            '\u{9d}', 'ž', 'Ÿ',
+        ];
+        for (offset, ch) in expected.into_iter().enumerate() {
+            let code = 0x80 + offset;
+            assert_eq!(unescape(&format!("&#{code};")), ch.to_string());
+            assert_eq!(unescape(&format!("&#X{code:X};")), ch.to_string());
+        }
+    }
+
+    #[test]
+    fn numeric_html_references_replace_invalid_scalars_but_keep_other_contracts() {
+        for reference in [
+            "&#0;",
+            "&#x0000;",
+            "&#55296;",
+            "&#xDFFF;",
+            "&#1114112;",
+            "&#x110000;",
+            "&#4294967296;",
+            "&#999999999999999999999999999999;",
+            "&#xFFFFFFFFFFFFFFFFFFFFFFFF;",
+        ] {
+            assert_eq!(unescape(reference), "\u{fffd}", "{reference}");
+        }
+        assert_eq!(
+            unescape("&#65; &#x1F600; &#x10FFFF; &#xFDD0; &#xFFFF;"),
+            "A 😀 \u{10ffff} \u{fdd0} \u{ffff}"
+        );
+        assert_eq!(unescape("&#127; &#160; &#9;"), "\u{7f} \u{a0} \t");
+        for malformed in [
+            "&#;",
+            "&#x;",
+            "&#xGG;",
+            "&#128x;",
+            "&#-1;",
+            "&#128",
+            "&unknown;",
+        ] {
+            assert_eq!(unescape(malformed), malformed);
+        }
+        assert_eq!(unescape("&amp;#128;"), "&#128;");
+        // The separate backslash-u decoder keeps its existing behavior.
+        assert_eq!(unescape(r"x\u0000y\ud800z"), "xyz");
+    }
+
+    #[test]
+    fn numeric_html_references_survive_actual_release_conversion() {
+        let page = Url::parse("https://shop.example/numeric").unwrap();
+        let outputs = [
+            ("ALBUM", "The &#128; sessions"),
+            ("TITLE", "&#x80;|x&#0;y|&#xD800;|&#1114112;|&#x1F600;|"),
+            ("COMMENT", "&#147;quoted&#148; &amp;#128;"),
+        ]
+        .into_iter()
+        .map(|(key, value)| (key.to_owned(), value.to_owned()))
+        .collect();
+        let release = release_from(outputs, &page, "numeric-entities");
+        assert_eq!(release.fields["ALBUM"], ["The € sessions"]);
+        let titles: Vec<_> = release
+            .tracks
+            .iter()
+            .map(|track| track.title.as_str())
+            .collect();
+        assert_eq!(titles, ["€", "x�y", "�", "�", "😀"]);
+        assert_eq!(release.fields["COMMENT"], ["“quoted” &#128;"]);
+    }
+
+    #[test]
+    fn named_html_references_survive_source_import_as_unicode() {
+        let page = Url::parse("https://shop.example/a").unwrap();
+        let outputs = [
+            ("ALBUM", "&Alpha; &Aopf; &NotEqualTilde;"),
+            (
+                "TITLE",
+                "&CounterClockwiseContourIntegral;|&frac12; &euro; &#x1F600;|",
+            ),
+            ("COMMENT", "&unknown; &alpha &AMP; &amp;Alpha;"),
+        ]
+        .into_iter()
+        .map(|(key, value)| (key.to_owned(), value.to_owned()))
+        .collect();
+        let release = release_from(outputs, &page, "named-entities");
+        assert_eq!(release.fields["ALBUM"], ["Α 𝔸 ≂̸"]);
+        assert_eq!(release.tracks[0].title, "∳");
+        assert_eq!(release.tracks[1].title, "½ € 😀");
+        assert_eq!(release.fields["COMMENT"], ["&unknown; &alpha & &Alpha;"]);
+    }
+
+    #[test]
+    fn output_conventions_of_published_scripts() {
+        let page = Url::parse("https://shop.example/a").unwrap();
+        let outputs: BTreeMap<String, String> = [
+            // TRACKS lists the tracks; its values are titles when TITLE is absent.
+            ("TRACKS", "One|Two|"),
+            // Character references and \u escapes are decoded; \\ splits values.
+            ("PUBLISHER", "R&amp;B &#x2019;n&#39; Co"),
+            ("COMMENT", "a\\u0009b\\u000d\\u000ac"),
+            ("URL", "x\\u005c\\u005cy"),
+            // A pipe kept as `$verticalBar()` text by Replace on the input.
+            ("NOTE", "a$verticalBar()b"),
+            // Plain lengths are milliseconds.
+            ("_LENGTH", "320357|5:20|"),
+            ("COVERURL", "/img?a=1&amp;b=2"),
+            ("OUTPUT", "default buffer"),
+        ]
+        .into_iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect();
+        let release = release_from(outputs, &page, "x");
+        let titles: Vec<_> = release
+            .tracks
+            .iter()
+            .map(|t| (t.title.as_str(), t.length))
+            .collect();
+        assert_eq!(titles, [("One", Some(320.357)), ("Two", Some(320.0))]);
+        assert_eq!(release.fields["PUBLISHER"], ["R&B \u{2019}n' Co"]);
+        assert_eq!(release.fields["COMMENT"], ["a\tb\r\nc"]);
+        assert_eq!(release.fields["URL"], ["x", "y"]);
+        assert_eq!(release.fields["NOTE"], ["a|b"]);
+        assert!(!release.fields.contains_key("TRACKS") && !release.fields.contains_key("OUTPUT"));
+        assert_eq!(release.covers[0].url, "https://shop.example/img?a=1&b=2");
+        // A single track takes the album's TITLE and ALBUM may come per track.
+        let single: BTreeMap<String, String> =
+            [("TITLE", "Only"), ("ALBUM", "Disc|"), ("GENRE", "House|")]
+                .into_iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect();
+        let release = release_from(single, &page, "x");
+        assert_eq!(release.tracks[0].title, "Only");
+        assert_eq!(release.title, "Disc");
+        assert_eq!(
+            unescape("&unknown; & \\x \\ud83d\\ude00"),
+            "&unknown; & \\x \u{1F600}"
+        );
+        // %s in [AlbumUrl] takes the result address.
+        let file = SourceFile {
+            album_url: "https://api.example/releases/%s?full=1".into(),
+            ..SourceFile::default()
+        };
+        assert_eq!(
+            album_address(&file, "42", &page).unwrap().as_str(),
+            "https://api.example/releases/42?full=1"
+        );
+    }
+
+    #[test]
+    fn sources_in_subfolders_and_names_in_any_case() {
+        let dir = tempfile::tempdir().unwrap();
+        let folder = dir.path();
+        let unpacked = folder.join("Shop v2").join("scripts");
+        std::fs::create_dir_all(&unpacked).unwrap();
+        write(&unpacked, "Shop#&Release.src", "[SearchBy]=ID||%id%||https://shop.example/r/%s\n[Include]=shop.INC\n[Settings]=Shop#Options.Settings\n");
+        write(&unpacked, "Shop.inc", "[ParserScriptAlbum]=...\nSayRest\n");
+        write(&unpacked, "Shop#Options.settings", SETTINGS);
+        std::fs::create_dir_all(folder.join("debug")).unwrap();
+        write(&folder.join("debug"), "Ignored.src", "x");
+        let listing = list(folder);
+        assert!(listing.problems.is_empty(), "{:?}", listing.problems);
+        assert_eq!(listing.sources.len(), 1);
+        let source = &listing.sources[0];
+        assert_eq!(
+            (source.id.as_str(), source.menu.as_str(), source.direct),
+            ("Shop v2/scripts/Shop#&Release.src", "Shop#&Release", true)
+        );
+        assert_eq!(listing.settings[0].menu, "Shop#Options");
+        let file = load(folder, &source.id).unwrap();
+        assert_eq!(
+            file.settings.as_deref(),
+            Some("Shop v2/scripts/Shop#Options.Settings")
+        );
+        assert_eq!(vars(folder, &file).unwrap()["lang"], "en");
+        assert!(load(folder, "Shop v2/../x.src").is_err());
     }
 
     #[test]
@@ -1139,7 +1629,7 @@ json_foreach_end
             false,
         )
         .unwrap();
-        let found = index_results(&file, &outputs[""], &page.url).unwrap();
+        let found = index_results(&file, &outputs[engine::DEFAULT_OUTPUT], &page.url).unwrap();
         assert_eq!(found.columns, ["Release", "Year"]);
         assert_eq!(found.results.len(), 2);
         assert_eq!(

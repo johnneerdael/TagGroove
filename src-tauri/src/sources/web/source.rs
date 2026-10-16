@@ -22,12 +22,13 @@ enum Entry {
 /// How search words are written into addresses (`[Encoding]`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Encoding {
-    /// Percent-encoded UTF-8 (`url-utf-8`), also used when the key is absent.
-    #[default]
+    /// Percent-encoded UTF-8 (`url-utf-8`).
     UrlUtf8,
     /// Percent-encoded ISO-8859-1 (`url`).
     Url,
-    /// UTF-8 as typed (`utf-8`).
+    /// UTF-8 search words with reserved delimiters escaped, used by default.
+    /// Complete-address direct fields bypass word encoding separately.
+    #[default]
     Utf8,
     /// ISO-8859-1 as typed (`iso-8859-1`).
     Latin1,
@@ -51,6 +52,9 @@ pub struct SourceFile {
     pub based_on: String,
     pub index_url: String,
     pub album_url: String,
+    /// `[PreviewUrl]`: the web page of a release found without an index
+    /// step, `%s` being the search words.
+    pub preview_url: String,
     pub word_separator: String,
     pub index_format: String,
     pub search_by: Vec<SearchField>,
@@ -119,8 +123,15 @@ fn entries(text: &str, file: &str) -> Vec<(String, Entry)> {
     entries
 }
 
+/// `name` next to `file` when `file` is in a subfolder of the sources folder.
+pub fn sibling(file: &str, name: &str) -> Option<String> {
+    file.rsplit_once('/')
+        .map(|(folder, _)| format!("{folder}/{name}"))
+}
+
 /// Resolve `file` and its includes. `read` returns the text of a file named
-/// relative to the sources folder.
+/// relative to the sources folder; includes are looked up next to the
+/// including file first, then in the sources folder.
 fn resolve(
     file: &str,
     read: &dyn Fn(&str) -> Result<String, String>,
@@ -144,6 +155,10 @@ fn resolve(
     }
     // The documented rule: keys of an included file replace the includer's.
     for name in includes {
+        let name = name.replace('\\', "/");
+        let name = sibling(file, &name)
+            .filter(|path| read(path).is_ok())
+            .unwrap_or(name);
         keys.extend(resolve(&name, read, depth + 1).map_err(|e| {
             if e.starts_with(&name) {
                 e
@@ -155,8 +170,9 @@ fn resolve(
     Ok(keys)
 }
 
-/// `[SearchBy]`: up to three `Label||%format%||address part` triples joined
-/// by `$$`. A value without `||` is a format string alone.
+/// `[SearchBy]`: up to three `Label||%format%||address part` triples, written
+/// one after another with `||` (Mp3tag's own sources) or joined by `$$`. A
+/// value without `||` is a format string alone.
 fn search_fields(value: &str) -> Vec<SearchField> {
     let value = value.trim();
     if value.is_empty() {
@@ -169,36 +185,41 @@ fn search_fields(value: &str) -> Vec<SearchField> {
     value
         .split("$$")
         .filter(|part| !part.trim().is_empty())
-        .take(3)
-        .map(|part| {
+        .flat_map(|part| {
             let pieces: Vec<&str> = part.split("||").collect();
-            match pieces.as_slice() {
-                [format] => SearchField {
-                    label: "Search".into(),
-                    format: format.trim().into(),
-                    template: "%s".into(),
-                },
-                [label, format] => SearchField {
-                    label: label.replace('&', "").trim().into(),
-                    format: format.trim().into(),
-                    template: "%s".into(),
-                },
-                [label, format, template, ..] => SearchField {
-                    label: label.replace('&', "").trim().into(),
-                    format: format.trim().into(),
-                    template: (*template).into(),
-                },
-                [] => unreachable!("split yields at least one piece"),
+            if pieces.len() > 3 {
+                pieces.chunks(3).map(<[&str]>::to_vec).collect()
+            } else {
+                vec![pieces]
             }
+        })
+        .take(3)
+        .map(|pieces| match pieces.as_slice() {
+            [format] => SearchField {
+                label: "Search".into(),
+                format: format.trim().into(),
+                template: "%s".into(),
+            },
+            [label, format] => SearchField {
+                label: label.replace('&', "").trim().into(),
+                format: format.trim().into(),
+                template: "%s".into(),
+            },
+            [label, format, template, ..] => SearchField {
+                label: label.replace('&', "").trim().into(),
+                format: format.trim().into(),
+                template: (*template).into(),
+            },
+            [] => unreachable!("split yields at least one piece"),
         })
         .collect()
 }
 
 fn encoding(value: &str) -> Result<Encoding, String> {
     Ok(match value.trim().to_ascii_lowercase().as_str() {
-        "" | "url-utf-8" | "url-utf8" => Encoding::UrlUtf8,
+        "url-utf-8" | "url-utf8" => Encoding::UrlUtf8,
         "url" => Encoding::Url,
-        "utf-8" | "utf8" => Encoding::Utf8,
+        "" | "utf-8" | "utf8" => Encoding::Utf8,
         "iso-8859-1" | "latin1" | "latin-1" => Encoding::Latin1,
         "ansi" => Encoding::Ansi,
         other => {
@@ -235,6 +256,7 @@ pub fn load(
         based_on: value("basedon"),
         index_url: value("indexurl"),
         album_url: value("albumurl"),
+        preview_url: value("previewurl"),
         word_separator: {
             let separator = value("wordseparator");
             let misspelt = value("wordseperator");
@@ -268,9 +290,8 @@ pub fn load(
     if source.album_script.is_none() {
         return Err(format!("{file} has no [ParserScriptAlbum]"));
     }
-    if source.album_url.is_empty() && source.index_url.is_empty() {
-        return Err(format!("{file} has neither [IndexUrl] nor [AlbumUrl]"));
-    }
+    // Without [IndexUrl] and [AlbumUrl] the search words are the album
+    // address (`[SearchBy]=URL||%www%||%s`); a search reports one that is not.
     Ok(source)
 }
 
@@ -336,25 +357,28 @@ impl SourceFile {
         self.index_url.trim().is_empty() || self.index_script.is_none()
     }
 
-    /// The search words: each field's text encoded word by word, joined with
-    /// `[WordSeparator]` (a space when absent) and placed in its address part.
-    pub fn query(&self, values: &[String]) -> String {
+    /// One field's text encoded word by word and joined with
+    /// `[WordSeparator]` (a space when absent).
+    fn words(&self, text: &str) -> String {
         let separator = if self.word_separator.is_empty() {
             "%20"
         } else {
             self.word_separator.as_str()
         };
+        text.split_whitespace()
+            .map(|word| encode_word(word, self.encoding))
+            .collect::<Vec<_>>()
+            .join(separator)
+    }
+
+    /// The search words: each field's words placed in its address part.
+    pub fn query(&self, values: &[String]) -> String {
         self.search_by
             .iter()
             .enumerate()
             .map(|(index, field)| {
                 let text = values.get(index).map(String::as_str).unwrap_or_default();
-                let encoded = text
-                    .split_whitespace()
-                    .map(|word| encode_word(word, self.encoding))
-                    .collect::<Vec<_>>()
-                    .join(separator);
-                field.template.replace("%s", &encoded)
+                field.template.replace("%s", &self.words(text))
             })
             .collect()
     }
@@ -372,16 +396,43 @@ impl SourceFile {
         Self::fill(self.index_url.trim(), &self.query(values))
     }
 
+    /// With no album base, one bare substitution supplies the complete address.
+    /// The caller still parses and validates it through the web URL policy.
+    fn whole_address_field(&self) -> bool {
+        self.direct()
+            && self.album_url.trim().is_empty()
+            && self.search_by.len() == 1
+            && self.search_by[0].template == "%s"
+    }
+
     /// The album page of a source without an index step.
     pub fn direct_url(&self, values: &[String]) -> String {
+        if self.whole_address_field() {
+            return values.first().cloned().unwrap_or_default();
+        }
         Self::fill(self.album_url.trim(), &self.query(values))
     }
 
-    /// `[IndexFormat]` field names without their percent signs.
+    /// The web page of a direct lookup (`[PreviewUrl]`, `%s` being the words
+    /// of the first search field), if the source has one.
+    pub fn direct_preview(&self, values: &[String]) -> Option<String> {
+        let template = self.preview_url.trim();
+        if template.is_empty() {
+            return None;
+        }
+        let value = values.first().map(String::as_str).unwrap_or_default();
+        if template == "%s" && self.whole_address_field() {
+            return Some(value.to_owned());
+        }
+        Some(Self::fill(template, &self.words(value)))
+    }
+
+    /// `[IndexFormat]` field names without their percent signs or the spaces
+    /// around them (`% Title %`).
     pub fn index_fields(&self) -> Vec<String> {
         self.index_format
             .split('|')
-            .map(|name| name.trim().trim_matches('%').to_owned())
+            .map(|name| name.trim().trim_matches('%').trim().to_owned())
             .collect()
     }
 }
@@ -483,7 +534,10 @@ mod tests {
         assert!(load("NoAlbum.src", &read)
             .unwrap_err()
             .contains("no [ParserScriptAlbum]"));
-        assert!(load("NoUrl.src", &read).unwrap_err().contains("neither"));
+        // No address keys: the search words must be the album address.
+        let no_url = load("NoUrl.src", &read).unwrap();
+        assert!(no_url.direct());
+        assert_eq!(no_url.direct_url(&["x".into()]), "x");
         assert!(load("BadEncoding.src", &read)
             .unwrap_err()
             .contains("ebcdic"));
@@ -498,6 +552,116 @@ mod tests {
                 one.search_by[0].format.as_str()
             ),
             ("Search", "%title%")
+        );
+    }
+
+    #[test]
+    fn search_by_triples_follow_each_other_and_addresses_stay_whole() {
+        let read = files(&[
+            (
+                "Chain.src",
+                "[IndexUrl]=https://x.org/find?type=release\n[SearchBy]=Artist||$if2(%albumartist%,%artist%)||&artist=%s||Album||%album%||&title=%s\n[WordSeparator]=+\n[Encoding]=url-utf-8\n[ParserScriptIndex]=...\nSayRest\n[ParserScriptAlbum]=...\nSayRest\n",
+            ),
+            (
+                "ById.src",
+                "[SearchBy]=Release ID ||%release_id%||https://x.org/release/%s\n[PreviewUrl]=https://x.org/page/%s\n[ParserScriptAlbum]=...\nSayRest\n",
+            ),
+            (
+                "ByUrl.src",
+                "[AlbumUrl]=\n[SearchBy]=URL||%www%||%s\n[ParserScriptAlbum]=...\nSayRest\n[IndexFormat]=% Title %|%_url%|%Year%|\n",
+            ),
+        ]);
+        let chain = load("Chain.src", &read).unwrap();
+        assert_eq!(
+            chain
+                .search_by
+                .iter()
+                .map(|f| (f.label.as_str(), f.format.as_str(), f.template.as_str()))
+                .collect::<Vec<_>>(),
+            [
+                ("Artist", "$if2(%albumartist%,%artist%)", "&artist=%s"),
+                ("Album", "%album%", "&title=%s")
+            ]
+        );
+        assert_eq!(
+            chain.search_url(&["A B".into(), "C/D".into()]),
+            "https://x.org/find?type=release&artist=A+B&title=C%2FD"
+        );
+        let by_id = load("ById.src", &read).unwrap();
+        assert!(by_id.direct());
+        assert_eq!(by_id.search_by[0].label, "Release ID");
+        assert_eq!(
+            by_id.direct_url(&["123".into()]),
+            "https://x.org/release/123"
+        );
+        assert_eq!(
+            by_id.direct_preview(&["123".into()]).as_deref(),
+            Some("https://x.org/page/123")
+        );
+        // Without [Encoding] the words are used as typed, so an address
+        // from a tag keeps its scheme and path.
+        let by_url = load("ByUrl.src", &read).unwrap();
+        assert_eq!(by_url.encoding, Encoding::Utf8);
+        assert_eq!(
+            by_url.direct_url(&["https://x.org/release/a-b/9".into()]),
+            "https://x.org/release/a-b/9"
+        );
+        assert_eq!(by_url.direct_preview(&[]), None);
+        assert_eq!(by_url.index_fields(), ["Title", "_url", "Year", ""]);
+    }
+
+    #[test]
+    fn whole_direct_addresses_keep_queries_fragments_and_existing_escapes() {
+        for encoding in ["", "[Encoding]=url-utf-8\n"] {
+            let definition =
+                format!("[SearchBy]=URL||%www%||%s\n{encoding}[ParserScriptAlbum]=...\nSayRest\n");
+            let source = load("Direct.src", &|_| Ok(definition.clone())).unwrap();
+            for address in [
+                "https://host.example/release?id=1&view=full#tracks",
+                "https://host.example/a%2Fb/space%20here?q=rock%26roll&view=full#part%202",
+            ] {
+                let raw = source.direct_url(&[address.into()]);
+                assert_eq!(raw, address, "a complete address is not a search term");
+            }
+        }
+    }
+
+    #[test]
+    fn direct_preview_reuses_only_an_unambiguous_whole_address() {
+        let address = "https://host.example/a%2Fb?id=1&view=full#tracks";
+        let read = files(&[
+            ("Whole.src", "[SearchBy]=URL||%www%||%s\n[PreviewUrl]=%s\n[ParserScriptAlbum]=...\nSayRest\n"),
+            ("Nested.src", "[SearchBy]=URL||%www%||%s\n[PreviewUrl]=https://preview.example/?url=%s\n[Encoding]=url-utf-8\n[ParserScriptAlbum]=...\nSayRest\n"),
+            ("Id.src", "[AlbumUrl]=https://host.example/release/%s\n[SearchBy]=ID||%id%||%s\n[PreviewUrl]=%s\n[Encoding]=url-utf-8\n[ParserScriptAlbum]=...\nSayRest\n"),
+            ("Many.src", "[SearchBy]=ID||%id%||https://host.example/release/%s||View||%view%||?view=%s\n[Encoding]=url-utf-8\n[ParserScriptAlbum]=...\nSayRest\n"),
+            ("Search.src", "[IndexUrl]=https://host.example/?q=%s\n[SearchBy]=Query||%title%||%s\n[Encoding]=url-utf-8\n[ParserScriptIndex]=...\nSayRest\n[ParserScriptAlbum]=...\nSayRest\n"),
+        ]);
+        assert_eq!(
+            load("Whole.src", &read)
+                .unwrap()
+                .direct_preview(&[address.into()])
+                .as_deref(),
+            Some(address)
+        );
+        assert_eq!(load("Nested.src", &read).unwrap().direct_preview(&[address.into()]).as_deref(), Some("https://preview.example/?url=https%3A%2F%2Fhost.example%2Fa%252Fb%3Fid%3D1%26view%3Dfull%23tracks"));
+        let id = load("Id.src", &read).unwrap();
+        assert_eq!(
+            id.direct_url(&["12&view=full".into()]),
+            "https://host.example/release/12%26view%3Dfull"
+        );
+        assert_eq!(
+            id.direct_preview(&[address.into()]).as_deref(),
+            Some("https%3A%2F%2Fhost.example%2Fa%252Fb%3Fid%3D1%26view%3Dfull%23tracks")
+        );
+        let many = load("Many.src", &read).unwrap();
+        assert_eq!(
+            many.direct_url(&["12&view=full".into(), "x#frag".into()]),
+            "https://host.example/release/12%26view%3Dfull?view=x%23frag"
+        );
+        let search = load("Search.src", &read).unwrap();
+        assert_eq!(
+            search.search_url(&["one & two? #three%".into()]),
+            "https://host.example/?q=one%20%26%20two%3F%20%23three%25"
         );
     }
 

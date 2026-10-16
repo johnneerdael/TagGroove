@@ -237,6 +237,89 @@ fn documented_function_families() {
 }
 
 #[test]
+fn parentheses_in_arguments_nest() {
+    // Web source search fields use unquoted groups in regular expressions.
+    assert_eq!(
+        evaluate(
+            "$regexp(V.A.,^(va|various artists|v\\.a\\.)$,Various,1)",
+            &fields()
+        )
+        .unwrap(),
+        "Various"
+    );
+    assert_eq!(
+        evaluate("$regexp(The Band,(?i)\\bthe\\b ,)", &fields()).unwrap(),
+        "Band"
+    );
+    assert_eq!(
+        evaluate("$regexp(Bob''s Song,(?i)''s( |$),$1)", &fields()).unwrap(),
+        "Bob Song"
+    );
+    // A comma inside parentheses is text, not an argument separator.
+    assert_eq!(evaluate("$upper(a(b,c)d)", &fields()).unwrap(), "A(B,C)D");
+    // Text that only reads without nesting keeps its earlier meaning.
+    assert_eq!(evaluate("$upper(a(b)", &fields()).unwrap(), "A(B");
+    // Escaped parentheses are text and do not nest.
+    let paren: Fields = [("TITLE".into(), vec!["a (live) b".into()])].into();
+    assert_eq!(
+        evaluate("$regexp(%title%,\\(,open )", &paren).unwrap(),
+        "a open live) b"
+    );
+    assert_eq!(
+        evaluate("$upper($regexp(%title%,\\),!))", &paren).unwrap(),
+        "A (LIVE! B"
+    );
+    // Text that only reads without nesting keeps its earlier meaning (an
+    // unbalanced `(` in an argument); a class in quotes is unaffected.
+    assert_eq!(evaluate("$replace(a(b,(,)", &fields()).unwrap(), "ab");
+    assert_eq!(evaluate("$regexp(a(b,'[(]',-)", &fields()).unwrap(), "a-b");
+    assert_eq!(evaluate("$len(()", &fields()).unwrap(), "1");
+}
+
+#[test]
+fn backslash_parity_follows_literal_characters_and_resets_at_nodes() {
+    let values: Fields = [("TITLE".into(), vec!["x".into()])].into();
+    for count in 0..8 {
+        let slashes = "\\".repeat(count);
+        let expression = format!("$len({slashes}(x{slashes}))");
+        assert_eq!(
+            evaluate(&expression, &values).unwrap(),
+            (2 * count + 3).to_string()
+        );
+        // Quotes, fields, optional sections, functions and literal dollars each
+        // end the preceding literal node; its escape parity cannot leak across.
+        for (suffix, length) in [
+            ("''(x,y)", 6),
+            ("%title%(x,y)", 6),
+            ("[%title%](x,y)", 6),
+            ("$lower(X)(x,y)", 6),
+            ("$1(x,y)", 7),
+            ("猫(x,y)", 6),
+        ] {
+            let expression = format!("$len({slashes}{suffix})");
+            assert_eq!(
+                evaluate(&expression, &values).unwrap(),
+                (count + length).to_string(),
+                "{expression}"
+            );
+        }
+    }
+    assert_eq!(evaluate("$len('\\'(x,y))", &values).unwrap(), "6");
+}
+
+#[test]
+fn near_limit_backslash_argument_keeps_its_literal_length() {
+    // Leave room for the call below the 1 MiB format limit; an even run leaves
+    // the closing parenthesis unescaped. No timing assertion is needed.
+    let count = 1024 * 1024 - 8;
+    let expression = format!("$len({})", "\\".repeat(count));
+    assert_eq!(
+        evaluate(&expression, &Fields::new()).unwrap(),
+        count.to_string()
+    );
+}
+
+#[test]
 fn regex_boost_references_and_ascii_digits() {
     assert_eq!(
         evaluate(

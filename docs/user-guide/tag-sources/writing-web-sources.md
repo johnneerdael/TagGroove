@@ -83,7 +83,6 @@ SayRest
 Say "|"
 OutputTo "TRACK"
 json_foreach_counter
-SayRest
 Say "|"
 json_foreach_end
 ```
@@ -102,8 +101,7 @@ input, and `SayRest` appends that text to the current output buffer.
 The array loop changes the JSON context to each track. `TITLE` and `TRACK`
 collect per-track values, each followed by `|`. The final pipe matters: it
 marks a track-valued output rather than a single album-wide value. The
-counter command puts its number on the input; `SayRest` is still needed to
-copy it to output.
+counter command writes directly to TRACK; no `SayRest` is needed for it.
 
 ## 3. Give the optional year a setting
 

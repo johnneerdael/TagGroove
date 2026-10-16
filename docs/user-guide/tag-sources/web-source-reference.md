@@ -23,22 +23,24 @@ recognized and non-UTF-8 legacy text falls back to Windows-1252.
 | `[Name]` | Descriptive source name; the filename still determines its menu path |
 | `[BasedOn]` | Original site/source metadata; use the actual request/base headers below rather than relying on this as URL resolution |
 | `[IndexUrl]` | Search address containing `%s`, replaced with the assembled query |
-| `[AlbumUrl]` | Album base for a result's relative address, or the direct-lookup address when there is no index stage |
+| `[AlbumUrl]` | Album base/`%s` template for a result address, or the direct-lookup address when there is no index stage |
+| `[PreviewUrl]` | Optional preview address for a direct lookup; `%s` uses its first search field |
 | `[WordSeparator]` | String placed between separately encoded search words; absent/empty defaults to `%20` |
 | `[IndexFormat]` | Pipe-separated result fields; `%_url%` is required for a result list |
 | `[SearchBy]` | Up to three labelled search fields with defaults and URL fragments |
 | `[Encoding]` | Encoding/escaping policy for search words in URLs; separate from source-file encoding |
 | `[UserAgent]` | `1` requests OpenTag's own name/version user agent; otherwise the web-source browser-style agent is used |
-| `[ParserScriptIndex]` | Script that emits the result list into the unnamed output |
+| `[ParserScriptIndex]` | Script that emits the result list into the default `OUTPUT` buffer |
 | `[ParserScriptAlbum]` | Required script that emits release and track fields |
 | `[Include]` | Plain companion filename whose keys replace this file's keys |
 | `[MinAppVersionWin]` | Upstream Windows minimum-version declaration, retained as source metadata; not an OpenTag compatibility certificate |
 | `[MinAppVersionMac]` | Equivalent upstream Mac declaration; check OpenTag commands independently |
 | `[Settings]` | Plain `.settings` schema filename used by this source's configuration variables |
 
-A source needs an album parser and at least an index or album URL. A missing
-index URL or index parser makes it a direct lookup. Avoid adding an incomplete
-index stage when a known release identifier is all that is needed.
+A source needs an album parser. A missing index URL or index parser makes it
+a direct lookup; its search field may supply a complete web address when no
+IndexUrl/AlbumUrl is set. Avoid adding an incomplete index stage when a known
+release identifier or address is all that is needed.
 
 The old misspelling `WordSeperator` is accepted as a fallback, but use
 `WordSeparator` in new sources. Unknown headers can be retained diagnostically;
@@ -47,8 +49,9 @@ source-order guarantee from an unverified header in an imported script.
 
 ### Search fields and URL encoding
 
-A SearchBy entry has `Label||default format||URL fragment`. Separate entries
-with `$$`. For example, `Artist||%artist%||artist=%s$$Album||%album%||&album=%s`
+A SearchBy entry has `Label||default format||URL fragment`. Triples can follow
+one another with `||`, or separate entries can use `$$`. For example,
+`Artist||%artist%||artist=%s||Album||%album%||&album=%s`
 creates two fields. Defaults use the first selected file. Entered text is split
 into words, encoded according to Encoding, joined with WordSeparator, inserted
 into each fragment, then assembled into the IndexUrl/AlbumUrl `%s` position.
@@ -61,9 +64,9 @@ explicit substitution point is clearer.
 
 | Encoding value | Current search-word behavior |
 | --- | --- |
-| `url-utf-8` | Default: percent-encode UTF-8 bytes, retaining unreserved URL characters |
+| `url-utf-8` | Percent-encode UTF-8 bytes, retaining unreserved URL characters |
 | `url` | Percent-encode ISO-8859-1 bytes; unrepresentable characters become `?` before escaping |
-| `utf-8` | Keep more ASCII punctuation while escaping address delimiters/control characters and non-ASCII UTF-8 bytes |
+| Missing/empty, or `utf-8` | Keep ASCII punctuation such as `:` and `/`, while escaping `#`, `%`, `&`, `+`, `?`, controls and non-ASCII UTF-8 bytes |
 | `iso-8859-1` | The corresponding Latin-1 byte policy |
 | `ansi` | The web-source query implementation uses Windows-1252 with that ASCII escaping policy |
 
@@ -71,9 +74,24 @@ The `ansi` row concerns this URL builder. It is not a statement that every
 OpenTag ANSI operation uses the same platform codepage. Prefer `url-utf-8` for
 a UTF-8 API unless its actual requirements say otherwise.
 
+A complete-address direct lookup is different from a search term. When there
+is no album base and exactly one search field with the fragment `%s`, such as
+`URL||%www%||%s`, OpenTag uses that field as the complete address. It preserves
+query delimiters, fragments and existing percent escapes instead of applying
+word splitting, WordSeparator or Encoding to the address. The normal HTTP(S)
+address validation still applies; a stored value does not authorize file URLs
+or embedded user credentials.
+
+For the same complete-address field, `[PreviewUrl]=%s` also keeps that address.
+A nested preview template such as `https://preview.example/?url=%s` still uses
+the normal search-word escaping. Use `url-utf-8` when embedding a URL as that
+parameter's value. ID templates, multiple search fields and ordinary index
+searches continue to encode their input words normally.
+
 ### Index results
 
-The index script writes to `OutputTo ""`, the unnamed buffer. Finish each
+Scripts start in the `OUTPUT` buffer. `OutputTo "Output"` or `OutputTo ""`
+returns to that default buffer, which supplies the index results. Finish each
 result with SayNewline. Separate its values with `|` in the order defined by
 IndexFormat. The field names beginning with `_` are internal rather than
 visible result columns:
@@ -84,8 +102,8 @@ visible result columns:
 - `%_preview%`: optional address for previewing the result.
 - Other named fields, such as `%Album%` and `%Year%`, become visible columns.
 
-An absolute album URL is used directly. Otherwise AlbumUrl is prefixed when
-provided, and the resulting address is resolved against the downloaded page.
+An absolute album URL is used directly. Otherwise AlbumUrl supplies its base, or substitutes the emitted address into
+its `%s` position, and the result is resolved against the downloaded page.
 Do not duplicate a path prefix in both the base and emitted result. Cover and
 preview addresses resolve against the page too. Only accepted web addresses
 are used by the request workflow.
@@ -97,17 +115,32 @@ release. Track-valued buffers contain `|`-separated entries, conventionally
 ending with `|`, as in `Paper Boats|Lanterns on the Water|`. A single track
 also needs its separator to distinguish a track list from one album value.
 
-TITLE establishes the track count when available; otherwise another
-track-valued output supplies it. Keep TRACK, TITLE, per-track ARTIST and other
-track lists aligned. `COVERURL`/`_COVERURL` supplies image addresses. `_LENGTH`
-can supply per-track duration text in seconds, m:ss or h:mm:ss form. Other
+`TRACKS` establishes the track list/count when supplied, and its nonempty
+values supply titles when `TITLE` is absent. Otherwise `TITLE`, or another
+track-valued output, supplies the count. Keep TRACK, TITLE, per-track ARTIST
+and other lists aligned. `COVERURL`/`_COVERURL` supplies image addresses.
+`_LENGTH` accepts m:ss or h:mm:ss; a plain number is milliseconds at every
+magnitude (`5000` means five seconds). A script supplying plain seconds must
+convert them before output. Other
 underscore-prefixed buffers are internal and are not written as ordinary tags.
 Double backslashes separate multiple values within a field, as in `Juniper Vale\\Mira Solberg`.
 
+Stored values decode semicolon-terminated HTML character references and `\uXXXX` escapes.
+Named references use the complete HTML name set, including two-character
+expansions such as `&NotEqualTilde;`; names are case-sensitive. Decoding makes
+one pass, so `&amp;Alpha;` becomes the literal `&Alpha;`. Decimal and hexadecimal numeric references use the HTML replacement rules:
+`&#128;` becomes `€`, while null, surrogate and out-of-range values become
+`�`. Other valid code points are retained, including C1 controls without a
+replacement. Unknown or malformed references and references without their
+terminating semicolon stay unchanged. A
+single-track release can take album-wide `TITLE`; `ALBUM` may be per track.
+`TRACKS` and `OUTPUT` are control buffers, not ordinary saved tag fields.
+
 For a pipe that belongs inside a value, use `$verticalBar()` in a SayFormat
 or UseFormat expression. It emits a protected marker that the release/result
-conversion restores to a literal pipe after splitting. A raw `|` would split
-the output instead.
+conversion restores to a literal pipe after splitting. Literal `$verticalBar()`
+text supplied by a script is handled the same way. A raw `|` splits the output
+instead.
 
 This parser-level description does not establish later duration-unit handling
 or automatic file-order suggestions. Check titles/positions and review the
@@ -174,15 +207,19 @@ only the named example variable. Debug files are additional in-memory parser
 results; the app writes them under its sources/debug folder.
 
 Commands ignore case. Double quotes delimit parser string parameters; `\"`
-puts a quote inside one. Other backslashes remain literal, so a regex `\d`
+puts a quote inside one, and `\\` becomes one backslash. Other backslashes remain literal, so a regex `\d`
 needs one backslash at this layer. `#` outside quotes starts a comment.
 
 Ordinary string parameters substitute existing `%output%` values. Unknown
-output references can remain literal text, and bare `%20` is not a field.
+output references can remain literal text; a buffer emptied by `Set` expands
+to empty text. Bare `%20` is not a field.
 SayFormat and UseFormat instead evaluate their first argument as a format
 string with `%_current%` and, unless restricted, named outputs as fields.
-Use that language's apostrophe quoting for literal parentheses, brackets,
-commas or dollar signs inside expressions. See [format strings](../reference/format-strings.md)
+Apostrophe quoting protects literal brackets, commas and other syntax in
+expressions. Balanced unquoted parentheses in an argument nest; commas inside
+that text stay in the argument. Escaped `\(` and `\)` neither nest nor close
+the call. A dollar sign starting no function name, such as an end anchor `$`
+or replacement `$1`, is literal. Quoting remains clearest for complex patterns. See [format strings](../reference/format-strings.md)
 and [regular expressions](../reference/regular-expressions.md). The case-sensitive
 parser regex commands below differ from the default case policy of the
 `$regexp(...)` formatting function.
@@ -203,7 +240,7 @@ literal commands. Examples labelled CRLF make output line endings explicit.
 
 **Syntax:** `FindLine "text" [occurrence] [optional]`
 
-Find the next matching line from the current position and move to its first character. The occurrence counts matching lines, not several copies on one line. Use a third parameter of 1 to leave a missing match nonfatal; the cursor then stays where it was.
+Find the next matching line from the current position and move to its first character. The occurrence counts matching lines, not several copies on one line. Use a third parameter of 1 to leave a missing match nonfatal; the cursor moves past the end of the input.
 
 **Input**
 
@@ -220,7 +257,7 @@ FindLine "Album:" 2
 SayRest
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 Album: Harbour Lights
@@ -248,7 +285,7 @@ FindLineNoCase "album:"
 SayRest
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 ALBUM: Harbour Lights
@@ -260,7 +297,7 @@ ALBUM: Harbour Lights
 
 **Syntax:** `FindInLine "text" [occurrence] [optional]`
 
-Search the current line from the cursor and place it after the chosen occurrence. A missing match is an error unless the third parameter is 1. It does not search later lines.
+Search the current line from the cursor and place it after the chosen occurrence. A missing match is an error unless the third parameter is 1; an optional failure moves to the end of this line. It does not search later lines.
 
 **Input**
 
@@ -275,7 +312,7 @@ FindInLine "Title: " 2
 SayRest
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 Paper Boats
@@ -302,7 +339,7 @@ GotoChar 8
 SayRest
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 Lanterns
@@ -330,7 +367,7 @@ GotoLine 2
 SayRest
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 Paper Boats
@@ -358,7 +395,7 @@ MoveChar -3
 SayNChars 5
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 Paper
@@ -387,7 +424,7 @@ MoveLine 2
 SayRest
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 Paper Boats
@@ -415,7 +452,7 @@ Ignored input
 Say "Juniper Vale"
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 Juniper Vale
@@ -441,7 +478,7 @@ Paper Boats|next
 SayUntil "|"
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 Paper Boats
@@ -470,7 +507,7 @@ Boats</title>
 SayUntilML "</title>"
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 Paper
@@ -498,7 +535,7 @@ FindInLine "Title: "
 SayRest
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 Paper Boats
@@ -526,7 +563,7 @@ Copy and consume this many Unicode characters from the cursor, stopping at line 
 SayNChars 2
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 ␠␠
@@ -552,7 +589,7 @@ Take -03.5 bonus
 SayNextNumber
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 -03.5
@@ -578,7 +615,7 @@ Skip leading whitespace, then copy the next non-whitespace run. Punctuation belo
 SayNextWord
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 Paper,
@@ -607,7 +644,7 @@ Say " @ "
 SayOutput "CurrentUrl"
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 Harbour Lights @ https://catalogue.example.invalid/release/harbour
@@ -637,7 +674,7 @@ SayNewline
 Say "Boats"
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 Paper
@@ -664,7 +701,7 @@ Consume a number at the cursor and emit its UTC calendar date. The default unit 
 SayDate "ms"
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 2024-01-01
@@ -690,7 +727,7 @@ Consume a numeric interval. Use seconds by default, "ms" for milliseconds or "m"
 SayDuration "ms" 1 1
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 0:01:02.005
@@ -702,7 +739,7 @@ SayDuration "ms" 1 1
 
 **Syntax:** `SayRegexp "pattern" ["separator"] ["stop text"]`
 
-Find every full regex match in the current remainder, joining them with a space by default. Omit the third parameter to search the entire current remainder. A supplied third parameter restricts matching to text before that stop text’s first occurrence; if the supplied stop text is absent from the input, this command emits nothing and leaves the cursor unchanged. After a successful search, the cursor advances to the end of that region and leaves any stop marker for later. A missing stop marker leaves the cursor unchanged. Matching is case-sensitive here; use an inline regex option when another policy is intended.
+Find every full regex match in the current remainder, joining them with a space by default. Omit the third parameter to search the entire current remainder. A supplied third parameter restricts matching to text before that stop text’s first occurrence; if the supplied stop text is absent from the input, this command emits nothing and leaves the cursor unchanged. The cursor stays where it was after matching, so later reads can inspect the same text. Matching is case-sensitive here; use an inline regex option when another policy is intended.
 
 **Input**
 
@@ -714,12 +751,14 @@ item2 item7; item9
 
 ```text
 SayRegexp "item\d" ", " ";"
+Say "|"
+SayRest
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
-item2, item7
+item2, item7|item2 item7; item9
 ```
 
 <!-- web-example:sayformat -->
@@ -743,7 +782,7 @@ Set "ARTIST" "Juniper Vale"
 SayFormat "$upper(%_current%) — %ARTIST%"
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 PAPER BOATS — Juniper Vale
@@ -771,7 +810,7 @@ Append a configured setting as text. The key matches the schema key exactly; a m
 SayVar "edition"
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 deluxe
@@ -785,7 +824,7 @@ deluxe
 
 **Syntax:** `Set "buffer" ["value"]`
 
-Replace the named buffer with a value. Omit the second parameter to remove that buffer. Unlike OutputTo, this does not switch the destination of later Say commands.
+Replace the named buffer with a value. Omit the second parameter to empty that buffer; later `%buffer%` references expand to empty text. Unlike OutputTo, this does not switch the destination of later Say commands.
 
 **Input**
 
@@ -803,7 +842,7 @@ Say "cleared"
 Endif
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 cleared
@@ -815,7 +854,7 @@ cleared
 
 **Syntax:** `OutputTo "buffer"`
 
-Choose the output used by later Say commands. Text is appended there; it does not clear an earlier value. Use an empty name for the unnamed index-result output.
+Choose the output used by later Say commands. Text is appended there; it does not clear an earlier value. Use an empty name or "Output" to return to the default `OUTPUT` index-result buffer.
 
 **Input**
 
@@ -858,7 +897,7 @@ SkipChars " _-"
 SayRest
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 Paper Boats
@@ -885,7 +924,7 @@ Insert "Paper "
 SayRest
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 Paper Boats
@@ -913,7 +952,7 @@ Use "%ALBUM%"
 SayRest
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 Harbour Lights
@@ -940,7 +979,7 @@ UseFormat "$upper(%_current%)"
 SayRest
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 PAPER BOATS
@@ -954,7 +993,7 @@ PAPER BOATS
 
 **Syntax:** `If "prefix"`
 
-Test whether the current remainder starts with this case-sensitive prefix. This is not a search over the whole line. A false branch jumps to Else or Endif without consuming input.
+Test whether the current remainder starts with this case-sensitive prefix. This is not a search over the whole line. A false branch jumps to Else or Endif without consuming input. With an empty prefix, If "" is true only when the current line has no text left at the cursor.
 
 **Input**
 
@@ -970,7 +1009,7 @@ Say "album found"
 Endif
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 album found
@@ -982,7 +1021,7 @@ album found
 
 **Syntax:** `IfNot "prefix"`
 
-Take the branch when the current remainder does not start with the prefix. The condition itself does not move the cursor.
+Take the branch when the current remainder does not start with the prefix. An empty prefix instead tests whether text remains: IfNot "" is true while the current remainder is nonempty. The condition itself does not move the cursor.
 
 **Input**
 
@@ -998,7 +1037,7 @@ SayRest
 Endif
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 Paper Boats
@@ -1027,7 +1066,7 @@ Say "present"
 Endif
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 present
@@ -1055,7 +1094,7 @@ Say "no comment"
 Endif
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 no comment
@@ -1083,7 +1122,7 @@ Say "large"
 Endif
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 large
@@ -1111,7 +1150,7 @@ Say "small"
 Endif
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 small
@@ -1141,7 +1180,7 @@ Say "extra tracks"
 Endif
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 extra tracks
@@ -1171,7 +1210,7 @@ Say "alternate edition"
 Endif
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 alternate edition
@@ -1201,7 +1240,7 @@ Say "other"
 Endif
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 other
@@ -1230,7 +1269,7 @@ Endif
 Say "."
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 matched.
@@ -1258,7 +1297,7 @@ SayNChars 1
 While "x" 3
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 xxx
@@ -1286,7 +1325,7 @@ SayNChars 1
 While "A" 2
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 AA
@@ -1300,25 +1339,30 @@ AA
 
 **Syntax:** `Replace "from" "to"`
 
-Replace literal matches in the entire current input. The old cursor location is kept and clamped, so reposition after length-changing transformations when needed. An empty search performs no replacement.
+Replace literal matches on the current line only and return the cursor to its start. Other lines are unchanged. An empty search performs no replacement.
 
 **Input**
 
 ```text
 Paper_Boats
+Other_Label
 ```
 
 **Script**
 
 ```text
+FindInLine "_"
 Replace "_" " "
+SayRest
+Say "|"
+MoveLine 1
 SayRest
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
-Paper Boats
+Paper Boats|Other_Label
 ```
 
 <!-- web-example:regexpreplace -->
@@ -1327,7 +1371,7 @@ Paper Boats
 
 **Syntax:** `RegexpReplace "pattern" "replacement"`
 
-Replace regex matches in the entire current input, using case-sensitive matching and Boost replacement captures. These are parser parameters; dollar captures here are not an unquoted $regexp format-string call. Like Replace, it retains/clamps the old cursor position; relocate it deliberately after length changes.
+Replace regex matches on the current line only, using case-sensitive matching and Boost replacement captures, then return the cursor to the line start. These are parser parameters; their dollar captures do not invoke formatting functions.
 
 **Input**
 
@@ -1342,7 +1386,7 @@ RegexpReplace "^([0-9]+)_(.*)$" "$2 [$1]"
 SayRest
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 Paper Boats [03]
@@ -1354,7 +1398,7 @@ Paper Boats [03]
 
 **Syntax:** `JoinUntil "text"`
 
-Join the current line through the line containing the next marker, or through input end if absent. If the marker is already in the current remainder, no join is needed. No separator is inserted. Existing spaces at line boundaries determine whether words stay separated.
+Join the current line through the line containing the next marker, or through input end if absent. If the marker is already in the current remainder, no join is needed. No separator is inserted. Existing spaces at line boundaries determine whether words stay separated. The joined later lines remain in place for subsequent line movement.
 
 **Input**
 
@@ -1371,7 +1415,7 @@ FindInLine ">"
 SayUntil "</title>"
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 Paper Boats
@@ -1383,7 +1427,7 @@ Paper Boats
 
 **Syntax:** `JoinLines count`
 
-Join this line with the next count lines, without adding spaces. -1 or a count beyond the remaining range joins all remaining lines. It does not mean a total of count lines including this one.
+Join this line with the next count lines, without adding spaces. -1 or a count beyond the remaining range joins all remaining lines. It does not mean a total of count lines including this one. The later lines remain after their text is copied into the joined line.
 
 **Visible spaces:** `␠`
 
@@ -1401,7 +1445,7 @@ JoinLines 1
 SayRest
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 Paper␠Boats
@@ -1428,7 +1472,7 @@ KillTag "em"
 SayRest
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 Paper Boats
@@ -1457,7 +1501,7 @@ Trim "off"
 SayRest
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 ␠␠Paper␠␠
@@ -1486,7 +1530,7 @@ Unspace
 SayRest
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 Paper
@@ -1518,7 +1562,7 @@ SayRest
 Debug "off"
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 Paper Boats
@@ -1548,7 +1592,7 @@ DebugWriteInput "snapshot.txt"
 SayRest
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 Paper Boats
@@ -1562,7 +1606,7 @@ Paper Boats
 
 **Syntax:** `json "on"|"off" ["current"]`
 
-Enable JSON mode from the original downloaded text. Add "current" to parse transformed input instead; "off" leaves JSON mode. JSON selection writes a value to text input so a later Say command can emit it. Turning JSON mode off leaves that current text in place.
+Enable JSON mode from the original downloaded text. Add "current" to parse transformed input from the cursor onward. Text after the first JSON value is ignored. Selection writes a value to text input so a later Say command can emit it. Turning JSON mode off restores the input and cursor saved when JSON mode began.
 
 **Input**
 
@@ -1579,7 +1623,7 @@ json_select "title"
 SayRest
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 Paper Boats
@@ -1591,7 +1635,7 @@ Paper Boats
 
 **Syntax:** `json_foreach "array"`
 
-Enter each array item in its original order. The input initially contains the array size; select the item/field before reading it. An empty/missing array skips the body. Close with json_foreach_end.
+Enter each array item in its original order, or each object member in document order. The input initially contains the collection size; select the item/field before reading it. An empty/missing array skips the body. Close with json_foreach_end.
 
 **Input**
 
@@ -1610,7 +1654,7 @@ Say "|"
 json_foreach_end
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 Paper Boats|Lanterns|
@@ -1622,7 +1666,7 @@ Paper Boats|Lanterns|
 
 **Syntax:** `json_foreach_reverse "array"`
 
-Iterate the same array in reverse order. The loop counter still starts at 1 for the first emitted item; it is not the original array index.
+Iterate the same array or object in reverse order. An array counter still starts at 1 for the first emitted item rather than its original index; object counters remain member names.
 
 **Input**
 
@@ -1641,7 +1685,7 @@ Say "|"
 json_foreach_end
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 Lanterns|Paper Boats|
@@ -1653,7 +1697,7 @@ Lanterns|Paper Boats|
 
 **Syntax:** `json_foreach_counter [digits]`
 
-Put the current one-based loop counter on text input, with optional leading-zero width. It emits nothing until a Say command reads it. Calling it outside an active array loop is an error.
+Append the one-based array-loop counter directly to output, with optional leading-zero width. For an object loop, append the member name instead. It does not replace input and needs no SayRest afterwards. Calling it outside an active loop is an error.
 
 **Input**
 
@@ -1667,12 +1711,11 @@ Put the current one-based loop counter on text input, with optional leading-zero
 json "on"
 json_foreach "tracks"
 json_foreach_counter 2
-SayRest
 Say "|"
 json_foreach_end
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 01|02|
@@ -1684,7 +1727,7 @@ json_foreach_end
 
 **Syntax:** `json_foreach_end`
 
-Close the last JSON array loop, advance to its next item or leave it. Object selections made inside the iteration are unwound before the next item. Nested JSON loops must close in order.
+Close the last JSON collection loop, advance to its next item or leave it. Object selections made inside the iteration are unwound before the next item. Nested JSON loops must close in order.
 
 **Input**
 
@@ -1702,7 +1745,7 @@ SayRest
 json_foreach_end
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 PaperBoats
@@ -1731,7 +1774,7 @@ json_select "title"
 SayRest
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 Harbour Lights
@@ -1743,7 +1786,7 @@ Harbour Lights
 
 **Syntax:** `json_unselect_object`
 
-Return to the preceding JSON context. This does not replace current text input by itself: select another value after returning. It cannot pop an active loop item as though it were a selected object.
+Return to the preceding JSON context. This does not replace current text input by itself: select another value after returning. It cannot pop an active loop item as though it were a selected object. With no additional selected object it stays in the current context.
 
 **Input**
 
@@ -1764,7 +1807,7 @@ json_select "title"
 SayRest
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 inner/root
@@ -1792,7 +1835,7 @@ json_select "artist.name"
 SayRest
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 Juniper Vale
@@ -1804,7 +1847,7 @@ Juniper Vale
 
 **Syntax:** `json_select_array "array" index ["separator"]`
 
-Select a one-based array element, or -1 for all elements joined by the supplied separator. An out-of-range index becomes empty. Without a separator, all-element mode concatenates the values. This one-based index differs from a numeric component in a dotted JSON path.
+Select a one-based array element, or -1 for all elements joined by the supplied separator. An out-of-range index becomes empty. Without a separator, all-element mode concatenates the values. Selecting one object element also enters its context until json_unselect_object. This one-based index differs from a numeric component in a dotted JSON path.
 
 **Input**
 
@@ -1820,7 +1863,7 @@ json_select_array "tracks" -1 " / "
 SayRest
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 Paper Boats / Lanterns
@@ -1848,7 +1891,7 @@ json_select_many "artists" "name" ", " " & " 2
 SayRest
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 Juniper Vale & Mira Solberg
@@ -1876,7 +1919,7 @@ json_select_many_count "artists" "name" 1
 SayRest
 ```
 
-**Output buffer:** `unnamed`
+**Output buffer:** `OUTPUT`
 
 ```text
 3
@@ -1896,7 +1939,12 @@ the downloaded input. File names are sanitized and kept under sources/debug.
 Check those files before changing an extraction pattern blindly.
 
 The checked engine stops after 2,000,000 command steps and checks appended
-output against a 16 MB cumulative byte budget. Debug traces have a default
+output against a 16 MB cumulative byte budget. JoinLines and JoinUntil also
+share a 16 MiB budget for bytes appended during one run. Every copy counts,
+including repeated joins and overlapping retained lines; changing or replacing
+the input does not reset it. A join that would exceed the allowance fails
+before appending or moving the cursor. This bounds join growth rather than
+setting a universal size limit for all input transformations. Debug traces have a default
 10 MB cap. These guardrails do not certify
 that a source handles every response size, provider rule or future page layout.
 Keep requests and scripts small while developing, preserve a working copy and
