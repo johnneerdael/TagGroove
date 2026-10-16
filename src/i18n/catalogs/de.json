@@ -2801,5 +2801,8 @@
  "{error}; rollback incomplete: {value}": "{error}; Zurücksetzen unvollständig: {value}",
  "{path}: file not found": "{path}: Datei nicht gefunden",
  "{value} / action {value2}: {error}": "{value} / Aktion {value2}: {error}",
- "{value}: {error}": "{value}: {error}"
+ "{value}: {error}": "{value}: {error}",
+ "No column could be imported: {error}": "Keine Spalte konnte importiert werden: {error}",
+ "The file contains no column definitions. Choose columns.ini from the Mp3tag configuration folder.": "Die Datei enthält keine Spaltendefinitionen. Wählen Sie columns.ini aus dem Mp3tag-Konfigurationsordner.",
+ "the sort format string is not supported": "der Sortierformatstring wird nicht unterstützt"
 }

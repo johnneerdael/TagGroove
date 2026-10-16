@@ -127,9 +127,18 @@ pub fn save_library(path: &Path, library: &ActionLibrary) -> Result<(), String> 
     let bytes = serde_json::to_vec_pretty(library).map_err(|e| e.to_string())?;
     atomic_output(path, &bytes, false)
 }
+#[cfg(test)]
 pub fn import_group(path: &Path, legacy_encoding: Option<&str>) -> Result<MtaImport, String> {
-    let bytes = fs::read(path).map_err(|e| e.to_string())?;
-    tag_core::actions::import_mta(
+    import_group_diagnostic(path, legacy_encoding)
+        .map(|report| report.result)
+        .map_err(|cause| cause.to_string())
+}
+pub fn import_group_diagnostic(
+    path: &Path,
+    legacy_encoding: Option<&str>,
+) -> Result<tag_core::actions::MtaImportReport, ErrorCause> {
+    let bytes = fs::read(path).map_err(ErrorCause::external)?;
+    tag_core::actions::import_mta_diagnostic(
         path.file_stem()
             .unwrap_or_default()
             .to_string_lossy()
@@ -137,6 +146,7 @@ pub fn import_group(path: &Path, legacy_encoding: Option<&str>) -> Result<MtaImp
         &bytes,
         legacy_encoding,
     )
+    .map_err(ErrorCause::owned_text)
 }
 /// One file of a bulk `.mta` import.
 #[derive(Serialize)]
@@ -148,31 +158,53 @@ pub struct GroupFileImport {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
 }
-/// Import several `.mta` files at once. A folder stands for the `.mta` files
-/// in it, in natural name order, as in Mp3tag's `data/actions` folder. Each
-/// file succeeds or fails on its own.
+#[derive(Serialize)]
+pub struct GroupFileImportReport {
+    #[serde(flatten)]
+    pub result: GroupFileImport,
+    pub issue_diagnostics: Vec<tag_core::batch_errors::IndexedCause>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_cause: Option<ErrorCause>,
+}
+#[cfg(test)]
 pub fn import_groups(paths: &[PathBuf], legacy_encoding: Option<&str>) -> Vec<GroupFileImport> {
-    let outcome = |path: &Path, result: Result<MtaImport, String>| {
-        let (imported, error) = match result {
-            Ok(imported) => (Some(imported), None),
-            Err(error) => (None, Some(error)),
+    import_groups_diagnostic(paths, legacy_encoding)
+        .into_iter()
+        .map(|report| report.result)
+        .collect()
+}
+pub fn import_groups_diagnostic(
+    paths: &[PathBuf],
+    legacy_encoding: Option<&str>,
+) -> Vec<GroupFileImportReport> {
+    let outcome = |path: &Path, result: Result<tag_core::actions::MtaImportReport, ErrorCause>| {
+        let (imported, error, issue_diagnostics, error_cause) = match result {
+            Ok(report) => (Some(report.result), None, report.issue_diagnostics, None),
+            Err(cause) => (None, Some(cause.to_string()), Vec::new(), Some(cause)),
         };
-        GroupFileImport {
-            path: path.to_string_lossy().into_owned(),
-            imported,
-            error,
+        GroupFileImportReport {
+            result: GroupFileImport {
+                path: path.to_string_lossy().into_owned(),
+                imported,
+                error,
+            },
+            issue_diagnostics,
+            error_cause,
         }
     };
     let mut results = Vec::new();
     for path in paths {
         if !path.is_dir() {
-            results.push(outcome(path, import_group(path, legacy_encoding)));
+            results.push(outcome(
+                path,
+                import_group_diagnostic(path, legacy_encoding),
+            ));
             continue;
         }
         let entries = match fs::read_dir(path) {
             Ok(entries) => entries,
             Err(error) => {
-                results.push(outcome(path, Err(error.to_string())));
+                results.push(outcome(path, Err(ErrorCause::external(error))));
                 continue;
             }
         };
@@ -194,10 +226,16 @@ pub fn import_groups(paths: &[PathBuf], legacy_encoding: Option<&str>) -> Vec<Gr
             )
         });
         if files.is_empty() {
-            results.push(outcome(path, Err("The folder has no .mta files".into())));
+            results.push(outcome(
+                path,
+                Err(ErrorCause::owned("The folder has no .mta files")),
+            ));
         }
         for file in files {
-            results.push(outcome(&file, import_group(&file, legacy_encoding)));
+            results.push(outcome(
+                &file,
+                import_group_diagnostic(&file, legacy_encoding),
+            ));
         }
     }
     results

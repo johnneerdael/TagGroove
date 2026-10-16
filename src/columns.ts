@@ -228,6 +228,8 @@ export function updateSortHeader(cells:Iterable<HTMLElement>,columns:ColumnDef[]
 export type ColumnUIHost={
   /** Translate new popup content before reading layout dimensions. */
   translateNow?:(root:HTMLElement)=>void;
+  batchError?:(error:unknown)=>string|undefined;
+  onLanguageChange?:(listener:()=>void)=>()=>void;
   layout:()=>ColumnLayout;
   apply:(layout:ColumnLayout,verified?:boolean)=>Promise<void>;
   importLayout:()=>Promise<ColumnLayout|null>;
@@ -306,7 +308,9 @@ export class ColumnUI{
     let layout=structuredClone(this.host.layout()),current=0,working=false;
     const dialog=document.createElement('dialog');dialog.className='columns-dialog';dialog.setAttribute('aria-label','Customize columns');document.body.append(dialog);
     const q=<T extends Element>(selector:string)=>dialog.querySelector<T>(selector)!;
-    const error=(message:unknown)=>{let p=dialog.querySelector<HTMLElement>('.dialog-error');if(!p){p=document.createElement('p');p.className='dialog-error';p.setAttribute('role','alert');q('.dialog-content').append(p);}p.textContent=String(message instanceof Error?message.message:message);};
+    let stopError:(()=>void)|undefined;
+    const clearError=()=>{stopError?.();stopError=undefined;dialog.querySelector('.dialog-error')?.remove();};
+    const error=(message:unknown)=>{clearError();const p=document.createElement('p');p.className='dialog-error';p.setAttribute('role','alert');q('.dialog-content').append(p);const shown=this.host.batchError?.(message);if(shown!==undefined){p.setAttribute('translate','no');p.textContent=shown;stopError=this.host.onLanguageChange?.(()=>{if(p.isConnected)p.textContent=this.host.batchError?.(message)??String(message);});}else p.textContent=String(message instanceof Error?message.message:message);};
     const capture=()=>{
       const column=layout.columns[current];if(!column)return;
       column.name=q<HTMLInputElement>('#column-name').value;column.value=q<HTMLInputElement>('#column-value').value;column.field=q<HTMLInputElement>('#column-field').value;
@@ -314,7 +318,7 @@ export class ColumnUI{
       column.align=q<HTMLSelectElement>('#column-align').value as ColumnAlign;column.numeric=q<HTMLInputElement>('#column-numeric').checked;
     };
     const render=(focus?:string)=>{
-      const column=layout.columns[current];
+      clearError();const column=layout.columns[current];
       dialog.innerHTML=`<header>Customize columns</header><div class="dialog-content"><div class="columns-layout"><div><p class="action-section-title">Columns</p><ul class="column-list" role="listbox" aria-label="Columns">${layout.columns.map((c,i)=>{const label=columnName(c);return`<li class="group-row ${i===current?'current':''}" role="option" aria-selected="${i===current}" data-index="${i}" tabindex="${i===current?0:-1}"><input type="checkbox" data-visible="${i}" data-verbatim="${html(label)}" aria-label="Show ${html(label)}" ${c.visible?'checked':''}>${c.name?nameMarkup(c):'<span>(unnamed)</span>'}<small>${html(c.field?'editable':'')}</small></li>`;}).join('')}</ul>
       <div class="group-buttons"><button id="column-new">New</button><button id="column-duplicate" ${column?'':'disabled'}>Duplicate</button><button id="column-remove" ${layout.columns.length>1?'':'disabled'}>Remove</button><button id="column-up" ${current>0?'':'disabled'}>Move up</button><button id="column-down" ${current<layout.columns.length-1?'':'disabled'}>Move down</button></div>
       <div class="group-buttons"><button id="column-defaults">Reset to defaults</button><button id="column-import">Load configuration…</button><button id="column-export">Save configuration…</button></div></div>
@@ -364,10 +368,10 @@ export class ColumnUI{
       q('#column-ok').addEventListener('click',()=>void perform(async()=>{capture();const problem=layoutProblem(layout);if(problem)throw new Error(problem);await this.host.apply(layout,true);dialog.close();}));
     };
     const perform=async(work:()=>Promise<void>)=>{
-      if(working)return;working=true;dialog.querySelector('.dialog-error')?.remove();
+      if(working)return;working=true;clearError();
       try{await work();}catch(e){if(dialog.open)error(e);}finally{working=false;}
     };
-    dialog.addEventListener('close',()=>dialog.remove());
+    dialog.addEventListener('close',()=>{clearError();dialog.remove();});
     render();dialog.showModal();dialog.querySelector<HTMLElement>('.column-list li.current')?.focus();
   }
 }

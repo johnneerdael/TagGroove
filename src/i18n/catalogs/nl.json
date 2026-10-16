@@ -2788,5 +2788,8 @@
  "{error}; rollback incomplete: {value}": "{error}; terugzetten onvolledig: {value}",
  "{path}: file not found": "{path}: bestand niet gevonden",
  "{value} / action {value2}: {error}": "{value} / actie {value2}: {error}",
- "{value}: {error}": "{value}: {error}"
+ "{value}: {error}": "{value}: {error}",
+ "No column could be imported: {error}": "Er kon geen kolom worden geïmporteerd: {error}",
+ "The file contains no column definitions. Choose columns.ini from the Mp3tag configuration folder.": "Het bestand bevat geen kolomdefinities. Kies columns.ini uit de configuratiemap van Mp3tag.",
+ "the sort format string is not supported": "de sorteernotatie wordt niet ondersteund"
 }

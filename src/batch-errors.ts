@@ -1,7 +1,7 @@
 import {Translator} from './i18n/core';
 import {renameFailure,renameFailureText,converterRollbackText,type RenameFailure,type ConverterRollback} from './converter-errors';
 
-type Cause={kind:'owned';key:string;params:Record<string,string>;children:Record<string,Cause>}|{kind:'external';value:string}|{kind:'owned_text';value:string}|{kind:'rename';value:RenameFailure}|{kind:'joined';parts:Cause[];separator:string};
+export type Cause={kind:'owned';key:string;params:Record<string,string>;children:Record<string,Cause>}|{kind:'external';value:string}|{kind:'owned_text';value:string}|{kind:'rename';value:RenameFailure}|{kind:'joined';parts:Cause[];separator:string};
 type Direction='undo'|'redo';
 export type BatchDiagnostic=
   |{kind:'action';group:string;index:number;cause:Cause}
@@ -11,12 +11,13 @@ export type BatchDiagnostic=
   |{kind:'destination_collision';path:string}
   |{kind:'playlist_line';line:number;cause:Cause}
   |{kind:'source_cover_failed';cause:Cause};
-export type PresentedFileError={path:string;error:string;diagnostic?:BatchDiagnostic;diagnosticRaw?:boolean;rollback?:ConverterRollback};
+export type PresentedFileError={path:string;error:string;diagnostic?:BatchDiagnostic;diagnosticRaw?:boolean;cause?:Cause;rollback?:ConverterRollback};
 const object=(value:unknown):value is Record<string,unknown>=>!!value&&typeof value==='object'&&!Array.isArray(value);
 const cause=(value:unknown,depth=0):value is Cause=>{
   if(!object(value)||depth>32)return false;
   return value.kind==='joined'&&typeof value.separator==='string'&&Array.isArray(value.parts)&&value.parts.every(item=>cause(item,depth+1))||(value.kind==='external'||value.kind==='owned_text')&&typeof value.value==='string'||value.kind==='rename'&&renameFailure(value.value)||value.kind==='owned'&&typeof value.key==='string'&&object(value.params)&&Object.values(value.params).every(item=>typeof item==='string')&&object(value.children)&&Object.values(value.children).every(item=>cause(item,depth+1));
 };
+export const isErrorCause=(value:unknown):value is Cause=>cause(value);
 const direction=(value:unknown):value is Direction=>value==='undo'||value==='redo';
 const index=(value:unknown):value is number=>typeof value==='number'&&Number.isSafeInteger(value)&&value>=0;
 export function batchDiagnostic(value:unknown):value is BatchDiagnostic{
@@ -34,9 +35,13 @@ export function batchDiagnostic(value:unknown):value is BatchDiagnostic{
 }
 const english=new Translator('en');
 type Fill=(key:string,params?:Record<string,unknown>)=>string;
+/** Render explicit source-owned leaves once; foreign text and raw parameters remain data. */
+export function causeText(value:Cause,t:Fill=(key,params)=>english.t(key,params),translate:(text:string)=>string=text=>text):string{
+  return value.kind==='joined'?value.parts.map(item=>causeText(item,t,translate)).join(value.separator):value.kind==='owned'?t(value.key,{...value.params,...Object.fromEntries(Object.entries(value.children).map(([name,child])=>[name,causeText(child,t,translate)]))}):value.kind==='owned_text'?translate(value.value):value.kind==='external'?value.value:renameFailureText(value.value,t);
+}
 /** Format retained producer parts once; authored names and external causes are never looked up. */
 export function batchErrorText(value:BatchDiagnostic,t:Fill=(key,params)=>english.t(key,params),translate:(text:string)=>string=text=>text):string{
-  const detail=(value:Cause):string=>value.kind==='joined'?value.parts.map(detail).join(value.separator):value.kind==='owned'?t(value.key,{...value.params,...Object.fromEntries(Object.entries(value.children).map(([name,child])=>[name,detail(child)]))}):value.kind==='owned_text'?translate(value.value):value.kind==='external'?value.value:renameFailureText(value.value,t);
+  const detail=(value:Cause)=>causeText(value,t,translate);
   const verb=(value:Direction)=>t(value==='undo'?'undone':'redone');
   switch(value.kind){
     case 'action':return t('{value} / action {value2}: {error}',{value:value.group,value2:value.index,error:detail(value.cause)});
@@ -73,6 +78,7 @@ export function normalizeBatchDiagnostics<T>(value:T,expected=false):T{
 /** One formatter for retained rows and modal summaries. Plain legacy errors keep their usual translator. */
 export function fileErrorText(error:PresentedFileError,t:Fill=(key,params)=>english.t(key,params),translate:(text:string)=>string=text=>text,plain:(text:string)=>string=text=>text):string{
   if(error.diagnostic)return batchErrorText(error.diagnostic,t,translate);
+  if(error.cause)return causeText(error.cause,t,translate);
   if(error.rollback)return converterRollbackText(error.rollback,t,translate);
   if(error.diagnosticRaw)return plain(error.error);
   return translate(plain(error.error));

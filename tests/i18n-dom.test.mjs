@@ -34,7 +34,9 @@ const {removeTagParts}=await load('remove-tag.ts');
 const {converterValidator,createConverterInputTracker,createConverterReview}=await load('converter-review.ts');
 const {converterRollbackError,converterRollbackText}=await import(await moduleUrl('converter-errors.ts', {"'./i18n/core'":JSON.stringify(await moduleUrl('i18n/core.ts'))}));
 const rollbackCases=JSON.parse(await readFile(new URL('./fixtures/converter-rollback.json',import.meta.url),'utf8'));
-const {batchErrorText,normalizeBatchDiagnostics,fileErrorText,showFileError,clearFileError,BatchFailure}=await import(await moduleUrl('batch-errors.ts',{"'./i18n/core'":JSON.stringify(await moduleUrl('i18n/core.ts')),"'./converter-errors'":JSON.stringify(await moduleUrl('converter-errors.ts',{"'./i18n/core'":JSON.stringify(await moduleUrl('i18n/core.ts'))}))}));
+const batchModuleURL=await moduleUrl('batch-errors.ts',{"'./i18n/core'":JSON.stringify(await moduleUrl('i18n/core.ts')),"'./converter-errors'":JSON.stringify(await moduleUrl('converter-errors.ts',{"'./i18n/core'":JSON.stringify(await moduleUrl('i18n/core.ts'))}))});
+const {causeText,batchErrorText,normalizeBatchDiagnostics,fileErrorText,showFileError,clearFileError,BatchFailure}=await import(batchModuleURL);
+const {ColumnImportStatus,mtaImportFailure,importFailure}=await import(await moduleUrl('import-diagnostics.ts',{"'./i18n/core'":JSON.stringify(await moduleUrl('i18n/core.ts')),"'./batch-errors'":JSON.stringify(batchModuleURL)}));
 const batchDiagnosticCases=JSON.parse(await readFile(new URL('./fixtures/batch-error-diagnostics.json',import.meta.url),'utf8'));
 
 const {listSummary,technicalSummary}=await load('list-commands.ts');
@@ -66,7 +68,7 @@ function mainTemplate(needle,values,index=0){
   return new Function(...Object.keys(values),js)(...Object.values(values));
 }
 function rendererVariable(tree,name,values,owner){
-  values={BatchFailure,...values};
+  values={BatchFailure,ColumnImportStatus,mtaImportFailure,importFailure,onLanguageChange:()=>()=>{},...values};
   let declaration;
   const visit=node=>{if(ts.isVariableDeclaration(node)&&node.name.getText(tree)===name)declaration=node;ts.forEachChild(node,visit);};visit(tree);
   assert.ok(declaration,`Production renderer ${name}`);
@@ -318,12 +320,12 @@ test('real column-import and source-install warnings retain joined diagnostics a
   for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]])for(const count of [1,2]){
     const p=page();try{
       const t=new Translator(locale,catalog),skipped=Array.from({length:count},()=> 'Wrong expression'),layout=defaultLayout();layout.columns=layout.columns.slice(0,count);
-      const host=new Function('open','invoke','normalizeLayout','basename',`let status='';${js}`)(async()=>'/tmp/Help.ini',async()=>({layout,skipped}),normalizeColumns,path=>path.split('/').at(-1));
-      await host.run();p.body.textContent=host.status();p.translate(locale,catalog);
+      const host=new Function('ColumnImportStatus','importFailure','open','invoke','normalizeLayout','basename',`let status='';${js}`)(ColumnImportStatus,importFailure,async()=>'/tmp/Help.ini',async()=>({layout,skipped}),normalizeColumns,path=>path.split('/').at(-1));
+      await host.run();p.body.textContent=host.status().text((key,params)=>t.t(key,params),text=>t.translate(text));p.body.setAttribute('translate','no');
       assert.equal(p.body.textContent,t.t(keys[count===1?0:1],{length:count,path:'Help.ini',length2:count,join:skipped.join('; ')}));
-      const paths=Array.from({length:count},(_,index)=>`/tmp/${index?'Title':'Help'}.src`),problems=paths.map(path=>({file:path.split('/').at(-1),error:'Wrong expression'}));
+      p.body.removeAttribute('translate');const paths=Array.from({length:count},(_,index)=>`/tmp/${index?'Title':'Help'}.src`),problems=paths.map(path=>({file:path.split('/').at(-1),error:'Wrong expression'}));
       const sources=new WebSourcesUI({pickFiles:async()=>paths,invoke:async()=>({sources:[],problems}),changed:()=>{},report:message=>{p.body.textContent=message;},fail:error=>{throw error;}});
-      await sources.install();p.translateTree(p.body);
+      await sources.install();p.translate(locale,catalog);
       assert.equal(p.body.textContent,t.t(keys[count===1?2:3],{names:paths.map(path=>path.split('/').at(-1)).join(', '),length:count,join:problems.map(problem=>`${problem.file}: ${problem.error}`).join('; ')}));
     }finally{p.close();}
   }
@@ -672,6 +674,80 @@ test('actual selection summary translates each technical component and preserves
     }finally{p.close();}
   }
 });
+test('import companions validate associations and preserve untyped or foreign English before joining',()=>{
+  const source='Action field must not be empty',custom={'Action {index}: {reason}':'Issue {index}: {reason}',[source]:'Help',Help:'Wrong second lookup',Title:'Wrong raw name','No column could be imported: {error}':'None: {error}'};
+  const raw={issues:[{index:2,type_id:'Title',reason:source},{index:9,type_id:'Help',reason:source}]},metadata=[{index:0,cause:{kind:'owned_text',value:source}},{index:1,cause:{kind:'external',value:source}}];
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]]){
+    const t=new Translator(locale,catalog),shown=mtaImportFailure({...raw,issue_diagnostics:metadata}).text((key,params)=>t.t(key,params),text=>t.translate(text));
+    assert.equal(shown,t.t('Action {index}: {reason}',{index:3,reason:t.t(source)})+'\n'+t.t('Action {index}: {reason}',{index:10,reason:source}));assert.ok(!shown.includes('Wrong'));
+    for(const bad of [undefined,null,{},[],[{index:99,cause:metadata[0].cause}],[metadata[0],metadata[0]],[{index:0,cause:{kind:'unknown'}}],[{index:0,cause:{kind:'owned_text',value:'mismatch'}}]]){const failure=mtaImportFailure({...raw,issue_diagnostics:bad});assert.equal(failure.text((key,params)=>t.t(key,params),text=>t.translate(text)),failure.message);}
+    const rawFailure='No column could be imported: Help: '+source;
+    for(const error of [rawFailure,{message:rawFailure,import_failure:null},{message:rawFailure,import_failure:{kind:'owned_text',value:'mismatch'}}]){const failure=importFailure(error,true);assert.ok(failure);assert.equal(failure.text((key,params)=>t.t(key,params),text=>t.translate(text)),rawFailure);}
+  }
+  assert.deepEqual(raw,{issues:[{index:2,type_id:'Title',reason:source},{index:9,type_id:'Help',reason:source}]});
+});
+
+test('actual rejected column import renders retained causes in its dialog and global errors and releases resets',async()=>{
+  const reason='the sort format string is not supported',names=['Help: the sort format string is not supported; Title','Title: Help\nName'];
+  const causes=names.map(value=>({kind:'owned',key:'{value}: {error}',params:{value},children:{error:{kind:'owned',key:reason,params:{},children:{}}}}));
+  const cause={kind:'owned',key:'No column could be imported: {error}',params:{},children:{error:{kind:'joined',parts:causes,separator:'; '}}},wire={message:causeText(cause),import_failure:cause},original=structuredClone(wire);
+  const declaration=parsed.statements.filter(ts.isVariableStatement).flatMap(node=>[...node.declarationList.declarations]).find(node=>node.name.getText(parsed)==='columnUI');
+  const js=ts.transpileModule(`let status='',errors=[];const ${declaration.getText(parsed)};return{host:columnUI,errors:()=>errors};`,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
+  const custom={[reason]:'Help',Help:'Wrong second lookup',Title:'Wrong raw name','No column could be imported: {error}':'None: {error}'};
+  const p=page();let active=new Translator('en');const listeners=new Set();try{
+    const values={ColumnImportStatus,importFailure,BatchFailure,ColumnUI:class{constructor(host){return host;}},translateNow:p.translateTree,columnLayout:defaultLayout(),applyColumns:async()=>assert.fail('Rejected import cannot apply'),open:async()=>'/tmp/Help\nTitle.ini',invoke:async()=>{throw wire;},normalizeLayout:normalizeColumns,basename:path=>path.split('/').at(-1),active:()=>undefined,desktop:false,esc,render:()=>{},t:(key,params)=>active.t(key,params),translate:text=>active.translate(text),onLanguageChange:listener=>{listeners.add(listener);return()=>listeners.delete(listener);}};
+    const model=new Function(...Object.keys(values),js)(...Object.values(values)),ui=new ColumnUI(model.host);ui.customize();const dialog=p.body.querySelector('dialog'),settle=async()=>{for(let i=0;i<4;i++)await new Promise(resolve=>setTimeout(resolve,0));};dialog.querySelector('#column-import').click();await settle();
+    for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom],['en',{}],['de',catalogs.de]]){active=p.translate(locale,catalog);listeners.forEach(listener=>listener());p.translateTree(dialog);const expected=causeText(cause,(key,params)=>active.t(key,params),text=>active.translate(text));assert.equal(dialog.querySelector('.dialog-error').textContent,expected);assert.equal(dialog.querySelector('.dialog-error').getAttribute('translate'),'no');assert.ok(!expected.includes('Wrong'));for(const name of names)assert.ok(expected.includes(name));}
+    model.host.report(importFailure(wire,true));const e=model.errors()[0],section=p.window.document.createElement('section');p.body.append(section);section.innerHTML=mainTemplate(node=>node.head.text==='<p><strong translate="no">',{e,esc,displayName:path=>path,publicMessage:value=>value,t:(key,params)=>active.t(key,params),translate:text=>active.translate(text)});p.translateTree(section);assert.equal(section.querySelector('span').textContent,causeText(cause,(key,params)=>active.t(key,params),text=>active.translate(text)));assert.equal(section.querySelector('span').getAttribute('translate'),'no');
+    assert.deepEqual(wire,original);assert.equal(dialog.querySelectorAll('.column-list li').length,defaultLayout().columns.length);dialog.querySelector('#column-defaults').click();assert.equal(dialog.querySelector('.dialog-error'),null);assert.equal(listeners.size,0);active=p.translate('nl');listeners.forEach(listener=>listener());assert.equal(dialog.querySelector('.dialog-error'),null);dialog.querySelector('#column-import').click();await settle();assert.equal(listeners.size,1);dialog.close();assert.equal(listeners.size,0);
+  }finally{p.close();}
+});
+
+test('actual column Options import translates each skipped reason while retaining raw column names and source status',async()=>{
+  const reason='the sort format string is not supported',name='Help: the sort format string is not supported; Title',path='/tmp/Help\nTitle.ini';
+  const declaration=parsed.statements.filter(ts.isVariableStatement).flatMap(node=>[...node.declarationList.declarations]).find(node=>node.name.getText(parsed)==='columnUI');
+  const statusExpression=main.match(/<span class="status-message" role="status">\$\{([^}]+)\}<\/span>/)[1];
+  const hintsFn=parsed.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text==='bindToolbarHints');
+  const historyFn=parsed.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text==='refreshHistory');
+  const statusFn=parsed.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text==='statusMarkup');
+  const js=ts.transpileModule(`let status='',history={};const ${declaration.getText(parsed)};${statusFn?.getText(parsed)||''};${hintsFn.getText(parsed)};${historyFn.getText(parsed)};return{host:columnUI,status:()=>status,set:value=>status=value,refresh:refreshHistory,bindHints:bindToolbarHints,render:()=>${statusExpression}};`,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
+  const custom={[reason]:'Help',Help:'Wrong second lookup',Title:'Wrong identity',[name]:'Wrong raw name','Imported {length} Mp3tag column from {path}; skipped {length2}: {join}':'Result [{path}] {length}/{length2}: {join}'};
+  for(const locale of ['de','nl']){const p=page();let active;const listeners=new Set(),calls=[];try{
+    const catalog={...catalogs[locale],[reason]:locale==='de'?'der Sortierformatstring wird nicht unterstützt':'de sorteernotatie wordt niet ondersteund',[name]:'Wrong raw name','Help\nTitle.ini':'Wrong raw path'};active=p.translate(locale,catalog);
+    const layout=defaultLayout();layout.columns=layout.columns.slice(0,1);const imported={layout,skipped:[`${name}: ${reason}`],skipped_diagnostics:[{index:0,cause:{kind:'owned',key:'{value}: {error}',params:{value:name},children:{error:{kind:'owned',key:reason,params:{},children:{}}}}}]},original=structuredClone(imported);
+    const values={ColumnImportStatus,importFailure,BatchFailure,ColumnUI:class{constructor(host){return host;}},translateNow:p.translateTree,itemHint:()=> 'Options saved',customItemReason:()=>'',operationReason:()=>'',columnLayout:defaultLayout(),applyColumns:async()=>assert.fail('Import changes only the draft'),open:async()=>path,invoke:async(command)=>{calls.push(command);if(command==='import_mp3tag_columns')return imported;if(command==='history_state')return{notice:'Select files first.'};throw new Error(command);},normalizeLayout:normalizeColumns,basename:path=>path.split('/').at(-1),active:()=>undefined,desktop:true,esc,render:()=>{},t:(key,params)=>active.t(key,params),translate:text=>active.translate(text),onLanguageChange:listener=>{listeners.add(listener);return()=>listeners.delete(listener);}};
+    const model=new Function(...Object.keys(values),js)(...Object.values(values)),ui=new ColumnUI(model.host);ui.customize();const dialog=p.body.querySelector('dialog');dialog.querySelector('#column-import').click();for(let i=0;i<4;i++)await new Promise(resolve=>setTimeout(resolve,0));assert.ok(calls.includes('import_mp3tag_columns'));
+    const notice=p.window.document.createElement('section');notice.className='status-message';p.body.append(notice);const toolbar=p.window.document.createElement('div');toolbar.className='toolbar';toolbar.innerHTML='<button data-hint="ignored" data-op="save">Save tags</button>';p.body.append(toolbar);model.bindHints();
+    const source=String(model.status());
+    for(const [language,strings] of [[locale,catalog],['en',custom],['en',{}],['nl',catalogs.nl],['de',catalogs.de]]){
+      active=p.translate(language,strings);listeners.forEach(listener=>listener());notice.innerHTML=model.render();p.translateTree(notice);
+      const expected=active.t('Imported {length} Mp3tag column from {path}; skipped {length2}: {join}',{length:1,path:'Help\nTitle.ini',length2:1,join:`${name}: ${active.t(reason)}`});
+      assert.equal(notice.textContent,expected);assert.equal(notice.querySelector('span').getAttribute('translate'),'no');assert.ok(!notice.textContent.includes('Wrong'));assert.equal(String(model.status()),source);
+      toolbar.querySelector('button').dispatchEvent(new p.window.Event('pointerover',{bubbles:true}));assert.equal(notice.textContent,active.t('Options saved'));toolbar.dispatchEvent(new p.window.Event('pointerleave'));p.translateTree(notice);assert.equal(notice.textContent,expected);
+    }
+    await model.refresh();notice.innerHTML=model.render();p.translateTree(notice);assert.ok(notice.textContent.endsWith('. '+active.t('Select files first.')));
+    model.set('Options saved');notice.innerHTML=model.render();p.translateTree(notice);assert.equal(notice.textContent,active.t('Options saved'));assert.equal(notice.querySelector('[translate="no"]'),null);
+    assert.deepEqual(imported,original);assert.equal(dialog.querySelectorAll('.column-list li').length,1);dialog.close();assert.equal(listeners.size,0);
+  }finally{p.close();}}
+});
+
+test('actual MTA import renders each unresolved issue once and keeps its source identity through live languages',async()=>{
+  const fixture=JSON.parse(await readFile(new URL('./fixtures/import-diagnostics.json',import.meta.url),'utf8')).mta;
+  const custom={'Action {index}: {reason}':'Issue {index}: {reason}','Numeric action type {typeId} has no known settings schema':'Unknown [{typeId}]','Action field must not be empty':'Help',Help:'Wrong second lookup',Title:'Wrong identity',[fixture.name]:'Wrong group','/tmp/Help\nTitle.mta':'Wrong source'};
+  for(const locale of ['de','nl']){const p=page();let active=new Translator('en');const listeners=new Set(),calls=[];try{
+    const imported={group:{name:fixture.name,enabled:false,actions:fixture.issues.map(issue=>({type:'unresolved_mta',type_id:issue.type_id,properties:{T:issue.type_id},reason:issue.reason}))},issues:structuredClone(fixture.issues),issue_diagnostics:fixture.issues.map((issue,index)=>({index,cause:{kind:'owned_text',value:issue.reason}}))},original=structuredClone(imported);
+    const invoke=async(command)=>{calls.push(command);if(command==='load_action_library')return{groups:[],presets:[]};if(command==='import_action_group')return imported;throw new Error(command);};
+    const host=rendererVariable(parsed,'actionUI',{ActionUI:class{constructor(host){return host;}},t:(key,params)=>active.t(key,params),translate:text=>active.translate(text),onLanguageChange:listener=>{listeners.add(listener);return()=>listeners.delete(listener);},translateNow:()=>{},executeGroups:async()=>assert.fail('Import only changes the group draft'),invoke,open:async()=>'/tmp/Help\nTitle.mta',enabled:()=>true,operationReason:()=>'',selected:new Set(['/Music/Help.wav']),paths:()=>['/Music/Help.wav'],merged:()=>({TITLE:['Title']}),entries:new Map(),render:()=>{}});
+    const ui=new ActionUI(host);await ui.initialize();await ui.groupsDialog();const dialog=p.body.querySelector('dialog');dialog.querySelector('[data-command="import"]').click();for(let i=0;i<3;i++)await new Promise(resolve=>setTimeout(resolve,0));const child=p.body.querySelectorAll('dialog')[1];assert.ok(child);active=p.translate('en',custom);p.translateTree(child);assert.equal(child.querySelector('.dialog-content > p').textContent,'/tmp/Help\nTitle.mta');child.querySelector('[data-import]').click();for(let i=0;i<3;i++)await new Promise(resolve=>setTimeout(resolve,0));assert.ok(calls.includes('import_action_group'));
+    for(const [language,catalog] of [[locale,catalogs[locale]],['en',custom],['en',{}],['nl',catalogs.nl],['de',catalogs.de]]){
+      active=p.translate(language,catalog);listeners.forEach(listener=>listener());p.translateTree(dialog);
+      const expected=fixture.issues.map(issue=>active.t('Action {index}: {reason}',{index:issue.index+1,reason:issue.index===1?active.t(issue.reason):active.t('Numeric action type {typeId} has no known settings schema',{typeId:issue.type_id})})).join('\n');
+      assert.equal(dialog.querySelector('.dialog-error').textContent,expected);assert.equal(dialog.querySelector('.dialog-error').getAttribute('translate'),'no');assert.ok(!dialog.querySelector('.dialog-error').textContent.includes('Wrong'));assert.deepEqual(imported,original);assert.equal(dialog.querySelector('.group-row > span').textContent,fixture.name);
+    }
+    dialog.querySelector('[data-enable]').click();assert.equal(dialog.querySelector('.dialog-error'),null);assert.equal(listeners.size,0);active=p.translate('en',custom);listeners.forEach(listener=>listener());assert.equal(dialog.querySelector('.dialog-error'),null);dialog.close();assert.equal(listeners.size,0);assert.ok(!calls.includes('execute_action_groups'));assert.ok(!calls.includes('save_action_library'));
+  }finally{p.close();}}
+});
+
 test('actual source Apply review keeps typed batch failures through the real main host and live language/reset lifecycle',async()=>{
   const custom={'The cover image could not be saved: {error}':'Cover failed: {error}','Cannot write {path}: {error}':'Writing [{path}]: {error}','Select files first.':'Help',Help:'Wrong second lookup',Title:'Wrong raw name',Back:'Return'};
   for(const item of batchDiagnosticCases.filter(item=>item.diagnostic.kind==='source_cover_failed')){const p=page();let active=new Translator('en');const listeners=new Set(),calls=[];try{
@@ -825,7 +901,8 @@ test('actual converter Apply failure keeps structured rollback in both global er
 test('real Cut/Paste failure statuses translate UI operation names while authored same-spelling names stay raw',()=>{
   const declaration=parsed.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text==='stageTagUpdates');
   const js=ts.transpileModule(declaration.getText(parsed),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
-  const statusMarkup=new Function('esc','status','return `'+main.match(/<span class="status-message"[^>]*>[\s\S]*?<\/span>/)[0]+'`;');
+  const statusFn=parsed.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text==='statusMarkup');
+  const statusMarkup=new Function('esc','status','ColumnImportStatus',statusFn.getText(parsed)+';return `'+main.match(/<span class="status-message"[^>]*>[\s\S]*?<\/span>/)[0]+'`;');
   const custom={'{operation} failed':'Failure: {operation}','Paste tags':'Help','Cut tags':'Title',Help:'Wrong second translation',Title:'Wrong second translation','Copy of {name}':'Duplicate {name}'};
   const clipboard=copyTags(['Help','Title'].map(name=>({name,fields:{TITLE:[name]},covers:0}))),targets=['A','B','C'].map(path=>({path,fields:{TITLE:['unchanged']}}));
   for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]])for(const operation of ['Paste tags','Cut tags']){
@@ -835,7 +912,7 @@ test('real Cut/Paste failure statuses translate UI operation names while authore
       const plan=operation==='Paste tags'?()=>pastePlan(clipboard,targets):()=>{throw new Error('Select files first.');};
       stage.run(plan,operation,()=>{throw new Error('Success callback must not run');});
       const state=stage.state();assert.equal(renders,1);assert.equal(state.status,`${operation} failed`);assert.deepEqual(targets.map(target=>target.fields),targets.map(()=>({TITLE:['unchanged']})));
-      p.body.innerHTML=statusMarkup(esc,state.status);p.translate(locale,catalog);
+      p.body.innerHTML=statusMarkup(esc,state.status,ColumnImportStatus);p.translate(locale,catalog);
       const expected=locale==='de'?`${t.t(operation)} fehlgeschlagen`:locale==='nl'?`${t.t(operation)} mislukt`:`Failure: ${t.t(operation)}`;
       assert.equal(p.body.textContent,expected);p.translateTree(p.body);assert.equal(p.body.textContent,expected);p.translate('en');assert.equal(p.body.textContent,`${operation} failed`);
       const context=(e,translator)=>mainTemplate(node=>node.head.text==='<p><strong translate="no">',{e,esc,displayName:path=>path,publicMessage:value=>value,translate:text=>translator.translate(text)});
@@ -869,7 +946,7 @@ test('actual Tools and Columns failure callbacks render localized contexts with 
       const variable=parsed.statements.filter(ts.isVariableStatement).flatMap(node=>[...node.declarationList.declarations]).find(node=>node.name.getText(parsed)===(kind==='Tools'?'toolsUI':'columnUI'));
       const js=ts.transpileModule(`const ${variable.getText(parsed)};`,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
       const tool={name:'Tools',path:'/Tools',parameters:'%_path%',for_each_file:false},layout=defaultLayout(),unchanged=structuredClone(layout);
-      const dependencies={ToolsUI,ColumnUI,macPlatform:false,translateNow:()=>{},optionsUI:{page:()=>({tools:[tool]})},desktop:true,selected:new Set(['/Tools']),operationReason:()=>'',paths:()=>['/Tools'],listRoots:[],columnLayout:layout,applyColumns:async()=>{requests++;throw new Error('Select files first.');},invoke:async command=>{assert.equal(command,'run_tool');requests++;throw new Error('Select files first.');},publicMessage:error=>error.message??String(error),render:()=>{renders++;}};
+      const dependencies={ToolsUI,ColumnUI,BatchFailure,onLanguageChange:()=>()=>{},macPlatform:false,translateNow:()=>{},optionsUI:{page:()=>({tools:[tool]})},desktop:true,selected:new Set(['/Tools']),operationReason:()=>'',paths:()=>['/Tools'],listRoots:[],columnLayout:layout,applyColumns:async()=>{requests++;throw new Error('Select files first.');},invoke:async command=>{assert.equal(command,'run_tool');requests++;throw new Error('Select files first.');},publicMessage:error=>error.message??String(error),render:()=>{renders++;}};
       const model=new Function(...Object.keys(dependencies),`let errors=[],status='';${js};return {instance:${kind==='Tools'?'toolsUI':'columnUI'},state:()=>({errors,status})};`)(...Object.values(dependencies));
       p.body.innerHTML=model.instance.menuHTML();model.instance.bindMenu(p.body);
       if(kind==='Tools'){p.translate(locale,catalog);assert.equal(p.body.querySelector('[data-tool] span').textContent,'Tools');await model.instance.run(0);}

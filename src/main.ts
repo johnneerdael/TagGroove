@@ -5,6 +5,7 @@ import { documentSelection, refreshDocumentAccess, copyRequest, copyOutcome, rec
 import { converterValidator, createConverterInputTracker, createConverterReview, type FilenameConversionRequest, type TextImportRequest, type FilenameConversionItem, type TextImportItem, type ConverterPreview } from './converter-review';
 import { converterRollbackError, converterRollbackText, type ConverterRollback } from './converter-errors';
 import { normalizeBatchDiagnostics,fileErrorText,showFileError,clearFileError,BatchFailure,type PresentedFileError } from './batch-errors';
+import {ColumnImportStatus,mtaImportFailure,importFailure} from './import-diagnostics';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getVersion } from '@tauri-apps/api/app';
@@ -180,7 +181,7 @@ const copyOverrides = new Map<string, Fields>();
 const workingReadErrors = new Map<string, string>();
 const selected = new Set<string>();
 let columnLayout:ColumnLayout=defaultLayout(),listRoots:string[]=[],slowEditTimer=0;
-let filter = '', anchor: string | undefined, busy = false, status = 'Ready', errors: FileError[] = [], location = 'No folder loaded', locationIsData = false, coverIndex = 0;
+let filter = '', anchor: string | undefined, busy = false, status: string|ColumnImportStatus = 'Ready', errors: FileError[] = [], location = 'No folder loaded', locationIsData = false, coverIndex = 0;
 const esc = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 const basename = (path: string) => path.split(/[\\/]/).pop() || path;
 const paths = () => ordered().filter(entry=>selected.has(entry.path)).map(entry=>entry.path);
@@ -224,7 +225,8 @@ const actionUI=new ActionUI({batchError:error=>error instanceof BatchFailure?err
   translateNow,
   load:()=>invoke<ActionLibrary>('load_action_library'),
   save:library=>invoke<void>('save_action_library',{library}),
-  import:(path,legacyEncoding)=>invoke<ImportedGroup>('import_action_group',{path,legacyEncoding:legacyEncoding||null}),
+  import:async(path,legacyEncoding)=>{try{return await invoke<ImportedGroup>('import_action_group',{path,legacyEncoding:legacyEncoding||null});}catch(error){throw importFailure(error,true)??error;}},
+  importIssues:mtaImportFailure,
   execute:executeGroups,
   pickFile:async kind=>{const extensions=kind==='mta'?['mta']:kind==='image'?['jpg','jpeg','png','webp','gif']:kind==='export'?['mte']:['txt','lrc'];const path=await open({multiple:false,title:kind==='mta'?'Import action group':kind==='image'?'Choose cover image':kind==='export'?'Choose export configuration':'Choose text file',filters:[{name:kind==='mta'?'Action groups':kind==='image'?'Images':kind==='export'?'Export configurations':'Text files',extensions}]});return typeof path==='string'?path:null;},
   confirm:message=>ask(message,{title:'Action groups',kind:'warning'}),
@@ -260,7 +262,7 @@ const macPlatform=/Mac|iPhone|iPad/.test(navigator.platform);
 async function offerOpen(outputs:string[],title='Export'){
   if(!outputs.length||!messages.enabled('confirm_export'))return;
   await offerOpenOutputs({modal,modalError,fileManager:fileOps.fileManager,
-    open:paths=>invoke<void>('play_files',{paths}),reveal:paths=>invoke<void>('reveal_files',{paths})},outputs,status,title);
+    open:paths=>invoke<void>('play_files',{paths}),reveal:paths=>invoke<void>('reveal_files',{paths})},outputs,String(status),title);
 }
 let loadedPlaylist:string|undefined,autoPlaylistPending=false;
 const playlistUI=new PlaylistUI({
@@ -581,7 +583,7 @@ function cellCompletions(key:string){
   const loaded=new Set<string>();for(const entry of entries.values())for(const value of merged(entry)[panelKey({format:entry.format,fields:merged(entry)},key)]||[])if(value)loaded.add(value);
   return [...tagPanel.settings.field_values.lists[key]||[],...[...loaded].sort(collator.compare)];
 }
-const columnUI=new ColumnUI({
+const columnUI=new ColumnUI({batchError:error=>error instanceof BatchFailure?error.text(t,translate):undefined,onLanguageChange,
   translateNow,
   layout:()=>columnLayout,
   apply:applyColumns,
@@ -590,14 +592,16 @@ const columnUI=new ColumnUI({
     if(typeof path!=='string')return null;
     if(!/\.ini$/i.test(path))return normalizeLayout(await invoke<ColumnLayout>('import_columns',{path}));
     // Mp3tag column definitions from a columns.ini the user chose; nothing of Mp3tag ships with OpenTag.
-    const imported=await invoke<{layout:ColumnLayout;skipped:string[]}>('import_mp3tag_columns',{path});
-    status=`Imported ${imported.layout.columns.length} Mp3tag column${imported.layout.columns.length===1?'':'s'} from ${basename(path)}${imported.skipped.length?`; skipped ${imported.skipped.length}: ${imported.skipped.join('; ')}`:''}`;
-    return normalizeLayout(imported.layout);
+    try{
+      const imported=await invoke<{layout:ColumnLayout;skipped:string[];skipped_diagnostics?:unknown}>('import_mp3tag_columns',{path});
+      status=new ColumnImportStatus(imported.layout.columns.length,basename(path),imported);
+      return normalizeLayout(imported.layout);
+    }catch(error){throw importFailure(error,true)??error;}
   },
   exportLayout:async layout=>{const path=await save({title:'Save column configuration',defaultPath:'columns.json',filters:[{name:'Column configurations',extensions:['json']}]});if(!path)return false;await invoke('export_columns',{path,layout});status=`Saved column configuration to ${basename(path)}`;return true;},
   preview:async template=>{const entry=active();if(!entry||!desktop)return '';const result=await invoke<{values:string[][];errors:string[]}>('evaluate_columns',{items:[columnItem(entry)],templates:[template]});if(result.errors.length)throw new Error(result.errors[0]);return result.values[0][0];},
   autoSize:ids=>void autoSizeColumns(ids),
-  report:error=>{errors=[{path:'Columns',label:'Columns',error:error instanceof Error?error.message:String(error)}];render();},
+  report:error=>{errors=error instanceof BatchFailure?error.errors.map(item=>({...item,label:'Columns'})):[{path:'Columns',label:'Columns',error:error instanceof Error?error.message:String(error)}];render();},
 });
 /** Column auto-size (Ctrl+Num +, double-click on a divider): fit the header and the listed values. */
 async function autoSizeColumns(ids:string[]){
@@ -943,7 +947,7 @@ function bindToolbarHints(){
     // Render source UI parts once; data-hint/title may already be translated.
     el.innerHTML=`<span>${esc(itemHint(id))}</span>${reason?` — <span>${esc(reason)}</span>`:''}`;el.classList.add('hint');translateNow(el);
   };
-  const hide=()=>{const el=document.querySelector<HTMLElement>('.status-message');if(el?.classList.contains('hint')){el.replaceChildren(...previous??[document.createTextNode(status)]);previous=undefined;el.classList.remove('hint');translateNow(el);}};
+  const hide=()=>{const el=document.querySelector<HTMLElement>('.status-message');if(el?.classList.contains('hint')){if(previous)el.replaceChildren(...previous);else el.innerHTML=statusMarkup();previous=undefined;el.classList.remove('hint');translateNow(el);}};
   toolbars.forEach(toolbar=>{
     toolbar.addEventListener('pointerover',show);toolbar.addEventListener('focusin',show);
     toolbar.addEventListener('pointerleave',hide);toolbar.addEventListener('focusout',hide);
@@ -974,6 +978,7 @@ function listEnabled(op:Operation){
 function button(op: Operation, label: string, icon = '', shortcut = '', name = false) {
   return `<button data-op="${op}" ${enabled(op) ? '' : 'disabled'} ${name?`data-verbatim="${label}"`:''} title="${esc(operationReason(op)||label)}">${glyphs[op]?glyph(glyphs[op]!):icon?`<span class="icon" aria-hidden="true">${esc(icon)}</span>`:''}<span ${name?'translate="no"':''}>${label}</span>${shortcut ? `<small>${shortcut}</small>` : ''}</button>`;
 }
+function statusMarkup(){return status instanceof ColumnImportStatus?`<span translate="no">${esc(status.text(t,translate))}</span>`:esc(status);}
 function menu(name: string, items: [Operation,string,string?][]) { return `<details class="menu" data-menu="${name}" ${name==='Actions'?'id="actions-menu"':name==='Tag Sources'?'id="tag-sources-menu"':''}><summary>${name}</summary><div class="menu-list">${items.map(([op,label,key]) => button(op,label,'',key)+(op==='dir-manage'&&desktop&&runtimePlatform.folder_picker_supported?fileOps.menuHTML():'')+(op==='source-cover-discogs'?webSourcesUI.menuHTML():'')).join('')}${name==='Actions'?actionUI.menuHTML():''}${name==='View'?viewMenuHTML()+columnUI.menuHTML():''}${name==='Tools'?toolsUI.menuHTML():''}${name==='File'&&!runtimePlatform.folder_picker_supported?'<p class="menu-note">Folder access is not available here. Use Add files.</p>':''}${['Convert','Actions'].includes(name)&&sourcePolicy().unsupportedReason?`<p class="menu-note">${esc(sourcePolicy().unsupportedReason)}</p>`:''}</div></details>`; }
 function render() {
   applyAutoDefaults();
@@ -1000,7 +1005,7 @@ function render() {
   <main class="workspace"><aside class="editor" aria-label="Tag editor"><div class="panel-title" ${compactScreen()?'':`title="Drag to dock the tag panel at another edge or to float it; double-click to ${dock==='float'?'dock it again':'float it'}"`}>Tag panel <span class="panel-count">${panelCount()}</span>${tagPanel.titleHTML()}</div>${sourceMarkup('tags')}<div class="fields">${tagPanel.fieldsHTML()}</div><div class="editor-actions">${button('save','Save tags')}${button('extended','Extended…')}</div>
   ${tagPanel.showCover?`<section class="cover-section" aria-label="Embedded artwork">${coverMarkup()}</section>`:''}</aside><div class="panel-splitter" role="separator" aria-orientation="${across?'horizontal':'vertical'}" aria-label="Tag panel ${across?'height':'width'}" aria-valuemin="${range[0]}" aria-valuemax="${range[1]}" tabindex="0"></div>
   <section class="files" aria-label="Audio files"><div class="location">${glyph(glyphOrganize)}${locationMarkup}<strong>${entries.size} file${entries.size===1?'':'s'}</strong></div>${sourceMarkup('files')}${filterInList?filterbar:''}<div class="table-wrap"><table aria-label="Audio metadata" aria-rowcount="${list.length+1}" style="width:${shownColumns.reduce((sum,c)=>sum+c.width,0)}px"><thead><tr>${headerMarkup(shownColumns,columnLayout.sort,!compactScreen())}</tr></thead><tbody></tbody></table>${!list.length ? emptyMarkup() : ''}</div><div class="selection-info">${selectionInfoMarkup(selectedEntries,list)}</div>
-  ${errors.length ? `<section class="errors" aria-label="Operation errors"><header>${errors.length} file error${errors.length===1?'':'s'}<button id="dismiss-errors">Dismiss</button></header>${errors.map(e => `<p><strong translate="no">${esc(e.label?translate(e.label):e.diagnostic?.kind==='history_folders_failed'?e.path:displayName(e.path))}:</strong> ${e.diagnostic||e.diagnosticRaw||e.rollback?`<span translate="no">${esc(fileErrorText(e,t,translate,publicMessage))}</span>`:esc(publicMessage(e.error))}</p>`).join('')}</section>` : ''}</section></main><footer class="status ${busy?'busy':''}"><span class="status-dot" aria-hidden="true"></span><span class="status-message" role="status">${esc(status)}</span>${progressMarkup()}${drafts.size ? `<span class="dirty-count">${drafts.size} unsaved file${drafts.size===1?'':'s'}</span>` : ''}<span>${entries.size} files</span></footer></div>`;
+  ${errors.length ? `<section class="errors" aria-label="Operation errors"><header>${errors.length} file error${errors.length===1?'':'s'}<button id="dismiss-errors">Dismiss</button></header>${errors.map(e => `<p><strong translate="no">${esc(e.label?translate(e.label):e.diagnostic?.kind==='history_folders_failed'?e.path:displayName(e.path))}:</strong> ${e.diagnostic||e.diagnosticRaw||e.cause||e.rollback?`<span translate="no">${esc(fileErrorText(e,t,translate,publicMessage))}</span>`:esc(publicMessage(e.error))}</p>`).join('')}</section>` : ''}</section></main><footer class="status ${busy?'busy':''}"><span class="status-dot" aria-hidden="true"></span><span class="status-message" role="status">${statusMarkup()}</span>${progressMarkup()}${drafts.size ? `<span class="dirty-count">${drafts.size} unsaved file${drafts.size===1?'':'s'}</span>` : ''}<span>${entries.size} files</span></footer></div>`;
   const wrap=document.querySelector<HTMLDivElement>('.table-wrap')!;
   wrap.querySelector('tbody')!.innerHTML=list.length?`<tr class="virtual-spacer" aria-hidden="true"><td colspan="${tableColumns().length}" style="height:${list.length*rowHeight}px"></td></tr>`:'';
   wrap.scrollTop=scrollTop;wrap.scrollLeft=scrollLeft;updateVirtualRows(true);
@@ -1643,7 +1648,7 @@ function reviewedConverter(kind:'filename'|'text') {
 }
 async function refreshHistory(){
   if(!desktop)return;
-  try{const next=await invoke<HistoryState>('history_state');if(next.notice&&next.notice!==history.notice)status=`${status}. ${next.notice}`;history=next;}catch{/* Undo history is optional; operations still complete. */}
+  try{const next=await invoke<HistoryState>('history_state');if(next.notice&&next.notice!==history.notice)status=status instanceof ColumnImportStatus?status.withNotice(next.notice):`${status}. ${next.notice}`;history=next;}catch{/* Undo history is optional; operations still complete. */}
 }
 async function replayHistory(kind:'undo'|'redo'){
   const step=history[kind];if(!step)return;

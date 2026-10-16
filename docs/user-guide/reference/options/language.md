@@ -37,7 +37,8 @@ error list, while paths and operating-system details retain their spelling.
 Action, undo/redo, playlist-line and saved-cover errors also translate their
 application wording. Group names, history labels, file paths and external
 error details remain unchanged, including in an open failure dialog when the
-interface language changes.
+interface language changes. Action-group import warnings and skipped-column
+reasons also update independently, beside unchanged group and column names.
 
 Application-owned accessible labels follow the selected language too, including
 cover types and states. Type labels in the cover viewer and **Extract cover**

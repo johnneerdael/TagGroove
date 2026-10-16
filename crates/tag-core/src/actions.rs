@@ -1,7 +1,7 @@
 //! Independently authored action catalog and ordered action-group execution.
 //! References: https://docs.mp3tag.de/actions/ and its individual action pages.
 //! Native effects are explicit: a caller must execute them or return an error.
-use crate::batch_errors::ErrorCause;
+use crate::batch_errors::{ErrorCause, IndexedCause};
 use crate::{
     script::{evaluate, evaluate_filename_with_context, Action, EvalContext},
     tags::Fields,
@@ -1534,7 +1534,9 @@ fn mta_picture_type(name: &Option<String>) -> Result<String, String> {
         .map(Option::unwrap_or_default)
 }
 
-fn mta_action(record: &MtaRecord) -> Result<ActionSpec, String> {
+// Every shape/setting parser failure is an OpenTag-owned guard. Validation is
+// separate because regex/codepage validation also returns foreign diagnostics.
+fn mta_action_shape(record: &MtaRecord) -> Result<ActionSpec, String> {
     let type_id = record
         .properties
         .get("T")
@@ -1733,7 +1735,11 @@ fn mta_action(record: &MtaRecord) -> Result<ActionSpec, String> {
             ))
         }
     };
-    validate_action(&action)?;
+    Ok(action)
+}
+fn mta_action_diagnostic(record: &MtaRecord) -> Result<ActionSpec, ErrorCause> {
+    let action = mta_action_shape(record).map_err(ErrorCause::owned_text)?;
+    validate_action_diagnostic(&action)?;
     Ok(action)
 }
 /// Read UTF-8 or BOM-marked UTF-16. Legacy encodings require explicit selection.
@@ -1743,6 +1749,20 @@ pub fn import_mta(
     bytes: &[u8],
     legacy_encoding: Option<&str>,
 ) -> Result<MtaImport, String> {
+    import_mta_diagnostic(name, bytes, legacy_encoding).map(|report| report.result)
+}
+#[derive(Debug, Serialize)]
+pub struct MtaImportReport {
+    #[serde(flatten)]
+    pub result: MtaImport,
+    pub issue_diagnostics: Vec<IndexedCause>,
+}
+/// Add presentation companions without changing the legacy import or reasons.
+pub fn import_mta_diagnostic(
+    name: String,
+    bytes: &[u8],
+    legacy_encoding: Option<&str>,
+) -> Result<MtaImportReport, String> {
     if bytes.len() > 4 * LIMIT {
         return Err("Action group import limit exceeded".into());
     }
@@ -1821,11 +1841,17 @@ pub fn import_mta(
     }
     let mut actions = Vec::new();
     let mut issues = Vec::new();
+    let mut issue_diagnostics = Vec::new();
     for record in &records {
-        match mta_action(record) {
+        match mta_action_diagnostic(record) {
             Ok(action) => actions.push(action),
-            Err(reason) => {
+            Err(cause) => {
+                let reason = cause.to_string();
                 let type_id = record.properties.get("T").cloned().unwrap_or_default();
+                issue_diagnostics.push(IndexedCause {
+                    index: issues.len(),
+                    cause,
+                });
                 issues.push(MtaIssue {
                     index: record.index,
                     type_id: type_id.clone(),
@@ -1839,14 +1865,17 @@ pub fn import_mta(
             }
         }
     }
-    Ok(MtaImport {
-        group: ActionGroup {
-            name,
-            enabled: issues.is_empty(),
-            actions,
+    Ok(MtaImportReport {
+        result: MtaImport {
+            group: ActionGroup {
+                name,
+                enabled: issues.is_empty(),
+                actions,
+            },
+            records,
+            issues,
         },
-        records,
-        issues,
+        issue_diagnostics,
     })
 }
 
@@ -3377,5 +3406,53 @@ mod tests {
         }))
         .unwrap_err()
         .contains("Line breaks"));
+    }
+    #[test]
+    fn import_issue_companions_preserve_three_owned_reasons_and_real_foreign_validation() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../tests/fixtures/import-diagnostics.json"
+        ))
+        .unwrap();
+        let input = &fixture["mta"];
+        let report = import_mta_diagnostic(
+            input["name"].as_str().unwrap().into(),
+            input["text"].as_str().unwrap().as_bytes(),
+            None,
+        )
+        .unwrap();
+        let legacy = import_mta(
+            input["name"].as_str().unwrap().into(),
+            input["text"].as_str().unwrap().as_bytes(),
+            None,
+        )
+        .unwrap();
+        assert_eq!(report.result, legacy);
+        assert_eq!(
+            serde_json::to_value(&report.result.issues).unwrap(),
+            input["issues"]
+        );
+        assert_eq!(report.issue_diagnostics.len(), 3);
+        for (position, item) in report.issue_diagnostics.iter().enumerate() {
+            assert_eq!(item.index, position);
+            assert_eq!(item.cause.to_string(), legacy.issues[position].reason);
+            assert!(matches!(
+                item.cause,
+                ErrorCause::Owned { .. } | ErrorCause::OwnedText { .. }
+            ));
+        }
+        assert!(!legacy.group.enabled);
+        assert_eq!(legacy.group.actions.len(), 4);
+        let regex =
+            import_mta_diagnostic("Help".into(), b"[#0]\nT=4\nF=TITLE\n1=(\n2=\n3=0\n", None)
+                .unwrap();
+        assert_eq!(regex.issue_diagnostics.len(), 1);
+        assert!(matches!(
+            regex.issue_diagnostics[0].cause,
+            ErrorCause::External { .. }
+        ));
+        assert_eq!(
+            regex.issue_diagnostics[0].cause.to_string(),
+            regex.result.issues[0].reason
+        );
     }
 }

@@ -221,6 +221,13 @@ pub struct IndexedDiagnostic {
     pub diagnostic: BatchError,
 }
 
+/// Indexed presentation companions for an importer's unchanged reason strings.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct IndexedCause {
+    pub index: usize,
+    pub cause: ErrorCause,
+}
+
 /// An additive wire/report companion. Its result is still the legacy value.
 #[derive(Debug, Serialize)]
 pub struct Detailed<T> {

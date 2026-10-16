@@ -100,6 +100,9 @@ Action, undo/redo, playlist-line and saved-cover errors follow the same rule:
 their application wording translates, while group names, history labels, paths
 and external error details keep their spelling. Open failure dialogs update
 from the original details when the interface language changes.
+Action-group import warnings translate each unresolved action separately. Column
+import warnings preserve the column names while translating each skipped reason;
+the status and an open failure dialog update when the language changes.
 Search statuses translate built-in local/cover labels while preserving the titles
 of installed web sources.
 

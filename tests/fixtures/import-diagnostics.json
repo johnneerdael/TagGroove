@@ -1,0 +1,30 @@
+{
+  "mta": {
+    "name": "Help / action 1: Title\nTitle",
+    "text": "[#0]\nT=Title\n\n[#1]\nT=5\nF=\n1=%title%\n\n[#2]\nT=Help\n\n[#3]\nT=5\nF=TITLE\n1=%title%\n",
+    "issues": [
+      {
+        "index": 0,
+        "type_id": "Title",
+        "reason": "Numeric action type Title has no known settings schema"
+      },
+      {
+        "index": 1,
+        "type_id": "5",
+        "reason": "Action field must not be empty"
+      },
+      {
+        "index": 2,
+        "type_id": "Help",
+        "reason": "Numeric action type Help has no known settings schema"
+      }
+    ]
+  },
+  "columns": {
+    "text": "[Valid]\nName=Title\nValue=%title%\n\n[Rejected]\nName=Help: the sort format string is not supported; Title\nValue=%artist%\nSort=$unknown()\n\n[Invalid value]\nName=Title: Help\nValue=$unknown()\n",
+    "skipped_names": [
+      "Help: the sort format string is not supported; Title",
+      "Title: Help"
+    ]
+  }
+}

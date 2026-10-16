@@ -15,6 +15,7 @@ mod file_hashes;
 mod file_ops;
 mod filter_cache;
 mod history;
+mod import_diagnostics;
 mod languages;
 mod library;
 mod list_behaviour;
@@ -129,6 +130,7 @@ async fn save_action_library(
     let path = action_host::library_path(&app)?;
     io(move || action_host::save_library(&path, &library)).await
 }
+#[cfg(test)]
 #[tauri::command]
 async fn import_action_group(
     path: String,
@@ -140,7 +142,24 @@ async fn import_action_group(
     })
     .await
 }
+#[tauri::command(rename = "import_action_group")]
+async fn import_action_group_with_diagnostics(
+    path: String,
+    legacy_encoding: Option<String>,
+) -> Result<tag_core::actions::MtaImportReport, import_diagnostics::ImportFailure> {
+    io(move || {
+        let input = auxiliary_input(&path)?;
+        Ok(action_host::import_group_diagnostic(
+            &input,
+            legacy_encoding.as_deref(),
+        ))
+    })
+    .await
+    .map_err(import_diagnostics::ImportFailure::Plain)?
+    .map_err(import_diagnostics::ImportFailure::parts)
+}
 /// Import several `.mta` files, or the `.mta` files of folders, at once.
+#[cfg(test)]
 #[tauri::command]
 async fn import_action_groups(
     paths: Vec<String>,
@@ -172,6 +191,50 @@ async fn import_action_groups(
                     path,
                     imported: None,
                     error: Some(error),
+                }),
+            }
+        }
+        Ok(results)
+    })
+    .await
+}
+#[tauri::command(rename = "import_action_groups")]
+async fn import_action_groups_with_diagnostics(
+    paths: Vec<String>,
+    legacy_encoding: Option<String>,
+) -> Result<Vec<action_host::GroupFileImportReport>, String> {
+    io(move || {
+        let mut results = Vec::with_capacity(paths.len());
+        // An input that cannot be read is one failed entry, not a failed call.
+        for path in paths {
+            match auxiliary_group_input(&path) {
+                Ok((input, name)) => {
+                    let mut imported =
+                        action_host::import_groups_diagnostic(&[input], legacy_encoding.as_deref());
+                    if path.starts_with("content://") {
+                        for result in &mut imported {
+                            result.result.path = path.clone();
+                            if let (Some(imported), Some(name)) =
+                                (&mut result.result.imported, &name)
+                            {
+                                if let Some(stem) =
+                                    Path::new(name).file_stem().filter(|stem| !stem.is_empty())
+                                {
+                                    imported.group.name = stem.to_string_lossy().into_owned();
+                                }
+                            }
+                        }
+                    }
+                    results.extend(imported);
+                }
+                Err(error) => results.push(action_host::GroupFileImportReport {
+                    result: action_host::GroupFileImport {
+                        path,
+                        imported: None,
+                        error: Some(error),
+                    },
+                    issue_diagnostics: Vec::new(),
+                    error_cause: None,
                 }),
             }
         }
@@ -1368,8 +1431,8 @@ pub fn run() {
             run_export,
             load_action_library,
             save_action_library,
-            import_action_group,
-            import_action_groups,
+            import_action_group_with_diagnostics,
+            import_action_groups_with_diagnostics,
             diagnostics_ipc::execute_action_groups_with_diagnostics,
             action_host::export_action_group,
             runtime_platform,
@@ -1431,7 +1494,7 @@ pub fn run() {
             columns::load_columns,
             columns::save_columns,
             columns::import_columns,
-            mp3tag_columns::import_mp3tag_columns,
+            mp3tag_columns::import_mp3tag_columns_with_diagnostics,
             columns::export_columns,
             columns::evaluate_columns,
             tag_panel::load_tag_panel,
@@ -1496,6 +1559,75 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn import_single_and_bulk_companions_keep_per_file_context_and_foreign_causes() {
+        let fixture: serde_json::Value =
+            serde_json::from_str(include_str!("../../tests/fixtures/import-diagnostics.json"))
+                .unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
+        let first = root.join(if cfg!(unix) {
+            "Help: Title\nGroup.mta"
+        } else {
+            "Help; Title.mta"
+        });
+        let second = root.join("Title.mta");
+        let missing = root.join("Missing; Help.mta");
+        std::fs::write(&first, fixture["mta"]["text"].as_str().unwrap()).unwrap();
+        std::fs::write(&second, b"[#0]\nT=4\nF=TITLE\n1=(\n2=\n3=0\n").unwrap();
+        let one = tauri::async_runtime::block_on(import_action_group_with_diagnostics(
+            first.to_string_lossy().into_owned(),
+            None,
+        ))
+        .unwrap();
+        assert_eq!(one.issue_diagnostics.len(), 3);
+        assert_eq!(
+            one.result.group.name,
+            first.file_stem().unwrap().to_string_lossy()
+        );
+        let paths = vec![
+            first.to_string_lossy().into_owned(),
+            second.to_string_lossy().into_owned(),
+            missing.to_string_lossy().into_owned(),
+        ];
+        let rows = tauri::async_runtime::block_on(import_action_groups_with_diagnostics(
+            paths.clone(),
+            None,
+        ))
+        .unwrap();
+        assert_eq!(rows.len(), 3);
+        assert_eq!(
+            rows.iter()
+                .map(|row| row.result.path.clone())
+                .collect::<Vec<_>>(),
+            paths
+        );
+        assert_eq!(rows[0].issue_diagnostics.len(), 3);
+        assert!(matches!(
+            rows[1].issue_diagnostics[0].cause,
+            tag_core::batch_errors::ErrorCause::External { .. }
+        ));
+        assert!(matches!(
+            rows[2].error_cause,
+            Some(tag_core::batch_errors::ErrorCause::External { .. })
+        ));
+        let legacy = tauri::async_runtime::block_on(import_action_groups(paths, None)).unwrap();
+        for (current, old) in rows.iter().zip(legacy) {
+            assert_eq!(
+                serde_json::to_value(&current.result).unwrap(),
+                serde_json::to_value(old).unwrap()
+            );
+        }
+        let failure = tauri::async_runtime::block_on(import_action_group_with_diagnostics(
+            missing.to_string_lossy().into_owned(),
+            None,
+        ))
+        .unwrap_err();
+        let wire = serde_json::to_value(&failure).unwrap();
+        assert_eq!(wire["import_failure"]["kind"], "external");
+        assert_eq!(wire["message"], failure.to_string());
+    }
 
     #[test]
     fn bulk_group_import_keeps_provider_uris_and_expands_local_folder_paths() {
