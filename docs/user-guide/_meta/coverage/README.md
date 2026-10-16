@@ -458,3 +458,37 @@ represented in the seven mature function references. This is **structural
 coverage only**. It does not prove that overloads, optional arguments, examples,
 edge cases, platform differences or every canonical semantic detail have been
 taught. It does not close the broader placeholder or full-guide audit.
+
+## Local file operations, recovery and utilities
+
+`file-recovery-2026-10-16.json` records three completed guides for desktop
+copy/move/list removal/trash/permanent deletion, session Undo/Redo/Repeat, and
+built-in stored-metadata/container utilities. The 149-page local checkpoint
+retains every prior 146 navigation entry in order and leaves 38 drafts. Search
+and generated HTML contain exactly 149 ready routes and 1,235 entries, with
+no draft leakage. The public milestone remains 137 pages; twelve completed
+local chapters await source-queue reconciliation and publication review.
+
+Forty actual production model/controller checks pass, including four written
+mixed-format utility examples under LF and CRLF. Seven existing history
+fixture tests and one unknown-ID3v2-frame cleanup fixture pass through retained
+core executables; no cold Cargo build or full matrix was repeated. These use
+temporary generated files, not personal audio. File-operation controller
+checks stop at a stubbed IPC seam: no native OS trash, playback, reveal or
+configured external tool was executed. Source reads establish narrower
+transfer, journal and format-utility contracts; they are not universal
+filesystem-alias, overwrite, rollback, repair or player guarantees.
+
+The strict build and eight publication checks pass. Seven sampled local
+browser checks cover related navigation, search, light/dark reading and
+390px tables without page errors or document overflow. This does not qualify
+public149 or native behavior. The existing same-size/preserved-date Undo
+explanation is retained, with pending edits, partial failure, unrecorded file
+operations and captured side-image limits explained separately.
+
+`reviews/config-tools-independent-review.json` preserves the unchanged finite
+peer receipt at exact `19cb59a` for the preceding customization trio. It does
+not review these three new pages. Current app source remains byte-identical
+main `325007c`; pending feature branches and original deferred P2 work are
+untouched. Full canonical semantic completeness remains unproven, including
+overloads, edge cases, platform qualifications and the remaining drafts.

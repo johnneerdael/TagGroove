@@ -169,6 +169,9 @@ nav:
     - Chapters and cue sheets as rows: guides/chapters.md
     - Filtering the file list: guides/filter.md
     - Find text: guides/find.md
+    - Copy, move and delete files: guides/file-operations.md
+    - Undo and history: guides/undo-history.md
+    - Built-in utilities: guides/utilities.md
   - Customization:
     - Save and restore configuration: customize/configuration.md
     - Toolbars: customize/toolbars.md
