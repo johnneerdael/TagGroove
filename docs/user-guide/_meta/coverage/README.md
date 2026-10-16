@@ -24,7 +24,8 @@ The first combined checkpoint (`23ecba0`) contains 75 completed pages, including
 the eight initial publication pages. The export batch raises the local total
 to 80, the navigation-reference batch raises it to 88, and the web-source
 batch raises it to 91. The remaining Actions, Help and context-menu references
-raise the current milestone to 94. These are integration milestones, not completion of the whole guide. The language options page remains a draft because its actual
+raise the total to 94. File-list, Extended tags and cover-management guides
+raise the current milestone to 97. These are integration milestones, not completion of the whole guide. The language options page remains a draft because its actual
 implementation is not yet part of this source baseline.
 
 | Batch | Preserved source revision | Evidence and limits |
@@ -38,6 +39,7 @@ implementation is not yet part of this source baseline.
 | Export controls, templates and catalogue lesson | `c07bf16` | Five pages, four tests executing actual templates/results under LF and CRLF, plus a canonical fact ledger. Root finite source/canonical review found TRACK quote escaping; its regression failed before correction and passes afterward. |
 | Navigation reference | `273020e` | Eight pages, one test executing nine written focus/platform examples and 41 existing routing/file/list/history contracts. Root read all pages and canonical keyboard rows with source spot checks; current5f only, not every ledger mapping independently recomputed. |
 | Web-source installation, tutorial and command reference | `a687ab5` | Three pages teach all 15 source headers, settings, a complete local JSON lookup/search tutorial and all 59 accepted parser commands. Four tests execute the actual written definitions and examples with LF and CRLF; 19 unchanged pure source-module tests also run. Source and dependency features are unchanged. A finite root review clarified SayRegexp’s optional stop-text rule. |
+| Editing workflows | `cb64e25`, `6f727cd` | Three guides teach file selection/order/cell editing, Extended tags and cover management. Three tests execute written order, mixed-field rename and cover-presence examples; 47 related contracts pass. Finite independent source/model review found no concrete mismatch. |
 | Remaining menus and contexts | `568b559` | Three pages cover Actions, Help, cover/row/panel/field menus, insertion helpers and history. Two tests execute written caret and cover-state tables; 50 related contracts pass. Finite independent source review found no concrete mismatch; no native runtime or independent canonical re-crawl was claimed. |
 | Filter and data reference | `65f3898` | Six pages. Four tests execute 24 filter queries, check 118 field definitions and 236 native table rows, and retain invalid-query cases. The ledger groups repeated canonical native-cell facts. A finite independent semantic review found no established defect; it did not recompute every cell. |
 
@@ -89,8 +91,8 @@ The final integration receipt must record those outcomes before opening a PR.
 
 The advanced export and web-source batches are integrated. Their ledgers
 record canonical topics, working examples and source limitations. Current
-claims have been reconciled with main `4e4d5fc`, including merged PRs 26 and
-27. Pending language, provider, gnudb, web-source and action changes require
+claims have been reconciled with main `a9cd900`, including merged PRs 26, 27
+and 29; the incoming Windows-undo draft note and verification are retained. Pending language, provider, gnudb, web-source and action changes require
 a new source comparison after their own merges; this guide does not publish
 those branch-only behaviors as current.
 
@@ -143,9 +145,9 @@ is a routing/backlog record: a written destination alone does not establish
 that every sentence, caveat and original example has been taught. Semantic
 ledgers and executable examples supply narrower evidence.
 
-This milestone publishes 94 of the 187 planned pages. The other 93 stay
+This milestone publishes 97 of the 187 planned pages. The other 90 stay
 excluded from public HTML and search. The largest gaps are getting started
-and platform workflows, the file list/tag panel/covers/playlists/chapter
+and platform workflows, tag-panel, save/remove-tag, playlist and chapter
 workflows, customization, help/troubleshooting and 32 cookbook
 pages. The broader placeholder reference still needs a semantic completeness
 audit despite already being published. Language and new-provider instructions
@@ -170,3 +172,10 @@ guard automatically. A later partial-import fence exposed a stale expected
 count when only the converter target was rerun; the final correction keeps
 LF/CRLF equality and significant-space checks and identifies the page in
 future assertion failures.
+
+The final 97-page revision includes main `a9cd900`, the independently reviewed editing
+batch and a documented Find-engine distinction. The complete tag-core
+package passed 498 tests with no failures or ignored cases; all 336 Node UI
+tests and eight publication tests passed. Strict build, writing plan, formatting
+and focused Clippy passed. These are local checks; the final head still
+requires its own clean GitHub Codex review, trusted CI and deployment proof.

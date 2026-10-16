@@ -1,7 +1,7 @@
 {
   "base_guide": "d5ebd8ba8045d8536d43c6b75922e052ce63a206",
   "source_main": "4e4d5fc20b263d094b9861b0169e8a75189fa1cb",
-  "scope": "3 local editing workflow pages; not in PR30; final publication and independent review pending",
+  "scope": "Integrated3independently reviewed editing pages into pending PR30 97-page milestone; not yet public publication.",
   "canonical": [
     {
       "source": "extended-tags",
@@ -98,5 +98,6 @@
   "future_reconciliation": [
     "Current feature PR17/18/19/20/28 are not assumed merged; compare finalmain before publication.",
     "Underlying filesystem andformat limits remain source-specific; no all-platform installed qualification claim."
-  ]
+  ],
+  "reconciled_main": "a9cd9007b5791106436a6ff0320bf10fa61f8707; editor/find/cover/list source unchanged from4e"
 }

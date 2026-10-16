@@ -1,11 +1,11 @@
 {
-  "source_main": "4e4d5fc20b263d094b9861b0169e8a75189fa1cb",
+  "source_main": "a9cd9007b5791106436a6ff0320bf10fa61f8707",
   "integration_parent": "8fb75b8",
   "purpose": "Publish completed detailed guide chapters while retaining exact remaining writing backlog and source limitations. No claim of full canonical semantic coverage.",
   "scope": {
-    "ready_pages": 94,
+    "ready_pages": 97,
     "planned_pages": 187,
-    "draft_pages": 93,
+    "draft_pages": 90,
     "sections": {
       "Home": {
         "ready": 1,
@@ -20,7 +20,7 @@
         "planned": 19
       },
       "Guides": {
-        "ready": 1,
+        "ready": 4,
         "planned": 22
       },
       "Automate": {
@@ -89,6 +89,18 @@
       "details": [
         "four opt-in cases = two live lookups, real trash probe, filter-cache benchmark"
       ]
+    },
+    {
+      "merged_pr": 29,
+      "source_main": "a9cd9007b5791106436a6ff0320bf10fa61f8707",
+      "details": [
+        "Inherited reviewed Windows history bookkeeping and operations fix; no docs-branch app changes.",
+        "UI/find/regex/menu/cover/list implementations unchanged from4e; component review hashes retained as provenance."
+      ],
+      "draft_notes_preserved": [
+        "guides/undo-history.md"
+      ],
+      "incoming_verification_preserved": "docs/verification/windows-history-bookkeeping.md"
     }
   ],
   "unmerged_features_not_published_as_current": [
@@ -100,10 +112,10 @@
   ],
   "validation": {
     "rust_guide_tests": "74 passed across11targets; includes23web tests, LF/CRLF real written examples, registry64functions/59commands,197function examples,20date tokens,24filter queries,118field definitions,236mapping rows",
-    "node": "105passed: routing, search, menu/helper/cover/action contracts and actual written menu examples",
+    "node": "Complete npm run test:ui passed336tests; includes actual written menu/editing examples, search boundaries and the3Find dialect cases",
     "publication": "8 passed",
-    "strict_mkdocs": "passed at94pages",
-    "writing_plan": "94/187;93drafts",
+    "strict_mkdocs": "passed at97pages",
+    "writing_plan": "97/187;90drafts",
     "fmt": "passed",
     "focused_clippy": "all11guide targets passed with -D warnings",
     "independent_web_review": "Root finite review all3pages/all59commands + relevant actual source; SayRegexp optional-stop ambiguity corrected; root independent23tests passed. No native UI/network claim.",
@@ -196,14 +208,14 @@
         "profile_removed": true
       }
     },
-    "external_exact_head_review": "d5661f4 completed clean; subsequent corpus-count correction requires a fresh final-head review.",
-    "trusted_ci": "required after clean final-head review; not yet admitted",
+    "external_exact_head_review": "Fresh exact-head review required after coalesced maina9/editing/Find correction; previous d5eb94-page review was clean but not authorization for this revision.",
+    "trusted_ci": "Fresh validation required after new final-head clean review; old d5eb/main4e run is superseded.",
     "expanded_deployment": "pending approved merge and actual Pages verification",
     "generated_output": {
-      "html_pages": 94,
+      "html_pages": 97,
       "draft_html_pages": 0,
-      "search_page_routes": 94,
-      "search_sections": 792
+      "search_page_routes": 97,
+      "search_sections": 825
     },
     "search_separator": {
       "reference": "https://squidfunk.github.io/mkdocs-material/plugins/search/#separator",
@@ -220,7 +232,8 @@
       "cause": "New partial-keyed-import example raised Text File to Tag fence corpus from6 to7; newline corpus guard retained stale6. Reproduced locally before fixing expectation7; LF/CRLF literal equality and significant-space assertions retained.",
       "guide_rerun": "All74guide tests across11targets passed together after correction.",
       "full_tag_core": "Final revised94-page tree: complete tag-core package passed492tests,0failures,0ignored; includes all74guide tests and all corpus guards."
-    }
+    },
+    "full_tag_core": "Complete cargo test -p tag-core --locked passed498tests,0failed,0ignored on maina9 plus97-page guide; includes all74Rustguide tests"
   },
   "prior_public_browser_receipt": {
     "site": "https://johnneerdael.github.io/opentag/",
@@ -580,12 +593,13 @@
       "canonical_key": "customization/file-list",
       "url": "https://docs.mp3tag.de/customization/file-list/",
       "source_sha256": "f80d693f03371ef5c98cc2df09b1792c8a2643650d7b45d764897ab07fa71b75",
-      "ready_mapped_pages": [],
-      "draft_mapped_pages": [
-        "customize/columns.md",
+      "ready_mapped_pages": [
         "guides/file-list.md"
       ],
-      "routing_status": "all mapped pages remain draft",
+      "draft_mapped_pages": [
+        "customize/columns.md"
+      ],
+      "routing_status": "some mapped pages written",
       "semantic_scope": "Topic routing only; written destinations are not a proof of exhaustive sentence-level semantic coverage."
     },
     {
@@ -872,11 +886,11 @@
       "canonical_key": "extended-tags",
       "url": "https://docs.mp3tag.de/extended-tags/",
       "source_sha256": "ac6e164ef4ef4b44e5ffd9364539e393e8ddacde399e0dcbee5abd2c1cb4136c",
-      "ready_mapped_pages": [],
-      "draft_mapped_pages": [
+      "ready_mapped_pages": [
         "guides/extended-tags.md"
       ],
-      "routing_status": "all mapped pages remain draft",
+      "draft_mapped_pages": [],
+      "routing_status": "all mapped pages written",
       "semantic_scope": "Topic routing only; written destinations are not a proof of exhaustive sentence-level semantic coverage."
     },
     {
@@ -1041,12 +1055,13 @@
       "canonical_key": "manage-covers",
       "url": "https://docs.mp3tag.de/manage-covers/",
       "source_sha256": "b72b3b769a3e6455f81b2b314ced28530ddeb767b412fc4256b636cb21d5fb87",
-      "ready_mapped_pages": [],
+      "ready_mapped_pages": [
+        "guides/covers.md"
+      ],
       "draft_mapped_pages": [
-        "guides/covers.md",
         "concepts/cover-art.md"
       ],
-      "routing_status": "all mapped pages remain draft",
+      "routing_status": "some mapped pages written",
       "semantic_scope": "Topic routing only; written destinations are not a proof of exhaustive sentence-level semantic coverage."
     },
     {
@@ -1125,12 +1140,11 @@
       "url": "https://docs.mp3tag.de/menus/cover/",
       "source_sha256": "3574949c1aa78283be2b46b4bc58b3c92c848f53b2e15589ae3f412b171c51ad",
       "ready_mapped_pages": [
-        "reference/menus/context-menus.md"
-      ],
-      "draft_mapped_pages": [
+        "reference/menus/context-menus.md",
         "guides/covers.md"
       ],
-      "routing_status": "some mapped pages written",
+      "draft_mapped_pages": [],
+      "routing_status": "all mapped pages written",
       "semantic_scope": "Topic routing only; written destinations are not a proof of exhaustive sentence-level semantic coverage."
     },
     {
@@ -1349,10 +1363,7 @@
     "concepts/replaygain.md",
     "concepts/sort-fields.md",
     "guides/index.md",
-    "guides/file-list.md",
     "guides/tag-panel.md",
-    "guides/extended-tags.md",
-    "guides/covers.md",
     "guides/find.md",
     "guides/copy-paste-tags.md",
     "guides/file-operations.md",
@@ -1424,7 +1435,7 @@
     "Review every canonical paragraph, control, exception and note for all remaining families; structural page/headings counts alone do not close coverage."
   ],
   "current_ready_page_sha256": {
-    "index.md": "829ff1b0625274b230fa27adcce50809c7d4e3bf34967eaca144c6adca45567c",
+    "index.md": "142822c5b7baaff9f71b319f2d129a89f0dc62f0c25b6b98d89535e8c9da333a",
     "learn/first-tagging-session.md": "2f915c0a9ae684c5ffa7d94cd1bb598fe7e4e119729cc80ba439a5bc0653aaae",
     "learn/format-strings-from-zero.md": "339316e63dc8238f9580e32a9c3475c34ea54b702a48a8e6df8144a7d79f18b8",
     "learn/rename-files-and-folders.md": "c701f3c3452505374438b305f5d7f60925f106d7a46981ac846c8c2aaa151f2a",
@@ -1433,6 +1444,9 @@
     "learn/export-a-cd-catalogue.md": "5721a987732a6fe93937cadb178450004c4d216cad1e921577397a960a9272a0",
     "concepts/multi-value-fields.md": "f241685adfaaff3aa245515788aeebcdcfcda8e92beb2937141656bde395fe21",
     "concepts/text-encodings.md": "8d07406128434063584c01122e4e748e42b8399e7684252ce44f452bae86e1aa",
+    "guides/file-list.md": "2b36b84fcf721449593f4621d19fa5a40f629ac51cbe6de86efa75870a4f0e8b",
+    "guides/extended-tags.md": "0a2fef49f39119fb9f2f84a492ac767d9a2c9a7f6f11dd4724748782e8950146",
+    "guides/covers.md": "17fac6b287b0aeb43bb73b98aee7222aa49078d0590d3d6bc3feb3ca4e6f695f",
     "guides/filter.md": "e5ec6f8c32356d3899ed8c67618784c1b55aa4d0627fb847b482c9e773a4cec9",
     "converters/index.md": "305810a5db395c81f304a900117a4b9ef5797df7e284f4bd4e3315f8121de602",
     "converters/tag-to-filename.md": "0b9d47e4bb9985f546d0c7702ffc688dafe7ed5502655ffddde72b50232cfd3f",
@@ -1477,7 +1491,7 @@
     "reference/scripting/numbers.md": "5d94137de11f3f89784ca5de92604452b20765f09f4098c9b3f26d7ad5f0d987",
     "reference/scripting/dates-durations.md": "8cba4279e04bbe879c9261fd1e396622823332ecde83c6346eb1d6bcdf2d65db",
     "reference/scripting/lists-metadata.md": "7751a7b5ade8be5eb9b25d1f65a37b21a144514fdf169666dee987432a1aa66e",
-    "reference/regular-expressions.md": "d30d42c30fc3ceff0a98d1b597b83bc852190f652df61a89d37cad827c28dfb8",
+    "reference/regular-expressions.md": "91a9bd944a4651b5ac1cae47afcdf7e6061235abac6b903b3fb673362ff714f4",
     "reference/filter-syntax.md": "f13cc6741c8b36555f58847ae5d4ee42cb69dd53b92c8d5e211bf7aa9b97a9fd",
     "reference/field-names.md": "fec1bdb0b34bb4cf5eabf9a08dfaf1b0a17781e79554e50afc1f9bade3be4b85",
     "reference/tag-mapping.md": "541083e4c432f034cb926ee7ebe142f1f38f08ca8a69d2c78968ab81949846dc",
@@ -1518,5 +1532,13 @@
     "cookbook/rename-zero-padded-track-numbers.md": "ec82beff611383d8a8c7686d495c0945673beffea9afaa58c7204c92f45672ae",
     "cookbook/feat-artists-to-title.md": "2acd4429d7b96c2580a2b450a214b51fba92fed7dd01e6fade8bbf5114a5ae12",
     "cookbook/tags-from-folder-and-filename.md": "78bf587bd376171c61acffdd3630ebecc97650a0b0fee420cdda44eb5b307228"
+  },
+  "find_regex_correction": {
+    "source": "src/find.ts findMatcher",
+    "problem": "Old regex reference said Find shared the Boost-compatible engine; actual Find uses JavaScript RegExp with u/iu flags.",
+    "result": "Reference now distinguishes shared core, web parser case default, and Find flags/linebreak/syntax. Written3-case table uses actual Find matcher:boats off/on and invalid unscoped(?i).",
+    "test": "tests/guide-find-regex.test.mjs",
+    "proof": "/tmp/opentag-find-regex-engine-proof.json",
+    "product_changes": false
   }
 }

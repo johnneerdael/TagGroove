@@ -84,6 +84,7 @@ to edit and save its tags, then give the files consistent names.
 
 | What you want to learn | Start here |
 | --- | --- |
+| Inspect the list, unfamiliar fields and artwork | [The file list](guides/file-list.md), [Extended tags](guides/extended-tags.md) and [Working with covers](guides/covers.md) |
 | Combine fields, functions and fallback values | [Format strings from zero](learn/format-strings-from-zero.md), then the [64-function reference](reference/scripting/index.md) |
 | Match, capture and clean patterned text | [Regular expressions from zero](learn/regex-from-zero.md), then [regex syntax and examples](reference/regular-expressions.md) |
 | Repeat several changes in order | [Build your first action group](learn/first-action-group.md), then [all action types](actions/index.md) |

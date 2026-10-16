@@ -3,8 +3,9 @@
 <p class="lead">A regular expression (regex) describes a <em>shape</em> of text rather than exact text: “a number at the start”, “anything in brackets at the end”, “two words separated by a comma”. OpenTag uses them to find that shape in your tags and file names, and to rewrite it.</p>
 
 This page takes you from your first pattern to lookarounds, then documents
-every place OpenTag accepts regular expressions. Each section builds on the
-one before. If you already know regular expressions from another program,
+the main places OpenTag accepts regular expressions. The web-source parser
+commands have their own [reference](../tag-sources/web-source-reference.md).
+Each section builds on the one before. If you already know regular expressions from another program,
 skip to [How OpenTag's regular expressions differ](#how-opentag-differs) and
 the [`$regexp` reference](#regexp).
 
@@ -21,10 +22,15 @@ the [`$regexp` reference](#regexp).
 | [`$regexp(…)`](#regexp) in any format string | Replaces every match and returns the result | Ignored by default; pass `0` as the fourth argument to respect it |
 | [**Replace with regular expression**](#the-replace-with-regular-expression-action) action | Rewrites the values of a field, or the file name | **Case-sensitive comparison** checkbox, off by default |
 | [Filter](#in-the-filter-and-find): `field MATCHES pattern` | Shows only files whose field matches | Always ignored; write `(?-i)` to respect it |
-| [Find](#in-the-filter-and-find), strategy **Regular expression** | Lists the files that match | **Case sensitive** checkbox |
+| [Find](#in-the-filter-and-find), strategy **Regular expression** | Lists matching filename/field values | **Case sensitive** checkbox |
+| [Web-source parser commands](../tag-sources/web-source-reference.md#sayregexp), such as SayRegexp and RegexpReplace | Read or transform downloaded text and parser outputs | Case-sensitive by default |
 
-All four use the same engine (Boost's Perl-compatible syntax), so a pattern
-that works in one works in the others.
+Format strings, actions, filters and web-source parser commands use the
+shared Boost-compatible core. **Find** uses the browser’s Unicode JavaScript
+regular expressions. Their advanced syntax and line-break rules differ; a
+pattern accepted in one context is not guaranteed to work in another. The
+detailed replacement and core flag rules below apply to the shared core;
+[Find’s specific behavior](#find-dialect) is described separately.
 
 The examples use `$regexp(text,pattern,replacement)` and show the text,
 pattern and replacement in separate columns. You'd normally use a placeholder
@@ -412,9 +418,31 @@ parentheses:
 | `* MATCHES "\s{2,}"` | any field contains a double space |
 | `artist MATCHES "^the "` | the artist starts with "The" |
 
-In **Edit → Find…** (++cmd+f++ / ++ctrl+f++), choose the strategy **Regular
-expression** to list matching files. Find never changes anything: select the
-results, then use an action to make the change.
+### Find uses JavaScript regular expressions { #find-dialect }
+
+In **Edit → Find…** (++cmd+f++ / ++ctrl+f++), choose **Regular expression**
+to search filenames and individual tag values. Use **Case sensitive** to
+control letter case. Find compiles its pattern with JavaScript’s Unicode
+mode and an optional case-insensitive flag; it does not apply the shared
+core’s default multiline/dot-all behavior or replacement syntax.
+
+For example, unscoped `(?i)` is accepted by the shared core but is invalid
+in Find. Type `boats` and use the checkbox instead:
+
+<!-- find-regex-examples:start -->
+| Pattern | Case sensitive | Value | Result |
+| --- | --- | --- | --- |
+| `boats` | Off | `Paper Boats` | Match |
+| `boats` | On | `Paper Boats` | No match |
+| `(?i)boats` | Off | `Paper Boats` | Invalid pattern |
+<!-- find-regex-examples:end -->
+
+Find reports an invalid expression instead of treating it as no matches.
+It does not directly rewrite tags. Selecting a result changes the main
+selection, where configured tag-panel defaults or save-on-move settings can
+still act. Review the selection before applying an action.
+
+<!-- verified: tests/guide-find-regex.test.mjs executes this actual table through src/find.ts findMatcher. -->
 
 ## A pattern library
 
@@ -442,8 +470,10 @@ after the last comma in `$regexp`, or an empty replacement box in the action.
 
 ## How OpenTag's regular expressions differ { #how-opentag-differs }
 
-OpenTag uses the Perl-compatible syntax of the Boost regex library, like
-Mp3tag. If you come from another tool, watch for these:
+The shared core used by format strings, actions, filters and web-source
+parser commands accepts Boost’s Perl-compatible syntax. The following
+core rules do not describe Find’s JavaScript engine. If you come from
+another tool, watch for these:
 
 - **Case is ignored by default** in `$regexp`, the action and the filter.
   JavaScript, Python and most editors respect case by default.
