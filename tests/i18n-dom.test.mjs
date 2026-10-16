@@ -861,7 +861,7 @@ test('the real language reload retains an active catalog on command failure and 
     const declaration=parsed.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text==='applyLanguage');
     const js=ts.transpileModule(declaration.getText(parsed),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
     const values={desktop:true,languageReadWarnings,invoke:async command=>{assert.equal(command,'language_catalogs');if(failed)throw new Error('languages: access denied');return found;},languagePage,setUserCatalogs:i18n.setUserCatalogs,setLanguage:i18n.setLanguage,languageSetting,optionsUI:{page:()=>({language:selected})},publicMessage:error=>error.message,applyNotificationArea:()=>{},render:()=>{renders++;}};
-    const apply=new Function(...Object.keys(values),`let shownTitle='';${js};return applyLanguage;`)(...Object.values(values));
+    const apply=new Function(...Object.keys(values),`let shownTitle='',languageGeneration=0;${js};return applyLanguage;`)(...Object.values(values));
     await apply();assert.equal(i18n.currentLanguage(),'fr');assert.equal(i18n.translate('Save tags'),'Enregistrer');assert.equal(renders,0);
     assert.ok(controls[0].choices.some(([value])=>value==='fr'));
     p.body.innerHTML=controls.map(controlMarkup).join('');assert.ok(p.body.textContent.includes('languages: access denied'));

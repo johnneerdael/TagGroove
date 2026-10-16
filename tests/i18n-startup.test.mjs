@@ -115,6 +115,40 @@ test('actual startup errors translate their owned context while same-spelling na
   }
 });
 
+test('two real Options saves keep the latest language and preferences across older catalog success or failure',async()=>{
+  for(const outcome of ['older-success','older-failure','latest-failure']){
+    const fixture=await boot({remembered:'en',choice:'en'}),reads=[],collators=[],NativeCollator=Intl.Collator;
+    try{
+      fixture.host.settings.resolve(fixture.response());await until(()=>fixture.host.calls.includes('language_catalogs'));
+      fixture.host.catalogs.resolve({catalogs:[{file:'nl.json',catalog:{...english,'@meta':{name:'Retained Dutch',locale:'nl'},File:'Bestaand bestand'}},{file:'pt.json',catalog:{...english,'@meta':{name:'Retained choice',locale:'pt'}}}],errors:[]});
+      fixture.host.directories.resolve(fixture.host.defaults.defaultDirectoryState());await until(()=>fixture.visible());
+      // Keep the real Intl implementation while recording actual optionsApplied continuations.
+      Intl.Collator=new Proxy(NativeCollator,{construct(target,args){collators.push(args[1]);return Reflect.construct(target,args);}});
+      let saved=structuredClone(fixture.response().settings);const saves=[],invoke=fixture.host.invoke;
+      fixture.host.invoke=async(command,args,factories)=>{
+        if(command==='load_settings')return{settings:structuredClone(saved),defaults:factories.defaultSettings(),warning:null};
+        if(command==='save_settings'){saved=structuredClone(args.settings);saves.push(saved.pages.language.language);return{settings:structuredClone(saved),defaults:factories.defaultSettings(),warning:null};}
+        if(command==='language_catalogs'){const read=deferred();reads.push(read);return read.promise;}
+        if(command==='set_tray_options')return{supported:false,active:false};
+        return invoke(command,args,factories);
+      };
+      const open=async()=>{fixture.app.querySelector('[data-op="options"]').click();await until(()=>fixture.window.document.querySelector('.options-dialog'));const dialog=fixture.window.document.querySelector('.options-dialog');dialog.querySelector('[data-page="language"]').click();return dialog;};
+      const save=async(language)=>{const dialog=await open();dialog.querySelector('[data-page="general"]').click();const natural=dialog.querySelector('[data-option="general.natural_sort"]');natural.checked=language==='de';natural.dispatchEvent(new fixture.window.Event('change',{bubbles:true}));dialog.querySelector('[data-page="language"]').click();const select=dialog.querySelector('select[data-option="pages.language.language"]');select.value=language;select.dispatchEvent(new fixture.window.Event('change',{bubbles:true}));dialog.querySelector('#options-ok').click();await until(()=>!dialog.isConnected&&reads.length===saves.length);};
+      await save('de');assert.equal(reads.length,1);await save('nl');assert.equal(reads.length,2);assert.deepEqual(saves,['de','nl']);
+      if(outcome==='latest-failure')reads[1].reject(new Error('Newest catalog failure'));
+      else reads[1].resolve({catalogs:[{file:'nl.json',catalog:{...english,'@meta':{name:'Newest Dutch',locale:'nl'},File:'Nieuw bestand'}},{file:'pt.json',catalog:{...english,'@meta':{name:'Newest choice',locale:'pt'}}}],errors:[{file:'Newest warning.json',error:'not a JSON object',kind:'not_object'}]});
+      const expectedFile=outcome==='latest-failure'?'Bestaand bestand':'Nieuw bestand',expectedWarning=outcome==='latest-failure'?'Newest catalog failure':'Newest warning.json';
+      await until(()=>fixture.window.document.documentElement.lang==='nl'&&collators.some(options=>options?.numeric===false));assert.equal(fixture.app.querySelector('[data-menu="File"] > summary').textContent,expectedFile);
+      const dialog=await open();assert.ok(dialog.textContent.includes(expectedWarning));assert.ok(dialog.querySelector('option[value="pt"]'));const applied=collators.length;
+      if(outcome==='older-failure')reads[0].reject(new Error('Older catalog failure'));
+      else reads[0].resolve({catalogs:[{file:'de.json',catalog:{...english,'@meta':{name:'Older German',locale:'de'},File:'Alte Datei'}}],errors:[{file:'Older warning.json',error:'not a JSON object',kind:'not_object'}]});
+      for(let i=0;i<8;i++)await tick();
+      assert.equal(saved.pages.language.language,'nl');assert.equal(saved.general.natural_sort,false);assert.equal(fixture.window.document.documentElement.lang,'nl');assert.equal(fixture.window.localStorage.getItem('opentag.language'),'nl');assert.equal(fixture.app.querySelector('[data-menu="File"] > summary').textContent,expectedFile);assert.equal(collators.length,applied,'older optionsApplied must not overwrite the latest collator');assert.ok(dialog.textContent.includes(expectedWarning));assert.ok(!dialog.textContent.includes('Older'));
+      dialog.querySelector('#options-cancel').click();const reopened=await open();assert.ok(reopened.querySelector('option[value="pt"]'));reopened.querySelector('#options-cancel').click();
+    }finally{Intl.Collator=NativeCollator;for(const read of reads)if(!read.done)read.resolve({catalogs:[],errors:[]});await fixture.close();}
+  }
+});
+
 test('browser preview keeps its immediate first render without native initialization',async()=>{
   const fixture=await boot({native:false,remembered:'en'});
   try{assert.equal(fixture.visible(),true);assert.equal(fixture.app.querySelector('[data-menu="File"] > summary').textContent,'File');assert.deepEqual(fixture.host.calls.filter(command=>['load_settings','language_catalogs','runtime_platform'].includes(command)),[]);}finally{await fixture.close();}

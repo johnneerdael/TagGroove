@@ -406,15 +406,26 @@ function syncWindowTitle(){if(app.inert)return;const title=translate(windowTitle
 // A copied template takes its locale from its filename, rather than overriding English.
 const languagePage=languageOptionsPage({warningText:warning=>languageWarningText(warning,t),onLanguageChange,folderSupported:false,openFolder:desktop?()=>invoke<void>('open_languages_folder',{template:`${JSON.stringify({...ENGLISH,'@meta':{name:''}},null,1)}\n`}):undefined});
 registerOptionsPage(languagePage);
+// A newer Options save owns the catalog, warnings and language, even if an older read finishes last.
+let languageGeneration=0;
 async function applyLanguage(choice=languageSetting(optionsUI.page('language'))){
+  const generation=++languageGeneration;
   if(desktop){
-    try{const found=await invoke<{catalogs:{file:string;catalog:unknown}[];errors:CatalogReadError[]}>('language_catalogs');languagePage.refresh([...languageReadWarnings(found.errors),...setUserCatalogs(found.catalogs)]);}
-    catch(error){languagePage.refresh([{message:publicMessage(error)}]);}
+    try{
+      const found=await invoke<{catalogs:{file:string;catalog:unknown}[];errors:CatalogReadError[]}>('language_catalogs');
+      if(generation!==languageGeneration)return;
+      languagePage.refresh([...languageReadWarnings(found.errors),...setUserCatalogs(found.catalogs)]);
+    }catch(error){
+      if(generation!==languageGeneration)return;
+      languagePage.refresh([{message:publicMessage(error)}]);
+    }
   }
   if(setLanguage(choice)){shownTitle='';void applyNotificationArea();render();}
+  return generation;
 }
 async function optionsApplied(next:Settings,previous:Settings){
-  await applyLanguage();
+  const generation=await applyLanguage();
+  if(generation!==languageGeneration)return;
   collator=naturalCollator(next);changedData();applyAppearancePrefs();void applyNotificationArea();
   // File → Load configuration brings its own layout and toolbars.
   const changed=(id:string)=>JSON.stringify(next.pages[id])!==JSON.stringify(previous.pages[id]);
