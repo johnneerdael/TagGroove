@@ -200,11 +200,11 @@ entries, Windows fallback controls and hosted-only cleanup are retained. The
 new owned join-limit diagnostic has Dutch and German translations; catalogs
 now contain 2,927 entries. The six incoming join regressions remain unchanged.
 
-No new native or history tests have run for this merged preparation. Earlier
-PR17 and PR20 counts retain their original source scopes. Further PR20 review
-corrections must be integrated before final local qualification, current-main
-adaptation, exact-head GitHub Codex review and trusted platform CI. This local
-checkpoint makes no remote-review, merge, release or publication claim.
+At the source-only preparation checkpoint, no new native or history tests had
+run for that merge. Earlier PR17 and PR20 counts retained their original source
+scopes; further PR20 review corrections and actual-main adaptation were still
+pending. That checkpoint made no remote-review, merge, release or publication
+claim.
 
 The local translation merge additionally passed 537 UI/model tests and the
 production build, including the existing search/release dialog regression
@@ -214,3 +214,26 @@ active. Catalog extraction is stable at 2,927 entries with all previous entries
 preserved. The strict local 174-page guide and eight publication tests pass.
 These lightweight checks do not requalify the native interpreter or history
 paths; the retired earlier PR17 targets are not live caches for this source.
+
+## PR17 qualification after the actual PR20 merge
+
+Actual main `5c49582da4d4e6ba1e63e5fb2f7ce66c1918b0bf` merged PR20 head
+`403bf9a2275075d29f5685947c604c9928d554cb`. The local PR17 preparation already
+contained that source. Merging actual main left all 1,385 tracked qualification
+inputs byte-identical to `fc6cf5e08b1dca6b1ce88594ad0877177e3a19bc`; this
+verification note is the only subsequent documentation change.
+
+Fresh local qualification at `fc6cf5e` passed 1,061 Rust tests, zero failures
+and six explicit ignores across 68 summaries, plus workspace/all-target Clippy
+with warnings denied. All five workspace packages were freshly compiled from
+PR17 source using the stable shared target path after cleaning only the old
+PR20 workspace packages; dependency paths were retained and incremental
+compilation was disabled. Reserve checks before native/history tests and
+before/after Clippy exceeded 2.3 GiB.
+
+Runtime, frontend, tests, catalogs, reader pages and build configuration remain
+unchanged. The same-source 537 UI/model tests, production build, 2,927-entry
+catalog checks, strict 174-page guide and eight publication tests therefore
+retain their qualification. These are local results; exact-final-head GitHub
+Codex review and trusted current-main platform CI remain required. Normal merge,
+release and public guide deployment are separate outcomes.
