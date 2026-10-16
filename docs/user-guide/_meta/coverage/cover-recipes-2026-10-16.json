@@ -94,7 +94,7 @@
   "page_sha256": {
     "cookbook/embed-folder-jpg.md": "a8e78e1062653c08ccd74d2a1002fb37ac6fd7c17a9b30f4217f8ee4df802c94",
     "cookbook/resize-covers.md": "0441fe0ffaed26030545cd5007fdabcf5e0df2954744331022fa0484b58309a3",
-    "cookbook/keep-only-front-cover.md": "4f74a119a80e4c1d5803457dd80842c6d3e6f453ac703611ac80cd8841c6c096"
+    "cookbook/keep-only-front-cover.md": "64f8cabf9c57e776b74ae4d4b95c1cd9851b89fb888bd0362ab18ab57e765d2a"
   },
   "source_sha256": {
     "src/covers.ts": "8cc7fc122d978c82492812144f1fe2c917fa58c18672b83e0037393c2d9a9e9d",
@@ -123,9 +123,9 @@
       "failed": 0,
       "ignored": 0
     },
-    "full_ui": "350 passed, 0 failed",
+    "full_ui": "350 passed before final visible-role-label readability edit; final affected2modeltests passed",
     "publication": "8 passed",
-    "strict": "115 completed / 72 drafts strict build passed",
+    "strict": "Final115completed/72drafts strictbuildpassed",
     "fmt": "passed",
     "focused_clippy": "passed",
     "browser": {
@@ -142,7 +142,7 @@
       "errors": [],
       "profile_removed": true,
       "receipt": "/tmp/opentag-guide-cover-browser/results.json",
-      "visual_inspection": "Desktop import introduction and390px role catalog manually viewed; readable hierarchy andtablewrapping, no documentoverflow"
+      "visual_inspection": "Desktop import introduction and final390px visible-role catalog manually viewed; improved Front/Back Cover wrapping, readable hierarchy, no documentoverflow"
     },
     "independent_review": "pending"
   },

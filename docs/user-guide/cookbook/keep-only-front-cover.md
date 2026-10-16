@@ -14,14 +14,14 @@ exercise; they are not filenames the app must display:
 <!-- front-catalog:start -->
 | Picture label | Cover type | Description |
 |---|---|---|
-| `front-A` | `CoverFront` | `Harbour front` |
-| `front-B` | `CoverFront` | `Low Tide front` |
-| `back` | `CoverBack` | `Rear` |
-| `booklet` | `Leaflet` | `Booklet` |
+| `front-A` | Front Cover | `Harbour front` |
+| `front-B` | Front Cover | `Low Tide front` |
+| `back` | Back Cover | `Rear` |
+| `booklet` | Leaflet | `Booklet` |
 <!-- front-catalog:end -->
 
-`CoverFront` is the internal type shown as **Front Cover** in the dialog;
-`CoverBack` is **Back Cover**. The three practice files contain these lists:
+Use the role labels shown in the dialog, and inspect the actual pictures
+as well: a stored role can be wrong. The three practice files contain these lists:
 
 <!-- front-membership:start -->
 | File | Pictures before | Pictures after this cleanup |

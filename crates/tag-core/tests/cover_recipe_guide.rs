@@ -75,6 +75,14 @@ fn filename(template: &str, folder: &Path) -> String {
         other => panic!("Unexpected effect {other:?}"),
     }
 }
+fn role(label: &str) -> &str {
+    match label {
+        "Front Cover" => "CoverFront",
+        "Back Cover" => "CoverBack",
+        "Leaflet" => "Leaflet",
+        other => panic!("Unknown written role {other}"),
+    }
+}
 #[test]
 fn embed_settings_and_count_cases_run_on_actual_mp3_writes_or_invalid_source_refusal() {
     for page in forms(EMBED) {
@@ -276,7 +284,7 @@ fn front_only_plan_retains_each_files_membership_and_apply_to_all_is_different()
                     let entry = catalog.iter().find(|r| code(r[0]) == label).unwrap();
                     CoverChange {
                         image: Some(images[label].clone()),
-                        picture_type: code(entry[1]).into(),
+                        picture_type: role(entry[1]).into(),
                         description: code(entry[2]).into(),
                         all_files: true,
                         ..Default::default()
@@ -292,7 +300,7 @@ fn front_only_plan_retains_each_files_membership_and_apply_to_all_is_different()
         }
         let kept = catalog
             .iter()
-            .filter(|r| code(r[1]) == "CoverFront")
+            .filter(|r| r[1] == "Front Cover")
             .map(|r| code(r[0]))
             .collect::<Vec<_>>();
         let changes = kept

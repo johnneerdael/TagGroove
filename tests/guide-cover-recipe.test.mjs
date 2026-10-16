@@ -13,7 +13,7 @@ test('written front-cover cleanup keeps partial membership in actual managed-cov
  for(const text of forms(await read('keep-only-front-cover'))){
   const catalog=rows(text,'front-catalog'),files=rows(text,'front-membership');assert.equal(catalog.length,4);assert.equal(files.length,3);
   const before=files.map(row=>JSON.parse(code(row[1])));
-  const set={files:files.length,errors:[],covers:catalog.map(([id,type,description],index)=>({digest:code(id),picture_type:code(type),description:code(description),mime:'image/png',size:100,width:2,height:2,files:before.flatMap((labels,i)=>labels.includes(code(id))?[i]:[]),index,data_base64:''}))};
+  const set={files:files.length,errors:[],covers:catalog.map(([id,type,description],index)=>({digest:code(id),picture_type:PICTURE_TYPES.find(([,label])=>label===type)?.[0],description:code(description),mime:'image/png',size:100,width:2,height:2,files:before.flatMap((labels,i)=>labels.includes(code(id))?[i]:[]),index,data_base64:''}))};
   const initial=managedFromSet(set),kept=initial.filter(cover=>cover.picture_type==='CoverFront');
   assert.equal(planChanged(initial,kept),true);
   const plan=planItems(kept);assert.equal(plan.length,2);assert.ok(plan.every(item=>item.all_files===false&&item.image===null&&item.original));
