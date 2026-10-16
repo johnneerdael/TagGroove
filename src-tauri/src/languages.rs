@@ -22,7 +22,21 @@ pub struct UserCatalog {
 pub struct UserCatalogs {
     pub catalogs: Vec<UserCatalog>,
     /// Files that could not be read, with the reason.
-    pub errors: Vec<String>,
+    pub errors: Vec<CatalogReadError>,
+}
+
+#[derive(Debug, Serialize, PartialEq)]
+pub struct CatalogReadError {
+    pub file: String,
+    pub error: String,
+    pub kind: CatalogReadErrorKind,
+}
+#[derive(Debug, Serialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum CatalogReadErrorKind {
+    TooLarge,
+    NotObject,
+    External,
 }
 
 fn languages_directory(app: &tauri::AppHandle) -> Result<PathBuf, String> {
@@ -65,23 +79,27 @@ pub fn read_catalogs(directory: &Path) -> Result<UserCatalogs, String> {
             .file_name()
             .map(|name| name.to_string_lossy().into_owned())
             .unwrap_or_default();
-        let read = || -> Result<serde_json::Value, String> {
+        let read = || -> Result<serde_json::Value, (CatalogReadErrorKind, String)> {
             if size > CATALOG_LIMIT {
-                return Err("the file is too large".into());
+                return Err((
+                    CatalogReadErrorKind::TooLarge,
+                    "the file is too large".into(),
+                ));
             }
-            let bytes = fs::read(&path).map_err(|e| e.to_string())?;
+            let bytes =
+                fs::read(&path).map_err(|e| (CatalogReadErrorKind::External, e.to_string()))?;
             let bytes = bytes.strip_prefix(b"\xEF\xBB\xBF").unwrap_or(&bytes);
-            let value: serde_json::Value =
-                serde_json::from_slice(bytes).map_err(|e| e.to_string())?;
+            let value: serde_json::Value = serde_json::from_slice(bytes)
+                .map_err(|e| (CatalogReadErrorKind::External, e.to_string()))?;
             if value.is_object() {
                 Ok(value)
             } else {
-                Err("not a JSON object".into())
+                Err((CatalogReadErrorKind::NotObject, "not a JSON object".into()))
             }
         };
         match read() {
             Ok(catalog) => result.catalogs.push(UserCatalog { file, catalog }),
-            Err(error) => result.errors.push(format!("{file}: {error}")),
+            Err((kind, error)) => result.errors.push(CatalogReadError { file, error, kind }),
         }
     }
     Ok(result)
@@ -138,6 +156,55 @@ mod tests {
     use super::*;
 
     #[test]
+    fn read_error_ipc_keeps_warning_shaped_filenames_separate() {
+        let directory = tempfile::tempdir().unwrap();
+        let names = [
+            "fr; 3 missing, 0 invalid.json",
+            #[cfg(unix)]
+            "fr: 3 missing, 0 invalid.json",
+            #[cfg(unix)]
+            "fr\nwarning.json",
+        ];
+        for name in &names {
+            fs::write(directory.path().join(name), "[]").unwrap();
+        }
+        fs::write(
+            directory.path().join("large.json"),
+            vec![b' '; CATALOG_LIMIT as usize + 1],
+        )
+        .unwrap();
+        fs::write(directory.path().join("broken.json"), "{").unwrap();
+        let result = read_catalogs(directory.path()).unwrap();
+        assert!(result.catalogs.is_empty());
+        assert_eq!(result.errors.len(), names.len() + 2);
+        let json = serde_json::to_value(&result).unwrap();
+        for name in names {
+            let error = json["errors"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|error| error["file"] == name)
+                .unwrap();
+            assert_eq!(error["error"], "not a JSON object");
+            assert_eq!(error["kind"], "not_object");
+        }
+        let large = result
+            .errors
+            .iter()
+            .find(|error| error.file == "large.json")
+            .unwrap();
+        assert_eq!(large.kind, CatalogReadErrorKind::TooLarge);
+        assert_eq!(large.error, "the file is too large");
+        let broken = result
+            .errors
+            .iter()
+            .find(|error| error.file == "broken.json")
+            .unwrap();
+        assert_eq!(broken.kind, CatalogReadErrorKind::External);
+        assert!(!broken.error.is_empty());
+    }
+
+    #[test]
     fn catalogs_are_read_sorted_and_the_template_and_broken_files_are_left_out() {
         let dir = tempfile::tempdir().unwrap();
         fs::write(dir.path().join("fr.json"), r#"{"Save tags":"Enregistrer"}"#).unwrap();
@@ -156,8 +223,16 @@ mod tests {
         assert_eq!(files, ["de.json", "fr.json"]);
         assert_eq!(result.catalogs[1].catalog["Save tags"], "Enregistrer");
         assert_eq!(result.errors.len(), 2);
-        assert!(result.errors[0].starts_with("broken.json: "));
-        assert_eq!(result.errors[1], "list.json: not a JSON object");
+        assert_eq!(result.errors[0].file, "broken.json");
+        assert!(!result.errors[0].error.is_empty());
+        assert_eq!(
+            result.errors[1],
+            CatalogReadError {
+                file: "list.json".into(),
+                error: "not a JSON object".into(),
+                kind: CatalogReadErrorKind::NotObject
+            }
+        );
         assert!(dir.path().join(TEMPLATE).is_file());
     }
 

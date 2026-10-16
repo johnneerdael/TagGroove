@@ -1,13 +1,13 @@
 // The UI language: bundled catalogs (English, Dutch, German), catalogs people
 // add to the configuration folder (languages/<locale>.json), the choice in
 // Options → Language and the translation of what is on screen.
-import {Translator, catalogMeta, languageSet, resolveLanguage, validateCatalog, type Catalog, type Language} from './core';
+import {Translator, catalogMeta, languageSet, resolveLanguage, validateCatalog, type Catalog, type Language, type LanguageWarning} from './core';
 import {DomTranslator} from './dom';
 import en from './catalogs/en.json';
 import nl from './catalogs/nl.json';
 import de from './catalogs/de.json';
 
-export {Translator, resolveLanguage, validateCatalog, type Catalog, type Language};
+export {Translator, resolveLanguage, validateCatalog, type Catalog, type Language, type LanguageWarning};
 
 /** The English catalog: every key the UI uses. */
 export const ENGLISH = en as Catalog;
@@ -41,7 +41,7 @@ export function systemLanguage() {return resolveLanguage('system', systemLanguag
  * previous set, so a removed file is no longer offered and a removed override
  * brings the bundled catalog back. Call setLanguage afterwards to apply.
  */
-export function setUserCatalogs(files: {file: string; catalog: unknown}[]): string[] {
+export function setUserCatalogs(files: {file: string; catalog: unknown}[]): LanguageWarning[] {
   const result = languageSet(BUNDLED, files, ENGLISH);
   languages = result.languages;
   return result.warnings;

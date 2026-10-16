@@ -382,6 +382,38 @@ test('favorite and included-directory selectors preserve restored paths through 
     }finally{for(const [name,descriptor] of Object.entries(globals))if(descriptor)Object.defineProperty(globalThis,name,descriptor);else delete globalThis[name];q.close();}
   }
 });
+test('catalog warning records preserve independent filenames/counts and rerender live without translating output again',async()=>{
+  const provider=`data:text/javascript;base64,${Buffer.from('export const availableLanguages=()=>[];export const systemLanguage=()=>"en";').toString('base64')}`;
+  const {languageOptionsPage,languageWarningText,languageReadWarnings}=await import(await moduleUrl('language-options.ts',{"'./i18n'":JSON.stringify(provider)}));
+  const {languageSet}=await load('i18n/core.ts'),english={'@meta':{name:'English',locale:'en'},Help:'Help',Title:'Title'};
+  const files=[{file:'fr.json',catalog:{'@meta':{name:'French',locale:'fr'},Help:'Aide {wrong}'}},{file:'es.json',catalog:{'@meta':{name:'Spanish',locale:'es'}}},{file:'fr: 3 missing, 0 invalid; es.json',catalog:{'@meta':{name:'Other',locale:'eo'}}},{file:'<Help>&;\n nl.json',catalog:[]},{file:'My  Files.json',catalog:{'@meta':{name:'Broken',locale:'???'}}}];
+  const expected=[['{file}: {missing} missing, {invalid} invalid',{file:files[0].file,missing:1,invalid:1}],['{file}: {missing} missing, {invalid} invalid',{file:files[1].file,missing:2,invalid:0}],['{file}: {missing} missing, {invalid} invalid',{file:files[2].file,missing:2,invalid:0}],['{file}: not a catalog',{file:files[3].file}],['{file}: unknown language',{file:files[4].file}]];
+  const custom={'{file}: {missing} missing, {invalid} invalid':'Missing {missing}; bad {invalid}; file {file}','{file}: not a catalog':'Not catalog: {file}','{file}: unknown language':'Unknown locale: {file}',...Object.fromEntries(files.map(({file})=>[file,'Wrong filename']))};
+  custom['Missing 1; bad 1; file fr.json']='Wrong second translation';
+  const native=[{file:'large; fr.json',error:'the file is too large',kind:'too_large'},{file:'object: not a catalog.json',error:'not a JSON object',kind:'not_object'},{file:'opaque; nl.json',error:'not a JSON object',kind:'external'}];
+  const scan='/Help; fr.json: 3 missing, 0 invalid: Permission denied (os error 13)';
+  expected.push(['{file}: the file is too large',{file:native[0].file}],['{file}: not a JSON object',{file:native[1].file}],['',{file:native[2].file,error:native[2].error}],['',{message:scan}]);
+  expected.unshift(...expected.splice(5,3));
+  const expectedText=(t,key,params)=>key?t.t(key,params):'file' in params?`${params.file}: ${params.error}`:params.message;
+  custom['{file}: the file is too large']='Oversized: {file}';custom['{file}: not a JSON object']='Invalid object: {file}';custom[scan]='Wrong scan path';custom['not a JSON object']='Wrong external reason';
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]]){
+    const p=page(),listeners=new Set();let active=new Translator('en');
+    try{
+      const options=rendererVariable(parsed,'languagePage',{desktop:false,ENGLISH:english,languageOptionsPage,languageWarningText,t:(key,params)=>active.t(key,params),onLanguageChange:listener=>{listeners.add(listener);return()=>listeners.delete(listener);}});
+      const warnings=[...languageReadWarnings(native),...languageSet([],files,english).warnings,{message:scan}];options.refresh(warnings);
+      const control=options.controls.find(control=>control.kind==='group').controls[1],dialog=p.window.document.createElement('dialog');p.body.append(dialog);dialog.innerHTML=controlMarkup(control,{pages:{}});dialog.showModal();
+      if(control.kind==='custom')control.bind(dialog.querySelector('[data-option-custom]'),{pages:{}},()=>{});
+      for(const [language,strings] of [[locale,catalog],['en',{}],[locale,catalog]]){
+        active=p.translate(language,strings);listeners.forEach(listener=>listener());p.translateTree(dialog);await p.window.happyDOM.waitUntilComplete();
+        for(const [key,params] of expected)assert.ok(dialog.textContent.includes(expectedText(active,key,params)),`${language}: ${dialog.textContent}`);
+        assert.equal(dialog.querySelectorAll('[data-language-warning]').length,expected.length);p.translateTree(dialog);
+        assert.deepEqual([...dialog.querySelectorAll('[data-language-warning]')].map(node=>node.textContent),expected.map(([key,params])=>expectedText(active,key,params)));
+      }
+      options.refresh([]);assert.equal(dialog.querySelectorAll('[data-language-warning]').length,0);options.refresh(warnings);assert.equal(dialog.querySelectorAll('[data-language-warning]').length,expected.length);
+      dialog.close();assert.equal(listeners.size,0);
+    }finally{p.close();}
+  }
+});
 test('the production Language page exposes its folder action only after a native desktop platform report',async()=>{
   const provider=`data:text/javascript;base64,${Buffer.from('export const availableLanguages=()=>[];export const systemLanguage=()=>"en";').toString('base64')}`;
   const {languageOptionsPage}=await import(await moduleUrl('language-options.ts',{"'./i18n'":JSON.stringify(provider)})),english=JSON.parse(await source('i18n/catalogs/en.json'));
@@ -390,7 +422,7 @@ test('the production Language page exposes its folder action only after a native
   for(const [desktop,family] of [[true,'android'],[true,'ios'],[true,'desktop'],[false,'desktop'],[true,undefined]]){
     const p=page(),calls=[];
     try{
-      const languagePage=rendererVariable(parsed,'languagePage',{desktop,ENGLISH:english,languageOptionsPage,invoke:async(command,args)=>{calls.push([command,args]);}});
+      const languagePage=rendererVariable(parsed,'languagePage',{desktop,ENGLISH:english,languageOptionsPage,onLanguageChange:()=>()=>{},invoke:async(command,args)=>{calls.push([command,args]);}});
       if(family&&desktop){
         const values={languagePage,render:()=>{},syncNativeAppearance:()=>{},optionsReady:Promise.resolve(),fileOps:{initialize:async()=>{}},run:async()=>{}};
         await new Function(...Object.keys(values),`let runtimePlatform={},nativeAppearanceReady=false;${js}`)(...Object.values(values))({family,folder_picker_supported:family==='desktop',document_access_supported:family!=='desktop'});
@@ -747,13 +779,13 @@ test('the real language reload retains an active catalog on command failure and 
     const english=JSON.parse(await source('i18n/catalogs/en.json'));
     const jsonModule=value=>JSON.stringify(`data:text/javascript;base64,${Buffer.from(`export default ${JSON.stringify(value)};`).toString('base64')}`);
     const indexUrl=await moduleUrl('i18n/index.ts',{"'./core'":JSON.stringify(await moduleUrl('i18n/core.ts')),"'./dom'":JSON.stringify(await moduleUrl('i18n/dom.ts')),"'./catalogs/en.json'":jsonModule(english),"'./catalogs/nl.json'":jsonModule(catalogs.nl),"'./catalogs/de.json'":jsonModule(catalogs.de)});
-    const i18n=await import(indexUrl),{languageOptionsPage,languageSetting}=await import(await moduleUrl('language-options.ts',{"'./i18n'":JSON.stringify(indexUrl)}));
+    const i18n=await import(indexUrl),{languageOptionsPage,languageSetting,languageReadWarnings}=await import(await moduleUrl('language-options.ts',{"'./i18n'":JSON.stringify(indexUrl)}));
     i18n.setUserCatalogs([{file:'fr.json',catalog:{...english,'@meta':{name:'Français'},'Save tags':'Enregistrer'}}]);i18n.setLanguage('fr');
     const languagePage=languageOptionsPage({}),controls=languagePage.controls;
     let failed=true,renders=0,selected='fr',found={catalogs:[],errors:[]};
     const declaration=parsed.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text==='applyLanguage');
     const js=ts.transpileModule(declaration.getText(parsed),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
-    const values={desktop:true,invoke:async command=>{assert.equal(command,'language_catalogs');if(failed)throw new Error('languages: access denied');return found;},languagePage,setUserCatalogs:i18n.setUserCatalogs,setLanguage:i18n.setLanguage,languageSetting,optionsUI:{page:()=>({language:selected})},publicMessage:error=>error.message,applyNotificationArea:()=>{},render:()=>{renders++;}};
+    const values={desktop:true,languageReadWarnings,invoke:async command=>{assert.equal(command,'language_catalogs');if(failed)throw new Error('languages: access denied');return found;},languagePage,setUserCatalogs:i18n.setUserCatalogs,setLanguage:i18n.setLanguage,languageSetting,optionsUI:{page:()=>({language:selected})},publicMessage:error=>error.message,applyNotificationArea:()=>{},render:()=>{renders++;}};
     const apply=new Function(...Object.keys(values),`let shownTitle='';${js};return applyLanguage;`)(...Object.values(values));
     await apply();assert.equal(i18n.currentLanguage(),'fr');assert.equal(i18n.translate('Save tags'),'Enregistrer');assert.equal(renders,0);
     assert.ok(controls[0].choices.some(([value])=>value==='fr'));

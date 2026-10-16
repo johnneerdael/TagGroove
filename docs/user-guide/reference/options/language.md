@@ -20,7 +20,10 @@ The language choice is saved with the application configuration. OpenTag
 reads user catalogs at startup and after Options **OK**; reopen the page after
 that reload to select a newly added language. If the folder cannot be read,
 OpenTag reports the failure and retains catalogs already loaded in this
-session. A missing folder is a successful empty reload.
+session. A missing folder is a successful empty reload. File warnings appear
+as separate entries, with each filename and count kept together. OpenTag's
+warning text follows the selected language; parser and operating-system details
+keep their original wording.
 
 Application-owned accessible labels follow the selected language too, including
 cover types and states. Type labels in the cover viewer and **Extract cover**

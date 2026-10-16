@@ -178,7 +178,7 @@ test('rereading the languages folder replaces the user catalogs instead of addin
   assert.deepEqual([...first.languages.keys()].sort(),['de','en','fr','nl']);
   assert.equal(first.languages.get('de').source,'user');
   assert.equal(first.languages.get('de').catalog['Save tags'],'Speichern!');
-  assert.ok(first.warnings.some(w=>w.startsWith('bad.json: not a catalog')));
+  assert.ok(first.warnings.some(w=>w.key==='{file}: not a catalog'&&w.params.file==='bad.json'));
   // fr.json deleted and de.json removed: French is gone and the bundled German is back.
   const second=languageSet(bundled,[],english);
   assert.deepEqual([...second.languages.keys()].sort(),['de','en','nl']);
@@ -209,7 +209,7 @@ test('copying the generated language template adds the filename locale without r
   // Run the production folder action and capture the template passed to the backend.
   const js=ts.transpileModule(`const ${declaration.getText(parsed)};`,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
   let generated;
-  const host=new Function('ENGLISH','desktop','languageOptionsPage','invoke',`${js}\nreturn languagePage;`)(english,true,host=>host,(_command,args)=>{generated=args.template;});
+  const host=new Function('ENGLISH','desktop','languageOptionsPage','invoke','onLanguageChange',`${js}\nreturn languagePage;`)(english,true,host=>host,(_command,args)=>{generated=args.template;},()=>()=>{});
   await host.openFolder();
   const template=JSON.parse(generated),bundled=['en','nl','de'].map(locale=>({...catalogMeta(catalogs[locale]),catalog:catalogs[locale],source:'bundled'}));
   for(const [file,locale,name] of [['fr.json','fr','Français'],['pt-BR.json','pt-BR','Português'],['de.json','de','Deutsch (eigene)']]){

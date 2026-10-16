@@ -4,7 +4,7 @@
 // adds another language or replaces a shipped one. Unlike Mp3tag, the choice
 // applies at once.
 import type {OptionControl, OptionsPage, SelectChoice} from './options-ui';
-import {availableLanguages, systemLanguage, type Language} from './i18n';
+import {availableLanguages, systemLanguage, type Language, type LanguageWarning} from './i18n';
 
 export const LANGUAGE_DEFAULTS = {language: 'system'};
 /** The saved choice: 'system' or a locale such as `nl`. */
@@ -16,16 +16,35 @@ export function languageChoices(languages: Language[] = availableLanguages(), sy
   return [['system', `System default (${nameOf(system, languages)})`], ...languages.map((language):SelectChoice => language.source === 'user' ? [language.locale, `${language.name} (${language.file})`, true] : [language.locale, language.name])];
 }
 
+/** File-read reasons from the backend retain their own filename field. */
+export type CatalogReadError = {file:string;error:string;kind:'too_large'|'not_object'|'external'};
+export function languageReadWarnings(errors: CatalogReadError[]):LanguageWarning[] {
+  return errors.map(({file,error,kind}) => kind === 'external' ? {file,error} : {key:kind === 'too_large' ? '{file}: the file is too large' : '{file}: not a JSON object',params:{file}});
+}
+/** Explicit parameters protect filenames and external parser/I/O reasons. */
+export function languageWarningText(warning:LanguageWarning,t:(key:string,params?:Record<string,unknown>)=>string = (key,params) => key.replace(/\{(\w+)\}/g,(_,name)=>String(params?.[name] ?? `{${name}}`))):string {
+  return 'key' in warning ? t(warning.key,warning.params) : 'file' in warning ? `${warning.file}: ${warning.error}` : warning.message;
+}
+const warningHTML = (text:string) => text.replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]!));
+
 export type LanguageHost = {
+  warningText?: (warning:LanguageWarning) => string;
+  onLanguageChange?: (listener:()=>void) => ()=>void;
   /** Opens the languages folder of the configuration folder, with a current template (desktop only). */
   openFolder?: () => Promise<void>;
   /** Initial folder-opening capability; false until the native platform is known. */
   folderSupported?: boolean;
 };
 
-export function languageOptionsPage(host: LanguageHost): OptionsPage & {refresh: (warnings: string[]) => void; setFolderSupport: (supported: boolean) => void} {
+export function languageOptionsPage(host: LanguageHost): OptionsPage & {refresh: (warnings: readonly LanguageWarning[]) => void; setFolderSupport: (supported: boolean) => void} {
   const choices = languageChoices();
-  const status = {kind: 'note' as const, text: ''};
+  let warnings: readonly LanguageWarning[] = [], shown:HTMLElement|undefined, stopLanguage:(()=>void)|undefined;
+  const renderWarnings = () => warnings.length ? `<p>Some language files are incomplete; English is shown for what they lack.</p>${warnings.map(warning => `<p data-language-warning translate="no">${warningHTML((host.warningText ?? languageWarningText)(warning))}</p>`).join('')}` : '';
+  const refreshShown = () => { if(shown?.isConnected) shown.innerHTML = renderWarnings(); };
+  const status:OptionControl = {kind:'custom',id:'language-warnings',paths:[],render:renderWarnings,bind(root) {
+    stopLanguage?.();shown = root;stopLanguage = host.onLanguageChange?.(refreshShown);
+    root.closest('dialog')?.addEventListener('close',() => {if(shown === root){stopLanguage?.();stopLanguage = undefined;shown = undefined;}},{once:true});
+  }};
   const folderButton:OptionControl|undefined=host.openFolder?{kind:'button',id:'open-languages-folder',label:'Open languages folder',run:()=>host.openFolder!()}:undefined;
   const otherLanguages:OptionControl[]=[
     {kind: 'note', text: 'To add a language, open the languages folder, copy _template.json to a file named after the language (for example fr.json or pt-BR.json), set its name and translate the values. Keep the placeholders in braces as they are. A file named nl.json or de.json replaces the shipped translation. OpenTag reads the folder at startup and when you choose OK.'},
@@ -45,10 +64,9 @@ export function languageOptionsPage(host: LanguageHost): OptionsPage & {refresh:
     ],
     setFolderSupport,
     /** Update the list after reading the languages folder, with problems found in its files. */
-    refresh(warnings: string[]) {
+    refresh(next: readonly LanguageWarning[]) {
       choices.splice(0, choices.length, ...languageChoices());
-      const detail = warnings.join('; ');
-      status.text = warnings.length ? `Some language files are incomplete; English is shown for what they lack. ${detail}` : '';
+      warnings = [...next];refreshShown();
     },
   };
   return page;

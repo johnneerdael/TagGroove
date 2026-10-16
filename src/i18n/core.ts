@@ -283,26 +283,28 @@ export function resolveLanguage(choice: string, preferred: readonly string[], av
   return 'en';
 }
 
+/** Independent catalog warning source; filenames/counts never need reparsing. */
+export type LanguageWarning = {key:string;params:Record<string,string|number>} | {file:string;error:string} | {message:string};
 export type Language = CatalogMeta & {catalog: Catalog; source: 'bundled' | 'user'; file?: string; problems?: number};
 /**
  * The languages offered: the bundled catalogs plus the catalog files read from
  * the languages folder now. A file for a bundled language replaces it; a file
  * that disappeared or became unreadable leaves no trace of its earlier contents.
  */
-export function languageSet(bundled: readonly Language[], files: readonly {file: string; catalog: unknown}[], english: Catalog): {languages: Map<string, Language>; warnings: string[]} {
+export function languageSet(bundled: readonly Language[], files: readonly {file: string; catalog: unknown}[], english: Catalog): {languages: Map<string, Language>; warnings: LanguageWarning[]} {
   const languages = new Map(bundled.map(language => [language.locale, language]));
-  const warnings: string[] = [];
+  const warnings: LanguageWarning[] = [];
   for (const {file, catalog} of files) {
-    if (!catalog || typeof catalog !== 'object' || Array.isArray(catalog)) {warnings.push(`${file}: not a catalog`);continue;}
+    if (!catalog || typeof catalog !== 'object' || Array.isArray(catalog)) {warnings.push({key:'{file}: not a catalog',params:{file}});continue;}
     const meta = catalogMeta(catalog as Catalog, file);
-    if (!meta) {warnings.push(`${file}: unknown language`);continue;}
+    if (!meta) {warnings.push({key:'{file}: unknown language',params:{file}});continue;}
     const problems = validateCatalog(english, catalog as Catalog);
     const count = problems.missing.length + problems.placeholders.length + problems.invalid.length;
     // Keys with mismatched placeholders would show the wrong values; English stands in for them.
     const usable: Catalog = {...catalog as Catalog};
     for (const key of [...problems.placeholders, ...problems.invalid]) delete usable[key];
     languages.set(meta.locale, {...meta, catalog: usable, source: 'user', file, problems: count});
-    if (count) warnings.push(`${file}: ${problems.missing.length} missing, ${problems.placeholders.length + problems.invalid.length} invalid`);
+    if (count) warnings.push({key:'{file}: {missing} missing, {invalid} invalid',params:{file,missing:problems.missing.length,invalid:problems.placeholders.length + problems.invalid.length}});
   }
   return {languages, warnings};
 }

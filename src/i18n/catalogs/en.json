@@ -1847,7 +1847,7 @@
  "Small": "Small",
  "Smaller": "Smaller",
  "Some files would get an empty name. Change the format string.": "Some files would get an empty name. Change the format string.",
- "Some language files are incomplete; English is shown for what they lack. {detail}": "Some language files are incomplete; English is shown for what they lack. {detail}",
+ "Some language files are incomplete; English is shown for what they lack.": "Some language files are incomplete; English is shown for what they lack.",
  "Sort A–Z": "Sort A–Z",
  "Sort by": "Sort by",
  "Sort by name": "Sort by name",

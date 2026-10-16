@@ -1860,7 +1860,6 @@
  "Small": "Klein",
  "Smaller": "Kleiner",
  "Some files would get an empty name. Change the format string.": "Einige Dateien würden einen leeren Namen erhalten. Ändern Sie den Formatstring.",
- "Some language files are incomplete; English is shown for what they lack. {detail}": "Einige Sprachdateien sind unvollständig; fehlende Texte werden auf Englisch angezeigt. {detail}",
  "Sort A–Z": "Sortieren A–Z",
  "Sort by": "Sortieren nach",
  "Sort by name": "Nach Name sortieren",
@@ -2707,5 +2706,6 @@
  "〈 keep existing type 〉": "〈 vorhandenen Typ beibehalten 〉",
  "〈 keep 〉": "〈 beibehalten 〉",
  "＋ Add field": "＋ Feld hinzufügen",
- "＋ Add value": "＋ Wert hinzufügen"
+ "＋ Add value": "＋ Wert hinzufügen",
+ "Some language files are incomplete; English is shown for what they lack.": "Einige Sprachdateien sind unvollständig; fehlende Texte werden auf Englisch angezeigt."
 }

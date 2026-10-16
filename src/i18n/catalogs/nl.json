@@ -1847,7 +1847,6 @@
  "Small": "Klein",
  "Smaller": "Kleiner",
  "Some files would get an empty name. Change the format string.": "Sommige bestanden zouden een lege naam krijgen. Wijzig de formaatstring.",
- "Some language files are incomplete; English is shown for what they lack. {detail}": "Sommige taalbestanden zijn onvolledig; voor wat ontbreekt wordt Engels getoond. {detail}",
  "Sort A–Z": "Sorteren A–Z",
  "Sort by": "Sorteren op",
  "Sort by name": "Sorteren op naam",
@@ -2694,5 +2693,6 @@
  "〈 keep existing type 〉": "〈 bestaand type behouden 〉",
  "〈 keep 〉": "〈 behouden 〉",
  "＋ Add field": "＋ Veld toevoegen",
- "＋ Add value": "＋ Waarde toevoegen"
+ "＋ Add value": "＋ Waarde toevoegen",
+ "Some language files are incomplete; English is shown for what they lack.": "Sommige taalbestanden zijn onvolledig; voor wat ontbreekt wordt Engels getoond."
 }

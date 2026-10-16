@@ -13,7 +13,7 @@ import { OptionsUI, registerOptionsPage, naturalCollator, setNotificationAreaSup
 import { createNumberingReview, numberingCounter, numberingTotal, recallNumbering, rememberNumbering, type NumberingRequest, type NumberingUpdate } from './numbering-review';
 import { open, save, ask, message } from './i18n/dialog';
 import { ENGLISH, setUserCatalogs, installTranslation, setLanguage, t, translate, translateNow, onLanguageChange } from './i18n';
-import { languageOptionsPage, languageSetting } from './language-options';
+import { languageOptionsPage, languageSetting, languageReadWarnings, languageWarningText, type CatalogReadError } from './language-options';
 import { Messages, messagesOptionsPage, coverChoice, type MessageKey } from './messages';
 import { appearanceOptions, notificationAreaKey, completeInput, generalOptions, insideFolders, networkingOptionsPage, releaseNotesUrl, showReleaseNotes, updateMessage, updateOptions, updatesOptionsPage, type UpdateCheck } from './general-options';
 import { ToolsUI, toolsOptionsPage, toolShortcut, type Tool } from './tools';
@@ -399,12 +399,12 @@ function syncWindowTitle(){const title=translate(windowTitle(location,optionsUI.
 // Read preferences change which tag is displayed, so reload files without pending edits.
 // Options → Language: catalogs from the languages folder (read again on every OK) and the chosen language.
 // A copied template takes its locale from its filename, rather than overriding English.
-const languagePage=languageOptionsPage({folderSupported:false,openFolder:desktop?()=>invoke<void>('open_languages_folder',{template:`${JSON.stringify({...ENGLISH,'@meta':{name:''}},null,1)}\n`}):undefined});
+const languagePage=languageOptionsPage({warningText:warning=>languageWarningText(warning,t),onLanguageChange,folderSupported:false,openFolder:desktop?()=>invoke<void>('open_languages_folder',{template:`${JSON.stringify({...ENGLISH,'@meta':{name:''}},null,1)}\n`}):undefined});
 registerOptionsPage(languagePage);
 async function applyLanguage(){
   if(desktop){
-    try{const found=await invoke<{catalogs:{file:string;catalog:unknown}[];errors:string[]}>('language_catalogs');languagePage.refresh([...found.errors,...setUserCatalogs(found.catalogs)]);}
-    catch(error){languagePage.refresh([publicMessage(error)]);}
+    try{const found=await invoke<{catalogs:{file:string;catalog:unknown}[];errors:CatalogReadError[]}>('language_catalogs');languagePage.refresh([...languageReadWarnings(found.errors),...setUserCatalogs(found.catalogs)]);}
+    catch(error){languagePage.refresh([{message:publicMessage(error)}]);}
   }
   if(setLanguage(languageSetting(optionsUI.page('language')))){shownTitle='';void applyNotificationArea();render();}
 }

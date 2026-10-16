@@ -67,7 +67,9 @@ labels.
 
 - Missing entries or entries with mismatched placeholders fall back to
   English. Check the warning on the Language page when a file is incomplete.
-  Malformed JSON files are not loaded.
+  Malformed JSON files are not loaded. Each file warning is shown separately;
+  filenames keep their spelling even when they contain semicolons or warning-like
+  text. Parser and operating-system details retain their original language.
 - If a selected added language disappears, OpenTag falls back to English.
   The Language list identifies the unavailable preference; keeping it selected
   retains it, while choosing **English** and **OK** replaces it. **System
