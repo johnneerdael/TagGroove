@@ -391,3 +391,10 @@ records four existing focused history checks plus eight publication checks
 and seven generated-doc browser samples. No tests were added to mirror
 plain prose, and no full suite was repeated. These pages are local-only,
 not native/player/runtime parity or public 140 qualification.
+
+The finite independent Help review at `eb37f30` found no actionable issue.
+Its original receipt is preserved in `reviews/help-independent-review.json`;
+it verified the source/page hashes, recovery and identity boundaries, focused
+existing history checks and generated navigation/search/HTML exclusion.
+These three pages remain local-only and require actual-main reconciliation
+and a fresh final-head publication review when later integrated.

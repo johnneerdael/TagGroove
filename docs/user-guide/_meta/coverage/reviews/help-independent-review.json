@@ -1,0 +1,115 @@
+{
+  "reviewer": "PR19 owner, independent finite read-only Help peer review",
+  "reviewed_commit": "eb37f30d8255207008596aede6621dd6668a17df",
+  "base_checkpoint": "0954e15f5aa1ed1b4752efc52e277d6d5767a524",
+  "application_source": "3f6639c6264378bf7059abdb1ab1fb30e4792179",
+  "worktree": "/Users/jneerdael/Scripts/opentag-worktrees/codex-guide-help",
+  "result": "No actionable findings",
+  "findings": [],
+  "scope": "Three reader-facing Help FAQ/troubleshooting/About chapters, plus additive nav/link/draft and evidence boundaries. Not a fresh full guide or dependency license audit.",
+  "hash_checks": {
+    "application_sources": {
+      "LICENSE": true,
+      "README.md": true,
+      "src/main.ts": true,
+      "src/edit-history.ts": true,
+      "src/file-ops.ts": true,
+      "src/options-ui.ts": true,
+      "src-tauri/src/history.rs": true,
+      "src-tauri/src/utilities.rs": true,
+      "src-tauri/src/settings.rs": true,
+      "crates/tag-core/src/history.rs": true,
+      "crates/tag-core/src/tags.rs": true,
+      "crates/tag-core/tests/history.rs": true,
+      "crates/regex-compat/vendor/boost-regex/LICENSE_1_0.txt": true,
+      "docs/CONTRIBUTING.md": true,
+      "docs/PUBLISHING.md": true,
+      "docs/RELEASING.md": true
+    },
+    "linked_mature_pages": {
+      "getting-started/editing-and-saving.md": true,
+      "getting-started/install.md": true,
+      "getting-started/opening-files.md": true,
+      "guides/tag-panel.md": true,
+      "guides/remove-tags.md": true,
+      "guides/playlists.md": true,
+      "guides/chapters.md": true,
+      "actions/index.md": true,
+      "reference/regular-expressions.md": true,
+      "concepts/tag-formats.md": true,
+      "concepts/multi-value-fields.md": true,
+      "reference/options/library.md": true,
+      "reference/menus/help.md": true,
+      "tag-sources/web-source-reference.md": true,
+      "reference/options/updates.md": true
+    },
+    "three_new_pages": {
+      "help/faq.md": true,
+      "help/troubleshooting.md": true,
+      "help/about.md": true
+    }
+  },
+  "additional_source_reads": [
+    "src/main.ts:1378-1386 selected save success/failed/cancelled drafts",
+    "src/main.ts:1567-1580 history notices/replay and retained drafts",
+    "src-tauri/src/history.rs:96-104 and139-170 journal failure does not block ordinary work",
+    "crates/tag-core/src/history.rs:340-377 new session and stale cleanup",
+    "crates/tag-core/src/history.rs:770-779 non-undoable notice",
+    "crates/tag-core/src/history.rs:928-935 retention pruning",
+    "src-tauri/src/action_host.rs:1223-1308 warnings continue; successful states flushed before deferred outputs",
+    "src-tauri/src/utilities.rs:498-518 Help destinations and mobile URL message",
+    "src/main.ts:1738-1741 failed update list read",
+    "LICENSE and crates/regex-compat/vendor/boost-regex/LICENSE_1_0.txt"
+  ],
+  "content_assessment": [
+    {
+      "page": "help/faq.md",
+      "conclusion": "Sixteen answers distinguish load/cache, selected/pending saves, autosave, keep/clear, stored value lists, player display, hidden selection, remove-tag/list/files, direct-write timing, session Undo and limits, context-specific expressions/regex, action continuation, own JSON bundle, mobile limits and unchanged audio quality. Linked worked chapters retain the detailed constraints."
+    },
+    {
+      "page": "help/troubleshooting.md",
+      "conclusion": "Diagnosis proceeds from exact stage and pending-work preservation through counts/read errors/write/readback/source access/player/context/path/action/network/update stages. It avoids blanket permission/tag deletion/security disabling, universal alias/rollback promises and invented support archive/log-folder commands. Reporting/privacy advice is appropriate and mobile Help behavior matches source."
+    },
+    {
+      "page": "help/about.md",
+      "conclusion": "Version/package identification, independent project relationship, repository MIT identity and separate third-party Boost terms match source. No complete parity, dependency-license audit, support SLA, platform installation or runtime qualification is implied. Tutorial/reference/guide/recipe routing and publication limits are accurate."
+    }
+  ],
+  "focused_history_checks": {
+    "binary": "/tmp/opentag-guide-combined-target/debug/deps/history-58a94a594cdba2ca",
+    "binary_sha256": "0dceb976836380699c4b0b50f3573fd60ae6f643877d87c3de0c281edf107e4c",
+    "passed": 4,
+    "failed": 0,
+    "ignored": 0,
+    "exact_tests": [
+      "external_changes_are_reported_and_never_overwritten",
+      "stale_sessions_are_removed_and_live_sessions_are_kept",
+      "limits_bound_operations_and_bytes",
+      "journaling_is_refused_when_free_space_would_run_low"
+    ],
+    "scope": "Reused existing source-qualified production core binary against generated files. No native app restart/UI or universal filesystem identity proof."
+  },
+  "navigation_and_publication": {
+    "prior_entries": 137,
+    "candidate_entries": 140,
+    "prior_relative_order_retained": true,
+    "drafts": 47,
+    "generated_routes": 140,
+    "search_entries": 1153,
+    "nav_search_exact": true,
+    "drafts_in_nav": 0,
+    "draft_search_routes": 0,
+    "draft_html": 0,
+    "generated_search_sha256": "2dd43957be9998a12fff12e10291564cb5629907d689974e7e43a7b3e743c512",
+    "matches_ledger": true,
+    "no_app_test_dependency_workflow_edits": "Diff from095 contains only3Help pages, nav and authoring metadata.",
+    "release_scope": "New pages link already reviewed v0.2.12 installation/release guidance; no pending17-20 availability, public140, native installation/device/player parity or full canonical semantic completeness claim."
+  },
+  "limits": [
+    "No source/repository edits, new tests, cold builds, full suites, native app/install execution, source API calls, PR/push/CODE/CI/publication or REA/P2 work.",
+    "Existing browser and publication test receipts treated as provenance; no new browser/strict build run by peer.",
+    "47 draft topics remain unfinished; full canonical semantic coverage remains unproven.",
+    "This is a local Help checkpoint, not GitHub CODE qualification or authorization to publish before the source queue clears.",
+    "PR19 remains frozen at57bbf7199973f7ded650c4934af8c8affbb7039f."
+  ]
+}
