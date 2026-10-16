@@ -1653,12 +1653,32 @@ pub(super) fn save_id3(
 
 /// Serialize a complete ID3v2 tag for containers that embed it as an opaque
 /// block (DSF, DSDIFF). An empty result means the tag has no frames.
-pub(super) fn render_id3(tag: &Id3v2Tag, target: &Id3Target) -> Result<Vec<u8>, String> {
+/// `stored` is the tag as read and its bytes: compressed and encrypted
+/// frames of it that `tag` still holds are copied byte for byte.
+pub(super) fn render_id3(
+    tag: &Id3v2Tag,
+    target: &Id3Target,
+    stored: Option<(&Id3v2Tag, &[u8])>,
+) -> Result<Vec<u8>, String> {
     if !crate::id3_frames::needs_split(tag) {
         return render_id3_padded(tag, target, None);
     }
-    let (tag, _) = crate::id3_frames::Passthrough::split(tag, target.major(), None, None)?;
-    render_id3_padded(&tag, target, None)
+    let raw = match stored.filter(|_| crate::id3_frames::has_flagged(tag)) {
+        Some((_, bytes)) => {
+            crate::id3_frames::scan(&mut std::io::Cursor::new(bytes)).map_err(|e| e.to_string())?
+        }
+        None => None,
+    };
+    let (tag, copied) = crate::id3_frames::Passthrough::split(
+        tag,
+        target.major(),
+        stored.map(|(tag, _)| tag),
+        raw.as_ref(),
+    )?;
+    copied.splice(
+        render_id3_padded(&tag, target, None)?,
+        crate::id3_padding::PADDING,
+    )
 }
 
 /// [`render_id3`] with exactly `padding` bytes of padding, or the writer's
