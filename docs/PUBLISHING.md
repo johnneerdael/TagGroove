@@ -1,7 +1,11 @@
 # Publish and maintain the user guide
 
-The public guide is <https://johnneerdael.github.io/opentag/>. Its source is
+The public guide is <https://johnneerdael.github.io/audio-tag-guide/>. Its source is
 `docs/user-guide/`, and `mkdocs.yml` defines the public navigation and theme.
+Keep authoring in `johnneerdael/opentag`. The separate public
+`johnneerdael/audio-tag-guide` repository contains generated static output only.
+The neutral publication path avoids privacy-list URL rules that also match
+the project's name. Readers do not need to disable their privacy protection.
 
 ## Write and validate a page
 
@@ -64,22 +68,62 @@ Coverage is a writing plan, not a feature-parity claim.
    application release, including when application packaging is skipped for
    a documentation-only change.
 4. The guide checks the merged-PR review and trusted validation proof before
-   building the site. The deployment job checks them again, then publishes
-   the built artifact through the `github-pages` environment only if the
-   source is still current main.
-5. Check the deployment job and its environment URL, then open the public
-   site. Confirm the changed page, its navigation entry, search, and an image.
-   A successful local build or uploaded artifact is not proof of publication.
+   building the canonical site. The build uploads static output and a separate
+   old-site redirect artifact. It receives no deployment key or write permission.
+5. The deployment job checks approval and current main again. Trusted main's
+   `.github/scripts/guide_pages.py` validates regular static files, matching
+   source/review provenance and a content digest before committing the output
+   to the fixed neutral repository. It rejects repository-control directories,
+   symlinks, hardlinks, custom-domain overrides and leaked writer-only material.
+   No artifact code runs.
+6. The job waits for the neutral site's HTTPS `publication-source.json` to match
+   the expected source, review and complete static-tree digest. Only then does
+   it recheck approval/current main and deploy old-site redirects through the
+   existing Pages action. A missing/stale marker or source drift prevents that
+   redirect deployment; a concurrent target update is never force-pushed away.
+7. Open the canonical public site. Confirm the changed page, navigation,
+   search, styles and an image. Also check an old deep link with its query and
+   fragment. A local build, Git push or uploaded artifact is not publication.
 
-The repository's Pages source must be **GitHub Actions** under
-**Settings → Pages**. The `github-pages` environment should permit only
-`main`. Keep legacy build, release, docs and screenshot workflow IDs disabled;
+The source repository's Pages source remains **GitHub Actions** under
+**Settings → Pages**. It serves small redirect pages for every built HTML route
+and a dependency-free 404 fallback. Inline navigation preserves the old path,
+query and fragment under the fixed canonical host/base; with JavaScript off,
+the plain link still provides a route to the guide. No external stylesheet or
+script is required for these redirects.
+
+The neutral repository uses **Deploy from a branch**, `main`, `/ (root)`.
+The generated `.nojekyll` keeps it a static site. Do not add source, workflows
+or credentials to that repository. Its built-in Pages publication is triggered
+by the scoped SSH deployment push, not a source-repository PAT or a schedule.
+GitHub documents these [Pages publishing sources](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site).
+
+The source `github-pages` environment should permit only `main` and hold
+`DOCS_PAGES_DEPLOY_KEY`. The corresponding public deploy key grants write access
+only to `johnneerdael/audio-tag-guide`. The caller passes that secret's name
+explicitly; the actual value comes from the deployment job's environment.
+GitHub's [reusable-workflow secret rules](https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows)
+require the explicit mapping even for an environment-only secret. No broad
+secret inheritance is used. Only the trusted publisher step consumes the key;
+read/build and marker-wait steps do not receive it. The key is written to a
+temporary mode-0600 file, excluded from Git's environment and removed on exit.
+SSH checks the pinned public GitHub Ed25519 host key in
+`.github/guide-pages-known-hosts`; verify any rotation against
+[GitHub's published fingerprints](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/githubs-ssh-key-fingerprints)
+through a reviewed source change rather than disabling host verification.
+
+Keep legacy build, release, docs and screenshot workflow IDs disabled;
 never enable them to recover a deployment. Read `.github/CI_LOCKDOWN.md` for
 review-controller operations and the validation retry procedure.
 
 If the site is missing, first check that the docs files and reviewed Pages
 workflow are actually merged to `main`, then inspect the approved source's
 **Reviewed main release → user-guide** jobs. A feature branch cannot publish.
+Check the neutral repository's built-in Pages deployment and compare its live
+publication marker with the approved source. An SSH failure needs deployment
+key/host-key investigation; a marker timeout can mean the target publication
+failed or has not reached the public site. Do not deploy redirects to conceal
+that failure, enable legacy workflows or widen token permissions.
 To retry publication, rerun the approved release workflow after resolving
 its failure. Its authorization checks still apply; source or review drift
 requires fresh validation. To roll back content, submit a revert PR through

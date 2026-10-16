@@ -34,6 +34,14 @@ reviewed source contains `mkdocs.yml`. After merging an approved and validated
 source, `reviewed-release.yml` calls `_reviewed-pages.yml` independently of
 application-release skipping. The reusable workflow authenticates its trusted
 main caller and checks the merged source proof before building and again before
-Pages deployment. Only the deployment job receives Pages/OIDC permissions.
+publication. Only the trusted deployment job receives Pages/OIDC permissions
+and the `github-pages` environment's narrowly scoped `DOCS_PAGES_DEPLOY_KEY`.
+It publishes validated regular static output to the fixed
+`johnneerdael/audio-tag-guide` repository over pinned-host SSH, then requires
+the exact source/review/tree marker to be live over HTTPS. Approval and current
+main are checked again before old `/opentag/` route redirects are deployed.
+No downloaded artifact is executed, no source code moves repositories, no
+PAT/broad secret inheritance is introduced, and no new automatic source trigger
+or schedule is added. See `docs/PUBLISHING.md` for setup and recovery.
 The former automatic docs and screenshot workflow files are removed; their
 legacy IDs remain disabled.
