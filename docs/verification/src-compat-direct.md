@@ -108,3 +108,40 @@ Cargo global-cache cleanup permission warning did not fail either command; no
 permissions or global caches were changed to suppress it. Full-platform trusted
 CI and a fresh exact-head Codex code review remain required after this source
 change. Earlier 973-test results above describe the earlier source only.
+
+## HTML numeric-reference normalization
+
+The decoder now applies the [HTML numeric-character-reference end-state
+rules](https://html.spec.whatwg.org/multipage/parsing.html#numeric-character-reference-end-state)
+to valid semicolon-terminated decimal/hexadecimal references. It reuses the
+`web_atoms` 0.2.6 C1 replacement table already in the dependency: `&#128;`
+becomes `€`, and null, surrogate or out-of-range code points become `�`.
+Digit validation distinguishes malformed payloads from overflow; a valid digit
+sequence that overflows the integer parser is out of Unicode range. The five
+unmapped C1 controls and other valid scalars, including noncharacters, are
+retained. All 27 replacement pairs in the locked library were independently
+compared with the current WHATWG table.
+
+This remains a semicolon-required metadata decoder, rather than a full HTML
+tokenizer with missing-semicolon or partial-reference recovery. Malformed or
+unknown references remain literal, named-reference case and single-pass
+handling stay unchanged, and the separate backslash-u escape path is unchanged.
+No dependency, parser grammar, URL policy or field-write behavior was added.
+
+Three regressions cover all 32 C1 entries in decimal and hexadecimal forms,
+invalid/overflow scalar references, ordinary and non-BMP values, controls and
+noncharacters, malformed/missing-semicolon input, and single-pass/backslash-u
+boundaries. The production release-conversion fixture checks album, track and
+comment values. Before the correction, the unchanged extracted decoder failed
+the euro and null-reference assertions; the corrected helper and actual
+workspace fixtures pass.
+
+Fresh qualification passed **980 Rust tests**, zero failures and six explicit
+ignores across 67 result summaries, plus full-workspace/all-target Clippy with
+warnings denied, the strict 172-page guide and eight publication tests. Native
+artifacts were produced from this worktree in its existing exclusive target,
+with reserve checks before compilation and before/after history tests. The
+unchanged frontend retains the 384 UI/model tests and production build qualified
+at `80cad18d21a43c456fe9ec3c24c41ff2b4c11223`; those are not claimed as new runs
+for this decoder-only correction. A new exact-head Codex code review and trusted
+platform validation are still required before merging.
