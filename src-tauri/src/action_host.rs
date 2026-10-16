@@ -359,8 +359,10 @@ struct NativeHost<'a> {
     /// Cover images written by this run, by normalized destination: the
     /// image's digest and the input file that wrote it.
     written_covers: BTreeMap<String, ([u8; 32], String)>,
-    /// Called before first using an image output, so undo can restore its
-    /// previous entry or remove a new image.
+    /// Outputs whose original entry/absence was captured before an actual write.
+    captured_covers: HashSet<String>,
+    /// Called before the first actual write to an image output, so undo can
+    /// restore its previous entry or remove a new image.
     before_replace: &'a mut dyn FnMut(&Path) -> Result<(), String>,
     identities: Vec<String>,
     initial_fields: Vec<Fields>,
@@ -396,6 +398,17 @@ impl NativeHost<'_> {
                 .extend(outputs.into_iter().map(&moved));
         }
         self.exported_covers = exported;
+        self.captured_covers = std::mem::take(&mut self.captured_covers)
+            .into_iter()
+            .map(moved)
+            .collect();
+    }
+    fn capture_cover_output(&mut self, destination: &str, target: &Path) -> Result<(), String> {
+        if !self.captured_covers.contains(destination) {
+            (self.before_replace)(target)?;
+            self.captured_covers.insert(destination.to_owned());
+        }
+        Ok(())
     }
     fn synchronize(&self, state: &mut ActionState) -> Result<(), String> {
         let path = self.resolve(&state_path(state)?);
@@ -711,21 +724,19 @@ impl ActionHost for NativeHost<'_> {
                                 target.display()
                             ));
                         }
-                        // This file's own earlier export: its cover changed since.
-                        // Undo already knows the file from before the run.
+                        // A prior no-op has an owner but no snapshot yet.
+                        // Capture its original entry at the first real replacement.
                         Some(_) => {
+                            self.capture_cover_output(&destination, &target)?;
                             atomic_output(&target, &bytes, false)?;
                             self.written_covers
                                 .insert(destination.clone(), (digest, writer));
                         }
                         None => {
-                            // First use: capture the original entry or absence.
-                            // An unchanged image's snapshot is dropped at commit,
-                            // but is retained if a later action replaces it.
-                            (self.before_replace)(&target)?;
-                            // The same image from an earlier export stays; another
-                            // image is replaced.
+                            // Identical bytes need neither a write nor undo
+                            // capability. Ownership still belongs to this input.
                             if !fs::read(&target).is_ok_and(|existing| existing == bytes) {
+                                self.capture_cover_output(&destination, &target)?;
                                 atomic_output(&target, &bytes, false)?;
                             }
                             self.written_covers
@@ -1132,8 +1143,8 @@ pub fn execute(
     execute_with_side_files(paths, groups, settings, &mut |_| Ok(()))
 }
 
-/// [`execute`], calling `before_replace` before first using each cover output
-/// (including absent entries), so undo can restore its original state.
+/// [`execute`], calling `before_replace` before the first actual cover write
+/// (including creations), so undo can restore its original state.
 pub fn execute_with_side_files(
     paths: &[String],
     groups: &[ActionGroup],
@@ -1167,6 +1178,7 @@ pub fn execute_with_side_files(
         directories: Vec::new(),
         exported_covers: BTreeMap::new(),
         written_covers: BTreeMap::new(),
+        captured_covers: HashSet::new(),
         before_replace,
         identities: initial.clone(),
         inputs: initial.iter().map(PathBuf::from).collect(),
@@ -1941,6 +1953,31 @@ mod tests {
         assert!(result.errors.is_empty(), "{:?}", result.errors);
         assert_eq!(fs::read(&path).unwrap(), before);
         assert!(dir.path().join("input.wav.png").is_file());
+    }
+
+    #[test]
+    fn cover_export_identical_output_does_not_require_undo_capture() {
+        let dir = tempfile::tempdir().unwrap();
+        let (path, image) = covered_fixture(dir.path(), "a.wav", false);
+        let audio = fs::read(&path).unwrap();
+        let output = dir.path().join("cover.png");
+        fs::write(&output, &image).unwrap();
+        let modified = fs::metadata(&output).unwrap().modified().unwrap();
+        let mut calls = 0;
+        let result = execute_with_side_files(
+            &[path.to_string_lossy().into_owned()],
+            &[cover_export_group("cover", false)],
+            EvaluationSettings::default(),
+            &mut |_| {
+                calls += 1;
+                Err("Undo capture deliberately unavailable".into())
+            },
+        );
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert_eq!(calls, 0);
+        assert_eq!(fs::read(&output).unwrap(), image);
+        assert_eq!(fs::metadata(output).unwrap().modified().unwrap(), modified);
+        assert_eq!(fs::read(path).unwrap(), audio);
     }
 
     #[test]

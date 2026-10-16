@@ -327,6 +327,26 @@ passed after a test-only clone-to-slice assertion cleanup; its affected
 regression passed again. This is local validation, pending final-head
 Codex review and trusted multi-platform CI.
 
+## Identical outputs defer capture until a real write
+
+The review of `bb0016f` found that an identical output still invoked undo
+capture. A real WAV/image regression with a deliberately rejecting capture
+callback reproduced the warning despite unchanged destination bytes.
+
+Ownership and capture now have separate state. An identical image retains
+its existing ownership without calling the hook. Creation or a real
+replacement captures its original entry once; a later same-writer change
+after a no-op captures the original at that first write. Captured keys follow
+the existing directory-move rebasing. The rejecting-hook regression now
+passes with zero calls and unchanged image/audio bytes and output mtime.
+The actual command fixture also covers no-op A followed by import/export B,
+at the same path and across two folder moves, restoring A on Undo and B on
+Redo. Existing creation, collision and symlink assertions remain intact.
+The locked workspace passed 820 Rust tests (the same four explicit skips),
+including 294 application-library tests and all 51 action-host tests.
+Workspace Clippy, formatting, strict 97-page build and eight publication
+tests passed. Frontend code is unchanged from the 336-test/build validation.
+
 ## Not covered
 
 - The `.mta` type IDs for Adjust Cover, Set Cover Properties and Generate Playlists, and the guessed schemas for types 4, 6 and 11–15, need `.mta` files saved by Mp3tag.

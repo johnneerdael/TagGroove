@@ -70,7 +70,8 @@ its own output file.
 
 An existing destination with identical image bytes stays unchanged. A
 different image is replaced. **Export duplicate covers** controls repeated
-images in this run; it does not prevent replacement of existing files.
+images in this run; it does not prevent replacement of existing files. An
+export that only finds identical images does not add an undo step.
 
 Use **Edit → Undo** (++cmd+z++ / ++ctrl+z++) in the same session to restore a
 replaced image or remove a new image created by the action. Redo recreates

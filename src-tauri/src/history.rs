@@ -483,7 +483,12 @@ mod tests {
     #[test]
     fn action_cover_undo_follows_later_directory_moves_and_keeps_the_first_snapshot() {
         let _journal = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-        for repeat_after_move in [false, true] {
+        for (repeat_after_move, start_identical, move_folder) in [
+            (false, false, true),
+            (true, false, true),
+            (true, true, true),
+            (true, true, false),
+        ] {
             let dir = tempfile::tempdir().unwrap();
             let root = dunce::canonicalize(dir.path()).unwrap();
             TEST_ROOTS.lock().unwrap().push(root.clone());
@@ -498,7 +503,13 @@ mod tests {
                     .unwrap();
                 bytes.into_inner()
             };
-            let (embedded, previous, later) = (image(2), image(3), image(4));
+            let embedded = image(2);
+            let previous = if start_identical {
+                embedded.clone()
+            } else {
+                image(3)
+            };
+            let later = image(4);
             let input = root.join("input.png");
             let next = root.join("next.png");
             std::fs::write(&input, &embedded).unwrap();
@@ -515,7 +526,10 @@ mod tests {
                 field: "_DIRECTORY".into(),
                 template: name.into(),
             };
-            let mut actions = vec![export(), rename("Renamed")];
+            let mut actions = vec![export()];
+            if move_folder {
+                actions.push(rename("Renamed"));
+            }
             if repeat_after_move {
                 actions.extend([
                     tag_core::actions::ActionSpec::ImportCover {
@@ -524,15 +538,21 @@ mod tests {
                         delete_existing: true,
                     },
                     export(),
-                    rename("Final"),
-                    export(),
                 ]);
+                if move_folder {
+                    actions.push(rename("Final"));
+                }
+                actions.push(export());
             }
-            let final_folder = root.join(if repeat_after_move {
-                "Final"
+            let final_folder = if move_folder {
+                root.join(if repeat_after_move {
+                    "Final"
+                } else {
+                    "Renamed"
+                })
             } else {
-                "Renamed"
-            });
+                album.clone()
+            };
             let result = run(crate::execute_action_groups(
                 vec![audio.to_string_lossy().into_owned()],
                 vec![tag_core::actions::ActionGroup {
@@ -549,7 +569,9 @@ mod tests {
                 *after_image
             );
             let after_audio = std::fs::read(final_folder.join("a.wav")).unwrap();
-            assert!(!album.exists());
+            if move_folder {
+                assert!(!album.exists());
+            }
             let undone = run(undo_last());
             assert!(
                 undone.result.errors.is_empty(),
@@ -558,7 +580,9 @@ mod tests {
             );
             assert_eq!(std::fs::read(album.join("shared.png")).unwrap(), previous);
             assert_eq!(std::fs::read(&audio).unwrap(), before_audio);
-            assert!(!final_folder.exists());
+            if move_folder {
+                assert!(!final_folder.exists());
+            }
             let redone = run(redo_last());
             assert!(
                 redone.result.errors.is_empty(),
@@ -573,7 +597,9 @@ mod tests {
                 std::fs::read(final_folder.join("a.wav")).unwrap(),
                 after_audio
             );
-            assert!(!album.exists());
+            if move_folder {
+                assert!(!album.exists());
+            }
             // Leave no undo step in the shared command journal for the next
             // fixture; its first command will clear this final redo step.
             let cleanup = run(undo_last());
