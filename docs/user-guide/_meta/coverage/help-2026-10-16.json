@@ -175,7 +175,7 @@
       "receipt": "/tmp/opentag-guide-help-browser/results.json",
       "checks": 7,
       "errors": 0,
-      "scope": "Actual generated-doc links/search/palette plus3pages390px;rootinspectedmobileFAQ/desktopaboutdark. No app/native/public140claim."
+      "scope": "Actual generated-doc links/search/palette plus3pages390px; guide owner visually inspected mobileFAQ and desktopAboutdark. No independent root visual review, app/native/public140claim."
     },
     "source_identity": "App/config/dependencies/workflows byte-identical source3f; only3Help pages/nav/authoringmetadata changed after095.",
     "diff": "gitdiffcheck pass"
