@@ -395,7 +395,7 @@ const rowMenu=new RowContextMenu({
   activate:id=>{if(id.startsWith('tool:'))void toolsUI.run(Number(id.slice(5)));else void operate(id.slice(3) as Operation);},
 });
 let shownTitle='';
-function syncWindowTitle(){const title=translate(windowTitle(location,optionsUI.settings));if(desktop&&title!==shownTitle){shownTitle=title;void getCurrentWindow().setTitle(title).catch(()=>{shownTitle='';});}}
+function syncWindowTitle(){const title=translate(windowTitle(location,optionsUI.settings,{isData:locationIsData,translate}));if(desktop&&title!==shownTitle){shownTitle=title;void getCurrentWindow().setTitle(title).catch(()=>{shownTitle='';});}}
 // Read preferences change which tag is displayed, so reload files without pending edits.
 // Options → Language: catalogs from the languages folder (read again on every OK) and the chosen language.
 // A copied template takes its locale from its filename, rather than overriding English.

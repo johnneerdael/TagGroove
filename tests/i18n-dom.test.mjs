@@ -12,7 +12,7 @@ const moduleUrl=async(file,replacements={})=>{
 };
 const load=async file=>import(await moduleUrl(file));
 const {Translator,catalogMeta}=await load('i18n/core.ts'),{DomTranslator}=await load('i18n/dom.ts');
-const {controlMarkup,OptionsUI,defaultSettings,registerOptionsPage}=await load('options-ui.ts');
+const {controlMarkup,OptionsUI,defaultSettings,registerOptionsPage,windowTitle}=await load('options-ui.ts');
 const {ColumnUI,defaultLayout,setColumnNameTranslation}=await load('columns.ts'),{ActionUI}=await load('action-ui.ts');
 const {TagPanel,defaultLayout:defaultPanelLayout}=await load('tag-panel.ts');
 const {CoverUI}=await import(await moduleUrl('covers.ts',{"import './covers.css';":'',"'./keyboard'":JSON.stringify(await moduleUrl('keyboard.ts')),"'./cover-model'":JSON.stringify(await moduleUrl('cover-model.ts'))}));
@@ -134,6 +134,23 @@ test('the actual Language options preserve authored catalog names in System defa
   }
 });
 
+test('the native window-title wrapper translates generated locations once and preserves authored paths',async()=>{
+  const custom={'OpenTag — {location}':'Window: {location}','Provider documents':'Help','{length} added locations':'Title',Help:'Assistance',Title:'Heading','No folder loaded':'Help'};
+  const declaration=parsed.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text==='syncWindowTitle');
+  const js=ts.transpileModule(declaration.getText(parsed),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]]){
+    const t=new Translator(locale,catalog);
+    const cases=[['Provider documents',false,t.t('Provider documents')],['2 added locations',false,t.t('{length} added locations',{length:2})],['No folder loaded',false,null],['No folder loaded',true,'No folder loaded'],['Provider documents',true,'Provider documents'],['2 added locations',true,'2 added locations'],['/My  Files/Help\nTitle',true,'/My  Files/Help\nTitle']];
+    for(const [location,locationIsData,label] of cases)for(const show of [false,true]){
+      const settings=defaultSettings();settings.general.show_directory_in_title=show;const calls=[];
+      const values={translate:text=>t.translate(text),windowTitle,location,locationIsData,optionsUI:{settings},desktop:true,getCurrentWindow:()=>({setTitle:async title=>{calls.push(title);}})};
+      const sync=new Function(...Object.keys(values),`let shownTitle='';${js};return syncWindowTitle;`)(...Object.values(values));
+      sync();await Promise.resolve();
+      assert.deepEqual(calls,[show&&label!==null?t.t('OpenTag — {location}',{location:label}):'OpenTag']);
+      sync();assert.equal(calls.length,1);
+    }
+  }
+});
 test('an unavailable language remains an editable preference through the real Options save path',async()=>{
   const languages=[{locale:'en',name:'English',source:'bundled',catalog:{}},{locale:'pt-PT',name:'Português',source:'user',file:'pt-PT.json',catalog:{}}];
   const provider=`data:text/javascript;base64,${Buffer.from(`export const availableLanguages=()=>${JSON.stringify(languages)};export const systemLanguage=()=> 'pt-PT';`).toString('base64')}`;

@@ -112,7 +112,11 @@ export function validateOptions(draft:OptionsDraft,pages:OptionsPage[]=[...regis
   return undefined;
 }
 export function naturalCollator(settings:Settings){return new Intl.Collator(undefined,{numeric:settings.general.natural_sort,sensitivity:'base'});}
-export function windowTitle(location:string,settings:Settings){return settings.general.show_directory_in_title&&location&&location!=='No folder loaded'?`OpenTag — ${location}`:'OpenTag';}
+export function windowTitle(sourceLocation:string,settings:Settings,presentation:{isData?:boolean;translate?:(label:string)=>string}={}){
+  if(!settings.general.show_directory_in_title||!sourceLocation||!presentation.isData&&sourceLocation==='No folder loaded')return'OpenTag';
+  const location=presentation.isData?sourceLocation:presentation.translate?.(sourceLocation)??sourceLocation;
+  return`OpenTag — ${location}`;
+}
 
 const tagRead=(prefix:string,kinds:[string,string][]):OptionControl=>({kind:'group',label:'Read',controls:kinds.map(([key,label])=>({kind:'checkbox',path:`tags.${prefix}.read_${key}`,label}))});
 const tagRemove=(prefix:string):OptionControl=>({kind:'group',label:'Remove',controls:[...[['id3v1','ID3v1'],['id3v2','ID3v2'],['ape','APE']].map(([key,label]):OptionControl=>({kind:'checkbox',path:`tags.${prefix}.remove_${key}`,label})),
