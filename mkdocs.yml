@@ -183,6 +183,10 @@ nav:
     - Export template language: export/template-language.md
     - Template gallery: export/template-gallery.md
     - Export CSV: export/csv.md
+  - Web sources:
+    - Install and use sources: tag-sources/web-sources.md
+    - Write a web source: tag-sources/writing-web-sources.md
+    - Parser reference: tag-sources/web-source-reference.md
 - Reference:
   - reference/index.md
   - Format strings: reference/format-strings.md
