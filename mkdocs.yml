@@ -152,6 +152,10 @@ nav:
     - Extended tags: guides/extended-tags.md
     - Working with covers: guides/covers.md
     - Filtering the file list: guides/filter.md
+    - Find text: guides/find.md
+  - Customization:
+    - File-list columns: customize/columns.md
+    - Tag panel: customize/tag-panel.md
 - Automate:
   - Converters:
     - converters/index.md
