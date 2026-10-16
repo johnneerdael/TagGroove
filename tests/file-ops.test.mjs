@@ -216,6 +216,18 @@ test('startup opens queued launch requests before the startup directory', async 
   assert.deepEqual(third.host.loads[0][0], ['/fav']);
 });
 
+test('startup and forwarded launch locations carry generated versus authored provenance', async () => {
+  const {ui, host} = harness();
+  host.launches = [{directories: ['/one', '/two'], files: [], add: false}, {directories: ['2 added locations'], files: [], add: true}];
+  await ui.initialize();
+  assert.equal(host.loads[0][1].location, '2 added locations');assert.equal(host.loads[0][1].locationIsData, false);
+  assert.equal(host.loads[1][1].location, '2 added locations');assert.notEqual(host.loads[1][1].locationIsData, false);
+  host.launches = [{directories: [], files: ['/one/a.mp3', '/two/b.mp3'], add: true}];
+  await ui.takeLaunches();assert.equal(host.loads[2][1].locationIsData, false);
+  host.launches = [{directories: [], files: ['/one/a.mp3', '/one/b.mp3'], add: false}];
+  await ui.takeLaunches();assert.equal(host.loads[3][1].location, '/one');assert.notEqual(host.loads[3][1].locationIsData, false);
+});
+
 test('forwarded launches wait for a running operation and open in arrival order', async () => {
   const {ui, host} = harness();
   let busy = true, active = 0, overlap = false;

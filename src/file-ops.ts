@@ -113,8 +113,9 @@ export class FileOpsUI {
     const paths=[...request.directories,...request.files],directory=launchDirectory(request);
     while(this.host.busy?.())await new Promise(resolve=>setTimeout(resolve,100));
     if(!paths.length||this.host.openReason())return;
-    const location=request.directories.length===1&&!request.files.length?request.directories[0]:!request.directories.length&&request.files.every(file=>parentDirectory(file)===directory)?directory!:`${paths.length} added locations`;
-    await this.open(paths,{replace:!request.add,directories:request.directories,location,working:request.add?undefined:directory});
+    const singleDirectory=request.directories.length===1&&!request.files.length,sharedDirectory=!request.directories.length&&request.files.every(file=>parentDirectory(file)===directory);
+    const location=singleDirectory?request.directories[0]:sharedDirectory?directory!:`${paths.length} added locations`;
+    await this.open(paths,{replace:!request.add,directories:request.directories,location,locationIsData:singleDirectory||sharedDirectory,working:request.add?undefined:directory});
   }
   reason(op:FileOperation|'folder'):string {
     const selected=this.host.selection().length;

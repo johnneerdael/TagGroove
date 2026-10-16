@@ -22,7 +22,7 @@ const {ExtendedTags}=await import(await moduleUrl('extended-tags.ts',{"import '.
 const {ToolsUI,toolsOptionsPage}=await load('tools.ts'),{installHelperMenus}=await load('helper-menu.ts');
 const {copyAsTextDialog}=await load('utils-ui.ts'),{PlaylistUI}=await load('playlist-ui.ts'),{openTagToTag}=await load('tag-tag-ui.ts');
 const {offerOpenOutputs,ExportUI}=await load('export-ui.ts');
-const {FileOpsUI,nameList}=await load('file-ops.ts');
+const {FileOpsUI,nameList,defaultDirectoryState}=await load('file-ops.ts');
 const {copiedMessage}=await load('tag-clipboard.ts');
 const {cleanupText}=await load('library.ts');
 const {sourcePresentation}=await load('document-state.ts');
@@ -134,6 +134,29 @@ test('the actual Language options preserve authored catalog names in System defa
   }
 });
 
+test('launch locations reach the real header and native-title renderers with the correct provenance',async()=>{
+  const custom={'{length} added locations':'Title',Title:'Heading','OpenTag — {location}':'Window: {location}'};
+  const declaration=parsed.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text==='syncWindowTitle');
+  const js=ts.transpileModule(declaration.getText(parsed),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
+  const cases=[[{directories:['/one','/two'],files:[],add:false},'2 added locations',false],[{directories:[],files:['/one/a.mp3','/two/b.mp3'],add:true},'2 added locations',false],[{directories:['/one'],files:['/one/a.mp3'],add:false},'2 added locations',false],[{directories:['2 added locations'],files:[],add:true},'2 added locations',true],[{directories:['No folder loaded'],files:[],add:false},'No folder loaded',true],[{directories:[],files:['/one/a.mp3','/one/b.mp3'],add:false},'/one',true]];
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]])for(const [request,expectedLocation,isData] of cases){
+    const p=page(),t=new Translator(locale,catalog),titles=[];let loaded=0;
+    try{
+      const shown=isData?expectedLocation:t.t('{length} added locations',{length:2});
+      const ui=new FileOpsUI({preferences:()=>({startup:'empty',subfolders:true}),pendingCount:()=>0,openReason:()=>'',confirm:async()=>true,changed:()=>{},invoke:async()=>defaultDirectoryState(),load:async(paths,options)=>{
+        loaded++;assert.deepEqual(paths,[...request.directories,...request.files]);
+        const location=options.location,locationIsData=options.locationIsData!==false;
+        const locationView=rendererVariable(parsed,'locationView',{entry:undefined,providerEntry:()=>false,providerState:undefined,sourcePresentation,location,locationIsData});
+        p.body.innerHTML=rendererVariable(parsed,'locationMarkup',{esc,locationView});p.translate(locale,catalog);
+        assert.equal(p.body.querySelector('.path').textContent,shown);assert.equal(p.body.querySelector('.path').title,shown);
+        const values={translate:text=>t.translate(text),windowTitle,location,locationIsData,optionsUI:{settings:defaultSettings()},desktop:true,getCurrentWindow:()=>({setTitle:async title=>titles.push(title)})};
+        new Function(...Object.keys(values),`let shownTitle='';${js};return syncWindowTitle;`)(...Object.values(values))();
+        assert.deepEqual(titles,[t.t('OpenTag — {location}',{location:shown})]);return true;
+      }});
+      await ui.launch(request);assert.equal(loaded,1);
+    }finally{p.close();}
+  }
+});
 test('duplicate export rename errors translate their scaffold while preserving the authored conflicting name',async()=>{
   const custom={'An export configuration named {name} already exists.':'Duplicate export: {name}.',Help:'Assistance',Title:'Heading',Rename:'Change name'};
   for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]])for(const name of ['Help','Title','My  Files']){
