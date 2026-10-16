@@ -259,3 +259,15 @@ CRLF. An independently generated MP3 carries three conflicting tag blocks;
 read options choose the expected title/album without merging or changing
 file bytes. This does not certify other players or every native format.
 The public baseline is still 97 pages, and finite peer review is pending.
+
+## Local cover, sorting and loudness concepts
+
+Three independently authored concept chapters raise the local checkpoint to
+124 completed pages and 63 drafts. Four written-table core tests exercise
+sort-field roundtrips/fallbacks, compilation validation, ReplayGain field
+roundtrip/deletion and conditional undisplayed-APE migration in generated MP3
+files. Two frontend-model tests cover six picture-identity/order cases and
+separate column display/sort keys. LF and CRLF variants use the same written
+examples. The ledger records source/topic evidence and a bounded local browser
+sample; it does not establish player behavior or complete canonical coverage.
+The public baseline remains 97 pages. Finite peer review is pending.

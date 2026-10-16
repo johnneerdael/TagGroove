@@ -149,6 +149,9 @@ nav:
     - What tags are: concepts/what-are-tags.md
     - Tag formats: concepts/tag-formats.md
     - Track and disc numbers: concepts/track-and-disc-numbers.md
+    - Cover art: concepts/cover-art.md
+    - Sort fields and compilations: concepts/sort-fields.md
+    - ReplayGain and loudness: concepts/replaygain.md
     - Multi-value fields: concepts/multi-value-fields.md
     - Text encodings and codepages: concepts/text-encodings.md
 - Guides:
