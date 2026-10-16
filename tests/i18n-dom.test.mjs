@@ -12,7 +12,7 @@ const moduleUrl=async(file,replacements={})=>{
 };
 const load=async file=>import(await moduleUrl(file));
 const {Translator,catalogMeta}=await load('i18n/core.ts'),{DomTranslator}=await load('i18n/dom.ts');
-const {controlMarkup}=await load('options-ui.ts');
+const {controlMarkup,OptionsUI,defaultSettings,registerOptionsPage}=await load('options-ui.ts');
 const {ColumnUI,defaultLayout,setColumnNameTranslation}=await load('columns.ts'),{ActionUI}=await load('action-ui.ts');
 const {TagPanel,defaultLayout:defaultPanelLayout}=await load('tag-panel.ts');
 const {CoverUI}=await import(await moduleUrl('covers.ts',{"import './covers.css';":'',"'./keyboard'":JSON.stringify(await moduleUrl('keyboard.ts')),"'./cover-model'":JSON.stringify(await moduleUrl('cover-model.ts'))}));
@@ -112,21 +112,48 @@ test('production popups localize synchronously before right/bottom placement for
 
 test('the actual Language options preserve authored catalog names in System default with existing catalog keys',async()=>{
   const custom={'System default ({nameOf})':'Default catalog: {nameOf}',Help:'Assistance',Title:'Heading'};
-  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]])for(const name of ['Help','Title']){
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]])for(const name of ['Help','Title','System default','System default (Help)','English','Deutsch','Nederlands'])for(const userLocale of ['fr','en']){
     const p=page();
     try{
-      const user={'@meta':{name}},languages=[{locale:'en',name:'English',catalog:{},source:'bundled'},{...catalogMeta(user,'fr.json'),catalog:user,source:'user',file:'fr.json'}];
-      const provider=`data:text/javascript;base64,${Buffer.from(`export const availableLanguages=()=>${JSON.stringify(languages)};export const systemLanguage=()=> 'fr';`).toString('base64')}`;
+      const user={'@meta':{name}},file=`${userLocale}.json`,languages=[...(userLocale==='en'?[]:[{locale:'en',name:'English',catalog:{},source:'bundled'}]),{...catalogMeta(user,file),catalog:user,source:'user',file}];
+      const provider=`data:text/javascript;base64,${Buffer.from(`export const availableLanguages=()=>${JSON.stringify(languages)};export const systemLanguage=()=> ${JSON.stringify(userLocale)};`).toString('base64')}`;
       const {languageOptionsPage}=await import(await moduleUrl('language-options.ts',{"'./i18n'":JSON.stringify(provider)}));
       const options=languageOptionsPage({}),control=options.controls[0];
       p.body.innerHTML=controlMarkup(control,{pages:{language:{language:'system'}}});const t=p.translate(locale,catalog);
       assert.equal(p.body.querySelector('option[value="system"]').textContent,t.t('System default ({nameOf})',{nameOf:name}));
-      assert.equal(p.body.querySelector('option[value="fr"]').textContent,`${name} (fr.json)`);
+      assert.equal(p.body.querySelector(`option[value="${userLocale}"]`).textContent,`${name} (${file})`);
+      assert.equal(p.body.querySelector(`option[value="${userLocale}"]`).getAttribute('translate'),'no');
       assert.equal(p.body.querySelector('select').value,'system');
+      // Happy DOM mis-parses selectedness for a final option; verify the
+      // production selected attribute for aliases, leaving native selection
+      // behavior to the reviewed desktop suite.
+      p.body.innerHTML=controlMarkup(control,{pages:{language:{language:userLocale.toUpperCase()}}});
+      assert.equal(p.body.querySelector('option[selected]').value,userLocale);
+      assert.ok(!p.body.textContent.includes('Unavailable:'));
     }finally{p.close();}
   }
 });
 
+test('an unavailable language remains an editable preference through the real Options save path',async()=>{
+  const languages=[{locale:'en',name:'English',source:'bundled',catalog:{}},{locale:'pt-PT',name:'Português',source:'user',file:'pt-PT.json',catalog:{}}];
+  const provider=`data:text/javascript;base64,${Buffer.from(`export const availableLanguages=()=>${JSON.stringify(languages)};export const systemLanguage=()=> 'pt-PT';`).toString('base64')}`;
+  const {languageOptionsPage}=await import(await moduleUrl('language-options.ts',{"'./i18n'":JSON.stringify(provider)}));
+  registerOptionsPage(languageOptionsPage({}));
+  for(const stored of ['pt-BR','SYSTEM'])for(const chooseEnglish of [false,true]){
+    const p=page(),globals=Object.fromEntries(['CSS','getComputedStyle'].map(name=>[name,Object.getOwnPropertyDescriptor(globalThis,name)]));
+    Object.defineProperty(globalThis,'CSS',{configurable:true,value:p.window.CSS});Object.defineProperty(globalThis,'getComputedStyle',{configurable:true,value:p.window.getComputedStyle.bind(p.window)});
+    try{
+      const settings=defaultSettings();settings.pages.language={language:stored};const response={settings,defaults:defaultSettings(),warning:null};let saved;
+      const ui=new OptionsUI({load:async()=>response,save:async settings=>{saved=structuredClone(settings);return{...response,settings};},appearance:{get:()=> 'system',set:()=>{}},applied:()=>{}});
+      await ui.open('language');const t=p.translate('de'),select=p.body.querySelector('[data-option="pages.language.language"]');
+      assert.equal(select.value,stored);
+      assert.equal(select.selectedOptions[0].textContent,t.t('Unavailable: {name} (using English)',{name:stored}));
+      if(chooseEnglish){select.value='en';select.dispatchEvent(new p.window.Event('change',{bubbles:true}));assert.equal(p.body.querySelector('[data-option="pages.language.language"]').value,'en');}
+      p.body.querySelector('#options-ok').click();await p.window.happyDOM.waitUntilComplete();
+      assert.equal(saved.pages.language.language,chooseEnglish?'en':stored);assert.equal(ui.settings.pages.language.language,chooseEnglish?'en':stored);
+    }finally{for(const [name,descriptor] of Object.entries(globals))if(descriptor)Object.defineProperty(globalThis,name,descriptor);else delete globalThis[name];p.close();}
+  }
+});
 test('freedb server names keep their authored spelling through empty/nonempty edits and redraws',async()=>{
   const custom={Help:'Assistance',Title:'Name','Unnamed server':'No display name',New:'Create',Delete:'Remove','freedb server':'CDDB endpoint'};
   for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]]){
@@ -228,10 +255,10 @@ test('the real language reload retains an active catalog on command failure and 
     const i18n=await import(indexUrl),{languageOptionsPage,languageSetting}=await import(await moduleUrl('language-options.ts',{"'./i18n'":JSON.stringify(indexUrl)}));
     i18n.setUserCatalogs([{file:'fr.json',catalog:{...english,'@meta':{name:'Français'},'Save tags':'Enregistrer'}}]);i18n.setLanguage('fr');
     const languagePage=languageOptionsPage({}),controls=languagePage.controls;
-    let failed=true,renders=0;
+    let failed=true,renders=0,selected='fr',found={catalogs:[],errors:[]};
     const declaration=parsed.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text==='applyLanguage');
     const js=ts.transpileModule(declaration.getText(parsed),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
-    const values={desktop:true,invoke:async command=>{assert.equal(command,'language_catalogs');if(failed)throw new Error('languages: access denied');return {catalogs:[],errors:[]};},languagePage,setUserCatalogs:i18n.setUserCatalogs,setLanguage:i18n.setLanguage,languageSetting,optionsUI:{page:()=>({language:'fr'})},publicMessage:error=>error.message,applyNotificationArea:()=>{},render:()=>{renders++;}};
+    const values={desktop:true,invoke:async command=>{assert.equal(command,'language_catalogs');if(failed)throw new Error('languages: access denied');return found;},languagePage,setUserCatalogs:i18n.setUserCatalogs,setLanguage:i18n.setLanguage,languageSetting,optionsUI:{page:()=>({language:selected})},publicMessage:error=>error.message,applyNotificationArea:()=>{},render:()=>{renders++;}};
     const apply=new Function(...Object.keys(values),`let shownTitle='';${js};return applyLanguage;`)(...Object.values(values));
     await apply();assert.equal(i18n.currentLanguage(),'fr');assert.equal(i18n.translate('Save tags'),'Enregistrer');assert.equal(renders,0);
     assert.ok(controls[0].choices.some(([value])=>value==='fr'));
@@ -239,6 +266,14 @@ test('the real language reload retains an active catalog on command failure and 
     failed=false;await apply();assert.equal(i18n.currentLanguage(),'en');assert.equal(i18n.translate('Save tags'),'Save tags');assert.equal(renders,1);
     assert.ok(!controls[0].choices.some(([value])=>value==='fr'));
     p.body.innerHTML=controls.map(controlMarkup).join('');assert.ok(!p.body.textContent.includes('access denied'));
+    const regions=['pt-BR','pt-PT','pt'].map(locale=>({file:`${locale}.json`,catalog:{...english,'@meta':{name:locale},'Save tags':`Save in ${locale}`}}));
+    i18n.setUserCatalogs(regions);i18n.setLanguage('pt-BR');selected='pt-BR';found={catalogs:regions.slice(1),errors:[]};
+    await apply();assert.equal(i18n.currentLanguage(),'en');assert.equal(i18n.translate('Save tags'),'Save tags');
+    assert.ok(!controls[0].choices.some(([value])=>value==='pt-BR'));assert.ok(controls[0].choices.some(([value])=>value==='pt-PT'));
+    p.body.innerHTML=controlMarkup(controls[0],{pages:{language:{language:selected}}});
+    assert.equal(p.body.querySelector('select').value,'pt-BR');assert.equal(i18n.languageChoice(),'pt-BR');
+    assert.equal(p.body.querySelector('select').selectedOptions[0].textContent,'Unavailable: pt-BR (using English)');
+    p.body.innerHTML=controlMarkup(controls[0],{pages:{language:{language:'system'}}});assert.equal(p.body.querySelector('select').value,'system');
   }finally{if(storage)Object.defineProperty(globalThis,'localStorage',storage);else delete globalThis.localStorage;p.close();}
 });
 test('web-source result headers and search labels remain authored while application table/search controls translate',()=>{

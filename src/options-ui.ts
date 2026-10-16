@@ -13,10 +13,12 @@ export type Settings={version:number;general:{natural_sort:boolean;show_director
 export type SettingsResponse={settings:Settings;defaults:Settings;warning:string|null};
 /** Values edited in the dialog: persisted settings plus the per-device appearance choice. */
 export type OptionsDraft=Settings&{appearance:string};
+/** The optional flag protects authored option text; ordinary choices remain UI labels. */
+export type SelectChoice=[value:string,label:string,verbatim?:boolean];
 export type OptionControl=
   |{kind:'checkbox';path:string;label:string;enabledWhen?:(draft:OptionsDraft)=>boolean}
   |{kind:'radio';path:string;label:string;choices:[string,string][];enabledWhen?:(draft:OptionsDraft)=>boolean}
-  |{kind:'select';path:string;label:string;choices:[string,string][]}
+  |{kind:'select';path:string;label:string;choices:SelectChoice[];missingChoiceLabel?:(value:string)=>string;matchesChoice?:(stored:unknown,value:string)=>boolean}
   |{kind:'text';path:string;label:string;placeholder?:string;maxLength?:number;enabledWhen?:(draft:OptionsDraft)=>boolean}
   /** Whole numbers; the value is stored as a number. */
   |{kind:'number';path:string;label:string;min:number;max:number;suffix?:string}
@@ -179,7 +181,12 @@ export function controlMarkup(control:OptionControl,draft:OptionsDraft):string{
   switch(control.kind){
   case 'checkbox':return`<label class="action-check"><input type="checkbox" id="${controlId(control.path)}" data-option="${html(control.path)}" ${getPath(draft,control.path)?'checked':''} ${disabled(control)}> ${html(control.label)}</label>`;
   case 'radio':return`<fieldset class="options-choices" ${disabled(control)}><legend>${html(control.label)}</legend>${control.choices.map(([value,label])=>`<label class="action-check"><input type="radio" name="${controlId(control.path)}" data-option="${html(control.path)}" value="${html(value)}" ${getPath(draft,control.path)===value?'checked':''}> ${html(label)}</label>`).join('')}</fieldset>`;
-  case 'select':return`<label class="field"><span>${html(control.label)}</span><select id="${controlId(control.path)}" data-option="${html(control.path)}">${control.choices.map(([value,label])=>`<option value="${html(value)}" ${getPath(draft,control.path)===value?'selected':''}>${html(label)}</option>`).join('')}</select></label>`;
+  case 'select':{
+    const stored=getPath(draft,control.path),matches=(value:string)=>control.matchesChoice?.(stored,value)??stored===value;
+    const missing=typeof stored==='string'&&stored&&!control.choices.some(([value])=>matches(value))&&control.missingChoiceLabel;
+    const unavailable=missing?`<option value="${html(stored)}" selected>${html(control.missingChoiceLabel!(stored))}</option>`:'';
+    return`<label class="field"><span>${html(control.label)}</span><select id="${controlId(control.path)}" data-option="${html(control.path)}">${unavailable}${control.choices.map(([value,label,verbatim])=>`<option value="${html(value)}" ${verbatim?'translate="no" ':''}${matches(value)?'selected':''}>${html(label)}</option>`).join('')}</select></label>`;
+  }
   case 'text':return`<label class="field"><span>${html(control.label)}</span><input id="${controlId(control.path)}" data-option="${html(control.path)}" value="${html(getPath(draft,control.path)??'')}" ${control.placeholder?`placeholder="${html(control.placeholder)}"`:''} ${control.maxLength?`maxlength="${control.maxLength}"`:''} autocomplete="off" spellcheck="false" ${disabled(control)}></label>`;
   case 'number':return`<label class="field"><span>${html(control.label)}</span><span class="options-number"><input type="number" id="${controlId(control.path)}" data-option="${html(control.path)}" data-number value="${html(getPath(draft,control.path)??'')}" min="${control.min}" max="${control.max}" step="1">${control.suffix?` ${html(control.suffix)}`:''}</span></label>`;
   case 'group':return`<fieldset class="numbering-section"><legend>${html(control.label)}</legend>${control.controls.map(c=>controlMarkup(c,draft)).join('')}</fieldset>`;

@@ -58,7 +58,9 @@ labels.
   English. Check the warning on the Language page when a file is incomplete.
   Malformed JSON files are not loaded.
 - If a selected added language disappears, OpenTag falls back to English.
-  **System default** instead follows the available system-language matches.
+  The Language list identifies the unavailable preference; keeping it selected
+  retains it, while choosing **English** and **OK** replaces it. **System
+  default** instead follows the available system-language matches.
 - A folder scan I/O failure warns and keeps catalogs already loaded in this
   session. A missing folder is an empty successful reload; an invalid individual
   catalog is reported and left out of that reload.

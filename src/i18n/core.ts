@@ -244,9 +244,8 @@ export function catalogMeta(catalog: Catalog, file = ''): CatalogMeta | undefine
 }
 
 /**
- * The language to show: the chosen one when available, otherwise ('system')
- * the first preferred system language with a catalog (exact, then by base
- * language), otherwise English.
+ * Explicit choices use an exact available locale or English. Only 'system'
+ * follows preferred languages with regional/base-language matching.
  */
 export function resolveLanguage(choice: string, preferred: readonly string[], available: readonly string[]): string {
   const lower = new Map(available.map(locale => [locale.toLowerCase(), locale]));
@@ -256,7 +255,7 @@ export function resolveLanguage(choice: string, preferred: readonly string[], av
     const base = tag.split('-')[0];
     return lower.get(base) ?? available.find(locale => locale.toLowerCase().split('-')[0] === base);
   };
-  if (choice && choice !== 'system') return find(choice) ?? 'en';
+  if (choice && choice !== 'system') return lower.get(choice.toLowerCase()) ?? 'en';
   for (const wanted of preferred) {const found = find(wanted);if (found) return found;}
   return 'en';
 }

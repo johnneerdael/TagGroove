@@ -163,6 +163,12 @@ test('the language follows the choice, then the system languages by region and b
   assert.equal(resolveLanguage('system',['fr'],available),'en');
   assert.equal(resolveLanguage('de',['nl'],available),'de');
   assert.equal(resolveLanguage('xx',['nl'],available),'en');
+  for(const remaining of [['en','pt-PT'],['en','pt'],['en','pt','pt-PT']]){
+    assert.equal(resolveLanguage('pt-BR',['pt-PT'],remaining),'en');
+    assert.equal(resolveLanguage('system',['pt-BR'],remaining),remaining.includes('pt')?'pt':'pt-PT');
+  }
+  assert.equal(resolveLanguage('pt-br',[],available),'pt-BR');
+  assert.equal(resolveLanguage('pt',[],available),'en');
   assert.deepEqual(catalogMeta({'@meta':{name:'Français'}},'fr.json'),{locale:'fr',name:'Français'});
   assert.deepEqual(catalogMeta({},'pt-br.json'),{locale:'pt-BR',name:'pt-BR'});
   assert.equal(catalogMeta({},'not a locale!.json'),undefined);

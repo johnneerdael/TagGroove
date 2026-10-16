@@ -2156,6 +2156,7 @@
  "UNSYNCEDLYRICS holds one text per language and description": "UNSYNCEDLYRICS bevat één tekst per taal en beschrijving",
  "UNSYNCEDLYRICS requires language||lyrics": "UNSYNCEDLYRICS vereist taal||songtekst",
  "Ukrainian (KOI8-U)": "Oekraïens (KOI8-U)",
+ "Unavailable: {name} (using English)": "Niet beschikbaar: {name} (Engels wordt gebruikt)",
  "Unclosed filter group": "Niet-afgesloten filtergroep",
  "Unclosed optional export section": "Niet-afgesloten optionele exportsectie",
  "Unclosed parentheses in filter operand": "Niet-afgesloten haakjes in filteroperand",

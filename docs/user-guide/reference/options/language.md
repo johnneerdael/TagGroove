@@ -38,7 +38,7 @@ server names stay as entered during editing; clearing a name shows the translate
 | Entry | Meaning |
 |---|---|
 | `<locale>.json` | Adds a catalog, for example `fr.json` or `pt-BR.json`. The generated template derives its locale from the copied filename. |
-| `@meta.name` | The catalog's display name. Its spelling is preserved even if it equals an English UI word. |
+| `@meta.name` | The catalog's display name. Its spelling is preserved in both the user option and System default, even if it equals an English UI label. |
 | `@meta.locale` | Optional explicit locale override, supported for existing catalogs. The generated template omits it. |
 | English text key | Identifies an application string. Translate its value, preserving brace-placeholder names. |
 | `@keys` | Optional keyboard-key labels, such as German `Ctrl` → `Strg`. Keep the key names and change their displayed values. |
@@ -48,6 +48,11 @@ server names stay as entered during editing; clearing a name shows the translate
 Files must be JSON objects, no larger than 4 MiB. Missing translations and
 invalid placeholder entries use English. Removing a selected added catalog
 falls back to English; removing an override restores its bundled language.
+An explicit regional choice uses only that locale: removing `pt-BR.json` does
+not select `pt.json` or `pt-PT.json`. Regional matching applies to **System
+default**. The unavailable saved choice is shown as **Unavailable: pt-BR
+(using English)**, for example. Leave it selected to retain that preference, or select
+**English** and choose **OK** to replace it.
 
 ## What stays unchanged
 

@@ -3,7 +3,7 @@
 // Dutch, German); a catalog file in the configuration folder's languages folder
 // adds another language or replaces a shipped one. Unlike Mp3tag, the choice
 // applies at once.
-import type {OptionsPage} from './options-ui';
+import type {OptionsPage, SelectChoice} from './options-ui';
 import {availableLanguages, systemLanguage, type Language} from './i18n';
 
 export const LANGUAGE_DEFAULTS = {language: 'system'};
@@ -12,8 +12,8 @@ export function languageSetting(values: Record<string, unknown>) {return typeof 
 
 const nameOf = (locale: string, languages: Language[]) => languages.find(language => language.locale === locale)?.name ?? locale;
 /** Choices of the language list: the system language first, then every catalog by its own name. */
-export function languageChoices(languages: Language[] = availableLanguages(), system = systemLanguage()): [string, string][] {
-  return [['system', `System default (${nameOf(system, languages)})`], ...languages.map(language => [language.locale, language.source === 'user' ? `${language.name} (${language.file})` : language.name] as [string, string])];
+export function languageChoices(languages: Language[] = availableLanguages(), system = systemLanguage()): SelectChoice[] {
+  return [['system', `System default (${nameOf(system, languages)})`], ...languages.map((language):SelectChoice => language.source === 'user' ? [language.locale, `${language.name} (${language.file})`, true] : [language.locale, language.name])];
 }
 
 export type LanguageHost = {
@@ -28,7 +28,9 @@ export function languageOptionsPage(host: LanguageHost): OptionsPage & {refresh:
     id: 'language', label: 'Language', order: 47, defaults: {...LANGUAGE_DEFAULTS},
     description: 'Choose the language of the user interface. The change applies right away.',
     controls: [
-      {kind: 'select' as const, path: 'pages.language.language', label: 'Language', choices},
+      {kind: 'select' as const, path: 'pages.language.language', label: 'Language', choices,
+        missingChoiceLabel: (name:string) => `Unavailable: ${name} (using English)`,
+        matchesChoice: (stored:unknown,value:string) => stored === value || value !== 'system' && typeof stored === 'string' && stored.toLowerCase() === value.toLowerCase()},
       {kind: 'note' as const, text: 'Format strings, field names, placeholders and scripting functions stay the same in every language. Names you gave columns, tag panel fields, action groups and tools are shown as you entered them.'},
       {kind: 'group' as const, label: 'Other languages', controls: [
         {kind: 'note' as const, text: 'To add a language, open the languages folder, copy _template.json to a file named after the language (for example fr.json or pt-BR.json), set its name and translate the values. Keep the placeholders in braces as they are. A file named nl.json or de.json replaces the shipped translation. OpenTag reads the folder at startup and when you choose OK.'},

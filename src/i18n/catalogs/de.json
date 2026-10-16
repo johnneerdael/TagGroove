@@ -2169,6 +2169,7 @@
  "UNSYNCEDLYRICS holds one text per language and description": "UNSYNCEDLYRICS enthält einen Text pro Sprache und Beschreibung",
  "UNSYNCEDLYRICS requires language||lyrics": "UNSYNCEDLYRICS erfordert Sprache||Liedtext",
  "Ukrainian (KOI8-U)": "Ukrainisch (KOI8-U)",
+ "Unavailable: {name} (using English)": "Nicht verfügbar: {name} (Englisch wird verwendet)",
  "Unclosed filter group": "Nicht geschlossene Filtergruppe",
  "Unclosed optional export section": "Nicht geschlossener optionaler Exportabschnitt",
  "Unclosed parentheses in filter operand": "Nicht geschlossene Klammern im Filteroperanden",

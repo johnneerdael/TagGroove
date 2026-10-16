@@ -51,7 +51,7 @@ export function setUserCatalogs(files: {file: string; catalog: unknown}[]): stri
 export function setLanguage(next: string): boolean {
   choice = next || 'system';
   try {localStorage.setItem(STORAGE_KEY, choice);} catch {/* storage may be unavailable */}
-  // A language whose file disappeared resolves like any unavailable one (system language, else English).
+  // Missing explicit locales use English; only system choices match preferred languages.
   const locale = resolveLanguage(choice, systemLanguages(), [...languages.keys()]);
   const catalog = locale === 'en' && languages.get(locale)?.source !== 'user' ? undefined : languages.get(locale)?.catalog;
   if (locale === translator.locale && catalog === shownCatalog) return false;
