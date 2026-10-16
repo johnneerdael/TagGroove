@@ -326,3 +326,19 @@ The public guide has 127 completed pages and 60 drafts remain excluded. The
 three subsequent folder-layout recipes remain local-only (130 authored / 57 drafts).
 Their finite peer receipt is preserved unchanged; its single P3 finding is
 corrected by qualifying a missing album as empty or year-suffix-only.
+
+## Local playlists and chapter-row teaching
+
+One three-page local batch adds a full playlist/CUE guide, a chapter-row
+explanation and a per-album playlist recipe. The local writing checkpoint
+reaches 133 completed pages and 54 drafts; public content remains 127 pages.
+The canonical Playlists page's load/add/save/generator topics map to the
+committed playlist-chapters ledger. Incoming Nero/artwork and safe M3U
+encoding notes are preserved. Six core tests execute written M3U8/PLS/CUE
+text, saved WAV fields, encoding choices, row edits and rejection cases with
+LF/CRLF. Three production controller/model tests use request/control seams,
+including a deterministic clock, to verify scope and row restrictions. The
+real CUE edits change the sheet and retain referenced audio bytes. Broader
+chapter/container/player behavior remains source evidence, not a native UI
+or every-format qualification. Filesystem overwrite/alias risks are bounded
+and original deferred P2 work remains outside this documentation batch.
