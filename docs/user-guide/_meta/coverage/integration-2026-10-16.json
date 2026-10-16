@@ -100,7 +100,7 @@
   ],
   "validation": {
     "rust_guide_tests": "74 passed across11targets; includes23web tests, LF/CRLF real written examples, registry64functions/59commands,197function examples,20date tokens,24filter queries,118field definitions,236mapping rows",
-    "node": "42 passed including written9keyboard/platform/focus cases",
+    "node": "53 passed:42routing contracts plus11search boundary regressions",
     "publication": "8 passed",
     "strict_mkdocs": "passed at91pages",
     "writing_plan": "91/187;96drafts",
@@ -128,7 +128,7 @@
       ],
       "pointer_followup_evidence": "/tmp/opentag-expanded-guide-browser-qa/pointer-results.json"
     },
-    "external_exact_head_review": "required after final commit; not yet requested",
+    "external_exact_head_review": "Prior4524e37 had one search-separator finding; corrected locally. Fresh exact-head review required after this commit.",
     "trusted_ci": "required after clean final-head review; not yet admitted",
     "expanded_deployment": "pending approved merge and actual Pages verification",
     "generated_output": {
@@ -136,6 +136,12 @@
       "draft_html_pages": 0,
       "search_page_routes": 91,
       "search_sections": 769
+    },
+    "search_separator": {
+      "reference": "https://squidfunk.github.io/mkdocs-material/plugins/search/#separator",
+      "scope": "Material default token boundaries extended with scripting $/% markers",
+      "regression": "7cases failed before correction; all11JS cases pass after correction, including slash/colon/operators/quotes/dots/CamelCase/entities, version preservation and scripting tokens",
+      "test": "tests/docs-search.test.mjs"
     }
   },
   "prior_public_browser_receipt": {

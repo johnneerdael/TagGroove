@@ -80,7 +80,8 @@ hooks:
 
 plugins:
   - search:
-      separator: '[\s\-$%(),\[\]]+'
+      # Retain Material's punctuation/CamelCase/version boundaries; add $ and %.
+      separator: '[\s\-$%,:!=\[\]()"/]+|(?!\b)(?=[A-Z][a-z])|\.(?!\d)|&[lg]t;'
 
 markdown_extensions:
   - abbr
