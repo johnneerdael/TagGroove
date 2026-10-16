@@ -31,6 +31,9 @@ const {mappingOptionsPage}=await load('field-mapping.ts');
 const {sourcePresentation}=await load('document-state.ts');
 const {tagSourcesOptionsPages,TagSourcesUI,webScriptErrorText}=await load('tag-sources.ts');
 const {removeTagParts}=await load('remove-tag.ts');
+const {converterValidator,createConverterInputTracker,createConverterReview}=await load('converter-review.ts');
+const {converterRollbackError,converterRollbackText}=await import(await moduleUrl('converter-errors.ts', {"'./i18n/core'":JSON.stringify(await moduleUrl('i18n/core.ts'))}));
+const rollbackCases=JSON.parse(await readFile(new URL('./fixtures/converter-rollback.json',import.meta.url),'utf8'));
 const {listSummary,technicalSummary}=await load('list-commands.ts');
 const {Messages}=await load('messages.ts');
 const {WebSourcesUI,settingsMarkup,readSettings}=await import(await moduleUrl('web-sources.ts',{"'./action-ui'":JSON.stringify(await moduleUrl('action-ui.ts'))}));
@@ -639,6 +642,44 @@ test('actual selection summary translates each technical component and preserves
     }finally{p.close();}
   }
 });
+test('structured converter rollback formatter matches native English and protects raw detail independently of nested UI text',()=>{
+  const custom={'{error}; rename rollback {value}':'Rename [{value}] because [{error}]','{error}; text import rollback {value}':'Import [{value}] because [{error}]',completed:'Done now','original backup retained at {path}':'Backup: {path}','could not retain recovery copy: {value}':'No backup: {value}','no recovery copy is available':'Backup missing','Select files first.':'Help',Help:'Wrong second lookup',Title:'Wrong path','File changed externally after commit; rollback did not overwrite it':'Changed externally','Missing rollback copy':'Missing backup','Moved file changed externally; retained at destination':'Moved externally','Help: IO;  Title':'Wrong external reason','Title: keep;  Help':'Wrong retention reason','Err(Os { code: 13, kind: PermissionDenied, message: "Help" })':'Wrong debug','Cannot create {value}: {e}':'Create failed for [{value}] because [{e}]','Cannot rename {value} to {value2}: {error}; rollback: {rollback}':'From [{value}] to [{value2}]: [{error}], restore [{rollback}]'};
+  for(const item of rollbackCases){
+    assert.equal(converterRollbackText(item.payload),item.source);assert.deepEqual(converterRollbackError({converter_rollback:item.payload}),item.payload);
+    for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]]){
+      const t=new Translator(locale,catalog),shown=converterRollbackText(item.payload,(key,params)=>t.t(key,params),text=>t.translate(text));assert.notEqual(shown,item.source);assert.ok(!shown.includes('Wrong'));
+      if(item.payload.error.kind==='external')assert.ok(shown.includes(item.payload.error.message));
+      for(const failure of item.payload.failures){assert.ok(shown.includes(failure.path));if(failure.error.kind==='external')assert.ok(shown.includes(failure.error.message));if(failure.error.kind==='rename'){const detail=failure.error.message;for(const key of ['path','source','destination','rollback'])if(typeof detail[key]==='string')assert.ok(shown.includes(detail[key]));if(typeof detail.error==='string')assert.ok(shown.includes(detail.error));if(detail.error?.kind==='external')assert.ok(shown.includes(detail.error.error));}if(failure.recovery?.kind==='retained')assert.ok(shown.includes(failure.recovery.path));if(failure.recovery?.kind==='failed')assert.ok(shown.includes(failure.recovery.error));}
+      if(!item.payload.failures.length)assert.ok(shown.includes(locale==='de'?'abgeschlossen':locale==='nl'?'voltooid':'Done now'));
+      if(item.id==='rename-helper-variants'){assert.ok(shown.includes(locale==='de'?'kann nicht erstellt werden':locale==='nl'?'niet aanmaken':'Create failed for'));assert.ok(!shown.includes('Cannot create '));assert.ok(!shown.includes('No free temporary name')||locale==='en');}
+    }
+  }
+  for(const error of ['Select files first.',null,{}, {converter_rollback:{operation:'bad'}},{converter_rollback:{operation:'rename',error:{kind:'message',message:'Help'},failures:[{path:1}]}}])assert.equal(converterRollbackError(error),undefined);
+});
+
+test('actual converter Apply failure keeps structured rollback in both global errors and modal across live language changes',async()=>{
+  const names=['modal','modalError','value','reviewedConverter'],declarations=names.map(name=>parsed.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text===name));assert.ok(declarations.every(Boolean));
+  const js=ts.transpileModule(declarations.map(node=>node.getText(parsed)).join('\n'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
+  const custom={'{error}; rename rollback {value}':'Rename [{value}] because [{error}]','{error}; text import rollback {value}':'Import [{value}] because [{error}]',completed:'Done now','original backup retained at {path}':'Backup: {path}','could not retain recovery copy: {value}':'No backup: {value}','no recovery copy is available':'Backup missing','Select files first.':'Help',Help:'Wrong second lookup',Title:'Wrong path'};
+  for(const item of rollbackCases){const p=page();let active=new Translator('en');const listeners=new Set(),calls=[];let thrown={converter_rollback:item.payload};
+    try{
+      p.body.innerHTML='<section class="app-errors"></section>';const sourcePaths=['/A - Help.wav','/B - Title.wav','/C - Other.wav'];
+      const dependencies={esc,app:p.body,paths:()=>sourcePaths,dirtySelected:()=>false,dataRevision:0,compactScreen:()=>false,columnSpecs:()=>[],converterValidator,createConverterInputTracker,createConverterReview,converterRollbackError,converterRollbackText,t:(key,params)=>active.t(key,params),translate:text=>active.translate(text),onLanguageChange:listener=>{listeners.add(listener);return()=>listeners.delete(listener);},publicMessage:error=>String(error),applyRenamed:()=>assert.fail('Failed Apply must not apply rename results'),accept:()=>{},run:async(_text,job)=>job(),invoke:async(command,args)=>{calls.push(command);if(command==='scan_files')return{entries:[],errors:[]};if(command==='apply_filename_conversion'||command==='apply_text_import')throw thrown;if(command==='preview_filename_conversion')return{plan_token:'fixture',items:sourcePaths.map((path,index)=>({path,target:'/renamed-'+index+'.wav',captures:{TITLE:['Help']}}))};if(command==='preview_text_import')return{plan_token:'fixture',items:sourcePaths.map((path,index)=>({path,selection_index:index,source_line:index+1,fields:{TITLE:['Help']}}))};throw new Error('Unexpected '+command);}};
+      const model=new Function(...Object.keys(dependencies),`let errors=[],status='',busy=false,reviewedConverterContextChanged;${js};return{open:reviewedConverter,state:()=>({errors,status})};`)(...Object.values(dependencies));
+      const kind=item.payload.operation==='rename'?'filename':'text';model.open(kind);const dialog=p.body.querySelector('dialog');
+      if(kind==='text'){const select=dialog.querySelector('#text-source-kind');select.value='text';select.dispatchEvent(new p.window.Event('change',{bubbles:true}));dialog.querySelector('#text-source-records').value='Help\nTitle\nOther';dialog.querySelector('#text-mask').value='%title%';}
+      const settle=async()=>{for(let i=0;i<4;i++)await new Promise(resolve=>setTimeout(resolve,0));};
+      dialog.querySelector('#reviewed-preview-button').click();await settle();assert.equal(dialog.querySelector('#reviewed-apply').disabled,false);dialog.querySelector('#reviewed-apply').click();await settle();
+      assert.ok(calls.includes(kind==='filename'?'apply_filename_conversion':'apply_text_import'));const error=model.state().errors[0];assert.deepEqual(error.rollback,item.payload);assert.equal(error.error,item.source);
+      const render=()=>{p.body.querySelector('.app-errors').innerHTML=mainTemplate(node=>node.head.text==='<p><strong translate="no">',{e:error,esc,displayName:path=>path,publicMessage:value=>value,converterRollbackText,t:(key,params)=>active.t(key,params),translate:text=>active.translate(text)});};
+      for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom],['en',{}],['de',catalogs.de]]){active=p.translate(locale,catalog);listeners.forEach(listener=>listener());render();p.translateTree(p.body);await settle();const expected=converterRollbackText(item.payload,(key,params)=>active.t(key,params),text=>active.translate(text));assert.equal(dialog.querySelector('.dialog-error').textContent,expected);assert.equal(dialog.querySelector('.dialog-error').getAttribute('translate'),'no');assert.equal(p.body.querySelector('.app-errors p').textContent,`${active.t('Conversion')}: ${expected}`);assert.deepEqual(error.rollback,item.payload);}
+      dialog.querySelector('#reviewed-preview-button').click();await settle();assert.equal(dialog.querySelector('.dialog-error'),null);active=p.translate('nl');listeners.forEach(listener=>listener());assert.equal(dialog.querySelector('.dialog-error'),null,'invalidated rollback must not reappear on language change');
+      thrown='Select files first.';dialog.querySelector('#reviewed-apply').click();await settle();assert.equal(model.state().errors[0].rollback,undefined);assert.equal(model.state().errors[0].error,'Select files first.');assert.equal(dialog.querySelector('.dialog-error').hasAttribute('translate'),false);p.translateTree(p.body);assert.equal(dialog.querySelector('.dialog-error').textContent,active.t('Select files first.'));
+      dialog.close();assert.equal(listeners.size,0);
+    }finally{p.close();}
+  }
+});
+
 test('real Cut/Paste failure statuses translate UI operation names while authored same-spelling names stay raw',()=>{
   const declaration=parsed.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text==='stageTagUpdates');
   const js=ts.transpileModule(declaration.getText(parsed),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;

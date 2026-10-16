@@ -36,5 +36,10 @@
  "{message}: {length} files, {length2} failed, {skipped} didn't match",
  "Cleanup cancelled after {plural}; {removalSummary}.",
  "Artist + Album",
- "freedb (local)"
+ "freedb (local)",
+ "Cannot rename {value} to {value2}: {error}; rollback: {rollback}",
+ "completed",
+ "{error}; destination rollback: {value}",
+ "{error}; rename rollback {value}",
+ "{error}; text import rollback {value}"
 ]

@@ -2777,5 +2777,9 @@
  "Undo history lock failed": "Rückgängig-Verlauf konnte nicht gesperrt werden",
  "json_foreach_counter outside json_foreach": "json_foreach_counter außerhalb von json_foreach",
  "json_foreach_end without a running json_foreach": "json_foreach_end ohne laufendes json_foreach",
- "json_foreach_end without json_foreach": "json_foreach_end ohne json_foreach"
+ "json_foreach_end without json_foreach": "json_foreach_end ohne json_foreach",
+ "completed": "abgeschlossen",
+ "original backup retained at {path}": "Originalsicherung aufbewahrt unter {path}",
+ "could not retain recovery copy: {value}": "Wiederherstellungskopie konnte nicht aufbewahrt werden: {value}",
+ "no recovery copy is available": "Keine Wiederherstellungskopie verfügbar"
 }

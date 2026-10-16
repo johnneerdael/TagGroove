@@ -3,6 +3,7 @@ import { invoke as coreInvoke, isTauri, type InvokeArgs } from '@tauri-apps/api/
 import { buildFilterFields } from './filter-fields';
 import { documentSelection, refreshDocumentAccess, copyRequest, copyOutcome, reconcileDrafts, sourcePresentation, publicDocumentMessage, type DocumentAccess, type DocumentState } from './document-state';
 import { converterValidator, createConverterInputTracker, createConverterReview, type FilenameConversionRequest, type TextImportRequest, type FilenameConversionItem, type TextImportItem, type ConverterPreview } from './converter-review';
+import { converterRollbackError, converterRollbackText, type ConverterRollback } from './converter-errors';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getVersion } from '@tauri-apps/api/app';
@@ -85,7 +86,7 @@ type Fields = Record<string, string[]>;
 type Cover = CoverInfo;
 type Entry = { path: string; filename: string; format: string; duration: number; bitrate: number; sample_rate: number; channels: number; size: number; fields: Fields; technical?: Fields; covers: Cover[] };
 /** UI-owned labels are explicit; unmarked backend and directory paths remain data. */
-type FileError = { path: string; error: string; label?: string };
+type FileError = { path: string; error: string; label?: string; rollback?:ConverterRollback };
 type Batch = { entries: Entry[]; errors: FileError[]; renamed?: { from: string; to: string }[]; moved_directories?: {from:string;to:string}[]; outputs?: string[]; unmatched?: string[] };
 type Preview = { path: string; value: string };
 type RenamePreview = Preview & {plan_token:string};
@@ -996,7 +997,7 @@ function render() {
   <main class="workspace"><aside class="editor" aria-label="Tag editor"><div class="panel-title" ${compactScreen()?'':`title="Drag to dock the tag panel at another edge or to float it; double-click to ${dock==='float'?'dock it again':'float it'}"`}>Tag panel <span class="panel-count">${panelCount()}</span>${tagPanel.titleHTML()}</div>${sourceMarkup('tags')}<div class="fields">${tagPanel.fieldsHTML()}</div><div class="editor-actions">${button('save','Save tags')}${button('extended','Extended…')}</div>
   ${tagPanel.showCover?`<section class="cover-section" aria-label="Embedded artwork">${coverMarkup()}</section>`:''}</aside><div class="panel-splitter" role="separator" aria-orientation="${across?'horizontal':'vertical'}" aria-label="Tag panel ${across?'height':'width'}" aria-valuemin="${range[0]}" aria-valuemax="${range[1]}" tabindex="0"></div>
   <section class="files" aria-label="Audio files"><div class="location">${glyph(glyphOrganize)}${locationMarkup}<strong>${entries.size} file${entries.size===1?'':'s'}</strong></div>${sourceMarkup('files')}${filterInList?filterbar:''}<div class="table-wrap"><table aria-label="Audio metadata" aria-rowcount="${list.length+1}" style="width:${shownColumns.reduce((sum,c)=>sum+c.width,0)}px"><thead><tr>${headerMarkup(shownColumns,columnLayout.sort,!compactScreen())}</tr></thead><tbody></tbody></table>${!list.length ? emptyMarkup() : ''}</div><div class="selection-info">${selectionInfoMarkup(selectedEntries,list)}</div>
-  ${errors.length ? `<section class="errors" aria-label="Operation errors"><header>${errors.length} file error${errors.length===1?'':'s'}<button id="dismiss-errors">Dismiss</button></header>${errors.map(e => `<p><strong translate="no">${esc(e.label?translate(e.label):displayName(e.path))}:</strong> ${esc(publicMessage(e.error))}</p>`).join('')}</section>` : ''}</section></main><footer class="status ${busy?'busy':''}"><span class="status-dot" aria-hidden="true"></span><span class="status-message" role="status">${esc(status)}</span>${progressMarkup()}${drafts.size ? `<span class="dirty-count">${drafts.size} unsaved file${drafts.size===1?'':'s'}</span>` : ''}<span>${entries.size} files</span></footer></div>`;
+  ${errors.length ? `<section class="errors" aria-label="Operation errors"><header>${errors.length} file error${errors.length===1?'':'s'}<button id="dismiss-errors">Dismiss</button></header>${errors.map(e => `<p><strong translate="no">${esc(e.label?translate(e.label):displayName(e.path))}:</strong> ${e.rollback?`<span translate="no">${esc(converterRollbackText(e.rollback,t,translate))}</span>`:esc(publicMessage(e.error))}</p>`).join('')}</section>` : ''}</section></main><footer class="status ${busy?'busy':''}"><span class="status-dot" aria-hidden="true"></span><span class="status-message" role="status">${esc(status)}</span>${progressMarkup()}${drafts.size ? `<span class="dirty-count">${drafts.size} unsaved file${drafts.size===1?'':'s'}</span>` : ''}<span>${entries.size} files</span></footer></div>`;
   const wrap=document.querySelector<HTMLDivElement>('.table-wrap')!;
   wrap.querySelector('tbody')!.innerHTML=list.length?`<tr class="virtual-spacer" aria-hidden="true"><td colspan="${tableColumns().length}" style="height:${list.length*rowHeight}px"></td></tr>`:'';
   wrap.scrollTop=scrollTop;wrap.scrollLeft=scrollLeft;updateVirtualRows(true);
@@ -1508,6 +1509,18 @@ function reviewedConverter(kind:'filename'|'text') {
   const dialog=modal(title,`${content}<p class="converter-status" role="status" aria-live="polite">Run Preview to review every selected file.</p><div id="reviewed-preview" aria-label="Conversion preview"></div>`,
     `<button id="reviewed-preview-button">Preview</button><button class="primary" id="reviewed-apply" disabled></button>`);
   dialog.setAttribute('aria-label',title);
+  let rollbackFailure:ConverterRollback|undefined;
+  const refreshRollback=()=>{const el=dialog.querySelector('.dialog-error');if(rollbackFailure&&el)el.textContent=converterRollbackText(rollbackFailure,t,translate);};
+  const showError=(error:unknown)=>{
+    rollbackFailure=converterRollbackError(error);
+    modalError(dialog,rollbackFailure?converterRollbackText(rollbackFailure):error);
+    const el=dialog.querySelector('.dialog-error')!;
+    if(rollbackFailure){el.setAttribute('translate','no');refreshRollback();}else el.removeAttribute('translate');
+  };
+  const clearError=()=>{rollbackFailure=undefined;dialog.querySelector('.dialog-error')?.remove();};
+  const stopLanguage=onLanguageChange(refreshRollback);
+  dialog.addEventListener('close',stopLanguage,{once:true});
+
   const apply=dialog.querySelector<HTMLButtonElement>('#reviewed-apply')!,previewButton=dialog.querySelector<HTMLButtonElement>('#reviewed-preview-button')!;
   const previewArea=dialog.querySelector<HTMLDivElement>('#reviewed-preview')!,progress=dialog.querySelector<HTMLElement>('.converter-status')!;
   const closeButton=dialog.querySelector<HTMLButtonElement>('[data-close]')!;
@@ -1548,7 +1561,7 @@ function reviewedConverter(kind:'filename'|'text') {
   };
   const invalidate=(message='Inputs changed. Run Preview again.')=>{
     review.invalidate();window.clearTimeout(expiryTimer);previewArea.replaceChildren();
-    progress.textContent=message;dialog.querySelector('.dialog-error')?.remove();syncControls();
+    progress.textContent=message;clearError();syncControls();
   };
   const observeWorkspace=()=>{
     const next=context();
@@ -1573,7 +1586,7 @@ function reviewedConverter(kind:'filename'|'text') {
   dialog.querySelector('#pick-text-source')?.addEventListener('click',async()=>{
     invalidate('Choose a text source, then run Preview.');picking=true;syncControls();
     try{const source=await open({multiple:false,title:'Choose text import source'});if(dialog.open&&typeof source==='string'){dialog.querySelector<HTMLInputElement>('#text-source-path')!.value=source;inputsChanged(inputValues());}}
-    catch(error){if(dialog.open)modalError(dialog,error);}
+    catch(error){if(dialog.open)showError(error);}
     finally{picking=false;if(dialog.open){syncControls();dialog.querySelector<HTMLInputElement>('#text-source-path')!.focus({preventScroll:true});}}
   });
   const fieldRows=(fields:Fields)=>`<dl class="converter-values">${Object.entries(fields).map(([name,values])=>`<dt translate="no">${esc(name)}</dt><dd>${values.length?values.map((value,index)=>`<span>${values.length>1?`${index+1}. `:''}${value===''?'<em>(empty)</em>':`<span translate="no">${esc(value)}</span>`}</span>`).join(''):'<em>No values</em>'}</dd>`).join('')}</dl>`;
@@ -1587,39 +1600,40 @@ function reviewedConverter(kind:'filename'|'text') {
     try{
       inputsChanged(inputValues()); // Capture also acknowledges AX edits with deferred change events.
       const request=readRequest();attempt=review.begin(request,context());
-      window.clearTimeout(expiryTimer);previewArea.replaceChildren();dialog.querySelector('.dialog-error')?.remove();progress.textContent='Reading files and preparing preview…';syncControls();
+      window.clearTimeout(expiryTimer);previewArea.replaceChildren();clearError();progress.textContent='Reading files and preparing preview…';syncControls();
       const response=await invoke<ConverterPreview<Item>>(rename?'preview_filename_conversion':'preview_text_import',{request:attempt.request});
       if(!dialog.open)return;
       const markup=previewMarkup(response.items,response.unmatched??[]);
       if(!review.complete(attempt,response,readRequest(),context())){review.fail(attempt);return;}
       previewArea.innerHTML=markup;progress.textContent=`Reviewed ${response.items.length} file${response.items.length===1?'':'s'}${response.source_path?` from ${response.source_path}`:''}. Apply uses these exact results.`;
       expiryTimer=window.setTimeout(()=>{if(dialog.open)invalidate('The preview expired. Run Preview again.');},300_000);
-    }catch(error){if(dialog.open&&(!attempt||review.fail(attempt))){modalError(dialog,error);progress.textContent='Preview failed. Review the error and try again.';}}
+    }catch(error){if(dialog.open&&(!attempt||review.fail(attempt))){showError(error);progress.textContent='Preview failed. Review the error and try again.';}}
     finally{if(dialog.open){syncControls();if(restoreFocus&&(document.activeElement===dialog||document.activeElement===document.body))previewButton.focus({preventScroll:true});}}
   });
   apply.addEventListener('click',async()=>{
     let reviewed:ReturnType<typeof review.take>;
     apply.focus({preventScroll:true});
     try{if(busy)throw new Error('Wait for the current file operation to finish.');reviewed=review.take(readRequest(),context());}
-    catch(error){invalidate('Run Preview again before applying.');modalError(dialog,error);return;}
+    catch(error){invalidate('Run Preview again before applying.');showError(error);return;}
     applying=true;window.clearTimeout(expiryTimer);progress.textContent=rename?'Renaming reviewed files…':'Saving reviewed tag values…';syncControls();
-    let failure:string|undefined;
+    let failure:unknown;
     const result=await run(rename?'Renaming files…':'Importing text tags…',async()=>{
       try{
         const batch=await invoke<Batch>(rename?'apply_filename_conversion':'apply_text_import',{request:reviewed.request,planToken:reviewed.planToken});
         applyRenamed(batch);accept(batch,rename?'Renamed':'Imported text tags',false);return batch;
       }catch(error){
-        failure=String(error);
+        failure=error;
+        const rollback=converterRollbackError(error);
         try{accept(await invoke<Batch>('scan_files',{paths:reviewed.request.paths,recursive:false}),'Reloaded reviewed source files',false);}
         catch(reloadError){errors=[{path:'Reload',label:'Reload',error:String(reloadError)}];}
-        errors=[{path:'Conversion',label:'Conversion',error:failure},...errors];status='Conversion failed. Review file errors and run Preview again.';return undefined;
+        errors=[{path:'Conversion',label:'Conversion',error:rollback?converterRollbackText(rollback):String(error),rollback},...errors];status='Conversion failed. Review file errors and run Preview again.';return undefined;
       }
     });
     applying=false;
     if(!dialog.open)return;
     if(result&&!result.errors.length){dialog.close();return;}
     invalidate('Apply did not complete. Review the errors and run Preview again.');
-    modalError(dialog,failure||result?.errors.map(error=>`${error.path}: ${error.error}`).join('\n')||'Conversion did not complete. Run Preview again.');
+    showError(failure||result?.errors.map(error=>`${error.path}: ${error.error}`).join('\n')||'Conversion did not complete. Run Preview again.');
     previewButton.focus({preventScroll:true});
   });
   syncControls();dialog.querySelector<HTMLInputElement|HTMLSelectElement>(rename?'#old-pattern':'#text-source-kind')!.focus({preventScroll:true});

@@ -2764,5 +2764,9 @@
  "Undo history lock failed": "Ongedaanmaakgeschiedenis kon niet worden vergrendeld",
  "json_foreach_counter outside json_foreach": "json_foreach_counter buiten json_foreach",
  "json_foreach_end without a running json_foreach": "json_foreach_end zonder actieve json_foreach",
- "json_foreach_end without json_foreach": "json_foreach_end zonder json_foreach"
+ "json_foreach_end without json_foreach": "json_foreach_end zonder json_foreach",
+ "completed": "voltooid",
+ "original backup retained at {path}": "Originele reservekopie behouden op {path}",
+ "could not retain recovery copy: {value}": "Herstelkopie kon niet worden behouden: {value}",
+ "no recovery copy is available": "Er is geen herstelkopie beschikbaar"
 }

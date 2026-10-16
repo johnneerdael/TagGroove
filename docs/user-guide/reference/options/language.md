@@ -31,7 +31,9 @@ selected by **System default**. A settings-read failure tries the device's last
 remembered language; unavailable catalogs follow the fallback rules below.
 
 Error headings for application operations follow the selected language. Actual
-file and directory names in the error list keep their spelling.
+file and directory names in the error list keep their spelling. Converter rollback
+summaries translate their outcome and recovery wording in both the dialog and
+error list, while paths and operating-system details retain their spelling.
 
 Application-owned accessible labels follow the selected language too, including
 cover types and states. Type labels in the cover viewer and **Extract cover**
