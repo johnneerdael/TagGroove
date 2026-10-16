@@ -106,7 +106,7 @@
   },
   "page_sha256": {
     "learn/tags-from-filenames.md": "d6378c56430f651140285c2420dc26a390e8ece34c2582aec231b635b5bd81f7",
-    "learn/clean-a-messy-library.md": "931c5d45d5a3d1a81b7278e6605040382a93c15349d05da0921b246477aa1aca",
+    "learn/clean-a-messy-library.md": "03884b1c092381bb56475d92a8de35028b001a5d9225d49b9e2589962746bd97",
     "learn/give-every-album-a-cover.md": "8bc80fe8b840afdb878214e32ad3e0ece2db73c935cff30808a43acb1c0430f3"
   },
   "application_source_sha256": {
@@ -134,7 +134,7 @@
       "passed": 7,
       "command": "CARGO_TARGET_DIR=/tmp/opentag-guide-combined-target TMPDIR=/tmp/opentag-guide-learn-workflows-tmp AR=/usr/bin/ar cargo test -p tag-core --test learn_workflow_guide --locked",
       "binary": "/tmp/opentag-guide-combined-target/debug/deps/learn_workflow_guide-f3cb91e1f61b47f6",
-      "binary_sha256": "68016d947d416d915ae5a6c4f4330512ba39add801a658119ed2c28dbdd16636",
+      "binary_sha256": "5bfd1f7e9d35084cc550acc02575cce1998432cd525bc05bd35136d28a727e97",
       "cases": [
         "filename_lesson_written_layout_and_simple_captures_match_without_fabricating_other_fields",
         "cover_lesson_written_count_snapshots_distinguish_embedded_entries_from_folder_images",
@@ -177,7 +177,7 @@
       "ready": 158,
       "drafts": 29,
       "sections": 1321,
-      "search_sha256": "2f73c3c10fd05c06e0698ce872ed0d5e9d0cd5bf9ad9fc16897ed5a9c15d1bec",
+      "search_sha256": "29e0fd7fdc0dfc9f27945bc803b193f9c0cc9255bef68431c5de48a9918a367a",
       "previous155_order_retained": true,
       "nav_search_exact": true,
       "draft_leaks": 0
@@ -470,5 +470,19 @@
     "21local completed chapters unpublished;public137actual receipt preserved",
     "OriginalP2/REA and pending source17\u201320 behavior untouched",
     "No nativeOS/personal collection/provider/player runtime claim"
-  ]
+  ],
+  "peer_followup": {
+    "reviewed_head": "e5209a03b1e14a60e29ad4eec77d00e50b4d911a",
+    "finding": "P3 stale draft-outline footer after completed Next steps",
+    "resolution": "Removed only orphaned outline and Until then draft text; substantive instructions, examples and links unchanged.",
+    "qualification": "Fresh narrow native example/strict/publication validation and independent follow-up required before clean acceptance.",
+    "validation": {
+      "core": "Fresh7cases on corrected embedded page; binary hash updated",
+      "strict": "FreshPASS158routes1321sections",
+      "publication": "Fresh8PASS",
+      "generated_html": "Stale Until then and draft-outline text absent; four substantive Next steps links retained",
+      "unchanged_controls": "Appsource/examples/testsource identicale520; prior50model and10browser checks retained as e520 qualification, not rerun at follow-up",
+      "original_checkpoint_archive": "/tmp/opentag-guide-learn-e520-evidence"
+    }
+  }
 }

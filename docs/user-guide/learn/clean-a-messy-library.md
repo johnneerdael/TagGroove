@@ -196,8 +196,3 @@ group blindly to a whole mixed collection.
 - [Find missing fields](../cookbook/find-missing-fields.md): distinguish absent fields, empty values and useful queries.
 - [Number tracks per folder](../cookbook/number-tracks-per-folder.md): handle more than one album after reviewing boundaries.
 - [Remove reviewed junk fields](../cookbook/remove-junk-fields.md): design a deliberate retention policy.
-
-    - Survey with columns + filter, fix case, trim spaces, remove junk fields, unify album artist, number tracks, rename
-    - Build it as a reusable action group
-
-    Until then, the [reference section](../reference/index.md) has the details.
