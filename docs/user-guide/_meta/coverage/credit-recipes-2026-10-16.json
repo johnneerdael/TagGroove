@@ -82,14 +82,15 @@
       "routes": 143,
       "entries": 1181,
       "nav_search_exact": true,
-      "search_sha256": "8ee197e1a83468f12c03921a61edb0d5199586b86dde71b06f341b8c13ba22c8"
+      "search_sha256": "df047f560bfa4d58e4fb86b012ae89600fec1d37735c558689a2b1217e7eb0d6"
     },
     "browser": {
       "receipt": "/tmp/opentag-guide-credit-recipes-browser/results.json",
       "checks": 8,
       "errors": 0,
       "scope": "Actual generated-doc8copycontrols, renderedtables,390px three-page reading, horizontal wheel, light/dark, relatedlink and search; guide owner viewed final samples. No public143/native qualification. Metadata card layout checked4paragraphs per recipe.",
-      "prior_sample": "before-card-layout/ retains pre-layout successful sample; final sample follows paragraph spacing correction."
+      "prior_sample": "before-card-layout/ retains pre-layout successful sample; final sample follows paragraph spacing correction.",
+      "bounds": "Final sort-spacing prose clarified after sampled browser run; expressions/tables/layout unchanged, focused5 core and strictbuild rerun. Browser evidence is sampled reading/navigation, not exhaustive semantic verification."
     },
     "caught_local_example_error": "The initial uncommitted preview used two apostrophes for an empty replacement, which actual evaluator returned as a literal apostrophe. Corrected written formula to an empty third argument and explained the distinction; all5 tests then passed. No product/source change or published erroneous recipe."
   },
