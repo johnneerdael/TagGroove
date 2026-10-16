@@ -43,13 +43,31 @@ Export docs: "The default file name and/or file extension can be set from the ex
 Before, choosing a configuration left the name field alone. A typed name replaced `$filename` completely, so an HTML configuration chosen after `export.txt` was written to `export.txt`. Now choosing a configuration (and New, Import and Remove, which select one) prefills the field the way Mp3tag does (`configurationFilename` in `export-ui.ts`):
 
 - `$filename(html,…)`: the current name gets that extension (`export.txt` → `export.html`; `C:\Lists\%album%.txt` → `C:\Lists\%album%.html`).
-- `$filename(tracks.cue)`: a bare name replaces the file name and keeps the current folder. A name with a folder, a drive, or a leading `%_workingpath%`/`%_folderpath%` replaces the whole field.
+- `$filename(tracks.cue)`: a bare name replaces the file name and keeps the current folder. A name with a folder or a drive replaces the whole field.
+- A first argument with placeholders, functions or quotes (`$filename(%EXPORT_NAME%,utf-8)`) clears the field. The engine then evaluates `$filename` for each export. Prefilling the raw text would have sent it as a typed name: `out.%EXPORT_NAME%`, written as `out.report.csv` instead of `report.csv` (Codex review finding).
 - A configuration without `$filename`, or with an empty first argument, keeps the field ("the previously used file name").
 - An empty field stays empty. It already means "the configuration's default" (`export.txt` with `$filename` applied).
 
 A name the user then types is final, as in Mp3tag. The `$filename` encoding still applies to it. The rendering core is unchanged: `filename_override` is the final name.
 
-Tests: `choosing a configuration prefills the export file name from its $filename` (`tests/export-ui.test.mjs`).
+Tests: `choosing a configuration prefills the export file name from its $filename` (`tests/export-ui.test.mjs`) and `a_dynamic_filename_argument_is_evaluated_when_no_name_is_typed` (tag-core export).
+
+### Final review follow-up, 2026-10-16
+
+Preserved the existing main refresh at `684f2ff` and the uncommitted review
+fixes handed over by the previous owner. Reproduced the current Codex finding
+against the old production helper: the dynamic argument prefills
+`out.%EXPORT_NAME%`. The corrected helper leaves it empty, and the actual
+renderer produces `report.csv` when that field contains `report.csv`.
+
+Validation on macOS arm64 with Rust 1.99 and an isolated temporary directory:
+316 UI tests, 700 Rust tests and all 29 focused export tests passed; four
+opt-in Rust cases remain ignored. Production build, workspace Clippy with
+warnings denied, formatting, eight publication tests, strict guide build,
+writing-plan validation and diff checks passed. No OpenTag application launch
+or original-Mp3tag runtime comparison was performed. Affected guide briefs
+record the new behavior while retaining their draft status; this does not
+claim those larger chapters are complete or publicly published.
 
 ## Default encodings
 

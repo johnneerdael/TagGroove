@@ -641,3 +641,22 @@ fn working_folder_reaches_the_export_body_and_file_name() {
     .unwrap();
     assert_eq!(docs[0].text, "Second");
 }
+
+#[test]
+fn a_dynamic_filename_argument_is_evaluated_when_no_name_is_typed() {
+    // The dialog clears its field for such configurations; no override is sent.
+    let mut single = rows();
+    single.truncate(1);
+    single[0]
+        .fields
+        .insert("EXPORT_NAME".into(), vec!["report.csv".into()]);
+    let options = ExportOptions {
+        filename: "export.txt".into(),
+        base_directory: "/out".into(),
+        ..options()
+    };
+    let template = "$filename(%EXPORT_NAME%,utf-8)$loop(1)%title%$loopend()";
+    let docs = render_export(template, &single, &options).unwrap();
+    assert_eq!(docs[0].filename, "/out/report.csv");
+    assert_eq!(docs[0].encoding, "utf-8");
+}

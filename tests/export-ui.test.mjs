@@ -46,9 +46,12 @@ test('choosing a configuration prefills the export file name from its $filename'
  assert.equal(configurationFilename('C:\\Lists\\%album%.txt',html),'C:\\Lists\\%album%.html');
  assert.equal(configurationFilename('/lists/name',' $FILENAME(csv)'),'/lists/name.csv');
  assert.equal(configurationFilename('/lists/v1.0/export.txt','\uFEFF$filename(tracks.cue,utf-8)'),'/lists/v1.0/tracks.cue');
- assert.equal(configurationFilename('out/export.txt','$filename(%_workingpath%list.m3u)'),'%_workingpath%list.m3u');
  assert.equal(configurationFilename('out/export.txt','$filename(/abs/list.json)'),'/abs/list.json');
- assert.equal(configurationFilename('out/export.txt','$filename($lower(%album%).htm,ansi)'),'out/$lower(%album%).htm');
+ assert.equal(configurationFilename('C:\\Out\\export.txt','$filename(D:\\Lists\\all.htm)'),'D:\\Lists\\all.htm');
+ // A dynamic first argument is left to the export: the field is cleared, so no
+ // typed name replaces it (out.%EXPORT_NAME% would have written out.report.csv).
+ for(const template of ['$filename(%EXPORT_NAME%,utf-8)','$filename(%_workingpath%list.m3u)','$filename($lower(%album%).htm,ansi)',"$filename('list (all)'.txt)",'$filename($if(%album%,csv,txt))'])
+  assert.equal(configurationFilename('out.txt',template),'',template);
  // No $filename, an empty argument or an empty field (the configuration's default) keeps the field.
  assert.equal(configurationFilename('out/export.txt','$loop(1)%title%$loopend()'),'out/export.txt');
  assert.equal(configurationFilename('out/export.txt','$filename(,utf-16)body'),'out/export.txt');

@@ -27,8 +27,10 @@ export function removeExportConfiguration(library:ExportLibrary,id:string):Expor
 /**
  * The export file name after choosing a configuration, as Mp3tag prefills it:
  * `$filename(ext)` gives the current name that extension, `$filename(name)`
- * replaces the name (a bare name stays in the current folder). Without
- * `$filename`, or with an empty field (the configuration's default), the field is kept.
+ * replaces the name (a bare name stays in the current folder). A first argument
+ * with placeholders, functions or quotes is evaluated per export, so the field
+ * is cleared to leave it to the configuration. Without `$filename`, or with an
+ * empty field (the configuration's default), the field is kept.
  */
 export function configurationFilename(current:string,template:string):string {
   const head=template.replace(/^\uFEFF/,'').trimStart();
@@ -43,13 +45,14 @@ export function configurationFilename(current:string,template:string):string {
   }
   argument=argument.trim();
   if(!argument)return current;
+  // Only a literal name can be shown; a typed name would replace the evaluated one.
+  if(/[%$']/.test(argument))return '';
   const leaf=Math.max(current.lastIndexOf('/'),current.lastIndexOf('\\'))+1;
   if(!/[./\\:]/.test(argument)){
     const dot=current.lastIndexOf('.');
     return `${dot>leaf?current.slice(0,dot):current}.${argument}`;
   }
-  const folder=/[/\\]/.test(argument)||/^([A-Za-z]:|%_(working|folder)path%)/i.test(argument);
-  return folder?argument:current.slice(0,leaf)+argument;
+  return /[/\\]/.test(argument)||/^[A-Za-z]:/.test(argument)?argument:current.slice(0,leaf)+argument;
 }
 
 type ExportHost={
