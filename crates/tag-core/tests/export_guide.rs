@@ -135,7 +135,7 @@ fn csv_template_doubles_embedded_quotes_and_matches_its_written_records() {
         row.fields
             .insert("TITLE".into(), vec!["Paper, \"folded\" Boats".into()]);
         row.fields.insert("TRACK".into(), vec!["03".into()]);
-        let doc = render_export(&examples[0], &[row], &options())
+        let doc = render_export(&examples[0], std::slice::from_ref(&row), &options())
             .unwrap()
             .remove(0);
         assert_eq!(doc.filename, "/Reports/catalogue.csv");
@@ -148,6 +148,11 @@ fn csv_template_doubles_embedded_quotes_and_matches_its_written_records() {
             encode_export_document(&doc, None).unwrap(),
             doc.text.as_bytes()
         );
+        row.fields.insert("TRACK".into(), vec!["03\"take".into()]);
+        let doc = render_export(&examples[0], &[row], &options())
+            .unwrap()
+            .remove(0);
+        assert!(doc.text.ends_with(",\"03\"\"take\"\r\n"), "{}", doc.text);
     });
 }
 

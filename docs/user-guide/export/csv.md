@@ -47,14 +47,15 @@ Duplicate a configuration before replacing its template. This one exports
 Artist, Title and Track with an explicit header and CRLF records:
 
 ```text
-$filename(csv,utf-8)"Artist","Title","Track"$char(13)$char(10)$loop(1)"$replace(%artist%,","")","$replace(%title%,","")","%track%"$char(13)$char(10)$loopend()
+$filename(csv,utf-8)"Artist","Title","Track"$char(13)$char(10)$loop(1)"$replace(%artist%,","")","$replace(%title%,","")","$replace(%track%,","")"$char(13)$char(10)$loopend()
 ```
 
 The first quoted row is literal text outside the loop, so it appears once.
 Each loop iteration wraps the field in double quotes. `$replace` changes every
 embedded `"` to `""`; the surrounding CSV quotes are then added by the template.
-`TRACK` is normally a numeric/slash value. If extending this pattern to any
-arbitrary text field, apply the same quote-doubling expression to it too.
+Every field uses that rule, including `TRACK`: metadata remains editable text
+even when it usually contains a number. For example, `TRACK = 03"take` becomes
+the CSV cell `"03""take"`. Apply the same escaping when adding another field.
 
 For one track with artist Juniper Vale, title `Paper, "folded" Boats` and
 track `03`, the records are:

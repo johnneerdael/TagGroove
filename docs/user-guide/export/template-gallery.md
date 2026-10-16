@@ -78,3 +78,12 @@ boundaries inside a long recording.
 Keep the unmodified copy of a working template. A template that renders
 without an error can still choose the wrong grouping key, repeat headers,
 point to nonexistent images or produce a format the receiver cannot parse.
+
+## External starting points
+
+The [Mp3tag Community export configuration archive](https://community.mp3tag.de/t/export-configuration-archive/1495)
+links to community templates for other report styles. Inspect a template and
+its companion files before adapting it. Import and editing workflows, supported
+syntax and output assumptions can differ in OpenTag. Test a small selection and
+inspect the actual report; inclusion in that archive does not establish that
+every template works unchanged here.

@@ -139,6 +139,11 @@
       "fact": "HTML text escaping with a worked punctuation example",
       "guide_page": "export/template-gallery.md",
       "section": "A small HTML catalogue"
+    },
+    {
+      "fact": "Qualified further-reading pointer to the community export-template archive, with inspect/adapt/test guidance",
+      "guide_page": "export/template-gallery.md",
+      "section": "External starting points"
     }
   ],
   "source_traces": [
@@ -153,8 +158,8 @@
   "page_sha256": {
     "export/index.md": "52721dde5dbf7d5322c2de05fe7a578f9f4e6befe291fb352fef5db1d6b8efb9",
     "export/template-language.md": "85540e889ed72dd582433a73edcc2a8907087819c95c2977c7815705994fa48d",
-    "export/csv.md": "badb1bf430702bb96629ab84abd3942f9aa88e207a935ab12ef29495ead3cdbd",
-    "export/template-gallery.md": "815b9d958a8b69f68017eaa8e94989130180a26b54afd73e47666051acae9356",
+    "export/csv.md": "1f748f994e257f80c544d1afa5b97e41edeb50dbb01fd06ed03a0135f0b3915b",
+    "export/template-gallery.md": "b3b58bf343b3fcb1f2ed3a49f1bb92a8c4cc53f19b7c1cf9512501ad73744780",
     "learn/export-a-cd-catalogue.md": "5721a987732a6fe93937cadb178450004c4d216cad1e921577397a960a9272a0"
   },
   "validation": {
@@ -162,9 +167,10 @@
     "existing_tests": "26 export renderer tests passed",
     "strict_build": "passed",
     "publication_tests": "8 passed",
-    "independent_review": "pending; no external clean-review claim",
+    "independent_review": "Root finite read-only canonical/source review completed: TRACK escaping finding reproduced before docs fix; other reviewed canonical topics/six commands had no established defect. No native UI/runtime validation claim.",
     "formatting": "full cargo fmt check passed",
-    "clippy": "focused export_guide passed"
+    "clippy": "focused export_guide passed",
+    "csv_regression": "Actual documented template with editable TRACK=03\"take failed before correction and passes now under LF and CRLF; four focused guide tests, strict build and focused clippy passed."
   },
   "limits": [
     "Source/core examples only; no application launch, native runtime or public deployment",
@@ -172,5 +178,10 @@
     "Original Edit-button workflow is explained using current inline editor controls",
     "Bundled JSON control-character completeness is not certified; receiving-program validation remains explicit",
     "Existing application and P2 implementation findings remain untouched"
-  ]
+  ],
+  "external_resource": {
+    "url": "https://community.mp3tag.de/t/export-configuration-archive/1495",
+    "verified_date": "2026-10-16",
+    "scope": "Resource pointer verified, no downloaded templates or compatibility certification"
+  }
 }
