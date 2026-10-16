@@ -87,8 +87,9 @@ Import Cover and Export Cover action pages. The other unfinished action
 references remain drafts and outside the published navigation. The strict
 guide build, eight publication tests, writing-plan check and 60 review-gate
 tests passed. The TypeScript/Vite build and all 312 JavaScript tests passed.
-The integrated Rust workspace passed 706 tests with four live-network tests
-ignored. It ran with a separate `TMPDIR` and one test thread to keep undo
+The integrated Rust workspace passed 706 tests with four tests ignored:
+two live-provider checks, a real-system-trash probe and a filter benchmark.
+It ran with a separate `TMPDIR` and one test thread to keep undo
 journals separate from concurrent worktree checks.
 
 
