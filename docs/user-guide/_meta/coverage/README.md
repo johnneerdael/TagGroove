@@ -294,3 +294,11 @@ recipe wording finding is corrected separately and its original receipt kept.
 Historical local-only milestones above remain provenance, not current approval
 or publication claims. The candidate still requires external review, trusted
 validation, approved merge and actual expanded Pages verification.
+
+## Language integration on the reviewed 127-page guide
+
+PR17 integrates main `3f6639c` once, preserving all thirty PR31 chapters,
+their tests and navigation. Its two implemented Language pages bring the
+combined source to 129 current pages and 58 drafts. The existing guide JSON
+receipts retain their historical source hashes and counts. This integration
+requires its own exact-head review and trusted validation before publication.
