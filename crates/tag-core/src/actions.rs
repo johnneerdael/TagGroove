@@ -645,7 +645,10 @@ fn decode_codepage(value: &str, codepage: &str) -> Result<String, String> {
             let text = c.to_string();
             let (encoded, _, lossy) = encoding_rs::WINDOWS_1252.encode(&text);
             if lossy {
-                return Err(format!("Character {c:?} has no legacy byte representation"));
+                return Err(format!(
+                    "Character {value:?} has no legacy byte representation",
+                    value = c
+                ));
             }
             bytes.extend_from_slice(&encoded);
         }
@@ -1379,7 +1382,7 @@ impl MtaSettings<'_> {
         match self.optional(key).as_deref() {
             None | Some("0") => Ok(false),
             Some("1") => Ok(true),
-            Some(other) => Err(format!("Unknown flag {other:?} in setting {key}")),
+            Some(value) => Err(format!("Unknown flag {value:?} in setting {key}")),
         }
     }
     /// An ID3 picture type number (0–20); absent or empty means none.
@@ -1547,7 +1550,7 @@ fn mta_action(record: &MtaRecord) -> Result<ActionSpec, String> {
                 "0" => CoverImageFormat::Original,
                 "1" => CoverImageFormat::Jpeg,
                 "2" => CoverImageFormat::Png,
-                other => return Err(format!("Unknown cover format {other:?}")),
+                format => return Err(format!("Unknown cover format {format:?}")),
             };
             let quality = settings
                 .required("2")?
@@ -1566,13 +1569,13 @@ fn mta_action(record: &MtaRecord) -> Result<ActionSpec, String> {
                     size_mode: match settings.required("4")?.as_str() {
                         "0" => CoverSizeMode::Maximum,
                         "1" => CoverSizeMode::Minimum,
-                        other => return Err(format!("Unknown cover size mode {other:?}")),
+                        mode => return Err(format!("Unknown cover size mode {mode:?}")),
                     },
                     scale_mode: match settings.required("5")?.as_str() {
                         "0" => CoverScaleMode::Proportional,
                         "1" => CoverScaleMode::Square,
                         "2" => CoverScaleMode::CropSquare,
-                        other => return Err(format!("Unknown cover scale mode {other:?}")),
+                        mode => return Err(format!("Unknown cover scale mode {mode:?}")),
                     },
                 })
             };
@@ -2436,6 +2439,44 @@ mod tests {
         assert_eq!(state.fields["TITLE"], ["Song"]);
     }
     #[test]
+    fn technical_action_diagnostics_preserve_authored_tokens() {
+        assert_eq!(
+            decode_codepage("λ", "1251").unwrap_err(),
+            "Character 'λ' has no legacy byte representation"
+        );
+        assert_eq!(
+            decode_codepage("\u{d5}", "857").unwrap_err(),
+            "Byte 0xD5 is undefined in codepage 857"
+        );
+        assert_eq!(
+            apply_action_spec(
+                &mut state(),
+                &ActionSpec::RegexReplace {
+                    field: "_CUSTOM".into(),
+                    pattern: "a".into(),
+                    replacement: "b".into(),
+                    case_sensitive: true
+                }
+            )
+            .unwrap_err(),
+            "Unsupported action selector _CUSTOM"
+        );
+        for token in ["Title", "Help", "My  Mode"] {
+            assert_eq!(
+                decode_codepage("abc", token).unwrap_err(),
+                format!("Unsupported codepage {token}")
+            );
+            assert_eq!(
+                from_quick_action(&Action::Case {
+                    field: "TITLE".into(),
+                    mode: token.into()
+                })
+                .unwrap_err(),
+                format!("Unsupported case mode {token}")
+            );
+        }
+    }
+    #[test]
     fn codepage_conversion_recovers_known_legacy_bytes_losslessly() {
         assert_eq!(
             decode_codepage("\u{cf}\u{f0}\u{e8}\u{e2}\u{e5}\u{f2}", "1251").unwrap(),
@@ -2678,6 +2719,41 @@ mod tests {
         assert!(
             matches!(&imported.group.actions[1],ActionSpec::Replace{from,to,..}if from=="ß"&&to=="ss ")
         );
+    }
+    #[test]
+    fn imported_action_diagnostics_preserve_quoted_tokens_and_unknown_type_ids() {
+        for (text, expected) in [
+            (
+                "[#0]\nT=Title",
+                "Numeric action type Title has no known settings schema",
+            ),
+            (
+                "[#0]\nT=4\nF=TITLE\n1=a\n3=Title",
+                "Unknown flag \"Title\" in setting 3",
+            ),
+            (
+                "[#0]\nT=2\nF=TITLE\n1=a\n2=b\n3=Title",
+                "Unknown Replace flags \"Title\"",
+            ),
+            (
+                "[#0]\nT=1001\n1=Title\n2=90",
+                "Unknown cover format \"Title\"",
+            ),
+            (
+                "[#0]\nT=1001\n1=0\n2=90\n3=100\n4=Title\n5=0",
+                "Unknown cover size mode \"Title\"",
+            ),
+            (
+                "[#0]\nT=1001\n1=0\n2=90\n3=100\n4=0\n5=Title",
+                "Unknown cover scale mode \"Title\"",
+            ),
+        ] {
+            let imported = import_mta("Unknown".into(), text.as_bytes(), None).unwrap();
+            assert_eq!(imported.issues[0].reason, expected);
+            assert!(validate_action(&imported.group.actions[0])
+                .unwrap_err()
+                .ends_with(expected));
+        }
     }
     #[test]
     fn mta_unknown_types_flags_and_modes_are_retained_without_guessing() {

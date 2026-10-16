@@ -12,7 +12,7 @@ const moduleUrl=async(file,replacements={})=>{
 };
 const load=async file=>import(await moduleUrl(file));
 const {Translator,catalogMeta}=await load('i18n/core.ts'),{DomTranslator}=await load('i18n/dom.ts');
-const {controlMarkup,OptionsUI,defaultSettings,registerOptionsPage,windowTitle}=await load('options-ui.ts');
+const {controlMarkup,OptionsUI,defaultSettings,registerOptionsPage,windowTitle,parseExtensions}=await load('options-ui.ts');
 const {ColumnUI,defaultLayout,setColumnNameTranslation,columnName,headerMarkup,editKey}=await load('columns.ts'),{ActionUI,panelKey}=await load('action-ui.ts');
 const {CellEditor}=await load('cell-editor.ts');
 const {TagPanel,defaultLayout:defaultPanelLayout,defaultSettings:defaultPanelSettings,settingsError}=await load('tag-panel.ts');
@@ -256,6 +256,43 @@ test('tag-panel validation keeps technical field keys raw while shortcut labels 
   const custom={ARTIST:'Performer',...Object.fromEntries(messages.map(key=>[key,`Field ${key}`])),'@keys':{Ctrl:'Control'}};
   for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]])for(const [index,values] of [Array.from({length:5001},(_,i)=>String(i)),[' padded'],['same','same']].entries()){
     const p=page();try{const settings=defaultPanelSettings();settings.field_values.lists.ARTIST=values;p.body.textContent=settingsError(settings);const t=p.translate(locale,catalog);assert.equal(p.body.textContent,t.t(messages[index],{key:'ARTIST'}));assert.equal(t.translate('Ctrl S'),locale==='de'?'Strg S':locale==='en'?'Control S':'Ctrl S');}finally{p.close();}
+  }
+});
+test('tag-panel validation preserves invalid identifiers and whitespace in field and custom-value diagnostics',()=>{
+  const cases=[['ARTIST ','Field "{id}" must be a trimmed uppercase field name.'],[' TITLE','Field "{id}" must be a trimmed uppercase field name.'],['ARTIST=','Field "{id}" contains an invalid character.'],['TITLE%','Field "{id}" contains an invalid character.'],['_LENGTH','{id}: technical fields cannot be edited in the tag panel.']];
+  const custom={ARTIST:'Performer',TITLE:'Heading','ARTIST=':'Wrong artist','TITLE%':'Wrong title',_LENGTH:'Wrong length',...Object.fromEntries(cases.map(([,key])=>[key,`Invalid identifier: {id}`]))};
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]])for(const [id,key] of cases)for(const target of ['field','list']){
+    const p=page();try{
+      const settings=defaultPanelSettings();
+      if(target==='field')settings.panel.fields[0].field=id;else settings.field_values.lists[id]=['Value'];
+      p.body.textContent=settingsError(settings);const t=p.translate(locale,catalog);
+      assert.equal(p.body.textContent,t.t(key,{id}));assert.ok(p.body.textContent.includes(id));
+      p.translate('en');assert.equal(p.body.textContent,key.replace('{id}',id));
+    }finally{p.close();}
+  }
+});
+test('extension validation preserves the exact invalid token through localized error rendering',()=>{
+  const key='Invalid file extension: {item}',custom={'(empty)':'(missing)',[key]:'Invalid extension token: {item}'};
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]]){
+    const p=page();try{
+      assert.throws(()=>parseExtensions('*.mp3;(empty)'),error=>{
+        p.body.textContent=error.message;const t=p.translate(locale,catalog);
+        assert.equal(p.body.textContent,t.t(key,{item:'(empty)'}));return true;
+      });
+    }finally{p.close();}
+  }
+});
+test('real tag-panel and extended-tag dialogs preserve technical tokens under supported custom catalogs',()=>{
+  const paragraph=Object.keys(catalogs.de).find(key=>key.startsWith('Choose the fields shown on the tag panel.'));
+  const caption='Extended tags — {tag} — {name}',custom={[paragraph]:'Special fields: {DIRECTORY} and {SEPARATOR}',[caption]:'Tags: {tag} / {name}',_DIRECTORY:'Wrong field',_SEPARATOR:'Wrong separator','ID3v2.4':'Wrong tag',Help:'Assistance'};
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]]){
+    const p=page();try{
+      const panel=new TagPanel({values:()=>[],disabled:()=>false,directories:()=>({selected:[],all:[]})});panel.configure();const t=p.translate(locale,catalog);
+      assert.equal(p.body.querySelector('.dialog-content > p').textContent,t.t(paragraph,{DIRECTORY:'_DIRECTORY',SEPARATOR:'_SEPARATOR'}));
+      p.body.querySelector('dialog').close();
+      const extended=new ExtendedTags({selection:()=>['Help'],listed:()=>['Help'],fields:()=>({TITLE:['Help']}),describe:()=>({name:'Help',tag:'ID3v2.4'}),modal:modal(p),coverMarkup:()=>'',bindCover:()=>{}});extended.show();p.translate(locale,catalog);
+      assert.equal(p.body.querySelector('dialog header').textContent,t.t(caption,{tag:'ID3v2.4',name:'Help'}));
+    }finally{p.close();}
   }
 });
 test('mapping validation translates generated row labels while preserving authored field identifiers',async()=>{

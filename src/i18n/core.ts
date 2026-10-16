@@ -14,7 +14,7 @@ const PLACEHOLDER = /\{([A-Za-z][A-Za-z0-9]*)\}/g;
 const PLURAL_CATEGORIES = new Set(['zero', 'one', 'two', 'few', 'many', 'other']);
 /** Data identities (files, fields, configuration keys) and authored text are never looked up themselves.
  * The audited backend source role names mapped fields, export configurations and action-context keys. */
-const VERBATIM = /^(name|nameOf|path|filename|fileName|location|outputPath|destination|source|sourcePath|directory|folder|value|values|names|text|field|key|current|query|term|pattern|format|template|title)\d*$/;
+const VERBATIM = /^(name|nameOf|path|file|filename|fileName|location|outputPath|destination|source|sourcePath|directory|folder|url|extension|tag|selector|DIRECTORY|SEPARATOR|value|values|names|text|field|key|id|typeId|codepage|mode|item|scheme|byte|flags|current|query|term|pattern|format|template|title)\d*$/;
 
 // Key combinations as menus and tooltips show them: ⌘/Ctrl ⇧ S, Alt+Enter, Ctrl Num +.
 const SHORTCUT = /^(?:(?:⌘|⌥|⇧|⌃|⌫|Ctrl|Alt|Shift|Option|Cmd|Del|Num|Enter|Esc|Tab|Space|Page Up|Page Down|Home|End|Ins|F\d{1,2}|[A-Z0-9]|[←→↑↓+\/·]|,)[\s+/]*)+$/;

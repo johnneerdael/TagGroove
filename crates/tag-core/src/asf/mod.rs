@@ -337,11 +337,11 @@ fn apply_fields(asf: &mut Asf, updates: &Fields) -> Result<Fields, String> {
             (None, Some(template)) => template.name.clone(),
             (None, None) => field.clone(),
         };
-        if let Some(other) = mapping::asf_name(&name)
+        if let Some(field2) = mapping::asf_name(&name)
             .filter(|f| !values.is_empty() && !f.eq_ignore_ascii_case(field))
         {
             return Err(format!(
-                "{field} has no separate ASF attribute; {name} holds {other}"
+                "{field} has no separate ASF attribute; {name} holds {field2}"
             ));
         }
         let rating = name.eq_ignore_ascii_case(RATING);

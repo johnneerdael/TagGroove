@@ -516,6 +516,14 @@ mod tests {
     }
 
     #[test]
+    fn nonlocal_uri_diagnostics_preserve_the_authored_scheme() {
+        assert_eq!(
+            entry_candidates("Title://song", Path::new(".")).unwrap_err(),
+            "Title://song: only local files can be loaded, not Title URLs"
+        );
+    }
+
+    #[test]
     fn m3u_entries_skip_comments_and_extended_info() {
         let text =
             "\u{feff}#EXTM3U\r\n#EXTINF:12,A - B\r\n01 a.mp3\r\n\r\n  sub/02 b.flac  \n# note\n";

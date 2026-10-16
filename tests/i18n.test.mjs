@@ -75,6 +75,46 @@ test('all backend source-role diagnostics preserve field identities and authored
     }
   }
 });
+test('every cataloged identifier role retains authored spelling and whitespace',()=>{
+  const keys=Object.keys(english).filter(key=>/\{id\d*\}/.test(key));
+  assert.equal(keys.length,13,'Audit added identifier producers before changing their data role');
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',{...Object.fromEntries(keys.map(key=>[key,`Identifier: {id}`])),Help:'Assistance',ARTIST:'Performer'}]])for(const key of keys)for(const id of ['Help','ARTIST','My  Identifier']){
+    const params=Object.fromEntries([...placeholders(key)].map(name=>[name,name==='id'?id:'41'])),message=new Translator('en').t(key,params),t=new Translator(locale,catalog);
+    assert.equal(t.translate(message),t.t(key,params));
+    assert.ok(t.translate(message).includes(id));
+  }
+});
+test('technical action tokens, extension tokens and URI schemes remain verbatim inside diagnostics',()=>{
+  const roles=new Set(['codepage','mode','typeId','item','scheme','byte','flags']),keys=Object.keys(english).filter(key=>[...placeholders(key)].some(role=>roles.has(role)));
+  const custom={...Object.fromEntries(keys.map(key=>[key,`Diagnostic: ${[...placeholders(key)].map(role=>`{${role}}`).join(' | ')}`])),Title:'Heading','"Title"':'Wrong quoted token',FF:'Wrong byte','(empty)':'(missing)','Select files first.':'Choose tracks.'};
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]])for(const key of keys){
+    const params=Object.fromEntries([...placeholders(key)].map(role=>[role,role==='byte'?'FF':role==='item'?'(empty)':role==='location'?'Title://song':role==='reason'?'Select files first.':roles.has(role)?'Title':'41']));
+    const t=new Translator(locale,catalog),message=new Translator('en').t(key,params),expected={...params};if(expected.reason)expected.reason=t.translate(expected.reason);
+    assert.equal(t.translate(message),t.t(key,expected),key);
+  }
+});
+test('supported custom catalogs preserve file, URL, format, selector and field-constant roles',()=>{
+  const samples={file:'Title.json',url:'https://example.org',extension:'flac',tag:'ID3v2.4',selector:'_CUSTOM',DIRECTORY:'_DIRECTORY',SEPARATOR:'_SEPARATOR'};
+  const keys=Object.keys(english).filter(key=>[...placeholders(key)].some(role=>role in samples));
+  const custom={...Object.fromEntries(keys.map(key=>[key,`Scaffold: ${[...placeholders(key)].map(role=>`{${role}}`).join(' | ')}`])),...Object.fromEntries(Object.values(samples).map(value=>[value,'Wrong technical data']))};
+  const result=languageSet([{...catalogMeta(english),catalog:english,source:'bundled'}],[{file:'en.json',catalog:custom}],english),active=result.languages.get('en').catalog;
+  assert.equal(active['Title.json'],'Wrong technical data');
+  const t=new Translator('en',active);
+  for(const key of keys){const params=Object.fromEntries([...placeholders(key)].map(role=>[role,samples[role]??'41']));assert.equal(t.translate(new Translator('en').t(key,params)),t.t(key,params),key);}
+});
+test('authored column names and ASF field identities stay raw while mixed UI captions and errors recurse',()=>{
+  const columnKeys=['{name}: enter a value format string','{name}: sort by: {e}','{name}: width must be between {MIN_WIDTH} and {MAX_WIDTH} pixels'],asf='{field} has no separate ASF attribute; {name} holds {field2}',flagKeys=['Unknown flag {value} in setting {key}','Unknown cover format {format}','Unknown cover size mode {mode}','Unknown cover scale mode {mode}'];
+  const custom={...Object.fromEntries([...columnKeys,asf,...flagKeys].map(key=>[key,`Diagnostic: ${[...placeholders(key)].map(role=>`{${role}}`).join(' | ')}`])),Title:'Heading',ARTIST:'Performer','"Title"':'Wrong quoted token','Select files first.':'Choose tracks.','Show {label}':'Display {label}'};
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]]){
+    const t=new Translator(locale,catalog);
+    for(const key of columnKeys){const params={name:'Title',e:'Select files first.',MIN_WIDTH:'24',MAX_WIDTH:'4000'};assert.equal(t.translate(new Translator('en').t(key,params)),t.t(key,{...params,e:t.translate(params.e)}));}
+    assert.equal(t.translate('Author has no separate ASF attribute; Author holds ARTIST'),t.t(asf,{field:'Author',name:'Author',field2:'ARTIST'}));
+    for(const key of flagKeys){const params=Object.fromEntries([...placeholders(key)].map(role=>[role,role==='key'?'3':'"Title"']));assert.equal(t.translate(new Translator('en').t(key,params)),t.t(key,params));}
+    assert.equal(t.translate('Show Title'),t.t('Show {label}',{label:t.translate('Title')}));
+  }
+  const character='Character {value} has no legacy byte representation',t=new Translator('en',{[character]:'Invalid character: {value}',"'λ'":'Wrong character'});
+  assert.equal(t.translate("Character 'λ' has no legacy byte representation"),"Invalid character: 'λ'");
+});
 test('unknown multiline labels remain raw and marked scaffolds still translate under partial catalogs',()=>{
   const t=new Translator('en',{'Tool: start {name} for the selected files':'Run {name}',Help:'Assistance'}),name='My  Files\nTitle';
   assert.equal(t.translate(`Show ${name}`,0,name),`Show ${name}`);
