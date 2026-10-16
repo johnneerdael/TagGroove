@@ -222,6 +222,114 @@ pub(crate) fn legacy_integer_items(
     Ok((legacy, items.len()))
 }
 
+/// An atom's kind and the byte range of its content.
+type ChildRange = ([u8; 4], Range<u64>);
+
+/// The children of the atom whose content is `range`, read header by
+/// header; `None` when they do not tile it.
+fn child_ranges(
+    file: &mut (impl Read + Seek),
+    range: Range<u64>,
+) -> std::io::Result<Option<Vec<ChildRange>>> {
+    let mut children = Vec::new();
+    let mut at = range.start;
+    while at + 8 <= range.end {
+        file.seek(SeekFrom::Start(at))?;
+        let mut head = [0u8; 16];
+        file.read_exact(&mut head[..8])?;
+        let (size, header) = match u32::from_be_bytes([head[0], head[1], head[2], head[3]]) {
+            0 => (range.end - at, 8),
+            1 => {
+                file.read_exact(&mut head[8..])?;
+                (
+                    u64::from_be_bytes(head[8..16].try_into().expect("8 bytes")),
+                    16,
+                )
+            }
+            size => (u64::from(size), 8),
+        };
+        if size < header || at + size > range.end {
+            return Ok(None);
+        }
+        children.push((
+            head[4..8].try_into().expect("4 bytes"),
+            at + header..at + size,
+        ));
+        at += size;
+    }
+    Ok((at == range.end).then_some(children))
+}
+
+/// lofty keeps only the 8-byte values of a `plID` (ITUNESALBUMID) item and
+/// drops the item when none is 8 bytes long, even when reading strictly.
+/// Collect every repeated `plID` item when any value has an unusual width,
+/// keeping every value verbatim so a save does not drop its siblings.
+/// Only atom headers and the `plID` items themselves are read.
+pub(crate) fn odd_album_id(
+    reader: &mut (impl Read + Seek),
+) -> std::io::Result<Option<lofty::mp4::Atom<'static>>> {
+    use lofty::mp4::{Atom as Item, AtomData, AtomIdent, DataType};
+    let Some(moov) = top_level(reader)?.and_then(|top| {
+        top.into_iter()
+            .find(|(kind, _)| kind == b"moov")
+            .map(|(_, range)| range)
+    }) else {
+        return Ok(None);
+    };
+    let mut size = [0u8; 4];
+    reader.seek(SeekFrom::Start(moov.start))?;
+    reader.read_exact(&mut size)?;
+    let header = if size == 1u32.to_be_bytes() { 16 } else { 8 };
+    let mut range = moov.start + header..moov.end;
+    for kind in [b"udta", b"meta", b"ilst"] {
+        if kind == b"ilst" {
+            // ISO `meta` is a full atom: version and flags come first.
+            let mut version = [0u8; 4];
+            reader.seek(SeekFrom::Start(range.start))?;
+            if reader.read_exact(&mut version).is_ok() && version == [0; 4] {
+                range.start += 4;
+            }
+        }
+        let Some(children) = child_ranges(reader, range.clone())? else {
+            return Ok(None);
+        };
+        let Some((_, found)) = children.into_iter().find(|(k, _)| k == kind) else {
+            return Ok(None);
+        };
+        range = found;
+    }
+    let Some(items) = child_ranges(reader, range)? else {
+        return Ok(None);
+    };
+    let mut values = Vec::new();
+    for (_, range) in items.into_iter().filter(|(kind, _)| kind == b"plID") {
+        if range.end - range.start > 1 << 16 {
+            return Ok(None);
+        }
+        let item = read_range(reader, &range)?;
+        let Some(children) = atoms(&item, 0..item.len()) else {
+            return Ok(None);
+        };
+        for data in children.iter().filter(|atom| &atom.kind == b"data") {
+            let content = &item[data.content()];
+            if content.len() < 8 || content[0] != 0 {
+                return Ok(None);
+            }
+            values.push(AtomData::Unknown {
+                code: DataType::from(u32::from_be_bytes([0, content[1], content[2], content[3]])),
+                data: content[8..].to_vec(),
+            });
+        }
+    }
+    if values
+        .iter()
+        .all(|value| matches!(value, AtomData::Unknown { data, .. } if data.len() == 8))
+    {
+        return Ok(None);
+    }
+    Ok(Item::from_collection(AtomIdent::Fourcc(*b"plID"), values))
+}
+
 /// Write `tag` into the MP4 file, in place when the `free` atoms allow it.
 /// Unless `single_atom`, a field with several values is stored as one atom
 /// per value (Options → Tags → Advanced).

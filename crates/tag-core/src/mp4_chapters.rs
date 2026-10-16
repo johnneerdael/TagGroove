@@ -7,6 +7,7 @@
 //! the same size, so no sample offset moves and the media is never rewritten.
 //! The same box reader supplies the `mvhd` timestamps and video properties.
 use super::{nero_tags::NeroTags, *};
+use lofty::picture::MimeType;
 use std::{
     io::{Read, Write},
     ops::Range,
@@ -238,20 +239,24 @@ fn text_track(file: &mut fs::File, trak: &Atom) -> Result<Vec<(u64, String)>, St
 /// Find the chapters of an MP4 file. Nero chapters take precedence; a
 /// QuickTime chapter track is read when there are none.
 pub(super) fn scan(path: &Path) -> Result<Chapters, String> {
-    let mut file = fs::File::open(path).map_err(|e| e.to_string())?;
+    scan_file(&mut fs::File::open(path).map_err(|e| e.to_string())?)
+}
+
+/// [`scan`] on an open file.
+fn scan_file(file: &mut fs::File) -> Result<Chapters, String> {
     let length = file.metadata().map_err(|e| e.to_string())?.len();
     let mut chapters = Chapters::default();
-    let Some(moov) = atoms(&mut file, 0..length)?
+    let Some(moov) = atoms(file, 0..length)?
         .into_iter()
         .find(|a| &a.kind == b"moov")
     else {
         return Ok(chapters);
     };
-    let top = atoms(&mut file, moov.body..moov.end)?;
+    let top = atoms(file, moov.body..moov.end)?;
     for udta in top.iter().filter(|a| &a.kind == b"udta") {
-        if let Some(chpl) = child(&mut file, udta, b"chpl")? {
+        if let Some(chpl) = child(file, udta, b"chpl")? {
             if chapters.list.is_empty() {
-                let units = nero_units(&body(&mut file, &chpl)?);
+                let units = nero_units(&body(file, &chpl)?);
                 chapters.nero = units.iter().map(|(start, _)| *start).collect();
                 chapters.list = units
                     .into_iter()
@@ -260,9 +265,9 @@ pub(super) fn scan(path: &Path) -> Result<Chapters, String> {
             }
             chapters.boxes.push(chpl);
         }
-        if let Some(tags) = child(&mut file, udta, b"tags")? {
+        if let Some(tags) = child(file, udta, b"tags")? {
             if chapters.nero_tags.is_none() {
-                chapters.nero_tags = NeroTags::parse(&body(&mut file, &tags)?);
+                chapters.nero_tags = NeroTags::parse(&body(file, &tags)?);
                 chapters.nero_box = Some(tags);
             }
         }
@@ -270,9 +275,9 @@ pub(super) fn scan(path: &Path) -> Result<Chapters, String> {
     let mut referenced = Vec::new();
     let mut tracks = Vec::new();
     for trak in top.iter().filter(|a| &a.kind == b"trak") {
-        let id = match child(&mut file, trak, b"tkhd")? {
+        let id = match child(file, trak, b"tkhd")? {
             Some(tkhd) => {
-                let bytes = body(&mut file, &tkhd)?;
+                let bytes = body(file, &tkhd)?;
                 if bytes.first() == Some(&1) {
                     be32(&bytes, 20)
                 } else {
@@ -281,10 +286,10 @@ pub(super) fn scan(path: &Path) -> Result<Chapters, String> {
             }
             None => None,
         };
-        if let Some(tref) = child(&mut file, trak, b"tref")? {
-            let references = atoms(&mut file, tref.body..tref.end)?;
+        if let Some(tref) = child(file, trak, b"tref")? {
+            let references = atoms(file, tref.body..tref.end)?;
             for chap in references.iter().filter(|a| &a.kind == b"chap") {
-                let ids = body(&mut file, chap)?;
+                let ids = body(file, chap)?;
                 referenced.extend(
                     ids.as_chunks::<4>()
                         .0
@@ -304,7 +309,7 @@ pub(super) fn scan(path: &Path) -> Result<Chapters, String> {
     for (id, trak) in tracks {
         if id.is_some_and(|id| referenced.contains(&id)) {
             if chapters.track.is_empty() {
-                chapters.track = text_track(&mut file, &trak)?;
+                chapters.track = text_track(file, &trak)?;
             }
             chapters.boxes.push(trak);
         }
@@ -317,17 +322,26 @@ pub(super) fn scan(path: &Path) -> Result<Chapters, String> {
 
 /// The CHAPTERS field, `_SUBSONG_COUNT` and the chapter list of an MP4
 /// file, with the fields of each chapter from Nero tags. File-wide Nero
-/// fields fill in fields the iTunes tag does not have. Files whose chapter
-/// boxes cannot be read simply show none.
-pub(super) fn describe(path: &Path, entry: &mut AudioEntry) {
+/// fields fill in fields the iTunes tag does not have, under the names the
+/// MP4 user mappings `rules` give them, and `_TAG` names the Nero tags after
+/// the iTunes tag, as Mp3tag lists them. Files whose chapter boxes cannot be
+/// read simply show none.
+pub(super) fn describe(path: &Path, entry: &mut AudioEntry, rules: &[UserFieldMapping]) {
     let Ok(chapters) = scan(path) else {
         return;
     };
     if let Some(nero) = &chapters.nero_tags {
-        for (name, values) in nero.global_fields() {
+        let global = nero.global_fields();
+        let global = map_read_fields(&global, TagType::Mp4Ilst, rules).unwrap_or(global);
+        for (name, values) in global {
             if !entry.fields.keys().any(|k| k.eq_ignore_ascii_case(&name)) {
                 entry.fields.insert(name, values);
             }
+        }
+        let tags = entry.technical.entry("_TAG".into()).or_default();
+        match tags.first_mut() {
+            Some(first) if !first.is_empty() => first.push_str(" Nero"),
+            _ => *tags = vec!["Nero".into()],
         }
     }
     if chapters.list.is_empty() {
@@ -354,6 +368,7 @@ pub(super) fn describe(path: &Path, entry: &mut AudioEntry) {
                     .map(|n| n.chapter_fields(index))
                     .unwrap_or_default();
                 fields.remove("TITLE");
+                let fields = map_read_fields(&fields, TagType::Mp4Ilst, rules).unwrap_or(fields);
                 ChapterInfo {
                     start,
                     end: None,
@@ -364,6 +379,151 @@ pub(super) fn describe(path: &Path, entry: &mut AudioEntry) {
             })
             .collect(),
     );
+}
+
+/// The covers of the Nero tags (`cvrx`) as pictures. The picture type is
+/// the cover's 16-bit type; a cover without a MIME type is identified by
+/// its bytes.
+fn nero_pictures(chapters: &Chapters) -> Vec<Picture> {
+    let Some(nero) = &chapters.nero_tags else {
+        return Vec::new();
+    };
+    nero.covers()
+        .into_iter()
+        .map(|cover| {
+            let mime = if cover.mime.is_empty() {
+                let data = &cover.data;
+                if data.starts_with(&[0xFF, 0xD8, 0xFF]) {
+                    Some(MimeType::Jpeg)
+                } else if data.starts_with(b"\x89PNG") {
+                    Some(MimeType::Png)
+                } else if data.starts_with(b"GIF8") {
+                    Some(MimeType::Gif)
+                } else if data.starts_with(b"BM") {
+                    Some(MimeType::Bmp)
+                } else {
+                    None
+                }
+            } else {
+                Some(MimeType::from_str(&cover.mime))
+            };
+            let kind = u8::try_from(cover.kind).map_or(PictureType::Other, PictureType::from_u8);
+            let picture = Picture::unchecked(cover.data).pic_type(kind);
+            match mime {
+                Some(mime) => picture.mime_type(mime).build(),
+                None => picture.build(),
+            }
+        })
+        .collect()
+}
+
+/// Nero covers stand in for the iTunes covers of an MP4 file whose iTunes
+/// tag has none, so they are shown, and edited covers are written to the
+/// iTunes tag (after which [`drop_nero_covers`] removes the Nero ones).
+pub(super) fn add_nero_covers(file: &mut TaggedFile, path: &Path) {
+    if file.file_type() != FileType::Mp4
+        || file
+            .tag(TagType::Mp4Ilst)
+            .is_some_and(|tag| !tag.pictures().is_empty())
+    {
+        return;
+    }
+    let pictures = scan(path).map(|c| nero_pictures(&c)).unwrap_or_default();
+    if pictures.is_empty() {
+        return;
+    }
+    if file.tag(TagType::Mp4Ilst).is_none() {
+        file.insert_tag(Tag::new(TagType::Mp4Ilst));
+    }
+    if let Some(tag) = file.tag_mut(TagType::Mp4Ilst) {
+        for picture in pictures {
+            tag.push_picture(picture);
+        }
+    }
+}
+
+/// Write the Nero tags `nero` over the `tags` box `atom` when they fit,
+/// with a `free` box after them for the bytes left over. Nothing else moves.
+fn replace_in_place(file: &mut fs::File, atom: &Atom, nero: &NeroTags) -> Result<bool, String> {
+    let body = nero.render();
+    let old = atom.end - atom.start;
+    let new = 8 + body.len() as u64;
+    if atom.body - atom.start != 8 || !(new == old || new + 8 <= old) {
+        return Ok(false);
+    }
+    let mut bytes = ((new) as u32).to_be_bytes().to_vec();
+    bytes.extend(b"tags");
+    bytes.extend(&body);
+    if new < old {
+        bytes.extend(((old - new) as u32).to_be_bytes());
+        bytes.extend(b"free");
+        bytes.resize(old as usize, 0);
+    }
+    file.seek(SeekFrom::Start(atom.start))
+        .and_then(|_| file.write_all(&bytes))
+        .map_err(|e| e.to_string())?;
+    crate::write_cost::rewrote_region(old);
+    Ok(true)
+}
+
+/// Check that the staged file's Nero tags read back as `nero`.
+fn verify_nero(file: &mut fs::File, nero: &NeroTags) -> Result<(), String> {
+    let written = scan_file(file)?.nero_tags;
+    if written.as_ref().map(NeroTags::render) != Some(nero.render()) {
+        return Err(
+            "The Nero tags did not read back as written; the original file was kept".into(),
+        );
+    }
+    Ok(())
+}
+
+/// After covers were written to the iTunes tag, remove the Nero covers they
+/// replace (see [`add_nero_covers`]). This only shrinks the `tags` box.
+pub(super) fn drop_nero_covers(file: &mut fs::File) -> Result<(), String> {
+    let chapters = scan_file(file)?;
+    let (Some(mut nero), Some(atom)) = (chapters.nero_tags, chapters.nero_box) else {
+        return Ok(());
+    };
+    if !nero.remove_covers() {
+        return Ok(());
+    }
+    if !replace_in_place(file, &atom, &nero)? {
+        return Err("The Nero covers could not be removed; the original file was kept".into());
+    }
+    verify_nero(file, &nero)
+}
+
+/// After file fields `updates` were written to the iTunes tag, apply them to
+/// the file-wide Nero fields that hold them (see `NeroTags::sync_global`),
+/// so a removed field does not come back from Nero. The `tags` box is
+/// rewritten in place when it fits, otherwise with the chapters; a longer
+/// value in a file without chapters stays only in the iTunes tag, which takes
+/// precedence anyway.
+pub(super) fn sync_nero_fields(
+    staging: &mut fs::File,
+    staged_path: &Path,
+    updates: &Fields,
+) -> Result<(), String> {
+    let chapters = scan_file(staging)?;
+    let (Some(mut nero), Some(atom)) = (chapters.nero_tags.clone(), chapters.nero_box.clone())
+    else {
+        return Ok(());
+    };
+    if !nero.sync_global(updates)? {
+        return Ok(());
+    }
+    if replace_in_place(staging, &atom, &nero)? {
+        return verify_nero(staging, &nero);
+    }
+    if chapters.list.is_empty() {
+        return Ok(());
+    }
+    let values: Vec<String> = chapters
+        .list
+        .iter()
+        .map(|(ms, title)| subsongs::chapter_value(ms * 1_000_000, title))
+        .collect();
+    write_with_tags(staging, staged_path, &values, Some(&nero))
 }
 
 /// Write CHAPTERS `values` into the staged MP4 file: Nero chapters and a
