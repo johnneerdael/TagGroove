@@ -171,4 +171,5 @@
     await check(value(disk[0], 'ACOUSTID_ID') === 'acoustid-a' && value(disk[1], 'ACOUSTID_ID') === 'acoustid-b', 'ACOUSTID_ID per file: ' + value(disk[0], 'ACOUSTID_ID') + ', ' + value(disk[1], 'ACOUSTID_ID'));
   } catch (e) { await report('FAIL ' + (e.message || e)); }
   await report('SUMMARY done');
+  await inv('e2e_exit', { code: 0 });
 })();
