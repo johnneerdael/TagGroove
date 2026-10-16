@@ -9,6 +9,8 @@ import type {ExtendedSaveMode} from './list-behaviour';
 
 type Completer=(input:HTMLInputElement|HTMLTextAreaElement,event:Event,candidates:()=>Iterable<string>)=>boolean;
 export type ExtendedTagsHost={
+  /** Translate new popup content before reading layout dimensions. */
+  translateNow?:(root:HTMLElement)=>void;
   /** Selected files in File List order. */
   selection:()=>string[];
   /** Files of the File List in display order. */
@@ -140,7 +142,7 @@ export class ExtendedTags{
       {label:'Copy field',id:'copy',disabled:!copyable,title:copyable?`Copy ${name}`:'Choose a field whose values are the same in every file'},
       {label:this.clip.length>1?`Paste ${this.clip.length} fields`:this.clip.length?`Paste ${this.clip[0].name}`:'Paste field',id:'paste',disabled:!this.clip.length},
     ]);
-    dialog.append(menu);this.menu=menu;
+    dialog.append(menu);this.menu=menu;this.host.translateNow?.(menu);
     menu.style.left=`${Math.max(4,Math.min(x,window.innerWidth-menu.offsetWidth-4))}px`;menu.style.top=`${Math.max(4,Math.min(y,window.innerHeight-menu.offsetHeight-4))}px`;
     menu.addEventListener('click',event=>{
       const button=(event.target as Element).closest<HTMLButtonElement>('button[data-context]');if(!button||button.disabled)return;

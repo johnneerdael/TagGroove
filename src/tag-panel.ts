@@ -151,6 +151,8 @@ export function directoryOptions(directories:string[]):ComboOption[]{
 /** Fields of an Mp3tag tag panel configuration, with the entries that were left out. */
 export type Mp3tagPanelImport={panel:PanelLayout;skipped:string[]};
 export type TagPanelHost={
+  /** Translate new popup content before reading layout dimensions. */
+  translateNow?:(root:HTMLElement)=>void;
   persistent:()=>boolean;
   load:()=>Promise<TagPanelSettings>;save:(settings:TagPanelSettings)=>Promise<void>;
   importLayout:(path:string)=>Promise<PanelLayout>;exportLayout:(path:string,layout:PanelLayout)=>Promise<void>;
@@ -259,7 +261,7 @@ export class TagPanel {
     const menu=root.querySelector<HTMLDetailsElement>('.panel-menu');
     if(menu){
       menu.addEventListener('toggle',()=>{
-        if(!menu.open)return;const rect=menu.getBoundingClientRect(),popup=menu.querySelector<HTMLElement>('.menu-list')!,point=this.contextPoint;this.contextPoint=undefined;
+        if(!menu.open)return;const popup=menu.querySelector<HTMLElement>('.menu-list')!;this.host.translateNow?.(popup);const rect=menu.getBoundingClientRect(),point=this.contextPoint;this.contextPoint=undefined;
         const x=point?point.x:rect.right-popup.offsetWidth,y=point?point.y:rect.bottom+2;
         popup.style.top=`${Math.max(8,Math.min(y,window.innerHeight-popup.offsetHeight-8))}px`;popup.style.left=`${Math.max(8,Math.min(x,window.innerWidth-popup.offsetWidth-8))}px`;
         if(point)popup.querySelector<HTMLElement>('button')?.focus({preventScroll:true});
@@ -331,7 +333,7 @@ export class TagPanel {
     popup.innerHTML=options.length?`${markup}</div>`:'<div class="combo-empty">No values</div>';
     popup.addEventListener('pointerdown',event=>event.preventDefault());
     popup.addEventListener('click',event=>{const option=(event.target as Element).closest<HTMLElement>('[data-option]');if(option)this.choose(Number(option.dataset.option));});
-    document.body.append(popup);
+    document.body.append(popup);this.host.translateNow?.(popup);
     const rect=(input.closest('.combo')||input).getBoundingClientRect(),below=window.innerHeight-rect.bottom-8,above=rect.top-8;
     popup.style.left=`${Math.max(4,Math.min(rect.left,window.innerWidth-Math.max(rect.width,200)-4))}px`;popup.style.minWidth=`${Math.max(rect.width,200)}px`;
     if(below<160&&above>below){popup.style.bottom=`${window.innerHeight-rect.top+2}px`;popup.style.maxHeight=`${Math.min(300,above)}px`;}

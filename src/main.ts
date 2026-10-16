@@ -12,7 +12,7 @@ import { ExportUI, offerOpenOutputs, type ExportLibrary, type ExportConfiguratio
 import { OptionsUI, registerOptionsPage, naturalCollator, setNotificationAreaSupport, windowTitle, type Settings, type SettingsResponse } from './options-ui';
 import { createNumberingReview, numberingCounter, recallNumbering, rememberNumbering, type NumberingRequest, type NumberingUpdate } from './numbering-review';
 import { open, save, ask, message } from './i18n/dialog';
-import { ENGLISH, setUserCatalogs, installTranslation, setLanguage, t, translate } from './i18n';
+import { ENGLISH, setUserCatalogs, installTranslation, setLanguage, t, translate, translateNow } from './i18n';
 import { languageOptionsPage, languageSetting } from './language-options';
 import { Messages, messagesOptionsPage, coverChoice, type MessageKey } from './messages';
 import { appearanceOptions, notificationAreaKey, completeInput, generalOptions, insideFolders, networkingOptionsPage, releaseNotesUrl, showReleaseNotes, updateMessage, updateOptions, updatesOptionsPage, type UpdateCheck } from './general-options';
@@ -212,6 +212,7 @@ let toolbarConfig:ToolbarConfig=normalizeToolbar(undefined);
 // View → Toolbars → Custom toolbar: commands, tools and action groups the user adds (pages['custom-toolbar']).
 let customToolbar:ToolbarConfig=normalizeCustomToolbar(undefined);
 const actionUI=new ActionUI({
+  translateNow,
   load:()=>invoke<ActionLibrary>('load_action_library'),
   save:library=>invoke<void>('save_action_library',{library}),
   import:(path,legacyEncoding)=>invoke<ImportedGroup>('import_action_group',{path,legacyEncoding:legacyEncoding||null}),
@@ -267,6 +268,7 @@ const playlistUI=new PlaylistUI({
 registerOptionsPage(exportOptionsPage);
 registerOptionsPage(playlistOptionsPage);
 const coverUI=new CoverUI({
+  translateNow,
   invoke:(command,args)=>invoke(command,args),get mac(){return macKeyboard();},
   selection:()=>paths().map(path=>({path,covers:workingReadErrors.has(path)?[]:pendingCovers.has(path)?pendingCoverInfos(path):entries.get(path)!.covers})),
   displayed:()=>({path:active()?.path,covers:coversFor(active()),index:coverIndex}),
@@ -288,6 +290,7 @@ const coverUI=new CoverUI({
   dragOut:cover=>{const entry=active(),hint=entry?(field(entry,'ALBUM')||entry.filename.replace(/\.[^.]+$/,'')):'Cover';return invoke<{path:string;result:string}>('drag_cover_out',{dataBase64:cover.data_base64,mime:cover.mime,name:hint});},
 });
 const extendedTags=new ExtendedTags({
+  translateNow,
   selection:()=>paths(),listed:()=>visible().map(entry=>entry.path),
   fields:path=>merged(entries.get(path)!),
   describe:path=>{const entry=entries.get(path);return{name:entry?.filename||displayName(path),tag:entry?.technical?._TAG?.[0]};},
@@ -325,6 +328,7 @@ registerOptionsPage(libraryOptionsPage({
 }));
 const dirname=(path:string)=>path.replace(/[\\/][^\\/]*$/,'')||path;
 const tagPanel=new TagPanel({
+  translateNow,
   translateLabel:label=>translate(label),
   persistent:()=>desktop,
   load:()=>invoke<TagPanelSettings>('load_tag_panel'),save:settings=>invoke<void>('save_tag_panel',{settings}),
@@ -378,6 +382,7 @@ const toolsUI=new ToolsUI({
   report:text=>{status=text;render();},fail:error=>{errors=[{path:'Tools',error:publicMessage(error)}];status='Tool failed';render();},
 });
 const rowMenu=new RowContextMenu({
+  translateNow,
   prepare:path=>{if(!selected.has(path)){selected.clear();selected.add(path);anchor=path;coverIndex=0;coverError=undefined;render();}},
   items:()=>{
     const item=(op:Operation,label:string):ContextItem=>({label,id:`op:${op}`,disabled:!enabled(op),title:operationReason(op)||label});
@@ -550,6 +555,7 @@ function cellCompletions(key:string){
   return [...tagPanel.settings.field_values.lists[key]||[],...[...loaded].sort(collator.compare)];
 }
 const columnUI=new ColumnUI({
+  translateNow,
   layout:()=>columnLayout,
   apply:applyColumns,
   importLayout:async()=>{
@@ -1986,6 +1992,7 @@ tagPanel.install(document);
 coverUI.install(document);
 window.addEventListener('beforeunload',event=>{if(drafts.size||actionUI.hasUnsavedChanges){event.preventDefault();event.returnValue='';}});
 installHelperMenus({
+  translateNow,
   storage:helperLists,
   fieldNames:()=>[...new Set(paths().flatMap(path=>Object.keys(merged(entries.get(path)!))))],
   panelFields:()=>tagPanel.settings.panel.fields.filter(field=>field.visible&&!field.field.startsWith('_')).map(field=>field.field),

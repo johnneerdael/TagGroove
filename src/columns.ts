@@ -226,6 +226,8 @@ export function updateSortHeader(cells:Iterable<HTMLElement>,columns:ColumnDef[]
 }
 
 export type ColumnUIHost={
+  /** Translate new popup content before reading layout dimensions. */
+  translateNow?:(root:HTMLElement)=>void;
   layout:()=>ColumnLayout;
   apply:(layout:ColumnLayout,verified?:boolean)=>Promise<void>;
   importLayout:()=>Promise<ColumnLayout|null>;
@@ -253,7 +255,7 @@ export class ColumnUI{
     this.closeMenu();
     const menu=document.createElement('div');menu.className='column-menu';menu.setAttribute('role','menu');menu.setAttribute('aria-label','File List columns');
     menu.innerHTML=`${this.host.layout().columns.map(column=>`<label role="menuitemcheckbox" aria-checked="${column.visible}"><input type="checkbox" data-id="${html(column.id)}" ${column.visible?'checked':''}> ${nameMarkup(column)}</label>`).join('')}<hr><button data-customize>Customize columns…</button>`;
-    document.body.append(menu);this.menu=menu;
+    document.body.append(menu);this.menu=menu;this.host.translateNow?.(menu);
     const width=menu.offsetWidth,height=menu.offsetHeight;
     menu.style.left=`${Math.max(4,Math.min(x,window.innerWidth-width-4))}px`;menu.style.top=`${Math.max(4,Math.min(y,window.innerHeight-height-4))}px`;
     menu.querySelectorAll<HTMLInputElement>('input[data-id]').forEach(input=>input.addEventListener('change',()=>{

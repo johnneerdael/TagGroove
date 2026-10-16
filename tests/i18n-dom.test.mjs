@@ -11,11 +11,13 @@ const moduleUrl=async(file,replacements={})=>{
   return `data:text/javascript;base64,${Buffer.from(js).toString('base64')}`;
 };
 const load=async file=>import(await moduleUrl(file));
-const {Translator}=await load('i18n/core.ts'),{DomTranslator}=await load('i18n/dom.ts');
+const {Translator,catalogMeta}=await load('i18n/core.ts'),{DomTranslator}=await load('i18n/dom.ts');
+const {controlMarkup}=await load('options-ui.ts');
 const {ColumnUI,defaultLayout,setColumnNameTranslation}=await load('columns.ts'),{ActionUI}=await load('action-ui.ts');
 const {TagPanel,defaultLayout:defaultPanelLayout}=await load('tag-panel.ts');
 const {CoverUI}=await import(await moduleUrl('covers.ts',{"import './covers.css';":'',"'./keyboard'":JSON.stringify(await moduleUrl('keyboard.ts')),"'./cover-model'":JSON.stringify(await moduleUrl('cover-model.ts'))}));
-const {contextMenuMarkup}=await load('row-context-menu.ts');
+const {contextMenuMarkup,RowContextMenu}=await load('row-context-menu.ts');
+const {ExtendedTags}=await import(await moduleUrl('extended-tags.ts',{"import './extended-tags.css';":'',"'./tag-edits'":JSON.stringify(await moduleUrl('tag-edits.ts')),"'./row-context-menu'":JSON.stringify(await moduleUrl('row-context-menu.ts'))}));
 const {ToolsUI,toolsOptionsPage}=await load('tools.ts'),{installHelperMenus}=await load('helper-menu.ts');
 const {copyAsTextDialog}=await load('utils-ui.ts'),{PlaylistUI}=await load('playlist-ui.ts'),{openTagToTag}=await load('tag-tag-ui.ts');
 const {offerOpenOutputs}=await load('export-ui.ts');
@@ -38,7 +40,7 @@ const rowJS=ts.transpileModule(`export function render(entry){
 const {render:renderRows}=await import(`data:text/javascript;base64,${Buffer.from(rowJS).toString('base64')}`);
 const catalogs=Object.fromEntries(await Promise.all(['de','nl'].map(async locale=>[locale,JSON.parse(await source(`i18n/catalogs/${locale}.json`))])));
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-function modal(p){return(title,content,buttons)=>{const dialog=p.window.document.createElement('dialog');dialog.innerHTML=`<header>${esc(title)}</header>${content}<footer>${buttons}</footer>`;p.body.append(dialog);dialog.setAttribute('open','');return dialog;};}
+function modal(p){return(title,content,buttons)=>{const dialog=p.window.document.createElement('dialog');dialog.innerHTML=`<header>${esc(title)}</header><div class="dialog-content">${content}</div><footer>${buttons}</footer>`;p.body.append(dialog);dialog.setAttribute('open','');return dialog;};}
 function mainTemplate(needle,values,index=0){
   const templates=[];
   const visit=node=>{if(ts.isTemplateExpression(node)&&(typeof needle==='function'?needle(node):node.head.text.startsWith(needle)))templates.push(node);ts.forEachChild(node,visit);};visit(parsed);
@@ -68,9 +70,57 @@ function page(){
   for(const key of ['window','document','Node','NodeFilter','Element','HTMLElement','HTMLInputElement','HTMLTextAreaElement','HTMLButtonElement','MutationObserver','MouseEvent','Event'])globalThis[key]=key==='window'?window:window[key];
   const body=window.document.body;
   let translator=new Translator('en');const dom=new DomTranslator(body,()=>translator);
-  return {body,window,translate(locale,catalog=catalogs[locale]??{}){translator=new Translator(locale,catalog);dom.apply();return translator;},close(){window.happyDOM.abort();}};
+  return {body,window,translateTree:node=>dom.translateTree(node),translate(locale,catalog=catalogs[locale]??{}){translator=new Translator(locale,catalog);dom.apply();return translator;},close(){window.happyDOM.abort();}};
 }
 const memory=()=>{const data=new Map();return{getItem:key=>data.get(key)??null,setItem:(key,value)=>data.set(key,value)};};
+
+// Happy DOM has no layout: deterministic text-based metrics verify the production
+// ordering/clamping, rather than claiming native pixel/layout qualification.
+function popupMetrics(p){
+  const proto=p.window.HTMLElement.prototype,names=['offsetWidth','offsetHeight','getBoundingClientRect'],saved=Object.fromEntries(names.map(name=>[name,Object.getOwnPropertyDescriptor(proto,name)]));
+  const isPopup=node=>node.matches('.column-menu,.cover-menu,.helper-menu,.helper-submenu,.cover-submenu,.menu-list,.group-submenu > div');
+  const size=node=>{const labels=[...node.querySelectorAll('button,label,.context-heading')].filter(el=>!el.closest('[hidden]')).map(el=>el.textContent.trim());return{width:Math.min(650,Math.max(80,...labels.map(label=>label.length*9+24))),height:Math.min(400,Math.max(40,labels.reduce((sum,label)=>sum+20+Math.floor(label.length/24)*8,8)))};};
+  for(const [name,axis] of [['offsetWidth','width'],['offsetHeight','height']])Object.defineProperty(proto,name,{configurable:true,get(){return isPopup(this)?size(this)[axis]:saved[name]?.get?.call(this)??0;}});
+  Object.defineProperty(proto,'getBoundingClientRect',{configurable:true,writable:true,value:function(){if(!isPopup(this))return saved.getBoundingClientRect.value.call(this);const{width,height}=size(this),left=Number.parseFloat(this.style.left)||(this.parentElement?.classList.contains('group-submenu')?(this.parentElement.classList.contains('open-left')?680-width:680):0),top=Number.parseFloat(this.style.top)||0;return{left,top,width,height,right:left+width,bottom:top+height};}});
+  Object.defineProperty(p.window,'innerWidth',{value:800,configurable:true});Object.defineProperty(p.window,'innerHeight',{value:600,configurable:true});
+  return{size,restore(){for(const name of names)if(saved[name])Object.defineProperty(proto,name,saved[name]);else delete proto[name];}};
+}
+
+test('production popups localize synchronously before right/bottom placement for DE/NL and long custom text',()=>{
+  const long=Object.fromEntries(['Copy','Copy field','Cut field','Paste field','Customize columns…','Add cover…','Manage history…','Customize tag panel…'].map(key=>[key,`${key} ${'long translated label '.repeat(4)}`]));
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',long]]){
+    const p=page(),metrics=popupMetrics(p);
+    try{
+      const t=p.translate(locale,catalog),translateNow=node=>p.translateTree(node);
+      const placed=(menu,label,margin=4,right=800-margin)=>{assert.ok(menu.textContent.includes(t.t(label)),menu.textContent);const size=metrics.size(menu);assert.equal(Number.parseFloat(menu.style.left),right-size.width);assert.equal(Number.parseFloat(menu.style.top),600-size.height-margin);assert.ok(Number.parseFloat(menu.style.left)+size.width<=800-margin);assert.ok(Number.parseFloat(menu.style.top)+size.height<=600-margin);};
+      const table=p.window.document.createElement('table');table.innerHTML='<tbody><tr data-path="Help"><td>Help</td></tr></tbody>';p.body.append(table);
+      const rows=new RowContextMenu({translateNow,prepare:()=>{},items:()=>[{label:'Copy',id:'copy'}],activate:()=>{}});rows.open(table.querySelector('tr'),795,595);placed(p.body.querySelector('.row-context-menu'),'Copy');rows.close();
+      const columns=new ColumnUI({translateNow,layout:defaultLayout});columns.headerMenu(795,595,()=>{});placed(p.body.querySelector('.column-menu'),'Customize columns…');columns.closeMenu();
+      const covers=new CoverUI({translateNow,selection:()=>[{path:'Help',covers:[]}],displayed:()=>({path:'Help',covers:[],index:0}),reason:()=>'',clipboard:()=>false,mac:false});covers.openMenu(795,595,false);placed(p.body.querySelector('.cover-menu'),'Add cover…');covers.closeMenu();
+      const extended=new ExtendedTags({translateNow,selection:()=>['Help'],listed:()=>['Help'],fields:()=>({TITLE:['Help']}),describe:()=>({name:'Help'}),modal:modal(p),coverMarkup:()=>'',bindCover:()=>{}});extended.show();p.body.querySelector('.extended-row').dispatchEvent(new p.window.MouseEvent('contextmenu',{bubbles:true,clientX:795,clientY:595}));placed(p.body.querySelector('.extended-menu'),'Cut field');p.body.querySelector('.extended-dialog').close();
+      p.body.insertAdjacentHTML('beforeend','<div><input id="popup-history" data-helper="history" data-history="probe" data-history-manage></div>');installHelperMenus({translateNow,storage:memory(),fieldNames:()=>[],panelFields:()=>[]});const helper=p.body.querySelector('#popup-history').parentElement.querySelector('.helper-button');helper.getBoundingClientRect=()=>({left:770,right:790,top:560,bottom:580,width:20,height:20});helper.click();placed(p.body.querySelector('.helper-menu'),'Manage history…',4,790);p.body.querySelector('.helper-menu').remove();
+      const panel=new TagPanel({translateNow,values:()=>[],disabled:()=>false,directories:()=>({selected:[],all:[]})});p.body.innerHTML=panel.titleHTML()+panel.fieldsHTML();panel.bind(p.body);const details=p.body.querySelector('.panel-menu');details.getBoundingClientRect=()=>({left:780,right:800,top:570,bottom:590,width:20,height:20});details.open=true;details.dispatchEvent(new p.window.Event('toggle'));placed(details.querySelector('.menu-list'),'Customize tag panel…',8);
+      p.body.innerHTML='<details class="group-submenu"><summary translate="no">Help</summary><div><button>Copy field</button></div></details>';new ActionUI({translateNow}).bindMenu(p.body);const submenu=p.body.querySelector('details');submenu.open=true;submenu.dispatchEvent(new p.window.Event('toggle'));assert.equal(submenu.querySelector('button').textContent,t.t('Copy field'));assert.ok(submenu.classList.contains('open-left'));assert.ok(submenu.querySelector('div').getBoundingClientRect().right<=800);
+    }finally{metrics.restore();p.close();}
+  }
+});
+
+test('the actual Language options preserve authored catalog names in System default with existing catalog keys',async()=>{
+  const custom={'System default ({nameOf})':'Default catalog: {nameOf}',Help:'Assistance',Title:'Heading'};
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]])for(const name of ['Help','Title']){
+    const p=page();
+    try{
+      const user={'@meta':{name}},languages=[{locale:'en',name:'English',catalog:{},source:'bundled'},{...catalogMeta(user,'fr.json'),catalog:user,source:'user',file:'fr.json'}];
+      const provider=`data:text/javascript;base64,${Buffer.from(`export const availableLanguages=()=>${JSON.stringify(languages)};export const systemLanguage=()=> 'fr';`).toString('base64')}`;
+      const {languageOptionsPage}=await import(await moduleUrl('language-options.ts',{"'./i18n'":JSON.stringify(provider)}));
+      const options=languageOptionsPage({}),control=options.controls[0];
+      p.body.innerHTML=controlMarkup(control,{pages:{language:{language:'system'}}});const t=p.translate(locale,catalog);
+      assert.equal(p.body.querySelector('option[value="system"]').textContent,t.t('System default ({nameOf})',{nameOf:name}));
+      assert.equal(p.body.querySelector('option[value="fr"]').textContent,`${name} (fr.json)`);
+      assert.equal(p.body.querySelector('select').value,'system');
+    }finally{p.close();}
+  }
+});
 
 test('source-authored settings prose remains authoritative while OpenTag controls and errors translate',async()=>{
   const custom={Save:'Store',Cancel:'Back',Help:'Assistance',Title:'Name','Select files first.':'Choose files','Save tags':'Write tags','{title} needs a number.':'A number is required for {title}.','This tag source has no settings.':'There are no settings.'};

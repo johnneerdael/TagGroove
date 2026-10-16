@@ -3,6 +3,8 @@ export type ActionGroup = { name: string; enabled: boolean; actions: ActionSpec[
 export type ActionLibrary = { groups: ActionGroup[]; presets: { name: string; enabled_groups: string[] }[] };
 export type ImportedGroup = { group: ActionGroup; issues: { index: number; type_id: string; reason: string }[] };
 export type ActionUIHost = {
+  /** Translate new popup content before reading layout dimensions. */
+  translateNow?:(root:HTMLElement)=>void;
   load: () => Promise<ActionLibrary>;
   save: (library: ActionLibrary) => Promise<void>;
   import: (path: string, legacyEncoding?: string) => Promise<ImportedGroup>;
@@ -244,7 +246,7 @@ export class ActionUI {
   }
   bindMenu(root:HTMLElement){
     root.querySelectorAll<HTMLButtonElement>('[data-action-group]').forEach(button=>button.addEventListener('click',()=>{root.querySelectorAll<HTMLDetailsElement>('details[open]').forEach(d=>d.open=false);void this.runOne(Number(button.dataset.actionGroup));}));
-    root.querySelectorAll<HTMLDetailsElement>('.group-submenu').forEach(submenu=>{submenu.addEventListener('toggle',()=>{if(!submenu.open||window.innerWidth<=700)return;submenu.classList.remove('open-left');const popup=submenu.querySelector<HTMLElement>(':scope>div')!;if(popup.getBoundingClientRect().right>window.innerWidth)submenu.classList.add('open-left');});submenu.addEventListener('pointerenter',()=>{if(window.matchMedia('(hover:hover)').matches){submenu.parentElement?.querySelectorAll<HTMLDetailsElement>(':scope>.group-submenu').forEach(other=>{if(other!==submenu)other.open=false;});submenu.open=true;}});submenu.addEventListener('pointerleave',()=>{if(window.matchMedia('(hover:hover)').matches&&!submenu.contains(document.activeElement))submenu.open=false;});});
+    root.querySelectorAll<HTMLDetailsElement>('.group-submenu').forEach(submenu=>{submenu.addEventListener('toggle',()=>{if(!submenu.open||window.innerWidth<=700)return;submenu.classList.remove('open-left');const popup=submenu.querySelector<HTMLElement>(':scope>div')!;this.host.translateNow?.(popup);if(popup.getBoundingClientRect().right>window.innerWidth)submenu.classList.add('open-left');});submenu.addEventListener('pointerenter',()=>{if(window.matchMedia('(hover:hover)').matches){submenu.parentElement?.querySelectorAll<HTMLDetailsElement>(':scope>.group-submenu').forEach(other=>{if(other!==submenu)other.open=false;});submenu.open=true;}});submenu.addEventListener('pointerleave',()=>{if(window.matchMedia('(hover:hover)').matches&&!submenu.contains(document.activeElement))submenu.open=false;});});
   }
   async runOne(index:number){if(!this.host.canExecute())return;const group=this.library.groups[index];if(group){try{await this.host.execute([{...clone(group),enabled:true}]);}catch(e){const el=dialog('Action group failed',`<p>${html(e)}</p>`,'<button data-close>Close</button>');el.querySelector('[data-close]')!.addEventListener('click',()=>el.close());}}}
   beginMnemonic(){this.mnemonicPrefix=[];}

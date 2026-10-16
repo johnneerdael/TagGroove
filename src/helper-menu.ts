@@ -17,6 +17,8 @@ export type HelperStorage={getItem(key:string):string|null;setItem(key:string,va
 /** `favorite` entries (ticked in Manage List) are offered in the ► menu. */
 export type HistoryEntry={value:string;name?:string;description?:string;favorite?:boolean};
 export type HelperHost={
+  /** Translate new popup content before reading layout dimensions. */
+  translateNow?:(root:HTMLElement)=>void;
   fieldNames:()=>string[];
   panelFields:()=>string[];
   confirm:(message:string)=>Promise<boolean>;
@@ -308,7 +310,7 @@ export function installHelperMenus(host:HelperHost,root:HTMLElement=document.bod
       if(item.submenu){
         const group=document.createElement('div');group.className='helper-group';element.className='helper-parent';element.setAttribute('aria-haspopup','menu');element.setAttribute('aria-expanded','false');
         const sub=document.createElement('div');sub.className='helper-submenu';sub.setAttribute('role','menu');sub.setAttribute('aria-label',item.label);sub.hidden=true;build(item.submenu,sub);
-        const toggle=(value:boolean)=>{menu.querySelectorAll<HTMLElement>(':scope .helper-group').forEach(other=>{if(other!==group&&!other.contains(group)&&value){const s=other.querySelector<HTMLElement>(':scope>.helper-submenu')!;s.hidden=true;other.querySelector(':scope>button')!.setAttribute('aria-expanded','false');}});sub.hidden=!value;element.setAttribute('aria-expanded',String(value));if(value&&!menu.classList.contains('helper-sheet')){sub.classList.remove('open-left');sub.style.top='';const box=sub.getBoundingClientRect(),top=group.getBoundingClientRect().top;if(box.right>window.innerWidth)sub.classList.add('open-left');if(box.bottom>window.innerHeight-4)sub.style.top=`${Math.max(4-top,window.innerHeight-4-box.bottom)}px`;}};
+        const toggle=(value:boolean)=>{menu.querySelectorAll<HTMLElement>(':scope .helper-group').forEach(other=>{if(other!==group&&!other.contains(group)&&value){const s=other.querySelector<HTMLElement>(':scope>.helper-submenu')!;s.hidden=true;other.querySelector(':scope>button')!.setAttribute('aria-expanded','false');}});sub.hidden=!value;element.setAttribute('aria-expanded',String(value));if(value&&!menu.classList.contains('helper-sheet')){host.translateNow?.(sub);sub.classList.remove('open-left');sub.style.top='';const box=sub.getBoundingClientRect(),top=group.getBoundingClientRect().top;if(box.right>window.innerWidth)sub.classList.add('open-left');if(box.bottom>window.innerHeight-4)sub.style.top=`${Math.max(4-top,window.innerHeight-4-box.bottom)}px`;}};
         element.addEventListener('click',()=>toggle(sub.hidden));
         element.addEventListener('keydown',event=>{if(event.key==='ArrowRight'){event.preventDefault();toggle(true);sub.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus();}});
         sub.addEventListener('keydown',event=>{if(event.key==='ArrowLeft'){event.preventDefault();event.stopPropagation();toggle(false);element.focus();}});
@@ -319,7 +321,7 @@ export function installHelperMenus(host:HelperHost,root:HTMLElement=document.bod
       parent.append(element);
     });
     build(entries,menu);
-    (control.closest('dialog')||document.body).append(menu);
+    (control.closest('dialog')||document.body).append(menu);host.translateNow?.(menu);
     const rect=button.getBoundingClientRect(),narrow=window.innerWidth<=700;
     if(narrow){menu.classList.add('helper-sheet');}
     else{menu.style.top=`${Math.min(rect.bottom+2,window.innerHeight-Math.min(menu.offsetHeight,window.innerHeight-8)-4)}px`;menu.style.left=`${Math.max(4,Math.min(rect.right-menu.offsetWidth,window.innerWidth-menu.offsetWidth-4))}px`;}

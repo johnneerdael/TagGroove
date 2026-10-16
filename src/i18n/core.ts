@@ -13,7 +13,7 @@ export type MessageText = string | {parts: readonly string[]; separator: string}
 const PLACEHOLDER = /\{([A-Za-z][A-Za-z0-9]*)\}/g;
 const PLURAL_CATEGORIES = new Set(['zero', 'one', 'two', 'few', 'many', 'other']);
 /** Values that name files, folders or people's own text are never looked up themselves. */
-const VERBATIM = /^(name|path|filename|fileName|location|outputPath|destination|sourcePath|directory|folder|value|values|names|text|field|current|query|term|pattern|format|template|title)\d*$/;
+const VERBATIM = /^(name|nameOf|path|filename|fileName|location|outputPath|destination|sourcePath|directory|folder|value|values|names|text|field|current|query|term|pattern|format|template|title)\d*$/;
 
 // Key combinations as menus and tooltips show them: ⌘/Ctrl ⇧ S, Alt+Enter, Ctrl Num +.
 const SHORTCUT = /^(?:(?:⌘|⌥|⇧|⌃|⌫|Ctrl|Alt|Shift|Option|Cmd|Del|Num|Enter|Esc|Tab|Space|Page Up|Page Down|Home|End|Ins|F\d{1,2}|[A-Z0-9]|[←→↑↓+\/·]|,)[\s+/]*)+$/;

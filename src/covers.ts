@@ -9,6 +9,8 @@ type Batch={errors:{path:string;error:string}[]};
 /** An image file next to the audio files (Options → Tags folder-image fallback). */
 export type FolderImage={name:string;mime:string;size:number;width:number|null;height:number|null;data_base64:string};
 export type CoverHost={
+  /** Translate new popup content before reading layout dimensions. */
+  translateNow?:(root:HTMLElement)=>void;
   invoke:<T>(command:string,args?:Record<string,unknown>)=>Promise<T>;
   /** Selected files in list order with their cover descriptors. */
   selection:()=>{path:string;covers:CoverInfo[]}[];
@@ -181,7 +183,7 @@ export class CoverUI {
       ?`<div class="cover-menu-parent"><button role="menuitem" aria-haspopup="menu" aria-expanded="false" data-submenu ${item.enabled?'':'disabled'}><span>${esc(item.label)}</span><small>›</small></button><div class="cover-submenu" role="menu" aria-label="${esc(item.label)}" hidden>${render(item.children)}</div></div>`
       :`<button role="${item.checked===undefined?'menuitem':'menuitemcheckbox'}" ${item.checked===undefined?'':`aria-checked="${item.checked}"`} data-command="${esc(item.command)}" ${item.value?`data-value="${esc(item.value)}"`:''} ${item.enabled?'':'disabled'}><span>${item.checked?'✓ ':''}${esc(item.label)}</span>${item.shortcut?`<small>${esc(item.shortcut)}</small>`:''}</button>`).join('');
     const menu=document.createElement('div');menu.className='cover-menu';menu.tabIndex=-1;menu.setAttribute('role','menu');menu.setAttribute('aria-label',label);menu.innerHTML=render(items);menu.style.position=container===document.body?'fixed':'absolute';
-    container.append(menu);this.menu=menu;
+    container.append(menu);this.menu=menu;this.host.translateNow?.(menu);
     const width=menu.offsetWidth,height=menu.offsetHeight,box=container===document.body?{left:0,top:0}:container.getBoundingClientRect();
     menu.style.left=`${Math.max(4,Math.min(x,window.innerWidth-width-4))-box.left}px`;menu.style.top=`${Math.max(4,Math.min(y,window.innerHeight-height-4))-box.top}px`;
     const close=(restore:boolean)=>{this.closeMenu();document.removeEventListener('pointerdown',outside,true);if(restore)returnFocus?.focus({preventScroll:true});};
@@ -190,7 +192,7 @@ export class CoverUI {
     const level=(element:Element)=>[...element.closest('[role=menu]')!.querySelectorAll<HTMLButtonElement>(':scope > button:not([disabled]), :scope > .cover-menu-parent > button:not([disabled])')];
     const openSub=(button:HTMLButtonElement,focusFirst:boolean)=>{
       menu.querySelectorAll<HTMLElement>('.cover-submenu').forEach(sub=>{if(sub!==button.nextElementSibling){sub.hidden=true;sub.previousElementSibling?.setAttribute('aria-expanded','false');}});
-      const sub=button.nextElementSibling as HTMLElement;sub.hidden=false;button.setAttribute('aria-expanded','true');
+      const sub=button.nextElementSibling as HTMLElement;sub.hidden=false;button.setAttribute('aria-expanded','true');this.host.translateNow?.(sub);
       sub.classList.toggle('open-left',button.getBoundingClientRect().right+sub.offsetWidth>window.innerWidth-4);
       if(focusFirst)level(sub.firstElementChild||sub)[0]?.focus();
     };
