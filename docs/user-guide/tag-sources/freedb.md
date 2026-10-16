@@ -12,8 +12,10 @@ edition, track order and values before writing tags.
 3. Enter the artist and album, such as `Juniper Vale` and `Harbour Lights`.
    Choose **Search**. The selected-file count helps narrow the request when
    it is between 1 and 99.
-4. Compare artist, title, year and track count. Select a result and choose
-   **Next**, or double-click its row, to open the import review.
+4. Compare the artist, album title, category and **Entry ID** shown in the
+   results. Select a result and choose **Next**, or double-click its row, to
+   load that entry into the import review. Year and track count are not
+   supplied in this artist/album result list.
 
 OpenTag offers artist/album and artwork search only for recognized gnudb
 servers (`gnudb.org` or its subdomains). Use track-layout lookup for other
@@ -37,8 +39,10 @@ lookup is available only in a [local freedb database](local-freedb.md).
 
 ## Review before writing
 
-The review pairs source tracks with your files. Check the first and last
-track, as well as tracks with similar titles.
+After the entry loads, check its year when provided and compare its source
+track list with the selected files. The review pairs those source tracks
+with your files. Check the first and last track, as well as tracks with
+similar titles.
 
 - Use **Auto-match**, **Selection order**, or **Suggest sorting → Title** or
   **Length** to help arrange files. A suggested match still needs inspection.

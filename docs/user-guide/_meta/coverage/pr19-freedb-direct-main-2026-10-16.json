@@ -8,7 +8,7 @@
   },
   "canonical_qualification": "Preserved existing pinned canonical topic pointers; new behavior claims checked against this actualOpenTag source. No new canonical fetch or universal Mp3tag parity claim.",
   "page_sha256": {
-    "tag-sources/freedb.md": "bc77801b5f2724c1240ee2fae7c2d9c577f4caea416a9ae4d1cfd8dacce7545a",
+    "tag-sources/freedb.md": "10794eb5448b883d53aaa602c6c24176aab7432a19f1abdafb30274f6fdce83c",
     "tag-sources/local-freedb.md": "3a21b51539567c72cf083061c4644858ca23327b6789e35c1b31ead7a1b09512",
     "reference/menus/tag-sources.md": "959a2cd4ac9630c315b166c107b4469fa0e8aafb47c07fae6167136a9b1888a9",
     "reference/options/tag-sources-freedb.md": "2fda72d9428b67ddf0583a3095938a7c7618ff236e0f7d4685546c7f035c9ad4",
@@ -134,5 +134,11 @@
     "No18providerfeatures,17translations/typedtransport or20parserbehavior, original5P2/REA work.",
     "Root peer/finalheadGitHubCODE/trustedCI/merge/release/Pages still required."
   ],
-  "native_path_incident": "First native runner stopped at wrong relative target bundle location beforeUI. Built signed ownbundle copied byte-identical inside sameworktree, --no-build native22PASS. Accidental generated nestedtarget removed."
+  "native_path_incident": "First native runner stopped at wrong relative target bundle location beforeUI. Built signed ownbundle copied byte-identical inside sameworktree, --no-build native22PASS. Accidental generated nestedtarget removed.",
+  "review_followup": {
+    "reviewed_head": "9321a1e431ca5eddc7fe3080eb9d62620ce630fb",
+    "comment": 4296807437,
+    "change": "Compare artist/title/category/entryID in artist/album result list; inspect available year and source track list only after loading the entry for review. No runtime changes.",
+    "source_evidence": "freedb::match_result defaults year/track_count; freedb::release maps entry fields and tracks."
+  }
 }
