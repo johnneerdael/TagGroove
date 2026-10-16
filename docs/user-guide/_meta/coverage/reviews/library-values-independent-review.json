@@ -1,0 +1,129 @@
+{
+  "reviewer": "PR19 owner, independent finite field-values/Library/Tools peer",
+  "reviewed_commit": "21adf69093172404d6b7b420861fbbb57da9ba47",
+  "base_checkpoint": "9e0d7d74e38f0f41ce01b599276d010130b4f2fd",
+  "application_source": "325007c47bef4ee53a4aa9b086038157ee3e62dc",
+  "worktree": "/Users/jneerdael/Scripts/opentag-worktrees/codex-guide-library-values",
+  "result": "No actionable findings",
+  "findings": [],
+  "scope": "Three new chapters in full; prior12 reviewed local chapters reused, not re-reviewed. Reader-facing persistence/cache/menu semantics plus additive nav/draft/provenance boundaries.",
+  "hash_checks": {
+    "eleven_application_sources": {
+      "src/main.ts": true,
+      "src/tag-panel.ts": true,
+      "src/library.ts": true,
+      "src/tools.ts": true,
+      "src/utils-ui.ts": true,
+      "src-tauri/src/tag_panel.rs": true,
+      "src-tauri/src/library.rs": true,
+      "src-tauri/src/utilities.rs": true,
+      "crates/library/src/lib.rs": true,
+      "crates/library/tests/library.rs": true,
+      "crates/library/Cargo.toml": true
+    },
+    "three_new_pages": {
+      "customize/field-values.md": true,
+      "guides/library.md": true,
+      "reference/menus/tools.md": true
+    },
+    "test_source": {
+      "tests/guide-library-values.test.mjs": true
+    },
+    "current325_db_binary": true
+  },
+  "production_or_dependency_changes_from_main": [],
+  "focused_checks": {
+    "node": {
+      "command": "node --test tests/guide-library-values.test.mjs tests/library.test.mjs tests/tag-panel.test.mjs tests/options-utils.test.mjs",
+      "passed": 28,
+      "failed": 0,
+      "scope": "Current exact written LF/CRLF normalization/preference examples and fixed Tools AST inventory, plus existing production list/cache/tool/utility models; no native dialog or executable run."
+    },
+    "temporary_db": {
+      "binary": "/tmp/opentag-guide-combined-target/debug/deps/library-fae5f9113814cb76",
+      "binary_sha256": "302c8ffacf8dbbbdedbc54b8a5aaf9803e1efde31afd69619cf917724102392d",
+      "passed": 5,
+      "failed": 0,
+      "exact_cases": [
+        "unchanged_files_come_from_the_library_and_match_a_fresh_read",
+        "changed_files_are_read_again_and_replace_their_entry",
+        "other_read_options_and_refresh_read_files_again",
+        "only_included_directories_are_stored",
+        "cleanup_removes_missing_and_excluded_files_and_can_be_cancelled"
+      ],
+      "results": "/tmp/opentag-library-values-peer-db-results.json",
+      "source_identity": "Supplied current-main325 binary hash verified; bytes contain codex-guide-library-values source path and no17/20 worktree paths. No rebuild or reuse of changed17-20 binaries.",
+      "scope": "Generated temporary WAV/SQLite fixtures only; no personal library, provider, native app, performance or filesystem identity qualification."
+    }
+  },
+  "content_review": [
+    {
+      "page": "customize/field-values.md",
+      "conclusion": "MOOD setup and actual-field-name flow, normalization/order/case/5000 bound, selection/custom/GENRE behavior, preference versus global completion and ID3v1 bounds match source. Import merges; BOM/UTF encodings/export CRLF source checked. Inner editor OK and ShiftEnter save suggestions, not audio; outer Cancel cannot undo completed inner persistence/export. Sharing one exported list versus whole configuration is accurately scoped.",
+      "evidence": [
+        "src/tag-panel.ts:63-72 parseValueList/withLists/withCustomValue",
+        "src/tag-panel.ts:339-344 addCurrent/persist",
+        "src/tag-panel.ts:429-461 editor draft/capture/import/export/OK/Cancel",
+        "src-tauri/src/tag_panel.rs:266-285 text codec/BOM export",
+        "src/main.ts:350 dedicated Field Values editor page"
+      ]
+    },
+    {
+      "page": "guides/library.md",
+      "conclusion": "Disabled default, cache-by-loaded-path versus collection-query UI, validity/fingerprint/forceReload/stamp-preserving external changes, inclusion scope versus visible list, metadata/descriptors versus image bytes, counters/previous session caveat, invalidation, current-draft cleanup scope, partial cancellation, immediate Clear and backup/privacy/rebuild limits match current source.",
+      "evidence": [
+        "src/library.ts default/options/status/maintenance handlers",
+        "src-tauri/src/library.rs:scan_with/changed/status/cleanup_library/clear_library",
+        "crates/library/src/lib.rs:42-72 Stamp/fingerprint",
+        "crates/library/src/lib.rs:91-107 Scope",
+        "crates/library/src/lib.rs:366-408 cleanup/clear",
+        "crates/library/src/lib.rs:464-515 Session lookup/store",
+        "crates/tag-core/src/tags.rs:1004-1011 summary read before storing",
+        "src/main.ts:1774 reload passes refresh:true"
+      ]
+    },
+    {
+      "page": "reference/menus/tools.md",
+      "conclusion": "All five fixed commands appear in source order and dynamic names are appended/escaped. Utility format/pending/row/provider boundaries and links align with mature pages. First ten platform digit slots, tenth0,99-definition versus100-per-file limit, above10 confirmation, first-only/per-file mode, no automatic tag save, default NoAction\u2192ExtendedTags and Started versus process completion are accurate.",
+      "evidence": [
+        "src/main.ts:365-380 Tools host and context Utils",
+        "src/main.ts Tools menu assembly/operationReason",
+        "src/tools.ts ToolsUI.menuHTML/run/toolShortcut andTOOL_LIMIT",
+        "src-tauri/src/utilities.rs:run_tool/launch/invocations; child wait return ignored",
+        "existing28 model checks"
+      ]
+    }
+  ],
+  "navigation": {
+    "previous_local": 149,
+    "candidate": 152,
+    "prior_relative_order_retained": true,
+    "drafts": 35,
+    "generated_routes": 152,
+    "search_entries": 1258,
+    "nav_search_exact": true,
+    "draft_search_routes": 0,
+    "draft_html": 0,
+    "search_sha256": "b0d4870e66b05924219cccd524bd1dd7d5f573985213dc10bf5b937566331b71",
+    "matches_ledger": true,
+    "public_ready": 137,
+    "qualification": "15 completed local chapters remain unpublished; no public152 or complete semantic coverage claim."
+  },
+  "preserved_provenance": {
+    "prior_peer": {
+      "path": "reviews/file-recovery-independent-review.json",
+      "hash_matches": true
+    },
+    "public137": {
+      "path": "publication-137-2026-10-16.json",
+      "hash_matches": true
+    }
+  },
+  "limits": [
+    "No repository edits, new test/code, Cargo build, full suite, personal DB/library scanning, native application/OS action, external program execution, GitHub action or publication.",
+    "Owner strict/publication/browser receipts are provenance; peer independently ran focused checks and inspected generated nav/search/HTML boundaries.",
+    "Library and controller fixture success does not establish all native export/codec/file format/player/performance behavior.",
+    "Source325 and public137 qualifications remain explicit; pending17-20 behavior, originalP2/REA and full canonical semantic coverage remain out of scope.",
+    "PR19 remains frozen at c4d925f31e09ecdb96e04851518d9cfee6fffb48."
+  ]
+}

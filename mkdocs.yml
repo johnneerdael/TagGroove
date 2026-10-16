@@ -309,6 +309,10 @@ nav:
     - Move “feat.” artists out of the artist field: cookbook/feat-artists-to-title.md
   - Import tags:
     - Tag files from folder and file names: cookbook/tags-from-folder-and-filename.md
+    - Apply a tracklist from text: cookbook/tracklist-from-text-file.md
+    - Import lyrics sidecars: cookbook/lyrics-from-text-files.md
+  - Exchange text reports:
+    - Your library in a spreadsheet: cookbook/csv-for-spreadsheets.md
 
 - Help:
   - Frequently asked questions: help/faq.md

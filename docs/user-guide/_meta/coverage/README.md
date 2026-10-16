@@ -532,3 +532,52 @@ The actual public137 proof and structural-only scripting inventory remain
 unchanged. This checkpoint needs finite independent review and later current
 source reconciliation, final-head CODE, trusted CI and actual publication.
 Full canonical semantic completion and the remaining 35 drafts are still open.
+
+
+## Local text-exchange recipe checkpoint
+
+The next bounded batch completes three recipes: structured tracklists,
+per-file lyrics sidecars and spreadsheet CSV reports. The local milestone
+has 155 authored pages and 32 drafts. It preserves every prior 152-page
+navigation entry in order. Generated navigation and search agree on all
+155 routes, with 1,289 indexed sections and no draft navigation, HTML or
+search leakage. The actual public site remains the separately verified
+137-page publication; eighteen additional chapters are local only.
+
+The tracklist recipe teaches literal extraction masks, discarded numbering,
+selection-order association, per-album source-file evaluation, reordered
+filename keys, partial selection and the limits of CSV-like input. Lyrics
+teaching distinguishes a whole-text, per-file immediate action from that
+record importer, including naming, replacement, empty/missing files,
+encoding and continued action processing after warnings. The spreadsheet
+workflow keeps stable file keys, quotes every arbitrary cell, preserves
+Unicode and record endings, and explains text import and the absence of an
+automatic write-back link. Native dialog/player/spreadsheet execution is
+not inferred from core output tests.
+
+Six new focused core tests execute the actual written records, formats and
+outputs under both LF and CRLF Markdown checkouts. They cover reordered and
+partial keys, duplicates, source/sidecar paths, whole-text decoding,
+Unicode/quote escaping and multiline CSV cells. The narrow target is built
+from application source byte-identical to actual main325 in the shared
+guide-only target. Its Clippy check passes; no modified17–20 native binaries
+are reused. Twenty-four existing action/export UI model tests, eight
+publication tests, the strict guide build and whitespace checks pass.
+
+Browser QA uses a separate temporary headless Chrome profile against the
+local generated guide. It verifies palettes, actual reference navigation,
+390px tables/document bounds, horizontal template scrolling, search,
+complete numbered procedures and copyable lyric-filename code. An initial
+Markdown indentation error in the lyrics steps was corrected before the
+final checks. A later harness selector counted breadcrumb list items too;
+the selector was narrowed to the actual procedure. Neither an application
+change nor a claim of native UI/import or public155 validation is involved.
+Owned browser profiles and the local server are closed after validation.
+
+The ledger `text-exchange-2026-10-16.json` records exact source/page/test and
+binary hashes, canonical topic pointers, commands, results and limits.
+The preceding finite clean Library/value/menu review is retained unchanged
+in `reviews/library-values-independent-review.json`. Full canonical
+semantic coverage, the remaining32 drafts and actual publication still
+require further work. This local batch awaits its own independent review,
+then eventual source reconciliation, final-head CODE and trusted CI.
