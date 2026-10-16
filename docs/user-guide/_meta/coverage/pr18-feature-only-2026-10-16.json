@@ -1,0 +1,119 @@
+{
+  "source_main": "1fe6a800ac1096494b33d3b461286ad2d91e1a13",
+  "preserved_previous_stack": "e0707a319ffce5a74c4f824c051eb36fdce22c66",
+  "scope": "PR18 provider features extracted directly onto actual main. Language implementation/catalogs/typed diagnostic companions from PR17 are excluded; PR20 grammar is excluded.",
+  "original_feature_commits": [
+    "0e922d6",
+    "9f89a70",
+    "1f06c8d",
+    "3fc8465",
+    "b1d6e8a",
+    "233aefa",
+    "8c90678",
+    "5b304a5",
+    "d9e6fd3",
+    "7cf1da7"
+  ],
+  "later_feature_fix": "fbe58bc605c437dcb7deb2c65988bfed57ca0b85 iTunes parser/fixtures, without catalog implementation",
+  "page_sha256": {
+    "tag-sources/index.md": "3359a453399dbc5aa8a45b1e24cc2dd8155c6de4ee8cc9c60c5a2db4352890fa",
+    "tag-sources/discogs.md": "5d6ffc14fb9a5ceaccdfdd0bef337336d1dd3723105860d3b1c0cca89890ea26",
+    "tag-sources/itunes.md": "544b0dc25149582ea63f7ff0aa31fa67f9982d7357aba8c59b845d7f00415ce1",
+    "tag-sources/deezer.md": "292a84fc8a83d98fcf9c8e51678a03ef7722c9c960524169132d40cc55c60ddc",
+    "tag-sources/lrclib.md": "5c2fce93f9839a403ea01764823c49f770726f815411573ccec10aa6dfc07a73",
+    "tag-sources/acoustid.md": "839b0e510f376275dad9c229946022691f1afe619ce1165cac5150397310b98a",
+    "reference/options/tag-sources.md": "8bed2217f2e678fab74b2188297243e14904f3b5e1d5c39e61fbb3728f47647e"
+  },
+  "source_sha256": {
+    "src-tauri/src/sources/keys.rs": "4868059f68efdc22fda00c61c45c0a7bb65aebe44c1db2c5972f4bb87d7d8889",
+    "src-tauri/src/sources/lastfm.rs": "7c479282e6bb9d35727e5551a7f3d4f8999de8241960c83af4c8fe364c1ac016",
+    "src-tauri/src/sources/itunes.rs": "9b07f9e654de09b9cf934aa7311a9789239863e47fbcd3a0d42c3506859269b6",
+    "src-tauri/src/sources/credentials.rs": "8a521d98f84746a3b1fdc35904153463c7b72a361971960f946737bd06c5bd38",
+    "src-tauri/src/sources/fanart.rs": "2bff4dddf293f55bc0c88e4bb44d11417d970aa859867feaf4768e163378fecb",
+    "src-tauri/src/sources/mod.rs": "aca33f5952a08b2523be524cbde857eabf5ef11cbe4b13ccba2f4ecad8cb703f",
+    "src-tauri/src/sources/http.rs": "893b8d1d65f61da23e66f7e77774539e471da0b2e8fd65e2f1b3e187870e3ce9",
+    "src-tauri/src/sources/lrclib.rs": "8c84f0a96547c4b95c40943f4852f97f6d5f93855adceebabd5fc42d83559111",
+    "src-tauri/src/sources/model.rs": "6dc774d5b962f2bbd124efdc5982da7f7aedd1e4b15d09db068abfde47109652",
+    "src-tauri/src/sources/acoustid.rs": "1830e1644f5f4b73d3b3bf8987286f6c88a44a63bedd7b7e4d15f211ff88b10d",
+    "src-tauri/src/sources/deezer.rs": "77d7661cbbdeed81d924e82bb857cb8d56e3d4ad9551f16411269dea53d1f761",
+    "src/main.ts": "d346185a2c3898f5d11b7c00b6ede9410abf2d84494403972c968c7728cc73a7",
+    "src/tag-sources.ts": "433a95fd4a32cdf7084f33b99316ae5c8f7572e0747515d9a79d64c36b79484d",
+    "crates/tag-core/src/tags.rs": "e8d5f9d9fb071857cc051653221049376f6a43c2a20f87fe754bafaf08ff53e9",
+    "crates/tag-core/src/tag_policy.rs": "203a81e7ffb4787fe6e6504a9de91c10aa161ab67b33804e51f81a223804bd19",
+    "crates/tag-core/src/mapping.rs": "27483e3ca5738017cddb6a75105bda1d617c4f76536090693b2a8cdf696f2602",
+    "src-tauri/src/lib.rs": "5f30cf36d3cb09e8eaa973f235fa31501f0330ec153b6273721584a6d4f8c43f",
+    "tests/e2e/sources-4.js": "3159767d3b13b17f7fe8dd57b5fe28f3d2181eab2c5c6791a01d6e1e8a084d69",
+    "tests/e2e/sources-4-fixtures.sh": "a86d0dd4243de62d2e6b03ca234aa2bcd5404feddd6034fbec19359efa0f5cad",
+    "tests/tag-sources.test.mjs": "c99850c822005b56a6386042754f6d6bd7d522e7c59ecac594b4d36d607117ef",
+    "crates/tag-core/tests/tag_policy.rs": "368f06e39b04563e1a84622ac42c691103d3fb0ed3f755fefe8a51062f22638d"
+  },
+  "preservation": [
+    "Existing main custom-column cover naming, data-format fixes, journal behavior and all164 guide entries retained.",
+    "Provider/model/credentials/key modules match qualified prior source; native Auth/rate/request ordering unchanged.",
+    "Source-specific raw lyrics writer preserves simultaneous ID3/APE text and explicit web-source language syntax.",
+    "Deezer collects all validated pages before release metadata;205-track/3-disc fixture remains.",
+    "iTunes refuses incomplete positive totals and capped unknown totals; complete200/multidisc, raw metadata and under-cap unknown fallback retained."
+  ],
+  "validation": {
+    "rust_passed": 951,
+    "rust_failed": 0,
+    "rust_ignored": 5,
+    "ui_passed": 377,
+    "clippy": "workspace all-targets -D warnings PASS",
+    "build": "PASS",
+    "publication": 8,
+    "gate": 60,
+    "release": 25,
+    "qualified_actionlint": "PASS; ignores only existing queue:max unsupported-linter key",
+    "local_ready_routes": 170,
+    "drafts": 17,
+    "native_target": "/Users/jneerdael/Scripts/opentag-worktrees/codex-pr18-features-main/target",
+    "tmpdir": "/tmp/opentag-pr18-features-main-tmp",
+    "environment": "login:false; AR=/usr/bin/ar",
+    "cache": "Exclusive APFS clone of idle prior18 target. All five workspace packages cleaned in clone before fresh compilation; dependencies/global caches untouched. All5 compiler-artifact source paths point to this worktree and fresh:false.",
+    "logs": {
+      "rust": {
+        "path": "/tmp/opentag-pr18-feature-only-rust.jsonl",
+        "sha256": "157579ef3ab13f0ed65402c98dcf7f9a2feb00de0a88f2ac90f4e636e3e5fec8"
+      },
+      "clippy": {
+        "path": "/tmp/opentag-pr18-feature-only-clippy.log",
+        "sha256": "32f4b80cd37267df982ffe57f6162faf3cc8018e1159a0e2f96df7128079ce50"
+      },
+      "ui": {
+        "path": "/tmp/opentag-pr18-feature-only-ui-final.log",
+        "sha256": "61d8bbd256fbaeb614fc87f13fcf3d97ce4de89cb32a9babc975ee06ed04e658"
+      },
+      "build": {
+        "path": "/tmp/opentag-pr18-feature-only-build.log",
+        "sha256": "800c3e20abe1790c0896d15b77d82e02f4da5b990856b0ef4e8e974e29d79f65"
+      },
+      "publication": {
+        "path": "/tmp/opentag-pr18-feature-only-publication-final.log",
+        "sha256": "dd50a45b95e7b340e01b7f90b13c378563b5c697cfd26545475cc7d52e9e6bde"
+      },
+      "gate": {
+        "path": "/tmp/opentag-pr18-feature-only-gate.log",
+        "sha256": "2dd1c4a23c194e9b634462501c244be2d21cf9b8b042c1a141667e3ae82301c5"
+      },
+      "release": {
+        "path": "/tmp/opentag-pr18-feature-only-release.log",
+        "sha256": "1d42a1a39803be6996e062429c910c095e0fbdbd944dd130a4f8bf3998c14f8a"
+      },
+      "actionlint": {
+        "path": "/tmp/opentag-pr18-feature-only-actionlint.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "strict_guide": {
+        "path": "/tmp/opentag-pr18-feature-only-guide.log",
+        "sha256": "612f278924c3be160e97f55e8575275e2d793186adc0c81b0fad49a0aecea49b"
+      }
+    }
+  },
+  "qualifications": [
+    "Local source/model/native parser/command checks only; no new live provider calls, app-window/mobile test, remote CI/release or public170 claim.",
+    "Old iTunes RED receipts remain applicable to original pre-fix parser; current parser/fixture bytes reused exactly except pre-existing test-only raw-lyrics call signatures reconciled to main.",
+    "Native sources-4 suite is added to the existing trusted reviewed CI list, not run locally. No secrets/cache/workload trigger/gate/version changes.",
+    "Main has no translation catalogs; no catalog check or language feature claim is applicable."
+  ]
+}

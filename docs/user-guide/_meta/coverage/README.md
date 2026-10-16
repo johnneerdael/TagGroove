@@ -782,3 +782,13 @@ controller authorizes current-main/testmerge CI. Root owns the protected
 merge and actual release/Pages verification. Full canonical semantic
 completion, the remaining23drafts and original deferred P2/REA work are not
 claimed complete by this publication step.
+
+
+## PR18 provider features on actual main
+
+The `pr18-feature-only-2026-10-16.json` ledger records the provider-only
+preparation on main `1fe6a800ac1096494b33d3b461286ad2d91e1a13`. It retains
+the 164 published chapter entries and adds six completed source chapters.
+This checkpoint excludes the independently reviewed, unmerged PR17 Language
+implementation. Existing guide receipts continue to describe their exact
+source baselines; they are not new native, live-provider or publication proof.

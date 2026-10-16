@@ -1,0 +1,5 @@
+{"data": [
+ {"id": 3135554, "title": "Aerodynamic", "isrc": "GBDUW0000057", "duration": 212, "track_position": 2, "disk_number": 1, "artist": {"id": 27, "name": "Daft Punk"}, "type": "track"},
+ {"id": 3135553, "title": "One More Time", "isrc": "GBDUW0000053", "duration": 320, "track_position": 1, "disk_number": 1, "artist": {"id": 27, "name": "Daft Punk"}, "type": "track"},
+ {"id": 9, "title": "Bonus", "isrc": "GBDUW0000099", "duration": 100, "track_position": 1, "disk_number": 2, "artist": {"id": 27, "name": "Daft Punk"}, "type": "track"}
+], "total": 3}

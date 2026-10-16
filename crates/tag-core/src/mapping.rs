@@ -1415,6 +1415,9 @@ pub(super) fn id3_fields_with(
     fields
 }
 
+/// The error for an ID3v2 lyrics value without its `language||` prefix.
+pub const LYRICS_LANGUAGE_REQUIRED: &str = "UNSYNCEDLYRICS requires language||lyrics";
+
 /// The UFID owner of MUSICBRAINZ_TRACKID.
 const MUSICBRAINZ_OWNER: &str = "http://musicbrainz.org";
 
@@ -2117,9 +2120,7 @@ fn patch_described(
     }
     let mut languages = HashSet::new();
     for value in values {
-        let (lang, lyrics) = value
-            .split_once("||")
-            .ok_or("UNSYNCEDLYRICS requires language||lyrics")?;
+        let (lang, lyrics) = value.split_once("||").ok_or(LYRICS_LANGUAGE_REQUIRED)?;
         let language: [u8; 3] = lang
             .as_bytes()
             .try_into()
