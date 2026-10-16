@@ -1,0 +1,171 @@
+{
+  "scope": "One local three-page playlist/CUE/chapter batch; no PR/push or native/player claims.",
+  "base_checkpoint": "4d25be9aad289962836694074754587bc1a3a4a8",
+  "source_main": "3f6639c6264378bf7059abdb1ab1fb30e4792179",
+  "canonical_source_pointers": [
+    {
+      "url": "https://docs.mp3tag.de/actions/generate-playlists/",
+      "sha256": "4efd98c2cfc9804d5000d80c7fdc6805d384a2fe9a05210010730374a63a58e4"
+    },
+    {
+      "url": "https://docs.mp3tag.de/customization/options/playlist/",
+      "sha256": "54f3c7c6024ebd8064618a8aababaf28e408e75c0663fb59885abbb9c1bf26ba"
+    },
+    {
+      "url": "https://docs.mp3tag.de/customization/options/tags/advanced/",
+      "sha256": "3d8a0cf4141c4d7cb1ae39c906fb3bf874a2a85ed0ff9263c3f17994ea00172a"
+    },
+    {
+      "url": "https://docs.mp3tag.de/file-formats/",
+      "sha256": "1934e17bdad39d5ad8ec1fd5401663625f5585e7f42b2a41eb96332e72d1a8ad"
+    },
+    {
+      "url": "https://docs.mp3tag.de/menus/file/",
+      "sha256": "2a596a2431a33a542afff57e9a049169320acc5c40313e8cc1c1c2b62799ff40"
+    },
+    {
+      "url": "https://docs.mp3tag.de/playlists/",
+      "sha256": "ad8eb5dc91baa12a9b650cb553ba8dda99361482221aec57b40550f178ac9acf"
+    },
+    {
+      "url": "https://docs.mp3tag.de/utils/",
+      "sha256": "995d051373a503d2fde160fc1f15f8a550114dfeb60b239f5f9bf98003bf043f"
+    }
+  ],
+  "canonical_semantic_mapping": {
+    "playlists/Loading Playlists": [
+      "Supported local formats, order and duplicate first position, missing/localURL handling, literal/currentfolder reference resolution"
+    ],
+    "playlists/Adding Files": [
+      "Add files/directories or expand playlists; loaded-context/sort distinction when adding versus replacing; manualAlt order"
+    ],
+    "playlists/Saving Playlists": [
+      "Options scope, current visible versus selected inputs, literal confirmation versus filename template, loaded playlist placeholders, relative/root context, actual M3U/PLS examples and encodings"
+    ],
+    "playlists/Generating Multiple Playlists": [
+      "Equal partition results/first group member filename, nonadjacent member order, selected-or-visible scope, live first50 preview, output distinctions, action deferred timing"
+    ]
+  },
+  "source_usage": "Canonical snapshot is a topic checklist only; original practice data/prose against current source. OpenTag-specific chapter/CUE rows are explicitly an extension. Preserves incoming PR26 Nero/artwork and PR27 safe M3U fallback notes in mature instructions.",
+  "topics": {
+    "guides/playlists.md": [
+      "Local loader/M3U8/PLS/CUE, duplicate/order/errors and Add versus Load sorting/context; explicit primary-modifier drop-add versus replace and manual Alt ordering",
+      "Four actual UI scope paths including visible all, hidden selection and per-folder direct write",
+      "Two real WAV clips supply exact written M3U8/PLS output; saved metadata labels, CRLF and multiline/path limits",
+      "Configured template versus literal confirmed output; loaded playlist context, relative entries/root boundaries, .m3u8/PLS Unicode and safe no-system-codepage M3U fallback",
+      "Generator count/first50 preview and actual request, action-group timing, auto-create off/default and extra output effects",
+      "External output/overwrite/partial failure/Undo caveats; no universal protection guarantee"
+    ],
+    "guides/chapters.md": [
+      "Whole file versus embedded chapter versus external CUE row; enable/reload/two-chapter threshold and supported sources",
+      "TITLE overlay, zero-based information index/count/segment duration, generated MP4 track values distinct from physical files",
+      "Staged text edits versus Save, unchanged timings and title clearing, common/differing nonTITLE redistribution and format limits",
+      "Whole-file structural CHAPTERS/CUESHEET, external AUDIO+INDEX01 rows independent of list option",
+      "Actual complete CUE source/row table; performer inheritance, INDEX75frames, same-file end/pregap, skipped DATA/noINDEX and reference errors",
+      "Track versus shared album CUE lines, supported15 field families/names, fixed TRACK/rejected unknown fields/shared conflicts, encoding/readback/line preservation limits",
+      "Seven source/model command guards; containing-file effects, return to ordinary file rows before playlists/moves",
+      "Preserved Nero/iTunes metadata/artwork precedence and MP4 chapter stripping scope, returned row replacement/history limits"
+    ],
+    "cookbook/playlist-per-album.md": [
+      "Three interleaved input members/two per-folder outputs preserving source order; scope, ordinary rows and saved tags",
+      "Four actual partition/filename formats and three per-disc output examples; path context and numeric naming collisions",
+      "Current generator controls/live preview/OK, first50 count versus immutable plan distinction",
+      "Per-folder direct command/shortcut versus generator dialog; GeneratePlaylists action selected+deferred group timing; relative configured names versus absolute-base override",
+      "Selection/filter/readable-source/working-root/relative path/debugging; external filesystem risk boundaries"
+    ]
+  },
+  "page_sha256": {
+    "guides/playlists.md": "b3c66b0ec3bd2a5b1749bb7450d783877b91548fe5de76bc4ae7990a6b884e7e",
+    "guides/chapters.md": "cae197332bfb551f602fe938f02615d9f197a862935c56385abace15bd63f34f",
+    "cookbook/playlist-per-album.md": "bb7a8e0e2c7efb7654f2abbafc5d69322f3fc0d6c4ad60ae1e56783128c151bb"
+  },
+  "source_sha256": {
+    "crates/tag-core/src/playlist.rs": "4146e4f47d0fb38572e082525cf57c905ee6a98ce93ab66cc6753782787b7fa4",
+    "crates/tag-core/src/cue.rs": "550152d6832e574b5bbd0d3988b54bbfbd08891718f8da20c300f3d7cfa671d0",
+    "crates/tag-core/src/subsongs.rs": "dc2a374347a9476db1c40cf14c84cc137088bb263950a6f5c51f6a9dcb4e73bb",
+    "crates/tag-core/src/tags.rs": "4e9ab3942b42b9e22b776334d2dd8acb00849eaa7c65c892324ee4879f76f7a5",
+    "crates/tag-core/src/actions.rs": "70c80252ff553159f5c7a5563c0cc14ef0ca23f804da8071fd2dac94c97828ac",
+    "src/playlist-ui.ts": "8dd2f4e01328cd0140c16bf256079bfb5f46d71c1e5724972f4b0e89557db910",
+    "src/chapters.ts": "7708526677dd5526ad85e662c6e097cf0888f7df4394fafe8e767aae45db3ffa",
+    "src/main.ts": "f9c0a56f1eba4f77bc47531a08fcd63427a2b845bc36a784b27da43146309c76",
+    "src/utils-ui.ts": "3a2cdafbf85175a023fad844cccc59730ffcfa104b3921d8494c1ecb02e0224e",
+    "src-tauri/src/playlists.rs": "d06f9afefd64b29c782cb7077c105077837ebb7d4a6a3f31d2d23bbb2c59bf40",
+    "src-tauri/src/evaluation.rs": "bc66c581e6ff3826bb0f856ec51ce8d5bdcbfd8ede0880974f27fd94214af6cf",
+    "src-tauri/src/settings.rs": "756a5a5e847be1cae1107c861b733c100dd014bd33b11e0521d6d40d85bb5c4e",
+    "src-tauri/src/utilities.rs": "404b520370424704d6ecccad37d44c63ab6bd522a30622fe203333d261efca5e",
+    "src-tauri/src/action_host.rs": "6da0c08ead3c66a3b4f266629573c2d0316de56a2671e870121f1518bc037486",
+    "crates/tag-core/src/mp4_metadata.rs": "975af6d27bfd0bf6ba7c85d0b65a8c63b92af778799815add614cc63710c8120",
+    "src/list-behaviour.ts": "d6739b158d1005e7cf9daa7fbb90a5ad8adfba12cdadaf464ae52c6954b1ea33"
+  },
+  "example_contracts": {
+    "core_tests": 6,
+    "model_tests": 3,
+    "playlists": "Actual generated2s/3sWAV files with saved fields drive written M3U8/PLS bytes and load-back; audio files byte-identical. Written loader list reports lines5/6 and preserves first unique order. Three written encoding cases plus explicit ANSI-unrepresentable error.",
+    "cue": "Actual written CUE read with bothLF/CRLF file endings, generated3sWAV, two actual row snapshots, written marked TITLE/ALBUM edits, fixedTRACK/unknownfield/sharedconflict rejection keeps sheet, full referenced audio bytes unchanged.",
+    "recipe": "Actual core evaluates four written partition/name fences for three members and consumes written per-folder/per-disc output tables; grouping algorithm/timing source checked, not reimplemented in test.",
+    "models": "Actual PlaylistUI create/per-folder methods and generate controller at minimal modal/control/clock seams, source-defined paths/scopes/formats/lifecycle; actual chapter guard table and row replacement. No DOM rendering/native app test claim.",
+    "newline_and_whitespace": "All written tables/8fences/marked inline formulas and CUE edits execute under LF/CRLF; significant inner code whitespace preserved.",
+    "dependency_configuration": "Unchanged. An initial attempted HappyDOM import was removed because it is not a repository dependency; minimal existing-style host/control seams used instead."
+  },
+  "validation": {
+    "focused_core": "Final6 passed after prose/table-heading clarification; actualCUE files useLF andCRLF",
+    "focused_models": "Final3 passed with deterministic modal/control/clock seams",
+    "full_core": {
+      "passed": 559,
+      "failed": 0,
+      "ignored": 0,
+      "scope": "Full suite before final prose/semantic-limit clarification; final affected target pending"
+    },
+    "full_ui": "355 passed; final3 model/controller tests also passed after deterministic clock seam",
+    "publication": "8 passed",
+    "strict": "Final133 completed /54 drafts strict build passed",
+    "fmt": "passed",
+    "focused_clippy": "passed",
+    "browser": {
+      "scope": "Generated local133-page guide against application source3f6639c, public127 plus six local chapters; no public/native claim",
+      "checks": [
+        "Detailed playlist guide renders in light palette",
+        "Actual playlist guide link opens the per-album recipe",
+        "guides/playlists/ fits390px document with local table scrolling",
+        "guides/chapters/ fits390px document with local table scrolling",
+        "Actual horizontal wheel scrolling reveals CUE subsong indices, counts and durations",
+        "cookbook/playlist-per-album/ fits390px document with local table scrolling",
+        "Actual local search finds the pregap explanation and opens the chapter guide"
+      ],
+      "errors": [],
+      "screenshots": [
+        "/tmp/opentag-guide-playlist-chapters-browser/desktop-playlist-guide-light.png",
+        "/tmp/opentag-guide-playlist-chapters-browser/mobile390-playlist-scope-table.png",
+        "/tmp/opentag-guide-playlist-chapters-browser/mobile390-cue-rows-table.png",
+        "/tmp/opentag-guide-playlist-chapters-browser/mobile390-cue-information-scrolled.png",
+        "/tmp/opentag-guide-playlist-chapters-browser/mobile390-per-album-table.png"
+      ],
+      "success": true,
+      "profile_removed": true,
+      "receipt": "/tmp/opentag-guide-playlist-chapters-browser/results.json",
+      "visual_inspection": "Desktop playlist introduction and390px CUE information-table screenshots manually viewed. Human Index/Count headings map to the exact placeholders in preceding prose. Actual horizontal wheel scrolling reveals index/count/seconds values; no document overflow. All8 code fences have copy controls (3/1/4); clipboard API not tested."
+    },
+    "independent_review": "pending",
+    "rendered_recipe_structure": {
+      "ordered_lists_in_solution": 1,
+      "numbered_steps": 7,
+      "tables_in_solution": 2,
+      "format_fences_in_solution": 2
+    }
+  },
+  "local_completed_pages": 133,
+  "local_remaining_drafts": 54,
+  "public_baseline": {
+    "completed_pages": 127,
+    "drafts": 60,
+    "source": "3f6639c",
+    "six_local_chapters_unpublished": true
+  },
+  "limits": [
+    "No installed OpenTag/native/player/runtime API/device qualification. Real file evidence limited to generatedWAV/playlist/CUE; broaderMP4/Matroska/ID3 chapters/Nero/strip claims source checked.",
+    "No live tag-provider API behavior is tested. The example.invalid URL is rejected by the local loader before any network request.",
+    "Deferred P2 case-alias/export overwrite issues outside scope; no filesystem-wide collision/atomic rollback/Undo guarantees.",
+    "Current3f application semantics; reconcile actual feature17-20 main before future publication.",
+    "133/187 is a writing milestone; complete canonical94page paragraph/placeholder semantic coverage remains unproven."
+  ]
+}

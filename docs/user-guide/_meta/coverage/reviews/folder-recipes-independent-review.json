@@ -1,0 +1,40 @@
+{
+  "head": "f26d839c293df48135744cef517e3fcabe925b2f",
+  "scope": "Finite read-only three folder recipe review, interrupted for priority PR17 Clippy repair",
+  "sha256_matches": {
+    "docs/user-guide/cookbook/rename-into-artist-album-folders.md": true,
+    "docs/user-guide/cookbook/rename-multi-disc-albums.md": true,
+    "docs/user-guide/cookbook/rename-compilations.md": true,
+    "crates/tag-core/src/script.rs": true,
+    "src-tauri/src/lib.rs": true,
+    "src-tauri/src/evaluation.rs": true,
+    "src-tauri/src/rename_plan.rs": true,
+    "src/main.ts": true,
+    "src/options-ui.ts": true,
+    "crates/tag-core/src/mapping.rs": true
+  },
+  "existing_actual_core_binary": {
+    "passed": 4,
+    "failed": 0,
+    "log": "/tmp/opentag-guide-folder-recipes-independent-core.log"
+  },
+  "source_read": [
+    "filename_target body",
+    "script filename sanitization and optional presence",
+    "actual recipe fixture source",
+    "all three page source",
+    "ledger"
+  ],
+  "findings": [
+    {
+      "severity": "P3",
+      "page": "cookbook/rename-into-artist-album-folders.md",
+      "text": "The statement that a missing album leaves an empty component is too absolute: with YEAR present the optional suffix creates a year-only component. Required ALBUM precondition already blocks applying this input; qualify as empty or year-only."
+    }
+  ],
+  "limits": [
+    "No moves/native UI/platform collision or alias validation",
+    "Canonical network pages not independently reread; local source semantics reviewed",
+    "No edits"
+  ]
+}

@@ -1,0 +1,210 @@
+{
+  "reviewer": "PR19 owner, independent finite read-only peer review",
+  "reviewed_commit": "29c37f8477e9b339218a5ed921a80716e1cb79c6",
+  "application_source": "3f6639c6264378bf7059abdb1ab1fb30e4792179",
+  "worktree": "/Users/jneerdael/Scripts/opentag-worktrees/codex-guide-playlist-chapters",
+  "status": "No actionable findings",
+  "findings": [],
+  "page_sha256": {
+    "guides/playlists.md": "b3c66b0ec3bd2a5b1749bb7450d783877b91548fe5de76bc4ae7990a6b884e7e",
+    "guides/chapters.md": "cae197332bfb551f602fe938f02615d9f197a862935c56385abace15bd63f34f",
+    "cookbook/playlist-per-album.md": "bb7a8e0e2c7efb7654f2abbafc5d69322f3fc0d6c4ad60ae1e56783128c151bb"
+  },
+  "all_page_hashes_match_ledger": true,
+  "source_hash_checks": [
+    {
+      "path": "crates/tag-core/src/playlist.rs",
+      "recorded_sha256": "4146e4f47d0fb38572e082525cf57c905ee6a98ce93ab66cc6753782787b7fa4",
+      "current_matches": true,
+      "immutable_main_matches": true
+    },
+    {
+      "path": "crates/tag-core/src/cue.rs",
+      "recorded_sha256": "550152d6832e574b5bbd0d3988b54bbfbd08891718f8da20c300f3d7cfa671d0",
+      "current_matches": true,
+      "immutable_main_matches": true
+    },
+    {
+      "path": "crates/tag-core/src/subsongs.rs",
+      "recorded_sha256": "dc2a374347a9476db1c40cf14c84cc137088bb263950a6f5c51f6a9dcb4e73bb",
+      "current_matches": true,
+      "immutable_main_matches": true
+    },
+    {
+      "path": "crates/tag-core/src/tags.rs",
+      "recorded_sha256": "4e9ab3942b42b9e22b776334d2dd8acb00849eaa7c65c892324ee4879f76f7a5",
+      "current_matches": true,
+      "immutable_main_matches": true
+    },
+    {
+      "path": "crates/tag-core/src/actions.rs",
+      "recorded_sha256": "70c80252ff553159f5c7a5563c0cc14ef0ca23f804da8071fd2dac94c97828ac",
+      "current_matches": true,
+      "immutable_main_matches": true
+    },
+    {
+      "path": "src/playlist-ui.ts",
+      "recorded_sha256": "8dd2f4e01328cd0140c16bf256079bfb5f46d71c1e5724972f4b0e89557db910",
+      "current_matches": true,
+      "immutable_main_matches": true
+    },
+    {
+      "path": "src/chapters.ts",
+      "recorded_sha256": "7708526677dd5526ad85e662c6e097cf0888f7df4394fafe8e767aae45db3ffa",
+      "current_matches": true,
+      "immutable_main_matches": true
+    },
+    {
+      "path": "src/main.ts",
+      "recorded_sha256": "f9c0a56f1eba4f77bc47531a08fcd63427a2b845bc36a784b27da43146309c76",
+      "current_matches": true,
+      "immutable_main_matches": true
+    },
+    {
+      "path": "src/utils-ui.ts",
+      "recorded_sha256": "3a2cdafbf85175a023fad844cccc59730ffcfa104b3921d8494c1ecb02e0224e",
+      "current_matches": true,
+      "immutable_main_matches": true
+    },
+    {
+      "path": "src-tauri/src/playlists.rs",
+      "recorded_sha256": "d06f9afefd64b29c782cb7077c105077837ebb7d4a6a3f31d2d23bbb2c59bf40",
+      "current_matches": true,
+      "immutable_main_matches": true
+    },
+    {
+      "path": "src-tauri/src/evaluation.rs",
+      "recorded_sha256": "bc66c581e6ff3826bb0f856ec51ce8d5bdcbfd8ede0880974f27fd94214af6cf",
+      "current_matches": true,
+      "immutable_main_matches": true
+    },
+    {
+      "path": "src-tauri/src/settings.rs",
+      "recorded_sha256": "756a5a5e847be1cae1107c861b733c100dd014bd33b11e0521d6d40d85bb5c4e",
+      "current_matches": true,
+      "immutable_main_matches": true
+    },
+    {
+      "path": "src-tauri/src/utilities.rs",
+      "recorded_sha256": "404b520370424704d6ecccad37d44c63ab6bd522a30622fe203333d261efca5e",
+      "current_matches": true,
+      "immutable_main_matches": true
+    },
+    {
+      "path": "src-tauri/src/action_host.rs",
+      "recorded_sha256": "6da0c08ead3c66a3b4f266629573c2d0316de56a2671e870121f1518bc037486",
+      "current_matches": true,
+      "immutable_main_matches": true
+    },
+    {
+      "path": "crates/tag-core/src/mp4_metadata.rs",
+      "recorded_sha256": "975af6d27bfd0bf6ba7c85d0b65a8c63b92af778799815add614cc63710c8120",
+      "current_matches": true,
+      "immutable_main_matches": true
+    },
+    {
+      "path": "src/list-behaviour.ts",
+      "recorded_sha256": "d6739b158d1005e7cf9daa7fbb90a5ad8adfba12cdadaf464ae52c6954b1ea33",
+      "current_matches": true,
+      "immutable_main_matches": true
+    },
+    {
+      "path": "crates/tag-core/src/mp4_chapters.rs",
+      "recorded_sha256": null,
+      "current_sha256": "25d70e899d5e5167e5f886c2aff3801e6246cb4778546d101e2e39717ae13bd4",
+      "immutable_main_matches": true
+    },
+    {
+      "path": "crates/tag-core/src/nero_tags.rs",
+      "recorded_sha256": null,
+      "current_sha256": "8f66af4ac3e20d6d1130d6aecc4ce2cde21e7e3a7bc8182a163835b041a219df",
+      "immutable_main_matches": true
+    }
+  ],
+  "tests": {
+    "core": {
+      "command": "/tmp/opentag-guide-combined-target/debug/deps/playlist_chapter_guide-f6d560f56d831c0f",
+      "passed": 6,
+      "failed": 0,
+      "ignored": 0,
+      "binary_sha256": "a7ff228f623a74302192bf36bebc0c69cf1a69c7d33a1829d3c97a0c17cf7061",
+      "scope": "Existing core test binary; real generated WAV/M3U8/PLS/CUE file writers/readers, failure preservation and formula evaluation, no native app/player run."
+    },
+    "models": {
+      "command": "node --test tests/guide-playlist-chapters.test.mjs",
+      "passed": 3,
+      "failed": 0,
+      "scope": "Production PlaylistUI/controller/chapter guard models at explicit seams; current guide text loaded from disk, no native UI claim."
+    }
+  },
+  "teaching_and_fact_checks": [
+    {
+      "topic": "Playlist loading",
+      "evidence": [
+        "crates/tag-core/src/playlist.rs:98-136 numeric PLS ordering",
+        "crates/tag-core/src/playlist.rs:285-327 first path occurrence, local references, line errors",
+        "src/main.ts:1333-1344 replace/empty load captures playlist context and clears column sort"
+      ],
+      "conclusion": "Written ordering, duplicate-path qualification, missing/HTTP lines 5/6 and add-versus-replace explanation match source and actual fixture."
+    },
+    {
+      "topic": "Selection and generator",
+      "evidence": [
+        "src/main.ts:249-257 visible all versus selected host",
+        "src/playlist-ui.ts:create/createPerFolder/generate",
+        "src-tauri/src/playlists.rs:plan/create",
+        "crates/tag-core/src/actions.rs:1030-1079 deferred set actions"
+      ],
+      "conclusion": "Recipe teaches unselect-all before visible scope, group order, first readable member naming, explicit folder destinations, live first-50 preview and deferred selected action timing correctly."
+    },
+    {
+      "topic": "Written playlist bytes and encodings",
+      "evidence": [
+        "crates/tag-core/src/playlist.rs:405-497",
+        "playlist_chapter_guide six existing passing tests"
+      ],
+      "conclusion": "Two WAV fixtures produce exact M3U8/PLS CRLF labels/durations/readback; no-system-codepage Windows-1252 lossless-or-UTF8 fallback and explicit-ANSI rejection are accurately qualified. PR27 fallback note retained."
+    },
+    {
+      "topic": "CUE edits and preservation",
+      "evidence": [
+        "crates/tag-core/src/cue.rs:19-36 field maps",
+        "crates/tag-core/src/cue.rs:317-337 AUDIO/INDEX 01 and timing",
+        "crates/tag-core/src/cue.rs:442-484 shared conflicts/unsupported fields/fixed TRACK",
+        "crates/tag-core/src/subsongs.rs:818-851 staged encoding readback",
+        "real WAV/CUE fixtures and unchanged-sheet/audio assertions"
+      ],
+      "conclusion": "Complete practice sheet, performer inheritance, zero-based index/count, timing, title/shared album changes, LF/CRLF and failure preservation match actual checks."
+    },
+    {
+      "topic": "Chapter formats and containing-file scope",
+      "evidence": [
+        "crates/tag-core/src/subsongs.rs:158-170 two-chapter threshold",
+        "crates/tag-core/src/subsongs.rs:249-307 overlays and row model",
+        "crates/tag-core/src/subsongs.rs:430-585 structural fields/consolidation/writes",
+        "src/chapters.ts:18-39 actual command guards",
+        "src/utils-ui.ts:60-69 MP4 stripping prompt"
+      ],
+      "conclusion": "Steps distinguish staged fields from Save, structural fields from row labels, supported formats, whole-file effects and unqualified history limits. Seven guard examples match production helper."
+    },
+    {
+      "topic": "Nero/artwork and operational limits",
+      "evidence": [
+        "crates/tag-core/src/mp4_chapters.rs:323-346 iTunes field precedence",
+        "crates/tag-core/src/mp4_chapters.rs:420-444 iTunes-only-when-absent Nero cover fallback",
+        "crates/tag-core/src/mp4_chapters.rs:480-527 Nero cover removal/sync",
+        "crates/tag-core/src/subsongs.rs:656-716 mapped MP4 row writes and Nero sync",
+        "crates/tag-core/src/tags.rs:1424-1445 cover write drops Nero copies;1720-1738 normal-field Nero sync",
+        "guides/chapters.md MP4 Nero metadata and artwork section",
+        "playlists.md and cookbook recovery sections"
+      ],
+      "conclusion": "PR26 Nero/iTunes precedence/artwork notes retained. No universal alias, overwrite, rollback, native player or external-output Undo guarantee introduced."
+    }
+  ],
+  "binary_provenance_note": "The existing binary embeds the exact current chapters page. Playlist/recipe embedded prose predates only the latest absolute-configured-output clarification paragraphs; all written executable example regions and formulas remain identical. Reviewed those final prose clarifications directly against PlaylistUI.createPerFolder base_directory:null and playlists.rs base.join(name) plus target collision checks. No rebuild was performed.",
+  "limits": [
+    "Read-only review; no file edits, push, PR, CODE request, CI, REA or native application/player execution.",
+    "Core evidence is ordinary generated local WAV/playlist/CUE files. Broader MP4/Matroska/ID3/Nero behavior was source-checked, not newly round-tripped.",
+    "Current source baseline is M3f; pending feature PR17-20 behavior must be reconciled before future publication."
+  ]
+}

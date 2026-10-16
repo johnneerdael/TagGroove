@@ -1,0 +1,150 @@
+{
+  "scope": "Three local artist/album, multi-disc and compilation path recipes; separate from frozen PR31, no publication/PR.",
+  "base_checkpoint": "206ea1846c514b4c44414d1c63c57e9b7f67730b",
+  "source_main": "dbcd9ce43c64e459c20553f9d14b5d77534847a0",
+  "canonical_source_pointers": [
+    {
+      "url": "https://docs.mp3tag.de/converters/rename-files/",
+      "sha256": "56a05c0a29e207da1ca909126ce84f307dc43e715b4914f56c8378bfdcb77550"
+    },
+    {
+      "url": "https://docs.mp3tag.de/customization/options/files/",
+      "sha256": "52128d61fe45773d2ecbb668e817b23931fe6304e021f531ef88347259245983"
+    },
+    {
+      "url": "https://docs.mp3tag.de/format/",
+      "sha256": "ce27f4da8eb9305b439522ce63c5aaebcf510a6e7ea76e54c17b8e373eabf0d1"
+    },
+    {
+      "url": "https://docs.mp3tag.de/mapping/",
+      "sha256": "fa5106511c8c508e13c3fa18cc40f90bb36e50daea39148cf5718ac0b2708c42"
+    },
+    {
+      "url": "https://docs.mp3tag.de/scripting/",
+      "sha256": "9296fcbcfc59338bc44f44765c8b766f30c61601f3fd124ffa65c9559fb575b0"
+    }
+  ],
+  "source_usage": "Independently authored recipe prose/data. Canonical naming topics are a checklist. OpenTag source resolves relative paths under each source containing folder; the canonical working-directory statement is not assumed to describe OpenTag.",
+  "topics": {
+    "cookbook/rename-into-artist-album-folders.md": [
+      "Requiredfieldreview/copiedinputs, orderedPreview/Apply and immediatepathwrite",
+      "Five written optionalyear/paddedtrack/100width/valuecharacter/MP3FLAC cases",
+      "Missingfirstartist may change root fromleadingseparator; stopandcorrect ratherthanapply",
+      "Literal versusmetadata separators, configuredreplacement and forbiddenchars, no universalplatformvalidation promise",
+      "Albumartistfallbackvariant, absolute-root platformcontext, completeyear versus extraction",
+      "Renestingrelativepaths, sidecars/emptyfolders/Keepmovedfiles/sessionUndo/partialerrors"
+    ],
+    "cookbook/rename-multi-disc-albums.md": [
+      "Repeatedtrack1Intro needsdiscidentity, four actual disc/trackslash/absentdisc casepaths",
+      "CD00 isnotinferred valid disc; no metadata renumbering or totalinference",
+      "Conditionalbranch preserves literal separator; missingversuspresent0",
+      "Flatdisc-track variant and artistouterlevellinks",
+      "Eachsourceparent root versusconsolidation, extensionretained, sidecars/previewfreshness/copies/Undo"
+    ],
+    "cookbook/rename-compilations.md": [
+      "Five albumartist/artist/compilationflag cases; absentalbumartist fallback can split album evenflag1",
+      "Trackartistretainedinfilename; albumartistVarArtistnotmagic/playerguarantee",
+      "Flagunusedbyformula; nativeconstrained1-or-deletion referenced",
+      "Plainplaceholderfirstvalue versusexplicitjoin, fixedCompilationsfolder and discvariant",
+      "Relative root/renesting, actualselection/errors/sidecars/Undo; no collision/aliascertification"
+    ]
+  },
+  "page_sha256": {
+    "cookbook/rename-into-artist-album-folders.md": "2b7f8471b49ff178949b8e13423240f44e4473e54dae4da2befff4190e6ecc9b",
+    "cookbook/rename-multi-disc-albums.md": "eda5efacdb21a81f777334f0c802b063495f518205ef999fb2338846e7448999",
+    "cookbook/rename-compilations.md": "a03a6d9f9de650574199aa0dd84e87ed8f1e3e64e60f5421ad7ce422f865c2e2"
+  },
+  "source_sha256": {
+    "crates/tag-core/src/script.rs": "b070a9db9820b53c22f50d43a6986b465e5fce56e86dd7aa835d333c5b385ec0",
+    "src-tauri/src/lib.rs": "77b79c1faad0bf31d07bd5974d91980c4b62dcd919a9aad8217e0f2547acef49",
+    "src-tauri/src/evaluation.rs": "bc66c581e6ff3826bb0f856ec51ce8d5bdcbfd8ede0880974f27fd94214af6cf",
+    "src-tauri/src/rename_plan.rs": "1c5db878c801fd014388dae1bb632b1058235884798c13a04f320e7806a616fc",
+    "src/main.ts": "f9c0a56f1eba4f77bc47531a08fcd63427a2b845bc36a784b27da43146309c76",
+    "src/options-ui.ts": "f745bbf8d596fdffa51de0c8c02d5180def53eefeef11a690c1805da221c8446",
+    "crates/tag-core/src/mapping.rs": "b36b8c65965547409b30e7e8b755aa5440d9b1a38c29622cc2db4c7ac8f374c7"
+  },
+  "example_contracts": {
+    "new_core_tests": 4,
+    "primary_written_rows": 14,
+    "written_variation_results": 6,
+    "newline_forms": "Every input/output table and all8 actual format fences run under normalizedLF andCRLF; backtick values and inner whitespace preserved",
+    "core": "Actual filename-mode sanitizer/optional presence/if branch/padding/fallback operations produce written stems. Additional presentdisc0 branch check.",
+    "host": "Actual current filename_target body extracted from included lib.rs after newline normalization, compiled with std and minimal AudioEntry.path DTO, then executed for all40LFCRLF primary/variation cases; originalcaseextensionnotduplicated, emptyresultreject and missingleadingartistrootwarning checked. No moves.",
+    "test_only_dependency": "Existing Rust toolchain rustc invoked via RUSTC or PATH to compile one temporary std-only helper executable; no Cargo dependency, feature or app code change. TempDir owns generated program/executable and cleans up on test completion."
+  },
+  "validation": {
+    "focused_core": "Final4 passed after list indentation/outer table-layout whitespace handling; innerbacktickspaces and LF/CRLF preserved",
+    "full_core": {
+      "passed": 553,
+      "failed": 0,
+      "ignored": 0,
+      "scope": "Full suite before final list-indentation/table-reader polish; final affected4core passed after polish."
+    },
+    "full_ui": "352 passed0failed",
+    "publication": "8 passed",
+    "strict": "130 completed/57drafts strict build passed",
+    "fmt": "passed",
+    "focused_clippy": "passed",
+    "browser": {
+      "scope": "Generated local130-page guide at dbcd9ce plus thirty-three local chapters; no public/native claim",
+      "checks": [
+        "Artist and album folder recipe renders in light palette",
+        "Actual recipe link navigates artist folders to multi-disc explanation",
+        "cookbook/rename-into-artist-album-folders/ fits390px document with local table scrolling",
+        "cookbook/rename-multi-disc-albums/ fits390px document with local table scrolling",
+        "cookbook/rename-compilations/ fits390px document with local table scrolling",
+        "Actual local search finds the leading-separator warning and opens its recipe"
+      ],
+      "errors": [],
+      "screenshots": [
+        "/tmp/opentag-guide-folder-recipes-browser/desktop-artist-album-light.png",
+        "/tmp/opentag-guide-folder-recipes-browser/mobile390-artist-album-table.png",
+        "/tmp/opentag-guide-folder-recipes-browser/mobile390-multi-disc-table.png",
+        "/tmp/opentag-guide-folder-recipes-browser/mobile390-compilations-table.png"
+      ],
+      "success": true,
+      "profile_removed": true,
+      "receipt": "/tmp/opentag-guide-folder-recipes-browser/results.json",
+      "visual_inspection": "Desktop and final390px multi-disc table manually viewed. Initial list fragmentation and comment/table separation corrected; final HTML has one ordered list with6/6/7steps and one real table per solution. Browser explicitly asserts a rendered table exists. All8 fences have copy controls (2/3/3), no clipboard API claim."
+    },
+    "independent_review": {
+      "receipt": "reviews/folder-recipes-independent-review.json",
+      "reviewed_head": "f26d839c293df48135744cef517e3fcabe925b2f",
+      "result": "Finite review: 4/4 written tests and 10 page/source hashes verified. One P3 prose finding corrected: missing ALBUM can leave an empty component or the optional year suffix, depending on YEAR. Original receipt retained unchanged.",
+      "correction_checks": "Affected folder_recipe_guide: 4 passed, zero failed; strict 130-page build and git diff --check passed. Formula/test source unchanged by the wording correction."
+    },
+    "rendered_solution_structure": {
+      "artist": {
+        "ordered_lists": 1,
+        "steps": 6,
+        "tables": 1
+      },
+      "disc": {
+        "ordered_lists": 1,
+        "steps": 6,
+        "tables": 1
+      },
+      "compilation": {
+        "ordered_lists": 1,
+        "steps": 7,
+        "tables": 1
+      }
+    }
+  },
+  "local_completed_pages": 130,
+  "local_remaining_drafts": 57,
+  "public_baseline": {
+    "completed_pages": 97,
+    "drafts": 90,
+    "source": "dbcd9ce",
+    "pending_pr31": "127-page source206ea, trustedCI38876333300 active; not yet merged/published at authoring time",
+    "this_batch_local_only": true
+  },
+  "limits": [
+    "No native app, actual rename/move, all-platform collision/alias/overwrite or device/player qualification.",
+    "Original deferredP2pathidentity/case-alias issues are outside thisbatch; no fixes or broad investigation.",
+    "Only currentdbcd semantics; reconcile after actual17-20featuremerges before futurepublication.",
+    "Pagecounts do not establish full canonical94page semanticcoverage.",
+    "PR31head remains frozen; no newPR/push or app/version/workflow/dependency change."
+  ]
+}
