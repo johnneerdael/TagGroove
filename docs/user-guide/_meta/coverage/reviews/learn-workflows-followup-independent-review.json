@@ -1,0 +1,79 @@
+{
+  "reviewed_at_utc": "2026-10-16T13:20:05.718091+00:00",
+  "head": "25bd3cb4c659caa7b9dd7d16b8b7dd42526205a3",
+  "parent_reviewed_head": "e5209a03b1e14a60e29ad4eec77d00e50b4d911a",
+  "source_main": "325007c47bef4ee53a4aa9b086038157ee3e62dc",
+  "verdict": "clean",
+  "findings": [],
+  "resolved_findings": [
+    {
+      "id": "learn-orphaned-draft-outline",
+      "original_receipt": "/tmp/opentag-guide-learn-workflows-independent-review.json",
+      "resolution": "Exactly five orphaned footer lines removed; mature generated HTML contains no stale outline or Until then text and retains exactly four substantive Next steps links."
+    }
+  ],
+  "focused_native_validation": {
+    "command": "/tmp/opentag-guide-combined-target/debug/deps/learn_workflow_guide-f3cb91e1f61b47f6",
+    "sha256": "5bfd1f7e9d35084cc550acc02575cce1998432cd525bc05bd35136d28a727e97",
+    "passed": 7,
+    "failed": 0,
+    "ignored": 0,
+    "current_three_embedded_pages_verified": true
+  },
+  "immutable_controls": {
+    "head": "25bd3cb4c659caa7b9dd7d16b8b7dd42526205a3",
+    "clean": true,
+    "changed_paths": [
+      "docs/user-guide/_meta/coverage/learn-workflows-2026-10-16.json",
+      "docs/user-guide/learn/clean-a-messy-library.md"
+    ],
+    "source_identity_175": true,
+    "application_source_sha256": {
+      "count": 15,
+      "all_match": true
+    },
+    "test_sha256": {
+      "count": 1,
+      "all_match": true
+    },
+    "page_sha256": {
+      "count": 3,
+      "all_match": true
+    },
+    "binary_hash": true,
+    "embedded_pages_match": true,
+    "written_examples_unchanged": true,
+    "test_source_unchanged": true,
+    "footer_absent": true,
+    "nextsteps_links": [
+      "first-action-group.md",
+      "../cookbook/find-missing-fields.md",
+      "../cookbook/number-tracks-per-folder.md",
+      "../cookbook/remove-junk-fields.md"
+    ],
+    "nextsteps_count": 4,
+    "original_finding_preserved": true,
+    "original_finding_head": "e5209a03b1e14a60e29ad4eec77d00e50b4d911a",
+    "archive_exists": true,
+    "generated": {
+      "routes": 158,
+      "sections": 1321,
+      "drafts": 29,
+      "prior155_order_retained": true,
+      "nav_search_exact": true,
+      "draft_leaks": [],
+      "search_hash_match": true
+    },
+    "followup_log_hashes": {
+      "core": true,
+      "strict": true,
+      "publication": true
+    }
+  },
+  "qualification": "Prior finite e520 substantive source/reader review retained because only old footer and corresponding ledger metadata changed. Original50model and browser qualifications remain pinned e520; no new model/browser/fullsuite/Cargo invocation. Root fresh strict/publication/core logs hash-verified; their output is owner-provided, not rerun by peer.",
+  "limits": [
+    "Local158 routes, not deployed/public158.",
+    "No source/GitHub edits, Cargo, browser, personal data, provider or network use.",
+    "PR19 remains frozen3e928d37d23de30b4c21d421ecbbe871c22fb99d."
+  ]
+}

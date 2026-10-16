@@ -1,0 +1,488 @@
+{
+  "scope": "Three LOCAL learning workflows on mature main325. Docs and written-example test only; no runtime/source/dependency/workflow/REA/originalP2 edits, native application, personal files, provider requests or GitHub writes.",
+  "base_checkpoint": "d2990705923a7e4f9999702412c7bdad5bc17226",
+  "source_main": "325007c47bef4ee53a4aa9b086038157ee3e62dc",
+  "writing_checkpoint": {
+    "ready": 158,
+    "drafts": 29,
+    "plan": 187,
+    "published_ready": 137,
+    "published_drafts": 50,
+    "unpublished_completed": 21,
+    "qualification": "Prior18 independently reviewed local chapters preserved; this trio awaits peer. Counts and inventories do not establish full semantic coverage."
+  },
+  "canonical_source_pointers": [
+    {
+      "url": "https://docs.mp3tag.de/converters/import-tags-from-filenames/",
+      "relative_file": "converters/import-tags-from-filenames.html",
+      "sha256": "39a9787cb32c4935a1eaa19f420122498b0c706b90d50324279d200e28790b28"
+    },
+    {
+      "url": "https://docs.mp3tag.de/converters/auto-numbering/",
+      "relative_file": "converters/auto-numbering.html",
+      "sha256": "2407cf77806ff983cec02927eb7c78965891285d9ea2bcad3ca3b928026df98e"
+    },
+    {
+      "url": "https://docs.mp3tag.de/actions/replace-regexp/",
+      "relative_file": "actions/replace-regexp.html",
+      "sha256": "fb1f70b4f6e24658311f66b0ba2bbbda417b74d09081bd0c3957d891194f921c"
+    },
+    {
+      "url": "https://docs.mp3tag.de/actions/case-conversion/",
+      "relative_file": "actions/case-conversion.html",
+      "sha256": "d4dc5957e9a0971065facbb399ab9fc5a0f72a26567631cf5bfd8441a516b056"
+    },
+    {
+      "url": "https://docs.mp3tag.de/actions/format/",
+      "relative_file": "actions/format.html",
+      "sha256": "6c8af0928d3d97ed9239770250a0c4eca176aa06d41f9483d36ca970965abf40"
+    },
+    {
+      "url": "https://docs.mp3tag.de/actions/remove-fields/",
+      "relative_file": "actions/remove-fields.html",
+      "sha256": "100a6feaa2e0b79ecc41c8222362cfbfb176859e5d0d55f1e838e29f0542f3f8"
+    },
+    {
+      "url": "https://docs.mp3tag.de/actions/import-cover/",
+      "relative_file": "actions/import-cover.html",
+      "sha256": "1456d0252f43fa66dc93145a5ca36c0fe38a224416bafe8b779c443701fe7876"
+    },
+    {
+      "url": "https://docs.mp3tag.de/actions/adjust-cover/",
+      "relative_file": "actions/adjust-cover.html",
+      "sha256": "038bc173a6dd0d7c609254e1d664a7550d18aa805ed2f12c84e1eead41daea55"
+    },
+    {
+      "url": "https://docs.mp3tag.de/manage-covers/",
+      "relative_file": "manage-covers.html",
+      "sha256": "b72b3b769a3e6455f81b2b314ced28530ddeb767b412fc4256b636cb21d5fb87"
+    },
+    {
+      "url": "https://docs.mp3tag.de/filter/",
+      "relative_file": "filter.html",
+      "sha256": "65775e4aba586090abf1af898c5aae82ddefffb3cc3de57b35c824b5f375bbcc"
+    }
+  ],
+  "canonical_semantic_mapping": {
+    "Filename extraction learning": {
+      "page": "learn/tags-from-filenames.md",
+      "teaching": [
+        "Copied two-file path layout, names vs stored tags, pending edits resolved before converter",
+        "Destination placeholders and exact separators/extensions, basic/parent-folder previews and immediate writes",
+        "Relative trailing path levels/backslash on desktop, retained fields/name unaffected",
+        "Actual successful-but-wrong Deluxe-year capture and explicit alternative omitting annotation",
+        "Dummy suffix/no destination, lazy separators, rejected adjacent captures, skipped nonmatches and semantic checking",
+        "Session history separate operations, Guess Values from existing TITLE source before replacement"
+      ],
+      "limits": "Actual matching/capture/GuessValues core tests; native write_summary/history/preview source inspected, no native audio tag-conversion launch claimed."
+    },
+    "Messy-library cleanup learning": {
+      "page": "learn/clean-a-messy-library.md",
+      "teaching": [
+        "Survey custom columns versus stored fields, one copied album and invented practice-only removal target",
+        "MISSING versus present-empty filter, hidden selection and filter/view boundaries",
+        "Six ordered actions with whole-value anchors and single actual-space regex replacement",
+        "Mixed case editorial policy, primary-artist credit versus compilations/multivalue, reviewed field removal",
+        "Save group definition versus checkbox/apply immediate writes, continued warnings and per-file errors",
+        "Verify before/after plus retained fields/filter outcomes; separately preview/stage/save numbering then reviewed rename",
+        "Expected destination table, format numeric zero padding, known order, refusal handling/backup/session undo and deliberate reuse"
+      ],
+      "limits": "Actual core actions/retained metadata/filter/numbering/filename output plus UI models. No originalP2 path/Unicode-field behavior changed or universal filesystem/player safety claim."
+    },
+    "Per-album cover learning": {
+      "page": "learn/give-every-album-a-cover.md",
+      "teaching": [
+        "Distinct local images/folder layout, complete reads, artwork-capable writable tags and originals",
+        "Folder fallback versus embedded count versus unavailable/error/mixed selection, explicit unselect/reselect",
+        "Quoted information-field filter, zero covers does not prove available source or missing front type",
+        "Per-file folder expression versus absolute Browse image, immediate import and warning/partial-result handling",
+        "Verify embedded image/count, repeated import adds entries, deleting all covers versus specific Manage cover plan",
+        "All-picture Adjust scope versus selected-image staging, actual max/proportional dimensions/no-op and untouched sidecar",
+        "Source-grounded existing MusicBrainz/Discogs covers-only controls and immediate SaveCover versus external SaveCoverAs",
+        "No live provider/player guarantee, credential/network limits, recorded operation undo separate from external-file recovery"
+      ],
+      "limits": "Actual generated tempMP3/image import fixtures preserve source image/audio bytes and distinct album cover digests; actual core resize helper tested. No native UI/all-format/device/live-network execution."
+    }
+  },
+  "page_sha256": {
+    "learn/tags-from-filenames.md": "d6378c56430f651140285c2420dc26a390e8ece34c2582aec231b635b5bd81f7",
+    "learn/clean-a-messy-library.md": "03884b1c092381bb56475d92a8de35028b001a5d9225d49b9e2589962746bd97",
+    "learn/give-every-album-a-cover.md": "8bc80fe8b840afdb878214e32ad3e0ece2db73c935cff30808a43acb1c0430f3"
+  },
+  "application_source_sha256": {
+    "src/main.ts": "f9c0a56f1eba4f77bc47531a08fcd63427a2b845bc36a784b27da43146309c76",
+    "src/action-ui.ts": "0ab3fd434ac7729218cd8b45293014e3c232b7c1890f2bfdf1d91df5d08e4868",
+    "src/columns.ts": "feb41073aaa817b1e0de9b192a709e1bd7467f7505e9caf11ed2398051322bea",
+    "src/tag-sources.ts": "5fbf3508e199b89ad7cbc93c1251e94f388c416832650a845aafdd494c3480fc",
+    "src/covers.ts": "8cc7fc122d978c82492812144f1fe2c917fa58c18672b83e0037393c2d9a9e9d",
+    "src-tauri/src/lib.rs": "77b79c1faad0bf31d07bd5974d91980c4b62dcd919a9aad8217e0f2547acef49",
+    "src-tauri/src/action_host.rs": "6da0c08ead3c66a3b4f266629573c2d0316de56a2671e870121f1518bc037486",
+    "src-tauri/src/sources/mod.rs": "876f54242ddc043ca2678aaa2a915d84a7a514aff5a91d350a48581627636b8b",
+    "crates/tag-core/src/script.rs": "b070a9db9820b53c22f50d43a6986b465e5fce56e86dd7aa835d333c5b385ec0",
+    "crates/tag-core/src/actions.rs": "70c80252ff553159f5c7a5563c0cc14ef0ca23f804da8071fd2dac94c97828ac",
+    "crates/tag-core/src/numbering.rs": "71371201b83fb5e10dd163316d8fccecc74a9123a7bd9b7afbbd0de98ca0cdd9",
+    "crates/tag-core/src/cover_ops.rs": "3125445aa0344b5937bca2fae7c83662f78948318822754e35ea98277ff3e5c7",
+    "crates/tag-core/src/tags.rs": "4e9ab3942b42b9e22b776334d2dd8acb00849eaa7c65c892324ee4879f76f7a5",
+    "crates/tag-core/Cargo.toml": "484e0913ce8d7231fe25f8826fde7a103a6f5147db260d96abc630a352098584",
+    "Cargo.lock": "db91db6f8670e04790fd9f65a6c5515b46a37e5397d3fc7afbfe246d27e4f963"
+  },
+  "test_sha256": {
+    "crates/tag-core/tests/learn_workflow_guide.rs": "758e808c90055139b74bafe779de7f6949c31e57ef26f8c87c2454f326b32458"
+  },
+  "validation": {
+    "core": {
+      "passed": 7,
+      "command": "CARGO_TARGET_DIR=/tmp/opentag-guide-combined-target TMPDIR=/tmp/opentag-guide-learn-workflows-tmp AR=/usr/bin/ar cargo test -p tag-core --test learn_workflow_guide --locked",
+      "binary": "/tmp/opentag-guide-combined-target/debug/deps/learn_workflow_guide-f3cb91e1f61b47f6",
+      "binary_sha256": "5bfd1f7e9d35084cc550acc02575cce1998432cd525bc05bd35136d28a727e97",
+      "cases": [
+        "filename_lesson_written_layout_and_simple_captures_match_without_fabricating_other_fields",
+        "cover_lesson_written_count_snapshots_distinguish_embedded_entries_from_folder_images",
+        "filename_lesson_written_ambiguous_deluxe_and_dummy_patterns_obey_actual_lazy_captures",
+        "cleanup_lesson_actual_six_written_actions_obey_before_after_and_retention_policies",
+        "cleanup_lesson_actual_numbering_then_written_format_match_all_final_destination_rows",
+        "cover_lesson_written_per_folder_imports_save_distinct_images_without_changing_audio_or_sidecars",
+        "cover_lesson_written_adjustment_dimensions_follow_maximum_proportions_and_retain_small_bytes"
+      ],
+      "scope": "Written blocks/tables under LF/CRLF; actual core parsers/actions/filters/numbering/filename formats and synthetic tempMP3/JPEG fixtures. No fullworkspace/native app matrix; first new-test compile assumed an obsolete result shape, corrected to actual Option<Vec<u8>> API before all7passed."
+    },
+    "node": {
+      "passed": 50,
+      "groups": [
+        {
+          "passed": 34,
+          "command": "node --test tests/action-ui.test.mjs tests/cover-model.test.mjs tests/numbering-review.test.mjs tests/columns.test.mjs"
+        },
+        {
+          "passed": 16,
+          "command": "node --test tests/tag-sources.test.mjs"
+        }
+      ],
+      "scope": "Existing actual production models; isolated source mocks/routing only, no network/provider requests or program launch."
+    },
+    "publication": {
+      "passed": 8,
+      "command": "python3 -m unittest discover -s docs/tests -v"
+    },
+    "strict": {
+      "passed": true,
+      "command": "/tmp/opentag-docs-publish-venv/bin/python -m mkdocs build --strict"
+    },
+    "clippy": {
+      "passed": true,
+      "command": "CARGO_TARGET_DIR=/tmp/opentag-guide-combined-target TMPDIR=/tmp/opentag-guide-learn-workflows-tmp AR=/usr/bin/ar cargo clippy -p tag-core --test learn_workflow_guide --locked -- -D warnings",
+      "scope": "Focused new test, not all-target/native matrix. Preexisting nonfatal Cargo global-cache cleanup permission warning was not repaired."
+    },
+    "generated": {
+      "ready": 158,
+      "drafts": 29,
+      "sections": 1321,
+      "search_sha256": "29e0fd7fdc0dfc9f27945bc803b193f9c0cc9255bef68431c5de48a9918a367a",
+      "previous155_order_retained": true,
+      "nav_search_exact": true,
+      "draft_leaks": 0
+    },
+    "browser": {
+      "scope": "Local158 authored chapters/29drafts; filename, cleanup and cover tutorials on main325-identical app source. Generated-doc browser only, no native app/provider/player or public158 validation.",
+      "checks": [
+        "Filename tutorial checklist and learning sequence render in light palette",
+        "Meaningful-versus-syntactic matching table renders with Deluxe counterexample",
+        "Actual next-step link opens mature Guess Values teaching",
+        "All seven/eight/eight numbered lesson stages render and metadata markers remain hidden",
+        "learn/tags-from-filenames/ tables render at390px without document overflow",
+        "learn/clean-a-messy-library/ tables render at390px without document overflow",
+        "learn/give-every-album-a-cover/ tables render at390px without document overflow",
+        "Actual horizontal wheel reveals full action replacement/settings column at390px",
+        "Cover tutorial renders in dark palette with copyable quoted information-field filter",
+        "Actual search opens the new cover lesson"
+      ],
+      "errors": [],
+      "screenshots": [
+        "/tmp/opentag-guide-learn-workflows-browser/desktop-filename-light.png",
+        "/tmp/opentag-guide-learn-workflows-browser/desktop-filename-ambiguous-capture.png",
+        "/tmp/opentag-guide-learn-workflows-browser/mobile390-filename-table.png",
+        "/tmp/opentag-guide-learn-workflows-browser/mobile390-cleanup-table.png",
+        "/tmp/opentag-guide-learn-workflows-browser/mobile390-covers-table.png",
+        "/tmp/opentag-guide-learn-workflows-browser/mobile390-cleanup-actions-scrolled.png",
+        "/tmp/opentag-guide-learn-workflows-browser/desktop-covers-dark.png"
+      ],
+      "success": true,
+      "profile_removed": true
+    },
+    "visual_bounds": "Owner viewed actual Deluxe capture/mask teaching and390pxaction-settings table; applied existing no-wrap scrolling wrapper after initial sample to keep regexes/fields intact. Final browser verifies computed pre whitespace/all10checks. No CSS/app changes; all owned profiles/server closed.",
+    "browser_harness_notes": "Initial numeric-heading CSS selector invalid; changed to attribute selector. Later result DOM existed while programmatic-focus overlay was not physically open; actual input click plus visible-link wait resolved interaction. Both failed receipts retained in attempt1/attempt2. Final final-wrap run is complete with zero errors; no site behavior weakened.",
+    "source_identity": {
+      "source_main": "325007c47bef4ee53a4aa9b086038157ee3e62dc",
+      "production_dependency_workflow_files": 175,
+      "all_byte_identical": true,
+      "paths": [
+        ".github/CI_LOCKDOWN.md",
+        ".github/pull_request_template.md",
+        ".github/release-notes-baseline",
+        ".github/scripts/codex_review.py",
+        ".github/scripts/release_notes.py",
+        ".github/scripts/review_gate.py",
+        ".github/scripts/tests/test_codex_review.py",
+        ".github/scripts/tests/test_pages_workflow.py",
+        ".github/scripts/tests/test_release_notes.py",
+        ".github/scripts/tests/test_review_gate.py",
+        ".github/workflows/_reviewed-build.yml",
+        ".github/workflows/_reviewed-pages.yml",
+        ".github/workflows/review-controller.yml",
+        ".github/workflows/review-metadata-signal.yml",
+        ".github/workflows/reviewed-pr.yml",
+        ".github/workflows/reviewed-release.yml",
+        "Cargo.lock",
+        "Cargo.toml",
+        "crates/document-access/Cargo.toml",
+        "crates/document-access/android/src/androidTest/java/org/opentag/documentaccess/AndroidPrivateStreamsTest.kt",
+        "crates/document-access/android/src/main/AndroidManifest.xml",
+        "crates/document-access/android/src/main/java/AndroidPrivateStreams.kt",
+        "crates/document-access/android/src/main/java/DocumentAccessPlugin.kt",
+        "crates/document-access/android/src/main/java/DocumentAccessState.kt",
+        "crates/document-access/android/src/main/java/DocumentTransport.kt",
+        "crates/document-access/android/src/main/java/PrivateDocumentPaths.kt",
+        "crates/document-access/android/src/test/java/org/opentag/documentaccess/DocumentAccessStateTest.kt",
+        "crates/document-access/android/src/test/java/org/opentag/documentaccess/DocumentTransportTest.kt",
+        "crates/document-access/src/lib.rs",
+        "crates/document-access/verification/provider-fixture/src/androidTest/java/org/opentag/fixture/documents/ProviderCheck.java",
+        "crates/document-access/verification/provider-fixture/src/main/AndroidManifest.xml",
+        "crates/document-access/verification/provider-fixture/src/main/java/org/opentag/fixture/documents/FixtureActivity.java",
+        "crates/document-access/verification/provider-fixture/src/main/java/org/opentag/fixture/documents/FixtureProvider.java",
+        "crates/library/Cargo.toml",
+        "crates/library/src/lib.rs",
+        "crates/regex-compat/Cargo.toml",
+        "crates/regex-compat/src/bridge.cpp",
+        "crates/regex-compat/src/lib.rs",
+        "crates/tag-core/Cargo.toml",
+        "crates/tag-core/src/actions.rs",
+        "crates/tag-core/src/ape_footer.rs",
+        "crates/tag-core/src/asf/header.rs",
+        "crates/tag-core/src/asf/mod.rs",
+        "crates/tag-core/src/asf/tests.rs",
+        "crates/tag-core/src/container_formats.rs",
+        "crates/tag-core/src/converters.rs",
+        "crates/tag-core/src/cover_manage.rs",
+        "crates/tag-core/src/cover_ops.rs",
+        "crates/tag-core/src/cue.rs",
+        "crates/tag-core/src/dsd.rs",
+        "crates/tag-core/src/export.rs",
+        "crates/tag-core/src/filter.rs",
+        "crates/tag-core/src/flac_metadata.rs",
+        "crates/tag-core/src/history.rs",
+        "crates/tag-core/src/id3_frames.rs",
+        "crates/tag-core/src/id3_padding.rs",
+        "crates/tag-core/src/id3_v23.rs",
+        "crates/tag-core/src/lib.rs",
+        "crates/tag-core/src/mapping.rs",
+        "crates/tag-core/src/matroska.rs",
+        "crates/tag-core/src/media_info.rs",
+        "crates/tag-core/src/mp4_chapters.rs",
+        "crates/tag-core/src/mp4_layout.rs",
+        "crates/tag-core/src/mp4_metadata.rs",
+        "crates/tag-core/src/nero_tags.rs",
+        "crates/tag-core/src/numbering.rs",
+        "crates/tag-core/src/oem_codepages.rs",
+        "crates/tag-core/src/operations.rs",
+        "crates/tag-core/src/optimize.rs",
+        "crates/tag-core/src/parallel.rs",
+        "crates/tag-core/src/playlist.rs",
+        "crates/tag-core/src/preferences.rs",
+        "crates/tag-core/src/raw_streams.rs",
+        "crates/tag-core/src/script.rs",
+        "crates/tag-core/src/subsongs.rs",
+        "crates/tag-core/src/tag_policy.rs",
+        "crates/tag-core/src/tag_types.rs",
+        "crates/tag-core/src/tags.rs",
+        "crates/tag-core/src/technical.rs",
+        "crates/tag-core/src/write_cost.rs",
+        "package-lock.json",
+        "package.json",
+        "src-tauri/Cargo.toml",
+        "src-tauri/src/action_host.rs",
+        "src-tauri/src/columns.rs",
+        "src-tauri/src/converters.rs",
+        "src-tauri/src/cover_drag.rs",
+        "src-tauri/src/covers.rs",
+        "src-tauri/src/documents.rs",
+        "src-tauri/src/documents/command_fixture.rs",
+        "src-tauri/src/documents/engine.rs",
+        "src-tauri/src/documents/tests.rs",
+        "src-tauri/src/e2e.rs",
+        "src-tauri/src/evaluation.rs",
+        "src-tauri/src/exports.rs",
+        "src-tauri/src/file_hashes.rs",
+        "src-tauri/src/file_ops.rs",
+        "src-tauri/src/filter_cache.rs",
+        "src-tauri/src/history.rs",
+        "src-tauri/src/lib.rs",
+        "src-tauri/src/library.rs",
+        "src-tauri/src/list_behaviour.rs",
+        "src-tauri/src/lists.rs",
+        "src-tauri/src/main.rs",
+        "src-tauri/src/managed_actions.rs",
+        "src-tauri/src/mp3tag_columns.rs",
+        "src-tauri/src/mp3tag_tag_panel.rs",
+        "src-tauri/src/playlists.rs",
+        "src-tauri/src/progress.rs",
+        "src-tauri/src/rename_plan.rs",
+        "src-tauri/src/settings.rs",
+        "src-tauri/src/sources/credentials.rs",
+        "src-tauri/src/sources/discogs.rs",
+        "src-tauri/src/sources/fixtures/freedb-entry.xmcd",
+        "src-tauri/src/sources/fixtures/musicbrainz-release.json",
+        "src-tauri/src/sources/freedb.rs",
+        "src-tauri/src/sources/freedb_index.rs",
+        "src-tauri/src/sources/http.rs",
+        "src-tauri/src/sources/mod.rs",
+        "src-tauri/src/sources/model.rs",
+        "src-tauri/src/sources/musicbrainz.rs",
+        "src-tauri/src/sources/web/engine.rs",
+        "src-tauri/src/sources/web/mod.rs",
+        "src-tauri/src/sources/web/source.rs",
+        "src-tauri/src/tag_panel.rs",
+        "src-tauri/src/tray.rs",
+        "src-tauri/src/updates.rs",
+        "src-tauri/src/utilities.rs",
+        "src-tauri/src/window_state.rs",
+        "src/action-ui.ts",
+        "src/cell-editor.ts",
+        "src/chapters.ts",
+        "src/columns.ts",
+        "src/converter-review.ts",
+        "src/cover-model.ts",
+        "src/covers.css",
+        "src/covers.ts",
+        "src/document-state.ts",
+        "src/edit-history.ts",
+        "src/export-ui.ts",
+        "src/extended-tags.css",
+        "src/extended-tags.ts",
+        "src/field-mapping.ts",
+        "src/file-ops.ts",
+        "src/filter-fields.ts",
+        "src/filter-sync.ts",
+        "src/find.ts",
+        "src/general-options.ts",
+        "src/helper-menu.ts",
+        "src/keyboard-ui.css",
+        "src/keyboard.ts",
+        "src/library.ts",
+        "src/list-behaviour.ts",
+        "src/list-commands.ts",
+        "src/main.ts",
+        "src/menubar.ts",
+        "src/messages.ts",
+        "src/numbering-review.ts",
+        "src/options-ui.ts",
+        "src/panel-dock.css",
+        "src/panel-dock.ts",
+        "src/playlist-ui.ts",
+        "src/remove-tag.ts",
+        "src/row-context-menu.ts",
+        "src/style.css",
+        "src/tag-clipboard.ts",
+        "src/tag-edits.ts",
+        "src/tag-panel.ts",
+        "src/tag-sources.ts",
+        "src/tag-tag-ui.ts",
+        "src/theme.ts",
+        "src/toolbar.ts",
+        "src/tools.ts",
+        "src/utils-ui.ts",
+        "src/web-sources.ts"
+      ]
+    },
+    "log_sha256": {
+      "core": {
+        "path": "/tmp/opentag-guide-learn-workflows-core.log",
+        "sha256": "17b501e8962a67eb353de8ce04164006a11649ae490594598a50b5e60fe61321"
+      },
+      "models": {
+        "path": "/tmp/opentag-guide-learn-workflows-models.log",
+        "sha256": "43b6e23754f959a92cba5d3942332ff252bd0f6225e1bbc5dc39c89bcb8f3a38"
+      },
+      "sources-models": {
+        "path": "/tmp/opentag-guide-learn-workflows-sources-models.log",
+        "sha256": "b5723bfa5ae87b77ab68ee052bcc8a90c667423433937eb20785cd3f1d262376"
+      },
+      "publication": {
+        "path": "/tmp/opentag-guide-learn-workflows-publication.log",
+        "sha256": "144ebab46f5311f77cf87ff42f93bc2742f43fc3ec0494ca2cfedd8349dc7086"
+      },
+      "strict": {
+        "path": "/tmp/opentag-guide-learn-workflows-strict.log",
+        "sha256": "aae793c84ccc03b347da7c6e62573531398625eb53eb95d4dd367f9db93732cf"
+      },
+      "clippy": {
+        "path": "/tmp/opentag-guide-learn-workflows-clippy.log",
+        "sha256": "1b5f9db306b381208c52b2ad70de73fa49d847a5889d61be73c92a4d93544d05"
+      }
+    },
+    "format_and_whitespace": "cargo fmt --all --check and git diff --check pass"
+  },
+  "preserved_evidence": {
+    "text-exchange-independent-review.json": {
+      "path": "reviews/text-exchange-independent-review.json",
+      "sha256": "1dc1d5c9979f6e191e663898dd8934ad859b8158d2cd0a2d23556a171f7588a6",
+      "scope": "Prior text-exchange finite peer/root visual; not this trio review."
+    },
+    "text-exchange-root-visual.json": {
+      "path": "reviews/text-exchange-root-visual.json",
+      "sha256": "1f298ab677e8cc682fa37825455d3e7612862d2eae7af184c6090574e360a2a5",
+      "scope": "Prior text-exchange finite peer/root visual; not this trio review."
+    }
+  },
+  "review": "Author checkpoint ready for independent peer then pause. No push/PR/main churn; reconcile actual later main and exact final-head CODE/trusted CI/deployment before publication.",
+  "remaining_drafts": [
+    "tag-sources/lrclib.md",
+    "tag-sources/freedb.md",
+    "tag-sources/acoustid.md",
+    "tag-sources/deezer.md",
+    "tag-sources/discogs.md",
+    "tag-sources/itunes.md",
+    "tag-sources/local-freedb.md",
+    "tag-sources/index.md",
+    "tag-sources/musicbrainz.md",
+    "platforms/android.md",
+    "platforms/windows.md",
+    "platforms/linux.md",
+    "platforms/macos.md",
+    "platforms/ios.md",
+    "learn/index.md",
+    "learn/tag-from-online-sources.md",
+    "cookbook/html-album-catalogue.md",
+    "cookbook/rename-safe-characters.md",
+    "cookbook/index.md",
+    "cookbook/export-folder-jpg.md",
+    "cookbook/rename-lowercase-filenames.md",
+    "getting-started/coming-from-mp3tag.md",
+    "getting-started/whats-new.md",
+    "automate/index.md",
+    "guides/index.md",
+    "help/glossary.md",
+    "customize/languages.md",
+    "customize/index.md",
+    "reference/options/language.md"
+  ],
+  "remaining_limits": [
+    "Fullcanonical semantic completion unproven;29drafts remain",
+    "21local completed chapters unpublished;public137actual receipt preserved",
+    "OriginalP2/REA and pending source17\u201320 behavior untouched",
+    "No nativeOS/personal collection/provider/player runtime claim"
+  ],
+  "peer_followup": {
+    "reviewed_head": "e5209a03b1e14a60e29ad4eec77d00e50b4d911a",
+    "finding": "P3 stale draft-outline footer after completed Next steps",
+    "resolution": "Removed only orphaned outline and Until then draft text; substantive instructions, examples and links unchanged.",
+    "qualification": "Fresh narrow native example/strict/publication validation and independent follow-up required before clean acceptance.",
+    "validation": {
+      "core": "Fresh7cases on corrected embedded page; binary hash updated",
+      "strict": "FreshPASS158routes1321sections",
+      "publication": "Fresh8PASS",
+      "generated_html": "Stale Until then and draft-outline text absent; four substantive Next steps links retained",
+      "unchanged_controls": "Appsource/examples/testsource identicale520; prior50model and10browser checks retained as e520 qualification, not rerun at follow-up",
+      "original_checkpoint_archive": "/tmp/opentag-guide-learn-e520-evidence"
+    }
+  }
+}

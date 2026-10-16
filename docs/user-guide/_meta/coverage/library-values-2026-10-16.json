@@ -1,0 +1,229 @@
+{
+  "scope": "Three independently authored local field-list/cache/menu chapters. Documentation/tests only; no personal collection scan, native app/OS actions, external program, app/P2/REA change or GitHub writes.",
+  "base_checkpoint": "9e0d7d74e38f0f41ce01b599276d010130b4f2fd",
+  "source_main": "325007c47bef4ee53a4aa9b086038157ee3e62dc",
+  "writing_checkpoint": {
+    "ready": 152,
+    "drafts": 35,
+    "plan": 187,
+    "published_ready": 137,
+    "published_drafts": 50,
+    "unpublished_completed": 15,
+    "qualification": "Preserves12previous independently reviewed local chapters. Counts and inventories do not establish full canonical semantic completeness."
+  },
+  "canonical_source_pointers": [
+    {
+      "url": "https://docs.mp3tag.de/customization/options/field-values/",
+      "relative_file": "customization/options/field-values.html",
+      "sha256": "cef08824e53bcc5de1ed7519374d7a240f9c81a8af512b6b661c8617fea1ef75"
+    },
+    {
+      "url": "https://docs.mp3tag.de/customization/options/library/",
+      "relative_file": "customization/options/library.html",
+      "sha256": "131136398ce012a078512db4fe993ef47dc9e26d2838a24ca2f7e27ce2693632"
+    },
+    {
+      "url": "https://docs.mp3tag.de/customization/options/tools/",
+      "relative_file": "customization/options/tools.html",
+      "sha256": "8c08e00ab51a960d5df47d41f219b347b344dba3fffa307f8dec2462d4ade971"
+    },
+    {
+      "url": "https://docs.mp3tag.de/keyboard/",
+      "relative_file": "keyboard.html",
+      "sha256": "31664192d6281a0f23ca322845189d472f120c2a997117cd7f4d330beaae113b"
+    },
+    {
+      "url": "https://docs.mp3tag.de/utils/",
+      "relative_file": "utils.html",
+      "sha256": "995d051373a503d2fde160fc1f15f8a550114dfeb60b239f5f9bf98003bf043f"
+    }
+  ],
+  "canonical_semantic_mapping": {
+    "Custom Field Values": {
+      "page": "customize/field-values.md",
+      "teaching": [
+        "Small MOOD workflow, actual field name versus display label, list definition does not add a visible panel control or retag files",
+        "One entry per line, trimmed whitespace/empty/exact duplicates/order/case distinctions and5000bound",
+        "Current field switching, remove-list versus metadata removal and locale text sorting",
+        "Selection/custom/standard Genre ordering, keep/blank semantics and three exact preference cases",
+        "Panel preference versus completion in file-list/Extended tags; General autocomplete separate",
+        "User-defined genre UI versus ID3v1 storage; OpenTag preferences need no original-editor restart",
+        "Import merges current field, encoding handling, named export as immediate file output, separate text destination",
+        "ShiftEnter quick addition saves a suggestion, not pending audio metadata; empty/multiline/duplicate behavior",
+        "Inner editor OK/Cancel versus outer Options and audio Save boundaries; saved tag-panel component/configbackup"
+      ],
+      "limits": "Exact LF/CRLF written normalization/practice/preference examples execute actual JS production models. Native text codec/export implementations read; no native dialog/file export or audio save-back asserted."
+    },
+    "Library cache": {
+      "page": "guides/library.md",
+      "teaching": [
+        "Off-by-default cache enabled by saved options, first load and repeated-open workflow",
+        "Not a full-collection query/browser UI; normal File load and loaded-list Find/filter boundaries",
+        "Path/size/timestamp/reader-settings fingerprint validity; force Reload and external preserved-stamp staleness",
+        "Metadata/image descriptors versus embedded bytes, pending intent, current rows and audio backups",
+        "Inclusion scopes versus scan/open/filter permission; restricted empty scope and retained ineligible rows",
+        "Status stored-read counters are not every disk read and can be prior cache-session values when disabled/unavailable",
+        "Own write/move/delete invalidation versus external edits, multiple tag-reader/player causes",
+        "Cleanup checks current displayed scope, disconnected-path orphan risk, partial cancellation and no audio deletion",
+        "Immediate Clear/Keep and cleanup versus outer Options Cancel; no pending save or metadata repair",
+        "Cache database/schema/rebuild behavior, configuration backup includes settings but excludesDB",
+        "Private metadata/paths, no forensic-erasure promise, reliable storage/I/O and original antivirus-process distinction"
+      ],
+      "limits": "Five selected current-source temporaryDB fixtures; no personal library, native UI, performance benchmark/provider/path-alias guarantee. Canonical binary storage differs explicitly. No separate Library browser invented."
+    },
+    "OpenTag Tools menu": {
+      "page": "reference/menus/tools.md",
+      "teaching": [
+        "All five fixed menu entries in actual order with links to mature local operation guides",
+        "Utility format/count/write/selection/wholefile/CUE/provider constraints and no repair promise",
+        "Dynamic saved tool names after fixed commands, empty menu state, reorder/remove versus executable installation",
+        "First ten platform digit slots, tenth0, later menu-only slots, converter shortcut distinction",
+        "Saved name versus custom button label and default doubleclick Noaction fallback distinction",
+        "External tool launch does not autosave pending edits; first/perfile/>10confirm/100target/99definitions boundaries",
+        "Started spawn count versus final completion, built-in session history versus external outputs"
+      ],
+      "limits": "OpenTag-specific menu reference; canonical snapshot has no separate menus/tools page. AST inventory checks5documented fixed labels against actual assembly, not native UI or semantic completeness. Actual ToolsUI renders an escaped saved name; no launch."
+    }
+  },
+  "page_sha256": {
+    "customize/field-values.md": "8c9c0984a9619b67e910794af51573fc4d36f06791d3d1edf4d8274de3767230",
+    "guides/library.md": "f1365971984801d0f39df18065cdcb823327dcdde637e3b552b72c4608d67051",
+    "reference/menus/tools.md": "44d4b45012f3f6527dfc4b22fad6391e89f2fca28a49ca924621d39f4c50a8be"
+  },
+  "application_source_sha256": {
+    "src/main.ts": "f9c0a56f1eba4f77bc47531a08fcd63427a2b845bc36a784b27da43146309c76",
+    "src/tag-panel.ts": "843a7c2e0814bc4934498c4cb15970b57745d163577b3ae19078af1c903cf0e3",
+    "src/library.ts": "2ad4bea5004db77c8371568953f752e74df5e4cff1d29404de7683e5d56a2716",
+    "src/tools.ts": "412b8ff9827b68909ff0b72614df1bc61be9b0b9d7b51b32f5fcd2614eb1e6b6",
+    "src/utils-ui.ts": "3a2cdafbf85175a023fad844cccc59730ffcfa104b3921d8494c1ecb02e0224e",
+    "src-tauri/src/tag_panel.rs": "178235c4992d2f126d94152768c2358c9968d7df84dad5ecbec25988b639ac91",
+    "src-tauri/src/library.rs": "f14eee126635ab4937f9a2b9d88057bf05b7e9fd169efcb1c785401f2d767d34",
+    "src-tauri/src/utilities.rs": "404b520370424704d6ecccad37d44c63ab6bd522a30622fe203333d261efca5e",
+    "crates/library/src/lib.rs": "dcffcc00910fee93070d08588e67655339576cab2f1d0485a263e024ec918de6",
+    "crates/library/tests/library.rs": "3a0b7fc43ee83f5103824bdf7071d1b8712d859c89a3ebcebda33fd9ad8f9fc1",
+    "crates/library/Cargo.toml": "1b6aa61f4a9ce64b27e42d743abb70b6fe67aaf40d347355115ec21b98ac84b4"
+  },
+  "test_sha256": {
+    "tests/guide-library-values.test.mjs": "3accedea5cc58eceaeb48becc58376fc164344931a23c8022be5c54efa2a1a76"
+  },
+  "validation": {
+    "node": {
+      "passed": 28,
+      "command": "node --test tests/guide-library-values.test.mjs tests/library.test.mjs tests/tag-panel.test.mjs tests/options-utils.test.mjs",
+      "log": "/tmp/opentag-guide-library-values-models.log",
+      "scope": "Two new exact-written/actual-source checks plus26existing production model checks; no mirrored prose or real program execution."
+    },
+    "temporary_db": {
+      "passed": 5,
+      "binary": "/tmp/opentag-guide-combined-target/debug/deps/library-fae5f9113814cb76",
+      "binary_sha256": "302c8ffacf8dbbbdedbc54b8a5aaf9803e1efde31afd69619cf917724102392d",
+      "build_command": "CARGO_TARGET_DIR=/tmp/opentag-guide-combined-target cargo test -p opentag-library --test library --locked --no-run",
+      "build_seconds": 7.64,
+      "source_provenance": "Narrow target freshly built from this main325-identical source. Existing17\u201320 binaries were not reused because their tag-core source differs. No full/native Cargo matrix or dependencies/features changed.",
+      "cases": [
+        "unchanged_files_come_from_the_library_and_match_a_fresh_read",
+        "changed_files_are_read_again_and_replace_their_entry",
+        "other_read_options_and_refresh_read_files_again",
+        "only_included_directories_are_stored",
+        "cleanup_removes_missing_and_excluded_files_and_can_be_cancelled"
+      ],
+      "log": "/tmp/opentag-guide-library-values-core.log",
+      "limits": "Only synthetic temp WAV collections/temporarySQLite, no personal collection, provider or native app. Optional globalCargo cache auto-clean warning was unrelated and not repaired; target completed successfully."
+    },
+    "publication_tests": 8,
+    "publication_log": "/tmp/opentag-guide-library-values-publication.log",
+    "strict": true,
+    "strict_log": "/tmp/opentag-guide-library-values-strict.log",
+    "generated": {
+      "routes": 152,
+      "entries": 1258,
+      "search_sha256": "b0d4870e66b05924219cccd524bd1dd7d5f573985213dc10bf5b937566331b71",
+      "nav_search_exact": true,
+      "previous149_order_retained": true,
+      "draft_nav_html_search_leaks": 0
+    },
+    "browser": {
+      "scope": "Local152 authored chapters/35drafts on unchanged appsource325;3field-values/library/Tools-menu chapters. Actual generated-doc browser only; public137/native/tool execution separate.",
+      "checks": [
+        "Library workflow and cache boundaries render in light palette",
+        "Actual Library link opens configuration-backup boundaries",
+        "guides/library/ renders readable tables at390px with no document overflow",
+        "customize/field-values/ renders readable tables at390px with no document overflow",
+        "reference/menus/tools/ renders readable tables at390px with no document overflow",
+        "Actual horizontal wheel reveals Tools scope and timing column",
+        "Field-value teaching renders in dark palette",
+        "Actual search opens the Library maintenance explanation"
+      ],
+      "errors": [],
+      "screenshots": [
+        "/tmp/opentag-guide-library-values-browser/desktop-library-light.png",
+        "/tmp/opentag-guide-library-values-browser/mobile390-library-table.png",
+        "/tmp/opentag-guide-library-values-browser/mobile390-field-values-table.png",
+        "/tmp/opentag-guide-library-values-browser/mobile390-tools-menu-table.png",
+        "/tmp/opentag-guide-library-values-browser/mobile390-tools-menu-scrolled.png",
+        "/tmp/opentag-guide-library-values-browser/desktop-field-values-dark.png"
+      ],
+      "success": true,
+      "profile_removed": true
+    },
+    "visual_bounds": "Owner viewed dark field-value teaching and390pxTools table including actual horizontal-wheel scope column. Final separate-new-export-path advice added after browser sample; expressions/tables unchanged and strict/model checks rerun. All owned profiles/server closed. Local152 not public/native verification.",
+    "source_identity": "All11recorded files and broader app/core/library/dependencies/workflows byte-identical main325; diff whitespace clean."
+  },
+  "preserved_evidence": {
+    "prior_peer": {
+      "path": "reviews/file-recovery-independent-review.json",
+      "sha256": "ff8bac0dec3391d7c7ec5cc9910a9bc336f9c2099b08a9c446d09ea39e19d6c6",
+      "scope": "Unchanged finite clean9e0file/recovery/utilities review; not a review of this trio."
+    },
+    "public137": {
+      "path": "publication-137-2026-10-16.json",
+      "sha256": "7e38d7be9888f42472c79c30b8c49850ae0700e1d1086b646406b7b3d27f8c78",
+      "scope": "Actual public137 source/deployment/HTTP/search/assets/browser evidence retained unchanged. Public152 not claimed."
+    },
+    "scripting_inventory": "64function names/20date tokens remain structural-only; no claim of overload/edge/platform completeness."
+  },
+  "review": "Author checkpoint ready for finite peer, then pause. No PR/push/main churn; actual17\u201320 reconciliation and exact final-head CODE/trusted CI/deployment required for future publication.",
+  "remaining_drafts": [
+    "getting-started/coming-from-mp3tag.md",
+    "getting-started/whats-new.md",
+    "platforms/macos.md",
+    "platforms/windows.md",
+    "platforms/linux.md",
+    "platforms/android.md",
+    "platforms/ios.md",
+    "learn/index.md",
+    "learn/tags-from-filenames.md",
+    "learn/clean-a-messy-library.md",
+    "learn/tag-from-online-sources.md",
+    "learn/give-every-album-a-cover.md",
+    "guides/index.md",
+    "customize/index.md",
+    "customize/languages.md",
+    "automate/index.md",
+    "tag-sources/index.md",
+    "tag-sources/musicbrainz.md",
+    "tag-sources/discogs.md",
+    "tag-sources/freedb.md",
+    "tag-sources/local-freedb.md",
+    "tag-sources/itunes.md",
+    "tag-sources/deezer.md",
+    "tag-sources/lrclib.md",
+    "tag-sources/acoustid.md",
+    "reference/options/language.md",
+    "cookbook/index.md",
+    "cookbook/rename-safe-characters.md",
+    "cookbook/rename-lowercase-filenames.md",
+    "cookbook/tracklist-from-text-file.md",
+    "cookbook/lyrics-from-text-files.md",
+    "cookbook/export-folder-jpg.md",
+    "cookbook/html-album-catalogue.md",
+    "cookbook/csv-for-spreadsheets.md",
+    "help/glossary.md"
+  ],
+  "remaining_limits": [
+    "Full94canonical-page semantic completeness unproven; structural entries do not close semantic gaps",
+    "No personal-library/nativeOS/external tool/performance or provider access claim",
+    "Pending17\u201320 features not current; original deferredP2 source/REA work untouched",
+    "Fifteen completed local chapters remain unpublished pending source-queue coordination"
+  ]
+}

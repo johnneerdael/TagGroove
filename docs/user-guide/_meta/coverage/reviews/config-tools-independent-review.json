@@ -1,0 +1,97 @@
+{
+  "reviewer": "/root/pr20_owner, finite independent read-only peer review",
+  "checkpoint": "19cb59a2c4ddb26614e7ebd698254ae056750883",
+  "worktree": "/Users/jneerdael/Scripts/opentag-worktrees/codex-guide-config-tools",
+  "clean_at_start_and_end": true,
+  "source_main": "325007c47bef4ee53a4aa9b086038157ee3e62dc",
+  "result": "CLEAN in requested bounded scope",
+  "actionable_findings": [],
+  "reviewed_pages": [
+    "customize/configuration.md",
+    "customize/toolbars.md",
+    "customize/tools.md"
+  ],
+  "page_sha256": {
+    "customize/configuration.md": "209850d2a3ea8a6e16c4e6f4680e00d34497e6934efca2f0a1233dba8ab94898",
+    "customize/toolbars.md": "810754da3b33177052b372bd0fb684435d5fdeaeff2badbcadba1497d36390b7",
+    "customize/tools.md": "f00420b7f1eb7e06f190321d7c64de3ad742808f2df03e1d308328453b9d1f7a"
+  },
+  "source_sha256": {
+    "src-tauri/src/utilities.rs": "404b520370424704d6ecccad37d44c63ab6bd522a30622fe203333d261efca5e",
+    "src-tauri/src/settings.rs": "756a5a5e847be1cae1107c861b733c100dd014bd33b11e0521d6d40d85bb5c4e",
+    "src-tauri/src/action_host.rs": "6da0c08ead3c66a3b4f266629573c2d0316de56a2671e870121f1518bc037486",
+    "src-tauri/src/exports.rs": "240f257139bfc1bb797d1ecc59af7abe95dfc7ddf57683eef3b7f84a940a8dba",
+    "src-tauri/src/columns.rs": "36b445d201b065cb79473b151c2fdffdf5332ed4950b1496b91e67a14415cb31",
+    "src-tauri/src/tag_panel.rs": "178235c4992d2f126d94152768c2358c9968d7df84dad5ecbec25988b639ac91",
+    "src-tauri/src/file_ops.rs": "badc5a5e34e3aa4017dedfa7abb6100156a8c1207990c250ba1dff474d980352",
+    "src-tauri/src/lists.rs": "a0573d33b02b43baf94bdff8ae0832b140673a5ba46d53ad9fa92185cea19afd",
+    "src/main.ts": "f9c0a56f1eba4f77bc47531a08fcd63427a2b845bc36a784b27da43146309c76",
+    "src/tools.ts": "412b8ff9827b68909ff0b72614df1bc61be9b0b9d7b51b32f5fcd2614eb1e6b6",
+    "src/toolbar.ts": "a984a89b1907927b3662668aa2fd724fa8a8941f706685a10be93cec309c62c9",
+    "src/action-ui.ts": "0ab3fd434ac7729218cd8b45293014e3c232b7c1890f2bfdf1d91df5d08e4868"
+  },
+  "source_identity": "All12 recorded appfiles byte-identical to actualmain325; no pending17–20 behavior used as current.",
+  "read_coverage": {
+    "configuration": [
+      "Seven-file collect whitelist and missing-file omission",
+      "Own bundle/version/32MiB limit and all-component staging/validation before sequential replacement",
+      "Matching settings/action/export/columns/tagpanel/directory/list loader validation, settings cache reload and frontend helper-list flush/pause/windowreload",
+      "Whole-component replacement/omission, external resource/credential/cache/pending/permission exclusions and nontransactional failure warnings"
+    ],
+    "toolbar": [
+      "All28 commands/default8,bar anditem visibility,defaultemptycustombar/divider suppression",
+      "Addbyidentity/remove/reset/clear/rename trim60UTF16,8keyboardchords andcancel/OK",
+      "Actual main name references,first tool match/stale refs/direct action runOne enabled override andimmediatewrite caution"
+    ],
+    "tools": [
+      "Native split_parameters/expand/invocations/program/launch/run_tool andTSdefinition/controller/shortcuts",
+      "11literalargument examples/7placeholder values/6scope rows match actual purehelpers/controllers underLF/CRLF",
+      "No shell/tagfunction orrecursive expansion; nozeroargumentmode;100perfile vs99definitions,partialspawn andnoexitstatus",
+      "Current main ordered hidden selection/singleroot/defaultdoubleclick/desktoprestriction andmacopenhelper cwd qualification"
+    ]
+  },
+  "executed_validation": {
+    "command": "node --test tests/guide-config-tools.test.mjs tests/options-utils.test.mjs",
+    "exit": 0,
+    "passed": 13,
+    "failed": 0,
+    "log": "/tmp/opentag-guide-config-tools-peer-tests.log",
+    "scope": "Actual standalone TS modules/controllers and verbatim std-only Rust pure helper bodies compiled withrustc; no configured externalprogram/launch function/nativeapp invoked."
+  },
+  "publication_boundary": {
+    "page_source_hashes_match": true,
+    "source_main_identity": true,
+    "local_nav": 146,
+    "local_search_entries": 1207,
+    "local_routes": 146,
+    "drafts": 41,
+    "draft_leaks": [],
+    "old143_nav_preserved": true,
+    "new9_vs_public_main": [
+      "cookbook/album-artist-from-artist.md",
+      "cookbook/strip-track-numbers-from-titles.md",
+      "cookbook/the-artist-sort-names.md",
+      "customize/configuration.md",
+      "customize/toolbars.md",
+      "customize/tools.md",
+      "help/about.md",
+      "help/faq.md",
+      "help/troubleshooting.md"
+    ],
+    "live_search": {
+      "url": "https://johnneerdael.github.io/opentag/search/search_index.json",
+      "status": 200,
+      "routes": 137,
+      "entries": 1116,
+      "local9absent": true
+    }
+  },
+  "official_docs": "No additional platform fact required external documentation; source-defined bounds already qualified in prose. Existing canonical pointers inspected as ledger provenance only.",
+  "limits": [
+    "No fullCargo/UI matrix, installednativeapp/browser orplatform execution repeated.",
+    "Configuration collect/restore/loader paths source-reviewed, not freshly executed as nativeTauri import/export.",
+    "Live verification was HTTP search JSON only (137routes/1116sections); browser web tool homepage unavailable. Existing author browser receipt not repeated.",
+    "Exact local146route/search and41draft boundary checked; no canonical semantic-completeness claim.",
+    "No repo edits, commits, pushes, CI, PR or review requests. PR18/20 source stays frozen."
+  ]
+}

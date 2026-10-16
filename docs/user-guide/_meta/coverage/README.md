@@ -378,3 +378,372 @@ provenance hashes, independently inspected generated navigation/search/HTML
 and current release metadata, and ran the supplied focused core/model checks.
 Copying that receipt changes only authoring evidence. Final-head GitHub CODE,
 trusted CI and actual publication proof remain separate requirements.
+
+## Local Help and recovery explanations
+
+Three local Help pages provide sixteen FAQ answers, ordered troubleshooting
+and an About/support/contribution orientation. They raise authored content
+to 140 completed pages with 47 drafts; public content remains 127 at this checkpoint
+while PR32's 137-page source is in trusted validation. The broad glossary
+remains draft. The Help ledger maps source and canonical-topic evidence,
+keeps current session-history/provider/regex/platform limits explicit, and
+records four existing focused history checks plus eight publication checks
+and seven generated-doc browser samples. No tests were added to mirror
+plain prose, and no full suite was repeated. These pages are local-only,
+not native/player/runtime parity or public 140 qualification.
+
+The finite independent Help review at `eb37f30` found no actionable issue.
+Its original receipt is preserved in `reviews/help-independent-review.json`;
+it verified the source/page hashes, recovery and identity boundaries, focused
+existing history checks and generated navigation/search/HTML exclusion.
+These three pages remain local-only and require actual-main reconciliation
+and a fresh final-head publication review when later integrated.
+
+## Actual 137-page publication and local credit recipes
+
+`publication-137-2026-10-16.json` preserves the actual PR32 Pages/public
+receipt for source `325007c`: successful exact-source deployment, all 137 HTML
+and 19 referenced assets matching the reviewed build, the 137-route/1,116-entry
+search index, and eleven actual public Chrome checks with no observed errors.
+Root independently accepted the final closed-drawer mobile visual and search/
+ten-new-route proof. The first homepage locator assumed a relative attribute;
+observed response/DOM evidence identified Material's absolute-URL normalization,
+and the corrected actual navigation passed. No site/source change was needed.
+Application release/packages remain separate evidence.
+
+Three further local recipes explain a reviewed primary album credit, a strict
+numbered-title prefix and a leading-article sort field. The writing milestone
+is 143 completed / 44 drafts, while the public site remains 137 completed / 50 excluded
+drafts. Five real core tests read thirty-six table rows and eight literal
+filter/formula/pattern blocks under LF/CRLF, including empty/nonmatch/list
+behavior and actual source-preservation boundaries. They caught and corrected
+a local empty-replacement quoting error before any publication. Strict 143,
+eight publication checks and eight bounded generated-doc browser checks pass.
+The credit ledger records source/canonical examples and explicit limits.
+These three recipes, like the prior three Help pages, remain local-only pending source
+queue reconciliation and final-head review/publication.
+
+## Local configuration, toolbar and external-tool workflows
+
+`configuration-tools-2026-10-16.json` records three independently authored
+chapters on named configuration backups/restores, main/custom toolbar setup,
+and external tool definitions. The local checkpoint has 146 written pages and
+41 drafts. The actual public milestone remains 137 pages; Help, credit recipes
+and these customization chapters are nine local unpublished pages. All 143
+previous local navigation entries retain their order. Generated HTML and search
+contain exactly the 146 ready routes and 1,207 entries, with no draft leakage.
+
+The examples execute the actual standalone toolbar/ToolsUI models and exact
+pure Rust argument/placeholder/invocation helpers, under LF and CRLF. Three new
+checks plus ten related existing checks pass. Configuration validation and
+sequential replacement paths were read; no native configuration import,
+personal-data access or configured external program was executed. Eight
+publication tests, strict build and eight sampled local documentation browser
+checks pass. Long JSON output cells wrap within bounded columns; literal
+Parameter inputs remain separate and exact. An earlier browser/build overlap
+caused a missing search-index request; its failed receipt is retained and the
+sequential final run has no page errors. This is not public146 verification or
+a native/all-platform tool qualification.
+
+`reviews/credit-recipes-independent-review.json` preserves the unchanged finite
+independent receipt for the preceding three recipes at exact `2ff5991`. It does
+not review this customization trio. The trio still needs its own finite peer
+review and eventual source reconciliation, exact-head GitHub CODE review,
+trusted validation and actual deployment before publication.
+
+`reviews/scripting-canonical-inventory-2026-10-16.json` preserves the root's
+read-only live-primary inventory: 64 unique scripting function names and twenty
+exact date-format tokens, including the separate EEEE/EE alias row, are
+represented in the seven mature function references. This is **structural
+coverage only**. It does not prove that overloads, optional arguments, examples,
+edge cases, platform differences or every canonical semantic detail have been
+taught. It does not close the broader placeholder or full-guide audit.
+
+## Local file operations, recovery and utilities
+
+`file-recovery-2026-10-16.json` records three completed guides for desktop
+copy/move/list removal/trash/permanent deletion, session Undo/Redo/Repeat, and
+built-in stored-metadata/container utilities. The 149-page local checkpoint
+retains every prior 146 navigation entry in order and leaves 38 drafts. Search
+and generated HTML contain exactly 149 ready routes and 1,235 entries, with
+no draft leakage. The public milestone remains 137 pages; twelve completed
+local chapters await source-queue reconciliation and publication review.
+
+Forty actual production model/controller checks pass, including four written
+mixed-format utility examples under LF and CRLF. Seven existing history
+fixture tests and one unknown-ID3v2-frame cleanup fixture pass through retained
+core executables; no cold Cargo build or full matrix was repeated. These use
+temporary generated files, not personal audio. File-operation controller
+checks stop at a stubbed IPC seam: no native OS trash, playback, reveal or
+configured external tool was executed. Source reads establish narrower
+transfer, journal and format-utility contracts; they are not universal
+filesystem-alias, overwrite, rollback, repair or player guarantees.
+
+The strict build and eight publication checks pass. Seven sampled local
+browser checks cover related navigation, search, light/dark reading and
+390px tables without page errors or document overflow. This does not qualify
+public149 or native behavior. The existing same-size/preserved-date Undo
+explanation is retained, with pending edits, partial failure, unrecorded file
+operations and captured side-image limits explained separately.
+
+`reviews/config-tools-independent-review.json` preserves the unchanged finite
+peer receipt at exact `19cb59a` for the preceding customization trio. It does
+not review these three new pages. Current app source remains byte-identical
+main `325007c`; pending feature branches and original deferred P2 work are
+untouched. Full canonical semantic completeness remains unproven, including
+overloads, edge cases, platform qualifications and the remaining drafts.
+
+## Local field values, Library and Tools-menu checkpoint
+
+`library-values-2026-10-16.json` records three completed chapters: reusable
+field-value choices, the Library cache workflow and the full current Tools
+menu. The local milestone has 152 ready pages and 35 drafts. All prior 149
+local navigation entries remain in order; generated HTML/search contain
+exactly 152 routes and 1,258 entries with no draft leakage. Public coverage
+remains 137 pages. Fifteen completed local chapters are unpublished pending
+source-queue reconciliation and qualification.
+
+Twenty-eight production model checks pass, including actual written
+normalization/preference examples under LF and CRLF and an inventory guard
+for all five fixed Tools-menu entries. That guard is structural, not a
+semantic-completeness or native-UI certificate. Five focused temporary-DB
+fixtures pass against a narrow Library test target freshly built from this
+main `325007c` source. Retained binaries in feature worktrees were not used
+because their core source differs. No full/native Cargo matrix, personal
+collection scanning, configured program launch or OS action was performed.
+
+Strict build, eight publication tests and eight sampled local browser checks
+pass. The browser sample covers light/dark reading, related navigation,
+search and 390px tables, including an actual horizontal wheel to reveal the
+Tools scope column; no page errors or document-level overflow were observed.
+The author viewed the final samples. This establishes local documentation
+behavior, not public152, native performance, provider permission or file
+save-back qualification. Temporary browser profiles and server were closed.
+
+The chapters distinguish saved list preferences from pending/saved metadata,
+cache lookups from loaded-list Find/filter, and immediate maintenance/export
+from the outer Options dialog. The Library status counters are explained as
+cache-session hints rather than a complete I/O audit. Configuration backups
+retain settings and custom lists but exclude the cache and audio files.
+
+`reviews/file-recovery-independent-review.json` preserves the unchanged clean
+finite receipt at exact `9e0d7d7` for the preceding trio, not this new batch.
+The actual public137 proof and structural-only scripting inventory remain
+unchanged. This checkpoint needs finite independent review and later current
+source reconciliation, final-head CODE, trusted CI and actual publication.
+Full canonical semantic completion and the remaining 35 drafts are still open.
+
+
+## Local text-exchange recipe checkpoint
+
+The next bounded batch completes three recipes: structured tracklists,
+per-file lyrics sidecars and spreadsheet CSV reports. The local milestone
+has 155 authored pages and 32 drafts. It preserves every prior 152-page
+navigation entry in order. Generated navigation and search agree on all
+155 routes, with 1,289 indexed sections and no draft navigation, HTML or
+search leakage. The actual public site remains the separately verified
+137-page publication; eighteen additional chapters are local only.
+
+The tracklist recipe teaches literal extraction masks, discarded numbering,
+selection-order association, per-album source-file evaluation, reordered
+filename keys, partial selection and the limits of CSV-like input. Lyrics
+teaching distinguishes a whole-text, per-file immediate action from that
+record importer, including naming, replacement, empty/missing files,
+encoding and continued action processing after warnings. The spreadsheet
+workflow keeps stable file keys, quotes every arbitrary cell, preserves
+Unicode and record endings, and explains text import and the absence of an
+automatic write-back link. Native dialog/player/spreadsheet execution is
+not inferred from core output tests.
+
+Six new focused core tests execute the actual written records, formats and
+outputs under both LF and CRLF Markdown checkouts. They cover reordered and
+partial keys, duplicates, source/sidecar paths, whole-text decoding,
+Unicode/quote escaping and multiline CSV cells. The narrow target is built
+from application source byte-identical to actual main325 in the shared
+guide-only target. Its Clippy check passes; no modified17–20 native binaries
+are reused. Twenty-four existing action/export UI model tests, eight
+publication tests, the strict guide build and whitespace checks pass.
+
+Browser QA uses a separate temporary headless Chrome profile against the
+local generated guide. It verifies palettes, actual reference navigation,
+390px tables/document bounds, horizontal template scrolling, search,
+complete numbered procedures and copyable lyric-filename code. An initial
+Markdown indentation error in the lyrics steps was corrected before the
+final checks. A later harness selector counted breadcrumb list items too;
+the selector was narrowed to the actual procedure. Neither an application
+change nor a claim of native UI/import or public155 validation is involved.
+Owned browser profiles and the local server are closed after validation.
+
+The ledger `text-exchange-2026-10-16.json` records exact source/page/test and
+binary hashes, canonical topic pointers, commands, results and limits.
+The preceding finite clean Library/value/menu review is retained unchanged
+in `reviews/library-values-independent-review.json`. Full canonical
+semantic coverage, the remaining32 drafts and actual publication still
+require further work. This local batch awaits its own independent review,
+then eventual source reconciliation, final-head CODE and trusted CI.
+
+
+## Local learning-workflow checkpoint
+
+Three more source-grounded tutorials complete the local learning sequence
+for tags from filenames, a bounded album cleanup and per-album cover art.
+The local milestone is158 authored pages and29drafts, while the verified
+public site remains137. All prior155navigation entries retain their order;
+search/navigation contain exactly158routes and1321sections without draft
+HTML, search or navigation leakage. These counts do not prove canonical
+semantic completion, and21completed local chapters remain unpublished.
+
+The filename tutorial teaches matching versus meaning, trailing folder
+levels, literal separators, discarded values and a Deluxe-name miscapture
+before relating that extraction to Guess Values in an existing tag. The
+cleanup tutorial surveys a copied album, filters absent Album Artist,
+builds six explicit ordered actions and verifies retained metadata before
+separately staging/saving track numbers and applying a reviewed rename.
+The cover tutorial distinguishes embedded pictures from sidecars, clears
+hidden selections, imports each album's own image, avoids accidental repeat
+imports and separates all-cover resizing from selective Manage covers plans.
+The online covers-only route is source-grounded; no live provider success
+or player compatibility is inferred from the local examples.
+
+Seven focused actual-core tests execute the written patterns, table rows
+and controls under LF/CRLF Markdown, including temporary MP3 files with
+different images per album. They verify that embedded artwork changes while
+audio bytes and source images remain intact, plus count filters and actual
+resize dimensions/no-op decisions. Thirty-four existing action/cover/column/
+numbering models,16source-routing/matching models, eight publication tests, strict build, focused new-test
+Clippy, formatting and whitespace checks pass. The narrow test target uses
+application/dependency/workflow source byte-identical to main325; it does
+not reuse the altered17–20 native binaries or claim a fullworkspace matrix.
+
+Ten generated-doc browser checks cover palettes, the Deluxe counterexample,
+actual Guess Values navigation, all seven/eight/eight lesson stages,390px
+bounds/tables, the horizontally scrollable six-action table, the copyable
+cover filter and actual search navigation. Visual inspection prompted use
+of the existing native-mapping-table wrapper so regexes and field identifiers
+stay intact when the table scrolls on a narrow screen. No CSS/app change was
+needed. A numeric-heading CSS selector and a programmatic-focus search
+interaction were corrected in the isolated test harness before the final
+clean run; failures are retained alongside the local browser receipt.
+Owned temporary browser profiles and the HTTP server are closed.
+
+The ledger `learn-workflows-2026-10-16.json` records source/page/test and
+binary hashes, canonical topic pointers, commands, outputs and limits.
+The preceding finite clean text-exchange peer and root visual receipts are
+retained unchanged under `reviews/`. This trio awaits its own independent
+review; publication still requires later source reconciliation, exact
+final-head CODE and trusted CI. Original deferred P2/REA work is untouched.
+
+
+## Local path and folder-image recipe checkpoint
+
+The next three completed recipes teach lowercase/hyphenated filename stems,
+an explicit component-character/length policy and embedded-cover export to
+an album-folder image. The local milestone is161authored pages and26drafts;
+public137remains separate. All prior158navigation entries retain their order.
+Generated navigation and search agree on161routes/1352sections, with no
+remaining draft navigation, HTML or search leakage. Twenty-four completed
+local chapters remain unpublished; page counts do not establish full
+canonical semantic completion.
+
+Lowercase teaching uses the actual Filename→Filename numbered-capture
+converter and retains the extension's spelling. Its tag-based variation is
+a separately named Tag→Filename route. Portable-name teaching follows the
+actual reviewed preview_rename/rename_files UI route and distinguishes raw
+$validate character replacement, backslashes, filename-mode sanitizing,
+trailing-character cleanup, Unicode scalar truncation and full-path limits.
+It makes no universal validity, case-only rename, alias or collision promise.
+The original deferred P2s and application behavior are unchanged.
+
+The folder-image recipe states the JPEG/.jpg versus PNG/.png distinction
+before its steps: exporting copies bytes and does not convert encoding.
+It separates per-input-folder outputs from report partitioning, repeated
+content from existing-file replacement and action-specific external-image
+undo from other export paths. The real NativeHost extension/ordinal/write/
+ownership/capture flow and session-journal caller were read. No private
+host behavior is replaced with a mirrored test implementation or presented
+as a new native-app/OS export run.
+
+Five focused core tests execute the actual written patterns, case tables,
+Unicode shortening and ExportCover host requests under LF/CRLF Markdown.
+Two exact existing temporary side-file journal tests verify creation/
+replacement undo and unchanged-output no-op recording, without exercising
+the unrelated original P2 cases. Thirty-one actual converter/action models,
+eight publication tests, strict build, focused new-test Clippy, formatting
+and whitespace checks pass. All175production/dependency/workflow files in
+the identity receipt remain byte-identical to main325.
+
+Nine isolated generated-doc browser checks verify the real procedure lists,
+correct converter-reference link,390px tables/document bounds, actual code
+scrolling, palettes, copyable per-track cover format and actual search.
+Owner viewed the nested-expression mobile procedure and JPEG/PNG teaching
+in dark mode. All temporary profiles and the HTTP server are closed.
+
+All161completed pages were scanned across their entire contents for the
+known original draft-brief markers, with no findings. The final aggregate
+binds every ready path/content hash; each new file was replaced completely
+and read to its end. The ledger `path-recipes-2026-10-16.json` records these
+receipts, exact source/page/test/binary hashes, source pointers and limits.
+The previous clean25bdlearning followup and footer-repair checkpoint are
+retained unchanged under reviews/. This trio awaits independent peer, later
+main reconciliation, exact final-head CODE and trusted publication checks.
+
+
+## Local desktop-platform checkpoint
+
+The macOS, Windows and Linux platform guides are now substantive local
+chapters. The candidate has 164 authored pages and 23 drafts, preserving every
+prior 161 navigation entry in order. Navigation/search agree on 164 routes and
+1,378 sections with no draft leakage. All 164 completed pages have a clean
+whole-content original-brief-marker scan. Public 137 remains separate;
+27 completed local chapters are unpublished and counts do not establish full
+canonical semantic coverage.
+
+The guides distinguish actual packages/processor builds from framework
+possibilities or an OS support matrix. They explain installation/runtime
+failures versus audio-file errors, literal paths and encodings, system
+file-manager launches versus interactive opening, physical Control versus
+Command/Option/AltGraph, tray/window behavior, optional credential stores,
+per-user settings and separate save/write boundaries. Source-specific limits
+are kept visible instead of transferring another editor's platform behavior.
+
+Read-only downloads of three actual v0.2.13 assets match the verified manifest's
+SHA256 and sizes: Apple-silicon app archive, Windows installer and x64 DEB.
+The Mac bundle displays an ad-hoc signature/version and an arm64 Mach-O; its
+packaged document associations are Alternate. Its declared minimum-version
+metadata is not promoted to a tested OS guarantee. The installer has no
+embedded Authenticode certificate table; the NSIS stub's 32-bit PE is not
+misrepresented as the application's processor target. The DEB has an
+x86-64 ELF64 payload, actual GTK/WebKitGTK/Ayatana dependencies and an OpenTag
+desktop entry. These are archive/header declarations, not installation,
+Gatekeeper assessment, runtime download or cross-OS launch tests. No app,
+installer, keychain, mount or user security setting was invoked/changed.
+
+Three focused actual-core tests execute the written path format,
+known-codepage hex examples and volume-label display fallback under LF/CRLF.
+Thirty-four Node checks pass: four new guide-contract checks plus 30 existing
+keyboard/file-opening/association models. The new checks run 20 written
+shortcut rows in both newline forms through actual source routing, verify
+all 11 desktop filenames against the published manifest, bind Linux declarations
+to the inspected DEB and exercise frontend replacement/pending-edit handling
+for the written folder paths. They do not pretend to run the OS commands.
+Eight publication tests, strict build, focused Clippy, formatting/whitespace
+checks pass;178 recorded production/dependency/workflow/config files match main325.
+
+Nine isolated generated-doc browser checks verify new Platforms navigation,
+real procedure lists,local search opening, palettes,390px tables/document
+bounds, no-wrap package names, actual horizontal scrolling and copyable
+checksum code. Owner viewed the complete mobile Mac filenames and Windows
+dark teaching. A stale search-result handle was replaced with a locator;
+a mixed-case architecture keyword observation remained broad/unhelpful,
+so that failed scope is retained and search quality is not claimed generally.
+The final mounted-path keyword opened Linux guidance. No existing search
+implementation was changed. All owned profiles and the HTTP server are closed.
+
+The ledger `desktop-platforms-2026-10-16.json` contains exact source/page/test,
+fixture/binary/log hashes, the whole-page aggregate and limits. Package
+manifest/inspection metadata are retained in `desktop-v0.2.13-*.json` and the
+preceding finite path-recipe peer is preserved unchanged under reviews/.
+Official Apple/Tauri/AppImage guidance was checked for the scoped app-opening
+and runtime procedures. This trio awaits peer and later actual-main
+reconciliation, exact final-head CODE, trusted CI and publication. Original
+P2/REA work and source17–20's feature behavior remain untouched.

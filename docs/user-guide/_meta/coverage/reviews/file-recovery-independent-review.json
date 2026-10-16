@@ -1,0 +1,125 @@
+{
+  "reviewer": "/root/pr20_owner, finite independent read-only source/model review",
+  "checkpoint": "9e0d7d74e38f0f41ce01b599276d010130b4f2fd",
+  "worktree": "/Users/jneerdael/Scripts/opentag-worktrees/codex-guide-file-recovery",
+  "clean_start_and_end": true,
+  "source_main": "325007c47bef4ee53a4aa9b086038157ee3e62dc",
+  "result": "CLEAN in requested bounded scope",
+  "actionable_findings": [],
+  "pages": {
+    "guides/file-operations.md": "4bc2df3ddaa8bbd3668ebcd98a2a9311f51cdc8f26701d0bdf818cef54e6d3da",
+    "guides/undo-history.md": "05860cdf38dad29013862a3269b831b17a3ca4b22186c60a0aa8714b1205d208",
+    "guides/utilities.md": "fde89b6958241a634a97537dc117abf5fcf5b698a439a2511575bb0da76ae7ac"
+  },
+  "source_sha256": {
+    "src/main.ts": "f9c0a56f1eba4f77bc47531a08fcd63427a2b845bc36a784b27da43146309c76",
+    "src/file-ops.ts": "9009f23df8f5f290405277dc36d13a235457bf46ff11f163c0fa1b411bdcec75",
+    "src/general-options.ts": "8e149a430cdbb57ef57a849fa4cfd811afadf8210a62a381e99631a83aaf2f55",
+    "src/edit-history.ts": "8bff30cfa68e212916156b16bb6d7a9b105b4363a7d8eb4da29b8912ba57cb0a",
+    "src/utils-ui.ts": "3a2cdafbf85175a023fad844cccc59730ffcfa104b3921d8494c1ecb02e0224e",
+    "src/chapters.ts": "7708526677dd5526ad85e662c6e097cf0888f7df4394fafe8e767aae45db3ffa",
+    "src/messages.ts": "831c96c1819790df6f8959e94d40812ffcb14851ebfb1c4d1d32622c4a2fc556",
+    "src-tauri/src/file_ops.rs": "badc5a5e34e3aa4017dedfa7abb6100156a8c1207990c250ba1dff474d980352",
+    "src-tauri/src/history.rs": "515b8dba35538f964c7502d1fc01c667a9790ce1748d3ab58e99670bc19914a1",
+    "src-tauri/src/utilities.rs": "404b520370424704d6ecccad37d44c63ab6bd522a30622fe203333d261efca5e",
+    "src-tauri/src/lib.rs": "77b79c1faad0bf31d07bd5974d91980c4b62dcd919a9aad8217e0f2547acef49",
+    "src-tauri/src/action_host.rs": "6da0c08ead3c66a3b4f266629573c2d0316de56a2671e870121f1518bc037486",
+    "src-tauri/src/sources/mod.rs": "876f54242ddc043ca2678aaa2a915d84a7a514aff5a91d350a48581627636b8b",
+    "crates/tag-core/src/history.rs": "3cd75c86c5d16b8dace35780dda7229ce4d5494d9052dbb6e381465a705b2d04",
+    "crates/tag-core/src/optimize.rs": "9da55e2402264176fdaded6f9dfd604878dbeb98554b799ebd5b654372e70563",
+    "crates/tag-core/src/operations.rs": "1e23b99ff8a4ca11e4c29e9f71bda64dfc455fd300e38c0295c28b92e5612a18",
+    "crates/tag-core/src/mp4_chapters.rs": "25d70e899d5e5167e5f886c2aff3801e6246cb4778546d101e2e39717ae13bd4"
+  },
+  "read_coverage": {
+    "file_operations": [
+      "Actual Edit Copy/Move versus list remove/clear versus trash/permanent deletion; pending/hidden selection and command routes",
+      "Native regular-file check/full transfer preflight/flat destination/case-insensitive selected basenames/per-file execution and readback failure",
+      "Moved-path rekey/keep-moved option, list membership exclusion fromUndo, message preference and desktop/chapter/provider scope",
+      "Reveal/Play existing-path and deduped target caps; no autosave/actualOS/player claims"
+    ],
+    "history": [
+      "Core/app session journal capture/commit/replay/limits; current same-size/date write tracking",
+      "Recorded metadata/converter/action rename versus unrecorded Edit transfer/delete; pending drafts and absent list rows preserved on replay",
+      "Specific captured cover side files versus unjournaled outputs, preflight and partial replay/refusal bounds",
+      "50steps/2GiB retaineddata and Unix reserve qualifiers, notice/optional capture/sessioncleanup, Repeat distinct fromRedo"
+    ],
+    "utilities": [
+      "Actual mixed-format model and immediate nativejournalcommand wrappers",
+      "Unsupported ID3v2 frame selection/known UFID mapping/noop and retained title/artwork/audio fixtures",
+      "FLAC4096 padding/native marker/noop/malformed region verification and MP4layout/no-codec/player claims",
+      "MP4chapter same-sized freeboxes and verified unchanged nonchapter regions, wholeparent/CUE/provider scope"
+    ]
+  },
+  "executed_checks": {
+    "node": {
+      "command": "node --test tests/guide-file-recovery.test.mjs tests/file-ops.test.mjs tests/edit-history.test.mjs tests/general-options.test.mjs tests/chapters.test.mjs",
+      "passed": 40,
+      "failed": 0,
+      "exit": 0,
+      "log": "/tmp/opentag-guide-file-recovery-peer-models.log"
+    },
+    "core": {
+      "reused_binary_sha256_verified": true,
+      "history_binary": "/tmp/opentag-guide-combined-target/debug/deps/history-58a94a594cdba2ca",
+      "history_binary_sha256": "0dceb976836380699c4b0b50f3573fd60ae6f643877d87c3de0c281edf107e4c",
+      "history_cases": [
+        "same_size_preserved_timestamp_edits_keep_every_undo_and_redo_step",
+        "an_empty_write_request_adds_no_step_and_keeps_redo",
+        "external_changes_are_reported_and_never_overwritten",
+        "side_files_created_or_replaced_are_removed_or_restored",
+        "limits_bound_operations_and_bytes",
+        "stale_sessions_are_removed_and_live_sessions_are_kept",
+        "renames_and_directory_moves_reverse_and_reapply"
+      ],
+      "utility_binary": "/tmp/opentag-guide-combined-target/debug/deps/utils_optimize-babb543e00c766a8",
+      "utility_binary_sha256": "c52a9bec6c0a2f44913229d789a81e946211eca5e26885515e839ec72e86bf83",
+      "utility_case": "unsupported_id3_frames_are_removed_and_everything_else_is_kept",
+      "passed": 8,
+      "failed": 0,
+      "log": "/tmp/opentag-guide-file-recovery-peer-core.log",
+      "scope": "Exact filters in existing executables, generated temporary WAV/MP3/images only. No Cargo rebuild,ffmpeg,configuredtool,realOStrash/player/personaldata invoked."
+    }
+  },
+  "boundary": {
+    "checkpoint": "9e0d7d74e38f0f41ce01b599276d010130b4f2fd",
+    "page3_source17_test_hashes_match": true,
+    "app_source_identical_main325": true,
+    "copied_prior_receipts_hash_match": true,
+    "nav": 149,
+    "search_entries": 1235,
+    "old146order_preserved": true,
+    "drafts": 38,
+    "draft_leaks": [],
+    "unpublished_additions_vs_main": [
+      "cookbook/album-artist-from-artist.md",
+      "cookbook/strip-track-numbers-from-titles.md",
+      "cookbook/the-artist-sort-names.md",
+      "customize/configuration.md",
+      "customize/toolbars.md",
+      "customize/tools.md",
+      "guides/file-operations.md",
+      "guides/undo-history.md",
+      "guides/utilities.md",
+      "help/about.md",
+      "help/faq.md",
+      "help/troubleshooting.md"
+    ],
+    "live_search": {
+      "url": "https://johnneerdael.github.io/opentag/search/search_index.json",
+      "http": 200,
+      "routes": 137,
+      "entries": 1116,
+      "local12absent": true
+    }
+  },
+  "preserved_prior_evidence": "Prior146 navigation order and copied configuration-tools/public137 receipt hashes checked; earlier nine chapters not re-reviewed. Twelve local chapters remain absent fromlive137search.",
+  "limits": [
+    "Bounded local peer review, not exact-head GitHub CODE approval or applicationCI.",
+    "App production source byte-identical main325 for17recordedfiles; pending17typedrollbackhelper and18–20behavior not treated as current.",
+    "Reused core binaries checked against owner-pinned executable hashes; not a fresh Cargo/platform/fullworkspace compile.",
+    "FLAC/MP4 production paths and existing test source read; no new encoded fixture orplayer execution.",
+    "HTTP search boundary rechecked; author generated-doc browser not repeated and no nativeappUI executed.",
+    "No universal external-write/pathalias/overwrite/rollback guarantee or deferredP2fix claim.",
+    "No repo edit/commit/push/review/CI/newfeature; PR18/20 unchanged."
+  ]
+}
