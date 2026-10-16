@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile, readdir} from 'node:fs/promises';
 import ts from 'typescript';
-import {extract, englishCatalog, extractFrozen, extractBackend} from '../scripts/i18n-extract.mjs';
+import {extract, extractFile, englishCatalog, extractFrozen, extractBackend} from '../scripts/i18n-extract.mjs';
 const load=async file=>{
   const source=await readFile(new URL(`../src/${file}`,import.meta.url),'utf8');
   const js=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
@@ -252,6 +252,24 @@ test('the language follows the choice, then the system languages by region and b
 test('the backend catalog keys follow the current merged Rust error producers',async()=>{
   const stored=JSON.parse(await readFile(new URL('../src/i18n/backend-keys.json',import.meta.url),'utf8'));
   assert.deepEqual(stored,extractBackend(),'Run node scripts/i18n-extract.mjs --backend, then translate the new keys in every catalog.');
+});
+test('extraction keeps scalar names and text joins while splitting actual HTML helpers and arrays',()=>{
+  const keys=new Set(),collect=text=>extractFile('fixture.ts',text,key=>keys.add(key));
+  collect('function notice(field:string,page:string,lines:number){return `Field ${field} belongs to ${page}; copied ${lines} lines.`;}');
+  collect('const message=`Warnings: ${issues.map(issue=>`${issue.file}: ${issue.error}`).join("; ")}.`;');
+  collect('function list(names:string[]){return names.join(", ");} const message=`Names: ${list(names)}.`;');
+  assert.ok(keys.has('Field {field} belongs to {page}; copied {lines} lines.'));assert.ok(keys.has('Warnings: {join}.'));assert.ok(keys.has('Names: {list}.'));
+  keys.clear();
+  collect('function field(name:string){return `<b>${name}</b>`;} const markup=`<p>Before ${field(name)} after content.</p>`;');
+  collect('function list(names:string[]){return names.map(name=>`<b>${name}</b>`).join("");} const markup=`<p>Start ${list(names)} finish content.</p>`;');
+  collect('const markup=`<p>First ${names.map(name=>`<span>${name}</span>`).join("")} last content.</p>`;');
+  assert.ok(keys.has('Before'));assert.ok(keys.has('after content.'));assert.ok(keys.has('Start'));assert.ok(keys.has('finish content.'));assert.ok(keys.has('First'));assert.ok(keys.has('last content.'));
+  assert.ok(![...keys].some(key=>/\{(?:field|list|join)\}/.test(key)));
+});
+test('production scalar and joined-warning messages are extracted as complete catalog keys',()=>{
+  const keys=extract();
+  for(const key of ['Added “{value}” to the custom values for {field}.','“{value}” is already a custom value for {field}.','{field}: enter a name for the field.','{field} is already used for another field and cannot be added twice.','Copied {lines} line as text','Copied {lines} lines as text','nothing (no tag type is checked under Options → Tags → {page})','{name} and {names}','Imported {length} Mp3tag column from {path}; skipped {length2}: {join}','Installed {names}. {length} tag source file could not be read: {join}'])assert.ok(keys.has(key),key);
+  for(const key of ['Added “{value}” to the custom values for','nothing (no tag type is checked under Options → Tags →','and {names}'])assert.ok(!keys.has(key),key);
 });
 test('the English catalog lists every user-visible string of the frontend',()=>{
   const expected=englishCatalog(extract());

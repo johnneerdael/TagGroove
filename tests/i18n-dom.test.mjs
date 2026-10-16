@@ -13,7 +13,7 @@ const moduleUrl=async(file,replacements={})=>{
 const load=async file=>import(await moduleUrl(file));
 const {Translator,catalogMeta}=await load('i18n/core.ts'),{DomTranslator}=await load('i18n/dom.ts');
 const {controlMarkup,OptionsUI,defaultSettings,registerOptionsPage,windowTitle,parseExtensions}=await load('options-ui.ts');
-const {ColumnUI,defaultLayout,setColumnNameTranslation,columnName,headerMarkup,editKey}=await load('columns.ts'),{ActionUI,panelKey}=await load('action-ui.ts');
+const {ColumnUI,defaultLayout,normalizeLayout:normalizeColumns,setColumnNameTranslation,columnName,headerMarkup,editKey}=await load('columns.ts'),{ActionUI,panelKey}=await load('action-ui.ts');
 const {CellEditor}=await load('cell-editor.ts');
 const {TagPanel,defaultLayout:defaultPanelLayout,defaultSettings:defaultPanelSettings,settingsError}=await load('tag-panel.ts');
 const {CoverUI}=await import(await moduleUrl('covers.ts',{"import './covers.css';":'',"'./keyboard'":JSON.stringify(await moduleUrl('keyboard.ts')),"'./cover-model'":JSON.stringify(await moduleUrl('cover-model.ts'))}));
@@ -256,6 +256,42 @@ test('tag-panel validation keeps technical field keys raw while shortcut labels 
   const custom={ARTIST:'Performer',...Object.fromEntries(messages.map(key=>[key,`Field ${key}`])),'@keys':{Ctrl:'Control'}};
   for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]])for(const [index,values] of [Array.from({length:5001},(_,i)=>String(i)),[' padded'],['same','same']].entries()){
     const p=page();try{const settings=defaultPanelSettings();settings.field_values.lists.ARTIST=values;p.body.textContent=settingsError(settings);const t=p.translate(locale,catalog);assert.equal(p.body.textContent,t.t(messages[index],{key:'ARTIST'}));assert.equal(t.translate('Ctrl S'),locale==='de'?'Strg S':locale==='en'?'Control S':'Ctrl S');}finally{p.close();}
+  }
+});
+test('real custom-value notifications and layout errors translate complete scalar-field messages',async()=>{
+  const added='Added “{value}” to the custom values for {field}.',duplicate='“{value}” is already a custom value for {field}.',empty='{field}: enter a name for the field.',used='{field} is already used for another field and cannot be added twice.';
+  const custom={[added]:'Stored {value} for {field}.',[duplicate]:'Already stored {value} for {field}.',[empty]:'Name required: {field}.',[used]:'Duplicate field: {field}.','Copied {lines} line as text':'Text copy: {lines} line','Copied {lines} lines as text':'Text copy: {lines} lines',Help:'Assistance',ARTIST:'Performer'};
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]]){
+    const p=page();try{
+      const panel=new TagPanel({persistent:()=>false,values:()=>[],disabled:()=>false,directories:()=>({selected:[],all:[]}),changed:()=>{},notify:message=>{p.body.querySelector('#notice').textContent=message;},fail:error=>{throw error;},altShortcut:()=>false});
+      p.body.innerHTML=panel.fieldsHTML()+'<p id="notice"></p>';panel.bind(p.body);const t=p.translate(locale,catalog),input=p.body.querySelector('[data-field="ARTIST"]');input.value='Help';
+      for(const key of [added,duplicate]){input.dispatchEvent(new p.window.KeyboardEvent('keydown',{key:'Enter',shiftKey:true,bubbles:true}));await p.window.happyDOM.waitUntilComplete();assert.equal(p.body.querySelector('#notice').textContent,t.t(key,{value:'Help',field:'ARTIST'}));}
+      assert.deepEqual(panel.settings.field_values.lists.ARTIST,['Help']);
+      for(const [key,change] of [[empty,settings=>{settings.panel.fields[1].name='';}],[used,settings=>{settings.panel.fields.push({...settings.panel.fields[1]});}]]){
+        const settings=defaultPanelSettings();change(settings);p.body.querySelector('#notice').textContent=settingsError(settings);p.translateTree(p.body);assert.equal(p.body.querySelector('#notice').textContent,t.t(key,{field:'ARTIST'}));
+      }
+      for(const lines of [1,2]){const source=mainTemplate(node=>node.head.text==='Copied '&&node.getText(parsed).includes('lines===1'),{lines});p.body.querySelector('#notice').textContent=source;p.translateTree(p.body);assert.equal(p.body.querySelector('#notice').textContent,t.t(`Copied {lines} line${lines===1?'':'s'} as text`,{lines}));}
+      assert.equal(t.translate('Copied Help lines as text'),'Copied Help lines as text');
+    }finally{p.close();}
+  }
+});
+test('real column-import and source-install warnings retain joined diagnostics after the translated scaffold',async()=>{
+  const keys=['Imported {length} Mp3tag column from {path}; skipped {length2}: {join}','Imported {length} Mp3tag columns from {path}; skipped {length2}: {join}','Installed {names}. {length} tag source file could not be read: {join}','Installed {names}. {length} tag source files could not be read: {join}'];
+  const custom=Object.fromEntries(keys.map(key=>[key,`Result: ${key}`]));custom['Help.ini']='Wrong path';custom['Help.src']='Wrong filename';
+  const declaration=parsed.statements.filter(ts.isVariableStatement).flatMap(node=>[...node.declarationList.declarations]).find(node=>node.name.getText(parsed)==='columnUI');
+  const callback=declaration.initializer.arguments[0].properties.find(node=>node.name?.getText(parsed)==='importLayout').initializer;
+  const js=ts.transpileModule(`const run=${callback.getText(parsed)};return{run,status:()=>status};`,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]])for(const count of [1,2]){
+    const p=page();try{
+      const t=new Translator(locale,catalog),skipped=Array.from({length:count},()=> 'Wrong expression'),layout=defaultLayout();layout.columns=layout.columns.slice(0,count);
+      const host=new Function('open','invoke','normalizeLayout','basename',`let status='';${js}`)(async()=>'/tmp/Help.ini',async()=>({layout,skipped}),normalizeColumns,path=>path.split('/').at(-1));
+      await host.run();p.body.textContent=host.status();p.translate(locale,catalog);
+      assert.equal(p.body.textContent,t.t(keys[count===1?0:1],{length:count,path:'Help.ini',length2:count,join:skipped.join('; ')}));
+      const paths=Array.from({length:count},(_,index)=>`/tmp/${index?'Title':'Help'}.src`),problems=paths.map(path=>({file:path.split('/').at(-1),error:'Wrong expression'}));
+      const sources=new WebSourcesUI({pickFiles:async()=>paths,invoke:async()=>({sources:[],problems}),changed:()=>{},report:message=>{p.body.textContent=message;},fail:error=>{throw error;}});
+      await sources.install();p.translateTree(p.body);
+      assert.equal(p.body.textContent,t.t(keys[count===1?2:3],{names:paths.map(path=>path.split('/').at(-1)).join(', '),length:count,join:problems.map(problem=>`${problem.file}: ${problem.error}`).join('; ')}));
+    }finally{p.close();}
   }
 });
 test('tag-panel validation preserves invalid identifiers and whitespace in field and custom-value diagnostics',()=>{
@@ -798,6 +834,18 @@ test('web-source settings save and redraw preserve choice tokens under bundled a
   }
 });
 
+test('native Remove Tag translates empty settings and conjunctions while preserving tag identifiers',async()=>{
+  const fallback='nothing (no tag type is checked under Options → Tags → {page})',list='{name} and {names}';
+  const custom={[fallback]:'No selected types in {page}',[list]:'{name} plus {names}','Remove tags from {count} selected files?':'Remove metadata from {count} files?','MP3, TTA: {kinds}':'MPEG: {kinds}','APE, MPC, WavPack, TAK, OptimFROG: {kinds}':'APE family: {kinds}','Other formats: all tags':'Other metadata: all types',Mpeg:'MPEG options','Ape, Mpc':'APE options',ID3v1:'Wrong type',ID3v2:'Wrong type',APE:'Wrong type'};
+  const nativeSource=(await source('i18n/dialog.ts')).replace(/^import .*;\r?\n/gm,'').replace(/^export /gm,''),js=ts.transpileModule(nativeSource,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]])for(const checked of [false,true]){
+    const t=new Translator(locale,catalog),calls=[],ask=new Function('dialog','t','translate','translationActive',`${js}\nreturn ask;`)({ask:async(...args)=>{calls.push(args);return true;}},key=>t.t(key),text=>t.translate(text),()=>true);
+    const flags={remove_id3v1:checked,remove_id3v2:checked,remove_ape:checked},tags={mpeg:flags,ape:flags},messages=new Messages({values:()=>({}),ask:(text,title)=>ask(text,title)});
+    await messages.confirm('confirm_remove_tags',removalMessage(2,tags),'Remove tag');
+    const kinds=page=>checked?t.t(list,{name:'ID3v1, ID3v2',names:'APE'}):t.t(fallback,{page:t.translate(page)});
+    assert.equal(calls[0][0],[t.t('Remove tags from {count} selected files?',{count:2}),'',t.t('MP3, TTA: {kinds}',{kinds:kinds('Mpeg')}),t.t('APE, MPC, WavPack, TAK, OptimFROG: {kinds}',{kinds:kinds('Ape, Mpc')}),t.translate('Other formats: all tags')].join('\n'));
+  }
+});
 test('structured confirmations translate source parts once through Messages and the native ask wrapper',async()=>{
   const first='Replace the current options, action groups, export configurations, columns, tag panel, favorite directories and remembered lists with {path}?';
   const reload='OpenTag reloads its window afterwards. The Discogs access token is not part of a configuration file.';

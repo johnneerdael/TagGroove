@@ -51,8 +51,8 @@ For example, these entries in the generated template can become:
 
 This is an excerpt, not a complete catalog. Keep the other generated entries.
 The new filename supplies the locale; the generated template has no English
-locale override. Keep brace placeholders such as `{filename}` unchanged so
-OpenTag can insert the original filename.
+locale override. Keep brace placeholders such as `{filename}` and `{field}`
+unchanged so OpenTag can insert the original values.
 
 For an existing catalog, edit its file and choose Options **OK** to reload it.
 OpenTag also reads the folder at startup. A file named `nl.json` or `de.json`

@@ -20,7 +20,7 @@ const VERBATIM = /^(name|nameOf|path|file|filename|fileName|location|outputPath|
 const SHORTCUT = /^(?:(?:⌘|⌥|⇧|⌃|⌫|Ctrl|Alt|Shift|Option|Cmd|Del|Num|Enter|Esc|Tab|Space|Page Up|Page Down|Home|End|Ins|F\d{1,2}|[A-Z0-9]|[←→↑↓+\/·]|,)[\s+/]*)+$/;
 /** Count-only producer roles: keep paths and UI summaries under distinct names.
  * They only match digits, so "{count} file" never matches "Choose a file". */
-const NUMERIC = /^(length|count|size|total|done|restored|missing|unmatched|pending|saved|failed|skipped|selectedCount|tracks|discs|chapters|selected|shown|started|removed|files|matched|n|i|index|position|lastHits|lastStored|max)\d*$/;
+const NUMERIC = /^(length|count|size|total|done|restored|missing|unmatched|pending|saved|failed|skipped|selectedCount|tracks|discs|chapters|selected|shown|started|removed|files|lines|matched|n|i|index|position|lastHits|lastStored|max)\d*$/;
 // Han decimal numbering uses these ten symbols rather than Unicode Nd digits.
 const HAN_DIGITS = '〇一二三四五六七八九';
 const NUMBER = `([\\p{Nd}${HAN_DIGITS}](?:[\\p{Nd}${HAN_DIGITS}.,\\u00a0\\u202f\\u066b\\u066c'’ ]*[\\p{Nd}${HAN_DIGITS}])?)`;

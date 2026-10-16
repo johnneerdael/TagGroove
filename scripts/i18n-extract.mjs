@@ -53,13 +53,58 @@ const nameOf = node => {
 };
 const camel = name => (name || 'value').replace(/^[^A-Za-z]+/, '').replace(/[^A-Za-z0-9]+(.)?/g, (_, c) => c ? c.toUpperCase() : '') || 'value';
 
+/** Find a directly declared helper in the call's enclosing lexical blocks. */
+function helperBody(call, name) {
+  if (!ts.isIdentifier(call.expression)) return;
+  for (let scope = call.parent; scope; scope = scope.parent) {
+    if (!ts.isBlock(scope) && !ts.isSourceFile(scope)) continue;
+    for (const statement of scope.statements) {
+      if (ts.isFunctionDeclaration(statement) && statement.name?.text === name) return statement.body;
+      if (ts.isVariableStatement(statement)) for (const declaration of statement.declarationList.declarations) {
+        if (ts.isIdentifier(declaration.name) && declaration.name.text === name) {
+          const value = declaration.initializer;
+          return value && (ts.isArrowFunction(value) || ts.isFunctionExpression(value)) ? value.body : undefined;
+        }
+      }
+    }
+  }
+}
+
+/** Mark actual HTML origins, not plain values sharing a renderer's name. */
+function markupOrigin(node, visiting = new Set()) {
+  if (!node || visiting.has(node)) return false;
+  visiting.add(node);
+  try {
+    if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) return /<[A-Za-z!/]/.test(node.text);
+    if (ts.isTemplateExpression(node) && [node.head, ...node.templateSpans.map(span => span.literal)].some(part => /<[A-Za-z!/]/.test(part.text))) return true;
+    if (ts.isCallExpression(node)) {
+      const name = nameOf(node.expression);
+      if (TEXT_WRAPPERS.has(name)) return false;
+      if (ts.isPropertyAccessExpression(node.expression)) {
+        const receiver = node.expression.expression;
+        if (name === 'join') return markupOrigin(receiver, visiting) || node.arguments.some(argument => markupOrigin(argument, visiting));
+        if (name === 'map') return node.arguments.some(argument => (ts.isArrowFunction(argument) || ts.isFunctionExpression(argument)) && markupOrigin(argument.body, visiting));
+        if (name === 'filter' || name === 'slice') return markupOrigin(receiver, visiting);
+      }
+      if (!MARKUP_NAMES.test(name)) return false;
+      const body = helperBody(node, name);
+      return body ? markupOrigin(body, visiting) : true;
+    }
+    // Unknown variables/properties carry text. Renderer bodies and literal
+    // markup are inspected where declared, without treating a name as HTML.
+    if (ts.isIdentifier(node) || ts.isPropertyAccessExpression(node)) return false;
+    let found = false;
+    ts.forEachChild(node, child => {if (markupOrigin(child, visiting)) found = true;});
+    return found;
+  } finally {visiting.delete(node);}
+}
+
 function placeholder(node, consumed) {
   let inner = node;
   while (ts.isParenthesizedExpression(inner) || ts.isNonNullExpression(inner) || ts.isAsExpression(inner)) inner = inner.expression;
   const name = nameOf(inner);
-  const isCall = ts.isCallExpression(inner);
   // Markup comes from rendering helpers: element boundaries in the DOM.
-  if (MARKUP_NAMES.test(name) && !(isCall && TEXT_WRAPPERS.has(nameOf(inner.expression)))) return [MARKUP];
+  if (ts.isCallExpression(inner) && markupOrigin(inner)) return [MARKUP];
   void consumed;
   return [TEXT_OPEN + camel(name) + TEXT_CLOSE];
 }
@@ -277,7 +322,7 @@ function fromMarkup(text, add) {
   if (!skipDepth) segment(text.slice(last));
 }
 
-function extractFile(file, source, add) {
+export function extractFile(file, source, add) {
   const sf = ts.createSourceFile(file, source, ts.ScriptTarget.ES2022, true, ts.ScriptKind.TS);
   const consumed = new Set();
   const visit = node => {
