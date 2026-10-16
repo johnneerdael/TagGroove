@@ -227,9 +227,16 @@ fn rename_alias(source: &Path, destination: &Path) -> Result<(), String> {
     Ok(())
 }
 
+fn record_moved_path(source: Option<&Path>, destination: &Path, copied: bool) {
+    if let (Some(source), Ok(destination)) = (source, dunce::canonicalize(destination)) {
+        crate::history::note_move(source, &destination, copied);
+    }
+}
+
 /// Rename a folder without replacing an existing one. Changing only the letter
 /// case of the folder's name works on case-insensitive volumes too.
 pub fn rename_directory_no_clobber(source: &Path, destination: &Path) -> Result<(), String> {
+    let tracked_source = dunce::canonicalize(source).ok();
     if !std::fs::symlink_metadata(source)
         .map_err(|e| format!("{}: {e}", source.display()))?
         .is_dir()
@@ -238,17 +245,24 @@ pub fn rename_directory_no_clobber(source: &Path, destination: &Path) -> Result<
     }
     match destination_state(source, destination) {
         Destination::Unchanged => return Ok(()),
-        Destination::Alias => return rename_alias(source, destination),
+        Destination::Alias => {
+            rename_alias(source, destination)?;
+            record_moved_path(tracked_source.as_deref(), destination, false);
+            return Ok(());
+        }
         Destination::Taken => return Err(format!("{} already exists", destination.display())),
         Destination::Free => {}
     }
     if let Some(parent) = destination.parent() {
         std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
-    move_entry(source, destination, false).map_err(|e| e.to_string())
+    move_entry(source, destination, false).map_err(|e| e.to_string())?;
+    record_moved_path(tracked_source.as_deref(), destination, false);
+    Ok(())
 }
 
 pub fn rename_no_clobber(source: &Path, destination: &Path) -> Result<(), String> {
+    let tracked_source = dunce::canonicalize(source).ok();
     if source == destination {
         return Ok(());
     }
@@ -260,7 +274,11 @@ pub fn rename_no_clobber(source: &Path, destination: &Path) -> Result<(), String
     }
     match destination_state(source, destination) {
         Destination::Unchanged => return Ok(()),
-        Destination::Alias => return rename_alias(source, destination),
+        Destination::Alias => {
+            rename_alias(source, destination)?;
+            record_moved_path(tracked_source.as_deref(), destination, false);
+            return Ok(());
+        }
         Destination::Taken | Destination::Free => {}
     }
     if let Some(parent) = destination.parent() {
@@ -302,6 +320,7 @@ pub fn rename_no_clobber(source: &Path, destination: &Path) -> Result<(), String
             "Cannot remove original: {e}; destination rollback: {cleanup:?}"
         ));
     }
+    record_moved_path(tracked_source.as_deref(), destination, copied);
     Ok(())
 }
 
