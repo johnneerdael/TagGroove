@@ -20,9 +20,9 @@ remain drafts, and publication checks exclude them from HTML and search.
 
 ## Integrated authoring batches
 
-The local expansion contains 75 completed pages, including the eight initial
-publication pages. This is an integration milestone, not completion of the
-whole guide. The language options page remains a draft because its actual
+The first combined checkpoint (`23ecba0`) contains 75 completed pages, including
+the eight initial publication pages. The export batch raises the local total
+to 80. These are integration milestones, not completion of the whole guide. The language options page remains a draft because its actual
 implementation is not yet part of this source baseline.
 
 | Batch | Preserved source revision | Evidence and limits |
@@ -33,6 +33,7 @@ implementation is not yet part of this source baseline.
 | Scripting and beginner lessons | `d5cae7dd37b280021ea0b6c23e735b4805196b55` | Seven function-reference pages and two lessons. The function index equals the 64-name core registry. Tests execute 197 function examples, all twenty date tokens, seventeen lesson fences and eleven lesson table examples. A finite independent review checked all nine pages; the rendered-column context caveat was clarified afterward. |
 | Concepts and workflow lessons | `803d8d11696064f8c896ba703382780cec97be12` | Multi-value and encoding concepts, first action group and filename lessons; three core tests exercise written examples and action order. Added regex escape detail is exercised by the regex table tests. A finite independent source review corrected the dialog-closing step. |
 | Options | `312b0f0` | Twenty-two completed pages and one held language draft. The accompanying ledger maps 150 factual topics to authored sections and records current limitations. Independent source review corrected autosave and retained historical comment/Matroska details. |
+| Export controls, templates and catalogue lesson | `c07bf16` | Five pages, four tests executing actual templates/results under LF and CRLF, plus a canonical fact ledger. Root finite source/canonical review found TRACK quote escaping; its regression failed before correction and passes afterward. |
 | Filter and data reference | `65f3898` | Six pages. Four tests execute 24 filter queries, check 118 field definitions and 236 native table rows, and retain invalid-query cases. The ledger groups repeated canonical native-cell facts. A finite independent semantic review found no established defect; it did not recompute every cell. |
 
 These revisions preserve batch provenance. Current page hashes and later
@@ -81,9 +82,9 @@ The final integration receipt must record those outcomes before opening a PR.
 
 ## Remaining work
 
-Advanced export and web-source development still need substantial writing and
-verification. The export template language, grouping and sorting, filenames,
-encoding, side effects and progressive reports need complete worked lessons.
+The advanced export batch covers template commands, grouping and sorting,
+filenames, encoding, side effects and progressive reports. Reconcile its
+source-dependent claims when the outstanding application PRs land.
 Web-source parser commands, source structure, results, authentication and
 troubleshooting need independent explanations checked against actual OpenTag
 behavior, including explicit unsupported or different behavior.
@@ -100,3 +101,21 @@ merged, then integrate their real source and recheck dependent instructions.
 Actual GitHub Pages publication requires an approved merged source, a successful
 deployment and a checked public URL. A local build or uploaded artifact does
 not establish publication.
+
+## Initial live publication
+
+`publication-2026-10-16.json` records the approved source, successful reviewed
+Pages deployment and public HTTPS checks. Only the initial eight pages are
+live at that milestone; all eight exactly match the approved build. The search
+index contains only those pages, and the logo is served successfully. Live
+browser interaction remains unverified after bounded browser-tool timeouts.
+This limitation is separate from the successful deployment and fetched public
+content. The 80-page local expansion has not been pushed or published.
+
+## Export integration verification
+
+After the CSV review correction, all 49 combined guide tests and all eight
+publication tests passed on the 80-page local source. Focused export clippy and
+the strict guide build passed as well. This is local evidence; the expansion
+still requires source reconciliation and its own exact-head external review
+and trusted validation before publication.
