@@ -124,7 +124,7 @@
  "Always show icon in notification area": "Pictogram altijd in systeemvak tonen",
  "Ambiguous text import filename: {value}": "Dubbelzinnige bestandsnaam voor tekstimport: {value}",
  "An action group already has this name.": "Er is al een actiegroep met deze naam.",
- "An export configuration named {trimmed} already exists.": "Er bestaat al een exportconfiguratie met de naam {trimmed}.",
+ "An export configuration named {name} already exists.": "Er bestaat al een exportconfiguratie met de naam {name}.",
  "An update is available": "Er is een update beschikbaar",
  "Another selected file is also named {value}": "Een ander geselecteerd bestand heet ook {value}",
  "Any text (.*)": "Willekeurige tekst (.*)",

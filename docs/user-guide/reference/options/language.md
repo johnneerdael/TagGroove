@@ -35,7 +35,8 @@ their spelling; unavailable-source and empty-location notices translate. The
 window title also translates generated location summaries when directory display
 is enabled, while actual paths retain their spelling. Freedb
 server names stay as entered during editing; clearing a name shows the translated
-**Unnamed server** label.
+**Unnamed server** label. Export duplicate-name errors also retain the name
+entered while translating the surrounding message.
 
 ## Catalog files
 

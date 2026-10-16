@@ -21,7 +21,7 @@ const {contextMenuMarkup,RowContextMenu}=await load('row-context-menu.ts');
 const {ExtendedTags}=await import(await moduleUrl('extended-tags.ts',{"import './extended-tags.css';":'',"'./tag-edits'":JSON.stringify(await moduleUrl('tag-edits.ts')),"'./row-context-menu'":JSON.stringify(await moduleUrl('row-context-menu.ts'))}));
 const {ToolsUI,toolsOptionsPage}=await load('tools.ts'),{installHelperMenus}=await load('helper-menu.ts');
 const {copyAsTextDialog}=await load('utils-ui.ts'),{PlaylistUI}=await load('playlist-ui.ts'),{openTagToTag}=await load('tag-tag-ui.ts');
-const {offerOpenOutputs}=await load('export-ui.ts');
+const {offerOpenOutputs,ExportUI}=await load('export-ui.ts');
 const {FileOpsUI,nameList}=await load('file-ops.ts');
 const {copiedMessage}=await load('tag-clipboard.ts');
 const {cleanupText}=await load('library.ts');
@@ -134,6 +134,26 @@ test('the actual Language options preserve authored catalog names in System defa
   }
 });
 
+test('duplicate export rename errors translate their scaffold while preserving the authored conflicting name',async()=>{
+  const custom={'An export configuration named {name} already exists.':'Duplicate export: {name}.',Help:'Assistance',Title:'Heading',Rename:'Change name'};
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]])for(const name of ['Help','Title','My  Files']){
+    const p=page(),css=Object.getOwnPropertyDescriptor(globalThis,'CSS'),t=new Translator(locale,catalog);
+    Object.defineProperty(globalThis,'CSS',{configurable:true,value:p.window.CSS});
+    try{
+      const source={version:1,configurations:[{id:'original',name:'Original',template:'%title%'},{id:'duplicate',name,template:'%album%'}],preferences:{configuration:'original',filename:'out.txt',append:false,partition:null,write_bom:true,create_directories:false}};let saved;
+      const ui=new ExportUI({load:async()=>source,save:async value=>{saved=structuredClone(value);},reason:()=>'',selectedCount:()=>1});
+      await ui.open();p.translate(locale,catalog);p.body.querySelector('#export-rename').click();
+      const input=p.body.querySelector('.export-rename');input.value=` ${name} `;input.dispatchEvent(new p.window.KeyboardEvent('keydown',{key:'Enter',bubbles:true}));
+      await p.window.happyDOM.waitUntilComplete();
+      assert.ok(p.body.querySelector('.dialog-error').textContent.includes(name));
+      assert.equal(p.body.querySelector('.dialog-error').textContent,t.t('An export configuration named {name} already exists.',{name}));
+      assert.deepEqual([...p.body.querySelectorAll('#export-list li')].map(item=>item.textContent),['Original',name]);
+      assert.equal(p.body.querySelector('#export-rename').textContent,t.t('Rename'));
+      p.body.querySelector('#export-save').click();await p.window.happyDOM.waitUntilComplete();
+      assert.deepEqual(saved.configurations,source.configurations);assert.deepEqual(source.configurations.map(item=>item.name),['Original',name]);
+    }finally{if(css)Object.defineProperty(globalThis,'CSS',css);else delete globalThis.CSS;p.close();}
+  }
+});
 test('cover viewer type captions translate independently of counters and authored descriptions',async()=>{
   const custom={'Front Cover':'Front image','Back Cover':'Back image',Help:'Assistance',Title:'Heading','Close cover viewer':'Close image'};
   for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]]){

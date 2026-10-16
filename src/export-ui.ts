@@ -13,12 +13,12 @@ export function copyExportConfiguration(library:ExportLibrary,id:string,newId:st
   result.configurations.push({...copy,id:newId,name:uniqueName(result,`${source.name} copy`)});result.preferences.configuration=newId;return result;
 }
 /** Rename in place (F2 or a delayed click in the list): names stay nonempty and unique. */
-export function renameExportConfiguration(library:ExportLibrary,id:string,name:string):ExportLibrary {
-  const result=structuredClone(library),target=result.configurations.find(c=>c.id===id),trimmed=name.trim();
+export function renameExportConfiguration(library:ExportLibrary,id:string,rawName:string):ExportLibrary {
+  const result=structuredClone(library),target=result.configurations.find(c=>c.id===id),name=rawName.trim();
   if(!target)throw new Error('Export configuration does not exist.');
-  if(!trimmed)throw new Error('Enter a name for the export configuration.');
-  if(result.configurations.some(c=>c.id!==id&&c.name.toLowerCase()===trimmed.toLowerCase()))throw new Error(`An export configuration named ${trimmed} already exists.`);
-  target.name=trimmed;return result;
+  if(!name)throw new Error('Enter a name for the export configuration.');
+  if(result.configurations.some(c=>c.id!==id&&c.name.toLowerCase()===name.toLowerCase()))throw new Error(`An export configuration named ${name} already exists.`);
+  target.name=name;return result;
 }
 export function removeExportConfiguration(library:ExportLibrary,id:string):ExportLibrary {
   const result=structuredClone(library);result.configurations=result.configurations.filter(c=>c.id!==id);

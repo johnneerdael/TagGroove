@@ -137,7 +137,7 @@
  "Always show icon in notification area": "Symbol immer im Infobereich anzeigen",
  "Ambiguous text import filename: {value}": "Mehrdeutiger Dateiname beim Textimport: {value}",
  "An action group already has this name.": "Eine Aktionsgruppe mit diesem Namen existiert bereits.",
- "An export configuration named {trimmed} already exists.": "Eine Exportkonfiguration namens {trimmed} existiert bereits.",
+ "An export configuration named {name} already exists.": "Eine Exportkonfiguration namens {name} existiert bereits.",
  "An update is available": "Ein Update ist verfügbar",
  "Another selected file is also named {value}": "Eine andere ausgewählte Datei heißt ebenfalls {value}",
  "Any text (.*)": "Beliebiger Text (.*)",

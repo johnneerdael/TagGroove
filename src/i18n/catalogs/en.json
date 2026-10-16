@@ -124,7 +124,7 @@
  "Always show icon in notification area": "Always show icon in notification area",
  "Ambiguous text import filename: {value}": "Ambiguous text import filename: {value}",
  "An action group already has this name.": "An action group already has this name.",
- "An export configuration named {trimmed} already exists.": "An export configuration named {trimmed} already exists.",
+ "An export configuration named {name} already exists.": "An export configuration named {name} already exists.",
  "An update is available": "An update is available",
  "Another selected file is also named {value}": "Another selected file is also named {value}",
  "Any text (.*)": "Any text (.*)",
