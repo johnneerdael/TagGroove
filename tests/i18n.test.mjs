@@ -75,7 +75,7 @@ test('all backend source-role diagnostics preserve field identities and authored
   for(const [file,key,values] of producers){
     // Match the actual Rust format producer; native tests execute the mapping
     // collision and missing export lookup, rather than relying on invented UI text.
-    const rust=await readFile(new URL(`../${file}`,import.meta.url),'utf8');assert.ok(rust.includes(`format!("${key}")`),file);
+    const rust=await readFile(new URL(`../${file}`,import.meta.url),'utf8');assert.ok(extractBackendSource(rust).includes(key),file);
     for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',{
       ARTIST:'Performer',TITLE:'Heading',Help:'Assistance',Title:'Heading',_FILENAME:'Wrong filename',_FILENAME_EXT:'Wrong extension',
       [key]:`Diagnostic: {source}`,'Update check failed: {error}':'Update failed: {error}','Select files first.':'Select tracks.'
@@ -274,6 +274,23 @@ test('backend extraction follows actual local error factories without collecting
   `;
   assert.deepEqual(extractBackendSource(source),['Cannot inspect destination: {value}','Destination is not a folder','Invalid media file: {what}','Unknown script instruction','Verification failed; original preserved','bad sample header','line {line} ({text}): {error}'].sort());
 });
+test('typed cause constructors collect only static owned keys, never external values or raw parameters',()=>{
+  const source=`
+    fn classify(raw: String) {
+      ErrorCause::owned("A source-owned guard");
+      ErrorCause::owned_text("A source-owned evaluator message");
+      ErrorCause::message("Cannot inspect {path}", [("path", "A private authored path".into())]);
+      ErrorCause::wrap("Cannot write {path}: {error}", [("path", "A raw file name".into())], "error", ErrorCause::external("A library diagnostic"));
+      ErrorCause::children("Restore failed: {error}", [("error", ErrorCause::owned("Missing restore data"))]);
+      ErrorCause::owned_text(raw); ErrorCause::external("An external sentence");
+      ErrorCause::message(dynamic_key(), [("name", "A private authored name".into())]);
+    }
+    fn invalid(what: &str) -> ErrorCause { ErrorCause::wrap("Invalid stream: {what}", [], "what", ErrorCause::owned(what)) }
+    fn run(){Err(invalid("missing stream header"));}
+    #[cfg(test)] mod tests { fn hidden(){ErrorCause::owned("A test-only diagnostic");} }
+  `;
+  assert.deepEqual(extractBackendSource(source),['A source-owned evaluator message','A source-owned guard','Cannot inspect {path}','Cannot write {path}: {error}','Invalid stream: {what}','Missing restore data','Restore failed: {error}','missing stream header'].sort());
+});
 test('direct typed error literals expose only owned diagnostic fields in actual error contexts',async()=>{
   const source=`
     let data=ScriptError{message:"Private authored text".into(),command:"Raw command".into()};
@@ -318,7 +335,7 @@ test('all function-prefixed catalog diagnostics retain literal tokens and raw fu
 });
 test('production destination and sibling wrapped error messages are part of the backend snapshot',()=>{
   const actual=extractBackend();
-  for(const key of ['The destination is not a folder','Cannot open the destination folder: {e}','Library database: {e}','ASF {location} object limits exceeded','Invalid DSF file: {what}','Invalid Matroska file: {what}','The MP4 structure cannot be rewritten safely: {what}','Invalid {value} file: {what}','The optimized FLAC file did not verify; the original file was kept','The rewritten MP4 file did not verify; the original file was kept','Invalid chapter {value}: use HH:MM:SS.mmm followed by the title','{name} is stored once for {filename}, not per chapter; give its chapter rows the same value','The downloaded cover is not a supported image.','{name} did not respond in time. Check your connection and try again.','The freedb server answered: {code} {value}','{name} is not a known command','{name} takes {min} parameter','{name} takes {min} parameters','this block has no {name}','line {line} ({text}): {error}'])assert.ok(actual.includes(key),key);
+  for(const key of ['The destination is not a folder','Cannot open the destination folder: {e}','Library database: {e}','ASF {value} object limits exceeded','Invalid DSF file: {what}','Invalid Matroska file: {what}','The MP4 structure cannot be rewritten safely: {error}','Invalid {value} file: {what}','The optimized FLAC file did not verify; the original file was kept','The rewritten MP4 file did not verify; the original file was kept','Invalid chapter {value}: use HH:MM:SS.mmm followed by the title','{field} is stored once for {value}, not per chapter; give its chapter rows the same value','The downloaded cover is not a supported image.','{name} did not respond in time. Check your connection and try again.','The freedb server answered: {code} {value}','{name} is not a known command','{name} takes {min} parameter','{name} takes {min} parameters','this block has no {name}','line {line} ({text}): {error}'])assert.ok(actual.includes(key),key);
 });
 test('extraction keeps scalar names and text joins while splitting actual HTML helpers and arrays',()=>{
   const keys=new Set(),collect=text=>extractFile('fixture.ts',text,key=>keys.add(key));
@@ -357,9 +374,13 @@ for(const locale of ['nl','de']){
     if(locale==='de')assert.equal(new Translator(locale,catalog).translate('Ctrl Shift Del'),'Strg Umschalt Entf');
   });
   test(`rendered English text reaches the right ${locale} translation`,()=>{
+    const partsOnly=new Set(['{value} / action {value2}: {error}','Changed outside OpenTag after {value}; it was not {verb}','It was not {verb}: {error}','Folders and side files could not be {verb}: {error}','Destination exists or another file maps to {value}','Line {line}: {error}','The cover image could not be saved: {error}']);
     const translator=new Translator(locale,catalogs[locale]),wrong=[];
     for(const key of Object.keys(english)){
       if(key.startsWith('@'))continue;
+      // Indexed batch frames are explicitly formatted from producer parts;
+      // their raw data can contain the frame itself and must never be guessed.
+      if(partsOnly.has(key)){assert.equal(translator.t(key,{}),catalogs[locale][key]);continue;}
       const names=[...placeholders(key)],params=Object.fromEntries(names.map((name,i)=>[name,String(41+i)]));
       const shown=new Translator('en',{}).t(key,params);
       // Keys that differ only in their value names may share a pattern; their translations then agree too.

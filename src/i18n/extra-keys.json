@@ -41,5 +41,8 @@
  "completed",
  "{error}; destination rollback: {value}",
  "{error}; rename rollback {value}",
- "{error}; text import rollback {value}"
+ "{error}; text import rollback {value}",
+ "{value}: {error}",
+ "undone",
+ "redone"
 ]

@@ -1,6 +1,7 @@
 //! Independently authored action catalog and ordered action-group execution.
 //! References: https://docs.mp3tag.de/actions/ and its individual action pages.
 //! Native effects are explicit: a caller must execute them or return an error.
+use crate::batch_errors::ErrorCause;
 use crate::{
     script::{evaluate, evaluate_filename_with_context, Action, EvalContext},
     tags::Fields,
@@ -398,6 +399,7 @@ fn case_value(value: &str, mode: CaseMode, separators: &str) -> String {
         }
     }
 }
+#[cfg(test)]
 fn replace_values(
     values: &[String],
     from: &str,
@@ -405,14 +407,25 @@ fn replace_values(
     whole_word: bool,
     case_sensitive: bool,
 ) -> Result<Vec<String>, String> {
+    replace_values_diagnostic(values, from, to, whole_word, case_sensitive)
+        .map_err(|error| error.to_string())
+}
+
+fn replace_values_diagnostic(
+    values: &[String],
+    from: &str,
+    to: &str,
+    whole_word: bool,
+    case_sensitive: bool,
+) -> Result<Vec<String>, ErrorCause> {
     if from.is_empty() {
-        return Err("Replacement search must not be empty".into());
+        return Err(ErrorCause::owned("Replacement search must not be empty"));
     }
     let re = regex::RegexBuilder::new(&regex::escape(from))
         .case_insensitive(!case_sensitive)
         .size_limit(8 * LIMIT)
         .build()
-        .map_err(|error| error.to_string())?;
+        .map_err(ErrorCause::external)?;
     let boundary = |c: char| c.is_whitespace() || ".,;:!?".contains(c);
     values
         .iter()
@@ -430,7 +443,7 @@ fn replace_values(
                 end = found.end();
             }
             out.push_str(&value[end..]);
-            checked(out)
+            checked(out).map_err(ErrorCause::owned_text)
         })
         .collect()
 }
@@ -440,20 +453,36 @@ fn regex_values(
     replacement: &str,
     case_sensitive: bool,
 ) -> Result<Vec<String>, String> {
-    let expression = regex_compat::Regex::new(pattern, case_sensitive)?;
+    regex_values_diagnostic(values, pattern, replacement, case_sensitive)
+        .map_err(|error| error.to_string())
+}
+
+fn regex_values_diagnostic(
+    values: &[String],
+    pattern: &str,
+    replacement: &str,
+    case_sensitive: bool,
+) -> Result<Vec<String>, ErrorCause> {
+    let expression =
+        regex_compat::Regex::new(pattern, case_sensitive).map_err(ErrorCause::external)?;
     values
         .iter()
-        .map(|value| expression.replace(value, replacement).and_then(checked))
+        .map(|value| {
+            expression
+                .replace(value, replacement)
+                .map_err(ErrorCause::external)
+                .and_then(|value| checked(value).map_err(ErrorCause::owned_text))
+        })
         .collect()
 }
-fn transform<F>(
+fn transform_diagnostic<F>(
     state: &mut ActionState,
     selector: &str,
     filename_extension: bool,
     mut operation: F,
-) -> Result<Vec<ActionEffect>, String>
+) -> Result<Vec<ActionEffect>, ErrorCause>
 where
-    F: FnMut(&[String]) -> Result<Vec<String>, String>,
+    F: FnMut(&[String]) -> Result<Vec<String>, ErrorCause>,
 {
     let mut effects = Vec::new();
     let mut fields = state.fields.clone();
@@ -468,17 +497,23 @@ where
             .map(String::as_str)
             .unwrap_or("");
         if !crate::tags::keeps_field_names(format) {
-            return Err("Field-name actions require an APEv2 or VorbisComment tag".into());
+            return Err(ErrorCause::owned(
+                "Field-name actions require an APEv2 or VorbisComment tag",
+            ));
         }
         let mut renamed = Fields::new();
         for (key, values) in &state.fields {
             let names = operation(std::slice::from_ref(key))?;
             if names.len() != 1 || names[0].is_empty() {
-                return Err("Field-name transformation must produce one nonempty name".into());
+                return Err(ErrorCause::owned(
+                    "Field-name transformation must produce one nonempty name",
+                ));
             }
             let name = &names[0];
             if renamed.keys().any(|key| key.eq_ignore_ascii_case(name)) {
-                return Err(format!("Field-name transformation collision: {name}"));
+                return Err(ErrorCause::owned_text(format!(
+                    "Field-name transformation collision: {name}"
+                )));
             }
             renamed.insert(name.clone(), values.clone());
         }
@@ -488,7 +523,7 @@ where
             || selector.eq_ignore_ascii_case("_ALL")
             || !selector.starts_with('_');
         if includes_tags {
-            for key in metadata_keys(&fields, selector)? {
+            for key in metadata_keys(&fields, selector).map_err(ErrorCause::owned_text)? {
                 if let Some(values) = fields.get(&key) {
                     let values = operation(values)?;
                     put(&mut fields, key, values);
@@ -501,13 +536,14 @@ where
             } else {
                 "_FILENAME"
             };
-            let values = state
-                .context
-                .get(source)
-                .ok_or_else(|| format!("Missing {source} action context"))?;
+            let values = state.context.get(source).ok_or_else(|| {
+                ErrorCause::owned_text(format!("Missing {source} action context"))
+            })?;
             let value = operation(values)?;
             if value.len() != 1 || value[0].is_empty() {
-                return Err("Filename transformation must produce one nonempty name".into());
+                return Err(ErrorCause::owned(
+                    "Filename transformation must produce one nonempty name",
+                ));
             }
             effects.push(ActionEffect::RenameFile {
                 filename: value[0].clone(),
@@ -518,10 +554,12 @@ where
             let values = state
                 .context
                 .get("_DIRECTORY")
-                .ok_or("Missing _DIRECTORY action context")?;
+                .ok_or_else(|| ErrorCause::owned("Missing _DIRECTORY action context"))?;
             let value = operation(values)?;
             if value.len() != 1 || value[0].is_empty() {
-                return Err("Directory transformation must produce one nonempty name".into());
+                return Err(ErrorCause::owned(
+                    "Directory transformation must produce one nonempty name",
+                ));
             }
             effects.push(ActionEffect::RenameDirectory {
                 directory: value[0].clone(),
@@ -531,7 +569,9 @@ where
             && !selector.eq_ignore_ascii_case("_TAG")
             && !selector.eq_ignore_ascii_case("_FIELDNAME")
         {
-            return Err(format!("Unsupported action selector {selector}"));
+            return Err(ErrorCause::owned_text(format!(
+                "Unsupported action selector {selector}"
+            )));
         }
     }
     state.fields = fields;
@@ -545,8 +585,12 @@ pub fn guess_value_targets(pattern: &str) -> Result<Vec<String>, String> {
 }
 
 fn guessing_pattern(pattern: &str) -> Result<(regex::Regex, Vec<String>), String> {
+    guessing_pattern_diagnostic(pattern).map_err(|error| error.to_string())
+}
+
+fn guessing_pattern_diagnostic(pattern: &str) -> Result<(regex::Regex, Vec<String>), ErrorCause> {
     if pattern.len() > LIMIT {
-        return Err("Guess Values input limit exceeded".into());
+        return Err(ErrorCause::owned("Guess Values input limit exceeded"));
     }
     let mut expression = String::from("\\A");
     let mut names = Vec::new();
@@ -555,14 +599,18 @@ fn guessing_pattern(pattern: &str) -> Result<(regex::Regex, Vec<String>), String
     while let Some(start) = rest.find('%') {
         let literal = &rest[..start];
         if prior_capture && literal.is_empty() {
-            return Err("Adjacent guessing placeholders are ambiguous".into());
+            return Err(ErrorCause::owned(
+                "Adjacent guessing placeholders are ambiguous",
+            ));
         }
         expression.push_str(&regex::escape(literal));
         rest = &rest[start + 1..];
-        let end = rest.find('%').ok_or("Unterminated guessing placeholder")?;
+        let end = rest
+            .find('%')
+            .ok_or_else(|| ErrorCause::owned("Unterminated guessing placeholder"))?;
         let name = &rest[..end];
         if name.is_empty() {
-            return Err("Empty guessing placeholder".into());
+            return Err(ErrorCause::owned("Empty guessing placeholder"));
         }
         names.push(name.to_uppercase());
         expression.push_str("(.*?)");
@@ -570,7 +618,9 @@ fn guessing_pattern(pattern: &str) -> Result<(regex::Regex, Vec<String>), String
         prior_capture = true;
     }
     if names.is_empty() {
-        return Err("Guessing pattern needs at least one field placeholder".into());
+        return Err(ErrorCause::owned(
+            "Guessing pattern needs at least one field placeholder",
+        ));
     }
     expression.push_str(&regex::escape(rest));
     expression.push_str("\\z");
@@ -578,7 +628,7 @@ fn guessing_pattern(pattern: &str) -> Result<(regex::Regex, Vec<String>), String
         .dot_matches_new_line(true)
         .size_limit(8 * LIMIT)
         .build()
-        .map_err(|error| error.to_string())?;
+        .map_err(ErrorCause::external)?;
     Ok((expression, names))
 }
 
@@ -591,10 +641,14 @@ pub fn guess_values(source: &str, pattern: &str) -> Result<Fields, String> {
 /// Like [`guess_values`], with a source that does not match the pattern as
 /// `None`: the action then leaves the file unchanged, like Mp3tag.
 pub fn try_guess_values(source: &str, pattern: &str) -> Result<Option<Fields>, String> {
+    try_guess_values_diagnostic(source, pattern).map_err(|error| error.to_string())
+}
+
+fn try_guess_values_diagnostic(source: &str, pattern: &str) -> Result<Option<Fields>, ErrorCause> {
     if source.len() > LIMIT {
-        return Err("Guess Values input limit exceeded".into());
+        return Err(ErrorCause::owned("Guess Values input limit exceeded"));
     }
-    let (expression, names) = guessing_pattern(pattern)?;
+    let (expression, names) = guessing_pattern_diagnostic(pattern)?;
     let Some(captures) = expression.captures(source) else {
         return Ok(None);
     };
@@ -611,6 +665,10 @@ pub fn try_guess_values(source: &str, pattern: &str) -> Result<Option<Fields>, S
 }
 
 fn decode_codepage(value: &str, codepage: &str) -> Result<String, String> {
+    decode_codepage_diagnostic(value, codepage).map_err(|error| error.to_string())
+}
+
+fn decode_codepage_diagnostic(value: &str, codepage: &str) -> Result<String, ErrorCause> {
     let normalized = codepage.trim().to_ascii_lowercase();
     let normalized = normalized.strip_prefix("cp").unwrap_or(&normalized);
     // Numeric identifiers follow Microsoft's Code Page Identifiers table.
@@ -663,10 +721,10 @@ fn decode_codepage(value: &str, codepage: &str) -> Result<String, String> {
             let text = c.to_string();
             let (encoded, _, lossy) = encoding_rs::WINDOWS_1252.encode(&text);
             if lossy {
-                return Err(format!(
+                return Err(ErrorCause::owned_text(format!(
                     "Character {value:?} has no legacy byte representation",
                     value = c
-                ));
+                )));
             }
             bytes.extend_from_slice(&encoded);
         }
@@ -678,9 +736,11 @@ fn decode_codepage(value: &str, codepage: &str) -> Result<String, String> {
     }
     if ["us-ascii", "ascii"].contains(&label) {
         if bytes.iter().any(|byte| *byte > 127) {
-            return Err("Invalid non-ASCII byte for US-ASCII codepage".into());
+            return Err(ErrorCause::owned(
+                "Invalid non-ASCII byte for US-ASCII codepage",
+            ));
         }
-        return String::from_utf8(bytes).map_err(|error| error.to_string());
+        return String::from_utf8(bytes).map_err(ErrorCause::external);
     }
     // DOS/OEM pages other than 866 have no WHATWG encoding.
     if let Some(decoded) = label
@@ -688,15 +748,20 @@ fn decode_codepage(value: &str, codepage: &str) -> Result<String, String> {
         .ok()
         .and_then(|page| crate::oem_codepages::decode(page, &bytes))
     {
-        return decoded
-            .map_err(|byte| format!("Byte 0x{byte:02X} is undefined in codepage {codepage}"));
+        return decoded.map_err(|byte| {
+            ErrorCause::owned_text(format!(
+                "Byte 0x{byte:02X} is undefined in codepage {codepage}"
+            ))
+        });
     }
     let encoding = encoding_rs::Encoding::for_label(label.as_bytes())
-        .ok_or_else(|| format!("Unsupported codepage {codepage}"))?;
+        .ok_or_else(|| ErrorCause::owned_text(format!("Unsupported codepage {codepage}")))?;
     encoding
         .decode_without_bom_handling_and_without_replacement(&bytes)
         .map(|value| value.into_owned())
-        .ok_or_else(|| format!("Invalid byte sequence for codepage {codepage}"))
+        .ok_or_else(|| {
+            ErrorCause::owned_text(format!("Invalid byte sequence for codepage {codepage}"))
+        })
 }
 
 pub fn validate_action(action: &ActionSpec) -> Result<(), String> {
@@ -748,6 +813,29 @@ pub fn validate_action(action: &ActionSpec) -> Result<(), String> {
         _ => Ok(()),
     }
 }
+
+pub fn validate_action_diagnostic(action: &ActionSpec) -> Result<(), ErrorCause> {
+    match action {
+        ActionSpec::RegexReplace {
+            field,
+            pattern,
+            replacement,
+            case_sensitive,
+        } if !field.trim().is_empty() => {
+            regex_values_diagnostic(&[], pattern, replacement, *case_sensitive).map(|_| ())
+        }
+        ActionSpec::ConvertCodepage { field, codepage } if !field.trim().is_empty() => {
+            decode_codepage_diagnostic("", codepage).map(|_| ())
+        }
+        ActionSpec::UnresolvedMta {
+            type_id, reason, ..
+        } => Err(ErrorCause::message(
+            "Unresolved imported action type {typeId}: {reason}",
+            [("typeId", type_id.to_string()), ("reason", reason.clone())],
+        )),
+        _ => validate_action(action).map_err(ErrorCause::owned_text),
+    }
+}
 fn cover_type(name: Option<&str>) -> Result<(), String> {
     name.map(crate::picture_type_from_name)
         .transpose()
@@ -790,25 +878,45 @@ pub fn apply_action_spec_with_modes<F>(
 where
     F: FnMut(&str, &ActionState, TemplateMode) -> Result<String, String>,
 {
+    apply_action_spec_with_modes_diagnostic(state, action, &mut |template, state, mode| {
+        evaluate_mode(template, state, mode).map_err(ErrorCause::external)
+    })
+    .map_err(|error| error.to_string())
+}
+
+pub fn apply_action_spec_with_modes_diagnostic<F>(
+    state: &mut ActionState,
+    action: &ActionSpec,
+    evaluate_mode: &mut F,
+) -> Result<Vec<ActionEffect>, ErrorCause>
+where
+    F: FnMut(&str, &ActionState, TemplateMode) -> Result<String, ErrorCause>,
+{
     let mut evaluate =
         |template: &str, state: &ActionState| evaluate_mode(template, state, TemplateMode::Text);
-    validate_action(action)?;
+    validate_action_diagnostic(action)?;
     match action {
         ActionSpec::CaseConversion {
             field,
             mode,
             word_separators,
-        } => transform(state, field, false, |values| {
+        } => transform_diagnostic(state, field, false, |values| {
             values
                 .iter()
-                .map(|value| checked(case_value(value, *mode, word_separators)))
+                .map(|value| {
+                    checked(case_value(value, *mode, word_separators))
+                        .map_err(ErrorCause::owned_text)
+                })
                 .collect()
         }),
         ActionSpec::ConvertCodepage { field, codepage } => {
-            transform(state, field, false, |values| {
+            transform_diagnostic(state, field, false, |values| {
                 values
                     .iter()
-                    .map(|value| decode_codepage(value, codepage).and_then(checked))
+                    .map(|value| {
+                        decode_codepage_diagnostic(value, codepage)
+                            .and_then(|value| checked(value).map_err(ErrorCause::owned_text))
+                    })
                     .collect()
             })
         }
@@ -818,28 +926,27 @@ where
             to,
             whole_word,
             case_sensitive,
-        } => transform(state, field, false, |values| {
-            replace_values(values, from, to, *whole_word, *case_sensitive)
+        } => transform_diagnostic(state, field, false, |values| {
+            replace_values_diagnostic(values, from, to, *whole_word, *case_sensitive)
         }),
         ActionSpec::RegexReplace {
             field,
             pattern,
             replacement,
             case_sensitive,
-        } => transform(state, field, true, |values| {
-            regex_values(values, pattern, replacement, *case_sensitive)
+        } => transform_diagnostic(state, field, true, |values| {
+            regex_values_diagnostic(values, pattern, replacement, *case_sensitive)
         }),
         ActionSpec::FormatValue { field, template } => {
             let renames_file = field.eq_ignore_ascii_case("_FILENAME");
             if renames_file || field.eq_ignore_ascii_case("_DIRECTORY") {
                 let result = evaluate_mode(template, state, TemplateMode::Filename)?;
                 if result.trim().is_empty() {
-                    return Err(if renames_file {
+                    return Err(ErrorCause::owned(if renames_file {
                         "Filename must not be empty"
                     } else {
                         "Directory must not be empty"
-                    }
-                    .into());
+                    }));
                 }
                 return Ok(vec![if renames_file {
                     ActionEffect::RenameFile {
@@ -856,14 +963,17 @@ where
             }
             let result = evaluate(template, state)?;
             if field.starts_with('_') {
-                return Err(format!("Unsupported Format Value target {field}"));
+                return Err(ErrorCause::owned_text(format!(
+                    "Unsupported Format Value target {field}"
+                )));
             }
             let key = actual_key(&state.fields, field);
             put(&mut state.fields, key, format_values(&result));
             Ok(vec![])
         }
         ActionSpec::GuessValues { source, pattern } => {
-            let Some(result) = try_guess_values(&evaluate(source, state)?, pattern)? else {
+            let Some(result) = try_guess_values_diagnostic(&evaluate(source, state)?, pattern)?
+            else {
                 return Ok(vec![]);
             };
             let mut effects = Vec::new();
@@ -871,7 +981,9 @@ where
             for (name, values) in result {
                 if name == "_FILENAME" || name == "_DIRECTORY" {
                     if values.len() != 1 || values[0].is_empty() {
-                        return Err(format!("Guess Values must produce one nonempty {name}"));
+                        return Err(ErrorCause::owned_text(format!(
+                            "Guess Values must produce one nonempty {name}"
+                        )));
                     }
                     effects.push(if name == "_FILENAME" {
                         ActionEffect::RenameFile {
@@ -886,7 +998,9 @@ where
                         }
                     });
                 } else if name.starts_with('_') {
-                    return Err(format!("Unsupported Guess Values target {name}"));
+                    return Err(ErrorCause::owned_text(format!(
+                        "Unsupported Guess Values target {name}"
+                    )));
                 } else {
                     let key = actual_key(&fields, &name);
                     put(&mut fields, key, values);
@@ -897,10 +1011,11 @@ where
         }
         ActionSpec::MergeDuplicateFields { field, separator } => {
             let mut fields = state.fields.clone();
-            for key in metadata_keys(&fields, field)? {
+            for key in metadata_keys(&fields, field).map_err(ErrorCause::owned_text)? {
                 if let Some(values) = fields.get(&key) {
                     if values.len() > 1 {
-                        let merged = checked(values.join(separator))?;
+                        let merged =
+                            checked(values.join(separator)).map_err(ErrorCause::owned_text)?;
                         fields.insert(key, vec![merged]);
                     }
                 }
@@ -913,7 +1028,7 @@ where
             only_same_content,
         } => {
             let mut fields = state.fields.clone();
-            for key in metadata_keys(&fields, field)? {
+            for key in metadata_keys(&fields, field).map_err(ErrorCause::owned_text)? {
                 if let Some(values) = fields.get_mut(&key) {
                     if *only_same_content {
                         let mut seen = BTreeSet::new();
@@ -928,7 +1043,7 @@ where
         }
         ActionSpec::SplitField { field, separator } => {
             let mut fields = state.fields.clone();
-            for key in metadata_keys(&fields, field)? {
+            for key in metadata_keys(&fields, field).map_err(ErrorCause::owned_text)? {
                 if let Some(values) = fields.get(&key) {
                     let split = values
                         .iter()
@@ -987,7 +1102,9 @@ where
             filename_template,
         } => {
             if field.starts_with('_') {
-                return Err("Import Text File requires a metadata field".into());
+                return Err(ErrorCause::owned(
+                    "Import Text File requires a metadata field",
+                ));
             }
             Ok(vec![ActionEffect::ImportTextFile {
                 field: actual_key(&state.fields, field),
@@ -1012,9 +1129,9 @@ where
             description: description.clone(),
             only_picture_type: only_picture_type.clone(),
         }]),
-        ActionSpec::Export { .. } | ActionSpec::GeneratePlaylists { .. } => {
-            Err("Set-of-files actions must execute through the group runner".into())
-        }
+        ActionSpec::Export { .. } | ActionSpec::GeneratePlaylists { .. } => Err(ErrorCause::owned(
+            "Set-of-files actions must execute through the group runner",
+        )),
         ActionSpec::UnresolvedMta { .. } => unreachable!("validated above"),
     }
 }
@@ -2038,6 +2155,48 @@ pub fn from_quick_action(action: &Action) -> Result<ActionSpec, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn action_diagnostics_distinguish_owned_guards_from_external_evaluator_errors() {
+        use crate::batch_errors::ErrorCause;
+        let owned = apply_action_spec_with_modes_diagnostic(
+            &mut state(),
+            &ActionSpec::FormatValue {
+                field: "_FILENAME".into(),
+                template: String::new(),
+            },
+            &mut |_, _, _| Ok(String::new()),
+        )
+        .unwrap_err();
+        assert!(
+            matches!(&owned, ErrorCause::Owned { key, params, children } if key == "Filename must not be empty" && params.is_empty() && children.is_empty())
+        );
+        let external = apply_action_spec_with_modes_diagnostic(
+            &mut state(),
+            &ActionSpec::FormatValue {
+                field: "TITLE".into(),
+                template: String::new(),
+            },
+            &mut |_, _, _| {
+                Err(ErrorCause::external(std::io::Error::other(
+                    "Filename must not be empty",
+                )))
+            },
+        )
+        .unwrap_err();
+        assert!(
+            matches!(&external, ErrorCause::External { value } if value == "Filename must not be empty")
+        );
+        assert_eq!(owned.to_string(), external.to_string());
+        let action = ActionSpec::RegexReplace {
+            field: "TITLE".into(),
+            pattern: "[".into(),
+            replacement: String::new(),
+            case_sensitive: false,
+        };
+        let error = validate_action_diagnostic(&action).unwrap_err();
+        assert!(matches!(&error, ErrorCause::External { .. }));
+        assert_eq!(error.to_string(), validate_action(&action).unwrap_err());
+    }
     fn state() -> ActionState {
         ActionState {
             fields: Fields::from([

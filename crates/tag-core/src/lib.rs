@@ -1,4 +1,5 @@
 pub mod actions;
+pub mod batch_errors;
 mod ape_footer;
 pub mod converters;
 pub mod cue;

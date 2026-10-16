@@ -34,6 +34,10 @@ Error headings for application operations follow the selected language. Actual
 file and directory names in the error list keep their spelling. Converter rollback
 summaries translate their outcome and recovery wording in both the dialog and
 error list, while paths and operating-system details retain their spelling.
+Action, undo/redo, playlist-line and saved-cover errors also translate their
+application wording. Group names, history labels, file paths and external
+error details remain unchanged, including in an open failure dialog when the
+interface language changes.
 
 Application-owned accessible labels follow the selected language too, including
 cover types and states. Type labels in the cover viewer and **Extract cover**

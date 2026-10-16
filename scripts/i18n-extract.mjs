@@ -411,6 +411,17 @@ const backendKey = text => {
       used.set(base,count);return`{${count>1?base+count:base}}`;
     }).replace(/\s+/g,' ').trim();
 };
+// Explicit typed causes carry owned keys in their first argument. Parameters,
+// external values and arbitrary calls passed to owned_text remain data.
+function typedCauseMessages(source) {
+  const code=rustCode(source),messages=[];
+  for(const match of code.matchAll(/\bErrorCause::(?:owned|owned_text|message|wrap|children)\s*\(/g)){
+    const start=match.index+match[0].lastIndexOf('('),end=rustEnd(code,start),first=rustArguments(code,start,end)[0];
+    const argument=first?source.slice(...first).trim():'';
+    if(/^(?:"|format!\s*\()/.test(argument))messages.push(...rustMessages(argument,false));
+  }
+  return messages;
+}
 /** Direct errors plus static local factories reached from actual error contexts. */
 export function extractBackendSource(source){
   const tests=source.search(/#\[cfg\(test\)\]\s*mod tests/);if(tests>=0)source=source.slice(0,tests);
@@ -418,6 +429,7 @@ export function extractBackendSource(source){
   // Error prose may begin with a function token, quote, header or lowercase word.
   const add=(message,wrapped=false)=>{const key=backendKey(message);if(!INTERNAL.test(key)&&common(key)&&(wrapped||/\p{L}{2,}[\s,]+\p{L}{2,}/u.test(bare(key))))keys.add(key);};
   for(const match of source.matchAll(BACKEND_MESSAGE))if(code.slice(match.index,match.index+2).trim())add(match[1]);
+  typedCauseMessages(source).forEach(message=>add(message,true));
   for(const match of code.matchAll(/\bErr\s*\(|\.(?:map_err|ok_or|ok_or_else)\s*\(/g)){
     const start=match.index+match[0].lastIndexOf('('),end=rustEnd(code,start);roots.push([start,end]);
     const body=code.slice(start+1,end),alias=/^\s*([A-Za-z_]\w*)\s*$/.exec(body);if(alias)names.add(alias[1]);
@@ -432,7 +444,7 @@ export function extractBackendSource(source){
   }
   const factories=new Map();
   const register=(name,header,body)=>{
-    const messages=rustMessages(body);messages.forEach(message=>add(message,true));
+    const messages=[...rustMessages(body),...typedCauseMessages(body)];messages.forEach(message=>add(message,true));
     const types=[...rustCode(body).matchAll(/\b(\w*Error)\s*\{/g)].map(match=>match[1]);types.forEach(type=>errorTypes.add(type));
     if(!messages.length&&!types.length)return;
     const parameters=header.split(',').map((parameter,index)=>/^\s*(?:mut\s+)?(error|message|what)\s*:\s*(?:&\s*)?(?:str|String)\b/.test(parameter)?index:-1).filter(index=>index>=0);

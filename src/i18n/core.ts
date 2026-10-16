@@ -11,6 +11,16 @@ export type CatalogMeta = {name: string; locale: string};
 export type MessageText = string | {parts: readonly string[]; separator: string};
 
 const PLACEHOLDER = /\{([A-Za-z][A-Za-z0-9]*)\}/g;
+/** These batch frames require producer parts; their raw names can contain the frame itself. */
+const PARTS_ONLY = new Set([
+  '{value} / action {value2}: {error}',
+  'Changed outside OpenTag after {value}; it was not {verb}',
+  'It was not {verb}: {error}',
+  'Folders and side files could not be {verb}: {error}',
+  'Destination exists or another file maps to {value}',
+  'Line {line}: {error}',
+  'The cover image could not be saved: {error}',
+]);
 const PLURAL_CATEGORIES = new Set(['zero', 'one', 'two', 'few', 'many', 'other']);
 /** Data identities (files, fields, configuration keys) and authored text are never looked up themselves.
  * The audited backend source role names mapped fields, export configurations and action-context keys. */
@@ -142,6 +152,7 @@ export class Translator {
       try {nodes = parse(value);} catch {continue;}
       const normalized = normalize(key);
       this.byKey.set(normalized, nodes);
+      if (PARTS_ONLY.has(normalized)) continue;
       const names = [...normalized.matchAll(PLACEHOLDER)].map(match => match[1]);
       if (!names.length) {this.exact.set(normalized, nodes);continue;}
       const literal = normalized.replace(PLACEHOLDER, '');
@@ -157,7 +168,7 @@ export class Translator {
   }
 
   /** Whether this translator changes anything (English has nothing to do). */
-  get active() {return this.exact.size > 0 || this.patterns.length > 0 || this.keys.length > 0;}
+  get active() {return this.byKey.size > 0 || this.keys.length > 0;}
 
   /** `key` (English, `{name}` placeholders) in this language, filled with `params`. */
   t(key: string, params: Record<string, unknown> = {}): string {

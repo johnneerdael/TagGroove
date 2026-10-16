@@ -341,6 +341,31 @@ pub fn write_summary(path: &Path, updates: &Fields) -> Result<AudioEntry, String
     tag_core::write_fields_with_options(path, updates, false, &options.mappings, &options)
 }
 
+/// Detailed companion readers/writer for the action/history error presentation path.
+pub fn read_summary_diagnostic(
+    path: &Path,
+) -> Result<AudioEntry, tag_core::batch_errors::ErrorCause> {
+    let options = tag_options();
+    tag_core::read_entry_summary_with_options_diagnostic(path, &options.mappings, &options)
+}
+pub fn read_full_diagnostic(path: &Path) -> Result<AudioEntry, tag_core::batch_errors::ErrorCause> {
+    let options = tag_options();
+    tag_core::read_entry_with_options_diagnostic(path, &options.mappings, &options)
+}
+pub fn write_summary_diagnostic(
+    path: &Path,
+    updates: &Fields,
+) -> Result<AudioEntry, tag_core::batch_errors::ErrorCause> {
+    let options = tag_options();
+    tag_core::write_fields_with_options_diagnostic(
+        path,
+        updates,
+        false,
+        &options.mappings,
+        &options,
+    )
+}
+
 #[derive(Serialize)]
 pub struct SettingsResponse {
     settings: Settings,

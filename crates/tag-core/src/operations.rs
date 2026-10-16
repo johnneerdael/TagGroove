@@ -1,3 +1,4 @@
+use crate::batch_errors::ErrorCause;
 use std::path::{Path, PathBuf};
 
 /// Structured error provenance for the no-clobber rename helper. The existing
@@ -274,6 +275,14 @@ pub fn is_case_alias(source: &Path, destination: &Path) -> bool {
 /// Move one entry to a path that does not exist, without replacing anything
 /// that appears there meanwhile where the platform allows it.
 fn move_entry(from: &Path, to: &Path, is_file: bool) -> std::io::Result<()> {
+    move_entry_reported(from, to, is_file, &mut None)
+}
+fn move_entry_reported(
+    from: &Path,
+    to: &Path,
+    is_file: bool,
+    cause: &mut Option<ErrorCause>,
+) -> std::io::Result<()> {
     if is_file {
         match std::fs::hard_link(from, to) {
             Ok(()) => return std::fs::remove_file(from),
@@ -283,6 +292,10 @@ fn move_entry(from: &Path, to: &Path, is_file: bool) -> std::io::Result<()> {
         }
     }
     if std::fs::symlink_metadata(to).is_ok() {
+        *cause = Some(ErrorCause::message(
+            "{value} already exists",
+            [("value", to.to_string_lossy().into_owned())],
+        ));
         return Err(std::io::Error::new(
             std::io::ErrorKind::AlreadyExists,
             format!("{} already exists", to.display()),
@@ -294,13 +307,11 @@ fn move_entry(from: &Path, to: &Path, is_file: bool) -> std::io::Result<()> {
 /// Change only the spelling of an entry on a case-insensitive volume. A direct
 /// rename can be refused or ignored there, so the entry moves through a unique
 /// temporary name in its own folder and back to the new spelling.
-fn rename_alias(source: &Path, destination: &Path) -> Result<(), String> {
-    rename_alias_reported(source, destination, &mut None)
-}
-fn rename_alias_reported(
+fn rename_alias_with_cause(
     source: &Path,
     destination: &Path,
     failure: &mut Option<RenameFailure>,
+    cause: &mut Option<ErrorCause>,
 ) -> Result<(), String> {
     let is_file = std::fs::symlink_metadata(source)
         .map_err(|e| e.to_string())?
@@ -320,7 +331,14 @@ fn rename_alias_reported(
             matches!(std::fs::symlink_metadata(path), Err(e) if e.kind() == std::io::ErrorKind::NotFound)
         })
         .ok_or_else(|| reported(failure, RenameFailure::NoTemporaryName))?;
-    move_entry(source, &staging, is_file).map_err(|e| {
+    let mut inner = None;
+    move_entry_reported(source, &staging, is_file, &mut inner).map_err(|e| {
+        *cause = Some(ErrorCause::wrap(
+            "Cannot rename {value}: {e}",
+            [("value", source.to_string_lossy().into_owned())],
+            "e",
+            inner.take().unwrap_or_else(|| ErrorCause::external(&e)),
+        ));
         reported(
             failure,
             RenameFailure::CannotRename {
@@ -329,8 +347,19 @@ fn rename_alias_reported(
             },
         )
     })?;
-    if let Err(error) = move_entry(&staging, destination, is_file) {
+    let mut inner = None;
+    if let Err(error) = move_entry_reported(&staging, destination, is_file, &mut inner) {
         let rollback = move_entry(&staging, source, is_file);
+        *cause = Some(ErrorCause::wrap(
+            "Cannot rename {value} to {value2}: {error}; rollback: {rollback}",
+            [
+                ("value", source.to_string_lossy().into_owned()),
+                ("value2", destination.to_string_lossy().into_owned()),
+                ("rollback", format!("{rollback:?}")),
+            ],
+            "error",
+            inner.unwrap_or_else(|| ErrorCause::external(&error)),
+        ));
         return Err(reported(
             failure,
             RenameFailure::AliasRollback {
@@ -353,27 +382,63 @@ fn record_moved_path(source: Option<&Path>, destination: &Path, copied: bool) {
 /// Rename a folder without replacing an existing one. Changing only the letter
 /// case of the folder's name works on case-insensitive volumes too.
 pub fn rename_directory_no_clobber(source: &Path, destination: &Path) -> Result<(), String> {
+    rename_directory_no_clobber_diagnostic(source, destination).map_err(|cause| cause.to_string())
+}
+/// The same directory move with source-owned guards separate from IO details.
+pub fn rename_directory_no_clobber_diagnostic(
+    source: &Path,
+    destination: &Path,
+) -> Result<(), ErrorCause> {
     let tracked_source = dunce::canonicalize(source).ok();
     if !std::fs::symlink_metadata(source)
-        .map_err(|e| format!("{}: {e}", source.display()))?
+        .map_err(|e| {
+            ErrorCause::wrap(
+                "{value}: {error}",
+                [("value", source.to_string_lossy().into_owned())],
+                "error",
+                ErrorCause::external(e),
+            )
+        })?
         .is_dir()
     {
-        return Err(format!("{} is not a folder", source.display()));
+        return Err(ErrorCause::message(
+            "{value} is not a folder",
+            [("value", source.to_string_lossy().into_owned())],
+        ));
     }
     match destination_state(source, destination) {
         Destination::Unchanged => return Ok(()),
         Destination::Alias => {
-            rename_alias(source, destination)?;
+            let mut failure = None;
+            let mut cause = None;
+            rename_alias_with_cause(source, destination, &mut failure, &mut cause).map_err(
+                |error| {
+                    cause.unwrap_or_else(|| {
+                        failure
+                            .map(|value| ErrorCause::Rename {
+                                value: Box::new(value),
+                            })
+                            .unwrap_or_else(|| ErrorCause::external(error))
+                    })
+                },
+            )?;
             record_moved_path(tracked_source.as_deref(), destination, false);
             return Ok(());
         }
-        Destination::Taken => return Err(format!("{} already exists", destination.display())),
+        Destination::Taken => {
+            return Err(ErrorCause::message(
+                "{value} already exists",
+                [("value", destination.to_string_lossy().into_owned())],
+            ))
+        }
         Destination::Free => {}
     }
     if let Some(parent) = destination.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        std::fs::create_dir_all(parent).map_err(ErrorCause::external)?;
     }
-    move_entry(source, destination, false).map_err(|e| e.to_string())?;
+    let mut cause = None;
+    move_entry_reported(source, destination, false, &mut cause)
+        .map_err(|error| cause.unwrap_or_else(|| ErrorCause::external(error)))?;
     record_moved_path(tracked_source.as_deref(), destination, false);
     Ok(())
 }
@@ -390,10 +455,32 @@ pub fn rename_no_clobber_diagnostic(
     rename_reported(source, destination, &mut failure)
         .map_err(|error| failure.unwrap_or(RenameFailure::External { error }))
 }
+/// Companion cause for callers that also need nested alias guard ownership.
+pub fn rename_no_clobber_cause(source: &Path, destination: &Path) -> Result<(), ErrorCause> {
+    let mut failure = None;
+    let mut cause = None;
+    rename_with_cause(source, destination, &mut failure, &mut cause).map_err(|error| {
+        cause.unwrap_or_else(|| {
+            failure
+                .map(|value| ErrorCause::Rename {
+                    value: Box::new(value),
+                })
+                .unwrap_or_else(|| ErrorCause::external(error))
+        })
+    })
+}
 fn rename_reported(
     source: &Path,
     destination: &Path,
     failure: &mut Option<RenameFailure>,
+) -> Result<(), String> {
+    rename_with_cause(source, destination, failure, &mut None)
+}
+fn rename_with_cause(
+    source: &Path,
+    destination: &Path,
+    failure: &mut Option<RenameFailure>,
+    cause: &mut Option<ErrorCause>,
 ) -> Result<(), String> {
     let tracked_source = dunce::canonicalize(source).ok();
     if source == destination {
@@ -408,7 +495,7 @@ fn rename_reported(
     match destination_state(source, destination) {
         Destination::Unchanged => return Ok(()),
         Destination::Alias => {
-            rename_alias_reported(source, destination, failure)?;
+            rename_alias_with_cause(source, destination, failure, cause)?;
             record_moved_path(tracked_source.as_deref(), destination, false);
             return Ok(());
         }

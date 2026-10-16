@@ -22,6 +22,7 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
+use tag_core::batch_errors::{push_error, BatchError, Detailed, ErrorCause, IndexedDiagnostic};
 use tag_core::{AudioEntry, Fields, ScanResult};
 
 fn settings_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
@@ -483,12 +484,22 @@ fn apply_one(
 
 /// Write reviewed values immediately, like Mp3tag and OpenTag's other importers.
 /// The cover is downloaded and validated once before any file is touched.
+#[cfg(test)]
 #[tauri::command]
 pub async fn tag_source_apply(
     items: Vec<ApplyItem>,
     cover: Option<ApplyCover>,
     columns: Option<Vec<crate::evaluation::ColumnSpec>>,
 ) -> Result<ScanResult, String> {
+    tag_source_apply_diagnostic(items, cover, columns)
+        .await
+        .map(|report| report.result)
+}
+pub async fn tag_source_apply_diagnostic(
+    items: Vec<ApplyItem>,
+    cover: Option<ApplyCover>,
+    columns: Option<Vec<crate::evaluation::ColumnSpec>>,
+) -> Result<Detailed<ScanResult>, String> {
     validate_items(&items, cover.is_some())?;
     let evaluation = crate::evaluation_settings(columns)?;
     let save_as = cover
@@ -508,7 +519,18 @@ pub async fn tag_source_apply(
         preserve: cover.as_ref().is_some_and(|c| c.preserve_existing),
         save_as,
     };
-    crate::io(move || write_import(&items, image.as_ref(), &options, &evaluation)).await
+    crate::io(move || write_import_diagnostic(&items, image.as_ref(), &options, &evaluation)).await
+}
+
+pub mod ipc {
+    #[tauri::command(rename = "tag_source_apply")]
+    pub async fn tag_source_apply_with_diagnostics(
+        items: Vec<super::ApplyItem>,
+        cover: Option<super::ApplyCover>,
+        columns: Option<Vec<crate::evaluation::ColumnSpec>>,
+    ) -> Result<tag_core::batch_errors::Detailed<tag_core::ScanResult>, String> {
+        super::tag_source_apply_diagnostic(items, cover, columns).await
+    }
 }
 
 struct ImportCover {
@@ -518,12 +540,21 @@ struct ImportCover {
 }
 
 /// Write the import as one undo step, including any image files saved beside the audio.
+#[cfg(test)]
 fn write_import(
     items: &[ApplyItem],
     image: Option<&http::Image>,
     options: &ImportCover,
     evaluation: &EvaluationSettings,
 ) -> Result<ScanResult, String> {
+    write_import_diagnostic(items, image, options, evaluation).map(|report| report.result)
+}
+fn write_import_diagnostic(
+    items: &[ApplyItem],
+    image: Option<&http::Image>,
+    options: &ImportCover,
+    evaluation: &EvaluationSettings,
+) -> Result<Detailed<ScanResult>, String> {
     let staging = tempfile::tempdir().map_err(|e| e.to_string())?;
     let cover_path = match image {
         Some(image) => {
@@ -538,41 +569,75 @@ fn write_import(
         .map(|item| (item.path.as_str(), &item.updates))
         .collect();
     let paths: Vec<String> = items.iter().map(|item| item.path.clone()).collect();
-    crate::history::record_with_side_files("Tag source import", None, &paths, |before_write| {
-        let mut result = crate::batch(&paths, |path| {
-            let fields = path
-                .to_str()
-                .and_then(|p| updates.get(p))
-                .copied()
-                .ok_or("File is not part of this import")?;
-            crate::mutate_document(path, |working| {
-                let cover = cover_target(working, cover_path.as_deref(), options.preserve)?;
-                apply_one(working, fields, cover, options.replace)
+    crate::history::record_with_side_files_diagnostic(
+        "Tag source import",
+        None,
+        &paths,
+        |before_write| {
+            let mut result = crate::batch(&paths, |path| {
+                let fields = path
+                    .to_str()
+                    .and_then(|p| updates.get(p))
+                    .copied()
+                    .ok_or("File is not part of this import")?;
+                crate::mutate_document(path, |working| {
+                    let cover = cover_target(working, cover_path.as_deref(), options.preserve)?;
+                    apply_one(working, fields, cover, options.replace)
+                })
+            });
+            let mut diagnostics = Vec::new();
+            if let (Some(template), Some(image)) = (&options.save_as, image) {
+                let (errors, details) = save_cover_files_diagnostic(
+                    &result.entries,
+                    template,
+                    image,
+                    evaluation,
+                    before_write,
+                );
+                let offset = result.errors.len();
+                diagnostics.extend(details.into_iter().map(|mut item| {
+                    item.index += offset;
+                    item
+                }));
+                result.errors.extend(errors);
+            }
+            Ok(Detailed {
+                result,
+                error_diagnostics: diagnostics,
             })
-        });
-        if let (Some(template), Some(image)) = (&options.save_as, image) {
-            let errors =
-                save_cover_files(&result.entries, template, image, evaluation, before_write);
-            result.errors.extend(errors);
-        }
-        Ok(result)
-    })
+        },
+    )
 }
 
 /// The file name for a saved cover: the format evaluated on one written file,
 /// reduced to a single safe file name (the extension comes from the image).
 /// `counter` is the file's 1-based position among the written files.
+#[cfg(test)]
 fn cover_file_name(
     entry: &AudioEntry,
     template: &str,
     counter: usize,
     evaluation: &EvaluationSettings,
 ) -> Result<String, String> {
+    cover_file_name_diagnostic(entry, template, counter, evaluation)
+        .map_err(|cause| cause.to_string())
+}
+fn cover_file_name_diagnostic(
+    entry: &AudioEntry,
+    template: &str,
+    counter: usize,
+    evaluation: &EvaluationSettings,
+) -> Result<String, ErrorCause> {
     // Cover names use the written tags, so pre-import column snapshots are stale.
     // Keep the operation's captured app folders, clock and separator settings.
     let technical = crate::evaluation::technical_fields(entry, counter);
-    let name =
-        evaluation.evaluate_filename(template, &entry.fields, &technical, &entry.path, false)?;
+    let name = evaluation.evaluate_filename_diagnostic(
+        template,
+        &entry.fields,
+        &technical,
+        &entry.path,
+        false,
+    )?;
     let name: String = name
         .chars()
         .map(|c| {
@@ -593,6 +658,7 @@ fn cover_file_name(
 
 /// Utils → Save image to disc: one image per folder of written files, named
 /// from the first written file in it. An existing image of that name is replaced.
+#[cfg(test)]
 fn save_cover_files(
     entries: &[AudioEntry],
     template: &str,
@@ -600,8 +666,39 @@ fn save_cover_files(
     evaluation: &EvaluationSettings,
     before_write: &mut dyn FnMut(&Path) -> Result<(), String>,
 ) -> Vec<tag_core::FileError> {
+    save_cover_files_diagnostic(entries, template, image, evaluation, &mut |path| {
+        before_write(path).map_err(ErrorCause::external)
+    })
+    .0
+}
+fn save_cover_files_diagnostic(
+    entries: &[AudioEntry],
+    template: &str,
+    image: &http::Image,
+    evaluation: &EvaluationSettings,
+    before_write: &mut dyn FnMut(&Path) -> Result<(), ErrorCause>,
+) -> (Vec<tag_core::FileError>, Vec<IndexedDiagnostic>) {
+    save_cover_files_with_writer(
+        entries,
+        template,
+        image,
+        evaluation,
+        before_write,
+        &mut |path, bytes| write_atomically_diagnostic(path, bytes),
+    )
+}
+type CoverWriter<'a> = dyn FnMut(&Path, &[u8]) -> Result<(), ErrorCause> + 'a;
+fn save_cover_files_with_writer(
+    entries: &[AudioEntry],
+    template: &str,
+    image: &http::Image,
+    evaluation: &EvaluationSettings,
+    before_write: &mut dyn FnMut(&Path) -> Result<(), ErrorCause>,
+    writer: &mut CoverWriter<'_>,
+) -> (Vec<tag_core::FileError>, Vec<IndexedDiagnostic>) {
     let mut folders = std::collections::HashSet::new();
     let mut errors = Vec::new();
+    let mut diagnostics = Vec::new();
     for (index, entry) in entries.iter().enumerate() {
         let Some(folder) = Path::new(&entry.path).parent() else {
             continue;
@@ -609,29 +706,51 @@ fn save_cover_files(
         if !folders.insert(folder.to_path_buf()) {
             continue;
         }
-        let saved = cover_file_name(entry, template, index + 1, evaluation).and_then(|name| {
-            let target = folder.join(format!("{name}.{}", image.extension));
-            before_write(&target)?;
-            write_atomically(&target, &image.bytes)
-        });
-        if let Err(error) = saved {
-            errors.push(tag_core::FileError {
-                path: folder.to_string_lossy().into_owned(),
-                error: format!("The cover image could not be saved: {error}"),
+        let saved =
+            cover_file_name_diagnostic(entry, template, index + 1, evaluation).and_then(|name| {
+                let target = folder.join(format!("{name}.{}", image.extension));
+                before_write(&target)?;
+                writer(&target, &image.bytes)
             });
+        if let Err(error) = saved {
+            push_error(
+                &mut errors,
+                &mut diagnostics,
+                folder.to_string_lossy().into_owned(),
+                BatchError::SourceCoverFailed { cause: error },
+            );
         }
     }
-    errors
+    (errors, diagnostics)
 }
 
 fn write_atomically(target: &Path, bytes: &[u8]) -> Result<(), String> {
+    write_atomically_diagnostic(target, bytes).map_err(|cause| cause.to_string())
+}
+fn write_atomically_diagnostic(target: &Path, bytes: &[u8]) -> Result<(), ErrorCause> {
+    write_atomically_with_writer(target, bytes, |staging, bytes| {
+        std::io::Write::write_all(staging, bytes)
+    })
+}
+fn write_atomically_with_writer(
+    target: &Path,
+    bytes: &[u8],
+    write: impl FnOnce(&mut tempfile::NamedTempFile, &[u8]) -> std::io::Result<()>,
+) -> Result<(), ErrorCause> {
     let folder = target
         .parent()
         .filter(|folder| folder.is_dir())
-        .ok_or_else(|| format!("The folder for {} does not exist", target.display()))?;
-    let mut staging = tempfile::NamedTempFile::new_in(folder).map_err(|e| e.to_string())?;
-    std::io::Write::write_all(&mut staging, bytes).map_err(|e| e.to_string())?;
-    staging.persist(target).map_err(|e| e.error.to_string())?;
+        .ok_or_else(|| {
+            ErrorCause::message(
+                "The folder for {value} does not exist",
+                [("value", target.to_string_lossy().into_owned())],
+            )
+        })?;
+    let mut staging = tempfile::NamedTempFile::new_in(folder).map_err(ErrorCause::external)?;
+    write(&mut staging, bytes).map_err(ErrorCause::external)?;
+    staging
+        .persist(target)
+        .map_err(|e| ErrorCause::external(e.error))?;
     Ok(())
 }
 
@@ -691,6 +810,121 @@ mod tests {
             .save_with_format(&path, image::ImageFormat::Png)
             .unwrap();
         path
+    }
+
+    #[test]
+    fn diagnostic_cover_rows_distinguish_owned_guard_from_identical_io_without_writing() {
+        let dir = tempfile::tempdir().unwrap();
+        let folder = dunce::canonicalize(dir.path()).unwrap().join("Help; Title");
+        std::fs::create_dir(&folder).unwrap();
+        let audio = folder.join("Help.wav");
+        wav(&audio);
+        let entry = tag_core::read_entry_summary(&audio).unwrap();
+        std::fs::remove_file(&audio).unwrap();
+        std::fs::remove_dir(&folder).unwrap();
+        let mut bytes = Vec::new();
+        image::DynamicImage::new_rgb8(1, 1)
+            .write_to(
+                &mut std::io::Cursor::new(&mut bytes),
+                image::ImageFormat::Png,
+            )
+            .unwrap();
+        let image = http::Image::validate(bytes).unwrap();
+        let evaluation = EvaluationSettings::default();
+        let (owned, owned_details) = save_cover_files_diagnostic(
+            std::slice::from_ref(&entry),
+            "Title",
+            &image,
+            &evaluation,
+            &mut |_| Ok(()),
+        );
+        assert_eq!(owned.len(), 1);
+        let json = serde_json::to_value(&owned_details).unwrap();
+        assert_eq!(json[0]["diagnostic"]["cause"]["kind"], "owned");
+        assert_eq!(
+            json[0]["diagnostic"]["cause"]["key"],
+            "The folder for {value} does not exist"
+        );
+        let target = folder.join("Title.png");
+        let same_english = format!("The folder for {} does not exist", target.display());
+        assert_eq!(
+            owned[0].error,
+            format!("The cover image could not be saved: {same_english}")
+        );
+        std::fs::create_dir(&folder).unwrap();
+        let (external, external_details) = save_cover_files_with_writer(
+            &[entry],
+            "Title",
+            &image,
+            &evaluation,
+            &mut |_| Ok(()),
+            &mut |path, data| {
+                write_atomically_with_writer(path, data, |_, _| {
+                    Err(std::io::Error::other(same_english.clone()))
+                })
+            },
+        );
+        let json = serde_json::to_value(&external_details).unwrap();
+        assert_eq!(external.len(), 1);
+        assert_eq!(external[0].error, owned[0].error);
+        assert_eq!(json[0]["diagnostic"]["cause"]["kind"], "external");
+        assert_eq!(json[0]["diagnostic"]["cause"]["value"], same_english);
+        assert!(!target.exists());
+        assert_eq!(std::fs::read_dir(folder).unwrap().count(), 0);
+    }
+    #[test]
+    fn diagnostic_import_offsets_cover_frames_after_ordinary_errors_and_keeps_saved_tags() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
+        let audio = root.join("Help.wav");
+        wav(&audio);
+        let missing = root.join("missing.wav");
+        let items = [
+            ApplyItem {
+                path: missing.to_string_lossy().into_owned(),
+                updates: Fields::new(),
+            },
+            ApplyItem {
+                path: audio.to_string_lossy().into_owned(),
+                updates: Fields::from([("TITLE".into(), vec!["Help".into()])]),
+            },
+        ];
+        let mut bytes = Vec::new();
+        image::DynamicImage::new_rgb8(1, 1)
+            .write_to(
+                &mut std::io::Cursor::new(&mut bytes),
+                image::ImageFormat::Png,
+            )
+            .unwrap();
+        let image = http::Image::validate(bytes).unwrap();
+        let options = ImportCover {
+            replace: false,
+            preserve: false,
+            save_as: Some("$unknown()".into()),
+        };
+        let report = write_import_diagnostic(
+            &items,
+            Some(&image),
+            &options,
+            &EvaluationSettings::default(),
+        )
+        .unwrap();
+        assert_eq!(report.result.entries.len(), 1);
+        assert_eq!(report.result.errors.len(), 2);
+        assert_eq!(report.error_diagnostics.len(), 1);
+        assert_eq!(report.error_diagnostics[0].index, 1);
+        assert_eq!(
+            report.result.errors[1].error,
+            report.error_diagnostics[0].diagnostic.to_string()
+        );
+        assert_eq!(
+            serde_json::to_value(&report).unwrap()["error_diagnostics"][0]["diagnostic"]["kind"],
+            "source_cover_failed"
+        );
+        assert_eq!(
+            tag_core::read_entry_summary(&audio).unwrap().fields["TITLE"],
+            ["Help"]
+        );
     }
 
     #[test]

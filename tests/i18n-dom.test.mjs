@@ -34,6 +34,9 @@ const {removeTagParts}=await load('remove-tag.ts');
 const {converterValidator,createConverterInputTracker,createConverterReview}=await load('converter-review.ts');
 const {converterRollbackError,converterRollbackText}=await import(await moduleUrl('converter-errors.ts', {"'./i18n/core'":JSON.stringify(await moduleUrl('i18n/core.ts'))}));
 const rollbackCases=JSON.parse(await readFile(new URL('./fixtures/converter-rollback.json',import.meta.url),'utf8'));
+const {batchErrorText,normalizeBatchDiagnostics,fileErrorText,showFileError,clearFileError,BatchFailure}=await import(await moduleUrl('batch-errors.ts',{"'./i18n/core'":JSON.stringify(await moduleUrl('i18n/core.ts')),"'./converter-errors'":JSON.stringify(await moduleUrl('converter-errors.ts',{"'./i18n/core'":JSON.stringify(await moduleUrl('i18n/core.ts'))}))}));
+const batchDiagnosticCases=JSON.parse(await readFile(new URL('./fixtures/batch-error-diagnostics.json',import.meta.url),'utf8'));
+
 const {listSummary,technicalSummary}=await load('list-commands.ts');
 const {Messages}=await load('messages.ts');
 const {WebSourcesUI,settingsMarkup,readSettings}=await import(await moduleUrl('web-sources.ts',{"'./action-ui'":JSON.stringify(await moduleUrl('action-ui.ts'))}));
@@ -54,6 +57,7 @@ const catalogs=Object.fromEntries(await Promise.all(['de','nl'].map(async locale
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function modal(p){return(title,content,buttons)=>{const dialog=p.window.document.createElement('dialog');dialog.innerHTML=`<header>${esc(title)}</header><div class="dialog-content">${content}</div><footer>${buttons}</footer>`;p.body.append(dialog);dialog.setAttribute('open','');return dialog;};}
 function mainTemplate(needle,values,index=0){
+  values={fileErrorText,...values};
   const templates=[];
   const visit=node=>{if(ts.isTemplateExpression(node)&&(typeof needle==='function'?needle(node):node.head.text.startsWith(needle)))templates.push(node);ts.forEachChild(node,visit);};visit(parsed);
   const template=templates[index];
@@ -62,6 +66,7 @@ function mainTemplate(needle,values,index=0){
   return new Function(...Object.keys(values),js)(...Object.values(values));
 }
 function rendererVariable(tree,name,values,owner){
+  values={BatchFailure,...values};
   let declaration;
   const visit=node=>{if(ts.isVariableDeclaration(node)&&node.name.getText(tree)===name)declaration=node;ts.forEachChild(node,visit);};visit(tree);
   assert.ok(declaration,`Production renderer ${name}`);
@@ -599,7 +604,7 @@ test('real library progress localizes with OS-formatted Unicode and grouped coun
   }
 });
 test('production backend error frames translate wrapped diagnostics and preserve paths, commands and replies',()=>{
-  const cases=[['The destination is not a folder',{}],['Cannot open the destination folder: {e}',{e:'Permission denied (os error 13)'}],['Invalid DSF file: {what}',{what:'the file is truncated'}],['The MP4 structure cannot be rewritten safely: {what}',{what:'the file ends inside a box header'}],['Library database: {e}',{e:'disk full'}],['ASF {location} object limits exceeded',{location:'Content'}],['{name} did not respond in time. Check your connection and try again.',{name:'MusicBrainz'}],['The freedb server answered: {code} {value}',{code:400,value:'Help'}],['Invalid chapter {value}: use HH:MM:SS.mmm followed by the title',{value:'"Help  Title"'}],['{name} is stored once for {filename}, not per chapter; give its chapter rows the same value',{name:'TITLE',filename:'Help.m4a'}]];
+  const cases=[['The destination is not a folder',{}],['Cannot open the destination folder: {e}',{e:'Permission denied (os error 13)'}],['Invalid DSF file: {what}',{what:'the file is truncated'}],['The MP4 structure cannot be rewritten safely: {error}',{error:'the file ends inside a box header'}],['Library database: {e}',{e:'disk full'}],['ASF {value} object limits exceeded',{value:'Content'}],['{name} did not respond in time. Check your connection and try again.',{name:'MusicBrainz'}],['The freedb server answered: {code} {value}',{code:400,value:'Help'}],['Invalid chapter {value}: use HH:MM:SS.mmm followed by the title',{value:'"Help  Title"'}],['{field} is stored once for {value}, not per chapter; give its chapter rows the same value',{field:'TITLE',value:'Help.m4a'}]];
   const extra=['{name} is not a known command','this block has no {name}'],custom={...Object.fromEntries([...cases.map(([key])=>key),...extra].map(key=>[key,`Diagnostic: ${[...new Set(key.match(/\{\w+\}/g)??[])].join(' / ')}`])),Help:'Assistance',TITLE:'Wrong field',MusicBrainz:'Wrong provider',Content:'Wrong header',Endif:'Wrong command','Help.m4a':'Wrong file','"Help  Title"':'Wrong chapter'};
   for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]])for(const [key,params] of cases){
     const p=page();try{
@@ -667,6 +672,118 @@ test('actual selection summary translates each technical component and preserves
     }finally{p.close();}
   }
 });
+test('actual source Apply review keeps typed batch failures through the real main host and live language/reset lifecycle',async()=>{
+  const custom={'The cover image could not be saved: {error}':'Cover failed: {error}','Cannot write {path}: {error}':'Writing [{path}]: {error}','Select files first.':'Help',Help:'Wrong second lookup',Title:'Wrong raw name',Back:'Return'};
+  for(const item of batchDiagnosticCases.filter(item=>item.diagnostic.kind==='source_cover_failed')){const p=page();let active=new Translator('en');const listeners=new Set(),calls=[];try{
+    const folder=item.diagnostic.cause.kind==='external'?'Cancelled: Help; Title':'Help; Title',path='/Music/Help.wav',entry={path,filename:'Help.wav',duration:60,fields:{TITLE:['Help'],ARTIST:['Title'],ALBUM:['Album'],TRACK:['1'],DISCNUMBER:['1']}};
+    const invoke=async(command,args)=>{calls.push(command);if(command==='web_source_search')return{direct:true,columns:[],results:[{url:'https://example.invalid/release'}]};if(command==='web_source_release')return{provider:'web',id:'fixture',url:'',artist:'Title',title:'Album',fields:{ALBUM:['Album']},tracks:[{position:'1',disc:1,number:1,title:'Help',artist:'Title',length:60,fields:{TITLE:['Help'],ARTIST:['Title'],TRACK:['1']}}],covers:[],more_covers:false};if(command==='tag_source_apply'){assert.equal(args.items[0].path,path);return normalizeBatchDiagnostics({entries:[],errors:[{path:'/Music/'+folder,error:item.source}],error_diagnostics:[{index:0,diagnostic:item.diagnostic}]},true);}throw new Error('Unexpected '+command);};
+    const host=rendererVariable(parsed,'tagSourcesUI',{TagSourcesUI:class{constructor(host){return host;}},BatchFailure,webScriptErrorText,t:(key,params)=>active.t(key,params),translate:text=>active.translate(text),onLanguageChange:listener=>{listeners.add(listener);return()=>listeners.delete(listener);},invoke,paths:()=>[path],entries:new Map([[path,entry]]),displayName:path=>path.split('/').at(-1),field:(entry,key)=>entry.fields[key]?.[0]??'',tagSourceReason:()=>'',optionsUI:{page:()=>({})},columnSpecs:()=>[],run:async(_text,job)=>job(),accept:()=>{},reconcileWorkingEntries:async()=>{},publicMessage:error=>error instanceof Error?error.message:String(error)});
+    const ui=new TagSourcesUI(host);await ui.open('web',{web:{id:'fixture',name:'Help',search_by:[]}});const dialog=p.body.querySelector('dialog'),settle=async()=>{for(let i=0;i<4;i++)await new Promise(resolve=>setTimeout(resolve,0));};dialog.querySelector('#ts-search').click();await settle();const apply=dialog.querySelector('#ts-apply');assert.ok(apply);assert.equal(apply.disabled,false);apply.click();await settle();assert.ok(calls.includes('tag_source_apply'));const error=dialog.querySelector('.dialog-error');assert.ok(error);assert.equal(error.getAttribute('translate'),'no');
+    for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom],['en',{}],['de',catalogs.de]]){active=p.translate(locale,catalog);listeners.forEach(listener=>listener());p.translateTree(dialog);assert.equal(error.textContent,folder+': '+batchErrorText(item.diagnostic,(key,params)=>active.t(key,params),text=>active.translate(text)));assert.ok(!error.textContent.includes('Wrong'));if(locale!=='en'&&!(item.diagnostic.kind==='action_validation'&&item.diagnostic.cause.kind==='external'))assert.ok(!error.textContent.endsWith(item.source),'owned frame translates while raw context stays unchanged');assert.equal(dialog.querySelector('#ts-back').textContent,active.t('Back'));assert.equal(dialog.querySelector('#'+dialog.getAttribute('aria-labelledby')).textContent,'Help');}
+    dialog.querySelector('#ts-back').click();assert.equal(dialog.querySelector('.dialog-error'),null);active=p.translate('en',custom);listeners.forEach(listener=>listener());assert.equal(dialog.querySelector('.dialog-error'),null);dialog.close();assert.equal(listeners.size,0);
+  }finally{p.close();}}
+});
+
+test('actual ActionUI run, quick and checked-group dialogs retain typed failures and release reset listeners',async()=>{
+  const custom={'{value} / action {value2}: {error}':'Action {value2} for [{value}]: {error}','{value}: {error}':'Group [{value}]: {error}','Select files first.':'Help',Help:'Wrong second lookup',Title:'Wrong raw name'};
+  const declaration=parsed.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text==='executeGroups'),js=ts.transpileModule(declaration.getText(parsed),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
+  for(const item of batchDiagnosticCases.filter(item=>item.diagnostic.kind==='action'||item.diagnostic.kind==='action_validation'))for(const mode of ['run','checked','quick']){
+    const p=page();let active=new Translator('en');const listeners=new Set(),calls=[];try{
+      const group={name:item.diagnostic.group,enabled:true,actions:[{type:'format_value',field:'TITLE',template:'Help'},{type:'format_value',field:'TITLE',template:'Title'}]},library={groups:[group],presets:[]};
+      const invoke=async(command,args)=>{calls.push(command);if(command==='load_action_library')return library;if(command==='execute_action_groups')return normalizeBatchDiagnostics({entries:[],errors:[{path:'/Music/Title.wav',error:item.source}],error_diagnostics:[{index:0,diagnostic:item.diagnostic}]},true);throw new Error('Unexpected '+command);};
+      const execute=new Function('BatchFailure','enabled','operationReason','paths','run','invoke','columnSpecs','applyRenamed','messages',`let errors=[],lastActionGroups=[];function accept(batch){errors=batch.errors;} ${js};return{execute:executeGroups,state:()=>errors};`)(BatchFailure,()=>true,()=>'',()=>['/Music/Title.wav'],async(_text,job)=>job(),invoke,()=>[],()=>{},{enabled:()=>true});
+      const host=rendererVariable(parsed,'actionUI',{ActionUI:class{constructor(host){return host;}},t:(key,params)=>active.t(key,params),translate:text=>active.translate(text),onLanguageChange:listener=>{listeners.add(listener);return()=>listeners.delete(listener);},translateNow:()=>{},invoke,executeGroups:execute.execute,enabled:()=>true,operationReason:()=>'',selected:new Set(['/Music/Title.wav']),paths:()=>['/Music/Title.wav'],merged:()=>({TITLE:['Title']}),entries:new Map(),render:()=>{}});
+      const ui=new ActionUI(host);await ui.initialize();if(mode==='run')await ui.runOne(0);else{if(mode==='quick'){ui.quick('format_value');p.body.querySelector('[data-keep]').click();}else{await ui.groupsDialog();p.body.querySelector('#apply-groups').click();}for(let i=0;i<4;i++)await new Promise(resolve=>setTimeout(resolve,0));}
+      assert.ok(calls.includes('execute_action_groups'));const dialog=p.body.querySelector('dialog'),error=dialog.querySelector('.dialog-error');assert.ok(error);assert.equal(error.getAttribute('translate'),'no');assert.deepEqual(execute.state()[0].diagnostic,item.diagnostic);
+      for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom],['en',{}],['de',catalogs.de]]){active=p.translate(locale,catalog);listeners.forEach(listener=>listener());p.translateTree(dialog);const expected=new BatchFailure(execute.state(),'').text((key,params)=>active.t(key,params),text=>active.translate(text));assert.equal(error.textContent,expected);assert.ok(error.textContent.includes(item.diagnostic.group));assert.ok(!error.textContent.includes('Wrong'));if(locale!=='en'&&!(item.diagnostic.kind==='action_validation'&&item.diagnostic.cause.kind==='external'))assert.ok(!error.textContent.endsWith(item.source),'owned frame translates while raw context stays unchanged');assert.equal(execute.state()[0].error,item.source);}
+      if(mode==='checked'){dialog.querySelector('[data-enable]').click();assert.equal(dialog.querySelector('.dialog-error'),null);assert.equal(listeners.size,0);active=p.translate('en',custom);listeners.forEach(listener=>listener());assert.equal(dialog.querySelector('.dialog-error'),null);assert.equal(group.enabled,true);}
+      if(mode==='quick'){
+        const type=dialog.querySelector('#full-action-type');type.value='case_conversion';type.dispatchEvent(new p.window.Event('change',{bubbles:true}));
+        assert.equal(dialog.querySelector('.dialog-error'),null);assert.equal(listeners.size,0,'changing the action type releases the old failure listener');
+        active=p.translate('nl');listeners.forEach(listener=>listener());assert.equal(dialog.querySelector('.dialog-error'),null);
+        dialog.querySelector('[data-keep]').click();for(let i=0;i<4;i++)await new Promise(resolve=>setTimeout(resolve,0));
+        assert.equal(listeners.size,1);active=p.translate('de');listeners.forEach(listener=>listener());p.translateTree(dialog);
+        assert.equal(dialog.querySelector('.dialog-error').textContent,new BatchFailure(execute.state(),'').text((key,params)=>active.t(key,params),text=>active.translate(text)));
+      }
+      dialog.close();assert.equal(listeners.size,0);
+    }finally{p.close();}
+  }
+});
+
+test('actual global and modal batch error renderers retain source records and raw context through live language changes',()=>{
+  const keys={'{value} / action {value2}: {error}':'Action {value2} for [{value}]: {error}','{value}: {error}':'Group [{value}]: {error}','Changed outside OpenTag after {value}; it was not {verb}':'After [{value}], not {verb}','It was not {verb}: {error}':'Not {verb}: {error}','Folders and side files could not be {verb}: {error}':'Folders not {verb}: {error}','Destination exists or another file maps to {value}':'Taken: [{value}]','Line {line}: {error}':'At {line}: {error}','The cover image could not be saved: {error}':'Cover failed: {error}','Cannot write {path}: {error}':'Writing [{path}]: {error}',undone:'reverted',redone:'reapplied','Select files first.':'Help',Help:'Wrong second lookup',Title:'Wrong raw name'};
+  const declaration=parsed.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text==='modalError'),js=ts.transpileModule(declaration.getText(parsed),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
+  for(const item of batchDiagnosticCases){const p=page();let active=new Translator('en');const listeners=new Set();try{
+    const rawPath=item.diagnostic.kind==='history_folders_failed'?'Help / action 1: Title':'/Music/Help; Title.wav',row={path:rawPath,error:item.source};
+    const result=normalizeBatchDiagnostics({errors:[row],error_diagnostics:[{index:0,diagnostic:item.diagnostic}]},true),e=result.errors[0],failure=new BatchFailure(result.errors,'Failed',{name:path=>path.split('/').at(-1)});
+    assert.equal(failure.message,(item.diagnostic.kind==='history_folders_failed'?rawPath:rawPath.split('/').at(-1))+': '+item.source);
+    const renderModal=new Function('showFileError','t','translate','onLanguageChange','publicMessage',`${js};return modalError;`)(showFileError,(key,params)=>active.t(key,params),text=>active.translate(text),listener=>{listeners.add(listener);return()=>listeners.delete(listener);},error=>error instanceof Error?error.message:String(error));
+    const dialog=modal(p)('Failure','', '<button>Close</button>');renderModal(dialog,failure);const errors=p.window.document.createElement('section');p.body.append(errors);
+    for(const [locale,strings] of [['de',catalogs.de],['nl',catalogs.nl],['en',keys],['en',{}],['nl',catalogs.nl]]){active=p.translate(locale,strings);listeners.forEach(listener=>listener());errors.innerHTML=mainTemplate(node=>node.head.text==='<p><strong translate="no">',{e,esc,displayName:path=>path.split('/').at(-1),publicMessage:value=>value,t:(key,params)=>active.t(key,params),translate:text=>active.translate(text)});p.translateTree(p.body);
+      const expected=fileErrorText(e,(key,params)=>active.t(key,params),text=>active.translate(text));assert.equal(errors.querySelector('span').textContent,expected);assert.equal(errors.querySelector('span').getAttribute('translate'),'no');assert.equal(dialog.querySelector('.dialog-error').textContent,failure.text((key,params)=>active.t(key,params),text=>active.translate(text)));assert.ok(!errors.textContent.includes('Wrong'));if(locale!=='en'&&!(item.diagnostic.kind==='action_validation'&&item.diagnostic.cause.kind==='external'))assert.notEqual(expected,item.source);assert.equal(e.error,item.source);
+      if(item.diagnostic.kind==='history_folders_failed')assert.equal(errors.querySelector('strong').textContent,rawPath+':');
+    }
+    clearFileError(dialog);assert.equal(listeners.size,0);active=p.translate('de');listeners.forEach(listener=>listener());assert.equal(dialog.querySelector('.dialog-error'),null);renderModal(dialog,'Select files first.');assert.equal(dialog.querySelector('.dialog-error').hasAttribute('translate'),false);p.translateTree(dialog);assert.equal(dialog.querySelector('.dialog-error').textContent,active.t('Select files first.'));dialog.close();assert.equal(listeners.size,0);
+    const legacy=normalizeBatchDiagnostics({errors:[row]},true).errors[0];errors.innerHTML=mainTemplate(node=>node.head.text==='<p><strong translate="no">',{e:legacy,esc,displayName:path=>path,publicMessage:value=>value,t:(key,params)=>active.t(key,params),translate:text=>active.translate(text)});p.translateTree(errors);assert.equal(errors.querySelector('span').textContent,item.source);
+  }finally{p.close();}}
+});
+
+test('actual playlist expansion retains independently indexed diagnostics while merging two lists',async()=>{
+  const cases=batchDiagnosticCases.filter(item=>item.diagnostic.kind==='playlist_line');
+  assert.ok(cases.length>=2);
+  const calls=[],replies=cases.slice(0,2).map((item,index)=>({files:[`/Music/track-${index}.wav`],errors:[{path:`/Music/Help; Title-${index}.m3u`,error:item.source}],error_diagnostics:[{index:0,diagnostic:item.diagnostic}]}));
+  const ui=new PlaylistUI({invoke:async(command,args)=>{assert.equal(command,'read_playlist');calls.push(args.path);return normalizeBatchDiagnostics(replies[calls.length-1],true);}});
+  const expanded=await ui.expand(['/Music/first.m3u','/Music/ordinary.wav','/Music/second.cue']);
+  assert.deepEqual(expanded.paths,['/Music/track-0.wav','/Music/ordinary.wav','/Music/track-1.wav']);
+  assert.deepEqual(calls,['/Music/first.m3u','/Music/second.cue']);
+  assert.equal(expanded.playlist,'/Music/second.cue');
+  for(const [index,item] of cases.slice(0,2).entries()){
+    assert.equal(expanded.errors[index].error,item.source);
+    assert.deepEqual(expanded.errors[index].diagnostic,item.diagnostic);
+    for(const locale of ['de','nl']){const active=new Translator(locale,catalogs[locale]);assert.equal(fileErrorText(expanded.errors[index],(key,params)=>active.t(key,params),text=>active.translate(text)),batchErrorText(item.diagnostic,(key,params)=>active.t(key,params),text=>active.translate(text)));}
+  }
+});
+test('actual invoke normalizes only covered command replies before callers merge errors in both performance paths',async()=>{
+  const fn=parsed.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text==='invoke'),choice=parsed.statements.filter(ts.isVariableStatement).flatMap(node=>[...node.declarationList.declarations]).find(node=>node.name.getText(parsed)==='DIAGNOSTIC_COMMANDS');
+  const js=ts.transpileModule(`const ${choice.getText(parsed)};${fn.getText(parsed)};return invoke;`,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
+  const fixture=batchDiagnosticCases[0],row={path:'Help',error:fixture.source};
+  for(const measured of [false,true])for(const metadata of [undefined,[],[{index:0,diagnostic:fixture.diagnostic}],null,[{index:2,diagnostic:fixture.diagnostic}]]){
+    const raw={entries:[],errors:[row],...(metadata===undefined?{}:{error_diagnostics:metadata})},records=[];
+    const invoke=new Function('normalizeBatchDiagnostics','coreInvoke','perfSink','performance',js)(normalizeBatchDiagnostics,async()=>raw,()=>measured?records:undefined,performance);
+    const shown=await invoke('execute_action_groups');
+    assert.equal(shown.errors[0].diagnostic!==undefined,Array.isArray(metadata)&&metadata.length===1&&metadata[0].index===0);
+    assert.equal(shown.errors[0].diagnosticRaw===true,metadata===undefined||metadata===null||metadata?.[0]?.index===2);
+    if(measured){assert.equal(records[0].out,JSON.stringify(raw).length);assert.equal(records[0].pending,false);}else assert.equal(records.length,0);
+    const unrelated=await invoke('runtime_platform');assert.equal(unrelated,raw,'shape alone never opts another command into the protocol');
+  }
+});
+
+test('typed batch frames preserve raw collision text, source-owned versus IO causes and indexed association',()=>{
+  const keys={
+    '{value} / action {value2}: {error}':'Action {value2} for [{value}]: {error}',
+    'Changed outside OpenTag after {value}; it was not {verb}':'After [{value}], not {verb}',
+    'It was not {verb}: {error}':'Not {verb}: {error}',
+    'Folders and side files could not be {verb}: {error}':'Folders not {verb}: {error}',
+    'Destination exists or another file maps to {value}':'Taken: [{value}]',
+    'Line {line}: {error}':'At {line}: {error}',
+    'The cover image could not be saved: {error}':'Cover failed: {error}','{value}: {error}':'Group [{value}]: {error}','Cannot write {path}: {error}':'Writing [{path}]: {error}',undone:'reverted',redone:'reapplied','Select files first.':'Choose tracks',Help:'Wrong raw name',Title:'Wrong raw name','Choose tracks':'Wrong second lookup'};
+  const t=new Translator('en',keys);
+  for(const item of batchDiagnosticCases){
+    assert.equal(batchErrorText(item.diagnostic),item.source);
+    const result={entries:[],errors:[{path:'old',error:'Plain error'},{path:'Help: Title; Path',error:item.source}],error_diagnostics:[{index:1,diagnostic:item.diagnostic}]};
+    const normalized=normalizeBatchDiagnostics(result,true);assert.equal(normalized.errors[0],result.errors[0]);assert.deepEqual(normalized.errors[1].diagnostic,item.diagnostic);
+    const shown=batchErrorText(normalized.errors[1].diagnostic,(key,params)=>t.t(key,params),text=>t.translate(text));assert.notEqual(shown,item.source);assert.ok(!shown.includes('Wrong'));assert.equal(t.translate(item.source),item.source,'producer frames never enter automatic reconstruction');
+    const cause=item.diagnostic.cause;if(cause?.kind==='owned')assert.ok(shown.includes('Choose tracks'));if(cause?.kind==='external')assert.ok(shown.includes('Select files first.'));
+    if(item.diagnostic.group)assert.ok(shown.includes(item.diagnostic.group));if(item.diagnostic.label)assert.ok(shown.includes(item.diagnostic.label));if(item.diagnostic.path)assert.ok(shown.includes(item.diagnostic.path));
+    const merged=[{path:'another',error:'other'},...normalized.errors].reverse();assert.deepEqual(merged[0].diagnostic,item.diagnostic);
+    for(const metadata of [null,{},[{index:1,diagnostic:{kind:'unknown'}}],[{index:99,diagnostic:item.diagnostic}],[{index:1,diagnostic:item.diagnostic},{index:1,diagnostic:item.diagnostic}],[{index:1,diagnostic:{...item.diagnostic,...(item.diagnostic.kind==='action'?{index:999}:{kind:'destination_collision',path:'mismatch'})}}]]){
+      const fallback=normalizeBatchDiagnostics({...result,error_diagnostics:metadata},true);assert.equal(fallback.errors[1].diagnostic,undefined);assert.equal(fallback.errors[1].diagnosticRaw,true);assert.equal(fallback.errors[1].error,item.source);
+    }
+    const legacy=normalizeBatchDiagnostics({errors:result.errors},true);assert.equal(legacy.errors[1].diagnosticRaw,true);
+    const empty=normalizeBatchDiagnostics({...result,error_diagnostics:[]},true);assert.equal(empty.errors[1].diagnosticRaw,undefined);
+  }
+});
+
 test('structured converter rollback formatter matches native English and protects raw detail independently of nested UI text',()=>{
   const custom={'{error}; rename rollback {value}':'Rename [{value}] because [{error}]','{error}; text import rollback {value}':'Import [{value}] because [{error}]',completed:'Done now','original backup retained at {path}':'Backup: {path}','could not retain recovery copy: {value}':'No backup: {value}','no recovery copy is available':'Backup missing','Select files first.':'Help',Help:'Wrong second lookup',Title:'Wrong path','File changed externally after commit; rollback did not overwrite it':'Changed externally','Missing rollback copy':'Missing backup','Moved file changed externally; retained at destination':'Moved externally','Help: IO;  Title':'Wrong external reason','Title: keep;  Help':'Wrong retention reason','Err(Os { code: 13, kind: PermissionDenied, message: "Help" })':'Wrong debug','Cannot create {value}: {e}':'Create failed for [{value}] because [{e}]','Cannot rename {value} to {value2}: {error}; rollback: {rollback}':'From [{value}] to [{value2}]: [{error}], restore [{rollback}]'};
   for(const item of rollbackCases){
@@ -689,7 +806,7 @@ test('actual converter Apply failure keeps structured rollback in both global er
   for(const item of rollbackCases){const p=page();let active=new Translator('en');const listeners=new Set(),calls=[];let thrown={converter_rollback:item.payload};
     try{
       p.body.innerHTML='<section class="app-errors"></section>';const sourcePaths=['/A - Help.wav','/B - Title.wav','/C - Other.wav'];
-      const dependencies={esc,app:p.body,paths:()=>sourcePaths,dirtySelected:()=>false,dataRevision:0,compactScreen:()=>false,columnSpecs:()=>[],converterValidator,createConverterInputTracker,createConverterReview,converterRollbackError,converterRollbackText,t:(key,params)=>active.t(key,params),translate:text=>active.translate(text),onLanguageChange:listener=>{listeners.add(listener);return()=>listeners.delete(listener);},publicMessage:error=>String(error),applyRenamed:()=>assert.fail('Failed Apply must not apply rename results'),accept:()=>{},run:async(_text,job)=>job(),invoke:async(command,args)=>{calls.push(command);if(command==='scan_files')return{entries:[],errors:[]};if(command==='apply_filename_conversion'||command==='apply_text_import')throw thrown;if(command==='preview_filename_conversion')return{plan_token:'fixture',items:sourcePaths.map((path,index)=>({path,target:'/renamed-'+index+'.wav',captures:{TITLE:['Help']}}))};if(command==='preview_text_import')return{plan_token:'fixture',items:sourcePaths.map((path,index)=>({path,selection_index:index,source_line:index+1,fields:{TITLE:['Help']}}))};throw new Error('Unexpected '+command);}};
+      const dependencies={BatchFailure,showFileError,clearFileError,esc,app:p.body,paths:()=>sourcePaths,dirtySelected:()=>false,dataRevision:0,compactScreen:()=>false,columnSpecs:()=>[],converterValidator,createConverterInputTracker,createConverterReview,converterRollbackError,converterRollbackText,t:(key,params)=>active.t(key,params),translate:text=>active.translate(text),onLanguageChange:listener=>{listeners.add(listener);return()=>listeners.delete(listener);},publicMessage:error=>String(error),applyRenamed:()=>assert.fail('Failed Apply must not apply rename results'),accept:()=>{},run:async(_text,job)=>job(),invoke:async(command,args)=>{calls.push(command);if(command==='scan_files')return{entries:[],errors:[]};if(command==='apply_filename_conversion'||command==='apply_text_import')throw thrown;if(command==='preview_filename_conversion')return{plan_token:'fixture',items:sourcePaths.map((path,index)=>({path,target:'/renamed-'+index+'.wav',captures:{TITLE:['Help']}}))};if(command==='preview_text_import')return{plan_token:'fixture',items:sourcePaths.map((path,index)=>({path,selection_index:index,source_line:index+1,fields:{TITLE:['Help']}}))};throw new Error('Unexpected '+command);}};
       const model=new Function(...Object.keys(dependencies),`let errors=[],status='',busy=false,reviewedConverterContextChanged;${js};return{open:reviewedConverter,state:()=>({errors,status})};`)(...Object.values(dependencies));
       const kind=item.payload.operation==='rename'?'filename':'text';model.open(kind);const dialog=p.body.querySelector('dialog');
       if(kind==='text'){const select=dialog.querySelector('#text-source-kind');select.value='text';select.dispatchEvent(new p.window.Event('change',{bubbles:true}));dialog.querySelector('#text-source-records').value='Help\nTitle\nOther';dialog.querySelector('#text-mask').value='%title%';}

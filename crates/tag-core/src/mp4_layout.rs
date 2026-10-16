@@ -2,6 +2,7 @@
 //! placement before the media data. Every chunk offset is relocated, and the
 //! result is checked against the original bytes before the staged copy may
 //! replace the file.
+use crate::batch_errors::ErrorCause;
 use std::{
     fs,
     io::{self, Read, Seek, SeekFrom, Write},
@@ -19,11 +20,14 @@ const FREE: [&Kind; 3] = [b"free", b"skip", b"wide"];
 const FRAGMENTED: [&Kind; 5] = [b"moof", b"mfra", b"sidx", b"ssix", b"styp"];
 const COMPARE: u64 = 16;
 
-fn invalid(what: &str) -> String {
-    format!("The MP4 structure cannot be rewritten safely: {what}")
+fn invalid(cause: ErrorCause) -> ErrorCause {
+    ErrorCause::children(
+        "The MP4 structure cannot be rewritten safely: {error}",
+        [("error", cause)],
+    )
 }
-fn io_error(error: io::Error) -> String {
-    error.to_string()
+fn io_error(error: io::Error) -> ErrorCause {
+    ErrorCause::external(error)
 }
 fn be32(bytes: &[u8]) -> u32 {
     u32::from_be_bytes(bytes[..4].try_into().expect("four bytes"))
@@ -48,13 +52,15 @@ impl TopBox {
     }
 }
 
-fn top_level(file: &mut fs::File) -> Result<Vec<TopBox>, String> {
+fn top_level(file: &mut fs::File) -> Result<Vec<TopBox>, ErrorCause> {
     let len = file.metadata().map_err(io_error)?.len();
     let mut boxes = Vec::new();
     let mut at = 0;
     while at < len {
         if len - at < 8 {
-            return Err(invalid("the file ends inside a box header"));
+            return Err(invalid(ErrorCause::owned(
+                "the file ends inside a box header",
+            )));
         }
         let mut head = [0; 16];
         file.seek(SeekFrom::Start(at)).map_err(io_error)?;
@@ -69,7 +75,9 @@ fn top_level(file: &mut fs::File) -> Result<Vec<TopBox>, String> {
             size => (8, u64::from(size), false),
         };
         if size < header || size > len - at {
-            return Err(invalid("a box size does not match the file"));
+            return Err(invalid(ErrorCause::owned(
+                "a box size does not match the file",
+            )));
         }
         boxes.push(TopBox {
             kind,
@@ -221,8 +229,8 @@ impl Node {
     /// Visit every `stco`/`co64` table in document order.
     fn chunk_tables(
         &mut self,
-        visit: &mut impl FnMut(&mut Vec<u8>, bool) -> Result<(), String>,
-    ) -> Result<(), String> {
+        visit: &mut impl FnMut(&mut Vec<u8>, bool) -> Result<(), ErrorCause>,
+    ) -> Result<(), ErrorCause> {
         match &mut self.body {
             Body::Leaf(bytes) if &self.kind == b"stco" || &self.kind == b"co64" => {
                 visit(bytes, &self.kind == b"co64")
@@ -239,14 +247,17 @@ impl Node {
 }
 
 /// Every chunk offset of a `stco` (32-bit) or `co64` (64-bit) payload.
-fn table_offsets(bytes: &[u8], wide: bool) -> Result<Vec<u64>, String> {
+fn table_offsets(bytes: &[u8], wide: bool) -> Result<Vec<u64>, ErrorCause> {
     let width = if wide { 8 } else { 4 };
     let count = bytes
         .get(4..8)
         .map(be32)
-        .ok_or_else(|| invalid("a chunk offset table is truncated"))? as usize;
+        .ok_or_else(|| invalid(ErrorCause::owned("a chunk offset table is truncated")))?
+        as usize;
     if bytes.len() != 8 + count * width {
-        return Err(invalid("a chunk offset table has the wrong length"));
+        return Err(invalid(ErrorCause::owned(
+            "a chunk offset table has the wrong length",
+        )));
     }
     Ok(bytes[8..]
         .chunks_exact(width)
@@ -254,7 +265,7 @@ fn table_offsets(bytes: &[u8], wide: bool) -> Result<Vec<u64>, String> {
         .collect())
 }
 
-fn all_offsets(moov: &Node) -> Result<Vec<u64>, String> {
+fn all_offsets(moov: &Node) -> Result<Vec<u64>, ErrorCause> {
     let mut copy = moov.clone();
     let mut offsets = Vec::new();
     copy.chunk_tables(&mut |bytes, wide| {
@@ -264,14 +275,16 @@ fn all_offsets(moov: &Node) -> Result<Vec<u64>, String> {
     Ok(offsets)
 }
 
-fn read_moov(file: &mut fs::File, moov: &TopBox) -> Result<Node, String> {
+fn read_moov(file: &mut fs::File, moov: &TopBox) -> Result<Node, ErrorCause> {
     let mut payload = vec![0; (moov.end - moov.payload()) as usize];
     file.seek(SeekFrom::Start(moov.payload()))
         .map_err(io_error)?;
     file.read_exact(&mut payload).map_err(io_error)?;
     let node = parse_node(*b"moov", &payload);
     if matches!(node.body, Body::Leaf(_)) {
-        return Err(invalid("the movie box could not be read"));
+        return Err(invalid(ErrorCause::owned(
+            "the movie box could not be read",
+        )));
     }
     Ok(node)
 }
@@ -285,21 +298,35 @@ pub(crate) struct Layout {
 }
 
 pub(crate) fn read_layout(file: &mut fs::File) -> Result<Layout, String> {
+    read_layout_diagnostic(file).map_err(|error| error.to_string())
+}
+
+pub(crate) fn read_layout_diagnostic(file: &mut fs::File) -> Result<Layout, ErrorCause> {
     let top = top_level(file)?;
     if top.iter().any(|b| FRAGMENTED.contains(&&b.kind)) {
-        return Err("Fragmented MP4 files cannot be rewritten".into());
+        return Err(ErrorCause::owned(
+            "Fragmented MP4 files cannot be rewritten",
+        ));
     }
     if top.iter().any(|b| &b.kind == b"meta") {
-        return Err(invalid("a top-level meta box may hold item offsets"));
+        return Err(invalid(ErrorCause::owned(
+            "a top-level meta box may hold item offsets",
+        )));
     }
     let mut movies = top.iter().enumerate().filter(|(_, b)| &b.kind == b"moov");
     let moov = match (movies.next(), movies.next()) {
         (Some((index, _)), None) => index,
-        _ => return Err(invalid("the file needs exactly one movie box")),
+        _ => {
+            return Err(invalid(ErrorCause::owned(
+                "the file needs exactly one movie box",
+            )))
+        }
     };
     let movie = read_moov(file, &top[moov])?;
     if movie.any(&|n| &n.kind == b"iloc") {
-        return Err(invalid("item location boxes are not supported"));
+        return Err(invalid(ErrorCause::owned(
+            "item location boxes are not supported",
+        )));
     }
     Ok(Layout { top, moov, movie })
 }
@@ -348,6 +375,15 @@ pub(crate) fn write(
     reorder: bool,
     target: &mut fs::File,
 ) -> Result<(), String> {
+    write_diagnostic(source, layout, reorder, target).map_err(|error| error.to_string())
+}
+
+pub(crate) fn write_diagnostic(
+    source: &mut fs::File,
+    layout: Layout,
+    reorder: bool,
+    target: &mut fs::File,
+) -> Result<(), ErrorCause> {
     write_with(source, layout, reorder, target, None)
 }
 
@@ -357,7 +393,7 @@ fn write_with(
     reorder: bool,
     target: &mut fs::File,
     extra: Option<Extra>,
-) -> Result<(), String> {
+) -> Result<(), ErrorCause> {
     let source_len = source.metadata().map_err(io_error)?.len();
     let (data, drop) = extra.map_or((None, Vec::new()), |e| (Some(e.boxes), e.drop));
     let mut parts: Vec<Part> = Vec::new();
@@ -428,7 +464,11 @@ fn write_with(
             .iter()
             .find(|(start, end, _)| (*start..*end).contains(&offset))
             .map(|(start, _, new)| new + (offset - start))
-            .ok_or_else(|| invalid("a chunk offset points outside the media data"))
+            .ok_or_else(|| {
+                invalid(ErrorCause::owned(
+                    "a chunk offset points outside the media data",
+                ))
+            })
     };
     let mut pairs = Vec::new();
     layout.movie.chunk_tables(&mut |bytes, wide| {
@@ -440,8 +480,9 @@ fn write_with(
             if wide {
                 slot.copy_from_slice(&new.to_be_bytes());
             } else {
-                let new32 = u32::try_from(new)
-                    .map_err(|_| invalid("a 32-bit chunk offset would overflow"))?;
+                let new32 = u32::try_from(new).map_err(|_| {
+                    invalid(ErrorCause::owned("a 32-bit chunk offset would overflow"))
+                })?;
                 slot.copy_from_slice(&new32.to_be_bytes());
             }
             pairs.push((offset, new));
@@ -470,7 +511,7 @@ fn write_with(
                     let copied =
                         io::copy(&mut (&mut *source).take(length), &mut out).map_err(io_error)?;
                     if copied != length {
-                        return Err(invalid("the media data ended early"));
+                        return Err(invalid(ErrorCause::owned("the media data ended early")));
                     }
                 }
             }
@@ -486,7 +527,7 @@ fn same_bytes(
     b: &mut fs::File,
     b_at: u64,
     length: u64,
-) -> Result<bool, String> {
+) -> Result<bool, ErrorCause> {
     let (mut left, mut right) = (vec![0; 1 << 16], vec![0; 1 << 16]);
     a.seek(SeekFrom::Start(a_at)).map_err(io_error)?;
     b.seek(SeekFrom::Start(b_at)).map_err(io_error)?;
@@ -513,13 +554,14 @@ fn verify(
     length: u64,
     reorder: bool,
     data: Option<&[u8]>,
-) -> Result<(), String> {
-    let failed = || "The rewritten MP4 file did not verify; the original file was kept".to_string();
+) -> Result<(), ErrorCause> {
+    let failed =
+        || ErrorCause::owned("The rewritten MP4 file did not verify; the original file was kept");
     let source_len = source.metadata().map_err(io_error)?.len();
     if target.metadata().map_err(io_error)?.len() != length {
         return Err(failed());
     }
-    let written = read_layout(target).map_err(|_| failed())?;
+    let written = read_layout_diagnostic(target).map_err(|_| failed())?;
     let boxes = |bytes: &[u8]| parse_children(bytes).map_or(usize::MAX, |(c, _)| c.len());
     let expected: usize = parts
         .iter()
@@ -650,7 +692,7 @@ fn chapter_refs(trak: &Node) -> Vec<u32> {
         })
         .unwrap_or_default()
 }
-fn node_offsets(node: &Node) -> Result<Vec<u64>, String> {
+fn node_offsets(node: &Node) -> Result<Vec<u64>, ErrorCause> {
     all_offsets(node)
 }
 
@@ -803,33 +845,52 @@ fn text_samples(chapters: &[(u64, String)]) -> (Vec<u8>, Vec<u32>) {
 /// box and the chapter data are rewritten in place when they
 /// end the file or fit the free space after `moov`; otherwise the file is
 /// rewritten with every chunk offset relocated and verified.
+#[cfg(test)]
 pub(crate) fn write_chapters(
     file: &mut fs::File,
     staged_path: &std::path::Path,
     chapters: &[(u64, String)],
     tags: Option<&[u8]>,
 ) -> Result<(), String> {
+    write_chapters_diagnostic(file, staged_path, chapters, tags).map_err(|error| error.to_string())
+}
+
+pub(crate) fn write_chapters_diagnostic(
+    file: &mut fs::File,
+    staged_path: &std::path::Path,
+    chapters: &[(u64, String)],
+    tags: Option<&[u8]>,
+) -> Result<(), ErrorCause> {
     if chapters.is_empty() || chapters.len() > 255 {
-        return Err("MP4 files hold between 1 and 255 Nero chapters".into());
+        return Err(ErrorCause::owned(
+            "MP4 files hold between 1 and 255 Nero chapters",
+        ));
     }
     if chapters.iter().any(|(_, title)| title.len() > 255) {
-        return Err("MP4 chapter titles are limited to 255 bytes".into());
+        return Err(ErrorCause::owned(
+            "MP4 chapter titles are limited to 255 bytes",
+        ));
     }
     if chapters.windows(2).any(|w| w[1].0 <= w[0].0) {
-        return Err("MP4 chapters must start at different, increasing times".into());
+        return Err(ErrorCause::owned(
+            "MP4 chapters must start at different, increasing times",
+        ));
     }
-    let layout = read_layout(file)?;
+    let layout = read_layout_diagnostic(file)?;
     let file_len = file.metadata().map_err(io_error)?.len();
-    let header = leaf(find(&layout.movie, b"mvhd").ok_or_else(|| invalid("no movie header"))?)
-        .ok_or_else(|| invalid("no movie header"))?
-        .to_vec();
+    let header = leaf(
+        find(&layout.movie, b"mvhd")
+            .ok_or_else(|| invalid(ErrorCause::owned("no movie header")))?,
+    )
+    .ok_or_else(|| invalid(ErrorCause::owned("no movie header")))?
+    .to_vec();
     let (timescale, duration) = match header.first() {
         Some(1) if header.len() >= 32 => (be32(&header[20..]), be64(&header[24..])),
         Some(0) if header.len() >= 20 => (be32(&header[12..]), u64::from(be32(&header[16..]))),
-        _ => return Err(invalid("the movie header is malformed")),
+        _ => return Err(invalid(ErrorCause::owned("the movie header is malformed"))),
     };
     if timescale == 0 || header.len() < 4 {
-        return Err(invalid("the movie time scale is zero"));
+        return Err(invalid(ErrorCause::owned("the movie time scale is zero")));
     }
     let traks: Vec<&Node> = layout
         .movie
@@ -842,7 +903,8 @@ pub(crate) fn write_chapters(
     let mut removed = Vec::new();
     let mut max_id = 0;
     for trak in &traks {
-        let id = track_id(trak).ok_or_else(|| invalid("a track has no header"))?;
+        let id =
+            track_id(trak).ok_or_else(|| invalid(ErrorCause::owned("a track has no header")))?;
         max_id = max_id.max(id);
         if referenced.contains(&id) {
             removed.extend(node_offsets(trak)?);
@@ -852,14 +914,16 @@ pub(crate) fn write_chapters(
     }
     let next_id = be32(&header[header.len() - 4..]).max(max_id + 1);
     if next_id == u32::MAX {
-        return Err(invalid("no track ID is left for the chapter track"));
+        return Err(invalid(ErrorCause::owned(
+            "no track ID is left for the chapter track",
+        )));
     }
 
     // The movie without the old chapters, with the new Nero box and references.
     let mut base = layout.movie.clone();
     let children = base
         .children_mut()
-        .ok_or_else(|| invalid("the movie box could not be read"))?;
+        .ok_or_else(|| invalid(ErrorCause::owned("the movie box could not be read")))?;
     children.retain(|c| {
         !(&c.kind == b"trak" && track_id(c).is_some_and(|id| referenced.contains(&id)))
     });
@@ -889,7 +953,7 @@ pub(crate) fn write_chapters(
         match parts.iter_mut().find(|c| &c.kind == b"tref") {
             Some(tref) => tref
                 .children_mut()
-                .ok_or_else(|| invalid("a track reference box is malformed"))?
+                .ok_or_else(|| invalid(ErrorCause::owned("a track reference box is malformed")))?
                 .push(chap),
             None => {
                 let at = parts
@@ -911,7 +975,9 @@ pub(crate) fn write_chapters(
         }
     }
     if referencing == 0 {
-        return Err("The MP4 file has no audio or video track for chapters".into());
+        return Err(ErrorCause::owned(
+            "The MP4 file has no audio or video track for chapters",
+        ));
     }
     for node in children.iter_mut() {
         if &node.kind == b"mvhd" {
@@ -937,7 +1003,7 @@ pub(crate) fn write_chapters(
     match children.iter_mut().find(|c| &c.kind == b"udta") {
         Some(udta) => udta
             .children_mut()
-            .ok_or_else(|| invalid("the user data box is malformed"))?
+            .ok_or_else(|| invalid(ErrorCause::owned("the user data box is malformed")))?
             .extend(nero),
         None => children.push(Node {
             kind: *b"udta",
@@ -1023,14 +1089,17 @@ pub(crate) fn write_chapters(
         crate::write_cost::rewrote_region(bytes.len() as u64);
         file.sync_all().map_err(io_error)?;
         // Every other chunk offset is unchanged and the samples are in place.
-        let written = read_layout(file).map_err(|_| invalid("the rewritten movie box"))?;
+        let written = read_layout_diagnostic(file)
+            .map_err(|_| invalid(ErrorCause::owned("the rewritten movie box")))?;
         let mut expected = kept.clone();
         expected.push(offset);
         let mut sample = vec![0; data.len()];
         file.seek(SeekFrom::Start(offset)).map_err(io_error)?;
         file.read_exact(&mut sample).map_err(io_error)?;
         if all_offsets(&written.movie)? != expected || sample != data {
-            return Err("The MP4 chapters did not verify; the original file was kept".into());
+            return Err(ErrorCause::owned(
+                "The MP4 chapters did not verify; the original file was kept",
+            ));
         }
         return Ok(());
     }
@@ -1039,8 +1108,9 @@ pub(crate) fn write_chapters(
     crate::write_cost::rewrote_all();
     let directory = staged_path
         .parent()
-        .ok_or_else(|| invalid("the staged file has no folder"))?;
-    let copy = crate::tags::staging_copy(staged_path, directory, ".opentag-chapters-", "")?;
+        .ok_or_else(|| invalid(ErrorCause::owned("the staged file has no folder")))?;
+    let copy = crate::tags::staging_copy(staged_path, directory, ".opentag-chapters-", "")
+        .map_err(ErrorCause::external)?;
     let mut source = copy.reopen().map_err(io_error)?;
     let wide = file_len + need + 2 * CHAPTER_PADDING > u64::from(u32::MAX);
     let mut boxes = mdat(0);
@@ -1069,6 +1139,57 @@ pub(crate) fn write_chapters(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn mp4_layout_diagnostic_retains_owned_structure_cause_and_real_io() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("Help {error}; Title.mp4");
+        fs::write(&path, [0u8; 4]).unwrap();
+        let mut file = fs::File::open(&path).unwrap();
+        let error = read_layout_diagnostic(&mut file).unwrap_err();
+        assert_eq!(error.to_string(), read_layout(&mut file).unwrap_err());
+        let data = serde_json::to_value(error).unwrap();
+        assert_eq!(data["kind"], "owned");
+        assert_eq!(
+            data["key"],
+            "The MP4 structure cannot be rewritten safely: {error}"
+        );
+        assert_eq!(data["children"]["error"]["kind"], "owned");
+        assert_eq!(
+            data["children"]["error"]["key"],
+            "the file ends inside a box header"
+        );
+
+        let mut write_only = fs::File::create(&path).unwrap();
+        write_only.write_all(&[0u8; 16]).unwrap();
+        let error = read_layout_diagnostic(&mut write_only).unwrap_err();
+        assert_eq!(error.to_string(), read_layout(&mut write_only).unwrap_err());
+        assert_eq!(serde_json::to_value(error).unwrap()["kind"], "external");
+    }
+
+    #[test]
+    fn mp4_chapter_list_diagnostic_guard_keeps_bytes_and_legacy_message() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("Help {error}.mp4");
+        fs::write(&path, b"original bytes").unwrap();
+        let mut file = fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(&path)
+            .unwrap();
+        let error = write_chapters_diagnostic(&mut file, &path, &[], None).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            write_chapters(&mut file, &path, &[], None).unwrap_err()
+        );
+        let data = serde_json::to_value(error).unwrap();
+        assert_eq!(data["kind"], "owned");
+        assert_eq!(
+            data["key"],
+            "MP4 files hold between 1 and 255 Nero chapters"
+        );
+        assert_eq!(fs::read(&path).unwrap(), b"original bytes");
+    }
 
     fn boxed(kind: &[u8; 4], body: &[u8]) -> Vec<u8> {
         let mut out = ((body.len() + 8) as u32).to_be_bytes().to_vec();

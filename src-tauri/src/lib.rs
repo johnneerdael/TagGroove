@@ -179,12 +179,22 @@ async fn import_action_groups(
     })
     .await
 }
+#[cfg(test)]
 #[tauri::command]
 async fn execute_action_groups(
     paths: Vec<String>,
     groups: Vec<tag_core::actions::ActionGroup>,
     columns: Option<Vec<evaluation::ColumnSpec>>,
 ) -> Result<action_host::ActionResult, String> {
+    execute_action_groups_diagnostic(paths, groups, columns)
+        .await
+        .map(|report| report.result)
+}
+async fn execute_action_groups_diagnostic(
+    paths: Vec<String>,
+    groups: Vec<tag_core::actions::ActionGroup>,
+    columns: Option<Vec<evaluation::ColumnSpec>>,
+) -> Result<tag_core::batch_errors::Detailed<action_host::ActionResult>, String> {
     let settings = evaluation_settings(columns)?;
     io(move || {
         reject_provider_operation(&paths, "Action groups")?;
@@ -192,8 +202,8 @@ async fn execute_action_groups(
             [group] => format!("Action {}", group.name),
             ref enabled => format!("Actions ({} groups)", enabled.len()),
         };
-        history::record_with_side_file_epochs(&label, None, &paths, |before_replace| {
-            Ok(action_host::execute_with_side_file_epochs(
+        history::record_with_side_file_epochs_diagnostic(&label, None, &paths, |before_replace| {
+            Ok(action_host::execute_with_side_file_epochs_diagnostic(
                 &paths,
                 &groups,
                 settings,
@@ -939,11 +949,20 @@ async fn filename_to_tags(paths: Vec<String>, pattern: String) -> Result<Filenam
     .await
 }
 
+#[cfg(test)]
 #[tauri::command]
 async fn apply_action(
     paths: Vec<String>,
     action: Action,
 ) -> Result<action_host::ActionResult, String> {
+    apply_action_diagnostic(paths, action)
+        .await
+        .map(|report| report.result)
+}
+async fn apply_action_diagnostic(
+    paths: Vec<String>,
+    action: Action,
+) -> Result<tag_core::batch_errors::Detailed<action_host::ActionResult>, String> {
     let settings = evaluation_settings(None)?;
     let group = tag_core::actions::ActionGroup {
         name: "Quick action".into(),
@@ -952,14 +971,19 @@ async fn apply_action(
     };
     io(move || {
         reject_provider_operation(&paths, "Actions")?;
-        history::record_with_side_file_epochs("Quick action", None, &paths, |before_replace| {
-            Ok(action_host::execute_with_side_file_epochs(
-                &paths,
-                &[group],
-                settings,
-                before_replace,
-            ))
-        })
+        history::record_with_side_file_epochs_diagnostic(
+            "Quick action",
+            None,
+            &paths,
+            |before_replace| {
+                Ok(action_host::execute_with_side_file_epochs_diagnostic(
+                    &paths,
+                    &[group],
+                    settings,
+                    before_replace,
+                ))
+            },
+        )
     })
     .await
 }
@@ -1062,21 +1086,57 @@ struct RenameResult {
     renamed: Vec<Renamed>,
 }
 
+#[cfg(test)]
 #[tauri::command]
 async fn rename_files(
     paths: Vec<String>,
     template: String,
     plan_token: Option<String>,
 ) -> Result<RenameResult, String> {
+    rename_files_diagnostic(paths, template, plan_token)
+        .await
+        .map(|report| report.result)
+}
+async fn rename_files_diagnostic(
+    paths: Vec<String>,
+    template: String,
+    plan_token: Option<String>,
+) -> Result<tag_core::batch_errors::Detailed<RenameResult>, String> {
     let evaluation = evaluation_settings(None)?;
     let targets = paths.clone();
     io(move || {
         reject_provider_operation(&paths, "Rename")?;
         history::record("Tag → Filename", None, &targets, move || {
-            rename_planned(paths, &template, plan_token, &evaluation)
+            rename_planned_diagnostic(paths, &template, plan_token, &evaluation)
         })
     })
     .await
+}
+
+mod diagnostics_ipc {
+    #[tauri::command(rename = "execute_action_groups")]
+    pub async fn execute_action_groups_with_diagnostics(
+        paths: Vec<String>,
+        groups: Vec<tag_core::actions::ActionGroup>,
+        columns: Option<Vec<crate::evaluation::ColumnSpec>>,
+    ) -> Result<tag_core::batch_errors::Detailed<crate::action_host::ActionResult>, String> {
+        super::execute_action_groups_diagnostic(paths, groups, columns).await
+    }
+    #[tauri::command(rename = "apply_action")]
+    pub async fn apply_action_with_diagnostics(
+        paths: Vec<String>,
+        action: tag_core::Action,
+    ) -> Result<tag_core::batch_errors::Detailed<crate::action_host::ActionResult>, String> {
+        super::apply_action_diagnostic(paths, action).await
+    }
+    #[tauri::command(rename = "rename_files")]
+    pub async fn rename_files_with_diagnostics(
+        paths: Vec<String>,
+        template: String,
+        plan_token: Option<String>,
+    ) -> Result<tag_core::batch_errors::Detailed<super::RenameResult>, String> {
+        super::rename_files_diagnostic(paths, template, plan_token).await
+    }
 }
 
 /// Destinations compare case-insensitively where volumes usually are.
@@ -1089,13 +1149,23 @@ fn rename_key(path: &Path) -> String {
     }
 }
 
+#[cfg(test)]
 fn rename_planned(
     paths: Vec<String>,
     template: &str,
     plan_token: Option<String>,
     evaluation: &evaluation::EvaluationSettings,
 ) -> Result<RenameResult, String> {
+    rename_planned_diagnostic(paths, template, plan_token, evaluation).map(|report| report.result)
+}
+fn rename_planned_diagnostic(
+    paths: Vec<String>,
+    template: &str,
+    plan_token: Option<String>,
+    evaluation: &evaluation::EvaluationSettings,
+) -> Result<tag_core::batch_errors::Detailed<RenameResult>, String> {
     {
+        let mut diagnostics = Vec::new();
         let mut result = ScanResult {
             entries: vec![],
             errors: vec![],
@@ -1131,13 +1201,14 @@ fn rename_planned(
                 {
                     plans.push((path, target))
                 }
-                Ok(target) => result.errors.push(FileError {
+                Ok(target) => tag_core::batch_errors::push_error(
+                    &mut result.errors,
+                    &mut diagnostics,
                     path,
-                    error: format!(
-                        "Destination exists or another file maps to {}",
-                        target.display()
-                    ),
-                }),
+                    tag_core::batch_errors::BatchError::DestinationCollision {
+                        path: target.to_string_lossy().into_owned(),
+                    },
+                ),
                 Err(error) => result.errors.push(FileError { path, error }),
             }
         }
@@ -1165,7 +1236,10 @@ fn rename_planned(
                 Err(error) => result.errors.push(FileError { path, error }),
             }
         }
-        Ok(RenameResult { result, renamed })
+        Ok(tag_core::batch_errors::Detailed {
+            result: RenameResult { result, renamed },
+            error_diagnostics: diagnostics,
+        })
     }
 }
 
@@ -1296,7 +1370,7 @@ pub fn run() {
             save_action_library,
             import_action_group,
             import_action_groups,
-            execute_action_groups,
+            diagnostics_ipc::execute_action_groups_with_diagnostics,
             action_host::export_action_group,
             runtime_platform,
             set_working_directory,
@@ -1329,18 +1403,18 @@ pub fn run() {
             preview_filename,
             preview_rename,
             filename_to_tags,
-            apply_action,
-            rename_files,
+            diagnostics_ipc::apply_action_with_diagnostics,
+            diagnostics_ipc::rename_files_with_diagnostics,
             converters::preview_filename_conversion,
             converters::apply_filename_conversion,
             converters::preview_text_import,
             converters::apply_text_import,
             history::history_state,
-            history::undo_last,
-            history::redo_last,
-            history::convert_tag_to_tag,
+            history::ipc::undo_last_with_diagnostics,
+            history::ipc::redo_last_with_diagnostics,
+            history::ipc::convert_tag_to_tag_with_diagnostics,
             export_csv,
-            playlists::read_playlist,
+            playlists::ipc::read_playlist_with_diagnostics,
             playlists::plan_playlists,
             playlists::create_playlists,
             file_ops::load_directory_state,
@@ -1377,7 +1451,7 @@ pub fn run() {
             sources::tag_source_cancel,
             sources::local_freedb_index_status,
             sources::build_local_freedb_index,
-            sources::tag_source_apply,
+            sources::ipc::tag_source_apply_with_diagnostics,
             sources::tag_source_open_page,
             sources::tag_source_save_cover,
             sources::load_tag_source_settings,
@@ -2006,6 +2080,49 @@ mod tests {
             .entries
             .iter()
             .any(|entry| entry.path == session.path));
+    }
+
+    #[test]
+    fn diagnostic_rename_collision_preserves_legacy_english_paths_and_file_bytes() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
+        let source = root.join("Help.wav");
+        let target = root.join("Title; Help.wav");
+        wav(&source);
+        wav(&target);
+        let mut target_bytes = std::fs::read(&target).unwrap();
+        target_bytes[44] = 99;
+        std::fs::write(&target, &target_bytes).unwrap();
+        let source_bytes = std::fs::read(&source).unwrap();
+        let paths = vec![source.to_string_lossy().into_owned()];
+        let template = "'Title; Help'".to_string();
+        let report = tauri::async_runtime::block_on(
+            diagnostics_ipc::rename_files_with_diagnostics(paths.clone(), template.clone(), None),
+        )
+        .unwrap();
+        assert_eq!(report.result.result.errors.len(), 1);
+        assert_eq!(report.error_diagnostics.len(), 1);
+        assert_eq!(report.error_diagnostics[0].index, 0);
+        assert_eq!(
+            report.result.result.errors[0].error,
+            report.error_diagnostics[0].diagnostic.to_string()
+        );
+        let wire = serde_json::to_value(&report).unwrap();
+        assert_eq!(
+            wire["error_diagnostics"][0]["diagnostic"]["kind"],
+            "destination_collision"
+        );
+        assert_eq!(
+            wire["error_diagnostics"][0]["diagnostic"]["path"],
+            target.to_string_lossy().as_ref()
+        );
+        let legacy = tauri::async_runtime::block_on(rename_files(paths, template, None)).unwrap();
+        assert_eq!(
+            legacy.result.errors[0].error,
+            report.result.result.errors[0].error
+        );
+        assert_eq!(std::fs::read(source).unwrap(), source_bytes);
+        assert_eq!(std::fs::read(target).unwrap(), target_bytes);
     }
 
     #[test]

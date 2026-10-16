@@ -5,6 +5,7 @@
 //! local paths in playlist order. Writing renders `.m3u`/`.m3u8` (optionally
 //! with `#EXTINF` extended info) and `.pls` playlists.
 
+use crate::batch_errors::{BatchError, Detailed, ErrorCause, IndexedDiagnostic};
 use std::path::{Path, PathBuf};
 
 /// File extensions that are loaded as playlists or cue sheets.
@@ -195,16 +196,31 @@ fn is_windows_absolute(value: &str) -> bool {
 /// `file://` URLs are percent-decoded; on other systems than Windows,
 /// backslash separators of Windows playlists are also tried as `/`.
 pub fn entry_candidates(location: &str, playlist_directory: &Path) -> Result<Vec<PathBuf>, String> {
+    entry_candidates_diagnostic(location, playlist_directory).map_err(|error| error.to_string())
+}
+
+pub(crate) fn entry_candidates_diagnostic(
+    location: &str,
+    playlist_directory: &Path,
+) -> Result<Vec<PathBuf>, ErrorCause> {
     let location = location.trim();
     if let Some(scheme) = url_scheme(location) {
         if !scheme.eq_ignore_ascii_case("file") {
-            return Err(format!(
-                "{location}: only local files can be loaded, not {scheme} URLs"
+            return Err(ErrorCause::message(
+                "{location}: only local files can be loaded, not {scheme} URLs",
+                [
+                    ("location", location.to_owned()),
+                    ("scheme", scheme.to_owned()),
+                ],
             ));
         }
         let rest = &location[scheme.len() + 3..];
-        let decoded =
-            percent_decode(rest).ok_or_else(|| format!("{location}: invalid file URL"))?;
+        let decoded = percent_decode(rest).ok_or_else(|| {
+            ErrorCause::message(
+                "{location}: invalid file URL",
+                [("location", location.to_owned())],
+            )
+        })?;
         let path = if let Some(local) = decoded.strip_prefix("localhost/") {
             format!("/{local}")
         } else if decoded.starts_with('/') {
@@ -289,20 +305,42 @@ pub fn resolve_entries(
     playlist_directory: &Path,
     exists: impl Fn(&Path) -> bool,
 ) -> LoadedPlaylist {
-    let mut loaded = LoadedPlaylist::default();
+    resolve_entries_diagnostic(entries, playlist_directory, exists).result
+}
+
+fn push_missing(report: &mut Detailed<LoadedPlaylist>, line: usize, cause: ErrorCause) {
+    let error = cause.to_string();
+    report.error_diagnostics.push(IndexedDiagnostic {
+        index: report.result.missing.len(),
+        diagnostic: BatchError::PlaylistLine { line, cause },
+    });
+    report.result.missing.push((line, error));
+}
+
+fn resolve_entries_diagnostic(
+    entries: &[RawEntry],
+    playlist_directory: &Path,
+    exists: impl Fn(&Path) -> bool,
+) -> Detailed<LoadedPlaylist> {
+    let mut loaded = Detailed::plain(LoadedPlaylist::default());
     for entry in entries {
-        match entry_candidates(&entry.location, playlist_directory) {
+        match entry_candidates_diagnostic(&entry.location, playlist_directory) {
             Ok(candidates) => match candidates.iter().find(|path| exists(path)) {
                 Some(path) => {
-                    if !loaded.files.contains(path) {
-                        loaded.files.push(path.clone());
+                    if !loaded.result.files.contains(path) {
+                        loaded.result.files.push(path.clone());
                     }
                 }
-                None => loaded
-                    .missing
-                    .push((entry.line, format!("{}: file not found", entry.location))),
+                None => push_missing(
+                    &mut loaded,
+                    entry.line,
+                    ErrorCause::message(
+                        "{location}: file not found",
+                        [("location", entry.location.clone())],
+                    ),
+                ),
             },
-            Err(error) => loaded.missing.push((entry.line, error)),
+            Err(error) => push_missing(&mut loaded, entry.line, error),
         }
     }
     loaded
@@ -310,16 +348,25 @@ pub fn resolve_entries(
 
 /// Read a playlist or cue sheet file from disk.
 pub fn load_playlist(path: &Path, ansi_codepage: Option<&str>) -> Result<LoadedPlaylist, String> {
+    load_playlist_diagnostic(path, ansi_codepage).map(|report| report.result)
+}
+
+/// Read a playlist with owned presentation data indexed by `result.missing`.
+/// The legacy result, entry order, duplicate handling and English strings are retained.
+pub fn load_playlist_diagnostic(
+    path: &Path,
+    ansi_codepage: Option<&str>,
+) -> Result<Detailed<LoadedPlaylist>, String> {
     let kind = playlist_kind(path)
         .ok_or_else(|| format!("{} is not a playlist or cue sheet", path.display()))?;
     let bytes = std::fs::read(path).map_err(|e| format!("{}: {e}", path.display()))?;
     if kind == PlaylistKind::Cue {
         crate::cue::set_ansi_codepage(ansi_codepage.map(str::to_owned));
-        return Ok(load_cue(path, &crate::cue::decode(&bytes).0));
+        return Ok(load_cue_diagnostic(path, &crate::cue::decode(&bytes).0));
     }
     let text = decode_playlist(&bytes, kind, ansi_codepage);
     let directory = path.parent().unwrap_or(Path::new("."));
-    Ok(resolve_entries(
+    Ok(resolve_entries_diagnostic(
         &parse_entries(&text, kind),
         directory,
         |p| p.exists(),
@@ -330,37 +377,49 @@ pub fn load_playlist(path: &Path, ansi_codepage: Option<&str>) -> Result<LoadedP
 /// (a row path of the cue sheet, see [`crate::subsong_path`]), numbered in
 /// sheet order. As in Mp3tag, a sheet with one track per FILE also lists its
 /// tracks rather than the files, and its rows edit the sheet.
-fn load_cue(path: &Path, text: &str) -> LoadedPlaylist {
+fn load_cue_diagnostic(path: &Path, text: &str) -> Detailed<LoadedPlaylist> {
     let sheet = crate::cue::CueSheet::parse(text);
     let directory = path.parent().unwrap_or(Path::new("."));
-    let mut loaded = LoadedPlaylist::default();
+    let mut loaded = Detailed::plain(LoadedPlaylist::default());
     for (number, index) in sheet.subsongs().into_iter().enumerate() {
         let track = &sheet.tracks[index];
         let line = track.line() + 1;
         let Some(location) = track.file.as_deref() else {
-            loaded
-                .missing
-                .push((line, "The track has no FILE line".to_string()));
+            push_missing(
+                &mut loaded,
+                line,
+                ErrorCause::owned("The track has no FILE line"),
+            );
             continue;
         };
-        let audio = match entry_candidates(location, directory) {
+        let audio = match entry_candidates_diagnostic(location, directory) {
             Ok(candidates) => candidates.into_iter().find(|p| p.is_file()),
             Err(error) => {
-                loaded.missing.push((line, error));
+                push_missing(&mut loaded, line, error);
                 continue;
             }
         };
         if audio.is_none() {
-            if !loaded.missing.iter().any(|(_, m)| m.starts_with(location)) {
-                loaded
-                    .missing
-                    .push((line, format!("{location}: file not found")));
+            if !loaded
+                .result
+                .missing
+                .iter()
+                .any(|(_, m)| m.starts_with(location))
+            {
+                push_missing(
+                    &mut loaded,
+                    line,
+                    ErrorCause::message(
+                        "{location}: file not found",
+                        [("location", location.to_owned())],
+                    ),
+                );
             }
             continue;
         }
         let entry = PathBuf::from(crate::subsong_path(&path.to_string_lossy(), number + 1));
-        if !loaded.files.contains(&entry) {
-            loaded.files.push(entry);
+        if !loaded.result.files.contains(&entry) {
+            loaded.result.files.push(entry);
         }
     }
     loaded
@@ -520,6 +579,105 @@ mod tests {
         assert_eq!(
             entry_candidates("Title://song", Path::new(".")).unwrap_err(),
             "Title://song: only local files can be loaded, not Title URLs"
+        );
+    }
+
+    #[test]
+    fn playlist_diagnostics_preserve_missing_order_and_authored_parts() {
+        let directory = tempfile::tempdir().unwrap();
+        std::fs::write(directory.path().join("existing.mp3"), b"x").unwrap();
+        let missing = "Help {error}: Title; missing.mp3";
+        let remote = "Title://Help/{error}: raw";
+        let invalid = "file:///Help%ZZ{error}";
+        let path = directory.path().join("practice.m3u8");
+        std::fs::write(
+            &path,
+            format!(
+                "#EXTM3U\r\nexisting.mp3\r\n{missing}\r\n{remote}\r\n{invalid}\r\nexisting.mp3\r\n"
+            ),
+        )
+        .unwrap();
+        let legacy = load_playlist(&path, None).unwrap();
+        assert_eq!(legacy.files, [directory.path().join("existing.mp3")]);
+        assert_eq!(
+            legacy.missing,
+            [
+                (3, format!("{missing}: file not found")),
+                (
+                    4,
+                    format!("{remote}: only local files can be loaded, not Title URLs")
+                ),
+                (5, format!("{invalid}: invalid file URL")),
+            ]
+        );
+        let report = load_playlist_diagnostic(&path, None).unwrap();
+        assert_eq!(report.result, legacy);
+        assert_eq!(report.error_diagnostics.len(), 3);
+        let details = serde_json::to_value(&report.error_diagnostics).unwrap();
+        for (at, (line, error)) in legacy.missing.iter().enumerate() {
+            assert_eq!(details[at]["index"], at);
+            assert_eq!(details[at]["diagnostic"]["kind"], "playlist_line");
+            assert_eq!(details[at]["diagnostic"]["line"], *line);
+            assert_eq!(
+                report.error_diagnostics[at].diagnostic.to_string(),
+                format!("Line {line}: {error}")
+            );
+        }
+        assert_eq!(details[0]["diagnostic"]["cause"]["kind"], "owned");
+        assert_eq!(
+            details[0]["diagnostic"]["cause"]["params"]["location"],
+            missing
+        );
+        assert_eq!(
+            details[1]["diagnostic"]["cause"]["params"]["location"],
+            remote
+        );
+        assert_eq!(
+            details[1]["diagnostic"]["cause"]["params"]["scheme"],
+            "Title"
+        );
+        assert_eq!(
+            details[2]["diagnostic"]["cause"]["params"]["location"],
+            invalid
+        );
+    }
+
+    #[test]
+    fn playlist_diagnostics_keep_cue_missing_file_and_duplicate_behavior() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("practice.cue");
+        std::fs::write(
+            &path,
+            "TRACK 01 AUDIO\n  INDEX 01 00:00:00\nFILE \"Help {error}.flac\" WAVE\n  TRACK 02 AUDIO\n    INDEX 01 00:00:00\n  TRACK 03 AUDIO\n    INDEX 01 00:01:00\n",
+        )
+        .unwrap();
+        let legacy = load_playlist(&path, None).unwrap();
+        assert!(legacy.files.is_empty());
+        assert_eq!(
+            legacy.missing,
+            [
+                (1, "The track has no FILE line".into()),
+                (3, "Help {error}.flac: file not found".into())
+            ]
+        );
+        let report = load_playlist_diagnostic(&path, None).unwrap();
+        assert_eq!(report.result, legacy);
+        assert_eq!(report.error_diagnostics.len(), 2);
+        for (at, (line, error)) in legacy.missing.iter().enumerate() {
+            assert_eq!(report.error_diagnostics[at].index, at);
+            assert_eq!(
+                report.error_diagnostics[at].diagnostic.to_string(),
+                format!("Line {line}: {error}")
+            );
+        }
+        let details = serde_json::to_value(&report.error_diagnostics).unwrap();
+        assert_eq!(
+            details[0]["diagnostic"]["cause"]["key"],
+            "The track has no FILE line"
+        );
+        assert_eq!(
+            details[1]["diagnostic"]["cause"]["params"]["location"],
+            "Help {error}.flac"
         );
     }
 

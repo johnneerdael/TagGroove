@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, path::Path};
+use tag_core::batch_errors::ErrorCause;
 use tag_core::{AudioEntry, EvalContext, Fields, ScriptColumn};
 use tauri::Manager;
 
@@ -124,6 +125,17 @@ impl EvaluationSettings {
         identity: &str,
         use_snapshot: bool,
     ) -> Result<Vec<ScriptColumn>, String> {
+        self.column_values_diagnostic(fields, raw, identity, use_snapshot)
+            .map_err(|error| error.to_string())
+    }
+
+    pub(crate) fn column_values_diagnostic(
+        &self,
+        fields: &Fields,
+        raw: &Fields,
+        identity: &str,
+        use_snapshot: bool,
+    ) -> Result<Vec<ScriptColumn>, ErrorCause> {
         if self.columns.is_empty() {
             return Ok(default_columns(fields, raw));
         }
@@ -137,10 +149,9 @@ impl EvaluationSettings {
                 };
                 let value = match value {
                     Some(value) => value,
-                    None => tag_core::evaluate_with_context(
-                        &column.template,
-                        &self.context(fields, raw, None),
-                    )?,
+                    None => tag_core::CompiledTemplate::compile(&column.template)
+                        .map_err(ErrorCause::owned_text)?
+                        .evaluate_with_context_diagnostic(&self.context(fields, raw, None))?,
                 };
                 Ok(ScriptColumn {
                     name: column.name.clone(),
@@ -215,17 +226,87 @@ impl EvaluationSettings {
         use_snapshot: bool,
         mode: EvaluationMode,
     ) -> Result<String, String> {
+        self.evaluate_mode_diagnostic(template, raw, technical, identity, use_snapshot, mode)
+            .map_err(|error| error.to_string())
+    }
+
+    pub(crate) fn evaluate_diagnostic(
+        &self,
+        template: &str,
+        raw: &Fields,
+        technical: &Fields,
+        identity: &str,
+        use_snapshot: bool,
+    ) -> Result<String, ErrorCause> {
+        self.evaluate_mode_diagnostic(
+            template,
+            raw,
+            technical,
+            identity,
+            use_snapshot,
+            EvaluationMode::Text,
+        )
+    }
+
+    pub(crate) fn evaluate_filename_diagnostic(
+        &self,
+        template: &str,
+        raw: &Fields,
+        technical: &Fields,
+        identity: &str,
+        use_snapshot: bool,
+    ) -> Result<String, ErrorCause> {
+        self.evaluate_mode_diagnostic(
+            template,
+            raw,
+            technical,
+            identity,
+            use_snapshot,
+            EvaluationMode::Filename,
+        )
+    }
+
+    pub(crate) fn evaluate_native_filename_diagnostic(
+        &self,
+        template: &str,
+        raw: &Fields,
+        technical: &Fields,
+        identity: &str,
+        use_snapshot: bool,
+    ) -> Result<String, ErrorCause> {
+        self.evaluate_mode_diagnostic(
+            template,
+            raw,
+            technical,
+            identity,
+            use_snapshot,
+            EvaluationMode::NativeFilename,
+        )
+    }
+
+    fn evaluate_mode_diagnostic(
+        &self,
+        template: &str,
+        raw: &Fields,
+        technical: &Fields,
+        identity: &str,
+        use_snapshot: bool,
+        mode: EvaluationMode,
+    ) -> Result<String, ErrorCause> {
         let mut fields = raw.clone();
         fields.extend(technical.clone());
-        let columns = self.column_values(&fields, raw, identity, use_snapshot)?;
+        let columns = self.column_values_diagnostic(&fields, raw, identity, use_snapshot)?;
         let context = self.context(&fields, raw, Some(&columns));
+        let compiled =
+            tag_core::CompiledTemplate::compile(template).map_err(ErrorCause::owned_text)?;
         match mode {
-            EvaluationMode::Text => tag_core::evaluate_with_context(template, &context),
+            EvaluationMode::Text => compiled.evaluate_with_context_diagnostic(&context),
             EvaluationMode::Filename => {
-                tag_core::evaluate_filename_with_context(template, &context)
+                compiled.evaluate_filename_with_context_diagnostic(&context)
             }
-            EvaluationMode::NativeFilename => tag_core::CompiledTemplate::compile(template)?
-                .evaluate_filename_path_with_context(&context),
+            EvaluationMode::NativeFilename => {
+                compiled.evaluate_filename_path_with_context_diagnostic(&context)
+            }
         }
     }
 

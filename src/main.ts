@@ -4,6 +4,7 @@ import { buildFilterFields } from './filter-fields';
 import { documentSelection, refreshDocumentAccess, copyRequest, copyOutcome, reconcileDrafts, sourcePresentation, publicDocumentMessage, type DocumentAccess, type DocumentState } from './document-state';
 import { converterValidator, createConverterInputTracker, createConverterReview, type FilenameConversionRequest, type TextImportRequest, type FilenameConversionItem, type TextImportItem, type ConverterPreview } from './converter-review';
 import { converterRollbackError, converterRollbackText, type ConverterRollback } from './converter-errors';
+import { normalizeBatchDiagnostics,fileErrorText,showFileError,clearFileError,BatchFailure,type PresentedFileError } from './batch-errors';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getVersion } from '@tauri-apps/api/app';
@@ -77,16 +78,18 @@ const perfSink=()=>(window as Window&{__OPENTAG_TIMINGS__?:PerfRecord[]}).__OPEN
 // Native UI suites (tests/e2e) create this object to answer the cover image file dialog, which cannot be driven headless; normal runs never do.
 type DialogSeam={requests:{title:string;defaultPath?:string}[];answers:(string|null)[]};
 const dialogSeam=()=>(window as Window&{__OPENTAG_E2E_DIALOGS__?:DialogSeam}).__OPENTAG_E2E_DIALOGS__;
+const DIAGNOSTIC_COMMANDS=new Set(['execute_action_groups','apply_action','undo_last','redo_last','rename_files','read_playlist','tag_source_apply','convert_tag_to_tag']);
 function invoke<T>(command:string,args?:InvokeArgs):Promise<T>{
-  const sink=perfSink();if(!sink)return coreInvoke<T>(command,args);
+  const normalized=(result:T)=>normalizeBatchDiagnostics(result,DIAGNOSTIC_COMMANDS.has(command));
+  const sink=perfSink();if(!sink)return coreInvoke<T>(command,args).then(normalized);
   const record:PerfRecord={name:`ipc ${command}`,at:performance.now(),ms:0,pending:true,in:JSON.stringify(args??{}).length};sink.push(record);
-  return coreInvoke<T>(command,args).then(result=>{record.out=JSON.stringify(result??null)?.length??0;return result;}).finally(()=>{record.ms=performance.now()-record.at;record.pending=false;});
+  return coreInvoke<T>(command,args).then(result=>{record.out=JSON.stringify(result??null)?.length??0;return normalized(result);}).finally(()=>{record.ms=performance.now()-record.at;record.pending=false;});
 }
 type Fields = Record<string, string[]>;
 type Cover = CoverInfo;
 type Entry = { path: string; filename: string; format: string; duration: number; bitrate: number; sample_rate: number; channels: number; size: number; fields: Fields; technical?: Fields; covers: Cover[] };
 /** UI-owned labels are explicit; unmarked backend and directory paths remain data. */
-type FileError = { path: string; error: string; label?: string; rollback?:ConverterRollback };
+type FileError = PresentedFileError & { label?: string };
 type Batch = { entries: Entry[]; errors: FileError[]; renamed?: { from: string; to: string }[]; moved_directories?: {from:string;to:string}[]; outputs?: string[]; unmatched?: string[] };
 type Preview = { path: string; value: string };
 type RenamePreview = Preview & {plan_token:string};
@@ -217,7 +220,7 @@ try{filterShown=localStorage.getItem('opentag.filter-shown')!=='false';}catch{/*
 let toolbarConfig:ToolbarConfig=normalizeToolbar(undefined);
 // View → Toolbars → Custom toolbar: commands, tools and action groups the user adds (pages['custom-toolbar']).
 let customToolbar:ToolbarConfig=normalizeCustomToolbar(undefined);
-const actionUI=new ActionUI({
+const actionUI=new ActionUI({batchError:error=>error instanceof BatchFailure?error.text(t,translate):undefined,onLanguageChange,
   translateNow,
   load:()=>invoke<ActionLibrary>('load_action_library'),
   save:library=>invoke<void>('save_action_library',{library}),
@@ -247,7 +250,7 @@ const exportUI=new ExportUI({
       await invoke('save_export_library',{library});
       const batch=await invoke<Batch>('run_export',{paths:targets,columns,perDirectory});errors=batch.errors;status=batch.errors.length?'Export incomplete. Review the file errors.':`Exported metadata for ${batch.entries.length} files${batch.outputs&&batch.outputs.length>1?` to ${batch.outputs.length} files`:''}`;return batch;
     });
-    if(!result||result.errors.length)throw new Error(result?.errors.map(e=>`${e.path}: ${e.error}`).join('\n')||errors.map(e=>e.error).join('\n')||'Export did not complete.');
+    if(!result||result.errors.length)throw new BatchFailure(result?.errors.length?result.errors:errors,'Export did not complete.',{paths:!!result?.errors.length});
     // The Export dialog closes first; the offer to open a written file follows.
     void offerOpen(result.outputs??[]);
   },
@@ -308,7 +311,7 @@ const extendedTags=new ExtendedTags({
   modal:(title,content,buttons)=>modal(title,content,buttons),modalError:(dialog,error)=>modalError(dialog,error),
   done:staged=>{const pending=staged.filter(path=>drafts.has(path)).length;if(pending)status=`Extended tag changes for ${pending} file${pending===1?'':'s'} are pending. Save tags to write them.`;render();},
   saveMode:()=>tagsPagePrefs(optionsUI.page('tags')).extended_save_mode,
-  save:async path=>{if(!drafts.has(path))return;await saveDrafts([path]);if(drafts.has(path))throw new Error(errors.map(error=>`${displayName(error.path)}: ${publicMessage(error.error)}`).join('\n')||'The file could not be saved.');},
+  save:async path=>{if(!drafts.has(path))return;await saveDrafts([path]);if(drafts.has(path))throw new BatchFailure(errors,'The file could not be saved.',{name:displayName,plain:publicMessage});},
   copyText:text=>{void navigator.clipboard?.writeText(text).catch(()=>{/* The field clipboard works without system clipboard access. */});},
 });
 const fileOps=new FileOpsUI({
@@ -487,7 +490,7 @@ for(const page of tagSourcesOptionsPages(async()=>{const folder=await open({dire
   progress:(job,update)=>listen<{job:string;done:number;total:number}>('opentag://progress',event=>{if(event.payload.job===job)update(event.payload.done,event.payload.total);}),
 }))registerOptionsPage(page);
 const tagSourceReason=()=>busy?'Wait for the current operation.':!selected.size?'Select the files of one album.':operationReason('source-musicbrainz');
-const tagSourcesUI=new TagSourcesUI({
+const tagSourcesUI=new TagSourcesUI({batchError:error=>error instanceof BatchFailure?error.text(t,translate):undefined,
   webScriptError:error=>webScriptErrorText(error,t,translate),
   sourceMessage:(key,name,authored)=>t(key,{name:authored?name:translate(name)}),onLanguageChange,
   invoke:(command,args)=>invoke(command,args),
@@ -500,8 +503,8 @@ const tagSourcesUI=new TagSourcesUI({
     const targets=items.map(item=>item.path);let cover=chosenCover;
     if(cover){const preserve=await preserveCovers(targets);if(preserve===undefined)throw new Error('Import cancelled. Nothing was written.');cover={...cover,preserve_existing:preserve};}
     const result=await run('Writing tag source data…',async()=>{let batch:Batch;try{batch=await invoke<Batch>('tag_source_apply',{items,cover,columns:columnSpecs(targets)});}catch(error){await reconcileWorkingEntries(targets);throw error;}accept(batch,'Imported from tag source');await reconcileWorkingEntries(batch.errors.map(error=>error.path));return batch;});
-    if(!result)throw new Error(errors.map(error=>publicMessage(error.error)).join('\n')||'Tag source data could not be written.');
-    if(result.errors.length)throw new Error(result.errors.map(error=>`${displayName(error.path)}: ${publicMessage(error.error)}`).join('\n'));
+    if(!result)throw new BatchFailure(errors,'Tag source data could not be written.',{paths:false,plain:publicMessage});
+    if(result.errors.length)throw new BatchFailure(result.errors,'Tag source data could not be written.',{name:displayName,plain:publicMessage});
   },
 });
 /** The last used tag source when it was a web source that is still installed. */
@@ -524,8 +527,8 @@ async function executeGroups(groups:ActionGroup[]){
   const result=await run('Applying action groups…',async()=>{const batch=await invoke<Batch>('execute_action_groups',{paths:targets,groups,columns:columnSpecs(targets)});applyRenamed(batch);accept(batch,'Applied action groups');return batch;});
   // Without "at warnings from Actions", errors stay in the file error list only.
   if(!messages.enabled('action_warnings'))return;
-  if(!result)throw new Error(errors.map(error=>`${error.path}: ${error.error}`).join('\n')||'Action groups could not be applied.');
-  if(result.errors.length)throw new Error(result.errors.map(error=>`${error.path}: ${error.error}`).join('\n'));
+  if(!result)throw new BatchFailure(errors,'Action groups could not be applied.');
+  if(result.errors.length)throw new BatchFailure(result.errors,'Action groups could not be applied.');
 }
 function columnSpecs(targets:string[]){
   return tableColumns().map(column=>({name:column.name,template:column.value,values:Object.fromEntries(targets.flatMap(path=>{const value=columnValues.fresh(path,column.value);return value===undefined?[]:[[path,value]];}))}));
@@ -997,7 +1000,7 @@ function render() {
   <main class="workspace"><aside class="editor" aria-label="Tag editor"><div class="panel-title" ${compactScreen()?'':`title="Drag to dock the tag panel at another edge or to float it; double-click to ${dock==='float'?'dock it again':'float it'}"`}>Tag panel <span class="panel-count">${panelCount()}</span>${tagPanel.titleHTML()}</div>${sourceMarkup('tags')}<div class="fields">${tagPanel.fieldsHTML()}</div><div class="editor-actions">${button('save','Save tags')}${button('extended','Extended…')}</div>
   ${tagPanel.showCover?`<section class="cover-section" aria-label="Embedded artwork">${coverMarkup()}</section>`:''}</aside><div class="panel-splitter" role="separator" aria-orientation="${across?'horizontal':'vertical'}" aria-label="Tag panel ${across?'height':'width'}" aria-valuemin="${range[0]}" aria-valuemax="${range[1]}" tabindex="0"></div>
   <section class="files" aria-label="Audio files"><div class="location">${glyph(glyphOrganize)}${locationMarkup}<strong>${entries.size} file${entries.size===1?'':'s'}</strong></div>${sourceMarkup('files')}${filterInList?filterbar:''}<div class="table-wrap"><table aria-label="Audio metadata" aria-rowcount="${list.length+1}" style="width:${shownColumns.reduce((sum,c)=>sum+c.width,0)}px"><thead><tr>${headerMarkup(shownColumns,columnLayout.sort,!compactScreen())}</tr></thead><tbody></tbody></table>${!list.length ? emptyMarkup() : ''}</div><div class="selection-info">${selectionInfoMarkup(selectedEntries,list)}</div>
-  ${errors.length ? `<section class="errors" aria-label="Operation errors"><header>${errors.length} file error${errors.length===1?'':'s'}<button id="dismiss-errors">Dismiss</button></header>${errors.map(e => `<p><strong translate="no">${esc(e.label?translate(e.label):displayName(e.path))}:</strong> ${e.rollback?`<span translate="no">${esc(converterRollbackText(e.rollback,t,translate))}</span>`:esc(publicMessage(e.error))}</p>`).join('')}</section>` : ''}</section></main><footer class="status ${busy?'busy':''}"><span class="status-dot" aria-hidden="true"></span><span class="status-message" role="status">${esc(status)}</span>${progressMarkup()}${drafts.size ? `<span class="dirty-count">${drafts.size} unsaved file${drafts.size===1?'':'s'}</span>` : ''}<span>${entries.size} files</span></footer></div>`;
+  ${errors.length ? `<section class="errors" aria-label="Operation errors"><header>${errors.length} file error${errors.length===1?'':'s'}<button id="dismiss-errors">Dismiss</button></header>${errors.map(e => `<p><strong translate="no">${esc(e.label?translate(e.label):e.diagnostic?.kind==='history_folders_failed'?e.path:displayName(e.path))}:</strong> ${e.diagnostic||e.diagnosticRaw||e.rollback?`<span translate="no">${esc(fileErrorText(e,t,translate,publicMessage))}</span>`:esc(publicMessage(e.error))}</p>`).join('')}</section>` : ''}</section></main><footer class="status ${busy?'busy':''}"><span class="status-dot" aria-hidden="true"></span><span class="status-message" role="status">${esc(status)}</span>${progressMarkup()}${drafts.size ? `<span class="dirty-count">${drafts.size} unsaved file${drafts.size===1?'':'s'}</span>` : ''}<span>${entries.size} files</span></footer></div>`;
   const wrap=document.querySelector<HTMLDivElement>('.table-wrap')!;
   wrap.querySelector('tbody')!.innerHTML=list.length?`<tr class="virtual-spacer" aria-hidden="true"><td colspan="${tableColumns().length}" style="height:${list.length*rowHeight}px"></td></tr>`:'';
   wrap.scrollTop=scrollTop;wrap.scrollLeft=scrollLeft;updateVirtualRows(true);
@@ -1450,7 +1453,7 @@ function modal(title: string, content: string, buttons: string): HTMLDialogEleme
   const dialog=document.createElement('dialog');dialog.innerHTML=`<header>${esc(title)}</header><div class="dialog-content">${content}</div><div class="dialog-footer"><button data-close>Cancel</button>${buttons}</div>`;
   document.body.append(dialog);dialog.querySelector('[data-close]')!.addEventListener('click',()=>dialog.close());dialog.addEventListener('close',()=>dialog.remove());dialog.showModal();return dialog;
 }
-function modalError(dialog: HTMLDialogElement, error: unknown) {let el=dialog.querySelector('.dialog-error');if(!el){el=document.createElement('p');el.className='dialog-error';el.setAttribute('role','alert');dialog.querySelector('.dialog-content')!.append(el);}el.textContent=publicMessage(error);}
+function modalError(dialog: HTMLDialogElement, error: unknown) {showFileError(dialog,error,t,translate,onLanguageChange,publicMessage);}
 function value(dialog: HTMLDialogElement, id: string) {return dialog.querySelector<HTMLInputElement|HTMLSelectElement>(`#${id}`)!.value;}
 function saveCopy() {
   const path=paths()[0],source=documentAccess.states[path];if(!source)return;
@@ -1468,12 +1471,12 @@ function saveCopy() {
     const result=await run('Saving a copy…',async()=>{
       const batch=await invoke<Batch>('document_save_copy',request),outcome=copyOutcome(batch);
       if(outcome==='cancelled'){status='Copy cancelled. No copy was saved; pending edits are retained.';progress.textContent=status;return batch;}
-      if(outcome==='failed'){errors=batch.errors;status='Copy could not be saved. Pending edits and recovery files are retained.';modalError(dialog,batch.errors.map(error=>`${displayName(error.path)}: ${publicMessage(error.error)}`).join('\n'));return batch;}
+      if(outcome==='failed'){errors=batch.errors;status='Copy could not be saved. Pending edits and recovery files are retained.';modalError(dialog,new BatchFailure(batch.errors,'Copy failed. Pending edits and recovery files are retained.',{name:displayName,plain:publicMessage}));return batch;}
       accept(batch,'Saved copy',false);selected.clear();batch.entries.forEach(entry=>selected.add(entry.path));anchor=batch.entries[0].path;
       location='Provider documents';locationIsData=false;dialog.close();return batch;
     });
     copying=false;
-    if(dialog.open){saveButton.disabled=false;closeButton.disabled=false;dialog.querySelector<HTMLSelectElement>('#copy-version')!.disabled=false;if(!result){progress.textContent='Copy failed. Pending edits and recovery files are retained.';modalError(dialog,errors.map(error=>publicMessage(error.error)).join('\n'));}}
+    if(dialog.open){saveButton.disabled=false;closeButton.disabled=false;dialog.querySelector<HTMLSelectElement>('#copy-version')!.disabled=false;if(!result){progress.textContent='Copy failed. Pending edits and recovery files are retained.';modalError(dialog,new BatchFailure(errors,'Copy failed. Pending edits and recovery files are retained.',{paths:false,plain:publicMessage}));}}
   });
 }
 function converter(rename: boolean) {
@@ -1515,9 +1518,9 @@ function reviewedConverter(kind:'filename'|'text') {
     rollbackFailure=converterRollbackError(error);
     modalError(dialog,rollbackFailure?converterRollbackText(rollbackFailure):error);
     const el=dialog.querySelector('.dialog-error')!;
-    if(rollbackFailure){el.setAttribute('translate','no');refreshRollback();}else el.removeAttribute('translate');
+    if(rollbackFailure){el.setAttribute('translate','no');refreshRollback();}else if(!(error instanceof BatchFailure))el.removeAttribute('translate');
   };
-  const clearError=()=>{rollbackFailure=undefined;dialog.querySelector('.dialog-error')?.remove();};
+  const clearError=()=>{rollbackFailure=undefined;clearFileError(dialog);};
   const stopLanguage=onLanguageChange(refreshRollback);
   dialog.addEventListener('close',stopLanguage,{once:true});
 
@@ -1633,7 +1636,7 @@ function reviewedConverter(kind:'filename'|'text') {
     if(!dialog.open)return;
     if(result&&!result.errors.length){dialog.close();return;}
     invalidate('Apply did not complete. Review the errors and run Preview again.');
-    showError(failure||result?.errors.map(error=>`${error.path}: ${error.error}`).join('\n')||'Conversion did not complete. Run Preview again.');
+    showError(failure||(result?.errors.length?new BatchFailure(result.errors,'Conversion did not complete. Run Preview again.'):'Conversion did not complete. Run Preview again.'));
     previewButton.focus({preventScroll:true});
   });
   syncControls();dialog.querySelector<HTMLInputElement|HTMLSelectElement>(rename?'#old-pattern':'#text-source-kind')!.focus({preventScroll:true});
@@ -1700,8 +1703,8 @@ function tagToTag(){
     apply:async({field,template,paths:targets})=>{
       if(!enabled('tag-tag'))throw new Error(operationReason('tag-tag')||'Select files and save pending tag edits first.');
       const result=await run('Converting tags…',async()=>{const batch=await invoke<Batch>('convert_tag_to_tag',{paths:targets,field,template,columns:columnSpecs(targets)});applyRenamed(batch);accept(batch,'Tag → Tag');return batch;});
-      if(!result)throw new Error(errors.map(error=>`${error.path}: ${error.error}`).join('\n')||'Tag → Tag did not complete.');
-      if(result.errors.length)throw new Error(result.errors.map(error=>`${displayName(error.path)}: ${error.error}`).join('\n'));
+      if(!result)throw new BatchFailure(errors,'Tag → Tag did not complete.');
+      if(result.errors.length)throw new BatchFailure(result.errors,'Tag → Tag did not complete.',{name:displayName});
     }});
 }
 /** Auto-numbering wizard; `perFolder` (Ctrl+Shift+K) restarts the track counter in each folder. Options are remembered between runs. */
@@ -1802,7 +1805,7 @@ async function runUtil(util:Util){
   button.addEventListener('click',async()=>{
     button.disabled=true;
     const result=await run(`${spec.label}…`,async()=>{const batch=await invoke<Batch>('apply_util',{paths:targets,util});accept(batch,done,true,targets.map(rowFile));return batch;});
-    if(result&&!result.errors.length)dialog.close();else{modalError(dialog,result?result.errors.map(error=>`${displayName(error.path)}: ${publicMessage(error.error)}`).join('\n'):errors.map(error=>publicMessage(error.error)).join('\n'));button.disabled=false;}
+    if(result&&!result.errors.length)dialog.close();else{modalError(dialog,new BatchFailure(result?result.errors:errors,'Operation failed',{paths:!!result,name:displayName,plain:publicMessage}));button.disabled=false;}
   });
 }
 // Help → Check for updates and Options → Updates.

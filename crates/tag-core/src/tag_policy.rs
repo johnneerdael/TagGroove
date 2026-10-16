@@ -2,6 +2,7 @@
 //! displayed tag kind, independent write and remove sets, and the configured
 //! ID3v2 revision and encoding.
 use super::*;
+use crate::batch_errors::ErrorCause;
 use crate::preferences::Id3v2Format;
 use lofty::id3::{
     v1::{Id3v1Tag, GENRES},
@@ -193,12 +194,23 @@ pub(super) fn write(
     options: &TagOptions,
     change: Change<'_>,
 ) -> Result<TagType, String> {
+    write_diagnostic(staging, file, rules, options, change).map_err(|error| error.to_string())
+}
+
+pub(super) fn write_diagnostic(
+    staging: &mut fs::File,
+    file: &TaggedFile,
+    rules: &[UserFieldMapping],
+    options: &TagOptions,
+    change: Change<'_>,
+) -> Result<TagType, ErrorCause> {
     let file_type = file.file_type();
-    let kind = policy(file_type).ok_or("This format has no configurable tag policy")?;
-    let native = native_tags(staging, file_type)?;
+    let kind = policy(file_type)
+        .ok_or_else(|| ErrorCause::owned("This format has no configurable tag policy"))?;
+    let native = native_tags_diagnostic(staging, file_type)?;
     let displayed = displayed_tags(file, options).first().copied();
     let mut full = displayed
-        .map(|tag| tag_fields(tag, &native, rules, options))
+        .map(|tag| tag_fields_diagnostic(tag, &native, rules, options))
         .transpose()?
         .unwrap_or_default();
     let mut pictures = displayed
@@ -257,13 +269,13 @@ pub(super) fn write(
         if let Some(ape) = file.tag(TagType::Ape) {
             let current_v2 = file
                 .tag(TagType::Id3v2)
-                .map(|tag| tag_fields(tag, &native, rules, options))
+                .map(|tag| tag_fields_diagnostic(tag, &native, rules, options))
                 .transpose()?
                 .unwrap_or_default();
             let present = |fields: &Fields, name: &str| {
                 fields.keys().any(|key| key.eq_ignore_ascii_case(name))
             };
-            for (name, values) in tag_fields(ape, &native, rules, options)? {
+            for (name, values) in tag_fields_diagnostic(ape, &native, rules, options)? {
                 let upper = name.to_ascii_uppercase();
                 let gain = upper.starts_with("REPLAYGAIN_") || upper.starts_with("MP3GAIN_");
                 if gain
@@ -295,7 +307,7 @@ pub(super) fn write(
             Some(_) if displayed.map(Tag::tag_type) == Some(kind) => &updates,
             Some(existing) => {
                 let mut values = full.clone();
-                for name in tag_fields(existing, &native, rules, options)?.into_keys() {
+                for name in tag_fields_diagnostic(existing, &native, rules, options)?.into_keys() {
                     if !values.keys().any(|key| key.eq_ignore_ascii_case(&name)) {
                         values.insert(name, Vec::new());
                     }
@@ -314,11 +326,14 @@ pub(super) fn write(
                 tag.push_picture(picture.clone());
             }
         }
-        let native_updates = normalized_updates(&map_write_fields(source, kind, rules)?, kind)?;
+        let native_updates = normalized_updates_diagnostic(
+            &map_write_fields_diagnostic(source, kind, rules)?,
+            kind,
+        )?;
         staging
             .seek(SeekFrom::Start(0))
-            .map_err(|e| e.to_string())?;
-        save_preserving_native(
+            .map_err(ErrorCause::external)?;
+        save_preserving_native_diagnostic(
             staging,
             file_type,
             &tag,
@@ -331,7 +346,7 @@ pub(super) fn write(
         let tag = id3v1_from(&full);
         staging
             .seek(SeekFrom::Start(0))
-            .map_err(|e| e.to_string())?;
+            .map_err(ErrorCause::external)?;
         if !tag.is_empty() || has(TagType::Id3v1) {
             // An existing ID3v1 tag is overwritten in place (the last 128
             // bytes); adding or removing one changes the file length.
@@ -341,22 +356,22 @@ pub(super) fn write(
                 crate::write_cost::rewrote_region(128);
             }
             tag.save_to(staging, WriteOptions::default())
-                .map_err(|e| error_message(&e))?;
+                .map_err(|e| ErrorCause::external(error_message(&e)))?;
         }
     }
     for (enabled, kind) in remove {
         if enabled && has(kind) {
             staging
                 .seek(SeekFrom::Start(0))
-                .map_err(|e| e.to_string())?;
+                .map_err(ErrorCause::external)?;
             crate::write_cost::rewrote_all();
             kind.remove_from(staging, WriteOptions::default())
-                .map_err(|e| error_message(&e))?;
+                .map_err(|e| ErrorCause::external(error_message(&e)))?;
         }
     }
     staging
         .seek(SeekFrom::Start(0))
-        .map_err(|e| e.to_string())?;
+        .map_err(ErrorCause::external)?;
     let order = read_order(file_type, &TagOptions::default()).unwrap_or_default();
     order
         .into_iter()
@@ -366,40 +381,44 @@ pub(super) fn write(
             _ => false,
         })
         .or(write_v1.then_some(TagType::Id3v1))
-        .ok_or_else(|| "Enable at least one tag type to write".into())
+        .ok_or_else(|| ErrorCause::owned("Enable at least one tag type to write"))
 }
 
-pub(super) fn verify_fields(
+pub(super) fn verify_fields_diagnostic(
     staged_path: &Path,
     rules: &[UserFieldMapping],
     options: &TagOptions,
     written: TagType,
     updates: &Fields,
-) -> Result<(), String> {
+) -> Result<(), ErrorCause> {
     // Native names: `native_updates` below are already mapped back to sources.
-    let entry = read_description(staged_path, false, &[], &reading_only(options, written))?;
+    let entry =
+        read_description_diagnostic(staged_path, false, &[], &reading_only(options, written))?;
     if written == TagType::Id3v1 {
         // ID3v1 truncates and drops values by design; only its presence is checked.
         return if entry.technical.contains_key("_TAG_READ") {
             Ok(())
         } else {
-            Err("The ID3v1 tag could not be written".into())
+            Err(ErrorCause::owned("The ID3v1 tag could not be written"))
         };
     }
-    let native_updates = normalized_updates(&map_write_fields(updates, written, rules)?, written)?;
+    let native_updates = normalized_updates_diagnostic(
+        &map_write_fields_diagnostic(updates, written, rules)?,
+        written,
+    )?;
     let latin1 = written == TagType::Id3v2
-        && file_kind(staged_path)? == FileType::Mpeg
+        && file_kind_diagnostic(staged_path)? == FileType::Mpeg
         && options.mpeg.id3v2_format == Id3v2Format::V23Latin1;
-    verify_readback(&entry.fields, &native_updates, written, latin1)
+    verify_readback_diagnostic(&entry.fields, &native_updates, written, latin1)
 }
 
-fn file_kind(path: &Path) -> Result<FileType, String> {
+fn file_kind_diagnostic(path: &Path) -> Result<FileType, ErrorCause> {
     Probe::open(path)
-        .map_err(|e| e.to_string())?
+        .map_err(ErrorCause::external)?
         .guess_file_type()
-        .map_err(|e| e.to_string())?
+        .map_err(ErrorCause::external)?
         .file_type()
-        .ok_or_else(|| "Unrecognized audio file type".into())
+        .ok_or_else(|| ErrorCause::owned("Unrecognized audio file type"))
 }
 
 pub(super) fn verify_pictures(
@@ -409,17 +428,31 @@ pub(super) fn verify_pictures(
     expected: &[Picture],
     message: &str,
 ) -> Result<(), String> {
+    verify_pictures_diagnostic(staged_path, options, written, expected, message)
+        .map_err(|error| error.to_string())
+}
+
+pub(super) fn verify_pictures_diagnostic(
+    staged_path: &Path,
+    options: &TagOptions,
+    written: TagType,
+    expected: &[Picture],
+    message: &str,
+) -> Result<(), ErrorCause> {
     if written == TagType::Id3v1 && !expected.is_empty() {
-        return Err("ID3v1 cannot store cover art; enable ID3v2 or APEv2 writing".into());
+        return Err(ErrorCause::owned(
+            "ID3v1 cannot store cover art; enable ID3v2 or APEv2 writing",
+        ));
     }
-    let entry = read_description(staged_path, false, &[], &reading_only(options, written))?;
+    let entry =
+        read_description_diagnostic(staged_path, false, &[], &reading_only(options, written))?;
     if entry.covers.len() != expected.len()
         || entry.covers.iter().zip(expected).any(|(cover, picture)| {
             cover.picture_type != format!("{:?}", picture.pic_type())
                 || cover.description != picture.description().unwrap_or_default()
         })
     {
-        return Err(message.into());
+        return Err(ErrorCause::owned(message));
     }
     Ok(())
 }

@@ -1,6 +1,7 @@
 //! Retain the v2.3 extensions documented by Mp3tag. Lofty's downgrade writer
 //! drops several of those identifiers; serialize their frames without dropping
 //! them and replace only the metadata region in the staged audio file.
+use crate::batch_errors::ErrorCause;
 use lofty::{
     config::WriteOptions,
     file::FileType,
@@ -239,20 +240,29 @@ fn unsync(bytes: &[u8]) -> Vec<u8> {
 
 /// Serialize `tag` as ID3v2.3 with exactly `padding` bytes of padding, or
 /// lofty's default amount when `None`.
+#[cfg(test)]
 pub(super) fn serialize_padded(
     tag: &Id3v2Tag,
     latin1: bool,
     padding: Option<u32>,
 ) -> Result<Vec<u8>, String> {
+    serialize_padded_diagnostic(tag, latin1, padding).map_err(|error| error.to_string())
+}
+
+pub(super) fn serialize_padded_diagnostic(
+    tag: &Id3v2Tag,
+    latin1: bool,
+    padding: Option<u32>,
+) -> Result<Vec<u8>, ErrorCause> {
     let flags = *tag.flags();
     if flags.crc && flags.unsynchronisation {
-        return Err("Combined CRC and unsynchronisation in ID3v2.3 needs further verification; original file preserved".into());
+        return Err(ErrorCause::owned("Combined CRC and unsynchronisation in ID3v2.3 needs further verification; original file preserved"));
     }
     let mut tag = tag.clone();
     tag.set_flags(Id3v2TagFlags::default());
     let mut failure = None;
     tag.retain_mut(|frame| {
-        if let Err(error) = prepare(frame, latin1) {
+        if let Err(error) = prepare(frame, latin1).map_err(ErrorCause::owned_text) {
             failure = Some(error);
         }
         true
@@ -262,7 +272,7 @@ pub(super) fn serialize_padded(
     }
     let mut urls = Vec::new();
     for frame in &tag {
-        collect_urls(frame, &mut urls)?;
+        collect_urls(frame, &mut urls).map_err(ErrorCause::owned_text)?;
     }
     if tag.is_empty() {
         // An ID3v2 tag without frames is removed rather than written.
@@ -270,15 +280,16 @@ pub(super) fn serialize_padded(
     }
     let mut bytes = Vec::new();
     tag.dump_to(&mut bytes, WriteOptions::default())
-        .map_err(|e| e.to_string())?;
+        .map_err(ErrorCause::external)?;
     if bytes.len() < 10 || &bytes[..3] != b"ID3" {
-        return Err("Invalid ID3 serialization header".into());
+        return Err(ErrorCause::owned("Invalid ID3 serialization header"));
     }
-    let end = 10usize + syncsafe(&bytes[6..10])? as usize;
+    let end = 10usize + syncsafe(&bytes[6..10]).map_err(ErrorCause::owned_text)? as usize;
     if end > bytes.len() {
-        return Err("Serialized ID3 size exceeds buffer".into());
+        return Err(ErrorCause::owned("Serialized ID3 size exceeds buffer"));
     }
-    let (frames, default_padding) = convert_frames(&bytes[10..end], &urls, &mut 0)?;
+    let (frames, default_padding) =
+        convert_frames(&bytes[10..end], &urls, &mut 0).map_err(ErrorCause::owned_text)?;
     let padding = padding.map_or(default_padding, |p| p as usize);
     let mut body = Vec::new();
     let mut header_flags = if flags.experimental { 0x20 } else { 0 };
@@ -288,7 +299,7 @@ pub(super) fn serialize_padded(
         body.extend(0x8000u16.to_be_bytes());
         body.extend(
             u32::try_from(padding)
-                .map_err(|_| "Padding too large")?
+                .map_err(|_| ErrorCause::owned("Padding too large"))?
                 .to_be_bytes(),
         );
         body.extend(crc32(&frames).to_be_bytes());
@@ -301,21 +312,31 @@ pub(super) fn serialize_padded(
     }
     let mut output = b"ID3\x03\x00".to_vec();
     output.push(header_flags);
-    output.extend(syncsafe_bytes(body.len())?);
+    output.extend(syncsafe_bytes(body.len()).map_err(ErrorCause::owned_text)?);
     output.extend(body);
     Ok(output)
 }
 
 /// Replace the ID3v2 tag of `file` with the serialized tag `bytes` (empty
 /// removes it).
+#[cfg(test)]
 pub(super) fn save(file: &mut File, kind: FileType, bytes: &[u8]) -> Result<(), String> {
-    file.seek(SeekFrom::Start(0)).map_err(|e| e.to_string())?;
+    save_diagnostic(file, kind, bytes).map_err(|error| error.to_string())
+}
+
+pub(super) fn save_diagnostic(
+    file: &mut File,
+    kind: FileType,
+    bytes: &[u8],
+) -> Result<(), ErrorCause> {
+    file.seek(SeekFrom::Start(0))
+        .map_err(ErrorCause::external)?;
     if matches!(kind, FileType::Mpeg | FileType::Aac) {
         let mut header = [0u8; 10];
-        let read = file.read(&mut header).map_err(|e| e.to_string())?;
+        let read = file.read(&mut header).map_err(ErrorCause::external)?;
         let size = if read == 10 && &header[..3] == b"ID3" {
             10u64
-                + u64::from(syncsafe(&header[6..10])?)
+                + u64::from(syncsafe(&header[6..10]).map_err(ErrorCause::owned_text)?)
                 + if header[3] == 4 && header[5] & 0x10 != 0 {
                     10
                 } else {
@@ -324,29 +345,41 @@ pub(super) fn save(file: &mut File, kind: FileType, bytes: &[u8]) -> Result<(), 
         } else {
             0
         };
-        replace(file, 0..size, bytes)?;
+        replace_diagnostic(file, 0..size, bytes)?;
         return Ok(());
     }
     let little = kind == FileType::Wav;
     if !matches!(kind, FileType::Wav | FileType::Aiff) {
-        return Err("This format does not support writing ID3v2.3".into());
+        return Err(ErrorCause::owned(
+            "This format does not support writing ID3v2.3",
+        ));
     }
-    let length = file.metadata().map_err(|e| e.to_string())?.len();
+    let length = file.metadata().map_err(ErrorCause::external)?.len();
     let mut position = 12u64;
     let mut ranges = Vec::new();
     while position + 8 <= length {
         file.seek(SeekFrom::Start(position))
-            .map_err(|e| e.to_string())?;
+            .map_err(ErrorCause::external)?;
         let mut header = [0u8; 8];
-        file.read_exact(&mut header).map_err(|e| e.to_string())?;
+        file.read_exact(&mut header).map_err(ErrorCause::external)?;
         let size = if little {
-            u32::from_le_bytes(header[4..8].try_into().map_err(|_| "Invalid chunk size")?)
+            u32::from_le_bytes(
+                header[4..8]
+                    .try_into()
+                    .map_err(|_| ErrorCause::owned("Invalid chunk size"))?,
+            )
         } else {
-            u32::from_be_bytes(header[4..8].try_into().map_err(|_| "Invalid chunk size")?)
+            u32::from_be_bytes(
+                header[4..8]
+                    .try_into()
+                    .map_err(|_| ErrorCause::owned("Invalid chunk size"))?,
+            )
         };
         let end = position + 8 + u64::from(size) + u64::from(size % 2);
         if end > length {
-            return Err("Metadata chunk exceeds audio file bounds".into());
+            return Err(ErrorCause::owned(
+                "Metadata chunk exceeds audio file bounds",
+            ));
         }
         if header[..4] == *b"ID3 " || header[..4] == *b"id3 " {
             ranges.push(position..end);
@@ -354,13 +387,13 @@ pub(super) fn save(file: &mut File, kind: FileType, bytes: &[u8]) -> Result<(), 
         position = end;
     }
     for range in ranges.iter().rev() {
-        replace(file, range.clone(), &[])?;
+        replace_diagnostic(file, range.clone(), &[])?;
     }
     if bytes.is_empty() {
-        return write_container_size(file, little);
+        return write_container_size_diagnostic(file, little);
     }
     let mut chunk = b"ID3 ".to_vec();
-    let size = u32::try_from(bytes.len()).map_err(|_| "ID3 chunk too large")?;
+    let size = u32::try_from(bytes.len()).map_err(|_| ErrorCause::owned("ID3 chunk too large"))?;
     chunk.extend(if little {
         size.to_le_bytes()
     } else {
@@ -370,41 +403,80 @@ pub(super) fn save(file: &mut File, kind: FileType, bytes: &[u8]) -> Result<(), 
     if size % 2 != 0 {
         chunk.push(0);
     }
-    let end = file.metadata().map_err(|e| e.to_string())?.len();
-    replace(file, end..end, &chunk)?;
-    write_container_size(file, little)
+    let end = file.metadata().map_err(ErrorCause::external)?.len();
+    replace_diagnostic(file, end..end, &chunk)?;
+    write_container_size_diagnostic(file, little)
 }
 
-fn write_container_size(file: &mut File, little: bool) -> Result<(), String> {
+fn write_container_size_diagnostic(file: &mut File, little: bool) -> Result<(), ErrorCause> {
     let size = u32::try_from(
         file.metadata()
-            .map_err(|e| e.to_string())?
+            .map_err(ErrorCause::external)?
             .len()
             .checked_sub(8)
-            .ok_or("Invalid container size")?,
+            .ok_or_else(|| ErrorCause::owned("Invalid container size"))?,
     )
-    .map_err(|_| "Audio container exceeds its 32-bit size limit")?;
-    file.seek(SeekFrom::Start(4)).map_err(|e| e.to_string())?;
+    .map_err(|_| ErrorCause::owned("Audio container exceeds its 32-bit size limit"))?;
+    file.seek(SeekFrom::Start(4))
+        .map_err(ErrorCause::external)?;
     file.write_all(&if little {
         size.to_le_bytes()
     } else {
         size.to_be_bytes()
     })
-    .map_err(|e| e.to_string())?;
+    .map_err(ErrorCause::external)?;
     Ok(())
 }
 
-fn replace(file: &mut File, range: std::ops::Range<u64>, bytes: &[u8]) -> Result<(), String> {
-    let length = file.metadata().map_err(|e| e.to_string())?.len();
+fn replace_diagnostic(
+    file: &mut File,
+    range: std::ops::Range<u64>,
+    bytes: &[u8],
+) -> Result<(), ErrorCause> {
+    let length = file.metadata().map_err(ErrorCause::external)?.len();
     if range.end == length {
         // Lofty 0.25.4's EOF shrink path truncates to the removed byte count.
         // Calculate the final absolute length ourselves for that path.
         file.seek(SeekFrom::Start(range.start))
-            .map_err(|e| e.to_string())?;
-        file.write_all(bytes).map_err(|e| e.to_string())?;
+            .map_err(ErrorCause::external)?;
+        file.write_all(bytes).map_err(ErrorCause::external)?;
         file.set_len(range.start + bytes.len() as u64)
-            .map_err(|e| e.to_string())
+            .map_err(ErrorCause::external)
     } else {
-        file.splice(range, &bytes).map_err(|e| e.to_string())
+        file.splice(range, &bytes).map_err(ErrorCause::external)
+    }
+}
+
+#[cfg(test)]
+mod diagnostic_tests {
+    use super::*;
+
+    #[test]
+    fn typed_v23_guards_preserve_legacy_english_and_do_not_write() {
+        let mut tag = Id3v2Tag::new();
+        let mut flags = *tag.flags();
+        flags.crc = true;
+        flags.unsynchronisation = true;
+        tag.set_flags(flags);
+        let owned = serialize_padded_diagnostic(&tag, false, None).unwrap_err();
+        assert!(matches!(&owned, ErrorCause::Owned { .. }));
+        assert_eq!(
+            serialize_padded(&tag, false, None).unwrap_err(),
+            owned.to_string()
+        );
+        let mut file = tempfile::tempfile().unwrap();
+        file.write_all(b"original").unwrap();
+        let unsupported = save_diagnostic(&mut file, FileType::Flac, b"replacement").unwrap_err();
+        assert!(
+            matches!(&unsupported, ErrorCause::Owned { key, .. } if key == "This format does not support writing ID3v2.3")
+        );
+        assert_eq!(
+            save(&mut file, FileType::Flac, b"replacement").unwrap_err(),
+            unsupported.to_string()
+        );
+        file.seek(SeekFrom::Start(0)).unwrap();
+        let mut after = Vec::new();
+        file.read_to_end(&mut after).unwrap();
+        assert_eq!(after, b"original");
     }
 }

@@ -414,6 +414,7 @@ let dialogTitleId = 0;
 
 type Invoke = <T>(command:string, args?:Record<string,unknown>) => Promise<T>;
 type TagSourcesHost = {
+  batchError?:(error:unknown)=>string|undefined;
   /** Structured errors are rendered once and refreshed from their raw payload. */
   webScriptError?:(error:WebScriptError)=>string;
   /** Format a source-label scaffold once: installed source labels are authored. */
@@ -525,24 +526,25 @@ export class TagSourcesUI {
         el.textContent = sourceContext ? sourceMessage(message) : message;
       }
     };
-    let scriptError:WebScriptError|undefined, sourceErrorKey:string|undefined;
+    let scriptError:WebScriptError|undefined, sourceErrorKey:string|undefined, retainedBatch:unknown;
     const refreshError = () => {
       const p = dialog.querySelector('.dialog-error');
-      if (p && sourceErrorKey) p.textContent = sourceMessage(sourceErrorKey);
+      if (p && retainedBatch!==undefined) p.textContent = this.host.batchError?.(retainedBatch)??String(retainedBatch);
+      else if (p && sourceErrorKey) p.textContent = sourceMessage(sourceErrorKey);
       else if (p && scriptError) p.textContent = (this.host.webScriptError ?? webScriptErrorText)(scriptError);
     };
     const stopLanguage = this.host.onLanguageChange?.(() => { refreshError(); if (sourceStatus) status(sourceStatus,true); });
     const error = (message:unknown, sourceContext=false) => {
-      const failure = webScriptFailure(message);
-      const text = failure ? '' : String(message).replace(/^Error: /,'');
+      const failure = webScriptFailure(message), batch = this.host.batchError?.(message);
+      const text = failure || batch!==undefined ? '' : String(message).replace(/^Error: /,'');
       if (text.startsWith('Cancelled:')) return;
       let p = dialog.querySelector('.dialog-error');
       if (!p) { p = document.createElement('p'); p.className = 'dialog-error'; p.setAttribute('role','alert'); dialog.querySelector('.dialog-content')!.append(p); }
-      scriptError = failure; sourceErrorKey = sourceContext ? text : undefined;
-      if (failure || sourceContext) { p.setAttribute('translate','no'); refreshError(); }
+      scriptError = failure; sourceErrorKey = sourceContext ? text : undefined; retainedBatch=batch===undefined?undefined:message;
+      if (failure || sourceContext || batch!==undefined) { p.setAttribute('translate','no'); refreshError(); }
       else { p.removeAttribute('translate'); p.textContent = text; }
     };
-    const clearError = () => { scriptError = undefined; sourceErrorKey = undefined; dialog.querySelector('.dialog-error')?.remove(); };
+    const clearError = () => { scriptError = undefined; sourceErrorKey = undefined; retainedBatch=undefined; dialog.querySelector('.dialog-error')?.remove(); };
     const loadImage = async (url:string|null|undefined, image:HTMLImageElement) => {
       const ticket = imageTicket = nextTicket();
       image.hidden = true; image.removeAttribute('src');
@@ -724,6 +726,7 @@ export class TagSourcesUI {
       : freedb ? [['toc','Disc ID of the selected files'],['disc_id','freedb disc ID'],...(provider === 'local_freedb' ? [['text','Artist and album words'] as [SearchMode,string]] : [])]
       : [['artist_album','Artist and album'],['text','Free text'],['release_id',provider === 'musicbrainz' ? 'Release ID (MBID) or address' : 'Release ID or address'],['barcode','Barcode'],['catalog_number','Catalog number']];
     const renderSearch = (mode?:SearchMode) => {
+      clearError();
       release = undefined;
       const searchFields = web ? `<div class="ts-search ts-web-search">${web.search_by.map((field,i) => `<label class="field"><span ${field.default_label?'':'translate="no"'}>${html(field.label)}</span><input id="ts-web-${i}" value="${html(webValues[i] || '')}" autocomplete="off" spellcheck="false"></label>`).join('')}<button id="ts-search" class="ts-search-button">Search</button></div>` : '';
       dialog.innerHTML = `<header>${nameMarkup}</header><div class="dialog-content">
@@ -857,6 +860,7 @@ export class TagSourcesUI {
       slots = initialSlots(release!.tracks,files,kind); renderMatches();
     };
     const showReview = (loaded:SourceRelease) => {
+      clearError();
       // A web source that returns only album values (or only artwork) applies them to every selected file.
       if (web && !loaded.tracks.length) loaded.tracks = files.map((_,i) => ({position:String(i+1),disc:1,number:i+1,title:'',artist:'',length:null,fields:{}}));
       release = loaded; coverIndex = 0; fieldSelection = new Set(); fieldAnchor = null;

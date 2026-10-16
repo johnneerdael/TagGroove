@@ -6,6 +6,7 @@
 mod header;
 
 use super::*;
+use crate::batch_errors::ErrorCause;
 use header::{Asf, Attribute, PictureValue, Value};
 use lofty::picture::MimeType;
 use std::io::{Read, Write};
@@ -30,9 +31,13 @@ pub(super) fn sniff(path: &Path) -> bool {
 }
 
 fn open(path: &Path) -> Result<(Asf, u64), String> {
-    let file = fs::File::open(path).map_err(|e| e.to_string())?;
-    let size = file.metadata().map_err(|e| e.to_string())?.len();
-    let asf = Asf::read(&mut std::io::BufReader::new(file), size)?;
+    open_diagnostic(path).map_err(|error| error.to_string())
+}
+
+fn open_diagnostic(path: &Path) -> Result<(Asf, u64), ErrorCause> {
+    let file = fs::File::open(path).map_err(ErrorCause::external)?;
+    let size = file.metadata().map_err(ErrorCause::external)?.len();
+    let asf = Asf::read_diagnostic(&mut std::io::BufReader::new(file), size)?;
     Ok((asf, size))
 }
 
@@ -212,19 +217,20 @@ fn pictures(asf: &Asf) -> Vec<Picture> {
     asf.attributes.iter().filter_map(picture_of).collect()
 }
 
-pub(super) fn describe(
+pub(super) fn describe_diagnostic(
     path: &Path,
     include_cover_data: bool,
     rules: &[UserFieldMapping],
-) -> Result<AudioEntry, String> {
-    let (asf, _) = open(path)?;
-    let fields = mapping::map_read(&local_fields(&asf), mapping::RuleTag::Wma, rules)?;
+) -> Result<AudioEntry, ErrorCause> {
+    let (asf, _) = open_diagnostic(path)?;
+    let fields = mapping::map_read(&local_fields(&asf), mapping::RuleTag::Wma, rules)
+        .map_err(ErrorCause::owned_text)?;
     let covers: Vec<_> = pictures(&asf)
         .iter()
         .enumerate()
         .map(|(index, picture)| cover_info(index, picture, include_cover_data))
         .collect();
-    let metadata = fs::metadata(path).map_err(|e| e.to_string())?;
+    let metadata = fs::metadata(path).map_err(ErrorCause::external)?;
     let properties = &asf.properties;
     let mut technical = Fields::new();
     if let Some(codec) = properties.codec() {
@@ -278,47 +284,70 @@ fn same_bytes(a: &mut impl Read, b: &mut impl Read, mut length: u64) -> Result<b
     Ok(true)
 }
 
+fn same_bytes_diagnostic(
+    a: &mut impl Read,
+    b: &mut impl Read,
+    length: u64,
+) -> Result<bool, ErrorCause> {
+    // The comparison returns only errors from Read::read_exact; a byte mismatch
+    // is a successful false result. No source-owned failure is flattened here.
+    same_bytes(a, b, length).map_err(ErrorCause::external)
+}
+
 /// Write the rebuilt header to `staging`, followed by everything after the
 /// original header, and confirm that the copied media bytes are identical.
 fn commit(staging: &mut fs::File, original: &Path, asf: &Asf, size: u64) -> Result<(), String> {
+    commit_diagnostic(staging, original, asf, size).map_err(|error| error.to_string())
+}
+
+fn commit_diagnostic(
+    staging: &mut fs::File,
+    original: &Path,
+    asf: &Asf,
+    size: u64,
+) -> Result<(), ErrorCause> {
     let tail = size - asf.header_size;
-    let header = asf.render(tail)?;
-    let mut source = fs::File::open(original).map_err(|e| e.to_string())?;
+    let header = asf.render_diagnostic(tail)?;
+    let mut source = fs::File::open(original).map_err(ErrorCause::external)?;
     source
         .seek(SeekFrom::Start(asf.header_size))
-        .map_err(|e| e.to_string())?;
+        .map_err(ErrorCause::external)?;
     staging
         .seek(SeekFrom::Start(0))
-        .map_err(|e| e.to_string())?;
-    staging.write_all(&header).map_err(|e| e.to_string())?;
+        .map_err(ErrorCause::external)?;
+    staging.write_all(&header).map_err(ErrorCause::external)?;
     let copied =
-        std::io::copy(&mut (&mut source).take(tail), staging).map_err(|e| e.to_string())?;
+        std::io::copy(&mut (&mut source).take(tail), staging).map_err(ErrorCause::external)?;
     if copied != tail {
-        return Err("The file changed during editing; reload it before saving".into());
+        return Err(ErrorCause::owned(
+            "The file changed during editing; reload it before saving",
+        ));
     }
     staging
         .set_len(header.len() as u64 + tail)
-        .map_err(|e| e.to_string())?;
-    staging.flush().map_err(|e| e.to_string())?;
+        .map_err(ErrorCause::external)?;
+    staging.flush().map_err(ErrorCause::external)?;
     source
         .seek(SeekFrom::Start(asf.header_size))
-        .map_err(|e| e.to_string())?;
+        .map_err(ErrorCause::external)?;
     staging
         .seek(SeekFrom::Start(header.len() as u64))
-        .map_err(|e| e.to_string())?;
-    if !same_bytes(&mut source, staging, tail)? {
-        return Err("The ASF media data changed while saving".into());
+        .map_err(ErrorCause::external)?;
+    if !same_bytes_diagnostic(&mut source, staging, tail)? {
+        return Err(ErrorCause::owned("The ASF media data changed while saving"));
     }
     Ok(())
 }
 
 /// Replace the attributes behind each field, keeping their position, type,
 /// stream and language. Returns the values each field must read back as.
-fn apply_fields(asf: &mut Asf, updates: &Fields) -> Result<Fields, String> {
+fn apply_fields(asf: &mut Asf, updates: &Fields) -> Result<Fields, ErrorCause> {
     let mut expected = Fields::new();
     for (field, values) in updates {
         if field.eq_ignore_ascii_case(PICTURE) && !values.is_empty() {
-            return Err("WM/Picture is edited through the cover commands".into());
+            return Err(ErrorCause::owned(
+                "WM/Picture is edited through the cover commands",
+            ));
         }
         let matches = |attribute: &Attribute| {
             !attribute.name.eq_ignore_ascii_case(PICTURE)
@@ -340,8 +369,13 @@ fn apply_fields(asf: &mut Asf, updates: &Fields) -> Result<Fields, String> {
         if let Some(field2) = mapping::asf_name(&name)
             .filter(|f| !values.is_empty() && !f.eq_ignore_ascii_case(field))
         {
-            return Err(format!(
-                "{field} has no separate ASF attribute; {name} holds {field2}"
+            return Err(ErrorCause::message(
+                "{field} has no separate ASF attribute; {name} holds {field2}",
+                [
+                    ("field", field.clone()),
+                    ("name", name.clone()),
+                    ("field2", field2.into()),
+                ],
             ));
         }
         let rating = name.eq_ignore_ascii_case(RATING);
@@ -353,11 +387,12 @@ fn apply_fields(asf: &mut Asf, updates: &Fields) -> Result<Fields, String> {
                     language: template.as_ref().map_or(0, |t| t.language),
                     ..Attribute::new(
                         &name,
-                        parse_value(text, template.as_ref().map(|t| &t.value), rating)?,
+                        parse_value(text, template.as_ref().map(|t| &t.value), rating)
+                            .map_err(ErrorCause::owned_text)?,
                     )
                 })
             })
-            .collect::<Result<Vec<_>, String>>()?;
+            .collect::<Result<Vec<_>, ErrorCause>>()?;
         expected.insert(
             field.clone(),
             attributes.iter().filter_map(display).collect(),
@@ -403,40 +438,45 @@ fn update_legacy_track(asf: &mut Asf, values: &[String]) {
     });
 }
 
-pub(super) fn write_fields(
+pub(super) fn write_fields_diagnostic(
     path: &Path,
     updates: &Fields,
     include_cover_data: bool,
     rules: &[UserFieldMapping],
     options: &TagOptions,
-) -> Result<AudioEntry, String> {
+) -> Result<AudioEntry, ErrorCause> {
     // Validate names while keeping their spelling, like other free-form tags.
-    let updates = normalized_updates(updates, TagType::Ape)?;
-    let updates = normalized_updates(
-        &mapping::map_write(&updates, mapping::RuleTag::Wma, rules)?,
+    let updates = normalized_updates_diagnostic(updates, TagType::Ape)?;
+    let updates = normalized_updates_diagnostic(
+        &mapping::map_write(&updates, mapping::RuleTag::Wma, rules)
+            .map_err(ErrorCause::owned_text)?,
         TagType::Ape,
     )?;
-    staged_write(
+    staged_write_diagnostic(
         path,
         include_cover_data,
         rules,
         options,
         |staging, original, staged| {
-            let (mut asf, size) = open(original)?;
+            let (mut asf, size) = open_diagnostic(original)?;
             let expected = apply_fields(&mut asf, &updates)?;
-            commit(staging, original, &asf, size)?;
-            let actual = local_fields(&open(staged)?.0);
+            commit_diagnostic(staging, original, &asf, size)?;
+            let actual = local_fields(&open_diagnostic(staged)?.0);
             for (field, values) in &expected {
                 let found = actual
                     .iter()
                     .find(|(name, _)| name.eq_ignore_ascii_case(field))
                     .map(|(_, values)| values);
                 if values.is_empty() && found.is_some() {
-                    return Err(format!("The format could not remove field {field}"));
+                    return Err(ErrorCause::message(
+                        "The format could not remove field {field}",
+                        [("field", field.clone())],
+                    ));
                 }
                 if !values.is_empty() && found != Some(values) {
-                    return Err(format!(
-                        "The format could not preserve all values for field {field}"
+                    return Err(ErrorCause::message(
+                        "The format could not preserve all values for field {field}",
+                        [("field", field.clone())],
                     ));
                 }
             }
@@ -470,7 +510,7 @@ pub(super) fn remove_tags(
 
 /// Replace the WM/Picture attributes, reusing the stored attribute (and its
 /// object) for every picture that is unchanged.
-fn set_pictures(asf: &mut Asf, pictures: &[Picture]) -> Result<(), String> {
+fn set_pictures(asf: &mut Asf, pictures: &[Picture]) -> Result<(), ErrorCause> {
     let mut originals: Vec<_> = asf
         .attributes
         .iter()
@@ -480,7 +520,7 @@ fn set_pictures(asf: &mut Asf, pictures: &[Picture]) -> Result<(), String> {
         .collect();
     let mut attributes = Vec::new();
     for picture in pictures {
-        let value = Value::Bytes(picture_value(picture).encode()?);
+        let value = Value::Bytes(picture_value(picture).encode_diagnostic()?);
         let reused = originals
             .iter_mut()
             .find(|original| original.as_ref().is_some_and(|o| o.value == value))
@@ -502,24 +542,41 @@ pub(super) fn change_pictures(
     change: impl FnOnce(&mut Vec<Picture>) -> Result<(), String>,
     failure: &str,
 ) -> Result<AudioEntry, String> {
-    staged_write(
+    change_pictures_diagnostic(
+        path,
+        include_cover_data,
+        options,
+        |pictures| change(pictures).map_err(ErrorCause::external),
+        failure,
+    )
+    .map_err(|error| error.to_string())
+}
+
+pub(super) fn change_pictures_diagnostic(
+    path: &Path,
+    include_cover_data: bool,
+    options: &TagOptions,
+    change: impl FnOnce(&mut Vec<Picture>) -> Result<(), ErrorCause>,
+    failure: &str,
+) -> Result<AudioEntry, ErrorCause> {
+    staged_write_diagnostic(
         path,
         include_cover_data,
         &options.mappings,
         options,
         |staging, original, staged| {
-            let (mut asf, size) = open(original)?;
+            let (mut asf, size) = open_diagnostic(original)?;
             let mut edited = pictures(&asf);
             change(&mut edited)?;
             set_pictures(&mut asf, &edited)?;
-            commit(staging, original, &asf, size)?;
-            let written = pictures(&open(staged)?.0);
+            commit_diagnostic(staging, original, &asf, size)?;
+            let written = pictures(&open_diagnostic(staged)?.0);
             if written
                 .iter()
                 .map(picture_value)
                 .ne(edited.iter().map(picture_value))
             {
-                return Err(failure.into());
+                return Err(ErrorCause::owned_text(failure));
             }
             Ok(())
         },

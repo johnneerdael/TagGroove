@@ -12,6 +12,7 @@ use tag_core::actions::{
     ActionEffect, ActionGroup, ActionHost, ActionLibrary, ActionSpec, ActionState,
     BatchActionEffect, MtaImport, NameOrigin, TemplateMode,
 };
+use tag_core::batch_errors::{push_error, BatchError, Detailed, ErrorCause};
 use tag_core::{AudioEntry, Fields, FileError, ScanResult};
 use tauri::Manager;
 
@@ -225,20 +226,40 @@ fn atomic_output_with_directories(
     append: bool,
     create_directories: bool,
 ) -> Result<(), String> {
+    atomic_output_with_directories_diagnostic(path, bytes, append, create_directories)
+        .map_err(|error| error.to_string())
+}
+
+pub(crate) fn atomic_output_diagnostic(
+    path: &Path,
+    bytes: &[u8],
+    append: bool,
+) -> Result<(), ErrorCause> {
+    atomic_output_with_directories_diagnostic(path, bytes, append, true)
+}
+
+fn atomic_output_with_directories_diagnostic(
+    path: &Path,
+    bytes: &[u8],
+    append: bool,
+    create_directories: bool,
+) -> Result<(), ErrorCause> {
     let parent = path.parent().unwrap_or(Path::new("."));
     if create_directories {
-        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        fs::create_dir_all(parent).map_err(ErrorCause::external)?;
     }
-    let mut staging = tempfile::NamedTempFile::new_in(parent).map_err(|e| e.to_string())?;
+    let mut staging = tempfile::NamedTempFile::new_in(parent).map_err(ErrorCause::external)?;
     if append && path.exists() {
-        let mut original = fs::File::open(path).map_err(|e| e.to_string())?;
-        std::io::copy(&mut original, &mut staging).map_err(|e| e.to_string())?;
+        let mut original = fs::File::open(path).map_err(ErrorCause::external)?;
+        std::io::copy(&mut original, &mut staging).map_err(ErrorCause::external)?;
     }
     staging
         .write_all(bytes)
         .and_then(|_| staging.as_file().sync_all())
-        .map_err(|e| e.to_string())?;
-    staging.persist(path).map_err(|e| e.error.to_string())?;
+        .map_err(ErrorCause::external)?;
+    staging
+        .persist(path)
+        .map_err(|e| ErrorCause::external(e.error))?;
     Ok(())
 }
 
@@ -363,7 +384,7 @@ struct NativeHost<'a> {
     captured_covers: HashSet<String>,
     /// Called before the first actual write to an image output, so undo can
     /// restore its previous entry or remove a new image.
-    before_replace: &'a mut dyn FnMut(&Path, usize) -> Result<(), String>,
+    before_replace: &'a mut dyn FnMut(&Path, usize) -> Result<(), ErrorCause>,
     identities: Vec<String>,
     initial_fields: Vec<Fields>,
     inputs: Vec<PathBuf>,
@@ -403,7 +424,7 @@ impl NativeHost<'_> {
             .map(moved)
             .collect();
     }
-    fn capture_cover_output(&mut self, destination: &str, target: &Path) -> Result<(), String> {
+    fn capture_cover_output(&mut self, destination: &str, target: &Path) -> Result<(), ErrorCause> {
         if !self.captured_covers.contains(destination) {
             (self.before_replace)(target, self.directories.len())?;
             self.captured_covers.insert(destination.to_owned());
@@ -418,14 +439,18 @@ impl NativeHost<'_> {
         Ok(())
     }
     fn flush(&self, state: &mut ActionState) -> Result<AudioEntry, String> {
-        self.synchronize(state)?;
-        let path = state_path(state)?;
-        let original = crate::settings::read_summary(&path)?;
+        self.flush_diagnostic(state)
+            .map_err(|error| error.to_string())
+    }
+    fn flush_diagnostic(&self, state: &mut ActionState) -> Result<AudioEntry, ErrorCause> {
+        self.synchronize(state).map_err(ErrorCause::owned_text)?;
+        let path = state_path(state).map_err(ErrorCause::owned_text)?;
+        let original = crate::settings::read_summary_diagnostic(&path)?;
         let updates = delta(&original.fields, &state.fields);
         let entry = if updates.is_empty() {
             original
         } else {
-            crate::settings::write_summary(&path, &updates)?
+            crate::settings::write_summary_diagnostic(&path, &updates)?
         };
         let counter = state
             .context
@@ -451,7 +476,15 @@ impl NativeHost<'_> {
         (identity, unchanged)
     }
     fn protect_output(&self, target: &Path, states: &[ActionState]) -> Result<(), String> {
-        let target = normalized_output(target)?;
+        self.protect_output_diagnostic(target, states)
+            .map_err(|error| error.to_string())
+    }
+    fn protect_output_diagnostic(
+        &self,
+        target: &Path,
+        states: &[ActionState],
+    ) -> Result<(), ErrorCause> {
+        let target = normalized_output_diagnostic(target)?;
         let protected = self
             .inputs
             .iter()
@@ -459,15 +492,17 @@ impl NativeHost<'_> {
             .chain(
                 states
                     .iter()
-                    .map(state_path)
+                    .map(|state| state_path(state).map_err(ErrorCause::owned_text))
                     .collect::<Result<Vec<_>, _>>()?,
             )
             .flat_map(|path| protected_files(&path));
         for source in protected {
             let source = self.resolve(&source);
-            let source = normalized_output(&source)?;
+            let source = normalized_output_diagnostic(&source)?;
             if source == target {
-                return Err("Export output cannot replace an input audio file".into());
+                return Err(ErrorCause::owned(
+                    "Export output cannot replace an input audio file",
+                ));
             }
         }
         Ok(())
@@ -521,17 +556,25 @@ impl NativeHost<'_> {
         Ok(context)
     }
 }
-impl ActionHost for NativeHost<'_> {
-    fn evaluate(&mut self, template: &str, state: &ActionState) -> Result<String, String> {
+impl NativeHost<'_> {
+    fn evaluate_diagnostic(
+        &self,
+        template: &str,
+        state: &ActionState,
+    ) -> Result<String, ErrorCause> {
         let (identity, unchanged) = self.identity(state);
-        let context = self.path_context(state)?;
+        let context = self.path_context(state).map_err(ErrorCause::owned_text)?;
         self.settings
-            .evaluate(template, &state.fields, &context, &identity, unchanged)
+            .evaluate_diagnostic(template, &state.fields, &context, &identity, unchanged)
     }
-    fn evaluate_filename(&mut self, template: &str, state: &ActionState) -> Result<String, String> {
+    fn evaluate_filename_diagnostic(
+        &self,
+        template: &str,
+        state: &ActionState,
+    ) -> Result<String, ErrorCause> {
         let (identity, unchanged) = self.identity(state);
-        let context = self.path_context(state)?;
-        self.settings.evaluate_native_filename(
+        let context = self.path_context(state).map_err(ErrorCause::owned_text)?;
+        self.settings.evaluate_native_filename_diagnostic(
             template,
             &state.fields,
             &context,
@@ -539,9 +582,16 @@ impl ActionHost for NativeHost<'_> {
             unchanged,
         )
     }
-    fn execute(&mut self, effect: &ActionEffect, state: &mut ActionState) -> Result<(), String> {
-        self.flush(state)?;
-        let path = state_path(state)?;
+}
+
+impl NativeHost<'_> {
+    fn execute_diagnostic(
+        &mut self,
+        effect: &ActionEffect,
+        state: &mut ActionState,
+    ) -> Result<(), ErrorCause> {
+        self.flush_diagnostic(state)?;
+        let path = state_path(state).map_err(ErrorCause::owned_text)?;
         match effect {
             ActionEffect::RenameFile {
                 filename,
@@ -564,8 +614,8 @@ impl ActionHost for NativeHost<'_> {
                         }
                     }
                 }
-                tag_core::operations::rename_no_clobber(&path, &target)?;
-                let entry = crate::settings::read_summary(&target)?;
+                tag_core::operations::rename_no_clobber_cause(&path, &target)?;
+                let entry = crate::settings::read_summary_diagnostic(&target)?;
                 let index: usize = state
                     .context
                     .get("_COUNTER")
@@ -579,7 +629,9 @@ impl ActionHost for NativeHost<'_> {
             }
             ActionEffect::RenameDirectory { directory, origin } => {
                 let directory = action_name(directory, *origin, &self.settings.folder_separator);
-                let source = path.parent().ok_or("File has no parent directory")?;
+                let source = path
+                    .parent()
+                    .ok_or_else(|| ErrorCause::owned("File has no parent directory"))?;
                 let target = if Path::new(&directory).is_absolute() {
                     PathBuf::from(&directory)
                 } else {
@@ -587,28 +639,32 @@ impl ActionHost for NativeHost<'_> {
                 };
                 if source != target {
                     if target.starts_with(source) {
-                        return Err("Cannot move a directory inside itself".into());
+                        return Err(ErrorCause::owned("Cannot move a directory inside itself"));
                     }
-                    let from = normalized_output(source)?;
-                    tag_core::operations::rename_directory_no_clobber(source, &target)?;
+                    let from = normalized_output_diagnostic(source)?;
+                    tag_core::operations::rename_directory_no_clobber_diagnostic(source, &target)?;
                     self.directories.push(PathChange {
                         from: source.to_string_lossy().into_owned(),
                         to: target.to_string_lossy().into_owned(),
                     });
-                    self.move_cover_outputs(&from, &normalized_output(&target)?);
+                    self.move_cover_outputs(&from, &normalized_output_diagnostic(&target)?);
                 }
-                self.synchronize(state)?;
+                self.synchronize(state).map_err(ErrorCause::owned_text)?;
             }
             ActionEffect::RemoveCovers => {
-                tag_core::remove_all_covers_with_options(&path, &crate::settings::tag_options())?;
+                tag_core::remove_all_covers_with_options_diagnostic(
+                    &path,
+                    &crate::settings::tag_options(),
+                )?;
             }
             ActionEffect::ImportCover {
                 filename,
                 picture_type,
                 delete_existing,
             } => {
-                let image = tag_core::resolve_cover_source(&template_path(filename, &path))?;
-                tag_core::import_cover_with_options(
+                let image =
+                    tag_core::resolve_cover_source_diagnostic(&template_path(filename, &path))?;
+                tag_core::import_cover_with_options_diagnostic(
                     &path,
                     &image,
                     picture_type.as_deref(),
@@ -621,10 +677,10 @@ impl ActionHost for NativeHost<'_> {
                 picture_type,
                 export_duplicates,
             } => {
-                let entry = crate::settings::read_full(&path)?;
+                let entry = crate::settings::read_full_diagnostic(&path)?;
                 let filter = picture_type
                     .as_deref()
-                    .map(tag_core::picture_type_from_name)
+                    .map(tag_core::picture_type_from_name_diagnostic)
                     .transpose()?;
                 struct Output {
                     bytes: Vec<u8>,
@@ -643,12 +699,12 @@ impl ActionHost for NativeHost<'_> {
                     }
                     let bytes = STANDARD
                         .decode(&cover.data_base64)
-                        .map_err(|e| e.to_string())?;
+                        .map_err(ErrorCause::external)?;
                     let digest: [u8; 32] = Sha256::digest(&bytes).into();
                     let mut target =
                         cover_file_target(template_path(filename, &path), &cover.mime, &bytes);
                     // Identity uses the requested name before ordinal suffixes.
-                    let identity = (normalized_cover_output(&target)?, digest);
+                    let identity = (normalized_cover_output_diagnostic(&target)?, digest);
                     let count = outputs.len();
                     if count > 0 {
                         let stem = target.file_stem().unwrap_or_default().to_string_lossy();
@@ -656,7 +712,7 @@ impl ActionHost for NativeHost<'_> {
                         target.set_file_name(format!("{stem} ({count}).{extension}"));
                     }
                     outputs.push(Output {
-                        destination: normalized_cover_output(&target)?,
+                        destination: normalized_cover_output_diagnostic(&target)?,
                         // The first occurrence will either write its image or
                         // retain a proven surviving output from this run.
                         skip: !export_duplicates && !seen.insert(identity.clone()),
@@ -708,7 +764,7 @@ impl ActionHost for NativeHost<'_> {
                         destination,
                         ..
                     } = output;
-                    self.protect_output(&target, std::slice::from_ref(state))?;
+                    self.protect_output_diagnostic(&target, std::slice::from_ref(state))?;
                     let (writer, _) = self.identity(state);
                     let previous = self
                         .written_covers
@@ -719,16 +775,16 @@ impl ActionHost for NativeHost<'_> {
                         Some((written, _)) if *written == digest => {}
                         // Another file of this run already wrote a different image there.
                         Some((_, earlier)) if *earlier != writer => {
-                            return Err(format!(
-                                "{} was already written for another file",
-                                target.display()
+                            return Err(ErrorCause::message(
+                                "{value} was already written for another file",
+                                [("value", target.to_string_lossy().into_owned())],
                             ));
                         }
                         // A prior no-op has an owner but no snapshot yet.
                         // Capture its original entry at the first real replacement.
                         Some(_) => {
                             self.capture_cover_output(&destination, &target)?;
-                            atomic_output(&target, &bytes, false)?;
+                            atomic_output_diagnostic(&target, &bytes, false)?;
                             self.written_covers
                                 .insert(destination.clone(), (digest, writer));
                         }
@@ -740,7 +796,7 @@ impl ActionHost for NativeHost<'_> {
                                 && fs::read(&target).is_ok_and(|existing| existing == bytes);
                             if !identical {
                                 self.capture_cover_output(&destination, &target)?;
-                                atomic_output(&target, &bytes, false)?;
+                                atomic_output_diagnostic(&target, &bytes, false)?;
                             }
                             self.written_covers
                                 .insert(destination.clone(), (digest, writer));
@@ -763,7 +819,7 @@ impl ActionHost for NativeHost<'_> {
                 quality,
                 resize,
             } => {
-                tag_core::adjust_covers_with_options(
+                tag_core::adjust_covers_with_options_diagnostic(
                     &path,
                     *format,
                     *quality,
@@ -776,7 +832,7 @@ impl ActionHost for NativeHost<'_> {
                 description,
                 only_picture_type,
             } => {
-                tag_core::set_cover_properties_with_options(
+                tag_core::set_cover_properties_with_options_diagnostic(
                     &path,
                     picture_type.as_deref(),
                     description.as_deref(),
@@ -785,20 +841,18 @@ impl ActionHost for NativeHost<'_> {
                 )?;
             }
             ActionEffect::ImportTextFile { field, filename } => {
-                let bytes = fs::read(template_path(filename, &path)).map_err(|e| e.to_string())?;
-                // A BOM decides; text without one is UTF-8 when valid and
-                // otherwise ANSI (the system codepage, Windows-1252 without one).
-                let text = tag_core::decode_export_template(
-                    &bytes,
+                let text = read_action_text(
+                    fs::read(template_path(filename, &path)),
                     self.settings.ansi_codepage().as_deref(),
-                )
-                .map_err(|e| format!("Cannot decode the text file: {e}"))?;
+                )?;
                 state.fields.insert(field.clone(), vec![text]);
-                self.flush(state)?;
+                self.flush_diagnostic(state)?;
             }
         }
         // Refresh properties without losing imported data needed by later actions.
-        let entry = crate::settings::read_summary(&self.resolve(&state_path(state)?))?;
+        let entry = crate::settings::read_summary_diagnostic(
+            &self.resolve(&state_path(state).map_err(ErrorCause::owned_text)?),
+        )?;
         let index = state
             .context
             .get("_COUNTER")
@@ -807,6 +861,30 @@ impl ActionHost for NativeHost<'_> {
             .unwrap_or(1);
         state.context = technical_fields(&entry, index);
         Ok(())
+    }
+}
+
+impl ActionHost for NativeHost<'_> {
+    fn evaluate(&mut self, template: &str, state: &ActionState) -> Result<String, String> {
+        let (identity, unchanged) = self.identity(state);
+        let context = self.path_context(state)?;
+        self.settings
+            .evaluate(template, &state.fields, &context, &identity, unchanged)
+    }
+    fn evaluate_filename(&mut self, template: &str, state: &ActionState) -> Result<String, String> {
+        let (identity, unchanged) = self.identity(state);
+        let context = self.path_context(state)?;
+        self.settings.evaluate_native_filename(
+            template,
+            &state.fields,
+            &context,
+            &identity,
+            unchanged,
+        )
+    }
+    fn execute(&mut self, effect: &ActionEffect, state: &mut ActionState) -> Result<(), String> {
+        self.execute_diagnostic(effect, state)
+            .map_err(|error| error.to_string())
     }
     fn execute_batch(
         &mut self,
@@ -982,12 +1060,23 @@ impl ActionHost for NativeHost<'_> {
 
 use std::collections::BTreeMap;
 
+fn read_action_text(
+    bytes: std::io::Result<Vec<u8>>,
+    ansi_codepage: Option<&str>,
+) -> Result<String, ErrorCause> {
+    let bytes = bytes.map_err(ErrorCause::external)?;
+    tag_core::export::decode_export_template_diagnostic(&bytes, ansi_codepage)
+        .map_err(|cause| ErrorCause::wrap("Cannot decode the text file: {e}", [], "e", cause))
+}
+
 // Atomic cover writes replace the final directory entry, rather than the
 // object a final symlink points at. Resolve parent aliases but keep that
 // entry's identity stable before and after replacement.
-fn normalized_cover_output(path: &Path) -> Result<String, String> {
-    let parent = normalized_output_path(path.parent().unwrap_or(Path::new(".")))?;
-    let name = path.file_name().ok_or("Cover output has no filename")?;
+fn normalized_cover_output_diagnostic(path: &Path) -> Result<String, ErrorCause> {
+    let parent = normalized_output_path_diagnostic(path.parent().unwrap_or(Path::new(".")))?;
+    let name = path
+        .file_name()
+        .ok_or_else(|| ErrorCause::owned("Cover output has no filename"))?;
     let entry = parent.join(name);
     let resolved = match fs::symlink_metadata(&entry) {
         Ok(metadata) if metadata.file_type().is_symlink() => {
@@ -998,8 +1087,8 @@ fn normalized_cover_output(path: &Path) -> Result<String, String> {
                 // entry instead, including its stored spelling on volumes
                 // where a differently cased lookup names the same entry.
                 let mut alias = None;
-                for candidate in fs::read_dir(&parent).map_err(|e| e.to_string())? {
-                    let candidate = candidate.map_err(|e| e.to_string())?;
+                for candidate in fs::read_dir(&parent).map_err(ErrorCause::external)? {
+                    let candidate = candidate.map_err(ErrorCause::external)?;
                     let candidate_name = candidate.file_name();
                     if candidate_name == name {
                         alias = Some(candidate.path());
@@ -1009,22 +1098,24 @@ fn normalized_cover_output(path: &Path) -> Result<String, String> {
                         == name.to_string_lossy().to_lowercase()
                     {
                         let found =
-                            fs::symlink_metadata(candidate.path()).map_err(|e| e.to_string())?;
+                            fs::symlink_metadata(candidate.path()).map_err(ErrorCause::external)?;
                         if found.dev() == metadata.dev() && found.ino() == metadata.ino() {
                             alias = Some(candidate.path());
                         }
                     }
                 }
-                alias.ok_or("Cannot identify the cover output directory entry")?
+                alias.ok_or_else(|| {
+                    ErrorCause::owned("Cannot identify the cover output directory entry")
+                })?
             }
             #[cfg(not(unix))]
             {
                 entry
             }
         }
-        Ok(_) => normalized_output_path(&entry)?,
+        Ok(_) => normalized_output_path_diagnostic(&entry)?,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => entry,
-        Err(error) => return Err(error.to_string()),
+        Err(error) => return Err(ErrorCause::external(error)),
     };
     let value = resolved.to_string_lossy().into_owned();
     Ok(if cfg!(windows) {
@@ -1035,7 +1126,12 @@ fn normalized_cover_output(path: &Path) -> Result<String, String> {
 }
 
 pub(crate) fn normalized_output(path: &Path) -> Result<String, String> {
-    let value = normalized_output_path(path)?.to_string_lossy().into_owned();
+    normalized_output_diagnostic(path).map_err(|error| error.to_string())
+}
+pub(crate) fn normalized_output_diagnostic(path: &Path) -> Result<String, ErrorCause> {
+    let value = normalized_output_path_diagnostic(path)?
+        .to_string_lossy()
+        .into_owned();
     Ok(if cfg!(windows) {
         value.to_lowercase()
     } else {
@@ -1060,11 +1156,14 @@ pub(crate) fn normalized_rename_target(path: &Path) -> Result<PathBuf, String> {
 /// Resolve destination aliases without creating parents or folding the case of
 /// the path that a native file operation will use.
 pub(crate) fn normalized_output_path(path: &Path) -> Result<PathBuf, String> {
+    normalized_output_path_diagnostic(path).map_err(|error| error.to_string())
+}
+pub(crate) fn normalized_output_path_diagnostic(path: &Path) -> Result<PathBuf, ErrorCause> {
     let absolute = if path.is_absolute() {
         path.to_path_buf()
     } else {
         std::env::current_dir()
-            .map_err(|e| e.to_string())?
+            .map_err(ErrorCause::external)?
             .join(path)
     };
     let mut resolved = PathBuf::new();
@@ -1087,13 +1186,15 @@ pub(crate) fn normalized_output_path(path: &Path) -> Result<PathBuf, String> {
                 resolved.push(component.as_os_str());
                 match fs::symlink_metadata(&resolved) {
                     Ok(_) => {
-                        resolved = dunce::canonicalize(&resolved).map_err(|e| e.to_string())?;
+                        resolved = dunce::canonicalize(&resolved).map_err(ErrorCause::external)?;
                     }
                     Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
                     Err(error) => {
-                        return Err(format!(
-                            "Cannot inspect output path {}: {error}",
-                            resolved.display()
+                        return Err(ErrorCause::wrap(
+                            "Cannot inspect output path {value}: {error}",
+                            [("value", resolved.to_string_lossy().into_owned())],
+                            "error",
+                            ErrorCause::external(error),
                         ))
                     }
                 }
@@ -1164,7 +1265,28 @@ pub fn execute_with_side_file_epochs(
     settings: EvaluationSettings,
     before_replace: &mut dyn FnMut(&Path, usize) -> Result<(), String>,
 ) -> ActionResult {
+    execute_with_side_file_epochs_diagnostic(paths, groups, settings, &mut |path, epoch| {
+        before_replace(path, epoch).map_err(ErrorCause::external)
+    })
+    .result
+}
+
+pub fn execute_diagnostic(
+    paths: &[String],
+    groups: &[ActionGroup],
+    settings: EvaluationSettings,
+) -> Detailed<ActionResult> {
+    execute_with_side_file_epochs_diagnostic(paths, groups, settings, &mut |_, _| Ok(()))
+}
+
+pub fn execute_with_side_file_epochs_diagnostic(
+    paths: &[String],
+    groups: &[ActionGroup],
+    settings: EvaluationSettings,
+    before_replace: &mut dyn FnMut(&Path, usize) -> Result<(), ErrorCause>,
+) -> Detailed<ActionResult> {
     let mut result = ScanResult::default();
+    let mut error_diagnostics = Vec::new();
     let mut states = Vec::new();
     let mut initial = Vec::new();
     let mut seen = HashSet::new();
@@ -1202,8 +1324,11 @@ pub fn execute_with_side_file_epochs(
     let mut preflight = None;
     for group in groups.iter().filter(|g| g.enabled) {
         for action in &group.actions {
-            if let Err(error) = tag_core::actions::validate_action(action) {
-                preflight = Some(format!("{}: {error}", group.name));
+            if let Err(error) = tag_core::actions::validate_action_diagnostic(action) {
+                preflight = Some(BatchError::ActionValidation {
+                    group: group.name.clone(),
+                    cause: error,
+                });
                 break;
             }
         }
@@ -1214,10 +1339,12 @@ pub fn execute_with_side_file_epochs(
     if let Some(error) = preflight {
         for (index, path) in initial.iter().enumerate() {
             failed.insert(index);
-            result.errors.push(FileError {
-                path: path.clone(),
-                error: error.clone(),
-            });
+            push_error(
+                &mut result.errors,
+                &mut error_diagnostics,
+                path.clone(),
+                error.clone(),
+            );
         }
     } else {
         for group in groups.iter().filter(|g| g.enabled) {
@@ -1252,17 +1379,19 @@ pub fn execute_with_side_file_epochs(
                     if failed.contains(&index) {
                         continue;
                     }
-                    let applied = tag_core::actions::apply_action_spec_with_modes(
+                    let applied = tag_core::actions::apply_action_spec_with_modes_diagnostic(
                         state,
                         action,
                         &mut |template, state, mode| match mode {
-                            TemplateMode::Text => host.evaluate(template, state),
-                            TemplateMode::Filename => host.evaluate_filename(template, state),
+                            TemplateMode::Text => host.evaluate_diagnostic(template, state),
+                            TemplateMode::Filename => {
+                                host.evaluate_filename_diagnostic(template, state)
+                            }
                         },
                     );
                     let outcome = applied.and_then(|effects| {
                         for effect in effects {
-                            host.execute(&effect, state)?;
+                            host.execute_diagnostic(&effect, state)?;
                         }
                         Ok(())
                     });
@@ -1272,10 +1401,16 @@ pub fn execute_with_side_file_epochs(
                         let path = host.resolve(
                             &state_path(state).unwrap_or_else(|_| PathBuf::from(&initial[index])),
                         );
-                        result.errors.push(FileError {
-                            path: path.to_string_lossy().into_owned(),
-                            error: format!("{} / action {}: {error}", group.name, action_index + 1),
-                        });
+                        push_error(
+                            &mut result.errors,
+                            &mut error_diagnostics,
+                            path.to_string_lossy().into_owned(),
+                            BatchError::Action {
+                                group: group.name.clone(),
+                                index: action_index + 1,
+                                cause: error,
+                            },
+                        );
                     }
                 }
             }
@@ -1328,11 +1463,14 @@ pub fn execute_with_side_file_epochs(
             }
         }
     }
-    ActionResult {
-        result,
-        renamed,
-        moved_directories: host.directories,
-        outputs: host.outputs,
+    Detailed {
+        result: ActionResult {
+            result,
+            renamed,
+            moved_directories: host.directories,
+            outputs: host.outputs,
+        },
+        error_diagnostics,
     }
 }
 
@@ -1340,6 +1478,139 @@ pub fn execute_with_side_file_epochs(
 mod tests {
     use super::*;
     use tag_core::actions::{ActionSpec, CaseMode};
+
+    #[test]
+    fn text_import_distinguishes_owned_decode_guard_from_identical_io_text() {
+        let owned = read_action_text(Ok(vec![0xff, 0xfe, 0]), None).unwrap_err();
+        let text = "Cannot decode the text file: Truncated UTF-16 export configuration";
+        let external = read_action_text(Err(std::io::Error::other(text)), None).unwrap_err();
+        assert_eq!(owned.to_string(), text);
+        assert_eq!(external.to_string(), text);
+        assert!(matches!(&owned, ErrorCause::Owned { children, .. }
+            if matches!(children.get("e"), Some(ErrorCause::Owned { key, .. }) if key == "Truncated UTF-16 export configuration")));
+        assert!(matches!(external, ErrorCause::External { .. }));
+        let foreign_utf8 = read_action_text(Ok(vec![0xef, 0xbb, 0xbf, 0xff]), None).unwrap_err();
+        assert!(matches!(foreign_utf8, ErrorCause::Owned { children, .. }
+            if matches!(children.get("e"), Some(ErrorCause::External { .. }))));
+        assert_eq!(
+            tag_core::export::decode_export_template(&[0xff, 0xfe, 0], None).unwrap_err(),
+            "Truncated UTF-16 export configuration"
+        );
+    }
+
+    #[test]
+    fn detailed_action_validation_keeps_authored_group_and_has_no_fake_action_index() {
+        let directory = tempfile::tempdir().unwrap();
+        let audio = fixture(directory.path(), "source.wav")
+            .to_string_lossy()
+            .into_owned();
+        let group = |action| ActionGroup {
+            name: "Help: Title / action 1: Help".into(),
+            enabled: true,
+            actions: vec![action],
+        };
+        let owned_group = group(ActionSpec::SplitField {
+            field: "ARTIST".into(),
+            separator: String::new(),
+        });
+        let detailed = execute_diagnostic(
+            std::slice::from_ref(&audio),
+            std::slice::from_ref(&owned_group),
+            EvaluationSettings::default(),
+        );
+        assert_eq!(detailed.result.errors.len(), 1);
+        let json = serde_json::to_value(&detailed).unwrap();
+        let frame = &json["error_diagnostics"][0]["diagnostic"];
+        assert_eq!(frame["kind"], "action_validation");
+        assert_eq!(frame["group"], owned_group.name);
+        assert!(frame.get("index").is_none());
+        assert_ne!(frame["cause"]["kind"], "external");
+        let legacy = execute(
+            std::slice::from_ref(&audio),
+            &[owned_group],
+            EvaluationSettings::default(),
+        );
+        assert_eq!(legacy.errors[0].error, detailed.result.errors[0].error);
+        let regex_group = group(ActionSpec::RegexReplace {
+            field: "TITLE".into(),
+            pattern: "[".into(),
+            replacement: "".into(),
+            case_sensitive: true,
+        });
+        let regex = execute_diagnostic(&[audio], &[regex_group], EvaluationSettings::default());
+        let json = serde_json::to_value(&regex).unwrap();
+        assert_eq!(
+            json["error_diagnostics"][0]["diagnostic"]["cause"]["kind"],
+            "external"
+        );
+    }
+
+    #[test]
+    fn detailed_action_warnings_retain_raw_group_and_real_index_while_later_actions_run() {
+        let directory = tempfile::tempdir().unwrap();
+        let audio = fixture(directory.path(), "source.wav")
+            .to_string_lossy()
+            .into_owned();
+        let group = ActionGroup {
+            name: "Help / action 1: Title".into(),
+            enabled: true,
+            actions: vec![
+                ActionSpec::FormatValue {
+                    field: "TITLE".into(),
+                    template: "Before".into(),
+                },
+                ActionSpec::FormatValue {
+                    field: "_FILENAME".into(),
+                    template: String::new(),
+                },
+                ActionSpec::FormatValue {
+                    field: "COMMENT".into(),
+                    template: "After".into(),
+                },
+            ],
+        };
+        let result = execute_diagnostic(
+            std::slice::from_ref(&audio),
+            std::slice::from_ref(&group),
+            EvaluationSettings::default(),
+        );
+        assert_eq!(result.result.errors.len(), 1);
+        assert_eq!(
+            result.result.errors[0].error,
+            "Help / action 1: Title / action 2: Filename must not be empty"
+        );
+        let json = serde_json::to_value(&result).unwrap();
+        assert_eq!(json["error_diagnostics"][0]["index"], 0);
+        assert_eq!(
+            json["error_diagnostics"][0]["diagnostic"]["group"],
+            "Help / action 1: Title"
+        );
+        assert_eq!(json["error_diagnostics"][0]["diagnostic"]["index"], 2);
+        assert_eq!(
+            json["error_diagnostics"][0]["diagnostic"]["cause"]["kind"],
+            "owned"
+        );
+        assert_eq!(
+            json["error_diagnostics"][0]["diagnostic"]["cause"]["key"],
+            "Filename must not be empty"
+        );
+        let saved = tag_core::read_entry_summary(Path::new(&audio)).unwrap();
+        assert_eq!(saved.fields["TITLE"], ["Before"]);
+        assert_eq!(saved.fields["COMMENT"], ["After"]);
+        let legacy = execute(
+            std::slice::from_ref(&audio),
+            &[group],
+            EvaluationSettings::default(),
+        );
+        assert_eq!(
+            legacy.errors[0].error,
+            "Help / action 1: Title / action 2: Filename must not be empty"
+        );
+        assert!(serde_json::to_value(legacy)
+            .unwrap()
+            .get("error_diagnostics")
+            .is_none());
+    }
 
     #[test]
     fn missing_export_configuration_reports_the_authored_name_or_path() {
