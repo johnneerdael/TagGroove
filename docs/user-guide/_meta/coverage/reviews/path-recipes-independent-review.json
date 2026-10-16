@@ -1,0 +1,190 @@
+{
+  "reviewed_at_utc": "2026-10-16T13:39:04.152301+00:00",
+  "head": "edb215e87084b967cfc89cff2549225bc1bc70ee",
+  "base": "25bd3cb4c659caa7b9dd7d16b8b7dd42526205a3",
+  "source_main": "325007c47bef4ee53a4aa9b086038157ee3e62dc",
+  "verdict": "clean",
+  "findings": [],
+  "focused_validation": {
+    "written_example_native": {
+      "command": "/tmp/opentag-guide-combined-target/debug/deps/path_recipe_guide-f2136f026442cc82",
+      "passed": 5,
+      "failed": 0,
+      "ignored": 0
+    },
+    "existing_history": {
+      "binary": "/tmp/opentag-guide-combined-target/debug/deps/history-58a94a594cdba2ca",
+      "cases": [
+        "side_files_created_or_replaced_are_removed_or_restored",
+        "unchanged_side_files_are_not_recorded"
+      ],
+      "passed": 2,
+      "failed": 0
+    },
+    "models": {
+      "command": "node --test tests/converter-review.test.mjs tests/action-ui.test.mjs",
+      "passed": 31,
+      "failed": 0
+    }
+  },
+  "source_review": {
+    "rename": "Actual main.ts converter route selects preview_rename/rename_files for Tag\u2192Filename and separate reviewedFilenameConverter for Filename\u2192Filename. Core filenameconverter extension retention/capture formats and script $validate/$replace/$trimright/$left semantics corroborate written outputs; no filesystem/case/alias success guarantees inferred.",
+    "cover_export": "NativeHost ExportCover619-760 preserves embedded bytes, filters type, computes extension and qualifying ordinals before duplicate suppression; same requested target/digest identity and priorwriter rules distinguish existing replacement, identical-byte no-op and differentwriter warning. cover_file_target293-313 corroborates all five JPEG/PNG/extension rows. Relative template path resolves against each source, not text-export partition.",
+    "history": "capture_cover_output406-411 calls before_replace before actual_output; history::journal_work139-170 can invoke work without capture when historyunavailable; core capture_side_file_after_moves530-563/copy_side_file565+/check_side_budget617+/commit_side_files660+ corroborate bounded before/after retention, notices and created/replaced image undo. Two existing coretempfile cases executed; private appimage export/undo tests source-only.",
+    "boundaries": "Recipes explicitly preserve original copies, distinct tags versus paths, rawtext versus filename sanitation, Unicode scalar versus byte/fullpath limits, pending rename/write boundaries, incomplete results and receivingdevice checks. Existing originalP2 alias/case behavior not claimed fixed."
+  },
+  "immutable_controls": {
+    "application_source_sha256": {
+      "count": 16,
+      "all_match": true
+    },
+    "test_sha256": {
+      "count": 1,
+      "all_match": true
+    },
+    "page_sha256": {
+      "count": 3,
+      "all_match": true
+    },
+    "source_identity": {
+      "count": 175,
+      "all_match": true
+    },
+    "binary_hashes": {
+      "core": true,
+      "journal": true
+    },
+    "embedded_three_pages_match": true,
+    "preserved_receipt_hashes": {
+      "learn-workflows-followup-independent-review.json": true,
+      "learn-workflows-footer-checkpoint.json": true
+    },
+    "generated": {
+      "nav": 161,
+      "routes": 161,
+      "sections": 1352,
+      "drafts": 26,
+      "prior158_order_retained": true,
+      "nav_search_exact": true,
+      "draft_leaks": [],
+      "search_hash_match": true
+    },
+    "whole161_brief_scan": {
+      "pages": 161,
+      "literal_marker_findings": [],
+      "aggregate_hash_match": true,
+      "limit": "Literal draft-marker scan, not whole161 semantic rereview."
+    },
+    "links": {
+      "count": 16,
+      "all_exist_mature": true,
+      "records": [
+        {
+          "page": "cookbook/rename-lowercase-filenames.md",
+          "link": "rename-safe-characters.md",
+          "exists": true,
+          "mature": true
+        },
+        {
+          "page": "cookbook/rename-lowercase-filenames.md",
+          "link": "../converters/filename-to-filename.md",
+          "exists": true,
+          "mature": true
+        },
+        {
+          "page": "cookbook/rename-lowercase-filenames.md",
+          "link": "../converters/tag-to-filename.md",
+          "exists": true,
+          "mature": true
+        },
+        {
+          "page": "cookbook/rename-lowercase-filenames.md",
+          "link": "../reference/scripting/text.md",
+          "exists": true,
+          "mature": true
+        },
+        {
+          "page": "cookbook/rename-lowercase-filenames.md",
+          "link": "../reference/regular-expressions.md",
+          "exists": true,
+          "mature": true
+        },
+        {
+          "page": "cookbook/rename-safe-characters.md",
+          "link": "../reference/options/files.md",
+          "exists": true,
+          "mature": true
+        },
+        {
+          "page": "cookbook/rename-safe-characters.md",
+          "link": "../reference/format-strings.md#file-and-folder-names",
+          "exists": true,
+          "mature": true
+        },
+        {
+          "page": "cookbook/rename-safe-characters.md",
+          "link": "../converters/tag-to-filename.md",
+          "exists": true,
+          "mature": true
+        },
+        {
+          "page": "cookbook/rename-safe-characters.md",
+          "link": "../reference/scripting/search-compare.md#validate",
+          "exists": true,
+          "mature": true
+        },
+        {
+          "page": "cookbook/rename-safe-characters.md",
+          "link": "../reference/scripting/text.md",
+          "exists": true,
+          "mature": true
+        },
+        {
+          "page": "cookbook/rename-safe-characters.md",
+          "link": "rename-lowercase-filenames.md",
+          "exists": true,
+          "mature": true
+        },
+        {
+          "page": "cookbook/export-folder-jpg.md",
+          "link": "../actions/export-cover.md",
+          "exists": true,
+          "mature": true
+        },
+        {
+          "page": "cookbook/export-folder-jpg.md",
+          "link": "../actions/export-cover.md",
+          "exists": true,
+          "mature": true
+        },
+        {
+          "page": "cookbook/export-folder-jpg.md",
+          "link": "../guides/covers.md",
+          "exists": true,
+          "mature": true
+        },
+        {
+          "page": "cookbook/export-folder-jpg.md",
+          "link": "embed-folder-jpg.md",
+          "exists": true,
+          "mature": true
+        },
+        {
+          "page": "cookbook/export-folder-jpg.md",
+          "link": "resize-covers.md",
+          "exists": true,
+          "mature": true
+        }
+      ]
+    },
+    "head": "edb215e87084b967cfc89cff2549225bc1bc70ee",
+    "clean": true
+  },
+  "limits": [
+    "No Cargo/new native application, network/provider, browser, personal data or originalP2 test campaign. Root handles screenshots separately.",
+    "Focused tests do not establish native app imageexport/undo or universal filesystem collision/alias safety.",
+    "Whole161 marker scan is finite placeholder audit; existing mature pages not semantically rereviewed.",
+    "161 authored routes are LOCAL; public137 remains separate.",
+    "No edits/GitHub writes; PR19 unchanged at3e928d37d23de30b4c21d421ecbbe871c22fb99d."
+  ]
+}

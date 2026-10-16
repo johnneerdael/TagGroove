@@ -320,6 +320,11 @@ nav:
   - Exchange text reports:
     - Your library in a spreadsheet: cookbook/csv-for-spreadsheets.md
 
+- Platforms:
+  - macOS: platforms/macos.md
+  - Windows: platforms/windows.md
+  - Linux: platforms/linux.md
+
 - Help:
   - Frequently asked questions: help/faq.md
   - Troubleshooting: help/troubleshooting.md

@@ -686,3 +686,64 @@ receipts, exact source/page/test/binary hashes, source pointers and limits.
 The previous clean25bdlearning followup and footer-repair checkpoint are
 retained unchanged under reviews/. This trio awaits independent peer, later
 main reconciliation, exact final-head CODE and trusted publication checks.
+
+
+## Local desktop-platform checkpoint
+
+The macOS, Windows and Linux platform guides are now substantive local
+chapters. The candidate has 164 authored pages and 23 drafts, preserving every
+prior 161 navigation entry in order. Navigation/search agree on 164 routes and
+1,378 sections with no draft leakage. All 164 completed pages have a clean
+whole-content original-brief-marker scan. Public 137 remains separate;
+27 completed local chapters are unpublished and counts do not establish full
+canonical semantic coverage.
+
+The guides distinguish actual packages/processor builds from framework
+possibilities or an OS support matrix. They explain installation/runtime
+failures versus audio-file errors, literal paths and encodings, system
+file-manager launches versus interactive opening, physical Control versus
+Command/Option/AltGraph, tray/window behavior, optional credential stores,
+per-user settings and separate save/write boundaries. Source-specific limits
+are kept visible instead of transferring another editor's platform behavior.
+
+Read-only downloads of three actual v0.2.13 assets match the verified manifest's
+SHA256 and sizes: Apple-silicon app archive, Windows installer and x64 DEB.
+The Mac bundle displays an ad-hoc signature/version and an arm64 Mach-O; its
+packaged document associations are Alternate. Its declared minimum-version
+metadata is not promoted to a tested OS guarantee. The installer has no
+embedded Authenticode certificate table; the NSIS stub's 32-bit PE is not
+misrepresented as the application's processor target. The DEB has an
+x86-64 ELF64 payload, actual GTK/WebKitGTK/Ayatana dependencies and an OpenTag
+desktop entry. These are archive/header declarations, not installation,
+Gatekeeper assessment, runtime download or cross-OS launch tests. No app,
+installer, keychain, mount or user security setting was invoked/changed.
+
+Three focused actual-core tests execute the written path format,
+known-codepage hex examples and volume-label display fallback under LF/CRLF.
+Thirty-four Node checks pass: four new guide-contract checks plus 30 existing
+keyboard/file-opening/association models. The new checks run 20 written
+shortcut rows in both newline forms through actual source routing, verify
+all 11 desktop filenames against the published manifest, bind Linux declarations
+to the inspected DEB and exercise frontend replacement/pending-edit handling
+for the written folder paths. They do not pretend to run the OS commands.
+Eight publication tests, strict build, focused Clippy, formatting/whitespace
+checks pass;178 recorded production/dependency/workflow/config files match main325.
+
+Nine isolated generated-doc browser checks verify new Platforms navigation,
+real procedure lists,local search opening, palettes,390px tables/document
+bounds, no-wrap package names, actual horizontal scrolling and copyable
+checksum code. Owner viewed the complete mobile Mac filenames and Windows
+dark teaching. A stale search-result handle was replaced with a locator;
+a mixed-case architecture keyword observation remained broad/unhelpful,
+so that failed scope is retained and search quality is not claimed generally.
+The final mounted-path keyword opened Linux guidance. No existing search
+implementation was changed. All owned profiles and the HTTP server are closed.
+
+The ledger `desktop-platforms-2026-10-16.json` contains exact source/page/test,
+fixture/binary/log hashes, the whole-page aggregate and limits. Package
+manifest/inspection metadata are retained in `desktop-v0.2.13-*.json` and the
+preceding finite path-recipe peer is preserved unchanged under reviews/.
+Official Apple/Tauri/AppImage guidance was checked for the scoped app-opening
+and runtime procedures. This trio awaits peer and later actual-main
+reconciliation, exact final-head CODE, trusted CI and publication. Original
+P2/REA work and source17–20's feature behavior remain untouched.

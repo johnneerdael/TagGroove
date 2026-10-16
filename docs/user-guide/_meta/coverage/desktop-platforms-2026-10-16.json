@@ -1,0 +1,487 @@
+{
+  "scope": "Three LOCAL desktop platform guides. Documentation/tests/metadata only. No app installation or launch, security exception, OS settings/keychain access, mounted image, personal file mutation, workflow/dependency/runtime edits, original P2 campaign/fix, REA, push/PR or GitHub writes.",
+  "base_checkpoint": "edb215e87084b967cfc89cff2549225bc1bc70ee",
+  "source_main": "325007c47bef4ee53a4aa9b086038157ee3e62dc",
+  "writing_checkpoint": {
+    "ready": 164,
+    "drafts": 23,
+    "plan": 187,
+    "published_ready": 137,
+    "published_drafts": 50,
+    "unpublished_completed": 27,
+    "qualification": "Prior24 completed local chapters independently reviewed; this trio awaits finite peer. Page counts/inventories do not establish full canonical semantic completion."
+  },
+  "canonical_topic_pointers": [
+    {
+      "url": "https://docs.mp3tag.de/getting-started/installation/",
+      "relative_file": "getting-started/installation.html",
+      "sha256": "265e5f015646cc14549cc23d1179befa32a3d4c7a40acd6962e609917637dd94",
+      "scope": "Topic checklist only; OpenTag package/platform behavior is grounded in its own source and inspected artifacts, not inferred from original-editor requirements."
+    },
+    {
+      "url": "https://docs.mp3tag.de/keyboard/",
+      "relative_file": "keyboard.html",
+      "sha256": "31664192d6281a0f23ca322845189d472f120c2a997117cd7f4d330beaae113b",
+      "scope": "Topic checklist only; OpenTag package/platform behavior is grounded in its own source and inspected artifacts, not inferred from original-editor requirements."
+    },
+    {
+      "url": "https://docs.mp3tag.de/command-line/",
+      "relative_file": "command-line.html",
+      "sha256": "840574a89a5e529abda149d6222f3a1e073efd38421021149b5d66b819b3ba20",
+      "scope": "Topic checklist only; OpenTag package/platform behavior is grounded in its own source and inspected artifacts, not inferred from original-editor requirements."
+    },
+    {
+      "url": "https://docs.mp3tag.de/customization/options/general/",
+      "relative_file": "customization/options/general.html",
+      "sha256": "3ba617087dc24b8b6e221a73efaabd65aa103e092a65d918d675dff111a98922",
+      "scope": "Topic checklist only; OpenTag package/platform behavior is grounded in its own source and inspected artifacts, not inferred from original-editor requirements."
+    }
+  ],
+  "official_platform_sources_checked": [
+    {
+      "url": "https://support.apple.com/en-us/102445",
+      "checked": "2026-10-16",
+      "scope": "App-specific opening procedure after trusted-download attempt; managed-policy and damaged/malware distinction; no global OS bypass advice."
+    },
+    {
+      "url": "https://v2.tauri.app/distribute/windows-installer/",
+      "checked": "2026-10-16",
+      "scope": "Default WebView2 bootstrapper obtains missing runtime and can require network. No generic framework OS/target capabilities promoted to OpenTag qualification."
+    },
+    {
+      "url": "https://docs.appimage.org/introduction/quickstart.html",
+      "checked": "2026-10-16",
+      "scope": "Make downloaded AppImage executable and open using GUI/terminal. No all-distribution/FUSE runtime guarantee."
+    }
+  ],
+  "semantic_mapping": {
+    "macOS": {
+      "page": "platforms/macos.md",
+      "teaching": [
+        "Apple silicon versus Intel assets, checksum, copied app versus mounted DMG/archive and ad-hoc/not-notarized distribution",
+        "OS app-opening messages/current primary guidance versus verified OS matrix; no promotion of misleading minimum metadata",
+        "Finder/Dock/open-a document events versus explicit executable /add route, alternate associations and no automatic tag edits",
+        "Actual Command/physical-Control/Option/text-entry focus cases; known equivalent visible menus",
+        "Folder separators/relative naming, real-volume case and mounted/write access limits",
+        "No OpenTag tray option, optional Keychain status/failure, separate per-user configuration/audio/save scopes"
+      ],
+      "limits": "Actual package metadata and source/model checks, not Mac installation/Gatekeeper acceptance or general filesystem/hardware qualification."
+    },
+    "Windows": {
+      "page": "platforms/windows.md",
+      "teaching": [
+        "Actual x64 unsigned installer versus unpublished targets/formats, literal-path checksum and no invented publisher",
+        "WebView2 missing-runtime bootstrapper versus source-build tools/audio read errors and offline/admin environment",
+        "Explorer reveal/default Play/menu/drop, no automatic file associations/custom context menu, explicit quoted PowerShell folder request",
+        "Ctrl/Alt/AltGr/focus and remove-row versus trash; off-by-default tray choices/restore/quit save boundaries",
+        "Literal paths, real long-path scope, known explicit legacy-codepage bytes versus UTF8 and system ANSI contexts",
+        "Optional Credential Manager, token exclusion, per-user config and separate manual package update"
+      ],
+      "limits": "Installer metadata/source/frontend tests, not Windows launch, WebView2 download/install, registry, security policy or long-path support proof."
+    },
+    "Linux": {
+      "page": "platforms/linux.md",
+      "teaching": [
+        "11-desktop asset subset includes x64/arm64 DEB/RPM/AppImage, Ubuntu24.04 build versus unsupported compatibility inference",
+        "Actual x64DEB package/version/architecture/dependencies, read-only metadata versus distro package resolution",
+        "AppImage executable/open steps/current primary source, runtime errors versus audio reads",
+        "Actual desktop Exec/no MIME or %F association declaration, Ctrl drop and forwarded command-line folder scope",
+        "Ctrl/AltGraph/focus, tray library probe versus desktop support and hide-after-success condition",
+        "Mounted paths versus optional cached volume labels/display fallback, filename component rules/write access",
+        "Secret Service build choice versus working unlocked session, per-user settings and nonautomatic package update"
+      ],
+      "limits": "Actual x64DEB declarations/header, core display examples and source/models; no Linux session/library load, package installation, mount, hardware or Secret Service access."
+    }
+  },
+  "page_sha256": {
+    "platforms/macos.md": "551a46824fd2de051fb87ee03c7dd56fb853d93d043f1dd55a145dc889a1b924",
+    "platforms/windows.md": "74a230eba0039cc7ad5611da527309b833c2763673c2cdeee1e9c1b0dd16428f",
+    "platforms/linux.md": "446b3a869253d96806d3e9d5ca7a8b6938b6d4f83bb34cfc4ea65bdeba3973ba"
+  },
+  "application_source_sha256": {
+    "src/main.ts": "f9c0a56f1eba4f77bc47531a08fcd63427a2b845bc36a784b27da43146309c76",
+    "src/keyboard.ts": "66144e6c5760749c3173c8dc28bd1c856dcddbec31afd9a949426644e3926061",
+    "src/file-ops.ts": "9009f23df8f5f290405277dc36d13a235457bf46ff11f163c0fa1b411bdcec75",
+    "src/list-commands.ts": "e98a94bb76673d9ecaa966627c08a5b57f40d7b0ea0f1698f3bdcce16789d720",
+    "src/tag-panel.ts": "843a7c2e0814bc4934498c4cb15970b57745d163577b3ae19078af1c903cf0e3",
+    "src/options-ui.ts": "f745bbf8d596fdffa51de0c8c02d5180def53eefeef11a690c1805da221c8446",
+    "src-tauri/src/lib.rs": "77b79c1faad0bf31d07bd5974d91980c4b62dcd919a9aad8217e0f2547acef49",
+    "src-tauri/src/file_ops.rs": "badc5a5e34e3aa4017dedfa7abb6100156a8c1207990c250ba1dff474d980352",
+    "src-tauri/src/tray.rs": "f17ce7b369cb9a149b67743a018eccc5c9bd7ec54479c23a6bf5ce03493e4ee7",
+    "src-tauri/src/evaluation.rs": "bc66c581e6ff3826bb0f856ec51ce8d5bdcbfd8ede0880974f27fd94214af6cf",
+    "src-tauri/src/sources/credentials.rs": "42c60f7850bf12876bfb4d09f4be5332053326be5df09069d4b57d89f78cec60",
+    "src-tauri/tauri.conf.json": "bb8dfab22c5e3deb84f9ed6b46aac525ae2eb35bedd005341d6b262dda7176e3",
+    "src-tauri/tauri.macos.conf.json": "d89d424e486f16602159156eb4d41a821d89734aec1b5e68474a61c139afdce7",
+    "src-tauri/Cargo.toml": "12c7bddc16896d821ed5388d3ca54b62bdd2aae1ce15f1ca0c948f3b00bb7584",
+    "crates/tag-core/src/script.rs": "b070a9db9820b53c22f50d43a6986b465e5fce56e86dd7aa835d333c5b385ec0",
+    "crates/tag-core/src/export.rs": "44857cf6716493940f647b1be68e8c8c7090e2130d4078ad24601dcd3ec19090",
+    "crates/tag-core/src/media_info.rs": "7a67d9d33108c6aa6e0a95ba1c780c5e35d5662671ad60185327d9bacb6c6eb7",
+    "crates/tag-core/src/technical.rs": "11badad80329160de4b6eaa4713e27b4d434e527e4daec91ca5a27c675e204e5",
+    ".github/workflows/reviewed-release.yml": "0a0cd1f54398d2ccb1fc8e7594f121a0c2fe35213f797127710b0d846b19d3d5",
+    "scripts/release.mjs": "1d7c6bf9bc7994c9b22ccb8d422108457a5229385a2dd769b51f5228a30f2a0f",
+    "Cargo.lock": "db91db6f8670e04790fd9f65a6c5515b46a37e5397d3fc7afbfe246d27e4f963"
+  },
+  "test_sha256": {
+    "crates/tag-core/tests/desktop_platform_guide.rs": "cc6c86f0d62bee2f56896d93ba3ed212d31faeaf814b1e08ee15a6e7b3253962",
+    "tests/guide-desktop-platforms.test.mjs": "0f1592400b63a471947b128589441d12cd510a38dd989468232e1e8abece372a"
+  },
+  "published_package_evidence": {
+    "manifest": {
+      "path": "desktop-v0.2.13-release-manifest.json",
+      "sha256": "0a1d6e1628c02302777d2aa5d1abdcb77fac999028ad82fffc52ef7e23884e49"
+    },
+    "inspection": {
+      "path": "desktop-v0.2.13-inspection.json",
+      "sha256": "5351bbd15a9a12dcf386ca439b60d5677d648077ef59b064ff006e6418a554f7"
+    },
+    "actual_downloads": [
+      {
+        "name": "OpenTag-v0.2.13-macos-arm64.app.tar.gz",
+        "size": 11881216,
+        "sha256": "efefa5b9b7efea636e73cbb8177a5b49ad84af16733f2cd13efc2941f268d4b4"
+      },
+      {
+        "name": "OpenTag-v0.2.13-linux-x64.deb",
+        "size": 15592780,
+        "sha256": "6d830eb6604ab3d7c34d2c20ac3acdbb3fb31f71809b3212d3bd382e437fd0c3"
+      },
+      {
+        "name": "OpenTag-v0.2.13-windows-x64-setup.exe",
+        "size": 8205086,
+        "sha256": "e7742624c569ff0d3179d5a23d957f731b5c39929e09482ee9f4a20d4d620cc0"
+      }
+    ],
+    "local_artifacts": "/tmp/opentag-guide-desktop-v0.2.13-artifacts",
+    "source_release_receipt": "/tmp/opentag-release-v0.2.13-verified/verification.json",
+    "qualification": "Three package payloads downloaded and SHA256/size matched pinned verified manifest. Mach-O/header, codesign display, plist/document associations, DEB controls/ELF/desktop entries inspected; installer PE certificate-table absence inspected. Remaining desktop asset names from all13-package manifest; not all binaries downloaded. No app/installer executed, mounted, installed or OS-accepted; no notarization assessment or minOS matrix."
+  },
+  "validation": {
+    "core": {
+      "passed": 3,
+      "command": "CARGO_TARGET_DIR=/tmp/opentag-guide-combined-target TMPDIR=/tmp/opentag-guide-desktop-platforms-tmp AR=/usr/bin/ar cargo test -p tag-core --test desktop_platform_guide --locked",
+      "binary": "/tmp/opentag-guide-combined-target/debug/deps/desktop_platform_guide-898142e973b03abe",
+      "binary_sha256": "f3b7d8ef3920282f76975dfff058823d4e63fd65363f268a0ab5d2a4c77ebd6b",
+      "cases": [
+        "windows_guide_exact_hex_examples_distinguish_utf8_detection_from_known_legacy_fallback",
+        "linux_guide_volume_display_falls_back_for_missing_or_empty_information_without_mounting",
+        "mac_guide_written_folder_format_uses_core_components_not_a_shell_or_native_rename"
+      ],
+      "scope": "Actual written LF/CRLF folder expression, exact explicit-codepage bytes and supplied/missing volume-information display. No native OS commands or label lookup simulated."
+    },
+    "node": {
+      "passed": 34,
+      "new_guide_contract_checks": 4,
+      "existing_models": 30,
+      "command": "node --test tests/guide-desktop-platforms.test.mjs tests/keyboard.test.mjs tests/file-ops.test.mjs tests/launch-forwarding.test.mjs",
+      "scope": "20 written shortcut rows both LF/CRLF through actual window/file/list/panel routing, all11desktop names/checksum filename examples against published manifest, inspected DEB dependencies/Exec and actual frontend replacement/pending-edit handling for three written paths. Initial harness lacked a window resize-event registration stub; corrected with restored temporary window, no app behavior change. No native keypress/process, installer, OS security control or keychain."
+    },
+    "publication": {
+      "passed": 8,
+      "command": "python3 -m unittest discover -s docs/tests -v"
+    },
+    "strict": {
+      "passed": true,
+      "command": "/tmp/opentag-docs-publish-venv/bin/python -m mkdocs build --strict"
+    },
+    "clippy": {
+      "passed": true,
+      "command": "CARGO_TARGET_DIR=/tmp/opentag-guide-combined-target TMPDIR=/tmp/opentag-guide-desktop-platforms-tmp AR=/usr/bin/ar cargo clippy -p tag-core --test desktop_platform_guide --locked -- -D warnings",
+      "scope": "Narrow new guide test, not all-target/native matrix. Preexisting nonfatal globalCargo cleanup warning was not repaired."
+    },
+    "generated": {
+      "ready": 164,
+      "drafts": 23,
+      "sections": 1378,
+      "search_sha256": "b815737f8c5d11f1eb8c759d9cd16e301bee1892f04e13b1caf8ed1b40d3d113",
+      "previous161_order_retained": true,
+      "nav_search_exact": true,
+      "draft_leaks": 0
+    },
+    "whole_completed_page_brief_audit": {
+      "pages": 164,
+      "scope": "All completed page contents; metadata/snippets/drafts excluded; all3newpages fully replaced and read endtoend.",
+      "literal_markers": [
+        "This page is being written",
+        "It will cover:",
+        "Until then, the [reference section]"
+      ],
+      "findings": [],
+      "sorted_path_and_content_sha256": "6a01ea9049d2e120b85da83459d4027e0888dd13ec2cce5b76cab79bf0a67d02",
+      "algorithm": "Sort absolute paths; join relativepath + space + SHA256(filebytes) with LF/no trailingLF; SHA256 UTF8string."
+    },
+    "browser": {
+      "scope": "Local164 authored chapters/23drafts; macOS/Windows/Linux desktop guides grounded in main325 plus read-only verifiedv13package metadata. Generated-doc browser only, no package installation, OS runtime or public164 validation.",
+      "checks": [
+        "Mac download/signing and modifier guidance render in light palette",
+        "Actual new Platforms navigation opens Windows guide",
+        "Installation/open procedures and all metadata markers render correctly without draft footer",
+        "platforms/macos/ download names stay intact in scrollable tables at390px",
+        "Actual horizontal wheel reveals complete architecture-specific Mac filenames",
+        "platforms/windows/ download names stay intact in scrollable tables at390px",
+        "platforms/linux/ download names stay intact in scrollable tables at390px",
+        "Windows runtime/signature teaching renders in dark palette with copyable literal checksum command",
+        "Actual mounted-path keyword search opens Linux guidance"
+      ],
+      "errors": [],
+      "screenshots": [
+        "/tmp/opentag-guide-desktop-platforms-browser/desktop-macos-light.png",
+        "/tmp/opentag-guide-desktop-platforms-browser/mobile390-macos-downloads.png",
+        "/tmp/opentag-guide-desktop-platforms-browser/mobile390-macos-downloads-scrolled.png",
+        "/tmp/opentag-guide-desktop-platforms-browser/mobile390-windows-downloads.png",
+        "/tmp/opentag-guide-desktop-platforms-browser/mobile390-linux-downloads.png",
+        "/tmp/opentag-guide-desktop-platforms-browser/desktop-windows-dark.png"
+      ],
+      "success": true,
+      "profile_removed": true
+    },
+    "browser_qualifications": "Final9checks/zeroerrors; owner viewed390pxcomplete Mac names and desktopWindowsdark. First broad query result handle detached during worker update, switched physical click to Puppeteer locator. AArch64 query did not surface target within10s amid broad results; retained failed observation, not considered generally passing search. Final mounted keyword search opened Linux. No existing search implementation changed; actual public164/nativeOS not claimed. All owned profiles/server closed.",
+    "source_identity": {
+      "source_main": "325007c47bef4ee53a4aa9b086038157ee3e62dc",
+      "production_dependency_workflow_configuration_files": 178,
+      "all_byte_identical": true,
+      "paths": [
+        ".github/CI_LOCKDOWN.md",
+        ".github/pull_request_template.md",
+        ".github/release-notes-baseline",
+        ".github/scripts/codex_review.py",
+        ".github/scripts/release_notes.py",
+        ".github/scripts/review_gate.py",
+        ".github/scripts/tests/test_codex_review.py",
+        ".github/scripts/tests/test_pages_workflow.py",
+        ".github/scripts/tests/test_release_notes.py",
+        ".github/scripts/tests/test_review_gate.py",
+        ".github/workflows/_reviewed-build.yml",
+        ".github/workflows/_reviewed-pages.yml",
+        ".github/workflows/review-controller.yml",
+        ".github/workflows/review-metadata-signal.yml",
+        ".github/workflows/reviewed-pr.yml",
+        ".github/workflows/reviewed-release.yml",
+        "Cargo.lock",
+        "Cargo.toml",
+        "crates/document-access/Cargo.toml",
+        "crates/document-access/android/src/androidTest/java/org/opentag/documentaccess/AndroidPrivateStreamsTest.kt",
+        "crates/document-access/android/src/main/AndroidManifest.xml",
+        "crates/document-access/android/src/main/java/AndroidPrivateStreams.kt",
+        "crates/document-access/android/src/main/java/DocumentAccessPlugin.kt",
+        "crates/document-access/android/src/main/java/DocumentAccessState.kt",
+        "crates/document-access/android/src/main/java/DocumentTransport.kt",
+        "crates/document-access/android/src/main/java/PrivateDocumentPaths.kt",
+        "crates/document-access/android/src/test/java/org/opentag/documentaccess/DocumentAccessStateTest.kt",
+        "crates/document-access/android/src/test/java/org/opentag/documentaccess/DocumentTransportTest.kt",
+        "crates/document-access/src/lib.rs",
+        "crates/document-access/verification/provider-fixture/src/androidTest/java/org/opentag/fixture/documents/ProviderCheck.java",
+        "crates/document-access/verification/provider-fixture/src/main/AndroidManifest.xml",
+        "crates/document-access/verification/provider-fixture/src/main/java/org/opentag/fixture/documents/FixtureActivity.java",
+        "crates/document-access/verification/provider-fixture/src/main/java/org/opentag/fixture/documents/FixtureProvider.java",
+        "crates/library/Cargo.toml",
+        "crates/library/src/lib.rs",
+        "crates/regex-compat/Cargo.toml",
+        "crates/regex-compat/src/bridge.cpp",
+        "crates/regex-compat/src/lib.rs",
+        "crates/tag-core/Cargo.toml",
+        "crates/tag-core/src/actions.rs",
+        "crates/tag-core/src/ape_footer.rs",
+        "crates/tag-core/src/asf/header.rs",
+        "crates/tag-core/src/asf/mod.rs",
+        "crates/tag-core/src/asf/tests.rs",
+        "crates/tag-core/src/container_formats.rs",
+        "crates/tag-core/src/converters.rs",
+        "crates/tag-core/src/cover_manage.rs",
+        "crates/tag-core/src/cover_ops.rs",
+        "crates/tag-core/src/cue.rs",
+        "crates/tag-core/src/dsd.rs",
+        "crates/tag-core/src/export.rs",
+        "crates/tag-core/src/filter.rs",
+        "crates/tag-core/src/flac_metadata.rs",
+        "crates/tag-core/src/history.rs",
+        "crates/tag-core/src/id3_frames.rs",
+        "crates/tag-core/src/id3_padding.rs",
+        "crates/tag-core/src/id3_v23.rs",
+        "crates/tag-core/src/lib.rs",
+        "crates/tag-core/src/mapping.rs",
+        "crates/tag-core/src/matroska.rs",
+        "crates/tag-core/src/media_info.rs",
+        "crates/tag-core/src/mp4_chapters.rs",
+        "crates/tag-core/src/mp4_layout.rs",
+        "crates/tag-core/src/mp4_metadata.rs",
+        "crates/tag-core/src/nero_tags.rs",
+        "crates/tag-core/src/numbering.rs",
+        "crates/tag-core/src/oem_codepages.rs",
+        "crates/tag-core/src/operations.rs",
+        "crates/tag-core/src/optimize.rs",
+        "crates/tag-core/src/parallel.rs",
+        "crates/tag-core/src/playlist.rs",
+        "crates/tag-core/src/preferences.rs",
+        "crates/tag-core/src/raw_streams.rs",
+        "crates/tag-core/src/script.rs",
+        "crates/tag-core/src/subsongs.rs",
+        "crates/tag-core/src/tag_policy.rs",
+        "crates/tag-core/src/tag_types.rs",
+        "crates/tag-core/src/tags.rs",
+        "crates/tag-core/src/technical.rs",
+        "crates/tag-core/src/write_cost.rs",
+        "package-lock.json",
+        "package.json",
+        "scripts/release.mjs",
+        "src-tauri/Cargo.toml",
+        "src-tauri/src/action_host.rs",
+        "src-tauri/src/columns.rs",
+        "src-tauri/src/converters.rs",
+        "src-tauri/src/cover_drag.rs",
+        "src-tauri/src/covers.rs",
+        "src-tauri/src/documents.rs",
+        "src-tauri/src/documents/command_fixture.rs",
+        "src-tauri/src/documents/engine.rs",
+        "src-tauri/src/documents/tests.rs",
+        "src-tauri/src/e2e.rs",
+        "src-tauri/src/evaluation.rs",
+        "src-tauri/src/exports.rs",
+        "src-tauri/src/file_hashes.rs",
+        "src-tauri/src/file_ops.rs",
+        "src-tauri/src/filter_cache.rs",
+        "src-tauri/src/history.rs",
+        "src-tauri/src/lib.rs",
+        "src-tauri/src/library.rs",
+        "src-tauri/src/list_behaviour.rs",
+        "src-tauri/src/lists.rs",
+        "src-tauri/src/main.rs",
+        "src-tauri/src/managed_actions.rs",
+        "src-tauri/src/mp3tag_columns.rs",
+        "src-tauri/src/mp3tag_tag_panel.rs",
+        "src-tauri/src/playlists.rs",
+        "src-tauri/src/progress.rs",
+        "src-tauri/src/rename_plan.rs",
+        "src-tauri/src/settings.rs",
+        "src-tauri/src/sources/credentials.rs",
+        "src-tauri/src/sources/discogs.rs",
+        "src-tauri/src/sources/fixtures/freedb-entry.xmcd",
+        "src-tauri/src/sources/fixtures/musicbrainz-release.json",
+        "src-tauri/src/sources/freedb.rs",
+        "src-tauri/src/sources/freedb_index.rs",
+        "src-tauri/src/sources/http.rs",
+        "src-tauri/src/sources/mod.rs",
+        "src-tauri/src/sources/model.rs",
+        "src-tauri/src/sources/musicbrainz.rs",
+        "src-tauri/src/sources/web/engine.rs",
+        "src-tauri/src/sources/web/mod.rs",
+        "src-tauri/src/sources/web/source.rs",
+        "src-tauri/src/tag_panel.rs",
+        "src-tauri/src/tray.rs",
+        "src-tauri/src/updates.rs",
+        "src-tauri/src/utilities.rs",
+        "src-tauri/src/window_state.rs",
+        "src-tauri/tauri.conf.json",
+        "src-tauri/tauri.macos.conf.json",
+        "src/action-ui.ts",
+        "src/cell-editor.ts",
+        "src/chapters.ts",
+        "src/columns.ts",
+        "src/converter-review.ts",
+        "src/cover-model.ts",
+        "src/covers.css",
+        "src/covers.ts",
+        "src/document-state.ts",
+        "src/edit-history.ts",
+        "src/export-ui.ts",
+        "src/extended-tags.css",
+        "src/extended-tags.ts",
+        "src/field-mapping.ts",
+        "src/file-ops.ts",
+        "src/filter-fields.ts",
+        "src/filter-sync.ts",
+        "src/find.ts",
+        "src/general-options.ts",
+        "src/helper-menu.ts",
+        "src/keyboard-ui.css",
+        "src/keyboard.ts",
+        "src/library.ts",
+        "src/list-behaviour.ts",
+        "src/list-commands.ts",
+        "src/main.ts",
+        "src/menubar.ts",
+        "src/messages.ts",
+        "src/numbering-review.ts",
+        "src/options-ui.ts",
+        "src/panel-dock.css",
+        "src/panel-dock.ts",
+        "src/playlist-ui.ts",
+        "src/remove-tag.ts",
+        "src/row-context-menu.ts",
+        "src/style.css",
+        "src/tag-clipboard.ts",
+        "src/tag-edits.ts",
+        "src/tag-panel.ts",
+        "src/tag-sources.ts",
+        "src/tag-tag-ui.ts",
+        "src/theme.ts",
+        "src/toolbar.ts",
+        "src/tools.ts",
+        "src/utils-ui.ts",
+        "src/web-sources.ts"
+      ]
+    },
+    "unexpected_non_docs_tests_changes": [],
+    "log_sha256": {
+      "core": {
+        "path": "/tmp/opentag-guide-desktop-platforms-core.log",
+        "sha256": "f0a8d312f262914e528fe74130063806c47e594720dc0abf11f229503bbbb3ae"
+      },
+      "models": {
+        "path": "/tmp/opentag-guide-desktop-platforms-models.log",
+        "sha256": "9892a58cbf3883e633b5127e3661b311c7f4c18e779ee54d663f4b81df3ef4df"
+      },
+      "publication": {
+        "path": "/tmp/opentag-guide-desktop-platforms-publication.log",
+        "sha256": "8e232a429353e108f8be1582055e1ee385135979660f926e74002768caead788"
+      },
+      "strict": {
+        "path": "/tmp/opentag-guide-desktop-platforms-strict.log",
+        "sha256": "07f99d5c4cbc1d0b0e5622afef72d8128e7d22da4a4b2eb8ed40c952dd1b3047"
+      },
+      "clippy": {
+        "path": "/tmp/opentag-guide-desktop-platforms-clippy.log",
+        "sha256": "182377e5f79bd079183b0c121bbbfcadb1f894bb9974a10e3f5135d7bcbff4c4"
+      }
+    },
+    "format_and_whitespace": "cargo fmt --all --check and git diff --check pass"
+  },
+  "preserved_evidence": {
+    "previous_peer": {
+      "path": "reviews/path-recipes-independent-review.json",
+      "sha256": "d187b6488b1c82e73d4284a67faf513fec8fd3d857ff988ddf946ebb29729a4f",
+      "scope": "Prior finite cleanedb path trio, not this desktop batch review."
+    }
+  },
+  "review": "Author checkpoint ready for finite independent peer then pause. No push/PR/main churn. Reconcile actual latermain, exact final-head CODE/trusted CI/actualPages/release proof before publication.",
+  "remaining_drafts": [
+    "tag-sources/lrclib.md",
+    "tag-sources/freedb.md",
+    "tag-sources/acoustid.md",
+    "tag-sources/deezer.md",
+    "tag-sources/discogs.md",
+    "tag-sources/itunes.md",
+    "tag-sources/local-freedb.md",
+    "tag-sources/index.md",
+    "tag-sources/musicbrainz.md",
+    "platforms/android.md",
+    "platforms/ios.md",
+    "learn/index.md",
+    "learn/tag-from-online-sources.md",
+    "cookbook/html-album-catalogue.md",
+    "cookbook/index.md",
+    "getting-started/coming-from-mp3tag.md",
+    "getting-started/whats-new.md",
+    "automate/index.md",
+    "guides/index.md",
+    "help/glossary.md",
+    "customize/languages.md",
+    "customize/index.md",
+    "reference/options/language.md"
+  ],
+  "remaining_limits": [
+    "Full94canonical-page semantic coverage unproven;23drafts remain",
+    "27completed local chapters unpublished, public137receipt retained separately",
+    "No package installation/native OS runtime/Gatekeeper/WebView2 provisioning/mount/keychain/personal-library proof",
+    "No originalP2/REA or pending17\u201320 feature behavior changes"
+  ]
+}
