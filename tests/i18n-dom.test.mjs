@@ -26,6 +26,7 @@ const {FileOpsUI,nameList}=await load('file-ops.ts');
 const {copiedMessage}=await load('tag-clipboard.ts');
 const {cleanupText}=await load('library.ts');
 const {sourcePresentation}=await load('document-state.ts');
+const {tagSourcesOptionsPages}=await load('tag-sources.ts');
 const {removeTagParts}=await load('remove-tag.ts');
 const {Messages}=await load('messages.ts');
 const {WebSourcesUI,settingsMarkup,readSettings}=await import(await moduleUrl('web-sources.ts',{"'./action-ui'":JSON.stringify(await moduleUrl('action-ui.ts'))}));
@@ -126,6 +127,28 @@ test('the actual Language options preserve authored catalog names in System defa
   }
 });
 
+test('freedb server names keep their authored spelling through empty/nonempty edits and redraws',async()=>{
+  const custom={Help:'Assistance',Title:'Name','Unnamed server':'No display name',New:'Create',Delete:'Remove','freedb server':'CDDB endpoint'};
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]]){
+    const p=page(),t=new Translator(locale,catalog);
+    try{
+      const server={name:'',protocol:'https',address:'fixture.example',path:'/',port:''},draft={pages:{'tag-sources-freedb':{...server,servers:[server],server:0}}};
+      const options=tagSourcesOptionsPages(async()=>null).find(page=>page.id==='tag-sources-freedb');
+      const control=options.controls.flatMap(control=>control.controls??[control]).find(control=>control.id==='freedb-servers');
+      const draw=()=>{p.body.innerHTML=control.render(draft);control.bind(p.body,draft,draw);p.translate(locale,catalog);};draw();
+      assert.equal(p.body.querySelector('#freedb-server option').textContent,t.t('Unnamed server'));
+      for(const name of ['Help','Title','Unnamed server','','Help','']){
+        const input=p.body.querySelector('#freedb-server-name');input.value=name;input.dispatchEvent(new p.window.Event('input',{bubbles:true}));
+        await p.window.happyDOM.waitUntilComplete();
+        const select=p.body.querySelector('#freedb-server'),option=select.options[0];
+        assert.equal(option.textContent,name||t.t('Unnamed server'));assert.equal(option.getAttribute('translate'),name?'no':null);
+        assert.equal(input.value,name);assert.equal(select.value,'0');assert.equal(draft.pages['tag-sources-freedb'].servers[0].name,name);
+        assert.equal(p.body.querySelector('#freedb-server-new').textContent,t.t('New'));
+        draw();assert.equal(p.body.querySelector('#freedb-server option').textContent,name||t.t('Unnamed server'));
+      }
+    }finally{p.close();}
+  }
+});
 test('application mutations equal to previous translations become fresh sources at observer and synchronous boundaries',async()=>{
   const custom={'Previewing…':'Preview',Preview:'Inspect',Inspect:'Wrong'};
   for(const boundary of ['observer','manual','language-off']){

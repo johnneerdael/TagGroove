@@ -29,7 +29,9 @@ remain unchanged.
 Status messages translate their application text, including copied/cut-tag
 summaries and saved-cover notices. Paths and field identifiers within those
 messages keep their original spelling. Source locations and names also keep
-their spelling; unavailable-source and empty-location notices translate.
+their spelling; unavailable-source and empty-location notices translate. Freedb
+server names stay as entered during editing; clearing a name shows the translated
+**Unnamed server** label.
 
 ## Catalog files
 

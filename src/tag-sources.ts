@@ -142,7 +142,13 @@ export function tagSourcesOptionsPages(pickFolder:()=>Promise<string|null>, inde
     const edit = (key:keyof FreedbServer) => (event:Event) => {
       servers[index] = {...servers[index],[key]:(event.target as HTMLInputElement|HTMLSelectElement).value};
       useFreedbServer(page,servers,index);
-      if (key === 'name') { const option = root.querySelector<HTMLOptionElement>(`#freedb-server option[value="${index}"]`); if (option) option.textContent = servers[index].name || 'Unnamed server'; }
+      if (key === 'name') {
+        const option = root.querySelector<HTMLOptionElement>(`#freedb-server option[value="${index}"]`);
+        if (option) {
+          if (servers[index].name) option.setAttribute('translate','no'); else option.removeAttribute('translate');
+          option.textContent = servers[index].name || 'Unnamed server';
+        }
+      }
     };
     root.querySelector('#freedb-server-name')!.addEventListener('input',edit('name'));
     root.querySelector('#freedb-server-protocol')!.addEventListener('change',edit('protocol'));
