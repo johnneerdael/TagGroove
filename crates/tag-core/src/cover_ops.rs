@@ -276,7 +276,9 @@ pub fn resolve_cover_source(path: &Path) -> Result<PathBuf, String> {
         .parent()
         .filter(|parent| !parent.as_os_str().is_empty())
         .unwrap_or(Path::new("."));
-    if wildcard(&folder.to_string_lossy()) {
+    // Existing parent names are literal, even with native '*' or '?' characters.
+    // Only the final component is searched; folder patterns are not expanded.
+    if wildcard(&folder.to_string_lossy()) && !folder.is_dir() {
         return Err("Wildcards are only supported in the image file name".into());
     }
     let pattern: Vec<char> = pattern.to_lowercase().chars().collect();
@@ -470,6 +472,38 @@ mod tests {
             .unwrap_err()
             .contains("No image matches"));
         assert!(resolve_cover_source(&dir.path().join("*/*.png"))
+            .unwrap_err()
+            .contains("only supported in the image file name"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn wildcard_cover_source_treats_existing_parent_metacharacters_as_literal() {
+        let dir = tempfile::tempdir().unwrap();
+        let folder = dir.path().join("What? *").join("More?*");
+        fs::create_dir_all(&folder).unwrap();
+        let mut png = Cursor::new(Vec::new());
+        DynamicImage::ImageRgb8(RgbImage::new(1, 1))
+            .write_to(&mut png, ImageFormat::Png)
+            .unwrap();
+        for name in ["cover10.png", "Cover2.png"] {
+            fs::write(folder.join(name), png.get_ref()).unwrap();
+        }
+        fs::write(folder.join("cover1.png"), b"not an image").unwrap();
+        assert_eq!(
+            resolve_cover_source(&folder.join("cover*.png")).unwrap(),
+            folder.join("Cover2.png")
+        );
+
+        let alias = dir.path().join("alias?*");
+        std::os::unix::fs::symlink(&folder, &alias).unwrap();
+        assert_eq!(
+            resolve_cover_source(&alias.join("COVER?.PNG")).unwrap(),
+            alias.join("Cover2.png")
+        );
+
+        // Existing names are literal; there is still no folder-glob search.
+        assert!(resolve_cover_source(&dir.path().join("What*/cover*.png"))
             .unwrap_err()
             .contains("only supported in the image file name"));
     }
