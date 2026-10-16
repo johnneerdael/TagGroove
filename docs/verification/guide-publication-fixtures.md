@@ -78,3 +78,36 @@ Windows application or process was launched, terminated or removed locally.
 The 186 successful provider/GNUdb assertions above belong to the historical
 `33188e5` head. The cleanup follow-up requires its own final-head Codex review
 and fresh trusted cross-platform CI before merge.
+
+## Provider script completion follow-up
+
+The next head `d53f93067899444f646cfe3bae85185effccd98b` again completed
+all 62 GNUdb/provider assertions on each desktop platform in run `38952366774`,
+test merge `93c23118f6c854d8f7a30a8e9803fd9cff3b9691`. Linux and macOS
+completed all 26 native suites; Windows completed 25, with only `keyboard-ui`
+blocked by a profile lock before app launch, after its thirty-second cleanup
+window. The existing suppressed `taskkill` output does not establish which
+process held the files or whether that command matched it.
+
+A source inventory then found the concrete omission: `sources-4.js` was the
+only one of the 26 suite entry scripts to report `SUMMARY` without invoking
+`e2e_exit`. That native hook calls `app.exit(code)` when scripted testing is
+enabled. On Windows, the source-4 group occupied about 193 seconds, consistent
+with fixture preparation and the harness's 180-second timeout. The harness's
+existing pipeline suppresses exit status; the earlier assertions and summaries
+are evidence of those checks, not evidence of orderly application shutdown.
+
+The fix adds the same awaited exit hook as the other suites, immediately after
+the summary. It preserves every provider assertion and the existing cleanup
+bounds. A behavior-level Node VM control executes the actual script, advances
+its existing wait loop into a guarded failure without a DOM or app, and checks
+that failure reporting is followed by `SUMMARY done` and then `e2e_exit(0)`.
+It fails against the old script and passes with the exit call. The native
+harness still fails a suite that reports a failed assertion.
+
+Per-invocation WebView user-data-folder isolation was investigated against
+Microsoft and Wry documentation, but was not implemented. The confirmed missing
+exit is addressed first. No application Rust, feature behavior, signing code or
+fixture port changes are included in this follow-up. Its final head still
+requires a fresh Codex review and full trusted CI; previous native assertions
+are not relabeled as results for this head.
