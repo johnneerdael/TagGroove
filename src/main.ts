@@ -2,7 +2,7 @@
 import { invoke as coreInvoke, isTauri, type InvokeArgs } from '@tauri-apps/api/core';
 import { buildFilterFields } from './filter-fields';
 import { documentSelection, refreshDocumentAccess, copyRequest, copyOutcome, reconcileDrafts, sourcePresentation, publicDocumentMessage, type DocumentAccess, type DocumentState } from './document-state';
-import { createConverterInputTracker, createConverterReview, validateFilenameItems, validateTextItems, type FilenameConversionRequest, type TextImportRequest, type FilenameConversionItem, type TextImportItem, type ConverterPreview } from './converter-review';
+import { converterValidator, createConverterInputTracker, createConverterReview, type FilenameConversionRequest, type TextImportRequest, type FilenameConversionItem, type TextImportItem, type ConverterPreview } from './converter-review';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getVersion } from '@tauri-apps/api/app';
@@ -10,7 +10,7 @@ import { createAppearance, type AppearanceState } from './theme';
 import { installMenubar } from './menubar';
 import { ExportUI, offerOpenOutputs, type ExportLibrary, type ExportConfiguration } from './export-ui';
 import { OptionsUI, registerOptionsPage, naturalCollator, setNotificationAreaSupport, windowTitle, type Settings, type SettingsResponse } from './options-ui';
-import { createNumberingReview, numberingCounter, recallNumbering, rememberNumbering, type NumberingRequest, type NumberingUpdate } from './numbering-review';
+import { createNumberingReview, numberingCounter, numberingTotal, recallNumbering, rememberNumbering, type NumberingRequest, type NumberingUpdate } from './numbering-review';
 import { open, save, ask, message } from './i18n/dialog';
 import { ENGLISH, setUserCatalogs, installTranslation, setLanguage, t, translate, translateNow } from './i18n';
 import { languageOptionsPage, languageSetting } from './language-options';
@@ -475,7 +475,7 @@ const tagSourcesUI=new TagSourcesUI({
   apply:async(items,chosenCover)=>{
     const targets=items.map(item=>item.path);let cover=chosenCover;
     if(cover){const preserve=await preserveCovers(targets);if(preserve===undefined)throw new Error('Import cancelled. Nothing was written.');cover={...cover,preserve_existing:preserve};}
-    const result=await run('Writing tag source data…',async()=>{let batch:Batch;try{batch=await invoke<Batch>('tag_source_apply',{items,cover});}catch(error){await reconcileWorkingEntries(targets);throw error;}accept(batch,'Imported from tag source');await reconcileWorkingEntries(batch.errors.map(error=>error.path));return batch;});
+    const result=await run('Writing tag source data…',async()=>{let batch:Batch;try{batch=await invoke<Batch>('tag_source_apply',{items,cover,columns:columnSpecs(targets)});}catch(error){await reconcileWorkingEntries(targets);throw error;}accept(batch,'Imported from tag source');await reconcileWorkingEntries(batch.errors.map(error=>error.path));return batch;});
     if(!result)throw new Error(errors.map(error=>publicMessage(error.error)).join('\n')||'Tag source data could not be written.');
     if(result.errors.length)throw new Error(result.errors.map(error=>`${displayName(error.path)}: ${publicMessage(error.error)}`).join('\n'));
   },
@@ -1483,9 +1483,7 @@ function reviewedConverter(kind:'filename'|'text') {
   const apply=dialog.querySelector<HTMLButtonElement>('#reviewed-apply')!,previewButton=dialog.querySelector<HTMLButtonElement>('#reviewed-preview-button')!;
   const previewArea=dialog.querySelector<HTMLDivElement>('#reviewed-preview')!,progress=dialog.querySelector<HTMLElement>('.converter-status')!;
   const closeButton=dialog.querySelector<HTMLButtonElement>('[data-close]')!;
-  const review=createConverterReview<Request,Item>((request,items)=>rename?
-    validateFilenameItems(request as FilenameConversionRequest,items as FilenameConversionItem[]):
-    validateTextItems(request as TextImportRequest,items as TextImportItem[]));
+  const review=createConverterReview<Request,Item>(converterValidator(kind));
   const inputControls=[...dialog.querySelectorAll<HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement>('input,select,textarea')];
   const inputValues=()=>inputControls.map(control=>control instanceof HTMLInputElement&&control.type==='checkbox'?control.checked:control.value);
   const inputsChanged=createConverterInputTracker(inputValues());
@@ -1510,7 +1508,8 @@ function reviewedConverter(kind:'filename'|'text') {
   };
   const syncControls=()=>{
     const count=paths().length,blocked=applying||picking||busy||dirtySelected()||!count;
-    apply.textContent=`${rename?'Rename':'Save tags to'} ${count} file${count===1?'':'s'}`;
+    const planned=review.planned??count; // Unmatched files are left unchanged.
+    apply.textContent=`${rename?'Rename':'Save tags to'} ${planned} file${planned===1?'':'s'}`;
     let ready=false,inputsValid=false;
     try{const request=readRequest();inputsValid=true;ready=review.canApply(request,context());}catch{/* Missing inputs remain visible and can be completed. */}
     apply.disabled=blocked||!ready;previewButton.disabled=blocked||review.pending||!inputsValid;
@@ -1550,9 +1549,9 @@ function reviewedConverter(kind:'filename'|'text') {
     finally{picking=false;if(dialog.open){syncControls();dialog.querySelector<HTMLInputElement>('#text-source-path')!.focus({preventScroll:true});}}
   });
   const fieldRows=(fields:Fields)=>`<dl class="converter-values">${Object.entries(fields).map(([name,values])=>`<dt translate="no">${esc(name)}</dt><dd>${values.length?values.map((value,index)=>`<span>${values.length>1?`${index+1}. `:''}${value===''?'<em>(empty)</em>':`<span translate="no">${esc(value)}</span>`}</span>`).join(''):'<em>No values</em>'}</dd>`).join('')}</dl>`;
-  const previewMarkup=(items:Item[])=>`<div class="preview" tabindex="0" role="region" aria-label="Reviewed conversion results">${items.map(item=>'target' in item?
+  const previewMarkup=(items:Item[],unmatched:string[])=>`<div class="preview" tabindex="0" role="region" aria-label="Reviewed conversion results">${items.map(item=>'target' in item?
     `<div><small translate="no">${esc(item.path)}</small><strong translate="no">${esc(item.target)}</strong>${fieldRows(item.captures)}</div>`:
-    `<div><small>Source line ${item.source_line} → selected file ${item.selection_index+1}</small><strong translate="no">${esc(item.path)}</strong>${fieldRows(item.fields)}</div>`).join('')}</div>`;
+    `<div><small>Source line ${item.source_line} → selected file ${item.selection_index+1}</small><strong translate="no">${esc(item.path)}</strong>${fieldRows(item.fields)}</div>`).join('')}${unmatched.map(path=>`<div class="no-match"><small translate="no">${esc(path)}</small>No match, not changed</div>`).join('')}</div>`;
   previewButton.addEventListener('click',async()=>{
     let attempt:ReturnType<typeof review.begin>|undefined;
     previewButton.focus({preventScroll:true});
@@ -1563,7 +1562,7 @@ function reviewedConverter(kind:'filename'|'text') {
       window.clearTimeout(expiryTimer);previewArea.replaceChildren();dialog.querySelector('.dialog-error')?.remove();progress.textContent='Reading files and preparing preview…';syncControls();
       const response=await invoke<ConverterPreview<Item>>(rename?'preview_filename_conversion':'preview_text_import',{request:attempt.request});
       if(!dialog.open)return;
-      const markup=previewMarkup(response.items);
+      const markup=previewMarkup(response.items,response.unmatched??[]);
       if(!review.complete(attempt,response,readRequest(),context())){review.fail(attempt);return;}
       previewArea.innerHTML=markup;progress.textContent=`Reviewed ${response.items.length} file${response.items.length===1?'':'s'}${response.source_path?` from ${response.source_path}`:''}. Apply uses these exact results.`;
       expiryTimer=window.setTimeout(()=>{if(dialog.open)invalidate('The preview expired. Run Preview again.');},300_000);
@@ -1667,7 +1666,8 @@ function tagToTag(){
 function numbering(options:{perFolder?:boolean}={}) {
   const storage={getItem:(key:string)=>window.localStorage.getItem(key),setItem:(key:string,value:string)=>window.localStorage.setItem(key,value)};
   const directoryAvailable=paths().every(path=>!providerEntry(entries.get(path)!));
-  const memory=recallNumbering(storage,options.perFolder&&directoryAvailable);
+  const perFolder=!!options.perFolder&&directoryAvailable; // Provider documents have no folders to number by.
+  const memory=recallNumbering(storage,perFolder);
   const names=[...new Set(['ALBUM','DISCNUMBER','ALBUMARTIST',...paths().flatMap(path=>Object.keys(merged(entries.get(path)!))),...[memory.next_disc_on_field,memory.reset_disc_on_field].filter(Boolean)])].sort();
   const fieldOptions=(chosen:string)=>`<option value="">Do not change counter</option>${names.map(name=>`<option value="${esc(name)}" ${name===chosen?'selected':''} translate="no">${esc(name)}</option>`).join('')}`;
   const counter=(id:string,label:string,initial:number,max=4_294_967_295)=>`<label class="field"><span>${label}</span><input id="${id}" type="number" min="1" max="${max}" step="1" value="${initial}"></label>`;
@@ -1691,7 +1691,7 @@ function numbering(options:{perFolder?:boolean}={}) {
   const request=():NumberingRequest=>({
     items:paths().map(path=>({path,fields:merged(entries.get(path)!)})),
     options:{
-      track_start:count('number-start','Track start'),track_digits:count('number-digits','Track digits',10),track_total:checked('number-total')?count('number-total-value','Total tracks'):null,
+      track_start:count('number-start','Track start'),track_digits:count('number-digits','Track digits',10),...numberingTotal(perFolder,checked('number-total'),()=>count('number-total-value','Total tracks')),
       disc_enabled:checked('number-disc-enabled'),disc_start:checked('number-disc-enabled')?count('number-disc-start','Disc start'):1,disc_digits:checked('number-disc-enabled')?count('number-disc-digits','Disc digits',10):1,
       disc_total:checked('number-disc-enabled')&&checked('number-disc-total')?count('number-disc-total-value','Total discs'):null,
       next_disc_on_directory:directoryAvailable&&checked('number-directory'),next_disc_on_field:value(dialog,'number-next-field')||null,
@@ -1705,7 +1705,7 @@ function numbering(options:{perFolder?:boolean}={}) {
   let generation=0,pending=false;
   const sync=()=>{
     const disable=(id:string,disabled:boolean)=>{dialog.querySelector<HTMLInputElement>(`#${id}`)!.disabled=disabled;};
-    disable('number-total-value',!checked('number-total'));
+    disable('number-total-value',!checked('number-total')||perFolder); // Ctrl+Shift+K counts each folder's total.
     for(const id of ['number-disc-start','number-disc-digits','number-disc-total'])disable(id,!checked('number-disc-enabled'));
     disable('number-disc-total-value',!checked('number-disc-enabled')||!checked('number-disc-total'));
     preview.disabled=pending||busy;
@@ -1742,7 +1742,7 @@ function numbering(options:{perFolder?:boolean}={}) {
         disc_total:checked('number-disc-total'),disc_total_value:kept('number-disc-total-value',memory.disc_total_value),
         next_disc_on_directory:directoryAvailable?checked('number-directory'):memory.next_disc_on_directory,next_disc_on_field:value(dialog,'number-next-field'),
         reset_track_on_next_disc:checked('number-reset-track'),reset_disc_on_field:value(dialog,'number-reset-field'),
-      },options.perFolder&&directoryAvailable);
+      },perFolder);
       for(const row of plan){const entry=entries.get(row.path)!;for(const [key,values] of Object.entries(row.fields))updateDraft(row.path,panelKey({format:entry.format,fields:merged(entry)},key),values);}
       status=`Numbers are pending for ${plan.length} files. Save tags to write them.`;dialog.close();render();
     }catch(error){modalError(dialog,error);sync();}

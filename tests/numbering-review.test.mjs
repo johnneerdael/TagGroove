@@ -4,7 +4,7 @@ import {readFile} from 'node:fs/promises';
 import ts from 'typescript';
 const source = await readFile(new URL('../src/numbering-review.ts', import.meta.url), 'utf8');
 const javascript = ts.transpileModule(source, {compilerOptions: {target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022}}).outputText;
-const {numberingCounter, createNumberingReview, numberingDefaults, recallNumbering, rememberNumbering} = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);
+const {numberingCounter, numberingTotal, createNumberingReview, numberingDefaults, recallNumbering, rememberNumbering} = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);
 const request = () => ({items: [{path: '/a.flac', fields: {ALBUM: ['A']}}], options: {disc_enabled: true, track_start: 1}});
 const plan = () => [{path: '/a.flac', fields: {TRACK: ['01/12'], DISCNUMBER: ['1/2']}}];
 
@@ -78,4 +78,15 @@ test('Ctrl+Shift+K presets per-folder options without making them the Ctrl+K def
   const plain = recallNumbering(storage);
   assert.equal(plain.track_digits, 4);
   assert.deepEqual([plain.next_disc_on_directory, plain.reset_track_on_next_disc, plain.disc_enabled], [false, false, true]);
+});
+test('only per-folder numbering counts totals; provider documents keep the entered total', () => {
+  const entered = () => 12;
+  // Ctrl+Shift+K on local files: each folder's own total.
+  assert.deepEqual(numberingTotal(true, true, entered), {track_total: null, count_track_total: true});
+  // Ctrl+Shift+K on provider documents (no folders), or Ctrl+K: the entered total.
+  const directoryAvailable = false;
+  assert.deepEqual(numberingTotal(true && directoryAvailable, true, entered), {track_total: 12, count_track_total: false});
+  assert.deepEqual(numberingTotal(false, true, entered), {track_total: 12, count_track_total: false});
+  assert.deepEqual(numberingTotal(false, false, () => { throw new Error('not read'); }), {track_total: null, count_track_total: false});
+  assert.deepEqual(numberingTotal(true, false, entered), {track_total: null, count_track_total: false});
 });

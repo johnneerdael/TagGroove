@@ -1,5 +1,7 @@
 export type NumberingOptions = {
   track_start: number; track_digits: number; track_total: number | null;
+  /** Totals are the last track number before the counter restarts (Ctrl+Shift+K: per folder). */
+  count_track_total?: boolean;
   disc_enabled: boolean; disc_start: number; disc_digits: number; disc_total: number | null;
   next_disc_on_directory: boolean; next_disc_on_field: string | null;
   reset_track_on_next_disc: boolean; reset_disc_on_field: string | null;
@@ -83,6 +85,15 @@ function stored(storage: MemoryStorage | undefined): Partial<NumberingMemory> {
 }
 
 /** Remembered options, each falling back to its default when missing or invalid; `perFolder` applies Ctrl+Shift+K's options on top. */
+/**
+ * The track total of a numbering request. Ctrl+Shift+K counts each folder's
+ * total only where it numbers per folder (`perFolder`: the shortcut, with local
+ * folders known); otherwise the entered total is saved.
+ */
+export function numberingTotal(perFolder: boolean, saveTotal: boolean, entered: () => number): Pick<NumberingOptions, 'track_total' | 'count_track_total'> {
+  return {track_total: saveTotal && !perFolder ? entered() : null, count_track_total: perFolder && saveTotal};
+}
+
 export function recallNumbering(storage: MemoryStorage | undefined, perFolder = false): NumberingMemory {
   const defaults = numberingDefaults(), saved = stored(storage) as Record<string, unknown>;
   const result = {...defaults} as Record<string, unknown>;
