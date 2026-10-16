@@ -123,12 +123,16 @@ impl Drop for Session {
 }
 
 pub(crate) fn snapshot_input(uri: &str) -> Option<Result<PathBuf, String>> {
+    snapshot_input_with_name(uri).map(|result| result.map(|(path, _)| path))
+}
+
+pub(crate) fn snapshot_input_with_name(uri: &str) -> Option<Result<(PathBuf, String), String>> {
     STORES.lock().unwrap().iter().find_map(|store| {
         if store.states().values().any(|d| {
             uri.strip_prefix(&d.uri)
                 .is_some_and(|suffix| suffix.starts_with('/'))
         }) {
-            Some(store.snapshot_input(uri))
+            Some(store.snapshot_input_with_name(uri))
         } else {
             None
         }

@@ -17,6 +17,10 @@ select the files to process, then choose one of these routes:
 Alt is ⌥ Option on a Mac. The menus show the available commands when files
 are selected and the current source permits writing.
 
+A new installation starts with five unchecked groups under **Examples**.
+Review and enable only the examples wanted for a run. Saving an empty library
+keeps it empty; removing examples does not make them return at the next start.
+
 ## Choose an action
 
 | Goal | Action |
@@ -83,11 +87,14 @@ them after the other actions in that group. They see the group's final
 values even if their row appears earlier. Use a separate group when an
 output must capture a particular intermediate state.
 
-An error is not a promise that earlier file effects were rolled back.
-Read the operation errors and inspect the practice files before repeating.
+A failed action warns for that file, then the file's remaining actions and
+later groups continue. It still participates in batch exports and playlists.
+Earlier successful writes remain; read every warning and inspect the practice
+files before repeating.
 Use **Edit → Undo** for recorded file changes in the current desktop
-session; keep backups for recovery beyond that session. Generated reports
-and playlists may need separate cleanup.
+session; keep backups for recovery beyond that session. Export Cover includes
+created and replaced images in its undo step. Generated reports and playlists
+may need separate cleanup.
 
 ## Choose a field or a special target
 

@@ -34,8 +34,10 @@ Juniper Vale - North Pier
 `$filename` declares an export destination and encoding, `$loop(1)` repeats
 its body in input order, and `$loopend()` ends the repetition. A constant
 loop key keeps the input order; a key such as `%_path%` sorts by that value.
-These are export-template commands. They are not ordinary tag-format
-functions.
+Field-key loops follow **Options → General → natural sorting**: enabled,
+numbered names compare as 1, 2, 10; disabled, they use text order. Constant
+loop keys retain input order. These are export-template commands, separate
+from ordinary tag-format functions.
 
 ## Configure the output
 
@@ -69,8 +71,9 @@ partition has a distinct output path; do not group by disc number while
 sending every disc to the same `tags.txt`.
 
 The action uses the selected files' final values in its group. Export
-runs after the per-file actions even when its row is listed first. Use a
-separate earlier group if the report must capture values before cleanup.
+runs after the per-file actions even when its row is listed first. Files with
+an earlier action warning still participate. Use a separate earlier group if
+the report must capture values before cleanup.
 
 ## Gotchas
 

@@ -27,6 +27,12 @@ values are replaced with one value containing the imported text.
 A relative path is resolved in each audio file's folder. An absolute path
 reads the same file for every selected track.
 
+Literal `\` separates folders on every platform. Ordinary tag values have
+separators and reserved filename characters cleaned, using the configured
+folder-separator replacement. `%_folderpath%`, `%_path%` and `%_workingpath%`
+retain native path components, including a backslash within a macOS or Linux
+folder name.
+
 | Filename format | Example use |
 |---|---|
 | `notes.txt` | The album folder's notes for every selected track there |
@@ -34,8 +40,8 @@ reads the same file for every selected track.
 | `%_folderpath%lyrics.txt` | Read one lyrics file from that audio file's folder |
 
 Use an exact path, including the extension. The filename expression does
-not expand wildcard searches. A missing file reports an error rather than
-leaving an instruction to import it later.
+not expand wildcard searches. A missing file warns for that file; later
+actions and groups still run. It does not schedule an import for later.
 
 ## Text and encoding rules
 

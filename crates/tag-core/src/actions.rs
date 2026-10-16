@@ -9,6 +9,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 const LIMIT: usize = 1_048_576;
+/// Separates several values of one field in a Format Value result.
+const MULTI_VALUE_SEPARATOR: &str = "\\\\";
 pub const ACTION_CATALOG: [(&str, &str); 18] = [
     ("adjust_cover", "Adjust Cover"),
     ("case_conversion", "Case Conversion"),
@@ -344,6 +346,22 @@ fn metadata_keys(fields: &Fields, selector: &str) -> Result<Vec<String>, String>
         ));
     }
     Ok(vec![actual_key(fields, selector)])
+}
+/// The values a Format Value result stores. `\\` separates several values,
+/// as in the Tag Panel; each is trimmed and empty ones are dropped.
+fn format_values(result: &str) -> Vec<String> {
+    if result.contains(MULTI_VALUE_SEPARATOR) {
+        result
+            .split(MULTI_VALUE_SEPARATOR)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_owned)
+            .collect()
+    } else if result.is_empty() {
+        vec![]
+    } else {
+        vec![result.to_owned()]
+    }
 }
 fn put(fields: &mut Fields, key: String, values: Vec<String>) {
     if values.is_empty() {
@@ -841,15 +859,7 @@ where
                 return Err(format!("Unsupported Format Value target {field}"));
             }
             let key = actual_key(&state.fields, field);
-            put(
-                &mut state.fields,
-                key,
-                if result.is_empty() {
-                    vec![]
-                } else {
-                    vec![result]
-                },
-            );
+            put(&mut state.fields, key, format_values(&result));
             Ok(vec![])
         }
         ActionSpec::GuessValues { source, pattern } => {
@@ -959,7 +969,7 @@ where
             picture_type,
             delete_existing,
         } => Ok(vec![ActionEffect::ImportCover {
-            filename: evaluate(filename_template, state)?,
+            filename: evaluate_mode(filename_template, state, TemplateMode::Filename)?,
             picture_type: picture_type.clone(),
             delete_existing: *delete_existing,
         }]),
@@ -968,7 +978,7 @@ where
             picture_type,
             export_duplicates,
         } => Ok(vec![ActionEffect::ExportCover {
-            filename: evaluate(filename_template, state)?,
+            filename: evaluate_mode(filename_template, state, TemplateMode::Filename)?,
             picture_type: picture_type.clone(),
             export_duplicates: *export_duplicates,
         }]),
@@ -981,7 +991,7 @@ where
             }
             Ok(vec![ActionEffect::ImportTextFile {
                 field: actual_key(&state.fields, field),
-                filename: evaluate(filename_template, state)?,
+                filename: evaluate_mode(filename_template, state, TemplateMode::Filename)?,
             }])
         }
         ActionSpec::AdjustCover {
@@ -2310,6 +2320,94 @@ mod tests {
                 filename: "AC/DC: Live".into(),
                 includes_extension: false,
                 origin: NameOrigin::Value,
+            }]
+        );
+    }
+    #[test]
+    fn format_value_double_backslash_creates_several_values() {
+        let mut state = state();
+        let format = |state: &mut ActionState, template: &str| {
+            apply_action_spec(
+                state,
+                &ActionSpec::FormatValue {
+                    field: "genre".into(),
+                    template: template.into(),
+                },
+            )
+            .unwrap();
+            state.fields["GENRE"].clone()
+        };
+        assert_eq!(format(&mut state, "Rock\\\\Pop"), ["Rock", "Pop"]);
+        // Separator spacing as the Tag Panel shows it, and empty pieces.
+        assert_eq!(
+            format(&mut state, "Jazz \\\\ \\\\ Blues \\\\"),
+            ["Jazz", "Blues"]
+        );
+        // One backslash is text, and a single value keeps its spaces.
+        assert_eq!(format(&mut state, " AC\\DC "), [" AC\\DC "]);
+        apply_action_spec(
+            &mut state,
+            &ActionSpec::FormatValue {
+                field: "genre".into(),
+                template: " \\\\ ".into(),
+            },
+        )
+        .unwrap();
+        assert!(!state.fields.contains_key("GENRE"));
+    }
+    #[test]
+    fn cover_and_text_file_names_use_filename_mode() {
+        let mut state = state();
+        state
+            .fields
+            .insert("ALBUM".into(), vec!["AC/DC: Live?".into()]);
+        state
+            .context
+            .insert("_FOLDERPATH".into(), vec!["/music/album/".into()]);
+        let effects = |state: &mut ActionState, action: ActionSpec| {
+            apply_action_spec(state, &action).unwrap()
+        };
+        assert_eq!(
+            effects(
+                &mut state,
+                ActionSpec::ExportCover {
+                    filename_template: "%_folderpath%Covers\\%album%".into(),
+                    picture_type: None,
+                    export_duplicates: false,
+                }
+            ),
+            [ActionEffect::ExportCover {
+                filename: "/music/album/Covers\\AC_DC_ Live_".into(),
+                picture_type: None,
+                export_duplicates: false,
+            }]
+        );
+        assert_eq!(
+            effects(
+                &mut state,
+                ActionSpec::ImportCover {
+                    filename_template: "%album%\\*.jpg".into(),
+                    picture_type: None,
+                    delete_existing: false,
+                }
+            ),
+            [ActionEffect::ImportCover {
+                filename: "AC_DC_ Live_\\*.jpg".into(),
+                picture_type: None,
+                delete_existing: false,
+            }]
+        );
+        assert_eq!(
+            effects(
+                &mut state,
+                ActionSpec::ImportTextFile {
+                    field: "LYRICS".into(),
+                    filename_template: "%album%.txt".into(),
+                }
+            ),
+            [ActionEffect::ImportTextFile {
+                field: "LYRICS".into(),
+                filename: "AC_DC_ Live_.txt".into(),
             }]
         );
     }

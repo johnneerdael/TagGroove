@@ -2,7 +2,8 @@
 
 Use **Export Cover to File** to copy embedded pictures to separate image
 files. Exporting leaves the pictures embedded in the audio. It does not
-resize or convert the image data.
+resize or convert the image data. This action works with local files; action
+groups are not available for provider documents yet.
 
 ## Write a front-cover file beside the album
 
@@ -12,6 +13,10 @@ resize or convert the image data.
 4. Set **Export covers of type** to **Front Cover**.
 5. Leave **Export duplicate covers** off.
 6. Choose **Apply action**, then inspect the album folder.
+
+For a reusable workflow, create the action in **Actions → Actions…**
+(++alt+6++; ⌥ Option on macOS). A new installation includes the unchecked
+**Examples → Save front cover as folder image** group for this task.
 
 A JPEG front cover becomes `folder.jpg`. A PNG becomes `folder.png`.
 A relative output path is resolved beside each audio file. The extension
@@ -37,24 +42,70 @@ image extension is replaced. A suffix such as `. 2` in the last example
 is part of the name, so the image extension is appended.
 
 When several pictures in one audio file qualify, later pictures receive
-numbered names such as `cover (1).jpg`. Prefer a type filter when the
-desired output is one front cover rather than every embedded picture.
+numbered names such as `cover (1).jpg`. The suffix follows the position
+among matching cover types, including earlier covers skipped as duplicates.
+Appending another embedded cover and exporting again keeps the first image
+and writes the new one to its numbered name. Prefer a type filter when
+one front cover is wanted rather than every embedded picture.
+
+Use `\` to create literal folder components on every platform. Ordinary
+tag values have separators and reserved filename characters cleaned.
+`%_folderpath%`, `%_path%` and `%_workingpath%` retain native path components,
+including a backslash inside a macOS or Linux folder name. See
+[placeholders](../reference/placeholders.md) and
+[format strings](../reference/format-strings.md).
 
 ## Understand duplicates and existing files
 
 With duplicate export off, OpenTag skips a picture when the same image
-bytes have already been exported to the same requested destination in
-this run. This is useful when every track in an album contains identical
-artwork.
+bytes remain in an output for the same requested name after this action
+finishes. This is useful when every track in an album contains identical
+artwork. Reordering or replacing embedded pictures exports a repeated image
+again when a later numbered write would overwrite its only output.
 
 Different pictures aimed at the same name are not duplicates. Nor does
 enabling duplicate export create a unique name for every track. Use a
 per-track expression such as `%_filename%-cover` when every track needs
 its own output file.
 
-This action does not overwrite an existing output file. A collision
-reports an error. Choose a new destination or inspect and move the
-existing file before repeating the export.
+An existing destination with identical image bytes stays unchanged. A
+different image is replaced. **Export duplicate covers** controls repeated
+images in this run; it does not prevent replacement of existing files. An
+export that only finds identical images does not add an undo step.
+
+Use **Edit → Undo** (++cmd+z++ / ++ctrl+z++) in the same session to restore a
+replaced image or remove a new image created by the action. Redo recreates
+those images. Empty output folders can remain. Keep backups of images to
+retain beyond this session and inspect the available undo operation.
+
+When recording undo, OpenTag checks the retained snapshot budget before
+copying an existing output. On macOS and Linux it also checks the journal's
+free-space reserve; that reserve check is unavailable on Windows. If the
+capture cannot fit, the export warns and leaves that destination unchanged.
+A later failure to retain the completed operation produces an undo notice;
+check which operation is actually available before relying on Undo.
+
+When two selected files export different images to one name in a run, the
+later file gets a warning and the first image stays. A file can replace its
+own earlier output after another action changes its cover, including
+returning to an image exported earlier. A different file's equal-image
+no-op does not take ownership of the output name.
+
+On macOS and Linux, exporting to an image symlink replaces the link entry;
+its target file stays unchanged. With the undo step available, Undo restores
+the original link and Redo restores the exported image. If link undo cannot
+be prepared, the action warns before replacing it. Dangling output links
+are refused. A later folder move carries output ownership and undo capture
+with the image; repeated exports retain the snapshot from before the first
+replacement. An export back into the old folder after a rename is tracked
+separately. Undo removes those later images and only their tracked empty
+parent folders before moving the album back. Extra files in that recreated
+folder are kept; if they block the move, Undo reports the obstruction and
+attempts to restore the side-file changes it had already made.
+
+Output aliases that would replace an input audio file are refused. A
+warning does not stop the file's remaining actions or later groups. Inspect
+all warnings and earlier successful writes before repeating the group.
 
 ## Gotchas
 
@@ -63,10 +114,10 @@ existing file before repeating the export.
 - Pictures of different roles may contain identical image bytes. A type
   filter makes the intended export clearer.
 - An audio file without a qualifying picture produces no image for it.
-- Generated image files may require separate cleanup; do not assume
-  **Edit → Undo** removes every exported file.
+- Undo covers this action's created and replaced images. Other external
+  exports use their own write/undo rules; it is not a general cleanup tool.
 
-<!-- verified: src-tauri/src/action_host.rs:cover_file_target, NativeHost::execute -->
+<!-- verified: src-tauri/src/action_host.rs:cover_file_target, NativeHost::execute; src-tauri/src/history.rs:action_cover_creation_only_has_undo_and_redo, action_cover_undo_follows_later_directory_moves_and_keeps_the_first_snapshot -->
 
 ## Related
 

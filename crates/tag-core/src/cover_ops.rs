@@ -259,6 +259,90 @@ fn check_adjust_parameters(quality: u8, resize: Option<&CoverResize>) -> Result<
     Ok(())
 }
 
+/// The image file Import Cover uses for `path`. A `*` or `?` in the file
+/// name (`*.jpg`, `cover?.png`) selects the first matching file in that
+/// folder, in natural, case-insensitive name order, that the cover import
+/// accepts (JPEG, PNG, GIF, BMP, TIFF or WebP). Other names are used as they
+/// are.
+pub fn resolve_cover_source(path: &Path) -> Result<PathBuf, String> {
+    let wildcard = |text: &str| text.contains(['*', '?']);
+    let Some(pattern) = path.file_name().map(|name| name.to_string_lossy()) else {
+        return Ok(path.to_path_buf());
+    };
+    if !wildcard(&pattern) {
+        return Ok(path.to_path_buf());
+    }
+    let folder = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    // Existing parent names are literal, even with native '*' or '?' characters.
+    // Only the final component is searched; folder patterns are not expanded.
+    if wildcard(&folder.to_string_lossy()) && !folder.is_dir() {
+        return Err("Wildcards are only supported in the image file name".into());
+    }
+    let pattern: Vec<char> = pattern.to_lowercase().chars().collect();
+    let mut names: Vec<(String, PathBuf)> = fs::read_dir(folder)
+        .map_err(|e| format!("{}: {e}", folder.display()))?
+        .filter_map(Result::ok)
+        .filter(|entry| entry.file_type().is_ok_and(|kind| !kind.is_dir()))
+        .filter_map(|entry| {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            let lower: Vec<char> = name.to_lowercase().chars().collect();
+            wildcard_match(&pattern, &lower).then(|| (name.to_lowercase(), entry.path()))
+        })
+        .collect();
+    names.sort_by(|(a, a_path), (b, b_path)| {
+        crate::export::natural_compare(a, b).then_with(|| a_path.cmp(b_path))
+    });
+    names
+        .into_iter()
+        .map(|(_, path)| path)
+        .find(|path| importable_image(path))
+        .ok_or_else(|| format!("No image matches {}", path.display()))
+}
+
+/// `*` matches any run of characters and `?` one character.
+fn wildcard_match(pattern: &[char], name: &[char]) -> bool {
+    let (mut p, mut n) = (0, 0);
+    let mut star: Option<(usize, usize)> = None;
+    while n < name.len() {
+        if p < pattern.len() && (pattern[p] == '?' || pattern[p] == name[n]) {
+            p += 1;
+            n += 1;
+        } else if p < pattern.len() && pattern[p] == '*' {
+            star = Some((p, n));
+            p += 1;
+        } else if let Some((star_p, star_n)) = star {
+            p = star_p + 1;
+            n = star_n + 1;
+            star = Some((star_p, star_n + 1));
+        } else {
+            return false;
+        }
+    }
+    pattern[p..].iter().all(|&c| c == '*')
+}
+
+/// A file the cover import accepts. The first bytes must look like an image
+/// before the whole file is read and checked the way the import checks it.
+fn importable_image(path: &Path) -> bool {
+    use std::io::Read;
+    let mut header = [0u8; 64];
+    let Ok(mut file) = fs::File::open(path) else {
+        return false;
+    };
+    let mut length = 0;
+    while length < header.len() {
+        match file.read(&mut header[length..]) {
+            Ok(0) | Err(_) => break,
+            Ok(read) => length += read,
+        }
+    }
+    image::guess_format(&header[..length]).is_ok()
+        && fs::read(path).is_ok_and(|data| picture_from_bytes(data).is_ok())
+}
+
 /// Adjust Cover applied to one image outside a file (Manage Covers). `None`
 /// means the image keeps its size and format and stays as it is.
 pub fn adjust_cover_image(
@@ -337,6 +421,92 @@ mod tests {
     use crate::actions::{CoverScaleMode, CoverSizeMode};
     use image::{DynamicImage, ImageFormat, RgbImage};
     use std::io::Cursor;
+
+    #[test]
+    fn wildcards_match_whole_names_case_insensitively() {
+        let matches = |pattern: &str, name: &str| {
+            let chars = |text: &str| text.to_lowercase().chars().collect::<Vec<_>>();
+            wildcard_match(&chars(pattern), &chars(name))
+        };
+        assert!(matches("*.jpg", "Front.JPG"));
+        assert!(matches("cover?.png", "cover2.png"));
+        assert!(matches("*front*", "Album front side.webp"));
+        assert!(matches("*", "anything"));
+        assert!(!matches("*.jpg", "cover.jpeg"));
+        assert!(!matches("cover?.png", "cover.png"));
+        assert!(!matches("*.jpg", "cover.jpg.txt"));
+    }
+
+    #[test]
+    fn wildcard_cover_source_is_the_first_image_in_natural_order() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut png = Cursor::new(Vec::new());
+        DynamicImage::ImageRgb8(RgbImage::new(1, 1))
+            .write_to(&mut png, ImageFormat::Png)
+            .unwrap();
+        let png = png.into_inner();
+        for name in ["scan10.png", "scan2.png", "Scan3.png"] {
+            fs::write(dir.path().join(name), &png).unwrap();
+        }
+        // Not an image despite its name, so it is skipped, and so is an
+        // image format the cover import does not take (QOI).
+        fs::write(dir.path().join("scan1.png"), b"text").unwrap();
+        fs::write(
+            dir.path().join("scan01.png"),
+            b"qoif\0\0\0\x01\0\0\0\x01\x03\0",
+        )
+        .unwrap();
+        fs::create_dir(dir.path().join("scan0.png")).unwrap();
+        assert_eq!(
+            resolve_cover_source(&dir.path().join("scan*.png")).unwrap(),
+            dir.path().join("scan2.png")
+        );
+        assert_eq!(
+            resolve_cover_source(&dir.path().join("SCAN?.PNG")).unwrap(),
+            dir.path().join("scan2.png")
+        );
+        // A name without wildcards is used as given, even when missing.
+        let missing = dir.path().join("missing.jpg");
+        assert_eq!(resolve_cover_source(&missing).unwrap(), missing);
+        assert!(resolve_cover_source(&dir.path().join("*.gif"))
+            .unwrap_err()
+            .contains("No image matches"));
+        assert!(resolve_cover_source(&dir.path().join("*/*.png"))
+            .unwrap_err()
+            .contains("only supported in the image file name"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn wildcard_cover_source_treats_existing_parent_metacharacters_as_literal() {
+        let dir = tempfile::tempdir().unwrap();
+        let folder = dir.path().join("What? *").join("More?*");
+        fs::create_dir_all(&folder).unwrap();
+        let mut png = Cursor::new(Vec::new());
+        DynamicImage::ImageRgb8(RgbImage::new(1, 1))
+            .write_to(&mut png, ImageFormat::Png)
+            .unwrap();
+        for name in ["cover10.png", "Cover2.png"] {
+            fs::write(folder.join(name), png.get_ref()).unwrap();
+        }
+        fs::write(folder.join("cover1.png"), b"not an image").unwrap();
+        assert_eq!(
+            resolve_cover_source(&folder.join("cover*.png")).unwrap(),
+            folder.join("Cover2.png")
+        );
+
+        let alias = dir.path().join("alias?*");
+        std::os::unix::fs::symlink(&folder, &alias).unwrap();
+        assert_eq!(
+            resolve_cover_source(&alias.join("COVER?.PNG")).unwrap(),
+            alias.join("Cover2.png")
+        );
+
+        // Existing names are literal; there is still no folder-glob search.
+        assert!(resolve_cover_source(&dir.path().join("What*/cover*.png"))
+            .unwrap_err()
+            .contains("only supported in the image file name"));
+    }
 
     fn fixture() -> (tempfile::TempDir, PathBuf, PathBuf) {
         let dir = tempfile::tempdir().unwrap();

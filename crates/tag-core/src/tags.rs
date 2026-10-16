@@ -1958,8 +1958,7 @@ pub fn import_cover_with_options(
         .transpose()?
         .unwrap_or(PictureType::CoverFront);
     if delete_existing {
-        let mut reader = fs::File::open(image).map_err(|e| e.to_string())?;
-        Picture::from_reader(&mut reader).map_err(|e| e.to_string())?;
+        picture_from_bytes(fs::read(image).map_err(|e| e.to_string())?)?;
         remove_all_covers_with_options(path, options)?;
     }
     add_cover_result(path, image, kind, false, options)
@@ -1993,8 +1992,8 @@ fn add_cover_result(
     include_cover_data: bool,
     options: &TagOptions,
 ) -> Result<AudioEntry, String> {
-    let mut image_file = fs::File::open(image).map_err(|e| e.to_string())?;
-    let mut picture = Picture::from_reader(&mut image_file).map_err(|e| e.to_string())?;
+    // The formats Manage Covers accepts, WebP included.
+    let mut picture = picture_from_bytes(fs::read(image).map_err(|e| e.to_string())?)?;
     picture.set_pic_type(kind);
     let label = image.file_name().unwrap_or_default().to_string_lossy();
     add_picture_result(path, picture, &label, include_cover_data, options)

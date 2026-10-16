@@ -38,6 +38,11 @@ A relative filename is resolved beside the first track in that partition.
 For a combined playlist spanning folders, choose an explicit absolute
 destination so the result does not depend on which track comes first.
 
+The filename format uses literal `\` as a folder separator on every platform.
+Separators and reserved filename characters in ordinary tag values are
+cleaned; native path placeholders such as `%_folderpath%` retain their path
+components. The partition format remains a grouping key, not a filename.
+
 ## Order and playlist options
 
 This action uses the current playlist settings for entry paths, extended
@@ -47,8 +52,9 @@ and playlists to another machine.
 
 In an action group, playlist generation runs after the group's per-file
 actions. A preceding rename therefore appears in the playlist, and even a
-playlist action listed before that rename sees the final values. Put it
-in a separate earlier group if an intermediate state is required.
+playlist action listed before that rename sees the final values. Files with
+an earlier action warning still participate. Put it in a separate earlier
+group if an intermediate state is required.
 
 ## Gotchas
 
