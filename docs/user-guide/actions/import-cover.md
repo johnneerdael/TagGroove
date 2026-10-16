@@ -45,7 +45,10 @@ importable matching image, while `%_folderpath%cover?.jpg` can find `cover1.jpg`
 Candidates are considered in natural name order, ignoring filename case:
 `front2.png` comes before `front10.png`. Folders, non-images and formats the
 importer refuses are skipped. JPEG, PNG, GIF, BMP, TIFF and WebP are accepted.
-Wildcards in folder names are refused. Prefer a specific naming pattern;
+Folder components are used as literal existing paths; matching does not
+expand a folder pattern or search several folders. On macOS and Linux,
+`*` and `?` in an actual source-folder name remain literal, including when
+that folder comes from `%_folderpath%`. Prefer a specific filename pattern;
 a broad `*` can choose unintended artwork.
 
 Use `\` to separate literal folders in the format on every platform.

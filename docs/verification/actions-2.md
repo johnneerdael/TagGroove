@@ -394,6 +394,61 @@ TypeScript/Vite build, workspace all-target Clippy with warnings denied,
 formatting/diff checks, strict 97-page guide build, eight publication tests
 and the 97/187 writing-plan check passed.
 
+## Cover captures retain their directory-move epoch
+
+The review of `dd0dbae` identified that rebasing every capture through every
+move conflated a moved album output with a later output recreating the old
+folder. The real action-command regression failed Undo on that head because
+`Album` already existed. Captures now carry the number of completed moves;
+only subsequent moves determine their final entry. Same-entry captures retain
+the earliest Before, and replay preserves capture order within each epoch.
+
+Undo/Redo interleaves side-file changes with directory moves, removing only
+tracked empty parents of created outputs. An external file blocking the old
+folder is preserved, and completed side-file/move steps are rolled back on
+obstruction. Existing independent side-file failure handling without folder
+moves remains intact. The actual command fixture verifies exact images and
+audio through Undo/Redo and the external obstruction; a core fixture adds
+two moves and three later outputs across epochs, including reverse lexical
+capture order. Audio fingerprint and write-tracking logic is unchanged.
+
+## Side-file snapshots check budget before copying
+
+The same review found that side-file copies bypassed the journal byte/free
+reserve preflight. Before and After copies now check the operation's planned
+snapshot bytes, accumulated side snapshots and the journal byte limit before
+allocating a blob. The existing Unix available-space query also enforces the
+free reserve; this does not add a Windows free-space query. Regular copies
+are bounded to the checked length and discard incomplete/size-changing
+copies. The export no-op comparison first checks the existing file length.
+
+A public core regression fails on exact `dd0dbae` and passes with the fix.
+Unit cases verify accumulated Before/After budget and Unix reserve refusal
+before allocating snapshots. The actual action command uses a test journal
+with a small byte limit and proves a refused replacement leaves the image
+and audio unchanged. If After capture fails for a folder operation, a visible
+notice replaces an incomplete Undo offer. The isolated baseline worktree used
+for the RED test was removed; only logs remain.
+
+## Wildcard imports use literal existing parent paths
+
+Root's independently reproduced `e4359ac` resolver fix is merged normally.
+It accepts an existing literal parent path containing `*` or `?` on Unix;
+it does not expand folder globs. Its resolver fixture covers natural order,
+unsupported candidates and a symlink alias. An actual NativeHost regression
+uses `%_folderpath%cover*.png` under `What?*` and verifies that `cover2.png`,
+rather than `cover10.png`, supplies the exact imported bytes. Import/Export
+Cover guides now describe these path, undo and budget boundaries.
+
+Final combined locked workspace validation passed 831 Rust tests (the same
+four explicit skips), including 298 application-library tests and all 52
+action-host tests. All 338 Node tests, TS/Vite build, workspace all-target
+Clippy with warnings denied, formatting/diff checks, strict 97-page guide,
+eight publication tests and the 97/187 writing-plan check passed. A finite
+independent source/test review found no additional actionable issue in the
+epoch, rollback and snapshot-budget family. These are local source, model
+and command results; fresh final-head review and trusted CI remain required.
+
 ## Not covered
 
 - The `.mta` type IDs for Adjust Cover, Set Cover Properties and Generate Playlists, and the guessed schemas for types 4, 6 and 11–15, need `.mta` files saved by Mp3tag.

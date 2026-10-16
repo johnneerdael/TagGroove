@@ -1157,6 +1157,7 @@ pub fn execute_with_side_files(
     execute_with_side_file_epochs(paths, groups, settings, &mut |path, _| before_replace(path))
 }
 
+/// Execute with a capture hook that receives the current directory-move epoch.
 pub fn execute_with_side_file_epochs(
     paths: &[String],
     groups: &[ActionGroup],
@@ -3148,6 +3149,38 @@ mod tests {
         let result = import("art*");
         assert!(result.errors.is_empty(), "{:?}", result.errors);
         assert_eq!(cover(), jpeg);
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn import_cover_wildcard_preserves_native_folder_placeholder_characters() {
+        let dir = tempfile::tempdir().unwrap();
+        let album = dir.path().join("What?*");
+        fs::create_dir(&album).unwrap();
+        let path = fixture(&album, "a.wav");
+        let encode = |width| {
+            let mut bytes = std::io::Cursor::new(Vec::new());
+            image::DynamicImage::ImageRgb8(image::RgbImage::new(width, width))
+                .write_to(&mut bytes, image::ImageFormat::Png)
+                .unwrap();
+            bytes.into_inner()
+        };
+        let first = encode(2);
+        fs::write(album.join("cover2.png"), &first).unwrap();
+        fs::write(album.join("cover10.png"), encode(3)).unwrap();
+        let result = run(
+            &path,
+            vec![ActionSpec::ImportCover {
+                filename_template: "%_folderpath%cover*.png".into(),
+                picture_type: None,
+                delete_existing: true,
+            }],
+            EvaluationSettings::default(),
+        );
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        let covers = tag_core::read_entry(&path).unwrap().covers;
+        assert_eq!(covers.len(), 1);
+        assert_eq!(STANDARD.decode(&covers[0].data_base64).unwrap(), first);
     }
 
     #[test]

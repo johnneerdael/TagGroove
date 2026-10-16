@@ -185,8 +185,9 @@ fn fingerprint(path: &Path) -> Result<Fingerprint, String> {
 
 /// Bounds for retained snapshots. An operation whose snapshots would retain
 /// more than `bytes` is not recorded, so the journal never keeps more than
-/// this much audio. Journaling is also refused when it would leave less than
-/// `min_free` bytes available on the journal's volume.
+/// this much snapshot data. On Unix, journaling is also refused when it would
+/// leave less than `min_free` bytes available on the journal's volume; other
+/// platforms currently have no free-space query here.
 #[derive(Clone, Copy, Debug)]
 pub struct Limits {
     pub operations: usize,
@@ -394,7 +395,7 @@ impl Journal {
         }
     }
 
-    /// Bytes of audio currently retained by snapshots.
+    /// Bytes currently retained by audio and side-file snapshots.
     pub fn retained_bytes(&self) -> u64 {
         self.undo.iter().chain(&self.redo).map(Record::bytes).sum()
     }

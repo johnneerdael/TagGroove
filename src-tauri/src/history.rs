@@ -119,6 +119,7 @@ pub fn record_with_side_files<T: Changes>(
     })
 }
 
+/// Side-file recording whose hook also receives the completed directory-move count.
 pub fn record_with_side_file_epochs<T: Changes>(
     label: &str,
     group: Option<&str>,
