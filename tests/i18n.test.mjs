@@ -116,3 +116,35 @@ test('history menu and status frames preserve names through one translation pass
   assert.equal(custom.translate('Undo Action Help (2 files)'),'Reverse: Copy of Help [2]');
   assert.equal(historyLabelText('Help',(key,params)=>custom.t(key,params)),'Help');
 });
+
+
+test('locale decimal and grouping separators drive plural decisions without changing display text',()=>{
+  const key='{count} files';
+  const catalog={[key]:'{count, plural, =1 {# exact one} =1000 {# exact thousand} =1234 {# exact grouped} one {# one} other {# other}}'};
+  const cases=[
+    ['fr','1,0','exact one'],['fr','1,000','exact one'],['fr','1,2','one'],
+    ['fr','1\u202f000,0','exact thousand'],['de','1,0','exact one'],
+    ['de','1.000','exact thousand'],['de','1.234','exact grouped'],['de','1,234','other'],
+    ['en','1,000','exact thousand'],['en','1.000','exact one'],['en','1.234','other'],
+  ];
+  for(const [locale,shown,form] of cases){
+    const translator=new Translator(locale,catalog),expected=`${shown} ${form}`;
+    assert.equal(translator.t(key,{count:shown}),expected,`${locale}: explicit ${shown}`);
+    assert.equal(translator.translate(`${shown} files`),expected,`${locale}: captured ${shown}`);
+  }
+});
+
+test('nested plural categories are validated recursively and invalid keys are removed once',()=>{
+  const key='{count} files and {selected} selected',english={[key]:key};
+  const bad='{count, plural, one {{selected, plural, single {# selected} other {# selected}}} other {{selected, plural, bogus {# selected} other {# selected}}}}';
+  const catalog={'@meta':{locale:'fr',name:'French'},[key]:bad};
+  assert.deepEqual(validateCatalog(english,catalog),{missing:[],unknown:[],placeholders:[],invalid:[key]});
+  const result=languageSet([],[{file:'fr.json',catalog}],english);
+  assert.equal(result.languages.get('fr').catalog[key],undefined);
+  assert.equal(result.languages.get('fr').problems,1);
+  assert.equal(result.warnings.length,1);
+  assert.deepEqual(result.warnings[0].params,{file:'fr.json',missing:0,invalid:1});
+  const valid='{count, plural, one {{selected, plural, =1 {# selected} other {# selected}}} other {{selected, plural, one {# selected} other {# selected}}}}';
+  assert.deepEqual(validateCatalog(english,{[key]:valid}),{missing:[],unknown:[],placeholders:[],invalid:[]});
+  assert.equal(new Translator('fr',{[key]:valid}).t(key,{count:1,selected:2}),'2 selected');
+});

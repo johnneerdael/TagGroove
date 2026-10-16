@@ -146,8 +146,9 @@ export function placeholders(source: string): Set<string> {
   return names;
 }
 
+const numberSeparators = new WeakMap<Intl.PluralRules, {decimal: string; group?: string}>();
 /** Decode locale-formatted counts only for plural decisions; displayed values stay untouched. */
-const number = (value: unknown) => {
+const number = (value: unknown, rules: Intl.PluralRules) => {
   if (typeof value === 'number') return value;
   const digits = String(value ?? '').replace(/[\p{Nd}〇一二三四五六七八九]/gu, digit => {
     if (digit >= '0' && digit <= '9') return digit;
@@ -159,10 +160,15 @@ const number = (value: unknown) => {
     // can share a run, so retain the position modulo ten.
     while (zero > 0 && /\p{Nd}/u.test(String.fromCodePoint(zero - 1))) zero--;
     return String((code - zero) % 10);
-  }).replace(/[٬’]/g, '');
-  if (digits.includes('٫')) return Number(digits.replace(/٫/g, '.'));
-  const grouped = /^\d{1,3}(?:,\d{2})+,\d{3}$/.test(digits) ? digits.replace(/,/g, '') : digits;
-  return Number(grouped.replace(/[\s,.  '](?=\d{3}\b)/g, ''));
+  });
+  let separators = numberSeparators.get(rules);
+  if (!separators) {
+    const parts = new Intl.NumberFormat(rules.resolvedOptions().locale).formatToParts(12345.6);
+    separators = {decimal: parts.find(part => part.type === 'decimal')?.value ?? '.', group: parts.find(part => part.type === 'group')?.value};
+    numberSeparators.set(rules, separators);
+  }
+  const ungrouped = separators.group ? digits.split(separators.group).join('') : digits;
+  return Number(ungrouped.split(separators.decimal).join('.').replace(/٫/g, '.').replace(/[\s٬'’]/g, ''));
 };
 
 /** Fill a parsed translation. */
@@ -172,7 +178,7 @@ export function render(nodes: Node[], params: Record<string, unknown>, rules: In
     if (typeof node === 'string') {out += hash === undefined ? node : node.replace(/#/g, hash);continue;}
     const value = params[node.name];
     if (!('plural' in node)) {out += value === undefined ? `{${node.name}}` : String(value);continue;}
-    const n = number(value);
+    const n = number(value, rules);
     const exact = node.plural.find(([category]) => category === `=${n}`);
     const category = Number.isFinite(n) ? rules.select(n) : 'other';
     const form = exact ?? node.plural.find(([name]) => name === category) ?? node.plural.find(([name]) => name === 'other') ?? node.plural[0];
@@ -319,7 +325,11 @@ export function validateCatalog(english: Catalog, catalog: Catalog): {missing: s
     const expected = new Set([...key.matchAll(PLACEHOLDER)].map(match => match[1]));
     const same = names.size === expected.size && [...names].every(name => expected.has(name));
     if (!same) result.placeholders.push(key);
-    else for (const node of parse(value)) if (typeof node !== 'string' && 'plural' in node && node.plural.some(([category]) => !PLURAL_CATEGORIES.has(category) && !/^=\d+$/.test(category))) result.invalid.push(key);
+    else {
+      const invalid = (nodes: Node[]): boolean => nodes.some(node => typeof node !== 'string' && 'plural' in node
+        && node.plural.some(([category, body]) => (!PLURAL_CATEGORIES.has(category) && !/^=\d+$/.test(category)) || invalid(body)));
+      if (invalid(parse(value))) result.invalid.push(key);
+    }
   }
   for (const key of Object.keys(catalog)) if (!key.startsWith('@') && !known.has(key)) result.unknown.push(key);
   return result;
