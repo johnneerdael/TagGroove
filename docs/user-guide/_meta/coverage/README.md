@@ -492,3 +492,43 @@ not review these three new pages. Current app source remains byte-identical
 main `325007c`; pending feature branches and original deferred P2 work are
 untouched. Full canonical semantic completeness remains unproven, including
 overloads, edge cases, platform qualifications and the remaining drafts.
+
+## Local field values, Library and Tools-menu checkpoint
+
+`library-values-2026-10-16.json` records three completed chapters: reusable
+field-value choices, the Library cache workflow and the full current Tools
+menu. The local milestone has 152 ready pages and 35 drafts. All prior 149
+local navigation entries remain in order; generated HTML/search contain
+exactly 152 routes and 1,258 entries with no draft leakage. Public coverage
+remains 137 pages. Fifteen completed local chapters are unpublished pending
+source-queue reconciliation and qualification.
+
+Twenty-eight production model checks pass, including actual written
+normalization/preference examples under LF and CRLF and an inventory guard
+for all five fixed Tools-menu entries. That guard is structural, not a
+semantic-completeness or native-UI certificate. Five focused temporary-DB
+fixtures pass against a narrow Library test target freshly built from this
+main `325007c` source. Retained binaries in feature worktrees were not used
+because their core source differs. No full/native Cargo matrix, personal
+collection scanning, configured program launch or OS action was performed.
+
+Strict build, eight publication tests and eight sampled local browser checks
+pass. The browser sample covers light/dark reading, related navigation,
+search and 390px tables, including an actual horizontal wheel to reveal the
+Tools scope column; no page errors or document-level overflow were observed.
+The author viewed the final samples. This establishes local documentation
+behavior, not public152, native performance, provider permission or file
+save-back qualification. Temporary browser profiles and server were closed.
+
+The chapters distinguish saved list preferences from pending/saved metadata,
+cache lookups from loaded-list Find/filter, and immediate maintenance/export
+from the outer Options dialog. The Library status counters are explained as
+cache-session hints rather than a complete I/O audit. Configuration backups
+retain settings and custom lists but exclude the cache and audio files.
+
+`reviews/file-recovery-independent-review.json` preserves the unchanged clean
+finite receipt at exact `9e0d7d7` for the preceding trio, not this new batch.
+The actual public137 proof and structural-only scripting inventory remain
+unchanged. This checkpoint needs finite independent review and later current
+source reconciliation, final-head CODE, trusted CI and actual publication.
+Full canonical semantic completion and the remaining 35 drafts are still open.

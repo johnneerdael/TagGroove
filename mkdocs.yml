@@ -172,10 +172,12 @@ nav:
     - Copy, move and delete files: guides/file-operations.md
     - Undo and history: guides/undo-history.md
     - Built-in utilities: guides/utilities.md
+    - Library cache: guides/library.md
   - Customization:
     - Save and restore configuration: customize/configuration.md
     - Toolbars: customize/toolbars.md
     - External tools: customize/tools.md
+    - Field values: customize/field-values.md
     - File-list columns: customize/columns.md
     - Tag panel: customize/tag-panel.md
 - Automate:
@@ -245,6 +247,7 @@ nav:
     - Convert: reference/menus/convert.md
     - Actions: reference/menus/actions.md
     - Tag Sources: reference/menus/tag-sources.md
+    - Tools: reference/menus/tools.md
     - Help: reference/menus/help.md
     - Context and helper menus: reference/menus/context-menus.md
   - Options:
