@@ -99,6 +99,8 @@ to edit and save its tags, then give the files consistent names.
 | Combine fields, functions and fallback values | [Format strings from zero](learn/format-strings-from-zero.md), then the [64-function reference](reference/scripting/index.md) |
 | Match, capture and clean patterned text | [Regular expressions from zero](learn/regex-from-zero.md), then [regex syntax and examples](reference/regular-expressions.md) |
 | Repeat several changes in order | [Build your first action group](learn/first-action-group.md), then [all action types](actions/index.md) |
+| Build folder paths for albums, discs and compilations | [Artist/album folders](cookbook/rename-into-artist-album-folders.md), [multi-disc albums](cookbook/rename-multi-disc-albums.md) and [compilations](cookbook/rename-compilations.md) |
+| Load or create playlists and understand chapter rows | [Playlists](guides/playlists.md), [one playlist per album folder](cookbook/playlist-per-album.md) and [chapters/CUE rows](guides/chapters.md) |
 | Rename files, import text or number albums | [Converters](converters/index.md) and [auto-numbering](converters/auto-numbering.md) |
 | Create a catalogue or spreadsheet | [Export a CD catalogue](learn/export-a-cd-catalogue.md), then [CSV](export/csv.md) and the [template language](export/template-language.md) |
 | Parse a web source you control | [Write a source from local JSON](tag-sources/writing-web-sources.md), then the [command reference](tag-sources/web-source-reference.md) |

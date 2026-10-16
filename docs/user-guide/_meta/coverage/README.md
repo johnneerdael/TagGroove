@@ -354,3 +354,18 @@ official OS guidance from native installation qualification. Written scan
 examples and loading/count contracts use actual core/controllers; installation
 commands are documentation, not agent-executed installers. Draft platform
 chapters, migration and remaining canonical details remain unfinished.
+
+## Cumulative 137-page publication candidate
+
+The next publication candidate on main `3f6639c` preserves all 127 public
+chapters and adds ten completed pages: three folder-layout recipes, three
+playlist/CUE/chapter pages and four first-use chapters. Fifty planned topics
+remain drafts. The `publication-candidate-137-2026-10-16.json` manifest records
+that final scope, source identity and validation. Original finite six-page
+peer receipts remain unchanged; foundation/cumulative peer review is separate.
+Native installers, mobile save-back and universal filesystem safety remain
+unqualified. Current release facts are explicitly pinned to v0.2.12. This
+is a writing/publication milestone, not complete canonical semantic coverage
+or authorization to describe unmerged PR17–20 features as available. Actual
+publication still requires final-head GitHub CODE review, trusted CI, merge
+and a new live Pages receipt.
