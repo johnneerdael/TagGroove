@@ -65,7 +65,7 @@ labels.
 
 At desktop startup, the interface waits for the saved language and available
 catalogs before it becomes visible and interactive. If settings cannot be read,
-OpenTag tries the last remembered language. Startup error labels follow the
+OpenTag tries the last remembered language. Application error labels follow the
 interface language while filenames in the same error list keep their spelling. Missing or unreadable catalogs still
 use the fallback and warning behavior below.
 

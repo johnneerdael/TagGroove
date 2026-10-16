@@ -2698,5 +2698,9 @@
  "Command line": "Opdrachtregel",
  "Drag and drop": "Slepen en neerzetten",
  "Platform": "Platform",
- "Window": "Venster"
+ "Window": "Venster",
+ "Conversion": "Conversie",
+ "Layout": "Indeling",
+ "Operation": "Bewerking",
+ "Repeat": "Herhalen"
 }

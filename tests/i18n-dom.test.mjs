@@ -22,7 +22,7 @@ const {contextMenuMarkup,RowContextMenu}=await load('row-context-menu.ts');
 const {ExtendedTags}=await import(await moduleUrl('extended-tags.ts',{"import './extended-tags.css';":'',"'./tag-edits'":JSON.stringify(await moduleUrl('tag-edits.ts')),"'./row-context-menu'":JSON.stringify(await moduleUrl('row-context-menu.ts'))}));
 const {ToolsUI,toolsOptionsPage}=await load('tools.ts'),{installHelperMenus}=await load('helper-menu.ts');
 const {customizeToolbar,itemHint,itemLabel,userLabel,visibleItems,isSeparator,isSpacer,TOOLBAR_COMMANDS}=await load('toolbar.ts');
-const {copyAsTextDialog}=await load('utils-ui.ts'),{PlaylistUI}=await load('playlist-ui.ts'),{openTagToTag}=await load('tag-tag-ui.ts');
+const {copyAsTextDialog,UTILS}=await load('utils-ui.ts'),{PlaylistUI}=await load('playlist-ui.ts'),{openTagToTag}=await load('tag-tag-ui.ts');
 const {offerOpenOutputs,ExportUI}=await load('export-ui.ts');
 const {FileOpsUI,nameList,defaultDirectoryState}=await load('file-ops.ts');
 const {copiedMessage,pastePlan,copyTags}=await load('tag-clipboard.ts');
@@ -610,13 +610,34 @@ test('real Cut/Paste failure statuses translate UI operation names while authore
     }finally{p.close();}
   }
 });
-test('production startup error contexts translate once without changing same-spelling file labels',()=>{
-  const labels=['Options','Action groups','Columns','Tag panel','Directories','Platform','Command line','Window','Drag and drop'];
+test('production application error contexts translate once without changing same-spelling file labels',()=>{
+  const labels=['Layout','Cover','Tag panel','Playlist','Tools','Notification area','Appearance','Options','Tag sources','Columns','Operation','Reload','Conversion','Repeat','Export','Rename','Action groups','Directories','Platform','Command line','Window','Drag and drop','Cut tags','Paste tags',...Object.values(UTILS).map(spec=>spec.label)];
   const custom={...Object.fromEntries(labels.map(label=>[label,'Help'])),Help:'Wrong second translation'};
   for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]]){
     const p=page();try{
       const t=new Translator(locale,catalog),render=e=>mainTemplate(node=>node.head.text==='<p><strong translate="no">',{e,esc,displayName:path=>path,publicMessage:value=>value,translate:text=>t.translate(text)});
       for(const label of labels){p.body.innerHTML=render({path:label,label,error:'Select files first.'})+render({path:label,error:'Select files first.'});p.translate(locale,catalog);const contexts=p.body.querySelectorAll('strong');assert.equal(contexts[0].textContent,t.t(label)+':');assert.equal(contexts[1].textContent,label+':');p.translateTree(p.body);assert.equal(contexts[0].textContent,t.t(label)+':');}
+    }finally{p.close();}
+  }
+});
+test('actual Tools and Columns failure callbacks render localized contexts with unchanged body and raw same-name paths',async()=>{
+  const custom={Tools:'Help',Columns:'Title',Help:'Wrong second translation',Title:'Wrong second translation','Select files first.':'Choose tracks.'};
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]])for(const kind of ['Tools','Columns']){
+    const p=page();let renders=0,requests=0;
+    try{
+      const variable=parsed.statements.filter(ts.isVariableStatement).flatMap(node=>[...node.declarationList.declarations]).find(node=>node.name.getText(parsed)===(kind==='Tools'?'toolsUI':'columnUI'));
+      const js=ts.transpileModule(`const ${variable.getText(parsed)};`,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
+      const tool={name:'Tools',path:'/Tools',parameters:'%_path%',for_each_file:false},layout=defaultLayout(),unchanged=structuredClone(layout);
+      const dependencies={ToolsUI,ColumnUI,macPlatform:false,translateNow:()=>{},optionsUI:{page:()=>({tools:[tool]})},desktop:true,selected:new Set(['/Tools']),operationReason:()=>'',paths:()=>['/Tools'],listRoots:[],columnLayout:layout,applyColumns:async()=>{requests++;throw new Error('Select files first.');},invoke:async command=>{assert.equal(command,'run_tool');requests++;throw new Error('Select files first.');},publicMessage:error=>error.message??String(error),render:()=>{renders++;}};
+      const model=new Function(...Object.keys(dependencies),`let errors=[],status='';${js};return {instance:${kind==='Tools'?'toolsUI':'columnUI'},state:()=>({errors,status})};`)(...Object.values(dependencies));
+      p.body.innerHTML=model.instance.menuHTML();model.instance.bindMenu(p.body);
+      if(kind==='Tools'){p.translate(locale,catalog);assert.equal(p.body.querySelector('[data-tool] span').textContent,'Tools');await model.instance.run(0);}
+      else{p.body.querySelector('[data-column-toggle="title"]').click();await new Promise(resolve=>setTimeout(resolve,0));}
+      assert.equal(requests,1);assert.equal(renders,1);const error=model.state().errors[0];assert.equal(error.path,kind);assert.equal(error.error,'Select files first.');assert.deepEqual(layout,unchanged);assert.equal(tool.name,'Tools');
+      for(const [language,strings] of [[locale,catalog],['en',{}],[locale,catalog]]){
+        const t=new Translator(language,strings),render=e=>mainTemplate(node=>node.head.text==='<p><strong translate="no">',{e,esc,displayName:path=>path,publicMessage:value=>value,translate:text=>t.translate(text)});
+        p.body.innerHTML=render(error)+render({path:kind,error:error.error});p.translate(language,strings);const paragraphs=p.body.querySelectorAll('p');assert.equal(paragraphs[0].textContent,`${t.t(kind)}: ${t.t(error.error)}`);assert.equal(paragraphs[1].textContent,`${kind}: ${t.t(error.error)}`);p.translateTree(p.body);assert.equal(paragraphs[0].querySelector('strong').textContent,t.t(kind)+':');assert.equal(model.state().errors[0].error,'Select files first.');
+      }
     }finally{p.close();}
   }
 });

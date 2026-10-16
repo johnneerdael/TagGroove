@@ -2711,5 +2711,9 @@
  "Command line": "Befehlszeile",
  "Drag and drop": "Ziehen und Ablegen",
  "Platform": "Plattform",
- "Window": "Fenster"
+ "Window": "Fenster",
+ "Conversion": "Konvertierung",
+ "Layout": "Layout",
+ "Operation": "Vorgang",
+ "Repeat": "Wiederholen"
 }
