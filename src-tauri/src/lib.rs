@@ -139,6 +139,24 @@ async fn import_action_group(
     })
     .await
 }
+/// Import several `.mta` files, or the `.mta` files of folders, at once.
+#[tauri::command]
+async fn import_action_groups(
+    paths: Vec<String>,
+    legacy_encoding: Option<String>,
+) -> Result<Vec<action_host::GroupFileImport>, String> {
+    io(move || {
+        let mut inputs = Vec::with_capacity(paths.len());
+        for path in &paths {
+            inputs.push(auxiliary_input(path)?);
+        }
+        Ok(action_host::import_groups(
+            &inputs,
+            legacy_encoding.as_deref(),
+        ))
+    })
+    .await
+}
 #[tauri::command]
 async fn execute_action_groups(
     paths: Vec<String>,
@@ -152,8 +170,13 @@ async fn execute_action_groups(
             [group] => format!("Action {}", group.name),
             ref enabled => format!("Actions ({} groups)", enabled.len()),
         };
-        history::record(&label, None, &paths, || {
-            Ok(action_host::execute(&paths, &groups, settings))
+        history::record_with_side_files(&label, None, &paths, |before_replace| {
+            Ok(action_host::execute_with_side_files(
+                &paths,
+                &groups,
+                settings,
+                before_replace,
+            ))
         })
     })
     .await
@@ -891,8 +914,13 @@ async fn apply_action(
     };
     io(move || {
         reject_provider_operation(&paths, "Actions")?;
-        history::record("Quick action", None, &paths, || {
-            Ok(action_host::execute(&paths, &[group], settings))
+        history::record_with_side_files("Quick action", None, &paths, |before_replace| {
+            Ok(action_host::execute_with_side_files(
+                &paths,
+                &[group],
+                settings,
+                before_replace,
+            ))
         })
     })
     .await
@@ -1229,6 +1257,7 @@ pub fn run() {
             load_action_library,
             save_action_library,
             import_action_group,
+            import_action_groups,
             execute_action_groups,
             action_host::export_action_group,
             runtime_platform,

@@ -519,6 +519,9 @@ pub fn validate_folder_separator(separator: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Placeholders whose value is a path, used unchanged in filename mode.
+const PATH_FIELDS: [&str; 3] = ["_PATH", "_FOLDERPATH", "_WORKINGPATH"];
+
 fn filename_component(text: &str, context: &EvalContext<'_>) -> String {
     filename_value(
         text,
@@ -546,7 +549,17 @@ fn run(nodes: &[Node], context: &EvalContext<'_>, filename_mode: bool) -> Result
                     .cloned()
                     .unwrap_or_default();
                 let present = !text.is_empty();
-                let filename = filename_mode.then(|| filename_component(&text, context));
+                let filename = filename_mode.then(|| {
+                    // A path placeholder already is a path: keep its folders.
+                    if PATH_FIELDS
+                        .iter()
+                        .any(|path| name.eq_ignore_ascii_case(path))
+                    {
+                        text.clone()
+                    } else {
+                        filename_component(&text, context)
+                    }
+                });
                 Value {
                     text,
                     present,

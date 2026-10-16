@@ -47,8 +47,73 @@ pub fn load_library(path: &Path) -> Result<ActionLibrary, String> {
     match fs::read(path) {
         Ok(bytes) => serde_json::from_slice(&bytes)
             .map_err(|e| format!("Cannot read action configuration: {e}")),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(ActionLibrary::default()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(example_library()),
         Err(e) => Err(e.to_string()),
+    }
+}
+/// Groups offered before any action configuration was saved. They are
+/// unchecked, listed under Examples, and written for OpenTag.
+pub fn example_library() -> ActionLibrary {
+    use tag_core::actions::CaseMode;
+    let group = |name: &str, actions| ActionGroup {
+        name: format!("Examples#{name}"),
+        enabled: false,
+        actions,
+    };
+    ActionLibrary {
+        groups: vec![
+            group(
+                "Tidy spaces in tag fields",
+                vec![
+                    ActionSpec::RegexReplace {
+                        field: "_TAG".into(),
+                        pattern: "\\s{2,}".into(),
+                        replacement: " ".into(),
+                        case_sensitive: false,
+                    },
+                    ActionSpec::RegexReplace {
+                        field: "_TAG".into(),
+                        pattern: "^\\s+|\\s+$".into(),
+                        replacement: String::new(),
+                        case_sensitive: false,
+                    },
+                ],
+            ),
+            group(
+                "Split artists at semicolons",
+                vec![ActionSpec::SplitField {
+                    field: "ARTIST".into(),
+                    separator: ";".into(),
+                }],
+            ),
+            group(
+                "Capitalize titles and names",
+                ["TITLE", "ARTIST", "ALBUMARTIST", "ALBUM"]
+                    .into_iter()
+                    .map(|field| ActionSpec::CaseConversion {
+                        field: field.into(),
+                        mode: CaseMode::Mixed,
+                        word_separators: " ([-/".into(),
+                    })
+                    .collect(),
+            ),
+            group(
+                "Name files 01 - Title",
+                vec![ActionSpec::FormatValue {
+                    field: "_FILENAME".into(),
+                    template: "[$num(%track%,2) - ]%title%".into(),
+                }],
+            ),
+            group(
+                "Save front cover as folder image",
+                vec![ActionSpec::ExportCover {
+                    filename_template: "folder".into(),
+                    picture_type: Some("CoverFront".into()),
+                    export_duplicates: false,
+                }],
+            ),
+        ],
+        presets: Vec::new(),
     }
 }
 pub fn save_library(path: &Path, library: &ActionLibrary) -> Result<(), String> {
@@ -71,6 +136,69 @@ pub fn import_group(path: &Path, legacy_encoding: Option<&str>) -> Result<MtaImp
         &bytes,
         legacy_encoding,
     )
+}
+/// One file of a bulk `.mta` import.
+#[derive(Serialize)]
+pub struct GroupFileImport {
+    pub path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub imported: Option<MtaImport>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+/// Import several `.mta` files at once. A folder stands for the `.mta` files
+/// in it, in natural name order, as in Mp3tag's `data/actions` folder. Each
+/// file succeeds or fails on its own.
+pub fn import_groups(paths: &[PathBuf], legacy_encoding: Option<&str>) -> Vec<GroupFileImport> {
+    let outcome = |path: &Path, result: Result<MtaImport, String>| {
+        let (imported, error) = match result {
+            Ok(imported) => (Some(imported), None),
+            Err(error) => (None, Some(error)),
+        };
+        GroupFileImport {
+            path: path.to_string_lossy().into_owned(),
+            imported,
+            error,
+        }
+    };
+    let mut results = Vec::new();
+    for path in paths {
+        if !path.is_dir() {
+            results.push(outcome(path, import_group(path, legacy_encoding)));
+            continue;
+        }
+        let entries = match fs::read_dir(path) {
+            Ok(entries) => entries,
+            Err(error) => {
+                results.push(outcome(path, Err(error.to_string())));
+                continue;
+            }
+        };
+        let mut files: Vec<PathBuf> = entries
+            .filter_map(Result::ok)
+            .map(|entry| entry.path())
+            .filter(|file| {
+                file.is_file()
+                    && file
+                        .extension()
+                        .is_some_and(|e| e.eq_ignore_ascii_case("mta"))
+            })
+            .collect();
+        files.sort_by_cached_key(|file| file.to_string_lossy().to_lowercase());
+        files.sort_by(|a, b| {
+            tag_core::natural_compare(
+                &a.to_string_lossy().to_lowercase(),
+                &b.to_string_lossy().to_lowercase(),
+            )
+        });
+        if files.is_empty() {
+            results.push(outcome(path, Err("The folder has no .mta files".into())));
+        }
+        for file in files {
+            results.push(outcome(&file, import_group(&file, legacy_encoding)));
+        }
+    }
+    results
 }
 /// Write a group as a UTF-16LE `.mta` file with BOM and CRLF lines, the
 /// layout of the action files shipped with Mp3tag.
@@ -221,17 +349,28 @@ fn relative_to_file(path: &str, source: &Path) -> PathBuf {
     }
 }
 
-struct NativeHost {
+/// The file a cover, text file or playlist file name names, relative to
+/// `source`. The name was evaluated in filename mode, so `\` separates
+/// folders on every platform.
+fn template_path(name: &str, source: &Path) -> PathBuf {
+    relative_to_file(&action_name(name, NameOrigin::Template, ""), source)
+}
+
+struct NativeHost<'a> {
     settings: EvaluationSettings,
     directories: Vec<PathChange>,
     exported_covers: HashSet<(String, [u8; 32])>,
+    /// Cover images written by this run, by normalized destination.
+    written_covers: BTreeMap<String, [u8; 32]>,
+    /// Called before an existing image is replaced, so undo can restore it.
+    before_replace: &'a mut dyn FnMut(&Path) -> Result<(), String>,
     identities: Vec<String>,
     initial_fields: Vec<Fields>,
     inputs: Vec<PathBuf>,
     /// Playlists and export files written, for opening after export.
     outputs: Vec<String>,
 }
-impl NativeHost {
+impl NativeHost<'_> {
     fn resolve(&self, path: &Path) -> PathBuf {
         let mut current = path.to_path_buf();
         for change in &self.directories {
@@ -304,7 +443,7 @@ impl NativeHost {
         Ok(())
     }
 }
-impl NativeHost {
+impl NativeHost<'_> {
     /// Technical fields of the file's current path, for format strings.
     fn path_context(&self, state: &ActionState) -> Result<Fields, String> {
         let mut context = state.context.clone();
@@ -352,7 +491,7 @@ impl NativeHost {
         Ok(context)
     }
 }
-impl ActionHost for NativeHost {
+impl ActionHost for NativeHost<'_> {
     fn evaluate(&mut self, template: &str, state: &ActionState) -> Result<String, String> {
         let (identity, unchanged) = self.identity(state);
         let context = self.path_context(state)?;
@@ -431,9 +570,10 @@ impl ActionHost for NativeHost {
                 picture_type,
                 delete_existing,
             } => {
+                let image = tag_core::resolve_cover_source(&template_path(filename, &path))?;
                 tag_core::import_cover_with_options(
                     &path,
-                    &relative_to_file(filename, &path),
+                    &image,
                     picture_type.as_deref(),
                     *delete_existing,
                     &crate::settings::tag_options(),
@@ -459,7 +599,7 @@ impl ActionHost for NativeHost {
                         .map_err(|e| e.to_string())?;
                     let digest: [u8; 32] = Sha256::digest(&bytes).into();
                     let mut target =
-                        cover_file_target(relative_to_file(filename, &path), &cover.mime, &bytes);
+                        cover_file_target(template_path(filename, &path), &cover.mime, &bytes);
                     // Duplicate identity is the requested destination plus
                     // content. Take it before per-file multi-cover numbering.
                     let identity = (normalized_output(&target)?, digest);
@@ -472,18 +612,27 @@ impl ActionHost for NativeHost {
                         target.set_file_name(format!("{stem} ({count}).{extension}"));
                     }
                     self.protect_output(&target, std::slice::from_ref(state))?;
-                    // Cover export never overwrites existing files implicitly.
-                    let parent = target.parent().unwrap_or(Path::new("."));
-                    fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-                    let mut staging =
-                        tempfile::NamedTempFile::new_in(parent).map_err(|e| e.to_string())?;
-                    staging
-                        .write_all(&bytes)
-                        .and_then(|_| staging.as_file().sync_all())
-                        .map_err(|e| e.to_string())?;
-                    staging
-                        .persist_noclobber(&target)
-                        .map_err(|e| e.error.to_string())?;
+                    let destination = normalized_output(&target)?;
+                    match self.written_covers.get(&destination) {
+                        // Another file of this run already wrote a different image there.
+                        Some(written) if *written != digest => {
+                            return Err(format!(
+                                "{} was already written for another file",
+                                target.display()
+                            ));
+                        }
+                        Some(_) => {}
+                        // An earlier export left this image: running again changes nothing.
+                        None if fs::read(&target).is_ok_and(|existing| existing == bytes) => {}
+                        None => {
+                            // An existing file with another image is replaced.
+                            if fs::symlink_metadata(&target).is_ok() {
+                                (self.before_replace)(&target)?;
+                            }
+                            atomic_output(&target, &bytes, false)?;
+                        }
+                    }
+                    self.written_covers.insert(destination, digest);
                     self.exported_covers.insert(identity);
                     count += 1;
                 }
@@ -515,8 +664,7 @@ impl ActionHost for NativeHost {
                 )?;
             }
             ActionEffect::ImportTextFile { field, filename } => {
-                let bytes =
-                    fs::read(relative_to_file(filename, &path)).map_err(|e| e.to_string())?;
+                let bytes = fs::read(template_path(filename, &path)).map_err(|e| e.to_string())?;
                 // A BOM decides; text without one is UTF-8 when valid and
                 // otherwise ANSI (the system codepage, Windows-1252 without one).
                 let text = tag_core::decode_export_template(
@@ -564,9 +712,9 @@ impl ActionHost for NativeHost {
                 let mut destinations = HashSet::new();
                 for group in groups.values() {
                     let Some(first) = group.first() else { continue };
-                    let name = self.evaluate(filename_template, first)?;
+                    let name = self.evaluate_filename(filename_template, first)?;
                     let target =
-                        normalized_output_path(&relative_to_file(&name, &state_path(first)?))?;
+                        normalized_output_path(&template_path(&name, &state_path(first)?))?;
                     self.protect_output(&target, states)?;
                     if !destinations.insert(normalized_output(&target)?) {
                         return Err(format!(
@@ -661,6 +809,7 @@ impl ActionHost for NativeHost {
                     app_data_directory: Some(self.settings.app_data_directory.clone()),
                     ansi_codepage: self.settings.ansi_codepage(),
                     timestamp_seconds: Some(self.settings.timestamp_seconds),
+                    natural_sort: self.settings.natural_sort,
                     bom: write_bom,
                     ..Default::default()
                 };
@@ -820,6 +969,17 @@ pub fn execute(
     groups: &[ActionGroup],
     settings: EvaluationSettings,
 ) -> ActionResult {
+    execute_with_side_files(paths, groups, settings, &mut |_| Ok(()))
+}
+
+/// [`execute`], calling `before_replace` with each existing image file that
+/// Export Cover is about to replace (for undo).
+pub fn execute_with_side_files(
+    paths: &[String],
+    groups: &[ActionGroup],
+    settings: EvaluationSettings,
+    before_replace: &mut dyn FnMut(&Path) -> Result<(), String>,
+) -> ActionResult {
     let mut result = ScanResult::default();
     let mut states = Vec::new();
     let mut initial = Vec::new();
@@ -846,6 +1006,8 @@ pub fn execute(
         settings,
         directories: Vec::new(),
         exported_covers: HashSet::new(),
+        written_covers: BTreeMap::new(),
+        before_replace,
         identities: initial.clone(),
         inputs: initial.iter().map(PathBuf::from).collect(),
         initial_fields: states.iter().map(|s| s.fields.clone()).collect(),
@@ -919,8 +1081,9 @@ pub fn execute(
                         }
                         Ok(())
                     });
+                    // As in Mp3tag, a problem is a warning: the file's
+                    // remaining actions and groups still run.
                     if let Err(error) = outcome {
-                        failed.insert(index);
                         let path = host.resolve(
                             &state_path(state).unwrap_or_else(|_| PathBuf::from(&initial[index])),
                         );
@@ -1386,20 +1549,36 @@ mod tests {
     }
 
     #[test]
-    fn cover_export_keeps_existing_files_and_rejects_input_aliases() {
+    fn cover_export_replaces_existing_files_and_rejects_input_aliases() {
         let dir = tempfile::tempdir().unwrap();
-        let (path, _) = covered_fixture(dir.path(), "input.wav", false);
+        let (path, png) = covered_fixture(dir.path(), "input.wav", false);
         let before = fs::read(&path).unwrap();
         let output = dir.path().join("cover.png");
         fs::write(&output, b"Existing output").unwrap();
-        let result = execute(
-            &[path.to_string_lossy().into_owned()],
-            &[cover_export_group("cover", false)],
-            EvaluationSettings::default(),
-        );
-        assert_eq!(result.errors.len(), 1);
+        let mut replaced = Vec::new();
+        let run = |replaced: &mut Vec<PathBuf>| {
+            execute_with_side_files(
+                &[path.to_string_lossy().into_owned()],
+                &[cover_export_group("cover", false)],
+                EvaluationSettings::default(),
+                &mut |file| {
+                    replaced.push(file.to_path_buf());
+                    Ok(())
+                },
+            )
+        };
+        // Another image there is replaced, after undo saw the old file.
+        let result = run(&mut replaced);
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert_eq!(fs::read(&output).unwrap(), png);
+        assert_eq!(replaced.len(), 1);
+        assert!(replaced[0].ends_with("cover.png"));
+        // Running again finds the same image and writes nothing.
+        let result = run(&mut replaced);
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert_eq!(replaced.len(), 1);
+        assert_eq!(fs::read(&output).unwrap(), png);
         assert_eq!(fs::read(&path).unwrap(), before);
-        assert_eq!(fs::read(&output).unwrap(), b"Existing output");
         // The image extension is always added, so a name aimed at the input
         // audio file writes a separate image next to it.
         let result = execute(
@@ -1413,22 +1592,39 @@ mod tests {
     }
 
     #[test]
-    fn cover_export_duplicates_true_reports_cross_file_destination_collision() {
+    fn cover_export_cross_file_destination_keeps_the_first_different_image() {
         let dir = tempfile::tempdir().unwrap();
         let (a, png) = covered_fixture(dir.path(), "a.wav", false);
         let (b, _) = covered_fixture(dir.path(), "b.wav", false);
-        let before = [fs::read(&a).unwrap(), fs::read(&b).unwrap()];
+        let (c, _) = covered_fixture(dir.path(), "c.wav", false);
+        let other = dir.path().join("other.png");
+        let mut bytes = std::io::Cursor::new(Vec::new());
+        image::DynamicImage::ImageRgb8(image::RgbImage::new(2, 2))
+            .write_to(&mut bytes, image::ImageFormat::Png)
+            .unwrap();
+        fs::write(&other, bytes.into_inner()).unwrap();
+        tag_core::import_cover_with_options(&c, &other, None, true, &Default::default()).unwrap();
+        let before = [
+            fs::read(&a).unwrap(),
+            fs::read(&b).unwrap(),
+            fs::read(&c).unwrap(),
+        ];
         let paths = [
             a.to_string_lossy().into_owned(),
             b.to_string_lossy().into_owned(),
+            c.to_string_lossy().into_owned(),
         ];
+        // The same image from a second file is no collision, even with
+        // duplicates exported; a different one from a third file is.
         let result = execute(
             &paths,
             &[cover_export_group("shared", true)],
             EvaluationSettings::default(),
         );
-        assert_eq!(result.errors.len(), 1);
-        assert_eq!(result.entries.len(), 1);
+        assert_eq!(result.errors.len(), 1, "{:?}", result.errors);
+        assert!(result.errors[0].path.ends_with("c.wav"));
+        assert!(result.errors[0].error.contains("already written"));
+        assert_eq!(result.entries.len(), 3);
         assert_eq!(fs::read(dir.path().join("shared.png")).unwrap(), png);
         assert!(!dir.path().join("shared (1).png").exists());
         for (path, bytes) in paths.iter().zip(before) {
@@ -1675,7 +1871,7 @@ mod tests {
         }
     }
     #[test]
-    fn filename_collision_reports_only_failed_file_and_returns_completed_file() {
+    fn filename_collision_reports_only_the_failed_file_and_returns_both() {
         let dir = tempfile::tempdir().unwrap();
         let a = fixture(dir.path(), "a.wav");
         let b = fixture(dir.path(), "b.wav");
@@ -1695,7 +1891,8 @@ mod tests {
             &[group],
             EvaluationSettings::default(),
         );
-        assert_eq!(result.entries.len(), 1);
+        // The file that kept its name is still listed with its warning.
+        assert_eq!(result.entries.len(), 2);
         assert_eq!(result.errors.len(), 1);
         assert_eq!(result.renamed.len(), 1);
         assert!(b.exists());
@@ -2070,5 +2267,302 @@ mod tests {
             EvaluationSettings::default(),
         );
         assert!(result.errors[0].error.contains("APEv2 or VorbisComment"));
+    }
+
+    #[test]
+    fn a_failed_action_is_a_warning_and_later_actions_and_groups_still_run() {
+        let dir = tempfile::tempdir().unwrap();
+        let a = fixture(dir.path(), "a.wav");
+        let b = fixture(dir.path(), "b.wav");
+        fs::write(dir.path().join("a.txt"), "Text for a").unwrap();
+        let groups = [
+            ActionGroup {
+                name: "Notes".into(),
+                enabled: true,
+                actions: vec![
+                    ActionSpec::ImportTextFile {
+                        field: "COMMENT".into(),
+                        filename_template: "%_filename%.txt".into(),
+                    },
+                    ActionSpec::FormatValue {
+                        field: "TITLE".into(),
+                        template: "Done".into(),
+                    },
+                    ActionSpec::Export {
+                        template: "$loop(%_filename%)%_filename%:%title%;$loopend()".into(),
+                        filename_template: "report.txt".into(),
+                        append: false,
+                        partition_template: None,
+                    },
+                ],
+            },
+            ActionGroup {
+                name: "Second".into(),
+                enabled: true,
+                actions: vec![ActionSpec::FormatValue {
+                    field: "ALBUM".into(),
+                    template: "Later".into(),
+                }],
+            },
+        ];
+        let result = execute(
+            &[
+                a.to_string_lossy().into_owned(),
+                b.to_string_lossy().into_owned(),
+            ],
+            &groups,
+            EvaluationSettings::default(),
+        );
+        assert_eq!(result.errors.len(), 1, "{:?}", result.errors);
+        assert!(result.errors[0].path.ends_with("b.wav"));
+        assert!(result.errors[0].error.starts_with("Notes / action 1:"));
+        assert_eq!(result.entries.len(), 2);
+        for entry in &result.entries {
+            assert_eq!(entry.fields["TITLE"], ["Done"]);
+            assert_eq!(entry.fields["ALBUM"], ["Later"]);
+        }
+        assert_eq!(result.entries[0].fields["COMMENT"], ["Text for a"]);
+        assert!(!result.entries[1].fields.contains_key("COMMENT"));
+        // The file with the warning is still part of the export.
+        assert_eq!(
+            fs::read_to_string(dir.path().join("report.txt")).unwrap(),
+            "a:Done;b:Done;"
+        );
+    }
+
+    #[test]
+    fn import_cover_wildcard_uses_the_first_matching_image() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = fixture(dir.path(), "a.wav");
+        let scans = dir.path().join("Scans");
+        fs::create_dir(&scans).unwrap();
+        let image = |width| {
+            let mut bytes = std::io::Cursor::new(Vec::new());
+            image::DynamicImage::ImageRgb8(image::RgbImage::new(width, 1))
+                .write_to(&mut bytes, image::ImageFormat::Png)
+                .unwrap();
+            bytes.into_inner()
+        };
+        fs::write(scans.join("front10.png"), image(10)).unwrap();
+        fs::write(scans.join("front2.png"), image(2)).unwrap();
+        fs::write(scans.join("front1.png"), b"not an image").unwrap();
+        let result = run(
+            &path,
+            vec![ActionSpec::ImportCover {
+                filename_template: "Scans\\front*.png".into(),
+                picture_type: None,
+                delete_existing: false,
+            }],
+            EvaluationSettings::default(),
+        );
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        let covers = tag_core::read_entry(&path).unwrap().covers;
+        assert_eq!(covers.len(), 1);
+        assert_eq!(STANDARD.decode(&covers[0].data_base64).unwrap(), image(2));
+        let result = run(
+            &path,
+            vec![ActionSpec::ImportCover {
+                filename_template: "Scans\\*.jpg".into(),
+                picture_type: None,
+                delete_existing: true,
+            }],
+            EvaluationSettings::default(),
+        );
+        assert!(result.errors[0].error.contains("No image matches"));
+        assert_eq!(tag_core::read_entry(&path).unwrap().covers.len(), 1);
+    }
+
+    #[test]
+    fn file_name_formats_use_backslash_folders_and_clean_tag_values() {
+        let dir = tempfile::tempdir().unwrap();
+        let (path, png) = covered_fixture(dir.path(), "a.wav", false);
+        tag_core::write_fields(
+            &path,
+            &Fields::from([("ALBUM".into(), vec!["AC/DC: Live?".into()])]),
+        )
+        .unwrap();
+        fs::create_dir(dir.path().join("Texts")).unwrap();
+        fs::write(dir.path().join("Texts/AC_DC_ Live_.txt"), "Lyrics").unwrap();
+        let result = run(
+            &path,
+            vec![
+                ActionSpec::ExportCover {
+                    filename_template: "Covers\\%album%".into(),
+                    picture_type: None,
+                    export_duplicates: false,
+                },
+                ActionSpec::ImportTextFile {
+                    field: "LYRICS".into(),
+                    filename_template: "%_folderpath%Texts\\%album%.txt".into(),
+                },
+                ActionSpec::GeneratePlaylists {
+                    filename_template: "Lists\\%album%.m3u8".into(),
+                    partition_template: String::new(),
+                },
+            ],
+            EvaluationSettings::default(),
+        );
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert_eq!(names(&dir.path().join("Covers")), ["AC_DC_ Live_.png"]);
+        assert_eq!(
+            fs::read(dir.path().join("Covers/AC_DC_ Live_.png")).unwrap(),
+            png
+        );
+        assert_eq!(result.entries[0].fields["LYRICS"], ["Lyrics"]);
+        assert_eq!(names(&dir.path().join("Lists")), ["AC_DC_ Live_.m3u8"]);
+    }
+
+    #[test]
+    fn export_loops_follow_the_natural_sort_option() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths: Vec<String> = ["10", "2", "1"]
+            .iter()
+            .map(|title| {
+                titled(dir.path(), &format!("{title}.wav"), title)
+                    .to_string_lossy()
+                    .into_owned()
+            })
+            .collect();
+        let export = |natural_sort| {
+            let result = execute(
+                &paths,
+                &[ActionGroup {
+                    name: "Export".into(),
+                    enabled: true,
+                    actions: vec![ActionSpec::Export {
+                        template: "$loop(%title%)%title% $loopend()".into(),
+                        filename_template: "sorted.txt".into(),
+                        append: false,
+                        partition_template: None,
+                    }],
+                }],
+                EvaluationSettings {
+                    natural_sort,
+                    export_template_inline: true,
+                    ..Default::default()
+                },
+            );
+            assert!(result.errors.is_empty(), "{:?}", result.errors);
+            fs::read_to_string(dir.path().join("sorted.txt")).unwrap()
+        };
+        assert_eq!(export(true), "1 2 10 ");
+        assert_eq!(export(false), "1 10 2 ");
+    }
+
+    #[test]
+    fn a_missing_configuration_offers_unchecked_example_groups() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("actions.json");
+        let library = load_library(&path).unwrap();
+        assert_eq!(library, example_library());
+        assert!(library.groups.len() >= 3);
+        for group in &library.groups {
+            assert!(!group.enabled, "{}", group.name);
+            assert!(group.name.starts_with("Examples#"));
+            for action in &group.actions {
+                tag_core::actions::validate_action(action).unwrap();
+            }
+            // Every example can be shared as an .mta file.
+            export_group(&dir.path().join("example.mta"), group).unwrap();
+        }
+        save_library(&path, &library).unwrap();
+        // A saved configuration without groups stays empty.
+        save_library(&path, &ActionLibrary::default()).unwrap();
+        assert!(load_library(&path).unwrap().groups.is_empty());
+    }
+
+    #[test]
+    fn example_groups_do_what_their_names_say() {
+        let dir = tempfile::tempdir().unwrap();
+        let (path, _) = covered_fixture(dir.path(), "song.wav", false);
+        tag_core::write_fields(
+            &path,
+            &Fields::from([
+                ("TITLE".into(), vec!["  the  long road ".into()]),
+                ("ARTIST".into(), vec!["ann;bob".into()]),
+                ("TRACK".into(), vec!["3".into()]),
+            ]),
+        )
+        .unwrap();
+        let groups: Vec<_> = example_library()
+            .groups
+            .into_iter()
+            .map(|group| ActionGroup {
+                enabled: true,
+                ..group
+            })
+            .collect();
+        let result = execute(
+            &[path.to_string_lossy().into_owned()],
+            &groups,
+            EvaluationSettings::default(),
+        );
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        let entry = &result.entries[0];
+        assert_eq!(entry.fields["TITLE"], ["The Long Road"]);
+        assert_eq!(entry.fields["ARTIST"], ["Ann", "Bob"]);
+        assert!(dir.path().join("03 - The Long Road.wav").is_file());
+        assert!(dir.path().join("folder.png").is_file());
+    }
+
+    #[test]
+    fn bulk_import_reads_files_and_folders_and_reports_each_failure() {
+        let dir = tempfile::tempdir().unwrap();
+        let folder = dir.path().join("actions");
+        fs::create_dir(&folder).unwrap();
+        let group = |name: &str| ActionGroup {
+            name: name.into(),
+            enabled: true,
+            actions: vec![ActionSpec::FormatValue {
+                field: "TITLE".into(),
+                template: name.into(),
+            }],
+        };
+        for name in ["Group 10", "Group 2", "Group 1"] {
+            export_group(&folder.join(format!("{name}.mta")), &group(name)).unwrap();
+        }
+        fs::write(folder.join("notes.txt"), "ignored").unwrap();
+        let single = dir.path().join("Single.mta");
+        export_group(&single, &group("Single")).unwrap();
+        let broken = dir.path().join("Broken.mta");
+        fs::write(&broken, b"\xff\xfe[#0\x00").unwrap();
+        let empty = dir.path().join("empty");
+        fs::create_dir(&empty).unwrap();
+        let results = import_groups(
+            &[
+                single.clone(),
+                folder.clone(),
+                broken.clone(),
+                dir.path().join("missing.mta"),
+                empty,
+            ],
+            None,
+        );
+        let names: Vec<_> = results
+            .iter()
+            .map(|r| r.imported.as_ref().map(|i| i.group.name.clone()))
+            .collect();
+        assert_eq!(
+            names,
+            [
+                Some("Single".to_string()),
+                Some("Group 1".into()),
+                Some("Group 2".into()),
+                Some("Group 10".into()),
+                None,
+                None,
+                None,
+            ]
+        );
+        assert_eq!(
+            results[1].imported.as_ref().unwrap().group,
+            group("Group 1")
+        );
+        assert!(results[4..].iter().all(|r| r.error.is_some()));
+        assert!(results[6]
+            .error
+            .as_deref()
+            .unwrap()
+            .contains("no .mta files"));
     }
 }

@@ -25,6 +25,8 @@ pub struct EvaluationSettings {
     pub working_directory: Option<String>,
     /// Options → Files "Replace folder separator in tag values with".
     pub folder_separator: String,
+    /// Options → General natural sorting, for `$loop` in exports.
+    pub natural_sort: bool,
 }
 
 impl Default for EvaluationSettings {
@@ -47,6 +49,7 @@ impl Default for EvaluationSettings {
             export_template_inline: false,
             working_directory: None,
             folder_separator: tag_core::DEFAULT_FOLDER_SEPARATOR.into(),
+            natural_sort: true,
         }
     }
 }
@@ -66,6 +69,7 @@ impl EvaluationSettings {
         app: &tauri::AppHandle,
         columns: Option<Vec<ColumnSpec>>,
     ) -> Result<Self, String> {
+        let current = crate::settings::current();
         Ok(Self {
             columns: columns.unwrap_or_default(),
             app_directory: std::env::current_exe()
@@ -80,7 +84,8 @@ impl EvaluationSettings {
                 .map_err(|e| e.to_string())?
                 .to_string_lossy()
                 .into_owned(),
-            folder_separator: crate::settings::current().files.folder_separator,
+            folder_separator: current.files.folder_separator,
+            natural_sort: current.general.natural_sort,
             ..Default::default()
         })
     }

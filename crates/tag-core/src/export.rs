@@ -767,6 +767,10 @@ fn lookup<'a>(fields: &'a Fields, name: &str) -> Option<&'a Vec<String>> {
             .map(|(_, value)| value)
     })
 }
+/// Natural order: runs of digits compare by value, so 2 sorts before 10.
+pub fn natural_compare(a: &str, b: &str) -> Ordering {
+    compare(a, b, true)
+}
 fn compare(a: &str, b: &str, natural: bool) -> Ordering {
     if !natural {
         return a.cmp(b);
