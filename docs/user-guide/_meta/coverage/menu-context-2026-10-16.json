@@ -1,0 +1,139 @@
+{
+  "base": "d5661f472064cc7c8aad5a12f28cddfa34fd1d5f",
+  "source_main": "4e4d5fc20b263d094b9861b0169e8a75189fa1cb",
+  "scope": "Integrated3menu/context pages into94-page milestone; full publication still requires final-head review, trusted CI, merge and live verification.",
+  "canonical_topics": [
+    {
+      "source": "menus/actions",
+      "sections": [
+        "Menu entries",
+        "Quick settings are remembered",
+        "Checked groups and a direct menu run",
+        "Submenus and keyboard mnemonics"
+      ],
+      "facts": [
+        "group library versus immediate Quick",
+        "saved groups directly accessible",
+        "execution eligibility versus library organization",
+        "remembered Quick settings are an OpenTag difference",
+        "group order and enabled checks versus explicit run",
+        "hash submenus and ampersand mnemonics"
+      ]
+    },
+    {
+      "source": "menus/help",
+      "sections": [
+        "Every current entry",
+        "Read the shortcut overview",
+        "Check and obtain an update",
+        "Report a useful problem"
+      ],
+      "facts": [
+        "browser documentation destination",
+        "keyboard overview",
+        "first-session route",
+        "support/issues route",
+        "current/latest release lookup and prerelease preference",
+        "no automatic install",
+        "About version/license",
+        "unsupported original donation/website/community menu routes explicitly distinguished"
+      ]
+    },
+    {
+      "source": "menus/cover",
+      "sections": [
+        "Cover-window menu"
+      ],
+      "facts": [
+        "add/startfolder fallback priority",
+        "remove displayed versus all varying",
+        "replace preserves role/description/position",
+        "extract does not remove",
+        "adjust image representation",
+        "manage fullset",
+        "predefined roles and format limits",
+        "description clearing/varying scope",
+        "cut/copy/pasteimage versusfieldclipboard",
+        "display aspect ratio not image resize",
+        "display navigation versus stored order",
+        "folder fallback not embedded",
+        "pendingclipboardrestrictions"
+      ]
+    },
+    {
+      "source": "menus/fields",
+      "sections": [
+        "Field-name helper: suggestions, not tag deletion"
+      ],
+      "facts": [
+        "removefield suggestions",
+        "clearall confirmed",
+        "resetbuiltin confirmed",
+        "selected knownfields/specials may reappear",
+        "no metadata deletion"
+      ]
+    },
+    {
+      "source": "menus/format-strings",
+      "sections": [
+        "Format-string and pattern helpers",
+        "History and favorite expressions"
+      ],
+      "facts": [
+        "visiblepanel fields first",
+        "extendedfield identities",
+        "context-limited technicalfields",
+        "functionsignature insertion and selectedfirstarg",
+        "caret insertion replacesselectedtext",
+        "matchingpattern dummy withoutgeneratingfunctions",
+        "regex/replacement helper variants",
+        "managehistory add/edit/remove/name/description",
+        "favorites replacewholevalue",
+        "historycontextlocal",
+        "removeone/all versus metadata",
+        "soft25 limit keepsfavorites",
+        "historyedits save beforeclose; usingdoesnotexecute",
+        "filter autoapply effect"
+      ]
+    }
+  ],
+  "additional_current_contexts": [
+    "rowselection rightclick scope and header distinction",
+    "row tools/utils/file commands and reasons",
+    "panelcontrol visibility versusmetadata",
+    "panelconfiguration versus tagbackup",
+    "Extended tags fieldclipboard preservesmultiplevalues and rejects mixedvalues"
+  ],
+  "validation": {
+    "written_examples": "2documentation tests passed:3caret/functioninsertion examples and3cover-state availability rows",
+    "related_existing_contracts": "50existing tests passed forhelper/history/cover/action/options/contextmarkup",
+    "strict_build": "passed at94localready pages",
+    "independent_review": "pr20_owner finite read-only review all3pages and ledger; all source hashes match main4e4d5fc; relevant source paths inspected; no concrete mismatch. No native runtime or independent canonical re-crawl.",
+    "native_ui": "notrun",
+    "publication": "localonly; notpartofPR30",
+    "publication_tests": "8passed",
+    "writing_plan": "94/187ready;93draftsremain",
+    "diff_check": "passed"
+  },
+  "pending_source_reconciliation": [
+    "Language/provider/source/actions PRs remain unmerged; references use currentmain controls only.",
+    "Recheck targetmain/head before separatepublication; do not mutate PR30reviewedhead."
+  ],
+  "page_sha256": {
+    "reference/menus/actions.md": "b11b463f8b162189fe62edf7e47e894059de6964e5524e70e8a3d934e05442b4",
+    "reference/menus/help.md": "5b5145b453ac5eac43101913f47630d4e5012cd395cdb833e6c9a34a72f49fcc",
+    "reference/menus/context-menus.md": "7213656d2cfadf3388e63857420d080cf200d91825db63f2939677d0fac30d33"
+  },
+  "source_sha256": {
+    "src/main.ts": "f9c0a56f1eba4f77bc47531a08fcd63427a2b845bc36a784b27da43146309c76",
+    "src/action-ui.ts": "0ab3fd434ac7729218cd8b45293014e3c232b7c1890f2bfdf1d91df5d08e4868",
+    "src/row-context-menu.ts": "7e3f185447b479499559110a6ef9502288ca2214123d18deeb90c5c2b7f53a6f",
+    "src/helper-menu.ts": "0e64bac80b4d117a5241587d7038fd36e0e5429bb6ebd477a30bbc7aca884ba9",
+    "src/tag-panel.ts": "843a7c2e0814bc4934498c4cb15970b57745d163577b3ae19078af1c903cf0e3",
+    "src/covers.ts": "8cc7fc122d978c82492812144f1fe2c917fa58c18672b83e0037393c2d9a9e9d",
+    "src/cover-model.ts": "6965da2e78738f7294ea92212ec22941cd9b85fffa824ed36055c3008ca14ca8",
+    "src/extended-tags.ts": "0da8469a711e78e41cc674abd914ef282f7520c0f735305b54affbc38a9665e8",
+    "src-tauri/src/covers.rs": "bba8c2fa3fe3fd1bb6f0004edb778f0890097161aafb9af5d6f40b25aa2bdd30",
+    "src-tauri/src/utilities.rs": "404b520370424704d6ecccad37d44c63ab6bd522a30622fe203333d261efca5e"
+  }
+}

@@ -1,0 +1,1314 @@
+{
+  "baseline_main": "5f4112efd8297cc8a183a47b76e76720490b4238",
+  "local_base": "3a34f93",
+  "scope": "Three web-source pages, pure actual-engine documentation tests and fence-helper generalization; no app source changes",
+  "sources": [
+    {
+      "url": "https://docs.mp3tag.de/tag-sources/development/",
+      "sha256": "cad26e09a590fd0e979eb2471df1f8c9365f5dfa4bfe1a445181388c777215e8"
+    },
+    {
+      "url": "https://docs.mp3tag.de/tag-sources/archive/",
+      "sha256": "02c6d9539befaee8f99a765d55bc4631608a68b873e4e7557743099c8aee53c0"
+    }
+  ],
+  "semantic_topic_map": [
+    {
+      "source": "tag-sources/development",
+      "fact": "[Name] syntax and current behavior",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "Description headers",
+      "disposition": "explained; source/runtime boundaries stated"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "[BasedOn] syntax and current behavior",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "Description headers",
+      "disposition": "explained; source/runtime boundaries stated"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "[IndexUrl] syntax and current behavior",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "Description headers",
+      "disposition": "explained; source/runtime boundaries stated"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "[AlbumUrl] syntax and current behavior",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "Description headers",
+      "disposition": "explained; source/runtime boundaries stated"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "[WordSeparator] syntax and current behavior",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "Description headers",
+      "disposition": "explained; source/runtime boundaries stated"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "[IndexFormat] syntax and current behavior",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "Description headers",
+      "disposition": "explained; source/runtime boundaries stated"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "[SearchBy] syntax and current behavior",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "Description headers",
+      "disposition": "explained; source/runtime boundaries stated"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "[Encoding] syntax and current behavior",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "Description headers",
+      "disposition": "explained; source/runtime boundaries stated"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "[UserAgent] syntax and current behavior",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "Description headers",
+      "disposition": "explained; source/runtime boundaries stated"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "[ParserScriptIndex] syntax and current behavior",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "Description headers",
+      "disposition": "explained; source/runtime boundaries stated"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "[ParserScriptAlbum] syntax and current behavior",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "Description headers",
+      "disposition": "explained; source/runtime boundaries stated"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "[Include] syntax and current behavior",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "Description headers",
+      "disposition": "explained; source/runtime boundaries stated"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "[MinAppVersionWin] syntax and current behavior",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "Description headers",
+      "disposition": "explained; source/runtime boundaries stated"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "[MinAppVersionMac] syntax and current behavior",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "Description headers",
+      "disposition": "explained; source/runtime boundaries stated"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "[Settings] syntax and current behavior",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "Description headers",
+      "disposition": "explained; source/runtime boundaries stated"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "findline",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "findline",
+      "actual_arity": [
+        1,
+        3
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "findlinenocase",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "findlinenocase",
+      "actual_arity": [
+        1,
+        3
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "findinline",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "findinline",
+      "actual_arity": [
+        1,
+        3
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "gotochar",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "gotochar",
+      "actual_arity": [
+        1,
+        1
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "gotoline",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "gotoline",
+      "actual_arity": [
+        1,
+        1
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "movechar",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "movechar",
+      "actual_arity": [
+        1,
+        1
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "moveline",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "moveline",
+      "actual_arity": [
+        1,
+        2
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "say",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "say",
+      "actual_arity": [
+        1,
+        1
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "sayuntil",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "sayuntil",
+      "actual_arity": [
+        1,
+        1
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "sayuntilml",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "sayuntilml",
+      "actual_arity": [
+        1,
+        1
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "sayrest",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "sayrest",
+      "actual_arity": [
+        0,
+        0
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "saynchars",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "saynchars",
+      "actual_arity": [
+        1,
+        1
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "saynextnumber",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "saynextnumber",
+      "actual_arity": [
+        0,
+        0
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "saynextword",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "saynextword",
+      "actual_arity": [
+        0,
+        0
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "sayoutput",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "sayoutput",
+      "actual_arity": [
+        1,
+        1
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "saynewline",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "saynewline",
+      "actual_arity": [
+        0,
+        0
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "saydate",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "saydate",
+      "actual_arity": [
+        0,
+        1
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "sayduration",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "sayduration",
+      "actual_arity": [
+        0,
+        3
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "sayregexp",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "sayregexp",
+      "actual_arity": [
+        1,
+        3
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "sayformat",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "sayformat",
+      "actual_arity": [
+        1,
+        2
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "sayvar",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "sayvar",
+      "actual_arity": [
+        1,
+        1
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "set",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "set",
+      "actual_arity": [
+        1,
+        2
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "skipchars",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "skipchars",
+      "actual_arity": [
+        1,
+        1
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "insert",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "insert",
+      "actual_arity": [
+        1,
+        1
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "use",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "use",
+      "actual_arity": [
+        1,
+        1
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "useformat",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "useformat",
+      "actual_arity": [
+        1,
+        2
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "if",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "if",
+      "actual_arity": [
+        1,
+        1
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "ifnot",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "ifnot",
+      "actual_arity": [
+        1,
+        1
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "ifoutput",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "ifoutput",
+      "actual_arity": [
+        1,
+        1
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "ifnotoutput",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "ifnotoutput",
+      "actual_arity": [
+        1,
+        1
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "ifgreater",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "ifgreater",
+      "actual_arity": [
+        1,
+        1
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "ifless",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "ifless",
+      "actual_arity": [
+        1,
+        1
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "ifvar",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "ifvar",
+      "actual_arity": [
+        2,
+        2
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "ifnotvar",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "ifnotvar",
+      "actual_arity": [
+        2,
+        2
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "else",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "else",
+      "actual_arity": [
+        0,
+        0
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "endif",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "endif",
+      "actual_arity": [
+        0,
+        0
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "outputto",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "outputto",
+      "actual_arity": [
+        1,
+        1
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "do",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "do",
+      "actual_arity": [
+        0,
+        0
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "while",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "while",
+      "actual_arity": [
+        1,
+        2
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "replace",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "replace",
+      "actual_arity": [
+        2,
+        2
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "regexpreplace",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "regexpreplace",
+      "actual_arity": [
+        2,
+        2
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "joinuntil",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "joinuntil",
+      "actual_arity": [
+        1,
+        1
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "joinlines",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "joinlines",
+      "actual_arity": [
+        1,
+        1
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "killtag",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "killtag",
+      "actual_arity": [
+        1,
+        2
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "trim",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "trim",
+      "actual_arity": [
+        1,
+        1
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "unspace",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "unspace",
+      "actual_arity": [
+        0,
+        0
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "debug",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "debug",
+      "actual_arity": [
+        1,
+        3
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "debugwriteinput",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "debugwriteinput",
+      "actual_arity": [
+        0,
+        1
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "json",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "json",
+      "actual_arity": [
+        1,
+        2
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "json_foreach",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "json_foreach",
+      "actual_arity": [
+        1,
+        1
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "json_foreach_reverse",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "json_foreach_reverse",
+      "actual_arity": [
+        1,
+        1
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "json_foreach_counter",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "json_foreach_counter",
+      "actual_arity": [
+        0,
+        1
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "json_foreach_end",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "json_foreach_end",
+      "actual_arity": [
+        0,
+        0
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "json_select_object",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "json_select_object",
+      "actual_arity": [
+        1,
+        1
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "json_unselect_object",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "json_unselect_object",
+      "actual_arity": [
+        0,
+        0
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "json_select",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "json_select",
+      "actual_arity": [
+        1,
+        1
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "json_select_array",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "json_select_array",
+      "actual_arity": [
+        2,
+        3
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "json_select_many",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "json_select_many",
+      "actual_arity": [
+        2,
+        6
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development",
+      "fact": "json_select_many_count",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "json_select_many_count",
+      "actual_arity": [
+        1,
+        3
+      ],
+      "disposition": "actual written input/script/output exercised on unchanged baseline engine with LF+CRLF"
+    },
+    {
+      "source": "tag-sources/development or tag-sources/archive",
+      "fact": "line/character cursor, absolute vs relative movement, marker search versus offsets",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "Move and locate",
+      "disposition": "explained with current-baseline limits"
+    },
+    {
+      "source": "tag-sources/development or tag-sources/archive",
+      "fact": "default trimming versus explicit emission, significant-space notation, CRLF output",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "Read a command example",
+      "disposition": "explained with current-baseline limits"
+    },
+    {
+      "source": "tag-sources/development or tag-sources/archive",
+      "fact": "ordinary output interpolation versus explicit format-string evaluation",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "Read a command example",
+      "disposition": "explained with current-baseline limits"
+    },
+    {
+      "source": "tag-sources/development or tag-sources/archive",
+      "fact": "JSON API parsing preferred to JavaScript-rendered page assumptions",
+      "guide_page": "tag-sources/web-sources.md",
+      "section": "Web sources (.src)",
+      "disposition": "explained with current-baseline limits"
+    },
+    {
+      "source": "tag-sources/development or tag-sources/archive",
+      "fact": "multi-track pipe termination, protected verticalBar, multiple-value backslashes",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "Album and track outputs",
+      "disposition": "explained with current-baseline limits"
+    },
+    {
+      "source": "tag-sources/development or tag-sources/archive",
+      "fact": "nested JSON context and array iteration, scalar/null/missing values, selectors and counters",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "JSON mode and selection",
+      "disposition": "explained with current-baseline limits"
+    },
+    {
+      "source": "tag-sources/development or tag-sources/archive",
+      "fact": "debug trace versus current-input dump, forced Options trace, sanitized filenames/caps",
+      "guide_page": "tag-sources/web-sources.md",
+      "section": "Debug the downloaded text",
+      "disposition": "explained with current-baseline limits"
+    },
+    {
+      "source": "tag-sources/development or tag-sources/archive",
+      "fact": "settings schema root key/settings and all5types, choices/defaults/titles/descriptions",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "Includes and settings",
+      "disposition": "explained with current-baseline limits"
+    },
+    {
+      "source": "tag-sources/development or tag-sources/archive",
+      "fact": "ISO6391 localization keys, root title, optional localized entries and fallback",
+      "guide_page": "tag-sources/web-source-reference.md",
+      "section": "Includes and settings",
+      "disposition": "explained with current-baseline limits"
+    },
+    {
+      "source": "tag-sources/development or tag-sources/archive",
+      "fact": "settings menu, shared settings.json namespace, saved values/defaults and newly added keys",
+      "guide_page": "tag-sources/web-sources.md",
+      "section": "Configure a source",
+      "disposition": "explained with current-baseline limits"
+    },
+    {
+      "source": "tag-sources/development or tag-sources/archive",
+      "fact": "IfVar/IfNotVar/SayVar and typed setting conversion to text",
+      "guide_page": "tag-sources/writing-web-sources.md",
+      "section": "Give the optional year a setting",
+      "disposition": "explained with current-baseline limits"
+    },
+    {
+      "source": "tag-sources/development or tag-sources/archive",
+      "fact": "complete own local JSON direct lookup and optional YEAR branch",
+      "guide_page": "tag-sources/writing-web-sources.md",
+      "section": "Write the source description",
+      "disposition": "explained with current-baseline limits"
+    },
+    {
+      "source": "tag-sources/development or tag-sources/archive",
+      "fact": "complete own JSON index response/source extension and written result row",
+      "guide_page": "tag-sources/writing-web-sources.md",
+      "section": "Go further: a search list",
+      "disposition": "explained with current-baseline limits"
+    },
+    {
+      "source": "tag-sources/development or tag-sources/archive",
+      "fact": "install/copy .src/.inc/.settings, folder paths, refresh, file limits/overwrite",
+      "guide_page": "tag-sources/web-sources.md",
+      "section": "Install the complete source",
+      "disposition": "explained with current-baseline limits"
+    },
+    {
+      "source": "tag-sources/development or tag-sources/archive",
+      "fact": "source/settings menu organization with # and &",
+      "guide_page": "tag-sources/web-sources.md",
+      "section": "Organize menu entries",
+      "disposition": "explained with current-baseline limits"
+    },
+    {
+      "source": "tag-sources/development or tag-sources/archive",
+      "fact": "community scripts/discussion resource pointers qualified for OpenTag",
+      "guide_page": "tag-sources/web-sources.md",
+      "section": "Further resources",
+      "disposition": "explained with current-baseline limits"
+    },
+    {
+      "source": "tag-sources/development or tag-sources/archive",
+      "fact": "upstream version declarations do not certify OpenTag compatibility",
+      "guide_page": "tag-sources/web-sources.md",
+      "section": "Compatibility and limits",
+      "disposition": "explained with current-baseline limits"
+    },
+    {
+      "source": "tag-sources/development or tag-sources/archive",
+      "fact": "release conversion, duration/order/matching distinguished from pure parser output",
+      "guide_page": "tag-sources/web-sources.md",
+      "section": "Compatibility and limits",
+      "disposition": "explained with current-baseline limits"
+    }
+  ],
+  "canonical_command_map": [
+    {
+      "canonical_name": "FindLine",
+      "actual_names": [
+        "findline"
+      ]
+    },
+    {
+      "canonical_name": "FindLineNoCase",
+      "actual_names": [
+        "findlinenocase"
+      ]
+    },
+    {
+      "canonical_name": "FindInLine",
+      "actual_names": [
+        "findinline"
+      ]
+    },
+    {
+      "canonical_name": "GotoChar",
+      "actual_names": [
+        "gotochar"
+      ]
+    },
+    {
+      "canonical_name": "GotoLine",
+      "actual_names": [
+        "gotoline"
+      ]
+    },
+    {
+      "canonical_name": "MoveChar",
+      "actual_names": [
+        "movechar"
+      ]
+    },
+    {
+      "canonical_name": "MoveLine",
+      "actual_names": [
+        "moveline"
+      ]
+    },
+    {
+      "canonical_name": "Say",
+      "actual_names": [
+        "say"
+      ]
+    },
+    {
+      "canonical_name": "SayUntil",
+      "actual_names": [
+        "sayuntil"
+      ]
+    },
+    {
+      "canonical_name": "SayUntilML",
+      "actual_names": [
+        "sayuntilml"
+      ]
+    },
+    {
+      "canonical_name": "SayRest",
+      "actual_names": [
+        "sayrest"
+      ]
+    },
+    {
+      "canonical_name": "SayNChars",
+      "actual_names": [
+        "saynchars"
+      ]
+    },
+    {
+      "canonical_name": "SayNextNumber",
+      "actual_names": [
+        "saynextnumber"
+      ]
+    },
+    {
+      "canonical_name": "SayNextWord",
+      "actual_names": [
+        "saynextword"
+      ]
+    },
+    {
+      "canonical_name": "SayOutput",
+      "actual_names": [
+        "sayoutput"
+      ]
+    },
+    {
+      "canonical_name": "SayNewline",
+      "actual_names": [
+        "saynewline"
+      ]
+    },
+    {
+      "canonical_name": "SayDate",
+      "actual_names": [
+        "saydate"
+      ]
+    },
+    {
+      "canonical_name": "SayDuration",
+      "actual_names": [
+        "sayduration"
+      ]
+    },
+    {
+      "canonical_name": "SayRegexp",
+      "actual_names": [
+        "sayregexp"
+      ]
+    },
+    {
+      "canonical_name": "SayFormat",
+      "actual_names": [
+        "sayformat"
+      ]
+    },
+    {
+      "canonical_name": "SayVar",
+      "actual_names": [
+        "sayvar"
+      ]
+    },
+    {
+      "canonical_name": "Set",
+      "actual_names": [
+        "set"
+      ]
+    },
+    {
+      "canonical_name": "SkipChars",
+      "actual_names": [
+        "skipchars"
+      ]
+    },
+    {
+      "canonical_name": "Insert",
+      "actual_names": [
+        "insert"
+      ]
+    },
+    {
+      "canonical_name": "Use",
+      "actual_names": [
+        "use"
+      ]
+    },
+    {
+      "canonical_name": "UseFormat",
+      "actual_names": [
+        "useformat"
+      ]
+    },
+    {
+      "canonical_name": "If",
+      "actual_names": [
+        "if"
+      ]
+    },
+    {
+      "canonical_name": "IfNot",
+      "actual_names": [
+        "ifnot"
+      ]
+    },
+    {
+      "canonical_name": "IfOutput",
+      "actual_names": [
+        "ifoutput"
+      ]
+    },
+    {
+      "canonical_name": "IfNotOutput",
+      "actual_names": [
+        "ifnotoutput"
+      ]
+    },
+    {
+      "canonical_name": "IfGreater",
+      "actual_names": [
+        "ifgreater"
+      ]
+    },
+    {
+      "canonical_name": "IfLess",
+      "actual_names": [
+        "ifless"
+      ]
+    },
+    {
+      "canonical_name": "IfVar",
+      "actual_names": [
+        "ifvar"
+      ]
+    },
+    {
+      "canonical_name": "IfNotVar",
+      "actual_names": [
+        "ifnotvar"
+      ]
+    },
+    {
+      "canonical_name": "Else",
+      "actual_names": [
+        "else"
+      ]
+    },
+    {
+      "canonical_name": "Endif",
+      "actual_names": [
+        "endif"
+      ]
+    },
+    {
+      "canonical_name": "OutputTo",
+      "actual_names": [
+        "outputto"
+      ]
+    },
+    {
+      "canonical_name": "Do ... While",
+      "actual_names": [
+        "do",
+        "while"
+      ]
+    },
+    {
+      "canonical_name": "Replace",
+      "actual_names": [
+        "replace"
+      ]
+    },
+    {
+      "canonical_name": "RegexpReplace",
+      "actual_names": [
+        "regexpreplace"
+      ]
+    },
+    {
+      "canonical_name": "JoinUntil",
+      "actual_names": [
+        "joinuntil"
+      ]
+    },
+    {
+      "canonical_name": "JoinLines",
+      "actual_names": [
+        "joinlines"
+      ]
+    },
+    {
+      "canonical_name": "KillTag",
+      "actual_names": [
+        "killtag"
+      ]
+    },
+    {
+      "canonical_name": "Trim",
+      "actual_names": [
+        "trim"
+      ]
+    },
+    {
+      "canonical_name": "Unspace",
+      "actual_names": [
+        "unspace"
+      ]
+    },
+    {
+      "canonical_name": "Debug",
+      "actual_names": [
+        "debug"
+      ]
+    },
+    {
+      "canonical_name": "json",
+      "actual_names": [
+        "json"
+      ]
+    },
+    {
+      "canonical_name": "json_foreach",
+      "actual_names": [
+        "json_foreach"
+      ]
+    },
+    {
+      "canonical_name": "json_foreach_reverse",
+      "actual_names": [
+        "json_foreach_reverse"
+      ]
+    },
+    {
+      "canonical_name": "json_foreach_counter",
+      "actual_names": [
+        "json_foreach_counter"
+      ]
+    },
+    {
+      "canonical_name": "json_foreach_end",
+      "actual_names": [
+        "json_foreach_end"
+      ]
+    },
+    {
+      "canonical_name": "json_select_object",
+      "actual_names": [
+        "json_select_object"
+      ]
+    },
+    {
+      "canonical_name": "json_unselect_object",
+      "actual_names": [
+        "json_unselect_object"
+      ]
+    },
+    {
+      "canonical_name": "json_select",
+      "actual_names": [
+        "json_select"
+      ]
+    },
+    {
+      "canonical_name": "json_select_array",
+      "actual_names": [
+        "json_select_array"
+      ]
+    },
+    {
+      "canonical_name": "json_select_many",
+      "actual_names": [
+        "json_select_many"
+      ]
+    },
+    {
+      "canonical_name": "json_select_many_count",
+      "actual_names": [
+        "json_select_many_count"
+      ]
+    }
+  ],
+  "command_count_explanation": "57canonical table rows include Do...While as one row; actual registry has separate Do/While plus DebugWriteInput described in canonical prose, giving59accepted commands.",
+  "implementation_sha256": {
+    "src-tauri/src/sources/web/engine.rs": "4d7fdecccb5f8b32f34580c17c0276ed6cfdbc2a9beb27a0314e7a2ebc760ce4",
+    "src-tauri/src/sources/web/source.rs": "45a00b98f6530e41f0d917069e55be78d4128c120e3ff2c6d9cd3b1681825a05",
+    "src-tauri/src/sources/web/mod.rs": "8a5c24213172931ac774cbec0299b2e499359c736534e5501961d5cddb0d52ab",
+    "src/web-sources.ts": "e7f39d373d8969d84b93d3a4e039d733189b6620674b0b6243786ce06307f250",
+    "src/tag-sources.ts": "5fbf3508e199b89ad7cbc93c1251e94f388c416832650a845aafdd494c3480fc"
+  },
+  "guide_sha256": {
+    "tag-sources/web-sources.md": "a21361dbfbf655771223e368916d07c203132aee5339769960a802bb0f16c2f6",
+    "tag-sources/writing-web-sources.md": "ac149faf4cad78ef60ea60b095dce2ec15639d406805babb4dffacad30e9977e",
+    "tag-sources/web-source-reference.md": "945ba6bdeea4ff28492f5bcc63f9e9f3bbaa11bab7e2b7b65c9c585306cfe09a"
+  },
+  "selective_integration": {
+    "outgoing_relative_links": {
+      "tag-sources/web-sources.md": [
+        "tag-sources/web-source-reference.md",
+        "tag-sources/writing-web-sources.md"
+      ],
+      "tag-sources/writing-web-sources.md": [
+        "reference/format-strings.md",
+        "tag-sources/web-source-reference.md",
+        "tag-sources/web-sources.md"
+      ],
+      "tag-sources/web-source-reference.md": [
+        "reference/format-strings.md",
+        "reference/regular-expressions.md",
+        "tag-sources/web-sources.md",
+        "tag-sources/writing-web-sources.md"
+      ]
+    },
+    "already_public_dependencies": [
+      "reference/format-strings.md",
+      "reference/regular-expressions.md"
+    ],
+    "local_cluster_dependencies": [
+      "tag-sources/web-sources.md",
+      "tag-sources/writing-web-sources.md",
+      "tag-sources/web-source-reference.md"
+    ],
+    "required_test_files": [
+      "crates/tag-core/tests/web_source_guide.rs",
+      "crates/tag-core/tests/guide_examples/mod.rs"
+    ],
+    "navigation": "Add only these3pages to the target public nav; no other88-page content is required.",
+    "note": "PR20may selectively use this batch afterPR19; apply/review against its actual final engine and source conversion, not just current5f."
+  },
+  "test_configuration": {
+    "cargo_changes": [],
+    "dependency_features_changed": [],
+    "serde_json": "Existing serde_json=1 declarations unchanged; preserve_order not enabled. Tests use array/scalar examples, not object-key ordering guarantees.",
+    "actual_source_inclusion": "Path includes of unmodified pure app engine.rs and source.rs. Their19existing unit tests also execute. No networking/app startup/file writes by these pure modules.",
+    "helper": "Language-parameterized Markdown fence extraction retains significant body spaces and handles LF/CRLF. Four whitespace examples visibly mark ASCII spaces; test decoding follows the written legend."
+  },
+  "validation": {
+    "docs_tests": "23 passed: 4 new written-example tests plus 19 unchanged imported pure source tests; actual examples exercised with LF and CRLF",
+    "published_initial_examples": "2 newline-portability and 9 initial guide tests passed after helper generalization",
+    "strict_build": "passed at 91 completed pages after final prose and visible-space notation update",
+    "publication_tests": "8 passed",
+    "fmt": "cargo fmt passed",
+    "diff_check": "passed",
+    "clippy": "focused web_source_guide, guide_example_newlines and initial_guide_examples targets passed with -D warnings",
+    "independent_review": "Root finite read-only review all3pages/all59commands and relevant actual source complete; SayRegexp optional-stop ambiguity corrected. Independent23tests passed on currentmain4e4d5fc. No native UI/network/provider claim.",
+    "runtime_ui": "not exercised; pure source tests do not establish native UI/network behavior"
+  },
+  "known_integration_boundaries": [
+    "No source fixes or Cargo/serde_json feature changes; originalP2 work remains untouched.",
+    "PR20replacement/quoted-format semantics, preserve_order and source-length unit fixes are pending actual integration; examples use baseline-portable parser parameters/quoted format syntax.",
+    "Pure parser buffer/URL tests do not establish release conversion, duration matching, provider availability, native UI import or installed platform behavior.",
+    "Current web-source URL ANSI behavior is Windows1252; source settings localization follows current system/browser language; reconcile after pending source/language changes.",
+    "No new browser/native-app/network exercise was run; localhost steps are user instructions backed by pure response/definition tests."
+  ]
+}

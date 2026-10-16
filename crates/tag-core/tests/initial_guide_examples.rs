@@ -1,4 +1,7 @@
 //! Check initial-publication prose and fenced examples beyond the table tests.
+mod guide_examples;
+use guide_examples::text_blocks as blocks;
+
 use tag_core::{
     compile_filter, evaluate, evaluate_filename_with_context, parse_filename, EvalContext, Fields,
 };
@@ -22,28 +25,6 @@ fn fields() -> Fields {
         ("GENRE".into(), vec!["Indie Folk".into()]),
     ]
     .into()
-}
-
-fn blocks(page: &str) -> Vec<String> {
-    let mut blocks = Vec::new();
-    let mut lines = page.lines();
-    while let Some(line) = lines.next() {
-        let Some(indent) = line.strip_suffix("```text") else {
-            continue;
-        };
-        if !indent.chars().all(|ch| ch == ' ') {
-            continue;
-        }
-        let mut body = Vec::new();
-        for line in lines.by_ref() {
-            if line.trim() == "```" {
-                break;
-            }
-            body.push(line.strip_prefix(indent).unwrap_or(line));
-        }
-        blocks.push(body.join("\n"));
-    }
-    blocks
 }
 
 fn newline_variants(page: &str) -> [String; 2] {

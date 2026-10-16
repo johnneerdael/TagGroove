@@ -1,14 +1,82 @@
----
-status: draft
----
+# Format Value
 
-# Format value
+Use **Format Value** to create or replace a field with a value calculated
+from other tags. It can also build a new filename or folder name. Use it
+when the result needs placeholders, conditions or scripting functions.
 
-!!! abstract "This page is being written"
+## Fill a field from other tags
 
-    It will cover:
+1. Save pending edits and select a few practice files.
+2. Open **Actions → Actions (Quick)…** and select **Format Value**.
+3. Enter the destination in **Field** and the expression in **Format string**.
+4. Choose **Apply action** and inspect the result.
 
-    - Field + format string; _FILENAME and _DIRECTORY targets rename files/folders
-    - The workhorse action: many examples, link to format strings
+For a reusable workflow, add the same action to an
+[action group](index.md#build-a-reusable-group) and choose **Keep action**.
+Saving a group alone does not run it.
 
-    Until then, the [reference section](../reference/index.md) has the details.
+| Setting | Meaning |
+|---|---|
+| **Field** | A tag field, `_FILENAME`, or `_DIRECTORY` |
+| **Format string** | Text, placeholders and functions evaluated for each selected file |
+
+## Worked examples
+
+| Field | Format string | Result |
+|---|---|---|
+| `ALBUMARTIST` | `$if2(%albumartist%,%artist%)` | Keep an existing album artist; otherwise use the first artist |
+| `YEAR` | `$left(%year%,4)` | `2024-05-01` becomes `2024` |
+| `TITLE` | `$replace(%title%,_, )` | `Low_Tide` becomes `Low Tide`; the last argument is one space |
+| `COMMENT` | `Tagged with OpenTag` | Set the same comment in every selected file |
+| `TRACK` | `$num(%track%,2)` | `2/8` becomes `02`; the total is not retained by this expression |
+
+Try a small selection first. Format Value produces one value for the
+field: replacing `ARTIST` also replaces an existing list of artist values.
+To preserve or combine several values, read the
+[multivalue syntax](../reference/format-strings.md#multi-value-fields)
+before building the expression.
+
+An empty result removes the destination field. A missing `%albumartist%`
+alone therefore removes `ALBUMARTIST`; `$if2` is useful when a fallback is
+required. `''` is a literal apostrophe, not an empty result.
+
+## Build filenames and folders
+
+For **Field** `_FILENAME`, try:
+
+```text
+$num(%track%,2) - %artist% - %title%
+```
+
+With track `2/8`, artist `Juniper Vale` and title `Lanterns on the Water`,
+the stem becomes `02 - Juniper Vale - Lanterns on the Water`. The original
+audio extension is retained. A format result already ending in that
+extension does not need a second copy of it.
+
+For `_DIRECTORY`, the result names the containing folder. That can affect
+other files in the folder, including files outside the selection. Practice
+on a copied folder before using this target.
+
+Literal folder separators in a format string can create folder levels.
+Separators originating in tag values use the configured replacement;
+see [file and folder rules](../reference/format-strings.md#file-and-folder-names).
+An empty filename or directory result is rejected.
+
+## Gotchas
+
+- `_TAG`, `_ALL`, `_FIELDNAME` and information placeholders such as
+  `_BITRATE` are not Format Value destinations. Choose a real tag field or
+  one of the two naming targets.
+- An action writes when it runs. It does not leave the result waiting in
+  the tag panel. Keep copies and check **Edit → Undo** for recorded changes.
+- Within a group, the expression sees earlier actions' results. Put a copy
+  action before any action that clears its source field.
+- The preview in **Convert → Tag → Tag…** is useful for experimenting with
+  the expression before putting it in a group.
+
+## Related
+
+- [Format strings](../reference/format-strings.md)
+- [Placeholders](../reference/placeholders.md)
+- [Actions and action groups](index.md)
+- [Zero-padded track numbers](../cookbook/rename-zero-padded-track-numbers.md)

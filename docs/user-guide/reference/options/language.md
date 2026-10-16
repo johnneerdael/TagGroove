@@ -75,5 +75,8 @@ claim of identical wording or runtime behavior to another tagging program.
 
 - [Languages and translations](../../customize/languages.md)
 - [Format strings](../format-strings.md)
+- [Appearance](appearance.md)
+- [Field names and mappings](tags-mapping.md)
+- [Options overview](index.md)
 
 <!-- Adapted from the existing options-guide draft at 312b0f0 and reconciled with current source. Verified against language-options.ts, i18n/core.ts, i18n/index.ts, main.ts and languages.rs; no final-head native screen-reader or platform layout claim. -->
