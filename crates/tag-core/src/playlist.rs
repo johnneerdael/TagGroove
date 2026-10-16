@@ -12,7 +12,7 @@ pub const PLAYLIST_EXTENSIONS: [&str; 4] = ["m3u", "m3u8", "pls", "cue"];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PlaylistKind {
-    /// `.m3u`: system ANSI codepage where one exists, otherwise UTF-8.
+    /// `.m3u`: the system ANSI codepage; Windows-1252 where there is none.
     M3u,
     /// `.m3u8`: UTF-8.
     M3u8,
@@ -389,7 +389,9 @@ pub struct PlaylistWriteOptions {
     pub root: Option<PathBuf>,
     /// Byte order mark for UTF-8 playlists.
     pub bom: bool,
-    /// System ANSI codepage for `.m3u`; UTF-8 is written when there is none.
+    /// System ANSI codepage for `.m3u`. Without one (macOS, Linux) `.m3u` is
+    /// written in Windows-1252, as it is read, unless it would not read back
+    /// unchanged: then it is written in UTF-8.
     pub ansi_codepage: Option<String>,
 }
 
@@ -460,10 +462,24 @@ pub fn render_playlist(
             text.push_str("\r\n");
         }
     }
+    let system = options.ansi_codepage.as_deref();
     let ansi = (kind == PlaylistKind::M3u)
-        .then(|| ansi_encoding(options.ansi_codepage.as_deref()))
+        .then(|| match system {
+            Some(codepage) => ansi_encoding(Some(codepage)),
+            None => Some(encoding_rs::WINDOWS_1252),
+        })
         .flatten()
-        .filter(|encoding| *encoding != encoding_rs::UTF_8);
+        .filter(|encoding| *encoding != encoding_rs::UTF_8)
+        // Without a system codepage, Windows-1252 is used only when it reads
+        // back unchanged. Reading tries UTF-8 first, so 1252 bytes that happen
+        // to be valid UTF-8 (`Â©` is C2 A9, read as `©`), or text 1252 cannot
+        // store, are written as UTF-8 instead. A real system codepage is kept.
+        .filter(|encoding| {
+            system.is_some() || {
+                let (bytes, _, unmappable) = encoding.encode(&text);
+                !unmappable && (bytes.is_ascii() || std::str::from_utf8(&bytes).is_err())
+            }
+        });
     match ansi {
         Some(encoding) => {
             let (bytes, _, unmappable) = encoding.encode(&text);
@@ -727,7 +743,46 @@ mod tests {
             ansi_codepage: None,
             ..options
         };
-        assert!(render_playlist(Path::new("/m/x.m3u"), &cat, &no_codepage).is_ok());
+        // Without a system codepage .m3u uses Windows-1252, as reading does,
+        // and UTF-8 only when an entry needs it.
+        let fallback = render_playlist(Path::new("/m/x.m3u"), &items, &no_codepage).unwrap();
+        assert_eq!(fallback, b"#EXTM3U\r\n#EXTINF:3,\xc9\r\n\xe9.mp3\r\n");
+        assert_eq!(
+            decode_playlist(&fallback, PlaylistKind::M3u, None),
+            "#EXTM3U\r\n#EXTINF:3,É\r\né.mp3\r\n"
+        );
+        // Windows-1252 bytes that are also valid UTF-8 would read back as
+        // other characters, so such a playlist is UTF-8, and every name
+        // round-trips through the reader.
+        for (name, bom) in ["Â©.mp3", "Ã©t©.mp3", "plain.mp3", "é.mp3", "猫.mp3"]
+            .into_iter()
+            .flat_map(|name| [(name, true), (name, false)])
+        {
+            let items = [item(&format!("/m/{name}"), 3.0, name)];
+            let options = PlaylistWriteOptions {
+                bom,
+                ..no_codepage.clone()
+            };
+            let bytes = render_playlist(Path::new("/m/x.m3u"), &items, &options).unwrap();
+            let text = decode_playlist(&bytes, PlaylistKind::M3u, None);
+            assert_eq!(
+                parse_entries(&text, PlaylistKind::M3u)
+                    .into_iter()
+                    .map(|entry| entry.location)
+                    .collect::<Vec<_>>(),
+                [name],
+                "{name}"
+            );
+            assert!(text.contains(&format!("#EXTINF:3,{name}")), "{name}");
+        }
+        let mojibake = [item("/m/Â©.mp3", 3.0, "")];
+        let bytes = render_playlist(Path::new("/m/x.m3u"), &mojibake, &no_codepage).unwrap();
+        assert!(bytes.starts_with(&[0xef, 0xbb, 0xbf]));
+        let unicode = render_playlist(Path::new("/m/x.m3u"), &cat, &no_codepage).unwrap();
+        assert_eq!(
+            decode_playlist(&unicode, PlaylistKind::M3u, None),
+            "#EXTM3U\r\n#EXTINF:3,\r\n猫.mp3\r\n"
+        );
     }
 
     #[test]
