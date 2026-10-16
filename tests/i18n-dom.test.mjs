@@ -31,6 +31,7 @@ const {mappingOptionsPage}=await load('field-mapping.ts');
 const {sourcePresentation}=await load('document-state.ts');
 const {tagSourcesOptionsPages,TagSourcesUI,webScriptErrorText}=await load('tag-sources.ts');
 const {removeTagParts}=await load('remove-tag.ts');
+const {listSummary,technicalSummary}=await load('list-commands.ts');
 const {Messages}=await load('messages.ts');
 const {WebSourcesUI,settingsMarkup,readSettings}=await import(await moduleUrl('web-sources.ts',{"'./action-ui'":JSON.stringify(await moduleUrl('action-ui.ts'))}));
 const main=await source('main.ts'),parsed=ts.createSourceFile('main.ts',main,ts.ScriptTarget.Latest,true);
@@ -623,6 +624,19 @@ test('owned technical diagnostics translate in production error rows while their
   const cases=JSON.parse(await readFile(new URL('./fixtures/owned-backend-diagnostics.json',import.meta.url),'utf8')),custom={...Object.fromEntries(cases.map(item=>[item.error,`Diagnostic: ${item.error}`])),Help:'Wrong file'};
   for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]])for(const {error} of cases){
     const p=page();try{const t=new Translator(locale,catalog),e={path:'Help',error};p.body.innerHTML=mainTemplate(node=>node.head.text==='<p><strong translate="no">',{e,esc,displayName:path=>path,publicMessage:value=>value});p.translate(locale,catalog);const row=p.body.querySelector('p');assert.notEqual(t.t(error),error);assert.equal(row.textContent,`Help: ${t.t(error)}`);assert.deepEqual(row.textContent.match(/URI|json_foreach(?:_end|_counter)?/g),error.match(/URI|json_foreach(?:_end|_counter)?/g));p.translateTree(p.body);assert.equal(row.textContent,`Help: ${t.t(error)}`);p.translate('en');assert.equal(row.textContent,`Help: ${error}`);}finally{p.close();}
+  }
+});
+test('actual selection summary translates each technical component and preserves codec identities',()=>{
+  const declaration=parsed.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text==='selectionInfoMarkup'),js=ts.transpileModule(declaration.getText(parsed),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
+  const custom={'{bitrate} kbps':'Rate {bitrate}','{sampleRate} Hz':'Frequency {sampleRate}','{channels} channel':'Mono {channels}','{channels} channels':'Channels {channels}',Help:'Wrong codec',Title:'Wrong format'};
+  const cases=[{format:'Help',technical:{_CODEC:['Title']},bitrate:128,sample_rate:44100,channels:2},{format:'Help',bitrate:0,sample_rate:48000,channels:1},{format:'Title',technical:{_CODEC:['128 kbps']},bitrate:0,sample_rate:0,channels:0}];
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]])for(const values of cases){
+    const p=page();try{
+      const entry={...values,path:'/Help.mp3',duration:60,size:1048576},before=structuredClone(entry),selected=new Set([entry.path]),entries=new Map([[entry.path,entry]]),render=new Function('listSummary','technicalSummary','entries','selected','active','esc',`${js};return selectionInfoMarkup;`)(listSummary,technicalSummary,entries,selected,()=>entry,esc);
+      p.body.innerHTML=render([entry],[entry]);p.translate(locale,catalog);const t=new Translator(locale,catalog),codec=entry.technical?._CODEC[0]||entry.format,labels=[entry.bitrate?t.t('{bitrate} kbps',{bitrate:entry.bitrate}):'',entry.sample_rate?t.t('{sampleRate} Hz',{sampleRate:entry.sample_rate.toLocaleString()}):'',entry.channels?t.t(entry.channels===1?'{channels} channel':'{channels} channels',{channels:entry.channels}):''].filter(Boolean),expected=[codec,...labels].filter(Boolean).join(' · '),technical=p.body.lastElementChild;
+      assert.equal(technical.textContent,expected,`${locale} ${codec}`);p.translateTree(p.body);assert.equal(technical.textContent,expected);p.translate('en');assert.equal(technical.textContent,listSummary([entry],[entry],1,entry).at(-1));assert.deepEqual(entry,before);
+      selected.clear();p.body.innerHTML=render([],[entry]);p.translate(locale,catalog);assert.equal(p.body.children.length,2);assert.ok(!p.body.textContent.includes(codec));
+    }finally{p.close();}
   }
 });
 test('real Cut/Paste failure statuses translate UI operation names while authored same-spelling names stay raw',()=>{

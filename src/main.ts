@@ -29,7 +29,7 @@ import { ActionUI, panelKey, rebaseCaseOnly, resolvePathChanges, type ActionGrou
 import { ColumnUI, ColumnValueCache, columnFields, columnName, setColumnNameTranslation, defaultLayout, editKey, headerMarkup, maxColumnWidth, minColumnWidth, normalizeLayout, quickValue, sortClick, sortIndicator, sortRows, sortTemplate, updateSortHeader, visibleColumns, type ColumnLayout } from './columns';
 import { FilterSync, filterCacheMiss } from './filter-sync';
 import { CellEditor, adjacentCell, slowEditStillWanted, type CellTarget } from './cell-editor';
-import { invertSelection, listShortcut, listSummary, nextFile, nextSimilarFiles, similarFiles } from './list-commands';
+import { invertSelection, listShortcut, listSummary, technicalSummary, nextFile, nextSimilarFiles, similarFiles } from './list-commands';
 import { FindUI } from './find';
 import { TagPanel, automaticDefaults, splitValues, type Mp3tagPanelImport, type PanelLayout, type TagPanelSettings } from './tag-panel';
 import { DOCKS, FILTER_DOCKS, PANEL_HEIGHT, PANEL_WIDTH, dropTarget, fitFloat, horizontalDock, normalizeMainLayout, panelColumns, resized, toggledDock, withDock, type DockSide, type FilterDock, type MainLayout } from './panel-dock';
@@ -1013,7 +1013,10 @@ function emptyMarkup(){
 }
 function countText(list:Entry[]){return`${filterPending?'Filtering… · ':list.length===entries.size?'':`${list.length} visible · `}${selected.size} selected`;}
 function panelCount(){return selected.size?`${selected.size} selected`:'No selection';}
-function selectionInfoMarkup(selectedEntries:Entry[],list:Entry[]){return listSummary(selectedEntries,list,entries.size,selected.size===1?active():undefined).map(segment=>`<span>${esc(segment)}</span>`).join('');}
+function selectionInfoMarkup(selectedEntries:Entry[],list:Entry[]){
+  const current=selected.size===1?active():undefined,technical=current?technicalSummary(current):undefined;
+  return listSummary(selectedEntries,list,entries.size).map(segment=>`<span>${esc(segment)}</span>`).join('')+(technical?`<span>${[technical.codec?`<span translate="no">${esc(technical.codec)}</span>`:'',...technical.details.map(detail=>`<span>${esc(detail)}</span>`)].filter(Boolean).join(' · ')}</span>`:'');
+}
 function bindFields(root:ParentNode){root.querySelectorAll<HTMLInputElement|HTMLTextAreaElement>('[data-field]').forEach(el=>el.addEventListener('input',()=>draftField(el.dataset.field!,el.value)));}
 /**
  * Selection changes update only what depends on the selection: table rows, tag panel fields, cover,
