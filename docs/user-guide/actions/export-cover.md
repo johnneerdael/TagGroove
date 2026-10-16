@@ -43,7 +43,9 @@ its numbered name.
 [format strings](../reference/format-strings.md) are evaluated for each file.
 A relative name is resolved beside the audio file. Use `\` to create folder
 components on every platform. `%_folderpath%`, `%_path%` and `%_workingpath%`
-keep their path components; ordinary tag values have separators and reserved
+keep their path components, including a backslash inside a macOS or Linux
+folder name. Only backslashes written in the format itself create folders;
+ordinary tag values have separators and reserved
 filename characters cleaned.
 
 **Export duplicate covers** controls repeats within the current run, not
@@ -68,6 +70,9 @@ may replace its own earlier export after another action changes its cover.
 This includes returning to its original cover: exporting the first image,
 then a different image, then the first again leaves the first image on disk,
 even with **Export duplicate covers** off.
+On macOS and Linux, exporting to an image symlink replaces the link entry;
+the file it pointed to stays unchanged. That output name retains its owner
+for later exports in the run.
 Another file that finds those same image bytes already there does not take
 over ownership of the output name.
 

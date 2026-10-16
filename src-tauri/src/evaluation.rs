@@ -54,6 +54,12 @@ impl Default for EvaluationSettings {
     }
 }
 
+enum EvaluationMode {
+    Text,
+    Filename,
+    NativeFilename,
+}
+
 impl EvaluationSettings {
     pub fn ansi_codepage(&self) -> Option<String> {
         #[cfg(windows)]
@@ -152,7 +158,14 @@ impl EvaluationSettings {
         identity: &str,
         use_snapshot: bool,
     ) -> Result<String, String> {
-        self.evaluate_mode(template, raw, technical, identity, use_snapshot, false)
+        self.evaluate_mode(
+            template,
+            raw,
+            technical,
+            identity,
+            use_snapshot,
+            EvaluationMode::Text,
+        )
     }
 
     /// Evaluate a `_FILENAME`/`_DIRECTORY` target the way Tag → Filename does:
@@ -165,7 +178,32 @@ impl EvaluationSettings {
         identity: &str,
         use_snapshot: bool,
     ) -> Result<String, String> {
-        self.evaluate_mode(template, raw, technical, identity, use_snapshot, true)
+        self.evaluate_mode(
+            template,
+            raw,
+            technical,
+            identity,
+            use_snapshot,
+            EvaluationMode::Filename,
+        )
+    }
+
+    pub(crate) fn evaluate_native_filename(
+        &self,
+        template: &str,
+        raw: &Fields,
+        technical: &Fields,
+        identity: &str,
+        use_snapshot: bool,
+    ) -> Result<String, String> {
+        self.evaluate_mode(
+            template,
+            raw,
+            technical,
+            identity,
+            use_snapshot,
+            EvaluationMode::NativeFilename,
+        )
     }
 
     fn evaluate_mode(
@@ -175,16 +213,19 @@ impl EvaluationSettings {
         technical: &Fields,
         identity: &str,
         use_snapshot: bool,
-        filename: bool,
+        mode: EvaluationMode,
     ) -> Result<String, String> {
         let mut fields = raw.clone();
         fields.extend(technical.clone());
         let columns = self.column_values(&fields, raw, identity, use_snapshot)?;
         let context = self.context(&fields, raw, Some(&columns));
-        if filename {
-            tag_core::evaluate_filename_with_context(template, &context)
-        } else {
-            tag_core::evaluate_with_context(template, &context)
+        match mode {
+            EvaluationMode::Text => tag_core::evaluate_with_context(template, &context),
+            EvaluationMode::Filename => {
+                tag_core::evaluate_filename_with_context(template, &context)
+            }
+            EvaluationMode::NativeFilename => tag_core::CompiledTemplate::compile(template)?
+                .evaluate_filename_path_with_context(&context),
         }
     }
 

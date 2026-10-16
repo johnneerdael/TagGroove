@@ -529,7 +529,12 @@ fn filename_component(text: &str, context: &EvalContext<'_>) -> String {
     )
 }
 
-fn run(nodes: &[Node], context: &EvalContext<'_>, filename_mode: bool) -> Result<Value, String> {
+fn run(
+    nodes: &[Node],
+    context: &EvalContext<'_>,
+    filename_mode: bool,
+    native_path: bool,
+) -> Result<Value, String> {
     let mut output = Value {
         filename: filename_mode.then(String::new),
         ..Value::default()
@@ -540,7 +545,17 @@ fn run(nodes: &[Node], context: &EvalContext<'_>, filename_mode: bool) -> Result
                 text: text.clone(),
                 present: false,
                 truth: false,
-                filename: filename_mode.then(|| text.clone()),
+                filename: filename_mode.then(|| {
+                    if native_path {
+                        if cfg!(windows) {
+                            text.replace('/', "\\")
+                        } else {
+                            text.replace('\\', "/")
+                        }
+                    } else {
+                        text.clone()
+                    }
+                }),
             },
             Node::Field(name) => {
                 let text = context_values(context, name)?
@@ -568,7 +583,7 @@ fn run(nodes: &[Node], context: &EvalContext<'_>, filename_mode: bool) -> Result
                 }
             }
             Node::Optional(children) => {
-                let value = run(children, context, filename_mode)?;
+                let value = run(children, context, filename_mode, native_path)?;
                 if value.present {
                     value
                 } else {
@@ -578,7 +593,7 @@ fn run(nodes: &[Node], context: &EvalContext<'_>, filename_mode: bool) -> Result
             Node::Function(name, arguments) | Node::Extension(name, arguments) => {
                 let values: Vec<Value> = arguments
                     .iter()
-                    .map(|a| run(a, context, filename_mode))
+                    .map(|a| run(a, context, filename_mode, native_path))
                     .collect::<Result<_, _>>()?;
                 if matches!(node, Node::Extension(_, _)) {
                     let args: Vec<ScriptValue> = values
@@ -738,7 +753,7 @@ impl CompiledTemplate {
         &self,
         context: &EvalContext<'_>,
     ) -> Result<ScriptValue, String> {
-        run(&self.nodes, &context.snapshot_clock(), false).map(|value| ScriptValue {
+        run(&self.nodes, &context.snapshot_clock(), false, false).map(|value| ScriptValue {
             text: value.text,
             present: value.present,
             truth: value.truth,
@@ -753,7 +768,17 @@ impl CompiledTemplate {
         &self,
         context: &EvalContext<'_>,
     ) -> Result<String, String> {
-        run(&self.nodes, &context.snapshot_clock(), true)
+        run(&self.nodes, &context.snapshot_clock(), true, false)
+            .map(|value| value.filename.unwrap_or_default())
+    }
+
+    /// Render a native path, converting separators only in template literals.
+    /// Path placeholders retain native component characters unchanged.
+    pub fn evaluate_filename_path_with_context(
+        &self,
+        context: &EvalContext<'_>,
+    ) -> Result<String, String> {
+        run(&self.nodes, &context.snapshot_clock(), true, true)
             .map(|value| value.filename.unwrap_or_default())
     }
 }

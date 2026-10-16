@@ -313,17 +313,12 @@ fn cover_file_target(mut target: PathBuf, mime: &str, bytes: &[u8]) -> PathBuf {
     target
 }
 
-/// Turn a new file or folder name from an action into a relative path the way
-/// Tag → Filename does. In a format string `\` separates folders on every
-/// platform; text guessed from values has its separators and invalid
-/// characters replaced. Edited names keep their characters: on macOS and Linux
-/// a `\` already in a filename must not become a folder.
+/// Sanitize guessed filename values. Templates already have native separators
+/// from AST rendering; edited names and path-placeholder characters stay intact.
 fn action_name(name: &str, origin: NameOrigin, separator: &str) -> String {
     match origin {
         NameOrigin::Value => tag_core::filename_value(name, separator),
-        NameOrigin::Template if cfg!(windows) => name.replace('/', "\\"),
-        NameOrigin::Template => name.replace('\\', "/"),
-        NameOrigin::Edited => name.to_owned(),
+        NameOrigin::Template | NameOrigin::Edited => name.to_owned(),
     }
 }
 
@@ -350,11 +345,9 @@ fn relative_to_file(path: &str, source: &Path) -> PathBuf {
     }
 }
 
-/// The file a cover, text file or playlist file name names, relative to
-/// `source`. The name was evaluated in filename mode, so `\` separates
-/// folders on every platform.
+/// Resolve an already evaluated native cover, text or playlist path.
 fn template_path(name: &str, source: &Path) -> PathBuf {
-    relative_to_file(&action_name(name, NameOrigin::Template, ""), source)
+    relative_to_file(name, source)
 }
 
 struct NativeHost<'a> {
@@ -505,8 +498,13 @@ impl ActionHost for NativeHost<'_> {
     fn evaluate_filename(&mut self, template: &str, state: &ActionState) -> Result<String, String> {
         let (identity, unchanged) = self.identity(state);
         let context = self.path_context(state)?;
-        self.settings
-            .evaluate_filename(template, &state.fields, &context, &identity, unchanged)
+        self.settings.evaluate_native_filename(
+            template,
+            &state.fields,
+            &context,
+            &identity,
+            unchanged,
+        )
     }
     fn execute(&mut self, effect: &ActionEffect, state: &mut ActionState) -> Result<(), String> {
         self.flush(state)?;
@@ -615,7 +613,7 @@ impl ActionHost for NativeHost<'_> {
                     let mut target =
                         cover_file_target(template_path(filename, &path), &cover.mime, &bytes);
                     // Identity uses the requested name before ordinal suffixes.
-                    let identity = (normalized_output(&target)?, digest);
+                    let identity = (normalized_cover_output(&target)?, digest);
                     let count = outputs.len();
                     if count > 0 {
                         let stem = target.file_stem().unwrap_or_default().to_string_lossy();
@@ -623,7 +621,7 @@ impl ActionHost for NativeHost<'_> {
                         target.set_file_name(format!("{stem} ({count}).{extension}"));
                     }
                     outputs.push(Output {
-                        destination: normalized_output(&target)?,
+                        destination: normalized_cover_output(&target)?,
                         // The first occurrence will either write its image or
                         // retain a proven surviving output from this run.
                         skip: !export_duplicates && !seen.insert(identity.clone()),
@@ -948,6 +946,58 @@ impl ActionHost for NativeHost<'_> {
 }
 
 use std::collections::BTreeMap;
+
+// Atomic cover writes replace the final directory entry, rather than the
+// object a final symlink points at. Resolve parent aliases but keep that
+// entry's identity stable before and after replacement.
+fn normalized_cover_output(path: &Path) -> Result<String, String> {
+    let parent = normalized_output_path(path.parent().unwrap_or(Path::new(".")))?;
+    let name = path.file_name().ok_or("Cover output has no filename")?;
+    let entry = parent.join(name);
+    let resolved = match fs::symlink_metadata(&entry) {
+        Ok(metadata) if metadata.file_type().is_symlink() => {
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::MetadataExt;
+                // canonicalize follows the final link. Inspect its directory
+                // entry instead, including its stored spelling on volumes
+                // where a differently cased lookup names the same entry.
+                let mut alias = None;
+                for candidate in fs::read_dir(&parent).map_err(|e| e.to_string())? {
+                    let candidate = candidate.map_err(|e| e.to_string())?;
+                    let candidate_name = candidate.file_name();
+                    if candidate_name == name {
+                        alias = Some(candidate.path());
+                        break;
+                    }
+                    if candidate_name.to_string_lossy().to_lowercase()
+                        == name.to_string_lossy().to_lowercase()
+                    {
+                        let found =
+                            fs::symlink_metadata(candidate.path()).map_err(|e| e.to_string())?;
+                        if found.dev() == metadata.dev() && found.ino() == metadata.ino() {
+                            alias = Some(candidate.path());
+                        }
+                    }
+                }
+                alias.ok_or("Cannot identify the cover output directory entry")?
+            }
+            #[cfg(not(unix))]
+            {
+                entry
+            }
+        }
+        Ok(_) => normalized_output_path(&entry)?,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => entry,
+        Err(error) => return Err(error.to_string()),
+    };
+    let value = resolved.to_string_lossy().into_owned();
+    Ok(if cfg!(windows) {
+        value.to_lowercase()
+    } else {
+        value
+    })
+}
 
 pub(crate) fn normalized_output(path: &Path) -> Result<String, String> {
     let value = normalized_output_path(path)?.to_string_lossy().into_owned();
@@ -1571,6 +1621,135 @@ mod tests {
                 export_duplicates,
             }],
         }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn cover_export_symlink_replacement_keeps_cross_file_ownership() {
+        let dir = tempfile::tempdir().unwrap();
+        let (a, original) = covered_fixture(dir.path(), "a.wav", false);
+        let (b, _) = covered_fixture(dir.path(), "b.wav", false);
+        let mut bytes = std::io::Cursor::new(Vec::new());
+        image::DynamicImage::ImageRgb8(image::RgbImage::new(2, 2))
+            .write_to(&mut bytes, image::ImageFormat::Png)
+            .unwrap();
+        let other = bytes.into_inner();
+        let image = dir.path().join("other.png");
+        fs::write(&image, &other).unwrap();
+        tag_core::import_cover_with_options(
+            &b,
+            &image,
+            None,
+            true,
+            &crate::settings::tag_options(),
+        )
+        .unwrap();
+        let target = dir.path().join("shared.png");
+        std::os::unix::fs::symlink(&image, &target).unwrap();
+        let result = execute(
+            &[
+                a.to_string_lossy().into_owned(),
+                b.to_string_lossy().into_owned(),
+            ],
+            &[cover_export_group("shared", false)],
+            EvaluationSettings::default(),
+        );
+        assert_eq!(result.errors.len(), 1, "{:?}", result.errors);
+        assert!(result.errors[0].path.ends_with("b.wav"));
+        assert!(result.errors[0]
+            .error
+            .contains("already written for another file"));
+        assert_eq!(fs::read(&target).unwrap(), original);
+        assert!(!fs::symlink_metadata(&target)
+            .unwrap()
+            .file_type()
+            .is_symlink());
+        assert_eq!(fs::read(image).unwrap(), other);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn cover_export_existing_symlink_case_alias_keeps_ownership() {
+        let dir = tempfile::tempdir().unwrap();
+        let (a, image) = covered_fixture(dir.path(), "a.wav", false);
+        let (b, _) = covered_fixture(dir.path(), "b.wav", false);
+        let other = dir.path().join("other.png");
+        let mut bytes = std::io::Cursor::new(Vec::new());
+        image::DynamicImage::ImageRgb8(image::RgbImage::new(2, 2))
+            .write_to(&mut bytes, image::ImageFormat::Png)
+            .unwrap();
+        fs::write(&other, bytes.into_inner()).unwrap();
+        tag_core::import_cover_with_options(
+            &b,
+            &other,
+            None,
+            true,
+            &crate::settings::tag_options(),
+        )
+        .unwrap();
+        let stored = dir.path().join("shared.png");
+        std::os::unix::fs::symlink(&other, &stored).unwrap();
+        // This actual-volume probe needs no assumption about macOS/Linux
+        // filesystem case sensitivity. The ordinary symlink case runs on both.
+        if !dir.path().join("SHARED.PNG").exists() {
+            return;
+        }
+        let group = cover_export_group("$if($eql(%_filename%,a),SHARED.PNG,shared.png)", false);
+        let result = execute(
+            &[
+                a.to_string_lossy().into_owned(),
+                b.to_string_lossy().into_owned(),
+            ],
+            &[group],
+            EvaluationSettings::default(),
+        );
+        assert_eq!(result.errors.len(), 1, "{:?}", result.errors);
+        assert!(result.errors[0].path.ends_with("b.wav"));
+        assert!(result.errors[0]
+            .error
+            .contains("already written for another file"));
+        assert_eq!(fs::read(stored).unwrap(), image);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn action_path_placeholders_keep_backslashes_inside_native_components() {
+        let dir = tempfile::tempdir().unwrap();
+        let album = dir.path().join("AC\\DC");
+        fs::create_dir(&album).unwrap();
+        let (path, image) = covered_fixture(&album, "a.wav", false);
+        fs::write(album.join("note.txt"), "from actual folder").unwrap();
+        let settings = EvaluationSettings {
+            working_directory: Some(album.to_string_lossy().into_owned()),
+            ..Default::default()
+        };
+        let result = run(
+            &path,
+            vec![
+                ActionSpec::ExportCover {
+                    filename_template: "%_folderpath%art\\folder".into(),
+                    picture_type: None,
+                    export_duplicates: false,
+                },
+                ActionSpec::ImportTextFile {
+                    field: "COMMENT".into(),
+                    filename_template: "%_workingpath%note.txt".into(),
+                },
+                ActionSpec::GeneratePlaylists {
+                    filename_template: "%_path%.m3u8".into(),
+                    partition_template: String::new(),
+                },
+            ],
+            settings,
+        );
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert_eq!(fs::read(album.join("art/folder.png")).unwrap(), image);
+        assert_eq!(
+            tag_core::read_entry_summary(&path).unwrap().fields["COMMENT"],
+            ["from actual folder"]
+        );
+        assert!(album.join("a.wav.m3u8").is_file());
+        assert!(!dir.path().join("AC").exists());
     }
 
     #[test]

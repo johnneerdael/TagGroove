@@ -31,7 +31,9 @@ Keep original files as a backup.
 [Placeholders](../reference/placeholders.md) and
 [format strings](../reference/format-strings.md) are evaluated for each file.
 A relative name is resolved beside that audio file. `%_folderpath%` keeps the
-file's folder; `%_path%` and `%_workingpath%` also keep their path components.
+file's folder; `%_path%` and `%_workingpath%` also keep their path components,
+including a backslash inside a macOS or Linux folder name. Backslashes written
+in the format itself separate folders.
 Use `\` to separate folders inside a format string on every platform.
 Separators and reserved characters coming from ordinary tag values are
 cleaned rather than creating folders: an album value of `AC/DC` does not

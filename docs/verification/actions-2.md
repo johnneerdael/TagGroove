@@ -193,6 +193,31 @@ application-library tests. All 318 JavaScript tests, the production build,
 Clippy with warnings denied, formatting, strict guide build, eight publication
 tests and the writing-plan check passed.
 
+## Native path and cover symlink follow-up
+
+The review of `51cfce8` identified two adjacent path cases. A real Unix
+`AC\DC` folder fixture failed because the evaluated `_FOLDERPATH`, `_PATH`
+and `_WORKINGPATH` values were passed through blanket separator replacement.
+The corrected action renderer converts separators only in literal AST nodes;
+path-placeholder component characters remain native. The existing portable
+filename-string renderer stays unchanged. A cross-platform core regression
+also covers conditional branches, ordinary value sanitization and both
+literal separator spellings.
+
+A second real-file fixture failed because replacing a final cover symlink
+changed the normalized ownership key, allowing the next selected file to
+overwrite the first image. Cover ownership now resolves parent aliases but
+tracks the final directory entry that the atomic write replaces. Existing
+entries retain their stored spelling on case-insensitive volumes; a macOS
+case-alias symlink fixture covers that boundary too. Audio protection still
+uses full alias resolution. The tests assert the later file's collision,
+the first exported image bytes and the unchanged original symlink target.
+The final workspace passed 747 Rust tests (the same four explicit skips),
+including all 49 action-host tests, 288 passing application-library tests
+and the core renderer regression. Clippy with warnings denied, formatting,
+strict guide build and all eight publication tests passed. JavaScript and
+frontend sources are unchanged from the preceding 318-test/build validation.
+
 ## Not covered
 
 - The `.mta` type IDs for Adjust Cover, Set Cover Properties and Generate Playlists, and the guessed schemas for types 4, 6 and 11–15, need `.mta` files saved by Mp3tag.

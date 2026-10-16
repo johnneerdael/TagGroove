@@ -953,6 +953,52 @@ fn filename_mode_keeps_selected_literal_conditional_path_branches() {
 }
 
 #[test]
+fn native_filename_paths_preserve_path_values_and_convert_only_literal_separators() {
+    let folder = if cfg!(windows) {
+        "C:\\Music\\Album\\"
+    } else {
+        "/music/AC\\DC/"
+    };
+    let fields: Fields = [
+        ("_FOLDERPATH".into(), vec![folder.into()]),
+        ("_PATH".into(), vec![format!("{folder}track.wav")]),
+        ("ARTIST".into(), vec!["AC/DC".into()]),
+    ]
+    .into();
+    let mut context = EvalContext::new(&fields);
+    context.working_directory = Some(folder);
+    let separator = std::path::MAIN_SEPARATOR;
+    for (template, expected) in [
+        (
+            "%_folderpath%Sub\\%artist%",
+            format!("{folder}Sub{separator}AC_DC"),
+        ),
+        ("%_path%.txt", format!("{folder}track.wav.txt")),
+        (
+            "%_workingpath%Sub/file",
+            format!("{folder}Sub{separator}file"),
+        ),
+        (
+            "$if(%artist%,%_folderpath%Sub\\,Fallback\\)%artist%",
+            format!("{folder}Sub{separator}AC_DC"),
+        ),
+    ] {
+        assert_eq!(
+            tag_core::CompiledTemplate::compile(template)
+                .unwrap()
+                .evaluate_filename_path_with_context(&context)
+                .unwrap(),
+            expected
+        );
+    }
+    // The existing string-rendering API keeps its portable separator spelling.
+    assert_eq!(
+        tag_core::evaluate_filename_with_context("Sub\\%artist%", &context).unwrap(),
+        "Sub\\AC_DC"
+    );
+}
+
+#[test]
 fn remaining_literal_string_and_metadata_forms() {
     assert_eq!(
         evaluate(
