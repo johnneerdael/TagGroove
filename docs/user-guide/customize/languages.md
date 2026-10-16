@@ -18,7 +18,8 @@ The catalog name in **System default** is shown as its author supplied it.
 Field names such as `ARTIST`, format strings such as `%artist%`, and functions
 such as `$upper(...)` keep the same syntax. Filenames, tag values and names you
 assigned to columns, tools or action groups stay as entered. Error messages
-also preserve the field identifiers and export configuration names they report.
+translate their explanations while preserving field identifiers, export
+configuration names, paths and server replies.
 An invalid field identifier keeps its entered spaces and characters in the
 translated diagnostic so you can identify what needs correcting.
 
@@ -49,7 +50,9 @@ For example, these entries in the generated template can become:
 }
 ```
 
-This is an excerpt, not a complete catalog. Keep the other generated entries.
+This is an excerpt, not a complete catalog. The generated template lists all
+current built-in interface strings and collected backend diagnostics. Keep its
+other entries.
 The new filename supplies the locale; the generated template has no English
 locale override. Keep brace placeholders such as `{filename}` and `{field}`
 unchanged so OpenTag can insert the original values.

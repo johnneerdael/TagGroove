@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import ts from 'typescript';
+import { Window } from 'happy-dom';
 
 const load = async name => {
   const source = await readFile(new URL(`../src/${name}.ts`, import.meta.url), 'utf8');
@@ -120,7 +121,7 @@ test('Tag → Tag metadata preview normalizes only delimited output', () => {
 
 test('Tag → Tag renders removed and normalized metadata while applying the reviewed expression', async () => {
   const sep = metadataSeparator;
-  for (const [raw, rendered] of [[sep, '<em>Field will be removed</em>'], [` Jazz ${sep} ${sep} Blues${sep}`, `GENRE: Jazz ${sep} Blues`]]) {
+  for (const [raw, rendered, removed] of [[sep, 'Field will be removed', true], [` Jazz ${sep} ${sep} Blues${sep}`, `Jazz ${sep} Blues`, false]]) {
     const control = value => ({ value, disabled: false, addEventListener(event, handler) { this[event] = handler; }, focus() {}, select() {} });
     const controls = new Map([
       ['#tag-tag-field', control('GENRE')], ['#tag-tag-template', control(raw)],
@@ -138,7 +139,13 @@ test('Tag → Tag renders removed and normalized metadata while applying the rev
     });
     await new Promise(resolve => setImmediate(resolve));
     assert.deepEqual(previews, [[['/track.mp3'], raw, false]]);
-    assert.ok(controls.get('#tag-tag-preview').innerHTML.includes(rendered), controls.get('#tag-tag-preview').innerHTML);
+    const window = new Window(), preview = window.document.createElement('div');
+    try {
+      preview.innerHTML = controls.get('#tag-tag-preview').innerHTML;
+      assert.equal(preview.querySelector('small').textContent, 'track.mp3');
+      assert.equal(preview.querySelector('.preview > div > span').textContent, 'GENRE');
+      assert.equal(preview.querySelector(removed ? 'em' : '.preview > div > span:last-child').textContent, rendered);
+    } finally { window.happyDOM.abort(); }
     assert.equal(controls.get('#tag-tag-apply').disabled, false, 'metadata removal is valid and can be applied');
     await controls.get('#tag-tag-apply').click();
     assert.deepEqual(applied, [{ field: 'GENRE', template: raw, paths: ['/track.mp3'] }]);

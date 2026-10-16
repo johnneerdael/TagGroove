@@ -1408,6 +1408,9 @@ mod tests {
             ("FindLine", "FindLine takes 1 to 3 parameters"),
             ("Else", "Else without If"),
             ("If \"Help\"", "this block has no Endif"),
+            ("If \"Alpha): Beta\"", "this block has no Endif"),
+            (r#"If "Alpha\"): Beta""#, "this block has no Endif"),
+            ("Help \"Alpha): Beta\"", "Help is not a known command"),
         ] {
             let error = Script::compile(&[(17, text.into())]).unwrap_err();
             assert_eq!(error.command, text);

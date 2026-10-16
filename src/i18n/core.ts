@@ -116,7 +116,7 @@ export function render(nodes: Node[], params: Record<string, unknown>, rules: In
   return out;
 }
 
-type Pattern = {regex: RegExp; names: string[]; value: Node[]; literal: number; sourceError: boolean};
+type Pattern = {regex: RegExp; quotedCommand?: RegExp; names: string[]; value: Node[]; literal: number; sourceError: boolean};
 const escapeRegex = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /** Compiled catalog of one language. */
@@ -148,7 +148,11 @@ export class Translator {
       // Keys that are mostly values ("{name}…") would match nearly any text.
       if (!/\p{L}{2,}/u.test(literal)) continue;
       const source = normalized.split(PLACEHOLDER).map((part, i) => i % 2 ? NUMERIC.test(part) ? NUMBER : '([\\s\\S]*?)' : escapeRegex(part).replace(/ /g, '\\s+')).join('');
-      this.patterns.push({regex: new RegExp(`^${source}$`, 'du'), names, value: nodes, literal: literal.length, sourceError: normalized === 'line {line} ({text}): {error}'});
+      const sourceError = normalized === 'line {line} ({text}): {error}';
+      // A quoted source argument can itself contain the frame delimiter `): `.
+      // Keep that literal atomic; retain the original fallback for quote errors.
+      const quoted = sourceError ? source.replace('([\\s\\S]*?)', String.raw`((?:"(?:\\.|[^"\\])*"|[^"])*?)`) : undefined;
+      this.patterns.push({regex: new RegExp(`^${source}$`, 'du'), quotedCommand: quoted ? new RegExp(`^${quoted}$`, 'du') : undefined, names, value: nodes, literal: literal.length, sourceError});
     }
     // ScriptError's explicit frame owns its command text; match it before a
     // leaf diagnostic can swallow that frame into a field/name capture.
@@ -193,7 +197,7 @@ export class Translator {
     const exact = verbatim ? undefined : this.exact.get(normalize(core));
     if (exact) return render(exact, {}, this.rules);
     for (const pattern of this.patterns) {
-      const match = pattern.regex.exec(core);
+      const match = pattern.quotedCommand?.exec(core) ?? pattern.regex.exec(core);
       if (!match) continue;
       const params: Record<string, string> = {};
       const spacing = new Map<string, {before: string; after: string}>();
