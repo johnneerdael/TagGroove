@@ -19,4 +19,5 @@
 *.pfx
 keystore.properties
 /release-assets/
+/build/
 __pycache__/
