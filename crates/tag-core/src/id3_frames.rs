@@ -8,6 +8,7 @@
 //! every compressed or encrypted frame the edit left alone from the original
 //! tag byte for byte; frames converted to another ID3v2 revision are written
 //! decompressed, and encrypted frames cannot be converted.
+use crate::batch_errors::ErrorCause;
 use lofty::id3::v2::{Frame, Id3v2Tag};
 use std::io::{self, Read, Seek, SeekFrom};
 
@@ -285,7 +286,7 @@ impl<R: Seek> Seek for Overlay<R> {
     }
 }
 
-/// What [`read_with_fallback`] read, the placeholder names it used, and
+/// What [`read_with_fallback_diagnostic`] read, the placeholder names it used, and
 /// whether lofty saw the phantom ID3v1 tag of `ape_footer` (an ID3v1 tag it
 /// reports is then not in the file).
 pub(crate) type Fallback<T> = (T, Vec<(String, String)>, bool);
@@ -293,15 +294,15 @@ pub(crate) type Fallback<T> = (T, Vec<(String, String)>, bool);
 /// Read with `read`, through an [`Overlay`] that fixes how lofty sees a
 /// trailing APE tag; when that fails on a tag with encrypted frames, read
 /// again with those frames renamed.
-pub(crate) fn read_with_fallback<R: Read + Seek, T>(
+pub(crate) fn read_with_fallback_diagnostic<R: Read + Seek, T>(
     reader: &mut R,
-    mut read: impl FnMut(&mut dyn ReadSeek) -> Result<T, String>,
-) -> Result<Fallback<T>, String> {
+    mut read: impl FnMut(&mut dyn ReadSeek) -> Result<T, ErrorCause>,
+) -> Result<Fallback<T>, ErrorCause> {
     let crate::ape_footer::View {
         mut patches,
         append,
         phantom,
-    } = crate::ape_footer::read_view(reader).map_err(|e| e.to_string())?;
+    } = crate::ape_footer::read_view(reader).map_err(ErrorCause::external)?;
     let tail = if append {
         crate::ape_footer::PHANTOM.to_vec()
     } else {
@@ -310,8 +311,8 @@ pub(crate) fn read_with_fallback<R: Read + Seek, T>(
     let first = if patches.is_empty() && tail.is_empty() {
         read(reader)
     } else {
-        let mut overlay =
-            Overlay::new(&mut *reader, patches.clone(), tail.clone()).map_err(|e| e.to_string())?;
+        let mut overlay = Overlay::new(&mut *reader, patches.clone(), tail.clone())
+            .map_err(ErrorCause::external)?;
         read(&mut overlay)
     };
     let error = match first {
@@ -322,7 +323,7 @@ pub(crate) fn read_with_fallback<R: Read + Seek, T>(
         Ok(Some((encrypted, tag))) => {
             patches.extend(encrypted);
             let mut overlay =
-                Overlay::new(&mut *reader, patches, tail).map_err(|e| e.to_string())?;
+                Overlay::new(&mut *reader, patches, tail).map_err(ErrorCause::external)?;
             let value = read(&mut overlay)?;
             Ok((value, placeholder_names(&tag), phantom))
         }
@@ -342,7 +343,7 @@ fn is_flagged(frame: &Frame<'_>) -> bool {
 pub(crate) fn has_flagged(tag: &Id3v2Tag) -> bool {
     tag.into_iter().any(is_flagged)
 }
-/// Whether `tag` has to go through [`Passthrough::split`] before it is
+/// Whether `tag` has to go through [`Passthrough::split_diagnostic`] before it is
 /// rendered: it holds flagged frames or data length indicators.
 pub(crate) fn needs_split(tag: &Id3v2Tag) -> bool {
     tag.into_iter()
@@ -365,12 +366,12 @@ impl Passthrough {
     /// `major`) into those rendered normally, returned, and the stored frames
     /// of `stored` copied verbatim. `original` is the tag as read from the
     /// file that `stored` describes.
-    pub(crate) fn split(
+    pub(crate) fn split_diagnostic(
         tag: &Id3v2Tag,
         major: u8,
         original: Option<&Id3v2Tag>,
         stored: Option<&RawTag>,
-    ) -> Result<(Id3v2Tag, Self), String> {
+    ) -> Result<(Id3v2Tag, Self), ErrorCause> {
         let mut rendered = tag.clone();
         let mut frames = Vec::new();
         // The k-th flagged frame lofty read is the k-th stored one.
@@ -401,9 +402,9 @@ impl Passthrough {
                 _ => {
                     let flags = frame.flags();
                     if flags.encryption.is_some() || is_placeholder(frame) {
-                        return Err(format!(
-                            "The encrypted ID3v2 frame {} cannot be written as ID3v2.{major}; original file preserved",
-                            frame.id().as_str()
+                        return Err(ErrorCause::message(
+                            "The encrypted ID3v2 frame {field} cannot be written as ID3v2.{major}; original file preserved",
+                            [("field", frame.id().as_str().to_owned()), ("major", major.to_string())],
                         ));
                     }
                 }
@@ -436,44 +437,58 @@ impl Passthrough {
 
     /// Insert the copied frames after the frames of the rendered tag `bytes`
     /// (which may be empty), before its padding of `padding` bytes.
+    #[cfg(test)]
     pub(crate) fn splice(&self, bytes: Vec<u8>, padding: u32) -> Result<Vec<u8>, String> {
+        self.splice_diagnostic(bytes, padding)
+            .map_err(|error| error.to_string())
+    }
+
+    pub(crate) fn splice_diagnostic(
+        &self,
+        bytes: Vec<u8>,
+        padding: u32,
+    ) -> Result<Vec<u8>, ErrorCause> {
         if self.frames.is_empty() {
             return Ok(bytes);
         }
         let mut output = if bytes.is_empty() {
             let mut header = b"ID3".to_vec();
             header.extend([self.major, 0, 0]);
-            header
-                .extend(syncsafe_bytes(padding as usize).ok_or("The ID3v2 padding is too large")?);
+            header.extend(
+                syncsafe_bytes(padding as usize)
+                    .ok_or_else(|| ErrorCause::owned("The ID3v2 padding is too large"))?,
+            );
             header.resize(10 + padding as usize, 0);
             header
         } else {
             bytes
         };
         if output.len() < 10 || &output[..3] != b"ID3" || output[3] != self.major {
-            return Err("Invalid ID3v2 serialization".into());
+            return Err(ErrorCause::owned("Invalid ID3v2 serialization"));
         }
         if output[5] & 0xD0 != 0 {
             return Err(
-                "Compressed or encrypted ID3v2 frames cannot be kept in an unsynchronised tag or one with an extended header or footer; original file preserved"
-                    .into(),
+                ErrorCause::owned("Compressed or encrypted ID3v2 frames cannot be kept in an unsynchronised tag or one with an extended header or footer; original file preserved"),
             );
         }
-        let size = syncsafe(&output[6..10]).ok_or("Invalid ID3v2 size")? as usize;
+        let size = syncsafe(&output[6..10])
+            .ok_or_else(|| ErrorCause::owned("Invalid ID3v2 size"))? as usize;
         let end = (10 + size).min(output.len());
         let mut at = 10;
         while at + 10 <= end && output[at] != 0 {
             let frame = if self.major == 3 {
                 u32::from_be_bytes(output[at + 4..at + 8].try_into().expect("4 bytes"))
             } else {
-                syncsafe(&output[at + 4..at + 8]).ok_or("Invalid ID3v2 frame size")?
+                syncsafe(&output[at + 4..at + 8])
+                    .ok_or_else(|| ErrorCause::owned("Invalid ID3v2 frame size"))?
             } as usize;
             at += 10 + frame;
         }
         let at = at.min(end);
         let inserted: Vec<u8> = self.frames.concat();
         output.splice(at..at, inserted.iter().copied());
-        let size = syncsafe_bytes(size + inserted.len()).ok_or("The ID3v2 tag is too large")?;
+        let size = syncsafe_bytes(size + inserted.len())
+            .ok_or_else(|| ErrorCause::owned("The ID3v2 tag is too large"))?;
         output[6..10].copy_from_slice(&size);
         Ok(output)
     }
@@ -503,6 +518,34 @@ mod tests {
         bytes.extend(body);
         bytes.resize(bytes.len() + padding, 0);
         bytes
+    }
+
+    #[test]
+    fn detailed_fallback_retains_callback_provenance_and_splice_owns_its_guard() {
+        let text = "Invalid ID3v2 serialization";
+        let owned = read_with_fallback_diagnostic(
+            &mut Cursor::new(vec![0; 32]),
+            |_| -> Result<(), ErrorCause> { Err(ErrorCause::owned(text)) },
+        )
+        .unwrap_err();
+        let external = read_with_fallback_diagnostic(
+            &mut Cursor::new(vec![0; 32]),
+            |_| -> Result<(), ErrorCause> { Err(ErrorCause::external(io::Error::other(text))) },
+        )
+        .unwrap_err();
+        assert_eq!(owned.to_string(), external.to_string());
+        assert!(matches!(owned, ErrorCause::Owned { .. }));
+        assert!(matches!(external, ErrorCause::External { .. }));
+        let copied = Passthrough {
+            major: 4,
+            frames: vec![vec![1]],
+        };
+        let error = copied.splice_diagnostic(b"bad".to_vec(), 0).unwrap_err();
+        assert!(matches!(&error, ErrorCause::Owned { key, .. } if key == text));
+        assert_eq!(
+            copied.splice(b"bad".to_vec(), 0).unwrap_err(),
+            error.to_string()
+        );
     }
 
     #[test]

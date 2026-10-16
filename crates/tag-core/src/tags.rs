@@ -28,6 +28,7 @@ mod tag_policy;
 mod tag_types;
 #[path = "technical.rs"]
 mod technical;
+use crate::batch_errors::ErrorCause;
 use crate::{id3_frames::ReadSeek, preferences::TagOptions};
 use base64::{engine::general_purpose::STANDARD, Engine};
 pub use cover_manage::*;
@@ -53,8 +54,9 @@ use lofty::{
     wavpack::WavPackFile,
 };
 pub use mapping::{
-    field_mapping, map_read_fields, map_write_fields, validate_user_mappings, FieldMapping,
-    UserFieldMapping, FIELD_MAPPINGS, LYRICS_LANGUAGE_REQUIRED,
+    field_mapping, map_read_fields, map_read_fields_diagnostic, map_write_fields,
+    map_write_fields_diagnostic, validate_user_mappings, validate_user_mappings_diagnostic,
+    FieldMapping, UserFieldMapping, FIELD_MAPPINGS, LYRICS_LANGUAGE_REQUIRED,
 };
 pub use media_info::{audio_digest, AudioDigest};
 pub use optimize::*;
@@ -179,11 +181,11 @@ pub struct ScanResult {
 fn empty_id3v1_year(message: &str) -> bool {
     message.contains("Id3v1") && message.contains("4 digit year")
 }
-fn strict_or_lenient_id3v1<T>(
-    mut read: impl FnMut(ParsingMode) -> Result<T, String>,
-) -> Result<T, String> {
+fn strict_or_lenient_id3v1_diagnostic<T>(
+    mut read: impl FnMut(ParsingMode) -> Result<T, ErrorCause>,
+) -> Result<T, ErrorCause> {
     match read(ParsingMode::Strict) {
-        Err(error) if empty_id3v1_year(&error) => read(ParsingMode::Relaxed),
+        Err(error) if empty_id3v1_year(&error.to_string()) => read(ParsingMode::Relaxed),
         result => result,
     }
 }
@@ -192,36 +194,36 @@ fn strict_or_lenient_id3v1<T>(
 /// (see [`crate::mp4_metadata::legacy_integer_items`]) are read leniently and
 /// kept verbatim; any other malformed item still fails the read. A `plID`
 /// lofty drops is restored (see [`crate::mp4_metadata::odd_album_id`]).
-fn read_mp4<R: std::io::Read + Seek>(
+fn read_mp4_diagnostic<R: std::io::Read + Seek>(
     reader: &mut R,
     mut options: ParseOptions,
-) -> Result<Mp4File, String> {
-    let start = reader.stream_position().map_err(|e| e.to_string())?;
-    let album = crate::mp4_metadata::odd_album_id(reader).map_err(|e| e.to_string())?;
+) -> Result<Mp4File, ErrorCause> {
+    let start = reader.stream_position().map_err(ErrorCause::external)?;
+    let album = crate::mp4_metadata::odd_album_id(reader).map_err(ErrorCause::external)?;
     let album_ident = lofty::mp4::AtomIdent::Fourcc(*b"plID");
     reader
         .seek(SeekFrom::Start(start))
-        .map_err(|e| e.to_string())?;
+        .map_err(ErrorCause::external)?;
     let mut file = match Mp4File::read_from(reader, options) {
         Ok(file) => file,
         Err(error) => {
             let error = error_message(&error);
             if !error.contains("unexpected atom size for type \"BE") {
-                return Err(error);
+                return Err(ErrorCause::external(error));
             }
             reader
                 .seek(SeekFrom::Start(start))
-                .map_err(|e| e.to_string())?;
+                .map_err(ErrorCause::external)?;
             let (legacy, items) =
-                crate::mp4_metadata::legacy_integer_items(reader).map_err(|e| e.to_string())?;
+                crate::mp4_metadata::legacy_integer_items(reader).map_err(ErrorCause::external)?;
             if legacy.is_empty() {
-                return Err(error);
+                return Err(ErrorCause::external(error));
             }
             reader
                 .seek(SeekFrom::Start(start))
-                .map_err(|e| e.to_string())?;
+                .map_err(ErrorCause::external)?;
             let mut file = Mp4File::read_from(reader, options.parsing_mode(ParsingMode::Relaxed))
-                .map_err(|e| error_message(&e))?;
+                .map_err(|e| ErrorCause::external(error_message(&e)))?;
             let mut ilst = file.ilst().cloned().unwrap_or_default();
             // Only the items the lenient reader dropped are restored; lofty
             // itself keeps an 8-byte `plID`, and an odd one is restored below.
@@ -232,7 +234,7 @@ fn read_mp4<R: std::io::Read + Seek>(
                 .collect();
             let album_dropped = album.is_some() && ilst.get(&album_ident).is_none();
             if ilst.len() + dropped.len() + usize::from(album_dropped) != items {
-                return Err(error);
+                return Err(ErrorCause::external(error));
             }
             for atom in dropped {
                 ilst.insert(atom);
@@ -251,35 +253,44 @@ fn read_mp4<R: std::io::Read + Seek>(
 }
 
 fn load(path: &Path) -> Result<TaggedFile, String> {
+    load_diagnostic(path).map_err(|error| error.to_string())
+}
+
+fn load_diagnostic(path: &Path) -> Result<TaggedFile, ErrorCause> {
     if subsongs::split_path(path).is_some() {
-        return Err(subsongs::ROW_OPERATION.into());
+        return Err(ErrorCause::owned(subsongs::ROW_OPERATION));
     }
     if let Some(stream) = container_formats::detect_stream(path) {
-        return container_formats::raw_streams::load(path, stream);
+        return container_formats::raw_streams::load_diagnostic(path, stream);
     }
-    let mut source = fs::File::open(path).map_err(|e| e.to_string())?;
-    let mut file = strict_or_lenient_id3v1(|mode| {
-        crate::id3_frames::read_with_fallback(&mut source, |reader| {
-            reader.seek(SeekFrom::Start(0)).map_err(|e| e.to_string())?;
+    let mut source = fs::File::open(path).map_err(ErrorCause::external)?;
+    let mut file = strict_or_lenient_id3v1_diagnostic(|mode| {
+        crate::id3_frames::read_with_fallback_diagnostic(&mut source, |reader| {
+            reader
+                .seek(SeekFrom::Start(0))
+                .map_err(ErrorCause::external)?;
             let probe = Probe::new(std::io::BufReader::new(reader))
                 .guess_file_type()
-                .map_err(|e| e.to_string())?;
+                .map_err(ErrorCause::external)?;
             let options = ParseOptions::new()
                 .implicit_conversions(false)
                 .parsing_mode(mode);
             if probe.file_type() == Some(FileType::Mp4) {
-                return read_mp4(&mut probe.into_inner(), options).map(TaggedFile::from);
+                return read_mp4_diagnostic(&mut probe.into_inner(), options).map(TaggedFile::from);
             }
-            probe.options(options).read().map_err(|e| error_message(&e))
+            probe
+                .options(options)
+                .read()
+                .map_err(|e| ErrorCause::external(error_message(&e)))
         })
         .map(|(file, _, phantom)| without_phantom(file, phantom))
     })?;
     if file.tag(TagType::Ape).is_some() {
-        let native = native_tags(
-            &mut fs::File::open(path).map_err(|e| e.to_string())?,
+        let native = native_tags_diagnostic(
+            &mut fs::File::open(path).map_err(ErrorCause::external)?,
             file.file_type(),
         )?;
-        ape_pictures(&native, &mut file)?;
+        ape_pictures_diagnostic(&native, &mut file)?;
     }
     mp4_chapters::add_nero_covers(&mut file, path);
     Ok(file)
@@ -295,13 +306,13 @@ pub(super) fn without_phantom(mut file: TaggedFile, phantom: bool) -> TaggedFile
 
 /// Generic APE conversion intentionally omits cover binary items. Add them
 /// from the already parsed native tag.
-fn ape_pictures(native: &NativeTags, file: &mut TaggedFile) -> Result<(), String> {
+fn ape_pictures_diagnostic(native: &NativeTags, file: &mut TaggedFile) -> Result<(), ErrorCause> {
     if let (Some(ape), Some(tag)) = (native.ape.as_ref(), file.tag_mut(TagType::Ape)) {
         for item in ape {
             if item.key().starts_with("Cover Art (") {
                 if let ItemValue::Binary(data) = item.value() {
                     tag.push_picture(
-                        Picture::from_ape_bytes(item.key(), data).map_err(|e| e.to_string())?,
+                        Picture::from_ape_bytes(item.key(), data).map_err(ErrorCause::external)?,
                     );
                 }
             }
@@ -367,17 +378,25 @@ struct NativeTags {
 // Lofty 0.25 generic conversions discard unknown APE and Vorbis items. Keep
 // their concrete tags, including flags, vendor and binary items, separately.
 fn native_tags(reader: &mut fs::File, kind: FileType) -> Result<NativeTags, String> {
-    strict_or_lenient_id3v1(|mode| {
-        crate::id3_frames::read_with_fallback(reader, |reader| native_tags_with(reader, kind, mode))
-            .map(|(native, _, _)| native)
+    native_tags_diagnostic(reader, kind).map_err(|error| error.to_string())
+}
+
+fn native_tags_diagnostic(reader: &mut fs::File, kind: FileType) -> Result<NativeTags, ErrorCause> {
+    strict_or_lenient_id3v1_diagnostic(|mode| {
+        crate::id3_frames::read_with_fallback_diagnostic(reader, |reader| {
+            native_tags_with_diagnostic(reader, kind, mode)
+        })
+        .map(|(native, _, _)| native)
     })
 }
-fn native_tags_with(
+fn native_tags_with_diagnostic(
     mut reader: &mut dyn ReadSeek,
     kind: FileType,
     mode: ParsingMode,
-) -> Result<NativeTags, String> {
-    reader.seek(SeekFrom::Start(0)).map_err(|e| e.to_string())?;
+) -> Result<NativeTags, ErrorCause> {
+    reader
+        .seek(SeekFrom::Start(0))
+        .map_err(ErrorCause::external)?;
     let options = ParseOptions::new()
         .implicit_conversions(false)
         .read_properties(false)
@@ -385,19 +404,20 @@ fn native_tags_with(
     let mut native = NativeTags::default();
     match kind {
         FileType::Flac => {
-            let file = FlacFile::read_from(&mut reader, options).map_err(|e| error_message(&e))?;
+            let file = FlacFile::read_from(&mut reader, options)
+                .map_err(|e| ErrorCause::external(error_message(&e)))?;
             native.id3 = file.id3v2().cloned();
             let mut tag = file.vorbis_comments().cloned().unwrap_or_default();
             for (picture, info) in file.pictures() {
                 tag.insert_picture(picture.clone(), Some(*info))
-                    .map_err(|e| e.to_string())?;
+                    .map_err(ErrorCause::external)?;
             }
             native.vorbis = Some(tag);
         }
         FileType::Vorbis => {
             native.vorbis = Some(
                 VorbisFile::read_from(&mut reader, options)
-                    .map_err(|e| error_message(&e))?
+                    .map_err(|e| ErrorCause::external(error_message(&e)))?
                     .vorbis_comments()
                     .clone(),
             )
@@ -405,7 +425,7 @@ fn native_tags_with(
         FileType::Opus => {
             native.vorbis = Some(
                 OpusFile::read_from(&mut reader, options)
-                    .map_err(|e| error_message(&e))?
+                    .map_err(|e| ErrorCause::external(error_message(&e)))?
                     .vorbis_comments()
                     .clone(),
             )
@@ -413,49 +433,54 @@ fn native_tags_with(
         FileType::Speex => {
             native.vorbis = Some(
                 SpeexFile::read_from(&mut reader, options)
-                    .map_err(|e| error_message(&e))?
+                    .map_err(|e| ErrorCause::external(error_message(&e)))?
                     .vorbis_comments()
                     .clone(),
             )
         }
         FileType::Mpeg => {
-            let file = MpegFile::read_from(&mut reader, options).map_err(|e| error_message(&e))?;
+            let file = MpegFile::read_from(&mut reader, options)
+                .map_err(|e| ErrorCause::external(error_message(&e)))?;
             native.ape = file.ape().cloned();
             native.id3 = file.id3v2().cloned();
         }
         FileType::Ape => {
-            let file = ApeFile::read_from(&mut reader, options).map_err(|e| error_message(&e))?;
+            let file = ApeFile::read_from(&mut reader, options)
+                .map_err(|e| ErrorCause::external(error_message(&e)))?;
             native.ape = file.ape().cloned();
             native.id3 = file.id3v2().cloned();
         }
         FileType::Mpc => {
-            let file = MpcFile::read_from(&mut reader, options).map_err(|e| error_message(&e))?;
+            let file = MpcFile::read_from(&mut reader, options)
+                .map_err(|e| ErrorCause::external(error_message(&e)))?;
             native.ape = file.ape().cloned();
             native.id3 = file.id3v2().cloned();
         }
         FileType::WavPack => {
             native.ape = WavPackFile::read_from(&mut reader, options)
-                .map_err(|e| error_message(&e))?
+                .map_err(|e| ErrorCause::external(error_message(&e)))?
                 .ape()
                 .cloned()
         }
         FileType::Aac => {
             native.id3 = AacFile::read_from(&mut reader, options)
-                .map_err(|e| error_message(&e))?
+                .map_err(|e| ErrorCause::external(error_message(&e)))?
                 .id3v2()
                 .cloned()
         }
         FileType::Wav => {
-            let file = WavFile::read_from(&mut reader, options).map_err(|e| error_message(&e))?;
+            let file = WavFile::read_from(&mut reader, options)
+                .map_err(|e| ErrorCause::external(error_message(&e)))?;
             native.id3 = file.id3v2().cloned();
             native.riff = file.riff_info().cloned();
         }
         FileType::Aiff => {
-            let file = AiffFile::read_from(&mut reader, options).map_err(|e| error_message(&e))?;
+            let file = AiffFile::read_from(&mut reader, options)
+                .map_err(|e| ErrorCause::external(error_message(&e)))?;
             native.id3 = file.id3v2().cloned();
         }
         FileType::Mp4 => {
-            native.ilst = read_mp4(&mut reader, options)?.ilst().cloned();
+            native.ilst = read_mp4_diagnostic(&mut reader, options)?.ilst().cloned();
         }
         _ => {}
     }
@@ -463,12 +488,12 @@ fn native_tags_with(
 }
 
 /// Logical fields of one tag, using its concrete native representation.
-fn tag_fields(
+fn tag_fields_diagnostic(
     tag: &Tag,
     native: &NativeTags,
     rules: &[UserFieldMapping],
     options: &TagOptions,
-) -> Result<Fields, String> {
+) -> Result<Fields, ErrorCause> {
     let mut local = Fields::new();
     match tag.tag_type() {
         TagType::Id3v2 => {
@@ -530,7 +555,7 @@ fn tag_fields(
             }
         }
     }
-    map_read_fields(&local, tag.tag_type(), rules)
+    map_read_fields_diagnostic(&local, tag.tag_type(), rules)
 }
 
 /// MPEG and APE-family files display one enabled tag kind by priority. Other
@@ -569,19 +594,19 @@ fn cover_info(index: usize, picture: &Picture, include_cover_data: bool) -> Cove
     }
 }
 
-fn describe_with_native(
+fn describe_with_native_diagnostic(
     path: &Path,
     file: &TaggedFile,
     native: &NativeTags,
     include_cover_data: bool,
     rules: &[UserFieldMapping],
     options: &TagOptions,
-) -> Result<AudioEntry, String> {
+) -> Result<AudioEntry, ErrorCause> {
     let mut fields = Fields::new();
     let mut covers = Vec::new();
     let displayed = displayed_tags(file, options);
     for tag in &displayed {
-        let local = tag_fields(tag, native, rules, options)?;
+        let local = tag_fields_diagnostic(tag, native, rules, options)?;
         // Primary values take precedence over legacy representations. Secondary
         // tags still contribute fields that the primary does not contain.
         for (key, values) in local {
@@ -592,7 +617,7 @@ fn describe_with_native(
         }
     }
     let properties = file.properties();
-    let metadata = fs::metadata(path).map_err(|e| e.to_string())?;
+    let metadata = fs::metadata(path).map_err(ErrorCause::external)?;
     let read = displayed.first().map(|tag| tag.tag_type());
     let technical = technical::collect(path, file, native, &covers, &metadata, read);
     let chapters = match native.id3.as_ref().map(subsongs::id3_chapters) {
@@ -654,7 +679,15 @@ pub fn read_entry_with_options(
     rules: &[UserFieldMapping],
     options: &TagOptions,
 ) -> Result<AudioEntry, String> {
-    read_description(path, true, rules, options)
+    read_entry_with_options_diagnostic(path, rules, options).map_err(|error| error.to_string())
+}
+
+pub fn read_entry_with_options_diagnostic(
+    path: &Path,
+    rules: &[UserFieldMapping],
+    options: &TagOptions,
+) -> Result<AudioEntry, ErrorCause> {
+    read_description_diagnostic(path, true, rules, options)
 }
 /// Read list fields and image descriptors without serializing artwork.
 /// Each supported format is parsed once, keeping concrete tags and properties.
@@ -672,7 +705,16 @@ pub fn read_entry_summary_with_options(
     rules: &[UserFieldMapping],
     options: &TagOptions,
 ) -> Result<AudioEntry, String> {
-    read_description(path, false, rules, options)
+    read_entry_summary_with_options_diagnostic(path, rules, options)
+        .map_err(|error| error.to_string())
+}
+
+pub fn read_entry_summary_with_options_diagnostic(
+    path: &Path,
+    rules: &[UserFieldMapping],
+    options: &TagOptions,
+) -> Result<AudioEntry, ErrorCause> {
+    read_description_diagnostic(path, false, rules, options)
 }
 fn read_description(
     path: &Path,
@@ -680,20 +722,30 @@ fn read_description(
     rules: &[UserFieldMapping],
     options: &TagOptions,
 ) -> Result<AudioEntry, String> {
-    validate_user_mappings(rules)?;
+    read_description_diagnostic(path, include_cover_data, rules, options)
+        .map_err(|error| error.to_string())
+}
+
+fn read_description_diagnostic(
+    path: &Path,
+    include_cover_data: bool,
+    rules: &[UserFieldMapping],
+    options: &TagOptions,
+) -> Result<AudioEntry, ErrorCause> {
+    validate_user_mappings_diagnostic(rules)?;
     if let Some((file, number)) = subsongs::split_path(path) {
-        return subsongs::read_row(&file, number, include_cover_data, rules, options);
+        return subsongs::read_row_diagnostic(&file, number, include_cover_data, rules, options);
     }
-    let path = dunce::canonicalize(path).map_err(|e| e.to_string())?;
+    let path = dunce::canonicalize(path).map_err(ErrorCause::external)?;
     // Before lofty: its MPEG sync search can match bytes inside ASF artwork.
     if asf::sniff(&path) {
-        return asf::describe(&path, include_cover_data, rules);
+        return asf::describe_diagnostic(&path, include_cover_data, rules);
     }
     if let Some(kind) = container_formats::detect(&path) {
-        return container_formats::read(&path, kind, include_cover_data, rules, options);
+        return container_formats::read_diagnostic(&path, kind, include_cover_data, rules, options);
     }
     if let Some(stream) = container_formats::detect_stream(&path) {
-        return container_formats::raw_streams::read(
+        return container_formats::raw_streams::read_diagnostic(
             &path,
             stream,
             include_cover_data,
@@ -702,10 +754,12 @@ fn read_description(
         );
     }
     let probe = Probe::open(&path)
-        .map_err(|e| e.to_string())?
+        .map_err(ErrorCause::external)?
         .guess_file_type()
-        .map_err(|e| e.to_string())?;
-    let kind = probe.file_type().ok_or("Unrecognized audio file type")?;
+        .map_err(ErrorCause::external)?;
+    let kind = probe
+        .file_type()
+        .ok_or_else(|| ErrorCause::owned("Unrecognized audio file type"))?;
     let parse_options = ParseOptions::new()
         .implicit_conversions(false)
         .parsing_mode(ParsingMode::Strict);
@@ -714,12 +768,14 @@ fn read_description(
     let mut placeholders = Vec::new();
     macro_rules! read {
         ($ty:ty,$snapshot:expr) => {{
-            let (media, names, phantom) = strict_or_lenient_id3v1(|mode| {
-                crate::id3_frames::read_with_fallback(&mut reader, |mut reader| {
-                    reader.seek(SeekFrom::Start(0)).map_err(|e| e.to_string())?;
+            let (media, names, phantom) = strict_or_lenient_id3v1_diagnostic(|mode| {
+                crate::id3_frames::read_with_fallback_diagnostic(&mut reader, |mut reader| {
+                    reader
+                        .seek(SeekFrom::Start(0))
+                        .map_err(ErrorCause::external)?;
                     let mut options = parse_options;
                     <$ty>::read_from(&mut reader, options.parsing_mode(mode))
-                        .map_err(|e| error_message(&e))
+                        .map_err(|e| ErrorCause::external(error_message(&e)))
                 })
             })?;
             placeholders = names;
@@ -739,7 +795,7 @@ fn read_description(
             ..Default::default()
         }),
         FileType::Mp4 => {
-            let media = read_mp4(&mut reader, parse_options)?;
+            let media = read_mp4_diagnostic(&mut reader, parse_options)?;
             let native = NativeTags {
                 ilst: media.ilst().cloned(),
                 technical: technical::mp4(media.properties()),
@@ -791,8 +847,8 @@ fn read_description(
             ..Default::default()
         }),
         _ => {
-            let file = load(&path)?;
-            let native = native_tags(reader.get_mut(), kind)?;
+            let file = load_diagnostic(&path)?;
+            let native = native_tags_diagnostic(reader.get_mut(), kind)?;
             (file, native)
         }
     };
@@ -803,9 +859,9 @@ fn read_description(
     }
     // Enrich APE covers from the already parsed native tag, without a second
     // file read.
-    ape_pictures(&native, &mut file)?;
+    ape_pictures_diagnostic(&native, &mut file)?;
     let mut entry =
-        describe_with_native(&path, &file, &native, include_cover_data, rules, options)?;
+        describe_with_native_diagnostic(&path, &file, &native, include_cover_data, rules, options)?;
     if kind == FileType::Mp4 {
         mp4_chapters::describe(&path, &mut entry, rules);
     }
@@ -1161,7 +1217,27 @@ fn staged_mutation<F>(
 where
     F: FnOnce(&mut fs::File, TaggedFile, &Path) -> Result<(), String>,
 {
-    staged_mutation_with_mappings(
+    staged_mutation_diagnostic(
+        path,
+        include_cover_data,
+        options,
+        |staging, file, staged_path| {
+            mutation(staging, file, staged_path).map_err(ErrorCause::external)
+        },
+    )
+    .map_err(|error| error.to_string())
+}
+
+fn staged_mutation_diagnostic<F>(
+    path: &Path,
+    include_cover_data: bool,
+    options: &TagOptions,
+    mutation: F,
+) -> Result<AudioEntry, ErrorCause>
+where
+    F: FnOnce(&mut fs::File, TaggedFile, &Path) -> Result<(), ErrorCause>,
+{
+    staged_mutation_with_mappings_diagnostic(
         path,
         include_cover_data,
         &options.mappings,
@@ -1170,44 +1246,46 @@ where
     )
 }
 
-fn staged_mutation_with_mappings<F>(
+fn staged_mutation_with_mappings_diagnostic<F>(
     path: &Path,
     include_cover_data: bool,
     rules: &[UserFieldMapping],
     options: &TagOptions,
     mutation: F,
-) -> Result<AudioEntry, String>
+) -> Result<AudioEntry, ErrorCause>
 where
-    F: FnOnce(&mut fs::File, TaggedFile, &Path) -> Result<(), String>,
+    F: FnOnce(&mut fs::File, TaggedFile, &Path) -> Result<(), ErrorCause>,
 {
-    staged_write(
+    staged_write_diagnostic(
         path,
         include_cover_data,
         rules,
         options,
         |staging, original, staged_path| match container_formats::detect_stream(original) {
             // Tags of raw streams are edited on a stand-in file lofty can parse.
-            Some(stream) => container_formats::raw_streams::stage(
+            Some(stream) => container_formats::raw_streams::stage_diagnostic(
                 staging,
                 original,
                 staged_path,
                 stream,
                 |staging, original, staged_path| {
-                    let guard = crate::ape_footer::Guard::prepare(staging)?;
-                    mutation(staging, load(original)?, staged_path)?;
-                    guard.finish(staging)
+                    let guard =
+                        crate::ape_footer::Guard::prepare(staging).map_err(ErrorCause::external)?;
+                    mutation(staging, load_diagnostic(original)?, staged_path)?;
+                    guard.finish(staging).map_err(ErrorCause::external)
                 },
             ),
             None => {
                 // Trailing APE tags lofty's writers would misplace.
-                let guard = crate::ape_footer::Guard::prepare(staging)?;
-                let file = load(original)?;
+                let guard =
+                    crate::ape_footer::Guard::prepare(staging).map_err(ErrorCause::external)?;
+                let file = load_diagnostic(original)?;
                 let flac_id3 =
                     file.file_type() == FileType::Flac && file.tag(TagType::Id3v2).is_some();
                 mutation(staging, file, staged_path)?;
-                guard.finish(staging)?;
+                guard.finish(staging).map_err(ErrorCause::external)?;
                 if flac_id3 {
-                    strip_flac_id3v2(staging)?;
+                    strip_flac_id3v2_diagnostic(staging)?;
                 }
                 Ok(())
             }
@@ -1217,10 +1295,10 @@ where
 
 /// Mp3tag removes the ID3v2 tag some taggers prepend to FLAC files whenever
 /// it saves them; the FLAC stream itself is kept byte for byte.
-fn strip_flac_id3v2(staging: &mut fs::File) -> Result<(), String> {
+fn strip_flac_id3v2_diagnostic(staging: &mut fs::File) -> Result<(), ErrorCause> {
     staging
         .seek(SeekFrom::Start(0))
-        .map_err(|e| e.to_string())?;
+        .map_err(ErrorCause::external)?;
     let mut header = [0u8; 10];
     if std::io::Read::read_exact(staging, &mut header).is_err()
         || container_formats::id3v2_size(&header).is_none()
@@ -1229,11 +1307,11 @@ fn strip_flac_id3v2(staging: &mut fs::File) -> Result<(), String> {
     }
     staging
         .seek(SeekFrom::Start(0))
-        .map_err(|e| e.to_string())?;
+        .map_err(ErrorCause::external)?;
     crate::write_cost::rewrote_all();
     TagType::Id3v2
         .remove_from(staging, WriteOptions::default())
-        .map_err(|e| error_message(&e))
+        .map_err(|e| ErrorCause::external(error_message(&e)))
 }
 
 /// Like `staged_mutation_with_mappings`, for formats that lofty cannot load.
@@ -1248,25 +1326,49 @@ fn staged_write<F>(
 where
     F: FnOnce(&mut fs::File, &Path, &Path) -> Result<(), String>,
 {
-    validate_user_mappings(rules)?;
-    options.validate()?;
+    staged_write_diagnostic(
+        path,
+        include_cover_data,
+        rules,
+        options,
+        |staging, original, staged_path| {
+            mutation(staging, original, staged_path).map_err(ErrorCause::external)
+        },
+    )
+    .map_err(|error| error.to_string())
+}
+
+fn staged_write_diagnostic<F>(
+    path: &Path,
+    include_cover_data: bool,
+    rules: &[UserFieldMapping],
+    options: &TagOptions,
+    mutation: F,
+) -> Result<AudioEntry, ErrorCause>
+where
+    F: FnOnce(&mut fs::File, &Path, &Path) -> Result<(), ErrorCause>,
+{
+    validate_user_mappings_diagnostic(rules)?;
+    options.validate().map_err(ErrorCause::owned_text)?;
     if subsongs::split_path(path).is_some() {
-        return Err(subsongs::ROW_OPERATION.into());
+        return Err(ErrorCause::owned(subsongs::ROW_OPERATION));
     }
-    let path = dunce::canonicalize(path).map_err(|e| e.to_string())?;
-    let original = fs::metadata(&path).map_err(|e| e.to_string())?;
+    let path = dunce::canonicalize(path).map_err(ErrorCause::external)?;
+    let original = fs::metadata(&path).map_err(ErrorCause::external)?;
     if !original.is_file() {
-        return Err("The audio path must be a regular file".into());
+        return Err(ErrorCause::owned("The audio path must be a regular file"));
     }
     if original.permissions().readonly() {
-        return Err("The audio file is read-only".into());
+        return Err(ErrorCause::owned("The audio file is read-only"));
     }
     let (mut staging, cloned) = staging_clone(
         &path,
-        path.parent().ok_or("Audio path has no parent directory")?,
+        path.parent()
+            .ok_or_else(|| ErrorCause::owned("Audio path has no parent directory"))?,
         ".opentag-",
         "",
-    )?;
+    )
+    .map_err(ErrorCause::external)?;
     let staged_path = staging.path().to_path_buf();
     let scope = crate::write_cost::Scope::begin();
     mutation(staging.as_file_mut(), &path, &staged_path)?;
@@ -1282,17 +1384,22 @@ where
             staging
                 .as_file()
                 .set_modified(modified)
-                .map_err(|e| e.to_string())?;
+                .map_err(ErrorCause::external)?;
         }
     }
-    staging.as_file().sync_all().map_err(|e| e.to_string())?;
-    let mut entry = read_description(staging.path(), include_cover_data, rules, options)?;
-    fs::set_permissions(staging.path(), original.permissions()).map_err(|e| e.to_string())?;
-    let current = fs::metadata(&path).map_err(|e| e.to_string())?;
+    staging.as_file().sync_all().map_err(ErrorCause::external)?;
+    let mut entry =
+        read_description_diagnostic(staging.path(), include_cover_data, rules, options)?;
+    fs::set_permissions(staging.path(), original.permissions()).map_err(ErrorCause::external)?;
+    let current = fs::metadata(&path).map_err(ErrorCause::external)?;
     if current.len() != original.len() || current.modified().ok() != original.modified().ok() {
-        return Err("The file changed during editing; reload it before saving".into());
+        return Err(ErrorCause::owned(
+            "The file changed during editing; reload it before saving",
+        ));
     }
-    staging.persist(&path).map_err(|e| e.error.to_string())?;
+    staging
+        .persist(&path)
+        .map_err(|e| ErrorCause::external(e.error))?;
     crate::history::note_write(&path, cloned, rewritten);
     entry.path = path.to_string_lossy().into_owned();
     entry.filename = path
@@ -1304,7 +1411,12 @@ where
     Ok(entry)
 }
 
+#[cfg(test)]
 fn normalized_updates(updates: &Fields, kind: TagType) -> Result<Fields, String> {
+    normalized_updates_diagnostic(updates, kind).map_err(|error| error.to_string())
+}
+
+fn normalized_updates_diagnostic(updates: &Fields, kind: TagType) -> Result<Fields, ErrorCause> {
     let mut output = Fields::new();
     let mut seen = HashSet::new();
     for (name, values) in updates {
@@ -1312,10 +1424,16 @@ fn normalized_updates(updates: &Fields, kind: TagType) -> Result<Fields, String>
             || name.contains(['\0', '\n', '\r'])
             || (kind == TagType::VorbisComments && name.contains('='))
         {
-            return Err(format!("Invalid metadata field name: {name:?}"));
+            return Err(ErrorCause::message(
+                "Invalid metadata field name: {name}",
+                [("name", format!("{name:?}"))],
+            ));
         }
         if values.iter().any(|v| v.contains('\0')) {
-            return Err(format!("{name}: values cannot contain NUL characters"));
+            return Err(ErrorCause::message(
+                "{name}: values cannot contain NUL characters",
+                [("name", name.to_string())],
+            ));
         }
         let name = if matches!(kind, TagType::VorbisComments | TagType::Ape) {
             name.clone()
@@ -1325,7 +1443,10 @@ fn normalized_updates(updates: &Fields, kind: TagType) -> Result<Fields, String>
                 .unwrap_or_else(|| name.clone())
         };
         if !seen.insert(name.to_lowercase()) {
-            return Err(format!("Duplicate metadata field: {name}"));
+            return Err(ErrorCause::message(
+                "Duplicate metadata field: {name}",
+                [("name", name.to_string())],
+            ));
         }
         output.insert(name, values.clone());
     }
@@ -1333,16 +1454,17 @@ fn normalized_updates(updates: &Fields, kind: TagType) -> Result<Fields, String>
 }
 
 /// Prepare only the raw lyrics changed by this source import for one target.
-fn source_lyrics_updates(
+fn source_lyrics_updates_diagnostic(
     source: &Fields,
     changes: &Fields,
     kind: TagType,
     rules: &[UserFieldMapping],
-) -> Result<Fields, String> {
+) -> Result<Fields, ErrorCause> {
     let mut output = source.clone();
     if kind == TagType::Id3v2 {
         for name in changes.keys() {
-            let native = map_write_fields(&[(name.clone(), Vec::new())].into(), kind, rules)?;
+            let native =
+                map_write_fields_diagnostic(&[(name.clone(), Vec::new())].into(), kind, rules)?;
             if native.keys().any(|key| {
                 key.eq_ignore_ascii_case("UNSYNCEDLYRICS")
                     || key.to_ascii_uppercase().starts_with("UNSYNCEDLYRICS ")
@@ -1403,6 +1525,18 @@ fn save_preserving_native(
     covers_changed: bool,
     id3: Id3Write,
 ) -> Result<(), String> {
+    save_preserving_native_diagnostic(staging, file_type, tag, updates, covers_changed, id3)
+        .map_err(|error| error.to_string())
+}
+
+fn save_preserving_native_diagnostic(
+    staging: &mut fs::File,
+    file_type: FileType,
+    tag: &Tag,
+    updates: &Fields,
+    covers_changed: bool,
+    id3: Id3Write,
+) -> Result<(), ErrorCause> {
     // FLAC Vorbis comments, ID3v2 and MP4 ilst can be rewritten in place; their
     // writers report how (flac_metadata, id3_padding, mp4_metadata).
     if !matches!(
@@ -1411,7 +1545,7 @@ fn save_preserving_native(
     ) {
         crate::write_cost::rewrote_all();
     }
-    let originals = native_tags(staging, file_type)?;
+    let originals = native_tags_diagnostic(staging, file_type)?;
     match tag.tag_type() {
         TagType::Id3v2 => {
             let mut native = originals.id3.unwrap_or_default();
@@ -1420,7 +1554,7 @@ fn save_preserving_native(
                     mapping::Id3Target::preserving(&native, language)
                 }
                 Id3Revision::Convert(target) => {
-                    mapping::convert_id3_version(&mut native, &target)?;
+                    mapping::convert_id3_version_diagnostic(&mut native, &target)?;
                     target
                 }
             };
@@ -1431,7 +1565,7 @@ fn save_preserving_native(
                     updates.to_mut().extend(moved);
                 }
             }
-            mapping::patch_id3(&mut native, &updates, &target)?;
+            mapping::patch_id3_diagnostic(&mut native, &updates, &target)?;
             if covers_changed {
                 native.retain(|frame| !matches!(frame, Frame::Picture(_)));
                 let pictures: Id3v2Tag = tag.clone().into();
@@ -1443,8 +1577,8 @@ fn save_preserving_native(
             }
             staging
                 .seek(SeekFrom::Start(0))
-                .map_err(|e| e.to_string())?;
-            mapping::save_id3(staging, file_type, &native, &target)
+                .map_err(ErrorCause::external)?;
+            mapping::save_id3_diagnostic(staging, file_type, &native, &target)
         }
         TagType::Mp4Ilst => {
             let mut native = originals.ilst.unwrap_or_default();
@@ -1455,17 +1589,18 @@ fn save_preserving_native(
                     updates.to_mut().extend(moved);
                 }
             }
-            mapping::patch_mp4(&mut native, &updates)?;
+            mapping::patch_mp4_diagnostic(&mut native, &updates)?;
             if covers_changed {
                 native.remove_pictures();
                 for picture in tag.pictures() {
                     native.insert_picture(picture.clone());
                 }
             }
-            crate::mp4_metadata::save(staging, &native, id3.mp4_single_atom)?;
+            crate::mp4_metadata::save(staging, &native, id3.mp4_single_atom)
+                .map_err(ErrorCause::external)?;
             if covers_changed {
                 // The covers shown, Nero ones included, are now the iTunes covers.
-                mp4_chapters::drop_nero_covers(staging)?;
+                mp4_chapters::drop_nero_covers_diagnostic(staging)?;
             }
             Ok(())
         }
@@ -1487,18 +1622,18 @@ fn save_preserving_native(
                 for picture in tag.pictures() {
                     native
                         .insert_picture(picture.clone(), None)
-                        .map_err(|e| e.to_string())?;
+                        .map_err(ErrorCause::external)?;
                 }
             }
             if file_type == FileType::Flac {
-                return crate::flac_metadata::save(staging, &native);
+                return crate::flac_metadata::save(staging, &native).map_err(ErrorCause::external);
             }
             staging
                 .seek(SeekFrom::Start(0))
-                .map_err(|e| e.to_string())?;
+                .map_err(ErrorCause::external)?;
             native
                 .save_to(staging, WriteOptions::default())
-                .map_err(|e| error_message(&e))
+                .map_err(|e| ErrorCause::external(error_message(&e)))
         }
         TagType::Ape => {
             let mut native = originals.ape.unwrap_or_default();
@@ -1507,7 +1642,7 @@ fn save_preserving_native(
                 if !values.is_empty() {
                     native.insert(
                         ApeItem::new(name.clone(), ItemValue::Text(values.join("\0")))
-                            .map_err(|e| e.to_string())?,
+                            .map_err(ErrorCause::external)?,
                     );
                 }
             }
@@ -1524,20 +1659,20 @@ fn save_preserving_native(
                     let key = picture
                         .pic_type()
                         .as_ape_key()
-                        .ok_or("APE does not support this picture type")?
+                        .ok_or_else(|| ErrorCause::owned("APE does not support this picture type"))?
                         .to_owned();
                     native.insert(
                         ApeItem::new(key, ItemValue::Binary(picture.as_ape_bytes()))
-                            .map_err(|e| e.to_string())?,
+                            .map_err(ErrorCause::external)?,
                     );
                 }
             }
             staging
                 .seek(SeekFrom::Start(0))
-                .map_err(|e| e.to_string())?;
+                .map_err(ErrorCause::external)?;
             native
                 .save_to(staging, WriteOptions::default())
-                .map_err(|e| error_message(&e))
+                .map_err(|e| ErrorCause::external(error_message(&e)))
         }
         TagType::RiffInfo => {
             let mut native = originals.riff.unwrap_or_default();
@@ -1554,10 +1689,10 @@ fn save_preserving_native(
             }
             staging
                 .seek(SeekFrom::Start(0))
-                .map_err(|e| e.to_string())?;
+                .map_err(ErrorCause::external)?;
             native
                 .save_to(staging, WriteOptions::default())
-                .map_err(|e| error_message(&e))
+                .map_err(|e| ErrorCause::external(error_message(&e)))
         }
         _ => {
             let mut tag = tag.clone();
@@ -1581,9 +1716,9 @@ fn save_preserving_native(
             }
             staging
                 .seek(SeekFrom::Start(0))
-                .map_err(|e| e.to_string())?;
+                .map_err(ErrorCause::external)?;
             tag.save_to(staging, WriteOptions::default())
-                .map_err(|e| error_message(&e))
+                .map_err(|e| ErrorCause::external(error_message(&e)))
         }
     }
 }
@@ -1637,19 +1772,30 @@ pub fn write_fields_with_options(
     rules: &[UserFieldMapping],
     options: &TagOptions,
 ) -> Result<AudioEntry, String> {
-    write_fields_result(path, updates, include_cover_data, rules, options)
+    write_fields_with_options_diagnostic(path, updates, include_cover_data, rules, options)
+        .map_err(|error| error.to_string())
+}
+
+pub fn write_fields_with_options_diagnostic(
+    path: &Path,
+    updates: &Fields,
+    include_cover_data: bool,
+    rules: &[UserFieldMapping],
+    options: &TagOptions,
+) -> Result<AudioEntry, ErrorCause> {
+    write_fields_result_diagnostic(path, updates, include_cover_data, rules, options)
 }
 
 /// Compare a written tag's read-back fields with the requested native values.
-fn verify_readback(
+fn verify_readback_diagnostic(
     actual: &Fields,
     native_updates: &Fields,
     kind: TagType,
     latin1: bool,
-) -> Result<(), String> {
+) -> Result<(), ErrorCause> {
     for (key, values) in native_updates {
         let (read_key, mut expected) = if kind == TagType::Id3v2 {
-            mapping::expected_id3_readback(key, values)?
+            mapping::expected_id3_readback_diagnostic(key, values)?
         } else {
             (key.clone(), values.clone())
         };
@@ -1662,7 +1808,10 @@ fn verify_readback(
             .map(|(_, values)| values);
         if values.is_empty() {
             if found.is_some() {
-                return Err(format!("The format could not remove field {key}"));
+                return Err(ErrorCause::message(
+                    "The format could not remove field {key}",
+                    [("key", key.to_string())],
+                ));
             }
         } else if kind == TagType::Mp4Ilst
             && matches!(
@@ -1670,35 +1819,54 @@ fn verify_readback(
                 "TRACK" | "DISCNUMBER" | "TOTALTRACKS" | "TOTALDISCS"
             )
         {
-            let requested = values.first().ok_or("Missing number")?;
-            let found = found
-                .and_then(|v| v.first())
-                .ok_or_else(|| format!("The format lost field {key}"))?;
+            let requested = values
+                .first()
+                .ok_or_else(|| ErrorCause::owned("Missing number"))?;
+            let found = found.and_then(|v| v.first()).ok_or_else(|| {
+                ErrorCause::message("The format lost field {key}", [("key", key.to_string())])
+            })?;
             let expected_number = requested
                 .split('/')
                 .next()
                 .unwrap_or_default()
                 .parse::<u16>()
-                .map_err(|_| format!("{key} requires an unsigned number"))?;
+                .map_err(|_| {
+                    ErrorCause::message(
+                        "{key} requires an unsigned number",
+                        [("key", key.to_string())],
+                    )
+                })?;
             let actual_number = found
                 .split('/')
                 .next()
                 .unwrap_or_default()
                 .parse::<u16>()
-                .map_err(|_| format!("The format returned an invalid {key}"))?;
+                .map_err(|_| {
+                    ErrorCause::message(
+                        "The format returned an invalid {key}",
+                        [("key", key.to_string())],
+                    )
+                })?;
             if expected_number != actual_number {
-                return Err(format!("The format changed field {key}"));
+                return Err(ErrorCause::message(
+                    "The format changed field {key}",
+                    [("key", key.to_string())],
+                ));
             }
             if let Some((_, total)) = requested.split_once('/') {
                 if found.split_once('/').map(|(_, t)| t.parse::<u16>().ok())
                     != Some(total.parse::<u16>().ok())
                 {
-                    return Err(format!("The format changed the total in {key}"));
+                    return Err(ErrorCause::message(
+                        "The format changed the total in {key}",
+                        [("key", key.to_string())],
+                    ));
                 }
             }
         } else if found != Some(&expected) {
-            return Err(format!(
-                "The format could not preserve all values for field {key}"
+            return Err(ErrorCause::message(
+                "The format could not preserve all values for field {key}",
+                [("key", key.to_string())],
             ));
         }
     }
@@ -1712,7 +1880,8 @@ fn write_fields_result(
     rules: &[UserFieldMapping],
     options: &TagOptions,
 ) -> Result<AudioEntry, String> {
-    write_fields_result_with_lyrics(path, updates, include_cover_data, rules, options, false)
+    write_fields_result_diagnostic(path, updates, include_cover_data, rules, options)
+        .map_err(|error| error.to_string())
 }
 
 /// Write source-import fields whose lyric values are raw text, even when they
@@ -1724,29 +1893,54 @@ pub fn write_source_fields_with_options(
     rules: &[UserFieldMapping],
     options: &TagOptions,
 ) -> Result<AudioEntry, String> {
-    write_fields_result_with_lyrics(path, updates, include_cover_data, rules, options, true)
+    write_fields_result_with_lyrics_diagnostic(
+        path,
+        updates,
+        include_cover_data,
+        rules,
+        options,
+        true,
+    )
+    .map_err(|error| error.to_string())
 }
 
-fn write_fields_result_with_lyrics(
+fn write_fields_result_diagnostic(
+    path: &Path,
+    updates: &Fields,
+    include_cover_data: bool,
+    rules: &[UserFieldMapping],
+    options: &TagOptions,
+) -> Result<AudioEntry, ErrorCause> {
+    write_fields_result_with_lyrics_diagnostic(
+        path,
+        updates,
+        include_cover_data,
+        rules,
+        options,
+        false,
+    )
+}
+
+fn write_fields_result_with_lyrics_diagnostic(
     path: &Path,
     updates: &Fields,
     include_cover_data: bool,
     rules: &[UserFieldMapping],
     options: &TagOptions,
     raw_lyrics: bool,
-) -> Result<AudioEntry, String> {
+) -> Result<AudioEntry, ErrorCause> {
     if updates.is_empty() {
-        return read_description(path, include_cover_data, rules, options);
+        return read_description_diagnostic(path, include_cover_data, rules, options);
     }
     if let Some((file, number)) = subsongs::split_path(path) {
         let updates = if raw_lyrics
-            && load(&file).is_ok_and(|file| file.primary_tag_type() == TagType::Id3v2)
+            && load_diagnostic(&file).is_ok_and(|file| file.primary_tag_type() == TagType::Id3v2)
         {
-            source_lyrics_updates(updates, updates, TagType::Id3v2, rules)?
+            source_lyrics_updates_diagnostic(updates, updates, TagType::Id3v2, rules)?
         } else {
             updates.clone()
         };
-        let mut rows = subsongs::write_rows(
+        let mut rows = subsongs::write_rows_diagnostic(
             &file,
             &[(number, updates)],
             include_cover_data,
@@ -1756,7 +1950,7 @@ fn write_fields_result_with_lyrics(
         return Ok(rows.remove(0));
     }
     if asf::sniff(path) {
-        return asf::write_fields(path, updates, include_cover_data, rules, options);
+        return asf::write_fields_diagnostic(path, updates, include_cover_data, rules, options);
     }
     if let Some(kind) = container_formats::detect(path) {
         let updates = if raw_lyrics
@@ -1764,11 +1958,11 @@ fn write_fields_result_with_lyrics(
                 kind,
                 container_formats::Kind::Dsf | container_formats::Kind::Dff
             ) {
-            source_lyrics_updates(updates, updates, TagType::Id3v2, rules)?
+            source_lyrics_updates_diagnostic(updates, updates, TagType::Id3v2, rules)?
         } else {
             updates.clone()
         };
-        return container_formats::write_fields(
+        return container_formats::write_fields_diagnostic(
             path,
             kind,
             &updates,
@@ -1777,7 +1971,7 @@ fn write_fields_result_with_lyrics(
             options,
         );
     }
-    staged_mutation_with_mappings(
+    staged_mutation_with_mappings_diagnostic(
         path,
         include_cover_data,
         rules,
@@ -1796,12 +1990,12 @@ fn write_fields_result_with_lyrics(
             if file.file_type() == FileType::Mp4 {
                 // First, so the read-back of the iTunes tag sees no stale
                 // file-wide Nero value.
-                let native = map_write_fields(&updates, TagType::Mp4Ilst, rules)?;
-                mp4_chapters::sync_nero_fields(staging, staged_path, &native)?;
+                let native = map_write_fields_diagnostic(&updates, TagType::Mp4Ilst, rules)?;
+                mp4_chapters::sync_nero_fields_diagnostic(staging, staged_path, &native)?;
             }
             if let Some(values) = chapters {
                 if !updates.is_empty() {
-                    write_tag_fields_with_lyrics(
+                    write_tag_fields_with_lyrics_diagnostic(
                         staging,
                         file,
                         staged_path,
@@ -1811,9 +2005,9 @@ fn write_fields_result_with_lyrics(
                         raw_lyrics,
                     )?;
                 }
-                return mp4_chapters::write(staging, staged_path, &values);
+                return mp4_chapters::write_diagnostic(staging, staged_path, &values);
             }
-            write_tag_fields_with_lyrics(
+            write_tag_fields_with_lyrics_diagnostic(
                 staging,
                 file,
                 staged_path,
@@ -1827,18 +2021,26 @@ fn write_fields_result_with_lyrics(
 }
 
 /// Write field changes into the tags of a staged lofty-readable file.
-fn write_tag_fields(
+fn write_tag_fields_diagnostic(
     staging: &mut fs::File,
     file: TaggedFile,
     staged_path: &Path,
     updates: &Fields,
     rules: &[UserFieldMapping],
     options: &TagOptions,
-) -> Result<(), String> {
-    write_tag_fields_with_lyrics(staging, file, staged_path, updates, rules, options, false)
+) -> Result<(), ErrorCause> {
+    write_tag_fields_with_lyrics_diagnostic(
+        staging,
+        file,
+        staged_path,
+        updates,
+        rules,
+        options,
+        false,
+    )
 }
 
-fn write_tag_fields_with_lyrics(
+fn write_tag_fields_with_lyrics_diagnostic(
     staging: &mut fs::File,
     mut file: TaggedFile,
     staged_path: &Path,
@@ -1846,10 +2048,10 @@ fn write_tag_fields_with_lyrics(
     rules: &[UserFieldMapping],
     options: &TagOptions,
     raw_lyrics: bool,
-) -> Result<(), String> {
+) -> Result<(), ErrorCause> {
     if tag_policy::policy(file.file_type()).is_some() {
-        let updates = normalized_updates(updates, TagType::Ape)?;
-        let written = tag_policy::write(
+        let updates = normalized_updates_diagnostic(updates, TagType::Ape)?;
+        let written = tag_policy::write_diagnostic(
             staging,
             &file,
             rules,
@@ -1860,7 +2062,7 @@ fn write_tag_fields_with_lyrics(
                 tag_policy::Change::Fields(&updates)
             },
         )?;
-        return tag_policy::verify_fields(
+        return tag_policy::verify_fields_diagnostic(
             staged_path,
             rules,
             options,
@@ -1870,15 +2072,15 @@ fn write_tag_fields_with_lyrics(
         );
     }
     let primary = file.primary_tag_type();
-    let updates = normalized_updates(updates, primary)?;
+    let updates = normalized_updates_diagnostic(updates, primary)?;
     // WAV files carry RIFF INFO and ID3v2 (file-formats). A new INFO
     // chunk starts from every displayed value that has a RIFF id.
     let mut seeded = None;
     if file.file_type() == FileType::Wav && file.tag(TagType::RiffInfo).is_none() {
         let mut values = Fields::new();
-        let native = native_tags(staging, FileType::Wav)?;
+        let native = native_tags_diagnostic(staging, FileType::Wav)?;
         for tag in ordered_tags(&file) {
-            for (key, list) in tag_fields(tag, &native, rules, options)? {
+            for (key, list) in tag_fields_diagnostic(tag, &native, rules, options)? {
                 values.entry(key).or_insert(list);
             }
         }
@@ -1886,7 +2088,7 @@ fn write_tag_fields_with_lyrics(
             values.retain(|key, _| !key.eq_ignore_ascii_case(name));
             values.insert(name.clone(), list.clone());
         }
-        if map_write_fields(&values, TagType::RiffInfo, rules)?
+        if map_write_fields_diagnostic(&values, TagType::RiffInfo, rules)?
             .iter()
             .any(|(name, list)| !list.is_empty() && riff_key(name).is_some())
         {
@@ -1904,18 +2106,23 @@ fn write_tag_fields_with_lyrics(
         .filter(|t| file.tag_support(*t).is_writable())
         .collect();
     for kind in types {
-        let tag = file.remove(kind).ok_or("Tag disappeared during editing")?;
+        let tag = file
+            .remove(kind)
+            .ok_or_else(|| ErrorCause::owned("Tag disappeared during editing"))?;
         let source = match &seeded {
             Some(values) if kind == TagType::RiffInfo => values,
             _ => &updates,
         };
         let source = if raw_lyrics {
-            source_lyrics_updates(source, &updates, kind, rules)?
+            source_lyrics_updates_diagnostic(source, &updates, kind, rules)?
         } else {
             source.clone()
         };
-        let native_updates = normalized_updates(&map_write_fields(&source, kind, rules)?, kind)?;
-        save_preserving_native(
+        let native_updates = normalized_updates_diagnostic(
+            &map_write_fields_diagnostic(&source, kind, rules)?,
+            kind,
+        )?;
+        save_preserving_native_diagnostic(
             staging,
             file.file_type(),
             &tag,
@@ -1926,16 +2133,18 @@ fn write_tag_fields_with_lyrics(
     }
     staging
         .seek(SeekFrom::Start(0))
-        .map_err(|e| e.to_string())?;
-    let actual = read_entry_summary_with_options(staged_path, &[], options)?.fields;
+        .map_err(ErrorCause::external)?;
+    let actual = read_entry_summary_with_options_diagnostic(staged_path, &[], options)?.fields;
     let expected = if raw_lyrics {
-        source_lyrics_updates(&updates, &updates, primary, rules)?
+        source_lyrics_updates_diagnostic(&updates, &updates, primary, rules)?
     } else {
         updates.clone()
     };
-    let native_updates =
-        normalized_updates(&map_write_fields(&expected, primary, rules)?, primary)?;
-    verify_readback(&actual, &native_updates, primary, false)
+    let native_updates = normalized_updates_diagnostic(
+        &map_write_fields_diagnostic(&expected, primary, rules)?,
+        primary,
+    )?;
+    verify_readback_diagnostic(&actual, &native_updates, primary, false)
 }
 
 /// Utils → Strip chapters MP4: remove Nero chapters and QuickTime chapter
@@ -2071,15 +2280,26 @@ pub fn import_cover_with_options(
     delete_existing: bool,
     options: &TagOptions,
 ) -> Result<AudioEntry, String> {
+    import_cover_with_options_diagnostic(path, image, picture_type, delete_existing, options)
+        .map_err(|error| error.to_string())
+}
+
+pub fn import_cover_with_options_diagnostic(
+    path: &Path,
+    image: &Path,
+    picture_type: Option<&str>,
+    delete_existing: bool,
+    options: &TagOptions,
+) -> Result<AudioEntry, ErrorCause> {
     let kind = picture_type
-        .map(picture_type_from_name)
+        .map(picture_type_from_name_diagnostic)
         .transpose()?
         .unwrap_or(PictureType::CoverFront);
     if delete_existing {
-        picture_from_bytes(fs::read(image).map_err(|e| e.to_string())?)?;
-        remove_all_covers_with_options(path, options)?;
+        picture_from_bytes_diagnostic(fs::read(image).map_err(ErrorCause::external)?)?;
+        remove_all_covers_with_options_diagnostic(path, options)?;
     }
-    add_cover_result(path, image, kind, false, options)
+    add_cover_result_diagnostic(path, image, kind, false, options)
 }
 
 /// ID3 requires picture descriptions to identify repeated cover types.
@@ -2110,22 +2330,45 @@ fn add_cover_result(
     include_cover_data: bool,
     options: &TagOptions,
 ) -> Result<AudioEntry, String> {
+    add_cover_result_diagnostic(path, image, kind, include_cover_data, options)
+        .map_err(|error| error.to_string())
+}
+
+fn add_cover_result_diagnostic(
+    path: &Path,
+    image: &Path,
+    kind: PictureType,
+    include_cover_data: bool,
+    options: &TagOptions,
+) -> Result<AudioEntry, ErrorCause> {
     // The formats Manage Covers accepts, WebP included.
-    let mut picture = picture_from_bytes(fs::read(image).map_err(|e| e.to_string())?)?;
+    let mut picture =
+        picture_from_bytes_diagnostic(fs::read(image).map_err(ErrorCause::external)?)?;
     picture.set_pic_type(kind);
     let label = image.file_name().unwrap_or_default().to_string_lossy();
-    add_picture_result(path, picture, &label, include_cover_data, options)
+    add_picture_result_diagnostic(path, picture, &label, include_cover_data, options)
 }
 
 fn add_picture_result(
+    path: &Path,
+    picture: Picture,
+    label: &str,
+    include_cover_data: bool,
+    options: &TagOptions,
+) -> Result<AudioEntry, String> {
+    add_picture_result_diagnostic(path, picture, label, include_cover_data, options)
+        .map_err(|error| error.to_string())
+}
+
+fn add_picture_result_diagnostic(
     path: &Path,
     mut picture: Picture,
     label: &str,
     include_cover_data: bool,
     options: &TagOptions,
-) -> Result<AudioEntry, String> {
+) -> Result<AudioEntry, ErrorCause> {
     if asf::sniff(path) {
-        return asf::change_pictures(
+        return asf::change_pictures_diagnostic(
             path,
             include_cover_data,
             options,
@@ -2137,7 +2380,7 @@ fn add_picture_result(
         );
     }
     if let Some(container) = container_formats::detect(path) {
-        return container_formats::add_cover(
+        return container_formats::add_cover_diagnostic(
             path,
             container,
             picture,
@@ -2146,7 +2389,7 @@ fn add_picture_result(
             options,
         );
     }
-    staged_mutation(
+    staged_mutation_diagnostic(
         path,
         include_cover_data,
         options,
@@ -2155,14 +2398,14 @@ fn add_picture_result(
                 let mut pictures = tag_policy::displayed_pictures(&file, options);
                 describe_repeated_cover(&pictures, &mut picture, label);
                 pictures.push(picture);
-                let written = tag_policy::write(
+                let written = tag_policy::write_diagnostic(
                     staging,
                     &file,
                     &options.mappings,
                     options,
                     tag_policy::Change::Pictures(pictures.clone()),
                 )?;
-                return tag_policy::verify_pictures(
+                return tag_policy::verify_pictures_diagnostic(
                     staged_path,
                     options,
                     written,
@@ -2181,12 +2424,12 @@ fn add_picture_result(
             let file_type = file.file_type();
             let tag = file
                 .primary_tag_mut()
-                .ok_or("The audio format has no writable tag")?;
+                .ok_or_else(|| ErrorCause::owned("The audio format has no writable tag"))?;
             if primary == TagType::Id3v2 {
                 describe_repeated_cover(tag.pictures(), &mut picture, label);
             }
             tag.push_picture(picture);
-            save_preserving_native(
+            save_preserving_native_diagnostic(
                 staging,
                 file_type,
                 tag,
@@ -2194,14 +2437,14 @@ fn add_picture_result(
                 true,
                 Id3Write::preserving(options),
             )?;
-            if read_entry_summary_with_options(staged_path, &[], options)?
+            if read_entry_summary_with_options_diagnostic(staged_path, &[], options)?
                 .covers
                 .len()
                 != previous_covers + 1
             {
-                return Err(
-                    "This tag format cannot append another cover with the same picture type".into(),
-                );
+                return Err(ErrorCause::owned(
+                    "This tag format cannot append another cover with the same picture type",
+                ));
             }
             Ok(())
         },
@@ -2302,4 +2545,70 @@ fn remove_cover_result(
             )
         },
     )
+}
+
+#[cfg(test)]
+mod diagnostic_producer_tests {
+    use super::*;
+
+    #[test]
+    fn tag_reader_keeps_owned_unrecognized_guard_separate_from_real_io() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("Help {error}; Title.bin");
+        fs::write(&path, [0u8; 16]).unwrap();
+        let options = TagOptions::default();
+        let error = read_entry_summary_with_options_diagnostic(&path, &[], &options).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            read_entry_summary_with_options(&path, &[], &options).unwrap_err()
+        );
+        let data = serde_json::to_value(error).unwrap();
+        assert_eq!(data["kind"], "owned");
+        assert_eq!(data["key"], "Unrecognized audio file type");
+        fs::remove_file(&path).unwrap();
+        let error = read_entry_with_options_diagnostic(&path, &[], &options).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            read_entry_with_options(&path, &[], &options).unwrap_err()
+        );
+        assert_eq!(serde_json::to_value(error).unwrap()["kind"], "external");
+    }
+
+    #[test]
+    fn tag_writer_owned_readonly_guard_preserves_legacy_bytes_and_message() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("Help {error}.bin");
+        fs::write(&path, b"original bytes").unwrap();
+        let original_permissions = fs::metadata(&path).unwrap().permissions();
+        let mut permissions = original_permissions.clone();
+        permissions.set_readonly(true);
+        fs::set_permissions(&path, permissions).unwrap();
+        let updates = Fields::from([("TITLE".into(), vec!["new".into()])]);
+        let options = TagOptions::default();
+        let error = write_fields_with_options_diagnostic(&path, &updates, false, &[], &options)
+            .unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            write_fields_with_options(&path, &updates, false, &[], &options).unwrap_err()
+        );
+        let data = serde_json::to_value(error).unwrap();
+        assert_eq!(data["kind"], "owned");
+        assert_eq!(data["key"], "The audio file is read-only");
+        assert_eq!(fs::read(&path).unwrap(), b"original bytes");
+        fs::set_permissions(&path, original_permissions).unwrap();
+    }
+
+    #[test]
+    fn metadata_guard_preserves_authored_field_as_raw_param() {
+        let name = "Help {error}\nTitle";
+        let updates = Fields::from([(name.into(), vec!["value".into()])]);
+        let error = normalized_updates_diagnostic(&updates, TagType::VorbisComments).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            normalized_updates(&updates, TagType::VorbisComments).unwrap_err()
+        );
+        let data = serde_json::to_value(error).unwrap();
+        assert_eq!(data["kind"], "owned");
+        assert_eq!(data["params"]["name"], format!("{name:?}"));
+    }
 }

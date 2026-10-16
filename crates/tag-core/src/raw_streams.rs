@@ -10,6 +10,11 @@
 //! be identical. lofty still reads the AAC and WavPack stream properties,
 //! from the audio bytes alone.
 use super::*;
+use super::{
+    assemble_diagnostic as assemble, read_at_diagnostic as read_at,
+    same_bytes_diagnostic as same_bytes,
+};
+use crate::batch_errors::ErrorCause;
 use lofty::{aac::AacFile, ape::ApeFile, mpeg::MpegFile};
 use std::io::{Cursor, Read};
 
@@ -155,6 +160,15 @@ pub(in crate::tags) fn adts_start(
     prefix: u64,
     length: u64,
 ) -> Result<Option<u64>, String> {
+    adts_start_diagnostic(file, path, prefix, length).map_err(|error| error.to_string())
+}
+
+pub(in crate::tags) fn adts_start_diagnostic(
+    file: &mut fs::File,
+    path: &Path,
+    prefix: u64,
+    length: u64,
+) -> Result<Option<u64>, ErrorCause> {
     let aac = path
         .extension()
         .is_some_and(|e| e.eq_ignore_ascii_case("aac"));
@@ -166,12 +180,24 @@ pub(in crate::tags) fn adts_start(
     Ok(adts_after_junk(&bytes).map(|at| prefix + at as u64))
 }
 
-fn invalid(stream: Stream, what: &str) -> String {
-    format!("Invalid {} file: {what}", stream.format())
+fn invalid(stream: Stream, what: &str) -> ErrorCause {
+    ErrorCause::wrap(
+        "Invalid {value} file: {what}",
+        [("value", stream.format().into())],
+        "what",
+        ErrorCause::owned(what),
+    )
 }
 
 /// Bytes taken by consecutive ID3v2 tags at the start of the file.
 pub(in crate::tags) fn leading_tags(file: &mut fs::File, length: u64) -> Result<u64, String> {
+    leading_tags_diagnostic(file, length).map_err(|error| error.to_string())
+}
+
+pub(in crate::tags) fn leading_tags_diagnostic(
+    file: &mut fs::File,
+    length: u64,
+) -> Result<u64, ErrorCause> {
     let mut position = 0u64;
     while position + 10 <= length {
         let header = read_at(file, position, 10)?;
@@ -181,16 +207,16 @@ pub(in crate::tags) fn leading_tags(file: &mut fs::File, length: u64) -> Result<
         position += size;
     }
     if position > length {
-        return Err("The ID3v2 tag exceeds the file".into());
+        return Err(ErrorCause::owned("The ID3v2 tag exceeds the file"));
     }
     Ok(position)
 }
 
 /// Where the trailing tags begin: an APE tag (with its optional header),
 /// then a Lyrics3v2 block and an ID3v1 tag, the order lofty reads them in.
-fn trailing_tags(file: &mut fs::File, floor: u64, length: u64) -> Result<u64, String> {
+fn trailing_tags(file: &mut fs::File, floor: u64, length: u64) -> Result<u64, ErrorCause> {
     let mut end = length;
-    let lookalike = crate::ape_footer::id3v1_lookalike(file).map_err(|e| e.to_string())?;
+    let lookalike = crate::ape_footer::id3v1_lookalike(file).map_err(ErrorCause::external)?;
     if end >= floor + 128 && read_at(file, end - 128, 3)? == b"TAG" && lookalike != Some(end - 128)
     {
         end -= 128;
@@ -212,7 +238,7 @@ fn trailing_tags(file: &mut fs::File, floor: u64, length: u64) -> Result<u64, St
             let flags = u32::from_le_bytes(footer[20..24].try_into().expect("4"));
             let total = size + if flags & (1 << 31) != 0 { 32 } else { 0 };
             if size < 32 || end < floor + total {
-                return Err("The APE tag exceeds the file".into());
+                return Err(ErrorCause::owned("The APE tag exceeds the file"));
             }
             end -= total;
         }
@@ -230,14 +256,14 @@ struct Layout {
     length: u64,
 }
 
-fn layout(file: &mut fs::File, path: &Path, stream: Stream) -> Result<Layout, String> {
-    let length = file.metadata().map_err(|e| e.to_string())?.len();
-    let prefix = leading_tags(file, length)?;
+fn layout(file: &mut fs::File, path: &Path, stream: Stream) -> Result<Layout, ErrorCause> {
+    let length = file.metadata().map_err(ErrorCause::external)?.len();
+    let prefix = leading_tags_diagnostic(file, length)?;
     let start =
         if prefix + 4 <= length && Stream::from_magic(&read_at(file, prefix, 4)?) == Some(stream) {
             Some(prefix)
         } else if stream == Stream::Aac {
-            adts_start(file, path, prefix, length)?
+            adts_start_diagnostic(file, path, prefix, length)?
         } else {
             None
         }
@@ -253,7 +279,7 @@ fn layout(file: &mut fs::File, path: &Path, stream: Stream) -> Result<Layout, St
 }
 
 /// The file's tags around the stand-in stream.
-fn stand_in_bytes(file: &mut fs::File, layout: &Layout) -> Result<Vec<u8>, String> {
+fn stand_in_bytes(file: &mut fs::File, layout: &Layout) -> Result<Vec<u8>, ErrorCause> {
     let mut bytes = read_at(file, 0, layout.prefix as usize)?;
     bytes.extend(layout.stream.stand_in());
     bytes.extend(read_at(
@@ -265,33 +291,37 @@ fn stand_in_bytes(file: &mut fs::File, layout: &Layout) -> Result<Vec<u8>, Strin
 }
 
 /// Split a stand-in into its leading and trailing tag bytes.
-fn split_stand_in(bytes: &[u8], stream: Stream) -> Result<(&[u8], &[u8]), String> {
+fn split_stand_in(bytes: &[u8], stream: Stream) -> Result<(&[u8], &[u8]), ErrorCause> {
     let mut position = 0usize;
     while let Some(size) = bytes.get(position..).and_then(id3v2_size) {
         position = usize::try_from(size)
             .ok()
             .and_then(|size| position.checked_add(size))
             .filter(|end| *end <= bytes.len())
-            .ok_or("The written ID3v2 tag is damaged")?;
+            .ok_or_else(|| ErrorCause::owned("The written ID3v2 tag is damaged"))?;
     }
     let stand_in = stream.stand_in();
     if bytes.get(position..position + stand_in.len()) != Some(stand_in.as_slice()) {
-        return Err("The tag writer changed the audio stream; original file preserved".into());
+        return Err(ErrorCause::owned(
+            "The tag writer changed the audio stream; original file preserved",
+        ));
     }
     Ok((&bytes[..position], &bytes[position + stand_in.len()..]))
 }
 
-fn parse_stand_in(bytes: &[u8], stream: Stream) -> Result<(TaggedFile, NativeTags), String> {
-    let (mut file, native) = strict_or_lenient_id3v1(|mode| {
+fn parse_stand_in(bytes: &[u8], stream: Stream) -> Result<(TaggedFile, NativeTags), ErrorCause> {
+    let (mut file, native) = strict_or_lenient_id3v1_diagnostic(|mode| {
         let options = ParseOptions::new()
             .implicit_conversions(false)
             .read_properties(false)
             .parsing_mode(mode);
         let read = |mut reader: &mut dyn ReadSeek| {
-            reader.seek(SeekFrom::Start(0)).map_err(|e| e.to_string())?;
+            reader
+                .seek(SeekFrom::Start(0))
+                .map_err(ErrorCause::external)?;
             Ok(if stream.mpeg_policy() {
-                let file =
-                    MpegFile::read_from(&mut reader, options).map_err(|e| error_message(&e))?;
+                let file = MpegFile::read_from(&mut reader, options)
+                    .map_err(|e| ErrorCause::external(error_message(&e)))?;
                 let native = NativeTags {
                     id3: file.id3v2().cloned(),
                     ape: file.ape().cloned(),
@@ -299,8 +329,8 @@ fn parse_stand_in(bytes: &[u8], stream: Stream) -> Result<(TaggedFile, NativeTag
                 };
                 (TaggedFile::from(file), native)
             } else {
-                let file =
-                    ApeFile::read_from(&mut reader, options).map_err(|e| error_message(&e))?;
+                let file = ApeFile::read_from(&mut reader, options)
+                    .map_err(|e| ErrorCause::external(error_message(&e)))?;
                 let native = NativeTags {
                     id3: file.id3v2().cloned(),
                     ape: file.ape().cloned(),
@@ -309,16 +339,24 @@ fn parse_stand_in(bytes: &[u8], stream: Stream) -> Result<(TaggedFile, NativeTag
                 (TaggedFile::from(file), native)
             })
         };
-        crate::id3_frames::read_with_fallback(&mut Cursor::new(bytes), read)
+        crate::id3_frames::read_with_fallback_diagnostic(&mut Cursor::new(bytes), read)
             .map(|((file, native), _, phantom)| (without_phantom(file, phantom), native))
     })?;
-    ape_pictures(&native, &mut file)?;
+    ape_pictures_diagnostic(&native, &mut file)?;
     Ok((file, native))
 }
 
 /// The tags of `path` as lofty sees them on the stand-in.
+#[cfg(test)]
 pub(in crate::tags) fn load(path: &Path, stream: Stream) -> Result<TaggedFile, String> {
-    let mut file = fs::File::open(path).map_err(|e| e.to_string())?;
+    load_diagnostic(path, stream).map_err(|error| error.to_string())
+}
+
+pub(in crate::tags) fn load_diagnostic(
+    path: &Path,
+    stream: Stream,
+) -> Result<TaggedFile, ErrorCause> {
+    let mut file = fs::File::open(path).map_err(ErrorCause::external)?;
     let layout = layout(&mut file, path, stream)?;
     Ok(parse_stand_in(&stand_in_bytes(&mut file, &layout)?, stream)?.0)
 }
@@ -373,7 +411,7 @@ impl Seek for Window<'_> {
 fn lofty_properties(
     file: &mut fs::File,
     layout: &Layout,
-) -> Result<lofty::properties::FileProperties, String> {
+) -> Result<lofty::properties::FileProperties, ErrorCause> {
     let mut window = Window {
         file,
         range: layout.start..layout.audio.end,
@@ -384,12 +422,12 @@ fn lofty_properties(
         .parsing_mode(ParsingMode::Strict);
     Ok(match layout.stream {
         Stream::Aac => AacFile::read_from(&mut window, options)
-            .map_err(|e| error_message(&e))?
+            .map_err(|e| ErrorCause::external(error_message(&e)))?
             .properties()
             .to_owned()
             .into(),
         _ => WavPackFile::read_from(&mut window, options)
-            .map_err(|e| error_message(&e))?
+            .map_err(|e| ErrorCause::external(error_message(&e)))?
             .properties()
             .to_owned()
             .into(),
@@ -432,7 +470,7 @@ fn tak_stream_info(data: &[u8]) -> Option<Properties> {
     })
 }
 
-fn properties(file: &mut fs::File, layout: &Layout) -> Result<Properties, String> {
+fn properties(file: &mut fs::File, layout: &Layout) -> Result<Properties, ErrorCause> {
     let stream = layout.stream;
     let start = layout.start + 4;
     let available = layout.audio.end.saturating_sub(start);
@@ -502,17 +540,18 @@ fn properties(file: &mut fs::File, layout: &Layout) -> Result<Properties, String
     }
 }
 
-pub(in crate::tags) fn read(
+pub(in crate::tags) fn read_diagnostic(
     path: &Path,
     stream: Stream,
     include_cover_data: bool,
     rules: &[UserFieldMapping],
     options: &TagOptions,
-) -> Result<AudioEntry, String> {
-    let mut source = fs::File::open(path).map_err(|e| e.to_string())?;
+) -> Result<AudioEntry, ErrorCause> {
+    let mut source = fs::File::open(path).map_err(ErrorCause::external)?;
     let layout = layout(&mut source, path, stream)?;
     let (file, native) = parse_stand_in(&stand_in_bytes(&mut source, &layout)?, stream)?;
-    let mut entry = describe_with_native(path, &file, &native, include_cover_data, rules, options)?;
+    let mut entry =
+        describe_with_native_diagnostic(path, &file, &native, include_cover_data, rules, options)?;
     let audio = layout.audio.end - layout.audio.start;
     let bitrate = |duration: f64| {
         if duration > 0.0 {
@@ -578,14 +617,14 @@ pub(in crate::tags) fn read(
 
 /// Run a lofty-based `mutation` on a stand-in for `original`, then lay the
 /// stand-in's tags around the original audio bytes in `staging`.
-pub(in crate::tags) fn stage(
+pub(in crate::tags) fn stage_diagnostic(
     staging: &mut fs::File,
     original: &Path,
     staged_path: &Path,
     stream: Stream,
-    mutation: impl FnOnce(&mut fs::File, &Path, &Path) -> Result<(), String>,
-) -> Result<(), String> {
-    let mut source = fs::File::open(original).map_err(|e| e.to_string())?;
+    mutation: impl FnOnce(&mut fs::File, &Path, &Path) -> Result<(), ErrorCause>,
+) -> Result<(), ErrorCause> {
+    let mut source = fs::File::open(original).map_err(ErrorCause::external)?;
     let layout = layout(&mut source, original, stream)?;
     let bytes = stand_in_bytes(&mut source, &layout)?;
     // Beside the staging file: that directory is known to be writable.
@@ -594,24 +633,24 @@ pub(in crate::tags) fn stage(
         .tempdir_in(
             staged_path
                 .parent()
-                .ok_or("The staging file has no folder")?,
+                .ok_or_else(|| ErrorCause::owned("The staging file has no folder"))?,
         )
-        .map_err(|e| e.to_string())?;
+        .map_err(ErrorCause::external)?;
     let before = dir.path().join("before");
     let after = dir.path().join("after");
-    fs::write(&before, &bytes).map_err(|e| e.to_string())?;
-    fs::write(&after, &bytes).map_err(|e| e.to_string())?;
+    fs::write(&before, &bytes).map_err(ErrorCause::external)?;
+    fs::write(&after, &bytes).map_err(ErrorCause::external)?;
     let mut edited = fs::OpenOptions::new()
         .read(true)
         .write(true)
         .open(&after)
-        .map_err(|e| e.to_string())?;
+        .map_err(ErrorCause::external)?;
     // The stand-in's own rewrite cost says nothing about the real file.
     let scope = crate::write_cost::Scope::begin();
     mutation(&mut edited, &before, &after)?;
     scope.finish();
     drop(edited);
-    let edited = fs::read(&after).map_err(|e| e.to_string())?;
+    let edited = fs::read(&after).map_err(ErrorCause::external)?;
     let (prefix, trailer) = split_stand_in(&edited, stream)?;
     let (old_prefix, old_trailer) = split_stand_in(&bytes, stream)?;
     let prefix_changed = prefix != old_prefix;
@@ -642,9 +681,11 @@ pub(in crate::tags) fn stage(
     } else {
         crate::write_cost::rewrote_all();
     }
-    staging.sync_all().map_err(|e| e.to_string())?;
+    staging.sync_all().map_err(ErrorCause::external)?;
     if !same_bytes(original, layout.audio, staged_path, prefix.len() as u64)? {
-        return Err("The audio stream changed while writing; original file preserved".into());
+        return Err(ErrorCause::owned(
+            "The audio stream changed while writing; original file preserved",
+        ));
     }
     Ok(())
 }
@@ -652,6 +693,73 @@ pub(in crate::tags) fn stage(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn raw_stream_diagnostics_keep_owned_reason_and_real_io_distinct() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("bad.tta");
+        let bytes = b"not a TTA stream";
+        fs::write(&path, bytes).unwrap();
+        let cause = load_diagnostic(&path, Stream::Tta)
+            .err()
+            .expect("invalid stream must return a diagnostic");
+        assert_eq!(cause.to_string(), "Invalid TTA file: missing stream header");
+        assert_eq!(
+            load(&path, Stream::Tta)
+                .err()
+                .expect("invalid legacy stream"),
+            cause.to_string()
+        );
+        let value = serde_json::to_value(cause).unwrap();
+        assert_eq!(value["kind"], "owned");
+        assert_eq!(value["params"]["value"], "TTA");
+        assert_eq!(value["children"]["what"]["key"], "missing stream header");
+        assert!(matches!(
+            load_diagnostic(&directory.path().join("missing.tta"), Stream::Tta)
+                .err()
+                .expect("missing file must fail"),
+            ErrorCause::External { .. }
+        ));
+        assert_eq!(fs::read(&path).unwrap(), bytes);
+    }
+
+    #[test]
+    fn raw_stream_stage_keeps_typed_callback_errors_and_original_bytes() {
+        let directory = tempfile::tempdir().unwrap();
+        let original = directory.path().join("practice.tta");
+        let bytes = [b"TTA1".as_slice(), &[0u8; 24]].concat();
+        fs::write(&original, &bytes).unwrap();
+        for external in [false, true] {
+            let staged_path = directory
+                .path()
+                .join(if external { "io.tmp" } else { "owned.tmp" });
+            let before = b"unchanged staged bytes";
+            fs::write(&staged_path, before).unwrap();
+            let mut staging = fs::OpenOptions::new()
+                .read(true)
+                .write(true)
+                .open(&staged_path)
+                .unwrap();
+            let cause = stage_diagnostic(
+                &mut staging,
+                &original,
+                &staged_path,
+                Stream::Tta,
+                |_, _, _| {
+                    Err(if external {
+                        ErrorCause::external(std::io::Error::other("Select files first."))
+                    } else {
+                        ErrorCause::owned("Select files first.")
+                    })
+                },
+            )
+            .unwrap_err();
+            assert_eq!(cause.to_string(), "Select files first.");
+            assert_eq!(matches!(cause, ErrorCause::External { .. }), external);
+            assert_eq!(fs::read(&staged_path).unwrap(), before);
+            assert_eq!(fs::read(&original).unwrap(), bytes);
+        }
+    }
 
     #[test]
     fn stand_ins_parse_as_their_tag_policy_formats() {
