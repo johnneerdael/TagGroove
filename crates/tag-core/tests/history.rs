@@ -257,6 +257,97 @@ fn renames_and_directory_moves_reverse_and_reapply() {
     assert!(final_second.exists() && moved.join("cover.jpg").exists());
 }
 
+fn preserved_timestamp_edit_after_move(rename_file: bool, move_folder: bool) {
+    let tmp = tempfile::tempdir().unwrap();
+    let root = dunce::canonicalize(tmp.path()).unwrap();
+    let album = root.join("Album");
+    fs::create_dir(&album).unwrap();
+    let original_path = album.join("01.wav");
+    wav(&original_path);
+    let options = tag_core::TagOptions {
+        preserve_modified_time: true,
+        ..Default::default()
+    };
+    tag_core::write_fields_with_options(
+        &original_path,
+        &fields(&[("TITLE", &["One"])]),
+        false,
+        &[],
+        &options,
+    )
+    .unwrap();
+    let original = fs::read(&original_path).unwrap();
+    let modified = fs::metadata(&original_path).unwrap().modified().unwrap();
+    let original_key = canonical(&original_path);
+    let mut history = journal(&root);
+    let capture = history.begin("Move and save", None, std::slice::from_ref(&original_key));
+    let mut edited_path = original_path.clone();
+    if rename_file {
+        edited_path = album.join("One.wav");
+        tag_core::operations::rename_no_clobber(&original_path, &edited_path).unwrap();
+    }
+    let moved = root.join("Moved album");
+    if move_folder {
+        tag_core::operations::rename_directory_no_clobber(&album, &moved).unwrap();
+        edited_path = moved.join(edited_path.file_name().unwrap());
+    }
+    tag_core::write_fields_with_options(
+        &edited_path,
+        &fields(&[("TITLE", &["Uno"])]),
+        false,
+        &[],
+        &options,
+    )
+    .unwrap();
+    let edited = fs::read(&edited_path).unwrap();
+    assert_ne!(edited, original);
+    assert_eq!(edited.len(), original.len());
+    assert_eq!(
+        fs::metadata(&edited_path).unwrap().modified().unwrap(),
+        modified
+    );
+    let renames = if rename_file {
+        vec![(original_key, key(&edited_path))]
+    } else {
+        Vec::new()
+    };
+    let directories = if move_folder {
+        vec![(key(&album), key(&moved))]
+    } else {
+        Vec::new()
+    };
+    history.commit(capture, &renames, &directories);
+    let replay = history.undo().unwrap();
+    assert!(replay.errors.is_empty(), "{:?}", replay.errors);
+    assert!(
+        fs::read(&original_path).unwrap() == original,
+        "undo restores exact original bytes"
+    );
+    assert!(!edited_path.exists());
+    let replay = history.redo().unwrap();
+    assert!(replay.errors.is_empty(), "{:?}", replay.errors);
+    assert!(
+        fs::read(&edited_path).unwrap() == edited,
+        "redo restores exact edited bytes"
+    );
+    assert!(!original_path.exists());
+}
+
+#[test]
+fn renamed_same_size_timestamp_preserving_save_restores_tags_and_name() {
+    preserved_timestamp_edit_after_move(true, false);
+}
+
+#[test]
+fn moved_folder_same_size_timestamp_preserving_save_restores_tags_and_folder() {
+    preserved_timestamp_edit_after_move(false, true);
+}
+
+#[test]
+fn renamed_file_and_folder_timestamp_preserving_save_restores_all_changes() {
+    preserved_timestamp_edit_after_move(true, true);
+}
+
 fn names(dir: &Path) -> Vec<String> {
     let mut names: Vec<_> = fs::read_dir(dir)
         .unwrap()
@@ -476,6 +567,88 @@ fn grouped_saves_merge_and_unchanged_files_are_not_recorded() {
     write_fields(&untouched, &fields(&[("TITLE", &["New"])])).unwrap();
     history.commit(capture, &[], &[]);
     assert!(history.state().redo.is_none());
+}
+
+#[test]
+fn same_size_preserved_timestamp_edits_keep_every_undo_and_redo_step() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("same-size.wav");
+    wav(&path);
+    let options = tag_core::TagOptions {
+        preserve_modified_time: true,
+        ..Default::default()
+    };
+    tag_core::write_fields_with_options(&path, &fields(&[("TITLE", &["0"])]), false, &[], &options)
+        .unwrap();
+    let original = fs::read(&path).unwrap();
+    let modified = fs::metadata(&path).unwrap().modified().unwrap();
+    let mut history = journal(dir.path());
+    for index in 1..=3 {
+        let before = fs::read(&path).unwrap();
+        let capture = history.begin(&format!("Save {index}"), None, &[key(&path)]);
+        tag_core::write_fields_with_options(
+            &path,
+            &fields(&[("TITLE", &[&index.to_string()])]),
+            false,
+            &[],
+            &options,
+        )
+        .unwrap();
+        let after = fs::read(&path).unwrap();
+        assert_ne!(after, before, "each save changes the stored title");
+        assert_eq!(after.len(), original.len());
+        assert_eq!(fs::metadata(&path).unwrap().modified().unwrap(), modified);
+        history.commit(capture, &[], &[]);
+        assert_eq!(history.state().undo.unwrap().label, format!("Save {index}"));
+    }
+    let latest = fs::read(&path).unwrap();
+    for index in (1..=3).rev() {
+        assert_eq!(history.state().undo.unwrap().label, format!("Save {index}"));
+        history.undo().unwrap();
+        assert_eq!(
+            read_entry(&path).unwrap().fields["TITLE"],
+            [(index - 1).to_string()]
+        );
+    }
+    assert_eq!(fs::read(&path).unwrap(), original);
+    assert!(history.state().undo.is_none());
+    for index in 1..=3 {
+        assert_eq!(history.state().redo.unwrap().label, format!("Save {index}"));
+        history.redo().unwrap();
+        assert_eq!(
+            read_entry(&path).unwrap().fields["TITLE"],
+            [index.to_string()]
+        );
+    }
+    assert_eq!(fs::read(&path).unwrap(), latest);
+    assert!(history.state().redo.is_none());
+}
+
+#[test]
+fn an_empty_write_request_adds_no_step_and_keeps_redo() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("no-write.wav");
+    wav(&path);
+    fs::File::options()
+        .write(true)
+        .open(&path)
+        .unwrap()
+        .set_modified(std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_500_000_000))
+        .unwrap();
+    let original = fs::read(&path).unwrap();
+    let mut history = journal(dir.path());
+    let capture = history.begin("Changed title", None, &[key(&path)]);
+    write_fields(&path, &fields(&[("TITLE", &["Changed"])])).unwrap();
+    history.commit(capture, &[], &[]);
+    history.undo().unwrap();
+    let capture = history.begin("Empty write", None, &[key(&path)]);
+    write_fields(&path, &Fields::new()).unwrap();
+    history.commit(capture, &[], &[]);
+    assert_eq!(fs::read(&path).unwrap(), original);
+    assert!(history.state().undo.is_none());
+    assert_eq!(history.state().redo.unwrap().label, "Changed title");
+    history.redo().unwrap();
+    assert_eq!(read_entry(&path).unwrap().fields["TITLE"], ["Changed"]);
 }
 
 fn snapshots(dir: &Path) -> usize {
