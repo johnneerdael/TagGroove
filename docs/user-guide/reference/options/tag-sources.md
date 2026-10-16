@@ -11,6 +11,13 @@ Defaults to `folder`. **Save image to file** in a tag-source dialog uses this na
 
 For example, `%albumartist% - %album%` can produce `Juniper Vale - Harbour Lights.jpg` when those fields are present and the chosen image is JPEG. The exact extension follows the downloaded image, so do not assume a JPEG result for every source. A shared album image is named once per folder, not once per track title.
 
+The format also has the app’s working-folder context (`%_workingdir%`,
+`%_workingpath%`) and active File List column functions. For example, a
+`$columnValues` column based on `%ALBUM%` uses the newly imported album
+when the external image is saved. Review the resulting path and any file
+errors. This names a separate image; it does not rename audio or choose an
+embedded picture type.
+
 This setting does not search for local images and does not choose the starting folder of **Add cover…**; that is [Directories → Cover art directory](directories.md).
 
 ## MusicBrainz cover size

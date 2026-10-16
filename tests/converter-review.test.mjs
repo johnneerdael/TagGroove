@@ -4,7 +4,7 @@ import {readFile} from 'node:fs/promises';
 import ts from 'typescript';
 const source = await readFile(new URL('../src/converter-review.ts', import.meta.url), 'utf8');
 const javascript = ts.transpileModule(source, {compilerOptions: {target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022}}).outputText;
-const {createConverterInputTracker, createConverterReview, validateFilenameItems, validateTextItems} = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);
+const {converterValidator, createConverterInputTracker, createConverterReview, validateFilenameItems, validateTextItems} = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);
 const request = () => ({paths: ['/a.mp3'], old_pattern: '%1', new_pattern: '%1-$uuid()', columns: []});
 const preview = (token = 'reviewed') => ({plan_token: token, items: [{path: '/a.mp3', target: '/a-fixed.mp3', captures: {'1': ['a']}}]});
 
@@ -127,4 +127,42 @@ test('picker value synchronization ignores duplicate commits but tracks checkbox
   assert.equal(changed(['file', '/records.txt', '', false]), true);
   assert.equal(changed(['file', '/records.txt', '', true]), true);
   assert.equal(changed(['text', '/records.txt', 'literal records', true]), true);
+});
+test('files left unchanged must account for the rest of the selection, and an empty plan never applies', () => {
+  const three = {paths: ['/a.mp3', '/odd.mp3', '/b.mp3'], old_pattern: '%1 - %2', new_pattern: '%2 - %1', columns: []};
+  const renamed = [{path: '/a.mp3', target: '/x.mp3', captures: {}}, {path: '/b.mp3', target: '/y.mp3', captures: {}}];
+  assert.doesNotThrow(() => validateFilenameItems(three, renamed, ['/odd.mp3']));
+  assert.throws(() => validateFilenameItems(three, renamed), /selected files/);
+  assert.throws(() => validateFilenameItems(three, renamed, ['/other.mp3']), /selected files/);
+  assert.throws(() => validateFilenameItems(three, [renamed[1], renamed[0]], ['/odd.mp3']), /selected files/);
+  const state = createConverterReview(validateFilenameItems), attempt = state.begin(three, 'workspace');
+  assert.equal(state.complete(attempt, {plan_token: 'partial', items: renamed, unmatched: ['/odd.mp3']}, three, 'workspace'), true);
+  assert.equal(state.planned, 2);
+  assert.equal(state.canApply(three, 'workspace'), true);
+  const none = state.begin(three, 'workspace');
+  assert.equal(state.complete(none, {plan_token: 'none', items: [], unmatched: three.paths}, three, 'workspace'), true);
+  assert.equal(state.planned, 0);
+  assert.equal(state.canApply(three, 'workspace'), false);
+  assert.throws(() => state.take(three, 'workspace'), /Preview again/);
+  const text = {paths: ['/a.mp3', '/b.mp3', '/c.mp3']};
+  const keyed = [{selection_index: 2, source_line: 1, path: '/c.mp3', fields: {TITLE: ['C']}}, {selection_index: 0, source_line: 4, path: '/a.mp3', fields: {TITLE: ['A']}}];
+  assert.doesNotThrow(() => validateTextItems(text, keyed, ['/b.mp3']));
+  assert.throws(() => validateTextItems(text, keyed), /selected files/);
+  assert.throws(() => validateTextItems(text, keyed, ['/a.mp3']), /selected files/);
+});
+test('the dialog validators accept partial plans that leave unmatched files unchanged', () => {
+  // The same adapter reviewedConverter() passes to createConverterReview.
+  const rename = createConverterReview(converterValidator('filename'));
+  const request = {paths: ['/a.mp3', '/odd.mp3'], old_pattern: '%1 - %2', new_pattern: '%2 - %1', columns: []};
+  const attempt = rename.begin(request, 'workspace');
+  assert.equal(rename.complete(attempt, {plan_token: 'partial', items: [{path: '/a.mp3', target: '/x.mp3', captures: {}}], unmatched: ['/odd.mp3']}, request, 'workspace'), true);
+  assert.equal(rename.planned, 1);
+  assert.equal(rename.take(request, 'workspace').unmatched[0], '/odd.mp3');
+  const missing = rename.begin(request, 'workspace');
+  assert.throws(() => rename.complete(missing, {plan_token: 'bad', items: [{path: '/a.mp3', target: '/x.mp3', captures: {}}]}, request, 'workspace'), /selected files/);
+  const text = createConverterReview(converterValidator('text'));
+  const records = {paths: ['/a.mp3', '/b.mp3'], source: {kind: 'text', text: 'b.mp3|B\nz.mp3|Z'}, mask: '%_filename_ext%|%title%', options: {ansi_codepage: null, case_sensitive_paths: true}};
+  const keyed = text.begin(records, 'workspace');
+  assert.equal(text.complete(keyed, {plan_token: 'keyed', items: [{selection_index: 1, source_line: 1, path: '/b.mp3', fields: {TITLE: ['B']}}], unmatched: ['/a.mp3']}, records, 'workspace'), true);
+  assert.equal(text.canApply(records, 'workspace'), true);
 });

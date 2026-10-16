@@ -104,13 +104,22 @@ Preview the full destination. Unlike a relative output, this layout does
 not nest a new album folder inside the incoming album folder. Check that
 the chosen archive root is writable and the destination is not occupied.
 
+## Working folder and replacement characters
+
+The new-name format can use `%_workingdir%` and `%_workingpath%` from the
+app’s working folder. They are separate from each source file’s own folder.
+Slashes inside captured tag values use the replacement configured under
+**Options → Files**, rather than always becoming underscores. Literal
+backslashes in the new pattern still create destination folders.
+
 ## Gotchas
 
 - `%10`, an undefined numbered part, or a repeated number in the old
   pattern is rejected. Use each old-pattern number once, from `%1` to `%9`.
 - Adjacent captures such as `%1%2` have no separator and are ambiguous.
-- The old pattern must match every selected source for a valid plan.
-  Separate files with different naming conventions before converting.
+- Files whose old names do not match are listed as **No match, not changed**.
+  Matching files can still be renamed together in one undo step. Check each
+  planned path and reported error before assuming every file was renamed.
 - Preview plans expire and are tied to the inputs, selection and source
   files. If the plan is stale or a file changed, run **Preview** again.
 - Avoid duplicate destinations and existing files with those names.

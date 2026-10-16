@@ -70,6 +70,24 @@ fn compiled_filename_converter_reuses_values_without_stale_captures() {
     assert!(converter
         .render("bad.mp3", &EvalContext::new(&fields))
         .is_err());
+    // Filename → Filename leaves a non-matching file unchanged.
+    assert_eq!(
+        converter
+            .try_render("bad.mp3", &EvalContext::new(&fields))
+            .unwrap(),
+        None
+    );
+    assert_eq!(
+        converter
+            .try_render("A - b.mp3", &EvalContext::new(&fields))
+            .unwrap()
+            .unwrap()
+            .target,
+        "B - A.mp3"
+    );
+    assert!(converter
+        .try_render("A - b\n.mp3", &EvalContext::new(&fields))
+        .is_err());
 }
 
 #[test]
@@ -235,13 +253,51 @@ fn text_matching_errors_are_atomic_and_report_line_numbers() {
     let keyed = TextTagConverter::compile("%_filename_ext%|%title%").unwrap();
     for text in [
         "first.mp3|One\nfirst.mp3|Two",
-        "unknown.mp3|One\nsecond.mp3|Two",
-        "first.mp3|One",
+        "unknown.mp3|One\nother.mp3|Two",
+        "first.mp3|One\nmalformed",
     ] {
         assert!(keyed
             .plan(text, &paths(), &TextImportOptions::default())
             .is_err());
     }
+}
+
+#[test]
+fn keyed_text_import_skips_records_of_other_files_and_leaves_unlisted_files_unchanged() {
+    let keyed = TextTagConverter::compile("%_filename_ext%|%title%").unwrap();
+    // A list for the whole album, imported into two selected files.
+    let plans = keyed
+        .plan(
+            "intro.mp3|Intro\nsecond.mp3|Two\nthird.mp3|Three\nfirst.mp3|One\n",
+            &paths(),
+            &TextImportOptions::default(),
+        )
+        .unwrap();
+    assert_eq!(plans.len(), 2);
+    assert_eq!((plans[0].selection_index, plans[0].source_line), (1, 2));
+    assert_eq!(plans[0].fields["TITLE"], vec!["Two"]);
+    assert_eq!((plans[1].selection_index, plans[1].source_line), (0, 4));
+    // A selected file the list does not name keeps its tags.
+    let plans = keyed
+        .plan("first.mp3|One", &paths(), &TextImportOptions::default())
+        .unwrap();
+    assert_eq!(plans.len(), 1);
+    assert_eq!(plans[0].selection_index, 0);
+    let by_path = TextTagConverter::compile("%_path%|%title%").unwrap();
+    let plans = by_path
+        .plan(
+            "/other/first.mp3|Elsewhere\n/music/second.mp3|Two",
+            &paths(),
+            &TextImportOptions::default(),
+        )
+        .unwrap();
+    assert_eq!(plans.len(), 1);
+    assert_eq!(plans[0].path, "/music/second.mp3");
+    // Sequential records still need exactly one line per selected file.
+    let sequential = TextTagConverter::compile("%title%").unwrap();
+    assert!(sequential
+        .plan("One\nTwo\nThree", &paths(), &TextImportOptions::default())
+        .is_err());
 }
 
 #[test]

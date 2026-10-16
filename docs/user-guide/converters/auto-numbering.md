@@ -43,10 +43,10 @@ the current selection count each time.
 | 5 | 3 | Off | `005`, `006`, `007` |
 | 1 | 2 | On, 8 | `01/8`, `02/8`, `03/8` |
 
-Totals are the numbers entered, not an automatic count of each group.
-For different per-disc totals, number each disc separately with its own
-total. A minimum width does not truncate larger numbers: width 2 still
-allows track `100`.
+In the regular wizard, totals are the numbers entered, not an automatic
+count of each group. For different per-disc totals, number each disc
+separately or use the per-folder shortcut described below. A minimum
+width does not truncate larger numbers: width 2 still allows track `100`.
 
 Some tag formats store track/disc components as integers and may not
 retain leading zeros after saving. For consistently padded filenames,
@@ -57,11 +57,18 @@ use `$num(%track%,2)` in a filename format.
 For local files, ++cmd+shift+k++ / ++ctrl+shift+k++ opens a per-folder run.
 It enables directory changes and track resets, while leaving disc-number
 writing off. Arrange the selection so each folder's tracks are together.
+When **Save total track count** is enabled in this shortcut mode, each run
+uses its own final assigned track number. Starting at `1`, a 12-track folder
+and an 8-track folder receive totals `12` and `8`, rather than both `20`.
+Starting at `5` with three tracks instead ends at `7`, so its total is `7`.
+A selected subset or another configured reset can shorten a run; select
+all intended tracks and check every boundary in the preview.
 
-The regular wizard can produce the same result by enabling **Next disc
+For the same track resets in the regular wizard, enable **Next disc
 on change of directory** and **Reset track counter on next disc** while
-leaving **Disc numbers** off. An internal disc boundary can restart tracks
-without writing a disc field.
+leaving **Disc numbers** off. That regular mode keeps the entered total;
+it does not enable the shortcut’s per-run totals. An internal disc boundary
+can restart tracks without writing a disc field.
 
 Directory grouping requires known local folders. For provider documents
 without those paths, the directory control is unavailable; use a reliable

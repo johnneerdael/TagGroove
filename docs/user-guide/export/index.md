@@ -68,10 +68,27 @@ selected audio file's folder as its base; an absolute name chooses a separate
 location. Fields in a name use the first row of the output group, so the name
 should identify the group rather than an arbitrary track.
 
+Choosing a configuration prefills a literal `$filename` default.
+`$filename(html)` changes `export.txt` to `export.html`;
+`$filename(tracks.cue)` supplies that filename in the current output folder.
+With `/lists/export.txt` currently shown, `$filename(sub/report.csv)` supplies
+`/lists/sub/report.csv`. A rooted name supplies its own destination.
+
+When that argument contains placeholders, functions or quoting, choosing the
+configuration clears the name field so the renderer can evaluate it for each
+output group. For `$filename(%EXPORT_NAME%,utf-8)` with
+`EXPORT_NAME = report.csv`, leaving the field empty produces `report.csv`,
+not `out.report.csv`. Type a name after choosing the configuration to override
+it deliberately.
+
 Leave this field empty to use `$filename(...)` from the template. A nonempty
 dialog name overrides the template's name while leaving its encoding choice
 in effect. For example, `$filename(csv,utf-8)` chooses a `.csv` default but does
 not replace an explicitly entered `report.txt` name.
+
+`%_workingdir%` and `%_workingpath%` refer to the folder the file list was
+last changed to, not necessarily the first audio file’s folder. They are
+available in report text and output-name expressions.
 
 Use UTF-8 for new reports. Set **Write BOM** under
 [Options → Export](../reference/options/export.md) when the receiving program

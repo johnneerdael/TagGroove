@@ -85,15 +85,23 @@ OpenTag reads the native Vorbis Comments and hides an unexpected prepended ID3v2
 
 ### Raw streams and unusual tag layouts
 
-The extended AAC tag policy expects recognized ADTS data after any supported prefix. Junk or padding between an ID3v2 prefix and the first AAC frame can miss that route and lose the APE/policy capabilities described for normal raw AAC. Malformed stream headers can be refused.
+Raw `.aac` detection accepts up to 64 KiB of padding or junk after leading ID3v2 tags, followed by three consecutive compatible ADTS frames. This search applies only to `.aac` and stops at an MPEG audio frame. Recognized streams use the applicable APE/ID3v1 options and retain the intervening bytes. Malformed headers or data outside that bound can still be refused.
 
 TAK and OptimFROG tag paths do not decode/re-encode the audio. Existing tests use specification-built streams and independent probes; real original-encoder/device qualification is separate. OptimFROG DualStream uses the same recognized OFR header and codec label in this implementation.
 
-Some unusual APE footer/header layouts and compressed/encrypted ID3 frames have additional restrictions. Unsupported encrypted-frame revision conversion is refused to keep the original file. A successful read is not a promise that every malformed or encrypted structure can be rewritten.
+Footer-only APEv2 tags are read without treating the preceding 32 audio bytes as a header; an internal `TAG` sequence is not an ID3v1 tag. APE tags left untouched by the selected write policy retain their bytes. Some other unusual APE footer/header layouts and compressed/encrypted ID3 frames have additional restrictions. Unsupported encrypted-frame revision conversion is refused to keep the original file. A successful read is not a promise that every malformed or encrypted structure can be rewritten.
+
+### MP4 metadata preservation
+
+MP4 iTunes fields take precedence over Nero metadata; Nero supplies missing values. Editing or deleting a mapped field also updates or removes its existing Nero copy. OpenTag does not add newly created fields to the Nero set. For a file without chapters, an edited value too long for its existing Nero space is written to iTunes only; the older Nero value remains hidden by iTunes precedence.
+
+Nero artwork is displayed when iTunes artwork is absent. A cover edit writes the result to iTunes artwork and removes the Nero copy, even if it was hidden. Ordinary text-field edits preserve that artwork copy. Unrelated `udta/indx` data is retained but is not exposed for editing.
+
+Nonstandard `plID` items survive unrelated edits. Values of 1–8 bytes can appear as `ITUNESALBUMID`; editing that field writes the standard 8-byte representation. These constructed-fixture checks do not certify every original Nero or Mp3tag version’s output. Keep copies of unusual files and inspect saved tags in the receiving application.
 
 ### DSD
 
-DSF metadata uses its terminal ID3v2 area. DSDIFF can additionally supply DIIN artist/title when ID3 lacks them. Duplicate DSDIFF ID3 chunks are refused for field/cover writes instead of being silently merged; removal can still handle them. A DST index can prevent edits that would move indexed sound data. These are container restrictions, not a request to decode DSD audio to PCM.
+DSF metadata uses its terminal ID3v2 area. DSF and DSDIFF can preserve unedited compressed or opaque encrypted ID3v2 frames byte for byte. That does not decrypt them; unsynchronization, extended headers, footers and merged duplicate frames still limit preservation. DSDIFF can additionally supply DIIN artist/title when ID3 lacks them. Duplicate DSDIFF ID3 chunks are refused for field/cover writes instead of being silently merged; removal can still handle them. A DST index can prevent edits that would move indexed sound data. These are container restrictions, not a request to decode DSD audio to PCM.
 
 ### Matroska and WebM
 
@@ -122,4 +130,4 @@ This table is checked against the baseline source and relevant format tests, not
 - [Information placeholders](placeholders.md)
 - [Filter syntax](filter-syntax.md)
 
-<!-- verified: baseline007a806 crates/tag-core/src/tags.rs audio_extension, ordered_tags, write_tag_fields; tag_policy.rs; raw_streams.rs; container_formats.rs/dsd.rs; matroska.rs describe/write/mapping_rules; asf/mod.rs; mp4_chapters.rs/subsongs.rs; tests/{tag_policy,raw_streams,formats_edge,containers,asf,mp4_chapters,flac_id3}.rs. No current all-platform/runtime format certification. Historical verification notes were checked against source where later chapter/legacy-track behavior superseded them. -->
+<!-- verified: current main4e4d5fc with merged26 format-preservation notes; original baseline007a806 crates/tag-core/src/tags.rs audio_extension, ordered_tags, write_tag_fields; tag_policy.rs; raw_streams.rs; container_formats.rs/dsd.rs; matroska.rs describe/write/mapping_rules; asf/mod.rs; mp4_chapters.rs/subsongs.rs; tests/{tag_policy,raw_streams,formats_edge,containers,asf,mp4_chapters,flac_id3}.rs. No current all-platform/runtime format certification. Historical verification notes were checked against source where later chapter/legacy-track behavior superseded them. -->

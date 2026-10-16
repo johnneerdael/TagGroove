@@ -65,8 +65,9 @@ can use expressions evaluated in the first row of the output group.
 in effect.
 
 Encoding names are `utf-8`, `utf-16` and `ansi`, ignoring case and surrounding
-whitespace. ANSI uses the system codepage, with Windows-1252 as the fallback
-on macOS/Linux. Unrepresentable characters become `?`; use Unicode to preserve
+whitespace. Omitting the encoding argument selects ANSI: the system codepage
+on Windows, and Windows-1252 on macOS/Linux. Bundled configurations already
+name a Unicode encoding. Unrepresentable characters become `?`; use Unicode to preserve
 all names. Template-file encoding and report encoding are independent.
 
 ### `$loop`: sort before rendering
@@ -166,6 +167,10 @@ Relative paths use the final destination, including a dialog override. For
 `/Music/Harbour/01.mp3` reported in `/Reports/catalogue.txt`, the relative name
 is `../Music/Harbour/01.mp3`. On Windows, a file on another drive or UNC share
 stays absolute; there is no relative path between volumes.
+
+`%_workingdir%` and `%_workingpath%` use the app’s working folder in both
+report text and output-name expressions. They differ from each input audio
+file’s own folder placeholders.
 
 Normal [placeholders](../reference/placeholders.md) and
 [scripting functions](../reference/scripting/index.md) are available. Real file

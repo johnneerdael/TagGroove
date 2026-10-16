@@ -659,6 +659,7 @@ impl ActionHost for NativeHost {
                     partition: partition_template.clone(),
                     app_directory: Some(self.settings.app_directory.clone()),
                     app_data_directory: Some(self.settings.app_data_directory.clone()),
+                    working_directory: self.settings.working_directory.clone(),
                     ansi_codepage: self.settings.ansi_codepage(),
                     timestamp_seconds: Some(self.settings.timestamp_seconds),
                     bom: write_bom,

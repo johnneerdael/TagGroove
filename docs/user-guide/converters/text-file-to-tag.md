@@ -96,11 +96,17 @@ of the mask or the capitalization of imported values.
 - Captured whitespace is preserved. Put fixed padding in the mask or clean
   it in a later field-formatting step.
 
-There must be exactly one record per selected file, including when using
-keys. Every selected file must be matched once. Extra records, duplicate
-keys, missing records and incomplete matches reject the plan before any
-tags are imported. A final line ending is allowed; an extra blank record
-still counts as a record.
+A positional import requires exactly one record per selected file, in the
+intended order. A keyed import can contain rows for files outside the
+selection; those rows are skipped. Selected files with no matching row keep
+their tags and appear as **No match, not changed**. This lets you select a
+few tracks from a whole-album text listing without deleting its other rows.
+If no row names a selected file, the plan reports that no changes are planned.
+
+Both modes reject malformed records, duplicate selection paths and repeated
+matches for the same selected file before importing tags. A final line ending
+is allowed; an extra blank record is still a record, not an ignored comment.
+Inspect both matched and unmatched rows before applying a partial plan.
 
 ## Gotchas
 
