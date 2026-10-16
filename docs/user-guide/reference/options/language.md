@@ -48,7 +48,8 @@ falls back to English; removing an override restores its bundled language.
 
 Language selection does not translate metadata, filenames, paths, format
 strings, field identifiers or user-defined names. Installed web sources retain
-their authored names and settings prose. OpenTag-owned controls still follow
+their authored names, search labels, result column names and settings prose.
+OpenTag-owned controls and default search labels still follow
 the selected application language.
 
 Some operating-system controls, library messages and backend text added after

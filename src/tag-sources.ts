@@ -555,7 +555,7 @@ export class TagSourcesUI {
     const rowAttributes = (i:number) => `tabindex="${i === Math.max(chosen,0) ? 0 : -1}" data-index="${i}" aria-selected="${i === chosen}" class="${i === chosen ? 'selected' : ''}"`;
     const resultMarkup = () => {
       if (!results.length) return '';
-      if (web) return `<table class="ts-table ts-results" aria-label="Search results"><thead><tr>${webColumns.map(column => `<th>${html(column)}</th>`).join('')}</tr></thead><tbody translate="no">${results.map((_,i) => `<tr ${rowAttributes(i)}>${(webRows[i]?.values || []).map(value => `<td title="${html(value)}">${html(value)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+      if (web) return `<table class="ts-table ts-results" aria-label="Search results"><thead><tr>${webColumns.map(column => `<th translate="no">${html(column)}</th>`).join('')}</tr></thead><tbody translate="no">${results.map((_,i) => `<tr ${rowAttributes(i)}>${(webRows[i]?.values || []).map(value => `<td title="${html(value)}">${html(value)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
       const mb = provider === 'musicbrainz';
       const head = freedb ? '<th>Artist</th><th>Title</th><th class="ts-num">Year</th><th class="ts-wide">Genre</th><th class="ts-wide">Category</th><th class="ts-wide">Disc ID</th><th class="ts-num ts-wide">Tracks</th>'
         : `${mb ? '<th class="ts-num ts-wide">Score</th>' : ''}<th>Artist</th><th>Title</th><th class="ts-num">Year</th><th class="ts-wide">Country</th><th class="ts-wide">Label</th><th class="ts-wide">Cat. no.</th><th class="ts-wide">Format</th>${mb ? '<th class="ts-num ts-wide">Tracks</th>' : ''}`;
@@ -568,10 +568,10 @@ export class TagSourcesUI {
     const chosenMarkup = () => {
       const r = results[chosen];
       if (!r) return '';
-      if (web) return `<img class="ts-thumb" alt="Release artwork" hidden><div><strong translate="no">${html(r.title)}</strong>${r.url ? `<span class="ts-url">${html(r.url)} ${preview(r.url)}</span>` : ''}</div>`;
+      if (web) return `<img class="ts-thumb" alt="Release artwork" hidden><div><strong translate="no">${html(r.title)}</strong>${r.url ? `<span class="ts-url"><span translate="no">${html(r.url)}</span> ${preview(r.url)}</span>` : ''}</div>`;
       const value = (text:string) => text ? `<span translate="no">${html(text)}</span>` : '';
       const details = freedb ? [value(r.year),value(r.format),`<span data-verbatim>${html(`Disc ID ${freedbId(r).disc}`)}</span>`] : [r.year,r.country,r.label,r.catalog_number,r.format].map(value).concat(r.barcode ? `<span data-verbatim>${html(`Barcode ${r.barcode}`)}</span>` : '');
-      return `${freedb ? '' : '<img class="ts-thumb" alt="Release artwork" hidden>'}<div><strong translate="no">${html(r.artist)} – ${html(r.title)}</strong><span>${details.filter(Boolean).join(' · ')}</span>${r.url ? `<span class="ts-url">${html(r.url)} ${preview(r.url)}</span>` : ''}</div>`;
+      return `${freedb ? '' : '<img class="ts-thumb" alt="Release artwork" hidden>'}<div><strong translate="no">${html(r.artist)} – ${html(r.title)}</strong><span>${details.filter(Boolean).join(' · ')}</span>${r.url ? `<span class="ts-url"><span translate="no">${html(r.url)}</span> ${preview(r.url)}</span>` : ''}</div>`;
     };
 
     const choose = (index:number, focus = false) => {
@@ -676,7 +676,7 @@ export class TagSourcesUI {
       : [['artist_album','Artist and album'],['text','Free text'],['release_id',provider === 'musicbrainz' ? 'Release ID (MBID) or address' : 'Release ID or address'],['barcode','Barcode'],['catalog_number','Catalog number']];
     const renderSearch = (mode?:SearchMode) => {
       release = undefined;
-      const searchFields = web ? `<div class="ts-search ts-web-search">${web.search_by.map((field,i) => `<label class="field"><span>${html(field.label.toUpperCase())}</span><input id="ts-web-${i}" value="${html(webValues[i] || '')}" autocomplete="off" spellcheck="false"></label>`).join('')}<button id="ts-search" class="ts-search-button">Search</button></div>` : '';
+      const searchFields = web ? `<div class="ts-search ts-web-search">${web.search_by.map((field,i) => `<label class="field"><span ${field.default_label?'':'translate="no"'}>${html(field.label)}</span><input id="ts-web-${i}" value="${html(webValues[i] || '')}" autocomplete="off" spellcheck="false"></label>`).join('')}<button id="ts-search" class="ts-search-button">Search</button></div>` : '';
       dialog.innerHTML = `<header data-verbatim="${html(name)}">${html(name)}</header><div class="dialog-content">
         ${searchFields}<div class="ts-search ${web ? 'ts-web-unused' : ''} ${modes.length === 1 ? 'ts-single-mode' : ''}"><label class="field" ${modes.length === 1 ? 'hidden' : ''}><span>SEARCH BY</span><select id="ts-mode">${modes.map(([value,label]) => `<option value="${value}">${html(label)}</option>`).join('')}</select></label>
         <div class="field-pair" id="ts-pair"><label class="field"><span>ARTIST</span><input id="ts-artist" value="${html(prefill.artist)}" autocomplete="off" spellcheck="false"></label><label class="field"><span>ALBUM</span><input id="ts-album" value="${html(prefill.album)}" autocomplete="off" spellcheck="false"></label></div>
@@ -732,9 +732,9 @@ export class TagSourcesUI {
       const replacing = dialog.querySelector<HTMLInputElement>('#ts-cover-replace')?.checked ?? true;
       const saving = dialog.querySelector<HTMLInputElement>('#ts-cover-save')?.checked ?? storage.get(saveCoverKey) === '1';
       section.innerHTML = `<div class="ts-cover-preview"><img alt="Selected artwork" hidden></div><div><label class="action-check"><input type="checkbox" id="ts-cover-write" ${writing ? 'checked' : ''}> Write cover art</label>
-        <label class="field"><span>ARTWORK</span><select id="ts-cover-choice">${covers.map((c,i) => `<option value="${i}" ${i === coverIndex ? 'selected' : ''}>${i+1}: ${html(c.kind)}${c.width && c.height ? ` (${c.width}×${c.height})` : ''}</option>`).join('')}</select></label>
+        <label class="field"><span>ARTWORK</span><select id="ts-cover-choice">${covers.map((c,i) => `<option translate="no" value="${i}" ${i === coverIndex ? 'selected' : ''}>${i+1}: ${html(c.kind)}${c.width && c.height ? ` (${c.width}×${c.height})` : ''}</option>`).join('')}</select></label>
         <label class="action-check"><input type="checkbox" id="ts-cover-replace" ${replacing ? 'checked' : ''}> Replace existing artwork</label>
-        <label class="action-check" title="Saved next to the written files; set the name in Options → Tag Sources"><input type="checkbox" id="ts-cover-save" ${saving ? 'checked' : ''}> Save image to file <code>${html(coverTemplate())}</code></label>
+        <label class="action-check" title="Saved next to the written files; set the name in Options → Tag Sources"><input type="checkbox" id="ts-cover-save" ${saving ? 'checked' : ''}> Save image to file <code translate="no">${html(coverTemplate())}</code></label>
         <button type="button" id="ts-cover-extract">Save cover as…</button><p class="ts-cover-note" role="status"></p></div>`;
       $('#ts-cover-choice').addEventListener('change',event => { coverIndex = Number((event.target as HTMLSelectElement).value); void loadImage(covers[coverIndex].thumb || covers[coverIndex].url,$<HTMLImageElement>('.ts-cover-preview img')); });
       $('#ts-cover-write').addEventListener('change',syncReview);
@@ -820,7 +820,7 @@ export class TagSourcesUI {
       dialog.innerHTML = `<header translate="no">${html(name)}: ${html(loaded.artist)} – ${html(loaded.title)}</header><div class="dialog-content">
         <div class="ts-review ${coversOnly ? 'ts-cover-only' : ''}">${coversOnly ? '' : fieldSection}<section class="ts-cover" aria-label="Artwork"></section></div>
         ${coversOnly ? '' : matchSection}
-        ${loaded.url ? `<p class="ts-url">${html(loaded.url)} ${preview(loaded.url)}</p>` : ''}<p class="ts-status" role="status" aria-live="polite"></p></div>
+        ${loaded.url ? `<p class="ts-url"><span translate="no">${html(loaded.url)}</span> ${preview(loaded.url)}</p>` : ''}<p class="ts-status" role="status" aria-live="polite"></p></div>
         <div class="dialog-footer"><button id="ts-back">Back</button><button data-close>Cancel</button><button class="primary" id="ts-apply"></button></div>`;
       $('[data-close]').addEventListener('click',() => dialog.close());
       $('#ts-back').addEventListener('click',() => { clearError(); renderSearch(results.length || web ? undefined : freedb ? 'disc_id' : 'release_id'); });

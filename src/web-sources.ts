@@ -1,7 +1,7 @@
 import { menuSegments, mnemonicMarkup } from './action-ui';
 
 /** One `[SearchBy]` field: its label and the format string that fills it from the first selected file. */
-export type SearchField = {label:string;format:string};
+export type SearchField = {label:string;format:string;default_label?:boolean};
 /** A `.src` file in the sources folder. `menu` is its file name without extension: `#` makes submenus, `&` marks access keys. */
 export type WebSourceInfo = {id:string;menu:string;name:string;search_by:SearchField[];direct:boolean};
 export type WebSettingsInfo = {id:string;menu:string};

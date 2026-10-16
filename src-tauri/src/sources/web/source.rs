@@ -40,6 +40,8 @@ pub enum Encoding {
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
 pub struct SearchField {
     pub label: String,
+    /// Only labels synthesized by OpenTag follow the application language.
+    pub default_label: bool,
     pub format: String,
     #[serde(skip)]
     pub template: String,
@@ -162,6 +164,7 @@ fn search_fields(value: &str) -> Vec<SearchField> {
     if value.is_empty() {
         return vec![SearchField {
             label: "Artist + Album".into(),
+            default_label: true,
             format: "$if2(%albumartist%,%artist%) %album%".into(),
             template: "%s".into(),
         }];
@@ -175,16 +178,19 @@ fn search_fields(value: &str) -> Vec<SearchField> {
             match pieces.as_slice() {
                 [format] => SearchField {
                     label: "Search".into(),
+                    default_label: true,
                     format: format.trim().into(),
                     template: "%s".into(),
                 },
                 [label, format] => SearchField {
                     label: label.replace('&', "").trim().into(),
+                    default_label: false,
                     format: format.trim().into(),
                     template: "%s".into(),
                 },
                 [label, format, template, ..] => SearchField {
                     label: label.replace('&', "").trim().into(),
+                    default_label: false,
                     format: format.trim().into(),
                     template: (*template).into(),
                 },
@@ -390,6 +396,26 @@ impl SourceFile {
 mod tests {
     use super::*;
 
+    #[test]
+    fn search_label_ownership_distinguishes_defaults_from_authored_identical_text() {
+        for input in ["", "%artist%"] {
+            let fields = search_fields(input);
+            assert_eq!(fields.len(), 1);
+            assert!(fields[0].default_label);
+            let value = serde_json::to_value(&fields[0]).unwrap();
+            assert_eq!(value["default_label"], true);
+            assert!(value.get("template").is_none());
+        }
+        for label in ["Search", "Artist + Album", "MiXeD label", "ARTIST"] {
+            let fields = search_fields(&format!("{label}||%artist%||artist=%s"));
+            assert_eq!(fields[0].label, label);
+            assert!(!fields[0].default_label);
+            let value = serde_json::to_value(&fields[0]).unwrap();
+            assert_eq!(value["default_label"], false);
+            assert_eq!(value["label"], label);
+        }
+    }
+
     fn files(
         list: &'static [(&'static str, &'static str)],
     ) -> impl Fn(&str) -> Result<String, String> {
@@ -421,11 +447,13 @@ mod tests {
             [
                 SearchField {
                     label: "Artist".into(),
+                    default_label: false,
                     format: "%artist%".into(),
                     template: "artist=%s".into()
                 },
                 SearchField {
                     label: "Album".into(),
+                    default_label: false,
                     format: "%album%".into(),
                     template: "&album=%s".into()
                 },

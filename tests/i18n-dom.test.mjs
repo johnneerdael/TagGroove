@@ -125,6 +125,48 @@ test('the actual Language options preserve authored catalog names in System defa
   }
 });
 
+test('web-source result headers and search labels remain authored while application table/search controls translate',()=>{
+  const custom={ARTIST:'Performer',Artist:'Performer',Help:'Assistance',Title:'Name',Search:'Find','Artist + Album':'Performer + Record','Search results':'Found records',Preview:'Inspect','Release artwork':'Release image','More results':'Show more','{length} of {total} shown':'{length} / {total} displayed'};
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]]){
+    const p=page();
+    try{
+      const webColumns=['ARTIST','Help','Title','MiXeD < & >'],values=['Help','Title','My  Files\nTitle','< & >'];
+      const results=[{artist:'Help',title:'Title',year:'2026',country:'Help',label:'Help',catalog_number:'Title',format:'Help',track_count:1,score:100,id:'category/disc',url:'Help'}];
+      const options={results,chosen:0,html:esc,rowAttributes:()=> 'data-index="0" aria-selected="true" tabindex="0"',webColumns,webRows:[{values}],total:2};
+      const render=rendererVariable(tagSourceParsed,'resultMarkup',{...options,web:true});
+      p.body.innerHTML=render();const t=p.translate(locale,catalog);
+      assert.deepEqual([...p.body.querySelectorAll('th')].map(cell=>cell.textContent),webColumns);
+      assert.deepEqual([...p.body.querySelectorAll('td')].map(cell=>[cell.textContent,cell.title]),values.map(value=>[value,value]));
+      assert.equal(p.body.querySelector('table').getAttribute('aria-label'),t.t('Search results'));
+      assert.equal(p.body.querySelector('tr[data-index]').getAttribute('aria-selected'),'true');
+      p.translate('en');assert.deepEqual([...p.body.querySelectorAll('th')].map(cell=>cell.textContent),webColumns);
+      const web={search_by:[{label:'ARTIST'},{label:'Search'},{label:'MiXeD label'},{label:'Search',default_label:true},{label:'Artist + Album',default_label:true}]};
+      p.body.innerHTML=rendererVariable(tagSourceParsed,'searchFields',{web,webValues:['Help','Title'],html:esc});p.translate(locale,catalog);
+      assert.deepEqual([...p.body.querySelectorAll('label > span')].map(span=>span.textContent),['ARTIST','Search','MiXeD label',t.t('Search'),t.t('Artist + Album')]);
+      assert.equal(p.body.querySelector('#ts-web-0').value,'Help');assert.equal(p.body.querySelector('#ts-web-1').value,'Title');
+      assert.equal(p.body.querySelector('#ts-search').textContent,t.t('Search'));
+      for(const provider of ['musicbrainz','discogs','freedb']){
+        const render=rendererVariable(tagSourceParsed,'resultMarkup',{...options,web:false,provider,freedb:provider==='freedb',freedbId:()=>({category:'Help',disc:'Title'})});
+        p.body.innerHTML=render();p.translate(locale,catalog);
+        assert.ok([...p.body.querySelectorAll('th')].some(cell=>cell.textContent===t.t('Artist')));
+        assert.equal(p.body.querySelector('tbody td[title="Help"]').textContent,'Help');
+        assert.equal(p.body.querySelector('#ts-more').textContent,t.t('More results'));
+      }
+      for(const web of [false,true]){
+        const chosen=rendererVariable(tagSourceParsed,'chosenMarkup',{results,chosen:0,web,freedb:false,html:esc,preview:()=>'<button class="ts-preview">Preview</button>'});
+        p.body.innerHTML=chosen();p.translate(locale,catalog);
+        assert.equal(p.body.querySelector('.ts-url > span[translate="no"]').textContent,'Help');
+        assert.equal(p.body.querySelector('.ts-preview').textContent,t.t('Preview'));
+      }
+      p.body.innerHTML='<section class="ts-cover"></section>';
+      const renderCover=rendererVariable(tagSourceParsed,'renderCover',{release:{covers:[{kind:'Help',url:'https://example.invalid/cover.jpg'}]},dialog:p.body,coverIndex:0,$:selector=>p.body.querySelector(selector),storage:{get:()=>null},saveCoverKey:'fixture',syncReview:()=>{},coverTemplate:()=> 'Help',html:esc,loadImage:()=>{},extractCover:()=>{}});
+      renderCover();p.translate(locale,catalog);
+      assert.equal(p.body.querySelector('code').textContent,'Help');
+      assert.equal(p.body.querySelector('#ts-cover-choice').value,'0');
+      assert.equal(p.body.querySelector('#ts-cover-choice option').textContent,'1: Help');
+    }finally{p.close();}
+  }
+});
 test('source-authored settings prose remains authoritative while OpenTag controls and errors translate',async()=>{
   const custom={Save:'Store',Cancel:'Back',Help:'Assistance',Title:'Name','Select files first.':'Choose files','Save tags':'Write tags','{title} needs a number.':'A number is required for {title}.','This tag source has no settings.':'There are no settings.'};
   for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]]){
