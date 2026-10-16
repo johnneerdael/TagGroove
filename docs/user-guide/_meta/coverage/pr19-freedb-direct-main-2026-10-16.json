@@ -1,0 +1,138 @@
+{
+  "scope": "Complete gnudb feature extracted directly onto actualmain; no17localization/typedbatch/no18addedproviders, historical stacked qualification not reused.",
+  "implementation_source": "1705795ee81d57e32aa3193a3dd88e70be4122f1",
+  "guide_base": "1fe6a800ac1096494b33d3b461286ad2d91e1a13",
+  "canonical_sources": {
+    "customization/options/tag-sources/freedb.html": "e2d4891619221610f3069fbd4b2afbfa451df976b714f316229add66092cb638",
+    "customization/options/tag-sources/local-freedb.html": "96916cee9765446ba4537f5703ef1c5639051b24b8ab65c6fa48293643239454"
+  },
+  "canonical_qualification": "Preserved existing pinned canonical topic pointers; new behavior claims checked against this actualOpenTag source. No new canonical fetch or universal Mp3tag parity claim.",
+  "page_sha256": {
+    "tag-sources/freedb.md": "bc77801b5f2724c1240ee2fae7c2d9c577f4caea416a9ae4d1cfd8dacce7545a",
+    "tag-sources/local-freedb.md": "3a21b51539567c72cf083061c4644858ca23327b6789e35c1b31ead7a1b09512",
+    "reference/menus/tag-sources.md": "959a2cd4ac9630c315b166c107b4469fa0e8aafb47c07fae6167136a9b1888a9",
+    "reference/options/tag-sources-freedb.md": "2fda72d9428b67ddf0583a3095938a7c7618ff236e0f7d4685546c7f035c9ad4",
+    "reference/options/tag-sources-local-freedb.md": "f74b4b62f3e17e63275d5277282f27f0a12299abbc42743588786f9edd5040d0",
+    "reference/options/tag-sources.md": "7fb631f98a5e3e54428d5c5a095c29f2a801e9ecd78fae9422f089ce2953642b"
+  },
+  "implementation_sha256": {
+    "src/tag-sources.ts": "1276353a2a7dac07e9a317a41209d58c4cd4840ab49b99599d51dd96f408fe47",
+    "src/main.ts": "34a069c86fa9048489676635ca8b84005a6f4f2caffe1a452efc00e424bce51a",
+    "src-tauri/src/sources/freedb.rs": "76bfe51ec67f41a5924f50ba5bd60661da294c0e2c510fb9df96ab53ca3a39e4",
+    "src-tauri/src/sources/freedb_index.rs": "9d3c7d5ded89a0ba381694eb97aae19d99ccc60571ad21d80754eca22ae8ddeb",
+    "src-tauri/src/sources/mod.rs": "e04d20a34b2466695dab14627acfb25b3e72b81f9162f6af71739208854e63cb",
+    "src-tauri/src/sources/http.rs": "b23052539794ab559ed4e6e9767b18745e14c863df24536fc6522c15c54f33a5",
+    "src-tauri/src/lib.rs": "d7f5307f09a7b94d41b341b791a76ed41afca3ecc9b86e195439b1b84eb01de4"
+  },
+  "validation": {
+    "rust": {
+      "passed": 912,
+      "failed": 0,
+      "ignored": 4,
+      "summaries": 67
+    },
+    "UI": 370,
+    "clippy": "PASS workspace all targets -Dwarnings",
+    "build": "PASS",
+    "fmt": "PASS",
+    "guide_ready": 166,
+    "guide_drafts": 21,
+    "guide_sections": 1394,
+    "publication": 8,
+    "gate": 60,
+    "release": 25,
+    "qualified_lint": "PASS only existing documented queue-key exception",
+    "native_macOS_fixture": {
+      "passed": 22,
+      "failed": 0,
+      "scope": "actual isolated macOS native UI, English main transport, mock policy server, copied2audio; image choices notimagewrite"
+    },
+    "live_query": {
+      "binary": "/Users/jneerdael/Scripts/opentag-worktrees/codex-pr19-direct-main/target/debug/deps/opentag_lib-458e2cd0e5d65901",
+      "sha256": "7485a7bc05a2b74ef5376cd1fac61226bdc132410353b75acab4c46736305998",
+      "exit": 0,
+      "stdout": "\nrunning 1 test\ngnudb matches: [Match { category: \"data\", disc_id: \"0e026980\", artist: \"Sensitize\", title: \"Falling Through\" }]\ntest sources::tests::live_gnudb_query ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 310 filtered out; finished in 0.67s\n\n",
+      "stderr": "",
+      "scope": "Actual own19direct native default configured gnudb HTTPS query using source-defined handshake; no credentials invented. This is endpoint/query evidence, not matching/read/write/artwork or all-live-service coverage."
+    }
+  },
+  "logs": {
+    "workspace-tests": {
+      "path": "/tmp/opentag-pr19-direct-workspace-tests.log",
+      "sha256": "7fc752515acc66814f98bf23c60a12a3a9f527289b71fe5e30102de3493c430e"
+    },
+    "workspace-tests-2": {
+      "path": "/tmp/opentag-pr19-direct-workspace-tests-2.log",
+      "sha256": "bf83dbcd2cb11e521cbb545f6c056879ff0a128c783a2f10a1907bd138ed819b"
+    },
+    "ui-red": {
+      "path": "/tmp/opentag-pr19-direct-ui-red.log",
+      "sha256": "cfb8c79a92e954e80df180297cf2ec6dccd5270a852ddfb908e4517fb581ba7e"
+    },
+    "ui-green": {
+      "path": "/tmp/opentag-pr19-direct-ui-green.log",
+      "sha256": "bb79d177e40b3171d411081073ee9ed099d770b0d6c1845e4a76a02487902b23"
+    },
+    "ui": {
+      "path": "/tmp/opentag-pr19-direct-ui.log",
+      "sha256": "1fe053c7d0bc7426a01e5da63a51f8b5b452d875f7634c36d35dd0d9773fe53e"
+    },
+    "ui-final": {
+      "path": "/tmp/opentag-pr19-direct-ui-final.log",
+      "sha256": "44258a3896d8cedac22f1e6e0b1ec199b5441e4c69058dc69c14d62c08a27bc3"
+    },
+    "build": {
+      "path": "/tmp/opentag-pr19-direct-build.log",
+      "sha256": "6398c406d697b5aa30774412fed53beda4d68fadfadb5d02b829be6fb1cb8d84"
+    },
+    "build-final": {
+      "path": "/tmp/opentag-pr19-direct-build-final.log",
+      "sha256": "78b5be331f1e673a3f82571c54e7b5b508e9a3d5a79f18db621dcdfa7029c219"
+    },
+    "clippy": {
+      "path": "/tmp/opentag-pr19-direct-clippy.log",
+      "sha256": "fe61d4541bf6d2ff58c9e97803157ce94e122a38337e454d649307ee70898b61"
+    },
+    "fmt": {
+      "path": "/tmp/opentag-pr19-direct-fmt.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "guide": {
+      "path": "/tmp/opentag-pr19-direct-guide.log",
+      "sha256": "f76d02d520750d266ee7a090915df44fdb85cc4bb827e7061ffaedf4693ee2f9"
+    },
+    "publication": {
+      "path": "/tmp/opentag-pr19-direct-publication.log",
+      "sha256": "fe820b9d6c0456c2127bb0c9f8ff09bf7fef2071c02b4a7d83b8e6e0b2d011da"
+    },
+    "gate": {
+      "path": "/tmp/opentag-pr19-direct-gate.log",
+      "sha256": "e8b30b4da55f9d2106b3a1e33b4d0cd5dc0a82c4153f3376bf050a983402a23e"
+    },
+    "release": {
+      "path": "/tmp/opentag-pr19-direct-release.log",
+      "sha256": "946a415f5a193def2f30da31139ca65c2a5f72a0a98e4451fa6138986bab0b87"
+    },
+    "actionlint": {
+      "path": "/tmp/opentag-pr19-direct-actionlint.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "native-gnudb": {
+      "path": "/tmp/opentag-pr19-direct-native-gnudb.log",
+      "sha256": "959b09a89d7dde4fcbadb4582ba28a4c19f4bcf98120c688619886ce0f78d382"
+    },
+    "native-gnudb-2": {
+      "path": "/tmp/opentag-pr19-direct-native-gnudb-2.log",
+      "sha256": "90157baba4e5bed5c0b0fbb66f87bb8311bb221352db9c05f30dd576e0605709"
+    }
+  },
+  "source_proof": "/tmp/opentag-pr19-direct-source-proof.json",
+  "navigation_sha256": "f4787fe2fe4b9900dfb308038ad3ff7b92fb2aa90eae8547c08ebdeaf854c49f",
+  "limits": [
+    "Guide166ready/21draft is local, not actualpublicpublication.",
+    "Live defaultHTTPS gnudb query only; native22tests use localmock/copiedfiles, coverschoices notliveimages/save.",
+    "No18providerfeatures,17translations/typedtransport or20parserbehavior, original5P2/REA work.",
+    "Root peer/finalheadGitHubCODE/trustedCI/merge/release/Pages still required."
+  ],
+  "native_path_incident": "First native runner stopped at wrong relative target bundle location beforeUI. Built signed ownbundle copied byte-identical inside sameworktree, --no-build native22PASS. Accidental generated nestedtarget removed."
+}
