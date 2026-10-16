@@ -378,3 +378,16 @@ provenance hashes, independently inspected generated navigation/search/HTML
 and current release metadata, and ran the supplied focused core/model checks.
 Copying that receipt changes only authoring evidence. Final-head GitHub CODE,
 trusted CI and actual publication proof remain separate requirements.
+
+## Local Help and recovery explanations
+
+Three local Help pages provide sixteen FAQ answers, ordered troubleshooting
+and an About/support/contribution orientation. They raise authored content
+to 140 completed pages with 47 drafts; public content remains 127 at this checkpoint
+while PR32's 137-page source is in trusted validation. The broad glossary
+remains draft. The Help ledger maps source and canonical-topic evidence,
+keeps current session-history/provider/regex/platform limits explicit, and
+records four existing focused history checks plus eight publication checks
+and seven generated-doc browser samples. No tests were added to mirror
+plain prose, and no full suite was repeated. These pages are local-only,
+not native/player/runtime parity or public 140 qualification.

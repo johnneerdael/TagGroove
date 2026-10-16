@@ -297,3 +297,8 @@ nav:
     - Move “feat.” artists out of the artist field: cookbook/feat-artists-to-title.md
   - Import tags:
     - Tag files from folder and file names: cookbook/tags-from-folder-and-filename.md
+
+- Help:
+  - Frequently asked questions: help/faq.md
+  - Troubleshooting: help/troubleshooting.md
+  - About OpenTag and this guide: help/about.md

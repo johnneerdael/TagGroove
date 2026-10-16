@@ -1,0 +1,190 @@
+{
+  "scope": "Three local Help chapters; independently authored FAQ/diagnosis/about explanations. No new PR/push, no application or originalP2/REA changes.",
+  "base_checkpoint": "0954e15f5aa1ed1b4752efc52e277d6d5767a524",
+  "source_main": "3f6639c6264378bf7059abdb1ab1fb30e4792179",
+  "writing_checkpoint": {
+    "ready": 140,
+    "drafts": 47,
+    "plan": 187,
+    "published_ready": 127,
+    "qualification": "At authoring, PR32 covers137ready and is in trustedCI, not yet published. Page counts do not prove complete canonical semantic coverage."
+  },
+  "canonical_source_pointers": [
+    {
+      "url": "https://docs.mp3tag.de/customization/options/messages/",
+      "sha256": "7b37b16ce33efe0e2d5945441ad86da1af30d824955fc1a90ad0cf9f6fcdcc7e"
+    },
+    {
+      "url": "https://docs.mp3tag.de/customization/options/tags/",
+      "sha256": "0ab3f458a057c11882923afa32ca4093b91d400c495e46231fb46393a261541a"
+    },
+    {
+      "url": "https://docs.mp3tag.de/file-formats/",
+      "sha256": "1934e17bdad39d5ad8ec1fd5401663625f5585e7f42b2a41eb96332e72d1a8ad"
+    },
+    {
+      "url": "https://docs.mp3tag.de/filter/",
+      "sha256": "65775e4aba586090abf1af898c5aae82ddefffb3cc3de57b35c824b5f375bbcc"
+    },
+    {
+      "url": "https://docs.mp3tag.de/getting-started/first-steps/",
+      "sha256": "70f97827e17a465f263dbe6ec9f656056ccfbb84e96b9a34ebc505a859414dff"
+    },
+    {
+      "url": "https://docs.mp3tag.de/getting-started/installation/",
+      "sha256": "265e5f015646cc14549cc23d1179befa32a3d4c7a40acd6962e609917637dd94"
+    },
+    {
+      "url": "https://docs.mp3tag.de/getting-started/overview/",
+      "sha256": "0b8d409e3d29c0d94501009d8b468dcccdb98ecbcc5b03d7d84447a05b02aa6b"
+    },
+    {
+      "url": "https://docs.mp3tag.de/menus/help/",
+      "sha256": "ef07bc28f208bf821ef3a29ade300d8e0eb2e496fe940b4b29bff585e29ec03e"
+    },
+    {
+      "url": "https://docs.mp3tag.de/scripting/",
+      "sha256": "9296fcbcfc59338bc44f44765c8b766f30c61601f3fd124ffa65c9559fb575b0"
+    }
+  ],
+  "canonical_semantic_mapping": {
+    "menus/help / Contents / Keyboard shortcuts / First Steps": {
+      "explanation": "Help support destinations and actualcurrentmenus; sourceversion identification and routed beginner/tutorial/reference use. Links completed menu/first-session guide; no inherited original product commands."
+    },
+    "menus/help / Donation / Online Support / Website / About": {
+      "explanation": "OpenTag independentproject, ownissue/release/repository routes, no originalproduct support/donation menu, exact MIT/source dependency-notice scope, no universal compatibility or response-time promise."
+    },
+    "menus/help / Check for new version": {
+      "explanation": "Current updatercheck failures do not establish up-to-date status or allserviceoutage; installation/OSpolicy and releasequalification remain distinct."
+    },
+    "first-steps / Saving / Renaming / Import / Replace / Copy": {
+      "explanation": "Cross-topic FAQ/troubleshooting routes to existing exactworkedchapters. Selection/pending/immediatewrite/keep/removal distinctions; contexts/nonmatch/quoted formula diagnosis. No claim that this support synthesis replaces full originaltutorial coverage."
+    },
+    "options/messages / tags / overview": {
+      "explanation": "Configurable discard and actionwarning messages do not save or make failures succeed; autosave preference modifies selection timing; ExtendedTags navigation separate. Platform/native/storage/preview limits kept."
+    },
+    "scripting / filter / formats": {
+      "explanation": "Context/quotedargument and match-vs-nonmatch diagnosis; actualFind JSUnicode versus sharedBoost core; value-list/native/tagfamily/playerdisplay distinctions routedto deepreferences. No new formula/dialect equivalence claims."
+    },
+    "OpenTag-specific support synthesis": {
+      "explanation": "Loaded/visible/selected counts, partial/cancelled writes, pending retained throughhistory, sessioncache cleanup/retention/disklimits, provider sourceaccess/copy limits, path/output warnings, source-fetch/parse/apply stages and privacy-aware minimal reports."
+    }
+  },
+  "page_sha256": {
+    "help/faq.md": "730b8d302450b3bf14369297d171ef57b15c78e1537988bd440c1ed239da96fc",
+    "help/troubleshooting.md": "b1abaf9ebf5059419af29934b4e8bd9f5e078dbbb4c67a00c60b9aefd4379983",
+    "help/about.md": "7436640124b90a305671d21addfdce603a842b027248d5209ba544774b7d6ef0"
+  },
+  "source_sha256": {
+    "LICENSE": "b4c6daa5d2b99edd6ced69b20c1b0ff1e18933194ecf67bea32465136403f713",
+    "README.md": "e3d480745c4d9edce17249424fce534aff874a0fe9072213e55ffc7fb71f24a2",
+    "src/main.ts": "f9c0a56f1eba4f77bc47531a08fcd63427a2b845bc36a784b27da43146309c76",
+    "src/edit-history.ts": "8bff30cfa68e212916156b16bb6d7a9b105b4363a7d8eb4da29b8912ba57cb0a",
+    "src/file-ops.ts": "9009f23df8f5f290405277dc36d13a235457bf46ff11f163c0fa1b411bdcec75",
+    "src/options-ui.ts": "f745bbf8d596fdffa51de0c8c02d5180def53eefeef11a690c1805da221c8446",
+    "src-tauri/src/history.rs": "515b8dba35538f964c7502d1fc01c667a9790ce1748d3ab58e99670bc19914a1",
+    "src-tauri/src/utilities.rs": "404b520370424704d6ecccad37d44c63ab6bd522a30622fe203333d261efca5e",
+    "src-tauri/src/settings.rs": "756a5a5e847be1cae1107c861b733c100dd014bd33b11e0521d6d40d85bb5c4e",
+    "crates/tag-core/src/history.rs": "3cd75c86c5d16b8dace35780dda7229ce4d5494d9052dbb6e381465a705b2d04",
+    "crates/tag-core/src/tags.rs": "4e9ab3942b42b9e22b776334d2dd8acb00849eaa7c65c892324ee4879f76f7a5",
+    "crates/tag-core/tests/history.rs": "91dacc7defe9813c7a6ada29e747fe4026c86e3f6da72140b12a750547bac432",
+    "crates/regex-compat/vendor/boost-regex/LICENSE_1_0.txt": "c9bff75738922193e67fa726fa225535870d2aa1059f91452c411736284ad566",
+    "docs/CONTRIBUTING.md": "10ce1e2c6addeb12f38ca9215de75688c723d5f01dfa23b070c8c209bb69cedf",
+    "docs/PUBLISHING.md": "eccedce1d93f6058716ce482212cce199e54c6d1b013b456980ba490d98d6113",
+    "docs/RELEASING.md": "7d585d16cdb8e69685e4a8bc90d21791ff43a9f3ca70ab15522c39eeffeb6391"
+  },
+  "linked_evidence_page_sha256": {
+    "getting-started/editing-and-saving.md": "a3184c4188a8ba702659fb69b5e1e32dc41a12d2b98939656b43b1ad6a293058",
+    "getting-started/install.md": "6379e815b638be261f0e0ae1b714f9efc9ea51ecba40a8c858ae078da420f30c",
+    "getting-started/opening-files.md": "40f688f1224715a2654057cdbbaae59affe5436de81113a54b220406d4cb7e9e",
+    "guides/tag-panel.md": "34e765e84e6a0ba2b737be0773094f91ffc0aa21266cb521d3713d964dbb0d2e",
+    "guides/remove-tags.md": "a4c67415df3b390ccfda03ada498ebe9550f4ae23345208738e561014a7dbbc2",
+    "guides/playlists.md": "b3c66b0ec3bd2a5b1749bb7450d783877b91548fe5de76bc4ae7990a6b884e7e",
+    "guides/chapters.md": "cae197332bfb551f602fe938f02615d9f197a862935c56385abace15bd63f34f",
+    "actions/index.md": "1c3a889767dac067cce97e4e3f50eed2f820bff08e439c9a86593bf7017c7641",
+    "reference/regular-expressions.md": "91a9bd944a4651b5ac1cae47afcdf7e6061235abac6b903b3fb673362ff714f4",
+    "concepts/tag-formats.md": "f40154250a21d53533241a0a4a2e6a84c3ecdeebb23251a87bdb9c1259923a08",
+    "concepts/multi-value-fields.md": "f241685adfaaff3aa245515788aeebcdcfcda8e92beb2937141656bde395fe21",
+    "reference/options/library.md": "048337b5efacb341cc1b909a247b49638e4c971a7ed969f9cc2f8360a8d15a24",
+    "reference/menus/help.md": "5b5145b453ac5eac43101913f47630d4e5012cd395cdb833e6c9a34a72f49fcc",
+    "tag-sources/web-source-reference.md": "945ba6bdeea4ff28492f5bcc63f9e9f3bbaa11bab7e2b7b65c9c585306cfe09a",
+    "reference/options/updates.md": "d159fb2e307fe649709a87fdb91b586abd34d64545baffe56e3f08f0e0e50caf"
+  },
+  "facts": {
+    "faq.md": [
+      "16 readerquestions with linked completed workedchapters",
+      "Loading/cache not audioimport/backup;replace/append differences",
+      "Selected saves/failedpending/reload/close/configurableprompts",
+      "Defaultselection autosaveoff, separateExtendedTags navigationmode",
+      "Keep versusclear;doublebackslash display/storage distinction",
+      "Playerfield/tagfamily/cache/externalart causes bounded,notplayerqualification",
+      "Filtervisibility and hiddenselection/scope distinctions",
+      "Removetags/removelist/delete filesystem distinctions",
+      "Appliedconverters/actions immediate,preview notbackup/reservation",
+      "Currentdesktop sessionjournal usesdisk yet no restartreopen;retention/free-space/refusedexternaledits;pendingeditskept",
+      "Formulaevaluatesonlyappropriatecontexts;Find/core regexdefaults/dialect differ",
+      "Actions continueafterwarnings;batchoutput finalvalues;no blindrepeat",
+      "OwnJSONconfiguration notothereditorbackup;mobilepreview/provider limits",
+      "Metadata/audioquality and containerlayout distinction withoutall-fileguarantee"
+    ],
+    "troubleshooting.md": [
+      "Protectpendingedits and actualpartial/cancelledsuccess beforediagnosis",
+      "Installation architecture/checksum/OSmessages routed to currentreleaseinstructions",
+      "Loadedcount/filter/recursion/folderextensionerror sequence",
+      "Onecopiedfile save/readback/access/storage-policy diagnosis",
+      "Provider read-only/unknown/recovery and Savecopy limitations",
+      "Playerrefresh/path/field/art differences withoutdestructiveblanketcleanup",
+      "Context/input/whitespace/quoting/case/regexmatch/nonmatch isolatedbeforeapply",
+      "Complete rename/outputpaths/currentcontext, partialresult no universalsafety guarantee",
+      "Actionorder/continuation/deferredoutput/warningsnotdismissal",
+      "Separate source fetch/parse/match/art/apply and updatefailure meaning",
+      "Version/platform/scope/rowtype/copyableexactinput/error/minimalfixture reporting;notokens/privateconfigs",
+      "No currentHelpOpenlogfolder or automaticdiagnosticarchive promise;Dismissnotretry"
+    ],
+    "about.md": [
+      "Version/package identity and platformqualification versusbuilds",
+      "Independentprojectrelationship and interoperability qualifiedperworkflow",
+      "ProjectMITfile linked, dependencytermsseparate, Boostnotice inspected;notlegal/dependencylicenseaudit",
+      "Fourdocumentationuses routed, unfinishedchapters excluded",
+      "Source/core/native/publication evidence separate; canonicaltopicchecklistnotparityproof",
+      "Independent examples/prose and contributor review/validation/livepublication path"
+    ]
+  },
+  "validation": {
+    "publication_tests": "8/8 existing publication tests; no new tests mirroring plainprose.",
+    "strict": "StrictMkDocs and writingplan140/187 pass.",
+    "generated": {
+      "routes": 140,
+      "sections": 1153,
+      "exact_nav_search": true,
+      "search_sha256": "2dd43957be9998a12fff12e10291564cb5629907d689974e7e43a7b3e743c512"
+    },
+    "core_corroboration": {
+      "binary": "/tmp/opentag-guide-combined-target/debug/deps/history-58a94a594cdba2ca",
+      "binary_sha256": "0dceb976836380699c4b0b50f3573fd60ae6f643877d87c3de0c281edf107e4c",
+      "source_provenance": "Existing binary from full560 run on60a, corehistory source/test files identical source3f/currenttree; no coldrebuild/fullrerun.",
+      "focused_passed": [
+        "external_changes_are_reported_and_never_overwritten",
+        "stale_sessions_are_removed_and_live_sessions_are_kept",
+        "limits_bound_operations_and_bytes",
+        "journaling_is_refused_when_free_space_would_run_low"
+      ],
+      "bounds": "Generatedfile coretests only; does not establish nativeUI, application restart, provider saveback or universal filesystemidentity protection."
+    },
+    "browser": {
+      "receipt": "/tmp/opentag-guide-help-browser/results.json",
+      "checks": 7,
+      "errors": 0,
+      "scope": "Actual generated-doc links/search/palette plus3pages390px;rootinspectedmobileFAQ/desktopaboutdark. No app/native/public140claim."
+    },
+    "source_identity": "App/config/dependencies/workflows byte-identical source3f; only3Help pages/nav/authoringmetadata changed after095.",
+    "diff": "gitdiffcheck pass"
+  },
+  "review": "Local authoring complete; finite independent review pending, no GitHub CODE/CI/publication qualification for these3pages.",
+  "remaining": [
+    "47planned topics remain draft, including broadglossary; not markedcomplete by linkingotherchapters",
+    "No claimfull94canonicalsemantic audit or universalparity/player/native/mobile/installationqualification",
+    "Unmerged17\u201320sourcefeatures mustbe reconciled before eventualpublication",
+    "OriginalP2 risks and REA/Ghidra deferredwork untouched; broadfilesystemguaranteesavoided"
+  ]
+}
