@@ -16,7 +16,10 @@ status: draft
 
 Choosing an export configuration prefills its literal `$filename` default:
 `$filename(html)` changes `export.txt` to `export.html`, while
-`$filename(tracks.cue)` supplies a filename. A name typed afterward is the
+`$filename(tracks.cue)` supplies a filename in the current output folder.
+A relative subfolder stays there too: with `/lists/export.txt` as the current
+output, `$filename(sub/report.csv)` supplies `/lists/sub/report.csv`.
+A rooted filename supplies its own destination. A name typed afterward is the
 explicit output override; the template's encoding still applies.
 
 When the first argument contains placeholders, functions or quoting, the
