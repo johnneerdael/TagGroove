@@ -337,3 +337,19 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/release.mjs publish
+
+  user-guide:
+    needs: authorize
+    # Publish reviewed documentation even when no application release is needed.
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      actions: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/_reviewed-pages.yml
+    with:
+      pr_number: ${{ inputs.pr_number }}
+      head_sha: ${{ inputs.head_sha }}
+      source_sha: ${{ inputs.source_sha }}

@@ -21,6 +21,12 @@ Get platform installers from the [latest GitHub release](https://github.com/john
 
 See [release automation](docs/RELEASING.md) for build targets, signing status and publishing instructions. Simulator previews are labeled separately from device installers.
 
+## User guide
+
+Read the [OpenTag user guide](https://johnneerdael.github.io/opentag/) for your first tagging session, practical recipes, and format-string and regular-expression references. The guide is growing; unfinished topics stay out of the published site.
+
+See [documentation publishing](docs/PUBLISHING.md) to contribute or check a deployment.
+
 ## Develop
 
 Install the official Tauri 2 prerequisites for the target OS, current stable Rust, a C++17 compiler, and Node.js 22. The regex bridge vendors open source Boost.Regex under its included Boost Software License. FFmpeg/ffprobe enable the encoded-format fixture tests.
