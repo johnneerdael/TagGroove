@@ -69,6 +69,48 @@ test('rendered English text is translated by exact key or by key pattern, keepin
   assert.equal(de.translate('12'),'12');
   assert.equal(new Translator('en',{}).active,false);
 });
+test('explicit owned constant guards and the freedb HTTP frame remain registered and translate completely',async()=>{
+  const producers=[
+    ['crates/tag-core/src/cover_manage.rs','DUPLICATE_COVERS'],
+    ['crates/tag-core/src/subsongs.rs','ROW_OPERATION'],
+    ['crates/tag-core/src/mapping.rs','LYRICS_LANGUAGE_REQUIRED'],
+    ['src-tauri/src/lib.rs','CUE_ROW_OPERATION'],
+    ['src-tauri/src/sources/mod.rs','WEB_COMMANDS'],
+    ['src-tauri/src/sources/mod.rs','REMOTE_LOOKUPS'],
+    ['src-tauri/src/sources/http.rs','OFFLINE'],
+    ['src-tauri/src/sources/freedb.rs','NO_TEXT_SEARCH'],
+    ['src-tauri/src/sources/freedb.rs','NO_COVER_SEARCH'],
+    ['src-tauri/src/sources/freedb.rs','LOOK_UP_FIRST'],
+    ['src-tauri/src/sources/freedb.rs','TOO_MANY_REQUESTS'],
+  ];
+  const keys=[];
+  for(const [file,name] of producers){
+    const source=await readFile(new URL(`../${file}`,import.meta.url),'utf8');
+    const literal=source.match(new RegExp(`\\bconst\\s+${name}\\s*:\\s*&str\\s*=\\s*("(?:[^"\\\\]|\\\\.)*")`));
+    assert.ok(literal,`${file}: ${name} must retain an explicit owned declaration`);
+    keys.push(JSON.parse(literal[1]));
+  }
+  const frame='{name} answered 429 Too Many Requests. OpenTag does not retry on its own; wait a while and try again later.';
+  const http=await readFile(new URL('../src-tauri/src/sources/http.rs',import.meta.url),'utf8');
+  assert.ok(http.includes(`format!("${frame.replace('{name}','{}')}", service.name)`),'Bind the HTTP frame to its actual service-name producer');keys.push(frame);
+  const extra=JSON.parse(await readFile(new URL('../src/i18n/extra-keys.json',import.meta.url),'utf8')),failures=[];
+  for(const key of keys){
+    const params=key===frame?{name:'gnudb'}:{},message=new Translator('en').t(key,params);
+    for(const locale of ['de','nl']){
+      const t=new Translator(locale,catalogs[locale]),actual=t.translate(message),registered=typeof catalogs[locale][key]==='string'&&english[key]===key&&extra.includes(key);
+      if(!registered)failures.push(`${locale}: missing explicit ${key}; production output: ${actual}`);
+      else{
+        const expected=t.t(key,params);if(actual!==expected||actual===message)failures.push(`${locale}: incomplete ${key}: ${actual}`);
+        if(key.includes('UNSYNCEDLYRICS'))assert.ok(actual.includes('UNSYNCEDLYRICS'));
+        if(key===frame)assert.ok(actual.startsWith('gnudb ')&&actual.includes('429 Too Many Requests'));
+      }
+    }
+    const custom={[key]:`Localized: ${key}`,[`Localized: ${key}`]:'Wrong second lookup',gnudb:'Wrong provider',UNSYNCEDLYRICS:'Wrong field'};
+    const active=languageSet([{...catalogMeta(english),catalog:english,source:'bundled'}],[{file:'en.json',catalog:custom}],english).languages.get('en').catalog;
+    assert.equal(new Translator('en',active).translate(message),`Localized: ${message}`,'Custom source parts translate once and retain the raw provider/field identity');
+  }
+  assert.equal(keys.length,12);assert.deepEqual(failures,[]);
+});
 test('all backend source-role diagnostics preserve field identities and authored export configuration names',async()=>{
   const producers=[['crates/tag-core/src/mapping.rs','Conflicting updates for mapped source {source}',['ARTIST','TITLE']],['src-tauri/src/action_host.rs','Export configuration not found: {source}',['Help','Title','My  Files','/Music/My  Files/Help.mte']],['crates/tag-core/src/actions.rs','Missing {source} action context',['_FILENAME','_FILENAME_EXT']]];
   assert.deepEqual(Object.keys(english).filter(key=>/\{source\d*\}/.test(key)).sort(),producers.map(([,key])=>key).sort());

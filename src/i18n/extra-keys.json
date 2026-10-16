@@ -44,5 +44,17 @@
  "{error}; text import rollback {value}",
  "{value}: {error}",
  "undone",
- "redone"
+ "redone",
+ "The tag format cannot store these covers; give covers of the same type distinct descriptions",
+ "Chapter rows only support editing tag fields. Turn off Options → Tags → Advanced → List chapters as separate files to work with the whole file",
+ "UNSYNCEDLYRICS requires language||lyrics",
+ "Cue sheet tracks only support editing tag fields, which are written into the cue sheet",
+ "Web sources are searched by their script.",
+ "The freedb server finds discs by the track layout of the selected files or by artist and album. A typed disc ID can only be looked up in a local freedb folder.",
+ "Offline test runs only contact servers on this computer.",
+ "Searching by artist and album is a gnudb feature that this freedb server does not offer. Look the disc up by the track layout of the selected files.",
+ "Cover art search is a gnudb feature that this freedb server does not offer.",
+ "Look the disc up first: OpenTag reads a freedb entry only after the server listed it for the selected files' track layout or for an artist and album search.",
+ "The freedb server answered 429 Too Many Requests. OpenTag does not retry on its own; wait a while and try again later.",
+ "{name} answered 429 Too Many Requests. OpenTag does not retry on its own; wait a while and try again later."
 ]

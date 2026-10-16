@@ -2916,5 +2916,17 @@
  "fpcalc was not found at {path}. Check Options → Tag Sources → Online services.": "fpcalc is niet gevonden op {path}. Controleer Opties → Tagbronnen → Onlinediensten.",
  "iTunes returned a capped track list without a valid album track count. The complete album cannot be verified.": "iTunes heeft een afgekorte tracklijst zonder geldig aantal albumtracks teruggestuurd. Het volledige album kan niet worden gecontroleerd.",
  "iTunes returned {count} of {total} album tracks. The incomplete album cannot be imported.": "iTunes heeft {count} van {total} albumtracks teruggestuurd. Het onvolledige album kan niet worden geïmporteerd.",
- "{name} rejected the request. Check the API key in Tag Sources → API keys….": "{name} heeft het verzoek geweigerd. Controleer de API-sleutel onder Tagbronnen → API-sleutels…."
+ "{name} rejected the request. Check the API key in Tag Sources → API keys….": "{name} heeft het verzoek geweigerd. Controleer de API-sleutel onder Tagbronnen → API-sleutels….",
+ "The tag format cannot store these covers; give covers of the same type distinct descriptions": "Het tagformaat kan deze covers niet opslaan; geef covers van hetzelfde type verschillende beschrijvingen",
+ "Chapter rows only support editing tag fields. Turn off Options → Tags → Advanced → List chapters as separate files to work with the whole file": "Hoofdstukrijen ondersteunen alleen het bewerken van tagvelden. Schakel Opties → Tags → Geavanceerd → Hoofdstukken als aparte bestanden tonen uit om met het hele bestand te werken",
+ "UNSYNCEDLYRICS requires language||lyrics": "UNSYNCEDLYRICS vereist taal||songtekst",
+ "Cue sheet tracks only support editing tag fields, which are written into the cue sheet": "Cue-sheettracks ondersteunen alleen het bewerken van tagvelden, die in de cue-sheet worden opgeslagen",
+ "Web sources are searched by their script.": "Webbronnen worden doorzocht met hun script.",
+ "The freedb server finds discs by the track layout of the selected files or by artist and album. A typed disc ID can only be looked up in a local freedb folder.": "De freedb-server vindt schijven aan de hand van de trackindeling van de geselecteerde bestanden of op artiest en album. Een getypte schijf-ID kan alleen in een lokale freedb-map worden opgezocht.",
+ "Offline test runs only contact servers on this computer.": "Offline testruns maken alleen verbinding met servers op deze computer.",
+ "Searching by artist and album is a gnudb feature that this freedb server does not offer. Look the disc up by the track layout of the selected files.": "Zoeken op artiest en album is een functie van gnudb die deze freedb-server niet biedt. Zoek de schijf op aan de hand van de trackindeling van de geselecteerde bestanden.",
+ "Cover art search is a gnudb feature that this freedb server does not offer.": "Zoeken naar coverafbeeldingen is een functie van gnudb die deze freedb-server niet biedt.",
+ "Look the disc up first: OpenTag reads a freedb entry only after the server listed it for the selected files' track layout or for an artist and album search.": "Zoek de schijf eerst op: OpenTag leest een freedb-item pas nadat de server het heeft vermeld voor de trackindeling van de geselecteerde bestanden of voor een zoekopdracht op artiest en album.",
+ "The freedb server answered 429 Too Many Requests. OpenTag does not retry on its own; wait a while and try again later.": "De freedb-server antwoordde 429 Too Many Requests. OpenTag probeert het niet zelf opnieuw; wacht even en probeer het later opnieuw.",
+ "{name} answered 429 Too Many Requests. OpenTag does not retry on its own; wait a while and try again later.": "{name} antwoordde 429 Too Many Requests. OpenTag probeert het niet zelf opnieuw; wacht even en probeer het later opnieuw."
 }
