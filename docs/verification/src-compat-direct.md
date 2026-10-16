@@ -93,3 +93,28 @@ Fresh all-target Clippy, the strict guide and eight publication tests qualify
 the bounded correction; exact-head GitHub Codex review and trusted CI remain
 required. No live provider/native desktop replay or general browser URL
 recovery behavior is claimed by these parser tests.
+
+
+## Local preparation after merged gnudb and the latest providers
+
+Source `f8fed0b` combines the reviewed PR20 URL/entity correction `914a836`
+with actual gnudb main `dc95b16` and prospective PR18 `d39d86d`, including
+its compatible maximum fingerprint matching. The sole conflict was the guide
+coverage note; both per-PR sections remain. Production source is byte-identical
+to its owning feature head. The provider and gnudb behavior is the prospective
+baseline, not additional PR20 release-note material.
+
+A new isolated target ran the complete workspace: 973 passed, zero failed and
+six explicitly ignored. No previous worktree's workspace artifacts or the old
+968-test result were reused. Fresh 383 frontend tests, production build,
+formatting, 60 review-gate tests, eight publication tests and the strict local
+172-page guide build pass. Workflow lint retains only the existing documented
+unsupported concurrency queue-key exception. Fresh full-workspace/all-target Clippy also passes with warnings denied.
+
+The ignores remain the system-trash probe, benchmark, three live-service checks
+and optional downloaded-script corpus. These counts do not establish live APIs,
+native desktop replay, mobile source behavior, release artifacts or public
+172-page publication. This local branch contains no PR17 localization or typed
+diagnostic integration. PR18 must actually merge first, then the resulting main
+must be reconciled and the exact final PR20 head reviewed and validated before
+normal merge and release publication.
