@@ -23,7 +23,9 @@ OpenTag reports the failure and retains catalogs already loaded in this
 session. A missing folder is a successful empty reload.
 
 Application-owned accessible labels follow the selected language too, including
-cover types and states. Authored cover descriptions and folder-image names
+cover types and states. Type labels in the cover viewer and **Extract cover**
+dialog follow that language beside unchanged counters and image properties.
+Authored cover descriptions and folder-image names
 remain unchanged.
 
 Status messages translate their application text, including copied/cut-tag

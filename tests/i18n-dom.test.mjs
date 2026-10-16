@@ -134,6 +134,41 @@ test('the actual Language options preserve authored catalog names in System defa
   }
 });
 
+test('cover viewer type captions translate independently of counters and authored descriptions',async()=>{
+  const custom={'Front Cover':'Front image','Back Cover':'Back image',Help:'Assistance',Title:'Heading','Close cover viewer':'Close image'};
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]]){
+    const p=page(),t=new Translator(locale,catalog);
+    try{
+      let covers=['CoverFront','CoverBack'].map((picture_type,index)=>({index,digest:`fixture-${index}`,mime:'image/png',size:42,width:1,height:1,picture_type,description:index?'Title':'Help',data_base64:'AA=='})),index=0;
+      const ui=new CoverUI({selection:()=>[{path:'Help',covers}],displayed:()=>({path:'Help',covers,index}),reason:()=>'',show:next=>{index=next;ui.updateViewer();}});
+      ui.openViewer();p.translate(locale,catalog);
+      assert.equal(p.body.querySelector('.cover-viewer header > span').textContent,`${t.t('Front Cover')} · 1 / 2`);
+      assert.equal(p.body.querySelector('.cover-viewer footer > span').textContent,'1×1, 42 B, PNG · Help');
+      p.body.querySelector('[data-viewer="next"]').click();await p.window.happyDOM.waitUntilComplete();
+      assert.equal(p.body.querySelector('.cover-viewer header > span').textContent,`${t.t('Back Cover')} · 2 / 2`);
+      assert.equal(p.body.querySelector('.cover-viewer footer > span').textContent,'1×1, 42 B, PNG · Title');
+      assert.equal(p.body.querySelector('[data-viewer="close"]').getAttribute('aria-label'),t.t('Close cover viewer'));
+      covers=[covers[0]];index=0;ui.updateViewer();await p.window.happyDOM.waitUntilComplete();
+      assert.equal(p.body.querySelector('.cover-viewer header > span').textContent,t.t('Front Cover'));
+      p.translate('en');assert.equal(p.body.querySelector('.cover-viewer header > span').textContent,'Front Cover');
+    }finally{p.close();}
+  }
+});
+test('cover extraction type captions translate beside unchanged technical details and filename previews',async()=>{
+  const custom={'Front Cover':'Front image','Back Cover':'Back image',Help:'Assistance',Save:'Store'};
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]])for(const [picture_type,label] of [['CoverFront','Front Cover'],['CoverBack','Back Cover']]){
+    const p=page(),t=new Translator(locale,catalog);
+    try{
+      const ui=new CoverUI({modal:modal(p),evaluate:async()=> 'Help',modalError:(_dialog,error)=>{throw error;}});
+      ui.extract('Help',{index:0,mime:'image/png',size:42,width:1,height:1,picture_type});
+      await p.window.happyDOM.waitUntilComplete();p.translate(locale,catalog);
+      assert.equal(p.body.querySelector('.dialog-content > p').textContent,`${t.t(label)} · 1×1, 42 B, PNG`);
+      assert.ok(p.body.querySelector('#cover-extract-preview').textContent.includes('Help.png'));
+      assert.equal(p.body.querySelector('#cover-extract-save').textContent,t.t('Save'));
+      p.translate('en');assert.equal(p.body.querySelector('.dialog-content > p').textContent,`${label} · 1×1, 42 B, PNG`);
+    }finally{p.close();}
+  }
+});
 test('the native window-title wrapper translates generated locations once and preserves authored paths',async()=>{
   const custom={'OpenTag — {location}':'Window: {location}','Provider documents':'Help','{length} added locations':'Title',Help:'Assistance',Title:'Heading','No folder loaded':'Help'};
   const declaration=parsed.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text==='syncWindowTitle');
