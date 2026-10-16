@@ -211,3 +211,59 @@ records the preceding feature/message baseline; this test-only followup retains
 its full Rust/UI/build results because production, native include fixtures and
 dependencies are unchanged. The prior trusted-main premerge workflow did not yet
 list this new suite, so its common native jobs are separate evidence.
+
+## Final integration with reviewed gnudb main
+
+PR19 merged as main `dc95b1662a4020e8bdf54e3830e285f0df6b610e`. The final
+PR18 integration preserves both providers' authentication, request limits and
+review routes, and supersedes the obsolete gnudb registration/disc-ID-only
+claims in the parity records. These are inherited gnudb features, not new PR18
+release-note claims.
+
+All tracked files match the independently reviewed combined preparation
+`4d8912e4cf082ea9882f1eb98b5e5fbfa594b6c0` except this verification note and
+the portable shortcut test above. Therefore its fresh full-workspace **960
+passing Rust tests, five explicit ignored cases, and all-target Clippy** apply
+to the identical production/native/Cargo/include inputs; no additional full
+native run is claimed. Fresh final integration checks passed **380 UI tests**,
+the production build, eight publication tests, formatting, review tooling and
+the strict guide build with **172 completed routes**. The earlier 40-check
+provider UI run remains explicitly scoped to its recorded provider-only binary.
+Final-head GitHub review, current-main trusted CI and protected merge remain
+separate gates.
+
+## Compatible fingerprint assignment review correction
+
+Review of `70510c0` found that a greedy file-to-track assignment could lose a
+compatible assignment: a file compatible with A/B took A, leaving a file
+compatible only with A to fallback. The review matcher now uses an iterative breadth-first
+augmenting path to retain the greatest number of compatible fingerprint
+assignments.
+It keeps existing assignments when a direct free compatible track exists,
+respects candidate/file/track order for deterministic choices, and leaves the
+existing fallback policy for unmatched files until after those assignments. It
+does not globally optimize scores or change provider/backend behavior.
+
+Three production-model regressions failed on the old matcher. They cover the
+two-file collision with per-file AcoustID writes, a three-file reassignment
+chain, repeated recording tracks, stable free choices and impossible extras.
+An independent exhaustive assignment oracle checks all 512 three-file graphs,
+including maximal match count, compatible unique edges and determinism. All
+31 source-model tests, the full **383 UI tests**, production build, eight
+publication tests and strict guide build pass after the correction.
+
+The native app was rebuilt to embed the new JavaScript and run the same
+40-assertion offline source suite on the actual combined provider/gnudb source.
+A temporary fixture wrapper added recording A to the first file's existing B
+match, while the later file still matched only A. All **40 native macOS checks
+passed**, including expected fixture pairing, written MusicBrainz titles and each
+file's own `ACOUSTID_ID`. The committed provider fixtures and all assertions
+remain unchanged; the wrapper and actual response are retained with the local
+receipt. Only the isolated test app's data was removed afterward.
+
+No Rust, Cargo or native include input changed from the qualified 960-test
+combined preparation. That native/Clippy baseline is reused honestly rather
+than claiming another full workspace run. This followup supersedes the old
+matcher/page hashes in the historical extraction snapshot; the final receipt
+binds the changed TypeScript, tests, guide text and native executable. Local
+fixtures are not live-provider, Windows/Linux new-source-suite or release proof.
