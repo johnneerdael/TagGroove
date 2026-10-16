@@ -2781,5 +2781,6 @@
  "completed": "abgeschlossen",
  "original backup retained at {path}": "Originalsicherung aufbewahrt unter {path}",
  "could not retain recovery copy: {value}": "Wiederherstellungskopie konnte nicht aufbewahrt werden: {value}",
- "no recovery copy is available": "Keine Wiederherstellungskopie verfügbar"
+ "no recovery copy is available": "Keine Wiederherstellungskopie verfügbar",
+ "the script ran too long; check Do/While loops": "Das Skript lief zu lange; Do/While-Schleifen prüfen"
 }

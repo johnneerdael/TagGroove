@@ -274,6 +274,16 @@ test('backend extraction follows actual local error factories without collecting
   `;
   assert.deepEqual(extractBackendSource(source),['Cannot inspect destination: {value}','Destination is not a folder','Invalid media file: {what}','Unknown script instruction','Verification failed; original preserved','bad sample header','line {line} ({text}): {error}'].sort());
 });
+test('direct typed error literals expose only owned diagnostic fields in actual error contexts',async()=>{
+  const source=`
+    let data=ScriptError{message:"Private authored text".into(),command:"Raw command".into()};
+    fn run(){Err(ScriptError{line:4,command:"Raw command with words".into(),message:"the script ran too long; check Do/While loops".into()});value.map_err(|_| OtherError{path:"Private file path".into(),message:format!("Invalid request: {value}","Raw format argument")});}
+    impl Display for ScriptError{fn fmt(){write!(f,"line {line} ({text}): {error}");}}
+    #[cfg(test)] mod tests{fn hidden(){Err(ScriptError{message:"Only in a test".into()});}}
+  `;
+  assert.deepEqual(extractBackendSource(source),['Invalid request: {value}','line {line} ({text}): {error}','the script ran too long; check Do/While loops'].sort());
+  const actual=await readFile(new URL('../src-tauri/src/sources/web/engine.rs',import.meta.url),'utf8');assert.ok(extractBackendSource(actual).includes('the script ran too long; check Do/While loops'));
+});
 test('backend extraction includes technical function prefixes and other diagnostic prefixes only in real error contexts',()=>{
   const source=`fn private(){let format="$replace requires private raw data";Err("$loopend takes no arguments".into());Err(format!("\${name} expects {count} arguments"));value.map_err(|_| "$fmtDate expects an integer Unix timestamp");value.map_err(|_| { format!("the regular expression is not valid: {value}") });Err("a quoted parameter is not closed".into());Err("[IndexFormat] has no %_url% field".into());Err(format!("\\\"{value}\\\" is not a number"));}`;
   assert.deepEqual(extractBackendSource(source),['$fmtDate expects an integer Unix timestamp','$loopend takes no arguments','${name} expects {count} arguments','the regular expression is not valid: {value}','a quoted parameter is not closed','[IndexFormat] has no %_url% field','"{value}" is not a number'].sort());

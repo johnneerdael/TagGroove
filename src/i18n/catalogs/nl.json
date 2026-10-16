@@ -2768,5 +2768,6 @@
  "completed": "voltooid",
  "original backup retained at {path}": "Originele reservekopie behouden op {path}",
  "could not retain recovery copy: {value}": "Herstelkopie kon niet worden behouden: {value}",
- "no recovery copy is available": "Er is geen herstelkopie beschikbaar"
+ "no recovery copy is available": "Er is geen herstelkopie beschikbaar",
+ "the script ran too long; check Do/While loops": "Het script duurde te lang; controleer Do/While-lussen"
 }

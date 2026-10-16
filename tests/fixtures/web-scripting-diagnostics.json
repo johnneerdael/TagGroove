@@ -43,5 +43,10 @@
     "script": "json \"on\"\njson_foreach_counter",
     "page": "{}",
     "error": "json_foreach_counter outside json_foreach"
+  },
+  {
+    "script": "Do\nSay \"\"\nWhile \"\"",
+    "page": "Help; Title):",
+    "error": "the script ran too long; check Do/While loops"
   }
 ]
