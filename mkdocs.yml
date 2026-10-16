@@ -15,6 +15,7 @@ exclude_docs: |
 
 theme:
   name: material
+  custom_dir: docs/overrides
   language: en
   logo: assets/brand/mark.svg
   favicon: assets/brand/favicon.png

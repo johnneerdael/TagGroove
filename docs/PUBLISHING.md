@@ -6,6 +6,9 @@ Keep authoring in `johnneerdael/opentag`. The separate public
 `johnneerdael/audio-tag-guide` repository contains generated static output only.
 The neutral publication path avoids privacy-list URL rules that also match
 the project's name. Readers do not need to disable their privacy protection.
+The header keeps ordinary source navigation while omitting optional automatic
+repository-statistics/release-badge requests. Source, edit and release links
+retain their normal literal destinations; no proxy or encoded URL is used.
 
 ## Write and validate a page
 
