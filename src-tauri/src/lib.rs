@@ -1820,6 +1820,7 @@ mod tests {
             ))
             .err()
             .unwrap()
+            .to_string()
             .contains("provider")
         );
         let text = converters::TextRequest {
@@ -1837,6 +1838,7 @@ mod tests {
             tauri::async_runtime::block_on(converters::apply_text_import(text, "invalid".into()))
                 .err()
                 .unwrap()
+                .to_string()
                 .contains("provider")
         );
         assert_eq!(std::fs::read(&session.path).unwrap(), before);

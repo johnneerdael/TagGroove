@@ -77,6 +77,137 @@ pub struct TextPreview {
     pub unmatched: Vec<String>,
 }
 
+/// Rollback diagnostics retain their paths and recovery provenance for the UI.
+/// Other failures keep their original string IPC representation.
+#[derive(Clone, Debug, Serialize)]
+#[serde(untagged)]
+pub enum ConverterError {
+    Plain(String),
+    Rollback {
+        converter_rollback: Box<RollbackFailure>,
+    },
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RollbackOperation {
+    Rename,
+    TextImport,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(tag = "kind", content = "message", rename_all = "snake_case")]
+pub enum ConverterMessage {
+    Message(String),
+    External(String),
+}
+impl ConverterMessage {
+    fn text(&self) -> &str {
+        match self {
+            Self::Message(text) | Self::External(text) => text,
+        }
+    }
+}
+impl From<String> for ConverterMessage {
+    fn from(message: String) -> Self {
+        Self::Message(message)
+    }
+}
+impl From<&str> for ConverterMessage {
+    fn from(message: &str) -> Self {
+        Self::Message(message.into())
+    }
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum RollbackRecovery {
+    Retained { path: String },
+    Failed { error: String },
+    Unavailable,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RollbackItem {
+    path: String,
+    error: ConverterMessage,
+    recovery: Option<RollbackRecovery>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RollbackFailure {
+    operation: RollbackOperation,
+    error: ConverterMessage,
+    failures: Vec<RollbackItem>,
+}
+impl From<String> for ConverterError {
+    fn from(message: String) -> Self {
+        Self::Plain(message)
+    }
+}
+impl From<&str> for ConverterError {
+    fn from(message: &str) -> Self {
+        Self::Plain(message.into())
+    }
+}
+impl std::fmt::Display for ConverterError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Plain(message) => write!(f, "{message}"),
+            Self::Rollback {
+                converter_rollback: failure,
+            } => {
+                let operation = match failure.operation {
+                    RollbackOperation::Rename => "rename",
+                    RollbackOperation::TextImport => "text import",
+                };
+                write!(f, "{}; {operation} rollback ", failure.error.text())?;
+                if failure.failures.is_empty() {
+                    return write!(f, "completed");
+                }
+                for (index, item) in failure.failures.iter().enumerate() {
+                    if index > 0 {
+                        write!(f, "; ")?;
+                    }
+                    write!(f, "{}: {}", item.path, item.error.text())?;
+                    match &item.recovery {
+                        Some(RollbackRecovery::Retained { path }) => {
+                            write!(f, "; original backup retained at {path}")?
+                        }
+                        Some(RollbackRecovery::Failed { error }) => {
+                            write!(f, "; could not retain recovery copy: {error}")?
+                        }
+                        Some(RollbackRecovery::Unavailable) => {
+                            write!(f, "; no recovery copy is available")?
+                        }
+                        None => {}
+                    }
+                }
+                Ok(())
+            }
+        }
+    }
+}
+/// The journal still observes the same English String error and result-derived changes.
+/// Only after it returns do the two converter commands restore the structured IPC error.
+fn record_conversion<T: super::history::Changes>(
+    label: &str,
+    paths: &[String],
+    work: impl FnOnce() -> Result<T, ConverterError>,
+) -> Result<T, ConverterError> {
+    let mut failure = None;
+    let result = super::history::record(label, None, paths, || {
+        capture_conversion_error(work(), &mut failure)
+    });
+    result.map_err(|error| failure.unwrap_or(ConverterError::Plain(error)))
+}
+
+fn capture_conversion_error<T>(
+    result: Result<T, ConverterError>,
+    failure: &mut Option<ConverterError>,
+) -> Result<T, String> {
+    result.map_err(|error| {
+        let text = error.to_string();
+        *failure = Some(error);
+        text
+    })
+}
+
 #[tauri::command]
 pub async fn preview_filename_conversion(
     request: FilenameRequest,
@@ -93,14 +224,17 @@ pub async fn preview_filename_conversion(
 pub async fn apply_filename_conversion(
     request: FilenameRequest,
     plan_token: String,
-) -> Result<FilenameResult, String> {
+) -> Result<FilenameResult, ConverterError> {
     super::io(move || {
         super::reject_provider_operation(&request.paths, "Filename conversion")?;
-        super::history::record("Filename → Filename", None, &request.paths, || {
-            apply_filename(&request, &plan_token)
-        })
+        Ok(record_conversion(
+            "Filename → Filename",
+            &request.paths,
+            || apply_filename(&request, &plan_token),
+        ))
     })
     .await
+    .map_err(ConverterError::Plain)?
 }
 
 #[tauri::command]
@@ -116,14 +250,17 @@ pub async fn preview_text_import(request: TextRequest) -> Result<TextPreview, St
 pub async fn apply_text_import(
     request: TextRequest,
     plan_token: String,
-) -> Result<ScanResult, String> {
+) -> Result<ScanResult, ConverterError> {
     super::io(move || {
         reject_provider_text(&request)?;
-        super::history::record("Text File → Tag", None, &request.paths, || {
-            apply_text(&request, &plan_token)
-        })
+        Ok(record_conversion(
+            "Text File → Tag",
+            &request.paths,
+            || apply_text(&request, &plan_token),
+        ))
     })
     .await
+    .map_err(ConverterError::Plain)?
 }
 
 fn reject_provider_text(request: &TextRequest) -> Result<(), String> {
@@ -161,13 +298,20 @@ fn same_metadata(a: &fs::Metadata, b: &fs::Metadata) -> bool {
 }
 
 fn digest_file(path: &Path) -> Result<([u8; 32], fs::Metadata), String> {
-    let mut file = fs::File::open(path).map_err(|e| e.to_string())?;
-    let before = file.metadata().map_err(|e| e.to_string())?;
+    digest_message(path).map_err(|error| error.text().to_owned())
+}
+fn digest_message(path: &Path) -> Result<([u8; 32], fs::Metadata), ConverterMessage> {
+    let mut file = fs::File::open(path).map_err(|e| ConverterMessage::External(e.to_string()))?;
+    let before = file
+        .metadata()
+        .map_err(|e| ConverterMessage::External(e.to_string()))?;
     let mut hash = Sha256::new();
     let mut buffer = [0u8; 65536];
     let mut read = 0u64;
     loop {
-        let length = file.read(&mut buffer).map_err(|e| e.to_string())?;
+        let length = file
+            .read(&mut buffer)
+            .map_err(|e| ConverterMessage::External(e.to_string()))?;
         if length == 0 {
             break;
         }
@@ -180,8 +324,16 @@ fn digest_file(path: &Path) -> Result<([u8; 32], fs::Metadata), String> {
         hash.update(&buffer[..length]);
     }
     if read != before.len()
-        || !same_metadata(&before, &file.metadata().map_err(|e| e.to_string())?)
-        || !same_metadata(&before, &fs::metadata(path).map_err(|e| e.to_string())?)
+        || !same_metadata(
+            &before,
+            &file
+                .metadata()
+                .map_err(|e| ConverterMessage::External(e.to_string()))?,
+        )
+        || !same_metadata(
+            &before,
+            &fs::metadata(path).map_err(|e| ConverterMessage::External(e.to_string()))?,
+        )
     {
         return Err("File changed while its contents were reviewed".into());
     }
@@ -452,7 +604,10 @@ fn preview_filename(
     })
 }
 
-fn apply_filename(request: &FilenameRequest, token: &str) -> Result<FilenameResult, String> {
+fn apply_filename(
+    request: &FilenameRequest,
+    token: &str,
+) -> Result<FilenameResult, ConverterError> {
     let plan = consume(token, request_hash("filename", request)?)?;
     let Operation::Filename(moves) = &plan.operation else {
         return Err("Wrong converter preview kind".into());
@@ -479,7 +634,7 @@ fn apply_filename(request: &FilenameRequest, token: &str) -> Result<FilenameResu
                 .entries
                 .push(crate::settings::read_summary(&movement.target)?);
         }
-        Ok::<_, String>(())
+        Ok::<_, ConverterMessage>(())
     })();
     if let Err(error) = operation {
         let mut rollback = Vec::new();
@@ -487,23 +642,27 @@ fn apply_filename(request: &FilenameRequest, token: &str) -> Result<FilenameResu
             let source = &plan.sources[index];
             let target = &moves[index].target;
             let restored = (|| {
-                if digest_file(target)?.0 != source.hash {
+                if digest_message(target)?.0 != source.hash {
                     return Err("Moved file changed externally; retained at destination".into());
                 }
                 tag_core::operations::rename_no_clobber(target, &source.canonical)
+                    .map_err(ConverterMessage::External)
             })();
             if let Err(error) = restored {
-                rollback.push(format!("{}: {error}", target.display()));
+                rollback.push(RollbackItem {
+                    path: target.to_string_lossy().into_owned(),
+                    error,
+                    recovery: None,
+                });
             }
         }
-        return Err(format!(
-            "{error}; rename rollback {}",
-            if rollback.is_empty() {
-                "completed".into()
-            } else {
-                rollback.join("; ")
-            }
-        ));
+        return Err(ConverterError::Rollback {
+            converter_rollback: Box::new(RollbackFailure {
+                operation: RollbackOperation::Rename,
+                error,
+                failures: rollback,
+            }),
+        });
     }
     Ok(result)
 }
@@ -649,7 +808,7 @@ fn sibling_copy(source: &Snapshot, backup: bool) -> Result<tempfile::TempPath, S
     Ok(temporary)
 }
 
-fn apply_text(request: &TextRequest, token: &str) -> Result<ScanResult, String> {
+fn apply_text(request: &TextRequest, token: &str) -> Result<ScanResult, ConverterError> {
     apply_text_with(request, token, crate::settings::write_summary, |_| Ok(()))
 }
 
@@ -658,7 +817,7 @@ fn apply_text_with(
     token: &str,
     mut writer: impl FnMut(&Path, &Fields) -> Result<AudioEntry, String>,
     mut before_commit: impl FnMut(usize) -> Result<(), String>,
-) -> Result<ScanResult, String> {
+) -> Result<ScanResult, ConverterError> {
     let plan = consume(token, request_hash("text", request)?)?;
     let Operation::Text(items) = &plan.operation else {
         return Err("Wrong converter preview kind".into());
@@ -692,10 +851,10 @@ fn apply_text_with(
                 .take()
                 .ok_or("Missing prepared edit")?
                 .persist(&item.source.canonical)
-                .map_err(|e| e.error.to_string())?;
+                .map_err(|e| ConverterMessage::External(e.error.to_string()))?;
             completed.push(index);
-            let committed =
-                fs::symlink_metadata(&item.source.canonical).map_err(|e| e.to_string())?;
+            let committed = fs::symlink_metadata(&item.source.canonical)
+                .map_err(|e| ConverterMessage::External(e.to_string()))?;
             if !committed.is_file() {
                 return Err("Committed file path changed externally".into());
             }
@@ -704,7 +863,7 @@ fn apply_text_with(
                 .entries
                 .push(crate::settings::read_summary(&item.source.canonical)?);
         }
-        Ok::<_, String>(())
+        Ok::<_, ConverterMessage>(())
     })();
     if let Err(error) = operation {
         let mut failures = Vec::new();
@@ -715,15 +874,15 @@ fn apply_text_with(
                     .committed_metadata
                     .as_ref()
                     .ok_or("Committed file identity unavailable; rollback did not overwrite it")?;
-                let current =
-                    fs::symlink_metadata(&item.source.canonical).map_err(|e| e.to_string())?;
+                let current = fs::symlink_metadata(&item.source.canonical)
+                    .map_err(|e| ConverterMessage::External(e.to_string()))?;
                 if !current.is_file() || !same_metadata(&current, committed) {
                     return Err(
                         "File changed externally after commit; rollback did not overwrite it"
                             .into(),
                     );
                 }
-                let (current_hash, stable_metadata) = digest_file(&item.source.canonical)?;
+                let (current_hash, stable_metadata) = digest_message(&item.source.canonical)?;
                 if current_hash != item.after_hash || !same_metadata(&stable_metadata, committed) {
                     return Err(
                         "File changed externally after commit; rollback did not overwrite it"
@@ -740,32 +899,36 @@ fn apply_text_with(
                     Err(error) => {
                         let message = error.error.to_string();
                         item.backup = Some(error.path);
-                        Err(message)
+                        Err(ConverterMessage::External(message))
                     }
                 }
             })();
             if let Err(error) = restore {
                 let recovery = match item.backup.take() {
                     Some(backup) => match backup.keep() {
-                        Ok(path) => format!("original backup retained at {}", path.display()),
-                        Err(error) => format!("could not retain recovery copy: {}", error.error),
+                        Ok(path) => RollbackRecovery::Retained {
+                            path: path.to_string_lossy().into_owned(),
+                        },
+                        Err(error) => RollbackRecovery::Failed {
+                            error: error.error.to_string(),
+                        },
                     },
-                    None => "no recovery copy is available".into(),
+                    None => RollbackRecovery::Unavailable,
                 };
-                failures.push(format!(
-                    "{}: {error}; {recovery}",
-                    item.source.canonical.display()
-                ));
+                failures.push(RollbackItem {
+                    path: item.source.canonical.to_string_lossy().into_owned(),
+                    error,
+                    recovery: Some(recovery),
+                });
             }
         }
-        return Err(format!(
-            "{error}; text import rollback {}",
-            if failures.is_empty() {
-                "completed".into()
-            } else {
-                failures.join("; ")
-            }
-        ));
+        return Err(ConverterError::Rollback {
+            converter_rollback: Box::new(RollbackFailure {
+                operation: RollbackOperation::TextImport,
+                error,
+                failures,
+            }),
+        });
     }
     Ok(result)
 }
@@ -825,6 +988,136 @@ mod tests {
             mask: "%title%".into(),
             options: TextImportOptions::default(),
         }
+    }
+
+    #[test]
+    fn rollback_ipc_and_history_bridge_keep_paths_parts_and_plain_errors() {
+        let cases: serde_json::Value =
+            serde_json::from_str(include_str!("../../tests/fixtures/converter-rollback.json"))
+                .unwrap();
+        for case in cases.as_array().unwrap() {
+            let failure: RollbackFailure = serde_json::from_value(case["payload"].clone()).unwrap();
+            let error = ConverterError::Rollback {
+                converter_rollback: Box::new(failure),
+            };
+            assert_eq!(error.to_string(), case["source"].as_str().unwrap());
+            let wire: tauri::ipc::InvokeError = error.clone().into();
+            assert_eq!(
+                wire.0,
+                serde_json::json!({"converter_rollback":case["payload"]})
+            );
+            let mut captured = None;
+            let journal_result: Result<ScanResult, String> =
+                capture_conversion_error(Err(error.clone()), &mut captured);
+            assert_eq!(
+                journal_result.unwrap_err(),
+                case["source"].as_str().unwrap()
+            );
+            assert_eq!(serde_json::to_value(captured.unwrap()).unwrap(), wire.0);
+            let recorded =
+                record_conversion::<ScanResult>("converter diagnostic", &[], || Err(error));
+            assert_eq!(serde_json::to_value(recorded.unwrap_err()).unwrap(), wire.0);
+        }
+        let ordinary = ConverterError::from("Select files first.");
+        let wire: tauri::ipc::InvokeError = ordinary.clone().into();
+        assert_eq!(wire.0, "Select files first.");
+        assert_eq!(
+            record_conversion::<ScanResult>("converter ordinary", &[], || Err(ordinary))
+                .unwrap_err()
+                .to_string(),
+            "Select files first."
+        );
+    }
+
+    #[test]
+    fn converter_outer_io_guards_keep_plain_string_ipc_errors() {
+        let paths = vec!["content://provider/Help".into()];
+        let filename = FilenameRequest {
+            paths: paths.clone(),
+            old_pattern: "%1".into(),
+            new_pattern: "%1".into(),
+            columns: None,
+        };
+        let text = TextRequest {
+            paths,
+            source: TextSource::Text {
+                text: "Help".into(),
+            },
+            mask: "%title%".into(),
+            options: TextImportOptions::default(),
+        };
+        let errors = [
+            tauri::async_runtime::block_on(apply_filename_conversion(filename, "unused".into()))
+                .unwrap_err(),
+            tauri::async_runtime::block_on(apply_text_import(text, "unused".into())).unwrap_err(),
+        ];
+        for error in errors {
+            assert!(matches!(error, ConverterError::Plain(_)));
+            let shown = error.to_string();
+            let wire: tauri::ipc::InvokeError = error.into();
+            assert_eq!(wire.0, shown);
+            assert!(shown.contains("provider"));
+        }
+    }
+
+    #[test]
+    fn actual_multi_file_rollback_preserves_external_edits_and_serializes_recovery_paths() {
+        let dir = tempfile::tempdir().unwrap();
+        #[cfg(unix)]
+        let names = ["Help: one; Title.wav", "Title: two; Help.wav", "third.wav"];
+        #[cfg(not(unix))]
+        let names = ["Help; one.wav", "Title; two.wav", "third.wav"];
+        let paths = names.map(|name| dir.path().join(name));
+        for (index, path) in paths.iter().enumerate() {
+            wav(path, &format!("Original {index}"));
+        }
+        let originals = paths
+            .iter()
+            .map(|path| fs::read(path).unwrap())
+            .collect::<Vec<_>>();
+        let request = text_request(&paths, "New one\nNew two\nNew three");
+        let preview = preview_text(&request).unwrap();
+        let error = apply_text_with(
+            &request,
+            &preview.plan_token,
+            tag_core::write_fields_summary,
+            |index| {
+                if index == 2 {
+                    fs::write(&paths[0], b"External Help one").unwrap();
+                    fs::write(&paths[1], b"External Title two").unwrap();
+                    Err("Select files first.".into())
+                } else {
+                    Ok(())
+                }
+            },
+        )
+        .unwrap_err();
+        let ConverterError::Rollback {
+            converter_rollback: failure,
+        } = &error
+        else {
+            panic!("expected structured rollback")
+        };
+        assert_eq!(failure.failures.len(), 2);
+        for (item, index) in failure.failures.iter().zip([1, 0]) {
+            assert_eq!(
+                Path::new(&item.path),
+                dunce::canonicalize(&paths[index]).unwrap()
+            );
+            assert_eq!(
+                item.error.text(),
+                "File changed externally after commit; rollback did not overwrite it"
+            );
+            let Some(RollbackRecovery::Retained { path }) = &item.recovery else {
+                panic!("expected retained backup")
+            };
+            assert_eq!(fs::read(path).unwrap(), originals[index]);
+        }
+        assert_eq!(fs::read(&paths[0]).unwrap(), b"External Help one");
+        assert_eq!(fs::read(&paths[1]).unwrap(), b"External Title two");
+        assert_eq!(fs::read(&paths[2]).unwrap(), originals[2]);
+        let wire: tauri::ipc::InvokeError = error.clone().into();
+        assert_eq!(wire.0, serde_json::to_value(error).unwrap());
     }
 
     #[test]
@@ -1173,7 +1466,7 @@ mod tests {
             |_| Ok(()),
         )
         .unwrap_err();
-        assert!(error.contains("prepare failure"));
+        assert!(error.to_string().contains("prepare failure"));
         assert_eq!(calls, 2);
         assert_eq!(fs::read(&a).unwrap(), before[0]);
         assert_eq!(fs::read(&b).unwrap(), before[1]);
@@ -1205,9 +1498,19 @@ mod tests {
         )
         .unwrap_err();
         assert!(
-            error.contains("commit failure") && error.contains("rollback completed"),
+            error.to_string().contains("commit failure")
+                && error.to_string().contains("rollback completed"),
             "{error}"
         );
+        let ConverterError::Rollback {
+            converter_rollback: failure,
+        } = &error
+        else {
+            panic!("expected structured completed rollback")
+        };
+        assert!(failure.failures.is_empty());
+        let wire: tauri::ipc::InvokeError = error.clone().into();
+        assert_eq!(wire.0, serde_json::to_value(&error).unwrap());
         assert_eq!(fs::read(&a).unwrap(), before[0]);
         assert_eq!(fs::read(&b).unwrap(), before[1]);
         assert_eq!(
@@ -1312,7 +1615,7 @@ mod tests {
             },
         )
         .unwrap_err();
-        assert!(error.contains("externally"), "{error}");
+        assert!(error.to_string().contains("externally"), "{error}");
         assert_eq!(fs::read(&a).unwrap(), b"External update must survive");
         let recovery: Vec<_> = fs::read_dir(dir.path())
             .unwrap()
@@ -1326,7 +1629,7 @@ mod tests {
             .collect();
         assert_eq!(recovery.len(), 1, "{error}");
         assert_eq!(fs::read(&recovery[0]).unwrap(), original);
-        assert!(error.contains("backup retained"));
+        assert!(error.to_string().contains("backup retained"));
     }
 
     #[test]
@@ -1396,7 +1699,7 @@ mod tests {
             .collect();
         assert_eq!(recovery.len(), 1, "{error}");
         assert_eq!(fs::read(&recovery[0]).unwrap(), original);
-        assert!(error.contains("backup retained"));
+        assert!(error.to_string().contains("backup retained"));
     }
 
     #[cfg(unix)]
@@ -1445,6 +1748,6 @@ mod tests {
             .collect();
         assert_eq!(recovery.len(), 1, "{error}");
         assert_eq!(fs::read(&recovery[0]).unwrap(), original);
-        assert!(error.contains("backup retained"));
+        assert!(error.to_string().contains("backup retained"));
     }
 }

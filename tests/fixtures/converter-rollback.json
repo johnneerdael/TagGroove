@@ -1,0 +1,100 @@
+[
+  {
+    "id": "rename-completed",
+    "payload": {
+      "operation": "rename",
+      "error": {
+        "kind": "message",
+        "message": "Select files first."
+      },
+      "failures": []
+    },
+    "source": "Select files first.; rename rollback completed"
+  },
+  {
+    "id": "text-completed",
+    "payload": {
+      "operation": "text_import",
+      "error": {
+        "kind": "external",
+        "message": "Help: IO;  Title"
+      },
+      "failures": []
+    },
+    "source": "Help: IO;  Title; text import rollback completed"
+  },
+  {
+    "id": "text-multiple",
+    "payload": {
+      "operation": "text_import",
+      "error": {
+        "kind": "message",
+        "message": "Select files first."
+      },
+      "failures": [
+        {
+          "path": "/Help: Source; one.wav",
+          "error": {
+            "kind": "message",
+            "message": "File changed externally after commit; rollback did not overwrite it"
+          },
+          "recovery": {
+            "kind": "retained",
+            "path": "/Title: original;  backup.wav"
+          }
+        },
+        {
+          "path": "/Title; Source: two.wav",
+          "error": {
+            "kind": "external",
+            "message": "Help: IO;  Title"
+          },
+          "recovery": {
+            "kind": "failed",
+            "error": "Title: keep;  Help"
+          }
+        },
+        {
+          "path": "/Help; Source: three.wav",
+          "error": {
+            "kind": "message",
+            "message": "Missing rollback copy"
+          },
+          "recovery": {
+            "kind": "unavailable"
+          }
+        }
+      ]
+    },
+    "source": "Select files first.; text import rollback /Help: Source; one.wav: File changed externally after commit; rollback did not overwrite it; original backup retained at /Title: original;  backup.wav; /Title; Source: two.wav: Help: IO;  Title; could not retain recovery copy: Title: keep;  Help; /Help; Source: three.wav: Missing rollback copy; no recovery copy is available"
+  },
+  {
+    "id": "rename-multiple",
+    "payload": {
+      "operation": "rename",
+      "error": {
+        "kind": "message",
+        "message": "Select files first."
+      },
+      "failures": [
+        {
+          "path": "/Help: Source; one.wav",
+          "error": {
+            "kind": "message",
+            "message": "Moved file changed externally; retained at destination"
+          },
+          "recovery": null
+        },
+        {
+          "path": "/Title; Source: two.wav",
+          "error": {
+            "kind": "external",
+            "message": "Err(Os { code: 13, kind: PermissionDenied, message: \"Help\" })"
+          },
+          "recovery": null
+        }
+      ]
+    },
+    "source": "Select files first.; rename rollback /Help: Source; one.wav: Moved file changed externally; retained at destination; /Title; Source: two.wav: Err(Os { code: 13, kind: PermissionDenied, message: \"Help\" })"
+  }
+]
