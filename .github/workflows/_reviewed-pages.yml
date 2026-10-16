@@ -121,6 +121,7 @@ jobs:
           # This secret exists only in the github-pages environment above.
           # It grants write access to the static publication repository alone.
           DOCS_PAGES_DEPLOY_KEY: ${{ secrets.DOCS_PAGES_DEPLOY_KEY }}
+          GH_TOKEN: ${{ github.token }}
           PR_HEAD: ${{ inputs.head_sha }}
           SOURCE_SHA: ${{ inputs.source_sha }}
           PR_NUMBER: ${{ inputs.pr_number }}

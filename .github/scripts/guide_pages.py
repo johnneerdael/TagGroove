@@ -23,6 +23,10 @@ SOURCE_PROJECT = "johnneerdael/opentag"
 SOURCE_REPOSITORY = f"https://github.com/{SOURCE_PROJECT}"
 TARGET = "git@github.com:johnneerdael/audio-tag-guide.git"
 MARKER = "publication-source.json"
+SIGNATURE = MARKER + ".sig"
+SIGNERS = Path(__file__).resolve().parents[1] / "guide-pages-allowed-signers"
+PRINCIPAL = "opentag-guide-publisher"
+NAMESPACE = "opentag-guide-publication-v1"
 KNOWN_HOSTS = Path(__file__).resolve().parents[1] / "guide-pages-known-hosts"
 TARGET_TEMPLATE = Path(__file__).resolve().parents[1] / "guide-pages-target.yml"
 TARGET_WORKFLOW = ".github/workflows/static-pages.yml"
@@ -68,7 +72,7 @@ def files(site):
 
 def tree_digest(site):
     rows = [f"{path.relative_to(site).as_posix()} {hashlib.sha256(path.read_bytes()).hexdigest()}"
-            for path in files(site) if path.relative_to(site).as_posix() != MARKER]
+            for path in files(site) if path.relative_to(site).as_posix() not in (MARKER, SIGNATURE)]
     return hashlib.sha256("\n".join(rows).encode()).hexdigest()
 
 
@@ -178,8 +182,39 @@ def target_control(checkout):
         raise ValueError("Target deployment control must match the reviewed source template")
 
 
-def authorize_target(site, checkout, api=None):
-    """Use only trusted source-main code and public metadata, never artifact code."""
+def authorize_source(source, head, pr, api=None):
+    """Only SOURCE's authenticated release job can approve a signature/push."""
+    api = api or GitHub(SOURCE_PROJECT)
+    if api.repo != SOURCE_PROJECT or api.get("git/ref/heads/main")["object"]["sha"] != source:
+        raise RuntimeError("Only current source main can authorize neutral publication")
+    check_release(api, pr, head, source)
+    if api.get("git/ref/heads/main")["object"]["sha"] != source:
+        raise RuntimeError("Source main changed during publication authorization")
+
+
+def sign_publication(site, private):
+    result = subprocess.run(["ssh-keygen", "-Y", "sign", "-f", str(private), "-n", NAMESPACE],
+                            input=(site / MARKER).read_bytes(), capture_output=True, check=True,
+                            env={name: value for name, value in os.environ.items()
+                                 if name not in ("DOCS_PAGES_DEPLOY_KEY", "GH_TOKEN", "GITHUB_TOKEN")})
+    (site / SIGNATURE).write_bytes(result.stdout)
+
+
+def current_source():
+    result = subprocess.run(["git", "-c", "core.hooksPath=/dev/null", "ls-remote",
+                             SOURCE_REPOSITORY + ".git", "refs/heads/main"],
+                            env={**{name: value for name, value in os.environ.items()
+                                    if name not in ("DOCS_PAGES_DEPLOY_KEY", "GH_TOKEN", "GITHUB_TOKEN")},
+                                 "GIT_TERMINAL_PROMPT": "0"},
+                            capture_output=True, text=True, check=True, timeout=30)
+    match = re.fullmatch(r"([0-9a-f]{40})\trefs/heads/main\n?", result.stdout)
+    if not match:
+        raise RuntimeError("Cannot verify current source main")
+    return match[1]
+
+
+def authorize_target(site, checkout):
+    """Verify SOURCE's signed approval receipt; never access its scoped token."""
     target_control(checkout)
     if site.resolve() != (checkout / "site").resolve():
         raise ValueError("Only the target's site directory may be packaged")
@@ -189,16 +224,18 @@ def authorize_target(site, checkout, api=None):
         raise ValueError("Publication provenance must be an object")
     source, head, pr = (marker.get(name) for name in ("source_commit", "reviewed_head", "reviewed_pr"))
     validate_site(site, source, head, pr)
-    api = api or GitHub(SOURCE_PROJECT)
-    if api.repo != SOURCE_PROJECT or api.get("git/ref/heads/main")["object"]["sha"] != source:
-        raise RuntimeError("Only current source main can authorize neutral publication")
-    check_release(api, pr, head, source)
-    if api.get("git/ref/heads/main")["object"]["sha"] != source:
-        raise RuntimeError("Source main changed during target authorization")
+    signature = site / SIGNATURE
+    if not signature.is_file() or signature.stat().st_size > 16384:
+        raise ValueError("A bounded source publication signature is required")
+    subprocess.run(["ssh-keygen", "-Y", "verify", "-f", str(SIGNERS), "-I", PRINCIPAL,
+                    "-n", NAMESPACE, "-s", str(signature)],
+                   input=(site / MARKER).read_bytes(), capture_output=True, check=True)
+    if current_source() != source:
+        raise RuntimeError("Signed publication is no longer current source main")
     return marker
 
 
-def publish_checkout(site, checkout, source, head, pr, env=None):
+def publish_checkout(site, checkout, source, head, pr, env=None, before_push=None):
     validate_site(site, source, head, pr)
     if (checkout / ".git").is_symlink() or not (checkout / ".git").is_dir():
         raise ValueError("Publisher requires its own ordinary Git clone")
@@ -219,6 +256,8 @@ def publish_checkout(site, checkout, source, head, pr, env=None):
     changes = git(checkout, "diff", "--cached", "--name-only", env=env)
     if changes:
         git(checkout, "commit", "-m", f"Publish user guide from {source}", env=env)
+        if before_push is not None:
+            before_push()
         # No force option: a concurrent target update must fail instead of being erased.
         git(checkout, "push", "origin", "HEAD:main", env=env)
     return git(checkout, "rev-parse", "HEAD", env=env)
@@ -240,12 +279,17 @@ def publish(site, source, head, pr):
             "ssh", "-i", str(private), "-o", "IdentitiesOnly=yes", "-o", "StrictHostKeyChecking=yes",
             "-o", "HostKeyAlgorithms=ssh-ed25519", "-o", f"UserKnownHostsFile={hosts}"])}
         # Keep the secret out of the Git/SSH child environment and all command arguments.
-        env.pop("DOCS_PAGES_DEPLOY_KEY", None)
+        for name in ("DOCS_PAGES_DEPLOY_KEY", "GH_TOKEN", "GITHUB_TOKEN"):
+            env.pop(name, None)
         checkout = root / "target"
         subprocess.run(["git", "-c", "core.hooksPath=/dev/null", "clone", "--depth=1",
                         "--single-branch", "--branch=main", TARGET, str(checkout)],
                        env=env, check=True, capture_output=True, text=True)
-        return publish_checkout(site, checkout, source, head, pr, env=env)
+        target_control(checkout)
+        authorize_source(source, head, pr)
+        sign_publication(site, private)
+        return publish_checkout(site, checkout, source, head, pr, env=env,
+                                before_push=lambda: authorize_source(source, head, pr))
 
 
 def fetch_marker(source):

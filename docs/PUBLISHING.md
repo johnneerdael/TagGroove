@@ -81,14 +81,18 @@ Coverage is a writing plan, not a feature-parity claim.
    symlinks, hardlinks, custom-domain overrides and leaked writer-only material.
    The output replaces only `site/`; the separately installed target workflow must
    match the reviewed source template byte for byte. No artifact code runs.
-6. The target workflow checks the source repository's merged-PR review, trusted
-   validation proof, current main and static-tree digest using trusted source
-   main code before uploading a Pages artifact. Its read-only package job must
-   succeed before a separate Pages/OIDC deployment job can start; that job
-   repeats the source check before deployment.
+6. Immediately before signing and again before pushing, the source job uses its
+   own repository-scoped token to check the complete merged-PR review and trusted
+   validation proof, including review threads and current main. It signs the exact
+   publication marker with the existing environment deployment key. The target
+   verifies that detached SSH signature against the public signer pinned in trusted
+   source main, then checks the static-tree digest, workflow pin and current source
+   main before uploading a Pages artifact. Its read-only package job must succeed
+   before a separate Pages/OIDC deployment job can start; deployment repeats the
+   signature and current-main checks. No source token is passed to the target.
 7. The source job waits for the neutral site's HTTPS
-   `publication-source.json` to match
-   the expected source, review and complete static-tree digest. Only then does
+   `publication-source.json` to match the expected source, review and complete
+   static-tree digest. Only then does
    it recheck approval/current main and deploy old-site redirects through the
    existing Pages action. A missing/stale marker or source drift prevents that
    redirect deployment; a concurrent target update is never force-pushed away.
@@ -97,6 +101,17 @@ Coverage is a writing plan, not a feature-parity claim.
 8. Open the canonical public site. Confirm the changed page, navigation,
    search, styles and an image. Also check an old deep link with its query and
    fragment. A local build, Git push or uploaded artifact is not publication.
+
+The signature attests that the source's full authorization check succeeded at
+signing time. Target verification does not replay authenticated source review
+queries or claim a live review-thread snapshot; it verifies that signed receipt
+and rejects a source that is no longer current main. The source still performs
+its complete authenticated review check before deploying old-site redirects.
+`publication-source.json.sig` is excluded with its marker from the static-tree
+digest to avoid a signing cycle; target verification requires the signature.
+The signer principal and namespace are fixed, and the target never accepts a
+public key from the static artifact. Public Git reads avoid cross-repository
+token access and anonymous REST API quotas.
 
 The source repository's Pages source remains **GitHub Actions** under
 **Settings → Pages**. It serves small redirect pages for every built HTML route
@@ -136,6 +151,10 @@ require the explicit mapping even for an environment-only secret. No broad
 secret inheritance is used. Only the trusted publisher step consumes the key;
 read/build and marker-wait steps do not receive it. The key is written to a
 temporary mode-0600 file, excluded from Git's environment and removed on exit.
+Signing uses the same existing deployment key, with its public key pinned in
+`.github/guide-pages-allowed-signers`. Verify key rotations through a reviewed
+source change and the matching environment-secret/target-deploy-key update. Git/SSH child processes do
+not receive the source API token or deployment-key environment value.
 SSH checks the pinned public GitHub Ed25519 host key in
 `.github/guide-pages-known-hosts`; verify any rotation against
 [GitHub's published fingerprints](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/githubs-ssh-key-fingerprints)

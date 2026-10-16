@@ -171,26 +171,124 @@ class PublicationTests(unittest.TestCase):
         api.get.side_effect = get
         return api
 
-    def test_target_authentication_reuses_source_review_gate_and_rejects_marker_only_claims(self):
-        self.prepare()
-        _, checkout = self.repository()
-        self.pages.publish_checkout(self.site, checkout, SOURCE, HEAD, 34)
+    def test_source_signing_authentication_reuses_full_source_gate_and_rejects_unapproved_claims(self):
         api = self.source_api()
-        self.pages.authorize_target(checkout / "site", checkout, api=api)
+        self.pages.authorize_source(SOURCE, HEAD, 34, api=api)
         api.snapshot.assert_called_once_with(34, merged=True)
         api.post.assert_not_called()
         api.snapshot.return_value = (api.snapshot.return_value[0], (False, "Unapproved head"))
         with self.assertRaises(RuntimeError):
-            self.pages.authorize_target(checkout / "site", checkout, api=api)
+            self.pages.authorize_source(SOURCE, HEAD, 34, api=api)
         api = self.source_api()
         api.pages.return_value = []
         with self.assertRaises(RuntimeError):
-            self.pages.authorize_target(checkout / "site", checkout, api=api)
+            self.pages.authorize_source(SOURCE, HEAD, 34, api=api)
         api = self.source_api()
         original = api.get.side_effect
         api.get.side_effect = lambda path: dict(object=dict(sha="f" * 40)) if path == "git/ref/heads/main" else original(path)
         with self.assertRaises(RuntimeError):
-            self.pages.authorize_target(checkout / "site", checkout, api=api)
+            self.pages.authorize_source(SOURCE, HEAD, 34, api=api)
+
+    def signing_key(self, name):
+        key = self.root / name
+        subprocess.run(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", str(key)],
+                       check=True, capture_output=True)
+        return key
+
+    def test_actual_ssh_signature_binds_marker_tree_signer_namespace_and_current_main(self):
+        self.prepare()
+        key = self.signing_key("signer")
+        wrong = self.signing_key("wrong-signer")
+        allowed = self.root / "allowed-signers"
+        allowed.write_text(self.pages.PRINCIPAL + " " + key.with_suffix(".pub").read_text())
+        self.pages.sign_publication(self.site, key)
+        _, checkout = self.repository()
+        self.pages.publish_checkout(self.site, checkout, SOURCE, HEAD, 34)
+        site = checkout / "site"
+        with patch.object(self.pages, "SIGNERS", allowed), patch.object(self.pages, "current_source", return_value=SOURCE):
+            self.pages.authorize_target(site, checkout)
+            marker = (site / self.pages.MARKER).read_bytes()
+            modified = json.loads(marker)
+            modified["reviewed_pr"] = 35
+            (site / self.pages.MARKER).write_text(json.dumps(modified))
+            with self.assertRaises(subprocess.CalledProcessError):
+                self.pages.authorize_target(site, checkout)
+            (site / self.pages.MARKER).write_bytes(marker)
+            with patch.object(self.pages, "NAMESPACE", "wrong-domain"), self.assertRaises(subprocess.CalledProcessError):
+                self.pages.authorize_target(site, checkout)
+            allowed.write_text(self.pages.PRINCIPAL + " " + wrong.with_suffix(".pub").read_text())
+            with self.assertRaises(subprocess.CalledProcessError):
+                self.pages.authorize_target(site, checkout)
+            allowed.write_text(self.pages.PRINCIPAL + " " + key.with_suffix(".pub").read_text())
+            with patch.object(self.pages, "current_source", return_value="f" * 40), self.assertRaises(RuntimeError):
+                self.pages.authorize_target(site, checkout)
+            (site / "index.html").write_text("tampered static bytes")
+            with self.assertRaises(ValueError):
+                self.pages.authorize_target(site, checkout)
+            (site / "index.html").write_bytes((self.site / "index.html").read_bytes())
+            (site / self.pages.SIGNATURE).unlink()
+            with self.assertRaises(ValueError):
+                self.pages.authorize_target(site, checkout)
+
+    def test_source_rejection_immediately_before_push_keeps_remote_unchanged(self):
+        self.prepare()
+        bare, checkout = self.repository()
+        original = self.git(bare, "rev-parse", "main")
+        gate = Mock(side_effect=RuntimeError("Source approval revoked"))
+        with self.assertRaises(RuntimeError):
+            self.pages.publish_checkout(self.site, checkout, SOURCE, HEAD, 34, before_push=gate)
+        gate.assert_called_once_with()
+        self.assertEqual(self.git(bare, "rev-parse", "main"), original)
+
+    def test_current_source_uses_only_fixed_public_git_remote_and_denies_bad_output(self):
+        with patch.object(self.pages.subprocess, "run") as run:
+            run.return_value.stdout = SOURCE + "\trefs/heads/main\n"
+            self.assertEqual(self.pages.current_source(), SOURCE)
+            command = run.call_args.args[0]
+            self.assertEqual(command[-2:], ["https://github.com/johnneerdael/opentag.git", "refs/heads/main"])
+            self.assertNotIn("gh", command)
+            run.return_value.stdout = SOURCE + "\trefs/heads/other\n"
+            with self.assertRaises(RuntimeError):
+                self.pages.current_source()
+
+    def test_publisher_authenticates_before_signing_and_again_before_actual_push(self):
+        self.prepare()
+        key = self.signing_key("publisher-key")
+        bare, _ = self.repository()
+        original = self.git(bare, "rev-parse", "main")
+        real_run = subprocess.run
+        events = []
+
+        def transport(command, **kwargs):
+            if "clone" in command and self.pages.TARGET in command:
+                command = [str(bare) if part == self.pages.TARGET else part for part in command]
+            if "push" in command:
+                events.append("push")
+                for secret in ("DOCS_PAGES_DEPLOY_KEY", "GH_TOKEN", "GITHUB_TOKEN"):
+                    self.assertNotIn(secret, kwargs["env"])
+            if "sign" in command:
+                events.append("sign")
+                for secret in ("DOCS_PAGES_DEPLOY_KEY", "GH_TOKEN", "GITHUB_TOKEN"):
+                    self.assertNotIn(secret, kwargs["env"])
+            return real_run(command, **kwargs)
+
+        def approved(*args):
+            self.assertEqual(os.environ["GH_TOKEN"], "source-only")
+            events.append("authorize")
+
+        with patch.dict(os.environ, {"DOCS_PAGES_DEPLOY_KEY": key.read_text(), "GH_TOKEN": "source-only"}), \
+                patch.object(self.pages.subprocess, "run", side_effect=transport), \
+                patch.object(self.pages, "authorize_source", side_effect=RuntimeError("Unapproved")), \
+                self.assertRaises(RuntimeError):
+            self.pages.publish(self.site, SOURCE, HEAD, 34)
+        self.assertEqual(events, [])
+        self.assertEqual(self.git(bare, "rev-parse", "main"), original)
+        with patch.dict(os.environ, {"DOCS_PAGES_DEPLOY_KEY": key.read_text(), "GH_TOKEN": "source-only"}), \
+                patch.object(self.pages.subprocess, "run", side_effect=transport), \
+                patch.object(self.pages, "authorize_source", side_effect=approved):
+            self.pages.publish(self.site, SOURCE, HEAD, 34)
+        self.assertEqual(events, ["authorize", "sign", "authorize", "push"])
+        self.assertTrue(self.git(bare, "show", "main:site/" + self.pages.SIGNATURE).startswith("-----BEGIN SSH SIGNATURE-----"))
 
     def test_default_wait_allows_a_nine_minute_publication_and_a_full_deadline(self):
         marker = self.prepare()
@@ -278,7 +376,8 @@ class PublicationTests(unittest.TestCase):
 
         def fail_transport(command, **kwargs):
             env = kwargs["env"]
-            self.assertNotIn("DOCS_PAGES_DEPLOY_KEY", env)
+            for name in ("DOCS_PAGES_DEPLOY_KEY", "GH_TOKEN", "GITHUB_TOKEN"):
+                self.assertNotIn(name, env)
             self.assertIn("git@github.com:johnneerdael/audio-tag-guide.git", command)
             ssh = shlex.split(env["GIT_SSH_COMMAND"])
             key = Path(ssh[ssh.index("-i") + 1])
@@ -288,7 +387,7 @@ class PublicationTests(unittest.TestCase):
             self.assertIn("HostKeyAlgorithms=ssh-ed25519", ssh)
             raise OSError("Simulated transport failure; no network request")
 
-        with patch.dict(os.environ, {"DOCS_PAGES_DEPLOY_KEY": "not-a-real-deployment-key"}), \
+        with patch.dict(os.environ, {"DOCS_PAGES_DEPLOY_KEY": "not-a-real-deployment-key", "GH_TOKEN": "source-read-token", "GITHUB_TOKEN": "source-token"}), \
                 patch.object(self.pages.subprocess, "run", side_effect=fail_transport), \
                 self.assertRaises(OSError):
             self.pages.publish(self.site, SOURCE, HEAD, 34)

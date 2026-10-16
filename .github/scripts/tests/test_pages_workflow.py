@@ -81,6 +81,7 @@ class PagesTrustTests(unittest.TestCase):
         self.assertEqual(deploy.count("secrets.DOCS_PAGES_DEPLOY_KEY"), 1)
         publisher = deploy.split("- name: Publish only static bytes", 1)[1].split("- name: Require", 1)[0]
         self.assertIn("secrets.DOCS_PAGES_DEPLOY_KEY", publisher)
+        self.assertIn("GH_TOKEN: ${{ github.token }}", publisher)
         self.assertIn("if: steps.source.outputs.current == 'true'", publisher)
         self.assertNotIn("secrets: inherit", self.source)
         release = (WORKFLOWS / "reviewed-release.yml").read_text()
@@ -110,9 +111,11 @@ class PagesTrustTests(unittest.TestCase):
         self.assertIn("github.repository == 'johnneerdael/audio-tag-guide'", package)
         for job in [package, deploy]:
             self.assertIn("ref: ${{ github.sha }}", job)
-            self.assertIn("repository: johnneerdael/opentag\n          ref: main", job)
+            self.assertIn("--branch=main --filter=blob:none --sparse https://github.com/johnneerdael/opentag.git trusted", job)
             self.assertIn("python3 trusted/.github/scripts/guide_pages.py verify-target", job)
             self.assertNotIn("secrets.", job)
+            self.assertNotIn("GH_TOKEN", job)
+            self.assertNotIn("GITHUB_TOKEN", job)
         self.assertNotIn("pages: write", package)
         self.assertNotIn("id-token: write", package)
         self.assertLess(package.index("verify-target"), package.index("actions/upload-pages-artifact"))

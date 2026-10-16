@@ -7,9 +7,6 @@ on:
     paths: ['site/**']
 permissions:
   contents: read
-  pull-requests: read
-  issues: read
-  actions: read
 concurrency:
   group: static-guide-pages
   cancel-in-progress: false
@@ -24,16 +21,11 @@ jobs:
           ref: ${{ github.sha }}
           path: publication
           persist-credentials: false
-      - uses: actions/checkout@v4
-        with:
-          repository: johnneerdael/opentag
-          ref: main
-          path: trusted
-          sparse-checkout: .github
-          persist-credentials: false
-      - name: Require approved source and current main before packaging
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Read trusted source main without a cross-repository token
+        run: |
+          git -c core.hooksPath=/dev/null clone --depth=1 --single-branch --branch=main --filter=blob:none --sparse https://github.com/johnneerdael/opentag.git trusted
+          git -C trusted sparse-checkout set .github
+      - name: Verify signed source approval and current main before packaging
         run: python3 trusted/.github/scripts/guide_pages.py verify-target --site publication/site --checkout publication
       - uses: actions/upload-pages-artifact@v3
         with:
@@ -44,9 +36,6 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
-      pull-requests: read
-      issues: read
-      actions: read
       pages: write
       id-token: write
     environment:
@@ -58,16 +47,11 @@ jobs:
           ref: ${{ github.sha }}
           path: publication
           persist-credentials: false
-      - uses: actions/checkout@v4
-        with:
-          repository: johnneerdael/opentag
-          ref: main
-          path: trusted
-          sparse-checkout: .github
-          persist-credentials: false
-      - name: Recheck source approval and current main before deployment
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Read trusted source main without a cross-repository token
+        run: |
+          git -c core.hooksPath=/dev/null clone --depth=1 --single-branch --branch=main --filter=blob:none --sparse https://github.com/johnneerdael/opentag.git trusted
+          git -C trusted sparse-checkout set .github
+      - name: Recheck signed source approval and current main before deployment
         run: python3 trusted/.github/scripts/guide_pages.py verify-target --site publication/site --checkout publication
       - uses: actions/deploy-pages@v4
         id: deployment

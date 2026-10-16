@@ -36,9 +36,11 @@ application-release skipping. The reusable workflow authenticates its trusted
 main caller and checks the merged source proof before building and again before
 publication. Only the trusted deployment job receives Pages/OIDC permissions
 and the `github-pages` environment's narrowly scoped `DOCS_PAGES_DEPLOY_KEY`.
-The target read-only package job requires the source merged-PR review, trusted
-validation proof and current main before its separate Pages deployment job can
-start; deployment repeats that proof. The publisher preserves the byte-pinned
+The source authenticates the complete release proof immediately before signing
+and pushing, using its own repository token. The target read-only package job
+verifies that signed approval receipt, the static-tree digest and current source
+main before its separate Pages deployment job can start; deployment repeats those
+checks. No source API token is passed to the target. The publisher preserves the byte-pinned
 target workflow and stages only `site/`. It publishes validated regular static
 output to the fixed `johnneerdael/audio-tag-guide` repository over pinned-host
 SSH, then requires
