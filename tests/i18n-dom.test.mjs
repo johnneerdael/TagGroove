@@ -13,9 +13,9 @@ const moduleUrl=async(file,replacements={})=>{
 const load=async file=>import(await moduleUrl(file));
 const {Translator,catalogMeta}=await load('i18n/core.ts'),{DomTranslator}=await load('i18n/dom.ts');
 const {controlMarkup,OptionsUI,defaultSettings,registerOptionsPage,windowTitle}=await load('options-ui.ts');
-const {ColumnUI,defaultLayout,setColumnNameTranslation,columnName,headerMarkup,editKey}=await load('columns.ts'),{ActionUI}=await load('action-ui.ts');
+const {ColumnUI,defaultLayout,setColumnNameTranslation,columnName,headerMarkup,editKey}=await load('columns.ts'),{ActionUI,panelKey}=await load('action-ui.ts');
 const {CellEditor}=await load('cell-editor.ts');
-const {TagPanel,defaultLayout:defaultPanelLayout}=await load('tag-panel.ts');
+const {TagPanel,defaultLayout:defaultPanelLayout,defaultSettings:defaultPanelSettings,settingsError}=await load('tag-panel.ts');
 const {CoverUI}=await import(await moduleUrl('covers.ts',{"import './covers.css';":'',"'./keyboard'":JSON.stringify(await moduleUrl('keyboard.ts')),"'./cover-model'":JSON.stringify(await moduleUrl('cover-model.ts'))}));
 const {PICTURE_TYPES}=await load('cover-model.ts');
 const {contextMenuMarkup,RowContextMenu}=await load('row-context-menu.ts');
@@ -230,6 +230,32 @@ test('the native window-title wrapper translates generated locations once and pr
       assert.deepEqual(calls,[show&&label!==null?t.t('OpenTag — {location}',{location:label}):'OpenTag']);
       sync();assert.equal(calls.length,1);
     }
+  }
+});
+test('real keep-field selection preserves field syntax and each loaded value while translating its status',()=>{
+  const singular='Keeping the existing {key} values of {size} file.',plural='Keeping the existing {key} values of {size} files.';
+  const custom={ARTIST:'Performer',TITLE:'Name',[singular]:'Keep {key} in {size} entry.',[plural]:'Keep {key} in {size} entries.'};
+  const functions=['updateDraft','keepField'].map(name=>parsed.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text===name).getText(parsed)).join('\n');
+  const js=ts.transpileModule(functions,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]])for(const key of ['ARTIST','TITLE'])for(const count of [2,1]){
+    const p=page(),entries=new Map(Array.from({length:count},(_,i)=>[`/file-${i}.mp3`,{path:`/file-${i}.mp3`,format:'MP3',fields:{[key]:[i?'Title':'Help'],OTHER:['loaded']}}])),selected=new Set(entries.keys()),drafts=new Map([...selected].map((path,i)=>[path,{[key]:[`Changed ${i}`],...(i?{}:{OTHER:['pending']})}]));let changed=0;
+    try{
+      const before=structuredClone([...entries]),t=new Translator(locale,catalog),values={entries,selected,drafts,paths:()=>[...selected],panelKey,merged:entry=>({...entry.fields,...drafts.get(entry.path)}),copyOverrides:new Map(),copyBaseUnknown:()=>false,pendingCovers:new Map(),changedData:()=>{changed++;}};
+      const producer=new Function(...Object.keys(values),`let status='';${js};return{keep:keepField,status:()=>status};`)(...Object.values(values));
+      const show=()=>{p.body.querySelector('.status-message').textContent=producer.status();};
+      const panel=new TagPanel({values:field=>[...selected].map(path=>(drafts.get(path)?.[field]??entries.get(path).fields[field]??[])[0]??''),disabled:()=>false,translateLabel:text=>t.translate(text),translateNow:p.translateTree,keep:producer.keep,changed:show});
+      panel.settings.panel.fields=[defaultPanelLayout().fields.find(field=>field.field===key)];p.body.innerHTML=panel.fieldsHTML()+'<span class="status-message"></span>';panel.bind(p.body);p.translate(locale,catalog);
+      if(count>1){p.body.querySelector('.combo-toggle').click();p.body.querySelector('.combo-list [data-option="0"]').click();}else{producer.keep(key);show();}
+      p.translateTree(p.body);assert.equal(p.body.querySelector('.status-message').textContent,t.t(count===1?singular:plural,{key,size:count}));
+      assert.deepEqual([...entries],before);assert.equal(changed,count);assert.equal(drafts.size,1);assert.deepEqual(drafts.get('/file-0.mp3'),{OTHER:['pending']});
+    }finally{p.close();}
+  }
+});
+test('tag-panel validation keeps technical field keys raw while shortcut labels retain their locale',()=>{
+  const messages=['{key}: at most 5000 custom values are supported.','{key}: custom values must be nonempty single lines.','{key}: remove duplicate custom values.'];
+  const custom={ARTIST:'Performer',...Object.fromEntries(messages.map(key=>[key,`Field ${key}`])),'@keys':{Ctrl:'Control'}};
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]])for(const [index,values] of [Array.from({length:5001},(_,i)=>String(i)),[' padded'],['same','same']].entries()){
+    const p=page();try{const settings=defaultPanelSettings();settings.field_values.lists.ARTIST=values;p.body.textContent=settingsError(settings);const t=p.translate(locale,catalog);assert.equal(p.body.textContent,t.t(messages[index],{key:'ARTIST'}));assert.equal(t.translate('Ctrl S'),locale==='de'?'Strg S':locale==='en'?'Control S':'Ctrl S');}finally{p.close();}
   }
 });
 test('mapping validation translates generated row labels while preserving authored field identifiers',async()=>{
