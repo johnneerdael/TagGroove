@@ -277,6 +277,49 @@ fn parentheses_in_arguments_nest() {
 }
 
 #[test]
+fn backslash_parity_follows_literal_characters_and_resets_at_nodes() {
+    let values: Fields = [("TITLE".into(), vec!["x".into()])].into();
+    for count in 0..8 {
+        let slashes = "\\".repeat(count);
+        let expression = format!("$len({slashes}(x{slashes}))");
+        assert_eq!(
+            evaluate(&expression, &values).unwrap(),
+            (2 * count + 3).to_string()
+        );
+        // Quotes, fields, optional sections, functions and literal dollars each
+        // end the preceding literal node; its escape parity cannot leak across.
+        for (suffix, length) in [
+            ("''(x,y)", 6),
+            ("%title%(x,y)", 6),
+            ("[%title%](x,y)", 6),
+            ("$lower(X)(x,y)", 6),
+            ("$1(x,y)", 7),
+            ("猫(x,y)", 6),
+        ] {
+            let expression = format!("$len({slashes}{suffix})");
+            assert_eq!(
+                evaluate(&expression, &values).unwrap(),
+                (count + length).to_string(),
+                "{expression}"
+            );
+        }
+    }
+    assert_eq!(evaluate("$len('\\'(x,y))", &values).unwrap(), "6");
+}
+
+#[test]
+fn near_limit_backslash_argument_keeps_its_literal_length() {
+    // Leave room for the call below the 1 MiB format limit; an even run leaves
+    // the closing parenthesis unescaped. No timing assertion is needed.
+    let count = 1024 * 1024 - 8;
+    let expression = format!("$len({})", "\\".repeat(count));
+    assert_eq!(
+        evaluate(&expression, &Fields::new()).unwrap(),
+        count.to_string()
+    );
+}
+
+#[test]
 fn regex_boost_references_and_ascii_digits() {
     assert_eq!(
         evaluate(

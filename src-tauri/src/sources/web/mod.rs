@@ -436,10 +436,23 @@ fn album_address(file: &SourceFile, raw: &str, page: &Url) -> Option<Url> {
 /// A value as written: `$verticalBar()` (evaluated by SayFormat, or left as
 /// text by `Replace "|" "$verticalBar()"` on the input) is a literal pipe.
 fn content(value: &str) -> String {
-    const BAR: &str = "$verticalbar()";
-    let mut text = value.replace(engine::VERTICAL_BAR, "|");
-    while let Some(at) = text.to_ascii_lowercase().find(BAR) {
-        text.replace_range(at..at + BAR.len(), "|");
+    const BAR: &[u8] = b"$verticalbar()";
+    let mut text = String::with_capacity(value.len());
+    let mut rest = value;
+    while let Some(ch) = rest.chars().next() {
+        if ch == '$'
+            && rest
+                .as_bytes()
+                .get(..BAR.len())
+                .is_some_and(|prefix| prefix.eq_ignore_ascii_case(BAR))
+        {
+            text.push('|');
+            // The matched marker is ASCII, so its end is a UTF-8 boundary.
+            rest = &rest[BAR.len()..];
+        } else {
+            text.push(if ch == engine::VERTICAL_BAR { '|' } else { ch });
+            rest = &rest[ch.len_utf8()..];
+        }
     }
     text.trim().to_owned()
 }
@@ -1130,6 +1143,38 @@ mod tests {
         assert!(install(&target, &[path("missing.src")]).is_err());
         assert!(install(&target, &[]).is_err());
         assert_eq!(list(&target).sources[0].menu, "A#B");
+    }
+
+    #[test]
+    fn literal_pipe_markers_preserve_unicode_case_and_nonmarkers() {
+        let input = format!(
+            " \t猫$verticalBar()é{}$VERTICALBAR()🙂$VeRtIcAlBaR()尾\n",
+            engine::VERTICAL_BAR
+        );
+        assert_eq!(content(&input), "猫|é||🙂|尾");
+        for value in [
+            "$verticalBar(",
+            "$verticalBar ()",
+            "$verticalBar( )",
+            "$vertıcalBar()",
+            "$verticalBar()x",
+        ] {
+            let expected = if value == "$verticalBar()x" {
+                "|x"
+            } else {
+                value
+            };
+            assert_eq!(content(value), expected);
+        }
+        assert_eq!(content("$vertical$verticalBar()bar()"), "$vertical|bar()");
+    }
+
+    #[test]
+    fn near_limit_pipe_markers_decode_without_changing_other_text() {
+        let marker = "$VeRtIcAlBaR()";
+        let count = (16 * 1024 * 1024 - 16) / marker.len();
+        let input = format!(" 猫{}尾 ", marker.repeat(count));
+        assert_eq!(content(&input), format!("猫{}尾", "|".repeat(count)));
     }
 
     #[test]

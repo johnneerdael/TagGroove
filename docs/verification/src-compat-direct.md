@@ -74,3 +74,37 @@ The source-definition guide tests use the production parser as source.
 Tag-core's dev-only serde_json dependency explicitly enables preserve_order,
 matching the application and full-workspace feature context. No production
 dependency version or lockfile entry was changed for that test feature.
+
+## Bounded work for long literal inputs
+
+Two further review findings concerned repeated work, not a new script feature.
+The argument parser rescanned a literal's trailing backslash run before every
+character. It now maintains that run's odd/even parity incrementally and resets
+it when the literal ends. Quotes, fields, optional sections, nested calls and
+literal dollar references keep their existing parsing boundaries. The value
+decoder previously lowercased and copied the remaining buffer for every
+`$verticalBar()` marker. It now scans once, matches that fixed marker using
+ASCII case rules, and preserves UTF-8 text, nonmarkers, the private pipe marker
+and final trimming. No dependency or grammar change is involved.
+
+Bounded old-code probes retained their small semantic results but exceeded a
+two-second child-process deadline for each near-limit input; the child was
+terminated. The core probe used the previously qualified core library; the
+second probe compiled the unchanged private decoder body and its marker
+constant. This is local source/core evidence, not native UI or platform timing
+proof. The committed regressions assert exact values, without timing thresholds:
+a backslash argument just below the 1 MiB format limit, a marker-filled value
+just below the 16 MiB parser-output limit, odd/even literal runs across node
+boundaries, and Unicode/case/nonmarker preservation.
+
+Fresh qualification of this correction passed **977 Rust tests**, zero failures
+and six explicit ignores across 67 result summaries, full-workspace/all-target
+Clippy with warnings denied, **384 UI/model tests**, and the production build.
+The existing PR20 target and task-specific temporary directory were used; no
+workspace cache was borrowed or cleaned. Available space was checked before
+compilation, after compilation before history tests, after the full test run
+and after Clippy, remaining above 2.3 GiB at each point. The benign existing
+Cargo global-cache cleanup permission warning did not fail either command; no
+permissions or global caches were changed to suppress it. Full-platform trusted
+CI and a fresh exact-head Codex code review remain required after this source
+change. Earlier 973-test results above describe the earlier source only.
