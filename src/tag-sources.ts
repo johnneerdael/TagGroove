@@ -201,7 +201,7 @@ export function tagSourcesOptionsPages(pickFolder:()=>Promise<string|null>, inde
   const field = (id:string, label:string, value:string, option:string, extra = '') => `<label class="field"><span>${label}</span><input id="${id}" data-option="pages.${freedbPage}.${option}" value="${html(value)}" autocomplete="off" spellcheck="false" ${extra}></label>`;
   const serversMarkup = (draft:OptionsDraft) => {
     const {servers,index} = freedbServerList(serverPage(draft)), server = servers[index];
-    return `<div class="field"><span>FREEDB SERVER</span><div class="action-input"><select id="freedb-server" aria-label="freedb server">${servers.map((s,i) => `<option value="${i}" ${i === index ? 'selected' : ''}>${html(s.name || 'Unnamed server')}</option>`).join('')}</select><button type="button" id="freedb-server-new">New</button><button type="button" id="freedb-server-delete" ${servers.length < 2 ? 'disabled' : ''}>Delete</button></div></div>
+    return `<div class="field"><span>FREEDB SERVER</span><div class="action-input"><select id="freedb-server" aria-label="freedb server">${servers.map((s,i) => `<option value="${i}" ${i === index ? 'selected' : ''} ${s.name ? 'translate="no"' : ''}>${html(s.name || 'Unnamed server')}</option>`).join('')}</select><button type="button" id="freedb-server-new">New</button><button type="button" id="freedb-server-delete" ${servers.length < 2 ? 'disabled' : ''}>Delete</button></div></div>
       <label class="field"><span>NAME</span><input id="freedb-server-name" value="${html(server.name)}" autocomplete="off" spellcheck="false"></label>
       <label class="field"><span>PROTOCOL</span><select id="freedb-server-protocol" data-option="pages.${freedbPage}.protocol"><option value="https" ${server.protocol === 'https' ? 'selected' : ''}>HTTPS</option><option value="http" ${server.protocol === 'http' ? 'selected' : ''}>HTTP</option></select></label>
       ${field('freedb-server-address','ADDRESS',server.address,'address','placeholder="gnudb.gnudb.org"')}
@@ -222,7 +222,13 @@ export function tagSourcesOptionsPages(pickFolder:()=>Promise<string|null>, inde
     const edit = (key:keyof FreedbServer) => (event:Event) => {
       servers[index] = {...servers[index],[key]:(event.target as HTMLInputElement|HTMLSelectElement).value};
       useFreedbServer(page,servers,index);
-      if (key === 'name') { const option = root.querySelector<HTMLOptionElement>(`#freedb-server option[value="${index}"]`); if (option) option.textContent = servers[index].name || 'Unnamed server'; }
+      if (key === 'name') {
+        const option = root.querySelector<HTMLOptionElement>(`#freedb-server option[value="${index}"]`);
+        if (option) {
+          if (servers[index].name) option.setAttribute('translate','no'); else option.removeAttribute('translate');
+          option.textContent = servers[index].name || 'Unnamed server';
+        }
+      }
     };
     root.querySelector('#freedb-server-name')!.addEventListener('input',edit('name'));
     root.querySelector('#freedb-server-protocol')!.addEventListener('change',edit('protocol'));
@@ -231,8 +237,8 @@ export function tagSourcesOptionsPages(pickFolder:()=>Promise<string|null>, inde
   const indexText = (status:IndexStatus|null, draft:OptionsDraft) => {
     if (!status) return 'Reading the text index…';
     if (!status.directory) return 'No text index. Build one to search this folder by artist and album words.';
-    const discs = `${status.discs.toLocaleString()} disc${status.discs === 1 ? '' : 's'}`;
-    return status.directory === directory(draft).trim() ? `Text index: ${discs} from this folder.` : `The text index (${discs}) was built for ${status.directory}. Build it again for this folder.`;
+    const discSummary = `${status.discs.toLocaleString()} disc${status.discs === 1 ? '' : 's'}`;
+    return status.directory === directory(draft).trim() ? `Text index: ${discSummary} from this folder.` : `The text index (${discSummary}) was built for ${status.directory}. Build it again for this folder.`;
   };
   let indexStatus:IndexStatus|null = null;
   const bindIndex = (root:HTMLElement, draft:OptionsDraft) => {
@@ -537,9 +543,31 @@ export function buildApplyItems(release:SourceRelease, slots:(string|null)[], en
 /** Ticket numbers only grow, including across webview reloads, so the backend can drop superseded work. */
 let lastTicket = Date.now()*1000;
 export const nextTicket = () => ++lastTicket;
+/** Native web-source failures keep source text separate from owned diagnostics. */
+export type WebScriptError = {file:string;section:string;line:number;command:string;message:string;debug_path:string|null};
+function webScriptFailure(error:unknown):WebScriptError|undefined {
+  if (!error || typeof error !== 'object' || !('web_source_script' in error)) return;
+  const value = error.web_source_script as Partial<WebScriptError>|null;
+  if (value && ['file','section','command','message'].every(key => typeof value[key as keyof WebScriptError] === 'string') && Number.isSafeInteger(value.line) && value.line! >= 0 && (value.debug_path === null || typeof value.debug_path === 'string')) return value as WebScriptError;
+}
+/** Format once from source parts, even for English; t() never reparses values. */
+export function webScriptErrorText(error:WebScriptError, t:(key:string,params?:Record<string,unknown>)=>string = (key,params) => key.replace(/\{(\w+)\}/g,(_,name)=>String(params?.[name] ?? `{${name}}`)), translate:(text:string)=>string = text=>text):string {
+  const message = translate(error.message);
+  const frame = error.line ? t('line {line} ({text}): {error}',{line:error.line,text:error.command,error:message}) : message;
+  const prefix = [error.file,error.section,frame].join(' ');
+  return error.debug_path === null ? prefix : prefix + '. ' + t('Debug output is in {directory}',{directory:error.debug_path});
+}
+
+let dialogTitleId = 0;
 
 type Invoke = <T>(command:string, args?:Record<string,unknown>) => Promise<T>;
 type TagSourcesHost = {
+  batchError?:(error:unknown)=>string|undefined;
+  /** Structured errors are rendered once and refreshed from their raw payload. */
+  webScriptError?:(error:WebScriptError)=>string;
+  /** Format a source-label scaffold once: installed source labels are authored. */
+  sourceMessage?:(key:string,name:string,authored:boolean)=>string;
+  onLanguageChange?:(listener:()=>void)=>()=>void;
   invoke:Invoke;files:()=>SourceFile[];reason:()=>string;
   apply:(items:ApplyItem[], cover:ApplyCover|null)=>Promise<void>;
   /** Saved Options → Tag Sources values (`pages.tag-sources`). */
@@ -687,18 +715,40 @@ export class TagSourcesUI {
     if (web) webValues = await Promise.all(web.search_by.map(field => files[0] ? this.host.evaluate(files[0].path,field.format).catch(() => '') : Promise.resolve('')));
     const dialog = document.createElement('dialog');
     dialog.className = 'tag-source-dialog';
-    dialog.setAttribute('aria-label',name);
+    const titleId = `ts-source-title-${++dialogTitleId}`;
+    const nameMarkup = `<span id="${titleId}" ${web ? 'translate="no"' : ''}>${html(name)}</span>`;
+    dialog.setAttribute('aria-labelledby',titleId);
     document.body.append(dialog);
     const $ = <T extends Element = HTMLElement>(selector:string) => dialog.querySelector<T>(selector)!;
-    const status = (message:string) => { const el = dialog.querySelector('.ts-status'); if (el) el.textContent = message; };
-    const error = (message:unknown) => {
-      const text = String(message).replace(/^Error: /,'');
+    const sourceMessage = (key:string) => this.host.sourceMessage?.(key,name,!!web) ?? key.replace(/\{name\}/g,()=>name);
+    let sourceStatus:string|undefined;
+    const status = (message:string, sourceContext=false) => {
+      sourceStatus = sourceContext ? message : undefined;
+      const el = dialog.querySelector('.ts-status');
+      if (el) {
+        if (sourceContext) el.setAttribute('translate','no'); else el.removeAttribute('translate');
+        el.textContent = sourceContext ? sourceMessage(message) : message;
+      }
+    };
+    let scriptError:WebScriptError|undefined, sourceErrorKey:string|undefined, retainedBatch:unknown;
+    const refreshError = () => {
+      const p = dialog.querySelector('.dialog-error');
+      if (p && retainedBatch!==undefined) p.textContent = this.host.batchError?.(retainedBatch)??String(retainedBatch);
+      else if (p && sourceErrorKey) p.textContent = sourceMessage(sourceErrorKey);
+      else if (p && scriptError) p.textContent = (this.host.webScriptError ?? webScriptErrorText)(scriptError);
+    };
+    const stopLanguage = this.host.onLanguageChange?.(() => { refreshError(); if (sourceStatus) status(sourceStatus,true); });
+    const error = (message:unknown, sourceContext=false) => {
+      const failure = webScriptFailure(message), batch = this.host.batchError?.(message);
+      const text = failure || batch!==undefined ? '' : String(message).replace(/^Error: /,'');
       if (text.startsWith('Cancelled:')) return;
       let p = dialog.querySelector('.dialog-error');
       if (!p) { p = document.createElement('p'); p.className = 'dialog-error'; p.setAttribute('role','alert'); dialog.querySelector('.dialog-content')!.append(p); }
-      p.textContent = text;
+      scriptError = failure; sourceErrorKey = sourceContext ? text : undefined; retainedBatch=batch===undefined?undefined:message;
+      if (failure || sourceContext || batch!==undefined) { p.setAttribute('translate','no'); refreshError(); }
+      else { p.removeAttribute('translate'); p.textContent = text; }
     };
-    const clearError = () => dialog.querySelector('.dialog-error')?.remove();
+    const clearError = () => { scriptError = undefined; sourceErrorKey = undefined; retainedBatch=undefined; dialog.querySelector('.dialog-error')?.remove(); };
     const loadImage = async (url:string|null|undefined, image:HTMLImageElement) => {
       const ticket = imageTicket = nextTicket();
       image.hidden = true; image.removeAttribute('src');
@@ -708,7 +758,7 @@ export class TagSourcesUI {
     };
     const preview = (url:string) => url.startsWith('https://') || (web && url.startsWith('http://')) ? `<button type="button" class="ts-preview" data-url="${html(url)}" title="Open the release page in your browser">Preview</button>` : '';
     dialog.addEventListener('cancel',event => { if (working) event.preventDefault(); });
-    dialog.addEventListener('close',() => { this.showing = false; void this.host.invoke('tag_source_cancel',{ticket:nextTicket()}).catch(() => undefined); dialog.remove(); });
+    dialog.addEventListener('close',() => { stopLanguage?.(); this.showing = false; void this.host.invoke('tag_source_cancel',{ticket:nextTicket()}).catch(() => undefined); dialog.remove(); });
     dialog.addEventListener('click',event => {
       const button = (event.target as Element).closest<HTMLButtonElement>('.ts-preview');
       if (button) void this.host.invoke('tag_source_open_page',{url:button.dataset.url}).catch(error);
@@ -761,23 +811,24 @@ export class TagSourcesUI {
     const rowAttributes = (i:number) => `tabindex="${i === Math.max(chosen,0) ? 0 : -1}" data-index="${i}" aria-selected="${i === chosen}" class="${i === chosen ? 'selected' : ''}"`;
     const resultMarkup = () => {
       if (!results.length) return '';
-      if (web) return `<table class="ts-table ts-results" aria-label="Search results"><thead><tr>${webColumns.map(column => `<th>${html(column)}</th>`).join('')}</tr></thead><tbody>${results.map((_,i) => `<tr ${rowAttributes(i)}>${(webRows[i]?.values || []).map(value => `<td title="${html(value)}">${html(value)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+      if (web) return `<table class="ts-table ts-results" aria-label="Search results"><thead><tr>${webColumns.map(column => `<th translate="no">${html(column)}</th>`).join('')}</tr></thead><tbody translate="no">${results.map((_,i) => `<tr ${rowAttributes(i)}>${(webRows[i]?.values || []).map(value => `<td title="${html(value)}">${html(value)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
       const more = total != null && results.length < total ? `<p class="ts-more"><button type="button" id="ts-more">More results</button><span>${results.length} of ${total} shown</span></p>` : '';
-      if (columns) return `<table class="ts-table ts-results" aria-label="Search results"><thead><tr>${columns.map(([label,,cls]) => `<th class="${cls || ''}">${html(label)}</th>`).join('')}</tr></thead><tbody>${results.map((r,i) => `<tr ${rowAttributes(i)}>${columns.map(([,value,cls]) => `<td class="${cls || ''}" title="${html(value(r))}">${html(value(r))}</td>`).join('')}</tr>`).join('')}</tbody></table>${more}`;
+      if (columns) return `<table class="ts-table ts-results" aria-label="Search results"><thead><tr>${columns.map(([label,,cls]) => `<th class="${cls || ''}">${html(label)}</th>`).join('')}</tr></thead><tbody translate="no">${results.map((r,i) => `<tr ${rowAttributes(i)}>${columns.map(([,value,cls]) => `<td class="${cls || ''}" title="${html(value(r))}">${html(value(r))}</td>`).join('')}</tr>`).join('')}</tbody></table>${more}`;
       const mb = provider === 'musicbrainz';
       const head = freedb ? `<th>Artist</th><th>Title</th><th class="ts-num">Year</th><th class="ts-wide">Genre</th><th class="ts-wide">Category</th><th class="ts-wide">${idLabel}</th><th class="ts-num ts-wide">Tracks</th>`
         : `${mb ? '<th class="ts-num ts-wide">Score</th>' : ''}<th>Artist</th><th>Title</th><th class="ts-num">Year</th><th class="ts-wide">Country</th><th class="ts-wide">Label</th><th class="ts-wide">Cat. no.</th><th class="ts-wide">Format</th>${mb ? '<th class="ts-num ts-wide">Tracks</th>' : ''}`;
       const cells = (r:SearchResult) => freedb
         ? `<td title="${html(r.artist)}">${html(r.artist)}</td><td title="${html(r.title)}">${html(r.title)}</td><td class="ts-num">${html(r.year)}</td><td class="ts-wide">${html(r.format)}</td><td class="ts-wide">${html(freedbId(r).category)}</td><td class="ts-wide">${html(freedbId(r).disc)}</td><td class="ts-num ts-wide">${r.track_count ?? ''}</td>`
         : `${mb ? `<td class="ts-num ts-wide">${r.score ?? ''}</td>` : ''}<td title="${html(r.artist)}">${html(r.artist)}</td><td title="${html(r.title)}">${html(r.title)}</td><td class="ts-num">${html(r.year)}</td><td class="ts-wide">${html(r.country)}</td><td class="ts-wide" title="${html(r.label)}">${html(r.label)}</td><td class="ts-wide" title="${html(r.catalog_number)}">${html(r.catalog_number)}</td><td class="ts-wide" title="${html(r.format)}">${html(r.format)}</td>${mb ? `<td class="ts-num ts-wide">${r.track_count ?? ''}</td>` : ''}`;
-      return `<table class="ts-table ts-results" aria-label="Search results"><thead><tr>${head}</tr></thead><tbody>${results.map((r,i) => `<tr tabindex="${i === Math.max(chosen,0) ? 0 : -1}" data-index="${i}" aria-selected="${i === chosen}" class="${i === chosen ? 'selected' : ''}">${cells(r)}</tr>`).join('')}</tbody></table>${more}`;
+      return `<table class="ts-table ts-results" aria-label="Search results"><thead><tr>${head}</tr></thead><tbody translate="no">${results.map((r,i) => `<tr tabindex="${i === Math.max(chosen,0) ? 0 : -1}" data-index="${i}" aria-selected="${i === chosen}" class="${i === chosen ? 'selected' : ''}">${cells(r)}</tr>`).join('')}</tbody></table>${more}`;
     };
     const chosenMarkup = () => {
       const r = results[chosen];
       if (!r) return '';
-      if (web) return `<img class="ts-thumb" alt="Release artwork" hidden><div><strong>${html(r.title)}</strong>${r.url ? `<span class="ts-url">${html(r.url)} ${preview(r.url)}</span>` : ''}</div>`;
-      const details = freedb ? [r.year,r.format,`${idLabel} ${freedbId(r).disc}`] : [r.year,r.country,r.label,r.catalog_number,r.format,r.barcode && `Barcode ${r.barcode}`];
-      return `${freedb || provider === 'lrclib' ? '' : '<img class="ts-thumb" alt="Release artwork" hidden>'}<div><strong>${html(r.artist)} – ${html(r.title)}</strong><span>${details.filter(Boolean).map(html).join(' · ')}</span>${r.url ? `<span class="ts-url">${html(r.url)} ${preview(r.url)}</span>` : ''}</div>`;
+      if (web) return `<img class="ts-thumb" alt="Release artwork" hidden><div><strong translate="no">${html(r.title)}</strong>${r.url ? `<span class="ts-url"><span translate="no">${html(r.url)}</span> ${preview(r.url)}</span>` : ''}</div>`;
+      const value = (text:string) => text ? `<span translate="no">${html(text)}</span>` : '';
+      const details = freedb ? [value(r.year),value(r.format),`<span>${html(idLabel)} <span translate="no">${html(freedbId(r).disc)}</span></span>`] : [r.year,r.country,r.label,r.catalog_number,r.format].map(value).concat(r.barcode ? `<span data-verbatim>${html(`Barcode ${r.barcode}`)}</span>` : '');
+      return `${freedb || provider === 'lrclib' ? '' : '<img class="ts-thumb" alt="Release artwork" hidden>'}<div><strong translate="no">${html(r.artist)} – ${html(r.title)}</strong><span>${details.filter(Boolean).join(' · ')}</span>${r.url ? `<span class="ts-url"><span translate="no">${html(r.url)}</span> ${preview(r.url)}</span>` : ''}</div>`;
     };
 
     const choose = (index:number, focus = false) => {
@@ -811,7 +862,7 @@ export class TagSourcesUI {
       const values = web!.search_by.map((_,i) => $<HTMLInputElement>(`#ts-web-${i}`).value);
       webValues = values;
       const ticket = searchTicket = nextTicket();
-      status(`Searching ${name}…`);
+      status('Searching {name}…',true);
       try {
         const page = await this.host.invoke<WebSearchPage>('web_source_search',{source:web!.id,values,ticket});
         if (ticket !== searchTicket || !dialog.open) return;
@@ -834,7 +885,10 @@ export class TagSourcesUI {
       if (!more && mode === 'release_id') { await loadRelease(query.text as string); return; }
       const ticket = searchTicket = nextTicket();
       if (coversOnly && provider === 'freedb' && mode === 'artist_album') { await searchCovers(String(query.artist),String(query.album)); return; }
-      status(more ? 'Loading more results…' : mode === 'fingerprint' ? `Fingerprinting ${files.length} file${files.length === 1 ? '' : 's'} and asking AcoustID…` : mode === 'files' ? `Looking up lyrics for ${files.length} file${files.length === 1 ? '' : 's'}…` : `Searching ${name}…`);
+      if (more) status('Loading more results…');
+      else if (mode === 'fingerprint') status(`Fingerprinting ${files.length} file${files.length === 1 ? '' : 's'} and asking AcoustID…`);
+      else if (mode === 'files') status(`Looking up lyrics for ${files.length} file${files.length === 1 ? '' : 's'}…`);
+      else status('Searching {name}…',true);
       if (more) $<HTMLButtonElement>('#ts-more').disabled = true;
       try {
         const found = await this.host.invoke<SearchPage>('tag_source_search',{provider,query,ticket});
@@ -863,7 +917,7 @@ export class TagSourcesUI {
     /** Covers: freedb — gnudb's cover art search lists Cover Art Archive images; no entry is read. */
     const searchCovers = async (artist:string, album:string) => {
       const ticket = releaseTicket = nextTicket();
-      working = true; syncSearch(); status(`Searching ${name}…`);
+      working = true; syncSearch(); status('Searching {name}…',true);
       try {
         const covers = await this.host.invoke<SourceCover[]>('freedb_cover_search',{artist,album,ticket});
         if (ticket !== releaseTicket || !dialog.open) return;
@@ -876,7 +930,7 @@ export class TagSourcesUI {
       }
     };
     const loadRelease = async (input:string) => {
-      if (!input.trim()) { error(`Enter a ${name} release ID or address.`); return; }
+      if (!input.trim()) { error('Enter a {name} release ID or address.',true); return; }
       clearError();
       const ticket = releaseTicket = nextTicket();
       working = true; syncSearch(); status('Loading release…');
@@ -902,9 +956,10 @@ export class TagSourcesUI {
 
     const modes = searchModes(provider,releaseOnly);
     const renderSearch = (mode?:SearchMode) => {
+      clearError();
       release = undefined;
-      const searchFields = web ? `<div class="ts-search ts-web-search">${web.search_by.map((field,i) => `<label class="field"><span>${html(field.label.toUpperCase())}</span><input id="ts-web-${i}" value="${html(webValues[i] || '')}" autocomplete="off" spellcheck="false"></label>`).join('')}<button id="ts-search" class="ts-search-button">Search</button></div>` : '';
-      dialog.innerHTML = `<header>${html(name)}</header><div class="dialog-content">
+      const searchFields = web ? `<div class="ts-search ts-web-search">${web.search_by.map((field,i) => `<label class="field"><span ${field.default_label?'':'translate="no"'}>${html(field.label)}</span><input id="ts-web-${i}" value="${html(webValues[i] || '')}" autocomplete="off" spellcheck="false"></label>`).join('')}<button id="ts-search" class="ts-search-button">Search</button></div>` : '';
+      dialog.innerHTML = `<header>${nameMarkup}</header><div class="dialog-content">
         ${searchFields}<div class="ts-search ${web ? 'ts-web-unused' : ''} ${modes.length === 1 ? 'ts-single-mode' : ''}"><label class="field" ${modes.length === 1 ? 'hidden' : ''}><span>SEARCH BY</span><select id="ts-mode">${modes.map(([value,label]) => `<option value="${value}">${html(label)}</option>`).join('')}</select></label>
         <div class="field-pair" id="ts-pair"><label class="field"><span>ARTIST</span><input id="ts-artist" value="${html(prefill.artist)}" autocomplete="off" spellcheck="false"></label><label class="field"><span>ALBUM</span><input id="ts-album" value="${html(prefill.album)}" autocomplete="off" spellcheck="false"></label></div>
         <label class="field" id="ts-text-field" hidden><span id="ts-text-label">SEARCH TEXT</span><input id="ts-text" autocomplete="off" spellcheck="false"></label>
@@ -942,14 +997,14 @@ export class TagSourcesUI {
     const trackValue = (track:SourceTrack) => (track.fields[trackField] || release!.fields[trackField] || (trackField === 'TITLE' ? [track.title] : [])).join(MULTI);
     const matchMarkup = () => {
       const tracks = release!.tracks;
-      return `<table class="ts-table ts-matches" aria-label="Track and file matching"><thead><tr><th class="ts-num">#</th><th>${trackField === 'TITLE' ? 'Track' : html(trackField)}</th><th class="ts-num ts-wide">Time</th><th>File</th><th class="ts-num ts-wide">Time</th><th class="ts-move"><span class="visually-hidden">Move</span></th></tr></thead><tbody>${slots.map((path,index) => {
-        const track = tracks[index], warn = track && path && track.length != null && Math.abs(track.length-(files.find(f => f.path === path)?.length ?? track.length)) > 10;
-        return `<tr data-index="${index}" class="${track ? '' : 'ts-unmatched'}" draggable="${path ? 'true' : 'false'}"><td class="ts-num">${track ? html(track.position || String(index+1)) : ''}</td><td>${track ? `<input class="ts-track-value" data-track="${index}" value="${html(trackValue(track))}" aria-label="${html(trackField)} of track ${html(track.position || String(index+1))}" autocomplete="off" spellcheck="false">` : '<em>Not written</em>'}</td><td class="ts-num ts-wide">${track ? duration(track.length) : ''}</td><td title="${html(fileName(path))}">${path ? html(fileName(path)) : '<em>No file</em>'}</td><td class="ts-num ts-wide ${warn ? 'ts-warn' : ''}" ${warn ? 'title="Length differs from the track by more than 10 seconds"' : ''}>${fileLength(path)}</td><td class="ts-move"><button data-move="-1" aria-label="Move ${html(fileName(path) || 'empty slot')} up" ${index === 0 || !path ? 'disabled' : ''}>↑</button><button data-move="1" aria-label="Move ${html(fileName(path) || 'empty slot')} down" ${index === slots.length-1 || !path ? 'disabled' : ''}>↓</button></td></tr>`;
+      return `<table class="ts-table ts-matches" aria-label="Track and file matching"><thead><tr><th class="ts-num">#</th><th>${trackField === 'TITLE' ? 'Track' : `<span translate="no">${html(trackField)}</span>`}</th><th class="ts-num ts-wide">Time</th><th>File</th><th class="ts-num ts-wide">Time</th><th class="ts-move"><span class="visually-hidden">Move</span></th></tr></thead><tbody>${slots.map((path,index) => {
+        const track = tracks[index], trackPosition = track?.position || String(index+1), warn = track && path && track.length != null && Math.abs(track.length-(files.find(f => f.path === path)?.length ?? track.length)) > 10;
+        return `<tr data-index="${index}" class="${track ? '' : 'ts-unmatched'}" draggable="${path ? 'true' : 'false'}"><td class="ts-num" translate="no">${track ? html(trackPosition) : ''}</td><td>${track ? `<input class="ts-track-value" data-verbatim data-track="${index}" value="${html(trackValue(track))}" aria-label="${html(trackField)} of track ${html(trackPosition)}" autocomplete="off" spellcheck="false">` : '<em>Not written</em>'}</td><td class="ts-num ts-wide">${track ? duration(track.length) : ''}</td><td>${path ? `<span translate="no" title="${html(fileName(path))}">${html(fileName(path))}</span>` : '<em>No file</em>'}</td><td class="ts-num ts-wide ${warn ? 'ts-warn' : ''}" ${warn ? 'title="Length differs from the track by more than 10 seconds"' : ''}>${fileLength(path)}</td><td class="ts-move"><button data-move="-1" aria-label="Move ${html(fileName(path) || 'empty slot')} up" ${index === 0 || !path ? 'disabled' : ''}>↑</button><button data-move="1" aria-label="Move ${html(fileName(path) || 'empty slot')} down" ${index === slots.length-1 || !path ? 'disabled' : ''}>↓</button></td></tr>`;
       }).join('')}</tbody></table>`;
     };
-    const fieldMarkup = () => `<table class="ts-table ts-fields" aria-label="Fields to write" aria-multiselectable="true"><tbody>${fieldRows(release!).map(row => `<tr data-row="${html(row.name)}" tabindex="-1" aria-selected="${fieldSelection.has(row.name)}" class="${fieldSelection.has(row.name) ? 'selected' : ''}"><td class="ts-check"><input type="checkbox" data-field="${html(row.name)}" aria-label="Write ${html(row.name)}" ${enabled.has(row.name) ? 'checked' : ''}></td><th scope="row" title="${html(row.name)}">${html(row.name)}</th><td>${row.editable
-      ? `<input class="ts-value" data-value="${html(row.name)}" value="${html(row.value)}" aria-label="${html(row.name)} value" autocomplete="off" spellcheck="false">${row.perTrack && release!.tracks.length > 1 ? '<small>all tracks</small>' : ''}`
-      : `<span class="ts-summary" title="${html(row.value)}">${html(row.value)}</span><button type="button" class="ts-edit-tracks" data-track-field="${html(row.name)}">Edit per track</button>`}</td></tr>`).join('')}</tbody></table>`;
+    const fieldMarkup = () => `<table class="ts-table ts-fields" aria-label="Fields to write" aria-multiselectable="true"><tbody>${fieldRows(release!).map(row => `<tr data-row="${html(row.name)}" tabindex="-1" aria-selected="${fieldSelection.has(row.name)}" class="${fieldSelection.has(row.name) ? 'selected' : ''}"><td class="ts-check"><input type="checkbox" data-field="${html(row.name)}" data-verbatim="${html(row.name)}" aria-label="Write ${html(row.name)}" ${enabled.has(row.name) ? 'checked' : ''}></td><th scope="row" title="${html(row.name)}" translate="no">${html(row.name)}</th><td>${row.editable
+      ? `<input class="ts-value" data-value="${html(row.name)}" value="${html(row.value)}" data-verbatim="${html(row.name)}" aria-label="${html(row.name)} value" autocomplete="off" spellcheck="false">${row.perTrack && release!.tracks.length > 1 ? '<small>all tracks</small>' : ''}`
+      : `<span class="ts-summary" title="${html(row.value)}" translate="no">${html(row.value)}</span><button type="button" class="ts-edit-tracks" data-track-field="${html(row.name)}">Edit per track</button>`}</td></tr>`).join('')}</tbody></table>`;
     const renderFields = () => { const list = dialog.querySelector('.ts-field-list'); if (list) list.innerHTML = fieldMarkup(); };
     const coverTemplate = () => String(this.host.options().cover_filename ?? '').trim() || 'folder';
     const renderCover = (reload = true) => {
@@ -959,9 +1014,9 @@ export class TagSourcesUI {
       const replacing = dialog.querySelector<HTMLInputElement>('#ts-cover-replace')?.checked ?? true;
       const saving = dialog.querySelector<HTMLInputElement>('#ts-cover-save')?.checked ?? storage.get(saveCoverKey) === '1';
       section.innerHTML = `<div class="ts-cover-preview"><img alt="Selected artwork" hidden></div><div><label class="action-check"><input type="checkbox" id="ts-cover-write" ${writing ? 'checked' : ''}> Write cover art</label>
-        <label class="field"><span>ARTWORK</span><select id="ts-cover-choice">${covers.map((c,i) => `<option value="${i}" ${i === coverIndex ? 'selected' : ''}>${i+1}: ${html(c.kind)}${c.width && c.height ? ` (${c.width}×${c.height})` : ''}</option>`).join('')}</select></label>
+        <label class="field"><span>ARTWORK</span><select id="ts-cover-choice">${covers.map((c,i) => `<option translate="no" value="${i}" ${i === coverIndex ? 'selected' : ''}>${i+1}: ${html(c.kind)}${c.width && c.height ? ` (${c.width}×${c.height})` : ''}</option>`).join('')}</select></label>
         <label class="action-check"><input type="checkbox" id="ts-cover-replace" ${replacing ? 'checked' : ''}> Replace existing artwork</label>
-        <label class="action-check" title="Saved next to the written files; set the name in Options → Tag Sources"><input type="checkbox" id="ts-cover-save" ${saving ? 'checked' : ''}> Save image to file <code>${html(coverTemplate())}</code></label>
+        <label class="action-check" title="Saved next to the written files; set the name in Options → Tag Sources"><input type="checkbox" id="ts-cover-save" ${saving ? 'checked' : ''}> Save image to file <code translate="no">${html(coverTemplate())}</code></label>
         <button type="button" id="ts-cover-extract">Save cover as…</button><p class="ts-cover-note" role="status"></p></div>`;
       $('#ts-cover-choice').addEventListener('change',event => { coverIndex = Number((event.target as HTMLSelectElement).value); void loadImage(covers[coverIndex].thumb || covers[coverIndex].url,$<HTMLImageElement>('.ts-cover-preview img')); });
       $('#ts-cover-write').addEventListener('change',syncReview);
@@ -981,8 +1036,8 @@ export class TagSourcesUI {
         const path = await this.host.pickSave(suggested);
         if (!path || !dialog.open) return;
         note.textContent = 'Saving the cover…';
-        const saved = await this.host.invoke<string>('tag_source_save_cover',{url:cover.url,path});
-        if (dialog.open) note.textContent = `Saved to ${saved}`;
+        const outputPath = await this.host.invoke<string>('tag_source_save_cover',{url:cover.url,path});
+        if (dialog.open) note.textContent = `Saved to ${outputPath}`;
       } catch (e) { if (dialog.open) { note.textContent = ''; error(e); } }
     };
     const items = ():ApplyItem[] => coversOnly ? files.map(file => ({path:file.path,updates:{}}))
@@ -1046,6 +1101,7 @@ export class TagSourcesUI {
       slots = pairFiles(release!,(t,f) => initialSlots(t,f,kind)); renderMatches();
     };
     const showReview = (loaded:SourceRelease) => {
+      clearError();
       // A web source that returns only album values (or only artwork) applies them to every selected file.
       if (web && !loaded.tracks.length) loaded.tracks = files.map((_,i) => ({position:String(i+1),disc:1,number:i+1,title:'',artist:'',length:null,fields:{}}));
       release = loaded; coverIndex = 0; fieldSelection = new Set(); fieldAnchor = null;
@@ -1055,11 +1111,11 @@ export class TagSourcesUI {
       const disabled = new Set<string>(JSON.parse(storage.get(disabledKey) || '[]'));
       enabled = coversOnly ? new Set() : new Set(fieldRows(loaded).map(row => row.name).filter(field => !disabled.has(field)));
       const fieldSection = `<section class="ts-field-section" aria-label="Fields"><div class="ts-tools"><strong>Fields</strong><button id="ts-all" title="Enable all fields (Ctrl+E)">All</button><button id="ts-none" title="Disable all fields (Ctrl+D)">None</button></div><div class="ts-field-list">${fieldMarkup()}</div><p class="ts-hint">Values can be changed before saving; separate multiple values with \\\\.</p></section>`;
-      const matchSection = `<section class="ts-match-section" aria-label="Track and file matching"><div class="ts-tools"><strong>Tracks and files</strong><label class="ts-track-field">Track column <select id="ts-track-field">${trackFields().map(field => `<option ${field === trackField ? 'selected' : ''}>${html(field)}</option>`).join('')}</select></label><button id="ts-rematch">Auto-match</button><button id="ts-order">Selection order</button></div><div class="ts-tools ts-suggest"><strong>Suggest sorting</strong><label class="action-check" title="Pair files with the closest track title; remembered for the next import"><input type="checkbox" id="ts-suggest-title" data-suggest="title" ${suggest === 'title' ? 'checked' : ''}> Title</label><label class="action-check" title="Pair files with the track of the closest length; remembered for the next import"><input type="checkbox" id="ts-suggest-length" data-suggest="length" ${suggest === 'length' ? 'checked' : ''}> Length</label></div><div class="ts-match-area"></div><p class="ts-hint">Drag a file to another track, or use the arrows (Alt+↑/↓, Alt+Page Up/Down).</p></section>`;
-      dialog.innerHTML = `<header>${html(name)}: ${html(loaded.artist)} – ${html(loaded.title)}</header><div class="dialog-content">
+      const matchSection = `<section class="ts-match-section" aria-label="Track and file matching"><div class="ts-tools"><strong>Tracks and files</strong><label class="ts-track-field">Track column <select id="ts-track-field">${trackFields().map(field => `<option translate="no" ${field === trackField ? 'selected' : ''}>${html(field)}</option>`).join('')}</select></label><button id="ts-rematch">Auto-match</button><button id="ts-order">Selection order</button></div><div class="ts-tools ts-suggest"><strong>Suggest sorting</strong><label class="action-check" title="Pair files with the closest track title; remembered for the next import"><input type="checkbox" id="ts-suggest-title" data-suggest="title" ${suggest === 'title' ? 'checked' : ''}> Title</label><label class="action-check" title="Pair files with the track of the closest length; remembered for the next import"><input type="checkbox" id="ts-suggest-length" data-suggest="length" ${suggest === 'length' ? 'checked' : ''}> Length</label></div><div class="ts-match-area"></div><p class="ts-hint">Drag a file to another track, or use the arrows (Alt+↑/↓, Alt+Page Up/Down).</p></section>`;
+      dialog.innerHTML = `<header>${nameMarkup}: <span translate="no">${html(loaded.artist)} – ${html(loaded.title)}</span></header><div class="dialog-content">
         <div class="ts-review ${coversOnly ? 'ts-cover-only' : ''}">${coversOnly ? '' : fieldSection}<section class="ts-cover" aria-label="Artwork"></section></div>
         ${coversOnly ? '' : matchSection}
-        ${loaded.url ? `<p class="ts-url">${html(loaded.url)} ${preview(loaded.url)}</p>` : ''}<p class="ts-status" role="status" aria-live="polite"></p></div>
+        ${loaded.url ? `<p class="ts-url"><span translate="no">${html(loaded.url)}</span> ${preview(loaded.url)}</p>` : ''}<p class="ts-status" role="status" aria-live="polite"></p></div>
         <div class="dialog-footer"><button id="ts-back">Back</button><button data-close>Cancel</button><button class="primary" id="ts-apply"></button></div>`;
       $('[data-close]').addEventListener('click',() => dialog.close());
       $('#ts-back').addEventListener('click',() => { clearError(); renderSearch(results.length || web ? undefined : freedb ? freedbStart : modes.some(([mode]) => mode === 'release_id') ? 'release_id' : undefined); });

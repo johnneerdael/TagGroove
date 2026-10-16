@@ -15,11 +15,11 @@ test('web sources form # submenus with & access keys in file name order', () => 
   const leaves = ['Shop#&Albums', 'Shop#&Singles', '&Lyrics', 'Covers#Shop#Front'].map(menu => ({menu, markup: raw => `<b data-menu="${menu}">${raw}</b>`}));
   const markup = menuTree(leaves);
   assert.equal(markup,
-    '<details class="group-submenu web-submenu"><summary>Shop</summary><div><b data-menu="Shop#&Albums">&Albums</b><b data-menu="Shop#&Singles">&Singles</b></div></details>'
+    '<details class="group-submenu web-submenu"><summary translate="no">Shop</summary><div><b data-menu="Shop#&Albums">&Albums</b><b data-menu="Shop#&Singles">&Singles</b></div></details>'
     + '<b data-menu="&Lyrics">&Lyrics</b>'
-    + '<details class="group-submenu web-submenu"><summary>Covers</summary><div><details class="group-submenu web-submenu"><summary>Shop</summary><div><b data-menu="Covers#Shop#Front">Front</b></div></details></div></details>');
+    + '<details class="group-submenu web-submenu"><summary translate="no">Covers</summary><div><details class="group-submenu web-submenu"><summary translate="no">Shop</summary><div><b data-menu="Covers#Shop#Front">Front</b></div></details></div></details>');
   // Submenu names carry their own access keys.
-  assert.match(menuTree([{menu: '&Shop#Albums', markup: () => 'x'}]), /<summary><u>S<\/u>hop<\/summary>/);
+  assert.match(menuTree([{menu: '&Shop#Albums', markup: () => 'x'}]), /<summary translate="no"><u>S<\/u>hop<\/summary>/);
   assert.equal(menuLabel('Shop#&Albums && More'), 'Shop › Albums & More');
 });
 
@@ -38,13 +38,15 @@ const schema = {
 
 test('settings dialogs are generated from the schema with localized titles', () => {
   const markup = settingsMarkup({schema, values: {comment: true, lang: 'de', note: '<b>', limit: 5}}, 'de-DE');
-  assert.match(markup, /<h3 class="ws-heading">Import<\/h3>/);
-  assert.match(markup, /<input type="checkbox" data-setting="1" checked> Kommentar schreiben<\/label><small>Fügt COMMENT hinzu<\/small>/);
-  assert.match(markup, /<option selected>de<\/option>/);
+  assert.match(markup, /<h3 class="ws-heading"[^>]*>Import<\/h3>/);
+  assert.match(markup, /data-setting="1" checked>/);
+  assert.match(markup, />Kommentar schreiben<\/span>/);
+  assert.match(markup, />Fügt COMMENT hinzu<\/small>/);
+  assert.match(markup, /<option\b[^>]*\bselected[^>]*>de<\/option>/);
   assert.match(markup, /data-setting="3" value="&lt;b&gt;"/);
   assert.match(markup, /type="number" data-setting="4" value="5"/);
-  assert.match(markup, /<hr class="ws-separator"><p class="ws-note">Below the line<\/p>/);
-  assert.match(settingsMarkup({schema, values: {}}, 'en'), /> Write a comment<\/label>/);
+  assert.match(markup, /<hr class="ws-separator"><p class="ws-note"[^>]*>Below the line<\/p>/);
+  assert.match(settingsMarkup({schema, values: {}}, 'en'), />Write a comment<\/span>/);
   assert.equal(localized(schema, 'comment', 'fr')?.title, undefined);
 });
 

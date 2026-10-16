@@ -129,7 +129,7 @@
       await waitFor(() => /export\.cue$/.test(document.querySelector('.location .path')?.textContent || ''), 15000, 'cue location');
       await idle();
       // The track rows show their files' names, in the sheet's order.
-      const shown = rows().map(r => r.querySelector('td.filename')?.getAttribute('title'));
+      const shown = rows().map(r => r.querySelector('td[data-col="filename"] > span[translate="no"]')?.getAttribute('title'));
       if (shown.join() !== 'sine-b.mp3,sine-a.mp3' || names().join() !== 'export.cue\u00011,export.cue\u00012') throw new Error('order ' + shown.join() + ' / ' + names().join());
       return shown.join(' → ');
     });

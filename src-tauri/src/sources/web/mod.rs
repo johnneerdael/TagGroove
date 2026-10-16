@@ -360,6 +360,79 @@ fn write_debug(folder: &Path, files: &[engine::DebugFile]) -> Option<PathBuf> {
     written.then_some(directory)
 }
 
+/// Ordinary errors keep their existing string IPC shape. Script failures carry
+/// provenance because `): ` is valid in both commands and diagnostic data.
+#[derive(Clone, Debug, Serialize)]
+#[serde(untagged)]
+pub enum WebSourceError {
+    Plain(String),
+    Script {
+        web_source_script: Box<ScriptFailure>,
+    },
+}
+#[derive(Clone, Debug, Serialize)]
+pub struct ScriptFailure {
+    file: String,
+    section: String,
+    line: usize,
+    command: String,
+    message: String,
+    debug_path: Option<String>,
+}
+impl From<String> for WebSourceError {
+    fn from(message: String) -> Self {
+        Self::Plain(message)
+    }
+}
+impl From<&str> for WebSourceError {
+    fn from(message: &str) -> Self {
+        Self::Plain(message.into())
+    }
+}
+impl std::fmt::Display for WebSourceError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Plain(message) => write!(f, "{message}"),
+            Self::Script {
+                web_source_script: failure,
+            } => {
+                write!(
+                    f,
+                    "{} {} {}",
+                    failure.file,
+                    failure.section,
+                    engine::ScriptError {
+                        line: failure.line,
+                        command: failure.command.clone(),
+                        message: failure.message.clone()
+                    }
+                )?;
+                if let Some(directory) = &failure.debug_path {
+                    write!(f, ". Debug output is in {directory}")?;
+                }
+                Ok(())
+            }
+        }
+    }
+}
+fn script_failure(
+    block: &Block,
+    section: &str,
+    error: engine::ScriptError,
+    debug_path: Option<PathBuf>,
+) -> WebSourceError {
+    WebSourceError::Script {
+        web_source_script: Box::new(ScriptFailure {
+            file: block.file.clone(),
+            section: section.into(),
+            line: error.line,
+            command: error.command,
+            message: error.message,
+            debug_path: debug_path.map(|path| path.to_string_lossy().into_owned()),
+        }),
+    }
+}
+
 /// Run one parser script over a downloaded page.
 fn execute(
     folder: &Path,
@@ -369,14 +442,14 @@ fn execute(
     page: &http::Page,
     vars: BTreeMap<String, String>,
     debug: bool,
-) -> Result<BTreeMap<String, String>, String> {
+) -> Result<BTreeMap<String, String>, WebSourceError> {
     let key = if section == "index" {
         "[ParserScriptIndex]"
     } else {
         "[ParserScriptAlbum]"
     };
     let script =
-        engine::Script::compile(&block.lines).map_err(|e| format!("{} {key} {e}", block.file))?;
+        engine::Script::compile(&block.lines).map_err(|e| script_failure(block, key, e, None))?;
     let name = stem(id);
     let env = engine::Environment {
         vars,
@@ -394,13 +467,9 @@ fn execute(
         );
     }
     let written = write_debug(folder, &outcome.files);
-    outcome.result.map_err(|e| {
-        let mut message = format!("{} {key} {e}", block.file);
-        if let Some(directory) = written {
-            message.push_str(&format!(". Debug output is in {}", directory.display()));
-        }
-        message
-    })
+    outcome
+        .result
+        .map_err(|e| script_failure(block, key, e, written))
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize)]
@@ -731,6 +800,14 @@ async fn blocking<T: Send + 'static>(
         .map_err(|e| e.to_string())?
 }
 
+async fn blocking_web<T: Send + 'static>(
+    work: impl FnOnce() -> Result<T, WebSourceError> + Send + 'static,
+) -> Result<T, WebSourceError> {
+    tauri::async_runtime::spawn_blocking(work)
+        .await
+        .map_err(|e| WebSourceError::Plain(e.to_string()))?
+}
+
 fn user_agent(file: &SourceFile) -> Option<&'static str> {
     (!file.user_agent).then_some(BROWSER_AGENT)
 }
@@ -818,7 +895,7 @@ pub async fn web_source_search(
     source: String,
     values: Vec<String>,
     ticket: u64,
-) -> Result<WebSearchPage, String> {
+) -> Result<WebSearchPage, WebSourceError> {
     http::claim(Channel::Search, ticket);
     let (folder, file, vars) = prepare(&app, &source).await?;
     if file.direct() {
@@ -828,8 +905,9 @@ pub async fn web_source_search(
             .filter(http::web_allowed)
             .ok_or_else(|| {
                 format!(
-                    "{} produced an address OpenTag cannot open: {raw}",
-                    file.name
+                    "{name} produced an address OpenTag cannot open: {url}",
+                    name = file.name,
+                    url = raw
                 )
             })?;
         http::register_web_url(&url);
@@ -859,7 +937,7 @@ pub async fn web_source_search(
     )
     .await?;
     let debug = debug_enabled();
-    let found = blocking(move || {
+    let found = blocking_web(move || {
         let block = file
             .index_script
             .as_ref()
@@ -873,6 +951,7 @@ pub async fn web_source_search(
                 .unwrap_or_default(),
             &page.url,
         )
+        .map_err(WebSourceError::from)
     })
     .await?;
     for result in &found.results {
@@ -898,7 +977,7 @@ pub async fn web_source_release(
     source: String,
     url: String,
     ticket: u64,
-) -> Result<SourceRelease, String> {
+) -> Result<SourceRelease, WebSourceError> {
     http::claim(Channel::Release, ticket);
     let address = Url::parse(&url)
         .ok()
@@ -914,7 +993,7 @@ pub async fn web_source_release(
     )
     .await?;
     let debug = debug_enabled();
-    let release = blocking(move || {
+    let release = blocking_web(move || {
         let block = file
             .album_script
             .as_ref()
@@ -1001,6 +1080,19 @@ mod tests {
         {"type":"bool","key":"comment","title":"Comment","default":false},
         {"type":"string","key":"lang","title":"Language","choices":["en","de"],"default":"en"},
         {"type":"number","key":"limit","title":"Limit","default":3}]}"#;
+
+    #[test]
+    fn source_header_diagnostics_keep_file_names_and_tokens() {
+        assert_eq!(
+            plain_name("Help/Title").unwrap_err(),
+            "\"Help/Title\" is not a file name in the sources folder"
+        );
+        let file = SourceFile::default();
+        assert_eq!(
+            index_results(&file, "", &Url::parse("https://example.invalid").unwrap()).unwrap_err(),
+            "[IndexFormat] has no %_url% field"
+        );
+    }
 
     #[test]
     fn listing_menu_names_problems_and_settings() {
@@ -1365,6 +1457,77 @@ mod tests {
         (port, handle)
     }
 
+    #[test]
+    fn script_failure_ipc_preserves_opaque_commands_and_diagnostics() {
+        let folder = tempfile::tempdir().unwrap();
+        let page = http::Page {
+            url: Url::parse("https://example.invalid").unwrap(),
+            text: "page".into(),
+        };
+        for section in ["index", "album"] {
+            for command in [
+                "IfVar Alpha): Beta",
+                "If \"Alpha): Beta\"",
+                "If \"Alpha\\\"): Beta\"",
+                "FindLine \"Alpha): Beta\"",
+            ] {
+                let block = Block {
+                    file: "Help  Title): .src".into(),
+                    lines: vec![(17, command.into())],
+                };
+                let error = execute(
+                    folder.path(),
+                    "Help.src",
+                    &block,
+                    section,
+                    &page,
+                    BTreeMap::new(),
+                    true,
+                )
+                .unwrap_err();
+                let serialized = serde_json::to_value(&error).unwrap();
+                let ipc_error: tauri::ipc::InvokeError = error.clone().into();
+                assert_eq!(ipc_error.0, serialized);
+                let failure = &serialized["web_source_script"];
+                assert_eq!(failure["file"], block.file);
+                assert_eq!(
+                    failure["section"],
+                    if section == "index" {
+                        "[ParserScriptIndex]"
+                    } else {
+                        "[ParserScriptAlbum]"
+                    }
+                );
+                assert_eq!(failure["line"], 17);
+                assert_eq!(failure["command"], command);
+                let message = if command.starts_with("FindLine") {
+                    "\"Alpha): Beta\" was not found"
+                } else {
+                    "this block has no Endif"
+                };
+                assert_eq!(failure["message"], message);
+                let expected = format!(
+                    "{} {} line 17 ({command}): {message}",
+                    block.file,
+                    failure["section"].as_str().unwrap()
+                );
+                let shown = error.to_string();
+                if command.starts_with("FindLine") {
+                    let path = failure["debug_path"].as_str().unwrap();
+                    assert_eq!(shown, format!("{expected}. Debug output is in {path}"));
+                    assert!(Path::new(path).is_dir());
+                } else {
+                    assert!(failure["debug_path"].is_null());
+                    assert_eq!(shown, expected);
+                }
+            }
+        }
+        assert_eq!(
+            serde_json::to_value(WebSourceError::from("Cancelled: superseded")).unwrap(),
+            "Cancelled: superseded"
+        );
+    }
+
     /// The whole pipeline against local pages: search URL, index script,
     /// album script over JSON, release fields and a registered cover address.
     #[test]
@@ -1518,7 +1681,8 @@ json_foreach_end
             BTreeMap::new(),
             true,
         )
-        .unwrap_err();
+        .unwrap_err()
+        .to_string();
         assert!(error.starts_with("Local.src [ParserScriptAlbum] line 41 (FindLine \"nowhere\"): \"nowhere\" was not found"), "{error}");
         assert!(error.contains("Debug output is in"), "{error}");
     }

@@ -18,7 +18,10 @@
 //! whole, absent or not, and undo puts back exactly what was there before.
 //! Symbolic-link side entries retain their link target verbatim; their
 //! referents are never captured or changed.
-use crate::{FileError, TagOptions};
+use crate::{
+    batch_errors::{push_error, BatchError, Detailed, Direction, ErrorCause},
+    FileError, TagOptions,
+};
 use serde::Serialize;
 use std::{
     collections::BTreeMap,
@@ -165,9 +168,12 @@ struct Fingerprint {
 }
 
 fn fingerprint(path: &Path) -> Result<Fingerprint, String> {
-    let metadata = fs::metadata(path).map_err(|e| e.to_string())?;
+    fingerprint_diagnostic(path).map_err(|cause| cause.to_string())
+}
+fn fingerprint_diagnostic(path: &Path) -> Result<Fingerprint, ErrorCause> {
+    let metadata = fs::metadata(path).map_err(ErrorCause::external)?;
     if !metadata.is_file() {
-        return Err("Not a regular file".into());
+        return Err(ErrorCause::owned("Not a regular file"));
     }
     #[cfg(unix)]
     let identity = {
@@ -408,20 +414,30 @@ impl Journal {
     // Prefer a hard link: the staged write replaces the inode, so the link keeps
     // the previous bytes for free. Copies are verified against a stable source.
     fn snapshot(&mut self, source: &Path, expected: Fingerprint) -> Result<Blob, String> {
+        self.snapshot_diagnostic(source, expected)
+            .map_err(|cause| cause.to_string())
+    }
+    fn snapshot_diagnostic(
+        &mut self,
+        source: &Path,
+        expected: Fingerprint,
+    ) -> Result<Blob, ErrorCause> {
         let path = self.blob_path();
         let linked = fs::hard_link(source, &path).is_ok();
         if !linked {
             if let Err(error) = fs::copy(source, &path) {
                 let _ = fs::remove_file(&path);
-                return Err(error.to_string());
+                return Err(ErrorCause::external(error));
             }
-            if fingerprint(source)? != expected {
+            if fingerprint_diagnostic(source)? != expected {
                 let _ = fs::remove_file(&path);
-                return Err("The file changed while its undo snapshot was taken".into());
+                return Err(ErrorCause::owned(
+                    "The file changed while its undo snapshot was taken",
+                ));
             }
         }
         let blob = Blob {
-            fingerprint: fingerprint(&path)?,
+            fingerprint: fingerprint_diagnostic(&path)?,
             path,
             linked,
             cost: expected.len,
@@ -429,7 +445,7 @@ impl Journal {
         };
         if blob.fingerprint.len != expected.len {
             discard(&blob);
-            return Err("The undo snapshot is incomplete".into());
+            return Err(ErrorCause::owned("The undo snapshot is incomplete"));
         }
         Ok(blob)
     }
@@ -533,6 +549,15 @@ impl Journal {
         path: &Path,
         completed_moves: usize,
     ) -> Result<(), String> {
+        self.capture_side_file_after_moves_diagnostic(capture, path, completed_moves)
+            .map_err(|cause| cause.to_string())
+    }
+    pub fn capture_side_file_after_moves_diagnostic(
+        &mut self,
+        capture: &mut Capture,
+        path: &Path,
+        completed_moves: usize,
+    ) -> Result<(), ErrorCause> {
         if capture.abandoned.is_some() {
             return Ok(());
         }
@@ -562,31 +587,35 @@ impl Journal {
         Ok(())
     }
 
-    fn copy_side_file(&mut self, source: &Path, retained: u64) -> Result<Option<Blob>, String> {
+    fn copy_side_file(&mut self, source: &Path, retained: u64) -> Result<Option<Blob>, ErrorCause> {
         match fs::symlink_metadata(source) {
             Ok(metadata) if metadata.file_type().is_symlink() => {
                 #[cfg(windows)]
                 {
                     use std::os::windows::fs::FileTypeExt;
                     if metadata.file_type().is_symlink_dir() {
-                        return Err("Cannot capture a directory symlink as a side file".into());
+                        return Err(ErrorCause::owned(
+                            "Cannot capture a directory symlink as a side file",
+                        ));
                     }
                 }
-                let target = fs::read_link(source).map_err(|e| e.to_string())?;
+                let target = fs::read_link(source).map_err(ErrorCause::external)?;
                 self.check_side_budget(
                     target.as_os_str().as_encoded_bytes().len() as u64,
                     retained,
                 )?;
                 // Prove this platform can recreate the entry before allowing
                 // its replacement. The private sibling probe is always removed.
-                let folder = source.parent().ok_or("The side file has no folder")?;
-                let _probe = stage_side_link(&target, folder)?;
+                let folder = source
+                    .parent()
+                    .ok_or_else(|| ErrorCause::owned("The side file has no folder"))?;
+                let _probe = stage_side_link_diagnostic(&target, folder)?;
                 let path = self.blob_path();
                 if let Err(error) = fs::write(&path, target.as_os_str().as_encoded_bytes()) {
                     let _ = fs::remove_file(&path);
-                    return Err(error.to_string());
+                    return Err(ErrorCause::external(error));
                 }
-                let fingerprint = match fingerprint(&path) {
+                let fingerprint = match fingerprint_diagnostic(&path) {
                     Ok(print) => print,
                     Err(error) => {
                         let _ = fs::remove_file(&path);
@@ -605,44 +634,48 @@ impl Journal {
                 self.check_side_budget(metadata.len(), retained)?;
                 self.copy_blob(source, metadata.len()).map(Some)
             }
-            Ok(_) => Err(format!(
-                "{} is not a regular file or symlink",
-                source.display()
+            Ok(_) => Err(ErrorCause::message(
+                "{value} is not a regular file or symlink",
+                [("value", display(source))],
             )),
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
-            Err(error) => Err(error.to_string()),
+            Err(error) => Err(ErrorCause::external(error)),
         }
     }
 
-    fn check_side_budget(&self, bytes: u64, retained: u64) -> Result<(), String> {
+    fn check_side_budget(&self, bytes: u64, retained: u64) -> Result<(), ErrorCause> {
         if retained.saturating_add(bytes) > self.limits.bytes {
-            return Err("The side-file undo snapshot exceeds the undo byte limit".into());
+            return Err(ErrorCause::owned(
+                "The side-file undo snapshot exceeds the undo byte limit",
+            ));
         }
         if available_space(&self.dir)
             .is_some_and(|free| free < bytes.saturating_add(self.limits.min_free))
         {
-            return Err(
-                "There is not enough free disk space for the side-file undo snapshot".into(),
-            );
+            return Err(ErrorCause::owned(
+                "There is not enough free disk space for the side-file undo snapshot",
+            ));
         }
         Ok(())
     }
 
     /// Side files may be rewritten in place, so keep a bounded complete copy.
-    fn copy_blob(&mut self, source: &Path, bytes: u64) -> Result<Blob, String> {
+    fn copy_blob(&mut self, source: &Path, bytes: u64) -> Result<Blob, ErrorCause> {
         use std::io::Read;
         let path = self.blob_path();
         let result = (|| {
-            let mut input = fs::File::open(source).map_err(|e| e.to_string())?;
-            let mut output = fs::File::create(&path).map_err(|e| e.to_string())?;
+            let mut input = fs::File::open(source).map_err(ErrorCause::external)?;
+            let mut output = fs::File::create(&path).map_err(ErrorCause::external)?;
             let copied = std::io::copy(&mut (&mut input).take(bytes), &mut output)
-                .map_err(|e| e.to_string())?;
+                .map_err(ErrorCause::external)?;
             let mut extra = [0];
-            if copied != bytes || input.read(&mut extra).map_err(|e| e.to_string())? != 0 {
-                return Err("The side file changed size while its undo snapshot was taken".into());
+            if copied != bytes || input.read(&mut extra).map_err(ErrorCause::external)? != 0 {
+                return Err(ErrorCause::owned(
+                    "The side file changed size while its undo snapshot was taken",
+                ));
             }
             Ok(Blob {
-                fingerprint: fingerprint(&path)?,
+                fingerprint: fingerprint_diagnostic(&path)?,
                 path: path.clone(),
                 cost: bytes,
                 linked: false,
@@ -943,6 +976,11 @@ impl Journal {
 
     /// Restore the most recent operation. Errors when there is nothing to undo.
     pub fn undo(&mut self) -> Result<Replay, String> {
+        self.undo_diagnostic().map(|report| report.result)
+    }
+
+    /// Undo with additive presentation companions; bookkeeping is shared with undo.
+    pub fn undo_diagnostic(&mut self) -> Result<Detailed<Replay>, String> {
         let record = self.undo.pop().ok_or("There is nothing to undo")?;
         self.notice = None;
         let (record, replay, moved) = self.replay(record, true);
@@ -966,6 +1004,11 @@ impl Journal {
 
     /// Re-apply the most recently undone operation.
     pub fn redo(&mut self) -> Result<Replay, String> {
+        self.redo_diagnostic().map(|report| report.result)
+    }
+
+    /// Redo with additive presentation companions; bookkeeping is shared with redo.
+    pub fn redo_diagnostic(&mut self) -> Result<Detailed<Replay>, String> {
         let record = self.redo.pop().ok_or("There is nothing to redo")?;
         self.notice = None;
         let (record, replay, moved) = self.replay(record, false);
@@ -988,39 +1031,55 @@ impl Journal {
 
     /// Move one record's files to its other side. Also returns, per restored
     /// file, its path with the fingerprint that side had before and has now.
-    fn replay(&mut self, mut record: Record, backward: bool) -> (Option<Record>, Replay, Moved) {
+    fn replay(
+        &mut self,
+        mut record: Record,
+        backward: bool,
+    ) -> (Option<Record>, Detailed<Replay>, Moved) {
+        let mut diagnostics = Vec::new();
         let mut moved = Vec::new();
         let mut replay = Replay {
             label: record.label.clone(),
             ..Default::default()
         };
-        let verb = if backward { "undone" } else { "redone" };
+        let direction = if backward {
+            Direction::Undo
+        } else {
+            Direction::Redo
+        };
         // 1. Verify every file is exactly as this journal left it.
         let mut files = Vec::new();
         for mut file in std::mem::take(&mut record.files) {
             let content = file.content;
             let (from, _) = file.sides(backward);
             if fingerprint(&from.path).ok() != Some(from.fingerprint) {
-                replay.errors.push(FileError {
-                    path: display(&from.path),
-                    error: format!(
-                        "Changed outside OpenTag after {}; it was not {verb}",
-                        record.label
-                    ),
-                });
+                push_error(
+                    &mut replay.errors,
+                    &mut diagnostics,
+                    display(&from.path),
+                    BatchError::HistoryChanged {
+                        label: record.label.clone(),
+                        direction,
+                    },
+                );
                 discard_file(&file);
                 continue;
             }
             if content && from.blob.is_none() {
                 let (path, print) = (from.path.clone(), from.fingerprint);
-                match self.snapshot(&path, print) {
+                match self.snapshot_diagnostic(&path, print) {
                     // Updated once the restore shows whether it cloned.
                     Ok(blob) => file.sides(backward).0.blob = Some(blob),
                     Err(error) => {
-                        replay.errors.push(FileError {
-                            path: display(&path),
-                            error: format!("It was not {verb}: {error}"),
-                        });
+                        push_error(
+                            &mut replay.errors,
+                            &mut diagnostics,
+                            display(&path),
+                            BatchError::HistoryFailed {
+                                direction,
+                                cause: error,
+                            },
+                        );
                         discard_file(&file);
                         continue;
                     }
@@ -1045,13 +1104,25 @@ impl Journal {
             replay_side_files_and_directories(&record.side_files, &record.directories, backward)
         };
         if let Err(error) = directory_outcome {
-            replay.errors.push(FileError {
-                path: record.label.clone(),
-                error: format!("Folders and side files could not be {verb}: {error}"),
-            });
+            push_error(
+                &mut replay.errors,
+                &mut diagnostics,
+                record.label.clone(),
+                BatchError::HistoryFoldersFailed {
+                    direction,
+                    cause: error,
+                },
+            );
             files.iter().for_each(discard_file);
             discard_record(&record);
-            return (None, replay, moved);
+            return (
+                None,
+                Detailed {
+                    result: replay,
+                    error_diagnostics: diagnostics,
+                },
+                moved,
+            );
         }
         replay.directories = moves
             .iter()
@@ -1066,10 +1137,13 @@ impl Journal {
             let current = rebase(&from.path, &moves);
             let outcome = (|| {
                 if current != to.path {
-                    crate::operations::rename_no_clobber(&current, &to.path)?;
+                    crate::operations::rename_no_clobber_cause(&current, &to.path)?;
                 }
                 if content {
-                    let blob = to.blob.as_ref().ok_or("The undo snapshot is missing")?;
+                    let blob = to
+                        .blob
+                        .as_ref()
+                        .ok_or_else(|| ErrorCause::owned("The undo snapshot is missing"))?;
                     match restore(blob, &to.path, &self.options) {
                         // The replaced file now shares all but the rewritten region
                         // with the snapshot it came from.
@@ -1090,7 +1164,7 @@ impl Journal {
                         }
                     }
                 }
-                fingerprint(&to.path)
+                fingerprint_diagnostic(&to.path)
             })();
             match outcome {
                 Ok(print) => {
@@ -1105,10 +1179,15 @@ impl Journal {
                     record.files.push(file);
                 }
                 Err(error) => {
-                    replay.errors.push(FileError {
-                        path: display(&current),
-                        error: format!("It was not {verb}: {error}"),
-                    });
+                    push_error(
+                        &mut replay.errors,
+                        &mut diagnostics,
+                        display(&current),
+                        BatchError::HistoryFailed {
+                            direction,
+                            cause: error,
+                        },
+                    );
                     discard_file(&file);
                 }
             }
@@ -1123,10 +1202,15 @@ impl Journal {
                 match replay_side_file(&side, backward) {
                     Ok(()) => record.side_files.push(side),
                     Err(error) => {
-                        replay.errors.push(FileError {
-                            path: display(&side.path),
-                            error: format!("It was not {verb}: {error}"),
-                        });
+                        push_error(
+                            &mut replay.errors,
+                            &mut diagnostics,
+                            display(&side.path),
+                            BatchError::HistoryFailed {
+                                direction,
+                                cause: error,
+                            },
+                        );
                         [side.before.as_ref(), side.after.as_ref()]
                             .into_iter()
                             .flatten()
@@ -1140,18 +1224,32 @@ impl Journal {
         }
         if record.files.is_empty() && record.directories.is_empty() && record.side_files.is_empty()
         {
-            return (None, replay, moved);
+            return (
+                None,
+                Detailed {
+                    result: replay,
+                    error_diagnostics: diagnostics,
+                },
+                moved,
+            );
         }
-        (Some(record), replay, moved)
+        (
+            Some(record),
+            Detailed {
+                result: replay,
+                error_diagnostics: diagnostics,
+            },
+            moved,
+        )
     }
 }
 
 /// A side file's path: existing folder aliases resolved, with absent parents
 /// retained until the operation creates them; the final entry is not followed.
-fn side_path(path: &Path) -> Result<PathBuf, String> {
-    let name = path
-        .file_name()
-        .ok_or_else(|| format!("{} is not a file name", path.display()))?;
+fn side_path(path: &Path) -> Result<PathBuf, ErrorCause> {
+    let name = path.file_name().ok_or_else(|| {
+        ErrorCause::message("{value} is not a file name", [("value", display(path))])
+    })?;
     let parent = path
         .parent()
         .filter(|p| !p.as_os_str().is_empty())
@@ -1160,7 +1258,7 @@ fn side_path(path: &Path) -> Result<PathBuf, String> {
         parent.to_path_buf()
     } else {
         std::env::current_dir()
-            .map_err(|e| e.to_string())?
+            .map_err(ErrorCause::external)?
             .join(parent)
     };
     let mut folder = PathBuf::new();
@@ -1179,10 +1277,10 @@ fn side_path(path: &Path) -> Result<PathBuf, String> {
                 folder.push(component.as_os_str());
                 match fs::symlink_metadata(&folder) {
                     Ok(_) => {
-                        folder = dunce::canonicalize(&folder).map_err(|e| e.to_string())?;
+                        folder = dunce::canonicalize(&folder).map_err(ErrorCause::external)?;
                     }
                     Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-                    Err(error) => return Err(error.to_string()),
+                    Err(error) => return Err(ErrorCause::external(error)),
                 }
             }
         }
@@ -1211,40 +1309,52 @@ fn holds(blob: Option<&Blob>, path: &Path) -> bool {
 }
 
 /// Make `path` hold `blob` (written through a sibling staging file), or remove it.
-fn put(blob: Option<&Blob>, path: &Path) -> Result<(), String> {
+fn put(blob: Option<&Blob>, path: &Path) -> Result<(), ErrorCause> {
     let Some(blob) = blob else {
-        return fs::remove_file(path).map_err(|e| e.to_string());
+        return fs::remove_file(path).map_err(ErrorCause::external);
     };
     if fingerprint(&blob.path).ok() != Some(blob.fingerprint) {
-        return Err("The undo snapshot was modified".into());
+        return Err(ErrorCause::owned("The undo snapshot was modified"));
     }
-    let folder = path.parent().ok_or("The file has no folder")?;
+    let folder = path
+        .parent()
+        .ok_or_else(|| ErrorCause::owned("The file has no folder"))?;
     if let Some(target) = &blob.symlink_target {
-        if fs::read(&blob.path).map_err(|e| e.to_string())? != target.as_os_str().as_encoded_bytes()
+        if fs::read(&blob.path).map_err(ErrorCause::external)?
+            != target.as_os_str().as_encoded_bytes()
         {
-            return Err("The undo link snapshot was modified".into());
+            return Err(ErrorCause::owned("The undo link snapshot was modified"));
         }
-        let (_directory, staging) = stage_side_link(target, folder)?;
-        return fs::rename(staging, path).map_err(|e| e.to_string());
+        let (_directory, staging) = stage_side_link_diagnostic(target, folder)?;
+        return fs::rename(staging, path).map_err(ErrorCause::external);
     }
     let mut staging = tempfile::Builder::new()
         .prefix(".opentag-")
         .tempfile_in(folder)
-        .map_err(|e| e.to_string())?;
-    let mut source = fs::File::open(&blob.path).map_err(|e| e.to_string())?;
-    std::io::copy(&mut source, staging.as_file_mut()).map_err(|e| e.to_string())?;
-    staging.as_file().sync_all().map_err(|e| e.to_string())?;
-    staging.persist(path).map_err(|e| e.error.to_string())?;
+        .map_err(ErrorCause::external)?;
+    let mut source = fs::File::open(&blob.path).map_err(ErrorCause::external)?;
+    std::io::copy(&mut source, staging.as_file_mut()).map_err(ErrorCause::external)?;
+    staging.as_file().sync_all().map_err(ErrorCause::external)?;
+    staging
+        .persist(path)
+        .map_err(|e| ErrorCause::external(e.error))?;
     Ok(())
 }
 
 /// A private sibling directory owns the temporary link until its atomic rename.
 /// Capture uses the same helper as a capability probe before any replacement.
+#[cfg(test)]
 fn stage_side_link(target: &Path, folder: &Path) -> Result<(tempfile::TempDir, PathBuf), String> {
+    stage_side_link_diagnostic(target, folder).map_err(|cause| cause.to_string())
+}
+fn stage_side_link_diagnostic(
+    target: &Path,
+    folder: &Path,
+) -> Result<(tempfile::TempDir, PathBuf), ErrorCause> {
     let directory = tempfile::Builder::new()
         .prefix(".opentag-link-")
         .tempdir_in(folder)
-        .map_err(|e| e.to_string())?;
+        .map_err(ErrorCause::external)?;
     let staging = directory.path().join("entry");
     #[cfg(unix)]
     let created = std::os::unix::fs::symlink(target, &staging);
@@ -1255,9 +1365,20 @@ fn stage_side_link(target: &Path, folder: &Path) -> Result<(tempfile::TempDir, P
         std::io::ErrorKind::Unsupported,
         "Side-file symlink undo is unavailable on this platform",
     ));
-    created.map_err(|e| format!("Cannot prepare symlink undo: {e}"))?;
-    if fs::read_link(&staging).map_err(|e| e.to_string())? != target {
-        return Err("The undo symlink target was not preserved".into());
+    created.map_err(|error| {
+        #[cfg(any(unix, windows))]
+        let cause = ErrorCause::external(error);
+        #[cfg(not(any(unix, windows)))]
+        let cause = {
+            let _ = error;
+            ErrorCause::owned("Side-file symlink undo is unavailable on this platform")
+        };
+        ErrorCause::wrap("Cannot prepare symlink undo: {e}", [], "e", cause)
+    })?;
+    if fs::read_link(&staging).map_err(ErrorCause::external)? != target {
+        return Err(ErrorCause::owned(
+            "The undo symlink target was not preserved",
+        ));
     }
     Ok((directory, staging))
 }
@@ -1324,17 +1445,22 @@ fn rebase(path: &Path, moves: &[(PathBuf, PathBuf)]) -> PathBuf {
     current
 }
 
-fn missing_parents(path: &Path) -> Result<Vec<PathBuf>, String> {
+fn missing_parents(path: &Path) -> Result<Vec<PathBuf>, ErrorCause> {
     let mut missing = Vec::new();
     let mut current = path.parent();
     while let Some(parent) = current {
         match fs::metadata(parent) {
             Ok(metadata) if metadata.is_dir() => break,
-            Ok(_) => return Err(format!("{} is not a folder", parent.display())),
+            Ok(_) => {
+                return Err(ErrorCause::message(
+                    "{value} is not a folder",
+                    [("value", display(parent))],
+                ))
+            }
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
                 missing.push(parent.to_path_buf())
             }
-            Err(error) => return Err(error.to_string()),
+            Err(error) => return Err(ErrorCause::external(error)),
         }
         current = parent.parent();
     }
@@ -1350,14 +1476,17 @@ fn clean_side_parents(side: &SideFile) {
     }
 }
 
-fn replay_side_file(side: &SideFile, backward: bool) -> Result<(), String> {
+fn replay_side_file(side: &SideFile, backward: bool) -> Result<(), ErrorCause> {
     let (from, to) = if backward {
         (&side.after, &side.before)
     } else {
         (&side.before, &side.after)
     };
     if !holds(from.as_ref(), &side.path) {
-        return Err(format!("Changed outside OpenTag: {}", side.path.display()));
+        return Err(ErrorCause::message(
+            "Changed outside OpenTag: {value}",
+            [("value", display(&side.path))],
+        ));
     }
     if to.is_some() {
         let mut created = Vec::new();
@@ -1368,7 +1497,7 @@ fn replay_side_file(side: &SideFile, backward: bool) -> Result<(), String> {
                     Err(error)
                         if error.kind() == std::io::ErrorKind::AlreadyExists && parent.is_dir() => {
                     }
-                    Err(error) => return Err(error.to_string()),
+                    Err(error) => return Err(ErrorCause::external(error)),
                 }
             }
             put(to.as_ref(), &side.path)
@@ -1390,7 +1519,7 @@ fn replay_side_files_and_directories(
     sides: &[SideFile],
     directories: &[(PathBuf, PathBuf)],
     backward: bool,
-) -> Result<(), String> {
+) -> Result<(), ErrorCause> {
     enum Done {
         Side(usize),
         Move(PathBuf, PathBuf),
@@ -1444,24 +1573,30 @@ fn replay_side_files_and_directories(
         return Err(if rollback_errors.is_empty() {
             error
         } else {
-            format!(
-                "{error}; rollback incomplete: {}",
-                rollback_errors.join("; ")
+            ErrorCause::children(
+                "{error}; rollback incomplete: {value}",
+                [
+                    ("error", error),
+                    ("value", ErrorCause::joined(rollback_errors, "; ")),
+                ],
             )
         });
     }
     Ok(())
 }
 
-fn move_directories(moves: &[(PathBuf, PathBuf)]) -> Result<(), String> {
+fn move_directories(moves: &[(PathBuf, PathBuf)]) -> Result<(), ErrorCause> {
     let mut done: Vec<&(PathBuf, PathBuf)> = Vec::new();
     let result = (|| {
         for change in moves {
             let (from, to) = change;
             if !from.is_dir() {
-                return Err(format!("{} no longer exists", from.display()));
+                return Err(ErrorCause::message(
+                    "{value} no longer exists",
+                    [("value", display(from))],
+                ));
             }
-            crate::operations::rename_directory_no_clobber(from, to)?;
+            crate::operations::rename_directory_no_clobber_diagnostic(from, to)?;
             done.push(change);
         }
         Ok(())
@@ -1476,38 +1611,43 @@ fn move_directories(moves: &[(PathBuf, PathBuf)]) -> Result<(), String> {
 
 /// Replace `target` with the snapshot bytes through a verified staging file.
 /// Returns whether the staging file was a clone of the snapshot.
-fn restore(blob: &Blob, target: &Path, options: &TagOptions) -> Result<bool, String> {
+fn restore(blob: &Blob, target: &Path, options: &TagOptions) -> Result<bool, ErrorCause> {
     if fingerprint(&blob.path).ok() != Some(blob.fingerprint) {
-        return Err("The undo snapshot was modified".into());
+        return Err(ErrorCause::owned("The undo snapshot was modified"));
     }
-    let target = dunce::canonicalize(target).map_err(|e| e.to_string())?;
-    let original = fs::metadata(&target).map_err(|e| e.to_string())?;
+    let target = dunce::canonicalize(target).map_err(ErrorCause::external)?;
+    let original = fs::metadata(&target).map_err(ErrorCause::external)?;
     if original.permissions().readonly() {
-        return Err("The audio file is read-only".into());
+        return Err(ErrorCause::owned("The audio file is read-only"));
     }
-    let expected = fingerprint(&target)?;
+    let expected = fingerprint_diagnostic(&target)?;
     let (staging, cloned) = crate::staging_clone(
         &blob.path,
         target
             .parent()
-            .ok_or("Audio path has no parent directory")?,
+            .ok_or_else(|| ErrorCause::owned("Audio path has no parent directory"))?,
         ".opentag-",
         "",
-    )?;
-    staging.as_file().sync_all().map_err(|e| e.to_string())?;
+    )
+    .map_err(ErrorCause::external)?;
+    staging.as_file().sync_all().map_err(ErrorCause::external)?;
     if fs::metadata(staging.path())
-        .map_err(|e| e.to_string())?
+        .map_err(ErrorCause::external)?
         .len()
         != blob.fingerprint.len
     {
-        return Err("The restored copy is incomplete".into());
+        return Err(ErrorCause::owned("The restored copy is incomplete"));
     }
-    crate::read_entry_summary_with_options(staging.path(), &[], options)?;
-    fs::set_permissions(staging.path(), original.permissions()).map_err(|e| e.to_string())?;
-    if fingerprint(&target)? != expected {
-        return Err("The file changed during restore; reload it and try again".into());
+    crate::read_entry_summary_with_options_diagnostic(staging.path(), &[], options)?;
+    fs::set_permissions(staging.path(), original.permissions()).map_err(ErrorCause::external)?;
+    if fingerprint_diagnostic(&target)? != expected {
+        return Err(ErrorCause::owned(
+            "The file changed during restore; reload it and try again",
+        ));
     }
-    staging.persist(&target).map_err(|e| e.error.to_string())?;
+    staging
+        .persist(&target)
+        .map_err(|e| ErrorCause::external(e.error))?;
     Ok(cloned)
 }
 
@@ -1527,6 +1667,146 @@ fn discard_record(record: &Record) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn diagnostic_wav(path: &Path) {
+        let samples: Vec<u8> = (0..8000)
+            .flat_map(|i| ((i % 251) as i16 * 31).to_le_bytes())
+            .collect();
+        let mut bytes = Vec::new();
+        bytes.extend(b"RIFF");
+        bytes.extend((36 + samples.len() as u32).to_le_bytes());
+        bytes.extend(b"WAVEfmt ");
+        bytes.extend(16u32.to_le_bytes());
+        bytes.extend(1u16.to_le_bytes());
+        bytes.extend(1u16.to_le_bytes());
+        bytes.extend(8000u32.to_le_bytes());
+        bytes.extend(16000u32.to_le_bytes());
+        bytes.extend(2u16.to_le_bytes());
+        bytes.extend(16u16.to_le_bytes());
+        bytes.extend(b"data");
+        bytes.extend((samples.len() as u32).to_le_bytes());
+        bytes.extend(samples);
+        fs::write(path, bytes).unwrap();
+    }
+    #[test]
+    fn diagnostic_history_changed_and_failed_frames_keep_raw_labels_directions_and_bytes() {
+        let label = "Help / action 1: Title; it was not undone";
+        for backward in [true, false] {
+            for changed in [true, false] {
+                let dir = tempfile::tempdir().unwrap();
+                let root = dunce::canonicalize(dir.path()).unwrap();
+                let from = root.join("Help; source.wav");
+                let to = root.join("Title; moved.wav");
+                diagnostic_wav(&from);
+                let original = fs::read(&from).unwrap();
+                let mut journal = Journal::open(&root.join("undo"), Limits::default()).unwrap();
+                let capture = journal.begin(label, None, &[display(&from)]);
+                crate::operations::rename_no_clobber(&from, &to).unwrap();
+                journal.commit(capture, &[(display(&from), display(&to))], &[]);
+                if !backward {
+                    assert!(journal.undo().unwrap().errors.is_empty());
+                }
+                let (current, target) = if backward { (&to, &from) } else { (&from, &to) };
+                if changed {
+                    fs::write(current, b"External changed bytes").unwrap();
+                } else {
+                    fs::write(target, b"External target bytes").unwrap();
+                }
+                let report = if backward {
+                    journal.undo_diagnostic()
+                } else {
+                    journal.redo_diagnostic()
+                }
+                .unwrap();
+                assert_eq!(report.error_diagnostics.len(), 1);
+                assert_eq!(report.error_diagnostics[0].index, 0);
+                assert_eq!(report.result.errors.len(), 1);
+                let diagnostic = &report.error_diagnostics[0].diagnostic;
+                assert_eq!(report.result.errors[0].error, diagnostic.to_string());
+                let direction = if backward { "undo" } else { "redo" };
+                let json = serde_json::to_value(diagnostic).unwrap();
+                assert_eq!(json["direction"], direction);
+                if changed {
+                    assert_eq!(json["kind"], "history_changed");
+                    assert_eq!(json["label"], label);
+                    assert_eq!(fs::read(current).unwrap(), b"External changed bytes");
+                } else {
+                    assert_eq!(json["kind"], "history_failed");
+                    assert_eq!(json["cause"]["kind"], "rename");
+                    assert_eq!(fs::read(current).unwrap(), original);
+                    assert_eq!(fs::read(target).unwrap(), b"External target bytes");
+                }
+            }
+        }
+    }
+    #[test]
+    fn diagnostic_history_missing_snapshot_is_an_owned_cause_without_touching_audio() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
+        let path = root.join("Help.wav");
+        diagnostic_wav(&path);
+        let mut journal = Journal::open(&root.join("undo"), Limits::default()).unwrap();
+        let capture = journal.begin("Title", None, &[display(&path)]);
+        crate::write_fields_summary(
+            &path,
+            &crate::Fields::from([("TITLE".into(), vec!["Help".into()])]),
+        )
+        .unwrap();
+        journal.commit(capture, &[], &[]);
+        journal.undo.last_mut().unwrap().files[0].before.blob = None;
+        let bytes = fs::read(&path).unwrap();
+        let report = journal.undo_diagnostic().unwrap();
+        let json = serde_json::to_value(&report.error_diagnostics).unwrap();
+        assert_eq!(json[0]["diagnostic"]["kind"], "history_failed");
+        assert_eq!(json[0]["diagnostic"]["cause"]["kind"], "owned");
+        assert_eq!(
+            json[0]["diagnostic"]["cause"]["key"],
+            "The undo snapshot is missing"
+        );
+        assert_eq!(
+            report.result.errors[0].error,
+            "It was not undone: The undo snapshot is missing"
+        );
+        assert_eq!(fs::read(path).unwrap(), bytes);
+    }
+    #[test]
+    fn diagnostic_history_folder_failure_retains_raw_label_side_path_and_rollback_order() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
+        let from = root.join("Album Help");
+        let to = root.join("Album Title");
+        fs::create_dir(&from).unwrap();
+        let audio = from.join("Help.wav");
+        diagnostic_wav(&audio);
+        let cover = from.join("Title; cover.jpg");
+        fs::write(&cover, b"Original cover").unwrap();
+        let label = "Help / action 1: Title";
+        let mut journal = Journal::open(&root.join("undo"), Limits::default()).unwrap();
+        let mut capture = journal.begin(label, None, &[display(&audio)]);
+        journal.capture_side_file(&mut capture, &cover).unwrap();
+        fs::write(&cover, b"Written cover").unwrap();
+        crate::operations::rename_directory_no_clobber(&from, &to).unwrap();
+        journal.commit(capture, &[], &[(display(&from), display(&to))]);
+        let current = to.join("Title; cover.jpg");
+        fs::write(&current, b"External cover").unwrap();
+        let report = journal.undo_diagnostic().unwrap();
+        let json = serde_json::to_value(&report.error_diagnostics).unwrap();
+        assert_eq!(json[0]["diagnostic"]["kind"], "history_folders_failed");
+        assert_eq!(json[0]["diagnostic"]["direction"], "undo");
+        assert_eq!(report.result.errors[0].path, label);
+        assert_eq!(
+            report.result.errors[0].error,
+            report.error_diagnostics[0].diagnostic.to_string()
+        );
+        assert_eq!(json[0]["diagnostic"]["cause"]["kind"], "owned");
+        assert_eq!(
+            json[0]["diagnostic"]["cause"]["key"],
+            "Changed outside OpenTag: {value}"
+        );
+        assert_eq!(fs::read(current).unwrap(), b"External cover");
+        assert!(!from.exists());
+        assert!(to.join("Help.wav").exists());
+    }
 
     const MB: u64 = 1024 * 1024;
 

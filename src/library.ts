@@ -44,8 +44,8 @@ export function libraryStatusText(status:LibraryStatus){
   return size+last;
 }
 export function cleanupText(report:CleanupReport){
-  const removed=`removed ${plural(report.removed,'orphaned entry','orphaned entries')}`;
-  return report.cancelled?`Cleanup cancelled after ${plural(report.checked,'file')}; ${removed}.`:`Cleanup checked ${plural(report.checked,'file')} and ${removed}.`;
+  const removalSummary=`removed ${plural(report.removed,'orphaned entry','orphaned entries')}`;
+  return report.cancelled?`Cleanup cancelled after ${plural(report.checked,'file')}; ${removalSummary}.`:`Cleanup checked ${plural(report.checked,'file')} and ${removalSummary}.`;
 }
 
 const page=(draft:OptionsDraft)=>(draft.pages.library??={...LIBRARY_DEFAULTS,directories:[]}) as Record<string,unknown>;
@@ -55,7 +55,7 @@ export function libraryOptionsPage(host:LibraryHost):OptionsPage{
   let current=0;
   const directoriesMarkup=(draft:OptionsDraft)=>{
     const {restrict,directories}=libraryOptions(page(draft)),index=Math.min(current,directories.length-1),off=restrict?'':'disabled';
-    return`<label class="field"><span>Included directories</span><select id="library-directories" size="5" aria-label="Included directories" ${off}>${directories.map((d,i)=>`<option value="${i}" ${i===index?'selected':''}>${html(d)}</option>`).join('')}</select></label>
+    return`<label class="field"><span>Included directories</span><select id="library-directories" size="5" aria-label="Included directories" ${off}>${directories.map((d,i)=>`<option value="${i}" translate="no" ${i===index?'selected':''}>${html(d)}</option>`).join('')}</select></label>
       <div class="group-buttons"><button type="button" id="library-add" ${off}>Add…</button><button type="button" id="library-remove" ${restrict&&directories.length?'':'disabled'}>Remove</button></div>
       ${restrict&&!directories.length?'<p>No directory is included, so nothing is stored in the library.</p>':''}`;
   };

@@ -83,7 +83,32 @@ jobs:
         run: brew install ffmpeg
       - name: Windows media fixtures
         if: runner.os == 'Windows'
-        run: choco install ffmpeg --no-progress -y
+        shell: pwsh
+        # Chocolatey's feed sometimes answers 5xx and the install silently
+        # does nothing; retry, then require a working ffmpeg.
+        run: |
+          for ($attempt = 1; $attempt -le 3; $attempt++) {
+            choco install ffmpeg --no-progress -y
+            if (Get-Command ffmpeg -ErrorAction SilentlyContinue) { break }
+            Write-Host "ffmpeg not installed by Chocolatey (attempt $attempt)"
+            Start-Sleep -Seconds (15 * $attempt)
+          }
+          if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
+            # Chocolatey unavailable: fall back to the FFmpeg builds on GitHub.
+            $zip = Join-Path $env:RUNNER_TEMP 'ffmpeg.zip'
+            # Pin a month-end build (retained upstream for two years) and fail closed on replacement.
+            $url = 'https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-09-30-13-08/ffmpeg-N-127021-ge0c94b2d1c-win64-gpl.zip'
+            $expectedSha256 = '85c4a4636b93d681a07588ffa6f1d8f5c064d9c3fb0622066662906b6fd718a1'
+            Invoke-WebRequest $url -OutFile $zip -MaximumRetryCount 5 -RetryIntervalSec 10
+            $actualSha256 = (Get-FileHash -LiteralPath $zip -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()
+            if ($actualSha256 -ne $expectedSha256) { throw "FFmpeg archive SHA-256 mismatch: expected $expectedSha256, got $actualSha256" }
+            Expand-Archive $zip -DestinationPath (Join-Path $env:RUNNER_TEMP 'ffmpeg')
+            $bin = (Get-ChildItem (Join-Path $env:RUNNER_TEMP 'ffmpeg') -Recurse -Filter ffmpeg.exe | Select-Object -First 1).DirectoryName
+            Add-Content $env:GITHUB_PATH $bin
+            $env:PATH = "$bin;$env:PATH"
+          }
+          ffmpeg -version | Select-Object -First 1
+          if ($LASTEXITCODE -ne 0) { throw 'ffmpeg is not available' }
       - run: npm ci
       - run: npm run build
       - run: npm run test:ui
@@ -140,7 +165,32 @@ jobs:
         run: brew install ffmpeg
       - name: Windows media fixtures
         if: runner.os == 'Windows'
-        run: choco install ffmpeg --no-progress -y
+        shell: pwsh
+        # Chocolatey's feed sometimes answers 5xx and the install silently
+        # does nothing; retry, then require a working ffmpeg.
+        run: |
+          for ($attempt = 1; $attempt -le 3; $attempt++) {
+            choco install ffmpeg --no-progress -y
+            if (Get-Command ffmpeg -ErrorAction SilentlyContinue) { break }
+            Write-Host "ffmpeg not installed by Chocolatey (attempt $attempt)"
+            Start-Sleep -Seconds (15 * $attempt)
+          }
+          if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
+            # Chocolatey unavailable: fall back to the FFmpeg builds on GitHub.
+            $zip = Join-Path $env:RUNNER_TEMP 'ffmpeg.zip'
+            # Pin a month-end build (retained upstream for two years) and fail closed on replacement.
+            $url = 'https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-09-30-13-08/ffmpeg-N-127021-ge0c94b2d1c-win64-gpl.zip'
+            $expectedSha256 = '85c4a4636b93d681a07588ffa6f1d8f5c064d9c3fb0622066662906b6fd718a1'
+            Invoke-WebRequest $url -OutFile $zip -MaximumRetryCount 5 -RetryIntervalSec 10
+            $actualSha256 = (Get-FileHash -LiteralPath $zip -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()
+            if ($actualSha256 -ne $expectedSha256) { throw "FFmpeg archive SHA-256 mismatch: expected $expectedSha256, got $actualSha256" }
+            Expand-Archive $zip -DestinationPath (Join-Path $env:RUNNER_TEMP 'ffmpeg')
+            $bin = (Get-ChildItem (Join-Path $env:RUNNER_TEMP 'ffmpeg') -Recurse -Filter ffmpeg.exe | Select-Object -First 1).DirectoryName
+            Add-Content $env:GITHUB_PATH $bin
+            $env:PATH = "$bin;$env:PATH"
+          }
+          ffmpeg -version | Select-Object -First 1
+          if ($LASTEXITCODE -ne 0) { throw 'ffmpeg is not available' }
       - run: npm ci
       - name: Build the debug app once
         run: |
@@ -159,7 +209,7 @@ jobs:
           # forwarding. macOS and Windows runners have a desktop session.
           if [[ "$RUNNER_OS" == Linux ]]; then run=(dbus-run-session -- xvfb-run -a); else run=(); fi
           status=0
-          for suite in core-workflows covers actions options-utils playlists freedb-local gnudb formats-3 general-options remove-mapping list-behaviour rename-fixes keyboard-extended script-export actions-polish sources-3 sources-4 keyboard-ui launch-forwarding export-lists chapters web-sources formats-edge panel-dock chapter-fields library; do
+          for suite in core-workflows covers actions options-utils playlists freedb-local gnudb formats-3 general-options remove-mapping list-behaviour rename-fixes keyboard-extended script-export actions-polish sources-3 sources-4 keyboard-ui launch-forwarding export-lists chapters web-sources formats-edge panel-dock chapter-fields library i18n; do
             fixtures=""
             [[ -x "tests/e2e/$suite-fixtures.sh" ]] && fixtures="$PWD/tests/e2e/$suite-fixtures.sh"
             echo "::group::$suite"

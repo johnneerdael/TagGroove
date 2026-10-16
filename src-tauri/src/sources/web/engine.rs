@@ -35,7 +35,13 @@ impl fmt::Display for ScriptError {
         if self.line == 0 {
             write!(f, "{}", self.message)
         } else {
-            write!(f, "line {} ({}): {}", self.line, self.command, self.message)
+            write!(
+                f,
+                "line {line} ({text}): {error}",
+                line = self.line,
+                text = self.command,
+                error = self.message
+            )
         }
     }
 }
@@ -217,7 +223,11 @@ impl Script {
             };
             if args.len() < *min || args.len() > *max {
                 return Err(fail(if min == max {
-                    format!("{name} takes {min} parameter{}", plural(*min))
+                    if *min == 1 {
+                        format!("{name} takes {min} parameter")
+                    } else {
+                        format!("{name} takes {min} parameters")
+                    }
                 } else {
                     format!("{name} takes {min} to {max} parameters")
                 }));
@@ -296,22 +306,14 @@ impl Script {
         }
         if let Some(&open) = blocks.last() {
             let command = &commands[open];
-            let missing = match command.name.as_str() {
+            let name = match command.name.as_str() {
                 "do" => "While",
                 "json_foreach" | "json_foreach_reverse" => "json_foreach_end",
                 _ => "Endif",
             };
-            return Err(unbalanced(command, &format!("this block has no {missing}")));
+            return Err(unbalanced(command, &format!("this block has no {name}")));
         }
         Ok(Script { commands })
-    }
-}
-
-fn plural(count: usize) -> &'static str {
-    if count == 1 {
-        ""
-    } else {
-        "s"
     }
 }
 
@@ -548,7 +550,7 @@ fn format_value(
                     present: true,
                     truth: true,
                 }),
-                other => Err(format!("${other} is not available here")),
+                name => Err(format!("${name} is not available here")),
             }
         }
     }
@@ -739,7 +741,7 @@ impl<'a> Machine<'a> {
         self.pos += used;
         number
             .parse()
-            .map_err(|_| format!("\"{number}\" is not a number"))
+            .map_err(|_| format!("\"{value}\" is not a number", value = number))
     }
 
     fn condition(&self, command: &Command, args: &[String]) -> Result<bool, String> {
@@ -875,7 +877,10 @@ impl<'a> Machine<'a> {
                 if found == nth || needle.is_empty() {
                     self.pos = at;
                 } else if !flag(&args, 2) {
-                    return Err(format!("\"{needle}\" was not found in the current line"));
+                    return Err(format!(
+                        "\"{value}\" was not found in the current line",
+                        value = needle
+                    ));
                 } else {
                     self.pos = self.line_text().len();
                 }
@@ -1014,8 +1019,9 @@ impl<'a> Machine<'a> {
                 ))?;
             }
             "sayregexp" => {
-                let expression = regex_compat::Regex::new(arg(0), true)
-                    .map_err(|e| format!("the regular expression is not valid: {e}"))?;
+                let expression = regex_compat::Regex::new(arg(0), true).map_err(|e| {
+                    format!("the regular expression is not valid: {value}", value = e)
+                })?;
                 let rest = self.rest();
                 let end = match args.get(2).filter(|end| !end.is_empty()) {
                     Some(end) => match rest.find(end.as_str()) {
@@ -1107,7 +1113,7 @@ impl<'a> Machine<'a> {
             }
             "regexpreplace" => {
                 let text = regex_compat::replace(self.line_text(), arg(0), arg(1), true)
-                    .map_err(|e| format!("the regular expression failed: {e}"))?;
+                    .map_err(|e| format!("the regular expression failed: {value}", value = e))?;
                 self.replace_line(&text);
             }
             "joinuntil" => {
@@ -1198,7 +1204,9 @@ impl<'a> Machine<'a> {
                             .into_iter::<Value>()
                             .next()
                             .unwrap_or_else(|| serde_json::from_str(""))
-                            .map_err(|e| format!("the input is not valid JSON: {e}"))?;
+                            .map_err(|e| {
+                                format!("the input is not valid JSON: {value}", value = e)
+                            })?;
                     let text = match self.json.take() {
                         Some(json) => json.text,
                         None => (self.lines.clone(), self.line, self.pos),
@@ -1477,6 +1485,59 @@ mod tests {
         run(&script(text), input, &Environment::default())
             .result
             .unwrap_err()
+    }
+
+    #[test]
+    fn prefix_diagnostic_fixtures_execute_real_script_producers() {
+        let cases: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../../tests/fixtures/web-scripting-diagnostics.json"
+        ))
+        .unwrap();
+        for case in cases.as_array().unwrap() {
+            if let Some(expected) = case["output"].as_str() {
+                assert_eq!(
+                    out(
+                        case["script"].as_str().unwrap(),
+                        case["page"].as_str().unwrap()
+                    ),
+                    expected
+                );
+                continue;
+            }
+            let lines = case["script"]
+                .as_str()
+                .unwrap()
+                .lines()
+                .enumerate()
+                .map(|(i, line)| (i + 1, line.to_owned()))
+                .collect::<Vec<_>>();
+            let error = match Script::compile(&lines) {
+                Err(error) => error,
+                Ok(script) => run(
+                    &script,
+                    case["page"].as_str().unwrap(),
+                    &Environment::default(),
+                )
+                .result
+                .unwrap_err(),
+            };
+            assert_eq!(error.message, case["error"].as_str().unwrap());
+        }
+        for (script, page, prefix) in [
+            (
+                "SayRegexp \"[\"",
+                "Title",
+                "the regular expression is not valid: ",
+            ),
+            (
+                "RegexpReplace \"[\" \"Title\"",
+                "Title",
+                "the regular expression failed: ",
+            ),
+            ("json \"on\"", "Title", "the input is not valid JSON: "),
+        ] {
+            assert!(error(script, page).message.starts_with(prefix));
+        }
     }
 
     #[test]
