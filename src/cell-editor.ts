@@ -3,6 +3,7 @@ export type CellEditorHost={
   /** Make the target row rendered and return its cell. */
   cell:(target:CellTarget)=>HTMLTableCellElement|null;
   initial:(target:CellTarget)=>string;
+  /** Final display name: the host translates default labels and preserves authored names. */
   label?:(target:CellTarget)=>string;
   /** Apply the edit; resolves to the file's path afterwards (renames change it). */
   commit:(target:CellTarget,value:string)=>Promise<string|undefined>|string|undefined;
@@ -52,7 +53,7 @@ export class CellEditor{
     this.cancel();
     const cell=this.host.cell(target);if(!cell)return false;
     const input=document.createElement('input');input.className='cell-editor';input.value=this.host.initial(target);
-    input.setAttribute('aria-label',`Edit ${this.host.label?.(target)||'cell'}`);
+    this.updateLabel(input,target);
     input.spellcheck=false;input.autocomplete='off';
     this.input=input;this.target=target;
     input.addEventListener('keydown',event=>{
@@ -68,6 +69,11 @@ export class CellEditor{
     this.place(cell);input.focus();input.select();
     return true;
   }
+  private updateLabel(input:HTMLInputElement,target:CellTarget){
+    const label=this.host.label?.(target);
+    if(label)input.setAttribute('data-verbatim','');else input.removeAttribute('data-verbatim');
+    input.setAttribute('aria-label',`Edit ${label||'cell'}`);
+  }
   private place(cell:HTMLTableCellElement){
     const input=this.input!,wrap=cell.closest<HTMLElement>('.table-wrap');if(!wrap)return;
     const box=cell.getBoundingClientRect(),frame=wrap.getBoundingClientRect();
@@ -79,6 +85,7 @@ export class CellEditor{
     if(!this.input||!this.target)return;
     const input=this.input,start=input.selectionStart,end=input.selectionEnd,cell=this.host.cell(this.target);
     if(!cell){this.cancel();return;}
+    this.updateLabel(input,this.target);
     this.place(cell);input.focus({preventScroll:true});
     try{if(start!==null&&end!==null)input.setSelectionRange(start,end);}catch{/* Selection is not supported by every input type. */}
   }

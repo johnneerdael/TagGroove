@@ -534,7 +534,7 @@ function cellValue(entry:Entry,template:string){return columnValues.get(entry.pa
 const cellEditor=new CellEditor({
   cell:target=>{const cell=revealRow(target.path,false)?.querySelector<HTMLTableCellElement>(`td[data-col="${CSS.escape(target.column)}"]`)||null;cell?.scrollIntoView({block:'nearest',inline:'nearest'});return cell;},
   initial:({path,column})=>{const entry=entries.get(path),key=editKey(columnLayout.columns.find(c=>c.id===column)||{field:''});return!entry?'':key==='_FILENAME_EXT'?entry.filename:key==='_FILENAME'?entry.filename.replace(/\.[^.]*$/,''):field(entry,key);},
-  label:({column})=>columnLayout.columns.find(c=>c.id===column)?.name||'cell',
+  label:({column})=>{const found=columnLayout.columns.find(c=>c.id===column);return found?columnName(found):'';},
   commit:commitCell,
   next:(target,direction)=>{
     const rows=visible().map(entry=>entry.path),below=rows[rows.indexOf(target.path)+1];

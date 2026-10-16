@@ -13,7 +13,8 @@ const moduleUrl=async(file,replacements={})=>{
 const load=async file=>import(await moduleUrl(file));
 const {Translator,catalogMeta}=await load('i18n/core.ts'),{DomTranslator}=await load('i18n/dom.ts');
 const {controlMarkup,OptionsUI,defaultSettings,registerOptionsPage,windowTitle}=await load('options-ui.ts');
-const {ColumnUI,defaultLayout,setColumnNameTranslation}=await load('columns.ts'),{ActionUI}=await load('action-ui.ts');
+const {ColumnUI,defaultLayout,setColumnNameTranslation,columnName,headerMarkup,editKey}=await load('columns.ts'),{ActionUI}=await load('action-ui.ts');
+const {CellEditor}=await load('cell-editor.ts');
 const {TagPanel,defaultLayout:defaultPanelLayout}=await load('tag-panel.ts');
 const {CoverUI}=await import(await moduleUrl('covers.ts',{"import './covers.css';":'',"'./keyboard'":JSON.stringify(await moduleUrl('keyboard.ts')),"'./cover-model'":JSON.stringify(await moduleUrl('cover-model.ts'))}));
 const {PICTURE_TYPES}=await load('cover-model.ts');
@@ -370,6 +371,26 @@ test('the real language reload retains an active catalog on command failure and 
     assert.equal(p.body.querySelector('select').selectedOptions[0].textContent,'Unavailable: pt-BR (using English)');
     p.body.innerHTML=controlMarkup(controls[0],{pages:{language:{language:'system'}}});assert.equal(p.body.querySelector('select').value,'system');
   }finally{if(storage)Object.defineProperty(globalThis,'localStorage',storage);else delete globalThis.localStorage;p.close();}
+});
+test('the real cell-editor host preserves custom column labels and translates default display names once',()=>{
+  const custom={Title:'Help',Help:'Assistance','Edit {label}':'Change {label}','Edit cell':'Change the cell'};
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]])for(const column of [{...defaultLayout().columns.find(c=>c.id==='title')},...['Help','Title','cell','My  Files'].map(name=>({...defaultLayout().columns[1],id:'custom',name}))]){
+    const p=page(),path='/Help.mp3',raw='Help  Title';let editor;
+    try{
+      const t=new Translator(locale,catalog);setColumnNameTranslation(text=>t.translate(text));
+      p.body.innerHTML=`<div class="table-wrap"><table><thead><tr>${headerMarkup([column],[])}</tr></thead><tbody><tr><td data-col="${column.id}"></td></tr></tbody></table></div>`;
+      editor=rendererVariable(parsed,'cellEditor',{CellEditor,commitCell:()=>path,revealRow:()=>p.body.querySelector('tbody tr'),CSS:p.window.CSS,entries:new Map([[path,{filename:'Help.mp3'}]]),editKey,columnLayout:{columns:[column]},columnName,field:()=>raw,anchor:undefined,paths:()=>[],selected:new Set()});
+      assert.equal(editor.start({path,column:column.id}),true);p.translate(locale,catalog);
+      const input=p.body.querySelector('.cell-editor'),shown=column.id==='title'?t.t('Title'):column.name;
+      assert.equal(p.body.querySelector('[data-sort] > span').textContent,shown);
+      assert.equal(input.getAttribute('aria-label'),t.t('Edit {label}',{label:shown}));assert.equal(input.value,raw);
+      input.value='Typed  Help';input.setSelectionRange(2,6);
+      setColumnNameTranslation(text=>text);p.translate('en');editor.reattach();
+      assert.equal(input.getAttribute('aria-label'),`Edit ${column.name}`);assert.equal(input.value,'Typed  Help');assert.equal(input.selectionStart,2);assert.equal(input.selectionEnd,6);
+      setColumnNameTranslation(text=>t.translate(text));editor.reattach();p.translate(locale,catalog);
+      assert.equal(input.getAttribute('aria-label'),t.t('Edit {label}',{label:shown}));assert.equal(input.value,'Typed  Help');
+    }finally{editor?.cancel();setColumnNameTranslation(text=>text);p.close();}
+  }
 });
 test('source dialogs keep authored accessible names through search and review while built-in labels translate',async()=>{
   const custom={Help:'Assistance',Title:'Heading','freedb (local)':'Local catalog','MusicBrainz cover art':'MusicBrainz images',Search:'Find',Cancel:'Dismiss',Back:'Previous'};
