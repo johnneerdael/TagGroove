@@ -225,7 +225,7 @@ export class FileOpsUI {
     const render=()=>{
       current=Math.min(current,Math.max(0,draft.favorites.length-1));
       dialog.innerHTML=`<header>Favorite directories</header><div class="dialog-content">
-      <label class="field"><span>Favorite directories</span><select id="dir-favorites" size="5" aria-label="Favorite directories">${draft.favorites.map((path,index)=>`<option value="${index}" ${index===current?'selected':''}>${index===0?'★ ':''}${html(path)}</option>`).join('')}</select></label>
+      <label class="field"><span>Favorite directories</span><select id="dir-favorites" size="5" aria-label="Favorite directories">${draft.favorites.map((path,index)=>`<option value="${index}" translate="no" ${index===current?'selected':''}>${index===0?'★ ':''}${html(path)}</option>`).join('')}</select></label>
       <p>${draft.favorites.length?'The first favorite opens with File → Favorite directory (Ctrl M) and at startup.':'No favorites yet. Add the current directory or choose a folder.'}</p>
       <div class="group-buttons"><button id="dir-add-current" ${this.history.current&&!draft.favorites.includes(this.history.current)?'':'disabled'}>Add current directory</button><button id="dir-add-folder">Add folder…</button><button id="dir-first" ${current>0?'':'disabled'}>Make first</button><button id="dir-remove" ${draft.favorites.length?'':'disabled'}>Remove</button><button id="dir-open" ${draft.favorites.length&&!this.host.openReason()?'':'disabled'}>Open</button></div>
       <p>Read subfolders and the startup directory are in File → Options → Directories.</p>

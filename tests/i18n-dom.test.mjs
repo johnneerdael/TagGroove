@@ -26,7 +26,8 @@ const {copyAsTextDialog}=await load('utils-ui.ts'),{PlaylistUI}=await load('play
 const {offerOpenOutputs,ExportUI}=await load('export-ui.ts');
 const {FileOpsUI,nameList,defaultDirectoryState}=await load('file-ops.ts');
 const {copiedMessage}=await load('tag-clipboard.ts');
-const {cleanupText}=await load('library.ts');
+const {cleanupText,libraryOptionsPage}=await load('library.ts');
+const {mappingOptionsPage}=await load('field-mapping.ts');
 const {sourcePresentation}=await load('document-state.ts');
 const {tagSourcesOptionsPages,TagSourcesUI}=await load('tag-sources.ts');
 const {removeTagParts}=await load('remove-tag.ts');
@@ -229,6 +230,57 @@ test('the native window-title wrapper translates generated locations once and pr
       assert.deepEqual(calls,[show&&label!==null?t.t('OpenTag — {location}',{location:label}):'OpenTag']);
       sync();assert.equal(calls.length,1);
     }
+  }
+});
+test('mapping validation translates generated row labels while preserving authored field identifiers',async()=>{
+  registerOptionsPage(mappingOptionsPage());
+  const custom={'Mapping {index}':'Rule {index}',ARTIST:'Performer',Help:'Assistance',...Object.fromEntries(['choose a tag type.','enter the source field.','enter the target field.','field names cannot contain line breaks.','{field} already maps to another target. One source cannot map to several targets.'].map(suffix=>[`{mapping}: ${suffix}`,`Issue {mapping}: ${suffix}`]))};
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]])for(const field of ['ARTIST','Help','My  Field']){
+    const p=page(),globals=Object.fromEntries(['CSS','getComputedStyle'].map(name=>[name,Object.getOwnPropertyDescriptor(globalThis,name)]));
+    Object.defineProperty(globalThis,'CSS',{configurable:true,value:p.window.CSS});Object.defineProperty(globalThis,'getComputedStyle',{configurable:true,value:p.window.getComputedStyle.bind(p.window)});
+    try{
+      const settings=defaultSettings();settings.tags.mappings=[{tag_type:'VorbisComment',source:field,target:'FIRST'},{tag_type:'VorbisComment',source:field,target:'SECOND'}];
+      const response={settings,defaults:defaultSettings(),warning:null};let saved;
+      const ui=new OptionsUI({load:async()=>response,save:async value=>{saved=structuredClone(value);return{...response,settings:value};},appearance:{get:()=> 'system',set:()=>{}},applied:()=>{}});
+      await ui.open('tags-mapping');const t=p.translate(locale,catalog);p.body.querySelector('#options-ok').click();await p.window.happyDOM.waitUntilComplete();
+      const key='{mapping}: {field} already maps to another target. One source cannot map to several targets.';
+      assert.equal(p.body.querySelector('.dialog-error').textContent,t.t(key,{mapping:t.t('Mapping {index}',{index:2}),field}));assert.equal(saved,undefined);
+      assert.equal(p.body.querySelector('#mapping-source').value,field);
+      const select=p.body.querySelector('#mapping-list');select.value='1';select.dispatchEvent(new p.window.Event('change',{bubbles:true}));
+      const input=p.body.querySelector('#mapping-target');input.value='FIRST';input.dispatchEvent(new p.window.Event('input',{bubbles:true}));p.body.querySelector('#options-ok').click();await p.window.happyDOM.waitUntilComplete();
+      assert.deepEqual(saved.tags.mappings.map(rule=>rule.source),[field,field]);assert.equal(settings.tags.mappings[1].target,'SECOND');
+    }finally{for(const [name,descriptor] of Object.entries(globals))if(descriptor)Object.defineProperty(globalThis,name,descriptor);else delete globalThis[name];p.close();}
+  }
+  const valid={tag_type:'VorbisComment',source:'ARTIST',target:'PERFORMER'};
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]])for(const [rule,suffix] of [[{...valid,tag_type:'Help'},'choose a tag type.'],[{...valid,source:''},'enter the source field.'],[{...valid,target:''},'enter the target field.'],[{...valid,source:'Help\nTitle'},'field names cannot contain line breaks.']]){
+    const p=page();try{p.body.textContent=mappingOptionsPage().validate({tags:{mappings:[rule]}});const t=p.translate(locale,catalog);assert.equal(p.body.textContent,t.t(`{mapping}: ${suffix}`,{mapping:t.t('Mapping {index}',{index:1})}));}finally{p.close();}
+  }
+});
+test('favorite and included-directory selectors preserve restored paths through redraw and save',async()=>{
+  registerOptionsPage(libraryOptionsPage({status:async()=>({created:false,files:0,last_hits:0,last_stored:0}),pickDirectories:async()=>['/Music/Title']}));
+  const custom={Help:'Assistance',Title:'Heading','Favorite directories':'Saved folders','Included directories':'Included folders',Save:'Store',Remove:'Delete',Open:'Load','Add…':'Include…'};
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]]){
+    const p=page(),original={version:1,favorites:['Help','Title','My  Files\nTitle'],recent:['Help']};let persisted;
+    try{
+      const ui=new FileOpsUI({preferences:()=>({startup:'empty'}),changed:()=>{},openReason:()=>'',pickDirectories:async()=>['/Music/Title'],invoke:async(command,args)=>command==='load_directory_state'?structuredClone(original):command==='take_launch_requests'?[]:command==='save_directory_state'?(persisted=structuredClone(args.state)):undefined});
+      await ui.initialize();await ui.manage();const t=p.translate(locale,catalog),dialog=p.body.querySelector('.directories-dialog');
+      const values=()=>[...dialog.querySelector('#dir-favorites').options].map(option=>option.textContent);
+      assert.deepEqual(values(),['★ Help','Title','My  Files\nTitle']);assert.equal(dialog.querySelector('#dir-favorites').value,'0');assert.equal(dialog.querySelector('#dir-save').textContent,t.t('Save'));
+      const select=dialog.querySelector('#dir-favorites');select.value='1';select.dispatchEvent(new p.window.Event('change'));dialog.querySelector('#dir-first').click();p.translateTree(dialog);assert.deepEqual(values(),['★ Title','Help','My  Files\nTitle']);
+      dialog.querySelector('#dir-add-folder').click();await p.window.happyDOM.waitUntilComplete();p.translateTree(dialog);assert.deepEqual(values(),['★ Title','Help','My  Files\nTitle','/Music/Title']);
+      dialog.querySelector('#dir-save').click();await p.window.happyDOM.waitUntilComplete();assert.deepEqual(persisted.favorites,['Title','Help','My  Files\nTitle','/Music/Title']);assert.deepEqual(original.favorites,['Help','Title','My  Files\nTitle']);
+    }finally{p.close();}
+    const q=page(),globals=Object.fromEntries(['CSS','getComputedStyle'].map(name=>[name,Object.getOwnPropertyDescriptor(globalThis,name)]));
+    Object.defineProperty(globalThis,'CSS',{configurable:true,value:q.window.CSS});Object.defineProperty(globalThis,'getComputedStyle',{configurable:true,value:q.window.getComputedStyle.bind(q.window)});
+    try{
+      const settings=defaultSettings();settings.pages.library={enabled:true,restrict:true,directories:[...original.favorites]};const response={settings,defaults:defaultSettings(),warning:null};let saved;
+      const ui=new OptionsUI({load:async()=>response,save:async value=>{saved=structuredClone(value);return{...response,settings:value};},appearance:{get:()=> 'system',set:()=>{}},applied:()=>{}});
+      await ui.open('library');const t=q.translate(locale,catalog),values=()=>[...q.body.querySelector('#library-directories').options].map(option=>option.textContent);
+      assert.deepEqual(values(),original.favorites);assert.equal(q.body.querySelector('#library-directories').getAttribute('aria-label'),t.t('Included directories'));
+      const select=q.body.querySelector('#library-directories');select.value='1';select.dispatchEvent(new q.window.Event('change'));q.body.querySelector('#library-remove').click();q.body.querySelector('#library-add').click();await q.window.happyDOM.waitUntilComplete();q.translateTree(q.body);
+      assert.deepEqual(values(),['Help','My  Files\nTitle','/Music/Title']);assert.equal(q.body.querySelector('#library-remove').textContent,t.t('Remove'));
+      q.body.querySelector('#options-ok').click();await q.window.happyDOM.waitUntilComplete();assert.deepEqual(saved.pages.library.directories,['Help','My  Files\nTitle','/Music/Title']);assert.deepEqual(settings.pages.library.directories,original.favorites);
+    }finally{for(const [name,descriptor] of Object.entries(globals))if(descriptor)Object.defineProperty(globalThis,name,descriptor);else delete globalThis[name];q.close();}
   }
 });
 test('the production Language page exposes its folder action only after a native desktop platform report',async()=>{
