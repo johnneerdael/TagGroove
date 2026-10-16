@@ -227,3 +227,14 @@ staging, save and undo timing. Six actual core tests and one frontend model
 test read the written examples under LF and CRLF. The public baseline
 remains 97 pages; independent review and queue integration are still pending.
 These chapters do not establish full canonical coverage or native UI parity.
+
+## Local cover recipes
+
+`cover-recipes-2026-10-16.json` records three practical artwork recipes,
+bringing the local checkpoint to 115 authored pages and 72 drafts. Four
+core tests execute the written import counts, filename candidates, resize
+dimensions and per-file front-cover membership on generated image/MP3
+fixtures. Two model tests verify the written roles, partial membership and
+planned-cover flags under LF and CRLF. These are local source/core/model
+checks, not installed UI, universal native-format or player certification.
+The public baseline remains 97 pages and independent review is pending.

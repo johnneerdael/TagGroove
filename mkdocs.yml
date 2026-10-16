@@ -253,6 +253,10 @@ nav:
     - Playlist: reference/options/playlist.md
     - Tools: reference/options/tools.md
 - Cookbook:
+  - Cover artwork:
+    - Embed each folder image: cookbook/embed-folder-jpg.md
+    - Shrink oversized covers: cookbook/resize-covers.md
+    - Keep each file’s front covers: cookbook/keep-only-front-cover.md
   - Numbers and dates:
     - Read or split track totals: cookbook/split-track-total.md
     - Number tracks per folder: cookbook/number-tracks-per-folder.md
