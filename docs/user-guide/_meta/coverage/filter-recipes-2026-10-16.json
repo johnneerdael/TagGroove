@@ -1,0 +1,120 @@
+{
+  "scope": "Three local inspection recipes; no PR/push or native UI/publication claim.",
+  "base_checkpoint": "e4940f1f86efb9c7b4e64eeb0f7e0bbae70fb063",
+  "source_main": "dbcd9ce43c64e459c20553f9d14b5d77534847a0",
+  "canonical_source_pointers": [
+    {
+      "url": "https://docs.mp3tag.de/customization/options/tags/",
+      "sha256": "0ab3f458a057c11882923afa32ca4093b91d400c495e46231fb46393a261541a"
+    },
+    {
+      "url": "https://docs.mp3tag.de/filter/",
+      "sha256": "65775e4aba586090abf1af898c5aae82ddefffb3cc3de57b35c824b5f375bbcc"
+    },
+    {
+      "url": "https://docs.mp3tag.de/format/",
+      "sha256": "ce27f4da8eb9305b439522ce63c5aaebcf510a6e7ea76e54c17b8e373eabf0d1"
+    },
+    {
+      "url": "https://docs.mp3tag.de/menus/cover/",
+      "sha256": "3574949c1aa78283be2b46b4bc58b3c92c848f53b2e15589ae3f412b171c51ad"
+    }
+  ],
+  "source_usage": "Canonical filter/presence/numeric/format-selector topics independently taught with original practice snapshots and current OpenTag engine semantics. Not copied original sentences or example data.",
+  "topics": {
+    "cookbook/find-missing-fields.md": [
+      "Five absence/empty/whitespace/normal/multi-value snapshots; MISSING/PRESENT/IS any-value distinction",
+      "Quotedtrim first-placeholder selector does not save; first-value versus any-value edgecase",
+      "F3/auto/manual/application/emptyquery; pending metadata and readback/save caveats",
+      "Compilation album-artist choice not automatic; OR/AND/grouping/ABSENT variants",
+      "Visibility separate from selection and intentional Unselect all before a write; browser preview limit"
+    ],
+    "cookbook/find-missing-covers.md": [
+      "Four snapshots distinguish external folder art from embeddedcount; count0versusMISSING",
+      "Four actual numeric/albumcompound filters; quotedselector, zero/positive/multiple",
+      "Count cannot establish role/identity/decodeability/player support; localread errors not proof of absent art",
+      "Derivedinfo cannot be set as metadata; selection scope, explicit embed, direct versusManageOK timing, externalfiles/Undo"
+    ],
+    "cookbook/find-low-bitrate.md": [
+      "Six codec/rate/zero snapshots and five actualcompoundnumeric queries with boundary192",
+      "Positive-rate lowerbound separates zero; absentnumericinputnotcomparisonmatch; integerthresholds only",
+      "ActualMPEG codec spelling, codecconstrained subset versusfilenameguess",
+      "Bitrate not hearingtest/audio restoration, percodec/source/variable-rate limits",
+      "ActualFilter/manual/errors/pending/selection/no-opwrite semantics and simplerbrowserpreview qualification"
+    ]
+  },
+  "page_sha256": {
+    "cookbook/find-missing-fields.md": "8465053c4f98375704fd5af4d98c2c1f2151a8434ed06877dc055ad095230040",
+    "cookbook/find-missing-covers.md": "374fd80146e6752b0d64ac3a395af6a3c32467f1927b084007c4cff63c3f7c61",
+    "cookbook/find-low-bitrate.md": "e04141a529916197f4aca30ba85343e40a71485246b296e622077a5905677369"
+  },
+  "source_sha256": {
+    "crates/tag-core/src/filter.rs": "1a5e77f544bbc1b1c54dc42a1ad1b5f84e77aaac8e5d85aa901b6777048f6bb8",
+    "crates/tag-core/src/script.rs": "b070a9db9820b53c22f50d43a6986b465e5fce56e86dd7aa835d333c5b385ec0",
+    "crates/tag-core/src/technical.rs": "11badad80329160de4b6eaa4713e27b4d434e527e4daec91ca5a27c675e204e5",
+    "crates/tag-core/src/tags.rs": "4e9ab3942b42b9e22b776334d2dd8acb00849eaa7c65c892324ee4879f76f7a5",
+    "src-tauri/src/evaluation.rs": "bc66c581e6ff3826bb0f856ec51ce8d5bdcbfd8ede0880974f27fd94214af6cf",
+    "src/main.ts": "f9c0a56f1eba4f77bc47531a08fcd63427a2b845bc36a784b27da43146309c76",
+    "src/list-behaviour.ts": "d6739b158d1005e7cf9daa7fbb90a5ad8adfba12cdadaf464ae52c6954b1ea33"
+  },
+  "example_contracts": {
+    "new_core_tests": 4,
+    "written_queries": "5 missing-field +4 cover-count +5 bitrate query table cases; three actual main solution fences",
+    "variation_checks": "ABSENT and groupedalbumconstraint on all5field snapshots, coverMISSING on all4counts, bitrateEQUAL0 on all6snapshots, missingnumeric no-match and decimalqueryerror",
+    "file_reader": "Independentlygenerated20MPEGframes: realtechnicalbitrate128/codecMPEG-1LayerIII/covercount0, thenPNGimport count1; sourceimagebyte-identical and audio payload retained",
+    "newline_forms": "Written tables/maintextblocks execute both normalizedLF andCRLF; significantcodewhitespace preserved, including literal3space metadata value"
+  },
+  "validation": {
+    "focused_core": "4 passed",
+    "full_core": "549 passed0failed0ignored before final table-layout polish; final affected4tests pass",
+    "full_ui": "352 passed",
+    "publication": "8 passed",
+    "strict": "Final127-page strict build passed",
+    "fmt": "passed",
+    "focused_clippy": "Passed before layout-only polish; no Rust change afterward",
+    "browser": {
+      "scope": "Generated local127-page guide at dbcd9ce plus thirty local chapters; no public/native claim",
+      "checks": [
+        "Missing-field recipe renders in light palette",
+        "Actual recipe Related link navigates to complete filter workflow",
+        "cookbook/find-missing-fields/ fits390px document with local table scrolling",
+        "Actual horizontal wheel scrolling reveals matching IDs without splitting filter text",
+        "cookbook/find-missing-covers/ fits390px document with local table scrolling",
+        "cookbook/find-low-bitrate/ fits390px document with local table scrolling",
+        "Actual local search finds the positive measured bitrate recipe and opens it"
+      ],
+      "errors": [],
+      "screenshots": [
+        "/tmp/opentag-guide-filter-recipes-browser/desktop-missing-fields-light.png",
+        "/tmp/opentag-guide-filter-recipes-browser/mobile390-missing-fields-table.png",
+        "/tmp/opentag-guide-filter-recipes-browser/mobile390-missing-fields-scrolled-results.png",
+        "/tmp/opentag-guide-filter-recipes-browser/mobile390-missing-covers-table.png",
+        "/tmp/opentag-guide-filter-recipes-browser/mobile390-low-bitrate-table.png"
+      ],
+      "success": true,
+      "profile_removed": true,
+      "receipt": "/tmp/opentag-guide-filter-recipes-browser/results.json",
+      "visual_inspection": "Initial390px view exposed wrapped field names. Final query tables reuse existing focusable horizontal scroll wrapper; unscrolled and actual-wheel-scrolled screenshots manually viewed: whole expressions and matching-ID results readable, no document overflow."
+    },
+    "independent_review": {
+      "receipt": "filter-recipes-independent-review.json",
+      "reviewed_checkpoint": "f8f0772bd130fbf8e9b0993db8ea94e265a81968",
+      "result": "One P3 prose finding corrected: change only the upper cutoff, retain GREATER0; no expression/model/source changes. Original receipt retained unchanged.",
+      "correction_checks": "Actual affected core4/4 and strict127-page build passed; git diff --check passed. Query expressions unchanged."
+    }
+  },
+  "local_completed_pages": 127,
+  "local_remaining_drafts": 60,
+  "public_baseline": {
+    "completed_pages": 97,
+    "drafts": 90,
+    "source": "dbcd9ce",
+    "thirty_local_pages_unpublished": true
+  },
+  "limits": [
+    "Actualpurecorefilters/realgeneratedMP3read+PNGimport only; no installedFilterUI/selection/player/listening/platformsaveback claim.",
+    "Syntheticin-memoryemptyvalues may not surviveeverytagwriter; explicitly documented.",
+    "Canonical94page semanticcoverage remainsunproven; newrecipes do not replace fullfactaudit.",
+    "Noapp/P2/REA changes; queuegateheld and pendingfeaturesnotassumed current."
+  ]
+}

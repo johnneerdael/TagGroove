@@ -1,0 +1,69 @@
+{
+  "reviewer": "pr20_owner",
+  "commit": "f8f0772bd130fbf8e9b0993db8ea94e265a81968",
+  "source_main": "dbcd9ce43c64e459c20553f9d14b5d77534847a0",
+  "scope": "Finite read-only three filter recipes plus actual written core tests/ledger; interrupted temporarily for priority PR17 then completed.",
+  "findings": [
+    {
+      "priority": "P3",
+      "file": "docs/user-guide/cookbook/find-low-bitrate.md",
+      "line": 85,
+      "title": "Identify the one upper cutoff rather than asking to change both bounds",
+      "detail": "The solution is GREATER0 AND LESS192: there is one upper cutoff, and zero deliberately excludes zero readings. The instruction Change both instances of the cutoff consistently can suggest changing the zero lower bound too, defeating this positive-low-rate recipe.",
+      "bounded_correction": "Say to change the upper cutoff192 while retaining GREATER0 to exclude zero readings.",
+      "status": "Sent guide_owner promptly; no edits by reviewer."
+    }
+  ],
+  "reviewed_evidence": [
+    {
+      "topic": "Missing/empty/whitespace/multivalue semantics",
+      "paths": [
+        "crates/tag-core/src/filter.rs:Selector/Operation matching",
+        "crates/tag-core/tests/filter_recipe_guide.rs:59-97"
+      ],
+      "assessment": "MISSING/PRESENT compare supplied values, IS tests any value, trim-placeholder selector evaluates the first value. Five written cases and ABSENT/grouped-album controls agree."
+    },
+    {
+      "topic": "Derived cover count and file measurement",
+      "paths": [
+        "src-tauri/src/evaluation.rs:359,376",
+        "src/main.ts:610-613",
+        "crates/tag-core/tests/filter_recipe_guide.rs:100-125,170-211"
+      ],
+      "assessment": "Computed count includes embedded entries, independently of folder art. Native generated MPEG fixture confirms codec/bitrate128 and cover0\u21921 after PNG import while external image/audio retained; role/decode/player limits are stated."
+    },
+    {
+      "topic": "Numeric filtering and user workflow",
+      "paths": [
+        "crates/tag-core/src/filter.rs:248-265,530",
+        "src/main.ts:652-667,paths,filterFields",
+        "crates/tag-core/tests/filter_recipe_guide.rs:127-158"
+      ],
+      "assessment": "Leading integer comparisons, missing numeric no-match and invalid decimal RHS match. Positive lower bound, strict boundary192 and exact MPEG codec subset match written data. Main uses pending merged fields, native backend engine versus browser substring fallback, and filtering does not prune selected set."
+    }
+  ],
+  "hash_validation": {
+    "page_count": 3,
+    "source_count": 7,
+    "matched": 10,
+    "all_match": true,
+    "all_app_sources_identical_to_dbcd": true,
+    "details": "/tmp/opentag-guide-filter-recipes-peer-hashes.json",
+    "head_and_test_source_matched_when_executed": true
+  },
+  "focused_execution": {
+    "binary": "/tmp/opentag-guide-combined-target/debug/deps/filter_recipe_guide-dc142f778cb2df79",
+    "result": "4 passed,0 failed,0 ignored,exit0;0.09s",
+    "existing_cache_reused": true,
+    "coverage": "LF/CRLF three solution fences and14written query cases, auxiliary presence/boundary/error controls and generated MPEG/PNG read-import fixture."
+  },
+  "residual_risks": [
+    "No edits, commit/push/PR/CI, REA or original deferred P2 work.",
+    "127 local completed pages/60 drafts remain unpublished author-local progress; no canonical-completeness claim."
+  ],
+  "testing_gaps": [
+    "No full/cold builds or full549core/352UI/publication/strict reruns.",
+    "No installed filter UI/selection/native saveback/player/listening qualification.",
+    "No browser rerun or fresh canonical website audit."
+  ]
+}

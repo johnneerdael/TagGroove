@@ -1,0 +1,213 @@
+{
+  "scope": "Four local number/date cookbook recipes; no new PR or publication.",
+  "base_checkpoint": "4f17120ebd101460d1bd1b272ed1fbd1f80e904c",
+  "source_main": "dbcd9ce43c64e459c20553f9d14b5d77534847a0",
+  "canonical_source_pointers": [
+    {
+      "url": "https://docs.mp3tag.de/actions/format/",
+      "sha256": "6c8af0928d3d97ed9239770250a0c4eca176aa06d41f9483d36ca970965abf40"
+    },
+    {
+      "url": "https://docs.mp3tag.de/actions/guess/",
+      "sha256": "e0facac5468b64ee9250e65a7c287a0b379a82f3234bde90ca81cdb762251ddc"
+    },
+    {
+      "url": "https://docs.mp3tag.de/actions/replace-regexp/",
+      "sha256": "fb1f70b4f6e24658311f66b0ba2bbbda417b74d09081bd0c3957d891194f921c"
+    },
+    {
+      "url": "https://docs.mp3tag.de/converters/auto-numbering/",
+      "sha256": "2407cf77806ff983cec02927eb7c78965891285d9ea2bcad3ca3b928026df98e"
+    },
+    {
+      "url": "https://docs.mp3tag.de/converters/copy-compose-tags/",
+      "sha256": "ee7e7b98e57f0645fe1a3f6dcd9d795e589326bcf8456ebbfd5fecd049b47ce5"
+    },
+    {
+      "url": "https://docs.mp3tag.de/mapping-table/",
+      "sha256": "5723424880a496c530117b0babff90832fc5402f88684e6430fa35f6a98938b0"
+    },
+    {
+      "url": "https://docs.mp3tag.de/regex/",
+      "sha256": "79de3e02ec337eea7de0dc66c3d8dc11bf65cc151a82d9e9b815db3d5aa64b34"
+    },
+    {
+      "url": "https://docs.mp3tag.de/scripting/",
+      "sha256": "9296fcbcfc59338bc44f44765c8b766f30c61601f3fd124ffa65c9559fb575b0"
+    }
+  ],
+  "source_usage": "Canonical function/action/numbering/mapping topics are checklists, not copied prose/examples or parity proof. Progressive examples independently authored for actual current implementation.",
+  "topics": {
+    "cookbook/split-track-total.md": {
+      "Choose storage before changing fields": [
+        "TRACKslash format already carries both numbers",
+        "custom TRACKTOTAL versus mapped MP4 TOTALTRACKS/nativepair and combinedreadback",
+        "report-only extraction versus metadatarewrite and ID3v1customlimits"
+      ],
+      "Prepare the practice inputs": [
+        "six matched/unmatched/positive/leadingzero/logicalsuspicion cases",
+        "onevalue and no doublebackslash scope; stale customtotal preservedonnoMatch"
+      ],
+      "Extract the total before changing TRACK": [
+        "twoactual converterexpressions/FormatValue actions, totalfirst",
+        "preview/cancel versus immediateapply",
+        "reverseorderlosessourcetotal actualregression"
+      ],
+      "Understand the guard": [
+        "wholetextA/z,positivecapturegroups,regexp identityonnomatch,pattern-specificequality guard",
+        "num prefixalone loses total; GuessValues doesnotvalidate numericshape"
+      ],
+      "Check the saved format": [
+        "MP4nativepair/16bit/conflicts; currentcustomfield notuniversalstandard",
+        "backups and current-sessionhistory, no storagepromise"
+      ]
+    },
+    "cookbook/number-tracks-per-folder.md": {
+      "Arrange and select the intended tracks": [
+        "known localfolders, currentorder notoldtrack",
+        "actualfivefileplan across3+2selectedtracks"
+      ],
+      "Open the per-folder run": [
+        "platformPrimaryShiftK,all8actualcontrols,clear rememberedfieldresets",
+        "perfoldermode overrides discwritingfalse/dirtransitiontrue/trackresettrue",
+        "stagingpending versus saving and selection-autosave"
+      ],
+      "Understand what total counts": [
+        "lastassigned number notitemcount;start5 count3\u21927",
+        "singlepartialselectiontotal1,disabled fixedtotalbox",
+        "regularwizardfixedtotal differs fromshortcutrunmode"
+      ],
+      "Check folder boundaries and order": [
+        "adjacenttransition notglobalgroup;actualthreeinterleavedfolder counterexample",
+        "100previewrows/fullplan, source/optionschanges invalidatepreview",
+        "providerdirectoryavailabilityqualified"
+      ],
+      "Check storage and recovery": [
+        "numberingmetadata notfilename, nativeintegerpaddinglimits",
+        "partialsave retention and recordedUndo/backups"
+      ]
+    },
+    "cookbook/disc-numbers-from-folders.md": {
+      "Inspect the folder and current value": [
+        "immediate_DIRECTORY notparentpath",
+        "sixmatching/nonmatchingcases;singleexistingnumericvalue/no doublebackslashscope"
+      ],
+      "Preview a guarded expression": [
+        "actualDISCNUMBERTagTagpreview/apply andFormatValue reuse",
+        "namingunaffected/immediatewrite distinctions"
+      ],
+      "Build the expression in understandable pieces": [
+        "caseinsensitiveCD,allowedseparators,leadingzeros,positivewholecapture",
+        "fourbareextractionresults;nomatchidentitywrongifunguarded",
+        "safe pattern-specificequalityfallback preservingexistingsinglevalue"
+      ],
+      "Other source layouts": [
+        "literalcase-sensitiveGuessValues notnumericvalidation",
+        "deeperfolderlayouts deferredtoconverterpatterns"
+      ],
+      "Gotchas": [
+        "multivaluefallbackreadsfirst,no totaldisccomputation",
+        "positivenumbers notalbumidentity/order proof,nativeformatlimits/Undo"
+      ]
+    },
+    "cookbook/year-from-date.md": {
+      "Compare a shortcut with a guarded rule": [
+        "actualfourleft-functionexamples includingtrailingMay space",
+        "fourcharacters notdateparser"
+      ],
+      "Change only the chosen date shape": [
+        "actualregexactionsettings andsixexamples",
+        "fullISOdatesonly;timestampsnonmatch andinvalidcalendarshapestillextractsyear"
+      ],
+      "Understand the capture and write timing": [
+        "A/zwholevalueanchor,group1 replacement",
+        "processeseachYEARvalueversusfirst-onlyconverter",
+        "immediateaction versus savedgroup;no fullactionpreviewclaim"
+      ],
+      "Keep the original date when it matters": [
+        "release/original/recording date distinction",
+        "nativefieldmapping/custom/ID3v1limits",
+        "readback/playercheck and sessionUndo/backups"
+      ]
+    }
+  },
+  "page_sha256": {
+    "cookbook/split-track-total.md": "1a845f81b88f0be1a692ab024efb92ad66882da6fc6dedb212aa9db73b8a5856",
+    "cookbook/number-tracks-per-folder.md": "c4824c72131f0678544715a499b2c79db266c508dfc4f8ec8568842ca3e0fa1c",
+    "cookbook/disc-numbers-from-folders.md": "fc6e53b47b52e64073fccfefd22f1bad9c26d0019cbce83e6696654791d47ab6",
+    "cookbook/year-from-date.md": "9bc9d73e370a50170d5fe74e3aa1ba4097124e7e435a6b27badb992d6d1d89b3"
+  },
+  "source_sha256": {
+    "crates/tag-core/src/actions.rs": "70c80252ff553159f5c7a5563c0cc14ef0ca23f804da8071fd2dac94c97828ac",
+    "crates/tag-core/src/script.rs": "b070a9db9820b53c22f50d43a6986b465e5fce56e86dd7aa835d333c5b385ec0",
+    "crates/tag-core/src/numbering.rs": "71371201b83fb5e10dd163316d8fccecc74a9123a7bd9b7afbbd0de98ca0cdd9",
+    "crates/tag-core/src/mapping.rs": "b36b8c65965547409b30e7e8b755aa5440d9b1a38c29622cc2db4c7ac8f374c7",
+    "src/numbering-review.ts": "cd7eef712af37b2873ffe6a67008375c89d5e5b0826d039621411a5e84b3bd8e",
+    "src/main.ts": "f9c0a56f1eba4f77bc47531a08fcd63427a2b845bc36a784b27da43146309c76",
+    "src/tag-tag-ui.ts": "7eb795433e9aa034b213845fc40d0e63ccb4bf2bc17ecf9c981914deff06941b",
+    "src-tauri/src/action_host.rs": "6da0c08ead3c66a3b4f266629573c2d0316de56a2671e870121f1518bc037486",
+    "src-tauri/src/history.rs": "515b8dba35538f964c7502d1fc01c667a9790ce1748d3ab58e99670bc19914a1"
+  },
+  "example_contracts": {
+    "tracktotal": "2writtenfieldboundfences in order on6cases plusreverseordercounterexample",
+    "disc": "1guarded+1bareextractionfence;6guarded+4extractioncaseswithactual_DIRECTORYcontext",
+    "year": "4actualleftformulas includingtrailingliteralspace;actualregexsettings on6YEARvaluesaslist",
+    "numbering": "actual8controls produce5orderedpathresults,3start/totalvariants,3interleavedfoldercounterexamples",
+    "frontend": "actualnumberingCounter/recallNumbering/numberingTotal andreviewbegin/complete/take contracts fromwrittencontrols/results;LF+CRLF",
+    "newline_forms": "Allwritten source tables/fences run undernormalizedLF andCRLF; sharedfencehelper preserves significantspaces"
+  },
+  "validation": {
+    "focused_core": "6passed0failed",
+    "focused_node": "1passed0failed",
+    "full_core": {
+      "passed": 529,
+      "failed": 0,
+      "ignored": 0
+    },
+    "full_ui": "348passed0failed",
+    "publication": "8passed",
+    "strict": "Final112localready/75drafts strictbuildpassed",
+    "fmt": "passed",
+    "focused_clippy": "passed",
+    "browser": {
+      "scope": "Generated local112-page guide at dbcd9ce plus local fifteen; no public/native claim",
+      "success": true,
+      "checks": [
+        "Track total storage/guard recipe renders in light palette",
+        "Actual rendered link navigates track totals to per-folder numbering",
+        "cookbook/split-track-total/ fits390px document with local table scrolling",
+        "cookbook/number-tracks-per-folder/ fits390px document with local table scrolling",
+        "cookbook/disc-numbers-from-folders/ fits390px document with local table scrolling",
+        "cookbook/year-from-date/ fits390px document with local table scrolling",
+        "Long guarded formulas stay within390px document and code markup is retained for inspection",
+        "Actual local search worker finds CD1 recipe and result opens correct H1"
+      ],
+      "errors": [],
+      "temporary_profile_removed": true,
+      "formula_layout": {
+        "viewport": 390,
+        "document": 390,
+        "copyControls": 2,
+        "codeParent": "<div class=\"language-text highlight\"><pre id=\"__code_0\"><span></span><nav class=\"md-code__nav\"><button class=\"md-code__button\" title=\"Copy to clipboard\" data-clipboard-target=\"#__code_0 &gt; code\" data-md-type=\"copy\"></button></nav><code class=\"md-code__content\" tabindex=\"0\"><span id=\"__span-0-1\"><a id=\"__codelineno-0-1\" name=\"__codelineno-0-1\" href=\"http://127.0.0.1:8778/cookbook/split-track-total/#__codelineno-0-1\"></a>$if($stricmp($regexp(%track%,'\\A0*([1-9][0-9]*)/0*([1-9][0-9]*)\\z','$2'),%track%),%tracktotal%,$num($regexp(%track%,'\\A0*([1-9][0-9]*)/0*([1-9][0-9]*)\\z','$2'),1))\n</span></code></pre></div>"
+      },
+      "receipt": "/tmp/opentag-guide-number-browser/results.json",
+      "visual_inspection": "Desktop track-total storage introduction and390px longformula screenshot manually viewed, readable hierarchy andlocal code scrolling/copycontrols",
+      "harness_note": "First assertion used obsolete md-clipboard class; current bundle/DOM uses md-code__button[data-md-type=copy]. Corrected inspection records2actual copy controls; no source/config change andno actualclipboardAPI claim."
+    },
+    "independent_review": "pending"
+  },
+  "local_completed_pages": 112,
+  "local_remaining_drafts": 75,
+  "public_baseline": {
+    "completed_pages": 97,
+    "drafts": 90,
+    "source": "dbcd9ce",
+    "these_fifteen_local_pages_not_published": true
+  },
+  "limits": [
+    "Core/model/source evidence only; no installednativeUI/allformatssaveback/playerproof.",
+    "Page/topic counts do notestablish fullcanonicalsemanticcoverage; largerplaceholderandremainingtopic audit stillopen.",
+    "Queuehold remains; noPR/push. Pendinglanguage/provider/freedb/webfeatures notassumedcurrent.",
+    "OriginaldeferredP2/REA/sourcefixes untouched."
+  ]
+}

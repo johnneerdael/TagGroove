@@ -1,0 +1,105 @@
+{
+  "reviewer": "correctness",
+  "reviewed_at": "2026-10-16T08:03:12.418946+00:00",
+  "agent": "/root/pr20_owner",
+  "head": "4d63d1f98508611906800ca42fd8dad787892c02",
+  "source_main": "dbcd9ce43c64e459c20553f9d14b5d77534847a0",
+  "scope": "Finite independent read-only review of three text-quality cookbook pages, actual written core examples and ledger; temporarily paused for PR17 priority then resumed",
+  "findings": [],
+  "pages_reviewed": [
+    "docs/user-guide/cookbook/fix-capitalisation.md",
+    "docs/user-guide/cookbook/fix-mojibake.md",
+    "docs/user-guide/cookbook/remove-junk-fields.md"
+  ],
+  "semantic_checks": [
+    {
+      "topic": "Capitalization policy and action order",
+      "result": "PASS",
+      "evidence": "Two horizontal whole-value trim rows precede mechanical Mixed Case and the explicit DJ/EP/interior And/The exceptions. Whitespace lookahead preserves following separators and first/last capitalization; boundaries prevent substring changes. Actual separator character set and brand-loss examples match case_value. Every TITLE value is processed and unrelated ARTIST is retained. Reapplying Mixed Case after the exceptions reproduces the written ordering caution."
+    },
+    {
+      "topic": "UTF-8 repair and failure behavior",
+      "result": "PASS",
+      "evidence": "65001 reconstructs byte values directly for U+0000..U+00FF plus losslessly mapped Windows-1252 glyphs, then strictly decodes UTF-8 without replacements. The written accented, punctuation, heart, ASCII, already-correct, replacement-glyph and lost-question-mark cases agree with decode_codepage. Invalid/unrepresentable input returns an error and the model state remains unchanged; the action is not claimed as detection, universal inverse or native encoding selection. Scope and warnings about later actions/repeated repair are accurate."
+    },
+    {
+      "topic": "Keep list and artwork",
+      "result": "PASS",
+      "evidence": "Fifteen literal semicolon-separated keep names preserve existing matching fields case-insensitively without creating missing ones. PICTURE/COVER explicitly suppress RemoveCovers; absent selector or empty list requests removal. Eleven inventory rows and four artwork variants match RemoveFieldsExcept, while native mappings/totals/custom fields and opaque container structures remain qualified. The doc does not equate exposed-field removal with container erasure."
+    },
+    {
+      "topic": "Write/Undo timing",
+      "result": "PASS",
+      "evidence": "Save groups stores the workflow; applying actions writes immediately, may partly succeed, and ordinary warnings do not stop later actions. Recorded desktop-session Undo and original backups are distinguished; no universal native round-trip or recovery claim."
+    }
+  ],
+  "ledger": {
+    "path": "docs/user-guide/_meta/coverage/text-quality-recipes-2026-10-16.json",
+    "hash_checks": [
+      {
+        "path": "docs/user-guide/cookbook/fix-capitalisation.md",
+        "hash_matches": true
+      },
+      {
+        "path": "docs/user-guide/cookbook/fix-mojibake.md",
+        "hash_matches": true
+      },
+      {
+        "path": "docs/user-guide/cookbook/remove-junk-fields.md",
+        "hash_matches": true
+      },
+      {
+        "path": "crates/tag-core/src/actions.rs",
+        "hash_matches": true,
+        "main_matches": true
+      },
+      {
+        "path": "src/action-ui.ts",
+        "hash_matches": true,
+        "main_matches": true
+      },
+      {
+        "path": "src-tauri/src/action_host.rs",
+        "hash_matches": true,
+        "main_matches": true
+      },
+      {
+        "path": "crates/tag-core/src/mapping.rs",
+        "hash_matches": true,
+        "main_matches": true
+      },
+      {
+        "path": "crates/regex-compat/src/lib.rs",
+        "hash_matches": true,
+        "main_matches": true
+      }
+    ],
+    "all_eight_hashes_match": true,
+    "all_five_source_files_match_main": true,
+    "bounds": "118 local pages /69 drafts versus97 public /90 drafts are separated. Canonical pointers are topic checklists, not full parity or semantic-completeness proof; core metadata/effect tests are not native UI/save-back evidence."
+  },
+  "independently_executed": {
+    "test_source": "crates/tag-core/tests/text_quality_recipe_guide.rs",
+    "test_source_sha256": "fe728b8e5803ad4e3e9fc3f78d697e65138a8b1beef6a7d1561e6f07c4f99c2c",
+    "command": "/tmp/opentag-guide-combined-target/debug/deps/text_quality_recipe_guide-adb219fea6aa5621 --test-threads=1",
+    "passed": 5,
+    "failed": 0,
+    "ignored": 0,
+    "log": "/tmp/opentag-guide-text-quality-peer-tests.log",
+    "provenance": "Existing focused binary supplied by guide owner for exact checkpoint; no Cargo/cold build. Reads actual marked tables/fences, preserves literal interiors, normalizes only prose flag whitespace for LF/CRLF and executes the written sequence through real action core. Covers reverse-order/intermediate state, UTF-8 error state preservation, exact kept field values/missing-field absence and explicit artwork effects."
+  },
+  "author_validation_not_repeated": {
+    "full_core": 538,
+    "ui": 350,
+    "publication": 8,
+    "strict_local_pages": 118,
+    "browser_receipt": "/tmp/opentag-guide-text-quality-browser/results.json"
+  },
+  "limits": [
+    "No repository edits, application/P2 work, commits, push, PR/review requests, CI or publication.",
+    "No cold/full build, native tag round-trip, live UI/player/device test, independent browser run or fresh canonical recrawl.",
+    "Other local guide batches were preserved parents, not re-audited here.",
+    "Finite local peer review does not authorize queue/publishing and is not GitHub CODE approval."
+  ],
+  "stopped": true
+}

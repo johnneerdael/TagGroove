@@ -1,0 +1,245 @@
+{
+  "purpose": "Cumulative thirty-chapter publication candidate, adding to current main97 without replacing mature navigation or assuming future features.",
+  "source_main": "dbcd9ce43c64e459c20553f9d14b5d77534847a0",
+  "batch_parent": "9168127",
+  "scope": {
+    "ready_pages": 127,
+    "draft_pages": 60,
+    "planned_pages": 187,
+    "newly_completed_pages": 30
+  },
+  "page_sha256": {
+    "customize/columns.md": "ef543ef4690c3f8a232d9d721bebe631c3cc77f815f92703e0214fd4b8f8462f",
+    "customize/tag-panel.md": "affddf114cd350b6cdb078163df2e76414ac167d6fe3e10532f1a28160a15385",
+    "guides/find.md": "2d9129474c0805627ff01eb6ffa8fb048603d9b64954472dd9f2de43d0b8e976",
+    "getting-started/editing-and-saving.md": "a3184c4188a8ba702659fb69b5e1e32dc41a12d2b98939656b43b1ad6a293058",
+    "guides/tag-panel.md": "34e765e84e6a0ba2b737be0773094f91ffc0aa21266cb521d3713d964dbb0d2e",
+    "guides/copy-paste-tags.md": "1a558f7307540376961cbb5ceb33af5ea01dc41c468b89317095ff021b2b3184",
+    "guides/remove-tags.md": "a4c67415df3b390ccfda03ada498ebe9550f4ae23345208738e561014a7dbbc2",
+    "cookbook/trim-spaces.md": "920d3124fa80c4eb96e9e2627fe76d4bc26fc262263949a011900dc1868ff88b",
+    "cookbook/remove-text-in-brackets.md": "4712603709005700047c43c34a7ecbdc5a1bff90317345fef741e4a6cd7d1e5d",
+    "cookbook/split-multiple-artists.md": "222d2674bd26d5942095e15b207840aaf26703f3b1d8791781b9bf5de52ee5ef",
+    "cookbook/split-artist-title.md": "910add1a8b2deb6738a4b51a7efeb0d8798aead650666d9a4f83714cdb9df0b2",
+    "cookbook/split-track-total.md": "1a845f81b88f0be1a692ab024efb92ad66882da6fc6dedb212aa9db73b8a5856",
+    "cookbook/number-tracks-per-folder.md": "c4824c72131f0678544715a499b2c79db266c508dfc4f8ec8568842ca3e0fa1c",
+    "cookbook/disc-numbers-from-folders.md": "fc6e53b47b52e64073fccfefd22f1bad9c26d0019cbce83e6696654791d47ab6",
+    "cookbook/year-from-date.md": "9bc9d73e370a50170d5fe74e3aa1ba4097124e7e435a6b27badb992d6d1d89b3",
+    "cookbook/embed-folder-jpg.md": "a8e78e1062653c08ccd74d2a1002fb37ac6fd7c17a9b30f4217f8ee4df802c94",
+    "cookbook/resize-covers.md": "0441fe0ffaed26030545cd5007fdabcf5e0df2954744331022fa0484b58309a3",
+    "cookbook/keep-only-front-cover.md": "64f8cabf9c57e776b74ae4d4b95c1cd9851b89fb888bd0362ab18ab57e765d2a",
+    "cookbook/fix-capitalisation.md": "bde737445092653b02d7e02451c17e6329d7f7852c7e89b93c9c939486bc1d86",
+    "cookbook/fix-mojibake.md": "abbfe4bbc3bd492873fb1e0a5455588fb6306c6e567c7eb42b376482f924dd78",
+    "cookbook/remove-junk-fields.md": "e2360752afa54b9b16bc85b3a6a9dd17364f4748587f9cb73d3d75c4c75947de",
+    "concepts/what-are-tags.md": "f6fbc1f838d4e16c2931c882e1abb3fa8056f3527d261aa9ad7779dcccc610fa",
+    "concepts/tag-formats.md": "f40154250a21d53533241a0a4a2e6a84c3ecdeebb23251a87bdb9c1259923a08",
+    "concepts/track-and-disc-numbers.md": "53d7cb880f7d56cc2770a96af09c8f0ff002aae55c820e675f147a6d460035e3",
+    "concepts/cover-art.md": "4c21fc7b2c973b6c038b98dce9dbbabb7dd823a6c97029e99a41980d32f06f00",
+    "concepts/sort-fields.md": "95546de7591fc0a1c923f30683727a50887fab9c84c3acf45ab3ce194cc8c1ce",
+    "concepts/replaygain.md": "44732df9ec516ef6aef57bdca34f2877486ed7fc9ac3f1f8e2a7204e561ccbf7",
+    "cookbook/find-missing-fields.md": "8465053c4f98375704fd5af4d98c2c1f2151a8434ed06877dc055ad095230040",
+    "cookbook/find-missing-covers.md": "374fd80146e6752b0d64ac3a395af6a3c32467f1927b084007c4cff63c3f7c61",
+    "cookbook/find-low-bitrate.md": "e04141a529916197f4aca30ba85343e40a71485246b296e622077a5905677369"
+  },
+  "source_sha256": {
+    "src/main.ts": "f9c0a56f1eba4f77bc47531a08fcd63427a2b845bc36a784b27da43146309c76",
+    "src/columns.ts": "feb41073aaa817b1e0de9b192a709e1bd7467f7505e9caf11ed2398051322bea",
+    "src/tag-panel.ts": "843a7c2e0814bc4934498c4cb15970b57745d163577b3ae19078af1c903cf0e3",
+    "src/find.ts": "33bd626484cc3f41b3958c7c0c0e1b1b52ad757e6043281472d484793959755d",
+    "src-tauri/src/columns.rs": "36b445d201b065cb79473b151c2fdffdf5332ed4950b1496b91e67a14415cb31",
+    "src-tauri/src/mp3tag_columns.rs": "8fad3cfda8381ff7fc1ea18a9a9ab4981de4a232571f9c33f395a2f57c2b6e2f",
+    "src-tauri/src/tag_panel.rs": "178235c4992d2f126d94152768c2358c9968d7df84dad5ecbec25988b639ac91",
+    "src-tauri/src/mp3tag_tag_panel.rs": "814d1c487d3a04951cc5b4ed4451c86151e1e6635719948d4e8f67a93f5ecc1d",
+    "src/tag-clipboard.ts": "d645c75104f2faa4a0c37c526187e0a6395aba34fe159f43932fea287b70be9a",
+    "src/tag-edits.ts": "d2110f48191ac6e42f6331b94546ab6fc0205ca75ff95b99afe3b31ad84ebf30",
+    "src/edit-history.ts": "8bff30cfa68e212916156b16bb6d7a9b105b4363a7d8eb4da29b8912ba57cb0a",
+    "src/document-state.ts": "fb8b773b4d6c783f490cccb3cdfbed07447d1deba9edf02afc5e1ce6766a19b3",
+    "src/list-behaviour.ts": "d6739b158d1005e7cf9daa7fbb90a5ad8adfba12cdadaf464ae52c6954b1ea33",
+    "src/remove-tag.ts": "59947c6859bb789c4dcfffd117956df0f31aa25d01e863981174ad5d392005c0",
+    "src/utils-ui.ts": "3a2cdafbf85175a023fad844cccc59730ffcfa104b3921d8494c1ecb02e0224e",
+    "src/options-ui.ts": "f745bbf8d596fdffa51de0c8c02d5180def53eefeef11a690c1805da221c8446",
+    "src-tauri/src/history.rs": "515b8dba35538f964c7502d1fc01c667a9790ce1748d3ab58e99670bc19914a1",
+    "src-tauri/src/lib.rs": "77b79c1faad0bf31d07bd5974d91980c4b62dcd919a9aad8217e0f2547acef49",
+    "src-tauri/src/utilities.rs": "404b520370424704d6ecccad37d44c63ab6bd522a30622fe203333d261efca5e",
+    "crates/tag-core/src/tags.rs": "4e9ab3942b42b9e22b776334d2dd8acb00849eaa7c65c892324ee4879f76f7a5",
+    "crates/tag-core/src/tag_policy.rs": "3a3f246169947687223ed4c126ecec53bc7d826b713e2a50ace6edef78cd8e31",
+    "crates/tag-core/src/tag_types.rs": "5f8becddc7b84b0e6d7448a48eaa7a557559a67d33b28d2c245b5e86c607892a",
+    "crates/tag-core/src/raw_streams.rs": "9c96b83449e1ba0e2dbbf2f6fbf009ef0f355540501bbece97a3b91e3270fe93",
+    "crates/tag-core/src/actions.rs": "70c80252ff553159f5c7a5563c0cc14ef0ca23f804da8071fd2dac94c97828ac",
+    "crates/tag-core/src/script.rs": "b070a9db9820b53c22f50d43a6986b465e5fce56e86dd7aa835d333c5b385ec0",
+    "crates/regex-compat/src/lib.rs": "5567488ef33024c40784d4f18ab3525e1dc14f9dd35d9e4de66e0e7ec608671d",
+    "src/action-ui.ts": "0ab3fd434ac7729218cd8b45293014e3c232b7c1890f2bfdf1d91df5d08e4868",
+    "src/tag-tag-ui.ts": "7eb795433e9aa034b213845fc40d0e63ccb4bf2bc17ecf9c981914deff06941b",
+    "src-tauri/src/action_host.rs": "6da0c08ead3c66a3b4f266629573c2d0316de56a2671e870121f1518bc037486",
+    "crates/tag-core/src/numbering.rs": "71371201b83fb5e10dd163316d8fccecc74a9123a7bd9b7afbbd0de98ca0cdd9",
+    "crates/tag-core/src/mapping.rs": "b36b8c65965547409b30e7e8b755aa5440d9b1a38c29622cc2db4c7ac8f374c7",
+    "src/numbering-review.ts": "cd7eef712af37b2873ffe6a67008375c89d5e5b0826d039621411a5e84b3bd8e",
+    "src/covers.ts": "8cc7fc122d978c82492812144f1fe2c917fa58c18672b83e0037393c2d9a9e9d",
+    "src/cover-model.ts": "6965da2e78738f7294ea92212ec22941cd9b85fffa824ed36055c3008ca14ca8",
+    "src-tauri/src/covers.rs": "bba8c2fa3fe3fd1bb6f0004edb778f0890097161aafb9af5d6f40b25aa2bdd30",
+    "crates/tag-core/src/cover_manage.rs": "b9dbbb5ca979d89d7e88cdbcbc55037f4fdf85279bc00d808ab4a88ae7c914a6",
+    "crates/tag-core/src/cover_ops.rs": "3125445aa0344b5937bca2fae7c83662f78948318822754e35ea98277ff3e5c7",
+    "crates/tag-core/src/preferences.rs": "9477aef27260b9b8057e963e6c3aeed97161a1e440293915e9af9f6a10f4f324",
+    "src-tauri/src/evaluation.rs": "bc66c581e6ff3826bb0f856ec51ce8d5bdcbfd8ede0880974f27fd94214af6cf",
+    "crates/tag-core/src/filter.rs": "1a5e77f544bbc1b1c54dc42a1ad1b5f84e77aaac8e5d85aa901b6777048f6bb8",
+    "crates/tag-core/src/technical.rs": "11badad80329160de4b6eaa4713e27b4d434e527e4daec91ca5a27c675e204e5"
+  },
+  "ledger_hash_validation": {
+    "page_count": 30,
+    "unique_source_count": 41,
+    "mismatches": [],
+    "all_source_files_identical_to_current_main": "Verified by git diff --exit-code origin/main -- src src-tauri/src crates/tag-core/src crates/regex-compat/src; final check recorded below."
+  },
+  "independent_review_receipts": [
+    {
+      "receipt": "reviews/customization-independent-review.json",
+      "sha256": "2712d940e1e98762a9a7aecc15044fbe5fdb8ffaf3fae1aff8b82f1fd0c6d29c",
+      "checkpoint": "f70578d6eee342b7f60607921d9882d47bd95c7b",
+      "scope": "Finite source/model review, not GitHub CODE approval or native UI certification",
+      "findings": 0
+    },
+    {
+      "receipt": "reviews/basic-independent-review.json",
+      "sha256": "d975f04fa8f45191078eae01020c9a43d92e1bf0eafb53941909b69bb5a44a09",
+      "checkpoint": "55fd3555d7f37a4347aa4eafb19cb0f1f6017a00",
+      "scope": "Finite source/model review, not GitHub CODE approval or native UI certification",
+      "findings": 0
+    },
+    {
+      "receipt": "reviews/cleanup-recipes-independent-review.json",
+      "sha256": "639b2fd2916e934614845d16ba18f4c584240866a49cfc3a44f333250578fd3c",
+      "checkpoint": "4f17120ebd101460d1bd1b272ed1fbd1f80e904c",
+      "scope": "Finite source/model review, not GitHub CODE approval or native UI certification",
+      "findings": 0
+    },
+    {
+      "receipt": "reviews/number-recipes-independent-review.json",
+      "sha256": "9574860b8e79c804715e0140cd2d0a457ceabeec744ed777aac03afd79b85241",
+      "checkpoint": "8a211aeb27b6ca623d463158fd55b69242be18fa",
+      "scope": "Finite source/model review, not GitHub CODE approval or native UI certification",
+      "findings": 0
+    },
+    {
+      "receipt": "reviews/cover-recipes-independent-review.json",
+      "sha256": "db957c54eeb742a0ae8baec5982e5506f713a6cfc8044cc63d18cd9c691fa603",
+      "checkpoint": "44a1121e4028a9d614343aebd56ffe71ea128b11",
+      "scope": "Finite source/model review, not GitHub CODE approval or native UI certification",
+      "findings": 0
+    },
+    {
+      "receipt": "reviews/text-quality-independent-review.json",
+      "sha256": "b5dacbe459fb8cf76867dfdac6ae9350f4ad18827993e7e2d0a771a20ca96b62",
+      "checkpoint": "4d63d1f98508611906800ca42fd8dad787892c02",
+      "scope": "Finite source/model review, not GitHub CODE approval or native UI certification",
+      "findings": 0
+    },
+    {
+      "receipt": "reviews/tag-concepts-independent-review.json",
+      "sha256": "8700ae8aafde93bbd04e7ff87583a6ff462887a11662dff4d400ac1534f7fe7e",
+      "checkpoint": "79c2f49f8d2745974540d4705fc037115424e804",
+      "scope": "Finite source/model review, not GitHub CODE approval or native UI certification",
+      "findings": 0
+    },
+    {
+      "receipt": "reviews/media-concepts-independent-review.json",
+      "sha256": "0b68a9d136b26d9533f937faecb88254df5cd7768c0807c2d9d2974dfe5cb049",
+      "checkpoint": "e4940f1f86efb9c7b4e64eeb0f7e0bbae70fb063",
+      "scope": "Finite source/model review, not GitHub CODE approval or native UI certification",
+      "findings": 0
+    },
+    {
+      "receipt": "reviews/filter-recipes-independent-review.json",
+      "sha256": "6d0b0bfee65b6399655770b33558f3680c44237cb0b1efe8370464f72b0c8f0a",
+      "checkpoint": "f8f0772bd130fbf8e9b0993db8ea94e265a81968",
+      "scope": "Finite source/model review, not GitHub CODE approval or native UI certification",
+      "findings": 1
+    }
+  ],
+  "finding_correction": {
+    "reviewed_checkpoint": "f8f0772bd130fbf8e9b0993db8ea94e265a81968",
+    "correction_commit": "9168127",
+    "detail": "One P3 prose correction names192 as the upper cutoff and retains GREATER0. All query expressions unchanged; affected4 tests/strict127 passed. The original finding receipt remains unchanged."
+  },
+  "existing_mature_guide": "All97 existing completed main pages retained; home adds links to new chapters, mkdocs nav adds only completed entries. Historical receipts/counts retained as history.",
+  "pending_features": [
+    "17 Language options/catalogs remain draft; final-main integration must preserve its actual affected guide updates.",
+    "18 provider guides remain separate prep; no pending provider behavior claimed.",
+    "19 gnudb/freedb preparation separate; baseline caveats retained.",
+    "20 web semantics remain current main; pending replacement/order/length changes not claimed."
+  ],
+  "validation": {
+    "final_package_core": "549 passed0failed0ignored, cargo test -p tag-core --locked",
+    "final_ui": "352 passed0failed, npm run test:ui",
+    "publication": "8 passed",
+    "strict": "127 completed pages/60drafts strict build passed",
+    "writing_plan": "127/187, all97 previous navigation routes retained, exactly30 new routes",
+    "fmt": "passed",
+    "guide_clippy": "All9 new guide test targets passed with -D warnings",
+    "browser": {
+      "scope": "Generated local127-page guide at dbcd9ce plus thirty local chapters; no public/native claim",
+      "checks": [
+        "Actual cumulative homepage link opens newly completed inspection recipe",
+        "Missing-field recipe renders in light palette",
+        "Actual recipe Related link navigates to complete filter workflow",
+        "cookbook/find-missing-fields/ fits390px document with local table scrolling",
+        "Actual horizontal wheel scrolling reveals matching IDs without splitting filter text",
+        "cookbook/find-missing-covers/ fits390px document with local table scrolling",
+        "cookbook/find-low-bitrate/ fits390px document with local table scrolling",
+        "Actual local search finds the positive measured bitrate recipe and opens it",
+        "Actual clipped hit-tested mobile drawer clicks open Cookbook inspection recipe and close drawer"
+      ],
+      "errors": [],
+      "screenshots": [
+        "/tmp/opentag-guide-127-browser/desktop-missing-fields-light.png",
+        "/tmp/opentag-guide-127-browser/mobile390-missing-fields-table.png",
+        "/tmp/opentag-guide-127-browser/mobile390-missing-fields-scrolled-results.png",
+        "/tmp/opentag-guide-127-browser/mobile390-missing-covers-table.png",
+        "/tmp/opentag-guide-127-browser/mobile390-low-bitrate-table.png",
+        "/tmp/opentag-guide-127-browser/mobile390-home.png",
+        "/tmp/opentag-guide-127-browser/mobile390-pointer-missing-covers.png"
+      ],
+      "pointer": [
+        {
+          "x": 90.99563598632812,
+          "y": 478,
+          "text": "Cookbook",
+          "for": "__nav_7",
+          "ok": true
+        },
+        {
+          "x": 121,
+          "y": 136,
+          "text": "Inspect your files",
+          "for": "__nav_7_1",
+          "ok": true
+        },
+        {
+          "x": 121,
+          "y": 197,
+          "text": "Find missing embedded covers",
+          "href": "http://127.0.0.1:8784/cookbook/find-missing-covers/",
+          "ok": true
+        }
+      ],
+      "success": true,
+      "profile_removed": true,
+      "receipt": "/tmp/opentag-guide-127-browser/results.json",
+      "visual_inspection": "Final390px pointer destination manually viewed: correct missing-cover recipe, closed drawer, readable main text; earlier per-batch desktop/mobile sample screenshots retained."
+    },
+    "github_exact_head_code_review": "pending external final-head review; local receipts do not satisfy gate",
+    "trusted_ci": "pending authorized review tuple",
+    "public_deployment": "Public site still97; expanded deployment and live verification pending approved merge",
+    "generated_output": {
+      "old_nav": 97,
+      "new_nav": 127,
+      "new_pages": 30,
+      "search_routes": 127,
+      "search_sections": 1040
+    }
+  },
+  "remaining_work": [
+    "60 planned topics remain drafts and excluded from public HTML/search.",
+    "Complete semantic coverage of canonical94 pages, all paragraphs/placeholders/edge cases remains unproven; structural counts are not that proof.",
+    "No native application/player/all-format/runtime qualification; fixture/model evidence is bounded.",
+    "No app/version/dependency/workflow changes, P2 or REA work."
+  ]
+}
