@@ -24,6 +24,10 @@ for provider documents yet.
 6. Save the group, check only that group, and run it. Open the audio file's
    folder to inspect the exported image.
 
+A new installation also includes **Examples → Save front cover as folder
+image** as an unchecked action group. Enable that group to reuse a front-cover
+export without creating one from scratch.
+
 The image's format determines the extension: a JPEG becomes `folder.jpg`,
 a PNG becomes `folder.png`, and a WebP becomes `folder.webp`. An extension
 entered in the format is corrected to the image's type. Additional covers

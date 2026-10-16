@@ -83,12 +83,12 @@ A saved library, even an empty one, is loaded as saved, so removed examples do n
 
 ## Checks
 
-The takeover integrated `main` at `5f4112e` once and completed the public
+The takeover first integrated `main` at `5f4112e` once and completed the public
 Import Cover and Export Cover action pages. The other unfinished action
 references remain drafts and outside the published navigation. The strict
 guide build, eight publication tests, writing-plan check and 60 review-gate
 tests passed. The TypeScript/Vite build and all 312 JavaScript tests passed.
-The integrated Rust workspace passed 708 tests with four tests ignored:
+The integrated Rust workspace passed 728 tests with four tests ignored:
 two live-provider checks, a real-system-trash probe and a filter benchmark.
 It ran with a separate `TMPDIR` and one test thread to keep undo
 journals separate from concurrent worktree checks.
@@ -100,7 +100,8 @@ ownership case failed because the original writer received a cross-file
 collision after the other file's equal-image export. The wildcard case
 failed with `failed to parse picture` for the first WebP match. With the
 fixes restored, all 41 Rust action-host tests passed using real WAV fixtures.
-No application window was opened. The ownership case
+Those Rust-only regression runs did not open an application window. Later
+isolated macOS UI reruns are recorded below. The ownership case
 enables duplicate export so it reaches the reviewed no-op branch; it checks
 that the original writer succeeds, the other file retains its expected
 warnings, and the final exported image contains the changed cover.
@@ -114,6 +115,26 @@ failed against `b79b5e2` because the final output retained the intermediate
 image. The corrected tracking passes that regression and
 `cover_export_does_not_reexport_unchanged_secondary_images`, alongside all
 43 Rust action-host tests.
+
+## Native CI fixture follow-up
+
+The Linux native job in reviewed run `38839121511` failed the Actions and
+Keyboard UI suites at head `2813352` against main `5f4112e`. Both suites
+assumed a fresh installation had no action groups. The five new unchecked
+Examples groups made the Actions suite select and duplicate an example
+instead of its custom group; that failed step left its dialog open, causing
+the later quick-action close assertion to fail too. Keyboard UI saw eight
+groups after creating its three custom groups.
+
+The suites now assert that the five shipped examples are present and
+unchecked, remove them through the actual Groups controls, and save an
+explicit empty test library. Every original mnemonic, sorting, keyboard,
+file-write and undo assertion remains unchanged. Against the integrated
+`be68d83` main, the isolated macOS native runs passed Actions 7/7 and
+Keyboard UI 18/18. They used generated fixture files and a dedicated
+`org.opentag.editor.e2e.pr28` application profile. The integrated workspace also passed 728 Rust tests (four explicit skips),
+and all 312 JavaScript tests passed. These local macOS results
+do not establish the result of the next reviewed Linux or Windows CI run.
 
 ## Not covered
 
