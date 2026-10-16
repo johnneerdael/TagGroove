@@ -680,7 +680,7 @@ fn write_mp4_rows(
         nero.truncate(sets.len());
         for (index, set) in sets.iter_mut().enumerate() {
             put(set, "TITLE", vec![title(index)]);
-            nero.set_chapter(index, set)?;
+            nero.set_chapter(index, &map_write_fields(set, TagType::Mp4Ilst, rules)?)?;
         }
         // File-wide Nero fields follow the file fields (see `sync_global`).
         changed |= nero.sync_global(&map_write_fields(&plan.file, TagType::Mp4Ilst, rules)?)?;

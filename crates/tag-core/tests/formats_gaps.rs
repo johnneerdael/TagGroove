@@ -392,6 +392,71 @@ fn nero_fields_follow_user_mappings_and_only_held_fields_are_limited() {
 }
 
 #[test]
+fn nero_chapter_fields_follow_mp4_mappings_on_read_write_and_delete() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("mapped-chapters.m4b");
+    let segment = |index: u32, genre: &str| {
+        boxed(
+            b"tseg",
+            &[
+                boxed(b"tshd", &index.to_be_bytes()),
+                nero_meta(&[("genre", genre)]),
+            ]
+            .concat(),
+        )
+    };
+    let udta = [
+        itunes(&[item(b"\xa9nam", 1, b"Song")]),
+        chpl(&[(0, "One"), (2_000_000, "Two")]),
+        boxed(
+            b"tags",
+            &[segment(0, "First genre"), segment(1, "Second genre")].concat(),
+        ),
+    ]
+    .concat();
+    fs::write(&path, mp4(&udta)).unwrap();
+    let options = TagOptions {
+        mappings: vec![UserFieldMapping {
+            tag_type: "MP4".into(),
+            source: "GENRE".into(),
+            target: "STYLE".into(),
+        }],
+        ..TagOptions::default()
+    };
+    let entry = read_entry_with_options(&path, &options.mappings, &options).unwrap();
+    assert_eq!(
+        entry.chapters[0].fields.get("STYLE"),
+        Some(&vec!["First genre".to_owned()])
+    );
+    assert!(!entry.chapters[0].fields.contains_key("GENRE"));
+    write_chapter_rows(
+        &path,
+        &[(1, fields(&[("STYLE", &["Edited genre"])]))],
+        false,
+        &options,
+    )
+    .unwrap();
+    let native = read_entry(&path).unwrap();
+    assert_eq!(
+        native.chapters[0].fields.get("GENRE"),
+        Some(&vec!["Edited genre".to_owned()])
+    );
+    assert!(!native.chapters[0].fields.contains_key("STYLE"));
+    assert_eq!(
+        native.chapters[1].fields.get("GENRE"),
+        Some(&vec!["Second genre".to_owned()])
+    );
+    write_chapter_rows(&path, &[(1, fields(&[("STYLE", &[])]))], false, &options).unwrap();
+    let entry = read_entry_with_options(&path, &options.mappings, &options).unwrap();
+    assert!(!entry.chapters[0].fields.contains_key("STYLE"));
+    assert_eq!(
+        entry.chapters[1].fields.get("STYLE"),
+        Some(&vec!["Second genre".to_owned()])
+    );
+    same_audio(&fs::read(&path).unwrap());
+}
+
+#[test]
 fn nero_fields_without_chapters_are_removed_in_place() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("flat.m4a");
@@ -541,6 +606,42 @@ fn a_plid_lofty_drops_is_read_and_kept() {
         value(&read_entry(&path).unwrap(), "ITUNESALBUMID").as_deref(),
         Some("77")
     );
+}
+
+#[test]
+fn repeated_plid_items_keep_standard_and_odd_values_in_both_orders() {
+    let dir = tempfile::tempdir().unwrap();
+    let standard = item(b"plID", 21, &7u64.to_be_bytes());
+    let odd = item(b"plID", 21, &[1, 2, 3, 4]);
+    let other = item(b"plID", 21, &[0, 9]);
+    for (name, items, expected) in [
+        (
+            "standard-first.m4a",
+            vec![standard.clone(), odd.clone(), other.clone()],
+            vec!["7", "16909060", "9"],
+        ),
+        (
+            "odd-first.m4a",
+            vec![odd.clone(), standard.clone(), other.clone()],
+            vec!["16909060", "7", "9"],
+        ),
+    ] {
+        let path = dir.path().join(name);
+        fs::write(&path, mp4(&itunes(&items))).unwrap();
+        let entry = read_entry(&path).unwrap();
+        assert_eq!(entry.fields["ITUNESALBUMID"], expected, "{name}");
+        write_fields(&path, &fields(&[("TITLE", &["Unrelated edit"])])).unwrap();
+        let entry = read_entry(&path).unwrap();
+        assert_eq!(entry.fields["ITUNESALBUMID"], expected, "{name}");
+        let after = fs::read(&path).unwrap();
+        for item in &items {
+            assert!(
+                contains(&after, &item[8..]).is_some(),
+                "{name}: preserve each data atom's type, width and bytes"
+            );
+        }
+        same_audio(&after);
+    }
 }
 
 // ---------------------------------------------------------------- ADTS, APE

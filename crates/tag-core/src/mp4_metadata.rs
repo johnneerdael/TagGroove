@@ -262,8 +262,9 @@ fn child_ranges(
 
 /// lofty keeps only the 8-byte values of a `plID` (ITUNESALBUMID) item and
 /// drops the item when none is 8 bytes long, even when reading strictly.
-/// Such an item, with every value kept verbatim so a save writes it back
-/// unchanged. Only atom headers and the `plID` item itself are read.
+/// Collect every repeated `plID` item when any value has an unusual width,
+/// keeping every value verbatim so a save does not drop its siblings.
+/// Only atom headers and the `plID` items themselves are read.
 pub(crate) fn odd_album_id(
     reader: &mut (impl Read + Seek),
 ) -> std::io::Result<Option<lofty::mp4::Atom<'static>>> {
@@ -280,7 +281,7 @@ pub(crate) fn odd_album_id(
     reader.read_exact(&mut size)?;
     let header = if size == 1u32.to_be_bytes() { 16 } else { 8 };
     let mut range = moov.start + header..moov.end;
-    for kind in [b"udta", b"meta", b"ilst", b"plID"] {
+    for kind in [b"udta", b"meta", b"ilst"] {
         if kind == b"ilst" {
             // ISO `meta` is a full atom: version and flags come first.
             let mut version = [0u8; 4];
@@ -297,23 +298,28 @@ pub(crate) fn odd_album_id(
         };
         range = found;
     }
-    if range.end - range.start > 1 << 16 {
-        return Ok(None);
-    }
-    let item = read_range(reader, &range)?;
-    let Some(children) = atoms(&item, 0..item.len()) else {
+    let Some(items) = child_ranges(reader, range)? else {
         return Ok(None);
     };
     let mut values = Vec::new();
-    for data in children.iter().filter(|atom| &atom.kind == b"data") {
-        let content = &item[data.content()];
-        if content.len() < 8 || content[0] != 0 {
+    for (_, range) in items.into_iter().filter(|(kind, _)| kind == b"plID") {
+        if range.end - range.start > 1 << 16 {
             return Ok(None);
         }
-        values.push(AtomData::Unknown {
-            code: DataType::from(u32::from_be_bytes([0, content[1], content[2], content[3]])),
-            data: content[8..].to_vec(),
-        });
+        let item = read_range(reader, &range)?;
+        let Some(children) = atoms(&item, 0..item.len()) else {
+            return Ok(None);
+        };
+        for data in children.iter().filter(|atom| &atom.kind == b"data") {
+            let content = &item[data.content()];
+            if content.len() < 8 || content[0] != 0 {
+                return Ok(None);
+            }
+            values.push(AtomData::Unknown {
+                code: DataType::from(u32::from_be_bytes([0, content[1], content[2], content[3]])),
+                data: content[8..].to_vec(),
+            });
+        }
     }
     if values
         .iter()

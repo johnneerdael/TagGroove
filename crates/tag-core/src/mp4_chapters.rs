@@ -368,6 +368,7 @@ pub(super) fn describe(path: &Path, entry: &mut AudioEntry, rules: &[UserFieldMa
                     .map(|n| n.chapter_fields(index))
                     .unwrap_or_default();
                 fields.remove("TITLE");
+                let fields = map_read_fields(&fields, TagType::Mp4Ilst, rules).unwrap_or(fields);
                 ChapterInfo {
                     start,
                     end: None,

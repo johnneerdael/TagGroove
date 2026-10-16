@@ -118,3 +118,27 @@ All on this Mac without launching the app.
   duplicates still cannot be matched to their stored bytes (unchanged from
   formats-edge). This also applies to DSF and DSDIFF now.
 - No differential test against files written by Mp3tag or Nero.
+
+## Review follow-up (2026-10-16)
+
+- Apply MP4 user mappings to each Nero chapter field set on read and reverse
+  them before writing `tseg` metadata. A constructed two-chapter fixture with
+  `GENRE` → `STYLE` verifies mapped display, a native `genre` write, deletion,
+  preservation of the other chapter and unchanged audio. The regression first
+  failed on read, then independently on write after only the read path was fixed.
+- Collect all repeated `plID` item atoms when restoring values that lofty drops,
+  rather than selecting only the first item. A regression places standard and
+  short IDs in both orders, verifies every displayed value before and after an
+  unrelated save, and compares each data atom's type, width and bytes plus the
+  audio. The standard-first case originally exposed only the first ID.
+- All 14 focused `formats_gaps` regressions passed locally. These remain
+  constructed-fixture checks rather than a differential test of another tagger.
+- Final local checks: 312 UI tests and 711 Rust workspace tests passed, with
+  four live-network tests ignored; workspace Clippy, formatting, strict guide
+  build and diff checks passed. The final Rust run used a task-specific
+  `TMPDIR` and retained the normal test concurrency and assertions.
+- Intermediate full runs failed undo tests, including explicit insufficient
+  disk-space messages in the core history tests. A serial app-only run passed
+  263 tests separately. Temporary-directory isolation alone did not fix the
+  full run; it passed unchanged after free-space headroom recovered above the
+  history journal's 2 GiB reserve. No history code or tests were weakened.
