@@ -103,6 +103,9 @@ to edit and save its tags, then give the files consistent names.
 For everyday lookup, see [Options](reference/options/index.md),
 [keyboard shortcuts](reference/keyboard-shortcuts.md), [filter syntax](reference/filter-syntax.md)
 and [field mappings](reference/tag-mapping.md).
+[Context and helper menus](reference/menus/context-menus.md) explain cover
+commands, field suggestions and named history entries; the
+[menu reference](reference/menus/index.md) helps locate each control.
 
 Use the search box (press ++s++ or ++slash++) to find a topic in this guide.
 More topics are being written; only completed pages appear here.

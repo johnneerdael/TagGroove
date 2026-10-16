@@ -1,7 +1,7 @@
 {
   "base": "d5661f472064cc7c8aad5a12f28cddfa34fd1d5f",
   "source_main": "4e4d5fc20b263d094b9861b0169e8a75189fa1cb",
-  "scope": "3 remaining menu/context pages; local only pending integration of expansionPR30",
+  "scope": "Integrated3menu/context pages into94-page milestone; full publication still requires final-head review, trusted CI, merge and live verification.",
   "canonical_topics": [
     {
       "source": "menus/actions",
@@ -108,7 +108,7 @@
     "written_examples": "2documentation tests passed:3caret/functioninsertion examples and3cover-state availability rows",
     "related_existing_contracts": "50existing tests passed forhelper/history/cover/action/options/contextmarkup",
     "strict_build": "passed at94localready pages",
-    "independent_review": "pending",
+    "independent_review": "pr20_owner finite read-only review all3pages and ledger; all source hashes match main4e4d5fc; relevant source paths inspected; no concrete mismatch. No native runtime or independent canonical re-crawl.",
     "native_ui": "notrun",
     "publication": "localonly; notpartofPR30",
     "publication_tests": "8passed",

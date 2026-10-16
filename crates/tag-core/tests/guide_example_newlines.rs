@@ -47,7 +47,7 @@ fn written_page_fences_have_the_same_literal_contents_in_both_checkout_formats()
         ),
         (
             include_str!("../../../docs/user-guide/converters/text-file-to-tag.md"),
-            6,
+            7,
         ),
         (
             include_str!("../../../docs/user-guide/converters/auto-numbering.md"),
@@ -73,8 +73,9 @@ fn written_page_fences_have_the_same_literal_contents_in_both_checkout_formats()
         let lf = page.replace("\r\n", "\n");
         let crlf = lf.replace('\n', "\r\n");
         let expected = text_blocks(&lf);
-        assert_eq!(expected.len(), expected_count);
-        assert_eq!(text_blocks(&crlf), expected);
+        let title = page.lines().find(|line| line.starts_with("# ")).unwrap();
+        assert_eq!(expected.len(), expected_count, "fence count for {title}");
+        assert_eq!(text_blocks(&crlf), expected, "LF/CRLF contents for {title}");
     }
 }
 

@@ -23,7 +23,8 @@ remain drafts, and publication checks exclude them from HTML and search.
 The first combined checkpoint (`23ecba0`) contains 75 completed pages, including
 the eight initial publication pages. The export batch raises the local total
 to 80, the navigation-reference batch raises it to 88, and the web-source
-batch raises it to 91. These are integration milestones, not completion of the whole guide. The language options page remains a draft because its actual
+batch raises it to 91. The remaining Actions, Help and context-menu references
+raise the current milestone to 94. These are integration milestones, not completion of the whole guide. The language options page remains a draft because its actual
 implementation is not yet part of this source baseline.
 
 | Batch | Preserved source revision | Evidence and limits |
@@ -37,6 +38,7 @@ implementation is not yet part of this source baseline.
 | Export controls, templates and catalogue lesson | `c07bf16` | Five pages, four tests executing actual templates/results under LF and CRLF, plus a canonical fact ledger. Root finite source/canonical review found TRACK quote escaping; its regression failed before correction and passes afterward. |
 | Navigation reference | `273020e` | Eight pages, one test executing nine written focus/platform examples and 41 existing routing/file/list/history contracts. Root read all pages and canonical keyboard rows with source spot checks; current5f only, not every ledger mapping independently recomputed. |
 | Web-source installation, tutorial and command reference | `a687ab5` | Three pages teach all 15 source headers, settings, a complete local JSON lookup/search tutorial and all 59 accepted parser commands. Four tests execute the actual written definitions and examples with LF and CRLF; 19 unchanged pure source-module tests also run. Source and dependency features are unchanged. A finite root review clarified SayRegexp’s optional stop-text rule. |
+| Remaining menus and contexts | `568b559` | Three pages cover Actions, Help, cover/row/panel/field menus, insertion helpers and history. Two tests execute written caret and cover-state tables; 50 related contracts pass. Finite independent source review found no concrete mismatch; no native runtime or independent canonical re-crawl was claimed. |
 | Filter and data reference | `65f3898` | Six pages. Four tests execute 24 filter queries, check 118 field definitions and 236 native table rows, and retain invalid-query cases. The ledger groups repeated canonical native-cell facts. A finite independent semantic review found no established defect; it did not recompute every cell. |
 
 These revisions preserve batch provenance. Current page hashes and later
@@ -93,8 +95,8 @@ a new source comparison after their own merges; this guide does not publish
 those branch-only behaviors as current.
 
 The command-line, keyboard and six menu-reference pages are integrated.
-Detailed remaining context-menu chapters and the broader placeholder audit
-still require completion. Getting started, general file-list/tag-panel
+The Actions, Help, cover, field and format-helper contexts are now integrated;
+the standalone Tools reference and broader placeholder audit remain. Getting started, general file-list/tag-panel
 workflows, cover management, playlists, source workflows, troubleshooting and
 the remaining cookbook topics still require completion and semantic checks.
 Review each canonical paragraph, control and note; do not close these gaps by
@@ -141,21 +143,30 @@ is a routing/backlog record: a written destination alone does not establish
 that every sentence, caveat and original example has been taught. Semantic
 ledgers and executable examples supply narrower evidence.
 
-This milestone publishes 91 of the 187 planned pages. The other 96 stay
+This milestone publishes 94 of the 187 planned pages. The other 93 stay
 excluded from public HTML and search. The largest gaps are getting started
 and platform workflows, the file list/tag panel/covers/playlists/chapter
-workflows, customization, help/troubleshooting, context menus and 32 cookbook
+workflows, customization, help/troubleshooting and 32 cookbook
 pages. The broader placeholder reference still needs a semantic completeness
 audit despite already being published. Language and new-provider instructions
 remain dependent on their feature merges. Completing this milestone does not
 complete the user's request for every detail of the original documentation.
 
-The final 91-page local site contains 91 searchable routes and 769 section
-entries, with no draft HTML. A bounded isolated Chrome check verified the
+The earlier 91-page local site contained 91 searchable routes and 769 section
+entries, with no draft HTML. The integration receipt records the final
+94-page build separately. A bounded isolated Chrome check verified the
 actual search worker/result navigation, light/dark rendering and sampled
-390px tutorial/table layouts. The drawer opened and its action link routed
-correctly when invoked through the DOM. A separate nested-menu pointer
-check could not click the section-toggle affordance, so that complete
-pointer path remains unverified; it did not establish a source defect.
-Temporary browser profiles were removed. See the integration receipt for
-exact scope and local evidence paths.
+390px tutorial/table layouts. A later pointer-only follow-up also navigated the nested mobile drawer
+through Web sources, Actions, Action types and Format Value. Click centers
+were clipped to the actual sidebar and hit-tested against the visible
+label/link; no checkbox state was set through JavaScript. The expected
+page opened, its drawer closed and no page errors occurred. Temporary
+browser profiles were removed. See the integration receipt for exact
+scope and local evidence paths.
+
+After adding or changing written examples, run the complete tag-core crate:
+`cargo test -p tag-core --locked`. This includes every documentation corpus
+guard automatically. A later partial-import fence exposed a stale expected
+count when only the converter target was rerun; the final correction keeps
+LF/CRLF equality and significant-space checks and identifies the page in
+future assertion failures.

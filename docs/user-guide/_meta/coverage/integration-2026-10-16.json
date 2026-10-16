@@ -3,9 +3,9 @@
   "integration_parent": "8fb75b8",
   "purpose": "Publish completed detailed guide chapters while retaining exact remaining writing backlog and source limitations. No claim of full canonical semantic coverage.",
   "scope": {
-    "ready_pages": 91,
+    "ready_pages": 94,
     "planned_pages": 187,
-    "draft_pages": 96,
+    "draft_pages": 93,
     "sections": {
       "Home": {
         "ready": 1,
@@ -28,7 +28,7 @@
         "planned": 44
       },
       "Reference": {
-        "ready": 45,
+        "ready": 48,
         "planned": 50
       },
       "Cookbook": {
@@ -100,10 +100,10 @@
   ],
   "validation": {
     "rust_guide_tests": "74 passed across11targets; includes23web tests, LF/CRLF real written examples, registry64functions/59commands,197function examples,20date tokens,24filter queries,118field definitions,236mapping rows",
-    "node": "53 passed:42routing contracts plus11search boundary regressions",
+    "node": "105passed: routing, search, menu/helper/cover/action contracts and actual written menu examples",
     "publication": "8 passed",
-    "strict_mkdocs": "passed at91pages",
-    "writing_plan": "91/187;96drafts",
+    "strict_mkdocs": "passed at94pages",
+    "writing_plan": "94/187;93drafts",
     "fmt": "passed",
     "focused_clippy": "all11guide targets passed with -D warnings",
     "independent_web_review": "Root finite review all3pages/all59commands + relevant actual source; SayRegexp optional-stop ambiguity corrected; root independent23tests passed. No native UI/network claim.",
@@ -116,32 +116,110 @@
         "Native mapping tables render at desktop size",
         "390px mapping table stays within document; wide content has local scrolling",
         "390px keyboard tables and complete web-source tutorial have no document-level horizontal overflow",
-        "Mobile drawer opens; invoking the existing action link through DOM navigation opens Format Value",
         "Actual search worker returns web-source command reference for json_select_many",
-        "Search result navigation opens detailed command reference"
+        "Search result navigation opens detailed command reference",
+        "Pointer-only390x844 nested drawer navigation: Web sources back\u2192visible clipped20px Actions arrow\u2192Action types\u2192observed Format Value href; finalH1matched, drawerclosed, zero pageerrors."
       ],
       "errors": [],
       "temporary_profile_removed": true,
       "limits": [
-        "Native OpenTag UI, all pages, all browser engines, expanded public deployment",
-        "A separate nested-menu pointer check could not click the section-toggle affordance; full nested mobile pointer path remains unverified. No application or guide-source defect established."
+        "Native OpenTag UI, all pages, all browser engines, expanded public deployment"
       ],
-      "pointer_followup_evidence": "/tmp/opentag-expanded-guide-browser-qa/pointer-results.json"
+      "pointer_followup_evidence": "/tmp/opentag-expanded-guide-browser-qa/clipped-pointer-results.json",
+      "pointer_method": "Actualmouse clicks at visible label/link centers, clipped to sidebar242px and verified with elementFromPoint; no checkbox state set viaJS.",
+      "pointer_followup": {
+        "steps": [
+          {
+            "text": "Web sources",
+            "for": "__nav_4_4",
+            "href": null,
+            "box": {
+              "x": 0,
+              "y": 0,
+              "width": 242,
+              "height": 112
+            },
+            "x": 121,
+            "y": 56,
+            "hit": "LABEL"
+          },
+          {
+            "text": "",
+            "for": "__nav_4_2",
+            "href": null,
+            "box": {
+              "x": 206,
+              "y": 173,
+              "width": 20,
+              "height": 24
+            },
+            "x": 216,
+            "y": 185,
+            "hit": "SPAN"
+          },
+          {
+            "text": "Action types",
+            "for": "__nav_4_2_2",
+            "href": null,
+            "box": {
+              "x": 0.421417236328125,
+              "y": 112,
+              "width": 242,
+              "height": 48
+            },
+            "x": 121.42141723632812,
+            "y": 136,
+            "hit": "LABEL"
+          },
+          {
+            "text": "Format value",
+            "href": "http://127.0.0.1:8775/actions/format-value/",
+            "box": {
+              "x": -30.03460693359375,
+              "y": 357,
+              "width": 242.00003051757812,
+              "height": 48
+            },
+            "x": 90.96540832519531,
+            "y": 381,
+            "hit": "A"
+          }
+        ],
+        "scope": "Actual pointer-only nested mobile navigation on generated91-page guide; source/head unchanged",
+        "final": {
+          "url": "http://127.0.0.1:8775/actions/format-value/",
+          "h1": "Format Value\u00b6",
+          "drawerClosed": true
+        },
+        "errors": [],
+        "success": true,
+        "profile_removed": true
+      }
     },
-    "external_exact_head_review": "Prior4524e37 had one search-separator finding; corrected locally. Fresh exact-head review required after this commit.",
+    "external_exact_head_review": "d5661f4 completed clean; subsequent corpus-count correction requires a fresh final-head review.",
     "trusted_ci": "required after clean final-head review; not yet admitted",
     "expanded_deployment": "pending approved merge and actual Pages verification",
     "generated_output": {
-      "html_pages": 91,
+      "html_pages": 94,
       "draft_html_pages": 0,
-      "search_page_routes": 91,
-      "search_sections": 769
+      "search_page_routes": 94,
+      "search_sections": 792
     },
     "search_separator": {
       "reference": "https://squidfunk.github.io/mkdocs-material/plugins/search/#separator",
       "scope": "Material default token boundaries extended with scripting $/% markers",
       "regression": "7cases failed before correction; all11JS cases pass after correction, including slash/colon/operators/quotes/dots/CamelCase/entities, version preservation and scripting tokens",
       "test": "tests/docs-search.test.mjs"
+    },
+    "ci_followup": {
+      "failed_run": 38846661525,
+      "failed_jobs": [
+        116798772500,
+        116798772503
+      ],
+      "cause": "New partial-keyed-import example raised Text File to Tag fence corpus from6 to7; newline corpus guard retained stale6. Reproduced locally before fixing expectation7; LF/CRLF literal equality and significant-space assertions retained.",
+      "guide_rerun": "All74guide tests across11targets passed together after correction.",
+      "full_tag_core": "Final revised94-page tree: complete tag-core package passed492tests,0failures,0ignored; includes all74guide tests and all corpus guards."
     }
   },
   "prior_public_browser_receipt": {
@@ -975,13 +1053,13 @@
       "canonical_key": "manage-list",
       "url": "https://docs.mp3tag.de/manage-list/",
       "source_sha256": "dff8b4c7dea583bf82e34b0a3ab4c4d4dc79f95c4a54ede66dac513548760f88",
-      "ready_mapped_pages": [],
-      "draft_mapped_pages": [
-        "guides/file-list.md",
-        "getting-started/opening-files.md"
+      "ready_mapped_pages": [
+        "reference/menus/context-menus.md"
       ],
-      "routing_status": "all mapped pages remain draft",
-      "semantic_scope": "Topic routing only; written destinations are not a proof of exhaustive sentence-level semantic coverage."
+      "draft_mapped_pages": [],
+      "routing_status": "all mapped pages written",
+      "semantic_scope": "Topic routing only; written destinations are not a proof of exhaustive sentence-level semantic coverage.",
+      "routing_correction": "Original source covers history list management, not audio-row file ordering; corrected after reading canonical body."
     },
     {
       "canonical_key": "mapping-table",
@@ -1024,11 +1102,11 @@
       "canonical_key": "menus/actions",
       "url": "https://docs.mp3tag.de/menus/actions/",
       "source_sha256": "85074b98f7b4ec6b084c110501b9414d0d9d6fc08c274d5a01b8523f7dc825cc",
-      "ready_mapped_pages": [],
-      "draft_mapped_pages": [
+      "ready_mapped_pages": [
         "reference/menus/actions.md"
       ],
-      "routing_status": "all mapped pages remain draft",
+      "draft_mapped_pages": [],
+      "routing_status": "all mapped pages written",
       "semantic_scope": "Topic routing only; written destinations are not a proof of exhaustive sentence-level semantic coverage."
     },
     {
@@ -1046,12 +1124,13 @@
       "canonical_key": "menus/cover",
       "url": "https://docs.mp3tag.de/menus/cover/",
       "source_sha256": "3574949c1aa78283be2b46b4bc58b3c92c848f53b2e15589ae3f412b171c51ad",
-      "ready_mapped_pages": [],
+      "ready_mapped_pages": [
+        "reference/menus/context-menus.md"
+      ],
       "draft_mapped_pages": [
-        "reference/menus/context-menus.md",
         "guides/covers.md"
       ],
-      "routing_status": "all mapped pages remain draft",
+      "routing_status": "some mapped pages written",
       "semantic_scope": "Topic routing only; written destinations are not a proof of exhaustive sentence-level semantic coverage."
     },
     {
@@ -1069,11 +1148,11 @@
       "canonical_key": "menus/fields",
       "url": "https://docs.mp3tag.de/menus/fields/",
       "source_sha256": "ebb6e5ef283320f3e65f3c7b057ad34afdc3899912a74316def86c4c940e66f0",
-      "ready_mapped_pages": [],
-      "draft_mapped_pages": [
+      "ready_mapped_pages": [
         "reference/menus/context-menus.md"
       ],
-      "routing_status": "all mapped pages remain draft",
+      "draft_mapped_pages": [],
+      "routing_status": "all mapped pages written",
       "semantic_scope": "Topic routing only; written destinations are not a proof of exhaustive sentence-level semantic coverage."
     },
     {
@@ -1092,23 +1171,22 @@
       "url": "https://docs.mp3tag.de/menus/format-strings/",
       "source_sha256": "4aabeeff96cbaeb160a51462929ee809342d53869dc7ab8864b23f55bb634829",
       "ready_mapped_pages": [
-        "reference/format-strings.md"
-      ],
-      "draft_mapped_pages": [
+        "reference/format-strings.md",
         "reference/menus/context-menus.md"
       ],
-      "routing_status": "some mapped pages written",
+      "draft_mapped_pages": [],
+      "routing_status": "all mapped pages written",
       "semantic_scope": "Topic routing only; written destinations are not a proof of exhaustive sentence-level semantic coverage."
     },
     {
       "canonical_key": "menus/help",
       "url": "https://docs.mp3tag.de/menus/help/",
       "source_sha256": "ef07bc28f208bf821ef3a29ade300d8e0eb2e496fe940b4b29bff585e29ec03e",
-      "ready_mapped_pages": [],
-      "draft_mapped_pages": [
+      "ready_mapped_pages": [
         "reference/menus/help.md"
       ],
-      "routing_status": "all mapped pages remain draft",
+      "draft_mapped_pages": [],
+      "routing_status": "all mapped pages written",
       "semantic_scope": "Topic routing only; written destinations are not a proof of exhaustive sentence-level semantic coverage."
     },
     {
@@ -1302,10 +1380,7 @@
     "tag-sources/lrclib.md",
     "tag-sources/acoustid.md",
     "guides/playlists.md",
-    "reference/menus/actions.md",
     "reference/menus/tools.md",
-    "reference/menus/help.md",
-    "reference/menus/context-menus.md",
     "reference/options/language.md",
     "cookbook/index.md",
     "cookbook/rename-into-artist-album-folders.md",
@@ -1349,7 +1424,7 @@
     "Review every canonical paragraph, control, exception and note for all remaining families; structural page/headings counts alone do not close coverage."
   ],
   "current_ready_page_sha256": {
-    "index.md": "e568009fa529fdc5d6ca28917083073db28229d679f3336578639ab82e656689",
+    "index.md": "829ff1b0625274b230fa27adcce50809c7d4e3bf34967eaca144c6adca45567c",
     "learn/first-tagging-session.md": "2f915c0a9ae684c5ffa7d94cd1bb598fe7e4e119729cc80ba439a5bc0653aaae",
     "learn/format-strings-from-zero.md": "339316e63dc8238f9580e32a9c3475c34ea54b702a48a8e6df8144a7d79f18b8",
     "learn/rename-files-and-folders.md": "c701f3c3452505374438b305f5d7f60925f106d7a46981ac846c8c2aaa151f2a",
@@ -1409,12 +1484,15 @@
     "reference/file-formats.md": "728035d366ca96fe2b8e101144a075659b52e691e03ba0998a35e3585420d0c7",
     "reference/keyboard-shortcuts.md": "ac36ce44db7c71e28ff9fc372c876a287912df9997f3206b70cb3cf0cf207246",
     "reference/command-line.md": "f3a99031fc1ca2862c28c73234dd818b7b6f2f631030a72b9287e006e68ec6b7",
-    "reference/menus/index.md": "a41860910be14445960f721e51f1448b335451f08cb90b2b70e08abe7ea8973f",
+    "reference/menus/index.md": "1a8021020097900201feacf379bbc7fcaf8105b17cf0d88278af64f2eef509ea",
     "reference/menus/file.md": "59272e2ef6001cc78030ef897816abcc5a182709ccc7ee6bde03d1b3fd0a67d5",
     "reference/menus/edit.md": "31bd3d73f1764cc9f3a80654f40b8a8fced11a815555c34009fa303809916c9b",
     "reference/menus/view.md": "f4030efaccf921f6f54fbeb85069e820a35d622da8479368bfef2f948df46e58",
     "reference/menus/convert.md": "ff491466ac13090cee145b03aa4b6a633504d3e806aeef09d003a08a0100005b",
+    "reference/menus/actions.md": "b11b463f8b162189fe62edf7e47e894059de6964e5524e70e8a3d934e05442b4",
     "reference/menus/tag-sources.md": "8b0b838728a4dc3d7799ad4f5c97d1cd821b6d2d1218d828bea8542432821848",
+    "reference/menus/help.md": "5b5145b453ac5eac43101913f47630d4e5012cd395cdb833e6c9a34a72f49fcc",
+    "reference/menus/context-menus.md": "7213656d2cfadf3388e63857420d080cf200d91825db63f2939677d0fac30d33",
     "reference/options/index.md": "8ab9adf1d40df032a24ac453f00ad8d5ebf9075a4ab0911df7579959c6699b7e",
     "reference/options/general.md": "c78b6f4d5e57c2b95e026ba0509cf2b07a0a5713a5a705bba1081e8b3545e16a",
     "reference/options/messages.md": "b7dfee70f387cc08776d9b2e51670f7cbcaac077ccad4634739e9e38a24d43cd",
