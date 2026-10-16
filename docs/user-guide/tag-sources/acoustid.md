@@ -31,7 +31,10 @@ A fingerprint process taking more than 2 minutes is stopped and reported.
    track list, matches and artwork, then [save](index.md#search-review-and-save).
 
 Identified files are paired with their matched MusicBrainz recordings,
-including across discs. **Auto-match**, **Selection order** and **Suggest
+including across discs. If files have overlapping candidate recordings,
+OpenTag reassigns compatible pairs when necessary to keep the greatest number
+of exact fingerprint matches. A direct free track keeps earlier assignments
+stable; this does not globally optimize match scores. **Auto-match**, **Selection order** and **Suggest
 sorting** arrange remaining files without replacing those fingerprint pairs.
 You can still move files manually; inspect the resulting assignments.
 

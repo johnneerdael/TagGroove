@@ -159,11 +159,40 @@ export function fileAcoustIds(items:ApplyItem[], release:SourceRelease, slots:(s
 type Pairing = (tracks:SourceTrack[], files:SourceFile[])=>(string|null)[];
 export function fingerprintSlots(tracks:SourceTrack[], files:SourceFile[], matches:Record<string,string[]>, pair:SuggestSorting|Pairing = '') {
   const fallback:Pairing = typeof pair === 'function' ? pair : (t,f) => initialSlots(t,f,pair);
-  const slots:(string|null)[] = tracks.map(() => null), used = new Set<string>();
-  for (const file of files) for (const recording of matches[file.path] || []) {
-    const index = tracks.findIndex((track,i) => !slots[i] && track.fields.MUSICBRAINZ_TRACKID?.[0] === recording);
-    if (index >= 0) { slots[index] = file.path; used.add(file.path); break; }
+  const byRecording = new Map<string,number[]>();
+  tracks.forEach((track,index) => {
+    const recording = track.fields.MUSICBRAINZ_TRACKID?.[0];
+    if (recording === undefined) return;
+    let indices = byRecording.get(recording);
+    if (!indices) byRecording.set(recording,indices = []);
+    indices.push(index);
+  });
+  const candidates = files.map(file => [...new Set((matches[file.path] || []).flatMap(recording => byRecording.get(recording) || []))]);
+  const owners:(number|undefined)[] = tracks.map(() => undefined), assigned:(number|undefined)[] = files.map(() => undefined);
+  for (let file = 0; file < files.length; file++) {
+    // Breadth-first search takes a direct free choice before moving an earlier
+    // file. Reassign only along a shortest path to one more compatible track.
+    const queue = [file], route = new Map<number,number>();
+    let free:number|undefined;
+    for (let at = 0; at < queue.length && free === undefined; at++) {
+      const current = queue[at];
+      for (const track of candidates[current]) {
+        if (route.has(track)) continue;
+        route.set(track,current);
+        const owner = owners[track];
+        if (owner === undefined) { free = track; break; }
+        queue.push(owner);
+      }
+    }
+    while (free !== undefined) {
+      const current = route.get(free)!, previous = assigned[current];
+      owners[free] = current;
+      assigned[current] = free;
+      free = previous;
+    }
   }
+  const slots = owners.map(owner => owner === undefined ? null : files[owner].path);
+  const used = new Set(slots.filter((path):path is string => path !== null));
   const open = tracks.flatMap((_,i) => slots[i] ? [] : [i]), rest = fallback(open.map(i => tracks[i]),files.filter(f => !used.has(f.path)));
   open.forEach((track,k) => { slots[track] = rest[k] ?? null; });
   return [...slots,...rest.slice(open.length)];

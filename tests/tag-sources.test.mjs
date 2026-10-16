@@ -385,3 +385,59 @@ test('combined source routing retains new providers beside remote and local free
   assert.deepEqual(searchModes('acoustid').map(([mode])=>mode),['fingerprint']);
   assert.deepEqual(searchModes('lrclib').map(([mode])=>mode),['files','text','release_id']);
 });
+
+
+test('fingerprint matching preserves compatible alternatives and each file’s actual AcoustID', () => {
+  const tracks = ['A', 'B'].map((recording, i) => track(1, i + 1, `Track ${recording}`, {MUSICBRAINZ_TRACKID: [recording], ACOUSTID_ID: ['release-wide-id']}));
+  const source = {...release(tracks), provider: 'acoustid'};
+  const files = [file('flexible'), file('only-A')];
+  const matches = {
+    flexible: [{recording: 'A', acoustid: 'flex-A'}, {recording: 'B', acoustid: 'flex-B'}],
+    'only-A': [{recording: 'A', acoustid: 'only-A-id'}],
+  };
+  for (const suggestion of ['', 'title', 'length']) {
+    const slots = fingerprintSlots(tracks, files, fingerprintRecordings(matches), suggestion);
+    assert.deepEqual(slots, ['only-A', 'flexible']);
+    const items = fileAcoustIds(buildApplyItems(source, slots, new Set(['TITLE', 'ACOUSTID_ID'])), source, slots, matches);
+    assert.deepEqual(items.map(item => [item.path, item.updates.TITLE, item.updates.ACOUSTID_ID]), [
+      ['only-A', ['Track A'], ['only-A-id']], ['flexible', ['Track B'], ['flex-B']],
+    ]);
+  }
+});
+
+test('fingerprint matching augments chains, keeps free repeated tracks stable and falls back only for the rest', () => {
+  const tracks = ['A', 'B', 'C'].map((recording, i) => track(1, i + 1, recording, {MUSICBRAINZ_TRACKID: [recording]}));
+  const files = ['first', 'second', 'third'].map(path => file(path));
+  assert.deepEqual(fingerprintSlots(tracks, files, {first: ['A', 'B'], second: ['B', 'C'], third: ['A']}, () => []), ['third', 'first', 'second']);
+  const duplicate = [track(1, 1, 'First copy', {MUSICBRAINZ_TRACKID: ['A']}), track(2, 1, 'Second copy', {MUSICBRAINZ_TRACKID: ['A']}), tracks[2]];
+  const selected = [...files, file('unknown')];
+  let fallbackCalls = 0;
+  const slots = fingerprintSlots(duplicate, selected, {first: ['A', 'A'], second: ['A'], third: ['A']}, (unmatchedTracks, unmatchedFiles) => {
+    fallbackCalls++;
+    assert.deepEqual(unmatchedTracks.map(track => track.title), ['C']);
+    assert.deepEqual(unmatchedFiles.map(file => file.path), ['third', 'unknown']);
+    return unmatchedFiles.map(file => file.path);
+  });
+  assert.equal(fallbackCalls, 1);
+  assert.deepEqual(slots, ['first', 'second', 'third', 'unknown']);
+  assert.deepEqual(fingerprintSlots(tracks.slice(0, 2), files.slice(0, 2), {first: ['A', 'B'], second: ['A', 'B']}, () => []), ['first', 'second'], 'a direct free choice preserves the earlier assignment');
+});
+
+test('fingerprint matching reaches the independent optimum for every three-file compatibility graph', () => {
+  const tracks = ['A', 'B', 'C'].map((recording, i) => track(1, i + 1, recording, {MUSICBRAINZ_TRACKID: [recording]}));
+  const files = ['x', 'y', 'z'].map(path => file(path));
+  // Exhaustively enumerate legal assignments, independently of the production search.
+  const optimum = (edges, file = 0, used = new Set()) => file === 3 ? 0 : Math.max(
+    optimum(edges, file + 1, used),
+    ...edges[file].filter(track => !used.has(track)).map(track => 1 + optimum(edges, file + 1, new Set([...used, track]))),
+  );
+  for (let mask = 0; mask < 512; mask++) {
+    const edges = files.map((_, f) => tracks.flatMap((_, t) => mask & (1 << (f * 3 + t)) ? [t] : []));
+    const matches = Object.fromEntries(files.map((file, f) => [file.path, edges[f].map(t => tracks[t].title)]));
+    const slots = fingerprintSlots(tracks, files, matches, () => []);
+    assert.equal(slots.filter(Boolean).length, optimum(edges), `maximum exact matches in graph ${mask}`);
+    assert.equal(new Set(slots.filter(Boolean)).size, slots.filter(Boolean).length);
+    slots.forEach((path, t) => { if (path) assert.ok(matches[path].includes(tracks[t].title), `compatible edge in graph ${mask}`); });
+    assert.deepEqual(fingerprintSlots(tracks, files, matches, () => []), slots, `deterministic graph ${mask}`);
+  }
+});

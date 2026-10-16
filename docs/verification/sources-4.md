@@ -231,3 +231,38 @@ the strict guide build with **172 completed routes**. The earlier 40-check
 provider UI run remains explicitly scoped to its recorded provider-only binary.
 Final-head GitHub review, current-main trusted CI and protected merge remain
 separate gates.
+
+## Compatible fingerprint assignment review correction
+
+Review of `70510c0` found that a greedy file-to-track assignment could lose an
+exact match: a file compatible with A/B took A, leaving a file compatible only
+with A to fallback. The review matcher now uses an iterative breadth-first
+augmenting path to retain the greatest number of compatible identifications.
+It keeps existing assignments when a direct free compatible track exists,
+respects candidate/file/track order for deterministic choices, and leaves the
+existing fallback policy for unmatched files until after exact matching. It
+does not globally optimize scores or change provider/backend behavior.
+
+Three production-model regressions failed on the old matcher. They cover the
+two-file collision with per-file AcoustID writes, a three-file reassignment
+chain, repeated recording tracks, stable free choices and impossible extras.
+An independent exhaustive assignment oracle checks all 512 three-file graphs,
+including maximal match count, compatible unique edges and determinism. All
+31 source-model tests, the full **383 UI tests**, production build, eight
+publication tests and strict guide build pass after the correction.
+
+The native app was rebuilt to embed the new JavaScript and run the same
+40-assertion offline source suite on the actual combined provider/gnudb source.
+A temporary fixture wrapper added recording A to the first file's existing B
+match, while the later file still matched only A. All **40 native macOS checks
+passed**, including exact track pairing, written MusicBrainz titles and each
+file's own `ACOUSTID_ID`. The committed provider fixtures and all assertions
+remain unchanged; the wrapper and actual response are retained with the local
+receipt. Only the isolated test app's data was removed afterward.
+
+No Rust, Cargo or native include input changed from the qualified 960-test
+combined preparation. That native/Clippy baseline is reused honestly rather
+than claiming another full workspace run. This followup supersedes the old
+matcher/page hashes in the historical extraction snapshot; the final receipt
+binds the changed TypeScript, tests, guide text and native executable. Local
+fixtures are not live-provider, Windows/Linux new-source-suite or release proof.
