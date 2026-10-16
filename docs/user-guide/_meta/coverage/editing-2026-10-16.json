@@ -68,14 +68,14 @@
       ]
     }
   ],
-  "routing_note": "Canonical manage-list is history management, now routed to reference/menus/context-menus.md in PR30; it is not an audio-file ordering source.",
+  "routing_note": "Canonical manage-list is history management, routed to reference/menus/context-menus.md in pending PR30 source; this is not yet public publication and is not an audio-file ordering source.",
   "validation": {
     "node": "50passed:3new tests execute4writtenmoves,2perfilemixedrename rows and2covermembership rows;47relatedexistingmodeltests",
     "publication": "8passed",
     "strict_build": "passed at97localready pages",
     "writing_plan": "97/187ready,90drafts;3newpagesnotpublished",
     "diff_check": "passed",
-    "independent_review": "pending",
+    "independent_review": "pr20_owner finite read-only audit all3guides,3tests andledger against exactmain4e4d5fc; all source hashes matched; relevant field/navigation/cover/selection/order/cell paths inspected; no concrete content discrepancy. No native/save-back or independent canonical re-crawl.",
     "native_runtime": "notrun; source/model evidence only"
   },
   "page_sha256": {
