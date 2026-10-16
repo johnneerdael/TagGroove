@@ -234,13 +234,14 @@ separate gates.
 
 ## Compatible fingerprint assignment review correction
 
-Review of `70510c0` found that a greedy file-to-track assignment could lose an
-exact match: a file compatible with A/B took A, leaving a file compatible only
-with A to fallback. The review matcher now uses an iterative breadth-first
-augmenting path to retain the greatest number of compatible identifications.
+Review of `70510c0` found that a greedy file-to-track assignment could lose a
+compatible assignment: a file compatible with A/B took A, leaving a file
+compatible only with A to fallback. The review matcher now uses an iterative breadth-first
+augmenting path to retain the greatest number of compatible fingerprint
+assignments.
 It keeps existing assignments when a direct free compatible track exists,
 respects candidate/file/track order for deterministic choices, and leaves the
-existing fallback policy for unmatched files until after exact matching. It
+existing fallback policy for unmatched files until after those assignments. It
 does not globally optimize scores or change provider/backend behavior.
 
 Three production-model regressions failed on the old matcher. They cover the
@@ -255,7 +256,7 @@ The native app was rebuilt to embed the new JavaScript and run the same
 40-assertion offline source suite on the actual combined provider/gnudb source.
 A temporary fixture wrapper added recording A to the first file's existing B
 match, while the later file still matched only A. All **40 native macOS checks
-passed**, including exact track pairing, written MusicBrainz titles and each
+passed**, including expected fixture pairing, written MusicBrainz titles and each
 file's own `ACOUSTID_ID`. The committed provider fixtures and all assertions
 remain unchanged; the wrapper and actual response are retained with the local
 receipt. Only the isolated test app's data was removed afterward.
