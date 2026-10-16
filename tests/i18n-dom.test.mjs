@@ -29,7 +29,7 @@ const {copiedMessage}=await load('tag-clipboard.ts');
 const {cleanupText,libraryOptionsPage}=await load('library.ts');
 const {mappingOptionsPage}=await load('field-mapping.ts');
 const {sourcePresentation}=await load('document-state.ts');
-const {tagSourcesOptionsPages,TagSourcesUI}=await load('tag-sources.ts');
+const {tagSourcesOptionsPages,TagSourcesUI,webScriptErrorText}=await load('tag-sources.ts');
 const {removeTagParts}=await load('remove-tag.ts');
 const {Messages}=await load('messages.ts');
 const {WebSourcesUI,settingsMarkup,readSettings}=await import(await moduleUrl('web-sources.ts',{"'./action-ui'":JSON.stringify(await moduleUrl('action-ui.ts'))}));
@@ -538,9 +538,8 @@ test('real library progress localizes with OS-formatted Unicode and grouped coun
   }
 });
 test('production backend error frames translate wrapped diagnostics and preserve paths, commands and replies',()=>{
-  const cases=[['The destination is not a folder',{}],['Cannot open the destination folder: {e}',{e:'Permission denied (os error 13)'}],['Invalid DSF file: {what}',{what:'the file is truncated'}],['The MP4 structure cannot be rewritten safely: {what}',{what:'the file ends inside a box header'}],['Library database: {e}',{e:'disk full'}],['ASF {location} object limits exceeded',{location:'Content'}],['{name} did not respond in time. Check your connection and try again.',{name:'MusicBrainz'}],['The freedb server answered: {code} {value}',{code:400,value:'Help'}],['Invalid chapter {value}: use HH:MM:SS.mmm followed by the title',{value:'"Help  Title"'}],['{name} is stored once for {filename}, not per chapter; give its chapter rows the same value',{name:'TITLE',filename:'Help.m4a'}],['line {line} ({text}): {error}',{line:17,text:'Help',error:'Help is not a known command'}],['line {line} ({text}): {error}',{line:17,text:'If "Help"',error:'this block has no Endif'}],['line {line} ({text}): {error}',{line:17,text:'If "Alpha): Beta"',error:'this block has no Endif'}],['line {line} ({text}): {error}',{line:17,text:String.raw`If "Alpha\"): Beta"`,error:'this block has no Endif'}],['line {line} ({text}): {error}',{line:17,text:'Help "Alpha): Beta"',error:'Help is not a known command'}]];
+  const cases=[['The destination is not a folder',{}],['Cannot open the destination folder: {e}',{e:'Permission denied (os error 13)'}],['Invalid DSF file: {what}',{what:'the file is truncated'}],['The MP4 structure cannot be rewritten safely: {what}',{what:'the file ends inside a box header'}],['Library database: {e}',{e:'disk full'}],['ASF {location} object limits exceeded',{location:'Content'}],['{name} did not respond in time. Check your connection and try again.',{name:'MusicBrainz'}],['The freedb server answered: {code} {value}',{code:400,value:'Help'}],['Invalid chapter {value}: use HH:MM:SS.mmm followed by the title',{value:'"Help  Title"'}],['{name} is stored once for {filename}, not per chapter; give its chapter rows the same value',{name:'TITLE',filename:'Help.m4a'}]];
   const extra=['{name} is not a known command','this block has no {name}'],custom={...Object.fromEntries([...cases.map(([key])=>key),...extra].map(key=>[key,`Diagnostic: ${[...new Set(key.match(/\{\w+\}/g)??[])].join(' / ')}`])),Help:'Assistance',TITLE:'Wrong field',MusicBrainz:'Wrong provider',Content:'Wrong header',Endif:'Wrong command','Help.m4a':'Wrong file','"Help  Title"':'Wrong chapter'};
-  custom['line {line} ({text}): {error}']='{error} (source {text}, line {line})';
   for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]])for(const [key,params] of cases){
     const p=page();try{
       const t=new Translator(locale,catalog),error=new Translator('en').t(key,params),e={path:'Help',error},expected={...params};
@@ -549,6 +548,40 @@ test('production backend error frames translate wrapped diagnostics and preserve
       assert.equal(p.body.querySelector('strong').textContent,'Help:');assert.equal(p.body.querySelector('p').textContent,`Help: ${t.t(key,expected)}`);
     }finally{p.close();}
   }
+});
+test('actual web-source search/release dialogs render structured script failures once across live languages',async()=>{
+  const frame='line {line} ({text}): {error}',debug='Debug output is in {directory}';
+  const custom={[frame]:'{error} (source {text}, line {line})',[debug]:'Debug files: {directory}','this block has no {name}':'Missing {name}','{value} was not found':'Not found: {value}',Help:'Wrong identity',Endif:'Wrong command','Missing Endif':'Wrong second translation','Not found: "Alpha): Beta"':'Wrong second translation'};
+  const commands=['IfVar Alpha): Beta','If "Alpha): Beta"',String.raw`If "Alpha\"): Beta"`,'FindLine "Alpha): Beta"'];
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]])for(const failedCommand of ['web_source_search','web_source_release'])for(const command of commands){
+    const p=page();let active=new Translator('en');const listeners=new Set(),calls=[];
+    try{
+      const payload={file:'Help  Title): .src',section:failedCommand==='web_source_search'?'[ParserScriptIndex]':'[ParserScriptAlbum]',line:17,command,message:command.startsWith('FindLine')?'"Alpha): Beta" was not found':'this block has no Endif',debug_path:command.startsWith('FindLine')?'/Help  Title): /debug':null};
+      // Capture the production main host so the real formatter and language subscription wiring run.
+      const host=rendererVariable(parsed,'tagSourcesUI',{TagSourcesUI:class{constructor(host){return host;}},webScriptErrorText,t:(key,params)=>active.t(key,params),translate:text=>active.translate(text),onLanguageChange:listener=>{listeners.add(listener);return()=>listeners.delete(listener);}});
+      Object.assign(host,{files:()=>[],reason:()=>'',options:()=>({}),evaluate:async()=>'',invoke:async name=>{
+        calls.push(name);if(name===failedCommand)throw{web_source_script:payload};
+        if(name==='web_source_search')return{direct:true,columns:[],results:[{url:'https://example.invalid/release'}]};
+      }});
+      const ui=new TagSourcesUI(host);await ui.open('web',{web:{id:'fixture',name:'Help',search_by:[]}});
+      const dialog=p.body.querySelector('dialog');dialog.querySelector('#ts-search').click();await new Promise(resolve=>setTimeout(resolve,0));
+      assert.ok(calls.includes(failedCommand));const error=dialog.querySelector('.dialog-error');assert.ok(error);assert.equal(error.getAttribute('translate'),'no');
+      const expected=t=>{const leaf=payload.message.startsWith('this block')?t.t('this block has no {name}',{name:'Endif'}):t.t('{value} was not found',{value:'"Alpha): Beta"'});return `${payload.file} ${payload.section} ${t.t(frame,{line:17,text:command,error:leaf})}`+(payload.debug_path===null?'':`. ${t.t(debug,{directory:payload.debug_path})}`);};
+      assert.equal(error.textContent,expected(active));
+      for(const [language,strings] of [[locale,catalog],['en',{}],[locale,catalog]]){
+        active=p.translate(language,strings);listeners.forEach(listener=>listener());p.translateTree(dialog);await p.window.happyDOM.waitUntilComplete();
+        assert.equal(error.textContent,expected(active));assert.ok(error.textContent.includes(command));assert.ok(error.textContent.includes(payload.file));
+        assert.equal(dialog.querySelector('[data-close]').textContent,active.t('Cancel'));
+      }
+      dialog.close();assert.equal(listeners.size,0);
+    }finally{p.close();}
+  }
+  const p=page();try{
+    const ui=new TagSourcesUI({files:()=>[],reason:()=>'',options:()=>({}),evaluate:async()=>'',invoke:async name=>{if(name==='web_source_search')throw'Select files first.';}});
+    await ui.open('web',{web:{id:'fixture',name:'Help',search_by:[]}});p.body.querySelector('#ts-search').click();await new Promise(resolve=>setTimeout(resolve,0));
+    const t=p.translate('de');assert.equal(p.body.querySelector('.dialog-error').textContent,t.t('Select files first.'));p.body.querySelector('dialog').close();
+    assert.equal(webScriptErrorText({file:'Help.src',section:'[ParserScriptIndex]',line:0,command:'raw',message:'Select files first.',debug_path:null},(key,params)=>t.t(key,params),text=>t.translate(text)),`Help.src [ParserScriptIndex] ${t.t('Select files first.')}`);
+  }finally{p.close();}
 });
 test('symbol-only catalog output replays original production control sources across languages',async()=>{
   for(const output of ['✓','42','…']){

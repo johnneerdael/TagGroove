@@ -81,6 +81,10 @@ labels.
 - Installed web sources keep their own names and authored settings prose;
   their own localization supplies that text.
 
+Web-source script errors keep the source filename, command and debug-folder
+path unchanged while translating the diagnostic. An open source dialog updates
+that diagnostic when the interface language changes.
+
 To contribute a translation, keep its keys and placeholders intact and submit
 it through the repository's pull-request workflow.
 
@@ -89,4 +93,4 @@ it through the repository's pull-request workflow.
 - [Language options reference](../reference/options/language.md)
 - [Format strings](../reference/format-strings.md)
 
-<!-- verified: src/language-options.ts; src/main.ts languagePage/applyLanguage; src/i18n/core.ts and index.ts; src-tauri/src/languages.rs. Catalog/DOM/native-wrapper tests, not final-head desktop qualification. -->
+<!-- verified: src/language-options.ts; src/main.ts languagePage/applyLanguage; src/i18n/core.ts and index.ts; src-tauri/src/languages.rs; src/tag-sources.ts; src-tauri/src/sources/web/mod.rs. Catalog/DOM/native-wrapper tests, not final-head desktop qualification. -->

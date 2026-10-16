@@ -484,6 +484,7 @@
  "DUMMY (skip text)": "DUMMY (skip text)",
  "Dark": "Dark",
  "Date formatting output limit exceeded": "Date formatting output limit exceeded",
+ "Debug output is in {directory}": "Debug output is in {directory}",
  "Default file name for cover art": "Default file name for cover art",
  "Default folder for Add cover": "Default folder for Add cover",
  "Default port of the protocol": "Default port of the protocol",

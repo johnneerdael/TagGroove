@@ -484,6 +484,7 @@
  "DUMMY (skip text)": "DUMMY (tekst overslaan)",
  "Dark": "Donker",
  "Date formatting output limit exceeded": "Uitvoerlimiet voor datumopmaak overschreden",
+ "Debug output is in {directory}": "Debuguitvoer staat in {directory}",
  "Default file name for cover art": "Standaardbestandsnaam voor coverafbeeldingen",
  "Default folder for Add cover": "Standaardmap voor Cover toevoegen",
  "Default port of the protocol": "Standaardpoort van het protocol",

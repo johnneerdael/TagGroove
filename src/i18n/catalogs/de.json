@@ -497,6 +497,7 @@
  "DUMMY (skip text)": "DUMMY (Text überspringen)",
  "Dark": "Dunkel",
  "Date formatting output limit exceeded": "Ausgabelimit der Datumsformatierung überschritten",
+ "Debug output is in {directory}": "Debug-Ausgabe befindet sich in {directory}",
  "Default file name for cover art": "Standard-Dateiname für Cover-Bilder",
  "Default folder for Add cover": "Standardordner für „Cover hinzufügen“",
  "Default port of the protocol": "Standardport des Protokolls",

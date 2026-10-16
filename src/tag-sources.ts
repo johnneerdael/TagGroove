@@ -395,10 +395,28 @@ export function buildApplyItems(release:SourceRelease, slots:(string|null)[], en
 /** Ticket numbers only grow, including across webview reloads, so the backend can drop superseded work. */
 let lastTicket = Date.now()*1000;
 export const nextTicket = () => ++lastTicket;
+/** Native web-source failures keep source text separate from owned diagnostics. */
+export type WebScriptError = {file:string;section:string;line:number;command:string;message:string;debug_path:string|null};
+function webScriptFailure(error:unknown):WebScriptError|undefined {
+  if (!error || typeof error !== 'object' || !('web_source_script' in error)) return;
+  const value = error.web_source_script as Partial<WebScriptError>|null;
+  if (value && ['file','section','command','message'].every(key => typeof value[key as keyof WebScriptError] === 'string') && Number.isSafeInteger(value.line) && value.line! >= 0 && (value.debug_path === null || typeof value.debug_path === 'string')) return value as WebScriptError;
+}
+/** Format once from source parts, even for English; t() never reparses values. */
+export function webScriptErrorText(error:WebScriptError, t:(key:string,params?:Record<string,unknown>)=>string = (key,params) => key.replace(/\{(\w+)\}/g,(_,name)=>String(params?.[name] ?? `{${name}}`)), translate:(text:string)=>string = text=>text):string {
+  const message = translate(error.message);
+  const frame = error.line ? t('line {line} ({text}): {error}',{line:error.line,text:error.command,error:message}) : message;
+  const prefix = [error.file,error.section,frame].join(' ');
+  return error.debug_path === null ? prefix : prefix + '. ' + t('Debug output is in {directory}',{directory:error.debug_path});
+}
+
 let dialogTitleId = 0;
 
 type Invoke = <T>(command:string, args?:Record<string,unknown>) => Promise<T>;
 type TagSourcesHost = {
+  /** Structured errors are rendered once and refreshed from their raw payload. */
+  webScriptError?:(error:WebScriptError)=>string;
+  onLanguageChange?:(listener:()=>void)=>()=>void;
   invoke:Invoke;files:()=>SourceFile[];reason:()=>string;
   apply:(items:ApplyItem[], cover:ApplyCover|null)=>Promise<void>;
   /** Saved Options → Tag Sources values (`pages.tag-sources`). */
@@ -496,14 +514,23 @@ export class TagSourcesUI {
     document.body.append(dialog);
     const $ = <T extends Element = HTMLElement>(selector:string) => dialog.querySelector<T>(selector)!;
     const status = (message:string) => { const el = dialog.querySelector('.ts-status'); if (el) el.textContent = message; };
+    let scriptError:WebScriptError|undefined;
+    const refreshScriptError = () => {
+      const p = dialog.querySelector('.dialog-error');
+      if (p && scriptError) p.textContent = (this.host.webScriptError ?? webScriptErrorText)(scriptError);
+    };
+    const stopLanguage = this.host.onLanguageChange?.(refreshScriptError);
     const error = (message:unknown) => {
-      const text = String(message).replace(/^Error: /,'');
+      const failure = webScriptFailure(message);
+      const text = failure ? '' : String(message).replace(/^Error: /,'');
       if (text.startsWith('Cancelled:')) return;
       let p = dialog.querySelector('.dialog-error');
       if (!p) { p = document.createElement('p'); p.className = 'dialog-error'; p.setAttribute('role','alert'); dialog.querySelector('.dialog-content')!.append(p); }
-      p.textContent = text;
+      scriptError = failure;
+      if (failure) { p.setAttribute('translate','no'); refreshScriptError(); }
+      else { p.removeAttribute('translate'); p.textContent = text; }
     };
-    const clearError = () => dialog.querySelector('.dialog-error')?.remove();
+    const clearError = () => { scriptError = undefined; dialog.querySelector('.dialog-error')?.remove(); };
     const loadImage = async (url:string|null|undefined, image:HTMLImageElement) => {
       const ticket = imageTicket = nextTicket();
       image.hidden = true; image.removeAttribute('src');
@@ -513,7 +540,7 @@ export class TagSourcesUI {
     };
     const preview = (url:string) => url.startsWith('https://') || (web && url.startsWith('http://')) ? `<button type="button" class="ts-preview" data-url="${html(url)}" title="Open the release page in your browser">Preview</button>` : '';
     dialog.addEventListener('cancel',event => { if (working) event.preventDefault(); });
-    dialog.addEventListener('close',() => { this.showing = false; void this.host.invoke('tag_source_cancel',{ticket:nextTicket()}).catch(() => undefined); dialog.remove(); });
+    dialog.addEventListener('close',() => { stopLanguage?.(); this.showing = false; void this.host.invoke('tag_source_cancel',{ticket:nextTicket()}).catch(() => undefined); dialog.remove(); });
     dialog.addEventListener('click',event => {
       const button = (event.target as Element).closest<HTMLButtonElement>('.ts-preview');
       if (button) void this.host.invoke('tag_source_open_page',{url:button.dataset.url}).catch(error);

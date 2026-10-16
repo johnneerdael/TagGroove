@@ -12,7 +12,7 @@ import { ExportUI, offerOpenOutputs, type ExportLibrary, type ExportConfiguratio
 import { OptionsUI, registerOptionsPage, naturalCollator, setNotificationAreaSupport, windowTitle, type Settings, type SettingsResponse } from './options-ui';
 import { createNumberingReview, numberingCounter, numberingTotal, recallNumbering, rememberNumbering, type NumberingRequest, type NumberingUpdate } from './numbering-review';
 import { open, save, ask, message } from './i18n/dialog';
-import { ENGLISH, setUserCatalogs, installTranslation, setLanguage, t, translate, translateNow } from './i18n';
+import { ENGLISH, setUserCatalogs, installTranslation, setLanguage, t, translate, translateNow, onLanguageChange } from './i18n';
 import { languageOptionsPage, languageSetting } from './language-options';
 import { Messages, messagesOptionsPage, coverChoice, type MessageKey } from './messages';
 import { appearanceOptions, notificationAreaKey, completeInput, generalOptions, insideFolders, networkingOptionsPage, releaseNotesUrl, showReleaseNotes, updateMessage, updateOptions, updatesOptionsPage, type UpdateCheck } from './general-options';
@@ -24,7 +24,7 @@ import { removeTagTypesDialog, mp4ChapterFiles, stripChaptersPrompt, copyAsTextD
 import { ExtendedTags } from './extended-tags';
 import { isMacPlatform, isTextEntry, altChord, nextPane, windowShortcut, type Pane, type WindowShortcut } from './keyboard';
 import { WebSourcesUI, menuLabel } from './web-sources';
-import { TagSourcesUI, tagSourcesOptionsPages, type IndexStatus } from './tag-sources';
+import { TagSourcesUI, webScriptErrorText, tagSourcesOptionsPages, type IndexStatus } from './tag-sources';
 import { ActionUI, panelKey, rebaseCaseOnly, resolvePathChanges, type ActionGroup, type ActionLibrary, type ImportedGroup } from './action-ui';
 import { ColumnUI, ColumnValueCache, columnFields, columnName, setColumnNameTranslation, defaultLayout, editKey, headerMarkup, maxColumnWidth, minColumnWidth, normalizeLayout, quickValue, sortClick, sortIndicator, sortRows, sortTemplate, updateSortHeader, visibleColumns, type ColumnLayout } from './columns';
 import { FilterSync, filterCacheMiss } from './filter-sync';
@@ -466,6 +466,7 @@ for(const page of tagSourcesOptionsPages(async()=>{const folder=await open({dire
 }))registerOptionsPage(page);
 const tagSourceReason=()=>busy?'Wait for the current operation.':!selected.size?'Select the files of one album.':operationReason('source-musicbrainz');
 const tagSourcesUI=new TagSourcesUI({
+  webScriptError:error=>webScriptErrorText(error,t,translate),onLanguageChange,
   invoke:(command,args)=>invoke(command,args),
   files:()=>paths().map(path=>{const entry=entries.get(path)!;return{path,name:displayName(path),title:field(entry,'TITLE'),artist:field(entry,'ARTIST'),album:field(entry,'ALBUM'),album_artist:field(entry,'ALBUMARTIST'),track:field(entry,'TRACK'),disc:field(entry,'DISCNUMBER'),length:entry.duration};}),
   reason:()=>tagSourceReason(),
