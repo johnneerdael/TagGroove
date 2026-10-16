@@ -2707,5 +2707,9 @@
  "〈 keep 〉": "〈 beibehalten 〉",
  "＋ Add field": "＋ Feld hinzufügen",
  "＋ Add value": "＋ Wert hinzufügen",
- "Some language files are incomplete; English is shown for what they lack.": "Einige Sprachdateien sind unvollständig; fehlende Texte werden auf Englisch angezeigt."
+ "Some language files are incomplete; English is shown for what they lack.": "Einige Sprachdateien sind unvollständig; fehlende Texte werden auf Englisch angezeigt.",
+ "Command line": "Befehlszeile",
+ "Drag and drop": "Ziehen und Ablegen",
+ "Platform": "Plattform",
+ "Window": "Fenster"
 }

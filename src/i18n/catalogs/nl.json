@@ -2694,5 +2694,9 @@
  "〈 keep 〉": "〈 behouden 〉",
  "＋ Add field": "＋ Veld toevoegen",
  "＋ Add value": "＋ Waarde toevoegen",
- "Some language files are incomplete; English is shown for what they lack.": "Sommige taalbestanden zijn onvolledig; voor wat ontbreekt wordt Engels getoond."
+ "Some language files are incomplete; English is shown for what they lack.": "Sommige taalbestanden zijn onvolledig; voor wat ontbreekt wordt Engels getoond.",
+ "Command line": "Opdrachtregel",
+ "Drag and drop": "Slepen en neerzetten",
+ "Platform": "Platform",
+ "Window": "Venster"
 }

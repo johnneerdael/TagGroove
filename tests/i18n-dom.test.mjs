@@ -610,6 +610,16 @@ test('real Cut/Paste failure statuses translate UI operation names while authore
     }finally{p.close();}
   }
 });
+test('production startup error contexts translate once without changing same-spelling file labels',()=>{
+  const labels=['Options','Action groups','Columns','Tag panel','Directories','Platform','Command line','Window','Drag and drop'];
+  const custom={...Object.fromEntries(labels.map(label=>[label,'Help'])),Help:'Wrong second translation'};
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]]){
+    const p=page();try{
+      const t=new Translator(locale,catalog),render=e=>mainTemplate(node=>node.head.text==='<p><strong translate="no">',{e,esc,displayName:path=>path,publicMessage:value=>value,translate:text=>t.translate(text)});
+      for(const label of labels){p.body.innerHTML=render({path:label,label,error:'Select files first.'})+render({path:label,error:'Select files first.'});p.translate(locale,catalog);const contexts=p.body.querySelectorAll('strong');assert.equal(contexts[0].textContent,t.t(label)+':');assert.equal(contexts[1].textContent,label+':');p.translateTree(p.body);assert.equal(contexts[0].textContent,t.t(label)+':');}
+    }finally{p.close();}
+  }
+});
 test('real source statuses retain owned label parts and raw authored titles across live languages',async()=>{
   const custom={'Searching {name}…':'Find {name}','Searching {name} in every category…':'Find {name} in all categories','Enter a {name} release ID or address.':'Enter an address for {name}.','freedb (local)':'Local index','MusicBrainz cover art':'MusicBrainz images','Discogs cover art':'Discogs images','Discogs Release ID':'Discogs lookup','Local index':'Wrong second lookup','MusicBrainz images':'Wrong second lookup',Help:'Wrong authored name'};
   const cases=[{provider:'local_freedb',name:'freedb (local)'},{provider:'musicbrainz',coversOnly:true,name:'MusicBrainz cover art'},{provider:'discogs',coversOnly:true,name:'Discogs cover art'},{provider:'freedb',every:true,name:'freedb'},{provider:'discogs',releaseId:true,empty:true,name:'Discogs Release ID'},...['Help','freedb (local)','MusicBrainz cover art'].map(name=>({provider:'web',name}))];

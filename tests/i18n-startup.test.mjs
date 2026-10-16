@@ -22,17 +22,17 @@ let serial=0;
 const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
 async function until(predicate){for(let i=0;i<200;i++){if(predicate())return;await new Promise(resolve=>setTimeout(resolve,5));}assert.fail('Boot condition did not settle');}
 function deferred(){let resolve,reject,done=false;const promise=new Promise((yes,no)=>{resolve=value=>{done=true;yes(value);};reject=error=>{done=true;no(error);};});return{promise,resolve,reject,get done(){return done;}};}
-async function boot({native=true,remembered='fr',choice=remembered,preferred=['en-US'],updateCheck=false}={}){
+async function boot({native=true,remembered='fr',choice=remembered,preferred=['en-US'],updateCheck=false,platformFailure=false,subfolders=true}={}){
   const window=new Window({url:'http://localhost:1420'});
   for(const key of ['window','document','Node','NodeFilter','Text','Element','HTMLElement','HTMLInputElement','HTMLTextAreaElement','HTMLButtonElement','HTMLSelectElement','HTMLDetailsElement','HTMLTableRowElement','HTMLImageElement','MutationObserver','MouseEvent','KeyboardEvent','Event','CSS','localStorage','navigator','getComputedStyle','requestAnimationFrame','cancelAnimationFrame'])Object.defineProperty(globalThis,key,{value:key==='window'?window:typeof window[key]==='function'&&['getComputedStyle','requestAnimationFrame','cancelAnimationFrame'].includes(key)?window[key].bind(window):window[key],configurable:true,writable:true});
   Object.defineProperty(window.navigator,'languages',{value:preferred,configurable:true});Object.defineProperty(window.navigator,'language',{value:preferred[0],configurable:true});
   window.document.documentElement.lang='en';window.document.body.innerHTML='<div id="app"></div>';window.localStorage.setItem('opentag.language',remembered);window.localStorage.setItem('opentag.last-version','0.2.0');
   const settings=deferred(),catalogs=deferred(),directories=deferred(),calls=[],events=new Map(),titles=[],paints=[];
-  const host={native,calls,events,drag:undefined,settings,catalogs,directories,defaults:undefined,scan:[],launches:[],nativeWindow:{setTitle:async title=>titles.push(title),setTheme:async()=>{},onCloseRequested:async()=>()=>{},isMaximized:async()=>false,isMinimized:async()=>false},invoke:async(command,args,factories)=>{
+  const host={native,calls,events,drag:undefined,settings,catalogs,directories,defaults:undefined,scan:[],scanRecords:[],scanErrors:[],launches:[],nativeWindow:{setTitle:async title=>titles.push(title),setTheme:async()=>{},onCloseRequested:async()=>()=>{},isMaximized:async()=>false,isMinimized:async()=>false},invoke:async(command,args,factories)=>{
     calls.push(command);host.defaults=factories;
     if(command==='load_settings')return settings.promise;
     if(command==='language_catalogs')return catalogs.promise;
-    if(command==='runtime_platform')return{family:'desktop',folder_picker_supported:true,document_access_supported:false};
+    if(command==='runtime_platform'){if(platformFailure)throw new Error('runtime unavailable');return{family:'desktop',folder_picker_supported:true,document_access_supported:false};}
     if(command==='load_action_library')return{version:1,groups:[]};
     if(command==='load_columns')return null;
     if(command==='load_tag_panel')return factories.panelDefaults();
@@ -40,7 +40,7 @@ async function boot({native=true,remembered='fr',choice=remembered,preferred=['e
     if(command==='web_sources_list')return{folder:'',sources:[],settings:[],problems:[]};
     if(command==='load_directory_state')return directories.promise;
     if(command==='take_launch_requests')return host.launches.splice(0);
-    if(command==='scan_files'){host.scan.push(args.paths);return{entries:[],errors:[]};}
+    if(command==='scan_files'){host.scan.push(args.paths);host.scanRecords.push(args);return{entries:[],errors:host.scanErrors};}
     if(command==='check_for_updates')return{current:'0.2.0',latest:{version:'0.2.1',name:'OpenTag',url:'https://example.invalid/release',prerelease:false,published:null},newer:true};
     if(command==='history_state')return{undo:null,redo:null,notice:null};
     if(command==='notification_area_supported')return false;
@@ -50,10 +50,11 @@ async function boot({native=true,remembered='fr',choice=remembered,preferred=['e
   }};
   globalThis.__BOOT_HOST__=host;
   const app=window.document.querySelector('#app'),visible=()=>window.getComputedStyle(app).visibility!=='hidden'&&window.getComputedStyle(app).display!=='none';
-  const observer=new window.MutationObserver(()=>{if(visible()&&app.querySelector('[data-menu="File"]'))paints.push({file:app.querySelector('[data-menu="File"] > summary').textContent,language:window.document.documentElement.lang});});observer.observe(window.document.body,{subtree:true,childList:true,characterData:true,attributes:true});
+  let frame=0;
+  const observer=new window.MutationObserver(()=>{if(frame||paints.length)return;frame=window.requestAnimationFrame(()=>{frame=0;if(visible()&&app.querySelector('[data-menu="File"]'))paints.push({file:app.querySelector('[data-menu="File"] > summary').textContent,language:window.document.documentElement.lang});});});observer.observe(window.document.body,{subtree:true,childList:true,characterData:true,attributes:true});
   await import(url+'#boot-'+serial++);await tick();
-  const response=()=>{const value=host.defaults.defaultSettings();value.pages.language={language:choice};value.pages.directories={startup:'favorite'};value.pages.updates={check_on_startup:updateCheck,release_notes:false};return{settings:value,defaults:host.defaults.defaultSettings(),warning:null};};
-  return{window,host,app,visible,titles,paints,response,async close(){if(!settings.done)settings.resolve(response());if(!catalogs.done)catalogs.resolve({catalogs:[],errors:[]});if(!directories.done)directories.resolve(host.defaults.defaultDirectoryState());for(let i=0;i<8;i++)await tick();observer.disconnect();await window.happyDOM.abort();}};
+  const response=()=>{const value=host.defaults.defaultSettings();value.pages.language={language:choice};value.directories.subfolders=subfolders;value.pages.directories={startup:'favorite'};value.pages.updates={check_on_startup:updateCheck,release_notes:false};return{settings:value,defaults:host.defaults.defaultSettings(),warning:null};};
+  return{window,host,app,visible,titles,paints,response,async close(){if(!settings.done)settings.resolve(response());if(!catalogs.done)catalogs.resolve({catalogs:[],errors:[]});if(!directories.done)directories.resolve(host.defaults.defaultDirectoryState());for(let i=0;i<8;i++)await tick();observer.disconnect();if(frame)window.cancelAnimationFrame(frame);await window.happyDOM.abort();}};
 }
 
 // Visibility/DOM ordering evidence in Happy DOM, not native pixel qualification.
@@ -86,6 +87,32 @@ test('actual boot defers outside-root drops and preserves initial launch drainin
     assert.deepEqual(fixture.host.scan,[['/launch']]);assert.ok(fixture.window.document.querySelector('.drop-overlay'));
     await fixture.host.drag({payload:{type:'leave'}});assert.equal(fixture.window.document.querySelector('.drop-overlay'),null);
   }finally{await fixture.close();}
+});
+
+test('rejected platform startup still holds early launches for the saved language and scan preferences',async()=>{
+  const fixture=await boot({platformFailure:true,subfolders:false});
+  try{
+    fixture.host.launches.push({directories:['/launch'],files:[],add:false});fixture.host.events.get('opentag://launch')({payload:{}});await tick();
+    assert.equal(fixture.host.calls.includes('take_launch_requests'),false);assert.equal(fixture.visible(),false);
+    fixture.host.settings.resolve(fixture.response());await until(()=>fixture.host.calls.includes('language_catalogs'));assert.equal(fixture.host.calls.includes('take_launch_requests'),false);
+    fixture.host.catalogs.resolve({catalogs:[{file:'fr.json',catalog:{...english,'@meta':{name:'Français',locale:'fr'},File:'Fichier'}}],errors:[]});
+    await until(()=>fixture.visible()&&fixture.host.scan.length>0&&fixture.paints.length>0);assert.deepEqual(fixture.host.scan,[['/launch']]);assert.equal(fixture.host.scanRecords[0].recursive,false);assert.ok(fixture.paints.length>0);assert.ok(fixture.paints.every(paint=>paint.file==='Fichier'));
+  }finally{await fixture.close();}
+});
+
+test('actual startup errors translate their owned context while same-spelling native paths remain raw',async()=>{
+  const labels=['Options','Action groups','Columns','Tag panel','Directories','Platform','Command line','Window','Drag and drop'];
+  for(const locale of ['de','nl']){
+    const fixture=await boot({remembered:locale,choice:locale});
+    try{
+      fixture.host.settings.reject(new Error('settings unavailable'));await until(()=>fixture.host.calls.includes('language_catalogs'));fixture.host.catalogs.resolve({catalogs:[],errors:[]});
+      await until(()=>fixture.visible()&&fixture.paints.length>0);
+      assert.equal(fixture.app.querySelector('.errors strong').textContent,locale==='de'?'Optionen:':'Opties:');
+      fixture.host.scanErrors=labels.map(label=>({path:'/missing/'+label,error:'opaque native failure'}));fixture.host.launches.push({directories:['/launch'],files:[],add:false});fixture.host.events.get('opentag://launch')({payload:{}});
+      fixture.host.directories.resolve(fixture.host.defaults.defaultDirectoryState());await until(()=>fixture.app.querySelectorAll('.errors strong').length===labels.length);
+      assert.deepEqual([...fixture.app.querySelectorAll('.errors strong')].map(node=>node.textContent),labels.map(label=>label+':'));
+    }finally{await fixture.close();}
+  }
 });
 
 test('browser preview keeps its immediate first render without native initialization',async()=>{
