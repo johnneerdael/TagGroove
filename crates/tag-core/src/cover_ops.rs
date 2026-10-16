@@ -260,9 +260,10 @@ fn check_adjust_parameters(quality: u8, resize: Option<&CoverResize>) -> Result<
 }
 
 /// The image file Import Cover uses for `path`. A `*` or `?` in the file
-/// name (`*.jpg`, `cover?.png`) selects the first matching image in that
-/// folder, in natural, case-insensitive name order. Other names are used as
-/// they are.
+/// name (`*.jpg`, `cover?.png`) selects the first matching file in that
+/// folder, in natural, case-insensitive name order, that the cover import
+/// accepts (JPEG, PNG, GIF, BMP, TIFF or WebP). Other names are used as they
+/// are.
 pub fn resolve_cover_source(path: &Path) -> Result<PathBuf, String> {
     let wildcard = |text: &str| text.contains(['*', '?']);
     let Some(pattern) = path.file_name().map(|name| name.to_string_lossy()) else {
@@ -295,7 +296,7 @@ pub fn resolve_cover_source(path: &Path) -> Result<PathBuf, String> {
     names
         .into_iter()
         .map(|(_, path)| path)
-        .find(|path| is_image_file(path))
+        .find(|path| importable_image(path))
         .ok_or_else(|| format!("No image matches {}", path.display()))
 }
 
@@ -321,8 +322,9 @@ fn wildcard_match(pattern: &[char], name: &[char]) -> bool {
     pattern[p..].iter().all(|&c| c == '*')
 }
 
-/// A file whose first bytes are an image format.
-fn is_image_file(path: &Path) -> bool {
+/// A file the cover import accepts. The first bytes must look like an image
+/// before the whole file is read and checked the way the import checks it.
+fn importable_image(path: &Path) -> bool {
     use std::io::Read;
     let mut header = [0u8; 64];
     let Ok(mut file) = fs::File::open(path) else {
@@ -336,6 +338,7 @@ fn is_image_file(path: &Path) -> bool {
         }
     }
     image::guess_format(&header[..length]).is_ok()
+        && fs::read(path).is_ok_and(|data| picture_from_bytes(data).is_ok())
 }
 
 /// Adjust Cover applied to one image outside a file (Manage Covers). `None`
@@ -443,8 +446,14 @@ mod tests {
         for name in ["scan10.png", "scan2.png", "Scan3.png"] {
             fs::write(dir.path().join(name), &png).unwrap();
         }
-        // Not an image despite its name, so it is skipped.
+        // Not an image despite its name, so it is skipped, and so is an
+        // image format the cover import does not take (QOI).
         fs::write(dir.path().join("scan1.png"), b"text").unwrap();
+        fs::write(
+            dir.path().join("scan01.png"),
+            b"qoif\0\0\0\x01\0\0\0\x01\x03\0",
+        )
+        .unwrap();
         fs::create_dir(dir.path().join("scan0.png")).unwrap();
         assert_eq!(
             resolve_cover_source(&dir.path().join("scan*.png")).unwrap(),

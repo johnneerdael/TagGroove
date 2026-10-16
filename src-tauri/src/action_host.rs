@@ -616,6 +616,7 @@ impl ActionHost for NativeHost<'_> {
                     let destination = normalized_output(&target)?;
                     let (writer, _) = self.identity(state);
                     match self.written_covers.get(&destination) {
+                        // That image is already there; whoever wrote it keeps the name.
                         Some((written, _)) if *written == digest => {}
                         // Another file of this run already wrote a different image there.
                         Some((_, earlier)) if *earlier != writer => {
@@ -626,7 +627,10 @@ impl ActionHost for NativeHost<'_> {
                         }
                         // This file's own earlier export: its cover changed since.
                         // Undo already knows the file from before the run.
-                        Some(_) => atomic_output(&target, &bytes, false)?,
+                        Some(_) => {
+                            atomic_output(&target, &bytes, false)?;
+                            self.written_covers.insert(destination, (digest, writer));
+                        }
                         None => {
                             // First use of this name in the run: undo keeps the
                             // file as it was (it drops the copy if nothing changes).
@@ -638,9 +642,9 @@ impl ActionHost for NativeHost<'_> {
                             if !fs::read(&target).is_ok_and(|existing| existing == bytes) {
                                 atomic_output(&target, &bytes, false)?;
                             }
+                            self.written_covers.insert(destination, (digest, writer));
                         }
                     }
-                    self.written_covers.insert(destination, (digest, writer));
                     self.exported_covers.insert(identity);
                     count += 1;
                 }
@@ -1671,6 +1675,67 @@ mod tests {
     }
 
     #[test]
+    fn cover_export_of_an_image_already_there_keeps_its_writer() {
+        let dir = tempfile::tempdir().unwrap();
+        let (a, _) = covered_fixture(dir.path(), "a.wav", false);
+        let (b, _) = covered_fixture(dir.path(), "b.wav", false);
+        let mut bytes = std::io::Cursor::new(Vec::new());
+        image::DynamicImage::ImageRgb8(image::RgbImage::new(2, 2))
+            .write_to(&mut bytes, image::ImageFormat::Png)
+            .unwrap();
+        let other = bytes.into_inner();
+        fs::write(dir.path().join("other.png"), &other).unwrap();
+        let export = || ActionSpec::ExportCover {
+            filename_template: "shared".into(),
+            picture_type: None,
+            export_duplicates: true,
+        };
+        let groups = [
+            // b exports the image a just wrote: nothing is written.
+            ActionGroup {
+                name: "Both".into(),
+                enabled: true,
+                actions: vec![export()],
+            },
+            // a's cover changes and a exports again: a still owns the name.
+            ActionGroup {
+                name: "Only a".into(),
+                enabled: true,
+                actions: vec![
+                    ActionSpec::ImportCover {
+                        filename_template: "$if($eql(%_filename%,a),other.png,missing.png)".into(),
+                        picture_type: None,
+                        delete_existing: true,
+                    },
+                    export(),
+                ],
+            },
+        ];
+        let result = execute(
+            &[
+                a.to_string_lossy().into_owned(),
+                b.to_string_lossy().into_owned(),
+            ],
+            &groups,
+            EvaluationSettings::default(),
+        );
+        // a keeps ownership after b's no-op export and replaces its own output.
+        // b still has the old cover: its missing import and later attempt to
+        // replace a's changed image both warn without changing that output.
+        assert_eq!(result.errors.len(), 2, "{:?}", result.errors);
+        assert!(result
+            .errors
+            .iter()
+            .all(|error| error.path.ends_with("b.wav")));
+        assert!(result.errors[0].error.contains("Only a / action 1"));
+        assert!(result.errors[1].error.contains("Only a / action 2"));
+        assert!(result.errors[1]
+            .error
+            .contains("already written for another file"));
+        assert_eq!(fs::read(dir.path().join("shared.png")).unwrap(), other);
+    }
+
+    #[test]
     fn cover_export_cross_file_destination_keeps_the_first_different_image() {
         let dir = tempfile::tempdir().unwrap();
         let (a, png) = covered_fixture(dir.path(), "a.wav", false);
@@ -2449,6 +2514,53 @@ mod tests {
         );
         assert!(result.errors[0].error.contains("No image matches"));
         assert_eq!(tag_core::read_entry(&path).unwrap().covers.len(), 1);
+    }
+
+    #[test]
+    fn import_cover_wildcard_takes_webp_and_skips_what_the_import_refuses() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = fixture(dir.path(), "a.wav");
+        let encode = |format| {
+            let mut bytes = std::io::Cursor::new(Vec::new());
+            image::DynamicImage::ImageRgb8(image::RgbImage::new(4, 4))
+                .write_to(&mut bytes, format)
+                .unwrap();
+            bytes.into_inner()
+        };
+        let webp = encode(image::ImageFormat::WebP);
+        let jpeg = encode(image::ImageFormat::Jpeg);
+        fs::write(dir.path().join("art1.webp"), &webp).unwrap();
+        fs::write(dir.path().join("art2.jpg"), &jpeg).unwrap();
+        let import = |template: &str| {
+            run(
+                &path,
+                vec![ActionSpec::ImportCover {
+                    filename_template: template.into(),
+                    picture_type: None,
+                    delete_existing: true,
+                }],
+                EvaluationSettings::default(),
+            )
+        };
+        let cover = || {
+            let covers = tag_core::read_entry(&path).unwrap().covers;
+            assert_eq!(covers.len(), 1);
+            STANDARD.decode(&covers[0].data_base64).unwrap()
+        };
+        let result = import("art*");
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert_eq!(cover(), webp);
+        // A file whose header looks like an image the import does not take
+        // (QOI) is passed over for the next match.
+        fs::write(
+            dir.path().join("art0.png"),
+            b"qoif\0\0\0\x04\0\0\0\x04\x03\0",
+        )
+        .unwrap();
+        fs::remove_file(dir.path().join("art1.webp")).unwrap();
+        let result = import("art*");
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert_eq!(cover(), jpeg);
     }
 
     #[test]

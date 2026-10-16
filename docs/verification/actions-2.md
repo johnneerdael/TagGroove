@@ -7,10 +7,10 @@ Branch `feat/actions-2`, started from `main` at `5a57053`. It closes the Actions
 | Item | Before | Now | Evidence |
 |---|---|---|---|
 | A problem with one file inside a group | The file was marked failed; its remaining actions and every later group were skipped, and it was left out of exports | The problem is reported for that file and action, and the file's remaining actions and groups still run. It stays in deferred exports and playlists and in the refreshed file list | `a_failed_action_is_a_warning_and_later_actions_and_groups_still_run`, `filename_collision_reports_only_the_failed_file_and_returns_both` |
-| Export Cover onto an existing file | Failed (no-clobber) | The same image is left alone; another image is replaced, after undo saved the old file | `cover_export_replaces_existing_files_and_rejects_input_aliases`, `cover_export_by_the_same_file_replaces_its_earlier_output_in_order`, `cover_export_cross_file_destination_keeps_the_first_different_image` |
+| Export Cover onto an existing file | Failed (no-clobber) | The same image is left alone; another image is replaced, after undo saved the old file | `cover_export_replaces_existing_files_and_rejects_input_aliases`, `cover_export_by_the_same_file_replaces_its_earlier_output_in_order`, `cover_export_of_an_image_already_there_keeps_its_writer`, `cover_export_cross_file_destination_keeps_the_first_different_image` |
 | `\\` in a Format Value or Tag → Tag result | Stored as one value | Several values, as in the Tag Panel | `format_value_double_backslash_creates_several_values` |
 | File names in Import Cover, Export Cover, Import Text File and Generate Playlists | Plain text; `\` literal on macOS and Linux, `/` in a value made a folder, `:` and `?` kept | Filename mode, as in Tag → Filename | `cover_and_text_file_names_use_filename_mode`, `file_name_formats_use_backslash_folders_and_clean_tag_values` |
-| Import Cover with `*.jpg` | Literal path | First matching image | `wildcard_cover_source_is_the_first_image_in_natural_order`, `wildcards_match_whole_names_case_insensitively`, `import_cover_wildcard_uses_the_first_matching_image` |
+| Import Cover with `*.jpg` | Literal path | First matching image the import accepts; WebP files can be imported | `wildcard_cover_source_is_the_first_image_in_natural_order`, `wildcards_match_whole_names_case_insensitively`, `import_cover_wildcard_uses_the_first_matching_image`, `import_cover_wildcard_takes_webp_and_skips_what_the_import_refuses` |
 | `$loop` sort order in Export actions | Always byte order (1, 10, 2) | Follows Options → General natural sorting | `export_loops_follow_the_natural_sort_option` |
 | Bulk `.mta` import | One file per call | Backend command `import_action_groups` takes several files and folders | `bulk_import_reads_files_and_folders_and_reports_each_failure`, `bulk_group_import_reports_an_unreadable_input_and_imports_the_rest` |
 | Example action groups | A missing `actions.json` gave an empty library | Five unchecked OpenTag groups under Examples | `a_missing_configuration_offers_unchecked_example_groups`, `example_groups_do_what_their_names_say` |
@@ -33,6 +33,7 @@ The Export Cover page documents one option about repeats: with "Export duplicate
 - When the file already holds the same bytes, nothing is written. Running an Export Cover action again is quiet whichever way the option is set.
 - When it holds something else, it is replaced atomically. The action dialogs and Quick Action run through `history::record_with_side_files`, so undo puts the old image back. A file that existed before the run is given to undo the first time the run uses its name; undo drops that copy when the file did not change. A new image stays after undo, as before.
 - When another selected file wrote a different image to the same name earlier in the same run, the later file gets a warning and the first image stays. The same image from a later file is no collision, also when duplicates are exported (it would write the same bytes again).
+- A file that finds the image already there writes nothing and does not take the name over, so the file that wrote it can still replace it later in the run.
 - When the same file exports again to a name it wrote earlier in the run (its cover changed in between, in the same or a later group), the later export replaces the earlier one, so the actions apply in order.
 - The existing protections stay: an output that is an input audio file, a chapter or cue sheet row's file, or an alias of one through `..` or a symlink is refused.
 
@@ -55,7 +56,7 @@ Export keeps its own file-name handling (`export.rs`), which already treats `\` 
 
 ### Import Cover wildcards
 
-Wildcards are not on the 3.36.1 Import Cover page; the audit cites forum usage where the first matching image is used. A `*` (any run of characters) or `?` (one character) in the last part of the file name selects files in that folder, matching names without regard to case. Matches are taken in natural, case-insensitive name order (`front2.png` before `front10.png`), and the first one whose first bytes are a JPEG, PNG, GIF, BMP, WebP or other image format the `image` crate recognises is imported. Folders and files that are not images are skipped. No match is a warning for that file ("No image matches …"), and with "delete existing covers" set nothing is deleted. Wildcards in folder names are refused. A name without wildcards is used as before.
+Wildcards are not on the 3.36.1 Import Cover page; the audit cites forum usage where the first matching image is used. A `*` (any run of characters) or `?` (one character) in the last part of the file name selects files in that folder, matching names without regard to case. Matches are taken in natural, case-insensitive name order (`front2.png` before `front10.png`), and the first one the cover import accepts is imported: the file's first bytes must look like an image, and the whole file must then pass the same check the import makes (`picture_from_bytes`: JPEG, PNG, GIF, BMP, TIFF or WebP). Folders, files that are not images and image formats the import does not take (QOI, for example) are skipped, so a broad `*` moves on to the next match. Import Cover and Add cover now take WebP files too, as Manage Covers already did; before, lofty's reader refused them. No match is a warning for that file ("No image matches …"), and with "delete existing covers" set nothing is deleted. Wildcards in folder names are refused. A name without wildcards is used as before.
 
 ### Natural `$loop` order
 
@@ -80,6 +81,16 @@ Mp3tag ships its own groups (Standard, Case conversion, CD-R). OpenTag does not 
 A saved library, even an empty one, is loaded as saved, so removed examples do not come back. Every example passes validation and exports to `.mta`.
 
 ## Checks
+
+Review follow-up (2026-10-16): both new regressions were run against the
+previous production implementation before restoring the fixes. The cover
+ownership case failed because the original writer received a cross-file
+collision after the other file's equal-image export. The wildcard case
+failed with `failed to parse picture` for the first WebP match. With the
+fixes restored, all 41 native action-host tests passed. The ownership case
+enables duplicate export so it reaches the reviewed no-op branch; it checks
+that the original writer succeeds, the other file retains its expected
+warnings, and the final exported image contains the changed cover.
 
 - `AR=/usr/bin/ar npm test`: 312 UI tests and the whole Rust workspace pass.
 - `AR=/usr/bin/ar cargo clippy --workspace --all-targets -- -D warnings`: clean.
