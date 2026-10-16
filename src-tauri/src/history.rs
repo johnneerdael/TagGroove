@@ -114,6 +114,18 @@ pub fn record_with_side_files<T: Changes>(
     paths: &[String],
     work: impl FnOnce(&mut dyn FnMut(&Path) -> Result<(), String>) -> Result<T, String>,
 ) -> Result<T, String> {
+    record_with_side_file_epochs(label, group, paths, |capture| {
+        work(&mut |path| capture(path, 0))
+    })
+}
+
+/// Side-file recording whose hook also receives the completed directory-move count.
+pub fn record_with_side_file_epochs<T: Changes>(
+    label: &str,
+    group: Option<&str>,
+    paths: &[String],
+    work: impl FnOnce(&mut dyn FnMut(&Path, usize) -> Result<(), String>) -> Result<T, String>,
+) -> Result<T, String> {
     let result = journal_work(label, group, paths, work);
     // The library reads written, renamed and moved files again.
     let (renamed, directories) = result
@@ -128,7 +140,7 @@ fn journal_work<T: Changes>(
     label: &str,
     group: Option<&str>,
     paths: &[String],
-    work: impl FnOnce(&mut dyn FnMut(&Path) -> Result<(), String>) -> Result<T, String>,
+    work: impl FnOnce(&mut dyn FnMut(&Path, usize) -> Result<(), String>) -> Result<T, String>,
 ) -> Result<T, String> {
     // Chapter and cue sheet rows are snapshots of their file.
     let mut local: Vec<String> = Vec::new();
@@ -139,12 +151,12 @@ fn journal_work<T: Changes>(
         }
     }
     if local.is_empty() {
-        return work(&mut |_| Ok(()));
+        return work(&mut |_, _| Ok(()));
     }
     let mut capture = with_journal(|journal| journal.begin(label, group, &local));
-    let result = work(&mut |path| match capture.as_mut() {
+    let result = work(&mut |path, epoch| match capture.as_mut() {
         Ok(capture) if journaled(&path.to_string_lossy()) => {
-            with_journal(|journal| journal.capture_side_file(capture, path))?
+            with_journal(|journal| journal.capture_side_file_after_moves(capture, path, epoch))?
         }
         _ => Ok(()),
     });
@@ -271,6 +283,556 @@ mod tests {
     }
     fn run<T>(future: impl std::future::Future<Output = Result<T, String>>) -> T {
         tauri::async_runtime::block_on(future).unwrap()
+    }
+
+    fn check_new_cover_undo(move_folder: bool) {
+        let _journal = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
+        TEST_ROOTS.lock().unwrap().push(root.clone());
+        let album = root.join("Album");
+        std::fs::create_dir(&album).unwrap();
+        let audio = album.join("a.wav");
+        wav(&audio, "Original");
+        let mut image = std::io::Cursor::new(Vec::new());
+        image::DynamicImage::ImageRgb8(image::RgbImage::new(2, 2))
+            .write_to(&mut image, image::ImageFormat::Png)
+            .unwrap();
+        let image = image.into_inner();
+        let input = root.join("input.png");
+        std::fs::write(&input, &image).unwrap();
+        tag_core::add_cover(&audio, &input).unwrap();
+        let original = std::fs::read(&audio).unwrap();
+        let mut actions = vec![tag_core::actions::ActionSpec::ExportCover {
+            filename_template: "art/newcover".into(),
+            picture_type: None,
+            export_duplicates: false,
+        }];
+        if move_folder {
+            actions.extend([
+                tag_core::actions::ActionSpec::FormatValue {
+                    field: "TITLE".into(),
+                    template: "Changed".into(),
+                },
+                tag_core::actions::ActionSpec::FormatValue {
+                    field: "_DIRECTORY".into(),
+                    template: "Moved".into(),
+                },
+            ]);
+        }
+        let current = if move_folder {
+            root.join("Moved")
+        } else {
+            album.clone()
+        };
+        let result = run(crate::execute_action_groups(
+            vec![audio.to_string_lossy().into_owned()],
+            vec![tag_core::actions::ActionGroup {
+                name: "Create cover".into(),
+                enabled: true,
+                actions,
+            }],
+            None,
+        ));
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert_eq!(
+            std::fs::read(current.join("art/newcover.png")).unwrap(),
+            image
+        );
+        let written = std::fs::read(current.join("a.wav")).unwrap();
+        let undone = run(undo_last());
+        assert!(
+            undone.result.errors.is_empty(),
+            "{:?}",
+            undone.result.errors
+        );
+        assert!(!album.join("art/newcover.png").exists());
+        assert_eq!(std::fs::read(&audio).unwrap(), original);
+        let redone = run(redo_last());
+        assert!(
+            redone.result.errors.is_empty(),
+            "{:?}",
+            redone.result.errors
+        );
+        assert_eq!(
+            std::fs::read(current.join("art/newcover.png")).unwrap(),
+            image
+        );
+        assert_eq!(std::fs::read(current.join("a.wav")).unwrap(), written);
+        // Remove this test's final undo entry from the shared command journal.
+        assert!(run(undo_last()).result.errors.is_empty());
+        TEST_ROOTS.lock().unwrap().retain(|r| r != &root);
+    }
+
+    #[test]
+    fn action_cover_creation_only_has_undo_and_redo() {
+        check_new_cover_undo(false);
+    }
+
+    #[test]
+    fn action_cover_creation_then_folder_move_has_undo_and_redo() {
+        check_new_cover_undo(true);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn action_cover_symlink_replacement_is_journaled_through_the_command() {
+        let _journal = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
+        TEST_ROOTS.lock().unwrap().push(root.clone());
+        let a = root.join("a.wav");
+        let b = root.join("b.wav");
+        wav(&a, "Alpha");
+        wav(&b, "Beta");
+        let image = |width| {
+            let mut bytes = std::io::Cursor::new(Vec::new());
+            image::DynamicImage::ImageRgb8(image::RgbImage::new(width, width))
+                .write_to(&mut bytes, image::ImageFormat::Png)
+                .unwrap();
+            bytes.into_inner()
+        };
+        let (first, previous) = (image(2), image(3));
+        let original = root.join("original.png");
+        let first_image = root.join("first.png");
+        std::fs::write(&original, &previous).unwrap();
+        std::fs::write(&first_image, &first).unwrap();
+        tag_core::add_cover(&a, &first_image).unwrap();
+        tag_core::add_cover(&b, &original).unwrap();
+        let target = root.join("shared.png");
+        std::os::unix::fs::symlink("original.png", &target).unwrap();
+        let text = |p: &Path| p.to_string_lossy().into_owned();
+        let group = tag_core::actions::ActionGroup {
+            name: "Cover link".into(),
+            enabled: true,
+            actions: vec![tag_core::actions::ActionSpec::ExportCover {
+                filename_template: "shared".into(),
+                picture_type: None,
+                export_duplicates: false,
+            }],
+        };
+        let result = run(crate::execute_action_groups(
+            vec![text(&a), text(&b)],
+            vec![group],
+            None,
+        ));
+        assert_eq!(result.errors.len(), 1, "{:?}", result.errors);
+        assert!(result.errors[0].path.ends_with("b.wav"));
+        assert!(result.errors[0]
+            .error
+            .contains("already written for another file"));
+        assert_eq!(std::fs::read(&target).unwrap(), first);
+        assert!(!std::fs::symlink_metadata(&target)
+            .unwrap()
+            .file_type()
+            .is_symlink());
+        assert_eq!(std::fs::read(&original).unwrap(), previous);
+        let undone = run(undo_last());
+        assert!(
+            undone.result.errors.is_empty(),
+            "{:?}",
+            undone.result.errors
+        );
+        assert_eq!(
+            std::fs::read_link(&target).unwrap(),
+            Path::new("original.png")
+        );
+        assert_eq!(std::fs::read(&target).unwrap(), previous);
+        let redone = run(redo_last());
+        assert!(
+            redone.result.errors.is_empty(),
+            "{:?}",
+            redone.result.errors
+        );
+        assert!(!std::fs::symlink_metadata(&target)
+            .unwrap()
+            .file_type()
+            .is_symlink());
+        assert_eq!(std::fs::read(&target).unwrap(), first);
+        assert_eq!(std::fs::read(&original).unwrap(), previous);
+        // An externally substituted link is a different directory entry,
+        // even when it exposes the exact bytes the journal expects.
+        std::fs::remove_file(&target).unwrap();
+        std::os::unix::fs::symlink("first.png", &target).unwrap();
+        let refused = run(undo_last());
+        assert!(refused
+            .result
+            .errors
+            .iter()
+            .any(|error| error.error.contains("Changed outside")));
+        assert_eq!(std::fs::read_link(&target).unwrap(), Path::new("first.png"));
+        // The app's existing full-alias protection rejects a dangling
+        // destination visibly before any cover write or link replacement.
+        let dangling = root.join("dangling.png");
+        std::os::unix::fs::symlink("missing.png", &dangling).unwrap();
+        let result = run(crate::execute_action_groups(
+            vec![text(&a)],
+            vec![tag_core::actions::ActionGroup {
+                name: "Dangling link".into(),
+                enabled: true,
+                actions: vec![tag_core::actions::ActionSpec::ExportCover {
+                    filename_template: "dangling".into(),
+                    picture_type: None,
+                    export_duplicates: false,
+                }],
+            }],
+            None,
+        ));
+        assert_eq!(result.errors.len(), 1, "{:?}", result.errors);
+        assert_eq!(
+            std::fs::read_link(&dangling).unwrap(),
+            Path::new("missing.png")
+        );
+        assert!(!root.join("missing.png").exists());
+        assert!(!std::fs::read_dir(&root).unwrap().any(|entry| entry
+            .unwrap()
+            .file_name()
+            .to_string_lossy()
+            .starts_with(".opentag-link-")));
+        TEST_ROOTS.lock().unwrap().retain(|r| r != &root);
+    }
+
+    #[test]
+    fn action_cover_undo_follows_later_directory_moves_and_keeps_the_first_snapshot() {
+        let _journal = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        for (repeat_after_move, start_identical, move_folder) in [
+            (false, false, true),
+            (true, false, true),
+            (true, true, true),
+            (true, true, false),
+        ] {
+            let dir = tempfile::tempdir().unwrap();
+            let root = dunce::canonicalize(dir.path()).unwrap();
+            TEST_ROOTS.lock().unwrap().push(root.clone());
+            let album = root.join("Album");
+            std::fs::create_dir(&album).unwrap();
+            let audio = album.join("a.wav");
+            wav(&audio, "Original");
+            let image = |width| {
+                let mut bytes = std::io::Cursor::new(Vec::new());
+                image::DynamicImage::ImageRgb8(image::RgbImage::new(width, width))
+                    .write_to(&mut bytes, image::ImageFormat::Png)
+                    .unwrap();
+                bytes.into_inner()
+            };
+            let embedded = image(2);
+            let previous = if start_identical {
+                embedded.clone()
+            } else {
+                image(3)
+            };
+            let later = image(4);
+            let input = root.join("input.png");
+            let next = root.join("next.png");
+            std::fs::write(&input, &embedded).unwrap();
+            std::fs::write(&next, &later).unwrap();
+            tag_core::add_cover(&audio, &input).unwrap();
+            let before_audio = std::fs::read(&audio).unwrap();
+            std::fs::write(album.join("shared.png"), &previous).unwrap();
+            let export = || tag_core::actions::ActionSpec::ExportCover {
+                filename_template: "shared".into(),
+                picture_type: None,
+                export_duplicates: false,
+            };
+            let rename = |name: &str| tag_core::actions::ActionSpec::FormatValue {
+                field: "_DIRECTORY".into(),
+                template: name.into(),
+            };
+            let mut actions = vec![export()];
+            if move_folder {
+                actions.push(rename("Renamed"));
+            }
+            if repeat_after_move {
+                actions.extend([
+                    tag_core::actions::ActionSpec::ImportCover {
+                        filename_template: next.to_string_lossy().into_owned(),
+                        picture_type: None,
+                        delete_existing: true,
+                    },
+                    export(),
+                ]);
+                if move_folder {
+                    actions.push(rename("Final"));
+                }
+                actions.push(export());
+            }
+            let final_folder = if move_folder {
+                root.join(if repeat_after_move {
+                    "Final"
+                } else {
+                    "Renamed"
+                })
+            } else {
+                album.clone()
+            };
+            let result = run(crate::execute_action_groups(
+                vec![audio.to_string_lossy().into_owned()],
+                vec![tag_core::actions::ActionGroup {
+                    name: "Move cover folder".into(),
+                    enabled: true,
+                    actions,
+                }],
+                None,
+            ));
+            assert!(result.errors.is_empty(), "{:?}", result.errors);
+            let after_image = if repeat_after_move { &later } else { &embedded };
+            assert_eq!(
+                std::fs::read(final_folder.join("shared.png")).unwrap(),
+                *after_image
+            );
+            let after_audio = std::fs::read(final_folder.join("a.wav")).unwrap();
+            if move_folder {
+                assert!(!album.exists());
+            }
+            let undone = run(undo_last());
+            assert!(
+                undone.result.errors.is_empty(),
+                "{:?}",
+                undone.result.errors
+            );
+            assert_eq!(std::fs::read(album.join("shared.png")).unwrap(), previous);
+            assert_eq!(std::fs::read(&audio).unwrap(), before_audio);
+            if move_folder {
+                assert!(!final_folder.exists());
+            }
+            let redone = run(redo_last());
+            assert!(
+                redone.result.errors.is_empty(),
+                "{:?}",
+                redone.result.errors
+            );
+            assert_eq!(
+                std::fs::read(final_folder.join("shared.png")).unwrap(),
+                *after_image
+            );
+            assert_eq!(
+                std::fs::read(final_folder.join("a.wav")).unwrap(),
+                after_audio
+            );
+            if move_folder {
+                assert!(!album.exists());
+            }
+            // Leave no undo step in the shared command journal for the next
+            // fixture; its first command will clear this final redo step.
+            let cleanup = run(undo_last());
+            assert!(
+                cleanup.result.errors.is_empty(),
+                "{:?}",
+                cleanup.result.errors
+            );
+            TEST_ROOTS.lock().unwrap().retain(|r| r != &root);
+        }
+    }
+
+    #[test]
+    fn cover_export_refuses_an_existing_output_before_exceeding_undo_budget() {
+        let _journal = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
+        TEST_ROOTS.lock().unwrap().push(root.clone());
+        let audio = root.join("a.wav");
+        wav(&audio, "Original");
+        let input = root.join("input.png");
+        let mut image = std::io::Cursor::new(Vec::new());
+        image::DynamicImage::ImageRgb8(image::RgbImage::new(2, 2))
+            .write_to(&mut image, image::ImageFormat::Png)
+            .unwrap();
+        std::fs::write(&input, image.into_inner()).unwrap();
+        tag_core::add_cover(&audio, &input).unwrap();
+        let before = std::fs::read(&audio).unwrap();
+        let output = root.join("cover.png");
+        std::fs::write(&output, [7; 64]).unwrap();
+        struct RestoreJournal(Option<Journal>);
+        impl Drop for RestoreJournal {
+            fn drop(&mut self) {
+                *JOURNAL.lock().unwrap_or_else(|e| e.into_inner()) = self.0.take();
+            }
+        }
+        let test_journal = Journal::open(
+            &root.join("undo"),
+            Limits {
+                bytes: before.len() as u64 + 32,
+                min_free: 0,
+                ..Limits::default()
+            },
+        )
+        .unwrap();
+        let _restore = RestoreJournal(JOURNAL.lock().unwrap().replace(test_journal));
+        let result = run(crate::execute_action_groups(
+            vec![audio.to_string_lossy().into_owned()],
+            vec![tag_core::actions::ActionGroup {
+                name: "Limited cover".into(),
+                enabled: true,
+                actions: vec![tag_core::actions::ActionSpec::ExportCover {
+                    filename_template: "cover".into(),
+                    picture_type: None,
+                    export_duplicates: false,
+                }],
+            }],
+            None,
+        ));
+        assert_eq!(result.errors.len(), 1, "{:?}", result.errors);
+        assert!(
+            result.errors[0].error.contains("undo byte limit"),
+            "{:?}",
+            result.errors
+        );
+        assert_eq!(std::fs::read(&output).unwrap(), [7; 64]);
+        assert_eq!(std::fs::read(&audio).unwrap(), before);
+        assert!(history_state().unwrap().undo.is_none());
+        TEST_ROOTS.lock().unwrap().retain(|r| r != &root);
+    }
+
+    #[test]
+    fn cover_undo_tracks_outputs_created_at_a_reused_folder_path() {
+        let _journal = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        for obstruct in [false, true] {
+            let dir = tempfile::tempdir().unwrap();
+            let root = dunce::canonicalize(dir.path()).unwrap();
+            TEST_ROOTS.lock().unwrap().push(root.clone());
+            let album = root.join("Album");
+            let moved = root.join("Moved");
+            std::fs::create_dir(&album).unwrap();
+            let audio = album.join("a.wav");
+            wav(&audio, "Original");
+            let input = root.join("input.png");
+            let mut image = std::io::Cursor::new(Vec::new());
+            image::DynamicImage::ImageRgb8(image::RgbImage::new(2, 2))
+                .write_to(&mut image, image::ImageFormat::Png)
+                .unwrap();
+            let image = image.into_inner();
+            std::fs::write(&input, &image).unwrap();
+            tag_core::add_cover(&audio, &input).unwrap();
+            let before = std::fs::read(&audio).unwrap();
+            std::fs::write(album.join("shared.png"), b"Original output").unwrap();
+            let export = |name| tag_core::actions::ActionSpec::ExportCover {
+                filename_template: name,
+                picture_type: None,
+                export_duplicates: false,
+            };
+            let result = run(crate::execute_action_groups(
+                vec![audio.to_string_lossy().into_owned()],
+                vec![tag_core::actions::ActionGroup {
+                    name: "Reuse old folder".into(),
+                    enabled: true,
+                    actions: vec![
+                        export("shared".into()),
+                        tag_core::actions::ActionSpec::FormatValue {
+                            field: "_DIRECTORY".into(),
+                            template: "Moved".into(),
+                        },
+                        export(album.join("nested/new").to_string_lossy().into_owned()),
+                    ],
+                }],
+                None,
+            ));
+            assert!(result.errors.is_empty(), "{:?}", result.errors);
+            assert_eq!(std::fs::read(moved.join("shared.png")).unwrap(), image);
+            assert_eq!(std::fs::read(album.join("nested/new.png")).unwrap(), image);
+            if obstruct {
+                std::fs::write(album.join("external.txt"), b"External data").unwrap();
+            }
+            let undone = run(undo_last());
+            if obstruct {
+                assert!(!undone.result.errors.is_empty());
+                assert_eq!(
+                    std::fs::read(album.join("external.txt")).unwrap(),
+                    b"External data"
+                );
+                assert_eq!(
+                    std::fs::read(album.join("nested/new.png")).unwrap(),
+                    image,
+                    "rolled back side-file removal"
+                );
+                assert_eq!(std::fs::read(moved.join("shared.png")).unwrap(), image);
+                assert_eq!(std::fs::read(moved.join("a.wav")).unwrap(), before);
+            } else {
+                assert!(
+                    undone.result.errors.is_empty(),
+                    "{:?}",
+                    undone.result.errors
+                );
+                assert_eq!(
+                    std::fs::read(album.join("shared.png")).unwrap(),
+                    b"Original output"
+                );
+                assert_eq!(std::fs::read(&audio).unwrap(), before);
+                assert!(!album.join("nested/new.png").exists() && !moved.exists());
+                let redone = run(redo_last());
+                assert!(
+                    redone.result.errors.is_empty(),
+                    "{:?}",
+                    redone.result.errors
+                );
+                assert_eq!(std::fs::read(moved.join("shared.png")).unwrap(), image);
+                assert_eq!(std::fs::read(album.join("nested/new.png")).unwrap(), image);
+                assert_eq!(std::fs::read(moved.join("a.wav")).unwrap(), before);
+                assert!(run(undo_last()).result.errors.is_empty());
+            }
+            TEST_ROOTS.lock().unwrap().retain(|r| r != &root);
+        }
+    }
+
+    #[test]
+    fn tag_to_tag_metadata_outputs_follow_preview_contract() {
+        let _journal = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
+        TEST_ROOTS.lock().unwrap().push(root.clone());
+        let audio = root.join("preview.wav");
+        wav(&audio, "Unchanged");
+        let path = audio.to_string_lossy().into_owned();
+        let separator = char::from(92).to_string().repeat(2);
+        let cases = [
+            (separator.clone(), vec![]),
+            (
+                format!(" Jazz {separator} {separator} Blues{separator}"),
+                vec!["Jazz", "Blues"],
+            ),
+            (" Live ".into(), vec![" Live "]),
+            (format!("AC{}DC", char::from(92)), vec![r"AC\DC"]),
+            (
+                format!("{0}Jazz{0}{separator}{0}", char::from(0x85)),
+                vec!["Jazz"],
+            ),
+            (
+                format!("{0}Jazz{0}{separator}", char::from_u32(0xfeff).unwrap()),
+                vec!["\u{feff}Jazz\u{feff}"],
+            ),
+        ];
+        for (template, expected) in cases {
+            tag_core::write_fields(
+                &audio,
+                &Fields::from([("GENRE".into(), vec!["Previous".into()])]),
+            )
+            .unwrap();
+            let before = std::fs::read(&audio).unwrap();
+            let preview = run(crate::preview_format(
+                vec![path.clone()],
+                template.clone(),
+                None,
+                Some(false),
+            ));
+            assert_eq!(preview[0].value, template);
+            let result = run(convert_tag_to_tag(
+                vec![path.clone()],
+                "GENRE".into(),
+                template.clone(),
+                None,
+            ));
+            assert!(result.errors.is_empty(), "{:?}", result.errors);
+            let fields = tag_core::read_entry_summary(&audio).unwrap().fields;
+            assert_eq!(
+                fields.get("GENRE").map(Vec::as_slice).unwrap_or(&[]),
+                expected,
+                "{template:?}"
+            );
+            assert_eq!(fields["TITLE"], ["Unchanged"]);
+            let undo = run(undo_last());
+            assert!(undo.result.errors.is_empty(), "{:?}", undo.result.errors);
+            assert_eq!(std::fs::read(&audio).unwrap(), before);
+        }
+        TEST_ROOTS.lock().unwrap().retain(|r| r != &root);
     }
 
     #[test]

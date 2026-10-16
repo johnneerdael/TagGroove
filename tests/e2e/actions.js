@@ -17,11 +17,33 @@
   const openHelper = async el => { const b = await waitFor(() => helperFor(el), 3000, 'helper button'); b.click(); return waitFor(() => document.querySelector('.helper-menu'), 3000, 'helper menu'); };
   const item = (menu, label) => [...menu.querySelectorAll('button')].find(b => b.textContent.trim() === label);
   const topLabels = menu => [...menu.children].map(c => c.tagName === 'HR' ? '—' : c.classList.contains('helper-group') ? c.querySelector('button').textContent.trim() : c.textContent.trim());
+  // Start custom-group assertions from an explicit saved fixture, while
+  // still checking the example groups supplied by a new installation.
+  const emptyExampleGroups = async dlg => {
+    const examples = [...dlg.querySelectorAll('[data-group-row]')];
+    if (examples.length !== 5 || examples.some(row => !row.querySelector('span').textContent.startsWith('Examples#') || row.querySelector('input').checked))
+      throw new Error('expected five unchecked example groups: ' + examples.map(row => row.textContent).join('|'));
+    for (const _ of examples) dlg.querySelector('[data-command="remove"]').click();
+    if (dlg.querySelector('[data-group-row]')) throw new Error('example groups were not removed');
+    dlg.querySelector('#save-groups').click();
+    await waitFor(() => dlg.querySelector('#save-groups').disabled && !dlg.querySelector('[data-close]').disabled, 5000, 'empty group fixture saved');
+    const saved = await inv('load_action_library');
+    if (saved.groups.length) throw new Error('saved empty library still has ' + saved.groups.length + ' groups');
+  };
   const results = [];
   const step = async (name, fn) => { try { const detail = await fn(); results.push(['PASS', name]); await report(`PASS ${name}${detail ? ' — ' + detail : ''}`); } catch (e) { results.push(['FAIL', name]); await report(`FAIL ${name} — ${e && e.message || e}`); document.querySelectorAll('.helper-menu').forEach(m => m.remove()); } };
   try {
     await waitFor(() => document.querySelectorAll('tr[data-path]').length >= 2, 15000, 'fixture rows');
     await clickRow('sine-a.mp3');
+
+    await step('A new installation offers unchecked examples; saving an empty library keeps it empty', async () => {
+      document.querySelector('button[data-op="groups"]').click();
+      const groups = await topWith('#apply-groups', 'example groups');
+      await emptyExampleGroups(groups);
+      groups.querySelector('[data-close]').click();
+      await waitFor(() => !document.querySelector('dialog[open]'), 5000, 'example groups closed');
+      return 'five unchecked examples verified; empty custom-group fixture saved';
+    });
 
     await step('filter helper menu lists sections and toggles Auto-apply filter', async () => {
       const filter = document.querySelector('#filter'); const menu = await openHelper(filter);

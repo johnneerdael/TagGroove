@@ -595,6 +595,9 @@ impl<P: Provider> Store<P> {
         }
     }
     pub(super) fn snapshot_input(&self, uri: &str) -> Result<PathBuf> {
+        self.snapshot_input_with_name(uri).map(|(path, _)| path)
+    }
+    pub(super) fn snapshot_input_with_name(&self, uri: &str) -> Result<(PathBuf, String)> {
         if !uri.starts_with("content://") {
             return Err("Mobile artwork input must be a provider content URI".into());
         }
@@ -608,7 +611,7 @@ impl<P: Provider> Store<P> {
         self.checked(&output, true)?;
         let snapshot = self.provider.snapshot(uri, &output)?;
         self.verify(&snapshot, uri, &output)?;
-        Ok(output)
+        Ok((output, snapshot.document.name))
     }
 }
 fn project_entry(entry: &mut AudioEntry, document: &DocumentInfo) {

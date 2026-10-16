@@ -29,6 +29,19 @@
   const closeDialogs = async () => { for (let i = 0; i < 5 && openDialog(); i++) { openDialog().close(); await sleep(150); } };
   const menuItem = (menu, text) => [...document.querySelectorAll('.menubar > details.menu')].find(d => d.querySelector('summary').textContent === menu)?.querySelector('.menu-list');
   const shortcutOf = (menu, opName) => menuItem(menu)?.querySelector(`button[data-op="${opName}"] small`)?.textContent || '';
+  // Start custom-group assertions from an explicit saved fixture, while
+  // still checking the example groups supplied by a new installation.
+  const emptyExampleGroups = async dlg => {
+    const examples = [...dlg.querySelectorAll('[data-group-row]')];
+    if (examples.length !== 5 || examples.some(row => !row.querySelector('span').textContent.startsWith('Examples#') || row.querySelector('input').checked))
+      throw new Error('expected five unchecked example groups: ' + examples.map(row => row.textContent).join('|'));
+    for (const _ of examples) dlg.querySelector('[data-command="remove"]').click();
+    if (dlg.querySelector('[data-group-row]')) throw new Error('example groups were not removed');
+    dlg.querySelector('#save-groups').click();
+    await waitFor(() => dlg.querySelector('#save-groups').disabled && !dlg.querySelector('[data-close]').disabled, 5000, 'empty group fixture saved');
+    const saved = await inv('load_action_library');
+    if (saved.groups.length) throw new Error('saved empty library still has ' + saved.groups.length + ' groups');
+  };
   const results = [];
   const step = async (name, fn) => { try { const detail = await fn(); results.push(['PASS', name]); await report(`PASS ${name}${detail ? ' — ' + detail : ''}`); } catch (e) { results.push(['FAIL', name]); await report(`FAIL ${name} — ${e && e.message || e}`); } finally { await closeDialogs(); document.querySelectorAll('details[open]').forEach(d => d.open = false); } };
   const setOptions = async (page, changes) => {
@@ -161,6 +174,7 @@
     await step('Actions dialog: Insert, multi-selection with ⌘/Ctrl+click, Ctrl+A, Ctrl+Shift+A, Space, Alt+↑ and Delete', async () => {
       document.body.focus(); press(document.body, '6', { code: 'Digit6', altKey: true });
       const dlg = await waitFor(() => document.querySelector('dialog[open].action-groups-dialog'), 3000, 'actions dialog');
+      await emptyExampleGroups(dlg);
       for (const name of ['Alpha', 'Beta', 'Gamma']) {
         press(dlg.querySelector('.group-list'), 'Insert');
         const child = await waitFor(() => [...document.querySelectorAll('dialog[open]')].find(d => d !== dlg && d.querySelector('[data-key="name"]')), 3000, 'name dialog');

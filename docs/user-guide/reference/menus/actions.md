@@ -71,7 +71,8 @@ does not evaluate `%artist%` or scripting functions.
 - Check group/action order and the current Quick settings. A later action
   sees the earlier action's result.
 - Inspect the file errors and the available **Edit → Undo** operation.
-  External exports and generated files are not restored by tag-edit undo.
+  Export Cover records its created and replaced images for undo; reports,
+  playlists and other external outputs have their own cleanup rules.
 - Save group edits with **Save groups** when the workflow must survive
   reopening the app; editing a group is separate from changing audio tags.
 

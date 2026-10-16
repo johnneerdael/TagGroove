@@ -492,6 +492,114 @@ fn side_files_created_or_replaced_are_removed_or_restored() {
     assert_eq!(fs::read(&audio).unwrap(), original);
 }
 
+#[cfg(unix)]
+#[test]
+fn side_file_symlinks_restore_relative_and_dangling_targets_verbatim() {
+    use std::io::Write;
+    for link_target in ["original.jpg", "missing.jpg"] {
+        let dir = tempfile::tempdir().unwrap();
+        let original = dir.path().join("original.jpg");
+        fs::write(&original, b"original target").unwrap();
+        let output = dir.path().join("cover.jpg");
+        std::os::unix::fs::symlink(link_target, &output).unwrap();
+        let mut history = journal(dir.path());
+        let mut capture = history.begin("Cover link", None, &[]);
+        history.capture_side_file(&mut capture, &output).unwrap();
+        let mut staged = tempfile::NamedTempFile::new_in(dir.path()).unwrap();
+        staged.write_all(b"exported image").unwrap();
+        staged.persist(&output).unwrap();
+        history.commit(capture, &[], &[]);
+        let undo = history.undo().unwrap();
+        assert!(undo.errors.is_empty(), "{:?}", undo.errors);
+        assert_eq!(fs::read_link(&output).unwrap(), Path::new(link_target));
+        assert_eq!(fs::read(&original).unwrap(), b"original target");
+        assert!(!dir.path().join("missing.jpg").exists());
+        let redo = history.redo().unwrap();
+        assert!(redo.errors.is_empty(), "{:?}", redo.errors);
+        assert!(fs::symlink_metadata(&output).unwrap().is_file());
+        assert_eq!(fs::read(output).unwrap(), b"exported image");
+        assert_eq!(fs::read(original).unwrap(), b"original target");
+        assert!(!fs::read_dir(dir.path()).unwrap().any(|entry| entry
+            .unwrap()
+            .file_name()
+            .to_string_lossy()
+            .starts_with(".opentag-")));
+    }
+}
+
+#[test]
+fn side_file_captures_across_directory_moves_keep_the_earliest_image() {
+    let dir = tempfile::tempdir().unwrap();
+    // Directory records use the same canonical roots as the command path
+    // and the existing directory-move journal fixtures.
+    let root = dunce::canonicalize(dir.path()).unwrap();
+    let old = root.join("Album");
+    let middle = root.join("Renamed");
+    let final_folder = root.join("Final");
+    fs::create_dir(&old).unwrap();
+    fs::write(old.join("cover.png"), b"original image").unwrap();
+    let mut history = journal(dir.path());
+    let mut capture = history.begin("Move cover", None, &[]);
+    history
+        .capture_side_file(&mut capture, &old.join("cover.png"))
+        .unwrap();
+    fs::write(old.join("cover.png"), b"intermediate image").unwrap();
+    fs::rename(&old, &middle).unwrap();
+    history
+        .capture_side_file(&mut capture, &middle.join("cover.png"))
+        .unwrap();
+    fs::write(middle.join("cover.png"), b"final image").unwrap();
+    fs::rename(&middle, &final_folder).unwrap();
+    history.commit(
+        capture,
+        &[],
+        &[
+            (key(&old), key(&middle)),
+            (key(&middle), key(&final_folder)),
+        ],
+    );
+    let undo = history.undo().unwrap();
+    assert!(undo.errors.is_empty(), "{:?}", undo.errors);
+    assert_eq!(fs::read(old.join("cover.png")).unwrap(), b"original image");
+    assert!(!middle.exists() && !final_folder.exists());
+    let redo = history.redo().unwrap();
+    assert!(redo.errors.is_empty(), "{:?}", redo.errors);
+    assert_eq!(
+        fs::read(final_folder.join("cover.png")).unwrap(),
+        b"final image"
+    );
+    assert!(!old.exists() && !middle.exists());
+}
+
+#[cfg(unix)]
+#[test]
+fn absent_side_file_capture_resolves_symlink_ancestors_without_creating_parents() {
+    let dir = tempfile::tempdir().unwrap();
+    let real = dir.path().join("real");
+    let alias = dir.path().join("alias");
+    fs::create_dir(&real).unwrap();
+    std::os::unix::fs::symlink(&real, &alias).unwrap();
+    let output = alias.join("new/missing/../cover.png");
+    let mut history = journal(dir.path());
+    let mut capture = history.begin("New nested cover", None, &[]);
+    history.capture_side_file(&mut capture, &output).unwrap();
+    assert!(
+        !real.join("new").exists(),
+        "capture only records the absent entry"
+    );
+    fs::create_dir_all(output.parent().unwrap()).unwrap();
+    fs::write(&output, b"new cover image").unwrap();
+    history.commit(capture, &[], &[]);
+    assert!(history.undo().unwrap().errors.is_empty());
+    assert!(!real.join("new/cover.png").exists());
+    assert!(history.redo().unwrap().errors.is_empty());
+    assert_eq!(
+        fs::read(real.join("new/cover.png")).unwrap(),
+        b"new cover image"
+    );
+    assert_eq!(fs::read_link(alias).unwrap(), real);
+}
+
 #[test]
 fn unchanged_side_files_are_not_recorded() {
     let dir = tempfile::tempdir().unwrap();
@@ -923,4 +1031,60 @@ fn journaling_is_refused_when_free_space_would_run_low() {
         read_entry(&path).unwrap().fields["TITLE"],
         ["Applied anyway"]
     );
+}
+
+#[test]
+fn side_file_epochs_keep_recreated_old_folders_distinct() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dunce::canonicalize(dir.path()).unwrap();
+    let album = root.join("Album");
+    let moved = root.join("Moved");
+    let final_folder = root.join("Final");
+    fs::create_dir(&album).unwrap();
+    fs::write(album.join("old.dat"), b"Before").unwrap();
+    let mut history = journal(&root);
+    let mut capture = history.begin("Epoch outputs", None, &[]);
+    history
+        .capture_side_file(&mut capture, &album.join("old.dat"))
+        .unwrap();
+    fs::write(album.join("old.dat"), b"After").unwrap();
+    fs::rename(&album, &moved).unwrap();
+    let z = album.join("nested/z.dat");
+    history
+        .capture_side_file_after_moves(&mut capture, &z, 1)
+        .unwrap();
+    fs::create_dir_all(z.parent().unwrap()).unwrap();
+    fs::write(&z, b"Late Z").unwrap();
+    // Same-epoch captures must replay in capture order, not path-sort order.
+    let a = album.join("nested/a.dat");
+    history
+        .capture_side_file_after_moves(&mut capture, &a, 1)
+        .unwrap();
+    fs::write(&a, b"Late A").unwrap();
+    fs::rename(&moved, &final_folder).unwrap();
+    let later = album.join("nested/later.dat");
+    history
+        .capture_side_file_after_moves(&mut capture, &later, 2)
+        .unwrap();
+    fs::write(&later, b"Later").unwrap();
+    history.commit(
+        capture,
+        &[],
+        &[
+            (key(&album), key(&moved)),
+            (key(&moved), key(&final_folder)),
+        ],
+    );
+    for _ in 0..2 {
+        let undo = history.undo().unwrap();
+        assert!(undo.errors.is_empty(), "{:?}", undo.errors);
+        assert_eq!(fs::read(album.join("old.dat")).unwrap(), b"Before");
+        assert!(!album.join("nested").exists() && !moved.exists() && !final_folder.exists());
+        let redo = history.redo().unwrap();
+        assert!(redo.errors.is_empty(), "{:?}", redo.errors);
+        assert_eq!(fs::read(final_folder.join("old.dat")).unwrap(), b"After");
+        assert_eq!(fs::read(&z).unwrap(), b"Late Z");
+        assert_eq!(fs::read(&a).unwrap(), b"Late A");
+        assert_eq!(fs::read(&later).unwrap(), b"Later");
+    }
 }

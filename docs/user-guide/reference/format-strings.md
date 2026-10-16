@@ -246,6 +246,23 @@ placeholder does not add that display separator; choose a join explicitly
 with `$meta_sep` when needed. Storage of multiple values depends on the tag
 format.
 
+### Write separate values with Format Value or Tag → Tag
+
+When writing an ordinary metadata field, **Format Value** and **Convert →
+Tag → Tag…** split their evaluated result at two consecutive backslashes
+(`\\`). Each component is trimmed and empty components are dropped. If no
+values remain, the destination field is removed. Without that delimiter, a
+nonempty result stays one value with its surrounding whitespace intact.
+A single backslash is ordinary text.
+
+For example, `Rock\\Pop` stores two values, `Rock` and `Pop`.
+`$meta_sep(artist,\\)` preserves separate existing artists in this writing
+context; `$meta_sep(artist,' & ')` creates one joined value. These are output
+rules for those metadata-writing commands, not a general change to what
+scripting functions return. Filename and directory destinations use their
+path rules instead. See the [Format Value examples](../actions/format-value.md#write-one-or-several-field-values)
+for delimiter, whitespace and empty-result cases.
+
 ## Numbers inside text
 
 Numeric functions skip leading whitespace, read a signed integer prefix,
@@ -284,9 +301,17 @@ file's current folder, unless it starts at the root of a drive.
 moves track 2 into `Juniper Vale/Harbour Lights/` under its current folder,
 as `02 - Lanterns on the Water.mp3`.
 
-**2. `\` and `/` that come from a value are replaced**, so a value can never
-create a folder by accident. The replacement is `_` unless you change it under
-**Options → Files → Replace folder separator in tag values with**.
+**2. `\` and `/` from ordinary metadata values are replaced**, so an artist
+or album value does not create a folder by accident. The replacement is `_`
+unless changed under **Options → Files → Replace folder separator in tag
+values with**. Native path placeholders are exceptions: `%_path%`,
+`%_folderpath%` and `%_workingpath%` can supply folder components in filename
+mode. A selected conditional branch retains that path provenance too; other
+derived function results still follow the ordinary value-cleaning rule.
+Action filenames preserve native path characters from those placeholders,
+including a literal backslash inside a Unix folder name. Tag → Filename
+normalizes separators across its final generated path instead; that same
+backslash is treated as a folder boundary there.
 
 **3. Characters that file systems reject are replaced with `_`.** These are
 `:` `*` `?` `"` `<` `>` `|` and control characters, and the rule applies to

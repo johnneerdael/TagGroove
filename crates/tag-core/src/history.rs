@@ -16,6 +16,8 @@
 //! Operations may also create or replace small files beside the audio, such
 //! as a cover image saved by a tag source import. These side files are copied
 //! whole, absent or not, and undo puts back exactly what was there before.
+//! Symbolic-link side entries retain their link target verbatim; their
+//! referents are never captured or changed.
 use crate::{FileError, TagOptions};
 use serde::Serialize;
 use std::{
@@ -183,8 +185,9 @@ fn fingerprint(path: &Path) -> Result<Fingerprint, String> {
 
 /// Bounds for retained snapshots. An operation whose snapshots would retain
 /// more than `bytes` is not recorded, so the journal never keeps more than
-/// this much audio. Journaling is also refused when it would leave less than
-/// `min_free` bytes available on the journal's volume.
+/// this much snapshot data. On Unix, journaling is also refused when it would
+/// leave less than `min_free` bytes available on the journal's volume; other
+/// platforms currently have no free-space query here.
 #[derive(Clone, Copy, Debug)]
 pub struct Limits {
     pub operations: usize,
@@ -209,6 +212,8 @@ struct Blob {
     linked: bool,
     /// Bytes this snapshot keeps on disk.
     cost: u64,
+    /// Side-file links retain the entry target verbatim, not its referent.
+    symlink_target: Option<PathBuf>,
 }
 #[derive(Clone, Debug)]
 struct Side {
@@ -236,10 +241,13 @@ impl FileRecord {
     }
 }
 /// A file that is not audio, created or replaced by an operation: its
-/// complete bytes on each side, or `None` where it did not exist.
+/// complete bytes or symlink entry on each side, or `None` where absent.
 #[derive(Clone, Debug)]
 struct SideFile {
+    /// Path at the capture epoch, before subsequent directory moves.
     path: PathBuf,
+    epoch: usize,
+    created_parents: Vec<PathBuf>,
     before: Option<Blob>,
     after: Option<Blob>,
 }
@@ -276,12 +284,19 @@ struct Captured {
     fingerprint: Fingerprint,
     blob: Blob,
 }
+struct SideCapture {
+    path: PathBuf,
+    before: Option<Blob>,
+    epoch: usize,
+    created_parents: Vec<PathBuf>,
+}
 /// Snapshots taken before one operation; pass it back to [`Journal::commit`].
 pub struct Capture {
     label: String,
     group: Option<String>,
     files: Vec<Captured>,
-    side_files: Vec<(PathBuf, Option<Blob>)>,
+    side_files: Vec<SideCapture>,
+    planned_bytes: u64,
     abandoned: Option<String>,
 }
 
@@ -380,7 +395,7 @@ impl Journal {
         }
     }
 
-    /// Bytes of audio currently retained by snapshots.
+    /// Bytes currently retained by audio and side-file snapshots.
     pub fn retained_bytes(&self) -> u64 {
         self.undo.iter().chain(&self.redo).map(Record::bytes).sum()
     }
@@ -410,6 +425,7 @@ impl Journal {
             path,
             linked,
             cost: expected.len,
+            symlink_target: None,
         };
         if blob.fingerprint.len != expected.len {
             discard(&blob);
@@ -426,6 +442,7 @@ impl Journal {
             group: group.map(str::to_owned),
             files: Vec::new(),
             side_files: Vec::new(),
+            planned_bytes: 0,
             abandoned: None,
         };
         if group.is_some() && self.abandoned_group.as_deref() == group {
@@ -469,6 +486,7 @@ impl Journal {
                 estimate = estimate.saturating_add(print.len);
             }
         }
+        capture.planned_bytes = grouped.saturating_add(estimate);
         if grouped.saturating_add(full) > self.limits.bytes {
             capture.abandoned = Some("the operation is too large to undo".into());
             return capture;
@@ -504,66 +522,198 @@ impl Journal {
     /// previous file or removes the new one. A capture that is not recorded
     /// ignores the call; an error means the file should not be written.
     pub fn capture_side_file(&mut self, capture: &mut Capture, path: &Path) -> Result<(), String> {
+        self.capture_side_file_after_moves(capture, path, 0)
+    }
+
+    /// Capture an entry after `completed_moves` directory moves in the list
+    /// subsequently passed to `commit`. Only later moves carry this entry.
+    pub fn capture_side_file_after_moves(
+        &mut self,
+        capture: &mut Capture,
+        path: &Path,
+        completed_moves: usize,
+    ) -> Result<(), String> {
         if capture.abandoned.is_some() {
             return Ok(());
         }
         let path = side_path(path)?;
-        if capture.side_files.iter().any(|(known, _)| *known == path) {
+        if capture
+            .side_files
+            .iter()
+            .any(|known| known.path == path && known.epoch == completed_moves)
+        {
             return Ok(());
         }
-        let before = match fs::symlink_metadata(&path) {
-            Ok(metadata) if metadata.is_file() => Some(self.copy_blob(&path)?),
-            Ok(_) => return Err(format!("{} is not a regular file", path.display())),
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
-            Err(error) => return Err(error.to_string()),
-        };
-        capture.side_files.push((path, before));
+        let created_parents = missing_parents(&path)?;
+        let retained = capture
+            .side_files
+            .iter()
+            .filter_map(|side| side.before.as_ref())
+            .fold(capture.planned_bytes, |total, blob| {
+                total.saturating_add(blob.cost)
+            });
+        let before = self.copy_side_file(&path, retained)?;
+        capture.side_files.push(SideCapture {
+            path,
+            before,
+            epoch: completed_moves,
+            created_parents,
+        });
         Ok(())
     }
 
-    /// A complete copy: side files are small and may be rewritten in place.
-    fn copy_blob(&mut self, source: &Path) -> Result<Blob, String> {
-        let path = self.blob_path();
-        if let Err(error) = fs::copy(source, &path) {
-            let _ = fs::remove_file(&path);
-            return Err(error.to_string());
+    fn copy_side_file(&mut self, source: &Path, retained: u64) -> Result<Option<Blob>, String> {
+        match fs::symlink_metadata(source) {
+            Ok(metadata) if metadata.file_type().is_symlink() => {
+                #[cfg(windows)]
+                {
+                    use std::os::windows::fs::FileTypeExt;
+                    if metadata.file_type().is_symlink_dir() {
+                        return Err("Cannot capture a directory symlink as a side file".into());
+                    }
+                }
+                let target = fs::read_link(source).map_err(|e| e.to_string())?;
+                self.check_side_budget(
+                    target.as_os_str().as_encoded_bytes().len() as u64,
+                    retained,
+                )?;
+                // Prove this platform can recreate the entry before allowing
+                // its replacement. The private sibling probe is always removed.
+                let folder = source.parent().ok_or("The side file has no folder")?;
+                let _probe = stage_side_link(&target, folder)?;
+                let path = self.blob_path();
+                if let Err(error) = fs::write(&path, target.as_os_str().as_encoded_bytes()) {
+                    let _ = fs::remove_file(&path);
+                    return Err(error.to_string());
+                }
+                let fingerprint = match fingerprint(&path) {
+                    Ok(print) => print,
+                    Err(error) => {
+                        let _ = fs::remove_file(&path);
+                        return Err(error);
+                    }
+                };
+                Ok(Some(Blob {
+                    path,
+                    cost: fingerprint.len,
+                    fingerprint,
+                    linked: false,
+                    symlink_target: Some(target),
+                }))
+            }
+            Ok(metadata) if metadata.is_file() => {
+                self.check_side_budget(metadata.len(), retained)?;
+                self.copy_blob(source, metadata.len()).map(Some)
+            }
+            Ok(_) => Err(format!(
+                "{} is not a regular file or symlink",
+                source.display()
+            )),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(error) => Err(error.to_string()),
         }
-        let fingerprint = fingerprint(&path)?;
-        Ok(Blob {
-            path,
-            cost: fingerprint.len,
-            fingerprint,
-            linked: false,
-        })
+    }
+
+    fn check_side_budget(&self, bytes: u64, retained: u64) -> Result<(), String> {
+        if retained.saturating_add(bytes) > self.limits.bytes {
+            return Err("The side-file undo snapshot exceeds the undo byte limit".into());
+        }
+        if available_space(&self.dir)
+            .is_some_and(|free| free < bytes.saturating_add(self.limits.min_free))
+        {
+            return Err(
+                "There is not enough free disk space for the side-file undo snapshot".into(),
+            );
+        }
+        Ok(())
+    }
+
+    /// Side files may be rewritten in place, so keep a bounded complete copy.
+    fn copy_blob(&mut self, source: &Path, bytes: u64) -> Result<Blob, String> {
+        use std::io::Read;
+        let path = self.blob_path();
+        let result = (|| {
+            let mut input = fs::File::open(source).map_err(|e| e.to_string())?;
+            let mut output = fs::File::create(&path).map_err(|e| e.to_string())?;
+            let copied = std::io::copy(&mut (&mut input).take(bytes), &mut output)
+                .map_err(|e| e.to_string())?;
+            let mut extra = [0];
+            if copied != bytes || input.read(&mut extra).map_err(|e| e.to_string())? != 0 {
+                return Err("The side file changed size while its undo snapshot was taken".into());
+            }
+            Ok(Blob {
+                fingerprint: fingerprint(&path)?,
+                path: path.clone(),
+                cost: bytes,
+                linked: false,
+                symlink_target: None,
+            })
+        })();
+        if result.is_err() {
+            let _ = fs::remove_file(&path);
+        }
+        result
     }
 
     /// Side files as the operation left them; unchanged ones are dropped.
     /// Also returns how many could not be recorded.
     fn commit_side_files(
         &mut self,
-        captured: Vec<(PathBuf, Option<Blob>)>,
+        captured: Vec<SideCapture>,
+        directories: &[(PathBuf, PathBuf)],
+        planned_bytes: u64,
     ) -> (Vec<SideFile>, usize) {
-        let mut recorded = Vec::new();
+        let mut final_paths = std::collections::BTreeSet::new();
+        let mut planned = Vec::new();
         let mut lost = 0;
-        for (path, before) in captured {
-            let after = if path.is_file() {
-                match self.copy_blob(&path) {
-                    Ok(blob) => Some(blob),
-                    Err(_) => {
-                        before.iter().for_each(discard);
-                        lost += 1;
-                        continue;
-                    }
-                }
-            } else {
-                None
+        for capture in captured {
+            let Some(later_moves) = directories.get(capture.epoch..) else {
+                capture.before.iter().for_each(discard);
+                lost += 1;
+                continue;
             };
+            let final_path = rebase(&capture.path, later_moves);
+            if final_paths.insert(final_path.clone()) {
+                planned.push((final_path, capture));
+            } else {
+                capture.before.iter().for_each(discard);
+            }
+        }
+        let mut retained = planned
+            .iter()
+            .filter_map(|(_, capture)| capture.before.as_ref())
+            .fold(planned_bytes, |total, blob| total.saturating_add(blob.cost));
+        let mut recorded = Vec::new();
+        for (path, capture) in planned {
+            let SideCapture {
+                path: captured_path,
+                before,
+                epoch,
+                created_parents,
+            } = capture;
+            let before_cost = before.as_ref().map_or(0, |blob| blob.cost);
+            let after = match self.copy_side_file(&path, retained) {
+                Ok(after) => after,
+                Err(_) => {
+                    before.iter().for_each(discard);
+                    retained = retained.saturating_sub(before_cost);
+                    lost += 1;
+                    continue;
+                }
+            };
+            let after_cost = after.as_ref().map_or(0, |blob| blob.cost);
+            retained = retained.saturating_add(after_cost);
             let unchanged = match (&before, &after) {
                 (None, None) => true,
-                (Some(old), Some(new)) => same_bytes(&old.path, &new.path),
+                (Some(old), Some(new)) => {
+                    old.symlink_target == new.symlink_target && same_bytes(&old.path, &new.path)
+                }
                 _ => false,
             };
             if unchanged {
+                retained = retained
+                    .saturating_sub(before_cost)
+                    .saturating_sub(after_cost);
                 [before.as_ref(), after.as_ref()]
                     .into_iter()
                     .flatten()
@@ -571,7 +721,9 @@ impl Journal {
                 continue;
             }
             recorded.push(SideFile {
-                path,
+                path: captured_path,
+                epoch,
+                created_parents,
                 before,
                 after,
             });
@@ -584,7 +736,7 @@ impl Journal {
     /// directory moves in the order they happened.
     pub fn commit(
         &mut self,
-        capture: Capture,
+        mut capture: Capture,
         renamed: &[(String, String)],
         directories: &[(String, String)],
     ) {
@@ -593,17 +745,29 @@ impl Journal {
             .map(|(from, to)| (PathBuf::from(from), PathBuf::from(to)))
             .collect();
         let writes = unwatch(capture.files.iter().map(|f| &f.path));
-        let (side_files, side_lost) = if capture.abandoned.is_some() {
+        let (mut side_files, side_lost) = if capture.abandoned.is_some() {
             capture
                 .side_files
                 .iter()
-                .filter_map(|(_, blob)| blob.as_ref())
+                .filter_map(|side| side.before.as_ref())
                 .for_each(discard);
             (Vec::new(), 0)
         } else {
-            self.commit_side_files(capture.side_files)
+            self.commit_side_files(capture.side_files, &directories, capture.planned_bytes)
         };
+        // A missing epoch entry can obstruct the directory replay itself.
+        // Do not offer a partial folder operation without all its side entries.
+        if side_lost > 0 && !directories.is_empty() {
+            for side in side_files.drain(..) {
+                [side.before.as_ref(), side.after.as_ref()]
+                    .into_iter()
+                    .flatten()
+                    .for_each(discard);
+            }
+            capture.abandoned = Some("side-file undo snapshots could not be retained".into());
+        }
         if let Some(reason) = capture.abandoned {
+            capture.files.iter().for_each(|file| discard(&file.blob));
             if capture.group.is_some() {
                 if let Some(record) = self.undo.pop_if(|top| top.group == capture.group) {
                     discard_record(&record);
@@ -864,7 +1028,7 @@ impl Journal {
             }
             files.push(file);
         }
-        // 2. Move directories as one unit; any failure rolls back and changes nothing.
+        // 2. Replay folder/side-file epochs together, rolling back completed steps on failure.
         let moves: Vec<(PathBuf, PathBuf)> = if backward {
             record
                 .directories
@@ -875,10 +1039,15 @@ impl Journal {
         } else {
             record.directories.clone()
         };
-        if let Err(error) = move_directories(&moves) {
+        let directory_outcome = if record.directories.is_empty() {
+            Ok(())
+        } else {
+            replay_side_files_and_directories(&record.side_files, &record.directories, backward)
+        };
+        if let Err(error) = directory_outcome {
             replay.errors.push(FileError {
                 path: record.label.clone(),
-                error: format!("Folders could not be moved, so nothing was {verb}: {error}"),
+                error: format!("Folders and side files could not be {verb}: {error}"),
             });
             files.iter().for_each(discard_file);
             discard_record(&record);
@@ -944,37 +1113,29 @@ impl Journal {
                 }
             }
         }
-        // 4. Put back or remove the side files the operation created or replaced.
-        for mut side in std::mem::take(&mut record.side_files) {
-            let path = rebase(&side.path, &moves);
-            let (from, to) = if backward {
-                (&side.after, &side.before)
-            } else {
-                (&side.before, &side.after)
-            };
-            let outcome = if !holds(from.as_ref(), &path) {
-                Err(format!(
-                    "Changed outside OpenTag after {}; it was not {verb}",
-                    record.label
-                ))
-            } else {
-                put(to.as_ref(), &path).map_err(|error| format!("It was not {verb}: {error}"))
-            };
-            match outcome {
-                Ok(()) => {
-                    side.path = path;
-                    record.side_files.push(side);
+        // Without directory moves, retain independent per-side failure handling.
+        if record.directories.is_empty() {
+            let mut sides = std::mem::take(&mut record.side_files);
+            if backward {
+                sides.reverse();
+            }
+            for side in sides {
+                match replay_side_file(&side, backward) {
+                    Ok(()) => record.side_files.push(side),
+                    Err(error) => {
+                        replay.errors.push(FileError {
+                            path: display(&side.path),
+                            error: format!("It was not {verb}: {error}"),
+                        });
+                        [side.before.as_ref(), side.after.as_ref()]
+                            .into_iter()
+                            .flatten()
+                            .for_each(discard);
+                    }
                 }
-                Err(error) => {
-                    replay.errors.push(FileError {
-                        path: display(&path),
-                        error,
-                    });
-                    [side.before.as_ref(), side.after.as_ref()]
-                        .into_iter()
-                        .flatten()
-                        .for_each(discard);
-                }
+            }
+            if backward {
+                record.side_files.reverse();
             }
         }
         if record.files.is_empty() && record.directories.is_empty() && record.side_files.is_empty()
@@ -985,17 +1146,47 @@ impl Journal {
     }
 }
 
-/// A side file's path: its folder resolved, the file itself possibly absent.
+/// A side file's path: existing folder aliases resolved, with absent parents
+/// retained until the operation creates them; the final entry is not followed.
 fn side_path(path: &Path) -> Result<PathBuf, String> {
     let name = path
         .file_name()
         .ok_or_else(|| format!("{} is not a file name", path.display()))?;
-    let folder = dunce::canonicalize(
-        path.parent()
-            .filter(|p| !p.as_os_str().is_empty())
-            .unwrap_or(Path::new(".")),
-    )
-    .map_err(|e| e.to_string())?;
+    let parent = path
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    let absolute = if parent.is_absolute() {
+        parent.to_path_buf()
+    } else {
+        std::env::current_dir()
+            .map_err(|e| e.to_string())?
+            .join(parent)
+    };
+    let mut folder = PathBuf::new();
+    // Resolve existing ancestors before '..', retaining missing components
+    // without creating directories just to capture an absent output.
+    for component in absolute.components() {
+        match component {
+            std::path::Component::CurDir => {}
+            std::path::Component::ParentDir => {
+                folder.pop();
+            }
+            std::path::Component::Prefix(_) | std::path::Component::RootDir => {
+                folder.push(component.as_os_str());
+            }
+            std::path::Component::Normal(_) => {
+                folder.push(component.as_os_str());
+                match fs::symlink_metadata(&folder) {
+                    Ok(_) => {
+                        folder = dunce::canonicalize(&folder).map_err(|e| e.to_string())?;
+                    }
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                    Err(error) => return Err(error.to_string()),
+                }
+            }
+        }
+    }
     Ok(folder.join(name))
 }
 
@@ -1009,7 +1200,13 @@ fn holds(blob: Option<&Blob>, path: &Path) -> bool {
         None => {
             matches!(fs::symlink_metadata(path), Err(e) if e.kind() == std::io::ErrorKind::NotFound)
         }
-        Some(blob) => path.is_file() && same_bytes(&blob.path, path),
+        Some(blob) => match &blob.symlink_target {
+            Some(target) => fs::read_link(path).is_ok_and(|current| current == *target),
+            None => {
+                fs::symlink_metadata(path).is_ok_and(|metadata| metadata.is_file())
+                    && same_bytes(&blob.path, path)
+            }
+        },
     }
 }
 
@@ -1022,6 +1219,14 @@ fn put(blob: Option<&Blob>, path: &Path) -> Result<(), String> {
         return Err("The undo snapshot was modified".into());
     }
     let folder = path.parent().ok_or("The file has no folder")?;
+    if let Some(target) = &blob.symlink_target {
+        if fs::read(&blob.path).map_err(|e| e.to_string())? != target.as_os_str().as_encoded_bytes()
+        {
+            return Err("The undo link snapshot was modified".into());
+        }
+        let (_directory, staging) = stage_side_link(target, folder)?;
+        return fs::rename(staging, path).map_err(|e| e.to_string());
+    }
     let mut staging = tempfile::Builder::new()
         .prefix(".opentag-")
         .tempfile_in(folder)
@@ -1031,6 +1236,30 @@ fn put(blob: Option<&Blob>, path: &Path) -> Result<(), String> {
     staging.as_file().sync_all().map_err(|e| e.to_string())?;
     staging.persist(path).map_err(|e| e.error.to_string())?;
     Ok(())
+}
+
+/// A private sibling directory owns the temporary link until its atomic rename.
+/// Capture uses the same helper as a capability probe before any replacement.
+fn stage_side_link(target: &Path, folder: &Path) -> Result<(tempfile::TempDir, PathBuf), String> {
+    let directory = tempfile::Builder::new()
+        .prefix(".opentag-link-")
+        .tempdir_in(folder)
+        .map_err(|e| e.to_string())?;
+    let staging = directory.path().join("entry");
+    #[cfg(unix)]
+    let created = std::os::unix::fs::symlink(target, &staging);
+    #[cfg(windows)]
+    let created = std::os::windows::fs::symlink_file(target, &staging);
+    #[cfg(not(any(unix, windows)))]
+    let created: std::io::Result<()> = Err(std::io::Error::new(
+        std::io::ErrorKind::Unsupported,
+        "Side-file symlink undo is unavailable on this platform",
+    ));
+    created.map_err(|e| format!("Cannot prepare symlink undo: {e}"))?;
+    if fs::read_link(&staging).map_err(|e| e.to_string())? != target {
+        return Err("The undo symlink target was not preserved".into());
+    }
+    Ok((directory, staging))
 }
 
 impl Drop for Journal {
@@ -1093,6 +1322,135 @@ fn rebase(path: &Path, moves: &[(PathBuf, PathBuf)]) -> PathBuf {
         }
     }
     current
+}
+
+fn missing_parents(path: &Path) -> Result<Vec<PathBuf>, String> {
+    let mut missing = Vec::new();
+    let mut current = path.parent();
+    while let Some(parent) = current {
+        match fs::metadata(parent) {
+            Ok(metadata) if metadata.is_dir() => break,
+            Ok(_) => return Err(format!("{} is not a folder", parent.display())),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                missing.push(parent.to_path_buf())
+            }
+            Err(error) => return Err(error.to_string()),
+        }
+        current = parent.parent();
+    }
+    Ok(missing)
+}
+
+fn clean_side_parents(side: &SideFile) {
+    for parent in &side.created_parents {
+        // Only an empty folder known to have been absent at capture is ours.
+        if fs::remove_dir(parent).is_err() {
+            break;
+        }
+    }
+}
+
+fn replay_side_file(side: &SideFile, backward: bool) -> Result<(), String> {
+    let (from, to) = if backward {
+        (&side.after, &side.before)
+    } else {
+        (&side.before, &side.after)
+    };
+    if !holds(from.as_ref(), &side.path) {
+        return Err(format!("Changed outside OpenTag: {}", side.path.display()));
+    }
+    if to.is_some() {
+        let mut created = Vec::new();
+        let result = (|| {
+            for parent in side.created_parents.iter().rev() {
+                match fs::create_dir(parent) {
+                    Ok(()) => created.push(parent),
+                    Err(error)
+                        if error.kind() == std::io::ErrorKind::AlreadyExists && parent.is_dir() => {
+                    }
+                    Err(error) => return Err(error.to_string()),
+                }
+            }
+            put(to.as_ref(), &side.path)
+        })();
+        if result.is_err() {
+            for parent in created.into_iter().rev() {
+                let _ = fs::remove_dir(parent);
+            }
+        }
+        result
+    } else {
+        put(None, &side.path)?;
+        clean_side_parents(side);
+        Ok(())
+    }
+}
+
+fn replay_side_files_and_directories(
+    sides: &[SideFile],
+    directories: &[(PathBuf, PathBuf)],
+    backward: bool,
+) -> Result<(), String> {
+    enum Done {
+        Side(usize),
+        Move(PathBuf, PathBuf),
+    }
+    let mut done = Vec::new();
+    let result = (|| {
+        for offset in 0..=directories.len() {
+            let epoch = if backward {
+                directories.len() - offset
+            } else {
+                offset
+            };
+            for offset in 0..sides.len() {
+                let index = if backward {
+                    sides.len() - 1 - offset
+                } else {
+                    offset
+                };
+                let side = &sides[index];
+                if side.epoch != epoch {
+                    continue;
+                }
+                replay_side_file(side, backward)?;
+                done.push(Done::Side(index));
+            }
+            let movement = if backward {
+                epoch
+                    .checked_sub(1)
+                    .map(|i| (directories[i].1.clone(), directories[i].0.clone()))
+            } else {
+                directories.get(epoch).cloned()
+            };
+            if let Some((from, to)) = movement {
+                move_directories(&[(from.clone(), to.clone())])?;
+                done.push(Done::Move(from, to));
+            }
+        }
+        Ok(())
+    })();
+    if let Err(error) = result {
+        let mut rollback_errors = Vec::new();
+        for step in done.into_iter().rev() {
+            let outcome = match step {
+                Done::Side(index) => replay_side_file(&sides[index], !backward),
+                Done::Move(from, to) => move_directories(&[(to, from)]),
+            };
+            if let Err(error) = outcome {
+                rollback_errors.push(error);
+            }
+        }
+        return Err(if rollback_errors.is_empty() {
+            error
+        } else {
+            format!(
+                "{error}; rollback incomplete: {}",
+                rollback_errors.join("; ")
+            )
+        });
+    }
+    Ok(())
 }
 
 fn move_directories(moves: &[(PathBuf, PathBuf)]) -> Result<(), String> {
@@ -1254,6 +1612,70 @@ mod tests {
     }
 
     #[test]
+    fn side_file_copy_checks_byte_budget_before_allocating() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut history = Journal::open(
+            &dir.path().join("undo"),
+            Limits {
+                bytes: 100,
+                min_free: 0,
+                ..Limits::default()
+            },
+        )
+        .unwrap();
+        let a = dir.path().join("a.dat");
+        let b = dir.path().join("b.dat");
+        fs::write(&a, [1; 60]).unwrap();
+        fs::write(&b, [2; 50]).unwrap();
+        let mut capture = history.begin("Side outputs", None, &[]);
+        history.capture_side_file(&mut capture, &a).unwrap();
+        assert_eq!(history.next, 1);
+        assert!(history
+            .capture_side_file(&mut capture, &b)
+            .unwrap_err()
+            .contains("byte limit"));
+        assert_eq!(
+            history.next, 1,
+            "refuse before allocating a second snapshot"
+        );
+        assert_eq!(fs::read(&b).unwrap(), [2; 50]);
+        fs::write(&a, [3; 60]).unwrap();
+        history.commit(capture, &[], &[]);
+        assert_eq!(
+            history.next, 1,
+            "After copy also checks the retained Before cost"
+        );
+        assert_eq!(history.retained_bytes(), 0);
+        assert!(history.state().notice.unwrap().contains("cannot be undone"));
+        assert_eq!(fs::read(&a).unwrap(), [3; 60]);
+        assert!(!history.dir.join("1.snapshot").exists());
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn side_file_copy_checks_free_space_before_allocating() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut history = Journal::open(
+            &dir.path().join("undo"),
+            Limits {
+                min_free: 0,
+                ..Limits::default()
+            },
+        )
+        .unwrap();
+        let mut capture = history.begin("Side output", None, &[]);
+        history.limits.min_free = u64::MAX;
+        let path = dir.path().join("cover.dat");
+        fs::write(&path, [4; 20]).unwrap();
+        assert!(history
+            .capture_side_file(&mut capture, &path)
+            .unwrap_err()
+            .contains("free disk space"));
+        assert_eq!(history.next, 0, "refuse before allocating a snapshot");
+        assert_eq!(fs::read(&path).unwrap(), [4; 20]);
+    }
+
+    #[test]
     fn free_space_and_volume_are_known_on_unix() {
         let dir = std::env::temp_dir();
         assert_eq!(
@@ -1261,5 +1683,19 @@ mod tests {
             cfg!(unix)
         );
         assert_eq!(volume_id(&dir).is_some(), cfg!(unix));
+    }
+}
+
+#[cfg(all(test, unix))]
+mod side_link_tests {
+    #[test]
+    fn failed_link_creation_removes_its_private_staging_directory() {
+        let folder = tempfile::tempdir().unwrap();
+        // The OS rejects NUL inside a link target after creating the private
+        // staging directory; that failure must leave no sibling probe behind.
+        assert!(
+            super::stage_side_link(std::path::Path::new("invalid\0target"), folder.path()).is_err()
+        );
+        assert_eq!(std::fs::read_dir(folder.path()).unwrap().count(), 0);
     }
 }

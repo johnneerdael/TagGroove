@@ -33,10 +33,20 @@ the result is `Juniper Vale` only when `ALBUMARTIST` is empty. Entering
 | `COMMENT` | `Library copy` | Any existing comment | `Library copy` |
 | `TRACK` | `$num(%track%,2)` | `TRACK` = `3/8` | `03` |
 
-The output becomes one field value. A bare placeholder reads the first
-value of a multivalue field; use `$meta_sep` when a chosen join is required.
-Read the [multivalue rules](../reference/format-strings.md#multi-value-fields)
-before replacing a list of artists or composers.
+For ordinary metadata fields, two consecutive backslashes (`\\`) in the
+evaluated output separate values, as in [Format Value](../actions/format-value.md#write-one-or-several-field-values).
+With that delimiter, each component is trimmed and empty components are
+dropped; if no values remain, the field is removed. The preview shows the
+surviving values joined with ` \\ `, or **Field will be removed** if none
+remain. Without the delimiter, a nonempty output is one value whose
+surrounding whitespace is kept.
+
+A bare placeholder reads only the first existing value. For example,
+`$meta_sep(artist,\\)` writes the existing artists as separate values, while
+`$meta_sep(artist,' & ')` writes one joined value. Read the
+[multivalue rules](../reference/format-strings.md#multi-value-fields) before
+replacing artist or composer lists. Filename/directory targets use the naming
+rules below instead of splitting metadata values.
 
 An empty result removes the destination field. The preview labels that
 outcome **Field will be removed**. `''` produces an apostrophe, not empty

@@ -25,6 +25,8 @@ pub struct EvaluationSettings {
     pub working_directory: Option<String>,
     /// Options → Files "Replace folder separator in tag values with".
     pub folder_separator: String,
+    /// Options → General natural sorting, for `$loop` in exports.
+    pub natural_sort: bool,
 }
 
 impl Default for EvaluationSettings {
@@ -47,8 +49,15 @@ impl Default for EvaluationSettings {
             export_template_inline: false,
             working_directory: None,
             folder_separator: tag_core::DEFAULT_FOLDER_SEPARATOR.into(),
+            natural_sort: true,
         }
     }
+}
+
+enum EvaluationMode {
+    Text,
+    Filename,
+    NativeFilename,
 }
 
 impl EvaluationSettings {
@@ -66,6 +75,7 @@ impl EvaluationSettings {
         app: &tauri::AppHandle,
         columns: Option<Vec<ColumnSpec>>,
     ) -> Result<Self, String> {
+        let current = crate::settings::current();
         Ok(Self {
             columns: columns.unwrap_or_default(),
             app_directory: std::env::current_exe()
@@ -80,7 +90,8 @@ impl EvaluationSettings {
                 .map_err(|e| e.to_string())?
                 .to_string_lossy()
                 .into_owned(),
-            folder_separator: crate::settings::current().files.folder_separator,
+            folder_separator: current.files.folder_separator,
+            natural_sort: current.general.natural_sort,
             ..Default::default()
         })
     }
@@ -147,7 +158,14 @@ impl EvaluationSettings {
         identity: &str,
         use_snapshot: bool,
     ) -> Result<String, String> {
-        self.evaluate_mode(template, raw, technical, identity, use_snapshot, false)
+        self.evaluate_mode(
+            template,
+            raw,
+            technical,
+            identity,
+            use_snapshot,
+            EvaluationMode::Text,
+        )
     }
 
     /// Evaluate a `_FILENAME`/`_DIRECTORY` target the way Tag → Filename does:
@@ -160,7 +178,32 @@ impl EvaluationSettings {
         identity: &str,
         use_snapshot: bool,
     ) -> Result<String, String> {
-        self.evaluate_mode(template, raw, technical, identity, use_snapshot, true)
+        self.evaluate_mode(
+            template,
+            raw,
+            technical,
+            identity,
+            use_snapshot,
+            EvaluationMode::Filename,
+        )
+    }
+
+    pub(crate) fn evaluate_native_filename(
+        &self,
+        template: &str,
+        raw: &Fields,
+        technical: &Fields,
+        identity: &str,
+        use_snapshot: bool,
+    ) -> Result<String, String> {
+        self.evaluate_mode(
+            template,
+            raw,
+            technical,
+            identity,
+            use_snapshot,
+            EvaluationMode::NativeFilename,
+        )
     }
 
     fn evaluate_mode(
@@ -170,16 +213,19 @@ impl EvaluationSettings {
         technical: &Fields,
         identity: &str,
         use_snapshot: bool,
-        filename: bool,
+        mode: EvaluationMode,
     ) -> Result<String, String> {
         let mut fields = raw.clone();
         fields.extend(technical.clone());
         let columns = self.column_values(&fields, raw, identity, use_snapshot)?;
         let context = self.context(&fields, raw, Some(&columns));
-        if filename {
-            tag_core::evaluate_filename_with_context(template, &context)
-        } else {
-            tag_core::evaluate_with_context(template, &context)
+        match mode {
+            EvaluationMode::Text => tag_core::evaluate_with_context(template, &context),
+            EvaluationMode::Filename => {
+                tag_core::evaluate_filename_with_context(template, &context)
+            }
+            EvaluationMode::NativeFilename => tag_core::CompiledTemplate::compile(template)?
+                .evaluate_filename_path_with_context(&context),
         }
     }
 

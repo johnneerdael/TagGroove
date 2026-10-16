@@ -16,6 +16,7 @@ const REGEX: &str = include_str!("../../../docs/user-guide/actions/replace-regex
 const GUESS: &str = include_str!("../../../docs/user-guide/actions/guess-values.md");
 const EXPORT: &str = include_str!("../../../docs/user-guide/actions/export.md");
 const COVER: &str = include_str!("../../../docs/user-guide/actions/adjust-cover.md");
+const FORMAT: &str = include_str!("../../../docs/user-guide/actions/format-value.md");
 
 fn cells(line: &str) -> Vec<&str> {
     line.trim_matches('|').split('|').map(str::trim).collect()
@@ -296,4 +297,47 @@ fn cover_size_table_matches_the_actual_image_resizer() {
         count += 1;
     }
     assert_eq!(count, 4);
+}
+
+#[test]
+fn format_value_output_examples_store_the_written_value_lists() {
+    let examples = FORMAT
+        .split("<!-- format-value-output-examples:start -->")
+        .nth(1)
+        .unwrap()
+        .split("<!-- format-value-output-examples:end -->")
+        .next()
+        .unwrap();
+    let mut count = 0;
+    for line in examples.lines().filter(|line| line.starts_with("| `")) {
+        let row = cells(line);
+        let expected: Vec<String> = row[1]
+            .split('`')
+            .skip(1)
+            .step_by(2)
+            .map(|value| value.replace('·', " "))
+            .collect();
+        let mut input = state("GENRE", &["Previous", "Other"]);
+        input
+            .fields
+            .insert("TITLE".into(), vec!["Unchanged".into()]);
+        let effects = apply_action_spec(
+            &mut input,
+            &ActionSpec::FormatValue {
+                field: "GENRE".into(),
+                template: inline(row[0]).into(),
+            },
+        )
+        .unwrap();
+        assert!(effects.is_empty(), "{line}");
+        if expected.is_empty() {
+            assert!(row[1].contains("field removed"), "{line}");
+            assert!(!input.fields.contains_key("GENRE"), "{line}");
+        } else {
+            assert_eq!(input.fields["GENRE"], expected, "{line}");
+        }
+        assert_eq!(input.fields["TITLE"], ["Unchanged"]);
+        count += 1;
+    }
+    assert_eq!(count, 6);
 }
