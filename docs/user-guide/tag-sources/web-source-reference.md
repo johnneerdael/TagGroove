@@ -111,7 +111,11 @@ convert them before output. Other
 underscore-prefixed buffers are internal and are not written as ordinary tags.
 Double backslashes separate multiple values within a field, as in `Juniper Vale\\Mira Solberg`.
 
-Stored values decode HTML character references and `\uXXXX` escapes. A
+Stored values decode semicolon-terminated HTML character references and `\uXXXX` escapes.
+Named references use the complete HTML name set, including two-character
+expansions such as `&NotEqualTilde;`; names are case-sensitive. Decoding makes
+one pass, so `&amp;Alpha;` becomes the literal `&Alpha;`. Unknown references
+and names without their terminating semicolon stay unchanged. A
 single-track release can take album-wide `TITLE`; `ALBUM` may be per track.
 `TRACKS` and `OUTPUT` are control buffers, not ordinary saved tag fields.
 

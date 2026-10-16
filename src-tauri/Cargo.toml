@@ -28,6 +28,8 @@ serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 base64 = "0.22"
 encoding_rs = "0.8"
+# Complete named HTML character references (also used by Tauri’s HTML toolchain).
+web_atoms = "0.2.6"
 tempfile = "3"
 sha2 = "0.10"
 md-5 = "0.10"

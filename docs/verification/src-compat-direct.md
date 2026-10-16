@@ -23,7 +23,7 @@ provider additions are not dependencies.
 
 A fresh isolated target rebuilt all five workspace packages after cleaning
 copied workspace artifacts; dependency caches alone were retained. The full
-workspace passed 910 Rust tests, with five explicit ignored tests, and all-target
+workspace passed 911 Rust tests, with five explicit ignored tests, and all-target
 Clippy passed with warnings denied. All 368 frontend tests, the production
 TypeScript/Vite build, eight publication tests and strict guide build passed.
 The guide still publishes 164 completed pages and retains 23 drafts.
@@ -38,3 +38,24 @@ An independent finite source review compared the extraction with its preserved
 feature delta and found no lost intended behavior or localization dependencies.
 Local review does not replace the clean exact-head GitHub Codex code review,
 trusted CI, normal merge or subsequent release/Pages publication checks.
+
+## Named character-reference review correction
+
+Review of the first direct-main head found that the handwritten entity subset
+left valid names such as `&Alpha;` untouched. The importer now uses the complete
+`web_atoms` 0.2.6 table already present in the lockfile, with no dependency-version
+updates. An independent comparison against the primary WHATWG
+[entity data](https://html.spec.whatwg.org/entities.json) matched all 2,231 entries,
+including all 2,125 semicolon-terminated names and 93 two-scalar expansions.
+The importer requires the terminating semicolon, matches case exactly, and
+performs one decoding pass; this is character-reference decoding, not an HTML
+parser. Unknown references remain literal and existing numeric/Unicode escape
+handling is retained.
+
+The actual source-import regression first failed for Greek, non-BMP and
+multi-scalar values. It now passes alongside the long-name, numeric, unknown,
+case and single-pass examples. All 31 web-source tests passed (one optional
+corpus test ignored), followed by the full 911-test workspace, all-target Clippy,
+eight publication tests and the strict guide build. The frontend implementation
+is unchanged from its 368-test production-build checkpoint. A finite independent
+peer checked the decoder, dependency/table provenance and written contract.

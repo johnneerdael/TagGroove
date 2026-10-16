@@ -2979,6 +2979,7 @@ dependencies = [
  "trash",
  "unicode-normalization",
  "uuid",
+ "web_atoms",
  "webpki-roots",
  "windows-sys 0.61.2",
 ]

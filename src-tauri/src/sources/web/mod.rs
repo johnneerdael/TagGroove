@@ -444,63 +444,23 @@ fn content(value: &str) -> String {
     text.trim().to_owned()
 }
 
-/// HTML named entities beyond the Latin-1 range.
-const ENTITIES: &[(&str, u32)] = &[
-    ("quot", 34),
-    ("amp", 38),
-    ("apos", 39),
-    ("lt", 60),
-    ("gt", 62),
-    ("OElig", 338),
-    ("oelig", 339),
-    ("Scaron", 352),
-    ("scaron", 353),
-    ("Yuml", 376),
-    ("fnof", 402),
-    ("circ", 710),
-    ("tilde", 732),
-    ("ensp", 8194),
-    ("emsp", 8195),
-    ("thinsp", 8201),
-    ("zwnj", 8204),
-    ("zwj", 8205),
-    ("lrm", 8206),
-    ("rlm", 8207),
-    ("ndash", 8211),
-    ("mdash", 8212),
-    ("lsquo", 8216),
-    ("rsquo", 8217),
-    ("sbquo", 8218),
-    ("ldquo", 8220),
-    ("rdquo", 8221),
-    ("bdquo", 8222),
-    ("dagger", 8224),
-    ("Dagger", 8225),
-    ("bull", 8226),
-    ("hellip", 8230),
-    ("permil", 8240),
-    ("prime", 8242),
-    ("Prime", 8243),
-    ("lsaquo", 8249),
-    ("rsaquo", 8250),
-    ("euro", 8364),
-    ("trade", 8482),
-];
-/// HTML names of the characters U+00A0 to U+00FF, in order.
-const LATIN1: &str = "nbsp iexcl cent pound curren yen brvbar sect uml copy ordf laquo not shy reg macr deg plusmn sup2 sup3 acute micro para middot cedil sup1 ordm raquo frac14 frac12 frac34 iquest Agrave Aacute Acirc Atilde Auml Aring AElig Ccedil Egrave Eacute Ecirc Euml Igrave Iacute Icirc Iuml ETH Ntilde Ograve Oacute Ocirc Otilde Ouml times Oslash Ugrave Uacute Ucirc Uuml Yacute THORN szlig agrave aacute acirc atilde auml aring aelig ccedil egrave eacute ecirc euml igrave iacute icirc iuml eth ntilde ograve oacute ocirc otilde ouml divide oslash ugrave uacute ucirc uuml yacute thorn yuml";
-
-fn entity(name: &str) -> Option<char> {
-    let code = if let Some(number) = name.strip_prefix('#') {
-        match number.strip_prefix(['x', 'X']) {
+/// A semicolon-terminated HTML reference. The WHATWG named set includes
+/// non-BMP characters and references that expand to two Unicode scalars.
+fn entity(name: &str) -> Option<String> {
+    let (first, second) = if let Some(number) = name.strip_prefix('#') {
+        let code = match number.strip_prefix(['x', 'X']) {
             Some(hex) => u32::from_str_radix(hex, 16).ok()?,
             None => number.parse().ok()?,
-        }
-    } else if let Some(index) = LATIN1.split(' ').position(|n| n == name) {
-        0xA0 + index as u32
+        };
+        (code, 0)
     } else {
-        ENTITIES.iter().find(|(n, _)| *n == name)?.1
+        *web_atoms::NAMED_ENTITIES.get(&format!("{name};"))?
     };
-    char::from_u32(code).filter(|c| *c != '\0')
+    let mut text = char::from_u32(first).filter(|c| *c != '\0')?.to_string();
+    if second != 0 {
+        text.push(char::from_u32(second)?);
+    }
+    Some(text)
 }
 
 /// Text as Mp3tag stores what a script output: HTML character references
@@ -522,13 +482,17 @@ fn unescape(text: &str) -> String {
         output.push_str(&rest[..at]);
         rest = &rest[at..];
         if rest.starts_with('&') {
-            let decoded = rest[1..]
-                .find(';')
-                .filter(|&end| (1..=10).contains(&end))
-                .and_then(|end| entity(&rest[1..=end]).map(|c| (c, end + 2)));
+            let end = rest[1..]
+                .bytes()
+                .take_while(|byte| byte.is_ascii_alphanumeric() || *byte == b'#')
+                .count();
+            let decoded = (rest.as_bytes().get(end + 1) == Some(&b';'))
+                .then(|| entity(&rest[1..=end]))
+                .flatten()
+                .map(|text| (text, end + 2));
             match decoded {
-                Some((c, used)) => {
-                    output.push(c);
+                Some((text, used)) => {
+                    output.push_str(&text);
                     rest = &rest[used..];
                 }
                 None => {
@@ -1242,6 +1206,27 @@ mod tests {
         assert_eq!(parse_length("10800000"), Some(10800.0));
         assert_eq!(parse_length("3:00:00"), Some(10800.0));
         assert_eq!(parse_length("x"), None);
+    }
+
+    #[test]
+    fn named_html_references_survive_source_import_as_unicode() {
+        let page = Url::parse("https://shop.example/a").unwrap();
+        let outputs = [
+            ("ALBUM", "&Alpha; &Aopf; &NotEqualTilde;"),
+            (
+                "TITLE",
+                "&CounterClockwiseContourIntegral;|&frac12; &euro; &#x1F600;|",
+            ),
+            ("COMMENT", "&unknown; &alpha &AMP; &amp;Alpha;"),
+        ]
+        .into_iter()
+        .map(|(key, value)| (key.to_owned(), value.to_owned()))
+        .collect();
+        let release = release_from(outputs, &page, "named-entities");
+        assert_eq!(release.fields["ALBUM"], ["Α 𝔸 ≂̸"]);
+        assert_eq!(release.tracks[0].title, "∳");
+        assert_eq!(release.tracks[1].title, "½ € 😀");
+        assert_eq!(release.fields["COMMENT"], ["&unknown; &alpha & &Alpha;"]);
     }
 
     #[test]
