@@ -96,6 +96,8 @@ All on this Mac without launching the app, plus CI.
 
 ## Remaining gaps
 
+The `plID`, AAC, APE and DSF/DFF items are addressed in [formats-gaps](formats-gaps.md); its own remaining gaps replace them.
+
 - A `plID` whose data is not 8 bytes is still dropped by lofty without an
   error; finding it would need a raw `ilst` scan on every MP4 read.
 - AAC with junk or padding between the ID3v2 tag and the first ADTS frame is

@@ -57,13 +57,18 @@ pub(super) fn id3v2_size(header: &[u8]) -> Option<u64> {
 }
 
 /// Identify a TTA, TAK, OptimFROG, AAC (ADTS) or WavPack stream by the
-/// magic after any leading ID3v2 tags.
+/// magic after any leading ID3v2 tags, or an ADTS stream after junk.
 pub(super) fn detect_stream(path: &Path) -> Option<raw_streams::Stream> {
     let mut file = fs::File::open(path).ok()?;
     let length = file.metadata().ok()?.len();
     let start = raw_streams::leading_tags(&mut file, length).ok()?;
     let magic = read_at(&mut file, start, 4).ok()?;
-    raw_streams::Stream::from_magic(&magic)
+    raw_streams::Stream::from_magic(&magic).or_else(|| {
+        raw_streams::adts_start(&mut file, path, start, length)
+            .ok()
+            .flatten()
+            .map(|_| raw_streams::Stream::Aac)
+    })
 }
 
 /// Metadata and stream properties of one container, with fields already
