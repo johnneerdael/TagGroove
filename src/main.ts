@@ -423,20 +423,25 @@ async function applyLanguage(choice=languageSetting(optionsUI.page('language')))
   if(setLanguage(choice)){shownTitle='';void applyNotificationArea();render();}
   return generation;
 }
+// Saved settings can advance while their catalog reads are pending; retain the unapplied deltas.
+let pendingOptionsBaseline:Settings|undefined;
 async function optionsApplied(next:Settings,previous:Settings){
+  const baseline=pendingOptionsBaseline??previous;
+  pendingOptionsBaseline=baseline;
   const generation=await applyLanguage();
   if(generation!==languageGeneration)return;
+  pendingOptionsBaseline=undefined;
   collator=naturalCollator(next);changedData();applyAppearancePrefs();void applyNotificationArea();
   // File → Load configuration brings its own layout and toolbars.
-  const changed=(id:string)=>JSON.stringify(next.pages[id])!==JSON.stringify(previous.pages[id]);
+  const changed=(id:string)=>JSON.stringify(next.pages[id])!==JSON.stringify(baseline.pages[id]);
   // A layout saved by this window comes back here; applying it would undo a
   // resize made while the save was in flight.
   if(changed('layout')&&next.pages.layout){const incoming=normalizeMainLayout(next.pages.layout);if(JSON.stringify(incoming)!==ownLayoutSave)updateLayout(incoming);}
   if(changed('toolbar'))toolbarConfig=normalizeToolbar(next.pages.toolbar);
   if(changed('custom-toolbar'))customToolbar=normalizeCustomToolbar(next.pages['custom-toolbar']);
-  const clean=JSON.stringify(next.tags)===JSON.stringify(previous.tags)?[]:[...entries.values()].filter(entry=>!drafts.has(entry.path)&&!providerEntry(entry)).map(entry=>entry.path);
+  const clean=JSON.stringify(next.tags)===JSON.stringify(baseline.tags)?[]:[...entries.values()].filter(entry=>!drafts.has(entry.path)&&!providerEntry(entry)).map(entry=>entry.path);
   if(clean.length)await run('Applying tag options…',async()=>accept(await invoke<Batch>('scan_files',{paths:clean,recursive:false}),'Options saved. Reloaded',false));
-  else{status=drafts.size&&JSON.stringify(next.tags)!==JSON.stringify(previous.tags)?'Options saved. Reload files with pending changes to apply tag options.':'Options saved';render();}
+  else{status=drafts.size&&JSON.stringify(next.tags)!==JSON.stringify(baseline.tags)?'Options saved. Reload files with pending changes to apply tag options.':'Options saved';render();}
 }
 // Options → General → Notification area (Windows and Linux): the tray icon and minimizing into it.
 setNotificationAreaSupport(desktop&&!macPlatform);

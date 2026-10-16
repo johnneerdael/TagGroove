@@ -149,6 +149,32 @@ test('two real Options saves keep the latest language and preferences across old
   }
 });
 
+test('overlapping real Options saves still apply tag preferences saved before the latest language choice',async()=>{
+  for(const boundary of ['clean','dirty','provider']){
+  const fixture=await boot({remembered:'en',choice:'en'}),reads=[];
+  try{
+    fixture.host.settings.resolve(fixture.response());await until(()=>fixture.host.calls.includes('language_catalogs'));fixture.host.catalogs.resolve({catalogs:[],errors:[]});fixture.host.directories.resolve(fixture.host.defaults.defaultDirectoryState());await until(()=>fixture.visible());
+    let saved=structuredClone(fixture.response().settings);const scans=[],invoke=fixture.host.invoke;
+    fixture.host.invoke=async(command,args,factories)=>{
+      if(command==='load_settings')return{settings:structuredClone(saved),defaults:factories.defaultSettings(),warning:null};
+      if(command==='save_settings'){saved=structuredClone(args.settings);return{settings:structuredClone(saved),defaults:factories.defaultSettings(),warning:null};}
+      if(command==='language_catalogs'){const read=deferred();reads.push(read);return read.promise;}
+      if(command==='scan_files'){scans.push({args,readId3v2:saved.tags.mpeg.read_id3v2});return{entries:[{path:'/Help.mp3',filename:'Help.mp3',format:'MP3',duration:1,bitrate:128,sample_rate:44100,channels:2,size:4096,fields:{TITLE:[saved.tags.mpeg.read_id3v2?'Before preferences':'After preferences']},technical:boundary==='provider'?{_PATH:['content://media/Help']}:undefined,covers:[]}],errors:[]};}
+      if(command==='evaluate_columns')return{values:args.items.map(()=>args.templates.map(()=>'')),errors:[]};
+      if(command==='set_tray_options')return{supported:false,active:false};
+      return invoke(command,args,factories);
+    };
+    fixture.host.launches.push({directories:[],files:['/Help.mp3'],add:false});fixture.host.events.get('opentag://launch')({payload:{}});await until(()=>fixture.app.querySelector('tr[data-path="/Help.mp3"]')&&!fixture.app.querySelector('[data-op="options"]').disabled);assert.equal(scans.length,1);
+    if(boundary==='dirty'){const title=fixture.app.querySelector('input[data-field="TITLE"]');assert.equal(title.disabled,false);title.value='Pending  Help';title.dispatchEvent(new fixture.window.Event('input',{bubbles:true}));assert.ok(fixture.app.querySelector('tr[data-path="/Help.mp3"] .rowmarker'));}
+    const open=async()=>{fixture.app.querySelector('[data-op="options"]').click();await until(()=>fixture.window.document.querySelector('.options-dialog'));return fixture.window.document.querySelector('.options-dialog');};
+    const first=await open();first.querySelector('[data-page="tags-mpeg"]').click();const read=first.querySelector('[data-option="tags.mpeg.read_id3v2"]');read.checked=false;read.dispatchEvent(new fixture.window.Event('change',{bubbles:true}));first.querySelector('[data-page="language"]').click();let language=first.querySelector('[data-option="pages.language.language"]');language.value='de';language.dispatchEvent(new fixture.window.Event('change',{bubbles:true}));first.querySelector('#options-ok').click();await until(()=>!first.isConnected&&reads.length===1);
+    const second=await open();second.querySelector('[data-page="language"]').click();language=second.querySelector('[data-option="pages.language.language"]');language.value='nl';language.dispatchEvent(new fixture.window.Event('change',{bubbles:true}));second.querySelector('#options-ok').click();await until(()=>!second.isConnected&&reads.length===2);
+    reads[1].resolve({catalogs:[],errors:[]});for(let i=0;i<10;i++)await tick();reads[0].resolve({catalogs:[],errors:[]});for(let i=0;i<10;i++)await tick();
+    assert.equal(saved.tags.mpeg.read_id3v2,false);assert.equal(saved.pages.language.language,'nl');assert.equal(fixture.window.document.documentElement.lang,'nl');assert.equal(scans.length,boundary==='clean'?2:1,'only clean local files reload for the cumulative tag-read preference change');if(boundary==='clean'){assert.equal(scans[1].readId3v2,false);assert.deepEqual(scans[1].args.paths,['/Help.mp3']);assert.equal(scans[1].args.recursive,false);}assert.equal(fixture.app.querySelector('input[data-field="TITLE"]').value,boundary==='clean'?'After preferences':boundary==='dirty'?'Pending  Help':'Before preferences');assert.ok(!fixture.host.calls.some(command=>command==='write_fields'||command==='write_tags'));
+  }finally{for(const read of reads)if(!read.done)read.resolve({catalogs:[],errors:[]});await fixture.close();}
+  }
+});
+
 test('browser preview keeps its immediate first render without native initialization',async()=>{
   const fixture=await boot({native:false,remembered:'en'});
   try{assert.equal(fixture.visible(),true);assert.equal(fixture.app.querySelector('[data-menu="File"] > summary').textContent,'File');assert.deepEqual(fixture.host.calls.filter(command=>['load_settings','language_catalogs','runtime_platform'].includes(command)),[]);}finally{await fixture.close();}
