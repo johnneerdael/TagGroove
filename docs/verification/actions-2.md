@@ -246,6 +246,18 @@ passed 750 Rust tests (the same four explicit skips), including 289 passing
 application-library tests and all 49 action-host tests. Clippy, formatting,
 strict guide build and all eight publication tests passed.
 
+## Final main integration
+
+Main `a9cd9007b5791106436a6ff0320bf10fa61f8707` is integrated. The shared
+history merge preserves its Windows WriteTracking and move bookkeeping;
+comparison against that main leaves only the side-file symlink changes
+above. Combined checks passed 289 application-library tests (the same four
+explicit skips), all 22 core history tests and eight raw-stream tests.
+Workspace Clippy with warnings denied, formatting, strict guide build and
+all eight publication tests passed. Frontend source is unchanged from the
+318-test/production-build validation. Trusted reviewed multi-platform CI
+is still required for this final merged head.
+
 ## Not covered
 
 - The `.mta` type IDs for Adjust Cover, Set Cover Properties and Generate Playlists, and the guessed schemas for types 4, 6 and 11–15, need `.mta` files saved by Mp3tag.
