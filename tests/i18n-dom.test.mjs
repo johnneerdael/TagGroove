@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import ts from 'typescript';
 import {Window} from 'happy-dom';
+import {englishCatalog,extractBackendSource} from '../scripts/i18n-extract.mjs';
 
 const source=async file=>readFile(new URL(`../src/${file}`,import.meta.url),'utf8');
 const moduleUrl=async(file,replacements={})=>{
@@ -834,6 +835,52 @@ test('actual invoke normalizes only covered command replies before callers merge
   }
 });
 
+test('conditional empty rename diagnostics register owned keys without translating identical external text',async()=>{
+  const producer=await readFile(new URL('../crates/tag-core/src/actions.rs',import.meta.url),'utf8');
+  const conditional=/ErrorCause::owned\(if renames_file\s*\{\s*"([^"]+)"\s*\}\s*else\s*\{\s*"([^"]+)"\s*\}\)/.exec(producer);
+  assert.ok(conditional,'read both keys from the actual Format Value producer');
+  const keys=conditional.slice(1),extra=JSON.parse(await readFile(new URL('../src/i18n/extra-keys.json',import.meta.url),'utf8'));
+  const registered=new Set([...extractBackendSource(producer),...extra]),generated=englishCatalog();
+  for(const key of keys){assert.ok(registered.has(key),`register ${key}`);assert.equal(generated[key],key);}
+  const unexpectedFallback=()=>assert.fail('owned and external causes must not enter the DOM text matcher');
+  for(const locale of ['de','nl'])for(const key of keys){
+    const translator=new Translator(locale,catalogs[locale]),t=(key,params)=>translator.t(key,params);
+    const owned={kind:'owned',key,params:{},children:{}},external={kind:'external',value:key};
+    const localized=causeText(owned,t,unexpectedFallback);assert.notEqual(localized,key,`${locale} ${key}`);
+    assert.equal(causeText(external,t,unexpectedFallback),key);
+    const diagnostic={kind:'action',group:key,index:1,cause:owned},raw=batchErrorText(diagnostic);
+    const path=`  ${key}  `,result=normalizeBatchDiagnostics({errors:[{path,error:raw}],error_diagnostics:[{index:0,diagnostic}]},true);
+    assert.equal(result.errors[0].path,path);assert.equal(result.errors[0].error,raw);
+    const shown=fileErrorText(result.errors[0],t,unexpectedFallback);
+    assert.ok(shown.includes(localized),'translate the owned failure');
+    assert.ok(shown.includes(key),'preserve the same-spelling authored group name');
+  }
+});
+test('forwarded cover verification messages translate in typed and legacy production error rows',async()=>{
+  const tags=await readFile(new URL('../crates/tag-core/src/tags.rs',import.meta.url),'utf8');
+  const covers=await readFile(new URL('../crates/tag-core/src/cover_ops.rs',import.meta.url),'utf8');
+  const containers=await readFile(new URL('../crates/tag-core/src/container_formats.rs',import.meta.url),'utf8');
+  const lastLiteral=body=>[...body.matchAll(/"([^"]+)"/g)].at(-1)[1];
+  const asfFailure=source=>lastLiteral(source.split('return asf::change_pictures_diagnostic(')[1].split('\n        );')[0]);
+  const removed=containers.split('pub(super) fn remove_cover(')[1].split('\n}')[0];
+  const keys=[asfFailure(tags),asfFailure(covers),lastLiteral(removed)];assert.equal(new Set(keys).size,3);
+  const extra=JSON.parse(await readFile(new URL('../src/i18n/extra-keys.json',import.meta.url),'utf8'));
+  const registered=new Set([...extractBackendSource(tags),...extractBackendSource(covers),...extractBackendSource(containers),...extra]),generated=englishCatalog();
+  for(const key of keys){assert.ok(registered.has(key),`register forwarded ${key}`);assert.equal(generated[key],key);}
+  for(const locale of ['de','nl'])for(const key of keys){
+    const p=page();try{
+      const translator=new Translator(locale,catalogs[locale]),t=(key,params)=>translator.t(key,params),translate=text=>translator.translate(text);
+      const localized=causeText({kind:'owned_text',value:key},t,translate);assert.notEqual(localized,key,`${locale} ${key}`);
+      assert.equal(causeText({kind:'external',value:key},t,translate),key);
+      const diagnostic={kind:'action',group:key,index:1,cause:{kind:'owned_text',value:key}};
+      assert.ok(batchErrorText(diagnostic,t,translate).includes(localized));
+      const path=`  ${key}  `,e={path,error:key};
+      p.body.innerHTML=mainTemplate(node=>node.head.text==='<p><strong translate="no">',{e,esc,displayName:path=>path,publicMessage:value=>value});
+      p.translate(locale,catalogs[locale]);assert.equal(p.body.querySelector('p').textContent,`${path}: ${localized}`);
+      p.translate('en');assert.equal(p.body.querySelector('p').textContent,`${path}: ${key}`);
+    }finally{p.close();}
+  }
+});
 test('typed batch frames preserve raw collision text, source-owned versus IO causes and indexed association',()=>{
   const keys={
     '{value} / action {value2}: {error}':'Action {value2} for [{value}]: {error}',
