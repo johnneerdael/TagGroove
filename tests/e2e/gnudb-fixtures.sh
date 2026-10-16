@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Fixtures for tests/e2e/gnudb.js, given the album folder ($1): a mock CDDB
-# server on 127.0.0.1:18766 that answers like gnudb (gnudb.org/howtognudb.php)
+# server on 127.0.0.1:18767 that answers like gnudb (gnudb.org/howtognudb.php)
 # and enforces its access policy. Nothing here contacts gnudb.
 #  - The hello must be "<user> <domain> OpenTagAudioTagEditor v<version>"
 #    with a valid-looking domain, and proto=6; otherwise "500 Unknown
@@ -99,7 +99,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         pass
 
 
-server = http.server.ThreadingHTTPServer(("127.0.0.1", 18766), Handler)
+server = http.server.ThreadingHTTPServer(("127.0.0.1", 18767), Handler)
 threading.Timer(float(sys.argv[1]), server.shutdown).start()
 server.serve_forever()
 PY
@@ -112,7 +112,7 @@ else
   "$python" -I "$mock/server.py" 150 </dev/null >/dev/null 2>&1 &
 fi
 for _ in $(seq 1 50); do
-  curl -fs -o /dev/null http://127.0.0.1:18766/ready && exit 0
+  curl -fs -o /dev/null http://127.0.0.1:18767/ready && exit 0
   sleep 0.2
 done
 echo "The mock CDDB server did not start" >&2

@@ -3,7 +3,7 @@
 // user's address), lookups by track layout and by artist and album, reading
 // only listed entries, cover art from entry lines and artsearch, Covers:
 // freedb, 429 without retries, and no lookups by a typed disc ID. Offline:
-// tests/e2e/gnudb-fixtures.sh runs the mock server on 127.0.0.1:18766, which
+// tests/e2e/gnudb-fixtures.sh runs the mock server on 127.0.0.1:18767, which
 // refuses requests that break gnudb's policy.
 (async () => {
   const inv = (c, a) => window.__TAURI_INTERNALS__.invoke(c, a), report = m => inv('e2e_report', { message: String(m) }), sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -60,11 +60,11 @@
     type(options.querySelector('#freedb-server-name'), 'Mock gnudb');
     choose(options.querySelector('#freedb-server-protocol'), 'http');
     type(options.querySelector('#freedb-server-address'), '127.0.0.1');
-    type(options.querySelector('#freedb-server-port'), '18766');
+    type(options.querySelector('#freedb-server-port'), '18767');
     type(options.querySelector('#freedb-server-path'), '/~cddb/cddb.cgi');
     await saveOptions(options);
     let saved = (await inv('load_settings')).settings.pages['tag-sources-freedb'];
-    await check(saved.address === '127.0.0.1' && saved.port === '18766' && saved.protocol === 'http' && !saved.email, 'mock server selected, no email saved');
+    await check(saved.address === '127.0.0.1' && saved.port === '18767' && saved.protocol === 'http' && !saved.email, 'mock server selected, no email saved');
 
     // Track layout lookup: cddb query, then cddb read of the listed entry.
     document.querySelector('button[data-op="select-all"]').click();
