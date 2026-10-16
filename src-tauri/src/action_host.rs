@@ -359,7 +359,8 @@ struct NativeHost<'a> {
     /// Cover images written by this run, by normalized destination: the
     /// image's digest and the input file that wrote it.
     written_covers: BTreeMap<String, ([u8; 32], String)>,
-    /// Called before an existing image is replaced, so undo can restore it.
+    /// Called before first using an image output, so undo can restore its
+    /// previous entry or remove a new image.
     before_replace: &'a mut dyn FnMut(&Path) -> Result<(), String>,
     identities: Vec<String>,
     initial_fields: Vec<Fields>,
@@ -718,11 +719,10 @@ impl ActionHost for NativeHost<'_> {
                                 .insert(destination.clone(), (digest, writer));
                         }
                         None => {
-                            // First use of this name in the run: undo keeps the
-                            // file as it was (it drops the copy if nothing changes).
-                            if fs::symlink_metadata(&target).is_ok() {
-                                (self.before_replace)(&target)?;
-                            }
+                            // First use: capture the original entry or absence.
+                            // An unchanged image's snapshot is dropped at commit,
+                            // but is retained if a later action replaces it.
+                            (self.before_replace)(&target)?;
                             // The same image from an earlier export stays; another
                             // image is replaced.
                             if !fs::read(&target).is_ok_and(|existing| existing == bytes) {
@@ -1132,8 +1132,8 @@ pub fn execute(
     execute_with_side_files(paths, groups, settings, &mut |_| Ok(()))
 }
 
-/// [`execute`], calling `before_replace` with each existing image file that
-/// Export Cover is about to replace (for undo).
+/// [`execute`], calling `before_replace` before first using each cover output
+/// (including absent entries), so undo can restore its original state.
 pub fn execute_with_side_files(
     paths: &[String],
     groups: &[ActionGroup],
@@ -1979,7 +1979,7 @@ mod tests {
                 actions: vec![import("third.png"), export()],
             },
         ];
-        let output = dir.path().join("art.png");
+        let output = dunce::canonicalize(dir.path()).unwrap().join("art.png");
         let mut replaced = Vec::new();
         let run = |groups: &[ActionGroup], replaced: &mut Vec<PathBuf>| {
             execute_with_side_files(
@@ -1995,12 +1995,13 @@ mod tests {
         let result = run(&groups[..1], &mut replaced);
         assert!(result.errors.is_empty(), "{:?}", result.errors);
         assert_eq!(fs::read(&output).unwrap(), image(2));
-        // The image this run created itself is not handed to undo.
-        assert!(replaced.is_empty());
+        // Capture the original absence once; later same-run replacements
+        // reuse it instead of snapshotting an intermediate image.
+        assert_eq!(replaced, [output.clone()]);
         let result = run(&groups[1..], &mut replaced);
         assert!(result.errors.is_empty(), "{:?}", result.errors);
         assert_eq!(fs::read(&output).unwrap(), image(3));
-        assert_eq!(replaced.len(), 1);
+        assert_eq!(replaced, [output.clone(), output.clone()]);
         // Both groups in one run, starting from a folder image equal to the
         // embedded cover: each export replaces the file's own earlier one.
         fs::write(&path, &before_run).unwrap();

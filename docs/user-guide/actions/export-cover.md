@@ -60,9 +60,9 @@ identical bytes already at a destination need no rewrite.
 
 An existing destination with identical image bytes stays unchanged. A
 different image is replaced. Use **Edit → Undo** (++cmd+z++ / ++ctrl+z++) in
-the same session to restore a replaced image. Newly created image files
-remain after undo; remove them separately if needed. Keep backups of images
-to retain beyond the current session.
+the same session to restore a replaced image or remove an image created by
+the action. Redo recreates those exported images. Empty output folders can
+remain after undo. Keep backups of images to retain beyond the current session.
 
 When two selected files try to export different images to the same name in
 one run, the later file gets a warning and the earlier image stays. A file

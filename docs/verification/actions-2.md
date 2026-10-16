@@ -285,6 +285,30 @@ skips, including all 50 action-host tests. Core checks passed all 23 history
 tests, eight raw-stream tests and 138 unit tests. Workspace Clippy,
 formatting, strict guide build and all eight publication tests passed.
 
+## Creation undo and Windows rename review
+
+The review of `07c645c` identified that creation skipped the side-file hook.
+Actual command regressions reproduced both outcomes: export-only had no
+undo step, and creation followed by an audio edit/directory move left the
+new image behind after Undo. First use of every cover output now captures
+its original entry or absence; later same-run replacements retain that
+first capture. This intentionally completes undo for creations and replaces
+the earlier documented policy that new exported covers remain after undo.
+
+A private side-path normalizer resolves existing ancestor aliases and keeps
+missing components without creating folders during capture. The command
+fixtures export into absent nested folders and verify Undo/Redo, with and
+without a later directory move. A core fixture covers an existing ancestor
+symlink plus missing components and `..`, asserting capture creates nothing.
+
+The accompanying Windows rename finding was resolved from version-pinned
+primary source: Rust 1.99.0 uses `MoveFileExW` with `MOVEFILE_REPLACE_EXISTING`
+and a replacement fallback, so its `fs::rename` supports an occupied regular
+file destination. See the [Rust implementation](https://github.com/rust-lang/rust/blob/1.99.0/library/std/src/sys/fs/windows.rs#L1248-L1254)
+and [API contract](https://doc.rust-lang.org/std/fs/fn.rename.html). No speculative
+replacement workaround was added; this source check is not native Windows
+runtime validation.
+
 ## Not covered
 
 - The `.mta` type IDs for Adjust Cover, Set Cover Properties and Generate Playlists, and the guessed schemas for types 4, 6 and 11–15, need `.mta` files saved by Mp3tag.

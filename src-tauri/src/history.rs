@@ -273,6 +273,95 @@ mod tests {
         tauri::async_runtime::block_on(future).unwrap()
     }
 
+    fn check_new_cover_undo(move_folder: bool) {
+        let _journal = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
+        TEST_ROOTS.lock().unwrap().push(root.clone());
+        let album = root.join("Album");
+        std::fs::create_dir(&album).unwrap();
+        let audio = album.join("a.wav");
+        wav(&audio, "Original");
+        let mut image = std::io::Cursor::new(Vec::new());
+        image::DynamicImage::ImageRgb8(image::RgbImage::new(2, 2))
+            .write_to(&mut image, image::ImageFormat::Png)
+            .unwrap();
+        let image = image.into_inner();
+        let input = root.join("input.png");
+        std::fs::write(&input, &image).unwrap();
+        tag_core::add_cover(&audio, &input).unwrap();
+        let original = std::fs::read(&audio).unwrap();
+        let mut actions = vec![tag_core::actions::ActionSpec::ExportCover {
+            filename_template: "art/newcover".into(),
+            picture_type: None,
+            export_duplicates: false,
+        }];
+        if move_folder {
+            actions.extend([
+                tag_core::actions::ActionSpec::FormatValue {
+                    field: "TITLE".into(),
+                    template: "Changed".into(),
+                },
+                tag_core::actions::ActionSpec::FormatValue {
+                    field: "_DIRECTORY".into(),
+                    template: "Moved".into(),
+                },
+            ]);
+        }
+        let current = if move_folder {
+            root.join("Moved")
+        } else {
+            album.clone()
+        };
+        let result = run(crate::execute_action_groups(
+            vec![audio.to_string_lossy().into_owned()],
+            vec![tag_core::actions::ActionGroup {
+                name: "Create cover".into(),
+                enabled: true,
+                actions,
+            }],
+            None,
+        ));
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert_eq!(
+            std::fs::read(current.join("art/newcover.png")).unwrap(),
+            image
+        );
+        let written = std::fs::read(current.join("a.wav")).unwrap();
+        let undone = run(undo_last());
+        assert!(
+            undone.result.errors.is_empty(),
+            "{:?}",
+            undone.result.errors
+        );
+        assert!(!album.join("art/newcover.png").exists());
+        assert_eq!(std::fs::read(&audio).unwrap(), original);
+        let redone = run(redo_last());
+        assert!(
+            redone.result.errors.is_empty(),
+            "{:?}",
+            redone.result.errors
+        );
+        assert_eq!(
+            std::fs::read(current.join("art/newcover.png")).unwrap(),
+            image
+        );
+        assert_eq!(std::fs::read(current.join("a.wav")).unwrap(), written);
+        // Remove this test's final undo entry from the shared command journal.
+        assert!(run(undo_last()).result.errors.is_empty());
+        TEST_ROOTS.lock().unwrap().retain(|r| r != &root);
+    }
+
+    #[test]
+    fn action_cover_creation_only_has_undo_and_redo() {
+        check_new_cover_undo(false);
+    }
+
+    #[test]
+    fn action_cover_creation_then_folder_move_has_undo_and_redo() {
+        check_new_cover_undo(true);
+    }
+
     #[cfg(unix)]
     #[test]
     fn action_cover_symlink_replacement_is_journaled_through_the_command() {

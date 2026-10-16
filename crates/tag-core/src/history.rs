@@ -1043,17 +1043,47 @@ impl Journal {
     }
 }
 
-/// A side file's path: its folder resolved, the file itself possibly absent.
+/// A side file's path: existing folder aliases resolved, with absent parents
+/// retained until the operation creates them; the final entry is not followed.
 fn side_path(path: &Path) -> Result<PathBuf, String> {
     let name = path
         .file_name()
         .ok_or_else(|| format!("{} is not a file name", path.display()))?;
-    let folder = dunce::canonicalize(
-        path.parent()
-            .filter(|p| !p.as_os_str().is_empty())
-            .unwrap_or(Path::new(".")),
-    )
-    .map_err(|e| e.to_string())?;
+    let parent = path
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    let absolute = if parent.is_absolute() {
+        parent.to_path_buf()
+    } else {
+        std::env::current_dir()
+            .map_err(|e| e.to_string())?
+            .join(parent)
+    };
+    let mut folder = PathBuf::new();
+    // Resolve existing ancestors before '..', retaining missing components
+    // without creating directories just to capture an absent output.
+    for component in absolute.components() {
+        match component {
+            std::path::Component::CurDir => {}
+            std::path::Component::ParentDir => {
+                folder.pop();
+            }
+            std::path::Component::Prefix(_) | std::path::Component::RootDir => {
+                folder.push(component.as_os_str());
+            }
+            std::path::Component::Normal(_) => {
+                folder.push(component.as_os_str());
+                match fs::symlink_metadata(&folder) {
+                    Ok(_) => {
+                        folder = dunce::canonicalize(&folder).map_err(|e| e.to_string())?;
+                    }
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                    Err(error) => return Err(error.to_string()),
+                }
+            }
+        }
+    }
     Ok(folder.join(name))
 }
 

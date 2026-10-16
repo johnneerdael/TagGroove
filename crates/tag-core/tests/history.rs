@@ -571,6 +571,35 @@ fn side_file_captures_across_directory_moves_keep_the_earliest_image() {
     assert!(!old.exists() && !middle.exists());
 }
 
+#[cfg(unix)]
+#[test]
+fn absent_side_file_capture_resolves_symlink_ancestors_without_creating_parents() {
+    let dir = tempfile::tempdir().unwrap();
+    let real = dir.path().join("real");
+    let alias = dir.path().join("alias");
+    fs::create_dir(&real).unwrap();
+    std::os::unix::fs::symlink(&real, &alias).unwrap();
+    let output = alias.join("new/missing/../cover.png");
+    let mut history = journal(dir.path());
+    let mut capture = history.begin("New nested cover", None, &[]);
+    history.capture_side_file(&mut capture, &output).unwrap();
+    assert!(
+        !real.join("new").exists(),
+        "capture only records the absent entry"
+    );
+    fs::create_dir_all(output.parent().unwrap()).unwrap();
+    fs::write(&output, b"new cover image").unwrap();
+    history.commit(capture, &[], &[]);
+    assert!(history.undo().unwrap().errors.is_empty());
+    assert!(!real.join("new/cover.png").exists());
+    assert!(history.redo().unwrap().errors.is_empty());
+    assert_eq!(
+        fs::read(real.join("new/cover.png")).unwrap(),
+        b"new cover image"
+    );
+    assert_eq!(fs::read_link(alias).unwrap(), real);
+}
+
 #[test]
 fn unchanged_side_files_are_not_recorded() {
     let dir = tempfile::tempdir().unwrap();
