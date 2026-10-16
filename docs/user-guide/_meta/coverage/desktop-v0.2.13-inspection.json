@@ -1,0 +1,118 @@
+{
+  "release": "v0.2.13",
+  "source": "325007c47bef4ee53a4aa9b086038157ee3e62dc",
+  "scope": "Read-only package archive/header inspection; no application or installer executed, installed, mounted or accepted through OS security controls.",
+  "downloaded": [
+    {
+      "name": "OpenTag-v0.2.13-macos-arm64.app.tar.gz",
+      "size": 11881216,
+      "sha256": "efefa5b9b7efea636e73cbb8177a5b49ad84af16733f2cd13efc2941f268d4b4"
+    },
+    {
+      "name": "OpenTag-v0.2.13-linux-x64.deb",
+      "size": 15592780,
+      "sha256": "6d830eb6604ab3d7c34d2c20ac3acdbb3fb31f71809b3212d3bd382e437fd0c3"
+    },
+    {
+      "name": "OpenTag-v0.2.13-windows-x64-setup.exe",
+      "size": 8205086,
+      "sha256": "e7742624c569ff0d3179d5a23d957f731b5c39929e09482ee9f4a20d4d620cc0"
+    }
+  ],
+  "windows": {
+    "installer_machine_hex": "0x14c",
+    "security_directory_offset_size": [
+      0,
+      0
+    ],
+    "qualification": "NSIS bootstrapper PE has no embedded Authenticode certificate table. Installer architecture is not treated as the packaged application architecture; x64app follows manifest/release matrix."
+  },
+  "macos": {
+    "bundle": "OpenTag.app",
+    "identifier": "org.opentag.editor",
+    "short_version": "0.2.13",
+    "bundle_version": "0.2.13",
+    "minimum_system_version": "10.13",
+    "signature": "adhoc",
+    "codesign_log_sha256": "39ba01d29f787d5f34897f8b89ed95fc32ebdf97b706202c91811e9dd8b870b7",
+    "qualification": "Read-only codesign display, not Gatekeeper/notarization assessment or launch; release notes/config establish not-notarized distribution.",
+    "executable": "opentag",
+    "binary_architecture": "arm64",
+    "document_types": [
+      {
+        "LSItemContentTypes": [
+          "public.audio",
+          "com.apple.m4v-video",
+          "org.matroska.mkv",
+          "public.mpeg-4"
+        ],
+        "CFBundleTypeName": "Audio file",
+        "CFBundleTypeRole": "Editor",
+        "LSHandlerRank": "Alternate"
+      },
+      {
+        "CFBundleTypeExtensions": [
+          "mp2",
+          "mp1",
+          "aif",
+          "aiff",
+          "aifc",
+          "ape",
+          "asf",
+          "dff",
+          "dsf",
+          "flac",
+          "m4b",
+          "m4p",
+          "m4v",
+          "mka",
+          "mpc",
+          "mp+",
+          "mpp",
+          "ofr",
+          "ofs",
+          "ogg",
+          "oga",
+          "opus",
+          "spx",
+          "tak",
+          "tta",
+          "wave",
+          "webm",
+          "wma",
+          "wv"
+        ],
+        "CFBundleTypeName": "Audio file (by extension)",
+        "CFBundleTypeRole": "Editor",
+        "LSHandlerRank": "Alternate"
+      },
+      {
+        "CFBundleTypeExtensions": [
+          "m3u",
+          "m3u8",
+          "pls",
+          "cue"
+        ],
+        "CFBundleTypeName": "Playlist or cue sheet",
+        "CFBundleTypeRole": "Viewer",
+        "LSHandlerRank": "Alternate"
+      },
+      {
+        "LSItemContentTypes": [
+          "public.folder"
+        ],
+        "CFBundleTypeName": "Folder",
+        "CFBundleTypeRole": "Viewer",
+        "LSHandlerRank": "Alternate"
+      }
+    ]
+  },
+  "linux": {
+    "control": "Package: open-tag\nVersion: 0.2.13\nArchitecture: amd64\nInstalled-Size: 48546\nMaintainer: OpenTag\nPriority: optional\nHomepage: https://github.com/johnneerdael/opentag\nDepends: libayatana-appindicator3-1, libwebkit2gtk-4.1-0, libgtk-3-0\nDescription: Open source audio metadata editor\n OpenTag \u2014 Tag, Organize, Enjoy. An open source music metadata editor built with Tauri 2 and Rust.\n",
+    "desktop_files": {
+      "usr/share/applications/OpenTag.desktop": "[Desktop Entry]\nCategories=AudioVideo;Audio;Music;\nComment=Open source audio metadata editor\nExec=opentag\nStartupWMClass=opentag\nIcon=opentag\nName=OpenTag\nTerminal=false\nType=Application\n"
+    },
+    "qualification": "Actual x64DEB declarations/desktop entries read; no package installed or dependencies resolved on a Linux desktop. ARM64packages not downloaded.",
+    "binary_architecture": "x86-64 ELF64"
+  }
+}

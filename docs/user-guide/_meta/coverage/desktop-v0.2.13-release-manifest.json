@@ -1,0 +1,83 @@
+{
+  "schema": 1,
+  "tag": "v0.2.13",
+  "version": "0.2.13",
+  "commit": "325007c47bef4ee53a4aa9b086038157ee3e62dc",
+  "prerelease": false,
+  "platforms": [
+    "windows-x64",
+    "macos-arm64",
+    "macos-x64",
+    "linux-x64",
+    "linux-arm64",
+    "android-arm64",
+    "ios-arm64-simulator-preview"
+  ],
+  "assets": [
+    {
+      "name": "OpenTag-v0.2.13-android-arm64-signed.apk",
+      "size": 47697582,
+      "sha256": "6c2857a5d8e6927e8c0a2cadc828a8994c4ae314b208ed60729928e7fe67b00c"
+    },
+    {
+      "name": "OpenTag-v0.2.13-ios-arm64-simulator-preview-debug.app.zip",
+      "size": 38029783,
+      "sha256": "e37bb61d99eb1edd05045d412f767d4ac56cd810c071bae2ae2b45dfe6a3dbd3"
+    },
+    {
+      "name": "OpenTag-v0.2.13-linux-arm64.AppImage",
+      "size": 91113992,
+      "sha256": "0119ee2f4db22cfa378fb6e0bd6639be71f125e37726ee3aa47540cf5f01b41b"
+    },
+    {
+      "name": "OpenTag-v0.2.13-linux-arm64.deb",
+      "size": 15988032,
+      "sha256": "97b4986efbc34660be45eff853e9c72fb18e26b42bcc3d614be793b102ff16da"
+    },
+    {
+      "name": "OpenTag-v0.2.13-linux-arm64.rpm",
+      "size": 15964247,
+      "sha256": "da9548171eceee7db08bf7d05466a7f60e6d179da66365d3ab744d33463dd059"
+    },
+    {
+      "name": "OpenTag-v0.2.13-linux-x64.AppImage",
+      "size": 92944888,
+      "sha256": "31be6b0f3062c26b8863feef9c6c602374702408f7b5ea814c1f4e13b945a81a"
+    },
+    {
+      "name": "OpenTag-v0.2.13-linux-x64.deb",
+      "size": 15592780,
+      "sha256": "6d830eb6604ab3d7c34d2c20ac3acdbb3fb31f71809b3212d3bd382e437fd0c3"
+    },
+    {
+      "name": "OpenTag-v0.2.13-linux-x64.rpm",
+      "size": 15571695,
+      "sha256": "b20a6346a5f3543fb5df8c087d1ef3285fd685f9a517ea20fe1a54c4d26a3b6a"
+    },
+    {
+      "name": "OpenTag-v0.2.13-macos-arm64.app.tar.gz",
+      "size": 11881216,
+      "sha256": "efefa5b9b7efea636e73cbb8177a5b49ad84af16733f2cd13efc2941f268d4b4"
+    },
+    {
+      "name": "OpenTag-v0.2.13-macos-arm64.dmg",
+      "size": 12194664,
+      "sha256": "0837b67e5f97f849f3cb8e3bb3661cd79340d44ba408b209331470167642cbdb"
+    },
+    {
+      "name": "OpenTag-v0.2.13-macos-x64.app.tar.gz",
+      "size": 12690452,
+      "sha256": "59b2c9a63b2bf4a1b58b9317755a6c27f3a55aaba580d35da13d6ecc1165eabc"
+    },
+    {
+      "name": "OpenTag-v0.2.13-macos-x64.dmg",
+      "size": 12984322,
+      "sha256": "9daee3ece0964dd4496bc4aac5f55ee1615ff8c71d252ba2ce4c7bd7d899a338"
+    },
+    {
+      "name": "OpenTag-v0.2.13-windows-x64-setup.exe",
+      "size": 8205086,
+      "sha256": "e7742624c569ff0d3179d5a23d957f731b5c39929e09482ee9f4a20d4d620cc0"
+    }
+  ]
+}
