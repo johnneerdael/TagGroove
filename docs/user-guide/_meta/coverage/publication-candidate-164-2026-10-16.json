@@ -1,0 +1,217 @@
+{
+  "scope": "Publication candidate for all27 independently peer-clean local chapters. Documentation, guide examples/tests and writer-only evidence; no production/runtime/workflow/dependency changes. Future automation/HTML/Cookbook drafts remain excluded.",
+  "base_main": "325007c47bef4ee53a4aa9b086038157ee3e62dc",
+  "reviewed_writing_head": "e297bf3c1b5e457bef09bf8ad216d8f404a24d0b",
+  "integration_head_before_metadata": "2a4bd197c0c760160f8aad38b7d956600c78bd79",
+  "authorization": "Root relayed user priority to publish detailed guide now; prior source-queue publication hold revoked. GitHub exact-final-head CODE and trusted validation remain mandatory; root alone merges and verifies actual Pages/release.",
+  "pages": {
+    "base_public_ready": 137,
+    "candidate_ready": 164,
+    "candidate_drafts": 23,
+    "new_finished": 27,
+    "all_prior137_nav_order_preserved": true,
+    "new_pages_match_their_exact_independent_reviewed_heads": true,
+    "full_canonical_semantic_completion_proven": false
+  },
+  "independent_review_chain": [
+    {
+      "batch": "help",
+      "reviewed_head": "eb37f30d8255207008596aede6621dd6668a17df",
+      "receipt": "reviews/help-independent-review.json",
+      "receipt_sha256": "473b9c5a179a26826110b4abe0b84b45cdbe2185050ebd004e58ce9aa8cdd829",
+      "conclusion": "No actionable findings",
+      "page_sha256": {
+        "help/faq.md": "730b8d302450b3bf14369297d171ef57b15c78e1537988bd440c1ed239da96fc",
+        "help/troubleshooting.md": "b1abaf9ebf5059419af29934b4e8bd9f5e078dbbb4c67a00c60b9aefd4379983",
+        "help/about.md": "7436640124b90a305671d21addfdce603a842b027248d5209ba544774b7d6ef0"
+      },
+      "qualification": "Finite independent local chapter review; does not replace final-head GitHub CODE or trusted validation/publication."
+    },
+    {
+      "batch": "credit",
+      "reviewed_head": "2ff5991f6b1def003bc0d37f791e039697f9a3f4",
+      "receipt": "reviews/credit-recipes-independent-review.json",
+      "receipt_sha256": "669f08596313efcb54462512548d66ee1c6612181fbbc30aba8610662820d3fb",
+      "conclusion": "No actionable findings",
+      "page_sha256": {
+        "cookbook/album-artist-from-artist.md": "c4eb8910bda347cd88d2859ac892d2f583f668f914ed8470f5cbc059564bc7e8",
+        "cookbook/strip-track-numbers-from-titles.md": "d8650bbf54f04515736de687c1014dd92ccfebc1b6fc4fbf3976a4dc94059778",
+        "cookbook/the-artist-sort-names.md": "1f570d77a46cb7c85a346701dc6cae2220305e9751f3e2051d8ea041413f2d43"
+      },
+      "qualification": "Finite independent local chapter review; does not replace final-head GitHub CODE or trusted validation/publication."
+    },
+    {
+      "batch": "configuration",
+      "reviewed_head": "19cb59a2c4ddb26614e7ebd698254ae056750883",
+      "receipt": "reviews/config-tools-independent-review.json",
+      "receipt_sha256": "b07f791340593a5a73eabb599753335ebde0e34d1149ee35ab685962686ce95c",
+      "conclusion": "CLEAN in requested bounded scope",
+      "page_sha256": {
+        "customize/configuration.md": "209850d2a3ea8a6e16c4e6f4680e00d34497e6934efca2f0a1233dba8ab94898",
+        "customize/toolbars.md": "810754da3b33177052b372bd0fb684435d5fdeaeff2badbcadba1497d36390b7",
+        "customize/tools.md": "f00420b7f1eb7e06f190321d7c64de3ad742808f2df03e1d308328453b9d1f7a"
+      },
+      "qualification": "Finite independent local chapter review; does not replace final-head GitHub CODE or trusted validation/publication."
+    },
+    {
+      "batch": "file-recovery",
+      "reviewed_head": "9e0d7d74e38f0f41ce01b599276d010130b4f2fd",
+      "receipt": "reviews/file-recovery-independent-review.json",
+      "receipt_sha256": "ff8bac0dec3391d7c7ec5cc9910a9bc336f9c2099b08a9c446d09ea39e19d6c6",
+      "conclusion": "CLEAN in requested bounded scope",
+      "page_sha256": {
+        "guides/file-operations.md": "4bc2df3ddaa8bbd3668ebcd98a2a9311f51cdc8f26701d0bdf818cef54e6d3da",
+        "guides/undo-history.md": "05860cdf38dad29013862a3269b831b17a3ca4b22186c60a0aa8714b1205d208",
+        "guides/utilities.md": "fde89b6958241a634a97537dc117abf5fcf5b698a439a2511575bb0da76ae7ac"
+      },
+      "qualification": "Finite independent local chapter review; does not replace final-head GitHub CODE or trusted validation/publication."
+    },
+    {
+      "batch": "library-values",
+      "reviewed_head": "21adf69093172404d6b7b420861fbbb57da9ba47",
+      "receipt": "reviews/library-values-independent-review.json",
+      "receipt_sha256": "182af2b6edc4ac5dd2fbc1980b3f4c38980401ed9952eeda0283ecd5c1ce70c3",
+      "conclusion": "No actionable findings",
+      "page_sha256": {
+        "customize/field-values.md": "8c9c0984a9619b67e910794af51573fc4d36f06791d3d1edf4d8274de3767230",
+        "guides/library.md": "f1365971984801d0f39df18065cdcb823327dcdde637e3b552b72c4608d67051",
+        "reference/menus/tools.md": "44d4b45012f3f6527dfc4b22fad6391e89f2fca28a49ca924621d39f4c50a8be"
+      },
+      "qualification": "Finite independent local chapter review; does not replace final-head GitHub CODE or trusted validation/publication."
+    },
+    {
+      "batch": "text-exchange",
+      "reviewed_head": "d2990705923a7e4f9999702412c7bdad5bc17226",
+      "receipt": "reviews/text-exchange-independent-review.json",
+      "receipt_sha256": "1dc1d5c9979f6e191e663898dd8934ad859b8158d2cd0a2d23556a171f7588a6",
+      "conclusion": "clean",
+      "page_sha256": {
+        "cookbook/tracklist-from-text-file.md": "d380894adec6bfd6297bd00eb8b8250973f2425383268305db8e25ba78887b5d",
+        "cookbook/lyrics-from-text-files.md": "59add27720b43e8113a0f26c4e3387d5aa7c11b6aa2d0b199b9987196fdaed11",
+        "cookbook/csv-for-spreadsheets.md": "42308910f2bba16cb873fbad3ec86b01355a562ec23bbb273667ee271703bd2d"
+      },
+      "qualification": "Finite independent local chapter review; does not replace final-head GitHub CODE or trusted validation/publication."
+    },
+    {
+      "batch": "learn",
+      "reviewed_head": "25bd3cb4c659caa7b9dd7d16b8b7dd42526205a3",
+      "receipt": "reviews/learn-workflows-followup-independent-review.json",
+      "receipt_sha256": "d2d20a2abdd69061751d0fb42d26979517972c3f4ec71539c497e023be550ea2",
+      "conclusion": "clean",
+      "page_sha256": {
+        "learn/tags-from-filenames.md": "d6378c56430f651140285c2420dc26a390e8ece34c2582aec231b635b5bd81f7",
+        "learn/clean-a-messy-library.md": "03884b1c092381bb56475d92a8de35028b001a5d9225d49b9e2589962746bd97",
+        "learn/give-every-album-a-cover.md": "8bc80fe8b840afdb878214e32ad3e0ece2db73c935cff30808a43acb1c0430f3"
+      },
+      "qualification": "Finite independent local chapter review; does not replace final-head GitHub CODE or trusted validation/publication."
+    },
+    {
+      "batch": "paths",
+      "reviewed_head": "edb215e87084b967cfc89cff2549225bc1bc70ee",
+      "receipt": "reviews/path-recipes-independent-review.json",
+      "receipt_sha256": "d187b6488b1c82e73d4284a67faf513fec8fd3d857ff988ddf946ebb29729a4f",
+      "conclusion": "clean",
+      "page_sha256": {
+        "cookbook/rename-lowercase-filenames.md": "0fc1a93c0c9887428b462370510a0aa1b1cb3aef623a09b6f4413e8a4ab495fb",
+        "cookbook/rename-safe-characters.md": "58fde47182c81e5930bcde53ffa4dc5315f70e874c1233709e20d768108af2ac",
+        "cookbook/export-folder-jpg.md": "26a039049458e5f36d1f6a05c9cc9e03b5d109f0171be85b856e48e3758575ad"
+      },
+      "qualification": "Finite independent local chapter review; does not replace final-head GitHub CODE or trusted validation/publication."
+    },
+    {
+      "batch": "desktop",
+      "reviewed_head": "e297bf3c1b5e457bef09bf8ad216d8f404a24d0b",
+      "receipt": "reviews/desktop-platforms-independent-review.json",
+      "receipt_sha256": "4e470a2ea521dff5a7dfb739695b91e58beaf70d6847b9990352de94fca5b993",
+      "conclusion": "clean",
+      "page_sha256": {
+        "platforms/macos.md": "551a46824fd2de051fb87ee03c7dd56fb853d93d043f1dd55a145dc889a1b924",
+        "platforms/windows.md": "74a230eba0039cc7ad5611da527309b833c2763673c2cdeee1e9c1b0dd16428f",
+        "platforms/linux.md": "446b3a869253d96806d3e9d5ca7a8b6938b6d4f83bb34cfc4ea65bdeba3973ba"
+      },
+      "qualification": "Finite independent local chapter review; does not replace final-head GitHub CODE or trusted validation/publication."
+    }
+  ],
+  "help_source_qualification": "Help receipt names3f main, before docs-only32. All27pagebytes matched its exactpeer eb37/current; fresh application/runtime/source identity against actual325 required below. Historical receipt not rewritten.",
+  "integration": {
+    "canonical_docs_and_tests_only_diff": true,
+    "all_production_configuration_dependencies_workflows_byte_identical_base": true,
+    "source_identity_files": 178,
+    "source_identity_aggregate_sha256": "66774be522b0c7061b23704db9becdbbfbe8bff1e67f18e7c942d5acc6a66195",
+    "all164_HTML_byte_identical_reviewed_e297_build": true,
+    "HTML_aggregate_sha256": "121e3e20931359f698c219684f86169ee6d694a782ed0d985d0c9c7250bdd311",
+    "search_sections": 1378,
+    "search_sha256": "b815737f8c5d11f1eb8c759d9cd16e301bee1892f04e13b1caf8ed1b40d3d113",
+    "nav_search_exact": true,
+    "draft_HTML_nav_search_leaks": 0,
+    "whole164_completed_page_brief_findings": [],
+    "paused_drafts_excluded": [
+      "automate/index.md",
+      "cookbook/index.md",
+      "cookbook/html-album-catalogue.md"
+    ]
+  },
+  "validation": {
+    "combined_Rust": {
+      "passed": 34,
+      "failed": 0,
+      "ignored": 0,
+      "new_guide_targets": 5,
+      "baseline_required_target": "user_guide",
+      "command": "CARGO_TARGET_DIR=/tmp/opentag-guide-combined-target TMPDIR=/tmp/opentag-guide-publish164-tmp AR=/usr/bin/ar cargo test -p tag-core --test credit_recipe_guide --test text_exchange_guide --test learn_workflow_guide --test path_recipe_guide --test desktop_platform_guide --test user_guide --locked"
+    },
+    "guide_Node_contracts": {
+      "passed": 10,
+      "failed": 0,
+      "command": "node --test tests/guide-config-tools.test.mjs tests/guide-file-recovery.test.mjs tests/guide-library-values.test.mjs tests/guide-desktop-platforms.test.mjs"
+    },
+    "publication": {
+      "passed": 8,
+      "command": "python3 -m unittest discover -s docs/tests -v"
+    },
+    "strict": {
+      "passed": true,
+      "command": "/tmp/opentag-docs-publish-venv/bin/python -m mkdocs build --strict"
+    },
+    "Clippy": {
+      "passed": true,
+      "scope": "All six selected core example targets; not an app/all-target workspace or native OS run",
+      "command": "CARGO_TARGET_DIR=/tmp/opentag-guide-combined-target TMPDIR=/tmp/opentag-guide-publish164-tmp AR=/usr/bin/ar cargo clippy -p tag-core --test credit_recipe_guide --test text_exchange_guide --test learn_workflow_guide --test path_recipe_guide --test desktop_platform_guide --test user_guide --locked -- -D warnings"
+    },
+    "logs": {
+      "core": {
+        "path": "/tmp/opentag-guide-publish164-core.log",
+        "sha256": "54d2dbcf93606b8b7cc1c16708ce3c5887e439a5cae43026ccfd1fa8a873304e"
+      },
+      "models": {
+        "path": "/tmp/opentag-guide-publish164-models.log",
+        "sha256": "8e69357d6dbc3f02f6afd675a25b2caf8771f67c026516244f086a7f7efeb361"
+      },
+      "publication": {
+        "path": "/tmp/opentag-guide-publish164-publication.log",
+        "sha256": "34ab18cad718e547cc8f0932f6cedcd94dbb418253e380d29304dc869cf1438c"
+      },
+      "strict": {
+        "path": "/tmp/opentag-guide-publish164-strict.log",
+        "sha256": "62e3e9483d7fed694e2b24f05a1bb3300fd9475a41878da89737aafbcde3372b"
+      },
+      "clippy": {
+        "path": "/tmp/opentag-guide-publish164-clippy.log",
+        "sha256": "ee1956a1c715b446d4afe52e5e6ec8f6be5e8a7ad1d072634375817c581a8542"
+      }
+    },
+    "browser": "Reuse scoped author/independent browser/visual evidence because all164rendered HTML and search bytes equal reviewed e297build. Desktop final9checks zeroerrors; architecture-keyword search limitation retained in desktop ledger. No comprehensive search/nativeOS/public164 claim. No further browser started for identical output."
+  },
+  "local_receipts": {
+    "peer_chain_audit": "/tmp/opentag-guide-publish164-peer-chain-audit.json",
+    "integration_audit": "/tmp/opentag-guide-publish164-integration-audit.json",
+    "future_work_checkpoint": "/tmp/opentag-guide-automation-paths-paused.json"
+  },
+  "remaining": [
+    "Exact-final-head GitHub CODE must be completed clean and qualified before trusted PR validation/merge",
+    "Trusted current-main/testmerge validation must pass; no bypass or manual appCI dispatch",
+    "Actual merged-source Pages bytes/navigation/search/browser and release source/assets need root verification",
+    "23remaining draft pages and full canonical semantic/detail coverage remain unfinished",
+    "No originalP2/REA work started; no new application platform install/runtime claims"
+  ]
+}

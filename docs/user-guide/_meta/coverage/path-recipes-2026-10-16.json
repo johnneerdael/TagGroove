@@ -1,0 +1,461 @@
+{
+  "scope": "Three LOCAL filename/folder-image recipes. Documentation and focused test changes only; no application/dependency/workflow edits, native app launch, OS transfers, personal files, originalP2 test campaign/fixes, REA or GitHub writes.",
+  "base_checkpoint": "25bd3cb4c659caa7b9dd7d16b8b7dd42526205a3",
+  "source_main": "325007c47bef4ee53a4aa9b086038157ee3e62dc",
+  "writing_checkpoint": {
+    "ready": 161,
+    "drafts": 26,
+    "plan": 187,
+    "published_ready": 137,
+    "published_drafts": 50,
+    "unpublished_completed": 24,
+    "qualification": "Prior21completed local chapters independently clean at25bd; this trio awaits finite peer. Page counts do not prove canonical semantic completeness."
+  },
+  "canonical_source_pointers": [
+    {
+      "url": "https://docs.mp3tag.de/converters/rearrange-filenames/",
+      "relative_file": "converters/rearrange-filenames.html",
+      "sha256": "5368c265146ea8f46a41082fb3dec0494ca74c9e88300ae738a2caaf06f6cbfd"
+    },
+    {
+      "url": "https://docs.mp3tag.de/converters/rename-files/",
+      "relative_file": "converters/rename-files.html",
+      "sha256": "56a05c0a29e207da1ca909126ce84f307dc43e715b4914f56c8378bfdcb77550"
+    },
+    {
+      "url": "https://docs.mp3tag.de/actions/export-cover/",
+      "relative_file": "actions/export-cover.html",
+      "sha256": "c1f19cfb72b778c1ed8ec2fb2e4fa5cc8c17e22b117f83ccf37551840b8f9c41"
+    },
+    {
+      "url": "https://docs.mp3tag.de/scripting/",
+      "relative_file": "scripting.html",
+      "sha256": "9296fcbcfc59338bc44f44765c8b766f30c61601f3fd124ffa65c9559fb575b0"
+    },
+    {
+      "url": "https://docs.mp3tag.de/customization/options/files/",
+      "relative_file": "customization/options/files.html",
+      "sha256": "52128d61fe45773d2ecbb668e817b23931fe6304e021f531ef88347259245983"
+    }
+  ],
+  "canonical_semantic_mapping": {
+    "Lowercase hyphenated names": {
+      "page": "cookbook/rename-lowercase-filenames.md",
+      "teaching": [
+        "Copied local selection, oldpattern%1 versus field placeholders, actual Filename\u2192Filename preview/Rename route",
+        "Ordinary spaces/underscores replacement then lowercase, extension retained including.MP3, Unicode accents retained and doubled separators visible",
+        "Regex collapsing variation with literal hyphen last, explicit scope excluding other whitespace/edge trimming",
+        "Separate Tag\u2192Filename savedtrack/title variation, missing/nonnumeric/firstvalue checks",
+        "Parent folder/tag retention, case-only realvolume trial without universal guarantee, completepaths/distinctnames/errors/recorded sessionundo"
+      ],
+      "limits": "Actual written converter outputs and expressions under LF/CRLF; no physical case-only rename, filesystem alias or receiving-device tests."
+    },
+    "Portable component policy": {
+      "page": "cookbook/rename-safe-characters.md",
+      "teaching": [
+        "Actual UI preview_rename/rename_files Tag\u2192Filename route, reviewed sourcefields and extension preservation",
+        "Inside-out validate specific8character set, separate quoted backslash replacement and trailing dot/space trimset",
+        "Raw text function versus filename-mode sanitizing/control/separator rules; no device-name/path/alias validation claim",
+        "Exact punctuation/Unicode/space examples, explicit80Unicode-scalar title truncation not byte/fullpath guarantee",
+        "Relative components versus literal folders/root, distinct paths versus collapsed names, refusal/copies/undo/receiving-system checks"
+      ],
+      "limits": "Actual core filename evaluation and raw function/Unicode counts only. No new originalP2/case/partition alias tests or runtime behavior changes."
+    },
+    "Embedded cover to folder image": {
+      "page": "cookbook/export-folder-jpg.md",
+      "teaching": [
+        "Embedded Front Cover versus folderfallback, one representative copied file and existingimage inspection",
+        "Real ExportCover action settings/exact localperfile basename, immediateexternalwrite leavesembedded/audio unchanged",
+        "JPEG/.jpg and PNG/.png atlead, no conversion by.jpg naming, known-image extension replacement and numbered qualifyingcovers",
+        "Repeatedcontent versusexistingdestinationreplacement/identityno-op; differentimagecross-filewarning and no artworkquality selection",
+        "Per-inputfolder selection versusabsolutepath and textreportpartition controls, pertrack output expression/subfolder variation",
+        "Specific sidefile sessionundo versusordinaryreport exports; budget/capture/late-notice/history-unavailable qualifications and retained originals"
+      ],
+      "limits": "Actual coreExportCover request fields/filenameformats and two existing temporarysidefileJournal cases executed. NativeHost extension/type/ordinal/atomicwrite/ownership/snapshotflow and concreteexistingnativetests read, not a new native app imageexport/undo run. No fabricated mirrorimplementation or universal alias guarantee."
+    }
+  },
+  "page_sha256": {
+    "cookbook/rename-lowercase-filenames.md": "0fc1a93c0c9887428b462370510a0aa1b1cb3aef623a09b6f4413e8a4ab495fb",
+    "cookbook/rename-safe-characters.md": "58fde47182c81e5930bcde53ffa4dc5315f70e874c1233709e20d768108af2ac",
+    "cookbook/export-folder-jpg.md": "26a039049458e5f36d1f6a05c9cc9e03b5d109f0171be85b856e48e3758575ad"
+  },
+  "application_source_sha256": {
+    "src/main.ts": "f9c0a56f1eba4f77bc47531a08fcd63427a2b845bc36a784b27da43146309c76",
+    "src/converter-review.ts": "5e71cf613594dd896f2638710e7f81157f9dd1ca18b721db33bc6231473ef839",
+    "src/action-ui.ts": "0ab3fd434ac7729218cd8b45293014e3c232b7c1890f2bfdf1d91df5d08e4868",
+    "src-tauri/src/lib.rs": "77b79c1faad0bf31d07bd5974d91980c4b62dcd919a9aad8217e0f2547acef49",
+    "src-tauri/src/converters.rs": "62e30a4f9b58addc9dd6893d6ff454617d4d5a1992764f67f44fbc3751a1b3f0",
+    "src-tauri/src/action_host.rs": "6da0c08ead3c66a3b4f266629573c2d0316de56a2671e870121f1518bc037486",
+    "src-tauri/src/history.rs": "515b8dba35538f964c7502d1fc01c667a9790ce1748d3ab58e99670bc19914a1",
+    "src-tauri/src/rename_plan.rs": "1c5db878c801fd014388dae1bb632b1058235884798c13a04f320e7806a616fc",
+    "src-tauri/src/evaluation.rs": "bc66c581e6ff3826bb0f856ec51ce8d5bdcbfd8ede0880974f27fd94214af6cf",
+    "crates/tag-core/src/script.rs": "b070a9db9820b53c22f50d43a6986b465e5fce56e86dd7aa835d333c5b385ec0",
+    "crates/tag-core/src/converters.rs": "a4a6a5f51f310d13489039391f623ccc82bf77e20f265a38eec56825ec9d51b4",
+    "crates/tag-core/src/actions.rs": "70c80252ff553159f5c7a5563c0cc14ef0ca23f804da8071fd2dac94c97828ac",
+    "crates/tag-core/src/history.rs": "3cd75c86c5d16b8dace35780dda7229ce4d5494d9052dbb6e381465a705b2d04",
+    "crates/tag-core/tests/history.rs": "91dacc7defe9813c7a6ada29e747fe4026c86e3f6da72140b12a750547bac432",
+    "crates/tag-core/Cargo.toml": "484e0913ce8d7231fe25f8826fde7a103a6f5147db260d96abc630a352098584",
+    "Cargo.lock": "db91db6f8670e04790fd9f65a6c5515b46a37e5397d3fc7afbfe246d27e4f963"
+  },
+  "test_sha256": {
+    "crates/tag-core/tests/path_recipe_guide.rs": "29f4a94666c4fa23b9ceb2a8ee5ebfe5c9cf1f13a8cb0e33cea2ccf3fd6d40ec"
+  },
+  "native_source_review": {
+    "export": "src-tauri/src/action_host.rs:cover_file_target,NativeHost::execute ExportCover,capture_cover_output; source retainsencodedbytes, appends/replaces imageextension, ordinals before duplicatefilter, equalbytesno-op/differentwriterwarning/prewritecapture",
+    "caller": "src/main.ts:converter rename previews\u2192preview_rename and applies\u2192rename_files; Filename\u2192Filename reviewedConverter uses its own request/token. src-tauri/src/lib.rs routes/reject/history followed; legacy tag_filename is not used as a substitute for UI route.",
+    "history": "src-tauri/src/history.rs:journal_work passes capturehook, generic operation canrun ifhistoryunavailable; crates/tag-core/src/history.rs:capture_side_file_after_moves/copy_side_file/check_side_budget/commit_side_files",
+    "existing_native_tests_read": [
+      "export_cover_appends_or_replaces_the_image_extension",
+      "cover_export_appends_new_images_after_suppressed_existing_covers"
+    ],
+    "qualification": "Source/test bodies read only for native external image path; no local run of those private app tests claimed."
+  },
+  "validation": {
+    "core": {
+      "passed": 5,
+      "command": "CARGO_TARGET_DIR=/tmp/opentag-guide-combined-target TMPDIR=/tmp/opentag-guide-path-recipes-tmp AR=/usr/bin/ar cargo test -p tag-core --test path_recipe_guide --locked",
+      "binary": "/tmp/opentag-guide-combined-target/debug/deps/path_recipe_guide-f2136f026442cc82",
+      "binary_sha256": "057a54ae5377b038d6e74fbe945c5d7ad8c0469c3eac05ce7e594a21c364506e",
+      "cases": [
+        "written_front_cover_export_settings_and_per_track_format_produce_actual_host_requests",
+        "written_component_cleanup_replaces_its_exact_characters_and_trims_only_the_resulting_end",
+        "written_shortening_policy_counts_unicode_scalars_without_claiming_filesystem_byte_limits",
+        "actual_filename_converter_uses_written_whole_basename_capture_and_preserves_extension_and_tags",
+        "written_collapsing_and_tag_based_variations_use_their_distinct_actual_converter_contexts"
+      ],
+      "scope": "Actual written block/table extraction bothLF/CRLF; filenameconverter and filename/text engine, scalartruncation, unmodified tag inputs and actual ExportCover hostrequest. No app/native filesystem effects simulated."
+    },
+    "journal": {
+      "passed": 2,
+      "commands": [
+        "cargo test -p tag-core --test history --locked side_files_created_or_replaced_are_removed_or_restored -- --exact",
+        "cargo test -p tag-core --test history --locked unchanged_side_files_are_not_recorded -- --exact"
+      ],
+      "binary": "/tmp/opentag-guide-combined-target/debug/deps/history-58a94a594cdba2ca",
+      "binary_sha256": "dbd16c3e7e71e34b1742a2c110367223f8fda9c7e1e123ad1ad3992ec16244cf",
+      "scope": "Two exact existing isolatedtemporaryfile tests, same pinnedmain325 production source; no personal files, new P2 campaign or fullhistory/nativeappmatrix."
+    },
+    "node": {
+      "passed": 31,
+      "command": "node --test tests/converter-review.test.mjs tests/action-ui.test.mjs",
+      "scope": "Actual existing production models; no native dialog/realrename/program execution."
+    },
+    "publication": {
+      "passed": 8,
+      "command": "python3 -m unittest discover -s docs/tests -v"
+    },
+    "strict": {
+      "passed": true,
+      "command": "/tmp/opentag-docs-publish-venv/bin/python -m mkdocs build --strict"
+    },
+    "clippy": {
+      "passed": true,
+      "command": "CARGO_TARGET_DIR=/tmp/opentag-guide-combined-target TMPDIR=/tmp/opentag-guide-path-recipes-tmp AR=/usr/bin/ar cargo clippy -p tag-core --test path_recipe_guide --locked -- -D warnings",
+      "scope": "Focused newtest, not alltarget/native matrix. Preexisting nonfatal globalCargo cache cleanup warning was not repaired."
+    },
+    "generated": {
+      "ready": 161,
+      "drafts": 26,
+      "sections": 1352,
+      "search_sha256": "d00931914f1dbc89c876e74541ec3bc244c1f716f16d0534547748dce80d427c",
+      "previous158_order_retained": true,
+      "nav_search_exact": true,
+      "draft_leaks": 0
+    },
+    "whole_completed_page_draft_brief_audit": {
+      "scope": "Entirecontents of all161completed candidate Markdown pages; meta/snippets/drafts excluded. Three new pages replaced fully and read end to end.",
+      "pages": 161,
+      "literal_draft_markers": [
+        "This page is being written",
+        "It will cover:",
+        "Until then, the [reference section]"
+      ],
+      "findings": [],
+      "sorted_path_and_content_sha256": "42e6dfe77a4e71c79a724be1c043ee351955284cb70f5681fe370d97a16b9b09",
+      "aggregate_algorithm": "Sort absolute Markdown paths; join relative_path + space + SHA256(filebytes) with LF and no finalLF; SHA256 UTF8 string."
+    },
+    "browser": {
+      "scope": "Local161 authored chapters/26drafts; lowercase, component cleanup and folder-image export recipes, exact main325 application source. Generated-doc browser only, no native app/OS transfer/player/public161 validation.",
+      "checks": [
+        "Lowercase capture recipe and extension/case boundaries render in light palette",
+        "Actual lowercase recipe link opens correct mature Filename converter reference",
+        "All six/five/six real procedure steps render with no visible metadata/draft footer",
+        "cookbook/rename-lowercase-filenames/ tables render at390px without document overflow",
+        "cookbook/rename-safe-characters/ tables render at390px without document overflow",
+        "cookbook/export-folder-jpg/ tables render at390px without document overflow",
+        "Actual horizontal wheel reveals complete nested character-cleanup expression at390px",
+        "Folder-image recipe renders JPEG-versus-PNG distinction and copyable per-track path in dark palette",
+        "Actual search opens the component-cleanup recipe"
+      ],
+      "errors": [],
+      "screenshots": [
+        "/tmp/opentag-guide-path-recipes-browser/desktop-lowercase-light.png",
+        "/tmp/opentag-guide-path-recipes-browser/mobile390-lowercase-table.png",
+        "/tmp/opentag-guide-path-recipes-browser/mobile390-portable-table.png",
+        "/tmp/opentag-guide-path-recipes-browser/mobile390-folder-image-table.png",
+        "/tmp/opentag-guide-path-recipes-browser/mobile390-component-format-scrolled.png",
+        "/tmp/opentag-guide-path-recipes-browser/desktop-folder-image-dark.png"
+      ],
+      "success": true,
+      "profile_removed": true
+    },
+    "visual_bounds": "Owner viewed actual390pxnestedexpression procedure and darkJPEG/PNGlead; final9browserchecks after oneadditional history-unavailable sentence; ownprofiles/serverclosed. Public137/nativeOS/player verification separate.",
+    "source_identity": {
+      "source_main": "325007c47bef4ee53a4aa9b086038157ee3e62dc",
+      "production_dependency_workflow_files": 175,
+      "all_byte_identical": true,
+      "paths": [
+        ".github/CI_LOCKDOWN.md",
+        ".github/pull_request_template.md",
+        ".github/release-notes-baseline",
+        ".github/scripts/codex_review.py",
+        ".github/scripts/release_notes.py",
+        ".github/scripts/review_gate.py",
+        ".github/scripts/tests/test_codex_review.py",
+        ".github/scripts/tests/test_pages_workflow.py",
+        ".github/scripts/tests/test_release_notes.py",
+        ".github/scripts/tests/test_review_gate.py",
+        ".github/workflows/_reviewed-build.yml",
+        ".github/workflows/_reviewed-pages.yml",
+        ".github/workflows/review-controller.yml",
+        ".github/workflows/review-metadata-signal.yml",
+        ".github/workflows/reviewed-pr.yml",
+        ".github/workflows/reviewed-release.yml",
+        "Cargo.lock",
+        "Cargo.toml",
+        "crates/document-access/Cargo.toml",
+        "crates/document-access/android/src/androidTest/java/org/opentag/documentaccess/AndroidPrivateStreamsTest.kt",
+        "crates/document-access/android/src/main/AndroidManifest.xml",
+        "crates/document-access/android/src/main/java/AndroidPrivateStreams.kt",
+        "crates/document-access/android/src/main/java/DocumentAccessPlugin.kt",
+        "crates/document-access/android/src/main/java/DocumentAccessState.kt",
+        "crates/document-access/android/src/main/java/DocumentTransport.kt",
+        "crates/document-access/android/src/main/java/PrivateDocumentPaths.kt",
+        "crates/document-access/android/src/test/java/org/opentag/documentaccess/DocumentAccessStateTest.kt",
+        "crates/document-access/android/src/test/java/org/opentag/documentaccess/DocumentTransportTest.kt",
+        "crates/document-access/src/lib.rs",
+        "crates/document-access/verification/provider-fixture/src/androidTest/java/org/opentag/fixture/documents/ProviderCheck.java",
+        "crates/document-access/verification/provider-fixture/src/main/AndroidManifest.xml",
+        "crates/document-access/verification/provider-fixture/src/main/java/org/opentag/fixture/documents/FixtureActivity.java",
+        "crates/document-access/verification/provider-fixture/src/main/java/org/opentag/fixture/documents/FixtureProvider.java",
+        "crates/library/Cargo.toml",
+        "crates/library/src/lib.rs",
+        "crates/regex-compat/Cargo.toml",
+        "crates/regex-compat/src/bridge.cpp",
+        "crates/regex-compat/src/lib.rs",
+        "crates/tag-core/Cargo.toml",
+        "crates/tag-core/src/actions.rs",
+        "crates/tag-core/src/ape_footer.rs",
+        "crates/tag-core/src/asf/header.rs",
+        "crates/tag-core/src/asf/mod.rs",
+        "crates/tag-core/src/asf/tests.rs",
+        "crates/tag-core/src/container_formats.rs",
+        "crates/tag-core/src/converters.rs",
+        "crates/tag-core/src/cover_manage.rs",
+        "crates/tag-core/src/cover_ops.rs",
+        "crates/tag-core/src/cue.rs",
+        "crates/tag-core/src/dsd.rs",
+        "crates/tag-core/src/export.rs",
+        "crates/tag-core/src/filter.rs",
+        "crates/tag-core/src/flac_metadata.rs",
+        "crates/tag-core/src/history.rs",
+        "crates/tag-core/src/id3_frames.rs",
+        "crates/tag-core/src/id3_padding.rs",
+        "crates/tag-core/src/id3_v23.rs",
+        "crates/tag-core/src/lib.rs",
+        "crates/tag-core/src/mapping.rs",
+        "crates/tag-core/src/matroska.rs",
+        "crates/tag-core/src/media_info.rs",
+        "crates/tag-core/src/mp4_chapters.rs",
+        "crates/tag-core/src/mp4_layout.rs",
+        "crates/tag-core/src/mp4_metadata.rs",
+        "crates/tag-core/src/nero_tags.rs",
+        "crates/tag-core/src/numbering.rs",
+        "crates/tag-core/src/oem_codepages.rs",
+        "crates/tag-core/src/operations.rs",
+        "crates/tag-core/src/optimize.rs",
+        "crates/tag-core/src/parallel.rs",
+        "crates/tag-core/src/playlist.rs",
+        "crates/tag-core/src/preferences.rs",
+        "crates/tag-core/src/raw_streams.rs",
+        "crates/tag-core/src/script.rs",
+        "crates/tag-core/src/subsongs.rs",
+        "crates/tag-core/src/tag_policy.rs",
+        "crates/tag-core/src/tag_types.rs",
+        "crates/tag-core/src/tags.rs",
+        "crates/tag-core/src/technical.rs",
+        "crates/tag-core/src/write_cost.rs",
+        "package-lock.json",
+        "package.json",
+        "src-tauri/Cargo.toml",
+        "src-tauri/src/action_host.rs",
+        "src-tauri/src/columns.rs",
+        "src-tauri/src/converters.rs",
+        "src-tauri/src/cover_drag.rs",
+        "src-tauri/src/covers.rs",
+        "src-tauri/src/documents.rs",
+        "src-tauri/src/documents/command_fixture.rs",
+        "src-tauri/src/documents/engine.rs",
+        "src-tauri/src/documents/tests.rs",
+        "src-tauri/src/e2e.rs",
+        "src-tauri/src/evaluation.rs",
+        "src-tauri/src/exports.rs",
+        "src-tauri/src/file_hashes.rs",
+        "src-tauri/src/file_ops.rs",
+        "src-tauri/src/filter_cache.rs",
+        "src-tauri/src/history.rs",
+        "src-tauri/src/lib.rs",
+        "src-tauri/src/library.rs",
+        "src-tauri/src/list_behaviour.rs",
+        "src-tauri/src/lists.rs",
+        "src-tauri/src/main.rs",
+        "src-tauri/src/managed_actions.rs",
+        "src-tauri/src/mp3tag_columns.rs",
+        "src-tauri/src/mp3tag_tag_panel.rs",
+        "src-tauri/src/playlists.rs",
+        "src-tauri/src/progress.rs",
+        "src-tauri/src/rename_plan.rs",
+        "src-tauri/src/settings.rs",
+        "src-tauri/src/sources/credentials.rs",
+        "src-tauri/src/sources/discogs.rs",
+        "src-tauri/src/sources/fixtures/freedb-entry.xmcd",
+        "src-tauri/src/sources/fixtures/musicbrainz-release.json",
+        "src-tauri/src/sources/freedb.rs",
+        "src-tauri/src/sources/freedb_index.rs",
+        "src-tauri/src/sources/http.rs",
+        "src-tauri/src/sources/mod.rs",
+        "src-tauri/src/sources/model.rs",
+        "src-tauri/src/sources/musicbrainz.rs",
+        "src-tauri/src/sources/web/engine.rs",
+        "src-tauri/src/sources/web/mod.rs",
+        "src-tauri/src/sources/web/source.rs",
+        "src-tauri/src/tag_panel.rs",
+        "src-tauri/src/tray.rs",
+        "src-tauri/src/updates.rs",
+        "src-tauri/src/utilities.rs",
+        "src-tauri/src/window_state.rs",
+        "src/action-ui.ts",
+        "src/cell-editor.ts",
+        "src/chapters.ts",
+        "src/columns.ts",
+        "src/converter-review.ts",
+        "src/cover-model.ts",
+        "src/covers.css",
+        "src/covers.ts",
+        "src/document-state.ts",
+        "src/edit-history.ts",
+        "src/export-ui.ts",
+        "src/extended-tags.css",
+        "src/extended-tags.ts",
+        "src/field-mapping.ts",
+        "src/file-ops.ts",
+        "src/filter-fields.ts",
+        "src/filter-sync.ts",
+        "src/find.ts",
+        "src/general-options.ts",
+        "src/helper-menu.ts",
+        "src/keyboard-ui.css",
+        "src/keyboard.ts",
+        "src/library.ts",
+        "src/list-behaviour.ts",
+        "src/list-commands.ts",
+        "src/main.ts",
+        "src/menubar.ts",
+        "src/messages.ts",
+        "src/numbering-review.ts",
+        "src/options-ui.ts",
+        "src/panel-dock.css",
+        "src/panel-dock.ts",
+        "src/playlist-ui.ts",
+        "src/remove-tag.ts",
+        "src/row-context-menu.ts",
+        "src/style.css",
+        "src/tag-clipboard.ts",
+        "src/tag-edits.ts",
+        "src/tag-panel.ts",
+        "src/tag-sources.ts",
+        "src/tag-tag-ui.ts",
+        "src/theme.ts",
+        "src/toolbar.ts",
+        "src/tools.ts",
+        "src/utils-ui.ts",
+        "src/web-sources.ts"
+      ]
+    },
+    "non_docs_tests_changed_paths_since_source_base": [],
+    "log_sha256": {
+      "core": {
+        "path": "/tmp/opentag-guide-path-recipes-core.log",
+        "sha256": "cd1005954c31b5e722d037a20e7769029910f7613c96509d27a62ecdc0cbfc12"
+      },
+      "history": {
+        "path": "/tmp/opentag-guide-path-recipes-history.log",
+        "sha256": "75d4eb49d690821b59627024ff057f911c049dff43778c6e5291b1986c9ca116"
+      },
+      "models": {
+        "path": "/tmp/opentag-guide-path-recipes-models.log",
+        "sha256": "ad803db86e97cb55a6858d5292c20448c1485f6a43e8f7103bab181851411437"
+      },
+      "publication": {
+        "path": "/tmp/opentag-guide-path-recipes-publication.log",
+        "sha256": "2e2f22e80af4ddec82f510127f63d8032a035b91173d41be20006c1e0532322d"
+      },
+      "strict": {
+        "path": "/tmp/opentag-guide-path-recipes-strict.log",
+        "sha256": "39afbb790d9a66569adfe2b233cb8d08aebe8397c09243c1fdf2556435d1890b"
+      },
+      "clippy": {
+        "path": "/tmp/opentag-guide-path-recipes-clippy.log",
+        "sha256": "f002937dc0829874140f72d8b05a4146a3d4f34a8de5d4a176ce88fe81c0d86e"
+      }
+    },
+    "format_and_whitespace": "cargo fmt --all --check and git diff --check pass"
+  },
+  "preserved_evidence": {
+    "learn-workflows-followup-independent-review.json": {
+      "path": "reviews/learn-workflows-followup-independent-review.json",
+      "sha256": "d2d20a2abdd69061751d0fb42d26979517972c3f4ec71539c497e023be550ea2",
+      "scope": "Prior learningworkflow25bd finite cleanpeer/rootfooterrepair; not this trio review."
+    },
+    "learn-workflows-footer-checkpoint.json": {
+      "path": "reviews/learn-workflows-footer-checkpoint.json",
+      "sha256": "c5b8f8c884af2c3ac9ab47214b73fd8a04917e7d0b6166c3c5858099dd801466",
+      "scope": "Prior learningworkflow25bd finite cleanpeer/rootfooterrepair; not this trio review."
+    }
+  },
+  "review": "Author checkpoint ready for finite independent peer; pause. No push/PR/main churn while17\u201320pending. Later source reconciliation/exactheadCODE/trustedCI/actualpublication remain.",
+  "remaining_drafts": [
+    "tag-sources/lrclib.md",
+    "tag-sources/freedb.md",
+    "tag-sources/acoustid.md",
+    "tag-sources/deezer.md",
+    "tag-sources/discogs.md",
+    "tag-sources/itunes.md",
+    "tag-sources/local-freedb.md",
+    "tag-sources/index.md",
+    "tag-sources/musicbrainz.md",
+    "platforms/android.md",
+    "platforms/windows.md",
+    "platforms/linux.md",
+    "platforms/macos.md",
+    "platforms/ios.md",
+    "learn/index.md",
+    "learn/tag-from-online-sources.md",
+    "cookbook/html-album-catalogue.md",
+    "cookbook/index.md",
+    "getting-started/coming-from-mp3tag.md",
+    "getting-started/whats-new.md",
+    "automate/index.md",
+    "guides/index.md",
+    "help/glossary.md",
+    "customize/languages.md",
+    "customize/index.md",
+    "reference/options/language.md"
+  ],
+  "remaining_limits": [
+    "Full94canonical-page semantic coverage unproven;26drafts remain",
+    "24completed local chapters unpublished, public137receiptunchanged",
+    "No nativeapp imageexport/undo, OStransfer/player/universalpathvalidity proof",
+    "Original5P2, REA and pending17\u201320 featurebehavior untouched"
+  ]
+}

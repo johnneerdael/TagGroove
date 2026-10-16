@@ -1,0 +1,243 @@
+{
+  "reviewed_at_utc": "2026-10-16T14:36:16.815183+00:00",
+  "head": "e297bf3c1b5e457bef09bf8ad216d8f404a24d0b",
+  "base": "edb215e87084b967cfc89cff2549225bc1bc70ee",
+  "source_main": "325007c47bef4ee53a4aa9b086038157ee3e62dc",
+  "verdict": "clean",
+  "findings": [],
+  "focused_validation": {
+    "existing_native_binary": {
+      "command": "/tmp/opentag-guide-combined-target/debug/deps/desktop_platform_guide-898142e973b03abe",
+      "passed": 3,
+      "failed": 0,
+      "ignored": 0
+    },
+    "models": {
+      "command": "node --test tests/guide-desktop-platforms.test.mjs tests/keyboard.test.mjs tests/file-ops.test.mjs tests/launch-forwarding.test.mjs",
+      "passed": 34,
+      "failed": 0
+    }
+  },
+  "source_evidence": {
+    "keyboard_focus_drop": "Actual keyboard.ts/file-ops.ts/list-commands.ts/tag-panel.ts and main.ts1900-1905 agree with20written shortcut rows/physicalControl/Option/AltGraph and drop replace/append. Existing model tests plus four new contracts run the actual production routing, not native OS keys.",
+    "launch_shell_file_manager": "main and native single-instance/macOS opened-event queue and file_ops reveal/default-open paths distinguish Finder/Dock/open-a document route from explicit /fp executable arguments; no default-player/customExplorer registration claims. Actual inspected DEB Exec=opentag declares neither MimeType nor %F.",
+    "tray": "tray.rs15-42 defaults false; Windows/Linux-only support;73-125 restores/calls windowclose for Quit;148-163 hides only after icon sync succeeds and restores hidden flag on failure. Linux probe64-70 does not establish desktop indicator support.",
+    "credentials_configuration": "credentials.rs explicitview excludessecret and opt-inKeychain implementation; Cargo target-specific keyring features selectApple/Windows/SecretService. utilities.rs315-325 seven-file configuration whitelist excludes Discogs credentials. settings.rs app_config_dir and update-page route support per-user/nonportable/nonautomatic updater scope.",
+    "paths_write_boundaries": "Current evaluation/core filename mode supports written literal folder components vs data separators, saved/pending and immediate operation distinctions. No universal volume-case/longpath/mount/write/device guarantee asserted."
+  },
+  "package_review": {
+    "controls_path": "/tmp/opentag-guide-desktop-platforms-peer-packages.json",
+    "verified": "All three existing package payload SHA256/sizes match ledger and pinned manifest source325. Read archive/header metadata in memory. Mac plist/version/arm64/Alternate associations and extracted binary equality independently matched; codesign -dvv displays adhoc/noTeam. Windows installer PE certificate table is0,0; bootstrapper0x14c is not promoted to app architecture. DEB control version/amd64/dependencies/desktop+ELF64 machine62 independently corroborate guide.",
+    "release_policy": "Source release.mjs286-288 explicitly labels Windows unsigned, Mac adhoc/notnotarized, Linux unsigned; workflow matrix and config match target/build declarations. No OS signature acceptance or notarization assessment performed.",
+    "source_release_receipt": "/tmp/opentag-release-v0.2.13-verified/verification.json",
+    "limits": "Only supplied three payloads inspected. Other desktop asset names derive pinned13-package manifest, not downloaded/installed."
+  },
+  "official_guidance_checked": [
+    {
+      "url": "https://support.apple.com/en-us/102445",
+      "supports": "Trusted-source app-specific OpenAnyway afterattempt; distinct damaged/malware alerts; managed-policy caveat."
+    },
+    {
+      "url": "https://v2.tauri.app/distribute/windows-installer/#webview2-installation-options",
+      "supports": "Default downloadBootstrapper missing-runtime network requirement; not OpenTag OS support matrix."
+    },
+    {
+      "url": "https://docs.appimage.org/introduction/quickstart.html",
+      "supports": "GUI/terminal make executable thenrun instructions; not distribution/runtime success proof."
+    }
+  ],
+  "immutable_controls": {
+    "application_source_sha256": {
+      "count": 21,
+      "all_match": true
+    },
+    "test_sha256": {
+      "count": 2,
+      "all_match": true
+    },
+    "page_sha256": {
+      "count": 3,
+      "all_match": true
+    },
+    "source_identity": {
+      "count": 178,
+      "all_match": true
+    },
+    "binary_hash": true,
+    "embedded_three_pages_match": true,
+    "preserved_receipts": {
+      "previous_peer": true
+    },
+    "package_evidence_hashes": {
+      "manifest": true,
+      "inspection": true
+    },
+    "generated": {
+      "nav": 164,
+      "routes": 164,
+      "sections": 1378,
+      "drafts": 23,
+      "prior161_order_retained": true,
+      "nav_search_exact": true,
+      "draft_leaks": [],
+      "search_hash_match": true
+    },
+    "whole164_brief_scan": {
+      "pages": 164,
+      "marker_findings": [],
+      "aggregate_hash_match": true,
+      "limit": "Literal marker scan, not whole164 semantic rereview."
+    },
+    "links": {
+      "count": 22,
+      "all_exist_mature": true,
+      "records": [
+        {
+          "page": "platforms/macos.md",
+          "link": "../getting-started/install.md",
+          "exists": true,
+          "mature": true
+        },
+        {
+          "page": "platforms/macos.md",
+          "link": "../reference/command-line.md",
+          "exists": true,
+          "mature": true
+        },
+        {
+          "page": "platforms/macos.md",
+          "link": "../reference/keyboard-shortcuts.md",
+          "exists": true,
+          "mature": true
+        },
+        {
+          "page": "platforms/macos.md",
+          "link": "../reference/format-strings.md#file-and-folder-names",
+          "exists": true,
+          "mature": true
+        },
+        {
+          "page": "platforms/macos.md",
+          "link": "../learn/first-tagging-session.md",
+          "exists": true,
+          "mature": true
+        },
+        {
+          "page": "platforms/macos.md",
+          "link": "../getting-started/opening-files.md",
+          "exists": true,
+          "mature": true
+        },
+        {
+          "page": "platforms/macos.md",
+          "link": "../getting-started/editing-and-saving.md",
+          "exists": true,
+          "mature": true
+        },
+        {
+          "page": "platforms/macos.md",
+          "link": "../customize/configuration.md",
+          "exists": true,
+          "mature": true
+        },
+        {
+          "page": "platforms/windows.md",
+          "link": "../getting-started/install.md",
+          "exists": true,
+          "mature": true
+        },
+        {
+          "page": "platforms/windows.md",
+          "link": "../reference/command-line.md",
+          "exists": true,
+          "mature": true
+        },
+        {
+          "page": "platforms/windows.md",
+          "link": "../cookbook/rename-safe-characters.md",
+          "exists": true,
+          "mature": true
+        },
+        {
+          "page": "platforms/windows.md",
+          "link": "../concepts/text-encodings.md",
+          "exists": true,
+          "mature": true
+        },
+        {
+          "page": "platforms/windows.md",
+          "link": "../getting-started/opening-files.md",
+          "exists": true,
+          "mature": true
+        },
+        {
+          "page": "platforms/windows.md",
+          "link": "../reference/keyboard-shortcuts.md",
+          "exists": true,
+          "mature": true
+        },
+        {
+          "page": "platforms/windows.md",
+          "link": "../reference/options/files.md",
+          "exists": true,
+          "mature": true
+        },
+        {
+          "page": "platforms/windows.md",
+          "link": "../customize/configuration.md",
+          "exists": true,
+          "mature": true
+        },
+        {
+          "page": "platforms/linux.md",
+          "link": "../reference/command-line.md",
+          "exists": true,
+          "mature": true
+        },
+        {
+          "page": "platforms/linux.md",
+          "link": "../cookbook/rename-safe-characters.md",
+          "exists": true,
+          "mature": true
+        },
+        {
+          "page": "platforms/linux.md",
+          "link": "../getting-started/install.md",
+          "exists": true,
+          "mature": true
+        },
+        {
+          "page": "platforms/linux.md",
+          "link": "../getting-started/opening-files.md",
+          "exists": true,
+          "mature": true
+        },
+        {
+          "page": "platforms/linux.md",
+          "link": "../reference/keyboard-shortcuts.md",
+          "exists": true,
+          "mature": true
+        },
+        {
+          "page": "platforms/linux.md",
+          "link": "../guides/library.md",
+          "exists": true,
+          "mature": true
+        }
+      ]
+    },
+    "head": "e297bf3c1b5e457bef09bf8ad216d8f404a24d0b",
+    "clean": true
+  },
+  "browser_qualification": {
+    "peer_browser_run": false,
+    "owner_observation_retained": "Final9checks/zeroerrors; owner viewed390pxcomplete Mac names and desktopWindowsdark. First broad query result handle detached during worker update, switched physical click to Puppeteer locator. AArch64 query did not surface target within10s amid broad results; retained failed observation, not considered generally passing search. Final mounted keyword search opened Linux. No existing search implementation changed; actual public164/nativeOS not claimed. All owned profiles/server closed.",
+    "specific_limit": "AArch64 keyword target did not appear within10s; later mounted-keyword navigation succeeded. Do not claim comprehensive search pass. Root views screenshots separately."
+  },
+  "limits": [
+    "No Cargo, new package download, native app/installer execution, install/mount/security exception or keychain access.",
+    "No personal files, provider calls, source/GitHub edits or originalP2/REA changes.",
+    "164 authored routes are local; public137 and fullcanonical semantic completeness are separate.",
+    "Seven PR17 native files and PR19 at3e928 remain frozen/unchanged."
+  ]
+}

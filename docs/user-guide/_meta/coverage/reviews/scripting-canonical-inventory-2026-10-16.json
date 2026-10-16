@@ -1,0 +1,2810 @@
+{
+  "canonical_url": "https://docs.mp3tag.de/scripting/",
+  "canonical_html_sha256": "9296fcbcfc59338bc44f44765c8b766f30c61601f3fd124ffa65c9559fb575b0",
+  "canonical_function_names": [
+    "add",
+    "and",
+    "ansi",
+    "caps",
+    "caps2",
+    "caps3",
+    "char",
+    "columnNames",
+    "columnValues",
+    "cutLeft",
+    "cutRight",
+    "dedup",
+    "distance",
+    "div",
+    "eql",
+    "fmtDate",
+    "fmtDuration",
+    "fmtNum",
+    "folderdepth",
+    "geql",
+    "getenv",
+    "grtr",
+    "if",
+    "if2",
+    "ifgreater",
+    "iflonger",
+    "isdigit",
+    "left",
+    "len",
+    "leql",
+    "less",
+    "list",
+    "lower",
+    "meta",
+    "meta_sep",
+    "mid",
+    "mod",
+    "mul",
+    "neql",
+    "not",
+    "num",
+    "odd",
+    "or",
+    "ord",
+    "rand",
+    "regexp",
+    "repeat",
+    "replace",
+    "reverse",
+    "right",
+    "sort",
+    "strchr",
+    "strcmp",
+    "stricmp",
+    "strrchr",
+    "strrstr",
+    "strstr",
+    "sub",
+    "trim",
+    "trimLeft",
+    "trimRight",
+    "upper",
+    "uuid",
+    "validate"
+  ],
+  "canonical_date_tokens": [
+    "yyyy",
+    "yy",
+    "MMMM",
+    "MMM",
+    "MM",
+    "M",
+    "dddd",
+    "ddd",
+    "dd",
+    "d",
+    "HH",
+    "H",
+    "hh",
+    "h",
+    "mm",
+    "m",
+    "ss",
+    "s",
+    "EEEE",
+    "EE"
+  ],
+  "canonical_functions": 64,
+  "canonical_date_token_count": 20,
+  "reference_pages": 7,
+  "missing_function_names": [],
+  "function_names_without_heading_or_table_match": [],
+  "missing_exact_backticked_date_tokens": [],
+  "matches": {
+    "add": [
+      {
+        "path": "reference/scripting/text.md",
+        "line": 367,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/dates-durations.md",
+        "line": 108,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/dates-durations.md",
+        "line": 121,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 30,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 45,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 36,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 42,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 52,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 53,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 54,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 56,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 76,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 90,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 109,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 185,
+        "heading_or_table": true
+      }
+    ],
+    "and": [
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 5,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 229,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 240,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 241,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 242,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 263,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 46,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 115,
+        "heading_or_table": false
+      }
+    ],
+    "ansi": [
+      {
+        "path": "reference/scripting/text.md",
+        "line": 373,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 383,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 384,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 385,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 47,
+        "heading_or_table": true
+      }
+    ],
+    "caps": [
+      {
+        "path": "reference/scripting/text.md",
+        "line": 52,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 63,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 64,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 65,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 88,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 107,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 48,
+        "heading_or_table": true
+      }
+    ],
+    "caps2": [
+      {
+        "path": "reference/scripting/text.md",
+        "line": 69,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 71,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 82,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 83,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 84,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 49,
+        "heading_or_table": true
+      }
+    ],
+    "caps3": [
+      {
+        "path": "reference/scripting/text.md",
+        "line": 90,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 101,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 102,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 103,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 50,
+        "heading_or_table": true
+      }
+    ],
+    "char": [
+      {
+        "path": "reference/scripting/text.md",
+        "line": 337,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 347,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 348,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 349,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 351,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 371,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 51,
+        "heading_or_table": true
+      }
+    ],
+    "columnNames": [
+      {
+        "path": "reference/scripting/index.md",
+        "line": 52,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 81,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 125,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 137,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 138,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 139,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 169,
+        "heading_or_table": false
+      }
+    ],
+    "columnValues": [
+      {
+        "path": "reference/scripting/index.md",
+        "line": 53,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 132,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 146,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 148,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 160,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 161,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 162,
+        "heading_or_table": true
+      }
+    ],
+    "cutLeft": [
+      {
+        "path": "reference/scripting/text.md",
+        "line": 161,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 163,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 185,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 196,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 197,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 198,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 221,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 32,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 54,
+        "heading_or_table": true
+      }
+    ],
+    "cutRight": [
+      {
+        "path": "reference/scripting/text.md",
+        "line": 202,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 204,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 215,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 216,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 217,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 55,
+        "heading_or_table": true
+      }
+    ],
+    "dedup": [
+      {
+        "path": "reference/scripting/index.md",
+        "line": 56,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 101,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 103,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 116,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 117,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 118,
+        "heading_or_table": true
+      }
+    ],
+    "distance": [
+      {
+        "path": "reference/scripting/index.md",
+        "line": 57,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 127,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 138,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 139,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 140,
+        "heading_or_table": true
+      }
+    ],
+    "div": [
+      {
+        "path": "reference/scripting/index.md",
+        "line": 58,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 93,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 95,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 107,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 108,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 109,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 134,
+        "heading_or_table": false
+      }
+    ],
+    "eql": [
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 46,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 113,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 118,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 129,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 130,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 131,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 133,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 138,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 152,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 240,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 278,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 281,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 59,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 104,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 140,
+        "heading_or_table": true
+      }
+    ],
+    "fmtDate": [
+      {
+        "path": "reference/scripting/dates-durations.md",
+        "line": 3,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/dates-durations.md",
+        "line": 11,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/dates-durations.md",
+        "line": 14,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/dates-durations.md",
+        "line": 31,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/dates-durations.md",
+        "line": 32,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/dates-durations.md",
+        "line": 33,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/dates-durations.md",
+        "line": 34,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/dates-durations.md",
+        "line": 37,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 60,
+        "heading_or_table": true
+      }
+    ],
+    "fmtDuration": [
+      {
+        "path": "reference/scripting/dates-durations.md",
+        "line": 3,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/dates-durations.md",
+        "line": 92,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/dates-durations.md",
+        "line": 106,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/dates-durations.md",
+        "line": 107,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/dates-durations.md",
+        "line": 108,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/dates-durations.md",
+        "line": 109,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/dates-durations.md",
+        "line": 110,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/dates-durations.md",
+        "line": 111,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 61,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 112,
+        "heading_or_table": false
+      }
+    ],
+    "fmtNum": [
+      {
+        "path": "reference/scripting/index.md",
+        "line": 62,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 136,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 149,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 150,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 151,
+        "heading_or_table": true
+      }
+    ],
+    "folderdepth": [
+      {
+        "path": "reference/scripting/index.md",
+        "line": 63,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 171,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 183,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 184,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 185,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 186,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 216,
+        "heading_or_table": false
+      }
+    ],
+    "geql": [
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 174,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 176,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 187,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 188,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 189,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 64,
+        "heading_or_table": true
+      }
+    ],
+    "getenv": [
+      {
+        "path": "reference/scripting/index.md",
+        "line": 65,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 132,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 192,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 206,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 207,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 208,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 209,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 210,
+        "heading_or_table": true
+      }
+    ],
+    "grtr": [
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 24,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 89,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 160,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 170,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 171,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 172,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 191,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 240,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 66,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 115,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 13,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 29,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 47,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 65,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 84,
+        "heading_or_table": true
+      }
+    ],
+    "if": [
+      {
+        "path": "reference/scripting/dates-durations.md",
+        "line": 115,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 5,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 28,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 33,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 44,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 45,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 46,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 131,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 149,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 172,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 189,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 206,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 223,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 242,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 260,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 278,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 296,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 67,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 115,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 14,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 29,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 47,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 65,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 84,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 102,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 121,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 140,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 181,
+        "heading_or_table": true
+      }
+    ],
+    "if2": [
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 5,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 50,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 52,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 63,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 64,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 65,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 109,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 262,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 68,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 115,
+        "heading_or_table": false
+      }
+    ],
+    "ifgreater": [
+      {
+        "path": "reference/scripting/text.md",
+        "line": 121,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 72,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 84,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 85,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 86,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 69,
+        "heading_or_table": true
+      }
+    ],
+    "iflonger": [
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 70,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 91,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 103,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 104,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 105,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 70,
+        "heading_or_table": true
+      }
+    ],
+    "isdigit": [
+      {
+        "path": "reference/scripting/index.md",
+        "line": 71,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 168,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 179,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 180,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 181,
+        "heading_or_table": true
+      }
+    ],
+    "left": [
+      {
+        "path": "reference/scripting/text.md",
+        "line": 28,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 46,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 125,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 127,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 138,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 139,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 140,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 72,
+        "heading_or_table": true
+      }
+    ],
+    "len": [
+      {
+        "path": "reference/scripting/text.md",
+        "line": 109,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 119,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 120,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 121,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 183,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 315,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 86,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 189,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 223,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 73,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 226,
+        "heading_or_table": true
+      }
+    ],
+    "leql": [
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 192,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 208,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 210,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 221,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 222,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 223,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 74,
+        "heading_or_table": true
+      }
+    ],
+    "less": [
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 194,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 204,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 205,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 206,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 225,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 75,
+        "heading_or_table": true
+      }
+    ],
+    "list": [
+      {
+        "path": "reference/scripting/index.md",
+        "line": 76,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 58,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 72,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 73,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 74,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 169,
+        "heading_or_table": false
+      }
+    ],
+    "lower": [
+      {
+        "path": "reference/scripting/text.md",
+        "line": 16,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 26,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 27,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 28,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 50,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 84,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 159,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 217,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 349,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 131,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 77,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 32,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 102,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 162,
+        "heading_or_table": true
+      }
+    ],
+    "meta": [
+      {
+        "path": "reference/scripting/index.md",
+        "line": 6,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 78,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 9,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 16,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 28,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 29,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 30,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 31,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 34,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 56,
+        "heading_or_table": false
+      }
+    ],
+    "meta_sep": [
+      {
+        "path": "reference/scripting/index.md",
+        "line": 79,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 9,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 37,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 39,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 50,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 51,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 52,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 81,
+        "heading_or_table": false
+      }
+    ],
+    "mid": [
+      {
+        "path": "reference/scripting/text.md",
+        "line": 165,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 177,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 178,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 179,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 28,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 80,
+        "heading_or_table": true
+      }
+    ],
+    "mod": [
+      {
+        "path": "reference/scripting/index.md",
+        "line": 81,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 113,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 116,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 128,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 129,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 130,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 166,
+        "heading_or_table": true
+      }
+    ],
+    "mul": [
+      {
+        "path": "reference/scripting/index.md",
+        "line": 82,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 78,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 88,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 89,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 90,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 151,
+        "heading_or_table": true
+      }
+    ],
+    "neql": [
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 113,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 134,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 136,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 147,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 148,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 149,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 83,
+        "heading_or_table": true
+      }
+    ],
+    "not": [
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 5,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 265,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 276,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 277,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 278,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 84,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 115,
+        "heading_or_table": false
+      }
+    ],
+    "num": [
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 149,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 206,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 296,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 85,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 22,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 34,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 35,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 36,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 39,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 54,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 57,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 73,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 130,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 155,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 165,
+        "heading_or_table": true
+      }
+    ],
+    "odd": [
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 283,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 294,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 295,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 296,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 86,
+        "heading_or_table": true
+      }
+    ],
+    "or": [
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 5,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 245,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 247,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 258,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 259,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 260,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 87,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 115,
+        "heading_or_table": false
+      }
+    ],
+    "ord": [
+      {
+        "path": "reference/scripting/text.md",
+        "line": 351,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 353,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 355,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 365,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 366,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 367,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 88,
+        "heading_or_table": true
+      }
+    ],
+    "rand": [
+      {
+        "path": "reference/scripting/index.md",
+        "line": 89,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 157,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 164,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 165,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 166,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 232,
+        "heading_or_table": false
+      }
+    ],
+    "regexp": [
+      {
+        "path": "reference/scripting/index.md",
+        "line": 90,
+        "heading_or_table": true
+      }
+    ],
+    "repeat": [
+      {
+        "path": "reference/scripting/text.md",
+        "line": 280,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 291,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 292,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 293,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 91,
+        "heading_or_table": true
+      }
+    ],
+    "replace": [
+      {
+        "path": "reference/scripting/text.md",
+        "line": 65,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 297,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 317,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 329,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 330,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 331,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 389,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 92,
+        "heading_or_table": true
+      }
+    ],
+    "reverse": [
+      {
+        "path": "reference/scripting/text.md",
+        "line": 299,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 309,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 310,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 311,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 93,
+        "heading_or_table": true
+      }
+    ],
+    "right": [
+      {
+        "path": "reference/scripting/text.md",
+        "line": 144,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 146,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 157,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 158,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 159,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 94,
+        "heading_or_table": true
+      }
+    ],
+    "sort": [
+      {
+        "path": "reference/scripting/index.md",
+        "line": 95,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 83,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 95,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 96,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 97,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 123,
+        "heading_or_table": false
+      }
+    ],
+    "strchr": [
+      {
+        "path": "reference/scripting/index.md",
+        "line": 96,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 52,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 63,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 64,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 65,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 87,
+        "heading_or_table": false
+      }
+    ],
+    "strcmp": [
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 116,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 134,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 97,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 89,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 100,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 101,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 102,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 125,
+        "heading_or_table": false
+      }
+    ],
+    "stricmp": [
+      {
+        "path": "reference/scripting/index.md",
+        "line": 98,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 105,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 108,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 119,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 120,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 121,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 145,
+        "heading_or_table": false
+      }
+    ],
+    "strrchr": [
+      {
+        "path": "reference/scripting/index.md",
+        "line": 99,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 69,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 71,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 82,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 83,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 84,
+        "heading_or_table": true
+      }
+    ],
+    "strrstr": [
+      {
+        "path": "reference/scripting/index.md",
+        "line": 100,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 32,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 34,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 45,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 46,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 47,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 87,
+        "heading_or_table": false
+      }
+    ],
+    "strstr": [
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 172,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 101,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 16,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 27,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 28,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 29,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 50,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 69,
+        "heading_or_table": false
+      }
+    ],
+    "sub": [
+      {
+        "path": "reference/scripting/index.md",
+        "line": 102,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 57,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 59,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 71,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 72,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 73,
+        "heading_or_table": true
+      }
+    ],
+    "trim": [
+      {
+        "path": "reference/scripting/text.md",
+        "line": 223,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 234,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 235,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 236,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 276,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 278,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 335,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 105,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 103,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 121,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 181,
+        "heading_or_table": true
+      }
+    ],
+    "trimLeft": [
+      {
+        "path": "reference/scripting/text.md",
+        "line": 240,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 242,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 253,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 254,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 255,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 104,
+        "heading_or_table": true
+      }
+    ],
+    "trimRight": [
+      {
+        "path": "reference/scripting/text.md",
+        "line": 259,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 261,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 272,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 273,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 274,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 105,
+        "heading_or_table": true
+      }
+    ],
+    "upper": [
+      {
+        "path": "reference/scripting/text.md",
+        "line": 32,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 34,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 44,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 45,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 46,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 103,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 140,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 179,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 198,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 236,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 255,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 274,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 293,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 311,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 331,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/text.md",
+        "line": 385,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/dates-durations.md",
+        "line": 33,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/conditions.md",
+        "line": 65,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/index.md",
+        "line": 106,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 161,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 30,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 52,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 74,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 97,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 118,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 139,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 208,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 227,
+        "heading_or_table": true
+      }
+    ],
+    "uuid": [
+      {
+        "path": "reference/scripting/index.md",
+        "line": 107,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/numbers.md",
+        "line": 171,
+        "heading_or_table": false
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 218,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 225,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 226,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 227,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/lists-metadata.md",
+        "line": 231,
+        "heading_or_table": false
+      }
+    ],
+    "validate": [
+      {
+        "path": "reference/scripting/index.md",
+        "line": 108,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 147,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 159,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 160,
+        "heading_or_table": true
+      },
+      {
+        "path": "reference/scripting/search-compare.md",
+        "line": 161,
+        "heading_or_table": true
+      }
+    ]
+  },
+  "scope": "Guide-only structural inventory against live primary documentation. No code/parity implementation, Ghidra or deferredP2 work. Name presence does not prove each option, description, example, edge case, platform behavior or semantic teaching coverage.",
+  "inventory_parser_note": "Include the separate macOS-compatible weekday-alias table as well as the primary18token table."
+}

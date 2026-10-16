@@ -1,0 +1,262 @@
+{
+  "scope": "Three independently authored local file operations/recovery/utilities guides. Docs/tests only, no app/P2/REA changes, GitHub writes or real user data operations.",
+  "base_checkpoint": "19cb59a2c4ddb26614e7ebd698254ae056750883",
+  "source_main": "325007c47bef4ee53a4aa9b086038157ee3e62dc",
+  "writing_checkpoint": {
+    "ready": 149,
+    "drafts": 38,
+    "plan": 187,
+    "published_ready": 137,
+    "published_excluded_drafts": 50,
+    "qualification": "Twelve unpublished local chapters: Help3, credit recipes3, customization3 and these3. All prior146 navigation entries retained in order. Counts are authoring milestones, not full canonical semantic coverage."
+  },
+  "canonical_source_pointers": [
+    {
+      "url": "https://docs.mp3tag.de/customization/options/general/",
+      "relative_file": "customization/options/general.html",
+      "sha256": "3ba617087dc24b8b6e221a73efaabd65aa103e092a65d918d675dff111a98922"
+    },
+    {
+      "url": "https://docs.mp3tag.de/customization/options/messages/",
+      "relative_file": "customization/options/messages.html",
+      "sha256": "7b37b16ce33efe0e2d5945441ad86da1af30d824955fc1a90ad0cf9f6fcdcc7e"
+    },
+    {
+      "url": "https://docs.mp3tag.de/menus/edit/",
+      "relative_file": "menus/edit.html",
+      "sha256": "98db5735106b2e4e46908e6724464d1dc716feabb7be26a46c530d5ad5713864"
+    },
+    {
+      "url": "https://docs.mp3tag.de/menus/file/",
+      "relative_file": "menus/file.html",
+      "sha256": "2a596a2431a33a542afff57e9a049169320acc5c40313e8cc1c1c2b62799ff40"
+    },
+    {
+      "url": "https://docs.mp3tag.de/utils/",
+      "relative_file": "utils.html",
+      "sha256": "995d051373a503d2fde160fc1f15f8a550114dfeb60b239f5f9bf98003bf043f"
+    }
+  ],
+  "semantic_mapping": {
+    "Edit/File copy, move, remove, delete, reveal": {
+      "page": "guides/file-operations.md",
+      "source": [
+        "src/file-ops.ts",
+        "src/main.ts",
+        "src-tauri/src/file_ops.rs",
+        "src/chapters.ts"
+      ],
+      "teaching": [
+        "Six operation effects: audio copy/move versus row removal/clear versus trash/permanent delete",
+        "Copied practice file, explicit selection including hidden rows, resolve pending edits first",
+        "Existing destination folder, retained basename/extension, flat destination rather than recursive tree",
+        "Planner rejects ordinary existing names/selected duplicate basenames/same folder; case-insensitive selected names",
+        "Preflight rejection versus partially completed execution/readback failure; no universal alias/collision/rollback guarantee",
+        "Destination copies not auto-added, moved-path rekeying and Keep moved files list option",
+        "List removal/clear discards pending intent while retaining saved disk data; no membership Undo",
+        "Deletion message preference, per-file failures, system restore versus irreversible direct delete",
+        "Regular-file/symlink/folder/chapter/provider/desktop scope",
+        "Reveal/current folder/properties route and Play10confirmation/100resolved-file cap; no pending autosave/player proof"
+      ],
+      "limits": "Native planner/delete implementation read and existing actual controller tests rerun at a stubbed IPC seam. No actual OS trash/play/reveal/native dialog executed."
+    },
+    "Undo, Redo, Repeat and OpenTag session journal": {
+      "page": "guides/undo-history.md",
+      "source": [
+        "src/edit-history.ts",
+        "src/utils-ui.ts",
+        "src/main.ts",
+        "src-tauri/src/history.rs",
+        "crates/tag-core/src/history.rs"
+      ],
+      "teaching": [
+        "Typing undo versus pending discard versus saved-file restoration versus trash/backup",
+        "Stepwise copied title Save/Undo/Redo, labeled count and selection-independent stack scope",
+        "Preserved same-size/date stub retained; empty write no step/redo clearing distinctions",
+        "Recorded rename/folder moves plus metadata versus unrecorded Edit Move files",
+        "Pending edits survive replay and can overwrite restored disk state; absent rows remain unlisted",
+        "Supported snapshots of stored file state instead of rewriting current tag preferences",
+        "Specific captured cover side files versus general text/playlist/action-export/config/external outputs",
+        "Partial replay/refused changed or occupied files; surviving subset/redo bounds, no force or universal external-change guarantee",
+        "50steps/2GiB retained-data defaults, costs of clones versus rewrites;Unix2GiBfree-space admission qualifier",
+        "Optional journal failures/notices, session restart boundaries and provider exclusion",
+        "Redo priority versus actual Repeat execution on current selection"
+      ],
+      "limits": "Seven previously built focused core history tests rerun on generated temporary fixtures, no cold Cargo build/native UI/provider/whole-filesystem guarantee."
+    },
+    "Utils selection, removal, padding, MP4 layout and chapter stripping": {
+      "page": "guides/utilities.md",
+      "source": [
+        "src/utils-ui.ts",
+        "src/main.ts",
+        "src-tauri/src/utilities.rs",
+        "crates/tag-core/src/optimize.rs",
+        "crates/tag-core/src/mp4_chapters.rs"
+      ],
+      "teaching": [
+        "Four utility routes and immediate-write timing with saved pending edits",
+        "Explicit ID3v1/v2/APEv2 types, counts, policy distinction and lost gain-undo information",
+        "Unknown ID3v2 technical placeholder, seeded identifiers, supported versus unknown UFID and other-app caution",
+        "Actual MP3/AAC/AIFF/WAV applicability, four mixed-format target counts and no-op/success distinction",
+        "Exactly4096FLACpadding, absent/excess padding, leadingID3v2 and malformed-block error, no audio repair/codec change",
+        "MP4free removal/movie metadata before media, no-op/layout/storage/player limits",
+        "Strip MP4 chapter confirmation/count/parent-row replacement, same-size free boxes rather than shrinking",
+        "Whole parent-file versus chapter/CUE/provider scope and separate Optimize operation",
+        "Per-file partial completion, no automatic rollback and journal/backup limits",
+        "Original source utility Undo policy distinguished from current captured-file journal"
+      ],
+      "limits": "Four written mixed-format rows run through actual model under LF/CRLF. Existing non-ffmpeg MP3 unknown-frame fixture rerun; FLAC/MP4 writer paths/tests inspected but no new encoded fixture/player qualification."
+    }
+  },
+  "page_sha256": {
+    "guides/file-operations.md": "4bc2df3ddaa8bbd3668ebcd98a2a9311f51cdc8f26701d0bdf818cef54e6d3da",
+    "guides/undo-history.md": "05860cdf38dad29013862a3269b831b17a3ca4b22186c60a0aa8714b1205d208",
+    "guides/utilities.md": "fde89b6958241a634a97537dc117abf5fcf5b698a439a2511575bb0da76ae7ac"
+  },
+  "application_source_sha256": {
+    "src/main.ts": "f9c0a56f1eba4f77bc47531a08fcd63427a2b845bc36a784b27da43146309c76",
+    "src/file-ops.ts": "9009f23df8f5f290405277dc36d13a235457bf46ff11f163c0fa1b411bdcec75",
+    "src/general-options.ts": "8e149a430cdbb57ef57a849fa4cfd811afadf8210a62a381e99631a83aaf2f55",
+    "src/edit-history.ts": "8bff30cfa68e212916156b16bb6d7a9b105b4363a7d8eb4da29b8912ba57cb0a",
+    "src/utils-ui.ts": "3a2cdafbf85175a023fad844cccc59730ffcfa104b3921d8494c1ecb02e0224e",
+    "src/chapters.ts": "7708526677dd5526ad85e662c6e097cf0888f7df4394fafe8e767aae45db3ffa",
+    "src/messages.ts": "831c96c1819790df6f8959e94d40812ffcb14851ebfb1c4d1d32622c4a2fc556",
+    "src-tauri/src/file_ops.rs": "badc5a5e34e3aa4017dedfa7abb6100156a8c1207990c250ba1dff474d980352",
+    "src-tauri/src/history.rs": "515b8dba35538f964c7502d1fc01c667a9790ce1748d3ab58e99670bc19914a1",
+    "src-tauri/src/utilities.rs": "404b520370424704d6ecccad37d44c63ab6bd522a30622fe203333d261efca5e",
+    "src-tauri/src/lib.rs": "77b79c1faad0bf31d07bd5974d91980c4b62dcd919a9aad8217e0f2547acef49",
+    "src-tauri/src/action_host.rs": "6da0c08ead3c66a3b4f266629573c2d0316de56a2671e870121f1518bc037486",
+    "src-tauri/src/sources/mod.rs": "876f54242ddc043ca2678aaa2a915d84a7a514aff5a91d350a48581627636b8b",
+    "crates/tag-core/src/history.rs": "3cd75c86c5d16b8dace35780dda7229ce4d5494d9052dbb6e381465a705b2d04",
+    "crates/tag-core/src/optimize.rs": "9da55e2402264176fdaded6f9dfd604878dbeb98554b799ebd5b654372e70563",
+    "crates/tag-core/src/operations.rs": "1e23b99ff8a4ca11e4c29e9f71bda64dfc455fd300e38c0295c28b92e5612a18",
+    "crates/tag-core/src/mp4_chapters.rs": "25d70e899d5e5167e5f886c2aff3801e6246cb4778546d101e2e39717ae13bd4"
+  },
+  "test_sha256": {
+    "tests/guide-file-recovery.test.mjs": "aec6b9624bdab14f5403e69b16bfdee98ee35d7549302a2793cfa64b1d6e608b"
+  },
+  "validation": {
+    "models": {
+      "passed": 40,
+      "command": "node --test tests/guide-file-recovery.test.mjs tests/file-ops.test.mjs tests/edit-history.test.mjs tests/general-options.test.mjs tests/chapters.test.mjs",
+      "log": "/tmp/opentag-guide-file-recovery-models.log",
+      "scope": "One actual-written mixed-format target-count test plus39existing production TS model/controller contracts. File-operation IPC is stubbed; no disk move/delete/player implementation claim from models."
+    },
+    "existing_core": {
+      "passed": 8,
+      "history_binary": "/tmp/opentag-guide-combined-target/debug/deps/history-58a94a594cdba2ca",
+      "history_binary_sha256": "0dceb976836380699c4b0b50f3573fd60ae6f643877d87c3de0c281edf107e4c",
+      "utility_binary": "/tmp/opentag-guide-combined-target/debug/deps/utils_optimize-babb543e00c766a8",
+      "utility_binary_sha256": "c52a9bec6c0a2f44913229d789a81e946211eca5e26885515e839ec72e86bf83",
+      "history_cases": [
+        "same_size_preserved_timestamp_edits_keep_every_undo_and_redo_step",
+        "an_empty_write_request_adds_no_step_and_keeps_redo",
+        "external_changes_are_reported_and_never_overwritten",
+        "side_files_created_or_replaced_are_removed_or_restored",
+        "limits_bound_operations_and_bytes",
+        "stale_sessions_are_removed_and_live_sessions_are_kept",
+        "renames_and_directory_moves_reverse_and_reapply"
+      ],
+      "utility_case": "unsupported_id3_frames_are_removed_and_everything_else_is_kept",
+      "log": "/tmp/opentag-guide-file-recovery-history.log",
+      "qualification": "Reused existing previously built core test executables; no fresh Cargo compile/full matrix. Current relevant production code byte-identical main325. Tests use temp generated files; ffmpeg/player/configured tool/system-trash test cases not executed."
+    },
+    "publication_tests": 8,
+    "strict_build": true,
+    "generated": {
+      "routes": 149,
+      "entries": 1235,
+      "nav_search_exact": true,
+      "old146_order_retained": true,
+      "draft_html_search_nav_leaks": 0,
+      "search_sha256": "9d759ee7d3fa21752c31381aaadb997cd5ab46b154896072151259673cc36ced"
+    },
+    "browser": {
+      "scope": "Local149 authored chapters/38drafts on unchanged appsource325;3file/recovery/utility chapters. Actual generated-doc browser only; public137/native/tool execution separate.",
+      "checks": [
+        "File operation scopes and recovery render in light palette",
+        "Actual file-operations link opens the recovery guide",
+        "guides/file-operations/ renders readable tables at390px with no document overflow",
+        "guides/undo-history/ renders readable tables at390px with no document overflow",
+        "guides/utilities/ renders readable tables at390px with no document overflow",
+        "Undo workflow renders in dark palette",
+        "Actual search opens the partial-transfer recovery explanation"
+      ],
+      "errors": [],
+      "screenshots": [
+        "/tmp/opentag-guide-file-recovery-browser/desktop-file-operations-light.png",
+        "/tmp/opentag-guide-file-recovery-browser/mobile390-file-operations-table.png",
+        "/tmp/opentag-guide-file-recovery-browser/mobile390-undo-history-table.png",
+        "/tmp/opentag-guide-file-recovery-browser/mobile390-utilities-table.png",
+        "/tmp/opentag-guide-file-recovery-browser/desktop-undo-history-dark.png"
+      ],
+      "success": true,
+      "profile_removed": true
+    },
+    "visual": "Owner viewed final390px operation table and desktop dark Undo screenshot; samples readable, no document-level horizontal overflow. Local generated documentation only; no new public or native runtime claim.",
+    "source_identity": "All17 recorded sources and broader app/dependency/workflow paths byte-identical main325; gitdiffcheck passes.",
+    "browser_prose_limit": "Final two-sentence confirmation-abbreviation clarification added after sampled browser run; existing production nameList source/test checks establish behavior. Table/expression/layout unchanged; strict build rerun.",
+    "strict_log": "/tmp/opentag-guide-file-recovery-strict.log",
+    "publication_log": "/tmp/opentag-guide-file-recovery-publication.log"
+  },
+  "preserved_evidence": {
+    "configuration_tools_peer": {
+      "path": "reviews/config-tools-independent-review.json",
+      "sha256": "b07f791340593a5a73eabb599753335ebde0e34d1149ee35ab685962686ce95c",
+      "scope": "Unchanged raw clean finite independent receipt at exact19cb. Does not review this new trio."
+    },
+    "public137": {
+      "path": "publication-137-2026-10-16.json",
+      "sha256": "7e38d7be9888f42472c79c30b8c49850ae0700e1d1086b646406b7b3d27f8c78",
+      "scope": "Unchanged accepted actual137 publication receipt; local149 not live."
+    },
+    "scripting_inventory": "Existing unchanged raw64function/20date-token receipt remains structural only, not overload/edge/semantic completion."
+  },
+  "review": "Local author checkpoint ready for finite independent review; no PR/push. Reconcile actual17\u201320 main changes before later exact-head CODE/trusted CI/deployment.",
+  "remaining_drafts": [
+    "getting-started/coming-from-mp3tag.md",
+    "getting-started/whats-new.md",
+    "platforms/macos.md",
+    "platforms/windows.md",
+    "platforms/linux.md",
+    "platforms/android.md",
+    "platforms/ios.md",
+    "learn/index.md",
+    "learn/tags-from-filenames.md",
+    "learn/clean-a-messy-library.md",
+    "learn/tag-from-online-sources.md",
+    "learn/give-every-album-a-cover.md",
+    "guides/index.md",
+    "guides/library.md",
+    "customize/index.md",
+    "customize/field-values.md",
+    "customize/languages.md",
+    "automate/index.md",
+    "tag-sources/index.md",
+    "tag-sources/musicbrainz.md",
+    "tag-sources/discogs.md",
+    "tag-sources/freedb.md",
+    "tag-sources/local-freedb.md",
+    "tag-sources/itunes.md",
+    "tag-sources/deezer.md",
+    "tag-sources/lrclib.md",
+    "tag-sources/acoustid.md",
+    "reference/menus/tools.md",
+    "reference/options/language.md",
+    "cookbook/index.md",
+    "cookbook/rename-safe-characters.md",
+    "cookbook/rename-lowercase-filenames.md",
+    "cookbook/tracklist-from-text-file.md",
+    "cookbook/lyrics-from-text-files.md",
+    "cookbook/export-folder-jpg.md",
+    "cookbook/html-album-catalogue.md",
+    "cookbook/csv-for-spreadsheets.md",
+    "help/glossary.md"
+  ],
+  "limits": [
+    "Full canonical semantic completion remains unproven",
+    "No nativeOStrash/player/dialog/installer or arbitrary-provider save-back qualification",
+    "No universal path alias/overwrite/concurrency/rollback guarantee; original fiveP2 untouched",
+    "Twelve completed local chapters remain unpublished, pending source queue coordination"
+  ]
+}

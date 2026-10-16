@@ -1,0 +1,228 @@
+{
+  "reviewed_at_utc": "2026-10-16T13:00:37.862233+00:00",
+  "head": "d2990705923a7e4f9999702412c7bdad5bc17226",
+  "base": "21adf69093172404d6b7b420861fbbb57da9ba47",
+  "source_main": "325007c47bef4ee53a4aa9b086038157ee3e62dc",
+  "verdict": "clean",
+  "findings": [],
+  "scope": "Finite independent reader-facing review of three text-exchange recipes and local integration; no source or GitHub mutation. PR19 remains frozen at3e928d37d23de30b4c21d421ecbbe871c22fb99d.",
+  "pages": [
+    "cookbook/tracklist-from-text-file.md",
+    "cookbook/lyrics-from-text-files.md",
+    "cookbook/csv-for-spreadsheets.md"
+  ],
+  "source_evidence": {
+    "tracklist": "crates/tag-core/src/converters.rs218-446: whole-record anchors, literal escaped mask, sequential exact record count, keyed filename/absolute-path comparison, duplicate/ambiguous selected keys, skipped unselected records and unchanged unlisted selections. src-tauri/src/converters.rs511-605: first-selected-file source expression, file snapshot, no-match preview. src/main.ts1433-1479: exact controls and immediate reviewed apply; native staged validation/mutation/history flow read only.",
+    "lyrics": "crates/tag-core/src/actions.rs982-992: filename-mode action effect; src-tauri/src/action_host.rs787-809: sidecar read and decoder before whole one-value replacement/flush;349-350 relative path host;1263-1279 warnings permit later actions. crates/tag-core/src/export.rs1182-1236: authoritative BOM/validUTF8/ANSI fallback decoder preserving text. Recipe distinguishes filename sanitization, native desktop subfolder rules, no wildcard/search/sync/player guarantees.",
+    "csv": "src-tauri/src/exports.rs83-91: actual bundled10column escaped UTF8/CRLF/input-order template. src/main.ts223-238: selected paths and save configuration before export. src/export-ui.ts164: current snapshot execution. Written tests prove exact customtemplate escaping and multiline/Unicode bytes; Text type/delimiter/qualifier instructions correctly avoid claiming spreadsheet runtime or general CSV import."
+  },
+  "focused_validation": {
+    "existing_native_binary": {
+      "command": "/tmp/opentag-guide-combined-target/debug/deps/text_exchange_guide-373470dc331cc34e",
+      "passed": 6,
+      "failed": 0,
+      "ignored": 0,
+      "binary_sha256": "c3bea658f52d4133d4af0a0f3d3f92de3406c933123392699f6b9f2a395b394f",
+      "embedded_three_pages_byte_identical": true,
+      "cases": [
+        "written_lyrics_decode_as_whole_text_preserving_blank_lines_spaces_and_final_endings",
+        "written_keyed_tracklist_matches_reordered_files_skips_unselected_and_leaves_unlisted",
+        "written_positional_tracklist_discards_listing_numbers_and_reads_literal_brackets",
+        "written_album_source_and_lyrics_sidecar_paths_evaluate_with_actual_filename_rules",
+        "written_spreadsheet_template_escapes_each_cell_and_preserves_multiline_and_text_keys",
+        "written_spreadsheet_template_emits_exact_quoted_unicode_records_and_utf8_bytes"
+      ]
+    },
+    "node": {
+      "command": "node --test tests/action-ui.test.mjs tests/export-ui.test.mjs",
+      "passed": 24,
+      "failed": 0
+    }
+  },
+  "immutable_controls": {
+    "application_source_sha256": {
+      "count": 14,
+      "all_match": true,
+      "bad": []
+    },
+    "test_sha256": {
+      "count": 1,
+      "all_match": true,
+      "bad": []
+    },
+    "page_sha256": {
+      "count": 3,
+      "all_match": true,
+      "bad": []
+    },
+    "source_main_identity": {
+      "src/main.ts": true,
+      "src/action-ui.ts": true,
+      "src/export-ui.ts": true,
+      "src-tauri/src/converters.rs": true,
+      "src-tauri/src/action_host.rs": true,
+      "src-tauri/src/exports.rs": true,
+      "crates/tag-core/src/actions.rs": true,
+      "crates/tag-core/src/converters.rs": true,
+      "crates/tag-core/src/export.rs": true,
+      "crates/tag-core/src/script.rs": true,
+      "crates/tag-core/tests/converters.rs": true,
+      "crates/tag-core/tests/export.rs": true,
+      "crates/tag-core/Cargo.toml": true,
+      "Cargo.lock": true
+    },
+    "all_175_source_identity": true,
+    "binary_hash": true,
+    "binary_embedded_pages": {
+      "cookbook/tracklist-from-text-file.md": true,
+      "cookbook/lyrics-from-text-files.md": true,
+      "cookbook/csv-for-spreadsheets.md": true
+    },
+    "preserved_prior_peer": true,
+    "preserved_public137": true,
+    "nav": {
+      "now": 155,
+      "prior": 152,
+      "prior_order_preserved": true,
+      "added": [
+        "cookbook/tracklist-from-text-file.md",
+        "cookbook/lyrics-from-text-files.md",
+        "cookbook/csv-for-spreadsheets.md"
+      ]
+    },
+    "generated": {
+      "routes": 155,
+      "entries": 1289,
+      "search_hash": "3489109cb132110967c3f2586d3b5c5aa44517f8fcab624007d7bfb6876cc14c",
+      "nav_search_exact": true,
+      "drafts": 32,
+      "draft_leaks": []
+    },
+    "head": "d2990705923a7e4f9999702412c7bdad5bc17226",
+    "status": ""
+  },
+  "relative_links": {
+    "count": 17,
+    "all_exist_and_mature": true,
+    "records": [
+      {
+        "page": "cookbook/tracklist-from-text-file.md",
+        "link": "lyrics-from-text-files.md",
+        "exists": true,
+        "draft": false
+      },
+      {
+        "page": "cookbook/tracklist-from-text-file.md",
+        "link": "../converters/text-file-to-tag.md",
+        "exists": true,
+        "draft": false
+      },
+      {
+        "page": "cookbook/tracklist-from-text-file.md",
+        "link": "tags-from-folder-and-filename.md",
+        "exists": true,
+        "draft": false
+      },
+      {
+        "page": "cookbook/tracklist-from-text-file.md",
+        "link": "csv-for-spreadsheets.md",
+        "exists": true,
+        "draft": false
+      },
+      {
+        "page": "cookbook/tracklist-from-text-file.md",
+        "link": "../guides/undo-history.md",
+        "exists": true,
+        "draft": false
+      },
+      {
+        "page": "cookbook/lyrics-from-text-files.md",
+        "link": "../actions/import-text-file.md",
+        "exists": true,
+        "draft": false
+      },
+      {
+        "page": "cookbook/lyrics-from-text-files.md",
+        "link": "../actions/index.md",
+        "exists": true,
+        "draft": false
+      },
+      {
+        "page": "cookbook/lyrics-from-text-files.md",
+        "link": "../concepts/text-encodings.md",
+        "exists": true,
+        "draft": false
+      },
+      {
+        "page": "cookbook/lyrics-from-text-files.md",
+        "link": "tracklist-from-text-file.md",
+        "exists": true,
+        "draft": false
+      },
+      {
+        "page": "cookbook/lyrics-from-text-files.md",
+        "link": "../guides/undo-history.md",
+        "exists": true,
+        "draft": false
+      },
+      {
+        "page": "cookbook/csv-for-spreadsheets.md",
+        "link": "../export/index.md",
+        "exists": true,
+        "draft": false
+      },
+      {
+        "page": "cookbook/csv-for-spreadsheets.md",
+        "link": "tracklist-from-text-file.md",
+        "exists": true,
+        "draft": false
+      },
+      {
+        "page": "cookbook/csv-for-spreadsheets.md",
+        "link": "../export/csv.md",
+        "exists": true,
+        "draft": false
+      },
+      {
+        "page": "cookbook/csv-for-spreadsheets.md",
+        "link": "../export/template-language.md",
+        "exists": true,
+        "draft": false
+      },
+      {
+        "page": "cookbook/csv-for-spreadsheets.md",
+        "link": "../export/index.md",
+        "exists": true,
+        "draft": false
+      },
+      {
+        "page": "cookbook/csv-for-spreadsheets.md",
+        "link": "../guides/library.md",
+        "exists": true,
+        "draft": false
+      },
+      {
+        "page": "cookbook/csv-for-spreadsheets.md",
+        "link": "tracklist-from-text-file.md",
+        "exists": true,
+        "draft": false
+      }
+    ]
+  },
+  "changed_paths": [
+    "crates/tag-core/tests/text_exchange_guide.rs",
+    "docs/user-guide/_meta/coverage/README.md",
+    "docs/user-guide/_meta/coverage/reviews/library-values-independent-review.json",
+    "docs/user-guide/_meta/coverage/text-exchange-2026-10-16.json",
+    "docs/user-guide/cookbook/csv-for-spreadsheets.md",
+    "docs/user-guide/cookbook/lyrics-from-text-files.md",
+    "docs/user-guide/cookbook/tracklist-from-text-file.md",
+    "mkdocs.yml"
+  ],
+  "limits": [
+    "Existing written-example native binary reused after hash and all three embedded page byte checks; no Cargo invocation or cold rebuild.",
+    "No native application/audio mutation, spreadsheet/player execution, personal files, browser recheck, provider calls, release/publication/GitHub actions.",
+    "155 is local authored navigation; preserved public137 receipt is unchanged. Structural counts do not prove full canonical semantic completeness."
+  ],
+  "receipt_path": "/tmp/opentag-guide-text-exchange-independent-review.json"
+}

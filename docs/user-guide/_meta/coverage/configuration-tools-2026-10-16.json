@@ -1,0 +1,227 @@
+{
+  "scope": "Three independently authored customization workflows. Docs/tests/authoring metadata only; no configured external program execution, app/P2/REA changes, new dependencies, PR or push.",
+  "base_checkpoint": "2ff5991f6b1def003bc0d37f791e039697f9a3f4",
+  "source_main": "325007c47bef4ee53a4aa9b086038157ee3e62dc",
+  "writing_checkpoint": {
+    "ready": 146,
+    "drafts": 41,
+    "plan": 187,
+    "published_ready": 137,
+    "published_excluded_drafts": 50,
+    "qualification": "Nine unpublished local chapters: Help3, credit/title/sort3 and customization3. Counts do not establish full canonical semantic coverage."
+  },
+  "canonical_source_pointers": [
+    {
+      "url": "https://docs.mp3tag.de/customization/options/tools/",
+      "relative_file": "customization/options/tools.html",
+      "sha256": "8c08e00ab51a960d5df47d41f219b347b344dba3fffa307f8dec2462d4ade971"
+    },
+    {
+      "url": "https://docs.mp3tag.de/getting-started/installation/",
+      "relative_file": "getting-started/installation.html",
+      "sha256": "265e5f015646cc14549cc23d1179befa32a3d4c7a40acd6962e609917637dd94"
+    },
+    {
+      "url": "https://docs.mp3tag.de/getting-started/main-window/",
+      "relative_file": "getting-started/main-window.html",
+      "sha256": "648b8ee6826f1aa60354f311f9f38994e86975e26faea2958146e16c49c5a1c7"
+    },
+    {
+      "url": "https://docs.mp3tag.de/keyboard/",
+      "relative_file": "keyboard.html",
+      "sha256": "31664192d6281a0f23ca322845189d472f120c2a997117cd7f4d330beaae113b"
+    },
+    {
+      "url": "https://docs.mp3tag.de/menus/view/",
+      "relative_file": "menus/view.html",
+      "sha256": "1d46bbc8c338f9fa99224bf5bdc4f83369257055e7616f39572548c4a480f4ce"
+    }
+  ],
+  "canonical_semantic_mapping": {
+    "Installation/configuration backup and transfer": {
+      "page": "customize/configuration.md",
+      "teaching": [
+        "Separate saved configuration, pending edits and audio backup",
+        "Named before-change and before-restore checkpoints; finish dialogs and helper history first",
+        "Seven-component whitelist, absent components omitted and zero-file bundle rejected on load",
+        "Excluded audio, credentials, installed sources/resources, caches, session Undo and provider permissions",
+        "Included components replace whole files; omitted components remain; no deep merge",
+        "Every included component validated before replacement; sequential write/reload failures may leave changes",
+        "Own format/version,32MiB import bound, window reload and pending-discard timing",
+        "Transfer executable/resource/favorite paths and credentials separately; preserve names",
+        "Desktop current configuration folder, no inherited Mp3tag portable/Store layout or mobile qualification"
+      ],
+      "limits": "Existing production configuration unit tests and validation/write paths read; no fresh native configuration import or personal-data access. Plain prose tables are not mirrored tests."
+    },
+    "View/main-window and keyboard toolbar customization": {
+      "page": "customize/toolbars.md",
+      "teaching": [
+        "Whole-bar shown state versus per-item visibility; empty custom toolbar and divider-only behavior",
+        "Stepwise rename/move/visibility/separator/spacer/OK/Cancel practice",
+        "Default eight and all28 built-in command choices; command/write scope remains unchanged",
+        "Reset main items versus Clear custom items versus full configuration restore",
+        "Commands/tools/action groups and duplicate identity Add behavior",
+        "Saved names versus display labels, stale refs and first duplicate tool match",
+        "Direct named group invokes even unchecked; immediate-write caution",
+        "All eight canonical customization shortcuts, focus and platform modifiers",
+        "Separators, spacers, trimmed60UTF16-unit display-label bounds"
+      ],
+      "limits": "Source/model and sampled generated-doc browser checks only; no native toolbar/UI action execution or mobile external tool claim."
+    },
+    "Options/Tools definition and launch": {
+      "page": "customize/tools.md",
+      "teaching": [
+        "One copied local file, save intended tags first, executable Path separate from Parameter",
+        "Current direct-edit fields,99-definition limit, default/first10 slot shortcuts and reorder effects",
+        "All seven supported case-insensitive path placeholders; root-relative and empty fallback boundaries",
+        "Split before expansion; double versus single quotes, literal backslash, preserved empty args",
+        "Blank/whitespace default path versus no zero-argument mode",
+        "No ordinary tag/scripting evaluation, recursive expansion, shell redirect/wildcard/substitution",
+        "Per-first-file versus per-file, hidden selection, >10 confirmation,100 target cap",
+        "Partial launch failure, absolute executable/mac.app handling and platform cwd limits",
+        "Started is spawn count; discarded stdout/stderr/finalstatus; external changes need careful reload",
+        "Current No action doubleclick fallback differs from original description",
+        "Qualified official community tools collection pointer; inspect/adapt/test, not compatibility promise"
+      ],
+      "limits": "Eleven argument rows, seven placeholder rows and six scope rows exercised against exact pure production helpers/controllers with LF/CRLF. No program/launch/real IPC or installed external application executed."
+    }
+  },
+  "page_sha256": {
+    "customize/configuration.md": "209850d2a3ea8a6e16c4e6f4680e00d34497e6934efca2f0a1233dba8ab94898",
+    "customize/toolbars.md": "810754da3b33177052b372bd0fb684435d5fdeaeff2badbcadba1497d36390b7",
+    "customize/tools.md": "f00420b7f1eb7e06f190321d7c64de3ad742808f2df03e1d308328453b9d1f7a"
+  },
+  "application_source_sha256": {
+    "src-tauri/src/utilities.rs": "404b520370424704d6ecccad37d44c63ab6bd522a30622fe203333d261efca5e",
+    "src-tauri/src/settings.rs": "756a5a5e847be1cae1107c861b733c100dd014bd33b11e0521d6d40d85bb5c4e",
+    "src-tauri/src/action_host.rs": "6da0c08ead3c66a3b4f266629573c2d0316de56a2671e870121f1518bc037486",
+    "src-tauri/src/exports.rs": "240f257139bfc1bb797d1ecc59af7abe95dfc7ddf57683eef3b7f84a940a8dba",
+    "src-tauri/src/columns.rs": "36b445d201b065cb79473b151c2fdffdf5332ed4950b1496b91e67a14415cb31",
+    "src-tauri/src/tag_panel.rs": "178235c4992d2f126d94152768c2358c9968d7df84dad5ecbec25988b639ac91",
+    "src-tauri/src/file_ops.rs": "badc5a5e34e3aa4017dedfa7abb6100156a8c1207990c250ba1dff474d980352",
+    "src-tauri/src/lists.rs": "a0573d33b02b43baf94bdff8ae0832b140673a5ba46d53ad9fa92185cea19afd",
+    "src/main.ts": "f9c0a56f1eba4f77bc47531a08fcd63427a2b845bc36a784b27da43146309c76",
+    "src/tools.ts": "412b8ff9827b68909ff0b72614df1bc61be9b0b9d7b51b32f5fcd2614eb1e6b6",
+    "src/toolbar.ts": "a984a89b1907927b3662668aa2fd724fa8a8941f706685a10be93cec309c62c9",
+    "src/action-ui.ts": "0ab3fd434ac7729218cd8b45293014e3c232b7c1890f2bfdf1d91df5d08e4868"
+  },
+  "test_sha256": {
+    "tests/guide-config-tools.test.mjs": "c88093a77d4b5d18fd13c5be72d6d233cdfde43087d8a1fbd2d8e9e5c625a353"
+  },
+  "validation": {
+    "focused": "New3 plus existing10 options utility tests passed13/13. Final new3 passed after output wrapping. Actual standalone TS production modules and verbatim std-only Rust pure helper bodies; no parser replica or launch function included. Both LF/CRLF written page forms checked; no whole-Tauri/native platform proof.",
+    "logs": [
+      "/tmp/opentag-guide-config-tools-models.log",
+      "/tmp/opentag-guide-config-tools-final-models.log",
+      "/tmp/opentag-guide-config-tools-publication.log",
+      "/tmp/opentag-guide-config-tools-strict.log"
+    ],
+    "publication_tests": 8,
+    "strict_build": true,
+    "generated": {
+      "routes": 146,
+      "entries": 1207,
+      "nav_search_exact": true,
+      "old143_nav_order_retained": true,
+      "draft_html_search_nav_leaks": 0,
+      "search_sha256": "24efc06ab7d30b29b8ae892e82d78b74e08492f90e9a669a410d89b76c1cf797"
+    },
+    "browser": {
+      "scope": "Local146 authored chapters/41drafts on unchanged appsource325;3customization chapters. Actual generated-doc browser only; public137/native/tool execution separate.",
+      "checks": [
+        "Configuration inventory, replacement cases and transfer checks render as three tables",
+        "Actual configuration link opens external tools workflow",
+        "customize/configuration/ renders actual tables at390px with no document overflow",
+        "customize/toolbars/ renders actual tables at390px with no document overflow",
+        "customize/tools/ renders actual tables at390px with no document overflow",
+        "Actual horizontal wheel reveals complete tool argument arrays and two literal copy blocks",
+        "Toolbar customization renders in dark palette",
+        "Actual search locates the zero-argument distinction and opens external tools"
+      ],
+      "errors": [],
+      "screenshots": [
+        "/tmp/opentag-guide-config-tools-browser/desktop-configuration-light.png",
+        "/tmp/opentag-guide-config-tools-browser/mobile390-configuration-table.png",
+        "/tmp/opentag-guide-config-tools-browser/mobile390-toolbars-table.png",
+        "/tmp/opentag-guide-config-tools-browser/mobile390-tools-table.png",
+        "/tmp/opentag-guide-config-tools-browser/mobile390-tools-arguments-scrolled.png",
+        "/tmp/opentag-guide-config-tools-browser/desktop-toolbars-dark.png"
+      ],
+      "success": true,
+      "profile_removed": true
+    },
+    "browser_iteration": "Long JSON output cells now wrap at bounded column width while literal Parameter input remains exact. Guide owner viewed final mobile horizontal-scroll sample. Earlier clean-build/browser overlap caused one missing search-index request; attempt-build-race/ retains failure evidence. Sequential final run passed8 with zero page errors; public site was unaffected.",
+    "source_identity": "All12 recorded app files byte-identical current main325; broader src/src-tauri/core/regex/dependency/workflow diff empty.",
+    "scope_limits": [
+      "No full native/UI matrix repeated for this local docs-only additive target",
+      "No configured executable, personal data or installed tool invoked",
+      "No all-platform launch/format/player guarantee or full canonical semantic-completeness claim"
+    ]
+  },
+  "preserved_evidence": {
+    "credit_peer": {
+      "path": "reviews/credit-recipes-independent-review.json",
+      "sha256": "669f08596313efcb54462512548d66ee1c6612181fbbc30aba8610662820d3fb",
+      "scope": "Unchanged raw independent review at exact2ff;5 existing core tests and scoped source/page/edge checks; no current-trio review."
+    },
+    "scripting_structural_inventory": {
+      "path": "reviews/scripting-canonical-inventory-2026-10-16.json",
+      "sha256": "0e3b46206446c7e630da63d12981b617955efe9c653599e6318b00a5ab54a95d",
+      "scope": "Root live-primary inventory found64unique function names and20exact date-format tokens, including EEEE/EE alias row, represented in7mature references. STRUCTURAL ONLY: does not establish overload/options/examples/edge/platform or semantic completeness. No current chapter rewrites inferred."
+    },
+    "public137": {
+      "path": "publication-137-2026-10-16.json",
+      "sha256": "7e38d7be9888f42472c79c30b8c49850ae0700e1d1086b646406b7b3d27f8c78",
+      "scope": "Unchanged accepted actual137 deployment/HTTP/search/assets/public-browser receipt. Local146 is not published."
+    }
+  },
+  "review": "Author checkpoint ready for finite independent review; no GitHub CODE/CI or new PR for this trio. Reconcile actual17\u201320 source when merged before future publication.",
+  "remaining_drafts": [
+    "getting-started/coming-from-mp3tag.md",
+    "getting-started/whats-new.md",
+    "platforms/macos.md",
+    "platforms/windows.md",
+    "platforms/linux.md",
+    "platforms/android.md",
+    "platforms/ios.md",
+    "learn/index.md",
+    "learn/tags-from-filenames.md",
+    "learn/clean-a-messy-library.md",
+    "learn/tag-from-online-sources.md",
+    "learn/give-every-album-a-cover.md",
+    "guides/index.md",
+    "guides/file-operations.md",
+    "guides/undo-history.md",
+    "guides/library.md",
+    "guides/utilities.md",
+    "customize/index.md",
+    "customize/field-values.md",
+    "customize/languages.md",
+    "automate/index.md",
+    "tag-sources/index.md",
+    "tag-sources/musicbrainz.md",
+    "tag-sources/discogs.md",
+    "tag-sources/freedb.md",
+    "tag-sources/local-freedb.md",
+    "tag-sources/itunes.md",
+    "tag-sources/deezer.md",
+    "tag-sources/lrclib.md",
+    "tag-sources/acoustid.md",
+    "reference/menus/tools.md",
+    "reference/options/language.md",
+    "cookbook/index.md",
+    "cookbook/rename-safe-characters.md",
+    "cookbook/rename-lowercase-filenames.md",
+    "cookbook/tracklist-from-text-file.md",
+    "cookbook/lyrics-from-text-files.md",
+    "cookbook/export-folder-jpg.md",
+    "cookbook/html-album-catalogue.md",
+    "cookbook/csv-for-spreadsheets.md",
+    "help/glossary.md"
+  ],
+  "remaining_limits": [
+    "Full94canonical-page semantic audit unproven; topic/name counts are routing evidence only",
+    "Broader placeholders/options/platform/source families and draft tutorials remain to be audited/completed",
+    "Pending17\u201320 behavior is not published as current; original deferredP2/REA investigations untouched"
+  ]
+}
