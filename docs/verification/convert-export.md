@@ -32,7 +32,7 @@ The claim in `script-export.md` that the working folder reached exports was fals
 
 - `ExportOptions.working_directory` feeds `%_workingdir%` and `%_workingpath%` in the export body, the `$filename` name and a typed export file name. The Export action and File → Export (`run_export` → `action_host`) pass the folder the file list was last changed to. Before a folder is opened, both stay empty, as everywhere else.
 - Filename → Filename now uses `EvaluationSettings::context` like Tag → Filename and actions. That brings the working folder, Options → Files "Replace folder separator" (it used to be always `_`) and the shared clock.
-- Tag-source cover names (Save image to disc) use `EvaluationSettings::filename`. `$columnValues` and the other column functions work there now; before, they failed because the context was bare.
+- Tag-source cover names (Save image to disc) use the shared filename evaluation settings. The apply request includes the active File List column names and templates. `$columnValues` evaluates these templates against each written file after import, rather than using the built-in columns or cached values from before the import. The working folder, clock and folder-separator setting are captured once for the operation.
 
 Tests: `working_folder_reaches_the_export_body_and_file_name` (tag-core), `exports_receive_the_working_folder_in_body_and_file_name` and `new_filename_pattern_uses_the_working_folder_and_folder_separator` (src-tauri), and the extended `saved_cover_files_*` cover-name test.
 
@@ -76,6 +76,14 @@ locked Rust workspace tests passed, with four opt-in cases ignored. All 30
 focused export tests passed. Production build, workspace Clippy with warnings
 denied, formatting, eight publication tests, strict guide build, writing-plan
 and diff checks passed. The native application was not launched.
+
+Latest review follow-up: active custom columns now reach tag-source apply. A
+production frontend callback regression failed before the request was fixed.
+A real WAV import/image regression also failed with stale column snapshots,
+then passed after reevaluating column templates on the written tags. Combined
+validation now passes 318 UI tests and 722 locked Rust tests (four opt-in
+cases ignored), plus production build, workspace Clippy, formatting, strict
+guide build and all eight publication tests.
 
 ## Default encodings
 
