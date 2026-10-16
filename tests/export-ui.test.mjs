@@ -57,3 +57,20 @@ test('choosing a configuration prefills the export file name from its $filename'
  assert.equal(configurationFilename('out/export.txt','$filename(,utf-16)body'),'out/export.txt');
  assert.equal(configurationFilename('',html),'');
 });
+
+test('relative filename subpaths keep the current output folder while rooted paths replace it',()=>{
+ for(const [current,argument,expected] of [
+  ['/lists/export.txt','sub/report.csv','/lists/sub/report.csv'],
+  ['/lists/export.txt','../report.csv','/lists/../report.csv'],
+  ['lists/export.txt','sub/report.csv','lists/sub/report.csv'],
+  ['export.txt','sub/report.csv','sub/report.csv'],
+  ['/lists/export.txt','é:report.csv','/lists/é:report.csv'],
+  ['C:\\Lists\\export.txt','sub\\report.csv','C:\\Lists\\sub\\report.csv'],
+  ['\\\\server\\share\\Lists\\export.txt','sub\\report.csv','\\\\server\\share\\Lists\\sub\\report.csv'],
+  ['\\\\?\\C:\\Lists\\export.txt','sub\\report.csv','\\\\?\\C:\\Lists\\sub\\report.csv'],
+  ['/lists/export.txt','/elsewhere/report.csv','/elsewhere/report.csv'],
+  ['C:\\Lists\\export.txt','D:\\Elsewhere\\report.csv','D:\\Elsewhere\\report.csv'],
+  ['C:\\Lists\\export.txt','\\\\server\\share\\report.csv','\\\\server\\share\\report.csv'],
+  ['C:\\Lists\\export.txt','\\rooted\\report.csv','\\rooted\\report.csv'],
+ ]) assert.equal(configurationFilename(current,`$filename(${argument},utf-8)`),expected,`${current} / ${argument}`);
+});

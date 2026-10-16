@@ -52,7 +52,10 @@ export function configurationFilename(current:string,template:string):string {
     const dot=current.lastIndexOf('.');
     return `${dot>leaf?current.slice(0,dot):current}.${argument}`;
   }
-  return /[/\\]/.test(argument)||/^[A-Za-z]:/.test(argument)?argument:current.slice(0,leaf)+argument;
+  // Like the renderer, rooted names replace the destination; relative names,
+  // including subfolders, start beside the current output file.
+  const rooted=/^[/\\]/.test(argument)||(argument.charCodeAt(0)<=0x7f&&argument[1]===':');
+  return rooted?argument:current.slice(0,leaf)+argument;
 }
 
 type ExportHost={

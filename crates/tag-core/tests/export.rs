@@ -660,3 +660,35 @@ fn a_dynamic_filename_argument_is_evaluated_when_no_name_is_typed() {
     assert_eq!(docs[0].filename, "/out/report.csv");
     assert_eq!(docs[0].encoding, "utf-8");
 }
+
+#[test]
+fn a_relative_filename_prefill_agrees_with_the_template_destination() {
+    let template = "$filename(sub/report.csv,utf-8)$loop(1)%title%$loopend()";
+    let options = ExportOptions {
+        filename: "/lists/export.txt".into(),
+        base_directory: "/audio".into(),
+        ..options()
+    };
+    let configured = render_export(template, &rows(), &options).unwrap();
+    assert_eq!(configured[0].filename, "/lists/sub/report.csv");
+    let prefilled = render_export(
+        template,
+        &rows(),
+        &ExportOptions {
+            filename_override: Some("/lists/sub/report.csv".into()),
+            ..options.clone()
+        },
+    )
+    .unwrap();
+    assert_eq!(prefilled[0].filename, configured[0].filename);
+    let old_prefill = render_export(
+        template,
+        &rows(),
+        &ExportOptions {
+            filename_override: Some("sub/report.csv".into()),
+            ..options
+        },
+    )
+    .unwrap();
+    assert_eq!(old_prefill[0].filename, "/audio/sub/report.csv");
+}
