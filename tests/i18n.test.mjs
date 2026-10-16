@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile, readdir} from 'node:fs/promises';
 import ts from 'typescript';
-import {extract, englishCatalog, extractFrozen} from '../scripts/i18n-extract.mjs';
+import {extract, englishCatalog, extractFrozen, extractBackend} from '../scripts/i18n-extract.mjs';
 const load=async file=>{
   const source=await readFile(new URL(`../src/${file}`,import.meta.url),'utf8');
   const js=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
@@ -174,6 +174,10 @@ test('the language follows the choice, then the system languages by region and b
   assert.equal(catalogMeta({},'not a locale!.json'),undefined);
 });
 
+test('the backend catalog keys follow the current merged Rust error producers',async()=>{
+  const stored=JSON.parse(await readFile(new URL('../src/i18n/backend-keys.json',import.meta.url),'utf8'));
+  assert.deepEqual(stored,extractBackend(),'Run node scripts/i18n-extract.mjs --backend, then translate the new keys in every catalog.');
+});
 test('the English catalog lists every user-visible string of the frontend',()=>{
   const expected=englishCatalog(extract());
   const {['@meta']:meta,...current}=english;

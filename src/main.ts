@@ -1507,9 +1507,9 @@ function reviewedConverter(kind:'filename'|'text') {
       options:{ansi_codepage:file?(value(dialog,'text-codepage').trim()||null):null,case_sensitive_paths:dialog.querySelector<HTMLInputElement>('#text-case-sensitive')!.checked}};
   };
   const syncControls=()=>{
-    const count=paths().length,blocked=applying||picking||busy||dirtySelected()||!count;
-    const planned=review.planned??count; // Unmatched files are left unchanged.
-    apply.textContent=`${rename?'Rename':'Save tags to'} ${planned} file${planned===1?'':'s'}`;
+    const selectedCount=paths().length,blocked=applying||picking||busy||dirtySelected()||!selectedCount;
+    const count=review.planned??selectedCount; // Unmatched files are left unchanged.
+    apply.textContent=`${rename?'Rename':'Save tags to'} ${count} file${count===1?'':'s'}`;
     let ready=false,inputsValid=false;
     try{const request=readRequest();inputsValid=true;ready=review.canApply(request,context());}catch{/* Missing inputs remain visible and can be completed. */}
     apply.disabled=blocked||!ready;previewButton.disabled=blocked||review.pending||!inputsValid;

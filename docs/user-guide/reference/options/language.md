@@ -36,7 +36,7 @@ window title also translates generated location summaries, including desktop
 startup and forwarded launches, when directory display is enabled, while actual paths retain their spelling. Freedb
 server names stay as entered during editing; clearing a name shows the translated
 **Unnamed server** label. Export duplicate-name errors also retain the name
-entered while translating the surrounding message. File-list cell editors announce the same column name shown in the header: default names follow the UI language, while custom names keep their spelling.
+entered while translating the surrounding message. File-list cell editors announce the same column name shown in the header: default names follow the UI language, while custom names keep their spelling. Selection-preset names also keep their spelling in the removal dialog. Tool-name edits keep authored names in both tool selectors; an empty draft name shows a translated numbered fallback.
 
 ## Catalog files
 

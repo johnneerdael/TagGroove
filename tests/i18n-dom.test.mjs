@@ -250,6 +250,50 @@ test('an unavailable language remains an editable preference through the real Op
     }finally{for(const [name,descriptor] of Object.entries(globals))if(descriptor)Object.defineProperty(globalThis,name,descriptor);else delete globalThis[name];p.close();}
   }
 });
+test('preset removal preserves authored option names and values through the real groups save path',async()=>{
+  const custom={Help:'Assistance',Title:'Heading',PRESET:'Preset name','Remove preset':'Delete preset','Remove selection preset':'Delete selection preset','Choose a preset…':'Pick a preset…'};
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]]){
+    const p=page(),names=['Help','Title','MiXeD < & >'];let saved;
+    try{
+      const original={groups:[],presets:names.map(name=>({name,enabled_groups:[]}))};
+      const ui=new ActionUI({load:async()=>original,save:async value=>{saved=structuredClone(value);},canExecute:()=>false,selectedCount:()=>1,changed:()=>{}});
+      await ui.groupsDialog();const parent=p.body.querySelector('.action-groups-dialog'),t=p.translate(locale,catalog);
+      const mainOptions=()=>[...parent.querySelector('#group-preset').options];
+      assert.deepEqual(mainOptions().slice(1).map(option=>[option.value,option.textContent]),names.map(name=>[name,name]));assert.equal(mainOptions()[0].textContent,t.t('Choose a preset…'));
+      parent.querySelector('[data-command="remove-preset"]').click();p.translateTree(p.body);
+      let child=[...p.body.querySelectorAll('dialog')].at(-1),select=child.querySelector('[data-key="preset"]');
+      assert.deepEqual([...select.options].map(option=>[option.value,option.textContent]),names.map(name=>[name,name]));
+      assert.equal(child.querySelector('header').textContent,t.t('Remove selection preset'));assert.equal(child.querySelector('[data-remove]').textContent,t.t('Remove preset'));
+      child.querySelector('[data-close]').click();parent.querySelector('[data-command="remove-preset"]').click();p.translateTree(p.body);
+      child=[...p.body.querySelectorAll('dialog')].at(-1);select=child.querySelector('[data-key="preset"]');select.value='Title';child.querySelector('[data-remove]').click();p.translateTree(parent);
+      assert.deepEqual(mainOptions().slice(1).map(option=>option.textContent),['Help','MiXeD < & >']);
+      parent.querySelector('#save-groups').click();await p.window.happyDOM.waitUntilComplete();
+      assert.deepEqual(saved.presets.map(preset=>preset.name),['Help','MiXeD < & >']);assert.deepEqual(original.presets.map(preset=>preset.name),names);
+    }finally{p.close();}
+  }
+});
+test('tool-name edits toggle authored names and generated fallbacks in both real Options selectors',async()=>{
+  registerOptionsPage(toolsOptionsPage({pickProgram:async()=>null}));
+  const custom={Help:'Assistance',Title:'Heading','Tool {i}':'Utility {i}',New:'Create','No action':'Do nothing'};
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]]){
+    const p=page(),globals=Object.fromEntries(['CSS','getComputedStyle'].map(name=>[name,Object.getOwnPropertyDescriptor(globalThis,name)]));
+    Object.defineProperty(globalThis,'CSS',{configurable:true,value:p.window.CSS});Object.defineProperty(globalThis,'getComputedStyle',{configurable:true,value:p.window.getComputedStyle.bind(p.window)});
+    try{
+      const settings=defaultSettings();settings.pages.tools={tools:[{name:'',path:'/bin/tool',parameters:'',for_each_file:false},{name:'Title',path:'/bin/other',parameters:'',for_each_file:false}],default_tool:0};
+      const response={settings,defaults:defaultSettings(),warning:null};let saved;
+      const ui=new OptionsUI({load:async()=>response,save:async value=>{saved=structuredClone(value);return{...response,settings:value};},appearance:{get:()=> 'system',set:()=>{}},applied:()=>{}});
+      await ui.open('tools');const t=p.translate(locale,catalog);
+      const check=name=>{for(const selector of ['#tools-list','#tool-default']){const select=p.body.querySelector(selector),option=select.querySelector('option[value="0"]');assert.equal(option.textContent,name||t.t('Tool {i}',{i:1}));assert.equal(option.getAttribute('translate'),name?'no':null);assert.equal(select.value,'0');}assert.equal(p.body.querySelector('#tool-name').value,name);assert.equal(p.body.querySelector('#tool-new').textContent,t.t('New'));};
+      check('');
+      for(const name of ['Help','Title','Tool 1','','Help']){
+        const input=p.body.querySelector('#tool-name');input.value=name;input.dispatchEvent(new p.window.Event('input',{bubbles:true}));await p.window.happyDOM.waitUntilComplete();check(name);
+        const select=p.body.querySelector('#tools-list');select.value='1';select.dispatchEvent(new p.window.Event('change',{bubbles:true}));const next=p.body.querySelector('#tools-list');next.value='0';next.dispatchEvent(new p.window.Event('change',{bubbles:true}));p.translateTree(p.body);check(name);
+      }
+      p.body.querySelector('#options-ok').click();await p.window.happyDOM.waitUntilComplete();
+      assert.equal(saved.pages.tools.tools[0].name,'Help');assert.equal(saved.pages.tools.tools[1].name,'Title');assert.equal(saved.pages.tools.default_tool,0);assert.equal(settings.pages.tools.tools[0].name,'');
+    }finally{for(const [name,descriptor] of Object.entries(globals))if(descriptor)Object.defineProperty(globalThis,name,descriptor);else delete globalThis[name];p.close();}
+  }
+});
 test('freedb server names keep their authored spelling through empty/nonempty edits and redraws',async()=>{
   const custom={Help:'Assistance',Title:'Name','Unnamed server':'No display name',New:'Create',Delete:'Remove','freedb server':'CDDB endpoint'};
   for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]]){
@@ -729,7 +773,7 @@ for(const locale of ['de','nl']){
       assert.equal(p.body.querySelector('th').textContent,t.t('File'));
       const fieldRows=rendererVariable(parsed,'fieldRows',{esc});
       const reviewed=rendererVariable(parsed,'previewMarkup',{esc,fieldRows});
-      p.body.innerHTML=reviewed([{path:'Help',target:'Title',captures:{Help:['Title','']}},{path:'Title',fields:{Help:[]},source_line:1,selection_index:0}]);
+      p.body.innerHTML=reviewed([{path:'Help',target:'Title',captures:{Help:['Title','']}},{path:'Title',fields:{Help:[]},source_line:1,selection_index:0}],['Help']);
       p.translate(locale);
       assert.equal(p.body.querySelector('.preview').getAttribute('aria-label'),t.t('Reviewed conversion results'));
       assert.deepEqual([...p.body.querySelectorAll('strong')].map(el=>el.textContent),['Title','Title']);
@@ -737,6 +781,7 @@ for(const locale of ['de','nl']){
       assert.equal(p.body.querySelector('dt').textContent,'Help');
       assert.equal(p.body.querySelector('dd > span > span').textContent,'Title');
       assert.deepEqual([...p.body.querySelectorAll('em')].map(el=>el.textContent),[t.t('(empty)'),t.t('No values')]);
+      assert.equal(p.body.querySelector('.no-match').textContent,`Help${t.t('No match, not changed')}`);
     }finally{p.close();}
   });
   test(`${locale}: tag-source matching previews preserve file and field data, including accessible labels`,()=>{

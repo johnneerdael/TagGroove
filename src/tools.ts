@@ -67,7 +67,7 @@ export function toolsOptionsPage(host:PageHost):OptionsPage{
         root.querySelector('#tool-down')!.addEventListener('click',()=>move(index+1));
         const edit=(id:string,key:'name'|'path'|'parameters')=>root.querySelector<HTMLInputElement>(`#${id}`)?.addEventListener('input',event=>{
           const next=tools(draft);next[index]={...next[index],[key]:(event.target as HTMLInputElement).value};save(next);
-          if(key==='name'){const option=root.querySelector<HTMLOptionElement>(`#tools-list option[value="${index}"]`),fallbackOption=root.querySelector<HTMLOptionElement>(`#tool-default option[value="${index}"]`);for(const o of [option,fallbackOption])if(o)o.textContent=next[index].name||`Tool ${index+1}`;}
+          if(key==='name'){const option=root.querySelector<HTMLOptionElement>(`#tools-list option[value="${index}"]`),fallbackOption=root.querySelector<HTMLOptionElement>(`#tool-default option[value="${index}"]`);for(const o of [option,fallbackOption])if(o){if(next[index].name)o.setAttribute('translate','no');else o.removeAttribute('translate');o.textContent=next[index].name||`Tool ${index+1}`;}}
         });
         edit('tool-name','name');edit('tool-path','path');edit('tool-parameters','parameters');
         root.querySelector('#tool-each')?.addEventListener('change',event=>{const next=tools(draft);next[index]={...next[index],for_each_file:(event.target as HTMLInputElement).checked};save(next);});
