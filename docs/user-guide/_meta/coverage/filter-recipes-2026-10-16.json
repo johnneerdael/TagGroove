@@ -46,7 +46,7 @@
   "page_sha256": {
     "cookbook/find-missing-fields.md": "8465053c4f98375704fd5af4d98c2c1f2151a8434ed06877dc055ad095230040",
     "cookbook/find-missing-covers.md": "374fd80146e6752b0d64ac3a395af6a3c32467f1927b084007c4cff63c3f7c61",
-    "cookbook/find-low-bitrate.md": "d0f60c38f8d6f0c7e106a118d0662e71560a589e429fb265a3b06636cc678769"
+    "cookbook/find-low-bitrate.md": "e04141a529916197f4aca30ba85343e40a71485246b296e622077a5905677369"
   },
   "source_sha256": {
     "crates/tag-core/src/filter.rs": "1a5e77f544bbc1b1c54dc42a1ad1b5f84e77aaac8e5d85aa901b6777048f6bb8",
@@ -96,7 +96,12 @@
       "receipt": "/tmp/opentag-guide-filter-recipes-browser/results.json",
       "visual_inspection": "Initial390px view exposed wrapped field names. Final query tables reuse existing focusable horizontal scroll wrapper; unscrolled and actual-wheel-scrolled screenshots manually viewed: whole expressions and matching-ID results readable, no document overflow."
     },
-    "independent_review": "pending"
+    "independent_review": {
+      "receipt": "filter-recipes-independent-review.json",
+      "reviewed_checkpoint": "f8f0772bd130fbf8e9b0993db8ea94e265a81968",
+      "result": "One P3 prose finding corrected: change only the upper cutoff, retain GREATER0; no expression/model/source changes. Original receipt retained unchanged.",
+      "correction_checks": "Actual affected core4/4 and strict127-page build passed; git diff --check passed. Query expressions unchanged."
+    }
   },
   "local_completed_pages": 127,
   "local_remaining_drafts": 60,

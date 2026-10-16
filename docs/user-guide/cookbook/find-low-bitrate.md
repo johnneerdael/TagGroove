@@ -82,9 +82,10 @@ produce different results; investigate the file rather than inventing a rate.
 
 ## Variations
 
-- Change both instances of the cutoff consistently when saving another
-  search. “Below 192” excludes 192; for whole-number readings, `< 193` includes
-  it. The actual filter keywords remain `LESS` and `EQUAL`, not symbolic `<`.
+- Change the upper cutoff (`192`) when saving another search; keep
+  `GREATER 0` to exclude zero readings. “Below 192” excludes 192; for whole-number
+  readings, `< 193` includes it. The actual filter keywords remain `LESS` and
+  `EQUAL`, not symbolic `<`.
 - Use the exact codec constraint when comparing like encodings. For a mixed
   library, inspect each codec family rather than applying one quality label
   to every result.
