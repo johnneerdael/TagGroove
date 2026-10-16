@@ -347,6 +347,28 @@ including 294 application-library tests and all 51 action-host tests.
 Workspace Clippy, formatting, strict 97-page build and eight publication
 tests passed. Frontend code is unchanged from the 336-test/build validation.
 
+## Format Value output documentation
+
+The review of `1936ed9` found that the mature Format Value page still
+promised one field value. The action, Tag → Tag converter and scripting
+reference now describe the existing evaluated two-backslash delimiter:
+components are trimmed and empty components dropped only when that delimiter
+is present; a single nonempty value keeps its whitespace, and an empty
+result removes the field. Filename and directory destinations remain a
+separate naming context. The reference also distinguishes ordinary tag
+separator cleaning from the native path placeholders, and scopes native
+Unix-backslash preservation to action consumers rather than Tag → Filename.
+
+Six examples read directly from the published Markdown run through the real
+Format Value action and verify the stored value lists, removal and unrelated
+field preservation. The complete locked tag-core package passed 508 tests,
+including all guide corpus guards. Core all-target Clippy with warnings
+denied, formatting, the strict 97-page build, eight publication tests and
+the 97/187 writing-plan check passed. Production code is unchanged from the
+820-test workspace / 336-test frontend validation above. A finite independent
+affected-guide audit confirmed the two sibling wording corrections and found
+no further concrete mismatch in its bounded scope.
+
 ## Not covered
 
 - The `.mta` type IDs for Adjust Cover, Set Cover Properties and Generate Playlists, and the guessed schemas for types 4, 6 and 11–15, need `.mta` files saved by Mp3tag.
