@@ -1493,35 +1493,45 @@ mod tests {
             "../../../../tests/fixtures/web-scripting-diagnostics.json"
         ))
         .unwrap();
-        for case in cases.as_array().unwrap() {
-            if let Some(expected) = case["output"].as_str() {
-                assert_eq!(
-                    out(
-                        case["script"].as_str().unwrap(),
-                        case["page"].as_str().unwrap()
-                    ),
-                    expected
-                );
-                continue;
-            }
-            let lines = case["script"]
-                .as_str()
-                .unwrap()
+        let execute = |text: &str, page: &str| {
+            let lines = text
                 .lines()
                 .enumerate()
                 .map(|(i, line)| (i + 1, line.to_owned()))
                 .collect::<Vec<_>>();
-            let error = match Script::compile(&lines) {
-                Err(error) => error,
-                Ok(script) => run(
-                    &script,
-                    case["page"].as_str().unwrap(),
-                    &Environment::default(),
-                )
-                .result
-                .unwrap_err(),
-            };
-            assert_eq!(error.message, case["error"].as_str().unwrap());
+            Script::compile(&lines)
+                .and_then(|script| run(&script, page, &Environment::default()).result)
+        };
+        let mut failures = Vec::new();
+        for case in cases.as_array().unwrap() {
+            let result = execute(
+                case["script"].as_str().unwrap(),
+                case["page"].as_str().unwrap(),
+            );
+            match (case["output"].as_str(), result) {
+                (Some(expected), Ok(outputs)) => {
+                    let actual = outputs
+                        .get(DEFAULT_OUTPUT)
+                        .map(String::as_str)
+                        .unwrap_or_default();
+                    if actual != expected {
+                        failures.push(format!(
+                            "{case}: expected output {expected:?}, got {actual:?}"
+                        ));
+                    }
+                }
+                (None, Err(error)) => {
+                    if error.message != case["error"].as_str().unwrap() {
+                        failures.push(format!("{case}: wrong diagnostic {error:?}"));
+                    }
+                }
+                (Some(_), Err(error)) => {
+                    failures.push(format!("{case}: unexpected diagnostic {error:?}"))
+                }
+                (None, Ok(outputs)) => {
+                    failures.push(format!("{case}: expected diagnostic, got {outputs:?}"))
+                }
+            }
         }
         for (script, page, prefix) in [
             (
@@ -1536,8 +1546,12 @@ mod tests {
             ),
             ("json \"on\"", "Title", "the input is not valid JSON: "),
         ] {
-            assert!(error(script, page).message.starts_with(prefix));
+            match execute(script, page) {
+                Err(error) if error.message.starts_with(prefix) => {}
+                result => failures.push(format!("{script}: expected {prefix:?}, got {result:?}")),
+            }
         }
+        assert!(failures.is_empty(), "{}", failures.join("\n"));
     }
 
     #[test]
