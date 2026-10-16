@@ -1,0 +1,145 @@
+site_name: OpenTag user guide
+site_description: Learn to tag, rename, organise and export your music with OpenTag, the open-source audio metadata editor.
+site_url: https://johnneerdael.github.io/opentag/
+repo_url: https://github.com/johnneerdael/opentag
+repo_name: johnneerdael/opentag
+edit_uri: edit/main/docs/user-guide/
+docs_dir: docs/user-guide
+site_dir: build/user-guide-site
+copyright: OpenTag is free, open-source software. It is an independent project, compatible with but not affiliated with Mp3tag.
+
+# Writer-only material lives beside the pages but is not published.
+exclude_docs: |
+  _meta/
+  _snippets/
+
+theme:
+  name: material
+  language: en
+  logo: assets/brand/mark.svg
+  favicon: assets/brand/favicon.png
+  font:
+    text: Inter
+    code: JetBrains Mono
+  icon:
+    repo: fontawesome/brands/github
+    edit: material/pencil-outline
+  palette:
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-night
+        name: Follow the system setting
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.indexes
+    - navigation.path
+    - navigation.top
+    - navigation.footer
+    - navigation.instant
+    - navigation.instant.progress
+    - navigation.tracking
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - content.tooltips
+    - content.action.edit
+
+extra_css:
+  - stylesheets/opentag.css
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/johnneerdael/opentag
+      name: OpenTag on GitHub
+  status:
+    draft: This page is still being written
+
+hooks:
+  - docs/hooks/publication.py
+
+plugins:
+  - search
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.betterem
+  - pymdownx.caret
+  - pymdownx.mark
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.smartsymbols
+  - pymdownx.snippets:
+      base_path: docs/user-guide/_snippets
+      auto_append:
+        - abbreviations.md
+      check_paths: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+# Strict builds (`mkdocs build --strict`) turn every one of these into an error.
+validation:
+  nav:
+    omitted_files: warn
+    not_found: warn
+    absolute_links: warn
+  links:
+    not_found: warn
+    anchors: warn
+    absolute_links: warn
+    unrecognized_links: warn
+
+nav:
+  - Home: index.md
+  - Get started:
+    - Your first tagging session: learn/first-tagging-session.md
+  - Recipes:
+    - Zero-padded track numbers: cookbook/rename-zero-padded-track-numbers.md
+    - Tags from folder and file names: cookbook/tags-from-folder-and-filename.md
+    - Move guest artists to titles: cookbook/feat-artists-to-title.md
+  - Reference:
+    - Format strings: reference/format-strings.md
+    - Placeholders: reference/placeholders.md
+    - Regular expressions: reference/regular-expressions.md
