@@ -146,14 +146,22 @@ async fn import_action_groups(
     legacy_encoding: Option<String>,
 ) -> Result<Vec<action_host::GroupFileImport>, String> {
     io(move || {
-        let mut inputs = Vec::with_capacity(paths.len());
-        for path in &paths {
-            inputs.push(auxiliary_input(path)?);
+        let mut results = Vec::with_capacity(paths.len());
+        // An input that cannot be read is one failed entry, not a failed call.
+        for path in paths {
+            match auxiliary_input(&path) {
+                Ok(input) => results.extend(action_host::import_groups(
+                    &[input],
+                    legacy_encoding.as_deref(),
+                )),
+                Err(error) => results.push(action_host::GroupFileImport {
+                    path,
+                    imported: None,
+                    error: Some(error),
+                }),
+            }
         }
-        Ok(action_host::import_groups(
-            &inputs,
-            legacy_encoding.as_deref(),
-        ))
+        Ok(results)
     })
     .await
 }
@@ -1381,6 +1389,24 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn bulk_group_import_reports_an_unreadable_input_and_imports_the_rest() {
+        let dir = tempfile::tempdir().unwrap();
+        let group = dir.path().join("Titles.mta");
+        std::fs::write(&group, "[#0]\nT=9\nF=TITLE\n1=Imported\n").unwrap();
+        let missing = "content://opentag.test/missing/group.mta".to_string();
+        let results = tauri::async_runtime::block_on(import_action_groups(
+            vec![missing.clone(), group.to_string_lossy().into_owned()],
+            None,
+        ))
+        .unwrap();
+        assert_eq!(results.len(), 2);
+        assert_eq!(results[0].path, missing);
+        assert!(results[0].imported.is_none());
+        assert!(results[0].error.is_some());
+        assert_eq!(results[1].imported.as_ref().unwrap().group.name, "Titles");
+    }
 
     #[test]
     fn chapter_rows_are_grouped_by_their_file() {

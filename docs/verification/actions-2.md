@@ -7,12 +7,12 @@ Branch `feat/actions-2`, started from `main` at `5a57053`. It closes the Actions
 | Item | Before | Now | Evidence |
 |---|---|---|---|
 | A problem with one file inside a group | The file was marked failed; its remaining actions and every later group were skipped, and it was left out of exports | The problem is reported for that file and action, and the file's remaining actions and groups still run. It stays in deferred exports and playlists and in the refreshed file list | `a_failed_action_is_a_warning_and_later_actions_and_groups_still_run`, `filename_collision_reports_only_the_failed_file_and_returns_both` |
-| Export Cover onto an existing file | Failed (no-clobber) | The same image is left alone; another image is replaced, after undo saved the old file | `cover_export_replaces_existing_files_and_rejects_input_aliases` |
+| Export Cover onto an existing file | Failed (no-clobber) | The same image is left alone; another image is replaced, after undo saved the old file | `cover_export_replaces_existing_files_and_rejects_input_aliases`, `cover_export_by_the_same_file_replaces_its_earlier_output_in_order`, `cover_export_cross_file_destination_keeps_the_first_different_image` |
 | `\\` in a Format Value or Tag → Tag result | Stored as one value | Several values, as in the Tag Panel | `format_value_double_backslash_creates_several_values` |
 | File names in Import Cover, Export Cover, Import Text File and Generate Playlists | Plain text; `\` literal on macOS and Linux, `/` in a value made a folder, `:` and `?` kept | Filename mode, as in Tag → Filename | `cover_and_text_file_names_use_filename_mode`, `file_name_formats_use_backslash_folders_and_clean_tag_values` |
 | Import Cover with `*.jpg` | Literal path | First matching image | `wildcard_cover_source_is_the_first_image_in_natural_order`, `wildcards_match_whole_names_case_insensitively`, `import_cover_wildcard_uses_the_first_matching_image` |
 | `$loop` sort order in Export actions | Always byte order (1, 10, 2) | Follows Options → General natural sorting | `export_loops_follow_the_natural_sort_option` |
-| Bulk `.mta` import | One file per call | Backend command `import_action_groups` takes several files and folders | `bulk_import_reads_files_and_folders_and_reports_each_failure` |
+| Bulk `.mta` import | One file per call | Backend command `import_action_groups` takes several files and folders | `bulk_import_reads_files_and_folders_and_reports_each_failure`, `bulk_group_import_reports_an_unreadable_input_and_imports_the_rest` |
 | Example action groups | A missing `actions.json` gave an empty library | Five unchecked OpenTag groups under Examples | `a_missing_configuration_offers_unchecked_example_groups`, `example_groups_do_what_their_names_say` |
 | `.mta` IDs for Adjust Cover, Set Cover Properties, Generate Playlists | Invented IDs 1001–1003 | Unchanged | Needs one `.mta` file saved by Mp3tag for each type |
 
@@ -31,8 +31,9 @@ The UI already shows these lines in the action warnings message when that messag
 The Export Cover page documents one option about repeats: with "Export duplicate covers" enabled, "identical covers (same name and content) are exported". It does not say that an existing file stops the export. OpenTag now reads it like this:
 
 - When the file already holds the same bytes, nothing is written. Running an Export Cover action again is quiet whichever way the option is set.
-- When it holds something else, it is replaced atomically. The action dialogs and Quick Action run through `history::record_with_side_files`, so undo puts the old image back. Only existing files are given to undo; a new image stays after undo, as before.
+- When it holds something else, it is replaced atomically. The action dialogs and Quick Action run through `history::record_with_side_files`, so undo puts the old image back. A file that existed before the run is given to undo the first time the run uses its name; undo drops that copy when the file did not change. A new image stays after undo, as before.
 - When another selected file wrote a different image to the same name earlier in the same run, the later file gets a warning and the first image stays. The same image from a later file is no collision, also when duplicates are exported (it would write the same bytes again).
+- When the same file exports again to a name it wrote earlier in the run (its cover changed in between, in the same or a later group), the later export replaces the earlier one, so the actions apply in order.
 - The existing protections stay: an output that is an input audio file, a chapter or cue sheet row's file, or an alias of one through `..` or a symlink is refused.
 
 The duplicate check that keys on destination plus image content is unchanged. So is the per-file numbering of several covers (`cover.png`, `cover (1).png`).
@@ -62,7 +63,7 @@ Export actions now pass Options → General "natural sorting" (on by default) to
 
 ### Bulk `.mta` import
 
-`import_action_groups(paths, legacyEncoding)` imports each path on its own and returns one result per file: `{ path, imported }` or `{ path, error }`. A folder stands for the `.mta` files in it (other files are ignored), in natural name order, so Mp3tag's `data/actions` folder can be imported in one step. An empty folder and an unreadable file each give an error entry and do not stop the others. Group names come from the file names, as with the single import; the dialog already adds `(2)` to a name that is taken.
+`import_action_groups(paths, legacyEncoding)` imports each path on its own and returns one result per file: `{ path, imported }` or `{ path, error }`. A folder stands for the `.mta` files in it (other files are ignored), in natural name order, so Mp3tag's `data/actions` folder can be imported in one step. An empty folder, an unreadable file and a provider document that cannot be copied each give an error entry and do not stop the others. Group names come from the file names, as with the single import; the dialog already adds `(2)` to a name that is taken.
 
 The Actions dialog still imports one file. Its picker and import flow are in `src/main.ts` and `src/action-ui.ts`, which the pending translations PR rewrites, so switching the picker to `multiple: true` and calling the new command is left for after that PR. That step needs no new strings beyond pluralising the existing "Import action group" title.
 

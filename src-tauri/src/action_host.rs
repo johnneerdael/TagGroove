@@ -360,8 +360,9 @@ struct NativeHost<'a> {
     settings: EvaluationSettings,
     directories: Vec<PathChange>,
     exported_covers: HashSet<(String, [u8; 32])>,
-    /// Cover images written by this run, by normalized destination.
-    written_covers: BTreeMap<String, [u8; 32]>,
+    /// Cover images written by this run, by normalized destination: the
+    /// image's digest and the input file that wrote it.
+    written_covers: BTreeMap<String, ([u8; 32], String)>,
     /// Called before an existing image is replaced, so undo can restore it.
     before_replace: &'a mut dyn FnMut(&Path) -> Result<(), String>,
     identities: Vec<String>,
@@ -613,26 +614,33 @@ impl ActionHost for NativeHost<'_> {
                     }
                     self.protect_output(&target, std::slice::from_ref(state))?;
                     let destination = normalized_output(&target)?;
+                    let (writer, _) = self.identity(state);
                     match self.written_covers.get(&destination) {
+                        Some((written, _)) if *written == digest => {}
                         // Another file of this run already wrote a different image there.
-                        Some(written) if *written != digest => {
+                        Some((_, earlier)) if *earlier != writer => {
                             return Err(format!(
                                 "{} was already written for another file",
                                 target.display()
                             ));
                         }
-                        Some(_) => {}
-                        // An earlier export left this image: running again changes nothing.
-                        None if fs::read(&target).is_ok_and(|existing| existing == bytes) => {}
+                        // This file's own earlier export: its cover changed since.
+                        // Undo already knows the file from before the run.
+                        Some(_) => atomic_output(&target, &bytes, false)?,
                         None => {
-                            // An existing file with another image is replaced.
+                            // First use of this name in the run: undo keeps the
+                            // file as it was (it drops the copy if nothing changes).
                             if fs::symlink_metadata(&target).is_ok() {
                                 (self.before_replace)(&target)?;
                             }
-                            atomic_output(&target, &bytes, false)?;
+                            // The same image from an earlier export stays; another
+                            // image is replaced.
+                            if !fs::read(&target).is_ok_and(|existing| existing == bytes) {
+                                atomic_output(&target, &bytes, false)?;
+                            }
                         }
                     }
-                    self.written_covers.insert(destination, digest);
+                    self.written_covers.insert(destination, (digest, writer));
                     self.exported_covers.insert(identity);
                     count += 1;
                 }
@@ -1574,10 +1582,11 @@ mod tests {
         assert_eq!(replaced.len(), 1);
         assert!(replaced[0].ends_with("cover.png"));
         // Running again finds the same image and writes nothing.
+        let modified = fs::metadata(&output).unwrap().modified().unwrap();
         let result = run(&mut replaced);
         assert!(result.errors.is_empty(), "{:?}", result.errors);
-        assert_eq!(replaced.len(), 1);
         assert_eq!(fs::read(&output).unwrap(), png);
+        assert_eq!(fs::metadata(&output).unwrap().modified().unwrap(), modified);
         assert_eq!(fs::read(&path).unwrap(), before);
         // The image extension is always added, so a name aimed at the input
         // audio file writes a separate image next to it.
@@ -1589,6 +1598,76 @@ mod tests {
         assert!(result.errors.is_empty(), "{:?}", result.errors);
         assert_eq!(fs::read(&path).unwrap(), before);
         assert!(dir.path().join("input.wav.png").is_file());
+    }
+
+    #[test]
+    fn cover_export_by_the_same_file_replaces_its_earlier_output_in_order() {
+        let dir = tempfile::tempdir().unwrap();
+        let (path, png) = covered_fixture(dir.path(), "a.wav", false);
+        let before_run = fs::read(&path).unwrap();
+        let image = |width| {
+            let mut bytes = std::io::Cursor::new(Vec::new());
+            image::DynamicImage::ImageRgb8(image::RgbImage::new(width, width))
+                .write_to(&mut bytes, image::ImageFormat::Png)
+                .unwrap();
+            bytes.into_inner()
+        };
+        fs::write(dir.path().join("second.png"), image(2)).unwrap();
+        fs::write(dir.path().join("third.png"), image(3)).unwrap();
+        let export = || ActionSpec::ExportCover {
+            filename_template: "art".into(),
+            picture_type: None,
+            export_duplicates: false,
+        };
+        let import = |name: &str| ActionSpec::ImportCover {
+            filename_template: name.into(),
+            picture_type: None,
+            delete_existing: true,
+        };
+        let groups = [
+            ActionGroup {
+                name: "First".into(),
+                enabled: true,
+                actions: vec![export(), import("second.png"), export()],
+            },
+            ActionGroup {
+                name: "Later".into(),
+                enabled: true,
+                actions: vec![import("third.png"), export()],
+            },
+        ];
+        let output = dir.path().join("art.png");
+        let mut replaced = Vec::new();
+        let run = |groups: &[ActionGroup], replaced: &mut Vec<PathBuf>| {
+            execute_with_side_files(
+                &[path.to_string_lossy().into_owned()],
+                groups,
+                EvaluationSettings::default(),
+                &mut |file| {
+                    replaced.push(file.to_path_buf());
+                    Ok(())
+                },
+            )
+        };
+        let result = run(&groups[..1], &mut replaced);
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert_eq!(fs::read(&output).unwrap(), image(2));
+        // The image this run created itself is not handed to undo.
+        assert!(replaced.is_empty());
+        let result = run(&groups[1..], &mut replaced);
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert_eq!(fs::read(&output).unwrap(), image(3));
+        assert_eq!(replaced.len(), 1);
+        // Both groups in one run, starting from a folder image equal to the
+        // embedded cover: each export replaces the file's own earlier one.
+        fs::write(&path, &before_run).unwrap();
+        fs::write(&output, &png).unwrap();
+        replaced.clear();
+        let result = run(&groups, &mut replaced);
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        assert_eq!(fs::read(&output).unwrap(), image(3));
+        // Undo was given the image from before the run, once.
+        assert_eq!(replaced.len(), 1);
     }
 
     #[test]
