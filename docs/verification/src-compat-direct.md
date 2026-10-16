@@ -1,66 +1,159 @@
-# Community web-source compatibility on main
+# Web-source compatibility qualification
 
-This feature branch applies PR #20 directly to main
-`1fe6a800ac1096494b33d3b461286ad2d91e1a13`. It preserves main’s English error
-transport and existing providers; PR #17’s localization and PR #18/#19’s
-provider additions are not dependencies.
+The PR20-only results below describe their stated source checkpoints. This
+local PR17 preparation also includes localization and typed diagnostics; its
+current integration status is recorded separately at the end of this note.
+
+The PR20 candidate summarized here integrates with actual main
+`21de24598ac0170faa5be7f4e408389c69af30ac`. GNUdb, the additional online
+providers and neutral guide publishing are already part of that baseline.
+The remaining feature delta is scripting/source compatibility and its guide
+examples; PR17 localization and typed diagnostic integration are not included.
 
 ## Resulting behavior
 
 - Load source archives from bounded subfolders, resolve include/settings names
-  without case sensitivity, and accept chained SearchBy triplets.
-- Preserve literal parentheses in format-function arguments and support the
-  documented command, cursor, current-line replacement and output conventions.
+  without case sensitivity, and accept consecutive SearchBy triplets.
+- Preserve balanced literal parentheses, dollar anchors and numeric captures in
+  format-function arguments.
 - Read the first JSON value with ordered object members, preserve the text
   cursor when leaving JSON mode, and tolerate unselecting at the root.
-- Decode output character references, handle TRACKS/default OUTPUT buffers,
-  substitute album URLs and interpret plain _LENGTH numbers as milliseconds.
-- Update the existing tutorial, command reference, format and regex guidance
-  to describe those behaviors. Existing copied-file/history/write safeguards
-  remain the baseline.
+- Correct current-line replacement, search and output-buffer behavior, including
+  TRACKS/default OUTPUT conventions and plain _LENGTH milliseconds.
+- Decode the complete semicolon-terminated named HTML reference set and Unicode
+  escapes. Preserve complete direct lookup and preview URLs in their narrowly
+  identified complete-address contexts.
+- Teach those behaviors in the format/regex reference and three web-source
+  guides. Existing file-write and history safeguards remain the baseline.
 
-## Local verification
+## Local qualification and final integration
 
-A fresh isolated target rebuilt all five workspace packages after cleaning
-copied workspace artifacts; dependency caches alone were retained. The full
-workspace passed 911 Rust tests, with five explicit ignored tests, and all-target
-Clippy passed with warnings denied. All 368 frontend tests, the production
-TypeScript/Vite build, eight publication tests and strict guide build passed.
-The guide still publishes 164 completed pages and retains 23 drafts.
+The fresh native qualification at `3aab350a45ce6ff3966857ebf94d3ae15d634758`
+rebuilt all five workspace packages in its isolated target. It passed 973 Rust
+tests with six explicit ignores, full-workspace/all-target Clippy with warnings
+denied, the production TypeScript/Vite build, publication tests and the strict
+172-page guide build. The original low-disk Undo failure and successful rerun
+are retained separately; no application change was made for that environment
+failure. The later fixture/cleanup and provider-exit changes affect the test
+harness; the 606 recorded native/build input hashes remain unchanged.
 
-The actual written unquoted `(Interlude)` example now succeeds, and JSON-root
-unselection succeeds. These are intentional changes from main’s earlier
-rejection behavior. Tests execute the written examples with LF and CRLF.
-The optional downloaded-community-script compatibility test remains ignored;
-no downloaded corpus, live-service, native UI or mobile run is claimed here.
+The subsequent `dae5e69ae84fd646f239a15e6b8a597672b6c20f` checkpoint freshly
+passed all 384 UI/model tests, including the actual provider-script exit
+regression. Its unchanged review-policy/harness inputs retain 84 passing
+Python checks. The final merge of actual main adds only the corrected publishing
+recovery instructions; this verification note is updated to identify that base.
+Production code, dependency files, native/build inputs and all 172 reader pages
+remain byte-identical to those qualified checkpoints. Counts above retain their
+stated source/run scopes; they are not new full native executions on this head.
 
-An independent finite source review compared the extraction with its preserved
-feature delta and found no lost intended behavior or localization dependencies.
-Local review does not replace the clean exact-head GitHub Codex code review,
-trusted CI, normal merge or subsequent release/Pages publication checks.
+The ignores are the system-trash probe, benchmark, three live-service checks
+and optional downloaded-script corpus. These local results do not establish
+live API availability, native desktop replay, mobile source behavior or
+compatibility with every downloaded community script. Exact final-head GitHub
+Codex code review and trusted validation against current main are still required
+at this local checkpoint. Normal merge, release and live Pages verification are
+separate outcomes.
 
-## Named character-reference review correction
+## Review corrections retained in the feature
 
-Review of the first direct-main head found that the handwritten entity subset
-left valid names such as `&Alpha;` untouched. The importer now uses the complete
-`web_atoms` 0.2.6 table already present in the lockfile, with no dependency-version
-updates. An independent comparison against the primary WHATWG
-[entity data](https://html.spec.whatwg.org/entities.json) matched all 2,231 entries,
-including all 2,125 semicolon-terminated names and 93 two-scalar expansions.
-The importer requires the terminating semicolon, matches case exactly, and
-performs one decoding pass; this is character-reference decoding, not an HTML
-parser. Unknown references remain literal and existing numeric/Unicode escape
-handling is retained.
+The initial handwritten character-reference subset left valid names such as
+`&Alpha;` untouched. The importer now uses the complete `web_atoms` 0.2.6 table
+already present in the lockfile, with no dependency-version changes. An
+independent comparison with the primary WHATWG
+[entity data](https://html.spec.whatwg.org/entities.json) matched all 2,231
+entries, including 2,125 semicolon-terminated names and 93 two-scalar
+expansions. Decoding requires the terminating semicolon, is case-sensitive and
+performs one pass; unknown references remain literal. Actual regressions cover
+Greek, non-BMP, multi-scalar, long-name, numeric, unknown, case and single-pass
+values.
 
-The actual source-import regression first failed for Greek, non-BMP and
-multi-scalar values. It now passes alongside the long-name, numeric, unknown,
-case and single-pass examples. All 31 web-source tests passed (one optional
-corpus test ignored), followed by the full 911-test workspace, all-target Clippy,
-eight publication tests and the strict guide build. The frontend implementation
-is unchanged from its 368-test production-build checkpoint. A finite independent
-peer checked the decoder, dependency/table provenance and written contract.
+The complete-address correction is limited to a direct source with one bare
+`%s` field and no album base, and its exact-`%s` preview. It preserves queries,
+fragments and existing escapes. Nested preview templates, ordinary search words,
+album-ID templates and chained fields retain normal word encoding. The caller
+still parses addresses and enforces HTTP(S) without embedded credentials.
+Actual regressions cover both preservation and rejection/unchanged contexts.
 
-## Local preparation with provider and gnudb changes
+The source-definition guide tests use the production parser as source.
+Tag-core's dev-only serde_json dependency explicitly enables preserve_order,
+matching the application and full-workspace feature context. No production
+dependency version or lockfile entry was changed for that test feature.
+
+## Bounded work for long literal inputs
+
+Two further review findings concerned repeated work, not a new script feature.
+The argument parser rescanned a literal's trailing backslash run before every
+character. It now maintains that run's odd/even parity incrementally and resets
+it when the literal ends. Quotes, fields, optional sections, nested calls and
+literal dollar references keep their existing parsing boundaries. The value
+decoder previously lowercased and copied the remaining buffer for every
+`$verticalBar()` marker. It now scans once, matches that fixed marker using
+ASCII case rules, and preserves UTF-8 text, nonmarkers, the private pipe marker
+and final trimming. No dependency or grammar change is involved.
+
+Bounded old-code probes retained their small semantic results but exceeded a
+two-second child-process deadline for each near-limit input; the child was
+terminated. The core probe used the previously qualified core library; the
+second probe compiled the unchanged private decoder body and its marker
+constant. This is local source/core evidence, not native UI or platform timing
+proof. The committed regressions assert exact values, without timing thresholds:
+a backslash argument just below the 1 MiB format limit, a marker-filled value
+just below the 16 MiB parser-output limit, odd/even literal runs across node
+boundaries, and Unicode/case/nonmarker preservation.
+
+Fresh qualification of this correction passed **977 Rust tests**, zero failures
+and six explicit ignores across 67 result summaries, full-workspace/all-target
+Clippy with warnings denied, **384 UI/model tests**, and the production build.
+The existing PR20 target and task-specific temporary directory were used; no
+workspace cache was borrowed or cleaned. Available space was checked before
+compilation, after compilation before history tests, after the full test run
+and after Clippy, remaining above 2.3 GiB at each point. The benign existing
+Cargo global-cache cleanup permission warning did not fail either command; no
+permissions or global caches were changed to suppress it. Full-platform trusted
+CI and a fresh exact-head Codex code review remain required after this source
+change. Earlier 973-test results above describe the earlier source only.
+
+## HTML numeric-reference normalization
+
+The decoder now applies the [HTML numeric-character-reference end-state
+rules](https://html.spec.whatwg.org/multipage/parsing.html#numeric-character-reference-end-state)
+to valid semicolon-terminated decimal/hexadecimal references. It reuses the
+`web_atoms` 0.2.6 C1 replacement table already in the dependency: `&#128;`
+becomes `€`, and null, surrogate or out-of-range code points become `�`.
+Digit validation distinguishes malformed payloads from overflow; a valid digit
+sequence that overflows the integer parser is out of Unicode range. The five
+unmapped C1 controls and other valid scalars, including noncharacters, are
+retained. All 27 replacement pairs in the locked library were independently
+compared with the current WHATWG table.
+
+This remains a semicolon-required metadata decoder, rather than a full HTML
+tokenizer with missing-semicolon or partial-reference recovery. Malformed or
+unknown references remain literal, named-reference case and single-pass
+handling stay unchanged, and the separate backslash-u escape path is unchanged.
+No dependency, parser grammar, URL policy or field-write behavior was added.
+
+Three regressions cover all 32 C1 entries in decimal and hexadecimal forms,
+invalid/overflow scalar references, ordinary and non-BMP values, controls and
+noncharacters, malformed/missing-semicolon input, and single-pass/backslash-u
+boundaries. The production release-conversion fixture checks album, track and
+comment values. Before the correction, the unchanged extracted decoder failed
+the euro and null-reference assertions; the corrected helper and actual
+workspace fixtures pass.
+
+Fresh qualification passed **980 Rust tests**, zero failures and six explicit
+ignores across 67 result summaries, plus full-workspace/all-target Clippy with
+warnings denied, the strict 172-page guide and eight publication tests. Native
+artifacts were produced from this worktree in its existing exclusive target,
+with reserve checks before compilation and before/after history tests. The
+unchanged frontend retains the 384 UI/model tests and production build qualified
+at `80cad18d21a43c456fe9ec3c24c41ff2b4c11223`; those are not claimed as new runs
+for this decoder-only correction. A new exact-head Codex code review and trusted
+platform validation are still required before merging.
+
+## Earlier local provider and gnudb preparation
+
+The following describes an earlier preparation, before the current PR17
+integration. It is retained as historical provenance.
 
 A separate local prep combines provider/gnudb checkpoint `4d8912e` with this
 PR20 source at `661830e`. The only merge conflict is the guide coverage note;
@@ -72,61 +165,18 @@ already-locked 0.2.6 table; no dependency version is changed by this merge.
 This preparation excludes PR17 localization and makes no combined GitHub
 review, trusted CI, actual-main, release, live-provider or publication claim.
 
+## Local PR17 integration awaiting qualification
 
-## Complete-address review correction
+The local translation preparation at `efa7e868aea2365b66848da78dd9866cbf6f1d08`
+now incorporates PR20 checkpoint `01d44e5255f2ae1fb7eee61219968e3cd6ff47cf`,
+which contains actual main `21de24598ac0170faa5be7f4e408389c69af30ac`.
+The literal-parser and numeric-reference corrections retain PR17's typed
+errors, raw diagnostic data and existing localization boundaries. The sole
+merge conflict joined historical verification notes. The 2,926-entry catalogs,
+Windows fallback controls and hosted-only cleanup remain unchanged.
 
-A subsequent review found that a direct source using one bare `%s` search
-field and no album base encoded a complete stored URL as search words. The
-actual-source regression failed with `?`, `&` and `#` changed into path escapes;
-a separate exact-`%s` preview regression also failed by escaping an existing
-`%2F` again.
-
-The direct-address branch now preserves that one complete value. The same
-branch applies to an exact `%s` preview, while nested preview templates,
-ordinary searches, album-ID templates and chained fields retain their normal
-word encoding. The existing caller still parses the address and applies the
-HTTP(S)/no-embedded-credentials policy. Tests check query/fragment/existing
-escapes, unsafe-address rejection and the unchanged encoded contexts.
-
-The focused app web-source suite passes 34 tests with one explicit optional
-corpus ignore. The native guide harness passes 27 tests, including its actual
-source-definition and written-command examples. That harness imports the
-production parser as source, so URL-policy assertions belong in app tests;
-the pure source tests remain dependency-free. Its standalone JSON-order test
-also exposed a missing test feature: tag-core's dev-only serde_json dependency
-now explicitly enables preserve_order, matching the actual app and existing
-full-workspace feature context. Standalone and workspace guide runs both pass.
-No production core code, dependency version or lockfile entry changed.
-
-The preceding complete-entity checkpoint's full 911-test workspace run is
-historical evidence, not a newly executed full workspace run for this URL
-correction. The frontend remains unchanged from its 368-test/build checkpoint.
-Fresh all-target Clippy, the strict guide and eight publication tests qualify
-the bounded correction; exact-head GitHub Codex review and trusted CI remain
-required. No live provider/native desktop replay or general browser URL
-recovery behavior is claimed by these parser tests.
-
-
-## Local preparation after merged gnudb and the latest providers
-
-Source `f8fed0b` combines the reviewed PR20 URL/entity correction `914a836`
-with actual gnudb main `dc95b16` and prospective PR18 `d39d86d`, including
-its compatible maximum fingerprint matching. The sole conflict was the guide
-coverage note; both per-PR sections remain. Production source is byte-identical
-to its owning feature head. The provider and gnudb behavior is the prospective
-baseline, not additional PR20 release-note material.
-
-A new isolated target ran the complete workspace: 973 passed, zero failed and
-six explicitly ignored. No previous worktree's workspace artifacts or the old
-968-test result were reused. Fresh 383 frontend tests, production build,
-formatting, 60 review-gate tests, eight publication tests and the strict local
-172-page guide build pass. Workflow lint retains only the existing documented
-unsupported concurrency queue-key exception. Fresh full-workspace/all-target Clippy also passes with warnings denied.
-
-The ignores remain the system-trash probe, benchmark, three live-service checks
-and optional downloaded-script corpus. These counts do not establish live APIs,
-native desktop replay, mobile source behavior, release artifacts or public
-172-page publication. This local branch contains no PR17 localization or typed
-diagnostic integration. PR18 must actually merge first, then the resulting main
-must be reconciled and the exact final PR20 head reviewed and validated before
-normal merge and release publication.
+No new native or history tests have run for this merged preparation. Earlier
+PR17 and PR20 counts retain their original source scopes. Further PR20 review
+corrections must be integrated before final local qualification, current-main
+adaptation, exact-head GitHub Codex review and trusted platform CI. This local
+checkpoint makes no remote-review, merge, release or publication claim.

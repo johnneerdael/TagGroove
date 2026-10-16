@@ -505,10 +505,23 @@ fn album_address(file: &SourceFile, raw: &str, page: &Url) -> Option<Url> {
 /// A value as written: `$verticalBar()` (evaluated by SayFormat, or left as
 /// text by `Replace "|" "$verticalBar()"` on the input) is a literal pipe.
 fn content(value: &str) -> String {
-    const BAR: &str = "$verticalbar()";
-    let mut text = value.replace(engine::VERTICAL_BAR, "|");
-    while let Some(at) = text.to_ascii_lowercase().find(BAR) {
-        text.replace_range(at..at + BAR.len(), "|");
+    const BAR: &[u8] = b"$verticalbar()";
+    let mut text = String::with_capacity(value.len());
+    let mut rest = value;
+    while let Some(ch) = rest.chars().next() {
+        if ch == '$'
+            && rest
+                .as_bytes()
+                .get(..BAR.len())
+                .is_some_and(|prefix| prefix.eq_ignore_ascii_case(BAR))
+        {
+            text.push('|');
+            // The matched marker is ASCII, so its end is a UTF-8 boundary.
+            rest = &rest[BAR.len()..];
+        } else {
+            text.push(if ch == engine::VERTICAL_BAR { '|' } else { ch });
+            rest = &rest[ch.len_utf8()..];
+        }
     }
     text.trim().to_owned()
 }
@@ -517,11 +530,31 @@ fn content(value: &str) -> String {
 /// non-BMP characters and references that expand to two Unicode scalars.
 fn entity(name: &str) -> Option<String> {
     let (first, second) = if let Some(number) = name.strip_prefix('#') {
-        let code = match number.strip_prefix(['x', 'X']) {
-            Some(hex) => u32::from_str_radix(hex, 16).ok()?,
-            None => number.parse().ok()?,
+        let (digits, radix) = match number.strip_prefix(['x', 'X']) {
+            Some(hex) => (hex, 16),
+            None => (number, 10),
         };
-        (code, 0)
+        if digits.is_empty()
+            || !digits.bytes().all(|byte| {
+                if radix == 16 {
+                    byte.is_ascii_hexdigit()
+                } else {
+                    byte.is_ascii_digit()
+                }
+            })
+        {
+            return None;
+        }
+        // With a nonempty valid digit sequence, a parse error only means
+        // overflow: HTML replaces it just like any other out-of-range scalar.
+        let code = u32::from_str_radix(digits, radix).unwrap_or(0x11_0000);
+        let mut scalar = char::from_u32(code)
+            .filter(|ch| *ch != '\0')
+            .unwrap_or('\u{fffd}');
+        if (0x80..=0x9f).contains(&code) {
+            scalar = web_atoms::C1_REPLACEMENTS[(code - 0x80) as usize].unwrap_or(scalar);
+        }
+        (scalar as u32, 0)
     } else {
         *web_atoms::NAMED_ENTITIES.get(&format!("{name};"))?
     };
@@ -1225,6 +1258,38 @@ mod tests {
     }
 
     #[test]
+    fn literal_pipe_markers_preserve_unicode_case_and_nonmarkers() {
+        let input = format!(
+            " \t猫$verticalBar()é{}$VERTICALBAR()🙂$VeRtIcAlBaR()尾\n",
+            engine::VERTICAL_BAR
+        );
+        assert_eq!(content(&input), "猫|é||🙂|尾");
+        for value in [
+            "$verticalBar(",
+            "$verticalBar ()",
+            "$verticalBar( )",
+            "$vertıcalBar()",
+            "$verticalBar()x",
+        ] {
+            let expected = if value == "$verticalBar()x" {
+                "|x"
+            } else {
+                value
+            };
+            assert_eq!(content(value), expected);
+        }
+        assert_eq!(content("$vertical$verticalBar()bar()"), "$vertical|bar()");
+    }
+
+    #[test]
+    fn near_limit_pipe_markers_decode_without_changing_other_text() {
+        let marker = "$VeRtIcAlBaR()";
+        let count = (16 * 1024 * 1024 - 16) / marker.len();
+        let input = format!(" 猫{}尾 ", marker.repeat(count));
+        assert_eq!(content(&input), format!("猫{}尾", "|".repeat(count)));
+    }
+
+    #[test]
     fn index_output_becomes_search_results() {
         let file = SourceFile {
             album_url: "https://shop.example/album/".into(),
@@ -1328,6 +1393,80 @@ mod tests {
         assert_eq!(parse_length("10800000"), Some(10800.0));
         assert_eq!(parse_length("3:00:00"), Some(10800.0));
         assert_eq!(parse_length("x"), None);
+    }
+
+    #[test]
+    fn numeric_html_references_apply_the_c1_replacement_table() {
+        // WHATWG numeric-character-reference end state: unmapped C1 controls
+        // remain themselves, rather than all being replaced or discarded.
+        let expected = [
+            '€', '\u{81}', '‚', 'ƒ', '„', '…', '†', '‡', 'ˆ', '‰', 'Š', '‹', 'Œ', '\u{8d}', 'Ž',
+            '\u{8f}', '\u{90}', '‘', '’', '“', '”', '•', '–', '—', '˜', '™', 'š', '›', 'œ',
+            '\u{9d}', 'ž', 'Ÿ',
+        ];
+        for (offset, ch) in expected.into_iter().enumerate() {
+            let code = 0x80 + offset;
+            assert_eq!(unescape(&format!("&#{code};")), ch.to_string());
+            assert_eq!(unescape(&format!("&#X{code:X};")), ch.to_string());
+        }
+    }
+
+    #[test]
+    fn numeric_html_references_replace_invalid_scalars_but_keep_other_contracts() {
+        for reference in [
+            "&#0;",
+            "&#x0000;",
+            "&#55296;",
+            "&#xDFFF;",
+            "&#1114112;",
+            "&#x110000;",
+            "&#4294967296;",
+            "&#999999999999999999999999999999;",
+            "&#xFFFFFFFFFFFFFFFFFFFFFFFF;",
+        ] {
+            assert_eq!(unescape(reference), "\u{fffd}", "{reference}");
+        }
+        assert_eq!(
+            unescape("&#65; &#x1F600; &#x10FFFF; &#xFDD0; &#xFFFF;"),
+            "A 😀 \u{10ffff} \u{fdd0} \u{ffff}"
+        );
+        assert_eq!(unescape("&#127; &#160; &#9;"), "\u{7f} \u{a0} \t");
+        for malformed in [
+            "&#;",
+            "&#x;",
+            "&#xGG;",
+            "&#128x;",
+            "&#-1;",
+            "&#128",
+            "&unknown;",
+        ] {
+            assert_eq!(unescape(malformed), malformed);
+        }
+        assert_eq!(unescape("&amp;#128;"), "&#128;");
+        // The separate backslash-u decoder keeps its existing behavior.
+        assert_eq!(unescape(r"x\u0000y\ud800z"), "xyz");
+    }
+
+    #[test]
+    fn numeric_html_references_survive_actual_release_conversion() {
+        let page = Url::parse("https://shop.example/numeric").unwrap();
+        let outputs = [
+            ("ALBUM", "The &#128; sessions"),
+            ("TITLE", "&#x80;|x&#0;y|&#xD800;|&#1114112;|&#x1F600;|"),
+            ("COMMENT", "&#147;quoted&#148; &amp;#128;"),
+        ]
+        .into_iter()
+        .map(|(key, value)| (key.to_owned(), value.to_owned()))
+        .collect();
+        let release = release_from(outputs, &page, "numeric-entities");
+        assert_eq!(release.fields["ALBUM"], ["The € sessions"]);
+        let titles: Vec<_> = release
+            .tracks
+            .iter()
+            .map(|track| track.title.as_str())
+            .collect();
+        assert_eq!(titles, ["€", "x�y", "�", "�", "😀"]);
+        assert_eq!(release.fields["COMMENT"], ["“quoted” &#128;"]);
     }
 
     #[test]

@@ -178,6 +178,7 @@ impl Parser {
         }
         let mut nodes = Vec::new();
         let mut literal = String::new();
+        let mut odd_backslashes = false;
         // Inside function arguments, parentheses in literal text nest as in
         // Mp3tag, so `$regexp(%artist%,^(va|v\.a\.)$,Various)` has three
         // arguments; commas and `)` within them belong to the text. An
@@ -185,8 +186,7 @@ impl Parser {
         let arguments = self.nesting && stops.contains(&')');
         let mut parentheses = 0usize;
         while let Some(&ch) = self.chars.get(self.pos) {
-            let escaped =
-                arguments && literal.chars().rev().take_while(|c| *c == '\\').count() % 2 == 1;
+            let escaped = arguments && odd_backslashes;
             if parentheses == 0 && stops.contains(&ch) && !(escaped && ch == ')') {
                 break;
             }
@@ -197,12 +197,16 @@ impl Parser {
                     parentheses -= 1;
                 }
                 literal.push(ch);
+                odd_backslashes = ch == '\\' && !odd_backslashes;
                 self.pos += 1;
                 continue;
             }
             if !literal.is_empty() {
                 nodes.push(Node::Literal(std::mem::take(&mut literal)));
             }
+            // Escape parity belongs to this literal node, not a quoted value,
+            // field, optional section, nested call or literal dollar that follows.
+            odd_backslashes = false;
             self.pos += 1;
             match ch {
                 '\'' => {

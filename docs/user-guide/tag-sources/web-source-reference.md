@@ -128,8 +128,11 @@ Double backslashes separate multiple values within a field, as in `Juniper Vale\
 Stored values decode semicolon-terminated HTML character references and `\uXXXX` escapes.
 Named references use the complete HTML name set, including two-character
 expansions such as `&NotEqualTilde;`; names are case-sensitive. Decoding makes
-one pass, so `&amp;Alpha;` becomes the literal `&Alpha;`. Unknown references
-and names without their terminating semicolon stay unchanged. A
+one pass, so `&amp;Alpha;` becomes the literal `&Alpha;`. Decimal and hexadecimal numeric references use the HTML replacement rules:
+`&#128;` becomes `€`, while null, surrogate and out-of-range values become
+`�`. Other valid code points are retained, including C1 controls without a
+replacement. Unknown or malformed references and references without their
+terminating semicolon stay unchanged. A
 single-track release can take album-wide `TITLE`; `ALBUM` may be per track.
 `TRACKS` and `OUTPUT` are control buffers, not ordinary saved tag fields.
 

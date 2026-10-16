@@ -172,10 +172,35 @@ compare its live publication marker with the approved source. An SSH failure nee
 key/host-key investigation; a marker timeout can mean the target publication
 failed or has not reached the public site. Do not deploy redirects to conceal
 that failure, enable legacy workflows or widen token permissions.
-To retry publication, rerun the approved release workflow after resolving
-its failure. Its authorization checks still apply; source or review drift
-requires fresh validation. To roll back content, submit a revert PR through
-that same review and validation process.
+If the neutral deployment failed after its site commit was pushed, recover
+that **target** run first. In `johnneerdael/audio-tag-guide`, inspect the failed
+**Deploy reviewed static guide** run for that publication, resolve its failure,
+and wait until the complete run is terminal. Rerun its failed jobs:
+
+```sh
+gh run rerun TARGET_RUN_ID --repo johnneerdael/audio-tag-guide --failed
+```
+
+This rerun uses the original immutable event commit and repeats the signature,
+static-tree, control-pin and current-source checks. Verify that the target run
+succeeds and its public `publication-source.json` matches the approved source,
+review and tree. Only then rerun the failed approved **source** release jobs:
+
+```sh
+gh run rerun SOURCE_RUN_ID --repo johnneerdael/opentag --failed
+```
+
+A source rerun with unchanged static bytes intentionally makes no commit or
+push and does not retrigger the target workflow. Rerunning only the source
+cannot recover a failed target deployment. Source authorization checks still
+apply before old-site redirects deploy; source or review drift requires fresh
+validation. GitHub's [workflow rerun documentation](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/re-run-workflows-and-jobs)
+requires repository write permission, preserves the original SHA/ref and limits
+reruns to thirty days after the original run. If no matching target run exists,
+or it is beyond that window, create a new reviewed source publication through
+the normal PR, validation and merge process. Do not manufacture an unreviewed
+site edit or force-push to create an event. To roll back content, submit a revert
+PR through that same review and validation process.
 
 Existing guide images are retained. The former automatic **Docs screenshots**
 workflow is removed; do not restore its triggers. New app-image capture must
