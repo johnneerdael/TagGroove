@@ -46,8 +46,14 @@ These describe a loaded playlist, not whichever audio file is selected. Without 
 | Extension | Output |
 |---|---|
 | `.m3u8` | UTF-8 M3U, suitable for Unicode names. |
-| `.m3u` | M3U using the Windows ANSI codepage on Windows; UTF-8 on other systems. |
+| `.m3u` | M3U using the Windows ANSI codepage on Windows. On macOS/Linux, Windows-1252 is used only when OpenTag can read it back unchanged; otherwise UTF-8 is used. |
 | `.pls` | PLS playlist. |
+
+For example, a filename containing `Â©` would become the Windows-1252 bytes
+`C2 A9`, which also form valid UTF-8 for the different text `©`. OpenTag uses
+UTF-8 for that case and for characters outside Windows-1252. `.m3u8` always
+uses UTF-8. Check the receiving player as well as loading the playlist back
+into OpenTag.
 
 **Write BOM for UTF-8 playlists (.m3u8, .pls)** defaults to off. Enable only when the target reader needs a byte-order mark for encoding detection. This setting is independent of [Export's BOM option](export.md).
 

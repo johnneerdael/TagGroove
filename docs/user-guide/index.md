@@ -80,6 +80,17 @@ to edit and save its tags, then give the files consistent names.
 
 </div>
 
+## Build on the first session
+
+| What you want to learn | Start here |
+| --- | --- |
+| Combine fields, functions and fallback values | [Format strings from zero](learn/format-strings-from-zero.md), then the [64-function reference](reference/scripting/index.md) |
+| Match, capture and clean patterned text | [Regular expressions from zero](learn/regex-from-zero.md), then [regex syntax and examples](reference/regular-expressions.md) |
+| Repeat several changes in order | [Build your first action group](learn/first-action-group.md), then [all action types](actions/index.md) |
+| Rename files, import text or number albums | [Converters](converters/index.md) and [auto-numbering](converters/auto-numbering.md) |
+| Create a catalogue or spreadsheet | [Export a CD catalogue](learn/export-a-cd-catalogue.md), then [CSV](export/csv.md) and the [template language](export/template-language.md) |
+| Parse a web source you control | [Write a source from local JSON](tag-sources/writing-web-sources.md), then the [command reference](tag-sources/web-source-reference.md) |
+
 ## Look up the syntax
 
 - [Format strings](reference/format-strings.md): combine tags, text and
@@ -88,6 +99,10 @@ to edit and save its tags, then give the files consistent names.
   properties such as `%artist%`, `%title%` and `%_filename%`.
 - [Regular expressions](reference/regular-expressions.md): match, extract
   and replace text, with worked examples.
+
+For everyday lookup, see [Options](reference/options/index.md),
+[keyboard shortcuts](reference/keyboard-shortcuts.md), [filter syntax](reference/filter-syntax.md)
+and [field mappings](reference/tag-mapping.md).
 
 Use the search box (press ++s++ or ++slash++) to find a topic in this guide.
 More topics are being written; only completed pages appear here.

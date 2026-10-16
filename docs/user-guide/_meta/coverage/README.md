@@ -22,7 +22,8 @@ remain drafts, and publication checks exclude them from HTML and search.
 
 The first combined checkpoint (`23ecba0`) contains 75 completed pages, including
 the eight initial publication pages. The export batch raises the local total
-to 80, and the navigation-reference batch raises it to 88. These are integration milestones, not completion of the whole guide. The language options page remains a draft because its actual
+to 80, the navigation-reference batch raises it to 88, and the web-source
+batch raises it to 91. These are integration milestones, not completion of the whole guide. The language options page remains a draft because its actual
 implementation is not yet part of this source baseline.
 
 | Batch | Preserved source revision | Evidence and limits |
@@ -35,6 +36,7 @@ implementation is not yet part of this source baseline.
 | Options | `312b0f0` | Twenty-two completed pages and one held language draft. The accompanying ledger maps 150 factual topics to authored sections and records current limitations. Independent source review corrected autosave and retained historical comment/Matroska details. |
 | Export controls, templates and catalogue lesson | `c07bf16` | Five pages, four tests executing actual templates/results under LF and CRLF, plus a canonical fact ledger. Root finite source/canonical review found TRACK quote escaping; its regression failed before correction and passes afterward. |
 | Navigation reference | `273020e` | Eight pages, one test executing nine written focus/platform examples and 41 existing routing/file/list/history contracts. Root read all pages and canonical keyboard rows with source spot checks; current5f only, not every ledger mapping independently recomputed. |
+| Web-source installation, tutorial and command reference | `a687ab5` | Three pages teach all 15 source headers, settings, a complete local JSON lookup/search tutorial and all 59 accepted parser commands. Four tests execute the actual written definitions and examples with LF and CRLF; 19 unchanged pure source-module tests also run. Source and dependency features are unchanged. A finite root review clarified SayRegexp’s optional stop-text rule. |
 | Filter and data reference | `65f3898` | Six pages. Four tests execute 24 filter queries, check 118 field definitions and 236 native table rows, and retain invalid-query cases. The ledger groups repeated canonical native-cell facts. A finite independent semantic review found no established defect; it did not recompute every cell. |
 
 These revisions preserve batch provenance. Current page hashes and later
@@ -83,12 +85,12 @@ The final integration receipt must record those outcomes before opening a PR.
 
 ## Remaining work
 
-The advanced export batch covers template commands, grouping and sorting,
-filenames, encoding, side effects and progressive reports. Reconcile its
-source-dependent claims when the outstanding application PRs land.
-Web-source parser commands, source structure, results, authentication and
-troubleshooting need independent explanations checked against actual OpenTag
-behavior, including explicit unsupported or different behavior.
+The advanced export and web-source batches are integrated. Their ledgers
+record canonical topics, working examples and source limitations. Current
+claims have been reconciled with main `4e4d5fc`, including merged PRs 26 and
+27. Pending language, provider, gnudb, web-source and action changes require
+a new source comparison after their own merges; this guide does not publish
+those branch-only behaviors as current.
 
 The command-line, keyboard and six menu-reference pages are integrated.
 Detailed remaining context-menu chapters and the broader placeholder audit
@@ -98,8 +100,9 @@ the remaining cookbook topics still require completion and semantic checks.
 Review each canonical paragraph, control and note; do not close these gaps by
 removing draft status or matching headings alone.
 
-Keep this expansion local until the existing application/publication PRs have
-merged, then integrate their real source and recheck dependent instructions.
+The user authorized publishing this expansion alongside the application PRs.
+Keep its review and validation bound to the final head and current main;
+reconcile later application changes in their affected guide pages.
 Actual GitHub Pages publication requires an approved merged source, a successful
 deployment and a checked public URL. A local build or uploaded artifact does
 not establish publication.
@@ -109,10 +112,12 @@ not establish publication.
 `publication-2026-10-16.json` records the approved source, successful reviewed
 Pages deployment and public HTTPS checks. Only the initial eight pages are
 live at that milestone; all eight exactly match the approved build. The search
-index contains only those pages, and the logo is served successfully. Live
-browser interaction remains unverified after bounded browser-tool timeouts.
-This limitation is separate from the successful deployment and fetched public
-content. The 80-page local expansion has not been pushed or published.
+index contains only those pages, and the logo is served successfully. A later bounded independent headless-Chrome check verified actual live
+tutorial navigation, regex search, palette changes and the 390px mobile
+drawer without page errors or document-level horizontal overflow. See
+`/tmp/opentag-public-guide-browser-qa/results.json` for the retained local
+receipt; the integration receipt records the bounded scope. That check
+concerns the initial eight pages, not deployment of this expansion.
 
 ## Export integration verification
 
@@ -126,3 +131,31 @@ The initial publication receipt also records a bounded follow-up HTTP check
 of 19 same-origin scripts, stylesheets and images, including the search worker
 resolved from all eight page configurations. All returned 200 with nonempty
 bodies. This is asset availability evidence, not live browser execution.
+
+## Current integration and exact gaps
+
+`integration-2026-10-16.json` records the current source baseline, conflict
+resolutions, page hashes, local validation and remaining drafts. Its 94-row
+canonical map reports whether mapped guide pages are written or draft. This
+is a routing/backlog record: a written destination alone does not establish
+that every sentence, caveat and original example has been taught. Semantic
+ledgers and executable examples supply narrower evidence.
+
+This milestone publishes 91 of the 187 planned pages. The other 96 stay
+excluded from public HTML and search. The largest gaps are getting started
+and platform workflows, the file list/tag panel/covers/playlists/chapter
+workflows, customization, help/troubleshooting, context menus and 32 cookbook
+pages. The broader placeholder reference still needs a semantic completeness
+audit despite already being published. Language and new-provider instructions
+remain dependent on their feature merges. Completing this milestone does not
+complete the user's request for every detail of the original documentation.
+
+The final 91-page local site contains 91 searchable routes and 769 section
+entries, with no draft HTML. A bounded isolated Chrome check verified the
+actual search worker/result navigation, light/dark rendering and sampled
+390px tutorial/table layouts. The drawer opened and its action link routed
+correctly when invoked through the DOM. A separate nested-menu pointer
+check could not click the section-toggle affordance, so that complete
+pointer path remains unverified; it did not establish a source defect.
+Temporary browser profiles were removed. See the integration receipt for
+exact scope and local evidence paths.

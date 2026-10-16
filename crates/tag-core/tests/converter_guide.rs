@@ -201,3 +201,72 @@ fn numbering_table_uses_the_written_start_width_and_total() {
     }
     assert_eq!(count, 3);
 }
+
+#[test]
+fn partial_keyed_import_leaves_unlisted_selection_and_skips_other_records() {
+    let section = TEXT_TAG
+        .split("<!-- partial-keyed-example:start -->")
+        .nth(1)
+        .unwrap()
+        .split("<!-- partial-keyed-example:end -->")
+        .next()
+        .unwrap();
+    let records = text_blocks(section).remove(0);
+    let mask = text_blocks(TEXT_TAG)
+        .into_iter()
+        .find(|block| block.starts_with("%_filename_ext%;"))
+        .unwrap();
+    let selected = vec!["/Music/03.mp3".into(), "/Music/05.mp3".into()];
+    let plan = TextTagConverter::compile(&mask)
+        .unwrap()
+        .plan(&records, &selected, &TextImportOptions::default())
+        .unwrap();
+    assert_eq!(plan.len(), 1);
+    assert_eq!(plan[0].path, selected[0]);
+    assert_eq!(plan[0].fields["TITLE"], ["Paper Boats"]);
+    assert_eq!(plan[0].fields["TRACK"], ["3"]);
+}
+
+#[test]
+fn per_folder_shortcut_examples_use_each_runs_last_assigned_number() {
+    let table = NUMBERING
+        .split("<!-- per-folder-numbering-examples:start -->")
+        .nth(1)
+        .unwrap()
+        .split("<!-- per-folder-numbering-examples:end -->")
+        .next()
+        .unwrap();
+    let examples: Vec<_> = table
+        .lines()
+        .filter(|line| line.starts_with("| `"))
+        .map(cells)
+        .collect();
+    assert_eq!(examples.len(), 3);
+    for group in [&examples[..2], &examples[2..]] {
+        let items: Vec<_> = group
+            .iter()
+            .flat_map(|row| {
+                (1..=inline(row[2]).parse::<usize>().unwrap()).map(|number| NumberingItem {
+                    path: format!("/Music/{}/{number}.mp3", inline(row[1])),
+                    fields: Fields::new(),
+                })
+            })
+            .collect();
+        let options = NumberingOptions {
+            track_start: inline(group[0][0]).parse().unwrap(),
+            track_digits: 2,
+            count_track_total: true,
+            next_disc_on_directory: true,
+            reset_track_on_next_disc: true,
+            ..Default::default()
+        };
+        let plan = plan_numbering(&items, &options).unwrap();
+        let mut offset = 0;
+        for row in group {
+            let count = inline(row[2]).parse::<usize>().unwrap();
+            assert_eq!(plan[offset].fields["TRACK"], [inline(row[3])]);
+            assert_eq!(plan[offset + count - 1].fields["TRACK"], [inline(row[4])]);
+            offset += count;
+        }
+    }
+}

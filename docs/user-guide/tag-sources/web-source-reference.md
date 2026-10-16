@@ -702,7 +702,7 @@ SayDuration "ms" 1 1
 
 **Syntax:** `SayRegexp "pattern" ["separator"] ["stop text"]`
 
-Find every full regex match in the current remainder, joining them with a space by default. A third parameter restricts matching to text before its first occurrence; if it is missing, this command emits nothing. After a successful search, the cursor advances to the end of that region and leaves any stop marker for later. A missing stop marker leaves the cursor unchanged. Matching is case-sensitive here; use an inline regex option when another policy is intended.
+Find every full regex match in the current remainder, joining them with a space by default. Omit the third parameter to search the entire current remainder. A supplied third parameter restricts matching to text before that stop text’s first occurrence; if the supplied stop text is absent from the input, this command emits nothing and leaves the cursor unchanged. After a successful search, the cursor advances to the end of that region and leaves any stop marker for later. A missing stop marker leaves the cursor unchanged. Matching is case-sensitive here; use an inline regex option when another policy is intended.
 
 **Input**
 

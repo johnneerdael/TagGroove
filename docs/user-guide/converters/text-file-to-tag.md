@@ -85,6 +85,23 @@ case-sensitively** is checked initially; uncheck it only when the intended
 matching rule ignores case. It controls keys, not the literal punctuation
 of the mask or the capitalization of imported values.
 
+## Import part of an album listing
+
+With only `03.mp3` and `05.mp3` selected, use the same filename-key mask
+with this whole-album excerpt:
+
+<!-- partial-keyed-example:start -->
+```text
+03.mp3;Paper Boats;3
+04.mp3;North Pier;4
+```
+<!-- partial-keyed-example:end -->
+
+The row for unselected `04.mp3` is skipped. `03.mp3` receives title
+`Paper Boats` and track `3`; selected `05.mp3` has no row and keeps its
+tags. The preview lists it as **No match, not changed**. A positional mask
+without a filename key cannot make this association.
+
 ## Shape the records
 
 - Use `%dummy%` to skip an unwanted part: `%dummy%;%title%;%artist%`.

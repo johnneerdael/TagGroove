@@ -1250,7 +1250,7 @@
   "guide_sha256": {
     "tag-sources/web-sources.md": "a21361dbfbf655771223e368916d07c203132aee5339769960a802bb0f16c2f6",
     "tag-sources/writing-web-sources.md": "ac149faf4cad78ef60ea60b095dce2ec15639d406805babb4dffacad30e9977e",
-    "tag-sources/web-source-reference.md": "a541466df479c0bd66b6410ed9127dccad1381c27f58b50e614039d32fa47035"
+    "tag-sources/web-source-reference.md": "945ba6bdeea4ff28492f5bcc63f9e9f3bbaa11bab7e2b7b65c9c585306cfe09a"
   },
   "selective_integration": {
     "outgoing_relative_links": {
@@ -1301,7 +1301,7 @@
     "fmt": "cargo fmt passed",
     "diff_check": "passed",
     "clippy": "focused web_source_guide, guide_example_newlines and initial_guide_examples targets passed with -D warnings",
-    "independent_review": "pending; local checkpoint only",
+    "independent_review": "Root finite read-only review all3pages/all59commands and relevant actual source complete; SayRegexp optional-stop ambiguity corrected. Independent23tests passed on currentmain4e4d5fc. No native UI/network/provider claim.",
     "runtime_ui": "not exercised; pure source tests do not establish native UI/network behavior"
   },
   "known_integration_boundaries": [

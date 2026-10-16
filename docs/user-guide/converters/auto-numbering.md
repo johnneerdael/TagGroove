@@ -70,6 +70,20 @@ leaving **Disc numbers** off. That regular mode keeps the entered total;
 it does not enable the shortcut’s per-run totals. An internal disc boundary
 can restart tracks without writing a disc field.
 
+These small examples use the per-folder shortcut with total count enabled:
+
+<!-- per-folder-numbering-examples:start -->
+| Begin at track | Folder | Selected tracks | First result | Last result |
+| --- | --- | --- | --- | --- |
+| `1` | `Harbour` | `3` | `01/3` | `03/3` |
+| `1` | `Low Tide` | `2` | `01/2` | `02/2` |
+| `5` | `Bonus` | `3` | `05/7` | `07/7` |
+<!-- per-folder-numbering-examples:end -->
+
+The first two folders can share one run starting at `1`; the Bonus example
+is a separate run starting at `5`. The entered **Total tracks** box is
+disabled in this shortcut mode because the run determines it.
+
 Directory grouping requires known local folders. For provider documents
 without those paths, the directory control is unavailable; use a reliable
 tag-field grouping or process each album separately.
