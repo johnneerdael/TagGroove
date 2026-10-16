@@ -57,7 +57,7 @@ entered while translating the surrounding message. File-list cell editors announ
 |---|---|
 | `<locale>.json` | Adds a catalog, for example `fr.json` or `pt-BR.json`. The generated template derives its locale from the copied filename. |
 | `@meta.name` | The catalog's display name. Its spelling is preserved in both the user option and System default, even if it equals an English UI label. |
-| `@meta.locale` | Optional explicit locale override, supported for existing catalogs. The generated template omits it. |
+| `@meta.locale` | Optional explicit locale override, supported for existing catalogs. The generated template omits it. The value `system` is reserved for **System default** and is rejected. |
 | English text key | Identifies an application string. Translate its value, preserving brace-placeholder names. |
 | `@keys` | Optional keyboard-key labels, such as German `Ctrl` → `Strg`. Keep the key names and change their displayed values. |
 | `nl.json`, `de.json`, `en.json` | Replaces the corresponding bundled catalog. Removing an override restores the bundled catalog on reload. |

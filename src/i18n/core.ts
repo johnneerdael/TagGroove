@@ -261,7 +261,8 @@ export function catalogMeta(catalog: Catalog, file = ''): CatalogMeta | undefine
   const locale = typeof meta?.locale === 'string' ? meta.locale : file.replace(/\.json$/i, '');
   let canonical: string;
   try {canonical = Intl.getCanonicalLocales(locale)[0];} catch {return undefined;}
-  if (!canonical) return undefined;
+  // 'system' is the saved System default choice, never a selectable catalog.
+  if (!canonical || canonical === 'system') return undefined;
   const name = typeof meta?.name === 'string' && meta.name.trim() ? meta.name.trim() : canonical;
   return {locale: canonical, name};
 }

@@ -141,6 +141,31 @@ test('the actual Language options preserve authored catalog names in System defa
   }
 });
 
+test('reserved system catalog locales cannot duplicate the real Language default choice',async()=>{
+  const {languageSet,resolveLanguage}=await load('i18n/core.ts'),english={'@meta':{name:'English',locale:'en'},Help:'Help'};
+  const bundled=[{locale:'en',name:'English',catalog:english,source:'bundled'}];
+  const invalid=[{file:'system.json',catalog:{'@meta':{name:'Help'},Help:'Wrong system'}},{file:'SyStEm.JSON',catalog:{Help:'Wrong system'}},{file:'fr.json',catalog:{'@meta':{locale:'SYSTEM',name:'Title'},Help:'Wrong system'}}];
+  const valid=[{file:'system.json',catalog:{'@meta':{locale:'fr',name:'Français'},Help:'Aide'}},{file:'en.json',catalog:{'@meta':{name:'English custom'},Help:'Assistance'}}];
+  const result=languageSet(bundled,[...invalid,...valid],english);
+  assert.equal(result.languages.has('system'),false);
+  assert.deepEqual(result.warnings,invalid.map(({file})=>({key:'{file}: unknown language',params:{file}})));
+  assert.equal(catalogMeta({'@meta':{locale:'system-Latn'}},'other.json').locale,'system-Latn','only the exact reserved choice collides');
+  assert.equal(resolveLanguage('system',['fr-FR'],[...result.languages.keys()]),'fr');
+  const provider=`data:text/javascript;base64,${Buffer.from(`export const availableLanguages=()=>${JSON.stringify([...result.languages.values()])};export const systemLanguage=()=> 'fr';`).toString('base64')}`;
+  const {languageOptionsPage,languageWarningText}=await import(await moduleUrl('language-options.ts',{"'./i18n'":JSON.stringify(provider)}));
+  const custom={'{file}: unknown language':'Rejected catalog [{file}]','System default ({nameOf})':'Default [{nameOf}]','SyStEm.JSON':'Wrong filename'};
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]]){
+    const p=page();try{
+      const t=new Translator(locale,catalog),options=languageOptionsPage({warningText:warning=>languageWarningText(warning,(key,params)=>t.t(key,params))});options.refresh(result.warnings);
+      const control=options.controls[0];p.body.innerHTML=controlMarkup(control,{pages:{language:{language:'system'}}});p.translate(locale,catalog);
+      assert.equal(p.body.querySelectorAll('option[value="system"]').length,1);assert.equal(p.body.querySelector('option[selected]').value,'system');assert.equal(p.body.querySelector('option[value="system"]').textContent,t.t('System default ({nameOf})',{nameOf:'Français'}));
+      const warnings=options.controls.find(control=>control.kind==='group').controls.find(control=>control.id==='language-warnings');p.body.innerHTML+=warnings.render();p.translateTree(p.body);
+      assert.deepEqual([...p.body.querySelectorAll('[data-language-warning]')].map(el=>el.textContent),invalid.map(({file})=>t.t('{file}: unknown language',{file})));
+      p.body.innerHTML=controlMarkup(control,{pages:{language:{language:'fr'}}});assert.equal(p.body.querySelector('option[selected]').value,'fr');assert.equal(result.languages.get('fr').catalog.Help,'Aide');assert.equal(result.languages.get('en').catalog.Help,'Assistance');
+    }finally{p.close();}
+  }
+});
+
 test('launch locations reach the real header and native-title renderers with the correct provenance',async()=>{
   const custom={'{length} added locations':'Title',Title:'Heading','OpenTag — {location}':'Window: {location}'};
   const declaration=parsed.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text==='syncWindowTitle');
