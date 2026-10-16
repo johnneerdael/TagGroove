@@ -20,11 +20,15 @@ OpenTag ships HTTPS and HTTP gnudb entries, with HTTPS selected initially. **Cur
 | **ADDRESS** | Hostname only, initially `gnudb.gnudb.org`. Do not paste a whole URL here. |
 | **PATH** | Server endpoint, initially `/~cddb/cddb.cgi`. Keep it separate from the hostname. |
 | **PORT** | Optional number from 1 to 65535. Empty uses the protocol's default port. |
-| **Email address** | Optional configured identity sent in the CDDB handshake, not a login password. Defaults to empty. |
+| **Your email address (sent to the freedb server)** | Optional configured identity sent in the CDDB handshake, not a login password. Defaults to empty. |
 
-The handshake contains a user/host identity plus OpenTag's application identity and version. On the guide's baseline source, leaving email empty uses the fallback `opentag` / `localhost` identity. Newer development code changes that fallback and validates the address; do not assume a newer service-registration fix has shipped merely because the options are visible.
+The default endpoint is `https://gnudb.gnudb.org/~cddb/cddb.cgi`. HTTPS encrypts the connection; HTTP does not. Choose a protocol the selected server supports.
 
-gnudb may accept only applications registered by its operator. A refusal message is a service/application registration issue, not evidence that the endpoint settings were saved incorrectly. Choose a compatible server or local database when appropriate. Ordinary timeout/proxy behavior is configured under [Networking](networking.md).
+## Email and application identity
+
+An address entered here must look like `name@example.org`. Every request sends its user/domain components with `OpenTagAudioTagEditor` and the application version. Empty email sends the developer contact `john@neerdael.nl`. Use an address intended to be shared with the selected server. This identifies the client; it is not a password or account sign-in.
+
+gnudb may accept only applications registered by its operator and may reply `500 Unknown application` otherwise. Changing the email address does not register OpenTag, and saving valid settings does not establish live registration. A refusal message is a service/application registration issue, not evidence that the endpoint settings were saved incorrectly. Choose a compatible server or local database when appropriate. Ordinary timeout/proxy behavior is configured under [Networking](networking.md).
 
 ## Disc ID fields
 
@@ -33,7 +37,15 @@ Both switches default to off:
 - **Copy disc ID to COMMENT field** includes the source disc ID in the imported comment data. Review the comment in the import before applying it if it already holds notes worth keeping.
 - **Copy disc ID to DISCID field** imports the disc ID into its dedicated `DISCID` field, keeping that identity separate from human-readable comments.
 
+The entry's own freedb `DISCID` is used when present, falling back to the listed ID. It can differ from the gnudb **Entry ID** shown in results.
+
 These govern metadata imported from freedb; they do not change the audio or make a server accept the client. The disc ID is not a MusicBrainz release identifier, a barcode, or a filesystem path.
+
+## Search methods
+
+Use [remote freedb lookup](../../tag-sources/freedb.md) by track layout or artist and album. Typed disc-ID lookup is available only for a [local snapshot](../../tag-sources/local-freedb.md). OpenTag asks the server for matches before reading the chosen entry.
+
+Artist/album and artwork search are restricted to recognized gnudb hosts (`gnudb.org` or its subdomains). Other configured CDDB servers use track-layout lookup, even if they implement similar text commands. If the server answers `429 Too Many Requests`, wait before searching again; OpenTag does not automatically repeat that rejected request.
 
 ## Related
 
@@ -41,4 +53,4 @@ These govern metadata imported from freedb; they do not change the audio or make
 - [Tag Sources cover settings](tag-sources.md)
 - [Networking](networking.md)
 
-<!-- verified: baseline007a806 src/tag-sources.ts FREEDB_SERVERS, freedbServerList, bindServers, tagSourcesOptionsPages; src-tauri/src/sources/freedb.rs settings_from, command_url, hello_identity. PR20 103019c changes client/email protocol; baseline wording intentional. -->
+<!-- Source: PR19 integrated source src/tag-sources.ts FREEDB_SERVERS, server controls, freedbModes and validation; src-tauri/src/sources/freedb.rs hello_identity, request_url, parse_xmcd; sources/mod.rs query-before-read. Source/fixture evidence does not establish live registration. -->

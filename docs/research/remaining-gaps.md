@@ -56,7 +56,7 @@ Some gaps appear in more than one area (for example Remove tag and Ctrl+R, manua
 | 24 | WAV: RIFF INFO is updated only if it already exists (new files get ID3v2 only), and fields without a RIFF id are dropped silently | M | S |
 | 25 | No `.src` web-source interpreter, so users cannot install community sources (Bandcamp, Beatport, lyrics…); only the native MusicBrainz, Discogs and freedb clients exist | M | L |
 
-Runners-up: column auto-size (Ctrl+Num+ or double-click on a divider, M/S); Mac keyboards have no way to trigger Remove from list (only forward-Delete is mapped, M/S); gnudb rejects OpenTag until the application is registered (M/S, no code); Finder "Open With" and `open --args` forwarding on macOS (M/M); Library database (M/L); UI translations (M/L); "List chapters as separate files" (M/L).
+Runners-up: column auto-size (Ctrl+Num+ or double-click on a divider, M/S); Mac keyboards have no way to trigger Remove from list (only forward-Delete is mapped, M/S); gnudb live read/artwork breadth remains unverified (one default-HTTPS query passed; see the current source note below); Finder "Open With" and `open --args` forwarding on macOS (M/M); Library database (M/L); UI translations (M/L); "List chapters as separate files" (M/L).
 
 ## Menus
 
@@ -226,9 +226,9 @@ OK: General (title, next file, auto-completion, natural sort, select added, keep
 | Item | Mp3tag | OpenTag state | Impact | Size | Docs |
 |---|---|---|---|---|---|
 | `.src` web-source framework | User-installed script sources, `#` submenus, `&` accelerators | **Missing**. Optional large work, not out of scope: the DSL is publicly documented, so a clean-room interpreter is legitimate. It needs format-string emulation (partly in `script.rs`), HTML scraping and per-script host consent, because `src-tauri/src/sources/http.rs:42` allows only trusted hosts | M | L | tag-sources/development, tag-sources/archive |
-| freedb remote (gnudb) | Works out of the box | **Partial**: gnudb answers "Unknown application" until OpenTag is registered (ignored live test) | M | S (registration) | options/tag-sources/freedb |
+| freedb remote (gnudb) | Works out of the box | **Implemented with bounded verification**: selected-file track-layout query/read, artist/album and cover search; query-listed entry required before remote read. One actual default-HTTPS native query passed; broader live read/artwork outcomes remain unverified ([evidence](../verification/gnudb.md)) | M | — | options/tag-sources/freedb |
 | freedb server list | Named servers plus a server-list button | **Partial**: one server and defaults | L | S | options/tag-sources/freedb |
-| freedb by audio CD / free text | — | **Partial**: files and disc ID only | L | M | menus/tag-sources |
+| freedb by audio CD / free text | — | **Partial**: selected-file track-layout lookup and artist/album text search on recognized gnudb hosts; typed disc IDs remain local-only. Optical-drive lookup is not implemented | L | M | menus/tag-sources |
 | Local freedb text search | Needs a user-built index | **Missing** | L | M | options/tag-sources/local-freedb |
 | Discogs authorization | OAuth plus a verifier code | **Partial**: personal token stored in plain text (`src-tauri/src/sources/credentials.rs`), not the OS keychain | L | S (keychain) | tag-sources/discogs-auth |
 | Ctrl+I / Ctrl+Shift+I last source | Any source; quick variant | **Partial** | M | S | tag-sources/import |
@@ -264,7 +264,7 @@ The mapping registry matches all 118 rows of the mapping table (92 common, 24 MP
 | Help → Donation, Mp3tag website/forum targets | Belong to the original vendor; OpenTag links its own repository and issues |
 | Bundled Mp3tag `.src`/`.inc` scripts and the web-sources download service | Proprietary content. The interpreter itself is optional work (see Tag sources) |
 | Mp3tag language files and Appearance → Symbols icon set | Proprietary assets; a translation layer of OpenTag's own is a separate product decision |
-| Audio-CD lookup for freedb, gnudb web text search | Optical-drive I/O per platform; gnudb's web search sits behind a browser check |
+| Audio-CD lookup for freedb | Optical-drive I/O per platform; gnudb artist/album and artwork search is now implemented through its source API |
 | Discogs OAuth with an embedded consumer secret | An open-source app cannot keep the secret; personal tokens are the supported path |
 | ANSI `.m3u` on macOS/Linux | No system ANSI code page; UTF-8 is written (the export fallback above is a separate gap) |
 | Alt+Enter → system Properties | Windows-only dialog |
@@ -324,3 +324,14 @@ Closed by implementation and unit tests; native suites run headless in CI on Lin
 
 Still open: UI translations (needs an OpenTag translation layer); floating Tag Panel as a separate OS window; movable toolbar bands and Mp3tag toolbar file import; global Nero fields and Nero covers; gnudb registration (no code); the per-item gaps listed in each verification note.
 
+
+## Current combined source note: providers and gnudb
+
+The feature-only PR18/PR19 integration retains both sets of providers and the
+gnudb query-before-read contract. The historical batch notes above retain their
+dated registration claims; they are superseded for current gnudb behavior by
+[the direct-main verification](../verification/gnudb.md). That evidence includes
+one successful actual native HTTPS query and a separate local-fixture workflow,
+not blanket live-service or artwork validation. Additional source providers and
+their limitations are recorded in [sources-4](../verification/sources-4.md).
+Language/translations remain outside this feature-only source; PR17 stays separate.

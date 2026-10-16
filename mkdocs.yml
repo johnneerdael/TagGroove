@@ -176,6 +176,9 @@ nav:
     - Undo and history: guides/undo-history.md
     - Built-in utilities: guides/utilities.md
     - Library cache: guides/library.md
+  - Tag sources:
+    - freedb and gnudb: tag-sources/freedb.md
+    - Local freedb database: tag-sources/local-freedb.md
   - Customization:
     - Save and restore configuration: customize/configuration.md
     - Toolbars: customize/toolbars.md

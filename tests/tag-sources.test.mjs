@@ -4,7 +4,7 @@ import {readFile} from 'node:fs/promises';
 import ts from 'typescript';
 const source = await readFile(new URL('../src/tag-sources.ts', import.meta.url), 'utf8');
 const javascript = ts.transpileModule(source, {compilerOptions: {target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022}}).outputText;
-const {FREEDB_SERVERS, KEYED_SOURCES, fileAcoustIds, fileSignatures, fingerprintRecordings, fingerprintSlots, resultColumns, searchModes, sourceKeyReason, autoMatch, buildApplyItems, discToc, duration, editField, fieldRows, freedbServerList, initialSlots, invertFields, isFreedb, lastSourceOperation, moveSlot, moveSlotTo, nextTicket, normalizeTitle, providerName, searchPrefill, selectFields, similarity, sourceOperation, sourceRequest, splitValues, suggestByLength, suggestByTitle, tagSourcesOptionsPages, toggleEnabled, useFreedbServer} = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);
+const {freedbModes, validEmail, FREEDB_SERVERS, KEYED_SOURCES, fileAcoustIds, fileSignatures, fingerprintRecordings, fingerprintSlots, resultColumns, searchModes, sourceKeyReason, autoMatch, buildApplyItems, discToc, duration, editField, fieldRows, freedbServerList, initialSlots, invertFields, isFreedb, lastSourceOperation, moveSlot, moveSlotTo, nextTicket, normalizeTitle, providerName, searchPrefill, selectFields, similarity, sourceOperation, sourceRequest, splitValues, suggestByLength, suggestByTitle, tagSourcesOptionsPages, toggleEnabled, useFreedbServer} = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);
 
 const file = (path, values = {}) => ({path, name: `${path}.flac`, title: '', artist: '', album: '', album_artist: '', track: '', disc: '', length: 200, ...values});
 const track = (disc, number, title, fields = {}) => ({position: String(number), disc, number, title, artist: 'Artist', length: 200, fields: {TITLE: [title], TRACK: [`${number}/3`], ...fields}});
@@ -160,11 +160,12 @@ test('tag source options pages cover freedb and the local freedb folder', async 
 });
 
 test('Ctrl+I repeats the last tag source of any kind', () => {
-  for (const op of ['source-musicbrainz', 'source-discogs', 'source-discogs-release', 'source-freedb', 'source-local-freedb', 'source-cover-musicbrainz', 'source-cover-discogs']) {
+  for (const op of ['source-musicbrainz', 'source-discogs', 'source-discogs-release', 'source-freedb', 'source-local-freedb', 'source-cover-musicbrainz', 'source-cover-freedb', 'source-cover-discogs']) {
     assert.equal(sourceOperation(sourceRequest(op)), op);
   }
   assert.deepEqual(sourceRequest('source-local-freedb'), {provider: 'local_freedb', coversOnly: false, releaseId: false});
   assert.deepEqual(sourceRequest('source-cover-discogs'), {provider: 'discogs', coversOnly: true, releaseId: false});
+  assert.deepEqual(sourceRequest('source-cover-freedb'), {provider: 'freedb', coversOnly: true, releaseId: false});
   assert.deepEqual(sourceRequest('source-discogs-release'), {provider: 'discogs', coversOnly: false, releaseId: true});
   assert.equal(sourceRequest('source-token'), null);
   assert.equal(lastSourceOperation('source-local-freedb', 'discogs'), 'source-local-freedb');
@@ -349,4 +350,38 @@ test('LRCLIB marks its lyrics as raw while web source language prefixes retain t
   assert.equal(buildApplyItems(source, ['a'], new Set(['UNSYNCEDLYRICS']))[0].raw_lyrics, true);
   source.provider = 'web';
   assert.equal(buildApplyItems(source, ['a'], new Set(['UNSYNCEDLYRICS']))[0].raw_lyrics, undefined);
+});
+
+test('gnudb lookups use the track layout or a text search, never a typed disc ID', () => {
+  assert.deepEqual(freedbModes('freedb').map(([mode]) => mode), ['toc', 'artist_album']);
+  assert.deepEqual(freedbModes('local_freedb').map(([mode]) => mode), ['toc', 'disc_id', 'text']);
+  assert.deepEqual(searchModes('freedb'), freedbModes('freedb'), 'the integrated provider router preserves gnudb policy');
+  assert.deepEqual(searchModes('local_freedb'), freedbModes('local_freedb'));
+});
+
+test('the freedb email address must look valid; empty sends the developer contact', () => {
+  for (const email of ['john@neerdael.nl', 'Jane.Doe+tags@mail.example.co.uk']) assert.ok(validEmail(email), email);
+  for (const email of ['', 'opentag', 'me@localhost', '@example.org', 'me@', 'a b@example.org', 'me@@example.org', 'me@example.c0m', 'me@.example.org']) assert.ok(!validEmail(email), email);
+  const freedb = tagSourcesOptionsPages(async () => null)[1];
+  const draft = email => ({pages: {'tag-sources-freedb': {address: 'gnudb.gnudb.org', email}}});
+  assert.equal(freedb.validate(draft('')), undefined);
+  assert.equal(freedb.validate(draft(' me@example.org ')), undefined);
+  assert.match(freedb.validate(draft('me@localhost')), /email address/);
+  const email = freedb.controls[0].controls[1];
+  assert.equal(email.path, 'pages.tag-sources-freedb.email');
+  assert.match(email.label, /Your email address \(sent to the freedb server\)/);
+  const notes = freedb.controls.filter(control => control.kind === 'note').map(control => control.text).join(' ');
+  assert.match(notes, /developer contact \(john@neerdael\.nl\)/);
+  assert.match(notes, /OpenTagAudioTagEditor/);
+  assert.match(notes, /never submits/);
+});
+
+
+test('combined source routing retains new providers beside remote and local freedb policy', () => {
+  const operations=['source-itunes','source-deezer','source-lastfm','source-acoustid','source-lrclib','source-cover-itunes','source-cover-deezer','source-cover-fanart','source-freedb','source-local-freedb','source-cover-freedb'];
+  for(const operation of operations)assert.equal(sourceOperation(sourceRequest(operation)),operation);
+  assert.deepEqual(searchModes('freedb').map(([mode])=>mode),['toc','artist_album']);
+  assert.deepEqual(searchModes('local_freedb').map(([mode])=>mode),['toc','disc_id','text']);
+  assert.deepEqual(searchModes('acoustid').map(([mode])=>mode),['fingerprint']);
+  assert.deepEqual(searchModes('lrclib').map(([mode])=>mode),['files','text','release_id']);
 });

@@ -211,3 +211,23 @@ records the preceding feature/message baseline; this test-only followup retains
 its full Rust/UI/build results because production, native include fixtures and
 dependencies are unchanged. The prior trusted-main premerge workflow did not yet
 list this new suite, so its common native jobs are separate evidence.
+
+## Final integration with reviewed gnudb main
+
+PR19 merged as main `dc95b1662a4020e8bdf54e3830e285f0df6b610e`. The final
+PR18 integration preserves both providers' authentication, request limits and
+review routes, and supersedes the obsolete gnudb registration/disc-ID-only
+claims in the parity records. These are inherited gnudb features, not new PR18
+release-note claims.
+
+All tracked files match the independently reviewed combined preparation
+`4d8912e4cf082ea9882f1eb98b5e5fbfa594b6c0` except this verification note and
+the portable shortcut test above. Therefore its fresh full-workspace **960
+passing Rust tests, five explicit ignored cases, and all-target Clippy** apply
+to the identical production/native/Cargo/include inputs; no additional full
+native run is claimed. Fresh final integration checks passed **380 UI tests**,
+the production build, eight publication tests, formatting, review tooling and
+the strict guide build with **172 completed routes**. The earlier 40-check
+provider UI run remains explicitly scoped to its recorded provider-only binary.
+Final-head GitHub review, current-main trusted CI and protected merge remain
+separate gates.
