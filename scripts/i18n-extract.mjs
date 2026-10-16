@@ -370,7 +370,7 @@ export function extract() {
 // They are a snapshot (src/i18n/backend-keys.json, `--backend` refreshes it): a message added later shows in English.
 const BACKEND_DIRS = ['src-tauri/src', 'crates/tag-core/src', 'crates/library/src', 'crates/document-access/src'];
 const BACKEND_MESSAGE = /(?:\bErr\(|\.ok_or\(|ok_or_else\(\|\|\s*|map_err\(\|[^|]*\|\s*)\s*(?:\{\s*)?(?:format!\(\s*)?"((?:[^"\\]|\\.)*)"/g;
-const INTERNAL = /Injected|fixture|json_foreach|^Invalid document|URI|manifest|lock failed|poisoned/i;
+const INTERNAL = /Injected|fixture|json_foreach|^Invalid document|\bURI\b|manifest|lock failed|poisoned/i;
 // Keep offsets while ignoring quoted text/comments when locating error calls
 // and local helper bodies. This only balances delimiters, not Rust grammar.
 const RUST_TOKENS = /r(#+)?"[\s\S]*?"\1|"(?:[^"\\]|\\.)*"|'(?:\\(?:u\{[\da-fA-F]+\}|x[\da-fA-F]{2}|.)|[^'\\])'|\/\/[^\n]*|\/\*[\s\S]*?\*\//gu;

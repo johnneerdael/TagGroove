@@ -2742,5 +2742,9 @@
  "Setting outside an action section at line {value}": "Instelling buiten een actiesectie op regel {value}",
  "Edited copy could not be read ({workingError}); backup: {e}": "Bewerkte kopie kon niet worden gelezen ({workingError}); reservekopie: {e}",
  "Export library saved, but could not retire {path}: {value}": "Exportbibliotheek opgeslagen, maar {path} kon niet worden gearchiveerd: {value}",
- "Text import line {number} does not completely match the mask": "Tekstimportregel {number} komt niet volledig overeen met het masker"
+ "Text import line {number} does not completely match the mask": "Tekstimportregel {number} komt niet volledig overeen met het masker",
+ "Tag disappeared during editing": "Tag is tijdens het bewerken verdwenen",
+ "The cue sheet changed during editing; reload it before saving": "Het cuesheet is tijdens het bewerken gewijzigd; laad het opnieuw voordat u opslaat",
+ "The file changed during editing; reload it before saving": "Het bestand is tijdens het bewerken gewijzigd; laad het opnieuw voordat u opslaat",
+ "The file changed during restore; reload it and try again": "Het bestand is tijdens het herstellen gewijzigd; laad het opnieuw en probeer het nogmaals"
 }

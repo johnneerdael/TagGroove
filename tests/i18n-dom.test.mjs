@@ -610,6 +610,15 @@ test('web-script prefix diagnostics localize their scaffold without looking up a
     }finally{p.close();}
   }
 });
+test('production save and restore conflict frames translate during diagnostics and preserve file identities',()=>{
+  const messages=['The file changed during editing; reload it before saving','The file changed during restore; reload it and try again','The cue sheet changed during editing; reload it before saving','Tag disappeared during editing'];
+  const custom={...Object.fromEntries(messages.map(key=>[key,'Conflict: reload now.'])),'Save tags':'Wrong path'};
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]])for(const error of messages){
+    const p=page();try{
+      const t=new Translator(locale,catalog),e={path:'Save tags',error};p.body.innerHTML=mainTemplate(node=>node.head.text==='<p><strong translate="no">',{e,esc,displayName:path=>path,publicMessage:value=>value});p.translate(locale,catalog);const row=p.body.querySelector('p');assert.notEqual(t.t(error),error);assert.equal(row.textContent,`Save tags: ${t.t(error)}`);p.translateTree(p.body);assert.equal(row.textContent,`Save tags: ${t.t(error)}`);p.translate('en');assert.equal(row.textContent,`Save tags: ${error}`);
+    }finally{p.close();}
+  }
+});
 test('real Cut/Paste failure statuses translate UI operation names while authored same-spelling names stay raw',()=>{
   const declaration=parsed.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text==='stageTagUpdates');
   const js=ts.transpileModule(declaration.getText(parsed),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;

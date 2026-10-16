@@ -2755,5 +2755,9 @@
  "Setting outside an action section at line {value}": "Einstellung außerhalb eines Aktionsabschnitts in Zeile {value}",
  "Edited copy could not be read ({workingError}); backup: {e}": "Bearbeitete Kopie konnte nicht gelesen werden ({workingError}); Sicherung: {e}",
  "Export library saved, but could not retire {path}: {value}": "Exportbibliothek gespeichert, aber {path} konnte nicht archiviert werden: {value}",
- "Text import line {number} does not completely match the mask": "Textimportzeile {number} entspricht nicht vollständig der Maske"
+ "Text import line {number} does not completely match the mask": "Textimportzeile {number} entspricht nicht vollständig der Maske",
+ "Tag disappeared during editing": "Tag ist während der Bearbeitung verschwunden",
+ "The cue sheet changed during editing; reload it before saving": "Das Cuesheet wurde während der Bearbeitung geändert; laden Sie es vor dem Speichern neu",
+ "The file changed during editing; reload it before saving": "Die Datei wurde während der Bearbeitung geändert; laden Sie sie vor dem Speichern neu",
+ "The file changed during restore; reload it and try again": "Die Datei wurde während der Wiederherstellung geändert; laden Sie sie neu und versuchen Sie es erneut"
 }

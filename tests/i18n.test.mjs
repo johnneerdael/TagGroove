@@ -279,6 +279,14 @@ test('backend extraction includes technical function prefixes and other diagnost
   assert.deepEqual(extractBackendSource(source),['$fmtDate expects an integer Unix timestamp','$loopend takes no arguments','${name} expects {count} arguments','the regular expression is not valid: {value}','a quoted parameter is not closed','[IndexFormat] has no %_url% field','"{value}" is not a number'].sort());
   const actual=extractBackend();for(const testOnly of ['grant revoked','read only','source changed','partial provider write','fresh read failed'])assert.ok(!actual.includes(testOnly),testOnly);for(const key of ['$loopend takes no arguments','$replace requires complete search/replacement pairs','$getenv(MP3TAGAPP) requires the application directory context'])assert.ok(actual.includes(key),key);
 });
+test('internal URI exclusion keeps real save and restore diagnostics containing during',async()=>{
+  const expected=['The file changed during editing; reload it before saving','The file changed during restore; reload it and try again','The cue sheet changed during editing; reload it before saving','Tag disappeared during editing'];
+  for(const [file,messages] of [['tags.rs',[expected[0],expected[3]]],['history.rs',[expected[1]]],['subsongs.rs',[expected[2]]]]){
+    const source=await readFile(new URL(`../crates/tag-core/src/${file}`,import.meta.url),'utf8'),actual=extractBackendSource(source);for(const key of messages)assert.ok(actual.includes(key),key);
+  }
+  const internal=`fn run(){Err("Document URI is unavailable".into());Err("Document manifest is unavailable".into());Err("Injected copy failure".into());Err("Fixture lookup failed".into());}`;
+  assert.deepEqual(extractBackendSource(internal),[]);
+});
 test('all function-prefixed catalog diagnostics retain literal tokens and raw function names',()=>{
   const keys=Object.keys(english).filter(key=>key.startsWith('$'));
   for(const locale of ['de','nl'])for(const key of keys){
