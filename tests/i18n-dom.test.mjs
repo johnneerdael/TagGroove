@@ -16,6 +16,7 @@ const {controlMarkup}=await load('options-ui.ts');
 const {ColumnUI,defaultLayout,setColumnNameTranslation}=await load('columns.ts'),{ActionUI}=await load('action-ui.ts');
 const {TagPanel,defaultLayout:defaultPanelLayout}=await load('tag-panel.ts');
 const {CoverUI}=await import(await moduleUrl('covers.ts',{"import './covers.css';":'',"'./keyboard'":JSON.stringify(await moduleUrl('keyboard.ts')),"'./cover-model'":JSON.stringify(await moduleUrl('cover-model.ts'))}));
+const {PICTURE_TYPES}=await load('cover-model.ts');
 const {contextMenuMarkup,RowContextMenu}=await load('row-context-menu.ts');
 const {ExtendedTags}=await import(await moduleUrl('extended-tags.ts',{"import './extended-tags.css';":'',"'./tag-edits'":JSON.stringify(await moduleUrl('tag-edits.ts')),"'./row-context-menu'":JSON.stringify(await moduleUrl('row-context-menu.ts'))}));
 const {ToolsUI,toolsOptionsPage}=await load('tools.ts'),{installHelperMenus}=await load('helper-menu.ts');
@@ -404,6 +405,43 @@ for(const locale of ['de','nl']){
       p.translate('en');
       assert.equal(template.getAttribute('aria-label'),'Export template');assert.equal(template.placeholder,'Help');
       assert.equal(field.getAttribute('aria-label'),'Field value 2');assert.equal(field.value,'Title');assert.equal(template.value,'Title');
+    }finally{p.close();}
+  });
+  test(`${locale}: cover accessible labels translate UI states and types alongside verbatim descriptions`,()=>{
+    const p=page(),t=new Translator(locale,catalogs[locale]);
+    try{
+      const cover={index:0,digest:'fixture',mime:'image/png',size:42,width:1,height:1,picture_type:'CoverFront',description:'Help',data_base64:'AA=='};
+      let covers=[cover],selection=[{path:'Help',covers}],index=0;
+      const ui=new CoverUI({selection:()=>selection,displayed:()=>({path:'Help',covers,index})});
+      const options={fallback:'',error:'',unavailable:false,buttons:''};
+      const check=(state,extra={})=>{
+        p.body.innerHTML=ui.markup({...options,...extra});p.translate(locale);
+        const art=p.body.querySelector('.cover-art'),label=art.getAttribute('aria-label');
+        assert.ok(label.includes(t.t(state)),`${state}: ${label}`);
+        const key=`Cover art: {coverState}${covers.length>1?', {index} of {length}':''}. Enter views it larger; Shift+F10 opens cover commands.`;
+        assert.equal(label,t.t(key,{coverState:t.t(state),index:index+1,length:covers.length}));
+        assert.equal(art.title,t.t('Right-click for cover commands; double-click to enlarge'));
+        assert.equal(p.body.querySelector('[data-cover="menu"]').getAttribute('aria-label'),t.t('Cover commands'));
+      };
+      for(const [id,label] of PICTURE_TYPES){
+        cover.picture_type=id;check(label);
+        assert.equal(p.body.querySelector('[data-cover-image]').getAttribute('alt'),t.t('Embedded {pictureTypeLabel} artwork',{pictureTypeLabel:t.t(label)}));
+        assert.equal(p.body.querySelector('.cover-info > span[translate="no"]').textContent,'Help');
+      }
+      cover.picture_type='CoverFront';covers=[cover,{...cover,index:1,picture_type:'CoverBack'}];selection=[{path:'Help',covers}];index=1;
+      check('Back Cover');
+      for(const command of ['previous','next'])assert.equal(p.body.querySelector(`[data-cover="${command}"]`).getAttribute('aria-label'),t.t(`${command==='previous'?'Previous':'Next'} cover`));
+      ui.openViewer();p.translate(locale);
+      assert.equal(p.body.querySelector('.cover-viewer').getAttribute('aria-label'),t.t('Cover viewer'));
+      assert.equal(p.body.querySelector('.cover-viewer img').alt,t.t('{pictureTypeLabel} artwork',{pictureTypeLabel:t.t('Back Cover')}));
+      assert.equal(p.body.querySelector('[data-viewer="close"]').getAttribute('aria-label'),t.t('Close cover viewer'));
+      p.body.querySelector('.cover-viewer').close();
+      covers=[];selection=[{path:'Help',covers}];index=0;
+      check('No artwork');check('Artwork unavailable',{unavailable:true});
+      check('Folder image',{folder:{name:'Help',mime:'image/png',size:42,width:1,height:1,data_base64:'AA=='}});
+      assert.equal(p.body.querySelector('[data-folder-image]').alt,t.t('Folder image {name}, not embedded',{name:'Help'}));
+      selection=[{path:'Help',covers:[cover]},{path:'Title',covers:[]}];check('Covers vary');
+      p.translate('en');assert.ok(p.body.querySelector('.cover-art').getAttribute('aria-label').startsWith('Cover art: Covers vary.'));
     }finally{p.close();}
   });
   test(`${locale}: cover descriptions and folder-image names stay verbatim while cover UI translates`,()=>{

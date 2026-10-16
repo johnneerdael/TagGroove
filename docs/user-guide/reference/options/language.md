@@ -20,6 +20,10 @@ The language choice is saved with the application configuration. OpenTag
 reads user catalogs at startup and after Options **OK**; reopen the page after
 that reload to select a newly added language.
 
+Application-owned accessible labels follow the selected language too, including
+cover types and states. Authored cover descriptions and folder-image names
+remain unchanged.
+
 ## Catalog files
 
 | Entry | Meaning |
