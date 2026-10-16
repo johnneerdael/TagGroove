@@ -59,3 +59,37 @@ corpus test ignored), followed by the full 911-test workspace, all-target Clippy
 eight publication tests and the strict guide build. The frontend implementation
 is unchanged from its 368-test production-build checkpoint. A finite independent
 peer checked the decoder, dependency/table provenance and written contract.
+
+
+## Complete-address review correction
+
+A subsequent review found that a direct source using one bare `%s` search
+field and no album base encoded a complete stored URL as search words. The
+actual-source regression failed with `?`, `&` and `#` changed into path escapes;
+a separate exact-`%s` preview regression also failed by escaping an existing
+`%2F` again.
+
+The direct-address branch now preserves that one complete value. The same
+branch applies to an exact `%s` preview, while nested preview templates,
+ordinary searches, album-ID templates and chained fields retain their normal
+word encoding. The existing caller still parses the address and applies the
+HTTP(S)/no-embedded-credentials policy. Tests check query/fragment/existing
+escapes, unsafe-address rejection and the unchanged encoded contexts.
+
+The focused app web-source suite passes 34 tests with one explicit optional
+corpus ignore. The native guide harness passes 27 tests, including its actual
+source-definition and written-command examples. That harness imports the
+production parser as source, so URL-policy assertions belong in app tests;
+the pure source tests remain dependency-free. Its standalone JSON-order test
+also exposed a missing test feature: tag-core's dev-only serde_json dependency
+now explicitly enables preserve_order, matching the actual app and existing
+full-workspace feature context. Standalone and workspace guide runs both pass.
+No production core code, dependency version or lockfile entry changed.
+
+The preceding complete-entity checkpoint's full 911-test workspace run is
+historical evidence, not a newly executed full workspace run for this URL
+correction. The frontend remains unchanged from its 368-test/build checkpoint.
+Fresh all-target Clippy, the strict guide and eight publication tests qualify
+the bounded correction; exact-head GitHub Codex review and trusted CI remain
+required. No live provider/native desktop replay or general browser URL
+recovery behavior is claimed by these parser tests.
