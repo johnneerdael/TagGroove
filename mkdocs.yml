@@ -270,6 +270,9 @@ nav:
   - Rename files and folders:
     - Zero-padded track numbers in filenames: cookbook/rename-zero-padded-track-numbers.md
   - Fix and tidy tags:
+    - Capitalization with exceptions: cookbook/fix-capitalisation.md
+    - Repair confirmed mojibake: cookbook/fix-mojibake.md
+    - Keep a reviewed field list: cookbook/remove-junk-fields.md
     - Move “feat.” artists out of the artist field: cookbook/feat-artists-to-title.md
   - Import tags:
     - Tag files from folder and file names: cookbook/tags-from-folder-and-filename.md

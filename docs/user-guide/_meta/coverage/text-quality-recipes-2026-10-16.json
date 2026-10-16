@@ -1,0 +1,172 @@
+{
+  "scope": "Three local text-quality recipes; no PR/publication.",
+  "base_checkpoint": "44a1121e4028a9d614343aebd56ffe71ea128b11",
+  "source_main": "dbcd9ce43c64e459c20553f9d14b5d77534847a0",
+  "canonical_source_pointers": [
+    {
+      "url": "https://docs.mp3tag.de/actions/case-conversion/",
+      "sha256": "d4dc5957e9a0971065facbb399ab9fc5a0f72a26567631cf5bfd8441a516b056"
+    },
+    {
+      "url": "https://docs.mp3tag.de/actions/convert-codepage/",
+      "sha256": "56f3ed0f8a659687c67d2821598685a1bc0a95b55088c6d7d2b121369d3bc0c1"
+    },
+    {
+      "url": "https://docs.mp3tag.de/actions/remove-fields-except/",
+      "sha256": "536bf601c59be8896f6040827a3434e0fab9ea87870e278be7f2bb7cd5a57aee"
+    },
+    {
+      "url": "https://docs.mp3tag.de/actions/replace-regexp/",
+      "sha256": "fb1f70b4f6e24658311f66b0ba2bbbda417b74d09081bd0c3957d891194f921c"
+    },
+    {
+      "url": "https://docs.mp3tag.de/regex/",
+      "sha256": "79de3e02ec337eea7de0dc66c3d8dc11bf65cc151a82d9e9b815db3d5aa64b34"
+    },
+    {
+      "url": "https://docs.mp3tag.de/scripting/",
+      "sha256": "9296fcbcfc59338bc44f44765c8b766f30c61601f3fd124ffa65c9559fb575b0"
+    }
+  ],
+  "source_usage": "Canonical action/regex/encoding topics are factual checklists. Prose, editorial policy and practice examples independently authored; no full coverage/parity claim.",
+  "topics": {
+    "cookbook/fix-capitalisation.md": {
+      "Inspect what the policy would do": [
+        "seven actual title cases including Unicode/brand spelling loss counterexamples",
+        "single-line scope; encoding diagnosis before case conversion; specific TITLE rather than all fields/names"
+      ],
+      "Build the ordered action group": [
+        "trim edges before whitespace-context rules",
+        "Mixed Case and literal word separators, then exact acronym and small-word rules",
+        "actual seven-row recipe and immediate apply versus saved group"
+      ],
+      "Why this order works": [
+        "mechanical word starts, intermediate Dj/Ep state",
+        "word boundaries protect Adjacent/Episode substrings",
+        "captured leading space restored and lookahead avoids consuming trailing space",
+        "first/last And/The kept; applying Mixed Case last undoes exceptions"
+      ],
+      "Add exceptions carefully": [
+        "editorial policy not language/artist recognition",
+        "punctuation contexts not universally covered, multivalue items processed independently"
+      ],
+      "Check writes and recovery": [
+        "no full dry-run; one copied file first",
+        "ordinary warnings continue; current-session recorded undo/backups"
+      ]
+    },
+    "cookbook/fix-mojibake.md": {
+      "Recognize the byte path": [
+        "eacute C3 A9 misread as legacy characters, original-byte encoding determines selected codepage",
+        "explicit UTF-8 repair not audio/tag-version conversion"
+      ],
+      "Try one affected field": [
+        "actual TITLE/65001 controls",
+        "seven repair/ASCII/error/lost-question-mark cases"
+      ],
+      "Keep the repair narrowly targeted": [
+        "all field values, invalid byte/unrepresentable failure",
+        "named field rather than all tags/names/folders",
+        "legacy-byte reconstruction and limited Windows-1252 glyph mapping, no universal inverse"
+      ],
+      "Separate text repair from storage settings": [
+        "tag-version/player support distinct, ANSI context not this explicit decoding repair",
+        "source text encoding on new imports"
+      ],
+      "Check timing and avoid a second repair pass": [
+        "immediate action, definition-save versus run",
+        "already-repaired Unicode can error on repeated conversion",
+        "warnings continue; later capitalization/deletion can impede diagnosis; backups/recorded undo"
+      ]
+    },
+    "cookbook/remove-junk-fields.md": {
+      "Inventory a copied file first": [
+        "explicit intended remaining fields, not automatic junk classification",
+        "IDs/originaldates/lyrics/ReplayGain/totals can matter; controlled copy scope"
+      ],
+      "Enter an explicit keep list": [
+        "exact fifteen-name list including PICTURE marker",
+        "literal names/no wildcard placeholders, no missing-field creation",
+        "native aliases/custom mapping and MP4 pair totals versus custom TRACKTOTAL"
+      ],
+      "Compare the practice inventory": [
+        "eleven actual field/value/retention rows",
+        "unlisted wanted metadata must be added before running"
+      ],
+      "Preserve artwork deliberately": [
+        "COVER/PICTURE selectors versus folder image",
+        "four explicit metadata/artwork-effect examples; empty list destructive"
+      ],
+      "Check native storage and write timing": [
+        "exposed-field cleanup not opaque/container erasure, format/native policy/read-back limits",
+        "immediate write versus stored group, partial results and warning continuation",
+        "current-session recorded undo and originals beyond it"
+      ]
+    }
+  },
+  "page_sha256": {
+    "cookbook/fix-capitalisation.md": "bde737445092653b02d7e02451c17e6329d7f7852c7e89b93c9c939486bc1d86",
+    "cookbook/fix-mojibake.md": "abbfe4bbc3bd492873fb1e0a5455588fb6306c6e567c7eb42b376482f924dd78",
+    "cookbook/remove-junk-fields.md": "e2360752afa54b9b16bc85b3a6a9dd17364f4748587f9cb73d3d75c4c75947de"
+  },
+  "source_sha256": {
+    "crates/tag-core/src/actions.rs": "70c80252ff553159f5c7a5563c0cc14ef0ca23f804da8071fd2dac94c97828ac",
+    "src/action-ui.ts": "0ab3fd434ac7729218cd8b45293014e3c232b7c1890f2bfdf1d91df5d08e4868",
+    "src-tauri/src/action_host.rs": "6da0c08ead3c66a3b4f266629573c2d0316de56a2671e870121f1518bc037486",
+    "crates/tag-core/src/mapping.rs": "b36b8c65965547409b30e7e8b755aa5440d9b1a38c29622cc2db4c7ac8f374c7",
+    "crates/regex-compat/src/lib.rs": "5567488ef33024c40784d4f18ab3525e1dc14f9dd35d9e4de66e0e7ec608671d"
+  },
+  "example_contracts": {
+    "capitalization": "7 actual ordered actions on7 title values, untouched ARTIST assertion and source-read intermediate/reverse-order caution",
+    "codepage": "actual TITLE/65001 settings on7 cases; errors retain input core state",
+    "keep_list": "actual fenced fifteen-name keep list,11 inventory field/value rows; kept values/no missing-field creation and no cover-removal effect",
+    "artwork": "4 exact keep-list variants and explicit RemoveCovers versus no effect",
+    "newline_forms": "Each actual table/fence runs under normalized LF and CRLF; prose flag check normalizes whitespace only; literal code interiors preserved",
+    "new_core_tests": 5
+  },
+  "authoring_correction": "First focused run exposed LF-specific prose-setting assertion on CRLF. Corrected only prose whitespace matching; all five focused tests then passed. No product fix.",
+  "validation": {
+    "focused_core": "5 passed, 0 failed",
+    "full_core": {
+      "passed": 538,
+      "failed": 0,
+      "ignored": 0
+    },
+    "full_ui": "350 passed, 0 failed",
+    "publication": "8 passed",
+    "strict": "118 completed / 69 drafts strict build passed",
+    "fmt": "passed",
+    "focused_clippy": "passed",
+    "browser": {
+      "scope": "Generated local118-page guide at dbcd9ce plus twenty-one local chapters; no public/native claim",
+      "success": true,
+      "checks": [
+        "Confirmed encoding-repair recipe renders in light palette",
+        "Actual rendered link navigates encoding diagnosis to capitalization recipe",
+        "cookbook/fix-mojibake/ fits390px document with local table scrolling",
+        "cookbook/fix-capitalisation/ fits390px document with local table scrolling",
+        "cookbook/remove-junk-fields/ fits390px document with local table scrolling",
+        "Actual local search worker finds codepage65001 repair and opens its recipe"
+      ],
+      "errors": [],
+      "profile_removed": true,
+      "receipt": "/tmp/opentag-guide-text-quality-browser/results.json",
+      "visual_inspection": "390px encoding repair table manually viewed; correct/garbled/error cases readable, no document overflow"
+    },
+    "independent_review": "pending"
+  },
+  "local_completed_pages": 118,
+  "local_remaining_drafts": 69,
+  "public_baseline": {
+    "completed_pages": 97,
+    "drafts": 90,
+    "source": "dbcd9ce",
+    "twenty_one_local_chapters_unpublished": true
+  },
+  "limits": [
+    "Core metadata/effect/source evidence only; no installed native UI, native tag round-trip or universal recovery/container-erasure claim.",
+    "Page counts/topic pointers do not establish complete canonical semantic coverage.",
+    "Queue gate held; no PR/push; pending language/provider/freedb/web behavior not assumed current.",
+    "Original P2/source/REA changes untouched."
+  ]
+}

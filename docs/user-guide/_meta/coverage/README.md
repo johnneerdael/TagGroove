@@ -238,3 +238,14 @@ fixtures. Two model tests verify the written roles, partial membership and
 planned-cover flags under LF and CRLF. These are local source/core/model
 checks, not installed UI, universal native-format or player certification.
 The public baseline remains 97 pages and independent review is pending.
+
+## Local text-quality recipes
+
+`text-quality-recipes-2026-10-16.json` records three further recipes, bringing
+the local checkpoint to 118 authored pages and 69 drafts. They teach an
+explicit capitalization policy, a diagnosed UTF-8 repair, and a reviewed
+field keep-list with artwork selectors. Five tests read the actual ordered
+actions, formulas, field inventory and error cases under LF and CRLF.
+These core/source checks do not certify native UI, universal encoding
+recovery or complete container cleanup. The public baseline remains 97
+pages and finite independent review is pending.
