@@ -44,8 +44,8 @@ export function libraryStatusText(status:LibraryStatus){
   return size+last;
 }
 export function cleanupText(report:CleanupReport){
-  const removed=`removed ${plural(report.removed,'orphaned entry','orphaned entries')}`;
-  return report.cancelled?`Cleanup cancelled after ${plural(report.checked,'file')}; ${removed}.`:`Cleanup checked ${plural(report.checked,'file')} and ${removed}.`;
+  const removalSummary=`removed ${plural(report.removed,'orphaned entry','orphaned entries')}`;
+  return report.cancelled?`Cleanup cancelled after ${plural(report.checked,'file')}; ${removalSummary}.`:`Cleanup checked ${plural(report.checked,'file')} and ${removalSummary}.`;
 }
 
 const page=(draft:OptionsDraft)=>(draft.pages.library??={...LIBRARY_DEFAULTS,directories:[]}) as Record<string,unknown>;

@@ -151,8 +151,8 @@ export function tagSourcesOptionsPages(pickFolder:()=>Promise<string|null>, inde
   const indexText = (status:IndexStatus|null, draft:OptionsDraft) => {
     if (!status) return 'Reading the text index…';
     if (!status.directory) return 'No text index. Build one to search this folder by artist and album words.';
-    const discs = `${status.discs.toLocaleString()} disc${status.discs === 1 ? '' : 's'}`;
-    return status.directory === directory(draft).trim() ? `Text index: ${discs} from this folder.` : `The text index (${discs}) was built for ${status.directory}. Build it again for this folder.`;
+    const discSummary = `${status.discs.toLocaleString()} disc${status.discs === 1 ? '' : 's'}`;
+    return status.directory === directory(draft).trim() ? `Text index: ${discSummary} from this folder.` : `The text index (${discSummary}) was built for ${status.directory}. Build it again for this folder.`;
   };
   let indexStatus:IndexStatus|null = null;
   const bindIndex = (root:HTMLElement, draft:OptionsDraft) => {
@@ -716,8 +716,8 @@ export class TagSourcesUI {
     const matchMarkup = () => {
       const tracks = release!.tracks;
       return `<table class="ts-table ts-matches" aria-label="Track and file matching"><thead><tr><th class="ts-num">#</th><th>${trackField === 'TITLE' ? 'Track' : `<span translate="no">${html(trackField)}</span>`}</th><th class="ts-num ts-wide">Time</th><th>File</th><th class="ts-num ts-wide">Time</th><th class="ts-move"><span class="visually-hidden">Move</span></th></tr></thead><tbody>${slots.map((path,index) => {
-        const track = tracks[index], warn = track && path && track.length != null && Math.abs(track.length-(files.find(f => f.path === path)?.length ?? track.length)) > 10;
-        return `<tr data-index="${index}" class="${track ? '' : 'ts-unmatched'}" draggable="${path ? 'true' : 'false'}"><td class="ts-num" translate="no">${track ? html(track.position || String(index+1)) : ''}</td><td>${track ? `<input class="ts-track-value" data-verbatim data-track="${index}" value="${html(trackValue(track))}" aria-label="${html(trackField)} of track ${html(track.position || String(index+1))}" autocomplete="off" spellcheck="false">` : '<em>Not written</em>'}</td><td class="ts-num ts-wide">${track ? duration(track.length) : ''}</td><td>${path ? `<span translate="no" title="${html(fileName(path))}">${html(fileName(path))}</span>` : '<em>No file</em>'}</td><td class="ts-num ts-wide ${warn ? 'ts-warn' : ''}" ${warn ? 'title="Length differs from the track by more than 10 seconds"' : ''}>${fileLength(path)}</td><td class="ts-move"><button data-move="-1" aria-label="Move ${html(fileName(path) || 'empty slot')} up" ${index === 0 || !path ? 'disabled' : ''}>↑</button><button data-move="1" aria-label="Move ${html(fileName(path) || 'empty slot')} down" ${index === slots.length-1 || !path ? 'disabled' : ''}>↓</button></td></tr>`;
+        const track = tracks[index], trackPosition = track?.position || String(index+1), warn = track && path && track.length != null && Math.abs(track.length-(files.find(f => f.path === path)?.length ?? track.length)) > 10;
+        return `<tr data-index="${index}" class="${track ? '' : 'ts-unmatched'}" draggable="${path ? 'true' : 'false'}"><td class="ts-num" translate="no">${track ? html(trackPosition) : ''}</td><td>${track ? `<input class="ts-track-value" data-verbatim data-track="${index}" value="${html(trackValue(track))}" aria-label="${html(trackField)} of track ${html(trackPosition)}" autocomplete="off" spellcheck="false">` : '<em>Not written</em>'}</td><td class="ts-num ts-wide">${track ? duration(track.length) : ''}</td><td>${path ? `<span translate="no" title="${html(fileName(path))}">${html(fileName(path))}</span>` : '<em>No file</em>'}</td><td class="ts-num ts-wide ${warn ? 'ts-warn' : ''}" ${warn ? 'title="Length differs from the track by more than 10 seconds"' : ''}>${fileLength(path)}</td><td class="ts-move"><button data-move="-1" aria-label="Move ${html(fileName(path) || 'empty slot')} up" ${index === 0 || !path ? 'disabled' : ''}>↑</button><button data-move="1" aria-label="Move ${html(fileName(path) || 'empty slot')} down" ${index === slots.length-1 || !path ? 'disabled' : ''}>↓</button></td></tr>`;
       }).join('')}</tbody></table>`;
     };
     const fieldMarkup = () => `<table class="ts-table ts-fields" aria-label="Fields to write" aria-multiselectable="true"><tbody>${fieldRows(release!).map(row => `<tr data-row="${html(row.name)}" tabindex="-1" aria-selected="${fieldSelection.has(row.name)}" class="${fieldSelection.has(row.name) ? 'selected' : ''}"><td class="ts-check"><input type="checkbox" data-field="${html(row.name)}" data-verbatim="${html(row.name)}" aria-label="Write ${html(row.name)}" ${enabled.has(row.name) ? 'checked' : ''}></td><th scope="row" title="${html(row.name)}" translate="no">${html(row.name)}</th><td>${row.editable
@@ -754,8 +754,8 @@ export class TagSourcesUI {
         const path = await this.host.pickSave(suggested);
         if (!path || !dialog.open) return;
         note.textContent = 'Saving the cover…';
-        const saved = await this.host.invoke<string>('tag_source_save_cover',{url:cover.url,path});
-        if (dialog.open) note.textContent = `Saved to ${saved}`;
+        const outputPath = await this.host.invoke<string>('tag_source_save_cover',{url:cover.url,path});
+        if (dialog.open) note.textContent = `Saved to ${outputPath}`;
       } catch (e) { if (dialog.open) { note.textContent = ''; error(e); } }
     };
     const items = ():ApplyItem[] => coversOnly ? files.map(file => ({path:file.path,updates:{}})) : buildApplyItems(release!,slots,enabled);

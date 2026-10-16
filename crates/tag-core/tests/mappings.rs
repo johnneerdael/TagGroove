@@ -218,6 +218,21 @@ fn id3_v23_version_and_separate_date_frame_are_preserved() {
 }
 
 #[test]
+fn mp4_number_errors_name_the_raw_field_without_changing_the_file() {
+    let temp = tempfile::tempdir().unwrap();
+    let path = temp.path().join("invalid-number.m4a");
+    if !encoded(&path, "aac") {
+        return;
+    }
+    let original = fs::read(&path).unwrap();
+    for field in ["TRACK", "TOTALTRACKS", "DISCNUMBER", "TOTALDISCS"] {
+        let error = write_fields(&path, &values(&[(field, &["not a number"])])).unwrap_err();
+        assert_eq!(error, format!("{field} requires a 16-bit unsigned number"));
+        assert_eq!(fs::read(&path).unwrap(), original);
+    }
+}
+
+#[test]
 fn mp4_freeform_names_flags_and_track_atoms_match_documented_storage() {
     let temp = tempfile::tempdir().unwrap();
     let path = temp.path().join("mp4.m4a");

@@ -24,6 +24,10 @@ Application-owned accessible labels follow the selected language too, including
 cover types and states. Authored cover descriptions and folder-image names
 remain unchanged.
 
+Status messages translate their application text, including copied/cut-tag
+summaries and saved-cover notices. Paths and field identifiers within those
+messages keep their original spelling.
+
 ## Catalog files
 
 | Entry | Meaning |

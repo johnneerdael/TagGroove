@@ -22,7 +22,9 @@ const {ExtendedTags}=await import(await moduleUrl('extended-tags.ts',{"import '.
 const {ToolsUI,toolsOptionsPage}=await load('tools.ts'),{installHelperMenus}=await load('helper-menu.ts');
 const {copyAsTextDialog}=await load('utils-ui.ts'),{PlaylistUI}=await load('playlist-ui.ts'),{openTagToTag}=await load('tag-tag-ui.ts');
 const {offerOpenOutputs}=await load('export-ui.ts');
-const {FileOpsUI}=await load('file-ops.ts');
+const {FileOpsUI,nameList}=await load('file-ops.ts');
+const {copiedMessage}=await load('tag-clipboard.ts');
+const {cleanupText}=await load('library.ts');
 const {removeTagParts}=await load('remove-tag.ts');
 const {Messages}=await load('messages.ts');
 const {WebSourcesUI,settingsMarkup,readSettings}=await import(await moduleUrl('web-sources.ts',{"'./action-ui'":JSON.stringify(await moduleUrl('action-ui.ts'))}));
@@ -50,12 +52,12 @@ function mainTemplate(needle,values,index=0){
   const js=ts.transpileModule(`return ${template.getText(parsed)};`,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
   return new Function(...Object.keys(values),js)(...Object.values(values));
 }
-function rendererVariable(tree,name,values){
+function rendererVariable(tree,name,values,owner){
   let declaration;
   const visit=node=>{if(ts.isVariableDeclaration(node)&&node.name.getText(tree)===name)declaration=node;ts.forEachChild(node,visit);};visit(tree);
   assert.ok(declaration,`Production renderer ${name}`);
   const js=ts.transpileModule(`const ${declaration.getText(tree)};return ${name};`,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
-  return new Function(...Object.keys(values),js)(...Object.values(values));
+  return new Function(...Object.keys(values),js).call(owner,...Object.values(values));
 }
 function mainMessage(call,needle,index,values){
   let expression;
@@ -250,6 +252,64 @@ for(const locale of ['de','nl']){
       p.translate('en');assert.equal(select.value,choices.at(-1));assert.deepEqual([...select.options].map(option=>option.textContent),choices);
     }finally{p.close();}
   });
+  test(`${locale}: saved tag-source cover notes translate their scaffold and retain the returned path`,async()=>{
+    const p=page(),t=new Translator(locale,catalogs[locale]);
+    try{
+      for(const path of ['Help','Title','/My  Files/Help\nTitle.jpg']){
+        p.body.innerHTML='<dialog open><p class="ts-cover-note" role="status"></p></dialog>';
+        const dialog=p.body.querySelector('dialog'),note=dialog.querySelector('p'),calls=[];
+        const extract=rendererVariable(tagSourceParsed,'extractCover',{release:{artist:'Artist',title:'Album',covers:[{url:'https://example.invalid/cover.png'}]},coverIndex:0,working:false,dialog,$:selector=>dialog.querySelector(selector),error:error=>{throw error;}},{host:{pickSave:async()=>path,invoke:async(command,args)=>{calls.push([command,args]);return path;}}});
+        await extract();assert.equal(note.textContent,`Saved to ${path}`);p.translate(locale);
+        assert.notEqual(note.textContent,`Saved to ${path}`);
+        assert.equal(note.textContent,t.t('Saved to {outputPath}',{outputPath:path}));
+        assert.deepEqual(calls,[['tag_source_save_cover',{url:'https://example.invalid/cover.png',path}]]);
+        p.translate('en');assert.equal(note.textContent,`Saved to ${path}`);
+      }
+    }finally{p.close();}
+  });
+  test(`${locale}: copied and staged tag statuses translate optional UI sentences and retain numeric count guards`,()=>{
+    const p=page(),t=new Translator(locale,catalogs[locale]);
+    try{
+      for(const count of [1,2])for(const cut of [false,true])for(const covers of [0,1,2])for(const failed of [0,1,2]){
+        const clipboard={items:Array.from({length:count},()=>({artwork:Array.from({length:covers},()=>({}))}))};
+        const source=copiedMessage(clipboard,cut,failed),art=covers?` ${t.t(`with {covers} cover${count*covers===1?'':'s'}`,{covers:count*covers})}`:'';
+        const missingNote=failed?` ${t.t(`Artwork of {failed} file${failed===1?'':'s'} could not be copied.`,{failed})}`:'';
+        const expected=t.t(`${cut?'Cut':'Copied'} tags of {files} file${count===1?'':'s'}{art}.{missingNote}`,{files:count,art,missingNote});
+        p.body.textContent=source;p.translate(locale);assert.notEqual(p.body.textContent,source);assert.equal(p.body.textContent,expected);
+        for(const restricted of [false,true]){
+          const statusMessage=()=>source;
+          const staged=mainTemplate(node=>node.getText(parsed).includes('new Set([...updates,...coverUpdates]'),{done:statusMessage,statusMessage,updates:[{path:'Help'}],coverUpdates:[],sourcePolicy:()=>({mutationReason:restricted?'read-only':''})});
+          p.body.textContent=staged;p.translate(locale);
+          const key=`{statusMessage} ${restricted?'Use Save a copy to keep these edits.':'Save tags to write them.'}`;
+          assert.equal(p.body.textContent,t.t(key,{statusMessage:expected}));
+        }
+      }
+      assert.equal(t.translate('Saved tags: Help files'),'Saved tags: Help files');
+      assert.equal(t.translate('1 of Help tracks have a file. Saving writes the checked fields immediately.'),'1 of Help tracks have a file. Saving writes the checked fields immediately.');
+    }finally{p.close();}
+  });
+  test(`${locale}: cleanup and index summaries translate UI phrases while bounded filename lists preserve raw values`,()=>{
+    const p=page(),t=new Translator(locale,catalogs[locale]);
+    try{
+      for(const cancelled of [false,true])for(const removed of [0,1,2]){
+        const source=cleanupText({checked:2,removed,cancelled});p.body.textContent=source;p.translate(locale);assert.notEqual(p.body.textContent,source);
+        const removalSummary=t.t('removed {plural}',{plural:t.t(`{count} orphaned entr${removed===1?'y':'ies'}`,{count:removed})});
+        assert.equal(p.body.textContent,t.t(cancelled?'Cleanup cancelled after {plural}; {removalSummary}.':'Cleanup checked {plural} and {removalSummary}.',{plural:t.t('{count} files',{count:2}),removalSummary}));
+      }
+      const indexText=rendererVariable(tagSourceParsed,'indexText',{directory:draft=>draft.folder});
+      for(const discs of [1,2])for(const directory of ['Help','/My  Files/Title']){
+        const source=indexText({discs,directory},{folder:'Help'});p.body.textContent=source;p.translate(locale);assert.notEqual(p.body.textContent,source);
+        const key=directory==='Help'?'Text index: {discSummary} from this folder.':'The text index ({discSummary}) was built for {directory}. Build it again for this folder.';
+        assert.equal(p.body.textContent,t.t(key,{discSummary:t.t(`{discs} disc${discs===1?'':'s'}`,{discs}),directory}));
+      }
+      const names=['Help','My  Files\nTitle'];const source=nameList([...names,'Other'],2);p.body.textContent=source;p.translate(locale);
+      assert.equal(p.body.textContent,t.t('{names} and {length} more',{names:names.join(', '),length:1}));
+      for(const field of ['TRACK','TOTALTRACKS','DISCNUMBER','TOTALDISCS']){
+        p.body.textContent=`${field} requires a 16-bit unsigned number`;p.translate(locale);
+        assert.equal(p.body.textContent,t.t('{field} requires a 16-bit unsigned number',{field}));
+      }
+    }finally{p.close();}
+  });
   test(`${locale}: web-source names remain verbatim in enabled tooltips while disabled reasons translate`,()=>{
     const p=page();let reason='';
     try{
@@ -345,15 +405,18 @@ for(const locale of ['de','nl']){
   test(`${locale}: tag-source matching previews preserve file and field data, including accessible labels`,()=>{
     const p=page();
     try{
-      const render=rendererVariable(tagSourceParsed,'matchMarkup',{release:{tracks:[{position:'Title',length:1}]},files:[{path:'Help',length:1}],slots:['Help',null],trackField:'Title',html:esc,duration:()=>'',fileLength:()=>'',fileName:path=>path||'',trackValue:()=> 'Help'});
+      const track={position:'Title',length:1};
+      const render=rendererVariable(tagSourceParsed,'matchMarkup',{release:{tracks:[track]},files:[{path:'Help',length:1}],slots:['Help',null],trackField:'Title',html:esc,duration:()=>'',fileLength:()=>'',fileName:path=>path||'',trackValue:()=> 'Help'});
       p.body.innerHTML=render();const t=p.translate(locale);
       assert.equal(p.body.querySelector('thead th:nth-child(2)').textContent,'Title');
       assert.equal(p.body.querySelector('tbody td').textContent,'Title');
       assert.equal(p.body.querySelector('tbody tr td:nth-child(4)').textContent,'Help');
       assert.equal(p.body.querySelector('tbody tr td:nth-child(4) span').title,'Help');
-      assert.equal(p.body.querySelector('.ts-track-value').getAttribute('aria-label'),t.translate('Title of track Title',0,true));
+      assert.equal(p.body.querySelector('.ts-track-value').getAttribute('aria-label'),t.t('{trackField} of track {trackPosition}',{trackField:'Title',trackPosition:'Title'}));
       assert.equal(p.body.querySelector('thead th:nth-child(4)').textContent,t.t('File'));
       assert.equal(p.body.querySelector('tbody tr:nth-child(2) em').textContent,t.t('Not written'));
+      track.position='A1';p.body.innerHTML=render();p.translate(locale);
+      assert.equal(p.body.querySelector('.ts-track-value').getAttribute('aria-label'),t.t('{trackField} of track {trackPosition}',{trackField:'Title',trackPosition:'A1'}));
       for(const extra of [{country:'Title'},{barcode:'Help'}]){
         const chosen=rendererVariable(tagSourceParsed,'chosenMarkup',{results:[{artist:'Title',title:'Help',...extra}],chosen:0,web:false,freedb:false,html:esc,preview:()=>''});
         p.body.innerHTML=chosen();p.translate(locale);

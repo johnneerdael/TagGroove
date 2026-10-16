@@ -2439,15 +2439,17 @@ pub(super) fn patch_mp4(tag: &mut Ilst, updates: &Fields) -> Result<(), String> 
         if n.is_some() || t.is_some() {
             let n = n
                 .map(|n| {
+                    let field = number;
                     n.parse::<u16>()
-                        .map_err(|_| format!("{number} requires a 16-bit unsigned number"))
+                        .map_err(|_| format!("{field} requires a 16-bit unsigned number"))
                 })
                 .transpose()?
                 .unwrap_or(0);
             let t = t
                 .map(|t| {
+                    let field = total;
                     t.parse::<u16>()
-                        .map_err(|_| format!("{total} requires a 16-bit unsigned number"))
+                        .map_err(|_| format!("{field} requires a 16-bit unsigned number"))
                 })
                 .transpose()?
                 .unwrap_or(0);

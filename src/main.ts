@@ -1613,12 +1613,12 @@ const clipTargets=()=>paths().map(path=>({path,fields:merged(entries.get(path)!)
 // Files whose covers are known and saved in place: provider documents with unreadable working copies, or
 // that only Save a copy can keep (it writes fields only), are left alone.
 const coverTargets=()=>sourcePolicy().mutationReason?[]:paths().filter(path=>!workingReadErrors.has(path)).map(path=>({path,covers:pendingCovers.get(path)??entries.get(path)!.covers}));
-function stageTagUpdates(plan:()=>PasteUpdate[],name:string,done:(count:number)=>string,coverPlan:()=>CoverUpdate[]=()=>[]){
+function stageTagUpdates(plan:()=>PasteUpdate[],name:string,statusMessage:(count:number)=>string,coverPlan:()=>CoverUpdate[]=()=>[]){
   try{
     const updates=plan(),coverUpdates=coverPlan();
     for(const {path,updates:fields} of updates){const entry=entries.get(path)!;for(const [key,values] of Object.entries(fields))updateDraft(path,panelKey({format:entry.format,fields:merged(entry)},key),values);}
     for(const {path,covers} of coverUpdates){pendingCovers.set(path,covers);if(!drafts.has(path))drafts.set(path,{});changedData();if(active()?.path===path)coverIndex=0;}
-    status=`${done(new Set([...updates,...coverUpdates].map(update=>update.path)).size)} ${sourcePolicy().mutationReason?'Use Save a copy to keep these edits.':'Save tags to write them.'}`;
+    status=`${statusMessage(new Set([...updates,...coverUpdates].map(update=>update.path)).size)} ${sourcePolicy().mutationReason?'Use Save a copy to keep these edits.':'Save tags to write them.'}`;
   }catch(error){errors=[{path:name,error:error instanceof Error?error.message:String(error)}];status=`${name} failed`;}
   render();
 }

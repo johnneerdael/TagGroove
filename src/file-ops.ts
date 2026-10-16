@@ -47,9 +47,9 @@ export function fileShortcut(event:KeyInput,typing:boolean,mac:boolean):'folder'
   if(!event.shiftKey&&(key==='delete'||(mac&&key==='backspace')))return 'file-delete';
 }
 /** A short, bounded list of names for confirmations. */
-export function nameList(names:string[],limit=5){
-  const shown=names.slice(0,limit).join(', ');
-  return names.length>limit?`${shown} and ${names.length-limit} more`:shown;
+export function nameList(items:string[],limit=5){
+  const names=items.slice(0,limit).join(', ');
+  return items.length>limit?`${names} and ${items.length-limit} more`:names;
 }
 export function transferStatus(result:TransferResult,mode:'copy'|'move',destination:string){
   const done=mode==='copy'?result.copied.length:result.renamed.length,verb=mode==='copy'?'Copied':'Moved';
