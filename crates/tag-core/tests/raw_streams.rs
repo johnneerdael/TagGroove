@@ -527,7 +527,20 @@ fn same_size_tag_edits_rewrite_only_the_tags_and_undo_exactly() {
     let mut history = Journal::open(&dir.path().join("journal"), Limits::default()).unwrap();
     let key = path.to_string_lossy().into_owned();
     let capture = history.begin("Save tags", None, std::slice::from_ref(&key));
-    write_fields(&path, &fields(&[("Title", &["Bbbb"])])).unwrap();
+    let modified = fs::metadata(&path).unwrap().modified().unwrap();
+    let options = TagOptions {
+        preserve_modified_time: true,
+        ..Default::default()
+    };
+    write_fields_with_options(
+        &path,
+        &fields(&[("Title", &["Bbbb"])]),
+        false,
+        &[],
+        &options,
+    )
+    .unwrap();
+    assert_eq!(fs::metadata(&path).unwrap().modified().unwrap(), modified);
     history.commit(capture, &[], &[]);
     let edited = fs::read(&path).unwrap();
     assert_eq!(edited.len(), original.len());

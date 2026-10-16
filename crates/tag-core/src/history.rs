@@ -44,16 +44,32 @@ struct Writes {
     rewritten: Option<u64>,
 }
 
-/// Files an open capture is watching, with what their staged writes replaced.
-static WRITES: Mutex<BTreeMap<PathBuf, Writes>> = Mutex::new(BTreeMap::new());
+struct Watched {
+    current: PathBuf,
+    writes: Writes,
+}
 
-/// Called by staged writes after replacing `path`: whether the staging copy was
-/// a clone, and the bytes rewritten in place (`None` for a full rewrite).
+/// Original journal identities and their current paths during staged operations.
+struct WriteTracking {
+    watched: BTreeMap<PathBuf, Watched>,
+    paths: BTreeMap<PathBuf, PathBuf>,
+}
+
+static WRITES: Mutex<WriteTracking> = Mutex::new(WriteTracking {
+    watched: BTreeMap::new(),
+    paths: BTreeMap::new(),
+});
+
+/// Called by staged writes after replacing `path`.
 pub(crate) fn note_write(path: &Path, cloned: bool, rewritten: Option<u64>) {
-    if let Ok(mut writes) = WRITES.lock() {
-        if let Some(entry) = writes.get_mut(path) {
-            entry.count += 1;
-            entry.rewritten = match (entry.rewritten, cloned, rewritten) {
+    if let Ok(mut tracking) = WRITES.lock() {
+        let WriteTracking { watched, paths } = &mut *tracking;
+        if let Some(entry) = paths
+            .get(path)
+            .and_then(|original| watched.get_mut(original))
+        {
+            entry.writes.count += 1;
+            entry.writes.rewritten = match (entry.writes.rewritten, cloned, rewritten) {
                 (Some(total), true, Some(bytes)) => Some(total.saturating_add(bytes)),
                 _ => None,
             };
@@ -61,14 +77,52 @@ pub(crate) fn note_write(path: &Path, cloned: bool, rewritten: Option<u64>) {
     }
 }
 
+/// Follow a completed file/folder move without changing its journal identity.
+/// A copied move cannot share the old snapshot's blocks with later clones.
+pub(crate) fn note_move(from: &Path, to: &Path, copied: bool) {
+    if from == to {
+        return;
+    }
+    if let Ok(mut tracking) = WRITES.lock() {
+        let moved: Vec<_> = tracking
+            .paths
+            .range(from.to_path_buf()..)
+            .take_while(|(current, _)| current.starts_with(from))
+            .filter_map(|(current, original)| {
+                current
+                    .strip_prefix(from)
+                    .ok()
+                    .map(|suffix| (current.clone(), original.clone(), to.join(suffix)))
+            })
+            .collect();
+        for (current, original, destination) in moved {
+            tracking.paths.remove(&current);
+            tracking.paths.insert(destination.clone(), original.clone());
+            if let Some(entry) = tracking.watched.get_mut(&original) {
+                entry.current = destination;
+                if copied {
+                    entry.writes.rewritten = None;
+                }
+            }
+        }
+    }
+}
+
 fn watch(paths: impl IntoIterator<Item = PathBuf>) {
-    if let Ok(mut writes) = WRITES.lock() {
+    if let Ok(mut tracking) = WRITES.lock() {
         for path in paths {
-            writes.insert(
-                path,
-                Writes {
-                    count: 0,
-                    rewritten: Some(0),
+            if let Some(old) = tracking.watched.remove(&path) {
+                tracking.paths.remove(&old.current);
+            }
+            tracking.paths.insert(path.clone(), path.clone());
+            tracking.watched.insert(
+                path.clone(),
+                Watched {
+                    current: path,
+                    writes: Writes {
+                        count: 0,
+                        rewritten: Some(0),
+                    },
                 },
             );
         }
@@ -76,12 +130,17 @@ fn watch(paths: impl IntoIterator<Item = PathBuf>) {
 }
 
 fn unwatch<'a>(paths: impl IntoIterator<Item = &'a PathBuf>) -> BTreeMap<PathBuf, Writes> {
-    let Ok(mut writes) = WRITES.lock() else {
+    let Ok(mut tracking) = WRITES.lock() else {
         return BTreeMap::new();
     };
     paths
         .into_iter()
-        .filter_map(|path| writes.remove(path).map(|w| (path.clone(), w)))
+        .filter_map(|path| {
+            tracking.watched.remove(path).map(|entry| {
+                tracking.paths.remove(&entry.current);
+                (path.clone(), entry.writes)
+            })
+        })
         .collect()
 }
 
@@ -616,7 +675,12 @@ impl Journal {
                 lost += 1;
                 continue;
             };
-            let content = after != captured.fingerprint;
+            // A confirmed staged replacement still needs its snapshot when size
+            // and mtime are preserved and the platform supplies no file identity.
+            let content = after != captured.fingerprint
+                || writes
+                    .get(&captured.path)
+                    .is_some_and(|write| write.count > 0);
             if !content && to == captured.path {
                 discard(&captured.blob);
                 continue;
@@ -1231,6 +1295,44 @@ mod tests {
             assert_eq!(unwatch([&path])[&path].rewritten, None);
         }
         assert!(unwatch([&path]).is_empty(), "commit stops watching");
+    }
+
+    #[test]
+    fn moved_watches_keep_original_identity_and_copies_keep_full_cost() {
+        let original = PathBuf::from("/opentag-move-test/album/one.flac");
+        let sibling = PathBuf::from("/opentag-move-test/album-other/two.flac");
+        let renamed = PathBuf::from("/opentag-move-test/album/new.flac");
+        let moved = PathBuf::from("/opentag-move-test/moved/new.flac");
+        let copied = PathBuf::from("/opentag-move-test/copied/new.flac");
+        watch([original.clone(), sibling.clone()]);
+        note_move(&original, &renamed, false);
+        note_write(&renamed, true, Some(10));
+        note_move(
+            Path::new("/opentag-move-test/album"),
+            Path::new("/opentag-move-test/moved"),
+            false,
+        );
+        note_write(&moved, true, Some(20));
+        note_write(&original, true, Some(999));
+        note_write(&sibling, true, Some(7));
+        note_move(&moved, &copied, true);
+        note_write(&copied, true, Some(1));
+        let writes = unwatch([&original, &sibling]);
+        assert_eq!(writes[&original].count, 3);
+        assert_eq!(
+            writes[&original].rewritten, None,
+            "copied moves cannot claim shared snapshot blocks"
+        );
+        assert_eq!(
+            writes[&sibling].count, 1,
+            "a sibling with a similar prefix stays separate"
+        );
+        assert_eq!(writes[&sibling].rewritten, Some(7));
+        note_write(&copied, true, Some(100));
+        assert!(
+            unwatch([&original]).is_empty(),
+            "moved aliases stop being watched at commit"
+        );
     }
 
     #[test]
