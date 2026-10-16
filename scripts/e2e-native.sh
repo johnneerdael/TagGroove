@@ -50,7 +50,12 @@ case "$identifier" in
       # previous run's WebView2 processes may hold files for a moment.
       windows)
         state=("$(cygpath -u "$APPDATA")/$identifier" "$(cygpath -u "$LOCALAPPDATA")/$identifier")
-        for _ in 1 2 3 4 5; do rm -rf "${state[@]}" 2>/dev/null && break; sleep 2; done
+        # Only a disposable GitHub-hosted job may stop shared WebView2 helpers.
+        # Local and self-hosted machines can run other apps using that runtime.
+        if [[ "${GITHUB_ACTIONS:-}" == true && "${RUNNER_ENVIRONMENT:-}" == github-hosted ]]; then
+          taskkill //F //IM msedgewebview2.exe //T >/dev/null 2>&1 || true
+        fi
+        for _ in $(seq 15); do rm -rf "${state[@]}" 2>/dev/null && break; sleep 2; done
         rm -rf "${state[@]}" ;;
       *) rm -rf "${XDG_CONFIG_HOME:-$HOME/.config}/$identifier" "${XDG_DATA_HOME:-$HOME/.local/share}/$identifier" ;;
     esac ;;
