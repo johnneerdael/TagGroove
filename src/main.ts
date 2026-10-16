@@ -2,7 +2,7 @@
 import { invoke as coreInvoke, isTauri, type InvokeArgs } from '@tauri-apps/api/core';
 import { buildFilterFields } from './filter-fields';
 import { documentSelection, refreshDocumentAccess, copyRequest, copyOutcome, reconcileDrafts, sourcePresentation, publicDocumentMessage, type DocumentAccess, type DocumentState } from './document-state';
-import { createConverterInputTracker, createConverterReview, validateFilenameItems, validateTextItems, type FilenameConversionRequest, type TextImportRequest, type FilenameConversionItem, type TextImportItem, type ConverterPreview } from './converter-review';
+import { converterValidator, createConverterInputTracker, createConverterReview, type FilenameConversionRequest, type TextImportRequest, type FilenameConversionItem, type TextImportItem, type ConverterPreview } from './converter-review';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getVersion } from '@tauri-apps/api/app';
@@ -1451,9 +1451,7 @@ function reviewedConverter(kind:'filename'|'text') {
   const apply=dialog.querySelector<HTMLButtonElement>('#reviewed-apply')!,previewButton=dialog.querySelector<HTMLButtonElement>('#reviewed-preview-button')!;
   const previewArea=dialog.querySelector<HTMLDivElement>('#reviewed-preview')!,progress=dialog.querySelector<HTMLElement>('.converter-status')!;
   const closeButton=dialog.querySelector<HTMLButtonElement>('[data-close]')!;
-  const review=createConverterReview<Request,Item>((request,items)=>rename?
-    validateFilenameItems(request as FilenameConversionRequest,items as FilenameConversionItem[]):
-    validateTextItems(request as TextImportRequest,items as TextImportItem[]));
+  const review=createConverterReview<Request,Item>(converterValidator(kind));
   const inputControls=[...dialog.querySelectorAll<HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement>('input,select,textarea')];
   const inputValues=()=>inputControls.map(control=>control instanceof HTMLInputElement&&control.type==='checkbox'?control.checked:control.value);
   const inputsChanged=createConverterInputTracker(inputValues());

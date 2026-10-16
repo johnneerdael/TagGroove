@@ -92,6 +92,13 @@ function validFields(value: unknown): value is Fields {
   return !!value && typeof value === 'object' && !Array.isArray(value) &&
     Object.values(value).every(values => Array.isArray(values) && values.every(item => typeof item === 'string'));
 }
+/** The preview validator of one converter dialog; it forwards the files the preview leaves unchanged. */
+export function converterValidator(kind: 'filename' | 'text') {
+  return (request: FilenameConversionRequest | TextImportRequest, items: (FilenameConversionItem | TextImportItem)[], unmatched: string[]) =>
+    kind === 'filename'
+      ? validateFilenameItems(request as FilenameConversionRequest, items as FilenameConversionItem[], unmatched)
+      : validateTextItems(request as TextImportRequest, items as TextImportItem[], unmatched);
+}
 /** Every selected file is either renamed by one item or left unchanged, in selection order. */
 export function validateFilenameItems(request: FilenameConversionRequest, items: FilenameConversionItem[], unmatched: string[] = []) {
   let item = 0, skipped = 0;

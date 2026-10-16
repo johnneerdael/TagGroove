@@ -29,7 +29,7 @@ Scope: loading playlists and cue sheets, File → Playlist (all files / selected
 - **Format and encoding from the extension:**
   - `.m3u8` is written as UTF-8.
   - `.pls` is written as `[playlist]` with `FileN`, `TitleN` and `LengthN` entries, `NumberOfEntries` and `Version=2`, in UTF-8.
-  - `.m3u` uses the Windows ANSI codepage. A path that the codepage cannot store is an error that suggests `.m3u8`; nothing is replaced with `?`. On macOS and Linux, which have no ANSI codepage, `.m3u` is written in Windows-1252 (the codepage reading assumes), or in UTF-8 when an entry needs a character Windows-1252 cannot store (see `convert-export.md`).
+  - `.m3u` uses the Windows ANSI codepage. A path that the codepage cannot store is an error that suggests `.m3u8`; nothing is replaced with `?`. On macOS and Linux, which have no ANSI codepage, `.m3u` is written in Windows-1252 (the codepage reading assumes), or in UTF-8 when the Windows-1252 bytes would not read back unchanged (see `convert-export.md`).
   - Other extensions are written as UTF-8 M3U.
   - Lines end with CR LF.
 - With **Write extended info** on, the playlist starts with `#EXTM3U` and each entry gets `#EXTINF:<seconds>,<format string>`. The default format string is `%artist% - %title%`. Unknown durations are written as `-1`.
@@ -106,7 +106,7 @@ Scope: loading playlists and cue sheets, File → Playlist (all files / selected
   - Loading a playlist clears the saved column sort; the unsorted order is the list order. A dedicated "Playlist order" sort criterion is not stored.
   - When a playlist is added to a non-empty list (drop, Add files, `/add`), files that are already listed keep their earlier position. Replacing the list (File → Load playlist/cue sheet, or a launch without `/add`) shows the exact playlist order.
 - **Writing:**
-  - `.m3u` on macOS and Linux is written in Windows-1252, falling back to UTF-8 only for entries Windows-1252 cannot store.
+  - `.m3u` on macOS and Linux is written in Windows-1252, falling back to UTF-8 when the result would not read back unchanged.
   - The ANSI path error is stricter than Mp3tag, which presumably writes `?` (not verified).
   - "Entries relative to working directory" is implemented as relative to the playlist's folder. That is the form players resolve, and Mp3tag creates playlists in the working directory, so the two normally coincide.
   - Relative paths are written with native separators (`\` on Windows, `/` elsewhere).

@@ -390,8 +390,8 @@ pub struct PlaylistWriteOptions {
     /// Byte order mark for UTF-8 playlists.
     pub bom: bool,
     /// System ANSI codepage for `.m3u`. Without one (macOS, Linux) `.m3u` is
-    /// written in Windows-1252, as it is read, or in UTF-8 when its entries
-    /// need characters Windows-1252 cannot store.
+    /// written in Windows-1252, as it is read, unless it would not read back
+    /// unchanged: then it is written in UTF-8.
     pub ansi_codepage: Option<String>,
 }
 
@@ -470,9 +470,16 @@ pub fn render_playlist(
         })
         .flatten()
         .filter(|encoding| *encoding != encoding_rs::UTF_8)
-        // The fallback codepage gives way to lossless UTF-8, which reading
-        // detects first; a real system codepage is kept.
-        .filter(|encoding| system.is_some() || !encoding.encode(&text).2);
+        // Without a system codepage, Windows-1252 is used only when it reads
+        // back unchanged. Reading tries UTF-8 first, so 1252 bytes that happen
+        // to be valid UTF-8 (`Â©` is C2 A9, read as `©`), or text 1252 cannot
+        // store, are written as UTF-8 instead. A real system codepage is kept.
+        .filter(|encoding| {
+            system.is_some() || {
+                let (bytes, _, unmappable) = encoding.encode(&text);
+                !unmappable && (bytes.is_ascii() || std::str::from_utf8(&bytes).is_err())
+            }
+        });
     match ansi {
         Some(encoding) => {
             let (bytes, _, unmappable) = encoding.encode(&text);
@@ -744,6 +751,33 @@ mod tests {
             decode_playlist(&fallback, PlaylistKind::M3u, None),
             "#EXTM3U\r\n#EXTINF:3,É\r\né.mp3\r\n"
         );
+        // Windows-1252 bytes that are also valid UTF-8 would read back as
+        // other characters, so such a playlist is UTF-8, and every name
+        // round-trips through the reader.
+        for (name, bom) in ["Â©.mp3", "Ã©t©.mp3", "plain.mp3", "é.mp3", "猫.mp3"]
+            .into_iter()
+            .flat_map(|name| [(name, true), (name, false)])
+        {
+            let items = [item(&format!("/m/{name}"), 3.0, name)];
+            let options = PlaylistWriteOptions {
+                bom,
+                ..no_codepage.clone()
+            };
+            let bytes = render_playlist(Path::new("/m/x.m3u"), &items, &options).unwrap();
+            let text = decode_playlist(&bytes, PlaylistKind::M3u, None);
+            assert_eq!(
+                parse_entries(&text, PlaylistKind::M3u)
+                    .into_iter()
+                    .map(|entry| entry.location)
+                    .collect::<Vec<_>>(),
+                [name],
+                "{name}"
+            );
+            assert!(text.contains(&format!("#EXTINF:3,{name}")), "{name}");
+        }
+        let mojibake = [item("/m/Â©.mp3", 3.0, "")];
+        let bytes = render_playlist(Path::new("/m/x.m3u"), &mojibake, &no_codepage).unwrap();
+        assert!(bytes.starts_with(&[0xef, 0xbb, 0xbf]));
         let unicode = render_playlist(Path::new("/m/x.m3u"), &cat, &no_codepage).unwrap();
         assert_eq!(
             decode_playlist(&unicode, PlaylistKind::M3u, None),

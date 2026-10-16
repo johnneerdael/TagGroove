@@ -11,7 +11,7 @@ Before, one file whose name did not match the old pattern stopped the whole prev
 - If no file matches, the preview has no renames and Apply stays disabled.
 - The dialog shows unmatched files with the existing "No match, not changed" text. The Apply button counts only the files that will change.
 
-Tests: `non_matching_file_is_left_unchanged_and_matching_files_rename_together` (src-tauri), `filename_rearrangement_retains_extension_and_uses_numbered_parts` (tag-core) and the converter-review UI tests.
+Tests: `non_matching_file_is_left_unchanged_and_matching_files_rename_together` (src-tauri), `filename_rearrangement_retains_extension_and_uses_numbered_parts` (tag-core) and the converter-review UI tests. These include `converterValidator`, the adapter the dialog itself passes to the review. The first push called the validators without the unmatched list, which rejected every partial plan (Codex review finding).
 
 ## Text File → Tag: keyed lists may name more files than the selection
 
@@ -54,9 +54,9 @@ Tests: `choosing a configuration prefills the export file name from its $filenam
 ## Default encodings
 
 - **Export:** a configuration that does not choose an encoding with `$filename(name,enc)` is now written as ANSI. It used to be UTF-8. The docs say Write BOM applies when "writing of UTF-8 or UTF-16 is enabled via the `$filename` function", which makes ANSI the default. ANSI is the system codepage on Windows and Windows-1252 elsewhere. Characters the codepage cannot store become `?`, as before. Every bundled configuration and OpenTag's New template name `utf-8` explicitly, so they are unaffected.
-- **`.m3u` on macOS and Linux:** these systems have no ANSI codepage. `.m3u` is now written in Windows-1252, which playlist reading already assumes. When an entry needs a character Windows-1252 cannot store, the playlist is written in UTF-8 instead: reading detects valid UTF-8 first, and a `?` would break the entry. On Windows the system codepage is kept, and an unstorable path is still an error that suggests `.m3u8`. `.m3u8` and `.pls` stay UTF-8.
+- **`.m3u` on macOS and Linux:** these systems have no ANSI codepage. `.m3u` is now written in Windows-1252, which playlist reading already assumes, but only when the playlist reads back unchanged. Reading tries UTF-8 first, so the playlist is written in UTF-8 instead in two cases. One is an entry Windows-1252 cannot store (a `?` would break it). The other is Windows-1252 bytes that are also valid UTF-8: `Â©.mp3` is `C2 A9` in Windows-1252, which reads back as `©.mp3` (Codex review finding). On Windows the system codepage is kept, and an unstorable path is still an error that suggests `.m3u8`. `.m3u8` and `.pls` stay UTF-8.
 
-Tests: `exports_without_an_encoding_argument_are_ansi_as_in_mp3tag` (tag-core export), `pls_and_ansi_m3u_output` (playlist).
+Tests: `exports_without_an_encoding_argument_are_ansi_as_in_mp3tag` (tag-core export), and `pls_and_ansi_m3u_output` (playlist), which round-trips ASCII, Windows-1252, UTF-8-lookalike and CJK names with and without a BOM.
 
 ## Ctrl+Shift+K: totals per folder
 
