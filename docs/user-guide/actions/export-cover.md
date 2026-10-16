@@ -49,7 +49,9 @@ filename characters cleaned.
 **Export duplicate covers** controls repeats within the current run, not
 whether existing image files can be replaced. With it off, an identical
 image requested for the same name is skipped while that image remains in
-an output from this run. With it on, repeated covers are processed, but
+an output from this run after the action finishes. Reordering or replacing
+embedded covers exports a repeated image again when another cover would
+overwrite its only output. With it on, repeated covers are processed, but
 identical bytes already at a destination need no rewrite.
 
 ## Existing files and warnings

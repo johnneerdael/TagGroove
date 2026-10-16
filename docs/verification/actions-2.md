@@ -168,6 +168,31 @@ the existing Store and image-snapshot protection tests. Clippy and formatting
 also passed. This fixture verifies the shared Store/command path; device
 provider behavior still requires the reviewed Android integration workload.
 
+## Cover export destination planning follow-up
+
+The review of `ee96272` found that after exporting A and B, changing the
+embedded covers to B and C could skip B and then replace its only numbered
+output with C. The real-WAV regression failed against that head with a
+missing B image.
+
+Export now plans all matching covers and their ordinal destinations before
+suppressing duplicates. A previously exported image is skipped only when at
+least one tracked output survives every remaining planned write. Removing a
+safe duplicate write can make another duplicate safe; the bounded planning
+pass repeats until no further writes can be removed. Execution retains the
+existing input protection, same-writer replacement, cross-file collision and
+undo rules.
+
+The image-byte fixtures cover A,B → B,C, the A,B → B,A cycle, repeated
+identical covers, and A,B,C → B,C where both requested images already have
+safe outputs. Existing unchanged-secondary and no-op writer regressions are
+retained. Main `4e4d5fc` is integrated, including its source-cover custom-column
+and export changes. The refreshed workspace passed 743 Rust tests (the same
+four explicit skips), including all 46 action-host tests and 285 passing
+application-library tests. All 318 JavaScript tests, the production build,
+Clippy with warnings denied, formatting, strict guide build, eight publication
+tests and the writing-plan check passed.
+
 ## Not covered
 
 - The `.mta` type IDs for Adjust Cover, Set Cover Properties and Generate Playlists, and the guessed schemas for types 4, 6 and 11–15, need `.mta` files saved by Mp3tag.

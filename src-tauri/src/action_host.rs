@@ -593,7 +593,17 @@ impl ActionHost for NativeHost<'_> {
                     .as_deref()
                     .map(tag_core::picture_type_from_name)
                     .transpose()?;
-                let mut count = 0;
+                struct Output {
+                    bytes: Vec<u8>,
+                    digest: [u8; 32],
+                    identity: (String, [u8; 32]),
+                    target: PathBuf,
+                    destination: String,
+                    skip: bool,
+                }
+                let mut outputs = Vec::new();
+                let mut seen = HashSet::new();
+                // Fix every ordinal before deciding which writes can be skipped.
                 for cover in &entry.covers {
                     if filter.is_some_and(|f| format!("{f:?}") != cover.picture_type) {
                         continue;
@@ -604,21 +614,68 @@ impl ActionHost for NativeHost<'_> {
                     let digest: [u8; 32] = Sha256::digest(&bytes).into();
                     let mut target =
                         cover_file_target(template_path(filename, &path), &cover.mime, &bytes);
-                    // Duplicate identity is the requested destination plus
-                    // content. Take it before per-file multi-cover numbering.
+                    // Identity uses the requested name before ordinal suffixes.
                     let identity = (normalized_output(&target)?, digest);
-                    if !export_duplicates && self.exported_covers.contains_key(&identity) {
-                        // A skipped cover still occupies its output position.
-                        count += 1;
-                        continue;
-                    }
+                    let count = outputs.len();
                     if count > 0 {
                         let stem = target.file_stem().unwrap_or_default().to_string_lossy();
                         let extension = target.extension().unwrap_or_default().to_string_lossy();
                         target.set_file_name(format!("{stem} ({count}).{extension}"));
                     }
+                    outputs.push(Output {
+                        destination: normalized_output(&target)?,
+                        // The first occurrence will either write its image or
+                        // retain a proven surviving output from this run.
+                        skip: !export_duplicates && !seen.insert(identity.clone()),
+                        identity,
+                        bytes,
+                        digest,
+                        target,
+                    });
+                }
+                if !export_duplicates {
+                    let mut pending: BTreeMap<_, _> = outputs
+                        .iter()
+                        .filter(|output| !output.skip)
+                        .map(|output| (output.destination.clone(), output.digest))
+                        .collect();
+                    loop {
+                        let mut changed = false;
+                        for output in &mut outputs {
+                            if !output.skip
+                                && self.exported_covers.get(&output.identity).is_some_and(
+                                    |existing| {
+                                        existing.iter().any(|destination| {
+                                            pending
+                                                .get(destination)
+                                                .is_none_or(|digest| *digest == output.digest)
+                                        })
+                                    },
+                                )
+                            {
+                                output.skip = true;
+                                pending.remove(&output.destination);
+                                changed = true;
+                            }
+                        }
+                        // Removing a write can make another image safe to skip.
+                        // Each pass removes at least one, so this is bounded by
+                        // the number of matching covers.
+                        if !changed {
+                            break;
+                        }
+                    }
+                }
+                for output in outputs.into_iter().filter(|output| !output.skip) {
+                    let Output {
+                        bytes,
+                        digest,
+                        identity,
+                        target,
+                        destination,
+                        ..
+                    } = output;
                     self.protect_output(&target, std::slice::from_ref(state))?;
-                    let destination = normalized_output(&target)?;
                     let (writer, _) = self.identity(state);
                     let previous = self
                         .written_covers
@@ -666,7 +723,6 @@ impl ActionHost for NativeHost<'_> {
                         .entry(identity)
                         .or_default()
                         .insert(destination);
-                    count += 1;
                 }
             }
             ActionEffect::AdjustCover {
@@ -1754,6 +1810,106 @@ mod tests {
         assert_eq!(fs::read(dir.path().join("art.png")).unwrap(), original);
         assert_eq!(fs::read(dir.path().join("art (1).png")).unwrap(), other);
         assert!(!dir.path().join("art (2).png").exists());
+    }
+
+    #[test]
+    fn cover_export_preserves_images_when_later_positions_replace_their_outputs() {
+        for next in [[1, 2], [1, 0], [1, 1]] {
+            let dir = tempfile::tempdir().unwrap();
+            let (path, original) = covered_fixture(dir.path(), "a.wav", false);
+            let mut images = vec![original];
+            for width in [2, 3] {
+                let mut bytes = std::io::Cursor::new(Vec::new());
+                image::DynamicImage::ImageRgb8(image::RgbImage::new(width, width))
+                    .write_to(&mut bytes, image::ImageFormat::Png)
+                    .unwrap();
+                images.push(bytes.into_inner());
+            }
+            for (index, bytes) in images.iter().enumerate() {
+                fs::write(dir.path().join(format!("input{index}.png")), bytes).unwrap();
+            }
+            let import = |index, delete_existing| ActionSpec::ImportCover {
+                filename_template: format!("input{index}.png"),
+                picture_type: None,
+                delete_existing,
+            };
+            let export = || cover_export_group("art", false).actions.remove(0);
+            let result = run(
+                &path,
+                vec![
+                    import(1, false),
+                    export(),
+                    import(next[0], true),
+                    import(next[1], false),
+                    export(),
+                ],
+                EvaluationSettings::default(),
+            );
+            assert!(result.errors.is_empty(), "{:?}", result.errors);
+            let outputs = [
+                fs::read(dir.path().join("art.png")).unwrap(),
+                fs::read(dir.path().join("art (1).png")).unwrap(),
+            ];
+            for index in next {
+                assert!(
+                    outputs.contains(&images[index]),
+                    "missing image {index} in {next:?}"
+                );
+            }
+            if next[0] != next[1] {
+                assert_eq!(outputs[0], images[next[0]]);
+                assert_eq!(outputs[1], images[next[1]]);
+            }
+            assert!(!dir.path().join("art (2).png").exists());
+        }
+    }
+
+    #[test]
+    fn cover_export_suppression_keeps_outputs_when_later_writes_are_also_skipped() {
+        let dir = tempfile::tempdir().unwrap();
+        let (path, original) = covered_fixture(dir.path(), "a.wav", false);
+        let mut images = vec![original];
+        for width in [2, 3] {
+            let mut bytes = std::io::Cursor::new(Vec::new());
+            image::DynamicImage::ImageRgb8(image::RgbImage::new(width, width))
+                .write_to(&mut bytes, image::ImageFormat::Png)
+                .unwrap();
+            images.push(bytes.into_inner());
+            fs::write(
+                dir.path().join(format!("input{width}.png")),
+                images.last().unwrap(),
+            )
+            .unwrap();
+        }
+        let import = |width, delete_existing| ActionSpec::ImportCover {
+            filename_template: format!("input{width}.png"),
+            picture_type: None,
+            delete_existing,
+        };
+        let export = || cover_export_group("art", false).actions.remove(0);
+        let result = run(
+            &path,
+            vec![
+                import(2, false),
+                import(3, false),
+                export(),
+                import(2, true),
+                import(3, false),
+                export(),
+            ],
+            EvaluationSettings::default(),
+        );
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+        // C remains at (2), so suppressing C also makes B safe at (1).
+        for (index, bytes) in images.iter().enumerate() {
+            let name = if index == 0 {
+                "art.png".into()
+            } else {
+                format!("art ({index}).png")
+            };
+            assert_eq!(fs::read(dir.path().join(name)).unwrap(), *bytes);
+        }
+        assert!(!dir.path().join("art (3).png").exists());
     }
 
     #[test]
