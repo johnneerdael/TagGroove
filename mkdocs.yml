@@ -253,6 +253,11 @@ nav:
     - Playlist: reference/options/playlist.md
     - Tools: reference/options/tools.md
 - Cookbook:
+  - Clean text and credits:
+    - Remove extra spaces: cookbook/trim-spaces.md
+    - Remove trailing remaster annotations: cookbook/remove-text-in-brackets.md
+    - Split artist lists: cookbook/split-multiple-artists.md
+    - Split Artist - Title credits: cookbook/split-artist-title.md
   - Rename files and folders:
     - Zero-padded track numbers in filenames: cookbook/rename-zero-padded-track-numbers.md
   - Fix and tidy tags:

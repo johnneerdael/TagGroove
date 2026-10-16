@@ -206,3 +206,13 @@ application models and real core tag-block removal on generated MP3 fixtures.
 The evidence does not claim native UI verification or completion of every
 canonical topic. The source baseline includes merged PR 28 (`dbcd9ce`), while
 unmerged language/provider/freedb/web-source changes remain out of scope.
+
+## Local cleanup recipes
+
+`cleanup-recipes-2026-10-16.json` records four new text/credit recipes, bringing
+the local checkpoint to 108 authored pages and 79 drafts. The public site
+remains at 97 pages. Six tests execute the actual written action tables in
+order and their before/after cases under LF and CRLF. This includes deliberate
+nonmatches, multiline anchors, existing value lists, exact deduplication and
+Guess Values ambiguity. Independent review is pending; these are source/core
+examples, not native UI or player-compatibility verification.

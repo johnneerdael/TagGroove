@@ -1,0 +1,145 @@
+{
+  "scope": "Four local cleanup recipes layered on prior104-page checkpoint; no PR or publication.",
+  "base_checkpoint": "55fd3555d7f37a4347aa4eafb19cb0f1f6017a00",
+  "source_main": "dbcd9ce43c64e459c20553f9d14b5d77534847a0",
+  "canonical_source_pointers": [
+    {
+      "url": "https://docs.mp3tag.de/actions/format/",
+      "sha256": "6c8af0928d3d97ed9239770250a0c4eca176aa06d41f9483d36ca970965abf40"
+    },
+    {
+      "url": "https://docs.mp3tag.de/actions/guess/",
+      "sha256": "e0facac5468b64ee9250e65a7c287a0b379a82f3234bde90ca81cdb762251ddc"
+    },
+    {
+      "url": "https://docs.mp3tag.de/actions/remove-duplicate-fields/",
+      "sha256": "598784c207bd5d2e1d2d68e1c6069f622c4381af73fa11b7a30875064f25fadf"
+    },
+    {
+      "url": "https://docs.mp3tag.de/actions/replace-regexp/",
+      "sha256": "fb1f70b4f6e24658311f66b0ba2bbbda417b74d09081bd0c3957d891194f921c"
+    },
+    {
+      "url": "https://docs.mp3tag.de/actions/split-field/",
+      "sha256": "5eafb262d9272ef8a692f0331076826c4ba79fa7249c26ddc2d78a82ee772ed5"
+    },
+    {
+      "url": "https://docs.mp3tag.de/regex/",
+      "sha256": "79de3e02ec337eea7de0dc66c3d8dc11bf65cc151a82d9e9b815db3d5aa64b34"
+    },
+    {
+      "url": "https://docs.mp3tag.de/scripting/",
+      "sha256": "9296fcbcfc59338bc44f44765c8b766f30c61601f3fd124ffa65c9559fb575b0"
+    }
+  ],
+  "source_usage": "Canonical action/scripting/regex syntax and behaviors are topic checklists; independent prose and invented examples. These new recipes expand teaching and do not assert full canonical coverage.",
+  "facts": {
+    "cookbook/trim-spaces.md": [
+      "edge and horizontal-run cleanup limited to TITLE",
+      "visible space/tab/newline markers; unchanged and linebreak-preserving examples",
+      "Tag\u2192Tag preview, actual single-space regexp replacement, trim doesnotcollapseinterior",
+      "first-value loss of converter variant versus each-value regex action sequence",
+      "whole-value A/z anchors distinct defaultmultiline ^/$",
+      "specificfield avoids comment/lyricparagraph flattening; allwhitespace output caution",
+      "actionswriteimmediate versus Savegroups; Undo session versus backups"
+    ],
+    "cookbook/remove-text-in-brackets.md": [
+      "knowncase-insensitive Remastered optionalexact4digityear, pairedparenthesis/squarebrackets",
+      "seven positive/negative/nested/multiline cases",
+      "two sequential patterns; empty replacement no formatquotes",
+      "explicitgroup/suffix/anchor explanation; A/z wholevalue rule",
+      "trailing spaces first and exposed-suffix ordering, no implicitloop",
+      "broader nonnestedparenthesiscaution with threeexamples and greedyovermatch risk",
+      "noclaim fullgroupdryrun; immediatewrite/recordedUndo/backups"
+    ],
+    "cookbook/split-multiple-artists.md": [
+      "single delimited and existingmultivalue source structure",
+      "clean delimiteredges/runs before split then exactduplicate removal",
+      "five full-credit cases preserveACDCandampersandnames andcasevariants",
+      "single/severalvalues processed independently then flatten",
+      "onlysamecontentcheckboxon versus destructivefirstvalueoff",
+      "empty/semicolon-only input notartistvalidation; noescape forliteralname-semicolon",
+      "savednativeformat/playerrepresentation limits and no runtimeclaim"
+    ],
+    "cookbook/split-artist-title.md": [
+      "GuessValues source versus destinationpattern, literalspacehyphensyntax",
+      "oldTITLEsnapshot before overwriting destinations, ARTISTreplacement",
+      "shortestcapture ambiguity versus actualartistidentity",
+      "laterFormatValuetrims run on nonmatches andwarnings do notstopgroup",
+      "single-title/single-artist scope and listloss caution",
+      "individual trim preview doesnotpreviewfuturewholegroup",
+      "immediateactions versus savedworkflow versus laterreviewedfilenameconversion"
+    ]
+  },
+  "page_sha256": {
+    "cookbook/trim-spaces.md": "920d3124fa80c4eb96e9e2627fe76d4bc26fc262263949a011900dc1868ff88b",
+    "cookbook/remove-text-in-brackets.md": "4712603709005700047c43c34a7ecbdc5a1bff90317345fef741e4a6cd7d1e5d",
+    "cookbook/split-multiple-artists.md": "222d2674bd26d5942095e15b207840aaf26703f3b1d8791781b9bf5de52ee5ef",
+    "cookbook/split-artist-title.md": "910add1a8b2deb6738a4b51a7efeb0d8798aead650666d9a4f83714cdb9df0b2"
+  },
+  "source_sha256": {
+    "crates/tag-core/src/actions.rs": "70c80252ff553159f5c7a5563c0cc14ef0ca23f804da8071fd2dac94c97828ac",
+    "crates/tag-core/src/script.rs": "b070a9db9820b53c22f50d43a6986b465e5fce56e86dd7aa835d333c5b385ec0",
+    "crates/regex-compat/src/lib.rs": "5567488ef33024c40784d4f18ab3525e1dc14f9dd35d9e4de66e0e7ec608671d",
+    "src/action-ui.ts": "0ab3fd434ac7729218cd8b45293014e3c232b7c1890f2bfdf1d91df5d08e4868",
+    "src/tag-tag-ui.ts": "7eb795433e9aa034b213845fc40d0e63ccb4bf2bc17ecf9c981914deff06941b",
+    "src-tauri/src/action_host.rs": "6da0c08ead3c66a3b4f266629573c2d0316de56a2671e870121f1518bc037486",
+    "src-tauri/src/history.rs": "515b8dba35538f964c7502d1fc01c667a9790ce1748d3ab58e99670bc19914a1"
+  },
+  "example_contracts": {
+    "spacing": "3written ordered RegexReplace rows on5cases together asTITLEvaluelist, preservingallvalues andaninternalnewline;2actualinline previewexpressions",
+    "remaster": "2written ordered RegexReplace rows on7cases;3actualbroaderpattern cautions includinginternalnewline",
+    "artist_lists": "5written ordered RegexReplace/SplitField/RemoveDuplicate rows on5cases includingexistingmultiplevalues",
+    "credits": "3written ordered GuessValues/FormatValue rows on5cases includingnoMatchandambiguousseparator",
+    "newline_forms": "Allactualtablesandgroupsrun under normalizedLF andCRLF;codeinnerwhitespace preserved",
+    "new_core_tests": 6
+  },
+  "validation": {
+    "focused_core": "6passed0failed",
+    "full_core": {
+      "passed": 523,
+      "failed": 0,
+      "ignored": 0
+    },
+    "node_ui": "347passed0failed",
+    "publication": "8passed",
+    "strict": "Final108localready/79drafts strictbuildpassed",
+    "fmt": "passed",
+    "focused_clippy": "passed",
+    "browser": {
+      "scope": "Generated local108-page guide at dbcd9ce plus local eleven; no public/native claim",
+      "success": true,
+      "checks": [
+        "Known-suffix cleanup recipe renders in light palette",
+        "Actual rendered link navigates remaster recipe to spacing recipe",
+        "cookbook/trim-spaces/ fits390px document with local table scrolling",
+        "cookbook/remove-text-in-brackets/ fits390px document with local table scrolling",
+        "cookbook/split-multiple-artists/ fits390px document with local table scrolling",
+        "cookbook/split-artist-title/ fits390px document with local table scrolling",
+        "Actual local search worker finds semicolon recipe and result opens correct H1"
+      ],
+      "errors": [],
+      "temporary_profile_removed": true,
+      "receipt": "/tmp/opentag-guide-cleanup-browser/results.json",
+      "visual_inspection": "Desktop remaster recipe and390px artist-list table manually viewed, readable hierarchy/table wrapping andno document overflow"
+    },
+    "independent_review": "pending"
+  },
+  "authoring_correction": "Whole-valueanchor clarification added newlinecases; tableguard caught a malformed optional-example row during editing. Row corrected and allsixfocusedtests nowpass. No application/source fix.",
+  "local_ready": 108,
+  "local_remaining_drafts": 79,
+  "public_ready": 97,
+  "public_remaining_drafts": 90,
+  "remaining_families": [
+    "gettingstarted/platforms, remainingconcepts/lessons",
+    "playlists/chapters/fileoperations/utilities/library/configuration",
+    "28remainingcookbook topics",
+    "Help/troubleshooting and fullplaceholdersemantic audit",
+    "pending language/provider/freedb/webfeature reconciliation afteractual merges"
+  ],
+  "limits": [
+    "No installednativeUI or crossplatformsaveback/playercompatibility claim.",
+    "Current source remains dbcd; unmerged feature behavior not assumed.",
+    "Finite independent review and queue release required before later PR; original P2 untouched."
+  ]
+}
