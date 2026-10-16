@@ -191,8 +191,8 @@ async fn execute_action_groups(
             [group] => format!("Action {}", group.name),
             ref enabled => format!("Actions ({} groups)", enabled.len()),
         };
-        history::record_with_side_files(&label, None, &paths, |before_replace| {
-            Ok(action_host::execute_with_side_files(
+        history::record_with_side_file_epochs(&label, None, &paths, |before_replace| {
+            Ok(action_host::execute_with_side_file_epochs(
                 &paths,
                 &groups,
                 settings,
@@ -951,8 +951,8 @@ async fn apply_action(
     };
     io(move || {
         reject_provider_operation(&paths, "Actions")?;
-        history::record_with_side_files("Quick action", None, &paths, |before_replace| {
-            Ok(action_host::execute_with_side_files(
+        history::record_with_side_file_epochs("Quick action", None, &paths, |before_replace| {
+            Ok(action_host::execute_with_side_file_epochs(
                 &paths,
                 &[group],
                 settings,

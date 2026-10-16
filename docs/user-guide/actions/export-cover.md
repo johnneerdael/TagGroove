@@ -78,6 +78,13 @@ replaced image or remove a new image created by the action. Redo recreates
 those images. Empty output folders can remain. Keep backups of images to
 retain beyond this session and inspect the available undo operation.
 
+When recording undo, OpenTag checks the retained snapshot budget before
+copying an existing output. On macOS and Linux it also checks the journal's
+free-space reserve; that reserve check is unavailable on Windows. If the
+capture cannot fit, the export warns and leaves that destination unchanged.
+A later failure to retain the completed operation produces an undo notice;
+check which operation is actually available before relying on Undo.
+
 When two selected files export different images to one name in a run, the
 later file gets a warning and the first image stays. A file can replace its
 own earlier output after another action changes its cover, including
@@ -90,7 +97,11 @@ the original link and Redo restores the exported image. If link undo cannot
 be prepared, the action warns before replacing it. Dangling output links
 are refused. A later folder move carries output ownership and undo capture
 with the image; repeated exports retain the snapshot from before the first
-replacement.
+replacement. An export back into the old folder after a rename is tracked
+separately. Undo removes those later images and only their tracked empty
+parent folders before moving the album back. Extra files in that recreated
+folder are kept; if they block the move, Undo reports the obstruction and
+attempts to restore the side-file changes it had already made.
 
 Output aliases that would replace an input audio file are refused. A
 warning does not stop the file's remaining actions or later groups. Inspect

@@ -114,6 +114,17 @@ pub fn record_with_side_files<T: Changes>(
     paths: &[String],
     work: impl FnOnce(&mut dyn FnMut(&Path) -> Result<(), String>) -> Result<T, String>,
 ) -> Result<T, String> {
+    record_with_side_file_epochs(label, group, paths, |capture| {
+        work(&mut |path| capture(path, 0))
+    })
+}
+
+pub fn record_with_side_file_epochs<T: Changes>(
+    label: &str,
+    group: Option<&str>,
+    paths: &[String],
+    work: impl FnOnce(&mut dyn FnMut(&Path, usize) -> Result<(), String>) -> Result<T, String>,
+) -> Result<T, String> {
     let result = journal_work(label, group, paths, work);
     // The library reads written, renamed and moved files again.
     let (renamed, directories) = result
@@ -128,7 +139,7 @@ fn journal_work<T: Changes>(
     label: &str,
     group: Option<&str>,
     paths: &[String],
-    work: impl FnOnce(&mut dyn FnMut(&Path) -> Result<(), String>) -> Result<T, String>,
+    work: impl FnOnce(&mut dyn FnMut(&Path, usize) -> Result<(), String>) -> Result<T, String>,
 ) -> Result<T, String> {
     // Chapter and cue sheet rows are snapshots of their file.
     let mut local: Vec<String> = Vec::new();
@@ -139,12 +150,12 @@ fn journal_work<T: Changes>(
         }
     }
     if local.is_empty() {
-        return work(&mut |_| Ok(()));
+        return work(&mut |_, _| Ok(()));
     }
     let mut capture = with_journal(|journal| journal.begin(label, group, &local));
-    let result = work(&mut |path| match capture.as_mut() {
+    let result = work(&mut |path, epoch| match capture.as_mut() {
         Ok(capture) if journaled(&path.to_string_lossy()) => {
-            with_journal(|journal| journal.capture_side_file(capture, path))?
+            with_journal(|journal| journal.capture_side_file_after_moves(capture, path, epoch))?
         }
         _ => Ok(()),
     });
@@ -608,6 +619,155 @@ mod tests {
                 "{:?}",
                 cleanup.result.errors
             );
+            TEST_ROOTS.lock().unwrap().retain(|r| r != &root);
+        }
+    }
+
+    #[test]
+    fn cover_export_refuses_an_existing_output_before_exceeding_undo_budget() {
+        let _journal = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
+        TEST_ROOTS.lock().unwrap().push(root.clone());
+        let audio = root.join("a.wav");
+        wav(&audio, "Original");
+        let input = root.join("input.png");
+        let mut image = std::io::Cursor::new(Vec::new());
+        image::DynamicImage::ImageRgb8(image::RgbImage::new(2, 2))
+            .write_to(&mut image, image::ImageFormat::Png)
+            .unwrap();
+        std::fs::write(&input, image.into_inner()).unwrap();
+        tag_core::add_cover(&audio, &input).unwrap();
+        let before = std::fs::read(&audio).unwrap();
+        let output = root.join("cover.png");
+        std::fs::write(&output, [7; 64]).unwrap();
+        struct RestoreJournal(Option<Journal>);
+        impl Drop for RestoreJournal {
+            fn drop(&mut self) {
+                *JOURNAL.lock().unwrap_or_else(|e| e.into_inner()) = self.0.take();
+            }
+        }
+        let test_journal = Journal::open(
+            &root.join("undo"),
+            Limits {
+                bytes: before.len() as u64 + 32,
+                min_free: 0,
+                ..Limits::default()
+            },
+        )
+        .unwrap();
+        let _restore = RestoreJournal(JOURNAL.lock().unwrap().replace(test_journal));
+        let result = run(crate::execute_action_groups(
+            vec![audio.to_string_lossy().into_owned()],
+            vec![tag_core::actions::ActionGroup {
+                name: "Limited cover".into(),
+                enabled: true,
+                actions: vec![tag_core::actions::ActionSpec::ExportCover {
+                    filename_template: "cover".into(),
+                    picture_type: None,
+                    export_duplicates: false,
+                }],
+            }],
+            None,
+        ));
+        assert_eq!(result.errors.len(), 1, "{:?}", result.errors);
+        assert!(
+            result.errors[0].error.contains("undo byte limit"),
+            "{:?}",
+            result.errors
+        );
+        assert_eq!(std::fs::read(&output).unwrap(), [7; 64]);
+        assert_eq!(std::fs::read(&audio).unwrap(), before);
+        assert!(history_state().unwrap().undo.is_none());
+        TEST_ROOTS.lock().unwrap().retain(|r| r != &root);
+    }
+
+    #[test]
+    fn cover_undo_tracks_outputs_created_at_a_reused_folder_path() {
+        let _journal = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        for obstruct in [false, true] {
+            let dir = tempfile::tempdir().unwrap();
+            let root = dunce::canonicalize(dir.path()).unwrap();
+            TEST_ROOTS.lock().unwrap().push(root.clone());
+            let album = root.join("Album");
+            let moved = root.join("Moved");
+            std::fs::create_dir(&album).unwrap();
+            let audio = album.join("a.wav");
+            wav(&audio, "Original");
+            let input = root.join("input.png");
+            let mut image = std::io::Cursor::new(Vec::new());
+            image::DynamicImage::ImageRgb8(image::RgbImage::new(2, 2))
+                .write_to(&mut image, image::ImageFormat::Png)
+                .unwrap();
+            let image = image.into_inner();
+            std::fs::write(&input, &image).unwrap();
+            tag_core::add_cover(&audio, &input).unwrap();
+            let before = std::fs::read(&audio).unwrap();
+            std::fs::write(album.join("shared.png"), b"Original output").unwrap();
+            let export = |name| tag_core::actions::ActionSpec::ExportCover {
+                filename_template: name,
+                picture_type: None,
+                export_duplicates: false,
+            };
+            let result = run(crate::execute_action_groups(
+                vec![audio.to_string_lossy().into_owned()],
+                vec![tag_core::actions::ActionGroup {
+                    name: "Reuse old folder".into(),
+                    enabled: true,
+                    actions: vec![
+                        export("shared".into()),
+                        tag_core::actions::ActionSpec::FormatValue {
+                            field: "_DIRECTORY".into(),
+                            template: "Moved".into(),
+                        },
+                        export(album.join("nested/new").to_string_lossy().into_owned()),
+                    ],
+                }],
+                None,
+            ));
+            assert!(result.errors.is_empty(), "{:?}", result.errors);
+            assert_eq!(std::fs::read(moved.join("shared.png")).unwrap(), image);
+            assert_eq!(std::fs::read(album.join("nested/new.png")).unwrap(), image);
+            if obstruct {
+                std::fs::write(album.join("external.txt"), b"External data").unwrap();
+            }
+            let undone = run(undo_last());
+            if obstruct {
+                assert!(!undone.result.errors.is_empty());
+                assert_eq!(
+                    std::fs::read(album.join("external.txt")).unwrap(),
+                    b"External data"
+                );
+                assert_eq!(
+                    std::fs::read(album.join("nested/new.png")).unwrap(),
+                    image,
+                    "rolled back side-file removal"
+                );
+                assert_eq!(std::fs::read(moved.join("shared.png")).unwrap(), image);
+                assert_eq!(std::fs::read(moved.join("a.wav")).unwrap(), before);
+            } else {
+                assert!(
+                    undone.result.errors.is_empty(),
+                    "{:?}",
+                    undone.result.errors
+                );
+                assert_eq!(
+                    std::fs::read(album.join("shared.png")).unwrap(),
+                    b"Original output"
+                );
+                assert_eq!(std::fs::read(&audio).unwrap(), before);
+                assert!(!album.join("nested/new.png").exists() && !moved.exists());
+                let redone = run(redo_last());
+                assert!(
+                    redone.result.errors.is_empty(),
+                    "{:?}",
+                    redone.result.errors
+                );
+                assert_eq!(std::fs::read(moved.join("shared.png")).unwrap(), image);
+                assert_eq!(std::fs::read(album.join("nested/new.png")).unwrap(), image);
+                assert_eq!(std::fs::read(moved.join("a.wav")).unwrap(), before);
+                assert!(run(undo_last()).result.errors.is_empty());
+            }
             TEST_ROOTS.lock().unwrap().retain(|r| r != &root);
         }
     }

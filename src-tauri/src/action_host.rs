@@ -363,7 +363,7 @@ struct NativeHost<'a> {
     captured_covers: HashSet<String>,
     /// Called before the first actual write to an image output, so undo can
     /// restore its previous entry or remove a new image.
-    before_replace: &'a mut dyn FnMut(&Path) -> Result<(), String>,
+    before_replace: &'a mut dyn FnMut(&Path, usize) -> Result<(), String>,
     identities: Vec<String>,
     initial_fields: Vec<Fields>,
     inputs: Vec<PathBuf>,
@@ -405,7 +405,7 @@ impl NativeHost<'_> {
     }
     fn capture_cover_output(&mut self, destination: &str, target: &Path) -> Result<(), String> {
         if !self.captured_covers.contains(destination) {
-            (self.before_replace)(target)?;
+            (self.before_replace)(target, self.directories.len())?;
             self.captured_covers.insert(destination.to_owned());
         }
         Ok(())
@@ -735,7 +735,10 @@ impl ActionHost for NativeHost<'_> {
                         None => {
                             // Identical bytes need neither a write nor undo
                             // capability. Ownership still belongs to this input.
-                            if !fs::read(&target).is_ok_and(|existing| existing == bytes) {
+                            let identical = fs::metadata(&target)
+                                .is_ok_and(|meta| meta.len() == bytes.len() as u64)
+                                && fs::read(&target).is_ok_and(|existing| existing == bytes);
+                            if !identical {
                                 self.capture_cover_output(&destination, &target)?;
                                 atomic_output(&target, &bytes, false)?;
                             }
@@ -1150,6 +1153,15 @@ pub fn execute_with_side_files(
     groups: &[ActionGroup],
     settings: EvaluationSettings,
     before_replace: &mut dyn FnMut(&Path) -> Result<(), String>,
+) -> ActionResult {
+    execute_with_side_file_epochs(paths, groups, settings, &mut |path, _| before_replace(path))
+}
+
+pub fn execute_with_side_file_epochs(
+    paths: &[String],
+    groups: &[ActionGroup],
+    settings: EvaluationSettings,
+    before_replace: &mut dyn FnMut(&Path, usize) -> Result<(), String>,
 ) -> ActionResult {
     let mut result = ScanResult::default();
     let mut states = Vec::new();

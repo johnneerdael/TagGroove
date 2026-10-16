@@ -1032,3 +1032,59 @@ fn journaling_is_refused_when_free_space_would_run_low() {
         ["Applied anyway"]
     );
 }
+
+#[test]
+fn side_file_epochs_keep_recreated_old_folders_distinct() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dunce::canonicalize(dir.path()).unwrap();
+    let album = root.join("Album");
+    let moved = root.join("Moved");
+    let final_folder = root.join("Final");
+    fs::create_dir(&album).unwrap();
+    fs::write(album.join("old.dat"), b"Before").unwrap();
+    let mut history = journal(&root);
+    let mut capture = history.begin("Epoch outputs", None, &[]);
+    history
+        .capture_side_file(&mut capture, &album.join("old.dat"))
+        .unwrap();
+    fs::write(album.join("old.dat"), b"After").unwrap();
+    fs::rename(&album, &moved).unwrap();
+    let z = album.join("nested/z.dat");
+    history
+        .capture_side_file_after_moves(&mut capture, &z, 1)
+        .unwrap();
+    fs::create_dir_all(z.parent().unwrap()).unwrap();
+    fs::write(&z, b"Late Z").unwrap();
+    // Same-epoch captures must replay in capture order, not path-sort order.
+    let a = album.join("nested/a.dat");
+    history
+        .capture_side_file_after_moves(&mut capture, &a, 1)
+        .unwrap();
+    fs::write(&a, b"Late A").unwrap();
+    fs::rename(&moved, &final_folder).unwrap();
+    let later = album.join("nested/later.dat");
+    history
+        .capture_side_file_after_moves(&mut capture, &later, 2)
+        .unwrap();
+    fs::write(&later, b"Later").unwrap();
+    history.commit(
+        capture,
+        &[],
+        &[
+            (key(&album), key(&moved)),
+            (key(&moved), key(&final_folder)),
+        ],
+    );
+    for _ in 0..2 {
+        let undo = history.undo().unwrap();
+        assert!(undo.errors.is_empty(), "{:?}", undo.errors);
+        assert_eq!(fs::read(album.join("old.dat")).unwrap(), b"Before");
+        assert!(!album.join("nested").exists() && !moved.exists() && !final_folder.exists());
+        let redo = history.redo().unwrap();
+        assert!(redo.errors.is_empty(), "{:?}", redo.errors);
+        assert_eq!(fs::read(final_folder.join("old.dat")).unwrap(), b"After");
+        assert_eq!(fs::read(&z).unwrap(), b"Late Z");
+        assert_eq!(fs::read(&a).unwrap(), b"Late A");
+        assert_eq!(fs::read(&later).unwrap(), b"Later");
+    }
+}
