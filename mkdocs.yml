@@ -79,7 +79,9 @@ hooks:
   - docs/hooks/publication.py
 
 plugins:
-  - search
+  - search:
+      # Retain Material's punctuation/CamelCase/version boundaries; add $ and %.
+      separator: '[\s\-$%,:!=\[\]()"/]+|(?!\b)(?=[A-Z][a-z])|\.(?!\d)|&[lg]t;'
 
 markdown_extensions:
   - abbr
@@ -132,14 +134,119 @@ validation:
     unrecognized_links: warn
 
 nav:
-  - Home: index.md
-  - Get started:
+- Home: index.md
+- Learn:
+  - Tutorials:
     - Your first tagging session: learn/first-tagging-session.md
-  - Recipes:
-    - Zero-padded track numbers: cookbook/rename-zero-padded-track-numbers.md
-    - Tags from folder and file names: cookbook/tags-from-folder-and-filename.md
-    - Move guest artists to titles: cookbook/feat-artists-to-title.md
-  - Reference:
-    - Format strings: reference/format-strings.md
-    - Placeholders: reference/placeholders.md
-    - Regular expressions: reference/regular-expressions.md
+    - Format strings from zero: learn/format-strings-from-zero.md
+    - Rename files and folders: learn/rename-files-and-folders.md
+    - Regular expressions from zero: learn/regex-from-zero.md
+    - Build your first action group: learn/first-action-group.md
+    - Export a CD catalogue: learn/export-a-cd-catalogue.md
+  - Concepts:
+    - Multi-value fields: concepts/multi-value-fields.md
+    - Text encodings and codepages: concepts/text-encodings.md
+- Guides:
+  - Everyday editing:
+    - The file list: guides/file-list.md
+    - Extended tags: guides/extended-tags.md
+    - Working with covers: guides/covers.md
+    - Filtering the file list: guides/filter.md
+- Automate:
+  - Converters:
+    - converters/index.md
+    - Tag → Filename: converters/tag-to-filename.md
+    - Filename → Tag: converters/filename-to-tag.md
+    - Filename → Filename: converters/filename-to-filename.md
+    - Text File → Tag: converters/text-file-to-tag.md
+    - Tag → Tag: converters/tag-to-tag.md
+    - Auto-numbering: converters/auto-numbering.md
+  - Actions:
+    - actions/index.md
+    - Action types:
+      - Adjust cover: actions/adjust-cover.md
+      - Case conversion: actions/case-conversion.md
+      - Convert codepage: actions/convert-codepage.md
+      - Export: actions/export.md
+      - Export cover to file: actions/export-cover.md
+      - Format value: actions/format-value.md
+      - Generate playlists: actions/generate-playlists.md
+      - Guess values: actions/guess-values.md
+      - Import cover from file: actions/import-cover.md
+      - Import text file: actions/import-text-file.md
+      - Merge duplicate fields: actions/merge-duplicate-fields.md
+      - Remove duplicate fields: actions/remove-duplicate-fields.md
+      - Remove fields: actions/remove-fields.md
+      - Remove fields except: actions/remove-fields-except.md
+      - Replace: actions/replace.md
+      - Replace with regular expression: actions/replace-regexp.md
+      - Set cover properties: actions/set-cover-properties.md
+      - Split field by separator: actions/split-field.md
+  - Export and playlists:
+    - export/index.md
+    - Export template language: export/template-language.md
+    - Template gallery: export/template-gallery.md
+    - Export CSV: export/csv.md
+  - Web sources:
+    - Install and use sources: tag-sources/web-sources.md
+    - Write a web source: tag-sources/writing-web-sources.md
+    - Parser reference: tag-sources/web-source-reference.md
+- Reference:
+  - reference/index.md
+  - Format strings: reference/format-strings.md
+  - Placeholders: reference/placeholders.md
+  - Scripting functions:
+    - reference/scripting/index.md
+    - Text and case: reference/scripting/text.md
+    - Search and compare: reference/scripting/search-compare.md
+    - Conditions and logic: reference/scripting/conditions.md
+    - Numbers and maths: reference/scripting/numbers.md
+    - Dates and durations: reference/scripting/dates-durations.md
+    - Lists, metadata and environment: reference/scripting/lists-metadata.md
+  - Regular expressions: reference/regular-expressions.md
+  - Filter syntax: reference/filter-syntax.md
+  - Field names: reference/field-names.md
+  - Tag mapping table: reference/tag-mapping.md
+  - Supported file formats: reference/file-formats.md
+  - Command line: reference/command-line.md
+  - Keyboard shortcuts: reference/keyboard-shortcuts.md
+  - Menus:
+    - reference/menus/index.md
+    - File: reference/menus/file.md
+    - Edit: reference/menus/edit.md
+    - View: reference/menus/view.md
+    - Convert: reference/menus/convert.md
+    - Actions: reference/menus/actions.md
+    - Tag Sources: reference/menus/tag-sources.md
+    - Help: reference/menus/help.md
+    - Context and helper menus: reference/menus/context-menus.md
+  - Options:
+    - reference/options/index.md
+    - General: reference/options/general.md
+    - Messages: reference/options/messages.md
+    - Files: reference/options/files.md
+    - Directories: reference/options/directories.md
+    - Appearance: reference/options/appearance.md
+    - Library: reference/options/library.md
+    - Tags: reference/options/tags.md
+    - Tags → Mpeg: reference/options/tags-mpeg.md
+    - Tags → Ape, Mpc: reference/options/tags-ape-mpc.md
+    - Tags → Mapping: reference/options/tags-mapping.md
+    - Tags → Advanced: reference/options/tags-advanced.md
+    - Tag panel: reference/options/tag-panel.md
+    - Field values: reference/options/field-values.md
+    - Networking: reference/options/networking.md
+    - Updates: reference/options/updates.md
+    - Tag sources: reference/options/tag-sources.md
+    - Tag sources → freedb: reference/options/tag-sources-freedb.md
+    - Tag sources → Local freedb: reference/options/tag-sources-local-freedb.md
+    - Export: reference/options/export.md
+    - Playlist: reference/options/playlist.md
+    - Tools: reference/options/tools.md
+- Cookbook:
+  - Rename files and folders:
+    - Zero-padded track numbers in filenames: cookbook/rename-zero-padded-track-numbers.md
+  - Fix and tidy tags:
+    - Move “feat.” artists out of the artist field: cookbook/feat-artists-to-title.md
+  - Import tags:
+    - Tag files from folder and file names: cookbook/tags-from-folder-and-filename.md

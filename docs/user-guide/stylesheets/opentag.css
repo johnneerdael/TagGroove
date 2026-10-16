@@ -81,6 +81,13 @@
 /* Example tables: keep spaces in values visible and let long patterns wrap */
 .md-typeset table:not([class]) td code { white-space: pre-wrap; word-break: break-word; }
 
+/* Native identifiers must stay intact while wide mapping comparisons scroll. */
+.native-mapping-table { max-width: 100%; overflow-x: auto; margin: 1em 0; }
+.native-mapping-table:focus-visible { outline: 2px solid var(--md-accent-fg-color); outline-offset: 2px; }
+.native-mapping-table .md-typeset__scrollwrap { margin: 0; overflow: visible; }
+.native-mapping-table .md-typeset__table { margin: 0; padding: 0; }
+.md-typeset .native-mapping-table table:not([class]) td code { white-space: pre; word-break: normal; }
+
 /* Screenshots: framed, rounded, never upscaled past their width */
 .md-typeset img.screen, .md-typeset figure img { border-radius: 8px; border: 1px solid var(--ot-border); box-shadow: 0 8px 28px rgba(16, 25, 34, 0.16); }
 .md-typeset figure { margin: 1.4em auto; }

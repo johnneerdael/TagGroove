@@ -166,7 +166,7 @@ implement is documented as such, or left out with a note in the PR.
 | `keyboard` | Keyboard Shortcuts | [`reference/keyboard-shortcuts.md`](../reference/keyboard-shortcuts.md) | General; Convert; Actions; Tag Sources; Toolbar Customization; Useful helpers |
 | `license` | License Information | [`help/about.md`](../help/about.md) | — |
 | `manage-covers` | Manage Covers | [`guides/covers.md`](../guides/covers.md), [`concepts/cover-art.md`](../concepts/cover-art.md) | Apply to all; Adjust cover; Set cover type; Set cover description… |
-| `manage-list` | Manage List | [`guides/file-list.md`](../guides/file-list.md), [`getting-started/opening-files.md`](../getting-started/opening-files.md) | — |
+| `manage-list` | Manage List | [`reference/menus/context-menus.md`](../reference/menus/context-menus.md) | History entries, names, descriptions, favorites, add/duplicate/edit/remove/reorder |
 | `mapping` | Tag Field Mappings | [`reference/tag-mapping.md`](../reference/tag-mapping.md), [`reference/options/tags-mapping.md`](../reference/options/tags-mapping.md), [`concepts/tag-formats.md`](../concepts/tag-formats.md) | ACOUSTID_ID; ACOUSTID_FINGERPRINT; ALBUM; ALBUMSORT; ALBUMARTIST; ALBUMARTISTSORT; ARTIST; ARTISTSORT; BARCODE; BPM; CATALOGNUMBER; COMMENT; COMPILATION; COMPOSER |
 | `mapping-table` | Tag Field Mappings Table | [`reference/tag-mapping.md`](../reference/tag-mapping.md), [`reference/field-names.md`](../reference/field-names.md) | — |
 | `menus` | Menu Commands | [`reference/menus/index.md`](../reference/menus/index.md) | — |

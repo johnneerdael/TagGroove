@@ -134,7 +134,7 @@ All on this Mac without launching the app.
 - All 14 focused `formats_gaps` regressions passed locally. These remain
   constructed-fixture checks rather than a differential test of another tagger.
 - Final local checks: 312 UI tests and 711 Rust workspace tests passed, with
-  four live-network tests ignored; workspace Clippy, formatting, strict guide
+  four opt-in cases ignored (two live lookups, a real-trash probe and a filter-cache benchmark); workspace Clippy, formatting, strict guide
   build and diff checks passed. The final Rust run used a task-specific
   `TMPDIR` and retained the normal test concurrency and assertions.
 - Intermediate full runs failed undo tests, including explicit insufficient

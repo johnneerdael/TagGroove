@@ -1,0 +1,187 @@
+{
+  "snapshot": {
+    "url": "https://docs.mp3tag.de/export/",
+    "sha256": "fef09fa8c25ed97cf918c718415630fa011bc8848dacf87ee8179a92fbb64b52"
+  },
+  "implementation_baseline": "23ecba0528db2e779649f2184151acfc2b243bae",
+  "canonical_topic_map": [
+    {
+      "fact": "Export selected tag/file information using a reusable configuration",
+      "guide_page": "export/index.md",
+      "section": "Export"
+    },
+    {
+      "fact": "Select the active configuration in the export list",
+      "guide_page": "export/index.md",
+      "section": "Make the first report"
+    },
+    {
+      "fact": "Relative or absolute output filenames with placeholders",
+      "guide_page": "export/index.md",
+      "section": "Choose a name and encoding"
+    },
+    {
+      "fact": "Template default versus remembered/explicit output name",
+      "guide_page": "export/index.md",
+      "section": "Choose a name and encoding"
+    },
+    {
+      "fact": "Optional completion message opens a result using its associated program",
+      "guide_page": "export/index.md",
+      "section": "Open results and troubleshoot"
+    },
+    {
+      "fact": "Append existing output data instead of replacement",
+      "guide_page": "export/index.md",
+      "section": "Append or replace"
+    },
+    {
+      "fact": "Partition selected files by evaluated format-string text",
+      "guide_page": "export/index.md",
+      "section": "Create one output file per group"
+    },
+    {
+      "fact": "Evaluate output names separately for every group and avoid collisions",
+      "guide_page": "export/index.md",
+      "section": "Create one output file per group"
+    },
+    {
+      "fact": "Partition by artist/album or folder; use placeholders and functions deliberately",
+      "guide_page": "export/index.md",
+      "section": "Create one output file per group"
+    },
+    {
+      "fact": "Show selection dialog versus immediately running saved configuration",
+      "guide_page": "export/index.md",
+      "section": "Export"
+    },
+    {
+      "fact": "Prevent parent-directory creation through Options",
+      "guide_page": "export/index.md",
+      "section": "Choose a name and encoding"
+    },
+    {
+      "fact": "UTF-8/UTF-16 output BOM option",
+      "guide_page": "export/index.md",
+      "section": "Choose a name and encoding"
+    },
+    {
+      "fact": "Add, duplicate and remove configurations",
+      "guide_page": "export/index.md",
+      "section": "Manage configurations"
+    },
+    {
+      "fact": "Rename using keyboard or a delayed separate click",
+      "guide_page": "export/index.md",
+      "section": "Manage configurations"
+    },
+    {
+      "fact": "Edit using double-click/F4; current UI uses an inline multiline editor rather than a separate Edit action",
+      "guide_page": "export/index.md",
+      "section": "Manage configurations"
+    },
+    {
+      "fact": "Configurations are text files usable in an external editor",
+      "guide_page": "export/index.md",
+      "section": "Manage configurations"
+    },
+    {
+      "fact": "Literal text, placeholders and regular scripting functions in templates",
+      "guide_page": "export/template-language.md",
+      "section": "Export template language"
+    },
+    {
+      "fact": "$filename optional name/extension and encoding at the beginning",
+      "guide_page": "export/template-language.md",
+      "section": "$filename: name, extension and encoding"
+    },
+    {
+      "fact": "$loop sort key, optional per-key limit and unique entries",
+      "guide_page": "export/template-language.md",
+      "section": "$loop: sort before rendering"
+    },
+    {
+      "fact": "$loopend pairs with loop and takes no arguments",
+      "guide_page": "export/template-language.md",
+      "section": "Command reference"
+    },
+    {
+      "fact": "$get returns a stored variable",
+      "guide_page": "export/template-language.md",
+      "section": "Variables: carry a result between steps"
+    },
+    {
+      "fact": "$put stores and returns a value",
+      "guide_page": "export/template-language.md",
+      "section": "Variables: carry a result between steps"
+    },
+    {
+      "fact": "$puts stores silently",
+      "guide_page": "export/template-language.md",
+      "section": "Variables: carry a result between steps"
+    },
+    {
+      "fact": "Progressive nested album/track grouping with complete worked input/output",
+      "guide_page": "learn/export-a-cd-catalogue.md",
+      "section": "Group albums and sort their tracks"
+    },
+    {
+      "fact": "Separate output partitions and template loop groups",
+      "guide_page": "learn/export-a-cd-catalogue.md",
+      "section": "Write a separate file for each practice album"
+    },
+    {
+      "fact": "CSV quote doubling, record line endings, delimiter and text-type import",
+      "guide_page": "export/csv.md",
+      "section": "Build a smaller three-column table"
+    },
+    {
+      "fact": "HTML text escaping with a worked punctuation example",
+      "guide_page": "export/template-gallery.md",
+      "section": "A small HTML catalogue"
+    },
+    {
+      "fact": "Qualified further-reading pointer to the community export-template archive, with inspect/adapt/test guidance",
+      "guide_page": "export/template-gallery.md",
+      "section": "External starting points"
+    }
+  ],
+  "source_traces": [
+    "crates/tag-core/src/export.rs",
+    "crates/tag-core/tests/export.rs",
+    "src/export-ui.ts",
+    "src/main.ts",
+    "src-tauri/src/exports.rs",
+    "src-tauri/src/action_host.rs",
+    "src-tauri/src/lib.rs"
+  ],
+  "page_sha256": {
+    "export/index.md": "52721dde5dbf7d5322c2de05fe7a578f9f4e6befe291fb352fef5db1d6b8efb9",
+    "export/template-language.md": "85540e889ed72dd582433a73edcc2a8907087819c95c2977c7815705994fa48d",
+    "export/csv.md": "1f748f994e257f80c544d1afa5b97e41edeb50dbb01fd06ed03a0135f0b3915b",
+    "export/template-gallery.md": "b3b58bf343b3fcb1f2ed3a49f1bb92a8c4cc53f19b7c1cf9512501ad73744780",
+    "learn/export-a-cd-catalogue.md": "5721a987732a6fe93937cadb178450004c4d216cad1e921577397a960a9272a0"
+  },
+  "validation": {
+    "new_tests": "4 export_guide tests execute actual written templates/results under LF and CRLF",
+    "existing_tests": "26 export renderer tests passed",
+    "strict_build": "passed",
+    "publication_tests": "8 passed",
+    "independent_review": "Root finite read-only canonical/source review completed: TRACK escaping finding reproduced before docs fix; other reviewed canonical topics/six commands had no established defect. No native UI/runtime validation claim.",
+    "formatting": "full cargo fmt check passed",
+    "clippy": "focused export_guide passed",
+    "csv_regression": "Actual documented template with editable TRACK=03\"take failed before correction and passes now under LF and CRLF; four focused guide tests, strict build and focused clippy passed."
+  },
+  "limits": [
+    "Source/core examples only; no application launch, native runtime or public deployment",
+    "Per-directory routing is source-traced separately from renderer examples",
+    "Original Edit-button workflow is explained using current inline editor controls",
+    "Bundled JSON control-character completeness is not certified; receiving-program validation remains explicit",
+    "Existing application and P2 implementation findings remain untouched"
+  ],
+  "external_resource": {
+    "url": "https://community.mp3tag.de/t/export-configuration-archive/1495",
+    "verified_date": "2026-10-16",
+    "scope": "Resource pointer verified, no downloaded templates or compatibility certification"
+  }
+}
