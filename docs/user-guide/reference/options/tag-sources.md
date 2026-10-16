@@ -26,7 +26,7 @@ This setting does not search for local images and does not choose the starting f
 
 ## MusicBrainz cover size
 
-Choose **250 pixels**, **500 pixels (default)**, **1200 pixels**, or **Original size**. The choice is used for MusicBrainz artwork from the Cover Art Archive, including its cover-source workflows.
+Choose **250 pixels**, **500 pixels (default)**, **1200 pixels**, or **Original size**. The choice is used for MusicBrainz artwork from the Cover Art Archive, including its cover-source workflows, and for Cover Art Archive images listed by gnudb.
 
 Smaller images reduce transfer and storage requirements. Choose 1200 or Original when a high-resolution image is needed, accepting that the original can be much larger. This requests the source's image variant; it is not a local resizer for covers already embedded in files.
 

@@ -1,0 +1,4 @@
+200 Found 2 matches, list follows (until terminating `.')
+folk 2407ef04 Bob Dylan / New York 19.10.1994 (Cd2)
+folk 2c05bb04 Bob Dylan / New York 19998 (Cd2)
+.

@@ -15,15 +15,25 @@ Local lookup by disc ID reads that snapshot. The historical Mp3tag documentation
 
 ## Text index
 
-To search by artist/album words, choose **Build index**. The page reports whether an index exists, its disc count, and whether it belongs to the currently entered folder. Building has progress reporting; **Cancel** requests cancellation.
+To search by artist/album words, choose **Build index**. The page reports whether an index exists, its disc count, and whether it belongs to the currently entered folder. Building has progress reporting; **Cancel** requests cancellation. An unfinished build does not replace the previous completed index.
 
-An index for another folder is not a valid index for this folder. Rebuild after replacing the snapshot or changing the configured root. An empty root must be set before building can start. In environments without the index backend, the button is unavailable and the page states that text indexing is not available there.
+An index for another folder is not a valid index for this folder. Rebuild after replacing the snapshot or changing the configured root; changes to database files are not indexed automatically. An empty root must be set before building can start. In environments without the index backend, the button is unavailable and the page states that text indexing is not available there.
 
 Building an index performs work immediately using the entered folder. Saving Options chooses which folder later searches use; canceling the outer dialog does not undo a completed index build. No local index is needed for a direct disc-ID lookup.
 
+## Lookup methods
+
+| **SEARCH BY** | Input | Text index needed? |
+|---|---|---|
+| **Disc ID of the selected files** | ID derived from file-list order and durations | No |
+| **freedb disc ID** | Existing freedb disc ID entered in **DISC ID** | No |
+| **Artist and album words** | Words in indexed artist/album titles | Yes |
+
+For selected-file lookup, use one complete disc in track order with known durations and at most 99 files. A local disc ID is distinct from gnudb's listed **Entry ID**, a barcode or a MusicBrainz identifier. The database is not updated from gnudb and does not receive corrections when tags are saved.
+
 ## No matching album
 
-Confirm the selected files belong to one complete disc, their list order and durations are appropriate, and the snapshot actually contains the release. A title search needs an index; a missing disc cannot be recovered by rebuilding the same snapshot's index. A newer edition may require another source.
+Confirm the selected files belong to one complete disc, their list order and durations are appropriate, and the snapshot actually contains the release. A title search needs an index; a missing disc cannot be recovered by rebuilding the same snapshot's index. A newer edition may require another source. See [Search a local freedb snapshot](../../tag-sources/local-freedb.md) for the three lookup methods and import review.
 
 ## Related
 
@@ -31,4 +41,4 @@ Confirm the selected files belong to one complete disc, their list order and dur
 - [Tag Sources](tag-sources.md)
 - [Library cache](library.md)
 
-<!-- verified: baseline007a806 src/tag-sources.ts local-freedb options, bindIndex, disc-ID derivation; src-tauri/src/sources/freedb.rs local_search/local entry reader; src-tauri/src/sources local index implementation. Original local audio-lookup restriction explicitly distinguished. -->
+<!-- Source: PR19 integrated source src/tag-sources.ts local options, bindIndex and freedbModes; src-tauri/src/sources/freedb.rs local readers; freedb_index.rs staged build/status/search. Original local audio-lookup restriction explicitly distinguished. -->

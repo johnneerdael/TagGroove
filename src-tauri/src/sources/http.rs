@@ -441,6 +441,9 @@ pub async fn freedb_text(
             "The freedb server address is not valid. Check Options → Tag Sources → freedb.".into(),
         );
     }
+    if offline_test_run() && !loopback(url) {
+        return Err(OFFLINE.into());
+    }
     let response = send_with(
         &freedb_client()?,
         service,
@@ -464,6 +467,7 @@ pub async fn freedb_text(
                 "{} has no CDDB program at this path. Check Options → Tag Sources → freedb.",
                 service.name
             ),
+            429 => format!("{} answered 429 Too Many Requests. OpenTag does not retry on its own; wait a while and try again later.", service.name),
             _ => plain_status_message(service.name, status),
         });
     }
@@ -531,28 +535,30 @@ pub fn web_registered(url: &Url) -> bool {
 }
 
 /// Scripted native test runs must never reach the internet.
-fn offline_test_run() -> bool {
+pub(crate) fn offline_test_run() -> bool {
     cfg!(any(debug_assertions, feature = "e2e"))
         && std::env::var_os("OPENTAG_E2E_SCRIPT").is_some()
         && std::env::var_os("OPENTAG_E2E_OFFLINE").is_some()
+}
+const OFFLINE: &str = "Offline test runs only contact servers on this computer.";
+
+fn loopback(url: &Url) -> bool {
+    let host = url.host_str().unwrap_or_default();
+    let host = host.trim_start_matches('[').trim_end_matches(']');
+    host.eq_ignore_ascii_case("localhost")
+        || host
+            .parse::<std::net::IpAddr>()
+            .is_ok_and(|ip| ip.is_loopback())
 }
 
 /// Web sources may contact any HTTP or HTTPS host the user's script names,
 /// without credentials in the address.
 pub fn web_allowed(url: &Url) -> bool {
-    let local = || {
-        let host = url.host_str().unwrap_or_default();
-        let host = host.trim_start_matches('[').trim_end_matches(']');
-        host.eq_ignore_ascii_case("localhost")
-            || host
-                .parse::<std::net::IpAddr>()
-                .is_ok_and(|ip| ip.is_loopback())
-    };
     matches!(url.scheme(), "http" | "https")
         && url.host_str().is_some_and(|host| !host.is_empty())
         && url.username().is_empty()
         && url.password().is_none()
-        && (!offline_test_run() || local())
+        && (!offline_test_run() || loopback(url))
 }
 
 pub static WEB: Gate = Gate::new();
@@ -663,6 +669,10 @@ pub async fn web_page(
     })
 }
 
+fn image_target_allowed(url: &Url, offline: bool) -> bool {
+    !offline || loopback(&route(url, offline))
+}
+
 pub async fn image(url: &str, channel: Channel, ticket: u64) -> Result<Image, String> {
     let (url, client) = match Url::parse(url) {
         // Cover addresses found by a web source; its client follows redirects
@@ -670,6 +680,9 @@ pub async fn image(url: &str, channel: Channel, ticket: u64) -> Result<Image, St
         Ok(url) if !trusted(&url) && web_registered(&url) => (url, web_client()?),
         _ => (parse_trusted(url)?, client()?),
     };
+    if !image_target_allowed(&url, offline_test_run()) {
+        return Err(OFFLINE.into());
+    }
     let service = Service::new("The image server", &IMAGES, 0);
     let response = send_with(&client, &service, &url, "image/*", None, channel, ticket).await?;
     if !response.status().is_success() {
@@ -763,6 +776,17 @@ mod tests {
         );
         let user_server = Url::parse("http://freedb.example.org/~cddb/cddb.cgi").unwrap();
         assert_eq!(route(&user_server, true), user_server);
+    }
+
+    #[test]
+    fn offline_image_targets_use_local_fixtures_without_allowing_external_requests() {
+        let image = Url::parse("https://coverartarchive.org/release/fixture/front-500").unwrap();
+        assert!(image_target_allowed(&image, false));
+        assert!(image_target_allowed(&image, true));
+        let remote = Url::parse("https://user-image.example.org/cover.png").unwrap();
+        assert!(!image_target_allowed(&remote, true));
+        let local = Url::parse("http://127.0.0.1:18766/cover.png").unwrap();
+        assert!(image_target_allowed(&local, true));
     }
 
     #[test]
