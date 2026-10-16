@@ -34,7 +34,7 @@ export type LocalIndexHost = {
 };
 
 /** Tag Sources menu commands that open a source dialog. */
-export const SOURCE_OPERATIONS = ['source-musicbrainz','source-discogs','source-discogs-release','source-freedb','source-local-freedb','source-cover-musicbrainz','source-cover-discogs'] as const;
+export const SOURCE_OPERATIONS = ['source-musicbrainz','source-discogs','source-discogs-release','source-freedb','source-local-freedb','source-cover-freedb','source-cover-musicbrainz','source-cover-discogs'] as const;
 export type SourceOperation = typeof SOURCE_OPERATIONS[number];
 export type SourceRequest = {provider:Provider;coversOnly:boolean;releaseId:boolean};
 export function sourceRequest(op:string):SourceRequest|null {
@@ -51,6 +51,30 @@ export function sourceOperation(request:SourceRequest):SourceOperation {
 export function lastSourceOperation(saved:string|null, legacy:string|null):SourceOperation {
   if (saved && sourceRequest(saved)) return saved as SourceOperation;
   return legacy === 'discogs' ? 'source-discogs' : 'source-musicbrainz';
+}
+
+/**
+ * A valid-looking email address for the freedb handshake (mirror of
+ * `freedb::valid_email`): gnudb requires one in every request.
+ */
+export function validEmail(email:string) {
+  const at = email.indexOf('@');
+  if (at < 1 || at !== email.lastIndexOf('@')) return false;
+  const user = email.slice(0,at), labels = email.slice(at+1).split('.');
+  return user.length <= 64 && /^[A-Za-z0-9._%+-]+$/.test(user) && labels.length >= 2
+    && labels.every(label => label.length >= 1 && label.length <= 63 && /^[A-Za-z0-9-]+$/.test(label))
+    && /^[A-Za-z]{2,}$/.test(labels[labels.length-1]);
+}
+
+/**
+ * Search types of the freedb dialogs. A server (gnudb) is only asked with the
+ * files' track layout or by artist and album: it reads entries a query
+ * listed, never a typed disc ID. Local folders also take a disc ID and,
+ * with a text index, words.
+ */
+export function freedbModes(provider:Provider):[SearchMode,string][] {
+  if (provider === 'local_freedb') return [['toc','Disc ID of the selected files'],['disc_id','freedb disc ID'],['text','Artist and album words']];
+  return [['toc','Track layout of the selected files'],['artist_album','Artist and album']];
 }
 
 /** A named CDDB server of Options → Tag Sources → freedb. */
@@ -188,9 +212,10 @@ export function tagSourcesOptionsPages(pickFolder:()=>Promise<string|null>, inde
       controls:[
         {kind:'group',label:'freedb server',controls:[
           {kind:'custom',id:'freedb-servers',paths:[`pages.${freedbPage}.servers`,`pages.${freedbPage}.server`,...serverKeys.map(key => `pages.${freedbPage}.${key}`)],render:serversMarkup,bind:bindServers},
-          {kind:'text',path:'pages.tag-sources-freedb.email',label:'Email address',placeholder:'Only sent in the server handshake'},
+          {kind:'text',path:'pages.tag-sources-freedb.email',label:'Your email address (sent to the freedb server)',placeholder:'Not set: the OpenTag developer contact is sent'},
         ]},
-        {kind:'note',text:'gnudb only answers applications that its operator has registered. If gnudb refuses OpenTag, use another CDDB server or a local freedb folder.'},
+        {kind:'note',text:'Every request to gnudb must carry an email address; it is sent as “user domain” in the CDDB handshake together with the program name OpenTagAudioTagEditor and its version. Without an address of your own, OpenTag sends its developer contact (john@neerdael.nl). gnudb only answers applications that its operator has registered. If gnudb refuses OpenTag, use another CDDB server or a local freedb folder.'},
+        {kind:'note',text:'Discs are looked up with the track layout of the selected files or by artist and album; entries are read only after the server listed them, and cover art comes from the Cover Art Archive images gnudb lists. OpenTag never submits entries. When the server answers 429 Too Many Requests, wait a while before searching again.'},
         {kind:'group',label:'General',controls:[
           {kind:'checkbox',path:'pages.tag-sources-freedb.comment_disc_id',label:'Copy disc ID to COMMENT field'},
           {kind:'checkbox',path:'pages.tag-sources-freedb.disc_id_field',label:'Copy disc ID to DISCID field'},
@@ -201,6 +226,8 @@ export function tagSourcesOptionsPages(pickFolder:()=>Promise<string|null>, inde
         const address = String(page.address ?? '').trim(), port = String(page.port ?? '').trim();
         if (address && !/^[A-Za-z0-9.-]+$/.test(address)) return 'Enter the freedb server address as a host name, for example gnudb.gnudb.org.';
         if (port && !(/^\d+$/.test(port) && Number(port) >= 1 && Number(port) <= 65535)) return 'The freedb port must be a number from 1 to 65535.';
+        const email = String(page.email ?? '').trim();
+        if (email && !validEmail(email)) return 'Enter your email address as name@example.org, or leave it empty to send the OpenTag developer contact.';
         return undefined;
       }},
     {id:localFreedbPage,label:'Local freedb',parent:'tag-sources',order:2,
@@ -223,6 +250,12 @@ export function tagSourcesOptionsPages(pickFolder:()=>Promise<string|null>, inde
 
 export const isFreedb = (provider:Provider) => provider === 'freedb' || provider === 'local_freedb';
 export const providerName = (provider:Provider) => ({musicbrainz:'MusicBrainz',discogs:'Discogs',freedb:'freedb',local_freedb:'freedb (local)',web:'Web source'})[provider];
+/** Search types offered by the current source; typed disc IDs stay local. */
+export function searchModes(provider:Provider, releaseOnly = false):[SearchMode,string][] {
+  if (releaseOnly) return [['release_id','Release ID or address']];
+  if (isFreedb(provider)) return freedbModes(provider);
+  return [['artist_album','Artist and album'],['text','Free text'],['release_id',provider === 'musicbrainz' ? 'Release ID (MBID) or address' : 'Release ID or address'],['barcode','Barcode'],['catalog_number','Catalog number']];
+}
 const fieldOrder = ['TITLE','ARTIST','ALBUM','ALBUMARTIST','YEAR','TRACK','DISCNUMBER','GENRE','STYLE','COMPOSER','PUBLISHER','CATALOGNUMBER','BARCODE','ISRC'];
 /** OpenTag's multi-value separator, as in the tag panel. */
 const MULTI = ' \\\\ ';
@@ -467,7 +500,7 @@ export class TagSourcesUI {
     const web = provider === 'web' ? options.web : undefined;
     if (provider === 'web' && !web) throw new Error('This web source is no longer installed.');
     this.showing = true;
-    const coversOnly = !!options.coversOnly && !isFreedb(provider) && !web, freedb = isFreedb(provider), releaseOnly = !!options.releaseId && provider === 'discogs' && !coversOnly;
+    const coversOnly = !!options.coversOnly && provider !== 'local_freedb' && !web, freedb = isFreedb(provider), releaseOnly = !!options.releaseId && provider === 'discogs' && !coversOnly;
     storage.set('opentag.tagSources.lastSource',web ? `web:${web.id}` : sourceOperation({provider,coversOnly,releaseId:releaseOnly}));
     const files = this.host.files(), name = web ? options.title || web.name : coversOnly ? `${providerName(provider)} cover art` : releaseOnly ? 'Discogs Release ID' : providerName(provider), prefill = searchPrefill(files);
     const toc = discToc(files.map(f => f.length));
@@ -552,12 +585,14 @@ export class TagSourcesUI {
     });
 
     const freedbId = (r:SearchResult) => { const [category,disc] = r.id.split('/'); return {category:category || '',disc:disc || ''}; };
+    // gnudb lists entries by its own ID (gnucdid); local folders by freedb disc ID.
+    const idLabel = provider === 'freedb' ? 'Entry ID' : 'Disc ID', freedbStart:SearchMode = provider === 'local_freedb' ? 'disc_id' : 'artist_album';
     const rowAttributes = (i:number) => `tabindex="${i === Math.max(chosen,0) ? 0 : -1}" data-index="${i}" aria-selected="${i === chosen}" class="${i === chosen ? 'selected' : ''}"`;
     const resultMarkup = () => {
       if (!results.length) return '';
       if (web) return `<table class="ts-table ts-results" aria-label="Search results"><thead><tr>${webColumns.map(column => `<th>${html(column)}</th>`).join('')}</tr></thead><tbody>${results.map((_,i) => `<tr ${rowAttributes(i)}>${(webRows[i]?.values || []).map(value => `<td title="${html(value)}">${html(value)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
       const mb = provider === 'musicbrainz';
-      const head = freedb ? '<th>Artist</th><th>Title</th><th class="ts-num">Year</th><th class="ts-wide">Genre</th><th class="ts-wide">Category</th><th class="ts-wide">Disc ID</th><th class="ts-num ts-wide">Tracks</th>'
+      const head = freedb ? `<th>Artist</th><th>Title</th><th class="ts-num">Year</th><th class="ts-wide">Genre</th><th class="ts-wide">Category</th><th class="ts-wide">${idLabel}</th><th class="ts-num ts-wide">Tracks</th>`
         : `${mb ? '<th class="ts-num ts-wide">Score</th>' : ''}<th>Artist</th><th>Title</th><th class="ts-num">Year</th><th class="ts-wide">Country</th><th class="ts-wide">Label</th><th class="ts-wide">Cat. no.</th><th class="ts-wide">Format</th>${mb ? '<th class="ts-num ts-wide">Tracks</th>' : ''}`;
       const cells = (r:SearchResult) => freedb
         ? `<td title="${html(r.artist)}">${html(r.artist)}</td><td title="${html(r.title)}">${html(r.title)}</td><td class="ts-num">${html(r.year)}</td><td class="ts-wide">${html(r.format)}</td><td class="ts-wide">${html(freedbId(r).category)}</td><td class="ts-wide">${html(freedbId(r).disc)}</td><td class="ts-num ts-wide">${r.track_count ?? ''}</td>`
@@ -569,7 +604,7 @@ export class TagSourcesUI {
       const r = results[chosen];
       if (!r) return '';
       if (web) return `<img class="ts-thumb" alt="Release artwork" hidden><div><strong>${html(r.title)}</strong>${r.url ? `<span class="ts-url">${html(r.url)} ${preview(r.url)}</span>` : ''}</div>`;
-      const details = freedb ? [r.year,r.format,`Disc ID ${freedbId(r).disc}`] : [r.year,r.country,r.label,r.catalog_number,r.format,r.barcode && `Barcode ${r.barcode}`];
+      const details = freedb ? [r.year,r.format,`${idLabel} ${freedbId(r).disc}`] : [r.year,r.country,r.label,r.catalog_number,r.format,r.barcode && `Barcode ${r.barcode}`];
       return `${freedb ? '' : '<img class="ts-thumb" alt="Release artwork" hidden>'}<div><strong>${html(r.artist)} – ${html(r.title)}</strong><span>${details.filter(Boolean).map(html).join(' · ')}</span>${r.url ? `<span class="ts-url">${html(r.url)} ${preview(r.url)}</span>` : ''}</div>`;
     };
 
@@ -623,7 +658,8 @@ export class TagSourcesUI {
       const query = more && lastQuery ? {...lastQuery,page:Number(lastQuery.page)+1} : {mode,artist:$<HTMLInputElement>('#ts-artist').value,album:$<HTMLInputElement>('#ts-album').value,text:$<HTMLInputElement>('#ts-text').value,lengths:files.map(f => f.length),page:0};
       if (!more && mode === 'release_id') { await loadRelease(query.text as string); return; }
       const ticket = searchTicket = nextTicket();
-      status(more ? 'Loading more results…' : freedb && mode === 'disc_id' && provider === 'freedb' ? `Searching ${name} in every category…` : `Searching ${name}…`);
+      if (coversOnly && provider === 'freedb' && mode === 'artist_album') { await searchCovers(String(query.artist),String(query.album)); return; }
+      status(more ? 'Loading more results…' : `Searching ${name}…`);
       if (more) $<HTMLButtonElement>('#ts-more').disabled = true;
       try {
         const found = await this.host.invoke<SearchPage>('tag_source_search',{provider,query,ticket});
@@ -637,7 +673,7 @@ export class TagSourcesUI {
         } else { results = found.results; total = found.total; chosen = -1; }
         $('.ts-result-area').innerHTML = resultMarkup();
         const shown = results.length, all = total != null && total > shown ? ` (${total} in total)` : '';
-        status(shown ? `${shown} release${shown === 1 ? '' : 's'} found${all}. Choose one and select Next.` : freedb && mode === 'text' ? 'No disc in the text index matches these words.' : freedb ? 'No disc with this ID was found.' : 'No releases found. Try fewer words, another spelling or a different search type.');
+        status(shown ? `${shown} release${shown === 1 ? '' : 's'} found${all}. Choose one and select Next.` : freedb && mode === 'text' ? 'No disc in the text index matches these words.' : freedb && mode === 'toc' && provider === 'freedb' ? 'No disc with this track layout was found. Try searching by artist and album.' : freedb && mode === 'artist_album' ? `No disc with ${files.length} track${files.length === 1 ? '' : 's'} matches this artist and album.` : freedb ? 'No disc with this ID was found.' : 'No releases found. Try fewer words, another spelling or a different search type.');
         // Ctrl+Shift+I: a single result opens without the list.
         if (auto && !more && shown === 1) void loadRelease(results[0].id);
         if (more) { choose(chosen); dialog.querySelector<HTMLTableRowElement>(`.ts-results tr[data-index="${shown-found.results.length}"]`)?.scrollIntoView({block:'nearest'}); }
@@ -646,6 +682,21 @@ export class TagSourcesUI {
         if (ticket !== searchTicket || !dialog.open) return;
         status('Search failed.'); error(e);
         dialog.querySelector<HTMLButtonElement>('#ts-more')?.removeAttribute('disabled');
+      }
+    };
+    /** Covers: freedb — gnudb's cover art search lists Cover Art Archive images; no entry is read. */
+    const searchCovers = async (artist:string, album:string) => {
+      const ticket = releaseTicket = nextTicket();
+      working = true; syncSearch(); status(`Searching ${name}…`);
+      try {
+        const covers = await this.host.invoke<SourceCover[]>('freedb_cover_search',{artist,album,ticket});
+        if (ticket !== releaseTicket || !dialog.open) return;
+        working = false;
+        if (!covers.length) { status('No cover art was found for this artist and album.'); syncSearch(); return; }
+        showReview({provider,id:'',url:'',title:album.trim(),artist:artist.trim(),fields:{},tracks:[],covers,more_covers:false});
+      } catch (e) {
+        if (ticket !== releaseTicket || !dialog.open) return;
+        working = false; status('Search failed.'); error(e); syncSearch();
       }
     };
     const loadRelease = async (input:string) => {
@@ -658,7 +709,8 @@ export class TagSourcesUI {
         if (ticket !== releaseTicket || !dialog.open) return;
         working = false;
         showReview(loaded);
-        if (loaded.more_covers) void this.host.invoke<SourceCover[]>('tag_source_covers',{id:loaded.id,ticket}).then(covers => {
+        const moreCovers = () => provider === 'freedb' ? this.host.invoke<SourceCover[]>('freedb_cover_search',{artist:loaded.artist,album:loaded.title,ticket}) : this.host.invoke<SourceCover[]>('tag_source_covers',{id:loaded.id,ticket});
+        if (loaded.more_covers) void moreCovers().then(covers => {
           if (release !== loaded || !dialog.open || !covers.length) return;
           const current = release.covers[coverIndex]?.url;
           release.covers = covers; coverIndex = Math.max(0,covers.findIndex(c => c.url === current));
@@ -670,9 +722,7 @@ export class TagSourcesUI {
       }
     };
 
-    const modes:[SearchMode,string][] = releaseOnly ? [['release_id','Release ID or address']]
-      : freedb ? [['toc','Disc ID of the selected files'],['disc_id','freedb disc ID'],...(provider === 'local_freedb' ? [['text','Artist and album words'] as [SearchMode,string]] : [])]
-      : [['artist_album','Artist and album'],['text','Free text'],['release_id',provider === 'musicbrainz' ? 'Release ID (MBID) or address' : 'Release ID or address'],['barcode','Barcode'],['catalog_number','Catalog number']];
+    const modes = searchModes(provider,releaseOnly);
     const renderSearch = (mode?:SearchMode) => {
       release = undefined;
       const searchFields = web ? `<div class="ts-search ts-web-search">${web.search_by.map((field,i) => `<label class="field"><span>${html(field.label.toUpperCase())}</span><input id="ts-web-${i}" value="${html(webValues[i] || '')}" autocomplete="off" spellcheck="false"></label>`).join('')}<button id="ts-search" class="ts-search-button">Search</button></div>` : '';
@@ -682,11 +732,11 @@ export class TagSourcesUI {
         <label class="field" id="ts-text-field" hidden><span id="ts-text-label">SEARCH TEXT</span><input id="ts-text" autocomplete="off" spellcheck="false"></label>
         <p class="ts-toc" id="ts-toc" hidden>${html(tocText())}</p>
         <button id="ts-search" class="ts-search-button">Search</button></div>
-        <p class="ts-status" role="status" aria-live="polite">${files.length} selected file${files.length === 1 ? '' : 's'}. ${freedb ? 'Look up the disc these files were ripped from.' : releaseOnly ? 'Enter the Discogs release ID shown on the release page, or its address.' : 'Search for the album these files belong to.'}</p>
+        <p class="ts-status" role="status" aria-live="polite">${files.length} selected file${files.length === 1 ? '' : 's'}. ${provider === 'local_freedb' ? 'Look up the disc these files were ripped from.' : freedb && coversOnly ? 'Search gnudb’s cover art by artist and album, or look the disc up by the track layout of the files.' : freedb ? `Look up the disc these files were ripped from by their track layout, or search by artist and album (${files.length} track${files.length === 1 ? '' : 's'}). A typed disc ID can only be looked up in a local freedb folder.` : releaseOnly ? 'Enter the Discogs release ID shown on the release page, or its address.' : 'Search for the album these files belong to.'}</p>
         <div class="ts-result-area">${resultMarkup()}</div><div class="ts-chosen">${chosenMarkup()}</div></div>
         <div class="dialog-footer"><button data-close>Cancel</button><button class="primary" id="ts-next" disabled>Next</button></div>`;
       if (web) dialog.querySelector('.ts-web-unused')?.remove();
-      else if (mode || (freedb && !toc)) $<HTMLSelectElement>('#ts-mode').value = mode || 'disc_id';
+      else if (mode || (freedb && !toc)) $<HTMLSelectElement>('#ts-mode').value = mode || freedbStart;
       if (releaseOnly) $<HTMLSelectElement>('#ts-mode').value = 'release_id';
       $('[data-close]').addEventListener('click',() => dialog.close());
       dialog.querySelector('#ts-mode')?.addEventListener('change',() => { syncSearch(); (dialog.querySelector<HTMLInputElement>('#ts-text-field:not([hidden]) input') || dialog.querySelector<HTMLInputElement>('#ts-pair:not([hidden]) input') || $<HTMLButtonElement>('#ts-search')).focus(); });
@@ -822,7 +872,7 @@ export class TagSourcesUI {
         ${loaded.url ? `<p class="ts-url">${html(loaded.url)} ${preview(loaded.url)}</p>` : ''}<p class="ts-status" role="status" aria-live="polite"></p></div>
         <div class="dialog-footer"><button id="ts-back">Back</button><button data-close>Cancel</button><button class="primary" id="ts-apply"></button></div>`;
       $('[data-close]').addEventListener('click',() => dialog.close());
-      $('#ts-back').addEventListener('click',() => { clearError(); renderSearch(results.length || web ? undefined : freedb ? 'disc_id' : 'release_id'); });
+      $('#ts-back').addEventListener('click',() => { clearError(); renderSearch(results.length || web ? undefined : freedb ? freedbStart : 'release_id'); });
       if (!coversOnly) {
         $('#ts-all').addEventListener('click',() => toggleAll(true));
         $('#ts-none').addEventListener('click',() => toggleAll(false));
@@ -898,7 +948,7 @@ export class TagSourcesUI {
     renderSearch();
     dialog.showModal();
     if (web) { const first = dialog.querySelector<HTMLInputElement>('#ts-web-0'); (first || $<HTMLButtonElement>('#ts-search')).focus(); first?.select(); }
-    else if (freedb) (toc ? $<HTMLButtonElement>('#ts-search') : $<HTMLInputElement>('#ts-text')).focus();
+    else if (freedb) (toc ? $<HTMLButtonElement>('#ts-search') : $<HTMLInputElement>(provider === 'local_freedb' ? '#ts-text' : '#ts-artist')).focus();
     else if (releaseOnly) $<HTMLInputElement>('#ts-text').focus();
     else { const artist = $<HTMLInputElement>('#ts-artist'); artist.focus(); artist.select(); }
     // Ctrl+Shift+I skips entering the search: the selection's album and artist

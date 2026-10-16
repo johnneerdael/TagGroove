@@ -1372,6 +1372,7 @@ pub fn run() {
             sources::tag_source_search,
             sources::tag_source_release,
             sources::tag_source_covers,
+            sources::freedb_cover_search,
             sources::tag_source_image,
             sources::tag_source_cancel,
             sources::local_freedb_index_status,

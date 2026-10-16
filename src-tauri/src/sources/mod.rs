@@ -142,6 +142,7 @@ fn import_options(settings: &freedb::FreedbSettings) -> freedb::ImportOptions {
     freedb::ImportOptions {
         comment_disc_id: settings.comment_disc_id,
         disc_id_field: settings.disc_id_field,
+        cover_size: cover_size(),
     }
 }
 
@@ -149,8 +150,10 @@ fn local_index_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(settings_path(app)?.with_file_name("local-freedb-index.tsv"))
 }
 
-/// Disc ID from the selected files (a `cddb query` with their TOC) or typed
-/// in; local folders also search their text index.
+/// Local freedb folders look discs up by the disc ID of the selected files,
+/// a typed disc ID or their text index. Servers are asked with a `cddb query`
+/// of the files' track layout or gnudb's artist and album `search`; a typed
+/// disc ID is never sent to them (gnudb only reads entries a query listed).
 async fn freedb_search(
     app: &tauri::AppHandle,
     provider: Provider,
@@ -158,27 +161,26 @@ async fn freedb_search(
     ticket: u64,
 ) -> Result<SearchPage, String> {
     let settings = freedb::settings_from(&crate::settings::current());
-    let gnudb = freedb::server_name(&settings) == "gnudb";
-    let disc_id = match query.mode {
-        model::SearchMode::Toc => freedb::Toc::from_lengths(&query.lengths)?.disc_id(),
-        model::SearchMode::DiscId => freedb::disc_id(&query.text)?,
-        model::SearchMode::Text if provider == Provider::LocalFreedb => {
-            let index = local_index_path(app)?;
-            let directory = PathBuf::from(&settings.local_directory);
-            let found = tauri::async_runtime::spawn_blocking(move || {
-                freedb::check_local_directory(&directory)?;
-                freedb_index::search(&index, &directory, &query.text, query.page)
-            })
-            .await
-            .map_err(|e| e.to_string())??;
-            return Ok(SearchPage {
-                results: found.results,
-                total: Some(found.total),
-            });
-        }
-        _ => return Err("freedb servers search by disc ID: computed from the selected files or typed in. Text search is available for a local freedb folder with a text index.".into()),
-    };
     let results = if provider == Provider::LocalFreedb {
+        let disc_id = match query.mode {
+            model::SearchMode::Toc => freedb::Toc::from_lengths(&query.lengths)?.disc_id(),
+            model::SearchMode::DiscId => freedb::disc_id(&query.text)?,
+            model::SearchMode::Text => {
+                let index = local_index_path(app)?;
+                let directory = PathBuf::from(&settings.local_directory);
+                let found = tauri::async_runtime::spawn_blocking(move || {
+                    freedb::check_local_directory(&directory)?;
+                    freedb_index::search(&index, &directory, &query.text, query.page)
+                })
+                .await
+                .map_err(|e| e.to_string())??;
+                return Ok(SearchPage {
+                    results: found.results,
+                    total: Some(found.total),
+                });
+            }
+            _ => return Err("A local freedb folder is searched by disc ID or, with a text index, by artist and album words.".into()),
+        };
         let directory = PathBuf::from(&settings.local_directory);
         let options = import_options(&settings);
         tauri::async_runtime::spawn_blocking(move || {
@@ -199,39 +201,37 @@ async fn freedb_search(
         })
         .await
         .map_err(|e| e.to_string())??
-    } else if query.mode == model::SearchMode::Toc {
-        let toc = freedb::Toc::from_lengths(&query.lengths)?;
-        let url = freedb::command_url(&settings, &toc.query_command())?;
+    } else {
+        let gnudb = freedb::offers_gnudb_commands(&settings);
+        let toc = query.mode == model::SearchMode::Toc;
+        let url = match query.mode {
+            model::SearchMode::Toc => freedb::command_url(
+                &settings,
+                &freedb::Toc::from_lengths(&query.lengths)?.query_command(),
+            )?,
+            model::SearchMode::ArtistAlbum => {
+                freedb::search_url(&settings, &query.artist, &query.album, query.lengths.len())?
+            }
+            _ => return Err(REMOTE_LOOKUPS.into()),
+        };
         let body =
             http::freedb_text(&freedb_service(&settings), &url, Channel::Search, ticket).await?;
-        freedb::parse_query(&body)?
+        let matches = if toc {
+            freedb::parse_query(&body)?
+        } else {
+            freedb::parse_search(&body)?
+        };
+        freedb::remember_listed(&settings, &matches);
+        matches
             .iter()
             .map(|found| freedb::match_result(found, provider, gnudb))
             .collect()
-    } else {
-        // Without a TOC the server can only be asked category by category.
-        let mut results = Vec::new();
-        for category in freedb::CATEGORIES {
-            let url = freedb::command_url(&settings, &format!("cddb read {category} {disc_id}"))?;
-            let body = http::freedb_text(&freedb_service(&settings), &url, Channel::Search, ticket)
-                .await?;
-            if let Some(text) = freedb::parse_read(&body)? {
-                let release = freedb::release(
-                    &freedb::parse_xmcd(&text),
-                    provider,
-                    category,
-                    &disc_id,
-                    import_options(&settings),
-                    gnudb,
-                )?;
-                results.push(freedb::search_result(&release, category));
-            }
-        }
-        results
     };
     let total = Some(results.len() as u32);
     Ok(SearchPage { results, total })
 }
+
+const REMOTE_LOOKUPS: &str = "The freedb server finds discs by the track layout of the selected files or by artist and album. A typed disc ID can only be looked up in a local freedb folder.";
 
 async fn freedb_release(
     provider: Provider,
@@ -260,6 +260,10 @@ async fn freedb_release(
         .await
         .map_err(|e| e.to_string())?;
     }
+    // gnudb: `cddb read` only with the category and gnucdid a query returned.
+    if !freedb::was_listed(&settings, &category, &disc_id) {
+        return Err(freedb::LOOK_UP_FIRST.into());
+    }
     let url = freedb::command_url(&settings, &format!("cddb read {category} {disc_id}"))?;
     let body =
         http::freedb_text(&freedb_service(&settings), &url, Channel::Release, ticket).await?;
@@ -271,8 +275,24 @@ async fn freedb_release(
         &category,
         &disc_id,
         options,
-        freedb::server_name(&settings) == "gnudb",
+        freedb::offers_gnudb_commands(&settings),
     )
+}
+
+/// gnudb's cover art search (`artsearch`) for Tag Sources → freedb: Cover Art
+/// Archive images of the releases matching the artist and album.
+#[tauri::command]
+pub async fn freedb_cover_search(
+    artist: String,
+    album: String,
+    ticket: u64,
+) -> Result<Vec<model::SourceCover>, String> {
+    http::claim(Channel::Release, ticket);
+    let settings = freedb::settings_from(&crate::settings::current());
+    let url = freedb::artsearch_url(&settings, &artist, &album)?;
+    let body =
+        http::freedb_text(&freedb_service(&settings), &url, Channel::Release, ticket).await?;
+    freedb::parse_artsearch(&body, cover_size())
 }
 
 /// Look up a release by ID or address (search results pass their own ID).
@@ -1041,6 +1061,18 @@ mod tests {
         ))
         .unwrap_err()
         .contains("not from a supported tag source"));
+    }
+
+    #[test]
+    fn remote_freedb_reads_need_a_query_first() {
+        // Refused before any request: the entry was never listed by a query or search.
+        let error = tauri::async_runtime::block_on(freedb_release(
+            Provider::Freedb,
+            "rock/7a0a6b09",
+            u64::MAX,
+        ))
+        .unwrap_err();
+        assert_eq!(error, freedb::LOOK_UP_FIRST);
     }
 
     /// gnudb answers only registered applications; this records what it says to OpenTag.

@@ -93,18 +93,26 @@ is no track matching in this mode.
   The search step shows the computed ID before searching. Both Rust
   (`freedb::Toc`) and TypeScript (`discToc`) implementations are tested against
   libdiscid's reference TOC (ID `830abf0a`). A typed disc ID is the other search
-  mode.
-- **freedb (gnudb).** CDDB over HTTP: `GET <server><path>?cmd=…&hello=<user>
-  <host> OpenTag <version>&proto=6`. A file-based search sends `cddb query` with
-  the TOC (status 200 is one exact match, 210/211 list exact or inexact matches,
-  202 none). A typed disc ID has no TOC, so `cddb read` is tried in each of the
-  eleven categories. Choosing a match sends `cddb read <category> <discid>`.
-  `hello` uses the user and host of the configured email address, or
-  `opentag localhost`. Requests are 500 ms apart on their own gate and are
-  cancelled like the other sources.
+  mode for a local freedb folder only (see below and `gnudb.md`).
+- **freedb (gnudb).** CDDB over HTTP(S) following gnudb's access policy
+  (`docs/verification/gnudb.md`): `GET <server><path>?cmd=…&hello=<user>
+  <domain> OpenTagAudioTagEditor v<version>&proto=6`. A file-based search sends
+  `cddb query` with the TOC; **Artist and album** sends gnudb's
+  `cmd=search&artist=…&album=…&tracks=<selected files>` (status 200 lists
+  matches or is one exact match, 210/211 list exact or inexact matches, 202
+  none, 429 stops with "try again later"). Choosing a match sends
+  `cddb read <category> <gnucdid>` with the category and ID the server listed;
+  OpenTag refuses to read any other entry and never sends a typed disc ID to a
+  server. `hello` uses the user and domain of the email address in Options, or
+  the developer contact `john neerdael.nl`. Requests are 500 ms apart on their
+  own gate, are never retried, and are cancelled like the other sources.
+  Cover art comes from the entry's `# Cover:`/`# Artid:` lines or, without
+  them, gnudb's `artsearch`; **Covers: freedb (gnudb)…** runs `artsearch`
+  directly.
 - **Server settings.** Options → Tag Sources → freedb has protocol (HTTPS
   default, or HTTP), address (`gnudb.gnudb.org`), path (`/~cddb/cddb.cgi`), port
-  (empty means the protocol default), email address, and Mp3tag's "Copy disc ID
+  (empty means the protocol default), "Your email address (sent to the freedb
+  server)" (validated; empty sends the developer contact), and Mp3tag's "Copy disc ID
   to COMMENT field" and "Copy disc ID to DISCID field". Restore page defaults
   returns to gnudb, which is what Mp3tag's "Current list of freedb servers"
   reset does. Because the server is user-configured, it is not on the trusted
@@ -122,7 +130,8 @@ is no track matching in this mode.
   the album artist in `ALBUMARTIST` and split each `TTITLEn` "Artist / Title"
   into the track's `ARTIST` and `TITLE`. `\n`, `\t` and `\\` escapes are
   decoded. Track lengths come from the `# Track frame offsets` and
-  `# Disc length` comments, so the length warning works. Entries are UTF-8
+  `# Disc length` comments, so the length warning works. "Copy disc ID" writes
+  the entry's own `DISCID` (the freedb disc ID), not gnudb's gnucdid. Entries are UTF-8
   (protocol 6); local files that are not UTF-8 are read as Windows-1252.
 - **Local freedb.** Options → Tag Sources → Local freedb holds the folder (text
   box plus **Choose folder…**). Lookups are by disc ID, typed or computed from
@@ -345,12 +354,13 @@ Vorbis mappings apply.
   which Discogs supports for single-user apps. Searches run without a token but
   at 25 requests per minute and without thumbnails.
 - gnudb refuses unregistered applications (see Round 2), so the freedb source
-  needs OpenTag to be registered with gnudb, or another CDDB server. freedb has
-  no audio-CD lookup (OpenTag does not read CD drives) and no text search:
-  gnudb's web search sits behind a browser check, and local text search needs
-  an index that Mp3tag also requires users to build. Local lookups are exact;
+  needs OpenTag to be registered with gnudb (as `OpenTagAudioTagEditor`), or
+  another CDDB server. freedb has no audio-CD lookup (OpenTag does not read CD
+  drives). gnudb's CDDB `search` command now gives servers an artist and album
+  search (`gnudb.md`); local text search needs an index that Mp3tag also
+  requires users to build. Local lookups are exact;
   there is no fuzzy TOC matching against a local folder.
-- The covers-only sources are MusicBrainz and Discogs. Mp3tag's Covers submenu
+- The covers-only sources are MusicBrainz, freedb (gnudb `artsearch`) and Discogs. Mp3tag's Covers submenu
   lists whatever cover web-source scripts are installed; OpenTag has no script
   framework.
 - Utils items are buttons rather than a menu, and the two "Suggest sorting"
