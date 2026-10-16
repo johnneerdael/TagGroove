@@ -632,3 +632,57 @@ The preceding finite clean text-exchange peer and root visual receipts are
 retained unchanged under `reviews/`. This trio awaits its own independent
 review; publication still requires later source reconciliation, exact
 final-head CODE and trusted CI. Original deferred P2/REA work is untouched.
+
+
+## Local path and folder-image recipe checkpoint
+
+The next three completed recipes teach lowercase/hyphenated filename stems,
+an explicit component-character/length policy and embedded-cover export to
+an album-folder image. The local milestone is161authored pages and26drafts;
+public137remains separate. All prior158navigation entries retain their order.
+Generated navigation and search agree on161routes/1352sections, with no
+remaining draft navigation, HTML or search leakage. Twenty-four completed
+local chapters remain unpublished; page counts do not establish full
+canonical semantic completion.
+
+Lowercase teaching uses the actual Filename→Filename numbered-capture
+converter and retains the extension's spelling. Its tag-based variation is
+a separately named Tag→Filename route. Portable-name teaching follows the
+actual reviewed preview_rename/rename_files UI route and distinguishes raw
+$validate character replacement, backslashes, filename-mode sanitizing,
+trailing-character cleanup, Unicode scalar truncation and full-path limits.
+It makes no universal validity, case-only rename, alias or collision promise.
+The original deferred P2s and application behavior are unchanged.
+
+The folder-image recipe states the JPEG/.jpg versus PNG/.png distinction
+before its steps: exporting copies bytes and does not convert encoding.
+It separates per-input-folder outputs from report partitioning, repeated
+content from existing-file replacement and action-specific external-image
+undo from other export paths. The real NativeHost extension/ordinal/write/
+ownership/capture flow and session-journal caller were read. No private
+host behavior is replaced with a mirrored test implementation or presented
+as a new native-app/OS export run.
+
+Five focused core tests execute the actual written patterns, case tables,
+Unicode shortening and ExportCover host requests under LF/CRLF Markdown.
+Two exact existing temporary side-file journal tests verify creation/
+replacement undo and unchanged-output no-op recording, without exercising
+the unrelated original P2 cases. Thirty-one actual converter/action models,
+eight publication tests, strict build, focused new-test Clippy, formatting
+and whitespace checks pass. All175production/dependency/workflow files in
+the identity receipt remain byte-identical to main325.
+
+Nine isolated generated-doc browser checks verify the real procedure lists,
+correct converter-reference link,390px tables/document bounds, actual code
+scrolling, palettes, copyable per-track cover format and actual search.
+Owner viewed the nested-expression mobile procedure and JPEG/PNG teaching
+in dark mode. All temporary profiles and the HTTP server are closed.
+
+All161completed pages were scanned across their entire contents for the
+known original draft-brief markers, with no findings. The final aggregate
+binds every ready path/content hash; each new file was replaced completely
+and read to its end. The ledger `path-recipes-2026-10-16.json` records these
+receipts, exact source/page/test/binary hashes, source pointers and limits.
+The previous clean25bdlearning followup and footer-repair checkpoint are
+retained unchanged under reviews/. This trio awaits independent peer, later
+main reconciliation, exact final-head CODE and trusted publication checks.

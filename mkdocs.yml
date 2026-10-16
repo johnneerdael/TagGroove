@@ -284,6 +284,7 @@ nav:
   - Playlists:
     - One playlist per album folder: cookbook/playlist-per-album.md
   - Cover artwork:
+    - Save embedded covers as folder images: cookbook/export-folder-jpg.md
     - Embed each folder image: cookbook/embed-folder-jpg.md
     - Shrink oversized covers: cookbook/resize-covers.md
     - Keep each file’s front covers: cookbook/keep-only-front-cover.md
@@ -298,6 +299,8 @@ nav:
     - Split artist lists: cookbook/split-multiple-artists.md
     - Split Artist - Title credits: cookbook/split-artist-title.md
   - Rename files and folders:
+    - Lowercase names with hyphens: cookbook/rename-lowercase-filenames.md
+    - Keep filenames portable: cookbook/rename-safe-characters.md
     - Artist and album folders: cookbook/rename-into-artist-album-folders.md
     - Keep multi-disc paths distinct: cookbook/rename-multi-disc-albums.md
     - Keep compilations together: cookbook/rename-compilations.md

@@ -1,0 +1,33 @@
+{
+  "head": "25bd3cb4c659caa7b9dd7d16b8b7dd42526205a3",
+  "base": "e5209a03b1e14a60e29ad4eec77d00e50b4d911a",
+  "worktree": "/Users/jneerdael/Scripts/opentag-worktrees/codex-guide-learn-workflows",
+  "scope": "Correct single independently reported P3 draft footer; substantive instructions, all written code fences/tests/app source unchanged",
+  "changed_paths": [
+    "docs/user-guide/_meta/coverage/learn-workflows-2026-10-16.json",
+    "docs/user-guide/learn/clean-a-messy-library.md"
+  ],
+  "native": "Fresh7/7 after rebuilding page include; currentbinary/hashledger match",
+  "publication": "Fresh8PASS",
+  "strict": "FreshPASS158routes1321sections/29drafts",
+  "rendered_html": "Four substantive nextstep links; no stale Until then/draft outline",
+  "binary": "/tmp/opentag-guide-combined-target/debug/deps/learn_workflow_guide-f3cb91e1f61b47f6",
+  "binary_sha256": "5bfd1f7e9d35084cc550acc02575cce1998432cd525bc05bd35136d28a727e97",
+  "parent_receipts_archive": "/tmp/opentag-guide-learn-e520-evidence",
+  "validation_logs": {
+    "core": {
+      "path": "/tmp/opentag-guide-learn-root-footer-core.log",
+      "sha256": "2760b260c10f58e2cfe51b5045b0bcaf9542c0406f635e166d26e63d0701c213"
+    },
+    "strict": {
+      "path": "/tmp/opentag-guide-learn-root-footer-strict.log",
+      "sha256": "58798e02203084e51b37f466d44be7f6563e2581c48699952cf1c743b9cb7882"
+    },
+    "publication": {
+      "path": "/tmp/opentag-guide-learn-root-footer-publication.log",
+      "sha256": "f8b60704f0b570288fab7f69ca3baa03bb523e84e8ba91ce4fdd4536879a1fa4"
+    }
+  },
+  "visual": "Root viewed desktop Deluxe capture teaching and 390px scrollable actiontable at originale520; layout/examples unchanged in25bd. NewgeneratedHTML footer removal asserted; browser50models notrerun.",
+  "peer_status": "Pending independent finitefollowup on25bd"
+}
