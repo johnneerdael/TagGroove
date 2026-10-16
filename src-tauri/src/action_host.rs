@@ -995,6 +995,27 @@ mod tests {
     use tag_core::actions::{ActionSpec, CaseMode};
 
     #[test]
+    fn missing_export_configuration_reports_the_authored_name_or_path() {
+        let directory = tempfile::tempdir().unwrap();
+        let settings = EvaluationSettings {
+            app_data_directory: directory.path().to_string_lossy().into_owned(),
+            ..Default::default()
+        };
+        for source in ["Help", "Title", "My  Files"] {
+            assert_eq!(
+                resolve_export_template(source, &settings).unwrap_err(),
+                format!("Export configuration not found: {source}")
+            );
+        }
+        let path = directory.path().join("My  Files").join("Help.mte");
+        let source = path.to_string_lossy();
+        assert_eq!(
+            resolve_export_template(&source, &settings).unwrap_err(),
+            format!("Export configuration not found: {source}")
+        );
+    }
+
+    #[test]
     fn actions_can_use_the_export_library_display_name() {
         let directory = tempfile::tempdir().unwrap();
         let mut library = crate::exports::Library::default();

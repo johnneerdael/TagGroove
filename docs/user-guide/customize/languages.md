@@ -15,7 +15,8 @@ override a bundled translation without changing your music metadata.
 The catalog name in **System default** is shown as its author supplied it.
 Field names such as `ARTIST`, format strings such as `%artist%`, and functions
 such as `$upper(...)` keep the same syntax. Filenames, tag values and names you
-assigned to columns, tools or action groups stay as entered.
+assigned to columns, tools or action groups stay as entered. Error messages
+also preserve the field identifiers and export configuration names they report.
 
 ## Add a catalog in the desktop app
 

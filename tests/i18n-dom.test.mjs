@@ -445,6 +445,39 @@ test('freedb server names keep their authored spelling through empty/nonempty ed
     }finally{p.close();}
   }
 });
+test('symbol-only catalog output replays original production control sources across languages',async()=>{
+  for(const output of ['✓','42','…']){
+    const p=page();
+    try{
+      p.body.innerHTML=controlMarkup({kind:'button',id:'symbol-control',label:'Open languages folder',run:()=>{}},{pages:{}})+
+        '<input type="button" value="Help"><textarea title="Help" aria-label="Export template" placeholder="Help">Help</textarea><input type="text" value="Help">';
+      const button=p.body.querySelector('button'),input=p.body.querySelector('input[type=button]'),textarea=p.body.querySelector('textarea');
+      button.title='Help';button.setAttribute('aria-label','Help');
+      const checks=(label,help,template)=>{assert.equal(button.textContent,label);assert.equal(button.title,help);assert.equal(button.getAttribute('aria-label'),help);assert.equal(input.getAttribute('value'),help);assert.equal(textarea.title,help);assert.equal(textarea.placeholder,help);assert.equal(textarea.getAttribute('aria-label'),template);assert.equal(textarea.value,'Help');assert.equal(p.body.querySelector('input[type=text]').value,'Help');};
+      for(const locale of ['en','de','nl']){
+        p.translate('en',{'Open languages folder':output,Help:output,'Export template':output});
+        p.translateTree(p.body);await p.window.happyDOM.waitUntilComplete();checks(output,output,output);
+        const t=p.translate(locale);checks(t.t('Open languages folder'),t.t('Help'),t.t('Export template'));
+      }
+    }finally{p.close();}
+  }
+});
+test('external symbol-only writes replace cached sources before synchronous replay or language-off',async()=>{
+  for(const boundary of ['observer','manual','language-off'])for(const output of ['✓','42','']){
+    const p=page();
+    try{
+      p.body.innerHTML='<button title="Help">Help</button><input type="button" value="Help"><textarea aria-label="Help">Help</textarea>';
+      p.translate('en',{Help:output});
+      const button=p.body.querySelector('button'),input=p.body.querySelector('input'),textarea=p.body.querySelector('textarea');
+      // An application write equal to our own last output still owns the new source.
+      button.firstChild.data=output;button.title=output;input.setAttribute('value',output);textarea.setAttribute('aria-label',output);
+      if(boundary==='manual')p.translateTree(p.body);
+      if(boundary==='language-off')p.translate('en');
+      await p.window.happyDOM.waitUntilComplete();p.translate('de');p.translate('en');
+      assert.equal(button.textContent,output);assert.equal(button.title,output);assert.equal(input.getAttribute('value'),output);assert.equal(textarea.getAttribute('aria-label'),output);assert.equal(textarea.value,'Help');
+    }finally{p.close();}
+  }
+});
 test('application mutations equal to previous translations become fresh sources at observer and synchronous boundaries',async()=>{
   const custom={'Previewing…':'Preview',Preview:'Inspect',Inspect:'Wrong'};
   for(const boundary of ['observer','manual','language-off']){

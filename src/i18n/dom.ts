@@ -101,8 +101,9 @@ export class DomTranslator {
     // Textarea children define editable defaults; only their UI attributes translate.
     if (node.parentElement?.closest('textarea')) return;
     const current = node.data;
-    if (!/\p{L}/u.test(current)) return;
-    const next = this.next(current, this.texts.get(node), node.parentElement);
+    const record = this.texts.get(node);
+    if (!record && !/\p{L}/u.test(current)) return;
+    const next = this.next(current, record, node.parentElement);
     this.texts.set(node, next);
     if (next.shown !== current) this.write(node, undefined, () => {node.data = next.shown;});
   }
@@ -110,10 +111,11 @@ export class DomTranslator {
   private attribute(element: Element, name: string) {
     if (name === 'value' && !(element instanceof HTMLInputElement && BUTTON_INPUT.test(element.type))) return;
     const current = element.getAttribute(name);
-    if (current === null || !/\p{L}/u.test(current)) return;
     let map = this.attributes.get(element);
+    const record = map?.get(name);
+    if (current === null || !record && !/\p{L}/u.test(current)) return;
     if (!map) {map = new Map();this.attributes.set(element, map);}
-    const next = this.next(current, map.get(name), element);
+    const next = this.next(current, record, element);
     map.set(name, next);
     if (next.shown !== current) this.write(element, name, () => element.setAttribute(name, next.shown));
   }

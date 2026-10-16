@@ -57,6 +57,24 @@ test('rendered English text is translated by exact key or by key pattern, keepin
   assert.equal(de.translate('12'),'12');
   assert.equal(new Translator('en',{}).active,false);
 });
+test('all backend source-role diagnostics preserve field identities and authored export configuration names',async()=>{
+  const producers=[['crates/tag-core/src/mapping.rs','Conflicting updates for mapped source {source}',['ARTIST','TITLE']],['src-tauri/src/action_host.rs','Export configuration not found: {source}',['Help','Title','My  Files','/Music/My  Files/Help.mte']],['crates/tag-core/src/actions.rs','Missing {source} action context',['_FILENAME','_FILENAME_EXT']]];
+  assert.deepEqual(Object.keys(english).filter(key=>/\{source\d*\}/.test(key)).sort(),producers.map(([,key])=>key).sort());
+  for(const [file,key,values] of producers){
+    // Match the actual Rust format producer; native tests execute the mapping
+    // collision and missing export lookup, rather than relying on invented UI text.
+    const rust=await readFile(new URL(`../${file}`,import.meta.url),'utf8');assert.ok(rust.includes(`format!("${key}")`),file);
+    for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',{
+      ARTIST:'Performer',TITLE:'Heading',Help:'Assistance',Title:'Heading',_FILENAME:'Wrong filename',_FILENAME_EXT:'Wrong extension',
+      [key]:`Diagnostic: {source}`,'Update check failed: {error}':'Update failed: {error}','Select files first.':'Select tracks.'
+    }]])for(const source of values){
+      const t=new Translator(locale,catalog),message=key.replace('{source}',source);
+      assert.equal(t.translate(message),t.t(key,{source}));assert.ok(t.translate(message).includes(source));
+      // Error/UI nesting is deliberately recursive even though source identities are raw.
+      assert.equal(t.translate('Update check failed: Select files first.'),t.t('Update check failed: {error}',{error:t.t('Select files first.')}));
+    }
+  }
+});
 test('unknown multiline labels remain raw and marked scaffolds still translate under partial catalogs',()=>{
   const t=new Translator('en',{'Tool: start {name} for the selected files':'Run {name}',Help:'Assistance'}),name='My  Files\nTitle';
   assert.equal(t.translate(`Show ${name}`,0,name),`Show ${name}`);

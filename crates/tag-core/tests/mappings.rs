@@ -360,6 +360,22 @@ fn id3_ratings_credits_timestamps_lyrics_and_musicbrainz_uid_use_native_frames()
 }
 
 #[test]
+fn mapping_conflicts_report_the_original_source_field_identity() {
+    let rules = [UserFieldMapping {
+        tag_type: "ID3v2".into(),
+        source: "ARTIST".into(),
+        target: "WRITER".into(),
+    }];
+    let error = tag_core::map_write_fields(
+        &values(&[("ARTIST", &["Original"]), ("WRITER", &["Changed"])]),
+        lofty::tag::TagType::Id3v2,
+        &rules,
+    )
+    .unwrap_err();
+    assert_eq!(error, "Conflicting updates for mapped source ARTIST");
+}
+
+#[test]
 fn opt_in_mappings_reverse_writes_to_every_source_and_reject_one_to_many_rules() {
     let temp = tempfile::tempdir().unwrap();
     let path = temp.path().join("mapped.flac");
