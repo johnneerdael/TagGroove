@@ -22,7 +22,7 @@ remain drafts, and publication checks exclude them from HTML and search.
 
 The first combined checkpoint (`23ecba0`) contains 75 completed pages, including
 the eight initial publication pages. The export batch raises the local total
-to 80. These are integration milestones, not completion of the whole guide. The language options page remains a draft because its actual
+to 80, and the navigation-reference batch raises it to 88. These are integration milestones, not completion of the whole guide. The language options page remains a draft because its actual
 implementation is not yet part of this source baseline.
 
 | Batch | Preserved source revision | Evidence and limits |
@@ -34,6 +34,7 @@ implementation is not yet part of this source baseline.
 | Concepts and workflow lessons | `803d8d11696064f8c896ba703382780cec97be12` | Multi-value and encoding concepts, first action group and filename lessons; three core tests exercise written examples and action order. Added regex escape detail is exercised by the regex table tests. A finite independent source review corrected the dialog-closing step. |
 | Options | `312b0f0` | Twenty-two completed pages and one held language draft. The accompanying ledger maps 150 factual topics to authored sections and records current limitations. Independent source review corrected autosave and retained historical comment/Matroska details. |
 | Export controls, templates and catalogue lesson | `c07bf16` | Five pages, four tests executing actual templates/results under LF and CRLF, plus a canonical fact ledger. Root finite source/canonical review found TRACK quote escaping; its regression failed before correction and passes afterward. |
+| Navigation reference | `273020e` | Eight pages, one test executing nine written focus/platform examples and 41 existing routing/file/list/history contracts. Root read all pages and canonical keyboard rows with source spot checks; current5f only, not every ledger mapping independently recomputed. |
 | Filter and data reference | `65f3898` | Six pages. Four tests execute 24 filter queries, check 118 field definitions and 236 native table rows, and retain invalid-query cases. The ledger groups repeated canonical native-cell facts. A finite independent semantic review found no established defect; it did not recompute every cell. |
 
 These revisions preserve batch provenance. Current page hashes and later
@@ -89,8 +90,9 @@ Web-source parser commands, source structure, results, authentication and
 troubleshooting need independent explanations checked against actual OpenTag
 behavior, including explicit unsupported or different behavior.
 
-The separate command-line, shortcuts, menus and placeholder reference batch
-is not yet integrated here. Getting started, general file-list/tag-panel
+The command-line, keyboard and six menu-reference pages are integrated.
+Detailed remaining context-menu chapters and the broader placeholder audit
+still require completion. Getting started, general file-list/tag-panel
 workflows, cover management, playlists, source workflows, troubleshooting and
 the remaining cookbook topics still require completion and semantic checks.
 Review each canonical paragraph, control and note; do not close these gaps by
@@ -119,3 +121,8 @@ publication tests passed on the 80-page local source. Focused export clippy and
 the strict guide build passed as well. This is local evidence; the expansion
 still requires source reconciliation and its own exact-head external review
 and trusted validation before publication.
+
+The initial publication receipt also records a bounded follow-up HTTP check
+of 19 same-origin scripts, stylesheets and images, including the search worker
+resolved from all eight page configurations. All returned 200 with nonempty
+bodies. This is asset availability evidence, not live browser execution.
