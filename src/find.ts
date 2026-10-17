@@ -60,7 +60,7 @@ export class FindUI{
     const table=()=>{
       const rows=sortFindResults(results,sort);
       const head=(key:FindSort['key'],label:string)=>`<th aria-sort="${sort.key===key?sort.ascending?'ascending':'descending':'none'}"><button data-find-sort="${key}">${label}${sort.key===key?sort.ascending?' ↑':' ↓':''}</button></th>`;
-      q('.find-results').innerHTML=rows.length?`<table><thead><tr>${head('filename','Filename')}${head('field','Field')}${head('value','Match')}</tr></thead><tbody>${rows.slice(0,2000).map(row=>`<tr tabindex="0" data-path="${html(row.path)}"><td>${html(row.filename)}</td><td>${html(row.field)}</td><td title="${html(row.value)}">${html(row.value)}</td></tr>`).join('')}</tbody></table>`:'';
+      q('.find-results').innerHTML=rows.length?`<table><thead><tr>${head('filename','Filename')}${head('field','Field')}${head('value','Match')}</tr></thead><tbody translate="no">${rows.slice(0,2000).map(row=>`<tr tabindex="0" data-path="${html(row.path)}"><td>${html(row.filename)}</td><td>${html(row.field)}</td><td title="${html(row.value)}">${html(row.value)}</td></tr>`).join('')}</tbody></table>`:'';
       q<HTMLButtonElement>('#find-select').disabled=!rows.length;
       dialog.querySelectorAll<HTMLButtonElement>('[data-find-sort]').forEach(button=>button.addEventListener('click',()=>{const key=button.dataset.findSort as FindSort['key'];sort={key,ascending:sort.key===key?!sort.ascending:true};table();}));
       dialog.querySelectorAll<HTMLTableRowElement>('tr[data-path]').forEach(row=>{

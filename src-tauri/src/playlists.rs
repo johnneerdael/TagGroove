@@ -91,29 +91,53 @@ pub struct PlaylistContents {
 }
 
 /// Resolve the files referenced by a playlist or cue sheet in playlist order.
+#[cfg(test)]
 #[tauri::command]
 pub async fn read_playlist(path: String) -> Result<PlaylistContents, String> {
+    read_playlist_diagnostic(path)
+        .await
+        .map(|report| report.result)
+}
+pub async fn read_playlist_diagnostic(
+    path: String,
+) -> Result<tag_core::batch_errors::Detailed<PlaylistContents>, String> {
     crate::io(move || {
         crate::reject_provider_operation(std::slice::from_ref(&path), "Playlists")?;
-        let loaded =
-            tag_core::playlist::load_playlist(Path::new(&path), ansi_codepage().as_deref())?;
-        Ok(PlaylistContents {
-            files: loaded
-                .files
-                .into_iter()
-                .map(|p| p.to_string_lossy().into_owned())
-                .collect(),
-            errors: loaded
-                .missing
-                .into_iter()
-                .map(|(line, error)| FileError {
-                    path: path.clone(),
-                    error: format!("Line {line}: {error}"),
-                })
-                .collect(),
+        let report = tag_core::playlist::load_playlist_diagnostic(
+            Path::new(&path),
+            ansi_codepage().as_deref(),
+        )?;
+        let loaded = report.result;
+        Ok(tag_core::batch_errors::Detailed {
+            result: PlaylistContents {
+                files: loaded
+                    .files
+                    .into_iter()
+                    .map(|p| p.to_string_lossy().into_owned())
+                    .collect(),
+                errors: loaded
+                    .missing
+                    .into_iter()
+                    .map(|(line, error)| FileError {
+                        path: path.clone(),
+                        error: format!("Line {line}: {error}"),
+                    })
+                    .collect(),
+            },
+            error_diagnostics: report.error_diagnostics,
         })
     })
     .await
+}
+
+/// The command name and legacy fields stay unchanged; only this wire adapter adds companions.
+pub mod ipc {
+    #[tauri::command(rename = "read_playlist")]
+    pub async fn read_playlist_with_diagnostics(
+        path: String,
+    ) -> Result<tag_core::batch_errors::Detailed<super::PlaylistContents>, String> {
+        super::read_playlist_diagnostic(path).await
+    }
 }
 
 #[derive(Clone, Deserialize)]

@@ -1,8 +1,10 @@
 // Right-click menu of the File List rows, with the Tools and Utils entries that
 // Mp3tag offers there. Header right-clicks belong to the column menu.
 const html=(value:unknown)=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
-export type ContextItem={label:string;id:string;disabled?:boolean;title?:string;shortcut?:string}|{heading:string}|{separator:true};
+export type ContextItem={label:string;id:string;disabled?:boolean;title?:string;shortcut?:string;userLabel?:boolean;userTitle?:boolean}|{heading:string}|{separator:true};
 export type RowContextHost={
+  /** Translate new popup content before reading layout dimensions. */
+  translateNow?:(root:HTMLElement)=>void;
   /** Make the row part of the selection (a right-click on an unselected row selects only it). */
   prepare:(path:string)=>void;
   items:()=>ContextItem[];
@@ -10,7 +12,7 @@ export type RowContextHost={
 };
 export function contextMenuMarkup(items:ContextItem[]){
   return items.map(item=>'separator'in item?'<hr>':'heading'in item?`<div class="context-heading" role="presentation">${html(item.heading)}</div>`
-    :`<button type="button" role="menuitem" data-context="${html(item.id)}" ${item.disabled?'disabled':''} title="${html(item.title||item.label)}"><span>${html(item.label)}</span>${item.shortcut?`<small>${html(item.shortcut)}</small>`:''}</button>`).join('');
+    :`<button type="button" role="menuitem" data-context="${html(item.id)}" ${item.disabled?'disabled':''} title="${html(item.title||item.label)}"${item.userTitle?` data-verbatim="${html(item.title||item.label)}"`: ''}><span${item.userLabel?' translate="no"':''}>${html(item.label)}</span>${item.shortcut?`<small>${html(item.shortcut)}</small>`:''}</button>`).join('');
 }
 export class RowContextMenu {
   private menu?:HTMLElement;
@@ -32,7 +34,7 @@ export class RowContextMenu {
   open(row:HTMLTableRowElement,x:number,y:number){
     this.close();this.host.prepare(row.dataset.path!);
     const menu=document.createElement('div');menu.className='column-menu row-context-menu';menu.setAttribute('role','menu');menu.setAttribute('aria-label','File actions');
-    menu.innerHTML=contextMenuMarkup(this.host.items());document.body.append(menu);this.menu=menu;
+    menu.innerHTML=contextMenuMarkup(this.host.items());document.body.append(menu);this.menu=menu;this.host.translateNow?.(menu);
     menu.style.left=`${Math.max(4,Math.min(x,window.innerWidth-menu.offsetWidth-4))}px`;menu.style.top=`${Math.max(4,Math.min(y,window.innerHeight-menu.offsetHeight-4))}px`;
     const buttons=()=>[...menu.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')];
     menu.addEventListener('click',event=>{const button=(event.target as Element).closest<HTMLButtonElement>('button[data-context]');if(!button||button.disabled)return;this.close();this.host.activate(button.dataset.context!);});

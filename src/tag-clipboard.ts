@@ -86,6 +86,6 @@ export function pendingDigests(lists: Iterable<PendingCover[]>): string[] {
 export function copiedMessage(clipboard: TagClipboard, cut: boolean, failed: number): string {
   const files = clipboard.items.length, covers = clipboard.items.reduce((sum, item) => sum + (item.artwork?.length ?? 0), 0);
   const art = covers ? ` with ${covers} cover${covers === 1 ? '' : 's'}` : '';
-  const missing = failed ? ` Artwork of ${failed} file${failed === 1 ? '' : 's'} could not be copied.` : '';
-  return `${cut ? 'Cut' : 'Copied'} tags of ${files} file${files === 1 ? '' : 's'}${art}.${missing}`;
+  const missingNote = failed ? ` Artwork of ${failed} file${failed === 1 ? '' : 's'} could not be copied.` : '';
+  return `${cut ? 'Cut' : 'Copied'} tags of ${files} file${files === 1 ? '' : 's'}${art}.${missingNote}`;
 }

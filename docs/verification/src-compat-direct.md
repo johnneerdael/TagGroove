@@ -1,6 +1,10 @@
-# Web-source compatibility on reviewed main
+# Web-source compatibility qualification
 
-This PR20 candidate integrates with actual main
+The PR20-only results below describe their stated source checkpoints. This
+local PR17 preparation also includes localization and typed diagnostics; its
+current integration status is recorded separately at the end of this note.
+
+The PR20 candidate summarized here integrates with actual main
 `21de24598ac0170faa5be7f4e408389c69af30ac`. GNUdb, the additional online
 providers and neutral guide publishing are already part of that baseline.
 The remaining feature delta is scripting/source compatibility and its guide
@@ -168,3 +172,68 @@ conservative 2.3 GiB threshold while remaining above the journal's 2 GiB minimum
 Root subsequently archived only superseded test executables to restore headroom.
 A fresh final-head Codex code review and trusted platform validation remain
 required.
+
+## Earlier local provider and gnudb preparation
+
+The following describes an earlier preparation, before the current PR17
+integration. It is retained as historical provenance.
+
+A separate local prep combines provider/gnudb checkpoint `4d8912e` with this
+PR20 source at `661830e`. The only merge conflict is the guide coverage note;
+both per-PR sections are retained. PR20 production code, dependency declarations
+and tests remain byte-identical to their feature head, while the combined
+provider routes, authentication and gnudb query-before-read behavior remain
+unchanged from the checked PR18/PR19 prep. The `web_atoms` dependency uses the
+already-locked 0.2.6 table; no dependency version is changed by this merge.
+This preparation excludes PR17 localization and makes no combined GitHub
+review, trusted CI, actual-main, release, live-provider or publication claim.
+
+## Local PR17 integration awaiting qualification
+
+The local translation preparation at `efa7e868aea2365b66848da78dd9866cbf6f1d08`
+now incorporates PR20 checkpoint `403bf9a2275075d29f5685947c604c9928d554cb`,
+which contains actual main `21de24598ac0170faa5be7f4e408389c69af30ac`.
+The literal-parser, numeric-reference and retained-line growth corrections retain PR17's typed
+errors, raw diagnostic data and existing localization boundaries. The sole
+merge conflict joined historical verification notes. All 2,926 existing catalog
+entries, Windows fallback controls and hosted-only cleanup are retained. The
+new owned join-limit diagnostic has Dutch and German translations; catalogs
+now contain 2,927 entries. The six incoming join regressions remain unchanged.
+
+At the source-only preparation checkpoint, no new native or history tests had
+run for that merge. Earlier PR17 and PR20 counts retained their original source
+scopes; further PR20 review corrections and actual-main adaptation were still
+pending. That checkpoint made no remote-review, merge, release or publication
+claim.
+
+The local translation merge additionally passed 537 UI/model tests and the
+production build, including the existing search/release dialog regression
+extended with both join-limit errors under Dutch, German and custom English.
+Its raw command and filename roles and single-pass translation checks remain
+active. Catalog extraction is stable at 2,927 entries with all previous entries
+preserved. The strict local 174-page guide and eight publication tests pass.
+These lightweight checks do not requalify the native interpreter or history
+paths; the retired earlier PR17 targets are not live caches for this source.
+
+## PR17 qualification after the actual PR20 merge
+
+Actual main `5c49582da4d4e6ba1e63e5fb2f7ce66c1918b0bf` merged PR20 head
+`403bf9a2275075d29f5685947c604c9928d554cb`. The local PR17 preparation already
+contained that source. Merging actual main left all 1,385 tracked qualification
+inputs byte-identical to `fc6cf5e08b1dca6b1ce88594ad0877177e3a19bc`; this
+verification note is the only subsequent documentation change.
+
+Fresh local qualification at `fc6cf5e` passed 1,061 Rust tests, zero failures
+and six explicit ignores across 68 summaries, plus workspace/all-target Clippy
+with warnings denied. All five workspace packages were freshly compiled from
+PR17 source using the stable shared target path after cleaning only the old
+PR20 workspace packages; dependency paths were retained and incremental
+compilation was disabled. Reserve checks before native/history tests and
+before/after Clippy exceeded 2.3 GiB.
+
+Runtime, frontend, tests, catalogs, reader pages and build configuration remain
+unchanged. The same-source 537 UI/model tests, production build, 2,927-entry
+catalog checks, strict 174-page guide and eight publication tests therefore
+retain their qualification. These are local results; exact-final-head GitHub
+Codex review and trusted current-main platform CI remain required. Normal merge,
+release and public guide deployment are separate outcomes.

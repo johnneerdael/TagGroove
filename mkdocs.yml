@@ -162,6 +162,8 @@ nav:
     - ReplayGain and loudness: concepts/replaygain.md
     - Multi-value fields: concepts/multi-value-fields.md
     - Text encodings and codepages: concepts/text-encodings.md
+  - Customize:
+    - Languages and translations: customize/languages.md
 - Guides:
   - Everyday editing:
     - The file list: guides/file-list.md
@@ -271,6 +273,7 @@ nav:
     - Directories: reference/options/directories.md
     - Appearance: reference/options/appearance.md
     - Library: reference/options/library.md
+    - Language: reference/options/language.md
     - Tags: reference/options/tags.md
     - Tags → Mpeg: reference/options/tags-mpeg.md
     - Tags → Ape, Mpc: reference/options/tags-ape-mpc.md

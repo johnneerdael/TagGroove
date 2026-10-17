@@ -13,12 +13,12 @@ export function copyExportConfiguration(library:ExportLibrary,id:string,newId:st
   result.configurations.push({...copy,id:newId,name:uniqueName(result,`${source.name} copy`)});result.preferences.configuration=newId;return result;
 }
 /** Rename in place (F2 or a delayed click in the list): names stay nonempty and unique. */
-export function renameExportConfiguration(library:ExportLibrary,id:string,name:string):ExportLibrary {
-  const result=structuredClone(library),target=result.configurations.find(c=>c.id===id),trimmed=name.trim();
+export function renameExportConfiguration(library:ExportLibrary,id:string,rawName:string):ExportLibrary {
+  const result=structuredClone(library),target=result.configurations.find(c=>c.id===id),name=rawName.trim();
   if(!target)throw new Error('Export configuration does not exist.');
-  if(!trimmed)throw new Error('Enter a name for the export configuration.');
-  if(result.configurations.some(c=>c.id!==id&&c.name.toLowerCase()===trimmed.toLowerCase()))throw new Error(`An export configuration named ${trimmed} already exists.`);
-  target.name=trimmed;return result;
+  if(!name)throw new Error('Enter a name for the export configuration.');
+  if(result.configurations.some(c=>c.id!==id&&c.name.toLowerCase()===name.toLowerCase()))throw new Error(`An export configuration named ${name} already exists.`);
+  target.name=name;return result;
 }
 export function removeExportConfiguration(library:ExportLibrary,id:string):ExportLibrary {
   const result=structuredClone(library);result.configurations=result.configurations.filter(c=>c.id!==id);
@@ -120,7 +120,7 @@ export class ExportUI {
     };
     const render=()=>{
       const current=active(),preferences=library.preferences;
-      dialog.innerHTML=`<header>Export</header><div class="dialog-content"><div class="field"><span id="export-list-label">Export configurations</span><ul id="export-list" class="export-list" role="listbox" tabindex="0" aria-labelledby="export-list-label"${current?` aria-activedescendant="export-item-${html(current.id)}"`:''}>${library.configurations.map(c=>`<li role="option" id="export-item-${html(c.id)}" data-id="${html(c.id)}" aria-selected="${c.id===preferences.configuration}">${html(c.name)}</li>`).join('')}</ul></div>
+      dialog.innerHTML=`<header>Export</header><div class="dialog-content"><div class="field"><span id="export-list-label">Export configurations</span><ul id="export-list" class="export-list" role="listbox" tabindex="0" aria-labelledby="export-list-label"${current?` aria-activedescendant="export-item-${html(current.id)}"`:''}>${library.configurations.map(c=>`<li role="option" id="export-item-${html(c.id)}" data-id="${html(c.id)}" aria-selected="${c.id===preferences.configuration}" translate="no">${html(c.name)}</li>`).join('')}</ul></div>
       <div class="group-buttons"><button id="export-new">New</button><button id="export-copy">Duplicate</button><button id="export-rename">Rename</button><button id="export-remove">Remove</button><button id="export-import">Import .mte…</button></div>
       <p class="export-hint">Rename the selected configuration with F2 or a second click on its name; F4 edits its template.</p>
       <label class="field"><span>Export template</span><textarea id="export-template" aria-label="Export template" spellcheck="false" autocorrect="off" autocapitalize="off" data-helper="format-export">${html(current?.template||'')}</textarea></label>
@@ -191,8 +191,8 @@ const folderName=(path:string)=>path.replace(/[\\/][^\\/]*$/,'');
 export function offerOpenOutputs(host:OpenOutputsHost,outputs:string[],message:string,title='Export'):Promise<void>{
   if(!outputs.length)return Promise.resolve();
   const single=outputs.length===1;
-  const content=single?`<p>${html(message)}.</p><p>Open <strong>${html(baseName(outputs[0]))}</strong> now?</p>`
-    :`<p>${html(message)}.</p><label class="field"><span>Written files (${outputs.length})</span><select id="open-output-file" size="${Math.min(outputs.length,6)}" aria-label="Written files">${outputs.map((path,index)=>`<option value="${index}" ${index===0?'selected':''} title="${html(path)}">${html(baseName(path))} — ${html(folderName(path))}</option>`).join('')}</select></label>`;
+  const content=single?`<p>${html(message)}.</p><p>Open <strong translate="no">${html(baseName(outputs[0]))}</strong> now?</p>`
+    :`<p>${html(message)}.</p><label class="field"><span>Written files (${outputs.length})</span><select id="open-output-file" size="${Math.min(outputs.length,6)}" aria-label="Written files">${outputs.map((path,index)=>`<option value="${index}" translate="no" ${index===0?'selected':''} title="${html(path)}">${html(baseName(path))} — ${html(folderName(path))}</option>`).join('')}</select></label>`;
   const dialog=host.modal(title,content,`<button id="open-output-reveal">Show in ${html(host.fileManager)}</button><button class="primary" id="open-output-run">Open</button>`);
   dialog.classList.add('open-output-dialog');
   const chosen=()=>single?outputs[0]:outputs[Number(dialog.querySelector<HTMLSelectElement>('#open-output-file')!.value)]??outputs[0];

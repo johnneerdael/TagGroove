@@ -214,7 +214,7 @@ test('source-audited numeric roles reject text across current catalog frames whi
   for(const key of Object.keys(english).filter(key=>!key.startsWith('@'))){
     for(const role of placeholders(key))if(roles.has(role.replace(/\d+$/,'')))pairs.push({key,role});
   }
-  assert.equal(pairs.length,38);
+  assert.equal(pairs.length,39);
   const glyphs=['0','1','2','1.234','1,234','1\u202f234','١٬٢٣٤','۱۲۳۴','১২৩৪','१२३४','一二三','𝟙𝟚𝟛'];
   for(const {key,role} of pairs){
     const params=Object.fromEntries([...placeholders(key)].map(name=>[name,'2']));
@@ -668,7 +668,7 @@ test('the actual selected-release barcode remains provider data',async()=>{
   for(const barcode of ['Help','ARTIST','Ctrl Ins','0123456789012']){
     const result={artist:'Artist',title:'Album',year:'',country:'',label:'',catalog_number:'',format:'',barcode,url:''};
     const markup=render([result],0,false,false,'musicbrainz');
-    const label=markup.match(/<span>([^<]+)<\/span>/)?.[1];assert.equal(label,`Barcode ${barcode}`);
+    const label=markup.match(/<span(?: data-verbatim)?>([^<]+)<\/span>/)?.[1];assert.equal(label,`Barcode ${barcode}`);
     for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',{[key]:'Code [{barcode}]',Help:'Wrong metadata'}]]){
       const translator=new Translator(locale,catalog);
       assert.equal(translator.translate(label),translator.t(key,{barcode}),`${locale}: ${barcode}`);

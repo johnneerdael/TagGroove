@@ -9,6 +9,8 @@ import type {ExtendedSaveMode} from './list-behaviour';
 
 type Completer=(input:HTMLInputElement|HTMLTextAreaElement,event:Event,candidates:()=>Iterable<string>)=>boolean;
 export type ExtendedTagsHost={
+  /** Translate new popup content before reading layout dimensions. */
+  translateNow?:(root:HTMLElement)=>void;
   /** Selected files in File List order. */
   selection:()=>string[];
   /** Files of the File List in display order. */
@@ -101,9 +103,9 @@ export class ExtendedTags{
   }
   private addRow(key='',values:string[]=[],mixed=false):{row:HTMLDivElement;setValues:(values:string[])=>void}{
     const row=document.createElement('div');row.className='extended-row';row.dataset.original=key;row.dataset.changed=key?'false':'true';row.dataset.valueChanged='false';
-    row.innerHTML=`<div class="extended-name"><label><span>FIELD</span><input aria-label="Field name" value="${esc(key)}" placeholder="FIELD" data-helper="field" autocomplete="off" spellcheck="false"></label><button type="button" class="remove-field" aria-label="Remove field">Remove field</button></div><div class="extended-values"><div class="value-list"></div><span class="value-state">${mixed?'Mixed values — keep existing values':''}</span><button type="button" class="add-value">＋ Add value</button></div>`;
+    row.innerHTML=`<div class="extended-name"><label><span>FIELD</span><input aria-label="Field name" value="${esc(key)}" placeholder="FIELD" data-helper="field" autocomplete="off" spellcheck="false"></label><button type="button" class="remove-field" aria-label="Remove field">Remove field</button></div><div class="extended-values"><div class="value-list"></div><span class="value-state" ${mixed?'data-mixed':''}>${mixed?'Mixed values — keep existing values':''}</span><button type="button" class="add-value">＋ Add value</button></div>`;
     const valueList=row.querySelector('.value-list')!,state=row.querySelector<HTMLElement>('.value-state')!,name=row.querySelector<HTMLInputElement>('.extended-name input')!;
-    const changed=()=>{row.dataset.changed='true';row.dataset.valueChanged='true';state.textContent=valueList.childElementCount?'':'No values — this field will be removed';};
+    const changed=()=>{row.dataset.changed='true';row.dataset.valueChanged='true';delete state.dataset.mixed;state.textContent=valueList.childElementCount?'':'No values — this field will be removed';};
     const refreshLabels=()=>valueList.querySelectorAll<HTMLDivElement>('.extended-value').forEach((el,index)=>{el.querySelector('span')!.textContent=`VALUE ${index+1}`;el.querySelector('textarea')!.setAttribute('aria-label',`Field value ${index+1}`);el.querySelector('button')!.setAttribute('aria-label',`Remove value ${index+1}`);});
     const addValue=(text:string)=>{
       const item=document.createElement('div');item.className='extended-value';item.innerHTML='<label><span>VALUE</span><textarea aria-label="Field value" spellcheck="false"></textarea></label><button type="button" aria-label="Remove value">×</button>';
@@ -125,7 +127,7 @@ export class ExtendedTags{
   }
   /** Values shown in a row; undefined for a field whose values differ between the files. */
   private rowValues(row:HTMLElement):string[]|undefined{
-    if(row.dataset.valueChanged!=='true'&&row.querySelector('.value-state')?.textContent?.startsWith('Mixed'))return undefined;
+    if(row.dataset.valueChanged!=='true'&&row.querySelector<HTMLElement>('.value-state')?.dataset.mixed!==undefined)return undefined;
     return[...row.querySelectorAll<HTMLTextAreaElement>('.extended-value textarea')].map(textarea=>textarea.value);
   }
   private closeMenu(){this.menu?.remove();this.menu=undefined;}
@@ -140,7 +142,7 @@ export class ExtendedTags{
       {label:'Copy field',id:'copy',disabled:!copyable,title:copyable?`Copy ${name}`:'Choose a field whose values are the same in every file'},
       {label:this.clip.length>1?`Paste ${this.clip.length} fields`:this.clip.length?`Paste ${this.clip[0].name}`:'Paste field',id:'paste',disabled:!this.clip.length},
     ]);
-    dialog.append(menu);this.menu=menu;
+    dialog.append(menu);this.menu=menu;this.host.translateNow?.(menu);
     menu.style.left=`${Math.max(4,Math.min(x,window.innerWidth-menu.offsetWidth-4))}px`;menu.style.top=`${Math.max(4,Math.min(y,window.innerHeight-menu.offsetHeight-4))}px`;
     menu.addEventListener('click',event=>{
       const button=(event.target as Element).closest<HTMLButtonElement>('button[data-context]');if(!button||button.disabled)return;

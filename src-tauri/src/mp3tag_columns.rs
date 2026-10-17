@@ -5,8 +5,10 @@
 //! alignment and visibility). Spellings vary between Mp3tag versions, so each
 //! setting accepts the usual key names; unknown keys and sections are ignored.
 use crate::columns::{validate, Align, Column, Layout, MAX_WIDTH, MIN_WIDTH};
+use crate::import_diagnostics::ImportFailure;
 use serde::Serialize;
 use std::collections::HashSet;
+use tag_core::batch_errors::{ErrorCause, IndexedCause};
 use tag_core::CompiledTemplate;
 
 #[derive(Debug, Serialize)]
@@ -16,6 +18,30 @@ pub struct ColumnImport {
     pub skipped: Vec<String>,
 }
 
+#[derive(Debug, Serialize)]
+pub struct ColumnImportReport {
+    #[serde(flatten)]
+    pub result: ColumnImport,
+    pub skipped_diagnostics: Vec<IndexedCause>,
+}
+fn skip_column(
+    skipped: &mut Vec<String>,
+    diagnostics: &mut Vec<IndexedCause>,
+    name: &str,
+    cause: ErrorCause,
+) {
+    let cause = ErrorCause::wrap(
+        "{value}: {error}",
+        [("value", name.to_string())],
+        "error",
+        cause,
+    );
+    diagnostics.push(IndexedCause {
+        index: skipped.len(),
+        cause: cause.clone(),
+    });
+    skipped.push(cause.to_string());
+}
 /// UTF-16 (with BOM), UTF-8 or, failing that, Windows-1252 text.
 pub fn decode(bytes: &[u8]) -> String {
     let text = match bytes {
@@ -110,9 +136,16 @@ fn identifier(name: &str, taken: &mut HashSet<String>) -> String {
     id
 }
 
+#[cfg(test)]
 pub fn parse(text: &str) -> Result<ColumnImport, String> {
+    parse_diagnostic(text)
+        .map(|report| report.result)
+        .map_err(|error| error.to_string())
+}
+pub fn parse_diagnostic(text: &str) -> Result<ColumnImportReport, ImportFailure> {
     let mut found: Vec<(Option<i64>, Column)> = Vec::new();
     let mut skipped = Vec::new();
+    let mut skipped_diagnostics = Vec::new();
     let mut taken = HashSet::new();
     for (section, keys) in sections(text) {
         let Some(value) = lookup(&keys, &["value", "format", "fmt", "display format"])
@@ -125,14 +158,24 @@ pub fn parse(text: &str) -> Result<ColumnImport, String> {
             .unwrap_or(if section.is_empty() { value } else { &section })
             .to_string();
         if let Err(error) = CompiledTemplate::compile(value) {
-            skipped.push(format!("{name}: {error}"));
+            skip_column(
+                &mut skipped,
+                &mut skipped_diagnostics,
+                &name,
+                ErrorCause::owned_text(error),
+            );
             continue;
         }
         let sort_by = lookup(&keys, &["sort", "sortby", "sort by", "sortorder"])
             .unwrap_or("")
             .to_string();
         if !sort_by.is_empty() && CompiledTemplate::compile(&sort_by).is_err() {
-            skipped.push(format!("{name}: the sort format string is not supported"));
+            skip_column(
+                &mut skipped,
+                &mut skipped_diagnostics,
+                &name,
+                ErrorCause::owned("the sort format string is not supported"),
+            );
             continue;
         }
         let mut field =
@@ -174,9 +217,21 @@ pub fn parse(text: &str) -> Result<ColumnImport, String> {
     }
     if found.is_empty() {
         return Err(if skipped.is_empty() {
-            "The file contains no column definitions. Choose columns.ini from the Mp3tag configuration folder.".into()
+            ImportFailure::parts(ErrorCause::owned("The file contains no column definitions. Choose columns.ini from the Mp3tag configuration folder."))
         } else {
-            format!("No column could be imported: {}", skipped.join("; "))
+            ImportFailure::parts(ErrorCause::children(
+                "No column could be imported: {error}",
+                [(
+                    "error",
+                    ErrorCause::joined(
+                        skipped_diagnostics
+                            .into_iter()
+                            .map(|item| item.cause)
+                            .collect(),
+                        "; ",
+                    ),
+                )],
+            ))
         });
     }
     // Columns without a position keep their place after the positioned ones.
@@ -191,10 +246,14 @@ pub fn parse(text: &str) -> Result<ColumnImport, String> {
         columns,
         sort: Vec::new(),
     };
-    validate(&layout)?;
-    Ok(ColumnImport { layout, skipped })
+    validate(&layout).map_err(ImportFailure::Plain)?;
+    Ok(ColumnImportReport {
+        result: ColumnImport { layout, skipped },
+        skipped_diagnostics,
+    })
 }
 
+#[cfg(test)]
 #[tauri::command]
 pub async fn import_mp3tag_columns(path: String) -> Result<ColumnImport, String> {
     crate::io(move || {
@@ -204,6 +263,27 @@ pub async fn import_mp3tag_columns(path: String) -> Result<ColumnImport, String>
         parse(&decode(&bytes))
     })
     .await
+}
+
+#[tauri::command(rename = "import_mp3tag_columns")]
+pub async fn import_mp3tag_columns_with_diagnostics(
+    path: String,
+) -> Result<ColumnImportReport, ImportFailure> {
+    crate::io(move || {
+        let input = crate::auxiliary_input(&path)?;
+        Ok(std::fs::read(&input)
+            .map_err(|error| {
+                ImportFailure::parts(ErrorCause::wrap(
+                    "Cannot read {value}: {e}",
+                    [("value", input.to_string_lossy().into_owned())],
+                    "e",
+                    ErrorCause::external(error),
+                ))
+            })
+            .and_then(|bytes| parse_diagnostic(&decode(&bytes))))
+    })
+    .await
+    .map_err(ImportFailure::Plain)?
 }
 
 #[cfg(test)]
@@ -265,5 +345,58 @@ mod tests {
         assert!(parse("[a]\nValue=$nosuchfunction()\n")
             .unwrap_err()
             .starts_with("No column could be imported"));
+    }
+    #[test]
+    fn import_column_companions_keep_raw_names_partial_and_all_rejected_english() {
+        let fixture: serde_json::Value =
+            serde_json::from_str(include_str!("../../tests/fixtures/import-diagnostics.json"))
+                .unwrap();
+        let text = fixture["columns"]["text"].as_str().unwrap();
+        let report = parse_diagnostic(text).unwrap();
+        let legacy = parse(text).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("Help; Title.ini");
+        std::fs::write(&file, text).unwrap();
+        let old_command = tauri::async_runtime::block_on(import_mp3tag_columns(
+            file.to_string_lossy().into_owned(),
+        ))
+        .unwrap();
+        assert_eq!(
+            serde_json::to_value(&old_command).unwrap(),
+            serde_json::to_value(&legacy).unwrap()
+        );
+        assert_eq!(
+            serde_json::to_value(&report.result).unwrap(),
+            serde_json::to_value(&legacy).unwrap()
+        );
+        assert_eq!(report.result.layout.columns.len(), 1);
+        assert_eq!(report.skipped_diagnostics.len(), 2);
+        for (position, item) in report.skipped_diagnostics.iter().enumerate() {
+            assert_eq!(item.index, position);
+            assert_eq!(item.cause.to_string(), legacy.skipped[position]);
+            let json = serde_json::to_value(&item.cause).unwrap();
+            assert_eq!(
+                json["params"]["value"],
+                fixture["columns"]["skipped_names"][position]
+            );
+        }
+        let rejected = text
+            .split("[Rejected]")
+            .nth(1)
+            .map(|rest| format!("[Rejected]{rest}"))
+            .unwrap();
+        let error = parse_diagnostic(&rejected).unwrap_err();
+        assert_eq!(error.to_string(), parse(&rejected).unwrap_err());
+        let wire = serde_json::to_value(&error).unwrap();
+        let ipc: tauri::ipc::InvokeError = error.clone().into();
+        assert_eq!(ipc.0, wire);
+        assert_eq!(wire["message"], error.to_string());
+        assert_eq!(
+            wire["import_failure"]["children"]["error"]["parts"]
+                .as_array()
+                .unwrap()
+                .len(),
+            2
+        );
     }
 }

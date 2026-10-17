@@ -9,6 +9,8 @@ type Batch={errors:{path:string;error:string}[]};
 /** An image file next to the audio files (Options → Tags folder-image fallback). */
 export type FolderImage={name:string;mime:string;size:number;width:number|null;height:number|null;data_base64:string};
 export type CoverHost={
+  /** Translate new popup content before reading layout dimensions. */
+  translateNow?:(root:HTMLElement)=>void;
   invoke:<T>(command:string,args?:Record<string,unknown>)=>Promise<T>;
   /** Selected files in list order with their cover descriptors. */
   selection:()=>{path:string;covers:CoverInfo[]}[];
@@ -84,16 +86,18 @@ export class CoverUI {
     const {state,covers,index,cover}=this.shown(),loaded=!!cover?.data_base64,selected=state.files;
     const folder=!options.unavailable&&!options.error&&state.state==='none'?options.folder:undefined;
     this.folderShown=folder;
-    const title=options.unavailable?'Artwork unavailable':state.state==='varying'?'Covers vary':cover?pictureTypeLabel(cover.picture_type):folder?'Folder image':'No artwork';
-    const lines=options.error?[options.error]:state.state==='varying'?[`${state.withCovers} of ${selected} files have artwork`,'The selected files have different covers']
-      :cover?[coverDetails(cover),loaded?cover.description:'Loading artwork…',selected>1?`Shared by ${selected} files`:'']
-      :folder?[folder.name,coverDetails(folder),'Not embedded in the file']
-      :[selected?'Drop or paste an image to embed it':'Embedded cover art'];
-    if(options.note)lines.push(options.note);
-    const art=loaded?`<img data-cover-image alt="${esc(`Embedded ${pictureTypeLabel(cover!.picture_type)} artwork`)}">`:folder?`<img data-folder-image alt="${esc(`Folder image ${folder.name}, not embedded`)}">`:`<img class="fallback-artwork" data-theme-image="artwork" src="${esc(options.fallback)}" alt="" aria-hidden="true">`;
-    const label=`Cover art: ${title}${cover&&covers.length>1?`, ${index+1} of ${covers.length}`:''}. Enter views it larger; Shift+F10 opens cover commands.`;
+    // A UI-owned state/type, distinct from authored cover descriptions/titles.
+    const coverState=options.unavailable?'Artwork unavailable':state.state==='varying'?'Covers vary':cover?pictureTypeLabel(cover.picture_type):folder?'Folder image':'No artwork';
+    const line=(text:string,verbatim=false)=>({text,verbatim});
+    const lines=options.error?[line(options.error)]:state.state==='varying'?[line(`${state.withCovers} of ${selected} files have artwork`),line('The selected files have different covers')]
+      :cover?[line(coverDetails(cover)),line(loaded?cover.description:'Loading artwork…',loaded),line(selected>1?`Shared by ${selected} files`:'')]
+      :folder?[line(folder.name,true),line(coverDetails(folder)),line('Not embedded in the file')]
+      :[line(selected?'Drop or paste an image to embed it':'Embedded cover art')];
+    if(options.note)lines.push(line(options.note));
+    const art=loaded?`<img data-cover-image alt="${esc(`Embedded ${pictureTypeLabel(cover!.picture_type)} artwork`)}">`:folder?`<img data-folder-image data-verbatim="${esc(folder.name)}" alt="${esc(`Folder image ${folder.name}, not embedded`)}">`:`<img class="fallback-artwork" data-theme-image="artwork" src="${esc(options.fallback)}" alt="" aria-hidden="true">`;
+    const label=`Cover art: ${coverState}${cover&&covers.length>1?`, ${index+1} of ${covers.length}`:''}. Enter views it larger; Shift+F10 opens cover commands.`;
     const nav=cover&&covers.length>1?`<div class="cover-nav"><button data-cover="previous" aria-label="Previous cover" ${index>0?'':'disabled'}>‹</button><span>${index+1} / ${covers.length}</span><button data-cover="next" aria-label="Next cover" ${index<covers.length-1?'':'disabled'}>›</button></div>`:'';
-    return `<div class="cover-row"><div class="cover-art${this.aspect?'':' stretch'}${folder?' folder-image':''}" tabindex="0" role="button" aria-haspopup="menu" aria-label="${esc(label)}" title="Right-click for cover commands; double-click to enlarge">${art}</div><div class="cover-info"><strong>${esc(title)}</strong>${lines.filter(Boolean).map(line=>`<span>${esc(line)}</span>`).join('')}${nav}</div></div><div class="cover-controls">${options.buttons}<button data-cover="menu" aria-haspopup="menu" aria-label="Cover commands" title="Cover commands">⋯</button></div>`;
+    return `<div class="cover-row"><div class="cover-art${this.aspect?'':' stretch'}${folder?' folder-image':''}" tabindex="0" role="button" aria-haspopup="menu" aria-label="${esc(label)}" title="Right-click for cover commands; double-click to enlarge">${art}</div><div class="cover-info"><strong>${esc(coverState)}</strong>${lines.filter(line=>line.text).map(({text,verbatim})=>`<span ${verbatim?'translate="no"':''}>${esc(text)}</span>`).join('')}${nav}</div></div><div class="cover-controls">${options.buttons}<button data-cover="menu" aria-haspopup="menu" aria-label="Cover commands" title="Cover commands">⋯</button></div>`;
   }
   paint(){
     const {cover}=this.shown();
@@ -180,7 +184,7 @@ export class CoverUI {
       ?`<div class="cover-menu-parent"><button role="menuitem" aria-haspopup="menu" aria-expanded="false" data-submenu ${item.enabled?'':'disabled'}><span>${esc(item.label)}</span><small>›</small></button><div class="cover-submenu" role="menu" aria-label="${esc(item.label)}" hidden>${render(item.children)}</div></div>`
       :`<button role="${item.checked===undefined?'menuitem':'menuitemcheckbox'}" ${item.checked===undefined?'':`aria-checked="${item.checked}"`} data-command="${esc(item.command)}" ${item.value?`data-value="${esc(item.value)}"`:''} ${item.enabled?'':'disabled'}><span>${item.checked?'✓ ':''}${esc(item.label)}</span>${item.shortcut?`<small>${esc(item.shortcut)}</small>`:''}</button>`).join('');
     const menu=document.createElement('div');menu.className='cover-menu';menu.tabIndex=-1;menu.setAttribute('role','menu');menu.setAttribute('aria-label',label);menu.innerHTML=render(items);menu.style.position=container===document.body?'fixed':'absolute';
-    container.append(menu);this.menu=menu;
+    container.append(menu);this.menu=menu;this.host.translateNow?.(menu);
     const width=menu.offsetWidth,height=menu.offsetHeight,box=container===document.body?{left:0,top:0}:container.getBoundingClientRect();
     menu.style.left=`${Math.max(4,Math.min(x,window.innerWidth-width-4))-box.left}px`;menu.style.top=`${Math.max(4,Math.min(y,window.innerHeight-height-4))-box.top}px`;
     const close=(restore:boolean)=>{this.closeMenu();document.removeEventListener('pointerdown',outside,true);if(restore)returnFocus?.focus({preventScroll:true});};
@@ -189,7 +193,7 @@ export class CoverUI {
     const level=(element:Element)=>[...element.closest('[role=menu]')!.querySelectorAll<HTMLButtonElement>(':scope > button:not([disabled]), :scope > .cover-menu-parent > button:not([disabled])')];
     const openSub=(button:HTMLButtonElement,focusFirst:boolean)=>{
       menu.querySelectorAll<HTMLElement>('.cover-submenu').forEach(sub=>{if(sub!==button.nextElementSibling){sub.hidden=true;sub.previousElementSibling?.setAttribute('aria-expanded','false');}});
-      const sub=button.nextElementSibling as HTMLElement;sub.hidden=false;button.setAttribute('aria-expanded','true');
+      const sub=button.nextElementSibling as HTMLElement;sub.hidden=false;button.setAttribute('aria-expanded','true');this.host.translateNow?.(sub);
       sub.classList.toggle('open-left',button.getBoundingClientRect().right+sub.offsetWidth>window.innerWidth-4);
       if(focusFirst)level(sub.firstElementChild||sub)[0]?.focus();
     };
@@ -319,7 +323,7 @@ export class CoverUI {
   /** Extract cover: a name from a format string next to the audio file, or Save as…. */
   extract(path:string,cover:{index:number;mime:string;size?:number;width?:number|null;height?:number|null;picture_type:string}){
     const extension=coverExtension(cover.mime),format=storage.get(EXTRACT_KEY)||'folder';
-    const dialog=this.host.modal('Extract cover',`<p>${esc(pictureTypeLabel(cover.picture_type))} · ${esc(coverDetails(cover))}</p><label class="field"><span>File name format</span><input id="cover-extract-format" value="${esc(format)}" spellcheck="false" autocomplete="off"></label><p class="cover-extract-hint">Placeholders such as %album% or %artist% are allowed. The extension .${extension} is added.</p><p id="cover-extract-preview" role="status">Resolving file name…</p>`,`<button id="cover-extract-browse">Save as…</button><button class="primary" id="cover-extract-save">Save</button>`);
+    const dialog=this.host.modal('Extract cover',`<p><span>${esc(pictureTypeLabel(cover.picture_type))}</span> · <span>${esc(coverDetails(cover))}</span></p><label class="field"><span>File name format</span><input id="cover-extract-format" value="${esc(format)}" spellcheck="false" autocomplete="off"></label><p class="cover-extract-hint">Placeholders such as %album% or %artist% are allowed. The extension .${extension} is added.</p><p id="cover-extract-preview" role="status">Resolving file name…</p>`,`<button id="cover-extract-browse">Save as…</button><button class="primary" id="cover-extract-save">Save</button>`);
     dialog.classList.add('cover-extract-dialog');
     const input=dialog.querySelector<HTMLInputElement>('#cover-extract-format')!,preview=dialog.querySelector<HTMLElement>('#cover-extract-preview')!;
     const save=dialog.querySelector<HTMLButtonElement>('#cover-extract-save')!,browse=dialog.querySelector<HTMLButtonElement>('#cover-extract-browse')!;
@@ -370,7 +374,7 @@ export class CoverUI {
     const {state,covers,index,cover}=this.shown();
     const body=cover?.data_base64?`<img src="${esc(dataUrl(cover))}" alt="${esc(`${pictureTypeLabel(cover.picture_type)} artwork`)}" class="${this.aspect?'':'stretch'}">`:`<p>${state.state==='varying'?'The selected files have different covers.':cover?'Loading artwork…':'No artwork'}</p>`;
     const focused=(document.activeElement as HTMLElement|null)?.dataset?.viewer;
-    viewer.innerHTML=`<header><span>${esc(cover?pictureTypeLabel(cover.picture_type):'Cover')}${cover&&covers.length>1?` · ${index+1} / ${covers.length}`:''}</span><button data-viewer="close" aria-label="Close cover viewer">×</button></header><div class="cover-viewer-image">${body}</div><footer><span>${esc(cover?[coverDetails(cover),cover.description].filter(Boolean).join(' · '):'')}</span><span class="cover-viewer-nav"><button data-viewer="previous" aria-label="Previous cover" ${cover&&index>0?'':'disabled'}>‹</button><button data-viewer="next" aria-label="Next cover" ${cover&&index<covers.length-1?'':'disabled'}>›</button></span></footer>`;
+    viewer.innerHTML=`<header><span><span>${esc(cover?pictureTypeLabel(cover.picture_type):'Cover')}</span>${cover&&covers.length>1?`<span> · ${index+1} / ${covers.length}</span>`:''}</span><button data-viewer="close" aria-label="Close cover viewer">×</button></header><div class="cover-viewer-image">${body}</div><footer><span>${cover?`<span>${esc(coverDetails(cover))}</span>${cover.description?` · <span translate="no">${esc(cover.description)}</span>`:''}`:''}</span><span class="cover-viewer-nav"><button data-viewer="previous" aria-label="Previous cover" ${cover&&index>0?'':'disabled'}>‹</button><button data-viewer="next" aria-label="Next cover" ${cover&&index<covers.length-1?'':'disabled'}>›</button></span></footer>`;
     if(focused)viewer.querySelector<HTMLElement>(`[data-viewer="${focused}"]`)?.focus({preventScroll:true});
   }
 
@@ -390,7 +394,7 @@ export class CoverUI {
     const selectedCovers=()=>list.filter(cover=>chosen.has(cover.id));
     const draw=(focusList=false)=>{
       dialog.querySelector('.manage-covers-summary')!.textContent=`${set.files} selected file${set.files===1?'':'s'} · ${list.length} cover${list.length===1?'':'s'}. The first cover is shown in players.`;
-      listbox.innerHTML=list.length?list.map(cover=>{const present=presence(cover);return `<li role="option" id="manage-${cover.id}" data-id="${cover.id}" aria-selected="${chosen.has(cover.id)}"><span class="cover-presence ${present.full?'full':'partial'}" title="${esc(present.text)}" aria-label="${esc(present.text)}">${present.full?'●':'◐'}${present.full?'':`<small>${cover.all_files?cover.total:cover.files}/${cover.total}</small>`}</span>${cover.data_base64?`<img src="${esc(dataUrl(cover))}" alt="">`:'<span class="manage-cover-missing" aria-hidden="true">?</span>'}<span class="manage-cover-text"><strong>${esc(pictureTypeLabel(cover.picture_type))}${cover.image?` <em>${cover.original?'replaced':'new'}</em>`:''}</strong><span>${esc(cover.description||'No description')}</span><small>${esc(coverDetails(cover))}</small></span></li>`;}).join(''):'<li class="manage-covers-empty" aria-disabled="true">No covers. Add or paste an image.</li>';
+      listbox.innerHTML=list.length?list.map(cover=>{const present=presence(cover);return `<li role="option" id="manage-${cover.id}" data-id="${cover.id}" aria-selected="${chosen.has(cover.id)}"><span class="cover-presence ${present.full?'full':'partial'}" title="${esc(present.text)}" aria-label="${esc(present.text)}">${present.full?'●':'◐'}${present.full?'':`<small>${cover.all_files?cover.total:cover.files}/${cover.total}</small>`}</span>${cover.data_base64?`<img src="${esc(dataUrl(cover))}" alt="">`:'<span class="manage-cover-missing" aria-hidden="true">?</span>'}<span class="manage-cover-text"><strong>${esc(pictureTypeLabel(cover.picture_type))}${cover.image?` <em>${cover.original?'replaced':'new'}</em>`:''}</strong><span ${cover.description?'translate="no"':''}>${esc(cover.description||'No description')}</span><small>${esc(coverDetails(cover))}</small></span></li>`;}).join(''):'<li class="manage-covers-empty" aria-disabled="true">No covers. Add or paste an image.</li>';
       const current=selectedCovers(),one=current.length===1?current[0]:undefined;
       const sameType=current.length&&current.every(cover=>cover.picture_type===current[0].picture_type);
       const sameDescription=current.length&&current.every(cover=>cover.description===current[0].description);
@@ -459,7 +463,7 @@ export class CoverUI {
     };
     dialog.querySelectorAll<HTMLButtonElement>('[data-manage]').forEach(button=>button.addEventListener('click',()=>void command(button.dataset.manage!).catch(error=>this.host.modalError(dialog,error))));
     typeSelect.addEventListener('change',()=>{if(typeSelect.value)update(cover=>({...cover,picture_type:typeSelect.value}));});
-    descriptionInput.addEventListener('input',()=>{list=list.map(cover=>chosen.has(cover.id)?{...cover,description:descriptionInput.value}:cover);const row=listbox.querySelectorAll<HTMLElement>('[aria-selected="true"] .manage-cover-text > span');row.forEach(span=>span.textContent=descriptionInput.value||'No description');status.textContent=planChanged(initial,list)?'Changes are written to the files when you choose OK. Undo restores them.':'No changes yet.';});
+    descriptionInput.addEventListener('input',()=>{list=list.map(cover=>chosen.has(cover.id)?{...cover,description:descriptionInput.value}:cover);const row=listbox.querySelectorAll<HTMLElement>('[aria-selected="true"] .manage-cover-text > span');row.forEach(span=>{if(descriptionInput.value)span.setAttribute('translate','no');else span.removeAttribute('translate');span.textContent=descriptionInput.value||'No description';});status.textContent=planChanged(initial,list)?'Changes are written to the files when you choose OK. Undo restores them.':'No changes yet.';});
     descriptionInput.addEventListener('change',()=>draw());
     allBox.addEventListener('change',()=>update(cover=>cover.original&&cover.files<cover.total?{...cover,all_files:allBox.checked}:cover));
     const choose=(id:string,event:{shiftKey:boolean;metaKey:boolean;ctrlKey:boolean})=>{

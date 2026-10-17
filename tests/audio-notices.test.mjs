@@ -15,6 +15,14 @@ const js=ts.transpileModule(declarations,{compilerOptions:{target:ts.ScriptTarge
 const stateSource=await readFile(new URL('../src/document-state.ts',import.meta.url),'utf8');
 const stateJS=ts.transpileModule(stateSource,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
 const {publicDocumentMessage}=await import(`data:text/javascript;base64,${Buffer.from(stateJS).toString('base64')}`);
+const moduleURL=async(file,replacements={})=>{
+  let code=ts.transpileModule(await readFile(new URL(`../src/${file}`,import.meta.url),'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
+  for(const [from,to] of Object.entries(replacements))code=code.replace(from,JSON.stringify(to));
+  return `data:text/javascript;base64,${Buffer.from(code).toString('base64')}`;
+};
+const coreURL=await moduleURL('i18n/core.ts');
+const converterURL=await moduleURL('converter-errors.ts',{"'./i18n/core'":coreURL});
+const {showFileError}=await import(await moduleURL('batch-errors.ts',{"'./i18n/core'":coreURL,"'./converter-errors'":converterURL}));
 
 function aboutHost(failure){
   const button=new EventTarget(),content=[],calls=[],versions={textContent:''},close={textContent:''};
@@ -37,9 +45,10 @@ function aboutHost(failure){
     void rejection.catch(()=>{});
     return rejection;
   };
-  const document={createElement:()=>({textContent:'',className:'',attributes:{},setAttribute(name,value){this.attributes[name]=value;}})};
-  const factory=new Function('enabled','audioLicenses','esc','modal','themedAsset','appVersion','invoke','document','publicDocumentMessage','documentAccess',`${js}\nreturn operateImpl;`);
-  const operate=factory(()=>true,[],String,(_title,markup)=>{assert.ok(markup.includes('id="audio-source-release"'));return dialog;},()=>'', '0.2.0',invoke,document,publicDocumentMessage,{states:{}});
+  const document={createElement:()=>({textContent:'',className:'',attributes:{},setAttribute(name,value){this.attributes[name]=value;},removeAttribute(name){delete this.attributes[name];}})};
+  dialog.ownerDocument=document;
+  const factory=new Function('enabled','audioLicenses','esc','modal','themedAsset','appVersion','invoke','document','publicDocumentMessage','documentAccess','showFileError','t','translate','onLanguageChange',`${js}\nreturn operateImpl;`);
+  const operate=factory(()=>true,[],String,(_title,markup)=>{assert.ok(markup.includes('id="audio-source-release"'));return dialog;},()=>'', '0.2.0',invoke,document,publicDocumentMessage,{states:{}},showFileError,text=>text,text=>text,()=>()=>{});
   return {operate,button,dialog,calls};
 }
 

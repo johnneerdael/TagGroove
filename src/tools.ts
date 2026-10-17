@@ -46,7 +46,7 @@ export function toolsOptionsPage(host:PageHost):OptionsPage{
     controls:[{kind:'custom',id:'tools-editor',paths:['pages.tools.tools','pages.tools.default_tool'],
       render:draft=>{
         const list=tools(draft),index=Math.min(current,list.length-1),tool=list[index],fallback=defaultToolIndex(draft.pages.tools as Record<string,unknown>??{},list);
-        return`<div class="tools-editor"><label class="field"><span>Tools</span><select id="tools-list" size="6" aria-label="Tools">${list.map((t,i)=>`<option value="${i}" ${i===index?'selected':''}>${html(t.name||`Tool ${i+1}`)}</option>`).join('')}</select></label>
+        return`<div class="tools-editor"><label class="field"><span>Tools</span><select id="tools-list" size="6" aria-label="Tools">${list.map((t,i)=>`<option value="${i}" ${i===index?'selected':''} ${t.name?'translate="no"':''}>${html(t.name||`Tool ${i+1}`)}</option>`).join('')}</select></label>
           <div class="group-buttons"><button type="button" id="tool-new" ${list.length>=TOOL_LIMIT?'disabled':''}>New</button><button type="button" id="tool-remove" ${tool?'':'disabled'}>Remove</button><button type="button" id="tool-up" ${index>0?'':'disabled'}>Move up</button><button type="button" id="tool-down" ${tool&&index<list.length-1?'':'disabled'}>Move down</button></div>
           ${tool?`<fieldset class="numbering-section"><legend>Edit tool</legend>
             <label class="field"><span>Name</span><input id="tool-name" value="${html(tool.name)}" autocomplete="off"></label>
@@ -54,7 +54,7 @@ export function toolsOptionsPage(host:PageHost):OptionsPage{
             <label class="field"><span>Parameter</span><input id="tool-parameters" value="${html(tool.parameters)}" placeholder="&quot;%_path%&quot;" autocomplete="off" spellcheck="false"></label>
             <label class="action-check"><input type="checkbox" id="tool-each" ${tool.for_each_file?'checked':''}> for all selected files (otherwise only the first selected file)</label>
             <p>Placeholders: ${PLACEHOLDERS.map(([p,label])=>`<code title="${html(label)}">${html(p)}</code>`).join(' ')}. Quote arguments that contain spaces; no shell is involved. Empty parameters pass the file path.</p></fieldset>`:'<p>No tools are defined.</p>'}
-          <label class="field"><span>Default tool (double-click in the file list)</span><select id="tool-default"><option value="-1">No action</option>${list.map((t,i)=>`<option value="${i}" ${i===fallback?'selected':''}>${html(t.name||`Tool ${i+1}`)}</option>`).join('')}</select></label></div>`;
+          <label class="field"><span>Default tool (double-click in the file list)</span><select id="tool-default"><option value="-1">No action</option>${list.map((t,i)=>`<option value="${i}" ${i===fallback?'selected':''} ${t.name?'translate="no"':''}>${html(t.name||`Tool ${i+1}`)}</option>`).join('')}</select></label></div>`;
       },
       bind:(root,draft,refresh)=>{
         const list=tools(draft),index=Math.min(current,list.length-1),fallback=defaultToolIndex(draft.pages.tools as Record<string,unknown>??{},list);
@@ -67,7 +67,7 @@ export function toolsOptionsPage(host:PageHost):OptionsPage{
         root.querySelector('#tool-down')!.addEventListener('click',()=>move(index+1));
         const edit=(id:string,key:'name'|'path'|'parameters')=>root.querySelector<HTMLInputElement>(`#${id}`)?.addEventListener('input',event=>{
           const next=tools(draft);next[index]={...next[index],[key]:(event.target as HTMLInputElement).value};save(next);
-          if(key==='name'){const option=root.querySelector<HTMLOptionElement>(`#tools-list option[value="${index}"]`),fallbackOption=root.querySelector<HTMLOptionElement>(`#tool-default option[value="${index}"]`);for(const o of [option,fallbackOption])if(o)o.textContent=next[index].name||`Tool ${index+1}`;}
+          if(key==='name'){const option=root.querySelector<HTMLOptionElement>(`#tools-list option[value="${index}"]`),fallbackOption=root.querySelector<HTMLOptionElement>(`#tool-default option[value="${index}"]`);for(const o of [option,fallbackOption])if(o){if(next[index].name)o.setAttribute('translate','no');else o.removeAttribute('translate');o.textContent=next[index].name||`Tool ${index+1}`;}}
         });
         edit('tool-name','name');edit('tool-path','path');edit('tool-parameters','parameters');
         root.querySelector('#tool-each')?.addEventListener('change',event=>{const next=tools(draft);next[index]={...next[index],for_each_file:(event.target as HTMLInputElement).checked};save(next);});
@@ -93,7 +93,7 @@ export class ToolsUI {
   get reason(){return this.host.reason();}
   menuHTML(){
     const list=this.tools,reason=this.host.reason();
-    return list.length?`<hr>${list.map((tool,index)=>`<button data-tool="${index}" ${reason?'disabled':''} title="${html(reason||tool.path)}"><span>${html(tool.name)}</span>${index<10?`<small>${toolShortcut(index,this.host.mac)}</small>`:''}</button>`).join('')}`
+    return list.length?`<hr>${list.map((tool,index)=>`<button data-tool="${index}"${reason?'':` data-verbatim="${html(tool.path)}"`} ${reason?'disabled':''} title="${html(reason||tool.path)}"><span translate="no">${html(tool.name)}</span>${index<10?`<small>${toolShortcut(index,this.host.mac)}</small>`:''}</button>`).join('')}`
       :'<p class="menu-note">No tools defined. Add them in Configure tools….</p>';
   }
   bindMenu(root:HTMLElement){

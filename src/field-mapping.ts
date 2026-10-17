@@ -18,13 +18,14 @@ export function mappingLabel(rule:FieldMapping){return`${tagLabel(rule.tag_type)
 export function mappingsError(rules:FieldMapping[]):string|undefined{
   const targets=new Map<string,string>();
   for(const [index,rule] of rules.entries()){
-    const name=`Mapping ${index+1}`;
-    if(!MAPPING_TAG_TYPES.some(([value])=>value.toLowerCase()===rule.tag_type.toLowerCase()))return`${name}: choose a tag type.`;
-    if(!rule.source.trim())return`${name}: enter the source field.`;
-    if(!rule.target.trim())return`${name}: enter the target field.`;
-    if(/[\0\r\n]/.test(rule.source+rule.target))return`${name}: field names cannot contain line breaks.`;
+    const mapping=`Mapping ${index+1}`,field=rule.source;
+    if(!MAPPING_TAG_TYPES.some(([value])=>value.toLowerCase()===rule.tag_type.toLowerCase()))return`${mapping}: choose a tag type.`;
+    if(!rule.source.trim())return`${mapping}: enter the source field.`;
+    if(!rule.target.trim())return`${mapping}: enter the target field.`;
+    if(/[\0\r\n]/.test(rule.source+rule.target))return`${mapping}: field names cannot contain line breaks.`;
     const key=`${rule.tag_type.toLowerCase()}\n${rule.source.toLowerCase()}`,target=targets.get(key);
-    if(target!==undefined&&target!==rule.target.toLowerCase())return`${name}: ${rule.source} already maps to another target. One source cannot map to several targets.`;
+    // String marks a text value for extraction; `field` also names markup helpers.
+    if(target!==undefined&&target!==rule.target.toLowerCase())return`${mapping}: ${String(field)} already maps to another target. One source cannot map to several targets.`;
     targets.set(key,rule.target.toLowerCase());
   }
   return undefined;

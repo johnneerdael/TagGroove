@@ -60,7 +60,7 @@ pub fn fingerprint(fpcalc: &Path, file: &Path) -> Result<(f64, String), String> 
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::null())
         .spawn()
-        .map_err(|e| format!("fpcalc could not be started: {e}"))?;
+        .map_err(|e| format!("fpcalc could not be started: {value}", value = e))?;
     let mut stdout = child.stdout.take().ok_or("fpcalc has no output")?;
     let reader = std::thread::spawn(move || {
         let mut text = String::new();
