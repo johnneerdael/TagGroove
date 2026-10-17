@@ -5,19 +5,18 @@
 
 # OpenTag
 
-[![Build and test](https://github.com/johnneerdael/opentag/actions/workflows/build.yml/badge.svg)](https://github.com/johnneerdael/opentag/actions/workflows/build.yml)
 [![Releases](https://img.shields.io/github/v/release/johnneerdael/opentag?include_prereleases&color=FF7800&label=Download)](https://github.com/johnneerdael/opentag/releases)
 [![MIT License](https://img.shields.io/badge/License-MIT-101922)](LICENSE)
 
-**Tag, Organize, Enjoy.** An open source music tag editor being built for Windows, macOS, Linux, Android and iOS.
+**Tag, Organize, Enjoy.** An open source music tag editor for Windows, macOS, Linux, Android and iOS.
 
-An independently authored open source reconstruction of Mp3tag 3.36.1 using Tauri 2 and a Rust tagging engine. The current build is incomplete. Exact feature and performance parity remain the project goal; see `docs/PARITY.md` and `docs/PERFORMANCE.md` for evidence and remaining work.
+An independently authored open source reconstruction of Mp3tag 3.36.1 using Tauri 2 and a Rust tagging engine. Exact feature and performance parity remain the project goal. `docs/PARITY.md` lists what is still missing and `docs/PERFORMANCE.md` has the measurements.
 
-The desktop editor loads audio folders, edits common and extended multi-value tags, manages embedded covers, previews filename conversion, edits ordered action groups, numbers tracks, and exports CSV and M3U8 playlists. Action-driven MTE exports support loops, variables, partitions and encodings. Audio edits stage and verify a copy before replacing the file. Generated fixture tests check preservation of audio packet hashes, unknown fields and covers across multiple formats. The supplied OpenTag brand kit provides the interface identity and platform icons.
+The desktop editor loads audio folders, edits common and extended multi-value tags, manages embedded covers, previews filename conversion, edits ordered action groups, numbers tracks, looks up tags from online sources, and exports through MTE templates and playlists. Audio edits stage and verify a copy before replacing the file. Generated fixture tests check preservation of audio packet hashes, unknown fields and covers across multiple formats. The supplied OpenTag brand kit provides the interface identity and platform icons.
 
 ## Download
 
-Get platform installers from the [latest GitHub release](https://github.com/johnneerdael/opentag/releases/latest). Every code merge to `main` publishes a new full release with all platform builds (versions `0.2.1`, `0.2.2`, …); the [parity ledger](docs/PARITY.md) tracks what is still incomplete before 1.0. Release assets include checksums and identify their operating system and architecture.
+Get platform installers from the [latest GitHub release](https://github.com/johnneerdael/opentag/releases/latest). Every code merge to `main` publishes a new full release with all platform builds (versions `0.2.1`, `0.2.2`, …); the [parity ledger](docs/PARITY.md) lists what is still incomplete before 1.0. Release assets include checksums and identify their operating system and architecture.
 
 See [release automation](docs/RELEASING.md) for build targets, signing status and publishing instructions. Simulator previews are labeled separately from device installers.
 
@@ -43,7 +42,7 @@ cargo clippy --workspace --all-targets --locked -- -D warnings
 npm run tauri build
 ```
 
-Windows, macOS and Linux build workflows are configured; local macOS validation is not proof of the other platforms. Android/iOS interfaces and document access are being implemented and require independent build/device verification.
+Builds run through the reviewed pull-request workflow (see `.github/CI_LOCKDOWN.md`) for Windows, macOS and Linux. Local macOS validation is not proof of the other platforms. Android and iOS builds exist, but their document access still needs device verification.
 
 ## Evidence
 

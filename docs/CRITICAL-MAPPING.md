@@ -156,7 +156,7 @@ Edits are applied to a sibling temporary copy, reparsed and verified, synced, an
 
 The v2.3 adapter rejects compressed/encrypted/data-length-indicated frame rewriting and combined tag CRC plus unsynchronisation instead of risking metadata loss. Uncommon frame flags, ID3v2.2 upgrades, legacy ANSI/RIFF encoding options, chapter frames, and rare historical native payloads need a broader differential corpus. Ordinary v2.3 strings, Unicode credits, URLs, documented extension frames, and unknown binary frames have repeated-edit regression coverage. Lofty 0.25.4 has an EOF-shrink splice bug; the adapter handles that boundary explicitly with the correct final absolute file length.
 
-Missing WMA/ASF and Matroska I/O, bare UNIQUEFILEID serialization, the POPULARIMETER display preference, nonempty lyrics descriptions, application user-mapping integration, and original-executable differential qualification prevent a full-parity claim. No video/chapter/hash placeholders or unsupported formats are fabricated.
+WMA/ASF and Matroska I/O, the POPULARIMETER display preference and application user-mapping rules are implemented since this note was written ([formats-asf](verification/formats-asf.md), [remove-mapping](verification/remove-mapping.md), [formats-edge](verification/formats-edge.md)). Original-executable differential qualification still prevents a full-parity claim.
 
 ## Repeatable checks
 

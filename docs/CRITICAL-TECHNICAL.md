@@ -25,13 +25,13 @@ The filter RPC evaluates a caller-supplied field map. The frontend now merges op
 | `%_length%` | Measured, conditional where noted | Parsed duration rendered as minutes:seconds, whole seconds. |
 | `%_length_seconds%` | Measured, conditional where noted | Parsed duration rounded to whole seconds. |
 | `%_mode%` | Measured, conditional where noted | Actual MPEG channel mode, otherwise measured channel count rendered as Mono/Stereo/N channels. |
-| `%_mp4_creation_time%` | Absent from audio technical map | Not yet measured: mvhd timestamp parser is not exposed by Lofty. |
-| `%_mp4_creation_time_raw%` | Absent from audio technical map | Not yet measured: movie epoch and unknown-zero handling require a concrete mvhd parser. |
-| `%_mp4_modification_time%` | Absent from audio technical map | Not yet measured: mvhd timestamp parser. |
-| `%_mp4_modification_time_raw%` | Absent from audio technical map | Not yet measured: mvhd timestamp parser. |
+| `%_mp4_creation_time%` | Measured, conditional where noted | `mvhd` creation time from the MP4 header; empty when absent or zero (`mp4_chapters.rs`). |
+| `%_mp4_creation_time_raw%` | Measured, conditional where noted | Unix seconds of the `mvhd` creation time. |
+| `%_mp4_modification_time%` | Measured, conditional where noted | `mvhd` modification time from the MP4 header. |
+| `%_mp4_modification_time_raw%` | Measured, conditional where noted | Unix seconds of the `mvhd` modification time. |
 | `%_samplerate%` | Measured, conditional where noted | Parsed audio sample rate in Hz; absent if unavailable. |
-| `%_subsong%` | Absent from audio technical map | Absent: chapter/subsong producer not implemented. |
-| `%_subsong_count%` | Absent from audio technical map | Absent: chapter/subsong producer not implemented. |
+| `%_subsong%` | Measured, conditional where noted | Chapter index on chapter rows (`subsongs.rs`). |
+| `%_subsong_count%` | Measured, conditional where noted | Chapter count for MP4, Matroska and cue-sheet files. |
 | `%_tag%` | Measured, conditional where noted | Available concrete tag kinds; ID3 original version retained. Display spelling/separators need original-app differential qualification. |
 | `%_tag_read%` | Measured, conditional where noted | First tag according to the existing primary/secondary read precedence. Mixed-tag fields can also include secondary unique fields. |
 | `%_tag_size%` | Absent from audio technical map | Not yet measured: exact physical tag-region accounting across native formats. |
