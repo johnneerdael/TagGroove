@@ -199,6 +199,12 @@ jobs:
           $nasmDirectory = Join-Path $env:ProgramFiles 'NASM'
           if (-not (Test-Path (Join-Path $nasmDirectory 'nasm.exe'))) { throw 'NASM installation missing' }
           $nasmDirectory | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Keep Git's link.exe from shadowing the MSVC linker in bash
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $gitLink = Join-Path $env:ProgramFiles 'Git\usr\bin\link.exe'
+          if (Test-Path $gitLink) { Remove-Item -LiteralPath $gitLink -Force }
       - run: npm ci
       - name: Build the debug app once
         run: |
