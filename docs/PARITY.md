@@ -1,6 +1,6 @@
 # Mp3tag 3.36.1 parity gaps
 
-This ledger lists only what is still missing, partial or unverified. Anything not listed is implemented, with the evidence in the linked verification notes and the [feature inventory](FEATURE-INVENTORY.md). No area is certified as exact parity, because none has been compared run for run against the original program.
+This ledger lists the known gaps: what is missing, partial or unverified. It is built from audits and verification notes and is not an exhaustive proof; the [verification notes](verification/) and [feature inventory](FEATURE-INVENTORY.md) hold the detail. No area is certified as exact parity, because none has been compared run for run against the original program.
 
 Reference target: `../Mp3tag.exe`, SHA-256 `484794eec4e2b9a649d04eaab63b4cc73127ceb48a9e46075ea488c0e1eac911`. Current as of 2026-10-17 at `main` `9d3764b`. The item-level list with impact and size is the [remaining-gaps register](research/remaining-gaps.md).
 
@@ -8,6 +8,7 @@ Reference target: `../Mp3tag.exe`, SHA-256 `484794eec4e2b9a649d04eaab63b4cc73127
 | --- | --- |
 | Toolbars | The original registers 75 toolbar command ids. OpenTag's custom toolbar offers 28 commands plus tools and action groups, so about 47 menu commands (copy/move/rename/delete files, most cover commands, selection commands, Utils, Help, file-list and configuration commands) cannot be placed on a toolbar. Movable toolbar bands are missing |
 | Menus and keyboard | No File → Exit item (the macOS app menu quits). Alt+Enter opens Extended Tags instead of the Windows properties dialog |
+| Extended Tags | "Keep changes" only stages the fields and needs a later Save tags; the configured immediate-save mode applies only when moving between files ([keyboard-ui](verification/keyboard-ui.md)) |
 | Tag panel | The floating panel is an in-window overlay, not a separate OS window |
 | File table | Find uses JavaScript `RegExp`, not the Boost bridge. Mp3tag `columns.ini` import covers known keys only because the layout is undocumented |
 | Scripting | Unverified against the original: `$caps` word-start characters, truth of non-boolean conditions, and errors inside a format string (OpenTag aborts the whole string). `%_md5audio%` works in exports only and is empty for MP4 and Ogg; tag-size placeholders are absent for WAV, AIFF, MP4, Ogg, Matroska, ASF and DSD |
@@ -22,7 +23,7 @@ Reference target: `../Mp3tag.exe`, SHA-256 `484794eec4e2b9a649d04eaab63b4cc73127
 | Undo/redo | History is not kept across sessions. Non-cloning volumes keep the 2 GiB full-size cap, and the first unpadded save counts in full |
 | CLI and OS integration | `open -a … --args` cannot reach a running app on macOS. No Windows or Linux file associations. The Windows shell extension is out of scope |
 | Smaller limits | About 30 further limits are listed in the [register](research/remaining-gaps.md): Matroska, ASF and APE edge cases, Utils refusals, playlist formats (XSPF, WPL, ASX), freedb server list, "No action" default tool, tag-panel directory switcher, toolbar file import, configuration storage, and others |
-| Platforms and distribution | Windows builds are unsigned, macOS builds are ad-hoc signed, iOS is simulator-only. Mobile needs real-device qualification, directory trees and cloud providers. Android provider documents ignore MPEG/APE read precedence and user field mappings on read and reload, and "Save a copy" does not copy pending artwork. Provider documents have no playlist loading or creation, no CSV/export operations and no Undo/Redo. Final dependency license audit and reproducible builds |
+| Platforms and distribution | Windows builds are unsigned, macOS builds are ad-hoc signed, iOS is simulator-only and has no document access or save-back yet. Mobile needs real-device qualification, directory trees and cloud providers. Android provider documents ignore MPEG/APE read precedence and user field mappings on read and reload, and "Save a copy" does not copy pending artwork. Provider documents have no playlist loading or creation, no CSV/export operations and no Undo/Redo. Final dependency license audit and reproducible builds |
 | Performance | No same-corpus comparison with the original, no Windows or Linux numbers, and APE, RIFF, Ogg and other containers still rewrite whole files |
 | Native UI proof | The headless suites use synthetic DOM events, so OS input, IME and hit-testing are untested. Native screen-reader qualification is open |
 

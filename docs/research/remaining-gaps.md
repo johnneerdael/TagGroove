@@ -1,6 +1,6 @@
 # Remaining parity gaps versus Mp3tag 3.36.1
 
-Current as of 2026-10-17 at `main` `9d3764b`. This register lists only open items. Everything the 2026-10-15 audit found that later batches closed has been removed; the closing evidence lives in the [verification notes](../verification/). The [parity ledger](../PARITY.md) summarises this list.
+Current as of 2026-10-17 at `main` `9d3764b`. This register lists the known open items. It is built from audits and verification notes and is not an exhaustive proof. Everything the 2026-10-15 audit found that later batches closed has been removed; the closing evidence lives in the [verification notes](../verification/). The [parity ledger](../PARITY.md) summarises this list.
 
 Method: the original audit compared every documentation page against the code. On 2026-10-17 the Windows binary's own tables were checked as well: script function names, placeholder names, field names, toolbar command ids and persisted setting names. Nothing was launched. "Unverified" means the behaviour is not documented and has not been compared with the original.
 
@@ -81,6 +81,8 @@ Legend: **Impact** H = daily tagging, M = regular, L = rare or legacy. **Size** 
 | CLI | `open -a … --args` | macOS drops arguments to a running app | L | — |
 | CLI | File associations | Not registered on Windows or Linux | L | S |
 | Platforms | Signing | Windows unsigned, macOS ad-hoc, iOS simulator-only | M | M |
+| Platforms | iOS documents | iOS has no provider picker, document access or save-back (`runtime_platform()` in `src-tauri/src/lib.rs` enables document access for Android only) | L | L |
+| Tag panel | Extended Tags save | "Keep changes" only stages the fields and needs a later Save tags; immediate-save mode applies only when moving between files ([keyboard-ui](../verification/keyboard-ui.md)) | L | S |
 | Platforms | Mobile provider documents | Reads and reloads of Android provider documents use the default read path, so MPEG/APE read precedence and user field mappings do not apply (`src-tauri/src/documents/engine.rs`); "Save a copy" writes fields only, so pending artwork is not copied; playlist loading and creation, CSV/export operations and Undo/Redo are disabled for provider documents (`src/main.ts`, [playlists-export](../verification/playlists-export.md)) | L | M |
 | Platforms | Mobile | Directory trees, cloud providers and real-device qualification | L | L |
 | Distribution | Audit | Final dependency license audit; reproducible builds | M | M |
