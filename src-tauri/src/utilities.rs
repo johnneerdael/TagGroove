@@ -494,10 +494,7 @@ pub async fn write_clipboard_text(text: String) -> Result<(), String> {
 /// Help menu destinations. Only these fixed pages can be opened.
 const HELP_PAGES: [(&str, &str); 4] = [
     ("repository", "https://github.com/johnneerdael/opentag"),
-    (
-        "documentation",
-        "https://opentag.neerdael.nl/",
-    ),
+    ("documentation", "https://opentag.neerdael.nl/"),
     ("issues", "https://github.com/johnneerdael/opentag/issues"),
     (
         "releases",
