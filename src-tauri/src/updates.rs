@@ -6,7 +6,8 @@ use crate::sources::http;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 
-const RELEASES_API: &str = "https://api.github.com/repos/johnneerdael/TagGroove/releases?per_page=30";
+const RELEASES_API: &str =
+    "https://api.github.com/repos/johnneerdael/TagGroove/releases?per_page=30";
 pub const RELEASES_PAGE: &str = "https://github.com/johnneerdael/TagGroove/releases/";
 const MAX_BYTES: usize = 2 * 1024 * 1024;
 

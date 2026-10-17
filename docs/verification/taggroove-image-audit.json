@@ -2277,101 +2277,121 @@
       "path": "docs/user-guide/assets/screens/extended-tags-dark.png",
       "sha256": "1ec3cac70171e0f3de5ca87c8a897c26a10bfe1e4a39857b9bf920ee21fb5948",
       "inspection": "Visual inspection of indexed contact sheets (all 412 original images)",
-      "classification": "public-guide UI capture with earlier application branding",
-      "action": "recapture from reviewed TagGroove build",
+      "classification": "public-guide UI capture with TagGroove branding",
+      "action": "replaced with reviewed CI capture",
       "current_path": "docs/user-guide/assets/screens/extended-tags-dark.png",
-      "status": "pending reviewed CI capture",
-      "current_sha256": "1ec3cac70171e0f3de5ca87c8a897c26a10bfe1e4a39857b9bf920ee21fb5948"
+      "status": "recaptured and visually inspected",
+      "current_sha256": "797d9d31fc1c028db813be78a05b9aad2a0989585c4c03e90327ec46d6695ace",
+      "capture_run_id": 39071322009,
+      "capture_reviewed_head": "ba7e849cfb59e4a6d532004cd6f3b0d73851260e"
     },
     {
       "path": "docs/user-guide/assets/screens/extended-tags-light.png",
       "sha256": "ebe8501137291580dbfe2f1e851e25527c5d82b9b74ddcd7e01e69f0d214b3b6",
       "inspection": "Visual inspection of indexed contact sheets (all 412 original images)",
-      "classification": "public-guide UI capture with earlier application branding",
-      "action": "recapture from reviewed TagGroove build",
+      "classification": "public-guide UI capture with TagGroove branding",
+      "action": "replaced with reviewed CI capture",
       "current_path": "docs/user-guide/assets/screens/extended-tags-light.png",
-      "status": "pending reviewed CI capture",
-      "current_sha256": "ebe8501137291580dbfe2f1e851e25527c5d82b9b74ddcd7e01e69f0d214b3b6"
+      "status": "recaptured and visually inspected",
+      "current_sha256": "7e447bd82f993e70d641378038bedc4eb13bfafc3b7f7d076c5a757654da713f",
+      "capture_run_id": 39071322009,
+      "capture_reviewed_head": "ba7e849cfb59e4a6d532004cd6f3b0d73851260e"
     },
     {
       "path": "docs/user-guide/assets/screens/main-window-dark.png",
       "sha256": "e1627bbd11c1d674a6e979197f2e3d400873a11a7375f98d718a181b26dbed1c",
       "inspection": "Visual inspection of indexed contact sheets (all 412 original images)",
-      "classification": "public-guide UI capture with earlier application branding",
-      "action": "recapture from reviewed TagGroove build",
+      "classification": "public-guide UI capture with TagGroove branding",
+      "action": "replaced with reviewed CI capture",
       "current_path": "docs/user-guide/assets/screens/main-window-dark.png",
-      "status": "pending reviewed CI capture",
-      "current_sha256": "e1627bbd11c1d674a6e979197f2e3d400873a11a7375f98d718a181b26dbed1c"
+      "status": "recaptured and visually inspected",
+      "current_sha256": "78f1e26ecd80d859990be69bb85984f2fc66a59f5ebc1788fdb1adf74acc956d",
+      "capture_run_id": 39071322009,
+      "capture_reviewed_head": "ba7e849cfb59e4a6d532004cd6f3b0d73851260e"
     },
     {
       "path": "docs/user-guide/assets/screens/main-window-light.png",
       "sha256": "de56a0fe6a0ee3ec2b1628799d7113525d31c80cfd16671d726f4195c50457cf",
       "inspection": "Visual inspection of indexed contact sheets (all 412 original images)",
-      "classification": "public-guide UI capture with earlier application branding",
-      "action": "recapture from reviewed TagGroove build",
+      "classification": "public-guide UI capture with TagGroove branding",
+      "action": "replaced with reviewed CI capture",
       "current_path": "docs/user-guide/assets/screens/main-window-light.png",
-      "status": "pending reviewed CI capture",
-      "current_sha256": "de56a0fe6a0ee3ec2b1628799d7113525d31c80cfd16671d726f4195c50457cf"
+      "status": "recaptured and visually inspected",
+      "current_sha256": "e7a68545f21e584acf464be3b717e29a28011b7caee7b5aba6ee72c6d2a7bb1a",
+      "capture_run_id": 39071322009,
+      "capture_reviewed_head": "ba7e849cfb59e4a6d532004cd6f3b0d73851260e"
     },
     {
       "path": "docs/user-guide/assets/screens/menu-convert-dark.png",
       "sha256": "88e6564a902f8a3b8a74c7de0b4ddbcaa4c244be9bbde77ae8ffa4a85e4589a8",
       "inspection": "Visual inspection of indexed contact sheets (all 412 original images)",
-      "classification": "public-guide UI capture with earlier application branding",
-      "action": "recapture from reviewed TagGroove build",
+      "classification": "public-guide UI capture with TagGroove branding",
+      "action": "replaced with reviewed CI capture",
       "current_path": "docs/user-guide/assets/screens/menu-convert-dark.png",
-      "status": "pending reviewed CI capture",
-      "current_sha256": "88e6564a902f8a3b8a74c7de0b4ddbcaa4c244be9bbde77ae8ffa4a85e4589a8"
+      "status": "recaptured and visually inspected",
+      "current_sha256": "0d8e98aa695605379f8182efdbe3c377bdc3d38d3656d1e59d3aebe642191d24",
+      "capture_run_id": 39071322009,
+      "capture_reviewed_head": "ba7e849cfb59e4a6d532004cd6f3b0d73851260e"
     },
     {
       "path": "docs/user-guide/assets/screens/menu-convert-light.png",
       "sha256": "eaca35c0f86ecc308be0e029afb2e59a3251308d7e0ea3468b867f7be37a2be3",
       "inspection": "Visual inspection of indexed contact sheets (all 412 original images)",
-      "classification": "public-guide UI capture with earlier application branding",
-      "action": "recapture from reviewed TagGroove build",
+      "classification": "public-guide UI capture with TagGroove branding",
+      "action": "replaced with reviewed CI capture",
       "current_path": "docs/user-guide/assets/screens/menu-convert-light.png",
-      "status": "pending reviewed CI capture",
-      "current_sha256": "eaca35c0f86ecc308be0e029afb2e59a3251308d7e0ea3468b867f7be37a2be3"
+      "status": "recaptured and visually inspected",
+      "current_sha256": "47cb12d110e2234d1bdb3ca9411e31e4e3c4c5425b7b59b5fe560bfdbb4e7225",
+      "capture_run_id": 39071322009,
+      "capture_reviewed_head": "ba7e849cfb59e4a6d532004cd6f3b0d73851260e"
     },
     {
       "path": "docs/user-guide/assets/screens/tag-panel-keep-dark.png",
       "sha256": "988d58d0bb2ee64f1f80aaa021b3decd18a07ec3fcb2cb469a7ff45f2ec39148",
       "inspection": "Visual inspection of indexed contact sheets (all 412 original images)",
-      "classification": "public-guide UI capture with earlier application branding",
-      "action": "recapture from reviewed TagGroove build",
+      "classification": "public-guide UI capture with TagGroove branding",
+      "action": "replaced with reviewed CI capture",
       "current_path": "docs/user-guide/assets/screens/tag-panel-keep-dark.png",
-      "status": "pending reviewed CI capture",
-      "current_sha256": "988d58d0bb2ee64f1f80aaa021b3decd18a07ec3fcb2cb469a7ff45f2ec39148"
+      "status": "recaptured and visually inspected",
+      "current_sha256": "07677c4715f9eb74b352eaed41a61bfe84054a00887727cde20f728e9e359cf1",
+      "capture_run_id": 39071322009,
+      "capture_reviewed_head": "ba7e849cfb59e4a6d532004cd6f3b0d73851260e"
     },
     {
       "path": "docs/user-guide/assets/screens/tag-panel-keep-light.png",
       "sha256": "3acb3c7c66d126bf7ed870bc90e2f3d86285083d645c4327be9cf44ab9a0e4a7",
       "inspection": "Visual inspection of indexed contact sheets (all 412 original images)",
-      "classification": "public-guide UI capture with earlier application branding",
-      "action": "recapture from reviewed TagGroove build",
+      "classification": "public-guide UI capture with TagGroove branding",
+      "action": "replaced with reviewed CI capture",
       "current_path": "docs/user-guide/assets/screens/tag-panel-keep-light.png",
-      "status": "pending reviewed CI capture",
-      "current_sha256": "3acb3c7c66d126bf7ed870bc90e2f3d86285083d645c4327be9cf44ab9a0e4a7"
+      "status": "recaptured and visually inspected",
+      "current_sha256": "66d853efd002972898ffacaf89b3dfb2c8aabbf3e2a3c7e999f2c7f3cdacba1b",
+      "capture_run_id": 39071322009,
+      "capture_reviewed_head": "ba7e849cfb59e4a6d532004cd6f3b0d73851260e"
     },
     {
       "path": "docs/user-guide/assets/screens/tag-to-filename-dark.png",
       "sha256": "328a8b4c35b751590895ff2625fd1d5df97ac36af32964dcd64528296d572e16",
       "inspection": "Visual inspection of indexed contact sheets (all 412 original images)",
-      "classification": "public-guide UI capture with earlier application branding",
-      "action": "recapture from reviewed TagGroove build",
+      "classification": "public-guide UI capture with TagGroove branding",
+      "action": "replaced with reviewed CI capture",
       "current_path": "docs/user-guide/assets/screens/tag-to-filename-dark.png",
-      "status": "pending reviewed CI capture",
-      "current_sha256": "328a8b4c35b751590895ff2625fd1d5df97ac36af32964dcd64528296d572e16"
+      "status": "recaptured and visually inspected",
+      "current_sha256": "0147386682de9cfdd2e4a414597df6c3e3cb2ca3bf10e78ec675e0ea1df01bf4",
+      "capture_run_id": 39071322009,
+      "capture_reviewed_head": "ba7e849cfb59e4a6d532004cd6f3b0d73851260e"
     },
     {
       "path": "docs/user-guide/assets/screens/tag-to-filename-light.png",
       "sha256": "f2e73be34e6c83bc8c09d9948ae662df6e6265e51fef4fbba4376f1196b2f8a6",
       "inspection": "Visual inspection of indexed contact sheets (all 412 original images)",
-      "classification": "public-guide UI capture with earlier application branding",
-      "action": "recapture from reviewed TagGroove build",
+      "classification": "public-guide UI capture with TagGroove branding",
+      "action": "replaced with reviewed CI capture",
       "current_path": "docs/user-guide/assets/screens/tag-to-filename-light.png",
-      "status": "pending reviewed CI capture",
-      "current_sha256": "f2e73be34e6c83bc8c09d9948ae662df6e6265e51fef4fbba4376f1196b2f8a6"
+      "status": "recaptured and visually inspected",
+      "current_sha256": "26f59017f9189dda3b734dde7bfcce5f241701f16aa368ee2215e105318adf12",
+      "capture_run_id": 39071322009,
+      "capture_reviewed_head": "ba7e849cfb59e4a6d532004cd6f3b0d73851260e"
     },
     {
       "path": "docs/verification/android-document-ui-dark.png",
@@ -4257,5 +4277,145 @@
       }
     ],
     "disposition": "All remaining fragments are documented compatibility identifiers, the explicitly unchanged gnudb client name, or historical Linux package instructions. Ten public-guide image captures still await replacement."
+  },
+  "reviewed_guide_captures": {
+    "run_id": 39071322009,
+    "run_url": "https://github.com/johnneerdael/TagGroove/actions/runs/39071322009",
+    "trusted_workflow_main_sha": "4a1a95ff4eddb9da7492aaace68197c4f81347d0",
+    "reviewed_head_sha": "ba7e849cfb59e4a6d532004cd6f3b0d73851260e",
+    "test_merge_sha": "cac0ea56396b457fd8a4563b70fdb44a05c8aacc",
+    "test_merge_tree": "91a4ab6937135ef1d82e0ff55f9f91510e20fc89",
+    "linux_job_id": 117509476998,
+    "artifact_name": "docs-screens",
+    "artifact_id": 12115172565,
+    "github_artifact_digest": "sha256:434a6fea5628d41bbbf37be8ee71eac942ad4d484a2262248cba995cc48cc548",
+    "capture_step_result": "success",
+    "artifact_upload_result": "success",
+    "validation_scope": "Capture and upload passed under exact-head authorization. Desktop jobs in this run failed the releases-URL rustfmt line-wrap check; full validation is required on the corrected final head.",
+    "post_capture_source_change": {
+      "path": "src-tauri/src/updates.rs",
+      "change": "Only rustfmt line wrapping of the existing RELEASES_API constant. Formatting the captured and current source produces identical bytes.",
+      "normalized_sha256": "b4035e586c90b1c9d3c755d561f58186c5710d4a9259211717d2a42626522ed1"
+    },
+    "images": [
+      {
+        "path": "docs/user-guide/assets/screens/extended-tags-dark.png",
+        "sha256": "797d9d31fc1c028db813be78a05b9aad2a0989585c4c03e90327ec46d6695ace",
+        "size": [
+          2480,
+          1600
+        ],
+        "scene": "extended-tags",
+        "theme": "dark",
+        "inspection": "Individually viewed the complete unmodified CI capture; TagGroove header and extended tags for the second fixture file with cover artwork visible."
+      },
+      {
+        "path": "docs/user-guide/assets/screens/extended-tags-light.png",
+        "sha256": "7e447bd82f993e70d641378038bedc4eb13bfafc3b7f7d076c5a757654da713f",
+        "size": [
+          2480,
+          1600
+        ],
+        "scene": "extended-tags",
+        "theme": "light",
+        "inspection": "Individually viewed the complete unmodified CI capture; TagGroove header and extended tags for the second fixture file with cover artwork visible."
+      },
+      {
+        "path": "docs/user-guide/assets/screens/main-window-dark.png",
+        "sha256": "78f1e26ecd80d859990be69bb85984f2fc66a59f5ebc1788fdb1adf74acc956d",
+        "size": [
+          2480,
+          1600
+        ],
+        "scene": "main-window",
+        "theme": "dark",
+        "inspection": "Individually viewed the complete unmodified CI capture; TagGroove header, eight Juniper Vale fixture files, one selected file and the tag panel visible."
+      },
+      {
+        "path": "docs/user-guide/assets/screens/main-window-light.png",
+        "sha256": "e7a68545f21e584acf464be3b717e29a28011b7caee7b5aba6ee72c6d2a7bb1a",
+        "size": [
+          2480,
+          1600
+        ],
+        "scene": "main-window",
+        "theme": "light",
+        "inspection": "Individually viewed the complete unmodified CI capture; TagGroove header, eight Juniper Vale fixture files, one selected file and the tag panel visible."
+      },
+      {
+        "path": "docs/user-guide/assets/screens/menu-convert-dark.png",
+        "sha256": "0d8e98aa695605379f8182efdbe3c377bdc3d38d3656d1e59d3aebe642191d24",
+        "size": [
+          2480,
+          1600
+        ],
+        "scene": "menu-convert",
+        "theme": "dark",
+        "inspection": "Individually viewed the complete unmodified CI capture; TagGroove header and the open Convert menu visible."
+      },
+      {
+        "path": "docs/user-guide/assets/screens/menu-convert-light.png",
+        "sha256": "47cb12d110e2234d1bdb3ca9411e31e4e3c4c5425b7b59b5fe560bfdbb4e7225",
+        "size": [
+          2480,
+          1600
+        ],
+        "scene": "menu-convert",
+        "theme": "light",
+        "inspection": "Individually viewed the complete unmodified CI capture; TagGroove header and the open Convert menu visible."
+      },
+      {
+        "path": "docs/user-guide/assets/screens/tag-panel-keep-dark.png",
+        "sha256": "07677c4715f9eb74b352eaed41a61bfe84054a00887727cde20f728e9e359cf1",
+        "size": [
+          2480,
+          1600
+        ],
+        "scene": "tag-panel-keep",
+        "theme": "dark",
+        "inspection": "Individually viewed the complete unmodified CI capture; TagGroove header, all eight fixture files selected, keep markers for differing values visible."
+      },
+      {
+        "path": "docs/user-guide/assets/screens/tag-panel-keep-light.png",
+        "sha256": "66d853efd002972898ffacaf89b3dfb2c8aabbf3e2a3c7e999f2c7f3cdacba1b",
+        "size": [
+          2480,
+          1600
+        ],
+        "scene": "tag-panel-keep",
+        "theme": "light",
+        "inspection": "Individually viewed the complete unmodified CI capture; TagGroove header, all eight fixture files selected, keep markers for differing values visible."
+      },
+      {
+        "path": "docs/user-guide/assets/screens/tag-to-filename-dark.png",
+        "sha256": "0147386682de9cfdd2e4a414597df6c3e3cb2ca3bf10e78ec675e0ea1df01bf4",
+        "size": [
+          2480,
+          1600
+        ],
+        "scene": "tag-to-filename",
+        "theme": "dark",
+        "inspection": "Individually viewed the complete unmodified CI capture; TagGroove header and Tag to Filename dialog with the requested format string and preview visible."
+      },
+      {
+        "path": "docs/user-guide/assets/screens/tag-to-filename-light.png",
+        "sha256": "26f59017f9189dda3b734dde7bfcce5f241701f16aa368ee2215e105318adf12",
+        "size": [
+          2480,
+          1600
+        ],
+        "scene": "tag-to-filename",
+        "theme": "light",
+        "inspection": "Individually viewed the complete unmodified CI capture; TagGroove header and Tag to Filename dialog with the requested format string and preview visible."
+      }
+    ]
+  },
+  "current_inventory_verification": {
+    "tracked_images": 356,
+    "accounted_for_images": 356,
+    "retired_baseline_images": 56,
+    "missing_paths": [],
+    "hash_mismatches": [],
+    "pending_image_replacements": 0
   }
 }
