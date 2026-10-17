@@ -256,6 +256,18 @@ staged from the same verified `zs.lib` archive. Fourteen source-safety tests
 cover these target-specific command and archive contracts. Full MSVC native
 and packaging validation remains a required CI gate.
 
+With those flags corrected, the Windows desktop job completed all four
+native library builds and reached source-closure collection. Its MSVC
+`-showIncludes` records contain headers only: a translation unit such as
+`adpcm_data.c`, which includes only a system header, produces an empty record
+after upstream excludes SDK paths containing spaces. The collector now binds
+each MSVC record to its existing compiled object and unique pinned translation
+unit, verifies any `src/` copy against that source, and retains the reported
+local headers. Missing objects, missing/ambiguous source units and changed
+copies still fail. GNU dependency handling remains strict and unchanged.
+Sixteen source-safety tests pass locally; this does not substitute for the
+remaining Windows app/API/package gates.
+
 Linux compiled and ran the producer, but its Vorbis result differed from the
 ARM golden by thirteen raw bits across 75 items. A local x86 source build
 reproduced that exact Linux result. The unmodified upstream fpcalc source was

@@ -260,7 +260,7 @@ def ffmpeg_command(bash, source, prefix, spec, target_flags):
     return [bash, (source / "configure").as_posix(), *flags]
 
 
-def source_closure(build_root, source_root):
+def source_closure(build_root, source_root, msvc=False):
     """Resolve compiler dependency records to the exact pinned source tree.
 
     FFmpeg emits src/ aliases even with an absolute configure path. Resolve
@@ -273,10 +273,29 @@ def source_closure(build_root, source_root):
     build_root = build_root.resolve()
     for dep in sorted(build_root.rglob("*.d")):
         text = dep.read_text(errors="strict").replace("\\\n", " ")
-        _, separator, dependencies = text.partition(": ")
-        if not separator:
-            raise RuntimeError(f"Invalid native dependency record: {dep}")
         entries = {}
+        if msvc:
+            # FFmpeg's MSVC -showIncludes rule lists headers, not the .c/.asm
+            # input. A unit including only SDK headers has an empty .d file.
+            # Bind that record to its real object and unique pinned source;
+            # never silently discard it or weaken the GNU dependency contract.
+            if not dep.with_suffix(".o").is_file():
+                raise RuntimeError(f"Native dependency record has no compiled object: {dep}")
+            relative = dep.relative_to(build_root)
+            units = [source_root / relative.with_suffix(suffix)
+                     for suffix in [".c", ".cpp", ".cc", ".asm", ".S"]
+                     if (source_root / relative.with_suffix(suffix)).is_file()]
+            if len(units) != 1:
+                raise RuntimeError(f"Native dependency record needs one pinned translation unit: {dep}")
+            unit = units[0]
+            unit_hash = digest(unit)
+            alias = build_root / "src" / unit.relative_to(source_root)
+            if alias.exists() and (not alias.is_file() or digest(alias) != unit_hash):
+                raise RuntimeError(f"Native compiled source alias differs from pinned source: {alias}")
+            entries[unit.relative_to(source_root).as_posix()] = unit_hash
+        _, separator, dependencies = text.partition(": ")
+        if not separator and (text.strip() or not msvc):
+            raise RuntimeError(f"Invalid native dependency record: {dep}")
         for name in shlex.split(dependencies):
             if name.startswith("src/"):
                 path = source_root / name[4:]
@@ -371,7 +390,7 @@ def build(target, output, jobs):
     (prefix / "ffmpeg-components.h").write_text(components)
     # Bind compiled objects to their actual original/modified source and header
     # closure. System SDK/compiler headers are intentionally outside this set.
-    closure, generated = source_closure(ffmpeg_build, native["ffmpeg"])
+    closure, generated = source_closure(ffmpeg_build, native["ffmpeg"], msvc=target.endswith("windows-msvc"))
     (prefix / "ffmpeg-source-closure.json").write_text(json.dumps(closure, indent=2) + "\n")
     for name, expected in generated.items():
         output = prefix / "ffmpeg-generated" / name

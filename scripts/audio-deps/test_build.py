@@ -189,6 +189,55 @@ class SourceSafetyTests(unittest.TestCase):
             self.assertFalse(any(flag.startswith("--cc=") and " " in flag for flag in flags))
             self.assertEqual(env["PATH"].split(os.pathsep)[0], str(compiler.parent))
 
+    def test_msvc_header_records_bind_compiled_translation_unit(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            source, build = root / "source", root / "build"
+            (source / "libavcodec").mkdir(parents=True)
+            (build / "libavcodec").mkdir(parents=True)
+            unit = source / "libavcodec/adpcm_data.c"
+            unit.write_bytes(b"#include <stdint.h>\nconst int table[] = {1};\n")
+            header = source / "libavcodec/local.h"
+            header.write_bytes(b"original pinned header\n")
+            dep = build / "libavcodec/adpcm_data.d"
+            (build / "libavcodec/adpcm_data.o").write_bytes(b"synthetic compiled-object fixture")
+            for record in ["", "libavcodec/adpcm_data.o: src/libavcodec/local.h\n"]:
+                with self.subTest(record=record):
+                    dep.write_text(record)
+                    closure, generated = self.build.source_closure(build, source, msvc=True)
+                    expected = {"libavcodec/adpcm_data.c": self.build.digest(unit)}
+                    if record:
+                        expected["libavcodec/local.h"] = self.build.digest(header)
+                    self.assertEqual(closure, {"libavcodec/adpcm_data.d": expected})
+                    self.assertEqual(generated, {})
+
+    def test_msvc_empty_record_requires_object_source_and_matching_src_alias(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            source, build = root / "source", root / "build"
+            (source / "libavcodec").mkdir(parents=True)
+            (build / "libavcodec").mkdir(parents=True)
+            unit = source / "libavcodec/adpcm_data.c"
+            unit.write_bytes(b"original source")
+            (build / "libavcodec/adpcm_data.d").write_bytes(b"")
+            with self.assertRaisesRegex(RuntimeError, "compiled object"):
+                self.build.source_closure(build, source, msvc=True)
+            (build / "libavcodec/adpcm_data.o").write_bytes(b"synthetic compiled-object fixture")
+            unit.unlink()
+            with self.assertRaisesRegex(RuntimeError, "translation unit"):
+                self.build.source_closure(build, source, msvc=True)
+            unit.write_bytes(b"original source")
+            alternate = unit.with_suffix(".asm")
+            alternate.write_bytes(b"ambiguous source")
+            with self.assertRaisesRegex(RuntimeError, "translation unit"):
+                self.build.source_closure(build, source, msvc=True)
+            alternate.unlink()
+            alias = build / "src/libavcodec/adpcm_data.c"
+            alias.parent.mkdir(parents=True)
+            alias.write_bytes(b"tampered source copy")
+            with self.assertRaisesRegex(RuntimeError, "source alias"):
+                self.build.source_closure(build, source, msvc=True)
+
     def test_windows_configure_paths_keep_source_directory_in_bash(self):
         source = PureWindowsPath(r"D:\a\opentag\sources\ffmpeg")
         prefix = PureWindowsPath(r"D:\a\opentag\prefix")
