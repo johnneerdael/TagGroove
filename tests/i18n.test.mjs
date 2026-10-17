@@ -528,3 +528,15 @@ test('shortcut aliases respect authored values and full verbatim protection',()=
   assert.equal(de.translate('Insert'),'Einfg','A protected lookup never poisons the ordinary shortcut cache');
   assert.equal(de.translate('Insert',0,true),'Insert','A cached ordinary lookup never changes protected text');
 });
+
+test('word key names require alphanumeric boundaries rather than absorbing identifiers',()=>{
+  const de=new Translator('de',catalogs.de);
+  for(const source of ['Insert2','2Insert','Ins2','2Ins','Ctrl2','2Ctrl','InsertF2','F2Insert','CtrlInsert','Num2','Page Up2','Ctrl Insert2','Alt+Insert2']){
+    assert.equal(de.translate(source),source,source);
+  }
+  for(const [source,expected] of [['Insert','Einfg'],['Ctrl 2','Strg 2'],['Ctrl F2','Strg F2'],['Ctrl+Insert','Strg+Einfg'],['Ctrl Num +','Strg Num +'],['⌘/Ctrl ⇧ S','⌘/Strg ⇧ S'],['Shift+Insert','Umschalt+Einfg']]){
+    assert.equal(de.translate(source),expected,source);
+  }
+  assert.equal(new Translator('de',{'@keys':{Insert:'Full key'}}).translate('Insert2'),'Insert2');
+  assert.equal(de.translate('Select Insert2'),de.t('Select {filename}',{filename:'Insert2'}));
+});

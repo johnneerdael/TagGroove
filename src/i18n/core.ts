@@ -90,7 +90,7 @@ const PLURAL_CATEGORIES = new Set(['zero', 'one', 'two', 'few', 'many', 'other']
 const VERBATIM = /^(name|nameOf|path|file|filename|fileName|location|outputPath|destination|source|sourcePath|directory|folder|url|extension|tag|selector|DIRECTORY|SEPARATOR|value|values|names|text|field|key|id|typeId|codepage|mode|item|scheme|byte|flags|current|query|term|pattern|format|template|title)\d*$/;
 
 // Key combinations as menus and tooltips show them: ⌘/Ctrl ⇧ S, Alt+Enter, Ctrl Num +.
-const SHORTCUT = /^(?:(?:⌘|⌥|⇧|⌃|⌫|Ctrl|Alt|Shift|Option|Cmd|Del|Num|Enter|Esc|Tab|Space|Page Up|Page Down|Home|End|Ins|Insert|F\d{1,2}|[A-Z0-9]|[←→↑↓+\/·]|,)[\s+/]*)+$/;
+const SHORTCUT = /^(?:(?:⌘|⌥|⇧|⌃|⌫|(?<![A-Za-z0-9])(?:Ctrl|Alt|Shift|Option|Cmd|Del|Num|Enter|Esc|Tab|Space|Page Up|Page Down|Home|End|Ins|Insert|F\d{1,2})(?![A-Za-z0-9])|[A-Z0-9]|[←→↑↓+\/·]|,)[\s+/]*)+$/;
 /** Number-only count, measurement and limit roles: keep raw data and composed summaries distinct.
  * They only match digits, so "{count} file" never matches "Choose a file". */
 const NUMERIC = /^(length|count|size|total|done|restored|missing|unmatched|pending|saved|failed|skipped|selectedCount|tracks|discs|chapters|selected|shown|started|removed|files|line|lines|matched|n|i|index|position|lastHits|lastStored|min|max|channels|bitrate|sampleRate|counts|covers|withCovers|sourceLine|selectionIndex|minimum|maximum|invalid|number|major|code|MAX_COLUMNS|MAX_FIELDS|MAX_VALUES|MIN_WIDTH|MAX_WIDTH|PLAY_LIMIT|TOOL_LIMIT|TOOLLIMIT|TIMEOUTRANGE)\d*$/;
@@ -276,7 +276,7 @@ export class Translator {
         // The Actions dialog emits Insert; use a localized Ins spelling unless explicitly overridden.
         // Identity/absent mappings retain the producer's original English spelling.
         const spelling = name === 'Ins' && value !== name && !hasInsert ? '(?:Ins|Insert)' : escapeRegex(name);
-        return [new RegExp(`(?<![A-Za-z])${spelling}(?![A-Za-z])`, 'g'), value];
+        return [new RegExp(`(?<![A-Za-z0-9])${spelling}(?![A-Za-z0-9])`, 'g'), value];
       });
     }
     for (const [key, value] of Object.entries(catalog)) {

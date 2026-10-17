@@ -24,11 +24,11 @@ Two review regressions cover locale-sensitive exact/category selection through
 explicit and captured values, and nested-category rejection/usable-catalog
 filtering with valid nested forms retained. A further producer-bound case covers every catalog identifier and underscored
 native limit values through direct/captured rendering and plural parsing. All
-twenty-four pure cases remain in the
+twenty-five pure cases remain in the
 same test module when the complete application test suite is
 integrated; the later source-bound extraction and UI tests must also be kept.
 
-Fresh local checks passed 408 UI/model tests with zero failures or skips, the
+Fresh local checks passed 409 UI/model tests with zero failures or skips, the
 production build, the strict 172-page guide and eight publication tests. One
 existing UI case compiles a temporary pure Rust helper; it is separate from
 application-native qualification. All 1,360 existing tracked main files are
@@ -148,3 +148,11 @@ verbatim text now bypasses shortcut localization as well as exact-key lookup;
 this retains authored shortcut-shaped names. Both tests first failed against
 the reviewed parent: `Insert` stayed English, and protected `Ctrl Ins` became
 `Strg Einfg`. No app producer, DOM observer, native input or activation changed.
+
+A further source-level regression reproduced `Insert2` being treated as two
+adjacent shortcut tokens and translated to `Einfg2`. Named shortcut tokens and
+catalog-key substitutions now require alphanumeric boundaries on both sides.
+The regression retains numeric identifiers and adjacent key names unchanged,
+while standalone Insert, `Ctrl+Insert`, `Ctrl F2`, `Ctrl 2`, symbolic modifiers
+and numpad shortcuts preserve their valid behavior. All earlier 24 pure cases
+remain unchanged; the new 25th case first failed on the reviewed parent.
