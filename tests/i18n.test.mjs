@@ -540,3 +540,32 @@ test('word key names require alphanumeric boundaries rather than absorbing ident
   assert.equal(new Translator('de',{'@keys':{Insert:'Full key'}}).translate('Insert2'),'Insert2');
   assert.equal(de.translate('Select Insert2'),de.t('Select {filename}',{filename:'Insert2'}));
 });
+
+test('Tag Sources track labels retain technical fields and provider positions',async()=>{
+  const source=await readFile(new URL('../src/tag-sources.ts',import.meta.url),'utf8');
+  const ast=ts.createSourceFile('tag-sources.ts',source,ts.ScriptTarget.Latest,true,ts.ScriptKind.TS);
+  const declarations=new Map();
+  const visit=node=>{
+    if(ts.isVariableDeclaration(node)&&['html','matchMarkup'].includes(node.name.getText(ast))){
+      const name=node.name.getText(ast);assert.ok(!declarations.has(name));
+      declarations.set(name,`const ${name}=${node.initializer.getText(ast)};`);
+    }
+    ts.forEachChild(node,visit);
+  };
+  visit(ast);assert.equal(declarations.size,2);
+  const producer=ts.transpileModule([...declarations.values()].join('\n'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
+  const render=new Function('release','trackField','slots','files','duration','trackValue','fileName','fileLength',`${producer};return matchMarkup();`);
+  const key='{trackField} of track {trackPosition}';
+  const custom={[key]:'Position [{trackPosition}], field [{trackField}]',ARTIST:'Wrong field',Help:'Wrong position','Ctrl Ins':'Wrong shortcut'};
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]]){
+    const translator=new Translator(locale,catalog);
+    for(const trackField of ['ARTIST','ALBUM','TITLE','TRACK','COMMENT','GENRE','Help','Ctrl Ins','MY_FIELD']){
+      for(const position of ['1','A1','Help','Ctrl Ins','']){
+        const markup=render({tracks:[{position,length:null}]},trackField,[null],[],()=>'',()=>'',()=>'',()=>'');
+        const label=markup.match(/class="ts-track-value"[^>]*aria-label="([^"]+)"/)?.[1];
+        assert.equal(label,`${trackField} of track ${position||'1'}`);
+        assert.equal(translator.translate(label),translator.t(key,{trackField,trackPosition:position||'1'}),`${locale}: ${label}`);
+      }
+    }
+  }
+});

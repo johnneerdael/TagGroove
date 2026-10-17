@@ -24,11 +24,11 @@ Two review regressions cover locale-sensitive exact/category selection through
 explicit and captured values, and nested-category rejection/usable-catalog
 filtering with valid nested forms retained. A further producer-bound case covers every catalog identifier and underscored
 native limit values through direct/captured rendering and plural parsing. All
-twenty-five pure cases remain in the
+twenty-six pure cases remain in the
 same test module when the complete application test suite is
 integrated; the later source-bound extraction and UI tests must also be kept.
 
-Fresh local checks passed 409 UI/model tests with zero failures or skips, the
+Fresh local checks passed 410 UI/model tests with zero failures or skips, the
 production build, the strict 172-page guide and eight publication tests. One
 existing UI case compiles a temporary pure Rust helper; it is separate from
 application-native qualification. All 1,360 existing tracked main files are
@@ -156,3 +156,13 @@ The regression retains numeric identifiers and adjacent key names unchanged,
 while standalone Insert, `Ctrl+Insert`, `Ctrl F2`, `Ctrl 2`, symbolic modifiers
 and numpad shortcuts preserve their valid behavior. All earlier 24 pure cases
 remain unchanged; the new 25th case first failed on the reviewed parent.
+
+The Tag Sources matching table's accessible input label contains technical
+`trackField` and provider-supplied `trackPosition` values. Both are now raw
+roles: `ARTIST of track 1` translates its surrounding scaffold while keeping
+`ARTIST`, and positions such as `A1` or `Help` retain their provider spelling.
+The new regression executes the actual `matchMarkup` producer, including its
+empty-position fallback, across DE/NL/custom catalogs and technical or
+shortcut-shaped field/position collisions. It first reproduced `ARTIST`
+incorrectly becoming `INTERPRET`. All 25 earlier pure cases remain unchanged;
+the application producer, catalogs, activation and native code are untouched.
