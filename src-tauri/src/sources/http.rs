@@ -10,6 +10,8 @@ use std::sync::{Arc, Mutex as StdMutex};
 use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 
+// This change renames visible product content. Keep the existing wire identity
+// and provider integrations stable; product/help links use the new repository.
 pub const USER_AGENT: &str = concat!(
     "OpenTag/",
     env!("CARGO_PKG_VERSION"),

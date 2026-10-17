@@ -8,7 +8,7 @@ An authorized merge to `main` that changes shipping files publishes a full GitHu
 
 ## How versions are derived
 
-`package.json`, `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json`, `Cargo.lock` (the `taggroove` entry), `package-lock.json` and the iOS project files carry the **base version**, currently `0.2.0`. It must be a plain `<major>.<minor>.0`.
+`package.json`, `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json`, `Cargo.lock` (the `opentag` entry), `package-lock.json` and the iOS project files carry the **base version**, currently `0.2.0`. It must be a plain `<major>.<minor>.0`.
 
 For a push to `main`, the release version is `<major>.<minor>.<n>`, where `n` is the number of first-parent commits on `main` since the commit that set the base version that change shipping files (see [Docs-only merges](#docs-only-merges)). The commit that lands the base version is `v0.2.0`; the next code merge is `v0.2.1`, then `v0.2.2`, and so on. Each merge adds one first-parent commit, however many commits its branch had, so versions follow the order of merges, increase strictly and never depend on the runner, the clock or earlier releases. The same commit always gets the same version, so reruns are deterministic.
 
@@ -176,7 +176,7 @@ Repository Actions secrets must contain:
 
 The workflow restores the keystore with restricted permissions under the runner's temporary directory. Gradle reads `ANDROID_KEYSTORE_PATH`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, and `ANDROID_KEY_PASSWORD`; no credentials file is committed. Secret values are neither printed nor uploaded, and the temporary keystore is removed even on build failure.
 
-The current key has an owner-managed private backup under `~/.config/taggroove/signing`. Preserve it securely for future updates: rotating the application key can prevent existing installations from accepting later APKs. Do not add the keystore, passwords, or base64 key to source, logs, release assets, or documentation. See [Tauri Android signing](https://v2.tauri.app/distribute/sign/android/) for the underlying Gradle signing requirements.
+The current key has an owner-managed private backup under `~/.config/opentag/signing`. Preserve it securely for future updates: rotating the application key can prevent existing installations from accepting later APKs. Do not add the keystore, passwords, or base64 key to source, logs, release assets, or documentation. See [Tauri Android signing](https://v2.tauri.app/distribute/sign/android/) for the underlying Gradle signing requirements.
 
 Android builds use JDK 17, SDK command-line tools 22 (`15859902`), platform `android-37.0`, build tools `37.0.0`, and NDK `28.2.13676358`. API 37's platform package includes the minor version: `platforms;android-37` does not exist. Before upload, the workflow verifies the APK signature, rejects the Android debug certificate, and checks the application version and sole `arm64-v8a` ABI. Missing signing secrets fail the required Android job and prevent publication; the pipeline never substitutes an unsigned or debug APK.
 

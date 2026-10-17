@@ -3667,5 +3667,16 @@
       "current_path": "src-tauri/icons/tray/taggroove-tray-white.svg",
       "current_sha256": "42ff999ea8e553a6c3f2e245b700077da43c759bafa88934aa9a5c7f1a2925cb"
     }
-  ]
+  ],
+  "embedded_image_checks": {
+    "supplied_brand_guide": {
+      "image_count": 32,
+      "all_decoded_previews_match_supplied_kit_manifest_hashes": true
+    },
+    "guide_stylesheet": {
+      "image_count": 1,
+      "classification": "generic edit-pencil SVG with no app name"
+    },
+    "runtime_test_data": "Provider and cover tests generate unbranded synthetic images; no replacement artwork is inferred from fixture names."
+  }
 }

@@ -475,7 +475,7 @@ def build_bundle(root, commit, version, output, native_evidence=None, source_dir
     manifest = {"schema": 1, "version": version, "source_commit": commit, "targets": targets,
                 "files": {name: {"size": len(data), "sha256": sha(data), "mode": modes.get(name, 0o644)} for name, data in sorted(files.items())}}
     verify_contents(files, manifest, commit, version, native_evidence)
-    prefix = "OpenTag-v" + version + "-sources/"
+    prefix = "TagGroove-v" + version + "-sources/"
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = output.with_suffix(output.suffix + ".tmp")
     try:
@@ -494,7 +494,7 @@ def build_bundle(root, commit, version, output, native_evidence=None, source_dir
 
 def verify_bundle(path, commit, version, native_evidence=None):
     identity(commit, version)
-    prefix = "OpenTag-v" + version + "-sources/"
+    prefix = "TagGroove-v" + version + "-sources/"
     files, modes, total = {}, {}, 0
     with tarfile.open(path, "r:xz") as archive:
         for item in archive:
