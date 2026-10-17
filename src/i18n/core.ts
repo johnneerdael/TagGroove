@@ -22,6 +22,7 @@ const PARTS_ONLY = new Set([
   'The cover image could not be saved: {error}',
   'Action {name}',
   'Actions ({count} groups)',
+  '{value}: {error}',
   // These are persisted duplicate names, not standalone UI sentences.
   '{name} copy',
   '{name} copy {count}',
@@ -191,8 +192,8 @@ export function placeholders(source: string): Set<string> {
 
 const numberSeparators = new WeakMap<Intl.PluralRules, {decimal: string; group?: string}>();
 /** Decode locale-formatted counts only for plural decisions; displayed values stay untouched. */
-const number = (value: unknown, rules: Intl.PluralRules) => {
-  if (typeof value === 'number') return value;
+const countText = (value: unknown, rules: Intl.PluralRules) => {
+  if (typeof value === 'number') return String(value);
   const digits = String(value ?? '').replace(/[\p{Nd}〇一二三四五六七八九]/gu, digit => {
     if (digit >= '0' && digit <= '9') return digit;
     const han = HAN_DIGITS.indexOf(digit);
@@ -211,7 +212,21 @@ const number = (value: unknown, rules: Intl.PluralRules) => {
     numberSeparators.set(rules, separators);
   }
   const ungrouped = separators.group ? digits.split(separators.group).join('') : digits;
-  return Number(ungrouped.split(separators.decimal).join('.').replace(/٫/g, '.').replace(/[\s٬'’]/g, ''));
+  return ungrouped.split(separators.decimal).join('.').replace(/٫/g, '.').replace(/[\s٬'’]/g, '');
+};
+
+/** Canonical integer text without rounding or expanding beyond the selectors. */
+const exactInteger = (text: string, limit: number): string | undefined => {
+  if (text === '') return '0'; // Preserve the existing empty-count numeric coercion.
+  const match = /^([+-]?)(\d*)(?:\.(\d*))?(?:e([+-]?\d+))?$/i.exec(text);
+  if (!match || (!match[2] && !match[3])) return undefined;
+  const digits = (match[2] + (match[3] ?? '')).replace(/^0+/, '') || '0';
+  if (digits === '0') return '0';
+  if (match[1] === '-') return undefined;
+  const shift = Number(match[4] ?? 0) - (match[3]?.length ?? 0);
+  if (shift >= 0) return digits.length + shift <= limit ? digits + '0'.repeat(shift) : undefined;
+  const end = digits.length + shift;
+  return end > 0 && end <= limit && /^0*$/.test(digits.slice(end)) ? digits.slice(0, end) : undefined;
 };
 
 /** Fill a parsed translation. */
@@ -221,8 +236,12 @@ export function render(nodes: Node[], params: Record<string, unknown>, rules: In
     if (typeof node === 'string') {out += hash === undefined ? node : node.replace(/#/g, hash);continue;}
     const value = params[node.name];
     if (!('plural' in node)) {out += value === undefined ? `{${node.name}}` : String(value);continue;}
-    const n = number(value, rules);
-    const exact = node.plural.find(([category]) => category === `=${n}`);
+    const decoded = countText(value, rules), n = Number(decoded);
+    // Exact forms compare decimal integer text before count conversion to
+    // Number for categories; the original value still supplies `#`.
+    const limit = node.plural.reduce((length, [category]) => category.startsWith('=') ? Math.max(length, category.length - 1) : length, 0);
+    const integer = exactInteger(decoded, limit);
+    const exact = node.plural.find(([category]) => integer !== undefined && category === `=${integer}`);
     const category = Number.isFinite(n) ? rules.select(n) : 'other';
     const form = exact ?? node.plural.find(([name]) => name === category) ?? node.plural.find(([name]) => name === 'other') ?? node.plural[0];
     out += render(form[1], params, rules, value === undefined ? '#' : String(value));
@@ -286,6 +305,8 @@ export class Translator {
    * placeholders whose values are taken from the text. Values that are
    * themselves UI text ("3 files", an error message) are translated too.
    * Surrounding whitespace is kept; unknown text is returned unchanged.
+   * Ambiguous and punctuation-only frames require t(key, source parts); paths
+   * and nested errors cannot be recovered safely by splitting rendered text.
    * `verbatim` protects a name someone entered, so a column named "Help" is
    * never shown as "Hilfe": that exact text, and values equal to it read back
    * from a key with placeholders, stay as they are. `true` protects all text:

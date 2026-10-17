@@ -433,3 +433,39 @@ test('persisted copy names stay raw and failure frames follow actual producer do
   }
  }
 });
+
+
+test('exact plural selection retains integer precision before numeric category conversion',()=>{
+ const key='{count} files',catalog={[key]:'{count, plural, =9007199254740992 {exact big} =1 {exact one} =0 {exact zero} other {# other}}'};
+ assert.deepEqual(validateCatalog({[key]:key},catalog),{missing:[],unknown:[],placeholders:[],invalid:[]});
+ for(const locale of ['en','de','fr','ar-EG','hi-IN-u-nu-deva']){
+  const t=new Translator(locale,catalog),different=9007199254740993n;
+  for(const count of [String(different),different,different.toLocaleString(locale)])assert.equal(t.t(key,{count}),`${count} other`,`${locale}: ${count}`);
+  for(const count of [9007199254740992,'9007199254740992',9007199254740992n,9007199254740992n.toLocaleString(locale)])assert.equal(t.t(key,{count}),'exact big');
+  const decimal=new Intl.NumberFormat(locale).formatToParts(1.5).find(part=>part.type==='decimal').value,one=1..toLocaleString(locale),zero=0..toLocaleString(locale);
+  assert.equal(t.t(key,{count:one+decimal+zero}),'exact one');assert.equal(t.t(key,{count:zero+decimal+zero}),'exact zero');
+  const noninteger=one+decimal+zero.repeat(20)+one;assert.equal(t.t(key,{count:noninteger}),`${noninteger} other`);
+  const nested=new Translator(locale,{'{count} files':'{count, plural, other {{count, plural, =9007199254740992 {nested exact} other {# nested other}}}}'});
+  assert.equal(nested.t(key,{count:String(different)}),`${different} nested other`);
+ }
+ const t=new Translator('en',catalog);assert.equal(t.t(key,{count:'9007199254740993.0'}),'9007199254740993.0 other');assert.equal(t.t(key,{count:'0001.000'}),'exact one');assert.equal(t.t(key,{count:'-0.0'}),'exact zero');
+ for(const count of ['1e0','10e-1','+1.0e0','.1e1'])assert.equal(t.t(key,{count}),'exact one');
+ for(const count of ['9007199254740993e0','1.0000000000000000001e0','1e9999999999'])assert.equal(t.t(key,{count}),`${count} other`);
+ assert.equal(t.t(key,{count:'9007199254740992e0'}),'exact big');
+});
+
+
+test('punctuation-only failure frames use explicit source parts and preserve raw paths and external errors',()=>{
+ const frame='{value}: {error}',reason='Select files first.';
+ const custom={[frame]:'At [{value}] — {error}',[reason]:'Help',Help:'Wrong second lookup','Help: Title':'Wrong path'};
+ for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]]){
+  const t=new Translator(locale,catalog);
+  for(const value of ['Help: Title','C:\\Music: Help\\Title.mp3','name: Select files first.; next: Help']){
+   const combined=`${value}: ${reason}`;assert.equal(t.translate(combined),combined,'An unmarked colon cannot establish the path/error boundary');
+   const owned=t.t(reason),expected=String(catalog[frame]).replace('{value}',value).replace('{error}',owned);
+   assert.equal(t.t(frame,{value,error:owned}),expected);assert.ok(expected.includes(value));
+   const external=String(catalog[frame]).replace('{value}',value).replace('{error}',reason);
+   assert.equal(t.t(frame,{value,error:reason}),external,'The same English leaf remains raw when its producer identifies it as external');
+  }
+ }
+});

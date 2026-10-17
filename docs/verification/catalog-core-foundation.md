@@ -11,7 +11,7 @@ selection, and category validation visits nested plural bodies. Display glyphs
 remain unchanged; an invalid nested key is excluded and reported once.
 
 The existing application remains at main
-`5c49582da4d4e6ba1e63e5fb2f7ce66c1918b0bf`: the language registry, DOM observer,
+`7c77a17c7645a40ef1d1240b8c87a7d05882b212`: the language registry, DOM observer,
 startup hooks, native catalog commands and Language settings are outside this
 foundation. Catalog data is exercised by the pure tests rather than installed
 in the application. Existing English application behavior remains the baseline.
@@ -24,18 +24,19 @@ Two review regressions cover locale-sensitive exact/category selection through
 explicit and captured values, and nested-category rejection/usable-catalog
 filtering with valid nested forms retained. A further producer-bound case covers every catalog identifier and underscored
 native limit values through direct/captured rendering and plural parsing. All
-nineteen pure cases remain in the
+twenty-one pure cases remain in the
 same test module when the complete application test suite is
 integrated; the later source-bound extraction and UI tests must also be kept.
 
-Fresh local checks passed 403 UI/model tests with zero failures or skips, the
+Fresh local checks passed 405 UI/model tests with zero failures or skips, the
 production build, the strict 172-page guide and eight publication tests. One
 existing UI case compiles a temporary pure Rust helper; it is separate from
-application-native qualification. All 1,353 existing tracked base files are
+application-native qualification. All 1,359 existing tracked main files are
 byte-identical, including native sources, configuration and literal test inputs.
-That main tree equals the earlier `403bf9a` source qualified by 992 Rust tests
-with six explicit ignores and all-target Clippy. Those results are reused for
-identical native inputs; no new Cargo or application-native run was performed.
+The incoming main is the normally merged diagnostic foundation PR #36, with
+its clean code review and all 12 trusted checks successful. Its native evidence
+retains that source/run scope; no new Cargo or application-native run was
+performed for this pure-library correction.
 
 This dependency PR requires its own exact-head Codex code approval, trusted
 validation and normal merge.
@@ -93,3 +94,21 @@ unmarked lookup. The catalogs,
 application sources remain unchanged. The original Copy-of library assertion
 now checks explicit parts and raw standalone preservation in its small catalog;
 no test or catalog key is removed.
+
+
+Exact selector comparison now retains the normalized decimal integer text
+before count conversion to Number for locale categories. Neighboring integer
+strings above the IEEE-754 exact range do not become equal. Locale/grouped
+Unicode digits, zero fractional parts, typed numbers, BigInt inputs and nested
+plurals retain their values and displayed glyphs. Decimal scientific notation
+is canonicalized without precision loss; expansion is bounded by the existing
+selector lengths, so a huge exponent cannot allocate a huge comparison string.
+The accepted catalog-selector grammar remains unchanged.
+
+The punctuation-only `{value}: {error}` key is now explicitly listed among the
+frames requiring source parts. This documents its existing non-inference
+contract; it does not change the current English application's failure producer.
+The later activation already uses BatchFailure/fileErrorsText/fileErrorText and
+typed causes to separate raw paths, owned leaf reasons and external text. A
+pure contract regression verifies explicit reordered frames and once-only leaf
+translation without guessing a boundary from colons in authored paths.
