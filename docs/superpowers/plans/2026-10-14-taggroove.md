@@ -4,7 +4,7 @@
 
 **Architecture:** Portable tag-core crate, Tauri native adapter, TypeScript desktop interface. Independently authored implementation; original artifacts remain outside the app.
 
-**Spec:** `docs/superpowers/specs/2026-10-14-opentag.md`
+**Spec:** `docs/superpowers/specs/2026-10-14-taggroove.md`
 
 ## Constraints and review focus
 
