@@ -75,6 +75,8 @@ test('Linux dependency evidence remains historical and launch examples use the c
   const desktop=Object.values(inspected.linux.desktop_files);assert.equal(desktop.length,1);
   const executable=/^Exec=(.+)$/m.exec(desktop[0])[1];assert.equal(executable,'opentag');assert(!/MimeType=|%F/.test(desktop[0]));
   assert(block(pages.linux,'linux-launch').startsWith('taggroove '));
+  assert(pages.linux.includes('**OpenTag** entry with `Exec=opentag`'));
+  assert(pages.linux.includes('a new Linux package has not yet been'));
 });
 test('written folder launch destinations run through actual frontend replacement/pending-edit decisions without launching an OS process',async()=>{
   for(const platform of paths) {

@@ -88,11 +88,14 @@ published package.
 
 ## Use the file manager and command line
 
-The inspected x64 DEB installs an **TagGroove** application entry whose command
-is `taggroove`. Its entry does not declare file MIME associations or a `%F`
-file-argument placeholder. Do not assume a double-clicked audio file is
-registered to open in TagGroove. Use **File → Add files…**, **Change directory…**,
-or drop copied files/folders into its window.
+The inspected v0.2.13 x64 DEB, published before the rename, installs an
+**OpenTag** entry with `Exec=opentag`. That historical entry does not declare
+file MIME associations or a `%F` file-argument placeholder. New **TagGroove**
+builds are configured to use `taggroove`; a new Linux package has not yet been
+inspected for this page. Check the installed entry for the version in use.
+Do not assume a double-clicked audio file is registered to open in the app.
+Use **File → Add files…**, **Change directory…**, or drop copied files/folders
+into its window.
 
 A plain window drop replaces the list; holding Ctrl adds to it. **File →
 Open in file manager** reveals files/the current folder through desktop
@@ -100,8 +103,10 @@ integration. **Play** uses the system's associated application. Availability
 and behavior depend on the desktop session and file manager; a file path
 can load successfully even when a reveal/default-player action is unavailable.
 
-For the DEB's installed executable, this terminal example opens an existing
-copied folder. Replace the example location with your own:
+For a new TagGroove build, the expected executable name is shown below.
+The historical v0.2.13 package instead needs `opentag`. This example opens an
+existing copied folder; replace the command and location for the installed
+version:
 
 <!-- linux-launch:start -->
 ```sh
