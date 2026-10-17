@@ -334,3 +334,16 @@ The web-source fixture checks its exact authored `Artist`/`Album` labels and
 their nontranslation markers. A DOM regression exercises each suite's actual
 name resolver with live title changes, a stale `aria-label`, authored case and
 a broken binding. Application source-dialog behavior is unchanged.
+
+The subsequent run passed every platform's tests and native UI checks, then
+Windows built its release executable but WiX `light.exe` failed at MSI linking.
+Tauri 2.12.2 hides the tool output at normal verbosity. Inspection found its
+plain-license converter inserts UTF-8 text into Windows-1252 RTF without Unicode
+escaping. Replaying that conversion through a Rich Text reader corrupted the
+notice's own navigation arrow into `â†’`. That navigation line now uses ASCII
+`Help > About OpenTag`; all seven original component notice bodies are intact.
+The complete corrected notice round-trips through the same RTF conversion
+without text loss. A regression guards the converter's input contract and
+full component notices. The Tauri npm entry point enables verbose tool output
+for future bundler diagnostics. Actual MSI success still requires Windows CI;
+no installer, validation, signing or checksum gate was removed.

@@ -4,7 +4,7 @@ OpenTag application source is MIT licensed. Built-in audio fingerprinting links 
 
 The matching release provides complete corresponding application and native-library sources, build recipes and modification/relink instructions in `OpenTag-vVERSION-sources.tar.xz`. Obtain it from https://github.com/johnneerdael/opentag/releases . Library modification and reverse engineering for debugging modifications are permitted under the applicable library licenses.
 
-The application also displays these notices offline in Help → About OpenTag.
+The application also displays these notices offline in Help > About OpenTag.
 
 ## OpenTag (MIT)
 
