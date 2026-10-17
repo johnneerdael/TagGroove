@@ -89,5 +89,5 @@ instead of editing each row manually.
 Primary+C/X/V, Z/Y and selection shortcuts follow the focus rules in
 [keyboard shortcuts](../keyboard-shortcuts.md). F2 is **Edit in file list**
 when the list has focus, but can rename an action group or edit a source-review
-field in those dialogs. The cover area's context menu provides cover-specific
+field in those dialogs. The cover area's context menu has cover-specific
 commands; a tag clipboard operation can include artwork as well as text fields.

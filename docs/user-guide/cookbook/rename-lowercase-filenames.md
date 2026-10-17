@@ -7,7 +7,7 @@
 
 ## The problem
 
-You want a consistent lowercase **filename stem** with hyphens instead
+You want a consistent lowercase filename stem with hyphens instead
 of spaces or underscores. Keep the mixed-case title in the tag: a filename
 policy does not need to become a metadata policy. This can be useful for
 an established transfer or naming convention, but it does not certify
@@ -63,7 +63,7 @@ A preview is not a reservation of the destination.
 ## How it works
 
 The old pattern `%1` captures the current basename without the audio
-extension. It is a **numbered capture**, with no trailing percent sign:
+extension. It is a numbered capture, with no trailing percent sign:
 `%1%` is not the same syntax. It does not read `TITLE` or `ARTIST`.
 
 Read the new pattern from the inside out:

@@ -18,7 +18,7 @@ Keep the displayed credit `The Lanterns`, but offer `Lanterns, The` as its
 sort name. Write `ARTISTSORT`; do not rewrite `ARTIST` merely to alter an
 alphabetical order. Whether a player uses that field remains player-specific.
 
-This recipe derives one sort name from the **first** Artist value. It leaves
+This recipe derives one sort name from the first Artist value. It leaves
 the full Artist value list alone. It does not invent personal surname order
 or sort each member of a multi-artist collaboration separately.
 

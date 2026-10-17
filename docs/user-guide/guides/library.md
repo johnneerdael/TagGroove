@@ -11,7 +11,7 @@ accessible audio file.
 2. Enable it. If you want to limit persistent caching, also enable
    **Only include these directories** and use **Add…** to choose your copied
    practice folder.
-3. Save the Options with **OK** or **Apply**. Merely adding a folder to the
+3. Save the Options with **OK** or **Apply**. Adding a folder to the
    inclusion list does not load or scan it.
 4. Open that folder using **Change directory…** or **Add directory…**, with
    the intended subfolder setting. The first load still reads the audio files.
