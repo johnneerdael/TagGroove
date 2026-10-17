@@ -29,6 +29,8 @@ actionlint -ignore 'unexpected key "queue" for "concurrency" section' .github/wo
 git diff --check
 ```
 
+Commit statuses are shared by SHA. Withhold review, release-note and build success while another open PR anywhere in the repository has the exact same head, including drafts and PRs targeting another base. Check the paginated live open-PR list before reconciliation success, validation authorization/completion and release authorization; API failures deny approval. Close one PR or advance one head before rechecking. Lifecycle invalidation watches all base branches so opening a sibling PR also withdraws inherited statuses. These live checks are not atomic PR identity isolation; repeat the live merge-readiness check immediately before merging.
+
 ## User guide publication
 
 Reviewed PR validation includes strict documentation checks whenever the

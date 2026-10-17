@@ -3,7 +3,7 @@ import importlib.util
 from pathlib import Path
 import sys
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from test_codex_review import pr as reviewed_pull, review, thumb
 
@@ -60,7 +60,7 @@ class GateTests(unittest.TestCase):
                     event['comment']['updated_at'] = '2026-10-15T11:00:00Z'
                 self.api.snapshot.return_value = (item, eligibility(item, [review()], [event['comment']], [], [thumb()]))
                 statuses = {'Codex review': 'success', 'Reviewed PR builds': 'success'}
-                self.api.status.side_effect = lambda head, state, reason, context: statuses.update({context: state})
+                self.api.status.side_effect = lambda head, state, reason, context, url=None: statuses.update({context: state})
                 self.api.status.reset_mock()
                 self.gate.invalidate_metadata(self.api, event)
                 self.assertEqual(statuses, {'Codex review': 'pending', 'Reviewed PR builds': 'pending'})
@@ -103,7 +103,7 @@ class GateTests(unittest.TestCase):
                 self.api.get.return_value = item
                 self.api.snapshot.return_value = (item, eligibility(item, [review()], [], [], [thumb()]))
                 statuses = {'Codex review': 'success', 'Reviewed PR builds': 'success'}
-                self.api.status.side_effect = lambda head, state, reason, context: statuses.update({context: state})
+                self.api.status.side_effect = lambda head, state, reason, context, url=None: statuses.update({context: state})
                 self.api.status.reset_mock()
                 self.gate.invalidate_metadata(self.api, dict(number=17, action=action, pull_request=item))
                 self.assertEqual(statuses, {'Codex review': 'pending', 'Reviewed PR builds': 'pending'})
@@ -127,7 +127,7 @@ class GateTests(unittest.TestCase):
                 self.api.get.return_value = item
                 self.api.snapshot.return_value = (item, eligible)
                 statuses = {'Codex review': 'success', 'Release notes': 'success', 'Reviewed PR builds': 'success'}
-                self.api.status.side_effect = lambda head, state, reason, context: statuses.update({context: state})
+                self.api.status.side_effect = lambda head, state, reason, context, url=None: statuses.update({context: state})
                 self.api.status.reset_mock()
                 event = dict(number=17, action=action, pull_request=dict(head=dict(sha=SOURCE)))
                 if action == 'edited':
@@ -147,6 +147,89 @@ class GateTests(unittest.TestCase):
         self.api.get.assert_not_called()
         self.api.snapshot.assert_not_called()
         self.api.status.assert_not_called()
+        self.api.post.assert_not_called()
+
+    def test_shared_head_stays_pending_through_reconcile_and_completion_until_sibling_closes(self):
+        approved = pull()
+        sibling = {**pull(), 'number': 18, 'base': dict(ref='release')}
+        open_prs = [approved, sibling]
+        statuses = dict.fromkeys(('Codex review', 'Release notes', 'Reviewed PR builds'),
+                                 dict(state='success', description=f'Passed {BASE} {MERGE}'))
+        def status(head, state, reason, context='Codex review', url=None):
+            self.assertEqual(head, HEAD)
+            statuses[context] = dict(state=state, description=reason)
+        def pages(path):
+            if path == 'pulls?state=open&per_page=100':
+                return open_prs
+            return [dict(context=context, **value) for context, value in statuses.items()]
+        def get(path):
+            if path == 'pulls/18':
+                return sibling
+            if path == 'git/ref/heads/main':
+                return dict(object=dict(sha=BASE))
+            return dict(parents=[dict(sha=BASE), dict(sha=HEAD)])
+        self.api.get.side_effect = get
+        self.api.pages.side_effect = pages
+        self.api.status.side_effect = status
+        self.api.snapshot.return_value = (approved, (True, 'Clean own-PR review'))
+        self.gate.invalidate_metadata(self.api, dict(number=18, action='opened', pull_request=sibling))
+        self.assertTrue(all(value['state'] == 'pending' for value in statuses.values()))
+        self.gate.reconcile(self.api, 17)
+        self.gate.finish(self.api, 17, (HEAD, BASE, MERGE), 'success', 'success', 'url')
+        self.assertTrue(all(value['state'] == 'pending' for value in statuses.values()), statuses)
+        self.api.post.assert_not_called()
+        with self.assertRaisesRegex(RuntimeError, 'shares.*open PR'):
+            self.gate.check_pr(self.api, 17, (HEAD, BASE, MERGE))
+        open_prs.pop()
+        self.gate.reconcile(self.api, 17)
+        self.api.post.assert_called_once()
+        self.gate.finish(self.api, 17, (HEAD, BASE, MERGE), 'success', 'success', 'url')
+        self.assertTrue(all(value['state'] == 'success' for value in statuses.values()), statuses)
+
+    def test_open_head_listing_failure_cannot_restore_any_success_or_dispatch(self):
+        self.api.pages.side_effect = RuntimeError('Temporary listing failure')
+        self.gate.reconcile(self.api, 17)
+        self.gate.finish(self.api, 17, (HEAD, BASE, MERGE), 'success', 'success', 'url')
+        self.assertEqual({call.kwargs.get('context') for call in self.api.status.call_args_list},
+                         {'Codex review', 'Release notes', 'Reviewed PR builds'})
+        self.assertTrue(all(call.args[1] == 'pending' for call in self.api.status.call_args_list))
+        self.api.post.assert_not_called()
+
+    def test_sibling_opened_during_reconcile_withdraws_earlier_success_before_dispatch(self):
+        sibling = dict(number=18, head=dict(sha=HEAD))
+        self.api.pages.side_effect = [[], [], [], [sibling]]
+        statuses = {}
+        self.api.status.side_effect = lambda head, state, reason, context, url=None: statuses.update({context: state})
+        self.gate.reconcile(self.api, 17)
+        self.assertEqual(statuses, dict.fromkeys(('Codex review', 'Release notes', 'Reviewed PR builds'), 'pending'))
+        self.api.post.assert_not_called()
+
+    def test_sibling_opened_before_result_success_withdraws_all_approval(self):
+        sibling = dict(number=18, head=dict(sha=HEAD))
+        self.api.pages.side_effect = [[], [], [sibling]]
+        self.gate.finish(self.api, 17, (HEAD, BASE, MERGE), 'success', 'success', 'url')
+        self.assertEqual({call.kwargs.get('context') for call in self.api.status.call_args_list},
+                         {'Codex review', 'Release notes', 'Reviewed PR builds'})
+        self.assertTrue(all(call.args[1] == 'pending' for call in self.api.status.call_args_list))
+        self.api.post.assert_not_called()
+
+    def test_duplicate_on_second_open_pr_page_blocks_authorization(self):
+        api = self.gate.GitHub('owner/repo')
+        pages = [[dict(number=17, head=dict(sha=HEAD))], [dict(number=18, head=dict(sha=HEAD))]]
+        with patch.object(api, 'request', return_value=pages) as request:
+            with self.assertRaisesRegex(RuntimeError, 'shares.*open PR'):
+                self.gate.require_unique_open_head(api, 17, HEAD)
+            request.assert_called_once_with('repos/owner/repo/pulls?state=open&per_page=100', paginate=True)
+            pages[1][0]['head']['sha'] = SOURCE
+            self.gate.require_unique_open_head(api, 17, HEAD)
+
+    def test_release_authorization_rejects_open_sibling_at_same_head(self):
+        item = pull()
+        item.update(state='closed', merged=True, merge_commit_sha=SOURCE)
+        self.api.snapshot.return_value = (item, (True, 'Clean'))
+        self.api.pages.return_value = [dict(number=18, head=dict(sha=HEAD), base=dict(ref='release'))]
+        with self.assertRaisesRegex(RuntimeError, 'shares.*open PR'):
+            self.gate.check_release(self.api, 17, HEAD, SOURCE)
         self.api.post.assert_not_called()
 
     def test_unrelated_and_untrusted_comments_do_not_invalidate_or_dispatch(self):
@@ -278,7 +361,8 @@ class GateTests(unittest.TestCase):
         item = pull()
         item.update(state='closed', merged=True, merge_commit_sha=SOURCE)
         self.api.snapshot.return_value = (item, (True, 'Clean'))
-        self.api.pages.return_value = [dict(context='Reviewed PR builds', state='success', description=f'Passed {BASE} {MERGE}', target_url='https://github.com/owner/repo/actions/runs/7', creator=dict(login='github-actions[bot]', type='Bot'))]
+        proof = dict(context='Reviewed PR builds', state='success', description=f'Passed {BASE} {MERGE}', target_url='https://github.com/owner/repo/actions/runs/7', creator=dict(login='github-actions[bot]', type='Bot'))
+        self.api.pages.side_effect = lambda path: [proof] if path.startswith('commits/') else []
         self.api.repo = 'owner/repo'
         def get(path):
             if path == 'actions/runs/7':
@@ -298,7 +382,7 @@ class GateTests(unittest.TestCase):
             with self.subTest(field=key), self.assertRaises(RuntimeError):
                 self.gate.check_release(self.api, 17, HEAD, SOURCE)
         self.api.get.side_effect = get
-        self.api.pages.return_value[0]['description'] = f'Passed {HEAD} {MERGE}'
+        proof['description'] = f'Passed {HEAD} {MERGE}'
         with self.assertRaises(RuntimeError):
             self.gate.check_release(self.api, 17, HEAD, SOURCE)
 
@@ -347,7 +431,7 @@ class WorkflowTrustTests(unittest.TestCase):
                          "github.event.comment.user.login == 'chatgpt-codex-connector[bot]'",
                          'ref: main', 'persist-credentials: false', 'review_gate.py invalidate-metadata']:
             self.assertIn(required, source)
-        for denied in ['actions: write', 'secrets.', 'inputs.merge_sha', 'review_gate.py reconcile', 'workflow_run:']:
+        for denied in ['actions: write', 'secrets.', 'inputs.merge_sha', 'review_gate.py reconcile', 'workflow_run:', 'branches: [main]']:
             self.assertNotIn(denied, source)
         controller = (ROOT.parent / 'workflows/review-controller.yml').read_text()
         self.assertNotIn('Review metadata invalidation', controller)

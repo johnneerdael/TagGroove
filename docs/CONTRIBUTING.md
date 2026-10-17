@@ -24,6 +24,8 @@ A separate controller checks out only trusted `main`, reads live PR state and po
 gh workflow run review-controller.yml --ref main -f pr_number=42
 ```
 
+Commit statuses are shared by SHA. Withhold review, release-note and build success while another open PR anywhere in the repository has the exact same head, including drafts and PRs targeting another base. Check the paginated live open-PR list before reconciliation success, validation authorization/completion and release authorization; API failures deny approval. Close one PR or advance one head before rechecking. Lifecycle invalidation watches all base branches so opening a sibling PR also withdraws inherited statuses. These live checks are not atomic PR identity isolation; repeat the live merge-readiness check immediately before merging.
+
 ### Repository protection and containment
 
 Main requires PRs, a current base, resolved threads, `Codex review` and `Reviewed PR builds`; use merge commits without bypassing protection. The controller validates release notes before dispatch, during validation preflights and before publication. `Release notes` also exposes a separate diagnostic status. A green optional status does not enforce a merge policy.

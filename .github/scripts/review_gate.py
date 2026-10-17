@@ -45,11 +45,31 @@ def check_notes(pr):
         raise RuntimeError(str(error)) from error
 
 
+class OpenHeadError(RuntimeError):
+    """Commit-level statuses cannot safely qualify this PR's head."""
+
+
+def require_unique_open_head(api, number, head):
+    try:
+        others = [pr['number'] for pr in api.pages('pulls?state=open&per_page=100')
+                  if pr['head']['sha'] == head and pr['number'] != number]
+    except Exception as error:
+        raise OpenHeadError('Cannot verify unique open PR head; approval denied') from error
+    if others:
+        raise OpenHeadError('Head shares another open PR; close or advance a PR before qualifying')
+
+
+def withdraw_approval(api, head, reason, url=None):
+    for context in ('Codex review', 'Release notes', CONTEXT):
+        api.status(head, 'pending', reason, context=context, url=url)
+
+
 def check_pr(api, number, source=None):
     pr, (ready, reason) = api.snapshot(number)
     if not ready:
         raise RuntimeError(reason)
     check_notes(pr)
+    require_unique_open_head(api, number, pr['head']['sha'])
     if pr.get('mergeable') is not True:
         raise RuntimeError('PR is not mergeable')
     head, base, merge = pr['head']['sha'], api.get('git/ref/heads/main')['object']['sha'], pr.get('merge_commit_sha')
@@ -61,6 +81,7 @@ def check_pr(api, number, source=None):
         raise RuntimeError('Test merge does not bind current main and reviewed head')
     if api.get('git/ref/heads/main')['object']['sha'] != base:
         raise RuntimeError('Main changed while verifying the test merge')
+    require_unique_open_head(api, number, head)
     pr['base']['sha'] = base
     return pr
 
@@ -71,20 +92,29 @@ def title(pr):
 
 def reconcile(api, number, retry=False):
     raw, (eligible, reason) = api.snapshot(number)
-    api.status(raw['head']['sha'], 'success' if eligible else 'pending', reason, context='Codex review')
     try:
-        check_notes(raw)
-        notes_ready, notes_reason = True, 'Release notes describe a concrete change'
-    except RuntimeError as error:
-        notes_ready, notes_reason = False, str(error)
-    api.status(raw['head']['sha'], 'success' if notes_ready else 'failure', notes_reason, context='Release notes')
-    if not notes_ready:
-        reason = notes_reason
+        require_unique_open_head(api, number, raw['head']['sha'])
+        api.status(raw['head']['sha'], 'success' if eligible else 'pending', reason, context='Codex review')
+        try:
+            check_notes(raw)
+            notes_ready, notes_reason = True, 'Release notes describe a concrete change'
+        except RuntimeError as error:
+            notes_ready, notes_reason = False, str(error)
+        if notes_ready:
+            require_unique_open_head(api, number, raw['head']['sha'])
+        api.status(raw['head']['sha'], 'success' if notes_ready else 'failure', notes_reason, context='Release notes')
+        if not notes_ready:
+            reason = notes_reason
+    except OpenHeadError as error:
+        eligible, notes_ready, reason = False, False, str(error)
+        withdraw_approval(api, raw['head']['sha'], reason)
     runs = [run for run in api.runs('reviewed-pr.yml') if run['display_title'].startswith(f'Reviewed PR #{number} @ ')]
     try:
         pr = check_pr(api, number) if eligible and notes_ready else None
     except RuntimeError as error:
         pr, reason = None, str(error)
+        if isinstance(error, OpenHeadError):
+            withdraw_approval(api, raw['head']['sha'], reason)
     for run in runs:
         if run['status'] != 'completed' and (pr is None or run['display_title'] != title(pr)):
             api.post(f"actions/runs/{run['id']}/cancel", {})
@@ -133,13 +163,14 @@ def invalidate_metadata(api, event):
         pr = api.get(f'pulls/{number}')
     except Exception:
         pr = api.get(f'pulls/{number}')
-    if pr['state'] != 'open' or pr['base']['ref'] != 'main':
+    if pr['state'] != 'open':
         return
     if lifecycle:
         # Statuses belong to a commit, not a PR. Reusing a SHA must not reuse
         # another PR's review, notes or immutable validation proof.
-        for context in ('Codex review', 'Release notes', CONTEXT):
-            api.status(pr['head']['sha'], 'pending', 'PR lifecycle changed; request a fresh metadata recheck', context=context)
+        withdraw_approval(api, pr['head']['sha'], 'PR lifecycle changed; request a fresh metadata recheck')
+        return
+    if pr['base']['ref'] != 'main':
         return
     if pr_event is None:
         comment = event['comment']
@@ -163,8 +194,8 @@ def finish(api, number, source, preflight, result, url):
     head, base, merge = source
     try:
         check_pr(api, number, source)
-    except RuntimeError:
-        api.status(head, 'pending', 'Review or revision changed; fresh validation required', context=CONTEXT, url=url)
+    except Exception:
+        withdraw_approval(api, head, 'Review, revision or unique open head changed; fresh validation required', url=url)
         return
     if preflight != 'success':
         state, reason = 'pending', 'Preflight did not authorize application execution'
@@ -172,6 +203,12 @@ def finish(api, number, source, preflight, result, url):
         state, reason = 'failure', 'Required builds failed, were cancelled or skipped'
     else:
         state, reason = 'success', f'Passed {base} {merge}'
+    if state == 'success':
+        try:
+            require_unique_open_head(api, number, head)
+        except OpenHeadError as error:
+            withdraw_approval(api, head, str(error), url=url)
+            return
     api.status(head, state, reason, context=CONTEXT, url=url)
 
 
@@ -182,6 +219,7 @@ def check_release(api, number, head, source):
             or pr['head']['sha'] != head or pr.get('merge_commit_sha') != source):
         raise RuntimeError(f'Main source has no approved merged PR: {reason}')
     check_notes(pr)
+    require_unique_open_head(api, number, head)
     proof = next((item for item in api.pages(f'commits/{head}/statuses?per_page=100') if item['context'] == CONTEXT), None)
     match = re.fullmatch(r'Passed ([0-9a-f]{40}) ([0-9a-f]{40})', proof.get('description', '')) if proof and proof['state'] == 'success' else None
     if not match:
@@ -206,6 +244,7 @@ def check_release(api, number, head, source):
         raise RuntimeError('Merged source differs from the validated reviewed tree')
     if api.get(f'compare/{source}...main')['status'] not in {'ahead', 'identical'}:
         raise RuntimeError('Release source is not on main')
+    require_unique_open_head(api, number, head)
     return pr
 
 

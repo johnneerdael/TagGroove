@@ -1,7 +1,6 @@
 name: Review metadata invalidation
 on:
   pull_request_target:
-    branches: [main]
     types: [opened, reopened, synchronize, ready_for_review, edited, review_requested, converted_to_draft]
   issue_comment:
     types: [created, edited, deleted]
