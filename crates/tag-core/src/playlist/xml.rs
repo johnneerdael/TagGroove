@@ -571,6 +571,12 @@ fn read_with_base_budget(
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn local_base(segment: &str) -> String {
+        format!(
+            "{}{segment}/",
+            Url::from_directory_path(std::env::temp_dir()).unwrap()
+        )
+    }
     fn fixture(base: &str, tracks: &str) -> (tempfile::TempDir, std::path::PathBuf) {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("bases.xspf");
@@ -579,7 +585,7 @@ mod tests {
     }
     #[test]
     fn inherited_base_storage_is_shared_across_many_short_locations() {
-        let base = format!("file:///tmp/{}/", "a".repeat(2048));
+        let base = local_base(&"a".repeat(2048));
         let (_dir, path) = fixture(
             &base,
             &"<track><location>one.wav</location></track>".repeat(128),
@@ -619,12 +625,9 @@ mod tests {
     }
     #[test]
     fn authored_and_joined_base_limits_are_checked_before_retention() {
-        let (_dir, path) = fixture(
-            &format!("file:///tmp/{}/", "a".repeat(MAX_LOCATION + 1)),
-            "",
-        );
+        let (_dir, path) = fixture(&local_base(&"a".repeat(MAX_LOCATION + 1)), "");
         assert!(read(&path, Kind::Xspf).is_err());
-        let parent = format!("file:///tmp/{}/", "a".repeat(33_000));
+        let parent = local_base(&"a".repeat(33_000));
         let child = format!(
             r#"<track xml:base="{}/"><location>one.wav</location></track>"#,
             "b".repeat(33_000)
@@ -634,7 +637,7 @@ mod tests {
     }
     #[test]
     fn base_budget_charges_distinct_objects_but_not_inherited_or_identical_bases() {
-        let base = format!("file:///tmp/{}/", "a".repeat(1024));
+        let base = local_base(&"a".repeat(1024));
         let (_dir, path) = fixture(
             &base,
             &"<track><location>one.wav</location></track>".repeat(128),

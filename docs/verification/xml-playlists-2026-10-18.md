@@ -100,8 +100,23 @@ Focused local evidence covers XML namespaces and injection, order/alternatives,
 percent-literal versus URI decoding, Unicode, XML Base, native/local path rules,
 unsupported dynamic instructions, strict encodings, fatal parse handling,
 controlled limits, indexed diagnostics, real WAV IPC/scan and output refusal.
-Full workspace, frontend, build, strict guide and final branding sync results
-must be recorded for the final head before draft publication.
+Local qualification after normal merge of branding revision
+`36d7dea4e7b930d3a7d98facaca8498d0ef7c8de`:
+
+- `npm test` with the pinned offline audio sources and shared Cargo target:
+  566 frontend tests and 1,106 Rust tests passed; 6 existing Rust tests ignored.
+- XML integration: 16 passed. Playlist unit/resolver controls: 19 passed,
+  including a focused rerun using platform-native temporary-directory file URIs.
+- Actual XML load/launch/picker and updated branding fixture checks: 6 passed.
+- `npm run build`, strict MkDocs guide, catalog extraction check, formatting
+  check and strict workspace/all-target Clippy passed.
+- Branding verifier: 249 supplied files and 78 integrated copies verified.
+
+The routine large-bundle build notice and shared Cargo registry auto-clean
+permission notice did not fail these checks. No registry or build policy was
+changed. These results are local qualification, not protected CI, a GitHub code
+review, deployment or native OS/runtime proof. Draft publication remains subject
+to the coordinator's fresh branding-head currency/ancestry check.
 
 Native mouse/key/IME/accessibility, screenshots, installed OS file opening,
 Windows/Linux filesystems and original differential behavior remain unqualified.
