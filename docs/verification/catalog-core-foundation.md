@@ -11,7 +11,7 @@ selection, and category validation visits nested plural bodies. Display glyphs
 remain unchanged; an invalid nested key is excluded and reported once.
 
 The existing application remains at main
-`7c77a17c7645a40ef1d1240b8c87a7d05882b212`: the language registry, DOM observer,
+`1c4199e1fceb33f0e5449ef17c617b706941dd52`: the language registry, DOM observer,
 startup hooks, native catalog commands and Language settings are outside this
 foundation. Catalog data is exercised by the pure tests rather than installed
 in the application. Existing English application behavior remains the baseline.
@@ -33,10 +33,11 @@ production build, the strict 172-page guide and eight publication tests. One
 existing UI case compiles a temporary pure Rust helper; it is separate from
 application-native qualification. All 1,359 existing tracked main files are
 byte-identical, including native sources, configuration and literal test inputs.
-The incoming main is the normally merged diagnostic foundation PR #36, with
-its clean code review and all 12 trusted checks successful. Its native evidence
-retains that source/run scope; no new Cargo or application-native run was
-performed for this pure-library correction.
+The incoming main includes the normally merged diagnostic foundation PR #36
+and build-tool prerequisite PR #37. PR #36's clean review and 12 successful
+trusted checks retain their original source/run scope. The later prerequisite
+changes build tooling rather than application-native production code. No new
+Cargo or application-native run is claimed for this pure-library correction.
 
 This dependency PR requires its own exact-head Codex code approval, trusted
 validation and normal merge.
