@@ -1,0 +1,72 @@
+[
+  {
+    "kind": "format",
+    "input": "$replace(x,a,b,c)",
+    "error": "$replace requires complete search/replacement pairs"
+  },
+  {
+    "kind": "format",
+    "input": "$upper(a,b)",
+    "error": "$upper expects 1..=1 arguments, received 2"
+  },
+  {
+    "kind": "format",
+    "input": "$fmtDate(yyyy,Title)",
+    "error": "$fmtDate expects an integer Unix timestamp"
+  },
+  {
+    "kind": "format",
+    "input": "$fmtDuration(Title)",
+    "error": "$fmtDuration expects a finite decimal number"
+  },
+  {
+    "kind": "format",
+    "input": "$fmtDuration(1,Title)",
+    "error": "$fmtDuration units must be m, s, or ms"
+  },
+  {
+    "kind": "format",
+    "input": "$ord(😀)",
+    "error": "$ord supports only U+0000..U+FFFF"
+  },
+  {
+    "kind": "format",
+    "input": "$getenv(MP3TAGAPP)",
+    "error": "$getenv(MP3TAGAPP) requires the application directory context"
+  },
+  {
+    "kind": "format",
+    "input": "$getenv(MP3TAGAPPDATA)",
+    "error": "$getenv(MP3TAGAPPDATA) requires the configuration directory context"
+  },
+  {
+    "kind": "export",
+    "input": "$loopend(Title)",
+    "error": "$loopend takes no arguments"
+  },
+  {
+    "kind": "export",
+    "input": "$loopend()",
+    "error": "$loopend without a matching $loop"
+  },
+  {
+    "kind": "export",
+    "input": "$loop()",
+    "error": "$loop requires a sort field/expression and an optional per-key limit"
+  },
+  {
+    "kind": "export",
+    "input": "$loop(1)",
+    "error": "$loop without a matching $loopend"
+  },
+  {
+    "kind": "export",
+    "input": "Title$filename(Title)",
+    "error": "$filename must appear once at the beginning of the export configuration"
+  },
+  {
+    "kind": "export",
+    "input": "$filename(a,b,c)",
+    "error": "$filename takes at most two parameters"
+  }
+]

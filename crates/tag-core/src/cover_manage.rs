@@ -2,6 +2,7 @@
 //! retype, describe, replace and remove covers, and embed covers that only
 //! some of the selected files contain.
 use super::*;
+use crate::batch_errors::ErrorCause;
 use std::hash::{DefaultHasher, Hasher};
 use std::io::Cursor;
 
@@ -54,6 +55,10 @@ pub struct CoverChange {
 /// Build a picture from image bytes. Lofty does not sniff WebP, which is
 /// stored with its MIME type like Mp3tag does.
 pub fn picture_from_bytes(data: Vec<u8>) -> Result<Picture, String> {
+    picture_from_bytes_diagnostic(data).map_err(|error| error.to_string())
+}
+
+pub fn picture_from_bytes_diagnostic(data: Vec<u8>) -> Result<Picture, ErrorCause> {
     if data.len() >= 8 {
         if let Ok(picture) = Picture::from_reader(&mut Cursor::new(&data)) {
             return Ok(picture);
@@ -63,7 +68,9 @@ pub fn picture_from_bytes(data: Vec<u8>) -> Result<Picture, String> {
         Ok(image::ImageFormat::WebP) => Ok(Picture::unchecked(data)
             .mime_type(lofty::picture::MimeType::Unknown("image/webp".into()))
             .build()),
-        _ => Err("The image format is not supported (use JPEG, PNG, GIF, BMP or WebP)".into()),
+        _ => Err(ErrorCause::owned(
+            "The image format is not supported (use JPEG, PNG, GIF, BMP or WebP)",
+        )),
     }
 }
 
@@ -94,17 +101,24 @@ pub fn find_cover_data(
 /// ASF, DSD and Matroska artwork is not read by lofty; rebuild the pictures
 /// from a full read.
 fn described_pictures(path: &Path, options: &TagOptions) -> Result<Vec<Picture>, String> {
-    read_description(path, true, &[], options)?
+    described_pictures_diagnostic(path, options).map_err(|error| error.to_string())
+}
+
+fn described_pictures_diagnostic(
+    path: &Path,
+    options: &TagOptions,
+) -> Result<Vec<Picture>, ErrorCause> {
+    read_description_diagnostic(path, true, &[], options)?
         .covers
         .into_iter()
         .map(|info| {
             let mut picture = Picture::unchecked(
                 STANDARD
                     .decode(info.data_base64)
-                    .map_err(|e| e.to_string())?,
+                    .map_err(ErrorCause::external)?,
             )
             .mime_type(lofty::picture::MimeType::from_str(&info.mime))
-            .pic_type(picture_type_from_name(&info.picture_type)?)
+            .pic_type(picture_type_from_name_diagnostic(&info.picture_type)?)
             .build();
             picture.set_description((!info.description.is_empty()).then_some(info.description));
             Ok(picture)
@@ -577,5 +591,22 @@ mod tests {
         .unwrap();
         assert_eq!(entry.covers[0].picture_type, "CoverBack");
         assert_eq!(entry.covers[1].picture_type, "CoverFront");
+    }
+}
+
+#[cfg(test)]
+mod diagnostic_producer_tests {
+    use super::*;
+    #[test]
+    fn unsupported_picture_bytes_keep_source_owned_guard_and_legacy_english() {
+        let bytes = b"Help {error}; Title".to_vec();
+        let error = picture_from_bytes_diagnostic(bytes.clone()).unwrap_err();
+        assert_eq!(error.to_string(), picture_from_bytes(bytes).unwrap_err());
+        let data = serde_json::to_value(error).unwrap();
+        assert_eq!(data["kind"], "owned");
+        assert_eq!(
+            data["key"],
+            "The image format is not supported (use JPEG, PNG, GIF, BMP or WebP)"
+        );
     }
 }

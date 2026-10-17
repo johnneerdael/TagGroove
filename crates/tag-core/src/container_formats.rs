@@ -6,6 +6,7 @@
 //! their MP3-style tags go through the MPEG and APE tag policies (see
 //! `raw_streams`).
 use super::*;
+use crate::batch_errors::ErrorCause;
 use std::{
     io::{Read, Write},
     ops::Range,
@@ -109,20 +110,20 @@ fn describe(
     kind: Kind,
     rules: &[UserFieldMapping],
     options: &TagOptions,
-) -> Result<Description, String> {
+) -> Result<Description, ErrorCause> {
     match kind {
-        Kind::Dsf | Kind::Dff => dsd::describe(path, kind, rules, options),
-        Kind::Matroska => matroska::describe(path, options),
+        Kind::Dsf | Kind::Dff => dsd::describe_diagnostic(path, kind, rules, options),
+        Kind::Matroska => matroska::describe_diagnostic(path, options),
     }
 }
 
-pub(super) fn read(
+pub(super) fn read_diagnostic(
     path: &Path,
     kind: Kind,
     include_cover_data: bool,
     rules: &[UserFieldMapping],
     options: &TagOptions,
-) -> Result<AudioEntry, String> {
+) -> Result<AudioEntry, ErrorCause> {
     let description = describe(path, kind, rules, options)?;
     let covers: Vec<_> = description
         .pictures
@@ -130,7 +131,7 @@ pub(super) fn read(
         .enumerate()
         .map(|(index, picture)| cover_info(index, picture, include_cover_data))
         .collect();
-    let metadata = fs::metadata(path).map_err(|e| e.to_string())?;
+    let metadata = fs::metadata(path).map_err(ErrorCause::external)?;
     let mut technical = Fields::new();
     if !description.codec.is_empty() {
         technical.insert("_CODEC".into(), vec![description.codec.clone()]);
@@ -184,7 +185,28 @@ fn mutate(
     plan: impl FnOnce(&Description) -> Result<Edit, String>,
     message: &str,
 ) -> Result<AudioEntry, String> {
-    staged_write(
+    mutate_diagnostic(
+        path,
+        kind,
+        include_cover_data,
+        rules,
+        options,
+        |description| plan(description).map_err(ErrorCause::external),
+        message,
+    )
+    .map_err(|error| error.to_string())
+}
+
+fn mutate_diagnostic(
+    path: &Path,
+    kind: Kind,
+    include_cover_data: bool,
+    rules: &[UserFieldMapping],
+    options: &TagOptions,
+    plan: impl FnOnce(&Description) -> Result<Edit, ErrorCause>,
+    message: &str,
+) -> Result<AudioEntry, ErrorCause> {
+    staged_write_diagnostic(
         path,
         include_cover_data,
         rules,
@@ -194,18 +216,18 @@ fn mutate(
             let edit = plan(&current)?;
             let latin1 = match kind {
                 Kind::Dsf | Kind::Dff => {
-                    dsd::write(staging, original, kind, &edit, rules, options)?
+                    dsd::write_diagnostic(staging, original, kind, &edit, rules, options)?
                 }
                 Kind::Matroska => {
-                    matroska::write(staging, original, &edit, options)?;
+                    matroska::write_diagnostic(staging, original, &edit, options)?;
                     false
                 }
             };
-            staging.sync_all().map_err(|e| e.to_string())?;
+            staging.sync_all().map_err(ErrorCause::external)?;
             verify(staged_path, kind, &edit, rules, options, latin1, message)?;
             match kind {
-                Kind::Dsf | Kind::Dff => dsd::verify_media(original, staged_path, kind),
-                Kind::Matroska => matroska::verify_media(original, staged_path, &edit),
+                Kind::Dsf | Kind::Dff => dsd::verify_media_diagnostic(original, staged_path, kind),
+                Kind::Matroska => matroska::verify_media_diagnostic(original, staged_path, &edit),
             }
         },
     )
@@ -219,29 +241,30 @@ fn verify(
     options: &TagOptions,
     latin1: bool,
     message: &str,
-) -> Result<(), String> {
-    let actual = read(staged_path, kind, false, &[], options)?;
+) -> Result<(), ErrorCause> {
+    let actual = read_diagnostic(staged_path, kind, false, &[], options)?;
     match edit {
         Edit::Fields(updates) => {
             if kind == Kind::Matroska {
                 // Matroska strings round-trip verbatim, like APE items.
-                verify_readback(&actual.fields, updates, TagType::Ape, false)
+                verify_readback_diagnostic(&actual.fields, updates, TagType::Ape, false)
             } else {
-                let native = normalized_updates(
-                    &map_write_fields(updates, TagType::Id3v2, rules)?,
+                let native = normalized_updates_diagnostic(
+                    &map_write_fields(updates, TagType::Id3v2, rules)
+                        .map_err(ErrorCause::owned_text)?,
                     TagType::Id3v2,
                 )?;
-                verify_readback(&actual.fields, &native, TagType::Id3v2, latin1)
+                verify_readback_diagnostic(&actual.fields, &native, TagType::Id3v2, latin1)
             }
         }
         Edit::Rows { fields, chapters } => {
-            verify_readback(&actual.fields, fields, TagType::Ape, false)?;
+            verify_readback_diagnostic(&actual.fields, fields, TagType::Ape, false)?;
             for (index, updates) in chapters {
                 let stored = actual
                     .chapters
                     .get(*index)
                     .map(|c| &c.fields)
-                    .ok_or("A chapter disappeared while saving")?;
+                    .ok_or_else(|| ErrorCause::owned("A chapter disappeared while saving"))?;
                 let wanted: Fields = updates
                     .iter()
                     .map(|(name, values)| {
@@ -250,8 +273,14 @@ fn verify(
                         (name.to_ascii_uppercase(), values)
                     })
                     .collect();
-                verify_readback(stored, &wanted, TagType::Ape, false)
-                    .map_err(|e| format!("Chapter {}: {e}", index + 1))?;
+                verify_readback_diagnostic(stored, &wanted, TagType::Ape, false).map_err(|e| {
+                    ErrorCause::wrap(
+                        "Chapter {value}: {error}",
+                        [("value", (index + 1).to_string())],
+                        "error",
+                        e,
+                    )
+                })?;
             }
             Ok(())
         }
@@ -262,7 +291,7 @@ fn verify(
                         || cover.description != picture.description().unwrap_or_default()
                 })
             {
-                return Err(message.into());
+                return Err(ErrorCause::owned_text(message));
             }
             Ok(())
         }
@@ -270,25 +299,25 @@ fn verify(
             if actual.fields.is_empty() && actual.covers.is_empty() {
                 Ok(())
             } else {
-                Err("The tags could not be removed".into())
+                Err(ErrorCause::owned("The tags could not be removed"))
             }
         }
     }
 }
 
-pub(super) fn write_fields(
+pub(super) fn write_fields_diagnostic(
     path: &Path,
     kind: Kind,
     updates: &Fields,
     include_cover_data: bool,
     rules: &[UserFieldMapping],
     options: &TagOptions,
-) -> Result<AudioEntry, String> {
-    let mut updates = normalized_updates(updates, TagType::Id3v2)?;
+) -> Result<AudioEntry, ErrorCause> {
+    let mut updates = normalized_updates_diagnostic(updates, TagType::Id3v2)?;
     if kind == Kind::Matroska {
-        matroska::normalize_chapters(&mut updates)?;
+        matroska::normalize_chapters(&mut updates).map_err(ErrorCause::owned_text)?;
     }
-    mutate(
+    mutate_diagnostic(
         path,
         kind,
         include_cover_data,
@@ -301,16 +330,16 @@ pub(super) fn write_fields(
 
 /// Write the edits of chapter rows of a Matroska file: file fields
 /// (including CHAPTERS) and the fields of chapters, in one write.
-pub(super) fn write_chapter_rows(
+pub(super) fn write_chapter_rows_diagnostic(
     path: &Path,
     fields: &Fields,
     chapters: Vec<(usize, Fields)>,
     rules: &[UserFieldMapping],
     options: &TagOptions,
-) -> Result<AudioEntry, String> {
-    let mut fields = normalized_updates(fields, TagType::Id3v2)?;
-    matroska::normalize_chapters(&mut fields)?;
-    mutate(
+) -> Result<AudioEntry, ErrorCause> {
+    let mut fields = normalized_updates_diagnostic(fields, TagType::Id3v2)?;
+    matroska::normalize_chapters(&mut fields).map_err(ErrorCause::owned_text)?;
+    mutate_diagnostic(
         path,
         Kind::Matroska,
         false,
@@ -338,15 +367,15 @@ pub(super) fn remove_tags(
     )
 }
 
-pub(super) fn add_cover(
+pub(super) fn add_cover_diagnostic(
     path: &Path,
     kind: Kind,
     mut picture: Picture,
     label: &str,
     include_cover_data: bool,
     options: &TagOptions,
-) -> Result<AudioEntry, String> {
-    mutate(
+) -> Result<AudioEntry, ErrorCause> {
+    mutate_diagnostic(
         path,
         kind,
         include_cover_data,
@@ -408,13 +437,13 @@ pub(super) fn set_covers(
     )
 }
 
-pub(super) fn transform_covers(
+pub(super) fn transform_covers_diagnostic(
     path: &Path,
     kind: Kind,
     options: &TagOptions,
-    mut transform: impl FnMut(&Picture) -> Result<Option<Picture>, String>,
-) -> Result<AudioEntry, String> {
-    mutate(
+    mut transform: impl FnMut(&Picture) -> Result<Option<Picture>, ErrorCause>,
+) -> Result<AudioEntry, ErrorCause> {
+    mutate_diagnostic(
         path,
         kind,
         false,
@@ -541,6 +570,37 @@ pub(super) fn same_bytes(
         remaining -= take as u64;
     }
     Ok(true)
+}
+
+/// Typed counterpart of the IO-only assembly helper.
+pub(super) fn assemble_diagnostic(
+    staging: &mut fs::File,
+    original: &Path,
+    pieces: &[Piece],
+) -> Result<u64, ErrorCause> {
+    assemble(staging, original, pieces).map_err(ErrorCause::external)
+}
+pub(super) fn write_at_diagnostic(
+    file: &mut fs::File,
+    offset: u64,
+    bytes: &[u8],
+) -> Result<(), ErrorCause> {
+    write_at(file, offset, bytes).map_err(ErrorCause::external)
+}
+pub(super) fn read_at_diagnostic(
+    file: &mut fs::File,
+    offset: u64,
+    length: usize,
+) -> Result<Vec<u8>, ErrorCause> {
+    read_at(file, offset, length).map_err(ErrorCause::external)
+}
+pub(super) fn same_bytes_diagnostic(
+    left: &Path,
+    range: Range<u64>,
+    right: &Path,
+    right_start: u64,
+) -> Result<bool, ErrorCause> {
+    same_bytes(left, range, right, right_start).map_err(ErrorCause::external)
 }
 
 /// Text stored by older DSD and Matroska writers is usually UTF-8; fall back

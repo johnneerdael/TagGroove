@@ -1,6 +1,7 @@
 //! Factual native identifiers audited against https://docs.mp3tag.de/mapping/.
 //! Vorbis/APE names are deliberately not subject to this fixed registry.
 use super::Fields;
+use crate::batch_errors::ErrorCause;
 #[path = "id3_v23.rs"]
 mod id3_v23;
 use lofty::{
@@ -51,26 +52,35 @@ fn rule_matches(rule: &UserFieldMapping, kind: RuleTag) -> bool {
     rule.tag_type.eq_ignore_ascii_case(name)
 }
 pub fn validate_user_mappings(rules: &[UserFieldMapping]) -> Result<(), String> {
+    validate_user_mappings_diagnostic(rules).map_err(|error| error.to_string())
+}
+
+pub fn validate_user_mappings_diagnostic(rules: &[UserFieldMapping]) -> Result<(), ErrorCause> {
     let mut sources = std::collections::BTreeMap::new();
     for rule in rules {
         if !["ID3v2", "MP4", "VorbisComment", "APEv2", "WMA"]
             .iter()
             .any(|s| s.eq_ignore_ascii_case(&rule.tag_type))
         {
-            return Err(format!("Unknown mapping tag type: {}", rule.tag_type));
+            return Err(ErrorCause::message(
+                "Unknown mapping tag type: {name}",
+                [("name", rule.tag_type.clone())],
+            ));
         }
         if [&rule.source, &rule.target]
             .iter()
             .any(|s| s.trim().is_empty() || s.contains(['\0', '\r', '\n']))
         {
-            return Err("Mappings require nonempty source and target names".into());
+            return Err(ErrorCause::owned(
+                "Mappings require nonempty source and target names",
+            ));
         }
         let key = (rule.tag_type.to_lowercase(), rule.source.to_lowercase());
         if let Some(target) = sources.insert(key, rule.target.to_lowercase()) {
             if target != rule.target.to_lowercase() {
-                return Err(format!(
-                    "One source cannot map to multiple targets: {}",
-                    rule.source
+                return Err(ErrorCause::message(
+                    "One source cannot map to multiple targets: {name}",
+                    [("name", rule.source.clone())],
                 ));
             }
         }
@@ -82,14 +92,30 @@ pub fn map_read_fields(
     kind: TagType,
     rules: &[UserFieldMapping],
 ) -> Result<Fields, String> {
-    map_read(fields, RuleTag::Lofty(kind), rules)
+    map_read_fields_diagnostic(fields, kind, rules).map_err(|error| error.to_string())
+}
+
+pub fn map_read_fields_diagnostic(
+    fields: &Fields,
+    kind: TagType,
+    rules: &[UserFieldMapping],
+) -> Result<Fields, ErrorCause> {
+    map_read_diagnostic(fields, RuleTag::Lofty(kind), rules)
 }
 pub(super) fn map_read(
     fields: &Fields,
     kind: RuleTag,
     rules: &[UserFieldMapping],
 ) -> Result<Fields, String> {
-    validate_user_mappings(rules)?;
+    map_read_diagnostic(fields, kind, rules).map_err(|error| error.to_string())
+}
+
+pub(super) fn map_read_diagnostic(
+    fields: &Fields,
+    kind: RuleTag,
+    rules: &[UserFieldMapping],
+) -> Result<Fields, ErrorCause> {
+    validate_user_mappings_diagnostic(rules)?;
     let mut output = Fields::new();
     for (source, values) in fields {
         let target = rules
@@ -104,7 +130,7 @@ pub(super) fn map_read(
         if let Some(existing) = existing {
             let list = output
                 .get_mut(&existing)
-                .ok_or("Mapping target disappeared")?;
+                .ok_or_else(|| ErrorCause::owned("Mapping target disappeared"))?;
             for v in values {
                 if !list.contains(v) {
                     list.push(v.clone());
@@ -121,14 +147,30 @@ pub fn map_write_fields(
     kind: TagType,
     rules: &[UserFieldMapping],
 ) -> Result<Fields, String> {
-    map_write(fields, RuleTag::Lofty(kind), rules)
+    map_write_fields_diagnostic(fields, kind, rules).map_err(|error| error.to_string())
+}
+
+pub fn map_write_fields_diagnostic(
+    fields: &Fields,
+    kind: TagType,
+    rules: &[UserFieldMapping],
+) -> Result<Fields, ErrorCause> {
+    map_write_diagnostic(fields, RuleTag::Lofty(kind), rules)
 }
 pub(super) fn map_write(
     fields: &Fields,
     kind: RuleTag,
     rules: &[UserFieldMapping],
 ) -> Result<Fields, String> {
-    validate_user_mappings(rules)?;
+    map_write_diagnostic(fields, kind, rules).map_err(|error| error.to_string())
+}
+
+pub(super) fn map_write_diagnostic(
+    fields: &Fields,
+    kind: RuleTag,
+    rules: &[UserFieldMapping],
+) -> Result<Fields, ErrorCause> {
+    validate_user_mappings_diagnostic(rules)?;
     let mut output = Fields::new();
     for (target, values) in fields {
         let sources: Vec<_> = rules
@@ -148,7 +190,10 @@ pub(super) fn map_write(
                 .map(|(_, v)| v)
             {
                 if existing != values {
-                    return Err(format!("Conflicting updates for mapped source {source}"));
+                    return Err(ErrorCause::message(
+                        "Conflicting updates for mapped source {source}",
+                        [("source", source.to_string())],
+                    ));
                 }
             }
             output.insert(source.to_owned(), values.clone());
@@ -1616,16 +1661,25 @@ pub(super) fn save_id3(
     tag: &Id3v2Tag,
     target: &Id3Target,
 ) -> Result<(), String> {
+    save_id3_diagnostic(file, kind, tag, target).map_err(|error| error.to_string())
+}
+
+pub(super) fn save_id3_diagnostic(
+    file: &mut std::fs::File,
+    kind: lofty::file::FileType,
+    tag: &Id3v2Tag,
+    target: &Id3Target,
+) -> Result<(), ErrorCause> {
     // Unedited compressed and encrypted frames are copied from the stored tag.
     let split;
     let (tag, copied) = if crate::id3_frames::needs_split(tag) {
         let (stored, original) = if crate::id3_frames::has_flagged(tag) {
-            let stored = crate::id3_frames::scan(file).map_err(|e| e.to_string())?;
-            (stored, super::native_tags(file, kind)?.id3)
+            let stored = crate::id3_frames::scan(file).map_err(ErrorCause::external)?;
+            (stored, super::native_tags_diagnostic(file, kind)?.id3)
         } else {
             (None, None)
         };
-        split = crate::id3_frames::Passthrough::split(
+        split = crate::id3_frames::Passthrough::split_diagnostic(
             tag,
             target.major(),
             original.as_ref(),
@@ -1635,22 +1689,27 @@ pub(super) fn save_id3(
     } else {
         (tag, &crate::id3_frames::Passthrough::NONE)
     };
-    let render = |padding| copied.splice(render_id3_padded(tag, target, Some(padding))?, padding);
-    if crate::id3_padding::save_in_place(file, kind, render)? {
+    let render = |padding| {
+        copied.splice_diagnostic(
+            render_id3_padded_diagnostic(tag, target, Some(padding))?,
+            padding,
+        )
+    };
+    if crate::id3_padding::save_in_place_diagnostic(file, kind, render)? {
         return Ok(());
     }
     crate::write_cost::rewrote_all();
     if target.version == Id3v2Version::V3 || !copied.is_empty() {
-        id3_v23::save(file, kind, &render(crate::id3_padding::PADDING)?)
+        id3_v23::save_diagnostic(file, kind, &render(crate::id3_padding::PADDING)?)
     } else {
-        std::io::Seek::seek(file, std::io::SeekFrom::Start(0)).map_err(|e| e.to_string())?;
+        std::io::Seek::seek(file, std::io::SeekFrom::Start(0)).map_err(ErrorCause::external)?;
         tag.save_to(
             file,
             WriteOptions::default()
                 .use_id3v23(false)
                 .preferred_padding(crate::id3_padding::PADDING),
         )
-        .map_err(|e| e.to_string())
+        .map_err(ErrorCause::external)
     }
 }
 
@@ -1658,41 +1717,40 @@ pub(super) fn save_id3(
 /// block (DSF, DSDIFF). An empty result means the tag has no frames.
 /// `stored` is the tag as read and its bytes: compressed and encrypted
 /// frames of it that `tag` still holds are copied byte for byte.
-pub(super) fn render_id3(
+pub(super) fn render_id3_diagnostic(
     tag: &Id3v2Tag,
     target: &Id3Target,
     stored: Option<(&Id3v2Tag, &[u8])>,
-) -> Result<Vec<u8>, String> {
+) -> Result<Vec<u8>, ErrorCause> {
     if !crate::id3_frames::needs_split(tag) {
-        return render_id3_padded(tag, target, None);
+        return render_id3_padded_diagnostic(tag, target, None);
     }
     let raw = match stored.filter(|_| crate::id3_frames::has_flagged(tag)) {
-        Some((_, bytes)) => {
-            crate::id3_frames::scan(&mut std::io::Cursor::new(bytes)).map_err(|e| e.to_string())?
-        }
+        Some((_, bytes)) => crate::id3_frames::scan(&mut std::io::Cursor::new(bytes))
+            .map_err(ErrorCause::external)?,
         None => None,
     };
-    let (tag, copied) = crate::id3_frames::Passthrough::split(
+    let (tag, copied) = crate::id3_frames::Passthrough::split_diagnostic(
         tag,
         target.major(),
         stored.map(|(tag, _)| tag),
         raw.as_ref(),
     )?;
-    copied.splice(
-        render_id3_padded(&tag, target, None)?,
+    copied.splice_diagnostic(
+        render_id3_padded_diagnostic(&tag, target, None)?,
         crate::id3_padding::PADDING,
     )
 }
 
-/// [`render_id3`] with exactly `padding` bytes of padding, or the writer's
+/// [`render_id3_diagnostic`] with exactly `padding` bytes of padding, or the writer's
 /// default amount when `None`.
-fn render_id3_padded(
+fn render_id3_padded_diagnostic(
     tag: &Id3v2Tag,
     target: &Id3Target,
     padding: Option<u32>,
-) -> Result<Vec<u8>, String> {
+) -> Result<Vec<u8>, ErrorCause> {
     if target.version == Id3v2Version::V3 {
-        return id3_v23::serialize_padded(tag, target.latin1, padding);
+        return id3_v23::serialize_padded_diagnostic(tag, target.latin1, padding);
     }
     let mut options = WriteOptions::default().use_id3v23(false);
     if let Some(padding) = padding {
@@ -1701,7 +1759,7 @@ fn render_id3_padded(
     let mut bytes = Vec::new();
     if !tag.is_empty() {
         tag.dump_to(&mut bytes, options)
-            .map_err(|e| e.to_string())?;
+            .map_err(ErrorCause::external)?;
     }
     Ok(bytes)
 }
@@ -1736,7 +1794,10 @@ fn version_native(field: &str, version: Id3v2Version) -> String {
 
 /// Re-express documented frames whose identifier differs between ID3v2.3 and
 /// ID3v2.4 (for example TYER/TDAT/TIME and TDRC). Other frames are retained.
-pub(super) fn convert_id3_version(tag: &mut Id3v2Tag, target: &Id3Target) -> Result<(), String> {
+pub(super) fn convert_id3_version_diagnostic(
+    tag: &mut Id3v2Tag,
+    target: &Id3Target,
+) -> Result<(), ErrorCause> {
     let from = if tag.original_version() == Id3v2Version::V3 {
         Id3v2Version::V3
     } else {
@@ -1827,10 +1888,10 @@ pub(super) fn convert_id3_version(tag: &mut Id3v2Tag, target: &Id3Target) -> Res
         index += 1;
         !remove[index - 1]
     });
-    patch_id3(tag, &moved, target)?;
+    patch_id3_diagnostic(tag, &moved, target)?;
     for (id, value) in extra {
         tag.insert(Frame::Text(TextInformationFrame::new(
-            FrameId::new(id).map_err(|e| e.to_string())?,
+            FrameId::new(id).map_err(ErrorCause::external)?,
             target.encoding(),
             value,
         )));
@@ -1841,10 +1902,9 @@ pub(super) fn convert_id3_version(tag: &mut Id3v2Tag, target: &Id3Target) -> Res
     tag.retain_mut(|frame| {
         let mut flags = frame.flags();
         if flags.encryption.is_some() || crate::id3_frames::is_placeholder(frame) {
-            failure = Some(
-                "Encrypted ID3v2 frames cannot be converted to another ID3v2 revision; original file preserved"
-                    .to_owned(),
-            );
+            failure = Some(ErrorCause::owned(
+                "Encrypted ID3v2 frames cannot be converted to another ID3v2 revision; original file preserved",
+            ));
         } else if flags.compression || flags.data_length_indicator.is_some() {
             flags.compression = false;
             flags.data_length_indicator = None;
@@ -1860,6 +1920,14 @@ pub(super) fn patch_id3(
     updates: &Fields,
     target: &Id3Target,
 ) -> Result<(), String> {
+    patch_id3_diagnostic(tag, updates, target).map_err(|error| error.to_string())
+}
+
+pub(super) fn patch_id3_diagnostic(
+    tag: &mut Id3v2Tag,
+    updates: &Fields,
+    target: &Id3Target,
+) -> Result<(), ErrorCause> {
     let version = target.version;
     let encoding = target.encoding();
     if updates.contains_key("MOVEMENT") || updates.contains_key("MOVEMENTTOTAL") {
@@ -1881,7 +1949,7 @@ pub(super) fn patch_id3(
         };
         if let Some(text) = text {
             tag.insert(Frame::Text(TextInformationFrame::new(
-                FrameId::new("MVIN").map_err(|e| e.to_string())?,
+                FrameId::new("MVIN").map_err(ErrorCause::external)?,
                 encoding,
                 text,
             )));
@@ -1905,7 +1973,7 @@ pub(super) fn patch_id3(
             tag.retain(|frame| {
                 !matches!(frame, Frame::UserText(text) if text.description.eq_ignore_ascii_case(name))
             });
-            patch_described(tag, id, description, values, encoding, target.language)?;
+            patch_described_diagnostic(tag, id, description, values, encoding, target.language)?;
             continue;
         }
         let mapping = mapped
@@ -1944,10 +2012,13 @@ pub(super) fn patch_id3(
                 .unwrap_or(0);
             tag.retain(|f| !matches!(f,Frame::Popularimeter(p) if p.email==email));
             if values.len() > 1 {
-                return Err(format!("{name} supports one rating per owner"));
+                return Err(ErrorCause::message(
+                    "{name} supports one rating per owner",
+                    [("name", name.to_string())],
+                ));
             }
             if let Some(value) = values.first() {
-                let half = parse_stars(value, name == "RATING MM")?;
+                let half = parse_stars_diagnostic(value, name == "RATING MM")?;
                 let rating = if name == "RATING MM" {
                     MM_VALUES[usize::from(half)]
                 } else {
@@ -1963,7 +2034,10 @@ pub(super) fn patch_id3(
             let owner = mapping.trim_start_matches("UFID:");
             tag.retain(|f| !matches!(f,Frame::UniqueFileIdentifier(v) if v.owner==owner));
             if values.len() > 1 {
-                return Err(format!("{name} supports one identifier per owner"));
+                return Err(ErrorCause::message(
+                    "{name} supports one identifier per owner",
+                    [("name", name.to_string())],
+                ));
             }
             if let Some(v) = values.first() {
                 tag.insert(Frame::UniqueFileIdentifier(UniqueFileIdentifierFrame::new(
@@ -1974,7 +2048,7 @@ pub(super) fn patch_id3(
             continue;
         }
         if mapping == "UFID" {
-            patch_unique_file_ids(tag, values)?;
+            patch_unique_file_ids_diagnostic(tag, values)?;
             continue;
         }
         let internal_id = if mapping == "IPLS" {
@@ -1986,17 +2060,17 @@ pub(super) fn patch_id3(
         if values.is_empty() {
             continue;
         }
-        let id = FrameId::new(internal_id.to_owned()).map_err(|e| e.to_string())?;
+        let id = FrameId::new(internal_id.to_owned()).map_err(ErrorCause::external)?;
         match mapping.as_str() {
             "PCST" => {
                 if values != &["1".to_owned()] {
-                    return Err("PODCAST requires 1 or deletion".into());
+                    return Err(ErrorCause::owned("PODCAST requires 1 or deletion"));
                 }
                 tag.insert(Frame::Binary(BinaryFrame::new(id, vec![0, 0, 0, 1])));
             }
             "WXXX" => {
                 if values.len() > 1 {
-                    return Err("WWW needs one URL per description".into());
+                    return Err(ErrorCause::owned("WWW needs one URL per description"));
                 }
                 tag.insert(Frame::UserUrl(ExtendedUrlFrame::new(
                     TextEncoding::Latin1,
@@ -2007,22 +2081,24 @@ pub(super) fn patch_id3(
             "POPM" => {
                 for v in values {
                     let mut parts = v.split('|');
-                    let email = parts
-                        .next()
-                        .ok_or("POPULARIMETER requires email|rating|counter")?;
+                    let email = parts.next().ok_or_else(|| {
+                        ErrorCause::owned("POPULARIMETER requires email|rating|counter")
+                    })?;
                     let rating = parts
                         .next()
-                        .ok_or("POPULARIMETER requires a rating")?
+                        .ok_or_else(|| ErrorCause::owned("POPULARIMETER requires a rating"))?
                         .parse::<u8>()
-                        .map_err(|_| "POPM rating requires 0..255")?;
+                        .map_err(|_| ErrorCause::owned("POPM rating requires 0..255"))?;
                     let counter = parts
                         .next()
                         .filter(|s| !s.is_empty())
                         .unwrap_or("0")
                         .parse::<u64>()
-                        .map_err(|_| "POPM counter requires an unsigned integer")?;
+                        .map_err(|_| {
+                            ErrorCause::owned("POPM counter requires an unsigned integer")
+                        })?;
                     if parts.next().is_some() {
-                        return Err("POPULARIMETER has too many components".into());
+                        return Err(ErrorCause::owned("POPULARIMETER has too many components"));
                     }
                     tag.insert(Frame::Popularimeter(PopularimeterFrame::new(
                         email.to_owned(),
@@ -2035,9 +2111,9 @@ pub(super) fn patch_id3(
                 let mut pairs = Vec::new();
                 for v in values {
                     for pair in v.split(';').filter(|s| !s.is_empty()) {
-                        let (role, person) = pair
-                            .split_once(':')
-                            .ok_or("Credits require role:person; pairs")?;
+                        let (role, person) = pair.split_once(':').ok_or_else(|| {
+                            ErrorCause::owned("Credits require role:person; pairs")
+                        })?;
                         pairs.push((role.to_owned().into(), person.to_owned().into()));
                     }
                 }
@@ -2045,24 +2121,33 @@ pub(super) fn patch_id3(
             }
             "TDEN" | "TDOR" | "TDRC" | "TDRL" | "TDTG" => {
                 if values.len() != 1 {
-                    return Err(format!("{name} requires one timestamp"));
+                    return Err(ErrorCause::message(
+                        "{name} requires one timestamp",
+                        [("name", name.to_string())],
+                    ));
                 }
                 let timestamp = Timestamp::parse(&mut values[0].as_bytes(), ParsingMode::Strict)
-                    .map_err(|e| e.to_string())?
-                    .ok_or("Empty timestamp")?;
+                    .map_err(ErrorCause::external)?
+                    .ok_or_else(|| ErrorCause::owned("Empty timestamp"))?;
                 tag.insert(Frame::Timestamp(TimestampFrame::new(
                     id, encoding, timestamp,
                 )));
             }
             field if field.starts_with('W') => {
                 if values.len() > 1 {
-                    return Err(format!("{name} supports one URL"));
+                    return Err(ErrorCause::message(
+                        "{name} supports one URL",
+                        [("name", name.to_string())],
+                    ));
                 }
                 tag.insert(Frame::Url(UrlLinkFrame::new(id, values[0].clone())));
             }
             _ => {
                 if matches!(mapping.as_str(), "TCMP" | "PCST") && values != &["1".to_owned()] {
-                    return Err(format!("{name} requires 1 or deletion"));
+                    return Err(ErrorCause::message(
+                        "{name} requires 1 or deletion",
+                        [("name", name.to_string())],
+                    ));
                 }
                 tag.insert(Frame::Text(TextInformationFrame::new(
                     id,
@@ -2079,14 +2164,14 @@ pub(super) fn patch_id3(
 /// ID3v2 tells these frames apart by language and description, and lofty
 /// stops reading a comment at a NUL, so a description holds one comment and
 /// one lyrics text per language.
-fn patch_described(
+fn patch_described_diagnostic(
     tag: &mut Id3v2Tag,
     id: &str,
     description: &str,
     values: &[String],
     encoding: TextEncoding,
     language: [u8; 3],
-) -> Result<(), String> {
+) -> Result<(), ErrorCause> {
     tag.retain(|frame| match frame {
         Frame::Comment(comment) if id == "COMM" => {
             !comment.description.eq_ignore_ascii_case(description)
@@ -2101,13 +2186,9 @@ fn patch_described(
     }
     if id == "COMM" {
         let [value] = values else {
-            return Err(format!(
-                "{} holds one comment per description in ID3v2; use COMMENT <description> for more",
-                if description.is_empty() {
-                    "COMMENT".to_owned()
-                } else {
-                    format!("COMMENT {description}")
-                }
+            return Err(ErrorCause::message(
+                "{name} holds one comment per description in ID3v2; use COMMENT <description> for more",
+                [("name", if description.is_empty() { "COMMENT".to_owned() } else { format!("COMMENT {description}") })],
             ));
         };
         tag.insert(Frame::Comment(CommentFrame::new(
@@ -2120,13 +2201,17 @@ fn patch_described(
     }
     let mut languages = HashSet::new();
     for value in values {
-        let (lang, lyrics) = value.split_once("||").ok_or(LYRICS_LANGUAGE_REQUIRED)?;
+        let (lang, lyrics) = value
+            .split_once("||")
+            .ok_or_else(|| ErrorCause::owned(LYRICS_LANGUAGE_REQUIRED))?;
         let language: [u8; 3] = lang
             .as_bytes()
             .try_into()
-            .map_err(|_| "Lyrics language requires three ASCII letters")?;
+            .map_err(|_| ErrorCause::owned("Lyrics language requires three ASCII letters"))?;
         if !languages.insert(language) {
-            return Err("UNSYNCEDLYRICS holds one text per language and description".into());
+            return Err(ErrorCause::owned(
+                "UNSYNCEDLYRICS holds one text per language and description",
+            ));
         }
         tag.insert(Frame::UnsynchronizedText(UnsynchronizedTextFrame::new(
             encoding,
@@ -2140,24 +2225,35 @@ fn patch_described(
 
 /// Replace the UFID frames shown as UNIQUEFILEID with `owner|identifier`
 /// values. MusicBrainz identifiers and binary identifiers are kept.
-fn patch_unique_file_ids(tag: &mut Id3v2Tag, values: &[String]) -> Result<(), String> {
+fn patch_unique_file_ids_diagnostic(
+    tag: &mut Id3v2Tag,
+    values: &[String],
+) -> Result<(), ErrorCause> {
     let mut frames = Vec::new();
     let mut owners = HashSet::new();
     for value in values {
         let (owner, identifier) = value
             .split_once('|')
-            .ok_or("UNIQUEFILEID requires owner|identifier")?;
+            .ok_or_else(|| ErrorCause::owned("UNIQUEFILEID requires owner|identifier"))?;
         if owner.is_empty() || identifier.is_empty() {
-            return Err("UNIQUEFILEID requires an owner and an identifier".into());
+            return Err(ErrorCause::owned(
+                "UNIQUEFILEID requires an owner and an identifier",
+            ));
         }
         if owner == MUSICBRAINZ_OWNER {
-            return Err("The MusicBrainz identifier is stored in MUSICBRAINZ_TRACKID".into());
+            return Err(ErrorCause::owned(
+                "The MusicBrainz identifier is stored in MUSICBRAINZ_TRACKID",
+            ));
         }
         if identifier.len() > 64 {
-            return Err("A UNIQUEFILEID identifier holds at most 64 bytes".into());
+            return Err(ErrorCause::owned(
+                "A UNIQUEFILEID identifier holds at most 64 bytes",
+            ));
         }
         if !owners.insert(owner) {
-            return Err("UNIQUEFILEID holds one identifier per owner".into());
+            return Err(ErrorCause::owned(
+                "UNIQUEFILEID holds one identifier per owner",
+            ));
         }
         frames.push(Frame::UniqueFileIdentifier(UniqueFileIdentifierFrame::new(
             owner.to_owned(),
@@ -2301,13 +2397,17 @@ fn wmp_rating(value: u8) -> u8 {
     }
 }
 pub(super) fn parse_stars(value: &str, half_allowed: bool) -> Result<u8, String> {
+    parse_stars_diagnostic(value, half_allowed).map_err(|error| error.to_string())
+}
+
+pub(super) fn parse_stars_diagnostic(value: &str, half_allowed: bool) -> Result<u8, ErrorCause> {
     let half = if value.chars().all(|c| c == '*' || c == '-') {
         (value.chars().filter(|c| *c == '*').count() * 2
             + value.chars().filter(|c| *c == '-').count()) as f64
     } else {
         value
             .parse::<f64>()
-            .map_err(|_| "Rating requires a number or stars")?
+            .map_err(|_| ErrorCause::owned("Rating requires a number or stars"))?
             * 2.0
     };
     if !half.is_finite()
@@ -2315,19 +2415,19 @@ pub(super) fn parse_stars(value: &str, half_allowed: bool) -> Result<u8, String>
         || half.fract() != 0.0
         || (!half_allowed && half % 2.0 != 0.0)
     {
-        return Err("Rating is outside the documented range".into());
+        return Err(ErrorCause::owned("Rating is outside the documented range"));
     }
     Ok(half as u8)
 }
 
-pub(super) fn expected_id3_readback(
+pub(super) fn expected_id3_readback_diagnostic(
     name: &str,
     values: &[String],
-) -> Result<(String, Vec<String>), String> {
+) -> Result<(String, Vec<String>), ErrorCause> {
     if name == "GENRE" {
         let mut tag = Id3v2Tag::new();
         tag.insert(Frame::Text(TextInformationFrame::new(
-            FrameId::new("TCON").map_err(|e| e.to_string())?,
+            FrameId::new("TCON").map_err(ErrorCause::external)?,
             TextEncoding::UTF8,
             values.join("\0"),
         )));
@@ -2342,7 +2442,7 @@ pub(super) fn expected_id3_readback(
         let output = values
             .iter()
             .map(|value| {
-                parse_stars(value, name == "RATING MM").map(|n| {
+                parse_stars_diagnostic(value, name == "RATING MM").map(|n| {
                     if n % 2 == 0 {
                         (n / 2).to_string()
                     } else {
@@ -2360,13 +2460,13 @@ pub(super) fn expected_id3_readback(
             .next()
             .unwrap_or_default()
             .parse::<u8>()
-            .map_err(|_| "POPM rating requires 0..255")?;
+            .map_err(|_| ErrorCause::owned("POPM rating requires 0..255"))?;
         let counter = parts
             .next()
             .filter(|s| !s.is_empty())
             .unwrap_or("0")
             .parse::<u64>()
-            .map_err(|_| "POPM counter requires an unsigned integer")?;
+            .map_err(|_| ErrorCause::owned("POPM counter requires an unsigned integer"))?;
         if email == "no@email" {
             if let Some(rating) = mm_rating(rating) {
                 return Ok(("RATING MM".into(), vec![rating]));
@@ -2381,6 +2481,10 @@ pub(super) fn expected_id3_readback(
 }
 
 fn mp4_ident(name: &str) -> Result<AtomIdent<'static>, String> {
+    mp4_ident_diagnostic(name).map_err(|error| error.to_string())
+}
+
+fn mp4_ident_diagnostic(name: &str) -> Result<AtomIdent<'static>, ErrorCause> {
     let mapped = field_mapping(name)
         .map(|r| r.mp4)
         .filter(|s| !s.is_empty())
@@ -2400,7 +2504,7 @@ fn mp4_ident(name: &str) -> Result<AtomIdent<'static>, String> {
     if let Some(rest) = id.strip_prefix("----:") {
         let (mean, name) = rest
             .split_once(':')
-            .ok_or("MP4 freeform requires mean:name")?;
+            .ok_or_else(|| ErrorCause::owned("MP4 freeform requires mean:name"))?;
         Ok(AtomIdent::Freeform {
             mean: mean.to_owned().into(),
             name: name.to_owned().into(),
@@ -2408,22 +2512,30 @@ fn mp4_ident(name: &str) -> Result<AtomIdent<'static>, String> {
     } else {
         let chars = id
             .chars()
-            .map(|c| u8::try_from(u32::from(c)).map_err(|_| "MP4 fourcc must be Latin-1"))
+            .map(|c| {
+                u8::try_from(u32::from(c))
+                    .map_err(|_| ErrorCause::owned("MP4 fourcc must be Latin-1"))
+            })
             .collect::<Result<Vec<_>, _>>()?;
-        Ok(AtomIdent::Fourcc(
-            chars
-                .try_into()
-                .map_err(|_| "MP4 fourcc requires four characters")?,
-        ))
+        Ok(AtomIdent::Fourcc(chars.try_into().map_err(|_| {
+            ErrorCause::owned("MP4 fourcc requires four characters")
+        })?))
     }
 }
-fn one<'a>(field: &str, values: &'a [String]) -> Result<&'a str, String> {
+fn one_diagnostic<'a>(field: &str, values: &'a [String]) -> Result<&'a str, ErrorCause> {
     if values.len() != 1 {
-        return Err(format!("{field} requires one value"));
+        return Err(ErrorCause::message(
+            "{field} requires one value",
+            [("field", field.to_string())],
+        ));
     }
     Ok(&values[0])
 }
 pub(super) fn patch_mp4(tag: &mut Ilst, updates: &Fields) -> Result<(), String> {
+    patch_mp4_diagnostic(tag, updates).map_err(|error| error.to_string())
+}
+
+pub(super) fn patch_mp4_diagnostic(tag: &mut Ilst, updates: &Fields) -> Result<(), ErrorCause> {
     let existing = mp4_fields(tag);
     for (number, total, id) in [
         ("TRACK", "TOTALTRACKS", *b"trkn"),
@@ -2445,7 +2557,10 @@ pub(super) fn patch_mp4(tag: &mut Ilst, updates: &Fields) -> Result<(), String> 
                     let last = last.to_owned();
                     if let Some(explicit) = updates.get(total).and_then(|v| v.first()) {
                         if explicit.parse::<u16>().ok() != last.parse::<u16>().ok() {
-                            return Err(format!("Conflicting {total}"));
+                            return Err(ErrorCause::message(
+                                "Conflicting {total}",
+                                [("total", total.to_string())],
+                            ));
                         }
                     }
                     n = Some(first);
@@ -2460,15 +2575,25 @@ pub(super) fn patch_mp4(tag: &mut Ilst, updates: &Fields) -> Result<(), String> 
         if n.is_some() || t.is_some() {
             let n = n
                 .map(|n| {
-                    n.parse::<u16>()
-                        .map_err(|_| format!("{number} requires a 16-bit unsigned number"))
+                    let field = number;
+                    n.parse::<u16>().map_err(|_| {
+                        ErrorCause::message(
+                            "{field} requires a 16-bit unsigned number",
+                            [("field", field.to_string())],
+                        )
+                    })
                 })
                 .transpose()?
                 .unwrap_or(0);
             let t = t
                 .map(|t| {
-                    t.parse::<u16>()
-                        .map_err(|_| format!("{total} requires a 16-bit unsigned number"))
+                    let field = total;
+                    t.parse::<u16>().map_err(|_| {
+                        ErrorCause::message(
+                            "{field} requires a 16-bit unsigned number",
+                            [("field", field.to_string())],
+                        )
+                    })
                 })
                 .transpose()?
                 .unwrap_or(0);
@@ -2490,7 +2615,7 @@ pub(super) fn patch_mp4(tag: &mut Ilst, updates: &Fields) -> Result<(), String> 
         ) {
             continue;
         }
-        let id = mp4_ident(name)?;
+        let id = mp4_ident_diagnostic(name)?;
         tag.remove(&id).for_each(drop);
         if values.is_empty() {
             continue;
@@ -2499,38 +2624,46 @@ pub(super) fn patch_mp4(tag: &mut Ilst, updates: &Fields) -> Result<(), String> 
             name.as_str(),
             "COMPILATION" | "PODCAST" | "ITUNESGAPLESS" | "SHOWMOVEMENT"
         ) {
-            if one(name, values)? != "1" {
-                return Err(format!("{name} requires 1 or deletion"));
+            if one_diagnostic(name, values)? != "1" {
+                return Err(ErrorCause::message(
+                    "{name} requires 1 or deletion",
+                    [("name", name.to_string())],
+                ));
             }
             vec![AtomData::Bool(true)]
         } else if name == "ITUNESHDVIDEO" {
-            let v = one(name, values)?;
+            let v = one_diagnostic(name, values)?;
             if !matches!(v, "0" | "1") {
-                return Err("ITUNESHDVIDEO requires 0 or 1".into());
+                return Err(ErrorCause::owned("ITUNESHDVIDEO requires 0 or 1"));
             }
             vec![AtomData::Bool(v == "1")]
         } else if name == "ITUNESMEDIATYPE" {
-            let value = one(name, values)?;
+            let value = one_diagnostic(name, values)?;
             let code = MEDIA_TYPES
                 .iter()
                 .find(|(name, _)| name.eq_ignore_ascii_case(value))
                 .map(|(_, code)| *code)
-                .ok_or("ITUNESMEDIATYPE requires a documented media type name")?;
+                .ok_or_else(|| {
+                    ErrorCause::owned("ITUNESMEDIATYPE requires a documented media type name")
+                })?;
             vec![AtomData::SignedInteger(i32::from(code))]
         } else if name == "ITUNESALBUMID" {
-            let v = one(name, values)?
-                .parse::<u64>()
-                .map_err(|_| "ITUNESALBUMID requires an unsigned 64-bit integer")?;
+            let v = one_diagnostic(name, values)?.parse::<u64>().map_err(|_| {
+                ErrorCause::owned("ITUNESALBUMID requires an unsigned 64-bit integer")
+            })?;
             vec![AtomData::Unknown {
                 code: DataType::Be64BitUnsignedInteger,
                 data: v.to_be_bytes().to_vec(),
             }]
         } else if numeric_atom(name) {
-            let v = one(name, values)?
-                .parse::<u32>()
-                .map_err(|_| format!("{name} requires an unsigned integer"))?;
+            let v = one_diagnostic(name, values)?.parse::<u32>().map_err(|_| {
+                ErrorCause::message(
+                    "{name} requires an unsigned integer",
+                    [("name", name.to_string())],
+                )
+            })?;
             if name == "ITUNESADVISORY" && v > 2 {
-                return Err("ITUNESADVISORY requires 0, 1, or 2".into());
+                return Err(ErrorCause::owned("ITUNESADVISORY requires 0, 1, or 2"));
             }
             vec![AtomData::UnsignedInteger(v)]
         } else {
@@ -2557,3 +2690,54 @@ const MEDIA_TYPES: [(&str, u8); 10] = [
     ("Podcast", 21),
     ("iTunes U", 23),
 ];
+
+#[cfg(test)]
+mod diagnostic_producer_tests {
+    use super::*;
+    #[test]
+    fn mapping_owned_raw_source_is_preserved_in_diagnostics() {
+        let source = "Help {error}: Title";
+        let rules = [
+            UserFieldMapping {
+                tag_type: "ID3v2".into(),
+                source: source.into(),
+                target: "FIRST".into(),
+            },
+            UserFieldMapping {
+                tag_type: "ID3v2".into(),
+                source: source.into(),
+                target: "SECOND".into(),
+            },
+        ];
+        let error = validate_user_mappings_diagnostic(&rules).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            validate_user_mappings(&rules).unwrap_err()
+        );
+        let data = serde_json::to_value(error).unwrap();
+        assert_eq!(data["kind"], "owned");
+        assert_eq!(data["params"]["name"], source);
+    }
+
+    #[test]
+    fn id3_owned_arity_and_foreign_timestamp_errors_keep_separate_provenance() {
+        let target = Id3Target::preserving(&Id3v2Tag::new(), *b"eng");
+        let updates = Fields::from([("YEAR".into(), vec!["first".into(), "second".into()])]);
+        let error = patch_id3_diagnostic(&mut Id3v2Tag::new(), &updates, &target).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            patch_id3(&mut Id3v2Tag::new(), &updates, &target).unwrap_err()
+        );
+        let data = serde_json::to_value(error).unwrap();
+        assert_eq!(data["kind"], "owned");
+        assert_eq!(data["params"]["name"], "YEAR");
+
+        let updates = Fields::from([("YEAR".into(), vec!["Help {error}: Title".into()])]);
+        let error = patch_id3_diagnostic(&mut Id3v2Tag::new(), &updates, &target).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            patch_id3(&mut Id3v2Tag::new(), &updates, &target).unwrap_err()
+        );
+        assert_eq!(serde_json::to_value(error).unwrap()["kind"], "external");
+    }
+}

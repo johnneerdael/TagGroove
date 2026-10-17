@@ -218,6 +218,21 @@ fn id3_v23_version_and_separate_date_frame_are_preserved() {
 }
 
 #[test]
+fn mp4_number_errors_name_the_raw_field_without_changing_the_file() {
+    let temp = tempfile::tempdir().unwrap();
+    let path = temp.path().join("invalid-number.m4a");
+    if !encoded(&path, "aac") {
+        return;
+    }
+    let original = fs::read(&path).unwrap();
+    for field in ["TRACK", "TOTALTRACKS", "DISCNUMBER", "TOTALDISCS"] {
+        let error = write_fields(&path, &values(&[(field, &["not a number"])])).unwrap_err();
+        assert_eq!(error, format!("{field} requires a 16-bit unsigned number"));
+        assert_eq!(fs::read(&path).unwrap(), original);
+    }
+}
+
+#[test]
 fn mp4_freeform_names_flags_and_track_atoms_match_documented_storage() {
     let temp = tempfile::tempdir().unwrap();
     let path = temp.path().join("mp4.m4a");
@@ -342,6 +357,22 @@ fn id3_ratings_credits_timestamps_lyrics_and_musicbrainz_uid_use_native_frames()
     assert!(write_fields(&path, &values(&[("RATING WMP", &["2.5"])])).is_err());
     assert!(write_fields(&path, &values(&[("TAGGINGTIME", &["not-a-timestamp"])])).is_err());
     assert_eq!(fs::read(&path).unwrap(), before);
+}
+
+#[test]
+fn mapping_conflicts_report_the_original_source_field_identity() {
+    let rules = [UserFieldMapping {
+        tag_type: "ID3v2".into(),
+        source: "ARTIST".into(),
+        target: "WRITER".into(),
+    }];
+    let error = tag_core::map_write_fields(
+        &values(&[("ARTIST", &["Original"]), ("WRITER", &["Changed"])]),
+        lofty::tag::TagType::Id3v2,
+        &rules,
+    )
+    .unwrap_err();
+    assert_eq!(error, "Conflicting updates for mapped source ARTIST");
 }
 
 #[test]

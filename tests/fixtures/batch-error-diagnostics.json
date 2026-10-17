@@ -1,0 +1,235 @@
+[
+  {
+    "diagnostic": {
+      "kind": "action",
+      "group": "Help / action 1: Title; it was not undone",
+      "index": 2,
+      "cause": {
+        "kind": "owned",
+        "key": "Select files first.",
+        "params": {},
+        "children": {}
+      }
+    },
+    "source": "Help / action 1: Title; it was not undone / action 2: Select files first."
+  },
+  {
+    "diagnostic": {
+      "kind": "action",
+      "group": "Help / action 1: Title; it was not undone",
+      "index": 2,
+      "cause": {
+        "kind": "external",
+        "value": "Select files first."
+      }
+    },
+    "source": "Help / action 1: Title; it was not undone / action 2: Select files first."
+  },
+  {
+    "diagnostic": {
+      "kind": "history_changed",
+      "label": "Help / action 1: Title; it was not undone",
+      "direction": "undo"
+    },
+    "source": "Changed outside OpenTag after Help / action 1: Title; it was not undone; it was not undone"
+  },
+  {
+    "diagnostic": {
+      "kind": "history_failed",
+      "direction": "undo",
+      "cause": {
+        "kind": "owned",
+        "key": "Select files first.",
+        "params": {},
+        "children": {}
+      }
+    },
+    "source": "It was not undone: Select files first."
+  },
+  {
+    "diagnostic": {
+      "kind": "history_folders_failed",
+      "direction": "undo",
+      "cause": {
+        "kind": "owned",
+        "key": "Select files first.",
+        "params": {},
+        "children": {}
+      }
+    },
+    "source": "Folders and side files could not be undone: Select files first."
+  },
+  {
+    "diagnostic": {
+      "kind": "history_failed",
+      "direction": "undo",
+      "cause": {
+        "kind": "external",
+        "value": "Select files first."
+      }
+    },
+    "source": "It was not undone: Select files first."
+  },
+  {
+    "diagnostic": {
+      "kind": "history_folders_failed",
+      "direction": "undo",
+      "cause": {
+        "kind": "external",
+        "value": "Select files first."
+      }
+    },
+    "source": "Folders and side files could not be undone: Select files first."
+  },
+  {
+    "diagnostic": {
+      "kind": "history_changed",
+      "label": "Help / action 1: Title; it was not undone",
+      "direction": "redo"
+    },
+    "source": "Changed outside OpenTag after Help / action 1: Title; it was not undone; it was not redone"
+  },
+  {
+    "diagnostic": {
+      "kind": "history_failed",
+      "direction": "redo",
+      "cause": {
+        "kind": "owned",
+        "key": "Select files first.",
+        "params": {},
+        "children": {}
+      }
+    },
+    "source": "It was not redone: Select files first."
+  },
+  {
+    "diagnostic": {
+      "kind": "history_folders_failed",
+      "direction": "redo",
+      "cause": {
+        "kind": "owned",
+        "key": "Select files first.",
+        "params": {},
+        "children": {}
+      }
+    },
+    "source": "Folders and side files could not be redone: Select files first."
+  },
+  {
+    "diagnostic": {
+      "kind": "history_failed",
+      "direction": "redo",
+      "cause": {
+        "kind": "external",
+        "value": "Select files first."
+      }
+    },
+    "source": "It was not redone: Select files first."
+  },
+  {
+    "diagnostic": {
+      "kind": "history_folders_failed",
+      "direction": "redo",
+      "cause": {
+        "kind": "external",
+        "value": "Select files first."
+      }
+    },
+    "source": "Folders and side files could not be redone: Select files first."
+  },
+  {
+    "diagnostic": {
+      "kind": "destination_collision",
+      "path": "/Help: Title; destination"
+    },
+    "source": "Destination exists or another file maps to /Help: Title; destination"
+  },
+  {
+    "diagnostic": {
+      "kind": "playlist_line",
+      "line": 7,
+      "cause": {
+        "kind": "owned",
+        "key": "Select files first.",
+        "params": {},
+        "children": {}
+      }
+    },
+    "source": "Line 7: Select files first."
+  },
+  {
+    "diagnostic": {
+      "kind": "source_cover_failed",
+      "cause": {
+        "kind": "owned",
+        "key": "Select files first.",
+        "params": {},
+        "children": {}
+      }
+    },
+    "source": "The cover image could not be saved: Select files first."
+  },
+  {
+    "diagnostic": {
+      "kind": "playlist_line",
+      "line": 7,
+      "cause": {
+        "kind": "external",
+        "value": "Select files first."
+      }
+    },
+    "source": "Line 7: Select files first."
+  },
+  {
+    "diagnostic": {
+      "kind": "source_cover_failed",
+      "cause": {
+        "kind": "external",
+        "value": "Select files first."
+      }
+    },
+    "source": "The cover image could not be saved: Select files first."
+  },
+  {
+    "diagnostic": {
+      "kind": "action_validation",
+      "group": "Help: Title / action 1: Name",
+      "cause": {
+        "kind": "owned",
+        "key": "Select files first.",
+        "params": {},
+        "children": {}
+      }
+    },
+    "source": "Help: Title / action 1: Name: Select files first."
+  },
+  {
+    "diagnostic": {
+      "kind": "source_cover_failed",
+      "cause": {
+        "kind": "owned",
+        "key": "Cannot write {path}: {error}",
+        "params": {
+          "path": "/Help {error}: Title; file"
+        },
+        "children": {
+          "error": {
+            "kind": "joined",
+            "parts": [
+              {
+                "kind": "owned_text",
+                "value": "Select files first."
+              },
+              {
+                "kind": "external",
+                "value": "Select files first."
+              }
+            ],
+            "separator": "; "
+          }
+        }
+      }
+    },
+    "source": "The cover image could not be saved: Cannot write /Help {error}: Title; file: Select files first.; Select files first."
+  }
+]

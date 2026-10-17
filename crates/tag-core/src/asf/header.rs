@@ -3,6 +3,8 @@
 //! parsed, and header objects without metadata are kept byte for byte.
 //! Attribute objects are re-encoded only when their attribute list changes.
 
+use crate::batch_errors::ErrorCause;
+
 pub(super) type Guid = [u8; 16];
 
 const fn guid(a: u32, b: u16, c: u16, d: [u8; 8]) -> Guid {
@@ -183,28 +185,28 @@ impl<'a> Reader<'a> {
     fn new(data: &'a [u8]) -> Self {
         Self { data, position: 0 }
     }
-    fn take(&mut self, length: usize) -> Result<&'a [u8], String> {
+    fn take(&mut self, length: usize) -> Result<&'a [u8], ErrorCause> {
         let end = self
             .position
             .checked_add(length)
             .filter(|end| *end <= self.data.len())
-            .ok_or("Malformed ASF header: truncated object")?;
+            .ok_or_else(|| ErrorCause::owned("Malformed ASF header: truncated object"))?;
         let bytes = &self.data[self.position..end];
         self.position = end;
         Ok(bytes)
     }
-    fn array<const N: usize>(&mut self) -> Result<[u8; N], String> {
+    fn array<const N: usize>(&mut self) -> Result<[u8; N], ErrorCause> {
         self.take(N)?
             .try_into()
-            .map_err(|_| "Malformed ASF header".to_string())
+            .map_err(|_| ErrorCause::owned("Malformed ASF header"))
     }
-    fn u16(&mut self) -> Result<u16, String> {
+    fn u16(&mut self) -> Result<u16, ErrorCause> {
         Ok(u16::from_le_bytes(self.array()?))
     }
-    fn u32(&mut self) -> Result<u32, String> {
+    fn u32(&mut self) -> Result<u32, ErrorCause> {
         Ok(u32::from_le_bytes(self.array()?))
     }
-    fn u64(&mut self) -> Result<u64, String> {
+    fn u64(&mut self) -> Result<u64, ErrorCause> {
         Ok(u64::from_le_bytes(self.array()?))
     }
     fn remaining(&self) -> usize {
@@ -213,7 +215,7 @@ impl<'a> Reader<'a> {
 }
 
 /// Split a byte range into complete objects (GUID, whole object bytes).
-fn objects(data: &[u8]) -> Result<Vec<(Guid, &[u8])>, String> {
+fn objects(data: &[u8]) -> Result<Vec<(Guid, &[u8])>, ErrorCause> {
     let mut reader = Reader::new(data);
     let mut objects = Vec::new();
     while reader.remaining() > 0 {
@@ -222,7 +224,7 @@ fn objects(data: &[u8]) -> Result<Vec<(Guid, &[u8])>, String> {
         let size = usize::try_from(reader.u64()?)
             .ok()
             .filter(|size| *size >= OBJECT_HEADER)
-            .ok_or("Malformed ASF header: invalid object size")?;
+            .ok_or_else(|| ErrorCause::owned("Malformed ASF header: invalid object size"))?;
         reader.take(size - OBJECT_HEADER)?;
         objects.push((id, &data[start..start + size]));
     }
@@ -287,7 +289,7 @@ fn encode_value(value: &Value, location: Location) -> (u16, Vec<u8>) {
     }
 }
 
-fn parse_content(body: &[u8], output: &mut Vec<Attribute>) -> Result<(), String> {
+fn parse_content(body: &[u8], output: &mut Vec<Attribute>) -> Result<(), ErrorCause> {
     let mut reader = Reader::new(body);
     let mut lengths = [0usize; 5];
     for length in &mut lengths {
@@ -305,7 +307,7 @@ fn parse_content(body: &[u8], output: &mut Vec<Attribute>) -> Result<(), String>
     }
     Ok(())
 }
-fn parse_extended(body: &[u8], output: &mut Vec<Attribute>) -> Result<(), String> {
+fn parse_extended(body: &[u8], output: &mut Vec<Attribute>) -> Result<(), ErrorCause> {
     let mut reader = Reader::new(body);
     for _ in 0..reader.u16()? {
         let name_length = reader.u16()?.into();
@@ -324,14 +326,14 @@ fn parse_metadata(
     body: &[u8],
     location: Location,
     output: &mut Vec<Attribute>,
-) -> Result<(), String> {
+) -> Result<(), ErrorCause> {
     let mut reader = Reader::new(body);
     for _ in 0..reader.u16()? {
         let language = reader.u16()?;
         let stream = reader.u16()?;
         let name_length = reader.u16()?.into();
         let kind = reader.u16()?;
-        let length = usize::try_from(reader.u32()?).map_err(|e| e.to_string())?;
+        let length = usize::try_from(reader.u32()?).map_err(ErrorCause::external)?;
         let name = utf16(reader.take(name_length)?);
         let value = decode_value(kind, reader.take(length)?, location);
         output.push(Attribute {
@@ -345,7 +347,7 @@ fn parse_metadata(
     Ok(())
 }
 
-fn parse_file_properties(object: &[u8], properties: &mut Properties) -> Result<(), String> {
+fn parse_file_properties(object: &[u8], properties: &mut Properties) -> Result<(), ErrorCause> {
     let mut reader = Reader::new(object);
     reader.take(OBJECT_HEADER + 16 + 8 + 8 + 8)?;
     let play_duration = reader.u64()?;
@@ -364,12 +366,12 @@ fn parse_file_properties(object: &[u8], properties: &mut Properties) -> Result<(
     }
     Ok(())
 }
-fn parse_stream_properties(object: &[u8], properties: &mut Properties) -> Result<(), String> {
+fn parse_stream_properties(object: &[u8], properties: &mut Properties) -> Result<(), ErrorCause> {
     let mut reader = Reader::new(object);
     reader.take(OBJECT_HEADER)?;
     let kind: Guid = reader.array()?;
     reader.take(16 + 8)?;
-    let specific = usize::try_from(reader.u32()?).map_err(|e| e.to_string())?;
+    let specific = usize::try_from(reader.u32()?).map_err(ErrorCause::external)?;
     reader.take(4 + 2 + 4)?;
     if kind != AUDIO_MEDIA || properties.format_tag.is_some() {
         return Ok(());
@@ -387,7 +389,7 @@ fn parse_stream_properties(object: &[u8], properties: &mut Properties) -> Result
     }
     Ok(())
 }
-fn parse_extended_stream(object: &[u8], properties: &mut Properties) -> Result<(), String> {
+fn parse_extended_stream(object: &[u8], properties: &mut Properties) -> Result<(), ErrorCause> {
     let mut reader = Reader::new(object);
     reader.take(OBJECT_HEADER + 60)?;
     let names = reader.u16()?;
@@ -399,7 +401,7 @@ fn parse_extended_stream(object: &[u8], properties: &mut Properties) -> Result<(
     }
     for _ in 0..systems {
         reader.take(18)?;
-        let length = usize::try_from(reader.u32()?).map_err(|e| e.to_string())?;
+        let length = usize::try_from(reader.u32()?).map_err(ErrorCause::external)?;
         reader.take(length)?;
     }
     let rest = reader.take(reader.remaining())?;
@@ -410,7 +412,7 @@ fn parse_extended_stream(object: &[u8], properties: &mut Properties) -> Result<(
     }
     Ok(())
 }
-fn parse_codec_list(object: &[u8], properties: &mut Properties) -> Result<(), String> {
+fn parse_codec_list(object: &[u8], properties: &mut Properties) -> Result<(), ErrorCause> {
     let mut reader = Reader::new(object);
     reader.take(OBJECT_HEADER + 16)?;
     for _ in 0..reader.u32()? {
@@ -433,7 +435,7 @@ fn parse_children(
     extension: bool,
     attributes: &mut Vec<Attribute>,
     properties: &mut Properties,
-) -> Result<Vec<Child>, String> {
+) -> Result<Vec<Child>, ErrorCause> {
     let mut children = Vec::new();
     for (id, object) in objects(data)? {
         let body = &object[OBJECT_HEADER..];
@@ -461,9 +463,9 @@ fn parse_children(
             HEADER_EXTENSION if !extension => {
                 let mut reader = Reader::new(body);
                 reader.take(18)?;
-                let size = usize::try_from(reader.u32()?).map_err(|e| e.to_string())?;
+                let size = usize::try_from(reader.u32()?).map_err(ErrorCause::external)?;
                 if size != reader.remaining() {
-                    return Err("Malformed ASF header extension size".into());
+                    return Err(ErrorCause::owned("Malformed ASF header extension size"));
                 }
                 Child::Extension {
                     prefix: body[..18].to_vec(),
@@ -491,20 +493,30 @@ pub(super) fn is_asf(start: &[u8]) -> bool {
 
 impl Asf {
     /// Parse a header from the start of `file`, whose total length is `file_size`.
+    #[cfg(test)]
     pub(super) fn read(file: &mut impl std::io::Read, file_size: u64) -> Result<Self, String> {
+        Self::read_diagnostic(file, file_size).map_err(|error| error.to_string())
+    }
+
+    pub(super) fn read_diagnostic(
+        file: &mut impl std::io::Read,
+        file_size: u64,
+    ) -> Result<Self, ErrorCause> {
         let mut start = [0u8; 30];
         file.read_exact(&mut start)
-            .map_err(|_| "Not an ASF file: truncated header")?;
+            .map_err(|_| ErrorCause::owned("Not an ASF file: truncated header"))?;
         if !is_asf(&start) {
-            return Err("Not an ASF file".into());
+            return Err(ErrorCause::owned("Not an ASF file"));
         }
         let header_size = u64::from_le_bytes(start[16..24].try_into().unwrap_or_default());
         if header_size < 30 || header_size > file_size || header_size > MAX_HEADER {
-            return Err("Malformed ASF header: invalid header size".into());
+            return Err(ErrorCause::owned(
+                "Malformed ASF header: invalid header size",
+            ));
         }
         let mut data = vec![0u8; (header_size - 30) as usize];
         file.read_exact(&mut data)
-            .map_err(|_| "Malformed ASF header: truncated header")?;
+            .map_err(|_| ErrorCause::owned("Malformed ASF header: truncated header"))?;
         let mut attributes = Vec::new();
         let mut properties = Properties::default();
         let children = parse_children(&data, false, &mut attributes, &mut properties)?;
@@ -512,7 +524,9 @@ impl Asf {
             .iter()
             .any(|child| matches!(child, Child::FileProperties(_)))
         {
-            return Err("Malformed ASF header: no File Properties Object".into());
+            return Err(ErrorCause::owned(
+                "Malformed ASF header: no File Properties Object",
+            ));
         }
         Ok(Self {
             reserved: [start[28], start[29]],
@@ -574,8 +588,16 @@ impl Asf {
             .collect()
     }
 
-    fn encode_attributes(location: Location, attributes: &[&Attribute]) -> Result<Vec<u8>, String> {
-        let too_many = || format!("ASF {location:?} object limits exceeded");
+    fn encode_attributes(
+        location: Location,
+        attributes: &[&Attribute],
+    ) -> Result<Vec<u8>, ErrorCause> {
+        let too_many = || {
+            ErrorCause::message(
+                "ASF {value} object limits exceeded",
+                [("value", format!("{location:?}"))],
+            )
+        };
         let mut body = Vec::new();
         match location {
             Location::Content => {
@@ -584,9 +606,11 @@ impl Asf {
                     let i = CONTENT_NAMES
                         .iter()
                         .position(|n| *n == attribute.name)
-                        .ok_or("Invalid Content Description attribute")?;
+                        .ok_or_else(|| {
+                            ErrorCause::owned("Invalid Content Description attribute")
+                        })?;
                     let Value::Unicode(text) = &attribute.value else {
-                        return Err("Content Description values must be text".into());
+                        return Err(ErrorCause::owned("Content Description values must be text"));
                     };
                     values[i] = utf16z(text);
                 }
@@ -660,7 +684,13 @@ impl Asf {
 
     /// Render the complete Header Object for a file whose Data and Index
     /// objects (everything after the header) keep `tail_size` bytes.
+    #[cfg(test)]
     pub(super) fn render(&self, tail_size: u64) -> Result<Vec<u8>, String> {
+        self.render_diagnostic(tail_size)
+            .map_err(|error| error.to_string())
+    }
+
+    pub(super) fn render_diagnostic(&self, tail_size: u64) -> Result<Vec<u8>, ErrorCause> {
         let placed = self.placed();
         let group = |location: Location| -> Vec<&Attribute> {
             placed
@@ -722,7 +752,7 @@ impl Asf {
                                 data.extend_from_slice(bytes)
                             }
                             Child::Extension { .. } => {
-                                return Err("Nested ASF header extension".into())
+                                return Err(ErrorCause::owned("Nested ASF header extension"))
                             }
                         }
                     }
@@ -734,7 +764,7 @@ impl Asf {
                     let mut body = prefix.clone();
                     body.extend(
                         u32::try_from(data.len())
-                            .map_err(|_| "ASF header extension is too large")?
+                            .map_err(|_| ErrorCause::owned("ASF header extension is too large"))?
                             .to_le_bytes(),
                     );
                     body.extend(data);
@@ -759,7 +789,7 @@ impl Asf {
                 body.extend(6u16.to_le_bytes());
                 body.extend(
                     u32::try_from(data.len())
-                        .map_err(|_| "ASF header extension is too large")?
+                        .map_err(|_| ErrorCause::owned("ASF header extension is too large"))?
                         .to_le_bytes(),
                 );
                 body.extend(data);
@@ -772,14 +802,16 @@ impl Asf {
         header.extend(size.to_le_bytes());
         header.extend(count.to_le_bytes());
         header.extend(self.reserved);
-        let offset = file_properties.ok_or("ASF header has no File Properties Object")? + 30;
+        let offset = file_properties
+            .ok_or_else(|| ErrorCause::owned("ASF header has no File Properties Object"))?
+            + 30;
         header.extend(children);
         // File Properties: the file size follows the 24-byte object header
         // and file ID. Broadcast files store no meaningful size.
         let flags = u32::from_le_bytes(
             header[offset + 88..offset + 92]
                 .try_into()
-                .map_err(|_| "Malformed File Properties Object")?,
+                .map_err(|_| ErrorCause::owned("Malformed File Properties Object"))?,
         );
         if flags & 1 == 0 {
             header[offset + 40..offset + 48].copy_from_slice(&(size + tail_size).to_le_bytes());
@@ -850,11 +882,16 @@ impl PictureValue {
             data,
         })
     }
+    #[cfg(test)]
     pub(super) fn encode(&self) -> Result<Vec<u8>, String> {
+        self.encode_diagnostic().map_err(|error| error.to_string())
+    }
+
+    pub(super) fn encode_diagnostic(&self) -> Result<Vec<u8>, ErrorCause> {
         let mut bytes = vec![self.kind];
         bytes.extend(
             u32::try_from(self.data.len())
-                .map_err(|_| "Cover is too large for ASF")?
+                .map_err(|_| ErrorCause::owned("Cover is too large for ASF"))?
                 .to_le_bytes(),
         );
         bytes.extend(utf16z(&self.mime));

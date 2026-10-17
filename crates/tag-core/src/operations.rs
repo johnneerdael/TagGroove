@@ -1,4 +1,76 @@
+use crate::batch_errors::ErrorCause;
 use std::path::{Path, PathBuf};
+
+/// Structured error provenance for the no-clobber rename helper. The existing
+/// String API remains the default; converter rollback UI uses these parts.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum RenameFailure {
+    External {
+        error: String,
+    },
+    OnlyRegular,
+    CannotCreate {
+        path: String,
+        error: String,
+    },
+    CopyRollback {
+        error: CopyFailure,
+        rollback: String,
+    },
+    SourceChangedRollback {
+        rollback: String,
+    },
+    RemoveOriginalRollback {
+        error: String,
+        rollback: String,
+    },
+    NoName,
+    NoTemporaryName,
+    CannotRename {
+        path: String,
+        error: String,
+    },
+    AliasRollback {
+        source: String,
+        destination: String,
+        error: String,
+        rollback: String,
+    },
+}
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum CopyFailure {
+    External { error: String },
+    SourceChanged,
+}
+impl std::fmt::Display for RenameFailure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::External { error } => write!(f, "{error}"),
+            Self::OnlyRegular => write!(f, "Only regular files can be renamed"),
+            Self::CannotCreate { path, error } => write!(f, "Cannot create {path}: {error}"),
+            Self::CopyRollback { error, rollback } => {
+                match error {
+                    CopyFailure::External { error } => write!(f, "{error}")?,
+                    CopyFailure::SourceChanged => write!(f, "Source changed while copying; original was retained")?,
+                }
+                write!(f, "; destination rollback: {rollback}")
+            }
+            Self::SourceChangedRollback { rollback } => write!(f, "Source changed before move completed; original was retained; destination rollback: {rollback}"),
+            Self::RemoveOriginalRollback { error, rollback } => write!(f, "Cannot remove original: {error}; destination rollback: {rollback}"),
+            Self::NoName => write!(f, "The source has no name"),
+            Self::NoTemporaryName => write!(f, "No free temporary name for the case-only rename"),
+            Self::CannotRename { path, error } => write!(f, "Cannot rename {path}: {error}"),
+            Self::AliasRollback { source, destination, error, rollback } => write!(f, "Cannot rename {source} to {destination}: {error}; rollback: {rollback}"),
+        }
+    }
+}
+fn reported(failure: &mut Option<RenameFailure>, error: RenameFailure) -> String {
+    let message = error.to_string();
+    *failure = Some(error);
+    message
+}
 
 fn same_source(before: &std::fs::Metadata, after: &std::fs::Metadata) -> bool {
     #[cfg(unix)]
@@ -16,16 +88,34 @@ fn copy_new(
     destination: &Path,
     metadata: &std::fs::Metadata,
 ) -> Result<(), String> {
+    copy_reported(source, destination, metadata, &mut None)
+}
+fn copy_reported(
+    source: &mut std::fs::File,
+    destination: &Path,
+    metadata: &std::fs::Metadata,
+    failure: &mut Option<RenameFailure>,
+) -> Result<(), String> {
     let mut output = std::fs::OpenOptions::new()
         .write(true)
         .create_new(true)
         .open(destination)
-        .map_err(|e| format!("Cannot create {}: {e}", destination.display()))?;
+        .map_err(|e| {
+            reported(
+                failure,
+                RenameFailure::CannotCreate {
+                    path: destination.to_string_lossy().into_owned(),
+                    error: e.to_string(),
+                },
+            )
+        })?;
+    let mut source_changed = false;
     let result = (|| {
         let copied = std::io::copy(source, &mut output).map_err(|e| e.to_string())?;
         if copied != metadata.len()
             || !same_source(metadata, &source.metadata().map_err(|e| e.to_string())?)
         {
+            source_changed = true;
             return Err("Source changed while copying; original was retained".into());
         }
         let mut times = std::fs::FileTimes::new();
@@ -43,9 +133,17 @@ fn copy_new(
     })();
     drop(output);
     if let Err(error) = result {
-        return Err(format!(
-            "{error}; destination rollback: {:?}",
-            remove_copy(destination)
+        let rollback = remove_copy(destination);
+        return Err(reported(
+            failure,
+            RenameFailure::CopyRollback {
+                error: if source_changed {
+                    CopyFailure::SourceChanged
+                } else {
+                    CopyFailure::External { error }
+                },
+                rollback: format!("{rollback:?}"),
+            },
         ));
     }
     Ok(())
@@ -177,6 +275,14 @@ pub fn is_case_alias(source: &Path, destination: &Path) -> bool {
 /// Move one entry to a path that does not exist, without replacing anything
 /// that appears there meanwhile where the platform allows it.
 fn move_entry(from: &Path, to: &Path, is_file: bool) -> std::io::Result<()> {
+    move_entry_reported(from, to, is_file, &mut None)
+}
+fn move_entry_reported(
+    from: &Path,
+    to: &Path,
+    is_file: bool,
+    cause: &mut Option<ErrorCause>,
+) -> std::io::Result<()> {
     if is_file {
         match std::fs::hard_link(from, to) {
             Ok(()) => return std::fs::remove_file(from),
@@ -186,6 +292,10 @@ fn move_entry(from: &Path, to: &Path, is_file: bool) -> std::io::Result<()> {
         }
     }
     if std::fs::symlink_metadata(to).is_ok() {
+        *cause = Some(ErrorCause::message(
+            "{value} already exists",
+            [("value", to.to_string_lossy().into_owned())],
+        ));
         return Err(std::io::Error::new(
             std::io::ErrorKind::AlreadyExists,
             format!("{} already exists", to.display()),
@@ -197,12 +307,19 @@ fn move_entry(from: &Path, to: &Path, is_file: bool) -> std::io::Result<()> {
 /// Change only the spelling of an entry on a case-insensitive volume. A direct
 /// rename can be refused or ignored there, so the entry moves through a unique
 /// temporary name in its own folder and back to the new spelling.
-fn rename_alias(source: &Path, destination: &Path) -> Result<(), String> {
+fn rename_alias_with_cause(
+    source: &Path,
+    destination: &Path,
+    failure: &mut Option<RenameFailure>,
+    cause: &mut Option<ErrorCause>,
+) -> Result<(), String> {
     let is_file = std::fs::symlink_metadata(source)
         .map_err(|e| e.to_string())?
         .is_file();
     let parent = parent_of(source);
-    let name = source.file_name().ok_or("The source has no name")?;
+    let name = source
+        .file_name()
+        .ok_or_else(|| reported(failure, RenameFailure::NoName))?;
     let staging = (0..1000)
         .map(|n| {
             let mut staged = std::ffi::OsString::from(".");
@@ -213,15 +330,44 @@ fn rename_alias(source: &Path, destination: &Path) -> Result<(), String> {
         .find(|path| {
             matches!(std::fs::symlink_metadata(path), Err(e) if e.kind() == std::io::ErrorKind::NotFound)
         })
-        .ok_or("No free temporary name for the case-only rename")?;
-    move_entry(source, &staging, is_file)
-        .map_err(|e| format!("Cannot rename {}: {e}", source.display()))?;
-    if let Err(error) = move_entry(&staging, destination, is_file) {
+        .ok_or_else(|| reported(failure, RenameFailure::NoTemporaryName))?;
+    let mut inner = None;
+    move_entry_reported(source, &staging, is_file, &mut inner).map_err(|e| {
+        *cause = Some(ErrorCause::wrap(
+            "Cannot rename {value}: {e}",
+            [("value", source.to_string_lossy().into_owned())],
+            "e",
+            inner.take().unwrap_or_else(|| ErrorCause::external(&e)),
+        ));
+        reported(
+            failure,
+            RenameFailure::CannotRename {
+                path: source.to_string_lossy().into_owned(),
+                error: e.to_string(),
+            },
+        )
+    })?;
+    let mut inner = None;
+    if let Err(error) = move_entry_reported(&staging, destination, is_file, &mut inner) {
         let rollback = move_entry(&staging, source, is_file);
-        return Err(format!(
-            "Cannot rename {} to {}: {error}; rollback: {rollback:?}",
-            source.display(),
-            destination.display()
+        *cause = Some(ErrorCause::wrap(
+            "Cannot rename {value} to {value2}: {error}; rollback: {rollback}",
+            [
+                ("value", source.to_string_lossy().into_owned()),
+                ("value2", destination.to_string_lossy().into_owned()),
+                ("rollback", format!("{rollback:?}")),
+            ],
+            "error",
+            inner.unwrap_or_else(|| ErrorCause::external(&error)),
+        ));
+        return Err(reported(
+            failure,
+            RenameFailure::AliasRollback {
+                source: source.to_string_lossy().into_owned(),
+                destination: destination.to_string_lossy().into_owned(),
+                error: error.to_string(),
+                rollback: format!("{rollback:?}"),
+            },
         ));
     }
     Ok(())
@@ -236,32 +382,106 @@ fn record_moved_path(source: Option<&Path>, destination: &Path, copied: bool) {
 /// Rename a folder without replacing an existing one. Changing only the letter
 /// case of the folder's name works on case-insensitive volumes too.
 pub fn rename_directory_no_clobber(source: &Path, destination: &Path) -> Result<(), String> {
+    rename_directory_no_clobber_diagnostic(source, destination).map_err(|cause| cause.to_string())
+}
+/// The same directory move with source-owned guards separate from IO details.
+pub fn rename_directory_no_clobber_diagnostic(
+    source: &Path,
+    destination: &Path,
+) -> Result<(), ErrorCause> {
     let tracked_source = dunce::canonicalize(source).ok();
     if !std::fs::symlink_metadata(source)
-        .map_err(|e| format!("{}: {e}", source.display()))?
+        .map_err(|e| {
+            ErrorCause::wrap(
+                "{value}: {error}",
+                [("value", source.to_string_lossy().into_owned())],
+                "error",
+                ErrorCause::external(e),
+            )
+        })?
         .is_dir()
     {
-        return Err(format!("{} is not a folder", source.display()));
+        return Err(ErrorCause::message(
+            "{value} is not a folder",
+            [("value", source.to_string_lossy().into_owned())],
+        ));
     }
     match destination_state(source, destination) {
         Destination::Unchanged => return Ok(()),
         Destination::Alias => {
-            rename_alias(source, destination)?;
+            let mut failure = None;
+            let mut cause = None;
+            rename_alias_with_cause(source, destination, &mut failure, &mut cause).map_err(
+                |error| {
+                    cause.unwrap_or_else(|| {
+                        failure
+                            .map(|value| ErrorCause::Rename {
+                                value: Box::new(value),
+                            })
+                            .unwrap_or_else(|| ErrorCause::external(error))
+                    })
+                },
+            )?;
             record_moved_path(tracked_source.as_deref(), destination, false);
             return Ok(());
         }
-        Destination::Taken => return Err(format!("{} already exists", destination.display())),
+        Destination::Taken => {
+            return Err(ErrorCause::message(
+                "{value} already exists",
+                [("value", destination.to_string_lossy().into_owned())],
+            ))
+        }
         Destination::Free => {}
     }
     if let Some(parent) = destination.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        std::fs::create_dir_all(parent).map_err(ErrorCause::external)?;
     }
-    move_entry(source, destination, false).map_err(|e| e.to_string())?;
+    let mut cause = None;
+    move_entry_reported(source, destination, false, &mut cause)
+        .map_err(|error| cause.unwrap_or_else(|| ErrorCause::external(error)))?;
     record_moved_path(tracked_source.as_deref(), destination, false);
     Ok(())
 }
 
 pub fn rename_no_clobber(source: &Path, destination: &Path) -> Result<(), String> {
+    rename_reported(source, destination, &mut None)
+}
+/// The same operation and guards, retaining owned scaffolds and raw IO/path parts.
+pub fn rename_no_clobber_diagnostic(
+    source: &Path,
+    destination: &Path,
+) -> Result<(), RenameFailure> {
+    let mut failure = None;
+    rename_reported(source, destination, &mut failure)
+        .map_err(|error| failure.unwrap_or(RenameFailure::External { error }))
+}
+/// Companion cause for callers that also need nested alias guard ownership.
+pub fn rename_no_clobber_cause(source: &Path, destination: &Path) -> Result<(), ErrorCause> {
+    let mut failure = None;
+    let mut cause = None;
+    rename_with_cause(source, destination, &mut failure, &mut cause).map_err(|error| {
+        cause.unwrap_or_else(|| {
+            failure
+                .map(|value| ErrorCause::Rename {
+                    value: Box::new(value),
+                })
+                .unwrap_or_else(|| ErrorCause::external(error))
+        })
+    })
+}
+fn rename_reported(
+    source: &Path,
+    destination: &Path,
+    failure: &mut Option<RenameFailure>,
+) -> Result<(), String> {
+    rename_with_cause(source, destination, failure, &mut None)
+}
+fn rename_with_cause(
+    source: &Path,
+    destination: &Path,
+    failure: &mut Option<RenameFailure>,
+    cause: &mut Option<ErrorCause>,
+) -> Result<(), String> {
     let tracked_source = dunce::canonicalize(source).ok();
     if source == destination {
         return Ok(());
@@ -270,12 +490,12 @@ pub fn rename_no_clobber(source: &Path, destination: &Path) -> Result<(), String
         .map_err(|e| e.to_string())?
         .is_file()
     {
-        return Err("Only regular files can be renamed".into());
+        return Err(reported(failure, RenameFailure::OnlyRegular));
     }
     match destination_state(source, destination) {
         Destination::Unchanged => return Ok(()),
         Destination::Alias => {
-            rename_alias(source, destination)?;
+            rename_alias_with_cause(source, destination, failure, cause)?;
             record_moved_path(tracked_source.as_deref(), destination, false);
             return Ok(());
         }
@@ -291,12 +511,18 @@ pub fn rename_no_clobber(source: &Path, destination: &Path) -> Result<(), String
     let copied = match std::fs::hard_link(source, destination) {
         Ok(()) => false,
         Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
-            return Err(format!("Cannot create {}: {e}", destination.display()))
+            return Err(reported(
+                failure,
+                RenameFailure::CannotCreate {
+                    path: destination.to_string_lossy().into_owned(),
+                    error: e.to_string(),
+                },
+            ))
         }
         // Cross-volume moves and filesystems without hard links use an exclusive
         // copy. Do not delete the source until the complete copy is durable.
         Err(_) => {
-            copy_new(&mut input, destination, &metadata)?;
+            copy_reported(&mut input, destination, &metadata, failure)?;
             true
         }
     };
@@ -308,7 +534,12 @@ pub fn rename_no_clobber(source: &Path, destination: &Path) -> Result<(), String
         } else {
             std::fs::remove_file(destination)
         };
-        return Err(format!("Source changed before move completed; original was retained; destination rollback: {cleanup:?}"));
+        return Err(reported(
+            failure,
+            RenameFailure::SourceChangedRollback {
+                rollback: format!("{cleanup:?}"),
+            },
+        ));
     }
     if let Err(e) = std::fs::remove_file(source) {
         let cleanup = if copied {
@@ -316,8 +547,12 @@ pub fn rename_no_clobber(source: &Path, destination: &Path) -> Result<(), String
         } else {
             std::fs::remove_file(destination)
         };
-        return Err(format!(
-            "Cannot remove original: {e}; destination rollback: {cleanup:?}"
+        return Err(reported(
+            failure,
+            RenameFailure::RemoveOriginalRollback {
+                error: e.to_string(),
+                rollback: format!("{cleanup:?}"),
+            },
         ));
     }
     record_moved_path(tracked_source.as_deref(), destination, copied);
@@ -388,7 +623,18 @@ mod tests {
         let dst = dir.path().join("second.mp3");
         std::fs::write(&src, b"first").unwrap();
         std::fs::write(&dst, b"second").unwrap();
-        assert!(rename_no_clobber(&src, &dst).is_err());
+        let legacy = rename_no_clobber(&src, &dst).unwrap_err();
+        let diagnostic = rename_no_clobber_diagnostic(&src, &dst).unwrap_err();
+        let RenameFailure::CannotCreate { path, error } = &diagnostic else {
+            panic!("missing owned create provenance: {diagnostic:?}");
+        };
+        assert_eq!(path, &dst.to_string_lossy());
+        assert!(!error.is_empty());
+        assert_eq!(legacy, diagnostic.to_string());
+        assert_eq!(
+            serde_json::to_value(&diagnostic).unwrap()["kind"],
+            "cannot_create"
+        );
         assert_eq!(std::fs::read(src).unwrap(), b"first");
         assert_eq!(std::fs::read(dst).unwrap(), b"second");
     }

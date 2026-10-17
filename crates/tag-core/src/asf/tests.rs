@@ -115,6 +115,50 @@ fn parse(bytes: &[u8]) -> Asf {
 fn tail(bytes: &[u8], asf: &Asf) -> u64 {
     bytes.len() as u64 - asf.header_size
 }
+
+#[test]
+fn asf_diagnostics_distinguish_owned_headers_from_identical_io_messages() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("bad.wma");
+    std::fs::write(&path, b"bad").unwrap();
+    let owned = open_diagnostic(&path).unwrap_err();
+    let message = "Not an ASF file: truncated header";
+    assert!(matches!(&owned, ErrorCause::Owned { key, .. } if key == message));
+    assert_eq!(open(&path).unwrap_err(), owned.to_string());
+
+    struct FailedRead;
+    impl std::io::Read for FailedRead {
+        fn read(&mut self, _: &mut [u8]) -> std::io::Result<usize> {
+            Err(std::io::Error::other("Not an ASF file: truncated header"))
+        }
+    }
+    let external =
+        same_bytes_diagnostic(&mut FailedRead, &mut std::io::Cursor::new([0u8]), 1).unwrap_err();
+    assert!(matches!(&external, ErrorCause::External { value } if value == message));
+    assert_eq!(external.to_string(), owned.to_string());
+    let missing = open_diagnostic(&directory.path().join("missing.wma")).unwrap_err();
+    assert!(matches!(missing, ErrorCause::External { .. }));
+}
+
+#[test]
+fn asf_field_diagnostic_retains_native_alias_spelling() {
+    let field = "wm/albUmtitle";
+    let mut parsed = parse(&rich());
+    let cause = apply_fields(
+        &mut parsed,
+        &Fields::from([(field.into(), vec!["Help: Title".into()])]),
+    )
+    .unwrap_err();
+    assert_eq!(
+        cause.to_string(),
+        format!("{field} has no separate ASF attribute; {field} holds ALBUM")
+    );
+    let details = serde_json::to_value(cause).unwrap();
+    assert_eq!(details["kind"], "owned");
+    assert_eq!(details["params"]["field"], field);
+    assert_eq!(details["params"]["name"], field);
+    assert_eq!(details["params"]["field2"], "ALBUM");
+}
 fn rich() -> Vec<u8> {
     file(&[
         file_properties(0),
