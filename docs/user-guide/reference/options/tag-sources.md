@@ -46,7 +46,7 @@ Use the trace to identify whether a source's page structure or parsing steps hav
 | Deezer **Cover size** | 500 or 1000 (default) pixels |
 | **Write synchronized lyrics (LRC time stamps) when available** | Off by default; enable to prefer available LRC text in `UNSYNCEDLYRICS`. |
 | Last.fm **Tags written to GENRE** | The top 1 (default), 2, 3 or 5 usable tags |
-| **fpcalc program** | Full executable path for AcoustID; empty for automatic discovery. Does not install `fpcalc`. |
+| **Optional fpcalc override (desktop)** | Empty uses built-in Chromaprint and audio decoding. An explicit executable path selects an optional desktop producer. Bare legacy `fpcalc` / `fpcalc.exe` settings use the built-in default; mobile always uses the built-in libraries. |
 
 Cover sizes request provider image variants without guaranteeing availability
 or detail. Last.fm has no cover size option; its supplied images are generally

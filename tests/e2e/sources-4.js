@@ -133,7 +133,7 @@
     disk = await fields(paths);
     await check(disk.every(e => e.covers.length >= 1) && value(disk[0], 'GENRE') === 'Electronic', 'fanart.tv cover written, fields unchanged');
 
-    // AcoustID needs fpcalc: a missing program is explained.
+    // AcoustID optional producer override: a missing explicit program is explained.
     op('source-options').click();
     const options = await waitFor(() => document.querySelector('dialog.options-dialog[open]'), 5000, 'options');
     options.querySelector('[data-page="tag-sources-online"]').click();
@@ -143,8 +143,8 @@
     options.querySelector('#options-ok').click();
     await waitFor(() => !options.open, 5000, 'options saved');
     d = await search('source-acoustid', 'AcoustID');
-    await waitFor(() => /fpcalc was not found at \/no\/such\/fpcalc/.test(failure(d)), 10000, 'fpcalc message');
-    await check(true, 'AcoustID explains the missing fpcalc: ' + failure(d));
+    await waitFor(() => /optional fpcalc override was not found at \/no\/such\/fpcalc/.test(failure(d)), 10000, 'fpcalc message');
+    await check(true, 'AcoustID explains the invalid optional override: ' + failure(d));
     await closeSource(d);
 
     // AcoustID with a stand-in fpcalc: sine-a is identified as the release's

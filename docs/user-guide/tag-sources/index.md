@@ -12,7 +12,7 @@ result, check its fields and file-to-track matches, then save the changes.
 | [iTunes](itunes.md) | Store album metadata and artwork | No key; choose the store country in Options |
 | [Deezer](deezer.md) | Album metadata, ISRCs and artwork | No key |
 | [LRCLIB](lrclib.md) | Lyrics matched to each selected file | No key |
-| [AcoustID](acoustid.md) | Recordings identified by audio fingerprint | API key and separately installed `fpcalc`; desktop only |
+| [AcoustID](acoustid.md) | Recordings identified by audio fingerprint | API key; fingerprinting libraries are included |
 | Last.fm | Album metadata and listener tags for `GENRE` | API key |
 | fanart.tv | Album covers and disc artwork | API key; covers only |
 | freedb / freedb (local) | Disc metadata from a CDDB server or local database folder | Configure the server or local folder in Options |

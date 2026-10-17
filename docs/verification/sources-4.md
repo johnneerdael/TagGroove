@@ -1,5 +1,11 @@
 # Tag sources, round 4: more online services — 2026-10-15
 
+> **Historical record — fingerprint dependency decision superseded.** The
+> external `fpcalc` setup and desktop-only limitations below describe the
+> original source implementation. The embedded producer replaces that default;
+> see [its implementation and compatibility evidence](embedded-fingerprints.md)
+> and the [current user guide](../user-guide/tag-sources/acoustid.md).
+
 Original development started from `feat/core-parity` at `11ba278`. The final feature-only preparation is based directly on reviewed main `1fe6a800ac1096494b33d3b461286ad2d91e1a13`; the unmerged Language/translation implementation is excluded. This round adds OpenTag's own application key for Discogs and six more services: iTunes, Deezer, LRCLIB lyrics, AcoustID, Last.fm and fanart.tv. Mp3tag ships none of these as built-in sources; its users get them as community web source scripts. OpenTag implements them as native sources that go through the same steps as MusicBrainz and Discogs: search, result list, review (field choice, editing, track ↔ file matching, cover choice, Save image to file), one undo step, Ctrl+I / Ctrl+Shift+I and the covers-only variant.
 
 Code: `src-tauri/src/sources/{keys,itunes,deezer,lrclib,acoustid,lastfm,fanart}.rs`, the changes to `http.rs`, `credentials.rs`, `model.rs` and `mod.rs`, and `src/tag-sources.ts` (search types, result columns, API keys dialog, Options page) plus the menu in `src/main.ts`.

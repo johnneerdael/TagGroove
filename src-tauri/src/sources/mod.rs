@@ -130,7 +130,10 @@ fn online_from(settings: &crate::settings::Settings) -> Online {
         lastfm_genres: value("lastfm_genres")
             .and_then(|v| v.as_u64().or_else(|| v.as_str()?.parse().ok()))
             .map_or(1, |n| n.clamp(1, 10) as usize),
-        fpcalc: text("fpcalc").trim().to_owned(),
+        fpcalc: value("fpcalc")
+            .or_else(|| value("fpcalc_path"))
+            .and_then(|v| v.as_str().map(str::trim).map(str::to_owned))
+            .unwrap_or_default(),
     }
 }
 
@@ -381,18 +384,38 @@ async fn lrclib_lookup(
     Ok(lrclib::best_hit(&hits, file))
 }
 
-/// AcoustID: fingerprint each file with fpcalc, look the fingerprints up and
+/// Keep supersession terminal across worker completion/failure and UI timeout.
+/// Dropping a blocking JoinHandle does not terminate its native worker.
+async fn await_fingerprint(
+    worker: tauri::async_runtime::JoinHandle<Result<(f64, String), String>>,
+    budget: std::time::Duration,
+    stale: impl Fn() -> bool,
+) -> Result<Result<(f64, String), String>, String> {
+    let outcome = tokio::time::timeout(budget, worker).await;
+    if stale() {
+        return Err(http::CANCELLED.into());
+    }
+    outcome
+        .map_err(|_| "Fingerprinting reached its time limit. The audio worker may still be stopping; try again shortly.".to_string())?
+        .map_err(|e| e.to_string())
+}
+
+/// Actual linked backend identity for About notices and source verification.
+#[tauri::command]
+pub fn audio_fingerprint_backend() -> serde_json::Value {
+    let info = opentag_audio_fingerprint::backend_info();
+    serde_json::json!({"chromaprint":info.chromaprint,"ffmpeg":info.ffmpeg,
+        "license":info.license,"audio_decoders":info.audio_decoders,
+        "non_audio_decoders":info.non_audio_decoders,"protocols":info.protocols})
+}
+
+/// AcoustID: fingerprint each file locally, look the fingerprints up and
 /// rank the releases that hold the most files.
 async fn acoustid_search(
     app: &tauri::AppHandle,
     query: SearchQuery,
     ticket: u64,
 ) -> Result<SearchPage, String> {
-    if cfg!(mobile) {
-        return Err(
-            "AcoustID needs the fpcalc program, which is not available on this device.".into(),
-        );
-    }
     let key = required_key(
         "AcoustID",
         &saved_credentials(app).await?.acoustid_key,
@@ -401,7 +424,13 @@ async fn acoustid_search(
     if query.mode != model::SearchMode::Fingerprint || query.files.is_empty() {
         return Err("AcoustID identifies the selected files by their audio fingerprints.".into());
     }
-    let fpcalc = acoustid::find_fpcalc(&online().fpcalc)?;
+    // Mobile always uses embedded libraries; a desktop-only override setting
+    // imported with preferences must not make mobile depend on an executable.
+    let fpcalc = if cfg!(mobile) {
+        None
+    } else {
+        acoustid::external_override(&online().fpcalc)?
+    };
     let service = acoustid_service();
     let mut matches = Vec::new();
     let mut first_error = None;
@@ -409,14 +438,44 @@ async fn acoustid_search(
         if http::stale(Channel::Search, ticket) {
             return Err(http::CANCELLED.into());
         }
-        let (program, path) = (fpcalc.clone(), PathBuf::from(&file.path));
-        let fingerprint =
+        let path = PathBuf::from(&file.path);
+        let worker = if let Some(program) = fpcalc.clone() {
             tauri::async_runtime::spawn_blocking(move || acoustid::fingerprint(&program, &path))
-                .await
-                .map_err(|e| e.to_string())?;
+        } else {
+            let control = opentag_audio_fingerprint::Control::new(
+                std::time::Duration::from_secs(120),
+                move || http::stale(Channel::Search, ticket),
+            );
+            // Admission is reserved before spawning, and remains held until
+            // native work actually returns even if the UI deadline expires.
+            #[cfg(target_os = "android")]
+            let approved_path = path.clone();
+            let job =
+                opentag_audio_fingerprint::Job::new(path, control).map_err(|e| e.to_string())?;
+            tauri::async_runtime::spawn_blocking(move || {
+                #[cfg(target_os = "android")]
+                if !crate::documents::is_managed(&approved_path) {
+                    return Err("Choose the audio file through OpenTag's folder picker before fingerprinting it.".into());
+                }
+                job.run().map(|fp| (fp.duration, fp.encoded)).map_err(|e| {
+                    if matches!(e, opentag_audio_fingerprint::Error::Cancelled) {
+                        http::CANCELLED.into()
+                    } else {
+                        e.to_string()
+                    }
+                })
+            })
+        };
+        let fingerprint = await_fingerprint(worker, std::time::Duration::from_secs(120), || {
+            http::stale(Channel::Search, ticket)
+        })
+        .await?;
         let (duration, fingerprint) = match fingerprint {
             Ok(found) => found,
             Err(error) => {
+                if error == http::CANCELLED {
+                    return Err(error);
+                }
                 first_error.get_or_insert(error);
                 matches.push(acoustid::FileMatch::default());
                 continue;
@@ -430,6 +489,9 @@ async fn acoustid_search(
     }
     if let Some(error) = first_error.filter(|_| matches.iter().all(|m| m.releases.is_empty())) {
         return Err(error);
+    }
+    if http::stale(Channel::Search, ticket) {
+        return Err(http::CANCELLED.into());
     }
     acoustid::remember(&matches);
     let paths: Vec<String> = query.files.iter().map(|f| f.path.clone()).collect();
@@ -1670,5 +1732,77 @@ mod tests {
         ))
         .unwrap();
         assert_eq!(image.mime, "image/jpeg");
+    }
+}
+
+#[cfg(test)]
+mod fingerprint_worker_tests {
+    use super::*;
+    use std::sync::{
+        atomic::{AtomicBool, Ordering},
+        mpsc, Arc, Condvar, Mutex,
+    };
+    #[test]
+    fn superseded_worker_cannot_return_partial_success_and_timeout_keeps_admission() {
+        let stale = Arc::new(AtomicBool::new(false));
+        let gate = Arc::new((Mutex::new(false), Condvar::new()));
+        let worker_gate = gate.clone();
+        let (entered, waiting) = mpsc::channel();
+        let (finished, stopped) = mpsc::channel();
+        let control = opentag_audio_fingerprint::Control::new(
+            std::time::Duration::from_secs(10),
+            move || {
+                let (lock, wake) = &*worker_gate;
+                let mut released = lock.lock().unwrap();
+                let _ = entered.send(());
+                while !*released {
+                    released = wake.wait(released).unwrap();
+                }
+                true
+            },
+        );
+        let job =
+            opentag_audio_fingerprint::Job::new("/missing/never-opened".into(), control).unwrap();
+        let worker = tauri::async_runtime::spawn_blocking(move || {
+            let result = job
+                .run()
+                .map(|fp| (fp.duration, fp.encoded))
+                .map_err(|e| e.to_string());
+            let _ = finished.send(());
+            result
+        });
+        waiting
+            .recv_timeout(std::time::Duration::from_secs(2))
+            .unwrap();
+        let cancelled = stale.clone();
+        let result = tauri::async_runtime::block_on(await_fingerprint(
+            worker,
+            std::time::Duration::from_millis(10),
+            move || cancelled.load(Ordering::Acquire),
+        ));
+        assert!(result.unwrap_err().contains("time limit"));
+        assert!(matches!(
+            opentag_audio_fingerprint::Job::new("/not/queued".into(), Default::default()),
+            Err(opentag_audio_fingerprint::Error::Busy)
+        ));
+        stale.store(true, Ordering::Release);
+        let late = tauri::async_runtime::spawn_blocking(|| Ok((12.0, "old-partial-result".into())));
+        let result = tauri::async_runtime::block_on(await_fingerprint(
+            late,
+            std::time::Duration::from_secs(2),
+            || stale.load(Ordering::Acquire),
+        ));
+        assert_eq!(result.unwrap_err(), http::CANCELLED);
+        let (lock, wake) = &*gate;
+        *lock.lock().unwrap() = true;
+        wake.notify_all();
+        stopped
+            .recv_timeout(std::time::Duration::from_secs(2))
+            .unwrap();
+        assert!(opentag_audio_fingerprint::Job::new(
+            "/admitted/after/return".into(),
+            Default::default()
+        )
+        .is_ok());
     }
 }

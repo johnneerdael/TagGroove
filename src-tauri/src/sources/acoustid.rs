@@ -1,8 +1,8 @@
 //! AcoustID fingerprint lookups (<https://acoustid.org/webservice>). Each
-//! selected file is fingerprinted with Chromaprint's `fpcalc`, which the user
-//! installs (OpenTag does not bundle it); the lookup returns MusicBrainz
-//! recordings with their releases. Releases that hold the most selected files
-//! become the search results, and the chosen one is read from MusicBrainz.
+//! selected file is fingerprinted locally with the embedded Chromaprint and
+//! audio decoder libraries. The lookup returns MusicBrainz recordings with
+//! their releases. Releases holding the most selected files become search
+//! results, and the chosen one is read from MusicBrainz.
 //! AcoustID allows three requests per second and free use for
 //! non-commercial applications with a registered application key.
 use super::model::*;
@@ -15,42 +15,22 @@ use std::time::{Duration, Instant};
 pub const LOOKUP: &str = "https://api.acoustid.org/v2/lookup";
 const FPCALC_TIMEOUT: Duration = Duration::from_secs(120);
 
-/// The configured `fpcalc`, or one found on the search path or in the usual
-/// install folders (apps started from a desktop do not see a shell's PATH).
-pub fn find_fpcalc(configured: &str) -> Result<PathBuf, String> {
+/// An explicit optional desktop override. Blank and the old auto-discovery
+/// sentinel migrate to the embedded default, including persisted settings.
+pub fn external_override(configured: &str) -> Result<Option<PathBuf>, String> {
     let configured = configured.trim();
-    if !configured.is_empty() {
-        let path = PathBuf::from(configured);
-        return if path.is_file() {
-            Ok(path)
-        } else {
-            Err(format!(
-                "fpcalc was not found at {configured}. Check Options → Tag Sources → Online services."
-            ))
-        };
+    if configured.is_empty()
+        || configured.eq_ignore_ascii_case("fpcalc")
+        || configured.eq_ignore_ascii_case("fpcalc.exe")
+    {
+        return Ok(None);
     }
-    let name = if cfg!(windows) {
-        "fpcalc.exe"
+    let path = PathBuf::from(configured);
+    if path.is_file() {
+        Ok(Some(path))
     } else {
-        "fpcalc"
-    };
-    let mut folders: Vec<PathBuf> = std::env::var_os("PATH")
-        .map(|path| std::env::split_paths(&path).collect())
-        .unwrap_or_default();
-    folders.extend(
-        [
-            "/opt/homebrew/bin",
-            "/usr/local/bin",
-            "/usr/bin",
-            "/opt/local/bin",
-        ]
-        .map(PathBuf::from),
-    );
-    folders
-        .into_iter()
-        .map(|folder| folder.join(name))
-        .find(|candidate| candidate.is_file())
-        .ok_or_else(|| "AcoustID needs Chromaprint's fpcalc program. Install Chromaprint (fpcalc) and, if it is not found automatically, choose it in Options → Tag Sources → Online services.".into())
+        Err(format!("The optional fpcalc override was not found at {configured}. Clear it to use built-in fingerprinting in Options → Tag Sources → Online services."))
+    }
 }
 
 /// `fpcalc -json` output: the file's length and its compressed fingerprint.
@@ -416,8 +396,8 @@ mod tests {
         assert!(form.contains(&("clientversion", env!("CARGO_PKG_VERSION").to_owned())));
         assert!(form.contains(&("meta", "recordings releases compress".to_owned())));
         assert_eq!(
-            find_fpcalc("/no/such/fpcalc").unwrap_err(),
-            "fpcalc was not found at /no/such/fpcalc. Check Options → Tag Sources → Online services."
+            external_override("/no/such/fpcalc").unwrap_err(),
+            "The optional fpcalc override was not found at /no/such/fpcalc. Clear it to use built-in fingerprinting in Options → Tag Sources → Online services."
         );
     }
 
@@ -612,6 +592,26 @@ mod tests {
             (3.0, "AQAB".to_owned())
         );
         assert!(fingerprint(&script, &dir.path().join("missing.wav")).is_err());
-        assert_eq!(find_fpcalc(script.to_str().unwrap()).unwrap(), script);
+        assert_eq!(
+            external_override(script.to_str().unwrap()).unwrap(),
+            Some(script)
+        );
+    }
+}
+
+#[cfg(test)]
+mod embedded_default_tests {
+    use super::*;
+    #[test]
+    fn empty_and_legacy_defaults_use_embedded_fingerprints() {
+        for value in ["", "  ", "fpcalc", "fpcalc.exe", " FPCALC "] {
+            assert_eq!(external_override(value).unwrap(), None);
+        }
+        let file = tempfile::NamedTempFile::new().unwrap();
+        assert_eq!(
+            external_override(file.path().to_str().unwrap()).unwrap(),
+            Some(file.path().to_owned())
+        );
+        assert!(external_override("/missing/optional/fpcalc").is_err());
     }
 }
