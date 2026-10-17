@@ -489,3 +489,42 @@ test('Show controls choose their producer frame and retain explicit raw or owned
  }
  const partial=new Translator('en',{'Show {name}':'Column [{name}]','Show {itemLabel}':'Toolbar [{itemLabel}]'});assert.equal(partial.showLabel('itemLabel','Show in folder'),'Toolbar [Show in folder]','A missing literal UI label falls back to its English key, not another inferred frame');
 });
+
+
+test('shortcut spelling aliases follow the actual Actions producer and canonical catalog key',async()=>{
+  const {EXTRA_SHORTCUTS,shortcutsDialog}=await load('utils-ui.ts');
+  const row=EXTRA_SHORTCUTS.find(row=>row.group==='Actions dialog'&&row.command==='New group or action');
+  assert.equal(row.keys,'Insert');
+  let content='';const dialog={classList:{add(){}},querySelector:()=>({textContent:''})};
+  assert.equal(shortcutsDialog((_title,body)=>{content=body;return dialog;},[row]),dialog);
+  assert.match(content,/<kbd>Insert<\/kbd>/);
+  const de=new Translator('de',catalogs.de);
+  assert.equal(de.translate(row.keys),'Einfg');
+  for(const [source,expected] of [['Ins','Einfg'],['Ctrl Insert','Strg Einfg'],['Shift+Insert','Umschalt+Einfg'],['⌘/Ctrl Insert','⌘/Strg Einfg'],['Insert / Ins','Einfg / Einfg'],['  Insert  ','  Einfg  ']])assert.equal(de.translate(source),expected,source);
+  assert.equal(new Translator('nl',catalogs.nl).translate(row.keys),'Insert');
+  assert.equal(new Translator('en').translate(row.keys),'Insert');
+  const identity=new Translator('en',{'@keys':{Ins:'Ins',Ctrl:'Ctrl'}});
+  assert.equal(identity.translate('Insert'),'Insert');assert.equal(identity.translate('Ctrl Insert'),'Ctrl Insert');
+  assert.equal(new Translator('de',{'@keys':{Ins:'Einfg',Insert:'Insert'}}).translate('Insert / Ins'),'Insert / Einfg');
+  const override=new Translator('de',{'@keys':{Ins:'Short key',Insert:'Full key',Ctrl:'Control'}});
+  assert.equal(override.translate('Ctrl Insert / Ins'),'Control Full key / Short key');
+  const noCanonical=new Translator('de',{'@keys':{Ctrl:'Control'}});
+  assert.equal(noCanonical.translate('Ctrl Insert'),'Control Insert');
+  assert.equal(new Translator('de',{'@keys':{Ins:'',Ctrl:'Control'}}).translate('Ctrl Insert'),'Control Insert');
+  assert.equal(new Translator('de',{'@keys':{Ins:'Short key',Insert:''}}).translate('Insert'),'Short key');
+});
+
+test('shortcut aliases respect authored values and full verbatim protection',()=>{
+  const de=new Translator('de',catalogs.de);
+  assert.equal(de.translate('Ctrl Ins',0,true),'Ctrl Ins');
+  for(const source of ['Insert','Ins','Ctrl Insert','Shift+Insert','  Insert  ']){
+    assert.equal(de.translate(source,0,true),source);
+    assert.equal(de.translate(source,0,source),source);
+  }
+  for(const source of ['Insert file','Insert.mp3','Inserts','ReInsert','Insertive','insert','CTRL INSERT','Ctrl Inserted'])assert.equal(de.translate(source),source,source);
+  assert.equal(de.translate('Select Insert'),de.t('Select {filename}',{filename:'Insert'}));
+  assert.equal(de.translate('Select Ctrl Insert'),de.t('Select {filename}',{filename:'Ctrl Insert'}));
+  assert.equal(de.translate('Insert',0,'Another name'),'Einfg');
+  assert.equal(de.translate('Insert'),'Einfg','A protected lookup never poisons the ordinary shortcut cache');
+  assert.equal(de.translate('Insert',0,true),'Insert','A cached ordinary lookup never changes protected text');
+});

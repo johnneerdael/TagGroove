@@ -90,7 +90,7 @@ const PLURAL_CATEGORIES = new Set(['zero', 'one', 'two', 'few', 'many', 'other']
 const VERBATIM = /^(name|nameOf|path|file|filename|fileName|location|outputPath|destination|source|sourcePath|directory|folder|url|extension|tag|selector|DIRECTORY|SEPARATOR|value|values|names|text|field|key|id|typeId|codepage|mode|item|scheme|byte|flags|current|query|term|pattern|format|template|title)\d*$/;
 
 // Key combinations as menus and tooltips show them: ⌘/Ctrl ⇧ S, Alt+Enter, Ctrl Num +.
-const SHORTCUT = /^(?:(?:⌘|⌥|⇧|⌃|⌫|Ctrl|Alt|Shift|Option|Cmd|Del|Num|Enter|Esc|Tab|Space|Page Up|Page Down|Home|End|Ins|F\d{1,2}|[A-Z0-9]|[←→↑↓+\/·]|,)[\s+/]*)+$/;
+const SHORTCUT = /^(?:(?:⌘|⌥|⇧|⌃|⌫|Ctrl|Alt|Shift|Option|Cmd|Del|Num|Enter|Esc|Tab|Space|Page Up|Page Down|Home|End|Ins|Insert|F\d{1,2}|[A-Z0-9]|[←→↑↓+\/·]|,)[\s+/]*)+$/;
 /** Number-only count, measurement and limit roles: keep raw data and composed summaries distinct.
  * They only match digits, so "{count} file" never matches "Choose a file". */
 const NUMERIC = /^(length|count|size|total|done|restored|missing|unmatched|pending|saved|failed|skipped|selectedCount|tracks|discs|chapters|selected|shown|started|removed|files|line|lines|matched|n|i|index|position|lastHits|lastStored|min|max|channels|bitrate|sampleRate|counts|covers|withCovers|sourceLine|selectionIndex|minimum|maximum|invalid|number|major|code|MAX_COLUMNS|MAX_FIELDS|MAX_VALUES|MIN_WIDTH|MAX_WIDTH|PLAY_LIMIT|TOOL_LIMIT|TOOLLIMIT|TIMEOUTRANGE)\d*$/;
@@ -269,8 +269,16 @@ export class Translator {
     this.locale = locale;
     try {this.rules = new Intl.PluralRules(locale);} catch {this.rules = new Intl.PluralRules('en');}
     const keys = catalog['@keys'];
-    if (keys && typeof keys === 'object') this.keys = Object.entries(keys).filter((entry): entry is [string, string] => typeof entry[1] === 'string' && !!entry[1])
-      .sort((a, b) => b[0].length - a[0].length).map(([name, value]) => [new RegExp(`(?<![A-Za-z])${escapeRegex(name)}(?![A-Za-z])`, 'g'), value]);
+    if (keys && typeof keys === 'object') {
+      const entries = Object.entries(keys).filter((entry): entry is [string, string] => typeof entry[1] === 'string' && !!entry[1]);
+      const hasInsert = entries.some(([name]) => name === 'Insert');
+      this.keys = entries.sort((a, b) => b[0].length - a[0].length).map(([name, value]) => {
+        // The Actions dialog emits Insert; use a localized Ins spelling unless explicitly overridden.
+        // Identity/absent mappings retain the producer's original English spelling.
+        const spelling = name === 'Ins' && value !== name && !hasInsert ? '(?:Ins|Insert)' : escapeRegex(name);
+        return [new RegExp(`(?<![A-Za-z])${spelling}(?![A-Za-z])`, 'g'), value];
+      });
+    }
     for (const [key, value] of Object.entries(catalog)) {
       if (key.startsWith('@') || typeof value !== 'string' || !value) continue;
       let nodes: Node[];
@@ -374,7 +382,7 @@ export class Translator {
       });
       return render(nodes, params, this.rules);
     }
-    const shortcut = this.shortcut(core);
+    const shortcut = verbatim ? null : this.shortcut(core);
     if (shortcut !== null) return shortcut;
     // Marks rendered in the same text node as a label stay around its translation.
     const marked = /^([✓✔●•►▸▾★☆]\s*)?(.*?)(\s*[↑↓▲▼›»])?$/su.exec(core)!;

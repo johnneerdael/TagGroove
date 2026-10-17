@@ -11,7 +11,7 @@ selection, and category validation visits nested plural bodies. Display glyphs
 remain unchanged; an invalid nested key is excluded and reported once.
 
 The existing application remains at main
-`1c4199e1fceb33f0e5449ef17c617b706941dd52`: the language registry, DOM observer,
+`ffcb3954e665e312f63406d47aa951d6dd864915`: the language registry, DOM observer,
 startup hooks, native catalog commands and Language settings are outside this
 foundation. Catalog data is exercised by the pure tests rather than installed
 in the application. Existing English application behavior remains the baseline.
@@ -24,14 +24,14 @@ Two review regressions cover locale-sensitive exact/category selection through
 explicit and captured values, and nested-category rejection/usable-catalog
 filtering with valid nested forms retained. A further producer-bound case covers every catalog identifier and underscored
 native limit values through direct/captured rendering and plural parsing. All
-twenty-two pure cases remain in the
+twenty-four pure cases remain in the
 same test module when the complete application test suite is
 integrated; the later source-bound extraction and UI tests must also be kept.
 
-Fresh local checks passed 406 UI/model tests with zero failures or skips, the
+Fresh local checks passed 408 UI/model tests with zero failures or skips, the
 production build, the strict 172-page guide and eight publication tests. One
 existing UI case compiles a temporary pure Rust helper; it is separate from
-application-native qualification. All 1,359 existing tracked main files are
+application-native qualification. All 1,360 existing tracked main files are
 byte-identical, including native sources, configuration and literal test inputs.
 The incoming main includes the normally merged diagnostic foundation PR #36
 and build-tool prerequisite PR #37. PR #36's clean review and 12 successful
@@ -131,3 +131,20 @@ renames, language changes and metadata changes against remembered English source
 Those application changes remain outside this pure foundation. The regression
 first failed on the old implementation; the actual control also reproduced a
 column label incorrectly using the toolbar scaffold. No native source changed.
+
+
+The actual Keyboard shortcuts producer emits `Insert` for Actions dialog → New
+group or action. Shortcut recognition now accepts that spelling and uses a
+localized `@keys.Ins` value when there is no explicit nonempty `@keys.Insert`
+override. An absent or identity `Ins` entry retains `Insert` as written, so
+English, bundled Dutch and partial catalogs keep their source spelling. An
+explicit `Insert` override, including an identity override, takes precedence.
+All three catalogs remain byte-identical to `ed9beee`.
+
+Two regressions run the actual shortcut-row/dialog producer, then check standalone
+and chord labels, DE localization, EN/NL fallback, custom overrides, token
+boundaries, source whitespace, raw filenames and cache separation. Fully
+verbatim text now bypasses shortcut localization as well as exact-key lookup;
+this retains authored shortcut-shaped names. Both tests first failed against
+the reviewed parent: `Insert` stayed English, and protected `Ctrl Ins` became
+`Strg Einfg`. No app producer, DOM observer, native input or activation changed.
