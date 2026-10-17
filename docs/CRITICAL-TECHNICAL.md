@@ -34,15 +34,15 @@ The filter RPC evaluates a caller-supplied field map. The frontend now merges op
 | `%_subsong_count%` | Measured, conditional where noted | Chapter count for MP4, Matroska and cue-sheet files. |
 | `%_tag%` | Measured, conditional where noted | Available concrete tag kinds; ID3 original version retained. Display spelling/separators need original-app differential qualification. |
 | `%_tag_read%` | Measured, conditional where noted | First tag according to the existing primary/secondary read precedence. Mixed-tag fields can also include secondary unique fields. |
-| `%_tag_size%` | Absent from audio technical map | Not yet measured: exact physical tag-region accounting across native formats. |
-| `%_tag_size_appended%` | Absent from audio technical map | Not yet measured: exact appended tag-region accounting. |
-| `%_tag_size_prepended%` | Absent from audio technical map | Not yet measured: exact prepended tag-region accounting. |
+| `%_tag_size%` | Measured, conditional where noted | Total tag bytes in the file (`media_info.rs`). |
+| `%_tag_size_appended%` | Measured, conditional where noted | Tag bytes after the audio data. |
+| `%_tag_size_prepended%` | Measured, conditional where noted | Tag bytes before the audio data. |
 | `%_tool%` | Measured, conditional where noted | Literal stored Vorbis vendor for FLAC/Vorbis/Opus/Speex, when present; no invented ENCODER metadata field. |
 | `%_vbr%` | Absent from audio technical map | Not yet measured: no bitrate-mode guess is made from an averaged bitrate or codec name. |
-| `%_video_bitrate%` | Absent from audio technical map | Absent: video properties not parsed. |
-| `%_video_codec%` | Absent from audio technical map | Absent: video properties not parsed. |
-| `%_video_height%` | Absent from audio technical map | Absent: video properties not parsed. |
-| `%_video_width%` | Absent from audio technical map | Absent: video properties not parsed. |
+| `%_video_bitrate%` | Measured, conditional where noted | Video stream property for MP4 and Matroska files (`mp4_chapters.rs`, `matroska.rs`); absent for audio-only files. |
+| `%_video_codec%` | Measured, conditional where noted | Video stream property for MP4 and Matroska files (`mp4_chapters.rs`, `matroska.rs`); absent for audio-only files. |
+| `%_video_height%` | Measured, conditional where noted | Video stream property for MP4 and Matroska files (`mp4_chapters.rs`, `matroska.rs`); absent for audio-only files. |
+| `%_video_width%` | Measured, conditional where noted | Video stream property for MP4 and Matroska files (`mp4_chapters.rs`, `matroska.rs`); absent for audio-only files. |
 | `%_directory%` | Measured, conditional where noted | Canonical source parent directory name. |
 | `%_extension%` | Measured, conditional where noted | Actual source extension, preserving spelling. |
 | `%_filename%` | Measured, conditional where noted | Canonical source filename without extension. |
@@ -87,7 +87,7 @@ The filter RPC evaluates a caller-supplied field map. The frontend now merges op
 
 The official docs identify raw file timestamps but do not specify their numeric epoch. Direct Mp3tag users report Unix seconds and provide reproducible conversions: [the 2012 file-date filter examples](https://community.mp3tag.de/t/a-tip-for-filtering-by-file-dates/13545) and [the working Unix-to-FILETIME conversion](https://community.mp3tag.de/t/convert-date-and-time-string-into-raw-epoch-time/59512). These are firsthand user evidence, not an explicit implementation guarantee from the author. [Florian's introduction of fmtDate](https://community.mp3tag.de/t/date-transformation-function-requested/71556/2) confirms that the function consumes the same raw timestamp family. Our implementation uses filesystem `SystemTime` converted to signed UTC Unix seconds and tests a known 1700000000 modification time through the real `$fmtDate` evaluator.
 
-Formatted file dates use the local timezone and the system locale's Chrono locale patterns. Birth time is omitted when unavailable; Unix ctime is never substituted for creation time. User-customized Windows regional overrides and native original executable comparisons remain unqualified. Movie timestamps in MP4 have a separate epoch and are deliberately absent until their real header parser is implemented.
+Formatted file dates use the local timezone and the system locale's Chrono locale patterns. Birth time is omitted when unavailable; Unix ctime is never substituted for creation time. User-customized Windows regional overrides and native original executable comparisons remain unqualified. Movie timestamps in MP4 have a separate epoch and are read from the `mvhd` header by `mp4_chapters::header_technical`.
 
 ## Performance and preservation
 
@@ -95,7 +95,7 @@ All supported formats now use one concrete metadata/properties parse for each su
 
 The current native metadata library still reads embedded picture bytes internally. This work removes repeated parses and serialized picture payloads; it does not claim a zero-allocation or picture-byte-skipping parser. Technical maps contain small measured strings and do not duplicate image bytes. Hashes are not calculated during scans.
 
-The tag names, cover-type labels, mixed-tag precedence, duration rounding, file-size formatting, opaque-frame classification, and codec-name presentation require original-executable differential qualification for exact display parity. The source measurements and absence behavior are covered by generated-audio tests. This is not full technical-placeholder parity: video, chapters, MP4 movie timestamps, physical tag-byte accounting, bitrate/compression-profile labels, platform volume labels, runtime clock/working-directory context, playlist context, and audio-only MD5 remain separate obligations.
+The tag names, cover-type labels, mixed-tag precedence, duration rounding, file-size formatting, opaque-frame classification, and codec-name presentation require original-executable differential qualification for exact display parity. The source measurements and absence behavior are covered by generated-audio tests. This is not full technical-placeholder parity: bitrate/compression-profile labels, platform volume labels, runtime clock/working-directory context, playlist context, and audio-only MD5 remain separate obligations.
 
 ## Verification
 

@@ -6,13 +6,13 @@ Reference target: `../Mp3tag.exe`, SHA-256 `484794eec4e2b9a649d04eaab63b4cc73127
 
 | Area | Remaining gap |
 | --- | --- |
-| Toolbars | The original registers 75 toolbar command ids. OpenTag's custom toolbar offers 30 commands plus tools and action groups, so about 45 menu commands (copy/move/rename/delete files, most cover commands, selection commands, Utils, Help, file-list and configuration commands) cannot be placed on a toolbar. Movable toolbar bands are missing |
+| Toolbars | The original registers 75 toolbar command ids. OpenTag's custom toolbar offers 28 commands plus tools and action groups, so about 47 menu commands (copy/move/rename/delete files, most cover commands, selection commands, Utils, Help, file-list and configuration commands) cannot be placed on a toolbar. Movable toolbar bands are missing |
 | Menus and keyboard | No File → Exit item (the macOS app menu quits). Alt+Enter opens Extended Tags instead of the Windows properties dialog |
 | Tag panel | The floating panel is an in-window overlay, not a separate OS window |
 | File table | Find uses JavaScript `RegExp`, not the Boost bridge. Mp3tag `columns.ini` import covers known keys only because the layout is undocumented |
 | Scripting | Unverified against the original: `$caps` word-start characters, truth of non-boolean conditions, and errors inside a format string (OpenTag aborts the whole string). `%_length%` always uses `m:ss`, `%_tool%` reports only the Vorbis vendor, `%_app%` is empty in filters |
 | Filters | A plain search that mixes quoted and bare words is rejected. AND/OR precedence and locale behaviour are unverified |
-| Actions | Adjust Cover min size and "Original" format edge cases. Remove Fields Except leaves unmapped frames (PRIV, GEOB). Split Field keeps empty pieces (unverified). Convert Codepage starts at 1251 in action group dialogs instead of the last choice. File, cover-file and rename actions on mobile provider documents |
+| Actions | Adjust Cover min size and "Original" format edge cases. Remove Fields Except leaves unmapped frames (PRIV, GEOB). Split Field keeps empty pieces (unverified). Convert Codepage starts at 1251 in action group dialogs instead of the last choice. File, cover-file and rename actions on mobile provider documents. `.mta` export of Adjust Cover, Set Cover Properties and Generate Playlists uses OpenTag-only type IDs 1001 to 1003, which Mp3tag lists as unknown actions |
 | Converters | Filename → Filename appends the extension again when the new pattern contains one. Text File → Tag refuses any record-count mismatch by design |
 | File operations | Copy and Move do not reopen at the last destination folder. Associated `.lrc` and `.cdg` files do not follow a rename |
 | Formats | TAK and OptimFROG run on a stand-in and are tested only with hand-built headers. Global Nero fields and Nero covers. MP4 cover type and description (format limit). No Mp3tag- or WMP-written fixtures |
@@ -29,7 +29,7 @@ Differential evidence against the original (field ordering and mapping, padding 
 
 ## Beyond Mp3tag
 
-- Runs on Windows, macOS, Linux, Android and iOS, with phone and tablet layouts and Android document access with save-back.
+- Builds for Windows, macOS, Linux, Android and iOS, with phone and tablet layouts.
 - Extra tag sources: iTunes, Deezer, LRCLIB lyrics, Last.fm, fanart.tv and AcoustID with fingerprints computed inside the app (no external `fpcalc`).
 - A Tools menu, Load configuration, Previous/Next cover and a larger cover viewer.
 - DFF/DSDIFF and AIFF text chunks beyond the documented format list.

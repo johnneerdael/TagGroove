@@ -10,7 +10,7 @@ Legend: **Impact** H = daily tagging, M = regular, L = rare or legacy. **Size** 
 
 | Area | Item | Detail | Impact | Size |
 |---|---|---|---|---|
-| Toolbars | Toolbar command catalogue | The binary lists 75 toolbar command ids (`file_*`, `edit_*`, `cover_*`, `utils_*`, `help_*`, `view_*`, `convert_*`, `tagsources_*`). `TOOLBAR_COMMANDS` in `src/toolbar.ts` has 30. Not assignable: copy/move/rename/delete files, directory up, favorites, Open folder in file manager, copy format, select similar (and next), invert and unselect, cover add/delete/replace/save/adjust/description/cut/copy/paste, Utils commands, Help commands, customize columns and toolbars, random sort, save and open configuration folder, playlist selected and all-multiple, freedb and local freedb, quick tag source, properties | M | M |
+| Toolbars | Toolbar command catalogue | The binary lists 75 toolbar command ids (`file_*`, `edit_*`, `cover_*`, `utils_*`, `help_*`, `view_*`, `convert_*`, `tagsources_*`). `TOOLBAR_COMMANDS` in `src/toolbar.ts` has 28. Not assignable: copy/move/rename/delete files, directory up, favorites, Open folder in file manager, copy format, select similar (and next), invert and unselect, cover add/delete/replace/save/adjust/description/cut/copy/paste, Utils commands, Help commands, customize columns and toolbars, random sort, save and open configuration folder, playlist selected and all-multiple, freedb and local freedb, quick tag source, properties | M | M |
 | Toolbars | Movable toolbar bands | One fixed band per toolbar | L | M |
 | Menus | File → Exit | No menu item (macOS quits from the app menu) | L | S |
 | Menus | Alt+Enter | Opens Extended Tags; the original opens the Windows properties dialog (Windows-only) | L | S |
@@ -30,6 +30,7 @@ Legend: **Impact** H = daily tagging, M = regular, L = rare or legacy. **Size** 
 | Actions | Remove Fields Except | Unmapped frames (PRIV, GEOB, chapters) survive | L | M |
 | Actions | Split Field | Keeps empty pieces (`a;;b`). Unverified | L | S |
 | Actions | Convert Codepage default | Action group dialogs start at 1251 instead of the last choice (`src/action-ui.ts:285`) | L | S |
+| Actions | `.mta` type IDs | Adjust Cover, Set Cover Properties and Generate Playlists export with OpenTag-only type IDs 1001 to 1003 (`crates/tag-core/src/actions.rs`); Mp3tag lists them as unknown actions | M | M |
 | Actions | Mobile provider documents | File, cover-file and rename actions refused (`managed_actions.rs`) | L | L |
 | Converters | Filename → Filename with an extension in the pattern | The extension is appended again | L | S |
 | Converters | Text File → Tag record-count mismatch | Any mismatch refuses the import; the original applies records in order | L | M |
@@ -69,7 +70,7 @@ Legend: **Impact** H = daily tagging, M = regular, L = rare or legacy. **Size** 
 | Mp3tag language files and the Appearance → Symbols icon set | Proprietary assets |
 | Audio-CD lookup for freedb | Optical-drive I/O per platform |
 | Discogs OAuth with an embedded consumer secret | An open-source app cannot keep the secret |
-| ANSI `.m3u` on macOS and Linux | No system ANSI code page; UTF-8 is written |
+| ANSI `.m3u` on macOS and Linux | No system ANSI code page; OpenTag writes Windows-1252 when the text round-trips and falls back to UTF-8 otherwise |
 | About → portable/Store install type | Windows packaging detail |
 
 ## Binary tables checked (2026-10-17)
@@ -79,5 +80,5 @@ Source: strings from `Mp3tag.exe`, compared with the code.
 - Script functions: all 52 names in the function table exist in `crates/tag-core/src/script.rs`.
 - Placeholders: every name in the placeholder table is produced (`src-tauri/src/evaluation.rs`, `crates/tag-core/src/technical.rs`, `mp4_chapters.rs`, `media_info.rs`).
 - Field names: the 99 names in the Fields menu table are in the mapping registry.
-- Toolbar command ids: 75 in the binary against 30 in OpenTag (first row above).
+- Toolbar command ids: 75 in the binary against 28 in OpenTag (first row above).
 - Persisted setting names: about 60 checked; the unmatched ones are listed under Settings and File operations.

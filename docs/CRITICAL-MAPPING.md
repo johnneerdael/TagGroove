@@ -2,7 +2,7 @@
 
 The registry records all 118 named fields from the [published Mp3tag mapping](https://docs.mp3tag.de/mapping/) and [compact table](https://docs.mp3tag.de/mapping-table/), inspected on 2026-10-14. It contains 85 ID3v2.3, 90 ID3v2.4, 78 MP4, 9 RIFF, 40 ASF, and 76 Matroska nonempty mapping cells. Identifiers below are functional format facts, not copied application code. Blank cells mean the documentation specifies no fixed mapping for that format; they do not imply that a custom field is forbidden.
 
-The portable backend implements concrete ID3v2.3/v2.4, MP4, Vorbis Comment, APEv2, and RIFF metadata paths. ASF/WMA and Matroska entries are an audited registry only: the backend does not implement those containers. Full field-mapping parity is therefore **incomplete**.
+The portable backend implements concrete ID3v2.3/v2.4, MP4, Vorbis Comment, APEv2, and RIFF metadata paths. ASF/WMA and Matroska are implemented by native pure-Rust readers and writers ([formats-asf](verification/formats-asf.md), [formats-dsd-mkv](verification/formats-dsd-mkv.md)). Full field-mapping parity stays **incomplete** until original-executable differential results exist.
 
 ## Native names and optional user mappings
 
@@ -12,11 +12,11 @@ Core APIs are `read_entry_with_mappings`, `read_entry_summary_with_mappings`, `w
 
 ## Registry status
 
-Every populated ID3 cell except bare UNIQUEFILEID has a generated real-WAV native-frame write/read sweep. Every populated MP4 cell has a generated real-M4A native-atom sweep. All nine RIFF cells have a native INFO-chunk sweep. These tests verify that our codec writes the documented native identifier and survives independent concrete parsing; they are not an original-executable differential test. A row with ASF or Matroska facts remains blocked for those formats even when its other cells pass.
+Every populated ID3 cell except bare UNIQUEFILEID has a generated real-WAV native-frame write/read sweep. Every populated MP4 cell has a generated real-M4A native-atom sweep. All nine RIFF cells have a native INFO-chunk sweep. These tests verify that our codec writes the documented native identifier and survives independent concrete parsing; they are not an original-executable differential test. ASF and Matroska cells are covered by the registry and by the native ASF and Matroska writers ([formats-asf](verification/formats-asf.md), [formats-dsd-mkv](verification/formats-dsd-mkv.md)).
 
 `Codec` below means the populated supported-container cells pass the sweeps. `UFID pending` means the bare UNIQUEFILEID value syntax is not established and writes explicitly fail; existing opaque UFID frames remain preserved. MusicBrainz recording identifiers with their documented UFID owner are implemented separately.
 
-| Field | ID3v2.3 | ID3v2.4 | MP4 | RIFF | ASF (registry only) | Matroska (registry only) | Supported codec status |
+| Field | ID3v2.3 | ID3v2.4 | MP4 | RIFF | ASF | Matroska | Supported codec status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | ACOUSTID_ID | TXXX:Acoustid Id | TXXX:Acoustid Id | ----:com.apple.iTunes:Acoustid Id | — | — | — | Codec |
 | ACOUSTID_FINGERPRINT | TXXX:Acoustid Fingerprint | TXXX:Acoustid Fingerprint | ----:com.apple.iTunes:Acoustid Fingerprint | — | — | — | Codec |
@@ -147,7 +147,7 @@ The documented other-field fallback is `TXXX:<fieldname>` for ID3 and `----:com.
 - MP4 media types support Normal, Audiobook, Bookmark, Music Video, Movie, TV Show, Booklet, Ringtone, Podcast, and iTunes U. Native codes are independently checked against the [ExifTool QuickTime registry](https://raw.githubusercontent.com/exiftool/exiftool/master/lib/Image/ExifTool/QuickTime.pm). Unknown codes are returned numerically; their exact Mp3tag display remains unverified. Apple historically stores ARTIST as ©ART, whereas the Mp3tag table spells ©art; reads recognize both spellings and writes use ©ART.
 - MP4 boolean fields COMPILATION, PODCAST, ITUNESGAPLESS, and SHOWMOVEMENT accept 1 or deletion; ITUNESHDVIDEO accepts 0/1 and ITUNESADVISORY accepts 0/1/2. Numeric native atoms validate unsigned bounds. ITUNESALBUMID uses the native unsigned 64-bit type; historical eight-byte values labeled with a 32-bit data type can be rejected by Lofty's strict parser and remain a compatibility gap. PODCAST's ID3 PCST frame is binary integer data, as independently described by [Mutagen's frame definitions](https://raw.githubusercontent.com/quodlibet/mutagen/master/mutagen/id3/_frames.py).
 - Native numeric ID3 genres display their standard names without rewriting the untouched TCON frame. INVOLVEDPEOPLE and MUSICIANCREDITS use role/person pairs. MOVEMENT/MOVEMENTTOTAL share MVIN. MusicBrainz track IDs use UFID owner `http://musicbrainz.org`. Other UFID payloads remain opaque.
-- POPULARIMETER accepts email|rating|counter. Default owner abstractions expose RATING MM and RATING WMP. MM half-star raw values are 0,13,1,54,64,118,128,186,196,242,255; WMP star values are 0,1,64,128,196,255. The [author confirmed the changed MM endpoints](https://community.mp3tag.de/t/f-rating-mm-sometimes-not-work/16276). Existing counters remain unchanged for owner-specific rating edits. The preference to always display POPULARIMETER is not implemented.
+- POPULARIMETER accepts email|rating|counter. Default owner abstractions expose RATING MM and RATING WMP. MM half-star raw values are 0,13,1,54,64,118,128,186,196,242,255; WMP star values are 0,1,64,128,196,255. The [author confirmed the changed MM endpoints](https://community.mp3tag.de/t/f-rating-mm-sometimes-not-work/16276). Existing counters remain unchanged for owner-specific rating edits. The preference to always display POPULARIMETER is implemented (Options → Advanced).
 - UNSYNCEDLYRICS currently implements the language||text form with an empty description. Existing nonempty USLT descriptions remain on disk when unedited but are not fully represented in the current string API. Their exact exposed value syntax remains a parity gap.
 
 ## Preservation and failure boundaries
