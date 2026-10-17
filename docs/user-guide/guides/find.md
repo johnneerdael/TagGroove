@@ -86,7 +86,7 @@ sorting does not reorder the main file list or change tag values.
 
 Click a row, or focus it and press Enter/Space, to select its file in the
 main list. Up/Down moves through result rows and selects their files.
-The current result control offers individual-row navigation or **Select
+The current result control provides individual-row navigation or **Select
 all results**; it does not provide a separate Command/Ctrl-click range
 selection of arbitrary result rows. For a subset, close Find and adjust
 the selected files in the main list.
@@ -125,7 +125,7 @@ box: use an action or converter when matching should lead to an edit.
 ## Reuse or remove criteria
 
 The input's drop-down history remembers used criteria through the normal
-helper-list mechanism. The **►** helper offers **Remove from history** and
+helper-list mechanism. The **►** helper has **Remove from history** and
 **Remove all from history…** for this input. Removing history does not
 remove tags or files. Physical Control+Space opens the focused helper;
 Shift+Delete removes the current remembered value.

@@ -14,7 +14,7 @@ you can tell which one you are seeing.
 | Pending or staged picture in an editor | A visible preview alone does not establish that the audio file has been written. |
 
 A shared folder image avoids storing a copy in every track. Embedding makes
-each file self-contained. Those are storage choices, not guarantees about
+each file self-contained. Those are storage choices. They do not guarantee
 what a particular player displays. Some players prefer a folder image;
 others choose an embedded role, the first image, or cached artwork.
 

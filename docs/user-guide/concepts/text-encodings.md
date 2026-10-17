@@ -37,7 +37,7 @@ Wrong Windows-1252 read:  Ã©
 
 The wrong decoding produces real Unicode characters `Ã` and `©`. Saving
 those characters correctly as UTF-8 preserves the wrong text; it does not
-magically recover `é`. This kind of garbling is often called *mojibake*.
+recover `é`. This kind of garbling is often called *mojibake*.
 
 The direction of the mistake matters. Different legacy encodings can
 interpret the same bytes differently, so selecting an encoding by the

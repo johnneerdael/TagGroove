@@ -44,7 +44,7 @@ Report OpenTag problems on the
 [OpenTag issue tracker](https://github.com/johnneerdael/opentag/issues).
 The [Help menu](../reference/menus/help.md) identifies its actual destinations;
 there is no separate donation or original-editor support command in that menu.
-An issue report is a way to share reproducible information, not a promise of
+An issue report shares reproducible information. It does not promise a
 response time or recovery of personal files.
 
 ## License and credits
@@ -60,7 +60,7 @@ The application uses Tauri for its native/web interface and Rust for the
 metadata engine. The regex bridge includes Boost.Regex under its accompanying
 Boost Software License. Source dependencies and bundled component notices are
 the authoritative place to inspect third-party terms. This paragraph is an
-orientation, not a complete dependency-license audit.
+orientation and does not audit every dependency license.
 
 ## How to use this guide
 
@@ -76,8 +76,8 @@ Choose a section for the kind of help needed:
 | Diagnosis and a useful issue report | [Troubleshooting](troubleshooting.md) and [FAQ](faq.md) |
 
 The guide describes implemented OpenTag behavior using independently written
-explanations and invented practice data. Canonical Mp3tag topics serve as a
-research checklist, not a guarantee of runtime equivalence. Source reads,
+explanations and invented practice data. Canonical Mp3tag topics were a
+research checklist and do not guarantee runtime equivalence. Source reads,
 core/model tests, native UI tests, package checks and actual live publication
 are different kinds of evidence; the guide keeps their limits distinct.
 

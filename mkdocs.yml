@@ -1,6 +1,6 @@
 site_name: OpenTag user guide
 site_description: Learn to tag, rename, organise and export your music with OpenTag, the open-source audio metadata editor.
-site_url: https://johnneerdael.github.io/audio-tag-guide/
+site_url: https://opentag.neerdael.nl/
 repo_url: https://github.com/johnneerdael/opentag
 repo_name: johnneerdael/opentag
 edit_uri: edit/main/docs/user-guide/

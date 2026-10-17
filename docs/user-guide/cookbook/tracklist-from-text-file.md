@@ -59,7 +59,7 @@ copies for recovery beyond that session and for comparing player behavior.
 
 ## How it works
 
-The mask reads the **whole record**, from left to right. It is an extraction
+The mask reads the whole record, from left to right. It is an extraction
 pattern, not a scripting expression that calculates a new string.
 
 | Mask part | What it reads from the first record |
@@ -92,7 +92,7 @@ Set **Text source** to **Text file**, choose the listing, or use this in
 ```
 <!-- tracklist-source:end -->
 
-The expression uses the **first selected audio file**. It reads one listing
+The expression uses the first selected audio file. It reads one listing
 for the entire selection, even when that selection spans several folders.
 Process one album folder at a time if each has its own `tracks.txt`.
 Use UTF-8 for a new listing; check accents in the preview when decoding
@@ -135,8 +135,8 @@ really differ only in capitalization.
 For plain records such as `1;Juniper Vale;Paper Boats`, use
 `%track%;%artist%;%title%`. Choose a separator absent from those values.
 A spreadsheet CSV with escaped quotes, embedded separators or multiline
-cells requires deliberate conversion first: this converter is **not a CSV
-decoder**. In particular, doubled CSV quotes are not automatically unescaped.
+cells requires deliberate conversion first: this converter is not a CSV
+decoder. In particular, doubled CSV quotes are not automatically unescaped.
 Keep filenames or paths when preparing a file-keyed import.
 
 ## When preview refuses the listing

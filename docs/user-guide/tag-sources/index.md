@@ -76,7 +76,7 @@ Choose **Tag Sources → Last.fm…**. **Artist and album** looks up that album
 directly; **Album title words** searches by album title. **MusicBrainz release
 ID** accepts a release MBID for a direct lookup.
 
-The review offers available album and track metadata, cover art and filtered,
+The review shows available album and track metadata, cover art and filtered,
 title-cased listener tags as `GENRE`. Choose the genre count in **Options →
 Tag Sources → Online services**. Personal collection tags and bare numbers
 are filtered, but review the remaining genres. Artwork is limited to the
@@ -104,7 +104,7 @@ local freedb folder can supply disc metadata without a server lookup.
 Personal API keys live in `tag-sources.json` in OpenTag's configuration folder,
 separately from ordinary Options. They are text with restricted file permissions
 where supported, not encrypted by OpenTag. Keep this file out of shared
-configuration copies. Discogs also offers an optional system keychain location.
+configuration copies. Discogs also has an optional system keychain location.
 Built-in application keys are part of the installed binary; they cannot keep
 an individual's secret confidential from someone inspecting that binary.
 

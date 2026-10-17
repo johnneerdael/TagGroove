@@ -1,7 +1,7 @@
 # Convert menu
 
 Converters derive new tag values or filenames from existing information.
-Select the intended files and save pending edits first. The menu offers five
+Select the intended files and save pending edits first. The menu has five
 conversion directions plus track/disc numbering; choose the direction by
 what you already have and what you want to create.
 

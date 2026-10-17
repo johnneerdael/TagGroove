@@ -137,7 +137,7 @@ columns cannot be made writable merely by clicking them.
 Ordinary field edits become pending changes. Save tags explicitly, or use
 the configured save-on-selection-change behavior, when they must reach
 disk. For multiple separate values or multiline text,
-[Extended tags](extended-tags.md) offers dedicated controls.
+[Extended tags](extended-tags.md) has dedicated controls.
 
 A filename cell is different: accepting it requests an immediate filesystem
 rename. Keep the existing audio extension in a filename-with-extension

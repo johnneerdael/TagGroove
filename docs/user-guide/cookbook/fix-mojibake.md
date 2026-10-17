@@ -88,7 +88,7 @@ bad text and repairing it afterward.
 
 The action writes immediately. Saving it in a group stores a workflow without
 running it; applying that group writes the selected files. Do not run the
-same repair again just because the spelling was corrected once—the corrected
+same repair again just because the spelling was corrected once. The corrected
 accented text can now fail this same conversion.
 
 A warning from one action does not stop later actions/groups. Avoid appending

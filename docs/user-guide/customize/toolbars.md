@@ -64,8 +64,8 @@ These are toolbar labels, which can be shorter than their menu labels.
 **Redo** can invoke the available Repeat behavior when there is no recorded
 redo step. The [menu reference](../reference/menus/index.md) and
 [action guide](../actions/index.md) explain the actual operations and their
-write timing. Showing every button is optional; the toolbar complements the
-menus rather than replacing them.
+write timing. You do not need to show every button, and the menus stay
+available.
 
 ## Build a custom toolbar
 

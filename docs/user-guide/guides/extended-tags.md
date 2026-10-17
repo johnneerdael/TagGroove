@@ -129,7 +129,7 @@ label. Neither is a substitute for an original copy.
 
 ## Covers use a different confirmation path
 
-The cover section offers **Add cover…**, **Remove cover**, **Extract cover…**
+The cover section has **Add cover…**, **Remove cover**, **Extract cover…**
 and its **⋯**/right-click menu. It uses the same selection summary as the tag
 panel. Cover actions can write immediately; field **Keep changes** is not a
 general confirmation or rollback for artwork operations.

@@ -54,12 +54,12 @@ toolbar…** and **Customize custom toolbar…**. A hidden toolbar can be restor
 from this menu. The custom toolbar can include configured tools and action
 groups; an unavailable or removed target still needs attention before it runs.
 
-**Tag panel position** offers Left, Right, Top, Bottom and Floating. The title
+**Tag panel position** lists Left, Right, Top, Bottom and Floating. The title
 bar can also be dragged to dock it. Double-clicking the title bar toggles a
 floating/docked position. Size and position are layout settings, not changes
 to the tag data.
 
-**Filter position** offers Above the file list, Left of the toolbars and Right
+**Filter position** lists Above the file list, Left of the toolbars and Right
 of the toolbars. Compact layouts omit these position menus and keep the filter
 with the list. Do not interpret a missing layout menu on a narrow/mobile view
 as loss of the underlying fields.
