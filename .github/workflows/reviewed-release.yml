@@ -306,7 +306,10 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: npm run tauri -- android build --target aarch64 --apk --ci
+        run: |
+          # Tauri forwards this alias across the IDE build environment.
+          export TAURI_OPENTAG_AUDIO_BUILD_ROOT="$OPENTAG_AUDIO_BUILD_ROOT"
+          npm run tauri -- android build --target aarch64 --apk --ci
       - name: Verify APK signature, version and ABI, then collect
         run: |
           python scripts/audio-source-bundle.py --collect-native aarch64-linux-android --native-evidence "$OPENTAG_AUDIO_BUILD_ROOT" --source-sha "$RELEASE_COMMIT" --version '${{ needs.prepare.outputs.version }}' --output release-assets/native-android-arm64.json
@@ -368,7 +371,10 @@ jobs:
       - run: npm ci
       - run: npm run test:ui
       - name: Build simulator app (not a physical-device installer)
-        run: npm run tauri -- ios build --target aarch64-sim --debug --no-sign --ci
+        run: |
+          # Tauri forwards this alias across the IDE build environment.
+          export TAURI_OPENTAG_AUDIO_BUILD_ROOT="$OPENTAG_AUDIO_BUILD_ROOT"
+          npm run tauri -- ios build --target aarch64-sim --debug --no-sign --ci
       - name: Verify simulator platform and package app
         run: |
           python scripts/audio-source-bundle.py --collect-native aarch64-apple-ios-sim --native-evidence "$OPENTAG_AUDIO_BUILD_ROOT" --source-sha "$RELEASE_COMMIT" --version '${{ needs.prepare.outputs.version }}' --output release-assets/native-ios-arm64-simulator-preview.json

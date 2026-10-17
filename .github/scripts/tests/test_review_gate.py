@@ -202,9 +202,10 @@ class WorkflowTrustTests(unittest.TestCase):
             with self.subTest(workflow=workflow, job=job):
                 source = (ROOT.parent / 'workflows' / workflow).read_text()
                 block = re.search(rf'^  {job}:\n(.*?)(?=^  [a-z-]+:|\Z)', source, re.M | re.S)[1]
-                before_build = block.split('run: npm run tauri --')[0]
+                before_build = block.split('npm run tauri --')[0]
                 self.assertIn("python-version: '3.12'", before_build)
                 self.assertIn('cmake', before_build)
+                self.assertIn('export TAURI_OPENTAG_AUDIO_BUILD_ROOT="$OPENTAG_AUDIO_BUILD_ROOT"', before_build)
                 if job == 'android':
                     for required in ('build-essential', 'make', 'ndk;28.2.13676358', 'NDK_HOME='):
                         self.assertIn(required, before_build)
