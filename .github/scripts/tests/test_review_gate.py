@@ -112,6 +112,43 @@ class GateTests(unittest.TestCase):
                 self.api.post.assert_not_called()
                 self.api.runs.assert_not_called()
 
+    def test_lifecycle_cannot_inherit_green_statuses_from_another_pr_or_revision(self):
+        from codex_review import eligibility
+        for action in ('opened', 'reopened', 'synchronize', 'ready_for_review', 'edited'):
+            with self.subTest(action=action):
+                item = reviewed_pull()
+                item['number'] = 17
+                # A new PR has no review; even a later transition with its own
+                # clean review must not inherit another PR's notes/build proof.
+                reviews = [] if action == 'opened' else [review()]
+                eligible = eligibility(item, reviews, [], [], [thumb()])
+                self.assertEqual(eligible[0], action != 'opened')
+                self.api.get.side_effect = None
+                self.api.get.return_value = item
+                self.api.snapshot.return_value = (item, eligible)
+                statuses = {'Codex review': 'success', 'Release notes': 'success', 'Reviewed PR builds': 'success'}
+                self.api.status.side_effect = lambda head, state, reason, context: statuses.update({context: state})
+                self.api.status.reset_mock()
+                event = dict(number=17, action=action, pull_request=dict(head=dict(sha=SOURCE)))
+                if action == 'edited':
+                    event['changes'] = dict(base=dict(ref={'from': 'release'}, sha={'from': BASE}))
+                self.gate.invalidate_metadata(self.api, event)
+                self.assertEqual(statuses, dict.fromkeys(statuses, 'pending'))
+                for call in self.api.status.call_args_list:
+                    self.assertEqual(call.args[:2], (HEAD, 'pending'))
+                self.api.snapshot.assert_not_called()
+                self.api.post.assert_not_called()
+                self.api.runs.assert_not_called()
+
+    def test_body_or_title_edits_remain_with_the_existing_notes_controller(self):
+        for field in ('body', 'title'):
+            self.gate.invalidate_metadata(self.api, dict(number=17, action='edited',
+                pull_request=reviewed_pull(), changes={field: {'from': 'Previous text'}}))
+        self.api.get.assert_not_called()
+        self.api.snapshot.assert_not_called()
+        self.api.status.assert_not_called()
+        self.api.post.assert_not_called()
+
     def test_unrelated_and_untrusted_comments_do_not_invalidate_or_dispatch(self):
         item = reviewed_pull()
         self.api.get.side_effect = None
@@ -302,8 +339,9 @@ class WorkflowTrustTests(unittest.TestCase):
     def test_metadata_invalidation_uses_trusted_main_without_build_permissions(self):
         source = (ROOT.parent / 'workflows/review-metadata-invalidation.yml').read_text()
         for required in ['issue_comment:', 'types: [created, edited, deleted]',
-                         'pull_request_target:', 'types: [review_requested, converted_to_draft]',
+                         'pull_request_target:', 'types: [opened, reopened, synchronize, ready_for_review, edited, review_requested, converted_to_draft]',
                          "github.event_name == 'pull_request_target'",
+                         "github.event.action != 'edited' || github.event.changes.base",
                          'github.event.issue.pull_request', "contains(github.event.comment.body, '@codex')",
                          "contains(github.event.changes.body.from, '@codex')",
                          "github.event.comment.user.login == 'chatgpt-codex-connector[bot]'",
@@ -313,6 +351,7 @@ class WorkflowTrustTests(unittest.TestCase):
             self.assertNotIn(denied, source)
         controller = (ROOT.parent / 'workflows/review-controller.yml').read_text()
         self.assertNotIn('Review metadata invalidation', controller)
+        self.assertIn("if: github.event_name != 'pull_request_target' || !github.event.changes.base", controller)
 
     def test_reusable_build_rechecks_review_and_authenticates_main_caller(self):
         import re

@@ -2,7 +2,7 @@ name: Review metadata invalidation
 on:
   pull_request_target:
     branches: [main]
-    types: [review_requested, converted_to_draft]
+    types: [opened, reopened, synchronize, ready_for_review, edited, review_requested, converted_to_draft]
   issue_comment:
     types: [created, edited, deleted]
 permissions:
@@ -16,10 +16,12 @@ concurrency:
   cancel-in-progress: false
 jobs:
   invalidate:
-    # Gate review requests, draft conversion and connector metadata, including
-    # edits away from a request. Ordinary discussion skips this metadata job.
+    # Lifecycle changes can select a SHA with another PR's green statuses.
+    # Base edits belong here; description edits stay with the notes controller.
+    # Ordinary discussion skips this metadata job.
     if: >-
-      github.event_name == 'pull_request_target' ||
+      (github.event_name == 'pull_request_target' &&
+       (github.event.action != 'edited' || github.event.changes.base)) ||
       (github.event.issue.pull_request &&
       (contains(github.event.comment.body, '@codex') ||
        contains(github.event.changes.body.from, '@codex') ||

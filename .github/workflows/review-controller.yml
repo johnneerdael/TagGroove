@@ -33,6 +33,8 @@ concurrency:
   cancel-in-progress: false
 jobs:
   reconcile:
+    # Base changes only invalidate metadata; they must not dispatch app builds.
+    if: github.event_name != 'pull_request_target' || !github.event.changes.base
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:

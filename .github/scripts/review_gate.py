@@ -114,8 +114,12 @@ def reconcile(api, number, retry=False):
 def invalidate_metadata(api, event):
     """Withdraw stale approval for review metadata; never authorize or dispatch."""
     pr_event = event.get('pull_request')
+    lifecycle = False
     if pr_event is not None:
-        if event.get('action') not in {'review_requested', 'converted_to_draft'}:
+        action = event.get('action')
+        lifecycle = (action in {'opened', 'reopened', 'synchronize', 'ready_for_review'}
+                     or action == 'edited' and bool(event.get('changes', {}).get('base')))
+        if not lifecycle and action not in {'review_requested', 'converted_to_draft'}:
             return
         number = event['number']
     else:
@@ -130,6 +134,12 @@ def invalidate_metadata(api, event):
     except Exception:
         pr = api.get(f'pulls/{number}')
     if pr['state'] != 'open' or pr['base']['ref'] != 'main':
+        return
+    if lifecycle:
+        # Statuses belong to a commit, not a PR. Reusing a SHA must not reuse
+        # another PR's review, notes or immutable validation proof.
+        for context in ('Codex review', 'Release notes', CONTEXT):
+            api.status(pr['head']['sha'], 'pending', 'PR lifecycle changed; request a fresh metadata recheck', context=context)
         return
     if pr_event is None:
         comment = event['comment']
