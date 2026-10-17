@@ -77,6 +77,9 @@ targets:
     dependencies:
       - framework: libapp.a
         embed: false
+      # Rust static archives cannot carry Cargo's framework link arguments
+      # through to Xcode. Chromaprint's vDSP FFT backend needs Accelerate here.
+      - sdk: Accelerate.framework
       - sdk: CoreGraphics.framework
       - sdk: Metal.framework
       - sdk: MetalKit.framework
