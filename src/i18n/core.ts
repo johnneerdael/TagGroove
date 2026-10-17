@@ -87,7 +87,7 @@ export function historyLabelText(label: string, t: (key: string, params?: Record
 const PLURAL_CATEGORIES = new Set(['zero', 'one', 'two', 'few', 'many', 'other']);
 /** Data identities (files, fields, configuration keys) and authored text are never looked up themselves.
  * The audited backend source role names mapped fields, export configurations and action-context keys. */
-const VERBATIM = /^(name|nameOf|path|file|filename|fileName|location|outputPath|destination|source|sourcePath|directory|folder|url|extension|tag|selector|DIRECTORY|SEPARATOR|value|values|names|text|field|trackField|trackPosition|key|id|typeId|codepage|mode|item|scheme|byte|flags|current|query|term|pattern|format|template|title)\d*$/;
+const VERBATIM = /^(name|nameOf|path|file|filename|fileName|location|outputPath|destination|source|sourcePath|directory|folder|url|extension|tag|selector|DIRECTORY|SEPARATOR|value|values|names|text|field|find|trackField|trackPosition|key|id|typeId|codepage|mode|item|scheme|byte|flags|current|query|term|pattern|format|template|title)\d*$/;
 
 // Key combinations as menus and tooltips show them: ⌘/Ctrl ⇧ S, Alt+Enter, Ctrl Num +.
 const SHORTCUT = /^(?:(?:⌘|⌥|⇧|⌃|⌫|(?<![A-Za-z0-9])(?:Ctrl|Alt|Shift|Option|Cmd|Del|Num|Enter|Esc|Tab|Space|Page Up|Page Down|Home|End|Ins|Insert|F\d{1,2})(?![A-Za-z0-9])|[A-Z0-9]|[←→↑↓+\/·]|,)[\s+/]*)+$/;
@@ -142,11 +142,11 @@ type Node = string | {name: string} | {name: string; plural: [string, Node[]][]}
 /** Parse a translation: text, `{name}` and `{name, plural, cat {…} …}`. */
 export function parse(source: string): Node[] {
   let index = 0;
-  const nodes = (inside: boolean): Node[] => {
-    const out: Node[] = [];let text = '';
+  const nodes = (): Node[] => {
+    const out: Node[] = [];let text = '', literalBraces = 0;
     while (index < source.length) {
       const c = source[index];
-      if (c === '}' && inside) break;
+      if (c === '}' && literalBraces === 0) break;
       if (c === '{') {
         const close = source.indexOf('}', index), comma = source.indexOf(',', index);
         if (comma > index && (close < 0 || comma < close)) {
@@ -160,7 +160,7 @@ export function parse(source: string): Node[] {
               const head = /^\s*(=\d+|[a-z]+)\s*\{/.exec(source.slice(index));
               if (!head) break;
               index += head[0].length;
-              const body = nodes(true);
+              const body = nodes();
               if (source[index] !== '}') throw new Error(`Unclosed plural form in “${source}”`);
               index++;forms.push([head[1], body]);
             }
@@ -173,13 +173,15 @@ export function parse(source: string): Node[] {
         }
         const simple = /^\{([A-Za-z][A-Za-z0-9_]*)\}/.exec(source.slice(index));
         if (simple) {if (text) out.push(text);text = '';out.push({name: simple[1]});index += simple[0].length;continue;}
-      }
+        literalBraces++;
+      } else if (c === '}') literalBraces--;
       text += c;index++;
     }
+    if (literalBraces) throw new Error(`Unclosed literal brace in “${source}”`);
     if (text) out.push(text);
     return out;
   };
-  const result = nodes(false);
+  const result = nodes();
   if (index < source.length) throw new Error(`Unexpected “}” in “${source}”`);
   return result;
 }

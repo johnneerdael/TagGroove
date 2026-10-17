@@ -24,11 +24,11 @@ Two review regressions cover locale-sensitive exact/category selection through
 explicit and captured values, and nested-category rejection/usable-catalog
 filtering with valid nested forms retained. A further producer-bound case covers every catalog identifier and underscored
 native limit values through direct/captured rendering and plural parsing. All
-twenty-six pure cases remain in the
+twenty-eight pure cases remain in the
 same test module when the complete application test suite is
 integrated; the later source-bound extraction and UI tests must also be kept.
 
-Fresh local checks passed 410 UI/model tests with zero failures or skips, the
+Fresh local checks passed 412 UI/model tests with zero failures or skips, the
 production build, the strict 172-page guide and eight publication tests. One
 existing UI case compiles a temporary pure Rust helper; it is separate from
 application-native qualification. All 1,360 existing tracked main files are
@@ -166,3 +166,16 @@ empty-position fallback, across DE/NL/custom catalogs and technical or
 shortcut-shaped field/position collisions. It first reproduced `ARTIST`
 incorrectly becoming `INTERPRET`. All 25 earlier pure cases remain unchanged;
 the application producer, catalogs, activation and native code are untouched.
+
+Mixed Tag Sources summaries now keep the first provider field value raw. The
+actual `fieldRows` producer previously yielded `Help … (2 values)`, which the
+core changed to `Hilfe … (2 Werte)`. The new producer-bound case preserves the
+metadata while localizing its count scaffold in DE/NL/custom catalogs.
+
+The parser now rejects an unmatched top-level closing brace, including one
+after a complete nested plural, rather than treating it as ordinary text.
+Balanced literal brace groups remain supported; an unfinished literal group
+also fails validation. A second regression checks direct parsing, placeholder
+inspection, invalid-key reporting, key-once language warnings, constructor
+rejection and English fallback. Both regressions first failed on the reviewed
+parent; all 26 earlier pure cases remain unchanged.

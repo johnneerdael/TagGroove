@@ -569,3 +569,39 @@ test('Tag Sources track labels retain technical fields and provider positions',a
     }
   }
 });
+
+test('mixed Tag Sources summaries preserve provider metadata values',async()=>{
+  const {fieldRows}=await load('tag-sources.ts');
+  const key='{find} … ({size} values)';
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',{[key]:'[{size} distinct]: {find}',Help:'Wrong metadata'}]]){
+    const translator=new Translator(locale,catalog);
+    for(const value of ['Help','ARTIST','Select files first.','Ctrl Ins','Insert2']){
+      const rows=fieldRows({fields:{},tracks:[{fields:{TITLE:[value]}},{fields:{TITLE:['different']}}]});
+      assert.equal(rows.length,1);assert.equal(rows[0].value,`${value} … (2 values)`);
+      assert.equal(translator.translate(rows[0].value),translator.t(key,{find:value,size:2}),`${locale}: ${value}`);
+    }
+  }
+});
+
+test('stray closing braces invalidate catalogs and fall back to English',()=>{
+  const key='Value {x}',nested='Count {count} for {x}';
+  for(const malformed of ['Wert {x}}','}Wert {x}','Wert } {x}','Wert {x} } tail']){
+    assert.throws(()=>parse(malformed),/Unexpected/);
+    assert.throws(()=>placeholders(malformed),/Unexpected/);
+    const english={[key]:key},catalog={[key]:malformed};
+    assert.deepEqual(validateCatalog(english,catalog).invalid,[key]);
+    const selected=languageSet([],[{file:'de.json',catalog:{'@meta':{locale:'de'},...catalog}}],english);
+    assert.equal(selected.languages.get('de').problems,1);assert.equal(selected.warnings.length,1);
+    assert.equal(new Translator('de',selected.languages.get('de').catalog).t(key,{x:'Help'}),'Value Help');
+    assert.equal(new Translator('de',catalog).t(key,{x:'Help'}),'Value Help');
+  }
+  const bad='{count, plural, one {# {x}} other {# {x}}}}';
+  assert.deepEqual(validateCatalog({[nested]:nested},{[nested]:bad}).invalid,[nested]);
+  const good='{count, plural, one {# {x}} other {# {x}}}';
+  assert.deepEqual(validateCatalog({[nested]:nested},{[nested]:good}).invalid,[]);
+  assert.equal(new Translator('de',{[nested]:good}).t(nested,{count:2,x:'raw'}),'2 raw');
+  assert.deepEqual(parse('Literal {not a placeholder} stays'),['Literal {not a placeholder} stays']);
+  assert.deepEqual(parse('Literal {{x}} stays'),['Literal {',{name:'x'},'} stays']);
+  assert.throws(()=>parse('Wert {x} {unfinished'),/Unclosed/);
+  assert.equal(new Translator('de',{}).t('Literal {not a placeholder} stays'),'Literal {not a placeholder} stays');
+});
