@@ -4416,7 +4416,15 @@
       },
       {
         "path": "src-tauri/tauri.conf.json",
-        "change": "Pin the original OpenTag MSI upgrade identity ed7df85b-a59c-563d-84e9-a966cbccc202 while retaining visible TagGroove branding. This affects Windows installer metadata only and does not change captured application artwork, layout or fixture states."
+        "change": "Pin the original OpenTag MSI upgrade identity ed7df85b-a59c-563d-84e9-a966cbccc202 and select the NSIS compatibility template while retaining visible TagGroove branding. These affect Windows installer metadata and upgrade handling; the captured application views are unchanged."
+      },
+      {
+        "path": "src-tauri/windows/installer.nsi",
+        "change": "Adapt the locked Tauri 2.12.2 NSIS template to preserve existing registry identities and handle the former executable and installer-owned shortcuts. This does not affect the captured application views."
+      },
+      {
+        "path": "THIRD_PARTY_NOTICES.md",
+        "change": "Retain the upstream Tauri installer template MIT license and attribution, also shown in About license text. About is outside the five captured views."
       }
     ]
   },

@@ -21,6 +21,31 @@ async function fixture(t) {
   return root;
 }
 
+test('branded Windows installers retain the existing install identity', async () => {
+  const config = JSON.parse(await readFile(new URL('../src-tauri/tauri.conf.json', import.meta.url)));
+  assert.equal(config.bundle.windows.wix.upgradeCode.toLowerCase(), 'ed7df85b-a59c-563d-84e9-a966cbccc202');
+  assert.equal(config.bundle.windows.nsis?.template, 'windows/installer.nsi');
+  const upstream = JSON.parse(await readFile(new URL('../src-tauri/windows/UPSTREAM.json', import.meta.url)));
+  const lock = JSON.parse(await readFile(new URL('../package-lock.json', import.meta.url)));
+  assert.equal(lock.packages['node_modules/@tauri-apps/cli'].version, upstream.cliVersion,
+    'Resync the installer template when upgrading the Tauri CLI');
+  const template = await readFile(new URL('../src-tauri/windows/installer.nsi', import.meta.url), 'utf8');
+  const definitions = Object.fromEntries([...template.matchAll(/^!define (\w+) "([^"\r\n]*)"$/gm)]
+    .map(([, name, value]) => [name, value]));
+  definitions.PRODUCTNAME = config.productName;
+  definitions.MANUFACTURER = config.bundle.publisher;
+  const expand = (name, parents = []) => {
+    assert.ok(Object.hasOwn(definitions, name), `Missing NSIS definition ${name}`);
+    assert.ok(!parents.includes(name), `Circular NSIS definition ${name}`);
+    return definitions[name].replace(/\$\{(\w+)\}/g, (_, next) => expand(next, [...parents, name]));
+  };
+  assert.equal(expand('PRODUCTNAME'), 'TagGroove');
+  assert.equal(expand('MANUFACTURER'), 'TagGroove');
+  assert.equal(expand('UNINSTKEY'), 'Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\OpenTag');
+  assert.equal(expand('MANUKEY'), 'Software\\OpenTag');
+  assert.equal(expand('MANUPRODUCTKEY'), 'Software\\OpenTag\\OpenTag');
+});
+
 test('version/tag/checkout policy rejects mismatches; 0.x is a release, suffixes are prereleases', () => {
   assert.equal(plan().prerelease, false);
   assert.equal(releasePlan({ ...planInput, prerelease: true }).prerelease, true);
