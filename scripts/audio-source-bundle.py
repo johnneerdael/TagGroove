@@ -287,20 +287,37 @@ def source_files(root, commit, version):
 
 def check_vendor(lock_data, vendor_files):
     lock = tomllib.loads(lock_data.decode())
+    inventories = {}
+    for name in vendor_files:
+        directory, separator, relative = name.partition("/")
+        require(separator and relative, f"Unexpected Cargo vendor root file: {name}")
+        safe(name)
+        inventories.setdefault(directory, set()).add(relative)
+    expected_directories = set()
     for package in lock.get("package", []):
         source = package.get("source", "")
         if not source:
             continue
         require(source.startswith("registry+"), "Unsupported non-registry Cargo source; include an explicit vendor configuration")
         directory = f'{package["name"]}-{package["version"]}'
+        expected_directories.add(directory)
         checksum_path = directory + "/.cargo-checksum.json"
         require(checksum_path in vendor_files, f"Missing vendored Cargo package: {directory}")
         checksums = load(vendor_files[checksum_path])
         require(checksums.get("package") == package.get("checksum"), f"Cargo package checksum differs: {directory}")
-        for name, digest in checksums.get("files", {}).items():
+        files = checksums.get("files")
+        require(isinstance(files, dict) and files and "Cargo.toml" in files,
+                f"Missing or empty Cargo checksum file map/manifest: {directory}")
+        require(inventories.get(directory) == set(files) | {".cargo-checksum.json"},
+                f"Vendored Cargo file inventory differs: {directory}")
+        for name, digest in files.items():
             safe(name)
-            require(sha(vendor_files.get(directory + "/" + name, b"")) == digest,
+            require(sha(vendor_files[directory + "/" + name]) == digest,
                     f"Vendored Cargo file differs: {directory}/{name}")
+        metadata = tomllib.loads(vendor_files[directory + "/Cargo.toml"].decode()).get("package")
+        require(isinstance(metadata, dict) and metadata.get("name") == package["name"]
+                and metadata.get("version") == package["version"], f"Vendored Cargo package identity differs: {directory}")
+    require(set(inventories) == expected_directories, "Unexpected or missing vendored Cargo package directory")
 
 
 def add_directory(files, source, prefix, modes):

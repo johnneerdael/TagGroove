@@ -35,6 +35,18 @@ def load_builder():
     return module
 
 
+def cargo_vendor_fixture():
+    cargo = b'[package]\nname="example"\nversion="1.0.0"\n'
+    source = b'fn main() {}\n'
+    checksum = 'a' * 64
+    lock = ('[[package]]\nname="example"\nversion="1.0.0"\nsource="registry+https://github.com/rust-lang/crates.io-index"\nchecksum="' + checksum + '"\n').encode()
+    data = {'Cargo.toml': cargo, 'src/lib.rs': source}
+    metadata = {'package': checksum, 'files': {name: digest(content) for name, content in data.items()}}
+    vendor = {'example-1.0.0/' + name: content for name, content in data.items()}
+    vendor['example-1.0.0/.cargo-checksum.json'] = json.dumps(metadata).encode()
+    return lock, vendor
+
+
 def fixture(root, original_sha=None, patched_sha=None):
     """Make a real Git source binding, four local upstream archives and seven fake builds."""
     root = Path(root)
@@ -280,15 +292,36 @@ class SourceBundleTests(unittest.TestCase):
             network.assert_not_called()
 
     def test_cargo_vendor_requires_lock_checksum_and_every_file(self):
-        data = b'fn main() {}\n'
-        lock = b'[[package]]\nname="example"\nversion="1.0.0"\nsource="registry+https://github.com/rust-lang/crates.io-index"\nchecksum="package-checksum"\n'
-        checksum = json.dumps({'package': 'package-checksum', 'files': {'src/lib.rs': digest(data)}}).encode()
-        vendor = {'example-1.0.0/.cargo-checksum.json': checksum, 'example-1.0.0/src/lib.rs': data}
+        lock, vendor = cargo_vendor_fixture()
         self.builder.check_vendor(lock, vendor)
+        checksum = vendor['example-1.0.0/.cargo-checksum.json']
         for mutation in ({}, {**vendor, 'example-1.0.0/src/lib.rs': b'changed'},
-                         {**vendor, 'example-1.0.0/.cargo-checksum.json': checksum.replace(b'package-checksum', b'wrong-checksum')}):
+                         {**vendor, 'example-1.0.0/.cargo-checksum.json': checksum.replace(b'a' * 64, b'b' * 64)}):
             with self.assertRaises(ValueError):
                 self.builder.check_vendor(lock, mutation)
+
+    def test_vendor_contract_rejects_empty_incomplete_injected_and_wrong_packages(self):
+        lock, valid = cargo_vendor_fixture()
+        checksum_path = 'example-1.0.0/.cargo-checksum.json'
+        base = json.loads(valid[checksum_path])
+        cases = {}
+        cases['empty'] = {checksum_path: json.dumps({'package': base['package'], 'files': {}}).encode()}
+        cases['missing_manifest'] = {
+            checksum_path: json.dumps({'package': base['package'], 'files': {'src/lib.rs': digest(valid['example-1.0.0/src/lib.rs'])}}).encode(),
+            'example-1.0.0/src/lib.rs': valid['example-1.0.0/src/lib.rs']}
+        cases['injected'] = {**valid, 'example-1.0.0/build.rs': b'fn main() {}\n'}
+        cases['unlisted_root_file'] = {**valid, 'unexpected.rs': b'fn hidden() {}\n'}
+        duplicate = {'unexpected-1.0.0/' + name[len('example-1.0.0/'):]: data for name, data in valid.items()}
+        cases['unlisted_duplicate_package'] = {**valid, **duplicate}
+        empty_map = {**base, 'files': {**base['files'], 'src/empty.rs': digest(b'')}}
+        cases['missing_empty_file'] = {**valid, checksum_path: json.dumps(empty_map).encode()}
+        for field, value in [('name', 'other'), ('version', '2.0.0')]:
+            cargo = valid['example-1.0.0/Cargo.toml'].replace((field + '="' + ('example' if field == 'name' else '1.0.0') + '"').encode(), (field + '="' + value + '"').encode())
+            metadata = {**base, 'files': {**base['files'], 'Cargo.toml': digest(cargo)}}
+            cases['wrong_' + field] = {**valid, 'example-1.0.0/Cargo.toml': cargo, checksum_path: json.dumps(metadata).encode()}
+        for label, vendor in cases.items():
+            with self.subTest(case=label), self.assertRaises(ValueError):
+                self.builder.check_vendor(lock, vendor)
 
     def test_empty_compiler_source_closure_cannot_be_laundered_with_new_hashes(self):
         wrapper = json.loads((self.f['evidence'] / 'native-linux-x64.json').read_bytes())
@@ -320,6 +353,17 @@ class SourceBundleTests(unittest.TestCase):
         wrapper.update(manifest_base64=base64.b64encode(manifest).decode(), manifest_sha256=digest(manifest))
         with self.assertRaisesRegex(ValueError, 'CONFIG_NETWORK'):
             self.builder.native_manifest(wrapper, self.f['commit'], '0.1.0')
+
+    def test_windows_crlf_configuration_is_accepted_with_its_exact_byte_hashes(self):
+        wrapper = json.loads((self.f['evidence'] / 'native-linux-x64.json').read_bytes())
+        native = json.loads(base64.b64decode(wrapper['manifest_base64']))
+        for name in ('ffmpeg-config.h', 'ffmpeg-components.h'):
+            raw = base64.b64decode(wrapper['files'][name]['base64']).replace(b'\n', b'\r\n')
+            native['prefix_files'][name] = digest(raw)
+            wrapper['files'][name] = {'base64': base64.b64encode(raw).decode(), 'size': len(raw), 'sha256': digest(raw)}
+        manifest = (json.dumps(native) + '\n').encode()
+        wrapper.update(manifest_base64=base64.b64encode(manifest).decode(), manifest_sha256=digest(manifest))
+        self.builder.native_manifest(wrapper, self.f['commit'], '0.1.0')
 
     def test_stamping_preserves_original_commit_and_records_actual_diff(self):
         with self.assertRaises(ValueError):
