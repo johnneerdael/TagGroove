@@ -90,11 +90,14 @@ export class FileOpsUI {
   readonly history=new DirectoryHistory(path=>{Promise.resolve().then(()=>this.host.invoke('set_working_directory',{path})).catch(()=>{/* The placeholders stay empty. */});});
   private showing=false;
   private launching:Promise<unknown>=Promise.resolve();
+  private transferDestinations:Partial<Record<'copy_destination'|'move_destination',string>>={};
   constructor(private host:FileOpsHost){}
+  /** Keep this session's successful choices when a later disk-state read is older. */
+  private updateState(state:DirectoryState){this.state={...state,...this.transferDestinations};}
   get fileManager(){return this.host.mac?'Finder':/Win/.test(globalThis.navigator?.platform||'')?'Explorer':'file manager';}
   /** Load preferences, then open queued command-line requests or the startup folder. */
   async initialize(){
-    this.state=await this.host.invoke<DirectoryState>('load_directory_state');this.host.changed();
+    this.updateState(await this.host.invoke<DirectoryState>('load_directory_state'));this.host.changed();
     if(await this.takeLaunches())return;
     const startup=this.host.preferences().startup,start=startup==='previous'?this.state.recent[0]:startup==='favorite'?this.state.favorites[0]:undefined;
     if(start&&!this.host.openReason())await this.openDirectory(start,{replace:true});
@@ -191,8 +194,8 @@ export class FileOpsUI {
         const result=await this.host.invoke<TransferResult>('transfer_files',{paths,destination,mode}),status=transferStatus(result,mode,destination);
         if(mode==='move')this.host.moved(result,status);else this.host.report(result.errors,status);
         if((mode==='copy'?result.copied:result.renamed).length){
-          this.state={...this.state,[key]:destination};
-          try{this.state=await this.host.invoke<DirectoryState>('save_directory_state',{state:this.state});}catch{/* The transfer completed; retain the destination for this session. */}
+          this.transferDestinations[key]=destination;this.updateState(this.state);
+          try{this.updateState(await this.host.invoke<DirectoryState>('save_directory_state',{state:this.state}));}catch{/* The transfer completed; retain the destination for this session. */}
         }
       });
     }
@@ -215,11 +218,11 @@ export class FileOpsUI {
     const loaded=await this.host.load(paths,{replace:options.replace,recursive:this.host.preferences().subfolders,location:options.location,...(options.locationIsData===false?{locationIsData:false}:{})});
     if(!loaded)return false;
     if(options.working)this.history.visit(options.working);
-    if(options.directories.length)try{this.state=await this.host.invoke<DirectoryState>('remember_directories',{paths:options.directories});}catch{/* Recent folders are a convenience; loading already succeeded. */}
+    if(options.directories.length)try{this.updateState(await this.host.invoke<DirectoryState>('remember_directories',{paths:options.directories}));}catch{/* Recent folders are a convenience; loading already succeeded. */}
     this.host.changed();return true;
   }
   private async save(next:DirectoryState){
-    this.state=await this.host.invoke<DirectoryState>('save_directory_state',{state:next});this.host.changed();
+    this.updateState(await this.host.invoke<DirectoryState>('save_directory_state',{state:{...next,...this.transferDestinations}}));this.host.changed();
   }
   /** Favorite directories: add, order, remove and open favorites, and clear the recent list. */
   async manage(){

@@ -245,6 +245,31 @@ test('preference-write failure never hides a completed transfer or causes a retr
   assert.equal(calls.filter(([command]) => command === 'transfer_files').length, 1);
 });
 
+test('unsaved transfer destinations survive directory-state refreshes', async () => {
+  const {ui, host, calls} = harness({directoryState: {copy_destination: '/copy-old', move_destination: '/move-old'}});
+  const invoke = host.invoke;
+  let writable = false;
+  host.invoke = async (command, args) => {
+    if (command === 'save_directory_state' && !writable) throw new Error('preferences temporarily locked');
+    return invoke(command, args);
+  };
+  await ui.initialize();
+  host.picks.push(['/copy-new']);
+  await ui.operate('file-copy');
+  await ui.openDirectory('/another-album', {replace: true});
+  await ui.operate('file-copy');
+  assert.equal(host.pickerCalls.at(-1).defaultPath, '/copy-new');
+  assert.equal(ui.state.copy_destination, '/copy-new');
+  assert.deepEqual(ui.state.recent, ['/another-album']);
+  assert.deepEqual(ui.state.favorites, ['/fav']);
+  writable = true;
+  host.picks.push(['/move-new']);
+  await ui.operate('file-move');
+  const saved = calls.findLast(([command]) => command === 'save_directory_state')[1].state;
+  assert.equal(saved.copy_destination, '/copy-new');
+  assert.equal(saved.move_destination, '/move-new');
+});
+
 test('selection-dependent operations explain why they are unavailable', () => {
   const {ui, host} = harness();
   host.selected = [];
