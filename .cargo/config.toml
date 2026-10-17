@@ -1,0 +1,5 @@
+# Git for Windows ships a coreutils link.exe that Git Bash puts ahead of the MSVC
+# linker on PATH; rust-lld (bundled with rustc) avoids that lookup. LIB comes
+# from the MSVC developer environment.
+[target.x86_64-pc-windows-msvc]
+linker = "rust-lld"
