@@ -48,11 +48,23 @@ class ScreenshotWorkflowTests(unittest.TestCase):
         native = workflow.split("  native-e2e:\n", 1)[1].split("  android:\n", 1)[0]
         self.assertIn("needs: authorize", native)
         self.assertIn("if: needs.authorize.outputs.ready == 'true'", native)
-        self.assertIn("python3 scripts/native-test-config.py", native)
+        self.assertIn("python scripts/native-test-config.py", native)
         self.assertIn("if: runner.os == 'Linux'\n        run: scripts/docs-screenshots.sh", native)
         self.assertIn("name: docs-screens\n", native)
         self.assertIn("if-no-files-found: error", native)
         self.assertIn("xdotool imagemagick x11-utils", native)
+
+    def test_relaunch_suites_consume_the_resolved_executable(self):
+        runner = (ROOT / "scripts/e2e-native.sh").read_text()
+        self.assertIn('export OPENTAG_E2E_BINARY="$bin"', runner)
+        self.assertIn('window.OPENTAG_E2E_BINARY=%s;', runner)
+        self.assertIn('python_executable="${PYTHON:-python}"', runner)
+        for suite in ["playlists", "chapters", "chapter-fields"]:
+            script = (ROOT / f"tests/e2e/{suite}.js").read_text()
+            self.assertIn("const binary = window.OPENTAG_E2E_BINARY;", script)
+            self.assertNotIn("/MacOS/opentag", script)
+        fixture = (ROOT / "tests/e2e/launch-forwarding-fixtures.sh").read_text()
+        self.assertIn("${OPENTAG_E2E_BINARY:?", fixture)
 
     def test_window_selection_handles_directory_titles_and_refuses_root_fallback(self):
         script = (ROOT / "scripts/docs-screenshots.sh").read_text()

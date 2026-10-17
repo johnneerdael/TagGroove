@@ -23,13 +23,15 @@ native() { if [[ "$os" == windows ]]; then cygpath -w "$1"; else printf '%s' "$1
 # Parallel runs need distinct identifiers: single-instance forwarding and app
 # config directories are keyed by it.
 identifier="${OPENTAG_E2E_ID:-org.opentag.editor.usertest}"
-config="$(python3 "$root/scripts/native-test-config.py" --root "$root" --identifier "$identifier")"
+python_executable="${PYTHON:-python3}"
+if [[ "$os" == windows ]]; then python_executable="${PYTHON:-python}"; fi
+config="$("$python_executable" "$root/scripts/native-test-config.py" --root "$root" --identifier "$identifier")"
 if [[ "${2:-}" != "--no-build" ]]; then
   if [[ "$os" == macos ]]; then bundle=(--bundles app); else bundle=(--no-bundle); fi
   if [[ "$os" != windows ]]; then export AR="${AR:-/usr/bin/ar}"; fi
   (cd "$root" && npx tauri build --debug "${bundle[@]}" --config "$config" >/dev/null)
 fi
-bin="$root/$(python3 "$root/scripts/native-test-config.py" --root "$root" --binary-path "$os")"
+bin="$root/$("$python_executable" "$root/scripts/native-test-config.py" --root "$root" --binary-path "$os")"
 # --no-build may reuse a bundle built for another identifier; trust the bundle.
 if [[ "$os" == macos ]]; then
   identifier="$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$(dirname "$(dirname "$bin")")/Info.plist")"
@@ -64,11 +66,19 @@ for spec in "a:440:1" "b:660:2"; do
 done
 # Local tag source data (a freedb folder) sits next to the album.
 if [[ -d "$root/tests/fixtures/freedb" ]]; then cp -R "$root/tests/fixtures/freedb" "$work/freedb"; fi
+# Make the resolved launch target available to second-instance fixtures.
+export OPENTAG_E2E_BINARY="$bin"
 # A script may add its own fixtures: OPENTAG_E2E_FIXTURES=<executable> gets the album folder.
 if [[ -n "${OPENTAG_E2E_FIXTURES:-}" ]]; then "$OPENTAG_E2E_FIXTURES" "$album"; fi
 # WebKitGTK under xvfb has no GPU; use software rendering.
 export WEBKIT_DISABLE_COMPOSITING_MODE=1 WEBKIT_DISABLE_DMABUF_RENDERER=1
 script="$(cd "$(dirname "$script")" && pwd)/$(basename "$script")"
+# Relay the same executable to webview suites that launch a second instance.
+{
+  printf 'window.OPENTAG_E2E_BINARY=%s;\n' "$(node -p 'JSON.stringify(process.argv[1])' "$(native "$bin")")"
+  cat "$script"
+} >"$work/driver.js"
+script="$work/driver.js"
 # Git for Windows ships GNU timeout in /usr/bin (System32 has an unrelated
 # one); macOS has none unless coreutils is installed, so perl's alarm stands in.
 if [[ "$os" == windows ]]; then limit=(/usr/bin/timeout 180)
