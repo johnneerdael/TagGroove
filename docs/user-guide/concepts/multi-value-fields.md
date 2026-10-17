@@ -22,7 +22,7 @@ it belongs inside one name or separates two names.
 
 ## Display separators are not stored punctuation
 
-OpenTag can display multiple values as:
+TagGroove can display multiple values as:
 
 ```text
 Juniper Vale \\ Mira Solberg
@@ -64,7 +64,7 @@ result is written back as one field value.
 
 ## Storage depends on the tag format
 
-OpenTag's editing model is a list of values per field. The writer must
+TagGroove's editing model is a list of values per field. The writer must
 represent that list in the destination format:
 
 | Tag storage | Representation relevant to multiple values |
@@ -73,7 +73,7 @@ represent that list in the destination format:
 | APEv2 | Text values separated inside the item by NUL characters |
 | ID3v2 | Text-frame value lists and format-specific frames; some fields have a single-value restriction |
 | MP4 metadata | Multiple data values; the advanced setting can keep them inside one item atom or write separate item atoms |
-| RIFF INFO | One string per INFO identifier; OpenTag joins multiple values with semicolon-space |
+| RIFF INFO | One string per INFO identifier; TagGroove joins multiple values with semicolon-space |
 | ID3v1 | Limited legacy fields; it cannot represent a general list of values |
 
 The two MP4 layouts can contain the same logical values while being
@@ -97,7 +97,7 @@ different. **Remove Duplicate Fields** is more destructive with its
 same-content option off: it keeps only the first value, including when
 the discarded values were different people. Check that option carefully.
 
-## What this means in OpenTag
+## What this means in TagGroove
 
 Decide whether the destination player needs separate artists or one
 display credit. Preserve separate values when they carry useful structure;

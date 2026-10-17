@@ -51,35 +51,38 @@ test('all20written platform shortcut cases execute actual focus-sensitive keyboa
   }
   assert.equal(total,40);
 });
-test('all11written desktop package names and checksum/run examples belong to the exact inspected published release manifest',()=>{
+test('desktop package examples preserve the inspected format and architecture coverage with current branding',()=>{
   assert.equal(manifest.tag,'v0.2.13');assert.equal(manifest.commit,'325007c47bef4ee53a4aa9b086038157ee3e62dc');
+  const currentName=name=>name.replace(/^OpenTag-v[\d.]+/, 'TagGroove-vVERSION');
   const written=[];
   for(const platform of paths) {
     const prefix=platform==='macos'?'mac':platform;
     const names=[...section(pages[platform],`${prefix}-package-assets`).matchAll(/`([^`]+)`/g)].map(m=>m[1]);
-    for(const name of names){assert(manifest.assets.some(a=>a.name===name));written.push(name);}
+    for(const name of names){assert(manifest.assets.some(a=>currentName(a.name)===name));written.push(name);}
   }
-  const expected=manifest.assets.map(asset=>asset.name).filter(name=>/^OpenTag-v0\.2\.13-(windows|macos|linux)-/.test(name));
+  const expected=manifest.assets.map(asset=>currentName(asset.name)).filter(name=>/^TagGroove-vVERSION-(windows|macos|linux)-/.test(name));
   assert.deepEqual([...written].sort(),expected.sort());assert.equal(written.length,11);
   for(const [platform,marker] of [['macos','mac-checksum'],['windows','windows-checksum'],['linux','linux-checksum'],['linux','linux-appimage-run']]) {
-    const names=block(pages[platform],marker).match(/OpenTag-v[\w.-]+/g);assert(names?.length);
-    for(const name of names)assert(manifest.assets.some(a=>a.name===name),name);
+    const names=block(pages[platform],marker).match(/TagGroove-v[\w.-]+/g);assert(names?.length);
+    for(const name of names)assert(manifest.assets.some(a=>currentName(a.name)===name),name);
   }
   for(const asset of inspected.downloaded)assert.deepEqual(asset,manifest.assets.find(a=>a.name===asset.name));
 });
-test('written Linux runtime dependencies and launch executable come from the inspected published DEB declarations',()=>{
+test('Linux dependency evidence remains historical and launch examples use the current executable',()=>{
   const control=Object.fromEntries(inspected.linux.control.split('\n').filter(line=>/^[A-Za-z-]+: /.test(line)).map(line=>{const at=line.indexOf(': ');return[line.slice(0,at),line.slice(at+2)];}));
   assert.equal(control.Package,'open-tag');assert.equal(control.Version,'0.2.13');assert.equal(control.Architecture,'amd64');
   assert.deepEqual(block(pages.linux,'linux-deb-dependencies').split('\n').sort(),control.Depends.split(', ').sort());
   const desktop=Object.values(inspected.linux.desktop_files);assert.equal(desktop.length,1);
   const executable=/^Exec=(.+)$/m.exec(desktop[0])[1];assert.equal(executable,'opentag');assert(!/MimeType=|%F/.test(desktop[0]));
-  assert(block(pages.linux,'linux-launch').startsWith(executable+' '));
+  assert(block(pages.linux,'linux-launch').startsWith('taggroove '));
+  assert(pages.linux.includes('**OpenTag** entry with `Exec=opentag`'));
+  assert(pages.linux.includes('a new Linux package has not yet been'));
 });
 test('written folder launch destinations run through actual frontend replacement/pending-edit decisions without launching an OS process',async()=>{
   for(const platform of paths) {
     const prefix=platform==='macos'?'mac':platform;
     const command=block(pages[platform],platform==='macos'?'mac-open-document':`${prefix}-launch`);
-    const path=platform==='macos'?/open -a OpenTag '([^']+)'/.exec(command)[1]:/'\/fp:([^']+)'/.exec(command)[1];
+    const path=platform==='macos'?/open -a TagGroove '([^']+)'/.exec(command)[1]:/'\/fp:([^']+)'/.exec(command)[1];
     const loads=[],requests=[],host={mac:platform==='macos',invoke:async(command,args)=>{requests.push([command,args]);if(command==='remember_directories')return{version:1,recent:args.paths,favorites:[]};},selection:()=>[],pendingCount:()=>0,openReason:()=>'',load:async(...args)=>{loads.push(args);return true;},changed:()=>{},preferences:()=>({subfolders:true,startup:'empty'})};
     const ui=new FileOpsUI(host);await ui.launch({directories:[path],files:[],add:false});
     assert.equal(loads.length,1);assert.deepEqual(loads[0],[[path],{replace:true,recursive:true,location:path}]);

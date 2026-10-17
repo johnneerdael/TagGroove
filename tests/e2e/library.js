@@ -1,5 +1,5 @@
 // Native e2e for Options → Library: the page, loading through the library,
-// writes, undo and deletes made by OpenTag updating it, Reload tags, the
+// writes, undo and deletes made by TagGroove updating it, Reload tags, the
 // directory restriction, Cleanup Library and Clear Library.
 // Fixtures: library-fixtures.sh (one MP3 in a folder next to the album).
 // Runs in CI (headless); never on a working desktop.
@@ -133,7 +133,7 @@
       return text;
     });
 
-    await step('files deleted in OpenTag leave the library', async () => {
+    await step('files deleted in TagGroove leave the library', async () => {
       const result = await inv('delete_files_permanently', { paths: [pathOf('sine-b.mp3')] });
       if (result.errors?.length) throw new Error(JSON.stringify(result.errors));
       expect(await library(), { files: count - 1 }, 'after delete');

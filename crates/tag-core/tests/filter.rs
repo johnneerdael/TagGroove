@@ -218,8 +218,8 @@ fn compiled_filters_accept_application_and_date_context() {
     context.columns = Some(&columns);
     context.timestamp_seconds = Some(0);
     context.timezone_offset_seconds = Some(0);
-    context.app_directory = Some("/apps/OpenTag");
-    let filter = compile_filter("\"$columnNames(,',')\" HAS title AND \"$fmtDate(yyyy)\" IS 1970 AND \"$getenv(MP3TAGAPP)\" IS /apps/OpenTag").unwrap();
+    context.app_directory = Some("/apps/TagGroove");
+    let filter = compile_filter("\"$columnNames(,',')\" HAS title AND \"$fmtDate(yyyy)\" IS 1970 AND \"$getenv(MP3TAGAPP)\" IS /apps/TagGroove").unwrap();
     assert!(filter.matches_with_context(&context).unwrap());
     assert!(filter.matches(&f).is_err());
 }

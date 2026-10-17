@@ -57,6 +57,7 @@ jobs:
       - run: python3 -m unittest discover -s .github/scripts/tests -v
       - run: node --test tests/release.test.mjs
       - run: python3 -m unittest discover -s scripts/tests -p 'test_audio*.py' -v
+      - run: python3 scripts/verify-brand.py
       - run: python3 scripts/audio-deps/test_build.py
   desktop:
     needs: authorize
@@ -160,12 +161,12 @@ jobs:
             for (const x of ["public.audio", "public.folder"]) if (!uti.includes(x)) throw new Error(`${x} missing`);
             // macOS ignores extensions in an entry that also lists content types.
             if (types.some(t => t.CFBundleTypeExtensions && t.LSItemContentTypes)) throw new Error("mixed document type");
-            if (types.some(t => t.LSHandlerRank !== "Alternate")) throw new Error("OpenTag must not claim the default handler");
+            if (types.some(t => t.LSHandlerRank !== "Alternate")) throw new Error("TagGroove must not claim the default handler");
             console.log(JSON.stringify(types, null, 1));
           ' "$RUNNER_TEMP/info.json"
       - uses: actions/upload-artifact@v4
         with:
-          name: OpenTag-${{ matrix.os }}
+          name: TagGroove-${{ matrix.os }}
           path: target/release/bundle/
   native-e2e:
     needs: authorize
@@ -355,14 +356,14 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: OpenTag-android-document-tests
+          name: TagGroove-android-document-tests
           path: |
             crates/document-access/android/build/test-results/
             src-tauri/gen/android/app/build/test-results/testArm64DebugUnitTest/
           if-no-files-found: warn
       - uses: actions/upload-artifact@v4
         with:
-          name: OpenTag-android-arm64-debug
+          name: TagGroove-android-arm64-debug
           path: src-tauri/gen/android/app/build/outputs/apk/universal/debug/*.apk
           if-no-files-found: error
 

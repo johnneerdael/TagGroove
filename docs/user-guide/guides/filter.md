@@ -39,7 +39,7 @@ Enabling Auto-apply while unapplied text exists applies that text. The helper al
 
 ## Clear, hide, and restore the filter
 
-Erase the text to show the original loaded list again; in manual mode, press Enter to apply the empty query. **View → Hide filter** or ++f3++ also shows all loaded files. OpenTag remembers the hidden text during the session and restores it when the Filter is shown again. If the hidden text was still being edited in manual mode, showing it restores that text as the applied filter.
+Erase the text to show the original loaded list again; in manual mode, press Enter to apply the empty query. **View → Hide filter** or ++f3++ also shows all loaded files. TagGroove remembers the hidden text during the session and restores it when the Filter is shown again. If the hidden text was still being edited in manual mode, showing it restores that text as the applied filter.
 
 A filtered-out file remains loaded. The selection count is separate from the visible count, so a hidden selected file can still be selected. Review the selected count and selection before a write, rename, or removal. Use **Unselect all** and deliberately select the intended visible rows when a batch must be limited to the result set.
 

@@ -55,7 +55,7 @@ keeps it empty; removing examples does not make them return at the next start.
 6. Choose **Apply action**, then check the title in the file list.
 
 `Low_Tide` becomes `Low Tide`. This is a saved change; there is no extra
-**Save tags** step. OpenTag remembers the last quick-action type and its
+**Save tags** step. TagGroove remembers the last quick-action type and its
 settings. Check them before the next application.
 
 ## Build a reusable group
@@ -82,7 +82,7 @@ Checked groups run in their displayed order. Within a group, field and
 file changes feed the following actions. For example, copy the guest
 artist into `TITLE` before removing it from `ARTIST`.
 
-**Export** and **Generate Playlists** are batch outputs: OpenTag produces
+**Export** and **Generate Playlists** are batch outputs: TagGroove produces
 them after the other actions in that group. They see the group's final
 values even if their row appears earlier. Use a separate group when an
 output must capture a particular intermediate state.
@@ -156,7 +156,7 @@ numbered suffix.
 Inspect every imported action. An **Unresolved imported action** keeps the
 uninterpreted settings visible and prevents checked groups from running.
 Replace or correct that action explicitly; importing a file is not proof
-that every setting has an equivalent in OpenTag.
+that every setting has an equivalent in TagGroove.
 
 Choose **Export .mta…** for the selected group to write an exchange file.
 Only supported export mappings can be written; review any reported error

@@ -1,4 +1,4 @@
-//! Execute copyable public-guide examples with OpenTag's core, not Mp3tag.
+//! Execute copyable public-guide examples with TagGroove's core, not Mp3tag.
 use tag_core::{
     actions::{apply_action_spec, ActionSpec, ActionState},
     evaluate, evaluate_filename_with_context, evaluate_with_context, parse_filename, EvalContext,

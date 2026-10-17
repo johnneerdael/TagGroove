@@ -66,9 +66,9 @@ test('moved files stay listed only inside the listed folders',()=>{
 });
 
 test('update messages and release notes after an update',()=>{
-  const release={version:'0.2.0',name:'OpenTag 0.2.0',url:'https://github.com/johnneerdael/opentag/releases/tag/v0.2.0',prerelease:false,published:null};
-  assert.match(general.updateMessage({current:'0.1.0',latest:release,newer:true}).text,/OpenTag 0\.2\.0 \(0\.2\.0\) is available\. You have OpenTag 0\.1\.0/);
-  assert.equal(general.updateMessage({current:'0.2.0',latest:release,newer:false}).title,'OpenTag is up to date');
+  const release={version:'0.2.0',name:'TagGroove 0.2.0',url:'https://github.com/johnneerdael/TagGroove/releases/tag/v0.2.0',prerelease:false,published:null};
+  assert.match(general.updateMessage({current:'0.1.0',latest:release,newer:true}).text,/TagGroove 0\.2\.0 \(0\.2\.0\) is available\. You have TagGroove 0\.1\.0/);
+  assert.equal(general.updateMessage({current:'0.2.0',latest:release,newer:false}).title,'TagGroove is up to date');
   assert.equal(general.updateMessage({current:'0.1.0',latest:null,newer:false}).title,'No releases found');
   assert.match(general.updateMessage({current:'0.1.0',latest:null,newer:false,skipped_beta:'0.1.0'}).text,/Development build 0\.1\.0 is published; include development builds/);
   const prefs=general.updateOptions({});
@@ -77,7 +77,7 @@ test('update messages and release notes after an update',()=>{
   assert.equal(general.showReleaseNotes({...prefs,last_version:'0.1.0'},'0.2.0'),true);
   assert.equal(general.showReleaseNotes({...prefs,last_version:'0.2.0'},'0.2.0'),false);
   assert.equal(general.showReleaseNotes({...prefs,release_notes:false,last_version:'0.1.0'},'0.2.0'),false);
-  assert.equal(general.releaseNotesUrl('0.2.0'),'https://github.com/johnneerdael/opentag/releases/tag/v0.2.0');
+  assert.equal(general.releaseNotesUrl('0.2.0'),'https://github.com/johnneerdael/TagGroove/releases/tag/v0.2.0');
   const page=general.updatesOptionsPage(()=>{});
   assert.deepEqual(page.controls.filter(c=>c.kind==='checkbox').map(c=>c.path),['pages.updates.check_on_startup','pages.updates.include_beta','pages.updates.release_notes']);
 });
@@ -104,10 +104,10 @@ test('Utils apply to their formats and say what they skip',()=>{
 });
 
 test('the notification area is set up again when its menu labels change language',()=>{
-  const prefs={tray_icon:true,minimize_to_tray:false},english={show:'Show OpenTag',quit:'Quit OpenTag'};
+  const prefs={tray_icon:true,minimize_to_tray:false},english={show:'Show TagGroove',quit:'Quit TagGroove'};
   assert.equal(general.notificationAreaKey(prefs,english),general.notificationAreaKey({...prefs},{...english}));
-  assert.notEqual(general.notificationAreaKey(prefs,english),general.notificationAreaKey(prefs,{show:'OpenTag tonen',quit:'OpenTag afsluiten'}));
+  assert.notEqual(general.notificationAreaKey(prefs,english),general.notificationAreaKey(prefs,{show:'TagGroove tonen',quit:'TagGroove afsluiten'}));
   // An edited language file with the same locale changes only a label.
-  assert.notEqual(general.notificationAreaKey(prefs,{show:'OpenTag tonen',quit:'OpenTag afsluiten'}),general.notificationAreaKey(prefs,{show:'OpenTag weergeven',quit:'OpenTag afsluiten'}));
+  assert.notEqual(general.notificationAreaKey(prefs,{show:'TagGroove tonen',quit:'TagGroove afsluiten'}),general.notificationAreaKey(prefs,{show:'TagGroove weergeven',quit:'TagGroove afsluiten'}));
   assert.notEqual(general.notificationAreaKey(prefs,english),general.notificationAreaKey({...prefs,minimize_to_tray:true},english));
 });

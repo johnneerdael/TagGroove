@@ -1,4 +1,4 @@
-# OpenTag on Windows
+# TagGroove on Windows
 
 Install the published desktop package, distinguish WebView2 startup problems
 from audio-file errors, and choose explicit paths and encodings for a small
@@ -6,8 +6,12 @@ practice set. Windows uses Ctrl for the shared Primary shortcuts.
 
 ## Choose and verify the installer
 
-The published [v0.2.13 release](https://github.com/johnneerdael/opentag/releases/tag/v0.2.13)
-contains this Windows package:
+The package formats and platform limits below were inspected in
+[v0.2.13](https://github.com/johnneerdael/TagGroove/releases/tag/v0.2.13), before
+the rename. The table shows the TagGroove naming pattern for new builds;
+replace `VERSION` with the chosen release’s version. Older releases retain
+their original filenames. Use the actual asset name and checksum from that
+release, and read its notes before installing.
 
 Scroll the download table sideways on a narrow screen to read complete filenames.
 
@@ -16,14 +20,14 @@ Scroll the download table sideways on a narrow screen to read complete filenames
 <!-- windows-package-assets:start -->
 | Processor build | Asset |
 |---|---|
-| x64 / 64-bit Intel or AMD | `OpenTag-v0.2.13-windows-x64-setup.exe` |
+| x64 / 64-bit Intel or AMD | `TagGroove-vVERSION-windows-x64-setup.exe` |
 <!-- windows-package-assets:end -->
 
 </div>
 
 This release has no separate Windows ARM64, 32-bit, portable ZIP or Store
 package. Check a newer release's own assets before choosing it. A framework's
-ability to build another target is not evidence that OpenTag published or
+ability to build another target is not evidence that TagGroove published or
 qualified that target.
 
 Download **SHA256SUMS** from the same release and compare the full hash of
@@ -31,7 +35,7 @@ the installer. In PowerShell, from the download folder:
 
 <!-- windows-checksum:start -->
 ```powershell
-Get-FileHash -Algorithm SHA256 -LiteralPath '.\OpenTag-v0.2.13-windows-x64-setup.exe'
+Get-FileHash -Algorithm SHA256 -LiteralPath '.\TagGroove-vVERSION-windows-x64-setup.exe'
 ```
 <!-- windows-checksum:end -->
 
@@ -45,11 +49,11 @@ Review the download and your organization's policy before running it.
 ## Install and start with WebView2 available
 
 1. Run the verified `-setup.exe` and follow its installation choices.
-2. Open **OpenTag** from the installed shortcut.
+2. Open **TagGroove** from the installed shortcut.
 3. If startup fails before the editor appears, record the exact message
    and check its runtime requirements before trying any audio operations.
 
-OpenTag's Windows interface uses **Microsoft Edge WebView2**. The current
+TagGroove's Windows interface uses **Microsoft Edge WebView2**. The current
 installer configuration leaves Tauri's default runtime bootstrapper mode
 in place: if WebView2 is missing, obtaining it can require internet access.
 An offline machine or restricted download policy can therefore need runtime
@@ -73,7 +77,7 @@ it. Finish pending edits before replacing a working list.
 
 **File → Open in Explorer** reveals selected files or the working folder.
 **Play** opens audio through the system's default association. The installer
-configuration does not automatically register OpenTag as the default audio
+configuration does not automatically register TagGroove as the default audio
 handler or add a custom Explorer context-menu command. Use the File
 menu or window drop if a file-manager launch is not configured.
 
@@ -83,7 +87,7 @@ an example, with both paths to replace with your own locations:
 
 <!-- windows-launch:start -->
 ```powershell
-& 'C:\Path\To\opentag.exe' '/fp:C:\Music\Practice Album'
+& 'C:\Path\To\taggroove.exe' '/fp:C:\Music\Practice Album'
 ```
 <!-- windows-launch:end -->
 
@@ -100,7 +104,7 @@ editing behavior, and Ctrl+Alt/AltGr combinations can be character entry.
 Use menu commands if a desktop utility intercepts a chord.
 
 <!-- windows-key-cases:start -->
-| Chord | Focus | OpenTag result |
+| Chord | Focus | TagGroove result |
 |---|---|---|
 | `Ctrl+D` | File list | Change directory |
 | `Alt+T` | Text field | Extended tags |
@@ -118,14 +122,14 @@ changes; actions and renames have their own immediate Apply/write steps.
 Under **Options → General → Notification area**, **Always show icon in
 notification area** and **Minimize to notification area** both start off.
 The first keeps an icon available; the second can hide a minimized window
-and its taskbar entry. Click its tray icon or choose **Show OpenTag** to
-restore it. The tray menu's **Quit OpenTag** follows the window-close route,
+and its taskbar entry. Click its tray icon or choose **Show TagGroove** to
+restore it. The tray menu's **Quit TagGroove** follows the window-close route,
 including the pending-work decision. Minimizing is not saving pending tags.
 
 ## Paths and older text encodings
 
 Quote paths with spaces in scripts. Literal folder separators typed into
-an OpenTag filename format create folders; slashes inside a tag value are
+a TagGroove filename format create folders; slashes inside a tag value are
 data and use the configured replacement. Preview the entire destination
 and retain enough track/disc information to keep names distinct.
 
@@ -136,7 +140,7 @@ program. See [portable names](../cookbook/rename-safe-characters.md) for the
 scope of `$validate`, Unicode counts and explicit truncation policies.
 
 A Windows ANSI codepage is not synonymous with UTF-8 or Windows-1252.
-OpenTag uses the system ANSI codepage for applicable legacy operations.
+TagGroove uses the system ANSI codepage for applicable legacy operations.
 New text should use Unicode where possible. In **Text File → Tag**, the
 legacy fallback is used only after BOM/valid-UTF-8 detection.
 

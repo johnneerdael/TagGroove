@@ -15,7 +15,7 @@ before writing.
    lyrics are left unchanged.
 
 The lookup first uses metadata and duration. If it returns no usable lyrics,
-OpenTag searches by title and artist. With a known, positive file duration,
+TagGroove searches by title and artist. With a known, positive file duration,
 the fallback accepts only a result within 3 seconds. Without a usable duration,
 it takes the first result containing lyrics, so review that match especially
 carefully. Similar metadata can still identify the wrong version; check live,
@@ -38,7 +38,7 @@ stamps) when available** in **Options → Tag Sources → Online services** to
 keep LRC timestamps. Both choices write text to `UNSYNCEDLYRICS`; this option
 does not create an ID3 synchronized-lyrics frame. Player support varies.
 
-When only synchronized lyrics are available and the option is off, OpenTag
+When only synchronized lyrics are available and the option is off, TagGroove
 removes timestamps and LRC metadata lines. LRCLIB supplies no language;
 ID3 lyrics use the unknown-language code `XXX`. Literal text, including `||`,
 is retained rather than interpreted as a language prefix.

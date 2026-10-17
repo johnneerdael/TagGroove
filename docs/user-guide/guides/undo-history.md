@@ -1,6 +1,6 @@
 # Undo and history
 
-OpenTag's desktop session history records supported changes to local audio
+TagGroove's desktop session history records supported changes to local audio
 files. It is separate from pending tag edits, text-box undo and remembered
 format strings. Read the operation name in the Edit menu before restoring
 anything: history follows the session's recorded operations, not just the
@@ -15,7 +15,7 @@ files you have selected now.
 | A recorded Save, rename, tag removal or action | **Edit → Undo …** | Read its label, file count and any history notice |
 | The last successful Undo | **Edit → Redo …**, when available | A new recorded change normally clears Redo |
 | A file sent to the system trash | The OS trash's restore command | This is outside the tag Undo journal |
-| An external program's edit, permanent deletion or older session | Your independent backup/recovery process | Do not assume an OpenTag step can restore it |
+| An external program's edit, permanent deletion or older session | Your independent backup/recovery process | Do not assume a TagGroove step can restore it |
 
 The saved-format lists called **Manage history…** are reusable text histories.
 Clearing one does not undo file edits. A
@@ -113,7 +113,7 @@ reversal of a later unrecorded transfer or deletion.
 
 A recorded batch can restore some files while reporting that others could
 not be undone. The journal checks recorded filesystem state before replay
-and can refuse a file changed outside OpenTag, a missing file, an occupied
+and can refuse a file changed outside TagGroove, a missing file, an occupied
 old rename destination or a failed snapshot/restore. Do not bypass an error
 by deleting the file at the destination.
 
@@ -145,7 +145,7 @@ does not apply the same free-space query on every platform. Do not fill a
 volume on the assumption that history will always reserve space for you.
 
 Snapshot/storage failure normally does not stop the requested file operation.
-OpenTag can report **cannot be undone** while the operation itself succeeds,
+TagGroove can report **cannot be undone** while the operation itself succeeds,
 or record only part of a batch. The previous Undo label is not proof that
 the latest operation has a recovery copy. Read notices immediately and keep
 an independent backup for changes that must survive quitting.
@@ -159,7 +159,7 @@ recovery mechanisms and are not covered by this desktop local-file journal.
 ## Redo is different from Repeat
 
 Redo has priority on the shared menu item and shortcut while an undone step
-is available. When there is no Redo step, OpenTag can offer **Repeat** for
+is available. When there is no Redo step, TagGroove can offer **Repeat** for
 the available last action/group execution.
 
 - **Redo** replays a recorded result from the history stack.

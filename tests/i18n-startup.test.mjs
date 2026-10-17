@@ -17,7 +17,7 @@ const result=await build({root,configFile:false,logLevel:'silent',plugins:[{name
   if(id.endsWith('/plugin-dialog'))return 'export const open=async()=>null;export const save=async()=>null;export const ask=async()=>false;export const message=async()=>{};export const confirm=async()=>false;';
   throw new Error('Unexpected native module: '+id);
 }}],build:{write:false,minify:false,target:'es2022',lib:{entry:root+'src/main.ts',formats:['es']},rollupOptions:{output:{inlineDynamicImports:true}}}});
-const code=(Array.isArray(result)?result.flatMap(build=>build.output):result.output).find(output=>output.type==='chunk').code,url='data:text/javascript;base64,'+Buffer.from(code+'\n//# sourceURL=opentag-startup-fixture.mjs').toString('base64');
+const code=(Array.isArray(result)?result.flatMap(build=>build.output):result.output).find(output=>output.type==='chunk').code,url='data:text/javascript;base64,'+Buffer.from(code+'\n//# sourceURL=taggroove-startup-fixture.mjs').toString('base64');
 let serial=0;
 const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
 async function until(predicate){for(let i=0;i<200;i++){if(predicate())return;await new Promise(resolve=>setTimeout(resolve,5));}assert.fail('Boot condition did not settle');}
@@ -41,7 +41,7 @@ async function boot({native=true,remembered='fr',choice=remembered,preferred=['e
     if(command==='load_directory_state')return directories.promise;
     if(command==='take_launch_requests')return host.launches.splice(0);
     if(command==='scan_files'){host.scan.push(args.paths);host.scanRecords.push(args);return{entries:[],errors:host.scanErrors};}
-    if(command==='check_for_updates')return{current:'0.2.0',latest:{version:'0.2.1',name:'OpenTag',url:'https://example.invalid/release',prerelease:false,published:null},newer:true};
+    if(command==='check_for_updates')return{current:'0.2.0',latest:{version:'0.2.1',name:'TagGroove',url:'https://example.invalid/release',prerelease:false,published:null},newer:true};
     if(command==='history_state')return{undo:null,redo:null,notice:null};
     if(command==='notification_area_supported')return false;
     if(command==='set_window_title')return;

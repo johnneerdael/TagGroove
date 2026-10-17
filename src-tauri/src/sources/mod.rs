@@ -452,7 +452,7 @@ async fn acoustid_search(
             tauri::async_runtime::spawn_blocking(move || {
                 #[cfg(target_os = "android")]
                 if !crate::documents::is_managed(&approved_path) {
-                    return Err("Choose the audio file through OpenTag's folder picker before fingerprinting it.".into());
+                    return Err("Choose the audio file through TagGroove's folder picker before fingerprinting it.".into());
                 }
                 job.run().map(|fp| (fp.duration, fp.encoded)).map_err(|e| {
                     if matches!(e, opentag_audio_fingerprint::Error::Cancelled) {
@@ -959,7 +959,7 @@ fn apply_one(
     Ok(entry)
 }
 
-/// Write reviewed values immediately, like Mp3tag and OpenTag's other importers.
+/// Write reviewed values immediately, like Mp3tag and TagGroove's other importers.
 /// The cover is downloaded and validated once before any file is touched.
 #[cfg(test)]
 #[tauri::command]
@@ -1862,7 +1862,7 @@ mod tests {
         assert_eq!(error, freedb::LOOK_UP_FIRST);
     }
 
-    /// gnudb answers only registered applications; this records what it says to OpenTag.
+    /// gnudb answers only registered applications; this records what it says to TagGroove.
     #[test]
     #[ignore]
     fn live_gnudb_query() {

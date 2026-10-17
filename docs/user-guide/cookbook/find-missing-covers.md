@@ -38,7 +38,7 @@ This practice snapshot separates the count from the external image:
 
 4. Wait for automatic application, or press Enter if **Auto-apply filter**
    is disabled in the helper menu. A and D match the table above. A still
-   matches when OpenTag can display its folder fallback.
+   matches when TagGroove can display its folder fallback.
 5. Select one result and inspect the cover window's label. **Not embedded in
    the file** explains a folder-image preview; it is not an embedded cover.
    For mixed selections, inspect individual files or **Manage covers…**.

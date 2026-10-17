@@ -37,7 +37,7 @@ test('messages fall back to documented defaults and gate confirmations',async()=
   assert.equal(await ui.confirm('confirm_remove_tags','Remove?','Remove tags'),false);
   values={confirm_remove_tags:false};
   assert.equal(await ui.confirm('confirm_remove_tags','Remove?','Remove tags'),true);
-  await ui.notify('after_save','Saved','OpenTag');values={after_save:true};await ui.notify('after_save','Saved 2','OpenTag');
+  await ui.notify('after_save','Saved','TagGroove');values={after_save:true};await ui.notify('after_save','Saved 2','TagGroove');
   assert.deepEqual([asked,told],[['Remove?'],['Saved 2']]);
 });
 
@@ -105,7 +105,7 @@ test('keyboard shortcut rows are read from the rendered menus',()=>{
   const menu=(name,buttons)=>({querySelector:s=>s==='summary'?{textContent:name}:null,querySelectorAll:()=>buttons});
   const bar={querySelectorAll:()=>[menu('File',[button('Save tags','⌘/Ctrl S'),button('Reload tags')]),menu('Edit',[button('Undo','⌘/Ctrl Z')])]};
   assert.deepEqual(utils.menuShortcuts(bar),[{group:'File',command:'Save tags',keys:'⌘/Ctrl S'},{group:'Edit',command:'Undo',keys:'⌘/Ctrl Z'}]);
-  assert.match(utils.configurationFileName(new Date('2026-10-14T12:00:00Z')),/^opentag-configuration-2026-10-14\.json$/);
+  assert.match(utils.configurationFileName(new Date('2026-10-14T12:00:00Z')),/^taggroove-configuration-2026-10-14\.json$/);
 });
 test('row context menu markup escapes labels and keeps disabled reasons',()=>{
   const markup=menu.contextMenuMarkup([{heading:'Tools'},{label:'A <b>',id:'tool:0',shortcut:'Ctrl 1'},{separator:true},{label:'Remove tag types…',id:'op:remove-tag-types',disabled:true,title:'Select files first.'}]);

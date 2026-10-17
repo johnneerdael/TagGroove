@@ -48,7 +48,7 @@ export const scriptFunctions:[string,string[]][]=[
   ['Variable functions',['$getenv(x)']],
   ['Metadata functions',['$columnNames(x,y)','$columnValues(x,y)','$list(x,y,z,v)','$meta(x)','$meta(x,n)','$meta_sep(x,sep)']],
 ];
-/** Regular expression snippets (an OpenTag addition to the helper menu for regex inputs). */
+/** Regular expression snippets (a TagGroove addition to the helper menu for regex inputs). */
 export const regexSnippets:[string,string][]=[['Any text (.*)','(.*)'],['Shortest text (.*?)','(.*?)'],['Digits \\d+','\\d+'],['Whitespace \\s+','\\s+'],['Word \\w+','\\w+'],['Word boundary \\b','\\b'],['Start of text ^','^'],['End of text $','$'],['Character set [abc]','[abc]'],['Excluded characters [^abc]','[^abc]'],['Group (…)','()'],['Alternatives a|b','|'],['Optional ?','?'],['Repeat n to m times {n,m}','{n,m}'],['Escaped dot \\.','\\.']];
 export const regexReplacementSnippets:[string,string][]=[['Sub-expression 1 $1','$1'],['Sub-expression 2 $2','$2'],['Sub-expression 3 $3','$3']];
 

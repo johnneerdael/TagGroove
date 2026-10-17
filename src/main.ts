@@ -51,26 +51,26 @@ import { CoverUI, type FolderImage } from './covers';
 import { imageExtensions, type CoverInfo } from './cover-model';
 import { chapterRowReason, replaceFileRows, rowFile } from './chapters';
 import { libraryOptionsPage, type CleanupReport, type LibraryStatus } from './library';
-import logoLightUrl from '../assets/brand/OpenTag-Brand-Kit/01-logos/horizontal/opentag-logo-light.svg';
-import markLightUrl from '../assets/brand/OpenTag-Brand-Kit/01-logos/marks/opentag-mark-color.svg';
-import artworkLightUrl from '../assets/brand/OpenTag-Brand-Kit/04-in-app/opentag-default-artwork-light-1024.svg';
-import aboutLightUrl from '../assets/brand/OpenTag-Brand-Kit/04-in-app/opentag-splash-light-1600x1000.svg';
-import glyphAlbum from '../assets/brand/OpenTag-Brand-Kit/04-in-app/ui-icons/opentag-album.svg?raw';
-import glyphBatch from '../assets/brand/OpenTag-Brand-Kit/04-in-app/ui-icons/opentag-batch-edit.svg?raw';
-import glyphCheck from '../assets/brand/OpenTag-Brand-Kit/04-in-app/ui-icons/opentag-check.svg?raw';
-import glyphEdit from '../assets/brand/OpenTag-Brand-Kit/04-in-app/ui-icons/opentag-edit-tags.svg?raw';
-import glyphExport from '../assets/brand/OpenTag-Brand-Kit/04-in-app/ui-icons/opentag-export.svg?raw';
-import glyphImport from '../assets/brand/OpenTag-Brand-Kit/04-in-app/ui-icons/opentag-import.svg?raw';
-import glyphInfo from '../assets/brand/OpenTag-Brand-Kit/04-in-app/ui-icons/opentag-info.svg?raw';
-import glyphMusic from '../assets/brand/OpenTag-Brand-Kit/04-in-app/ui-icons/opentag-music-file.svg?raw';
-import glyphOrganize from '../assets/brand/OpenTag-Brand-Kit/04-in-app/ui-icons/opentag-organize.svg?raw';
-import glyphSave from '../assets/brand/OpenTag-Brand-Kit/04-in-app/ui-icons/opentag-save.svg?raw';
-import glyphSearch from '../assets/brand/OpenTag-Brand-Kit/04-in-app/ui-icons/opentag-search.svg?raw';
-import glyphSettings from '../assets/brand/OpenTag-Brand-Kit/04-in-app/ui-icons/opentag-settings.svg?raw';
-import logoDarkUrl from '../assets/brand/OpenTag-Brand-Kit/01-logos/horizontal/opentag-logo-dark.svg';
-import markDarkUrl from '../assets/brand/OpenTag-Brand-Kit/01-logos/marks/opentag-mark-dark.svg';
-import artworkDarkUrl from '../assets/brand/OpenTag-Brand-Kit/04-in-app/opentag-default-artwork-dark-1024.svg';
-import aboutDarkUrl from '../assets/brand/OpenTag-Brand-Kit/04-in-app/opentag-splash-dark-1600x1000.svg';
+import logoLightUrl from '../assets/brand/TagGroove-Brand-Kit/01-logos/horizontal/taggroove-logo-light.svg';
+import markLightUrl from '../assets/brand/TagGroove-Brand-Kit/01-logos/marks/taggroove-mark-color.svg';
+import artworkLightUrl from '../assets/brand/TagGroove-Brand-Kit/04-in-app/taggroove-default-artwork-light-1024.svg';
+import aboutLightUrl from '../assets/brand/TagGroove-Brand-Kit/04-in-app/taggroove-splash-light-1600x1000.svg';
+import glyphAlbum from '../assets/brand/TagGroove-Brand-Kit/04-in-app/ui-icons/taggroove-album.svg?raw';
+import glyphBatch from '../assets/brand/TagGroove-Brand-Kit/04-in-app/ui-icons/taggroove-batch-edit.svg?raw';
+import glyphCheck from '../assets/brand/TagGroove-Brand-Kit/04-in-app/ui-icons/taggroove-check.svg?raw';
+import glyphEdit from '../assets/brand/TagGroove-Brand-Kit/04-in-app/ui-icons/taggroove-edit-tags.svg?raw';
+import glyphExport from '../assets/brand/TagGroove-Brand-Kit/04-in-app/ui-icons/taggroove-export.svg?raw';
+import glyphImport from '../assets/brand/TagGroove-Brand-Kit/04-in-app/ui-icons/taggroove-import.svg?raw';
+import glyphInfo from '../assets/brand/TagGroove-Brand-Kit/04-in-app/ui-icons/taggroove-info.svg?raw';
+import glyphMusic from '../assets/brand/TagGroove-Brand-Kit/04-in-app/ui-icons/taggroove-music-file.svg?raw';
+import glyphOrganize from '../assets/brand/TagGroove-Brand-Kit/04-in-app/ui-icons/taggroove-organize.svg?raw';
+import glyphSave from '../assets/brand/TagGroove-Brand-Kit/04-in-app/ui-icons/taggroove-save.svg?raw';
+import glyphSearch from '../assets/brand/TagGroove-Brand-Kit/04-in-app/ui-icons/taggroove-search.svg?raw';
+import glyphSettings from '../assets/brand/TagGroove-Brand-Kit/04-in-app/ui-icons/taggroove-settings.svg?raw';
+import logoDarkUrl from '../assets/brand/TagGroove-Brand-Kit/01-logos/horizontal/taggroove-logo-dark.svg';
+import markDarkUrl from '../assets/brand/TagGroove-Brand-Kit/01-logos/marks/taggroove-mark-dark.svg';
+import artworkDarkUrl from '../assets/brand/TagGroove-Brand-Kit/04-in-app/taggroove-default-artwork-dark-1024.svg';
+import aboutDarkUrl from '../assets/brand/TagGroove-Brand-Kit/04-in-app/taggroove-splash-dark-1600x1000.svg';
 import './style.css';
 import './panel-dock.css';
 
@@ -379,7 +379,7 @@ registerOptionsPage(toolsOptionsPage({pickProgram:async()=>{const path=await ope
 const messages=new Messages({values:()=>optionsUI.page('messages'),ask:(text,title)=>ask(text,{title,kind:'warning'}),tell:async(text,title)=>{await message(text,{title,kind:'info'});}});
 let queuedNotices:[MessageKey,string][]=[];
 const noticeLabels:Record<string,MessageKey>={'Removed tags':'after_delete','Removed tag types':'after_delete','Removed unsupported fields':'after_delete','Applied action groups':'after_change','Tag → Tag':'after_change','Renamed':'after_change','Imported text tags':'after_change','Converted filenames to tags':'after_change'};
-async function flushNotices(){const pending=queuedNotices;queuedNotices=[];for(const [key,text] of pending)await messages.notify(key,text,'OpenTag');
+async function flushNotices(){const pending=queuedNotices;queuedNotices=[];for(const [key,text] of pending)await messages.notify(key,text,'TagGroove');
   await autoPlaylist();}
 // Options → Playlist → Create playlist automatically, after saving tags or renaming files.
 async function autoPlaylist(){
@@ -457,7 +457,7 @@ setNotificationAreaSupport(desktop&&!macPlatform);
 let notificationArea='';
 async function applyNotificationArea(){
   if(!desktop||macPlatform)return;
-  const prefs=generalPrefs(),labels={show:t('Show OpenTag'),quit:t('Quit OpenTag')},key=notificationAreaKey(prefs,labels);if(key===notificationArea)return;notificationArea=key;
+  const prefs=generalPrefs(),labels={show:t('Show TagGroove'),quit:t('Quit TagGroove')},key=notificationAreaKey(prefs,labels);if(key===notificationArea)return;notificationArea=key;
   try{const state=await invoke<{supported:boolean;active:boolean}>('set_tray_options',{showIcon:prefs.tray_icon,minimizeToTray:prefs.minimize_to_tray,labels});if(!state.supported)setNotificationAreaSupport(false);}
   catch(error){notificationArea='';errors=[...errors,{path:'Notification area',label:'Notification area',error:publicMessage(error)}];render();}
 }
@@ -592,10 +592,10 @@ const columnUI=new ColumnUI({batchError:error=>error instanceof BatchFailure?err
   layout:()=>columnLayout,
   apply:applyColumns,
   importLayout:async()=>{
-    const path=await open({multiple:false,title:'Load column configuration',filters:[{name:'Column configurations',extensions:['json','ini']},{name:'OpenTag column configurations',extensions:['json']},{name:'Mp3tag columns.ini',extensions:['ini']}]});
+    const path=await open({multiple:false,title:'Load column configuration',filters:[{name:'Column configurations',extensions:['json','ini']},{name:'TagGroove column configurations',extensions:['json']},{name:'Mp3tag columns.ini',extensions:['ini']}]});
     if(typeof path!=='string')return null;
     if(!/\.ini$/i.test(path))return normalizeLayout(await invoke<ColumnLayout>('import_columns',{path}));
-    // Mp3tag column definitions from a columns.ini the user chose; nothing of Mp3tag ships with OpenTag.
+    // Mp3tag column definitions from a columns.ini the user chose; nothing of Mp3tag ships with TagGroove.
     try{
       const imported=await invoke<{layout:ColumnLayout;skipped:string[];skipped_diagnostics?:unknown}>('import_mp3tag_columns',{path});
       status=new ColumnImportStatus(imported.layout.columns.length,basename(path),imported);
@@ -653,7 +653,7 @@ function changedData(){dataRevision++;reviewedConverterContextChanged?.();}
 function timing(name:string,start:number,extra:Record<string,unknown>={}){
   const ms=performance.now()-start;
   perfSink()?.push({name,at:start,ms,...extra});
-  if(dev)console.debug(`[OpenTag performance] ${name}`,{milliseconds:Math.round(ms*100)/100,files:entries.size,...extra});
+  if(dev)console.debug(`[TagGroove performance] ${name}`,{milliseconds:Math.round(ms*100)/100,files:entries.size,...extra});
 }
 function ordered(): Entry[] {
   const key=`${dataRevision}:${columnValues.revision}:${JSON.stringify(columnLayout.sort)}`;
@@ -1004,8 +1004,8 @@ function render() {
   const locationMarkup=`<span class="path" ${locationView.verbatim?'translate="no"':''} title="${esc(locationView.text)}">${esc(locationView.text)}</span>`;
   const filterbar=`<div class="filterbar" ${filterShown?'':'hidden'}><label for="filter">${glyph(glyphSearch)}<span class="visually-hidden">Filter</span></label><input id="filter" type="search" value="${esc(filterDraft??filter)}" data-helper="filter" data-history="filter" data-history-manage placeholder="Filter filenames and tags, or enter a filter expression" autocomplete="off"><span class="count">${countText(list)}</span></div>`,filterInList=compactScreen()||mainLayout.filter==='list';
   const dock=mainLayout.dock,across=horizontalDock(dock),range=across?PANEL_HEIGHT:PANEL_WIDTH;
-  app.innerHTML = `<div class="app" data-pane="${mobilePane}" data-panel="${tagPanel.visible?'shown':'hidden'}" data-dock="${dock}"><header class="titlebar"><img class="brand-logo" data-theme-image="logo" src="${themedAsset('logo')}" alt="OpenTag"><span class="subtitle">Audio metadata editor</span><span class="window-mode">${runtimePlatform.document_access_supported?'Provider documents':desktop?'Local files':'Browser preview'}</span><label class="appearance-control"><span>Appearance</span><select id="appearance" aria-label="Appearance"><option value="system">${appearance.state.preference==='system'?`System (${appearance.state.resolved==='dark'?'Dark':'Light'})`:'System'}</option><option value="light">Light</option><option value="dark">Dark</option></select></label></header>
-  <nav class="menubar" aria-label="Main menu">${menu('File',[['save','Save tags','⌘/Ctrl S'],['remove-tags','Remove tag…','⌘/Ctrl R'],['save-copy','Save a copy…'],['reload','Reload tags','⌘/Ctrl T'],['playlist-all','Playlist (all files)','⌘/Ctrl P'],['playlist-selected','Playlist (selected files)'],['playlist-folders','Playlist per folder (all files)','⌘/Ctrl ⇧ P'],['playlist-generate','Generate playlists…'],['export-config','Export…','⌘/Ctrl E'],['csv','Export CSV…'],['folder','Change directory…',runtimePlatform.document_access_supported?undefined:'⌘/Ctrl D'],['dir-add','Add directory…','Ctrl H'],['files','Add files…',runtimePlatform.document_access_supported?'⌘/Ctrl D':undefined],['playlist-load','Load playlist/cue sheet…'],['dir-up','Upper directory','⌘/Ctrl ⇧ D'],['dir-back','Previous directory','Alt ←'],['dir-forward','Next directory','Alt →'],['dir-favorite','Favorite directory','Ctrl M'],['dir-manage','Favorite directories…'],['clear-list','Clear list'],['file-reveal',`Open in ${fileOps.fileManager}`],['file-play','Play','F4'],['options','Options…','⌘/Ctrl O'],['config-save','Save configuration…'],['config-load','Load configuration…'],['config-folder','Open configuration folder']])}${menu('Edit',[['undo',esc(historyLabel('Undo',history.undo)),'⌘/Ctrl Z'],['redo',esc(repeatState().label),'⌘/Ctrl Y'],['cut-tags','Cut tags','⌘/Ctrl X'],['copy-tags','Copy tags','⌘/Ctrl C'],['copy-text','Copy as Text…'],['paste-tags','Paste tags','⌘/Ctrl V'],['select-all','Select all','⌘/Ctrl A'],['invert-selection','Invert selection','⌘/Ctrl ⇧A'],['unselect-all','Unselect all','⌘/Ctrl U'],['select-next','Select next file','⌘/Ctrl N'],['select-similar','Select similar files','⌘/Ctrl G'],['select-next-similar','Select next similar files','⌘/Ctrl ⇧G'],['find','Find…','⌘/Ctrl F'],['edit-cell','Edit in file list','F2'],['file-copy','Copy files to…','⌘/Ctrl ⇧ C'],['file-move','Move files to…','⌘/Ctrl ⇧ V'],['remove-from-list','Remove from list',macPlatform?'⌫ / Del':'Del'],['file-delete','Delete files…','⌘/Ctrl Del'],['file-delete-permanent','Delete files permanently…',macPlatform?'⌘⇧⌫ / ⌘⇧Del':'Ctrl ⇧ Del'],['discard','Discard pending changes','⌘/Ctrl B'],['cover-manage','Manage covers…',macPlatform?'⌘⌥M':'Ctrl Alt M']])}${menu('View',[viewListItems[0],['toggle-panel',tagPanel.visible?'Hide tag panel':'Show tag panel','Ctrl Q'],['extended','Extended tags…','Alt T'],['toggle-filter',filterShown?'Hide filter':'Show filter','F3'],['panel-defaults','Default values in input fields'],['panel-options','Customize tag panel…'],['field-values','Field values…'],...viewListItems.slice(1)])}${menu('Convert',[['tags-filename','Tag → Filename…','Alt 1'],['filename-tags','Filename → Tag…','Alt 2'],['filename-filename','Filename → Filename…','Alt 3'],['text-tags','Text File → Tag…','Alt 4'],['tag-tag','Tag → Tag…','Alt 5'],['number','Auto-numbering…','⌘/Ctrl K']])}${menu('Actions',[['groups','Actions…','Alt 6'],['action','Actions (Quick)…','Alt Shift 6']])}${menu('Tag Sources',([['source-musicbrainz','MusicBrainz…'],['source-discogs','Discogs…'],['source-discogs-release','Discogs Release ID…'],['source-itunes','iTunes…'],['source-deezer','Deezer…'],['source-lastfm','Last.fm…'],['source-acoustid','AcoustID (fingerprints)…'],['source-freedb','freedb…'],['source-local-freedb','freedb (local)…','⌘/Ctrl L'],['source-lrclib','Lyrics: LRCLIB…'],['source-cover-freedb','Covers: freedb (gnudb)…'],['source-cover-musicbrainz','Covers: MusicBrainz…'],['source-cover-discogs','Covers: Discogs…'],['source-cover-itunes','Covers: iTunes…'],['source-cover-deezer','Covers: Deezer…'],['source-cover-fanart','Covers: fanart.tv…'],...(desktop&&runtimePlatform.folder_picker_supported?[['source-install','Install tag sources…'],['source-folder','Open sources folder']] as [Operation,string][]:[]),['source-token','Discogs access token…'],['source-keys','API keys…'],['source-options','Options…']] as [Operation,string,string?][]).map(([op,label,key])=>[op,label,!lastWebSource()&&op===tagSourcesUI.lastOperation?'⌘/Ctrl I':key] as [Operation,string,string?]))}${menu('Tools',[['remove-tag-types','Remove tag types…'],['strip-mp4-chapters','Strip chapters MP4…'],['util-unsupported','Remove unsupported fields…'],['util-optimize','Optimize…'],['tools-options','Configure tools…']])}${menu('Help',[['help-docs','Documentation'],['help-shortcuts','Keyboard shortcuts'],['help-issues','Report an issue'],['help-updates','Check for updates…'],['help-releases','Releases'],['about','About OpenTag']])}</nav>
+  app.innerHTML = `<div class="app" data-pane="${mobilePane}" data-panel="${tagPanel.visible?'shown':'hidden'}" data-dock="${dock}"><header class="titlebar"><img class="brand-logo" data-theme-image="logo" src="${themedAsset('logo')}" alt="TagGroove"><span class="subtitle">Audio metadata editor</span><span class="window-mode">${runtimePlatform.document_access_supported?'Provider documents':desktop?'Local files':'Browser preview'}</span><label class="appearance-control"><span>Appearance</span><select id="appearance" aria-label="Appearance"><option value="system">${appearance.state.preference==='system'?`System (${appearance.state.resolved==='dark'?'Dark':'Light'})`:'System'}</option><option value="light">Light</option><option value="dark">Dark</option></select></label></header>
+  <nav class="menubar" aria-label="Main menu">${menu('File',[['save','Save tags','⌘/Ctrl S'],['remove-tags','Remove tag…','⌘/Ctrl R'],['save-copy','Save a copy…'],['reload','Reload tags','⌘/Ctrl T'],['playlist-all','Playlist (all files)','⌘/Ctrl P'],['playlist-selected','Playlist (selected files)'],['playlist-folders','Playlist per folder (all files)','⌘/Ctrl ⇧ P'],['playlist-generate','Generate playlists…'],['export-config','Export…','⌘/Ctrl E'],['csv','Export CSV…'],['folder','Change directory…',runtimePlatform.document_access_supported?undefined:'⌘/Ctrl D'],['dir-add','Add directory…','Ctrl H'],['files','Add files…',runtimePlatform.document_access_supported?'⌘/Ctrl D':undefined],['playlist-load','Load playlist/cue sheet…'],['dir-up','Upper directory','⌘/Ctrl ⇧ D'],['dir-back','Previous directory','Alt ←'],['dir-forward','Next directory','Alt →'],['dir-favorite','Favorite directory','Ctrl M'],['dir-manage','Favorite directories…'],['clear-list','Clear list'],['file-reveal',`Open in ${fileOps.fileManager}`],['file-play','Play','F4'],['options','Options…','⌘/Ctrl O'],['config-save','Save configuration…'],['config-load','Load configuration…'],['config-folder','Open configuration folder']])}${menu('Edit',[['undo',esc(historyLabel('Undo',history.undo)),'⌘/Ctrl Z'],['redo',esc(repeatState().label),'⌘/Ctrl Y'],['cut-tags','Cut tags','⌘/Ctrl X'],['copy-tags','Copy tags','⌘/Ctrl C'],['copy-text','Copy as Text…'],['paste-tags','Paste tags','⌘/Ctrl V'],['select-all','Select all','⌘/Ctrl A'],['invert-selection','Invert selection','⌘/Ctrl ⇧A'],['unselect-all','Unselect all','⌘/Ctrl U'],['select-next','Select next file','⌘/Ctrl N'],['select-similar','Select similar files','⌘/Ctrl G'],['select-next-similar','Select next similar files','⌘/Ctrl ⇧G'],['find','Find…','⌘/Ctrl F'],['edit-cell','Edit in file list','F2'],['file-copy','Copy files to…','⌘/Ctrl ⇧ C'],['file-move','Move files to…','⌘/Ctrl ⇧ V'],['remove-from-list','Remove from list',macPlatform?'⌫ / Del':'Del'],['file-delete','Delete files…','⌘/Ctrl Del'],['file-delete-permanent','Delete files permanently…',macPlatform?'⌘⇧⌫ / ⌘⇧Del':'Ctrl ⇧ Del'],['discard','Discard pending changes','⌘/Ctrl B'],['cover-manage','Manage covers…',macPlatform?'⌘⌥M':'Ctrl Alt M']])}${menu('View',[viewListItems[0],['toggle-panel',tagPanel.visible?'Hide tag panel':'Show tag panel','Ctrl Q'],['extended','Extended tags…','Alt T'],['toggle-filter',filterShown?'Hide filter':'Show filter','F3'],['panel-defaults','Default values in input fields'],['panel-options','Customize tag panel…'],['field-values','Field values…'],...viewListItems.slice(1)])}${menu('Convert',[['tags-filename','Tag → Filename…','Alt 1'],['filename-tags','Filename → Tag…','Alt 2'],['filename-filename','Filename → Filename…','Alt 3'],['text-tags','Text File → Tag…','Alt 4'],['tag-tag','Tag → Tag…','Alt 5'],['number','Auto-numbering…','⌘/Ctrl K']])}${menu('Actions',[['groups','Actions…','Alt 6'],['action','Actions (Quick)…','Alt Shift 6']])}${menu('Tag Sources',([['source-musicbrainz','MusicBrainz…'],['source-discogs','Discogs…'],['source-discogs-release','Discogs Release ID…'],['source-itunes','iTunes…'],['source-deezer','Deezer…'],['source-lastfm','Last.fm…'],['source-acoustid','AcoustID (fingerprints)…'],['source-freedb','freedb…'],['source-local-freedb','freedb (local)…','⌘/Ctrl L'],['source-lrclib','Lyrics: LRCLIB…'],['source-cover-freedb','Covers: freedb (gnudb)…'],['source-cover-musicbrainz','Covers: MusicBrainz…'],['source-cover-discogs','Covers: Discogs…'],['source-cover-itunes','Covers: iTunes…'],['source-cover-deezer','Covers: Deezer…'],['source-cover-fanart','Covers: fanart.tv…'],...(desktop&&runtimePlatform.folder_picker_supported?[['source-install','Install tag sources…'],['source-folder','Open sources folder']] as [Operation,string][]:[]),['source-token','Discogs access token…'],['source-keys','API keys…'],['source-options','Options…']] as [Operation,string,string?][]).map(([op,label,key])=>[op,label,!lastWebSource()&&op===tagSourcesUI.lastOperation?'⌘/Ctrl I':key] as [Operation,string,string?]))}${menu('Tools',[['remove-tag-types','Remove tag types…'],['strip-mp4-chapters','Strip chapters MP4…'],['util-unsupported','Remove unsupported fields…'],['util-optimize','Optimize…'],['tools-options','Configure tools…']])}${menu('Help',[['help-docs','Documentation'],['help-shortcuts','Keyboard shortcuts'],['help-issues','Report an issue'],['help-updates','Check for updates…'],['help-releases','Releases'],['about','About TagGroove']])}</nav>
   ${toolbarsMarkup(filterbar)}
   <nav class="mobile-panes" aria-label="Workspace view"><button data-pane="files" aria-pressed="${mobilePane==='files'}">Files (${entries.size})</button><button data-pane="tags" aria-pressed="${mobilePane==='tags'}" ${selected.size?'':'disabled'}>Tags (${selected.size})</button></nav>
   <main class="workspace"><aside class="editor" aria-label="Tag editor"><div class="panel-title" ${compactScreen()?'':`title="Drag to dock the tag panel at another edge or to float it; double-click to ${dock==='float'?'dock it again':'float it'}"`}>Tag panel <span class="panel-count">${panelCount()}</span>${tagPanel.titleHTML()}</div>${sourceMarkup('tags')}<div class="fields">${tagPanel.fieldsHTML()}</div><div class="editor-actions">${button('save','Save tags')}${button('extended','Extended…')}</div>
@@ -1830,7 +1830,7 @@ async function checkForUpdates(startup:boolean){
   }
   if(startup&&!check.newer)return;
   const text=updateMessage(check),latest=check.latest;
-  const dialog=modal(text.title,`<p>${esc(text.text)}</p>${latest?.published?`<p><small>Published ${esc(new Date(latest.published).toLocaleDateString())}. OpenTag does not download or install updates; get them from the release page.</small></p>`:''}`,latest?`<button id="update-release" class="primary">${check.newer?'Open release page':'View release notes'}</button>`:'');
+  const dialog=modal(text.title,`<p>${esc(text.text)}</p>${latest?.published?`<p><small>Published ${esc(new Date(latest.published).toLocaleDateString())}. TagGroove does not download or install updates; get them from the release page.</small></p>`:''}`,latest?`<button id="update-release" class="primary">${check.newer?'Open release page':'View release notes'}</button>`:'');
   dialog.classList.add('updates-dialog');dialog.querySelector('[data-close]')!.textContent='Close';
   dialog.querySelector('#update-release')?.addEventListener('click',()=>{void invoke('open_release_page',{url:latest!.url}).catch(error=>modalError(dialog,error)).then(()=>dialog.close());});
 }
@@ -1845,7 +1845,7 @@ async function operateImpl(op: Operation) {
   if(!enabled(op))return;
   if(op==='about'){
     const licenses=audioLicenses.map(license=>`<details><summary>${esc(license.title)}</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(license.text)}</pre></details>`).join('');
-    const dialog=modal('About OpenTag',`<img class="about-artwork" data-theme-image="about" src="${themedAsset('about')}" alt="OpenTag — Tag, Organize, Enjoy"><p>Tag, Organize, Enjoy.</p><p>Open source music tag editor.</p><p>Version ${esc(appVersion)} · OpenTag source: MIT License</p><h3>Built-in audio fingerprinting</h3><p id="audio-backend-versions">Chromaprint 1.6.2 and FFmpeg 9.0.2, with zlib and bzip2. These components include LGPL 2.1-or-later code; their licenses and notices appear below.</p><p>The matching release includes complete corresponding application and native-library sources, build recipes and instructions for modifying and relinking these libraries. Library modification and reverse engineering for debugging modifications are permitted under their applicable licenses.</p><button type="button" id="audio-source-release">Sources and releases</button>${licenses}`,'');
+    const dialog=modal('About TagGroove',`<img class="about-artwork" data-theme-image="about" src="${themedAsset('about')}" alt="TagGroove — Tag, Organize, Enjoy"><p>Tag, Organize, Enjoy.</p><p>Open source music tag editor.</p><p>Version ${esc(appVersion)} · TagGroove source: MIT License</p><h3>Built-in audio fingerprinting</h3><p id="audio-backend-versions">Chromaprint 1.6.2 and FFmpeg 9.0.2, with zlib and bzip2. These components include LGPL 2.1-or-later code; their licenses and notices appear below.</p><p>The matching release includes complete corresponding application and native-library sources, build recipes and instructions for modifying and relinking these libraries. Library modification and reverse engineering for debugging modifications are permitted under their applicable licenses.</p><button type="button" id="audio-source-release">Sources and releases</button>${licenses}`,'');
     dialog.querySelector('[data-close]')!.textContent='Close';
     dialog.querySelector('#audio-source-release')!.addEventListener('click',()=>{void invoke('open_help_page',{page:'releases'}).catch(error=>modalError(dialog,error));});
     try{const info=await invoke<{chromaprint:string;ffmpeg:string}>('audio_fingerprint_backend');const target=dialog.querySelector('#audio-backend-versions');if(target)target.textContent=`Chromaprint ${info.chromaprint} and FFmpeg ${info.ffmpeg}, with zlib and bzip2. These components include LGPL 2.1-or-later code; their licenses and notices appear below.`;}catch{/* Bundled notices remain available when the native command is unavailable. */}
@@ -1915,7 +1915,7 @@ async function operateImpl(op: Operation) {
   if(op==='config-load'){
     const path=await open({multiple:false,title:'Load configuration',filters:[CONFIGURATION_FILTER]});if(typeof path!=='string')return;
     // Pass source paragraphs to the native boundary; it translates once, then joins the layout.
-    if(!await ask({parts:[`Replace the current options, action groups, export configurations, columns, tag panel, favorite directories and remembered lists with ${basename(path)}?${drafts.size?` Pending changes in ${drafts.size} file${drafts.size===1?'':'s'} are discarded.`:''}`,'OpenTag reloads its window afterwards. The Discogs access token is not part of a configuration file.'],separator:'\n\n'},{title:'Load configuration',kind:'warning'}))return;
+    if(!await ask({parts:[`Replace the current options, action groups, export configurations, columns, tag panel, favorite directories and remembered lists with ${basename(path)}?${drafts.size?` Pending changes in ${drafts.size} file${drafts.size===1?'':'s'} are discarded.`:''}`,'TagGroove reloads its window afterwards. The Discogs access token is not part of a configuration file.'],separator:'\n\n'},{title:'Load configuration',kind:'warning'}))return;
     // Remembered lists are part of the configuration; nothing may save over the restored ones.
     await helperLists.flush().catch(()=>{});helperLists.pause();
     const restored=await invoke<string[]>('import_configuration',{path});drafts.clear();status=`Loaded ${restored.length} configuration file${restored.length===1?'':'s'}`;window.location.reload();return;
@@ -1987,7 +1987,7 @@ async function operate(op: Operation) {
   try { if(listOperations.includes(op)){if(enabled(op))await listOperation(op);}else await operateImpl(op); }
   catch(error) {errors=[{path:'Operation',label:'Operation',error:String(error)}];status='Operation failed';render();}
 }
-// Modifier keys seen by the window, for drops while OpenTag has the keyboard; the native state is asked as well.
+// Modifier keys seen by the window, for drops while TagGroove has the keyboard; the native state is asked as well.
 let heldModifiers={control:false,command:false};
 const trackModifiers=(event:KeyboardEvent)=>{heldModifiers={control:event.ctrlKey,command:event.metaKey};};
 window.addEventListener('keydown',trackModifiers,true);window.addEventListener('keyup',trackModifiers,true);
@@ -2063,7 +2063,7 @@ installHelperMenus({
   storage:helperLists,
   fieldNames:()=>[...new Set(paths().flatMap(path=>Object.keys(merged(entries.get(path)!))))],
   panelFields:()=>tagPanel.settings.panel.fields.filter(field=>field.visible&&!field.field.startsWith('_')).map(field=>field.field),
-  confirm:message=>ask(message,{title:'OpenTag',kind:'warning'}),
+  confirm:message=>ask(message,{title:'TagGroove',kind:'warning'}),
   filterAutoApply:{get:()=>filterAutoApply,set:value=>{filterAutoApply=value;try{localStorage.setItem('opentag.filter-auto-apply',String(value));}catch{/* Session-only preference. */}if(value&&filterDraft!==undefined){filter=filterDraft;filterDraft=undefined;}render();}},
 });
 render();
@@ -2096,7 +2096,7 @@ if(desktop){
     if(busy){event.preventDefault();return;}
     if(!drafts.size&&!actionUI.hasUnsavedChanges)return;
     event.preventDefault();
-    const message=drafts.size?`Close OpenTag and discard pending changes in ${drafts.size} file${drafts.size===1?'':'s'}${actionUI.hasUnsavedChanges?' and unsaved action group changes':''}?`:'Close OpenTag and discard unsaved action group changes?';
+    const message=drafts.size?`Close TagGroove and discard pending changes in ${drafts.size} file${drafts.size===1?'':'s'}${actionUI.hasUnsavedChanges?' and unsaved action group changes':''}?`:'Close TagGroove and discard unsaved action group changes?';
     if(await messages.confirm('unsaved_changes',message,'Unsaved changes')){
       await getCurrentWindow().destroy();
     }

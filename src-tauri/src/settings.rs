@@ -240,7 +240,7 @@ pub fn load(path: &Path) -> (Settings, Option<String>) {
     if version.is_some_and(|v| v > u64::from(VERSION)) {
         return (
             Settings::default(),
-            Some("Options were saved by a newer OpenTag version; defaults are in use".into()),
+            Some("Options were saved by a newer TagGroove version; defaults are in use".into()),
         );
     }
     // Version 1 is the first schema; older files without a version migrate as-is.

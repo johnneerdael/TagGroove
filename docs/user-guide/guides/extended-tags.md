@@ -91,7 +91,7 @@ a visible custom name is not a promise that every player will display it.
 
 Right-click a field row outside a value textarea, or focus the row and use
 ++shift+f10++. **Copy field** retains the field name and its separate values
-in OpenTag's field clipboard. **Cut field** additionally marks the original
+in TagGroove's field clipboard. **Cut field** additionally marks the original
 row for removal. Paste replaces a matching field's values, or adds a row
 when the field is absent.
 

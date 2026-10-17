@@ -1,6 +1,6 @@
 # Filter syntax
 
-The installed OpenTag app evaluates these expressions in the Filter. A query selects matching rows from the loaded file list; it does not edit metadata or scan folders that have not been loaded.
+The installed TagGroove app evaluates these expressions in the Filter. A query selects matching rows from the loaded file list; it does not edit metadata or scan folders that have not been loaded.
 
 !!! tip "New to this?"
     Follow [Filtering the file list](../guides/filter.md) for showing the Filter, applying a query, restoring all rows, and interpreting errors.
@@ -110,7 +110,7 @@ The app's save paths can remove empty metadata rather than preserving this exact
 
 ## Regular expressions
 
-`MATCHES` uses the same Boost-based engine as OpenTag scripting, with case-insensitive matching by default. It finds a match anywhere unless anchors such as `^` and `$` constrain it. Quote a complete pattern when it contains spaces or filter grouping syntax. The word `MATCH` is rejected, rather than treated as another regex operator.
+`MATCHES` uses the same Boost-based engine as TagGroove scripting, with case-insensitive matching by default. It finds a match anywhere unless anchors such as `^` and `$` constrain it. Quote a complete pattern when it contains spaces or filter grouping syntax. The word `MATCH` is rejected, rather than treated as another regex operator.
 
 ```text
 TRACK MATCHES "^[0-9]+/[0-9]+$"
@@ -164,7 +164,7 @@ A and B also have `ALBUM=Harbour Lights`; C has `ALBUM=Night Harbour`. D has no 
 
 Invalid syntax, an invalid regular expression, or an unavailable scripting context is reported as a filter error. Correct it rather than interpreting the empty view as a valid no-match result. The parser also rejects overly large queries (more than 1 MiB), more than 8,192 tokens, or excessive nesting (depth limit 128). Regex evaluation has its own limits.
 
-These are OpenTag source-verified rules. They do not establish identical corner-case results in the original Mp3tag executable, in another regex engine, or in OpenTag's simplified browser preview.
+These are TagGroove source-verified rules. They do not establish identical corner-case results in the original Mp3tag executable, in another regex engine, or in TagGroove's simplified browser preview.
 
 ## Related
 

@@ -42,7 +42,7 @@ that another format or player has the same native facility.
 
 ## File-list sorting is a separate decision
 
-OpenTag's default Artist column displays the artist values and sorts that
+TagGroove's default Artist column displays the artist values and sorts that
 column's evaluated display value. It does not automatically substitute
 `ARTISTSORT`. A custom column can display the original credit while using a
 different **SORT BY (EMPTY = VALUE)** expression.
@@ -71,10 +71,10 @@ Imagine a collection called *Harbour Sessions*: one track credits
 different. Giving both `ALBUMARTIST` = `Various Artists` can supply a common
 album credit where a player uses album artist for grouping. Keep the album
 name and disc/track numbers consistent too. Grouping behavior still belongs
-to the player; the text `Various Artists` is not a special OpenTag command.
+to the player; the text `Various Artists` is not a special TagGroove command.
 
 `COMPILATION` is a separate flag. It neither fills `ALBUMARTIST` nor changes
-track credits. In OpenTag's constrained ID3v2 and MP4 mappings, enable it
+track credits. In TagGroove's constrained ID3v2 and MP4 mappings, enable it
 with `1`, or remove the field to disable it:
 
 <!-- compilation-concept-cases:start -->
@@ -91,7 +91,7 @@ APEv2/Vorbis text fields do not acquire these ID3/MP4 constraints merely
 because they have the same name. Inspect the [structured-field rules](../reference/field-names.md#structured-values)
 and saved result for the actual file format.
 
-## What this means in OpenTag
+## What this means in TagGroove
 
 Use [Extended tags](../guides/extended-tags.md) to inspect or add fields that
 are not in the tag panel. **Keep changes** stages its text edits; finish with

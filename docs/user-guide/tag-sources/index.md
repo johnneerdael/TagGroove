@@ -101,14 +101,14 @@ the audio file. **Preview** also contacts the source in your browser.
 There is no downloaded offline mirror of these online catalogs. A configured
 local freedb folder can supply disc metadata without a server lookup.
 
-Personal API keys live in `tag-sources.json` in OpenTag's configuration folder,
+Personal API keys live in `tag-sources.json` in TagGroove's configuration folder,
 separately from ordinary Options. They are text with restricted file permissions
-where supported, not encrypted by OpenTag. Keep this file out of shared
+where supported, not encrypted by TagGroove. Keep this file out of shared
 configuration copies. Discogs also has an optional system keychain location.
 Built-in application keys are part of the installed binary; they cannot keep
 an individual's secret confidential from someone inspecting that binary.
 
-OpenTag avoids putting credentials in displayed errors. Authentication still
+TagGroove avoids putting credentials in displayed errors. Authentication still
 sends the required credential to its provider over HTTPS; Last.fm uses a
 request URL parameter. Consult provider terms before redistributing data or
 artwork.

@@ -81,7 +81,7 @@ too. A picture role does not establish which scan or edition is correct.
 ## Respect formats without Front/Back roles
 
 MP4 artwork does not retain Front/Back type and description distinctions;
-OpenTag normalizes it to **Other**. Do not remove every Other picture while
+TagGroove normalizes it to **Other**. Do not remove every Other picture while
 expecting this role-based recipe to discover a front automatically. For such
 a file, inspect images individually and keep the chosen image by its content.
 Other tag formats can also restrict roles, descriptions or repeated pictures.

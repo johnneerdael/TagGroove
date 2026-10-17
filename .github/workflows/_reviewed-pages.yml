@@ -51,7 +51,7 @@ jobs:
       - run: python scripts/docs-status.py
       - run: python -m mkdocs build --strict
       - name: Set the custom domain
-        run: echo 'opentag.neerdael.nl' > build/user-guide-site/CNAME
+        run: echo 'taggroove.neerdael.nl' > build/user-guide-site/CNAME
       - uses: actions/upload-pages-artifact@v3
         with:
           path: build/user-guide-site

@@ -46,7 +46,7 @@ language name alone can produce another plausible but wrong result.
 ## Tag format and text encoding are separate choices
 
 An MP3 file can contain ID3 tags. The ID3 revision and selected text
-encoding determine how its text frames are written. OpenTag's MPEG options
+encoding determine how its text frames are written. TagGroove's MPEG options
 offer these combinations:
 
 | ID3v2 write choice | Text encoding |
@@ -56,7 +56,7 @@ offer these combinations:
 | ID3v2.4 UTF-8 | Unicode UTF-8 |
 
 The initial default is ID3v2.3 UTF-16. The Latin-1 choice cannot preserve
-characters outside U+0000–U+00FF; OpenTag's conversion replaces those with
+characters outside U+0000–U+00FF; TagGroove's conversion replaces those with
 `?`. Keep originals before choosing a restricted encoding for compatibility.
 
 This is metadata encoding. It does not change MP3 audio encoding,
@@ -66,7 +66,7 @@ rules; an ID3 option does not change how every audio format stores text.
 ## Reading external text files
 
 Text import uses a decoding rule for the source file, separate from the
-tag encoding used when the imported values are saved. For OpenTag's
+tag encoding used when the imported values are saved. For TagGroove's
 structured text import, Import Text File action and export-template reader:
 
 1. A supported Unicode BOM selects that decoding.
@@ -100,7 +100,7 @@ automatic mojibake repair. A `?` or replacement character introduced by
 an earlier lossy conversion usually means the original information is
 already missing; another codepage cannot infer the lost name.
 
-## What this means in OpenTag
+## What this means in TagGroove
 
 Start by checking whether the text is wrong in the saved tag or only in
 one player's display. If the tag contains correct Unicode, a destructive

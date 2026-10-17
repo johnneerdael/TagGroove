@@ -3,7 +3,7 @@
 Open **File → Options… → Tags** to choose when edits are saved and which images the tag panel displays. The child pages configure [Mpeg](tags-mpeg.md), [Ape, Mpc](tags-ape-mpc.md), [Mapping](tags-mapping.md), and [Advanced](tags-advanced.md) behavior.
 
 !!! tip "New to this?"
-    An edited field can be pending in OpenTag while the audio file on disk is unchanged. Keep the default pending mode to review a batch before using **Save tags**.
+    An edited field can be pending in TagGroove while the audio file on disk is unchanged. Keep the default pending mode to review a batch before using **Save tags**.
 
 ## Save tags when changing selection
 
@@ -17,16 +17,16 @@ This controls changed fields when **<<** or **>>** moves between files in **Exte
 
 | Mode | Result |
 |---|---|
-| **Keep changes pending** | Default. Keep the edits in OpenTag for a later **Save tags**. |
+| **Keep changes pending** | Default. Keep the edits in TagGroove for a later **Save tags**. |
 | **Ask** | Ask how to handle the changed fields before moving. |
 | **Ignore changes** | Discard the dialog's changes for the file being left. |
 | **Save changes** | Write changes when moving to the other file. A save failure must be resolved rather than treated as a successful move. |
 
-**Keep changes** in the editor stages the changes; pending mode does not mean the file has already been saved. Review the selection and pending state before writing. OpenTag's explicit pending mode is an addition to Mp3tag's documented ask/ignore/save choices.
+**Keep changes** in the editor stages the changes; pending mode does not mean the file has already been saved. Review the selection and pending state before writing. TagGroove's explicit pending mode is an addition to Mp3tag's documented ask/ignore/save choices.
 
 ## Folder images in the tag panel
 
-**Don't display first image from file directory as cover art** defaults to off. When a selected file has no embedded cover, OpenTag may show an image from its folder. This is a display fallback: seeing the picture does not mean it is stored in the audio file.
+**Don't display first image from file directory as cover art** defaults to off. When a selected file has no embedded cover, TagGroove may show an image from its folder. This is a display fallback: seeing the picture does not mean it is stored in the audio file.
 
 Enable the option when auditing which files actually contain embedded artwork. It hides the fallback without deleting image files. Import a cover explicitly if the audio file should carry it when copied elsewhere.
 
