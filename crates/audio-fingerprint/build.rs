@@ -77,10 +77,14 @@ fn main() {
         .include("native")
         .file("native/fingerprint.cpp");
     if target.ends_with("windows-msvc") {
-        build.flag("/EHsc").flag("/utf-8").flag(format!(
-            "/external:I{}",
-            crate_dir.join("native/vendor").display()
-        ));
+        build
+            .flag("/EHsc")
+            .flag("/utf-8")
+            .flag("/external:W0")
+            .flag(format!(
+                "/external:I{}",
+                crate_dir.join("native/vendor").display()
+            ));
     } else {
         build
             .flag("-isystem")

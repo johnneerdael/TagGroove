@@ -276,6 +276,13 @@ then accepts an identical copy, including NASM's `src//` spelling. All seventeen
 the stricter collector accepts the existing real 530-record x86 object corpus
 under both record mappings. This audit does not claim a Windows app build.
 
+The next Windows job passed the native builds and provenance collector, then
+MSVC emitted D9007 while compiling the adapter: `/external:I` requires an
+explicit `/external:W` level, otherwise the vendor include directory is
+ignored. The adapter build now supplies `/external:W0` with that include path,
+matching the external-header warning policy already used on other platforms.
+Windows app/API/package validation remains required on the corrected head.
+
 Linux compiled and ran the producer, but its Vorbis result differed from the
 ARM golden by thirteen raw bits across 75 items. A local x86 source build
 reproduced that exact Linux result. The unmodified upstream fpcalc source was
