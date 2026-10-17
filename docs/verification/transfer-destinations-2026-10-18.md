@@ -1,0 +1,21 @@
+# Copy and Move destination memory
+
+Scope: the daily-friction lane of the approved Mp3tag migration roadmap, R08. This is a bounded workflow improvement; sidecar renaming, collision policy and original runtime timing remain separate work.
+
+## Reference and behavior
+
+Static leanrea inspection of the supplied Mp3tag 3.36.1 Windows x64 executable (SHA-256 `484794eec4e2b9a649d04eaab63b4cc73127ceb48a9e46075ea488c0e1eac911`) found UTF-16LE settings identifiers `LastMoveFolderPath` at file offset `0x962840` and `LastCopyFolderPath` at `0x962868`. This supports separate destination memories; identifier presence does not prove the original dialog or save timing.
+
+Copy and Move now pass their own last successful destination to the native directory picker. A completed transfer with at least one copied/moved file records the folder in the existing `directories.json`, alongside recent/favorite directories. Cancellation and a wholly rejected transfer keep the previous value. Preference-save failure preserves the completed transfer and the session's destination memory. Paths are preserved verbatim, including legal trailing whitespace.
+
+The state remains version1. Old files default to no remembered destination, optional missing values are omitted on serialization, and existing configuration backups already include this file. No audio transfer algorithm, collision rule, pending-edit policy or undo behavior changes.
+
+## Verification
+
+The new controller tests first failed because no initial picker path or destination memory existed. After the change, all24 file-operation controller tests pass, including separate copy/move memories, restart, picker/confirmation cancellation, complete transfer failure and preference-write failure without retrying the file operation. The full562 frontend tests, production TypeScript/Vite build and strict pinned MkDocs build pass.
+
+The native JSON round-trip test first failed because destination fields were discarded. The focused native file-operations suite then passed11 tests with the real-system-trash probe left ignored. The final current-source workspace run passed1083 tests across71 suites, with6 intentionally ignored tests. Cross-platform CI remains required and is not inferred from this local run. Local strict Clippy and diff checks pass.
+
+One unprefixed local `npm test` run completed all frontend tests but its fresh default-target Cargo phase failed because Homebrew GNU `ar` shadowed Apple's archiver. Native validation uses `AR=/usr/bin/ar RANLIB=/usr/bin/ranlib CARGO_TARGET_DIR=/tmp/taggroove-target OPENTAG_AUDIO_SOURCE_DIR=/tmp/taggroove-parity-audio-sources`; the offline native dependency archives were checked against the approved source manifest. No source or CI workaround is introduced for this local toolchain issue.
+
+No original Windows runtime comparison or native picker interaction was performed locally. The live OS dialog's own handling of a remembered folder that was later deleted remains a platform acceptance case. Final-head genuine Codex CODE approval and complete current-main trusted CI remain required before merge.

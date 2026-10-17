@@ -1,6 +1,6 @@
 export type Startup='empty'|'previous'|'favorite';
 /** Recent and favorite folders (directories.json). Read subfolders and the startup choice are Options settings. */
-export type DirectoryState={version:number;recent:string[];favorites:string[]};
+export type DirectoryState={version:number;recent:string[];favorites:string[];copy_destination?:string|null;move_destination?:string|null};
 export type DirectoryPreferences={subfolders:boolean;startup:Startup};
 export type LaunchRequest={directories:string[];files:string[];add:boolean};
 export type FileOperation='dir-add'|'dir-up'|'dir-back'|'dir-forward'|'dir-favorite'|'dir-manage'|'file-delete'|'file-delete-permanent'|'file-copy'|'file-move'|'file-reveal'|'file-play';
@@ -67,7 +67,7 @@ type Selection={path:string;name:string};
 type LoadOptions={replace:boolean;recursive:boolean;location:string;locationIsData?:boolean};
 export type FileOpsHost={
   invoke:<T>(command:string,args?:Record<string,unknown>)=>Promise<T>;
-  pickDirectories:(title:string,multiple:boolean)=>Promise<string[]>;
+  pickDirectories:(title:string,multiple:boolean,defaultPath?:string)=>Promise<string[]>;
   confirm:(message:string,title:string)=>Promise<boolean>;
   selection:()=>Selection[];pendingCount:()=>number;
   /** Scan paths into the file list. Replacing happens only after a successful scan. */
@@ -183,12 +183,17 @@ export class FileOpsUI {
       return;
     }
     if(op==='file-copy'||op==='file-move'){
-      const mode=op==='file-copy'?'copy':'move',[destination]=await this.host.pickDirectories(mode==='copy'?'Copy files to':'Move files to',false);
+      const mode=op==='file-copy'?'copy':'move',key=mode==='copy'?'copy_destination':'move_destination';
+      const [destination]=await this.host.pickDirectories(mode==='copy'?'Copy files to':'Move files to',false,this.state[key]||undefined);
       if(!destination)return;
       if(!await this.host.confirm(`${mode==='copy'?'Copy':'Move'} ${plural(paths.length)} to ${destination}?\n\n${names}\n\nExisting files are never replaced. If any name is already taken, nothing is ${mode==='copy'?'copied':'moved'}.`,mode==='copy'?'Copy files':'Move files'))return;
       await this.host.run(`${mode==='copy'?'Copying':'Moving'} ${plural(paths.length)}…`,async()=>{
         const result=await this.host.invoke<TransferResult>('transfer_files',{paths,destination,mode}),status=transferStatus(result,mode,destination);
         if(mode==='move')this.host.moved(result,status);else this.host.report(result.errors,status);
+        if((mode==='copy'?result.copied:result.renamed).length){
+          this.state={...this.state,[key]:destination};
+          try{this.state=await this.host.invoke<DirectoryState>('save_directory_state',{state:this.state});}catch{/* The transfer completed; retain the destination for this session. */}
+        }
       });
     }
   }

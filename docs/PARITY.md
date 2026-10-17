@@ -2,7 +2,7 @@
 
 This ledger lists the known gaps: what is missing, partial or unverified. It is built from audits and verification notes and is not an exhaustive proof; the [verification notes](verification/) and [feature inventory](FEATURE-INVENTORY.md) hold the detail. No area is certified as exact parity, because none has been compared run for run against the original program.
 
-Reference target: `../Mp3tag.exe`, SHA-256 `484794eec4e2b9a649d04eaab63b4cc73127ceb48a9e46075ea488c0e1eac911`. Current as of 2026-10-17 at `main` `9d3764b`. The item-level list with impact and size is the [remaining-gaps register](research/remaining-gaps.md).
+Reference target: `../Mp3tag.exe`, SHA-256 `484794eec4e2b9a649d04eaab63b4cc73127ceb48a9e46075ea488c0e1eac911`. Reviewed on 2026-10-18 against approved `main` `4a1a95ff` and the destination-memory change accompanying this update. The item-level list with impact and size is the [remaining-gaps register](research/remaining-gaps.md).
 
 | Area | Remaining gap |
 | --- | --- |
@@ -14,8 +14,8 @@ Reference target: `../Mp3tag.exe`, SHA-256 `484794eec4e2b9a649d04eaab63b4cc73127
 | Scripting | Unverified against the original: `$caps` word-start characters, truth of non-boolean conditions, and errors inside a format string (OpenTag aborts the whole string). `%_md5audio%` works in exports only and is empty for MP4 and Ogg; tag-size placeholders are absent for WAV, AIFF, MP4, Ogg, Matroska, ASF and DSD |
 | Filters | A plain search that mixes quoted and bare words is rejected. AND/OR precedence and locale behaviour are unverified |
 | Actions | Adjust Cover "Original" requires JPEG or PNG for TIFF and unknown formats. Remove Fields Except leaves unmapped frames (PRIV, GEOB). Split Field keeps empty pieces (unverified). Convert Codepage starts at 1251 in action group dialogs instead of the last choice. File, cover-file and rename actions on mobile provider documents. `.mta` export of Adjust Cover, Set Cover Properties and Generate Playlists uses OpenTag-only type IDs 1001 to 1003, which Mp3tag lists as unknown actions |
-| Converters | Filename → Filename appends the extension again when the new pattern contains one. Text File → Tag refuses any record-count mismatch by design |
-| File operations | Copy and Move do not reopen at the last destination folder. Associated `.lrc` and `.cdg` files do not follow a rename |
+| Converters | Text File → Tag refuses any record-count mismatch by design |
+| File operations | Associated `.lrc` and `.cdg` files do not follow a rename |
 | Formats | TAK and OptimFROG run on a stand-in and are tested only with hand-built headers. Nero `udta/indx` is kept but not shown or edited, and Nero covers are always written to `covr`. A longer value for a Nero-held field in an MP4 file without chapters only reaches the iTunes tag. ADTS after junk is found only in `.aac` files, within 64 KiB and after three frames. Compressed or encrypted ID3 frames cannot be kept in an unsynchronised tag or one with an extended header or footer (also DSF and DSDIFF). QuickTime chapter URLs and ID3v2 CHAP artwork are not shown or edited, and playlist operations on chapter rows are refused because the original's subsong path format is unknown ([chapter-fields](verification/chapter-fields.md)). MP4 cover type and description (format limit). No Mp3tag-, WMP- or Nero-written fixtures |
 | Covers | Original resampler, quality and rounding equivalence |
 | Sources | Live-provider checks are bounded (one default-HTTPS gnudb query passed). Keyed services need a build or user key. `[MinAppVersion*]` is not enforced in `.src` scripts. No keychain on mobile. Audio-CD lookup, Discogs OAuth and the web-sources download service are out of scope |
