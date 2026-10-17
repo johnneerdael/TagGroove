@@ -5,7 +5,10 @@ discovery below remains the design record; production modules, authored fixtures
 and recovery controls now exist. Current work continues on `codex/parity-profile-migration` in the existing `parity-migration` worktree.
 The branch starts at origin/main `4a1a95ff4eddb9da7492aaace68197c4f81347d0`.
 PR #47 branding head `c1375a6ccf24e728f3ac29dfd442d4bf1071d47b` was normally
-merged after checkpoint `2e6a8e7`. The root coordinator owns PR #52 and its later
+merged after checkpoint `2e6a8e7`. After the complete local profile checks,
+head `36d7dea4e7b930d3a7d98facaca8498d0ef7c8de` was normally merged without
+conflicts; its delta was limited to the Windows NSIS fixture/tests and README.
+The root coordinator owns PR #52 and its later
 review fixes in another worktree; do not alter that branch. New remote pushes,
 PR creation and review requests are held until the root ancestry/currency check.
 

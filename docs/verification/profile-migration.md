@@ -84,8 +84,14 @@ rows and preserves the current list when a required row cannot be rescanned.
 
 These are local native functions and bundled-renderer tests with controlled
 boundaries, not native OS picker/key input or a released-build certification.
-Application commit, exact final review and current-base platform validation are
-recorded in the eventual PR, after branding sync/currency checks.
+The complete local pre-sync checks passed at `dd97cf4184848681a6959b60461dea57c77b36ee`:
+583 frontend tests and 1095 Rust tests passed (7 opt-in/helper tests ignored),
+production build and strict guide build passed, and formatting/extraction/diff
+checks passed. Branding head `36d7dea4e7b930d3a7d98facaca8498d0ef7c8de` was then
+normally merged; only the Windows NSIS fixture/tests and its README changed.
+The affected NSIS suite was rerun after sync. Profile application source was
+unchanged by that merge. Exact final review and current-base platform validation
+remain requirements for the eventual PR, after root currency checks.
 
 ## Remaining R02 and R04 acceptance
 
