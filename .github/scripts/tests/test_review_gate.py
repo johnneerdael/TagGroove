@@ -5,6 +5,8 @@ import sys
 import unittest
 from unittest.mock import Mock
 
+from test_codex_review import pr as reviewed_pull, review, thumb
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 HEAD, BASE, MERGE, SOURCE = ('a' * 40, 'b' * 40, 'c' * 40, 'd' * 40)
@@ -38,6 +40,79 @@ class GateTests(unittest.TestCase):
     def test_unreviewed_pr_never_dispatches(self):
         self.api.snapshot.return_value = (pull(), (False, 'No current Codex review'))
         self.gate.reconcile(self.api, 17)
+        self.api.post.assert_not_called()
+
+    def test_new_or_edited_request_invalidates_an_unchanged_validated_head_without_dispatch(self):
+        from codex_review import eligibility
+        item = reviewed_pull()
+        event = dict(issue=dict(number=17, pull_request={}), comment=dict(
+            user=dict(login='author', type='User'), body='@codex review',
+            created_at='2026-10-15T11:00:00Z'))
+        self.assertTrue(eligibility(item, [review()], [], [], [thumb()])[0])
+        self.api.get.side_effect = None
+        self.api.get.return_value = item
+        self.api.snapshot.return_value = (item, eligibility(item, [review()], [event['comment']], [], [thumb()]))
+        for edited in (False, True):
+            with self.subTest(edited=edited):
+                if edited:
+                    event['changes'] = dict(body={'from': 'Please check this PR'})
+                    event['comment']['created_at'] = '2026-10-15T09:00:00Z'
+                    event['comment']['updated_at'] = '2026-10-15T11:00:00Z'
+                self.api.snapshot.return_value = (item, eligibility(item, [review()], [event['comment']], [], [thumb()]))
+                statuses = {'Codex review': 'success', 'Reviewed PR builds': 'success'}
+                self.api.status.side_effect = lambda head, state, reason, context: statuses.update({context: state})
+                self.api.status.reset_mock()
+                self.gate.invalidate_comment(self.api, event)
+                self.assertEqual(statuses, {'Codex review': 'pending', 'Reviewed PR builds': 'pending'})
+                self.assertEqual(self.api.status.call_count, 2)
+                for call in self.api.status.call_args_list:
+                    self.assertEqual(call.args[:2], (HEAD, 'pending'))
+                self.api.post.assert_not_called()
+                self.api.runs.assert_not_called()
+
+    def test_unrelated_and_untrusted_comments_do_not_invalidate_or_dispatch(self):
+        item = reviewed_pull()
+        self.api.get.side_effect = None
+        self.api.get.return_value = item
+        for body, login in [('Looks good', 'author'), ('@codex review', 'outsider')]:
+            self.gate.invalidate_comment(self.api, dict(issue=dict(number=17, pull_request={}),
+                comment=dict(body=body, user=dict(login=login, type='User'))))
+        self.api.snapshot.assert_not_called()
+        self.api.status.assert_not_called()
+        self.api.post.assert_not_called()
+
+    def test_connector_finding_invalidates_unchanged_head_without_dispatch(self):
+        from codex_review import eligibility
+        item = reviewed_pull()
+        comment = dict(user=dict(login='chatgpt-codex-connector[bot]', type='Bot'), body=(
+            '<!-- codex-review-state:v1 {"code_review":{"commit_sha":"' + HEAD +
+            '","status":"completed","has_any_findings":true,"has_unresolved_findings":true}} -->\n'
+            '<!-- codex-pull-request-review-summary -->'))
+        self.api.get.side_effect = None
+        self.api.get.return_value = item
+        self.api.snapshot.return_value = (item, eligibility(item, [review()], [comment], [], [thumb()]))
+        self.gate.invalidate_comment(self.api, dict(issue=dict(number=17, pull_request={}), comment=comment))
+        self.assertEqual(self.api.status.call_count, 2)
+        self.api.post.assert_not_called()
+
+    def test_connector_metadata_api_failure_withdraws_old_approval(self):
+        item = reviewed_pull()
+        self.api.get.side_effect = None
+        self.api.get.return_value = item
+        self.api.snapshot.side_effect = RuntimeError('Cannot read review history')
+        self.gate.invalidate_comment(self.api, dict(issue=dict(number=17, pull_request={}),
+            comment=dict(body='Review finding', user=dict(login='chatgpt-codex-connector[bot]', type='Bot'))))
+        self.assertEqual(self.api.status.call_count, 2)
+        self.api.post.assert_not_called()
+
+    def test_clean_completion_does_not_restore_or_dispatch_validation(self):
+        item = reviewed_pull()
+        self.api.get.side_effect = None
+        self.api.get.return_value = item
+        self.api.snapshot.return_value = (item, (True, 'Clean'))
+        self.gate.invalidate_comment(self.api, dict(issue=dict(number=17, pull_request={}),
+            comment=dict(body='Review complete', user=dict(login='chatgpt-codex-connector[bot]', type='Bot'))))
+        self.api.status.assert_not_called()
         self.api.post.assert_not_called()
 
     def test_conflicting_or_pending_merge_stays_blocked_without_controller_error(self):
@@ -166,6 +241,19 @@ class WorkflowTrustTests(unittest.TestCase):
             self.assertIn(f'  {trigger}:', signal)
         for trigger in ['pull_request', 'issue_comment', 'schedule']:
             self.assertNotIn(f'  {trigger}:', signal)
+
+    def test_comment_invalidation_uses_trusted_main_without_build_permissions(self):
+        source = (ROOT.parent / 'workflows/review-comment-invalidation.yml').read_text()
+        for required in ['issue_comment:', 'types: [created, edited, deleted]',
+                         'github.event.issue.pull_request', "contains(github.event.comment.body, '@codex')",
+                         "contains(github.event.changes.body.from, '@codex')",
+                         "github.event.comment.user.login == 'chatgpt-codex-connector[bot]'",
+                         'ref: main', 'persist-credentials: false', 'review_gate.py invalidate-comment']:
+            self.assertIn(required, source)
+        for denied in ['actions: write', 'secrets.', 'inputs.merge_sha', 'review_gate.py reconcile', 'workflow_run:']:
+            self.assertNotIn(denied, source)
+        controller = (ROOT.parent / 'workflows/review-controller.yml').read_text()
+        self.assertNotIn('Review comment invalidation', controller)
 
     def test_reusable_build_rechecks_review_and_authenticates_main_caller(self):
         import re
