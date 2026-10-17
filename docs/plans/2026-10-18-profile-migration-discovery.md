@@ -1,11 +1,13 @@
 # R02 populated-profile migration: discovery and next implementation
 
-Status: discovery/design only; no product implementation started. The root
-coordinator paused this lane to free a worker for review corrections. Resume
-on `codex/parity-profile-migration` in the existing `parity-migration` worktree.
+Status: implementation resumed after the review-correction batch. The original
+discovery below remains the design record; production modules, authored fixtures
+and recovery controls now exist. Current work continues on `codex/parity-profile-migration` in the existing `parity-migration` worktree.
 The branch starts at origin/main `4a1a95ff4eddb9da7492aaace68197c4f81347d0`.
-Keep `codex/parity-migration` / PR #52 head
-`f21834e97a35f377099f94e198127af7727d56ac` unchanged while its external review runs.
+PR #47 branding head `c1375a6ccf24e728f3ac29dfd442d4bf1071d47b` was normally
+merged after checkpoint `2e6a8e7`. The root coordinator owns PR #52 and its later
+review fixes in another worktree; do not alter that branch. New remote pushes,
+PR creation and review requests are held until the root ancestry/currency check.
 
 ## Authorized outcome and ownership
 

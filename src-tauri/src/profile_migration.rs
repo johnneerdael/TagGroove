@@ -83,18 +83,18 @@ fn validate_window(window: &WindowState) -> Result<(), String> {
         return Err("Unsupported setup window-state version or preference key.".into());
     }
     let workspace = &window.workspace;
-    if workspace.paths.len() > 10000
-        || workspace.roots.len() > 10000
-        || workspace.selected.len() > workspace.paths.len()
-        || workspace.paths.iter().collect::<BTreeSet<_>>().len() != workspace.paths.len()
-        || workspace
-            .selected
-            .iter()
-            .any(|path| !workspace.paths.contains(path))
+    if workspace.paths.len() > 10000 || workspace.roots.len() > 10000 {
+        return Err("Setup workspace recovery supports at most 10000 listed files and 10000 roots. Save the larger file list as a playlist, clear it, then inspect the setup again; no files are truncated.".into());
+    }
+    let listed = workspace.paths.iter().collect::<BTreeSet<_>>();
+    if workspace.selected.len() > workspace.paths.len()
+        || listed.len() != workspace.paths.len()
+        || workspace.selected.iter().collect::<BTreeSet<_>>().len() != workspace.selected.len()
+        || workspace.selected.iter().any(|path| !listed.contains(path))
         || workspace
             .anchor
             .as_ref()
-            .is_some_and(|path| !workspace.paths.contains(path))
+            .is_some_and(|path| !listed.contains(path))
     {
         return Err("The setup workspace has invalid file identities.".into());
     }
@@ -105,7 +105,7 @@ fn validate_window(window: &WindowState) -> Result<(), String> {
         .chain(workspace.playlist.iter())
     {
         if path.is_empty()
-            || path.contains(['\0', '\n', '\r'])
+            || path.contains('\0')
             || path.contains("://")
             || !Path::new(path).is_absolute()
         {
@@ -341,6 +341,7 @@ struct Plan {
     path: String,
     source_hash: String,
     target_hash: String,
+    legacy_encoding: Option<String>,
     items: Vec<Item>,
     candidates: BTreeMap<String, Candidate>,
     window: WindowState,
@@ -356,6 +357,7 @@ static PLANS: OnceLock<Mutex<BTreeMap<String, Plan>>> = OnceLock::new();
 fn inspect(
     directory: &Path,
     source: &Files,
+    legacy_encoding: Option<&str>,
 ) -> Result<(Vec<Item>, BTreeMap<String, Candidate>), String> {
     let extracted = tempfile::tempdir().map_err(|e| e.to_string())?;
     write_stage(extracted.path(), source)?;
@@ -379,18 +381,42 @@ fn inspect(
             supported: false,
         };
         let result: Result<Option<Candidate>, String> = (|| {
+            if matches!(lower.rsplit('.').next(), Some("ini" | "mta" | "mte"))
+                && bytes.len() > 4 * 1024 * 1024
+            {
+                return Err("Supported setup files must be at most 4 MB each.".into());
+            }
             if lower.rsplit('/').next() == Some("columns.ini")
-                || (lower.contains("/columns/") && lower.ends_with(".ini"))
+                || (lower.split('/').any(|part| part == "columns") && lower.ends_with(".ini"))
             {
                 item.kind = "columns".into();
                 item.collision = directory.join("columns.json").exists();
                 let parsed =
                     crate::mp3tag_columns::parse_diagnostic(&crate::mp3tag_columns::decode(bytes))
                         .map_err(|e| e.to_string())?;
+                let defined =
+                    crate::mp3tag_columns::sections(&crate::mp3tag_columns::decode(bytes))
+                        .into_iter()
+                        .filter(|(_, keys)| {
+                            crate::mp3tag_columns::lookup(
+                                keys,
+                                &["value", "format", "fmt", "display format"],
+                            )
+                            .is_some_and(|value| !value.is_empty())
+                        })
+                        .count();
+                let omitted = defined.saturating_sub(
+                    parsed.result.skipped.len() + parsed.result.layout.columns.len(),
+                );
                 item.warnings = parsed.result.skipped;
+                if omitted > 0 {
+                    item.warnings.push(format!(
+                        "Additional supported columns omitted after the limit of 200: {omitted}."
+                    ));
+                }
                 Ok(Some(Candidate::Columns(parsed.result.layout)))
             } else if lower.rsplit('/').next() == Some("usrfields.ini")
-                || (lower.contains("/panels/") && lower.ends_with(".ini"))
+                || (lower.split('/').any(|part| part == "panels") && lower.ends_with(".ini"))
             {
                 item.kind = "panel".into();
                 item.collision = directory.join("tag-panel.json").exists();
@@ -402,9 +428,11 @@ fn inspect(
                 Ok(Some(Candidate::Panel(parsed.panel)))
             } else if lower.ends_with(".mta") {
                 item.kind = "actions".into();
-                let mut parsed =
-                    crate::action_host::import_group_diagnostic(&extracted.path().join(file), None)
-                        .map_err(|e| e.to_string())?;
+                let mut parsed = crate::action_host::import_group_diagnostic(
+                    &extracted.path().join(file),
+                    legacy_encoding,
+                )
+                .map_err(|e| e.to_string())?;
                 item.warnings = parsed
                     .result
                     .issues
@@ -419,7 +447,7 @@ fn inspect(
                 Ok(Some(Candidate::Actions(parsed.result.group)))
             } else if lower.ends_with(".mte") {
                 item.kind = "export".into();
-                let parsed = crate::exports::import(&extracted.path().join(file), None)?;
+                let parsed = crate::exports::import(&extracted.path().join(file), legacy_encoding)?;
                 item.collision = exports
                     .configurations
                     .iter()
@@ -455,18 +483,35 @@ fn inspect(
     Ok((items, candidates))
 }
 
-fn preview(directory: &Path, path: &str, window: WindowState) -> Result<Preview, String> {
+fn preview(
+    directory: &Path,
+    path: &str,
+    window: WindowState,
+    legacy_encoding: Option<String>,
+) -> Result<Preview, String> {
     validate_window(&window)?;
-    let _ = status(directory, None, None, None)?;
+    if status(directory, None, None, None)?.pending.is_some() {
+        return Err(
+            "Complete the pending workspace recovery before importing another setup.".into(),
+        );
+    }
     let files = input(Path::new(path))?;
     let target = native(directory)?;
-    let (items, candidates) = inspect(directory, &files)?;
+    let legacy_encoding = legacy_encoding.filter(|encoding| !encoding.trim().is_empty());
+    if legacy_encoding
+        .as_ref()
+        .is_some_and(|encoding| encoding.len() > 64)
+    {
+        return Err("The legacy codepage name is too long.".into());
+    }
+    let (items, candidates) = inspect(directory, &files, legacy_encoding.as_deref())?;
     let source_hash = hash(&files, None)?;
     let token = uuid::Uuid::new_v4().to_string();
     let plan = Plan {
         path: path.into(),
         source_hash: source_hash.clone(),
         target_hash: hash(&target, Some(&window))?,
+        legacy_encoding: legacy_encoding.clone(),
         items: items.clone(),
         candidates,
         window,
@@ -486,6 +531,7 @@ fn preview(directory: &Path, path: &str, window: WindowState) -> Result<Preview,
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Report {
+    pub legacy_encoding: Option<String>,
     pub items: Vec<Item>,
     pub imported: Vec<String>,
     pub kept: Vec<String>,
@@ -499,6 +545,7 @@ pub struct Pending {
 }
 #[derive(Clone, Serialize, Deserialize)]
 struct Journal {
+    checksum: String,
     version: u32,
     phase: String,
     before: Encoded,
@@ -510,8 +557,10 @@ struct Journal {
     rollback_window: Option<WindowState>,
     previous: bool,
 }
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct Status {
+    pub desktop: bool,
+    pub phase: String,
     pub report: Option<Report>,
     pub restorable: bool,
     pub pending: Option<Pending>,
@@ -536,19 +585,55 @@ fn store(directory: &Path) -> Result<std::path::PathBuf, String> {
     Ok(path)
 }
 fn persist(directory: &Path, journal: &Journal) -> Result<(), String> {
-    crate::action_host::atomic_output(
-        &store(directory)?.join("current.json"),
-        &serde_json::to_vec(journal).map_err(|e| e.to_string())?,
-        false,
-    )
+    let mut journal = journal.clone();
+    journal.checksum.clear();
+    let signed = serde_json::to_vec(&journal).map_err(|e| e.to_string())?;
+    journal.checksum = format!("{:x}", Sha256::digest(&signed));
+    let bytes = serde_json::to_vec(&journal).map_err(|e| e.to_string())?;
+    if bytes.len() as u64 > LIMIT * 5 {
+        return Err("The setup recovery journal exceeds its bounded storage limit.".into());
+    }
+    let path = store(directory)?.join("current.json");
+    if let Ok(metadata) = std::fs::symlink_metadata(&path) {
+        if !metadata.is_file() || metadata.file_type().is_symlink() {
+            return Err("The setup journal must be a regular file.".into());
+        }
+    }
+    crate::action_host::atomic_output(&path, &bytes, false)
 }
 fn journal(directory: &Path) -> Result<Option<Journal>, String> {
-    let path = store(directory)?.join("current.json");
-    if !path.exists() {
-        return Ok(None);
+    let recovery = directory.join(STORE);
+    match std::fs::symlink_metadata(&recovery) {
+        Ok(metadata) if !metadata.is_dir() || metadata.file_type().is_symlink() => {
+            return Err("The setup recovery location must be a real directory.".into())
+        }
+        Ok(_) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(error.to_string()),
+    }
+    let path = recovery.join("current.json");
+    match std::fs::symlink_metadata(&path) {
+        Ok(_) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(error.to_string()),
     }
     let journal: Journal = serde_json::from_slice(&read(&path, LIMIT * 5)?)
         .map_err(|e| format!("Setup recovery journal: {e}"))?;
+    let mut checked = journal.clone();
+    checked.checksum.clear();
+    let checksum = format!(
+        "{:x}",
+        Sha256::digest(serde_json::to_vec(&checked).map_err(|e| e.to_string())?)
+    );
+    if journal.checksum != checksum {
+        return Err(
+            "The setup recovery journal checksum does not match; its files were retained.".into(),
+        );
+    }
+    if !["applying", "restoring", "applied", "restored", "failed"].contains(&journal.phase.as_str())
+    {
+        return Err("Unsupported setup recovery phase.".into());
+    }
     if journal.version != 1 {
         return Err("Unsupported setup recovery journal version.".into());
     }
@@ -681,6 +766,9 @@ fn recovered(directory: &Path, mut state: Journal) -> Result<Journal, String> {
                 .take()
                 .ok_or("Setup recovery has no window snapshot.")?,
         });
+        if state.phase == "applying" {
+            state.report.imported.clear();
+        }
         state.phase = if state.phase == "restoring" {
             "applied"
         } else {
@@ -724,7 +812,7 @@ fn status(
             if state
                 .pending
                 .as_ref()
-                .is_none_or(|pending| pending.id != id)
+                .is_none_or(|pending| pending.id != id || !pending.attempted)
             {
                 return Err("The setup workspace receipt expired.".into());
             }
@@ -732,6 +820,8 @@ fn status(
             persist(directory, &state)?;
         }
         Ok(Status {
+            desktop: true,
+            phase: state.phase.clone(),
             report: Some(state.report),
             restorable: state.phase == "applied",
             pending: state.pending,
@@ -739,6 +829,8 @@ fn status(
         })
     } else {
         Ok(Status {
+            desktop: true,
+            phase: "none".into(),
             report: None,
             restorable: false,
             pending: None,
@@ -796,6 +888,7 @@ fn apply(
     let mut actions = crate::action_host::load_library(&stage.path().join("actions.json"))?;
     let mut exports = crate::exports::load(&stage.path().join("exports.json"))?;
     let mut report = Report {
+        legacy_encoding: plan.legacy_encoding,
         items: plan.items,
         imported: Vec::new(),
         kept: Vec::new(),
@@ -872,6 +965,7 @@ fn apply(
         )?;
     }
     let mut state = Journal {
+        checksum: String::new(),
         version: 1,
         phase: "applying".into(),
         before: encode(&before),
@@ -933,14 +1027,22 @@ fn restore(directory: &Path, window: WindowState) -> Result<Status, String> {
     status(directory, None, None, None)
 }
 
+fn require_desktop() -> Result<(), String> {
+    if cfg!(mobile) {
+        return Err("Setup migration is available in the desktop app.".into());
+    }
+    Ok(())
+}
 #[tauri::command]
 pub async fn profile_migration_preview(
     app: tauri::AppHandle,
     path: String,
     window: WindowState,
+    legacy_encoding: Option<String>,
 ) -> Result<Preview, String> {
+    require_desktop()?;
     let directory = crate::utilities::configuration_directory(&app)?;
-    crate::io(move || preview(&directory, &path, window)).await
+    crate::io(move || preview(&directory, &path, window, legacy_encoding)).await
 }
 #[tauri::command]
 pub async fn profile_migration_apply(
@@ -950,6 +1052,7 @@ pub async fn profile_migration_apply(
     replace_names: bool,
     window: WindowState,
 ) -> Result<Status, String> {
+    require_desktop()?;
     let directory = crate::utilities::configuration_directory(&app)?;
     crate::io(move || apply(&directory, &token, &selected, replace_names, window)).await
 }
@@ -960,6 +1063,16 @@ pub async fn profile_migration_status(
     ack: Option<String>,
     retry: Option<String>,
 ) -> Result<Status, String> {
+    if cfg!(mobile) {
+        return Ok(Status {
+            desktop: false,
+            phase: "unsupported".into(),
+            report: None,
+            restorable: false,
+            pending: None,
+            preference_keys: Vec::new(),
+        });
+    }
     let directory = crate::utilities::configuration_directory(&app)?;
     crate::io(move || {
         let result = status(
@@ -978,6 +1091,7 @@ pub async fn profile_migration_restore(
     app: tauri::AppHandle,
     window: WindowState,
 ) -> Result<Status, String> {
+    require_desktop()?;
     let directory = crate::utilities::configuration_directory(&app)?;
     crate::io(move || {
         let result = restore(&directory, window)?;
@@ -985,4 +1099,651 @@ pub async fn profile_migration_restore(
         Ok(result)
     })
     .await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+    static TESTS: Mutex<()> = Mutex::new(());
+    fn window() -> WindowState {
+        let root = std::env::temp_dir()
+            .join("profile-music")
+            .to_string_lossy()
+            .into_owned();
+        let path = Path::new(&root)
+            .join("Practice.flac")
+            .to_string_lossy()
+            .into_owned();
+        WindowState {
+            version: 1,
+            preferences: BTreeMap::from([
+                ("opentag.language".into(), "nl".into()),
+                ("opentag.filter-shown".into(), "false".into()),
+            ]),
+            workspace: Workspace {
+                paths: vec![path.clone()],
+                selected: vec![path.clone()],
+                roots: vec![root.clone()],
+                location: root,
+                location_is_data: true,
+                filter: "ARTIST HAS Practice".into(),
+                filter_draft: Some("draft expression".into()),
+                anchor: Some(path),
+                playlist: None,
+            },
+        }
+    }
+    fn make_preview(directory: &Path, path: &str, window: WindowState) -> Result<Preview, String> {
+        preview(directory, path, window, None)
+    }
+    fn fixture() -> Files {
+        input(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/fixtures/profile-migration"))
+            .unwrap()
+    }
+    fn config(path: &Path) {
+        std::fs::create_dir_all(path).unwrap();
+        std::fs::write(
+            path.join("settings.json"),
+            serde_json::to_vec(&crate::settings::Settings::default()).unwrap(),
+        )
+        .unwrap();
+        std::fs::write(path.join("lists.json"), br#"{"version":1,"lists":{"opentag.history.filter":[{"value":"Before","favorite":true}]}}"#).unwrap();
+        std::fs::write(
+            path.join("directories.json"),
+            br#"{"version":1,"favorites":["/Before"]}"#,
+        )
+        .unwrap();
+        let parsed = crate::mp3tag_columns::parse_diagnostic(
+            "[#0]\nName=Before\nValue=%title%\nField=%title%\nWidth=120\n",
+        )
+        .unwrap();
+        crate::columns::save(&path.join("columns.json"), &parsed.result.layout).unwrap();
+        let mut panel = crate::tag_panel::Settings::default();
+        panel
+            .field_values
+            .lists
+            .insert("GENRE".into(), vec!["Before genre".into()]);
+        crate::tag_panel::save(&path.join("tag-panel.json"), &panel).unwrap();
+        let actions = tag_core::actions::ActionLibrary {
+            groups: vec![tag_core::actions::ActionGroup {
+                name: "Normalize".into(),
+                enabled: true,
+                actions: Vec::new(),
+            }],
+            presets: Vec::new(),
+        };
+        crate::action_host::save_library(&path.join("actions.json"), &actions).unwrap();
+        let mut exports = crate::exports::Library::default();
+        exports.configurations.push(crate::exports::Configuration {
+            id: "before-practice".into(),
+            name: "Practice".into(),
+            template: "Before export".into(),
+            file: None,
+        });
+        crate::exports::save(&path.join("exports.json"), &exports).unwrap();
+        std::fs::create_dir_all(path.join("export/.metadata/deep")).unwrap();
+        std::fs::write(
+            path.join("export/.metadata/deep/notes"),
+            b"untouched metadata",
+        )
+        .unwrap();
+        std::fs::write(
+            path.join("tag-sources.json"),
+            b"fixture credentials remain untouched",
+        )
+        .unwrap();
+    }
+    fn selected() -> Vec<String> {
+        [
+            "columns.ini",
+            "usrfields.ini",
+            "data/actions/Normalize.mta",
+            "data/actions/Needs review.mta",
+            "export/Practice.mte",
+            "export/Other.mte",
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect()
+    }
+    fn make_source(root: &Path) -> String {
+        write_stage(root, &fixture()).unwrap();
+        root.to_string_lossy().into_owned()
+    }
+    fn pending_state(before: &Files, after: &Files, phase: &str) -> Journal {
+        Journal {
+            checksum: String::new(),
+            version: 1,
+            phase: phase.into(),
+            before: encode(before),
+            after: encode(after),
+            window: window(),
+            report: Report {
+                legacy_encoding: None,
+                items: Vec::new(),
+                imported: vec!["fixture".into()],
+                kept: Vec::new(),
+                source_hash: hash(after, None).unwrap(),
+            },
+            pending: None,
+            rollback: Some(encode(before)),
+            rollback_window: Some(window()),
+            previous: false,
+        }
+    }
+    #[test]
+    fn no_journal_status_does_not_create_or_write_configuration_directories() {
+        let root = tempfile::tempdir().unwrap();
+        let directory = root.path().join("not-created");
+        let state = status(&directory, None, None, None).unwrap();
+        assert_eq!(state.phase, "none");
+        assert!(state.report.is_none());
+        assert!(!directory.exists());
+        std::fs::create_dir_all(&directory).unwrap();
+        let state = status(&directory, None, None, None).unwrap();
+        assert!(!state.restorable);
+        assert!(!directory.join(STORE).exists());
+    }
+    #[test]
+    fn populated_folder_preview_import_restart_and_full_content_restore() {
+        let _guard = TESTS.lock().unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let source = tempfile::tempdir().unwrap();
+        config(dir.path());
+        let path = make_source(source.path());
+        let original_input = input(source.path()).unwrap();
+        let before = native(dir.path()).unwrap();
+        let preview = make_preview(dir.path(), &path, window()).unwrap();
+        assert_eq!(preview.items.len(), 10);
+        assert_eq!(
+            preview.items.iter().filter(|item| item.supported).count(),
+            7
+        );
+        assert!(preview
+            .items
+            .iter()
+            .find(|item| item.file == "columns.ini")
+            .unwrap()
+            .warnings
+            .iter()
+            .any(|warning| warning.contains("fixture_unknown")));
+        assert!(preview
+            .items
+            .iter()
+            .find(|item| item.file == "usrfields.ini")
+            .unwrap()
+            .warnings
+            .iter()
+            .any(|warning| warning.contains("technical")));
+        assert!(preview
+            .items
+            .iter()
+            .find(|item| item.file == "data/actions/Needs review.mta")
+            .unwrap()
+            .warnings
+            .iter()
+            .any(|warning| warning.contains("999")));
+        let applied = apply(dir.path(), &preview.token, &selected(), true, window()).unwrap();
+        assert_eq!(applied.report.as_ref().unwrap().imported.len(), 6);
+        assert!(applied.restorable);
+        assert_eq!(
+            crate::columns::load(&dir.path().join("columns.json"))
+                .unwrap()
+                .unwrap()
+                .columns[0]
+                .name,
+            "Track title"
+        );
+        assert_eq!(
+            crate::tag_panel::load(&dir.path().join("tag-panel.json"))
+                .unwrap()
+                .field_values
+                .lists["GENRE"],
+            ["Before genre"]
+        );
+        let groups = crate::action_host::load_library(&dir.path().join("actions.json")).unwrap();
+        assert_eq!(groups.groups.len(), 2);
+        assert!(groups.groups.iter().all(|group| !group.enabled));
+        assert!(matches!(
+            groups.groups[1].actions[0],
+            tag_core::actions::ActionSpec::UnresolvedMta { .. }
+        ));
+        let exports = crate::exports::load(&dir.path().join("exports.json")).unwrap();
+        let imported = exports
+            .configurations
+            .iter()
+            .find(|item| item.name == "Practice")
+            .unwrap();
+        assert_eq!(imported.id, "before-practice");
+        assert!(imported.template.contains("%artist%"));
+        // A fresh status read uses only the persisted journal, not the preview map.
+        PLANS.get().unwrap().lock().unwrap().clear();
+        let restarted = status(dir.path(), None, None, None).unwrap();
+        let id = restarted.pending.unwrap().id;
+        assert!(
+            status(dir.path(), None, Some(&id), None).is_err(),
+            "cannot acknowledge an unclaimed workspace receipt"
+        );
+        status(dir.path(), Some(&id), None, None).unwrap();
+        status(dir.path(), None, Some(&id), None).unwrap();
+        assert!(status(dir.path(), None, None, None)
+            .unwrap()
+            .pending
+            .is_none());
+        std::fs::write(dir.path().join("lists.json"), b"later configured histories").unwrap();
+        let restored = restore(dir.path(), window()).unwrap();
+        assert!(!restored.restorable);
+        assert_eq!(restored.pending.unwrap().window, window());
+        assert_eq!(native(dir.path()).unwrap(), before);
+        assert_eq!(input(source.path()).unwrap(), original_input);
+        assert_eq!(
+            std::fs::read(dir.path().join("tag-sources.json")).unwrap(),
+            b"fixture credentials remain untouched"
+        );
+    }
+    #[test]
+    fn zip_inventory_and_explicit_keep_collisions_preserve_existing_items() {
+        let _guard = TESTS.lock().unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        config(dir.path());
+        let source = tempfile::tempdir().unwrap();
+        let zip_path = source.path().join("profile.zip");
+        let mut archive = zip::ZipWriter::new(std::fs::File::create(&zip_path).unwrap());
+        for (name, bytes) in fixture() {
+            archive
+                .start_file(name, zip::write::SimpleFileOptions::default())
+                .unwrap();
+            archive.write_all(&bytes).unwrap();
+        }
+        archive.finish().unwrap();
+        let before = native(dir.path()).unwrap();
+        let preview = make_preview(dir.path(), zip_path.to_str().unwrap(), window()).unwrap();
+        let selected = [
+            "data/actions/Normalize.mta",
+            "export/Practice.mte",
+            "export/Other.mte",
+        ]
+        .map(str::to_owned);
+        let applied = apply(dir.path(), &preview.token, &selected, false, window()).unwrap();
+        let report = applied.report.unwrap();
+        assert_eq!(report.kept.len(), 2);
+        assert_eq!(report.imported, ["export/Other.mte"]);
+        assert_eq!(
+            std::fs::read(dir.path().join("actions.json")).unwrap(),
+            before["actions.json"]
+        );
+        assert_eq!(
+            std::fs::read(dir.path().join("export/before-practice.mte")).unwrap(),
+            before["export/before-practice.mte"]
+        );
+    }
+    #[test]
+    fn restore_removes_configuration_and_templates_that_were_absent_before_import() {
+        let _guard = TESTS.lock().unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let source = tempfile::tempdir().unwrap();
+        let path = make_source(source.path());
+        assert!(native(dir.path()).unwrap().is_empty());
+        let preview = make_preview(dir.path(), &path, window()).unwrap();
+        apply(dir.path(), &preview.token, &selected(), true, window()).unwrap();
+        assert!(dir.path().join("columns.json").is_file());
+        assert!(!native(dir.path()).unwrap().is_empty());
+        let restored = restore(dir.path(), window()).unwrap();
+        assert_eq!(restored.phase, "restored");
+        assert!(native(dir.path()).unwrap().is_empty());
+        assert!(!dir.path().join("columns.json").exists());
+    }
+    #[test]
+    fn cancelled_or_changed_source_target_template_or_browser_state_never_applies() {
+        let _guard = TESTS.lock().unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        config(dir.path());
+        let source = tempfile::tempdir().unwrap();
+        let path = make_source(source.path());
+        let before = native(dir.path()).unwrap();
+        let _cancelled = make_preview(dir.path(), &path, window()).unwrap();
+        assert_eq!(native(dir.path()).unwrap(), before);
+        let first = make_preview(dir.path(), &path, window()).unwrap();
+        std::fs::write(source.path().join("README.txt"), "source changed").unwrap();
+        assert!(apply(dir.path(), &first.token, &selected(), true, window())
+            .unwrap_err()
+            .contains("changed after preview"));
+        assert_eq!(native(dir.path()).unwrap(), before);
+        let second = make_preview(dir.path(), &path, window()).unwrap();
+        std::fs::write(
+            dir.path().join("export/before-practice.mte"),
+            "external new template",
+        )
+        .unwrap();
+        assert!(
+            apply(dir.path(), &second.token, &selected(), true, window())
+                .unwrap_err()
+                .contains("changed after preview")
+        );
+        assert_eq!(
+            std::fs::read_to_string(dir.path().join("export/before-practice.mte")).unwrap(),
+            "external new template"
+        );
+        let third = make_preview(dir.path(), &path, window()).unwrap();
+        let mut changed = window();
+        changed.workspace.filter = "new filter".into();
+        assert!(apply(dir.path(), &third.token, &selected(), true, changed)
+            .unwrap_err()
+            .contains("changed after preview"));
+    }
+    #[test]
+    fn rejected_second_publication_recovers_exact_before_content_from_journal() {
+        let dir = tempfile::tempdir().unwrap();
+        config(dir.path());
+        let before = native(dir.path()).unwrap();
+        let mut after = before.clone();
+        after.insert("actions.json".into(), b"new action bytes".to_vec());
+        after.insert("columns.json".into(), b"new column bytes".to_vec());
+        persist(dir.path(), &pending_state(&before, &after, "applying")).unwrap();
+        let mut writes = 0;
+        let refused = replace_with(dir.path(), &before, &after, |_| {
+            writes += 1;
+            if writes == 2 {
+                Err("controlled write refusal".into())
+            } else {
+                Ok(())
+            }
+        });
+        assert!(refused.unwrap_err().contains("controlled write refusal"));
+        assert_ne!(native(dir.path()).unwrap(), before);
+        let recovered = status(dir.path(), None, None, None).unwrap();
+        assert_eq!(native(dir.path()).unwrap(), before);
+        assert!(!recovered.restorable);
+        assert!(recovered.pending.is_some());
+    }
+    #[test]
+    fn interrupted_restore_and_external_conflict_retain_recoverable_snapshot() {
+        let dir = tempfile::tempdir().unwrap();
+        config(dir.path());
+        let before = native(dir.path()).unwrap();
+        let mut imported = before.clone();
+        imported.insert("actions.json".into(), b"imported action bytes".to_vec());
+        imported.insert("columns.json".into(), b"imported column bytes".to_vec());
+        write_stage(dir.path(), &imported).unwrap();
+        let mut state = pending_state(&before, &imported, "restoring");
+        state.rollback = Some(encode(&imported));
+        persist(dir.path(), &state).unwrap();
+        std::fs::write(dir.path().join("actions.json"), &before["actions.json"]).unwrap();
+        let recovered = status(dir.path(), None, None, None).unwrap();
+        assert!(recovered.restorable);
+        assert_eq!(native(dir.path()).unwrap(), imported);
+        let mut state = pending_state(&before, &imported, "applying");
+        state.rollback = Some(encode(&before));
+        persist(dir.path(), &state).unwrap();
+        std::fs::write(
+            dir.path().join("actions.json"),
+            b"external edit during recovery",
+        )
+        .unwrap();
+        assert!(status(dir.path(), None, None, None)
+            .unwrap_err()
+            .contains("snapshot retained"));
+        assert_eq!(
+            std::fs::read(dir.path().join("actions.json")).unwrap(),
+            b"external edit during recovery"
+        );
+        assert!(store(dir.path()).unwrap().join("current.json").exists());
+    }
+    #[test]
+    fn journal_and_restore_survive_fresh_processes_without_preview_memory() {
+        let root = tempfile::tempdir().unwrap();
+        let nonce = uuid::Uuid::new_v4().to_string();
+        std::fs::write(root.path().join(".profile-native-test-sandbox"), &nonce).unwrap();
+        for phase in ["apply", "restore", "consumed"] {
+            let output = std::process::Command::new(std::env::current_exe().unwrap())
+                .args([
+                    "--exact",
+                    "profile_migration::tests::profile_restart_child",
+                    "--ignored",
+                    "--nocapture",
+                ])
+                .env("OPENTAG_PROFILE_TEST_ROOT", root.path())
+                .env("OPENTAG_PROFILE_TEST_NONCE", &nonce)
+                .env("OPENTAG_PROFILE_TEST_PHASE", phase)
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "fresh-process {phase}: {} {}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
+    }
+    #[test]
+    #[ignore = "controlled restart child; invoked only by the parent sandbox test"]
+    fn profile_restart_child() {
+        let root = std::path::PathBuf::from(
+            std::env::var("OPENTAG_PROFILE_TEST_ROOT").expect("parent sandbox"),
+        );
+        let nonce = std::env::var("OPENTAG_PROFILE_TEST_NONCE").expect("parent nonce");
+        assert_eq!(
+            std::fs::read_to_string(root.join(".profile-native-test-sandbox")).unwrap(),
+            nonce
+        );
+        uuid::Uuid::parse_str(&nonce).unwrap();
+        let directory = root.join("config");
+        match std::env::var("OPENTAG_PROFILE_TEST_PHASE")
+            .unwrap()
+            .as_str()
+        {
+            "apply" => {
+                config(&directory);
+                let source = root.join("source");
+                std::fs::create_dir_all(&source).unwrap();
+                let path = make_source(&source);
+                let preview = make_preview(&directory, &path, window()).unwrap();
+                apply(&directory, &preview.token, &selected(), true, window()).unwrap();
+            }
+            "restore" => {
+                assert!(PLANS.get().is_none());
+                let state = journal(&directory).unwrap().unwrap();
+                let before = decode(&state.before).unwrap();
+                assert_eq!(
+                    status(&directory, None, None, None)
+                        .unwrap()
+                        .report
+                        .unwrap()
+                        .imported
+                        .len(),
+                    6
+                );
+                let restored = restore(&directory, window()).unwrap();
+                assert_eq!(native(&directory).unwrap(), before);
+                let pending = restored.pending.unwrap();
+                status(&directory, Some(&pending.id), None, None).unwrap();
+                status(&directory, None, Some(&pending.id), None).unwrap();
+            }
+            "consumed" => {
+                let state = status(&directory, None, None, None).unwrap();
+                assert_eq!(state.phase, "restored");
+                assert!(state.pending.is_none());
+                assert!(!state.restorable);
+            }
+            _ => panic!("unknown parent phase"),
+        }
+    }
+    #[test]
+    fn workspace_count_limit_explains_the_playlist_route_without_truncation() {
+        let mut state = window();
+        state.workspace.paths = vec![state.workspace.paths[0].clone(); 10001];
+        let error = validate_window(&state).unwrap_err();
+        assert!(error.contains("10000"));
+        assert!(error.contains("playlist"));
+        assert!(error.contains("no files are truncated"));
+    }
+    #[test]
+    fn column_limit_is_reported_and_root_level_preset_folders_are_recognized() {
+        let _guard = TESTS.lock().unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        config(dir.path());
+        let source = tempfile::tempdir().unwrap();
+        std::fs::create_dir(source.path().join("columns")).unwrap();
+        std::fs::create_dir(source.path().join("panels")).unwrap();
+        let text = (0..201)
+            .map(|index| format!("[#{index}]\nName=Column {index}\nValue=%title%\nWidth=100\n"))
+            .collect::<String>();
+        std::fs::write(source.path().join("columns/Large.ini"), text).unwrap();
+        std::fs::write(
+            source.path().join("panels/Small.ini"),
+            b"[#0]\nname=Title\nvalue=TITLE\nversion=1\n",
+        )
+        .unwrap();
+        let preview = make_preview(dir.path(), source.path().to_str().unwrap(), window()).unwrap();
+        let columns = preview
+            .items
+            .iter()
+            .find(|item| item.kind == "columns")
+            .unwrap();
+        assert!(columns.supported);
+        assert!(columns
+            .warnings
+            .iter()
+            .any(|warning| warning.contains("200: 1.")));
+        assert!(preview
+            .items
+            .iter()
+            .any(|item| item.kind == "panel" && item.supported));
+    }
+    #[test]
+    fn corrupt_journal_and_unsafe_zip_entries_never_publish_configuration() {
+        let dir = tempfile::tempdir().unwrap();
+        config(dir.path());
+        let before = native(dir.path()).unwrap();
+        persist(dir.path(), &pending_state(&before, &before, "applying")).unwrap();
+        let path = store(dir.path()).unwrap().join("current.json");
+        let mut modified: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+        modified["after"]["columns.json"] = serde_json::Value::String("Y29ycnVwdA==".into());
+        std::fs::write(&path, serde_json::to_vec(&modified).unwrap()).unwrap();
+        assert!(status(dir.path(), None, None, None)
+            .unwrap_err()
+            .contains("checksum"));
+        assert_eq!(native(dir.path()).unwrap(), before);
+        for names in [
+            vec!["../outside.ini"],
+            vec!["A.ini", "a.INI"],
+            vec!["C:/outside.ini"],
+        ] {
+            let archive = dir.path().join("unsafe.zip");
+            let mut zip = zip::ZipWriter::new(std::fs::File::create(&archive).unwrap());
+            for name in names {
+                zip.start_file(name, zip::write::SimpleFileOptions::default())
+                    .unwrap();
+                zip.write_all(b"fixture").unwrap();
+            }
+            zip.finish().unwrap();
+            assert!(input(&archive).is_err());
+            assert_eq!(native(dir.path()).unwrap(), before);
+        }
+    }
+    #[test]
+    fn explicit_legacy_codepage_uses_existing_importers_and_oversized_items_stay_visible() {
+        let _guard = TESTS.lock().unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        config(dir.path());
+        let source = tempfile::tempdir().unwrap();
+        std::fs::create_dir(source.path().join("export")).unwrap();
+        std::fs::write(
+            source.path().join("export/Legacy.mte"),
+            b"$filename(txt)Caf\xe9",
+        )
+        .unwrap();
+        std::fs::write(
+            source.path().join("Legacy.mta"),
+            b"[#0]\nT=5\nF=TITLE\n1=Caf\xe9\n",
+        )
+        .unwrap();
+        std::fs::write(
+            source.path().join("columns.ini"),
+            vec![b'x'; 4 * 1024 * 1024 + 1],
+        )
+        .unwrap();
+        let preview = preview(
+            dir.path(),
+            source.path().to_str().unwrap(),
+            window(),
+            Some("windows-1252".into()),
+        )
+        .unwrap();
+        assert!(
+            preview
+                .items
+                .iter()
+                .find(|item| item.kind == "export")
+                .unwrap()
+                .supported
+        );
+        let columns = preview
+            .items
+            .iter()
+            .find(|item| item.file == "columns.ini")
+            .unwrap();
+        assert!(!columns.supported);
+        assert!(columns
+            .warnings
+            .iter()
+            .any(|warning| warning.contains("4 MB")));
+        assert!(
+            preview
+                .items
+                .iter()
+                .find(|item| item.kind == "actions")
+                .unwrap()
+                .supported
+        );
+        let plan = PLANS.get().unwrap().lock().unwrap();
+        let Candidate::Export(configuration) =
+            &plan[&preview.token].candidates["export/Legacy.mte"]
+        else {
+            panic!("export candidate")
+        };
+        assert!(configuration.template.contains("Café"));
+    }
+    #[cfg(unix)]
+    #[test]
+    fn symlinks_journal_escape_credentials_and_unseen_selections_are_rejected() {
+        let _guard = TESTS.lock().unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        config(dir.path());
+        let source = tempfile::tempdir().unwrap();
+        let path = make_source(source.path());
+        let preview = make_preview(dir.path(), &path, window()).unwrap();
+        assert!(apply(
+            dir.path(),
+            &preview.token,
+            &["Mp3tagSettings.bin".into()],
+            true,
+            window()
+        )
+        .is_err());
+        let mut invalid = window();
+        invalid
+            .preferences
+            .insert("opentag.api-token".into(), "must not be captured".into());
+        assert!(validate_window(&invalid).is_err());
+        invalid = window();
+        invalid.workspace.paths = vec!["content://provider/document".into()];
+        invalid.workspace.selected.clear();
+        invalid.workspace.anchor = None;
+        assert!(validate_window(&invalid).is_err());
+        std::os::unix::fs::symlink(
+            dir.path().join("tag-sources.json"),
+            source.path().join("outside.ini"),
+        )
+        .unwrap();
+        assert!(input(source.path()).is_err());
+        let before = native(dir.path()).unwrap();
+        let mut state = pending_state(&before, &before, "applying");
+        state.before.insert("../outside.json".into(), "YQ==".into());
+        persist(dir.path(), &state).unwrap();
+        assert!(status(dir.path(), None, None, None).is_err());
+        assert_eq!(native(dir.path()).unwrap(), before);
+    }
 }
