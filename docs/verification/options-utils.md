@@ -1,5 +1,7 @@
 # Options pages, Tools, Utils, Edit and Help extras
 
+> **Historical record.** The gaps below were written when this note was made; later batches closed most of them. The current open list is the [remaining-gaps register](../research/remaining-gaps.md).
+
 Scope: the remaining Options pages that can change behaviour (Messages, Tag Panel, Field Values, Tools), configuration backup and restore, the Utils menu, Edit → Copy as Text… and Repeat, and the Help menu. References: `customization/options/{messages,tools,tag-panel,field-values,general,language}`, `utils`, `menus/{edit,file,help}` and `keyboard`.
 
 ## Implemented

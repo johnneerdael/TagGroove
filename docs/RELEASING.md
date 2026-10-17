@@ -201,9 +201,10 @@ The script tests cover automatic version derivation from a real git history (mer
 Inspect the actual workflow run and release after publication:
 
 ```sh
+TAG=v0.2.22   # the release being verified
 gh run list --workflow reviewed-release.yml
-gh release view v0.1.0
-gh release download v0.1.0 --dir release-verification
+gh release view "$TAG"
+gh release download "$TAG" --dir release-verification
 ```
 
 From the downloaded directory, verify the checksum list with the platform's SHA256 tool (`sha256sum -c SHA256SUMS` on Linux, or `shasum -a 256 -c SHA256SUMS` on macOS). Confirm the release is a full release (or a prerelease for a suffixed tag), all required platform assets exist, the source commit matches, and the banner and parity links resolve. Installer launches, mobile document access/save-back, same-device behavior, original-runtime differential tests, and signing/notarization qualification remain separate checks.

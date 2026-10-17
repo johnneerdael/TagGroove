@@ -1,5 +1,7 @@
 # Options dialog and tag preferences
 
+> **Historical record.** The gaps below were written when this note was made; later batches closed most of them. The current open list is the [remaining-gaps register](../research/remaining-gaps.md).
+
 Scope: File → Options… and the Tags → Mpeg, Ape/Mpc and Advanced pages, plus the General, Files, Directories and Appearance settings that change behaviour. References: `customization/options/*`, `customization/options/tags/{mpeg,ape,advanced}`, `keyboard`.
 
 ## Implemented

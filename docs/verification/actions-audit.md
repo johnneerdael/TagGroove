@@ -1,5 +1,7 @@
 # Actions, helper menus and action-group UX audit
 
+> **Historical record.** The gaps below were written when this note was made; later batches closed most of them. The current open list is the [remaining-gaps register](../research/remaining-gaps.md).
+
 Checkpoint: 2026-10-14, branch `feat/actions-audit` (from `feat/core-parity`). macOS arm64 debug build, isolated identifier `org.opentag.editor.e2e.actions`.
 
 Sources compared: every page under the Mp3tag 3.36.1 documentation `actions/`, `menus/actions`, `menus/fields`, `menus/format-strings`, `format`, `scripting`, `regex` and `filter`. Labels missing from the docs came from the shipped `lang/English.lng` (keys such as `_M_STR_ACTION_IMPORTCOVER_TYPE`, `_M_STR_ACTION_ADJUSTCOVER_QUALITY_*`, `_C_OPT_ACTIONGROUPS_SORTBY*`, `_M_STR_TAGFIELDS_*`, `_C_MNU_FS_*`, `_M_STR_COPYOF`) and from the dialog resource strings in `Mp3tag.exe` (Import cover: "Import cover as:", "Delete existing covers"). No documentation prose or proprietary files were copied into the app.
