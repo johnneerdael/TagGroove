@@ -181,3 +181,21 @@ and public-message normalizer with controlled rejected native requests for
 both mobile contracts and a successful desktop request. All 389 UI/model tests,
 the production build, strict 172-page guide and eight publication tests pass.
 These are shared-handler controls rather than mobile-device browser tests.
+
+## DSDIFF review verification
+
+A further review suggested that `.dff` required a separate `dsdiff` demuxer.
+The pinned FFmpeg 9.0.2 archive has no such registration: its enabled `iff`
+demuxer recognizes DSDIFF `FRM8`/`DSD ` input and implements its metadata and
+packet reader in `libavformat/iff.c`. No dependency configuration change was
+needed. The archive SHA-256 remains
+`8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e`.
+
+A new reproducible, project-authored twelve-second stereo DSD64 carrier is
+accepted by the actual tag reader and embedded producer on the original
+reviewed configuration. Its fingerprint and full duration match a fresh run
+of the independently hashed Chromaprint 1.6.2 CLI; the input remains unchanged.
+The fixture directory retains its generator, raw/carrier hashes and reference
+capture. All fifteen native crate tests pass, including the unchanged fourteen
+original golden media cases, VAPC and exact-prefix regressions. This is a
+macOS arm64 API verification; the normal CI target gates remain required.

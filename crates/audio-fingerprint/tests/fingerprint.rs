@@ -123,6 +123,44 @@ fn cancellation_and_zero_budget_stop_before_opening_the_file() {
 }
 
 #[test]
+fn tag_readable_dsdiff_keeps_its_existing_fingerprint_capability() {
+    use sha2::{Digest, Sha256};
+    use std::io::Read;
+    let _serial = SERIAL.lock().unwrap_or_else(|p| p.into_inner());
+    let carrier = include_bytes!("fixtures/dsdiff12.dff.gz");
+    assert_eq!(
+        format!("{:x}", Sha256::digest(carrier)),
+        "7d9c7dea40f7d658fdc5b9864c3ab73eb87f0cc7d29da556384b73e444394630"
+    );
+    let mut bytes = Vec::new();
+    flate2::read::GzDecoder::new(carrier.as_slice())
+        .read_to_end(&mut bytes)
+        .unwrap();
+    assert_eq!(bytes.len(), 8_467_330);
+    assert_eq!(
+        format!("{:x}", Sha256::digest(&bytes)),
+        "7f1992e6d162c53d6493595d8924ed6935dfb460397d782f284b3d4341089ee5"
+    );
+    let mut file = tempfile::Builder::new().suffix(".dff").tempfile().unwrap();
+    file.write_all(&bytes).unwrap();
+    file.flush().unwrap();
+    assert!(
+        tag_core::read_entry(file.path()).is_ok(),
+        "DSDIFF is already accepted by OpenTag's tag reader"
+    );
+    let result = Job::new(file.path().to_owned(), Control::default())
+        .unwrap()
+        .run()
+        .expect("Tag-readable DSDIFF must remain fingerprintable");
+    assert_eq!(result.duration, 12.0);
+    assert_eq!(
+        result.encoded,
+        "AQAAS0mUaEkSRZEGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    );
+    assert_eq!(std::fs::read(file.path()).unwrap(), bytes);
+}
+
+#[test]
 fn tag_readable_vapc_aifc_keeps_its_existing_fingerprint_capability() {
     let _serial = SERIAL.lock().unwrap_or_else(|p| p.into_inner());
     fn chunk(kind: &[u8; 4], data: &[u8]) -> Vec<u8> {

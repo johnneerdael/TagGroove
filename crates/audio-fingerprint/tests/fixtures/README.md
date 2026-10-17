@@ -30,3 +30,22 @@ FFmpeg decoder rejects that frame. The fixture SHA-256 is
 `893b27c6a8987e938df63cdd4435324511c444e623e522183d4ea0c446a2e547`.
 Normal regression execution uses the embedded producer and bundled bytes;
 it invokes neither FFmpeg nor fpcalc.
+
+## DSDIFF input coverage
+
+`dsdiff12.dff.gz` contains twelve seconds of project-authored stereo DSD64,
+with a DSDIFF 1.5 `FRM8` form, `PROP/SND` metadata and uncompressed `DSD `
+payload. `generate-dsdiff.py` reproduces the carrier using only Python's
+standard library. The raw bytes repeat `69` per channel; no recording is used.
+`dsdiff-reference.json` records the raw/carrier hashes and the separately
+hashed Chromaprint 1.6.2 reference executable's duration/fingerprint result.
+
+The regression first verifies that OpenTag's tag reader accepts the `.dff`
+file, then compares the actual embedded producer with that frozen reference
+and checks that the input remains unchanged. It passed on the original
+reviewed profile before any production change. FFmpeg 9.0.2 handles DSDIFF
+through the already enabled `iff` demuxer (`libavformat/iff.c`: `iff_probe`
+recognizes `FRM8`/`DSD ` and `ff_iff_demuxer` owns the reader). That pinned
+version has no separate `dsdiff` demuxer. This is an additional coverage test;
+the fourteen original compatibility cases are unchanged. Normal execution
+uses bundled bytes and invokes no external media program.
