@@ -11,9 +11,6 @@ on:
       source_sha:
         required: true
         type: string
-    secrets:
-      DOCS_PAGES_DEPLOY_KEY:
-        required: true
 permissions:
   contents: read
   pull-requests: read
@@ -53,24 +50,12 @@ jobs:
       - run: python -m unittest discover -s docs/tests -v
       - run: python scripts/docs-status.py
       - run: python -m mkdocs build --strict
-      - name: Prepare neutral static publication and legacy route redirects
-        env:
-          PR_HEAD: ${{ inputs.head_sha }}
-          SOURCE_SHA: ${{ inputs.source_sha }}
-          PR_NUMBER: ${{ inputs.pr_number }}
-        run: |
-          python .github/scripts/guide_pages.py prepare \
-            --site build/user-guide-site --redirects build/user-guide-redirects \
-            --source "$SOURCE_SHA" --head "$PR_HEAD" --pr "$PR_NUMBER"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: reviewed-guide-static
-          path: build/user-guide-site
-          include-hidden-files: true
-          if-no-files-found: error
+      - name: Set the custom domain
+        run: echo 'opentag.neerdael.nl' > build/user-guide-site/CNAME
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: build/user-guide-redirects
+          path: build/user-guide-site
+
   deploy:
     needs: [authorize, build]
     runs-on: ubuntu-24.04
@@ -110,53 +95,6 @@ jobs:
             echo 'current=false' >> "$GITHUB_OUTPUT"
             echo 'Skip an older source revision; the newer main revision owns publication.'
           fi
-      - uses: actions/download-artifact@v4
-        if: steps.source.outputs.current == 'true'
-        with:
-          name: reviewed-guide-static
-          path: ${{ runner.temp }}/reviewed-guide-static
-      - name: Publish only static bytes to the neutral guide repository
-        if: steps.source.outputs.current == 'true'
-        env:
-          # This secret exists only in the github-pages environment above.
-          # It grants write access to the static publication repository alone.
-          DOCS_PAGES_DEPLOY_KEY: ${{ secrets.DOCS_PAGES_DEPLOY_KEY }}
-          GH_TOKEN: ${{ github.token }}
-          PR_HEAD: ${{ inputs.head_sha }}
-          SOURCE_SHA: ${{ inputs.source_sha }}
-          PR_NUMBER: ${{ inputs.pr_number }}
-        run: |
-          python3 .github/scripts/guide_pages.py publish \
-            --site "$RUNNER_TEMP/reviewed-guide-static" \
-            --source "$SOURCE_SHA" --head "$PR_HEAD" --pr "$PR_NUMBER"
-      - name: Require the matching neutral site to be live before redirecting
-        if: steps.source.outputs.current == 'true'
-        env:
-          PR_HEAD: ${{ inputs.head_sha }}
-          SOURCE_SHA: ${{ inputs.source_sha }}
-          PR_NUMBER: ${{ inputs.pr_number }}
-        run: |
-          python3 .github/scripts/guide_pages.py wait \
-            --site "$RUNNER_TEMP/reviewed-guide-static" \
-            --source "$SOURCE_SHA" --head "$PR_HEAD" --pr "$PR_NUMBER"
-      - name: Recheck approval and current main before deploying old-site redirects
-        if: steps.source.outputs.current == 'true'
-        id: redirect-source
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_HEAD: ${{ inputs.head_sha }}
-          SOURCE_SHA: ${{ inputs.source_sha }}
-          PR_NUMBER: ${{ inputs.pr_number }}
-        run: |
-          set -euo pipefail
-          python3 .github/scripts/review_gate.py release-check --pr "$PR_NUMBER"
-          current_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')
-          if [ "$SOURCE_SHA" = "$current_sha" ]; then
-            echo 'current=true' >> "$GITHUB_OUTPUT"
-          else
-            echo 'current=false' >> "$GITHUB_OUTPUT"
-            echo 'Skip older redirects; the newer main revision owns publication.'
-          fi
       - uses: actions/deploy-pages@v4
-        if: steps.redirect-source.outputs.current == 'true'
+        if: steps.source.outputs.current == 'true'
         id: deployment

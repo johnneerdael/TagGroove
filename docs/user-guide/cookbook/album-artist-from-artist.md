@@ -19,7 +19,7 @@ using Album Artist. Copying each track's artist is suitable only when that is
 the intended album-level credit. A compilation with a different artist per
 track usually needs one deliberately chosen common album artist instead.
 
-This recipe uses the **first** Artist value as that primary credit. It does
+This recipe uses the first Artist value as that primary credit. It does
 not decide who the album artist ought to be. Existing Album Artist values are
 excluded from the main selection.
 
@@ -121,7 +121,7 @@ $meta_sep(ARTIST,$char(92)$char(92))
 
 `$meta_sep` joins every Artist value with two backslashes. Format Value splits
 that result into separate metadata values, trims each part, and drops empty
-parts **when the separator is present**. Without it, a nonempty single result
+parts when the separator is present. Without it, a nonempty single result
 retains its spaces. It is not a universal lossless copy of arbitrary text
 containing literal double-backslash pairs.
 

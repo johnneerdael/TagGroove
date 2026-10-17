@@ -41,7 +41,7 @@ can produce **Covers vary**. Select one file at a time to investigate.
 
 The shortcut respects text-entry/AltGr combinations on Windows; use the
 menu if the key combination types a character in the current input.
-The picker offers supported image files such as JPEG, PNG, GIF, BMP and
+The picker lists supported image files such as JPEG, PNG, GIF, BMP and
 WebP. Its starting folder follows the configured cover-art directory and
 fallback order explained in the [cover context reference](../reference/menus/context-menus.md).
 
@@ -131,7 +131,7 @@ inspect **Edit → Undo** and its operation label.
 
 ## Use direct cover commands deliberately
 
-The cover window's **⋯** or right-click menu offers Add, Remove, Replace,
+The cover window's **⋯** or right-click menu has Add, Remove, Replace,
 Extract, Adjust, Manage, type/description and clipboard commands. Direct
 cover mutations write through their own operation immediately. They do not
 wait for the Extended tags dialog's **Keep changes** button.
@@ -169,9 +169,9 @@ disables this fallback. Provider documents without a browsable local folder
 use a different access path and do not gain folder browsing through this
 setting.
 
-The fallback is labeled **Not embedded in the file**. It does not appear
-because a failed embed was magically repaired, and removing embedded art
-does not delete the external image. Add/embed the image explicitly when
+The fallback is labeled **Not embedded in the file**. It does not mean a
+failed embed was repaired, and removing embedded art does not delete the
+external image. Add/embed the image explicitly when
 it should travel with the audio files.
 
 ## Gotchas

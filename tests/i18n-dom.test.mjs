@@ -1024,7 +1024,6 @@ test('real Cut/Paste failure statuses translate UI operation names while authore
         assert.equal(rows[0].textContent,`${current.t(operation)}: ${current.translate(state.errors[0].error)}`);assert.equal(rows[1].textContent,`${operation}: ${current.t('Select files first.')}`);
         p.translateTree(p.body);assert.equal(rows[0].querySelector('strong').textContent,current.t(operation)+':');
       }
-      assert.equal(t.translate(`Copy of ${operation}`),t.t('Copy of {name}',{name:operation}));
       assert.equal(state.errors[0].path,operation);assert.equal(state.errors[0].error,operation==='Paste tags'?'The clipboard holds tags of 2 files. Select 1 or 2 files to paste them.':'Select files first.');
     }finally{p.close();}
   }

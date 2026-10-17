@@ -33,7 +33,7 @@ settings. Switching types can recall a different saved configuration. For
 example, returning to **Replace** can restore an earlier search/replacement
 instead of supplying empty controls. Check every field before applying.
 
-This convenience is not a named, ordered workflow. To repeat several steps
+Quick settings are not a named, ordered workflow. To repeat several steps
 reliably, put them in a saved action group. The Quick dialog's **Cancel**
 closes without applying the current action.
 

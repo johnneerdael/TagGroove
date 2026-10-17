@@ -23,8 +23,8 @@ read/write/remove capabilities and exceptional layouts.
 | Matroska tags/attachments | Matroska and WebM | Scoped tags, supported chapters and image attachments; target levels matter |
 | RIFF INFO | Supported WAV metadata | Different capacity from ID3v2, which a WAV can also contain |
 
-This table is an orientation, not a promise that every field or image type
-works identically in each family. In particular, AIFF's supported editing
+This table is an orientation. Not every field or image type works
+identically in each family. In particular, AIFF's supported editing
 path is ID3v2 here; do not infer other editors' native chunk behavior.
 
 ## One MP3 can contain conflicting blocks

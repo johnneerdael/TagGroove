@@ -104,7 +104,7 @@ causing an error. **Related:** [`$grtr`](#grtr), [numeric rules](numbers.md).
 | `$iflonger(abc,3,long,short)` | Any file | `short` |
 | `$iflonger($trim('   '),0,present,empty)` | Any file | `empty` |
 
-Length counts Unicode characters, not UTF-8 bytes. This provides an
+Length counts Unicode characters, not UTF-8 bytes. This gives an
 explicit nonempty-text check when `n` is 0, independently of inherited
 truth flags. **Related:** [`$if2`](#if2), [text functions](text.md#len).
 

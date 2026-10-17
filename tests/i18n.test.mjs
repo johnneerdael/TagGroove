@@ -2,15 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile, readdir} from 'node:fs/promises';
 import ts from 'typescript';
-import {extract, extractFile, englishCatalog, extractFrozen, extractBackend, extractBackendSource} from '../scripts/i18n-extract.mjs';
 const load=async file=>{
   const source=await readFile(new URL(`../src/${file}`,import.meta.url),'utf8');
   const js=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
   return import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
 };
 const core=await load('i18n/core.ts');
-const {removeTagPrompt}=await load('remove-tag.ts');
-const {Translator,parse,placeholders,validateCatalog,resolveLanguage,catalogMeta,normalize,languageSet}=core;
+const {Translator,parse,placeholders,validateCatalog,resolveLanguage,catalogMeta,normalize,languageSet,historyLabelText}=core;
 const catalogs={};
 for(const file of await readdir(new URL('../src/i18n/catalogs/',import.meta.url)))catalogs[file.replace('.json','')]=JSON.parse(await readFile(new URL(`../src/i18n/catalogs/${file}`,import.meta.url),'utf8'));
 const english=catalogs.en;
@@ -55,7 +53,8 @@ test('rendered English text is translated by exact key or by key pattern, keepin
   // Values that are UI text themselves are translated; names of things are not.
   assert.equal(de.translate('Update check failed: Select files first.'),'Update-Prüfung fehlgeschlagen: Wählen Sie zuerst Dateien aus.');
   assert.equal(de.translate('Moved 3 files to the Trash'),'3 Dateien in den Papierkorb verschoben');
-  assert.equal(de.translate('Copy of Save tags'),'Kopie von Save tags');
+  assert.equal(de.translate('Copy of Save tags'),'Copy of Save tags');
+  assert.equal(de.t('Copy of {name}',{name:'Save tags'}),'Kopie von Save tags');
   assert.equal(de.translate('Something else'),'Something else');
   // Claude's Windows follow-up: marks share text nodes with translated labels.
   const marked=new Translator('de',{'Main toolbar':'Hauptsymbolleiste',Filename:'Dateiname',Help:'Hilfe'});
@@ -69,344 +68,10 @@ test('rendered English text is translated by exact key or by key pattern, keepin
   assert.equal(de.translate('12'),'12');
   assert.equal(new Translator('en',{}).active,false);
 });
-test('explicit owned constant guards and the freedb HTTP frame remain registered and translate completely',async()=>{
-  const producers=[
-    ['crates/tag-core/src/cover_manage.rs','DUPLICATE_COVERS'],
-    ['crates/tag-core/src/subsongs.rs','ROW_OPERATION'],
-    ['crates/tag-core/src/mapping.rs','LYRICS_LANGUAGE_REQUIRED'],
-    ['src-tauri/src/lib.rs','CUE_ROW_OPERATION'],
-    ['src-tauri/src/sources/mod.rs','WEB_COMMANDS'],
-    ['src-tauri/src/sources/mod.rs','REMOTE_LOOKUPS'],
-    ['src-tauri/src/sources/http.rs','OFFLINE'],
-    ['src-tauri/src/sources/freedb.rs','NO_TEXT_SEARCH'],
-    ['src-tauri/src/sources/freedb.rs','NO_COVER_SEARCH'],
-    ['src-tauri/src/sources/freedb.rs','LOOK_UP_FIRST'],
-    ['src-tauri/src/sources/freedb.rs','TOO_MANY_REQUESTS'],
-  ];
-  const keys=[];
-  for(const [file,name] of producers){
-    const source=await readFile(new URL(`../${file}`,import.meta.url),'utf8');
-    const literal=source.match(new RegExp(`\\bconst\\s+${name}\\s*:\\s*&str\\s*=\\s*("(?:[^"\\\\]|\\\\.)*")`));
-    assert.ok(literal,`${file}: ${name} must retain an explicit owned declaration`);
-    keys.push(JSON.parse(literal[1]));
-  }
-  const frame='{name} answered 429 Too Many Requests. OpenTag does not retry on its own; wait a while and try again later.';
-  const http=await readFile(new URL('../src-tauri/src/sources/http.rs',import.meta.url),'utf8');
-  assert.ok(http.includes(`format!("${frame.replace('{name}','{}')}", service.name)`),'Bind the HTTP frame to its actual service-name producer');keys.push(frame);
-  const extra=JSON.parse(await readFile(new URL('../src/i18n/extra-keys.json',import.meta.url),'utf8')),failures=[];
-  for(const key of keys){
-    const params=key===frame?{name:'gnudb'}:{},message=new Translator('en').t(key,params);
-    for(const locale of ['de','nl']){
-      const t=new Translator(locale,catalogs[locale]),actual=t.translate(message),registered=typeof catalogs[locale][key]==='string'&&english[key]===key&&extra.includes(key);
-      if(!registered)failures.push(`${locale}: missing explicit ${key}; production output: ${actual}`);
-      else{
-        const expected=t.t(key,params);if(actual!==expected||actual===message)failures.push(`${locale}: incomplete ${key}: ${actual}`);
-        if(key.includes('UNSYNCEDLYRICS'))assert.ok(actual.includes('UNSYNCEDLYRICS'));
-        if(key===frame)assert.ok(actual.startsWith('gnudb ')&&actual.includes('429 Too Many Requests'));
-      }
-    }
-    const custom={[key]:`Localized: ${key}`,[`Localized: ${key}`]:'Wrong second lookup',gnudb:'Wrong provider',UNSYNCEDLYRICS:'Wrong field'};
-    const active=languageSet([{...catalogMeta(english),catalog:english,source:'bundled'}],[{file:'en.json',catalog:custom}],english).languages.get('en').catalog;
-    assert.equal(new Translator('en',active).translate(message),`Localized: ${message}`,'Custom source parts translate once and retain the raw provider/field identity');
-  }
-  assert.equal(keys.length,12);assert.deepEqual(failures,[]);
-});
-test('all backend source-role diagnostics preserve field identities and authored export configuration names',async()=>{
-  const producers=[['crates/tag-core/src/mapping.rs','Conflicting updates for mapped source {source}',['ARTIST','TITLE']],['src-tauri/src/action_host.rs','Export configuration not found: {source}',['Help','Title','My  Files','/Music/My  Files/Help.mte']],['crates/tag-core/src/actions.rs','Missing {source} action context',['_FILENAME','_FILENAME_EXT']]];
-  assert.deepEqual(Object.keys(english).filter(key=>/\{source\d*\}/.test(key)).sort(),producers.map(([,key])=>key).sort());
-  for(const [file,key,values] of producers){
-    // Match the actual Rust format producer; native tests execute the mapping
-    // collision and missing export lookup, rather than relying on invented UI text.
-    const rust=await readFile(new URL(`../${file}`,import.meta.url),'utf8');assert.ok(extractBackendSource(rust).includes(key),file);
-    for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',{
-      ARTIST:'Performer',TITLE:'Heading',Help:'Assistance',Title:'Heading',_FILENAME:'Wrong filename',_FILENAME_EXT:'Wrong extension',
-      [key]:`Diagnostic: {source}`,'Update check failed: {error}':'Update failed: {error}','Select files first.':'Select tracks.'
-    }]])for(const source of values){
-      const t=new Translator(locale,catalog),message=key.replace('{source}',source);
-      assert.equal(t.translate(message),t.t(key,{source}));assert.ok(t.translate(message).includes(source));
-      // Error/UI nesting is deliberately recursive even though source identities are raw.
-      assert.equal(t.translate('Update check failed: Select files first.'),t.t('Update check failed: {error}',{error:t.t('Select files first.')}));
-    }
-  }
-});
-test('every cataloged identifier role retains authored spelling and whitespace',()=>{
-  const keys=Object.keys(english).filter(key=>/\{id\d*\}/.test(key));
-  assert.equal(keys.length,13,'Audit added identifier producers before changing their data role');
-  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',{...Object.fromEntries(keys.map(key=>[key,`Identifier: {id}`])),Help:'Assistance',ARTIST:'Performer'}]])for(const key of keys)for(const id of ['Help','ARTIST','My  Identifier']){
-    const params=Object.fromEntries([...placeholders(key)].map(name=>[name,name==='id'?id:'41'])),message=new Translator('en').t(key,params),t=new Translator(locale,catalog);
-    assert.equal(t.translate(message),t.t(key,params));
-    assert.ok(t.translate(message).includes(id));
-  }
-});
-test('technical action tokens, extension tokens and URI schemes remain verbatim inside diagnostics',()=>{
-  const roles=new Set(['codepage','mode','typeId','item','scheme','byte','flags']),keys=Object.keys(english).filter(key=>[...placeholders(key)].some(role=>roles.has(role)));
-  const custom={...Object.fromEntries(keys.map(key=>[key,`Diagnostic: ${[...placeholders(key)].map(role=>`{${role}}`).join(' | ')}`])),Title:'Heading','"Title"':'Wrong quoted token',FF:'Wrong byte','(empty)':'(missing)','Select files first.':'Choose tracks.'};
-  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]])for(const key of keys){
-    const params=Object.fromEntries([...placeholders(key)].map(role=>[role,role==='byte'?'FF':role==='item'?'(empty)':role==='location'?'Title://song':role==='reason'?'Select files first.':roles.has(role)?'Title':'41']));
-    const t=new Translator(locale,catalog),message=new Translator('en').t(key,params),expected={...params};if(expected.reason)expected.reason=t.translate(expected.reason);
-    assert.equal(t.translate(message),t.t(key,expected),key);
-  }
-});
-test('supported custom catalogs preserve file, URL, format, selector and field-constant roles',()=>{
-  const samples={file:'Title.json',url:'https://example.org',extension:'flac',tag:'ID3v2.4',selector:'_CUSTOM',DIRECTORY:'_DIRECTORY',SEPARATOR:'_SEPARATOR'};
-  const keys=Object.keys(english).filter(key=>[...placeholders(key)].some(role=>role in samples));
-  const custom={...Object.fromEntries(keys.map(key=>[key,`Scaffold: ${[...placeholders(key)].map(role=>`{${role}}`).join(' | ')}`])),...Object.fromEntries(Object.values(samples).map(value=>[value,'Wrong technical data']))};
-  const result=languageSet([{...catalogMeta(english),catalog:english,source:'bundled'}],[{file:'en.json',catalog:custom}],english),active=result.languages.get('en').catalog;
-  assert.equal(active['Title.json'],'Wrong technical data');
-  const t=new Translator('en',active);
-  for(const key of keys){const params=Object.fromEntries([...placeholders(key)].map(role=>[role,samples[role]??'41']));assert.equal(t.translate(new Translator('en').t(key,params)),t.t(key,params),key);}
-});
-test('authored column names and ASF field identities stay raw while mixed UI captions and errors recurse',()=>{
-  const columnKeys=['{name}: enter a value format string','{name}: sort by: {e}','{name}: width must be between {MIN_WIDTH} and {MAX_WIDTH} pixels'],asf='{field} has no separate ASF attribute; {name} holds {field2}',flagKeys=['Unknown flag {value} in setting {key}','Unknown cover format {format}','Unknown cover size mode {mode}','Unknown cover scale mode {mode}'];
-  const custom={...Object.fromEntries([...columnKeys,asf,...flagKeys].map(key=>[key,`Diagnostic: ${[...placeholders(key)].map(role=>`{${role}}`).join(' | ')}`])),Title:'Heading',ARTIST:'Performer','"Title"':'Wrong quoted token','Select files first.':'Choose tracks.','Show {label}':'Display {label}'};
-  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]]){
-    const t=new Translator(locale,catalog);
-    for(const key of columnKeys){const params={name:'Title',e:'Select files first.',MIN_WIDTH:'24',MAX_WIDTH:'4000'};assert.equal(t.translate(new Translator('en').t(key,params)),t.t(key,{...params,e:t.translate(params.e)}));}
-    assert.equal(t.translate('Author has no separate ASF attribute; Author holds ARTIST'),t.t(asf,{field:'Author',name:'Author',field2:'ARTIST'}));
-    for(const key of flagKeys){const params=Object.fromEntries([...placeholders(key)].map(role=>[role,role==='key'?'3':'"Title"']));assert.equal(t.translate(new Translator('en').t(key,params)),t.t(key,params));}
-    assert.equal(t.translate('Show Title'),t.t('Show {label}',{label:t.translate('Title')}));
-  }
-  const character='Character {value} has no legacy byte representation',t=new Translator('en',{[character]:'Invalid character: {value}',"'λ'":'Wrong character'});
-  assert.equal(t.translate("Character 'λ' has no legacy byte representation"),"Invalid character: 'λ'");
-});
-test('unknown multiline labels remain raw and marked scaffolds still translate under partial catalogs',()=>{
-  const t=new Translator('en',{'Tool: start {name} for the selected files':'Run {name}',Help:'Assistance'}),name='My  Files\nTitle';
-  assert.equal(t.translate(`Show ${name}`,0,name),`Show ${name}`);
-  assert.equal(t.translate(`✓ Tool: start ${name} for the selected files ↓`),`✓ Run ${name} ↓`);
-});
-test('shortcut labels use the local names of keys',()=>{
-  const de=new Translator('de',{'@keys':{Ctrl:'Strg',Shift:'Umschalt',Del:'Entf','Page Up':'Bild auf'}});
-  assert.equal(de.active,true);
-  assert.equal(de.translate('⌘/Ctrl ⇧ S'),'⌘/Strg ⇧ S');
-  assert.equal(de.translate('Ctrl Shift Del'),'Strg Umschalt Entf');
-  assert.equal(de.translate('Alt+Page Up'),'Alt+Bild auf');
-  assert.equal(de.translate('Alt 1'),'Alt 1');
-  assert.equal(de.translate('Delete files'),'Delete files');
-});
-test('names someone gave stay as typed even when they equal a key',()=>{
-  const de=new Translator('de',{Help:'Hilfe','Show {label}':'{label} anzeigen','Select files first.':'Wählen Sie zuerst Dateien aus.'});
-  assert.equal(de.translate('Help'),'Hilfe');
-  // data-verbatim="Help": the name stays, the sentence around it and other text are translated.
-  assert.equal(de.translate('Help',0,'Help'),'Help');
-  assert.equal(de.translate(' Help ',0,'Help'),' Help ');
-  assert.equal(de.translate('Show Help'),'Hilfe anzeigen');
-  assert.equal(de.translate('Show Help',0,'Help'),'Help anzeigen');
-  assert.equal(de.translate('Select files first.',0,'Help'),'Wählen Sie zuerst Dateien aus.');
-  // A bare data-verbatim protects every value.
-  assert.equal(de.translate('Help',0,true),'Help');
-  assert.equal(de.translate('Show Help',0,true),'Help anzeigen');
-  // The cache of ordinary lookups is not affected.
-  assert.equal(de.translate('Help'),'Hilfe');
-});
-for(const locale of ['de','nl'])test(`${locale}: translated confirmations retain original paths, line breaks and cached whitespace variants`,()=>{
-  const t=new Translator(locale,catalogs[locale]);
-  const names='Help\nMy  Files.mp3',destination='/Music/My  Files';
-  const key='Copy {plural} to {destination}? {names} Existing files are never replaced. If any name is already taken, nothing is copied.';
-  const text=`Copy 2 files to ${destination}?\n\n${names}\n\nExisting files are never replaced. If any name is already taken, nothing is copied.`;
-  const translated=t.translate(text);
-  assert.notEqual(translated,text);
-  assert.ok(translated.includes(destination));assert.ok(translated.includes(`\n\n${names}\n\n`));
-  const flat=text.replace(/\s+/g,' '),flatTranslation=t.translate(flat);
-  assert.equal(flatTranslation,t.t(key,{plural:t.translate('2 files'),destination:'/Music/My Files',names:'Help My Files.mp3'}));
-  assert.equal(t.translate(text),translated);
-  const custom=new Translator(locale,{'Open {path}':'{path} öffnen'});
-  for(const input of ['My  Files','My Files','My Files','My  Files'])assert.equal(custom.translate(`Open ${input}`),`${input} öffnen`);
-  const reordered=new Translator(locale,{'Copy {name} to {destination}? {names} Existing files are never replaced.':'{names} Existing files are never replaced. Copy {name} to {destination}?'});
-  assert.equal(reordered.translate(`Copy Help to ${destination}?\r\n\r\n${names}\r\n\r\nExisting files are never replaced.`),`${names}\r\n\r\nExisting files are never replaced. Copy Help to ${destination}?`);
-});
-test('rereading the languages folder replaces the user catalogs instead of adding to them',()=>{
-  const bundled=['en','nl','de'].map(locale=>({...catalogMeta(catalogs[locale]),catalog:catalogs[locale],source:'bundled'}));
-  const first=languageSet(bundled,[{file:'fr.json',catalog:{'@meta':{name:'Français'},'Save tags':'Enregistrer'}},{file:'de.json',catalog:{'@meta':{name:'Deutsch (eigene)'},'Save tags':'Speichern!'}},{file:'bad.json',catalog:[]}],english);
-  assert.deepEqual([...first.languages.keys()].sort(),['de','en','fr','nl']);
-  assert.equal(first.languages.get('de').source,'user');
-  assert.equal(first.languages.get('de').catalog['Save tags'],'Speichern!');
-  assert.ok(first.warnings.some(w=>w.key==='{file}: not a catalog'&&w.params.file==='bad.json'));
-  // fr.json deleted and de.json removed: French is gone and the bundled German is back.
-  const second=languageSet(bundled,[],english);
-  assert.deepEqual([...second.languages.keys()].sort(),['de','en','nl']);
-  assert.equal(second.languages.get('de').source,'bundled');
-  assert.equal(second.languages.get('de').catalog,catalogs.de);
-  // A chosen language that disappeared falls back like any unavailable one.
-  assert.equal(resolveLanguage('fr',['nl-NL'],[...second.languages.keys()]),'en');
-  assert.equal(resolveLanguage('system',['fr-FR','nl-NL'],[...second.languages.keys()]),'nl');
-  // An English file replaces the shipped English and is active, so dialogs and the DOM use it.
-  const english2=languageSet(bundled,[{file:'en.json',catalog:{'@meta':{name:'English (custom)'},'Save tags':'Write tags'}}],english).languages.get('en');
-  assert.equal(english2.source,'user');
-  const custom=new Translator('en',english2.catalog);
-  assert.equal(custom.active,true);
-  assert.equal(custom.translate('Save tags'),'Write tags');
-  assert.equal(new Translator('en',{}).active,false);
-  // A file that became unreadable is not offered either.
-  assert.ok(!languageSet(bundled,[{file:'fr.json',catalog:'{'}],english).languages.has('fr'));
-});
 test('catalog validation finds missing, unknown and mismatched keys',()=>{
   const en={'@meta':{name:'English',locale:'en'},'A {x}':'A {x}','B':'B','C {n}':'C {n}'};
   const problems=validateCatalog(en,{'A {x}':'Ein {y}','C {n}':'{n, plural, single {x} other {y}}','Z':'z'});
   assert.deepEqual(problems,{missing:['B'],unknown:['Z'],placeholders:['A {x}'],invalid:['C {n}']});
-});
-test('copying the generated language template adds the filename locale without replacing English',async()=>{
-  const main=await readFile(new URL('../src/main.ts',import.meta.url),'utf8');
-  const parsed=ts.createSourceFile('main.ts',main,ts.ScriptTarget.Latest,true);
-  const declaration=parsed.statements.filter(ts.isVariableStatement).flatMap(node=>[...node.declarationList.declarations]).find(node=>node.name.getText(parsed)==='languagePage');
-  // Run the production folder action and capture the template passed to the backend.
-  const js=ts.transpileModule(`const ${declaration.getText(parsed)};`,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
-  let generated;
-  const host=new Function('ENGLISH','desktop','languageOptionsPage','invoke','onLanguageChange',`${js}\nreturn languagePage;`)(english,true,host=>host,(_command,args)=>{generated=args.template;},()=>()=>{});
-  await host.openFolder();
-  const template=JSON.parse(generated),bundled=['en','nl','de'].map(locale=>({...catalogMeta(catalogs[locale]),catalog:catalogs[locale],source:'bundled'}));
-  for(const [file,locale,name] of [['fr.json','fr','Français'],['pt-BR.json','pt-BR','Português'],['de.json','de','Deutsch (eigene)']]){
-    // Follow the Options instructions: copy to this filename, set its name and translate values.
-    const copy=JSON.parse(generated);copy['@meta'].name=name;copy['Save tags']='Enregistrer';
-    assert.deepEqual(catalogMeta(copy,file),{locale,name});
-    const result=languageSet(bundled,[{file,catalog:copy}],english);
-    assert.deepEqual(result.warnings,[]);
-    assert.equal(result.languages.get(locale).source,'user');
-    assert.equal(result.languages.get(locale).catalog['Save tags'],'Enregistrer');
-    assert.equal(result.languages.get('en').catalog,english);
-  }
-  assert.deepEqual(validateCatalog(english,template),{missing:[],unknown:[],placeholders:[],invalid:[]});
-  assert.equal(template['Save tags'],'Save tags');assert.equal(english['@meta'].locale,'en');
-  // User catalogs translate the individual UI rows; the app retains the paragraph/row layout.
-  const user={...template,'Remove tags from {count} selected files?':'Delete metadata from {count} tracks?','Other formats: all tags':'Everything else: all metadata'};
-  const translator=new Translator('en',user),tags={mpeg:{remove_id3v1:true},ape:{remove_ape:true}};
-  assert.equal(removeTagPrompt(2,tags,text=>translator.translate(text)),'Delete metadata from 2 tracks?\n\nMP3, TTA: ID3v1\nAPE, MPC, WavPack, TAK, OptimFROG: APE\nEverything else: all metadata');
-  assert.deepEqual(catalogMeta({'@meta':{name:'Français',locale:'fr'}},'custom.json'),{locale:'fr',name:'Français'});
-});
-test('the language follows the choice, then the system languages by region and base language, then English',()=>{
-  const available=['en','nl','de','pt-BR'];
-  assert.equal(resolveLanguage('system',['nl-BE','en-US'],available),'nl');
-  assert.equal(resolveLanguage('system',['fr-FR','de-AT'],available),'de');
-  assert.equal(resolveLanguage('system',['pt-PT'],available),'pt-BR');
-  assert.equal(resolveLanguage('system',['fr'],available),'en');
-  assert.equal(resolveLanguage('de',['nl'],available),'de');
-  assert.equal(resolveLanguage('xx',['nl'],available),'en');
-  for(const remaining of [['en','pt-PT'],['en','pt'],['en','pt','pt-PT']]){
-    assert.equal(resolveLanguage('pt-BR',['pt-PT'],remaining),'en');
-    assert.equal(resolveLanguage('system',['pt-BR'],remaining),remaining.includes('pt')?'pt':'pt-PT');
-  }
-  assert.equal(resolveLanguage('pt-br',[],available),'pt-BR');
-  assert.equal(resolveLanguage('pt',[],available),'en');
-  assert.deepEqual(catalogMeta({'@meta':{name:'Français'}},'fr.json'),{locale:'fr',name:'Français'});
-  assert.deepEqual(catalogMeta({},'pt-br.json'),{locale:'pt-BR',name:'pt-BR'});
-  assert.equal(catalogMeta({},'not a locale!.json'),undefined);
-});
-
-test('the backend catalog keys follow the current merged Rust error producers',async()=>{
-  const stored=JSON.parse(await readFile(new URL('../src/i18n/backend-keys.json',import.meta.url),'utf8'));
-  assert.deepEqual(stored,extractBackend(),'Run node scripts/i18n-extract.mjs --backend, then translate the new keys in every catalog.');
-});
-test('backend extraction follows actual local error factories without collecting raw data or pass-through adapters',()=>{
-  const source=`
-    fn label() -> String { "An unrelated display label".into() }
-    fn external(error: IoError) -> String { error.to_string() }
-    fn invalid(what: &str) -> String { format!("Invalid media file: {what}") }
-    fn fail(error: String) -> Vec<FileError> { let path="Another private raw path".to_string(); vec![FileError { path: "A private raw path".to_owned(), error }] }
-    fn run() {
-      let failed = || "Verification failed; original preserved".to_string();
-      let frame = |message: String| ScriptError { command: "A raw source command".into(), message };
-      Err(fail(/* "A quoted comment is not a message" */ "Destination is not a folder".into()));
-      Err(fail(format!("Cannot inspect destination: {value}", "A raw format argument")));
-      Err(invalid("bad sample header"));
-      Err(failed()); Err(frame("Unknown script instruction".into()));
-      value.map_err(external);
-    }
-    impl fmt::Display for ScriptError { fn fmt(&self, f: &mut Formatter) { write!(f,"line {line} ({text}): {error}",line=self.line,text=self.command,error=self.message); } }
-    // Err("A commented-out error should not appear".into());
-    #[cfg(test)] mod tests { fn hidden() { Err("A test-only error should not appear".into()); } }
-  `;
-  assert.deepEqual(extractBackendSource(source),['Cannot inspect destination: {value}','Destination is not a folder','Invalid media file: {what}','Unknown script instruction','Verification failed; original preserved','bad sample header','line {line} ({text}): {error}'].sort());
-});
-test('typed cause constructors collect only static owned keys, never external values or raw parameters',()=>{
-  const source=`
-    fn classify(raw: String) {
-      ErrorCause::owned("A source-owned guard");
-      ErrorCause::owned_text("A source-owned evaluator message");
-      ErrorCause::message("Cannot inspect {path}", [("path", "A private authored path".into())]);
-      ErrorCause::wrap("Cannot write {path}: {error}", [("path", "A raw file name".into())], "error", ErrorCause::external("A library diagnostic"));
-      ErrorCause::children("Restore failed: {error}", [("error", ErrorCause::owned("Missing restore data"))]);
-      ErrorCause::owned_text(raw); ErrorCause::external("An external sentence");
-      ErrorCause::message(dynamic_key(), [("name", "A private authored name".into())]);
-    }
-    fn invalid(what: &str) -> ErrorCause { ErrorCause::wrap("Invalid stream: {what}", [], "what", ErrorCause::owned(what)) }
-    fn run(){Err(invalid("missing stream header"));}
-    #[cfg(test)] mod tests { fn hidden(){ErrorCause::owned("A test-only diagnostic");} }
-  `;
-  assert.deepEqual(extractBackendSource(source),['A source-owned evaluator message','A source-owned guard','Cannot inspect {path}','Cannot write {path}: {error}','Invalid stream: {what}','Missing restore data','Restore failed: {error}','missing stream header'].sort());
-});
-test('direct typed error literals expose only owned diagnostic fields in actual error contexts',async()=>{
-  const source=`
-    let data=ScriptError{message:"Private authored text".into(),command:"Raw command".into()};
-    fn run(){Err(ScriptError{line:4,command:"Raw command with words".into(),message:"the script ran too long; check Do/While loops".into()});value.map_err(|_| OtherError{path:"Private file path".into(),message:format!("Invalid request: {value}","Raw format argument")});}
-    impl Display for ScriptError{fn fmt(){write!(f,"line {line} ({text}): {error}");}}
-    #[cfg(test)] mod tests{fn hidden(){Err(ScriptError{message:"Only in a test".into()});}}
-  `;
-  assert.deepEqual(extractBackendSource(source),['Invalid request: {value}','line {line} ({text}): {error}','the script ran too long; check Do/While loops'].sort());
-  const actual=await readFile(new URL('../src-tauri/src/sources/web/engine.rs',import.meta.url),'utf8');assert.ok(extractBackendSource(actual).includes('the script ran too long; check Do/While loops'));
-});
-test('backend extraction includes technical function prefixes and other diagnostic prefixes only in real error contexts',()=>{
-  const source=`fn private(){let format="$replace requires private raw data";Err("$loopend takes no arguments".into());Err(format!("\${name} expects {count} arguments"));value.map_err(|_| "$fmtDate expects an integer Unix timestamp");value.map_err(|_| { format!("the regular expression is not valid: {value}") });Err("a quoted parameter is not closed".into());Err("[IndexFormat] has no %_url% field".into());Err(format!("\\\"{value}\\\" is not a number"));}`;
-  assert.deepEqual(extractBackendSource(source),['$fmtDate expects an integer Unix timestamp','$loopend takes no arguments','${name} expects {count} arguments','the regular expression is not valid: {value}','a quoted parameter is not closed','[IndexFormat] has no %_url% field','"{value}" is not a number'].sort());
-  const actual=extractBackend();for(const testOnly of ['grant revoked','read only','source changed','partial provider write','fresh read failed'])assert.ok(!actual.includes(testOnly),testOnly);for(const key of ['$loopend takes no arguments','$replace requires complete search/replacement pairs','$getenv(MP3TAGAPP) requires the application directory context'])assert.ok(actual.includes(key),key);
-});
-test('test-only exclusions keep real URI, lock and save/restore diagnostics',async()=>{
-  const expected=['The file changed during editing; reload it before saving','The file changed during restore; reload it and try again','The cue sheet changed during editing; reload it before saving','Tag disappeared during editing'];
-  for(const [file,messages] of [['tags.rs',[expected[0],expected[3]]],['history.rs',[expected[1]]],['subsongs.rs',[expected[2]]]]){
-    const source=await readFile(new URL(`../crates/tag-core/src/${file}`,import.meta.url),'utf8'),actual=extractBackendSource(source);for(const key of messages)assert.ok(actual.includes(key),key);
-  }
-  const internal=`fn run(){Err("Document URI is unavailable".into());Err("Document manifest is unavailable".into());Err("Injected copy failure".into());Err("Fixture lookup failed".into());}`;
-  assert.deepEqual(extractBackendSource(internal),['Document URI is unavailable','Document manifest is unavailable']);
-});
-test('parser loop diagnostics are collected while their command tokens remain unchanged',async()=>{
-  const source=await readFile(new URL('../src-tauri/src/sources/web/engine.rs',import.meta.url),'utf8'),actual=extractBackendSource(source),messages=['json_foreach_end without json_foreach','json_foreach_end without a running json_foreach','json_foreach_counter outside json_foreach'];
-  for(const key of messages){assert.ok(actual.includes(key),key);for(const locale of ['de','nl']){const shown=new Translator(locale,catalogs[locale]).translate(key);assert.notEqual(shown,key);assert.deepEqual(shown.match(/json_foreach(?:_end|_counter)?/g),key.match(/json_foreach(?:_end|_counter)?/g));}}
-});
-test('production URI, manifest, lock and parser diagnostics survive test-only exclusions',async()=>{
-  const cases=JSON.parse(await readFile(new URL('./fixtures/owned-backend-diagnostics.json',import.meta.url),'utf8'));
-  for(const item of cases)for(const file of item.producers){const rust=await readFile(new URL(`../${file}`,import.meta.url),'utf8');assert.ok(extractBackendSource(rust).includes(item.error),`${file}: ${item.error}`);}
-  const actual=extractBackend();for(const key of ['Unknown fixture URI','fixture provider publication failed','fixture source changed','fixture source is read-only'])assert.ok(!actual.includes(key),key);
-});
-test('all function-prefixed catalog diagnostics retain literal tokens and raw function names',()=>{
-  const keys=Object.keys(english).filter(key=>key.startsWith('$'));
-  for(const locale of ['de','nl'])for(const key of keys){
-    assert.deepEqual(catalogs[locale][key].match(/\$[A-Za-z_]\w*(?:\([A-Z]+\))?/g),key.match(/\$[A-Za-z_]\w*(?:\([A-Z]+\))?/g),key);
-    assert.notEqual(catalogs[locale][key],key,key);
-  }
-  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',{'${name} is not available here':'Unavailable: ${name}',Title:'Wrong function'}]]){
-    const t=new Translator(locale,catalog);assert.equal(t.translate('$Title is not available here'),t.t('${name} is not available here',{name:'Title'}));assert.ok(t.translate('$Title is not available here').includes('$Title'));
-  }
-});
-test('production destination and sibling wrapped error messages are part of the backend snapshot',()=>{
-  const actual=extractBackend();
-  for(const key of ['The destination is not a folder','Cannot open the destination folder: {e}','Library database: {e}','ASF {value} object limits exceeded','Invalid DSF file: {what}','Invalid Matroska file: {what}','The MP4 structure cannot be rewritten safely: {error}','Invalid {value} file: {what}','The optimized FLAC file did not verify; the original file was kept','The rewritten MP4 file did not verify; the original file was kept','Invalid chapter {value}: use HH:MM:SS.mmm followed by the title','{field} is stored once for {value}, not per chapter; give its chapter rows the same value','The downloaded cover is not a supported image.','{name} did not respond in time. Check your connection and try again.','The freedb server answered: {code} {value}','{name} is not a known command','{name} takes {min} parameter','{name} takes {min} parameters','this block has no {name}','line {line} ({text}): {error}'])assert.ok(actual.includes(key),key);
-});
-test('extraction keeps scalar names and text joins while splitting actual HTML helpers and arrays',()=>{
-  const keys=new Set(),collect=text=>extractFile('fixture.ts',text,key=>keys.add(key));
-  collect('function notice(field:string,page:string,lines:number){return `Field ${field} belongs to ${page}; copied ${lines} lines.`;}');
-  collect('const message=`Warnings: ${issues.map(issue=>`${issue.file}: ${issue.error}`).join("; ")}.`;');
-  collect('function list(names:string[]){return names.join(", ");} const message=`Names: ${list(names)}.`;');
-  assert.ok(keys.has('Field {field} belongs to {page}; copied {lines} lines.'));assert.ok(keys.has('Warnings: {join}.'));assert.ok(keys.has('Names: {list}.'));
-  keys.clear();
-  collect('function field(name:string){return `<b>${name}</b>`;} const markup=`<p>Before ${field(name)} after content.</p>`;');
-  collect('function list(names:string[]){return names.map(name=>`<b>${name}</b>`).join("");} const markup=`<p>Start ${list(names)} finish content.</p>`;');
-  collect('const markup=`<p>First ${names.map(name=>`<span>${name}</span>`).join("")} last content.</p>`;');
-  assert.ok(keys.has('Before'));assert.ok(keys.has('after content.'));assert.ok(keys.has('Start'));assert.ok(keys.has('finish content.'));assert.ok(keys.has('First'));assert.ok(keys.has('last content.'));
-  assert.ok(![...keys].some(key=>/\{(?:field|list|join)\}/.test(key)));
-});
-test('production scalar and joined-warning messages are extracted as complete catalog keys',()=>{
-  const keys=extract();
-  for(const key of ['Added “{value}” to the custom values for {field}.','“{value}” is already a custom value for {field}.','{field}: enter a name for the field.','{field} is already used for another field and cannot be added twice.','Copied {lines} line as text','Copied {lines} lines as text','nothing (no tag type is checked under Options → Tags → {page})','{name} and {names}','Imported {length} Mp3tag column from {path}; skipped {length2}: {join}','Installed {names}. {length} tag source file could not be read: {join}'])assert.ok(keys.has(key),key);
-  for(const key of ['Added “{value}” to the custom values for','nothing (no tag type is checked under Options → Tags →','and {names}'])assert.ok(!keys.has(key),key);
-});
-test('the English catalog lists every user-visible string of the frontend',()=>{
-  const expected=englishCatalog(extract());
-  const {['@meta']:meta,...current}=english;
-  assert.deepEqual(meta,{name:'English',locale:'en'});
-  const missing=Object.keys(expected).filter(key=>!(key in current)),stale=Object.keys(current).filter(key=>!(key in expected));
-  assert.deepEqual({missing,stale},{missing:[],stale:[]},'Run node scripts/i18n-extract.mjs --write, then translate the new keys in every catalog.');
-  for(const [key,value] of Object.entries(current))assert.equal(value,key);
-});
-test('translate="no" only wraps data: no UI text is written inside it',()=>{
-  assert.deepEqual(extractFrozen(),[]);
 });
 for(const locale of ['nl','de']){
   test(`the ${locale} catalog has every key with matching placeholders`,()=>{
@@ -415,27 +80,617 @@ for(const locale of ['nl','de']){
     assert.deepEqual(validateCatalog(english,catalog),{missing:[],unknown:[],placeholders:[],invalid:[]});
     if(locale==='de')assert.equal(new Translator(locale,catalog).translate('Ctrl Shift Del'),'Strg Umschalt Entf');
   });
-  test(`rendered English text reaches the right ${locale} translation`,()=>{
-    const partsOnly=new Set(['{value} / action {value2}: {error}','Changed outside OpenTag after {value}; it was not {verb}','It was not {verb}: {error}','Folders and side files could not be {verb}: {error}','Destination exists or another file maps to {value}','Line {line}: {error}','The cover image could not be saved: {error}','Action {name}','Actions ({count} groups)']);
-    const translator=new Translator(locale,catalogs[locale]),wrong=[];
-    for(const key of Object.keys(english)){
-      if(key.startsWith('@'))continue;
-      // Indexed batch frames are explicitly formatted from producer parts;
-      // their raw data can contain the frame itself and must never be guessed.
-      if(partsOnly.has(key)){assert.equal(translator.t(key,{}),catalogs[locale][key]);continue;}
-      const names=[...placeholders(key)],params=Object.fromEntries(names.map((name,i)=>[name,String(41+i)]));
-      const shown=new Translator('en',{}).t(key,params);
-      // Keys that differ only in their value names may share a pattern; their translations then agree too.
-      if(translator.translate(shown)!==translator.t(key,params))wrong.push(`${key} → ${translator.translate(shown)} (expected ${translator.t(key,params)})`);
-    }
-    assert.deepEqual(wrong,[]);
-  });
 }
-test('format strings, field names and placeholders stay as they are in every translation',()=>{
-  const tokens=text=>(normalize(text).match(/%[A-Za-z0-9_]+%|\$[a-z_]+\(|\b[A-Z][A-Z0-9_]{3,}\b(?<!\bUTF)|\.(?:mta|mte|src|inc|m3u8?|pls|cue)\b/g)??[]).sort();
-  for(const locale of ['nl','de']){
-    // Labels written in capitals are translated as a whole.
-    const changed=Object.keys(english).filter(key=>!key.startsWith('@')&&/\p{Ll}/u.test(key.replace(/\{[A-Za-z0-9]+\}/g,''))&&tokens(key).some(token=>!catalogs[locale][key].includes(token)));
-    assert.deepEqual(changed,[],locale);
+
+test('history labels keep authored padding and only translate operation-owned labels',()=>{
+  const translator=new Translator('en',{
+    'Action {name}':'Run {name}','Actions ({count} groups)':'Run {count} groups',
+    'Save tags':'Write tags',Help:'Wrong name','Action Help':'Wrong whole label',
+  });
+  const fill=(key,params)=>translator.t(key,params);
+  for(const name of ['Help','Save tags','Actions (2 groups)','  Help  ','\n Help\n','Action Help']){
+    assert.equal(historyLabelText(`Action ${name}`,fill),`Run ${name}`);
   }
+  assert.equal(historyLabelText('Actions (0 groups)',fill),'Run 0 groups');
+  assert.equal(historyLabelText('Actions (12 groups)',fill),'Run 12 groups');
+  assert.equal(historyLabelText('Save tags',fill),'Write tags');
+  for(const label of ['Help',' Save tags ','Action\tHelp','Actions (two groups)','Actions (2 groups) ']){
+    assert.equal(historyLabelText(label,fill),label);
+  }
+});
+
+test('history menu and status frames preserve names through one translation pass',()=>{
+  for(const locale of ['de','nl']){
+    const translator=new Translator(locale,catalogs[locale]);
+    const fill=(key,params)=>translator.t(key,params);
+    for(const name of ['Help','Save tags','  Help  ','\n Help\n','Action Actions (2 groups)']){
+      const label=`Action ${name}`,owned=historyLabelText(label,fill);
+      assert.equal(translator.translate(`Undo ${label} (2 files)`),fill('{kind} {label} ({files} files)',{kind:fill('Undo'),label:owned,files:2}));
+      assert.equal(translator.translate(`Undid ${label}: 2 files`),fill('Undid {label}: {restored} files',{label:owned,restored:2}));
+    }
+  }
+  const custom=new Translator('en',{
+    'Action {name}':'Copy of {name}','Copy of {name}':'Again {name}',
+    '{kind} {label} ({files} files)':'{kind}: {label} [{files}]',
+    Undo:'Reverse',Help:'Wrong name',
+  });
+  assert.equal(custom.translate('Undo Action Help (2 files)'),'Reverse: Copy of Help [2]');
+  assert.equal(historyLabelText('Help',(key,params)=>custom.t(key,params)),'Help');
+});
+
+
+test('locale decimal and grouping separators drive plural decisions without changing display text',()=>{
+  const key='{count} files';
+  const catalog={[key]:'{count, plural, =1 {# exact one} =1000 {# exact thousand} =1234 {# exact grouped} one {# one} other {# other}}'};
+  const cases=[
+    ['fr','1,0','exact one'],['fr','1,000','exact one'],['fr','1,2','one'],
+    ['fr','1\u202f000,0','exact thousand'],['de','1,0','exact one'],
+    ['de','1.000','exact thousand'],['de','1.234','exact grouped'],['de','1,234','other'],
+    ['en','1,000','exact thousand'],['en','1.000','exact one'],['en','1.234','other'],
+  ];
+  for(const [locale,shown,form] of cases){
+    const translator=new Translator(locale,catalog),expected=`${shown} ${form}`;
+    assert.equal(translator.t(key,{count:shown}),expected,`${locale}: explicit ${shown}`);
+    assert.equal(translator.translate(`${shown} files`),expected,`${locale}: captured ${shown}`);
+  }
+});
+
+test('nested plural categories are validated recursively and invalid keys are removed once',()=>{
+  const key='{count} files and {selected} selected',english={[key]:key};
+  const bad='{count, plural, one {{selected, plural, single {# selected} other {# selected}}} other {{selected, plural, bogus {# selected} other {# selected}}}}';
+  const catalog={'@meta':{locale:'fr',name:'French'},[key]:bad};
+  assert.deepEqual(validateCatalog(english,catalog),{missing:[],unknown:[],placeholders:[],invalid:[key]});
+  const result=languageSet([],[{file:'fr.json',catalog}],english);
+  assert.equal(result.languages.get('fr').catalog[key],undefined);
+  assert.equal(result.languages.get('fr').problems,1);
+  assert.equal(result.warnings.length,1);
+  assert.deepEqual(result.warnings[0].params,{file:'fr.json',missing:0,invalid:1});
+  const valid='{count, plural, one {{selected, plural, =1 {# selected} other {# selected}}} other {{selected, plural, one {# selected} other {# selected}}}}';
+  assert.deepEqual(validateCatalog(english,{[key]:valid}),{missing:[],unknown:[],placeholders:[],invalid:[]});
+  assert.equal(new Translator('fr',{[key]:valid}).t(key,{count:1,selected:2}),'2 selected');
+});
+
+
+test('source-owned underscored placeholders render native limits and remain consistent through plural validation',async()=>{
+  const files=['columns','file_ops','tag_panel','utilities'];
+  const sources=Object.fromEntries(await Promise.all(files.map(async file=>[file,await readFile(new URL(`../src-tauri/src/${file}.rs`,import.meta.url),'utf8')])));
+  const constants=Object.fromEntries(Object.values(sources).flatMap(source=>[...source.matchAll(/\bconst\s+([A-Z][A-Z0-9_]*):\s*\w+\s*=\s*(\d+)\s*;/g)].map(([,name,value])=>[name,Number(value)])));
+  const producers=[
+    ['columns','Configure between 1 and {MAX_COLUMNS} File List columns'],
+    ['columns','{name}: width must be between {MIN_WIDTH} and {MAX_WIDTH} pixels'],
+    ['file_ops','Select at most {PLAY_LIMIT} files to play'],
+    ['tag_panel','The tag panel supports at most {MAX_FIELDS} fields'],
+    ['tag_panel','{key}: at most {MAX_VALUES} custom values are supported'],
+    ['utilities','Select at most {TOOL_LIMIT} files to run a tool for each file'],
+  ];
+  const fill=(text,params)=>text.replace(/\{([A-Za-z][A-Za-z0-9_]*)\}/g,(_,name)=>{assert.ok(name in params,name);return String(params[name]);});
+  for(const [file,key] of producers){
+    const sourceKey=[key,key.replace('{name}','{label}')].find(candidate=>sources[file].includes(`"${candidate}"`));
+    assert.ok(sourceKey,key);
+    const params={...constants,label:'Title',name:'Title',key:'ARTIST'},shown=fill(sourceKey,params);
+    for(const locale of ['de','nl','en']){
+      const translator=new Translator(locale,catalogs[locale]),expected=fill(catalogs[locale][key],params);
+      assert.equal(translator.translate(shown),expected,`${locale}: native ${shown}`);
+      assert.equal(translator.t(key,params),expected,`${locale}: explicit ${key}`);
+    }
+  }
+  for(const key of Object.keys(english).filter(key=>!key.startsWith('@'))){
+    const names=[...new Set([...key.matchAll(/\{([A-Za-z][A-Za-z0-9_]*)\}/g)].map(match=>match[1]))].sort();
+    assert.deepEqual([...placeholders(key)].sort(),names,key);
+  }
+  const key='Count {file_count} for {name_2}',value='{file_count, plural, one {# for {name_2}} other {# for {name_2}}}';
+  assert.deepEqual(validateCatalog({[key]:key},{[key]:value}),{missing:[],unknown:[],placeholders:[],invalid:[]});
+  assert.equal(new Translator('en',{[key]:value}).t(key,{file_count:2,name_2:'{MAX_COLUMNS} / Help'}),'2 for {MAX_COLUMNS} / Help');
+  assert.equal(new Translator('en',{}).t('Literal {not a placeholder}, {file-name}, {2name} stays',{name:'Wrong'}),'Literal {not a placeholder}, {file-name}, {2name} stays');
+});
+
+
+test('audio measurement patterns accept producer numbers and leave unknown unit-shaped text untouched',async()=>{
+  const commands=await load('list-commands.ts');
+  const entry={duration:65,size:1024,format:'MPEG',bitrate:320,sample_rate:44100,channels:2};
+  const properties=commands.activeFileProperties?.(entry);
+  const details=properties?.details??commands.listSummary([entry],[entry],1,entry).at(-1).split(' · ').slice(1);
+  const frames=[['{bitrate} kbps','bitrate'],['{sampleRate} Hz','sampleRate'],['{channels} channels','channels']];
+  for(const locale of ['de','nl']){
+    const translator=new Translator(locale,catalogs[locale]);
+    for(const text of ['Left channel','Right channels','Unknown kbps','Mystery Hz'])assert.equal(translator.translate(text),text,`${locale}: ${text}`);
+    for(const [index,[key,name]] of frames.entries()){
+      const shown=details[index],value=shown.slice(0,shown.lastIndexOf(' '));
+      assert.equal(translator.translate(shown),translator.t(key,{[name]:value}),`${locale}: producer ${shown}`);
+    }
+    for(const [key,name,shown] of [['{channels} channel','channels','١'],['{bitrate} kbps','bitrate','٣٢٠'],['{sampleRate} Hz','sampleRate','٤٤٬١٠٠']]){
+      const text=new Translator('en',{}).t(key,{[name]:shown});
+      assert.equal(translator.translate(text),translator.t(key,{[name]:shown}),`${locale}: ${text}`);
+    }
+  }
+});
+
+
+test('source-audited numeric roles reject text across current catalog frames while raw summaries keep their shapes',()=>{
+  // Numeric domains come from the closed native/UI producer audit, not name inference.
+  const roles=new Set(["channels", "bitrate", "sampleRate", "counts", "covers", "withCovers", "sourceLine", "selectionIndex", "minimum", "maximum", "invalid", "number", "major", "code", "MAX_COLUMNS", "MAX_FIELDS", "MAX_VALUES", "MIN_WIDTH", "MAX_WIDTH", "PLAY_LIMIT", "TOOL_LIMIT", "TOOLLIMIT", "TIMEOUTRANGE"]);
+  const translators=Object.fromEntries(['de','nl'].map(locale=>[locale,new Translator(locale,catalogs[locale])]));
+  const en=new Translator('en',{}),pairs=[];
+  for(const key of Object.keys(english).filter(key=>!key.startsWith('@'))){
+    for(const role of placeholders(key))if(roles.has(role.replace(/\d+$/,'')))pairs.push({key,role});
+  }
+  assert.equal(pairs.length,38);
+  const glyphs=['0','1','2','1.234','1,234','1\u202f234','١٬٢٣٤','۱۲۳۴','১২৩৪','१२३४','一二三','𝟙𝟚𝟛'];
+  for(const {key,role} of pairs){
+    const params=Object.fromEntries([...placeholders(key)].map(name=>[name,'2']));
+    const isolated=Object.fromEntries(['de','nl'].map(locale=>[locale,new Translator(locale,{[key]:catalogs[locale][key]})]));
+    for(const value of ['Left','Unknown','unknownLeft','1Left','١word']){
+      const shown=en.t(key,{...params,[role]:value});
+      for(const [locale,translator] of Object.entries(translators)){
+        assert.equal(isolated[locale].translate(shown),shown,`${locale}: numeric frame rejects ${role}: ${shown}`);
+        // Select accepts an actual authored filename, including text resembling
+        // a rejected limit. Other overlapping source frames have closed domains.
+        let expected=shown;
+        if(['Select at most {PLAY_LIMIT} files to play','Select at most {TOOL_LIMIT} files to run a tool for each file'].includes(key)){
+          expected=translator.t('Select {filename}',{filename:shown.slice('Select '.length)});
+        }
+        assert.equal(translator.translate(shown),expected,`${locale}: whole catalog ${role}: ${shown}`);
+      }
+    }
+    for(const value of glyphs){
+      const values={...params,[role]:value},shown=en.t(key,values);
+      for(const [locale,translator] of Object.entries(translators))assert.equal(translator.translate(shown),translator.t(key,values),`${locale}: ${role}: ${shown}`);
+    }
+  }
+  for(const translator of Object.values(translators)){
+    for(const text of ['Chapter Left: 2','$custom expects 1..=2 arguments, received Left'])assert.equal(translator.translate(text),text);
+    for(const value of glyphs){
+      const key='${name} expects {min}..={max} arguments, received {value}',params={name:'custom',min:1,max:2,value};
+      assert.equal(translator.translate(en.t(key,params)),translator.t(key,params));
+    }
+  }
+  const exclusions=[{"role": "trackPosition", "input": "TITLE of track A1", "actual": {"de": "TITLE von Track A1", "nl": "TITLE van track A1"}}, {"role": "other", "input": "CommandX is not implemented", "actual": {"de": "CommandX ist nicht implementiert", "nl": "CommandX is niet geïmplementeerd"}}, {"role": "duration", "input": "Disc ID ab12034f: 2 tracks from the selected files in file list order, 12:34 in total.", "actual": {"de": "Disc-ID ab12034f: 2 Tracks aus den ausgewählten Dateien in der Reihenfolge der Dateiliste, insgesamt 12:34.", "nl": "Schijf-ID ab12034f: 2 tracks uit de geselecteerde bestanden in volgorde van de bestandslijst, 12:34 in totaal."}}, {"role": "sum", "input": "2 files (3:12 | 12.4 MB)", "actual": {"de": "2 Dateien (3:12 | 12.4 MB)", "nl": "2 bestanden (3:12 | 12.4 MB)"}}];
+  for(const {role,input,actual} of exclusions)for(const [locale,translator] of Object.entries(translators)){
+    assert.notEqual(actual[locale],input,`${role}: translates the outer frame`);
+    assert.equal(translator.translate(input),actual[locale],`${locale}: preserve ${role}`);
+  }
+});
+
+
+test('source-owned anonymous count slots and signed movement counts keep raw roles elsewhere',async()=>{
+  const {UTILS}=await load('utils-ui.ts');
+  const cases=[{"key": "Chapter {value}: {error}", "slots": ["value"]}, {"key": "${name} expects {min}..={max} arguments, received {value}", "slots": ["value"]}, {"key": "Cannot show {value} files here", "slots": ["value"]}, {"key": "Configuration version {value} is not supported", "slots": ["value"]}, {"key": "Cover {value} does not exist", "slots": ["value"]}, {"key": "Invalid action section at line {value}", "slots": ["value"]}, {"key": "Invalid action setting at line {value}", "slots": ["value"]}, {"key": "Setting outside an action section at line {value}", "slots": ["value"]}, {"key": "New filename references undefined part %{value}", "slots": ["value"]}, {"key": "Repeated old filename part %{value} is ambiguous", "slots": ["value"]}, {"key": "Text import has {value} lines for {value2} selected files; no changes planned", "slots": ["value", "value2"]}, {"key": "The network timeout must be between {value} and {value2} seconds", "slots": ["value", "value2"]}, {"key": "Track {value} is not in the cue sheet", "slots": ["value"]}, {"key": "Unexpected filter token at position {value}", "slots": ["value"]}, {"key": "Unsupported settings version {value}", "slots": ["value"]}, {"key": "moving {n} lines leaves the input (line {value} of {value2})", "slots": ["value", "value2"]}, {"key": "the input has only {value} lines", "slots": ["value"]}, {"key": "{name} returned HTTP {value} for {url}", "slots": ["value"]}, {"key": "{name}: {value} bytes cannot be stored in a Nero chapter tag", "slots": ["value"]}, {"key": "{label} for {count} of {length} selected file? {effect} {other} file is skipped: this applies to {applies}. Files that need no change are not rewritten. Edit → Undo restores the files during this session.", "slots": ["other"]}, {"key": "{label} for {count} of {length} selected file? {effect} {other} files are skipped: this applies to {applies}. Files that need no change are not rewritten. Edit → Undo restores the files during this session.", "slots": ["other"]}, {"key": "{label} for {count} of {length} selected files? {effect} {other} file is skipped: this applies to {applies}. Files that need no change are not rewritten. Edit → Undo restores the files during this session.", "slots": ["other"]}, {"key": "{label} for {count} of {length} selected files? {effect} {other} files are skipped: this applies to {applies}. Files that need no change are not rewritten. Edit → Undo restores the files during this session.", "slots": ["other"]}];
+  assert.equal(cases.length,23);assert.equal(cases.reduce((sum,row)=>sum+row.slots.length,0),26);
+  const en=new Translator('en',{}),failures=[];
+  for(const locale of ['de','nl']){
+    const translator=new Translator(locale,catalogs[locale]);
+    for(const {key,slots} of cases){
+      assert.equal(typeof english[key],'string',key);
+      const names=[...placeholders(key)],isolated=new Translator(locale,{[key]:catalogs[locale][key]});
+      const params=Object.fromEntries(names.map(name=>[name,'2']));
+      if(slots.includes('other'))Object.assign(params,{label:UTILS.optimize.label,effect:UTILS.optimize.effect,applies:UTILS.optimize.applies});
+      const expectedValues=values=>slots.includes('other')?{...values,label:translator.translate(values.label),effect:translator.translate(values.effect),applies:translator.translate(values.applies)}:values;
+      for(const slot of slots){
+        for(const value of ['Left','Unknown','unknownLeft','1Left','١word']){
+          const shown=en.t(key,{...params,[slot]:value});
+          assert.equal(isolated.translate(shown),shown,`${locale}: reject ${slot}: ${shown}`);
+          const expected=shown;
+          if(translator.translate(shown)!==expected)failures.push({locale,key,slot,shown,expected,actual:translator.translate(shown)});
+        }
+        for(const value of ['0','1','2','1.234','1,234','1 234','١٬٢٣٤','۱۲۳۴','১২৩৪','१२३४','一二三','𝟙𝟚𝟛']){
+          const values={...params,[slot]:value},shown=en.t(key,values);
+          assert.equal(translator.translate(shown),translator.t(key,expectedValues(values)),`${locale}: numeric ${slot}: ${shown}`);
+        }
+        if(slot==='other'){
+          const collision=new Translator(locale,{...catalogs[locale],一:'Wrong numeric lookup'}),values={...params,other:'一'};
+          assert.equal(collision.translate(en.t(key,values)),collision.t(key,expectedValues(values)),`${locale}: key-local numeric other stays a glyph`);
+        }
+      }
+    }
+    const moving='moving {n} lines leaves the input (line {value} of {value2})';
+    for(const n of [-2,0,2,'-9223372036854775808','-١','-一','-𝟚']){
+      const values={n,value:1,value2:2},shown=en.t(moving,values);
+      assert.equal(translator.translate(shown),translator.t(moving,values),`${locale}: signed producer ${shown}`);
+    }
+    const signedCollision=new Translator(locale,{...catalogs[locale],'-一':'Wrong signed lookup'}),signedValues={n:'-一',value:1,value2:2};
+    assert.equal(signedCollision.translate(en.t(moving,signedValues)),signedCollision.t(moving,signedValues));
+    for(const n of ['--2','-','+2','Left','-Left','-١word','1Left']){
+      const shown=en.t(moving,{n,value:1,value2:2});assert.equal(translator.translate(shown),shown,`${locale}: invalid movement count`);
+    }
+    const copyKey='Copy of {name} ({n})',copy=new Translator(locale,{[copyKey]:catalogs[locale][copyKey]});
+    assert.equal(copy.translate('Copy of Help (-2)'),'Copy of Help (-2)','persisted counter names are not inferred as UI');
+    assert.equal(translator.translate('CommandX is not implemented'),translator.t('{other} is not implemented',{other:'CommandX'}));
+  }
+  assert.deepEqual(failures,[],'whole catalog preserves anonymous numeric guards and source-proven raw alternate frames');
+});
+
+
+test('closed UI fragments bind real utility, tag-kind and native picture producers without consuming authored data',async()=>{
+  const {UTILS,utilTargets,utilMessage}=await load('utils-ui.ts');
+  const {removeTagPrompt}=await load('remove-tag.ts');
+  const {PICTURE_TYPES,pictureTypeLabel}=await load('cover-model.ts');
+  assert.equal(PICTURE_TYPES.length,21);
+  const lock=await readFile(new URL('../Cargo.lock',import.meta.url),'utf8');
+  assert.match(lock,/name = "lofty"\s+version = "0\.25\.4"[\s\S]*?checksum = "bb21dd79145b0781f2423fda92dd807fcd3911e44b66044d86db3b11ec7accf9"/);
+  const native=await readFile(new URL('../crates/tag-core/src/tags.rs',import.meta.url),'utf8');
+  assert.match(native,/picture_type:\s*format!\("\{:\?\}",\s*picture\.pic_type\(\)\)/);
+  const tagLists=new Map();
+  for(let mask=0;mask<8;mask++){
+    const flags={remove_id3v1:!!(mask&1),remove_id3v2:!!(mask&2),remove_ape:!!(mask&4)};
+    const text=removeTagPrompt(2,{mpeg:flags,ape:flags}).split('\n').find(line=>line.startsWith('MP3, TTA: ')).slice('MP3, TTA: '.length);
+    const at=text.indexOf(' and ');if(at>=0)tagLists.set(text,{name:text.slice(0,at),names:text.slice(at+5)});
+  }
+  assert.deepEqual([...tagLists.keys()].sort(),['ID3v1 and ID3v2','ID3v1 and APE','ID3v2 and APE','ID3v1, ID3v2 and APE'].sort());
+  const pictureKeys=Object.keys(english).filter(key=>key.includes('{pictureTypeLabel}'));assert.equal(pictureKeys.length,4);
+  for(const locale of ['de','nl']){
+    const translator=new Translator(locale,catalogs[locale]);
+    for(const [shown,params] of tagLists)assert.equal(translator.translate(shown),translator.t('{name} and {names}',params));
+    for(const shown of ['Left and Right','ID3v2 and ID3v1','ID3v1 and ID3v1','ID3v1, APE and ID3v2'])assert.equal(translator.translate(shown),shown);
+    for(const spec of Object.values(UTILS)){
+      const key='{label} applies to {applies}.',shown=`${spec.label} applies to ${spec.applies}.`;
+      assert.equal(translator.translate(shown),translator.t(key,{label:translator.translate(spec.label),applies:translator.translate(spec.applies)}));
+      const wrong=shown.replace(spec.label,'Unknown action');assert.equal(translator.translate(wrong),wrong);
+    }
+    for(const util of Object.keys(UTILS))for(const formats of [['MP3'],['FLAC'],['MP3','FLAC'],['MP3','FLAC','WAV']]){
+      const spec=UTILS[util],count=utilTargets(util,formats),other=formats.length-count;
+      const key=`{label} for {count} of {length} selected file${formats.length===1?'':'s'}? {effect}${other?` {other} file${other===1?' is':'s are'} skipped: this applies to {applies}.`:''} Files that need no change are not rewritten. Edit → Undo restores the files during this session.`;
+      assert.equal(typeof english[key],'string');
+      const params={label:translator.translate(spec.label),count,length:formats.length,effect:translator.translate(spec.effect),other,applies:translator.translate(spec.applies)};
+      const shown=utilMessage(util,formats),expected=translator.t(key,params);
+      assert.equal(translator.translate(shown),expected,`${locale}: actual ${util} producer`);
+      assert.equal(translator.translate(shown.replace(spec.effect,spec.effect.replace(/ /g,'  '))),expected,'normalize code-owned effect whitespace');
+      const otherSpec=Object.values(UTILS).find(value=>value!==spec),mismatched=shown.replace(spec.effect,otherSpec.effect);
+      assert.equal(translator.translate(mismatched),mismatched,'source label and effect stay paired');
+      if(other){
+        const clause=`${other} file${other===1?' is':'s are'} skipped:`,invalid=shown.replace(clause,clause.replace(String(other),'Left'));
+        assert.notEqual(invalid,shown);assert.equal(translator.translate(invalid),invalid,`${locale}: invalid skipped count cannot hide inside effect`);
+      }
+    }
+    const labels=[...PICTURE_TYPES.map(([id])=>pictureTypeLabel(id)),pictureTypeLabel('')];
+    assert.equal(labels.at(-1),'Cover','documented helper fallback, not a native type');
+    for(let index=0;index<256;index++)labels.push(pictureTypeLabel(`Undefined(${index})`));
+    for(const key of pictureKeys)for(const label of labels){
+      const shown=new Translator('en',{}).t(key,{pictureTypeLabel:label});
+      assert.equal(translator.translate(shown),translator.t(key,{pictureTypeLabel:translator.translate(label)}),`${locale}: bounded ${label}`);
+    }
+    for(const key of pictureKeys){
+      for(const label of ['Left','Left of 2 files have','Undefined(-1)','Undefined(256)','Undefined(01)','Undefined(١)']){
+        const shown=new Translator('en',{}).t(key,{pictureTypeLabel:label});assert.equal(translator.translate(shown),shown,`${locale}: reject invalid native type ${label}`);
+      }
+      const collision=new Translator(locale,{...catalogs[locale],'Undefined(255)':'Wrong raw identifier'}),shown=new Translator('en',{}).t(key,{pictureTypeLabel:'Undefined(255)'});
+      assert.equal(collision.translate(shown),collision.t(key,{pictureTypeLabel:'Undefined(255)'}),'preserve technical enum identity even with a colliding custom key');
+      const uiLabel=new Translator(locale,{...catalogs[locale],'Front Cover':'Custom front label'});
+      assert.equal(uiLabel.translate(new Translator('en',{}).t(key,{pictureTypeLabel:'Front Cover'})),uiLabel.t(key,{pictureTypeLabel:'Custom front label'}),'known enum labels still translate');
+    }
+    for(const data of ['Left of 2 files have artwork','Undefined(255)','ID3v1 and ID3v2']){
+      assert.equal(translator.translate(data,0,data),data,'authored description/name stays protected');
+      assert.equal(translator.translate(`Select ${data}`),translator.t('Select {filename}',{filename:data}),'real filename frame stays unrestricted');
+    }
+  }
+});
+
+
+test('every plural block needs other before a user catalog is usable, including nested and exact forms',()=>{
+  const count='{count} files',nested='{count} files and {selected} selected',english={[count]:count,[nested]:nested};
+  const catalog={'@meta':{locale:'de',name:'German'},[count]:'{count, plural, one {# Datei}}',
+    [nested]:'{count, plural, one {{selected, plural, =1 {# ausgewählt}}} other {{selected, plural, one {# ausgewählt} other {# ausgewählt}}}}'};
+  assert.deepEqual(validateCatalog(english,catalog),{missing:[],unknown:[],placeholders:[],invalid:[count,nested]});
+  const result=languageSet([],[{file:'de.json',catalog}],english),language=result.languages.get('de');
+  assert.equal(language.problems,2);assert.equal(language.catalog[count],undefined);assert.equal(language.catalog[nested],undefined);
+  assert.deepEqual(result.warnings,[{key:'{file}: {missing} missing, {invalid} invalid',params:{file:'de.json',missing:0,invalid:2}}]);
+  const translator=new Translator('de',language.catalog);
+  assert.equal(translator.t(count,{count:2}),'2 files');assert.equal(translator.translate('2 files'),'2 files');
+  assert.equal(translator.t(nested,{count:2,selected:3}),'2 files and 3 selected');
+  assert.deepEqual(validateCatalog({[count]:count},{[count]:'{count, plural, =1 {# exakt}}'}).invalid,[count]);
+  const valid={[count]:'{count, plural, =0 {keine Dateien} one {# Datei} other {# Dateien}}',
+    [nested]:'{count, plural, one {{selected, plural, =1 {# ausgewählt} other {# ausgewählt}}} other {{selected, plural, one {# ausgewählt} other {# ausgewählt}}}}'};
+  assert.deepEqual(validateCatalog(english,valid),{missing:[],unknown:[],placeholders:[],invalid:[]});
+  const good=new Translator('de',valid);assert.equal(good.t(count,{count:0}),'keine Dateien');assert.equal(good.t(count,{count:2}),'2 Dateien');
+  assert.equal(good.t(nested,{count:1,selected:2}),'2 ausgewählt');
+});
+
+
+test('exact plural selectors use canonical nonnegative integers at every nesting level',()=>{
+ const key='{count} files',nested='{count} files and {selected} selected',en={[key]:key,[nested]:nested};
+ const bad={[key]:'{count, plural, =01 {# Datei} other {# Dateien}}',[nested]:'{count, plural, one {{selected, plural, =00 {keine} other {#}}} other {{selected, plural, =001 {eine} other {#}}}}'};
+ assert.deepEqual(validateCatalog(en,bad),{missing:[],unknown:[],placeholders:[],invalid:[key,nested]});
+ const result=languageSet([],[{file:'de.json',catalog:{'@meta':{locale:'de',name:'German'},...bad}}],en);
+ assert.equal(result.languages.get('de').problems,2);assert.deepEqual(result.warnings,[{key:'{file}: {missing} missing, {invalid} invalid',params:{file:'de.json',missing:0,invalid:2}}]);
+ assert.equal(new Translator('de',result.languages.get('de').catalog).t(key,{count:1}),'1 files');
+ for(const selector of ['=9007199254740993','=1000000000000000000000']){
+  const catalog={[key]:`{count, plural, ${selector} {exakt} other {andere}}`};
+  assert.deepEqual(validateCatalog({[key]:key},catalog).invalid,[key],selector);
+  const languages=languageSet([],[{file:'de.json',catalog:{'@meta':{locale:'de'},...catalog}}],{[key]:key});
+  assert.equal(languages.warnings.length,1);assert.equal(new Translator('de',languages.languages.get('de').catalog).t(key,{count:selector.slice(1)}),`${selector.slice(1)} files`);
+ }
+ assert.deepEqual(validateCatalog({[nested]:nested},{[nested]:'{count, plural, one {{selected, plural, =9007199254740993 {exakt} other {#}}} other {# {selected}}}'}).invalid,[nested]);
+ const large={[key]:'{count, plural, =9007199254740992 {exakt} other {andere}}'};
+ assert.deepEqual(validateCatalog({[key]:key},large).invalid,[]);assert.equal(new Translator('de',large).t(key,{count:'9007199254740992'}),'exakt');
+ const valid={[key]:'{count, plural, =0 {keine} =1 {eine} =10 {zehn} zero {zero} one {one} two {two} few {few} many {many} other {# andere}}',[nested]:'{count, plural, one {{selected, plural, =0 {keine} =1 {eine} =10 {zehn} other {#}}} other {{selected, plural, one {eine} other {#}}}}'};
+ assert.deepEqual(validateCatalog(en,valid),{missing:[],unknown:[],placeholders:[],invalid:[]});
+ const t=new Translator('de',valid);assert.deepEqual([0,1,10,2].map(count=>t.t(key,{count})),['keine','eine','zehn','2 andere']);assert.equal(t.t(nested,{count:1,selected:10}),'zehn');
+});
+
+
+test('persisted copy names stay raw and failure frames follow actual producer domains',async()=>{
+ const functions=async(file,names)=>{const source=await readFile(new URL(`../src/${file}`,import.meta.url),'utf8'),ast=ts.createSourceFile(file,source,ts.ScriptTarget.Latest,true,ts.ScriptKind.TS),declarations=ast.statements.filter(node=>ts.isFunctionDeclaration(node)&&names.includes(node.name?.text));assert.equal(declarations.length,names.length);return ts.transpileModule(declarations.map(node=>node.getText(ast).replace(/^export /,'')).join('\n'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;};
+ const duplicate=new Function(await functions('helper-menu.ts',['duplicateEntry'])+';return duplicateEntry;')();
+ const copyAction=new Function(await functions('action-ui.ts',['copyName'])+';return copyName;')();
+ const copyExport=new Function(await functions('export-ui.ts',['uniqueName','copyExportConfiguration'])+';return copyExportConfiguration;')();
+ const stageSource=await functions('main.ts',['stageTagUpdates']);
+ const main=await readFile(new URL('../src/main.ts',import.meta.url),'utf8');const ast=ts.createSourceFile('main.ts',main,ts.ScriptTarget.Latest,true,ts.ScriptKind.TS),operations=[];const visit=node=>{if(ts.isCallExpression(node)&&node.expression.getText(ast)==='stageTagUpdates'){assert.ok(ts.isStringLiteral(node.arguments[1]));operations.push(node.arguments[1].text);}ts.forEachChild(node,visit);};visit(ast);assert.deepEqual([...new Set(operations)].sort(),['Cut tags','Paste tags']);
+ const custom={'Copy of {name}':'Clone {name}','Copy of {name} ({n})':'Clone {n}: {name}','Copy {name}':'Copy command {name}','{name} copy':'Clone {name}','{name} copy {count}':'Clone {count}: {name}','{operation} failed':'Failure: {operation}','Cut tags':'Help','Paste tags':'Title',Help:'Wrong second lookup',Title:'Wrong second lookup','{name} value':'Value: {name}','{label} values':'Values: {label}',Family:'Wrong authored name'};
+ for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]]){
+  const t=new Translator(locale,catalog);
+  for(const text of ['Family copy','Family copy 2','Some operation failed'])assert.equal(t.translate(text),text,`${locale}: ${text}`);
+  for(const original of ['Family','Help','Title','  Family  ','Family copy']){
+   const action=copyAction(original,[]),action2=copyAction(original,[{name:action}]);assert.equal(action,`Copy of ${original}`);assert.equal(action2,`Copy of ${original} (2)`);for(const authored of [action,action2])assert.equal(t.translate(authored,0,authored),authored);
+   const entries=[{name:original,value:'%title%',favorite:false}],first=duplicate(entries,0);assert.equal(first.name,`${original} copy`);assert.equal(t.translate(first.name),first.name);
+   const second=duplicate([...entries,first],0);assert.equal(second.name,`${original} copy 2`);assert.equal(t.translate(second.name),second.name);
+   const result=copyExport({version:1,configurations:[{id:'old',name:original,template:'%title%'}],preferences:{configuration:'old'}},'old','new');assert.equal(result.configurations[1].name,`${original} copy`);
+   for(const [key,params] of [['{name} copy',{name:original}],['{name} copy {count}',{name:original,count:2}],['Copy of {name}',{name:original}],['Copy of {name} ({n})',{name:original,n:2}]])assert.equal(t.t(key,params),catalog[key].replace(/\{([A-Za-z][A-Za-z0-9_]*)\}/g,(_,name)=>String(params[name])));
+  }
+  assert.equal(t.translate('Copy of Family'),t.t('Copy {name}',{name:'of Family'}),'The unmarked text also has a legitimate field-command interpretation');
+  for(const original of ['Family','Help','Title'])for(const [key,param] of [['{name} value','name'],['{label} values','label']]){const text=key.replace(`{${param}}`,original);assert.equal(t.translate(text,0,original),t.t(key,{[param]:original}));}
+  for(const operation of ['Cut tags','Paste tags']){
+   const stage=new Function('render',`let errors=[],status='';${stageSource};return {run:stageTagUpdates,status:()=>status};`)(()=>{});stage.run(()=>{throw new Error('failure');},operation,()=>{throw new Error('unexpectedsuccess');});
+   const text=stage.status();assert.equal(text,`${operation} failed`);assert.equal(t.translate(text),t.t('{operation} failed',{operation:t.t(operation)}));
+  }
+ }
+});
+
+
+test('exact plural selection retains integer precision before numeric category conversion',()=>{
+ const key='{count} files',catalog={[key]:'{count, plural, =9007199254740992 {exact big} =1 {exact one} =0 {exact zero} other {# other}}'};
+ assert.deepEqual(validateCatalog({[key]:key},catalog),{missing:[],unknown:[],placeholders:[],invalid:[]});
+ for(const locale of ['en','de','fr','ar-EG','hi-IN-u-nu-deva']){
+  const t=new Translator(locale,catalog),different=9007199254740993n;
+  for(const count of [String(different),different,different.toLocaleString(locale)])assert.equal(t.t(key,{count}),`${count} other`,`${locale}: ${count}`);
+  for(const count of [9007199254740992,'9007199254740992',9007199254740992n,9007199254740992n.toLocaleString(locale)])assert.equal(t.t(key,{count}),'exact big');
+  const decimal=new Intl.NumberFormat(locale).formatToParts(1.5).find(part=>part.type==='decimal').value,one=1..toLocaleString(locale),zero=0..toLocaleString(locale);
+  assert.equal(t.t(key,{count:one+decimal+zero}),'exact one');assert.equal(t.t(key,{count:zero+decimal+zero}),'exact zero');
+  const noninteger=one+decimal+zero.repeat(20)+one;assert.equal(t.t(key,{count:noninteger}),`${noninteger} other`);
+  const nested=new Translator(locale,{'{count} files':'{count, plural, other {{count, plural, =9007199254740992 {nested exact} other {# nested other}}}}'});
+  assert.equal(nested.t(key,{count:String(different)}),`${different} nested other`);
+ }
+ const t=new Translator('en',catalog);assert.equal(t.t(key,{count:'9007199254740993.0'}),'9007199254740993.0 other');assert.equal(t.t(key,{count:'0001.000'}),'exact one');assert.equal(t.t(key,{count:'-0.0'}),'exact zero');
+ for(const count of ['1e0','10e-1','+1.0e0','.1e1'])assert.equal(t.t(key,{count}),'exact one');
+ for(const count of ['9007199254740993e0','1.0000000000000000001e0','1e9999999999'])assert.equal(t.t(key,{count}),`${count} other`);
+ assert.equal(t.t(key,{count:'9007199254740992e0'}),'exact big');
+});
+
+
+test('punctuation-only failure frames use explicit source parts and preserve raw paths and external errors',()=>{
+ const frame='{value}: {error}',reason='Select files first.';
+ const custom={[frame]:'At [{value}] — {error}',[reason]:'Help',Help:'Wrong second lookup','Help: Title':'Wrong path'};
+ for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]]){
+  const t=new Translator(locale,catalog);
+  for(const value of ['Help: Title','C:\\Music: Help\\Title.mp3','name: Select files first.; next: Help']){
+   const combined=`${value}: ${reason}`;assert.equal(t.translate(combined),combined,'An unmarked colon cannot establish the path/error boundary');
+   const owned=t.t(reason),expected=String(catalog[frame]).replace('{value}',value).replace('{error}',owned);
+   assert.equal(t.t(frame,{value,error:owned}),expected);assert.ok(expected.includes(value));
+   const external=String(catalog[frame]).replace('{value}',value).replace('{error}',reason);
+   assert.equal(t.t(frame,{value,error:reason}),external,'The same English leaf remains raw when its producer identifies it as external');
+  }
+ }
+});
+
+
+test('Show controls choose their producer frame and retain explicit raw or owned label parts',async()=>{
+ const {TOOLBAR_COMMANDS,itemLabel}=await load('toolbar.ts');
+ const custom={...english,'Show {name}':'Column [{name}]','Show {label}':'Panel [{label}]','Show {itemLabel}':'Toolbar [{itemLabel}]',Help:'Assistance',Title:'Heading','Save tags':'Store',Heading:'Wrong second lookup',Store:'Wrong second lookup','Toolbar [Store]':'Wrong output lookup'};
+ const owned=[...Object.keys(TOOLBAR_COMMANDS).map(id=>itemLabel({id,visible:true})),...['separator-source','spacer-source'].map(id=>itemLabel({id,visible:true}))];
+ for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]]){
+  const t=new Translator(locale,catalog);
+  assert.equal(t.translate('Show Help'),String(catalog['Show {name}']).replace('{name}','Help'),'An unmarked raw-name frame must not become an owned UI-label frame');
+  for(const role of ['name','label','itemLabel'])for(const name of ['Help','Title','Save tags','  Help  ','Help\nTitle','Copy of Help','Show Help']){
+   const key=`Show {${role}}`;assert.equal(t.showLabel(role,name,true),String(catalog[key]).replace(`{${role}}`,name),`${locale}/${role}/${JSON.stringify(name)}`);
+  }
+  for(const label of owned)assert.equal(t.showLabel('itemLabel',label),String(catalog['Show {itemLabel}']).replace('{itemLabel}',t.t(label)));
+  assert.equal(t.showLabel('name','Help',false),String(catalog['Show {name}']).replace('{name}','Help'));
+  assert.equal(t.showLabel('itemLabel','Help','Help'),String(catalog['Show {itemLabel}']).replace('{itemLabel}','Help'));
+  assert.equal(t.showLabel('itemLabel','Help','Title'),String(catalog['Show {itemLabel}']).replace('{itemLabel}',t.t('Help')));
+  const localized=t.t('Title');assert.equal(t.showLabel('label',localized,true),String(catalog['Show {label}']).replace('{label}',localized),'An already localized default name is protected from a second lookup');
+ }
+ const partial=new Translator('en',{'Show {name}':'Column [{name}]','Show {itemLabel}':'Toolbar [{itemLabel}]'});assert.equal(partial.showLabel('itemLabel','Show in folder'),'Toolbar [Show in folder]','A missing literal UI label falls back to its English key, not another inferred frame');
+});
+
+
+test('shortcut spelling aliases follow the actual Actions producer and canonical catalog key',async()=>{
+  const {EXTRA_SHORTCUTS,shortcutsDialog}=await load('utils-ui.ts');
+  const row=EXTRA_SHORTCUTS.find(row=>row.group==='Actions dialog'&&row.command==='New group or action');
+  assert.equal(row.keys,'Insert');
+  let content='';const dialog={classList:{add(){}},querySelector:()=>({textContent:''})};
+  assert.equal(shortcutsDialog((_title,body)=>{content=body;return dialog;},[row]),dialog);
+  assert.match(content,/<kbd>Insert<\/kbd>/);
+  const de=new Translator('de',catalogs.de);
+  assert.equal(de.translate(row.keys),'Einfg');
+  for(const [source,expected] of [['Ins','Einfg'],['Ctrl Insert','Strg Einfg'],['Shift+Insert','Umschalt+Einfg'],['⌘/Ctrl Insert','⌘/Strg Einfg'],['Insert / Ins','Einfg / Einfg'],['  Insert  ','  Einfg  ']])assert.equal(de.translate(source),expected,source);
+  assert.equal(new Translator('nl',catalogs.nl).translate(row.keys),'Insert');
+  assert.equal(new Translator('en').translate(row.keys),'Insert');
+  const identity=new Translator('en',{'@keys':{Ins:'Ins',Ctrl:'Ctrl'}});
+  assert.equal(identity.translate('Insert'),'Insert');assert.equal(identity.translate('Ctrl Insert'),'Ctrl Insert');
+  assert.equal(new Translator('de',{'@keys':{Ins:'Einfg',Insert:'Insert'}}).translate('Insert / Ins'),'Insert / Einfg');
+  const override=new Translator('de',{'@keys':{Ins:'Short key',Insert:'Full key',Ctrl:'Control'}});
+  assert.equal(override.translate('Ctrl Insert / Ins'),'Control Full key / Short key');
+  const noCanonical=new Translator('de',{'@keys':{Ctrl:'Control'}});
+  assert.equal(noCanonical.translate('Ctrl Insert'),'Control Insert');
+  assert.equal(new Translator('de',{'@keys':{Ins:'',Ctrl:'Control'}}).translate('Ctrl Insert'),'Control Insert');
+  assert.equal(new Translator('de',{'@keys':{Ins:'Short key',Insert:''}}).translate('Insert'),'Short key');
+});
+
+test('shortcut aliases respect authored values and full verbatim protection',()=>{
+  const de=new Translator('de',catalogs.de);
+  assert.equal(de.translate('Ctrl Ins',0,true),'Ctrl Ins');
+  for(const source of ['Insert','Ins','Ctrl Insert','Shift+Insert','  Insert  ']){
+    assert.equal(de.translate(source,0,true),source);
+    assert.equal(de.translate(source,0,source),source);
+  }
+  for(const source of ['Insert file','Insert.mp3','Inserts','ReInsert','Insertive','insert','CTRL INSERT','Ctrl Inserted'])assert.equal(de.translate(source),source,source);
+  assert.equal(de.translate('Select Insert'),de.t('Select {filename}',{filename:'Insert'}));
+  assert.equal(de.translate('Select Ctrl Insert'),de.t('Select {filename}',{filename:'Ctrl Insert'}));
+  assert.equal(de.translate('Insert',0,'Another name'),'Einfg');
+  assert.equal(de.translate('Insert'),'Einfg','A protected lookup never poisons the ordinary shortcut cache');
+  assert.equal(de.translate('Insert',0,true),'Insert','A cached ordinary lookup never changes protected text');
+});
+
+test('word key names require alphanumeric boundaries rather than absorbing identifiers',()=>{
+  const de=new Translator('de',catalogs.de);
+  for(const source of ['Insert2','2Insert','Ins2','2Ins','Ctrl2','2Ctrl','InsertF2','F2Insert','CtrlInsert','Num2','Page Up2','Ctrl Insert2','Alt+Insert2']){
+    assert.equal(de.translate(source),source,source);
+  }
+  for(const [source,expected] of [['Insert','Einfg'],['Ctrl 2','Strg 2'],['Ctrl F2','Strg F2'],['Ctrl+Insert','Strg+Einfg'],['Ctrl Num +','Strg Num +'],['⌘/Ctrl ⇧ S','⌘/Strg ⇧ S'],['Shift+Insert','Umschalt+Einfg']]){
+    assert.equal(de.translate(source),expected,source);
+  }
+  assert.equal(new Translator('de',{'@keys':{Insert:'Full key'}}).translate('Insert2'),'Insert2');
+  assert.equal(de.translate('Select Insert2'),de.t('Select {filename}',{filename:'Insert2'}));
+});
+
+test('Tag Sources track labels retain technical fields and provider positions',async()=>{
+  const source=await readFile(new URL('../src/tag-sources.ts',import.meta.url),'utf8');
+  const ast=ts.createSourceFile('tag-sources.ts',source,ts.ScriptTarget.Latest,true,ts.ScriptKind.TS);
+  const declarations=new Map();
+  const visit=node=>{
+    if(ts.isVariableDeclaration(node)&&['html','matchMarkup'].includes(node.name.getText(ast))){
+      const name=node.name.getText(ast);assert.ok(!declarations.has(name));
+      declarations.set(name,`const ${name}=${node.initializer.getText(ast)};`);
+    }
+    ts.forEachChild(node,visit);
+  };
+  visit(ast);assert.equal(declarations.size,2);
+  const producer=ts.transpileModule([...declarations.values()].join('\n'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
+  const render=new Function('release','trackField','slots','files','duration','trackValue','fileName','fileLength',`${producer};return matchMarkup();`);
+  const key='{trackField} of track {trackPosition}';
+  const custom={[key]:'Position [{trackPosition}], field [{trackField}]',ARTIST:'Wrong field',Help:'Wrong position','Ctrl Ins':'Wrong shortcut'};
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]]){
+    const translator=new Translator(locale,catalog);
+    for(const trackField of ['ARTIST','ALBUM','TITLE','TRACK','COMMENT','GENRE','Help','Ctrl Ins','MY_FIELD']){
+      for(const position of ['1','A1','Help','Ctrl Ins','']){
+        const markup=render({tracks:[{position,length:null}]},trackField,[null],[],()=>'',()=>'',()=>'',()=>'');
+        const label=markup.match(/class="ts-track-value"[^>]*aria-label="([^"]+)"/)?.[1];
+        assert.equal(label,`${trackField} of track ${position||'1'}`);
+        assert.equal(translator.translate(label),translator.t(key,{trackField,trackPosition:position||'1'}),`${locale}: ${label}`);
+      }
+    }
+  }
+});
+
+test('mixed Tag Sources summaries preserve provider metadata values',async()=>{
+  const {fieldRows}=await load('tag-sources.ts');
+  const key='{find} … ({size} values)';
+  for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',{[key]:'[{size} distinct]: {find}',Help:'Wrong metadata'}]]){
+    const translator=new Translator(locale,catalog);
+    for(const value of ['Help','ARTIST','Select files first.','Ctrl Ins','Insert2']){
+      const rows=fieldRows({fields:{},tracks:[{fields:{TITLE:[value]}},{fields:{TITLE:['different']}}]});
+      assert.equal(rows.length,1);assert.equal(rows[0].value,`${value} … (2 values)`);
+      assert.equal(translator.translate(rows[0].value),translator.t(key,{find:value,size:2}),`${locale}: ${value}`);
+    }
+  }
+});
+
+test('stray closing braces invalidate catalogs and fall back to English',()=>{
+  const key='Value {x}',nested='Count {count} for {x}';
+  for(const malformed of ['Wert {x}}','}Wert {x}','Wert } {x}','Wert {x} } tail']){
+    assert.throws(()=>parse(malformed),/Unexpected/);
+    assert.throws(()=>placeholders(malformed),/Unexpected/);
+    const english={[key]:key},catalog={[key]:malformed};
+    assert.deepEqual(validateCatalog(english,catalog).invalid,[key]);
+    const selected=languageSet([],[{file:'de.json',catalog:{'@meta':{locale:'de'},...catalog}}],english);
+    assert.equal(selected.languages.get('de').problems,1);assert.equal(selected.warnings.length,1);
+    assert.equal(new Translator('de',selected.languages.get('de').catalog).t(key,{x:'Help'}),'Value Help');
+    assert.equal(new Translator('de',catalog).t(key,{x:'Help'}),'Value Help');
+  }
+  const bad='{count, plural, one {# {x}} other {# {x}}}}';
+  assert.deepEqual(validateCatalog({[nested]:nested},{[nested]:bad}).invalid,[nested]);
+  const good='{count, plural, one {# {x}} other {# {x}}}';
+  assert.deepEqual(validateCatalog({[nested]:nested},{[nested]:good}).invalid,[]);
+  assert.equal(new Translator('de',{[nested]:good}).t(nested,{count:2,x:'raw'}),'2 raw');
+  assert.deepEqual(parse('Literal {not a placeholder} stays'),['Literal {not a placeholder} stays']);
+  assert.deepEqual(parse('Literal {{x}} stays'),['Literal {',{name:'x'},'} stays']);
+  assert.throws(()=>parse('Wert {x} {unfinished'),/Unclosed/);
+  assert.equal(new Translator('de',{}).t('Literal {not a placeholder} stays'),'Literal {not a placeholder} stays');
+});
+
+test('top-level cache warming cannot bypass nested translation depth limits',()=>{
+  const catalog={'Outer {a}':'Außen {a}','Middle {b}':'Mitte {b}','Inner {c}':'Innen {c}',Leaf:'Blatt'};
+  const fresh=()=>new Translator('de',catalog);
+  const text='Outer Middle Inner Leaf',expected='Außen Mitte Innen Leaf';
+  assert.equal(fresh().translate(text),expected);
+  const warmed=fresh();assert.equal(warmed.translate('Inner Leaf'),'Innen Blatt');
+  assert.equal(warmed.translate(text),expected);
+  for(const seed of ['Leaf','Inner Leaf','Middle Inner Leaf',text]){
+    const translator=fresh();translator.translate(seed);
+    for(const depth of [0,1,2])for(const source of [text,'Middle Inner Leaf','Inner Leaf','Leaf']){
+      assert.equal(translator.translate(source,depth),fresh().translate(source,depth),`${seed}: ${source}, depth ${depth}`);
+      assert.equal(translator.translate(`  ${source}  `,depth),`  ${fresh().translate(source,depth)}  `);
+    }
+    assert.equal(translator.translate(text,0,true),fresh().translate(text,0,true));
+    assert.equal(translator.translate(text,0,'Middle Inner Leaf'),fresh().translate(text,0,'Middle Inner Leaf'));
+  }
+});
+
+test('numeric captures reject malformed separators and retain valid locale formatting',()=>{
+  for(const locale of ['de','en','nl']){
+    const translator=new Translator(locale,catalogs[locale]);
+    for(const value of ['1..2','1,2,3','1.23.456','1,234 567','1 23','1\u202f23','1٬23','1,,234']){
+      for(const text of [`${value} files`,`${value} Hz`,`Cannot show ${value} files here`])assert.equal(translator.translate(text),text,`${locale}: ${text}`);
+    }
+  }
+  const key='{count} files',catalog={[key]:'Count [{count}]'};
+  for(const [locale,value] of [['en','1,234.50'],['de','1.234,50'],['fr','1\u202f234,50'],['en-IN','1,23,456'],['en','1\u00a0234'],['ar','١٬٢٣٤٫٥'],['de','1.5'],['de','1,234,567'],['en','1.234.567'],['en','1.234,5'],['de','1,23,456']]){
+    assert.equal(new Translator(locale,catalog).translate(`${value} files`),`Count [${value}]`,`${locale}: ${value}`);
+  }
+  assert.equal(new Translator('de',{[key]:'{count, plural, one {# one} other {# other}}'}).translate('1.0 files'),'1.0 one');
+});
+
+test('the actual unknown Tag Sources command preserves its identifier',async()=>{
+  const {TagSourcesUI}=await load('tag-sources.ts');
+  const ui=new TagSourcesUI({});
+  const key='Unknown tag source command {op}';
+  for(const op of ['Help','ARTIST','Ctrl Ins','Insert2','bogus']){
+    await assert.rejects(ui.run(op),error=>{
+      assert.equal(error.message,`Unknown tag source command ${op}`);
+      for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',{[key]:'Command [{op}]',Help:'Wrong command'}]]){
+        const translator=new Translator(locale,catalog);
+        assert.equal(translator.translate(error.message),translator.t(key,{op}),`${locale}: ${op}`);
+      }
+      return true;
+    });
+  }
+});
+
+test('the actual selected-release barcode remains provider data',async()=>{
+  const source=await readFile(new URL('../src/tag-sources.ts',import.meta.url),'utf8');
+  const ast=ts.createSourceFile('tag-sources.ts',source,ts.ScriptTarget.Latest,true,ts.ScriptKind.TS),declarations=[];
+  const visit=node=>{
+    if(ts.isVariableDeclaration(node)&&['html','chosenMarkup'].includes(node.name.getText(ast)))declarations.push(`const ${node.name.getText(ast)}=${node.initializer.getText(ast)};`);
+    ts.forEachChild(node,visit);
+  };
+  visit(ast);assert.equal(declarations.length,2);
+  const producer=ts.transpileModule(declarations.join('\n'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
+  const render=new Function('results','chosen','web','freedb','provider',`${producer};return chosenMarkup();`);
+  const key='Barcode {barcode}';
+  for(const barcode of ['Help','ARTIST','Ctrl Ins','0123456789012']){
+    const result={artist:'Artist',title:'Album',year:'',country:'',label:'',catalog_number:'',format:'',barcode,url:''};
+    const markup=render([result],0,false,false,'musicbrainz');
+    const label=markup.match(/<span(?: data-verbatim)?>([^<]+)<\/span>/)?.[1];assert.equal(label,`Barcode ${barcode}`);
+    for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',{[key]:'Code [{barcode}]',Help:'Wrong metadata'}]]){
+      const translator=new Translator(locale,catalog);
+      assert.equal(translator.translate(label),translator.t(key,{barcode}),`${locale}: ${barcode}`);
+    }
+  }
+});
+
+test('shortcut display values replace original spans once and stay literal',()=>{
+  for(const keys of [{Shift:'Ctrl',Ctrl:'Control'},{Ctrl:'Control',Shift:'Ctrl'}]){
+    const t=new Translator('en',{'@keys':keys});
+    assert.equal(t.translate('Shift S'),'Ctrl S');
+    assert.equal(t.translate('Ctrl Shift S'),'Control Ctrl S');
+    assert.equal(t.translate('Shift+Ctrl'),'Ctrl+Control');
+  }
+  const swapped=new Translator('en',{'@keys':{Shift:'Ctrl',Ctrl:'Shift'}});
+  assert.equal(swapped.translate('Ctrl Shift S'),'Shift Ctrl S');
+  const alias=new Translator('de',{'@keys':{Ins:'Ctrl',Ctrl:'Control'}});
+  assert.equal(alias.translate('Insert / Ins / Ctrl'),'Ctrl / Ctrl / Control');
+  const chord=new Translator('en',{'@keys':{'Ctrl Shift':'Shift Ctrl',Shift:'X',Ctrl:'Y'}});
+  assert.equal(chord.translate('Ctrl Shift S'),'Shift Ctrl S');
+  const literal=new Translator('en',{'@keys':{Ctrl:'[$&][$$][$1]'}});
+  assert.equal(literal.translate('Ctrl S'),'[$&][$$][$1] S');
+  assert.equal(literal.translate('Ctrl S',0,true),'Ctrl S');
+  assert.equal(new Translator('en',{'@keys':{'':'invalid','   ':'invalid'}}).translate('Ctrl S'),'Ctrl S');
 });

@@ -125,6 +125,29 @@ jobs:
         with:
           node-version: 24
           cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: runner.os == 'Windows'
+        with:
+          arch: x64
+      - uses: msys2/setup-msys2@v2
+        id: msys2
+        if: runner.os == 'Windows'
+        with:
+          install: make
+          update: false
+      - name: Bind the installed MSYS2 build tools
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          MSYS2_LOCATION: ${{ steps.msys2.outputs.msys2-location }}
+        run: |
+          foreach ($tool in @('usr/bin/bash.exe', 'usr/bin/make.exe')) {
+            if (-not (Test-Path (Join-Path $env:MSYS2_LOCATION $tool))) { throw "MSYS2 tool missing: $tool" }
+          }
+          "OPENTAG_MSYS2=$env:MSYS2_LOCATION" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
@@ -139,13 +162,19 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf libssl-dev ffmpeg
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf libssl-dev ffmpeg build-essential cmake make nasm
       - name: macOS media dependencies
         if: runner.os == 'macOS'
-        run: brew install ffmpeg
-      - name: Windows media dependencies
+        run: brew install ffmpeg cmake nasm
+      - name: Windows media dependencies and native assembler
         if: runner.os == 'Windows'
-        run: choco install ffmpeg --no-progress -y
+        shell: pwsh
+        run: |
+          choco install ffmpeg nasm --no-progress -y
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $nasmDirectory = Join-Path $env:ProgramFiles 'NASM'
+          if (-not (Test-Path (Join-Path $nasmDirectory 'nasm.exe'))) { throw 'NASM installation missing' }
+          $nasmDirectory | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       - run: npm ci
       - run: npm run build
       - run: npm run test:ui
@@ -207,6 +236,11 @@ jobs:
           sdkmanager 'platforms;android-37.0' 'build-tools;37.0.0' 'ndk;28.2.13676358'
           echo "NDK_HOME=$ANDROID_HOME/ndk/28.2.13676358" >> "$GITHUB_ENV"
           echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/opentag-release.keystore" >> "$GITHUB_ENV"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Native build tools
+        run: sudo apt-get update && sudo apt-get install -y build-essential cmake make
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-linux-android
@@ -264,6 +298,9 @@ jobs:
         with:
           node-version: 24
           cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-apple-ios-sim
@@ -274,7 +311,7 @@ jobs:
       - name: Stamp release version (not committed)
         run: node scripts/release.mjs stamp
       - name: Install Xcode project generator
-        run: brew install xcodegen
+        run: brew install xcodegen cmake
       - run: npm ci
       - run: npm run test:ui
       - name: Build simulator app (not a physical-device installer)
@@ -349,10 +386,6 @@ jobs:
       pages: write
       id-token: write
     uses: ./.github/workflows/_reviewed-pages.yml
-    # Explicit name authorizes the reusable workflow's environment-secret lookup.
-    # The actual key exists only in its github-pages deployment environment.
-    secrets:
-      DOCS_PAGES_DEPLOY_KEY: ${{ secrets.DOCS_PAGES_DEPLOY_KEY }}
     with:
       pr_number: ${{ inputs.pr_number }}
       head_sha: ${{ inputs.head_sha }}

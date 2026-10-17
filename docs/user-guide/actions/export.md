@@ -35,9 +35,8 @@ Juniper Vale - North Pier
 its body in input order, and `$loopend()` ends the repetition. A constant
 loop key keeps the input order; a key such as `%_path%` sorts by that value.
 Field-key loops follow **Options → General → natural sorting**: enabled,
-numbered names compare as 1, 2, 10; disabled, they use text order. Constant
-loop keys retain input order. These are export-template commands, separate
-from ordinary tag-format functions.
+numbered names compare as 1, 2, 10; disabled, they use text order. These are
+export-template commands, separate from ordinary tag-format functions.
 
 ## Configure the output
 
@@ -66,8 +65,8 @@ To write one report per album folder, enable partitioning and use:
 | **Output filename format** | `%_folderpath%tags.txt` |
 
 All selected files with the same folder path enter the same report.
-The filename and the grouping key serve different purposes. Ensure each
-partition has a distinct output path; do not group by disc number while
+The filename and the grouping key serve different purposes. Give each
+partition a distinct output path; do not group by disc number while
 sending every disc to the same `tags.txt`.
 
 The action uses the selected files' final values in its group. Export

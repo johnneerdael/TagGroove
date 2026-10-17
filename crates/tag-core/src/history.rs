@@ -1343,7 +1343,7 @@ fn put(blob: Option<&Blob>, path: &Path) -> Result<(), ErrorCause> {
 
 /// A private sibling directory owns the temporary link until its atomic rename.
 /// Capture uses the same helper as a capability probe before any replacement.
-#[cfg(test)]
+#[cfg(all(test, unix))]
 fn stage_side_link(target: &Path, folder: &Path) -> Result<(tempfile::TempDir, PathBuf), String> {
     stage_side_link_diagnostic(target, folder).map_err(|cause| cause.to_string())
 }

@@ -72,43 +72,47 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: runner.os == 'Windows'
+        with:
+          arch: x64
+      - uses: msys2/setup-msys2@v2
+        id: msys2
+        if: runner.os == 'Windows'
+        with:
+          install: make
+          update: false
+      - name: Bind the installed MSYS2 build tools
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          MSYS2_LOCATION: ${{ steps.msys2.outputs.msys2-location }}
+        run: |
+          foreach ($tool in @('usr/bin/bash.exe', 'usr/bin/make.exe')) {
+            if (-not (Test-Path (Join-Path $env:MSYS2_LOCATION $tool))) { throw "MSYS2 tool missing: $tool" }
+          }
+          "OPENTAG_MSYS2=$env:MSYS2_LOCATION" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
       - name: Linux build dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf ffmpeg build-essential cmake make nasm
       - name: macOS media fixtures
         if: runner.os == 'macOS'
-        run: brew install ffmpeg
-      - name: Windows media fixtures
+        run: brew install ffmpeg cmake nasm
+      - name: Windows media fixtures and native assembler
         if: runner.os == 'Windows'
         shell: pwsh
-        # Chocolatey's feed sometimes answers 5xx and the install silently
-        # does nothing; retry, then require a working ffmpeg.
         run: |
-          for ($attempt = 1; $attempt -le 3; $attempt++) {
-            choco install ffmpeg --no-progress -y
-            if (Get-Command ffmpeg -ErrorAction SilentlyContinue) { break }
-            Write-Host "ffmpeg not installed by Chocolatey (attempt $attempt)"
-            Start-Sleep -Seconds (15 * $attempt)
-          }
-          if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
-            # Chocolatey unavailable: fall back to the FFmpeg builds on GitHub.
-            $zip = Join-Path $env:RUNNER_TEMP 'ffmpeg.zip'
-            # Pin a month-end build (retained upstream for two years) and fail closed on replacement.
-            $url = 'https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-09-30-13-08/ffmpeg-N-127021-ge0c94b2d1c-win64-gpl.zip'
-            $expectedSha256 = '85c4a4636b93d681a07588ffa6f1d8f5c064d9c3fb0622066662906b6fd718a1'
-            Invoke-WebRequest $url -OutFile $zip -MaximumRetryCount 5 -RetryIntervalSec 10
-            $actualSha256 = (Get-FileHash -LiteralPath $zip -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()
-            if ($actualSha256 -ne $expectedSha256) { throw "FFmpeg archive SHA-256 mismatch: expected $expectedSha256, got $actualSha256" }
-            Expand-Archive $zip -DestinationPath (Join-Path $env:RUNNER_TEMP 'ffmpeg')
-            $bin = (Get-ChildItem (Join-Path $env:RUNNER_TEMP 'ffmpeg') -Recurse -Filter ffmpeg.exe | Select-Object -First 1).DirectoryName
-            Add-Content $env:GITHUB_PATH $bin
-            $env:PATH = "$bin;$env:PATH"
-          }
-          ffmpeg -version | Select-Object -First 1
-          if ($LASTEXITCODE -ne 0) { throw 'ffmpeg is not available' }
+          choco install ffmpeg nasm --no-progress -y
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $nasmDirectory = Join-Path $env:ProgramFiles 'NASM'
+          if (-not (Test-Path (Join-Path $nasmDirectory 'nasm.exe'))) { throw 'NASM installation missing' }
+          $nasmDirectory | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       - run: npm ci
       - run: npm run build
       - run: npm run test:ui
@@ -156,41 +160,51 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: runner.os == 'Windows'
+        with:
+          arch: x64
+      - uses: msys2/setup-msys2@v2
+        id: msys2
+        if: runner.os == 'Windows'
+        with:
+          install: make
+          update: false
+      - name: Bind the installed MSYS2 build tools
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          MSYS2_LOCATION: ${{ steps.msys2.outputs.msys2-location }}
+        run: |
+          foreach ($tool in @('usr/bin/bash.exe', 'usr/bin/make.exe')) {
+            if (-not (Test-Path (Join-Path $env:MSYS2_LOCATION $tool))) { throw "MSYS2 tool missing: $tool" }
+          }
+          "OPENTAG_MSYS2=$env:MSYS2_LOCATION" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       - uses: dtolnay/rust-toolchain@stable
       - name: Linux UI dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf ffmpeg xvfb xauth dbus-x11
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf ffmpeg xvfb xauth dbus-x11 build-essential cmake make nasm
       - name: macOS media fixtures
         if: runner.os == 'macOS'
-        run: brew install ffmpeg
-      - name: Windows media fixtures
+        run: brew install ffmpeg cmake nasm
+      - name: Windows media fixtures and native assembler
         if: runner.os == 'Windows'
         shell: pwsh
-        # Chocolatey's feed sometimes answers 5xx and the install silently
-        # does nothing; retry, then require a working ffmpeg.
         run: |
-          for ($attempt = 1; $attempt -le 3; $attempt++) {
-            choco install ffmpeg --no-progress -y
-            if (Get-Command ffmpeg -ErrorAction SilentlyContinue) { break }
-            Write-Host "ffmpeg not installed by Chocolatey (attempt $attempt)"
-            Start-Sleep -Seconds (15 * $attempt)
-          }
-          if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
-            # Chocolatey unavailable: fall back to the FFmpeg builds on GitHub.
-            $zip = Join-Path $env:RUNNER_TEMP 'ffmpeg.zip'
-            # Pin a month-end build (retained upstream for two years) and fail closed on replacement.
-            $url = 'https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-09-30-13-08/ffmpeg-N-127021-ge0c94b2d1c-win64-gpl.zip'
-            $expectedSha256 = '85c4a4636b93d681a07588ffa6f1d8f5c064d9c3fb0622066662906b6fd718a1'
-            Invoke-WebRequest $url -OutFile $zip -MaximumRetryCount 5 -RetryIntervalSec 10
-            $actualSha256 = (Get-FileHash -LiteralPath $zip -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()
-            if ($actualSha256 -ne $expectedSha256) { throw "FFmpeg archive SHA-256 mismatch: expected $expectedSha256, got $actualSha256" }
-            Expand-Archive $zip -DestinationPath (Join-Path $env:RUNNER_TEMP 'ffmpeg')
-            $bin = (Get-ChildItem (Join-Path $env:RUNNER_TEMP 'ffmpeg') -Recurse -Filter ffmpeg.exe | Select-Object -First 1).DirectoryName
-            Add-Content $env:GITHUB_PATH $bin
-            $env:PATH = "$bin;$env:PATH"
-          }
-          ffmpeg -version | Select-Object -First 1
-          if ($LASTEXITCODE -ne 0) { throw 'ffmpeg is not available' }
+          choco install ffmpeg nasm --no-progress -y
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $nasmDirectory = Join-Path $env:ProgramFiles 'NASM'
+          if (-not (Test-Path (Join-Path $nasmDirectory 'nasm.exe'))) { throw 'NASM installation missing' }
+          $nasmDirectory | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Keep Git's link.exe from shadowing the MSVC linker in bash
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $gitLink = Join-Path $env:ProgramFiles 'Git\usr\bin\link.exe'
+          if (Test-Path $gitLink) { Remove-Item -LiteralPath $gitLink -Force }
       - run: npm ci
       - name: Build the debug app once
         run: |
@@ -209,7 +223,7 @@ jobs:
           # forwarding. macOS and Windows runners have a desktop session.
           if [[ "$RUNNER_OS" == Linux ]]; then run=(dbus-run-session -- xvfb-run -a); else run=(); fi
           status=0
-          for suite in core-workflows covers actions options-utils playlists freedb-local gnudb formats-3 general-options remove-mapping list-behaviour rename-fixes keyboard-extended script-export actions-polish sources-3 sources-4 keyboard-ui launch-forwarding export-lists chapters web-sources formats-edge panel-dock chapter-fields library i18n; do
+          for suite in core-workflows covers actions options-utils playlists freedb-local gnudb formats-3 general-options remove-mapping list-behaviour rename-fixes keyboard-extended script-export actions-polish sources-3 sources-4 keyboard-ui launch-forwarding export-lists chapters web-sources formats-edge panel-dock chapter-fields library; do
             fixtures=""
             [[ -x "tests/e2e/$suite-fixtures.sh" ]] && fixtures="$PWD/tests/e2e/$suite-fixtures.sh"
             echo "::group::$suite"
@@ -251,6 +265,11 @@ jobs:
         run: |
           sdkmanager 'platforms;android-37.0' 'build-tools;37.0.0' 'ndk;28.2.13676358'
           echo "NDK_HOME=$ANDROID_HOME/ndk/28.2.13676358" >> "$GITHUB_ENV"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Native build tools
+        run: sudo apt-get update && sudo apt-get install -y build-essential cmake make
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-linux-android
