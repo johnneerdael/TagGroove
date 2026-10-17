@@ -125,8 +125,8 @@ mod tests {
                 )
                 .unwrap();
                 assert_eq!(
-                    state.fields["TITLE"],
-                    [formatted.clone()],
+                    state.fields["TITLE"].as_slice(),
+                    std::slice::from_ref(&formatted),
                     "action {pattern} {value}"
                 );
                 assert_eq!(formatted != value, found, "scripting {pattern} {value}");
