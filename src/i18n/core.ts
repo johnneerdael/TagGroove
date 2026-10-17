@@ -87,7 +87,7 @@ export function historyLabelText(label: string, t: (key: string, params?: Record
 const PLURAL_CATEGORIES = new Set(['zero', 'one', 'two', 'few', 'many', 'other']);
 /** Data identities (files, fields, configuration keys) and authored text are never looked up themselves.
  * The audited backend source role names mapped fields, export configurations and action-context keys. */
-const VERBATIM = /^(name|nameOf|path|file|filename|fileName|location|outputPath|destination|source|sourcePath|directory|folder|url|extension|tag|selector|DIRECTORY|SEPARATOR|value|values|names|text|field|find|trackField|trackPosition|key|id|typeId|codepage|mode|item|scheme|byte|flags|current|query|term|pattern|format|template|title)\d*$/;
+const VERBATIM = /^(name|nameOf|path|file|filename|fileName|location|outputPath|destination|source|sourcePath|directory|folder|url|extension|tag|selector|DIRECTORY|SEPARATOR|value|values|names|text|field|op|barcode|find|trackField|trackPosition|key|id|typeId|codepage|mode|item|scheme|byte|flags|current|query|term|pattern|format|template|title)\d*$/;
 
 // Key combinations as menus and tooltips show them: ⌘/Ctrl ⇧ S, Alt+Enter, Ctrl Num +.
 const SHORTCUT = /^(?:(?:⌘|⌥|⇧|⌃|⌫|(?<![A-Za-z0-9])(?:Ctrl|Alt|Shift|Option|Cmd|Del|Num|Enter|Esc|Tab|Space|Page Up|Page Down|Home|End|Ins|Insert|F\d{1,2})(?![A-Za-z0-9])|[A-Z0-9]|[←→↑↓+\/·]|,)[\s+/]*)+$/;
@@ -194,11 +194,8 @@ export function placeholders(source: string): Set<string> {
   return names;
 }
 
-const numberSeparators = new WeakMap<Intl.PluralRules, {decimal: string; group?: string}>();
-/** Decode locale-formatted counts only for plural decisions; displayed values stay untouched. */
-const countText = (value: unknown, rules: Intl.PluralRules) => {
-  if (typeof value === 'number') return String(value);
-  const digits = String(value ?? '').replace(/[\p{Nd}〇一二三四五六七八九]/gu, digit => {
+const numberSeparators = new WeakMap<Intl.PluralRules, {decimal: string; group?: string; secondary: number}>();
+const asciiDigits = (value: unknown) => String(value ?? '').replace(/[\p{Nd}〇一二三四五六七八九]/gu, digit => {
     if (digit >= '0' && digit <= '9') return digit;
     const han = HAN_DIGITS.indexOf(digit);
     if (han >= 0) return String(han);
@@ -208,13 +205,56 @@ const countText = (value: unknown, rules: Intl.PluralRules) => {
     // can share a run, so retain the position modulo ten.
     while (zero > 0 && /\p{Nd}/u.test(String.fromCodePoint(zero - 1))) zero--;
     return String((code - zero) % 10);
-  });
+});
+const separatorsFor = (rules: Intl.PluralRules) => {
   let separators = numberSeparators.get(rules);
   if (!separators) {
-    const parts = new Intl.NumberFormat(rules.resolvedOptions().locale).formatToParts(12345.6);
-    separators = {decimal: parts.find(part => part.type === 'decimal')?.value ?? '.', group: parts.find(part => part.type === 'group')?.value};
+    const parts = new Intl.NumberFormat(rules.resolvedOptions().locale).formatToParts(123456789.6);
+    const integers = parts.filter(part => part.type === 'integer');
+    separators = {decimal: parts.find(part => part.type === 'decimal')?.value ?? '.', group: parts.find(part => part.type === 'group')?.value,
+      secondary: [...(integers.at(-2)?.value ?? '000')].length};
     numberSeparators.set(rules, separators);
   }
+  return separators;
+};
+
+/** Check capture syntax before treating text as a count; retain its display glyphs. */
+const formattedNumber = (value: string, rules: Intl.PluralRules): string | undefined => {
+  const text = asciiDigits(value), negative = text.startsWith('-');
+  const unsigned = negative ? text.slice(1) : text;
+  const {decimal, group, secondary} = separatorsFor(rules);
+  // These grouping glyphs also occur when system number formatting differs
+  // from the selected UI language. Never mix them within a single integer.
+  const groups = new Set([group, ' ', '\u00a0', '\u202f', '\u066c', "'", '’']);
+  for (const point of new Set([decimal, '.', '\u066b'])) {
+    const parts = unsigned.split(point);
+    if (parts.length > 2 || parts.length === 2 && !/^\d+$/.test(parts[1])) continue;
+    let integer = parts[0];
+    if (!/^\d+$/.test(integer)) {
+      const marks = [...integer.replace(/\d/g, '')], separator = marks[0];
+      if (!separator || !groups.has(separator) || marks.some(mark => mark !== separator)) continue;
+      const escaped = escapeRegex(separator);
+      const western = new RegExp(`^[1-9]\\d{0,2}(?:${escaped}\\d{3})+$`).test(integer);
+      // Keep Indian comma/Arabic-grouped system counts supported independently
+      // of UI language; other separators follow the locale's grouping width.
+      const indian = (secondary === 2 || separator === ',' || separator === '\u066c')
+        && new RegExp(`^[1-9]\\d?(?:${escaped}\\d{2})*${escaped}\\d{3}$`).test(integer);
+      if (!western && !indian) continue;
+      integer = integer.split(separator).join('');
+    }
+    return (negative ? '-' : '') + integer + (parts.length === 2 ? '.' + parts[1] : '');
+  }
+  return undefined;
+};
+
+/** Decode locale-formatted counts only for plural decisions; displayed values stay untouched. */
+const countText = (value: unknown, rules: Intl.PluralRules) => {
+  if (typeof value === 'number') return String(value);
+  const digits = asciiDigits(value);
+  const formatted = formattedNumber(digits, rules);
+  if (formatted !== undefined) return formatted;
+  // Explicit t() parameters also support scientific and signed numeric forms.
+  const separators = separatorsFor(rules);
   const ungrouped = separators.group ? digits.split(separators.group).join('') : digits;
   return ungrouped.split(separators.decimal).join('.').replace(/٫/g, '.').replace(/[\s٬'’]/g, '');
 };
@@ -352,6 +392,7 @@ export class Translator {
     for (const pattern of this.patterns) {
       const match = pattern.regex.exec(core);
       if (!match) continue;
+      if (pattern.names.some((name, i) => pattern.numeric.has(name) && formattedNumber(match[i + 1], this.rules) === undefined)) continue;
       if (pattern.key === '{operation} failed' && !['Cut tags', 'Paste tags'].includes(normalize(match[pattern.names.indexOf('operation') + 1]))) continue;
       if (pattern.key === '{name} and {names}' && !TAG_KIND_LISTS.has(normalize(core))) continue;
       if (UTILITY_CONFIRMATIONS.has(pattern.key) && !UTILITY_PARTS.some(parts => (['label', 'effect', 'applies'] as const).every(name => {

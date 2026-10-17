@@ -11,7 +11,7 @@ selection, and category validation visits nested plural bodies. Display glyphs
 remain unchanged; an invalid nested key is excluded and reported once.
 
 The existing application remains at main
-`ffcb3954e665e312f63406d47aa951d6dd864915`: the language registry, DOM observer,
+`52e5f10e00572efb559c2c7044fef56ab3c690bf`: the language registry, DOM observer,
 startup hooks, native catalog commands and Language settings are outside this
 foundation. Catalog data is exercised by the pure tests rather than installed
 in the application. Existing English application behavior remains the baseline.
@@ -24,14 +24,14 @@ Two review regressions cover locale-sensitive exact/category selection through
 explicit and captured values, and nested-category rejection/usable-catalog
 filtering with valid nested forms retained. A further producer-bound case covers every catalog identifier and underscored
 native limit values through direct/captured rendering and plural parsing. All
-twenty-nine pure cases remain in the
+thirty-two pure cases remain in the
 same test module when the complete application test suite is
 integrated; the later source-bound extraction and UI tests must also be kept.
 
-Fresh local checks passed 413 UI/model tests with zero failures or skips, the
+Fresh local checks passed 416 UI/model tests with zero failures or skips, the
 production build, the strict 172-page guide and eight publication tests. One
 existing UI case compiles a temporary pure Rust helper; it is separate from
-application-native qualification. All 1,360 existing tracked main files are
+application-native qualification. All 1,355 existing tracked main files are
 byte-identical, including native sources, configuration and literal test inputs.
 The incoming main includes the normally merged diagnostic foundation PR #36
 and build-tool prerequisite PR #37. PR #36's clean review and 12 successful
@@ -186,4 +186,28 @@ the recursion limit, making the output depend on which labels were rendered
 first. The new test first reproduces that difference, then compares fresh and
 warmed translators at depths zero, one and two across nested frames, multiple
 seed orders, surrounding whitespace and protected values. All 28 earlier pure
+cases remain unchanged.
+
+Numeric captures now validate separator syntax before accepting a rendered
+frame. Repeated decimal marks, inconsistent grouping and malformed groups
+remain untranslated across count, measurement and source-bound limit frames.
+The check preserves supported Unicode digit scripts, locale decimals, native
+decimal points, consistent group separators and observed Indian-system counts.
+The same decoder supplies plural decisions while retaining the displayed
+glyphs; explicit scientific-number parameters retain their existing behavior.
+A RED/GREEN regression covers malformed prose and valid formatted controls.
+
+The actual Tag Sources unknown-command path is exercised with technical and
+shortcut-shaped identifiers in DE/NL/custom catalogs. Its `op` role is now raw,
+so a rejected command named `Help` is identified without becoming `Hilfe`.
+Both new cases failed on the reviewed parent; all 29 earlier pure cases and
+all three original catalog byte streams remain unchanged. Current main
+`52e5f10` is merged into this branch; its independently reviewed guide/domain
+and publishing changes are retained.
+
+The same finite technical-role audit reproduced a provider barcode named
+`Help` becoming `Hilfe`. Its `barcode` role is now raw too. An additional
+regression executes the actual selected-release `chosenMarkup` producer with
+empty optional details, identifier collisions and an ordinary numeric barcode
+in DE/NL/custom catalogs. It failed before the correction; all 31 earlier
 cases remain unchanged.

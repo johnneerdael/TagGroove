@@ -623,3 +623,55 @@ test('top-level cache warming cannot bypass nested translation depth limits',()=
     assert.equal(translator.translate(text,0,'Middle Inner Leaf'),fresh().translate(text,0,'Middle Inner Leaf'));
   }
 });
+
+test('numeric captures reject malformed separators and retain valid locale formatting',()=>{
+  for(const locale of ['de','en','nl']){
+    const translator=new Translator(locale,catalogs[locale]);
+    for(const value of ['1..2','1,2,3','1.23.456','1,234 567','1 23','1\u202f23','1٬23','1,,234']){
+      for(const text of [`${value} files`,`${value} Hz`,`Cannot show ${value} files here`])assert.equal(translator.translate(text),text,`${locale}: ${text}`);
+    }
+  }
+  const key='{count} files',catalog={[key]:'Count [{count}]'};
+  for(const [locale,value] of [['en','1,234.50'],['de','1.234,50'],['fr','1\u202f234,50'],['en-IN','1,23,456'],['en','1\u00a0234'],['ar','١٬٢٣٤٫٥'],['de','1.5']]){
+    assert.equal(new Translator(locale,catalog).translate(`${value} files`),`Count [${value}]`,`${locale}: ${value}`);
+  }
+  assert.equal(new Translator('de',{[key]:'{count, plural, one {# one} other {# other}}'}).translate('1.0 files'),'1.0 one');
+});
+
+test('the actual unknown Tag Sources command preserves its identifier',async()=>{
+  const {TagSourcesUI}=await load('tag-sources.ts');
+  const ui=new TagSourcesUI({});
+  const key='Unknown tag source command {op}';
+  for(const op of ['Help','ARTIST','Ctrl Ins','Insert2','bogus']){
+    await assert.rejects(ui.run(op),error=>{
+      assert.equal(error.message,`Unknown tag source command ${op}`);
+      for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',{[key]:'Command [{op}]',Help:'Wrong command'}]]){
+        const translator=new Translator(locale,catalog);
+        assert.equal(translator.translate(error.message),translator.t(key,{op}),`${locale}: ${op}`);
+      }
+      return true;
+    });
+  }
+});
+
+test('the actual selected-release barcode remains provider data',async()=>{
+  const source=await readFile(new URL('../src/tag-sources.ts',import.meta.url),'utf8');
+  const ast=ts.createSourceFile('tag-sources.ts',source,ts.ScriptTarget.Latest,true,ts.ScriptKind.TS),declarations=[];
+  const visit=node=>{
+    if(ts.isVariableDeclaration(node)&&['html','chosenMarkup'].includes(node.name.getText(ast)))declarations.push(`const ${node.name.getText(ast)}=${node.initializer.getText(ast)};`);
+    ts.forEachChild(node,visit);
+  };
+  visit(ast);assert.equal(declarations.length,2);
+  const producer=ts.transpileModule(declarations.join('\n'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
+  const render=new Function('results','chosen','web','freedb','provider',`${producer};return chosenMarkup();`);
+  const key='Barcode {barcode}';
+  for(const barcode of ['Help','ARTIST','Ctrl Ins','0123456789012']){
+    const result={artist:'Artist',title:'Album',year:'',country:'',label:'',catalog_number:'',format:'',barcode,url:''};
+    const markup=render([result],0,false,false,'musicbrainz');
+    const label=markup.match(/<span>([^<]+)<\/span>/)?.[1];assert.equal(label,`Barcode ${barcode}`);
+    for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',{[key]:'Code [{barcode}]',Help:'Wrong metadata'}]]){
+      const translator=new Translator(locale,catalog);
+      assert.equal(translator.translate(label),translator.t(key,{barcode}),`${locale}: ${barcode}`);
+    }
+  }
+});
