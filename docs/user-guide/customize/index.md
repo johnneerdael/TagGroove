@@ -2,7 +2,7 @@
 status: draft
 ---
 
-# Customize OpenTag
+# Customize TagGroove
 
 !!! abstract "This page is being written"
 

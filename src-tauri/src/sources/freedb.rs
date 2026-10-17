@@ -3,7 +3,7 @@
 //! folders of xmcd files from a freedb snapshot.
 //!
 //! Servers follow gnudb's access policy (docs/verification/gnudb.md): every
-//! request carries a valid-looking email and OpenTag's registered name, an
+//! request carries a valid-looking email and TagGroove's registered name, an
 //! entry is read only after a `cddb query` or `search` listed it, and 429
 //! stops the lookup. Nothing is ever submitted.
 use super::model::*;
@@ -208,7 +208,7 @@ pub fn offers_gnudb_commands(settings: &FreedbSettings) -> bool {
                     .is_ok_and(|ip| ip.is_loopback())))
 }
 
-/// The application name OpenTag is registered under at gnudb. gnudb asks
+/// The application name TagGroove is registered under at gnudb. gnudb asks
 /// clients for a long, descriptive name of their own; do not change it.
 pub const APPLICATION: &str = "OpenTagAudioTagEditor";
 /// The developer contact sent in the handshake when the user has not entered
@@ -378,7 +378,7 @@ pub const NO_TEXT_SEARCH: &str = "Searching by artist and album is a gnudb featu
 pub const NO_COVER_SEARCH: &str =
     "Cover art search is a gnudb feature that this freedb server does not offer.";
 
-pub const LOOK_UP_FIRST: &str = "Look the disc up first: OpenTag reads a freedb entry only after the server listed it for the selected files' track layout or for an artist and album search.";
+pub const LOOK_UP_FIRST: &str = "Look the disc up first: TagGroove reads a freedb entry only after the server listed it for the selected files' track layout or for an artist and album search.";
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Match {
@@ -399,12 +399,12 @@ fn status(body: &str) -> Result<(u16, &str, Vec<&str>), String> {
     Ok((code, first[3..].trim(), rest))
 }
 
-pub const TOO_MANY_REQUESTS: &str = "The freedb server answered 429 Too Many Requests. OpenTag does not retry on its own; wait a while and try again later.";
+pub const TOO_MANY_REQUESTS: &str = "The freedb server answered 429 Too Many Requests. TagGroove does not retry on its own; wait a while and try again later.";
 
 fn server_error(code: u16, value: &str) -> String {
     if value.to_ascii_lowercase().contains("unknown application") {
         return format!(
-            "The freedb server does not accept requests from OpenTag (it answered “{value}”). gnudb only answers applications its operator has registered. Choose another CDDB server in Options → Tag Sources → freedb, or use a local freedb folder."
+            "The freedb server does not accept requests from TagGroove (it answered “{value}”). gnudb only answers applications its operator has registered. Choose another CDDB server in Options → Tag Sources → freedb, or use a local freedb folder."
         );
     }
     match code {
@@ -747,7 +747,7 @@ pub fn release_url(provider: Provider, category: &str, disc_id: &str) -> String 
     }
 }
 
-/// Map an xmcd entry to OpenTag fields: DTITLE, DYEAR, DGENRE, TTITLEn and EXTD/EXTTn.
+/// Map an xmcd entry to TagGroove fields: DTITLE, DYEAR, DGENRE, TTITLEn and EXTD/EXTTn.
 pub fn release(
     xmcd: &Xmcd,
     provider: Provider,
@@ -1309,9 +1309,9 @@ mod tests {
         );
         assert!(parse_query("202 No match found\r\n").unwrap().is_empty());
         let refused =
-            parse_query("500 Unknown application, developer email for OpenTag 0.1").unwrap_err();
+            parse_query("500 Unknown application, developer email for TagGroove 0.1").unwrap_err();
         assert!(
-            refused.contains("does not accept requests from OpenTag"),
+            refused.contains("does not accept requests from TagGroove"),
             "{refused}"
         );
         assert!(parse_query("409 No handshake")

@@ -39,7 +39,7 @@ the subfolder option and how to load another folder deliberately.
 ## 2. Identify what is actually embedded
 
 Select one track and inspect the tag panel's cover window. A label
-**Folder image** / **Not embedded in the file** means OpenTag is showing
+**Folder image** / **Not embedded in the file** means TagGroove is showing
 an external image. The audio does not gain a picture merely because that
 preview is visible. Selecting files from different folders can also make
 the display differ from selecting one file.

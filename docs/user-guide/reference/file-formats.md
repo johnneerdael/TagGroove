@@ -1,6 +1,6 @@
 # Supported file formats
 
-OpenTag reads and edits metadata in the formats below. The audio codec describes how samples are encoded; the container holds that stream and its tags. AAC and ALAC inside an MP4/M4A file therefore use MP4 metadata, while a raw `.aac` stream uses the ID3/APE policy.
+TagGroove reads and edits metadata in the formats below. The audio codec describes how samples are encoded; the container holds that stream and its tags. AAC and ALAC inside an MP4/M4A file therefore use MP4 metadata, while a raw `.aac` stream uses the ID3/APE policy.
 
 !!! tip "New to this?"
     Identify the file's actual format and tag type before choosing fields or compatibility settings. Renaming `.flac` to `.mp3` does not convert the audio or its metadata.
@@ -15,7 +15,7 @@ OpenTag reads and edits metadata in the formats below. The audio codec describes
 | AIFF / AIFC | `.aif`, `.aiff`, `.aifc` | ID3v2 | ID3v2 | ID3v2 |
 | Monkey's Audio | `.ape` | ID3v1, APEv1/v2 | ID3v1, APEv2 | ID3v1, ID3v2, APEv1/v2 |
 | DSF | `.dsf` | ID3v2 | ID3v2 | ID3v2 |
-| DSDIFF, an OpenTag addition | `.dff` | ID3v2 plus available DIIN artist/title | ID3v2; synchronize existing DIIN artist/title | ID3v2 and supported DIIN tag text |
+| DSDIFF, a TagGroove addition | `.dff` | ID3v2 plus available DIIN artist/title | ID3v2; synchronize existing DIIN artist/title | ID3v2 and supported DIIN tag text |
 | FLAC | `.flac` | Vorbis Comments | Vorbis Comments | Vorbis Comments and prepended ID3v2 |
 | Matroska audio/video | `.mka`, `.mkv` | Matroska tags, supported chapters, image attachments | Same supported structures | Global tags, supported chapter structures/tags, image attachments; see limits below |
 | MPEG audio | `.mp1`, `.mp2`, `.mp3` | ID3v1, ID3v2, APEv1/v2 | ID3v1, ID3v2, APEv2 | ID3v1, ID3v2, APEv1/v2 |
@@ -38,7 +38,7 @@ The table includes every extension admitted by the baseline's default folder sca
 
 ## Tag families and priorities
 
-The **Mpeg** policy serves MPEG audio, raw AAC, and TTA. When several enabled tags are present, APE takes priority over ID3v2, then ID3v1. OpenTag displays one type rather than merging values from every block.
+The **Mpeg** policy serves MPEG audio, raw AAC, and TTA. When several enabled tags are present, APE takes priority over ID3v2, then ID3v1. TagGroove displays one type rather than merging values from every block.
 
 The **Ape, Mpc** policy serves Monkey's Audio, Musepack, WavPack, TAK, and OptimFROG. APE takes priority over ID3v1. An ID3v2 prefix in these files can remain physically present even though this reading policy does not display it; choose its removal explicitly if needed.
 
@@ -73,7 +73,7 @@ For supported MP4/Matroska chapter-list edits, a `CHAPTERS` value has a time and
 
 ## Technical information
 
-OpenTag reports available format, codec, duration, bitrate, sample rate, channels/mode, file size, and tag information. Bit depth is meaningful where the stream provides it; a lossy codec does not acquire a valid PCM bit-depth measurement merely because a custom tag contains a number. Video/container-specific information is supplied where the reader can measure it.
+TagGroove reports available format, codec, duration, bitrate, sample rate, channels/mode, file size, and tag information. Bit depth is meaningful where the stream provides it; a lossy codec does not acquire a valid PCM bit-depth measurement merely because a custom tag contains a number. Video/container-specific information is supplied where the reader can measure it.
 
 Metadata fields such as LENGTH, FILETYPE, or ENCODERSETTINGS do not change the measured stream properties. Use [information placeholders](placeholders.md) when filtering or exporting actual measurements. Missing or unavailable properties should remain unknown rather than being inferred from an extension.
 
@@ -81,7 +81,7 @@ Metadata fields such as LENGTH, FILETYPE, or ENCODERSETTINGS do not change the m
 
 ### FLAC with prepended ID3v2
 
-OpenTag reads the native Vorbis Comments and hides an unexpected prepended ID3v2 tag. A subsequent FLAC metadata write strips that prefix while preserving the FLAC stream through the supported write path. Hidden ID3 information is therefore not guaranteed to remain after an unrelated edit. Back up a nonstandard file before normalizing it.
+TagGroove reads the native Vorbis Comments and hides an unexpected prepended ID3v2 tag. A subsequent FLAC metadata write strips that prefix while preserving the FLAC stream through the supported write path. Hidden ID3 information is therefore not guaranteed to remain after an unrelated edit. Back up a nonstandard file before normalizing it.
 
 ### Raw streams and unusual tag layouts
 
@@ -93,7 +93,7 @@ Footer-only APEv2 tags are read without treating the preceding 32 audio bytes as
 
 ### MP4 metadata preservation
 
-MP4 iTunes fields take precedence over Nero metadata; Nero supplies missing values. Editing or deleting a mapped field also updates or removes its existing Nero copy. OpenTag does not add newly created fields to the Nero set. For a file without chapters, an edited value too long for its existing Nero space is written to iTunes only; the older Nero value remains hidden by iTunes precedence.
+MP4 iTunes fields take precedence over Nero metadata; Nero supplies missing values. Editing or deleting a mapped field also updates or removes its existing Nero copy. TagGroove does not add newly created fields to the Nero set. For a file without chapters, an edited value too long for its existing Nero space is written to iTunes only; the older Nero value remains hidden by iTunes precedence.
 
 Nero artwork is displayed when iTunes artwork is absent. A cover edit writes the result to iTunes artwork and removes the Nero copy, even if it was hidden. Ordinary text-field edits preserve that artwork copy. Unrelated `udta/indx` data is retained but is not exposed for editing.
 
@@ -113,7 +113,7 @@ Live/unknown-sized cluster layouts can be read through their metadata index but 
 
 ### ASF and protected files
 
-ASF can contain attributes with binary types, language/stream scope, and values larger than 64 KiB. OpenTag preserves opaque structures it cannot expose as text; Remove tag intentionally does not mean erasing every ASF object. Older consuming readers may omit large Metadata Library values even when the file remains valid. Test long lyrics or large covers in the target player.
+ASF can contain attributes with binary types, language/stream scope, and values larger than 64 KiB. TagGroove preserves opaque structures it cannot expose as text; Remove tag intentionally does not mean erasing every ASF object. Older consuming readers may omit large Metadata Library values even when the file remains valid. Test long lyrics or large covers in the target player.
 
 An extension such as `.m4p`, or encryption objects in ASF, does not establish DRM support. Editing a container's visible metadata cannot remove protection or guarantee protected playback. Damaged metadata, unsupported encrypted layouts, read-only sources, and access-provider restrictions can prevent a write even when the general family is listed.
 
@@ -121,7 +121,7 @@ An extension such as `.m4p`, or encryption objects in ASF, does not establish DR
 
 The portable metadata core uses the same family parsers across supported builds. Access to a file is a separate requirement: mobile document providers can lack ordinary filesystem paths or permissions used by desktop folder, rename, and external-tool workflows. Consult the installed app's source-access message rather than assuming desktop filesystem operations apply to a provider URI.
 
-This table is checked against the baseline source and relevant format tests, not a claim that every listed format has been exercised on every released platform or compared with the original Mp3tag executable. Tag editing does not establish playback support; OpenTag can delegate playback to another application.
+This table is checked against the baseline source and relevant format tests, not a claim that every listed format has been exercised on every released platform or compared with the original Mp3tag executable. Tag editing does not establish playback support; TagGroove can delegate playback to another application.
 
 ## Related
 

@@ -7,7 +7,7 @@ use std::io::{Read, Write};
 /// Padding that Optimize leaves in a FLAC file.
 pub const FLAC_PADDING: usize = 4096;
 
-/// ID3v2 frames OpenTag shows neither as a field, a cover nor a chapter. They
+/// ID3v2 frames TagGroove shows neither as a field, a cover nor a chapter. They
 /// are listed by `%_id3v2_unknown_frames%`.
 pub(super) fn unsupported_id3_frame(frame: &Frame<'_>) -> bool {
     match frame {
@@ -43,7 +43,7 @@ fn file_type(path: &Path) -> Result<Option<FileType>, String> {
         .file_type())
 }
 
-/// Remove the ID3v2 frames OpenTag cannot display. Other tags are not changed.
+/// Remove the ID3v2 frames TagGroove cannot display. Other tags are not changed.
 pub fn remove_unsupported_fields_with_options(
     path: &Path,
     include_cover_data: bool,

@@ -1,14 +1,15 @@
 # Download and install
 
-Download OpenTag from the project's [GitHub releases](https://github.com/johnneerdael/opentag/releases).
+Download TagGroove from the project's [GitHub releases](https://github.com/johnneerdael/TagGroove/releases).
 Open a release's **Assets** list and choose a package for your operating system
 and processor. You do not need Rust, Node.js or the source-code ZIP to run a
 published package. Those are part of the developer build workflow.
 
 ## Choose the right download
 
-The following is the verified **v0.2.12** package set. Check a newer release's
-own notes and assets before assuming its names, signing or requirements match.
+The package formats and platform limits were inspected in **v0.2.12**,
+before the rename. The table shows the TagGroove naming pattern for new builds.
+Check the chosen release’s own notes and actual asset names before installing.
 `arm64` means an ARM processor; `x64` means a 64-bit Intel/AMD processor.
 On a Mac, **About This Mac** distinguishes Apple silicon from Intel.
 
@@ -17,14 +18,14 @@ On a narrow screen, scroll this package table sideways to read its limitations.
 <div class="native-mapping-table" markdown>
 <div markdown style="min-width: 48rem">
 
-| System | v0.2.12 package | What to expect |
+| System | Package naming pattern | What to expect |
 | --- | --- | --- |
-| Windows x64 | `OpenTag-v0.2.12-windows-x64-setup.exe` | Desktop installer; no Authenticode publisher signature |
-| macOS Apple silicon | `OpenTag-v0.2.12-macos-arm64.dmg` or `.app.tar.gz` | Desktop application; ad-hoc signed, not notarized |
-| macOS Intel | `OpenTag-v0.2.12-macos-x64.dmg` or `.app.tar.gz` | Same signing limits; choose the Intel build |
+| Windows x64 | `TagGroove-vVERSION-windows-x64-setup.exe` | Desktop installer; no Authenticode publisher signature |
+| macOS Apple silicon | `TagGroove-vVERSION-macos-arm64.dmg` or `.app.tar.gz` | Desktop application; ad-hoc signed, not notarized |
+| macOS Intel | `TagGroove-vVERSION-macos-x64.dmg` or `.app.tar.gz` | Same signing limits; choose the Intel build |
 | Linux x64 or arm64 | Matching `.AppImage`, `.deb` or `.rpm` | Unsigned desktop packages, built on Ubuntu 24.04; older-distribution compatibility is not established |
-| Android arm64 | `OpenTag-v0.2.12-android-arm64-signed.apk` | Signed preview; document editing and save-back remain in progress |
-| iOS ARM64 simulator | `OpenTag-v0.2.12-ios-arm64-simulator-preview-debug.app.zip` | Unsigned simulator preview; not an iPhone/iPad installer |
+| Android arm64 | `TagGroove-vVERSION-android-arm64-signed.apk` | Signed preview; document editing and save-back remain in progress |
+| iOS ARM64 simulator | `TagGroove-vVERSION-ios-arm64-simulator-preview-debug.app.zip` | Unsigned simulator preview; not an iPhone/iPad installer |
 
 </div>
 </div>
@@ -32,7 +33,11 @@ On a narrow screen, scroll this package table sideways to read its limitations.
 There is no Windows portable ZIP or Store package in this release. Copying an
 AppImage or a macOS application does not create a separate portable settings
 profile: configuration belongs to the current user. Do not apply Mp3tag's
-installation modes, Windows requirements or configuration paths to OpenTag.
+installation modes, Windows requirements or configuration paths to TagGroove.
+
+Packages published before the rename retain their original filenames. Use the
+exact asset name from the chosen release when checking its checksum;
+`VERSION` below stands for that release’s version.
 
 ## Check the download before running it
 
@@ -48,7 +53,7 @@ For example, in the folder containing the downloaded file:
 === "macOS"
 
     ```sh
-    shasum -a 256 'OpenTag-v0.2.12-macos-arm64.dmg'
+    shasum -a 256 'TagGroove-vVERSION-macos-arm64.dmg'
     ```
 
 === "Windows"
@@ -56,7 +61,7 @@ For example, in the folder containing the downloaded file:
     In PowerShell:
 
     ```powershell
-    Get-FileHash -Algorithm SHA256 -LiteralPath '.\OpenTag-v0.2.12-windows-x64-setup.exe'
+    Get-FileHash -Algorithm SHA256 -LiteralPath '.\TagGroove-vVERSION-windows-x64-setup.exe'
     ```
 
     Microsoft's [Get-FileHash reference](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.utility/get-filehash)
@@ -65,7 +70,7 @@ For example, in the folder containing the downloaded file:
 === "Linux"
 
     ```sh
-    sha256sum 'OpenTag-v0.2.12-linux-x64.AppImage'
+    sha256sum 'TagGroove-vVERSION-linux-x64.AppImage'
     ```
 
 Change the filename to your actual architecture and package. You only need
@@ -76,8 +81,8 @@ also try to read the other packages you have not downloaded.
 
 === "macOS"
 
-    1. Open the matching `.dmg`, then copy **OpenTag.app** to your Applications
-       folder. With `.app.tar.gz`, extract the archive to obtain **OpenTag.app**
+    1. Open the matching `.dmg`, then copy **TagGroove.app** to your Applications
+       folder. With `.app.tar.gz`, extract the archive to obtain **TagGroove.app**
        and copy that application instead.
     2. Open the copied application. v0.2.12 has no Apple notarization, so macOS
        may refuse to open it under its normal policy.
@@ -98,7 +103,7 @@ also try to read the other packages you have not downloaded.
        that the download came from the intended release. v0.2.12 has no
        Authenticode signature; the guide cannot provide a verified publisher
        name to expect. Respect organizational restrictions.
-    3. Open **OpenTag** after installation. If the WebView2 runtime is missing,
+    3. Open **TagGroove** after installation. If the WebView2 runtime is missing,
        the Tauri installer uses its default bootstrapper, which can require
        internet access to obtain it. See Tauri's
        [Windows installer documentation](https://v2.tauri.app/distribute/windows-installer/).
@@ -118,8 +123,8 @@ also try to read the other packages you have not downloaded.
     for the x64 example is:
 
     ```sh
-    chmod u+x 'OpenTag-v0.2.12-linux-x64.AppImage'
-    ./OpenTag-v0.2.12-linux-x64.AppImage
+    chmod u+x 'TagGroove-vVERSION-linux-x64.AppImage'
+    ./TagGroove-vVERSION-linux-x64.AppImage
     ```
 
     See the official [AppImage quickstart](https://docs.appimage.org/introduction/quickstart.html)
@@ -151,7 +156,7 @@ An optional startup check is configured under
 [Updates options](../reference/options/updates.md).
 
 Before an update or settings experiment, choose **File → Save configuration…**.
-This writes an OpenTag JSON configuration bundle containing the supported
+This writes a TagGroove JSON configuration bundle containing the supported
 saved options, action groups, export configurations, columns, tag-panel layout,
 favorite directories and remembered lists that exist in the configuration
 folder. It does not save pending tag edits, back up audio, or include the
@@ -184,7 +189,7 @@ installation, OS version or mobile device has been tested.
 
 ## Related
 
-- [Start using OpenTag](index.md)
+- [Start using TagGroove](index.md)
 - [Opening files](opening-files.md)
 - [The main window](main-window.md)
 - [Editing, saving and undo](editing-and-saving.md)

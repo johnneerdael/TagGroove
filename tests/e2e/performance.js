@@ -120,7 +120,7 @@
     if (config.write) {
       // 7. Edit one field across every file, save, then undo it.
       rows()[0].focus(); key('a', { metaKey: true }); await frame();
-      const value = `OpenTag perf ${Date.now()}`, comment = panel('COMMENT');
+      const value = `TagGroove perf ${Date.now()}`, comment = panel('COMMENT');
       comment.focus();
       const edit = await measure(() => { comment.value = value; comment.dispatchEvent(new Event('input', { bubbles: true })); });
       await perf('edit_field_all', `sync_ms=${round(edit.sync)} frame_ms=${round(edit.frame)} pending="${document.querySelector('.dirty-count')?.textContent}"`);
@@ -143,14 +143,14 @@
 
       // 8. Save one file.
       rows()[1].querySelector('td').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })); await frame();
-      const single = panel('COMMENT'); single.focus(); single.value = 'OpenTag single'; single.dispatchEvent(new Event('input', { bubbles: true })); single.blur(); rows()[1].focus();
+      const single = panel('COMMENT'); single.focus(); single.value = 'TagGroove single'; single.dispatchEvent(new Event('input', { bubbles: true })); single.blur(); rows()[1].focus();
       since = performance.now(); key('s', { metaKey: true });
       await waitFor(() => /Saved tags/.test(status()) && !busy(), 60000, 'saved one'); const saved = performance.now() - since; await frame();
       await perf('save_one', `ms=${round(saved)} frame_ms=${round(performance.now() - since)} ${ipcSince(since)}`);
 
       // 9. Cancel a multi-file save after the first progress update.
       rows()[0].focus(); key('a', { metaKey: true }); await frame();
-      const again = panel('COMMENT'); again.focus(); again.value = 'OpenTag cancelled'; again.dispatchEvent(new Event('input', { bubbles: true })); again.blur(); rows()[0].focus();
+      const again = panel('COMMENT'); again.focus(); again.value = 'TagGroove cancelled'; again.dispatchEvent(new Event('input', { bubbles: true })); again.blur(); rows()[0].focus();
       since = performance.now(); key('s', { metaKey: true });
       const cancel = await waitFor(() => /^[1-9]\d* of /.test(document.querySelector('.job-progress-text')?.textContent || '') && document.querySelector('#cancel-job'), 60000, 'progress').catch(() => null);
       const clicked = performance.now(); cancel?.click();

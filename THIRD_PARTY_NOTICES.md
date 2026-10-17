@@ -1,16 +1,16 @@
-# OpenTag licenses and third-party notices
+# TagGroove licenses and third-party notices
 
-OpenTag application source is MIT licensed. Built-in audio fingerprinting links Chromaprint, FFmpeg, zlib and bzip2; non-Apple builds also use the KissFFT included with Chromaprint. Applicable component licenses and copyright notices follow. No GPL/nonfree/version3 FFmpeg components are enabled. A small recorded patch opts into upstream LGPL-marked audio components; exact original source, patches and build configuration accompany the matching release.
+TagGroove application source is MIT licensed. Built-in audio fingerprinting links Chromaprint, FFmpeg, zlib and bzip2; non-Apple builds also use the KissFFT included with Chromaprint. Applicable component licenses and copyright notices follow. No GPL/nonfree/version3 FFmpeg components are enabled. A small recorded patch opts into upstream LGPL-marked audio components; exact original source, patches and build configuration accompany the matching release.
 
-The matching release provides complete corresponding application and native-library sources, build recipes and modification/relink instructions in `OpenTag-vVERSION-sources.tar.xz`. Obtain it from https://github.com/johnneerdael/opentag/releases . Library modification and reverse engineering for debugging modifications are permitted under the applicable library licenses.
+The matching release provides complete corresponding application and native-library sources, build recipes and modification/relink instructions in `TagGroove-vVERSION-sources.tar.xz`. Obtain it from https://github.com/johnneerdael/TagGroove/releases . Library modification and reverse engineering for debugging modifications are permitted under the applicable library licenses.
 
-The application also displays these notices offline in Help > About OpenTag.
+The application also displays these notices offline in Help > About TagGroove.
 
-## OpenTag (MIT)
+## TagGroove (MIT)
 
 MIT License
 
-Copyright (c) 2026 OpenTag contributors
+Copyright (c) 2026 TagGroove contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

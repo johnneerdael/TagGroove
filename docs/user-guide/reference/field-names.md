@@ -15,7 +15,7 @@ Multiple values belong to one field; they are not necessarily one text string jo
 
 ## Field vocabulary
 
-The tables cover all 118 named entries in OpenTag's fixed native mapping vocabulary. The **meaning** describes the metadata, not a promise that every format has a dedicated native location or every player displays it. The [mapping tables](tag-mapping.md) and [format capabilities](file-formats.md) explain storage and limits.
+The tables cover all 118 named entries in TagGroove's fixed native mapping vocabulary. The **meaning** describes the metadata, not a promise that every format has a dedicated native location or every player displays it. The [mapping tables](tag-mapping.md) and [format capabilities](file-formats.md) explain storage and limits.
 
 ### Core description
 
@@ -190,7 +190,7 @@ Do not substitute an unstructured list of names when the role relationships matt
 
 ### Ratings
 
-`POPULARIMETER` represents ID3v2 POPM as `owner|rating|counter`. The counter is optional and defaults to 0. The historical documented rating range runs from 1 (lowest) to 255 (highest); OpenTag additionally accepts 0. Its parser accepts an unsigned byte for rating and an unsigned 64-bit counter.
+`POPULARIMETER` represents ID3v2 POPM as `owner|rating|counter`. The counter is optional and defaults to 0. The historical documented rating range runs from 1 (lowest) to 255 (highest); TagGroove additionally accepts 0. Its parser accepts an unsigned byte for rating and an unsigned 64-bit counter.
 
 ```text
 listener@example.test|196|12
@@ -200,7 +200,7 @@ That is a raw byte rating, not a number of stars. With **Options → Tags → Ad
 
 `RATING MM` uses the MediaMonkey owner convention and accepts numeric star values or `*` for a star and `-` for a half star; `**-` means 2.5. `RATING WMP` accepts whole star values or `*` characters; `****` means 4. In the documented star interpretation, 1 is the lowest and 5 the highest. Both writers accept 0–5, with half steps only for MM. Each convenience field allows one rating for its owner and preserves the existing counter when changing the rating.
 
-These mappings describe OpenTag's stored representations. They do not establish current playback/display behavior in MediaMonkey or Windows Media Player. The MP4 `RATE` field is a separate native integer, not automatically the same rating scale.
+These mappings describe TagGroove's stored representations. They do not establish current playback/display behavior in MediaMonkey or Windows Media Player. The MP4 `RATE` field is a separate native integer, not automatically the same rating scale.
 
 ### Lyrics, comments, and identifiers
 
@@ -242,7 +242,7 @@ Some action types interpret these names as selectors or rename requests. They ar
 
 Technical placeholders such as `%_length%`, `%_bitrate%`, and `%_path%` describe the file or application context. They are covered in [Placeholders](placeholders.md). Creating a custom `LENGTH` tag changes stored metadata, not the actual duration.
 
-OpenTag also exposes `CHAPTERS` for supported MP4/Matroska chapter editing and `CUESHEET` for embedded cue-sheet content. These require their specific syntax and supported format; a custom field with that name is not automatically a chapter implementation in another container.
+TagGroove also exposes `CHAPTERS` for supported MP4/Matroska chapter editing and `CUESHEET` for embedded cue-sheet content. These require their specific syntax and supported format; a custom field with that name is not automatically a chapter implementation in another container.
 
 ## Related
 

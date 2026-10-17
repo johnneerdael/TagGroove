@@ -25,9 +25,9 @@ use tauri::Emitter;
 /// Emitted after sources were installed so every window rebuilds its menu.
 pub const CHANGED_EVENT: &str = "opentag://web-sources";
 const MAX_FILE_BYTES: u64 = 4 * 1024 * 1024;
-/// Sent unless a source asks for OpenTag's own name with `[UserAgent]=1`.
+/// Sent unless a source asks for TagGroove's own name with `[UserAgent]=1`.
 const BROWSER_AGENT: &str = concat!(
-    "Mozilla/5.0 (compatible; OpenTag/",
+    "Mozilla/5.0 (compatible; TagGroove/",
     env!("CARGO_PKG_VERSION"),
     ")"
 );
@@ -938,7 +938,7 @@ pub async fn web_source_search(
             .filter(http::web_allowed)
             .ok_or_else(|| {
                 format!(
-                    "{name} produced an address OpenTag cannot open: {url}",
+                    "{name} produced an address TagGroove cannot open: {url}",
                     name = file.name,
                     url = raw
                 )

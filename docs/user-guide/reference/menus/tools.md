@@ -2,7 +2,7 @@
 
 The Tools menu contains built-in metadata/container utilities, the tool
 configuration command and any external programs you have defined. A built-in
-utility writes through OpenTag's supported file path; a named external tool
+utility writes through TagGroove's supported file path; a named external tool
 starts another program with its own behavior and completion rules.
 
 !!! tip "Choose a workflow first"
@@ -19,7 +19,7 @@ The current built-in items appear in this order:
 | --- | --- | --- |
 | **Remove tag types…** | Choose ID3v1, ID3v2 and/or APEv2 blocks to remove | Writes selected supported local files when **Remove** is chosen; explicit types are independent of Options' Remove switches |
 | **Strip chapters MP4…** | Remove the applicable MP4 chapter structure | Whole-file immediate operation; normally confirms file/chapter count and leaves freed boxes |
-| **Remove unsupported fields…** | Remove ID3v2 frames OpenTag does not display | MP3/AAC/AIFF/WAV applicability; dialog explains applicable/skipped counts |
+| **Remove unsupported fields…** | Remove ID3v2 frames TagGroove does not display | MP3/AAC/AIFF/WAV applicability; dialog explains applicable/skipped counts |
 | **Optimize…** | Normalize FLAC padding or reorganize MP4 layout | FLAC/MP4 applicability; writes only when a change is needed |
 | **Configure tools…** | Open the Tools Options editor | Saves definitions/preferences through the Options dialog; opening it does not launch a program |
 
@@ -56,7 +56,7 @@ Distinct tool names make those references easier to maintain.
 The **Default tool (double-click in the file list)** setting is separate from
 menu ordering. A chosen definition follows its current-selection/per-file
 rules on a row double-click. **No action** currently falls back to Extended
-tags in OpenTag; it does not make double-click inert. See
+tags in TagGroove; it does not make double-click inert. See
 [tool configuration](../../customize/tools.md#shortcuts-default-tool-and-custom-buttons)
 for that deliberate distinction.
 
@@ -91,7 +91,7 @@ another program opened one window per file.
 
 Built-in utilities can partially complete and can have limited/unavailable
 session Undo. Check their result, errors and current history notice.
-An external program's edits and outputs are outside OpenTag's general Undo
+An external program's edits and outputs are outside TagGroove's general Undo
 contract. Canceling or closing an Options dialog does not reverse a program
 that already started.
 

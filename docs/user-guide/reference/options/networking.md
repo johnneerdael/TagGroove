@@ -21,7 +21,7 @@ For **Proxy address**, enter a host and port such as `proxy.example.test:8080`, 
 
 Proxy authentication is not supported. Ordinary options can be stored and exported as plain text, so do not attempt to insert credentials into the address. Ask the network administrator for an appropriate system-proxy route if authentication is required.
 
-These settings govern OpenTag's HTTP client; a web browser or external [tool](tools.md) has its own network configuration. Choosing a proxy here does not change the operating system's settings.
+These settings govern TagGroove's HTTP client; a web browser or external [tool](tools.md) has its own network configuration. Choosing a proxy here does not change the operating system's settings.
 
 ## Related
 

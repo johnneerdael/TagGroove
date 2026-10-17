@@ -112,7 +112,7 @@ The desktop executable accepts file/folder launch requests, including requests
 to an already running instance; the [command-line reference](../reference/command-line.md)
 explains append versus replacement flags. macOS file-open requests are handled
 when the system delivers them. This does not mean the v0.2.12 installer
-registers OpenTag for every audio extension or adds an Explorer context menu.
+registers TagGroove for every audio extension or adds an Explorer context menu.
 Use **Add files…** if the file manager's **Open With** route is unavailable.
 
 **File → Load playlist/cue sheet…** loads supported local playlist entries or

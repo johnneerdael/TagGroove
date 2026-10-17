@@ -12,7 +12,7 @@ cp "$album/sine-a.mp3" "$work/Open With/open-d.mp3"
 cp "$album/sine-b.mp3" "$work/Open With/open #e.mp3"
 cp "$album/sine-b.mp3" "$work/Opened Folder/folder-f.mp3"
 root="$(cd "$(dirname "$0")/../.." && pwd)"
-bin="$root/target/debug/opentag"
+bin="$root/target/debug/taggroove"
 name="${OPENTAG_E2E_ID:-org.opentag.editor.usertest}.SingleInstance"
 if [[ "$(uname)" == "Linux" && -x "$bin" ]] && command -v dbus-send >/dev/null; then
   (

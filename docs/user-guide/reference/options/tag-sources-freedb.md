@@ -3,13 +3,13 @@
 Open **File → Options… → Tag Sources → freedb** to configure a CDDB server for album metadata. The historical freedb service ended; the saved defaults point to gnudb, and a compatible alternative server can be entered.
 
 !!! tip "New to this?"
-    A server address, application acceptance, and an album match are three separate conditions. If the server refuses OpenTag, changing the disc ID will not fix that refusal. A [local snapshot](tag-sources-local-freedb.md) avoids dependence on a remote CDDB server.
+    A server address, application acceptance, and an album match are three separate conditions. If the server refuses TagGroove, changing the disc ID will not fix that refusal. A [local snapshot](tag-sources-local-freedb.md) avoids dependence on a remote CDDB server.
 
 ## Server list
 
 Select the server to use from **FREEDB SERVER**. **New** adds a configuration; **Delete** removes the selected one while leaving at least one entry. Changing the selected entry changes which server is used after Options **OK**.
 
-OpenTag ships HTTPS and HTTP gnudb entries, with HTTPS selected initially. **Current list of freedb servers** restores that shipped list and selects its first entry, replacing edits in the dialog. Unlike the remote-list retrieval described for Mp3tag, this button does not fetch a fresh list from a server. **Restore page defaults** also restores the page's saved-default choices for later **OK**.
+TagGroove ships HTTPS and HTTP gnudb entries, with HTTPS selected initially. **Current list of freedb servers** restores that shipped list and selects its first entry, replacing edits in the dialog. Unlike the remote-list retrieval described for Mp3tag, this button does not fetch a fresh list from a server. **Restore page defaults** also restores the page's saved-default choices for later **OK**.
 
 ## Server fields
 
@@ -28,7 +28,7 @@ The default endpoint is `https://gnudb.gnudb.org/~cddb/cddb.cgi`. HTTPS encrypts
 
 An address entered here must look like `name@example.org`. Every request sends its user/domain components with `OpenTagAudioTagEditor` and the application version. Empty email sends the developer contact `john@neerdael.nl`. Use an address intended to be shared with the selected server. This identifies the client; it is not a password or account sign-in.
 
-gnudb may accept only applications registered by its operator and may reply `500 Unknown application` otherwise. Changing the email address does not register OpenTag, and saving valid settings does not establish live registration. A refusal message is a service/application registration issue, not evidence that the endpoint settings were saved incorrectly. Choose a compatible server or local database when appropriate. Ordinary timeout/proxy behavior is configured under [Networking](networking.md).
+gnudb may accept only applications registered by its operator and may reply `500 Unknown application` otherwise. Changing the email address does not register TagGroove, and saving valid settings does not establish live registration. A refusal message is a service/application registration issue, not evidence that the endpoint settings were saved incorrectly. Choose a compatible server or local database when appropriate. Ordinary timeout/proxy behavior is configured under [Networking](networking.md).
 
 ## Disc ID fields
 
@@ -43,9 +43,9 @@ These govern metadata imported from freedb; they do not change the audio or make
 
 ## Search methods
 
-Use [remote freedb lookup](../../tag-sources/freedb.md) by track layout or artist and album. Typed disc-ID lookup is available only for a [local snapshot](../../tag-sources/local-freedb.md). OpenTag asks the server for matches before reading the chosen entry.
+Use [remote freedb lookup](../../tag-sources/freedb.md) by track layout or artist and album. Typed disc-ID lookup is available only for a [local snapshot](../../tag-sources/local-freedb.md). TagGroove asks the server for matches before reading the chosen entry.
 
-Artist/album and artwork search are restricted to recognized gnudb hosts (`gnudb.org` or its subdomains). Other configured CDDB servers use track-layout lookup, even if they implement similar text commands. If the server answers `429 Too Many Requests`, wait before searching again; OpenTag does not automatically repeat that rejected request.
+Artist/album and artwork search are restricted to recognized gnudb hosts (`gnudb.org` or its subdomains). Other configured CDDB servers use track-layout lookup, even if they implement similar text commands. If the server answers `429 Too Many Requests`, wait before searching again; TagGroove does not automatically repeat that rejected request.
 
 ## Related
 

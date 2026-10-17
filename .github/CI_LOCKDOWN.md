@@ -38,7 +38,7 @@ application-release skipping. The reusable workflow authenticates its trusted
 main caller and checks the merged source proof before building and again before
 publication. Only the trusted deployment job receives Pages/OIDC permissions
 in the `github-pages` environment, and it deploys the build job's Pages
-artifact for `opentag.neerdael.nl` only while the approved source is still
+artifact for `taggroove.neerdael.nl` only while the approved source is still
 current main. No downloaded artifact is executed, no deployment key, PAT or
 broad secret inheritance is used, and no new automatic source trigger or
 schedule is added. See `docs/PUBLISHING.md` for setup and recovery.

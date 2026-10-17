@@ -6,25 +6,33 @@
 # Usage (CI only): scripts/docs-screenshots.sh <output-dir> [scene ...]
 # Needs a debug build (target/debug/opentag), ffmpeg, xvfb-run, xdotool and
 # ImageMagick. Real app windows open here, so it refuses to run outside CI and
-# outside Linux. This dormant runner has no active workflow caller; new
-# capture must be routed through the review gate before CI execution.
+# outside Linux. The reviewed reusable build calls this runner only after exact-head
+# review authorization.
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 if [[ -z "${CI:-}" || "$(uname -s)" != Linux ]]; then
-  echo "Refusing to open app windows here. New docs capture is paused pending review-gated CI support; see docs/PUBLISHING.md." >&2
+  echo "Refusing to open app windows here. Guide capture requires the reviewed Linux CI job; see docs/PUBLISHING.md." >&2
   exit 2
 fi
-bin="$root/target/debug/opentag"
+# Resolve the explicitly named binary when present, otherwise the Cargo package.
+name="$(python3 -c 'import pathlib,sys,tomllib; c=tomllib.loads(pathlib.Path(sys.argv[1]).read_text()); print(c.get("bin",[c["package"]])[0]["name"])' "$root/src-tauri/Cargo.toml")"
+bin="$root/target/debug/$name"
+product="$(node -p "JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8')).productName" "$root/src-tauri/tauri.conf.json")"
+window_pattern="$(python3 -c 'import re,sys; print("^" + re.escape(sys.argv[1]) + "( — .*)?$")' "$product")"
 scale="${OPENTAG_SHOTS_SCALE:-2}"
 
-# Saves the app window (the largest visible window titled OpenTag; GTK also
+# Saves the app window (the largest visible window titled with the product name; GTK also
 # creates helper windows) as a PNG.
 capture() {
-  local file="$1" id size best=0 window=root
-  for id in $(xdotool search --onlyvisible --name 'OpenTag' 2>/dev/null); do
+  local file="$1" id size best=0 window=
+  for id in $(xdotool search --onlyvisible --name "$window_pattern" 2>/dev/null); do
     size="$(xwininfo -id "$id" | awk '/Width:/{w=$2}/Height:/{h=$2}END{print w*h}')"
     if (( size > best )); then best=$size; window=$id; fi
   done
+  if [[ -z "$window" ]]; then
+    echo "No visible application window matched $product; refusing a desktop capture" >&2
+    return 1
+  fi
   import -window "$window" "$file"
   if command -v pngquant >/dev/null; then pngquant --force --skip-if-larger --quality=80-98 --output "$file" "$file" || true; fi
   echo "captured $(basename "$file") ($(identify -format '%wx%h' "$file"))"

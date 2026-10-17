@@ -44,9 +44,9 @@ export function mappingOptionsPage():OptionsPage{
           <div class="group-buttons"><button type="button" id="mapping-new">New</button><button type="button" id="mapping-remove" ${rule?'':'disabled'}>Remove</button><button type="button" id="mapping-up" ${index>0?'':'disabled'}>Move up</button><button type="button" id="mapping-down" ${rule&&index<list.length-1?'':'disabled'}>Move down</button></div>
           ${rule?`<fieldset class="numbering-section"><legend>Edit mapping</legend>
             <label class="field"><span>Tag type</span><select id="mapping-tag-type">${MAPPING_TAG_TYPES.map(([value,label])=>`<option value="${value}" ${value.toLowerCase()===rule.tag_type.toLowerCase()?'selected':''}>${html(label)}</option>`).join('')}</select></label>
-            <label class="field"><span>Source</span><input id="mapping-source" value="${html(rule.source)}" placeholder="Field name OpenTag shows now, for example DATE" autocomplete="off" spellcheck="false"></label>
+            <label class="field"><span>Source</span><input id="mapping-source" value="${html(rule.source)}" placeholder="Field name TagGroove shows now, for example DATE" autocomplete="off" spellcheck="false"></label>
             <label class="field"><span>Target</span><input id="mapping-target" value="${html(rule.target)}" placeholder="Your field name, for example YEAR" autocomplete="off" spellcheck="false"></label></fieldset>`:'<p>No mappings are defined.</p>'}
-          <p>For ID3v2 and MP4 the source is OpenTag’s field name (for example COMPOSER), not the frame or atom. Files without pending changes are reloaded when you press OK.</p></div>`;
+          <p>For ID3v2 and MP4 the source is TagGroove’s field name (for example COMPOSER), not the frame or atom. Files without pending changes are reloaded when you press OK.</p></div>`;
       },
       bind:(root,draft,refresh)=>{
         // Handlers read the rules again: typing edits the draft without re-rendering.

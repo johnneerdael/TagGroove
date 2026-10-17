@@ -1,6 +1,6 @@
 # Remaining parity gaps versus Mp3tag 3.36.1
 
-Audit of `main` at `d220ad9` (2026-10-15), after the formats-3, freedb, playlists/export, general-options and perf-2 batches. Method: every menu page, all 97 keyboard rows, every scripting function, placeholder, filter operator and regex feature, every action type option, every converter, the export/playlist/cover/utils/find/manage-list/command-line pages, every options page and the tag-source, file-format and mapping pages of the private documentation cache were compared against the code. Nothing was launched. The evidence is code reading plus these unit suites, all passing: `node --test` (shortcuts, options, tag panel, columns, export/playlist/covers/utils/helper menus, action UI, converter and numbering review) and `cargo test` (tag-core script, filter, export, raw streams, chapters, containers, ASF, mappings, actions; `opentag` sources).
+Audit of `main` at `d220ad9` (2026-10-15), after the formats-3, freedb, playlists/export, general-options and perf-2 batches. Method: every menu page, all 97 keyboard rows, every scripting function, placeholder, filter operator and regex feature, every action type option, every converter, the export/playlist/cover/utils/find/manage-list/command-line pages, every options page and the tag-source, file-format and mapping pages of the private documentation cache were compared against the code. Nothing was launched. The evidence is code reading plus these unit suites, all passing: `node --test` (shortcuts, options, tag panel, columns, export/playlist/covers/utils/helper menus, action UI, converter and numbering review) and `cargo test` (tag-core script, filter, export, raw streams, chapters, containers, ASF, mappings, actions; `taggroove` sources).
 
 This is a gap register, not a parity certificate. "OK" means the code implements the documented behaviour as far as reading can tell; no item has differential evidence against the original program.
 
@@ -62,7 +62,7 @@ Runners-up: column auto-size (Ctrl+Num+ or double-click on a divider, M/S); Mac 
 
 85 commands across File, Edit, View, Convert, Actions, Tag Sources, Help, the cover context menu and the Fields and Format-string helper menus. Convert, Actions, both helper menus and the cover context menu match the documented commands completely.
 
-| Command | Mp3tag | OpenTag state | Impact | Size | Docs |
+| Command | Mp3tag | TagGroove state | Impact | Size | Docs |
 |---|---|---|---|---|---|
 | File → Remove tag (Ctrl+R) | Removes the tag kinds chosen under Options → Tags | **Partial**: strips all kinds (`crates/tag-core/src/tags.rs:1458`). The options' remove switches apply only when saving (`src/options-ui.ts:103`). No key | H | M | menus/file |
 | File → Read tag (Ctrl+T) | Rereads tags of the selection | **Partial**: "Reload tags" exists (`src/main.ts:1336`), no key | M | S | menus/file |
@@ -80,13 +80,13 @@ Runners-up: column auto-size (Ctrl+Num+ or double-click on a divider, M/S); Mac 
 | Help → Website | Project website | **Missing**: the URL is in `HELP_PAGES` (`src-tauri/src/utilities.rs:494`) but has no menu item | L | S | menus/help |
 | Cover → Add cover… start folder | Starts in the cover-art folder, then a folder with an image, then the working folder | **Partial**: always the selected file's folder (`src/covers.ts:184`) | L | S | menus/cover |
 
-OpenTag-only additions: Tools menu, Load configuration…, Previous/Next cover and View larger in the cover menu.
+TagGroove-only additions: Tools menu, Load configuration…, Previous/Next cover and View larger in the cover menu.
 
 ## Keyboard shortcuts (97 rows of `keyboard`)
 
 OK (53): Ctrl+A, Ctrl+Shift+A, Ctrl+C, Ctrl+Shift+C, Ctrl+D, Ctrl+Shift+D, Ctrl+Del, Ctrl+E, Ctrl+Shift+E, Ctrl+F, Ctrl+G, Ctrl+Shift+G, Ctrl+H, Ctrl+K, Ctrl+L, Ctrl+M, Ctrl+Alt+M, Ctrl+N, **Ctrl+O (Options, as documented)**, **Ctrl+P (playlist of all files)**, Ctrl+Q, Ctrl+S, Ctrl+Shift+T, Ctrl+U, Ctrl+V, Ctrl+Shift+V, Ctrl+X, Ctrl+Z, Ctrl+1…0, Del (both rows), F2, F3, F4, F5, Alt+Left/Right, Alt+1…5, Alt+6, Alt+Shift+6, Actions F2/F4, Tag Sources F2/Space/Ctrl+E/Ctrl+D/Alt+Up/Alt+Down, Shift+Enter. The Ctrl+O contradiction recorded in `FEATURE-INVENTORY.md` is resolved.
 
-| Key | Mp3tag | OpenTag state | Impact | Size |
+| Key | Mp3tag | TagGroove state | Impact | Size |
 |---|---|---|---|---|
 | Ctrl+R | Remove tag | Unbound (operation exists); WebView2 may reload | H | S |
 | Ctrl+T | Read tags | Unbound (operation exists) | M | S |
@@ -112,7 +112,7 @@ Platform notes: ⌘ replaces Ctrl on macOS, except Ctrl+H, Ctrl+M and Ctrl+Q, wh
 
 ## Scripting, placeholders, filter and regex
 
-| Item | Mp3tag | OpenTag state | Impact | Size | Docs |
+| Item | Mp3tag | TagGroove state | Impact | Size | Docs |
 |---|---|---|---|---|---|
 | `$regexp(x,e,r,c)` default | Case ignored unless `c=0` (implied) | **Partial**: case-sensitive unless `c=1` (`crates/tag-core/src/script.rs:1280`, pinned by a test). Confirm on the original first | M–H | S | scripting |
 | `$caps`/`$caps2` default word starts | Built-in separator set undocumented | **Unverified**: only whitespace starts a word, so `o'brien (live)` → `O'brien (live)` | M | S | scripting |
@@ -139,7 +139,7 @@ Implemented as documented: 61 of 64 functions (all except the three above), 50 p
 
 ## Actions
 
-| Item | Mp3tag | OpenTag state | Impact | Size | Docs |
+| Item | Mp3tag | TagGroove state | Impact | Size | Docs |
 |---|---|---|---|---|---|
 | X1. Case-only renames (every rename path) | Changing only the letter case renames the file or folder | **Broken on case-insensitive volumes**: `rename_no_clobber` hard-links and gets "exists" (`crates/tag-core/src/operations.rs:88`); Tag→Filename (`src-tauri/src/lib.rs:773`), Filename→Filename (`src-tauri/src/converters.rs:342`) and folder renames (`src-tauri/src/action_host.rs:312`) refuse it as an existing destination | H | M | actions/case-conversion, converters/rename-files |
 | Case Conversion `_FIELDNAME` | Changes the case of APEv2/Vorbis field names | **Missing in practice**: tag-kind check never matches (`crates/tag-core/src/actions.rs:413` vs `technical.rs:287`); case-only key changes are not detected (`action_host.rs:116`) | M | M | actions/case-conversion |
@@ -160,7 +160,7 @@ All other options of the 18 types are implemented, including Replace whole-word/
 
 ## Converters and auto-numbering
 
-| Item | Mp3tag | OpenTag state | Impact | Size | Docs |
+| Item | Mp3tag | TagGroove state | Impact | Size | Docs |
 |---|---|---|---|---|---|
 | Case-only renames | — | See X1 | H | M | converters/rename-files |
 | Folder separator replacement in Tag→Filename | Configurable string, may be empty | **Missing**: hard-coded `_` (`crates/tag-core/src/script.rs:434`) | M | S | customization/options/files |
@@ -173,7 +173,7 @@ All other options of the 18 types are implemented, including Replace whole-word/
 
 ## Export, playlists, covers, utils, find, manage list and CLI
 
-| Item | Mp3tag | OpenTag state | Impact | Size | Docs |
+| Item | Mp3tag | TagGroove state | Impact | Size | Docs |
 |---|---|---|---|---|---|
 | `$filename(…,ansi)` | ANSI output | **Partial**: fails off Windows (`crates/tag-core/src/export.rs:1119`) | M | S | export |
 | Export configurations as editable files in the export folder | New files show up | **Partial**: UUID file names, only ids in `exports.json` load (`src-tauri/src/exports.rs:158`) | M | M | export |
@@ -198,7 +198,7 @@ OK: all 8 Utils items (Remove tag types, Remove unsupported fields, Optimize FLA
 
 ## Options pages and UI customization
 
-| Item | Mp3tag | OpenTag state | Impact | Size | Docs |
+| Item | Mp3tag | TagGroove state | Impact | Size | Docs |
 |---|---|---|---|---|---|
 | Tags → Mapping (rules per APEv2/ID3v2/MP4/Vorbis/WMA, read rename + reverse on write, many-to-one) | User field mappings | **Core-only**: `UserFieldMapping` in `crates/tag-core/src/mapping.rs:28`; empty rules at `src-tauri/src/settings.rs:314,317,320`, `src-tauri/src/lib.rs:465`, `src-tauri/src/utilities.rs:727` | H | M | options/tags/mapping |
 | Tags → save when using arrow keys / single click | Saves the panel on selection change | **Missing** | M–H | M | options/tags |
@@ -213,7 +213,7 @@ OK: all 8 Utils items (Remove tag types, Remove unsupported fields, Optimize FLA
 | Language | UI translations | **Implemented; qualification partial**: independent English, Dutch and German catalogs, live Options → Language, system-language fallback and JSON catalogs for added locales/overrides ([evidence](../verification/i18n.md)). User data stays verbatim. Additional bundled languages, final-head native/screen-reader qualification and original differential proof remain open; OS-owned text and backend messages added after the catalog snapshot can stay English. Mp3tag's proprietary language files are not used | M | — | options/language |
 | General → tray icon, minimize to tray | Notification area | **Missing**; Windows-centric, a product decision | L | S–M | options/general |
 | Field Values in Extended Tags | Auto-complete there too | **Partial**: File List and Tag Panel only | L | S | options/field-values |
-| File List: random sort (icon column), auto-size, manual reorder, Mp3tag column file import | — | **Missing / partial**: OpenTag JSON import/export only (`src/columns.ts:257`) | M | S–M | customization/file-list |
+| File List: random sort (icon column), auto-size, manual reorder, Mp3tag column file import | — | **Missing / partial**: TagGroove JSON import/export only (`src/columns.ts:257`) | M | S–M | customization/file-list |
 | Tag Panel: right-click menu, auto default values on multi-select, typing a path into `_DIRECTORY`, Ctrl+B, dock/undock, Mp3tag config import | — | **Partial**: ⋯ menu, explicit "Default values" command, folder list, Discard without key; fixed left panel (`src/tag-panel.ts:210`, `src/main.ts:119`) | L–M | S–L | customization/tag-panel |
 | Main window: toolbar status-bar hints, toolbars menu/customize, F3 toggle, Ctrl+Tab, Sort by submenu, Ctrl+drop vs. drop replace | — | **Partial / missing** | L–M | S–M | getting-started/main-window |
 | Extended Tags: title with format and file name, `<<`/`>>`, OK writes immediately, field drop-down, cut/copy/paste fields, cover art, auto-complete, Alt+T | — | **Partial / missing** (`src/main.ts:982-1015`); OK stages edits by design | H | M | extended-tags |
@@ -223,7 +223,7 @@ OK: General (title, next file, auto-completion, natural sort, select added, keep
 
 ## Tag sources
 
-| Item | Mp3tag | OpenTag state | Impact | Size | Docs |
+| Item | Mp3tag | TagGroove state | Impact | Size | Docs |
 |---|---|---|---|---|---|
 | `.src` web-source framework | User-installed script sources, `#` submenus, `&` accelerators | **Missing**. Optional large work, not out of scope: the DSL is publicly documented, so a clean-room interpreter is legitimate. It needs format-string emulation (partly in `script.rs`), HTML scraping and per-script host consent, because `src-tauri/src/sources/http.rs:42` allows only trusted hosts | M | L | tag-sources/development, tag-sources/archive |
 | freedb remote (gnudb) | Works out of the box | **Implemented with bounded verification**: selected-file track-layout query/read, artist/album and cover search; query-listed entry required before remote read. One actual default-HTTPS native query passed; broader live read/artwork outcomes remain unverified ([evidence](../verification/gnudb.md)) | M | — | options/tag-sources/freedb |
@@ -242,7 +242,7 @@ OK (20): search by artist/album, text, ID/URL, barcode and catalog number; score
 
 ## File formats and mapping
 
-| Item | Mp3tag | OpenTag state | Impact | Size | Docs |
+| Item | Mp3tag | TagGroove state | Impact | Size | Docs |
 |---|---|---|---|---|---|
 | WAV RIFF INFO | Read, write, remove with ID3v2 | **Partial**: only updates an existing INFO chunk; unmapped fields dropped silently (`crates/tag-core/src/tags.rs:1191,1384`) | M | S | file-formats |
 | AAC (ADTS) APE tags, ID3v1 creation, Remove tag types | Reads ID3v1/2 + APEv1/2; writes ID3v1/2 + APEv2 | **Partial**: no APE (lofty), no policy, Utils rejects AAC (`crates/tag-core/src/tag_types.rs:36`) | L | M | file-formats |
@@ -260,10 +260,10 @@ The mapping registry matches all 118 rows of the mapping table (92 common, 24 MP
 
 | Item | Reason |
 |---|---|
-| Windows Explorer shell extension, context menu, Ctrl-drag from Explorer | Windows shell integration; OpenTag uses the CLI forms and single-instance forwarding |
-| Help → Donation, Mp3tag website/forum targets | Belong to the original vendor; OpenTag links its own repository and issues |
+| Windows Explorer shell extension, context menu, Ctrl-drag from Explorer | Windows shell integration; TagGroove uses the CLI forms and single-instance forwarding |
+| Help → Donation, Mp3tag website/forum targets | Belong to the original vendor; TagGroove links its own repository and issues |
 | Bundled Mp3tag `.src`/`.inc` scripts and the web-sources download service | Proprietary content. The interpreter itself is optional work (see Tag sources) |
-| Mp3tag language files and Appearance → Symbols icon set | Proprietary assets remain excluded. OpenTag now implements its own independent JSON translation layer; this does not import or reproduce the vendor language assets |
+| Mp3tag language files and Appearance → Symbols icon set | Proprietary assets remain excluded. TagGroove now implements its own independent JSON translation layer; this does not import or reproduce the vendor language assets |
 | Audio-CD lookup for freedb | Optical-drive I/O per platform; gnudb artist/album and artwork search is now implemented through its source API |
 | Discogs OAuth with an embedded consumer secret | An open-source app cannot keep the secret; personal tokens are the supported path |
 | ANSI `.m3u` on macOS/Linux | No system ANSI code page; UTF-8 is written (the export fallback above is a separate gap) |
@@ -308,7 +308,7 @@ Closed by implementation and unit tests; native suites run headless in CI on Lin
 | 25 `.src` web-source interpreter | web-sources | [verification](../verification/web-sources.md) |
 | AAC APE/ID3v1 and Utils; WavPack ID3v2 removal; ID3 edge cases; MP4 `plID`; ASF `WM/Track`; MP4/ID3v2 advanced toggles | formats-edge | [verification](../verification/formats-edge.md) |
 
-The keyboard reference now has all 97 rows bound (keyboard-ui). Still open: Library database; UI translations (needs an OpenTag translation layer); tray icon (product decision); Tag Panel dock/undock and Mp3tag tag-panel import; per-chapter fields other than TITLE; gnudb registration (no code); the per-item gaps listed in each verification note.
+The keyboard reference now has all 97 rows bound (keyboard-ui). Still open: Library database; UI translations (needs a TagGroove translation layer); tray icon (product decision); Tag Panel dock/undock and Mp3tag tag-panel import; per-chapter fields other than TITLE; gnudb registration (no code); the per-item gaps listed in each verification note.
 
 ## Closed after this audit (batch 7, 2026-10-15)
 
@@ -316,13 +316,13 @@ Closed by implementation and unit tests; native suites run headless in CI on Lin
 
 | Items | Closed by | Evidence |
 |---|---|---|
-| Library: Options → Library (enable, included directories, cleanup, clear) and an SQLite metadata cache that loads unchanged files without reading them; OpenTag's own writes invalidate entries | library | [verification](../verification/library.md) |
+| Library: Options → Library (enable, included directories, cleanup, clear) and an SQLite metadata cache that loads unchanged files without reading them; TagGroove's own writes invalidate entries | library | [verification](../verification/library.md) |
 | Tag Panel left/right/above/below/floating with saved layout; filter position; custom toolbar; Mp3tag tag panel configuration import; notification area options (Windows/Linux) | panel-dock | [verification](../verification/panel-dock.md) |
 | Per-chapter fields beyond TITLE (Nero, Matroska chapter tags, ID3v2 CHAP sub-frames) with Mp3tag's sub-track consolidation; cue tracks spanning FILE entries and pregaps; whole-file commands on chapter rows; `%_subsong%` | chapter-fields | [verification](../verification/chapter-fields.md) |
 | Native UI suites portable to macOS and Windows; Windows path fixes (plain paths, export destinations, rename separators) | ci-matrix | — |
 | Slow-click cell editor stealing focus from the tag panel (lost keystrokes, Ctrl+S swallowed) | e2e-flake | [verification](../verification/e2e-flake.md) |
 
-Still open: UI translations (needs an OpenTag translation layer); floating Tag Panel as a separate OS window; movable toolbar bands and Mp3tag toolbar file import; global Nero fields and Nero covers; gnudb registration (no code); the per-item gaps listed in each verification note.
+Still open: UI translations (needs a TagGroove translation layer); floating Tag Panel as a separate OS window; movable toolbar bands and Mp3tag toolbar file import; global Nero fields and Nero covers; gnudb registration (no code); the per-item gaps listed in each verification note.
 
 
 ## Current combined source note: providers and gnudb

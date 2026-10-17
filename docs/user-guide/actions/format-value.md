@@ -27,7 +27,7 @@ Saving a group alone does not run it.
 | `ALBUMARTIST` | `$if2(%albumartist%,%artist%)` | Keep an existing album artist; otherwise use the first artist |
 | `YEAR` | `$left(%year%,4)` | `2024-05-01` becomes `2024` |
 | `TITLE` | `$replace(%title%,_, )` | `Low_Tide` becomes `Low Tide`; the last argument is one space |
-| `COMMENT` | `Tagged with OpenTag` | Set the same comment in every selected file |
+| `COMMENT` | `Tagged with TagGroove` | Set the same comment in every selected file |
 | `TRACK` | `$num(%track%,2)` | `2/8` becomes `02`; the total is not retained by this expression |
 
 Try a small selection first. Format Value replaces the destination's whole

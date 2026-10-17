@@ -106,5 +106,5 @@ export function libraryOptionsPage(host:LibraryHost):OptionsPage{
         {kind:'note',text:'Files outside these directories are read from disk every time and never stored.'}]},
       {kind:'group',label:'Maintenance',controls:[
         {kind:'custom',id:'library-maintenance',paths:[],render:maintenanceMarkup,bind:bindMaintenance},
-        {kind:'note',text:'Saving, renaming, moving and deleting files in OpenTag updates the library. Cleanup Library removes entries of files that were deleted or moved outside OpenTag and, with a directory restriction, of files outside the included directories. File → Reload tags (⌘/Ctrl T) reads the selected files again and replaces their entries.'}]}]};
+        {kind:'note',text:'Saving, renaming, moving and deleting files in TagGroove updates the library. Cleanup Library removes entries of files that were deleted or moved outside TagGroove and, with a directory restriction, of files outside the included directories. File → Reload tags (⌘/Ctrl T) reads the selected files again and replaces their entries.'}]}]};
 }

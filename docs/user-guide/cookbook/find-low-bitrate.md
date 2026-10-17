@@ -73,7 +73,7 @@ Scroll the table sideways on a narrow screen to read each complete query.
 
 </div>
 
-The codec text is an exact example from OpenTag's MPEG-1 Layer III technical
+The codec text is an exact example from TagGroove's MPEG-1 Layer III technical
 naming; inspect the actual `%_codec%` of other formats/versions instead of
 assuming their labels. A filename suffix alone does not prove the encoding.
 If a selector supplies no leading number, it does not satisfy a numeric

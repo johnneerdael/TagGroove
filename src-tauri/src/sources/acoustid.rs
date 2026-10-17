@@ -89,7 +89,7 @@ pub fn fingerprint(fpcalc: &Path, file: &Path) -> Result<(f64, String), String> 
 }
 
 /// The lookup's form fields (sent as a POST, as AcoustID prefers), with
-/// OpenTag's version as the client version.
+/// TagGroove's version as the client version.
 pub fn lookup_form(key: &str, duration: f64, fingerprint: &str) -> Vec<(&'static str, String)> {
     vec![
         ("client", key.to_owned()),

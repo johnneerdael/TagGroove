@@ -1,6 +1,6 @@
-# Start using OpenTag
+# Start using TagGroove
 
-OpenTag changes the information stored inside audio files: titles, artists,
+TagGroove changes the information stored inside audio files: titles, artists,
 albums, track numbers and embedded artwork. It can also rename files from
 those values, import information from names, and repeat a sequence of changes.
 A renamed file and a changed song title are different results; choose the
@@ -8,17 +8,17 @@ operation that matches the problem you want to solve.
 
 This starting path is for a first desktop session. Use a copied album with a
 few ordinary audio files. Keep the originals elsewhere until you have checked
-the saved result in OpenTag and in the player you use.
+the saved result in TagGroove and in the player you use.
 
 ## 1. Install a package for your computer
 
 Follow [Download and install](install.md). Pick the operating system and
 processor architecture on the release page. The source-code archive is for
-building OpenTag; it is not an installer. Mobile previews have different
+building TagGroove; it is not an installer. Mobile previews have different
 access and save-back limits, so do not use a desktop walkthrough as a promise
 of the same result on a phone.
 
-After opening the application, check **Help → About OpenTag** when reporting
+After opening the application, check **Help → About TagGroove** when reporting
 a problem. Keep its version and your operating system with your notes.
 
 ## 2. Open only your practice folder

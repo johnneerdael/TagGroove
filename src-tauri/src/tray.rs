@@ -56,8 +56,8 @@ fn labels() -> TrayLabels {
         .unwrap_or_else(|e| e.into_inner())
         .clone()
         .unwrap_or_else(|| TrayLabels {
-            show: "Show OpenTag".into(),
-            quit: "Quit OpenTag".into(),
+            show: "Show TagGroove".into(),
+            quit: "Quit TagGroove".into(),
         })
 }
 /// Store new labels; returns whether they changed.
@@ -125,7 +125,7 @@ mod native {
             .build()
             .map_err(error)?;
         let mut builder = TrayIconBuilder::with_id(TRAY_ID)
-            .tooltip("OpenTag")
+            .tooltip("TagGroove")
             .menu(&menu)
             .show_menu_on_left_click(false)
             .on_menu_event(|app, event| match event.id().as_ref() {
@@ -265,10 +265,10 @@ mod tests {
 
     #[test]
     fn menu_labels_follow_the_ui_language_and_ignore_blank_ones() {
-        assert_eq!(labels().show, "Show OpenTag");
+        assert_eq!(labels().show, "Show TagGroove");
         let dutch = TrayLabels {
-            show: "OpenTag tonen".into(),
-            quit: "OpenTag afsluiten".into(),
+            show: "TagGroove tonen".into(),
+            quit: "TagGroove afsluiten".into(),
         };
         assert!(relabel(Some(dutch.clone())));
         assert!(!relabel(Some(dutch.clone())));

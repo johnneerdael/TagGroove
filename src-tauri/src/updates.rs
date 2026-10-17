@@ -1,13 +1,13 @@
 //! Help → Check for updates and Options → Updates
 //! (https://docs.mp3tag.de/customization/options/updates/): compare the running
-//! version with the GitHub releases of OpenTag. Nothing is downloaded or
+//! version with the GitHub releases of TagGroove. Nothing is downloaded or
 //! installed; the release page opens in the browser on request.
 use crate::sources::http;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 
-const RELEASES_API: &str = "https://api.github.com/repos/johnneerdael/opentag/releases?per_page=30";
-pub const RELEASES_PAGE: &str = "https://github.com/johnneerdael/opentag/releases/";
+const RELEASES_API: &str = "https://api.github.com/repos/johnneerdael/TagGroove/releases?per_page=30";
+pub const RELEASES_PAGE: &str = "https://github.com/johnneerdael/TagGroove/releases/";
 const MAX_BYTES: usize = 2 * 1024 * 1024;
 
 /// A semantic version (`1.2.3`, `v1.2.3-beta.1`); build metadata is ignored.
@@ -117,7 +117,7 @@ pub struct UpdateCheck {
 }
 
 /// Pick the newest release. Drafts, unparsable tags and pages outside the
-/// OpenTag repository are ignored; beta builds only when asked for.
+/// TagGroove repository are ignored; beta builds only when asked for.
 fn newest(releases: &[GithubRelease], current: &str, include_prereleases: bool) -> UpdateCheck {
     let published: Vec<(Version, &GithubRelease)> = releases
         .iter()
@@ -189,7 +189,7 @@ pub async fn check_for_updates(include_prereleases: bool) -> Result<UpdateCheck,
     ))
 }
 
-/// Open a page of OpenTag's GitHub releases in the browser.
+/// Open a page of TagGroove's GitHub releases in the browser.
 #[tauri::command]
 pub async fn open_release_page(url: String) -> Result<(), String> {
     let valid = url.strip_prefix(RELEASES_PAGE).is_some_and(|rest| {
@@ -198,7 +198,7 @@ pub async fn open_release_page(url: String) -> Result<(), String> {
             && !rest.contains("..")
     });
     if !valid {
-        return Err("Only OpenTag release pages can be opened".into());
+        return Err("Only TagGroove release pages can be opened".into());
     }
     #[cfg(desktop)]
     return tauri_plugin_opener::open_url(&url, None::<&str>).map_err(|e| e.to_string());
@@ -213,7 +213,7 @@ mod tests {
     fn release(tag: &str, prerelease: bool, draft: bool) -> GithubRelease {
         GithubRelease {
             tag_name: tag.into(),
-            name: Some(format!("OpenTag {tag}")),
+            name: Some(format!("TagGroove {tag}")),
             html_url: format!("{RELEASES_PAGE}tag/{tag}"),
             draft,
             prerelease,
@@ -245,7 +245,7 @@ mod tests {
             release("v9.0.0", false, true),
             release("nightly", false, false),
             GithubRelease {
-                html_url: "https://example.com/opentag/v5.0.0".into(),
+                html_url: "https://example.com/taggroove/v5.0.0".into(),
                 ..release("v5.0.0", false, false)
             },
         ];
@@ -278,13 +278,13 @@ mod tests {
     #[test]
     fn only_release_pages_open() {
         for bad in [
-            "https://github.com/johnneerdael/opentag/issues",
-            "https://evil.example/johnneerdael/opentag/releases/",
-            "https://github.com/johnneerdael/opentag/releases/../../x",
-            "https://github.com/johnneerdael/opentag/releases/tag/v1?x=1",
+            "https://github.com/johnneerdael/TagGroove/issues",
+            "https://evil.example/johnneerdael/TagGroove/releases/",
+            "https://github.com/johnneerdael/TagGroove/releases/../../x",
+            "https://github.com/johnneerdael/TagGroove/releases/tag/v1?x=1",
         ] {
             let error = tauri::async_runtime::block_on(open_release_page(bad.into())).unwrap_err();
-            assert!(error.contains("Only OpenTag"), "{bad}");
+            assert!(error.contains("Only TagGroove"), "{bad}");
         }
     }
 }

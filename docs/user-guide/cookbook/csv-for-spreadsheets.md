@@ -8,11 +8,11 @@
 ## The problem
 
 You want a table of your music to inspect missing titles, share an album
-list or compare tags outside OpenTag. Export creates a text report from
+list or compare tags outside TagGroove. Export creates a text report from
 the selected files. It does not scan a whole collection automatically,
 even when the Library cache is enabled.
 
-| In OpenTag | In a carefully imported spreadsheet |
+| In TagGroove | In a carefully imported spreadsheet |
 |---|---|
 | Title `Paper, "folded" Boats` | One title cell containing that comma and those quotes |
 | Track `03` | Text `03`, retaining the leading zero |
@@ -104,7 +104,7 @@ In the three-column template, replace the literal commas between quoted
 cells in both header and body with semicolons. Keep the commas inside
 `$replace(...)`; those separate scripting arguments, not CSV columns.
 Choose semicolon in the spreadsheet's import dialog too. Regional defaults
-do not automatically change OpenTag's comma-based built-in template.
+do not automatically change TagGroove's comma-based built-in template.
 
 ### Repeat the report later
 

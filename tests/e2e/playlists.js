@@ -31,8 +31,8 @@
   const relaunch = async (file, any) => {
     const resources = await inv('plugin:path|resolve_directory', { directory: 11 });
     // macOS bundles keep the binary beside Resources; unbundled builds keep it in the resource directory.
-    const binary = /\/Resources\/?$/.test(resources) ? resources.replace(/\/Resources\/?$/, '/MacOS/opentag')
-      : /^Win/.test(navigator.platform) ? resources.replace(/\\?$/, '\\opentag.exe') : resources.replace(/\/?$/, '/opentag');
+    const binary = /\/Resources\/?$/.test(resources) ? resources.replace(/\/Resources\/?$/, '/MacOS/taggroove')
+      : /^Win/.test(navigator.platform) ? resources.replace(/\\?$/, '\\taggroove.exe') : resources.replace(/\/?$/, '/taggroove');
     await inv('run_tool', { tool: { name: 'Relaunch', path: binary, parameters: `"/fn:${file}"`, for_each_file: false }, paths: [any], root: null });
   };
 

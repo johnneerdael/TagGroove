@@ -16,7 +16,7 @@ files before transferring an album.
    for the targets that should receive them.
 
 Copying reads the current displayed field values, including pending edits.
-It does not first save the source. The tag clipboard is held inside OpenTag;
+It does not first save the source. The tag clipboard is held inside TagGroove;
 a textual version is also offered to the system clipboard when possible.
 Copying text elsewhere does not import a new structured tag clipboard.
 
@@ -37,7 +37,7 @@ After Paste, expect this pending result:
 
 The missing source comment removes the target comment; Paste is not a merge
 that keeps target-only fields. Multiple source values stay separate values
-in OpenTag's editing model. The destination writer still has its own
+in TagGroove's editing model. The destination writer still has its own
 [format limits](../concepts/multi-value-fields.md#storage-depends-on-the-tag-format).
 For copying only selected fields, use the field clipboard in
 [Extended tags](extended-tags.md), or calculate a chosen field with

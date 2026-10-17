@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# Copies an existing historical docs-screens artifact into the user guide.
-# New capture is paused pending review-gated CI support. No workflow is
-# discovered or dispatched; nothing is launched locally.
+# Copies an explicitly selected reviewed docs-screens artifact into the guide.
+# No workflow is discovered or dispatched; nothing is launched locally.
 # Usage: scripts/docs-screens-fetch.sh <run-id> [scene ...]
 #   run-id  an explicit existing run whose source and images were verified
 #   scene   only copy these scenes, e.g. main-window tag-to-filename
@@ -11,7 +10,7 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 dest="$root/docs/user-guide/assets/screens"
 run="${1:-}"
 if [[ ! "$run" =~ ^[0-9]+$ ]]; then
-  echo "New screenshot capture is paused pending review-gated CI support. To fetch a verified historical artifact, pass an explicit numeric run ID: scripts/docs-screens-fetch.sh <run-id> [scene ...]" >&2
+  echo "To fetch a verified reviewed artifact, pass an explicit numeric run ID: scripts/docs-screens-fetch.sh <run-id> [scene ...]" >&2
   exit 2
 fi
 shift

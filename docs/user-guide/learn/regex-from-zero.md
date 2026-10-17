@@ -129,7 +129,7 @@ The result is `03 - Paper_Boats`.
 | `\d{4}` | Match exactly four digits |
 | `$` | Require the suffix at the end |
 
-OpenTag ignores case by default in `$regexp`, so `live` also matches.
+TagGroove ignores case by default in `$regexp`, so `live` also matches.
 Add a fourth argument `0` when the case must be significant:
 `$regexp(%title%,'\s+\(Live \d{4}\)$',,0)`.
 

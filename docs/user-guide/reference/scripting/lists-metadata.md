@@ -199,17 +199,17 @@ empty text. The two compatibility names below read application context.
 | `name` | Environment-variable name, or `MP3TAGAPP` / `MP3TAGAPPDATA` |
 
 These examples supply `GUIDE_READER=listener`, application directory
-`/opt/OpenTag`, and configuration directory `/home/listener/.config/opentag`:
+`/opt/TagGroove`, and configuration directory `/home/listener/.config/taggroove`:
 
 | Format string | With these values | Result |
 |---|---|---|
 | `$getenv(GUIDE_READER)` | Supplied example environment | `listener` |
 | `$getenv(GUIDE_MISSING_VARIABLE)` | Variable absent | *(empty)* |
 | `$upper($getenv(GUIDE_READER))` | Supplied example environment | `LISTENER` |
-| `$getenv(MP3TAGAPP)` | Supplied application directory | `/opt/OpenTag` |
-| `$getenv(MP3TAGAPPDATA)` | Supplied configuration directory | `/home/listener/.config/opentag` |
+| `$getenv(MP3TAGAPP)` | Supplied application directory | `/opt/TagGroove` |
+| `$getenv(MP3TAGAPPDATA)` | Supplied configuration directory | `/home/listener/.config/taggroove` |
 
-`MP3TAGAPP` and `MP3TAGAPPDATA` are compatibility identifiers in OpenTag;
+`MP3TAGAPP` and `MP3TAGAPPDATA` are compatibility identifiers in TagGroove;
 their names do not refer to another running program. They require the
 corresponding application context or report an error. Ordinary variable
 names follow the host environment's naming rules.

@@ -14,7 +14,7 @@ const PLACEHOLDER = /\{([A-Za-z][A-Za-z0-9_]*)\}/g;
 /** Ambiguous frames require producer parts; persisted names must not be guessed as UI. */
 const PARTS_ONLY = new Set([
   '{value} / action {value2}: {error}',
-  'Changed outside OpenTag after {value}; it was not {verb}',
+  'Changed outside TagGroove after {value}; it was not {verb}',
   'It was not {verb}: {error}',
   'Folders and side files could not be {verb}: {error}',
   'Destination exists or another file maps to {value}',
@@ -124,7 +124,7 @@ const NUMERIC_SLOTS: Readonly<Record<string, readonly string[]>> = {
 // Closed producer domains prevent broader UI frames absorbing rejected numeric prose.
 const TAG_KIND_LISTS = new Set(['ID3v1 and ID3v2', 'ID3v1 and APE', 'ID3v2 and APE', 'ID3v1, ID3v2 and APE']);
 const UTILITY_CONFIRMATIONS = new Set(["{label} for {count} of {length} selected file? {effect} Files that need no change are not rewritten. Edit → Undo restores the files during this session.", "{label} for {count} of {length} selected file? {effect} {other} file is skipped: this applies to {applies}. Files that need no change are not rewritten. Edit → Undo restores the files during this session.", "{label} for {count} of {length} selected file? {effect} {other} files are skipped: this applies to {applies}. Files that need no change are not rewritten. Edit → Undo restores the files during this session.", "{label} for {count} of {length} selected files? {effect} Files that need no change are not rewritten. Edit → Undo restores the files during this session.", "{label} for {count} of {length} selected files? {effect} {other} file is skipped: this applies to {applies}. Files that need no change are not rewritten. Edit → Undo restores the files during this session.", "{label} for {count} of {length} selected files? {effect} {other} files are skipped: this applies to {applies}. Files that need no change are not rewritten. Edit → Undo restores the files during this session.", "{label} applies to {applies}."]);
-const UTILITY_PARTS = [{"label": "Remove unsupported fields", "effect": "ID3v2 frames OpenTag cannot display (listed by %_id3v2_unknown_frames%, such as PRIV or GEOB) are removed permanently.", "applies": "MP3 files (ID3v2 tags, also in AAC, AIFF and WAV)"}, {"label": "Optimize", "effect": "FLAC files get exactly 4 KB of padding. MP4 files lose their free space and get the movie and tag data before the audio data.", "applies": "FLAC and MP4 files"}];
+const UTILITY_PARTS = [{"label": "Remove unsupported fields", "effect": "ID3v2 frames TagGroove cannot display (listed by %_id3v2_unknown_frames%, such as PRIV or GEOB) are removed permanently.", "applies": "MP3 files (ID3v2 tags, also in AAC, AIFF and WAV)"}, {"label": "Optimize", "effect": "FLAC files get exactly 4 KB of padding. MP4 files lose their free space and get the movie and tag data before the audio data.", "applies": "FLAC and MP4 files"}];
 const PICTURE_FRAMES = new Set(["Copied the {pictureTypeLabel} to the clipboard", "Embedded {pictureTypeLabel} artwork", "Set cover type to {pictureTypeLabel}", "{pictureTypeLabel} artwork"]);
 const PICTURE_LABELS = new Set(["Other", "File icon", "Other file icon", "Front Cover", "Back Cover", "Leaflet", "Media", "Lead artist", "Artist", "Conductor", "Band or orchestra", "Composer", "Lyricist", "Recording location", "During recording", "During performance", "Screen capture", "A bright colored fish", "Illustration", "Band logo", "Publisher logo", "Cover"]);
 const pictureLabel = (value: string) => PICTURE_LABELS.has(value)
