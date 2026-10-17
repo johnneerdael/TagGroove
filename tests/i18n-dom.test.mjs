@@ -368,6 +368,34 @@ test('real tag-panel and extended-tag dialogs preserve technical tokens under su
     }finally{p.close();}
   }
 });
+test('real tag-panel Mp3tag import translates skipped reasons and an all-rejected failure but keeps the authored entries',async()=>{
+  const wrap=(value,error)=>({kind:'owned',key:'{value}: {error}',params:{value},children:{error}});
+  const owned=(key,params={})=>({kind:'owned',key,params,children:{}});
+  const lines=['Field 0 (Hilfe): no field name','Field 1 (Mood): TITLE is already on the panel'];
+  const causes=[{index:0,cause:wrap('Field 0 (Hilfe)',owned('no field name'))},{index:1,cause:wrap('Field 1 (Mood)',owned('{id} is already on the panel',{id:'TITLE'}))}];
+  const partial={panel:defaultPanelLayout(),skipped:lines,skipped_diagnostics:causes};
+  const wire={message:`No field could be imported: ${lines.join('; ')}`,import_failure:{kind:'owned',key:'No field could be imported: {error}',params:{},children:{error:{kind:'joined',parts:causes.map(item=>item.cause),separator:'; '}}}};
+  const expected={
+    de:{partial:['Field 0 (Hilfe): kein Feldname','Field 1 (Mood): TITLE ist bereits im Tag-Panel vorhanden'],failure:'Kein Feld konnte importiert werden: Field 0 (Hilfe): kein Feldname; Field 1 (Mood): TITLE ist bereits im Tag-Panel vorhanden'},
+    nl:{partial:['Field 0 (Hilfe): geen veldnaam','Field 1 (Mood): TITLE staat al op het tagpaneel'],failure:'Er kon geen veld worden geïmporteerd: Field 0 (Hilfe): geen veldnaam; Field 1 (Mood): TITLE staat al op het tagpaneel'},
+  };
+  for(const locale of ['de','nl']){const p=page();try{
+    const active=p.translate(locale,catalogs[locale]);
+    const host=importMp3tag=>({values:()=>[],disabled:()=>false,directories:()=>({selected:[],all:[]}),pickOpen:async()=>'/tmp/usrfields.ini',importMp3tag,
+      skippedLines:imported=>skippedLines(imported,(key,params)=>active.t(key,params),text=>active.translate(text)),
+      batchError:error=>error instanceof BatchFailure?error.text((key,params)=>active.t(key,params),text=>active.translate(text)):undefined});
+    const settle=async()=>{for(let i=0;i<6;i++)await new Promise(resolve=>setTimeout(resolve,0));};
+    new TagPanel(host(async()=>structuredClone(partial))).configure(true);await settle();
+    const dialog=p.body.querySelector('dialog');
+    assert.deepEqual([...dialog.querySelectorAll('.tp-import-report li')].map(item=>item.textContent),expected[locale].partial);
+    assert.equal(dialog.querySelector('.tp-import-report ul').getAttribute('translate'),'no');
+    dialog.close();dialog.remove();
+    new TagPanel(host(async()=>{throw importFailure(structuredClone(wire),true);})).configure(true);await settle();
+    const failed=p.body.querySelector('dialog .dialog-error');
+    assert.ok(failed,'the rejected import is reported in the dialog');
+    assert.equal(failed.textContent,expected[locale].failure);assert.equal(failed.getAttribute('translate'),'no');
+  }finally{p.close();}}
+});
 test('mapping validation translates generated row labels while preserving authored field identifiers',async()=>{
   registerOptionsPage(mappingOptionsPage());
   const custom={'Mapping {index}':'Rule {index}',ARTIST:'Performer',Help:'Assistance',...Object.fromEntries(['choose a tag type.','enter the source field.','enter the target field.','field names cannot contain line breaks.','{field} already maps to another target. One source cannot map to several targets.'].map(suffix=>[`{mapping}: ${suffix}`,`Issue {mapping}: ${suffix}`]))};

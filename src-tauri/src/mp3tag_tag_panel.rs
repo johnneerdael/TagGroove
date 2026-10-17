@@ -14,6 +14,7 @@
 //!
 //! Older files can also carry per-field `custom_values` and `prefer_tag`, which
 //! OpenTag keeps in Field Values; those are reported instead of imported.
+use crate::import_diagnostics::ImportFailure;
 use crate::mp3tag_columns::{flag, lookup, sections};
 use crate::tag_panel::{
     field_id, text, validate_layout, Control, Layout, PanelField, Size, DIRECTORY, KEEP,
@@ -79,7 +80,14 @@ fn size(value: Option<&str>, version: i64) -> Size {
     }
 }
 
+#[cfg(test)]
 pub fn parse(text_value: &str) -> Result<TagPanelImport, String> {
+    parse_diagnostic(text_value).map_err(|error| error.to_string())
+}
+
+/// Like `parse`, but a file that yields no field fails with the retained
+/// causes, so the outer message and each reason translate on their own.
+pub fn parse_diagnostic(text_value: &str) -> Result<TagPanelImport, ImportFailure> {
     let mut found: Vec<(usize, Vec<(String, String)>)> = sections(text_value)
         .into_iter()
         .enumerate()
@@ -220,9 +228,21 @@ pub fn parse(text_value: &str) -> Result<TagPanelImport, String> {
     }
     if fields.iter().all(|field| field.field == SEPARATOR) {
         return Err(if skipped.is_empty() {
-            "The file contains no tag panel fields. Choose usrfields.ini from the Mp3tag configuration folder, or a saved tag panel configuration.".into()
+            ImportFailure::parts(ErrorCause::owned("The file contains no tag panel fields. Choose usrfields.ini from the Mp3tag configuration folder, or a saved tag panel configuration."))
         } else {
-            format!("No field could be imported: {}", skipped.join("; "))
+            ImportFailure::parts(ErrorCause::children(
+                "No field could be imported: {error}",
+                [(
+                    "error",
+                    ErrorCause::joined(
+                        skipped_diagnostics
+                            .into_iter()
+                            .map(|item| item.cause)
+                            .collect(),
+                        "; ",
+                    ),
+                )],
+            ))
         });
     }
     let panel = Layout {
@@ -230,7 +250,7 @@ pub fn parse(text_value: &str) -> Result<TagPanelImport, String> {
         show_panel: true,
         show_cover: true,
     };
-    validate_layout(&panel)?;
+    validate_layout(&panel).map_err(ImportFailure::Plain)?;
     Ok(TagPanelImport {
         panel,
         skipped,
@@ -239,14 +259,22 @@ pub fn parse(text_value: &str) -> Result<TagPanelImport, String> {
 }
 
 #[tauri::command]
-pub async fn import_mp3tag_tag_panel(path: String) -> Result<TagPanelImport, String> {
+pub async fn import_mp3tag_tag_panel(path: String) -> Result<TagPanelImport, ImportFailure> {
     crate::io(move || {
         let input = crate::auxiliary_input(&path)?;
-        let bytes =
-            std::fs::read(&input).map_err(|e| format!("Cannot read {}: {e}", input.display()))?;
-        parse(&crate::mp3tag_columns::decode(&bytes))
+        Ok(std::fs::read(&input)
+            .map_err(|error| {
+                ImportFailure::parts(ErrorCause::wrap(
+                    "Cannot read {value}: {e}",
+                    [("value", input.to_string_lossy().into_owned())],
+                    "e",
+                    ErrorCause::external(error),
+                ))
+            })
+            .and_then(|bytes| parse_diagnostic(&crate::mp3tag_columns::decode(&bytes))))
     })
     .await
+    .map_err(ImportFailure::Plain)?
 }
 
 #[cfg(test)]
@@ -340,6 +368,40 @@ mod tests {
         assert_eq!(import.panel.fields[5].name, "ISRC");
         assert_eq!(import.skipped.len(), 2);
         assert!(import.skipped.iter().all(|s| s.contains("Genre")));
+    }
+
+    #[test]
+    fn a_file_with_no_importable_field_fails_with_the_retained_reasons() {
+        let text = "[#0]\nname=Mood\nvalue=\n[#1]\nname=Copy\nvalue=_BOGUS?\n";
+        let partial =
+            "[#0]\nname=Mood\nvalue= \n[#1]\nname=Genre\nvalue=GENRE\ncustom_values=Rock\n";
+        // A skip that still leaves a field is a partial import, not a failure.
+        assert!(parse_diagnostic(partial).is_ok());
+        let error = parse_diagnostic(text).unwrap_err();
+        // The wire message is exactly the legacy English string.
+        assert_eq!(error.to_string(), parse(text).unwrap_err());
+        assert!(error
+            .to_string()
+            .starts_with("No field could be imported: "));
+        let wire = serde_json::to_value(&error).unwrap();
+        let ipc: tauri::ipc::InvokeError = error.clone().into();
+        assert_eq!(ipc.0, wire);
+        assert_eq!(wire["message"], error.to_string());
+        assert_eq!(
+            wire["import_failure"]["key"],
+            "No field could be imported: {error}"
+        );
+        let parts = wire["import_failure"]["children"]["error"]["parts"]
+            .as_array()
+            .unwrap();
+        assert_eq!(parts.len(), 2);
+        assert_eq!(parts[0]["params"]["value"], "Field 0 (Mood)");
+        assert_eq!(parts[0]["children"]["error"]["key"], "no field name");
+        let empty = parse_diagnostic("[General]\nVersion=1\n").unwrap_err();
+        assert_eq!(
+            serde_json::to_value(&empty).unwrap()["import_failure"]["key"],
+            "The file contains no tag panel fields. Choose usrfields.ini from the Mp3tag configuration folder, or a saved tag panel configuration."
+        );
     }
 
     #[test]

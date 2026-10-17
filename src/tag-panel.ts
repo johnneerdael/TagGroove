@@ -160,6 +160,8 @@ export type TagPanelHost={
   importMp3tag?:(path:string)=>Promise<Mp3tagPanelImport>;
   /** Skipped import lines in the UI language; entries keep the label written in the file. */
   skippedLines?:(imported:Mp3tagPanelImport)=>string[];
+  /** UI-language text of a structured native failure (an import that yields no field); other errors use their own message. */
+  batchError?:(error:unknown)=>string|undefined;
   importList:(path:string)=>Promise<string[]>;exportList:(path:string,values:string[])=>Promise<void>;
   pickOpen:(kind:'layout'|'list'|'mp3tag')=>Promise<string|null>;pickSave:(kind:'layout'|'list',name:string)=>Promise<string|null>;
   /** Horizontal (top or bottom) panels: item indexes per column, or undefined for the vertical layout. */
@@ -388,7 +390,7 @@ export class TagPanel {
     document.body.append(dialog);this.dialogOpen=true;
     dialog.addEventListener('close',()=>{this.dialogOpen=false;dialog.remove();});dialog.showModal();return dialog;
   }
-  private static error(dialog:HTMLDialogElement,error:unknown){let p=dialog.querySelector<HTMLElement>('.dialog-error');if(!p){p=document.createElement('p');p.className='dialog-error';p.setAttribute('role','alert');dialog.querySelector('.dialog-content')!.append(p);}p.textContent=String(error instanceof Error?error.message:error);}
+  private static error(dialog:HTMLDialogElement,error:unknown,batchError?:(error:unknown)=>string|undefined){let p=dialog.querySelector<HTMLElement>('.dialog-error');if(!p){p=document.createElement('p');p.className='dialog-error';p.setAttribute('role','alert');dialog.querySelector('.dialog-content')!.append(p);}const shown=batchError?.(error);if(shown!==undefined){p.setAttribute('translate','no');p.textContent=shown;}else{p.removeAttribute('translate');p.textContent=String(error instanceof Error?error.message:error);}}
   /** Options → Tag Panel: fields list with New/Remove/Move and a field editor. */
   /** `importMp3tag` opens the dialog with the Mp3tag import started. */
   configure(importMp3tag=false){
@@ -437,7 +439,7 @@ export class TagPanel {
     cover.addEventListener('change',()=>{layout.show_cover=cover.checked;});
     const perform=async(work:()=>Promise<void>)=>{
       if(working)return;working=true;dialog.querySelector('.dialog-error')?.remove();dialog.querySelectorAll<HTMLButtonElement>('.dialog-footer button').forEach(button=>button.disabled=true);
-      try{await work();}catch(error){if(dialog.open)TagPanel.error(dialog,error);}finally{working=false;if(dialog.open){dialog.querySelectorAll<HTMLButtonElement>('.dialog-footer button').forEach(button=>button.disabled=false);renderList();}}
+      try{await work();}catch(error){if(dialog.open)TagPanel.error(dialog,error,this.host.batchError);}finally{working=false;if(dialog.open){dialog.querySelectorAll<HTMLButtonElement>('.dialog-footer button').forEach(button=>button.disabled=false);renderList();}}
     };
     on('tp-save-file',()=>void perform(async()=>{const error=layoutError(layout);if(error)throw new Error(error);const path=await this.host.pickSave('layout','tag-panel.json');if(path)await this.host.exportLayout(path,layout);}));
     on('tp-load-file',()=>void perform(async()=>{const path=await this.host.pickOpen('layout');if(!path)return;layout={...await this.host.importLayout(path),show_panel:layout.show_panel};current=layout.fields.length?0:-1;if(dialog.open)renderAll();}));
@@ -477,7 +479,7 @@ export class TagPanel {
     used.addEventListener('change',()=>switchTo(used.value));
     const perform=async(work:()=>Promise<void>)=>{
       if(working)return;working=true;dialog.querySelector('.dialog-error')?.remove();dialog.querySelectorAll<HTMLButtonElement>('button').forEach(button=>button.disabled=true);
-      try{await work();}catch(error){if(dialog.open)TagPanel.error(dialog,error);}finally{working=false;dialog.querySelectorAll<HTMLButtonElement>('button').forEach(button=>button.disabled=false);}
+      try{await work();}catch(error){if(dialog.open)TagPanel.error(dialog,error,this.host.batchError);}finally{working=false;dialog.querySelectorAll<HTMLButtonElement>('button').forEach(button=>button.disabled=false);}
     };
     const on=(id:string,handler:()=>void)=>dialog.querySelector(`#${id}`)!.addEventListener('click',handler);
     on('fv-sort',()=>{capture();lists[current]=[...lists[current]].sort(collator.compare);show();});
