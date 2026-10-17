@@ -54,7 +54,7 @@ def eligibility(pr, reviews, comments, threads, reactions=(), inline=()):
         return False, "Waiting for requested changes to be accepted"
 
     head = pr["head"]["sha"]
-    completions, clean_reviews, findings, requests = [], [], [], []
+    completions, clean_reviews, clean_receipts, findings, requests = [], [], [], [], []
     finding_reviews = {item["pull_request_review_id"] for item in inline
                        if connector(item) and not item.get("in_reply_to_id")}
     for item in inline:
@@ -118,10 +118,18 @@ def eligibility(pr, reviews, comments, threads, reactions=(), inline=()):
             if (marker and reviewed_commit_matches(comment, marker[1], head)
                     and re.search(r"\bCodex Review\b", body)
                     and re.search(r"\bno findings\b|didn['’]t find any (?:major )?issues", body, re.I)):
-                when = timestamp(comment.get("created_at"))
+                try:
+                    when = timestamp(comment.get("created_at"))
+                except (ValueError, TypeError):
+                    return False, "Waiting for a valid Codex review receipt timestamp"
+                if when and when.tzinfo is None:
+                    return False, "Waiting for a valid Codex review receipt timestamp"
                 if when:
                     completions.append(when)
                     clean_reviews.append(when)
+                    if ("<!-- codex-review-receipt:v1 -->" in body
+                            and not re.search(r"Codex Security Review", body, re.I)):
+                        clean_receipts.append(when)
 
     completions = [value for value in completions if value]
     requests = [value for value in requests if value]
@@ -133,10 +141,14 @@ def eligibility(pr, reviews, comments, threads, reactions=(), inline=()):
         return False, "Waiting for the requested Codex code review"
     if findings and (not clean_reviews or max(clean_reviews) <= max(findings)):
         return False, "Waiting for a new clean Codex code review after findings"
+    # GitHub returns an existing reaction when a connector repeats +1; created_at
+    # then predates its latest review. Only an explicit clean receipt for this
+    # exact head, at least as recent as every completion, can supply freshness.
+    receipt_approval = bool(clean_receipts and max(clean_receipts) >= completed)
     # Reactions expose this reserved connector login as type=User on GitHub.
     approved = any(item["user"]["login"] == CODEX and item.get("content") == "+1"
                    and timestamp(item.get("created_at")) is not None
-                   and timestamp(item["created_at"]) >= completed for item in reactions)
+                   and (timestamp(item["created_at"]) >= completed or receipt_approval) for item in reactions)
     if not approved:
         return False, "Waiting for the connector's clean-review approval"
     return True, "Clean Codex code review of the current head; no open findings"

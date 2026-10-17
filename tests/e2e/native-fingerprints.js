@@ -3,7 +3,20 @@
 (async () => {
   const invoke = (command,args) => window.__TAURI_INTERNALS__.invoke(command,args);
   const report = message => invoke('e2e_report',{message});
-  const waitFor = async (read,what) => { const end=Date.now()+10000; while(Date.now()<end){const value=read();if(value)return value;await new Promise(resolve=>setTimeout(resolve,100));}throw new Error('timeout: '+what); };
+  const state = () => {
+    const command=document.querySelector('button[data-op="source-options"]');
+    return `inert=${document.querySelector('#app')?.inert} busy=${!!document.querySelector('footer.status.busy')} source-options=${!command?'missing':command.disabled?'disabled':'enabled'} rows=${document.querySelectorAll('tr[data-path]').length} status=${document.querySelector('.status-message')?.textContent||''} dialogs=${[...document.querySelectorAll('dialog[open]')].map(dialog=>dialog.className||dialog.querySelector('header')?.textContent||'dialog').join('|')} errors=${document.querySelector('.errors')?.textContent||''}`;
+  };
+  const waitFor = async (read,what) => { const end=Date.now()+10000; while(Date.now()<end){const value=read();if(value)return value;await new Promise(resolve=>setTimeout(resolve,100));}throw new Error('timeout: '+what+'; '+state()); };
+  const readyCommand = name => {
+    const app=document.querySelector('#app'),command=document.querySelector(`button[data-op="${name}"]`);
+    return app&&!app.inert&&!document.querySelector('footer.status.busy')&&command&&!command.disabled?command:undefined;
+  };
+  // scripts/e2e-native.sh always supplies these two generated MP3 fixtures.
+  const fixturesLoaded = () => {
+    const names=[...document.querySelectorAll('tr[data-path]')].map(row=>row.dataset.path.split(/[\\/]/).pop());
+    return ['sine-a.mp3','sine-b.mp3'].every(name=>names.includes(name));
+  };
   let passed=0,failed=0;
   const check = async (condition,message) => { if(condition)passed++;else failed++;await report(`${condition?'PASS':'FAIL'} ${message}`); };
   try {
@@ -11,8 +24,7 @@
     const info=await invoke('audio_fingerprint_backend');
     await check(info.chromaprint==='1.6.2'&&info.ffmpeg==='9.0.2','actual linked backend versions');
     await check(info.audio_decoders===218&&info.non_audio_decoders===0&&info.protocols===0,'audio-only decoder registration with no URL protocols');
-    await waitFor(()=>document.querySelector('button[data-op="about"]'),'About command');
-    document.querySelector('button[data-op="about"]').click();
+    (await waitFor(()=>fixturesLoaded()&&readyCommand('about'),'app ready with audio fixtures')).click();
     const about=await waitFor(()=>[...document.querySelectorAll('dialog[open]')].find(dialog=>dialog.textContent.includes('Built-in audio fingerprinting')),'About notices');
     await check(about.textContent.includes('LGPL 2.1-or-later')&&about.textContent.includes('modifying and relinking'),'component license and relink notice visible offline');
     await check(!!about.querySelector('#audio-source-release'),'matching release/source route available');
@@ -24,7 +36,8 @@
     // An optional bounded visual pause is used by local screenshot inspection.
     if(window.OPENTAG_NATIVE_VISUAL_PAUSE)await new Promise(resolve=>setTimeout(resolve,15000));
     about.querySelector('[data-close]').click();
-    document.querySelector('button[data-op="source-options"]').click();
+    await waitFor(()=>!about.isConnected,'About dialog closed');
+    (await waitFor(()=>readyCommand('source-options'),'enabled Tag Sources options command')).click();
     const options=await waitFor(()=>document.querySelector('dialog.options-dialog[open]'),'Tag Sources options');
     options.querySelector('[data-page="tag-sources-online"]').click();
     const override=await waitFor(()=>options.querySelector('[data-option="pages.tag-sources-online.fpcalc"]'),'optional override');
