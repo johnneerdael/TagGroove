@@ -4292,11 +4292,6 @@
     "capture_step_result": "success",
     "artifact_upload_result": "success",
     "validation_scope": "Capture and upload passed under exact-head authorization. Desktop jobs in this run failed the releases-URL rustfmt line-wrap check; full validation is required on the corrected final head.",
-    "post_capture_source_change": {
-      "path": "src-tauri/src/updates.rs",
-      "change": "Only rustfmt line wrapping of the existing RELEASES_API constant. Formatting the captured and current source produces identical bytes.",
-      "normalized_sha256": "b4035e586c90b1c9d3c755d561f58186c5710d4a9259211717d2a42626522ed1"
-    },
     "images": [
       {
         "path": "docs/user-guide/assets/screens/extended-tags-dark.png",
@@ -4407,6 +4402,17 @@
         "scene": "tag-to-filename",
         "theme": "light",
         "inspection": "Individually viewed the complete unmodified CI capture; TagGroove header and Tag to Filename dialog with the requested format string and preview visible."
+      }
+    ],
+    "post_capture_source_changes": [
+      {
+        "path": "src-tauri/src/updates.rs",
+        "change": "Only rustfmt line wrapping of the existing RELEASES_API constant. Formatting the captured and current source produces identical bytes.",
+        "normalized_sha256": "b4035e586c90b1c9d3c755d561f58186c5710d4a9259211717d2a42626522ed1"
+      },
+      {
+        "path": "src-tauri/src/sources/web/mod.rs",
+        "change": "Restore the browser-style web-source user agent to its original OpenTag wire token, byte-identical to canonical main. This does not change the captured artwork, layout or local fixture states."
       }
     ]
   },

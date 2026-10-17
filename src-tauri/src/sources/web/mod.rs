@@ -25,9 +25,10 @@ use tauri::Emitter;
 /// Emitted after sources were installed so every window rebuilds its menu.
 pub const CHANGED_EVENT: &str = "opentag://web-sources";
 const MAX_FILE_BYTES: u64 = 4 * 1024 * 1024;
-/// Sent unless a source asks for TagGroove's own name with `[UserAgent]=1`.
+/// Sent unless a source requests the application's own agent with `[UserAgent]=1`.
+/// Keep the existing wire identity across user-visible branding changes.
 const BROWSER_AGENT: &str = concat!(
-    "Mozilla/5.0 (compatible; TagGroove/",
+    "Mozilla/5.0 (compatible; OpenTag/",
     env!("CARGO_PKG_VERSION"),
     ")"
 );

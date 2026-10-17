@@ -29,7 +29,7 @@ recognized and non-UTF-8 legacy text falls back to Windows-1252.
 | `[IndexFormat]` | Pipe-separated result fields; `%_url%` is required for a result list |
 | `[SearchBy]` | Up to three labelled search fields with defaults and URL fragments |
 | `[Encoding]` | Encoding/escaping policy for search words in URLs; separate from source-file encoding |
-| `[UserAgent]` | `1` requests TagGroove's own name/version user agent; otherwise the web-source browser-style agent is used |
+| `[UserAgent]` | `1` uses the application's standard HTTP user agent; otherwise the web-source browser-style agent is used |
 | `[ParserScriptIndex]` | Script that emits the result list into the default `OUTPUT` buffer |
 | `[ParserScriptAlbum]` | Required script that emits release and track fields |
 | `[Include]` | Plain companion filename whose keys replace this file's keys |
