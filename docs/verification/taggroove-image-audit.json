@@ -4230,5 +4230,32 @@
         "finding": "mark, glyph or decorative content without application-name lettering"
       }
     ]
+  },
+  "pre_capture_visible_text_audit": {
+    "rendered_html_files": 175,
+    "remaining_fragments": [
+      {
+        "page": "customize/configuration/index.html",
+        "visible_fragments": [
+          "opentag-configuration",
+          "org.opentag.editor"
+        ]
+      },
+      {
+        "page": "reference/options/tag-sources-freedb/index.html",
+        "visible_fragments": [
+          "OpenTagAudioTagEditor"
+        ]
+      },
+      {
+        "page": "platforms/linux/index.html",
+        "visible_fragments": [
+          "OpenTag",
+          "Exec=opentag",
+          "opentag"
+        ]
+      }
+    ],
+    "disposition": "All remaining fragments are documented compatibility identifiers, the explicitly unchanged gnudb client name, or historical Linux package instructions. Ten public-guide image captures still await replacement."
   }
 }

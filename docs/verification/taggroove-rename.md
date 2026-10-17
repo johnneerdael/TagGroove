@@ -18,8 +18,9 @@ Application IDs, storage keys, configuration/tag-panel file discriminators, nati
 - Integrated resources: 78 copies checked by `python3 scripts/verify-brand.py`.
 - Frontend build and strict MkDocs build passed during implementation.
 - Rust workspace: 1,082 passed, 6 ignored; UI tests: 559 passed.
-- Review/release tooling: 84 tests passed. Publication boundary: 8 tests passed before adding the prerequisite capture route; rechecked with that route in the prerequisite PR.
+- Review/release tooling: 85 tests passed. Publication boundary: 8 tests passed before adding the prerequisite capture route; rechecked with that route in the prerequisite PR.
 - macOS arm64 debug bundle built at `/tmp/taggroove-target/debug/bundle/macos/TagGroove.app`, using the `taggroove` executable. The existing ad-hoc signing policy is retained; no notarization or installation test is claimed.
 - Browser preview visibly renders the new header and palette; the guide preview renders the new wordmark. These checks are separate from native CI capture.
+- Rendered-guide text scan: 175 HTML files checked. Remaining old-name text appears only in configuration compatibility identifiers, the unchanged gnudb client name, and explicitly historical Linux package instructions.
 - New guide captures and final-head GitHub validation remain pending.
 - Guide captures run only in the existing review-authorized Linux CI workload. After downloading that artifact, inspect all ten images, record the source run/head and update the public guide before the final review and merge.
