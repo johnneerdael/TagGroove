@@ -56,6 +56,8 @@ jobs:
           python-version: '3.12'
       - run: python3 -m unittest discover -s .github/scripts/tests -v
       - run: node --test tests/release.test.mjs
+      - run: python3 -m unittest discover -s scripts/tests -p test_audio_source_bundle.py -v
+      - run: python3 scripts/audio-deps/test_build.py
   desktop:
     needs: authorize
     if: needs.authorize.outputs.ready == 'true'
@@ -69,6 +71,9 @@ jobs:
         with:
           ref: ${{ inputs.merge_sha }}
           persist-credentials: false
+      - name: Use a fresh native audio prefix for this run
+        shell: bash
+        run: echo "OPENTAG_AUDIO_BUILD_ROOT=$RUNNER_TEMP/opentag-audio-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" >> "$GITHUB_ENV"
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -98,6 +103,18 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: runner.os == 'Windows'
+        with:
+          arch: x64
+      - uses: msys2/setup-msys2@v2
+        if: runner.os == 'Windows'
+        with:
+          install: make
+          update: false
       - name: Linux build dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf ffmpeg build-essential cmake make nasm
@@ -157,6 +174,9 @@ jobs:
         with:
           ref: ${{ inputs.merge_sha }}
           persist-credentials: false
+      - name: Use a fresh native audio prefix for this run
+        shell: bash
+        run: echo "OPENTAG_AUDIO_BUILD_ROOT=$RUNNER_TEMP/opentag-audio-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" >> "$GITHUB_ENV"
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -184,6 +204,18 @@ jobs:
           }
           "OPENTAG_MSYS2=$env:MSYS2_LOCATION" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: runner.os == 'Windows'
+        with:
+          arch: x64
+      - uses: msys2/setup-msys2@v2
+        if: runner.os == 'Windows'
+        with:
+          install: make
+          update: false
       - name: Linux UI dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf ffmpeg xvfb xauth dbus-x11 build-essential cmake make nasm
@@ -217,7 +249,7 @@ jobs:
           # forwarding. macOS and Windows runners have a desktop session.
           if [[ "$RUNNER_OS" == Linux ]]; then run=(dbus-run-session -- xvfb-run -a); else run=(); fi
           status=0
-          for suite in core-workflows covers actions options-utils playlists freedb-local gnudb formats-3 general-options remove-mapping list-behaviour rename-fixes keyboard-extended script-export actions-polish sources-3 sources-4 keyboard-ui launch-forwarding export-lists chapters web-sources formats-edge panel-dock chapter-fields library; do
+          for suite in core-workflows covers actions options-utils playlists freedb-local gnudb formats-3 general-options remove-mapping list-behaviour rename-fixes keyboard-extended script-export actions-polish sources-3 sources-4 keyboard-ui launch-forwarding export-lists chapters web-sources formats-edge panel-dock chapter-fields library native-fingerprints; do
             fixtures=""
             [[ -x "tests/e2e/$suite-fixtures.sh" ]] && fixtures="$PWD/tests/e2e/$suite-fixtures.sh"
             echo "::group::$suite"
@@ -244,9 +276,17 @@ jobs:
         with:
           ref: ${{ inputs.merge_sha }}
           persist-credentials: false
+      - name: Use a fresh native audio prefix for this run
+        shell: bash
+        run: echo "OPENTAG_AUDIO_BUILD_ROOT=$RUNNER_TEMP/opentag-audio-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" >> "$GITHUB_ENV"
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Native audio build tools
+        run: sudo apt-get update && sudo apt-get install -y build-essential cmake make
       - uses: actions/setup-java@v4
         with:
           distribution: temurin

@@ -2,7 +2,7 @@
 
 **Review-first workflow:** follow [CI_LOCKDOWN.md](../.github/CI_LOCKDOWN.md). Legacy automatic workflows remain disabled. Application builds and publication require a completed clean Codex code review and immutable validation proof; direct bootstrap commits do not release.
 
-`.github/workflows/reviewed-release.yml` builds the same validated commit for five desktop targets, an Android arm64 APK, and an iOS arm64 simulator app. Only the final job can publish. It waits for every required build, verifies platform manifests and SHA256 hashes, creates or reuses an unpublished draft, uploads the complete asset set, verifies GitHub's asset digests, and then publishes.
+`.github/workflows/reviewed-release.yml` builds the same validated commit for five desktop targets, an Android arm64 APK, and an iOS arm64 simulator app. Only the final job can publish. It waits for every required build and the corresponding-source archive, verifies platform and native-build manifests and SHA256 hashes, creates or reuses an unpublished draft, uploads the complete asset set, verifies GitHub's asset digests, and then publishes.
 
 An authorized merge to `main` that changes shipping files publishes a full GitHub release (not a prerelease); only a newer full release becomes latest. Pre-1.0 releases say "Release (pre-1.0)" in their notes. Android and iOS packages are **UI previews**: document editing and save-back integration is still in progress. Desktop feature parity and remaining runtime qualification are recorded in [PARITY.md](PARITY.md).
 
@@ -89,9 +89,50 @@ Trusted PR validation runs the workflow from `main`. Land build-tool prerequisit
 
 Linux packages are built on Ubuntu 24.04; compatibility with older distributions is not established by compilation. The [GitHub runner reference](https://docs.github.com/en/actions/reference/runners/github-hosted-runners) documents native arm64 Linux and separate macOS Intel/arm64 runners. Platform jobs use separate artifact names and preserve their OS/architecture in public download filenames.
 
-Each builder uploads its packages plus `manifest-<platform>.json` as workflow artifacts. The final publisher requires all seven manifests and the exact expected package formats, verifies their commit/version, rejects unexpected files or duplicate formats, and streams every package through SHA256. It publishes 13 packages plus `release-manifest.json` and `SHA256SUMS`. The checksum list includes all packages and the release manifest; it does not recursively include itself. The public manifest records source identity, platform coverage, byte sizes and hashes.
+Each builder uploads its packages, `manifest-<platform>.json`, and `native-<platform>.json` as workflow artifacts. The native sidecar binds the installed static libraries, headers, configuration, source recipe and patch evidence to the release commit, version and Rust target. A fresh per-run native build directory prevents a restored Rust cache from silently substituting a missing or older native prefix. The source job receives only these seven sidecars, rather than downloading the application packages again.
+
+The final publisher requires all seven platform manifests, their exact native sidecars, the original 13 package filenames/formats, and exactly one `OpenTag-v<version>-sources.tar.xz`. It verifies commit/version/target identities, rejects unexpected files or duplicate formats, and streams every public asset through SHA256. It publishes 16 assets: 13 application packages, the corresponding-source archive, `release-manifest.json`, and `SHA256SUMS`. The checksum list includes the packages, source archive and release manifest; it does not recursively include itself. The public manifest records source identity, platform coverage, native evidence hashes, byte sizes and hashes.
 
 The release body embeds the supplied [OpenTag banner](../assets/brand/OpenTag-Brand-Kit/03-banners/opentag-github-light-1280x640.png) from the released tag and links the matching parity ledger. Signing and mobile limitations appear alongside the download table.
+
+## Native audio builds and corresponding source
+
+The native fingerprint backend is built from the four hash-pinned upstream archives in `scripts/audio-deps/sources.json`. Builds require Python 3.11 or newer (CI uses 3.12), CMake, GNU Make and the target C/C++ toolchain. x86-64 builds also require NASM for the enabled assembly implementations; ARM builds use the compiler assembler. Linux installs `build-essential`, `cmake` and `make`; Apple builds use Xcode SDKs, `xcrun`, CMake and Make. Windows uses MSVC/NMake plus MSYS2 Bash/GNU Make, with MSVC tools first in `PATH`. Android uses the configured NDK and API 24 toolchain; the iOS preview uses the arm64 simulator SDK. These are build dependencies; fingerprinting uses the linked native libraries rather than launching an installed media program.
+
+Every release includes `OpenTag-v<version>-sources.tar.xz` with:
+
+- The tracked application source stamped to the release version, `Cargo.lock`, the built frontend, and vendored Cargo dependencies with a local Cargo source configuration.
+- The original, hash-pinned Chromaprint, FFmpeg, zlib and bzip2 source archives and their original license files, plus the tracked recipes and patches.
+- Exact native build manifests and non-library prefix evidence for all seven targets: installed headers, configuration, notices, patch output and FFmpeg upstream/generated source-closure metadata. The original archives supply the complete upstream source, including files outside that compiled closure.
+- The original Git commit object, reconstructed tree/blob identities, original pre-stamp files and an actual version-stamp diff. The extracted tree needs no `.git` directory to build.
+
+The source job vendors Cargo dependencies, builds the stamped frontend, and verifies the complete archive before upload. Publication independently checks it again against the native sidecars from the package jobs. A missing archive, wrong commit/version, changed source blob, mismatched upstream archive/license/patch, empty or incorrect compiler source-closure hashes, incomplete target set or mismatched native recipe blocks publication. Verification reads archive data using the checked-out verifier; it never executes code from downloaded artifacts.
+
+To verify a downloaded source asset, use the verifier from a trusted checkout of the release commit:
+
+```sh
+python3 scripts/audio-source-bundle.py --source-sha FULL_RELEASE_COMMIT --version RELEASE_VERSION --verify OpenTag-vRELEASE_VERSION-sources.tar.xz
+```
+
+After extracting the archive, enter its `app` directory. To build and run the Rust fingerprint example offline on a supported host target:
+
+```sh
+export OPENTAG_AUDIO_SOURCE_DIR="$(cd ../native/archives && pwd)"
+export OPENTAG_AUDIO_BUILD_ROOT="$PWD/../rebuilt-native"
+export CARGO_TARGET_DIR="$PWD/../rebuilt-rust"
+cargo run --offline --locked -p opentag-audio-fingerprint --example fingerprint -- /absolute/path/to/audio.flac
+```
+
+`OPENTAG_AUDIO_SOURCE_DIR` requires the exact original archive filenames and hashes. If it is set, a missing archive fails instead of falling back to the network. Cargo uses the bundled `vendor` directory. The output directories above are fresh, so the command rebuilds and relinks the native libraries and Rust example rather than using a packaged executable. PowerShell users set the same environment variables with `$env:NAME = 'absolute-path'`. The host still needs its platform compiler, SDK, Python, CMake, Make and (on x86-64) NASM; these system tools are not part of the source archive. Rebuilding the frontend from source requires Node/npm and its dependencies; the included `dist` avoids that download for the Rust example.
+
+For maintainers, collect each finished native prefix and assemble the source asset with:
+
+```sh
+python3 scripts/audio-source-bundle.py --collect-native RUST_TARGET --native-evidence BUILD_ROOT_OR_PREFIX --source-sha FULL_RELEASE_COMMIT --version RELEASE_VERSION --output native-evidence/native-PLATFORM.json
+python3 scripts/audio-source-bundle.py --source-sha FULL_RELEASE_COMMIT --version RELEASE_VERSION --native-evidence native-evidence --output OpenTag-vRELEASE_VERSION-sources.tar.xz
+```
+
+The builder accepts `--cargo-vendor` and `--dist` for already prepared dependency/frontend directories; otherwise it runs `cargo vendor --locked --versioned-dirs` and uses the checkout's `dist`. A source archive must contain evidence from every required target. Local fixture tests use tiny synthetic archives and manifests; they prove validation behavior, not seven-platform compilation or codec parity. Desktop workspace tests execute the native corpus on their host runners. Android and iOS build/package evidence does not establish runtime fingerprint equivalence on devices or simulators; those require separate execution and comparison.
 
 ## Android signing setup
 
@@ -116,13 +157,15 @@ Before committing workflow changes:
 
 ```sh
 node --test tests/release.test.mjs
+python3 -m unittest discover -s scripts/tests -p test_audio_source_bundle.py -v
+python3 scripts/audio-deps/test_build.py
 python3 -m unittest discover -s .github/scripts/tests -v
 actionlint -ignore 'unexpected key "queue" for "concurrency" section' .github/workflows/*.yml
 ```
 
 actionlint 1.7.12 does not yet recognise the documented `concurrency.queue` key ([rhysd/actionlint#654](https://github.com/rhysd/actionlint/issues/654)); the flag ignores only that error.
 
-The script tests cover automatic version derivation from a real git history (merge commits, multi-commit branches, base bumps), the Android versionCode limit, explicit-tag rules, docs-only merges keeping their number, stamping every manifest and `Cargo.lock`, numeric Apple bundle versions, rerun no-ops, "latest" selection, substantive PR-note collection, version/tag/commit mismatch, forced development prereleases, exact platform coverage, missing and mixed manifests, tampered local files, duplicate asset formats, already published releases, upload failures, missing/wrong server SHA256 digests, draft pagination, publication order, banner/signing notes, and app archive fallback. They do not prove that the remote workflow ran or that built packages install correctly.
+The script tests cover automatic version derivation from a real git history (merge commits, multi-commit branches, base bumps), the Android versionCode limit, explicit-tag rules, docs-only merges keeping their number, stamping every manifest and `Cargo.lock`, numeric Apple bundle versions, rerun no-ops, "latest" selection, substantive PR-note collection, version/tag/commit mismatch, forced development prereleases, exact platform coverage, missing and mixed manifests, tampered local files, duplicate asset formats, already published releases, upload failures, missing/wrong server SHA256 digests, draft pagination, publication order, banner/signing notes, app archive fallback, required corresponding source, native target/source binding, original/archive/patch integrity, stamped Git provenance, and source tampering. They do not prove that the remote workflow ran or that built packages install correctly.
 
 Inspect the actual workflow run and release after publication:
 
