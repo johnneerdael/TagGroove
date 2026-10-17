@@ -51,6 +51,13 @@ def state_summary(findings=False, unresolved=False, sha=HEAD, status="completed"
     return item
 
 
+def receipt(sha=HEAD, timestamp="2026-10-15T10:00:00Z"):
+    return dict(user=dict(login=BOT, type="Bot"), created_at=timestamp, body=(
+        "<!-- codex-review-receipt:v1 -->\n"
+        "Codex Review: Didn't find any major issues. Another round soon, please!\n"
+        f"**Reviewed commit:** `{sha}`"))
+
+
 class EligibilityTests(unittest.TestCase):
     def setUp(self):
         self.gate = load_gate()
@@ -110,6 +117,92 @@ class EligibilityTests(unittest.TestCase):
                        body=f"<!-- codex-review-receipt:v1 -->\nCodex Review: Didn't find any major issues.\n**Reviewed commit:** `{HEAD}`")
         self.assertTrue(self.check(reviews=[], inline=[finding], comments=[receipt]))
 
+    def test_retained_connector_thumb_with_current_clean_receipt_qualifies(self):
+        self.assertTrue(self.check(reviews=[], comments=[receipt()],
+                                   reactions=[thumb("2026-10-15T09:00:00Z")]))
+        item = receipt(sha=HEAD[:10])
+        item["_reviewed_commits"] = {HEAD[:10]: HEAD}
+        self.assertTrue(self.check(reviews=[], comments=[item],
+                                   reactions=[thumb("2026-10-15T09:00:00Z")]))
+
+    def test_retained_thumb_requires_marked_authenticated_clean_code_receipt(self):
+        missing_marker = receipt()
+        missing_marker["body"] = missing_marker["body"].replace("<!-- codex-review-receipt:v1 -->", "")
+        security = receipt()
+        security["body"] += "\nCodex Security Review: no findings"
+        fake_connector = receipt()
+        fake_connector["user"]["type"] = "User"
+        human = receipt()
+        human["user"]["login"] = "author"
+        generic = receipt()
+        generic["body"] = generic["body"].replace("Didn't find any major issues.", "Completed.")
+        for item in (missing_marker, security, fake_connector, human, generic, summary(), state_summary()):
+            with self.subTest(body=item["body"], user=item["user"]):
+                self.assertFalse(self.check(reviews=[], comments=[item],
+                                            reactions=[thumb("2026-10-15T09:00:00Z")]))
+        self.assertFalse(self.check(reactions=[thumb("2026-10-15T09:00:00Z")]))
+
+    def test_retained_thumb_requires_receipt_resolved_to_current_head(self):
+        unresolved = receipt(sha=HEAD[:10])
+        conflicting = deepcopy(unresolved)
+        conflicting["_reviewed_commits"] = {HEAD[:10]: OLD}
+        for item in (receipt(sha=OLD), unresolved, conflicting):
+            with self.subTest(item=item):
+                self.assertFalse(self.check(reviews=[], comments=[item],
+                                            reactions=[thumb("2026-10-15T09:00:00Z")]))
+        pushed = pr()
+        pushed["head"]["sha"] = OLD
+        self.assertFalse(self.check(reviews=[], comments=[receipt()], pull=pushed,
+                                    reactions=[thumb("2026-10-15T09:00:00Z")]))
+
+    def test_receipt_still_requires_connector_plus_one(self):
+        for reactions in ([], [thumb(login="author")], [thumb(content="eyes")], [thumb(timestamp=None)]):
+            with self.subTest(reactions=reactions):
+                self.assertFalse(self.check(reviews=[], comments=[receipt()], reactions=reactions))
+
+    def test_receipt_requires_valid_creation_timestamp(self):
+        for date in (None, "not-a-date", "2026-10-15T10:00:00"):
+            with self.subTest(date=date):
+                self.assertFalse(self.check(reviews=[], comments=[receipt(timestamp=date)],
+                                            reactions=[thumb("2026-10-15T09:00:00Z")]))
+
+    def test_retained_thumb_cannot_borrow_receipt_before_latest_completion(self):
+        for later in (summary(timestamp="2026-10-15T11:00:00Z"), state_summary()):
+            with self.subTest(later=later):
+                self.assertFalse(self.check(reviews=[], comments=[receipt(), later],
+                                            reactions=[thumb("2026-10-15T09:00:00Z")]))
+        self.assertFalse(self.check(reviews=[review(timestamp="2026-10-15T11:00:00Z")],
+                                    comments=[receipt()], reactions=[thumb("2026-10-15T09:00:00Z")]))
+        self.assertTrue(self.check(reviews=[], comments=[receipt(), summary()],
+                                   reactions=[thumb("2026-10-15T09:00:00Z")]))
+
+    def test_retained_thumb_does_not_override_new_requests_or_findings(self):
+        for date in ("2026-10-15T10:00:00Z", "2026-10-15T11:00:00Z"):
+            request = dict(user=dict(login="author"), body="@codex review", created_at=date)
+            finding = dict(user=dict(login=BOT, type="Bot"), pull_request_review_id=99, created_at=date)
+            with self.subTest(date=date):
+                self.assertFalse(self.check(reviews=[], comments=[receipt(), request],
+                                            reactions=[thumb("2026-10-15T09:00:00Z")]))
+                self.assertFalse(self.check(reviews=[], comments=[receipt()], inline=[finding],
+                                            reactions=[thumb("2026-10-15T09:00:00Z")]))
+
+    def test_retained_thumb_does_not_override_other_review_blockers(self):
+        old_thumb = [thumb("2026-10-15T09:00:00Z")]
+        self.assertFalse(self.check(reviews=[], comments=[receipt()], reactions=old_thumb,
+                                    threads=[dict(isResolved=False)]))
+        for kind in ("Code", "Security"):
+            self.assertFalse(self.check(reviews=[], comments=[receipt(), summary(state="Running", kind=kind)],
+                                        reactions=old_thumb))
+        for state in ("PENDING", "CHANGES_REQUESTED"):
+            pending = review(login="reviewer")
+            pending["state"] = state
+            self.assertFalse(self.check(reviews=[pending], comments=[receipt()], reactions=old_thumb))
+        for key, value in (("draft", True), ("requested_reviewers", [dict(login="reviewer")]),
+                           ("requested_teams", [dict(slug="maintainers")])):
+            pull = pr()
+            pull[key] = value
+            self.assertFalse(self.check(reviews=[], comments=[receipt()], reactions=old_thumb, pull=pull))
+
     def test_running_code_or_security_review_blocks(self):
         for kind in ("Code", "Security"):
             self.assertFalse(self.check(comments=[summary(state="Running", kind=kind)]))
@@ -159,6 +252,34 @@ class EligibilityTests(unittest.TestCase):
 
 
 class SnapshotTests(unittest.TestCase):
+    def test_real_clean_receipt_resolves_short_sha_with_retained_issue_reaction(self):
+        fixture = json.loads((SCRIPT.parent / "tests/fixtures/codex-retained-reaction.json").read_text())
+        gate = load_gate()
+        pull = pr()
+        pull["number"] = 42
+        pull["head"]["sha"] = fixture["head"]
+        responses = {
+            "repos/owner/repo/pulls/42": pull,
+            "repos/owner/repo/pulls/42/reviews?per_page=100": [[]],
+            "repos/owner/repo/issues/42/comments?per_page=100": [[fixture["receipt"]]],
+            "repos/owner/repo/issues/42/reactions?per_page=100": [fixture["reactions"]],
+            "repos/owner/repo/pulls/42/comments?per_page=100": [[]],
+            "repos/owner/repo/git/matching-refs/heads/08233e57a5": [],
+            "repos/owner/repo/git/matching-refs/tags/08233e57a5": [],
+            "repos/owner/repo/commits/08233e57a5": {"sha": fixture["head"]},
+            "graphql": {"data": {"repository": {"pullRequest": {"reviewThreads": {
+                "nodes": [], "pageInfo": {"hasNextPage": False}}}}}},
+        }
+        api = gate.GitHub("owner/repo")
+        with patch.object(api, "request", side_effect=lambda endpoint, *args, **kwargs: deepcopy(responses[endpoint])):
+            self.assertTrue(api.snapshot(42)[1][0])
+            # An ambiguous/prefix-conflicting resolution must remain blocked.
+            responses["repos/owner/repo/commits/08233e57a5"] = {"sha": "08233e57a5" + "f" * 30}
+            self.assertFalse(api.snapshot(42)[1][0])
+            responses["repos/owner/repo/git/matching-refs/heads/08233e57a5"] = [
+                {"ref": "refs/heads/08233e57a5"}]
+            self.assertFalse(api.snapshot(42)[1][0])
+
     def test_review_request_added_during_read_cannot_authorize_stale_clean_snapshot(self):
         gate = load_gate()
         for key, request in (("requested_reviewers", dict(login="reviewer")),
