@@ -119,3 +119,26 @@ Rust example checks cover core behavior; update affected instructions alongside
 feature changes, and review screenshots when the interface changes. Complete
 coverage of the original documentation remains a separate writing and
 verification task, tracked in the writing plan.
+
+## Retiring the former guide address
+
+Before the old `johnneerdael/audio-tag-guide` Pages site is archived or
+disabled, replace its published content once with forwarding pages so existing
+bookmarks keep working. Commit to that repository's Pages branch an
+`index.html` and a `404.html` that both send the visitor to the same path on
+`https://opentag.neerdael.nl/`:
+
+```html
+<!doctype html>
+<meta charset="utf-8">
+<title>Moved to opentag.neerdael.nl</title>
+<link rel="canonical" href="https://opentag.neerdael.nl/">
+<script>
+  const path = location.pathname.replace(/^\/audio-tag-guide/, '');
+  location.replace('https://opentag.neerdael.nl' + (path || '/') + location.search + location.hash);
+</script>
+<p>The guide moved to <a href="https://opentag.neerdael.nl/">opentag.neerdael.nl</a>.</p>
+```
+
+Keep that repository's Pages site enabled until the forwarding pages are live.
+This one-time step is outside this repository's reviewed publication path.
