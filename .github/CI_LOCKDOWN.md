@@ -12,13 +12,13 @@ Conflicting PRs and pending test-merge calculations remain blocked without dispa
 
 On a main push, `reviewed-release.yml` is dispatched only for a uniquely associated merged PR with clean final-head Codex review and successful trusted validation proof. The published source must have the exact validated parents and tree. The release workflow verifies this before building/signing and again before publication. Direct main containment/bootstrap commits have no source PR and authorize no release. Existing platform, version, signature, checksum and complete-asset checks remain in the new release workflow.
 
-Enable only the new controller, metadata signal, reviewed PR workflow, reusable reviewed build and reviewed release paths after installation. Require `Codex review` and `Reviewed PR builds` plus applicable checks through main branch protection/rulesets. Run a manual metadata recheck with:
+Enable only the new controller, metadata signal, review-metadata invalidation, reviewed PR workflow, reusable reviewed build and reviewed release paths after installation. Require `Codex review` and `Reviewed PR builds` plus applicable checks through main branch protection/rulesets. Run a manual metadata recheck with:
 
 ```sh
 gh workflow run review-controller.yml --ref main -f pr_number=17
 ```
 
-An actual failed build requires an explicit `retry_build=true` dispatch after investigating it. API failures and stale heads deny application execution. Reactions have no direct Actions event, so scheduled reconciliation also checks every five minutes; GitHub may delay schedules. No Pages/site or release-note changes are included in this emergency bootstrap. Rebase later workflow PRs onto these paths so they cannot restore automatic execution.
+An actual failed build requires an explicit `retry_build=true` dispatch after investigating it. API failures and stale heads deny application execution. Reactions have no direct Actions event and nothing polls for them: the controller has no schedule and does not run on PR pushes or comments. It runs when a review is posted or dismissed, when a PR description is edited (the release notes are checked), when a validation it dispatched finishes, on a main push, or when you dispatch it for one PR. The separate `review-metadata-invalidation.yml` job checks recognized code-review commands (including trailing instructions), reviewer/team requests, draft conversion and connector comments against trusted `main` metadata. It withdraws stale review and build statuses, including after an edited request or failed metadata read, but cannot dispatch application builds or restore validation success. Ordinary PR discussion skips that job. Opening or reopening a PR, changing its head, marking it ready, or changing its base resets all three commit statuses to pending to withdraw approval and validation inherited from another PR. Base changes run only this invalidation path; dispatch the controller for a fresh review, notes and build check. Dispatch the controller once a PR has a clean Codex review and again immediately before merging, then wait for `Reviewed PR builds`. No Pages/site or release-note changes are included in this emergency bootstrap. Rebase later workflow PRs onto these paths so they cannot restore automatic execution.
 
 Local checks:
 
@@ -28,6 +28,8 @@ node --test tests/release.test.mjs
 actionlint -ignore 'unexpected key "queue" for "concurrency" section' .github/workflows/*.yml
 git diff --check
 ```
+
+Commit statuses are shared by SHA. Withhold review, release-note and build success while another open PR anywhere in the repository has the exact same head, including drafts and PRs targeting another base. Check the paginated live open-PR list before reconciliation success, validation authorization/completion and release authorization; API failures deny approval. Close one PR or advance one head before rechecking. Lifecycle invalidation watches all base branches so opening a sibling PR also withdraws inherited statuses. These live checks are not atomic PR identity isolation; repeat the live merge-readiness check immediately before merging.
 
 ## User guide publication
 

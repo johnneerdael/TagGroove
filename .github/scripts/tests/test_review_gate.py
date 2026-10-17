@@ -3,7 +3,9 @@ import importlib.util
 from pathlib import Path
 import sys
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
+
+from test_codex_review import pr as reviewed_pull, review, thumb
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -38,6 +40,267 @@ class GateTests(unittest.TestCase):
     def test_unreviewed_pr_never_dispatches(self):
         self.api.snapshot.return_value = (pull(), (False, 'No current Codex review'))
         self.gate.reconcile(self.api, 17)
+        self.api.post.assert_not_called()
+
+    def test_new_or_edited_request_invalidates_an_unchanged_validated_head_without_dispatch(self):
+        from codex_review import eligibility
+        item = reviewed_pull()
+        event = dict(issue=dict(number=17, pull_request={}), comment=dict(
+            user=dict(login='author', type='User'), body='@codex review',
+            created_at='2026-10-15T11:00:00Z'))
+        self.assertTrue(eligibility(item, [review()], [], [], [thumb()])[0])
+        self.api.get.side_effect = None
+        self.api.get.return_value = item
+        self.api.snapshot.return_value = (item, eligibility(item, [review()], [event['comment']], [], [thumb()]))
+        for edited in (False, True):
+            with self.subTest(edited=edited):
+                if edited:
+                    event['changes'] = dict(body={'from': 'Please check this PR'})
+                    event['comment']['created_at'] = '2026-10-15T09:00:00Z'
+                    event['comment']['updated_at'] = '2026-10-15T11:00:00Z'
+                self.api.snapshot.return_value = (item, eligibility(item, [review()], [event['comment']], [], [thumb()]))
+                statuses = {'Codex review': 'success', 'Reviewed PR builds': 'success'}
+                self.api.status.side_effect = lambda head, state, reason, context, url=None: statuses.update({context: state})
+                self.api.status.reset_mock()
+                self.gate.invalidate_metadata(self.api, event)
+                self.assertEqual(statuses, {'Codex review': 'pending', 'Reviewed PR builds': 'pending'})
+                self.assertEqual(self.api.status.call_count, 2)
+                for call in self.api.status.call_args_list:
+                    self.assertEqual(call.args[:2], (HEAD, 'pending'))
+                self.api.post.assert_not_called()
+                self.api.runs.assert_not_called()
+
+    def test_review_request_with_instructions_withdraws_unchanged_head_approval(self):
+        from codex_review import eligibility
+        item = reviewed_pull()
+        comment = dict(user=dict(login='author', type='User'),
+                       body='@codex review the complete final code diff at this head',
+                       created_at='2026-10-15T11:00:00Z')
+        self.assertTrue(eligibility(item, [review()], [], [], [thumb()])[0])
+        eligible = eligibility(item, [review()], [comment], [], [thumb()])
+        self.assertFalse(eligible[0])
+        self.api.get.side_effect = None
+        self.api.get.return_value = item
+        self.api.snapshot.return_value = (item, eligible)
+        self.gate.invalidate_metadata(self.api, dict(issue=dict(number=17, pull_request={}), comment=comment))
+        self.assertEqual(self.api.status.call_count, 2)
+        for call in self.api.status.call_args_list:
+            self.assertEqual(call.args[:2], (HEAD, 'pending'))
+        self.api.post.assert_not_called()
+        self.api.runs.assert_not_called()
+
+    def test_reviewer_team_and_draft_changes_withdraw_unchanged_head_approval_without_dispatch(self):
+        from codex_review import eligibility
+        for field, value, action in [
+                ('requested_reviewers', [dict(login='reviewer')], 'review_requested'),
+                ('requested_teams', [dict(slug='maintainers')], 'review_requested'),
+                ('draft', True, 'converted_to_draft')]:
+            with self.subTest(field=field):
+                item = reviewed_pull()
+                self.assertTrue(eligibility(item, [review()], [], [], [thumb()])[0])
+                item[field] = value
+                self.api.get.side_effect = None
+                self.api.get.return_value = item
+                self.api.snapshot.return_value = (item, eligibility(item, [review()], [], [], [thumb()]))
+                statuses = {'Codex review': 'success', 'Reviewed PR builds': 'success'}
+                self.api.status.side_effect = lambda head, state, reason, context, url=None: statuses.update({context: state})
+                self.api.status.reset_mock()
+                self.gate.invalidate_metadata(self.api, dict(number=17, action=action, pull_request=item))
+                self.assertEqual(statuses, {'Codex review': 'pending', 'Reviewed PR builds': 'pending'})
+                for call in self.api.status.call_args_list:
+                    self.assertEqual(call.args[:2], (HEAD, 'pending'))
+                self.api.post.assert_not_called()
+                self.api.runs.assert_not_called()
+
+    def test_lifecycle_cannot_inherit_green_statuses_from_another_pr_or_revision(self):
+        from codex_review import eligibility
+        for action in ('opened', 'reopened', 'synchronize', 'ready_for_review', 'edited'):
+            with self.subTest(action=action):
+                item = reviewed_pull()
+                item['number'] = 17
+                # A new PR has no review; even a later transition with its own
+                # clean review must not inherit another PR's notes/build proof.
+                reviews = [] if action == 'opened' else [review()]
+                eligible = eligibility(item, reviews, [], [], [thumb()])
+                self.assertEqual(eligible[0], action != 'opened')
+                self.api.get.side_effect = None
+                self.api.get.return_value = item
+                self.api.snapshot.return_value = (item, eligible)
+                statuses = {'Codex review': 'success', 'Release notes': 'success', 'Reviewed PR builds': 'success'}
+                self.api.status.side_effect = lambda head, state, reason, context, url=None: statuses.update({context: state})
+                self.api.status.reset_mock()
+                event = dict(number=17, action=action, pull_request=dict(head=dict(sha=SOURCE)))
+                if action == 'edited':
+                    event['changes'] = dict(base=dict(ref={'from': 'release'}, sha={'from': BASE}))
+                self.gate.invalidate_metadata(self.api, event)
+                self.assertEqual(statuses, dict.fromkeys(statuses, 'pending'))
+                for call in self.api.status.call_args_list:
+                    self.assertEqual(call.args[:2], (HEAD, 'pending'))
+                self.api.snapshot.assert_not_called()
+                self.api.post.assert_not_called()
+                self.api.runs.assert_not_called()
+
+    def test_body_or_title_edits_remain_with_the_existing_notes_controller(self):
+        for field in ('body', 'title'):
+            self.gate.invalidate_metadata(self.api, dict(number=17, action='edited',
+                pull_request=reviewed_pull(), changes={field: {'from': 'Previous text'}}))
+        self.api.get.assert_not_called()
+        self.api.snapshot.assert_not_called()
+        self.api.status.assert_not_called()
+        self.api.post.assert_not_called()
+
+    def test_shared_head_stays_pending_through_reconcile_and_completion_until_sibling_closes(self):
+        approved = pull()
+        sibling = {**pull(), 'number': 18}
+        open_prs = [approved, sibling]
+        statuses = dict.fromkeys(('Codex review', 'Release notes', 'Reviewed PR builds'),
+                                 dict(state='success', description=f'Passed {BASE} {MERGE}'))
+        def status(head, state, reason, context='Codex review', url=None):
+            self.assertEqual(head, HEAD)
+            statuses[context] = dict(state=state, description=reason)
+        def pages(path):
+            if path == 'pulls?state=open&per_page=100':
+                return open_prs
+            return [dict(context=context, **value) for context, value in statuses.items()]
+        def get(path):
+            if path == 'pulls/18':
+                return sibling
+            if path == 'git/ref/heads/main':
+                return dict(object=dict(sha=BASE))
+            return dict(parents=[dict(sha=BASE), dict(sha=HEAD)])
+        self.api.get.side_effect = get
+        self.api.pages.side_effect = pages
+        self.api.status.side_effect = status
+        self.api.snapshot.return_value = (approved, (True, 'Clean own-PR review'))
+        self.gate.invalidate_metadata(self.api, dict(number=18, action='opened', pull_request=sibling))
+        self.assertTrue(all(value['state'] == 'pending' for value in statuses.values()))
+        self.gate.reconcile(self.api, 17)
+        self.gate.finish(self.api, 17, (HEAD, BASE, MERGE), 'success', 'success', 'url')
+        self.assertTrue(all(value['state'] == 'pending' for value in statuses.values()), statuses)
+        self.api.post.assert_not_called()
+        with self.assertRaisesRegex(RuntimeError, 'shares.*open PR'):
+            self.gate.check_pr(self.api, 17, (HEAD, BASE, MERGE))
+        open_prs.pop()
+        self.gate.reconcile(self.api, 17)
+        self.api.post.assert_called_once()
+        self.gate.finish(self.api, 17, (HEAD, BASE, MERGE), 'success', 'success', 'url')
+        self.assertTrue(all(value['state'] == 'success' for value in statuses.values()), statuses)
+
+    def test_other_base_sibling_opening_also_withdraws_shared_statuses(self):
+        sibling = {**pull(), 'number': 18, 'base': dict(ref='release')}
+        self.api.get.side_effect = None
+        self.api.get.return_value = sibling
+        self.gate.invalidate_metadata(self.api, dict(number=18, action='opened', pull_request=sibling))
+        self.assertEqual({call.kwargs.get('context') for call in self.api.status.call_args_list},
+                         {'Codex review', 'Release notes', 'Reviewed PR builds'})
+        self.assertTrue(all(call.args[1] == 'pending' for call in self.api.status.call_args_list))
+        self.api.snapshot.assert_not_called()
+        self.api.post.assert_not_called()
+
+    def test_open_head_listing_failure_cannot_restore_any_success_or_dispatch(self):
+        self.api.pages.side_effect = RuntimeError('Temporary listing failure')
+        self.gate.reconcile(self.api, 17)
+        self.gate.finish(self.api, 17, (HEAD, BASE, MERGE), 'success', 'success', 'url')
+        self.assertEqual({call.kwargs.get('context') for call in self.api.status.call_args_list},
+                         {'Codex review', 'Release notes', 'Reviewed PR builds'})
+        self.assertTrue(all(call.args[1] == 'pending' for call in self.api.status.call_args_list))
+        self.api.post.assert_not_called()
+
+    def test_sibling_opened_during_reconcile_withdraws_earlier_success_before_dispatch(self):
+        sibling = dict(number=18, head=dict(sha=HEAD))
+        self.api.pages.side_effect = [[], [], [], [sibling]]
+        statuses = {}
+        self.api.status.side_effect = lambda head, state, reason, context, url=None: statuses.update({context: state})
+        self.gate.reconcile(self.api, 17)
+        self.assertEqual(statuses, dict.fromkeys(('Codex review', 'Release notes', 'Reviewed PR builds'), 'pending'))
+        self.api.post.assert_not_called()
+
+    def test_sibling_opened_before_result_success_withdraws_all_approval(self):
+        sibling = dict(number=18, head=dict(sha=HEAD))
+        self.api.pages.side_effect = [[], [], [sibling]]
+        self.gate.finish(self.api, 17, (HEAD, BASE, MERGE), 'success', 'success', 'url')
+        self.assertEqual({call.kwargs.get('context') for call in self.api.status.call_args_list},
+                         {'Codex review', 'Release notes', 'Reviewed PR builds'})
+        self.assertTrue(all(call.args[1] == 'pending' for call in self.api.status.call_args_list))
+        self.api.post.assert_not_called()
+
+    def test_duplicate_on_second_open_pr_page_blocks_authorization(self):
+        api = self.gate.GitHub('owner/repo')
+        pages = [[dict(number=17, head=dict(sha=HEAD))], [dict(number=18, head=dict(sha=HEAD))]]
+        with patch.object(api, 'request', return_value=pages) as request:
+            with self.assertRaisesRegex(RuntimeError, 'shares.*open PR'):
+                self.gate.require_unique_open_head(api, 17, HEAD)
+            request.assert_called_once_with('repos/owner/repo/pulls?state=open&per_page=100', paginate=True)
+            pages[1][0]['head']['sha'] = SOURCE
+            self.gate.require_unique_open_head(api, 17, HEAD)
+
+    def test_release_authorization_rejects_open_sibling_at_same_head(self):
+        item = pull()
+        item.update(state='closed', merged=True, merge_commit_sha=SOURCE)
+        self.api.snapshot.return_value = (item, (True, 'Clean'))
+        self.api.pages.return_value = [dict(number=18, head=dict(sha=HEAD), base=dict(ref='release'))]
+        with self.assertRaisesRegex(RuntimeError, 'shares.*open PR'):
+            self.gate.check_release(self.api, 17, HEAD, SOURCE)
+        self.api.post.assert_not_called()
+
+    def test_unrelated_and_untrusted_comments_do_not_invalidate_or_dispatch(self):
+        item = reviewed_pull()
+        self.api.get.side_effect = None
+        self.api.get.return_value = item
+        for body, login in [('Looks good', 'author'), ('@codex review', 'outsider')]:
+            self.gate.invalidate_metadata(self.api, dict(issue=dict(number=17, pull_request={}),
+                comment=dict(body=body, user=dict(login=login, type='User'))))
+        self.api.snapshot.assert_not_called()
+        self.api.status.assert_not_called()
+        self.api.post.assert_not_called()
+
+    def test_connector_finding_invalidates_unchanged_head_without_dispatch(self):
+        from codex_review import eligibility
+        item = reviewed_pull()
+        comment = dict(user=dict(login='chatgpt-codex-connector[bot]', type='Bot'), body=(
+            '<!-- codex-review-state:v1 {"code_review":{"commit_sha":"' + HEAD +
+            '","status":"completed","has_any_findings":true,"has_unresolved_findings":true}} -->\n'
+            '<!-- codex-pull-request-review-summary -->'))
+        self.api.get.side_effect = None
+        self.api.get.return_value = item
+        self.api.snapshot.return_value = (item, eligibility(item, [review()], [comment], [], [thumb()]))
+        self.gate.invalidate_metadata(self.api, dict(issue=dict(number=17, pull_request={}), comment=comment))
+        self.assertEqual(self.api.status.call_count, 2)
+        self.api.post.assert_not_called()
+
+    def test_initial_pr_lookup_retries_before_withdrawing_stale_approval(self):
+        from codex_review import eligibility
+        item = reviewed_pull()
+        comment = dict(user=dict(login='author', type='User'), body='@codex review',
+                       created_at='2026-10-15T11:00:00Z')
+        self.api.get.side_effect = [RuntimeError('Temporary PR lookup failure'), item]
+        self.api.snapshot.return_value = (item, eligibility(item, [review()], [comment], [], [thumb()]))
+        self.gate.invalidate_metadata(self.api, dict(issue=dict(number=17, pull_request={}), comment=comment))
+        self.assertEqual(self.api.get.call_count, 2)
+        self.assertEqual(self.api.status.call_count, 2)
+        for call in self.api.status.call_args_list:
+            self.assertEqual(call.args[:2], (HEAD, 'pending'))
+        self.api.post.assert_not_called()
+        self.api.runs.assert_not_called()
+
+    def test_connector_metadata_api_failure_withdraws_old_approval(self):
+        item = reviewed_pull()
+        self.api.get.side_effect = None
+        self.api.get.return_value = item
+        self.api.snapshot.side_effect = RuntimeError('Cannot read review history')
+        self.gate.invalidate_metadata(self.api, dict(issue=dict(number=17, pull_request={}),
+            comment=dict(body='Review finding', user=dict(login='chatgpt-codex-connector[bot]', type='Bot'))))
+        self.assertEqual(self.api.status.call_count, 2)
+        self.api.post.assert_not_called()
+
+    def test_clean_completion_does_not_restore_or_dispatch_validation(self):
+        item = reviewed_pull()
+        self.api.get.side_effect = None
+        self.api.get.return_value = item
+        self.api.snapshot.return_value = (item, (True, 'Clean'))
+        self.gate.invalidate_metadata(self.api, dict(issue=dict(number=17, pull_request={}),
+            comment=dict(body='Review complete', user=dict(login='chatgpt-codex-connector[bot]', type='Bot'))))
+        self.api.status.assert_not_called()
         self.api.post.assert_not_called()
 
     def test_conflicting_or_pending_merge_stays_blocked_without_controller_error(self):
@@ -109,7 +372,8 @@ class GateTests(unittest.TestCase):
         item = pull()
         item.update(state='closed', merged=True, merge_commit_sha=SOURCE)
         self.api.snapshot.return_value = (item, (True, 'Clean'))
-        self.api.pages.return_value = [dict(context='Reviewed PR builds', state='success', description=f'Passed {BASE} {MERGE}', target_url='https://github.com/owner/repo/actions/runs/7', creator=dict(login='github-actions[bot]', type='Bot'))]
+        proof = dict(context='Reviewed PR builds', state='success', description=f'Passed {BASE} {MERGE}', target_url='https://github.com/owner/repo/actions/runs/7', creator=dict(login='github-actions[bot]', type='Bot'))
+        self.api.pages.side_effect = lambda path: [proof] if path.startswith('commits/') else []
         self.api.repo = 'owner/repo'
         def get(path):
             if path == 'actions/runs/7':
@@ -129,7 +393,7 @@ class GateTests(unittest.TestCase):
             with self.subTest(field=key), self.assertRaises(RuntimeError):
                 self.gate.check_release(self.api, 17, HEAD, SOURCE)
         self.api.get.side_effect = get
-        self.api.pages.return_value[0]['description'] = f'Passed {HEAD} {MERGE}'
+        proof['description'] = f'Passed {HEAD} {MERGE}'
         with self.assertRaises(RuntimeError):
             self.gate.check_release(self.api, 17, HEAD, SOURCE)
 
@@ -145,6 +409,44 @@ class WorkflowTrustTests(unittest.TestCase):
             self.assertNotIn('  push:', header)
             self.assertNotIn('  pull_request:', header)
             self.assertNotIn('  pull_request_target:', header)
+
+    def test_review_controller_has_no_polling_or_per_push_triggers(self):
+        workflows = ROOT.parent / 'workflows'
+        controller = (workflows / 'review-controller.yml').read_text().split('jobs:')[0]
+        for trigger in ['push', 'workflow_run', 'workflow_dispatch']:
+            self.assertIn(f'  {trigger}:', controller)
+        for trigger in ['pull_request', 'issue_comment', 'schedule']:
+            self.assertNotIn(f'  {trigger}:', controller)
+        self.assertNotIn('cron:', controller)
+        # Only an edited description re-checks the release notes; pushes and comments never run it.
+        source = (workflows / 'review-controller.yml').read_text()
+        # An edit reconciles only the edited PR, never every open PR.
+        self.assertIn("PR_NUMBER: ${{ inputs.pr_number || github.event.pull_request.number || '0' }}", source)
+        self.assertRegex(controller, r'pull_request_target:\n    branches: \[main\]\n    types: \[edited\]\n')
+        # Review events still invalidate an earlier approval, through the unprivileged relay.
+        self.assertIn('workflows: [Review metadata signal, Reviewed PR validation]', controller)
+        signal = (workflows / 'review-metadata-signal.yml').read_text().split('jobs:')[0]
+        for trigger in ['pull_request_review', 'pull_request_review_comment']:
+            self.assertIn(f'  {trigger}:', signal)
+        for trigger in ['pull_request', 'issue_comment', 'schedule']:
+            self.assertNotIn(f'  {trigger}:', signal)
+
+    def test_metadata_invalidation_uses_trusted_main_without_build_permissions(self):
+        source = (ROOT.parent / 'workflows/review-metadata-invalidation.yml').read_text()
+        for required in ['issue_comment:', 'types: [created, edited, deleted]',
+                         'pull_request_target:', 'types: [opened, reopened, synchronize, ready_for_review, edited, review_requested, converted_to_draft]',
+                         "github.event_name == 'pull_request_target'",
+                         "github.event.action != 'edited' || github.event.changes.base",
+                         'github.event.issue.pull_request', "contains(github.event.comment.body, '@codex')",
+                         "contains(github.event.changes.body.from, '@codex')",
+                         "github.event.comment.user.login == 'chatgpt-codex-connector[bot]'",
+                         'ref: main', 'persist-credentials: false', 'review_gate.py invalidate-metadata']:
+            self.assertIn(required, source)
+        for denied in ['actions: write', 'secrets.', 'inputs.merge_sha', 'review_gate.py reconcile', 'workflow_run:', 'branches: [main]']:
+            self.assertNotIn(denied, source)
+        controller = (ROOT.parent / 'workflows/review-controller.yml').read_text()
+        self.assertNotIn('Review metadata invalidation', controller)
+        self.assertIn("if: github.event_name != 'pull_request_target' || !github.event.changes.base", controller)
 
     def test_reusable_build_rechecks_review_and_authenticates_main_caller(self):
         import re
