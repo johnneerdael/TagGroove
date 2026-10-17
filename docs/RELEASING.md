@@ -157,6 +157,14 @@ python3 scripts/audio-source-bundle.py --source-sha FULL_RELEASE_COMMIT --versio
 
 The builder accepts `--cargo-vendor` and `--dist` for already prepared dependency/frontend directories; otherwise it runs `cargo vendor --locked --versioned-dirs` and uses the checkout's `dist`. A source archive must contain evidence from every required target. Local fixture tests use tiny synthetic archives and manifests; they prove validation behavior, not seven-platform compilation or codec parity. Desktop workspace tests execute the native corpus on their host runners. Android and iOS build/package evidence does not establish runtime fingerprint equivalence on devices or simulators; those require separate execution and comparison.
 
+### Native evidence roots for mobile builds
+
+Set `OPENTAG_AUDIO_BUILD_ROOT` to a fresh absolute directory for each release run, then export `TAURI_OPENTAG_AUDIO_BUILD_ROOT="$OPENTAG_AUDIO_BUILD_ROOT"` before invoking the Tauri Android or iOS CLI. Tauri forwards `TAURI`-prefixed variables to its IDE build scripts; the original `OPENTAG` variable does not cross that boundary reliably.
+
+The native build script accepts the Tauri alias when `OPENTAG_AUDIO_BUILD_ROOT` is absent. The original variable takes precedence when both are present, and either selected override must be absolute. Without either override, native output belongs to Cargo's `OUT_DIR`.
+
+Pass the same fresh directory to `audio-source-bundle.py --native-evidence`. Collection requires exactly one native prefix for the requested target and verifies its manifest and files before publication. Keep that check strict; an app build succeeding does not establish that native evidence was collected from the intended directory.
+
 ## Android signing setup
 
 Repository Actions secrets must contain:
