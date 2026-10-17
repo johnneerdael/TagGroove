@@ -10,7 +10,7 @@ export type CatalogMeta = {name: string; locale: string};
 /** English source segments with a code-owned separator; translate parts once before joining. */
 export type MessageText = string | {parts: readonly string[]; separator: string};
 
-const PLACEHOLDER = /\{([A-Za-z][A-Za-z0-9]*)\}/g;
+const PLACEHOLDER = /\{([A-Za-z][A-Za-z0-9_]*)\}/g;
 /** These batch frames require producer parts; their raw names can contain the frame itself. */
 const PARTS_ONLY = new Set([
   '{value} / action {value2}: {error}',
@@ -106,7 +106,7 @@ export function parse(source: string): Node[] {
         if (comma > index && (close < 0 || comma < close)) {
           const name = source.slice(index + 1, comma).trim();
           const rest = /^\s*plural\s*,/.exec(source.slice(comma + 1));
-          if (rest && /^[A-Za-z][A-Za-z0-9]*$/.test(name)) {
+          if (rest && /^[A-Za-z][A-Za-z0-9_]*$/.test(name)) {
             if (text) out.push(text);text = '';
             index = comma + 1 + rest[0].length;
             const forms: [string, Node[]][] = [];
@@ -125,7 +125,7 @@ export function parse(source: string): Node[] {
             continue;
           }
         }
-        const simple = /^\{([A-Za-z][A-Za-z0-9]*)\}/.exec(source.slice(index));
+        const simple = /^\{([A-Za-z][A-Za-z0-9_]*)\}/.exec(source.slice(index));
         if (simple) {if (text) out.push(text);text = '';out.push({name: simple[1]});index += simple[0].length;continue;}
       }
       text += c;index++;

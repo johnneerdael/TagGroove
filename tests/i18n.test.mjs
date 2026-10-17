@@ -148,3 +148,37 @@ test('nested plural categories are validated recursively and invalid keys are re
   assert.deepEqual(validateCatalog(english,{[key]:valid}),{missing:[],unknown:[],placeholders:[],invalid:[]});
   assert.equal(new Translator('fr',{[key]:valid}).t(key,{count:1,selected:2}),'2 selected');
 });
+
+
+test('source-owned underscored placeholders render native limits and remain consistent through plural validation',async()=>{
+  const files=['columns','file_ops','tag_panel','utilities'];
+  const sources=Object.fromEntries(await Promise.all(files.map(async file=>[file,await readFile(new URL(`../src-tauri/src/${file}.rs`,import.meta.url),'utf8')])));
+  const constants=Object.fromEntries(Object.values(sources).flatMap(source=>[...source.matchAll(/\bconst\s+([A-Z][A-Z0-9_]*):\s*\w+\s*=\s*(\d+)\s*;/g)].map(([,name,value])=>[name,Number(value)])));
+  const producers=[
+    ['columns','Configure between 1 and {MAX_COLUMNS} File List columns'],
+    ['columns','{name}: width must be between {MIN_WIDTH} and {MAX_WIDTH} pixels'],
+    ['file_ops','Select at most {PLAY_LIMIT} files to play'],
+    ['tag_panel','The tag panel supports at most {MAX_FIELDS} fields'],
+    ['tag_panel','{key}: at most {MAX_VALUES} custom values are supported'],
+    ['utilities','Select at most {TOOL_LIMIT} files to run a tool for each file'],
+  ];
+  const fill=(text,params)=>text.replace(/\{([A-Za-z][A-Za-z0-9_]*)\}/g,(_,name)=>{assert.ok(name in params,name);return String(params[name]);});
+  for(const [file,key] of producers){
+    const sourceKey=[key,key.replace('{name}','{label}')].find(candidate=>sources[file].includes(`"${candidate}"`));
+    assert.ok(sourceKey,key);
+    const params={...constants,label:'Title',name:'Title',key:'ARTIST'},shown=fill(sourceKey,params);
+    for(const locale of ['de','nl','en']){
+      const translator=new Translator(locale,catalogs[locale]),expected=fill(catalogs[locale][key],params);
+      assert.equal(translator.translate(shown),expected,`${locale}: native ${shown}`);
+      assert.equal(translator.t(key,params),expected,`${locale}: explicit ${key}`);
+    }
+  }
+  for(const key of Object.keys(english).filter(key=>!key.startsWith('@'))){
+    const names=[...new Set([...key.matchAll(/\{([A-Za-z][A-Za-z0-9_]*)\}/g)].map(match=>match[1]))].sort();
+    assert.deepEqual([...placeholders(key)].sort(),names,key);
+  }
+  const key='Count {file_count} for {name_2}',value='{file_count, plural, one {# for {name_2}} other {# for {name_2}}}';
+  assert.deepEqual(validateCatalog({[key]:key},{[key]:value}),{missing:[],unknown:[],placeholders:[],invalid:[]});
+  assert.equal(new Translator('en',{[key]:value}).t(key,{file_count:2,name_2:'{MAX_COLUMNS} / Help'}),'2 for {MAX_COLUMNS} / Help');
+  assert.equal(new Translator('en',{}).t('Literal {not a placeholder}, {file-name}, {2name} stays',{name:'Wrong'}),'Literal {not a placeholder}, {file-name}, {2name} stays');
+});

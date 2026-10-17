@@ -22,11 +22,13 @@ Two further tests exercise the public history-label helper with authored name
 padding, unknown labels, counts, name collisions and once-only nested rendering.
 Two review regressions cover locale-sensitive exact/category selection through
 explicit and captured values, and nested-category rejection/usable-catalog
-filtering with valid nested forms retained. All eleven pure cases remain in the
+filtering with valid nested forms retained. A further producer-bound case covers every catalog identifier and underscored
+native limit values through direct/captured rendering and plural parsing. All
+twelve pure cases remain in the
 same test module when the complete application test suite is
 integrated; the later source-bound extraction and UI tests must also be kept.
 
-Fresh local checks passed 395 UI/model tests with zero failures or skips, the
+Fresh local checks passed 396 UI/model tests with zero failures or skips, the
 production build, the strict 172-page guide and eight publication tests. One
 existing UI case compiles a temporary pure Rust helper; it is separate from
 application-native qualification. All 1,353 existing tracked base files are
@@ -38,6 +40,7 @@ identical native inputs; no new Cargo or application-native run was performed.
 This dependency PR requires its own exact-head Codex code approval, trusted
 validation and normal merge.
 The final integration must preserve every original `ed9beee` test and the two
-additional helper tests plus both plural corrections and their regressions.
+additional helper tests, both plural corrections and the consistent underscore
+placeholder grammar with its producer-bound regression.
 The complete extractor and source-key idempotence
 checks belong to the activation layer, where their actual producers exist.
