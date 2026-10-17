@@ -56,7 +56,7 @@ jobs:
           python-version: '3.12'
       - run: python3 -m unittest discover -s .github/scripts/tests -v
       - run: node --test tests/release.test.mjs
-      - run: python3 -m unittest discover -s scripts/tests -p test_audio_source_bundle.py -v
+      - run: python3 -m unittest discover -s scripts/tests -p 'test_audio*.py' -v
       - run: python3 scripts/audio-deps/test_build.py
   desktop:
     needs: authorize
@@ -132,11 +132,14 @@ jobs:
             if ($actualSha256 -ne $expectedSha256) { throw "FFmpeg archive SHA-256 mismatch: expected $expectedSha256, got $actualSha256" }
             Expand-Archive $zip -DestinationPath (Join-Path $env:RUNNER_TEMP 'ffmpeg')
             $bin = (Get-ChildItem (Join-Path $env:RUNNER_TEMP 'ffmpeg') -Recurse -Filter ffmpeg.exe | Select-Object -First 1).DirectoryName
+            if (-not $bin) { throw 'FFmpeg executable missing from verified archive' }
             Add-Content $env:GITHUB_PATH $bin
-            $env:PATH = "$bin;$env:PATH"
+            $env:PATH = "$bin;$env:PATH" # this step only; GITHUB_PATH above carries it to later steps
           }
           if (-not (Test-Path (Join-Path $nasmDirectory 'nasm.exe'))) { throw "NASM installation missing (Chocolatey exit code $LASTEXITCODE)" }
           $nasmDirectory | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          # GitHub's pwsh wrapper ends the step with `exit $LASTEXITCODE`; forget a retried Chocolatey failure once ffmpeg and NASM are verified.
+          $global:LASTEXITCODE = 0
       - run: npm ci
       - run: npm run build
       - run: npm run test:ui
@@ -240,11 +243,14 @@ jobs:
             if ($actualSha256 -ne $expectedSha256) { throw "FFmpeg archive SHA-256 mismatch: expected $expectedSha256, got $actualSha256" }
             Expand-Archive $zip -DestinationPath (Join-Path $env:RUNNER_TEMP 'ffmpeg')
             $bin = (Get-ChildItem (Join-Path $env:RUNNER_TEMP 'ffmpeg') -Recurse -Filter ffmpeg.exe | Select-Object -First 1).DirectoryName
+            if (-not $bin) { throw 'FFmpeg executable missing from verified archive' }
             Add-Content $env:GITHUB_PATH $bin
-            $env:PATH = "$bin;$env:PATH"
+            $env:PATH = "$bin;$env:PATH" # this step only; GITHUB_PATH above carries it to later steps
           }
           if (-not (Test-Path (Join-Path $nasmDirectory 'nasm.exe'))) { throw "NASM installation missing (Chocolatey exit code $LASTEXITCODE)" }
           $nasmDirectory | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          # GitHub's pwsh wrapper ends the step with `exit $LASTEXITCODE`; forget a retried Chocolatey failure once ffmpeg and NASM are verified.
+          $global:LASTEXITCODE = 0
       - name: Keep Git's link.exe from shadowing the MSVC linker in bash
         if: runner.os == 'Windows'
         shell: pwsh
@@ -330,7 +336,10 @@ jobs:
       - run: npm ci
       - run: npm run test:ui
       - name: Build debug arm64 app without release credentials
-        run: npm run tauri -- android build --debug --target aarch64 --apk --ci
+        run: |
+          # Tauri forwards this alias across the IDE build environment.
+          export TAURI_OPENTAG_AUDIO_BUILD_ROOT="$OPENTAG_AUDIO_BUILD_ROOT"
+          npm run tauri -- android build --debug --target aarch64 --apk --ci
       - name: Test native viewport, document transport and grant policy
         working-directory: src-tauri/gen/android
         run: ./gradlew :app:testArm64DebugUnitTest :tauri-plugin-document-access:testDebugUnitTest --console=plain
