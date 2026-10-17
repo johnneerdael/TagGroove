@@ -155,6 +155,9 @@ class WorkflowTrustTests(unittest.TestCase):
             self.assertNotIn(f'  {trigger}:', controller)
         self.assertNotIn('cron:', controller)
         # Only an edited description re-checks the release notes; pushes and comments never run it.
+        source = (workflows / 'review-controller.yml').read_text()
+        # An edit reconciles only the edited PR, never every open PR.
+        self.assertIn("PR_NUMBER: ${{ inputs.pr_number || github.event.pull_request.number || '0' }}", source)
         self.assertRegex(controller, r'pull_request_target:\n    branches: \[main\]\n    types: \[edited\]\n')
         # Review events still invalidate an earlier approval, through the unprivileged relay.
         self.assertIn('workflows: [Review metadata signal, Reviewed PR validation]', controller)
@@ -205,6 +208,9 @@ class WorkflowTrustTests(unittest.TestCase):
                     windows = selected('choco install ffmpeg nasm', "if: runner.os == 'Windows'")
                     for required in ('shell: pwsh', '$LASTEXITCODE', "'nasm.exe'", '$env:GITHUB_PATH'):
                         self.assertIn(required, windows)
+                    if workflow == '_reviewed-build.yml':
+                        # The retried install can leave a failing Chocolatey code behind a recovered fallback.
+                        self.assertIn('$global:LASTEXITCODE = 0', windows)
                     linux = selected('apt-get install', "if: runner.os == 'Linux'")
                     for tool in ('build-essential', 'cmake', 'make', 'nasm'):
                         self.assertRegex(linux, rf'\b{tool}\b')
