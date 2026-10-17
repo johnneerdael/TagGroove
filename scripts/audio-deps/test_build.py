@@ -1,4 +1,6 @@
 import hashlib
+from contextlib import contextmanager
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import importlib.util
 import io
 import json
@@ -7,9 +9,35 @@ from unittest import mock
 from pathlib import Path
 import tarfile
 import tempfile
+import threading
 import unittest
+import urllib.error
 
 BUILDER = Path(__file__).with_name("build.py")
+
+
+@contextmanager
+def source_server(payload, status=200):
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(status)
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+
+        def log_message(self, *args):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_port}/source.tar.gz"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
 
 class SourceSafetyTests(unittest.TestCase):
     def setUp(self):
@@ -24,6 +52,42 @@ class SourceSafetyTests(unittest.TestCase):
             path.write_bytes(b"tampered source")
             with self.assertRaisesRegex(ValueError, "SHA-256"):
                 self.build.verify_archive(path, hashlib.sha256(b"trusted source").hexdigest())
+
+    def test_empty_cache_downloads_verifies_and_extracts_source(self):
+        payload = io.BytesIO()
+        with tarfile.open(fileobj=payload, mode="w:gz") as archive:
+            data = b"project-authored source fixture\n"
+            member = tarfile.TarInfo("source/configure")
+            member.size = len(data)
+            archive.addfile(member, io.BytesIO(data))
+        body = payload.getvalue()
+        with tempfile.TemporaryDirectory() as folder, source_server(body) as url:
+            root = Path(folder)
+            downloads, sources = root / "downloads", root / "sources"
+            downloads.mkdir()
+            sources.mkdir()
+            spec = {"archive": "source.tar.gz", "directory": "source",
+                    "sha256": hashlib.sha256(body).hexdigest(), "url": url}
+            with mock.patch.dict(os.environ, {"OPENTAG_AUDIO_SOURCE_DIR": ""}):
+                result = self.build.acquire(spec, downloads, sources)
+            self.assertEqual(result, sources / "source")
+            self.assertEqual((result / "configure").read_bytes(), data)
+            self.assertEqual((downloads / "source.tar.gz").read_bytes(), body)
+            self.assertEqual(list(downloads.iterdir()), [downloads / "source.tar.gz"])
+
+    def test_failed_downloads_leave_no_cache_or_temporary_files(self):
+        for status, expected in [(200, ValueError), (503, urllib.error.HTTPError)]:
+            with self.subTest(status=status), tempfile.TemporaryDirectory() as folder, source_server(b"untrusted", status) as url:
+                root = Path(folder)
+                downloads, sources = root / "downloads", root / "sources"
+                downloads.mkdir()
+                sources.mkdir()
+                spec = {"archive": "source.tar.gz", "directory": "source",
+                        "sha256": "0" * 64, "url": url}
+                with mock.patch.dict(os.environ, {"OPENTAG_AUDIO_SOURCE_DIR": ""}), self.assertRaises(expected):
+                    self.build.acquire(spec, downloads, sources)
+                self.assertEqual(list(downloads.iterdir()), [])
+                self.assertEqual(list(sources.iterdir()), [])
 
     def test_archive_cannot_escape_owned_source_directory(self):
         for name, link in [("../escaped", None), ("root/../../escaped", None), ("root/link", "/tmp/escaped"), ("C:/escaped", None), ("root\\escaped", None)]:

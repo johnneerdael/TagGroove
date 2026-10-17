@@ -101,7 +101,7 @@ def fixture(root, original_sha=None, patched_sha=None, cargo_config=None):
     for name, data in files.items():
         path = app / name
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(data)
+        path.write_bytes(data.encode("utf-8"))
     git = lambda *args: subprocess.check_output(
         ["git", "-c", "core.hooksPath=/dev/null", "-c", "core.autocrlf=false", *args], cwd=app, text=True).strip()
     git("init", "-q")
@@ -189,6 +189,22 @@ class SourceBundleTests(unittest.TestCase):
                        "provenance/version-stamp.patch", "native/archives/chromaprint-1.tar.gz",
                        "native/licenses/chromaprint/LICENSE"]:
             self.assertTrue(any(name.endswith("/" + suffix) for name in names), suffix)
+
+    def test_fixture_source_hashes_survive_windows_text_newlines(self):
+        write_text = Path.write_text
+
+        def windows_write_text(path, data, *args, **kwargs):
+            kwargs["newline"] = "\r\n"
+            return write_text(path, data, *args, **kwargs)
+
+        # Windows translates text-mode writes even when Git autocrlf is false.
+        # Exercise the real Git export, recipe hashes and source verification.
+        with patch.object(Path, "write_text", windows_write_text):
+            f = fixture(self.f["root"] / "windows-text")
+            path = build(f)
+            manifest = self.builder.verify_bundle(path, f["commit"], "0.1.0", f["evidence"])
+        self.assertEqual(manifest["source_commit"], f["commit"])
+        self.assertEqual(set(manifest["targets"]), set(TARGETS))
 
     def test_offline_overlay_preserves_tracked_platform_linker_configuration(self):
         config = '# Project linker settings\n[target.x86_64-pc-windows-msvc]\nlinker = "rust-lld"\n'

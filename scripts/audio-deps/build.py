@@ -106,7 +106,7 @@ def acquire(spec, downloads, sources):
             shutil.copyfile(candidate, path)
     if not path.exists():
         request = urllib.request.Request(spec["url"], headers={"User-Agent": "OpenTag-source-builder/1"})
-        with tempfile.NamedTempFile(dir=downloads, delete=False) as temporary:
+        with tempfile.NamedTemporaryFile(dir=downloads, delete=False) as temporary:
             candidate = Path(temporary.name)
             try:
                 with urllib.request.urlopen(request, timeout=60) as response:
@@ -115,6 +115,7 @@ def acquire(spec, downloads, sources):
                 verify_archive(candidate, spec["sha256"])
                 candidate.replace(path)
             finally:
+                temporary.close()
                 candidate.unlink(missing_ok=True)
     verify_archive(path, spec["sha256"])
     directory = sources / spec["directory"]

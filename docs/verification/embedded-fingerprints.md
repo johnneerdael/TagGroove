@@ -199,3 +199,33 @@ The fixture directory retains its generator, raw/carrier hashes and reference
 capture. All fifteen native crate tests pass, including the unchanged fourteen
 original golden media cases, VAPC and exact-prefix regressions. This is a
 macOS arm64 API verification; the normal CI target gates remain required.
+
+## Windows source-fixture newline correction
+
+The first trusted Windows desktop run reached the source/release fixture test
+and rejected a recipe hash mismatch. Its synthetic Git repository used Python
+text writes, which insert CRLF on Windows, while its test manifest hashed the
+original LF strings. The fixture now writes its declared UTF-8 bytes directly.
+A controlled Windows-text-write regression first reproduces the same
+`Native recipe/source input differs` failure, then builds and verifies the
+source archive with all seven explicitly synthetic test manifests after the
+correction. Production source verification and native dependency hashes are
+unchanged; the real native recipe paths already require LF via `.gitattributes`.
+
+The native jobs also exposed a typo in the unexercised empty-download-cache
+path: `tempfile.NamedTempFile` is not a Python API. It now uses
+`NamedTemporaryFile`, and closes the file before cleanup even on transfer
+failure so Windows can remove it. Real loopback HTTP tests cover acquisition,
+hash verification, extraction, checksum rejection and HTTP-error cleanup with
+empty caches; all ten native source-safety tests pass. A separate fresh
+acquisition downloaded all four actual pinned upstream archives and verified
+their declared hashes. Existing archive/cache integrity checks remain intact.
+The source-bundle suite passes 22 cases, release tests 27 and CI-tooling tests
+86; workflow lint passes with the documented `queue` exception.
+
+The changed recipe rebuilt all native libraries on macOS arm64. Its 216
+installed files pass manifest/hash verification, retaining 218 audio decoders
+and zero protocols. All fifteen native producer tests pass, including the
+fourteen unchanged golden media cases, DSDIFF and exact-prefix coverage;
+affected all-target Clippy also passes. This is host qualification of the
+corrected recipe; trusted platform CI must validate the new final head.
