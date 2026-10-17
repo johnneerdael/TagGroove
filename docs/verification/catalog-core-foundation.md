@@ -211,3 +211,11 @@ regression executes the actual selected-release `chosenMarkup` producer with
 empty optional details, identifier collisions and an ordinary numeric barcode
 in DE/NL/custom catalogs. It failed before the correction; all 31 earlier
 cases remain unchanged.
+
+The numeric compatibility check also covers system formatting that differs
+from the selected UI language: valid comma-grouped counts under German and
+dot-grouped/comma-decimal counts under English keep translating. Locale
+interpretation takes precedence for ambiguous single separators; fallback
+formats still require one consistent, structurally valid grouping/decimal
+arrangement. The expanded existing case reproduced the initial guard rejecting
+a valid `1,234,567` count; all 32 core cases and 416 UI/model tests pass.

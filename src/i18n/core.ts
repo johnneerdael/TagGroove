@@ -225,8 +225,8 @@ const formattedNumber = (value: string, rules: Intl.PluralRules): string | undef
   const {decimal, group, secondary} = separatorsFor(rules);
   // These grouping glyphs also occur when system number formatting differs
   // from the selected UI language. Never mix them within a single integer.
-  const groups = new Set([group, ' ', '\u00a0', '\u202f', '\u066c', "'", '’']);
-  for (const point of new Set([decimal, '.', '\u066b'])) {
+  const groups = new Set([group, '.', ',', ' ', '\u00a0', '\u202f', '\u066c', "'", '’']);
+  for (const point of new Set([decimal, '.', ',', '\u066b'])) {
     const parts = unsigned.split(point);
     if (parts.length > 2 || parts.length === 2 && !/^\d+$/.test(parts[1])) continue;
     let integer = parts[0];

@@ -632,7 +632,7 @@ test('numeric captures reject malformed separators and retain valid locale forma
     }
   }
   const key='{count} files',catalog={[key]:'Count [{count}]'};
-  for(const [locale,value] of [['en','1,234.50'],['de','1.234,50'],['fr','1\u202f234,50'],['en-IN','1,23,456'],['en','1\u00a0234'],['ar','١٬٢٣٤٫٥'],['de','1.5']]){
+  for(const [locale,value] of [['en','1,234.50'],['de','1.234,50'],['fr','1\u202f234,50'],['en-IN','1,23,456'],['en','1\u00a0234'],['ar','١٬٢٣٤٫٥'],['de','1.5'],['de','1,234,567'],['en','1.234.567'],['en','1.234,5'],['de','1,23,456']]){
     assert.equal(new Translator(locale,catalog).translate(`${value} files`),`Count [${value}]`,`${locale}: ${value}`);
   }
   assert.equal(new Translator('de',{[key]:'{count, plural, one {# one} other {# other}}'}).translate('1.0 files'),'1.0 one');
