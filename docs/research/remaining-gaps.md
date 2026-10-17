@@ -22,7 +22,7 @@ Legend: **Impact** H = daily tagging, M = regular, L = rare or legacy. **Size** 
 | Scripting | Errors inside a format string | `$div(x,0)`, bad `$char` or an unknown function abort the whole string. The original probably degrades inline | L | S |
 | Filters | Mixed quoted and bare words | Rejected as a syntax error (`filter.rs`) | L | S |
 | Filters | AND/OR precedence | AND binds tighter. Unverified | L | S |
-| Actions | Adjust Cover min size and "Original" format | Min size only enlarges; GIF/BMP/WebP error; unchanged covers are re-encoded (`cover_ops.rs`) | L | S |
+| Actions | Adjust Cover "Original" format | TIFF and unknown formats require JPEG or PNG; original resampler, quality and rounding equivalence remain unverified ([script-export](../verification/script-export.md)) | L | S |
 | Actions | Remove Fields Except | Unmapped frames (PRIV, GEOB, chapters) survive | L | M |
 | Actions | Split Field | Keeps empty pieces (`a;;b`). Unverified | L | S |
 | Actions | Convert Codepage default | Action group dialogs start at 1251 instead of the last choice (`src/action-ui.ts:285`) | L | S |
@@ -43,7 +43,7 @@ Legend: **Impact** H = daily tagging, M = regular, L = rare or legacy. **Size** 
 | Sources | Keyed services | AcoustID, Last.fm and fanart.tv need a build or user key | L | — |
 | Sources | `.src` scripts | `[MinAppVersion*]` not enforced | L | S |
 | Sources | Mobile | No keychain for the Discogs token | L | M |
-| Formats | Native-field limits | Bare `UNIQUEFILEID` writes fail; non-empty USLT descriptions are not fully represented; some legacy 8-byte `plID` values are rejected ([CRITICAL-MAPPING](../CRITICAL-MAPPING.md)) | L | M |
+| Formats | Native-field limits | Text `UNIQUEFILEID` values require an owner and an identifier of at most 64 bytes, one per owner; binary identifiers stay opaque. `UNSYNCEDLYRICS <description>` accepts one text per language and description. Original-executable syntax and grouping equivalence remain unverified ([formats-edge](../verification/formats-edge.md), [CRITICAL-MAPPING](../CRITICAL-MAPPING.md)) | L | M |
 | Matroska | Edge cases | `TRACK` such as `3/12` is stored in `PART_NUMBER` without a `TOTAL_PARTS` split; a file without a SeekHead gets unindexed Tags, and a SeekHead with no spare room fails the write; the Segment Info title is not shown; chapters bound to other segments or ordered editions are kept but not interpreted ([formats-dsd-mkv](../verification/formats-dsd-mkv.md)) | L | M |
 | Formats | ASF/WMA | Headers over 512 MiB are refused; every write rewrites the whole file | L | M |
 | Formats | APE | A 131-byte APE tag whose items put "TAG" where ID3v1 starts is misread; header-less APEv2 tags are mishandled ([formats-edge](../verification/formats-edge.md)) | L | S |
