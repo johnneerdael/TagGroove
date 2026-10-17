@@ -8,6 +8,7 @@ use std::sync::Mutex;
 pub(super) static LOCK: Mutex<()> = Mutex::new(());
 const MAX_ENTRIES: usize = 4096;
 const MAX_BYTES: u64 = 128 * 1024 * 1024;
+const MAX_EXISTING_DEPTH: usize = 64;
 const BACKUP: &str = ".opentag-sources-previous";
 const MARKER: &str = ".opentag-source-install";
 
@@ -90,12 +91,15 @@ fn directory(
         }
         let relative = format!("{prefix}{name}");
         if kind.is_dir() {
-            if depth >= MAX_DEPTH {
+            let depth_limit = if all { MAX_EXISTING_DEPTH } else { MAX_DEPTH };
+            if depth >= depth_limit {
                 return Err(format!(
-                    "{relative}: source folders can be at most {MAX_DEPTH} levels deep."
+                    "{relative}: source folders can be at most {depth_limit} levels deep."
                 ));
             }
-            plain_name(&name)?;
+            if !all {
+                plain_name(&name)?;
+            }
             directory(
                 &entry.path(),
                 &format!("{relative}/"),
@@ -223,6 +227,12 @@ fn write_all(folder: &Path, files: &Files) -> Result<(), String> {
         std::fs::write(path, bytes).map_err(|e| format!("{name}: {e}"))?;
     }
     Ok(())
+}
+
+pub(super) fn prepare_folder_open(folder: &Path) -> Result<(), String> {
+    let _guard = LOCK.lock().map_err(|e| e.to_string())?;
+    recover(folder)?;
+    std::fs::create_dir_all(folder).map_err(|e| e.to_string())
 }
 
 pub(super) fn install(folder: &Path, paths: &[String]) -> Result<(), String> {
@@ -469,6 +479,84 @@ mod tests {
         assert_eq!(listing.sources[0].menu, "Shop#&Album");
         assert!(listing.problems.is_empty());
     }
+    #[test]
+    fn existing_hidden_directories_survive_an_update() {
+        let dir = tempfile::tempdir().unwrap();
+        let bundle = dir.path().join("download");
+        let target = dir.path().join("data/sources");
+        collection(&bundle);
+        install(&target, &selected(&bundle)).unwrap();
+        let metadata = target.join(".git/logs/refs/remotes/origin");
+        std::fs::create_dir_all(&metadata).unwrap();
+        std::fs::write(metadata.join("main"), b"retained local history").unwrap();
+        install(&target, &selected(&bundle)).unwrap();
+        assert_eq!(
+            std::fs::read(metadata.join("main")).unwrap(),
+            b"retained local history"
+        );
+        assert_eq!(super::super::list(&target).sources.len(), 1);
+    }
+
+    #[test]
+    fn folder_open_restores_an_interrupted_installation_before_creating_a_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("sources");
+        let backup = dir.path().join(BACKUP);
+        collection(&backup);
+        std::fs::write(backup.join(MARKER), b"source installer backup v1\n").unwrap();
+        prepare_folder_open(&target).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(target.join("Common.inc")).unwrap(),
+            INCLUDE
+        );
+        assert!(!backup.exists());
+    }
+
+    #[test]
+    fn folder_open_waits_for_an_installation_swap() {
+        use std::sync::mpsc;
+        use std::time::Duration;
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("sources");
+        let backup = dir.path().join(BACKUP);
+        let stage = dir.path().join("stage");
+        collection(&target);
+        collection(&stage);
+        std::fs::write(stage.join("notes.txt"), "new complete installation").unwrap();
+        let guard = LOCK.lock().unwrap();
+        std::fs::write(target.join(MARKER), b"source installer backup v1\n").unwrap();
+        std::fs::rename(&target, &backup).unwrap();
+        let (started_tx, started_rx) = mpsc::channel();
+        let (done_tx, done_rx) = mpsc::channel();
+        let folder = target.clone();
+        let opener = std::thread::spawn(move || {
+            started_tx.send(()).unwrap();
+            let result = prepare_folder_open(&folder);
+            done_tx.send(result).unwrap();
+        });
+        started_rx.recv().unwrap();
+        assert!(matches!(
+            done_rx.recv_timeout(Duration::from_millis(250)),
+            Err(mpsc::RecvTimeoutError::Timeout)
+        ));
+        assert!(
+            !target.exists(),
+            "folder opening must not recreate the swap destination"
+        );
+        std::fs::rename(&stage, &target).unwrap();
+        drop(guard);
+        done_rx
+            .recv_timeout(Duration::from_secs(5))
+            .unwrap()
+            .unwrap();
+        opener.join().unwrap();
+        assert_eq!(
+            std::fs::read_to_string(target.join("notes.txt")).unwrap(),
+            "new complete installation"
+        );
+        assert!(backup.join("Common.inc").is_file());
+    }
+
     #[test]
     fn second_file_and_dependency_errors_leave_every_installed_file_unchanged() {
         let dir = tempfile::tempdir().unwrap();

@@ -904,7 +904,7 @@ pub async fn web_sources_install(
 pub async fn web_sources_open_folder(app: tauri::AppHandle) -> Result<(), String> {
     let folder = folder(&app)?;
     blocking(move || {
-        std::fs::create_dir_all(&folder).map_err(|e| e.to_string())?;
+        installer::prepare_folder_open(&folder)?;
         #[cfg(desktop)]
         return tauri_plugin_opener::open_path(&folder, None::<&str>).map_err(|e| e.to_string());
         #[cfg(mobile)]

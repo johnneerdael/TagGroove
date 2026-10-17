@@ -98,3 +98,11 @@ secrets in general-purpose backups.
    provider-access limitation until a permitted request succeeds.
 5. Express capability limits without comparing Mp3tag `MinAppVersionWin` or
    `MinAppVersionMac` with TagGroove's unrelated application version.
+
+## Review follow-up: folder opening and existing metadata
+
+Two Codex findings were reproduced with failing regressions. The old Open sources folder action could recreate an empty active directory during a staged swap; folder preparation now takes the same installer lock and restores a marked interrupted backup before creating anything. The concurrency test holds an installation swap open and verifies folder preparation waits without recreating its destination. A second test covers recovery through the folder-opening path.
+
+Existing hidden directories were previously rejected by incoming-source name validation. Updates now preserve existing unrelated directories, including nested `.git` history, without relaxing incoming source-name/ZIP restrictions. Existing metadata traversal is bounded to64 levels; new source bundles retain the existing source nesting limit, and staging byte/entry limits still apply.
+
+After the correction, all61 web-source tests pass with2 opt-in tests ignored, strict local Clippy passes, and catalog extraction consistency/diff checks pass. The initial batch's full frontend/workspace checks above remain historical; final-head trusted cross-platform CI and fresh clean Codex review are still required.
