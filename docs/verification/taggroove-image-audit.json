@@ -3678,5 +3678,557 @@
       "classification": "generic edit-pencil SVG with no app name"
     },
     "runtime_test_data": "Provider and cover tests generate unbranded synthetic images; no replacement artwork is inferred from fixture names."
+  },
+  "replacement_content_audit": {
+    "distinct_new_contents_visually_inspected": 76,
+    "method": "Rendered every distinct changed image content in two numbered contact sheets; identical-copy aliases are verified by SHA-256. Unchanged content retains the original 412-image visual audit. Public-guide captures are still pending replacement.",
+    "contents": [
+      {
+        "sha256": "2ab38711302dc4975413dc44caf6c95a1080c5ac8eb22b327273a49ffb6d8e36",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/01-logos/app-icons/taggroove-app-icon-color.svg",
+          "assets/brand/TagGroove-Brand-Kit/02-platform-icons/linux/hicolor/scalable/apps/taggroove.svg",
+          "assets/brand/TagGroove-Brand-Kit/02-platform-icons/web/favicon.svg",
+          "docs/user-guide/assets/brand/favicon.svg",
+          "public/brand/favicon.svg",
+          "src-tauri/icon.svg",
+          "src-tauri/icons/linux/hicolor/scalable/apps/taggroove.svg",
+          "src-tauri/icons/taggroove.svg"
+        ],
+        "finding": "mark, glyph or decorative content without application-name lettering"
+      },
+      {
+        "sha256": "53e2830ab7170a58ba98c3c8a3e79f4bce7971e9ad5c41958bc7cbed4282b923",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/01-logos/app-icons/taggroove-app-icon-dark.svg"
+        ],
+        "finding": "mark, glyph or decorative content without application-name lettering"
+      },
+      {
+        "sha256": "53e004ac5fd6b6cbe86c20cfb3a90bd2c663497a05a1ff8845d88cefed949a9a",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/01-logos/app-icons/taggroove-app-icon-flat.svg"
+        ],
+        "finding": "mark, glyph or decorative content without application-name lettering"
+      },
+      {
+        "sha256": "c8a1c20ab4d6641889fe8eec2ce5eb53681b621c843fc8e5bc4634f03ee0159e",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/01-logos/app-icons/taggroove-app-icon-fullbleed.svg"
+        ],
+        "finding": "mark, glyph or decorative content without application-name lettering"
+      },
+      {
+        "sha256": "b0ec7996c82b4518df1844a5b8efecd439be95318f10730f3410bd6c5a09e415",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/01-logos/app-icons/taggroove-app-icon-micro.svg"
+        ],
+        "finding": "mark, glyph or decorative content without application-name lettering"
+      },
+      {
+        "sha256": "4f7bfd82f720d13b9986cf1af8e1a033fbcdb6fb8e99117245d078438b7a40ed",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/01-logos/horizontal/taggroove-logo-dark-descriptor.png"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "84d13caa27a3967d10b24aec96f343fd628d99d391740f9f8a6a4f5557b09c08",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/01-logos/horizontal/taggroove-logo-dark-descriptor.svg"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "60aaa7ec8351c3922094850fc26edd6e414348355ff5484fd437fb1a9a1f4e4b",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/01-logos/horizontal/taggroove-logo-dark-mono-descriptor.png"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "b5ffd55fd091227afb1de9de7a3d8eafe79b012d73991462bb9bd6f2717c739d",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/01-logos/horizontal/taggroove-logo-dark-mono-descriptor.svg"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "4b4b35d83a8d1ecb146ef2240091988d2414e29ebf8df4f74300e76a68d9dfc6",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/01-logos/horizontal/taggroove-logo-dark-mono.png"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "545e0ec4f8a8cc87726fa3eadd1b0b15815479391ba7c7ce0a9449eca2cd6311",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/01-logos/horizontal/taggroove-logo-dark-mono.svg"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "3c7ef656f3a59cf7a2ad485b203be77bfa0edd2c76ef40c57e037ef5c7b0979b",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/01-logos/horizontal/taggroove-logo-dark.png"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "a9a17520b5d7c19897c9adb77565514a78d64a03652aaf4819694ed81e81a045",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/01-logos/horizontal/taggroove-logo-dark.svg",
+          "docs/user-guide/assets/brand/logo-on-dark.svg"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "8790b474474e2844f5cc6a777963f210b0360a6c559b7083f901162d872989bb",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/01-logos/horizontal/taggroove-logo-light-descriptor.png"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "d28a8416e961bfccae10610ed51f7fd0b284ac6aeb2a8075e73cc96914287aeb",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/01-logos/horizontal/taggroove-logo-light-descriptor.svg"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "240d3183882a78539628e57d0ed3666fd212e797fe4775d983f2ac88060903d7",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/01-logos/horizontal/taggroove-logo-light-mono-descriptor.png"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "64fc5a1c2fe005b840d4468fcdbe8bf2e39cf834f72a69e492c7da849c862294",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/01-logos/horizontal/taggroove-logo-light-mono-descriptor.svg"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "fc8d80cdcf2c27d6d7c5f423aa8f66c05d865c3d884055caccc2fbed384e166c",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/01-logos/horizontal/taggroove-logo-light-mono.png"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "cc6d0c1356364747dfa88e23542a514d57abc6b3d6dcee44c54ae18094903d3a",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/01-logos/horizontal/taggroove-logo-light-mono.svg"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "f3691710c607836422f035fd46ea00c22c50b269cad977d4fa3497fe64683b3a",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/01-logos/horizontal/taggroove-logo-light.png"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "8649f8ea8abf5796384c6db4a9d1690a2477bf69970db7dcaaf483c670973278",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/01-logos/horizontal/taggroove-logo-light.svg",
+          "docs/user-guide/assets/brand/logo-on-light.svg"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "b18777ba5c7677f3fd4cd1059511169b5715d20ea49f9b1b50d31f8e03115af5",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/01-logos/marks/taggroove-mark-black.svg",
+          "assets/brand/TagGroove-Brand-Kit/02-platform-icons/web/safari-pinned-tab.svg",
+          "public/brand/safari-pinned-tab.svg"
+        ],
+        "finding": "mark, glyph or decorative content without application-name lettering"
+      },
+      {
+        "sha256": "7e6e4f4d068e88018ab3c0a04d6eecf83ae819a047cd99fb1f5b3ae5625ac8de",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/01-logos/marks/taggroove-mark-color.svg",
+          "docs/user-guide/assets/brand/mark.svg"
+        ],
+        "finding": "mark, glyph or decorative content without application-name lettering"
+      },
+      {
+        "sha256": "5c97872555379c225ad095111ae6482293daae0964ddacbf716545aa0d47e557",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/01-logos/marks/taggroove-mark-dark.svg"
+        ],
+        "finding": "mark, glyph or decorative content without application-name lettering"
+      },
+      {
+        "sha256": "60c984839322415a96939bcda24dd42f74cda7bd79bde3f8fabb8b3a05cac005",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/01-logos/marks/taggroove-mark-flat.svg"
+        ],
+        "finding": "mark, glyph or decorative content without application-name lettering"
+      },
+      {
+        "sha256": "62ef2bee0952f4588ea728d08819e11a3c21be0a97198189a1387ce0fb5914fc",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/01-logos/marks/taggroove-mark-white.svg"
+        ],
+        "finding": "mark, glyph or decorative content without application-name lettering"
+      },
+      {
+        "sha256": "32a9d8b6bb086b7b088f16e49c5035ce993fcc25b2bfd7adc59e7c5cf9bb86eb",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/01-logos/stacked/taggroove-logo-stacked-dark-mono.png"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "e3378d322672ffc55c3335fd5639675cb46e7839e1938cc1617ebce30f69ffac",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/01-logos/stacked/taggroove-logo-stacked-dark-mono.svg"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "90df4764240200e9e5202a3e9e9d997ef4c531fab0f78243d8a0c46017936ce3",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/01-logos/stacked/taggroove-logo-stacked-dark.png"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "11629deefcceecd2d28a8bc55b7b47c8cb00c2d04101bfed83703e18ebd7e387",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/01-logos/stacked/taggroove-logo-stacked-dark.svg"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "70a537fbf94dd16df24e405499fd33fcd656d7bb515e2207f37aa0dc8c6f2884",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/01-logos/stacked/taggroove-logo-stacked-light-mono.png"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "68597c434dc83daa159e9269c81e1d0a7fad75cfbae7ee475f9ab291799416aa",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/01-logos/stacked/taggroove-logo-stacked-light-mono.svg"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "e7c982749b9669fe52bf0b710bb360d9eda517e5c502a2a37b1ff87bb38c3577",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/01-logos/stacked/taggroove-logo-stacked-light.png"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "391222fb5041db026159d28645fa6e078007fe0d49407dff48c6b5b0e8fe24ff",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/01-logos/stacked/taggroove-logo-stacked-light.svg"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "8783984b830669c0a1ddb2615b0adf86d397d1c1cd84e4f31a712bc32955f04d",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/01-logos/wordmarks/taggroove-wordmark-dark-mono.png"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "2a220ea82a812f28fdcbc95965fcb1923a44625bec6f6bbebe5e0b6b69047d27",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/01-logos/wordmarks/taggroove-wordmark-dark-mono.svg"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "c3b836c9a9630ee284ce4a9cba904cd3a534d5e5e7e2c08ddca9c4386d3a97b3",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/01-logos/wordmarks/taggroove-wordmark-dark.png"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "aa8eb2e883f70ef78c6361e5d52761cf3a872e1d744a357c4ae9412b45b87fe0",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/01-logos/wordmarks/taggroove-wordmark-dark.svg"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "cc961b7bc879b8884524c292af906a48b57d2ef74e4cb9dbdf11cb3a62850835",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/01-logos/wordmarks/taggroove-wordmark-light-mono.png"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "77f67450822cb18766a141d4bde2a02fe641fdf07030ed6146c0978ad3240826",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/01-logos/wordmarks/taggroove-wordmark-light-mono.svg"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "25969b4393d20fc7aca62da130490e57353502029aa77100cbe622adf9a49568",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/01-logos/wordmarks/taggroove-wordmark-light.png"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "68a7404429d0287ffeb8c62b7bcf25530540892a633624c2f2fb722a64b24d01",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/01-logos/wordmarks/taggroove-wordmark-light.svg"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "c4dcb975285b84e6519e7a290f45e89c5cfd4cabe8200993ca137ab2b9b0f6d6",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/03-banners/taggroove-background-dark-3840x2160.svg"
+        ],
+        "finding": "mark, glyph or decorative content without application-name lettering"
+      },
+      {
+        "sha256": "b17b5dc4de9908b96573b6607c73c1166bdcab4f8f0df392a5fd0f0569eb9c8b",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/03-banners/taggroove-background-light-3840x2160.svg"
+        ],
+        "finding": "mark, glyph or decorative content without application-name lettering"
+      },
+      {
+        "sha256": "79e8a2badfa2169406b71d88fe84e5ac65d5715caf1d25aaaa8649e80cb8e2c9",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/03-banners/taggroove-github-dark-1280x640.png"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "4163c3fb76da1a8e04fe4c6125134abe40a72123e80194db5eb3208cac44c8b8",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/03-banners/taggroove-github-dark-1280x640.svg"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "021a6e62c3c59be6992893c95e77b96d30f52a5e7ab44156b9676994ba2483b7",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/03-banners/taggroove-github-light-1280x640.png"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "39c7f056c1f78fea878fb603b9fc4bc852677bbc131fa4f22bee179b1c850c32",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/03-banners/taggroove-github-light-1280x640.svg"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "a079b85f328e7d96eb523c8d01d7df245f23b60cad9ae7cc3151df7f637f8493",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/03-banners/taggroove-hero-dark-1920x1080.png"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "6e45b30b9cc5673ee8ea04a37efaf77508895dd8b232609147be06b28d364416",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/03-banners/taggroove-hero-dark-1920x1080.svg"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "985fae9f633b2e5df9bf941924f79a8fd67f4211a29178644b8c6df93c8cf3ca",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/03-banners/taggroove-hero-light-1920x1080.png"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "82630f916d1fd13550031c3d35b302798f3890b6333e46f9d88451312e3e49ad",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/03-banners/taggroove-hero-light-1920x1080.svg"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "c6ea97f53234f76e489f2f1e788a3808a3bc30d9e7c86323e0a4c8c37730ec11",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/03-banners/taggroove-readme-dark-1600x480.png"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "63fe34502367a717b2349d6cfb467cb97de8abf78b23deb154cfafde2ef54a44",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/03-banners/taggroove-readme-dark-1600x480.svg"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "e3744986a7a8b2c74947f5ce32bf5ecd5afec5ab671cdac644e5edc7011c93b5",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/03-banners/taggroove-readme-light-1600x480.png"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "f99ff8a73c71b849f501273e0b5b0891c510e38d7ab0e0af1fc002ea4945a790",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/03-banners/taggroove-readme-light-1600x480.svg"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "6f95b9dca88235d366ce809b7dc86926184868c89bee630b05126ba8b71aca7b",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/03-banners/taggroove-social-dark-1200x630.png"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "09a2a9b3be18ebe016b3665141cde860dd4b738534d8bf1a1736d27116337345",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/03-banners/taggroove-social-dark-1200x630.svg"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "d5010f7ff232ccd2988eca6366c2d8d9e8b4fd1499ec5c83f270df5c6175082d",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/03-banners/taggroove-social-light-1200x630.png"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "e21f32f5bf1760bb3b204fd1f35a4678f320bdfcb3cbf75e2453cb5a26e80b98",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/03-banners/taggroove-social-light-1200x630.svg"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "16331f59fdab030f35edb95cded1400acadbbd904517c6eb980c59ce4994884d",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/03-banners/taggroove-social-square-dark-1080x1080.png"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "3b481d5905b4acd575547d51f8383172c8730df37a676014834995cff10f03ec",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/03-banners/taggroove-social-square-dark-1080x1080.svg"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "5efd9c0825cfb585d4b57537daf4ea073f3fbb78f2d04c37310a0dd1187f0a32",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/03-banners/taggroove-social-square-light-1080x1080.png"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "26306d18e8645be7f63503b27ed756798c3c2cca9a46ae87b65fb4d65b08d41a",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/03-banners/taggroove-social-square-light-1080x1080.svg"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "43a1e9f910b0cb8d64f71dd84ed9156d4beb4f634cd4b1635cb466a4bbe8f4fc",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/04-in-app/taggroove-default-artwork-dark-1024.svg"
+        ],
+        "finding": "mark, glyph or decorative content without application-name lettering"
+      },
+      {
+        "sha256": "9274b07191c1eb82bf9c07eecfa252a5ae89adb6d828f7b3d86bae6064bb147a",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/04-in-app/taggroove-default-artwork-light-1024.svg"
+        ],
+        "finding": "mark, glyph or decorative content without application-name lettering"
+      },
+      {
+        "sha256": "c7781bb71ed498e7d2eb5f4b67ec0b776fec59a30a58e93f4870b9256acb52ef",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/04-in-app/taggroove-splash-dark-1600x1000.png"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "21cee60d5d78188eaf022d93ff01589dacb6f54e9efea8dbc3371b543fefa7aa",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/04-in-app/taggroove-splash-dark-1600x1000.svg"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "f126cb1e1385912bc4435e4b3cfa38175fb5896bf47f304984200ca652126d44",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/04-in-app/taggroove-splash-light-1600x1000.png"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "e45deaa5d503ee9500b85df97eeca40ed91d37ad363511635d2112ad5e04642a",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/04-in-app/taggroove-splash-light-1600x1000.svg"
+        ],
+        "finding": "TagGroove wordmark present; no former wordmark"
+      },
+      {
+        "sha256": "0aa28451dcc048db2157843efb45b6c1bb271c2529082e7fb7eeab85a247a92b",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/04-in-app/taggroove-tray-black.svg",
+          "src-tauri/icons/tray/taggroove-tray-black.svg"
+        ],
+        "finding": "mark, glyph or decorative content without application-name lettering"
+      },
+      {
+        "sha256": "42ff999ea8e553a6c3f2e245b700077da43c759bafa88934aa9a5c7f1a2925cb",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/04-in-app/taggroove-tray-white.svg",
+          "src-tauri/icons/tray/taggroove-tray-white.svg"
+        ],
+        "finding": "mark, glyph or decorative content without application-name lettering"
+      },
+      {
+        "sha256": "8bfbb5092796f230b17fde54b1348ef72e097f7f448c0d2bf94d19f02ba62d9d",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/05-brand-elements/taggroove-equalizer-warm.svg"
+        ],
+        "finding": "mark, glyph or decorative content without application-name lettering"
+      },
+      {
+        "sha256": "0dd86c4d97dbb65e19aefd9b73f290c0dd0e7fb551f3c0ffebc7f5a64f47d5d9",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/05-brand-elements/taggroove-open-source-badge.svg"
+        ],
+        "finding": "mark, glyph or decorative content without application-name lettering"
+      },
+      {
+        "sha256": "8769f03a8b8008f3d86bd8b31d6a8a8d424464243bcf2158b67f38e3231a1878",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/05-brand-elements/taggroove-tagline-dark.svg"
+        ],
+        "finding": "mark, glyph or decorative content without application-name lettering"
+      },
+      {
+        "sha256": "4be5d0a039b304ade1790d8dab11c926f097cc35029d93d93c9944d3de3703c8",
+        "paths": [
+          "assets/brand/TagGroove-Brand-Kit/05-brand-elements/taggroove-tagline-light.svg"
+        ],
+        "finding": "mark, glyph or decorative content without application-name lettering"
+      }
+    ]
   }
 }
