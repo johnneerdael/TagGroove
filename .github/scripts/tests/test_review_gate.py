@@ -151,7 +151,7 @@ class GateTests(unittest.TestCase):
 
     def test_shared_head_stays_pending_through_reconcile_and_completion_until_sibling_closes(self):
         approved = pull()
-        sibling = {**pull(), 'number': 18, 'base': dict(ref='release')}
+        sibling = {**pull(), 'number': 18}
         open_prs = [approved, sibling]
         statuses = dict.fromkeys(('Codex review', 'Release notes', 'Reviewed PR builds'),
                                  dict(state='success', description=f'Passed {BASE} {MERGE}'))
@@ -185,6 +185,17 @@ class GateTests(unittest.TestCase):
         self.api.post.assert_called_once()
         self.gate.finish(self.api, 17, (HEAD, BASE, MERGE), 'success', 'success', 'url')
         self.assertTrue(all(value['state'] == 'success' for value in statuses.values()), statuses)
+
+    def test_other_base_sibling_opening_also_withdraws_shared_statuses(self):
+        sibling = {**pull(), 'number': 18, 'base': dict(ref='release')}
+        self.api.get.side_effect = None
+        self.api.get.return_value = sibling
+        self.gate.invalidate_metadata(self.api, dict(number=18, action='opened', pull_request=sibling))
+        self.assertEqual({call.kwargs.get('context') for call in self.api.status.call_args_list},
+                         {'Codex review', 'Release notes', 'Reviewed PR builds'})
+        self.assertTrue(all(call.args[1] == 'pending' for call in self.api.status.call_args_list))
+        self.api.snapshot.assert_not_called()
+        self.api.post.assert_not_called()
 
     def test_open_head_listing_failure_cannot_restore_any_success_or_dispatch(self):
         self.api.pages.side_effect = RuntimeError('Temporary listing failure')
