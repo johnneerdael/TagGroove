@@ -394,7 +394,7 @@ fn native_error(buffer: &[c_char; 512]) -> String {
     let bytes: Vec<u8> = buffer
         .iter()
         .take_while(|&&b| b != 0)
-        .map(|&b| b as u8)
+        .map(|b| b.to_ne_bytes()[0])
         .collect();
     String::from_utf8_lossy(&bytes).into_owned()
 }
@@ -425,6 +425,22 @@ mod tests {
         assert_eq!(duration_from_ms(8495).unwrap(), 8.49);
         assert!(duration_from_ms(0).is_err());
         assert!(duration_from_ms(-1).is_err());
+    }
+    #[test]
+    fn native_error_preserves_utf8_bytes_and_stops_at_nul() {
+        let mut buffer: [c_char; 512] = [0; 512];
+        for (slot, byte) in buffer.iter_mut().zip("Décode failed\0ignored".bytes()) {
+            *slot = c_char::from_ne_bytes([byte]);
+        }
+        assert_eq!(native_error(&buffer), "Décode failed");
+        assert_eq!(
+            native_error(&[c_char::from_ne_bytes(*b"x"); 512]),
+            "x".repeat(512)
+        );
+        assert_eq!(native_error(&[0; 512]), "");
+        buffer[0] = c_char::from_ne_bytes([0xff]);
+        buffer[1] = 0;
+        assert_eq!(native_error(&buffer), "\u{fffd}");
     }
     #[test]
     fn linked_backend_contains_audio_only_and_no_protocols() {
