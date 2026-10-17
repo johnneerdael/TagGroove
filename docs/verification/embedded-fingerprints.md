@@ -133,3 +133,24 @@ the shipping component pins.
 The source publisher requires all seven real target manifests before producing
 the public source asset. Exact-head GitHub code review, trusted platform CI,
 merge and release remain separate gates; none is asserted by local results.
+
+## Exact-prefix review correction
+
+The first GitHub code review found that a decoded chunk ending exactly at the
+120-second limit did not stop the loop. One more chunk was decoded even though
+the fingerprint was complete. The completion comparison now includes equality.
+
+A generated 121-second FLAC fixture uses one-second frames at the normalized
+11,025-Hz mono sample rate. Only its final frame is corrupt. The actual Rust API
+failed on that trailing frame before the correction and succeeds afterwards,
+reporting 120 seconds of processed frames, the full 121-second duration and an
+unchanged source file. All fourteen original reference fingerprints and durations
+still match; no frozen expected value changed. Fixture construction and hashes
+are recorded beside the tests. This is actual producer evidence, not a mocked
+chunk counter or an original-runtime equivalence claim.
+
+Fresh post-correction checks passed all 1,046 workspace tests with zero failures
+and six existing ignores, all fourteen native producer tests, Rust formatting
+and full-workspace/all-target Clippy with warnings denied. The frontend, source
+builder and release tooling are unchanged by this correction; their earlier
+qualification retains its stated source scope.

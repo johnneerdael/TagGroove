@@ -80,7 +80,7 @@ extern "C" int opentag_audio_fingerprint(const OpentagAudioSource *source, Opent
             const int16_t *samples = nullptr;
             size_t frames = 0;
             if (!reader.Read(&samples, &frames)) return fail(Decode, reader.GetError().c_str());
-            const bool done = frames > limit - total;
+            const bool done = frames >= limit - total;
             frames = std::min(frames, limit - total);
             total += frames;
             const auto channels = static_cast<size_t>(reader.GetChannels());

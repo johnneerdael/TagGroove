@@ -49,6 +49,25 @@ fn embedded_producer_preserves_full_duration_and_prefix_without_writing() {
 }
 
 #[test]
+fn exact_prefix_does_not_decode_the_corrupt_following_frame() {
+    let _serial = SERIAL.lock().unwrap_or_else(|p| p.into_inner());
+    // Each FLAC frame is exactly one second at the normalized sample rate.
+    // Only frame 121 is corrupt; the complete 120-second prefix is valid.
+    let bytes = include_bytes!("fixtures/exact-prefix-corrupt-tail.flac");
+    let mut file = tempfile::Builder::new().suffix(".flac").tempfile().unwrap();
+    file.write_all(bytes).unwrap();
+    file.flush().unwrap();
+    let result = Job::new(file.path().to_owned(), Control::default())
+        .unwrap()
+        .run()
+        .expect("A corrupt frame after the exact prefix must not be decoded");
+    assert_eq!(result.duration, 121.0);
+    assert_eq!(result.processed_frames, 120 * 11_025);
+    assert!(!result.encoded.is_empty());
+    assert_eq!(std::fs::read(file.path()).unwrap(), bytes);
+}
+
+#[test]
 fn short_and_malformed_input_do_not_produce_usable_fingerprints() {
     let _serial = SERIAL.lock().unwrap_or_else(|p| p.into_inner());
     let short = wav(1);
