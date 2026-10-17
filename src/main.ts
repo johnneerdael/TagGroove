@@ -5,7 +5,7 @@ import { documentSelection, refreshDocumentAccess, copyRequest, copyOutcome, rec
 import { converterValidator, createConverterInputTracker, createConverterReview, type FilenameConversionRequest, type TextImportRequest, type FilenameConversionItem, type TextImportItem, type ConverterPreview } from './converter-review';
 import { converterRollbackError, converterRollbackText, type ConverterRollback } from './converter-errors';
 import { normalizeBatchDiagnostics,fileErrorText,showFileError,clearFileError,BatchFailure,type PresentedFileError } from './batch-errors';
-import {ColumnImportStatus,mtaImportFailure,importFailure} from './import-diagnostics';
+import {ColumnImportStatus,mtaImportFailure,importFailure,skippedLines} from './import-diagnostics';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getVersion } from '@tauri-apps/api/app';
@@ -345,6 +345,7 @@ const tagPanel=new TagPanel({
   load:()=>invoke<TagPanelSettings>('load_tag_panel'),save:settings=>invoke<void>('save_tag_panel',{settings}),
   importLayout:path=>invoke<PanelLayout>('import_tag_panel_layout',{path}),exportLayout:(path,panel)=>invoke<void>('export_tag_panel_layout',{path,panel}),
   importMp3tag:desktop?path=>invoke<Mp3tagPanelImport>('import_mp3tag_tag_panel',{path}):undefined,
+  skippedLines:imported=>skippedLines(imported,t,translate),
   importList:path=>invoke<string[]>('import_value_list',{path}),exportList:(path,values)=>invoke<void>('export_value_list',{path,values}),
   pickOpen:async kind=>{const path=await open({multiple:false,title:kind==='layout'?'Load tag panel configuration':kind==='mp3tag'?'Import Mp3tag tag panel configuration (usrfields.ini)':'Import custom values',filters:kind==='mp3tag'?[{name:'Mp3tag configuration',extensions:['ini']},{name:'All files',extensions:['*']}]:[kind==='layout'?{name:'Tag panel configurations',extensions:['json']}:{name:'Text files',extensions:['txt']}]});return typeof path==='string'?path:null;},
   pickSave:(kind,name)=>save({title:kind==='layout'?'Save tag panel configuration':'Export custom values',defaultPath:name,filters:[kind==='layout'?{name:'Tag panel configurations',extensions:['json']}:{name:'Text files',extensions:['txt']}]}),

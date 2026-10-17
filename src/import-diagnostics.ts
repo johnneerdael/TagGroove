@@ -28,6 +28,11 @@ export function importFailure(error:unknown,legacy=false):BatchFailure|undefined
   return new BatchFailure([{path:'',error:error.message,...(valid?{cause:error.import_failure as Cause}:{diagnosticRaw:true})}],error.message,{paths:false});
 }
 export type ColumnImportNotes={skipped:string[];skipped_diagnostics?:unknown};
+/** Skipped-entry lines of a native import: a retained cause translates its owned reason and keeps the authored entry; any other line stays as the producer wrote it. */
+export function skippedLines(notes:ColumnImportNotes,t:Fill,translate:(text:string)=>string):string[]{
+  const causes=retainedCauses(notes.skipped,notes.skipped_diagnostics);
+  return notes.skipped.map((line,index)=>causes[index]?causeText(causes[index]!,t,translate):line);
+}
 /** The only non-string global status: retain column-import provenance until another assignment replaces it. */
 export class ColumnImportStatus {
   private readonly notes:ColumnImportNotes;

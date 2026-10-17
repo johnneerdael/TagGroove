@@ -149,7 +149,7 @@ export function directoryOptions(directories:string[]):ComboOption[]{
 }
 
 /** Fields of an Mp3tag tag panel configuration, with the entries that were left out. */
-export type Mp3tagPanelImport={panel:PanelLayout;skipped:string[]};
+export type Mp3tagPanelImport={panel:PanelLayout;skipped:string[];skipped_diagnostics?:unknown};
 export type TagPanelHost={
   /** Translate new popup content before reading layout dimensions. */
   translateNow?:(root:HTMLElement)=>void;
@@ -158,6 +158,8 @@ export type TagPanelHost={
   importLayout:(path:string)=>Promise<PanelLayout>;exportLayout:(path:string,layout:PanelLayout)=>Promise<void>;
   /** Utils → Load configuration of an Mp3tag file the user picks (usrfields.ini or a saved panel configuration). */
   importMp3tag?:(path:string)=>Promise<Mp3tagPanelImport>;
+  /** Skipped import lines in the UI language; entries keep the label written in the file. */
+  skippedLines?:(imported:Mp3tagPanelImport)=>string[];
   importList:(path:string)=>Promise<string[]>;exportList:(path:string,values:string[])=>Promise<void>;
   pickOpen:(kind:'layout'|'list'|'mp3tag')=>Promise<string|null>;pickSave:(kind:'layout'|'list',name:string)=>Promise<string|null>;
   /** Horizontal (top or bottom) panels: item indexes per column, or undefined for the vertical layout. */
@@ -445,7 +447,7 @@ export class TagPanel {
       const imported=await read(path);if(!dialog.open)return;
       layout={...imported.panel,show_panel:layout.show_panel,show_cover:layout.show_cover};current=layout.fields.length?0:-1;renderAll();
       const report=dialog.querySelector<HTMLElement>('.tp-import-report')!,count=imported.panel.fields.filter(field=>field.field!==SEPARATOR).length;
-      report.innerHTML=`<p>Imported ${count} field${count===1?'':'s'} from the Mp3tag configuration. Press OK to use them.</p>${imported.skipped.length?`<p>Not imported:</p><ul translate="no">${imported.skipped.map(entry=>`<li>${html(entry)}</li>`).join('')}</ul>`:''}`;
+      report.innerHTML=`<p>Imported ${count} field${count===1?'':'s'} from the Mp3tag configuration. Press OK to use them.</p>${imported.skipped.length?`<p>Not imported:</p><ul translate="no">${(this.host.skippedLines?.(imported)??imported.skipped).map(entry=>`<li>${html(entry)}</li>`).join('')}</ul>`:''}`;
     });
     if(this.host.importMp3tag)on('tp-import-mp3tag',importMp3tagFile);
     on('tp-ok',()=>void perform(async()=>{const error=layoutError(layout);if(error)throw new Error(error);await this.persist({...clone(this.settings),panel:clone(layout)},'Tag panel configuration saved.');dialog.close();}));

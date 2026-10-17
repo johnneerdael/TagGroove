@@ -67,5 +67,10 @@
  "Remove tags",
  "Add cover",
  "Tag source import",
- "Edit covers"
+ "Edit covers",
+ "no field name",
+ "{id} is already on the panel",
+ "the tag panel holds at most {MAX_FIELDS} fields",
+ "its custom values were not imported; add them in Field values",
+ "\"prefer values from tags\" is one setting for all fields in Field values"
 ]

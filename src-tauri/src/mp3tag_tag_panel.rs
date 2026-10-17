@@ -21,12 +21,36 @@ use crate::tag_panel::{
 };
 use serde::Serialize;
 use std::collections::HashSet;
+use tag_core::batch_errors::{ErrorCause, IndexedCause};
 
 #[derive(Debug, Serialize)]
 pub struct TagPanelImport {
     pub panel: Layout,
     /// Entries or settings left out, with the reason.
     pub skipped: Vec<String>,
+    /// Companions of `skipped` that keep the entry and the reason apart, so a
+    /// field label from the file stays as written and only the reason translates.
+    pub skipped_diagnostics: Vec<IndexedCause>,
+}
+
+/// Record a skipped entry as `{entry}: {reason}` with both parts retained.
+fn skip(
+    skipped: &mut Vec<String>,
+    diagnostics: &mut Vec<IndexedCause>,
+    entry: &str,
+    reason: ErrorCause,
+) {
+    let cause = ErrorCause::wrap(
+        "{value}: {error}",
+        [("value", entry.to_string())],
+        "error",
+        reason,
+    );
+    diagnostics.push(IndexedCause {
+        index: skipped.len(),
+        cause: cause.clone(),
+    });
+    skipped.push(cause.to_string());
 }
 
 /// Panel grid span (out of 12 columns) for an Mp3tag `size` value.
@@ -68,6 +92,7 @@ pub fn parse(text_value: &str) -> Result<TagPanelImport, String> {
     found.sort_by_key(|(index, _)| *index);
     let mut fields = Vec::new();
     let mut skipped = Vec::new();
+    let mut skipped_diagnostics = Vec::new();
     let mut used = HashSet::new();
     for (index, keys) in found {
         let Some(raw_field) = lookup(&keys, &["value", "field"]) else {
@@ -86,22 +111,43 @@ pub fn parse(text_value: &str) -> Result<TagPanelImport, String> {
             shown.clone()
         };
         if id.is_empty() {
-            skipped.push(format!("{entry}: no field name"));
+            skip(
+                &mut skipped,
+                &mut skipped_diagnostics,
+                &entry,
+                ErrorCause::owned("no field name"),
+            );
             continue;
         }
         if let Err(error) = field_id(&id, true) {
-            skipped.push(format!("{entry}: {error}"));
+            skip(
+                &mut skipped,
+                &mut skipped_diagnostics,
+                &entry,
+                ErrorCause::owned_text(error),
+            );
             continue;
         }
         let separator = id == SEPARATOR;
         if !separator && !used.insert(id.clone()) {
-            skipped.push(format!("{entry}: {id} is already on the panel"));
+            skip(
+                &mut skipped,
+                &mut skipped_diagnostics,
+                &entry,
+                ErrorCause::message("{id} is already on the panel", [("id", id.clone())]),
+            );
             continue;
         }
         if fields.len() >= MAX_FIELDS {
-            skipped.push(format!(
-                "{entry}: the tag panel holds at most {MAX_FIELDS} fields"
-            ));
+            skip(
+                &mut skipped,
+                &mut skipped_diagnostics,
+                &entry,
+                ErrorCause::message(
+                    "the tag panel holds at most {MAX_FIELDS} fields",
+                    [("MAX_FIELDS", MAX_FIELDS.to_string())],
+                ),
+            );
             continue;
         }
         let version = lookup(&keys, &["version"])
@@ -136,18 +182,31 @@ pub fn parse(text_value: &str) -> Result<TagPanelImport, String> {
                 control == Control::Multiline,
             )
         }) {
-            skipped.push(format!("{entry}: {error}"));
+            skip(
+                &mut skipped,
+                &mut skipped_diagnostics,
+                &entry,
+                ErrorCause::owned_text(error),
+            );
             continue;
         }
         if lookup(&keys, &["custom_values"]).is_some_and(|v| !v.trim().is_empty()) {
-            skipped.push(format!(
-                "{entry}: its custom values were not imported; add them in Field values"
-            ));
+            skip(
+                &mut skipped,
+                &mut skipped_diagnostics,
+                &entry,
+                ErrorCause::owned("its custom values were not imported; add them in Field values"),
+            );
         }
         if lookup(&keys, &["prefer_tag"]).and_then(flag) == Some(true) {
-            skipped.push(format!(
-                "{entry}: \"prefer values from tags\" is one setting for all fields in Field values"
-            ));
+            skip(
+                &mut skipped,
+                &mut skipped_diagnostics,
+                &entry,
+                ErrorCause::owned(
+                    "\"prefer values from tags\" is one setting for all fields in Field values",
+                ),
+            );
         }
         fields.push(PanelField {
             name,
@@ -172,7 +231,11 @@ pub fn parse(text_value: &str) -> Result<TagPanelImport, String> {
         show_cover: true,
     };
     validate_layout(&panel)?;
-    Ok(TagPanelImport { panel, skipped })
+    Ok(TagPanelImport {
+        panel,
+        skipped,
+        skipped_diagnostics,
+    })
 }
 
 #[tauri::command]
@@ -277,6 +340,51 @@ mod tests {
         assert_eq!(import.panel.fields[5].name, "ISRC");
         assert_eq!(import.skipped.len(), 2);
         assert!(import.skipped.iter().all(|s| s.contains("Genre")));
+    }
+
+    #[test]
+    fn skipped_entries_keep_the_authored_entry_apart_from_the_owned_reason() {
+        let text = "[#0]\nname=Genre\nvalue=GENRE\ncustom_values=Rock|Jazz\nprefer_tag=1\n\
+            [#1]\nname=Mood\nvalue=GENRE\n";
+        let import = parse(text).unwrap();
+        assert_eq!(import.skipped.len(), 3, "{:?}", import.skipped);
+        assert_eq!(import.skipped_diagnostics.len(), 3);
+        let expected = [
+            (
+                "Field 0 (Genre)",
+                "its custom values were not imported; add them in Field values",
+            ),
+            (
+                "Field 0 (Genre)",
+                "\"prefer values from tags\" is one setting for all fields in Field values",
+            ),
+            ("Field 1 (Mood)", "{id} is already on the panel"),
+        ];
+        for (position, ((line, item), (entry, reason))) in import
+            .skipped
+            .iter()
+            .zip(&import.skipped_diagnostics)
+            .zip(expected)
+            .enumerate()
+        {
+            assert_eq!(item.index, position);
+            // The legacy English line is the rendering of the retained parts.
+            assert_eq!(&item.cause.to_string(), line);
+            let ErrorCause::Owned {
+                key,
+                params,
+                children,
+            } = &item.cause
+            else {
+                panic!("{:?}", item.cause);
+            };
+            assert_eq!(key, "{value}: {error}");
+            assert_eq!(params["value"], entry, "the authored entry stays verbatim");
+            let ErrorCause::Owned { key, .. } = &children["error"] else {
+                panic!("{:?}", children["error"]);
+            };
+            assert_eq!(key, reason, "only the reason is an owned message");
+        }
     }
 
     #[test]

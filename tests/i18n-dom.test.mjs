@@ -37,7 +37,7 @@ const {converterRollbackError,converterRollbackText}=await import(await moduleUr
 const rollbackCases=JSON.parse(await readFile(new URL('./fixtures/converter-rollback.json',import.meta.url),'utf8'));
 const batchModuleURL=await moduleUrl('batch-errors.ts',{"'./i18n/core'":JSON.stringify(await moduleUrl('i18n/core.ts')),"'./converter-errors'":JSON.stringify(await moduleUrl('converter-errors.ts',{"'./i18n/core'":JSON.stringify(await moduleUrl('i18n/core.ts'))}))});
 const {causeText,batchErrorText,normalizeBatchDiagnostics,fileErrorText,showFileError,clearFileError,BatchFailure}=await import(batchModuleURL);
-const {ColumnImportStatus,mtaImportFailure,importFailure}=await import(await moduleUrl('import-diagnostics.ts',{"'./i18n/core'":JSON.stringify(await moduleUrl('i18n/core.ts')),"'./batch-errors'":JSON.stringify(batchModuleURL)}));
+const {ColumnImportStatus,mtaImportFailure,importFailure,skippedLines}=await import(await moduleUrl('import-diagnostics.ts',{"'./i18n/core'":JSON.stringify(await moduleUrl('i18n/core.ts')),"'./batch-errors'":JSON.stringify(batchModuleURL)}));
 const batchDiagnosticCases=JSON.parse(await readFile(new URL('./fixtures/batch-error-diagnostics.json',import.meta.url),'utf8'));
 
 const {listSummary,technicalSummary}=await load('list-commands.ts');
@@ -730,6 +730,36 @@ test('actual column Options import translates each skipped reason while retainin
     model.set('Options saved');notice.innerHTML=model.render();p.translateTree(notice);assert.equal(notice.textContent,active.t('Options saved'));assert.equal(notice.querySelector('[translate="no"]'),null);
     assert.deepEqual(imported,original);assert.equal(dialog.querySelectorAll('.column-list li').length,1);dialog.close();assert.equal(listeners.size,0);
   }finally{p.close();}}
+});
+
+test('tag panel Mp3tag import translates each skipped reason while the authored entry stays verbatim',()=>{
+  const wrap=(value,error)=>({kind:'owned',key:'{value}: {error}',params:{value},children:{error}});
+  const owned=(key,params={})=>({kind:'owned',key,params,children:{}});
+  const notes={
+    skipped:['Field 7 (Hilfe): TITLE is already on the panel','Field 8 (Mood): no field name','Field 9 (Raw): untouched producer line'],
+    skipped_diagnostics:[
+      {index:0,cause:wrap('Field 7 (Hilfe)',owned('{id} is already on the panel',{id:'TITLE'}))},
+      {index:1,cause:wrap('Field 8 (Mood)',owned('no field name'))},
+    ],
+  };
+  const original=structuredClone(notes);
+  const expected={
+    de:['Field 7 (Hilfe): TITLE ist bereits im Tag-Panel vorhanden','Field 8 (Mood): kein Feldname','Field 9 (Raw): untouched producer line'],
+    nl:['Field 7 (Hilfe): TITLE staat al op het tagpaneel','Field 8 (Mood): geen veldnaam','Field 9 (Raw): untouched producer line'],
+  };
+  for(const locale of ['de','nl']){const p=page();try{
+    const active=p.translate(locale,catalogs[locale]);
+    assert.deepEqual(skippedLines(notes,(key,params)=>active.t(key,params),text=>active.translate(text)),expected[locale]);
+  }finally{p.close();}}
+  const english=new Translator('en');
+  assert.deepEqual(skippedLines(notes,(key,params)=>english.t(key,params),text=>english.translate(text)),notes.skipped,'English renders the legacy lines');
+  // A companion whose rendering differs from the line, or one that repeats an index, is not trusted.
+  const forged={skipped:['Field 8 (Mood): another reason','Field 8 (Mood): no field name'],skipped_diagnostics:[notes.skipped_diagnostics[1],notes.skipped_diagnostics[1],{index:1,cause:owned('no field name')}]};
+  const p=page();try{
+    const active=p.translate('de',catalogs.de);
+    assert.deepEqual(skippedLines(forged,(key,params)=>active.t(key,params),text=>active.translate(text)),forged.skipped);
+  }finally{p.close();}
+  assert.deepEqual(notes,original,'translation does not mutate the native result');
 });
 
 test('actual MTA import renders each unresolved issue once and keeps its source identity through live languages',async()=>{
