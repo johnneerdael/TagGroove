@@ -150,7 +150,8 @@ jobs:
       - name: Check macOS document types (Finder Open With)
         if: runner.os == 'macOS'
         run: |
-          plutil -convert json -o "$RUNNER_TEMP/info.json" target/release/bundle/macos/OpenTag.app/Contents/Info.plist
+          product="$(node -p "JSON.parse(require('fs').readFileSync('src-tauri/tauri.conf.json', 'utf8')).productName")"
+          plutil -convert json -o "$RUNNER_TEMP/info.json" "target/release/bundle/macos/$product.app/Contents/Info.plist"
           # shellcheck disable=SC2016
           node -e '
             const types = require(process.argv[1]).CFBundleDocumentTypes || [];
@@ -216,7 +217,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Linux UI dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf ffmpeg xvfb xauth dbus-x11 build-essential cmake make nasm
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf ffmpeg xvfb xauth dbus-x11 xdotool imagemagick x11-utils procps build-essential cmake make nasm
       - name: macOS media fixtures
         if: runner.os == 'macOS'
         run: brew install ffmpeg cmake nasm
@@ -262,11 +263,18 @@ jobs:
         run: |
           # macOS runs the binary inside the .app bundle; it carries the test identifier.
           if [[ "$RUNNER_OS" == macOS ]]; then bundle=(--bundles app); else bundle=(--no-bundle); fi
-          config='{"identifier":"org.opentag.editor.usertest","productName":"OpenTag UserTest"}'
-          if [[ "$RUNNER_OS" != Linux ]]; then
-            config='{"identifier":"org.opentag.editor.usertest","productName":"OpenTag UserTest","app":{"windows":[{"title":"OpenTag","width":1240,"height":800,"minWidth":800,"minHeight":560,"backgroundThrottling":"disabled"}]}}'
-          fi
+          config="$(python scripts/native-test-config.py)"
           npx tauri build --debug "${bundle[@]}" --config "$config"
+      - name: Capture user-guide screenshots from the reviewed app
+        if: runner.os == 'Linux'
+        run: scripts/docs-screenshots.sh docs-screens main-window tag-panel-keep menu-convert tag-to-filename extended-tags
+      - name: Upload reviewed guide screenshots
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-screens
+          path: docs-screens/
+          if-no-files-found: error
       - name: Run native suites
         run: |
           set -o pipefail

@@ -35,19 +35,16 @@ save changes to the files, because later scenes expect the original album.
 
 ## Capture availability
 
-New app-image capture is paused until a screenshot workload is routed
-through the review gate described in `.github/CI_LOCKDOWN.md`. The former
-automatic workflow was removed and its legacy ID must remain disabled.
-Pushing a scene does not capture it. Do not restore automatic triggers or
-dispatch a legacy workflow.
+The Linux native job in the reviewed reusable build captures the five core
+scenes in light and dark themes after exact-head review authorization. The
+former automatic workflow remains removed and its legacy ID stays disabled.
 
-Keep proposed scenes in the relevant workstream file and describe the
-required image in the PR. Use existing verified guide images or text that
-explains the state until reviewed capture support is available. Never run
-the screenshot script or the app on a writer's machine for guide work.
+Add proposed scenes to the appropriate workstream file and the reviewed
+job's explicit scene list. Pushing a scene alone does not execute it. Never
+run the screenshot script or the app on a writer's machine for guide work.
 
-For an already-existing historical artifact only,
 `scripts/docs-screens-fetch.sh <run-id> [scene …]` downloads `docs-screens`
-from the explicit run. It does not start capture or discover a current
-workflow. Verify that the artifact's source matches the page before using
-it; artifacts may have expired.
+from an explicit verified run. It does not start capture. Verify the source
+revision and inspect every image before committing it; obtain another clean
+review of the resulting head. Historical artifacts can still be reused when
+their source and images match the page, provided they have not expired.

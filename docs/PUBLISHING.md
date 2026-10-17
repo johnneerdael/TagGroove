@@ -15,9 +15,8 @@ retain their normal literal destinations; no proxy or encoded URL is used.
 Read `docs/user-guide/_meta/style.md` and the topic's brief before writing.
 Keep instructions specific to OpenTag's actual behavior. Check the relevant
 source and examples; record runtime checks separately from source or test
-evidence. Reuse existing verified guide images where appropriate. New app
-captures are pending review-gated CI support; follow the screenshot section
-below rather than launching the app against a personal music library.
+evidence. Reuse existing verified guide images where appropriate. New app captures run in the review-authorized Linux CI job against disposable
+fixtures; follow the screenshot section below.
 
 The complete writing plan lives in `docs/user-guide/_meta/planned-nav.yml`.
 A page marked `status: draft` stays in the repository but is excluded from
@@ -110,9 +109,16 @@ process. Do not enable legacy workflows or widen token permissions. To roll
 back content, submit a revert PR through that same review and validation
 process.
 
-Existing guide images are retained. The former automatic **Docs screenshots**
-workflow is removed; do not restore its triggers. New app-image capture must
-be routed through the review gate before it can run in CI.
+The former automatic **Docs screenshots** workflow remains removed. The Linux
+native UI job in the reviewed reusable build captures the five core scenes
+in light and dark modes only after exact-head review authorization. It uploads
+`docs-screens`; it cannot publish the guide or write repository files.
+
+Download images from the verified reviewed-validation run with
+`scripts/docs-screens-fetch.sh RUN_ID`. Inspect every image, record its source
+run and commit in the verification ledger, then commit the refreshed guide
+images and obtain another clean review of the final head. Do not edit old
+screenshots to make them look like new runtime evidence.
 
 Structural checks cannot establish complete behavioral accuracy. The selected
 Rust example checks cover core behavior; update affected instructions alongside
