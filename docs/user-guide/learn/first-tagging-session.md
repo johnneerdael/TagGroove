@@ -93,8 +93,8 @@ have the genre *Folk* instead of *Indie Folk*.
    ++cmd+s++ / ++ctrl+s++.
 
 All eight files now have the genre *Folk*, and every title and track number is
-untouched. `< keep >` is the most important idea in the tag panel: **a field
-you don't touch is never changed.**
+untouched. `< keep >` shows the rule of the tag panel: a field you don't touch is
+never changed.
 
 ??? question "How do I empty a field in every selected file?"
     Typing nothing leaves the field at `< keep >`. To clear it, open the

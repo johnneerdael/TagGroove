@@ -15,7 +15,7 @@
 ## The problem
 
 A filename import left `03 - Paper Boats` in `TITLE`, although `TRACK` already
-holds its track number. Remove a **recognized prefix**, not every number in
+holds its track number. Remove a recognized prefix, not every number in
 the title. Meaningful numbers elsewhere must survive.
 
 In the table, `·` means one space, `⇥` a tab and `↵` a newline. These symbols
@@ -51,7 +51,7 @@ can also match this shape; no regex can decide its musical meaning.
 1. Save or discard pending edits. Select one copied practice file with an
    understood title. Check all its Title values in Extended tags if there
    are several.
-2. To preview the **first** Title value, use **Convert → Tag → Tag…**, Field
+2. To preview the first Title value, use **Convert → Tag → Tag…**, Field
    `TITLE`, and this expression:
 
     <!-- numbered-title-preview:start -->

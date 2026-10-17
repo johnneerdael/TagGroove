@@ -25,8 +25,8 @@ existing values with a chosen separator. It does not remove repeated text.
 | `Low`, `Tide` | One space | `Low Tide` |
 | `Juniper Vale`, `Juniper Vale` | `; ` | `Juniper Vale; Juniper Vale` |
 
-The last example matters: *duplicate fields* means multiple values of one
-field, not necessarily equal values. To remove repeated values, use
+In the last example, *duplicate fields* means multiple values of one
+field, which need not be equal. To remove repeated values, use
 **Remove Duplicate Fields** with its same-content option instead.
 
 A field with zero or one value is unchanged. Existing order is preserved.

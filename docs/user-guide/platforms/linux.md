@@ -7,7 +7,7 @@ optional notification-area support. Keep one copied album for the first run.
 ## Choose an actual published package
 
 The published [v0.2.13 release](https://github.com/johnneerdael/opentag/releases/tag/v0.2.13)
-offers these Linux assets:
+contains these Linux assets:
 
 Scroll the download table sideways on a narrow screen to read complete filenames.
 

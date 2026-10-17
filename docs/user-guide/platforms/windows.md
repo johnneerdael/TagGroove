@@ -140,8 +140,8 @@ OpenTag uses the system ANSI codepage for applicable legacy operations.
 New text should use Unicode where possible. In **Text File → Tag**, the
 legacy fallback is used only after BOM/valid-UTF-8 detection.
 
-These practice bytes illustrate choosing a **known explicit** fallback,
-not guessing the codepage of every Windows computer:
+These practice bytes illustrate choosing a **known explicit** fallback.
+They do not guess the codepage of every Windows computer:
 
 <!-- windows-encoding-cases:start -->
 | Source bytes in hex | Legacy fallback | Decoded text |

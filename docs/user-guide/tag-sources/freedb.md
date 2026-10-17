@@ -17,7 +17,7 @@ edition, track order and values before writing tags.
    load that entry into the import review. Year and track count are not
    supplied in this artist/album result list.
 
-OpenTag offers artist/album and artwork search only for recognized gnudb
+OpenTag provides artist/album and artwork search only for recognized gnudb
 servers (`gnudb.org` or its subdomains). Use track-layout lookup for other
 configured CDDB servers, even if they implement similar search commands. Choose the
 server under [Options → Tag Sources → freedb](../reference/options/tag-sources-freedb.md).

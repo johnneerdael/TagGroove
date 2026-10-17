@@ -31,7 +31,7 @@ control is empty with the `< keep >` placeholder. That placeholder describes
 an instruction to keep existing values; it is not a missing-title diagnosis
 for the whole selection.
 
-Use the field's **▾** button to choose a value. A multi-file selection offers
+Use the field's **▾** button to choose a value. A multi-file selection includes
 `< keep >`; `< blank >` requests clearing the field. The list also includes
 distinct values from the selection, configured custom values and, for Genre,
 standard genres unless disabled in Field Values options.

@@ -1,12 +1,11 @@
 # Publish and maintain the user guide
 
-The public guide is <https://johnneerdael.github.io/audio-tag-guide/>. Its source is
+The public guide is <https://opentag.neerdael.nl/>. Its source is
 `docs/user-guide/`, and `mkdocs.yml` defines the public navigation and theme.
-Keep authoring in `johnneerdael/opentag`. The separate public
-`johnneerdael/audio-tag-guide` repository contains generated static output and
-one reviewed deployment workflow.
-The neutral publication path avoids privacy-list URL rules that also match
-the project's name. Readers do not need to disable their privacy protection.
+Authoring, building and publishing all happen in `johnneerdael/opentag`.
+The site is served by this repository's GitHub Pages under the custom domain
+`opentag.neerdael.nl`, which keeps the address off the privacy-list rules that
+match the `github.io` project path.
 The header keeps ordinary source navigation while omitting optional automatic
 repository-statistics/release-badge requests. Source, edit and release links
 retain their normal literal destinations; no proxy or encoded URL is used.
@@ -72,93 +71,22 @@ Coverage is a writing plan, not a feature-parity claim.
    application release, including when application packaging is skipped for
    a documentation-only change.
 4. The guide checks the merged-PR review and trusted validation proof before
-   building the canonical site. The build uploads static output and a separate
-   old-site redirect artifact. It receives no deployment key or write permission.
-5. The deployment job checks approval and current main again. Trusted main's
-   `.github/scripts/guide_pages.py` validates regular static files, matching
-   source/review provenance and a content digest before committing the output
-   to the fixed neutral repository. It rejects repository-control directories,
-   symlinks, hardlinks, custom-domain overrides and leaked writer-only material.
-   The output replaces only `site/`; the separately installed target workflow must
-   match the reviewed source template byte for byte. No artifact code runs.
-6. Immediately before signing and again before pushing, the source job uses its
-   own repository-scoped token to check the complete merged-PR review and trusted
-   validation proof, including review threads and current main. It signs the exact
-   publication marker with the existing environment deployment key. The target
-   verifies that detached SSH signature against the public signer pinned in trusted
-   source main, then checks the static-tree digest, workflow pin and current source
-   main before uploading a Pages artifact. Its read-only package job must succeed
-   before a separate Pages/OIDC deployment job can start; deployment repeats the
-   signature and current-main checks. No source token is passed to the target.
-7. The source job waits for the neutral site's HTTPS
-   `publication-source.json` to match the expected source, review and complete
-   static-tree digest. Only then does
-   it recheck approval/current main and deploy old-site redirects through the
-   existing Pages action. A missing/stale marker or source drift prevents that
-   redirect deployment; a concurrent target update is never force-pushed away.
-   The marker wait uses an eleven-minute monotonic deadline within the source
-   deployment job's thirty-minute limit.
-8. Open the canonical public site. Confirm the changed page, navigation,
-   search, styles and an image. Also check an old deep link with its query and
-   fragment. A local build, Git push or uploaded artifact is not publication.
+   building the site. The build job receives no write permission. It runs the
+   publication tests, the writing-plan check and `mkdocs build --strict`,
+   adds a `CNAME` file for `opentag.neerdael.nl` and uploads the result as the
+   Pages artifact.
+5. The deployment job checks approval and current main again. If a newer main
+   revision exists, it skips deployment and leaves publication to that
+   revision. Otherwise it deploys the uploaded artifact with
+   `actions/deploy-pages`. No artifact code runs.
 
-The signature attests that the source's full authorization check succeeded at
-signing time. Target verification does not replay authenticated source review
-queries or claim a live review-thread snapshot; it verifies that signed receipt
-and rejects a source that is no longer current main. The source still performs
-its complete authenticated review check before deploying old-site redirects.
-`publication-source.json.sig` is excluded with its marker from the static-tree
-digest to avoid a signing cycle; target verification requires the signature.
-The signer principal and namespace are fixed, and the target never accepts a
-public key from the static artifact. Public Git reads avoid cross-repository
-token access and anonymous REST API quotas.
-
-The source repository's Pages source remains **GitHub Actions** under
-**Settings → Pages**. It serves small redirect pages for every built HTML route
-and a dependency-free 404 fallback. Inline navigation preserves the old path,
-query and fragment under the fixed canonical host/base; with JavaScript off,
-the plain link still provides a route to the guide. No external stylesheet or
-script is required for these redirects.
-
-The neutral repository uses **GitHub Actions** as its Pages source. After the
-source change has passed review and validation and merged normally, an
-administrator installs the exact reviewed `.github/guide-pages-target.yml` from
-source main as `.github/workflows/static-pages.yml` in the target repository.
-Source main must already contain the `verify-target` command. Configure the
-target `github-pages` environment to allow only `main`, then select **GitHub
-Actions** under the target's **Settings → Pages**. Keep the existing public
-site until the first authorized target deployment succeeds.
-
-The target workflow runs only on changes under `site/` on `main`, so installing
-its control file alone does not start a deployment. The source publisher's next
-approved run creates or replaces `site/` and triggers that workflow over SSH.
-The publisher fails closed if the control file is missing, altered or accompanied
-by another file under `.github`; it cannot stage or replace that control file.
-Target uploads contain only `site/`, excluding the control workflow and any old
-bootstrap files at the repository root. Do not add application source or
-credentials to the target repository. This route uses ordinary push-triggered
-Actions because GitHub documents that deploy-key pushes can fail to trigger
-[branch-based Pages publication](https://docs.github.com/en/pages/setting-up-a-github-pages-site-with-jekyll/about-jekyll-build-errors-for-github-pages-sites).
-No PAT or scheduled target publication is needed. GitHub describes the separate
-artifact and deployment jobs in its [custom Pages workflow guidance](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages).
-
-The source `github-pages` environment should permit only `main` and hold
-`DOCS_PAGES_DEPLOY_KEY`. The corresponding public deploy key grants write access
-only to `johnneerdael/audio-tag-guide`. The caller passes that secret's name
-explicitly; the actual value comes from the deployment job's environment.
-GitHub's [reusable-workflow secret rules](https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows)
-require the explicit mapping even for an environment-only secret. No broad
-secret inheritance is used. Only the trusted publisher step consumes the key;
-read/build and marker-wait steps do not receive it. The key is written to a
-temporary mode-0600 file, excluded from Git's environment and removed on exit.
-Signing uses the same existing deployment key, with its public key pinned in
-`.github/guide-pages-allowed-signers`. Verify key rotations through a reviewed
-source change and the matching environment-secret/target-deploy-key update. Git/SSH child processes do
-not receive the source API token or deployment-key environment value.
-SSH checks the pinned public GitHub Ed25519 host key in
-`.github/guide-pages-known-hosts`; verify any rotation against
-[GitHub's published fingerprints](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/githubs-ssh-key-fingerprints)
-through a reviewed source change rather than disabling host verification.
+The `github-pages` environment should permit only `main`. No deployment key or
+other secret is involved. In the repository's **Settings → Pages**, set the
+source to **GitHub Actions** and the custom domain to `opentag.neerdael.nl`,
+then enable **Enforce HTTPS** once the certificate is issued. DNS needs a
+`CNAME` record from `opentag.neerdael.nl` to `johnneerdael.github.io`.
+GitHub describes the separate artifact and deployment jobs in its
+[custom Pages workflow guidance](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages).
 
 Keep legacy build, release, docs and screenshot workflow IDs disabled;
 never enable them to recover a deployment. Read `.github/CI_LOCKDOWN.md` for
@@ -167,40 +95,20 @@ review-controller operations and the validation retry procedure.
 If the site is missing, first check that the docs files and reviewed Pages
 workflow are actually merged to `main`, then inspect the approved source's
 **Reviewed main release → user-guide** jobs. A feature branch cannot publish.
-Check the neutral repository's **Deploy reviewed static guide** workflow and
-compare its live publication marker with the approved source. An SSH failure needs deployment
-key/host-key investigation; a marker timeout can mean the target publication
-failed or has not reached the public site. Do not deploy redirects to conceal
-that failure, enable legacy workflows or widen token permissions.
-If the neutral deployment failed after its site commit was pushed, recover
-that **target** run first. In `johnneerdael/audio-tag-guide`, inspect the failed
-**Deploy reviewed static guide** run for that publication, resolve its failure,
-and wait until the complete run is terminal. Rerun its failed jobs:
-
-```sh
-gh run rerun TARGET_RUN_ID --repo johnneerdael/audio-tag-guide --failed
-```
-
-This rerun uses the original immutable event commit and repeats the signature,
-static-tree, control-pin and current-source checks. Verify that the target run
-succeeds and its public `publication-source.json` matches the approved source,
-review and tree. Only then rerun the failed approved **source** release jobs:
+If the jobs failed, rerun them from the original run:
 
 ```sh
 gh run rerun SOURCE_RUN_ID --repo johnneerdael/opentag --failed
 ```
 
-A source rerun with unchanged static bytes intentionally makes no commit or
-push and does not retrigger the target workflow. Rerunning only the source
-cannot recover a failed target deployment. Source authorization checks still
-apply before old-site redirects deploy; source or review drift requires fresh
+Source authorization checks still apply; source or review drift requires fresh
 validation. GitHub's [workflow rerun documentation](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/re-run-workflows-and-jobs)
 requires repository write permission, preserves the original SHA/ref and limits
-reruns to thirty days after the original run. If no matching target run exists,
-or it is beyond that window, create a new reviewed source publication through
-the normal PR, validation and merge process. Do not manufacture an unreviewed
-site edit or force-push to create an event. To roll back content, submit a revert
-PR through that same review and validation process.
+reruns to thirty days after the original run. Beyond that window, create a new
+reviewed source publication through the normal PR, validation and merge
+process. Do not enable legacy workflows or widen token permissions. To roll
+back content, submit a revert PR through that same review and validation
+process.
 
 Existing guide images are retained. The former automatic **Docs screenshots**
 workflow is removed; do not restore its triggers. New app-image capture must
@@ -211,3 +119,26 @@ Rust example checks cover core behavior; update affected instructions alongside
 feature changes, and review screenshots when the interface changes. Complete
 coverage of the original documentation remains a separate writing and
 verification task, tracked in the writing plan.
+
+## Retiring the former guide address
+
+Before the old `johnneerdael/audio-tag-guide` Pages site is archived or
+disabled, replace its published content once with forwarding pages so existing
+bookmarks keep working. Commit to that repository's Pages branch an
+`index.html` and a `404.html` that both send the visitor to the same path on
+`https://opentag.neerdael.nl/`:
+
+```html
+<!doctype html>
+<meta charset="utf-8">
+<title>Moved to opentag.neerdael.nl</title>
+<link rel="canonical" href="https://opentag.neerdael.nl/">
+<script>
+  const path = location.pathname.replace(/^\/audio-tag-guide/, '');
+  location.replace('https://opentag.neerdael.nl' + (path || '/') + location.search + location.hash);
+</script>
+<p>The guide moved to <a href="https://opentag.neerdael.nl/">opentag.neerdael.nl</a>.</p>
+```
+
+Keep that repository's Pages site enabled until the forwarding pages are live.
+This one-time step is outside this repository's reviewed publication path.

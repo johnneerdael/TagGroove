@@ -11,7 +11,7 @@ you learn source headers, JSON selection, output buffers and settings.
 - [ ] A plain-text editor that can save UTF-8 without changing file extensions.
 
 The local server serves only the practice folder and binds to `127.0.0.1`.
-It is part of this exercise, not an instruction to run the source against a
+It is part of this exercise. Do not run the source against a
 personal music directory. The parser examples are also checked directly by
 tests without launching OpenTag or making network requests.
 

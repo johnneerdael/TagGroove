@@ -1,8 +1,8 @@
 # Tag → Tag
 
 Use **Tag → Tag** to copy or calculate one destination field from existing
-tags. Its preview refreshes as you change the field or format string,
-making it useful for learning an expression before saving it in an action.
+tags. Its preview refreshes as you change the field or format string, so you
+can learn an expression before saving it in an action.
 
 ## Fill missing album artists
 

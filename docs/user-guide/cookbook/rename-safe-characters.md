@@ -11,7 +11,7 @@
 A title can contain punctuation that is useful in metadata but unsuitable
 for a filename on another system. Choose a naming policy for the copy you
 will transfer while preserving the title tag. This recipe replaces a defined
-character set and trims trailing dots/spaces; it does **not** establish
+character set and trims trailing dots/spaces; it does not establish
 that every generated path is valid on every filesystem or device.
 
 The examples use `TRACK` = `3/8`, and show MP3 destinations. `·` marks a
@@ -78,7 +78,7 @@ above state the desired appearance before those rules are applied.
 The [Files options](../reference/options/files.md) govern the default
 replacement for separators inside tag values when you do not replace them
 explicitly. That default is different from separators you deliberately
-write **between** expression components to create folders.
+write between expression components to create folders.
 
 ## Variations
 

@@ -23,7 +23,7 @@ See [release automation](docs/RELEASING.md) for build targets, signing status an
 
 ## User guide
 
-Read the [OpenTag user guide](https://johnneerdael.github.io/audio-tag-guide/) for your first tagging session, practical recipes, and format-string and regular-expression references. The guide is growing; unfinished topics stay out of the published site.
+Read the [OpenTag user guide](https://opentag.neerdael.nl/) for your first tagging session, practical recipes, and format-string and regular-expression references. The guide is growing; unfinished topics stay out of the published site.
 
 See [documentation publishing](docs/PUBLISHING.md) to contribute or check a deployment.
 

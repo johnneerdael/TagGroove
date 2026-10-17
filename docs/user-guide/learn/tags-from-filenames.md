@@ -92,7 +92,7 @@ saved fields. Those captured fields replace any previous values there.
 ## 5. Learn what a successful match cannot tell you
 
 Captures take the shortest text that allows the rest of the pattern to
-match. That is a matching rule, not an understanding of album names.
+match. That is a matching rule; it does not understand album names.
 With the folder pattern above:
 
 <!-- learn-filename-ambiguity:start -->
