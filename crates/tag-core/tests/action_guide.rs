@@ -1,4 +1,4 @@
-//! Execute the action guide's copyable examples against OpenTag's core.
+//! Execute the action guide's copyable examples against TagGroove's core.
 mod guide_examples;
 use guide_examples::text_blocks;
 

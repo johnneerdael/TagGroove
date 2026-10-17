@@ -3,11 +3,11 @@
 Open **File → Options… → Tags → Advanced** for format-specific interoperability choices. Change one setting at a time when investigating a particular player's behavior.
 
 !!! tip "New to this?"
-    These are storage and interpretation choices. Keep a copy of a representative file and check it in the program that motivated the change; OpenTag source checks do not establish that program's compatibility.
+    These are storage and interpretation choices. Keep a copy of a representative file and check it in the program that motivated the change; TagGroove source checks do not establish that program's compatibility.
 
 ## ID3v2 comment language code
 
-**ID3v2 comment language code (ISO-639-2)** defaults to `eng`. Enter a three-letter alphabetic code, such as `deu` for German. OpenTag normalizes the stored language code to lower case when writing new comment frames. A two-letter interface locale such as `de` is not valid here.
+**ID3v2 comment language code (ISO-639-2)** defaults to `eng`. Enter a three-letter alphabetic code, such as `deu` for German. TagGroove normalizes the stored language code to lower case when writing new comment frames. A two-letter interface locale such as `de` is not valid here.
 
 This is an identifier in an ID3v2 comment frame, not an automatic translation of the comment text or the app interface. Some readers choose comments by language identifier. The original Mp3tag compatibility guidance says localized Windows Explorer or Windows Media Player may need the Windows language’s three-letter code, such as `deu`, while iTunes requires `eng` and can ignore comments with another code. Those are the documented historical reader distinctions; this guide does not verify those programs’ current behavior. Keep `eng` unless there is a tested reason to change it, then confirm the target reader displays the comment.
 

@@ -9,12 +9,12 @@ Open **File → Options… → Library** to keep previously read metadata betwee
 
 **Enable Library** defaults to off. With it off, files are read from disk when loaded. With it on, metadata is stored in a database in the configuration folder and reused on later loads when the path, modification time, size, and reading-settings fingerprint still match.
 
-OpenTag updates the cache when it saves, renames, moves, or deletes files. **File → Reload tags** forces selected files to be read again and refreshes their entries. A change to tag-reading settings or reader version prevents reuse of an entry interpreted with the older settings.
+TagGroove updates the cache when it saves, renames, moves, or deletes files. **File → Reload tags** forces selected files to be read again and refreshes their entries. A change to tag-reading settings or reader version prevents reuse of an entry interpreted with the older settings.
 
 The status reports whether the database exists, the cached file count and size, and how many files in the last load came from the Library versus disk. A high disk-read count after enabling the Library is expected for the first load or changed files.
 
 !!! info "Coming from Mp3tag"
-    OpenTag caches metadata and image descriptors. It reads image bytes from the audio file when needed; it does not move embedded images or other binary payloads into the Library database. Do not expect the binary-storage or memory behavior described for Mp3tag's Library.
+    TagGroove caches metadata and image descriptors. It reads image bytes from the audio file when needed; it does not move embedded images or other binary payloads into the Library database. Do not expect the binary-storage or memory behavior described for Mp3tag's Library.
 
 ## Only include these directories
 
@@ -24,7 +24,7 @@ With the restriction enabled and no folders listed, nothing is cached. Add an al
 
 ## Cleanup Library
 
-**Cleanup Library** checks cached paths and removes entries for files no longer accessible, including files moved or deleted outside OpenTag. With a directory restriction, it also removes entries outside the included folders. It uses the restriction currently displayed in the dialog.
+**Cleanup Library** checks cached paths and removes entries for files no longer accessible, including files moved or deleted outside TagGroove. With a directory restriction, it also removes entries outside the included folders. It uses the restriction currently displayed in the dialog.
 
 Progress and checked/removed counts appear on the page. **Cancel** stops further cleanup; entries already removed stay removed. Cleanup does not delete music files. Reconnect removable or network drives before cleanup if their entries should remain cached: an inaccessible path can be treated as an orphan.
 
@@ -36,7 +36,7 @@ Progress and checked/removed counts appear on the page. **Cancel** stops further
 
 Place the active configuration on reliable, fast storage when practical. The Library still performs file-stat checks and database writes, so a slow portable drive or network filesystem can limit improvement. Compare the status counts before attributing loading time to tag parsing.
 
-Mp3tag's original troubleshooting mentions excluding its process from Windows Defender. OpenTag provides no equivalent antivirus setting; those instructions name a different executable and should not be applied as an OpenTag prerequisite. Investigate actual I/O or scanning delays under the computer's existing policy.
+Mp3tag's original troubleshooting mentions excluding its process from Windows Defender. TagGroove provides no equivalent antivirus setting; those instructions name a different executable and should not be applied as a TagGroove prerequisite. Investigate actual I/O or scanning delays under the computer's existing policy.
 
 If another program changes metadata while preserving both file size and modification time, an old cache entry can remain valid by those checks. Use **Reload tags** after that kind of external edit.
 

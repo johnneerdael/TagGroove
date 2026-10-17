@@ -3,7 +3,7 @@
 // sources (AcoustID, Last.fm, fanart.tv) disabled until Tag Sources → API
 // keys… holds a key, then a Last.fm import and fanart.tv covers, the AcoustID
 // fpcalc message, an AcoustID import paired by fingerprint (stand-in fpcalc),
-// and the Discogs token text of a build without OpenTag's
+// and the Discogs token text of a build without TagGroove's
 // application key. Every service answer comes from
 // tests/e2e/sources-4-fixtures.sh on 127.0.0.1:18766.
 (async () => {
@@ -47,7 +47,7 @@
     await check(gated.every(name => /needs an API key/.test(op(name).title)), 'disabled with the reason: ' + op('source-lastfm').title);
     await check(['source-itunes', 'source-deezer', 'source-lrclib', 'source-cover-itunes', 'source-cover-deezer'].every(name => op(name) && !op(name).disabled), 'iTunes, Deezer and LRCLIB need no key');
 
-    // A build without OpenTag's Discogs application key keeps the token guidance.
+    // A build without TagGroove's Discogs application key keeps the token guidance.
     op('source-token').click();
     let token = await waitFor(() => document.querySelector('dialog.ts-token-dialog[open]'), 5000, 'token dialog');
     await check(/Create a token on Discogs/.test(token.textContent) && !/works without a token/.test(token.textContent), 'Discogs token text without the application key');

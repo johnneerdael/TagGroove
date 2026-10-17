@@ -1,0 +1,38 @@
+{
+  "cliVersion": "2.12.2",
+  "commit": "5b23c82ea5ba6b9aec420dd71f60493edc486aa9",
+  "template": {
+    "path": "crates/tauri-bundler/src/bundle/windows/nsis/installer.nsi",
+    "gitBlob": "f66b011e6b8acdd3e8e4f463c185e5c347b8f18c",
+    "sha256": "166f9677d42e81c7f712a1bf80d9d8c089c21d2967d8398474768b5eac14b494"
+  },
+  "license": {
+    "path": "LICENSE-MIT",
+    "gitBlob": "b08530d59433b3060f4fad8751ac2610c0b0aff3",
+    "sha256": "9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d"
+  },
+  "localChanges": [
+    "Retain OpenTag installation/uninstall registry identities independently of visible TagGroove branding.",
+    "Recognize the former MSI display identity and running opentag.exe during upgrade.",
+    "Migrate existing owned shortcuts independently of new-shortcut choices; preserve unrelated destinations and keep an owned legacy label when its new name is occupied.",
+    "Remove retained owned legacy labels on full uninstall while preserving links during updates."
+  ],
+  "shortcutUtilities": {
+    "upstreamPath": "crates/tauri-bundler/src/bundle/windows/nsis/utils.nsh",
+    "upstreamSha256": "78272bd40b8a783c0ab94e4bcb400fd947ba306a7575f2bbbbccb7478f40447f",
+    "fixturePath": "tests/fixtures/nsis-shortcut-utils.nsh",
+    "fixtureSha256": "140796a96572ec7a99118303f18fc12571f66c08e4c79ef1db3c09bf565c4a5c",
+    "macros": [
+      "IsShortcutTarget",
+      "SetShortcutTarget",
+      "SetLnkAppUserModelId",
+      "UnpinShortcut"
+    ]
+  },
+  "testToolset": {
+    "version": "3.11",
+    "url": "https://github.com/tauri-apps/binary-releases/releases/download/nsis-3.11/nsis-3.11.zip",
+    "sha256": "c7d27f780ddb6cffb4730138cd1591e841f4b7edb155856901cdf5f214394fa1",
+    "upstreamSha1": "EF7FF767E5CBD9EDD22ADD3A32C9B8F4500BB10D"
+  }
+}

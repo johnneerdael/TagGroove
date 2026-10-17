@@ -2,13 +2,13 @@
 
 > **For agentic workers:** Execute with the executing-plans skill in this isolated worktree; root independently reviews the final branch and coordinates normal merge/release.
 
-**Goal:** Make AcoustID fingerprint selected local files inside OpenTag without requiring external fpcalc/FFmpeg executables, then update user documentation in the same feature PR.
+**Goal:** Make AcoustID fingerprint selected local files inside TagGroove without requiring external fpcalc/FFmpeg executables, then update user documentation in the same feature PR.
 
 **Architecture:** A portable Rust crate owns local files, cancellation/deadline state, one admitted native worker, and C result allocations. A small C++ C ABI uses pinned upstream Chromaprint 1.6.2 and FFmpeg 9.0.2-compatible audio decoding/SWR through custom local-file AVIO; decoder networking/protocols are disabled. Source-built static dependencies and complete corresponding native/application source/build manifests accompany release artifacts; no host Homebrew binaries are shipped.
 
 **Tech stack:** Rust 2021, C++17/C ABI, FFmpeg/Chromaprint, Python 3.12 build orchestration, CMake/GNU Make, existing Tauri platform builds.
 
-**Spec:** docs/verification/embedded-fingerprints.md (source/evidence scope and product contract; derived from the completed /tmp/opentag-fpcalc-native investigation).
+**Spec:** docs/verification/embedded-fingerprints.md (source/evidence scope and product contract; derived from the completed /tmp/taggroove-fpcalc-native investigation).
 
 ## Global constraints
 

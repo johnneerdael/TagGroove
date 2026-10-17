@@ -18,7 +18,7 @@ const MAGIC: &[u8; 4] = b"fLaC";
 const HEADER: usize = 4;
 const PADDING: u8 = 1;
 const MAX_BLOCK: usize = (1 << 24) - 1;
-const TAIL: &[u8] = b"\xff\xf8OpenTag audio stand-in";
+const TAIL: &[u8] = b"\xff\xf8TagGroove audio stand-in";
 
 struct Block {
     kind: u8,

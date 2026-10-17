@@ -27,7 +27,7 @@ available, or otherwise anonymous access. Not every build includes an
 application key.
 
 Create a personal access token in your Discogs account's **Settings →
-Developers**, enter it in OpenTag and choose **Save**. An empty input keeps
+Developers**, enter it in TagGroove and choose **Save**. An empty input keeps
 the saved token; **Remove the saved token** deletes it. The stored token
 is not displayed again.
 
@@ -39,7 +39,7 @@ rather than silently deleting the token.
 
 Anonymous requests are spaced about 2.5 seconds apart; authenticated requests
 about 1.1 seconds apart and can supply search thumbnails. Check or replace a
-rejected token. A quota error may still require waiting. OpenTag uses release
+rejected token. A quota error may still require waiting. TagGroove uses release
 lookups, not account collection management or an OAuth sign-in flow.
 
 ## Related

@@ -181,7 +181,7 @@ pub fn parse_diagnostic(text: &str) -> Result<ColumnImportReport, ImportFailure>
         let mut field =
             field_placeholder(lookup(&keys, &["field", "edit", "editfield"]).unwrap_or(""));
         if crate::columns::editable_field(&field).is_err() {
-            // Columns that cannot be edited in OpenTag stay read-only.
+            // Columns that cannot be edited in TagGroove stay read-only.
             field.clear();
         }
         let width = lookup(&keys, &["width", "size"])

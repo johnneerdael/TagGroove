@@ -38,7 +38,7 @@ The entire candidate name must match. `%dummy%` consumes unwanted text
 without writing a field. Captures are not trimmed, so put fixed surrounding
 spaces in the pattern rather than capturing them into a field.
 
-The normal pattern omits the audio extension. OpenTag removes the extension
+The normal pattern omits the audio extension. TagGroove removes the extension
 from the name before matching unless the pattern ends in that same literal
 extension. Thus `%track% - %title%.mp3` also works for the MP3 example, but
 is less useful for a selection mixing formats.

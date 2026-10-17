@@ -21,7 +21,7 @@ Defaults to off. **Write BOM (UTF-8 and UTF-16 exports)** adds a byte-order mark
 
 ## Open the result
 
-[Messages](messages.md) controls whether OpenTag offers to open the written export through the operating system's associated application. Disabling that message leaves the output on disk and does not disable export itself.
+[Messages](messages.md) controls whether TagGroove offers to open the written export through the operating system's associated application. Disabling that message leaves the output on disk and does not disable export itself.
 
 These settings do not define CSV quoting, HTML structure, sorting, or which fields a template includes. Those belong to the export configuration/template. A playlist has its own [Playlist options](playlist.md), including its own BOM setting.
 

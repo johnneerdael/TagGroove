@@ -98,7 +98,7 @@ dialogs. A relative configured name is resolved inside each group's folder;
 an absolute name overrides that base and can cause different groups to share
 one output name. Check the configuration before using this direct command.
 Its shortcut is ++cmd+shift+p++ / ++ctrl+shift+p++;
-this shortcut invokes the per-folder command in OpenTag, not the generator
+this shortcut invokes the per-folder command in TagGroove, not the generator
 dialog. Try the previewed recipe first when destinations are unfamiliar.
 
 For one list per disc within each folder, use these two coordinated formats:

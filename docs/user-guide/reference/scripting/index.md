@@ -2,7 +2,7 @@
 
 Scripting functions calculate text inside a format string. They can read tags,
 transform a value, compare inputs or choose an output. This index covers all
-64 built-in functions in OpenTag's format-string engine, including both forms
+64 built-in functions in TagGroove's format-string engine, including both forms
 of `$meta` through its optional index argument.
 
 !!! tip "New to this?"

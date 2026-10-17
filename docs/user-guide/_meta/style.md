@@ -1,6 +1,6 @@
-# OpenTag user guide: style guide
+# TagGroove user guide: style guide
 
-This guide is for people writing pages of the OpenTag user guide. It is not
+This guide is for people writing pages of the TagGroove user guide. It is not
 published (`_meta/` is excluded in `mkdocs.yml`). Read it once before you write
 your first page, then keep the templates at the end open while you work.
 
@@ -40,9 +40,9 @@ lead so this guide gets fixed.
 
 ## 1. Ground rules
 
-1. **The code is the truth.** Describe what OpenTag does, verified in `src/`,
+1. **The code is the truth.** Describe what TagGroove does, verified in `src/`,
    `src-tauri/`, `crates/` and their tests. Do not describe Mp3tag and assume
-   OpenTag matches. If you can't verify a behaviour, leave it out or mark it
+   TagGroove matches. If you can't verify a behaviour, leave it out or mark it
    with an `<!-- UNVERIFIED: … -->` comment and tell the docs lead.
 2. **Write everything yourself.** The private Mp3tag documentation crawl is a
    checklist of topics, nothing more. Never copy, closely paraphrase or
@@ -65,14 +65,14 @@ lead so this guide gets fixed.
 
 - **Friendly, plain, second person.** "Select the files you want to rename",
   not "The user selects…" or "One may select…".
-- **Short sentences, active voice, present tense.** "OpenTag keeps the
-  extension", not "The extension will be kept by OpenTag".
+- **Short sentences, active voice, present tense.** "TagGroove keeps the
+  extension", not "The extension will be kept by TagGroove".
 - **Explain the why in one sentence** when a rule is surprising. "Quote the
   pattern: an unquoted `)` would end the function early."
 - **No hype and no filler.** Avoid "simply", "just", "easy", "powerful",
   "seamless", "robust", "leverage", "utilize". If it were simple, the reader
   wouldn't be here.
-- **Don't apologise for gaps.** If OpenTag doesn't do something, say so
+- **Don't apologise for gaps.** If TagGroove doesn't do something, say so
   plainly and offer the workaround.
 - **British or American spelling?** American, matching the app ("color
   mode", "customize"). The brand palette names keep their own spelling.
@@ -161,10 +161,10 @@ One problem, one copy-paste solution, then an explanation.
 Builds understanding, with no procedure.
 
 - Starts with the question a confused reader would ask ("Why does my player
-  show a different artist than OpenTag?").
+  show a different artist tha TagGroove?").
 - Uses diagrams (Mermaid is not enabled; use tables or simple ASCII in a
   `text` block), analogies and short examples.
-- Ends with "what this means in OpenTag" and links to the relevant guides.
+- Ends with "what this means in TagGroove" and links to the relevant guides.
 
 ## 4. Documenting a scripting function
 
@@ -262,7 +262,7 @@ your file manager (Linux)" instead.
 | `!!! warning` | Gotchas: things that silently produce the wrong result. Title it `"Gotcha"` or with the specific risk. |
 | `!!! danger` | Anything that can lose data and can't be undone (permanent delete, Remove tag on many files, overwriting covers). |
 | `!!! example` | A worked example that is longer than a table row. |
-| `!!! info "Coming from Mp3tag"` | Where OpenTag behaves differently from Mp3tag. Use only this title for that purpose. |
+| `!!! info "Coming from Mp3tag"` | Where TagGroove behaves differently from Mp3tag. Use only this title for that purpose. |
 | `!!! abstract` | Page or section summaries; also used by draft stubs. |
 | `??? question "Try it"` / `??? success "Answer"` | Collapsible exercises and their answers in tutorials. |
 
@@ -282,7 +282,7 @@ warning, nothing is.
   `### $num(x,n) { #num }`. Don't rely on generated slugs for functions and
   placeholders.
 - Link outside the guide only to stable official sources (MusicBrainz,
-  Discogs, the ID3 specification, the OpenTag repository). Do not link to
+  Discogs, the ID3 specification, the TagGroove repository). Do not link to
   the Mp3tag documentation as an explanation. The guide must stand on its own.
 
 ## 8. Screenshots
@@ -373,7 +373,7 @@ python3 -m venv .venv && .venv/bin/pip install -r docs/site-requirements.txt
 .venv/bin/mkdocs serve               # live preview at http://127.0.0.1:8000
 ```
 
-Building and previewing the guide never starts OpenTag.
+Building and previewing the guide never starts TagGroove.
 
 ## 13. Language
 

@@ -9,7 +9,7 @@ pub struct Configuration {
     pub template: String,
     /// The `.mte` file in the export folder holding the template, for
     /// configurations found there (Mp3tag names them after the
-    /// configuration). Configurations made in OpenTag use `<id>.mte`.
+    /// configuration). Configurations made in TagGroove use `<id>.mte`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub file: Option<String>,
 }
@@ -142,7 +142,7 @@ pub const ALBUM_LIST_TEMPLATE: &str = concat!(
 );
 
 /// The bundled configurations with the set (`Library::bundled`) that
-/// introduced them. All templates are written for OpenTag.
+/// introduced them. All templates are written for TagGroove.
 fn bundled() -> [(u32, &'static str, &'static str, &'static str); 7] {
     [
         (

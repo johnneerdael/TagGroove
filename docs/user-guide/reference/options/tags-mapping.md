@@ -1,6 +1,6 @@
 # Tags → Mapping
 
-Open **File → Options… → Tags → Mapping** to give a format's fields the names used throughout OpenTag. A mapping changes the field name exposed to the editor and format strings; it does not translate its text or calculate a new value.
+Open **File → Options… → Tags → Mapping** to give a format's fields the names used throughout TagGroove. A mapping changes the field name exposed to the editor and format strings; it does not translate its text or calculate a new value.
 
 !!! tip "New to this?"
     Use a mapping when two formats store the same concept under different field names. Do not use it to extract a year from a full date: that requires a value transformation.
@@ -12,8 +12,8 @@ Choose **New**, then set:
 | Control | Meaning |
 |---|---|
 | **Tag type** | The format family the rule applies to: **APEv2**, **ID3v2**, **MP4**, **Vorbis Comments**, or **WMA**. |
-| **Source** | The field name OpenTag otherwise shows for this format. |
-| **Target** | The preferred field name to show and use in OpenTag. |
+| **Source** | The field name TagGroove otherwise shows for this format. |
+| **Target** | The preferred field name to show and use in TagGroove. |
 
 Select an existing row to edit it. **Move up** and **Move down** change list order; **Remove** removes the selected rule. The default list is empty. Press **OK** to save the rules. Clean local files are reloaded; files with pending edits require deliberate saving/discarding and reloading before inspecting their new mapped view.
 
@@ -39,7 +39,7 @@ This makes many-to-one mapping useful for harmonizing a collection, but it also 
 
 ## Field names versus native identifiers
 
-ID3v2 and MP4 already have built-in mappings from native frame/atom identifiers to readable field names. Use the readable OpenTag field name as **Source**, such as `COMPOSER`, rather than entering an ID3 frame identifier or MP4 atom code. This page adds aliases above that mapping layer; it does not replace the built-in identifier-to-field table.
+ID3v2 and MP4 already have built-in mappings from native frame/atom identifiers to readable field names. Use the readable TagGroove field name as **Source**, such as `COMPOSER`, rather than entering an ID3 frame identifier or MP4 atom code. This page adds aliases above that mapping layer; it does not replace the built-in identifier-to-field table.
 
 With [reuse of unmodified frames/atoms](tags-advanced.md) enabled, an unchanged field may retain its prior physical representation. Changing the mapping view is therefore distinct from deliberately rewriting a value into a new native location.
 

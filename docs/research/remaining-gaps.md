@@ -26,7 +26,7 @@ Legend: **Impact** H = daily tagging, M = regular, L = rare or legacy. **Size** 
 | Actions | Remove Fields Except | Unmapped frames (PRIV, GEOB, chapters) survive | L | M |
 | Actions | Split Field | Keeps empty pieces (`a;;b`). Unverified | L | S |
 | Actions | Convert Codepage default | Action group dialogs start at 1251 instead of the last choice (`src/action-ui.ts:285`) | L | S |
-| Actions | `.mta` type IDs | Adjust Cover, Set Cover Properties and Generate Playlists export with OpenTag-only type IDs 1001 to 1003 (`crates/tag-core/src/actions.rs`); Mp3tag lists them as unknown actions | M | M |
+| Actions | `.mta` type IDs | Adjust Cover, Set Cover Properties and Generate Playlists export with TagGroove-only type IDs 1001 to 1003 (`crates/tag-core/src/actions.rs`); Mp3tag lists them as unknown actions | M | M |
 | Actions | Mobile provider documents | File, cover-file and rename actions refused (`managed_actions.rs`) | L | L |
 | Converters | Filename → Filename with an extension in the pattern | The extension is appended again | L | S |
 | Converters | Text File → Tag record-count mismatch | Any mismatch refuses the import; the original applies records in order | L | M |
@@ -63,9 +63,9 @@ Legend: **Impact** H = daily tagging, M = regular, L = rare or legacy. **Size** 
 | Tools | Default tool | Selecting "No action" for the default tool still opens Extended Tags on a file-list double-click; tools receive path placeholders only, `.lnk` and `.bat` forms are not special-cased, and a per-file launch is capped at 100 files | L | S |
 | Sources | freedb | "Current list of freedb servers" restores two built-in entries instead of fetching a current list; artist/album and artwork search is limited to `gnudb.org` hosts and local lookups are exact | M | M |
 | Sources | Review step | Utils are buttons, not a menu; "Suggest sorting" entries are one-shot actions; the exact Mp3tag behaviour of Ctrl+Shift+I is undocumented | L | S |
-| Rename | Reserved characters | Mp3tag's handling of `: * ? " < > |` in tag values is undocumented and OpenTag replaces them with `_`; Replace and Regex replace on `_FILENAME` can still produce invalid Windows characters | L | S |
+| Rename | Reserved characters | Mp3tag's handling of `: * ? " < > |` in tag values is undocumented and TagGroove replaces them with `_`; Replace and Regex replace on `_FILENAME` can still produce invalid Windows characters | L | S |
 | Converters | Path edge cases | Filename → Filename resolves relative targets against the file's folder; two partitions writing one output file are refused; `/` as a folder marker in the old pattern is unverified | L | S |
-| Actions | Plan clashes and codepages | Filename → Filename refuses the whole reviewed plan when one destination clashes; Convert Codepage has no EBCDIC or ISO-2022 pages; Import Text File has no explicit codepage choice and reads a UTF-8-valid ANSI file as UTF-8; the quality preset numbers and default field list are OpenTag choices | L | M |
+| Actions | Plan clashes and codepages | Filename → Filename refuses the whole reviewed plan when one destination clashes; Convert Codepage has no EBCDIC or ISO-2022 pages; Import Text File has no explicit codepage choice and reads a UTF-8-valid ANSI file as UTF-8; the quality preset numbers and default field list are TagGroove choices | L | M |
 | Configuration | Storage | Quick-action memories and field-list and format-string histories live in WebView storage, so configuration export does not include them; Mp3tag configuration ZIPs cannot be imported | M | M |
 | Updates | Install | The update check reads GitHub releases and offers no download or install | L | M |
 | General | Auto-completion | Fills from the first matching drop-down value only, not in multiline fields, with no filtered suggestions while typing | L | S |
@@ -94,13 +94,13 @@ Legend: **Impact** H = daily tagging, M = regular, L = rare or legacy. **Size** 
 
 | Item | Reason |
 |---|---|
-| Windows Explorer shell extension, context menu, Ctrl-drag from Explorer | Windows shell integration; OpenTag uses the CLI forms and single-instance forwarding |
+| Windows Explorer shell extension, context menu, Ctrl-drag from Explorer | Windows shell integration; TagGroove uses the CLI forms and single-instance forwarding |
 | Help → Donation and the vendor website and forum targets | Belong to the original vendor |
 | Bundled Mp3tag `.src`/`.inc` scripts and the web-sources download service | Proprietary content |
 | Mp3tag language files and the Appearance → Symbols icon set | Proprietary assets |
 | Audio-CD lookup for freedb | Optical-drive I/O per platform |
 | Discogs OAuth with an embedded consumer secret | An open-source app cannot keep the secret |
-| ANSI `.m3u` on macOS and Linux | No system ANSI code page; OpenTag writes Windows-1252 when the text round-trips and falls back to UTF-8 otherwise |
+| ANSI `.m3u` on macOS and Linux | No system ANSI code page; TagGroove writes Windows-1252 when the text round-trips and falls back to UTF-8 otherwise |
 | About → portable/Store install type | Windows packaging detail |
 
 ## Binary tables checked (2026-10-17)
@@ -110,5 +110,5 @@ Source: strings from `Mp3tag.exe`, compared with the code.
 - Script functions: all 52 names in the function table exist in `crates/tag-core/src/script.rs`.
 - Placeholders: every name in the placeholder table is produced (`src-tauri/src/evaluation.rs`, `crates/tag-core/src/technical.rs`, `mp4_chapters.rs`, `media_info.rs`).
 - Field names: the 99 names in the Fields menu table are in the mapping registry.
-- Toolbar command ids: 75 in the binary against 28 in OpenTag (first row above).
+- Toolbar command ids: 75 in the binary against 28 in TagGroove (first row above).
 - Persisted setting names: about 60 checked; the unmatched ones are listed under Settings and File operations.

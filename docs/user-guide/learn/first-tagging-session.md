@@ -4,11 +4,11 @@
 
 **You need:**
 
-- [ ] OpenTag installed ([download a desktop package](https://github.com/johnneerdael/opentag/releases/latest))
+- [ ] TagGroove installed ([download a desktop package](https://github.com/johnneerdael/TagGroove/releases/latest))
 - [ ] A folder with a few music files, ideally one album
 
 !!! tip "Practise on a copy"
-    OpenTag changes your files when you save. Copy an album folder to your
+    TagGroove changes your files when you save. Copy an album folder to your
     desktop and use the copy for this tutorial. The screenshots use an
     invented album, *Harbour Lights* by *Juniper Vale*. Your own music
     will look different, and the steps are the same.
@@ -17,11 +17,11 @@
 
 Choose **File → Change directory…** (++cmd+d++ / ++ctrl+d++) and pick the
 album folder. You can also drag the folder from Finder, Explorer or your file
-manager onto the OpenTag window, or click **Open folder** in the toolbar.
+manager onto the TagGroove window, or click **Open folder** in the toolbar.
 
 <figure markdown>
-![OpenTag with the album Harbour Lights open: the tag panel on the left shows the first track's tags, the file list on the right lists eight files](../assets/screens/main-window-light.png#only-light)
-![OpenTag with the album Harbour Lights open: the tag panel on the left shows the first track's tags, the file list on the right lists eight files](../assets/screens/main-window-dark.png#only-dark)
+![TagGroove with the album Harbour Lights open: the tag panel on the left shows the first track's tags, the file list on the right lists eight files](../assets/screens/main-window-light.png#only-light)
+![TagGroove with the album Harbour Lights open: the tag panel on the left shows the first track's tags, the file list on the right lists eight files](../assets/screens/main-window-dark.png#only-dark)
 <figcaption>The main window with the album open and the first file selected.</figcaption>
 </figure>
 
@@ -37,7 +37,7 @@ files, their playing time and size, and the audio format of the selected
 file.
 
 ??? question "Don't see subfolders?"
-    By default OpenTag also lists the files in subfolders, so a box set with
+    By default TagGroove also lists the files in subfolders, so a box set with
     `CD1` and `CD2` folders appears as one list. You can change this under
     **File → Options… → Directories → Read subfolders**.
 
@@ -57,7 +57,7 @@ Let's add a comment to this file.
 1. Click in the **Comment** field and type `First tagging session`.
 2. Look at the file list: the changed value is shown in the accent colour, and
    the status bar at the bottom of the window says **1 unsaved file**. Your
-   edit is *pending*: OpenTag remembers it, but the file on disk is unchanged.
+   edit is *pending*: TagGroove remembers it, but the file on disk is unchanged.
 3. Press ++cmd+s++ / ++ctrl+s++, or click **Save tags** under the tag panel.
 
 The status bar now reports **Saved tags: 1 file**. The comment is written into
@@ -69,7 +69,7 @@ the file, and any music player will see it.
     away with **Edit → Discard pending changes** (++cmd+b++ / ++ctrl+b++).
     Save writes the pending edits of the **selected** files. If you edited
     several files, select them all before you save. When you try to close
-    OpenTag or open another folder with edits still pending, it asks what
+    TagGroove or open another folder with edits still pending, it asks what
     to do.
 
 ## 4. Edit all files at once
@@ -123,7 +123,7 @@ with **Cancel** for now.
 
 Look at the file names in the list: `01_low_tide.mp3`, `track04.mp3`,
 `05 - juniper vale - salt & cedar.mp3`. Every file is named differently. The tags
-are tidy, though, so let OpenTag build the names from them.
+are tidy, though, so let TagGroove build the names from them.
 
 1. Select all files (++cmd+a++ / ++ctrl+a++).
 2. Open the **Convert** menu and choose **Tag → Filename…** (++alt+1++).
@@ -139,7 +139,7 @@ are tidy, though, so let OpenTag build the names from them.
     $num(%track%,2) - %artist% - %title%
     ```
 
-    `%track%`, `%artist%` and `%title%` are **placeholders**: OpenTag replaces
+    `%track%`, `%artist%` and `%title%` are **placeholders**: TagGroove replaces
     each with that field's value. `$num(…,2)` writes the track number with
     two digits, so `4/8` becomes `04`.
 

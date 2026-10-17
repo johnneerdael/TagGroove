@@ -63,9 +63,9 @@ test('sorting and window title follow General options',()=>{
   const natural=ui.naturalCollator(fixture),plain=ui.naturalCollator({...fixture,general:{...fixture.general,natural_sort:false}});
   assert.deepEqual(['11','2','1'].sort(natural.compare),['1','2','11']);
   assert.deepEqual(['11','2','1'].sort(plain.compare),['1','11','2']);
-  assert.equal(ui.windowTitle('/music',fixture),'OpenTag — /music');
-  assert.equal(ui.windowTitle('No folder loaded',fixture),'OpenTag');
-  assert.equal(ui.windowTitle('/music',{...fixture,general:{...fixture.general,show_directory_in_title:false}}),'OpenTag');
+  assert.equal(ui.windowTitle('/music',fixture),'TagGroove — /music');
+  assert.equal(ui.windowTitle('No folder loaded',fixture),'TagGroove');
+  assert.equal(ui.windowTitle('/music',{...fixture,general:{...fixture.general,show_directory_in_title:false}}),'TagGroove');
 });
 
 test('Directories offers the cover art directory stored with the extension pages',()=>{
