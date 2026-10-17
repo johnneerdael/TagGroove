@@ -17,6 +17,7 @@
 //! file is a file field, and a field whose rows differ is stored with each
 //! chapter instead.
 use super::*;
+use crate::batch_errors::ErrorCause;
 use crate::cue::CueSheet;
 use lofty::id3::v2::FrameList;
 
@@ -98,7 +99,16 @@ pub(crate) fn chapter_value(start: u64, title: &str) -> String {
 
 /// Parse "[H:]MM:SS[.fraction] Title" into a start in nanoseconds and a title.
 pub(crate) fn parse_chapter_value(value: &str) -> Result<(u64, String), String> {
-    let error = || format!("Invalid chapter {value:?}: use HH:MM:SS.mmm followed by the title");
+    parse_chapter_value_diagnostic(value).map_err(|error| error.to_string())
+}
+
+pub(crate) fn parse_chapter_value_diagnostic(value: &str) -> Result<(u64, String), ErrorCause> {
+    let error = || {
+        ErrorCause::message(
+            "Invalid chapter {value}: use HH:MM:SS.mmm followed by the title",
+            [("value", format!("{value:?}"))],
+        )
+    };
     let trimmed = value.trim_start();
     let (time, title) = trimmed
         .split_once(char::is_whitespace)
@@ -318,42 +328,59 @@ pub fn expand_chapter_rows(entries: Vec<AudioEntry>) -> Vec<AudioEntry> {
 }
 
 /// A cue sheet on disk, decoded.
-fn read_sheet(path: &Path) -> Result<(CueSheet, String, crate::cue::CueEncoding), String> {
-    let bytes = fs::read(path).map_err(|e| format!("{}: {e}", path.display()))?;
+fn read_sheet_diagnostic(
+    path: &Path,
+) -> Result<(CueSheet, String, crate::cue::CueEncoding), ErrorCause> {
+    let bytes = fs::read(path).map_err(|e| {
+        ErrorCause::wrap(
+            "{value}: {error}",
+            [("value", path.display().to_string())],
+            "error",
+            ErrorCause::external(e),
+        )
+    })?;
     let (text, encoding) = crate::cue::decode(&bytes);
     Ok((CueSheet::parse(&text), text, encoding))
 }
 
 /// The audio file of a cue sheet track.
-fn cue_audio(cue: &Path, location: Option<&str>) -> Result<PathBuf, String> {
-    let location = location.ok_or("The cue sheet track has no FILE line")?;
+fn cue_audio_diagnostic(cue: &Path, location: Option<&str>) -> Result<PathBuf, ErrorCause> {
+    let location =
+        location.ok_or_else(|| ErrorCause::owned("The cue sheet track has no FILE line"))?;
     let directory = cue.parent().unwrap_or(Path::new("."));
-    crate::playlist::entry_candidates(location, directory)?
+    crate::playlist::entry_candidates_diagnostic(location, directory)?
         .into_iter()
         .find(|path| path.is_file())
-        .ok_or_else(|| format!("{location}: file not found"))
+        .ok_or_else(|| {
+            ErrorCause::message("{path}: file not found", [("path", location.to_owned())])
+        })
 }
 
 /// The sheet position of subsong `number` (1-based) of a cue sheet.
-fn cue_track(sheet: &CueSheet, number: usize) -> Result<usize, String> {
+fn cue_track_diagnostic(sheet: &CueSheet, number: usize) -> Result<usize, ErrorCause> {
     number
         .checked_sub(1)
         .and_then(|n| sheet.subsongs().get(n).copied())
-        .ok_or_else(|| format!("Track {number} is no longer in the cue sheet"))
+        .ok_or_else(|| {
+            ErrorCause::message(
+                "Track {number} is no longer in the cue sheet",
+                [("number", number.to_string())],
+            )
+        })
 }
 
 /// The track of a loaded cue sheet as a row.
-fn cue_row(
+fn cue_row_diagnostic(
     cue: &Path,
     number: usize,
     include_cover_data: bool,
     rules: &[UserFieldMapping],
     options: &TagOptions,
-) -> Result<AudioEntry, String> {
-    let (sheet, _, _) = read_sheet(cue)?;
-    let index = cue_track(&sheet, number)?;
-    let audio = cue_audio(cue, sheet.tracks[index].file.as_deref())?;
-    let mut parent = read_description(&audio, include_cover_data, rules, options)?;
+) -> Result<AudioEntry, ErrorCause> {
+    let (sheet, _, _) = read_sheet_diagnostic(cue)?;
+    let index = cue_track_diagnostic(&sheet, number)?;
+    let audio = cue_audio_diagnostic(cue, sheet.tracks[index].file.as_deref())?;
+    let mut parent = read_description_diagnostic(&audio, include_cover_data, rules, options)?;
     let (start, end) = sheet.track_time(index);
     let mut fields = sheet.track_fields(index);
     let title = fields
@@ -384,33 +411,40 @@ fn cue_row(
 /// The audio file a path plays from: a chapter row's file, a cue sheet
 /// track's FILE, or the path itself.
 pub fn subsong_file(path: &Path) -> Result<PathBuf, String> {
+    subsong_file_diagnostic(path).map_err(|error| error.to_string())
+}
+
+fn subsong_file_diagnostic(path: &Path) -> Result<PathBuf, ErrorCause> {
     let Some((file, number)) = split_path(path) else {
         return Ok(path.to_path_buf());
     };
     if !is_cue(&file) {
         return Ok(file);
     }
-    let (sheet, _, _) = read_sheet(&file)?;
-    let index = cue_track(&sheet, number)?;
-    cue_audio(&file, sheet.tracks[index].file.as_deref())
+    let (sheet, _, _) = read_sheet_diagnostic(&file)?;
+    let index = cue_track_diagnostic(&sheet, number)?;
+    cue_audio_diagnostic(&file, sheet.tracks[index].file.as_deref())
 }
 
 /// Read one row.
-pub(super) fn read_row(
+pub(super) fn read_row_diagnostic(
     file: &Path,
     number: usize,
     include_cover_data: bool,
     rules: &[UserFieldMapping],
     options: &TagOptions,
-) -> Result<AudioEntry, String> {
+) -> Result<AudioEntry, ErrorCause> {
     if is_cue(file) {
-        return cue_row(file, number, include_cover_data, rules, options);
+        return cue_row_diagnostic(file, number, include_cover_data, rules, options);
     }
-    let parent = read_description(file, include_cover_data, rules, options)?;
+    let parent = read_description_diagnostic(file, include_cover_data, rules, options)?;
     if number > parent.chapters.len() {
-        return Err(format!(
-            "Chapter {number} is no longer in {}",
-            parent.filename
+        return Err(ErrorCause::message(
+            "Chapter {number} is no longer in {value}",
+            [
+                ("number", number.to_string()),
+                ("value", parent.filename.clone()),
+            ],
         ));
     }
     Ok(row(
@@ -421,17 +455,16 @@ pub(super) fn read_row(
     ))
 }
 
-fn conflict(name: &str, filename: &str) -> String {
-    format!(
-        "{name} is stored once for {filename}, not per chapter; give its chapter rows the same value"
+fn conflict_diagnostic(name: &str, filename: &str) -> ErrorCause {
+    ErrorCause::message(
+        "{field} is stored once for {value}, not per chapter; give its chapter rows the same value",
+        [("field", name.to_owned()), ("value", filename.to_owned())],
     )
 }
 
-fn refuse_whole_file_fields(name: &str) -> Result<(), String> {
+fn refuse_whole_file_fields_diagnostic(name: &str) -> Result<(), ErrorCause> {
     if name.eq_ignore_ascii_case(CHAPTERS_FIELD) || name.eq_ignore_ascii_case(CUESHEET_FIELD) {
-        return Err(format!(
-            "{name} cannot be edited on a chapter row; turn off List chapters as separate files to edit it"
-        ));
+        return Err(ErrorCause::message("{field} cannot be edited on a chapter row; turn off List chapters as separate files to edit it", [("field", name.to_owned())]));
     }
     Ok(())
 }
@@ -496,24 +529,40 @@ pub(super) fn write_rows(
     rules: &[UserFieldMapping],
     options: &TagOptions,
 ) -> Result<Vec<AudioEntry>, String> {
+    write_rows_diagnostic(file, rows, include_cover_data, rules, options)
+        .map_err(|error| error.to_string())
+}
+
+pub(super) fn write_rows_diagnostic(
+    file: &Path,
+    rows: &[(usize, Fields)],
+    include_cover_data: bool,
+    rules: &[UserFieldMapping],
+    options: &TagOptions,
+) -> Result<Vec<AudioEntry>, ErrorCause> {
     if is_cue(file) {
-        write_cue_rows(file, rows)?;
+        write_cue_rows_diagnostic(file, rows)?;
         return rows
             .iter()
-            .map(|(number, _)| cue_row(file, *number, include_cover_data, rules, options))
+            .map(|(number, _)| {
+                cue_row_diagnostic(file, *number, include_cover_data, rules, options)
+            })
             .collect();
     }
-    let parent = read_description(file, false, rules, options)?;
+    let parent = read_description_diagnostic(file, false, rules, options)?;
     let count = parent.chapters.len();
     if let Some((number, _)) = rows.iter().find(|(n, _)| *n == 0 || *n > count) {
-        return Err(format!(
-            "Chapter {number} is no longer in {}",
-            parent.filename
+        return Err(ErrorCause::message(
+            "Chapter {number} is no longer in {value}",
+            [
+                ("number", number.to_string()),
+                ("value", parent.filename.clone()),
+            ],
         ));
     }
     let source = parent.chapters[0].source;
     if source == ChapterSource::Cue {
-        write_embedded_cue_rows(file, &parent, rows, rules, options)?;
+        write_embedded_cue_rows_diagnostic(file, &parent, rows, rules, options)?;
     } else {
         let mut views: Vec<Fields> = (0..count)
             .map(|index| row(&parent, String::new(), index, count).fields)
@@ -523,7 +572,7 @@ pub(super) fn write_rows(
         for (number, updates) in rows {
             let index = number - 1;
             for (name, values) in updates {
-                refuse_whole_file_fields(name)?;
+                refuse_whole_file_fields_diagnostic(name)?;
                 if name.eq_ignore_ascii_case("TITLE") {
                     titles[index] = Some(values.join("; "));
                     continue;
@@ -545,7 +594,7 @@ pub(super) fn write_rows(
             .collect();
         let retitled = titles.iter().any(Option::is_some);
         match source {
-            ChapterSource::Mp4 => write_mp4_rows(
+            ChapterSource::Mp4 => write_mp4_rows_diagnostic(
                 file,
                 &parent,
                 &plan,
@@ -567,7 +616,9 @@ pub(super) fn write_rows(
                     .filter(|(_, f)| !f.is_empty())
                     .collect();
                 if !fields.is_empty() || !chapters.is_empty() {
-                    container_formats::write_chapter_rows(file, &fields, chapters, rules, options)?;
+                    container_formats::write_chapter_rows_diagnostic(
+                        file, &fields, chapters, rules, options,
+                    )?;
                 }
             }
             ChapterSource::Id3 => {
@@ -582,19 +633,24 @@ pub(super) fn write_rows(
                         chapters[index].insert("TITLE".into(), values);
                     }
                 }
-                write_id3_rows(file, &plan.file, &chapters, rules, options)?;
+                write_id3_rows_diagnostic(file, &plan.file, &chapters, rules, options)?;
             }
             ChapterSource::Cue => unreachable!("handled above"),
         }
     }
-    let parent = read_description(file, include_cover_data, rules, options)?;
+    let parent = read_description_diagnostic(file, include_cover_data, rules, options)?;
     let rows_after = chapter_rows(&parent);
     rows.iter()
         .map(|(number, _)| {
-            rows_after
-                .get(number - 1)
-                .cloned()
-                .ok_or_else(|| format!("Chapter {number} is no longer in {}", parent.filename))
+            rows_after.get(number - 1).cloned().ok_or_else(|| {
+                ErrorCause::message(
+                    "Chapter {number} is no longer in {value}",
+                    [
+                        ("number", number.to_string()),
+                        ("value", parent.filename.clone()),
+                    ],
+                )
+            })
         })
         .collect()
 }
@@ -602,25 +658,25 @@ pub(super) fn write_rows(
 /// Rows of a cue sheet in a CUESHEET field: TITLE, ARTIST, COMPOSER, ISRC
 /// and the track ReplayGain values are written into the track's lines, other
 /// fields are file fields that the rows must agree on.
-fn write_embedded_cue_rows(
+fn write_embedded_cue_rows_diagnostic(
     file: &Path,
     parent: &AudioEntry,
     rows: &[(usize, Fields)],
     rules: &[UserFieldMapping],
     options: &TagOptions,
-) -> Result<(), String> {
+) -> Result<(), ErrorCause> {
     let name = key(&parent.fields, CUESHEET_FIELD)
         .cloned()
-        .ok_or("The embedded cue sheet is missing")?;
+        .ok_or_else(|| ErrorCause::owned("The embedded cue sheet is missing"))?;
     let text = parent.fields[&name].first().cloned().unwrap_or_default();
     let mut sheet = CueSheet::parse(&text);
     let mut shared = Fields::new();
     let mut tracks: Vec<(usize, Fields)> = Vec::new();
     for (number, updates) in rows {
-        let index = cue_track(&sheet, *number)?;
+        let index = cue_track_diagnostic(&sheet, *number)?;
         let mut own = Fields::new();
         for (name, values) in updates {
-            refuse_whole_file_fields(name)?;
+            refuse_whole_file_fields_diagnostic(name)?;
             if name.eq_ignore_ascii_case("TITLE")
                 || CueSheet::track_field(name)
                 || name.eq_ignore_ascii_case("TRACK")
@@ -630,7 +686,7 @@ fn write_embedded_cue_rows(
             }
             match shared.iter().find(|(k, _)| k.eq_ignore_ascii_case(name)) {
                 Some((_, other)) if other != values => {
-                    return Err(conflict(name, &parent.filename))
+                    return Err(conflict_diagnostic(name, &parent.filename))
                 }
                 Some(_) => {}
                 None => {
@@ -642,13 +698,13 @@ fn write_embedded_cue_rows(
             tracks.push((index, own));
         }
     }
-    sheet.apply(&tracks)?;
+    sheet.apply(&tracks).map_err(ErrorCause::owned_text)?;
     let rendered = sheet.render();
     if rendered != text {
         shared.insert(name, vec![rendered]);
     }
     if !shared.is_empty() {
-        write_fields_result(file, &shared, false, rules, options)?;
+        write_fields_result_diagnostic(file, &shared, false, rules, options)?;
     }
     Ok(())
 }
@@ -658,7 +714,7 @@ fn write_embedded_cue_rows(
 /// tags (`udta/tags`), all in one write. Nero tags are written when a
 /// chapter has fields of its own or the file already has them; each
 /// chapter's set also holds its title, as Mp3tag writes it.
-fn write_mp4_rows(
+fn write_mp4_rows_diagnostic(
     file: &Path,
     parent: &AudioEntry,
     plan: &Plan,
@@ -666,8 +722,8 @@ fn write_mp4_rows(
     title: &dyn Fn(usize) -> String,
     rules: &[UserFieldMapping],
     options: &TagOptions,
-) -> Result<(), String> {
-    let existing = mp4_chapters::scan(file)?.nero_tags;
+) -> Result<(), ErrorCause> {
+    let existing = mp4_chapters::scan_diagnostic(file)?.nero_tags;
     let mut sets: Vec<Fields> = parent.chapters.iter().map(|c| c.fields.clone()).collect();
     for (set, changes) in sets.iter_mut().zip(&plan.chapters) {
         for (name, values) in changes {
@@ -680,10 +736,20 @@ fn write_mp4_rows(
         nero.truncate(sets.len());
         for (index, set) in sets.iter_mut().enumerate() {
             put(set, "TITLE", vec![title(index)]);
-            nero.set_chapter(index, &map_write_fields(set, TagType::Mp4Ilst, rules)?)?;
+            nero.set_chapter(
+                index,
+                &map_write_fields_diagnostic(set, TagType::Mp4Ilst, rules)?,
+            )
+            .map_err(ErrorCause::owned_text)?;
         }
         // File-wide Nero fields follow the file fields (see `sync_global`).
-        changed |= nero.sync_global(&map_write_fields(&plan.file, TagType::Mp4Ilst, rules)?)?;
+        changed |= nero
+            .sync_global(&map_write_fields_diagnostic(
+                &plan.file,
+                TagType::Mp4Ilst,
+                rules,
+            )?)
+            .map_err(ErrorCause::owned_text)?;
         Some(nero)
     } else {
         None
@@ -700,7 +766,7 @@ fn write_mp4_rows(
             .map(|c| chapter_value(c.start * 1_000_000, &c.title))
             .collect(),
     };
-    staged_mutation_with_mappings(
+    staged_mutation_with_mappings_diagnostic(
         file,
         false,
         rules,
@@ -709,10 +775,22 @@ fn write_mp4_rows(
             // Nero first, so the read-back of the iTunes tag sees no stale
             // file-wide Nero value.
             if rewrite_chapters {
-                mp4_chapters::write_with_tags(staging, staged_path, &values, nero.as_ref())?;
+                mp4_chapters::write_with_tags_diagnostic(
+                    staging,
+                    staged_path,
+                    &values,
+                    nero.as_ref(),
+                )?;
             }
             if !plan.file.is_empty() {
-                write_tag_fields(staging, tagged, staged_path, &plan.file, rules, options)?;
+                write_tag_fields_diagnostic(
+                    staging,
+                    tagged,
+                    staged_path,
+                    &plan.file,
+                    rules,
+                    options,
+                )?;
             }
             Ok(())
         },
@@ -723,17 +801,17 @@ fn write_mp4_rows(
 /// ID3v2 rows: file fields in the tag, and each chapter's changes (TITLE
 /// included) in the sub-frames of its `CHAP` frame (0-based in start order),
 /// in one write. Other sub-frames, such as pictures, are kept.
-fn write_id3_rows(
+fn write_id3_rows_diagnostic(
     file: &Path,
     shared: &Fields,
     chapters: &[Fields],
     rules: &[UserFieldMapping],
     options: &TagOptions,
-) -> Result<(), String> {
+) -> Result<(), ErrorCause> {
     if shared.is_empty() && chapters.iter().all(Fields::is_empty) {
         return Ok(());
     }
-    staged_mutation_with_mappings(
+    staged_mutation_with_mappings_diagnostic(
         file,
         false,
         rules,
@@ -741,19 +819,19 @@ fn write_id3_rows(
         |staging, tagged, staged_path| {
             let kind = tagged.file_type();
             if !shared.is_empty() {
-                write_tag_fields(staging, tagged, staged_path, shared, rules, options)?;
+                write_tag_fields_diagnostic(staging, tagged, staged_path, shared, rules, options)?;
             }
             if chapters.iter().all(Fields::is_empty) {
                 return Ok(());
             }
-            let mut tag = native_tags(staging, kind)?
+            let mut tag = native_tags_diagnostic(staging, kind)?
                 .id3
-                .ok_or("The ID3v2 tag with the chapters is missing")?;
+                .ok_or_else(|| ErrorCause::owned("The ID3v2 tag with the chapters is missing"))?;
             let ids: Vec<String> = id3_chapters(&tag).into_iter().map(|(id, _)| id).collect();
             // MPEG saves use the configured revision, as every MPEG save does.
             let target = if kind == FileType::Mpeg {
                 let target = tag_policy::id3_target(options);
-                mapping::convert_id3_version(&mut tag, &target)?;
+                mapping::convert_id3_version_diagnostic(&mut tag, &target)?;
                 target
             } else {
                 mapping::Id3Target::preserving(&tag, options.comment_language())
@@ -763,9 +841,11 @@ fn write_id3_rows(
                 if updates.is_empty() {
                     continue;
                 }
-                let id = ids.get(index).ok_or("A chapter disappeared while saving")?;
-                let native_updates = normalized_updates(
-                    &map_write_fields(updates, TagType::Id3v2, rules)?,
+                let id = ids
+                    .get(index)
+                    .ok_or_else(|| ErrorCause::owned("A chapter disappeared while saving"))?;
+                let native_updates = normalized_updates_diagnostic(
+                    &map_write_fields_diagnostic(updates, TagType::Id3v2, rules)?,
                     TagType::Id3v2,
                 )?;
                 let mut failed = None;
@@ -773,7 +853,8 @@ fn write_id3_rows(
                     if let Frame::Chapter(chapter) = frame {
                         if chapter.id == id.as_str() && failed.is_none() {
                             let mut own = sub_frames(&chapter.children);
-                            match mapping::patch_id3(&mut own, &native_updates, &target) {
+                            match mapping::patch_id3_diagnostic(&mut own, &native_updates, &target)
+                            {
                                 Ok(()) => {
                                     let mut children = FrameList::new();
                                     for frame in own {
@@ -794,20 +875,27 @@ fn write_id3_rows(
             }
             staging
                 .seek(SeekFrom::Start(0))
-                .map_err(|e| e.to_string())?;
-            mapping::save_id3(staging, kind, &tag, &target)?;
-            let written = native_tags(staging, kind)?
+                .map_err(ErrorCause::external)?;
+            mapping::save_id3_diagnostic(staging, kind, &tag, &target)?;
+            let written = native_tags_diagnostic(staging, kind)?
                 .id3
                 .map(|tag| id3_chapters(&tag))
                 .unwrap_or_default();
             for (index, updates) in expected {
                 let (_, chapter) = written
                     .get(index)
-                    .ok_or("The ID3v2 chapters could not be written")?;
+                    .ok_or_else(|| ErrorCause::owned("The ID3v2 chapters could not be written"))?;
                 let mut stored = chapter.fields.clone();
                 put(&mut stored, "TITLE", vec![chapter.title.clone()]);
-                verify_readback(&stored, &updates, TagType::Id3v2, target.latin1)
-                    .map_err(|e| format!("Chapter {}: {e}", index + 1))?;
+                verify_readback_diagnostic(&stored, &updates, TagType::Id3v2, target.latin1)
+                    .map_err(|e| {
+                        ErrorCause::wrap(
+                            "Chapter {number}: {error}",
+                            [("number", (index + 1).to_string())],
+                            "error",
+                            e,
+                        )
+                    })?;
             }
             Ok(())
         },
@@ -816,46 +904,81 @@ fn write_id3_rows(
 }
 
 /// Edit a cue sheet file in place of the original, keeping its encoding.
-fn write_cue_rows(cue: &Path, rows: &[(usize, Fields)]) -> Result<(), String> {
-    let before = fs::metadata(cue).map_err(|e| e.to_string())?;
-    let (mut sheet, text, encoding) = read_sheet(cue)?;
+fn write_cue_rows_diagnostic(cue: &Path, rows: &[(usize, Fields)]) -> Result<(), ErrorCause> {
+    let before = fs::metadata(cue).map_err(ErrorCause::external)?;
+    let (mut sheet, text, encoding) = read_sheet_diagnostic(cue)?;
     let indexed: Vec<(usize, Fields)> = rows
         .iter()
-        .map(|(number, updates)| Ok((cue_track(&sheet, *number)?, updates.clone())))
-        .collect::<Result<_, String>>()?;
-    sheet.apply(&indexed)?;
+        .map(|(number, updates)| Ok((cue_track_diagnostic(&sheet, *number)?, updates.clone())))
+        .collect::<Result<_, ErrorCause>>()?;
+    sheet.apply(&indexed).map_err(ErrorCause::owned_text)?;
     let rendered = sheet.render();
     if rendered == text {
         return Ok(());
     }
-    let directory = cue.parent().ok_or("The cue sheet has no folder")?;
+    let directory = cue
+        .parent()
+        .ok_or_else(|| ErrorCause::owned("The cue sheet has no folder"))?;
     let mut staged = tempfile::Builder::new()
         .prefix(".opentag-")
         .suffix(".cue")
         .tempfile_in(directory)
-        .map_err(|e| e.to_string())?;
+        .map_err(ErrorCause::external)?;
     std::io::Write::write_all(
         staged.as_file_mut(),
         &crate::cue::encode(&rendered, encoding),
     )
-    .map_err(|e| e.to_string())?;
-    staged.as_file().sync_all().map_err(|e| e.to_string())?;
-    let (check, _, _) = read_sheet(staged.path())?;
+    .map_err(ErrorCause::external)?;
+    staged.as_file().sync_all().map_err(ErrorCause::external)?;
+    let (check, _, _) = read_sheet_diagnostic(staged.path())?;
     if check.render() != rendered {
-        return Err("The cue sheet could not be written; the original was kept".into());
+        return Err(ErrorCause::owned(
+            "The cue sheet could not be written; the original was kept",
+        ));
     }
-    fs::set_permissions(staged.path(), before.permissions()).map_err(|e| e.to_string())?;
-    let current = fs::metadata(cue).map_err(|e| e.to_string())?;
+    fs::set_permissions(staged.path(), before.permissions()).map_err(ErrorCause::external)?;
+    let current = fs::metadata(cue).map_err(ErrorCause::external)?;
     if current.len() != before.len() || current.modified().ok() != before.modified().ok() {
-        return Err("The cue sheet changed during editing; reload it before saving".into());
+        return Err(ErrorCause::owned(
+            "The cue sheet changed during editing; reload it before saving",
+        ));
     }
-    staged.persist(cue).map_err(|e| e.error.to_string())?;
+    staged
+        .persist(cue)
+        .map_err(|e| ErrorCause::external(e.error))?;
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn detailed_cue_rows_keep_raw_locations_and_source_io_separate() {
+        let directory = tempfile::tempdir().unwrap();
+        let cue = directory.path().join("Help.cue");
+        let text = "FILE \"Help {error}.wav\" WAVE\n  TRACK 01 AUDIO\n    INDEX 01 00:00:00\n";
+        fs::write(&cue, text).unwrap();
+        let owned = read_row_diagnostic(&cue, 1, false, &[], &TagOptions::default()).unwrap_err();
+        assert!(matches!(&owned, ErrorCause::Owned { key, params, .. }
+            if key == "{path}: file not found" && params["path"] == "Help {error}.wav"));
+        assert_eq!(owned.to_string(), "Help {error}.wav: file not found");
+        let absent = directory.path().join("Title.cue");
+        let external =
+            read_row_diagnostic(&absent, 1, false, &[], &TagOptions::default()).unwrap_err();
+        assert!(matches!(external, ErrorCause::Owned { children, .. }
+            if matches!(children.get("error"), Some(ErrorCause::External { .. }))));
+        // The public String route still displays the same native IO/path message.
+        let legacy = subsong_file(Path::new(&subsongs_path_for_test(&absent))).unwrap_err();
+        let direct =
+            subsong_file_diagnostic(Path::new(&subsongs_path_for_test(&absent))).unwrap_err();
+        assert_eq!(legacy, direct.to_string());
+        assert_eq!(fs::read_to_string(cue).unwrap(), text);
+    }
+
+    fn subsongs_path_for_test(path: &Path) -> String {
+        subsong_path(&path.to_string_lossy(), 1)
+    }
 
     #[test]
     fn row_paths_round_trip() {

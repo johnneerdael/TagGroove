@@ -8,6 +8,7 @@
 //! applies to the single `ID3 ` chunk of WAV and AIFF files, whose chunk size
 //! then stays the same. Writes that do not fit fall back to a full rewrite that
 //! reserves [`PADDING`] bytes, so later edits fit.
+use crate::batch_errors::ErrorCause;
 use lofty::file::FileType;
 use std::{
     fs::File,
@@ -86,12 +87,12 @@ fn existing(file: &mut File, kind: FileType) -> std::io::Result<Option<Range<u64
 /// it can be padded to exactly the existing size. Returns whether it did;
 /// `false` leaves the file untouched for a full rewrite. A tag without frames
 /// (an empty rendering) is a removal, which never happens in place.
-pub(crate) fn save_in_place(
+pub(crate) fn save_in_place_diagnostic(
     file: &mut File,
     kind: FileType,
-    render: impl Fn(u32) -> Result<Vec<u8>, String>,
-) -> Result<bool, String> {
-    let Some(range) = existing(file, kind).map_err(|e| e.to_string())? else {
+    render: impl Fn(u32) -> Result<Vec<u8>, ErrorCause>,
+) -> Result<bool, ErrorCause> {
+    let Some(range) = existing(file, kind).map_err(ErrorCause::external)? else {
         return Ok(false);
     };
     let unpadded = render(0)?.len() as u64;
@@ -109,7 +110,36 @@ pub(crate) fn save_in_place(
     }
     file.seek(SeekFrom::Start(range.start))
         .and_then(|_| file.write_all(&bytes))
-        .map_err(|e| e.to_string())?;
+        .map_err(ErrorCause::external)?;
     crate::write_cost::rewrote_region(available);
     Ok(true)
+}
+
+#[cfg(test)]
+mod diagnostic_tests {
+    use super::*;
+
+    #[test]
+    fn in_place_render_failure_keeps_its_source_role_and_original_bytes() {
+        let mut file = tempfile::tempfile().unwrap();
+        let original = b"ID3\x04\0\0\0\0\0\x04\0\0\0\0";
+        file.write_all(original).unwrap();
+        let owned = save_in_place_diagnostic(&mut file, FileType::Mpeg, |_| {
+            Err(ErrorCause::owned("Invalid ID3v2 serialization"))
+        })
+        .unwrap_err();
+        let external = save_in_place_diagnostic(&mut file, FileType::Mpeg, |_| {
+            Err(ErrorCause::external(std::io::Error::other(
+                "Invalid ID3v2 serialization",
+            )))
+        })
+        .unwrap_err();
+        assert_eq!(owned.to_string(), external.to_string());
+        assert!(matches!(owned, ErrorCause::Owned { .. }));
+        assert!(matches!(external, ErrorCause::External { .. }));
+        file.seek(SeekFrom::Start(0)).unwrap();
+        let mut after = Vec::new();
+        file.read_to_end(&mut after).unwrap();
+        assert_eq!(after, original);
+    }
 }

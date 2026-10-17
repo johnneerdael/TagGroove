@@ -1,9 +1,14 @@
 use super::*;
 use crate::actions::{CoverImageFormat, CoverResize, CoverScaleMode, CoverSizeMode};
+use crate::batch_errors::ErrorCause;
 use image::{DynamicImage, ImageFormat};
 use std::io::Cursor;
 
 pub fn picture_type_from_name(name: &str) -> Result<PictureType, String> {
+    picture_type_from_name_diagnostic(name).map_err(|error| error.to_string())
+}
+
+pub fn picture_type_from_name_diagnostic(name: &str) -> Result<PictureType, ErrorCause> {
     let name = name.trim();
     if let Ok(number) = name.parse::<u8>() {
         return Ok(PictureType::from_u8(number));
@@ -11,22 +16,24 @@ pub fn picture_type_from_name(name: &str) -> Result<PictureType, String> {
     (0..=20)
         .map(PictureType::from_u8)
         .find(|kind| format!("{kind:?}").eq_ignore_ascii_case(name))
-        .ok_or_else(|| format!("Unknown cover type: {name}"))
+        .ok_or_else(|| {
+            ErrorCause::message("Unknown cover type: {name}", [("name", name.to_owned())])
+        })
 }
 
-fn transform_covers(
+fn transform_covers_diagnostic(
     path: &Path,
     options: &TagOptions,
-    mut transform: impl FnMut(&Picture) -> Result<Option<Picture>, String>,
-) -> Result<AudioEntry, String> {
-    if read_entry_summary_with_options(path, &[], options)?
+    mut transform: impl FnMut(&Picture) -> Result<Option<Picture>, ErrorCause>,
+) -> Result<AudioEntry, ErrorCause> {
+    if read_entry_summary_with_options_diagnostic(path, &[], options)?
         .covers
         .is_empty()
     {
-        return read_entry_summary_with_options(path, &options.mappings, options);
+        return read_entry_summary_with_options_diagnostic(path, &options.mappings, options);
     }
     if asf::sniff(path) {
-        return asf::change_pictures(
+        return asf::change_pictures_diagnostic(
             path,
             false,
             options,
@@ -42,9 +49,9 @@ fn transform_covers(
         );
     }
     if let Some(kind) = container_formats::detect(path) {
-        return container_formats::transform_covers(path, kind, options, transform);
+        return container_formats::transform_covers_diagnostic(path, kind, options, transform);
     }
-    staged_mutation(path, false, options, |staging, mut file, staged_path| {
+    staged_mutation_diagnostic(path, false, options, |staging, mut file, staged_path| {
         if tag_policy::policy(file.file_type()).is_some() {
             let mut pictures = Vec::new();
             for picture in tag_policy::displayed_pictures(&file, options) {
@@ -52,14 +59,14 @@ fn transform_covers(
                     pictures.push(picture);
                 }
             }
-            let written = tag_policy::write(
+            let written = tag_policy::write_diagnostic(
                 staging,
                 &file,
                 &options.mappings,
                 options,
                 tag_policy::Change::Pictures(pictures.clone()),
             )?;
-            return tag_policy::verify_pictures(
+            return tag_policy::verify_pictures_diagnostic(
                 staged_path,
                 options,
                 written,
@@ -75,10 +82,12 @@ fn transform_covers(
         let mut expected = Vec::new();
         for kind in kinds {
             if !file.tag_support(kind).is_writable() {
-                return Err("Cover tag is read-only".into());
+                return Err(ErrorCause::owned("Cover tag is read-only"));
             }
             let file_type = file.file_type();
-            let tag = file.tag_mut(kind).ok_or("Cover tag disappeared")?;
+            let tag = file
+                .tag_mut(kind)
+                .ok_or_else(|| ErrorCause::owned("Cover tag disappeared"))?;
             let original = tag.pictures().to_vec();
             while !tag.pictures().is_empty() {
                 tag.remove_picture(0);
@@ -94,8 +103,8 @@ fn transform_covers(
             }
             staging
                 .seek(SeekFrom::Start(0))
-                .map_err(|e| e.to_string())?;
-            save_preserving_native(
+                .map_err(ErrorCause::external)?;
+            save_preserving_native_diagnostic(
                 staging,
                 file_type,
                 tag,
@@ -104,18 +113,17 @@ fn transform_covers(
                 Id3Write::preserving(options),
             )?;
         }
-        let actual = read_entry_summary_with_options(staged_path, &[], options)?;
+        let actual = read_entry_summary_with_options_diagnostic(staged_path, &[], options)?;
         if actual.covers.len() != expected.len() {
-            return Err(
-                "The tag format cannot preserve all edited covers (duplicate type/description)"
-                    .into(),
-            );
+            return Err(ErrorCause::owned(
+                "The tag format cannot preserve all edited covers (duplicate type/description)",
+            ));
         }
         for (cover, (kind, description)) in actual.covers.iter().zip(expected) {
             if cover.picture_type != kind || cover.description != description {
-                return Err(
-                    "The tag format does not support the requested cover properties".into(),
-                );
+                return Err(ErrorCause::owned(
+                    "The tag format does not support the requested cover properties",
+                ));
             }
         }
         Ok(())
@@ -129,7 +137,14 @@ pub fn remove_all_covers_with_options(
     path: &Path,
     options: &TagOptions,
 ) -> Result<AudioEntry, String> {
-    transform_covers(path, options, |_| Ok(None))
+    remove_all_covers_with_options_diagnostic(path, options).map_err(|error| error.to_string())
+}
+
+pub fn remove_all_covers_with_options_diagnostic(
+    path: &Path,
+    options: &TagOptions,
+) -> Result<AudioEntry, ErrorCause> {
+    transform_covers_diagnostic(path, options, |_| Ok(None))
 }
 pub fn set_cover_properties_summary(
     path: &Path,
@@ -152,9 +167,30 @@ pub fn set_cover_properties_with_options(
     only_picture_type: Option<&str>,
     options: &TagOptions,
 ) -> Result<AudioEntry, String> {
-    let kind = picture_type.map(picture_type_from_name).transpose()?;
-    let filter = only_picture_type.map(picture_type_from_name).transpose()?;
-    transform_covers(path, options, |original| {
+    set_cover_properties_with_options_diagnostic(
+        path,
+        picture_type,
+        description,
+        only_picture_type,
+        options,
+    )
+    .map_err(|error| error.to_string())
+}
+
+pub fn set_cover_properties_with_options_diagnostic(
+    path: &Path,
+    picture_type: Option<&str>,
+    description: Option<&str>,
+    only_picture_type: Option<&str>,
+    options: &TagOptions,
+) -> Result<AudioEntry, ErrorCause> {
+    let kind = picture_type
+        .map(picture_type_from_name_diagnostic)
+        .transpose()?;
+    let filter = only_picture_type
+        .map(picture_type_from_name_diagnostic)
+        .transpose()?;
+    transform_covers_diagnostic(path, options, |original| {
         let mut picture = original.clone();
         if filter.is_none_or(|f| f == picture.pic_type()) {
             if let Some(kind) = kind {
@@ -172,13 +208,23 @@ pub fn set_cover_properties_with_options(
     })
 }
 
+#[cfg(test)]
 fn resize_image(image: DynamicImage, options: &CoverResize) -> Result<DynamicImage, String> {
+    resize_image_diagnostic(image, options).map_err(|error| error.to_string())
+}
+
+fn resize_image_diagnostic(
+    image: DynamicImage,
+    options: &CoverResize,
+) -> Result<DynamicImage, ErrorCause> {
     if options.pixels == 0 || options.pixels > 32768 {
-        return Err("Cover size must be between 1 and 32768 pixels".into());
+        return Err(ErrorCause::owned(
+            "Cover size must be between 1 and 32768 pixels",
+        ));
     }
     let (width, height) = (image.width(), image.height());
     if width == 0 || height == 0 {
-        return Err("Cover dimensions are empty".into());
+        return Err(ErrorCause::owned("Cover dimensions are empty"));
     }
     let dimension = match options.size_mode {
         CoverSizeMode::Maximum => width.max(height),
@@ -226,9 +272,20 @@ pub fn adjust_covers_with_options(
     resize: Option<&CoverResize>,
     options: &TagOptions,
 ) -> Result<AudioEntry, String> {
-    check_adjust_parameters(quality, resize)?;
-    transform_covers(path, options, |original| {
-        let Some(data) = adjust_image(
+    adjust_covers_with_options_diagnostic(path, format, quality, resize, options)
+        .map_err(|error| error.to_string())
+}
+
+pub fn adjust_covers_with_options_diagnostic(
+    path: &Path,
+    format: CoverImageFormat,
+    quality: u8,
+    resize: Option<&CoverResize>,
+    options: &TagOptions,
+) -> Result<AudioEntry, ErrorCause> {
+    check_adjust_parameters_diagnostic(quality, resize)?;
+    transform_covers_diagnostic(path, options, |original| {
+        let Some(data) = adjust_image_diagnostic(
             original.data(),
             original.mime_type(),
             format,
@@ -240,20 +297,25 @@ pub fn adjust_covers_with_options(
             return Ok(Some(original.clone()));
         };
         let mut picture =
-            Picture::from_reader(&mut Cursor::new(data)).map_err(|e| e.to_string())?;
+            Picture::from_reader(&mut Cursor::new(data)).map_err(ErrorCause::external)?;
         picture.set_pic_type(original.pic_type());
         picture.set_description(original.description().map(str::to_owned));
         Ok(Some(picture))
     })
 }
 
-fn check_adjust_parameters(quality: u8, resize: Option<&CoverResize>) -> Result<(), String> {
+fn check_adjust_parameters_diagnostic(
+    quality: u8,
+    resize: Option<&CoverResize>,
+) -> Result<(), ErrorCause> {
     if quality > 100 {
-        return Err("JPEG quality must be between 0 and 100".into());
+        return Err(ErrorCause::owned("JPEG quality must be between 0 and 100"));
     }
     if let Some(options) = resize {
         if options.pixels == 0 || options.pixels > 32768 {
-            return Err("Cover size must be between 1 and 32768 pixels".into());
+            return Err(ErrorCause::owned(
+                "Cover size must be between 1 and 32768 pixels",
+            ));
         }
     }
     Ok(())
@@ -265,6 +327,10 @@ fn check_adjust_parameters(quality: u8, resize: Option<&CoverResize>) -> Result<
 /// accepts (JPEG, PNG, GIF, BMP, TIFF or WebP). Other names are used as they
 /// are.
 pub fn resolve_cover_source(path: &Path) -> Result<PathBuf, String> {
+    resolve_cover_source_diagnostic(path).map_err(|error| error.to_string())
+}
+
+pub fn resolve_cover_source_diagnostic(path: &Path) -> Result<PathBuf, ErrorCause> {
     let wildcard = |text: &str| text.contains(['*', '?']);
     let Some(pattern) = path.file_name().map(|name| name.to_string_lossy()) else {
         return Ok(path.to_path_buf());
@@ -279,11 +345,20 @@ pub fn resolve_cover_source(path: &Path) -> Result<PathBuf, String> {
     // Existing parent names are literal, even with native '*' or '?' characters.
     // Only the final component is searched; folder patterns are not expanded.
     if wildcard(&folder.to_string_lossy()) && !folder.is_dir() {
-        return Err("Wildcards are only supported in the image file name".into());
+        return Err(ErrorCause::owned(
+            "Wildcards are only supported in the image file name",
+        ));
     }
     let pattern: Vec<char> = pattern.to_lowercase().chars().collect();
     let mut names: Vec<(String, PathBuf)> = fs::read_dir(folder)
-        .map_err(|e| format!("{}: {e}", folder.display()))?
+        .map_err(|e| {
+            ErrorCause::wrap(
+                "{path}: {error}",
+                [("path", folder.display().to_string())],
+                "error",
+                ErrorCause::external(e),
+            )
+        })?
         .filter_map(Result::ok)
         .filter(|entry| entry.file_type().is_ok_and(|kind| !kind.is_dir()))
         .filter_map(|entry| {
@@ -299,7 +374,12 @@ pub fn resolve_cover_source(path: &Path) -> Result<PathBuf, String> {
         .into_iter()
         .map(|(_, path)| path)
         .find(|path| importable_image(path))
-        .ok_or_else(|| format!("No image matches {}", path.display()))
+        .ok_or_else(|| {
+            ErrorCause::message(
+                "No image matches {path}",
+                [("path", path.display().to_string())],
+            )
+        })
 }
 
 /// `*` matches any run of characters and `?` one character.
@@ -351,22 +431,33 @@ pub fn adjust_cover_image(
     quality: u8,
     resize: Option<&CoverResize>,
 ) -> Result<Option<Vec<u8>>, String> {
-    check_adjust_parameters(quality, resize)?;
-    let mime = picture_from_bytes(data.to_vec())?.mime_type().cloned();
-    adjust_image(data, mime.as_ref(), format, quality, resize)
+    adjust_cover_image_diagnostic(data, format, quality, resize).map_err(|error| error.to_string())
 }
 
-fn adjust_image(
+pub fn adjust_cover_image_diagnostic(
+    data: &[u8],
+    format: CoverImageFormat,
+    quality: u8,
+    resize: Option<&CoverResize>,
+) -> Result<Option<Vec<u8>>, ErrorCause> {
+    check_adjust_parameters_diagnostic(quality, resize)?;
+    let mime = picture_from_bytes_diagnostic(data.to_vec())?
+        .mime_type()
+        .cloned();
+    adjust_image_diagnostic(data, mime.as_ref(), format, quality, resize)
+}
+
+fn adjust_image_diagnostic(
     data: &[u8],
     mime: Option<&lofty::picture::MimeType>,
     format: CoverImageFormat,
     quality: u8,
     resize: Option<&CoverResize>,
-) -> Result<Option<Vec<u8>>, String> {
-    let mut image = image::load_from_memory(data).map_err(|e| e.to_string())?;
+) -> Result<Option<Vec<u8>>, ErrorCause> {
+    let mut image = image::load_from_memory(data).map_err(ErrorCause::external)?;
     let size = (image.width(), image.height());
     if let Some(options) = resize {
-        image = resize_image(image, options)?;
+        image = resize_image_diagnostic(image, options)?;
     }
     let original_format = match mime {
         Some(lofty::picture::MimeType::Jpeg) => Some(ImageFormat::Jpeg),
@@ -392,7 +483,9 @@ fn adjust_image(
                         | ImageFormat::WebP
                 )
             })
-            .ok_or("The original cover format cannot be written; select JPEG or PNG")?,
+            .ok_or_else(|| {
+                ErrorCause::owned("The original cover format cannot be written; select JPEG or PNG")
+            })?,
     };
     if (image.width(), image.height()) == size && original_format == Some(output_format) {
         return Ok(None);
@@ -401,16 +494,16 @@ fn adjust_image(
     if output_format == ImageFormat::Jpeg {
         image::codecs::jpeg::JpegEncoder::new_with_quality(&mut encoded, quality)
             .encode_image(&image.to_rgb8())
-            .map_err(|e| e.to_string())?;
+            .map_err(ErrorCause::external)?;
     } else if output_format == ImageFormat::Png {
         image
             .write_to(&mut encoded, output_format)
-            .map_err(|e| e.to_string())?;
+            .map_err(ErrorCause::external)?;
     } else {
         // GIF, BMP and WebP encoders take 8-bit RGBA.
         DynamicImage::ImageRgba8(image.to_rgba8())
             .write_to(&mut encoded, output_format)
-            .map_err(|e| e.to_string())?;
+            .map_err(ErrorCause::external)?;
     }
     Ok(Some(encoded.into_inner()))
 }
@@ -418,6 +511,70 @@ fn adjust_image(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cover_adjustment_parameter_guard_precedes_file_reads_and_keeps_english() {
+        let path = Path::new("Help {error}; nonexistent.mp3");
+        let options = TagOptions::default();
+        let error = adjust_covers_with_options_diagnostic(
+            path,
+            CoverImageFormat::Original,
+            101,
+            None,
+            &options,
+        )
+        .unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            adjust_covers_with_options(path, CoverImageFormat::Original, 101, None, &options)
+                .unwrap_err()
+        );
+        let data = serde_json::to_value(error).unwrap();
+        assert_eq!(data["kind"], "owned");
+        assert_eq!(data["key"], "JPEG quality must be between 0 and 100");
+    }
+
+    #[test]
+    fn cover_source_diagnostics_distinguish_owned_guards_and_raw_io() {
+        let directory = tempfile::tempdir().unwrap();
+        let missing = directory.path().join("Help {error}; Title?.png");
+        let error = resolve_cover_source_diagnostic(&missing).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            resolve_cover_source(&missing).unwrap_err()
+        );
+        let data = serde_json::to_value(&error).unwrap();
+        assert_eq!(data["kind"], "owned");
+        assert_eq!(data["key"], "No image matches {path}");
+        assert_eq!(data["params"]["path"], missing.to_string_lossy().as_ref());
+
+        let absent = directory.path().join("Help {error}").join("*.png");
+        let error = resolve_cover_source_diagnostic(&absent).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            resolve_cover_source(&absent).unwrap_err()
+        );
+        let data = serde_json::to_value(error).unwrap();
+        assert_eq!(data["kind"], "owned");
+        assert_eq!(data["key"], "{path}: {error}");
+        assert_eq!(
+            data["params"]["path"],
+            absent.parent().unwrap().to_string_lossy().as_ref()
+        );
+        assert_eq!(data["children"]["error"]["kind"], "external");
+    }
+
+    #[test]
+    fn cover_type_diagnostics_keep_authored_name_and_legacy_english() {
+        let name = "Help {error}: Title";
+        let error = picture_type_from_name_diagnostic(name).unwrap_err();
+        assert_eq!(error.to_string(), picture_type_from_name(name).unwrap_err());
+        let data = serde_json::to_value(error).unwrap();
+        assert_eq!(data["kind"], "owned");
+        assert_eq!(data["key"], "Unknown cover type: {name}");
+        assert_eq!(data["params"]["name"], name);
+    }
+
     use crate::actions::{CoverScaleMode, CoverSizeMode};
     use image::{DynamicImage, ImageFormat, RgbImage};
     use std::io::Cursor;

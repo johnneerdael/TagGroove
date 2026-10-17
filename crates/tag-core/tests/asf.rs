@@ -499,6 +499,11 @@ fn invalid_writes_leave_the_file_untouched() {
     let tmp = tempfile::tempdir().unwrap();
     let original = hand_built();
     let path = write(tmp.path(), "hand.wma", &original);
+    assert_eq!(
+        write_fields(&path, &fields(&[("Author", &["Conflict"])])).unwrap_err(),
+        "Author has no separate ASF attribute; Author holds ARTIST"
+    );
+    assert_eq!(fs::read(&path).unwrap(), original);
     for updates in [
         fields(&[("WM/Picture", &["x"])]),
         fields(&[("DESCRIPTION", &["clashes with COMMENT"])]),

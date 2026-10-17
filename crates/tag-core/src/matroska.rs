@@ -13,6 +13,7 @@
 //! SeekHead is rebuilt inside its own space (including following Void
 //! padding); if it cannot fit, the write is refused with the original kept.
 use super::*;
+use crate::batch_errors::ErrorCause;
 use lofty::picture::MimeType;
 
 const EBML: u32 = 0x1A45_DFA3;
@@ -75,12 +76,12 @@ const ITEM_LEVEL: u64 = 30;
 /// Default TargetTypeValue when Targets omits it.
 const DEFAULT_LEVEL: u64 = 50;
 
-fn invalid(what: &str) -> String {
-    format!("Invalid Matroska file: {what}")
+fn invalid(what: &str) -> ErrorCause {
+    ErrorCause::owned_text(format!("Invalid Matroska file: {what}"))
 }
 
 /// Element ID (with its length marker) and its encoded length.
-fn parse_id(bytes: &[u8]) -> Result<(u32, usize), String> {
+fn parse_id(bytes: &[u8]) -> Result<(u32, usize), ErrorCause> {
     let first = *bytes.first().ok_or_else(|| invalid("truncated element"))?;
     let length = first.leading_zeros() as usize + 1;
     if length > 4 || bytes.len() < length {
@@ -95,7 +96,7 @@ fn parse_id(bytes: &[u8]) -> Result<(u32, usize), String> {
 }
 
 /// Element data size (`None` for the reserved unknown size) and its length.
-fn parse_size(bytes: &[u8]) -> Result<(Option<u64>, usize), String> {
+fn parse_size(bytes: &[u8]) -> Result<(Option<u64>, usize), ErrorCause> {
     let first = *bytes.first().ok_or_else(|| invalid("truncated element"))?;
     let length = first.leading_zeros() as usize + 1;
     if length > 8 || bytes.len() < length {
@@ -117,15 +118,19 @@ fn id_bytes(id: u32) -> Vec<u8> {
 
 /// Encode `value` as an EBML size of exactly `width` bytes, or the minimal
 /// width when `width` is `None`.
-fn size_bytes(value: u64, width: Option<usize>) -> Result<Vec<u8>, String> {
+fn size_bytes(value: u64, width: Option<usize>) -> Result<Vec<u8>, ErrorCause> {
     let fits =
         |w: usize| w < 8 && value < (1u64 << (7 * w)) - 1 || w == 8 && value < (1u64 << 56) - 1;
     let width = match width {
         Some(w) if (1..=8).contains(&w) && fits(w) => w,
-        Some(_) => return Err("The Matroska element size does not fit its size field".into()),
+        Some(_) => {
+            return Err(ErrorCause::owned(
+                "The Matroska element size does not fit its size field",
+            ))
+        }
         None => (1..=8)
             .find(|w| fits(*w))
-            .ok_or("Matroska element is too large")?,
+            .ok_or_else(|| ErrorCause::owned("Matroska element is too large"))?,
     };
     let marked = value | (1u64 << (7 * width));
     Ok(marked.to_be_bytes()[8 - width..].to_vec())
@@ -145,9 +150,11 @@ fn uint_element(id: u32, value: u64) -> Vec<u8> {
 }
 
 /// A Void element of exactly `length` (>= 2) bytes.
-fn void_header(length: u64) -> Result<Vec<u8>, String> {
+fn void_header(length: u64) -> Result<Vec<u8>, ErrorCause> {
     if length < 2 {
-        return Err("Cannot fill a one-byte gap in a Matroska file".into());
+        return Err(ErrorCause::owned(
+            "Cannot fill a one-byte gap in a Matroska file",
+        ));
     }
     let mut bytes = id_bytes(VOID);
     if length - 2 < 127 {
@@ -179,7 +186,7 @@ struct Raw<'a> {
     whole: &'a [u8],
 }
 
-fn children(data: &[u8]) -> Result<Vec<Raw<'_>>, String> {
+fn children(data: &[u8]) -> Result<Vec<Raw<'_>>, ErrorCause> {
     let mut output = Vec::new();
     let mut position = 0;
     while position < data.len() {
@@ -231,9 +238,9 @@ struct Header {
     data: u64,
 }
 
-fn read_header(file: &mut fs::File, at: u64, length: u64) -> Result<Header, String> {
+fn read_header(file: &mut fs::File, at: u64, length: u64) -> Result<Header, ErrorCause> {
     let available = (length.saturating_sub(at)).min(12) as usize;
-    let bytes = read_at(file, at, available)?;
+    let bytes = read_at_diagnostic(file, at, available)?;
     let (id, id_length) = parse_id(&bytes)?;
     let (size, size_width) = parse_size(&bytes[id_length..])?;
     Ok(Header {
@@ -245,8 +252,8 @@ fn read_header(file: &mut fs::File, at: u64, length: u64) -> Result<Header, Stri
     })
 }
 
-fn layout(file: &mut fs::File) -> Result<Layout, String> {
-    let length = file.metadata().map_err(|e| e.to_string())?.len();
+fn layout(file: &mut fs::File) -> Result<Layout, ErrorCause> {
+    let length = file.metadata().map_err(ErrorCause::external)?.len();
     let header = read_header(file, 0, length)?;
     if header.id != EBML {
         return Err(invalid("missing EBML header"));
@@ -255,7 +262,7 @@ fn layout(file: &mut fs::File) -> Result<Layout, String> {
     if header.data + size > length || size > 4096 {
         return Err(invalid("EBML header size"));
     }
-    let ebml = read_at(file, header.data, size as usize)?;
+    let ebml = read_at_diagnostic(file, header.data, size as usize)?;
     let doc_type = children(&ebml)?
         .iter()
         .find(|c| c.id == DOC_TYPE)
@@ -352,15 +359,15 @@ const METADATA_LIMIT: u64 = 512 << 20;
 /// Bound for nested SimpleTags.
 const NESTING_LIMIT: usize = 32;
 
-fn element_data(file: &mut fs::File, element: &Element) -> Result<Vec<u8>, String> {
+fn element_data(file: &mut fs::File, element: &Element) -> Result<Vec<u8>, ErrorCause> {
     let size = usize::try_from(element.end - element.data)
         .ok()
         .filter(|size| *size as u64 <= METADATA_LIMIT)
         .ok_or_else(|| invalid("metadata element too large"))?;
-    read_at(file, element.data, size)
+    read_at_diagnostic(file, element.data, size)
 }
 
-fn seek_entries(file: &mut fs::File, layout: &Layout) -> Result<Vec<(u32, u64)>, String> {
+fn seek_entries(file: &mut fs::File, layout: &Layout) -> Result<Vec<(u32, u64)>, ErrorCause> {
     let mut entries = Vec::new();
     for head in layout.elements.iter().filter(|e| e.id == SEEK_HEAD) {
         let data = element_data(file, head)?;
@@ -399,7 +406,7 @@ impl SimpleTag {
             nested: Vec::new(),
         }
     }
-    fn parse(data: &[u8], depth: usize) -> Result<Self, String> {
+    fn parse(data: &[u8], depth: usize) -> Result<Self, ErrorCause> {
         if depth > NESTING_LIMIT {
             return Err(invalid("SimpleTags nested too deeply"));
         }
@@ -472,7 +479,7 @@ impl MkvTag {
             extra: Vec::new(),
         }
     }
-    fn parse(data: &[u8]) -> Result<Self, String> {
+    fn parse(data: &[u8]) -> Result<Self, ErrorCause> {
         let mut tag = Self {
             targets: None,
             level: DEFAULT_LEVEL,
@@ -664,7 +671,7 @@ impl Model {
                         simple.value = Some(value.clone());
                         simple
                             .extra
-                            .retain(|raw| parse_id(raw).map(|(id, _)| id) != Ok(TAG_BINARY));
+                            .retain(|raw| !matches!(parse_id(raw), Ok((TAG_BINARY, _))));
                         true
                     }
                     None => false,
@@ -687,7 +694,7 @@ impl Model {
         }
     }
 
-    fn set_sort(&mut self, level: u64, values: &[String]) -> Result<(), String> {
+    fn set_sort(&mut self, level: u64, values: &[String]) -> Result<(), ErrorCause> {
         let title = self
             .tags
             .iter_mut()
@@ -703,9 +710,9 @@ impl Model {
                 Ok(())
             }
             None if values.is_empty() => Ok(()),
-            None => Err(
-                "Matroska stores sort titles inside the matching title; set the title first".into(),
-            ),
+            None => Err(ErrorCause::owned(
+                "Matroska stores sort titles inside the matching title; set the title first",
+            )),
         }
     }
 
@@ -738,12 +745,16 @@ impl Model {
     }
 
     /// Replace `field` in the tags of the chapter with `uid`.
-    fn set_chapter(&mut self, uid: u64, field: &str, values: &[String]) -> Result<(), String> {
+    fn set_chapter(&mut self, uid: u64, field: &str, values: &[String]) -> Result<(), ErrorCause> {
         if uid == 0 {
-            return Err("A Matroska chapter without a UID cannot have fields of its own".into());
+            return Err(ErrorCause::owned(
+                "A Matroska chapter without a UID cannot have fields of its own",
+            ));
         }
         if field.eq_ignore_ascii_case("TITLE") {
-            return Err("The chapter title is stored in the chapter itself".into());
+            return Err(ErrorCause::owned(
+                "The chapter title is stored in the chapter itself",
+            ));
         }
         let name = self.chapter_name(field);
         let mut home = None;
@@ -771,7 +782,7 @@ impl Model {
         Ok(())
     }
 
-    fn apply(&mut self, updates: &Fields) -> Result<(), String> {
+    fn apply(&mut self, updates: &Fields) -> Result<(), ErrorCause> {
         let mut sorts = Vec::new();
         for (field, values) in updates {
             match self.rule_for_field(field).cloned() {
@@ -785,7 +796,10 @@ impl Model {
                     self.set(rule.level, &rule.name, values);
                 }
                 None if self.reserved(field) => {
-                    return Err(format!("{field} is a reserved Matroska tag name"));
+                    return Err(ErrorCause::message(
+                        "{field} is a reserved Matroska tag name",
+                        [("field", field.to_owned())],
+                    ));
                 }
                 None => {
                     for tag in self.tags.iter_mut().filter(|t| t.global()) {
@@ -812,7 +826,7 @@ struct Attachment {
     data: Vec<u8>,
 }
 impl Attachment {
-    fn parse(raw: &[u8], data: &[u8]) -> Result<Self, String> {
+    fn parse(raw: &[u8], data: &[u8]) -> Result<Self, ErrorCause> {
         let mut attachment = Self {
             raw: raw.to_vec(),
             name: String::new(),
@@ -942,7 +956,7 @@ fn attached_file(picture: &Picture, name: &str) -> Vec<u8> {
     element(ATTACHED_FILE, &payload)
 }
 
-use super::subsongs::{chapter_value, parse_chapter_value, CHAPTERS_FIELD};
+use super::subsongs::{chapter_value, CHAPTERS_FIELD};
 
 #[derive(Debug, Clone)]
 struct Chapter {
@@ -986,7 +1000,7 @@ impl Editions {
     }
 }
 
-fn parse_chapters(data: &[u8]) -> Result<Editions, String> {
+fn parse_chapters(data: &[u8]) -> Result<Editions, ErrorCause> {
     let editions: Vec<_> = children(data)?
         .into_iter()
         .filter(|c| c.id == EDITION_ENTRY)
@@ -1021,7 +1035,7 @@ fn parse_chapters(data: &[u8]) -> Result<Editions, String> {
     })
 }
 
-fn parse_chapter(data: &[u8], depth: usize) -> Result<Chapter, String> {
+fn parse_chapter(data: &[u8], depth: usize) -> Result<Chapter, ErrorCause> {
     if depth > NESTING_LIMIT {
         return Err(invalid("chapters nested too deeply"));
     }
@@ -1059,7 +1073,11 @@ fn parse_chapter(data: &[u8], depth: usize) -> Result<Chapter, String> {
 
 /// Write CHAPTERS values in their canonical form, so they read back as written.
 pub(super) fn normalize_chapters(updates: &mut Fields) -> Result<(), String> {
-    super::subsongs::normalize_chapters(updates)
+    normalize_chapters_diagnostic(updates).map_err(|error| error.to_string())
+}
+
+pub(super) fn normalize_chapters_diagnostic(updates: &mut Fields) -> Result<(), ErrorCause> {
+    super::subsongs::normalize_chapters(updates).map_err(ErrorCause::owned_text)
 }
 
 /// For each new value, the old chapter (document order) it replaces. Lists
@@ -1211,10 +1229,10 @@ fn rebuilt_chapters(
     old: Option<&Editions>,
     values: &[String],
     duration: Option<u64>,
-) -> Result<Option<Vec<u8>>, String> {
+) -> Result<Option<Vec<u8>>, ErrorCause> {
     let parsed = values
         .iter()
-        .map(|value| parse_chapter_value(value))
+        .map(|value| super::subsongs::parse_chapter_value_diagnostic(value))
         .collect::<Result<Vec<_>, _>>()?;
     let tree = old.map_or(&[][..], |e| e.chapters.as_slice());
     let flat = old.map(Editions::flat).unwrap_or_default();
@@ -1285,8 +1303,8 @@ struct Parsed {
     title: Option<String>,
 }
 
-fn parse(path: &Path) -> Result<Parsed, String> {
-    let mut file = fs::File::open(path).map_err(|e| e.to_string())?;
+fn parse(path: &Path) -> Result<Parsed, ErrorCause> {
+    let mut file = fs::File::open(path).map_err(ErrorCause::external)?;
     let layout = layout(&mut file)?;
     let mut tags = Vec::new();
     let mut chapters = None;
@@ -1477,7 +1495,15 @@ fn video_fields(parsed: &Parsed, technical: &mut Fields) {
     }
 }
 
+#[cfg(test)]
 pub(super) fn describe(path: &Path, options: &TagOptions) -> Result<Description, String> {
+    describe_diagnostic(path, options).map_err(|error| error.to_string())
+}
+
+pub(super) fn describe_diagnostic(
+    path: &Path,
+    options: &TagOptions,
+) -> Result<Description, ErrorCause> {
     let parsed = parse(path)?;
     let model = Model {
         rules: mapping_rules(video(&parsed, options)),
@@ -1570,16 +1596,16 @@ struct Region {
     placed: Vec<u8>,
 }
 
-pub(super) fn write(
+pub(super) fn write_diagnostic(
     staging: &mut fs::File,
     original: &Path,
     edit: &Edit,
     options: &TagOptions,
-) -> Result<(), String> {
+) -> Result<(), ErrorCause> {
     let parsed = parse(original)?;
     let layout = &parsed.layout;
     if !layout.complete {
-        return Err("Writing Matroska files with unknown-sized clusters is not supported; original file preserved".into());
+        return Err(ErrorCause::owned("Writing Matroska files with unknown-sized clusters is not supported; original file preserved"));
     }
     let mut model = Model {
         rules: mapping_rules(video(&parsed, options)),
@@ -1630,7 +1656,7 @@ pub(super) fn write(
             for (index, fields) in rows {
                 let uid = *uids
                     .get(*index)
-                    .ok_or("A chapter disappeared while saving")?;
+                    .ok_or_else(|| ErrorCause::owned("A chapter disappeared while saving"))?;
                 for (field, values) in fields {
                     model.set_chapter(uid, field, values)?;
                 }
@@ -1754,7 +1780,11 @@ pub(super) fn write(
                 let free = r.end - r.start - r.placed.len() as u64;
                 r.open || free == need || free >= need + 2
             })
-            .ok_or("The Matroska Segment cannot be extended in place; original file preserved")?;
+            .ok_or_else(|| {
+                ErrorCause::owned(
+                    "The Matroska Segment cannot be extended in place; original file preserved",
+                )
+            })?;
         positions.push((*id, region.start + region.placed.len() as u64));
         region.placed.extend(bytes);
         if region.open {
@@ -1763,7 +1793,7 @@ pub(super) fn write(
     }
 
     // Rebuild every SeekHead whose entries change.
-    let mut file = fs::File::open(original).map_err(|e| e.to_string())?;
+    let mut file = fs::File::open(original).map_err(ErrorCause::external)?;
     let mut first_seek_head = true;
     for region in regions.iter_mut() {
         let Some(index) = region.seek_head else {
@@ -1798,7 +1828,7 @@ pub(super) fn write(
         }
         if !changed {
             // Keep the original SeekHead bytes; the rest stays free space.
-            region.placed = read_at(
+            region.placed = read_at_diagnostic(
                 &mut file,
                 region.start,
                 (layout.elements[index].end - region.start) as usize,
@@ -1808,7 +1838,7 @@ pub(super) fn write(
         let bytes = element(SEEK_HEAD, &entries.concat());
         let free = region.end - region.start;
         if !(bytes.len() as u64 == free || bytes.len() as u64 + 2 <= free) {
-            return Err("The Matroska SeekHead has no room for the new metadata index; original file preserved".into());
+            return Err(ErrorCause::owned("The Matroska SeekHead has no room for the new metadata index; original file preserved"));
         }
         region.placed = bytes;
     }
@@ -1818,24 +1848,24 @@ pub(super) fn write(
     for region in &regions {
         let placed = region.placed.len() as u64;
         if region.open {
-            write_at(staging, region.start, &region.placed)?;
+            write_at_diagnostic(staging, region.start, &region.placed)?;
             data_end = region.start + placed;
-            staging.set_len(data_end).map_err(|e| e.to_string())?;
+            staging.set_len(data_end).map_err(ErrorCause::external)?;
             continue;
         }
         if placed > 0 {
-            write_at(staging, region.start, &region.placed)?;
+            write_at_diagnostic(staging, region.start, &region.placed)?;
         }
         let gap = region.end - region.start - placed;
         if gap > 0 {
             let at = region.start + placed;
             let header = void_header(gap)?;
-            write_at(staging, at, &header)?;
+            write_at_diagnostic(staging, at, &header)?;
             let zeros = vec![0u8; (gap - header.len() as u64).min(1 << 20) as usize];
             let mut written = header.len() as u64;
             while written < gap {
                 let take = (gap - written).min(zeros.len() as u64) as usize;
-                write_at(staging, at + written, &zeros[..take])?;
+                write_at_diagnostic(staging, at + written, &zeros[..take])?;
                 written += take as u64;
             }
         }
@@ -1845,7 +1875,7 @@ pub(super) fn write(
             data_end - layout.data_start,
             Some(layout.segment_size_width),
         )?;
-        write_at(staging, layout.segment_size_at, &size)?;
+        write_at_diagnostic(staging, layout.segment_size_at, &size)?;
     }
     Ok(())
 }
@@ -1853,7 +1883,11 @@ pub(super) fn write(
 /// Every element outside Tags, Attachments, SeekHead and Void (clusters,
 /// cues, tracks, info and, unless `edit` changes them, chapters) must be
 /// byte-identical at the same offset.
-pub(super) fn verify_media(original: &Path, staged: &Path, edit: &Edit) -> Result<(), String> {
+pub(super) fn verify_media_diagnostic(
+    original: &Path,
+    staged: &Path,
+    edit: &Edit,
+) -> Result<(), ErrorCause> {
     let chapters = match edit {
         Edit::Fields(updates)
         | Edit::Rows {
@@ -1864,12 +1898,15 @@ pub(super) fn verify_media(original: &Path, staged: &Path, edit: &Edit) -> Resul
         Edit::Pictures(_) => false,
         Edit::Remove => true,
     };
-    let mut file = fs::File::open(original).map_err(|e| e.to_string())?;
+    let mut file = fs::File::open(original).map_err(ErrorCause::external)?;
     let before = layout(&mut file)?;
-    let after = layout(&mut fs::File::open(staged).map_err(|e| e.to_string())?)?;
-    let error =
-        || Err("The Matroska media data changed while writing; original file preserved".into());
-    if !same_bytes(original, 0..before.segment_size_at, staged, 0)? {
+    let after = layout(&mut fs::File::open(staged).map_err(ErrorCause::external)?)?;
+    let error = || {
+        Err(ErrorCause::owned(
+            "The Matroska media data changed while writing; original file preserved",
+        ))
+    };
+    if !same_bytes_diagnostic(original, 0..before.segment_size_at, staged, 0)? {
         return error();
     }
     for element in before
@@ -1882,7 +1919,7 @@ pub(super) fn verify_media(original: &Path, staged: &Path, edit: &Edit) -> Resul
             .elements
             .iter()
             .any(|e| e.start == element.start && e.end == element.end && e.id == element.id)
-            || !same_bytes(original, element.start..element.end, staged, element.start)?
+            || !same_bytes_diagnostic(original, element.start..element.end, staged, element.start)?
         {
             return error();
         }
@@ -1893,6 +1930,34 @@ pub(super) fn verify_media(original: &Path, staged: &Path, edit: &Edit) -> Resul
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn matroska_description_keeps_owned_ebml_guards_separate_from_real_io() {
+        let directory = tempfile::tempdir().unwrap();
+        let invalid = directory.path().join("Help.mka");
+        fs::write(&invalid, [0; 16]).unwrap();
+        let owned = describe_diagnostic(&invalid, &TagOptions::default())
+            .err()
+            .unwrap();
+        assert!(
+            matches!(&owned, ErrorCause::OwnedText { value } if value == "Invalid Matroska file: bad element ID")
+        );
+        assert_eq!(
+            describe(&invalid, &TagOptions::default()).err().unwrap(),
+            owned.to_string()
+        );
+        let external =
+            describe_diagnostic(&directory.path().join("Title.mka"), &TagOptions::default())
+                .err()
+                .unwrap();
+        assert!(matches!(external, ErrorCause::External { .. }));
+        let raw = "Help {error}): Title";
+        let error = super::super::subsongs::parse_chapter_value_diagnostic(raw).unwrap_err();
+        assert!(
+            matches!(&error, ErrorCause::Owned { params, .. } if params["value"] == format!("{raw:?}"))
+        );
+        assert_eq!(fs::read(invalid).unwrap(), [0; 16]);
+    }
 
     #[test]
     fn documented_rules_are_unambiguous_in_both_modes() {

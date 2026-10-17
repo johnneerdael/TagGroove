@@ -7,6 +7,7 @@
 //! AIFF); a new tag uses the revision and encoding chosen for MPEG files,
 //! because Mp3tag offers no separate DSD preference.
 use super::*;
+use crate::batch_errors::ErrorCause;
 use lofty::{
     config::{ParseOptions, ParsingMode},
     id3::v2::{Frame, Id3v2Tag},
@@ -18,11 +19,12 @@ use std::io::Cursor;
 /// bytes, so the tag is wrapped in a minimal in-memory AIFF form, which lofty
 /// reads without audio properties. Encrypted frames are read as placeholders
 /// (see `id3_frames`).
-fn parse_id3(bytes: &[u8]) -> Result<Id3v2Tag, String> {
+fn parse_id3(bytes: &[u8]) -> Result<Id3v2Tag, ErrorCause> {
     if !bytes.starts_with(b"ID3") {
-        return Err("The metadata block is not an ID3v2 tag".into());
+        return Err(ErrorCause::owned("The metadata block is not an ID3v2 tag"));
     }
-    let size = u32::try_from(bytes.len()).map_err(|_| "The ID3v2 tag is too large")?;
+    let size =
+        u32::try_from(bytes.len()).map_err(|_| ErrorCause::owned("The ID3v2 tag is too large"))?;
     let padding = bytes.len() % 2;
     let mut form = Vec::with_capacity(bytes.len() + 21);
     form.extend(b"FORM");
@@ -35,14 +37,17 @@ fn parse_id3(bytes: &[u8]) -> Result<Id3v2Tag, String> {
         .read_properties(false)
         .implicit_conversions(false)
         .parsing_mode(ParsingMode::Strict);
-    crate::id3_frames::read_with_fallback(&mut Cursor::new(form), |mut reader| {
-        reader.seek(SeekFrom::Start(0)).map_err(|e| e.to_string())?;
-        AiffFile::read_from(&mut reader, options).map_err(|e| error_message(&e))
+    crate::id3_frames::read_with_fallback_diagnostic(&mut Cursor::new(form), |mut reader| {
+        reader
+            .seek(SeekFrom::Start(0))
+            .map_err(ErrorCause::external)?;
+        AiffFile::read_from(&mut reader, options)
+            .map_err(|e| ErrorCause::external(error_message(&e)))
     })?
     .0
     .id3v2()
     .cloned()
-    .ok_or_else(|| "The ID3v2 tag could not be read".into())
+    .ok_or_else(|| ErrorCause::owned("The ID3v2 tag could not be read"))
 }
 
 fn u32_le(bytes: &[u8], at: usize) -> u32 {
@@ -75,18 +80,18 @@ struct Dsf {
     samples: u64,
 }
 
-fn parse_dsf(file: &mut fs::File) -> Result<Dsf, String> {
-    let length = file.metadata().map_err(|e| e.to_string())?.len();
-    let invalid = |what: &str| format!("Invalid DSF file: {what}");
+fn parse_dsf(file: &mut fs::File) -> Result<Dsf, ErrorCause> {
+    let length = file.metadata().map_err(ErrorCause::external)?.len();
+    let invalid = |what: &str| ErrorCause::owned_text(format!("Invalid DSF file: {what}"));
     if length < 28 + 52 + 12 {
         return Err(invalid("the file is truncated"));
     }
-    let header = read_at(file, 0, 28)?;
+    let header = read_at_diagnostic(file, 0, 28)?;
     if &header[..4] != b"DSD " || u64_le(&header, 4) != 28 {
         return Err(invalid("missing DSD chunk"));
     }
     let pointer = u64_le(&header, 20);
-    let fmt = read_at(file, 28, 52)?;
+    let fmt = read_at_diagnostic(file, 28, 52)?;
     if &fmt[..4] != b"fmt " {
         return Err(invalid("missing fmt chunk"));
     }
@@ -101,7 +106,7 @@ fn parse_dsf(file: &mut fs::File) -> Result<Dsf, String> {
         .checked_add(fmt_size)
         .filter(|at| at + 12 <= length)
         .ok_or_else(|| invalid("missing data chunk"))?;
-    let data = read_at(file, data_at, 12)?;
+    let data = read_at_diagnostic(file, data_at, 12)?;
     let data_size = u64_le(&data, 4);
     if &data[..4] != b"data" || data_size < 12 {
         return Err(invalid("missing data chunk"));
@@ -139,17 +144,17 @@ impl Chunk {
 
 /// DSDIFF chunks between `from` and `to`: 4-byte identifier, big-endian
 /// 64-bit size, data and a pad byte after odd sizes.
-fn dff_chunks(file: &mut fs::File, from: u64, to: u64) -> Result<Vec<Chunk>, String> {
+fn dff_chunks(file: &mut fs::File, from: u64, to: u64) -> Result<Vec<Chunk>, ErrorCause> {
     let mut chunks = Vec::new();
     let mut position = from;
     while position + 12 <= to {
-        let header = read_at(file, position, 12)?;
+        let header = read_at_diagnostic(file, position, 12)?;
         let size = u64_be(&header, 4);
         let data = position + 12;
         if data.checked_add(size).is_none_or(|end| end > to) {
-            return Err(format!(
-                "Invalid DSDIFF file: chunk {} exceeds its container",
-                String::from_utf8_lossy(&header[..4])
+            return Err(ErrorCause::message(
+                "Invalid DSDIFF file: chunk {value} exceeds its container",
+                [("value", String::from_utf8_lossy(&header[..4]).into_owned())],
             ));
         }
         chunks.push(Chunk {
@@ -180,16 +185,18 @@ struct Dff {
     dst_frames: Option<(u32, u16)>,
 }
 
-fn parse_dff(file: &mut fs::File) -> Result<Dff, String> {
-    let length = file.metadata().map_err(|e| e.to_string())?.len();
-    let header = read_at(file, 0, 16)?;
+fn parse_dff(file: &mut fs::File) -> Result<Dff, ErrorCause> {
+    let length = file.metadata().map_err(ErrorCause::external)?.len();
+    let header = read_at_diagnostic(file, 0, 16)?;
     if &header[..4] != b"FRM8" || &header[12..16] != b"DSD " {
-        return Err("Invalid DSDIFF file: missing FRM8 DSD form".into());
+        return Err(ErrorCause::owned(
+            "Invalid DSDIFF file: missing FRM8 DSD form",
+        ));
     }
     let form_end = 12u64
         .checked_add(u64_be(&header, 4))
         .filter(|end| *end <= length)
-        .ok_or("Invalid DSDIFF file: the form is truncated")?;
+        .ok_or_else(|| ErrorCause::owned("Invalid DSDIFF file: the form is truncated"))?;
     let chunks = dff_chunks(file, 16, form_end)?;
     let mut prop = Vec::new();
     let mut diin = Vec::new();
@@ -198,15 +205,22 @@ fn parse_dff(file: &mut fs::File) -> Result<Dff, String> {
     for chunk in &chunks {
         match &chunk.id {
             b"PROP" => {
-                if !prop.is_empty() || chunk.size < 4 || read_at(file, chunk.data, 4)? != b"SND " {
-                    return Err("Invalid DSDIFF file: unexpected property chunk".into());
+                if !prop.is_empty()
+                    || chunk.size < 4
+                    || read_at_diagnostic(file, chunk.data, 4)? != b"SND "
+                {
+                    return Err(ErrorCause::owned(
+                        "Invalid DSDIFF file: unexpected property chunk",
+                    ));
                 }
                 prop = dff_chunks(file, chunk.data + 4, chunk.data_end())?;
                 id3.extend(prop.iter().filter(|c| &c.id == b"ID3 ").cloned());
             }
             b"DIIN" => diin = dff_chunks(file, chunk.data, chunk.data_end())?,
             b"DSD " | b"DST " if sound.is_some() => {
-                return Err("Invalid DSDIFF file: more than one sound data chunk".into());
+                return Err(ErrorCause::owned(
+                    "Invalid DSDIFF file: more than one sound data chunk",
+                ));
             }
             b"DSD " | b"DST " => sound = Some(chunk.clone()),
             b"ID3 " => id3.push(chunk.clone()),
@@ -214,7 +228,8 @@ fn parse_dff(file: &mut fs::File) -> Result<Dff, String> {
         }
     }
     id3.sort_by_key(|c| c.start);
-    let sound = sound.ok_or("Invalid DSDIFF file: missing sound data")?;
+    let sound =
+        sound.ok_or_else(|| ErrorCause::owned("Invalid DSDIFF file: missing sound data"))?;
     let mut sample_rate = 0;
     let mut channels = 0;
     let mut compressed = false;
@@ -222,16 +237,21 @@ fn parse_dff(file: &mut fs::File) -> Result<Dff, String> {
         match &chunk.id {
             b"FS  " if chunk.size >= 4 => {
                 sample_rate = u32::from_be_bytes(
-                    read_at(file, chunk.data, 4)?
+                    read_at_diagnostic(file, chunk.data, 4)?
                         .try_into()
                         .expect("four bytes"),
                 )
             }
             b"CHNL" if chunk.size >= 2 => {
-                channels =
-                    u16::from_be_bytes(read_at(file, chunk.data, 2)?.try_into().expect("two bytes"))
+                channels = u16::from_be_bytes(
+                    read_at_diagnostic(file, chunk.data, 2)?
+                        .try_into()
+                        .expect("two bytes"),
+                )
             }
-            b"CMPR" if chunk.size >= 4 => compressed = read_at(file, chunk.data, 4)? == b"DST ",
+            b"CMPR" if chunk.size >= 4 => {
+                compressed = read_at_diagnostic(file, chunk.data, 4)? == b"DST "
+            }
             _ => {}
         }
     }
@@ -239,7 +259,7 @@ fn parse_dff(file: &mut fs::File) -> Result<Dff, String> {
     if &sound.id == b"DST " {
         for chunk in dff_chunks(file, sound.data, sound.data_end())? {
             if &chunk.id == b"FRTE" && chunk.size >= 6 {
-                let bytes = read_at(file, chunk.data, 6)?;
+                let bytes = read_at_diagnostic(file, chunk.data, 6)?;
                 dst_frames = Some((
                     u32::from_be_bytes(bytes[..4].try_into().expect("four bytes")),
                     u16::from_be_bytes(bytes[4..6].try_into().expect("two bytes")),
@@ -264,11 +284,11 @@ fn parse_dff(file: &mut fs::File) -> Result<Dff, String> {
 }
 
 /// DIAR/DITI text: a big-endian 32-bit count followed by the characters.
-fn diin_text(file: &mut fs::File, chunk: &Chunk) -> Result<Option<String>, String> {
+fn diin_text(file: &mut fs::File, chunk: &Chunk) -> Result<Option<String>, ErrorCause> {
     if chunk.size < 4 {
         return Ok(None);
     }
-    let bytes = read_at(file, chunk.data, chunk.size as usize)?;
+    let bytes = read_at_diagnostic(file, chunk.data, chunk.size as usize)?;
     let count = u32::from_be_bytes(bytes[..4].try_into().expect("four bytes")) as usize;
     let text = decode_text(&bytes[4..(4 + count).min(bytes.len())]);
     Ok((!text.is_empty()).then_some(text))
@@ -294,8 +314,8 @@ struct Snapshot {
     description: Description,
 }
 
-fn snapshot(path: &Path, kind: Kind) -> Result<Snapshot, String> {
-    let mut file = fs::File::open(path).map_err(|e| e.to_string())?;
+fn snapshot(path: &Path, kind: Kind) -> Result<Snapshot, ErrorCause> {
+    let mut file = fs::File::open(path).map_err(ErrorCause::external)?;
     let mut id3_bytes = Vec::new();
     let (id3, artist, title, description) = match kind {
         Kind::Dsf => {
@@ -303,7 +323,11 @@ fn snapshot(path: &Path, kind: Kind) -> Result<Snapshot, String> {
             let id3 = if dsf.pointer == 0 {
                 None
             } else {
-                id3_bytes = read_at(&mut file, dsf.pointer, (dsf.length - dsf.pointer) as usize)?;
+                id3_bytes = read_at_diagnostic(
+                    &mut file,
+                    dsf.pointer,
+                    (dsf.length - dsf.pointer) as usize,
+                )?;
                 Some(parse_id3(&id3_bytes)?)
             };
             let duration = if dsf.sample_rate > 0 {
@@ -336,7 +360,7 @@ fn snapshot(path: &Path, kind: Kind) -> Result<Snapshot, String> {
             let dff = parse_dff(&mut file)?;
             let id3 = match dff.id3.first() {
                 Some(chunk) => {
-                    id3_bytes = read_at(&mut file, chunk.data, chunk.size as usize)?;
+                    id3_bytes = read_at_diagnostic(&mut file, chunk.data, chunk.size as usize)?;
                     Some(parse_id3(&id3_bytes)?)
                 }
                 None => None,
@@ -394,12 +418,22 @@ fn snapshot(path: &Path, kind: Kind) -> Result<Snapshot, String> {
     })
 }
 
+#[cfg(test)]
 pub(super) fn describe(
     path: &Path,
     kind: Kind,
     rules: &[UserFieldMapping],
     options: &TagOptions,
 ) -> Result<Description, String> {
+    describe_diagnostic(path, kind, rules, options).map_err(|error| error.to_string())
+}
+
+pub(super) fn describe_diagnostic(
+    path: &Path,
+    kind: Kind,
+    rules: &[UserFieldMapping],
+    options: &TagOptions,
+) -> Result<Description, ErrorCause> {
     let Snapshot {
         id3,
         artist,
@@ -418,7 +452,7 @@ pub(super) fn describe(
         let generic: Tag = tag.clone().into();
         description.pictures = generic.pictures().to_vec();
     }
-    let mut fields = map_read_fields(&native, TagType::Id3v2, rules)?;
+    let mut fields = map_read_fields_diagnostic(&native, TagType::Id3v2, rules)?;
     // ID3v2 takes precedence; DIIN text only fills fields the tag lacks.
     if artist.is_some() || title.is_some() {
         description.tags.push("DIIN".into());
@@ -436,14 +470,14 @@ pub(super) fn describe(
 }
 
 /// Apply `edit` to `staging` and return whether text was written as ISO-8859-1.
-pub(super) fn write(
+pub(super) fn write_diagnostic(
     staging: &mut fs::File,
     original: &Path,
     kind: Kind,
     edit: &Edit,
     rules: &[UserFieldMapping],
     options: &TagOptions,
-) -> Result<bool, String> {
+) -> Result<bool, ErrorCause> {
     let current = snapshot(original, kind)?;
     let target = match current.id3.as_ref() {
         Some(tag) => mapping::Id3Target::preserving(tag, options.comment_language()),
@@ -453,11 +487,11 @@ pub(super) fn write(
     let mut diin: Vec<(&[u8; 4], Option<String>)> = Vec::new();
     match edit {
         Edit::Fields(updates) => {
-            let native_updates = normalized_updates(
-                &map_write_fields(updates, TagType::Id3v2, rules)?,
+            let native_updates = normalized_updates_diagnostic(
+                &map_write_fields_diagnostic(updates, TagType::Id3v2, rules)?,
                 TagType::Id3v2,
             )?;
-            mapping::patch_id3(&mut native, &native_updates, &target)?;
+            mapping::patch_id3_diagnostic(&mut native, &native_updates, &target)?;
             for (field, id) in [("ARTIST", b"DIAR"), ("TITLE", b"DITI")] {
                 if let Some(values) = updates.get(field) {
                     diin.push((id, (!values.is_empty()).then(|| values.join("; "))));
@@ -481,14 +515,14 @@ pub(super) fn write(
             native = Id3v2Tag::default();
             diin = vec![(b"DIAR", None), (b"DITI", None)];
         }
-        Edit::Rows { .. } => return Err("DSD files have no chapters".into()),
+        Edit::Rows { .. } => return Err(ErrorCause::owned("DSD files have no chapters")),
     }
     // Compressed and encrypted frames the edit left alone are copied.
     let stored = current
         .id3
         .as_ref()
         .map(|tag| (tag, current.id3_bytes.as_slice()));
-    let bytes = mapping::render_id3(&native, &target, stored)?;
+    let bytes = mapping::render_id3_diagnostic(&native, &target, stored)?;
     match kind {
         Kind::Dsf => write_dsf(staging, original, &bytes)?,
         _ => write_dff(
@@ -502,8 +536,8 @@ pub(super) fn write(
     Ok(target.latin1)
 }
 
-fn write_dsf(staging: &mut fs::File, original: &Path, id3: &[u8]) -> Result<(), String> {
-    let dsf = parse_dsf(&mut fs::File::open(original).map_err(|e| e.to_string())?)?;
+fn write_dsf(staging: &mut fs::File, original: &Path, id3: &[u8]) -> Result<(), ErrorCause> {
+    let dsf = parse_dsf(&mut fs::File::open(original).map_err(ErrorCause::external)?)?;
     // The metadata region runs from the pointer to the end of the file; bytes
     // between the sample data and a pointer are kept.
     let keep = if dsf.pointer == 0 {
@@ -515,10 +549,10 @@ fn write_dsf(staging: &mut fs::File, original: &Path, id3: &[u8]) -> Result<(), 
     if !id3.is_empty() {
         pieces.push(Piece::Bytes(id3.to_vec()));
     }
-    let length = assemble(staging, original, &pieces)?;
-    write_at(staging, 12, &length.to_le_bytes())?;
+    let length = assemble_diagnostic(staging, original, &pieces)?;
+    write_at_diagnostic(staging, 12, &length.to_le_bytes())?;
     let pointer = if id3.is_empty() { 0 } else { keep };
-    write_at(staging, 20, &pointer.to_le_bytes())
+    write_at_diagnostic(staging, 20, &pointer.to_le_bytes())
 }
 
 /// Rewrite DIIN with replaced (or removed) DIAR/DITI sub-chunks. Returns
@@ -527,7 +561,7 @@ fn rebuilt_diin(
     file: &mut fs::File,
     dff: &Dff,
     changes: &[(&[u8; 4], Option<String>)],
-) -> Result<Option<Vec<u8>>, String> {
+) -> Result<Option<Vec<u8>>, ErrorCause> {
     let affected = |id: &[u8; 4]| changes.iter().find(|(c, _)| *c == id);
     if !dff.diin.iter().any(|c| affected(&c.id).is_some()) {
         return Ok(None);
@@ -542,7 +576,7 @@ fn rebuilt_diin(
                 body.extend(chunk_bytes(id, &data));
             }
             None => {
-                let data = read_at(file, chunk.data, chunk.size as usize)?;
+                let data = read_at_diagnostic(file, chunk.data, chunk.size as usize)?;
                 body.extend(chunk_bytes(&chunk.id, &data));
             }
         }
@@ -562,14 +596,11 @@ fn write_dff(
     id3: &[u8],
     diin: &[(&[u8; 4], Option<String>)],
     remove: bool,
-) -> Result<(), String> {
-    let mut file = fs::File::open(original).map_err(|e| e.to_string())?;
+) -> Result<(), ErrorCause> {
+    let mut file = fs::File::open(original).map_err(ErrorCause::external)?;
     let dff = parse_dff(&mut file)?;
     if dff.id3.len() > 1 && !remove {
-        return Err(
-            "This DSDIFF file contains more than one ID3 chunk; remove the tag first so that no metadata is silently merged"
-                .into(),
-        );
+        return Err(ErrorCause::owned("This DSDIFF file contains more than one ID3 chunk; remove the tag first so that no metadata is silently merged"));
     }
     let new_diin = rebuilt_diin(&mut file, &dff, diin)?;
     let mut pieces = vec![Piece::Copy(0..16)];
@@ -586,7 +617,7 @@ fn write_dff(
             b"PROP" if dff.prop.iter().any(|c| &c.id == b"ID3 ") => {
                 let mut body = b"SND ".to_vec();
                 for sub in dff.prop.iter().filter(|c| &c.id != b"ID3 ") {
-                    let data = read_at(&mut file, sub.data, sub.size as usize)?;
+                    let data = read_at_diagnostic(&mut file, sub.data, sub.size as usize)?;
                     body.extend(chunk_bytes(&sub.id, &data));
                 }
                 push(
@@ -617,10 +648,7 @@ fn write_dff(
         }
     }
     if sound_at != Some(dff.sound.data) && dff.chunks.iter().any(|c| &c.id == b"DSTI") {
-        return Err(
-            "Writing this DSDIFF layout would move DST sound data referenced by its index; original file preserved"
-                .into(),
-        );
+        return Err(ErrorCause::owned("Writing this DSDIFF layout would move DST sound data referenced by its index; original file preserved"));
     }
     if !id3.is_empty() {
         push(
@@ -633,27 +661,36 @@ fn write_dff(
     if dff.form_end < dff.length {
         pieces.push(Piece::Copy(dff.form_end..dff.length));
     }
-    assemble(staging, original, &pieces)?;
-    write_at(staging, 4, &(form_end - 12).to_be_bytes())
+    assemble_diagnostic(staging, original, &pieces)?;
+    write_at_diagnostic(staging, 4, &(form_end - 12).to_be_bytes())
 }
 
-pub(super) fn verify_media(original: &Path, staged: &Path, kind: Kind) -> Result<(), String> {
-    let error = || Err("The audio data changed while writing; original file preserved".into());
+pub(super) fn verify_media_diagnostic(
+    original: &Path,
+    staged: &Path,
+    kind: Kind,
+) -> Result<(), ErrorCause> {
+    let error = || {
+        Err(ErrorCause::owned(
+            "The audio data changed while writing; original file preserved",
+        ))
+    };
     match kind {
         Kind::Dsf => {
-            let before = parse_dsf(&mut fs::File::open(original).map_err(|e| e.to_string())?)?;
-            let after = parse_dsf(&mut fs::File::open(staged).map_err(|e| e.to_string())?)?;
-            if before.data != after.data || !same_bytes(original, 28..before.data.end, staged, 28)?
+            let before = parse_dsf(&mut fs::File::open(original).map_err(ErrorCause::external)?)?;
+            let after = parse_dsf(&mut fs::File::open(staged).map_err(ErrorCause::external)?)?;
+            if before.data != after.data
+                || !same_bytes_diagnostic(original, 28..before.data.end, staged, 28)?
             {
                 return error();
             }
         }
         _ => {
-            let before = parse_dff(&mut fs::File::open(original).map_err(|e| e.to_string())?)?;
-            let after = parse_dff(&mut fs::File::open(staged).map_err(|e| e.to_string())?)?;
+            let before = parse_dff(&mut fs::File::open(original).map_err(ErrorCause::external)?)?;
+            let after = parse_dff(&mut fs::File::open(staged).map_err(ErrorCause::external)?)?;
             if before.sound.size != after.sound.size
                 || before.sound.id != after.sound.id
-                || !same_bytes(
+                || !same_bytes_diagnostic(
                     original,
                     before.sound.data..before.sound.data_end(),
                     staged,
@@ -665,4 +702,45 @@ pub(super) fn verify_media(original: &Path, staged: &Path, kind: Kind) -> Result
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod diagnostic_tests {
+    use super::*;
+
+    #[test]
+    fn dsd_description_keeps_owned_format_guards_separate_from_real_io() {
+        let directory = tempfile::tempdir().unwrap();
+        let invalid = directory.path().join("Help.dsf");
+        fs::write(&invalid, b"short").unwrap();
+        let owned = describe_diagnostic(&invalid, Kind::Dsf, &[], &TagOptions::default())
+            .err()
+            .unwrap();
+        assert!(
+            matches!(&owned, ErrorCause::OwnedText { value } if value == "Invalid DSF file: the file is truncated")
+        );
+        assert_eq!(
+            describe(&invalid, Kind::Dsf, &[], &TagOptions::default())
+                .err()
+                .unwrap(),
+            owned.to_string()
+        );
+        let absent = directory.path().join("Title.dsf");
+        let external = describe_diagnostic(&absent, Kind::Dsf, &[], &TagOptions::default())
+            .err()
+            .unwrap();
+        assert!(matches!(external, ErrorCause::External { .. }));
+        let mut chunk = tempfile::tempfile().unwrap();
+        use std::io::Write;
+        chunk.write_all(b"Help").unwrap();
+        chunk.write_all(&100u64.to_be_bytes()).unwrap();
+        let frame = dff_chunks(&mut chunk, 0, 12).unwrap_err();
+        assert!(matches!(&frame, ErrorCause::Owned { key, params, .. }
+            if key == "Invalid DSDIFF file: chunk {value} exceeds its container" && params["value"] == "Help"));
+        assert_eq!(
+            frame.to_string(),
+            "Invalid DSDIFF file: chunk Help exceeds its container"
+        );
+        assert_eq!(fs::read(invalid).unwrap(), b"short");
+    }
 }

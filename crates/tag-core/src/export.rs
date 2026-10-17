@@ -1180,8 +1180,16 @@ pub fn encode_export_document(
 /// (Windows-1252 without one) and malformed sequences are reported rather than
 /// replaced.
 pub fn decode_export_template(bytes: &[u8], ansi_codepage: Option<&str>) -> Result<String, String> {
+    decode_export_template_diagnostic(bytes, ansi_codepage).map_err(|error| error.to_string())
+}
+
+pub fn decode_export_template_diagnostic(
+    bytes: &[u8],
+    ansi_codepage: Option<&str>,
+) -> Result<String, crate::batch_errors::ErrorCause> {
     if let Some(bytes) = bytes.strip_prefix(&[0xef, 0xbb, 0xbf]) {
-        return String::from_utf8(bytes.to_vec()).map_err(|error| error.to_string());
+        return String::from_utf8(bytes.to_vec())
+            .map_err(crate::batch_errors::ErrorCause::external);
     }
     let utf16 = if let Some(bytes) = bytes.strip_prefix(&[0xff, 0xfe]) {
         Some((bytes, true))
@@ -1193,7 +1201,9 @@ pub fn decode_export_template(bytes: &[u8], ansi_codepage: Option<&str>) -> Resu
     if let Some((bytes, little)) = utf16 {
         let (pairs, trailing) = bytes.as_chunks::<2>();
         if !trailing.is_empty() {
-            return Err("Truncated UTF-16 export configuration".into());
+            return Err(crate::batch_errors::ErrorCause::owned(
+                "Truncated UTF-16 export configuration",
+            ));
         }
         let units = pairs
             .iter()
@@ -1205,7 +1215,7 @@ pub fn decode_export_template(bytes: &[u8], ansi_codepage: Option<&str>) -> Resu
                 }
             })
             .collect::<Vec<_>>();
-        return String::from_utf16(&units).map_err(|error| error.to_string());
+        return String::from_utf16(&units).map_err(crate::batch_errors::ErrorCause::external);
     }
     if let Ok(text) = std::str::from_utf8(bytes) {
         return Ok(text.to_owned());
@@ -1226,11 +1236,17 @@ pub fn decode_export_template(bytes: &[u8], ansi_codepage: Option<&str>) -> Resu
         Some(value) => encoding_rs::Encoding::for_label(format!("windows-{value}").as_bytes()),
         None => encoding_rs::Encoding::for_label(codepage.as_bytes()),
     }
-    .ok_or_else(|| format!("Unsupported export configuration codepage {codepage}"))?;
+    .ok_or_else(|| {
+        crate::batch_errors::ErrorCause::message(
+            "Unsupported export configuration codepage {codepage}",
+            [("codepage", codepage.to_string())],
+        )
+    })?;
     let (text, malformed) = encoding.decode_without_bom_handling(bytes);
     if malformed {
-        return Err(format!(
-            "Invalid export configuration for codepage {codepage}"
+        return Err(crate::batch_errors::ErrorCause::message(
+            "Invalid export configuration for codepage {codepage}",
+            [("codepage", codepage.to_string())],
         ));
     }
     Ok(text.into_owned())
