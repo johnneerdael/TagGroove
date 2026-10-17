@@ -36,7 +36,7 @@ pieces are collected in order. A separator at the start or end, or two
 separators together, can produce empty pieces. Clean the input first when
 those empty values are unwanted.
 
-OpenTag's display may join values with ` \\ `. That is a display convention;
+TagGroove's display may join values with ` \\ `. That is a display convention;
 do not use it as a separator unless those characters actually occur inside
 one value. Whether another player displays multiple values separately
 depends on the tag format and the player.

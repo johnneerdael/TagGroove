@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { PLATFORMS, GitHubApi, releasePlan, readVersions, assetName, collectAssets, assembleRelease, publishRelease, releaseBody, parseVersion, compareVersions, automaticVersion, explicitVersion, versionOrigin, stampVersion, makeLatest, previousTag, releaseNotes, appleVersion, androidVersionCode, shipsChanges, NON_SHIPPING_PATHS } from '../scripts/release.mjs';
 
-const sourceFixtureRoot = mkdtempSync(join(tmpdir(), 'opentag-release-source-'));
+const sourceFixtureRoot = mkdtempSync(join(tmpdir(), 'taggroove-release-source-'));
 after(() => rmSync(sourceFixtureRoot, {recursive: true, force: true}));
 const sourceFixture = JSON.parse(execFileSync(process.env.PYTHON || (process.platform === 'win32' ? 'python' : 'python3'),
   ['scripts/tests/test_audio_source_bundle.py', '--release-fixture', sourceFixtureRoot], {encoding: 'utf8'}));
@@ -16,10 +16,35 @@ const versions = { package: '0.1.0', cargo: '0.1.0', tauri: '0.1.0' };
 const planInput = { versions, head: sha, expectedHead: sha, tagCommit: sha, tag: 'v0.1.0', prerelease: false };
 const plan = () => releasePlan(planInput);
 async function fixture(t) {
-  const root = await mkdtemp(join(tmpdir(), 'opentag-release-'));
+  const root = await mkdtemp(join(tmpdir(), 'taggroove-release-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   return root;
 }
+
+test('branded Windows installers retain the existing install identity', async () => {
+  const config = JSON.parse(await readFile(new URL('../src-tauri/tauri.conf.json', import.meta.url)));
+  assert.equal(config.bundle.windows.wix.upgradeCode.toLowerCase(), 'ed7df85b-a59c-563d-84e9-a966cbccc202');
+  assert.equal(config.bundle.windows.nsis?.template, 'windows/installer.nsi');
+  const upstream = JSON.parse(await readFile(new URL('../src-tauri/windows/UPSTREAM.json', import.meta.url)));
+  const lock = JSON.parse(await readFile(new URL('../package-lock.json', import.meta.url)));
+  assert.equal(lock.packages['node_modules/@tauri-apps/cli'].version, upstream.cliVersion,
+    'Resync the installer template when upgrading the Tauri CLI');
+  const template = await readFile(new URL('../src-tauri/windows/installer.nsi', import.meta.url), 'utf8');
+  const definitions = Object.fromEntries([...template.matchAll(/^!define (\w+) "([^"\r\n]*)"$/gm)]
+    .map(([, name, value]) => [name, value]));
+  definitions.PRODUCTNAME = config.productName;
+  definitions.MANUFACTURER = config.bundle.publisher;
+  const expand = (name, parents = []) => {
+    assert.ok(Object.hasOwn(definitions, name), `Missing NSIS definition ${name}`);
+    assert.ok(!parents.includes(name), `Circular NSIS definition ${name}`);
+    return definitions[name].replace(/\$\{(\w+)\}/g, (_, next) => expand(next, [...parents, name]));
+  };
+  assert.equal(expand('PRODUCTNAME'), 'TagGroove');
+  assert.equal(expand('MANUFACTURER'), 'TagGroove');
+  assert.equal(expand('UNINSTKEY'), 'Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\OpenTag');
+  assert.equal(expand('MANUKEY'), 'Software\\OpenTag');
+  assert.equal(expand('MANUPRODUCTKEY'), 'Software\\OpenTag\\OpenTag');
+});
 
 test('version/tag/checkout policy rejects mismatches; 0.x is a release, suffixes are prereleases', () => {
   assert.equal(plan().prerelease, false);
@@ -47,9 +72,9 @@ test('version reader uses package sections rather than unrelated dependency vers
 });
 
 test('asset names state OS architecture signing or simulator restrictions', () => {
-  assert.equal(assetName('v0.1.0', 'windows-x64', '/tmp/OpenTag.exe'), 'OpenTag-v0.1.0-windows-x64-setup.exe');
-  assert.equal(assetName('v0.1.0', 'android-arm64', '/tmp/app-release.apk'), 'OpenTag-v0.1.0-android-arm64-signed.apk');
-  assert.equal(assetName('v0.1.0', 'ios-arm64-simulator-preview', '/tmp/OpenTag.app.zip'), 'OpenTag-v0.1.0-ios-arm64-simulator-preview-debug.app.zip');
+  assert.equal(assetName('v0.1.0', 'windows-x64', '/tmp/TagGroove.exe'), 'TagGroove-v0.1.0-windows-x64-setup.exe');
+  assert.equal(assetName('v0.1.0', 'android-arm64', '/tmp/app-release.apk'), 'TagGroove-v0.1.0-android-arm64-signed.apk');
+  assert.equal(assetName('v0.1.0', 'ios-arm64-simulator-preview', '/tmp/TagGroove.app.zip'), 'TagGroove-v0.1.0-ios-arm64-simulator-preview-debug.app.zip');
   assert.throws(() => assetName('v0.1.0', 'windows-x64', '../readme.txt'));
   assert.throws(() => assetName('v0.1.0', '../escape', 'file.exe'));
 });
@@ -72,7 +97,7 @@ async function completeAssets(t) {
     await collectAssets({ plan: plan(), platform, sourcePaths, outputDir,
       nativeManifest: join(sourceFixture.evidence, `native-${platform}.json`) });
   }
-  await copyFile(sourceFixture.bundle, join(outputDir, 'OpenTag-v0.1.0-sources.tar.xz'));
+  await copyFile(sourceFixture.bundle, join(outputDir, 'TagGroove-v0.1.0-sources.tar.xz'));
   return { root, outputDir };
 }
 
@@ -81,14 +106,14 @@ test('assembly requires all seven matching platform manifests and checks every h
   const release = await assembleRelease({ plan: plan(), directory: outputDir });
   assert.equal(release.assets.length, 16); // Exact original 13 packages, source archive, manifest and checksums.
   assert.equal(release.assets.filter(asset => asset.name.endsWith('-sources.tar.xz')).length, 1);
-  assert.match(await readFile(join(outputDir, 'SHA256SUMS'), 'utf8'), /[a-f0-9]{64}  OpenTag-v0\.1\.0-windows-x64-setup\.exe/);
-  await writeFile(join(outputDir, 'OpenTag-v0.1.0-linux-arm64.deb'), 'tampered');
+  assert.match(await readFile(join(outputDir, 'SHA256SUMS'), 'utf8'), /[a-f0-9]{64}  TagGroove-v0\.1\.0-windows-x64-setup\.exe/);
+  await writeFile(join(outputDir, 'TagGroove-v0.1.0-linux-arm64.deb'), 'tampered');
   await assert.rejects(assembleRelease({ plan: plan(), directory: outputDir }), /hash|size/i);
 });
 
 test('assembly requires the exact corresponding-source asset before publication', async (t) => {
   const { outputDir } = await completeAssets(t);
-  await rm(join(outputDir, 'OpenTag-v0.1.0-sources.tar.xz'), { force: true });
+  await rm(join(outputDir, 'TagGroove-v0.1.0-sources.tar.xz'), { force: true });
   await assert.rejects(assembleRelease({ plan: plan(), directory: outputDir }), /source.*(missing|required)|missing.*source/i);
 });
 
@@ -104,7 +129,7 @@ test('native provenance and the exact source filename cannot be replaced by extr
   await writeFile(manifestPath, JSON.stringify({...manifest, native: {...manifest.native, sha256: '0'.repeat(64)}}));
   await assert.rejects(assembleRelease({plan: plan(), directory: outputDir}), /native.*hash/i);
   await writeFile(manifestPath, JSON.stringify(manifest));
-  await copyFile(sourceFixture.bundle, join(outputDir, 'OpenTag-v0.1.0-sources-extra.tar.xz'));
+  await copyFile(sourceFixture.bundle, join(outputDir, 'TagGroove-v0.1.0-sources-extra.tar.xz'));
   await assert.rejects(assembleRelease({plan: plan(), directory: outputDir}), /unexpected files/i);
 });
 
@@ -190,18 +215,18 @@ test('authenticated release discovery includes drafts across paginated results',
 });
 
 test('release notes link the tagged banner and parity ledger and state signing limits', () => {
-  const body = releaseBody(plan(), 'johnneerdael/opentag');
-  assert.match(body, /raw\.githubusercontent\.com\/johnneerdael\/opentag\/v0\.1\.0\/assets\/brand\/OpenTag-Brand-Kit\/03-banners\/opentag-github-light-1280x640\.png/);
+  const body = releaseBody(plan(), 'johnneerdael/TagGroove');
+  assert.match(body, /raw\.githubusercontent\.com\/johnneerdael\/TagGroove\/v0\.1\.0\/assets\/brand\/TagGroove-Brand-Kit\/03-banners\/taggroove-github-light-1280x640\.png/);
   assert.match(body, /\/blob\/v0\.1\.0\/docs\/PARITY\.md/);
   for (const word of ['ad-hoc', 'unsigned', 'application key', 'simulator', 'device installer']) assert.ok(body.includes(word), word);
 });
 
 test('desktop app directories are archived when build-only action supplies no archive', async (t) => {
   const root = await fixture(t);
-  const app = join(root, 'OpenTag.app');
+  const app = join(root, 'TagGroove.app');
   await mkdir(join(app, 'Contents'), { recursive: true });
   await writeFile(join(app, 'Contents/Info.plist'), 'fixture');
-  const dmg = join(root, 'OpenTag.dmg');
+  const dmg = join(root, 'TagGroove.dmg');
   await writeFile(dmg, 'fixture dmg');
   const outputDir = join(root, 'assets');
   const manifest = await collectAssets({ plan: plan(), platform: 'macos-arm64', sourcePaths: [app, dmg], outputDir,
@@ -241,7 +266,7 @@ function repo(root) {
   const git = (...args) => execFileSync('git', ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', '-c', 'commit.gpgsign=false', ...args], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
   const setVersion = async (version, cargoExtra = '') => {
     await mkdir(join(root, 'src-tauri'), { recursive: true });
-    await writeFile(join(root, 'package.json'), `${JSON.stringify({ name: 'opentag', version }, null, 2)}\n`);
+    await writeFile(join(root, 'package.json'), `${JSON.stringify({ name: 'taggroove', version }, null, 2)}\n`);
     await writeFile(join(root, 'src-tauri/tauri.conf.json'), `${JSON.stringify({ version }, null, 2)}\n`);
     await writeFile(join(root, 'src-tauri/Cargo.toml'), `[package]\nname = "opentag"\nversion = "${version}"\n${cargoExtra}`);
   };
@@ -324,9 +349,9 @@ version = "0.2.0"
 async function stampFixture(t, { apple = true } = {}) {
   const root = await fixture(t);
   await mkdir(join(root, 'src-tauri/gen/apple/opentag_iOS'), { recursive: true });
-  await writeFile(join(root, 'package.json'), `${JSON.stringify({ name: 'opentag', version: '0.2.0', private: true }, null, 2)}\n`);
-  await writeFile(join(root, 'package-lock.json'), `${JSON.stringify({ name: 'opentag', version: '0.2.0', lockfileVersion: 3, packages: { '': { name: 'opentag', version: '0.2.0' }, 'node_modules/vite': { version: '7.3.0' } } }, null, 2)}\n`);
-  await writeFile(join(root, 'src-tauri/tauri.conf.json'), `${JSON.stringify({ productName: 'OpenTag', version: '0.2.0' }, null, 2)}\n`);
+  await writeFile(join(root, 'package.json'), `${JSON.stringify({ name: 'taggroove', version: '0.2.0', private: true }, null, 2)}\n`);
+  await writeFile(join(root, 'package-lock.json'), `${JSON.stringify({ name: 'taggroove', version: '0.2.0', lockfileVersion: 3, packages: { '': { name: 'taggroove', version: '0.2.0' }, 'node_modules/vite': { version: '7.3.0' } } }, null, 2)}\n`);
+  await writeFile(join(root, 'src-tauri/tauri.conf.json'), `${JSON.stringify({ productName: 'TagGroove', version: '0.2.0' }, null, 2)}\n`);
   await writeFile(join(root, 'src-tauri/Cargo.toml'), '[package]\nname = "opentag"\nversion = "0.2.0"\n\n[dependencies]\ntag-core = { path = "../crates/tag-core", version = "0.2.0" }\n');
   await writeFile(join(root, 'Cargo.lock'), LOCK);
   if (apple) {
@@ -413,7 +438,7 @@ test('release ranges use the previous earlier version', () => {
   assert.equal(previousTag(['v0.2.0', 'v0.2.3-rc.1'], auto), 'v0.2.0');
   assert.equal(previousTag(['v0.2.0', 'v0.2.3-rc.1'], { ...auto, prerelease: true }), 'v0.2.3-rc.1');
   assert.equal(previousTag(['v0.2.3'], auto), null);
-  const body = releaseBody(auto, 'johnneerdael/opentag', '## Changes\n\n- Fix list');
+  const body = releaseBody(auto, 'johnneerdael/TagGroove', '## Changes\n\n- Fix list');
   assert.ok(body.indexOf('Fix list') < body.indexOf('| Download |'));
   assert.match(body, /Release \(pre-1\.0\)/);
 });

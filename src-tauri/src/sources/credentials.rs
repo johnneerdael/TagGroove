@@ -33,7 +33,7 @@ pub struct CredentialsView {
     pub discogs_token_in_keychain: bool,
     /// Whether this platform build has a keychain to offer.
     pub keychain_available: bool,
-    /// This build carries OpenTag's Discogs application key.
+    /// This build carries TagGroove's Discogs application key.
     pub discogs_app_key: bool,
     pub acoustid_key_set: bool,
     pub acoustid_built_in: bool,

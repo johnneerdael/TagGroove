@@ -80,7 +80,7 @@ fails, so an error does not always mean the file stayed at its old path.
 files moved outside the listed folders remain visible. With that option off,
 a successfully moved file can disappear from the list. That disappearance
 is not deletion. Inspect the reported destination in the file manager or
-open the destination folder in OpenTag.
+open the destination folder in TagGroove.
 
 Move commands now record a session **Undo Move files** step when history can
 retain the files. Inspect the result and any history notice before relying on
@@ -125,7 +125,7 @@ round-trip on your machine.
 
 !!! danger "Permanent deletion bypasses the trash"
 
-    **Delete files permanently…** does not create an OpenTag Undo step or a
+    **Delete files permanently…** does not create a TagGroove Undo step or a
     trash copy. Keep a separate backup before using it. Its confirmation can
     also be suppressed by the deletion-message preference. Use the menu label
     deliberately instead of experimenting with modifier keys on real files.
@@ -153,7 +153,7 @@ independent new file per displayed row. Starting an application is not proof
 that it played every track or understood chapter positions.
 
 Reveal and Play do not save pending tag edits. A player reads the saved file,
-which can differ from what OpenTag currently shows as pending. Configured
+which can differ from what TagGroove currently shows as pending. Configured
 [external tools](../customize/tools.md) have their own per-file and argument
 rules; they are not the same as default playback.
 

@@ -52,7 +52,7 @@ recorded changes. Keep the originals as a backup.
 ## How it works
 
 A Filename → Tag pattern is a picture of the name, with placeholders where
-the values are. OpenTag lines the pattern up against the end of each file's
+the values are. TagGroove lines the pattern up against the end of each file's
 path:
 
 ```text
@@ -60,7 +60,7 @@ pattern:  %artist%     \ %album%       (%year%)\ %track% - %title%
 path:     Juniper Vale \ Harbour Lights (2024) \ 02      - Lanterns on the Water.mp3
 ```
 
-- `\` stands for a folder level. The pattern has two, so OpenTag looks at
+- `\` stands for a folder level. The pattern has two, so TagGroove looks at
   the file name and the two folders above it. Everything higher up (`Music`)
   is ignored. Use `\` on macOS and Linux too.
 - The text between placeholders must appear exactly, here ` - `, ` (` and `)`.

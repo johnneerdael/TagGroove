@@ -1,7 +1,7 @@
 # Working with covers
 
 Embedded covers travel inside an audio file's metadata. A folder image such
-as `folder.jpg` is a separate file that a player or OpenTag can display.
+as `folder.jpg` is a separate file that a player or TagGroove can display.
 Use the cover window to inspect embedded images, and **Manage covers…** to
 review a selection's cover set before writing a batch change.
 
@@ -162,7 +162,7 @@ saved form. Platform image-clipboard support can make commands unavailable.
 
 ## Folder-image fallback
 
-When none of the selected files has embedded or pending artwork, OpenTag
+When none of the selected files has embedded or pending artwork, TagGroove
 can show a local image if every selected local file is in the active file's
 folder. **Options → Tags → Don’t display first image from file directory as cover art**
 disables this fallback. Provider documents without a browsable local folder

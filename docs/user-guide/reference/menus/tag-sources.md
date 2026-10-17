@@ -22,7 +22,7 @@ matching before importing it.
 
 The remote [freedb dialog](../../tag-sources/freedb.md) offers **Track layout
 of the selected files** and **Artist and album**. Text and artwork searches
-require a recognized gnudb host. OpenTag asks for matches before reading the
+require a recognized gnudb host. TagGroove asks for matches before reading the
 chosen entry; it does not read a remote entry from a typed disc ID.
 
 The [local database](../../tag-sources/local-freedb.md) supports a disc ID
@@ -66,7 +66,7 @@ for another application can need adaptation.
 
 The original documentation's [web-source archive](https://docs.mp3tag.de/tag-sources/archive/)
 points to further resources. A listed script or provider is not a
-compatibility or availability guarantee for OpenTag.
+compatibility or availability guarantee for TagGroove.
 
 ## Match files before applying
 

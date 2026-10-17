@@ -22,13 +22,13 @@ and undo behavior.
 *.mp3;*.flac
 ```
 
-`mp3`, `.mp3`, and `*.mp3` are accepted forms. Separate entries with semicolons, commas, or whitespace. Matching is case-insensitive, and repeated extensions are ignored. This is an extension list, not a general filename pattern: `album*.mp3` is invalid. An allowed extension must still be a format OpenTag can read.
+`mp3`, `.mp3`, and `*.mp3` are accepted forms. Separate entries with semicolons, commas, or whitespace. Matching is case-insensitive, and repeated extensions are ignored. This is an extension list, not a general filename pattern: `album*.mp3` is invalid. An allowed extension must still be a format TagGroove can read.
 
 The restriction applies to folders. Files explicitly added individually are still read. To inspect a single M4A alongside an MP3-only folder scan, add that file directly. Changing the restriction does not itself remove already loaded rows; rescan the folder to use the new choice.
 
 ## Rename files from tags
 
-**Replace folder separator in tag values with** defaults to `_`. OpenTag replaces both backslashes and forward slashes inside tag values used for file renaming. This applies to Tag → Filename and filename-changing Format Value, Guess Values, and Tag → Tag operations.
+**Replace folder separator in tag values with** defaults to `_`. TagGroove replaces both backslashes and forward slashes inside tag values used for file renaming. This applies to Tag → Filename and filename-changing Format Value, Guess Values, and Tag → Tag operations.
 
 | `ALBUM` value | Replacement | Tag-derived name component |
 |---|---|---|

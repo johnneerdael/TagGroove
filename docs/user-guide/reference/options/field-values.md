@@ -21,7 +21,7 @@ The tag-panel drop-down can include special keep/blank choices, values already p
 
 ## Genres
 
-**Show only user-defined genres** defaults to off. Enable it to omit the standard genre list from the panel's choices and use the custom `GENRE` list instead. Existing selected values still appear. In OpenTag the saved list preferences apply without requiring the Mp3tag restart described in the original reference.
+**Show only user-defined genres** defaults to off. Enable it to omit the standard genre list from the panel's choices and use the custom `GENRE` list instead. Existing selected values still appear. In TagGroove the saved list preferences apply without requiring the Mp3tag restart described in the original reference.
 
 A custom genre is still text. ID3v1 supports a fixed indexed genre list and cannot preserve arbitrary new genre names. Use a richer tag type such as ID3v2 or APEv2 when saving user-defined genres; changing this UI list does not extend ID3v1.
 

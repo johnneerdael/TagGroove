@@ -1,12 +1,12 @@
-site_name: OpenTag user guide
-site_description: Learn to tag, rename, organise and export your music with OpenTag, the open-source audio metadata editor.
-site_url: https://opentag.neerdael.nl/
-repo_url: https://github.com/johnneerdael/opentag
-repo_name: johnneerdael/opentag
+site_name: TagGroove user guide
+site_description: Learn to tag, rename, organise and export your music with TagGroove, the open-source audio metadata editor.
+site_url: https://taggroove.neerdael.nl/
+repo_url: https://github.com/johnneerdael/TagGroove
+repo_name: johnneerdael/TagGroove
 edit_uri: edit/main/docs/user-guide/
 docs_dir: docs/user-guide
 site_dir: build/user-guide-site
-copyright: OpenTag is free, open-source software. It is an independent project, compatible with but not affiliated with Mp3tag.
+copyright: TagGroove is free, open-source software. It is an independent project, compatible with but not affiliated with Mp3tag.
 
 # Writer-only material lives beside the pages but is not published.
 exclude_docs: |
@@ -66,13 +66,13 @@ theme:
     - content.action.edit
 
 extra_css:
-  - stylesheets/opentag.css
+  - stylesheets/taggroove.css
 
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/johnneerdael/opentag
-      name: OpenTag on GitHub
+      link: https://github.com/johnneerdael/TagGroove
+      name: TagGroove on GitHub
   status:
     draft: This page is still being written
 
@@ -342,4 +342,4 @@ nav:
 - Help:
   - Frequently asked questions: help/faq.md
   - Troubleshooting: help/troubleshooting.md
-  - About OpenTag and this guide: help/about.md
+  - About TagGroove and this guide: help/about.md

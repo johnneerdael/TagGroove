@@ -11,7 +11,7 @@ configuration**. It is separate from saving tag edits and backing up music.
    dialog work is not a replacement for saved configuration files.
 2. Choose **File → Save configuration…**. Select a backup location and a
    recognizable name, such as `Harbour-workspace-before-tools.json`.
-3. Check the status message and the destination file. OpenTag reports how
+3. Check the status message and the destination file. TagGroove reports how
    many existing supported configuration files it collected. A zero-file
    bundle is not a useful restore checkpoint: empty bundles are rejected on
    load. Finish saving the intended settings/definitions first.
@@ -26,7 +26,7 @@ before treating the bundle as a checkpoint.
 
 ## What the bundle includes
 
-OpenTag uses its own JSON bundle, identified internally as
+TagGroove uses its own JSON bundle, identified internally as
 `opentag-configuration`, version `1`. It collects the following files when
 they already exist in the current configuration folder:
 
@@ -67,7 +67,7 @@ a copy before sharing a workspace publicly.
    reloads the application window and discards pending tag changes.
 2. Save the **current** configuration under another name, such as
    `Harbour-workspace-before-restore.json`. Keep the incoming bundle too.
-3. Choose **File → Load configuration…** and select the intended OpenTag JSON
+3. Choose **File → Load configuration…** and select the intended TagGroove JSON
    bundle. Read the replacement warning before confirming.
 4. After a successful load, the window reloads. Inspect Options, action groups,
    export definitions, columns, tag-panel fields and favorite directories.
@@ -102,7 +102,7 @@ component changed. Do not delete the entire configuration folder to experiment.
 ## Move to another computer or operating system
 
 Copy the configuration backup and required external resources, then install a
-suitable OpenTag package on the destination. Save its current configuration
+suitable TagGroove package on the destination. Save its current configuration
 before loading the incoming bundle. Recheck anything that names a location:
 
 | Item | What to recheck |
@@ -127,7 +127,7 @@ version control: recorded audio-file history has a different scope.
 On desktop, choose **File → Open configuration folder**. This opens the folder
 used by the current application, avoiding guesses based on another editor's
 standard/portable/Store paths. The application identifies its per-user storage
-as OpenTag; copying an application bundle or AppImage does not create a new
+with the stable identifier `org.opentag.editor`; copying an application bundle or AppImage does not create a new
 portable configuration beside that executable.
 
 Opening folders is not available through the inspected mobile command.
@@ -135,10 +135,10 @@ Use the build's supported file/document dialogs where offered and keep its
 release/access limits in mind. Do not infer desktop configuration-transfer or
 save-back support from a familiar-looking menu.
 
-Avoid editing live saved files while OpenTag is writing them. The built-in
+Avoid editing live saved files while TagGroove is writing them. The built-in
 load route validates included formats before replacing components; direct
 live file changes bypass that validation and have different reload risks. When a configuration cannot load, include the exact
-error and OpenTag version in a minimal issue report, without publishing
+error and TagGroove version in a minimal issue report, without publishing
 credentials or a personal library.
 
 ## Related

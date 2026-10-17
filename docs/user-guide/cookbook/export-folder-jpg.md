@@ -21,7 +21,7 @@ inspect its scope before choosing that route.
 ## The solution
 
 1. Copy one album folder, including any existing folder images, and keep
-   the original elsewhere. Save pending tag edits in OpenTag.
+   the original elsewhere. Save pending tag edits in TagGroove.
 2. Select one copied audio file with the intended embedded **Front Cover**.
    Inspect it in **Manage covers…** or the cover window. A **Folder image /
    Not embedded in the file** fallback is not an embedded source for this action.

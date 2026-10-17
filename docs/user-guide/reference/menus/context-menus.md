@@ -100,7 +100,7 @@ than pretending the first file's image belongs to every file.
 | **View larger…** | Open the displayed cover in a larger viewer; Enter or a double-click also opens it. |
 | **Correct aspect ratio** | Keep the image's proportions in the display. Turning it off stretches the preview; it does not resize the embedded image. |
 
-For **Add cover…** and **Replace cover…**, OpenTag first evaluates the
+For **Add cover…** and **Replace cover…**, TagGroove first evaluates the
 [Cover art directory](../options/directories.md) format and uses it if it
 resolves to a real folder. Otherwise it uses the selected file’s folder if
 that folder has a supported local image. Next it tries the current working
@@ -248,4 +248,4 @@ See [filtering](../../guides/filter.md) for the file-list effect.
 - [Tag-panel options](../options/tag-panel.md)
 - [Keyboard shortcuts](../keyboard-shortcuts.md)
 
-<!-- Source baseline main4e4d5fc: row-context-menu.ts/main.ts rowMenu; tag-panel.ts markup/command; cover-model.ts coverMenu/selectionCovers and covers.ts perform/plan; extended-tags.ts fieldMenu; helper-menu.ts helperEntries/FieldList/FormatHistory/insertion/manageHistory. Canonical menus/{cover,fields,format-strings} facts independently explained with OpenTag differences. No native/browser application launch or save-back claim. -->
+<!-- Source baseline main4e4d5fc: row-context-menu.ts/main.ts rowMenu; tag-panel.ts markup/command; cover-model.ts coverMenu/selectionCovers and covers.ts perform/plan; extended-tags.ts fieldMenu; helper-menu.ts helperEntries/FieldList/FormatHistory/insertion/manageHistory. Canonical menus/{cover,fields,format-strings} facts independently explained with TagGroove differences. No native/browser application launch or save-back claim. -->

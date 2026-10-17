@@ -196,7 +196,7 @@ impl fmt::Display for BatchError {
             Self::ActionValidation { group, cause } => write!(f, "{group}: {cause}"),
             Self::HistoryChanged { label, direction } => write!(
                 f,
-                "Changed outside OpenTag after {label}; it was not {direction}"
+                "Changed outside TagGroove after {label}; it was not {direction}"
             ),
             Self::HistoryFailed { direction, cause } => {
                 write!(f, "It was not {direction}: {cause}")

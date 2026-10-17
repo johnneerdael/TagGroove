@@ -4,40 +4,40 @@ hide:
   - toc
 ---
 
-# OpenTag user guide { .md-visually-hidden }
+# TagGroove user guide { .md-visually-hidden }
 
 <div class="ot-hero" markdown>
 
 <div markdown>
 
-![OpenTag](assets/brand/logo-on-light.svg#only-light){ .ot-hero__logo }
-![OpenTag](assets/brand/logo-on-dark.svg#only-dark){ .ot-hero__logo }
+![TagGroove](assets/brand/logo-on-light.svg#only-light){ .ot-hero__logo }
+![TagGroove](assets/brand/logo-on-dark.svg#only-dark){ .ot-hero__logo }
 
 ## Tag, rename and organize your music
 
-OpenTag edits the metadata inside your audio files: titles, artists,
+TagGroove edits the metadata inside your audio files: titles, artists,
 albums, track numbers and cover art. Start with a copy of an album, learn
 to edit and save its tags, then give the files consistent names.
 
 [Start your first session](learn/first-tagging-session.md){ .md-button .md-button--primary }
-[Download OpenTag](https://github.com/johnneerdael/opentag/releases/latest){ .md-button }
+[Download TagGroove](https://github.com/johnneerdael/TagGroove/releases/latest){ .md-button }
 
 </div>
 
 <div markdown>
 
-![The OpenTag main window with an album open](assets/screens/main-window-light.png#only-light){ .screen }
-![The OpenTag main window with an album open](assets/screens/main-window-dark.png#only-dark){ .screen }
+![The TagGroove main window with an album open](assets/screens/main-window-light.png#only-light){ .screen }
+![The TagGroove main window with an album open](assets/screens/main-window-dark.png#only-dark){ .screen }
 
 </div>
 
 </div>
 
 !!! note "An evolving editor and guide"
-    OpenTag is in development. This guide covers desktop workflows; mobile
+    TagGroove is in development. This guide covers desktop workflows; mobile
     builds and simulator previews have different capabilities. Check the
-    [release notes](https://github.com/johnneerdael/opentag/releases) for
-    available packages and limitations. OpenTag is an independent project;
+    [release notes](https://github.com/johnneerdael/TagGroove/releases) for
+    available packages and limitations. TagGroove is an independent project;
     complete Mp3tag compatibility remains a goal.
 
 ## Learn by doing
@@ -84,7 +84,7 @@ to edit and save its tags, then give the files consistent names.
 
 | What you want to learn | Start here |
 | --- | --- |
-| Install, open files and understand the workspace | [Start using OpenTag](getting-started/index.md), [installation](getting-started/install.md) and [the main window](getting-started/main-window.md) |
+| Install, open files and understand the workspace | [Start using TagGroove](getting-started/index.md), [installation](getting-started/install.md) and [the main window](getting-started/main-window.md) |
 | Edit shared fields and decide when to save | [The tag panel](guides/tag-panel.md) and [Editing, saving and undo](getting-started/editing-and-saving.md) |
 | Transfer or remove stored tags | [Cut, copy and paste tags](guides/copy-paste-tags.md) and [Removing tags](guides/remove-tags.md) |
 | Inspect the list, unfamiliar fields and artwork | [The file list](guides/file-list.md), [Extended tags](guides/extended-tags.md) and [Working with covers](guides/covers.md) |
@@ -127,7 +127,7 @@ More topics are being written; only completed pages appear here.
 ## Get help and follow changes
 
 Download installers and read changes on the
-[GitHub releases page](https://github.com/johnneerdael/opentag/releases).
+[GitHub releases page](https://github.com/johnneerdael/TagGroove/releases).
 If a step in this guide differs from your build,
-[report it on GitHub](https://github.com/johnneerdael/opentag/issues), including
-your OpenTag version, operating system and the steps you tried.
+[report it on GitHub](https://github.com/johnneerdael/TagGroove/issues), including
+your TagGroove version, operating system and the steps you tried.

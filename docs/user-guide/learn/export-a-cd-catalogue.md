@@ -4,7 +4,7 @@ Build a readable album-and-track catalogue, then save a spreadsheet copy.
 This lesson takes about 15 minutes and uses only practice files. You will see
 how one template becomes a report before adding groups or multiple outputs.
 
-- [ ] OpenTag desktop app installed, with copied audio files loaded.
+- [ ] TagGroove desktop app installed, with copied audio files loaded.
 - [ ] Pending edits saved or discarded, and the three practice files selected.
 - [ ] A separate practice folder available for reports.
 
@@ -85,7 +85,7 @@ into documents before the template renders. The album loop then sees one
 album within each document.
 
 The name must vary between groups. If both used `practice-catalogue.txt`,
-OpenTag would reject the output collision rather than overwrite one album
+TagGroove would reject the output collision rather than overwrite one album
 with the other. Empty or inconsistent album values need attention too.
 
 ## 5. Save a spreadsheet copy

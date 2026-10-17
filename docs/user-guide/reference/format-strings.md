@@ -1,6 +1,6 @@
 # Format strings
 
-<p class="lead">A format string is a line of text with blanks in it. For each file, OpenTag fills the blanks with that file's values: <code>%artist% - %title%</code> becomes <code>Juniper Vale - Low Tide</code> for one file and <code>Juniper Vale - Paper Boats</code> for the next.</p>
+<p class="lead">A format string is a line of text with blanks in it. For each file, TagGroove fills the blanks with that file's values: <code>%artist% - %title%</code> becomes <code>Juniper Vale - Low Tide</code> for one file and <code>Juniper Vale - Paper Boats</code> for the next.</p>
 
 You write format strings to rename files, to build new tag values from old
 ones, to define columns, to name exports and playlists, and in many other
@@ -201,7 +201,7 @@ unbalanced opening parenthesis, retains its earlier interpretation.
 ## True and false: how conditions decide { #conditions }
 
 Functions such as `$if`, `$if2`, `$and`, `$or`
-and `$not` test whether something is *true*. OpenTag doesn't treat text like
+and `$not` test whether something is *true*. TagGroove doesn't treat text like
 `1` or `yes` as true. Truth comes from where a value came from:
 
 - **A placeholder is true when the field has a value**, and false when it is
@@ -245,7 +245,7 @@ placeholder only gives the first one. These functions give you the rest:
 | `$meta_sep(artist,' & ')` | | `Juniper Vale & Mira Solberg` |
 
 Note that `$meta` takes the field **name**, without `%`. In the tag panel and
-the file list, OpenTag shows multiple values joined with ` \\ `. A bare
+the file list, TagGroove shows multiple values joined with ` \\ `. A bare
 placeholder does not add that display separator; choose a join explicitly
 with `$meta_sep` when needed. Storage of multiple values depends on the tag
 format.
@@ -292,10 +292,10 @@ When the result of a format string is a file name (in
 Tag → Filename, and in
 Format value or
 Tag → Tag on `_FILENAME` or `_DIRECTORY`),
-OpenTag applies three extra rules.
+TagGroove applies three extra rules.
 
 **1. `\` and `/` that you type make folders.** Both work on every platform,
-and OpenTag uses the right one for your system. The path is relative to the
+and TagGroove uses the right one for your system. The path is relative to the
 file's current folder, unless it starts at the root of a drive.
 
 ```text
@@ -337,12 +337,12 @@ A few more details:
   `$ifgreater` or `$iflonger` returns keeps the `\` you typed in it, as the
   sixth row shows. Other functions treat their result as a value, so in the
   last row the `/` inside `$upper(…)` becomes `_`.
-- **The extension is kept.** OpenTag adds the file's extension, unless your
+- **The extension is kept.** TagGroove adds the file's extension, unless your
   result already ends with it, so `%title%.mp3` doesn't become `.mp3.mp3`.
 - **An empty result is an error.** Nothing is renamed.
 
 !!! info "Coming from Mp3tag"
-    Mp3tag on Windows uses `\` for folders. OpenTag accepts `\` and `/` on
+    Mp3tag on Windows uses `\` for folders. TagGroove accepts `\` and `/` on
     macOS, Linux and Windows alike, so action groups and format strings you
     bring along keep working.
 
@@ -350,7 +350,7 @@ A few more details:
 
 Filename → Tag and
 Guess values use format strings in reverse.
-You describe what the text looks like, and OpenTag works out the values.
+You describe what the text looks like, and TagGroove works out the values.
 
 ```text
 %track% - %artist% - %title%
@@ -370,7 +370,7 @@ Patterns have their own, simpler rules:
   the name `Juniper Vale - Salt - Cedar` gives `ARTIST` = `Juniper Vale` and
   `TITLE` = `Salt - Cedar`.
 - Two placeholders right next to each other (`%track%%title%`) are an error,
-  because OpenTag can't know where one ends.
+  because TagGroove can't know where one ends.
 - The same placeholder twice adds a second value: `%artist% feat. %artist%`
   gives a multi-value `ARTIST`.
 

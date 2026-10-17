@@ -113,9 +113,9 @@ export function validateOptions(draft:OptionsDraft,pages:OptionsPage[]=[...regis
 }
 export function naturalCollator(settings:Settings){return new Intl.Collator(undefined,{numeric:settings.general.natural_sort,sensitivity:'base'});}
 export function windowTitle(sourceLocation:string,settings:Settings,presentation:{isData?:boolean;translate?:(label:string)=>string}={}){
-  if(!settings.general.show_directory_in_title||!sourceLocation||!presentation.isData&&sourceLocation==='No folder loaded')return'OpenTag';
+  if(!settings.general.show_directory_in_title||!sourceLocation||!presentation.isData&&sourceLocation==='No folder loaded')return'TagGroove';
   const location=presentation.isData?sourceLocation:presentation.translate?.(sourceLocation)??sourceLocation;
-  return`OpenTag — ${location}`;
+  return`TagGroove — ${location}`;
 }
 
 const tagRead=(prefix:string,kinds:[string,string][]):OptionControl=>({kind:'group',label:'Read',controls:kinds.map(([key,label])=>({kind:'checkbox',path:`tags.${prefix}.read_${key}`,label}))});
@@ -133,7 +133,7 @@ for(const page of [
     {kind:'group',label:'Notification area',controls:[
       {kind:'checkbox',path:'pages.general.tray_icon',label:'Always show icon in notification area',enabledWhen:()=>notificationArea},
       {kind:'checkbox',path:'pages.general.minimize_to_tray',label:'Minimize to notification area',enabledWhen:()=>notificationArea},
-      {kind:'note',text:'Minimizing then hides the window and its task bar entry; click the icon or choose Show OpenTag in its menu to bring it back. Windows and Linux only (Linux needs libayatana-appindicator); macOS keeps minimized windows in the Dock.'}]}]},
+      {kind:'note',text:'Minimizing then hides the window and its task bar entry; click the icon or choose Show TagGroove in its menu to bring it back. Windows and Linux only (Linux needs libayatana-appindicator); macOS keeps minimized windows in the Dock.'}]}]},
   {id:'files',label:'Files',order:20,controls:[
     {kind:'group',label:'Associated files',controls:[
       {kind:'checkbox',path:'pages.files.associated_files',label:'Move matching .lrc and .cdg files with audio'},
@@ -155,7 +155,7 @@ for(const page of [
     {kind:'checkbox',path:'pages.tags.save_on_move',label:'Save tags when using arrow keys or a single mouse click'},
     {kind:'select',path:'pages.tags.extended_save_mode',label:'Save mode at extended tag dialog',choices:[['pending','Keep changes pending'],['ask','Ask'],['ignore','Ignore changes'],['save','Save changes']]},
     {kind:'checkbox',path:'pages.tags.no_folder_image',label:'Don’t display first image from file directory as cover art'},
-    {kind:'note',text:'Saving on selection change writes pending tag panel edits when you move to another file with the mouse, the arrow keys in the file list or Select next file. Without embedded cover art, the cover pane shows the first image of the file’s folder; that image is not embedded. The save mode decides what happens to changed fields when << or >> in Extended tags moves to another file: they stay pending until Save tags, OpenTag asks, they are discarded, or the file is saved.'},
+    {kind:'note',text:'Saving on selection change writes pending tag panel edits when you move to another file with the mouse, the arrow keys in the file list or Select next file. Without embedded cover art, the cover pane shows the first image of the file’s folder; that image is not embedded. The save mode decides what happens to changed fields when << or >> in Extended tags moves to another file: they stay pending until Save tags, TagGroove asks, they are discarded, or the file is saved.'},
     {kind:'note',text:'Mpeg applies to MP3, AAC and TTA files. Ape, Mpc applies to Monkey’s Audio, Musepack, WavPack, TAK and OptimFROG files. Other formats always use their native tag, and Remove tag removes all of their tags.'}]},
   {id:'tags-mpeg',parent:'tags',label:'Mpeg',order:10,description:'Only one tag type is displayed: APE before ID3v2 before ID3v1, among the types enabled for reading.',controls:[
     tagRead('mpeg',[['id3v1','ID3v1'],['id3v2','ID3v2'],['ape','APE']]),

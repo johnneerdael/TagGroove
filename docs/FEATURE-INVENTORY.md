@@ -22,7 +22,7 @@ Status as of 2026-10-17 (`main` `9d3764b`). Only open work is listed; the item-l
 | Actions/export/playlists | Original sort, locale and encoding proof |
 | Sources | Bounded live-provider verification |
 | General settings | Further bundled languages, setting-name audit against the binary, proxy credentials/SOCKS/PAC |
-| Toolbars | The original registers 75 toolbar command ids; OpenTag offers 28, so about 47 are not assignable |
+| Toolbars | The original registers 75 toolbar command ids; TagGroove offers 28, so about 47 are not assignable |
 | File and OS operations | Associated `.lrc`/`.cdg` follow-along |
 | Technical/expression behavior | Close the unverified items (`$caps` word starts, truth model, error degradation) with original runtime evidence |
 

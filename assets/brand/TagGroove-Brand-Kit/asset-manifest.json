@@ -1,0 +1,1735 @@
+{
+  "name": "TagGroove Brand Kit",
+  "created": "2026-10-17",
+  "files": [
+    {
+      "path": "01-logos/app-icons/taggroove-app-icon-color-4096.png",
+      "bytes": 1078647,
+      "sha256": "0ebf122e85f06055fcbf07afafb0576c9ac86df317b28faed38c462dfbfe1acd",
+      "width": 4096,
+      "height": 4096,
+      "mode": "RGBA"
+    },
+    {
+      "path": "01-logos/app-icons/taggroove-app-icon-color.png",
+      "bytes": 144816,
+      "sha256": "e490b11baf752172b00b836956a1b176fcadcb7247c5b8d0b56c6820d51bc144",
+      "width": 1024,
+      "height": 1024,
+      "mode": "RGBA"
+    },
+    {
+      "path": "01-logos/app-icons/taggroove-app-icon-color.svg",
+      "bytes": 3325,
+      "sha256": "2ab38711302dc4975413dc44caf6c95a1080c5ac8eb22b327273a49ffb6d8e36"
+    },
+    {
+      "path": "01-logos/app-icons/taggroove-app-icon-dark.png",
+      "bytes": 84325,
+      "sha256": "3734b337f605d819e4e4f0346a33f71cc76df9bbfc43413720051f89277916a4",
+      "width": 1024,
+      "height": 1024,
+      "mode": "RGBA"
+    },
+    {
+      "path": "01-logos/app-icons/taggroove-app-icon-dark.svg",
+      "bytes": 3321,
+      "sha256": "53e2830ab7170a58ba98c3c8a3e79f4bce7971e9ad5c41958bc7cbed4282b923"
+    },
+    {
+      "path": "01-logos/app-icons/taggroove-app-icon-flat.png",
+      "bytes": 69351,
+      "sha256": "1f4c4be4f8d6466a48db35e87a2d5bfba76c020153a92144c8ef32af83ed443d",
+      "width": 1024,
+      "height": 1024,
+      "mode": "RGBA"
+    },
+    {
+      "path": "01-logos/app-icons/taggroove-app-icon-flat.svg",
+      "bytes": 2839,
+      "sha256": "53e004ac5fd6b6cbe86c20cfb3a90bd2c663497a05a1ff8845d88cefed949a9a"
+    },
+    {
+      "path": "01-logos/app-icons/taggroove-app-icon-fullbleed.png",
+      "bytes": 137126,
+      "sha256": "7a9699d37089d5259a85774ed5e37a033890418c2405b31a2b4a4c5baffddd9d",
+      "width": 1024,
+      "height": 1024,
+      "mode": "RGBA"
+    },
+    {
+      "path": "01-logos/app-icons/taggroove-app-icon-fullbleed.svg",
+      "bytes": 3186,
+      "sha256": "c8a1c20ab4d6641889fe8eec2ce5eb53681b621c843fc8e5bc4634f03ee0159e"
+    },
+    {
+      "path": "01-logos/app-icons/taggroove-app-icon-micro.png",
+      "bytes": 69351,
+      "sha256": "1f4c4be4f8d6466a48db35e87a2d5bfba76c020153a92144c8ef32af83ed443d",
+      "width": 1024,
+      "height": 1024,
+      "mode": "RGBA"
+    },
+    {
+      "path": "01-logos/app-icons/taggroove-app-icon-micro.svg",
+      "bytes": 2840,
+      "sha256": "b0ec7996c82b4518df1844a5b8efecd439be95318f10730f3410bd6c5a09e415"
+    },
+    {
+      "path": "01-logos/horizontal/taggroove-logo-dark-descriptor.png",
+      "bytes": 58618,
+      "sha256": "4f7bfd82f720d13b9986cf1af8e1a033fbcdb6fb8e99117245d078438b7a40ed",
+      "width": 1080,
+      "height": 280,
+      "mode": "RGBA"
+    },
+    {
+      "path": "01-logos/horizontal/taggroove-logo-dark-descriptor.svg",
+      "bytes": 10735,
+      "sha256": "84d13caa27a3967d10b24aec96f343fd628d99d391740f9f8a6a4f5557b09c08"
+    },
+    {
+      "path": "01-logos/horizontal/taggroove-logo-dark-mono-descriptor.png",
+      "bytes": 22852,
+      "sha256": "60aaa7ec8351c3922094850fc26edd6e414348355ff5484fd437fb1a9a1f4e4b",
+      "width": 1080,
+      "height": 280,
+      "mode": "RGBA"
+    },
+    {
+      "path": "01-logos/horizontal/taggroove-logo-dark-mono-descriptor.svg",
+      "bytes": 10146,
+      "sha256": "b5ffd55fd091227afb1de9de7a3d8eafe79b012d73991462bb9bd6f2717c739d"
+    },
+    {
+      "path": "01-logos/horizontal/taggroove-logo-dark-mono.png",
+      "bytes": 17947,
+      "sha256": "4b4b35d83a8d1ecb146ef2240091988d2414e29ebf8df4f74300e76a68d9dfc6",
+      "width": 1080,
+      "height": 280,
+      "mode": "RGBA"
+    },
+    {
+      "path": "01-logos/horizontal/taggroove-logo-dark-mono.svg",
+      "bytes": 5047,
+      "sha256": "545e0ec4f8a8cc87726fa3eadd1b0b15815479391ba7c7ce0a9449eca2cd6311"
+    },
+    {
+      "path": "01-logos/horizontal/taggroove-logo-dark.png",
+      "bytes": 53620,
+      "sha256": "3c7ef656f3a59cf7a2ad485b203be77bfa0edd2c76ef40c57e037ef5c7b0979b",
+      "width": 1080,
+      "height": 280,
+      "mode": "RGBA"
+    },
+    {
+      "path": "01-logos/horizontal/taggroove-logo-dark.svg",
+      "bytes": 5636,
+      "sha256": "a9a17520b5d7c19897c9adb77565514a78d64a03652aaf4819694ed81e81a045"
+    },
+    {
+      "path": "01-logos/horizontal/taggroove-logo-light-descriptor.png",
+      "bytes": 59755,
+      "sha256": "8790b474474e2844f5cc6a777963f210b0360a6c559b7083f901162d872989bb",
+      "width": 1080,
+      "height": 280,
+      "mode": "RGBA"
+    },
+    {
+      "path": "01-logos/horizontal/taggroove-logo-light-descriptor.svg",
+      "bytes": 10736,
+      "sha256": "d28a8416e961bfccae10610ed51f7fd0b284ac6aeb2a8075e73cc96914287aeb"
+    },
+    {
+      "path": "01-logos/horizontal/taggroove-logo-light-mono-descriptor.png",
+      "bytes": 24650,
+      "sha256": "240d3183882a78539628e57d0ed3666fd212e797fe4775d983f2ac88060903d7",
+      "width": 1080,
+      "height": 280,
+      "mode": "RGBA"
+    },
+    {
+      "path": "01-logos/horizontal/taggroove-logo-light-mono-descriptor.svg",
+      "bytes": 10147,
+      "sha256": "64fc5a1c2fe005b840d4468fcdbe8bf2e39cf834f72a69e492c7da849c862294"
+    },
+    {
+      "path": "01-logos/horizontal/taggroove-logo-light-mono.png",
+      "bytes": 19161,
+      "sha256": "fc8d80cdcf2c27d6d7c5f423aa8f66c05d865c3d884055caccc2fbed384e166c",
+      "width": 1080,
+      "height": 280,
+      "mode": "RGBA"
+    },
+    {
+      "path": "01-logos/horizontal/taggroove-logo-light-mono.svg",
+      "bytes": 5048,
+      "sha256": "cc6d0c1356364747dfa88e23542a514d57abc6b3d6dcee44c54ae18094903d3a"
+    },
+    {
+      "path": "01-logos/horizontal/taggroove-logo-light.png",
+      "bytes": 54235,
+      "sha256": "f3691710c607836422f035fd46ea00c22c50b269cad977d4fa3497fe64683b3a",
+      "width": 1080,
+      "height": 280,
+      "mode": "RGBA"
+    },
+    {
+      "path": "01-logos/horizontal/taggroove-logo-light.svg",
+      "bytes": 5637,
+      "sha256": "8649f8ea8abf5796384c6db4a9d1690a2477bf69970db7dcaaf483c670973278"
+    },
+    {
+      "path": "01-logos/marks/taggroove-mark-black.png",
+      "bytes": 23472,
+      "sha256": "b3bfdf59ccae97dcfc3a0d89bb827da81bc0bca4b95593d1bfadf2ece56395d3",
+      "width": 1024,
+      "height": 1024,
+      "mode": "RGBA"
+    },
+    {
+      "path": "01-logos/marks/taggroove-mark-black.svg",
+      "bytes": 2734,
+      "sha256": "b18777ba5c7677f3fd4cd1059511169b5715d20ea49f9b1b50d31f8e03115af5"
+    },
+    {
+      "path": "01-logos/marks/taggroove-mark-color.png",
+      "bytes": 66673,
+      "sha256": "86caa42b06b6d90bc310e270ef2cdbd27948c2f72df415225d18e56b394b401d",
+      "width": 1024,
+      "height": 1024,
+      "mode": "RGBA"
+    },
+    {
+      "path": "01-logos/marks/taggroove-mark-color.svg",
+      "bytes": 3126,
+      "sha256": "7e6e4f4d068e88018ab3c0a04d6eecf83ae819a047cd99fb1f5b3ae5625ac8de"
+    },
+    {
+      "path": "01-logos/marks/taggroove-mark-dark.png",
+      "bytes": 66673,
+      "sha256": "86caa42b06b6d90bc310e270ef2cdbd27948c2f72df415225d18e56b394b401d",
+      "width": 1024,
+      "height": 1024,
+      "mode": "RGBA"
+    },
+    {
+      "path": "01-logos/marks/taggroove-mark-dark.svg",
+      "bytes": 3125,
+      "sha256": "5c97872555379c225ad095111ae6482293daae0964ddacbf716545aa0d47e557"
+    },
+    {
+      "path": "01-logos/marks/taggroove-mark-flat.png",
+      "bytes": 25163,
+      "sha256": "16e6245c783c72a66c7b9ca1921d65b5dd6e4ffd6f95734758665990a18a474f",
+      "width": 1024,
+      "height": 1024,
+      "mode": "RGBA"
+    },
+    {
+      "path": "01-logos/marks/taggroove-mark-flat.svg",
+      "bytes": 2762,
+      "sha256": "60c984839322415a96939bcda24dd42f74cda7bd79bde3f8fabb8b3a05cac005"
+    },
+    {
+      "path": "01-logos/marks/taggroove-mark-white.png",
+      "bytes": 17684,
+      "sha256": "42519e54cd65134b0a6574b9b3d15f511bd7abab30371b6fbcf3ed3fea66deec",
+      "width": 1024,
+      "height": 1024,
+      "mode": "RGBA"
+    },
+    {
+      "path": "01-logos/marks/taggroove-mark-white.svg",
+      "bytes": 2734,
+      "sha256": "62ef2bee0952f4588ea728d08819e11a3c21be0a97198189a1387ce0fb5914fc"
+    },
+    {
+      "path": "01-logos/stacked/taggroove-logo-stacked-dark-mono.png",
+      "bytes": 22490,
+      "sha256": "32a9d8b6bb086b7b088f16e49c5035ce993fcc25b2bfd7adc59e7c5cf9bb86eb",
+      "width": 768,
+      "height": 660,
+      "mode": "RGBA"
+    },
+    {
+      "path": "01-logos/stacked/taggroove-logo-stacked-dark-mono.svg",
+      "bytes": 7898,
+      "sha256": "e3378d322672ffc55c3335fd5639675cb46e7839e1938cc1617ebce30f69ffac"
+    },
+    {
+      "path": "01-logos/stacked/taggroove-logo-stacked-dark.png",
+      "bytes": 70316,
+      "sha256": "90df4764240200e9e5202a3e9e9d997ef4c531fab0f78243d8a0c46017936ce3",
+      "width": 768,
+      "height": 660,
+      "mode": "RGBA"
+    },
+    {
+      "path": "01-logos/stacked/taggroove-logo-stacked-dark.svg",
+      "bytes": 8487,
+      "sha256": "11629deefcceecd2d28a8bc55b7b47c8cb00c2d04101bfed83703e18ebd7e387"
+    },
+    {
+      "path": "01-logos/stacked/taggroove-logo-stacked-light-mono.png",
+      "bytes": 24921,
+      "sha256": "70a537fbf94dd16df24e405499fd33fcd656d7bb515e2207f37aa0dc8c6f2884",
+      "width": 768,
+      "height": 660,
+      "mode": "RGBA"
+    },
+    {
+      "path": "01-logos/stacked/taggroove-logo-stacked-light-mono.svg",
+      "bytes": 7899,
+      "sha256": "68597c434dc83daa159e9269c81e1d0a7fad75cfbae7ee475f9ab291799416aa"
+    },
+    {
+      "path": "01-logos/stacked/taggroove-logo-stacked-light.png",
+      "bytes": 71065,
+      "sha256": "e7c982749b9669fe52bf0b710bb360d9eda517e5c502a2a37b1ff87bb38c3577",
+      "width": 768,
+      "height": 660,
+      "mode": "RGBA"
+    },
+    {
+      "path": "01-logos/stacked/taggroove-logo-stacked-light.svg",
+      "bytes": 8488,
+      "sha256": "391222fb5041db026159d28645fa6e078007fe0d49407dff48c6b5b0e8fe24ff"
+    },
+    {
+      "path": "01-logos/wordmarks/taggroove-wordmark-dark-mono.png",
+      "bytes": 18425,
+      "sha256": "8783984b830669c0a1ddb2615b0adf86d397d1c1cd84e4f31a712bc32955f04d",
+      "width": 1022,
+      "height": 260,
+      "mode": "RGBA"
+    },
+    {
+      "path": "01-logos/wordmarks/taggroove-wordmark-dark-mono.svg",
+      "bytes": 4038,
+      "sha256": "2a220ea82a812f28fdcbc95965fcb1923a44625bec6f6bbebe5e0b6b69047d27"
+    },
+    {
+      "path": "01-logos/wordmarks/taggroove-wordmark-dark.png",
+      "bytes": 32355,
+      "sha256": "c3b836c9a9630ee284ce4a9cba904cd3a534d5e5e7e2c08ddca9c4386d3a97b3",
+      "width": 1022,
+      "height": 260,
+      "mode": "RGBA"
+    },
+    {
+      "path": "01-logos/wordmarks/taggroove-wordmark-dark.svg",
+      "bytes": 4040,
+      "sha256": "aa8eb2e883f70ef78c6361e5d52761cf3a872e1d744a357c4ae9412b45b87fe0"
+    },
+    {
+      "path": "01-logos/wordmarks/taggroove-wordmark-light-mono.png",
+      "bytes": 19422,
+      "sha256": "cc961b7bc879b8884524c292af906a48b57d2ef74e4cb9dbdf11cb3a62850835",
+      "width": 1022,
+      "height": 260,
+      "mode": "RGBA"
+    },
+    {
+      "path": "01-logos/wordmarks/taggroove-wordmark-light-mono.svg",
+      "bytes": 4039,
+      "sha256": "77f67450822cb18766a141d4bde2a02fe641fdf07030ed6146c0978ad3240826"
+    },
+    {
+      "path": "01-logos/wordmarks/taggroove-wordmark-light.png",
+      "bytes": 32912,
+      "sha256": "25969b4393d20fc7aca62da130490e57353502029aa77100cbe622adf9a49568",
+      "width": 1022,
+      "height": 260,
+      "mode": "RGBA"
+    },
+    {
+      "path": "01-logos/wordmarks/taggroove-wordmark-light.svg",
+      "bytes": 4041,
+      "sha256": "68a7404429d0287ffeb8c62b7bcf25530540892a633624c2f2fb722a64b24d01"
+    },
+    {
+      "path": "02-platform-icons/android/layers/background-432.png",
+      "bytes": 15568,
+      "sha256": "dd0f23728fa41db068f4ef4cc025117c5ef77cb6222211cb3c8bbf87e17288e5",
+      "width": 432,
+      "height": 432,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/android/layers/background.png",
+      "bytes": 56348,
+      "sha256": "72366402fef7b869930e51aa3ac4a2a32db632c26e804b69b6dcbeb2d27b2c95",
+      "width": 1024,
+      "height": 1024,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/android/layers/background.svg",
+      "bytes": 1817,
+      "sha256": "2070db4a9b7483cef210abc8ed21e10aa915268ae009a902c465660bc3efd2cb"
+    },
+    {
+      "path": "02-platform-icons/android/layers/foreground-432.png",
+      "bytes": 14429,
+      "sha256": "4ad0274c020a9b18202a4e8bb664e8b6f56331c40e2f3803b536f5967116bb3e",
+      "width": 432,
+      "height": 432,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/android/layers/foreground.png",
+      "bytes": 21922,
+      "sha256": "c33acb1b0214113f19543cee50799b55d67fb21dcb88e6bdb6e6395536ee1166",
+      "width": 1024,
+      "height": 1024,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/android/layers/foreground.svg",
+      "bytes": 2803,
+      "sha256": "0f91571a134d5b7208dfc107b90250af306413dc90133b19a60288a164518f81"
+    },
+    {
+      "path": "02-platform-icons/android/layers/monochrome-432.png",
+      "bytes": 9181,
+      "sha256": "d8bf81cf592822df29fd28a4acb6efa2b9c2595b474cf4c854a69d5497c419f1",
+      "width": 432,
+      "height": 432,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/android/layers/monochrome.png",
+      "bytes": 18861,
+      "sha256": "9564f9ab77ea377eb4b2c844fcc883844929d5b61c8c4a1fbfefec9995a16cff",
+      "width": 1024,
+      "height": 1024,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/android/layers/monochrome.svg",
+      "bytes": 2774,
+      "sha256": "adcd2446e436ad52bf59e084c8919c866ac095a4b693d8fcad2ee75d4d7941ae"
+    },
+    {
+      "path": "02-platform-icons/android/play-store-icon-512.png",
+      "bytes": 45681,
+      "sha256": "e93729a1befb61ba5609b008e65839b242bb9125815266060d2d9fb48528f395",
+      "width": 512,
+      "height": 512,
+      "mode": "RGB"
+    },
+    {
+      "path": "02-platform-icons/android/res/drawable/taggroove_background.xml",
+      "bytes": 256,
+      "sha256": "e55cae4c015d7d99423aea8e9230655d61f68764216649f5ee839e9ee1f7a2ff"
+    },
+    {
+      "path": "02-platform-icons/android/res/drawable/taggroove_foreground.xml",
+      "bytes": 1392,
+      "sha256": "e4ae6d88604a3cbb85d0f09e59da3e2678aa32f3b9c3a8cea240e24f8309a551"
+    },
+    {
+      "path": "02-platform-icons/android/res/drawable/taggroove_monochrome.xml",
+      "bytes": 1338,
+      "sha256": "530edd86e319982bbc63df72fd75a983542c2588b39ce59ca582fa7890f94cb9"
+    },
+    {
+      "path": "02-platform-icons/android/res/mipmap-anydpi-v26/ic_launcher.xml",
+      "bytes": 255,
+      "sha256": "37163e6538f9f8651f7387a900d52f8a4078f0fd30bc9245fd2ef9acf9531891"
+    },
+    {
+      "path": "02-platform-icons/android/res/mipmap-anydpi-v26/ic_launcher_round.xml",
+      "bytes": 255,
+      "sha256": "37163e6538f9f8651f7387a900d52f8a4078f0fd30bc9245fd2ef9acf9531891"
+    },
+    {
+      "path": "02-platform-icons/android/res/mipmap-anydpi-v33/ic_launcher.xml",
+      "bytes": 318,
+      "sha256": "faf12bdaad09b736eba3bd17485760f3b2d8ea7d808dabd221c0f60f8f121b7e"
+    },
+    {
+      "path": "02-platform-icons/android/res/mipmap-anydpi-v33/ic_launcher_round.xml",
+      "bytes": 318,
+      "sha256": "faf12bdaad09b736eba3bd17485760f3b2d8ea7d808dabd221c0f60f8f121b7e"
+    },
+    {
+      "path": "02-platform-icons/android/res/mipmap-hdpi/ic_launcher.png",
+      "bytes": 5343,
+      "sha256": "130d328548c3b0b265c524dbb3ad62563a33ddd9d566d16a0cd3cd552d759829",
+      "width": 72,
+      "height": 72,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/android/res/mipmap-hdpi/ic_launcher_round.png",
+      "bytes": 5343,
+      "sha256": "130d328548c3b0b265c524dbb3ad62563a33ddd9d566d16a0cd3cd552d759829",
+      "width": 72,
+      "height": 72,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/android/res/mipmap-mdpi/ic_launcher.png",
+      "bytes": 3365,
+      "sha256": "e38d5d18667925f5e8bd3c2b5c31ce2ebd44e9b3da8988675f83f34641183621",
+      "width": 48,
+      "height": 48,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/android/res/mipmap-mdpi/ic_launcher_round.png",
+      "bytes": 3365,
+      "sha256": "e38d5d18667925f5e8bd3c2b5c31ce2ebd44e9b3da8988675f83f34641183621",
+      "width": 48,
+      "height": 48,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/android/res/mipmap-xhdpi/ic_launcher.png",
+      "bytes": 7540,
+      "sha256": "00ce21f75f1d7a516d3e8f8b11e2906c7c9229205565344592341c56df1d287c",
+      "width": 96,
+      "height": 96,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/android/res/mipmap-xhdpi/ic_launcher_round.png",
+      "bytes": 7540,
+      "sha256": "00ce21f75f1d7a516d3e8f8b11e2906c7c9229205565344592341c56df1d287c",
+      "width": 96,
+      "height": 96,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/android/res/mipmap-xxhdpi/ic_launcher.png",
+      "bytes": 12330,
+      "sha256": "da1cd9a3bf3449ee0504d96b9bf8be046afa27b763b56eddc013e9509c2c9a36",
+      "width": 144,
+      "height": 144,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/android/res/mipmap-xxhdpi/ic_launcher_round.png",
+      "bytes": 12330,
+      "sha256": "da1cd9a3bf3449ee0504d96b9bf8be046afa27b763b56eddc013e9509c2c9a36",
+      "width": 144,
+      "height": 144,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/android/res/mipmap-xxxhdpi/ic_launcher.png",
+      "bytes": 17180,
+      "sha256": "9b21847921bba7818fe3218409686a926625bcef9a2c90a370028b6860ecaf21",
+      "width": 192,
+      "height": 192,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/android/res/mipmap-xxxhdpi/ic_launcher_round.png",
+      "bytes": 17180,
+      "sha256": "9b21847921bba7818fe3218409686a926625bcef9a2c90a370028b6860ecaf21",
+      "width": 192,
+      "height": 192,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/ios/AppIcon.appiconset/AppIcon-1024.png",
+      "bytes": 93068,
+      "sha256": "e32c94bf496dab4458c84afd9a990376e75cad74fadcae52e12cbfbd1ae4f45a",
+      "width": 1024,
+      "height": 1024,
+      "mode": "RGB"
+    },
+    {
+      "path": "02-platform-icons/ios/AppIcon.appiconset/Contents.json",
+      "bytes": 207,
+      "sha256": "aaaaa3d92af7da71bcc55c6c1bbfb24f1a70a1ba1f3bfa5ffa7b374aa1727b8f"
+    },
+    {
+      "path": "02-platform-icons/linux/hicolor/128x128/apps/taggroove.png",
+      "bytes": 10614,
+      "sha256": "f7106cb37238ef0144bdc82471f7aaf2435339f012542e0af02650decf5870b5",
+      "width": 128,
+      "height": 128,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/linux/hicolor/16x16/apps/taggroove.png",
+      "bytes": 740,
+      "sha256": "23f3050a9f64f0acd00f71b5cb54d31b069f750f3585247286a6707e2a5da9c9",
+      "width": 16,
+      "height": 16,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/linux/hicolor/24x24/apps/taggroove.png",
+      "bytes": 1187,
+      "sha256": "64007ad9a3df0456b7b399ed0ab89329ae4faa246c991283273e525364603c72",
+      "width": 24,
+      "height": 24,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/linux/hicolor/256x256/apps/taggroove.png",
+      "bytes": 23836,
+      "sha256": "f22f8a11cef033a0e5789c2235970e9a4f30f7c0b4191dc7cf52fe94e753b0b0",
+      "width": 256,
+      "height": 256,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/linux/hicolor/32x32/apps/taggroove.png",
+      "bytes": 1787,
+      "sha256": "d084d621ba67ff86bbc86fbee94d01f24f5cf465deaac5a23938992dac9af9dc",
+      "width": 32,
+      "height": 32,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/linux/hicolor/48x48/apps/taggroove.png",
+      "bytes": 3365,
+      "sha256": "e38d5d18667925f5e8bd3c2b5c31ce2ebd44e9b3da8988675f83f34641183621",
+      "width": 48,
+      "height": 48,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/linux/hicolor/512x512/apps/taggroove.png",
+      "bytes": 57340,
+      "sha256": "2a2b5679b455f5ce6da9b9d31b386d910ee7899fb0cff995db8ef3c831ba9f25",
+      "width": 512,
+      "height": 512,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/linux/hicolor/64x64/apps/taggroove.png",
+      "bytes": 4690,
+      "sha256": "bbc42ab8794c139301d26a01381cad6f1e9d352f8e2ec043d24a924e2eb251a6",
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/linux/hicolor/96x96/apps/taggroove.png",
+      "bytes": 7540,
+      "sha256": "00ce21f75f1d7a516d3e8f8b11e2906c7c9229205565344592341c56df1d287c",
+      "width": 96,
+      "height": 96,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/linux/hicolor/scalable/apps/taggroove.svg",
+      "bytes": 3325,
+      "sha256": "2ab38711302dc4975413dc44caf6c95a1080c5ac8eb22b327273a49ffb6d8e36"
+    },
+    {
+      "path": "02-platform-icons/macos/AppIcon.appiconset/Contents.json",
+      "bytes": 1225,
+      "sha256": "43f5f1cdf1a53474506bde8f7cb08352556ee1812d4b2bbf10b21b31a3394fab"
+    },
+    {
+      "path": "02-platform-icons/macos/AppIcon.appiconset/mac-128-1x.png",
+      "bytes": 10614,
+      "sha256": "f7106cb37238ef0144bdc82471f7aaf2435339f012542e0af02650decf5870b5",
+      "width": 128,
+      "height": 128,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/macos/AppIcon.appiconset/mac-128-2x.png",
+      "bytes": 23836,
+      "sha256": "f22f8a11cef033a0e5789c2235970e9a4f30f7c0b4191dc7cf52fe94e753b0b0",
+      "width": 256,
+      "height": 256,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/macos/AppIcon.appiconset/mac-16-1x.png",
+      "bytes": 740,
+      "sha256": "23f3050a9f64f0acd00f71b5cb54d31b069f750f3585247286a6707e2a5da9c9",
+      "width": 16,
+      "height": 16,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/macos/AppIcon.appiconset/mac-16-2x.png",
+      "bytes": 1787,
+      "sha256": "d084d621ba67ff86bbc86fbee94d01f24f5cf465deaac5a23938992dac9af9dc",
+      "width": 32,
+      "height": 32,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/macos/AppIcon.appiconset/mac-256-1x.png",
+      "bytes": 23836,
+      "sha256": "f22f8a11cef033a0e5789c2235970e9a4f30f7c0b4191dc7cf52fe94e753b0b0",
+      "width": 256,
+      "height": 256,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/macos/AppIcon.appiconset/mac-256-2x.png",
+      "bytes": 57340,
+      "sha256": "2a2b5679b455f5ce6da9b9d31b386d910ee7899fb0cff995db8ef3c831ba9f25",
+      "width": 512,
+      "height": 512,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/macos/AppIcon.appiconset/mac-32-1x.png",
+      "bytes": 1787,
+      "sha256": "d084d621ba67ff86bbc86fbee94d01f24f5cf465deaac5a23938992dac9af9dc",
+      "width": 32,
+      "height": 32,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/macos/AppIcon.appiconset/mac-32-2x.png",
+      "bytes": 4690,
+      "sha256": "bbc42ab8794c139301d26a01381cad6f1e9d352f8e2ec043d24a924e2eb251a6",
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/macos/AppIcon.appiconset/mac-512-1x.png",
+      "bytes": 57340,
+      "sha256": "2a2b5679b455f5ce6da9b9d31b386d910ee7899fb0cff995db8ef3c831ba9f25",
+      "width": 512,
+      "height": 512,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/macos/AppIcon.appiconset/mac-512-2x.png",
+      "bytes": 143827,
+      "sha256": "c97877acb2fec9b21b0e79721097512cad74e4f7ecfa3802c9fc35be1c7d3156",
+      "width": 1024,
+      "height": 1024,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/macos/TagGroove.iconset/icon_128x128.png",
+      "bytes": 10614,
+      "sha256": "f7106cb37238ef0144bdc82471f7aaf2435339f012542e0af02650decf5870b5",
+      "width": 128,
+      "height": 128,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/macos/TagGroove.iconset/icon_128x128@2x.png",
+      "bytes": 23836,
+      "sha256": "f22f8a11cef033a0e5789c2235970e9a4f30f7c0b4191dc7cf52fe94e753b0b0",
+      "width": 256,
+      "height": 256,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/macos/TagGroove.iconset/icon_16x16.png",
+      "bytes": 740,
+      "sha256": "23f3050a9f64f0acd00f71b5cb54d31b069f750f3585247286a6707e2a5da9c9",
+      "width": 16,
+      "height": 16,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/macos/TagGroove.iconset/icon_16x16@2x.png",
+      "bytes": 1787,
+      "sha256": "d084d621ba67ff86bbc86fbee94d01f24f5cf465deaac5a23938992dac9af9dc",
+      "width": 32,
+      "height": 32,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/macos/TagGroove.iconset/icon_256x256.png",
+      "bytes": 23836,
+      "sha256": "f22f8a11cef033a0e5789c2235970e9a4f30f7c0b4191dc7cf52fe94e753b0b0",
+      "width": 256,
+      "height": 256,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/macos/TagGroove.iconset/icon_256x256@2x.png",
+      "bytes": 57340,
+      "sha256": "2a2b5679b455f5ce6da9b9d31b386d910ee7899fb0cff995db8ef3c831ba9f25",
+      "width": 512,
+      "height": 512,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/macos/TagGroove.iconset/icon_32x32.png",
+      "bytes": 1787,
+      "sha256": "d084d621ba67ff86bbc86fbee94d01f24f5cf465deaac5a23938992dac9af9dc",
+      "width": 32,
+      "height": 32,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/macos/TagGroove.iconset/icon_32x32@2x.png",
+      "bytes": 4690,
+      "sha256": "bbc42ab8794c139301d26a01381cad6f1e9d352f8e2ec043d24a924e2eb251a6",
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/macos/TagGroove.iconset/icon_512x512.png",
+      "bytes": 57340,
+      "sha256": "2a2b5679b455f5ce6da9b9d31b386d910ee7899fb0cff995db8ef3c831ba9f25",
+      "width": 512,
+      "height": 512,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/macos/TagGroove.iconset/icon_512x512@2x.png",
+      "bytes": 143827,
+      "sha256": "c97877acb2fec9b21b0e79721097512cad74e4f7ecfa3802c9fc35be1c7d3156",
+      "width": 1024,
+      "height": 1024,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/macos/taggroove.icns",
+      "bytes": 330583,
+      "sha256": "1e04ce4c638f1dd938106aa60028a5bf4dd8ea6d5688f032f08b8d1266099013"
+    },
+    {
+      "path": "02-platform-icons/universal/taggroove-1024.png",
+      "bytes": 143827,
+      "sha256": "c97877acb2fec9b21b0e79721097512cad74e4f7ecfa3802c9fc35be1c7d3156",
+      "width": 1024,
+      "height": 1024,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/universal/taggroove-128.png",
+      "bytes": 10614,
+      "sha256": "f7106cb37238ef0144bdc82471f7aaf2435339f012542e0af02650decf5870b5",
+      "width": 128,
+      "height": 128,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/universal/taggroove-16.png",
+      "bytes": 740,
+      "sha256": "23f3050a9f64f0acd00f71b5cb54d31b069f750f3585247286a6707e2a5da9c9",
+      "width": 16,
+      "height": 16,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/universal/taggroove-192.png",
+      "bytes": 17180,
+      "sha256": "9b21847921bba7818fe3218409686a926625bcef9a2c90a370028b6860ecaf21",
+      "width": 192,
+      "height": 192,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/universal/taggroove-20.png",
+      "bytes": 929,
+      "sha256": "bfe8cf60c5c3591b2af84018e771f02932080887e3fa2f45578471275e762ff0",
+      "width": 20,
+      "height": 20,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/universal/taggroove-24.png",
+      "bytes": 1187,
+      "sha256": "64007ad9a3df0456b7b399ed0ab89329ae4faa246c991283273e525364603c72",
+      "width": 24,
+      "height": 24,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/universal/taggroove-256.png",
+      "bytes": 23836,
+      "sha256": "f22f8a11cef033a0e5789c2235970e9a4f30f7c0b4191dc7cf52fe94e753b0b0",
+      "width": 256,
+      "height": 256,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/universal/taggroove-32.png",
+      "bytes": 1787,
+      "sha256": "d084d621ba67ff86bbc86fbee94d01f24f5cf465deaac5a23938992dac9af9dc",
+      "width": 32,
+      "height": 32,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/universal/taggroove-40.png",
+      "bytes": 2555,
+      "sha256": "4430326b8b0d6f142fdb1f18fe15b0d177030dc2b0c5422741cab15cc36105f8",
+      "width": 40,
+      "height": 40,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/universal/taggroove-48.png",
+      "bytes": 3365,
+      "sha256": "e38d5d18667925f5e8bd3c2b5c31ce2ebd44e9b3da8988675f83f34641183621",
+      "width": 48,
+      "height": 48,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/universal/taggroove-512.png",
+      "bytes": 57340,
+      "sha256": "2a2b5679b455f5ce6da9b9d31b386d910ee7899fb0cff995db8ef3c831ba9f25",
+      "width": 512,
+      "height": 512,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/universal/taggroove-64.png",
+      "bytes": 4690,
+      "sha256": "bbc42ab8794c139301d26a01381cad6f1e9d352f8e2ec043d24a924e2eb251a6",
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/universal/taggroove-96.png",
+      "bytes": 7540,
+      "sha256": "00ce21f75f1d7a516d3e8f8b11e2906c7c9229205565344592341c56df1d287c",
+      "width": 96,
+      "height": 96,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/universal-dark/taggroove-dark-1024.png",
+      "bytes": 82532,
+      "sha256": "6d2a63e11bac0c5eaee7e21f9617925f12682f09cdd4790b9a58820ef9384346",
+      "width": 1024,
+      "height": 1024,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/universal-dark/taggroove-dark-128.png",
+      "bytes": 9449,
+      "sha256": "1cdc94556b821e9fb6553bc8b42390998697834ee719421a32693ea4ed049be8",
+      "width": 128,
+      "height": 128,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/universal-dark/taggroove-dark-16.png",
+      "bytes": 794,
+      "sha256": "01061e013b38643aa341eaabd40050cbdca823a4f0bb82cb8a85153acd74c026",
+      "width": 16,
+      "height": 16,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/universal-dark/taggroove-dark-192.png",
+      "bytes": 15104,
+      "sha256": "69f0629bfe1382f66e62e4c8cdd0ca687351a6388e62e9c96c9603b0300d755a",
+      "width": 192,
+      "height": 192,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/universal-dark/taggroove-dark-20.png",
+      "bytes": 981,
+      "sha256": "ddcb2992c9ca0c4165e7ba70972a43392cb611cd5f089f9c9d44556a75f4f234",
+      "width": 20,
+      "height": 20,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/universal-dark/taggroove-dark-24.png",
+      "bytes": 1218,
+      "sha256": "bb97d7e3a1c1aaec181c77b3bb23a211ae6fa036283ec5b9442ca79b01207a43",
+      "width": 24,
+      "height": 24,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/universal-dark/taggroove-dark-256.png",
+      "bytes": 20717,
+      "sha256": "dcac69261fc63ba6e2cef34ef3f231f892103e93d0823f2fe10624c569208b5b",
+      "width": 256,
+      "height": 256,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/universal-dark/taggroove-dark-32.png",
+      "bytes": 1751,
+      "sha256": "8a87da9d85b15cd124981ca4753638cd3b7a4f8b63e1b4129733040059c77dbb",
+      "width": 32,
+      "height": 32,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/universal-dark/taggroove-dark-40.png",
+      "bytes": 2180,
+      "sha256": "c48b8412b2e3746ff5a6c817f512cdb527450cb30915894a4e8e83196603053e",
+      "width": 40,
+      "height": 40,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/universal-dark/taggroove-dark-48.png",
+      "bytes": 2902,
+      "sha256": "5689f4e15df623cfe87b3261bbbddfc0c471a8ab6c04a08a34d33bff6c486581",
+      "width": 48,
+      "height": 48,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/universal-dark/taggroove-dark-512.png",
+      "bytes": 47139,
+      "sha256": "13cdf1274de9f930618c203e3aa07ad3cd166b7c8e763572625b284aae5f2b7e",
+      "width": 512,
+      "height": 512,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/universal-dark/taggroove-dark-64.png",
+      "bytes": 4184,
+      "sha256": "be513ee3fa14a5ae65801eb8d831fc120bc49bd0eb72eb9b69099bb85d4515d2",
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/universal-dark/taggroove-dark-96.png",
+      "bytes": 6678,
+      "sha256": "da06a3af5cd2f3a23b9bead953b558b257f99b445fba457fb49a1bc8e18cb109",
+      "width": 96,
+      "height": 96,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/web/apple-touch-icon.png",
+      "bytes": 12204,
+      "sha256": "180063aeb752f21a88091b13dd834f2577c67d4cd2c83f5e46ffd304f0d9bf15",
+      "width": 180,
+      "height": 180,
+      "mode": "RGB"
+    },
+    {
+      "path": "02-platform-icons/web/favicon-16x16.png",
+      "bytes": 740,
+      "sha256": "23f3050a9f64f0acd00f71b5cb54d31b069f750f3585247286a6707e2a5da9c9",
+      "width": 16,
+      "height": 16,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/web/favicon-32x32.png",
+      "bytes": 1787,
+      "sha256": "d084d621ba67ff86bbc86fbee94d01f24f5cf465deaac5a23938992dac9af9dc",
+      "width": 32,
+      "height": 32,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/web/favicon.ico",
+      "bytes": 5946,
+      "sha256": "fba59a4432352e6a3eacb45803d1126632cba497b811fd506920ae2438c6afc9"
+    },
+    {
+      "path": "02-platform-icons/web/favicon.svg",
+      "bytes": 3325,
+      "sha256": "2ab38711302dc4975413dc44caf6c95a1080c5ac8eb22b327273a49ffb6d8e36"
+    },
+    {
+      "path": "02-platform-icons/web/head-snippet.html",
+      "bytes": 398,
+      "sha256": "ef8422a1cdaf73a9102c4b2e04269c3da3d371ff9bd1cb0d64a6521d7629b3b4"
+    },
+    {
+      "path": "02-platform-icons/web/maskable-master.png",
+      "bytes": 73030,
+      "sha256": "26d1d433983f5644c0445047f0a923cd939484fc70a172d83e0eba6b99121191",
+      "width": 1024,
+      "height": 1024,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/web/maskable-master.svg",
+      "bytes": 2864,
+      "sha256": "bca1d6725e03a171de1c6400071801120e28783ff4aafb60e302218ed1866ea6"
+    },
+    {
+      "path": "02-platform-icons/web/pwa-192.png",
+      "bytes": 17180,
+      "sha256": "9b21847921bba7818fe3218409686a926625bcef9a2c90a370028b6860ecaf21",
+      "width": 192,
+      "height": 192,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/web/pwa-512.png",
+      "bytes": 57340,
+      "sha256": "2a2b5679b455f5ce6da9b9d31b386d910ee7899fb0cff995db8ef3c831ba9f25",
+      "width": 512,
+      "height": 512,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/web/pwa-maskable-192.png",
+      "bytes": 11213,
+      "sha256": "f6a86ee6ef5c5d2866ae21619bcf67d47f78f81ff4e26d14f354673d7a524637",
+      "width": 192,
+      "height": 192,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/web/pwa-maskable-512.png",
+      "bytes": 34876,
+      "sha256": "5bd4ba3388aae010e9cf11cdfb9be32a357928e5186c5f33b5dcb51f769a98de",
+      "width": 512,
+      "height": 512,
+      "mode": "RGBA"
+    },
+    {
+      "path": "02-platform-icons/web/safari-pinned-tab.svg",
+      "bytes": 2734,
+      "sha256": "b18777ba5c7677f3fd4cd1059511169b5715d20ea49f9b1b50d31f8e03115af5"
+    },
+    {
+      "path": "02-platform-icons/web/site.webmanifest",
+      "bytes": 742,
+      "sha256": "fd1e2f32f9c73c8d694180c77661e6165cce706800452fbf6a87cc896f6423f6"
+    },
+    {
+      "path": "02-platform-icons/windows/taggroove.ico",
+      "bytes": 57409,
+      "sha256": "6548dee3d75becccb812a436ec64c2881ec359c4b9b30df9159c2be9f45f6a9b"
+    },
+    {
+      "path": "03-banners/taggroove-background-dark-3840x2160.png",
+      "bytes": 550974,
+      "sha256": "feb2c8259e8b044e4ca3338f5a44f255e6009b1efa3785af87775be3979ac798",
+      "width": 3840,
+      "height": 2160,
+      "mode": "RGBA"
+    },
+    {
+      "path": "03-banners/taggroove-background-dark-3840x2160.svg",
+      "bytes": 6648,
+      "sha256": "c4dcb975285b84e6519e7a290f45e89c5cfd4cabe8200993ca137ab2b9b0f6d6"
+    },
+    {
+      "path": "03-banners/taggroove-background-light-3840x2160.png",
+      "bytes": 431171,
+      "sha256": "f430e6b8d9a6212f2dca3eff98df94af53db19b76bc48475f16d846a2cd7a1a6",
+      "width": 3840,
+      "height": 2160,
+      "mode": "RGBA"
+    },
+    {
+      "path": "03-banners/taggroove-background-light-3840x2160.svg",
+      "bytes": 1952,
+      "sha256": "b17b5dc4de9908b96573b6607c73c1166bdcab4f8f0df392a5fd0f0569eb9c8b"
+    },
+    {
+      "path": "03-banners/taggroove-github-dark-1280x640.png",
+      "bytes": 170486,
+      "sha256": "79e8a2badfa2169406b71d88fe84e5ac65d5715caf1d25aaaa8649e80cb8e2c9",
+      "width": 1280,
+      "height": 640,
+      "mode": "RGBA"
+    },
+    {
+      "path": "03-banners/taggroove-github-dark-1280x640.svg",
+      "bytes": 29211,
+      "sha256": "4163c3fb76da1a8e04fe4c6125134abe40a72123e80194db5eb3208cac44c8b8"
+    },
+    {
+      "path": "03-banners/taggroove-github-light-1280x640.png",
+      "bytes": 126789,
+      "sha256": "021a6e62c3c59be6992893c95e77b96d30f52a5e7ab44156b9676994ba2483b7",
+      "width": 1280,
+      "height": 640,
+      "mode": "RGBA"
+    },
+    {
+      "path": "03-banners/taggroove-github-light-1280x640.svg",
+      "bytes": 24675,
+      "sha256": "39c7f056c1f78fea878fb603b9fc4bc852677bbc131fa4f22bee179b1c850c32"
+    },
+    {
+      "path": "03-banners/taggroove-hero-dark-1920x1080.png",
+      "bytes": 306060,
+      "sha256": "a079b85f328e7d96eb523c8d01d7df245f23b60cad9ae7cc3151df7f637f8493",
+      "width": 1920,
+      "height": 1080,
+      "mode": "RGBA"
+    },
+    {
+      "path": "03-banners/taggroove-hero-dark-1920x1080.svg",
+      "bytes": 29247,
+      "sha256": "6e45b30b9cc5673ee8ea04a37efaf77508895dd8b232609147be06b28d364416"
+    },
+    {
+      "path": "03-banners/taggroove-hero-light-1920x1080.png",
+      "bytes": 253361,
+      "sha256": "985fae9f633b2e5df9bf941924f79a8fd67f4211a29178644b8c6df93c8cf3ca",
+      "width": 1920,
+      "height": 1080,
+      "mode": "RGBA"
+    },
+    {
+      "path": "03-banners/taggroove-hero-light-1920x1080.svg",
+      "bytes": 24641,
+      "sha256": "82630f916d1fd13550031c3d35b302798f3890b6333e46f9d88451312e3e49ad"
+    },
+    {
+      "path": "03-banners/taggroove-readme-dark-1600x480.png",
+      "bytes": 178533,
+      "sha256": "c6ea97f53234f76e489f2f1e788a3808a3bc30d9e7c86323e0a4c8c37730ec11",
+      "width": 1600,
+      "height": 480,
+      "mode": "RGBA"
+    },
+    {
+      "path": "03-banners/taggroove-readme-dark-1600x480.svg",
+      "bytes": 15463,
+      "sha256": "63fe34502367a717b2349d6cfb467cb97de8abf78b23deb154cfafde2ef54a44"
+    },
+    {
+      "path": "03-banners/taggroove-readme-light-1600x480.png",
+      "bytes": 139197,
+      "sha256": "e3744986a7a8b2c74947f5ce32bf5ecd5afec5ab671cdac644e5edc7011c93b5",
+      "width": 1600,
+      "height": 480,
+      "mode": "RGBA"
+    },
+    {
+      "path": "03-banners/taggroove-readme-light-1600x480.svg",
+      "bytes": 10931,
+      "sha256": "f99ff8a73c71b849f501273e0b5b0891c510e38d7ab0e0af1fc002ea4945a790"
+    },
+    {
+      "path": "03-banners/taggroove-social-dark-1200x630.png",
+      "bytes": 166680,
+      "sha256": "6f95b9dca88235d366ce809b7dc86926184868c89bee630b05126ba8b71aca7b",
+      "width": 1200,
+      "height": 630,
+      "mode": "RGBA"
+    },
+    {
+      "path": "03-banners/taggroove-social-dark-1200x630.svg",
+      "bytes": 29199,
+      "sha256": "09a2a9b3be18ebe016b3665141cde860dd4b738534d8bf1a1736d27116337345"
+    },
+    {
+      "path": "03-banners/taggroove-social-light-1200x630.png",
+      "bytes": 128733,
+      "sha256": "d5010f7ff232ccd2988eca6366c2d8d9e8b4fd1499ec5c83f270df5c6175082d",
+      "width": 1200,
+      "height": 630,
+      "mode": "RGBA"
+    },
+    {
+      "path": "03-banners/taggroove-social-light-1200x630.svg",
+      "bytes": 24667,
+      "sha256": "e21f32f5bf1760bb3b204fd1f35a4678f320bdfcb3cbf75e2453cb5a26e80b98"
+    },
+    {
+      "path": "03-banners/taggroove-social-square-dark-1080x1080.png",
+      "bytes": 208089,
+      "sha256": "16331f59fdab030f35edb95cded1400acadbbd904517c6eb980c59ce4994884d",
+      "width": 1080,
+      "height": 1080,
+      "mode": "RGBA"
+    },
+    {
+      "path": "03-banners/taggroove-social-square-dark-1080x1080.svg",
+      "bytes": 13209,
+      "sha256": "3b481d5905b4acd575547d51f8383172c8730df37a676014834995cff10f03ec"
+    },
+    {
+      "path": "03-banners/taggroove-social-square-light-1080x1080.png",
+      "bytes": 162960,
+      "sha256": "5efd9c0825cfb585d4b57537daf4ea073f3fbb78f2d04c37310a0dd1187f0a32",
+      "width": 1080,
+      "height": 1080,
+      "mode": "RGBA"
+    },
+    {
+      "path": "03-banners/taggroove-social-square-light-1080x1080.svg",
+      "bytes": 8674,
+      "sha256": "26306d18e8645be7f63503b27ed756798c3c2cca9a46ae87b65fb4d65b08d41a"
+    },
+    {
+      "path": "04-in-app/taggroove-default-artwork-dark-1024.png",
+      "bytes": 154173,
+      "sha256": "a06d0e6cad2e5f5f433f74bbd556008cff691507b9c8c152c553e060eeb0931c",
+      "width": 1024,
+      "height": 1024,
+      "mode": "RGBA"
+    },
+    {
+      "path": "04-in-app/taggroove-default-artwork-dark-1024.svg",
+      "bytes": 7901,
+      "sha256": "43a1e9f910b0cb8d64f71dd84ed9156d4beb4f634cd4b1635cb466a4bbe8f4fc"
+    },
+    {
+      "path": "04-in-app/taggroove-default-artwork-light-1024.png",
+      "bytes": 113252,
+      "sha256": "d25d2cc26ca2718623e50fbf91449c1ad4fe1799c0a5bbb7faa7cea406925ee8",
+      "width": 1024,
+      "height": 1024,
+      "mode": "RGBA"
+    },
+    {
+      "path": "04-in-app/taggroove-default-artwork-light-1024.svg",
+      "bytes": 3360,
+      "sha256": "9274b07191c1eb82bf9c07eecfa252a5ae89adb6d828f7b3d86bae6064bb147a"
+    },
+    {
+      "path": "04-in-app/taggroove-splash-dark-1600x1000.png",
+      "bytes": 239414,
+      "sha256": "c7781bb71ed498e7d2eb5f4b67ec0b776fec59a30a58e93f4870b9256acb52ef",
+      "width": 1600,
+      "height": 1000,
+      "mode": "RGBA"
+    },
+    {
+      "path": "04-in-app/taggroove-splash-dark-1600x1000.svg",
+      "bytes": 15473,
+      "sha256": "21cee60d5d78188eaf022d93ff01589dacb6f54e9efea8dbc3371b543fefa7aa"
+    },
+    {
+      "path": "04-in-app/taggroove-splash-light-1600x1000.png",
+      "bytes": 190474,
+      "sha256": "f126cb1e1385912bc4435e4b3cfa38175fb5896bf47f304984200ca652126d44",
+      "width": 1600,
+      "height": 1000,
+      "mode": "RGBA"
+    },
+    {
+      "path": "04-in-app/taggroove-splash-light-1600x1000.svg",
+      "bytes": 10900,
+      "sha256": "e45deaa5d503ee9500b85df97eeca40ed91d37ad363511635d2112ad5e04642a"
+    },
+    {
+      "path": "04-in-app/taggroove-tray-black.png",
+      "bytes": 23472,
+      "sha256": "b3bfdf59ccae97dcfc3a0d89bb827da81bc0bca4b95593d1bfadf2ece56395d3",
+      "width": 1024,
+      "height": 1024,
+      "mode": "RGBA"
+    },
+    {
+      "path": "04-in-app/taggroove-tray-black.svg",
+      "bytes": 2734,
+      "sha256": "0aa28451dcc048db2157843efb45b6c1bb271c2529082e7fb7eeab85a247a92b"
+    },
+    {
+      "path": "04-in-app/taggroove-tray-white.png",
+      "bytes": 17684,
+      "sha256": "42519e54cd65134b0a6574b9b3d15f511bd7abab30371b6fbcf3ed3fea66deec",
+      "width": 1024,
+      "height": 1024,
+      "mode": "RGBA"
+    },
+    {
+      "path": "04-in-app/taggroove-tray-white.svg",
+      "bytes": 2734,
+      "sha256": "42ff999ea8e553a6c3f2e245b700077da43c759bafa88934aa9a5c7f1a2925cb"
+    },
+    {
+      "path": "04-in-app/tray-png/taggroove-tray-black-16.png",
+      "bytes": 459,
+      "sha256": "45d5c481e7292c133985ff8877bbed99f4d7536ac214d1dc9e12c4dd95715bb4",
+      "width": 16,
+      "height": 16,
+      "mode": "RGBA"
+    },
+    {
+      "path": "04-in-app/tray-png/taggroove-tray-black-20.png",
+      "bytes": 591,
+      "sha256": "6b263d321a889d7b7ecb7e1560fa3f2f4e08f0e602dbb68919d535f5e6e53777",
+      "width": 20,
+      "height": 20,
+      "mode": "RGBA"
+    },
+    {
+      "path": "04-in-app/tray-png/taggroove-tray-black-22.png",
+      "bytes": 667,
+      "sha256": "fde642d8cfd855e6e5889d50b175d191633756aedac3482e5e2e3c7c6d179e43",
+      "width": 22,
+      "height": 22,
+      "mode": "RGBA"
+    },
+    {
+      "path": "04-in-app/tray-png/taggroove-tray-black-24.png",
+      "bytes": 750,
+      "sha256": "068ba4d6a6bf1db50d1cae82e29dd93c9220bc046131f4cfebffb9d483df873a",
+      "width": 24,
+      "height": 24,
+      "mode": "RGBA"
+    },
+    {
+      "path": "04-in-app/tray-png/taggroove-tray-black-32.png",
+      "bytes": 1022,
+      "sha256": "ce0a4b6835814495e1cde4effa84453af232c10ef1fbe503385456acfa42f25b",
+      "width": 32,
+      "height": 32,
+      "mode": "RGBA"
+    },
+    {
+      "path": "04-in-app/tray-png/taggroove-tray-black-44.png",
+      "bytes": 1433,
+      "sha256": "76da7a587aa9b0f90debab66d07d59aadeee48482fe8084b480ad65050d7c749",
+      "width": 44,
+      "height": 44,
+      "mode": "RGBA"
+    },
+    {
+      "path": "04-in-app/tray-png/taggroove-tray-black-48.png",
+      "bytes": 1574,
+      "sha256": "e143a4848c5724e4dd08264207a562ab91aeff7baa836d5d91eb9072e94de6b7",
+      "width": 48,
+      "height": 48,
+      "mode": "RGBA"
+    },
+    {
+      "path": "04-in-app/tray-png/taggroove-tray-black-64.png",
+      "bytes": 2106,
+      "sha256": "9b4bd1e6e8856f2b23ae288f0858dd0b4b8f8eaae3b45498f1d2f06c087375a9",
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA"
+    },
+    {
+      "path": "04-in-app/tray-png/taggroove-tray-white-16.png",
+      "bytes": 318,
+      "sha256": "21e5ef1fb94faa7388d27661a7e3e2a670d860e4ef71333fc7674450ae016d8d",
+      "width": 16,
+      "height": 16,
+      "mode": "RGBA"
+    },
+    {
+      "path": "04-in-app/tray-png/taggroove-tray-white-20.png",
+      "bytes": 423,
+      "sha256": "cd302026c3623b268cb032060ae0e721bf145488550e46ae2be40f5904923fbc",
+      "width": 20,
+      "height": 20,
+      "mode": "RGBA"
+    },
+    {
+      "path": "04-in-app/tray-png/taggroove-tray-white-22.png",
+      "bytes": 477,
+      "sha256": "2c2ebfdfe447a8c01ec5b1b04b913ce40d7ca002106e61b919055b02063c21f8",
+      "width": 22,
+      "height": 22,
+      "mode": "RGBA"
+    },
+    {
+      "path": "04-in-app/tray-png/taggroove-tray-white-24.png",
+      "bytes": 513,
+      "sha256": "9db995d5651c9921d9da8ae321c152c8328042a01341f4e56f739b96f7fc67c7",
+      "width": 24,
+      "height": 24,
+      "mode": "RGBA"
+    },
+    {
+      "path": "04-in-app/tray-png/taggroove-tray-white-32.png",
+      "bytes": 702,
+      "sha256": "e1a4fe0749233e536ac93cd3564c25a088cbbc977edabaefb113d9238babd6ad",
+      "width": 32,
+      "height": 32,
+      "mode": "RGBA"
+    },
+    {
+      "path": "04-in-app/tray-png/taggroove-tray-white-44.png",
+      "bytes": 965,
+      "sha256": "aa88c1e31b6708d6ef2aa4c839c92ddb23ed243ec82e71dc6fdc8ce07827a5a3",
+      "width": 44,
+      "height": 44,
+      "mode": "RGBA"
+    },
+    {
+      "path": "04-in-app/tray-png/taggroove-tray-white-48.png",
+      "bytes": 1072,
+      "sha256": "5cdd8a42e43973944bd9f3989555216c52b1077779e4bcd05463ee80a2e46eeb",
+      "width": 48,
+      "height": 48,
+      "mode": "RGBA"
+    },
+    {
+      "path": "04-in-app/tray-png/taggroove-tray-white-64.png",
+      "bytes": 1423,
+      "sha256": "464668524861ada33d8dea39dcf270a9214bab9261bfe382cf8a523dbf32e8c1",
+      "width": 64,
+      "height": 64,
+      "mode": "RGBA"
+    },
+    {
+      "path": "04-in-app/ui-icons/taggroove-album.png",
+      "bytes": 2320,
+      "sha256": "efb98a7c92861395a051f8f672abefcd568ebc05da7e1cddf4b26cc8d5b19f05",
+      "width": 96,
+      "height": 96,
+      "mode": "RGBA"
+    },
+    {
+      "path": "04-in-app/ui-icons/taggroove-album.svg",
+      "bytes": 338,
+      "sha256": "6f5e2f3c0f6e3dd96a0aceb3f306115897cd80d30d9ab9a869721909b9e2d762"
+    },
+    {
+      "path": "04-in-app/ui-icons/taggroove-batch-edit.png",
+      "bytes": 1028,
+      "sha256": "401e476b8d0b163fb59da21c315489f7adc70844f5b00050ecc8d50a2be67ee6",
+      "width": 96,
+      "height": 96,
+      "mode": "RGBA"
+    },
+    {
+      "path": "04-in-app/ui-icons/taggroove-batch-edit.svg",
+      "bytes": 321,
+      "sha256": "1c6ce9f98336b1e71ec17f32b6ec1d700cf62237af5ca2006a355c4e9f1a52c9"
+    },
+    {
+      "path": "04-in-app/ui-icons/taggroove-check.png",
+      "bytes": 2232,
+      "sha256": "fde6abc551b7f9ec8e612d9331da47fe1dd04cc4eb5446cb8c09d14a764697fc",
+      "width": 96,
+      "height": 96,
+      "mode": "RGBA"
+    },
+    {
+      "path": "04-in-app/ui-icons/taggroove-check.svg",
+      "bytes": 281,
+      "sha256": "39e8b657152657bc062438aabf3812d5d58be5369edae4454d74eed27e3c9c0e"
+    },
+    {
+      "path": "04-in-app/ui-icons/taggroove-edit-tags.png",
+      "bytes": 560,
+      "sha256": "42bda278daa28e8dd90e26294613634436922e5b2f36b9979497b8b59f3efe11",
+      "width": 96,
+      "height": 96,
+      "mode": "RGBA"
+    },
+    {
+      "path": "04-in-app/ui-icons/taggroove-edit-tags.svg",
+      "bytes": 273,
+      "sha256": "a3cc212342d7ddb0cc837aeb34632d61229f40df9a1011ed62bc5c5252e21e96"
+    },
+    {
+      "path": "04-in-app/ui-icons/taggroove-export.png",
+      "bytes": 705,
+      "sha256": "467054f643d61678d8255df07b8b66309e8d1aa152cba3f0df79c8dc0eb14d3d",
+      "width": 96,
+      "height": 96,
+      "mode": "RGBA"
+    },
+    {
+      "path": "04-in-app/ui-icons/taggroove-export.svg",
+      "bytes": 272,
+      "sha256": "8823b2050a050dc5700976b3693342e8a3297463d7bac54ae73e065c98ce1ff5"
+    },
+    {
+      "path": "04-in-app/ui-icons/taggroove-import.png",
+      "bytes": 705,
+      "sha256": "bfca6dfd0c584cf5df22459235924ee797be9f37bf2e93f49f3d661169c221a8",
+      "width": 96,
+      "height": 96,
+      "mode": "RGBA"
+    },
+    {
+      "path": "04-in-app/ui-icons/taggroove-import.svg",
+      "bytes": 272,
+      "sha256": "b11aa5c285a19fa50cfe112ec2f888b59a7e65c87f4b364c5bb906fe3090b401"
+    },
+    {
+      "path": "04-in-app/ui-icons/taggroove-info.png",
+      "bytes": 2249,
+      "sha256": "120c4e07ea34531980d9dde703bb15b846787e96d2ec3676470cdd48e6a9bcac",
+      "width": 96,
+      "height": 96,
+      "mode": "RGBA"
+    },
+    {
+      "path": "04-in-app/ui-icons/taggroove-info.svg",
+      "bytes": 306,
+      "sha256": "457df65b82dfd3df1c29e134da5176279ed1db63de2c89545279140e87336d4c"
+    },
+    {
+      "path": "04-in-app/ui-icons/taggroove-music-file.png",
+      "bytes": 1081,
+      "sha256": "f0c1b04ad391d540635670ae9373d841ae48ac525ca842d41f623336425a35ba",
+      "width": 96,
+      "height": 96,
+      "mode": "RGBA"
+    },
+    {
+      "path": "04-in-app/ui-icons/taggroove-music-file.svg",
+      "bytes": 352,
+      "sha256": "22af3f2e94c8f511df607b9f3bc9bd88ebf1970df58b873897ab0b7c02f8d48f"
+    },
+    {
+      "path": "04-in-app/ui-icons/taggroove-organize.png",
+      "bytes": 578,
+      "sha256": "cd8ef570c0f9737f645e7d84f010c2fb91f8a520bff6aa19fb26c64da25cbec5",
+      "width": 96,
+      "height": 96,
+      "mode": "RGBA"
+    },
+    {
+      "path": "04-in-app/ui-icons/taggroove-organize.svg",
+      "bytes": 270,
+      "sha256": "aa1acb2225e7e69395c41b663a56e3987af9486184dd6c6b2308b23cc2d100bf"
+    },
+    {
+      "path": "04-in-app/ui-icons/taggroove-save.png",
+      "bytes": 645,
+      "sha256": "84f327b14a28e2e651a5ee9ba0573e8f712a642b1bf293d2f40ac81bd4fa1c7f",
+      "width": 96,
+      "height": 96,
+      "mode": "RGBA"
+    },
+    {
+      "path": "04-in-app/ui-icons/taggroove-save.svg",
+      "bytes": 279,
+      "sha256": "b662f991747e8f8682b017a69e94c8dd948a3d0f1c7807d04d3600eb1cc8ca4b"
+    },
+    {
+      "path": "04-in-app/ui-icons/taggroove-search.png",
+      "bytes": 1595,
+      "sha256": "6b59b1e8c4dbe497f1bed0b0bf9f2a78e0ceb899e53522cf2e13562b074ad5c7",
+      "width": 96,
+      "height": 96,
+      "mode": "RGBA"
+    },
+    {
+      "path": "04-in-app/ui-icons/taggroove-search.svg",
+      "bytes": 285,
+      "sha256": "ba1ab1404346121ce199ed9f19896a7d694a5c3e59cce18f846929a30cc76dd7"
+    },
+    {
+      "path": "04-in-app/ui-icons/taggroove-settings.png",
+      "bytes": 932,
+      "sha256": "e75ee1b5ca0ed98d46fca437f4e006d556d658772463894871dc58551cfe5c5e",
+      "width": 96,
+      "height": 96,
+      "mode": "RGBA"
+    },
+    {
+      "path": "04-in-app/ui-icons/taggroove-settings.svg",
+      "bytes": 399,
+      "sha256": "1c16580c213f3f762ad7d3968b16b87cd678fdd7d0a07a0d3d41a6640964d117"
+    },
+    {
+      "path": "05-brand-elements/taggroove-equalizer-warm.png",
+      "bytes": 59351,
+      "sha256": "a7102085b1aafe2f03618856eb74bac50dbaa8722a909ea53a3798e2e5090867",
+      "width": 1280,
+      "height": 512,
+      "mode": "RGBA"
+    },
+    {
+      "path": "05-brand-elements/taggroove-equalizer-warm.svg",
+      "bytes": 5488,
+      "sha256": "8bfbb5092796f230b17fde54b1348ef72e097f7f448c0d2bf94d19f02ba62d9d"
+    },
+    {
+      "path": "05-brand-elements/taggroove-open-source-badge.png",
+      "bytes": 6974,
+      "sha256": "55125bda70eec3058d02894cd06b2de0771064d69b55bdec888213532cc34051",
+      "width": 430,
+      "height": 80,
+      "mode": "RGBA"
+    },
+    {
+      "path": "05-brand-elements/taggroove-open-source-badge.svg",
+      "bytes": 6048,
+      "sha256": "0dd86c4d97dbb65e19aefd9b73f290c0dd0e7fb551f3c0ffebc7f5a64f47d5d9"
+    },
+    {
+      "path": "05-brand-elements/taggroove-tagline-dark.png",
+      "bytes": 6158,
+      "sha256": "96f0294f31de9fedccaac9967079f04ac63115e0296912dbbb71d76747495ad1",
+      "width": 600,
+      "height": 104,
+      "mode": "RGBA"
+    },
+    {
+      "path": "05-brand-elements/taggroove-tagline-dark.svg",
+      "bytes": 4627,
+      "sha256": "8769f03a8b8008f3d86bd8b31d6a8a8d424464243bcf2158b67f38e3231a1878"
+    },
+    {
+      "path": "05-brand-elements/taggroove-tagline-light.png",
+      "bytes": 6441,
+      "sha256": "635d12d07c22937875ba92a218fcc3803f059a5825e6181ae2b22803cb82e039",
+      "width": 600,
+      "height": 104,
+      "mode": "RGBA"
+    },
+    {
+      "path": "05-brand-elements/taggroove-tagline-light.svg",
+      "bytes": 4628,
+      "sha256": "4be5d0a039b304ade1790d8dab11c926f097cc35029d93d93c9944d3de3703c8"
+    },
+    {
+      "path": "06-dimensional-art/GENERATION-NOTES.txt",
+      "bytes": 1626,
+      "sha256": "435e5380792df043a933ea305bc03cd188bad8c773569362203ff5e22ce430d8"
+    },
+    {
+      "path": "06-dimensional-art/taggroove-dimensional-1024.png",
+      "bytes": 846730,
+      "sha256": "761b2434e5e0d0e5b955821966b02cdd2c077c105a8e2c337bc9fc86a1030cc5",
+      "width": 1024,
+      "height": 1024,
+      "mode": "RGB"
+    },
+    {
+      "path": "06-dimensional-art/taggroove-dimensional-512.png",
+      "bytes": 372131,
+      "sha256": "08dfbb59444d68af428d0b9b6b40434a7fee5e14a51705ec3ccfc82374b00a25",
+      "width": 512,
+      "height": 512,
+      "mode": "RGB"
+    },
+    {
+      "path": "06-dimensional-art/taggroove-dimensional-master.png",
+      "bytes": 1509045,
+      "sha256": "4155e61db222473cc59d7dc0a563b47171cd22828468f9bec7afff23c2a45d6e",
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGB"
+    },
+    {
+      "path": "BRAND-GUIDE.html",
+      "bytes": 2256921,
+      "sha256": "2e06eda493c789f17332266f428b6fb4208b6b64b2d9435391618db2880b5a62"
+    },
+    {
+      "path": "EXPORT-VALIDATION.json",
+      "bytes": 637,
+      "sha256": "7765d6474e9938f3c86fb0fc809a1c53175a1c3ccab27da429a219f34df738d8"
+    },
+    {
+      "path": "INTEGRATION.txt",
+      "bytes": 3645,
+      "sha256": "e64d46c073b072aa470544bc42d9df2cc43b9033afd175bd21a38e542db21921"
+    },
+    {
+      "path": "README.txt",
+      "bytes": 2495,
+      "sha256": "38865a879a264beeebba93e0dbf6245f01af27e495394214a8e3f3fc3ddf7b81"
+    },
+    {
+      "path": "brand-tokens.css",
+      "bytes": 264,
+      "sha256": "c36b432855925d5b09bcbb8922c4bb390c2b164010004685fdbb45c9ed2b611f"
+    },
+    {
+      "path": "brand-tokens.json",
+      "bytes": 592,
+      "sha256": "7fffc75c35101841fa9e5e7219290a2520aa2864103cc37152ed7b2b697a6d0c"
+    }
+  ],
+  "asset_count": 249
+}

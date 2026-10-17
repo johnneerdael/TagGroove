@@ -4,7 +4,7 @@
 
 ## Release notes
 
-<!-- Describe the final change for people using OpenTag. Include a concrete
+<!-- Describe the final change for people using TagGroove. Include a concrete
 trigger or before/after example where useful. For docs, tests or CI only,
 write Internal: followed by the actual change. Replace the placeholder.
 Keep test commands/results, review transcripts and installation instructions
