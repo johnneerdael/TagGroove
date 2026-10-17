@@ -22,7 +22,7 @@ Reference target: `../Mp3tag.exe`, SHA-256 `484794eec4e2b9a649d04eaab63b4cc73127
 | Undo/redo | History is not kept across sessions. Non-cloning volumes keep the 2 GiB full-size cap, and the first unpadded save counts in full |
 | CLI and OS integration | `open -a … --args` cannot reach a running app on macOS. No Windows or Linux file associations. The Windows shell extension is out of scope |
 | Smaller limits | About 30 further limits are listed in the [register](research/remaining-gaps.md): Matroska, ASF and APE edge cases, Utils refusals, playlist formats (XSPF, WPL, ASX), freedb server list, "No action" default tool, tag-panel directory switcher, toolbar file import, configuration storage, and others |
-| Platforms and distribution | Windows builds are unsigned, macOS builds are ad-hoc signed, iOS is simulator-only. Mobile needs real-device qualification, directory trees and cloud providers. Final dependency license audit and reproducible builds |
+| Platforms and distribution | Windows builds are unsigned, macOS builds are ad-hoc signed, iOS is simulator-only. Mobile needs real-device qualification, directory trees and cloud providers. Android provider documents ignore MPEG/APE read precedence and user field mappings on read and reload, and "Save a copy" does not copy pending artwork. Final dependency license audit and reproducible builds |
 | Performance | No same-corpus comparison with the original, no Windows or Linux numbers, and APE, RIFF, Ogg and other containers still rewrite whole files |
 | Native UI proof | The headless suites use synthetic DOM events, so OS input, IME and hit-testing are untested. Native screen-reader qualification is open |
 

@@ -81,6 +81,7 @@ Legend: **Impact** H = daily tagging, M = regular, L = rare or legacy. **Size** 
 | CLI | `open -a … --args` | macOS drops arguments to a running app | L | — |
 | CLI | File associations | Not registered on Windows or Linux | L | S |
 | Platforms | Signing | Windows unsigned, macOS ad-hoc, iOS simulator-only | M | M |
+| Platforms | Mobile provider documents | Reads and reloads of Android provider documents use the default read path, so MPEG/APE read precedence and user field mappings do not apply (`src-tauri/src/documents/engine.rs`); "Save a copy" writes fields only, so pending artwork is not copied | L | M |
 | Platforms | Mobile | Directory trees, cloud providers and real-device qualification | L | L |
 | Distribution | Audit | Final dependency license audit; reproducible builds | M | M |
 | Performance | Comparison | No same-corpus comparison with the original; no Windows or Linux numbers; APE, RIFF, Ogg and other containers rewrite whole files | M | M |
