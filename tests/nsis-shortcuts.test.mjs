@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {execFileSync, spawnSync} from 'node:child_process';
-import {mkdtemp, mkdir, readFile, rm, writeFile} from 'node:fs/promises';
+import {mkdtemp, mkdir, readFile, realpath, rm, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 
@@ -19,7 +19,8 @@ function extract(source, pattern, description) {
 }
 
 test('NSIS shortcut fixtures compile and preserve owned links on Windows', {timeout: 180000}, async t => {
-  const root = await mkdtemp(join(tmpdir(), 'taggroove-nsis-fixtures-'));
+  // Use canonical paths for literal COM target comparisons on Windows.
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'taggroove-nsis-fixtures-')));
   t.after(() => rm(root, {recursive: true, force: true, maxRetries: 5, retryDelay: 200}));
   const upstream = JSON.parse(await readFile(new URL('../src-tauri/windows/UPSTREAM.json', import.meta.url)));
   const compilerEnvironment = Object.fromEntries(Object.entries(process.env)
@@ -74,6 +75,13 @@ test('NSIS shortcut fixtures compile and preserve owned links on Windows', {time
         execFileSync(binary, ['/S'], {timeout: 30000, windowsHide: true, stdio: 'pipe'});
       } catch (error) {
         const failure = await readFile(join(directory, 'failure.txt'), 'utf8').catch(() => error.message);
+        try {
+          t.diagnostic(execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
+            `$shell = New-Object -ComObject WScript.Shell; Get-ChildItem -LiteralPath ${psQuote(directory)} -Recurse -Filter '*.lnk' | ForEach-Object { [pscustomobject]@{Link=$_.FullName; Target=$shell.CreateShortcut($_.FullName).TargetPath} } | ConvertTo-Json -Compress`],
+          {timeout: 10000, encoding: 'utf8', windowsHide: true}));
+        } catch (diagnosticError) {
+          t.diagnostic(`Could not inspect failed shortcut targets: ${diagnosticError.message}`);
+        }
         assert.fail(`${name} NSIS fixture failed: ${failure}`);
       }
       assert.equal((await readFile(join(directory, 'result.txt'), 'utf8')).trim(), 'ok');

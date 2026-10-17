@@ -84,6 +84,9 @@ Section
   CreateShortcut "$INSTDIR\menu\OpenTag.lnk" "$INSTDIR\opentag.exe"
   CreateShortcut "$INSTDIR\menu\FixtureFolder\OpenTag.lnk" "$INSTDIR\opentag.exe"
   CreateShortcut "$INSTDIR\desktop\OpenTag.lnk" "$INSTDIR\opentag.exe"
+  ; Establish that the unchanged COM helper recognizes freshly created links.
+  !insertmacro AssertTarget "$INSTDIR\menu\OpenTag.lnk" "$INSTDIR\opentag.exe"
+  !insertmacro AssertTarget "$INSTDIR\desktop\OpenTag.lnk" "$INSTDIR\opentag.exe"
   !insertmacro RunMigration
   Call CreateOrUpdateStartMenuShortcut
   !insertmacro AssertTarget "$INSTDIR\menu\TagGroove.lnk" "$INSTDIR\taggroove.exe"
