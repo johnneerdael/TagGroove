@@ -1601,10 +1601,11 @@ mod tests {
     /// A local HTTP server answering each path with fixed content.
     fn serve(
         pages: Vec<(&'static str, &'static str, Vec<u8>)>,
-    ) -> (u16, std::thread::JoinHandle<()>) {
+    ) -> (u16, std::thread::JoinHandle<Vec<String>>) {
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let port = listener.local_addr().unwrap().port();
         let handle = std::thread::spawn(move || {
+            let mut requests = Vec::new();
             for _ in 0..pages.len() {
                 let (mut socket, _) = listener.accept().unwrap();
                 let mut request = [0; 4096];
@@ -1622,7 +1623,9 @@ mod tests {
                 );
                 socket.write_all(head.as_bytes()).unwrap();
                 socket.write_all(&body).unwrap();
+                requests.push(request);
             }
+            requests
         });
         (port, handle)
     }
@@ -1816,7 +1819,24 @@ json_foreach_end
         )
         .unwrap();
         let release = release_from(outputs, &page.url, &found.results[0].url);
-        server.join().unwrap();
+        let requests = server.join().unwrap();
+        assert_eq!(requests.len(), 2);
+        for request in requests {
+            let agent = request.lines().find_map(|line| {
+                let (name, value) = line.split_once(':')?;
+                name.eq_ignore_ascii_case("user-agent")
+                    .then(|| value.trim())
+            });
+            assert_eq!(
+                agent,
+                Some(concat!(
+                    "Mozilla/5.0 (compatible; OpenTag/",
+                    env!("CARGO_PKG_VERSION"),
+                    ")"
+                )),
+                "web-source search and album requests must preserve their wire identity"
+            );
+        }
         assert_eq!(release.title, "Fixture Album");
         assert_eq!(release.fields["YEAR"], ["1999"]);
         let titles: Vec<_> = release
