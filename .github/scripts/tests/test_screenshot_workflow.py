@@ -66,12 +66,50 @@ class ScreenshotWorkflowTests(unittest.TestCase):
         fixture = (ROOT / "tests/e2e/launch-forwarding-fixtures.sh").read_text()
         self.assertIn("${OPENTAG_E2E_BINARY:?", fixture)
 
-    def test_window_selection_handles_directory_titles_and_refuses_root_fallback(self):
+    def capture_with_fake_x11(self, child="456", windows="11 12"):
         script = (ROOT / "scripts/docs-screenshots.sh").read_text()
-        self.assertIn('re.escape(sys.argv[1]) + "( — .*)?$"', script)
-        self.assertIn('if [[ -z "$window" ]]; then', script)
-        self.assertIn('refusing a desktop capture', script)
-        self.assertNotIn('window=root', script)
+        capture = "capture() {" + script.split("capture() {", 1)[1].split("\n}\n", 1)[0] + "\n}\n"
+        with tempfile.TemporaryDirectory() as directory:
+            trace = Path(directory) / "captured-window"
+            # Model only X11/process queries and image export; run the actual
+            # production selection function without creating desktop windows.
+            harness = r'''
+set -euo pipefail
+pid=123
+product=TagGroove
+window_pattern='^TagGroove( — .*)?$'
+pgrep() { [[ "$*" == '-P 123' && -n "$CHILD" ]] && printf '%s\n' "$CHILD"; }
+xdotool() {
+  # The app's runtime title deliberately differs from productName.
+  [[ "$*" == 'search --onlyvisible --pid 456' ]] && printf '%s\n' $WINDOWS
+}
+xwininfo() {
+  if [[ "$2" == 11 ]]; then printf 'Width: 320\nHeight: 200\n';
+  else printf 'Width: 1240\nHeight: 800\n'; fi
+}
+import() { printf '%s\n' "$2" > "$TRACE"; }
+pngquant() { :; }
+identify() { printf '1240x800'; }
+''' + capture + '\ncapture output.png\n'
+            result = subprocess.run(["bash", "-c", harness], capture_output=True, text=True,
+                                    env={**os.environ, "CHILD": child, "WINDOWS": windows,
+                                         "TRACE": str(trace)})
+            return result, trace.read_text().strip() if trace.exists() else None
+
+    def test_capture_uses_owned_process_when_runtime_title_differs(self):
+        result, window = self.capture_with_fake_x11()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(window, "12", "Capture the largest window owned by the test app")
+
+    def test_capture_refuses_desktop_fallback_without_an_owned_window(self):
+        result, window = self.capture_with_fake_x11(windows="")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIsNone(window)
+
+    def test_capture_refuses_export_without_the_native_child(self):
+        result, window = self.capture_with_fake_x11(child="")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIsNone(window)
 
     def test_capture_refuses_local_execution_before_creating_fixtures(self):
         result = subprocess.run(["bash", str(ROOT / "scripts/docs-screenshots.sh")],

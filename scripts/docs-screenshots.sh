@@ -4,7 +4,7 @@
 # tests/docs-screens/screens.js drive it through named scenes, and saves one PNG
 # per scene and color mode into the output folder.
 # Usage (CI only): scripts/docs-screenshots.sh <output-dir> [scene ...]
-# Needs a debug build (target/debug/opentag), ffmpeg, xvfb-run, xdotool and
+# Needs a debug build (target/debug/opentag), ffmpeg, xvfb-run, pgrep, xdotool and
 # ImageMagick. Real app windows open here, so it refuses to run outside CI and
 # outside Linux. The reviewed reusable build calls this runner only after exact-head
 # review authorization.
@@ -17,20 +17,22 @@ fi
 # Resolve the explicitly named binary when present, otherwise the Cargo package.
 name="$(python3 -c 'import pathlib,sys,tomllib; c=tomllib.loads(pathlib.Path(sys.argv[1]).read_text()); print(c.get("bin",[c["package"]])[0]["name"])' "$root/src-tauri/Cargo.toml")"
 bin="$root/target/debug/$name"
-product="$(node -p "JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8')).productName" "$root/src-tauri/tauri.conf.json")"
-window_pattern="$(python3 -c 'import re,sys; print("^" + re.escape(sys.argv[1]) + "( — .*)?$")' "$product")"
 scale="${OPENTAG_SHOTS_SCALE:-2}"
 
-# Saves the app window (the largest visible window titled with the product name; GTK also
-# creates helper windows) as a PNG.
+# Save the largest visible window owned by timeout's native app child.
+# Runtime titles can differ from productName or include a loaded directory.
 capture() {
-  local file="$1" id size best=0 window=
-  for id in $(xdotool search --onlyvisible --name "$window_pattern" 2>/dev/null); do
+  local file="$1" id size app_pid best=0 window=
+  if ! app_pid="$(pgrep -P "$pid")" || [[ ! "$app_pid" =~ ^[0-9]+$ ]]; then
+    echo "Cannot identify the native app owned by timeout PID $pid; refusing a desktop capture" >&2
+    return 1
+  fi
+  for id in $(xdotool search --onlyvisible --pid "$app_pid" 2>/dev/null); do
     size="$(xwininfo -id "$id" | awk '/Width:/{w=$2}/Height:/{h=$2}END{print w*h}')"
     if (( size > best )); then best=$size; window=$id; fi
   done
   if [[ -z "$window" ]]; then
-    echo "No visible application window matched $product; refusing a desktop capture" >&2
+    echo "No visible application window owned by PID $app_pid; refusing a desktop capture" >&2
     return 1
   fi
   import -window "$window" "$file"
