@@ -31,6 +31,29 @@ All three selected tests passed:
 The local test log is `/tmp/taggroove-ape-ledger-regressions.log`. It is a
 local receipt, not a published artifact or final-head hosted-CI result.
 
+## Existing real-encoder coverage
+
+The specialist audit also reran the existing FFmpeg-dependent integration
+checks on the unchanged format implementation. FFmpeg and ffprobe 9.0.2
+(libavformat 63.1.102) were available and successfully executed; none of
+these checks took its missing-tool skip path:
+
+```sh
+cargo test --locked -p tag-core --test asf --test containers --test formats_edge ffmpeg -- --nocapture
+```
+
+All five selected tests passed: two WMA/ASF checks, two Matroska/WebM checks
+including chapter edits, and one AAC/WavPack check. They create actual encoded
+carriers, apply the tested metadata changes and use independent FFmpeg decode,
+packet-hash or ffprobe checks as specified in each test. They are not limited
+to hand-built container headers. The implementation already had these tests;
+this change records their successful execution rather than adding duplicates.
+The local log is `/tmp/taggroove-specialist-real-encoder-checks.log`.
+
+This does not provide TAK/OptimFROG real-encoder fixtures, original-written
+Nero/APE fixtures, or original-Mp3tag comparison. Those requirements remain
+open in the roadmap.
+
 ## Qualification still required
 
 These are synthetic regression fixtures, not original-Mp3tag captures or
