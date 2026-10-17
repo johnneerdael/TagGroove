@@ -58,6 +58,7 @@ test('NSIS shortcut fixtures compile and preserve owned links on Windows', {time
     INSTALL_MIGRATION: extract(source, /^  ; Existing links are upgrades,[\s\S]*?(?=^  ; Create start menu shortcut)/m, 'install migration block'),
     UNINSTALL_CLEANUP: extract(source, /^  ; Remove retained legacy labels[\s\S]*?^  ; End retained legacy labels\./m, 'uninstall cleanup block'),
   };
+  const outputCharset = process.platform === 'win32' ? ['-OUTPUTCHARSET', 'UTF8'] : [];
   for (const [name, folder] of [['flat', ''], ['folder', 'FixtureFolder']]) {
     const directory = join(root, name);
     await mkdir(directory);
@@ -68,8 +69,12 @@ test('NSIS shortcut fixtures compile and preserve owned links on Windows', {time
       return values[key];
     });
     await writeFile(script, rendered);
-    execFileSync(compiler, ['-INPUTCHARSET', 'UTF8', '-OUTPUTCHARSET', 'UTF8', '-V2', script],
-      {timeout: 30000, stdio: 'pipe', env: compilerEnvironment, cwd: directory});
+    try {
+      execFileSync(compiler, ['-INPUTCHARSET', 'UTF8', ...outputCharset, '-WX', '-V2', script],
+        {timeout: 30000, stdio: 'pipe', env: compilerEnvironment, cwd: directory});
+    } catch (error) {
+      assert.fail([error.message, error.stdout?.toString()].filter(Boolean).join('\n'));
+    }
     if (reviewedWindows) {
       try {
         execFileSync(binary, ['/S'], {timeout: 30000, windowsHide: true, stdio: 'pipe'});
