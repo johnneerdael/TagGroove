@@ -9,7 +9,7 @@
 
 You have a front cover inside the audio files and want a separate album-folder
 image. Export copies the embedded bytes out; it leaves the embedded pictures
-and audio in place. **A JPEG exports as `.jpg`; a PNG exports as `.png`.**
+and audio in place. A JPEG exports as `.jpg`; a PNG exports as `.png`.
 Naming the output `folder.jpg` does not convert a PNG to JPEG.
 
 For this recipe's exact `folder.jpg` result, start with a JPEG Front Cover.
@@ -22,7 +22,7 @@ inspect its scope before choosing that route.
 
 1. Copy one album folder, including any existing folder images, and keep
    the original elsewhere. Save pending tag edits in OpenTag.
-2. Select **one copied audio file** with the intended embedded **Front Cover**.
+2. Select one copied audio file with the intended embedded **Front Cover**.
    Inspect it in **Manage covers…** or the cover window. A **Folder image /
    Not embedded in the file** fallback is not an embedded source for this action.
 3. Inspect the copied folder's current image files. If an existing `folder.jpg`

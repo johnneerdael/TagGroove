@@ -12,7 +12,7 @@ These commands do not require selected audio files.
 
 | Entry | Result |
 | --- | --- |
-| **Documentation** | On desktop, open the [published OpenTag user guide](https://johnneerdael.github.io/audio-tag-guide/) in the default browser. Its source remains in the OpenTag repository. |
+| **Documentation** | On desktop, open the [published OpenTag user guide](https://opentag.neerdael.nl/) in the default browser. Its source remains in the OpenTag repository. |
 | **Keyboard shortcuts** | Show the app's shortcut overview, assembled from current menu commands plus additional editing/navigation keys. |
 | **Report an issue** | On desktop, open OpenTag's GitHub issue page in the default browser. |
 | **Check for updates…** | Read the release list and show whether a newer applicable version is available. It does not download or install an update. |

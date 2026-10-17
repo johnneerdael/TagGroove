@@ -65,7 +65,7 @@ configuration and output before using it on important tags. A script created
 for another application can need adaptation.
 
 The original documentation's [web-source archive](https://docs.mp3tag.de/tag-sources/archive/)
-provides further resource pointers. A listed script or provider is not a
+points to further resources. A listed script or provider is not a
 compatibility or availability guarantee for OpenTag.
 
 ## Match files before applying

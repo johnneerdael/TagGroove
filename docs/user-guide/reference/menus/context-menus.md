@@ -1,6 +1,6 @@
 # Context menus and helper menus
 
-A context menu offers commands for the place you opened it: a file-list row,
+A context menu lists commands for the place you opened it: a file-list row,
 the tag panel, a cover, an Extended tags field or a format-string input.
 Check that context and the current selection before choosing a command.
 Removing a name from a suggestion list, removing a tag field and removing
@@ -109,7 +109,7 @@ folder is available. A configured relative folder is resolved beside the
 audio file. This changes where the chooser starts, not which image is
 automatically embedded.
 
-The menu offers 21 predefined picture roles: Other, File icon, Other file
+The menu has 21 predefined picture roles: Other, File icon, Other file
 icon, Front Cover, Back Cover, Leaflet, Media, Lead artist, Artist, Conductor,
 Band or orchestra, Composer, Lyricist, Recording location, During recording,
 During performance, Screen capture, A bright colored fish, Illustration, Band

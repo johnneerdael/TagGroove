@@ -125,7 +125,7 @@ Change the text in action 1, for example `%title% (with $regexp(…))`.
 **Guests that are already in brackets in the artist field**
 
 For `Juniper Vale (feat. Mira Solberg)`, insert a **Replace with regular
-expression** action at the **top** of the group. Set **Field** to `ARTIST`,
+expression** action at the top of the group. Set **Field** to `ARTIST`,
 **Regular expression** to `[()]`, and leave **Replace matches with** empty.
 This removes all round brackets from the artist field, so use it only on
 files where those brackets wrap the guest credit.

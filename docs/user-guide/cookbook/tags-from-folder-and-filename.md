@@ -60,12 +60,12 @@ pattern:  %artist%     \ %album%       (%year%)\ %track% - %title%
 path:     Juniper Vale \ Harbour Lights (2024) \ 02      - Lanterns on the Water.mp3
 ```
 
-- **`\` stands for a folder level.** The pattern has two, so OpenTag looks at
+- `\` stands for a folder level. The pattern has two, so OpenTag looks at
   the file name and the two folders above it. Everything higher up (`Music`)
   is ignored. Use `\` on macOS and Linux too.
-- **The text between placeholders must appear exactly**, here ` - `, ` (` and `)`.
-- **The extension is left out** automatically.
-- **The whole name must fit for that file to change.** Files that do not
+- The text between placeholders must appear exactly, here ` - `, ` (` and `)`.
+- The extension is left out automatically.
+- The whole name must fit for that file to change. Files that do not
   match are skipped. The **Apply** button shows the number of matching
   files and stays disabled when none match. Review every row; use the
   filter or sort by path to identify files that need a different pattern.

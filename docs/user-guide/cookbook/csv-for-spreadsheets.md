@@ -9,7 +9,7 @@
 
 You want a table of your music to inspect missing titles, share an album
 list or compare tags outside OpenTag. Export creates a text report from
-the **selected files**. It does not scan a whole collection automatically,
+the selected files. It does not scan a whole collection automatically,
 even when the Library cache is enabled.
 
 | In OpenTag | In a carefully imported spreadsheet |
@@ -46,7 +46,7 @@ to recognize Unicode when opening the file directly.
 
 ## How it works
 
-CSV protects a comma **inside** a cell by surrounding the cell with double
+CSV protects a comma inside a cell by surrounding the cell with double
 quotes. A quote inside that cell becomes two quotes. For example:
 
 | Field value | Text written for that CSV cell |
@@ -96,12 +96,12 @@ These example paths illustrate the template; real output uses the actual
 audio paths on your platform. `$loop(1)` repeats the row in input order.
 The literal header outside the loop appears once. `$char(13)$char(10)`
 adds each CRLF record ending, and `$replace` doubles quotes in every cell.
-Keep that escaping for **every** added arbitrary field, including Track.
+Keep that escaping for every added arbitrary field, including Track.
 
 ### Use a semicolon delimiter
 
-In the three-column template, replace the literal commas **between quoted
-cells** in both header and body with semicolons. Keep the commas inside
+In the three-column template, replace the literal commas between quoted
+cells in both header and body with semicolons. Keep the commas inside
 `$replace(...)`; those separate scripting arguments, not CSV columns.
 Choose semicolon in the spreadsheet's import dialog too. Regional defaults
 do not automatically change OpenTag's comma-based built-in template.
@@ -116,7 +116,7 @@ before using partitioned reports for several albums.
 
 ## Can I edit the spreadsheet and import it back?
 
-Editing or saving this report does **not** update the audio files. Keep a
+Editing or saving this report does not update the audio files. Keep a
 separate original report, retain file keys and preserve text types while
 planning changes. There is no automatic two-way link.
 

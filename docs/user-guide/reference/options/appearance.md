@@ -7,7 +7,7 @@ Open **File → Options… → Appearance** to change color mode, control size, 
 
 ## Color mode
 
-**System** is the default and follows the operating system's light/dark preference. **Light** and **Dark** fix the app to the selected mode. The title-bar color-mode control offers the same preference; it is remembered on the device.
+**System** is the default and follows the operating system's light/dark preference. **Light** and **Dark** fix the app to the selected mode. The title-bar color-mode control has the same preference; it is remembered on the device.
 
 The setting changes presentation, not artwork or exported files. Mp3tag's documented Windows-version restriction is not an OpenTag requirement; OpenTag uses its own interface theme.
 

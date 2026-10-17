@@ -8,7 +8,7 @@
 ## The problem
 
 You have written lyrics in separate text files and want to embed the text
-in each corresponding audio file. A **sidecar** is a separate file kept
+in each corresponding audio file. A sidecar is a separate file kept
 beside the audio; importing it copies its current contents into a tag field.
 It does not create an ongoing link to the text file.
 
@@ -53,13 +53,13 @@ It does not create an ongoing link to the text file.
    and accents. Check the player afterward if displaying embedded lyrics
    is your goal; field storage alone does not prove player support.
 
-The action **replaces all previous values** of `LYRICS` with one value.
+The action replaces all previous values of `LYRICS` with one value.
 It does not append a verse. An empty sidecar supplies empty text and can
 replace existing lyrics. Use a small copied selection before a larger run.
 
 ## How it works
 
-`%_filename%` is the audio filename **without its extension**. Appending
+`%_filename%` is the audio filename without its extension. Appending
 `.txt` gives the matching sidecar name. The format is evaluated separately
 for every selected file, and a relative result is read from that file's folder.
 
@@ -77,7 +77,7 @@ Spaces, blank lines and a final line ending belong to the imported text.
 Changing the sidecar afterward does not change the embedded value; rerun
 the action when you intentionally want to replace it.
 
-This uses a **filename format**, so normal tag-derived names have reserved
+This uses a filename format, so normal tag-derived names have reserved
 characters cleaned according to filename rules. Basing the sidecar on the
 actual `%_filename%` avoids relying on a title that differs from the file's
 name. Use an exact name, including `.txt`; `*.txt` is not a wildcard search.

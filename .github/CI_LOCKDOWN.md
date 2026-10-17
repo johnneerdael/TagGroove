@@ -35,19 +35,10 @@ source, `reviewed-release.yml` calls `_reviewed-pages.yml` independently of
 application-release skipping. The reusable workflow authenticates its trusted
 main caller and checks the merged source proof before building and again before
 publication. Only the trusted deployment job receives Pages/OIDC permissions
-and the `github-pages` environment's narrowly scoped `DOCS_PAGES_DEPLOY_KEY`.
-The source authenticates the complete release proof immediately before signing
-and pushing, using its own repository token. The target read-only package job
-verifies that signed approval receipt, the static-tree digest and current source
-main before its separate Pages deployment job can start; deployment repeats those
-checks. No source API token is passed to the target. The publisher preserves the byte-pinned
-target workflow and stages only `site/`. It publishes validated regular static
-output to the fixed `johnneerdael/audio-tag-guide` repository over pinned-host
-SSH, then requires
-the exact source/review/tree marker to be live over HTTPS. Approval and current
-main are checked again before old `/opentag/` route redirects are deployed.
-No downloaded artifact is executed, no source code moves repositories, no
-PAT/broad secret inheritance is introduced, and no new automatic source trigger
-or schedule is added. See `docs/PUBLISHING.md` for setup and recovery.
+in the `github-pages` environment, and it deploys the build job's Pages
+artifact for `opentag.neerdael.nl` only while the approved source is still
+current main. No downloaded artifact is executed, no deployment key, PAT or
+broad secret inheritance is used, and no new automatic source trigger or
+schedule is added. See `docs/PUBLISHING.md` for setup and recovery.
 The former automatic docs and screenshot workflow files are removed; their
 legacy IDs remain disabled.
