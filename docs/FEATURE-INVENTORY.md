@@ -4,34 +4,31 @@ This is an **open acceptance inventory**, not a parity certificate. The target r
 
 All **94** official sitemap pages were fetched with verified HTTPS and recursively checked for further same-origin documentation links; none were missing and no additional pages or attachments were found. The private raw cache is `../reference-docs/full-site` outside the MIT application. It contains URL/status/TLS/SHA/byte manifests, the sitemap, raw HTML and private working extraction. No proprietary documentation body, screenshots, templates, provider scripts or vendor license text is redistributed in this inventory. Functional labels and API identifiers below are requirements; explanations are independently authored.
 
-The JSON retains the inspected application HEAD and dirty source hashes from the documentation audit. Later implementation and verification must be assessed against their own source identities. The [parity ledger](PARITY.md), [native converter checkpoint](verification/converter-workflows.md), [technical and cover checkpoint](verification/technical-cover-workflows.md), and [responsive checkpoint](verification/responsive-workflows.md) record subsequent progress. Existing local contracts are linked separately from native commands, visible UI and runtime evidence. Every inventory item remains OPEN until its own acceptance evidence is recorded.
+The JSON retains the inspected application HEAD and dirty source hashes from the documentation audit. Later implementation and verification must be assessed against their own source identities. The [parity ledger](PARITY.md) and the [remaining-gaps register](research/remaining-gaps.md) record subsequent progress, each linking its own verification note. Existing local contracts are linked separately from native commands, visible UI and runtime evidence. Every inventory item remains OPEN until its own acceptance evidence is recorded.
 
 The catalog currently has **1533 section, functional-reference and authored acceptance entries**, plus **190 inline keyboard context references**. These counts include repeated references and historical headings; they are not a count of unique features or passed checks.
 
-## Evidence and major acceptance gaps
+## Major acceptance gaps
 
-| Area | Current evidence boundary | Required acceptance work |
-| --- | --- | --- |
-| Metadata and file formats | Native patches, mapping registry, staged mutation and fixture preservation tests | All documented per-format tag kinds, version/encoding/read/write/remove policies; missing containers and original runtime comparisons |
-| MPEG/APE tag preferences | Existing fixed primary read plus secondary-field merge | Configurable one-kind display and independent read/write/remove choices; APEv1 upgrades; conditional ID3v2 creation; Latin-1/UTF-16LE/v2.4 UTF-8 choices |
-| File table and panel | Fixed columns, virtualized selection and editable panel | Inline cell editing, multi-sort/random sort, configurable expressions/edit targets/numeric sorting, field types/sizes/defaults, pane controls and persisted layouts |
-| Saved operations | Draft discard guard | Saved-operation undo, redo/repeat, tag/field/image clipboard and documented undo policy across tag kinds |
-| Covers | Basic navigation/add/remove plus action effects | Aggregate presence counts, apply-to-all, reorder/replace preserving metadata, preview-follow behavior, image clipboard/drag/drop and source artwork workflows |
-| Converters/numbering | Four native converter dialogs including reviewed filename rearrangement and text import; basic track numbering | Remaining converter workflows and histories, complete format/platform/differential coverage; disc/track starts/totals/padding and every reset/advance rule |
-| Actions/export/playlists | Modeled action families and native host; MTE renderer; generated playlist action | Every documented option and shortcut, persistence/error policies, export configuration manager, preview, playlist/cuesheet loading and associated dynamic context |
-| Sources | Directive/resource inventory only | Provider search/auth/review/import, local/remote freedb alternatives, complete .src/.inc parser, JSON command family, schema/localization/preferences and source menus |
-| General settings | Action-library persistence only | Every documented option page, configuration backup/restore/migration, field values/history, directories, messages, networking, updates, localization, library database and tools |
-| Appearance | Supplied branding, explicit Light/Dark/System preference, persistence and bounded native appearance/compact-layout checks | Complete scaling/grid policies, all-control and actual-device qualification, live OS appearance-change replay |
-| File and OS operations | Loading, reviewed renames and exclusive-copy fallback | Explicit copy/move/delete/recycle/play, explorer/shell integration, directory history/favorites, CLI /fp /fn /add and associated-file behavior |
-| Technical/expression behavior | Detailed critical ledgers and measured producers | Close each unresolved scripting/filter/mapping/technical item with original/runtime evidence; function or test counts are insufficient |
+Status as of 2026-10-17 (`main` `9d3764b`). Only open work is listed; the item-level list is the [remaining-gaps register](research/remaining-gaps.md).
 
-## Concrete contradictions to resolve
+| Area | Required acceptance work |
+| --- | --- |
+| Metadata and file formats | Real-encoder TAK/OptimFROG fixtures, global Nero fields and covers, original runtime comparison |
+| File table and panel | Boost regex in Find, floating panel as a separate OS window, movable toolbar bands |
+| Saved operations | Persistent history across sessions |
+| Covers | Original resampler, quality and rounding equivalence |
+| Converters/numbering | Original differential semantics |
+| Actions/export/playlists | Original sort, locale and encoding proof |
+| Sources | Bounded live-provider verification |
+| General settings | Further bundled languages, setting-name audit against the binary, proxy credentials/SOCKS/PAC |
+| Toolbars | The original registers 75 toolbar command ids; OpenTag offers 30, so about 45 are not assignable |
+| File and OS operations | Associated `.lrc`/`.cdg` follow-along |
+| Technical/expression behavior | Close the unverified items (`$caps` word starts, truth model, error degradation) with original runtime evidence |
 
-The [MPEG preferences](https://docs.mp3tag.de/customization/options/tags/mpeg/) describe displaying one enabled tag kind, whereas the current backend merges unique fields from secondary tags. This is a functional policy gap, not just a missing settings screen. The [keyboard reference](https://docs.mp3tag.de/keyboard/) assigns Ctrl+O to Options, while the current UI uses it to open a folder. The File-menu and keyboard pages differ in their description of Ctrl+Shift+P; record original runtime behavior before deciding exact semantics.
+## Open contradiction
 
-The [cover-export reference](https://docs.mp3tag.de/actions/export-cover/) defines duplicates by both generated name and content. The audit reproduced the native host skipping a second requested filename because it suppressed by content hash alone. The bounded native correction now keys the normalized base destination plus content hash; [real-media regression evidence](CRITICAL-ACTIONS.md#cover-export-duplicate-identity-checkpoint) covers suppression and no-clobber protections. Exact original naming, filesystem identity and overwrite behavior remain open.
-
-The current [format reference](https://docs.mp3tag.de/file-formats/) explicitly lists DSF, OptimFROG, TAK, TTA, Matroska/WebM and other acceptance targets. DFF and MIDI are not listed there. Existing broader-ledger claims about those formats remain artifact/runtime research questions; TagLib support must not be substituted for proof that the reference application supports them. The [missing-format research](research/missing-formats.md) is a bounded next-backend recommendation, not implementation evidence.
+The current [format reference](https://docs.mp3tag.de/file-formats/) lists DSF, OptimFROG, TAK, TTA and Matroska/WebM but not DFF or MIDI. TagLib support must not be taken as proof that the reference application supports DFF or MIDI. The [missing-format research](research/missing-formats.md) is a bounded recommendation, not implementation evidence.
 
 ## Every official page
 
