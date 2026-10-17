@@ -6,7 +6,7 @@ import io
 import json
 import os
 from unittest import mock
-from pathlib import Path, PureWindowsPath
+from pathlib import Path, PurePosixPath, PureWindowsPath
 import subprocess
 import sys
 import tarfile
@@ -193,11 +193,12 @@ class SourceSafetyTests(unittest.TestCase):
         source = PureWindowsPath(r"D:\a\opentag\sources\ffmpeg")
         prefix = PureWindowsPath(r"D:\a\opentag\prefix")
         spec = {"ffmpeg": {"decoders": [], "demuxers": [], "parsers": []}}
-        command = self.build.ffmpeg_command("bash", source, prefix, spec, [])
+        command = self.build.ffmpeg_command("bash", source, prefix, spec, ["--toolchain=msvc"])
         self.assertEqual(command[1], "D:/a/opentag/sources/ffmpeg/configure")
         self.assertIn("--prefix=D:/a/opentag/prefix", command)
         self.assertIn("--extra-cflags=-ID:/a/opentag/prefix/include", command)
-        self.assertIn("--extra-ldflags=-LD:/a/opentag/prefix/lib", command)
+        self.assertIn("--extra-ldflags=-libpath:D:/a/opentag/prefix/lib", command)
+        self.assertFalse(any(flag.startswith("--extra-ldflags=-L") for flag in command))
         if os.name != "nt":
             # The same Unix dirname operation used by upstream configure.
             actual = subprocess.check_output(["bash", "-c", 'dirname "$1"', "path-test", command[1]], text=True)
@@ -210,6 +211,21 @@ class SourceSafetyTests(unittest.TestCase):
             (root / "ffbuild/config.log").write_text("compiler probe: linker missing\n")
             with self.assertRaisesRegex(RuntimeError, "compiler probe: linker missing"):
                 self.build.run([sys.executable, "-c", "raise SystemExit(1)"], root, root / "build.log")
+
+    def test_posix_configure_keeps_unix_library_search_flag(self):
+        spec = {"ffmpeg": {"decoders": [], "demuxers": [], "parsers": []}}
+        command = self.build.ffmpeg_command("bash", PurePosixPath("/src/ffmpeg"), PurePosixPath("/prefix"), spec, [])
+        self.assertIn("--extra-ldflags=-L/prefix/lib", command)
+
+    def test_windows_zlib_stages_same_archive_for_ffmpeg_and_cargo(self):
+        with tempfile.TemporaryDirectory() as folder:
+            prefix = Path(folder)
+            (prefix / "lib").mkdir()
+            payload = b"pinned static zlib archive"
+            (prefix / "lib/zs.lib").write_bytes(payload)
+            self.build.stage_windows_zlib(prefix)
+            self.assertEqual((prefix / "lib/zlib.lib").read_bytes(), payload)
+            self.assertEqual((prefix / "lib/z.lib").read_bytes(), payload)
 
     def test_pinned_patch_bytes_do_not_depend_on_windows_text_newlines(self):
         with tempfile.TemporaryDirectory() as folder:

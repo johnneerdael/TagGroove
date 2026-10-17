@@ -248,6 +248,14 @@ operation, and failed native builds now include the compiler/configure log
 instead of only its generic failure message. These twelve source-safety tests
 pass locally; the corrected MSVC build still requires its trusted CI run.
 
+The captured compiler log then identified `LNK4044`: the initial linker probe
+receives extra flags verbatim and rejects Unix `-L` on MSVC. Windows now uses
+`-libpath:` while other targets retain `-L`. The pinned FFmpeg MSVC flag filter
+also maps `-lz` to `zlib.lib`, whereas Cargo requests `z.lib`; both names are
+staged from the same verified `zs.lib` archive. Fourteen source-safety tests
+cover these target-specific command and archive contracts. Full MSVC native
+and packaging validation remains a required CI gate.
+
 Linux compiled and ran the producer, but its Vorbis result differed from the
 ARM golden by thirteen raw bits across 75 items. A local x86 source build
 reproduced that exact Linux result. The unmodified upstream fpcalc source was

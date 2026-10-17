@@ -236,8 +236,16 @@ def target_tools(target, env):
     return cmake, ffmpeg, shutil.which("bash") or "bash", shutil.which("make") or "make"
 
 
+def stage_windows_zlib(prefix):
+    # FFmpeg's MSVC filter maps -lz to zlib.lib; Cargo links static=z.
+    for name in ["zlib.lib", "z.lib"]:
+        shutil.copyfile(prefix / "lib/zs.lib", prefix / "lib" / name)
+
+
 def ffmpeg_command(bash, source, prefix, spec, target_flags):
     # Bash dirname and FFmpeg makefiles require forward slashes even on MSVC.
+    # FFmpeg passes extra linker flags through unchanged during its first probe.
+    library_path_flag = "-libpath:" if "--toolchain=msvc" in target_flags else "-L"
     flags = ["--prefix=" + prefix.as_posix(), "--disable-autodetect", "--disable-everything",
              "--disable-programs", "--disable-doc", "--disable-debug", "--disable-shared",
              "--enable-static", "--enable-pic", "--enable-asm", "--disable-network",
@@ -245,7 +253,7 @@ def ffmpeg_command(bash, source, prefix, spec, target_flags):
              "--disable-gpl", "--disable-nonfree", "--disable-version3",
              "--enable-avcodec", "--enable-avformat", "--enable-avutil", "--enable-swresample",
              "--enable-zlib", "--enable-bzlib", "--extra-cflags=-I" + (prefix / "include").as_posix(),
-             "--extra-ldflags=-L" + (prefix / "lib").as_posix(),
+             "--extra-ldflags=" + library_path_flag + (prefix / "lib").as_posix(),
              "--enable-decoder=" + ",".join(spec["ffmpeg"]["decoders"]),
              "--enable-demuxer=" + ",".join(spec["ffmpeg"]["demuxers"]),
              "--enable-parser=" + ",".join(spec["ffmpeg"]["parsers"]), *target_flags]
@@ -326,7 +334,7 @@ def build(target, output, jobs):
     cmake("zlib", native["zlib"], ["-DZLIB_BUILD_TESTING=OFF", "-DZLIB_BUILD_SHARED=OFF", "-DZLIB_BUILD_STATIC=ON"])
     if target.endswith("windows-msvc"):
         # Pinned zlib 1.3.2 names its Windows static target z + suffix "s".
-        shutil.copyfile(prefix / "lib/zs.lib", prefix / "lib/z.lib")
+        stage_windows_zlib(prefix)
     cmake("bzip2", HERE / "bzip2", ["-DBZIP2_SOURCE_DIR=" + str(native["bzip2"])])
     ffmpeg_build = work / "ffmpeg-build"
     ffmpeg_build.mkdir(exist_ok=True)
