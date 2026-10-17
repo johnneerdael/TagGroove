@@ -286,7 +286,7 @@ Windows app/API/package validation remains required on the corrected head.
 After language switching merged into main, the fingerprint setup, notices and
 backend diagnostics were registered in all three catalogs. The extractor now
 discovers the native crate's `std::error::Error` / `Display` messages, including
-`write_str` literals. Twenty-nine new keys have Dutch and German translations;
+`write_str` literals. Thirty-one new keys have Dutch and German translations;
 obsolete installation instructions were removed. The optional-override path
 uses the existing raw `path` role, and decoder details retain their raw
 `value` role. Regressions cover extraction/snapshot agreement, translated setup
@@ -311,3 +311,8 @@ or fingerprint tolerance. Both ARM and x86 actual APIs pass all fifteen native
 tests locally. The committed developer capture tool reproduces the original
 CLI comparison and records source, library and executable identities; normal
 tests execute no media program. No production fingerprint algorithm changed.
+
+The two lowercase-leading zlib/bzip2 license headings are retained through the
+explicit extra-key manifest. The catalog regression reads every component
+heading from the real notice metadata and requires generated English plus
+Dutch/German translations, preventing partial notice localization.

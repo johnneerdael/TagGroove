@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import ts from 'typescript';
-import {extractBackend,extractBackendSource} from '../scripts/i18n-extract.mjs';
+import {englishCatalog,extractBackend,extractBackendSource} from '../scripts/i18n-extract.mjs';
 
 const read=path=>readFile(new URL(`../${path}`,import.meta.url),'utf8');
 const js=ts.transpileModule(await read('src/i18n/core.ts'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
@@ -20,6 +20,16 @@ const nativeKeys=[
 ];
 const override='The optional fpcalc override was not found at {path}. Clear it to use built-in fingerprinting in Options → Tag Sources → Online services.';
 const timeout='Fingerprinting reached its time limit. The audio worker may still be stopping; try again shortly.';
+const licenses=ts.createSourceFile('audio-licenses.ts',await read('src/audio-licenses.ts'),ts.ScriptTarget.Latest,true);
+const headings=[];
+const visit=node=>{if(ts.isPropertyAssignment(node)&&node.name.getText(licenses)==='title'&&ts.isStringLiteral(node.initializer))headings.push(node.initializer.text);ts.forEachChild(node,visit);};
+visit(licenses);
+
+test('all component license headings survive English catalog generation',async()=>{
+  assert.ok(headings.length);
+  const generated=englishCatalog(),snapshot=JSON.parse(await read('src/i18n/catalogs/en.json'));
+  for(const heading of headings){assert.equal(generated[heading],heading);assert.equal(snapshot[heading],heading);}
+});
 
 test('native fingerprint Display diagnostics are discovered and registered',async()=>{
   const discovered=extractBackendSource(await read('crates/audio-fingerprint/src/lib.rs'));
@@ -31,7 +41,7 @@ test('native fingerprint Display diagnostics are discovered and registered',asyn
 for(const locale of ['de','nl'])test(`fingerprint setup and diagnostics translate in ${locale} without changing paths or decoder details`,async()=>{
   const catalog=JSON.parse(await read(`src/i18n/catalogs/${locale}.json`));
   const translator=new Translator(locale,catalog);
-  for(const key of [...nativeKeys,override,timeout,'Built-in audio fingerprinting','Optional fpcalc override (desktop)','Leave empty for built-in fingerprinting','Sources and releases']){
+  for(const key of [...headings,...nativeKeys,override,timeout,'Built-in audio fingerprinting','Optional fpcalc override (desktop)','Leave empty for built-in fingerprinting','Sources and releases']){
     assert.equal(typeof catalog[key],'string',key);
     assert.notEqual(translator.t(key),key,key);
   }

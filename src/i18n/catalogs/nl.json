@@ -2967,5 +2967,7 @@
  "The matching release includes complete corresponding application and native-library sources, build recipes and instructions for modifying and relinking these libraries. Library modification and reverse engineering for debugging modifications are permitted under their applicable licenses.": "De bijbehorende uitgave bevat de volledige bijbehorende broncode van de toepassing en native bibliotheken, bouwrecepten en instructies om deze bibliotheken aan te passen en opnieuw te linken. Het aanpassen van bibliotheken en reverse engineering om fouten in aanpassingen op te sporen zijn toegestaan onder de toepasselijke licenties.",
  "The optional fpcalc override was not found at {path}. Clear it to use built-in fingerprinting in Options → Tag Sources → Online services.": "Het optionele fpcalc-programma is niet gevonden op {path}. Maak het pad leeg bij Opties → Tagbronnen → Onlinediensten om de ingebouwde fingerprintberekening te gebruiken.",
  "There is not enough audio to calculate a fingerprint.": "Er is niet genoeg audio om een fingerprint te berekenen.",
- "Version {appVersion} · OpenTag source: MIT License": "Versie {appVersion} · OpenTag-broncode: MIT-licentie"
+ "Version {appVersion} · OpenTag source: MIT License": "Versie {appVersion} · OpenTag-broncode: MIT-licentie",
+ "zlib 1.3.2 — license": "zlib 1.3.2 — licentie",
+ "bzip2 1.0.8 — license": "bzip2 1.0.8 — licentie"
 }
