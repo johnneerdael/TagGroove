@@ -2,7 +2,7 @@
 # Fixtures for tests/e2e/web-sources.js, given the album folder ($1): a small
 # web site served on 127.0.0.1:18765 (search page, JSON albums, a cover image)
 # and test tag source files in ../web-sources that the suite installs. All
-# scripts here are written for OpenTag's tests; no third-party .src is used.
+# scripts here are written for TagGroove's tests; no third-party .src is used.
 set -euo pipefail
 album="$1"
 site="$album/../web-site" sources="$album/../web-sources"
@@ -21,7 +21,7 @@ JSON
 ffmpeg -loglevel error -y -f lavfi -i color=c=orange:s=64x64 -frames:v 1 "$site/cover.png"
 
 cat >"$sources/&Fixture#&Web Test.src" <<'SRC'
-# OpenTag web source test: an HTML index page and a JSON album page.
+# TagGroove web source test: an HTML index page and a JSON album page.
 [Name]=Fixture Web Test
 [BasedOn]=http://127.0.0.1:18765
 [IndexUrl]=http://127.0.0.1:18765/search.html?q=%s

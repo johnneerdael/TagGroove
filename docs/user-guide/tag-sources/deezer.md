@@ -33,11 +33,11 @@ Sources → Online services**. Choose **Covers: Deezer…** for artwork only.
 
 ## Lookup errors
 
-OpenTag spaces Deezer requests about 120 milliseconds apart. Deezer can
-report an error inside a successful HTTP response; OpenTag displays quota
+TagGroove spaces Deezer requests about 120 milliseconds apart. Deezer can
+report an error inside a successful HTTP response; TagGroove displays quota
 and missing-release messages rather than treating those as empty albums.
 Wait after a quota error. Check the album ID, barcode or search words after
-a missing result. OpenTag retrieves no Deezer streams or audio previews.
+a missing result. TagGroove retrieves no Deezer streams or audio previews.
 
 ## Related
 

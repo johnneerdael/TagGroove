@@ -46,7 +46,7 @@ export function batchErrorText(value:BatchDiagnostic,t:Fill=(key,params)=>englis
   switch(value.kind){
     case 'action':return t('{value} / action {value2}: {error}',{value:value.group,value2:value.index,error:detail(value.cause)});
     case 'action_validation':return t('{value}: {error}',{value:value.group,error:detail(value.cause)});
-    case 'history_changed':return t('Changed outside OpenTag after {value}; it was not {verb}',{value:historyLabelText(value.label,t),verb:verb(value.direction)});
+    case 'history_changed':return t('Changed outside TagGroove after {value}; it was not {verb}',{value:historyLabelText(value.label,t),verb:verb(value.direction)});
     case 'history_failed':return t('It was not {verb}: {error}',{verb:verb(value.direction),error:detail(value.cause)});
     case 'history_folders_failed':return t('Folders and side files could not be {verb}: {error}',{verb:verb(value.direction),error:detail(value.cause)});
     case 'destination_collision':return t('Destination exists or another file maps to {value}',{value:value.path});

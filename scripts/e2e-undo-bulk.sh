@@ -2,7 +2,7 @@
 # Saves one field across many generated FLAC files in the real desktop app and
 # undoes it. The files are APFS copy-on-write clones of one noise template
 # (`cp -c`), so the folder exceeds the undo cap in size while using little
-# disk. macOS only: OpenTag counts clone-backed snapshots by their rewritten
+# disk. macOS only: TagGroove counts clone-backed snapshots by their rewritten
 # region only where it can confirm the clone (APFS). Requires ffmpeg.
 # Usage: scripts/e2e-undo-bulk.sh [files] [--no-build]
 set -euo pipefail
@@ -16,9 +16,9 @@ files="${1:-100}"
 identifier="${OPENTAG_E2E_ID:-org.opentag.editor.e2e.history}"
 if [[ "${2:-}" != "--no-build" ]]; then
   (cd "$root" && AR="${AR:-/usr/bin/ar}" npx tauri build --debug --bundles app \
-    --config "{\"identifier\":\"$identifier\",\"productName\":\"OpenTag UserTest\"}" >/dev/null)
+    --config "{\"identifier\":\"$identifier\",\"productName\":\"TagGroove UserTest\"}" >/dev/null)
 fi
-bin="$root/target/debug/bundle/macos/OpenTag UserTest.app/Contents/MacOS/opentag"
+bin="$root/target/debug/bundle/macos/TagGroove UserTest.app/Contents/MacOS/taggroove"
 clone=(cp -c)
 work="$(mktemp -d)"; trap 'rm -rf "$work"' EXIT
 album="$work/album"; mkdir -p "$album"

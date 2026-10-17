@@ -3,7 +3,7 @@
 Open **File → Options… → Tools** to configure external programs for selected local audio files. Saved tools appear in the Tools menu and file-list context menu. The default tool can also run on a file double-click.
 
 !!! tip "New to this?"
-    Start with a player or inspection program and one copied file. A tool is a separate application: it can change files independently of OpenTag, so its changes are not automatically an OpenTag undo step.
+    Start with a player or inspection program and one copied file. A tool is a separate application: it can change files independently of TagGroove, so its changes are not automatically a TagGroove undo step.
 
 ## Add, edit, and reorder
 
@@ -27,7 +27,7 @@ For a program that accepts a file path, use:
 
 Arguments are separated by whitespace, and double quotes keep an argument together. An unmatched quote is an error. Placeholder values are inserted into the parsed arguments; a file path containing spaces remains one argument when the placeholder occupies one quoted argument.
 
-OpenTag starts the program directly, without a shell. Redirection, pipes, command substitution, and shell wildcard expansion are not performed. Enter the executable in **Path** and its arguments in **Parameter**, rather than a complete shell command in either field.
+TagGroove starts the program directly, without a shell. Redirection, pipes, command substitution, and shell wildcard expansion are not performed. Enter the executable in **Path** and its arguments in **Parameter**, rather than a complete shell command in either field.
 
 ## Placeholders
 
@@ -49,11 +49,11 @@ Relative placeholders depend on the root context. With several roots or a file o
 
 A new tool enables **for all selected files (otherwise only the first selected file)**. Enabled means launch one process per selected file. Disabled means run once for the first selected file; it does not collect every selected path into one argument list.
 
-OpenTag asks before launching a per-file tool for more than ten files. The backend limits one per-file invocation request to 100 selected files. Save pending changes first so an external program reads the intended on-disk data. Tool availability is limited to supported local-file contexts; a provider-backed document is not automatically an executable filesystem path.
+TagGroove asks before launching a per-file tool for more than ten files. The backend limits one per-file invocation request to 100 selected files. Save pending changes first so an external program reads the intended on-disk data. Tool availability is limited to supported local-file contexts; a provider-backed document is not automatically an executable filesystem path.
 
 ## Default tool
 
-**Default tool (double-click in the file list)** defaults to **No action**. Select a configured tool to launch it on a file double-click. **No action** disables the external-tool action; it does not remove explicit tools from menus. OpenTag’s file-list double-click falls back to **Extended tags…** when no default tool is selected. This differs from Mp3tag’s documented no-action behavior.
+**Default tool (double-click in the file list)** defaults to **No action**. Select a configured tool to launch it on a file double-click. **No action** disables the external-tool action; it does not remove explicit tools from menus. TagGroove’s file-list double-click falls back to **Extended tags…** when no default tool is selected. This differs from Mp3tag’s documented no-action behavior.
 
 If another program modifies tags, use **Reload tags** to read its changes. Keep the [Library](library.md) timestamp/size cache rules in mind when an external editor preserves those attributes.
 

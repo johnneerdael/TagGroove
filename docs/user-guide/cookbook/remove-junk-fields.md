@@ -2,7 +2,7 @@
 
 Use **Remove Fields Except** when the remaining field set is known and every
 other exposed field should be removed. Build the list from the actual files;
-OpenTag does not decide which identifiers, comments or custom fields are junk.
+TagGroove does not decide which identifiers, comments or custom fields are junk.
 Use **Remove Fields** instead when only a few unwanted names are known.
 
 ## Inventory a copied file first

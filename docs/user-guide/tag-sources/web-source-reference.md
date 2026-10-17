@@ -8,7 +8,7 @@ not a `$function(...)` call.
 Start with the [local JSON lesson](writing-web-sources.md) for a complete
 source and [installation guide](web-sources.md) for menus/settings. This page
 covers every header in the canonical source format and all 59 commands accepted
-by the checked OpenTag parser. Examples inspect parser output directly; they
+by the checked TagGroove parser. Examples inspect parser output directly; they
 do not certify a provider, track matching or an audio-file write.
 
 ## Description headers
@@ -29,12 +29,12 @@ recognized and non-UTF-8 legacy text falls back to Windows-1252.
 | `[IndexFormat]` | Pipe-separated result fields; `%_url%` is required for a result list |
 | `[SearchBy]` | Up to three labelled search fields with defaults and URL fragments |
 | `[Encoding]` | Encoding/escaping policy for search words in URLs; separate from source-file encoding |
-| `[UserAgent]` | `1` requests OpenTag's own name/version user agent; otherwise the web-source browser-style agent is used |
+| `[UserAgent]` | `1` uses the application's standard HTTP user agent; otherwise the web-source browser-style agent is used |
 | `[ParserScriptIndex]` | Script that emits the result list into the default `OUTPUT` buffer |
 | `[ParserScriptAlbum]` | Required script that emits release and track fields |
 | `[Include]` | Plain companion filename whose keys replace this file's keys |
-| `[MinAppVersionWin]` | Upstream Windows minimum-version declaration, retained as source metadata; not an OpenTag compatibility certificate |
-| `[MinAppVersionMac]` | Equivalent upstream Mac declaration; check OpenTag commands independently |
+| `[MinAppVersionWin]` | Upstream Windows minimum-version declaration, retained as source metadata; not a TagGroove compatibility certificate |
+| `[MinAppVersionMac]` | Equivalent upstream Mac declaration; check TagGroove commands independently |
 | `[Settings]` | Plain `.settings` schema filename used by this source's configuration variables |
 
 A source needs an album parser. A missing index URL or index parser makes it
@@ -71,12 +71,12 @@ explicit substitution point is clearer.
 | `ansi` | The web-source query implementation uses Windows-1252 with that ASCII escaping policy |
 
 The `ansi` row concerns this URL builder. It is not a statement that every
-OpenTag ANSI operation uses the same platform codepage. Prefer `url-utf-8` for
+TagGroove ANSI operation uses the same platform codepage. Prefer `url-utf-8` for
 a UTF-8 API unless its actual requirements say otherwise.
 
 A complete-address direct lookup is different from a search term. When there
 is no album base and exactly one search field with the fragment `%s`, such as
-`URL||%www%||%s`, OpenTag uses that field as the complete address. It preserves
+`URL||%www%||%s`, TagGroove uses that field as the complete address. It preserves
 query delimiters, fragments and existing percent escapes instead of applying
 word splitting, WordSeparator or Encoding to the address. The normal HTTP(S)
 address validation still applies; a stored value does not authorize file URLs

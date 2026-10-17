@@ -1,6 +1,6 @@
 # Reuse loaded metadata with the Library
 
-The Library is a persistent cache of metadata OpenTag has read. It can avoid
+The Library is a persistent cache of metadata TagGroove has read. It can avoid
 parsing unchanged files again when you reopen an album. It does not contain
 your music, scan an entire disk by itself or turn a remembered path into an
 accessible audio file.
@@ -86,21 +86,21 @@ examples of cache eligibility, rather than a complete corruption detector:
 | **File → Reload tags** is requested | Force a new read instead of reusing the entry |
 | An external edit keeps both size and timestamp unchanged | The old entry can still look valid; force a reload |
 
-OpenTag's own supported write/move/delete paths invalidate affected cache
+TagGroove's own supported write/move/delete paths invalidate affected cache
 entries so a later load reads them again. That is not an automatic watch of
 every external program's changes. A collection manager or timestamp-preserving
 editor can leave the stamp unchanged.
 
 When a value looks stale:
 
-1. Inspect whether OpenTag shows a **pending** value rather than a saved one.
+1. Inspect whether TagGroove shows a **pending** value rather than a saved one.
    Resolve pending edits deliberately before discarding them.
 2. Select the affected files and choose **File → Reload tags**
    (++cmd+t++ / ++ctrl+t++). The normal pending-edit confirmation explains
    that reloading discards selected unsaved intent.
 3. Compare the result with the tag-reading policy and the actual saved file.
    Multiple stored tag blocks or a player's own cache can explain disagreement
-   even after OpenTag's Library entry is refreshed.
+   even after TagGroove's Library entry is refreshed.
 4. If deliberately rebuilding the cache is needed, use **Clear Library…**
    as described below. Clearing it does not repair file contents.
 
@@ -160,7 +160,7 @@ The cache still performs filesystem checks and database I/O. Slow/removable
 storage, network latency or endpoint scanning can limit the benefit. Inspect
 the hit/read counts and actual storage behavior before attributing all loading
 time to tag parsing. The original documentation's Windows Defender exclusion
-names a different application's executable; it is not an OpenTag prerequisite
+names a different application's executable; it is not a TagGroove prerequisite
 or a recommendation to change your computer's security policy.
 
 These instructions describe the current local-file cache and its controls.

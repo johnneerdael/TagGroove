@@ -53,7 +53,7 @@ function aboutHost(failure){
 }
 
 for(const platform of ['Android','iOS'])test(`About source link displays the ${platform} browser fallback`,async()=>{
-  const fallback='Open https://github.com/johnneerdael/opentag/releases in a browser';
+  const fallback='Open https://github.com/johnneerdael/TagGroove/releases in a browser';
   const host=aboutHost(fallback);await host.operate('about');
   host.button.dispatchEvent(new Event('click'));await new Promise(resolve=>setImmediate(resolve));
   const error=host.dialog.querySelector('.dialog-error');

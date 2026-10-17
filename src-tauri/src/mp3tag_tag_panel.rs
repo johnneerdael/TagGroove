@@ -13,7 +13,7 @@
 //! - `default`: the default value (`< keep >`, `< blank >` or text).
 //!
 //! Older files can also carry per-field `custom_values` and `prefer_tag`, which
-//! OpenTag keeps in Field Values; those are reported instead of imported.
+//! TagGroove keeps in Field Values; those are reported instead of imported.
 use crate::import_diagnostics::ImportFailure;
 use crate::mp3tag_columns::{flag, lookup, sections};
 use crate::tag_panel::{

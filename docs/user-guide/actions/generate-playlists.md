@@ -19,7 +19,7 @@ playlist; choose an extension supported by the playlist writer.
 
 ## Understand partitions
 
-OpenTag evaluates **Partition format** for every selected track. Tracks
+TagGroove evaluates **Partition format** for every selected track. Tracks
 with exactly equal results form a group. For each group, it evaluates
 **Playlist filename format** using that group's first track.
 

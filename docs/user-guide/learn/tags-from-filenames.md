@@ -6,7 +6,7 @@ information, and learn to recognize a pattern that matches but captures
 the wrong meaning. The names themselves will stay unchanged.
 
 - [ ] Two copied, writable whole-track audio files; keep the originals elsewhere.
-- [ ] A practice layout like the one below, with no unsaved OpenTag edits.
+- [ ] A practice layout like the one below, with no unsaved TagGroove edits.
 - [ ] Familiarity with selecting files and opening **Extended tags…**.
 
 <!-- learn-filename-layout:start -->

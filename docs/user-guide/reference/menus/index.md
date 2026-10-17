@@ -50,4 +50,4 @@ workflows can lack directory picking or native file operations.
 
 An entry documented for another application, such as a separate **Exit** item
 or a different playlist-generator shortcut, is not automatically part of
-OpenTag. Use the current visible labels and linked workflow instructions.
+TagGroove. Use the current visible labels and linked workflow instructions.

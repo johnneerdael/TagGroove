@@ -8,7 +8,7 @@ different supported tag path.
 ## Choose a format by the file, not by its name alone
 
 Changing an extension does not transcode audio or install another tag format.
-OpenTag checks file contents and uses the supported writer for that format.
+TagGroove checks file contents and uses the supported writer for that format.
 The [format reference](../reference/file-formats.md) lists exact current
 read/write/remove capabilities and exceptional layouts.
 
@@ -39,7 +39,7 @@ Suppose one copied practice MP3 physically contains:
 | APEv2 | `Archive Title` | Absent |
 <!-- format-stored-blocks:end -->
 
-OpenTag's Mpeg reading policy chooses an enabled block in priority order:
+TagGroove's Mpeg reading policy chooses an enabled block in priority order:
 APE, then ID3v2, then ID3v1. It does not merge an album from one block into
 a title selected from another. The following Read switches produce these
 results for that same physical file after pending edits are resolved and

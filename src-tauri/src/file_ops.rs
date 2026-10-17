@@ -526,7 +526,7 @@ pub fn parse_launch(
 }
 
 /// Paths from a macOS open-documents event: Finder "Open With", files dropped on
-/// the Dock icon and `open -a OpenTag <paths>`. Like a drop or Mp3tag's Explorer
+/// the Dock icon and `open -a TagGroove <paths>`. Like a drop or Mp3tag's Explorer
 /// context menu they replace the file list. URLs other than `file:` are ignored.
 pub fn opened_request(
     urls: &[tauri::Url],
@@ -758,7 +758,7 @@ mod tests {
     fn system_trash_removes_the_probe_file() {
         let dir = tempfile::tempdir().unwrap();
         let probe = dir.path().join("opentag-trash-probe.txt");
-        std::fs::write(&probe, b"OpenTag trash probe; safe to delete").unwrap();
+        std::fs::write(&probe, b"TagGroove trash probe; safe to delete").unwrap();
         let path = probe.to_string_lossy().into_owned();
         let result = trash_paths(std::slice::from_ref(&path), move_to_trash);
         assert!(result.errors.is_empty(), "{:?}", result.errors);

@@ -1,0 +1,8 @@
+:root {
+  --taggroove-ink: #101922;
+  --taggroove-paper: #FAFAFC;
+  --taggroove-amber: #FFC72C;
+  --taggroove-orange: #FF7800;
+  --taggroove-vermilion: #F23D0B;
+  --taggroove-gradient: linear-gradient(135deg, #FFE84A 0%, #FFB70B 33%, #FF7900 64%, #F13A08 100%);
+}

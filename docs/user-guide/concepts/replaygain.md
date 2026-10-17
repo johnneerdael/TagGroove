@@ -25,7 +25,7 @@ for the measurement and playback model.
 A stored gain is not a volume percentage, a peak reading, or the track's
 bitrate. Changing the number by hand does not run a loudness analysis.
 Whether playback uses track gain, album gain, additional preamp gain or no
-ReplayGain depends on the player. OpenTag's field display is not a playback
+ReplayGain depends on the player. TagGroove's field display is not a playback
 meter.
 
 ## Read the stored text before changing it
@@ -43,7 +43,7 @@ real tracks as a normalization recipe.
 | `REPLAYGAIN_ALBUM_PEAK` | `0.990000` |
 <!-- replaygain-concept-fields:end -->
 
-OpenTag can inspect these stored fields in **Extended tags**. A custom
+TagGroove can inspect these stored fields in **Extended tags**. A custom
 column or export can read their placeholders, for example
 `%replaygain_track_gain%`. Unknown text fields use the tag family's supported
 custom-field path, so storage and player interpretation can differ by format.
@@ -56,13 +56,13 @@ write timing. Reopen/read back the saved file before deciding that a player's
 lack of volume change is a failed tag save. It may be ignoring the field or
 using a different playback mode. Use an audio-analysis tool that supports
 your target workflow to calculate gains from the recording; this guide's
-OpenTag workflows edit the stored metadata.
+TagGroove workflows edit the stored metadata.
 
 ## Preservation during MPEG saves has conditions
 
-An MP3 can have ReplayGain data in an APEv2 tag while OpenTag displays its
+An MP3 can have ReplayGain data in an APEv2 tag while TagGroove displays its
 ID3v2 tag. A normal save may remove the APE tag according to **Mpeg**
-preferences. In that path, when ID3v2 is being written, OpenTag has a specific
+preferences. In that path, when ID3v2 is being written, TagGroove has a specific
 safeguard: it copies nonempty `REPLAYGAIN_` and `MP3GAIN_` fields from the
 removed, undisplayed APE tag if the full displayed values and existing ID3v2
 tag do not already contain that field name. Existing values take precedence;
@@ -85,9 +85,9 @@ Do not generalize that safeguard to **Remove tag**, an explicit field
 removal action, a save without an ID3v2 target, or every container format.
 A broad keep-list action can erase loudness fields that are not listed.
 `MP3GAIN_UNDO` is another tool's restoration information, not a ReplayGain
-track gain or OpenTag's **Edit → Undo** history. Preserve it when needed.
+track gain or TagGroove's **Edit → Undo** history. Preserve it when needed.
 
-## What this means in OpenTag
+## What this means in TagGroove
 
 Before cleaning tags, inspect the actual tag families and stored field names,
 and retain original files. Keep track and album measurements together where
@@ -97,7 +97,7 @@ than copying numbers blindly. After an operation, verify the written fields
 and the receiving player's settings separately.
 
 Removing gain metadata does not itself reverse audio changes made by a
-different program. OpenTag session undo can restore recorded file operations
+different program. TagGroove session undo can restore recorded file operations
 while available; it does not reconstruct missing analysis or another tool's
 lost recovery information.
 

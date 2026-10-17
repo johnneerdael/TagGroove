@@ -18,7 +18,7 @@ The initial panel contains Title, Artist, Album, Year, Track, Genre, Comment, Al
 | Control | Meaning |
 |---|---|
 | **Name** | Visible label. An `&` before a letter makes it an Alt mnemonic; `&&` displays a literal ampersand. |
-| **Field** | Metadata field identifier, such as `TITLE` or `MOOD`. OpenTag normalizes it to uppercase. It is independent of the label. |
+| **Field** | Metadata field identifier, such as `TITLE` or `MOOD`. TagGroove normalizes it to uppercase. It is independent of the label. |
 | **Default value** | The value staged by default-value workflows; see below. |
 | **Type** | **Text**, **Check**, or **Multiline**. Choose Multiline for comments or lyrics. |
 | **Size of field** | Layout width: **Full**, **Larger**, **Large**, **Medium**, **Normal**, **Small**, **Smaller**, or **Tiny**. Consecutive fields share a row where their widths fit. |
@@ -40,7 +40,7 @@ A Check control treats empty text and `0`, `false`, or `no` as off, and other no
 
 **Display cover art** controls whether the panel shows its artwork area. [Tags](tags.md) separately controls whether a folder image can stand in for missing embedded artwork.
 
-**Save configuration…** exports the layout currently being edited. **Load configuration…** loads an OpenTag layout for review. **Import Mp3tag configuration…** reads a selected supported Mp3tag panel configuration, reports skipped entries, and places imported controls in the editor. Review that report before the editor's **OK** makes the layout active. Importing a layout does not import the audio collection or tag values.
+**Save configuration…** exports the layout currently being edited. **Load configuration…** loads a TagGroove layout for review. **Import Mp3tag configuration…** reads a selected supported Mp3tag panel configuration, reports skipped entries, and places imported controls in the editor. Review that report before the editor's **OK** makes the layout active. Importing a layout does not import the audio collection or tag values.
 
 The editor saves independently of its parent Options dialog. Canceling it discards unsaved layout edits, but does not remove an already exported configuration file.
 
@@ -50,4 +50,4 @@ The editor saves independently of its parent Options dialog. Canceling it discar
 - [Tags and save behavior](tags.md)
 - [Appearance](appearance.md)
 
-<!-- verified: src/tag-panel.ts defaultLayout, configure, layoutError, mnemonic, sizeSpan, automaticDefaults, checkState; src-tauri/src/mp3tag_tag_panel.rs import; baseline007a806 includes this editor. Canonical options/tag-panel delegates to customization; detail is original OpenTag reference. -->
+<!-- verified: src/tag-panel.ts defaultLayout, configure, layoutError, mnemonic, sizeSpan, automaticDefaults, checkState; src-tauri/src/mp3tag_tag_panel.rs import; baseline007a806 includes this editor. Canonical options/tag-panel delegates to customization; detail is original TagGroove reference. -->

@@ -11,7 +11,7 @@ Open **File → Options… → Directories** for folder scanning and the startin
 
 ## Favorite directory
 
-OpenTag keeps an ordered list of favorites through **File → Favorite directories…** rather than a single favorite-path input on this page. Add the folders used frequently and put the preferred one first. **File → Favorite directory** or ++ctrl+m++ opens the first favorite. Control is used on every platform, including macOS.
+TagGroove keeps an ordered list of favorites through **File → Favorite directories…** rather than a single favorite-path input on this page. Add the folders used frequently and put the preferred one first. **File → Favorite directory** or ++ctrl+m++ opens the first favorite. Control is used on every platform, including macOS.
 
 Managing favorites is separate from choosing a startup mode. Adding a favorite does not automatically load it every time the app starts.
 
@@ -33,7 +33,7 @@ If there is no matching recent/favorite entry, there is no folder to restore. Fi
 
 Accepted forms include a full path, a path relative to the selected audio file's folder, and a format string using its fields. For example, `Artwork` points to an `Artwork` subfolder of the selected file's folder; `%artist%` can supply a component of a configured image archive path.
 
-If the configured location is empty or cannot be opened, OpenTag tries the first selected file's folder when that folder contains an image. Otherwise it uses a valid working folder, falling back to the selected file’s folder when no valid working folder is available. Select the intended file before opening the picker, since the initial location derives from the selection.
+If the configured location is empty or cannot be opened, TagGroove tries the first selected file's folder when that folder contains an image. Otherwise it uses a valid working folder, falling back to the selected file’s folder when no valid working folder is available. Select the intended file before opening the picker, since the initial location derives from the selection.
 
 ## Related
 

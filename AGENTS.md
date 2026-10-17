@@ -1,4 +1,4 @@
-# OpenTag contributor instructions
+# TagGroove contributor instructions
 
 Use a feature branch and pull request. Follow [the contribution workflow](docs/CONTRIBUTING.md).
 

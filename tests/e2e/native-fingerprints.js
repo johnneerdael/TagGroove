@@ -42,7 +42,7 @@
     options.querySelector('[data-page="tag-sources-online"]').click();
     const override=await waitFor(()=>options.querySelector('[data-option="pages.tag-sources-online.fpcalc"]'),'optional override');
     await check(override.value===''&&override.placeholder==='Leave empty for built-in fingerprinting','default needs no executable path');
-    await check(options.textContent.includes('no extra program is needed')&&!options.textContent.includes('OpenTag does not include it'),'settings teach the included producer');
+    await check(options.textContent.includes('no extra program is needed')&&!options.textContent.includes('TagGroove does not include it'),'settings teach the included producer');
     await report('VISUAL_READY Optional desktop override settings');
     if(window.OPENTAG_NATIVE_VISUAL_PAUSE)await new Promise(resolve=>setTimeout(resolve,15000));
     options.querySelector('#options-cancel').click();

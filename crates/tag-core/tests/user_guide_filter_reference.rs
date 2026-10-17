@@ -1,5 +1,5 @@
 //! Execute the guide's filter questions and check its native identifier tables.
-//! These tests validate OpenTag documentation, not original-Mp3tag runtime parity.
+//! These tests validate TagGroove documentation, not original-Mp3tag runtime parity.
 use tag_core::{compile_filter, matches_filter, Fields, FIELD_MAPPINGS};
 
 const FILTER: &str = include_str!("../../../docs/user-guide/reference/filter-syntax.md");

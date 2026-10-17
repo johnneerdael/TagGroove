@@ -41,7 +41,7 @@ pub enum Encoding {
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
 pub struct SearchField {
     pub label: String,
-    /// Only labels synthesized by OpenTag follow the application language.
+    /// Only labels synthesized by TagGroove follow the application language.
     pub default_label: bool,
     pub format: String,
     #[serde(skip)]

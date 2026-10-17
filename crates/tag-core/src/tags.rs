@@ -1118,7 +1118,7 @@ pub fn write_chapter_rows(
 /// fresh path rather than into an already opened temporary file, so it can be a
 /// copy-on-write clone (APFS `clonefile`) that shares every block the write
 /// does not change; elsewhere it is an ordinary copy (`copy_file_range`, which
-/// may reflink, but OpenTag cannot tell). Either way it is a new inode: writes
+/// may reflink, but TagGroove cannot tell). Either way it is a new inode: writes
 /// never reach `source`, and persisting it renames it over the original. The
 /// file is removed when the handle is dropped unpersisted. [`clones_in`]
 /// reports whether copies in `dir` are clones.

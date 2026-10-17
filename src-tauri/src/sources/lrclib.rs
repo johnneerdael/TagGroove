@@ -5,7 +5,7 @@
 //! UNSYNCEDLYRICS (Mp3tag's field: ID3 USLT, MP4 ©lyr, Vorbis/APE
 //! UNSYNCEDLYRICS); with the option set, the time-stamped LRC text is written
 //! there instead, as many players read it from that field. Mp3tag maps no
-//! field to ID3's synchronised lyrics frame (SYLT), so neither does OpenTag.
+//! field to ID3's synchronised lyrics frame (SYLT), so neither does TagGroove.
 use super::model::*;
 use serde_json::Value;
 use std::collections::HashMap;
