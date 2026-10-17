@@ -25,6 +25,11 @@ def connector(record):
     return record["user"]["login"] == CODEX and record["user"].get("type") == "Bot"
 
 
+def code_review_request(body):
+    """Recognize the code-review command, including trailing instructions."""
+    return bool(re.match(r'@codex\s+review(?:\s|$)', (body or '').strip(), re.I))
+
+
 def reviewed_commit_matches(record, written, head):
     if not re.fullmatch(r"[0-9a-f]{7,40}", written):
         return False
@@ -78,7 +83,7 @@ def eligibility(pr, reviews, comments, threads, reactions=(), inline=()):
         body = (comment.get("body") or "").strip()
         trusted = (comment["user"]["login"] == pr["user"]["login"]
                    or comment.get("author_association") in {"OWNER", "MEMBER", "COLLABORATOR"})
-        if trusted and re.fullmatch(r"@codex\s+review", body, re.I):
+        if trusted and code_review_request(body):
             requests.append(timestamp(comment.get("updated_at") or comment.get("created_at")))
         if not connector(comment):
             continue

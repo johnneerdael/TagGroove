@@ -12,7 +12,7 @@ import re
 import sys
 import subprocess
 
-from codex_review import GitHub as BaseGitHub, connector, timestamp
+from codex_review import GitHub as BaseGitHub, code_review_request, connector, timestamp
 from release_notes import validate_release_notes
 
 CONTEXT = 'Reviewed PR builds'
@@ -111,22 +111,34 @@ def reconcile(api, number, retry=False):
         pr_number=str(number), head_sha=head, base_sha=base, merge_sha=merge)))
 
 
-def invalidate_comment(api, event):
-    """Withdraw stale approval for review comments; never authorize or dispatch."""
-    issue = event.get('issue', {})
-    if 'pull_request' not in issue:
-        return
-    number = issue['number']
-    pr = api.get(f'pulls/{number}')
+def invalidate_metadata(api, event):
+    """Withdraw stale approval for review metadata; never authorize or dispatch."""
+    pr_event = event.get('pull_request')
+    if pr_event is not None:
+        if event.get('action') not in {'review_requested', 'converted_to_draft'}:
+            return
+        number = event['number']
+    else:
+        issue = event.get('issue', {})
+        if 'pull_request' not in issue:
+            return
+        number = issue['number']
+    # Recover the current head from one transient lookup failure before denying
+    # stale approval. An event payload must never choose the status revision.
+    try:
+        pr = api.get(f'pulls/{number}')
+    except Exception:
+        pr = api.get(f'pulls/{number}')
     if pr['state'] != 'open' or pr['base']['ref'] != 'main':
         return
-    comment = event['comment']
-    trusted = (comment['user']['login'] == pr['user']['login']
-               or comment.get('author_association') in {'OWNER', 'MEMBER', 'COLLABORATOR'})
-    bodies = [comment.get('body') or '', event.get('changes', {}).get('body', {}).get('from') or '']
-    request = trusted and any(re.fullmatch(r'@codex\s+review', body.strip(), re.I) for body in bodies)
-    if not request and not connector(comment):
-        return
+    if pr_event is None:
+        comment = event['comment']
+        trusted = (comment['user']['login'] == pr['user']['login']
+                   or comment.get('author_association') in {'OWNER', 'MEMBER', 'COLLABORATOR'})
+        bodies = [comment.get('body') or '', event.get('changes', {}).get('body', {}).get('from') or '']
+        request = trusted and any(code_review_request(body) for body in bodies)
+        if not request and not connector(comment):
+            return
     try:
         pr, (eligible, reason) = api.snapshot(number)
     except Exception:
@@ -204,13 +216,13 @@ def reconcile_main(api, source):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('mode', choices=['reconcile', 'invalidate-comment', 'preflight', 'verify', 'finish', 'main', 'release-check'])
+    parser.add_argument('mode', choices=['reconcile', 'invalidate-metadata', 'preflight', 'verify', 'finish', 'main', 'release-check'])
     parser.add_argument('--pr', type=int, default=0)
     parser.add_argument('--retry', action='store_true')
     args = parser.parse_args()
     api = GitHub(os.environ['GITHUB_REPOSITORY'])
-    if args.mode == 'invalidate-comment':
-        invalidate_comment(api, json.loads(Path(os.environ['GITHUB_EVENT_PATH']).read_text()))
+    if args.mode == 'invalidate-metadata':
+        invalidate_metadata(api, json.loads(Path(os.environ['GITHUB_EVENT_PATH']).read_text()))
     elif args.mode == 'reconcile':
         numbers = [args.pr] if args.pr else [pr['number'] for pr in api.pages('pulls?state=open&base=main&per_page=100')]
         errors = []

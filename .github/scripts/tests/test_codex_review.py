@@ -145,6 +145,14 @@ class EligibilityTests(unittest.TestCase):
             pull[key] = [dict(login="reviewer")]
             self.assertFalse(self.check(pull=pull))
 
+    def test_code_review_request_prefix_accepts_instructions_without_security_review(self):
+        for body in ('@codex review', '@CODEX REVIEW the complete final code diff', '@codex review\nFocus on the gate'):
+            with self.subTest(body=body):
+                self.assertTrue(self.gate.code_review_request(body))
+        for body in ('@codex security review', '@codex reviewer', 'Please @codex review', '@codex review-security'):
+            with self.subTest(body=body):
+                self.assertFalse(self.gate.code_review_request(body))
+
     def test_new_or_edited_code_request_needs_a_later_completion(self):
         request = dict(user=dict(login="author"), body="@codex review", created_at="2026-10-15T09:00:00Z")
         self.assertTrue(self.check(comments=[request]))
