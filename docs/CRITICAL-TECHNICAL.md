@@ -1,5 +1,7 @@
 # Critical technical placeholder production
 
+> **Status note.** Written on 2026-10-14 and corrected piecemeal since. Where it disagrees with the [remaining-gaps register](research/remaining-gaps.md), the register is current.
+
 The [official format placeholder inventory](https://docs.mp3tag.de/format/) and [date formatting contract](https://docs.mp3tag.de/scripting/#date-and-time-formatting) were checked on 2026-10-14. This ledger covers all 72 names in the scripting audit. Resolution of supplied fields and production of real values are separate obligations; this document records production, including intentional absence.
 
 `AudioEntry.technical` is a defaultable `Fields` map with uppercase underscore-prefixed names and string-array values. Stored tag metadata stays in `AudioEntry.fields`. Callers merge technical values into evaluation context while retaining `fields` as raw metadata for `$list`. `CoverInfo` adds defaultable `size: u64`, `width: Option<u32>`, and `height: Option<u32>`. Summary results keep `data_base64` empty; all other descriptors and technical properties match full reads. Old serialized entries lacking the new fields still deserialize.
@@ -38,7 +40,7 @@ The filter RPC evaluates a caller-supplied field map. The frontend now merges op
 | `%_tag_size_appended%` | Measured, conditional where noted | Tag bytes after the audio data. |
 | `%_tag_size_prepended%` | Measured, conditional where noted | Tag bytes before the audio data. |
 | `%_tool%` | Measured, conditional where noted | Literal stored Vorbis vendor for FLAC/Vorbis/Opus/Speex, when present; no invented ENCODER metadata field. |
-| `%_vbr%` | Absent from audio technical map | Not yet measured: no bitrate-mode guess is made from an averaged bitrate or codec name. |
+| `%_vbr%` | Measured, conditional where noted | CBR/VBR from the stream header (`raw_streams.rs`); empty when the format gives no mode. |
 | `%_video_bitrate%` | Measured, conditional where noted | Video stream property for MP4 and Matroska files (`mp4_chapters.rs`, `matroska.rs`); absent for audio-only files. |
 | `%_video_codec%` | Measured, conditional where noted | Video stream property for MP4 and Matroska files (`mp4_chapters.rs`, `matroska.rs`); absent for audio-only files. |
 | `%_video_height%` | Measured, conditional where noted | Video stream property for MP4 and Matroska files (`mp4_chapters.rs`, `matroska.rs`); absent for audio-only files. |
@@ -51,8 +53,8 @@ The filter RPC evaluates a caller-supplied field map. The frontend now merges op
 | `%_path%` | Measured, conditional where noted | Canonical source path; staging names are refreshed after atomic persistence. |
 | `%_parent_directory%` | Measured, conditional where noted | Canonical source grandparent directory name. |
 | `%_volume%` | Absent from audio technical map | Not yet measured: platform volume label. |
-| `%_workingdir%` | Absent from audio technical map | Caller-owned runtime context; not produced by audio reads. |
-| `%_workingpath%` | Absent from audio technical map | Caller-owned runtime context; not produced by audio reads. |
+| `%_workingdir%` | Caller-owned runtime context | Working folder name, filled by the evaluation context rather than by audio reads. |
+| `%_workingpath%` | Caller-owned runtime context | Working folder path, filled by the evaluation context rather than by audio reads. |
 | `%_file_create_date%` | Measured, conditional where noted | Filesystem birth time, local short date; absent when the filesystem does not supply creation time. |
 | `%_file_create_datetime%` | Measured, conditional where noted | Filesystem birth time, local date/time; absent when unavailable. |
 | `%_file_create_datetime_raw%` | Measured, conditional where noted | Filesystem birth time in signed Unix seconds, absent when unavailable. |
@@ -71,7 +73,7 @@ The filter RPC evaluates a caller-supplied field map. The frontend now merges op
 | `%_folderpath_rel%` | Export only | Relative folder supplied by pure export renderer. |
 | `%_crc%` | Export only | Native export host streams CRC32 only when requested. |
 | `%_md5%` | Export only | Native export host streams full-file MD5 only when requested. |
-| `%_md5audio%` | Absent from audio technical map | Explicitly unsupported by native export host until codec-specific audio hashing is qualified; no fake hash. |
+| `%_md5audio%` | Measured on request | MD5 of the audio data computed on demand for exports and filters (`src-tauri/src/file_hashes.rs`). |
 | `%_max_counter%` | Export only | Export loop state. |
 | `%_total_files%` | Export only | Export loop totals. |
 | `%_total_size%` | Export only | Export loop totals and formatting. |
@@ -95,7 +97,7 @@ All supported formats now use one concrete metadata/properties parse for each su
 
 The current native metadata library still reads embedded picture bytes internally. This work removes repeated parses and serialized picture payloads; it does not claim a zero-allocation or picture-byte-skipping parser. Technical maps contain small measured strings and do not duplicate image bytes. Hashes are not calculated during scans.
 
-The tag names, cover-type labels, mixed-tag precedence, duration rounding, file-size formatting, opaque-frame classification, and codec-name presentation require original-executable differential qualification for exact display parity. The source measurements and absence behavior are covered by generated-audio tests. This is not full technical-placeholder parity: bitrate/compression-profile labels, platform volume labels, runtime clock/working-directory context, playlist context, and audio-only MD5 remain separate obligations.
+The tag names, cover-type labels, mixed-tag precedence, duration rounding, file-size formatting, opaque-frame classification, and codec-name presentation require original-executable differential qualification for exact display parity. The source measurements and absence behavior are covered by generated-audio tests. This is not full technical-placeholder parity: bitrate/compression-profile labels, platform volume labels, runtime clock/working-directory context, playlist context, remain separate obligations.
 
 ## Verification
 

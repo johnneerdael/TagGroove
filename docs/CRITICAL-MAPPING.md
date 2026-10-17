@@ -1,12 +1,14 @@
 # Critical field mapping audit
 
+> **Status note.** Written on 2026-10-14 and corrected piecemeal since. Where it disagrees with the [remaining-gaps register](research/remaining-gaps.md), the register is current.
+
 The registry records all 118 named fields from the [published Mp3tag mapping](https://docs.mp3tag.de/mapping/) and [compact table](https://docs.mp3tag.de/mapping-table/), inspected on 2026-10-14. It contains 85 ID3v2.3, 90 ID3v2.4, 78 MP4, 9 RIFF, 40 ASF, and 76 Matroska nonempty mapping cells. Identifiers below are functional format facts, not copied application code. Blank cells mean the documentation specifies no fixed mapping for that format; they do not imply that a custom field is forbidden.
 
 The portable backend implements concrete ID3v2.3/v2.4, MP4, Vorbis Comment, APEv2, and RIFF metadata paths. ASF/WMA and Matroska are implemented by native pure-Rust readers and writers ([formats-asf](verification/formats-asf.md), [formats-dsd-mkv](verification/formats-dsd-mkv.md)). Full field-mapping parity stays **incomplete** until original-executable differential results exist.
 
 ## Native names and optional user mappings
 
-Vorbis Comment and APEv2 names are exposed as stored. DATE and YEAR, TRACKNUMBER and TRACK, and DISCTOTAL and TOTALDISCS remain independent. The Vorbis vendor string is not an ENCODER field. The [user mapping documentation](https://docs.mp3tag.de/customization/options/tags/mapping/) makes DATE-to-YEAR an opt-in example, not a default alias. Explicit rules contain `tag_type`, `source`, and `target`; reading renames source fields, and writing a target updates every mapped source. One source cannot map to multiple targets. Supported rule identifiers are ID3v2, MP4, VorbisComment, APEv2, and WMA (the latter has no container I/O).
+Vorbis Comment and APEv2 names are exposed as stored. DATE and YEAR, TRACKNUMBER and TRACK, and DISCTOTAL and TOTALDISCS remain independent. The Vorbis vendor string is not an ENCODER field. The [user mapping documentation](https://docs.mp3tag.de/customization/options/tags/mapping/) makes DATE-to-YEAR an opt-in example, not a default alias. Explicit rules contain `tag_type`, `source`, and `target`; reading renames source fields, and writing a target updates every mapped source. One source cannot map to multiple targets. Supported rule identifiers are ID3v2, MP4, VorbisComment, APEv2, and WMA.
 
 Core APIs are `read_entry_with_mappings`, `read_entry_summary_with_mappings`, `write_fields_with_mappings`, and `write_fields_summary_with_mappings`. The unmapped APIs remain available. `map_read_fields` and `map_write_fields` expose the same transformation for callers. Application preference persistence and mapping configuration UI are separate integration requirements.
 
@@ -139,7 +141,7 @@ Every populated ID3 cell except bare UNIQUEFILEID has a generated real-WAV nativ
 
 ## Other fields and concrete value rules
 
-The documented other-field fallback is `TXXX:<fieldname>` for ID3 and `----:com.apple.iTunes:<fieldname>` for MP4. Custom TXXX descriptions and freeform `mean`/`name` are preserved, including their spelling. Explicit MP4 namespaces can be addressed as `----:<mean>:<name>`. The ASF fallback is the literal fieldname and Matroska is a level-30 fieldname; those containers remain unsupported. RIFF has no documented arbitrary-name fallback; existing four-character INFO identifiers are preserved and can be edited directly.
+The documented other-field fallback is `TXXX:<fieldname>` for ID3 and `----:com.apple.iTunes:<fieldname>` for MP4. Custom TXXX descriptions and freeform `mean`/`name` are preserved, including their spelling. Explicit MP4 namespaces can be addressed as `----:<mean>:<name>`. The ASF fallback is the literal fieldname and Matroska is a level-30 fieldname; both containers are implemented by the native ASF and Matroska writers. RIFF has no documented arbitrary-name fallback; existing four-character INFO identifiers are preserved and can be edited directly.
 
 - CONTENTGROUP maps to TIT1 and MP4 ©grp; GROUPING maps to ID3 GRP1. They are independent fields. ENCODERSETTINGS maps to TSSE. ENCODER has no listed fixed mapping and therefore uses the custom-field fallback. Existing unlisted MP4 atoms remain preserved; their display and editing behavior has not been exhaustively compared with Mp3tag.
 - ID3 YEAR and DATE retain TYER and TDAT independently in v2.3. In v2.4 YEAR uses TDRC and DATE uses TXXX:DATE. Native v2.3 tags stay v2.3. A small independently authored serializer retains documented v2.3 extensions that Lofty's downgrade writer discards, maps TIPL to IPLS, writes Latin-1 URL payloads correctly, and changes only the metadata region in staging.
