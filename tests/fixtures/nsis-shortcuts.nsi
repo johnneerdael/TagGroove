@@ -7,6 +7,9 @@ OutFile "@OUTFILE@"
 !include LogicLib.nsh
 !include "Win\COM.nsh"
 !include "Win\Propkey.nsh"
+; Match the constants defined with the helpers in Tauri's upstream utils.nsh.
+!define /ifndef MAX_PATH 260
+!define /ifndef SLGP_RAWPATH 0x4
 !define PRODUCTNAME "TagGroove"
 !define INSTALLIDENTITY "OpenTag"
 !define LEGACYMAINBINARY "opentag.exe"
@@ -84,6 +87,9 @@ Section
   CreateShortcut "$INSTDIR\menu\OpenTag.lnk" "$INSTDIR\opentag.exe"
   CreateShortcut "$INSTDIR\menu\FixtureFolder\OpenTag.lnk" "$INSTDIR\opentag.exe"
   CreateShortcut "$INSTDIR\desktop\OpenTag.lnk" "$INSTDIR\opentag.exe"
+  ; Establish that the unchanged COM helper recognizes freshly created links.
+  !insertmacro AssertTarget "$INSTDIR\menu\OpenTag.lnk" "$INSTDIR\opentag.exe"
+  !insertmacro AssertTarget "$INSTDIR\desktop\OpenTag.lnk" "$INSTDIR\opentag.exe"
   !insertmacro RunMigration
   Call CreateOrUpdateStartMenuShortcut
   !insertmacro AssertTarget "$INSTDIR\menu\TagGroove.lnk" "$INSTDIR\taggroove.exe"
