@@ -34,7 +34,9 @@ before merge.
 `tests/nsis-shortcuts.test.mjs` compiles the production migration, creation and
 cleanup logic in isolated flat/folder fixtures. It uses unchanged upstream COM
 shortcut utilities, recorded in `UPSTREAM.json`, rather than a simulated link
-ownership model. A local `makensis` installation permits compilation only. Native
+ownership model. A local `makensis` installation permits compilation only.
+Compile the fixtures with warnings treated as errors, and retain the upstream
+`MAX_PATH` and `SLGP_RAWPATH` definitions required by those helpers. Native
 execution is restricted to reviewed Windows CI, which downloads the same NSIS
 3.11 toolset used by Tauri and verifies its pinned SHA-256. The silent fixture
 process creates real shortcuts exclusively under its temporary directory; it
