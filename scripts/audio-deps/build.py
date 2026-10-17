@@ -93,7 +93,11 @@ def run(args, cwd, log, env=None):
                                 stdout=stream, stderr=subprocess.STDOUT, check=False)
     if result.returncode:
         lines = Path(log).read_text(errors="replace").splitlines()
-        raise RuntimeError(f"Native build failed ({result.returncode}): {log}\n" + "\n".join(lines[-35:]))
+        diagnostic = Path(cwd) / "ffbuild/config.log"
+        if diagnostic.is_file():
+            lines += ["\nFFmpeg compiler/configure diagnostic:",
+                      *diagnostic.read_text(errors="replace").splitlines()[-80:]]
+        raise RuntimeError(f"Native build failed ({result.returncode}): {log}\n" + "\n".join(lines[-120:]))
 
 
 def acquire(spec, downloads, sources):
@@ -232,6 +236,22 @@ def target_tools(target, env):
     return cmake, ffmpeg, shutil.which("bash") or "bash", shutil.which("make") or "make"
 
 
+def ffmpeg_command(bash, source, prefix, spec, target_flags):
+    # Bash dirname and FFmpeg makefiles require forward slashes even on MSVC.
+    flags = ["--prefix=" + prefix.as_posix(), "--disable-autodetect", "--disable-everything",
+             "--disable-programs", "--disable-doc", "--disable-debug", "--disable-shared",
+             "--enable-static", "--enable-pic", "--enable-asm", "--disable-network",
+             "--disable-protocols", "--disable-avdevice", "--disable-avfilter", "--disable-swscale",
+             "--disable-gpl", "--disable-nonfree", "--disable-version3",
+             "--enable-avcodec", "--enable-avformat", "--enable-avutil", "--enable-swresample",
+             "--enable-zlib", "--enable-bzlib", "--extra-cflags=-I" + (prefix / "include").as_posix(),
+             "--extra-ldflags=-L" + (prefix / "lib").as_posix(),
+             "--enable-decoder=" + ",".join(spec["ffmpeg"]["decoders"]),
+             "--enable-demuxer=" + ",".join(spec["ffmpeg"]["demuxers"]),
+             "--enable-parser=" + ",".join(spec["ffmpeg"]["parsers"]), *target_flags]
+    return [bash, (source / "configure").as_posix(), *flags]
+
+
 def source_closure(build_root, source_root):
     """Resolve compiler dependency records to the exact pinned source tree.
 
@@ -310,18 +330,7 @@ def build(target, output, jobs):
     cmake("bzip2", HERE / "bzip2", ["-DBZIP2_SOURCE_DIR=" + str(native["bzip2"])])
     ffmpeg_build = work / "ffmpeg-build"
     ffmpeg_build.mkdir(exist_ok=True)
-    flags = ["--prefix=" + str(prefix), "--disable-autodetect", "--disable-everything",
-             "--disable-programs", "--disable-doc", "--disable-debug", "--disable-shared",
-             "--enable-static", "--enable-pic", "--enable-asm", "--disable-network",
-             "--disable-protocols", "--disable-avdevice", "--disable-avfilter", "--disable-swscale",
-             "--disable-gpl", "--disable-nonfree", "--disable-version3",
-             "--enable-avcodec", "--enable-avformat", "--enable-avutil", "--enable-swresample",
-             "--enable-zlib", "--enable-bzlib", "--extra-cflags=-I" + str(prefix / "include"),
-             "--extra-ldflags=-L" + str(prefix / "lib"),
-             "--enable-decoder=" + ",".join(spec["ffmpeg"]["decoders"]),
-             "--enable-demuxer=" + ",".join(spec["ffmpeg"]["demuxers"]),
-             "--enable-parser=" + ",".join(spec["ffmpeg"]["parsers"]), *ffmpeg_target]
-    command = [bash, native["ffmpeg"] / "configure", *flags]
+    command = ffmpeg_command(bash, native["ffmpeg"], prefix, spec, ffmpeg_target)
     commands.append([str(x) for x in command])
     run(command, ffmpeg_build, work / "ffmpeg.log", env)
     run([make, "-j" + str(jobs)], ffmpeg_build, work / "ffmpeg.log", env)

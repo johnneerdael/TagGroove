@@ -239,6 +239,15 @@ static output `zs`, rather than `zlibstatic`. The source builder now stages
 `zs.lib` under the `z.lib` name needed by FFmpeg and Cargo. Full Windows
 validation remains required on this corrected head.
 
+The following Windows run passed that staging step but failed FFmpeg's C
+compiler probe. The builder passed backslash-separated Windows paths into
+Bash; upstream configure locates its source directory with Unix `dirname`.
+The configure command now uses forward slashes for the script, installation,
+include and library paths. A regression exercises the actual Bash directory
+operation, and failed native builds now include the compiler/configure log
+instead of only its generic failure message. These twelve source-safety tests
+pass locally; the corrected MSVC build still requires its trusted CI run.
+
 Linux compiled and ran the producer, but its Vorbis result differed from the
 ARM golden by thirteen raw bits across 75 items. A local x86 source build
 reproduced that exact Linux result. The unmodified upstream fpcalc source was

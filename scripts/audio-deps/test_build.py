@@ -6,7 +6,9 @@ import io
 import json
 import os
 from unittest import mock
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
+import subprocess
+import sys
 import tarfile
 import tempfile
 import threading
@@ -186,6 +188,28 @@ class SourceSafetyTests(unittest.TestCase):
             self.assertIn("--cc=cl.exe", flags)
             self.assertFalse(any(flag.startswith("--cc=") and " " in flag for flag in flags))
             self.assertEqual(env["PATH"].split(os.pathsep)[0], str(compiler.parent))
+
+    def test_windows_configure_paths_keep_source_directory_in_bash(self):
+        source = PureWindowsPath(r"D:\a\opentag\sources\ffmpeg")
+        prefix = PureWindowsPath(r"D:\a\opentag\prefix")
+        spec = {"ffmpeg": {"decoders": [], "demuxers": [], "parsers": []}}
+        command = self.build.ffmpeg_command("bash", source, prefix, spec, [])
+        self.assertEqual(command[1], "D:/a/opentag/sources/ffmpeg/configure")
+        self.assertIn("--prefix=D:/a/opentag/prefix", command)
+        self.assertIn("--extra-cflags=-ID:/a/opentag/prefix/include", command)
+        self.assertIn("--extra-ldflags=-LD:/a/opentag/prefix/lib", command)
+        if os.name != "nt":
+            # The same Unix dirname operation used by upstream configure.
+            actual = subprocess.check_output(["bash", "-c", 'dirname "$1"', "path-test", command[1]], text=True)
+            self.assertEqual(actual.strip(), source.as_posix())
+
+    def test_failed_configure_reports_its_compiler_diagnostic(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / "ffbuild").mkdir()
+            (root / "ffbuild/config.log").write_text("compiler probe: linker missing\n")
+            with self.assertRaisesRegex(RuntimeError, "compiler probe: linker missing"):
+                self.build.run([sys.executable, "-c", "raise SystemExit(1)"], root, root / "build.log")
 
     def test_pinned_patch_bytes_do_not_depend_on_windows_text_newlines(self):
         with tempfile.TemporaryDirectory() as folder:
