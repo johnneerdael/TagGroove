@@ -268,6 +268,14 @@ copies still fail. GNU dependency handling remains strict and unchanged.
 Sixteen source-safety tests pass locally; this does not substitute for the
 remaining Windows app/API/package gates.
 
+Final review also caught a copied-header provenance gap. Every dependency
+record naming `src/` now requires the actual compiler-input alias to exist and
+match the pinned file before its original hash is accepted. The regression
+rejects altered and missing header aliases for both GNU and MSVC records,
+then accepts an identical copy, including NASM's `src//` spelling. All seventeen source-safety tests pass, and
+the stricter collector accepts the existing real 530-record x86 object corpus
+under both record mappings. This audit does not claim a Windows app build.
+
 Linux compiled and ran the producer, but its Vorbis result differed from the
 ARM golden by thirteen raw bits across 75 items. A local x86 source build
 reproduced that exact Linux result. The unmodified upstream fpcalc source was

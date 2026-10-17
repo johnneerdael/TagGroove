@@ -163,6 +163,9 @@ class SourceSafetyTests(unittest.TestCase):
             (build / "libavcodec").mkdir(parents=True)
             original = source / "libavcodec/adpcm.c"
             original.write_bytes(b"LGPL source")
+            alias = build / "src/libavcodec/adpcm.c"
+            alias.parent.mkdir(parents=True)
+            alias.write_bytes(original.read_bytes())
             (build / "config.h").write_bytes(b"generated config")
             (build / "libavcodec/adpcm.d").write_text("libavcodec/adpcm.o: src/libavcodec/adpcm.c config.h\n")
             closure, generated = self.build.source_closure(build, source)
@@ -199,6 +202,9 @@ class SourceSafetyTests(unittest.TestCase):
             unit.write_bytes(b"#include <stdint.h>\nconst int table[] = {1};\n")
             header = source / "libavcodec/local.h"
             header.write_bytes(b"original pinned header\n")
+            alias = build / "src/libavcodec/local.h"
+            alias.parent.mkdir(parents=True)
+            alias.write_bytes(header.read_bytes())
             dep = build / "libavcodec/adpcm_data.d"
             (build / "libavcodec/adpcm_data.o").write_bytes(b"synthetic compiled-object fixture")
             for record in ["", "libavcodec/adpcm_data.o: src/libavcodec/local.h\n"]:
@@ -237,6 +243,32 @@ class SourceSafetyTests(unittest.TestCase):
             alias.write_bytes(b"tampered source copy")
             with self.assertRaisesRegex(RuntimeError, "source alias"):
                 self.build.source_closure(build, source, msvc=True)
+
+    def test_dependency_header_alias_must_match_compiler_input(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            source, build = root / "source", root / "build"
+            (source / "libavcodec").mkdir(parents=True)
+            (build / "libavcodec").mkdir(parents=True)
+            (source / "libavcodec/unit.c").write_bytes(b"original translation unit")
+            header = source / "libavcodec/local.h"
+            header.write_bytes(b"original pinned header")
+            (build / "libavcodec/unit.o").write_bytes(b"synthetic compiled-object fixture")
+            (build / "libavcodec/unit.d").write_text("libavcodec/unit.o: src/libavcodec/local.h\n")
+            alias = build / "src/libavcodec/local.h"
+            alias.parent.mkdir(parents=True)
+            for msvc, prefix in [(False, "src/"), (True, "src/"), (False, "src//"), (True, "src//")]:
+                with self.subTest(msvc=msvc, prefix=prefix):
+                    (build / "libavcodec/unit.d").write_text(f"libavcodec/unit.o: {prefix}libavcodec/local.h\n")
+                    alias.write_bytes(b"changed compiler input")
+                    with self.assertRaisesRegex(RuntimeError, "dependency alias"):
+                        self.build.source_closure(build, source, msvc=msvc)
+                    alias.unlink()
+                    with self.assertRaisesRegex(RuntimeError, "dependency alias"):
+                        self.build.source_closure(build, source, msvc=msvc)
+                    alias.write_bytes(header.read_bytes())
+                    closure, _ = self.build.source_closure(build, source, msvc=msvc)
+                    self.assertEqual(closure["libavcodec/unit.d"]["libavcodec/local.h"], self.build.digest(alias))
 
     def test_windows_configure_paths_keep_source_directory_in_bash(self):
         source = PureWindowsPath(r"D:\a\opentag\sources\ffmpeg")

@@ -298,7 +298,14 @@ def source_closure(build_root, source_root, msvc=False):
             raise RuntimeError(f"Invalid native dependency record: {dep}")
         for name in shlex.split(dependencies):
             if name.startswith("src/"):
-                path = source_root / name[4:]
+                # NASM also writes src//header.asm; normalize separators before
+                # joining so its extra slash cannot discard the pinned root.
+                relative = Path(*PurePosixPath(name).parts[1:])
+                path = source_root / relative
+                alias = build_root / "src" / relative
+                if (not path.resolve().is_relative_to(source_root) or not alias.is_file()
+                        or not path.is_file() or digest(alias) != digest(path)):
+                    raise RuntimeError(f"Native compiled dependency alias differs from pinned source: {alias}")
             else:
                 path = Path(name)
                 if not path.is_absolute():
