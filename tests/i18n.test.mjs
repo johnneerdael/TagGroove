@@ -362,3 +362,45 @@ test('closed UI fragments bind real utility, tag-kind and native picture produce
     }
   }
 });
+
+
+test('every plural block needs other before a user catalog is usable, including nested and exact forms',()=>{
+  const count='{count} files',nested='{count} files and {selected} selected',english={[count]:count,[nested]:nested};
+  const catalog={'@meta':{locale:'de',name:'German'},[count]:'{count, plural, one {# Datei}}',
+    [nested]:'{count, plural, one {{selected, plural, =1 {# ausgewählt}}} other {{selected, plural, one {# ausgewählt} other {# ausgewählt}}}}'};
+  assert.deepEqual(validateCatalog(english,catalog),{missing:[],unknown:[],placeholders:[],invalid:[count,nested]});
+  const result=languageSet([],[{file:'de.json',catalog}],english),language=result.languages.get('de');
+  assert.equal(language.problems,2);assert.equal(language.catalog[count],undefined);assert.equal(language.catalog[nested],undefined);
+  assert.deepEqual(result.warnings,[{key:'{file}: {missing} missing, {invalid} invalid',params:{file:'de.json',missing:0,invalid:2}}]);
+  const translator=new Translator('de',language.catalog);
+  assert.equal(translator.t(count,{count:2}),'2 files');assert.equal(translator.translate('2 files'),'2 files');
+  assert.equal(translator.t(nested,{count:2,selected:3}),'2 files and 3 selected');
+  assert.deepEqual(validateCatalog({[count]:count},{[count]:'{count, plural, =1 {# exakt}}'}).invalid,[count]);
+  const valid={[count]:'{count, plural, =0 {keine Dateien} one {# Datei} other {# Dateien}}',
+    [nested]:'{count, plural, one {{selected, plural, =1 {# ausgewählt} other {# ausgewählt}}} other {{selected, plural, one {# ausgewählt} other {# ausgewählt}}}}'};
+  assert.deepEqual(validateCatalog(english,valid),{missing:[],unknown:[],placeholders:[],invalid:[]});
+  const good=new Translator('de',valid);assert.equal(good.t(count,{count:0}),'keine Dateien');assert.equal(good.t(count,{count:2}),'2 Dateien');
+  assert.equal(good.t(nested,{count:1,selected:2}),'2 ausgewählt');
+});
+
+
+test('exact plural selectors use canonical nonnegative integers at every nesting level',()=>{
+ const key='{count} files',nested='{count} files and {selected} selected',en={[key]:key,[nested]:nested};
+ const bad={[key]:'{count, plural, =01 {# Datei} other {# Dateien}}',[nested]:'{count, plural, one {{selected, plural, =00 {keine} other {#}}} other {{selected, plural, =001 {eine} other {#}}}}'};
+ assert.deepEqual(validateCatalog(en,bad),{missing:[],unknown:[],placeholders:[],invalid:[key,nested]});
+ const result=languageSet([],[{file:'de.json',catalog:{'@meta':{locale:'de',name:'German'},...bad}}],en);
+ assert.equal(result.languages.get('de').problems,2);assert.deepEqual(result.warnings,[{key:'{file}: {missing} missing, {invalid} invalid',params:{file:'de.json',missing:0,invalid:2}}]);
+ assert.equal(new Translator('de',result.languages.get('de').catalog).t(key,{count:1}),'1 files');
+ for(const selector of ['=9007199254740993','=1000000000000000000000']){
+  const catalog={[key]:`{count, plural, ${selector} {exakt} other {andere}}`};
+  assert.deepEqual(validateCatalog({[key]:key},catalog).invalid,[key],selector);
+  const languages=languageSet([],[{file:'de.json',catalog:{'@meta':{locale:'de'},...catalog}}],{[key]:key});
+  assert.equal(languages.warnings.length,1);assert.equal(new Translator('de',languages.languages.get('de').catalog).t(key,{count:selector.slice(1)}),`${selector.slice(1)} files`);
+ }
+ assert.deepEqual(validateCatalog({[nested]:nested},{[nested]:'{count, plural, one {{selected, plural, =9007199254740993 {exakt} other {#}}} other {# {selected}}}'}).invalid,[nested]);
+ const large={[key]:'{count, plural, =9007199254740992 {exakt} other {andere}}'};
+ assert.deepEqual(validateCatalog({[key]:key},large).invalid,[]);assert.equal(new Translator('de',large).t(key,{count:'9007199254740992'}),'exakt');
+ const valid={[key]:'{count, plural, =0 {keine} =1 {eine} =10 {zehn} zero {zero} one {one} two {two} few {few} many {many} other {# andere}}',[nested]:'{count, plural, one {{selected, plural, =0 {keine} =1 {eine} =10 {zehn} other {#}}} other {{selected, plural, one {eine} other {#}}}}'};
+ assert.deepEqual(validateCatalog(en,valid),{missing:[],unknown:[],placeholders:[],invalid:[]});
+ const t=new Translator('de',valid);assert.deepEqual([0,1,10,2].map(count=>t.t(key,{count})),['keine','eine','zehn','2 andere']);assert.equal(t.t(nested,{count:1,selected:10}),'zehn');
+});

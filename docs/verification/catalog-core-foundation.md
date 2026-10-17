@@ -24,11 +24,11 @@ Two review regressions cover locale-sensitive exact/category selection through
 explicit and captured values, and nested-category rejection/usable-catalog
 filtering with valid nested forms retained. A further producer-bound case covers every catalog identifier and underscored
 native limit values through direct/captured rendering and plural parsing. All
-sixteen pure cases remain in the
+eighteen pure cases remain in the
 same test module when the complete application test suite is
 integrated; the later source-bound extraction and UI tests must also be kept.
 
-Fresh local checks passed 400 UI/model tests with zero failures or skips, the
+Fresh local checks passed 402 UI/model tests with zero failures or skips, the
 production build, the strict 172-page guide and eight publication tests. One
 existing UI case compiles a temporary pure Rust helper; it is separate from
 application-native qualification. All 1,353 existing tracked base files are
@@ -61,6 +61,15 @@ locked Lofty 0.25.4 checksum
 The audited upstream `src/picture/mod.rs` SHA-256 is
 `01973be38bbb8feea75cbe9ac128e547af92ec7160b393bb82a8a38bc0f57d36`;
 UI tests use repository inputs and do not require an installed Cargo registry.
+
+Two further regressions require `other` in every plural block, including nested
+and exact-only blocks, and reject zero-padded or number-rounded exact selectors that cannot match
+the renderer. Exact selectors must round-trip through the renderer's JavaScript
+number representation; representable large integers remain supported. Canonical nonnegative selectors such as `=0`, `=1` and `=10`
+remain valid, as do the six plural categories. Invalid entries are removed once
+per key, reported in the file warning and rendered using English fallback.
+Duplicate selectors retain the existing first-match behavior; this change does
+not add a broader ICU grammar.
 
 The complete extractor and source-key idempotence
 checks belong to the activation layer, where their actual producers exist.

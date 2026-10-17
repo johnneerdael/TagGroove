@@ -373,7 +373,9 @@ export function validateCatalog(english: Catalog, catalog: Catalog): {missing: s
     if (!same) result.placeholders.push(key);
     else {
       const invalid = (nodes: Node[]): boolean => nodes.some(node => typeof node !== 'string' && 'plural' in node
-        && node.plural.some(([category, body]) => (!PLURAL_CATEGORIES.has(category) && !/^=\d+$/.test(category)) || invalid(body)));
+        && (!node.plural.some(([category]) => category === 'other')
+          || node.plural.some(([category, body]) => (!PLURAL_CATEGORIES.has(category)
+            && (!/^=(?:0|[1-9]\d*)$/.test(category) || category !== `=${Number(category.slice(1))}`)) || invalid(body))));
       if (invalid(parse(value))) result.invalid.push(key);
     }
   }
