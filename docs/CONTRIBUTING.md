@@ -10,11 +10,13 @@ The trusted `Review authorization controller` workflow publishes these commit st
 
 | Required status | Meaning |
 | --- | --- |
-| `Codex review` | The authenticated Codex connector completed a code review of the current full head SHA, approved it with a sufficiently recent `+1`, and no outstanding findings, review requests or requested changes remain. |
+| `Codex review` | The authenticated Codex connector completed a code review of the current full head SHA, supplied clean-review approval, and no outstanding findings, review requests or requested changes remain. |
 | `Release notes` | The current PR body contains a substantive public release-note section. |
 | `Reviewed PR builds` | All required validation passed for the reviewed head, current main and immutable test merge. |
 
 The gate reads GitHub's full review/comment/thread history. A short displayed SHA must resolve to the exact full commit; a thumbs-up without revision metadata is insufficient. Resolving an earlier finding does not substitute for a newer clean review. New pushes invalidate the review, and a newly edited review request requires a later completion. API failures keep the gate pending.
+
+Approval normally requires the connector's issue `+1` reaction at or after the latest qualifying code-review completion. GitHub [returns the existing reaction when the same account repeats it](https://docs.github.com/en/rest/reactions/reactions#create-reaction-for-an-issue), so its creation time can remain older than a repeat clean review. A retained connector `+1` also qualifies when an authenticated connector Bot comment contains `<!-- codex-review-receipt:v1 -->`, recognized clean `Codex Review` text, a valid creation timestamp and a reviewed commit resolving to the exact current full head SHA. Security-review text cannot supply this receipt approval. The receipt must be at least as recent as every qualifying completion, and the usual request, findings, thread and pending-review blockers still apply. An older receipt cannot authorize a later ambiguous completion; unstructured summaries and generic completions still require a fresh reaction.
 
 Review events use an unprivileged metadata relay; a separate controller checks out only trusted `main`, reads live PR state and posts statuses. It dispatches application validation only after review approval and valid release notes. The dispatched workflow and reusable build repeat authorization against the exact head/main/test-merge triple before PR code runs. PR jobs receive no signing secrets, checkout credentials or shared caches. Reactions have no Actions event, so the controller also reconciles every five minutes. GitHub may delay scheduled workflows; use the manual workflow input to recheck a PR when needed:
 
