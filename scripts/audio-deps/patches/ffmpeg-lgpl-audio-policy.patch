@@ -1,0 +1,12 @@
+--- a/configure
++++ b/configure
+@@ -4835,6 +4835,9 @@
+ 
+ enabled version3 && { enabled gpl && enable gplv3 || enable lgplv3; }
+ enabled gpl && enable lgpl_gpl # Files that are marked as LGPL but some developers prefer only building them with --enable-gpl
++# OpenTag opts in to these explicitly LGPL-marked audio components only.
++# GPL/nonfree/version3 remain disabled; the compiled object closure is audited.
++enable lgpl_gpl
+ 
+ if enabled nonfree; then
+     license="nonfree and unredistributable"

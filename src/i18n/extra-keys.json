@@ -74,5 +74,7 @@
  "its custom values were not imported; add them in Field values",
  "\"prefer values from tags\" is one setting for all fields in Field values",
  "No field could be imported: {error}",
- "The file contains no tag panel fields. Choose usrfields.ini from the Mp3tag configuration folder, or a saved tag panel configuration."
+ "The file contains no tag panel fields. Choose usrfields.ini from the Mp3tag configuration folder, or a saved tag panel configuration.",
+ "zlib 1.3.2 — license",
+ "bzip2 1.0.8 — license"
 ]

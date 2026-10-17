@@ -7,6 +7,9 @@
 // columns.ini import. Fixtures: tests/e2e/keyboard-ui-fixtures.sh.
 // Runs in CI (headless); never on a working desktop.
 (async () => {
+  const sourceName = dialog => dialog.hasAttribute('aria-labelledby')
+    ? dialog.ownerDocument.getElementById(dialog.getAttribute('aria-labelledby'))?.textContent
+    : dialog.getAttribute('aria-label');
   const inv = (cmd, args) => window.__TAURI_INTERNALS__.invoke(cmd, args);
   const report = m => inv('e2e_report', { message: String(m) });
   const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -252,7 +255,7 @@
       d.close(); await sleep(200);
       press(document.body, 'i', primary);
       const again = await waitFor(() => document.querySelector('dialog.tag-source-dialog[open]'), 5000, 'Ctrl+I dialog');
-      if (again.getAttribute('aria-label') !== 'freedb (local)') throw new Error('Ctrl+I opened ' + again.getAttribute('aria-label'));
+      if (sourceName(again) !== 'freedb (local)') throw new Error('Ctrl+I opened ' + sourceName(again));
       const idleText = again.querySelector('.ts-status').textContent;
       again.close(); await sleep(200);
       press(document.body, 'I', { ...primary, shiftKey: true });

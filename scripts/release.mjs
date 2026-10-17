@@ -15,6 +15,15 @@ export const FORMATS = {
   'ios-arm64-simulator-preview': ['-debug.app.zip'],
 };
 export const PLATFORMS = Object.keys(FORMATS);
+export const NATIVE_TARGETS = {
+  'windows-x64': 'x86_64-pc-windows-msvc',
+  'macos-arm64': 'aarch64-apple-darwin',
+  'macos-x64': 'x86_64-apple-darwin',
+  'linux-x64': 'x86_64-unknown-linux-gnu',
+  'linux-arm64': 'aarch64-unknown-linux-gnu',
+  'android-arm64': 'aarch64-linux-android',
+  'ios-arm64-simulator-preview': 'aarch64-apple-ios-sim',
+};
 
 const SEMVER = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/;
 
@@ -187,6 +196,29 @@ function checkedTag(tag) {
   if (!/^v[0-9A-Za-z.+-]+$/.test(tag)) throw new Error('Unsafe release tag');
 }
 
+export function sourceAssetName(tag) {
+  checkedTag(tag);
+  return `OpenTag-${tag}-sources.tar.xz`;
+}
+
+const sourceBuilder = fileURLToPath(new URL('./audio-source-bundle.py', import.meta.url));
+function verifySource(plan, args) {
+  const env = {...process.env};
+  for (const name of Object.keys(env)) if (/^(?:GH_|GITHUB_TOKEN$|ANDROID_KEY|GIT_CONFIG_|GIT_ASKPASS$|SSH_ASKPASS$|SSH_AUTH_SOCK$)/.test(name)) delete env[name];
+  return execFileSync(process.env.PYTHON || (process.platform === 'win32' ? 'python' : 'python3'),
+    [sourceBuilder, '--source-sha', plan.commit, '--version', plan.version, ...args], {encoding: 'utf8', env});
+}
+
+async function nativeEvidence(plan, platform, path) {
+  const wrapper = JSON.parse(await readFile(path, 'utf8'));
+  if (wrapper.schema !== 1 || wrapper.platform !== platform || wrapper.target !== NATIVE_TARGETS[platform]
+      || wrapper.commit !== plan.commit || wrapper.version !== plan.version || wrapper.tag !== plan.tag)
+    throw new Error(`Mixed native source/version/target for ${platform}`);
+  verifySource(plan, ['--verify-native', path]);
+  const {path: _path, ...description} = await describe(path);
+  return {...description, target: NATIVE_TARGETS[platform]};
+}
+
 export function assetName(tag, platform, source) {
   checkedTag(tag);
   if (!PLATFORMS.includes(platform)) throw new Error('Unsupported release platform');
@@ -207,7 +239,7 @@ async function describe(path) {
   return { name: basename(path), size: info.size, sha256: hash.digest('hex'), path };
 }
 
-export async function collectAssets({ plan, platform, sourcePaths, outputDir }) {
+export async function collectAssets({ plan, platform, sourcePaths, outputDir, nativeManifest }) {
   const expected = FORMATS[platform];
   if (!expected || !Array.isArray(sourcePaths)) throw new Error('Invalid platform artifacts');
   await mkdir(outputDir, { recursive: true });
@@ -234,7 +266,10 @@ export async function collectAssets({ plan, platform, sourcePaths, outputDir }) 
     assets.push(description);
   }
   if (assets.length !== expected.length || !expected.every(suffix => names.has(`OpenTag-${plan.tag}-${platform}${suffix}`))) throw new Error(`Missing required artifact formats for ${platform}`);
-  const manifest = { schema: 1, tag: plan.tag, version: plan.version, commit: plan.commit, platform, assets };
+  const nativePath = join(outputDir, `native-${platform}.json`);
+  if (nativeManifest && resolve(nativeManifest) !== resolve(nativePath)) await copyFile(nativeManifest, nativePath);
+  const native = await nativeEvidence(plan, platform, nativePath);
+  const manifest = { schema: 1, tag: plan.tag, version: plan.version, commit: plan.commit, platform, assets, native };
   await writeFile(join(outputDir, `manifest-${platform}.json`), `${JSON.stringify(manifest, null, 2)}\n`);
   return manifest;
 }
@@ -244,11 +279,18 @@ export async function assembleRelease({ plan, directory }) {
   const assets = [];
   const names = new Set();
   const manifestNames = PLATFORMS.map(platform => `manifest-${platform}.json`);
+  const nativeNames = PLATFORMS.map(platform => `native-${platform}.json`);
+  const nativeBuilds = {};
   for (const [index, manifestName] of manifestNames.entries()) {
     if (!files.includes(manifestName)) throw new Error(`Missing required platform manifest: ${manifestName}`);
     const manifest = JSON.parse(await readFile(join(directory, manifestName), 'utf8'));
     const platform = PLATFORMS[index];
     if (manifest.schema !== 1 || manifest.platform !== platform || manifest.commit !== plan.commit || manifest.tag !== plan.tag || manifest.version !== plan.version) throw new Error(`Mixed source/version in ${manifestName}`);
+    const native = await nativeEvidence(plan, platform, join(directory, nativeNames[index]));
+    if (!manifest.native || Object.keys(manifest.native).length !== Object.keys(native).length
+        || Object.entries(native).some(([key, value]) => manifest.native[key] !== value))
+      throw new Error(`Native evidence hash or target mismatch: ${platform}`);
+    nativeBuilds[platform] = native;
     const expectedNames = FORMATS[platform].map(suffix => `OpenTag-${plan.tag}-${platform}${suffix}`);
     if (!Array.isArray(manifest.assets) || manifest.assets.length !== expectedNames.length) throw new Error(`Incomplete package set in ${manifestName}`);
     for (const item of manifest.assets) {
@@ -259,11 +301,17 @@ export async function assembleRelease({ plan, directory }) {
       assets.push(actual);
     }
   }
-  const allowed = new Set([...manifestNames, ...names, 'SHA256SUMS', 'release-manifest.json']);
+  const sourceName = sourceAssetName(plan.tag);
+  if (!files.includes(sourceName)) throw new Error(`Missing required corresponding-source asset: ${sourceName}`);
+  verifySource(plan, ['--verify', join(directory, sourceName), '--native-evidence', directory]);
+  assets.push(await describe(join(directory, sourceName)));
+  names.add(sourceName);
+  const allowed = new Set([...manifestNames, ...nativeNames, ...names, 'SHA256SUMS', 'release-manifest.json']);
   if (files.some(file => !allowed.has(file))) throw new Error('Unexpected files in downloaded release artifacts');
   assets.sort((a, b) => a.name.localeCompare(b.name, 'en'));
   const manifestPath = join(directory, 'release-manifest.json');
-  await writeFile(manifestPath, `${JSON.stringify({ schema: 1, ...plan, platforms: PLATFORMS, assets: assets.map(({ path: _path, ...item }) => item) }, null, 2)}\n`);
+  await writeFile(manifestPath, `${JSON.stringify({ schema: 1, ...plan, platforms: PLATFORMS, native_builds: nativeBuilds,
+    corresponding_source: sourceName, assets: assets.map(({ path: _path, ...item }) => item) }, null, 2)}\n`);
   assets.push(await describe(manifestPath));
   const sumsPath = join(directory, 'SHA256SUMS');
   await writeFile(sumsPath, assets.map(asset => `${asset.sha256}  ${asset.name}\n`).join(''));
@@ -288,6 +336,7 @@ ${notes.trim() ? `\n${notes.trim()}\n` : ''}
 | Linux AppImage, DEB, RPM | x64 / arm64 | unsigned packages |
 | Android UI preview (release APK) | arm64 | signed with the OpenTag application key; document editing and save-back integration in progress |
 | iOS simulator UI preview ZIP | arm64 simulator, debug | unsigned simulator app; document editing/save-back in progress; not a device installer or App Store package |
+| Corresponding source archive | All seven build targets | Version-stamped application source, vendored Cargo dependencies, frontend assets, original native archives, licenses, patches and build provenance |
 
 All required build jobs passed before publication. This is build/test evidence, not proof of every device or full Mp3tag parity.
 Verify downloads using SHA256SUMS; release-manifest.json records source commit, platform coverage, sizes and hashes.

@@ -368,7 +368,7 @@ export function extract() {
 
 // Backend messages shown in the UI: error texts of the Rust commands, with `{}` values as placeholders.
 // They are a snapshot (src/i18n/backend-keys.json, `--backend` refreshes it): a message added later shows in English.
-const BACKEND_DIRS = ['src-tauri/src', 'crates/tag-core/src', 'crates/library/src', 'crates/document-access/src'];
+const BACKEND_DIRS = ['src-tauri/src', 'crates/tag-core/src', 'crates/library/src', 'crates/document-access/src', 'crates/audio-fingerprint/src'];
 const BACKEND_MESSAGE = /(?:\bErr\(|\.ok_or\(|ok_or_else\(\|\|\s*|map_err\(\|[^|]*\|\s*)\s*(?:\{\s*)?(?:format!\(\s*)?"((?:[^"\\]|\\.)*)"/g;
 // Exclude test-injection prose, not production diagnostics with technical tokens.
 const INTERNAL = /Injected|fixture/i;
@@ -426,6 +426,7 @@ function typedCauseMessages(source) {
 export function extractBackendSource(source){
   const tests=source.search(/#\[cfg\(test\)\]\s*mod tests/);if(tests>=0)source=source.slice(0,tests);
   const code=rustCode(source),keys=new Set(),roots=[],names=new Set(),errorTypes=new Set();
+  for(const match of code.matchAll(/\bimpl\s+std::error::Error\s+for\s+([A-Za-z_]\w*)\s*\{/g))errorTypes.add(match[1]);
   // Error prose may begin with a function token, quote, header or lowercase word.
   const add=(message,wrapped=false)=>{const key=backendKey(message);if(!INTERNAL.test(key)&&common(key)&&(wrapped||/\p{L}{2,}[\s,]+\p{L}{2,}/u.test(bare(key))))keys.add(key);};
   for(const match of source.matchAll(BACKEND_MESSAGE))if(code.slice(match.index,match.index+2).trim())add(match[1]);
@@ -466,7 +467,7 @@ export function extractBackendSource(source){
     for(const index of parameters)if(args[index])rustMessages(source.slice(...args[index]),false).forEach(message=>add(message,true));
   }
   for(const type of errorTypes)for(const match of code.matchAll(new RegExp(`\\bimpl\\s+(?:\\w+::)*Display\\s+for\\s+${type}\\s*\\{`,'g'))){
-    const start=match.index+match[0].lastIndexOf('{');rustMessages(source.slice(start+1,rustEnd(code,start,'{','}'))).forEach(message=>add(message,true));
+    const start=match.index+match[0].lastIndexOf('{');rustMessages(source.slice(start+1,rustEnd(code,start,'{','}')),false).forEach(message=>add(message,true));
   }
   return [...keys].sort();
 }

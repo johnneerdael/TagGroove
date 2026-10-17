@@ -1,4 +1,5 @@
 /// <reference types="vite/client" />
+import { audioLicenses } from './audio-licenses';
 import { invoke as coreInvoke, isTauri, type InvokeArgs } from '@tauri-apps/api/core';
 import { buildFilterFields } from './filter-fields';
 import { documentSelection, refreshDocumentAccess, copyRequest, copyOutcome, reconcileDrafts, sourcePresentation, publicDocumentMessage, type DocumentAccess, type DocumentState } from './document-state';
@@ -1841,7 +1842,14 @@ async function startupUpdates(version:string){
 }
 async function operateImpl(op: Operation) {
   if(!enabled(op))return;
-  if(op==='about'){const dialog=modal('About OpenTag',`<img class="about-artwork" data-theme-image="about" src="${themedAsset('about')}" alt="OpenTag — Tag, Organize, Enjoy"><p>Tag, Organize, Enjoy.</p><p>Open source music tag editor.</p><p>Version ${esc(appVersion)} · MIT License</p>`,'');dialog.querySelector('[data-close]')!.textContent='Close';return;}
+  if(op==='about'){
+    const licenses=audioLicenses.map(license=>`<details><summary>${esc(license.title)}</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(license.text)}</pre></details>`).join('');
+    const dialog=modal('About OpenTag',`<img class="about-artwork" data-theme-image="about" src="${themedAsset('about')}" alt="OpenTag — Tag, Organize, Enjoy"><p>Tag, Organize, Enjoy.</p><p>Open source music tag editor.</p><p>Version ${esc(appVersion)} · OpenTag source: MIT License</p><h3>Built-in audio fingerprinting</h3><p id="audio-backend-versions">Chromaprint 1.6.2 and FFmpeg 9.0.2, with zlib and bzip2. These components include LGPL 2.1-or-later code; their licenses and notices appear below.</p><p>The matching release includes complete corresponding application and native-library sources, build recipes and instructions for modifying and relinking these libraries. Library modification and reverse engineering for debugging modifications are permitted under their applicable licenses.</p><button type="button" id="audio-source-release">Sources and releases</button>${licenses}`,'');
+    dialog.querySelector('[data-close]')!.textContent='Close';
+    dialog.querySelector('#audio-source-release')!.addEventListener('click',()=>{void invoke('open_help_page',{page:'releases'}).catch(error=>modalError(dialog,error));});
+    try{const info=await invoke<{chromaprint:string;ffmpeg:string}>('audio_fingerprint_backend');const target=dialog.querySelector('#audio-backend-versions');if(target)target.textContent=`Chromaprint ${info.chromaprint} and FFmpeg ${info.ffmpeg}, with zlib and bzip2. These components include LGPL 2.1-or-later code; their licenses and notices appear below.`;}catch{/* Bundled notices remain available when the native command is unavailable. */}
+    return;
+  }
   if(op==='refresh-source'){await run('Refreshing source access…',async()=>{},{preserveErrors:true});status=documentAccess.refreshError?'Source access refresh failed. Pending edits are retained.':'Source access refreshed';render();return;}
   if(op==='save-copy'){saveCopy();return;}
   if(op==='files'&&runtimePlatform.document_access_supported){await run('Choosing audio documents…',async()=>{const batch=await invoke<Batch>('pick_document_files');if(!batch.entries.length&&!batch.errors.length){status='No files added';return;}accept(batch,'Loaded',false);location='Provider documents';locationIsData=false;if(batch.entries.length){selected.clear();batch.entries.forEach(entry=>selected.add(entry.path));anchor=batch.entries[0].path;}});return;}

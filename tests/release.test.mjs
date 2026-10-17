@@ -1,12 +1,17 @@
-import test from 'node:test';
+import test, {after} from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, rm, copyFile } from 'node:fs/promises';
+import {mkdtempSync, rmSync} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { PLATFORMS, GitHubApi, releasePlan, readVersions, assetName, collectAssets, assembleRelease, publishRelease, releaseBody, parseVersion, compareVersions, automaticVersion, explicitVersion, versionOrigin, stampVersion, makeLatest, previousTag, releaseNotes, appleVersion, androidVersionCode, shipsChanges, NON_SHIPPING_PATHS } from '../scripts/release.mjs';
 
-const sha = 'a'.repeat(40);
+const sourceFixtureRoot = mkdtempSync(join(tmpdir(), 'opentag-release-source-'));
+after(() => rmSync(sourceFixtureRoot, {recursive: true, force: true}));
+const sourceFixture = JSON.parse(execFileSync(process.env.PYTHON || (process.platform === 'win32' ? 'python' : 'python3'),
+  ['scripts/tests/test_audio_source_bundle.py', '--release-fixture', sourceFixtureRoot], {encoding: 'utf8'}));
+const sha = sourceFixture.commit;
 const versions = { package: '0.1.0', cargo: '0.1.0', tauri: '0.1.0' };
 const planInput = { versions, head: sha, expectedHead: sha, tagCommit: sha, tag: 'v0.1.0', prerelease: false };
 const plan = () => releasePlan(planInput);
@@ -64,18 +69,43 @@ async function completeAssets(t) {
       await writeFile(path, `fixture ${platform} ${suffix}`);
       sourcePaths.push(path);
     }
-    await collectAssets({ plan: plan(), platform, sourcePaths, outputDir });
+    await collectAssets({ plan: plan(), platform, sourcePaths, outputDir,
+      nativeManifest: join(sourceFixture.evidence, `native-${platform}.json`) });
   }
+  await copyFile(sourceFixture.bundle, join(outputDir, 'OpenTag-v0.1.0-sources.tar.xz'));
   return { root, outputDir };
 }
 
 test('assembly requires all seven matching platform manifests and checks every hash', async (t) => {
   const { outputDir } = await completeAssets(t);
   const release = await assembleRelease({ plan: plan(), directory: outputDir });
-  assert.equal(release.assets.length, 15); // 13 packages plus manifest and checksum file
+  assert.equal(release.assets.length, 16); // Exact original 13 packages, source archive, manifest and checksums.
+  assert.equal(release.assets.filter(asset => asset.name.endsWith('-sources.tar.xz')).length, 1);
   assert.match(await readFile(join(outputDir, 'SHA256SUMS'), 'utf8'), /[a-f0-9]{64}  OpenTag-v0\.1\.0-windows-x64-setup\.exe/);
   await writeFile(join(outputDir, 'OpenTag-v0.1.0-linux-arm64.deb'), 'tampered');
   await assert.rejects(assembleRelease({ plan: plan(), directory: outputDir }), /hash|size/i);
+});
+
+test('assembly requires the exact corresponding-source asset before publication', async (t) => {
+  const { outputDir } = await completeAssets(t);
+  await rm(join(outputDir, 'OpenTag-v0.1.0-sources.tar.xz'), { force: true });
+  await assert.rejects(assembleRelease({ plan: plan(), directory: outputDir }), /source.*(missing|required)|missing.*source/i);
+});
+
+test('native provenance and the exact source filename cannot be replaced by extra assets', async (t) => {
+  const { outputDir } = await completeAssets(t);
+  const nativePath = join(outputDir, 'native-windows-x64.json');
+  const original = await readFile(nativePath, 'utf8');
+  await writeFile(nativePath, JSON.stringify({...JSON.parse(original), target: 'aarch64-apple-darwin'}));
+  await assert.rejects(assembleRelease({plan: plan(), directory: outputDir}), /native.*source.*target/i);
+  await writeFile(nativePath, original);
+  const manifestPath = join(outputDir, 'manifest-windows-x64.json');
+  const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+  await writeFile(manifestPath, JSON.stringify({...manifest, native: {...manifest.native, sha256: '0'.repeat(64)}}));
+  await assert.rejects(assembleRelease({plan: plan(), directory: outputDir}), /native.*hash/i);
+  await writeFile(manifestPath, JSON.stringify(manifest));
+  await copyFile(sourceFixture.bundle, join(outputDir, 'OpenTag-v0.1.0-sources-extra.tar.xz'));
+  await assert.rejects(assembleRelease({plan: plan(), directory: outputDir}), /unexpected files/i);
 });
 
 test('missing platforms, duplicate package formats, and mixed commits cannot publish', async (t) => {
@@ -174,7 +204,8 @@ test('desktop app directories are archived when build-only action supplies no ar
   const dmg = join(root, 'OpenTag.dmg');
   await writeFile(dmg, 'fixture dmg');
   const outputDir = join(root, 'assets');
-  const manifest = await collectAssets({ plan: plan(), platform: 'macos-arm64', sourcePaths: [app, dmg], outputDir });
+  const manifest = await collectAssets({ plan: plan(), platform: 'macos-arm64', sourcePaths: [app, dmg], outputDir,
+    nativeManifest: join(sourceFixture.evidence, 'native-macos-arm64.json') });
   assert.equal(manifest.assets.length, 2);
   const archive = manifest.assets.find(asset => asset.name.endsWith('.app.tar.gz'));
   assert.ok(archive.size > 0);

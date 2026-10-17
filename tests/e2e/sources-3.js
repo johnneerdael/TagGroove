@@ -6,6 +6,9 @@
 // the keychain (an in-memory store in scripted runs). Fixtures come from
 // tests/e2e/sources-3-fixtures.sh; live network steps are never taken.
 (async () => {
+  const sourceName = dialog => dialog.hasAttribute('aria-labelledby')
+    ? dialog.ownerDocument.getElementById(dialog.getAttribute('aria-labelledby'))?.textContent
+    : dialog.getAttribute('aria-label');
   const inv = (c, a) => window.__TAURI_INTERNALS__.invoke(c, a), report = m => inv('e2e_report', { message: String(m) }), sleep = ms => new Promise(r => setTimeout(r, ms));
   const waitFor = async (fn, ms, what) => { const t = Date.now(); while (Date.now() - t < ms) { try { const v = fn(); if (v) return v; } catch {} await sleep(150); } throw new Error('timeout: ' + what); };
   const check = async (ok, what) => report(`${ok ? 'PASS' : 'FAIL'} ${what}`);
@@ -69,12 +72,12 @@
     await waitFor(() => document.querySelectorAll('tr[data-path].selected,tr[data-path][aria-selected="true"]').length === 2, 5000, 'selection');
     op('source-discogs-release').click();
     let d = await waitFor(sourceDialog, 5000, 'Discogs Release ID dialog');
-    await check(d.getAttribute('aria-label') === 'Discogs Release ID' && d.querySelector('#ts-mode').closest('label').hidden && !d.querySelector('#ts-text-field').hidden && d.querySelector('#ts-search').textContent === 'Look up' && document.activeElement?.id === 'ts-text', 'Discogs Release ID opens on the ID field');
+    await check(sourceName(d) === 'Discogs Release ID' && d.querySelector('#ts-mode').closest('label').hidden && !d.querySelector('#ts-text-field').hidden && d.querySelector('#ts-search').textContent === 'Look up' && document.activeElement?.id === 'ts-text', 'Discogs Release ID opens on the ID field');
     await closeSource(d);
     await check(/I/.test(op('source-discogs-release').querySelector('small')?.textContent || ''), 'menu shows Ctrl+I next to the last used source');
     key(document, { key: 'i', metaKey: true });
     d = await waitFor(sourceDialog, 5000, 'Ctrl+I dialog');
-    await check(d.getAttribute('aria-label') === 'Discogs Release ID', 'Ctrl+I repeats Discogs Release ID');
+    await check(sourceName(d) === 'Discogs Release ID', 'Ctrl+I repeats Discogs Release ID');
     await closeSource(d);
 
     // freedb (local): text search through the index.
@@ -143,7 +146,7 @@
     // Ctrl+I now repeats freedb (local); Ctrl+Shift+I searches the files' disc ID at once.
     key(document, { key: 'i', metaKey: true });
     d = await waitFor(sourceDialog, 5000, 'Ctrl+I dialog');
-    await check(d.getAttribute('aria-label') === 'freedb (local)' && !d.querySelector('.ts-results'), 'Ctrl+I repeats freedb (local) with the search step');
+    await check(sourceName(d) === 'freedb (local)' && !d.querySelector('.ts-results'), 'Ctrl+I repeats freedb (local) with the search step');
     await closeSource(d);
     key(document, { key: 'I', metaKey: true, shiftKey: true });
     d = await waitFor(sourceDialog, 5000, 'Ctrl+Shift+I dialog');

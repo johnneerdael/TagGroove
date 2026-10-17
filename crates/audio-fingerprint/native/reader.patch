@@ -1,0 +1,159 @@
+--- a/audio/ffmpeg_audio_reader.h
++++ b/audio/ffmpeg_audio_reader.h
+@@ -13,11 +13,13 @@
+ #include <cstdlib>
+ #include <string>
+ #include <memory>
++#include <limits>
+ 
+ extern "C" {
+ #include <libavcodec/avcodec.h>
+ #include <libavformat/avformat.h>
+ #include <libavutil/opt.h>
++#include <libavutil/mathematics.h>
+ #include <libavutil/channel_layout.h>
+ }
+ 
+@@ -47,7 +49,7 @@
+ 	 * Get the estimated audio stream duration.
+ 	 * @return stream duration in milliseconds, -1 on error
+ 	 */
+-	int GetDuration() const;
++	int64_t GetDuration() const;
+ 
+ 	bool SetInputFormat(const char *name);
+ 	bool SetInputSampleRate(int sample_rate);
+@@ -56,7 +58,7 @@
+ 	void SetOutputSampleRate(int sample_rate) { m_output_sample_rate = sample_rate; }
+ 	void SetOutputChannels(int channels) { m_output_channels = channels; }
+ 
+-	bool Open(const std::string &file_name);
++	bool Open(const std::string &file_name, AVIOContext *input, AVIOInterruptCB interrupt);
+ 
+ 	void Close();
+ 
+@@ -107,7 +109,7 @@
+ };
+ 
+ inline FFmpegAudioReader::FFmpegAudioReader() {
+-	av_log_set_level(AV_LOG_QUIET);
++	// Logging policy belongs to the application; do not mutate FFmpeg globals.
+ }
+ 
+ inline FFmpegAudioReader::~FFmpegAudioReader() {
+@@ -147,16 +149,25 @@
+ #endif
+ }
+ 
+-inline bool FFmpegAudioReader::Open(const std::string &file_name) {
++inline bool FFmpegAudioReader::Open(const std::string &file_name, AVIOContext *input, AVIOInterruptCB interrupt) {
+ 	int ret;
+ 
+ 	Close();
+ 
+ 	m_packet = av_packet_alloc();
+ 	if (!m_packet) {
+-		return false;
+-	}
+-
++		SetError("Could not allocate the audio packet", AVERROR(ENOMEM));
++		return false;
++	}
++
++	m_format_ctx = avformat_alloc_context();
++	if (!m_format_ctx) {
++		SetError("Could not allocate the audio reader", AVERROR(ENOMEM));
++		return false;
++	}
++	m_format_ctx->pb = input;
++	m_format_ctx->flags |= AVFMT_FLAG_CUSTOM_IO;
++	m_format_ctx->interrupt_callback = interrupt;
+ 	ret = avformat_open_input(&m_format_ctx, file_name.c_str(), m_input_fmt, &m_input_opts);
+ 	if (ret < 0) {
+ 		SetError("Could not open the input file", ret);
+@@ -179,7 +190,12 @@
+ 	auto stream = m_format_ctx->streams[m_stream_index];
+ 
+ 	m_codec_ctx = avcodec_alloc_context3(codec);
++	if (!m_codec_ctx) {
++		SetError("Could not allocate the audio decoder", AVERROR(ENOMEM));
++		return false;
++	}
+ 	m_codec_ctx->request_sample_fmt = AV_SAMPLE_FMT_S16;
++	m_codec_ctx->thread_count = 1;
+ 
+ 	ret = avcodec_parameters_to_context(m_codec_ctx, stream->codecpar);
+ 	if (ret < 0) {
+@@ -193,10 +209,11 @@
+ 		return false;
+ 	}
+ 
+-	av_dump_format(m_format_ctx, 0, "foo", 0);
++	// Do not print the selected file metadata to the application process log.
+ 
+ 	m_frame = av_frame_alloc();
+ 	if (!m_frame) {
++		SetError("Could not allocate the audio frame", AVERROR(ENOMEM));
+ 		return false;
+ 	}
+ 
+@@ -241,14 +258,17 @@
+ 	return m_output_channels;
+ }
+ 
+-inline int FFmpegAudioReader::GetDuration() const {
++inline int64_t FFmpegAudioReader::GetDuration() const {
+ 	if (m_format_ctx && m_stream_index >= 0) {
+ 		const auto stream = m_format_ctx->streams[m_stream_index];
+-		if (stream->duration != AV_NOPTS_VALUE) {
+-			return 1000 * stream->time_base.num * stream->duration / stream->time_base.den;
+-		} else if (m_format_ctx->duration != AV_NOPTS_VALUE) {
+-			return 1000 * m_format_ctx->duration / AV_TIME_BASE;
+-		}
++		int64_t duration = -1;
++		if (stream->duration != AV_NOPTS_VALUE && stream->duration >= 0 &&
++			stream->time_base.num > 0 && stream->time_base.den > 0) {
++			duration = av_rescale_q_rnd(stream->duration, stream->time_base, AVRational{1, 1000}, AV_ROUND_DOWN);
++		} else if (m_format_ctx->duration != AV_NOPTS_VALUE && m_format_ctx->duration >= 0) {
++			duration = av_rescale_q_rnd(m_format_ctx->duration, AVRational{1, AV_TIME_BASE}, AVRational{1, 1000}, AV_ROUND_DOWN);
++		}
++		return duration >= 0 ? duration : -1; // rescale overflow returns INT64_MIN.
+ 	}
+ 	return -1;
+ }
+@@ -368,6 +388,10 @@
+ }
+ 
+ inline bool FFmpegAudioReader::EnsureConvertBuffer(int nb_samples) {
++	if (nb_samples < 0 || nb_samples > std::numeric_limits<int>::max() / 4) {
++		SetError("Invalid decoded audio buffer size", AVERROR_INVALIDDATA);
++		return false;
++	}
+ 	// Leave room for samples flushed from a previous converter and for upsampling.
+ 	nb_samples = std::max(1024 * 8, nb_samples * 4);
+ 	if (nb_samples > m_convert_buffer_nb_samples) {
+@@ -421,6 +445,13 @@
+ #endif
+ 
+ 	m_converter.reset(new FFmpegAudioProcessor());
++	if (!m_converter->IsValid()) {
++#if CHROMAPRINT_HAVE_AV_CHANNEL_LAYOUT
++		av_channel_layout_uninit(&output_channel_layout);
++#endif
++		m_converter.reset();
++		return AVERROR(ENOMEM);
++	}
+ 	m_converter->SetCompatibleMode();
+ 	m_converter->SetInputSampleFormat((AVSampleFormat) frame->format);
+ 	m_converter->SetInputSampleRate(frame->sample_rate);
+--- a/audio/ffmpeg_audio_processor_swresample.h
++++ b/audio/ffmpeg_audio_processor_swresample.h
+@@ -22,6 +22,8 @@
+ 	~FFmpegAudioProcessor() {
+ 		swr_free(&m_swr_ctx);
+ 	}
++
++	bool IsValid() const { return m_swr_ctx != nullptr; }
+ 
+ 	void SetCompatibleMode() {
+ 		av_opt_set_int(m_swr_ctx, "resampler", SWR_ENGINE_SWR, 0);
