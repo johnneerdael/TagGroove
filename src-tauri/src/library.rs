@@ -1,6 +1,6 @@
 //! Options → Library (https://docs.mp3tag.de/customization/options/library/):
 //! the page's values, the database in `<config>/library/library.db`, loading
-//! folders through it, and keeping it current when OpenTag changes files.
+//! folders through it, and keeping it current when TagGroove changes files.
 //! The database is not part of a configuration backup (utilities.rs lists
 //! the files that are).
 use opentag_library::{fingerprint, CleanupReport, Library, Scope, Session};
@@ -145,7 +145,7 @@ fn file_of(path: &str) -> &str {
     tag_core::subsong_parts(path).map_or(path, |(file, _)| file)
 }
 
-/// Forget files that OpenTag wrote, renamed, moved or deleted, and folders
+/// Forget files that TagGroove wrote, renamed, moved or deleted, and folders
 /// it moved, so the next load reads them again. Runs whether or not the
 /// library is enabled: it may be enabled again later.
 pub fn changed(paths: &[String], renamed: &[(String, String)], directories: &[(String, String)]) {

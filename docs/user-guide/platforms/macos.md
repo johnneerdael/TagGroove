@@ -1,14 +1,18 @@
-# OpenTag on macOS
+# TagGroove on macOS
 
-Choose the build for your Mac, open music through Finder or OpenTag, and
+Choose the build for your Mac, open music through Finder or TagGroove, and
 learn which shortcuts use Command versus the physical Control key. This
 page describes the desktop application; it does not turn a simulator
 preview into an iPhone/iPad app.
 
 ## Choose and install the Mac download
 
-The examples below use the published [v0.2.13 release](https://github.com/johnneerdael/opentag/releases/tag/v0.2.13).
-Check a newer release's own assets and notes before substituting its version.
+The package formats and platform limits below were inspected in
+[v0.2.13](https://github.com/johnneerdael/TagGroove/releases/tag/v0.2.13), before
+the rename. The table shows the TagGroove naming pattern for new builds;
+replace `VERSION` with the chosen release’s version. Older releases retain
+their original filenames. Use the actual asset name and checksum from that
+release, and read its notes before installing.
 In **About This Mac**, distinguish Apple silicon from Intel.
 
 Scroll the download table sideways on a narrow screen to read complete filenames.
@@ -18,15 +22,15 @@ Scroll the download table sideways on a narrow screen to read complete filenames
 <!-- mac-package-assets:start -->
 | Mac | Download choices |
 |---|---|
-| Apple silicon / arm64 | `OpenTag-v0.2.13-macos-arm64.dmg`, `OpenTag-v0.2.13-macos-arm64.app.tar.gz` |
-| Intel / x64 | `OpenTag-v0.2.13-macos-x64.dmg`, `OpenTag-v0.2.13-macos-x64.app.tar.gz` |
+| Apple silicon / arm64 | `TagGroove-vVERSION-macos-arm64.dmg`, `TagGroove-vVERSION-macos-arm64.app.tar.gz` |
+| Intel / x64 | `TagGroove-vVERSION-macos-x64.dmg`, `TagGroove-vVERSION-macos-x64.app.tar.gz` |
 <!-- mac-package-assets:end -->
 
 </div>
 
 These are separate processor builds, not one universal app. A source-code
 ZIP is not the desktop download. Use the DMG for a disk-image copy workflow,
-or extract the app archive to obtain `OpenTag.app`. Copy the application to
+or extract the app archive to obtain `TagGroove.app`. Copy the application to
 Applications before opening your practice files; do not use the mounted
 image as a permanent home for the app.
 
@@ -35,7 +39,7 @@ release. For the Apple-silicon DMG, run this in its download folder:
 
 <!-- mac-checksum:start -->
 ```sh
-shasum -a 256 'OpenTag-v0.2.13-macos-arm64.dmg'
+shasum -a 256 'TagGroove-vVERSION-macos-arm64.dmg'
 ```
 <!-- mac-checksum:end -->
 
@@ -58,7 +62,7 @@ for the shared download and recovery checklist.
 
 ## Open a copied album
 
-1. Start the copied/installed **OpenTag.app** and choose **File → Change
+1. Start the copied/installed **TagGroove.app** and choose **File → Change
    directory…** to open a copied album. Keep the original audio elsewhere.
 2. Select a track and inspect its tags before editing. Opening files does
    not itself save a new title or rename the file.
@@ -67,8 +71,8 @@ for the shared download and recovery checklist.
    finish pending edits before switching albums.
 
 Finder **Open With**, dropping supported audio, playlist or folder items on
-OpenTag's Dock icon, and the ordinary `open -a` route feed the app's document
-opening queue. The packaged associations offer OpenTag as an alternate;
+TagGroove's Dock icon, and the ordinary `open -a` route feed the app's document
+opening queue. The packaged associations offer TagGroove as an alternate;
 they do not deliberately make it the default music player.
 
 For an existing copied folder, this Terminal example uses the open-document
@@ -76,15 +80,15 @@ route. Replace the example user/folder with your own path:
 
 <!-- mac-open-document:start -->
 ```sh
-open -a OpenTag '/Users/you/Music/Practice Album'
+open -a TagGroove '/Users/you/Music/Practice Album'
 ```
 <!-- mac-open-document:end -->
 
-That requests a replacement list, not `/add`. To pass explicit OpenTag
+That requests a replacement list, not `/add`. To pass explicit TagGroove
 switches, use the installed bundle executable as described in the
 [command-line reference](../reference/command-line.md). Do not assume
 `open --args` delivers new arguments to an already running app. Inspect
-OpenTag's resulting file list and any pending-edit decision before proceeding.
+TagGroove's resulting file list and any pending-edit decision before proceeding.
 
 Within the window, an ordinary file/folder drop replaces the list; holding
 Command while dropping adds to it. Native launch requests are queued for
@@ -102,7 +106,7 @@ means focus is outside text entry. Use visible menu commands when a system
 shortcut intercepts a key.
 
 <!-- mac-key-cases:start -->
-| Chord | Focus | OpenTag result |
+| Chord | Focus | TagGroove result |
 |---|---|---|
 | `Command+T` | File list | Reload tags |
 | `Control+H` | File list | Add directory |
@@ -115,7 +119,7 @@ shortcut intercepts a key.
 <!-- mac-key-cases:end -->
 
 Command+Q remains the Mac quit command; it is not the tag-panel toggle.
-Command+H/M are not substitutes for Control+H/M in OpenTag. While typing,
+Command+H/M are not substitutes for Control+H/M in TagGroove. While typing,
 Option+letter can produce a character, so Control+Option activates the
 corresponding application Alt shortcut instead. Function keys may also
 require your keyboard's Fn key. See the complete [shortcut reference](../reference/keyboard-shortcuts.md)
@@ -126,7 +130,7 @@ for focus, helper menus and dialog-specific keys.
 **File → Open in Finder** reveals selected files or the working folder.
 It is different from **Play**, which asks the system's default application
 to open the selected audio. Use Finder's information/properties controls
-for filesystem details; OpenTag's tag fields are metadata inside the audio.
+for filesystem details; TagGroove's tag fields are metadata inside the audio.
 
 In filename format strings, a literal backslash still separates folder
 components even on a Mac. For reviewed `ARTIST = Juniper Vale`,
@@ -153,7 +157,7 @@ permission. Use the actual operation error and keep the source copy.
 
 ## Window, credentials and configuration
 
-OpenTag's Windows/Linux notification-area controls are unavailable on macOS.
+TagGroove's Windows/Linux notification-area controls are unavailable on macOS.
 Minimized Mac windows use the Dock; there is no equivalent tray option to
 turn on in this build.
 

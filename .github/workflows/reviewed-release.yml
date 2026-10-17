@@ -277,7 +277,7 @@ jobs:
         run: |
           sdkmanager 'platforms;android-37.0' 'build-tools;37.0.0' 'ndk;28.2.13676358'
           echo "NDK_HOME=$ANDROID_HOME/ndk/28.2.13676358" >> "$GITHUB_ENV"
-          echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/opentag-release.keystore" >> "$GITHUB_ENV"
+          echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/taggroove-release.keystore" >> "$GITHUB_ENV"
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -428,8 +428,8 @@ jobs:
       - name: Package and independently verify complete source
         run: |
           mkdir -p release-assets
-          python scripts/audio-source-bundle.py --source-sha "$RELEASE_COMMIT" --version "$RELEASE_VERSION" --native-evidence native-evidence --output "release-assets/OpenTag-$RELEASE_TAG-sources.tar.xz"
-          python scripts/audio-source-bundle.py --source-sha "$RELEASE_COMMIT" --version "$RELEASE_VERSION" --native-evidence native-evidence --verify "release-assets/OpenTag-$RELEASE_TAG-sources.tar.xz"
+          python scripts/audio-source-bundle.py --source-sha "$RELEASE_COMMIT" --version "$RELEASE_VERSION" --native-evidence native-evidence --output "release-assets/TagGroove-$RELEASE_TAG-sources.tar.xz"
+          python scripts/audio-source-bundle.py --source-sha "$RELEASE_COMMIT" --version "$RELEASE_VERSION" --native-evidence native-evidence --verify "release-assets/TagGroove-$RELEASE_TAG-sources.tar.xz"
       - uses: actions/upload-artifact@v4
         with:
           name: release-corresponding-source

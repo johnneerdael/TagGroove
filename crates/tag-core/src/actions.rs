@@ -1462,8 +1462,8 @@ fn mta_value(value: &str) -> Result<String, String> {
     }
     Ok(out)
 }
-/// `.mta` type IDs OpenTag assigns to action types with no known Mp3tag ID.
-/// Mp3tag lists them as unknown actions; OpenTag reads them back.
+/// `.mta` type IDs TagGroove assigns to action types with no known Mp3tag ID.
+/// Mp3tag lists them as unknown actions; TagGroove reads them back.
 pub const MTA_OPENTAG_TYPES: [(u32, &str); 3] = [
     (1001, "Adjust Cover"),
     (1002, "Set Cover Properties"),
@@ -1534,7 +1534,7 @@ fn mta_picture_type(name: &Option<String>) -> Result<String, String> {
         .map(Option::unwrap_or_default)
 }
 
-// Every shape/setting parser failure is an OpenTag-owned guard. Validation is
+// Every shape/setting parser failure is a TagGroove-owned guard. Validation is
 // separate because regex/codepage validation also returns foreign diagnostics.
 fn mta_action_shape(record: &MtaRecord) -> Result<ActionSpec, String> {
     let type_id = record

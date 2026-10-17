@@ -345,7 +345,7 @@ fn validate_file(name: &str, path: &Path) -> Result<(), String> {
         "tag-panel.json" => crate::tag_panel::load(path).map(drop),
         "directories.json" => crate::file_ops::load(path).map(drop),
         "lists.json" => crate::lists::load(path).map(drop),
-        _ => Err(format!("{name} is not an OpenTag configuration file")),
+        _ => Err(format!("{name} is not a TagGroove configuration file")),
     }
 }
 
@@ -372,9 +372,9 @@ pub fn collect(directory: &Path) -> Result<Bundle, String> {
 /// matching files of `directory`. Files missing from the bundle are kept.
 pub fn restore(directory: &Path, bytes: &[u8]) -> Result<Vec<String>, String> {
     let bundle: Bundle =
-        serde_json::from_slice(bytes).map_err(|e| format!("Not an OpenTag configuration: {e}"))?;
+        serde_json::from_slice(bytes).map_err(|e| format!("Not a TagGroove configuration: {e}"))?;
     if bundle.format != BUNDLE_FORMAT {
-        return Err("Not an OpenTag configuration file".into());
+        return Err("Not a TagGroove configuration file".into());
     }
     if bundle.version != 1 {
         return Err(format!(
@@ -389,7 +389,7 @@ pub fn restore(directory: &Path, bytes: &[u8]) -> Result<Vec<String>, String> {
     let mut validated = Vec::new();
     for (name, value) in &bundle.files {
         if !CONFIGURATION.contains(&name.as_str()) {
-            return Err(format!("{name} is not an OpenTag configuration file"));
+            return Err(format!("{name} is not a TagGroove configuration file"));
         }
         let content = serde_json::to_vec_pretty(value).map_err(|e| e.to_string())?;
         let path = staging.path().join(name);
@@ -493,12 +493,12 @@ pub async fn write_clipboard_text(text: String) -> Result<(), String> {
 
 /// Help menu destinations. Only these fixed pages can be opened.
 const HELP_PAGES: [(&str, &str); 4] = [
-    ("repository", "https://github.com/johnneerdael/opentag"),
-    ("documentation", "https://opentag.neerdael.nl/"),
-    ("issues", "https://github.com/johnneerdael/opentag/issues"),
+    ("repository", "https://github.com/johnneerdael/TagGroove"),
+    ("documentation", "https://taggroove.neerdael.nl/"),
+    ("issues", "https://github.com/johnneerdael/TagGroove/issues"),
     (
         "releases",
-        "https://github.com/johnneerdael/opentag/releases",
+        "https://github.com/johnneerdael/TagGroove/releases",
     ),
 ];
 

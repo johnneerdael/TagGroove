@@ -1,4 +1,4 @@
-//! Validate the converter guide's published examples with OpenTag's core.
+//! Validate the converter guide's published examples with TagGroove's core.
 mod guide_examples;
 use guide_examples::text_blocks;
 

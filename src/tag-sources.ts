@@ -14,14 +14,14 @@ export type ApplyItem = {path:string;updates:Fields;raw_lyrics?:boolean};
 /** `save_as` is Utils → Save image to disc: the file name format from Options → Tag Sources. */
 export type ApplyCover = {url:string;replace_existing:boolean;save_as:string|null;preserve_existing?:boolean};
 export type TagSourceCredentials = {discogs_token_set:boolean;discogs_token_in_keychain:boolean;keychain_available:boolean;
-  /** This build carries OpenTag's Discogs application key: Discogs works without a token. */
+  /** This build carries TagGroove's Discogs application key: Discogs works without a token. */
   discogs_app_key?:boolean;
   acoustid_key_set?:boolean;acoustid_built_in?:boolean;lastfm_key_set?:boolean;lastfm_built_in?:boolean;fanart_key_set?:boolean;fanart_built_in?:boolean};
 /** Services that need an API key: the user's own (Tag Sources → API keys…) or one built into this build. */
 export const KEYED_SOURCES = [
-  {provider:'acoustid',name:'AcoustID',key:'acoustid',register:'https://acoustid.org/new-application',note:'Free for non-commercial use. Audio fingerprints are calculated locally with OpenTag\'s built-in Chromaprint libraries.'},
+  {provider:'acoustid',name:'AcoustID',key:'acoustid',register:'https://acoustid.org/new-application',note:'Free for non-commercial use. Audio fingerprints are calculated locally with TagGroove\'s built-in Chromaprint libraries.'},
   {provider:'lastfm',name:'Last.fm',key:'lastfm',register:'https://www.last.fm/api/account/create',note:'Non-commercial use; album tags become GENRE.'},
-  {provider:'fanart',name:'fanart.tv',key:'fanart',register:'https://fanart.tv/get-an-api-key/',note:'Enter your personal API key: it is sent with OpenTag\'s project key (as client_key). A build without a project key uses yours as the project key.'},
+  {provider:'fanart',name:'fanart.tv',key:'fanart',register:'https://fanart.tv/get-an-api-key/',note:'Enter your personal API key: it is sent with TagGroove\'s project key (as client_key). A build without a project key uses yours as the project key.'},
 ] as const;
 /** Why a key-gated source cannot run yet, or '' when it can. */
 export function sourceKeyReason(provider:Provider, credentials:TagSourceCredentials|null) {
@@ -246,7 +246,7 @@ export function tagSourcesOptionsPages(pickFolder:()=>Promise<string|null>, inde
     root.querySelector('#freedb-server')!.addEventListener('change',event => use(servers,Number((event.target as HTMLSelectElement).value),'#freedb-server'));
     root.querySelector('#freedb-server-new')!.addEventListener('click',() => use([...servers,{name:'New server',protocol:'https',address:'',path:'/~cddb/cddb.cgi',port:''}],servers.length,'#freedb-server-name'));
     root.querySelector('#freedb-server-delete')!.addEventListener('click',() => { if (servers.length > 1) use(servers.filter((_,i) => i !== index),Math.max(0,index-1),'#freedb-server'); });
-    // Mp3tag's button fetches the list; OpenTag ships it and restores it here.
+    // Mp3tag's button fetches the list; TagGroove ships it and restores it here.
     root.querySelector('#freedb-server-list')!.addEventListener('click',() => use(FREEDB_SERVERS.map(s => ({...s})),0,'#freedb-server'));
     const edit = (key:keyof FreedbServer) => (event:Event) => {
       servers[index] = {...servers[index],[key]:(event.target as HTMLInputElement|HTMLSelectElement).value};
@@ -303,10 +303,10 @@ export function tagSourcesOptionsPages(pickFolder:()=>Promise<string|null>, inde
       controls:[
         {kind:'group',label:'freedb server',controls:[
           {kind:'custom',id:'freedb-servers',paths:[`pages.${freedbPage}.servers`,`pages.${freedbPage}.server`,...serverKeys.map(key => `pages.${freedbPage}.${key}`)],render:serversMarkup,bind:bindServers},
-          {kind:'text',path:'pages.tag-sources-freedb.email',label:'Your email address (sent to the freedb server)',placeholder:'Not set: the OpenTag developer contact is sent'},
+          {kind:'text',path:'pages.tag-sources-freedb.email',label:'Your email address (sent to the freedb server)',placeholder:'Not set: the TagGroove developer contact is sent'},
         ]},
-        {kind:'note',text:'Every request to gnudb must carry an email address; it is sent as “user domain” in the CDDB handshake together with the program name OpenTagAudioTagEditor and its version. Without an address of your own, OpenTag sends its developer contact (john@neerdael.nl). gnudb only answers applications that its operator has registered. If gnudb refuses OpenTag, use another CDDB server or a local freedb folder.'},
-        {kind:'note',text:'Discs are looked up with the track layout of the selected files or by artist and album; entries are read only after the server listed them, and cover art comes from the Cover Art Archive images gnudb lists. OpenTag never submits entries. When the server answers 429 Too Many Requests, wait a while before searching again.'},
+        {kind:'note',text:'Every request to gnudb must carry an email address; it is sent as “user domain” in the CDDB handshake together with the program name OpenTagAudioTagEditor and its version. Without an address of your own, TagGroove sends its developer contact (john@neerdael.nl). gnudb only answers applications that its operator has registered. If gnudb refuses TagGroove, use another CDDB server or a local freedb folder.'},
+        {kind:'note',text:'Discs are looked up with the track layout of the selected files or by artist and album; entries are read only after the server listed them, and cover art comes from the Cover Art Archive images gnudb lists. TagGroove never submits entries. When the server answers 429 Too Many Requests, wait a while before searching again.'},
         {kind:'group',label:'General',controls:[
           {kind:'checkbox',path:'pages.tag-sources-freedb.comment_disc_id',label:'Copy disc ID to COMMENT field'},
           {kind:'checkbox',path:'pages.tag-sources-freedb.disc_id_field',label:'Copy disc ID to DISCID field'},
@@ -318,7 +318,7 @@ export function tagSourcesOptionsPages(pickFolder:()=>Promise<string|null>, inde
         if (address && !/^[A-Za-z0-9.-]+$/.test(address)) return 'Enter the freedb server address as a host name, for example gnudb.gnudb.org.';
         if (port && !(/^\d+$/.test(port) && Number(port) >= 1 && Number(port) <= 65535)) return 'The freedb port must be a number from 1 to 65535.';
         const email = String(page.email ?? '').trim();
-        if (email && !validEmail(email)) return 'Enter your email address as name@example.org, or leave it empty to send the OpenTag developer contact.';
+        if (email && !validEmail(email)) return 'Enter your email address as name@example.org, or leave it empty to send the TagGroove developer contact.';
         return undefined;
       }},
     {id:localFreedbPage,label:'Local freedb',parent:'tag-sources',order:2,
@@ -337,12 +337,12 @@ export function tagSourcesOptionsPages(pickFolder:()=>Promise<string|null>, inde
         bind:(root,draft) => bindIndex(root,draft)},
       ]},
     {id:onlinePage,label:'Online services',parent:'tag-sources',order:3,
-      description:'iTunes, Deezer, Last.fm, AcoustID, LRCLIB lyrics and fanart.tv artwork (Tag Sources menu). Each service has its own terms; OpenTag identifies itself to them and keeps to their request limits.',
+      description:'iTunes, Deezer, Last.fm, AcoustID, LRCLIB lyrics and fanart.tv artwork (Tag Sources menu). Each service has its own terms; TagGroove identifies itself to them and keeps to their request limits.',
       defaults:{itunes_country:'US',itunes_cover_size:'1200',deezer_cover_size:'1000',lrclib_synced:false,lastfm_genres:'1',fpcalc:''},
       controls:[
         {kind:'group',label:'API keys',controls:[
           {kind:'button',id:'tag-source-keys',label:'API keys…',run:async () => { await keys?.(); }},
-          {kind:'note',text:'AcoustID, Last.fm and fanart.tv need an API key: one built into this build of OpenTag, or your own (Tag Sources → API keys…). Keys are kept in a private file, never in these options.'},
+          {kind:'note',text:'AcoustID, Last.fm and fanart.tv need an API key: one built into this build of TagGroove, or your own (Tag Sources → API keys…). Keys are kept in a private file, never in these options.'},
         ]},
         {kind:'group',label:'iTunes',controls:[
           {kind:'text',path:`pages.${onlinePage}.itunes_country`,label:'Store country (two letters)',placeholder:'US',maxLength:2},
@@ -360,7 +360,7 @@ export function tagSourcesOptionsPages(pickFolder:()=>Promise<string|null>, inde
         ]},
         {kind:'group',label:'AcoustID',controls:[
           {kind:'text',path:`pages.${onlinePage}.fpcalc`,label:'Optional fpcalc override (desktop)',placeholder:'Leave empty for built-in fingerprinting'},
-          {kind:'note',text:'OpenTag includes the audio decoder and Chromaprint libraries: no extra program is needed. Advanced desktop users can enter an explicit fpcalc program path to override the built-in fingerprint producer; clear it to restore the default.'},
+          {kind:'note',text:'TagGroove includes the audio decoder and Chromaprint libraries: no extra program is needed. Advanced desktop users can enter an explicit fpcalc program path to override the built-in fingerprint producer; clear it to restore the default.'},
         ]},
       ],
       validate:draft => {
@@ -405,7 +405,7 @@ export function resultColumns(provider:Provider):ResultColumn[]|null {
 /** The selected files as per-file sources (LRCLIB, AcoustID) need them. */
 export const fileSignatures = (files:SourceFile[]) => files.map(({path,title,artist,album,track,disc,length}) => ({path,title,artist,album,track,disc,length:Number.isFinite(length) ? length : 0}));
 const fieldOrder = ['TITLE','ARTIST','ALBUM','ALBUMARTIST','YEAR','TRACK','DISCNUMBER','GENRE','STYLE','COMPOSER','PUBLISHER','CATALOGNUMBER','BARCODE','ISRC'];
-/** OpenTag's multi-value separator, as in the tag panel. */
+/** TagGroove's multi-value separator, as in the tag panel. */
 const MULTI = ' \\\\ ';
 const html = (value:unknown) => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 export const duration = (seconds:number|null) => { if (seconds == null || !Number.isFinite(seconds)) return ''; const total = Math.round(seconds); return `${Math.floor(total/60)}:${String(total%60).padStart(2,'0')}`; };
@@ -647,12 +647,12 @@ export class TagSourcesUI {
     const dialog = document.createElement('dialog');
     dialog.className = 'tag-source-dialog ts-token-dialog';
     dialog.setAttribute('aria-label','Discogs access token');
-    const where = credentials.discogs_token_in_keychain ? 'in the system keychain' : 'in a private file in OpenTag\'s configuration folder';
+    const where = credentials.discogs_token_in_keychain ? 'in the system keychain' : 'in a private file in TagGroove\'s configuration folder';
     dialog.innerHTML = `<header>Discogs access token</header><div class="dialog-content">
       <label class="field"><span>PERSONAL ACCESS TOKEN</span><input id="ts-token" type="password" autocomplete="off" spellcheck="false" placeholder="${credentials.discogs_token_set ? 'Saved. Enter a new token to replace it.' : 'Not set'}"></label>
       <label class="action-check"><input id="ts-token-clear" type="checkbox" ${credentials.discogs_token_set ? '' : 'disabled'}> Remove the saved token</label>
       ${credentials.keychain_available ? `<label class="action-check"><input id="ts-token-keychain" type="checkbox" ${credentials.discogs_token_in_keychain ? 'checked' : ''}> Keep the token in the system keychain</label>` : ''}
-      <p>${credentials.discogs_app_key ? 'Discogs works without a token: this build of OpenTag signs its requests with its own Discogs application key (60 requests a minute, cover thumbnails included). A personal token, created on Discogs under Settings → Developers, is used instead when you save one.' : 'Create a token on Discogs under Settings → Developers. Release lookups and searches also work without one at a lower rate limit; with a token, searches show cover thumbnails.'} The token is not shown again.</p>
+      <p>${credentials.discogs_app_key ? 'Discogs works without a token: this build of TagGroove signs its requests with its own Discogs application key (60 requests a minute, cover thumbnails included). A personal token, created on Discogs under Settings → Developers, is used instead when you save one.' : 'Create a token on Discogs under Settings → Developers. Release lookups and searches also work without one at a lower rate limit; with a token, searches show cover thumbnails.'} The token is not shown again.</p>
       <p class="ts-token-place" role="status">${credentials.discogs_token_set ? `The saved token is kept ${where}.` : 'No token is saved.'}${credentials.keychain_available ? ' Changing the keychain option moves a saved token when you select Save.' : ''}</p></div>
       <div class="dialog-footer"><button data-close>Cancel</button><button class="primary" id="ts-save-token">Save</button></div>`;
     document.body.append(dialog);
@@ -692,9 +692,9 @@ export class TagSourcesUI {
         return `<fieldset class="ts-key" data-key="${source.key}"><legend>${html(source.name)}</legend>
           <label class="field"><span>YOUR API KEY</span><input id="ts-key-${source.key}" type="password" autocomplete="off" spellcheck="false" placeholder="${set ? 'Saved. Enter a new key to replace it.' : builtIn ? 'Not needed: this build has a key' : 'Not set'}"></label>
           <label class="action-check"><input id="ts-key-clear-${source.key}" type="checkbox" ${set ? '' : 'disabled'}> Remove the saved key</label>
-          <p class="ts-key-state" role="status">${set ? 'Your key is saved.' : builtIn ? 'This build of OpenTag includes a key.' : `No key: ${html(source.name)} stays unavailable until you add one.`} ${html(source.note)} Register at ${html(source.register)}.</p></fieldset>`;
+          <p class="ts-key-state" role="status">${set ? 'Your key is saved.' : builtIn ? 'This build of TagGroove includes a key.' : `No key: ${html(source.name)} stays unavailable until you add one.`} ${html(source.note)} Register at ${html(source.register)}.</p></fieldset>`;
       }).join('')}
-      <p>Keys are kept in a private file in OpenTag's configuration folder and are not shown again.</p></div>
+      <p>Keys are kept in a private file in TagGroove's configuration folder and are not shown again.</p></div>
       <div class="dialog-footer"><button data-close>Cancel</button><button class="primary" id="ts-save-keys">Save</button></div>`;
     document.body.append(dialog);
     const save = dialog.querySelector<HTMLButtonElement>('#ts-save-keys')!;

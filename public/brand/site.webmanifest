@@ -1,9 +1,9 @@
 {
-  "name": "OpenTag",
-  "short_name": "OpenTag",
+  "name": "TagGroove",
+  "short_name": "TagGroove",
   "description": "Open source music tag editor",
-  "start_url": "../",
-  "scope": "../",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#101922",
   "theme_color": "#FF7800",

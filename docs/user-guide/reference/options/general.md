@@ -9,7 +9,7 @@ Open **File → Options… → General** to control everyday selection, sorting,
 
 | Setting | Default | Effect and when to use it |
 |---|---|---|
-| **Show current directory in window title** | On | Add the working folder to the title, for example `OpenTag — /Music/Juniper Vale`. Useful with several windows or similar album folders. With no folder loaded, the title remains `OpenTag`. |
+| **Show current directory in window title** | On | Add the working folder to the title, for example `TagGroove — /Music/Juniper Vale`. Useful with several windows or similar album folders. With no folder loaded, the title remains `TagGroove`. |
 | **Automatically select next file when editing in file view** | Off | After committing an edit in a file-list cell, move the selection to the next file. Enable for entering a sequence of titles down a column; disable when several fields on one file need attention. |
 | **Auto-completion at selection boxes** | On | Complete typed prefixes using available values in tag-panel fields and file-list cells. The added suffix is selected, so further typing replaces it. Disable if suggestions interfere with free typing. |
 | **Use natural sorting (1, 2, 11, …)** | On | Treat digit sequences numerically: `Track 2` precedes `Track 11`. With it off, textual sorting can place `Track 11` before `Track 2`. This changes list order, not track fields or filenames. |
@@ -22,7 +22,7 @@ Even with automatic selection off, loading files into an empty, unselected list 
 
 ## Notification area
 
-Both controls default to off. **Always show icon in notification area** keeps a tray icon available. **Minimize to notification area** hides the minimized window and its taskbar entry; click the tray icon or choose **Show OpenTag** from its menu to return.
+Both controls default to off. **Always show icon in notification area** keeps a tray icon available. **Minimize to notification area** hides the minimized window and its taskbar entry; click the tray icon or choose **Show TagGroove** from its menu to return.
 
 These controls are for Windows and Linux. Linux requires notification-area support, including `libayatana-appindicator`. On macOS the controls are unavailable; minimized windows use the Dock. Do not look for a Windows-style tray setting to recover a minimized Mac window.
 

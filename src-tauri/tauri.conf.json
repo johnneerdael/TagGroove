@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "OpenTag",
+  "productName": "TagGroove",
   "version": "0.2.0",
   "identifier": "org.opentag.editor",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "OpenTag",
+        "title": "TagGroove",
         "width": 1240,
         "height": 800,
         "minWidth": 800,
@@ -27,9 +27,9 @@
     "active": true,
     "targets": "all",
     "shortDescription": "Open source audio metadata editor",
-    "longDescription": "OpenTag \u2014 Tag, Organize, Enjoy. An open source music metadata editor built with Tauri 2 and Rust.",
-    "publisher": "OpenTag",
-    "homepage": "https://github.com/johnneerdael/opentag",
+    "longDescription": "TagGroove \u2014 Tag, Organize, Enjoy. An open source music metadata editor built with Tauri 2 and Rust.",
+    "publisher": "TagGroove",
+    "homepage": "https://github.com/johnneerdael/TagGroove",
     "license": "MIT AND LGPL-2.1-or-later AND BSD-3-Clause AND Zlib AND bzip2-1.0.6",
     "licenseFile": "../THIRD_PARTY_NOTICES.md",
     "category": "Music",
@@ -42,6 +42,14 @@
     ],
     "macOS": {
       "signingIdentity": "-"
+    },
+    "windows": {
+      "wix": {
+        "upgradeCode": "ed7df85b-a59c-563d-84e9-a966cbccc202"
+      },
+      "nsis": {
+        "template": "windows/installer.nsi"
+      }
     },
     "linux": {
       "deb": {

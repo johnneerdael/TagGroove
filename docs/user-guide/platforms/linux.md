@@ -1,4 +1,4 @@
-# OpenTag on Linux
+# TagGroove on Linux
 
 Choose a package for your distribution and processor, use the desktop file
 manager deliberately, and distinguish application-runtime dependencies from
@@ -6,8 +6,12 @@ optional notification-area support. Keep one copied album for the first run.
 
 ## Choose an actual published package
 
-The published [v0.2.13 release](https://github.com/johnneerdael/opentag/releases/tag/v0.2.13)
-contains these Linux assets:
+The package formats and platform limits below were inspected in
+[v0.2.13](https://github.com/johnneerdael/TagGroove/releases/tag/v0.2.13), before
+the rename. The table shows the TagGroove naming pattern for new builds;
+replace `VERSION` with the chosen release’s version. Older releases retain
+their original filenames. Use the actual asset name and checksum from that
+release, and read its notes before installing.
 
 Scroll the download table sideways on a narrow screen to read complete filenames.
 
@@ -16,8 +20,8 @@ Scroll the download table sideways on a narrow screen to read complete filenames
 <!-- linux-package-assets:start -->
 | Processor | Package choices |
 |---|---|
-| x64 / x86-64 | `OpenTag-v0.2.13-linux-x64.AppImage`, `OpenTag-v0.2.13-linux-x64.deb`, `OpenTag-v0.2.13-linux-x64.rpm` |
-| arm64 / AArch64 | `OpenTag-v0.2.13-linux-arm64.AppImage`, `OpenTag-v0.2.13-linux-arm64.deb`, `OpenTag-v0.2.13-linux-arm64.rpm` |
+| x64 / x86-64 | `TagGroove-vVERSION-linux-x64.AppImage`, `TagGroove-vVERSION-linux-x64.deb`, `TagGroove-vVERSION-linux-x64.rpm` |
+| arm64 / AArch64 | `TagGroove-vVERSION-linux-arm64.AppImage`, `TagGroove-vVERSION-linux-arm64.deb`, `TagGroove-vVERSION-linux-arm64.rpm` |
 <!-- linux-package-assets:end -->
 
 </div>
@@ -39,7 +43,7 @@ For the x64 AppImage, run this in the folder containing it:
 
 <!-- linux-checksum:start -->
 ```sh
-sha256sum 'OpenTag-v0.2.13-linux-x64.AppImage'
+sha256sum 'TagGroove-vVERSION-linux-x64.AppImage'
 ```
 <!-- linux-checksum:end -->
 
@@ -70,8 +74,8 @@ open it. The corresponding terminal steps for the x64 example are:
 
 <!-- linux-appimage-run:start -->
 ```sh
-chmod u+x 'OpenTag-v0.2.13-linux-x64.AppImage'
-./OpenTag-v0.2.13-linux-x64.AppImage
+chmod u+x 'TagGroove-vVERSION-linux-x64.AppImage'
+./TagGroove-vVERSION-linux-x64.AppImage
 ```
 <!-- linux-appimage-run:end -->
 
@@ -84,11 +88,14 @@ published package.
 
 ## Use the file manager and command line
 
-The inspected x64 DEB installs an **OpenTag** application entry whose command
-is `opentag`. Its entry does not declare file MIME associations or a `%F`
-file-argument placeholder. Do not assume a double-clicked audio file is
-registered to open in OpenTag. Use **File → Add files…**, **Change directory…**,
-or drop copied files/folders into its window.
+The inspected v0.2.13 x64 DEB, published before the rename, installs an
+**OpenTag** entry with `Exec=opentag`. That historical entry does not declare
+file MIME associations or a `%F` file-argument placeholder. New **TagGroove**
+builds are configured to use `taggroove`; a new Linux package has not yet been
+inspected for this page. Check the installed entry for the version in use.
+Do not assume a double-clicked audio file is registered to open in the app.
+Use **File → Add files…**, **Change directory…**, or drop copied files/folders
+into its window.
 
 A plain window drop replaces the list; holding Ctrl adds to it. **File →
 Open in file manager** reveals files/the current folder through desktop
@@ -96,12 +103,14 @@ integration. **Play** uses the system's associated application. Availability
 and behavior depend on the desktop session and file manager; a file path
 can load successfully even when a reveal/default-player action is unavailable.
 
-For the DEB's installed executable, this terminal example opens an existing
-copied folder. Replace the example location with your own:
+For a new TagGroove build, the expected executable name is shown below.
+The historical v0.2.13 package instead needs `opentag`. This example opens an
+existing copied folder; replace the command and location for the installed
+version:
 
 <!-- linux-launch:start -->
 ```sh
-opentag '/fp:/home/you/Music/Practice Album'
+taggroove '/fp:/home/you/Music/Practice Album'
 ```
 <!-- linux-launch:end -->
 
@@ -114,12 +123,12 @@ for `/add`, absolute paths, pending-edit decisions and load order.
 ## Shortcuts, focus and the status area
 
 Shared Primary shortcuts use **Ctrl** on Linux. Application shortcuts only
-work if the desktop/window manager delivers them to OpenTag. If a chord
+work if the desktop/window manager delivers them to TagGroove. If a chord
 is intercepted, choose its visible menu command before changing the task.
 Text fields and AltGraph keep their text-entry behavior.
 
 <!-- linux-key-cases:start -->
-| Chord | Focus | OpenTag result |
+| Chord | Focus | TagGroove result |
 |---|---|---|
 | `Ctrl+D` | File list | Change directory |
 | `Alt+T` | Text field | Extended tags |
@@ -137,7 +146,7 @@ own Apply/write boundaries.
 Both **Options → General → Notification area** choices begin off.
 **Always show icon in notification area** keeps an icon available;
 **Minimize to notification area** can hide the minimized window/taskbar entry.
-The tray menu's **Show OpenTag**, or clicking the icon, restores it.
+The tray menu's **Show TagGroove**, or clicking the icon, restores it.
 
 The implementation needs an AppIndicator library and a compatible desktop
 status area. It probes Ayatana/AppIndicator availability before creating

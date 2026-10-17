@@ -142,8 +142,8 @@ On macOS with Rust 1.95.0, the complete native library suite passes **47/47**, i
 Checks use a separate absolute target directory and disable Cargo cache auto-clean:
 
 ```sh
-CARGO_TARGET_DIR=/tmp/opentag-parity-converters-195 CARGO_CACHE_AUTO_CLEAN_FREQUENCY=never RUSTC_WRAPPER= rustup run 1.95.0 cargo test --locked -p opentag --lib
-CARGO_TARGET_DIR=/tmp/opentag-parity-converters-195 CARGO_CACHE_AUTO_CLEAN_FREQUENCY=never RUSTC_WRAPPER= rustup run 1.95.0 cargo clippy --locked -p opentag --all-targets -- -D warnings
+CARGO_TARGET_DIR=/tmp/taggroove-parity-converters-195 CARGO_CACHE_AUTO_CLEAN_FREQUENCY=never RUSTC_WRAPPER= rustup run 1.95.0 cargo test --locked -p opentag --lib
+CARGO_TARGET_DIR=/tmp/taggroove-parity-converters-195 CARGO_CACHE_AUTO_CLEAN_FREQUENCY=never RUSTC_WRAPPER= rustup run 1.95.0 cargo clippy --locked -p opentag --all-targets -- -D warnings
 ```
 
 These native tests do not claim Windows/Linux, mobile document-URI/save-back, multi-format converter execution or crash recovery. Their evidence is separate from the bounded macOS frontend replay below. Core format tests and existing real-writer tests remain separate evidence.

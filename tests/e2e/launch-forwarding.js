@@ -1,7 +1,7 @@
 // Native e2e for launch forwarding: a real second launch with `/add /fn:` is
 // forwarded to the running instance over the single-instance channel (Linux
 // D-Bus in CI; the fixtures script starts it), and macOS open-documents events
-// (Finder "Open With", Dock drops, `open -a OpenTag <paths>`) are fed through
+// (Finder "Open With", Dock drops, `open -a TagGroove <paths>`) are fed through
 // the same `RunEvent::Opened` handler with `e2e_open_urls`.
 // Runs in CI (headless); never on a working desktop.
 (async () => {

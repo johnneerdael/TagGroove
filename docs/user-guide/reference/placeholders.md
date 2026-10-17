@@ -1,8 +1,8 @@
 # Placeholders
 
-<p class="lead">A placeholder is a name between percent signs. OpenTag replaces it with a value for each file: <code>%title%</code> with the title, <code>%_bitrate%</code> with the bitrate, <code>%_folderpath%</code> with the folder the file is in.</p>
+<p class="lead">A placeholder is a name between percent signs. TagGroove replaces it with a value for each file: <code>%title%</code> with the title, <code>%_bitrate%</code> with the bitrate, <code>%_folderpath%</code> with the folder the file is in.</p>
 
-This page lists every placeholder OpenTag understands, grouped by what it
+This page lists every placeholder TagGroove understands, grouped by what it
 tells you. For the rules of the language around them (optional sections,
 quoting, conditions), see [Format strings](format-strings.md).
 
@@ -19,7 +19,7 @@ See [Placeholders: `%field%`](format-strings.md#placeholders) for the
 details. Common field names include `ARTIST`, `TITLE`, `ALBUM` and `TRACK`.
 
 **Information placeholders** start with an underscore: `%_length%`,
-`%_covers%`. OpenTag works them out from the file itself, its location, its
+`%_covers%`. TagGroove works them out from the file itself, its location, its
 audio stream or the current operation. You can read them but not write them.
 
 The rest of this page lists the information placeholders. All of them:
@@ -48,7 +48,7 @@ on a Mac. On Windows the paths use `\` and a drive letter.
 | `%_directory%` | The name of the folder the file is in | `Harbour Lights` |
 | `%_parent_directory%` | The name of the folder above that | `Juniper Vale` |
 | `%_volume%` | The name (label) of the disk the file is on | `Music Drive` |
-| `%_workingdir%` | The name of the folder you opened in OpenTag | `Music` |
+| `%_workingdir%` | The name of the folder you opened in TagGroove | `Music` |
 | `%_workingpath%` | The full path of that folder, ending with a separator | `/Users/you/Music/` |
 
 Because `%_folderpath%` already ends with a separator, append a file name
@@ -105,11 +105,11 @@ chapter row has its own values:
 | Placeholder | Gives | Example |
 |---|---|---|
 | `%_tag%` | Every tag type in the file, separated by spaces | `ID3v2.3 ID3v1` |
-| `%_tag_read%` | The tag OpenTag is showing for this file | `ID3v2.3` |
+| `%_tag_read%` | The tag TagGroove is showing for this file | `ID3v2.3` |
 | `%_tag_size%` | Size of the tags in bytes | `4096` |
 | `%_tag_size_prepended%`, `%_tag_size_appended%` | Tag bytes before and after the audio | `4096`, `128` |
 | `%_id3v2_character_encoding%` | Text encodings used in the ID3v2 tag | `UTF-16` |
-| `%_id3v2_unknown_frames%` | ID3v2 frames OpenTag keeps but doesn't interpret | `XABC` |
+| `%_id3v2_unknown_frames%` | ID3v2 frames TagGroove keeps but doesn't interpret | `XABC` |
 
 `%_tag_size%` and its variants exist for MP3, APE, FLAC, AAC, Musepack and
 WavPack files. The other two only exist for files with an ID3v2 tag.
@@ -157,7 +157,7 @@ when a file was created (many Linux file systems).
 | `%_counter%` | The file's position in the current operation: 1 for the first selected file, 2 for the next | `2` |
 | `%_date%` | Today's date, short local format | `10/15/26` |
 | `%_datetime%` | Now, local date and time | `10/15/26 4:12:09 PM` |
-| `%_app%` | The program name and version | `OpenTag v0.1.0` |
+| `%_app%` | The program name and version | `TagGroove v0.1.0` |
 
 `%_counter%` follows the order of the files in the file list, so sort the list
 first when you use it to number files. For track numbers, the
@@ -185,7 +185,7 @@ because they describe the export as a whole or need extra work per file.
 | `%_md5%` | MD5 checksum of the file, 32 hexadecimal digits | `9e107d9d372bb6826bd81d3542a419d6` |
 | `%_md5audio%` | The audio checksum stored in FLAC and WavPack files, otherwise an MD5 of the audio without tags. Empty when unavailable | |
 
-Checksums take time to compute on large selections, because OpenTag has to
+Checksums take time to compute on large selections, because TagGroove has to
 read every file completely.
 
 ## Playlists only
@@ -208,8 +208,8 @@ describe the page being parsed.
 ## Placeholders compared with Mp3tag
 
 !!! info "Coming from Mp3tag"
-    OpenTag reads the same placeholder names as Mp3tag, so your format
-    strings, columns and export templates keep working. OpenTag adds two:
+    TagGroove reads the same placeholder names as Mp3tag, so your format
+    strings, columns and export templates keep working. TagGroove adds two:
     `%_filetype%` (the container format) and `%_segment_title%` (the
     Matroska segment title).
 

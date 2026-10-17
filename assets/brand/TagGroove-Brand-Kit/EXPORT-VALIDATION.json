@@ -1,0 +1,17 @@
+{
+  "status": "passed",
+  "name": "TagGroove",
+  "change_scope": "App name, wordmark lettering, related filenames and references. Original colors and icon artwork preserved.",
+  "png_files_verified": 161,
+  "svg_files_parsed": 67,
+  "android_xml_files_parsed": 7,
+  "wordmarks_renamed": 28,
+  "unchanged_binary_files_verified": 136,
+  "non_name_svg_geometry_verified": 28,
+  "pngs_with_identical_pixels_outside_wordmark": 24,
+  "ico_frames_decoded": 13,
+  "icns_frames_decoded": 11,
+  "guide_embedded_images_verified": 32,
+  "guide_download_links_verified": 28,
+  "device_testing": "Not performed; no application project was provided."
+}

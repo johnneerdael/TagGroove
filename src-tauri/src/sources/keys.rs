@@ -10,7 +10,7 @@ fn built_in(value: Option<&'static str>) -> Option<&'static str> {
     value.map(str::trim).filter(|value| !value.is_empty())
 }
 
-/// OpenTag's Discogs application consumer key and secret.
+/// TagGroove's Discogs application consumer key and secret.
 pub fn discogs_app() -> Option<(&'static str, &'static str)> {
     Some((
         built_in(option_env!("OPENTAG_DISCOGS_CONSUMER_KEY"))?,
@@ -34,7 +34,7 @@ pub fn fanart() -> Option<&'static str> {
 }
 
 /// How Discogs requests authenticate: the user's personal token first, then
-/// OpenTag's application key and secret, else anonymously.
+/// TagGroove's application key and secret, else anonymously.
 pub fn discogs_auth(token: &str, app: Option<(&str, &str)>) -> super::http::Auth {
     use super::http::Auth;
     let token = token.trim();

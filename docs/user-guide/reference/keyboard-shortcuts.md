@@ -77,7 +77,7 @@ is separate from checking a dialog's enabled fields.
 | Ctrl+Shift+V | Command+Shift+V | Move files to another folder |
 | Alt+Enter | Option+Enter | Reveal selected files in the file manager |
 
-The key labelled Delete on many Mac keyboards sends Backspace. OpenTag accepts
+The key labelled Delete on many Mac keyboards sends Backspace. TagGroove accepts
 that key for these file-list operations. Confirm the command's wording:
 removing a row, trashing a file and permanently deleting it have different
 effects. File moves/deletions are not ordinary pending tag edits.
@@ -130,7 +130,7 @@ while typing they are left to the field's normal editing behavior.
 On macOS, use Control+Option+1 through 6 while typing instead of Option alone.
 The cover-manager chord is explicitly Command+Option+M on a Mac. The
 playlist-per-folder command is separate from **Generate playlists…**; do not
-assume another application's shortcut opens that generator in OpenTag.
+assume another application's shortcut opens that generator in TagGroove.
 
 ## Manual file order
 

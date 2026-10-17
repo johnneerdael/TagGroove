@@ -6,8 +6,8 @@ file list show the same files from different angles; neither is a permanent
 backup of the metadata on disk.
 
 <figure markdown>
-![OpenTag with the tag panel on the left, album rows on the right and a filter above the file list](../assets/screens/main-window-light.png#only-light)
-![OpenTag in dark mode with the same tag panel and file list](../assets/screens/main-window-dark.png#only-dark)
+![TagGroove with the tag panel on the left, album rows on the right and a filter above the file list](../assets/screens/main-window-light.png#only-light)
+![TagGroove in dark mode with the same tag panel and file list](../assets/screens/main-window-dark.png#only-dark)
 <figcaption>Desktop orientation example from the existing reviewed screenshot set.
 Configured columns, toolbars, placement and platform controls can differ.</figcaption>
 </figure>
@@ -131,7 +131,7 @@ explains what that JSON bundle includes.
 
 ## Related
 
-- [Start using OpenTag](index.md)
+- [Start using TagGroove](index.md)
 - [Opening files](opening-files.md)
 - [The tag panel](../guides/tag-panel.md)
 - [The file list](../guides/file-list.md)

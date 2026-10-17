@@ -7,9 +7,9 @@ into `TRACK` and a custom `TRACKTOTAL` field.
 
 ## Choose storage before changing fields
 
-`TRACKTOTAL` here is a custom field. It is not OpenTag's mapped MP4 total:
+`TRACKTOTAL` here is a custom field. It is not TagGroove's mapped MP4 total:
 MP4 uses `TOTALTRACKS`, sharing the native `trkn` number/total pair with
-`TRACK`. After reading an MP4, OpenTag can show `TRACK=3/12` and
+`TRACK`. After reading an MP4, TagGroove can show `TRACK=3/12` and
 `TOTALTRACKS=12` together. Writing a standalone current number does not mean
 that the native total has disappeared.
 

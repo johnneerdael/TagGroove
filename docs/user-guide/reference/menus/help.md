@@ -1,23 +1,23 @@
 # Help menu
 
 Use **Help** to find documentation, inspect keyboard shortcuts, report a
-problem, check released versions or identify the installed OpenTag version.
+problem, check released versions or identify the installed TagGroove version.
 These commands do not require selected audio files.
 
 !!! tip "New to this?"
     Start with [your first tagging session](../../learn/first-tagging-session.md).
-    Keep the app version from **About OpenTag** with any troubleshooting notes.
+    Keep the app version from **About TagGroove** with any troubleshooting notes.
 
 ## Every current entry
 
 | Entry | Result |
 | --- | --- |
-| **Documentation** | On desktop, open the [published OpenTag user guide](https://opentag.neerdael.nl/) in the default browser. Its source remains in the OpenTag repository. |
+| **Documentation** | On desktop, open the [published TagGroove user guide](https://taggroove.neerdael.nl/) in the default browser. Its source remains in the TagGroove repository. |
 | **Keyboard shortcuts** | Show the app's shortcut overview, assembled from current menu commands plus additional editing/navigation keys. |
-| **Report an issue** | On desktop, open OpenTag's GitHub issue page in the default browser. |
+| **Report an issue** | On desktop, open TagGroove's GitHub issue page in the default browser. |
 | **Check for updates…** | Read the release list and show whether a newer applicable version is available. It does not download or install an update. |
-| **Releases** | On desktop, open OpenTag's GitHub releases page for packages and release notes. |
-| **About OpenTag** | Show OpenTag's version and MIT license identification. Close the dialog to return to the workspace. |
+| **Releases** | On desktop, open TagGroove's GitHub releases page for packages and release notes. |
+| **About TagGroove** | Show TagGroove's version and MIT license identification. Close the dialog to return to the workspace. |
 
 On the inspected mobile path, external Help destinations report the URL to
 open in a browser instead of launching the desktop browser opener. Follow
@@ -54,13 +54,13 @@ evidence that the installed version is current. Conversely, a successful
 release-list request does not test every tag source or network service.
 
 There is no separate **First Steps**, donation, Mp3tag website or Mp3tag
-community command in this OpenTag menu. Use this guide's first-session link
-for the introductory task and OpenTag's own issue/release pages for support.
-A similarly named item in another application is not an OpenTag support route.
+community command in this TagGroove menu. Use this guide's first-session link
+for the introductory task and TagGroove's own issue/release pages for support.
+A similarly named item in another application is not a TagGroove support route.
 
 ## Report a useful problem
 
-Record the OpenTag version from **About OpenTag**, the operating system,
+Record the TagGroove version from **About TagGroove**, the operating system,
 the command used and a short sequence that reproduces the result. Include
 the actual displayed error and the file/container type when relevant.
 Use a copied or minimal example where possible. A screenshot can explain a
@@ -74,4 +74,4 @@ problem. Do not treat the issue form as a promise of an immediate response.
 - [Updates options](../options/updates.md)
 - [Menus overview](index.md)
 
-<!-- Source baseline main4e4d5fc: src/main.ts Help menu, operateImpl and checkForUpdates; src/utils-ui.ts menuShortcuts/EXTRA_SHORTCUTS/shortcutsDialog; src-tauri/src/utilities.rs HELP_PAGES/open_help_page; updates.rs. Canonical Help tasks mapped to actual OpenTag entries or explicit differences. No new browser/network/native update check. -->
+<!-- Source baseline main4e4d5fc: src/main.ts Help menu, operateImpl and checkForUpdates; src/utils-ui.ts menuShortcuts/EXTRA_SHORTCUTS/shortcutsDialog; src-tauri/src/utilities.rs HELP_PAGES/open_help_page; updates.rs. Canonical Help tasks mapped to actual TagGroove entries or explicit differences. No new browser/network/native update check. -->
