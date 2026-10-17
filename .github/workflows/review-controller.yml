@@ -1,17 +1,18 @@
 name: Review authorization controller
 on:
+  # No schedule and no PR-push or comment events. It runs when a review is
+  # posted or dismissed (through the unprivileged signal), when a validation it
+  # dispatched finishes, on a main push (release authorization), when a PR
+  # description is edited (the release notes are part of the gate) and when
+  # dispatched by hand for one PR.
   push:
     branches: [main]
   pull_request_target:
     branches: [main]
-    types: [opened, closed, synchronize, reopened, edited, ready_for_review, converted_to_draft, review_requested, review_request_removed]
-  issue_comment:
-    types: [created, edited, deleted]
+    types: [edited]
   workflow_run:
     workflows: [Review metadata signal, Reviewed PR validation]
     types: [completed]
-  schedule:
-    - cron: '*/5 * * * *'
   workflow_dispatch:
     inputs:
       pr_number:
@@ -32,7 +33,8 @@ concurrency:
   cancel-in-progress: false
 jobs:
   reconcile:
-    if: github.event_name != 'issue_comment' || github.event.issue.pull_request
+    # Base changes only invalidate metadata; they must not dispatch app builds.
+    if: github.event_name != 'pull_request_target' || !github.event.changes.base
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -43,7 +45,7 @@ jobs:
       - name: Reconcile metadata and dispatch only approved immutable PRs
         env:
           GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ inputs.pr_number || github.event.pull_request.number || github.event.issue.number || '0' }}
+          PR_NUMBER: ${{ inputs.pr_number || github.event.pull_request.number || '0' }}
           RETRY: ${{ inputs.retry_build }}
         run: |
           args=()
