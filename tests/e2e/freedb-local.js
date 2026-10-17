@@ -2,6 +2,9 @@
 // values in the review, length sorting, writing and the undo step. Offline:
 // scripts/e2e-native.sh copies tests/fixtures/freedb next to the album.
 (async () => {
+  const sourceName = dialog => dialog.hasAttribute('aria-labelledby')
+    ? dialog.ownerDocument.getElementById(dialog.getAttribute('aria-labelledby'))?.textContent
+    : dialog.getAttribute('aria-label');
   const inv = (c, a) => window.__TAURI_INTERNALS__.invoke(c, a), report = m => inv('e2e_report', { message: String(m) }), sleep = ms => new Promise(r => setTimeout(r, ms));
   const waitFor = async (fn, ms, what) => { const t = Date.now(); while (Date.now() - t < ms) { try { const v = fn(); if (v) return v; } catch {} await sleep(150); } throw new Error('timeout: ' + what); };
   const check = async (ok, what) => report(`${ok ? 'PASS' : 'FAIL'} ${what}`);
@@ -30,7 +33,7 @@
     await waitFor(() => document.querySelectorAll('tr[data-path].selected,tr[data-path][aria-selected="true"]').length === 2, 5000, 'selection');
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'l', ctrlKey: true, bubbles: true }));
     const d = await waitFor(() => document.querySelector('dialog.tag-source-dialog[open]'), 5000, 'freedb dialog');
-    await check(d.getAttribute('aria-label') === 'freedb (local)', 'Ctrl+L opens freedb (local)');
+    await check(sourceName(d) === 'freedb (local)', 'Ctrl+L opens freedb (local)');
     const toc = d.querySelector('#ts-toc').textContent, search = d.querySelector('.ts-search').getBoundingClientRect(), tocBox = d.querySelector('#ts-toc').getBoundingClientRect();
     await check(tocBox.width > 200 && tocBox.bottom <= search.bottom + 1, `disc ID line sits in the search row (${Math.round(tocBox.width)}px)`);
     await check(/Disc ID [0-9a-f]{8}: 2 tracks/.test(toc), 'disc ID from the selected files: ' + toc);

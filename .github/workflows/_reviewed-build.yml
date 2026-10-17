@@ -56,6 +56,8 @@ jobs:
           python-version: '3.12'
       - run: python3 -m unittest discover -s .github/scripts/tests -v
       - run: node --test tests/release.test.mjs
+      - run: python3 -m unittest discover -s scripts/tests -p test_audio_source_bundle.py -v
+      - run: python3 scripts/audio-deps/test_build.py
   desktop:
     needs: authorize
     if: needs.authorize.outputs.ready == 'true'
@@ -69,6 +71,9 @@ jobs:
         with:
           ref: ${{ inputs.merge_sha }}
           persist-credentials: false
+      - name: Use a fresh native audio prefix for this run
+        shell: bash
+        run: echo "OPENTAG_AUDIO_BUILD_ROOT=$RUNNER_TEMP/opentag-audio-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" >> "$GITHUB_ENV"
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -127,6 +132,7 @@ jobs:
             if ($actualSha256 -ne $expectedSha256) { throw "FFmpeg archive SHA-256 mismatch: expected $expectedSha256, got $actualSha256" }
             Expand-Archive $zip -DestinationPath (Join-Path $env:RUNNER_TEMP 'ffmpeg')
             $bin = (Get-ChildItem (Join-Path $env:RUNNER_TEMP 'ffmpeg') -Recurse -Filter ffmpeg.exe | Select-Object -First 1).DirectoryName
+            if (-not $bin) { throw 'FFmpeg executable missing from verified archive' }
             Add-Content $env:GITHUB_PATH $bin
             $env:PATH = "$bin;$env:PATH" # this step only; GITHUB_PATH above carries it to later steps
           }
@@ -178,6 +184,9 @@ jobs:
         with:
           ref: ${{ inputs.merge_sha }}
           persist-credentials: false
+      - name: Use a fresh native audio prefix for this run
+        shell: bash
+        run: echo "OPENTAG_AUDIO_BUILD_ROOT=$RUNNER_TEMP/opentag-audio-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" >> "$GITHUB_ENV"
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -234,6 +243,7 @@ jobs:
             if ($actualSha256 -ne $expectedSha256) { throw "FFmpeg archive SHA-256 mismatch: expected $expectedSha256, got $actualSha256" }
             Expand-Archive $zip -DestinationPath (Join-Path $env:RUNNER_TEMP 'ffmpeg')
             $bin = (Get-ChildItem (Join-Path $env:RUNNER_TEMP 'ffmpeg') -Recurse -Filter ffmpeg.exe | Select-Object -First 1).DirectoryName
+            if (-not $bin) { throw 'FFmpeg executable missing from verified archive' }
             Add-Content $env:GITHUB_PATH $bin
             $env:PATH = "$bin;$env:PATH" # this step only; GITHUB_PATH above carries it to later steps
           }
@@ -265,7 +275,7 @@ jobs:
           # forwarding. macOS and Windows runners have a desktop session.
           if [[ "$RUNNER_OS" == Linux ]]; then run=(dbus-run-session -- xvfb-run -a); else run=(); fi
           status=0
-          for suite in core-workflows covers actions options-utils playlists freedb-local gnudb formats-3 general-options remove-mapping list-behaviour rename-fixes keyboard-extended script-export actions-polish sources-3 sources-4 keyboard-ui launch-forwarding export-lists chapters web-sources formats-edge panel-dock chapter-fields library; do
+          for suite in core-workflows covers actions options-utils playlists freedb-local gnudb formats-3 general-options remove-mapping list-behaviour rename-fixes keyboard-extended script-export actions-polish sources-3 sources-4 keyboard-ui launch-forwarding export-lists chapters web-sources formats-edge panel-dock chapter-fields library native-fingerprints; do
             fixtures=""
             [[ -x "tests/e2e/$suite-fixtures.sh" ]] && fixtures="$PWD/tests/e2e/$suite-fixtures.sh"
             echo "::group::$suite"
@@ -292,9 +302,17 @@ jobs:
         with:
           ref: ${{ inputs.merge_sha }}
           persist-credentials: false
+      - name: Use a fresh native audio prefix for this run
+        shell: bash
+        run: echo "OPENTAG_AUDIO_BUILD_ROOT=$RUNNER_TEMP/opentag-audio-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" >> "$GITHUB_ENV"
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Native audio build tools
+        run: sudo apt-get update && sudo apt-get install -y build-essential cmake make
       - uses: actions/setup-java@v4
         with:
           distribution: temurin

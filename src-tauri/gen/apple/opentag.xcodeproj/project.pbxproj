@@ -19,6 +19,7 @@
 		974B07A1A89674395EDFE988 /* assets in Resources */ = {isa = PBXBuildFile; fileRef = 3E63570AFA25970353E69259 /* assets */; };
 		9E0ED0CE696EE1A34AC46179 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 87B24905B4B6A6119BE44789 /* QuartzCore.framework */; };
 		C93DCD6A50E4A72F4B94D2A3 /* WebKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9C56964F3FC0A125BEF784D2 /* WebKit.framework */; };
+		251D344DAA9EBD1D2739477C /* Accelerate.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 39E855946648D297D4233871 /* Accelerate.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -40,6 +41,7 @@
 		C99DA020C1E22FF4AA84AC2B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		CA7FCA3FADA7B247D52CB6BB /* libapp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libapp.a; sourceTree = "<group>"; };
 		E0ACB0E692BCA9CB46137865 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
+		39E855946648D297D4233871 /* Accelerate.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Accelerate.framework; path = System/Library/Frameworks/Accelerate.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -48,6 +50,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				59F37FECA9645864DB6D4C0C /* libapp.a in Frameworks */,
+				251D344DAA9EBD1D2739477C /* Accelerate.framework in Frameworks */,
 				2901686CCA80A20BE579EE97 /* CoreGraphics.framework in Frameworks */,
 				64FD556AA3D9B0799BAF99ED /* Metal.framework in Frameworks */,
 				025723C0AA3B9B1D9C46E9D8 /* MetalKit.framework in Frameworks */,
@@ -129,6 +132,7 @@
 		CF3A19BC20C8B6DB7C47BA8C /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				39E855946648D297D4233871 /* Accelerate.framework */,
 				7066F7CE03521057B57BDC35 /* CoreGraphics.framework */,
 				CA7FCA3FADA7B247D52CB6BB /* libapp.a */,
 				4070B607A026ACD036132D8E /* Metal.framework */,

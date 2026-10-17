@@ -2960,6 +2960,7 @@ dependencies = [
  "libloading",
  "md-5",
  "objc2-app-kit",
+ "opentag-audio-fingerprint",
  "opentag-library",
  "regex-compat",
  "reqwest",
@@ -2982,6 +2983,19 @@ dependencies = [
  "web_atoms",
  "webpki-roots",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "opentag-audio-fingerprint"
+version = "0.1.0"
+dependencies = [
+ "cc",
+ "flate2",
+ "libc",
+ "serde_json",
+ "sha2",
+ "tag-core",
+ "tempfile",
 ]
 
 [[package]]

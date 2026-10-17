@@ -1,0 +1,14 @@
+{
+  "version": "1.6.2",
+  "commit": "3b38c100022bdfb49be7797c4828a476f1621d55",
+  "archive_sha256": "d54ada62c16b2db396d3251ec54fc7a58909c163131a1cfcf7fa6407dbc14360",
+  "original_header_sha256": {
+    "debug.h": "171ac0699e10c9de2fe4993fc32319000b0f189eb38ed9c3077e771dc1a0734a",
+    "utils/scope_exit.h": "1a547fe1d77e44f54f5d79a5aa3fbf73ab1b9393e002d97eec4f49dbb9cfb29f",
+    "audio/ffmpeg_compat.h": "2568d3ea1ce5420100a9b79dce7783745b33d09f034eb39577ef267bf7b6b934",
+    "audio/ffmpeg_audio_reader.h": "2ca3a17ebaeeca4700cdfe96f2399ae1f84fbeb2be4ba3ed9486fe357576ea81",
+    "audio/ffmpeg_audio_processor.h": "b59b3586e15d9d38eaabcda5b520816523af95c9f6c6183a18ff0280e8f306ba",
+    "audio/ffmpeg_audio_processor_swresample.h": "6728a181a50e2bfe5fc888b35ff30179c9f1d05fed975f27ca27a85df5ab37e5"
+  },
+  "changes": "reader.patch; custom read-only AVIO, cooperative interrupt callback, one decoder thread, no global log level or metadata dump; checked decoder/frame/packet allocation, checked widened duration rescale, bounded conversion allocation"
+}

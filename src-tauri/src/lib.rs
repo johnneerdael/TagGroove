@@ -1510,6 +1510,7 @@ pub fn run() {
             sources::tag_source_search,
             sources::tag_source_release,
             sources::acoustid_file_matches,
+            sources::audio_fingerprint_backend,
             sources::tag_source_covers,
             sources::freedb_cover_search,
             sources::tag_source_image,

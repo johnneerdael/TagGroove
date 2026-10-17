@@ -1,0 +1,379 @@
+{
+  "schema": 1,
+  "at_utc": "2026-10-17T01:17:12.633681+00:00",
+  "reference": {
+    "path": "/tmp/opentag-fp-goldens/reference-results.json",
+    "sha256": "bebe84030c001aff4ccb08dfedc037b48c6b99ea114e19f785a81dbd08a21def"
+  },
+  "source_generator": {
+    "path": "/tmp/opentag-fp-goldens/generate.py",
+    "sha256": "b302961dc5be4c74a4dae43b44349ba5c612def5bca94179d4e25f084213c1e2",
+    "pcm_recipe": {
+      "path": "/tmp/opentag-fp-goldens/pcm_recipe.py",
+      "sha256": "9e7c8d48b11a9a322ca9a3f1fa653910958654e337cde2e63d1ae8fb558758ed",
+      "original_path": "/tmp/opentag-fpcalc-native/probe_native.py",
+      "original_sha256": "7f1cfb5cd40957d177aff1288675973fc8c3bb0cb431f3cd8175203ffb669ede",
+      "bridge_recipe_path": "/tmp/opentag-fpcalc-native/probe_native_bridge.py",
+      "bridge_recipe_sha256": "c84031c966123d4140be97a0c3b07e252bafc7d0184439af8e0dc8772a8cf3c9"
+    }
+  },
+  "oracle": {
+    "path": "/opt/homebrew/Cellar/chromaprint/1.6.2/bin/fpcalc",
+    "sha256": "89d382fd61f67485a329fc73d1b76fc4d7b084c94d26fc2e19c8110a0da08d0b",
+    "library_path": "/opt/homebrew/Cellar/chromaprint/1.6.2/lib/libchromaprint.1.dylib",
+    "library_sha256": "a9a451daec997fa88381ec15bd5c76df0a9432a62a8fbe2229dcbabccdd93db5",
+    "version": "fpcalc version 1.6.2 (FFmpeg Lavc63.1.102 Lavf63.1.102 SwR7.1.102)\n"
+  },
+  "encoder": {
+    "path": "/opt/homebrew/Cellar/ffmpeg/9.0.2_1/bin/ffmpeg",
+    "sha256": "2be8e0caabc6ce733a628d1523f43235702d714826df3408e04e09b2a079b7a3",
+    "version": "ffmpeg version 9.0.2 Copyright (c) 2000-2026 the FFmpeg developers\nbuilt with Apple clang version 17.0.0 (clang-1700.6.4.2)\nconfiguration: --prefix=/opt/homebrew/Cellar/ffmpeg/9.0.2_1 --enable-shared --enable-pthreads --enable-version3 --cc=clang --host-cflags= --host-ldflags= --enable-ffplay --enable-gpl --enable-libsvtav1 --enable-libopus --enable-libx264 --enable-libmp3lame --enable-libdav1d --enable-libvmaf --enable-libvpx --enable-libx265 --enable-openssl --enable-videotoolbox --enable-audiotoolbox --enable-neon\nlibavutil      61.  1.102 / 61.  1.102\nlibavcodec     63.  1.102 / 63.  1.102\nlibavformat    63.  1.102 / 63.  1.102\nlibavdevice    63.  1.102 / 63.  1.102\nlibavfilter    12.  1.102 / 12.  1.102\nlibswscale     10.  1.102 / 10.  1.102\nlibswresample   7.  1.102 /  7.  1.102\n\nExiting with exit code 0\n"
+  },
+  "carrier_generator_sha256": "0f11570f33032171204d3c0421b0e38527cd274f69b6aa4caf317945559cbd2e",
+  "cases": [
+    {
+      "name": "stereo-wav",
+      "file": "fixtures/Synthetic gr\u00fcn muziek \u97f3 12s.wav",
+      "bytes": 2116844,
+      "sha256": "b845eb11c410c5614731905727f27bc5177b8e23fed49454ffdce74030dc78ce",
+      "expected": {
+        "duration": 12.0,
+        "fingerprint": "AQAAS4oSRVESLVkStAv6Hv6RPA_SG32PHuZ64YdvlN-KG_pxAn3R40azWEd_oE-PMAeaozyeY8eL48cdPLtR_riF_-jRo-Hz4H0wnQdvbDyK_jCKH_Xx4j2O4viBY2SO-gN_wD9wwDjQ7qge4TmMn7gPRgBFgAjmDTWIMEUsZ8QZo4SljABTTWUICQGMAQorAJAADmAFjHMKGSuuEAoooYS4wgFjDBMA"
+      },
+      "input_unchanged": true,
+      "source": "deterministic chirps/chords with changing amplitude envelope; no third-party recording",
+      "sample_rate": 44100,
+      "channels": 2,
+      "input_frames": 529200,
+      "requested_seconds": 12,
+      "encoding": "PCM signed16 little endian WAV",
+      "carrier": "carriers/Synthetic gr\u00fcn muziek \u97f3 12s.wav.gz",
+      "carrier_encoding": "gzip",
+      "carrier_bytes": 1974653,
+      "carrier_sha256": "00c7b701de4cfb29b43ccd20431dd83ad7e6d093d36d3e23cec1074dd69327a8",
+      "decoded_bytes": 2116844,
+      "decoded_sha256": "b845eb11c410c5614731905727f27bc5177b8e23fed49454ffdce74030dc78ce",
+      "lossless_decode_verified": true
+    },
+    {
+      "name": "flac",
+      "file": "fixtures/flac.flac",
+      "bytes": 355406,
+      "sha256": "49a6c737d2a0d301dfd59b2a1972be7c6ea1cc53284b0df692329c8b5c48dff9",
+      "expected": {
+        "duration": 12.0,
+        "fingerprint": "AQAAS4oSRVESLVkStAv6Hv6RPA_SG32PHuZ64YdvlN-KG_pxAn3R40azWEd_oE-PMAeaozyeY8eL48cdPLtR_riF_-jRo-Hz4H0wnQdvbDyK_jCKH_Xx4j2O4viBY2SO-gN_wD9wwDjQ7qge4TmMn7gPRgBFgAjmDTWIMEUsZ8QZo4SljABTTWUICQGMAQorAJAADmAFjHMKGSuuEAoooYS4wgFjDBMA"
+      },
+      "input_unchanged": true,
+      "source_fixture": "fixtures/Synthetic gr\u00fcn muziek \u97f3 12s.wav",
+      "source_sha256": "b845eb11c410c5614731905727f27bc5177b8e23fed49454ffdce74030dc78ce",
+      "encoding_argv": [
+        "-c:a",
+        "flac"
+      ],
+      "carrier": "carriers/flac.flac",
+      "carrier_encoding": "identity",
+      "carrier_bytes": 355406,
+      "carrier_sha256": "49a6c737d2a0d301dfd59b2a1972be7c6ea1cc53284b0df692329c8b5c48dff9",
+      "decoded_bytes": 355406,
+      "decoded_sha256": "49a6c737d2a0d301dfd59b2a1972be7c6ea1cc53284b0df692329c8b5c48dff9",
+      "lossless_decode_verified": true
+    },
+    {
+      "name": "mp3",
+      "file": "fixtures/mp3.mp3",
+      "bytes": 79116,
+      "sha256": "6daa00f8f4128619fb33babe01b940c7ee7c392d375bb5e76c3be4c4ccef0229",
+      "expected": {
+        "duration": 12.0,
+        "fingerprint": "AQAAS4oSRVESLVkStAv6Hv6RPA_SG32PHuZ64YdvlN-KG_pxAn3R40azWEd_oE-PMAeaozyeY8eL48cdPLtR_rjQH0ePhs-D98F0Hryx8Sj6wyh-1MeL9ziK4wd-jAzqD_wB_8ABA0e7o3qE5zB-4j4ARgBFgAjmDTWIMEUsZ8QZo4SljABTTWUICQGkUmIBgARwACtgnFPIWHGFkEAJJcQVDhhjmAA"
+      },
+      "input_unchanged": true,
+      "source_fixture": "fixtures/Synthetic gr\u00fcn muziek \u97f3 12s.wav",
+      "source_sha256": "b845eb11c410c5614731905727f27bc5177b8e23fed49454ffdce74030dc78ce",
+      "encoding_argv": [
+        "-c:a",
+        "libmp3lame",
+        "-q:a",
+        "3"
+      ],
+      "carrier": "carriers/mp3.mp3",
+      "carrier_encoding": "identity",
+      "carrier_bytes": 79116,
+      "carrier_sha256": "6daa00f8f4128619fb33babe01b940c7ee7c392d375bb5e76c3be4c4ccef0229",
+      "decoded_bytes": 79116,
+      "decoded_sha256": "6daa00f8f4128619fb33babe01b940c7ee7c392d375bb5e76c3be4c4ccef0229",
+      "lossless_decode_verified": true
+    },
+    {
+      "name": "aac-mp4",
+      "file": "fixtures/aac-mp4.m4a",
+      "bytes": 195091,
+      "sha256": "935444130a129e7b25b60cdc588fffdee17f08400bfe2d9e69008785facf32ea",
+      "expected": {
+        "duration": 12.0,
+        "fingerprint": "AQAAS4oSRVESLVkS9EH7Hv6RPA_SG32PHuZ64YdvlN-KG_pxAn3R40azWEd_oE-PMAeaozyeY8eL48cdPLtR_rjwo0ePhs-D98F0Hryx8Sj6wyh-1MeL9ziK4wd-jAzqD_wB_8AB40C7o3qE5zB-4j4AIQigCBDBvKEGEaaI5Yw4Y5SwlBFgqqkMISGApAorAJAADmAFjHMKGSuuEBIooYS4wgFjDBMA"
+      },
+      "input_unchanged": true,
+      "source_fixture": "fixtures/Synthetic gr\u00fcn muziek \u97f3 12s.wav",
+      "source_sha256": "b845eb11c410c5614731905727f27bc5177b8e23fed49454ffdce74030dc78ce",
+      "encoding_argv": [
+        "-c:a",
+        "aac"
+      ],
+      "carrier": "carriers/aac-mp4.m4a",
+      "carrier_encoding": "identity",
+      "carrier_bytes": 195091,
+      "carrier_sha256": "935444130a129e7b25b60cdc588fffdee17f08400bfe2d9e69008785facf32ea",
+      "decoded_bytes": 195091,
+      "decoded_sha256": "935444130a129e7b25b60cdc588fffdee17f08400bfe2d9e69008785facf32ea",
+      "lossless_decode_verified": true
+    },
+    {
+      "name": "alac-mp4",
+      "file": "fixtures/alac-mp4.m4a",
+      "bytes": 508789,
+      "sha256": "ef223690180bd81bd263fb24908b6de70a0114ea0070bb235c578301f9395c17",
+      "expected": {
+        "duration": 12.0,
+        "fingerprint": "AQAAS4oSRVESLVkStAv6Hv6RPA_SG32PHuZ64YdvlN-KG_pxAn3R40azWEd_oE-PMAeaozyeY8eL48cdPLtR_riF_-jRo-Hz4H0wnQdvbDyK_jCKH_Xx4j2O4viBY2SO-gN_wD9wwDjQ7qge4TmMn7gPRgBFgAjmDTWIMEUsZ8QZo4SljABTTWUICQGMAQorAJAADmAFjHMKGSuuEAoooYS4wgFjDBMA"
+      },
+      "input_unchanged": true,
+      "source_fixture": "fixtures/Synthetic gr\u00fcn muziek \u97f3 12s.wav",
+      "source_sha256": "b845eb11c410c5614731905727f27bc5177b8e23fed49454ffdce74030dc78ce",
+      "encoding_argv": [
+        "-c:a",
+        "alac"
+      ],
+      "carrier": "carriers/alac-mp4.m4a",
+      "carrier_encoding": "identity",
+      "carrier_bytes": 508789,
+      "carrier_sha256": "ef223690180bd81bd263fb24908b6de70a0114ea0070bb235c578301f9395c17",
+      "decoded_bytes": 508789,
+      "decoded_sha256": "ef223690180bd81bd263fb24908b6de70a0114ea0070bb235c578301f9395c17",
+      "lossless_decode_verified": true
+    },
+    {
+      "name": "opus",
+      "file": "fixtures/opus.opus",
+      "bytes": 210598,
+      "sha256": "344bc751aa42c419e9a2da6a118f983f2cdb908447246e918a790e41376383bf",
+      "expected": {
+        "duration": 12.01,
+        "fingerprint": "AQAAS4oSLUqiJUuCPuh7-EfyPEjZDf3Rw--FH75Rfitu6McJ9EWPG81iHf2BPj3CHGiO8niOHS9OHHfw7Eb548KPHj0aPg_eB9N58MbGo-gPo_hRHy_e4yiOHzhG5qg_8Af8AweMA9_xR3gO4yfuA8EIoAgI64GhBhGmiOWMOGOUsJQRYKqpCAkBJFVYAYAEcAArYJxTyFhxhVBACSXENQI4YIxhAg"
+      },
+      "input_unchanged": true,
+      "source_fixture": "fixtures/Synthetic gr\u00fcn muziek \u97f3 12s.wav",
+      "source_sha256": "b845eb11c410c5614731905727f27bc5177b8e23fed49454ffdce74030dc78ce",
+      "encoding_argv": [
+        "-c:a",
+        "libopus"
+      ],
+      "carrier": "carriers/opus.opus",
+      "carrier_encoding": "identity",
+      "carrier_bytes": 210598,
+      "carrier_sha256": "344bc751aa42c419e9a2da6a118f983f2cdb908447246e918a790e41376383bf",
+      "decoded_bytes": 210598,
+      "decoded_sha256": "344bc751aa42c419e9a2da6a118f983f2cdb908447246e918a790e41376383bf",
+      "lossless_decode_verified": true
+    },
+    {
+      "name": "vorbis",
+      "file": "fixtures/vorbis.ogg",
+      "bytes": 66617,
+      "sha256": "aa616b583678a8a1bdc2a0a71be60be5af35b8e9398c0a112051db0ead8d073c",
+      "expected": {
+        "duration": 12.0,
+        "fingerprint": "AQAAS4oSRVESLVkS9EH7Hj6P5BmD9Ebfo4ffC__hG-W34oZ-nEBf9LjRLNbRH-jTI8yB5iiP59jx4sRxB89ulD9u4T969Gj4PHgfTOfBGxuPoj-M4kd9vHiPozh-4BiZo_7AH_APHDBwtDuqR3gO4yfuAyEIYIgI5oExwCDCFLGcEWeMEpYyAkw1FSEhgDFAYQUAEsABrIBxTiFjxRVCASWUEFc4YIxhAg"
+      },
+      "input_unchanged": true,
+      "source_fixture": "fixtures/Synthetic gr\u00fcn muziek \u97f3 12s.wav",
+      "source_sha256": "b845eb11c410c5614731905727f27bc5177b8e23fed49454ffdce74030dc78ce",
+      "encoding_argv": [
+        "-c:a",
+        "vorbis",
+        "-strict",
+        "experimental"
+      ],
+      "carrier": "carriers/vorbis.ogg",
+      "carrier_encoding": "identity",
+      "carrier_bytes": 66617,
+      "carrier_sha256": "aa616b583678a8a1bdc2a0a71be60be5af35b8e9398c0a112051db0ead8d073c",
+      "decoded_bytes": 66617,
+      "decoded_sha256": "aa616b583678a8a1bdc2a0a71be60be5af35b8e9398c0a112051db0ead8d073c",
+      "lossless_decode_verified": true
+    },
+    {
+      "name": "wavpack",
+      "file": "fixtures/wavpack.wv",
+      "bytes": 548894,
+      "sha256": "e76e7043134ece3c3db4296ac4349e8f1aeed1349706fce49ccf9e2021cd0960",
+      "expected": {
+        "duration": 12.0,
+        "fingerprint": "AQAAS4oSRVESLVkStAv6Hv6RPA_SG32PHuZ64YdvlN-KG_pxAn3R40azWEd_oE-PMAeaozyeY8eL48cdPLtR_riF_-jRo-Hz4H0wnQdvbDyK_jCKH_Xx4j2O4viBY2SO-gN_wD9wwDjQ7qge4TmMn7gPRgBFgAjmDTWIMEUsZ8QZo4SljABTTWUICQGMAQorAJAADmAFjHMKGSuuEAoooYS4wgFjDBMA"
+      },
+      "input_unchanged": true,
+      "source_fixture": "fixtures/Synthetic gr\u00fcn muziek \u97f3 12s.wav",
+      "source_sha256": "b845eb11c410c5614731905727f27bc5177b8e23fed49454ffdce74030dc78ce",
+      "encoding_argv": [
+        "-c:a",
+        "wavpack"
+      ],
+      "carrier": "carriers/wavpack.wv",
+      "carrier_encoding": "identity",
+      "carrier_bytes": 548894,
+      "carrier_sha256": "e76e7043134ece3c3db4296ac4349e8f1aeed1349706fce49ccf9e2021cd0960",
+      "decoded_bytes": 548894,
+      "decoded_sha256": "e76e7043134ece3c3db4296ac4349e8f1aeed1349706fce49ccf9e2021cd0960",
+      "lossless_decode_verified": true
+    },
+    {
+      "name": "tta",
+      "file": "fixtures/tta.tta",
+      "bytes": 390064,
+      "sha256": "ee6b2eef7d3fb457a2870373838172ed0fde5c1e23d86c677f4eb67d2f84e8cc",
+      "expected": {
+        "duration": 12.0,
+        "fingerprint": "AQAAS4oSRVESLVkStAv6Hv6RPA_SG32PHuZ64YdvlN-KG_pxAn3R40azWEd_oE-PMAeaozyeY8eL48cdPLtR_riF_-jRo-Hz4H0wnQdvbDyK_jCKH_Xx4j2O4viBY2SO-gN_wD9wwDjQ7qge4TmMn7gPRgBFgAjmDTWIMEUsZ8QZo4SljABTTWUICQGMAQorAJAADmAFjHMKGSuuEAoooYS4wgFjDBMA"
+      },
+      "input_unchanged": true,
+      "source_fixture": "fixtures/Synthetic gr\u00fcn muziek \u97f3 12s.wav",
+      "source_sha256": "b845eb11c410c5614731905727f27bc5177b8e23fed49454ffdce74030dc78ce",
+      "encoding_argv": [
+        "-c:a",
+        "tta"
+      ],
+      "carrier": "carriers/tta.tta",
+      "carrier_encoding": "identity",
+      "carrier_bytes": 390064,
+      "carrier_sha256": "ee6b2eef7d3fb457a2870373838172ed0fde5c1e23d86c677f4eb67d2f84e8cc",
+      "decoded_bytes": 390064,
+      "decoded_sha256": "ee6b2eef7d3fb457a2870373838172ed0fde5c1e23d86c677f4eb67d2f84e8cc",
+      "lossless_decode_verified": true
+    },
+    {
+      "name": "wma-v2",
+      "file": "fixtures/wma-v2.wma",
+      "bytes": 208542,
+      "sha256": "481f33e448590040639cee575ff347f7f5c999707099a551e205872cd81686ac",
+      "expected": {
+        "duration": 12.03,
+        "fingerprint": "AQAAS4oSRUmSaMmS4Dv8C88InYWv7ejRw_yFE81-3MhNJCde9OhfoEzRzNFx9Eifo0fhoz2O_fjwEA-e4qJs9MfRH0fzoP3x8MbkBhT2oz-KBkePHw9zHCguHD_uY2TQawNh_MAB40C7B1U-OMePFz8AY5RiCBgvhAFLWKWoYsKRiximijrlSUUECauUSIAgAbACBiOHiBVXEASQFeIKhozBzAE"
+      },
+      "input_unchanged": true,
+      "source_fixture": "fixtures/Synthetic gr\u00fcn muziek \u97f3 12s.wav",
+      "source_sha256": "b845eb11c410c5614731905727f27bc5177b8e23fed49454ffdce74030dc78ce",
+      "encoding_argv": [
+        "-c:a",
+        "wmav2"
+      ],
+      "carrier": "carriers/wma-v2.wma",
+      "carrier_encoding": "identity",
+      "carrier_bytes": 208542,
+      "carrier_sha256": "481f33e448590040639cee575ff347f7f5c999707099a551e205872cd81686ac",
+      "decoded_bytes": 208542,
+      "decoded_sha256": "481f33e448590040639cee575ff347f7f5c999707099a551e205872cd81686ac",
+      "lossless_decode_verified": true
+    },
+    {
+      "name": "mpeg-layer2",
+      "file": "fixtures/mpeg-layer2.mp2",
+      "bytes": 576783,
+      "sha256": "4e7fc5e8f2ea10198ad3239097c1ed6b681e87961bc461484a89eb8221345ba5",
+      "expected": {
+        "duration": 12.02,
+        "fingerprint": "AQAATIqyKEqiaUlQbTl6-L2Q50h4B32PHn4v_IdvlN-KG_pxAj3640azWOh_oO8R5geaozyeY3iP48cdPLtR_riF_-jRo-FzvE8wnQdvbDyK_jCKHzXe4z2O4jiOY2SO-gN_wMdxwMDxHX-E5zB-4j58AGOBUoAI5oExwCDCFLGcMWIMYAIBygigwFSGkBDAGKCwAgAJ4ABWwDglkLHiXKGAEsqMawRwwBjDhAE"
+      },
+      "input_unchanged": true,
+      "source_fixture": "fixtures/Synthetic gr\u00fcn muziek \u97f3 12s.wav",
+      "source_sha256": "b845eb11c410c5614731905727f27bc5177b8e23fed49454ffdce74030dc78ce",
+      "encoding_argv": [
+        "-c:a",
+        "mp2"
+      ],
+      "carrier": "carriers/mpeg-layer2.mp2",
+      "carrier_encoding": "identity",
+      "carrier_bytes": 576783,
+      "carrier_sha256": "4e7fc5e8f2ea10198ad3239097c1ed6b681e87961bc461484a89eb8221345ba5",
+      "decoded_bytes": 576783,
+      "decoded_sha256": "4e7fc5e8f2ea10198ad3239097c1ed6b681e87961bc461484a89eb8221345ba5",
+      "lossless_decode_verified": true
+    },
+    {
+      "name": "six-channel-wav",
+      "file": "fixtures/six-channel-wav.wav",
+      "bytes": 9216044,
+      "sha256": "88d0b8a8cde64c4a14cec61e6377a6c672a5d1846aa18279329426526dacee7c",
+      "expected": {
+        "duration": 16.0,
+        "fingerprint": "AQAAbEqSLUs0bbiT43iPPDGSL_gJXH3wo7yOG7sXQ8cP_DhKo1mc48cRpk6P4ujRDM-xY_nx4cGJZygf4zd6HEXz42ewg7GxHcWPBv2BmsfTAz96HC-O7-gnowluFH4B_Adw-MfvwAmOHTf-AAd-HO-CB7hxvMjxHH-w3zjc4_Px40d_HD9OoT-R8MiH4zU-HABAQHNKMoeMoQpYoxDgxkRoqBCXYMeYqRQBIxRXABkCKkPMIGIE5pYKCIxFAEEggLCUWaGa44wBh5w1hhjEghOUMEcsRNQIR7UVSAQ"
+      },
+      "input_unchanged": true,
+      "source": "deterministic chirps/chords with changing amplitude envelope; no third-party recording",
+      "sample_rate": 48000,
+      "channels": 6,
+      "input_frames": 768000,
+      "requested_seconds": 16,
+      "encoding": "PCM signed16 little endian WAV",
+      "carrier": "carriers/six-channel-wav.wav.gz",
+      "carrier_encoding": "gzip",
+      "carrier_bytes": 8619290,
+      "carrier_sha256": "dc10c042b1cd905470472ee63979e5a154193399982c499667f534b4cc37d887",
+      "decoded_bytes": 9216044,
+      "decoded_sha256": "88d0b8a8cde64c4a14cec61e6377a6c672a5d1846aa18279329426526dacee7c",
+      "lossless_decode_verified": true
+    },
+    {
+      "name": "full135_37-prefix120",
+      "file": "fixtures/full135_37-prefix120.wav",
+      "bytes": 2984952,
+      "sha256": "79227d79197052bab9589622d5690c6d6bdde3c71ee3c81fb2db3c055b8fd86d",
+      "expected": {
+        "duration": 135.37,
+        "fingerprint": "AQADtMqiRUm0ZAqeoy-aL0j2KMyRfuiFo3mPmzCP8htu6MfR4-iP0mgW67h-HH2RHv1RNMNzDDh-nMOVo_Vx4jh--MmDP9gPvsF2HIeB4w9evMeJ4jiO7xhb1NXAAz569AeMA_3xR6hyGCfuw8cP9PiH5kOfMTjR44YPBE_Q40eP5sUz9Dy-wz-OvhIu9EeyPCWCvoJv3MAPVBcuHPih9YUP78BxHB2OHg2eDr_RHynwHziO4zEOH8_h6MdbnMBx-EV3AD--49XRiccOHwB-HMZxHH7wSPjxHz9wAvhC7KCw44cNfMLxbcdx4MBxEj9QHMfxCdOL7yABAMCPA8UjNB96XEEPH8cBAMeBoxf-CBV8FF2HwwAO4DgOHMdx-EOfMTjRHzd8AAAAAA96fEMPHw--4od_AAFwAMfx4zh64Whe9CLyod-EwwcACAgA4DiOHgeOI_wg3vABAMCBHDgOHMBR9GiOd_iN8DCAAzhw4QCO4ziOHkfR4CgfnIYBAACAH_gBHMfh4-gBPMeP92ipwwcAAAAA7ABw4DB-wMfx4zsAAAAAAMcD4DgOHDtBFcOPF8YH_MGHAwAAAECAA8eB48Rxoh-AHMce5qhfEAcAAAAAHAAAAIeOBz2O5uihHT8MAAAAAAAAHAcAADh0oD8eocnRQ9vxHTAAAAAAAAAAHAB-HD90HMWPHs3J4Bmh_bjhAwAAAICAAAAAAAAQQMeDo8eP5ugznAz6DocPAAAAAAAAAAAQHMCBA7-Fo8DRvEd440d_-D4OAAAAAAAAAAAAAEIAAD-A3gCOIzx8iAAAAAAAAAAAAAAA_EDwAwcOHCj6wUeJH31hBAcAAAAAAAAAAAAAAMABHDiOB8XRHPiDwwcAAAAAAAAAAAAAAACA4zgOHDgOH0cPHN_xG62PwwAAAAAAAAAAAAAAAMcBADgw_ABwHMbx4_CD4zkOAAAAAAAAAAAAAAAAAGYZEEQJFAwFhCliFWVMQAEoQxgQZqpCBAlLRVUGIEYMkKJ6xBQyVlwqmFZKASsEcEYzYaxBDCnBMBDWMWQCU4gBISx1AiIFhBTEQ4sAUiBYyIQBhBIgBYCVaWcEEIaIRaiCgADFsRCWiooQcoIAp8gQggIkhjALIYGAuBQBZISwXCmHhQBaWseEEgFNddFoSjAkgLCQYcUYQ0LAMSewXjygJGJCTEvFpcQIqA4B1yhiAMEawyKnpWY84KSBxhCxwKIIGkKM9dJSoJwkDiBkSksEMYWkcCYphBRymFKBhENTcimWUlIIIKUQHCnCBNAASyVRQwwwJIBwVjuGlGCICTjHBNYBpahBAhAnBbNUGQgNJuAaZACzsMgrRSlALGlKNEQssCgExBlRLLFAWmocRUYKEQ"
+      },
+      "input_unchanged": true,
+      "source": "deterministic chirps/chords with changing amplitude envelope; no third-party recording",
+      "sample_rate": 11025,
+      "channels": 1,
+      "input_frames": 1492454,
+      "requested_seconds": 135.37,
+      "encoding": "PCM signed16 little endian WAV",
+      "carrier": "carriers/full135_37-prefix120.wav.gz",
+      "carrier_encoding": "gzip",
+      "carrier_bytes": 2772744,
+      "carrier_sha256": "f761c45da96f70b75cac9383d46a48cf0c6e10357d42aded68b25d8f718b43d1",
+      "decoded_bytes": 2984952,
+      "decoded_sha256": "79227d79197052bab9589622d5690c6d6bdde3c71ee3c81fb2db3c055b8fd86d",
+      "lossless_decode_verified": true
+    },
+    {
+      "name": "rounding8_495",
+      "file": "fixtures/rounding8_495.wav",
+      "bytes": 815564,
+      "sha256": "e3951f043daae8aa61841adcf77948047dcbfd1475edd39083eb5a20e6c6c505",
+      "expected": {
+        "duration": 8.49,
+        "fingerprint": "AQAAL8qiRUm0ZAqeoy-aL0j2KMyRfuiFo3mPmzCP8htu6MfR4-iP0mgW67h-HH2RHv1RNMNzDDh-nMOVo_Vx4jh--MmDP9gPvsF2HIcBZhkQRAkUDAWEKWIVZUxAAShDGBBmqkIECUtFVQYgRgyQogI"
+      },
+      "input_unchanged": true,
+      "source": "deterministic chirps/chords with changing amplitude envelope; no third-party recording",
+      "sample_rate": 48000,
+      "channels": 1,
+      "input_frames": 407760,
+      "requested_seconds": 8.495,
+      "encoding": "PCM signed16 little endian WAV",
+      "carrier": "carriers/rounding8_495.wav.gz",
+      "carrier_encoding": "gzip",
+      "carrier_bytes": 745057,
+      "carrier_sha256": "a3c4b436a74dc9be26c4578519a2f2c85b59b0a04142021fffa50899296aa488",
+      "decoded_bytes": 815564,
+      "decoded_sha256": "e3951f043daae8aa61841adcf77948047dcbfd1475edd39083eb5a20e6c6c505",
+      "lossless_decode_verified": true
+    }
+  ],
+  "original_bytes": 18273304,
+  "carrier_bytes": 17251644,
+  "all_originals_preserved": true,
+  "native_api_or_cross_platform_result_claimed": false
+}

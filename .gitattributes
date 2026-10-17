@@ -4,3 +4,8 @@ docs/evidence/** linguist-generated
 src-tauri/gen/** linguist-generated
 # Shell scripts run under Git Bash on Windows CI, which rejects CRLF.
 *.sh text eol=lf
+
+# Native recipe and imported-source byte hashes must survive Windows checkout.
+scripts/audio-deps/** text eol=lf
+crates/audio-fingerprint/native/** text eol=lf
+crates/audio-fingerprint/tests/fixtures/carriers/** -text
