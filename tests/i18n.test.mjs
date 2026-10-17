@@ -675,3 +675,22 @@ test('the actual selected-release barcode remains provider data',async()=>{
     }
   }
 });
+
+test('shortcut display values replace original spans once and stay literal',()=>{
+  for(const keys of [{Shift:'Ctrl',Ctrl:'Control'},{Ctrl:'Control',Shift:'Ctrl'}]){
+    const t=new Translator('en',{'@keys':keys});
+    assert.equal(t.translate('Shift S'),'Ctrl S');
+    assert.equal(t.translate('Ctrl Shift S'),'Control Ctrl S');
+    assert.equal(t.translate('Shift+Ctrl'),'Ctrl+Control');
+  }
+  const swapped=new Translator('en',{'@keys':{Shift:'Ctrl',Ctrl:'Shift'}});
+  assert.equal(swapped.translate('Ctrl Shift S'),'Shift Ctrl S');
+  const alias=new Translator('de',{'@keys':{Ins:'Ctrl',Ctrl:'Control'}});
+  assert.equal(alias.translate('Insert / Ins / Ctrl'),'Ctrl / Ctrl / Control');
+  const chord=new Translator('en',{'@keys':{'Ctrl Shift':'Shift Ctrl',Shift:'X',Ctrl:'Y'}});
+  assert.equal(chord.translate('Ctrl Shift S'),'Shift Ctrl S');
+  const literal=new Translator('en',{'@keys':{Ctrl:'[$&][$$][$1]'}});
+  assert.equal(literal.translate('Ctrl S'),'[$&][$$][$1] S');
+  assert.equal(literal.translate('Ctrl S',0,true),'Ctrl S');
+  assert.equal(new Translator('en',{'@keys':{'':'invalid','   ':'invalid'}}).translate('Ctrl S'),'Ctrl S');
+});

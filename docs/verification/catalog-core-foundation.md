@@ -24,11 +24,11 @@ Two review regressions cover locale-sensitive exact/category selection through
 explicit and captured values, and nested-category rejection/usable-catalog
 filtering with valid nested forms retained. A further producer-bound case covers every catalog identifier and underscored
 native limit values through direct/captured rendering and plural parsing. All
-thirty-two pure cases remain in the
+thirty-three pure cases remain in the
 same test module when the complete application test suite is
 integrated; the later source-bound extraction and UI tests must also be kept.
 
-Fresh local checks passed 416 UI/model tests with zero failures or skips, the
+Fresh local checks passed 417 UI/model tests with zero failures or skips, the
 production build, the strict 172-page guide and eight publication tests. One
 existing UI case compiles a temporary pure Rust helper; it is separate from
 application-native qualification. All 1,355 existing tracked main files are
@@ -218,4 +218,13 @@ dot-grouped/comma-decimal counts under English keep translating. Locale
 interpretation takes precedence for ambiguous single separators; fallback
 formats still require one consistent, structurally valid grouping/decimal
 arrangement. The expanded existing case reproduced the initial guard rejecting
-a valid `1,234,567` count; all 32 core cases and 416 UI/model tests pass.
+a valid `1,234,567` count; all 32 core cases and 417 UI/model tests pass.
+
+Shortcut names now use a single combined match over the original label,
+with longest source names taking precedence. Display strings are emitted
+literally and never become input to another key substitution. The regression
+first reproduced Shift → Ctrl → Control cascading, then checks both catalog
+entry orders, swapped labels, Insert aliases, whole-chord overrides, literal
+replacement metacharacters and protected text. Blank source-key names are
+ignored. All 32 earlier core cases and the original catalog bytes remain
+unchanged.

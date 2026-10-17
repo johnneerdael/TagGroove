@@ -305,21 +305,26 @@ export class Translator {
   private rules: Intl.PluralRules;
   private cache = new Map<string, string | null>();
   /** `@keys`: names of keyboard keys (Ctrl → Strg) in shortcut labels such as "⌘/Ctrl ⇧ S". */
-  private keys: [RegExp, string][] = [];
+  private keys = new Map<string, string>();
+  private keyPattern?: RegExp;
 
   constructor(locale = 'en', catalog: Catalog = {}) {
     this.locale = locale;
     try {this.rules = new Intl.PluralRules(locale);} catch {this.rules = new Intl.PluralRules('en');}
     const keys = catalog['@keys'];
     if (keys && typeof keys === 'object') {
-      const entries = Object.entries(keys).filter((entry): entry is [string, string] => typeof entry[1] === 'string' && !!entry[1]);
+      const entries = Object.entries(keys).filter((entry): entry is [string, string] => !!entry[0].trim() && typeof entry[1] === 'string' && !!entry[1]);
       const hasInsert = entries.some(([name]) => name === 'Insert');
-      this.keys = entries.sort((a, b) => b[0].length - a[0].length).map(([name, value]) => {
+      for (const [name, value] of entries) {
+        this.keys.set(name, value);
         // The Actions dialog emits Insert; use a localized Ins spelling unless explicitly overridden.
         // Identity/absent mappings retain the producer's original English spelling.
-        const spelling = name === 'Ins' && value !== name && !hasInsert ? '(?:Ins|Insert)' : escapeRegex(name);
-        return [new RegExp(`(?<![A-Za-z0-9])${spelling}(?![A-Za-z0-9])`, 'g'), value];
-      });
+        if (name === 'Ins' && value !== name && !hasInsert) this.keys.set('Insert', value);
+      }
+      if (this.keys.size) {
+        const names = [...this.keys.keys()].sort((a, b) => b.length - a.length).map(escapeRegex);
+        this.keyPattern = new RegExp(`(?<![A-Za-z0-9])(?:${names.join('|')})(?![A-Za-z0-9])`, 'g');
+      }
     }
     for (const [key, value] of Object.entries(catalog)) {
       if (key.startsWith('@') || typeof value !== 'string' || !value) continue;
@@ -345,7 +350,7 @@ export class Translator {
   }
 
   /** Whether this translator changes anything (English has nothing to do). */
-  get active() {return this.byKey.size > 0 || this.keys.length > 0;}
+  get active() {return this.byKey.size > 0 || this.keys.size > 0;}
 
   /** `key` (English, `{name}` placeholders) in this language, filled with `params`. */
   t(key: string, params: Record<string, unknown> = {}): string {
@@ -437,8 +442,8 @@ export class Translator {
   }
   /** A shortcut label with the local names of its keys, or null for other text. */
   private shortcut(text: string): string | null {
-    if (!this.keys.length || text.length > 40 || !SHORTCUT.test(text)) return null;
-    const local = this.keys.reduce((label, [name, value]) => label.replace(name, value), text);
+    if (!this.keyPattern || text.length > 40 || !SHORTCUT.test(text)) return null;
+    const local = text.replace(this.keyPattern, key => this.keys.get(key)!);
     return local === text ? null : local;
   }
 }
