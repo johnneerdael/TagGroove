@@ -7,6 +7,7 @@
 //! the same size, so no sample offset moves and the media is never rewritten.
 //! The same box reader supplies the `mvhd` timestamps and video properties.
 use super::{nero_tags::NeroTags, *};
+use crate::batch_errors::ErrorCause;
 use lofty::picture::MimeType;
 use std::{
     io::{Read, Write},
@@ -25,22 +26,27 @@ struct Atom {
     end: u64,
 }
 
-fn read_bytes(file: &mut fs::File, at: u64, length: u64) -> Result<Vec<u8>, String> {
+fn read_bytes_diagnostic(file: &mut fs::File, at: u64, length: u64) -> Result<Vec<u8>, ErrorCause> {
     if length > BODY_LIMIT {
-        return Err("MP4 chapter data is too large".into());
+        return Err(ErrorCause::owned("MP4 chapter data is too large"));
     }
     let mut bytes = vec![0u8; length as usize];
-    file.seek(SeekFrom::Start(at)).map_err(|e| e.to_string())?;
-    file.read_exact(&mut bytes).map_err(|e| e.to_string())?;
+    file.seek(SeekFrom::Start(at))
+        .map_err(ErrorCause::external)?;
+    file.read_exact(&mut bytes).map_err(ErrorCause::external)?;
     Ok(bytes)
 }
 
 /// The boxes in `range`, read header by header. A malformed box ends the list.
 fn atoms(file: &mut fs::File, range: Range<u64>) -> Result<Vec<Atom>, String> {
+    atoms_diagnostic(file, range).map_err(|error| error.to_string())
+}
+
+fn atoms_diagnostic(file: &mut fs::File, range: Range<u64>) -> Result<Vec<Atom>, ErrorCause> {
     let mut output = Vec::new();
     let mut at = range.start;
     while at + 8 <= range.end {
-        let header = read_bytes(file, at, (range.end - at).min(16))?;
+        let header = read_bytes_diagnostic(file, at, (range.end - at).min(16))?;
         let size = u64::from(u32::from_be_bytes(header[..4].try_into().expect("4")));
         let kind: [u8; 4] = header[4..8].try_into().expect("4");
         let (body, end) = match size {
@@ -67,13 +73,25 @@ fn atoms(file: &mut fs::File, range: Range<u64>) -> Result<Vec<Atom>, String> {
 }
 
 fn child(file: &mut fs::File, parent: &Atom, kind: &[u8; 4]) -> Result<Option<Atom>, String> {
-    Ok(atoms(file, parent.body..parent.end)?
+    child_diagnostic(file, parent, kind).map_err(|error| error.to_string())
+}
+
+fn child_diagnostic(
+    file: &mut fs::File,
+    parent: &Atom,
+    kind: &[u8; 4],
+) -> Result<Option<Atom>, ErrorCause> {
+    Ok(atoms_diagnostic(file, parent.body..parent.end)?
         .into_iter()
         .find(|a| &a.kind == kind))
 }
 
 fn body(file: &mut fs::File, atom: &Atom) -> Result<Vec<u8>, String> {
-    read_bytes(file, atom.body, atom.end - atom.body)
+    body_diagnostic(file, atom).map_err(|error| error.to_string())
+}
+
+fn body_diagnostic(file: &mut fs::File, atom: &Atom) -> Result<Vec<u8>, ErrorCause> {
+    read_bytes_diagnostic(file, atom.body, atom.end - atom.body)
 }
 
 fn be32(bytes: &[u8], at: usize) -> Option<u32> {
@@ -143,11 +161,14 @@ fn text_sample(bytes: &[u8]) -> String {
 
 /// Chapters of a QuickTime text track: sample times from `stts` in the
 /// `mdhd` time scale, sample positions from `stsz`, `stsc` and `stco`/`co64`.
-fn text_track(file: &mut fs::File, trak: &Atom) -> Result<Vec<(u64, String)>, String> {
-    let invalid = || String::from("Invalid MP4 chapter track");
-    let mdia = child(file, trak, b"mdia")?.ok_or_else(invalid)?;
-    let mdhd = child(file, &mdia, b"mdhd")?.ok_or_else(invalid)?;
-    let mdhd = body(file, &mdhd)?;
+fn text_track_diagnostic(
+    file: &mut fs::File,
+    trak: &Atom,
+) -> Result<Vec<(u64, String)>, ErrorCause> {
+    let invalid = || ErrorCause::owned("Invalid MP4 chapter track");
+    let mdia = child_diagnostic(file, trak, b"mdia")?.ok_or_else(invalid)?;
+    let mdhd = child_diagnostic(file, &mdia, b"mdhd")?.ok_or_else(invalid)?;
+    let mdhd = body_diagnostic(file, &mdhd)?;
     let scale = u64::from(
         if mdhd.first() == Some(&1) {
             be32(&mdhd, 20)
@@ -157,11 +178,11 @@ fn text_track(file: &mut fs::File, trak: &Atom) -> Result<Vec<(u64, String)>, St
         .filter(|s| *s > 0)
         .ok_or_else(invalid)?,
     );
-    let minf = child(file, &mdia, b"minf")?.ok_or_else(invalid)?;
-    let stbl = child(file, &minf, b"stbl")?.ok_or_else(invalid)?;
-    let table = |file: &mut fs::File, kind: &[u8; 4]| -> Result<Option<Vec<u8>>, String> {
-        child(file, &stbl, kind)?
-            .map(|atom| body(file, &atom))
+    let minf = child_diagnostic(file, &mdia, b"minf")?.ok_or_else(invalid)?;
+    let stbl = child_diagnostic(file, &minf, b"stbl")?.ok_or_else(invalid)?;
+    let table = |file: &mut fs::File, kind: &[u8; 4]| -> Result<Option<Vec<u8>>, ErrorCause> {
+        child_diagnostic(file, &stbl, kind)?
+            .map(|atom| body_diagnostic(file, &atom))
             .transpose()
     };
     let stts = table(file, b"stts")?.ok_or_else(invalid)?;
@@ -227,7 +248,7 @@ fn text_track(file: &mut fs::File, trak: &Atom) -> Result<Vec<(u64, String)>, St
                 break;
             }
             let length = u64::from(size(sample).ok_or_else(invalid)?);
-            let bytes = read_bytes(file, offset, length.min(2 + u64::from(u16::MAX)))?;
+            let bytes = read_bytes_diagnostic(file, offset, length.min(2 + u64::from(u16::MAX)))?;
             list.push((times[sample] * 1000 / scale, text_sample(&bytes)));
             offset += length;
             sample += 1;
@@ -239,24 +260,28 @@ fn text_track(file: &mut fs::File, trak: &Atom) -> Result<Vec<(u64, String)>, St
 /// Find the chapters of an MP4 file. Nero chapters take precedence; a
 /// QuickTime chapter track is read when there are none.
 pub(super) fn scan(path: &Path) -> Result<Chapters, String> {
-    scan_file(&mut fs::File::open(path).map_err(|e| e.to_string())?)
+    scan_diagnostic(path).map_err(|error| error.to_string())
+}
+
+pub(super) fn scan_diagnostic(path: &Path) -> Result<Chapters, ErrorCause> {
+    scan_file_diagnostic(&mut fs::File::open(path).map_err(ErrorCause::external)?)
 }
 
 /// [`scan`] on an open file.
-fn scan_file(file: &mut fs::File) -> Result<Chapters, String> {
-    let length = file.metadata().map_err(|e| e.to_string())?.len();
+fn scan_file_diagnostic(file: &mut fs::File) -> Result<Chapters, ErrorCause> {
+    let length = file.metadata().map_err(ErrorCause::external)?.len();
     let mut chapters = Chapters::default();
-    let Some(moov) = atoms(file, 0..length)?
+    let Some(moov) = atoms_diagnostic(file, 0..length)?
         .into_iter()
         .find(|a| &a.kind == b"moov")
     else {
         return Ok(chapters);
     };
-    let top = atoms(file, moov.body..moov.end)?;
+    let top = atoms_diagnostic(file, moov.body..moov.end)?;
     for udta in top.iter().filter(|a| &a.kind == b"udta") {
-        if let Some(chpl) = child(file, udta, b"chpl")? {
+        if let Some(chpl) = child_diagnostic(file, udta, b"chpl")? {
             if chapters.list.is_empty() {
-                let units = nero_units(&body(file, &chpl)?);
+                let units = nero_units(&body_diagnostic(file, &chpl)?);
                 chapters.nero = units.iter().map(|(start, _)| *start).collect();
                 chapters.list = units
                     .into_iter()
@@ -265,9 +290,9 @@ fn scan_file(file: &mut fs::File) -> Result<Chapters, String> {
             }
             chapters.boxes.push(chpl);
         }
-        if let Some(tags) = child(file, udta, b"tags")? {
+        if let Some(tags) = child_diagnostic(file, udta, b"tags")? {
             if chapters.nero_tags.is_none() {
-                chapters.nero_tags = NeroTags::parse(&body(file, &tags)?);
+                chapters.nero_tags = NeroTags::parse(&body_diagnostic(file, &tags)?);
                 chapters.nero_box = Some(tags);
             }
         }
@@ -275,9 +300,9 @@ fn scan_file(file: &mut fs::File) -> Result<Chapters, String> {
     let mut referenced = Vec::new();
     let mut tracks = Vec::new();
     for trak in top.iter().filter(|a| &a.kind == b"trak") {
-        let id = match child(file, trak, b"tkhd")? {
+        let id = match child_diagnostic(file, trak, b"tkhd")? {
             Some(tkhd) => {
-                let bytes = body(file, &tkhd)?;
+                let bytes = body_diagnostic(file, &tkhd)?;
                 if bytes.first() == Some(&1) {
                     be32(&bytes, 20)
                 } else {
@@ -286,10 +311,10 @@ fn scan_file(file: &mut fs::File) -> Result<Chapters, String> {
             }
             None => None,
         };
-        if let Some(tref) = child(file, trak, b"tref")? {
-            let references = atoms(file, tref.body..tref.end)?;
+        if let Some(tref) = child_diagnostic(file, trak, b"tref")? {
+            let references = atoms_diagnostic(file, tref.body..tref.end)?;
             for chap in references.iter().filter(|a| &a.kind == b"chap") {
-                let ids = body(file, chap)?;
+                let ids = body_diagnostic(file, chap)?;
                 referenced.extend(
                     ids.as_chunks::<4>()
                         .0
@@ -309,7 +334,7 @@ fn scan_file(file: &mut fs::File) -> Result<Chapters, String> {
     for (id, trak) in tracks {
         if id.is_some_and(|id| referenced.contains(&id)) {
             if chapters.track.is_empty() {
-                chapters.track = text_track(file, &trak)?;
+                chapters.track = text_track_diagnostic(file, &trak)?;
             }
             chapters.boxes.push(trak);
         }
@@ -419,7 +444,7 @@ fn nero_pictures(chapters: &Chapters) -> Vec<Picture> {
 
 /// Nero covers stand in for the iTunes covers of an MP4 file whose iTunes
 /// tag has none, so they are shown, and edited covers are written to the
-/// iTunes tag (after which [`drop_nero_covers`] removes the Nero ones).
+/// iTunes tag (after which [`drop_nero_covers_diagnostic`] removes the Nero ones).
 pub(super) fn add_nero_covers(file: &mut TaggedFile, path: &Path) {
     if file.file_type() != FileType::Mp4
         || file
@@ -444,7 +469,11 @@ pub(super) fn add_nero_covers(file: &mut TaggedFile, path: &Path) {
 
 /// Write the Nero tags `nero` over the `tags` box `atom` when they fit,
 /// with a `free` box after them for the bytes left over. Nothing else moves.
-fn replace_in_place(file: &mut fs::File, atom: &Atom, nero: &NeroTags) -> Result<bool, String> {
+fn replace_in_place_diagnostic(
+    file: &mut fs::File,
+    atom: &Atom,
+    nero: &NeroTags,
+) -> Result<bool, ErrorCause> {
     let body = nero.render();
     let old = atom.end - atom.start;
     let new = 8 + body.len() as u64;
@@ -461,36 +490,38 @@ fn replace_in_place(file: &mut fs::File, atom: &Atom, nero: &NeroTags) -> Result
     }
     file.seek(SeekFrom::Start(atom.start))
         .and_then(|_| file.write_all(&bytes))
-        .map_err(|e| e.to_string())?;
+        .map_err(ErrorCause::external)?;
     crate::write_cost::rewrote_region(old);
     Ok(true)
 }
 
 /// Check that the staged file's Nero tags read back as `nero`.
-fn verify_nero(file: &mut fs::File, nero: &NeroTags) -> Result<(), String> {
-    let written = scan_file(file)?.nero_tags;
+fn verify_nero_diagnostic(file: &mut fs::File, nero: &NeroTags) -> Result<(), ErrorCause> {
+    let written = scan_file_diagnostic(file)?.nero_tags;
     if written.as_ref().map(NeroTags::render) != Some(nero.render()) {
-        return Err(
-            "The Nero tags did not read back as written; the original file was kept".into(),
-        );
+        return Err(ErrorCause::owned(
+            "The Nero tags did not read back as written; the original file was kept",
+        ));
     }
     Ok(())
 }
 
 /// After covers were written to the iTunes tag, remove the Nero covers they
 /// replace (see [`add_nero_covers`]). This only shrinks the `tags` box.
-pub(super) fn drop_nero_covers(file: &mut fs::File) -> Result<(), String> {
-    let chapters = scan_file(file)?;
+pub(super) fn drop_nero_covers_diagnostic(file: &mut fs::File) -> Result<(), ErrorCause> {
+    let chapters = scan_file_diagnostic(file)?;
     let (Some(mut nero), Some(atom)) = (chapters.nero_tags, chapters.nero_box) else {
         return Ok(());
     };
     if !nero.remove_covers() {
         return Ok(());
     }
-    if !replace_in_place(file, &atom, &nero)? {
-        return Err("The Nero covers could not be removed; the original file was kept".into());
+    if !replace_in_place_diagnostic(file, &atom, &nero)? {
+        return Err(ErrorCause::owned(
+            "The Nero covers could not be removed; the original file was kept",
+        ));
     }
-    verify_nero(file, &nero)
+    verify_nero_diagnostic(file, &nero)
 }
 
 /// After file fields `updates` were written to the iTunes tag, apply them to
@@ -499,21 +530,21 @@ pub(super) fn drop_nero_covers(file: &mut fs::File) -> Result<(), String> {
 /// rewritten in place when it fits, otherwise with the chapters; a longer
 /// value in a file without chapters stays only in the iTunes tag, which takes
 /// precedence anyway.
-pub(super) fn sync_nero_fields(
+pub(super) fn sync_nero_fields_diagnostic(
     staging: &mut fs::File,
     staged_path: &Path,
     updates: &Fields,
-) -> Result<(), String> {
-    let chapters = scan_file(staging)?;
+) -> Result<(), ErrorCause> {
+    let chapters = scan_file_diagnostic(staging)?;
     let (Some(mut nero), Some(atom)) = (chapters.nero_tags.clone(), chapters.nero_box.clone())
     else {
         return Ok(());
     };
-    if !nero.sync_global(updates)? {
+    if !nero.sync_global(updates).map_err(ErrorCause::owned_text)? {
         return Ok(());
     }
-    if replace_in_place(staging, &atom, &nero)? {
-        return verify_nero(staging, &nero);
+    if replace_in_place_diagnostic(staging, &atom, &nero)? {
+        return verify_nero_diagnostic(staging, &nero);
     }
     if chapters.list.is_empty() {
         return Ok(());
@@ -523,38 +554,38 @@ pub(super) fn sync_nero_fields(
         .iter()
         .map(|(ms, title)| subsongs::chapter_value(ms * 1_000_000, title))
         .collect();
-    write_with_tags(staging, staged_path, &values, Some(&nero))
+    write_with_tags_diagnostic(staging, staged_path, &values, Some(&nero))
 }
 
 /// Write CHAPTERS `values` into the staged MP4 file: Nero chapters and a
 /// QuickTime chapter track, or no chapters at all when `values` is empty.
-pub(super) fn write(
+pub(super) fn write_diagnostic(
     staging: &mut fs::File,
     staged_path: &Path,
     values: &[String],
-) -> Result<(), String> {
-    write_with_tags(staging, staged_path, values, None)
+) -> Result<(), ErrorCause> {
+    write_with_tags_diagnostic(staging, staged_path, values, None)
 }
 
-/// [`write`], also replacing the Nero tags (`udta/tags`) by `nero`.
-pub(super) fn write_with_tags(
+/// [`write_diagnostic`], also replacing the Nero tags (`udta/tags`) by `nero`.
+pub(super) fn write_with_tags_diagnostic(
     staging: &mut fs::File,
     staged_path: &Path,
     values: &[String],
     nero: Option<&NeroTags>,
-) -> Result<(), String> {
+) -> Result<(), ErrorCause> {
     let mut requested = values
         .iter()
-        .map(|value| subsongs::parse_chapter_value(value))
+        .map(|value| subsongs::parse_chapter_value_diagnostic(value))
         .collect::<Result<Vec<_>, _>>()?;
     requested.sort_by_key(|(start, _)| *start);
-    let current = scan(staged_path)?;
+    let current = scan_diagnostic(staged_path)?;
     if requested.is_empty() {
         if nero.is_some() {
-            return Err("Nero chapter tags need chapters".into());
+            return Err(ErrorCause::owned("Nero chapter tags need chapters"));
         }
         if !current.boxes.is_empty() {
-            blank(staging, current.boxes)?;
+            blank_diagnostic(staging, current.boxes)?;
         }
     } else {
         // Keep the stored start while it still displays the same.
@@ -573,10 +604,10 @@ pub(super) fn write_with_tags(
             })
             .collect();
         let tags = nero.map(NeroTags::render);
-        mp4_layout::write_chapters(staging, staged_path, &chapters, tags.as_deref())?;
+        mp4_layout::write_chapters_diagnostic(staging, staged_path, &chapters, tags.as_deref())?;
     }
-    staging.sync_all().map_err(|e| e.to_string())?;
-    let written = scan(staged_path)?;
+    staging.sync_all().map_err(ErrorCause::external)?;
+    let written = scan_diagnostic(staged_path)?;
     let expected: Vec<(u64, String)> = requested
         .iter()
         .map(|(ns, title)| (ns / 1_000_000, title.clone()))
@@ -591,9 +622,9 @@ pub(super) fn write_with_tags(
     let tags_match = nero
         .is_none_or(|nero| written.nero_tags.as_ref().map(NeroTags::render) == Some(nero.render()));
     if written.list != expected || !track_matches || !tags_match {
-        return Err(
-            "The MP4 chapters did not read back as written; the original file was kept".into(),
-        );
+        return Err(ErrorCause::owned(
+            "The MP4 chapters did not read back as written; the original file was kept",
+        ));
     }
     Ok(())
 }
@@ -784,7 +815,11 @@ pub(super) fn strip(
 
 /// Turn chapter boxes into `free` boxes of the same size; returns the boxes
 /// blanked, outermost only.
-fn blank(staging: &mut fs::File, mut boxes: Vec<Atom>) -> Result<Vec<Atom>, String> {
+fn blank(staging: &mut fs::File, boxes: Vec<Atom>) -> Result<Vec<Atom>, String> {
+    blank_diagnostic(staging, boxes).map_err(|error| error.to_string())
+}
+
+fn blank_diagnostic(staging: &mut fs::File, mut boxes: Vec<Atom>) -> Result<Vec<Atom>, ErrorCause> {
     boxes.sort_by_key(|a| a.start);
     // A reference inside a removed track is covered by the track.
     let mut blanked: Vec<Atom> = Vec::new();
@@ -798,17 +833,17 @@ fn blank(staging: &mut fs::File, mut boxes: Vec<Atom>) -> Result<Vec<Atom>, Stri
     for atom in &blanked {
         staging
             .seek(SeekFrom::Start(atom.start + 4))
-            .map_err(|e| e.to_string())?;
-        staging.write_all(b"free").map_err(|e| e.to_string())?;
+            .map_err(ErrorCause::external)?;
+        staging.write_all(b"free").map_err(ErrorCause::external)?;
         staging
             .seek(SeekFrom::Start(atom.body))
-            .map_err(|e| e.to_string())?;
+            .map_err(ErrorCause::external)?;
         let zeros = vec![0u8; (atom.end - atom.body) as usize];
-        staging.write_all(&zeros).map_err(|e| e.to_string())?;
+        staging.write_all(&zeros).map_err(ErrorCause::external)?;
         region += atom.end - atom.start;
     }
     crate::write_cost::rewrote_region(region);
-    staging.sync_all().map_err(|e| e.to_string())?;
+    staging.sync_all().map_err(ErrorCause::external)?;
     Ok(blanked)
 }
 

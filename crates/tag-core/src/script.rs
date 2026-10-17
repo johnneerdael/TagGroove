@@ -1,6 +1,7 @@
 //! Independently implemented format strings and actions.
 //! Semantics reference: https://docs.mp3tag.de/scripting/, /format/, /regex/.
 //! User regular expressions use the shared open-source Boost Perl engine.
+use crate::batch_errors::ErrorCause;
 use crate::tags::Fields;
 use chrono::{Datelike, FixedOffset, Local, TimeZone, Timelike, Utc};
 use num_format::ToFormattedString;
@@ -444,8 +445,15 @@ pub(crate) fn context_values<'a>(
     context: &'a EvalContext<'_>,
     name: &str,
 ) -> Result<Option<Cow<'a, [String]>>, String> {
+    context_values_diagnostic(context, name).map_err(|error| error.to_string())
+}
+
+fn context_values_diagnostic<'a>(
+    context: &'a EvalContext<'_>,
+    name: &str,
+) -> Result<Option<Cow<'a, [String]>>, ErrorCause> {
     if let Some(extension) = context.extension {
-        if let Some(values) = extension.field(name)? {
+        if let Some(values) = extension.field(name).map_err(ErrorCause::external)? {
             return Ok(Some(Cow::Owned(values)));
         }
     }
@@ -455,14 +463,18 @@ pub(crate) fn context_values<'a>(
                 .timestamp_seconds
                 .unwrap_or_else(|| Utc::now().timestamp()),
             context,
-        )?;
+        )
+        .map_err(ErrorCause::owned_text)?;
         let pattern = if name.eq_ignore_ascii_case("_DATE") {
             "%x"
         } else {
             "%x %X"
         };
         return Ok(Some(Cow::Owned(vec![date
-            .format_localized(pattern, date_locale(&context.locale)?)
+            .format_localized(
+                pattern,
+                date_locale(&context.locale).map_err(ErrorCause::owned_text)?,
+            )
             .to_string()])));
     }
     if name.eq_ignore_ascii_case("_WORKINGDIR") || name.eq_ignore_ascii_case("_WORKINGPATH") {
@@ -576,6 +588,15 @@ fn run(
     filename_mode: bool,
     native_path: bool,
 ) -> Result<Value, String> {
+    run_diagnostic(nodes, context, filename_mode, native_path).map_err(|error| error.to_string())
+}
+
+fn run_diagnostic(
+    nodes: &[Node],
+    context: &EvalContext<'_>,
+    filename_mode: bool,
+    native_path: bool,
+) -> Result<Value, ErrorCause> {
     let mut output = Value {
         filename: filename_mode.then(String::new),
         ..Value::default()
@@ -599,7 +620,7 @@ fn run(
                 }),
             },
             Node::Field(name) => {
-                let text = context_values(context, name)?
+                let text = context_values_diagnostic(context, name)?
                     .as_deref()
                     .and_then(|v| v.first())
                     .cloned()
@@ -624,7 +645,7 @@ fn run(
                 }
             }
             Node::Optional(children) => {
-                let value = run(children, context, filename_mode, native_path)?;
+                let value = run_diagnostic(children, context, filename_mode, native_path)?;
                 if value.present {
                     value
                 } else {
@@ -634,7 +655,7 @@ fn run(
             Node::Function(name, arguments) | Node::Extension(name, arguments) => {
                 let values: Vec<Value> = arguments
                     .iter()
-                    .map(|a| run(a, context, filename_mode, native_path))
+                    .map(|a| run_diagnostic(a, context, filename_mode, native_path))
                     .collect::<Result<_, _>>()?;
                 if matches!(node, Node::Extension(_, _)) {
                     let args: Vec<ScriptValue> = values
@@ -647,11 +668,18 @@ fn run(
                         .collect();
                     let value = context
                         .extension
-                        .ok_or_else(|| format!("${name} requires its opt-in host extension"))?
-                        .call(name, &args)?;
+                        .ok_or_else(|| {
+                            ErrorCause::message(
+                                "${name} requires its opt-in host extension",
+                                [("name", name.clone())],
+                            )
+                        })?
+                        .call(name, &args)
+                        .map_err(ErrorCause::external)?;
                     let filename = filename_mode.then(|| filename_component(&value.text, context));
                     Value {
-                        text: bounded_with_limit(value.text, context.max_output_bytes)?,
+                        text: bounded_with_limit(value.text, context.max_output_bytes)
+                            .map_err(ErrorCause::owned_text)?,
                         present: value.present,
                         truth: value.truth,
                         filename,
@@ -660,7 +688,7 @@ fn run(
                     let mut present = values.iter().any(|v| v.present);
                     let args: Vec<&str> = values.iter().map(|v| v.text.as_str()).collect();
                     let truths: Vec<bool> = values.iter().map(|v| v.truth).collect();
-                    let text = function(name, &args, &truths, context)?;
+                    let text = function_diagnostic(name, &args, &truths, context)?;
                     let selected = match name.as_str() {
                         "if" => Some(if truths[0] { 1 } else { 2 }),
                         "if2" => Some(if truths[0] { 0 } else { 1 }),
@@ -717,13 +745,13 @@ fn run(
             }
         };
         if output.text.len().saturating_add(value.text.len()) > context.max_output_bytes {
-            return Err("Format string output limit exceeded".into());
+            return Err(ErrorCause::owned("Format string output limit exceeded"));
         }
         output.text.push_str(&value.text);
         if let Some(rendered) = &mut output.filename {
             let component = value.filename.as_deref().unwrap_or_default();
             if rendered.len().saturating_add(component.len()) > context.max_output_bytes {
-                return Err("Filename output limit exceeded".into());
+                return Err(ErrorCause::owned("Filename output limit exceeded"));
             }
             rendered.push_str(component);
         }
@@ -739,6 +767,26 @@ pub struct CompiledTemplate {
 }
 
 impl CompiledTemplate {
+    pub fn evaluate_with_context_diagnostic(
+        &self,
+        context: &EvalContext<'_>,
+    ) -> Result<String, ErrorCause> {
+        run_diagnostic(&self.nodes, &context.snapshot_clock(), false, false).map(|value| value.text)
+    }
+    pub fn evaluate_filename_with_context_diagnostic(
+        &self,
+        context: &EvalContext<'_>,
+    ) -> Result<String, ErrorCause> {
+        run_diagnostic(&self.nodes, &context.snapshot_clock(), true, false)
+            .map(|value| value.filename.unwrap_or_default())
+    }
+    pub fn evaluate_filename_path_with_context_diagnostic(
+        &self,
+        context: &EvalContext<'_>,
+    ) -> Result<String, ErrorCause> {
+        run_diagnostic(&self.nodes, &context.snapshot_clock(), true, true)
+            .map(|value| value.filename.unwrap_or_default())
+    }
     pub fn compile(template: &str) -> Result<Self, String> {
         Self::compile_with_functions(template, &[])
     }
@@ -1264,6 +1312,41 @@ fn ansi(text: &str, context: &EvalContext<'_>) -> Result<String, String> {
         }
     }
     Ok(output)
+}
+
+// These are the only builtins that can return a foreign payload: the Boost
+// engine, or an opt-in host's field resolver. Other builtin error factories
+// replace library failures with OpenTag-owned diagnostics.
+fn function_diagnostic(
+    name: &str,
+    a: &[&str],
+    truths: &[bool],
+    context: &EvalContext<'_>,
+) -> Result<String, ErrorCause> {
+    let output = match name {
+        "regexp" => {
+            arity(name, a, 3, 4).map_err(ErrorCause::owned_text)?;
+            regex(a[1], a.get(3).is_none_or(|flag| *flag != "0"))
+                .map_err(ErrorCause::external)?
+                .replace(a[0], a[2])
+                .map_err(ErrorCause::external)?
+        }
+        "meta" | "meta_sep" => {
+            arity(name, a, if name == "meta" { 1 } else { 2 }, 2)
+                .map_err(ErrorCause::owned_text)?;
+            let resolved = context_values_diagnostic(context, a[0])?;
+            let values = resolved.as_deref().unwrap_or_default();
+            if name == "meta_sep" {
+                values.join(a[1])
+            } else if a.len() == 2 {
+                values.get(count(a[1])).cloned().unwrap_or_default()
+            } else {
+                values.join(", ")
+            }
+        }
+        _ => return function(name, a, truths, context).map_err(ErrorCause::owned_text),
+    };
+    bounded_with_limit(output, context.max_output_bytes).map_err(ErrorCause::owned_text)
 }
 
 fn function(
@@ -1885,4 +1968,85 @@ pub fn apply_action(fields: &Fields, action: &Action) -> Result<Fields, String> 
         result.insert(key, transformed);
     }
     Ok(result)
+}
+
+#[cfg(test)]
+mod diagnostic_tests {
+    use super::*;
+    use crate::batch_errors::ErrorCause;
+
+    #[test]
+    fn evaluator_diagnostics_keep_owned_errors_distinct_from_identical_host_errors() {
+        let fields = Fields::new();
+        let mut context = EvalContext::new(&fields);
+        let expression = CompiledTemplate::compile("$div(1,0)").unwrap();
+        let error = expression
+            .evaluate_with_context_diagnostic(&context)
+            .unwrap_err();
+        assert!(
+            matches!(&error, ErrorCause::OwnedText { value } if value == "Integer overflow or division by zero")
+        );
+        assert_eq!(
+            expression.evaluate_with_context(&context).unwrap_err(),
+            error.to_string()
+        );
+
+        struct Foreign;
+        impl ScriptExtension for Foreign {
+            fn call(&self, _: &str, _: &[ScriptValue]) -> Result<ScriptValue, String> {
+                Err("Integer overflow or division by zero".into())
+            }
+            fn field(&self, _: &str) -> Result<Option<Vec<String>>, String> {
+                Err("Integer overflow or division by zero".into())
+            }
+        }
+        context.extension = Some(&Foreign);
+        let extension = CompiledTemplate::compile_with_functions(
+            "$foreign()",
+            &[ScriptFunctionSpec {
+                name: "foreign".into(),
+                min_args: 0,
+                max_args: 0,
+            }],
+        )
+        .unwrap();
+        for expression in [
+            extension,
+            CompiledTemplate::compile("%Title%").unwrap(),
+            CompiledTemplate::compile("$meta(Title)").unwrap(),
+        ] {
+            let error = expression
+                .evaluate_with_context_diagnostic(&context)
+                .unwrap_err();
+            assert!(
+                matches!(&error, ErrorCause::External { value } if value == "Integer overflow or division by zero")
+            );
+            assert_eq!(
+                expression.evaluate_with_context(&context).unwrap_err(),
+                error.to_string()
+            );
+        }
+    }
+
+    #[test]
+    fn regex_engine_diagnostics_remain_external_in_all_evaluation_modes() {
+        let fields = Fields::new();
+        let context = EvalContext::new(&fields);
+        let expression = CompiledTemplate::compile("$regexp('a','[','b')").unwrap();
+        let legacy = expression.evaluate_with_context(&context).unwrap_err();
+        for error in [
+            expression
+                .evaluate_with_context_diagnostic(&context)
+                .unwrap_err(),
+            expression
+                .evaluate_filename_with_context_diagnostic(&context)
+                .unwrap_err(),
+            expression
+                .evaluate_filename_path_with_context_diagnostic(&context)
+                .unwrap_err(),
+        ] {
+            assert!(matches!(&error, ErrorCause::External { .. }));
+            assert_eq!(error.to_string(), legacy);
+        }
+    }
 }
