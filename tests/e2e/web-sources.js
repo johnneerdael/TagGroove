@@ -5,6 +5,9 @@
 // debug output. Offline: tests/e2e/web-sources-fixtures.sh serves the site on
 // 127.0.0.1 and writes the test sources next to the album.
 (async () => {
+  const sourceName = dialog => dialog.hasAttribute('aria-labelledby')
+    ? dialog.ownerDocument.getElementById(dialog.getAttribute('aria-labelledby'))?.textContent
+    : dialog.getAttribute('aria-label');
   const inv = (c, a) => window.__TAURI_INTERNALS__.invoke(c, a), report = m => inv('e2e_report', { message: String(m) }), sleep = ms => new Promise(r => setTimeout(r, ms));
   const waitFor = async (fn, ms, what) => { const t = Date.now(); while (Date.now() - t < ms) { try { const v = fn(); if (v) return v; } catch {} await sleep(150); } throw new Error('timeout: ' + what); };
   const check = async (ok, what) => report(`${ok ? 'PASS' : 'FAIL'} ${what}`);
@@ -53,10 +56,11 @@
     await waitFor(() => menu.querySelector('.web-submenu').open, 3000, 'F opens the Fixture submenu');
     key('w');
     let d = await waitFor(() => document.querySelector('dialog.tag-source-dialog[open]'), 8000, 'web source dialog');
-    await check(d.getAttribute('aria-label') === 'Fixture › Web Test', 'access keys open ' + d.getAttribute('aria-label'));
+    await check(sourceName(d) === 'Fixture › Web Test', 'access keys open ' + sourceName(d));
     const artist = d.querySelector('#ts-web-0'), albumField = d.querySelector('#ts-web-1');
     await check(artist?.value === 'Test Artist' && albumField?.value === 'Test Album', `search fields from [SearchBy] formats: ${artist?.value} / ${albumField?.value}`);
-    await check(d.querySelector('.ts-web-search').textContent.includes('ARTIST') && d.querySelector('.ts-web-search').textContent.includes('ALBUM'), 'search field labels');
+    const labels = [...d.querySelectorAll('.ts-web-search label > span')];
+    await check(labels.map(label => label.textContent).join(',') === 'Artist,Album' && labels.every(label => label.getAttribute('translate') === 'no'), 'authored search labels retain their exact text and case');
     d.querySelector('#ts-search').click();
     await waitFor(() => d.querySelectorAll('.ts-results tbody tr').length === 2, 10000, 'search results');
     const head = [...d.querySelectorAll('.ts-results th')].map(th => th.textContent);
@@ -88,7 +92,7 @@
     // Ctrl+I repeats the last tag source, now this web source.
     key('i', { metaKey: true }); // ⌘I on macOS; the e2e hook turns it into Ctrl+I elsewhere.
     d = await waitFor(() => document.querySelector('dialog.tag-source-dialog[open]'), 8000, 'Ctrl+I');
-    await check(d.getAttribute('aria-label') === 'Fixture › Web Test', 'Ctrl+I reopens ' + d.getAttribute('aria-label'));
+    await check(sourceName(d) === 'Fixture › Web Test', 'Ctrl+I reopens ' + sourceName(d));
     d.querySelector('[data-close]').click();
     await waitFor(() => !document.querySelector('dialog.tag-source-dialog'), 5000, 'closed');
 

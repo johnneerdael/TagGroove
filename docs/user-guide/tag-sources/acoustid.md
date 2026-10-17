@@ -6,21 +6,37 @@ release's metadata and artwork from MusicBrainz.
 
 ## Set up fingerprinting
 
-1. Use a desktop build on macOS, Windows or Linux. This source is not offered
-   on Android or iOS.
-2. Install Chromaprint's `fpcalc` separately. OpenTag does not bundle it.
-   Obtain it from the [Chromaprint project](https://acoustid.org/chromaprint)
-   or your package manager.
-3. If OpenTag cannot find it, enter the executable's full path in **Options →
-   Tag Sources → Online services → fpcalc program**. Leave the setting empty
-   for automatic discovery on the executable search path and common Unix
-   installation locations.
-4. Open **Tag Sources → API keys…**. If this build has no AcoustID key, add
-   your application's key using the registration address shown there.
+OpenTag includes Chromaprint and its audio decoder libraries. Install OpenTag
+normally: no separate `fpcalc` or `ffmpeg` program is required. Fingerprinting
+runs on your device and reads the selected audio without changing its tags.
 
-Enter an executable path in **fpcalc program**, not a shell command or extra
-arguments. Files must be accessible and decodable by that `fpcalc` installation.
-A fingerprint process taking more than 2 minutes is stopped and reported.
+1. Add the album's audio files to OpenTag. On Android, choose documents with
+   the system picker so OpenTag has permission to read them.
+2. Open **Tag Sources → API keys…**. If this build has no AcoustID key, add
+   your application's key using the registration address shown there.
+3. Select the files to identify. Files need readable, supported audio; an
+   encrypted or damaged file cannot be identified just because its tags load.
+
+Advanced desktop users can optionally choose a different producer in
+**Options → Tag Sources → Online services → Optional fpcalc override
+(desktop)**. Enter a full executable path, without a shell command or extra
+arguments. Leave it empty to use the built-in libraries. Old automatic
+`fpcalc` settings also use the built-in default. Mobile builds always use the
+built-in producer.
+
+## What happens during fingerprinting
+
+OpenTag decodes up to the first two minutes of each file to calculate its
+fingerprint and sends the fingerprint with the full file duration. The
+reported container duration can differ slightly from the audible duration.
+It does not upload your audio. Processing a long file therefore does not
+require fingerprinting the entire recording.
+
+Cancel stops the search and asks local decoding to stop. The search also has
+a two-minute time budget for each file. A blocked file read or decoder can
+take longer to return; OpenTag allows only one built-in fingerprint worker
+at a time and asks you to retry if the previous worker is still stopping.
+The optional external producer has its own process timeout.
 
 ## Identify and review
 

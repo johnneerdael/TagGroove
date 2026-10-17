@@ -19,7 +19,7 @@ export type TagSourceCredentials = {discogs_token_set:boolean;discogs_token_in_k
   acoustid_key_set?:boolean;acoustid_built_in?:boolean;lastfm_key_set?:boolean;lastfm_built_in?:boolean;fanart_key_set?:boolean;fanart_built_in?:boolean};
 /** Services that need an API key: the user's own (Tag Sources → API keys…) or one built into this build. */
 export const KEYED_SOURCES = [
-  {provider:'acoustid',name:'AcoustID',key:'acoustid',register:'https://acoustid.org/new-application',note:'Free for non-commercial use. Also needs Chromaprint\'s fpcalc program (Options → Tag Sources → Online services).'},
+  {provider:'acoustid',name:'AcoustID',key:'acoustid',register:'https://acoustid.org/new-application',note:'Free for non-commercial use. Audio fingerprints are calculated locally with OpenTag\'s built-in Chromaprint libraries.'},
   {provider:'lastfm',name:'Last.fm',key:'lastfm',register:'https://www.last.fm/api/account/create',note:'Non-commercial use; album tags become GENRE.'},
   {provider:'fanart',name:'fanart.tv',key:'fanart',register:'https://fanart.tv/get-an-api-key/',note:'Enter your personal API key: it is sent with OpenTag\'s project key (as client_key). A build without a project key uses yours as the project key.'},
 ] as const;
@@ -359,8 +359,8 @@ export function tagSourcesOptionsPages(pickFolder:()=>Promise<string|null>, inde
           {kind:'select',path:`pages.${onlinePage}.lastfm_genres`,label:'Tags written to GENRE',choices:[['1','The top tag'],['2','The top 2 tags'],['3','The top 3 tags'],['5','The top 5 tags']]},
         ]},
         {kind:'group',label:'AcoustID',controls:[
-          {kind:'text',path:`pages.${onlinePage}.fpcalc`,label:'fpcalc program',placeholder:'Found automatically when installed'},
-          {kind:'note',text:'AcoustID identifies files by their audio fingerprint, computed by Chromaprint\'s fpcalc. OpenTag does not include it: install Chromaprint (for example from acoustid.org/chromaprint or a package manager) and enter its path if it is not found.'},
+          {kind:'text',path:`pages.${onlinePage}.fpcalc`,label:'Optional fpcalc override (desktop)',placeholder:'Leave empty for built-in fingerprinting'},
+          {kind:'note',text:'OpenTag includes the audio decoder and Chromaprint libraries: no extra program is needed. Advanced desktop users can enter an explicit fpcalc program path to override the built-in fingerprint producer; clear it to restore the default.'},
         ]},
       ],
       validate:draft => {
@@ -869,7 +869,7 @@ export class TagSourcesUI {
       syncSearch();
     };
     const modeNote = (mode:SearchMode) => mode === 'files' ? `Each of the ${files.length} selected file${files.length === 1 ? '' : 's'} is looked up by its title, artist, album and length.`
-      : mode === 'fingerprint' ? `Each of the ${files.length} selected file${files.length === 1 ? '' : 's'} is fingerprinted with fpcalc and identified on AcoustID; releases that hold the most files are listed first.` : tocText();
+      : mode === 'fingerprint' ? `Each of the ${files.length} selected file${files.length === 1 ? '' : 's'} is fingerprinted locally and identified on AcoustID; releases that hold the most files are listed first.` : tocText();
     const tocText = () => toc ? `Disc ID ${toc.id}: ${toc.tracks} track${toc.tracks === 1 ? '' : 's'} from the selected files in file list order, ${duration(toc.seconds-2)} in total.` : 'The disc ID needs the length of every selected file (at most 99 files).';
     const syncSearch = () => {
       if (web) {

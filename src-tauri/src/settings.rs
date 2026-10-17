@@ -254,6 +254,7 @@ pub fn load(path: &Path) -> (Settings, Option<String>) {
         }
     };
     settings.version = VERSION;
+    migrate_fingerprint_options(&mut settings);
     match settings.validate() {
         Ok(()) => (settings, None),
         Err(e) => (
@@ -262,6 +263,33 @@ pub fn load(path: &Path) -> (Settings, Option<String>) {
                 "Saved options are invalid ({e}); defaults are in use"
             )),
         ),
+    }
+}
+
+/// Keep legacy external-producer settings visible in the current Options page.
+/// Bare auto-discovery sentinels now select embedded fingerprinting.
+fn migrate_fingerprint_options(settings: &mut Settings) {
+    let Some(page) = settings
+        .pages
+        .get_mut("tag-sources-online")
+        .and_then(serde_json::Value::as_object_mut)
+    else {
+        return;
+    };
+    let legacy = page.remove("fpcalc_path");
+    if !page.contains_key("fpcalc") {
+        if let Some(value) = legacy {
+            page.insert("fpcalc".into(), value);
+        }
+    }
+    if let Some(value) = page.get_mut("fpcalc") {
+        if let Some(text) = value.as_str() {
+            if text.trim().eq_ignore_ascii_case("fpcalc")
+                || text.trim().eq_ignore_ascii_case("fpcalc.exe")
+            {
+                *value = serde_json::Value::String(String::new());
+            }
+        }
     }
 }
 
@@ -394,6 +422,7 @@ pub async fn save_settings(
     app: tauri::AppHandle,
     mut settings: Settings,
 ) -> Result<SettingsResponse, String> {
+    migrate_fingerprint_options(&mut settings);
     settings.version = VERSION;
     settings.validate()?;
     // File operations hold this lock, so a batch never sees options change.
@@ -527,5 +556,42 @@ mod tests {
             ])
         );
         assert!(parse_extensions("*.mp3;*").is_err());
+    }
+}
+
+#[cfg(test)]
+mod fingerprint_migration_tests {
+    use super::*;
+    #[test]
+    fn legacy_sentinels_migrate_but_explicit_overrides_remain_visible() {
+        for legacy in ["fpcalc", " fpcalc.exe ", "FPCALC"] {
+            let mut settings = Settings::default();
+            settings.pages.insert(
+                "tag-sources-online".into(),
+                serde_json::json!({"fpcalc_path": legacy, "itunes_country":"NL"}),
+            );
+            migrate_fingerprint_options(&mut settings);
+            assert_eq!(settings.pages["tag-sources-online"]["fpcalc"], "");
+            assert_eq!(settings.pages["tag-sources-online"]["itunes_country"], "NL");
+            assert!(settings.pages["tag-sources-online"]
+                .get("fpcalc_path")
+                .is_none());
+        }
+        let mut settings = Settings::default();
+        settings.pages.insert(
+            "tag-sources-online".into(),
+            serde_json::json!({"fpcalc_path":"/chosen/fpcalc"}),
+        );
+        migrate_fingerprint_options(&mut settings);
+        assert_eq!(
+            settings.pages["tag-sources-online"]["fpcalc"],
+            "/chosen/fpcalc"
+        );
+        settings.pages.insert(
+            "tag-sources-online".into(),
+            serde_json::json!({"fpcalc_path":"/stale/fpcalc", "fpcalc":""}),
+        );
+        migrate_fingerprint_options(&mut settings);
+        assert_eq!(settings.pages["tag-sources-online"]["fpcalc"], "");
     }
 }

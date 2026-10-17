@@ -48,3 +48,39 @@ git diff --check
 ```
 
 Python 3.10 or newer is required for release-note tooling; CI pins Python 3.12. The actionlint exception covers the documented concurrency queue key, unsupported by actionlint 1.7.12. Do not suppress other workflow errors.
+
+## Embedded audio build tools
+
+AcoustID fingerprinting uses source-built static Chromaprint, FFmpeg, zlib and
+bzip2 libraries. Normal application use requires no media command-line tools.
+The first Cargo build downloads only the four checksum-pinned source archives
+in `scripts/audio-deps/sources.json`; it requires Python 3.10+, CMake, GNU Make
+and a C/C++ toolchain. x86_64 targets also need NASM at build time; ARM
+targets use the selected compiler for assembly. macOS/iOS use the selected Xcode SDK and Apple archive
+tools. Windows uses Visual Studio's MSVC toolchain plus MSYS2 Bash/Make
+(`OPENTAG_MSYS2`, default `C:/msys64`). Android uses the existing NDK through
+`NDK_HOME` or `ANDROID_NDK_HOME`. Source builds disable external-library
+autodetection and do not link an installed Homebrew or GPL FFmpeg.
+
+Choose an absolute owned build/cache directory without spaces with
+`OPENTAG_AUDIO_BUILD_ROOT`; its completed prefixes verify installed libraries,
+headers, configuration and notices against the retained manifest. Set
+`OPENTAG_AUDIO_SOURCE_DIR` to a flat directory containing the original pinned
+archives for offline builds. An absent or changed offline archive fails
+without falling back to a network download. The default cache is inside
+Cargo's actual build-script output directory, including when its target directory
+is relative to a caller outside the workspace. Native build phases require more than 2.3 GiB free.
+
+Run the actual producer tests with:
+
+```sh
+cargo test -p opentag-audio-fingerprint --locked
+python3 -m unittest discover -s scripts/audio-deps -p test_build.py -v
+```
+
+The frozen synthetic corpus includes the independent reference fingerprints
+and hashed audio carriers. Tests need no installed `fpcalc` or `ffmpeg`.
+Regeneration tools under `tests/fixtures` document developer-only generation;
+changing expected fingerprints requires new independent reference evidence.
+See [the compatibility ledger](verification/embedded-fingerprints.md) and
+[release/source packaging](RELEASING.md).

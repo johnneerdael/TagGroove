@@ -1,0 +1,22 @@
+{
+  "format": "DSDIFF1.5/stereoDSD64/12seconds",
+  "recipe": "FRM8 DSD form,FVER1.5,PROP SND withFS2822400,CHNL SLFT/SRGT,CMPR DSD notcompressed;DSD data repeats0x69perchannel/no third-party recording",
+  "source_sha256": "7f1992e6d162c53d6493595d8924ed6935dfb460397d782f284b3d4341089ee5",
+  "source_bytes": 8467330,
+  "carrier_sha256": "7d9c7dea40f7d658fdc5b9864c3ab73eb87f0cc7d29da556384b73e444394630",
+  "carrier_bytes": 8366,
+  "oracle": "/opt/homebrew/Cellar/chromaprint/1.6.2/bin/fpcalc",
+  "oracle_sha256": "89d382fd61f67485a329fc73d1b76fc4d7b084c94d26fc2e19c8110a0da08d0b",
+  "expected": {
+    "duration": 12.0,
+    "fingerprint": "AQAAS0mUaEkSRZEGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+  },
+  "input_unchanged": true,
+  "demuxer": "iff",
+  "reference_arguments": [
+    "-json",
+    "synthetic12.dff"
+  ],
+  "ffmpeg_source_sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+  "original_profile_already_passed": true
+}
