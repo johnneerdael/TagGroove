@@ -97,6 +97,39 @@ cancellation boundary pass targeted app tests. An isolated real desktop app
 with its own application identifier passes offline About/settings smoke tests:
 actual linked versions/registration, complete LGPL notice text, source/relink
 instructions, license wrapping and an empty optional executable override.
-Final ASM desktop relink, complete workspace/Clippy checks, modified-library
-source-package relink proof and other platform CI remain separate pending
-qualification. No release or merge is asserted by these local results.
+The final ASM desktop relink and offline native UI smoke pass. On frozen native
+commit `de887441906b38290a111b57593f283fbed77780`, based on main `7c77a17`,
+the complete workspace passes 1,045 tests with six existing ignored tests;
+frontend tests pass 384 cases, strict MkDocs and workspace Clippy also pass.
+The integrated release/source layer separately passes 86 CI-tooling, 19
+source-bundle and 27 release tests; workflow lint remains required on the
+combined head.
+
+A host-only source staging control exported that immutable application source,
+all 597 Cargo packages, the prebuilt frontend and all four pinned native
+archives. It verified 33,279 original staged files. An intentional local
+Chromaprint modification adds `-OpenTag-relink-proof` to its version result;
+the modified archive has its own filename/hash and an explicit source-pin diff.
+A fresh complete application build succeeds with Cargo `--offline --locked`
+and local native archives. The running full app, with runtime `PATH` empty,
+reports `1.6.2-OpenTag-relink-proof` through its real backend command, alongside
+FFmpeg 9.0.2, LGPL 2.1-or-later, 218 audio decoders and no non-audio decoders or
+protocols. Its dynamic dependencies are system frameworks/libraries. Every
+original staged file remains unchanged except the intentional source-pin JSON.
+This demonstrates modification and relinking of the actual app; it is not a
+seven-target release source archive or a claim of other-platform runtime parity.
+The intentional modification exists only in owned test staging and never in
+the shipping component pins.
+
+| Target | FFT | Qualification boundary |
+|---|---|---|
+| macOS arm64 | vDSP | Native corpus, app UI and complete offline modified-library/app relink qualified locally |
+| macOS x64 | vDSP | Native build/corpus and packaging require the Intel CI runner; NASM is a build tool |
+| Windows x64 MSVC | KissFFT | Requires MSVC, the verified MSYS2 installation and NASM; runtime/package CI remains separate |
+| Linux x64 / arm64 | KissFFT | Host corpus/package CI remains separate; x64 requires NASM |
+| Android arm64 | KissFFT | NDK API 24 build/package evidence; actual device runtime comparison remains separate |
+| iOS arm64 simulator | vDSP | Unsigned simulator preview build/package evidence; no physical-device qualification |
+
+The source publisher requires all seven real target manifests before producing
+the public source asset. Exact-head GitHub code review, trusted platform CI,
+merge and release remain separate gates; none is asserted by local results.

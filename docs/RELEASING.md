@@ -125,6 +125,29 @@ cargo run --offline --locked -p opentag-audio-fingerprint --example fingerprint 
 
 `OPENTAG_AUDIO_SOURCE_DIR` requires the exact original archive filenames and hashes. If it is set, a missing archive fails instead of falling back to the network. Cargo uses the bundled `vendor` directory. The output directories above are fresh, so the command rebuilds and relinks the native libraries and Rust example rather than using a packaged executable. PowerShell users set the same environment variables with `$env:NAME = 'absolute-path'`. The host still needs its platform compiler, SDK, Python, CMake, Make and (on x86-64) NASM; these system tools are not part of the source archive. Rebuilding the frontend from source requires Node/npm and its dependencies; the included `dist` avoids that download for the Rust example.
 
+The same extracted source builds the complete desktop application without
+rebuilding the included frontend:
+
+```sh
+cargo build --offline --locked -p opentag --bin opentag --features tauri/custom-protocol
+```
+
+To change an embedded library, extract its archive, edit the source, and repack
+it with the same top-level directory. Keep the original archive, choose a new
+filename for the modified one, and explicitly update that component's archive
+filename, location and SHA256 in `scripts/audio-deps/sources.json`. Put the new
+archive beside the other local archives. The changed source pin selects a fresh
+native recipe; an unexpected archive change still fails verification. Record
+both the source patch and source-pin change when sharing the modified build.
+
+A macOS arm64 host-only control exercised this full path: a local Chromaprint
+version marker was rebuilt from a separately pinned modified archive, the
+complete application linked offline from vendored Cargo sources, and the
+running app returned the marker through its real backend command with an empty
+runtime `PATH`. This is one qualified host control, rather than evidence for
+all seven release targets. The complete release source asset still requires
+all seven actual native manifests.
+
 For maintainers, collect each finished native prefix and assemble the source asset with:
 
 ```sh

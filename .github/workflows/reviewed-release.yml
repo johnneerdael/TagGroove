@@ -155,18 +155,6 @@ jobs:
         with:
           targets: ${{ matrix.target }}
           components: rustfmt, clippy
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - uses: ilammy/msvc-dev-cmd@v1
-        if: runner.os == 'Windows'
-        with:
-          arch: x64
-      - uses: msys2/setup-msys2@v2
-        if: runner.os == 'Windows'
-        with:
-          install: make
-          update: false
       - uses: Swatinem/rust-cache@v2
         with:
           key: release-${{ matrix.target }}
