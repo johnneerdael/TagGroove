@@ -2,9 +2,47 @@
 
 These fourteen audio fixtures contain generated chirps, chords and amplitude envelopes, with no third-party recordings. `carrier-results.json` binds lossless carriers, decoded input hashes, the original generator and the separately captured Chromaprint 1.6.2 reference executable/library identities. `reference-results.json` retains the original capture record. Homebrew media tools generated/reference-tested these fixtures only; they are not linked or shipped as application dependencies.
 
-Tests decompress carriers with an independent gzip implementation, verify their original hashes, then run OpenTag's actual embedded Rust API. The same expected fingerprints exercise Apple's vDSP and the bundled KissFFT backend on other CI targets. Normal tests require no `fpcalc` or `ffmpeg` program. The retained Python generators document regeneration and require developer media tools; regenerating fixtures does not establish compatibility without a fresh independent reference capture.
+Tests decompress carriers with an independent gzip implementation, verify their original hashes, then run OpenTag's actual embedded Rust API. Exact CLI references exercise Apple's vDSP and the bundled KissFFT backend. The original ARM references remain unchanged; the independently captured x86 Vorbis reference below covers an upstream architecture difference. Normal tests require no `fpcalc` or `ffmpeg` program. The retained Python generators document regeneration and require developer media tools; regenerating fixtures does not establish compatibility without a fresh independent reference capture.
 
 The project-authored synthetic audio inputs and generator code are distributed under OpenTag's MIT license.
+
+## Platform reference for Vorbis
+
+The unmodified upstream Chromaprint 1.6.2 CLI produces a different Vorbis
+fingerprint on x86 than the original ARM oracle. An independent source-CLI
+capture checked all fourteen existing inputs: thirteen fingerprints and every
+duration match the ARM record; the Vorbis result matches OpenTag's x86 API and
+the observed Linux CI result exactly. The two Vorbis raw fingerprints differ
+in thirteen bits across 75 items. No fingerprint tolerance is used.
+
+`vorbis-x86_64-reference.json` binds that additional expectation to the
+unchanged input hash, original source-archive hashes, unmodified CLI source,
+source-built codec/transform archives and captured executable hash. Its
+generator verifies every native prefix file and all 431 Chromaprint source
+files against the pinned archive. The original fourteen cases, their carriers
+and the original ARM reference records remain unchanged.
+
+| Native target architecture | Exact Vorbis expectation |
+| --- | --- |
+| ARM | Original shipped-CLI reference in `carrier-results.json` |
+| x86_64 | Independent upstream source-CLI capture in `vorbis-x86_64-reference.json` |
+
+To reproduce the developer capture, first build a fresh x86_64 macOS/Linux
+prefix with the pinned native builder. Keep its source/build directories.
+From the repository root, pass the builder's printed prefix path:
+
+```sh
+python3 crates/audio-fingerprint/tests/fixtures/capture-platform-reference.py --prefix /path/to/native/prefix --output /tmp/opentag-x86-reference
+```
+
+Use a new output directory. The tool clones the prefix and build tree,
+enables only the file protocol in the forensic input library, and compiles
+the original upstream CLI and reader rather than OpenTag's adapted reader.
+Codec, transform and Chromaprint archives remain byte-identical to the
+verified product inputs. This file transport exists only in the developer
+reference build; the product still registers zero protocols and ships no
+media program. The tool writes the full fourteen-case comparison and the
+supplemental record for independent review; it never overwrites test data.
 
 ## Exact prefix boundary
 

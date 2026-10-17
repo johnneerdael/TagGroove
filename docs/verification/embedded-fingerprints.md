@@ -229,3 +229,30 @@ and zero protocols. All fifteen native producer tests pass, including the
 fourteen unchanged golden media cases, DSDIFF and exact-prefix coverage;
 affected all-target Clippy also passes. This is host qualification of the
 corrected recipe; trusted platform CI must validate the new final head.
+
+## Native platform validation follow-up
+
+The next trusted run passed Android document integration and the Linux/macOS
+native UI suites. Windows reached the native source build and exposed a
+version-specific library-name assumption: pinned zlib 1.3.2 declares Windows
+static output `zs`, rather than `zlibstatic`. The source builder now stages
+`zs.lib` under the `z.lib` name needed by FFmpeg and Cargo. Full Windows
+validation remains required on this corrected head.
+
+Linux compiled and ran the producer, but its Vorbis result differed from the
+ARM golden by thirteen raw bits across 75 items. A local x86 source build
+reproduced that exact Linux result. The unmodified upstream fpcalc source was
+then compiled independently against the same codec/transform libraries, with
+file input enabled only in a separate forensic transport library. All 431
+Chromaprint source files were checked against the pinned original archive.
+The independent upstream x86 CLI produced exactly the same Vorbis fingerprint
+as OpenTag's x86 API; its thirteen other case fingerprints and all fourteen
+durations match the original ARM oracle.
+
+The original ARM expectations and all input/carrier hashes remain unchanged.
+Tests now use the independently frozen x86 reference only for that one
+architecture/input combination, retaining exact comparisons with no numeric
+or fingerprint tolerance. Both ARM and x86 actual APIs pass all fifteen native
+tests locally. The committed developer capture tool reproduces the original
+CLI comparison and records source, library and executable identities; normal
+tests execute no media program. No production fingerprint algorithm changed.

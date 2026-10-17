@@ -1,0 +1,46 @@
+{
+  "format": 1,
+  "target_arch": "x86_64",
+  "reference_target": "x86_64-apple-darwin",
+  "reference_program": "Unmodified upstream Chromaprint 1.6.2 fpcalc source",
+  "source_archives": {
+    "chromaprint": {
+      "version": "1.6.2",
+      "sha256": "d54ada62c16b2db396d3251ec54fc7a58909c163131a1cfcf7fa6407dbc14360"
+    },
+    "ffmpeg": {
+      "version": "9.0.2",
+      "sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e"
+    },
+    "zlib": {
+      "version": "1.3.2",
+      "sha256": "bb329a0a2cd0274d05519d61c667c062e06990d72e125ee2dfa8de64f0119d16"
+    },
+    "bzip2": {
+      "version": "1.0.8",
+      "sha256": "ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269"
+    }
+  },
+  "chromaprint_source_files_verified": 431,
+  "cli_source": "src/cmd/fpcalc.cpp",
+  "cli_source_sha256": "2774854574701fab5fb035e2c731fcecc09750727084e46d62ade64b478e4f43",
+  "cli_binary_sha256": "073ec341d000a479e830456513bebc22eae288a54b9cc72bd86f6338e3e35741",
+  "fft": "vdsp",
+  "codec_transform_archives": {
+    "chromaprint": "e2f96debda9a6c92572f590afd4ee9b17d76674eb65f0a43b94004eeb1ad5ddd",
+    "avcodec": "ce61be75a23f8aa298eebb9135e40d1139345eaec8babdb4c6d449f1aba8070d",
+    "swresample": "d739d4a56a324ad93980f030688f6a4ed76f0ef9d3ec39f6503cfa317e0aa79a",
+    "avutil": "eb4eb5359892f3b18ebe2eb3c91d61b80955fe398b3c46c67a0523225ae38a27",
+    "z": "99884fc7f9d91ddbd44e3e9a5a261b3d59d2fd37bbb2b18fa0d049eaed3b076c",
+    "bz2": "3b397c6ce5960dae1bf7658c48dd7b9ab100637472014de7bca5e574edb2a4dd"
+  },
+  "transport_exception": "File protocol in forensic libavformat only; product has zero protocols",
+  "capture_script": "capture-platform-reference.py",
+  "reference_cases_checked": 14,
+  "other_cases_identical_to_arm": 13,
+  "input_sha256": "aa616b583678a8a1bdc2a0a71be60be5af35b8e9398c0a112051db0ead8d073c",
+  "expected": {
+    "duration": 12.0,
+    "fingerprint": "AQAAS4oSRVESLVkStAv6Hv6RPA_SG32PHuZ64YdvlN-KG_pxAn3R40azWEd_oE-PMAeaozyeY8eLE8cdPLtR_rjwo0ePhs-D98H0g2-w8Sj6wyh-1HiP9zjQ48CPkTnqD_wBH8cBA8d3_BGew_iJ-wBGAEWACOYNNYgwRSxnxBmjhKWMAFNNRUgIIKnCCgAkgAVYAeOUQMZiK6QDSigzrhHAAWMMEwA"
+  }
+}

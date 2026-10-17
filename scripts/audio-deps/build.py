@@ -305,7 +305,8 @@ def build(target, output, jobs):
 
     cmake("zlib", native["zlib"], ["-DZLIB_BUILD_TESTING=OFF", "-DZLIB_BUILD_SHARED=OFF", "-DZLIB_BUILD_STATIC=ON"])
     if target.endswith("windows-msvc"):
-        shutil.copyfile(prefix / "lib/zlibstatic.lib", prefix / "lib/z.lib")
+        # Pinned zlib 1.3.2 names its Windows static target z + suffix "s".
+        shutil.copyfile(prefix / "lib/zs.lib", prefix / "lib/z.lib")
     cmake("bzip2", HERE / "bzip2", ["-DBZIP2_SOURCE_DIR=" + str(native["bzip2"])])
     ffmpeg_build = work / "ffmpeg-build"
     ffmpeg_build.mkdir(exist_ok=True)

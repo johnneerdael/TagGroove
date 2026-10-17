@@ -220,6 +220,11 @@ fn embedded_api_matches_reference_corpus_without_external_programs() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
     let manifest: serde_json::Value =
         serde_json::from_slice(&std::fs::read(root.join("carrier-results.json")).unwrap()).unwrap();
+    // The unmodified upstream CLI also has a distinct x86 Vorbis result.
+    // Keep the original ARM oracle unchanged and compare each architecture
+    // exactly with its independently captured source-CLI reference.
+    let x86_vorbis: serde_json::Value =
+        serde_json::from_slice(include_bytes!("fixtures/vorbis-x86_64-reference.json")).unwrap();
     let cases = manifest["cases"].as_array().unwrap();
     assert_eq!(cases.len(), 14);
     for case in cases {
@@ -247,6 +252,13 @@ fn embedded_api_matches_reference_corpus_without_external_programs() {
         );
         let hash = format!("{:x}", Sha256::digest(&bytes));
         assert_eq!(hash, case["sha256"].as_str().unwrap(), "{name} input");
+        let expected = if cfg!(target_arch = "x86_64") && name == "vorbis" {
+            assert_eq!(x86_vorbis["target_arch"], "x86_64");
+            assert_eq!(x86_vorbis["input_sha256"], case["sha256"]);
+            &x86_vorbis["expected"]
+        } else {
+            &case["expected"]
+        };
         let directory = tempfile::tempdir().unwrap();
         let filename = std::path::Path::new(case["file"].as_str().unwrap())
             .file_name()
@@ -259,12 +271,12 @@ fn embedded_api_matches_reference_corpus_without_external_programs() {
             .unwrap_or_else(|e| panic!("{name}: {e}"));
         assert_eq!(
             result.encoded,
-            case["expected"]["fingerprint"].as_str().unwrap(),
+            expected["fingerprint"].as_str().unwrap(),
             "{name} fingerprint"
         );
         assert_eq!(
             result.duration,
-            case["expected"]["duration"].as_f64().unwrap(),
+            expected["duration"].as_f64().unwrap(),
             "{name} full duration"
         );
         assert!(
