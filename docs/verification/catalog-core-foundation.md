@@ -24,11 +24,11 @@ Two review regressions cover locale-sensitive exact/category selection through
 explicit and captured values, and nested-category rejection/usable-catalog
 filtering with valid nested forms retained. A further producer-bound case covers every catalog identifier and underscored
 native limit values through direct/captured rendering and plural parsing. All
-twenty-one pure cases remain in the
+twenty-two pure cases remain in the
 same test module when the complete application test suite is
 integrated; the later source-bound extraction and UI tests must also be kept.
 
-Fresh local checks passed 405 UI/model tests with zero failures or skips, the
+Fresh local checks passed 406 UI/model tests with zero failures or skips, the
 production build, the strict 172-page guide and eight publication tests. One
 existing UI case compiles a temporary pure Rust helper; it is separate from
 application-native qualification. All 1,359 existing tracked main files are
@@ -112,3 +112,21 @@ The later activation already uses BatchFailure/fileErrorsText/fileErrorText and
 typed causes to separate raw paths, owned leaf reasons and external text. A
 pure contract regression verifies explicit reordered frames and once-only leaf
 translation without guessing a boundary from colons in authored paths.
+
+
+The three source-owned Show controls select their scaffold explicitly through
+`showLabel`: custom File List column names use `{name}`, Tag Panel controls use
+`{label}`, and toolbar entries use `{itemLabel}`. The latter two aliases require
+explicit parts rather than competing to infer the same rendered sentence. The
+raw-name fallback remains available; bare unmarked text has no producer identity.
+Owned toolbar labels use exact literal lookup. Authored names, including padding,
+newlines and names equal to built-in labels, retain their original bytes.
+
+A new pure regression exercises every toolbar command plus Separator/Spacer,
+all three distinct custom-English scaffolds, DE/NL, raw name collisions and
+partial-catalog literal fallback. The separately prepared activation layer binds
+the actual three producers to an aria-label-only DOM consumer and tests live
+renames, language changes and metadata changes against remembered English source.
+Those application changes remain outside this pure foundation. The regression
+first failed on the old implementation; the actual control also reproduced a
+column label incorrectly using the toolbar scaffold. No native source changed.

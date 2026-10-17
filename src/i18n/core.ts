@@ -23,6 +23,8 @@ const PARTS_ONLY = new Set([
   'Action {name}',
   'Actions ({count} groups)',
   '{value}: {error}',
+  'Show {label}',
+  'Show {itemLabel}',
   // These are persisted duplicate names, not standalone UI sentences.
   '{name} copy',
   '{name} copy {count}',
@@ -298,6 +300,12 @@ export class Translator {
   /** `key` (English, `{name}` placeholders) in this language, filled with `params`. */
   t(key: string, params: Record<string, unknown> = {}): string {
     return render(this.byKey.get(normalize(key)) ?? parseSafe(key), params, this.rules);
+  }
+
+  /** Render one of the three producer-owned Show frames without alias guessing. */
+  showLabel(role: 'name' | 'label' | 'itemLabel', value: string, verbatim: string | boolean = false): string {
+    const raw = role === 'name' || verbatim === true || typeof verbatim === 'string' && normalize(value) === normalize(verbatim);
+    return this.t(`Show {${role}}`, {[role]: raw ? value : this.t(value)});
   }
 
   /**

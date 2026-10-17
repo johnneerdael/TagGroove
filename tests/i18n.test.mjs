@@ -469,3 +469,23 @@ test('punctuation-only failure frames use explicit source parts and preserve raw
   }
  }
 });
+
+
+test('Show controls choose their producer frame and retain explicit raw or owned label parts',async()=>{
+ const {TOOLBAR_COMMANDS,itemLabel}=await load('toolbar.ts');
+ const custom={...english,'Show {name}':'Column [{name}]','Show {label}':'Panel [{label}]','Show {itemLabel}':'Toolbar [{itemLabel}]',Help:'Assistance',Title:'Heading','Save tags':'Store',Heading:'Wrong second lookup',Store:'Wrong second lookup','Toolbar [Store]':'Wrong output lookup'};
+ const owned=[...Object.keys(TOOLBAR_COMMANDS).map(id=>itemLabel({id,visible:true})),...['separator-source','spacer-source'].map(id=>itemLabel({id,visible:true}))];
+ for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]]){
+  const t=new Translator(locale,catalog);
+  assert.equal(t.translate('Show Help'),String(catalog['Show {name}']).replace('{name}','Help'),'An unmarked raw-name frame must not become an owned UI-label frame');
+  for(const role of ['name','label','itemLabel'])for(const name of ['Help','Title','Save tags','  Help  ','Help\nTitle','Copy of Help','Show Help']){
+   const key=`Show {${role}}`;assert.equal(t.showLabel(role,name,true),String(catalog[key]).replace(`{${role}}`,name),`${locale}/${role}/${JSON.stringify(name)}`);
+  }
+  for(const label of owned)assert.equal(t.showLabel('itemLabel',label),String(catalog['Show {itemLabel}']).replace('{itemLabel}',t.t(label)));
+  assert.equal(t.showLabel('name','Help',false),String(catalog['Show {name}']).replace('{name}','Help'));
+  assert.equal(t.showLabel('itemLabel','Help','Help'),String(catalog['Show {itemLabel}']).replace('{itemLabel}','Help'));
+  assert.equal(t.showLabel('itemLabel','Help','Title'),String(catalog['Show {itemLabel}']).replace('{itemLabel}',t.t('Help')));
+  const localized=t.t('Title');assert.equal(t.showLabel('label',localized,true),String(catalog['Show {label}']).replace('{label}',localized),'An already localized default name is protected from a second lookup');
+ }
+ const partial=new Translator('en',{'Show {name}':'Column [{name}]','Show {itemLabel}':'Toolbar [{itemLabel}]'});assert.equal(partial.showLabel('itemLabel','Show in folder'),'Toolbar [Show in folder]','A missing literal UI label falls back to its English key, not another inferred frame');
+});
