@@ -36,9 +36,9 @@ The filter RPC evaluates a caller-supplied field map. The frontend now merges op
 | `%_subsong_count%` | Measured, conditional where noted | Chapter count for MP4, Matroska and cue-sheet files. |
 | `%_tag%` | Measured, conditional where noted | Available concrete tag kinds; ID3 original version retained. Display spelling/separators need original-app differential qualification. |
 | `%_tag_read%` | Measured, conditional where noted | First tag according to the existing primary/secondary read precedence. Mixed-tag fields can also include secondary unique fields. |
-| `%_tag_size%` | Measured, conditional where noted | Total tag bytes in the file (`media_info.rs`). |
-| `%_tag_size_appended%` | Measured, conditional where noted | Tag bytes after the audio data. |
-| `%_tag_size_prepended%` | Measured, conditional where noted | Tag bytes before the audio data. |
+| `%_tag_size%` | Measured for ID3/APE-style streams and FLAC | Total tag bytes in the file (`media_info.rs`); absent for WAV, AIFF, MP4, Ogg, Matroska, ASF and DSD. |
+| `%_tag_size_appended%` | Measured for ID3/APE-style streams and FLAC | Tag bytes after the audio data; absent for the other containers. |
+| `%_tag_size_prepended%` | Measured for ID3/APE-style streams and FLAC | Tag bytes before the audio data; absent for the other containers. |
 | `%_tool%` | Measured, conditional where noted | Literal stored Vorbis vendor for FLAC/Vorbis/Opus/Speex, when present; no invented ENCODER metadata field. |
 | `%_vbr%` | Measured, conditional where noted | CBR/VBR from the stream header (`raw_streams.rs`); empty when the format gives no mode. |
 | `%_video_bitrate%` | Measured, conditional where noted | Video stream property for MP4 and Matroska files (`mp4_chapters.rs`, `matroska.rs`); absent for audio-only files. |
@@ -73,7 +73,7 @@ The filter RPC evaluates a caller-supplied field map. The frontend now merges op
 | `%_folderpath_rel%` | Export only | Relative folder supplied by pure export renderer. |
 | `%_crc%` | Export only | Native export host streams CRC32 only when requested. |
 | `%_md5%` | Export only | Native export host streams full-file MD5 only when requested. |
-| `%_md5audio%` | Measured on request | MD5 of the audio data computed on demand for exports and filters (`src-tauri/src/file_hashes.rs`). |
+| `%_md5audio%` | Measured on export only | MD5 of the audio data computed on demand by the export host (`src-tauri/src/file_hashes.rs`) for formats with an audio digest; empty for MP4 and Ogg, and not available to filters. |
 | `%_max_counter%` | Export only | Export loop state. |
 | `%_total_files%` | Export only | Export loop totals. |
 | `%_total_size%` | Export only | Export loop totals and formatting. |

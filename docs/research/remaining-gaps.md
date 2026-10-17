@@ -20,10 +20,6 @@ Legend: **Impact** H = daily tagging, M = regular, L = rare or legacy. **Size** 
 | Scripting | `$caps`, `$caps2`, `$caps3` word starts | Only whitespace starts a word, so `o'brien (live)` becomes `O'brien (live)`. Original set unverified | M | S |
 | Scripting | Truth of non-boolean conditions | Literal `1` is false; functions are true when an argument field exists (`script.rs`). Unverified | M | M |
 | Scripting | Errors inside a format string | `$div(x,0)`, bad `$char` or an unknown function abort the whole string. The original probably degrades inline | L | S |
-| Scripting | `%_length%` | Always `m:ss` (`75:03`) and truncates while `_length_seconds` rounds | L | S |
-| Scripting | `%_tool%` | Vorbis vendor only; no encoder string for other formats | L | M |
-| Scripting | `%_app%` in filters | Empty in the filter context | L | S |
-| Scripting | `%_counter%` for tag-source cover names | 0 there (`src-tauri/src/sources/mod.rs`) | L | S |
 | Filters | Mixed quoted and bare words | Rejected as a syntax error (`filter.rs`) | L | S |
 | Filters | AND/OR precedence | AND binds tighter. Unverified | L | S |
 | Actions | Adjust Cover min size and "Original" format | Min size only enlarges; GIF/BMP/WebP error; unchanged covers are re-encoded (`cover_ops.rs`) | L | S |
@@ -55,6 +51,7 @@ Legend: **Impact** H = daily tagging, M = regular, L = rare or legacy. **Size** 
 | Tag preferences | Defaults | Write and remove defaults, cross-kind mirroring, ID3v1 truncation, multi-value joining and the encoding of existing Latin-1 frames in UTF-16 mode are not captured from the original ([tag-preferences](../verification/tag-preferences.md)) | M | S |
 | Chapters | Whole-file commands | Remove tag and Strip chapters MP4 are refused on chapter and cue rows; `%_subsong%` base and Nero field-name case are unconfirmed | L | S |
 | Utils | Optimize and Remove Unsupported Fields | Fragmented MP4 is refused and `stco` is not promoted to `co64`; FLAC with a leading ID3v2 tag is refused; Remove Unsupported Fields handles ID3v2 on MP3, AAC, AIFF and WAV only | L | M |
+| Scripting | `%_md5audio%` | Computed by the export host only; empty for MP4 and Ogg and unavailable to filters (`src-tauri/src/file_hashes.rs`) | L | M |
 | Scripting | `%_vbr%` and tag sizes | `%_vbr%` for Musepack and WavPack and tag sizes for chunk and box containers are unfinished ([script-export](../verification/script-export.md)) | L | S |
 | Export | Dropped files | A `.mte` file dropped into the export folder while the Export dialog is open is retired if the dialog saves | L | S |
 | Playlists | Reading and ordering | XSPF, WPL and ASX are not read; F5 does not re-read a loaded playlist; loading one clears the saved column sort and there is no "Playlist order" sort criterion | L | S |
