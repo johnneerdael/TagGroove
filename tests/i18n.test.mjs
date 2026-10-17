@@ -182,3 +182,183 @@ test('source-owned underscored placeholders render native limits and remain cons
   assert.equal(new Translator('en',{[key]:value}).t(key,{file_count:2,name_2:'{MAX_COLUMNS} / Help'}),'2 for {MAX_COLUMNS} / Help');
   assert.equal(new Translator('en',{}).t('Literal {not a placeholder}, {file-name}, {2name} stays',{name:'Wrong'}),'Literal {not a placeholder}, {file-name}, {2name} stays');
 });
+
+
+test('audio measurement patterns accept producer numbers and leave unknown unit-shaped text untouched',async()=>{
+  const commands=await load('list-commands.ts');
+  const entry={duration:65,size:1024,format:'MPEG',bitrate:320,sample_rate:44100,channels:2};
+  const properties=commands.activeFileProperties?.(entry);
+  const details=properties?.details??commands.listSummary([entry],[entry],1,entry).at(-1).split(' · ').slice(1);
+  const frames=[['{bitrate} kbps','bitrate'],['{sampleRate} Hz','sampleRate'],['{channels} channels','channels']];
+  for(const locale of ['de','nl']){
+    const translator=new Translator(locale,catalogs[locale]);
+    for(const text of ['Left channel','Right channels','Unknown kbps','Mystery Hz'])assert.equal(translator.translate(text),text,`${locale}: ${text}`);
+    for(const [index,[key,name]] of frames.entries()){
+      const shown=details[index],value=shown.slice(0,shown.lastIndexOf(' '));
+      assert.equal(translator.translate(shown),translator.t(key,{[name]:value}),`${locale}: producer ${shown}`);
+    }
+    for(const [key,name,shown] of [['{channels} channel','channels','١'],['{bitrate} kbps','bitrate','٣٢٠'],['{sampleRate} Hz','sampleRate','٤٤٬١٠٠']]){
+      const text=new Translator('en',{}).t(key,{[name]:shown});
+      assert.equal(translator.translate(text),translator.t(key,{[name]:shown}),`${locale}: ${text}`);
+    }
+  }
+});
+
+
+test('source-audited numeric roles reject text across current catalog frames while raw summaries keep their shapes',()=>{
+  // Numeric domains come from the closed native/UI producer audit, not name inference.
+  const roles=new Set(["channels", "bitrate", "sampleRate", "counts", "covers", "withCovers", "sourceLine", "selectionIndex", "minimum", "maximum", "invalid", "number", "major", "code", "MAX_COLUMNS", "MAX_FIELDS", "MAX_VALUES", "MIN_WIDTH", "MAX_WIDTH", "PLAY_LIMIT", "TOOL_LIMIT", "TOOLLIMIT", "TIMEOUTRANGE"]);
+  const translators=Object.fromEntries(['de','nl'].map(locale=>[locale,new Translator(locale,catalogs[locale])]));
+  const en=new Translator('en',{}),pairs=[];
+  for(const key of Object.keys(english).filter(key=>!key.startsWith('@'))){
+    for(const role of placeholders(key))if(roles.has(role.replace(/\d+$/,'')))pairs.push({key,role});
+  }
+  assert.equal(pairs.length,38);
+  const glyphs=['0','1','2','1.234','1,234','1\u202f234','١٬٢٣٤','۱۲۳۴','১২৩৪','१२३४','一二三','𝟙𝟚𝟛'];
+  for(const {key,role} of pairs){
+    const params=Object.fromEntries([...placeholders(key)].map(name=>[name,'2']));
+    const isolated=Object.fromEntries(['de','nl'].map(locale=>[locale,new Translator(locale,{[key]:catalogs[locale][key]})]));
+    for(const value of ['Left','Unknown','unknownLeft','1Left','١word']){
+      const shown=en.t(key,{...params,[role]:value});
+      for(const [locale,translator] of Object.entries(translators)){
+        assert.equal(isolated[locale].translate(shown),shown,`${locale}: numeric frame rejects ${role}: ${shown}`);
+        // Select accepts an actual authored filename, including text resembling
+        // a rejected limit. Other overlapping source frames have closed domains.
+        let expected=shown;
+        if(['Select at most {PLAY_LIMIT} files to play','Select at most {TOOL_LIMIT} files to run a tool for each file'].includes(key)){
+          expected=translator.t('Select {filename}',{filename:shown.slice('Select '.length)});
+        }
+        assert.equal(translator.translate(shown),expected,`${locale}: whole catalog ${role}: ${shown}`);
+      }
+    }
+    for(const value of glyphs){
+      const values={...params,[role]:value},shown=en.t(key,values);
+      for(const [locale,translator] of Object.entries(translators))assert.equal(translator.translate(shown),translator.t(key,values),`${locale}: ${role}: ${shown}`);
+    }
+  }
+  for(const translator of Object.values(translators)){
+    for(const text of ['Chapter Left: 2','$custom expects 1..=2 arguments, received Left'])assert.equal(translator.translate(text),text);
+    for(const value of glyphs){
+      const key='${name} expects {min}..={max} arguments, received {value}',params={name:'custom',min:1,max:2,value};
+      assert.equal(translator.translate(en.t(key,params)),translator.t(key,params));
+    }
+  }
+  const exclusions=[{"role": "trackPosition", "input": "TITLE of track A1", "actual": {"de": "TITLE von Track A1", "nl": "TITLE van track A1"}}, {"role": "other", "input": "CommandX is not implemented", "actual": {"de": "CommandX ist nicht implementiert", "nl": "CommandX is niet geïmplementeerd"}}, {"role": "duration", "input": "Disc ID ab12034f: 2 tracks from the selected files in file list order, 12:34 in total.", "actual": {"de": "Disc-ID ab12034f: 2 Tracks aus den ausgewählten Dateien in der Reihenfolge der Dateiliste, insgesamt 12:34.", "nl": "Schijf-ID ab12034f: 2 tracks uit de geselecteerde bestanden in volgorde van de bestandslijst, 12:34 in totaal."}}, {"role": "sum", "input": "2 files (3:12 | 12.4 MB)", "actual": {"de": "2 Dateien (3:12 | 12.4 MB)", "nl": "2 bestanden (3:12 | 12.4 MB)"}}];
+  for(const {role,input,actual} of exclusions)for(const [locale,translator] of Object.entries(translators)){
+    assert.notEqual(actual[locale],input,`${role}: translates the outer frame`);
+    assert.equal(translator.translate(input),actual[locale],`${locale}: preserve ${role}`);
+  }
+});
+
+
+test('source-owned anonymous count slots and signed movement counts keep raw roles elsewhere',async()=>{
+  const {UTILS}=await load('utils-ui.ts');
+  const cases=[{"key": "Chapter {value}: {error}", "slots": ["value"]}, {"key": "${name} expects {min}..={max} arguments, received {value}", "slots": ["value"]}, {"key": "Cannot show {value} files here", "slots": ["value"]}, {"key": "Configuration version {value} is not supported", "slots": ["value"]}, {"key": "Cover {value} does not exist", "slots": ["value"]}, {"key": "Invalid action section at line {value}", "slots": ["value"]}, {"key": "Invalid action setting at line {value}", "slots": ["value"]}, {"key": "Setting outside an action section at line {value}", "slots": ["value"]}, {"key": "New filename references undefined part %{value}", "slots": ["value"]}, {"key": "Repeated old filename part %{value} is ambiguous", "slots": ["value"]}, {"key": "Text import has {value} lines for {value2} selected files; no changes planned", "slots": ["value", "value2"]}, {"key": "The network timeout must be between {value} and {value2} seconds", "slots": ["value", "value2"]}, {"key": "Track {value} is not in the cue sheet", "slots": ["value"]}, {"key": "Unexpected filter token at position {value}", "slots": ["value"]}, {"key": "Unsupported settings version {value}", "slots": ["value"]}, {"key": "moving {n} lines leaves the input (line {value} of {value2})", "slots": ["value", "value2"]}, {"key": "the input has only {value} lines", "slots": ["value"]}, {"key": "{name} returned HTTP {value} for {url}", "slots": ["value"]}, {"key": "{name}: {value} bytes cannot be stored in a Nero chapter tag", "slots": ["value"]}, {"key": "{label} for {count} of {length} selected file? {effect} {other} file is skipped: this applies to {applies}. Files that need no change are not rewritten. Edit → Undo restores the files during this session.", "slots": ["other"]}, {"key": "{label} for {count} of {length} selected file? {effect} {other} files are skipped: this applies to {applies}. Files that need no change are not rewritten. Edit → Undo restores the files during this session.", "slots": ["other"]}, {"key": "{label} for {count} of {length} selected files? {effect} {other} file is skipped: this applies to {applies}. Files that need no change are not rewritten. Edit → Undo restores the files during this session.", "slots": ["other"]}, {"key": "{label} for {count} of {length} selected files? {effect} {other} files are skipped: this applies to {applies}. Files that need no change are not rewritten. Edit → Undo restores the files during this session.", "slots": ["other"]}];
+  assert.equal(cases.length,23);assert.equal(cases.reduce((sum,row)=>sum+row.slots.length,0),26);
+  const en=new Translator('en',{}),failures=[];
+  for(const locale of ['de','nl']){
+    const translator=new Translator(locale,catalogs[locale]);
+    for(const {key,slots} of cases){
+      assert.equal(typeof english[key],'string',key);
+      const names=[...placeholders(key)],isolated=new Translator(locale,{[key]:catalogs[locale][key]});
+      const params=Object.fromEntries(names.map(name=>[name,'2']));
+      if(slots.includes('other'))Object.assign(params,{label:UTILS.optimize.label,effect:UTILS.optimize.effect,applies:UTILS.optimize.applies});
+      const expectedValues=values=>slots.includes('other')?{...values,label:translator.translate(values.label),effect:translator.translate(values.effect),applies:translator.translate(values.applies)}:values;
+      for(const slot of slots){
+        for(const value of ['Left','Unknown','unknownLeft','1Left','١word']){
+          const shown=en.t(key,{...params,[slot]:value});
+          assert.equal(isolated.translate(shown),shown,`${locale}: reject ${slot}: ${shown}`);
+          const expected=shown;
+          if(translator.translate(shown)!==expected)failures.push({locale,key,slot,shown,expected,actual:translator.translate(shown)});
+        }
+        for(const value of ['0','1','2','1.234','1,234','1 234','١٬٢٣٤','۱۲۳۴','১২৩৪','१२३४','一二三','𝟙𝟚𝟛']){
+          const values={...params,[slot]:value},shown=en.t(key,values);
+          assert.equal(translator.translate(shown),translator.t(key,expectedValues(values)),`${locale}: numeric ${slot}: ${shown}`);
+        }
+        if(slot==='other'){
+          const collision=new Translator(locale,{...catalogs[locale],一:'Wrong numeric lookup'}),values={...params,other:'一'};
+          assert.equal(collision.translate(en.t(key,values)),collision.t(key,expectedValues(values)),`${locale}: key-local numeric other stays a glyph`);
+        }
+      }
+    }
+    const moving='moving {n} lines leaves the input (line {value} of {value2})';
+    for(const n of [-2,0,2,'-9223372036854775808','-١','-一','-𝟚']){
+      const values={n,value:1,value2:2},shown=en.t(moving,values);
+      assert.equal(translator.translate(shown),translator.t(moving,values),`${locale}: signed producer ${shown}`);
+    }
+    const signedCollision=new Translator(locale,{...catalogs[locale],'-一':'Wrong signed lookup'}),signedValues={n:'-一',value:1,value2:2};
+    assert.equal(signedCollision.translate(en.t(moving,signedValues)),signedCollision.t(moving,signedValues));
+    for(const n of ['--2','-','+2','Left','-Left','-١word','1Left']){
+      const shown=en.t(moving,{n,value:1,value2:2});assert.equal(translator.translate(shown),shown,`${locale}: invalid movement count`);
+    }
+    const copyKey='Copy of {name} ({n})',copy=new Translator(locale,{[copyKey]:catalogs[locale][copyKey]});
+    assert.equal(copy.translate('Copy of Help (-2)'),'Copy of Help (-2)','unrelated counter stays unsigned');
+    assert.equal(translator.translate('CommandX is not implemented'),translator.t('{other} is not implemented',{other:'CommandX'}));
+  }
+  assert.deepEqual(failures,[],'whole catalog preserves anonymous numeric guards and source-proven raw alternate frames');
+});
+
+
+test('closed UI fragments bind real utility, tag-kind and native picture producers without consuming authored data',async()=>{
+  const {UTILS,utilTargets,utilMessage}=await load('utils-ui.ts');
+  const {removeTagPrompt}=await load('remove-tag.ts');
+  const {PICTURE_TYPES,pictureTypeLabel}=await load('cover-model.ts');
+  assert.equal(PICTURE_TYPES.length,21);
+  const lock=await readFile(new URL('../Cargo.lock',import.meta.url),'utf8');
+  assert.match(lock,/name = "lofty"\s+version = "0\.25\.4"[\s\S]*?checksum = "bb21dd79145b0781f2423fda92dd807fcd3911e44b66044d86db3b11ec7accf9"/);
+  const native=await readFile(new URL('../crates/tag-core/src/tags.rs',import.meta.url),'utf8');
+  assert.match(native,/picture_type:\s*format!\("\{:\?\}",\s*picture\.pic_type\(\)\)/);
+  const tagLists=new Map();
+  for(let mask=0;mask<8;mask++){
+    const flags={remove_id3v1:!!(mask&1),remove_id3v2:!!(mask&2),remove_ape:!!(mask&4)};
+    const text=removeTagPrompt(2,{mpeg:flags,ape:flags}).split('\n').find(line=>line.startsWith('MP3, TTA: ')).slice('MP3, TTA: '.length);
+    const at=text.indexOf(' and ');if(at>=0)tagLists.set(text,{name:text.slice(0,at),names:text.slice(at+5)});
+  }
+  assert.deepEqual([...tagLists.keys()].sort(),['ID3v1 and ID3v2','ID3v1 and APE','ID3v2 and APE','ID3v1, ID3v2 and APE'].sort());
+  const pictureKeys=Object.keys(english).filter(key=>key.includes('{pictureTypeLabel}'));assert.equal(pictureKeys.length,4);
+  for(const locale of ['de','nl']){
+    const translator=new Translator(locale,catalogs[locale]);
+    for(const [shown,params] of tagLists)assert.equal(translator.translate(shown),translator.t('{name} and {names}',params));
+    for(const shown of ['Left and Right','ID3v2 and ID3v1','ID3v1 and ID3v1','ID3v1, APE and ID3v2'])assert.equal(translator.translate(shown),shown);
+    for(const spec of Object.values(UTILS)){
+      const key='{label} applies to {applies}.',shown=`${spec.label} applies to ${spec.applies}.`;
+      assert.equal(translator.translate(shown),translator.t(key,{label:translator.translate(spec.label),applies:translator.translate(spec.applies)}));
+      const wrong=shown.replace(spec.label,'Unknown action');assert.equal(translator.translate(wrong),wrong);
+    }
+    for(const util of Object.keys(UTILS))for(const formats of [['MP3'],['FLAC'],['MP3','FLAC'],['MP3','FLAC','WAV']]){
+      const spec=UTILS[util],count=utilTargets(util,formats),other=formats.length-count;
+      const key=`{label} for {count} of {length} selected file${formats.length===1?'':'s'}? {effect}${other?` {other} file${other===1?' is':'s are'} skipped: this applies to {applies}.`:''} Files that need no change are not rewritten. Edit → Undo restores the files during this session.`;
+      assert.equal(typeof english[key],'string');
+      const params={label:translator.translate(spec.label),count,length:formats.length,effect:translator.translate(spec.effect),other,applies:translator.translate(spec.applies)};
+      const shown=utilMessage(util,formats),expected=translator.t(key,params);
+      assert.equal(translator.translate(shown),expected,`${locale}: actual ${util} producer`);
+      assert.equal(translator.translate(shown.replace(spec.effect,spec.effect.replace(/ /g,'  '))),expected,'normalize code-owned effect whitespace');
+      const otherSpec=Object.values(UTILS).find(value=>value!==spec),mismatched=shown.replace(spec.effect,otherSpec.effect);
+      assert.equal(translator.translate(mismatched),mismatched,'source label and effect stay paired');
+      if(other){
+        const clause=`${other} file${other===1?' is':'s are'} skipped:`,invalid=shown.replace(clause,clause.replace(String(other),'Left'));
+        assert.notEqual(invalid,shown);assert.equal(translator.translate(invalid),invalid,`${locale}: invalid skipped count cannot hide inside effect`);
+      }
+    }
+    const labels=[...PICTURE_TYPES.map(([id])=>pictureTypeLabel(id)),pictureTypeLabel('')];
+    assert.equal(labels.at(-1),'Cover','documented helper fallback, not a native type');
+    for(let index=0;index<256;index++)labels.push(pictureTypeLabel(`Undefined(${index})`));
+    for(const key of pictureKeys)for(const label of labels){
+      const shown=new Translator('en',{}).t(key,{pictureTypeLabel:label});
+      assert.equal(translator.translate(shown),translator.t(key,{pictureTypeLabel:translator.translate(label)}),`${locale}: bounded ${label}`);
+    }
+    for(const key of pictureKeys){
+      for(const label of ['Left','Left of 2 files have','Undefined(-1)','Undefined(256)','Undefined(01)','Undefined(١)']){
+        const shown=new Translator('en',{}).t(key,{pictureTypeLabel:label});assert.equal(translator.translate(shown),shown,`${locale}: reject invalid native type ${label}`);
+      }
+      const collision=new Translator(locale,{...catalogs[locale],'Undefined(255)':'Wrong raw identifier'}),shown=new Translator('en',{}).t(key,{pictureTypeLabel:'Undefined(255)'});
+      assert.equal(collision.translate(shown),collision.t(key,{pictureTypeLabel:'Undefined(255)'}),'preserve technical enum identity even with a colliding custom key');
+      const uiLabel=new Translator(locale,{...catalogs[locale],'Front Cover':'Custom front label'});
+      assert.equal(uiLabel.translate(new Translator('en',{}).t(key,{pictureTypeLabel:'Front Cover'})),uiLabel.t(key,{pictureTypeLabel:'Custom front label'}),'known enum labels still translate');
+    }
+    for(const data of ['Left of 2 files have artwork','Undefined(255)','ID3v1 and ID3v2']){
+      assert.equal(translator.translate(data,0,data),data,'authored description/name stays protected');
+      assert.equal(translator.translate(`Select ${data}`),translator.t('Select {filename}',{filename:data}),'real filename frame stays unrestricted');
+    }
+  }
+});

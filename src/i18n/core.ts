@@ -83,12 +83,50 @@ const VERBATIM = /^(name|nameOf|path|file|filename|fileName|location|outputPath|
 
 // Key combinations as menus and tooltips show them: ⌘/Ctrl ⇧ S, Alt+Enter, Ctrl Num +.
 const SHORTCUT = /^(?:(?:⌘|⌥|⇧|⌃|⌫|Ctrl|Alt|Shift|Option|Cmd|Del|Num|Enter|Esc|Tab|Space|Page Up|Page Down|Home|End|Ins|F\d{1,2}|[A-Z0-9]|[←→↑↓+\/·]|,)[\s+/]*)+$/;
-/** Count-only producer roles: keep paths and UI summaries under distinct names.
+/** Number-only count, measurement and limit roles: keep raw data and composed summaries distinct.
  * They only match digits, so "{count} file" never matches "Choose a file". */
-const NUMERIC = /^(length|count|size|total|done|restored|missing|unmatched|pending|saved|failed|skipped|selectedCount|tracks|discs|chapters|selected|shown|started|removed|files|line|lines|matched|n|i|index|position|lastHits|lastStored|min|max)\d*$/;
+const NUMERIC = /^(length|count|size|total|done|restored|missing|unmatched|pending|saved|failed|skipped|selectedCount|tracks|discs|chapters|selected|shown|started|removed|files|line|lines|matched|n|i|index|position|lastHits|lastStored|min|max|channels|bitrate|sampleRate|counts|covers|withCovers|sourceLine|selectionIndex|minimum|maximum|invalid|number|major|code|MAX_COLUMNS|MAX_FIELDS|MAX_VALUES|MIN_WIDTH|MAX_WIDTH|PLAY_LIMIT|TOOL_LIMIT|TOOLLIMIT|TIMEOUTRANGE)\d*$/;
+// Anonymous/raw role names stay polymorphic except in these audited source-owned frames.
+const NUMERIC_SLOTS: Readonly<Record<string, readonly string[]>> = {
+  "Chapter {value}: {error}": ["value"],
+  "${name} expects {min}..={max} arguments, received {value}": ["value"],
+  "Cannot show {value} files here": ["value"],
+  "Configuration version {value} is not supported": ["value"],
+  "Cover {value} does not exist": ["value"],
+  "Invalid action section at line {value}": ["value"],
+  "Invalid action setting at line {value}": ["value"],
+  "Setting outside an action section at line {value}": ["value"],
+  "New filename references undefined part %{value}": ["value"],
+  "Repeated old filename part %{value} is ambiguous": ["value"],
+  "Text import has {value} lines for {value2} selected files; no changes planned": ["value", "value2"],
+  "The network timeout must be between {value} and {value2} seconds": ["value", "value2"],
+  "Track {value} is not in the cue sheet": ["value"],
+  "Unexpected filter token at position {value}": ["value"],
+  "Unsupported settings version {value}": ["value"],
+  "moving {n} lines leaves the input (line {value} of {value2})": ["value", "value2"],
+  "the input has only {value} lines": ["value"],
+  "{name} returned HTTP {value} for {url}": ["value"],
+  "{name}: {value} bytes cannot be stored in a Nero chapter tag": ["value"],
+  "{label} for {count} of {length} selected file? {effect} {other} file is skipped: this applies to {applies}. Files that need no change are not rewritten. Edit → Undo restores the files during this session.": ["other"],
+  "{label} for {count} of {length} selected file? {effect} {other} files are skipped: this applies to {applies}. Files that need no change are not rewritten. Edit → Undo restores the files during this session.": ["other"],
+  "{label} for {count} of {length} selected files? {effect} {other} file is skipped: this applies to {applies}. Files that need no change are not rewritten. Edit → Undo restores the files during this session.": ["other"],
+  "{label} for {count} of {length} selected files? {effect} {other} files are skipped: this applies to {applies}. Files that need no change are not rewritten. Edit → Undo restores the files during this session.": ["other"],
+};
+// Closed producer domains prevent broader UI frames absorbing rejected numeric prose.
+const TAG_KIND_LISTS = new Set(['ID3v1 and ID3v2', 'ID3v1 and APE', 'ID3v2 and APE', 'ID3v1, ID3v2 and APE']);
+const UTILITY_CONFIRMATIONS = new Set(["{label} for {count} of {length} selected file? {effect} Files that need no change are not rewritten. Edit → Undo restores the files during this session.", "{label} for {count} of {length} selected file? {effect} {other} file is skipped: this applies to {applies}. Files that need no change are not rewritten. Edit → Undo restores the files during this session.", "{label} for {count} of {length} selected file? {effect} {other} files are skipped: this applies to {applies}. Files that need no change are not rewritten. Edit → Undo restores the files during this session.", "{label} for {count} of {length} selected files? {effect} Files that need no change are not rewritten. Edit → Undo restores the files during this session.", "{label} for {count} of {length} selected files? {effect} {other} file is skipped: this applies to {applies}. Files that need no change are not rewritten. Edit → Undo restores the files during this session.", "{label} for {count} of {length} selected files? {effect} {other} files are skipped: this applies to {applies}. Files that need no change are not rewritten. Edit → Undo restores the files during this session.", "{label} applies to {applies}."]);
+const UTILITY_PARTS = [{"label": "Remove unsupported fields", "effect": "ID3v2 frames OpenTag cannot display (listed by %_id3v2_unknown_frames%, such as PRIV or GEOB) are removed permanently.", "applies": "MP3 files (ID3v2 tags, also in AAC, AIFF and WAV)"}, {"label": "Optimize", "effect": "FLAC files get exactly 4 KB of padding. MP4 files lose their free space and get the movie and tag data before the audio data.", "applies": "FLAC and MP4 files"}];
+const PICTURE_FRAMES = new Set(["Copied the {pictureTypeLabel} to the clipboard", "Embedded {pictureTypeLabel} artwork", "Set cover type to {pictureTypeLabel}", "{pictureTypeLabel} artwork"]);
+const PICTURE_LABELS = new Set(["Other", "File icon", "Other file icon", "Front Cover", "Back Cover", "Leaflet", "Media", "Lead artist", "Artist", "Conductor", "Band or orchestra", "Composer", "Lyricist", "Recording location", "During recording", "During performance", "Screen capture", "A bright colored fish", "Illustration", "Band logo", "Publisher logo", "Cover"]);
+const pictureLabel = (value: string) => PICTURE_LABELS.has(value)
+  || (/^Undefined\((?:0|[1-9]\d{0,2})\)$/.test(value) && Number(value.slice(10, -1)) <= 255);
+const numericParameter = (key: string, name: string) => NUMERIC.test(name) || NUMERIC_SLOTS[key]?.includes(name) === true;
+const SIGNED_COUNT_KEY = 'moving {n} lines leaves the input (line {value} of {value2})';
 // Han decimal numbering uses these ten symbols rather than Unicode Nd digits.
 const HAN_DIGITS = '〇一二三四五六七八九';
-const NUMBER = `([\\p{Nd}${HAN_DIGITS}](?:[\\p{Nd}${HAN_DIGITS}.,\\u00a0\\u202f\\u066b\\u066c'’ ]*[\\p{Nd}${HAN_DIGITS}])?)`;
+const NUMBER_BODY = `[\\p{Nd}${HAN_DIGITS}](?:[\\p{Nd}${HAN_DIGITS}.,\\u00a0\\u202f\\u066b\\u066c'’ ]*[\\p{Nd}${HAN_DIGITS}])?`;
+const NUMBER = `(${NUMBER_BODY})`;
+const SIGNED_NUMBER = `(-?${NUMBER_BODY})`;
 export const normalize = (text: string) => text.replace(/\s+/g, ' ').trim();
 
 type Node = string | {name: string} | {name: string; plural: [string, Node[]][]};
@@ -187,7 +225,7 @@ export function render(nodes: Node[], params: Record<string, unknown>, rules: In
   return out;
 }
 
-type Pattern = {regex: RegExp; names: string[]; value: Node[]; literal: number; sourceError: boolean; history: boolean};
+type Pattern = {key: string; regex: RegExp; names: string[]; numeric: Set<string>; value: Node[]; literal: number; sourceError: boolean; history: boolean};
 const escapeRegex = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /** Compiled catalog of one language. */
@@ -220,9 +258,10 @@ export class Translator {
       // Keys that are mostly values ("{name}…") would match nearly any text.
       if (!/\p{L}{2,}/u.test(literal)) continue;
       const history = HISTORY_FRAMES.has(normalized);
-      const source = normalized.split(PLACEHOLDER).map((part, i) => i % 2 ? NUMERIC.test(part) ? NUMBER : '([\\s\\S]*?)' : escapeRegex(part).replace(/ /g, history ? ' ' : '\\s+')).join('');
+      const numeric = new Set(names.filter(name => numericParameter(normalized, name)));
+      const source = normalized.split(PLACEHOLDER).map((part, i) => i % 2 ? numeric.has(part) ? normalized === SIGNED_COUNT_KEY && part === 'n' ? SIGNED_NUMBER : NUMBER : '([\\s\\S]*?)' : escapeRegex(part).replace(/ /g, history ? ' ' : '\\s+')).join('');
       const sourceError = normalized === 'line {line} ({text}): {error}';
-      this.patterns.push({regex: new RegExp(`^${source}$`, 'du'), names, value: nodes, literal: literal.length, sourceError, history});
+      this.patterns.push({key: normalized, regex: new RegExp(`^${source}$`, 'du'), names, numeric, value: nodes, literal: literal.length, sourceError, history});
     }
     // Retain the ordinary legacy frame fallback. Native web-source commands
     // transport structured parts and render them explicitly in TagSourcesUI.
@@ -269,14 +308,21 @@ export class Translator {
     for (const pattern of this.patterns) {
       const match = pattern.regex.exec(core);
       if (!match) continue;
+      if (pattern.key === '{name} and {names}' && !TAG_KIND_LISTS.has(normalize(core))) continue;
+      if (UTILITY_CONFIRMATIONS.has(pattern.key) && !UTILITY_PARTS.some(parts => (['label', 'effect', 'applies'] as const).every(name => {
+        const index = pattern.names.indexOf(name);
+        return index < 0 || normalize(match[index + 1]) === parts[name];
+      }))) continue;
+      if (PICTURE_FRAMES.has(pattern.key) && !pictureLabel(normalize(match[pattern.names.indexOf('pictureTypeLabel') + 1]))) continue;
       const params: Record<string, string> = {};
       const spacing = new Map<string, {before: string; after: string}>();
       pattern.names.forEach((param, i) => {
         const value = match[i + 1];
-        const protectedValue = verbatim || normalize(value) === name;
+        const protectedValue = verbatim || normalize(value) === name
+          || (param === 'pictureTypeLabel' && PICTURE_FRAMES.has(pattern.key) && normalize(value).startsWith('Undefined('));
         params[param] = !protectedValue && pattern.history && param === 'label'
           ? historyLabelText(value, (key, values) => this.t(key, values))
-          : !protectedValue && depth < 2 && !VERBATIM.test(param) && !NUMERIC.test(param) && /\p{L}/u.test(value) ? this.translate(value, depth + 1) : value;
+          : !protectedValue && depth < 2 && !VERBATIM.test(param) && !pattern.numeric.has(param) && /\p{L}/u.test(value) ? this.translate(value, depth + 1) : value;
         const [start, end] = match.indices![i + 1];
         spacing.set(param, {before: /\s*$/.exec(core.slice(0, start))![0], after: /^\s*/.exec(core.slice(end))![0]});
       });

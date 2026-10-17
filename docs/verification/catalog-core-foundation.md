@@ -24,11 +24,11 @@ Two review regressions cover locale-sensitive exact/category selection through
 explicit and captured values, and nested-category rejection/usable-catalog
 filtering with valid nested forms retained. A further producer-bound case covers every catalog identifier and underscored
 native limit values through direct/captured rendering and plural parsing. All
-twelve pure cases remain in the
+sixteen pure cases remain in the
 same test module when the complete application test suite is
 integrated; the later source-bound extraction and UI tests must also be kept.
 
-Fresh local checks passed 396 UI/model tests with zero failures or skips, the
+Fresh local checks passed 400 UI/model tests with zero failures or skips, the
 production build, the strict 172-page guide and eight publication tests. One
 existing UI case compiles a temporary pure Rust helper; it is separate from
 application-native qualification. All 1,353 existing tracked base files are
@@ -42,5 +42,25 @@ validation and normal merge.
 The final integration must preserve every original `ed9beee` test and the two
 additional helper tests, both plural corrections and the consistent underscore
 placeholder grammar with its producer-bound regression.
+The additional source-bound controls cover numeric audio/limit roles and 23
+canonical anonymous/count frames. Pattern captures and recursive rendering use
+the same numeric-slot classification. The web engine's exact movement frame
+accepts its signed `n` distance; other numeric slots retain the unsigned grammar.
+Source-owned utility fragments use the two actual label/effect/applies records,
+tag-kind conjunctions use their four ordered flag combinations, and the four
+picture-label frames accept the 21 known labels, the helper's `Cover` fallback
+and canonical `Undefined(0)` through `Undefined(255)` identifiers. Known labels
+still translate; technical undefined identifiers remain raw even with a colliding
+custom key. Authored filenames retain their unrestricted Select frame.
+
+These constraints follow current producers, rather than inferring a schema from
+arbitrary text. The tests call the real utility, tag-prompt, cover-label and
+File List helpers. The native picture boundary is its Debug formatter and the
+locked Lofty 0.25.4 checksum
+`bb21dd79145b0781f2423fda92dd807fcd3911e44b66044d86db3b11ec7accf9`.
+The audited upstream `src/picture/mod.rs` SHA-256 is
+`01973be38bbb8feea75cbe9ac128e547af92ec7160b393bb82a8a38bc0f57d36`;
+UI tests use repository inputs and do not require an installed Cargo registry.
+
 The complete extractor and source-key idempotence
 checks belong to the activation layer, where their actual producers exist.
