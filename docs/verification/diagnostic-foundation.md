@@ -21,7 +21,12 @@ The layer contains all 29 tag-core files from the integration snapshot
 scripting and batch-error diagnostic fixtures. The batch-error fixture is
 required by the new core unit tests and therefore travels with this library.
 These files are preserved without selectively removing tests or changing
-their implementation for the intermediate application.
+their implementation for the intermediate application, except that the
+`stage_side_link` test wrapper is compiled only on Unix, matching its sole
+caller in the Unix-only side-link test module. The production diagnostic
+helper keeps its existing Unix and Windows implementations. Windows CI exposed
+the otherwise-unused wrapper under all-target Clippy; no warning is suppressed
+and no test is removed.
 
 ## Qualification
 
