@@ -7,6 +7,9 @@ OutFile "@OUTFILE@"
 !include LogicLib.nsh
 !include "Win\COM.nsh"
 !include "Win\Propkey.nsh"
+; Match the constants defined with the helpers in Tauri's upstream utils.nsh.
+!define /ifndef MAX_PATH 260
+!define /ifndef SLGP_RAWPATH 0x4
 !define PRODUCTNAME "TagGroove"
 !define INSTALLIDENTITY "OpenTag"
 !define LEGACYMAINBINARY "opentag.exe"
