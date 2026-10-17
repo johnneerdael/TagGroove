@@ -101,7 +101,7 @@ The native fingerprint backend is built from the four hash-pinned upstream archi
 
 Every release includes `OpenTag-v<version>-sources.tar.xz` with:
 
-- The tracked application source stamped to the release version, `Cargo.lock`, the built frontend, and vendored Cargo dependencies with a local Cargo source configuration.
+- The tracked application source stamped to the release version, `Cargo.lock`, the built frontend, and vendored Cargo dependencies with a separate offline Cargo configuration. Existing project settings, including target linkers, remain unchanged.
 - The original, hash-pinned Chromaprint, FFmpeg, zlib and bzip2 source archives and their original license files, plus the tracked recipes and patches.
 - Exact native build manifests and non-library prefix evidence for all seven targets: installed headers, configuration, notices, patch output and FFmpeg upstream/generated source-closure metadata. The original archives supply the complete upstream source, including files outside that compiled closure.
 - The original Git commit object, reconstructed tree/blob identities, original pre-stamp files and an actual version-stamp diff. The extracted tree needs no `.git` directory to build.
@@ -120,16 +120,16 @@ After extracting the archive, enter its `app` directory. To build and run the Ru
 export OPENTAG_AUDIO_SOURCE_DIR="$(cd ../native/archives && pwd)"
 export OPENTAG_AUDIO_BUILD_ROOT="$PWD/../rebuilt-native"
 export CARGO_TARGET_DIR="$PWD/../rebuilt-rust"
-cargo run --offline --locked -p opentag-audio-fingerprint --example fingerprint -- /absolute/path/to/audio.flac
+cargo --config .cargo/opentag-offline.toml run --offline --locked -p opentag-audio-fingerprint --example fingerprint -- /absolute/path/to/audio.flac
 ```
 
-`OPENTAG_AUDIO_SOURCE_DIR` requires the exact original archive filenames and hashes. If it is set, a missing archive fails instead of falling back to the network. Cargo uses the bundled `vendor` directory. The output directories above are fresh, so the command rebuilds and relinks the native libraries and Rust example rather than using a packaged executable. PowerShell users set the same environment variables with `$env:NAME = 'absolute-path'`. The host still needs its platform compiler, SDK, Python, CMake, Make and (on x86-64) NASM; these system tools are not part of the source archive. Rebuilding the frontend from source requires Node/npm and its dependencies; the included `dist` avoids that download for the Rust example.
+`OPENTAG_AUDIO_SOURCE_DIR` requires the exact original archive filenames and hashes. If it is set, a missing archive fails instead of falling back to the network. The explicit `--config` overlay selects the bundled `vendor` directory while Cargo also loads the unchanged project configuration. The output directories above are fresh, so the command rebuilds and relinks the native libraries and Rust example rather than using a packaged executable. PowerShell users set the same environment variables with `$env:NAME = 'absolute-path'`. The host still needs its platform compiler, SDK, Python, CMake, Make and (on x86-64) NASM; these system tools are not part of the source archive. Rebuilding the frontend from source requires Node/npm and its dependencies; the included `dist` avoids that download for the Rust example.
 
 The same extracted source builds the complete desktop application without
 rebuilding the included frontend:
 
 ```sh
-cargo build --offline --locked -p opentag --bin opentag --features tauri/custom-protocol
+cargo --config .cargo/opentag-offline.toml build --offline --locked -p opentag --bin opentag --features tauri/custom-protocol
 ```
 
 To change an embedded library, extract its archive, edit the source, and repack

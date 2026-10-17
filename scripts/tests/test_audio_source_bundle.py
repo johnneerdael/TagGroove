@@ -47,7 +47,7 @@ def cargo_vendor_fixture():
     return lock, vendor
 
 
-def fixture(root, original_sha=None, patched_sha=None):
+def fixture(root, original_sha=None, patched_sha=None, cargo_config=None):
     """Make a real Git source binding, four local upstream archives and seven fake builds."""
     root = Path(root)
     app, archives, evidence = [root / name for name in ("app", "archives", "evidence")]
@@ -69,6 +69,8 @@ def fixture(root, original_sha=None, patched_sha=None):
         "scripts/audio-deps/patches/ffmpeg.patch": "# source patch fixture\n",
         "LICENSE": "Application license fixture\n",
     }
+    if cargo_config is not None:
+        files[".cargo/config.toml"] = cargo_config
     components = {}
     for name in ("chromaprint", "ffmpeg", "zlib", "bzip2"):
         archive = archives / f"{name}-1.tar.gz"
@@ -183,10 +185,35 @@ class SourceBundleTests(unittest.TestCase):
         self.assertEqual(set(manifest["targets"]), set(TARGETS))
         with tarfile.open(path, "r:xz") as archive:
             names = archive.getnames()
-        for suffix in ["app/Cargo.lock", "app/dist/index.html", "app/.cargo/config.toml",
+        for suffix in ["app/Cargo.lock", "app/dist/index.html", "app/.cargo/opentag-offline.toml",
                        "provenance/version-stamp.patch", "native/archives/chromaprint-1.tar.gz",
                        "native/licenses/chromaprint/LICENSE"]:
             self.assertTrue(any(name.endswith("/" + suffix) for name in names), suffix)
+
+    def test_offline_overlay_preserves_tracked_platform_linker_configuration(self):
+        config = '# Project linker settings\n[target.x86_64-pc-windows-msvc]\nlinker = "rust-lld"\n'
+        f = fixture(self.f['root'] / 'configured', cargo_config=config)
+        try:
+            path = build(f)
+        except ValueError as error:
+            self.fail(f'The source bundle must retain existing linker configuration: {error}')
+        self.builder.verify_bundle(path, f['commit'], '0.1.0', f['evidence'])
+        with tarfile.open(path, 'r:xz') as archive:
+            files = {item.name.split('/', 1)[1]: archive.extractfile(item).read() for item in archive}
+        self.assertEqual(files['app/.cargo/config.toml'], config.encode())
+        self.assertIn(b'replace-with = "vendored-sources"', files['app/.cargo/opentag-offline.toml'])
+        self.assertEqual((f['app'] / '.cargo/config.toml').read_bytes(), config.encode())
+        rewrite_bundle(path, lambda name, data: data.replace(b'rust-lld', b'wrong-linker')
+                       if name.endswith('/app/.cargo/config.toml') else data, rehash=True)
+        with self.assertRaisesRegex(ValueError, 'Original source blob'):
+            self.builder.verify_bundle(path, f['commit'], '0.1.0')
+
+    def test_offline_overlay_cannot_be_changed_by_rehashing_the_outer_inventory(self):
+        path = build(self.f)
+        rewrite_bundle(path, lambda name, data: data.replace(b'vendored-sources', b'other-sources')
+                       if name.endswith('/app/.cargo/opentag-offline.toml') else data, rehash=True)
+        with self.assertRaisesRegex(ValueError, 'Offline Cargo source configuration differs'):
+            self.builder.verify_bundle(path, self.f['commit'], '0.1.0')
 
     def test_wrong_source_or_version_and_missing_target_fail(self):
         path = build(self.f)

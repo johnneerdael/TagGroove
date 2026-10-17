@@ -26,6 +26,8 @@ TARGETS = {
     "ios-arm64-simulator-preview": "aarch64-apple-ios-sim",
 }
 COMPONENTS = {"chromaprint", "ffmpeg", "zlib", "bzip2"}
+OFFLINE_CARGO_CONFIG = "app/.cargo/opentag-offline.toml"
+OFFLINE_CARGO_BYTES = b'[source.crates-io]\nreplace-with = "vendored-sources"\n[source.vendored-sources]\ndirectory = "vendor"\n'
 VERSION_FILES = {"package.json", "package-lock.json", "Cargo.lock", "src-tauri/Cargo.toml",
                  "src-tauri/tauri.conf.json", "src-tauri/gen/apple/project.yml",
                  "src-tauri/gen/apple/opentag_iOS/Info.plist",
@@ -359,7 +361,7 @@ def verify_contents(files, manifest, commit, version, native_evidence=None):
     require(commit_data.splitlines()[0] == ("tree " + tree_hash(entries)).encode(), "Original Git tree proof differs")
     expected_files = {"app/" + name for name in entries} | {
         "provenance/tree.json", "provenance/commit.txt", "provenance/version-stamp.patch",
-        "app/.cargo/config.toml"}
+        OFFLINE_CARGO_CONFIG}
     originals = {}
     for name, entry in entries.items():
         safe(name)
@@ -424,7 +426,7 @@ def verify_contents(files, manifest, commit, version, native_evidence=None):
     require(set(files) == expected_files, "Untracked or unexpected source archive file")
     check_vendor(files["app/Cargo.lock"], vendor)
     require(files.get("app/dist/index.html"), "Offline Rust relink requires the built frontend")
-    require(files.get("app/.cargo/config.toml") == b'[source.crates-io]\nreplace-with = "vendored-sources"\n[source.vendored-sources]\ndirectory = "vendor"\n', "Offline Cargo source configuration differs")
+    require(files.get(OFFLINE_CARGO_CONFIG) == OFFLINE_CARGO_BYTES, "Offline Cargo source configuration differs")
     return manifest
 
 
@@ -467,9 +469,8 @@ def build_bundle(root, commit, version, output, native_evidence=None, source_dir
             subprocess.run(["cargo", "vendor", "--locked", "--versioned-dirs", str(vendor_dir)],
                            cwd=root, check=True, stdout=subprocess.PIPE)
         add_directory(files, vendor_dir, "app/vendor", modes)
-    config = "app/.cargo/config.toml"
-    require(config.removeprefix("app/") not in entries, "Existing Cargo config needs an explicit vendor merge")
-    files[config] = b'[source.crates-io]\nreplace-with = "vendored-sources"\n[source.vendored-sources]\ndirectory = "vendor"\n'
+    require(OFFLINE_CARGO_CONFIG.removeprefix("app/") not in entries, "Reserved offline Cargo configuration already exists")
+    files[OFFLINE_CARGO_CONFIG] = OFFLINE_CARGO_BYTES
     add_directory(files, dist_dir or root / "dist", "app/dist", modes)
     manifest = {"schema": 1, "version": version, "source_commit": commit, "targets": targets,
                 "files": {name: {"size": len(data), "sha256": sha(data), "mode": modes.get(name, 0o644)} for name, data in sorted(files.items())}}
