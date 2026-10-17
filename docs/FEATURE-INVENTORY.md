@@ -14,7 +14,7 @@ Status as of 2026-10-17 (`main` `9d3764b`). Only open work is listed; the item-l
 
 | Area | Required acceptance work |
 | --- | --- |
-| Metadata and file formats | Real-encoder TAK/OptimFROG fixtures, global Nero fields and covers, original runtime comparison |
+| Metadata and file formats | Real-encoder TAK/OptimFROG fixtures, original runtime comparison |
 | File table and panel | Boost regex in Find, floating panel as a separate OS window, movable toolbar bands |
 | Saved operations | Persistent history across sessions |
 | Covers | Original resampler, quality and rounding equivalence |

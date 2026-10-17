@@ -37,7 +37,8 @@ Legend: **Impact** H = daily tagging, M = regular, L = rare or legacy. **Size** 
 | File operations | Last Copy/Move destination | The folder picker does not reopen at the last destination (`src/file-ops.ts:186`) | L | S |
 | File operations | Associated `.lrc` and `.cdg` files | Not renamed or moved with the audio file | L | M |
 | Formats | TAK and OptimFROG | Implemented on a stand-in; only hand-built fixtures, no real-encoder files | L | S |
-| Formats | Global Nero fields and Nero covers | Missing | L | M |
+| Formats | Nero details | `udta/indx` kept but not shown or edited; covers always written to `covr`; a longer value for a Nero-held field in an MP4 file without chapters reaches only the iTunes tag ([formats-gaps](../verification/formats-gaps.md)) | L | S |
+| Formats | ADTS and ID3 limits | ADTS after junk is found only in `.aac` files, within 64 KiB and after three frames. Compressed or encrypted ID3 frames cannot be kept in an unsynchronised tag or one with an extended header or footer, also for DSF and DSDIFF | L | M |
 | Formats | MP4 cover type and description | Format limit | L | — |
 | Formats | Reference files | No Mp3tag- or WMP-written fixtures | M | M |
 | Covers | Resampler | Original resampler, quality and rounding equivalence unproven | L | M |
