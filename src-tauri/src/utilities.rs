@@ -496,7 +496,7 @@ const HELP_PAGES: [(&str, &str); 4] = [
     ("repository", "https://github.com/johnneerdael/opentag"),
     (
         "documentation",
-        "https://johnneerdael.github.io/audio-tag-guide/",
+        "https://opentag.neerdael.nl/",
     ),
     ("issues", "https://github.com/johnneerdael/opentag/issues"),
     (

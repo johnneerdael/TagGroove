@@ -349,10 +349,6 @@ jobs:
       pages: write
       id-token: write
     uses: ./.github/workflows/_reviewed-pages.yml
-    # Explicit name authorizes the reusable workflow's environment-secret lookup.
-    # The actual key exists only in its github-pages deployment environment.
-    secrets:
-      DOCS_PAGES_DEPLOY_KEY: ${{ secrets.DOCS_PAGES_DEPLOY_KEY }}
     with:
       pr_number: ${{ inputs.pr_number }}
       head_sha: ${{ inputs.head_sha }}
