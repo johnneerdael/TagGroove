@@ -325,3 +325,12 @@ that abort was reproduced locally. The frontend runner now caps its heap at
 4 GiB and executes one isolated test file at a time to bound peak memory.
 All 547 frontend tests pass with that budget. This changes test resources, not
 application memory behavior or assertion coverage.
+
+The combined native UI run also found legacy source-dialog selectors left
+behind by language switching. Dialogs now derive their accessible name from
+the live `aria-labelledby` title. The six affected suites resolve that name
+before checking the same expected provider/source, including repeat shortcuts.
+The web-source fixture checks its exact authored `Artist`/`Album` labels and
+their nontranslation markers. A DOM regression exercises each suite's actual
+name resolver with live title changes, a stale `aria-label`, authored case and
+a broken binding. Application source-dialog behavior is unchanged.

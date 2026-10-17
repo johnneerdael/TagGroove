@@ -6,6 +6,9 @@
 // tests/e2e/gnudb-fixtures.sh runs the mock server on 127.0.0.1:18767, which
 // refuses requests that break gnudb's policy.
 (async () => {
+  const sourceName = dialog => dialog.hasAttribute('aria-labelledby')
+    ? dialog.ownerDocument.getElementById(dialog.getAttribute('aria-labelledby'))?.textContent
+    : dialog.getAttribute('aria-label');
   const inv = (c, a) => window.__TAURI_INTERNALS__.invoke(c, a), report = m => inv('e2e_report', { message: String(m) }), sleep = ms => new Promise(r => setTimeout(r, ms));
   const waitFor = async (fn, ms, what) => { const t = Date.now(); while (Date.now() - t < ms) { try { const v = fn(); if (v) return v; } catch {} await sleep(150); } throw new Error('timeout: ' + what); };
   const check = async (ok, what) => report(`${ok ? 'PASS' : 'FAIL'} ${what}`);
@@ -24,7 +27,7 @@
   const openSource = async (op, label) => {
     document.querySelector(`button[data-op="${op}"]`).click();
     const d = await waitFor(() => document.querySelector('dialog.tag-source-dialog[open]'), 5000, label);
-    await check(d.getAttribute('aria-label') === label, `${op} opens ${label}`);
+    await check(sourceName(d) === label, `${op} opens ${label}`);
     return d;
   };
   // Searching sets the status at once; the answer replaces it (rows of an earlier search may still be shown).

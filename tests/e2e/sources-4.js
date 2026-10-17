@@ -7,6 +7,9 @@
 // application key. Every service answer comes from
 // tests/e2e/sources-4-fixtures.sh on 127.0.0.1:18766.
 (async () => {
+  const sourceName = dialog => dialog.hasAttribute('aria-labelledby')
+    ? dialog.ownerDocument.getElementById(dialog.getAttribute('aria-labelledby'))?.textContent
+    : dialog.getAttribute('aria-label');
   const inv = (c, a) => window.__TAURI_INTERNALS__.invoke(c, a), report = m => inv('e2e_report', { message: String(m) }), sleep = ms => new Promise(r => setTimeout(r, ms));
   const waitFor = async (fn, ms, what) => { const t = Date.now(); while (Date.now() - t < ms) { try { const v = fn(); if (v) return v; } catch {} await sleep(150); } throw new Error('timeout: ' + what); };
   const check = async (ok, what) => report(`${ok ? 'PASS' : 'FAIL'} ${what}`);
@@ -21,7 +24,7 @@
   const search = async (name, label) => {
     op(name).click();
     const d = await waitFor(sourceDialog, 8000, `${name} dialog`);
-    await check(d.getAttribute('aria-label') === label, `${name} opens "${d.getAttribute('aria-label')}"`);
+    await check(sourceName(d) === label, `${name} opens "${sourceName(d)}"`);
     d.querySelector('#ts-search').click();
     return d;
   };
@@ -86,7 +89,7 @@
     // Ctrl+I repeats iTunes.
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'i', metaKey: true, bubbles: true, cancelable: true }));
     d = await waitFor(sourceDialog, 5000, 'Ctrl+I dialog');
-    await check(d.getAttribute('aria-label') === 'iTunes', 'Ctrl+I reopens ' + d.getAttribute('aria-label'));
+    await check(sourceName(d) === 'iTunes', 'Ctrl+I reopens ' + sourceName(d));
     await closeSource(d);
 
     // Deezer: ISRC, label and barcode from the album and its track list.
