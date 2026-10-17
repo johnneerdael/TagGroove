@@ -11,7 +11,7 @@ export type CatalogMeta = {name: string; locale: string};
 export type MessageText = string | {parts: readonly string[]; separator: string};
 
 const PLACEHOLDER = /\{([A-Za-z][A-Za-z0-9_]*)\}/g;
-/** These batch frames require producer parts; their raw names can contain the frame itself. */
+/** Ambiguous frames require producer parts; persisted names must not be guessed as UI. */
 const PARTS_ONLY = new Set([
   '{value} / action {value2}: {error}',
   'Changed outside OpenTag after {value}; it was not {verb}',
@@ -22,6 +22,11 @@ const PARTS_ONLY = new Set([
   'The cover image could not be saved: {error}',
   'Action {name}',
   'Actions ({count} groups)',
+  // These are persisted duplicate names, not standalone UI sentences.
+  '{name} copy',
+  '{name} copy {count}',
+  'Copy of {name}',
+  'Copy of {name} ({n})',
 ]);
 /** Canonical English history framing owns one space; padding within names belongs to the name. */
 const HISTORY_FRAMES = new Set([
@@ -308,6 +313,7 @@ export class Translator {
     for (const pattern of this.patterns) {
       const match = pattern.regex.exec(core);
       if (!match) continue;
+      if (pattern.key === '{operation} failed' && !['Cut tags', 'Paste tags'].includes(normalize(match[pattern.names.indexOf('operation') + 1]))) continue;
       if (pattern.key === '{name} and {names}' && !TAG_KIND_LISTS.has(normalize(core))) continue;
       if (UTILITY_CONFIRMATIONS.has(pattern.key) && !UTILITY_PARTS.some(parts => (['label', 'effect', 'applies'] as const).every(name => {
         const index = pattern.names.indexOf(name);

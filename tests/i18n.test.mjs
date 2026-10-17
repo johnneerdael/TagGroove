@@ -53,7 +53,8 @@ test('rendered English text is translated by exact key or by key pattern, keepin
   // Values that are UI text themselves are translated; names of things are not.
   assert.equal(de.translate('Update check failed: Select files first.'),'Update-Prüfung fehlgeschlagen: Wählen Sie zuerst Dateien aus.');
   assert.equal(de.translate('Moved 3 files to the Trash'),'3 Dateien in den Papierkorb verschoben');
-  assert.equal(de.translate('Copy of Save tags'),'Kopie von Save tags');
+  assert.equal(de.translate('Copy of Save tags'),'Copy of Save tags');
+  assert.equal(de.t('Copy of {name}',{name:'Save tags'}),'Kopie von Save tags');
   assert.equal(de.translate('Something else'),'Something else');
   // Claude's Windows follow-up: marks share text nodes with translated labels.
   const marked=new Translator('de',{'Main toolbar':'Hauptsymbolleiste',Filename:'Dateiname',Help:'Hilfe'});
@@ -292,7 +293,7 @@ test('source-owned anonymous count slots and signed movement counts keep raw rol
       const shown=en.t(moving,{n,value:1,value2:2});assert.equal(translator.translate(shown),shown,`${locale}: invalid movement count`);
     }
     const copyKey='Copy of {name} ({n})',copy=new Translator(locale,{[copyKey]:catalogs[locale][copyKey]});
-    assert.equal(copy.translate('Copy of Help (-2)'),'Copy of Help (-2)','unrelated counter stays unsigned');
+    assert.equal(copy.translate('Copy of Help (-2)'),'Copy of Help (-2)','persisted counter names are not inferred as UI');
     assert.equal(translator.translate('CommandX is not implemented'),translator.t('{other} is not implemented',{other:'CommandX'}));
   }
   assert.deepEqual(failures,[],'whole catalog preserves anonymous numeric guards and source-proven raw alternate frames');
@@ -403,4 +404,32 @@ test('exact plural selectors use canonical nonnegative integers at every nesting
  const valid={[key]:'{count, plural, =0 {keine} =1 {eine} =10 {zehn} zero {zero} one {one} two {two} few {few} many {many} other {# andere}}',[nested]:'{count, plural, one {{selected, plural, =0 {keine} =1 {eine} =10 {zehn} other {#}}} other {{selected, plural, one {eine} other {#}}}}'};
  assert.deepEqual(validateCatalog(en,valid),{missing:[],unknown:[],placeholders:[],invalid:[]});
  const t=new Translator('de',valid);assert.deepEqual([0,1,10,2].map(count=>t.t(key,{count})),['keine','eine','zehn','2 andere']);assert.equal(t.t(nested,{count:1,selected:10}),'zehn');
+});
+
+
+test('persisted copy names stay raw and failure frames follow actual producer domains',async()=>{
+ const functions=async(file,names)=>{const source=await readFile(new URL(`../src/${file}`,import.meta.url),'utf8'),ast=ts.createSourceFile(file,source,ts.ScriptTarget.Latest,true,ts.ScriptKind.TS),declarations=ast.statements.filter(node=>ts.isFunctionDeclaration(node)&&names.includes(node.name?.text));assert.equal(declarations.length,names.length);return ts.transpileModule(declarations.map(node=>node.getText(ast).replace(/^export /,'')).join('\n'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;};
+ const duplicate=new Function(await functions('helper-menu.ts',['duplicateEntry'])+';return duplicateEntry;')();
+ const copyAction=new Function(await functions('action-ui.ts',['copyName'])+';return copyName;')();
+ const copyExport=new Function(await functions('export-ui.ts',['uniqueName','copyExportConfiguration'])+';return copyExportConfiguration;')();
+ const stageSource=await functions('main.ts',['stageTagUpdates']);
+ const main=await readFile(new URL('../src/main.ts',import.meta.url),'utf8');const ast=ts.createSourceFile('main.ts',main,ts.ScriptTarget.Latest,true,ts.ScriptKind.TS),operations=[];const visit=node=>{if(ts.isCallExpression(node)&&node.expression.getText(ast)==='stageTagUpdates'){assert.ok(ts.isStringLiteral(node.arguments[1]));operations.push(node.arguments[1].text);}ts.forEachChild(node,visit);};visit(ast);assert.deepEqual([...new Set(operations)].sort(),['Cut tags','Paste tags']);
+ const custom={'Copy of {name}':'Clone {name}','Copy of {name} ({n})':'Clone {n}: {name}','Copy {name}':'Copy command {name}','{name} copy':'Clone {name}','{name} copy {count}':'Clone {count}: {name}','{operation} failed':'Failure: {operation}','Cut tags':'Help','Paste tags':'Title',Help:'Wrong second lookup',Title:'Wrong second lookup','{name} value':'Value: {name}','{label} values':'Values: {label}',Family:'Wrong authored name'};
+ for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]]){
+  const t=new Translator(locale,catalog);
+  for(const text of ['Family copy','Family copy 2','Some operation failed'])assert.equal(t.translate(text),text,`${locale}: ${text}`);
+  for(const original of ['Family','Help','Title','  Family  ','Family copy']){
+   const action=copyAction(original,[]),action2=copyAction(original,[{name:action}]);assert.equal(action,`Copy of ${original}`);assert.equal(action2,`Copy of ${original} (2)`);for(const authored of [action,action2])assert.equal(t.translate(authored,0,authored),authored);
+   const entries=[{name:original,value:'%title%',favorite:false}],first=duplicate(entries,0);assert.equal(first.name,`${original} copy`);assert.equal(t.translate(first.name),first.name);
+   const second=duplicate([...entries,first],0);assert.equal(second.name,`${original} copy 2`);assert.equal(t.translate(second.name),second.name);
+   const result=copyExport({version:1,configurations:[{id:'old',name:original,template:'%title%'}],preferences:{configuration:'old'}},'old','new');assert.equal(result.configurations[1].name,`${original} copy`);
+   for(const [key,params] of [['{name} copy',{name:original}],['{name} copy {count}',{name:original,count:2}],['Copy of {name}',{name:original}],['Copy of {name} ({n})',{name:original,n:2}]])assert.equal(t.t(key,params),catalog[key].replace(/\{([A-Za-z][A-Za-z0-9_]*)\}/g,(_,name)=>String(params[name])));
+  }
+  assert.equal(t.translate('Copy of Family'),t.t('Copy {name}',{name:'of Family'}),'The unmarked text also has a legitimate field-command interpretation');
+  for(const original of ['Family','Help','Title'])for(const [key,param] of [['{name} value','name'],['{label} values','label']]){const text=key.replace(`{${param}}`,original);assert.equal(t.translate(text,0,original),t.t(key,{[param]:original}));}
+  for(const operation of ['Cut tags','Paste tags']){
+   const stage=new Function('render',`let errors=[],status='';${stageSource};return {run:stageTagUpdates,status:()=>status};`)(()=>{});stage.run(()=>{throw new Error('failure');},operation,()=>{throw new Error('unexpectedsuccess');});
+   const text=stage.status();assert.equal(text,`${operation} failed`);assert.equal(t.translate(text),t.t('{operation} failed',{operation:t.t(operation)}));
+  }
+ }
 });

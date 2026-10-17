@@ -24,11 +24,11 @@ Two review regressions cover locale-sensitive exact/category selection through
 explicit and captured values, and nested-category rejection/usable-catalog
 filtering with valid nested forms retained. A further producer-bound case covers every catalog identifier and underscored
 native limit values through direct/captured rendering and plural parsing. All
-eighteen pure cases remain in the
+nineteen pure cases remain in the
 same test module when the complete application test suite is
 integrated; the later source-bound extraction and UI tests must also be kept.
 
-Fresh local checks passed 402 UI/model tests with zero failures or skips, the
+Fresh local checks passed 403 UI/model tests with zero failures or skips, the
 production build, the strict 172-page guide and eight publication tests. One
 existing UI case compiles a temporary pure Rust helper; it is separate from
 application-native qualification. All 1,353 existing tracked base files are
@@ -73,3 +73,23 @@ not add a broader ICU grammar.
 
 The complete extractor and source-key idempotence
 checks belong to the activation layer, where their actual producers exist.
+
+
+The four standalone copy-name frames are retained for explicit parts rendering but
+are not inferred from arbitrary rendered text: their actual action, column,
+helper and export producers create persisted names. The generic failure frame accepts only
+the two operations used by the real staging call sites, Cut tags and Paste tags.
+A producer-bound regression executes the actual duplication/staging helpers in
+German, Dutch and collision-prone custom English and preserves raw names.
+
+A finite adjacent audit enumerated short unconstrained candidates and traced
+the bare single-word suffix family. Field `value`/`values` accessible labels
+are actual UI scaffolds with arbitrary field identities protected by their
+existing data-verbatim marker; the picture suffix already has its bounded
+producer guard. Those supported UI frames remain available. Bare `Copy of Family` can still
+match the genuine `Copy {name}` field-command frame with `of Family` as its
+name; actual persisted names use their existing protected consumers, not that
+unmarked lookup. The catalogs,
+application sources remain unchanged. The original Copy-of library assertion
+now checks explicit parts and raw standalone preservation in its small catalog;
+no test or catalog key is removed.
