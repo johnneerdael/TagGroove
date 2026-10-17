@@ -42,11 +42,27 @@ for its parser). The test saves/reopens/restores the default policy and reads
 the actual `main.ts` FileOps host preference. It provides DOM/CSS evidence,
 not native pixel or input qualification.
 
-Before branding synchronization, `npm run test:ui` passed 564 tests;
-`npm run build`, strict MkDocs, strict workspace Clippy, Cargo format and
-`git diff --check` passed. The OpenTag library suite passed 419 tests with
-6 explicitly ignored probes. A full workspace retest was still running at
-the local checkpoint; the final synchronized head needs its own validation.
+Before branding synchronization, the full Rust workspace passed 1,095 tests
+with 6 explicitly ignored probes and `npm run test:ui` passed 564 tests.
+The source checkpoint is `c9b2c2ae80cbd7b73b3e5383b66169bee163d182`.
+
+Merged the verified branding commit
+`c1375a6ccf24e728f3ac29dfd442d4bf1071d47b` normally, producing
+`a683a5872cd600b7dd83207ae1bb379a1ab996f0`. On that synchronized code:
+
+| Check | Result |
+| --- | --- |
+| Full frontend suite | 566 passed, zero failed |
+| `cargo test -p opentag --lib --locked` | 419 passed, 6 explicitly ignored |
+| Production frontend build | Passed |
+| Strict MkDocs guide build | Passed |
+| Workspace/all-target Clippy with `-D warnings` | Passed |
+| Brand verification | 249 supplied files and 78 integrated copies verified; app/MSI/gnudb identities unchanged |
+| Catalog extraction check, Cargo format, diff whitespace | Passed |
+
+These are local checks. Current-main CI and exact-final-head GitHub Codex
+code review remain separate requirements; synchronization does not authorize
+merging another owner's PR.
 
 Screenshot verification was not completed: a local browser dependency failed
 its native signature validation, and the alternate browser rejected a
