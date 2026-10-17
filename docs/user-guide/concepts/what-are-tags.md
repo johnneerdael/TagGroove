@@ -13,7 +13,7 @@ A player might show the tag title, a filename fallback or its own cached
 library information. Check which source it is using before changing every
 copy of the file.
 
-OpenTag's tag fields describe the file; changing `TITLE` does not automatically
+TagGroove's tag fields describe the file; changing `TITLE` does not automatically
 rename it. A file-list filename edit or a rename converter changes its path
 without automatically changing the title. An export creates another output;
 it does not turn the report text into saved tags.
@@ -88,7 +88,7 @@ explicitly. Actions and applied converters have their own immediate-write
 behavior; they do not all wait for Save tags.
 
 A player's old library display does not establish that a save failed, and an
-updated OpenTag display alone does not establish a completed disk write.
+updated TagGroove display alone does not establish a completed disk write.
 Inspect the operation result, read the file back, and check the receiving
 player's import/cache behavior when displays disagree.
 

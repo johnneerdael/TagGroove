@@ -1550,9 +1550,9 @@ pub fn run() {
             updates::open_release_page
         ])
         .build(tauri::generate_context!())
-        .expect("Unable to run OpenTag")
+        .expect("Unable to run TagGroove")
         .run(|_app, _event| {
-            // Finder "Open With", Dock drops and `open -a OpenTag <paths>`.
+            // Finder "Open With", Dock drops and `open -a TagGroove <paths>`.
             #[cfg(target_os = "macos")]
             if let tauri::RunEvent::Opened { urls } = &_event {
                 file_ops::open_urls(_app, urls);

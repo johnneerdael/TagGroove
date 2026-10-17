@@ -1,7 +1,7 @@
 # Track and disc numbers are metadata, not list positions
 
 `TRACK=3/8` conventionally describes track 3 of 8, while
-`DISCNUMBER=2/3` describes disc 2 of 3. Each is one text value in OpenTag's
+`DISCNUMBER=2/3` describes disc 2 of 3. Each is one text value in TagGroove's
 editing model. It is not a list containing two separate values, a fraction
 to calculate, or proof of how many files are currently selected.
 

@@ -17,7 +17,7 @@ export type UpdateCheck={current:string;latest:Release|null;newer:boolean;skippe
 export const NETWORK_DEFAULTS:NetworkOptions={timeout:30,proxy:'system',proxy_url:''};
 export const UPDATE_DEFAULTS:UpdateOptions={check_on_startup:false,include_beta:false,release_notes:true,last_version:''};
 export const TIMEOUT_RANGE=[5,300] as const;
-export const RELEASES_PAGE='https://github.com/johnneerdael/opentag/releases/';
+export const RELEASES_PAGE='https://github.com/johnneerdael/TagGroove/releases/';
 
 const bool=(value:unknown,fallback:boolean)=>typeof value==='boolean'?value:fallback;
 export function generalOptions(values:Record<string,unknown>):GeneralOptions{
@@ -65,9 +65,9 @@ export function releaseNotesUrl(version:string){return `${RELEASES_PAGE}tag/v${e
 export function showReleaseNotes(options:UpdateOptions,current:string){return options.release_notes&&!!options.last_version&&options.last_version!==current&&/^\d/.test(current);}
 export function updateMessage(check:UpdateCheck){
   const beta=check.skipped_beta?` Development build ${check.skipped_beta} is published; include development builds in Options → Updates to check against it.`:'';
-  if(!check.latest)return{title:'No releases found',text:`OpenTag ${check.current} is installed. No stable release has been published.${beta}`};
-  if(!check.newer)return{title:'OpenTag is up to date',text:`OpenTag ${check.current} is the newest ${check.latest.prerelease?'version, including beta builds':'release'}.${beta}`};
-  return{title:'An update is available',text:`${check.latest.name} (${check.latest.version}${check.latest.prerelease?', beta':''}) is available. You have OpenTag ${check.current}.`};
+  if(!check.latest)return{title:'No releases found',text:`TagGroove ${check.current} is installed. No stable release has been published.${beta}`};
+  if(!check.newer)return{title:'TagGroove is up to date',text:`TagGroove ${check.current} is the newest ${check.latest.prerelease?'version, including beta builds':'release'}.${beta}`};
+  return{title:'An update is available',text:`${check.latest.name} (${check.latest.version}${check.latest.prerelease?', beta':''}) is available. You have TagGroove ${check.current}.`};
 }
 
 export const networkingOptionsPage:OptionsPage={id:'networking',label:'Networking',order:58,defaults:{...NETWORK_DEFAULTS},
@@ -90,7 +90,7 @@ export function networkProblem(draft:Pick<OptionsDraft,'pages'>):string|undefine
 }
 export function updatesOptionsPage(checkNow:()=>void|Promise<void>):OptionsPage{
   return{id:'updates',label:'Updates',order:59,defaults:{...UPDATE_DEFAULTS},
-    description:'OpenTag compares its version with the releases published on GitHub. Updates are never downloaded or installed automatically.',controls:[
+    description:'TagGroove compares its version with the releases published on GitHub. Updates are never downloaded or installed automatically.',controls:[
       {kind:'checkbox',path:'pages.updates.check_on_startup',label:'Check for updates on startup'},
       {kind:'checkbox',path:'pages.updates.include_beta',label:'Also include development builds (beta)'},
       {kind:'checkbox',path:'pages.updates.release_notes',label:'Display release notes for new versions'},

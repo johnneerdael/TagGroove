@@ -2,7 +2,7 @@
 
 Use **Tag Sources → freedb…** to find album metadata by artist and title or
 by the track layout of selected files. The original freedb service ended;
-OpenTag's default server is gnudb. Treat a result as a suggestion: check its
+TagGroove's default server is gnudb. Treat a result as a suggestion: check its
 edition, track order and values before writing tags.
 
 ## Search by artist and album
@@ -17,14 +17,14 @@ edition, track order and values before writing tags.
    load that entry into the import review. Year and track count are not
    supplied in this artist/album result list.
 
-OpenTag provides artist/album and artwork search only for recognized gnudb
+TagGroove provides artist/album and artwork search only for recognized gnudb
 servers (`gnudb.org` or its subdomains). Use track-layout lookup for other
 configured CDDB servers, even if they implement similar search commands. Choose the
 server under [Options → Tag Sources → freedb](../reference/options/tag-sources-freedb.md).
 
 ## Search from the selected tracks
 
-Choose **Track layout of the selected files**. OpenTag derives a disc layout
+Choose **Track layout of the selected files**. TagGroove derives a disc layout
 from file-list order and durations. Select one complete disc in track order,
 with known durations for every file and at most 99 files. Exclude tracks from
 other discs and unrelated bonus files.
@@ -34,7 +34,7 @@ different durations, another order or a different pressing can prevent a
 match. Try artist/album search when layout lookup finds nothing.
 
 Remote results show **Entry ID**, gnudb's identifier for a listed entry.
-OpenTag asks for matches first and reads the entry you choose. Typed disc-ID
+TagGroove asks for matches first and reads the entry you choose. Typed disc-ID
 lookup is available only in a [local freedb database](local-freedb.md).
 
 ## Review before writing
@@ -55,7 +55,7 @@ similar titles.
   the affected audio files.
 
 Choose **Save tags to … files** after checking the plan. Inspect the saved
-files and any reported per-file errors before continuing. OpenTag does not
+files and any reported per-file errors before continuing. TagGroove does not
 submit corrections to the database.
 
 ## Find cover art only
@@ -74,12 +74,12 @@ requested here; it does not resize covers already embedded in files.
 | Result | Next step |
 |---|---|
 | No album match | Check the selected disc; try artist/album search or another source |
-| `500 Unknown application` | The server may not have registered OpenTag; use a compatible server or a local snapshot |
-| `429 Too Many Requests` | Wait before searching again; OpenTag does not automatically repeat the rejected request |
+| `500 Unknown application` | The server may not have registered TagGroove; use a compatible server or a local snapshot |
+| `429 Too Many Requests` | Wait before searching again; TagGroove does not automatically repeat the rejected request |
 | Text/artwork search unavailable on a custom server | Select a recognized gnudb server for those searches, or use track-layout lookup |
 | Incorrect database values | Choose another entry or edit the review; saving tags does not update gnudb |
 
-Each server request includes OpenTag's application identity/version and a
+Each server request includes TagGroove's application identity/version and a
 handshake email identity. Configure your own address or use the documented
 developer-contact fallback in the [server options](../reference/options/tag-sources-freedb.md).
 Saving valid settings does not establish live service registration.

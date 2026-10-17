@@ -13,7 +13,7 @@ does not add newer albums.
    category folders such as `rock`, `classical` and `blues`.
 4. Choose **OK** to save that folder for later searches.
 
-OpenTag reads one-xmcd-file-per-disc snapshots and Windows `xxtoyy` range
+TagGroove reads one-xmcd-file-per-disc snapshots and Windows `xxtoyy` range
 files. Select their database root, not a category or individual entry. If an
 entry is below `D:\Databases\freedb\rock`, choose `D:\Databases\freedb`.
 A compressed download is not itself the database folder.
@@ -30,7 +30,7 @@ Select files from one disc and open **Tag Sources → freedb (local)…**.
 
 For selected-file lookup, select one complete disc in track order, with
 known durations and at most 99 files. This is layout matching, not acoustic
-fingerprinting. OpenTag supports deriving this local ID; the historical
+fingerprinting. TagGroove supports deriving this local ID; the historical
 Mp3tag restriction on local audio-based lookup does not describe its reader.
 
 A freedb disc ID is different from gnudb's listed **Entry ID**, a barcode or
@@ -72,7 +72,7 @@ choosing **Save tags to … files**.
 - Wrong folder: select the database root, with category subfolders inside it.
 
 These lookups read the local database. They do not upload corrections or
-update it from gnudb, and the database is separate from OpenTag's music cache.
+update it from gnudb, and the database is separate from TagGroove's music cache.
 
 ## Related
 

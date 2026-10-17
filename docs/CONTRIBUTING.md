@@ -1,4 +1,4 @@
-# Contributing to OpenTag
+# Contributing to TagGroove
 
 Open changes through a feature branch and pull request. The PR template separates public release notes, validation and documentation impact. Keep all three aligned with the final implementation.
 

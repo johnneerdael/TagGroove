@@ -547,7 +547,7 @@ fn ffmpeg_generated_format_matrix_roundtrips_without_changing_audio_packets() {
             ("CUSTOM FIELD", &["first", "second"]),
         ]);
         if matches!(ext, "flac" | "ogg" | "opus" | "m4a") {
-            updates.insert("ENCODER".into(), vec!["OpenTag test".into()]);
+            updates.insert("ENCODER".into(), vec!["TagGroove test".into()]);
         }
         let entry = write_fields(&path, &updates).unwrap_or_else(|e| panic!("{ext}: {e}"));
         assert_lightweight_summary(&entry, &read_entry_summary(&path).unwrap());

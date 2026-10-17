@@ -1,6 +1,6 @@
 # Language options
 
-Open **File → Options… → Language** to select the language of OpenTag's
+Open **File → Options… → Language** to select the language of TagGroove's
 interface. Choose **OK** to apply it immediately.
 
 !!! tip "Add a translation"
@@ -16,12 +16,12 @@ interface. Choose **OK** to apply it immediately.
 | **Open languages folder** | Available only in the native desktop app; hidden in mobile builds and browser preview. Opens the active configuration folder's `languages` directory and refreshes `_template.json`. |
 | File warning | Reports files that could not be read or entries that are missing or invalid. Missing translations and entries with invalid placeholders use English. |
 
-The language choice is saved with the application configuration. OpenTag
+The language choice is saved with the application configuration. TagGroove
 reads user catalogs at startup and after Options **OK**; reopen the page after
 that reload to select a newly added language. If the folder cannot be read,
-OpenTag reports the failure and retains catalogs already loaded in this
+TagGroove reports the failure and retains catalogs already loaded in this
 session. A missing folder is a successful empty reload. File warnings appear
-as separate entries, with each filename and count kept together. OpenTag's
+as separate entries, with each filename and count kept together. TagGroove's
 warning text follows the selected language; parser and operating-system details
 keep their original wording.
 
@@ -82,7 +82,7 @@ default**. The unavailable saved choice is shown as **Unavailable: pt-BR
 Language selection does not translate metadata, filenames, paths, format
 strings, field identifiers or user-defined names. Installed web sources retain
 their authored names, search labels, result column names and settings prose.
-OpenTag-owned controls and default search labels still follow
+TagGroove-owned controls and default search labels still follow
 the selected application language.
 
 Catalogs change interface text but keep the current left-to-right layout.

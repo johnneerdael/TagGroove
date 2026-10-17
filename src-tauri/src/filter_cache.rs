@@ -237,7 +237,7 @@ mod tests {
         // Application and working-folder placeholders come from the context.
         assert_eq!(
             cache
-                .matches("_APP HAS opentag", request(None, vec![]), settings)
+                .matches("_APP HAS taggroove", request(None, vec![]), settings)
                 .unwrap()
                 .matches,
             ["1", "2"]

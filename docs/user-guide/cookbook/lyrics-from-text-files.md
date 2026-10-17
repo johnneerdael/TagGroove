@@ -126,7 +126,7 @@ editor before importing, then inspect accents and symbols in one test track.
 | All selected tracks receive the same lyrics | Look for an absolute filename or a constant `lyrics.txt` shared in one folder |
 | Existing lyrics disappeared | The import replaces values; use recorded **Edit → Undo** or your original copy |
 | Text is garbled | Check the source encoding before repeating the write |
-| The player shows no lyrics | Verify the embedded field in OpenTag first, then that player's format/lyrics support |
+| The player shows no lyrics | Verify the embedded field in TagGroove first, then that player's format/lyrics support |
 
 A missing or unreadable sidecar reports an error for that operation; it is
 not an instruction to clear the field or to retry later. Action processing

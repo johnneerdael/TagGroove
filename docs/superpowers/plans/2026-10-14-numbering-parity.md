@@ -25,4 +25,4 @@ Extend the existing numbering operation rather than introduce a new subsystem. P
 - [x] Exercise the actual desktop workflow on generated audio, including Save/reload and Light/Dark; retain precise evidence boundaries.
 - [x] Update the parity ledger, record remaining original-runtime differences, and commit the verified changes.
 
-Documentation establishes the controls and transition rules, but does not specify every padding width, multi-value comparison, or simultaneous-trigger edge case. Tests of OpenTag alone must not be presented as original-runtime equivalence.
+Documentation establishes the controls and transition rules, but does not specify every padding width, multi-value comparison, or simultaneous-trigger edge case. Tests of TagGroove alone must not be presented as original-runtime equivalence.

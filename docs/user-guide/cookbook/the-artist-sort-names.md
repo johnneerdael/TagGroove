@@ -152,7 +152,7 @@ Use the separate `ALBUMARTISTSORT` field and an expression reading
 values and select its missing-field targets separately. Do not substitute a
 track artist for a compilation's album credit merely to fill a blank.
 
-### Make OpenTag's list use a sort field
+### Make TagGroove's list use a sort field
 
 Writing `ARTISTSORT` does not automatically change every column's sorting
 behavior. Configure an appropriate column sort expression and click its

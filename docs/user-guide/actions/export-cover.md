@@ -57,7 +57,7 @@ including a backslash inside a macOS or Linux folder name. See
 
 ## Understand duplicates and existing files
 
-With duplicate export off, OpenTag skips a picture when the same image
+With duplicate export off, TagGroove skips a picture when the same image
 bytes remain in an output for the same requested name after this action
 finishes. This is useful when every track in an album contains identical
 artwork. Reordering or replacing embedded pictures exports a repeated image
@@ -78,7 +78,7 @@ replaced image or remove a new image created by the action. Redo recreates
 those images. Empty output folders can remain. Keep backups of images to
 retain beyond this session and inspect the available undo operation.
 
-When recording undo, OpenTag checks the retained snapshot budget before
+When recording undo, TagGroove checks the retained snapshot budget before
 copying an existing output. On macOS and Linux it also checks the journal's
 free-space reserve; that reserve check is unavailable on Windows. If the
 capture cannot fit, the export warns and leaves that destination unchanged.

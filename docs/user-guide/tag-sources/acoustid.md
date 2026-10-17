@@ -1,17 +1,17 @@
 # AcoustID fingerprints
 
-AcoustID identifies recordings from the sound of your files. OpenTag computes
+AcoustID identifies recordings from the sound of your files. TagGroove computes
 a fingerprint locally, asks AcoustID for matches, then retrieves the chosen
 release's metadata and artwork from MusicBrainz.
 
 ## Set up fingerprinting
 
-OpenTag includes Chromaprint and its audio decoder libraries. Install OpenTag
+TagGroove includes Chromaprint and its audio decoder libraries. Install TagGroove
 normally: no separate `fpcalc` or `ffmpeg` program is required. Fingerprinting
 runs on your device and reads the selected audio without changing its tags.
 
-1. Add the album's audio files to OpenTag. On Android, choose documents with
-   the system picker so OpenTag has permission to read them.
+1. Add the album's audio files to TagGroove. On Android, choose documents with
+   the system picker so TagGroove has permission to read them.
 2. Open **Tag Sources → API keys…**. If this build has no AcoustID key, add
    your application's key using the registration address shown there.
 3. Select the files to identify. Files need readable, supported audio; an
@@ -26,7 +26,7 @@ built-in producer.
 
 ## What happens during fingerprinting
 
-OpenTag decodes up to the first two minutes of each file to calculate its
+TagGroove decodes up to the first two minutes of each file to calculate its
 fingerprint and sends the fingerprint with the full file duration. The
 reported container duration can differ slightly from the audible duration.
 It does not upload your audio. Processing a long file therefore does not
@@ -34,21 +34,21 @@ require fingerprinting the entire recording.
 
 Cancel stops the search and asks local decoding to stop. The search also has
 a two-minute time budget for each file. A blocked file read or decoder can
-take longer to return; OpenTag allows only one built-in fingerprint worker
+take longer to return; TagGroove allows only one built-in fingerprint worker
 at a time and asks you to retry if the previous worker is still stopping.
 The optional external producer has its own process timeout.
 
 ## Identify and review
 
 1. Select the album's files and choose **Tag Sources → AcoustID (fingerprints)…**.
-2. Select **Search**. OpenTag fingerprints each file and ranks releases by
+2. Select **Search**. TagGroove fingerprints each file and ranks releases by
    the number of selected files matched, then match score.
 3. Select the correct release and choose **Next**. Compare the edition,
    track list, matches and artwork, then [save](index.md#search-review-and-save).
 
 Identified files are paired with their matched MusicBrainz recordings,
 including across discs. If files have overlapping candidate recordings,
-OpenTag reassigns compatible pairs when necessary to keep the greatest number
+TagGroove reassigns compatible pairs when necessary to keep the greatest number
 of compatible fingerprint assignments. A direct free track keeps earlier
 assignments stable; this does not globally optimize match scores.
 **Auto-match**, **Selection order** and **Suggest sorting** arrange remaining files without replacing those fingerprint pairs.
@@ -65,7 +65,7 @@ A match identifies a recording, not necessarily your exact edition. Several
 releases can contain it, so the highest-ranked result still needs review.
 Files without a usable match do not gain an inferred AcoustID.
 
-OpenTag sends fingerprints and durations, not audio files. It performs
+TagGroove sends fingerprints and durations, not audio files. It performs
 lookups only and does not submit new fingerprints. AcoustID requests are
 spaced about 350 milliseconds apart; MusicBrainz lookups use a separate
 spacing of about 1.1 seconds. Local fingerprinting adds to the time needed.

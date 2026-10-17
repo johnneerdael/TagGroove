@@ -6,7 +6,7 @@
 # https://host/path is answered from the file host_path; a file
 # host_path@words answers only when the query contains the words. Unknown
 # images get a small PNG, anything else 404. All answers were written for
-# OpenTag's tests from the services' documented formats.
+# TagGroove's tests from the services' documented formats.
 set -euo pipefail
 album="$1"
 site="$album/../source-answers"

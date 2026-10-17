@@ -1,4 +1,4 @@
-# Publishing OpenTag releases
+# Publishing TagGroove releases
 
 **Review-first workflow:** follow [CI_LOCKDOWN.md](../.github/CI_LOCKDOWN.md). Legacy automatic workflows remain disabled. Application builds and publication require a completed clean Codex code review and immutable validation proof; direct bootstrap commits do not release.
 
@@ -78,7 +78,7 @@ The download table, signing status (Windows and Linux packages are unsigned, mac
 | macOS Intel | `macos-15-intel` | DMG and app archive; ad-hoc signed, not notarized |
 | Linux x64 | `ubuntu-24.04` | AppImage, DEB, RPM; unsigned |
 | Linux arm64 | `ubuntu-24.04-arm` | AppImage, DEB, RPM; unsigned |
-| Android arm64 UI preview | `ubuntu-24.04` | Release APK signed with the persistent OpenTag application key; document editing/save-back still in progress |
+| Android arm64 UI preview | `ubuntu-24.04` | Release APK signed with the persistent TagGroove application key; document editing/save-back still in progress |
 | iOS arm64 simulator UI preview | `macos-15` | Unsigned debug `.app` ZIP for the simulator; document editing/save-back still in progress; not an iPhone/iPad installer or App Store package |
 
 Desktop jobs run the frontend build before native tests, then UI tests, Rust formatting, workspace tests and strict clippy. Tauri's [GitHub pipeline guidance](https://v2.tauri.app/distribute/pipelines/github/) and [tauri-action v1](https://github.com/tauri-apps/tauri-action/tree/v1) provide the build path. The action receives no release ID or tag name: it builds only. Its `artifactPaths` output feeds the collection script. The collector supplies a tested tar fallback for `.app` directories if the action does not create their app archives.
@@ -91,15 +91,15 @@ Linux packages are built on Ubuntu 24.04; compatibility with older distributions
 
 Each builder uploads its packages, `manifest-<platform>.json`, and `native-<platform>.json` as workflow artifacts. The native sidecar binds the installed static libraries, headers, configuration, source recipe and patch evidence to the release commit, version and Rust target. A fresh per-run native build directory prevents a restored Rust cache from silently substituting a missing or older native prefix. The source job receives only these seven sidecars, rather than downloading the application packages again.
 
-The final publisher requires all seven platform manifests, their exact native sidecars, the original 13 package filenames/formats, and exactly one `OpenTag-v<version>-sources.tar.xz`. It verifies commit/version/target identities, rejects unexpected files or duplicate formats, and streams every public asset through SHA256. It publishes 16 assets: 13 application packages, the corresponding-source archive, `release-manifest.json`, and `SHA256SUMS`. The checksum list includes the packages, source archive and release manifest; it does not recursively include itself. The public manifest records source identity, platform coverage, native evidence hashes, byte sizes and hashes.
+The final publisher requires all seven platform manifests, their exact native sidecars, the original 13 package filenames/formats, and exactly one `TagGroove-v<version>-sources.tar.xz`. It verifies commit/version/target identities, rejects unexpected files or duplicate formats, and streams every public asset through SHA256. It publishes 16 assets: 13 application packages, the corresponding-source archive, `release-manifest.json`, and `SHA256SUMS`. The checksum list includes the packages, source archive and release manifest; it does not recursively include itself. The public manifest records source identity, platform coverage, native evidence hashes, byte sizes and hashes.
 
-The release body embeds the supplied [OpenTag banner](../assets/brand/OpenTag-Brand-Kit/03-banners/opentag-github-light-1280x640.png) from the released tag and links the matching parity ledger. Signing and mobile limitations appear alongside the download table.
+The release body embeds the supplied [TagGroove banner](../assets/brand/TagGroove-Brand-Kit/03-banners/taggroove-github-light-1280x640.png) from the released tag and links the matching parity ledger. Signing and mobile limitations appear alongside the download table.
 
 ## Native audio builds and corresponding source
 
 The native fingerprint backend is built from the four hash-pinned upstream archives in `scripts/audio-deps/sources.json`. Builds require Python 3.11 or newer (CI uses 3.12), CMake, GNU Make and the target C/C++ toolchain. x86-64 builds also require NASM for the enabled assembly implementations; ARM builds use the compiler assembler. Linux installs `build-essential`, `cmake` and `make`; Apple builds use Xcode SDKs, `xcrun`, CMake and Make. Windows uses MSVC/NMake plus MSYS2 Bash/GNU Make, with MSVC tools first in `PATH`. Android uses the configured NDK and API 24 toolchain; the iOS preview uses the arm64 simulator SDK. These are build dependencies; fingerprinting uses the linked native libraries rather than launching an installed media program.
 
-Every release includes `OpenTag-v<version>-sources.tar.xz` with:
+Every release includes `TagGroove-v<version>-sources.tar.xz` with:
 
 - The tracked application source stamped to the release version, `Cargo.lock`, the built frontend, and vendored Cargo dependencies with a separate offline Cargo configuration. Existing project settings, including target linkers, remain unchanged.
 - The original, hash-pinned Chromaprint, FFmpeg, zlib and bzip2 source archives and their original license files, plus the tracked recipes and patches.
@@ -111,7 +111,7 @@ The source job vendors Cargo dependencies, builds the stamped frontend, and veri
 To verify a downloaded source asset, use the verifier from a trusted checkout of the release commit:
 
 ```sh
-python3 scripts/audio-source-bundle.py --source-sha FULL_RELEASE_COMMIT --version RELEASE_VERSION --verify OpenTag-vRELEASE_VERSION-sources.tar.xz
+python3 scripts/audio-source-bundle.py --source-sha FULL_RELEASE_COMMIT --version RELEASE_VERSION --verify TagGroove-vRELEASE_VERSION-sources.tar.xz
 ```
 
 After extracting the archive, enter its `app` directory. To build and run the Rust fingerprint example offline on a supported host target:
@@ -129,7 +129,7 @@ The same extracted source builds the complete desktop application without
 rebuilding the included frontend:
 
 ```sh
-cargo --config .cargo/opentag-offline.toml build --offline --locked -p opentag --bin opentag --features tauri/custom-protocol
+cargo --config .cargo/opentag-offline.toml build --offline --locked -p opentag --bin taggroove --features tauri/custom-protocol
 ```
 
 To change an embedded library, extract its archive, edit the source, and repack
@@ -152,7 +152,7 @@ For maintainers, collect each finished native prefix and assemble the source ass
 
 ```sh
 python3 scripts/audio-source-bundle.py --collect-native RUST_TARGET --native-evidence BUILD_ROOT_OR_PREFIX --source-sha FULL_RELEASE_COMMIT --version RELEASE_VERSION --output native-evidence/native-PLATFORM.json
-python3 scripts/audio-source-bundle.py --source-sha FULL_RELEASE_COMMIT --version RELEASE_VERSION --native-evidence native-evidence --output OpenTag-vRELEASE_VERSION-sources.tar.xz
+python3 scripts/audio-source-bundle.py --source-sha FULL_RELEASE_COMMIT --version RELEASE_VERSION --native-evidence native-evidence --output TagGroove-vRELEASE_VERSION-sources.tar.xz
 ```
 
 The builder accepts `--cargo-vendor` and `--dist` for already prepared dependency/frontend directories; otherwise it runs `cargo vendor --locked --versioned-dirs` and uses the checkout's `dist`. A source archive must contain evidence from every required target. Local fixture tests use tiny synthetic archives and manifests; they prove validation behavior, not seven-platform compilation or codec parity. Desktop workspace tests execute the native corpus on their host runners. Android and iOS build/package evidence does not establish runtime fingerprint equivalence on devices or simulators; those require separate execution and comparison.

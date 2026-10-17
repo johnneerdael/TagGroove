@@ -38,7 +38,7 @@ test('written parameter and path examples execute only actual native pure helper
   const scopes=rows(page,'tools-scope-cases');assert.equal(scopes.length,6);
   for(const [count,each,decision,expected] of scopes){if(decision==='Decline confirmation')continue;assertions.push(`let files:Vec<PathBuf>=(0..${Number(code(count))}).map(|i|PathBuf::from(format!("/practice/{i}.flac"))).collect();let tool=Tool{name:"Never launched".into(),path:"/not-used".into(),parameters:String::new(),for_each_file:${each==='On'}};`);if(expected.startsWith('Error:'))assertions.push('assert!(invocations(&tool,&files,None).unwrap_err().contains("100"));');else assertions.push(`assert_eq!(invocations(&tool,&files,None).unwrap().len(),${Number(code(expected))});`);}
  }
- const temporary=await mkdtemp(join(tmpdir(),'opentag-guide-pure-tools-'));
+ const temporary=await mkdtemp(join(tmpdir(),'taggroove-guide-pure-tools-'));
  try{const input=join(temporary,'pure.rs'),output=join(temporary,process.platform==='win32'?'pure.exe':'pure');await writeFile(input,`#![allow(dead_code)]\nuse std::path::{Path,PathBuf};\n${declarations}\nfn main(){${assertions.join('\n')}}\n`);await execute('rustc',['--edition=2021',input,'-o',output]);await execute(output,[]);}
  finally{await rm(temporary,{recursive:true,force:true});}
 });

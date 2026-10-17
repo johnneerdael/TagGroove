@@ -14,7 +14,7 @@ Read-only scan of the user-selected Beatport directory: 434 FLAC files, 0 errors
 
 Process maximum resident set size: 1,240,891,392 bytes. Peak memory footprint reported by macOS time: 1,605,420,856 bytes. Median scan plus serialization: about 56.5 seconds. These measure the core and serialization, excluding actual Tauri transport and UI rendering, so user-visible load can take longer.
 
-The payload is dominated by eagerly encoded artwork: 99.93 percent of JSON bytes. A native stack sample was recorded at `/tmp/opentag-scan.sample.txt`; the available symbolization was insufficient to attribute a detailed CPU breakdown. Source inspection also finds a second concrete FLAC metadata read used to recover custom fields.
+The payload is dominated by eagerly encoded artwork: 99.93 percent of JSON bytes. A native stack sample was recorded at `/tmp/taggroove-scan.sample.txt`; the available symbolization was insufficient to attribute a detailed CPU breakdown. Source inspection also finds a second concrete FLAC metadata read used to recover custom fields.
 
 ## Changes being measured
 
@@ -61,7 +61,7 @@ cold-cache behavior and other platforms/devices remain unmeasured here.
 
 Raw output, resource counters, exact core-source hashes, compiler version and
 benchmark executable SHA-256 are recorded in
-`/tmp/opentag-parity-release-scan.json`, with the two corresponding `.log` files.
+`/tmp/taggroove-parity-release-scan.json`, with the two corresponding `.log` files.
 
 ## Native interaction timings on the real library: 2026-10-14
 
@@ -172,7 +172,7 @@ the same decoded-audio MD5, and `flac -t` passed on both.
   (2.66 MB for 434 files). That is fine at this size but grows linearly with
   the list.
 - **Startup**: about 0.7 s of the cold launch passes before the page loads
-  (process and WebView start), before any OpenTag code runs.
+  (process and WebView start), before any TagGroove code runs.
 - Not measured: Mp3tag itself (it does not run on this host), Windows/Linux,
   libraries much larger than 434 files, and a true cold cache.
 
@@ -191,9 +191,9 @@ or cloned.
   (`-id3v2_version 3 -write_id3v1 1`, 7 text frames and an 84 KB front cover).
   ffmpeg leaves almost no ID3v2 padding, so the first edit of each file must
   rewrite it.
-- **MP3, padded**: the same template after one OpenTag save, i.e. with the 4 KiB
+- **MP3, padded**: the same template after one TagGroove save, i.e. with the 4 KiB
   of padding a rewrite now reserves (as a file previously tagged by Mp3tag or
-  OpenTag would have).
+  TagGroove would have).
 - **M4A** and **M4A, padded**: the same for a 256 kbit/s AAC file with
   `-movflags +faststart` (`moov` before `mdat`), 7 text atoms and a cover; ffmpeg
   writes no `free` atom beside `ilst`.

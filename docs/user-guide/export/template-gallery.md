@@ -84,6 +84,6 @@ point to nonexistent images or produce a format the receiver cannot parse.
 The [Mp3tag Community export configuration archive](https://community.mp3tag.de/t/export-configuration-archive/1495)
 links to community templates for other report styles. Inspect a template and
 its companion files before adapting it. Import and editing workflows, supported
-syntax and output assumptions can differ in OpenTag. Test a small selection and
+syntax and output assumptions can differ in TagGroove. Test a small selection and
 inspect the actual report; inclusion in that archive does not establish that
 every template works unchanged here.

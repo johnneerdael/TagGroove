@@ -3,7 +3,7 @@ nav:
   - Home: index.md
   - Get started:
     - getting-started/index.md
-    - Install OpenTag: getting-started/install.md
+    - Install TagGroove: getting-started/install.md
     - The main window: getting-started/main-window.md
     - Opening folders and files: getting-started/opening-files.md
     - "Editing, saving and undo": getting-started/editing-and-saving.md
@@ -50,7 +50,7 @@ nav:
       - "Copy, move and delete files": guides/file-operations.md
       - Removing tags: guides/remove-tags.md
       - Undo and history: guides/undo-history.md
-    - OpenTag extras:
+    - TagGroove extras:
       - Library: guides/library.md
       - Chapters and cue sheets as rows: guides/chapters.md
       - Utilities: guides/utilities.md
@@ -213,4 +213,4 @@ nav:
     - FAQ: help/faq.md
     - Troubleshooting: help/troubleshooting.md
     - Glossary: help/glossary.md
-    - About OpenTag and this guide: help/about.md
+    - About TagGroove and this guide: help/about.md

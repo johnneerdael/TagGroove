@@ -13,7 +13,7 @@ menu's **Utils** section.
 | Goal | Command | Current scope |
 | --- | --- | --- |
 | Remove explicitly chosen metadata blocks | **Remove tag types…** | Selected supported ID3v1, ID3v2 or APEv2 blocks |
-| Remove ID3v2 data OpenTag does not display | **Remove unsupported fields…** | MP3, AAC, AIFF and WAV ID3v2 tags |
+| Remove ID3v2 data TagGroove does not display | **Remove unsupported fields…** | MP3, AAC, AIFF and WAV ID3v2 tags |
 | Set FLAC padding or reorganize MP4 data | **Optimize…** | FLAC and MP4 |
 | Remove MP4 chapter structure | **Strip chapters MP4…** | Selected MP4 files with chapters |
 
@@ -52,7 +52,7 @@ another retained block cannot represent.
 ## Inspect and remove unsupported ID3v2 frames
 
 A file can contain ID3v2 frames with no editable field or cover representation
-in OpenTag. **Remove unsupported fields…** targets those frames, rather
+in TagGroove. **Remove unsupported fields…** targets those frames, rather
 than all custom field names or every format's opaque data.
 
 1. Add a temporary [file-list column](../customize/columns.md) with the
@@ -110,7 +110,7 @@ it does not change the compression level or improve audio quality.
 3. Check the result/errors and the retained fields/artwork. The file size can
    increase or decrease; a smaller file is not the sole success criterion.
 4. If a player or file manager was the original problem, refresh its view and
-   test the actual file there. An OpenTag success message does not qualify
+   test the actual file there. An TagGroove success message does not qualify
    that other program's metadata limits.
 
 A FLAC file with a leading ID3v2 tag is rejected by this optimization path:

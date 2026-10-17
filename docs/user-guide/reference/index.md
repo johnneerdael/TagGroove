@@ -23,7 +23,7 @@ Technical information such as duration describes a file; editing a similarly nam
 
 ## Scope of the reference
 
-These pages describe the inspected OpenTag source and executable documentation examples. Recognition of an extension does not establish playback, DRM support, or compatibility with every application that reads that format. Native/runtime checks and release availability are separate from source inspection.
+These pages describe the inspected TagGroove source and executable documentation examples. Recognition of an extension does not establish playback, DRM support, or compatibility with every application that reads that format. Native/runtime checks and release availability are separate from source inspection.
 
 Additional context-menu, options and automation references are published as their checked pages become available. Unfinished pages remain outside the public navigation and search.
 

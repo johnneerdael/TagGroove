@@ -64,7 +64,7 @@ class PagesTrustTests(unittest.TestCase):
 
     def test_build_publishes_the_site_under_the_custom_domain(self):
         build = self.block("build")
-        self.assertIn("echo 'opentag.neerdael.nl' > build/user-guide-site/CNAME", build)
+        self.assertIn("echo 'taggroove.neerdael.nl' > build/user-guide-site/CNAME", build)
         upload = build.split("actions/upload-pages-artifact@v3", 1)[1]
         self.assertIn("path: build/user-guide-site", upload)
 

@@ -1,6 +1,6 @@
 # Options reference
 
-Open **File → Options…** with ++cmd+o++ / ++ctrl+o++ to change how OpenTag reads files, presents fields, writes tags, and contacts online services. These pages explain each setting and the consequences of changing it.
+Open **File → Options…** with ++cmd+o++ / ++ctrl+o++ to change how TagGroove reads files, presents fields, writes tags, and contacts online services. These pages explain each setting and the consequences of changing it.
 
 !!! tip "New to this?"
     Start with [General](general.md), [Files](files.md), and [Tags](tags.md). Keep automatic saving disabled while learning: selecting another file then leaves a chance to review pending edits before writing them.
@@ -9,11 +9,11 @@ Open **File → Options…** with ++cmd+o++ / ++ctrl+o++ to change how OpenTag r
 
 Select a page in the tree on the left. The arrow keys move between pages; Home and End select the first and last pages. On a narrow window the tree becomes an **Options page** list. Moving between pages retains the changes being edited.
 
-**OK** validates and saves the settings across pages. If a value is invalid, OpenTag selects the affected page and shows the problem. **Cancel** or Escape closes the dialog without saving its ordinary settings. **Restore page defaults** resets the controls of the selected page in the dialog; press **OK** to save the reset. It does not reset every page at once.
+**OK** validates and saves the settings across pages. If a value is invalid, TagGroove selects the affected page and shows the problem. **Cancel** or Escape closes the dialog without saving its ordinary settings. **Restore page defaults** resets the controls of the selected page in the dialog; press **OK** to save the reset. It does not reset every page at once.
 
 Some buttons open an independent editor or carry out an operation immediately. In particular, Tag Panel and Field Values save through their own **OK** buttons; Library cleanup/clear, building a local freedb index, and exporting a configuration or value list perform work when clicked. Canceling the outer Options dialog does not undo that work.
 
-Changing tag read options can change which metadata is displayed. On **OK**, OpenTag reloads loaded local files that have no pending edits when tag settings change. Files with pending edits retain those edits; save or discard them before reloading. Changing settings alone is not a request to rewrite the music library.
+Changing tag read options can change which metadata is displayed. On **OK**, TagGroove reloads loaded local files that have no pending edits when tag settings change. Files with pending edits retain those edits; save or discard them before reloading. Changing settings alone is not a request to rewrite the music library.
 
 ## Pages
 

@@ -1,24 +1,20 @@
-# OpenTag branding integration
+# TagGroove branding integration
 
-The user supplied `OpenTag-Brand-Guide.html` and `OpenTag-Brand-Kit.zip` on 2026-10-14. The original bytes are preserved under `originals/`; the extracted kit, including its README, integration guidance and inventory, remains under `OpenTag-Brand-Kit/`.
+The supplied `TagGroove-Brand-Guide.html` and `TagGroove-Brand-Kit.zip` are preserved byte-for-byte under `originals/`. The extracted kit remains under `TagGroove-Brand-Kit/`, including its own guidance, tokens and 249-file manifest. The vector system is the canonical artwork source; lettering is outlined.
 
-`PROVENANCE.json` records the input hashes, 249 verified manifest entries, and byte-for-byte copies into application resources. No artwork was regenerated or edited. The web manifest's deployment paths are the only integration-specific edit to copied kit files.
-
-The interface imports the supplied horizontal light-surface logo, outlined UI glyphs, palette tokens, fallback artwork and About artwork. Orange buttons use the supplied ink for text; small accent text and focus outlines use a darker orange. The fallback image is decorative and is labeled separately from actual embedded artwork.
+`PROVENANCE.json` records the supplied input hashes and every application/guide resource copy. Run `python3 scripts/verify-brand.py` to check the kit, integrated hashes, Android resource references, stable application identity and registered gnudb client name. Android resource identifiers keep their existing `opentag_` spelling; the web manifest's scope/start URL are adapted to the app root. These transformations are recorded explicitly.
 
 | Surface | Resource placement |
 |---|---|
-| Windows | Supplied ICO at `src-tauri/icons/icon.ico`, explicitly listed in Tauri bundle settings |
-| macOS | Supplied ICNS at `src-tauri/icons/icon.icns`, explicitly listed in Tauri bundle settings |
-| Linux | Supplied PNG/SVG hicolor tree at `src-tauri/icons/linux/hicolor/`, installed via Debian/RPM/AppImage file mappings; desktop executable/icon name is `opentag` |
-| Android | Supplied legacy densities and v26/v33 adaptive/themed resources copied into both `src-tauri/icons/android/` and generated `gen/android/app/src/main/res/`; existing application manifest references `@mipmap/ic_launcher` |
-| iOS | Supplied opaque 1024px image and `Contents.json` copied into generated `gen/apple/Assets.xcassets/AppIcon.appiconset/`; existing Xcode app-icon setting is `AppIcon` |
-| Web | Supplied favicon, Apple touch, pinned-tab and PWA files at `public/brand/`; main document references them; manifest scope/start URL point to the app root |
+| Application header, About, empty artwork and glyphs | Direct imports from the supplied kit in `src/main.ts` |
+| Windows | Supplied ICO at `src-tauri/icons/icon.ico` |
+| macOS | Supplied ICNS at `src-tauri/icons/icon.icns` |
+| Linux | Supplied PNG/SVG hicolor tree under `src-tauri/icons/linux/hicolor/`, named for the `taggroove` executable |
+| Android | Supplied legacy densities and v26/v33 adaptive/themed resources under both `src-tauri/icons/android/` and generated `gen/android/app/src/main/res/` |
+| iOS | Supplied opaque 1024px image and catalog under generated `gen/apple/Assets.xcassets/AppIcon.appiconset/` |
+| Web | Supplied favicon, Apple touch, pinned-tab and PWA files at `public/brand/` |
+| Guide | Supplied light/dark logos, mark and favicons at `docs/user-guide/assets/brand/` |
 
-The generated mobile projects currently contain the provided resources. Reapply the kit's Android `res/` and iOS `AppIcon.appiconset/` after regenerating those projects; do not replace the supplied platform files with newly rasterized desktop artwork.
+All 412 images present before the rename were visually inspected. Wordmarks, banners and splash artwork were replaced with supplied TagGroove files. Fifty-six unused icons from previous generated branding were removed. Historical verification screenshots remain unchanged as evidence of the builds they describe. Public guide captures are refreshed from the reviewed Linux application. See `docs/verification/taggroove-image-audit.json` and `docs/verification/taggroove-rename.md`.
 
-Linux file mappings follow Tauri's [Debian](https://v2.tauri.app/distribute/debian/#custom-files), [RPM](https://v2.tauri.app/distribute/rpm/), and [AppImage](https://v2.tauri.app/distribute/appimage/#custom-files) configuration. Frozen-source Android aarch64 debug APK and unsigned arm64 iOS simulator app builds passed; both include the provided icon resources. The iOS asset catalog compiles without unassigned-icon warnings after unused template PNGs were moved to a hashed backup. See `../../docs/verification/mobile-final-artifacts.json`. Windows/Linux packaging and actual installation/device icon behavior remain unverified.
-
-`VERIFICATION.json` records input/copy hashes, glyph/XML checks, iOS opacity/dimensions and measured contrast ratios. The branded macOS arm64 debug app built with Rust 1.95.0 and passed strict ad-hoc signature verification. Native CUA screenshots now verify the real header/logo, supplied glyphs, empty state, fallback artwork, About artwork, tagline, version 0.1.0/MIT, and Finder-rendered application icon. Both disposable fixture files loaded and retained their original hashes; no library files were edited. See [the visual proof](../../docs/verification/branding-app.md) and its source/artifact receipt. These captures identify the build-time snapshot, before the later native Windows output-path fix; branding sources remained unchanged. This local app is ad-hoc signed and is not notarized.
-
-`mobile-preview.html` embeds the actual app at 390×800 without sample files. Its production-browser layout was captured, but the current Chrome profile client-blocks/collapses the header logo. Development SVG module requests also report `net::ERR_BLOCKED_BY_CLIENT`. This is a preview-environment limitation; browser extensions/security settings and supplied assets were left unchanged. The native macOS captures are the authoritative rendered in-app branding proof. Native mobile runtime/device icon behavior remains unverified.
+The rename changes visible branding, executable and release asset names. It preserves `org.opentag.editor`, existing preference keys, configuration/tag-panel format identifiers, credential and signing settings, internal crates/ABI, and the exact gnudb client name `OpenTagAudioTagEditor`. Existing backup formats and application data locations are preserved. Product-derived installer/package names change; cross-platform install/upgrade behavior is not yet device-tested. No base-version bump is included.

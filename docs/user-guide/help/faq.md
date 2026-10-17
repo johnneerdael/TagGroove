@@ -4,7 +4,7 @@ Use these short answers to choose the right next step. The linked chapters
 contain the complete procedure and its write, format and platform limits.
 Start with copied files when investigating an unfamiliar result.
 
-## Do I need to import music into an OpenTag library?
+## Do I need to import music into a TagGroove library?
 
 Open a local folder or add files to the working list. The audio remains in
 its existing location; loading does not make a second copy. **Change
@@ -49,8 +49,8 @@ a list separator.
 
 ## Why does my player show another title, artist or cover?
 
-First save, then reload the file in OpenTag to check its stored result.
-If OpenTag reads the intended value, check which file the player opened and
+First save, then reload the file in TagGroove to check its stored result.
+If TagGroove reads the intended value, check which file the player opened and
 which fields/tag families it uses. A player can retain an older library/cache
 entry, choose another tag block, use `ALBUMARTIST` for album grouping, or show
 an external image instead of embedded artwork. Do not remove every tag type
@@ -128,9 +128,9 @@ inspect the step order; repeating the whole group can apply successful
 transformations a second time. See [Actions and action groups](../actions/index.md)
 and [Troubleshooting](troubleshooting.md).
 
-## Can I paste an old editor's whole configuration into OpenTag?
+## Can I paste an old editor's whole configuration into TagGroove?
 
-OpenTag's **Save configuration…** creates its own supported JSON bundle.
+TagGroove's **Save configuration…** creates its own supported JSON bundle.
 **Load configuration…** replaces supported saved configuration and reloads
 the window; it is not an importer for another editor's entire settings backup.
 Individual export/source formats have their own compatibility limits. Inspect,
@@ -146,7 +146,7 @@ access or save-back capability. Provider documents can have read-only,
 unknown-access or recovery states, and unsupported commands can be disabled.
 The published Android package and iOS simulator preview have explicit release
 limits. Check [installation](../getting-started/install.md) and the current
-[release notes](https://github.com/johnneerdael/opentag/releases) before using
+[release notes](https://github.com/johnneerdael/TagGroove/releases) before using
 original material. A simulator archive is not an iPhone installer.
 
 ## Can editing tags improve the audio bitrate or quality?
@@ -160,7 +160,7 @@ read/write capabilities; fixture checks are not a guarantee for every file.
 
 ## Related
 
-- [Start using OpenTag](../getting-started/index.md)
+- [Start using TagGroove](../getting-started/index.md)
 - [Troubleshooting](troubleshooting.md)
-- [About OpenTag and this guide](about.md)
+- [About TagGroove and this guide](about.md)
 - [Help menu](../reference/menus/help.md)
