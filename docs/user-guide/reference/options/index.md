@@ -25,7 +25,7 @@ Changing tag read options can change which metadata is displayed. On **OK**, Ope
 | [Directories](directories.md) | Subfolders, favorites, startup, and image-picker location. |
 | [Appearance](appearance.md) | Color mode, scaling, and row/grid display. |
 | [Library](library.md) | Persistent metadata cache and maintenance. |
-| Language | Not available in this guide’s source baseline; the language reference is held until integration. |
+| [Language](language.md) | Interface language and desktop JSON catalog installation. |
 | [Tags](tags.md) | Selection-change saving, Extended tags, and folder images. |
 | [Tags → Mpeg](tags-mpeg.md) | ID3v1, ID3v2, and APE policies for MPEG-family files. |
 | [Tags → Ape, Mpc](tags-ape-mpc.md) | Tag policies for APE-family files. |

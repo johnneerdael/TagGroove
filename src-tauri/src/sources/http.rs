@@ -281,35 +281,35 @@ async fn send_with(
     result.map_err(|error| network_message(service.name, &error.without_url()))
 }
 
-pub fn network_message(service: &str, error: &reqwest::Error) -> String {
+pub fn network_message(name: &str, error: &reqwest::Error) -> String {
     if error.is_timeout() {
-        format!("{service} did not respond in time. Check your connection and try again.")
+        format!("{name} did not respond in time. Check your connection and try again.")
     } else if error.is_redirect() {
-        format!("{service} redirected to an address OpenTag does not trust.")
+        format!("{name} redirected to an address OpenTag does not trust.")
     } else if error.is_connect() {
-        format!("Could not connect to {service}. Check your network connection.")
+        format!("Could not connect to {name}. Check your network connection.")
     } else {
-        format!("{service} request failed: {error}")
+        format!("{name} request failed: {error}")
     }
 }
 
-pub fn status_message(service: &str, status: StatusCode, auth: &Auth) -> String {
+pub fn status_message(name: &str, status: StatusCode, auth: &Auth) -> String {
     match (status.as_u16(), auth) {
         (401 | 403, Auth::DiscogsToken(_)) => "Discogs rejected the personal access token. Update it in Tag Sources → Discogs access token….".into(),
         (401 | 403, Auth::DiscogsApp { .. }) => "Discogs refused OpenTag's application key. Add a personal access token in Tag Sources → Discogs access token….".into(),
-        (401 | 403, Auth::None) if service == "Discogs" => "Discogs requires a personal access token for this request. Add one in Tag Sources → Discogs access token….".into(),
-        (400 | 401 | 403, Auth::Key | Auth::Headers(_)) => format!("{service} rejected the request. Check the API key in Tag Sources → API keys…."),
-        _ => plain_status_message(service, status),
+        (401 | 403, Auth::None) if name == "Discogs" => "Discogs requires a personal access token for this request. Add one in Tag Sources → Discogs access token….".into(),
+        (400 | 401 | 403, Auth::Key | Auth::Headers(_)) => format!("{name} rejected the request. Check the API key in Tag Sources → API keys…."),
+        _ => plain_status_message(name, status),
     }
 }
 
-fn plain_status_message(service: &str, status: StatusCode) -> String {
+fn plain_status_message(name: &str, status: StatusCode) -> String {
     match status.as_u16() {
-        404 => format!("{service} could not find this release."),
-        429 => format!("{service} rate limit reached. Wait a minute and try again."),
-        503 => format!("{service} is busy. Try again in a moment."),
-        code @ 500..=599 => format!("{service} is unavailable right now (HTTP {code})."),
-        code => format!("{service} returned HTTP {code}."),
+        404 => format!("{name} could not find this release."),
+        429 => format!("{name} rate limit reached. Wait a minute and try again."),
+        503 => format!("{name} is busy. Try again in a moment."),
+        code @ 500..=599 => format!("{name} is unavailable right now (HTTP {code})."),
+        code => format!("{name} returned HTTP {code}."),
     }
 }
 
@@ -318,7 +318,8 @@ pub(crate) async fn read_limited(
     limit: usize,
     service: &str,
 ) -> Result<Vec<u8>, String> {
-    let too_large = || format!("{service} returned more data than expected.");
+    let name = service;
+    let too_large = || format!("{name} returned more data than expected.");
     if response
         .content_length()
         .is_some_and(|length| length as usize > limit)

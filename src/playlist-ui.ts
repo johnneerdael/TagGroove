@@ -136,7 +136,7 @@ export class PlaylistUI {
       const current=++generation;
       try{
         const plan=await this.host.invoke<PlaylistPlan>('plan_playlists',{request:request()});if(current!==generation)return;
-        preview.innerHTML=`<div><strong>${plural(plan.playlists.length,'playlist')}</strong></div>`+plan.playlists.slice(0,50).map(p=>`<div>${html(p.path)} <small>(${plural(p.files)})</small></div>`).join('')+(plan.playlists.length>50?`<div><small>… ${plan.playlists.length-50} more</small></div>`:'');
+        preview.innerHTML=`<div><strong>${plural(plan.playlists.length,'playlist')}</strong></div>`+plan.playlists.slice(0,50).map(p=>`<div><span translate="no">${html(p.path)}</span> <small>(${plural(p.files)})</small></div>`).join('')+(plan.playlists.length>50?`<div><small>… ${plan.playlists.length-50} more</small></div>`:'');
         dialog.querySelector('.dialog-error')?.remove();
       }catch(error){if(current===generation){preview.textContent='';this.host.modalError(dialog,error);}}
     },200);};

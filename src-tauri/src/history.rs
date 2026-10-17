@@ -4,6 +4,7 @@
 use crate::action_host::{ActionResult, PathChange};
 use serde::Serialize;
 use std::{path::Path, sync::Mutex};
+use tag_core::batch_errors::ErrorCause;
 use tag_core::history::{HistoryState, Journal, Limits};
 use tag_core::ScanResult;
 use tauri::Manager;
@@ -11,19 +12,22 @@ use tauri::Manager;
 static JOURNAL: Mutex<Option<Journal>> = Mutex::new(None);
 
 fn with_journal<T>(work: impl FnOnce(&mut Journal) -> T) -> Result<T, String> {
+    with_journal_diagnostic(work).map_err(|cause| cause.to_string())
+}
+fn with_journal_diagnostic<T>(work: impl FnOnce(&mut Journal) -> T) -> Result<T, ErrorCause> {
     let mut guard = JOURNAL
         .lock()
-        .map_err(|_| "Undo history lock failed".to_string())?;
+        .map_err(|_| ErrorCause::owned("Undo history lock failed"))?;
     if guard.is_none() {
         let root = match super::APP_HANDLE.get() {
             Some(app) => app
                 .path()
                 .app_cache_dir()
-                .map_err(|e| e.to_string())?
+                .map_err(ErrorCause::external)?
                 .join("undo"),
             None => std::env::temp_dir().join("opentag-undo"),
         };
-        *guard = Some(Journal::open(&root, Limits::default())?);
+        *guard = Some(Journal::open(&root, Limits::default()).map_err(ErrorCause::external)?);
     }
     Ok(work(guard.as_mut().expect("journal was opened")))
 }
@@ -38,6 +42,15 @@ pub trait Changes {
     }
 }
 impl Changes for ScanResult {}
+impl<T: Changes> Changes for tag_core::batch_errors::Detailed<T> {
+    fn renamed(&self) -> Vec<(String, String)> {
+        self.result.renamed()
+    }
+    fn directories(&self) -> Vec<(String, String)> {
+        self.result.directories()
+    }
+}
+
 impl Changes for super::FilenameImport {}
 impl Changes for super::RenameResult {
     fn renamed(&self) -> Vec<(String, String)> {
@@ -126,7 +139,19 @@ pub fn record_with_side_file_epochs<T: Changes>(
     paths: &[String],
     work: impl FnOnce(&mut dyn FnMut(&Path, usize) -> Result<(), String>) -> Result<T, String>,
 ) -> Result<T, String> {
-    let result = journal_work(label, group, paths, work);
+    record_with_side_file_epochs_diagnostic(label, group, paths, |capture| {
+        work(&mut |path, epoch| capture(path, epoch).map_err(|cause| cause.to_string()))
+    })
+}
+
+/// The same history/cache transaction, retaining the side-file hook's error provenance.
+pub fn record_with_side_file_epochs_diagnostic<T: Changes>(
+    label: &str,
+    group: Option<&str>,
+    paths: &[String],
+    work: impl FnOnce(&mut dyn FnMut(&Path, usize) -> Result<(), ErrorCause>) -> Result<T, String>,
+) -> Result<T, String> {
+    let result = journal_work_diagnostic(label, group, paths, work);
     // The library reads written, renamed and moved files again.
     let (renamed, directories) = result
         .as_ref()
@@ -136,11 +161,22 @@ pub fn record_with_side_file_epochs<T: Changes>(
     result
 }
 
-fn journal_work<T: Changes>(
+pub fn record_with_side_files_diagnostic<T: Changes>(
     label: &str,
     group: Option<&str>,
     paths: &[String],
-    work: impl FnOnce(&mut dyn FnMut(&Path, usize) -> Result<(), String>) -> Result<T, String>,
+    work: impl FnOnce(&mut dyn FnMut(&Path) -> Result<(), ErrorCause>) -> Result<T, String>,
+) -> Result<T, String> {
+    record_with_side_file_epochs_diagnostic(label, group, paths, |capture| {
+        work(&mut |path| capture(path, 0))
+    })
+}
+
+fn journal_work_diagnostic<T: Changes>(
+    label: &str,
+    group: Option<&str>,
+    paths: &[String],
+    work: impl FnOnce(&mut dyn FnMut(&Path, usize) -> Result<(), ErrorCause>) -> Result<T, String>,
 ) -> Result<T, String> {
     // Chapter and cue sheet rows are snapshots of their file.
     let mut local: Vec<String> = Vec::new();
@@ -155,9 +191,9 @@ fn journal_work<T: Changes>(
     }
     let mut capture = with_journal(|journal| journal.begin(label, group, &local));
     let result = work(&mut |path, epoch| match capture.as_mut() {
-        Ok(capture) if journaled(&path.to_string_lossy()) => {
-            with_journal(|journal| journal.capture_side_file_after_moves(capture, path, epoch))?
-        }
+        Ok(capture) if journaled(&path.to_string_lossy()) => with_journal_diagnostic(|journal| {
+            journal.capture_side_file_after_moves_diagnostic(capture, path, epoch)
+        })?,
         _ => Ok(()),
     });
     if let Ok(capture) = capture {
@@ -185,17 +221,33 @@ pub fn history_state() -> Result<HistoryState, String> {
     with_journal(|journal| journal.state())
 }
 
+#[cfg(test)]
 fn replay(backward: bool) -> Result<HistoryResult, String> {
-    let replay = with_journal(|journal| {
+    replay_diagnostic(backward).map(|report| report.result)
+}
+fn replay_diagnostic(
+    backward: bool,
+) -> Result<tag_core::batch_errors::Detailed<HistoryResult>, String> {
+    let report = with_journal(|journal| {
         journal.set_tag_options(super::settings::tag_options());
         if backward {
-            journal.undo()
+            journal.undo_diagnostic()
         } else {
-            journal.redo()
+            journal.redo_diagnostic()
         }
     })??;
+    let replay = report.result;
     super::library::changed(&replay.paths, &replay.renamed, &replay.directories);
     let mut result = super::batch(&replay.paths, super::settings::read_summary);
+    let offset = result.errors.len();
+    let diagnostics = report
+        .error_diagnostics
+        .into_iter()
+        .map(|mut item| {
+            item.index += offset;
+            item
+        })
+        .collect();
     result.errors.extend(replay.errors);
     let changes = |pairs: Vec<(String, String)>| {
         pairs
@@ -203,27 +255,56 @@ fn replay(backward: bool) -> Result<HistoryResult, String> {
             .map(|(from, to)| PathChange { from, to })
             .collect()
     };
-    Ok(HistoryResult {
-        result,
-        renamed: changes(replay.renamed),
-        moved_directories: changes(replay.directories),
-        label: replay.label,
-        history: with_journal(|journal| journal.state())?,
+    Ok(tag_core::batch_errors::Detailed {
+        result: HistoryResult {
+            result,
+            renamed: changes(replay.renamed),
+            moved_directories: changes(replay.directories),
+            label: replay.label,
+            history: with_journal(|journal| journal.state())?,
+        },
+        error_diagnostics: diagnostics,
     })
 }
 
+#[cfg(test)]
 #[tauri::command]
 pub async fn undo_last() -> Result<HistoryResult, String> {
     super::io(|| replay(true)).await
 }
 
+#[cfg(test)]
 #[tauri::command]
 pub async fn redo_last() -> Result<HistoryResult, String> {
     super::io(|| replay(false)).await
 }
 
+/// Keep callable String/result APIs above; the same command identifiers return additive wire companions.
+pub mod ipc {
+    #[tauri::command(rename = "undo_last")]
+    pub async fn undo_last_with_diagnostics(
+    ) -> Result<tag_core::batch_errors::Detailed<super::HistoryResult>, String> {
+        crate::io(|| super::replay_diagnostic(true)).await
+    }
+    #[tauri::command(rename = "redo_last")]
+    pub async fn redo_last_with_diagnostics(
+    ) -> Result<tag_core::batch_errors::Detailed<super::HistoryResult>, String> {
+        crate::io(|| super::replay_diagnostic(false)).await
+    }
+    #[tauri::command(rename = "convert_tag_to_tag")]
+    pub async fn convert_tag_to_tag_with_diagnostics(
+        paths: Vec<String>,
+        field: String,
+        template: String,
+        columns: Option<Vec<crate::evaluation::ColumnSpec>>,
+    ) -> Result<tag_core::batch_errors::Detailed<crate::action_host::ActionResult>, String> {
+        super::convert_tag_to_tag_diagnostic(paths, field, template, columns).await
+    }
+}
+
 /// Convert → Tag - Tag: format one field (or `_FILENAME`/`_DIRECTORY`) of each
 /// selected file from a format string, written immediately like Mp3tag.
+#[cfg(test)]
 #[tauri::command]
 pub async fn convert_tag_to_tag(
     paths: Vec<String>,
@@ -231,6 +312,16 @@ pub async fn convert_tag_to_tag(
     template: String,
     columns: Option<Vec<crate::evaluation::ColumnSpec>>,
 ) -> Result<ActionResult, String> {
+    convert_tag_to_tag_diagnostic(paths, field, template, columns)
+        .await
+        .map(|report| report.result)
+}
+pub async fn convert_tag_to_tag_diagnostic(
+    paths: Vec<String>,
+    field: String,
+    template: String,
+    columns: Option<Vec<crate::evaluation::ColumnSpec>>,
+) -> Result<tag_core::batch_errors::Detailed<ActionResult>, String> {
     let settings = super::evaluation_settings(columns)?;
     let field = field.trim().to_owned();
     if field.is_empty() {
@@ -244,7 +335,11 @@ pub async fn convert_tag_to_tag(
             actions: vec![tag_core::actions::ActionSpec::FormatValue { field, template }],
         };
         record("Tag → Tag", None, &paths, || {
-            Ok(crate::action_host::execute(&paths, &[group], settings))
+            Ok(crate::action_host::execute_diagnostic(
+                &paths,
+                &[group],
+                settings,
+            ))
         })
     })
     .await
@@ -283,6 +378,70 @@ mod tests {
     }
     fn run<T>(future: impl std::future::Future<Output = Result<T, String>>) -> T {
         tauri::async_runtime::block_on(future).unwrap()
+    }
+
+    #[test]
+    fn diagnostic_replay_offsets_owned_errors_after_read_summary_failures() {
+        let _serial = TEST_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
+        let raw = root.join("Help; raw.txt");
+        let raw_to = root.join("Title; moved.txt");
+        std::fs::write(&raw, b"Not audio").unwrap();
+        let audio = root.join("Help.wav");
+        let audio_to = root.join("Title.wav");
+        wav(&audio, "Original");
+        let original = std::fs::read(&audio).unwrap();
+        let mut journal = Journal::open(&root.join("undo"), Limits::default()).unwrap();
+        let capture = journal.begin(
+            "Help / action 1: Title",
+            None,
+            &[
+                raw.to_string_lossy().into_owned(),
+                audio.to_string_lossy().into_owned(),
+            ],
+        );
+        tag_core::operations::rename_no_clobber(&raw, &raw_to).unwrap();
+        tag_core::operations::rename_no_clobber(&audio, &audio_to).unwrap();
+        journal.commit(
+            capture,
+            &[
+                (
+                    raw.to_string_lossy().into_owned(),
+                    raw_to.to_string_lossy().into_owned(),
+                ),
+                (
+                    audio.to_string_lossy().into_owned(),
+                    audio_to.to_string_lossy().into_owned(),
+                ),
+            ],
+            &[],
+        );
+        std::fs::write(&audio, b"External replacement").unwrap();
+        struct Restore(Option<Journal>);
+        impl Drop for Restore {
+            fn drop(&mut self) {
+                *JOURNAL.lock().unwrap_or_else(|error| error.into_inner()) = self.0.take();
+            }
+        }
+        let _restore = Restore(JOURNAL.lock().unwrap().replace(journal));
+        let report = tauri::async_runtime::block_on(ipc::undo_last_with_diagnostics()).unwrap();
+        assert_eq!(report.result.result.errors.len(), 2);
+        assert_eq!(report.error_diagnostics.len(), 1);
+        assert_eq!(report.error_diagnostics[0].index, 1);
+        assert_eq!(
+            report.result.result.errors[1].error,
+            report.error_diagnostics[0].diagnostic.to_string()
+        );
+        let wire = serde_json::to_value(&report).unwrap();
+        assert_eq!(wire["error_diagnostics"][0]["index"], 1);
+        assert_eq!(
+            wire["errors"][1]["error"],
+            report.result.result.errors[1].error
+        );
+        assert_eq!(std::fs::read(&raw).unwrap(), b"Not audio");
+        assert_eq!(std::fs::read(&audio).unwrap(), b"External replacement");
+        assert_eq!(std::fs::read(&audio_to).unwrap(), original);
     }
 
     fn check_new_cover_undo(move_folder: bool) {

@@ -90,7 +90,7 @@ export function copyAsTextDialog(host:CopyTextHost){
   let generation=0,timer=0;
   const update=()=>{clearTimeout(timer);timer=window.setTimeout(async()=>{
     const current=++generation;
-    try{const lines=await host.evaluate(input.value,5);if(current===generation)preview.innerHTML=lines.map(line=>`<div>${html(line)||'&nbsp;'}</div>`).join('')+(host.count()>5?`<div><small>… ${host.count()-5} more</small></div>`:'');dialog.querySelector('.dialog-error')?.remove();}
+    try{const lines=await host.evaluate(input.value,5);if(current===generation)preview.innerHTML=lines.map(line=>`<div translate="no">${html(line)||'&nbsp;'}</div>`).join('')+(host.count()>5?`<div><small>… ${host.count()-5} more</small></div>`:'');dialog.querySelector('.dialog-error')?.remove();}
     catch(error){if(current===generation){preview.textContent='';host.modalError(dialog,error);}}
   },200);};
   input.addEventListener('input',update);

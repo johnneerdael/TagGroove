@@ -105,23 +105,23 @@ pub fn validate(layout: &Layout) -> Result<(), String> {
         {
             return Err("File List columns require unique identifiers".into());
         }
-        let label = if column.name.trim().is_empty() {
+        let name = if column.name.trim().is_empty() {
             return Err("Enter a name for every File List column".into());
         } else {
             column.name.trim()
         };
         if column.value.trim().is_empty() {
-            return Err(format!("{label}: enter a value format string"));
+            return Err(format!("{name}: enter a value format string"));
         }
-        CompiledTemplate::compile(&column.value).map_err(|e| format!("{label}: value: {e}"))?;
+        CompiledTemplate::compile(&column.value).map_err(|e| format!("{name}: value: {e}"))?;
         if !column.sort_by.trim().is_empty() {
             CompiledTemplate::compile(&column.sort_by)
-                .map_err(|e| format!("{label}: sort by: {e}"))?;
+                .map_err(|e| format!("{name}: sort by: {e}"))?;
         }
-        editable_field(&column.field).map_err(|e| format!("{label}: {e}"))?;
+        editable_field(&column.field).map_err(|e| format!("{name}: {e}"))?;
         if !(MIN_WIDTH..=MAX_WIDTH).contains(&column.width) {
             return Err(format!(
-                "{label}: width must be between {MIN_WIDTH} and {MAX_WIDTH} pixels"
+                "{name}: width must be between {MIN_WIDTH} and {MAX_WIDTH} pixels"
             ));
         }
     }
@@ -323,6 +323,43 @@ mod tests {
             "%%",
         ] {
             assert!(editable_field(invalid).is_err(), "{invalid}");
+        }
+    }
+
+    #[test]
+    fn validation_reports_the_authored_column_name_in_every_error_branch() {
+        for name in ["Title", "Help", "My  Column"] {
+            let valid = Column {
+                name: name.into(),
+                ..column("custom", "%title%", "%title%")
+            };
+            let mut empty = valid.clone();
+            empty.value.clear();
+            assert_eq!(
+                validate(&layout(vec![empty])).unwrap_err(),
+                format!("{name}: enter a value format string")
+            );
+            let mut value = valid.clone();
+            value.value = "$if(%title%".into();
+            assert!(validate(&layout(vec![value]))
+                .unwrap_err()
+                .starts_with(&format!("{name}: value: ")));
+            let mut sort = valid.clone();
+            sort.sort_by = "$num(".into();
+            assert!(validate(&layout(vec![sort]))
+                .unwrap_err()
+                .starts_with(&format!("{name}: sort by: ")));
+            let mut field = valid.clone();
+            field.field = "%_length%".into();
+            assert!(validate(&layout(vec![field]))
+                .unwrap_err()
+                .starts_with(&format!("{name}: ")));
+            let mut width = valid;
+            width.width = 2;
+            assert_eq!(
+                validate(&layout(vec![width])).unwrap_err(),
+                format!("{name}: width must be between {MIN_WIDTH} and {MAX_WIDTH} pixels")
+            );
         }
     }
 

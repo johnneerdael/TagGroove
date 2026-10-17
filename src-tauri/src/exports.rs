@@ -596,8 +596,9 @@ pub fn save(path: &Path, library: &Library) -> Result<(), String> {
         };
         retire().map_err(|e| {
             format!(
-                "Export library saved, but could not retire {}: {e}",
-                source.display()
+                "Export library saved, but could not retire {path}: {value}",
+                path = source.display(),
+                value = e
             )
         })?;
     }

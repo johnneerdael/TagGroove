@@ -771,6 +771,43 @@ mod tests {
     }
 
     #[test]
+    fn wrapped_destination_errors_reject_copy_and_move_without_changes() {
+        let (_dir, _source, target, files) = fixture();
+        let not_folder = target.join("Help");
+        std::fs::write(&not_folder, b"keep destination").unwrap();
+        let missing = target.join("My  Files").join("absent");
+        for mode in [TransferMode::Copy, TransferMode::Move] {
+            for destination in [&not_folder, &missing] {
+                let result = transfer(&files, destination, mode);
+                assert!(result.copied.is_empty() && result.renamed.is_empty());
+                assert!(result.result.entries.is_empty());
+                assert_eq!(result.result.errors.len(), 1);
+                let frame = &result.result.errors[0];
+                assert_eq!(frame.path, destination.to_string_lossy());
+                if destination == &not_folder {
+                    assert_eq!(frame.error, "The destination is not a folder");
+                } else {
+                    assert!(frame
+                        .error
+                        .starts_with("Cannot open the destination folder: "));
+                }
+                for path in &files {
+                    assert_eq!(
+                        std::fs::read(path).unwrap(),
+                        Path::new(path)
+                            .file_name()
+                            .unwrap()
+                            .to_string_lossy()
+                            .as_bytes()
+                    );
+                }
+                assert_eq!(std::fs::read(&not_folder).unwrap(), b"keep destination");
+                assert!(!missing.exists());
+            }
+        }
+    }
+
+    #[test]
     fn conflicts_reject_the_whole_plan_before_touching_files() {
         let (_dir, source, target, mut files) = fixture();
         std::fs::write(target.join("two.mp3"), b"existing").unwrap();

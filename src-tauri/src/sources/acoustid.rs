@@ -25,7 +25,8 @@ pub fn find_fpcalc(configured: &str) -> Result<PathBuf, String> {
             Ok(path)
         } else {
             Err(format!(
-                "fpcalc was not found at {configured}. Check Options → Tag Sources → Online services."
+                "fpcalc was not found at {path}. Check Options → Tag Sources → Online services.",
+                path = configured
             ))
         };
     }
@@ -80,7 +81,7 @@ pub fn fingerprint(fpcalc: &Path, file: &Path) -> Result<(f64, String), String> 
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::null())
         .spawn()
-        .map_err(|e| format!("fpcalc could not be started: {e}"))?;
+        .map_err(|e| format!("fpcalc could not be started: {value}", value = e))?;
     let mut stdout = child.stdout.take().ok_or("fpcalc has no output")?;
     let reader = std::thread::spawn(move || {
         let mut text = String::new();

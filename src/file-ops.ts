@@ -47,9 +47,9 @@ export function fileShortcut(event:KeyInput,typing:boolean,mac:boolean):'folder'
   if(!event.shiftKey&&(key==='delete'||(mac&&key==='backspace')))return 'file-delete';
 }
 /** A short, bounded list of names for confirmations. */
-export function nameList(names:string[],limit=5){
-  const shown=names.slice(0,limit).join(', ');
-  return names.length>limit?`${shown} and ${names.length-limit} more`:shown;
+export function nameList(items:string[],limit=5){
+  const names=items.slice(0,limit).join(', ');
+  return items.length>limit?`${names} and ${items.length-limit} more`:names;
 }
 export function transferStatus(result:TransferResult,mode:'copy'|'move',destination:string){
   const done=mode==='copy'?result.copied.length:result.renamed.length,verb=mode==='copy'?'Copied':'Moved';
@@ -64,7 +64,7 @@ export function startupChoice(value:unknown):Startup{return value==='previous'||
 export function launchDirectory(request:LaunchRequest){return request.directories[0]??(request.files[0]?parentDirectory(request.files[0]):undefined);}
 
 type Selection={path:string;name:string};
-type LoadOptions={replace:boolean;recursive:boolean;location:string};
+type LoadOptions={replace:boolean;recursive:boolean;location:string;locationIsData?:boolean};
 export type FileOpsHost={
   invoke:<T>(command:string,args?:Record<string,unknown>)=>Promise<T>;
   pickDirectories:(title:string,multiple:boolean)=>Promise<string[]>;
@@ -113,8 +113,9 @@ export class FileOpsUI {
     const paths=[...request.directories,...request.files],directory=launchDirectory(request);
     while(this.host.busy?.())await new Promise(resolve=>setTimeout(resolve,100));
     if(!paths.length||this.host.openReason())return;
-    const location=request.directories.length===1&&!request.files.length?request.directories[0]:!request.directories.length&&request.files.every(file=>parentDirectory(file)===directory)?directory!:`${paths.length} added locations`;
-    await this.open(paths,{replace:!request.add,directories:request.directories,location,working:request.add?undefined:directory});
+    const singleDirectory=request.directories.length===1&&!request.files.length,sharedDirectory=!request.directories.length&&request.files.every(file=>parentDirectory(file)===directory);
+    const location=singleDirectory?request.directories[0]:sharedDirectory?directory!:`${paths.length} added locations`;
+    await this.open(paths,{replace:!request.add,directories:request.directories,location,locationIsData:singleDirectory||sharedDirectory,working:request.add?undefined:directory});
   }
   reason(op:FileOperation|'folder'):string {
     const selected=this.host.selection().length;
@@ -130,7 +131,7 @@ export class FileOpsUI {
   /** Recent and favorite folders for the File menu. */
   menuHTML(){
     const disabled=this.host.openReason()?'disabled':'';
-    const list=(kind:string,label:string,paths:string[])=>paths.length?`<details class="group-submenu file-dir-menu"><summary>${label}</summary><div>${paths.map((path,index)=>`<button data-dir-${kind}="${index}" title="${html(path)}" ${disabled}><span>${html(basename(path))}</span><small>${html(path)}</small></button>`).join('')}</div></details>`:'';
+    const list=(kind:string,label:string,paths:string[])=>paths.length?`<details class="group-submenu file-dir-menu"><summary>${label}</summary><div>${paths.map((path,index)=>`<button data-dir-${kind}="${index}" title="${html(path)}" ${disabled} translate="no"><span>${html(basename(path))}</span><small>${html(path)}</small></button>`).join('')}</div></details>`:'';
     return `${list('recent','Recent directories',this.state.recent)}${list('favorite','Favorite directories',this.state.favorites)}`;
   }
   bindMenu(root:HTMLElement){
@@ -146,7 +147,7 @@ export class FileOpsUI {
     if(op==='folder'||op==='dir-add'){
       const replace=op==='folder';if(replace&&!await this.confirmDiscard())return;
       const picked=await this.host.pickDirectories(replace?'Change directory':'Add directory',!replace);
-      if(picked.length)await this.open(picked,{replace,directories:picked,location:picked.length===1?picked[0]:`${picked.length} added locations`,working:replace?picked[0]:undefined,confirmed:true});
+      if(picked.length)await this.open(picked,{replace,directories:picked,location:picked.length===1?picked[0]:`${picked.length} added locations`,locationIsData:picked.length===1,working:replace?picked[0]:undefined,confirmed:true});
       return;
     }
     if(op==='dir-up'){await this.openDirectory(parentDirectory(this.history.current!)!,{replace:true});return;}
@@ -194,7 +195,7 @@ export class FileOpsUI {
   /** A plain drop on the window replaces the File List with the dropped files, folders and playlists. */
   async replaceWith(paths:string[]){
     if(!paths.length||this.host.openReason())return false;
-    return this.open(paths,{replace:true,directories:[],location:paths.length===1?paths[0]:`${paths.length} dropped locations`});
+    return this.open(paths,{replace:true,directories:[],location:paths.length===1?paths[0]:`${paths.length} dropped locations`,locationIsData:paths.length===1});
   }
   /** Open one folder as the working directory. */
   async openDirectory(path:string,options:{replace:boolean}){
@@ -204,9 +205,9 @@ export class FileOpsUI {
     const pending=this.host.pendingCount();
     return !pending||this.host.confirm(`Change directory and discard pending tag changes in ${plural(pending)}?`,'Unsaved changes');
   }
-  private async open(paths:string[],options:{replace:boolean;directories:string[];location:string;working?:string;confirmed?:boolean}){
+  private async open(paths:string[],options:{replace:boolean;directories:string[];location:string;locationIsData?:boolean;working?:string;confirmed?:boolean}){
     if(options.replace&&!options.confirmed&&!await this.confirmDiscard())return false;
-    const loaded=await this.host.load(paths,{replace:options.replace,recursive:this.host.preferences().subfolders,location:options.location});
+    const loaded=await this.host.load(paths,{replace:options.replace,recursive:this.host.preferences().subfolders,location:options.location,...(options.locationIsData===false?{locationIsData:false}:{})});
     if(!loaded)return false;
     if(options.working)this.history.visit(options.working);
     if(options.directories.length)try{this.state=await this.host.invoke<DirectoryState>('remember_directories',{paths:options.directories});}catch{/* Recent folders are a convenience; loading already succeeded. */}
@@ -224,7 +225,7 @@ export class FileOpsUI {
     const render=()=>{
       current=Math.min(current,Math.max(0,draft.favorites.length-1));
       dialog.innerHTML=`<header>Favorite directories</header><div class="dialog-content">
-      <label class="field"><span>Favorite directories</span><select id="dir-favorites" size="5" aria-label="Favorite directories">${draft.favorites.map((path,index)=>`<option value="${index}" ${index===current?'selected':''}>${index===0?'★ ':''}${html(path)}</option>`).join('')}</select></label>
+      <label class="field"><span>Favorite directories</span><select id="dir-favorites" size="5" aria-label="Favorite directories">${draft.favorites.map((path,index)=>`<option value="${index}" translate="no" ${index===current?'selected':''}>${index===0?'★ ':''}${html(path)}</option>`).join('')}</select></label>
       <p>${draft.favorites.length?'The first favorite opens with File → Favorite directory (Ctrl M) and at startup.':'No favorites yet. Add the current directory or choose a folder.'}</p>
       <div class="group-buttons"><button id="dir-add-current" ${this.history.current&&!draft.favorites.includes(this.history.current)?'':'disabled'}>Add current directory</button><button id="dir-add-folder">Add folder…</button><button id="dir-first" ${current>0?'':'disabled'}>Make first</button><button id="dir-remove" ${draft.favorites.length?'':'disabled'}>Remove</button><button id="dir-open" ${draft.favorites.length&&!this.host.openReason()?'':'disabled'}>Open</button></div>
       <p>Read subfolders and the startup directory are in File → Options → Directories.</p>

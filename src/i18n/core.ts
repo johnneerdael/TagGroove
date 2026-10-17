@@ -23,6 +23,7 @@ const PARTS_ONLY = new Set([
   'Action {name}',
   'Actions ({count} groups)',
   '{value}: {error}',
+  '{id} is already on the panel',
   'Show {label}',
   'Show {itemLabel}',
   // These are persisted duplicate names, not standalone UI sentences.
