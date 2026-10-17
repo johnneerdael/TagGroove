@@ -161,6 +161,55 @@ class WorkflowTrustTests(unittest.TestCase):
             self.assertIn('ref: ${{ inputs.merge_sha }}', block)
             self.assertIn('persist-credentials: false', block)
 
+    def test_native_desktop_jobs_install_their_toolchains_before_building(self):
+        import re
+        for workflow, jobs in [('_reviewed-build.yml', ('desktop', 'native-e2e')), ('reviewed-release.yml', ('desktop',))]:
+            source = (ROOT.parent / 'workflows' / workflow).read_text()
+            for job in jobs:
+                with self.subTest(workflow=workflow, job=job):
+                    block = re.search(rf'^  {job}:\n(.*?)(?=^  [a-z-]+:|\Z)', source, re.M | re.S)[1]
+                    before_build = re.split(r'run: cargo |npx tauri build|run: npm run tauri --', block, maxsplit=1)[0]
+                    self.assertIn("python-version: '3.12'", before_build)
+                    steps = re.split(r'^      - ', before_build, flags=re.M)
+                    def selected(fragment, condition):
+                        matches = [step for step in steps if fragment in step]
+                        self.assertEqual(len(matches), 1, fragment)
+                        self.assertIn(condition, matches[0])
+                        return matches[0]
+                    msvc = selected('uses: ilammy/msvc-dev-cmd@v1', "if: runner.os == 'Windows'")
+                    self.assertIn('arch: x64', msvc)
+                    msys = selected('uses: msys2/setup-msys2@v2', "if: runner.os == 'Windows'")
+                    self.assertIn('install: make', msys)
+                    self.assertIn('id: msys2', msys)
+                    binding = selected('steps.msys2.outputs.msys2-location', "if: runner.os == 'Windows'")
+                    for required in ("'usr/bin/bash.exe'", "'usr/bin/make.exe'", 'OPENTAG_MSYS2=$env:MSYS2_LOCATION', '$env:GITHUB_ENV'):
+                        self.assertIn(required, binding)
+                    windows = selected('choco install ffmpeg nasm', "if: runner.os == 'Windows'")
+                    for required in ('shell: pwsh', '$LASTEXITCODE', "'nasm.exe'", '$env:GITHUB_PATH'):
+                        self.assertIn(required, windows)
+                    linux = selected('apt-get install', "if: runner.os == 'Linux'")
+                    for tool in ('build-essential', 'cmake', 'make', 'nasm'):
+                        self.assertRegex(linux, rf'\b{tool}\b')
+                    macos = selected('brew install', "if: runner.os == 'macOS'")
+                    for tool in ('cmake', 'nasm'):
+                        self.assertRegex(macos, rf'\b{tool}\b')
+
+    def test_mobile_jobs_prepare_python_cmake_and_keep_target_sdks(self):
+        import re
+        for workflow, job in [('_reviewed-build.yml', 'android'), ('reviewed-release.yml', 'android'), ('reviewed-release.yml', 'ios')]:
+            with self.subTest(workflow=workflow, job=job):
+                source = (ROOT.parent / 'workflows' / workflow).read_text()
+                block = re.search(rf'^  {job}:\n(.*?)(?=^  [a-z-]+:|\Z)', source, re.M | re.S)[1]
+                before_build = block.split('run: npm run tauri --')[0]
+                self.assertIn("python-version: '3.12'", before_build)
+                self.assertIn('cmake', before_build)
+                if job == 'android':
+                    for required in ('build-essential', 'make', 'ndk;28.2.13676358', 'NDK_HOME='):
+                        self.assertIn(required, before_build)
+                else:
+                    self.assertIn('xcodegen', before_build)
+                    self.assertIn('targets: aarch64-apple-ios-sim', before_build)
+
     def test_documentation_is_checked_only_after_review_when_present(self):
         import re
         source = (ROOT.parent / 'workflows/_reviewed-build.yml').read_text()
