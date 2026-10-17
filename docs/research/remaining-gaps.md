@@ -38,6 +38,7 @@ Legend: **Impact** H = daily tagging, M = regular, L = rare or legacy. **Size** 
 | File operations | Associated `.lrc` and `.cdg` files | Not renamed or moved with the audio file | L | M |
 | Formats | TAK and OptimFROG | Implemented on a stand-in; only hand-built fixtures, no real-encoder files | L | S |
 | Formats | Nero details | `udta/indx` kept but not shown or edited; covers always written to `covr`; a longer value for a Nero-held field in an MP4 file without chapters reaches only the iTunes tag ([formats-gaps](../verification/formats-gaps.md)) | L | S |
+| Formats | Chapter rows | QuickTime chapter `href` URLs and ID3v2 CHAP artwork are not shown or edited; playlist operations on chapter rows are refused because the original's subsong path format is unknown ([chapter-fields](../verification/chapter-fields.md)) | L | M |
 | Formats | ADTS and ID3 limits | ADTS after junk is found only in `.aac` files, within 64 KiB and after three frames. Compressed or encrypted ID3 frames cannot be kept in an unsynchronised tag or one with an extended header or footer, also for DSF and DSDIFF | L | M |
 | Formats | MP4 cover type and description | Format limit | L | — |
 | Formats | Reference files | No Mp3tag- or WMP-written fixtures | M | M |

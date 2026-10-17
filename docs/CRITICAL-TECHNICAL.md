@@ -52,7 +52,7 @@ The filter RPC evaluates a caller-supplied field map. The frontend now merges op
 | `%_folderpath%` | Measured, conditional where noted | Canonical parent path with one trailing platform separator. |
 | `%_path%` | Measured, conditional where noted | Canonical source path; staging names are refreshed after atomic persistence. |
 | `%_parent_directory%` | Measured, conditional where noted | Canonical source grandparent directory name. |
-| `%_volume%` | Absent from audio technical map | Not yet measured: platform volume label. |
+| `%_volume%` | Measured, conditional where noted | Volume label on macOS, Linux and Windows (`media_info::volume_label`); empty when the platform gives none. |
 | `%_workingdir%` | Caller-owned runtime context | Working folder name, filled by the evaluation context rather than by audio reads. |
 | `%_workingpath%` | Caller-owned runtime context | Working folder path, filled by the evaluation context rather than by audio reads. |
 | `%_file_create_date%` | Measured, conditional where noted | Filesystem birth time, local short date; absent when the filesystem does not supply creation time. |
@@ -97,7 +97,7 @@ All supported formats now use one concrete metadata/properties parse for each su
 
 The current native metadata library still reads embedded picture bytes internally. This work removes repeated parses and serialized picture payloads; it does not claim a zero-allocation or picture-byte-skipping parser. Technical maps contain small measured strings and do not duplicate image bytes. Hashes are not calculated during scans.
 
-The tag names, cover-type labels, mixed-tag precedence, duration rounding, file-size formatting, opaque-frame classification, and codec-name presentation require original-executable differential qualification for exact display parity. The source measurements and absence behavior are covered by generated-audio tests. This is not full technical-placeholder parity: bitrate/compression-profile labels, platform volume labels, runtime clock/working-directory context, playlist context, remain separate obligations.
+The tag names, cover-type labels, mixed-tag precedence, duration rounding, file-size formatting, opaque-frame classification, and codec-name presentation require original-executable differential qualification for exact display parity. The source measurements and absence behavior are covered by generated-audio tests. This is not full technical-placeholder parity: bitrate/compression-profile labels, runtime clock/working-directory context, playlist context, remain separate obligations.
 
 ## Verification
 
