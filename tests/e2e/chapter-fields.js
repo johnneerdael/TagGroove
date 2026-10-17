@@ -30,9 +30,8 @@
   const step = async (name, fn) => { try { const detail = await fn(); results.push(['PASS', name]); await report(`PASS ${name}${detail ? ' — ' + detail : ''}`); } catch (e) { results.push(['FAIL', name]); await report(`FAIL ${name} — ${e && e.message || e}`); } };
   const finish = async () => { await report(`SUMMARY ${results.filter(r => r[0] === 'PASS').length}/${results.length} passed`); await inv('e2e_exit', { code: 0 }); };
   const relaunch = async (file, any) => {
-    const resources = await inv('plugin:path|resolve_directory', { directory: 11 });
-    const binary = /\/Resources\/?$/.test(resources) ? resources.replace(/\/Resources\/?$/, '/MacOS/opentag')
-      : /^Win/.test(navigator.platform) ? resources.replace(/\\?$/, '\\opentag.exe') : resources.replace(/\/?$/, '/opentag');
+    const binary = window.OPENTAG_E2E_BINARY;
+    if (typeof binary !== 'string' || !binary) throw new Error('Native runner did not supply its executable');
     await inv('run_tool', { tool: { name: 'Relaunch', path: binary, parameters: `"/fn:${file}"`, for_each_file: false }, paths: [any], root: null });
   };
   // Type a value into a tag panel field of one row and save with the toolbar.

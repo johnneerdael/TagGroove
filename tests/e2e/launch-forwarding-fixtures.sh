@@ -11,8 +11,7 @@ cp "$album/sine-a.mp3" "$work/Second Instance/forward-c.mp3"
 cp "$album/sine-a.mp3" "$work/Open With/open-d.mp3"
 cp "$album/sine-b.mp3" "$work/Open With/open #e.mp3"
 cp "$album/sine-b.mp3" "$work/Opened Folder/folder-f.mp3"
-root="$(cd "$(dirname "$0")/../.." && pwd)"
-bin="$root/target/debug/opentag"
+bin="${OPENTAG_E2E_BINARY:?Native runner must supply its resolved executable}"
 name="${OPENTAG_E2E_ID:-org.opentag.editor.usertest}.SingleInstance"
 if [[ "$(uname)" == "Linux" && -x "$bin" ]] && command -v dbus-send >/dev/null; then
   (
