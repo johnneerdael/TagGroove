@@ -17,6 +17,12 @@ clipboard's digest, picture type and description contract.
 | Explicit empty cover list | Remove all covers from the new copy | Ignore the removal |
 | Stale clipboard digest | Fail before opening the destination picker | Ignore unapplied draft artwork |
 
+Clipboard Copy, Paste and Cut use the readable retained working copy even
+when the source is read-only or requires recovery. These operations stage
+intent only. The source access policy continues to block **Save tags** and
+immediate cover mutations, and an unreadable working copy is excluded from
+artwork staging.
+
 The native wrapper resolves all requested clipboard image bytes before
 `CREATE_DOCUMENT`. The document engine starts from retained edited bytes or
 the verified original baseline, stages cover and field changes on the new
@@ -59,11 +65,17 @@ remains separate work. MP4 artwork still has no cover type or description.
 - WAV fixtures contain valid PCM data. An independent RIFF chunk walk checks
   unchanged `data` bytes after writes. PNG images are generated from distinct
   RGB values; native cover readback checks their original encoded bytes.
-- `tests/document-coordination.test.mjs` executes the production UI save-copy
-  coordination with a controlled transport boundary. It checks the single
-  combined request and source draft retention for success, cancellation,
-  returned failures and rejected transport calls. This is model-level UI
-  evidence; it does not exercise OS input or a real provider picker.
+- `tests/document-coordination.test.mjs` executes production `operateImpl`,
+  `clipTags`, `stageTagUpdates`, `coverTargets`, `saveCopy`, `enabled` and
+  `sourcePolicy` with the real `documentSelection` and tag-clipboard models.
+  Copy → Paste and Cut → edited/original copy journeys cover both read-only
+  and recovery-required sources. No pending-cover injection or permissive
+  policy stub is used. With the old publication gate in `coverTargets`, all
+  16 copy-only-source staging/retention cases failed because no artwork intent
+  was staged; removing that gate makes them pass. Checks also cover explicit
+  remove-all, artwork-only pastes, unavailable working metadata and blocked
+  source writes. The controlled transport and dialog boundaries still make
+  this model-level UI evidence; it does not exercise OS input or a real picker.
 
 Validation commands and their final results are recorded in the PR. These
 fixtures exercise real metadata and audio files with a substituted SAF

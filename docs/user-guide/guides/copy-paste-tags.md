@@ -84,6 +84,13 @@ backup** uses the last verified source and ignores pending changes. Check the
 saved copy before discarding the source or recovery files; cancelling or
 failing the copy retains the source's pending edits.
 
+For a **Source read-only** or **Recovery required** document, Copy, Paste and
+Cut can still stage cover changes from its readable working copy. Choose
+**Save a copy… → Edited copy** to keep those changes; **Save tags** and
+immediate cover writes remain unavailable. If retained metadata is unreadable,
+clipboard operations leave its artwork alone instead of staging a replacement
+or removal from an unknown cover list.
+
 ## Cut without deleting the audio
 
 **Edit → Cut tags** copies the selected tags, then stages removal of their

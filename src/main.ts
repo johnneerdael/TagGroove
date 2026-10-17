@@ -1667,9 +1667,9 @@ async function replayHistory(kind:'undo'|'redo'){
   });
 }
 const clipTargets=()=>paths().map(path=>({path,fields:merged(entries.get(path)!)}));
-// Files whose covers are known and saved in place: provider documents with unreadable working copies, or
-// that only Save a copy can keep (it writes fields only), are left alone.
-const coverTargets=()=>sourcePolicy().mutationReason?[]:paths().filter(path=>!workingReadErrors.has(path)).map(path=>({path,covers:pendingCovers.get(path)??entries.get(path)!.covers}));
+// Clipboard operations stage edits, including for read-only or recovery sources.
+// Leave artwork alone when the retained working copy cannot be read.
+const coverTargets=()=>paths().filter(path=>!workingReadErrors.has(path)).map(path=>({path,covers:pendingCovers.get(path)??entries.get(path)!.covers}));
 function stageTagUpdates(plan:()=>PasteUpdate[],operation:'Cut tags'|'Paste tags',statusMessage:(count:number)=>string,coverPlan:()=>CoverUpdate[]=()=>[]){
   try{
     const updates=plan(),coverUpdates=coverPlan();
