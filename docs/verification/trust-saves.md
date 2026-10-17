@@ -62,8 +62,13 @@ across the three formats. They must produce detectable differences.
 Audio identity uses encoded media payload bytes, not whole-file equality:
 MPEG excludes leading ID3 and trailing ID3v1/APE, FLAC excludes metadata
 blocks, and ordinary 32-bit MP4 concatenates top-level `mdat` payloads. The
-Python receipt computes SHA-256 over those bytes. Whole-file hashes identify
-paired inputs and exact undo restoration only. This deliberately small
+Python receipt computes SHA-256 over those bytes. Separate whole-file hashes
+identify paired inputs and retained save/undo/redo stages. Every local case
+requires undone bytes to match the original input hash and redone bytes to
+match the saved-stage hash, including operator-supplied corpora. These exact
+local replay checks are additional to the structural comparisons. They do
+not assume that two applications produce identical saved container bytes.
+This deliberately small
 parser does not qualify arbitrary Lyrics3, extended-size/fragmented MP4,
 FLAC with leading ID3, or other specialist layouts. Unsupported layouts
 must be qualified separately; a parse failure is not a passing result.
@@ -113,6 +118,14 @@ dirty diff hash/status, Cargo.lock hash, backend executable hash, compiler
 and platform are retained so a dirty development run cannot be mistaken
 for a released application.
 
+Preparation, execution and comparison must use the same stable source,
+backend executable, dependencies, compiler and platform identities. Capture
+timestamps are excluded from equality checks. Identity drift is rejected
+before the comparison observer runs, and each phase checks again on
+completion. Prepare a fresh pair after changing the repository or build.
+The paired receipt retains the original preparation and local save producer
+identities separately from the comparison consumer identity.
+
 On a usable Windows/original runtime, follow the generated
 `REFERENCE-INSTRUCTIONS.txt`: verify the pinned executable and input hashes,
 capture selected Options defaults, execute each operation on its own copies,
@@ -140,8 +153,12 @@ python3 scripts/save-acceptance.py compare /tmp/taggroove-save-pair --identity /
 The consumer requires every reference stage and matching pinned provenance.
 It independently rereads retained inputs and local/reference outputs,
 compares them against the expected operation and writes structural
-differences to `paired-results.json`. Missing original files, mismatched
-identity, changed baselines, modified local outputs and observed differences
+differences to `paired-results.json`. Before accepting the local stages, it
+checks their recorded whole-file hashes and repeats the exact local
+undo/redo-byte checks. Both sides' stage hashes appear in the paired receipt;
+original-app stages are compared structurally, without inventing an original
+exact-byte undo guarantee. Missing original files, mismatched
+producer identity, changed baselines, modified local outputs and observed differences
 cannot produce a passing comparison. Provenance is operator supplied; the
 tool does not authenticate that a particular application produced a file.
 An agreement is limited to these supplied captures and this reader's view.
@@ -158,6 +175,15 @@ synthetic reference copies. It verifies missing-capture/identity rejection,
 captured-input copying, baseline/receipt tamper detection and real audio
 corruption detection. Those synthetic controls test the harness; they are
 not Mp3tag execution evidence.
+
+Additional controls change a disposable backend binary and initialize a
+different disposable Git repository. Both must fail producer binding before
+comparison. Actual FLAC padding edits and ID3 text-frame reordering leave
+the observer's projection unchanged but must fail the local exact-byte
+undo/redo checks, both during an imported-corpus run and when retained stages
+are changed afterward. The authorized reviewed-build tooling job runs this
+Python suite with the stable Rust toolchain; no automatic workload trigger,
+review authorization boundary or credential exposure was added.
 
 Remaining R01 work includes captured original defaults and paired results,
 an independent metadata decoder/consumer check, real collection expansion,

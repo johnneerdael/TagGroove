@@ -20,6 +20,8 @@ REPO = Path(__file__).resolve().parents[1]
 FORMATS = ("mp3", "flac", "m4a")
 OPERATIONS = ("edit-one", "edit-many")
 REFERENCE_SHA256 = "484794eec4e2b9a649d04eaab63b4cc73127ceb48a9e46075ea488c0e1eac911"
+IDENTITY_FIELDS = ("source_head", "source_diff_sha256", "source_status", "source_files_sha256",
+                   "backend_sha256", "cargo_lock_sha256", "rustc", "platform", "scope")
 
 
 def sha256(data):
@@ -96,7 +98,27 @@ def identity(executable):
     }
 
 
+def require_identity(producer, current, context):
+    changed = [key for key in IDENTITY_FIELDS
+               if key not in producer or key not in current or producer[key] != current[key]]
+    if changed:
+        raise ValueError(f"{context} identity differs: {', '.join(changed)}")
+
+
+def stage_hashes(root, operation, name):
+    return {stage: sha256((root / "taggroove" / operation / stage / name).read_bytes())
+            for stage in ("saved", "undone", "redone")}
+
+
+def replay_byte_errors(input_sha256, hashes):
+    return {
+        "undo_bytes": [] if hashes["undone"] == input_sha256 else ["undone bytes differ from the retained input"],
+        "redo_bytes": [] if hashes["redone"] == hashes["saved"] else ["redone bytes differ from the retained saved stage"],
+    }
+
+
 def prepare(root, executable, corpus=None):
+    producer = identity(executable)
     root.mkdir()  # Never overwrite an existing workspace.
     if corpus is None:
         defaults = invoke(executable, "prepare", root / "inputs")
@@ -121,7 +143,8 @@ def prepare(root, executable, corpus=None):
                 directory = root / app / operation / "input"
                 directory.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(path, directory / name)
-    write_json(root / "contract.json", {"schema": 1, "producer": identity(executable), "input_provenance": provenance, **defaults,
+    require_identity(producer, identity(executable), "Completed preparation producer")
+    write_json(root / "contract.json", {"schema": 1, "producer": producer, "input_provenance": provenance, **defaults,
         "reference": {"version": "Mp3tag 3.36.1 Windows x64", "executable_sha256": REFERENCE_SHA256,
             "runtime_comparison": "not performed", "defaults": "not captured"}, "baseline": baseline,
         "operations": {op: {name: expected(record["snapshot"], op)["fields"] for name, record in baseline.items()} for op in OPERATIONS}})
@@ -154,6 +177,8 @@ def validate_inputs(root, executable, contract):
 
 def run(root, executable):
     contract = json.loads((root / "contract.json").read_text(encoding="utf-8"))
+    producer = identity(executable)
+    require_identity(contract["producer"], producer, "Prepared/run producer")
     validate_inputs(root, executable, contract)
     receipt_path = root / "taggroove-results.json"
     if receipt_path.exists():
@@ -165,16 +190,20 @@ def run(root, executable):
             if sha256(path.read_bytes()) != baseline["input_sha256"]:
                 raise ValueError(f"paired input changed: {path}")
             result = invoke(executable, "exercise", path, operation, path.parent.parent)
-            stages = {stage: normalize(result[stage]) for stage in ("saved", "undone", "redone")}
+            stages = {stage: normalize(invoke(executable, "observe", path.parent.parent / stage / name))
+                      for stage in ("saved", "undone", "redone")}
+            hashes = stage_hashes(root, operation, name)
             wanted = expected(baseline["snapshot"], operation)
             errors = {stage: differences(baseline["snapshot"] if stage == "undone" else wanted, observed) for stage, observed in stages.items()}
+            errors.update(replay_byte_errors(baseline["input_sha256"], hashes))
             for key in ("undo_errors", "redo_errors"):
                 if result[key]:
                     errors[key] = result[key]
             for key in ("invalid_write_rejected", "rejection_unchanged"):
                 if result[key] is not True:
                     errors[key] = ["failed"]
-            cases.append({"operation": operation, "file": name, "expected_saved": wanted, "observed": stages, "errors": errors})
+            cases.append({"operation": operation, "file": name, "expected_saved": wanted, "observed": stages,
+                          "file_sha256": hashes, "errors": errors})
     passed = all(not any(case["errors"].values()) for case in cases)
     policy = invoke(executable, "policy", root / "mpeg-policy")
     policy_passed = all(record["audio_preserved"] and record["undo_exact"] and not record["undo_errors"] for record in policy.values())
@@ -183,13 +212,18 @@ def run(root, executable):
     policy_passed = policy_passed and native == {"mp3gain_undo": 'Text("+001,+001,N")',
         "mp3gain_minmax": 'Text("094,205")', "opaque_companion": "Binary([1, 0, 255, 17])"}
     passed = passed and policy_passed
-    receipt = {"passed": passed, "producer": identity(executable), "reference_comparison": "not performed", "mpeg_policy": policy, "cases": cases}
+    require_identity(producer, identity(executable), "Completed run producer")
+    receipt = {"passed": passed, "producer": producer, "reference_comparison": "not performed", "mpeg_policy": policy, "cases": cases}
     write_json(receipt_path, receipt)
     return {"passed": passed, "cases": len(cases), "receipt": str(receipt_path), "reference_comparison": "not performed"}
 
 
 def compare(root, executable, identity_path):
     contract = json.loads((root / "contract.json").read_text(encoding="utf-8"))
+    local = json.loads((root / "taggroove-results.json").read_text(encoding="utf-8"))
+    consumer = identity(executable)
+    require_identity(contract["producer"], local["producer"], "Prepared/local capture producer")
+    require_identity(local["producer"], consumer, "Local producer/current comparison")
     validate_inputs(root, executable, contract)
     reference = json.loads(identity_path.read_text(encoding="utf-8"))
     for key in ("application", "version", "executable_sha256", "platform", "runtime", "recorded_at_utc", "defaults", "evidence", "input_sha256"):
@@ -199,14 +233,23 @@ def compare(root, executable, identity_path):
         raise ValueError("reference identity does not match the pinned original")
     if not isinstance(reference["defaults"], dict) or not isinstance(reference["evidence"], list):
         raise ValueError("defaults must be an object and evidence a nonempty array")
-    local = json.loads((root / "taggroove-results.json").read_text(encoding="utf-8"))
     if local["passed"] is not True:
         raise ValueError("local preservation checks failed")
+    local_cases = {(case["operation"], case["file"]): case for case in local["cases"]}
+    wanted_cases = {(operation, name) for operation in OPERATIONS for name in contract["baseline"]}
+    if local_cases.keys() != wanted_cases or len(local["cases"]) != len(wanted_cases):
+        raise ValueError("local receipt does not contain exactly the captured cases")
     cases = []
     for operation in OPERATIONS:
         for name in contract["baseline"]:
             if reference["input_sha256"].get(name) != contract["baseline"][name]["input_sha256"]:
                 raise ValueError(f"unverified reference input: {name}")
+            hashes = stage_hashes(root, operation, name)
+            byte_errors = replay_byte_errors(contract["baseline"][name]["input_sha256"], hashes)
+            if any(byte_errors.values()):
+                raise ValueError(f"retained local replay bytes failed preservation: {operation}/{name}: {byte_errors}")
+            if hashes != local_cases[operation, name].get("file_sha256"):
+                raise ValueError(f"retained local capture bytes changed since the producer run: {operation}/{name}")
             for stage in ("saved", "undone", "redone"):
                 path = root / "reference" / operation / stage / name
                 if not path.is_file():
@@ -218,10 +261,13 @@ def compare(root, executable, identity_path):
                     raise ValueError(f"retained local output failed preservation: {local_path}")
                 observed = normalize(invoke(executable, "observe", path))
                 cases.append({"file": name, "operation": operation, "stage": stage,
+                    "local_file_sha256": hashes[stage],
                     "reference_file_sha256": sha256(path.read_bytes()), "observed_reference": observed,
                     "differences_from_taggroove": differences(local_observed, observed)})
     passed = all(not c["differences_from_taggroove"] for c in cases)
-    receipt = {"passed": passed, "consumer": identity(executable), "reference": reference,
+    require_identity(consumer, identity(executable), "Completed comparison")
+    receipt = {"passed": passed, "producer": local["producer"], "prepared_by": contract["producer"],
+        "consumer": consumer, "reference": reference,
         "scope": "operator-supplied saved/undo/redo files; decoded through the same TagGroove reader; no complete parity certification", "cases": cases}
     write_json(root / "paired-results.json", receipt)
     return {"passed": passed, "cases": len(cases), "receipt": str(root / "paired-results.json")}
