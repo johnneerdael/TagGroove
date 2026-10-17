@@ -7,6 +7,13 @@ import ts from 'typescript';
 // Avoid importing main.ts's platform bootstrap or replacing its draft/save/refresh logic.
 const main=await readFile(new URL('../src/main.ts',import.meta.url),'utf8');
 const helper=await readFile(new URL('../src/document-state.ts',import.meta.url),'utf8');
+const moduleURL=async(file,replacements={})=>{
+  let js=ts.transpileModule(await readFile(new URL(`../src/${file}`,import.meta.url),'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
+  for(const [from,to] of Object.entries(replacements))js=js.replace(from,JSON.stringify(to));
+  return `data:text/javascript;base64,${Buffer.from(js).toString('base64')}`;
+};
+const coreURL=await moduleURL('i18n/core.ts'),converterURL=await moduleURL('converter-errors.ts',{"'./i18n/core'":coreURL});
+const batchURL=await moduleURL('batch-errors.ts',{"'./i18n/core'":coreURL,"'./converter-errors'":converterURL});
 // The cover window markup comes from the real cover modules (without their stylesheet).
 // Chapter rows (chapters.ts) supply the list splicing that accept() uses.
 const coverModules=(await Promise.all(['cover-model','covers','chapters'].map(name=>readFile(new URL(`../src/${name}.ts`,import.meta.url),'utf8')))).map(source=>source.replace(/^import .*$/gm,'').replace(/\bexport /g,'')).join('\n');
@@ -14,7 +21,8 @@ const parsed=ts.createSourceFile('main.ts',main,ts.ScriptTarget.Latest,true,ts.S
 const names=new Set(['updateDraft','run','refreshHistory','saveDrafts','saveCopy','value','accept','operateImpl','refreshSourceAccess','providerEntry','copyBaseUnknown','editedCopyFields','discardDrafts','mutate','reconcileWorkingEntries','storeEntry','invalidateCovers','cacheCovers','coversFor','pendingCoverInfos','hydrateActiveCover','coverMarkup','sourceMarkup','workingMetadataNotice','flushNotices','spliceRows']);
 const mergedDeclaration=parsed.statements.filter(ts.isVariableStatement).flatMap(statement=>statement.declarationList.declarations).find(declaration=>declaration.name.getText(parsed)==='merged');
 const functions=parsed.statements.filter(node=>ts.isFunctionDeclaration(node)&&names.has(node.name?.text)).map(node=>node.getText(parsed)).join('\n');
-const factory=`${helper.replace(/\bexport /g,'')}
+const factory=`import {BatchFailure} from ${JSON.stringify(batchURL)};
+${helper.replace(/\bexport /g,'')}
 ${coverModules}
 export function createWorkspace(initial, options={}) {
   const path='retained.wav', original=structuredClone(initial);

@@ -210,7 +210,7 @@ OK: all 8 Utils items (Remove tag types, Remove unsupported fields, Optimize FLA
 | Files → replace folder separator | Configurable | **Partial**: fixed `_` | M | S | options/files |
 | Directories → cover art directory | Default folder for Add cover | **Missing** | L | S | options/directories |
 | Library (enable, include directories, cleanup) | Metadata database for large collections | **Missing**; no recorded decision to exclude | M | L | options/library |
-| Language | UI translations | **Missing**; needs an OpenTag translation layer (Mp3tag's language files are proprietary) | M | L | options/language |
+| Language | UI translations | **Implemented; qualification partial**: independent English, Dutch and German catalogs, live Options → Language, system-language fallback and JSON catalogs for added locales/overrides ([evidence](../verification/i18n.md)). User data stays verbatim. Additional bundled languages, final-head native/screen-reader qualification and original differential proof remain open; OS-owned text and backend messages added after the catalog snapshot can stay English. Mp3tag's proprietary language files are not used | M | — | options/language |
 | General → tray icon, minimize to tray | Notification area | **Missing**; Windows-centric, a product decision | L | S–M | options/general |
 | Field Values in Extended Tags | Auto-complete there too | **Partial**: File List and Tag Panel only | L | S | options/field-values |
 | File List: random sort (icon column), auto-size, manual reorder, Mp3tag column file import | — | **Missing / partial**: OpenTag JSON import/export only (`src/columns.ts:257`) | M | S–M | customization/file-list |
@@ -263,7 +263,7 @@ The mapping registry matches all 118 rows of the mapping table (92 common, 24 MP
 | Windows Explorer shell extension, context menu, Ctrl-drag from Explorer | Windows shell integration; OpenTag uses the CLI forms and single-instance forwarding |
 | Help → Donation, Mp3tag website/forum targets | Belong to the original vendor; OpenTag links its own repository and issues |
 | Bundled Mp3tag `.src`/`.inc` scripts and the web-sources download service | Proprietary content. The interpreter itself is optional work (see Tag sources) |
-| Mp3tag language files and Appearance → Symbols icon set | Proprietary assets; a translation layer of OpenTag's own is a separate product decision |
+| Mp3tag language files and Appearance → Symbols icon set | Proprietary assets remain excluded. OpenTag now implements its own independent JSON translation layer; this does not import or reproduce the vendor language assets |
 | Audio-CD lookup for freedb | Optical-drive I/O per platform; gnudb artist/album and artwork search is now implemented through its source API |
 | Discogs OAuth with an embedded consumer secret | An open-source app cannot keep the secret; personal tokens are the supported path |
 | ANSI `.m3u` on macOS/Linux | No system ANSI code page; UTF-8 is written (the export fallback above is a separate gap) |
@@ -335,3 +335,14 @@ one successful actual native HTTPS query and a separate local-fixture workflow,
 not blanket live-service or artwork validation. Additional source providers and
 their limitations are recorded in [sources-4](../verification/sources-4.md).
 Language/translations remain outside this feature-only source; PR17 stays separate.
+
+## Language implementation follow-up (2026-10-16)
+
+This follow-up supersedes the historical Language/translations entries in the audit runners-up and the batch 5–7 still-open lists. It does not change the other recorded gaps or certify parity.
+
+Options → Language now applies independent English, Dutch and German catalogs immediately. System default resolves available regional/base locales, and the configuration folder's JSON catalogs can add languages or replace bundled translations. Native dialog messages, titles and buttons, the window title and tray labels use the selected language. Filenames, paths, metadata, configured names, generated previews and web-source settings tokens retain their original values. See [implementation and verification](../verification/i18n.md).
+
+Local source/DOM/native-wrapper tests cover catalog completeness, custom-catalog reload and template copying, live language switching, data boundaries, structured confirmation layout and source-settings save/reopen. They do not prove native screen-reader behavior, visual layout on every platform, original Mp3tag equivalence or a completed final-head platform run. Reviewed native/platform CI remains required after clean exact-head Codex code review. Operating-system-owned text, parser/library error fragments and backend messages added after the translation snapshot may remain English; additional bundled languages remain future coverage.
+
+This local combined candidate now includes the PR17 Language implementation;
+the earlier feature-only note describes its historical preparation baseline.

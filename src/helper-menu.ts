@@ -17,6 +17,8 @@ export type HelperStorage={getItem(key:string):string|null;setItem(key:string,va
 /** `favorite` entries (ticked in Manage List) are offered in the ► menu. */
 export type HistoryEntry={value:string;name?:string;description?:string;favorite?:boolean};
 export type HelperHost={
+  /** Translate new popup content before reading layout dimensions. */
+  translateNow?:(root:HTMLElement)=>void;
   fieldNames:()=>string[];
   panelFields:()=>string[];
   confirm:(message:string)=>Promise<boolean>;
@@ -229,7 +231,7 @@ export function installHelperMenus(host:HelperHost,root:HTMLElement=document.bod
     let list=document.getElementById(id) as HTMLDataListElement|null;
     if(!list){list=document.createElement('datalist');list.id=id;control.after(list);control.setAttribute('list',id);}
     const options:HistoryEntry[]=kind==='field'?[...new Set(known(control).map(upper))].filter(validField).sort().map(value=>({value})):control.dataset.history?history.list(control.dataset.history):[];
-    list.innerHTML=options.map(entry=>`<option value="${esc(entry.value)}"${entry.name?` label="${esc(entry.name)}"`:''}></option>`).join('');
+    list.innerHTML=options.map(entry=>`<option value="${esc(entry.value)}"${entry.name?` label="${esc(entry.name)}"`:''} translate="no"></option>`).join('');
   };
   const insert=(control:Control,text:string)=>{
     const start=control.selectionStart??control.value.length,end=control.selectionEnd??start,next=insertion(control.value,start,end,text);
@@ -277,7 +279,7 @@ export function installHelperMenus(host:HelperHost,root:HTMLElement=document.bod
       });
     };
     const draw=()=>{
-      content.innerHTML=`<p>Saved format strings appear in the drop-down list of this field. Give an entry a name to find it again. Ticked entries are favorites, offered in the ► menu.</p><ul class="history-list" role="listbox" aria-label="History">${entries.map((entry,i)=>`<li role="option" tabindex="0" data-index="${i}" aria-selected="${i===current}" class="${i===current?'current':''}"><input type="checkbox" data-favorite="${i}" aria-label="Favorite: ${esc(entry.name||entry.value)}" title="Favorite" ${entry.favorite?'checked':''}><span class="history-text"><strong>${esc(entry.name||entry.value)}</strong>${entry.name?`<code>${esc(entry.value)}</code>`:''}${entry.description?`<small>${esc(entry.description)}</small>`:''}</span></li>`).join('')||'<li class="group-empty">No saved format strings.</li>'}</ul><div class="group-buttons"><button data-add>Add…</button><button data-duplicate ${current>=0?'':'disabled'}>Duplicate…</button><button data-edit ${current>=0?'':'disabled'}>Edit…</button><button data-remove ${current>=0?'':'disabled'}>Remove</button><button data-up ${current>0?'':'disabled'}>↑ Move up</button><button data-down ${current>=0&&current<entries.length-1?'':'disabled'}>↓ Move down</button></div>`;
+      content.innerHTML=`<p>Saved format strings appear in the drop-down list of this field. Give an entry a name to find it again. Ticked entries are favorites, offered in the ► menu.</p><ul class="history-list" role="listbox" aria-label="History">${entries.map((entry,i)=>`<li role="option" tabindex="0" data-index="${i}" aria-selected="${i===current}" class="${i===current?'current':''}"><input type="checkbox" data-favorite="${i}" aria-label="Favorite: ${esc(entry.name||entry.value)}" title="Favorite" ${entry.favorite?'checked':''}><span class="history-text" translate="no"><strong>${esc(entry.name||entry.value)}</strong>${entry.name?`<code>${esc(entry.value)}</code>`:''}${entry.description?`<small>${esc(entry.description)}</small>`:''}</span></li>`).join('')||'<li class="group-empty">No saved format strings.</li>'}</ul><div class="group-buttons"><button data-add>Add…</button><button data-duplicate ${current>=0?'':'disabled'}>Duplicate…</button><button data-edit ${current>=0?'':'disabled'}>Edit…</button><button data-remove ${current>=0?'':'disabled'}>Remove</button><button data-up ${current>0?'':'disabled'}>↑ Move up</button><button data-down ${current>=0&&current<entries.length-1?'':'disabled'}>↓ Move down</button></div>`;
       use.disabled=current<0;
       content.querySelectorAll<HTMLElement>('[data-index]').forEach(item=>{const index=Number(item.dataset.index);item.addEventListener('click',()=>{current=index;draw();content.querySelector<HTMLElement>(`[data-index="${index}"]`)?.focus();});item.addEventListener('dblclick',()=>{current=index;use.click();});item.addEventListener('keydown',event=>{if(event.key==='ArrowDown'||event.key==='ArrowUp'){event.preventDefault();current=Math.max(0,Math.min(entries.length-1,index+(event.key==='ArrowDown'?1:-1)));draw();content.querySelector<HTMLElement>(`[data-index="${current}"]`)?.focus();}if(event.key==='Enter'){event.preventDefault();use.click();}if(event.key==='F2'){event.preventDefault();edit(index);}});});
       content.querySelectorAll<HTMLInputElement>('[data-favorite]').forEach(box=>{
@@ -303,12 +305,12 @@ export function installHelperMenus(host:HelperHost,root:HTMLElement=document.bod
     const build=(items:HelperEntry[],parent:HTMLElement)=>items.forEach(item=>{
       if(item.separator){parent.append(Object.assign(document.createElement('hr'),{role:'separator'}));return;}
       if(item.heading){const heading=document.createElement('div');heading.className='helper-heading';heading.setAttribute('role','presentation');heading.textContent=item.label;parent.append(heading);return;}
-      const element=document.createElement('button');element.type='button';element.textContent=item.label;element.disabled=!!item.disabled;
+      const element=document.createElement('button');element.type='button';element.textContent=item.label;element.disabled=!!item.disabled;if(item.command?.startsWith('set:'))element.setAttribute('translate','no');
       element.setAttribute('role',item.checked===undefined?'menuitem':'menuitemcheckbox');if(item.checked!==undefined)element.setAttribute('aria-checked',String(item.checked));
       if(item.submenu){
         const group=document.createElement('div');group.className='helper-group';element.className='helper-parent';element.setAttribute('aria-haspopup','menu');element.setAttribute('aria-expanded','false');
         const sub=document.createElement('div');sub.className='helper-submenu';sub.setAttribute('role','menu');sub.setAttribute('aria-label',item.label);sub.hidden=true;build(item.submenu,sub);
-        const toggle=(value:boolean)=>{menu.querySelectorAll<HTMLElement>(':scope .helper-group').forEach(other=>{if(other!==group&&!other.contains(group)&&value){const s=other.querySelector<HTMLElement>(':scope>.helper-submenu')!;s.hidden=true;other.querySelector(':scope>button')!.setAttribute('aria-expanded','false');}});sub.hidden=!value;element.setAttribute('aria-expanded',String(value));if(value&&!menu.classList.contains('helper-sheet')){sub.classList.remove('open-left');sub.style.top='';const box=sub.getBoundingClientRect(),top=group.getBoundingClientRect().top;if(box.right>window.innerWidth)sub.classList.add('open-left');if(box.bottom>window.innerHeight-4)sub.style.top=`${Math.max(4-top,window.innerHeight-4-box.bottom)}px`;}};
+        const toggle=(value:boolean)=>{menu.querySelectorAll<HTMLElement>(':scope .helper-group').forEach(other=>{if(other!==group&&!other.contains(group)&&value){const s=other.querySelector<HTMLElement>(':scope>.helper-submenu')!;s.hidden=true;other.querySelector(':scope>button')!.setAttribute('aria-expanded','false');}});sub.hidden=!value;element.setAttribute('aria-expanded',String(value));if(value&&!menu.classList.contains('helper-sheet')){host.translateNow?.(sub);sub.classList.remove('open-left');sub.style.top='';const box=sub.getBoundingClientRect(),top=group.getBoundingClientRect().top;if(box.right>window.innerWidth)sub.classList.add('open-left');if(box.bottom>window.innerHeight-4)sub.style.top=`${Math.max(4-top,window.innerHeight-4-box.bottom)}px`;}};
         element.addEventListener('click',()=>toggle(sub.hidden));
         element.addEventListener('keydown',event=>{if(event.key==='ArrowRight'){event.preventDefault();toggle(true);sub.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus();}});
         sub.addEventListener('keydown',event=>{if(event.key==='ArrowLeft'){event.preventDefault();event.stopPropagation();toggle(false);element.focus();}});
@@ -319,7 +321,7 @@ export function installHelperMenus(host:HelperHost,root:HTMLElement=document.bod
       parent.append(element);
     });
     build(entries,menu);
-    (control.closest('dialog')||document.body).append(menu);
+    (control.closest('dialog')||document.body).append(menu);host.translateNow?.(menu);
     const rect=button.getBoundingClientRect(),narrow=window.innerWidth<=700;
     if(narrow){menu.classList.add('helper-sheet');}
     else{menu.style.top=`${Math.min(rect.bottom+2,window.innerHeight-Math.min(menu.offsetHeight,window.innerHeight-8)-4)}px`;menu.style.left=`${Math.max(4,Math.min(rect.right-menu.offsetWidth,window.innerWidth-menu.offsetWidth-4))}px`;}

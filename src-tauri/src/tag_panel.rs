@@ -376,6 +376,36 @@ mod tests {
     }
 
     #[test]
+    fn validation_reports_the_exact_invalid_field_identifier() {
+        for (id, expected) in [
+            (
+                "ARTIST ",
+                "Field \"ARTIST \" must be a trimmed uppercase field name",
+            ),
+            (
+                " TITLE",
+                "Field \" TITLE\" must be a trimmed uppercase field name",
+            ),
+            ("ARTIST=", "Field \"ARTIST=\" contains an invalid character"),
+            ("TITLE%", "Field \"TITLE%\" contains an invalid character"),
+            (
+                "_LENGTH",
+                "_LENGTH: technical fields cannot be edited in the tag panel",
+            ),
+        ] {
+            let mut settings = Settings::default();
+            settings.panel.fields[0].field = id.into();
+            assert_eq!(validate(&settings).unwrap_err(), expected);
+            let mut settings = Settings::default();
+            settings
+                .field_values
+                .lists
+                .insert(id.into(), vec!["Value".into()]);
+            assert_eq!(validate(&settings).unwrap_err(), expected);
+        }
+    }
+
+    #[test]
     fn validation_rejects_duplicates_technical_fields_and_bad_lists() {
         let mut settings = Settings::default();
         settings

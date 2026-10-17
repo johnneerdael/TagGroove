@@ -3,6 +3,9 @@ import { invoke as coreInvoke, isTauri, type InvokeArgs } from '@tauri-apps/api/
 import { buildFilterFields } from './filter-fields';
 import { documentSelection, refreshDocumentAccess, copyRequest, copyOutcome, reconcileDrafts, sourcePresentation, publicDocumentMessage, type DocumentAccess, type DocumentState } from './document-state';
 import { converterValidator, createConverterInputTracker, createConverterReview, type FilenameConversionRequest, type TextImportRequest, type FilenameConversionItem, type TextImportItem, type ConverterPreview } from './converter-review';
+import { converterRollbackError, converterRollbackText, type ConverterRollback } from './converter-errors';
+import { normalizeBatchDiagnostics,fileErrorText,showFileError,clearFileError,BatchFailure,type PresentedFileError } from './batch-errors';
+import {ColumnImportStatus,mtaImportFailure,importFailure,skippedLines} from './import-diagnostics';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getVersion } from '@tauri-apps/api/app';
@@ -11,30 +14,32 @@ import { installMenubar } from './menubar';
 import { ExportUI, offerOpenOutputs, type ExportLibrary, type ExportConfiguration } from './export-ui';
 import { OptionsUI, registerOptionsPage, naturalCollator, setNotificationAreaSupport, windowTitle, type Settings, type SettingsResponse } from './options-ui';
 import { createNumberingReview, numberingCounter, numberingTotal, recallNumbering, rememberNumbering, type NumberingRequest, type NumberingUpdate } from './numbering-review';
-import { open, save, ask, message } from '@tauri-apps/plugin-dialog';
+import { open, save, ask, message } from './i18n/dialog';
+import { ENGLISH, setUserCatalogs, installTranslation, setLanguage, t, translate, translateNow, onLanguageChange, languageChoice } from './i18n';
+import { languageOptionsPage, languageSetting, languageReadWarnings, languageWarningText, type CatalogReadError } from './language-options';
 import { Messages, messagesOptionsPage, coverChoice, type MessageKey } from './messages';
-import { appearanceOptions, completeInput, generalOptions, insideFolders, networkingOptionsPage, releaseNotesUrl, showReleaseNotes, updateMessage, updateOptions, updatesOptionsPage, type UpdateCheck } from './general-options';
+import { appearanceOptions, notificationAreaKey, completeInput, generalOptions, insideFolders, networkingOptionsPage, releaseNotesUrl, showReleaseNotes, updateMessage, updateOptions, updatesOptionsPage, type UpdateCheck } from './general-options';
 import { ToolsUI, toolsOptionsPage, toolShortcut, type Tool } from './tools';
 import { mappingOptionsPage } from './field-mapping';
-import { removeTagPrompt, removeTagShortcut } from './remove-tag';
+import { removeTagParts, removeTagShortcut } from './remove-tag';
 import { RowContextMenu, type ContextItem } from './row-context-menu';
 import { removeTagTypesDialog, mp4ChapterFiles, stripChaptersPrompt, copyAsTextDialog, redoOrRepeat, menuShortcuts, EXTRA_SHORTCUTS, shortcutsDialog, CONFIGURATION_FILTER, configurationFileName, UTILS, utilMessage, utilTargets, type RemovableTag, type Util } from './utils-ui';
 import { ExtendedTags } from './extended-tags';
 import { isMacPlatform, isTextEntry, altChord, nextPane, windowShortcut, type Pane, type WindowShortcut } from './keyboard';
 import { WebSourcesUI, menuLabel } from './web-sources';
-import { TagSourcesUI, tagSourcesOptionsPages, type IndexStatus } from './tag-sources';
+import { TagSourcesUI, webScriptErrorText, tagSourcesOptionsPages, type IndexStatus } from './tag-sources';
 import { ActionUI, panelKey, rebaseCaseOnly, resolvePathChanges, type ActionGroup, type ActionLibrary, type ImportedGroup } from './action-ui';
-import { ColumnUI, ColumnValueCache, columnFields, defaultLayout, editKey, headerMarkup, maxColumnWidth, minColumnWidth, normalizeLayout, quickValue, sortClick, sortIndicator, sortRows, sortTemplate, updateSortHeader, visibleColumns, type ColumnLayout } from './columns';
+import { ColumnUI, ColumnValueCache, columnFields, columnName, setColumnNameTranslation, defaultLayout, editKey, headerMarkup, maxColumnWidth, minColumnWidth, normalizeLayout, quickValue, sortClick, sortIndicator, sortRows, sortTemplate, updateSortHeader, visibleColumns, type ColumnLayout } from './columns';
 import { FilterSync, filterCacheMiss } from './filter-sync';
 import { CellEditor, adjacentCell, slowEditStillWanted, type CellTarget } from './cell-editor';
-import { invertSelection, listShortcut, listSummary, nextFile, nextSimilarFiles, similarFiles } from './list-commands';
+import { invertSelection, listShortcut, listSummary, technicalSummary, nextFile, nextSimilarFiles, similarFiles } from './list-commands';
 import { FindUI } from './find';
 import { TagPanel, automaticDefaults, splitValues, type Mp3tagPanelImport, type PanelLayout, type TagPanelSettings } from './tag-panel';
 import { DOCKS, FILTER_DOCKS, PANEL_HEIGHT, PANEL_WIDTH, dropTarget, fitFloat, horizontalDock, normalizeMainLayout, panelColumns, resized, toggledDock, withDock, type DockSide, type FilterDock, type MainLayout } from './panel-dock';
 import { editShortcut, emptyHistory, historyLabel, type HistoryState } from './edit-history';
 import { clipboardText, copiedMessage, copyTags, cutCoverPlan, cutPlan, pasteCoverPlan, pastePlan, pendingDigests, type ClipCover, type CoverUpdate, type PasteUpdate, type PendingCover, type TagClipboard } from './tag-clipboard';
 import { AUTO_SIZE_ROWS, autoSaveTargets, autoSizeShortcut, bindRowDrag, dropAdds, dropSelection, fitWidth, folderImageFolder, mergeOrder, moveSelection, reorderKey, shuffleOrder, tagsPagePrefs, textWidths, type ReorderMove } from './list-behaviour';
-import { ACTION_PREFIX, TOOLBAR_COMMANDS, TOOL_PREFIX, customizeToolbar, isSeparator, isSpacer, itemHint, itemLabel, normalizeCustomToolbar, normalizeToolbar, visibleItems, type ToolbarChoice, type ToolbarConfig } from './toolbar';
+import { ACTION_PREFIX, TOOLBAR_COMMANDS, TOOL_PREFIX, customizeToolbar, isSeparator, isSpacer, itemHint, itemLabel, userLabel, normalizeCustomToolbar, normalizeToolbar, visibleItems, type ToolbarChoice, type ToolbarConfig } from './toolbar';
 import './keyboard-ui.css';
 import { openTagToTag } from './tag-tag-ui';
 import { ConfigListStorage, installHelperMenus } from './helper-menu';
@@ -74,15 +79,18 @@ const perfSink=()=>(window as Window&{__OPENTAG_TIMINGS__?:PerfRecord[]}).__OPEN
 // Native UI suites (tests/e2e) create this object to answer the cover image file dialog, which cannot be driven headless; normal runs never do.
 type DialogSeam={requests:{title:string;defaultPath?:string}[];answers:(string|null)[]};
 const dialogSeam=()=>(window as Window&{__OPENTAG_E2E_DIALOGS__?:DialogSeam}).__OPENTAG_E2E_DIALOGS__;
+const DIAGNOSTIC_COMMANDS=new Set(['execute_action_groups','apply_action','undo_last','redo_last','rename_files','read_playlist','tag_source_apply','convert_tag_to_tag']);
 function invoke<T>(command:string,args?:InvokeArgs):Promise<T>{
-  const sink=perfSink();if(!sink)return coreInvoke<T>(command,args);
+  const normalized=(result:T)=>normalizeBatchDiagnostics(result,DIAGNOSTIC_COMMANDS.has(command));
+  const sink=perfSink();if(!sink)return coreInvoke<T>(command,args).then(normalized);
   const record:PerfRecord={name:`ipc ${command}`,at:performance.now(),ms:0,pending:true,in:JSON.stringify(args??{}).length};sink.push(record);
-  return coreInvoke<T>(command,args).then(result=>{record.out=JSON.stringify(result??null)?.length??0;return result;}).finally(()=>{record.ms=performance.now()-record.at;record.pending=false;});
+  return coreInvoke<T>(command,args).then(result=>{record.out=JSON.stringify(result??null)?.length??0;return normalized(result);}).finally(()=>{record.ms=performance.now()-record.at;record.pending=false;});
 }
 type Fields = Record<string, string[]>;
 type Cover = CoverInfo;
 type Entry = { path: string; filename: string; format: string; duration: number; bitrate: number; sample_rate: number; channels: number; size: number; fields: Fields; technical?: Fields; covers: Cover[] };
-type FileError = { path: string; error: string };
+/** UI-owned labels are explicit; unmarked backend and directory paths remain data. */
+type FileError = PresentedFileError & { label?: string };
 type Batch = { entries: Entry[]; errors: FileError[]; renamed?: { from: string; to: string }[]; moved_directories?: {from:string;to:string}[]; outputs?: string[]; unmatched?: string[] };
 type Preview = { path: string; value: string };
 type RenamePreview = Preview & {plan_token:string};
@@ -129,6 +137,9 @@ function applyAppearance(state:AppearanceState){
   syncNativeAppearance();
 }
 applyAppearance(appearance.state);
+// Options → Language: what is shown follows the UI language from the first paint.
+installTranslation(document.body);
+setColumnNameTranslation(name=>translate(name));
 
 let appVersion='development';
 // Main window layout: where the tag panel is docked, its sizes and the filter's place.
@@ -136,6 +147,8 @@ let appVersion='development';
 const LAYOUT_KEY='opentag.main-layout';
 let mainLayout:MainLayout=(()=>{try{return normalizeMainLayout(JSON.parse(localStorage.getItem(LAYOUT_KEY)||'null'),Number(localStorage.getItem('opentag.panel-width'))||undefined);}catch{return normalizeMainLayout(undefined);}})();
 let layoutSaveTimer=0;
+/** The layout this window last saved, so its own save is not applied back over a newer change. */
+let ownLayoutSave='';
 const viewport=()=>({width:window.innerWidth,height:window.innerHeight});
 function applyLayoutVars(){
   const style=document.documentElement.style,float=fitFloat(mainLayout.float,viewport());
@@ -147,11 +160,15 @@ function updateLayout(next:MainLayout,rerender=false){
   mainLayout=next;applyLayoutVars();
   try{localStorage.setItem(LAYOUT_KEY,JSON.stringify(next));}catch{/* Kept for this session only. */}
   window.clearTimeout(layoutSaveTimer);
-  if(desktop)layoutSaveTimer=window.setTimeout(()=>void optionsUI.updatePage('layout',mainLayout).catch(error=>{errors=[{path:'Layout',error:String(error)}];render();}),400);
+  if(desktop)layoutSaveTimer=window.setTimeout(()=>{const saving=mainLayout;ownLayoutSave=JSON.stringify(normalizeMainLayout(saving));void optionsUI.updatePage('layout',saving).catch(error=>{errors=[{path:'Layout',label:'Layout',error:String(error)}];render();});},400);
   if(rerender)render();
 }
 applyLayoutVars();
 const app = document.querySelector<HTMLDivElement>('#app')!;
+// Keep layout/DOM initialization available while native catalogs and settings load.
+app.style.visibility = desktop ? 'hidden' : '';
+app.inert = desktop;
+document.addEventListener('keydown',event=>{if(app.inert){event.preventDefault();event.stopImmediatePropagation();}},true);
 const entries = new Map<string, Entry>();
 const drafts = new Map<string, Fields>();
 // Covers pasted with Paste/Cut tags, written by the next save. A file with pending covers always has a (possibly empty) draft.
@@ -164,7 +181,7 @@ const copyOverrides = new Map<string, Fields>();
 const workingReadErrors = new Map<string, string>();
 const selected = new Set<string>();
 let columnLayout:ColumnLayout=defaultLayout(),listRoots:string[]=[],slowEditTimer=0;
-let filter = '', anchor: string | undefined, busy = false, status = 'Ready', errors: FileError[] = [], location = 'No folder loaded', coverIndex = 0;
+let filter = '', anchor: string | undefined, busy = false, status: string|ColumnImportStatus = 'Ready', errors: FileError[] = [], location = 'No folder loaded', locationIsData = false, coverIndex = 0;
 const esc = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 const basename = (path: string) => path.split(/[\\/]/).pop() || path;
 const paths = () => ordered().filter(entry=>selected.has(entry.path)).map(entry=>entry.path);
@@ -204,10 +221,12 @@ try{filterShown=localStorage.getItem('opentag.filter-shown')!=='false';}catch{/*
 let toolbarConfig:ToolbarConfig=normalizeToolbar(undefined);
 // View → Toolbars → Custom toolbar: commands, tools and action groups the user adds (pages['custom-toolbar']).
 let customToolbar:ToolbarConfig=normalizeCustomToolbar(undefined);
-const actionUI=new ActionUI({
+const actionUI=new ActionUI({batchError:error=>error instanceof BatchFailure?error.text(t,translate):undefined,onLanguageChange,
+  translateNow,
   load:()=>invoke<ActionLibrary>('load_action_library'),
   save:library=>invoke<void>('save_action_library',{library}),
-  import:(path,legacyEncoding)=>invoke<ImportedGroup>('import_action_group',{path,legacyEncoding:legacyEncoding||null}),
+  import:async(path,legacyEncoding)=>{try{return await invoke<ImportedGroup>('import_action_group',{path,legacyEncoding:legacyEncoding||null});}catch(error){throw importFailure(error,true)??error;}},
+  importIssues:mtaImportFailure,
   execute:executeGroups,
   pickFile:async kind=>{const extensions=kind==='mta'?['mta']:kind==='image'?['jpg','jpeg','png','webp','gif']:kind==='export'?['mte']:['txt','lrc'];const path=await open({multiple:false,title:kind==='mta'?'Import action group':kind==='image'?'Choose cover image':kind==='export'?'Choose export configuration':'Choose text file',filters:[{name:kind==='mta'?'Action groups':kind==='image'?'Images':kind==='export'?'Export configurations':'Text files',extensions}]});return typeof path==='string'?path:null;},
   confirm:message=>ask(message,{title:'Action groups',kind:'warning'}),
@@ -233,7 +252,7 @@ const exportUI=new ExportUI({
       await invoke('save_export_library',{library});
       const batch=await invoke<Batch>('run_export',{paths:targets,columns,perDirectory});errors=batch.errors;status=batch.errors.length?'Export incomplete. Review the file errors.':`Exported metadata for ${batch.entries.length} files${batch.outputs&&batch.outputs.length>1?` to ${batch.outputs.length} files`:''}`;return batch;
     });
-    if(!result||result.errors.length)throw new Error(result?.errors.map(e=>`${e.path}: ${e.error}`).join('\n')||errors.map(e=>e.error).join('\n')||'Export did not complete.');
+    if(!result||result.errors.length)throw new BatchFailure(result?.errors.length?result.errors:errors,'Export did not complete.',{paths:!!result?.errors.length});
     // The Export dialog closes first; the offer to open a written file follows.
     void offerOpen(result.outputs??[]);
   },
@@ -243,7 +262,7 @@ const macPlatform=/Mac|iPhone|iPad/.test(navigator.platform);
 async function offerOpen(outputs:string[],title='Export'){
   if(!outputs.length||!messages.enabled('confirm_export'))return;
   await offerOpenOutputs({modal,modalError,fileManager:fileOps.fileManager,
-    open:paths=>invoke<void>('play_files',{paths}),reveal:paths=>invoke<void>('reveal_files',{paths})},outputs,status,title);
+    open:paths=>invoke<void>('play_files',{paths}),reveal:paths=>invoke<void>('reveal_files',{paths})},outputs,String(status),title);
 }
 let loadedPlaylist:string|undefined,autoPlaylistPending=false;
 const playlistUI=new PlaylistUI({
@@ -260,6 +279,7 @@ const playlistUI=new PlaylistUI({
 registerOptionsPage(exportOptionsPage);
 registerOptionsPage(playlistOptionsPage);
 const coverUI=new CoverUI({
+  translateNow,
   invoke:(command,args)=>invoke(command,args),get mac(){return macKeyboard();},
   selection:()=>paths().map(path=>({path,covers:workingReadErrors.has(path)?[]:pendingCovers.has(path)?pendingCoverInfos(path):entries.get(path)!.covers})),
   displayed:()=>({path:active()?.path,covers:coversFor(active()),index:coverIndex}),
@@ -277,10 +297,11 @@ const coverUI=new CoverUI({
   evaluate:async(path,template)=>(await invoke<Preview[]>('preview_format',{paths:[path],template,columns:columnSpecs([path])}))[0]?.value??'',
   adjust:()=>actionUI.quick('adjust_cover'),
   notify:message=>{status=message;const el=document.querySelector('.status-message');if(el)el.textContent=message;},
-  fail:error=>{errors=[{path:'Cover',error:error instanceof Error?error.message:String(error)}];status='Cover operation failed';render();},
+  fail:error=>{errors=[{path:'Cover',label:'Cover',error:error instanceof Error?error.message:String(error)}];status='Cover operation failed';render();},
   dragOut:cover=>{const entry=active(),hint=entry?(field(entry,'ALBUM')||entry.filename.replace(/\.[^.]+$/,'')):'Cover';return invoke<{path:string;result:string}>('drag_cover_out',{dataBase64:cover.data_base64,mime:cover.mime,name:hint});},
 });
 const extendedTags=new ExtendedTags({
+  translateNow,
   selection:()=>paths(),listed:()=>visible().map(entry=>entry.path),
   fields:path=>merged(entries.get(path)!),
   describe:path=>{const entry=entries.get(path);return{name:entry?.filename||displayName(path),tag:entry?.technical?._TAG?.[0]};},
@@ -292,7 +313,7 @@ const extendedTags=new ExtendedTags({
   modal:(title,content,buttons)=>modal(title,content,buttons),modalError:(dialog,error)=>modalError(dialog,error),
   done:staged=>{const pending=staged.filter(path=>drafts.has(path)).length;if(pending)status=`Extended tag changes for ${pending} file${pending===1?'':'s'} are pending. Save tags to write them.`;render();},
   saveMode:()=>tagsPagePrefs(optionsUI.page('tags')).extended_save_mode,
-  save:async path=>{if(!drafts.has(path))return;await saveDrafts([path]);if(drafts.has(path))throw new Error(errors.map(error=>`${displayName(error.path)}: ${publicMessage(error.error)}`).join('\n')||'The file could not be saved.');},
+  save:async path=>{if(!drafts.has(path))return;await saveDrafts([path]);if(drafts.has(path))throw new BatchFailure(errors,'The file could not be saved.',{name:displayName,plain:publicMessage});},
   copyText:text=>{void navigator.clipboard?.writeText(text).catch(()=>{/* The field clipboard works without system clipboard access. */});},
 });
 const fileOps=new FileOpsUI({
@@ -318,10 +339,14 @@ registerOptionsPage(libraryOptionsPage({
 }));
 const dirname=(path:string)=>path.replace(/[\\/][^\\/]*$/,'')||path;
 const tagPanel=new TagPanel({
+  translateNow,
+  translateLabel:label=>translate(label),
   persistent:()=>desktop,
   load:()=>invoke<TagPanelSettings>('load_tag_panel'),save:settings=>invoke<void>('save_tag_panel',{settings}),
   importLayout:path=>invoke<PanelLayout>('import_tag_panel_layout',{path}),exportLayout:(path,panel)=>invoke<void>('export_tag_panel_layout',{path,panel}),
-  importMp3tag:desktop?path=>invoke<Mp3tagPanelImport>('import_mp3tag_tag_panel',{path}):undefined,
+  importMp3tag:desktop?async path=>{try{return await invoke<Mp3tagPanelImport>('import_mp3tag_tag_panel',{path});}catch(error){throw importFailure(error,true)??error;}}:undefined,
+  skippedLines:imported=>skippedLines(imported,t,translate),
+  batchError:error=>error instanceof BatchFailure?error.text(t,translate):undefined,
   importList:path=>invoke<string[]>('import_value_list',{path}),exportList:(path,values)=>invoke<void>('export_value_list',{path,values}),
   pickOpen:async kind=>{const path=await open({multiple:false,title:kind==='layout'?'Load tag panel configuration':kind==='mp3tag'?'Import Mp3tag tag panel configuration (usrfields.ini)':'Import custom values',filters:kind==='mp3tag'?[{name:'Mp3tag configuration',extensions:['ini']},{name:'All files',extensions:['*']}]:[kind==='layout'?{name:'Tag panel configurations',extensions:['json']}:{name:'Text files',extensions:['txt']}]});return typeof path==='string'?path:null;},
   pickSave:(kind,name)=>save({title:kind==='layout'?'Save tag panel configuration':'Export custom values',defaultPath:name,filters:[kind==='layout'?{name:'Tag panel configurations',extensions:['json']}:{name:'Text files',extensions:['txt']}]}),
@@ -331,7 +356,7 @@ const tagPanel=new TagPanel({
   openFolder:()=>void operate('folder'),draft:draftField,keep:keepField,changed:()=>render(),
   changeDirectory:path=>{if(!enabled('folder')){errors=[{path,error:operationReason('folder')||'Folders cannot be opened now.'}];render();return;}void fileOps.openDirectory(path,{replace:true}).catch(error=>{errors=[{path,error:publicMessage(error)}];status='Directory could not be opened';render();});},
   notify:message=>{status=message;const el=document.querySelector('.status-message');if(el)el.textContent=message;},
-  fail:error=>{errors=[{path:'Tag panel',error:error instanceof Error?error.message:String(error)}];status='Operation failed';render();},
+  fail:error=>{errors=[{path:'Tag panel',label:'Tag panel',error:error instanceof Error?error.message:String(error)}];status='Operation failed';render();},
   autocomplete:()=>generalPrefs().autocomplete?completeInput:undefined,
   altShortcut:event=>altChord(event,{typing:isTextEntry(event.target),mac:macKeyboard()}),
   // Docked above or below the file list, the fields fill columns as tall as the panel.
@@ -358,7 +383,7 @@ async function flushNotices(){const pending=queuedNotices;queuedNotices=[];for(c
 // Options → Playlist → Create playlist automatically, after saving tags or renaming files.
 async function autoPlaylist(){
   if(!autoPlaylistPending)return;autoPlaylistPending=false;
-  if(desktop&&entries.size&&playlistValues(optionsUI.page('playlist')).auto)await playlistUI.create('all',true).catch(error=>{errors=[{path:'Playlist',error:publicMessage(error)}];status='Automatic playlist failed';render();});
+  if(desktop&&entries.size&&playlistValues(optionsUI.page('playlist')).auto)await playlistUI.create('all',true).catch(error=>{errors=[{path:'Playlist',label:'Playlist',error:publicMessage(error)}];status='Automatic playlist failed';render();});
 }
 let lastActionGroups:ActionGroup[]|undefined;
 const repeatState=()=>redoOrRepeat(history,enabled('action')?lastActionGroups:undefined);
@@ -367,49 +392,80 @@ const toolsUI=new ToolsUI({
   run:(tool:Tool,targets)=>invoke<{started:number}>('run_tool',{tool,paths:targets,root:listRoots.length===1?listRoots[0]:null}),
   selection:()=>paths(),reason:()=>!desktop?'Tools require the desktop app.':!selected.size?'Select files first.':operationReason('file-play'),
   confirm:(text,title)=>ask(text,{title,kind:'warning'}),
-  report:text=>{status=text;render();},fail:error=>{errors=[{path:'Tools',error:publicMessage(error)}];status='Tool failed';render();},
+  report:text=>{status=text;render();},fail:error=>{errors=[{path:'Tools',label:'Tools',error:publicMessage(error)}];status='Tool failed';render();},
 });
 const rowMenu=new RowContextMenu({
+  translateNow,
   prepare:path=>{if(!selected.has(path)){selected.clear();selected.add(path);anchor=path;coverIndex=0;coverError=undefined;render();}},
   items:()=>{
     const item=(op:Operation,label:string):ContextItem=>({label,id:`op:${op}`,disabled:!enabled(op),title:operationReason(op)||label});
     const tools=toolsUI.tools,reason=toolsUI.reason;
     return[item('extended','Extended tags…'),item('copy-text','Copy as Text…'),item('remove-tags','Remove tag…'),{separator:true},{heading:'Tools'},
-      ...(tools.length?tools.map((tool,index):ContextItem=>({label:tool.name,id:`tool:${index}`,disabled:!!reason,title:reason||tool.path,shortcut:toolShortcut(index,macPlatform)})):[item('tools-options','Configure tools…')]),
+      ...(tools.length?tools.map((tool,index):ContextItem=>({label:tool.name,userLabel:true,userTitle:!reason,id:`tool:${index}`,disabled:!!reason,title:reason||tool.path,shortcut:toolShortcut(index,macPlatform)})):[item('tools-options','Configure tools…')]),
       {separator:true},{heading:'Utils'},item('remove-tag-types','Remove tag types…'),item('strip-mp4-chapters','Strip chapters MP4…'),item('util-unsupported','Remove unsupported fields…'),item('util-optimize','Optimize…'),{separator:true},
       item('remove-from-list','Remove from list'),item('file-play','Play'),item('file-reveal',`Open in ${fileOps.fileManager}`)];
   },
   activate:id=>{if(id.startsWith('tool:'))void toolsUI.run(Number(id.slice(5)));else void operate(id.slice(3) as Operation);},
 });
 let shownTitle='';
-function syncWindowTitle(){const title=windowTitle(location,optionsUI.settings);if(desktop&&title!==shownTitle){shownTitle=title;void getCurrentWindow().setTitle(title).catch(()=>{shownTitle='';});}}
+function syncWindowTitle(){if(app.inert)return;const title=translate(windowTitle(location,optionsUI.settings,{isData:locationIsData,translate}));if(desktop&&title!==shownTitle){shownTitle=title;void getCurrentWindow().setTitle(title).catch(()=>{shownTitle='';});}}
 // Read preferences change which tag is displayed, so reload files without pending edits.
+// Options → Language: catalogs from the languages folder (read again on every OK) and the chosen language.
+// A copied template takes its locale from its filename, rather than overriding English.
+const languagePage=languageOptionsPage({warningText:warning=>languageWarningText(warning,t),onLanguageChange,folderSupported:false,openFolder:desktop?()=>invoke<void>('open_languages_folder',{template:`${JSON.stringify({...ENGLISH,'@meta':{name:''}},null,1)}\n`}):undefined});
+registerOptionsPage(languagePage);
+// A newer Options save owns the catalog, warnings and language, even if an older read finishes last.
+let languageGeneration=0;
+async function applyLanguage(choice=languageSetting(optionsUI.page('language'))){
+  const generation=++languageGeneration;
+  if(desktop){
+    try{
+      const found=await invoke<{catalogs:{file:string;catalog:unknown}[];errors:CatalogReadError[]}>('language_catalogs');
+      if(generation!==languageGeneration)return;
+      languagePage.refresh([...languageReadWarnings(found.errors),...setUserCatalogs(found.catalogs)]);
+    }catch(error){
+      if(generation!==languageGeneration)return;
+      languagePage.refresh([{message:publicMessage(error)}]);
+    }
+  }
+  if(setLanguage(choice)){shownTitle='';void applyNotificationArea();render();}
+  return generation;
+}
+// Saved settings can advance while their catalog reads are pending; retain the unapplied deltas.
+let pendingOptionsBaseline:Settings|undefined;
 async function optionsApplied(next:Settings,previous:Settings){
+  const baseline=pendingOptionsBaseline??previous;
+  pendingOptionsBaseline=baseline;
+  const generation=await applyLanguage();
+  if(generation!==languageGeneration)return;
+  pendingOptionsBaseline=undefined;
   collator=naturalCollator(next);changedData();applyAppearancePrefs();void applyNotificationArea();
   // File → Load configuration brings its own layout and toolbars.
-  const changed=(id:string)=>JSON.stringify(next.pages[id])!==JSON.stringify(previous.pages[id]);
-  if(changed('layout')&&next.pages.layout)updateLayout(normalizeMainLayout(next.pages.layout));
+  const changed=(id:string)=>JSON.stringify(next.pages[id])!==JSON.stringify(baseline.pages[id]);
+  // A layout saved by this window comes back here; applying it would undo a
+  // resize made while the save was in flight.
+  if(changed('layout')&&next.pages.layout){const incoming=normalizeMainLayout(next.pages.layout);if(JSON.stringify(incoming)!==ownLayoutSave)updateLayout(incoming);}
   if(changed('toolbar'))toolbarConfig=normalizeToolbar(next.pages.toolbar);
   if(changed('custom-toolbar'))customToolbar=normalizeCustomToolbar(next.pages['custom-toolbar']);
-  const clean=JSON.stringify(next.tags)===JSON.stringify(previous.tags)?[]:[...entries.values()].filter(entry=>!drafts.has(entry.path)&&!providerEntry(entry)).map(entry=>entry.path);
+  const clean=JSON.stringify(next.tags)===JSON.stringify(baseline.tags)?[]:[...entries.values()].filter(entry=>!drafts.has(entry.path)&&!providerEntry(entry)).map(entry=>entry.path);
   if(clean.length)await run('Applying tag options…',async()=>accept(await invoke<Batch>('scan_files',{paths:clean,recursive:false}),'Options saved. Reloaded',false));
-  else{status=drafts.size&&JSON.stringify(next.tags)!==JSON.stringify(previous.tags)?'Options saved. Reload files with pending changes to apply tag options.':'Options saved';render();}
+  else{status=drafts.size&&JSON.stringify(next.tags)!==JSON.stringify(baseline.tags)?'Options saved. Reload files with pending changes to apply tag options.':'Options saved';render();}
 }
 // Options → General → Notification area (Windows and Linux): the tray icon and minimizing into it.
 setNotificationAreaSupport(desktop&&!macPlatform);
 let notificationArea='';
 async function applyNotificationArea(){
   if(!desktop||macPlatform)return;
-  const prefs=generalPrefs(),key=`${prefs.tray_icon}/${prefs.minimize_to_tray}`;if(key===notificationArea)return;notificationArea=key;
-  try{const state=await invoke<{supported:boolean;active:boolean}>('set_tray_options',{showIcon:prefs.tray_icon,minimizeToTray:prefs.minimize_to_tray});if(!state.supported)setNotificationAreaSupport(false);}
-  catch(error){notificationArea='';errors=[...errors,{path:'Notification area',error:publicMessage(error)}];render();}
+  const prefs=generalPrefs(),labels={show:t('Show OpenTag'),quit:t('Quit OpenTag')},key=notificationAreaKey(prefs,labels);if(key===notificationArea)return;notificationArea=key;
+  try{const state=await invoke<{supported:boolean;active:boolean}>('set_tray_options',{showIcon:prefs.tray_icon,minimizeToTray:prefs.minimize_to_tray,labels});if(!state.supported)setNotificationAreaSupport(false);}
+  catch(error){notificationArea='';errors=[...errors,{path:'Notification area',label:'Notification area',error:publicMessage(error)}];render();}
 }
 // Options → Appearance: toolbar and interface scaling and the file list grid.
 let appliedZoom=1;
 function applyAppearancePrefs(){
   const prefs=appearanceOptions(optionsUI.page('appearance')),root=document.documentElement;
   root.dataset.grid=prefs.grid;root.style.setProperty('--toolbar-scale',String(prefs.toolbarScale));
-  if(desktop&&prefs.uiScale!==appliedZoom){appliedZoom=prefs.uiScale;void getCurrentWebview().setZoom(prefs.uiScale).catch(error=>{appliedZoom=1;errors=[{path:'Appearance',error:String(error)}];render();});}
+  if(desktop&&prefs.uiScale!==appliedZoom){appliedZoom=prefs.uiScale;void getCurrentWebview().setZoom(prefs.uiScale).catch(error=>{appliedZoom=1;errors=[{path:'Appearance',label:'Appearance',error:String(error)}];render();});}
 }
 // Options → Messages → at importing covers: whether files that already have artwork keep it.
 async function preserveCovers(targets:string[]):Promise<boolean|undefined>{
@@ -422,7 +478,7 @@ async function preserveCovers(targets:string[]):Promise<boolean|undefined>{
     let answer:boolean|undefined;
     const choose=(preserve:boolean)=>{
       answer=preserve;
-      if(dialog.querySelector<HTMLInputElement>('#covers-remember')!.checked)void optionsUI.updatePage('messages',{confirm_import_covers:false,import_covers_choice:preserve?'preserve':'replace'}).catch(error=>{errors=[{path:'Options',error:String(error)}];render();});
+      if(dialog.querySelector<HTMLInputElement>('#covers-remember')!.checked)void optionsUI.updatePage('messages',{confirm_import_covers:false,import_covers_choice:preserve?'preserve':'replace'}).catch(error=>{errors=[{path:'Options',label:'Options',error:String(error)}];render();});
       dialog.close();
     };
     dialog.querySelector('#covers-keep')!.addEventListener('click',()=>choose(true));
@@ -438,7 +494,9 @@ for(const page of tagSourcesOptionsPages(async()=>{const folder=await open({dire
   progress:(job,update)=>listen<{job:string;done:number;total:number}>('opentag://progress',event=>{if(event.payload.job===job)update(event.payload.done,event.payload.total);}),
 },()=>tagSourcesUI.keys()))registerOptionsPage(page);
 const tagSourceReason=()=>busy?'Wait for the current operation.':!selected.size?'Select the files of one album.':operationReason('source-musicbrainz');
-const tagSourcesUI=new TagSourcesUI({
+const tagSourcesUI=new TagSourcesUI({batchError:error=>error instanceof BatchFailure?error.text(t,translate):undefined,
+  webScriptError:error=>webScriptErrorText(error,t,translate),
+  sourceMessage:(key,name,authored)=>t(key,{name:authored?name:translate(name)}),onLanguageChange,
   invoke:(command,args)=>invoke(command,args),
   files:()=>paths().map(path=>{const entry=entries.get(path)!;return{path,name:displayName(path),title:field(entry,'TITLE'),artist:field(entry,'ARTIST'),album:field(entry,'ALBUM'),album_artist:field(entry,'ALBUMARTIST'),track:field(entry,'TRACK'),disc:field(entry,'DISCNUMBER'),length:entry.duration};}),
   reason:()=>tagSourceReason(),
@@ -450,8 +508,8 @@ const tagSourcesUI=new TagSourcesUI({
     const targets=items.map(item=>item.path);let cover=chosenCover;
     if(cover){const preserve=await preserveCovers(targets);if(preserve===undefined)throw new Error('Import cancelled. Nothing was written.');cover={...cover,preserve_existing:preserve};}
     const result=await run('Writing tag source data…',async()=>{let batch:Batch;try{batch=await invoke<Batch>('tag_source_apply',{items,cover,columns:columnSpecs(targets)});}catch(error){await reconcileWorkingEntries(targets);throw error;}accept(batch,'Imported from tag source');await reconcileWorkingEntries(batch.errors.map(error=>error.path));return batch;});
-    if(!result)throw new Error(errors.map(error=>publicMessage(error.error)).join('\n')||'Tag source data could not be written.');
-    if(result.errors.length)throw new Error(result.errors.map(error=>`${displayName(error.path)}: ${publicMessage(error.error)}`).join('\n'));
+    if(!result)throw new BatchFailure(errors,'Tag source data could not be written.',{paths:false,plain:publicMessage});
+    if(result.errors.length)throw new BatchFailure(result.errors,'Tag source data could not be written.',{name:displayName,plain:publicMessage});
   },
 });
 /** The last used tag source when it was a web source that is still installed. */
@@ -466,7 +524,7 @@ const webSourcesUI=new WebSourcesUI({
   changed:()=>render(),
   pickFiles:async()=>{const chosen=await open({multiple:true,title:'Install tag sources',filters:[{name:'Tag sources',extensions:['src','inc','settings']}]});return Array.isArray(chosen)?chosen:typeof chosen==='string'?[chosen]:null;},
   report:message=>{status=message;render();},
-  fail:error=>{errors=[{path:'Tag sources',error:error instanceof Error?error.message:String(error)}];render();},
+  fail:error=>{errors=[{path:'Tag sources',label:'Tag sources',error:error instanceof Error?error.message:String(error)}];render();},
 });
 async function executeGroups(groups:ActionGroup[]){
   if(!enabled('action'))throw new Error(operationReason('action')||'Select files and save pending tag edits before applying actions.');
@@ -474,8 +532,8 @@ async function executeGroups(groups:ActionGroup[]){
   const result=await run('Applying action groups…',async()=>{const batch=await invoke<Batch>('execute_action_groups',{paths:targets,groups,columns:columnSpecs(targets)});applyRenamed(batch);accept(batch,'Applied action groups');return batch;});
   // Without "at warnings from Actions", errors stay in the file error list only.
   if(!messages.enabled('action_warnings'))return;
-  if(!result)throw new Error(errors.map(error=>`${error.path}: ${error.error}`).join('\n')||'Action groups could not be applied.');
-  if(result.errors.length)throw new Error(result.errors.map(error=>`${error.path}: ${error.error}`).join('\n'));
+  if(!result)throw new BatchFailure(errors,'Action groups could not be applied.');
+  if(result.errors.length)throw new BatchFailure(result.errors,'Action groups could not be applied.');
 }
 function columnSpecs(targets:string[]){
   return tableColumns().map(column=>({name:column.name,template:column.value,values:Object.fromEntries(targets.flatMap(path=>{const value=columnValues.fresh(path,column.value);return value===undefined?[]:[[path,value]];}))}));
@@ -508,7 +566,7 @@ function cellValue(entry:Entry,template:string){return columnValues.get(entry.pa
 const cellEditor=new CellEditor({
   cell:target=>{const cell=revealRow(target.path,false)?.querySelector<HTMLTableCellElement>(`td[data-col="${CSS.escape(target.column)}"]`)||null;cell?.scrollIntoView({block:'nearest',inline:'nearest'});return cell;},
   initial:({path,column})=>{const entry=entries.get(path),key=editKey(columnLayout.columns.find(c=>c.id===column)||{field:''});return!entry?'':key==='_FILENAME_EXT'?entry.filename:key==='_FILENAME'?entry.filename.replace(/\.[^.]*$/,''):field(entry,key);},
-  label:({column})=>columnLayout.columns.find(c=>c.id===column)?.name||'cell',
+  label:({column})=>{const found=columnLayout.columns.find(c=>c.id===column);return found?columnName(found):'';},
   commit:commitCell,
   next:(target,direction)=>{
     const rows=visible().map(entry=>entry.path),below=rows[rows.indexOf(target.path)+1];
@@ -528,7 +586,8 @@ function cellCompletions(key:string){
   const loaded=new Set<string>();for(const entry of entries.values())for(const value of merged(entry)[panelKey({format:entry.format,fields:merged(entry)},key)]||[])if(value)loaded.add(value);
   return [...tagPanel.settings.field_values.lists[key]||[],...[...loaded].sort(collator.compare)];
 }
-const columnUI=new ColumnUI({
+const columnUI=new ColumnUI({batchError:error=>error instanceof BatchFailure?error.text(t,translate):undefined,onLanguageChange,
+  translateNow,
   layout:()=>columnLayout,
   apply:applyColumns,
   importLayout:async()=>{
@@ -536,14 +595,16 @@ const columnUI=new ColumnUI({
     if(typeof path!=='string')return null;
     if(!/\.ini$/i.test(path))return normalizeLayout(await invoke<ColumnLayout>('import_columns',{path}));
     // Mp3tag column definitions from a columns.ini the user chose; nothing of Mp3tag ships with OpenTag.
-    const imported=await invoke<{layout:ColumnLayout;skipped:string[]}>('import_mp3tag_columns',{path});
-    status=`Imported ${imported.layout.columns.length} Mp3tag column${imported.layout.columns.length===1?'':'s'} from ${basename(path)}${imported.skipped.length?`; skipped ${imported.skipped.length}: ${imported.skipped.join('; ')}`:''}`;
-    return normalizeLayout(imported.layout);
+    try{
+      const imported=await invoke<{layout:ColumnLayout;skipped:string[];skipped_diagnostics?:unknown}>('import_mp3tag_columns',{path});
+      status=new ColumnImportStatus(imported.layout.columns.length,basename(path),imported);
+      return normalizeLayout(imported.layout);
+    }catch(error){throw importFailure(error,true)??error;}
   },
   exportLayout:async layout=>{const path=await save({title:'Save column configuration',defaultPath:'columns.json',filters:[{name:'Column configurations',extensions:['json']}]});if(!path)return false;await invoke('export_columns',{path,layout});status=`Saved column configuration to ${basename(path)}`;return true;},
   preview:async template=>{const entry=active();if(!entry||!desktop)return '';const result=await invoke<{values:string[][];errors:string[]}>('evaluate_columns',{items:[columnItem(entry)],templates:[template]});if(result.errors.length)throw new Error(result.errors[0]);return result.values[0][0];},
   autoSize:ids=>void autoSizeColumns(ids),
-  report:error=>{errors=[{path:'Columns',error:error instanceof Error?error.message:String(error)}];render();},
+  report:error=>{errors=error instanceof BatchFailure?error.errors.map(item=>({...item,label:'Columns'})):[{path:'Columns',label:'Columns',error:error instanceof Error?error.message:String(error)}];render();},
 });
 /** Column auto-size (Ctrl+Num +, double-click on a divider): fit the header and the listed values. */
 async function autoSizeColumns(ids:string[]){
@@ -559,7 +620,7 @@ async function autoSizeColumns(ids:string[]){
   const widths=new Map(shown.map(column=>{
     const header=table.querySelector<HTMLElement>(`th[data-col="${CSS.escape(column.id)}"] button`),cell=table.querySelector<HTMLElement>(`td[data-col="${CSS.escape(column.id)}"]`)||table.querySelector<HTMLElement>('tbody td[data-col]');
     const headStyle=header?getComputedStyle(header):getComputedStyle(table),cellStyle=cell?getComputedStyle(cell):headStyle;
-    const label=`${column.name}${sortIndicator(columnLayout.sort,column.id).replace(/<[^>]*>/g,'')}`;
+    const label=`${columnName(column)}${sortIndicator(columnLayout.sort,column.id).replace(/<[^>]*>/g,'')}`;
     const marker=column.id===first&&drafts.size?textWidths(['●'],font(cellStyle))[0]+6:0;
     const headerWidth=fitWidth(textWidths([label],font(headStyle)),space(headStyle)+4,limits);
     return[column.id,Math.max(headerWidth,fitWidth(textWidths(rows.map(entry=>cellValue(entry,column.value)),font(cellStyle)),space(cellStyle)+marker+1,limits))] as const;
@@ -626,7 +687,7 @@ function sourceMarkup(context:'files'|'tags'){
   const entry=active();if(!entry||!providerEntry(entry))return '';
   const state=documentAccess.states[entry.path],source=sourcePresentation(state,!!documentAccess.refreshError),policy=sourcePolicy();
   const reason=policy.mutationReason||'Tag and cover saves are verified against the source.';
-  return `<section class="source-access ${state?.state==='recovery_required'?'recovery':''}" aria-label="Document source access"><div><strong>${esc(source.label)}</strong><span>${esc(source.name)}</span></div><p class="source-location" title="${esc(source.location)}">${esc(source.location)}</p><p>${esc(source.detail)}</p>${workingMetadataNotice(entry.path)}${state?.error?`<p class="source-error" role="alert">${esc(publicMessage(state.error))}</p>`:''}${documentAccess.refreshError?`<p class="source-error" role="alert">Source access could not be refreshed: ${esc(publicMessage(documentAccess.refreshError))}. Previous source details and pending edits are retained.</p>`:''}<p id="source-policy-${context}">${esc(reason)}</p><p class="source-limit">${esc(policy.unsupportedReason)}</p><div class="source-actions">${button('save-copy','Save a copy…')}${button('refresh-source','Refresh source access')}</div></section>`;
+  return `<section class="source-access ${state?.state==='recovery_required'?'recovery':''}" aria-label="Document source access"><div><strong>${esc(source.label)}</strong><span ${state?.name?'translate="no"':''}>${esc(source.name)}</span></div><p class="source-location" ${state?.uri?'translate="no"':''} title="${esc(source.location)}">${esc(source.location)}</p><p>${esc(source.detail)}</p>${workingMetadataNotice(entry.path)}${state?.error?`<p class="source-error" role="alert">${esc(publicMessage(state.error))}</p>`:''}${documentAccess.refreshError?`<p class="source-error" role="alert">Source access could not be refreshed: ${esc(publicMessage(documentAccess.refreshError))}. Previous source details and pending edits are retained.</p>`:''}<p id="source-policy-${context}">${esc(reason)}</p><p class="source-limit">${esc(policy.unsupportedReason)}</p><div class="source-actions">${button('save-copy','Save a copy…')}${button('refresh-source','Refresh source access')}</div></section>`;
 }
 function requestFilter(query:string){
   const context=filterContextKey(),key=`${context}:${query}`;
@@ -742,7 +803,7 @@ function hydrateActiveCover(){
 }
 function rowMarkup(entry:Entry,index:number){
   const draft=drafts.get(entry.path),fields=draft&&merged(entry);
-  return `<tr tabindex="0" data-path="${esc(entry.path)}" aria-rowindex="${index+2}" aria-selected="${selected.has(entry.path)}" class="${selected.has(entry.path)?'selected':''}${index%2?' odd':''}">${tableColumns().map((c,i)=>{const value=cellValue(entry,c.value),key=editKey(c),pending=!!(draft&&key&&draft[panelKey({format:entry.format,fields:fields!},key)]);return`<td data-col="${esc(c.id)}" class="align-${c.align}${i===0?' filename':''}${pending?' pending':''}${key?' editable':''}" title="${esc(value)}">${i===0?`<input class="row-select" type="checkbox" aria-label="Select ${esc(entry.filename)}" ${selected.has(entry.path)?'checked':''}>${draft?'<span class="rowmarker" title="Pending changes">●</span>':''}`:''}${esc(value)}</td>`;}).join('')}</tr>`;
+  return `<tr tabindex="0" data-path="${esc(entry.path)}" aria-rowindex="${index+2}" aria-selected="${selected.has(entry.path)}" class="${selected.has(entry.path)?'selected':''}${index%2?' odd':''}">${tableColumns().map((c,i)=>{const value=cellValue(entry,c.value),key=editKey(c),pending=!!(draft&&key&&draft[panelKey({format:entry.format,fields:fields!},key)]);return`<td data-col="${esc(c.id)}" class="align-${c.align}${i===0?' filename':''}${pending?' pending':''}${key?' editable':''}">${i===0?`<input class="row-select" type="checkbox" data-verbatim="${esc(entry.filename)}" aria-label="Select ${esc(entry.filename)}" ${selected.has(entry.path)?'checked':''}>${draft?'<span class="rowmarker" title="Pending changes">●</span>':''}`:''}<span translate="no" title="${esc(value)}">${esc(value)}</span></td>`;}).join('')}</tr>`;
 }
 function updateVirtualRows(force=false){
   const wrap=document.querySelector<HTMLDivElement>('.table-wrap'),body=wrap?.querySelector('tbody');if(!wrap||!body)return;
@@ -817,7 +878,7 @@ function lastSourceOp():Operation{return tagSourcesUI.lastOperation as Operation
 /** View menu submenus: Sort by (each shown column; again reverses the order) and Toolbars. */
 function sortMenuItems(){
   const primary=columnLayout.sort[0];
-  return tableColumns().map(column=>{const on=primary?.id===column.id;return`<button type="button" data-sort-menu="${esc(column.id)}" role="menuitemradio" aria-checked="${on}"><span>${on?'✓ ':'<span class="column-check-space"></span>'}${esc(column.name)}${on?primary.ascending?' ↑':' ↓':''}</span></button>`;}).join('');
+  return tableColumns().map(column=>{const on=primary?.id===column.id;return`<button type="button" data-sort-menu="${esc(column.id)}" role="menuitemradio" aria-checked="${on}"><span>${on?'✓ ':'<span class="column-check-space"></span>'}<span translate="no">${esc(columnName(column))}</span>${on?primary.ascending?' ↑':' ↓':''}</span></button>`;}).join('');
 }
 function viewMenuHTML(){
   const sortItems=sortMenuItems();
@@ -832,7 +893,7 @@ function toolbarMarkup(){
     if(isSeparator(item.id))return'<span class="sep"></span>';
     if(isSpacer(item.id))return'<span class="spacer"></span>';
     const command=TOOLBAR_COMMANDS[item.id];
-    return button(item.id as Operation,esc(itemLabel(item)),command.icon).replace('<button ',`<button data-hint="${esc(command.hint)}" `);
+    return button(item.id as Operation,esc(itemLabel(item)),command.icon,'',userLabel(item)).replace('<button ',`<button data-hint="${esc(command.hint)}" `);
   }).join('');
   return`<div class="toolbar" role="toolbar" aria-label="File and tag operations">${items}</div>`;
 }
@@ -850,9 +911,9 @@ function customToolbarMarkup(){
     if(isSeparator(item.id))return'<span class="sep"></span>';
     if(isSpacer(item.id))return'<span class="spacer"></span>';
     const label=esc(itemLabel(item)),hint=esc(itemHint(item.id));
-    if(item.id in TOOLBAR_COMMANDS)return button(item.id as Operation,label,TOOLBAR_COMMANDS[item.id].icon).replace('<button ',`<button data-hint="${hint}" `);
+    if(item.id in TOOLBAR_COMMANDS)return button(item.id as Operation,label,TOOLBAR_COMMANDS[item.id].icon,'',userLabel(item)).replace('<button ',`<button data-hint="${hint}" `);
     const reason=customItemReason(item.id);
-    return`<button type="button" data-custom-item="${esc(item.id)}" data-hint="${hint}" ${reason?'disabled':''} title="${esc(reason||itemLabel(item))}"><span>${label}</span></button>`;
+    return`<button type="button" data-custom-item="${esc(item.id)}" data-hint="${hint}" data-verbatim="${label}" ${reason?'disabled':''} title="${esc(reason||itemLabel(item))}"><span translate="no">${label}</span></button>`;
   }).join('')}</div>`;
 }
 /** The toolbars, with the filter docked to their left or right when chosen (desktop layout only). */
@@ -881,14 +942,16 @@ function customToolbarChoices():ToolbarChoice[]{
 /** Status-bar hints of the toolbar buttons (Mp3tag shows them while hovering a button). */
 function bindToolbarHints(){
   const toolbars=document.querySelectorAll<HTMLElement>('.toolbar');if(!toolbars.length)return;
+  let previous:Node[]|undefined;
   const show=(event:Event)=>{
     const button=(event.target as Element).closest<HTMLButtonElement>('button[data-hint]'),el=document.querySelector<HTMLElement>('.status-message');if(!button||!el)return;
-    if(!el.classList.contains('hint'))el.dataset.before=el.textContent||'';
+    if(!el.classList.contains('hint'))previous=[...el.childNodes];
     // A disabled button's tooltip says why it is disabled.
-    const label=button.querySelector('span:not(.icon)')?.textContent,reason=button.disabled&&button.title!==label?button.title:'';
-    el.textContent=reason?`${button.dataset.hint} — ${reason}`:button.dataset.hint!;el.classList.add('hint');
+    const id=button.dataset.customItem||button.dataset.op||'',reason=button.disabled?(button.dataset.customItem?customItemReason(id):operationReason(id as Operation)):'';
+    // Render source UI parts once; data-hint/title may already be translated.
+    el.innerHTML=`<span>${esc(itemHint(id))}</span>${reason?` — <span>${esc(reason)}</span>`:''}`;el.classList.add('hint');translateNow(el);
   };
-  const hide=()=>{const el=document.querySelector<HTMLElement>('.status-message');if(el?.classList.contains('hint')){el.textContent=el.dataset.before??status;el.classList.remove('hint');}};
+  const hide=()=>{const el=document.querySelector<HTMLElement>('.status-message');if(el?.classList.contains('hint')){if(previous)el.replaceChildren(...previous);else el.innerHTML=statusMarkup();previous=undefined;el.classList.remove('hint');translateNow(el);}};
   toolbars.forEach(toolbar=>{
     toolbar.addEventListener('pointerover',show);toolbar.addEventListener('focusin',show);
     toolbar.addEventListener('pointerleave',hide);toolbar.addEventListener('focusout',hide);
@@ -915,10 +978,12 @@ function listEnabled(op:Operation){
   if(op==='edit-cell')return selected.size>0&&tableColumns().some(column=>editKey(column));
   return selected.size>0;
 }
-function button(op: Operation, label: string, icon = '', shortcut = '') {
-  return `<button data-op="${op}" ${enabled(op) ? '' : 'disabled'} title="${esc(operationReason(op)||label)}">${glyphs[op]?glyph(glyphs[op]!):icon?`<span class="icon" aria-hidden="true">${esc(icon)}</span>`:''}<span>${label}</span>${shortcut ? `<small>${shortcut}</small>` : ''}</button>`;
+/** `name`: the label is a name someone gave (a renamed toolbar item), shown as typed in every language. */
+function button(op: Operation, label: string, icon = '', shortcut = '', name = false) {
+  return `<button data-op="${op}" ${enabled(op) ? '' : 'disabled'} ${name?`data-verbatim="${label}"`:''} title="${esc(operationReason(op)||label)}">${glyphs[op]?glyph(glyphs[op]!):icon?`<span class="icon" aria-hidden="true">${esc(icon)}</span>`:''}<span ${name?'translate="no"':''}>${label}</span>${shortcut ? `<small>${shortcut}</small>` : ''}</button>`;
 }
-function menu(name: string, items: [Operation,string,string?][]) { return `<details class="menu" ${name==='Actions'?'id="actions-menu"':name==='Tag Sources'?'id="tag-sources-menu"':''}><summary>${name}</summary><div class="menu-list">${items.map(([op,label,key]) => button(op,label,'',key)+(op==='dir-manage'&&desktop&&runtimePlatform.folder_picker_supported?fileOps.menuHTML():'')+(op==='source-cover-fanart'?webSourcesUI.menuHTML():'')).join('')}${name==='Actions'?actionUI.menuHTML():''}${name==='View'?viewMenuHTML()+columnUI.menuHTML():''}${name==='Tools'?toolsUI.menuHTML():''}${name==='File'&&!runtimePlatform.folder_picker_supported?'<p class="menu-note">Folder access is not available here. Use Add files.</p>':''}${['Convert','Actions'].includes(name)&&sourcePolicy().unsupportedReason?`<p class="menu-note">${esc(sourcePolicy().unsupportedReason)}</p>`:''}</div></details>`; }
+function statusMarkup(){return status instanceof ColumnImportStatus?`<span translate="no">${esc(status.text(t,translate))}</span>`:esc(status);}
+function menu(name: string, items: [Operation,string,string?][]) { return `<details class="menu" data-menu="${name}" ${name==='Actions'?'id="actions-menu"':name==='Tag Sources'?'id="tag-sources-menu"':''}><summary>${name}</summary><div class="menu-list">${items.map(([op,label,key]) => button(op,label,'',key)+(op==='dir-manage'&&desktop&&runtimePlatform.folder_picker_supported?fileOps.menuHTML():'')+(op==='source-cover-fanart'?webSourcesUI.menuHTML():'')).join('')}${name==='Actions'?actionUI.menuHTML():''}${name==='View'?viewMenuHTML()+columnUI.menuHTML():''}${name==='Tools'?toolsUI.menuHTML():''}${name==='File'&&!runtimePlatform.folder_picker_supported?'<p class="menu-note">Folder access is not available here. Use Add files.</p>':''}${['Convert','Actions'].includes(name)&&sourcePolicy().unsupportedReason?`<p class="menu-note">${esc(sourcePolicy().unsupportedReason)}</p>`:''}</div></details>`; }
 function render() {
   applyAutoDefaults();
   reviewedConverterContextChanged?.();
@@ -932,6 +997,9 @@ function render() {
   const caretStart=focused?.selectionStart,caretEnd=focused?.selectionEnd;
   const list = visible(), entry = active();
   const selectedEntries = paths().map(path => entries.get(path)!), shownColumns = tableColumns();
+  const providerState=entry&&documentAccess.states[entry.path];
+  const locationView=entry&&providerEntry(entry)?{text:sourcePresentation(providerState).location,verbatim:!!providerState?.uri}:{text:location,verbatim:locationIsData};
+  const locationMarkup=`<span class="path" ${locationView.verbatim?'translate="no"':''} title="${esc(locationView.text)}">${esc(locationView.text)}</span>`;
   const filterbar=`<div class="filterbar" ${filterShown?'':'hidden'}><label for="filter">${glyph(glyphSearch)}<span class="visually-hidden">Filter</span></label><input id="filter" type="search" value="${esc(filterDraft??filter)}" data-helper="filter" data-history="filter" data-history-manage placeholder="Filter filenames and tags, or enter a filter expression" autocomplete="off"><span class="count">${countText(list)}</span></div>`,filterInList=compactScreen()||mainLayout.filter==='list';
   const dock=mainLayout.dock,across=horizontalDock(dock),range=across?PANEL_HEIGHT:PANEL_WIDTH;
   app.innerHTML = `<div class="app" data-pane="${mobilePane}" data-panel="${tagPanel.visible?'shown':'hidden'}" data-dock="${dock}"><header class="titlebar"><img class="brand-logo" data-theme-image="logo" src="${themedAsset('logo')}" alt="OpenTag"><span class="subtitle">Audio metadata editor</span><span class="window-mode">${runtimePlatform.document_access_supported?'Provider documents':desktop?'Local files':'Browser preview'}</span><label class="appearance-control"><span>Appearance</span><select id="appearance" aria-label="Appearance"><option value="system">${appearance.state.preference==='system'?`System (${appearance.state.resolved==='dark'?'Dark':'Light'})`:'System'}</option><option value="light">Light</option><option value="dark">Dark</option></select></label></header>
@@ -940,8 +1008,8 @@ function render() {
   <nav class="mobile-panes" aria-label="Workspace view"><button data-pane="files" aria-pressed="${mobilePane==='files'}">Files (${entries.size})</button><button data-pane="tags" aria-pressed="${mobilePane==='tags'}" ${selected.size?'':'disabled'}>Tags (${selected.size})</button></nav>
   <main class="workspace"><aside class="editor" aria-label="Tag editor"><div class="panel-title" ${compactScreen()?'':`title="Drag to dock the tag panel at another edge or to float it; double-click to ${dock==='float'?'dock it again':'float it'}"`}>Tag panel <span class="panel-count">${panelCount()}</span>${tagPanel.titleHTML()}</div>${sourceMarkup('tags')}<div class="fields">${tagPanel.fieldsHTML()}</div><div class="editor-actions">${button('save','Save tags')}${button('extended','Extended…')}</div>
   ${tagPanel.showCover?`<section class="cover-section" aria-label="Embedded artwork">${coverMarkup()}</section>`:''}</aside><div class="panel-splitter" role="separator" aria-orientation="${across?'horizontal':'vertical'}" aria-label="Tag panel ${across?'height':'width'}" aria-valuemin="${range[0]}" aria-valuemax="${range[1]}" tabindex="0"></div>
-  <section class="files" aria-label="Audio files"><div class="location">${glyph(glyphOrganize)}<span class="path" title="${esc(entry&&providerEntry(entry)?sourcePresentation(documentAccess.states[entry.path]).location:location)}">${esc(entry&&providerEntry(entry)?sourcePresentation(documentAccess.states[entry.path]).location:location)}</span><strong>${entries.size} file${entries.size===1?'':'s'}</strong></div>${sourceMarkup('files')}${filterInList?filterbar:''}<div class="table-wrap"><table aria-label="Audio metadata" aria-rowcount="${list.length+1}" style="width:${shownColumns.reduce((sum,c)=>sum+c.width,0)}px"><thead><tr>${headerMarkup(shownColumns,columnLayout.sort,!compactScreen())}</tr></thead><tbody></tbody></table>${!list.length ? emptyMarkup() : ''}</div><div class="selection-info">${selectionInfoMarkup(selectedEntries,list)}</div>
-  ${errors.length ? `<section class="errors" aria-label="Operation errors"><header>${errors.length} file error${errors.length===1?'':'s'}<button id="dismiss-errors">Dismiss</button></header>${errors.map(e => `<p><strong>${esc(displayName(e.path))}:</strong> ${esc(publicMessage(e.error))}</p>`).join('')}</section>` : ''}</section></main><footer class="status ${busy?'busy':''}"><span class="status-dot" aria-hidden="true"></span><span class="status-message" role="status">${esc(status)}</span>${progressMarkup()}${drafts.size ? `<span class="dirty-count">${drafts.size} unsaved file${drafts.size===1?'':'s'}</span>` : ''}<span>${entries.size} files</span></footer></div>`;
+  <section class="files" aria-label="Audio files"><div class="location">${glyph(glyphOrganize)}${locationMarkup}<strong>${entries.size} file${entries.size===1?'':'s'}</strong></div>${sourceMarkup('files')}${filterInList?filterbar:''}<div class="table-wrap"><table aria-label="Audio metadata" aria-rowcount="${list.length+1}" style="width:${shownColumns.reduce((sum,c)=>sum+c.width,0)}px"><thead><tr>${headerMarkup(shownColumns,columnLayout.sort,!compactScreen())}</tr></thead><tbody></tbody></table>${!list.length ? emptyMarkup() : ''}</div><div class="selection-info">${selectionInfoMarkup(selectedEntries,list)}</div>
+  ${errors.length ? `<section class="errors" aria-label="Operation errors"><header>${errors.length} file error${errors.length===1?'':'s'}<button id="dismiss-errors">Dismiss</button></header>${errors.map(e => `<p><strong translate="no">${esc(e.label?translate(e.label):e.diagnostic?.kind==='history_folders_failed'?e.path:displayName(e.path))}:</strong> ${e.diagnostic||e.diagnosticRaw||e.cause||e.rollback?`<span translate="no">${esc(fileErrorText(e,t,translate,publicMessage))}</span>`:esc(publicMessage(e.error))}</p>`).join('')}</section>` : ''}</section></main><footer class="status ${busy?'busy':''}"><span class="status-dot" aria-hidden="true"></span><span class="status-message" role="status">${statusMarkup()}</span>${progressMarkup()}${drafts.size ? `<span class="dirty-count">${drafts.size} unsaved file${drafts.size===1?'':'s'}</span>` : ''}<span>${entries.size} files</span></footer></div>`;
   const wrap=document.querySelector<HTMLDivElement>('.table-wrap')!;
   wrap.querySelector('tbody')!.innerHTML=list.length?`<tr class="virtual-spacer" aria-hidden="true"><td colspan="${tableColumns().length}" style="height:${list.length*rowHeight}px"></td></tr>`:'';
   wrap.scrollTop=scrollTop;wrap.scrollLeft=scrollLeft;updateVirtualRows(true);
@@ -958,7 +1026,10 @@ function emptyMarkup(){
 }
 function countText(list:Entry[]){return`${filterPending?'Filtering… · ':list.length===entries.size?'':`${list.length} visible · `}${selected.size} selected`;}
 function panelCount(){return selected.size?`${selected.size} selected`:'No selection';}
-function selectionInfoMarkup(selectedEntries:Entry[],list:Entry[]){return listSummary(selectedEntries,list,entries.size,selected.size===1?active():undefined).map(segment=>`<span>${esc(segment)}</span>`).join('');}
+function selectionInfoMarkup(selectedEntries:Entry[],list:Entry[]){
+  const current=selected.size===1?active():undefined,technical=current?technicalSummary(current):undefined;
+  return listSummary(selectedEntries,list,entries.size).map(segment=>`<span>${esc(segment)}</span>`).join('')+(technical?`<span>${[technical.codec?`<span translate="no">${esc(technical.codec)}</span>`:'',...technical.details.map(detail=>`<span>${esc(detail)}</span>`)].filter(Boolean).join(' · ')}</span>`:'');
+}
 function bindFields(root:ParentNode){root.querySelectorAll<HTMLInputElement|HTMLTextAreaElement>('[data-field]').forEach(el=>el.addEventListener('input',()=>draftField(el.dataset.field!,el.value)));}
 /**
  * Selection changes update only what depends on the selection: table rows, tag panel fields, cover,
@@ -1106,7 +1177,7 @@ async function reorderFiles(change:(shown:string[])=>string[]){
   const full=mergeOrder(ordered().map(entry=>entry.path),shown,next),moved=full.map(path=>[path,entries.get(path)!] as const);
   entries.clear();moved.forEach(([path,entry])=>entries.set(path,entry));
   orderCacheKey='';filterCacheKey='';
-  if(columnLayout.sort.length)await applyColumns({...columnLayout,sort:[]}).catch(error=>{errors=[{path:'Columns',error:String(error)}];render();});
+  if(columnLayout.sort.length)await applyColumns({...columnLayout,sort:[]}).catch(error=>{errors=[{path:'Columns',label:'Columns',error:String(error)}];render();});
   else refreshList();
   const focus=anchor&&selected.has(anchor)?anchor:paths()[0];if(focus)revealRow(focus);
   status=`Moved ${selected.size} file${selected.size===1?'':'s'}. Playlists and numbering use the list order.`;
@@ -1119,7 +1190,7 @@ async function shuffleFiles(){
   const full=mergeOrder(ordered().map(entry=>entry.path),shown,next),moved=full.map(path=>[path,entries.get(path)!] as const);
   entries.clear();moved.forEach(([path,entry])=>entries.set(path,entry));
   orderCacheKey='';filterCacheKey='';document.querySelector('.table-wrap')!.scrollTop=0;
-  if(columnLayout.sort.length)await applyColumns({...columnLayout,sort:[]}).catch(error=>{errors=[{path:'Columns',error:String(error)}];render();});
+  if(columnLayout.sort.length)await applyColumns({...columnLayout,sort:[]}).catch(error=>{errors=[{path:'Columns',label:'Columns',error:String(error)}];render();});
   else refreshList();
   status=`Shuffled ${shown.length} files. Playlists and numbering use the list order.`;
   const element=document.querySelector('.status-message');if(element)element.textContent=status;
@@ -1226,11 +1297,11 @@ function bind() {
     const el=(event.target as Element).closest<HTMLButtonElement>('[data-sort-menu]');if(!el)return;
     document.querySelectorAll<HTMLDetailsElement>('details[open]').forEach(d=>d.open=false);
     const id=el.dataset.sortMenu!,primary=columnLayout.sort[0];document.querySelector('.table-wrap')!.scrollTop=0;
-    applyColumns({...columnLayout,sort:[{id,ascending:primary?.id===id?!primary.ascending:true}]}).catch(error=>{errors=[{path:'Columns',error:String(error)}];render();});
+    applyColumns({...columnLayout,sort:[{id,ascending:primary?.id===id?!primary.ascending:true}]}).catch(error=>{errors=[{path:'Columns',label:'Columns',error:String(error)}];render();});
   });
   document.querySelector<HTMLButtonElement>('[data-shuffle]')?.addEventListener('click',event=>{event.stopPropagation();void operate('shuffle-list');});
   bindToolbarHints();
-  document.querySelectorAll<HTMLButtonElement>('[data-sort]').forEach(el => el.addEventListener('click', event => { document.querySelector('.table-wrap')!.scrollTop=0;applyColumns({...columnLayout,sort:sortClick(columnLayout.sort,el.dataset.sort!,event.shiftKey)}).catch(error=>{errors=[{path:'Columns',error:String(error)}];render();}); }));
+  document.querySelectorAll<HTMLButtonElement>('[data-sort]').forEach(el => el.addEventListener('click', event => { document.querySelector('.table-wrap')!.scrollTop=0;applyColumns({...columnLayout,sort:sortClick(columnLayout.sort,el.dataset.sort!,event.shiftKey)}).catch(error=>{errors=[{path:'Columns',label:'Columns',error:String(error)}];render();}); }));
   const wrap=document.querySelector<HTMLDivElement>('.table-wrap')!;
   let scrollFrame=0;
   wrap.addEventListener('scroll',()=>{if(wrap.clientHeight){tableScrollTop=wrap.scrollTop;tableScrollLeft=wrap.scrollLeft;}if(!scrollFrame)scrollFrame=requestAnimationFrame(()=>{scrollFrame=0;if(wrap.isConnected&&wrap.clientHeight)updateVirtualRows();});},{passive:true});
@@ -1269,7 +1340,7 @@ function bind() {
 async function run<T>(message: string, job: (progress?:string) => Promise<T>, options: {preserveErrors?:boolean;progress?:boolean} = {}): Promise<T|undefined> {
   if(busy)return;busy=true;status=message;if(!options.preserveErrors)errors=[];
   progressJob=options.progress&&desktop?{id:crypto.randomUUID(),done:0,total:0,cancelling:false}:undefined;render();
-  try { return await job(progressJob?.id); } catch(error) { const failure={path:'Operation',error:String(error)};errors=options.preserveErrors?[...errors,failure]:[failure];status='Operation failed';return undefined; } finally {progressJob=undefined;await refreshSourceAccess();await refreshHistory();busy=false;render();void flushNotices();}
+  try { return await job(progressJob?.id); } catch(error) { const failure={path:'Operation',label:'Operation',error:String(error)};errors=options.preserveErrors?[...errors,failure]:[failure];status='Operation failed';return undefined; } finally {progressJob=undefined;await refreshSourceAccess();await refreshHistory();busy=false;render();void flushNotices();}
 }
 function progressText(job:ProgressJob){return job.cancelling?'Cancelling…':job.total?`${job.done} of ${job.total}`:'Preparing…';}
 function progressMarkup(){
@@ -1327,21 +1398,21 @@ function applyRenamed(batch:Batch){
   if(!generalPrefs().keep_moved&&folders.length){const gone=snapshots.map(({to})=>to).filter(to=>!insideFolders(to,folders)&&!drafts.has(to));gone.forEach(path=>movedOut.add(path));if(gone.length)removeEntries(gone);}
 }
 // Replacing the list (Change directory) happens only after the new scan succeeds.
-async function scan(newPaths: string[], options:{recursive?:boolean;replace?:boolean;location?:string;errors?:FileError[]}={}) {
+async function scan(newPaths: string[], options:{recursive?:boolean;replace?:boolean;location?:string;locationIsData?:boolean;errors?:FileError[]}={}) {
   folderImages.clear();
-  return !!await run('Reading audio files…',async job=>{ const result=await invoke<Batch>('scan_files',{paths:newPaths,recursive:options.recursive??optionsUI.settings.directories.subfolders,job});if(options.replace)clearWorkspace();const empty=!entries.size;accept(result,'Loaded',false);if(options.errors?.length){errors=[...options.errors,...errors];status+=`, ${options.errors.length} playlist entr${options.errors.length===1?'y':'ies'} not loaded`;}listRoots=options.replace?[...newPaths]:[...new Set([...listRoots,...newPaths])];if(generalPrefs().select_added&&result.entries.length){const added=new Set(result.entries.map(entry=>entry.path));selected.clear();added.forEach(path=>selected.add(path));anchor=ordered().find(entry=>added.has(entry.path))?.path;coverIndex=0;}if(empty||!options.location)location=options.location??(newPaths.length===1?newPaths[0]:`${newPaths.length} added locations`);if(!selected.size&&result.entries.length){selected.add(result.entries[0].path);anchor=result.entries[0].path;}if(progressJob?.cancelling)status+=' (reading cancelled)';return true; },{progress:true});
+  return !!await run('Reading audio files…',async job=>{ const result=await invoke<Batch>('scan_files',{paths:newPaths,recursive:options.recursive??optionsUI.settings.directories.subfolders,job});if(options.replace)clearWorkspace();const empty=!entries.size;accept(result,'Loaded',false);if(options.errors?.length){errors=[...options.errors,...errors];status+=`, ${options.errors.length} playlist entr${options.errors.length===1?'y':'ies'} not loaded`;}listRoots=options.replace?[...newPaths]:[...new Set([...listRoots,...newPaths])];if(generalPrefs().select_added&&result.entries.length){const added=new Set(result.entries.map(entry=>entry.path));selected.clear();added.forEach(path=>selected.add(path));anchor=ordered().find(entry=>added.has(entry.path))?.path;coverIndex=0;}if(empty||!options.location){location=options.location??(newPaths.length===1?newPaths[0]:`${newPaths.length} added locations`);locationIsData=options.location?options.locationIsData!==false:newPaths.length===1;}if(!selected.size&&result.entries.length){selected.add(result.entries[0].path);anchor=result.entries[0].path;}if(progressJob?.cancelling)status+=' (reading cancelled)';return true; },{progress:true});
 }
 // Playlists and cue sheets among the paths load their entries in playlist order (https://docs.mp3tag.de/playlists/).
-async function loadPaths(newPaths:string[],options:{recursive?:boolean;replace?:boolean;location?:string}={}){
+async function loadPaths(newPaths:string[],options:{recursive?:boolean;replace?:boolean;location?:string;locationIsData?:boolean}={}){
   if(!newPaths.some(isPlaylistPath))return scan(newPaths,options);
   let expanded;
-  try{expanded=await playlistUI.expand(newPaths);}catch(error){errors=[{path:'Playlist',error:publicMessage(error)}];status='Playlist could not be read';render();return false;}
+  try{expanded=await playlistUI.expand(newPaths);}catch(error){errors=[{path:'Playlist',label:'Playlist',error:publicMessage(error)}];status='Playlist could not be read';render();return false;}
   const wasEmpty=!entries.size,playlist=expanded.playlist;
-  const loaded=await scan(expanded.paths,{...options,errors:expanded.errors,location:options.location&&newPaths.length>1?options.location:playlist});
+  const loaded=await scan(expanded.paths,{...options,errors:expanded.errors,location:options.location&&newPaths.length>1?options.location:playlist,locationIsData:options.location&&newPaths.length>1?options.locationIsData:true});
   if(loaded&&playlist&&(options.replace||wasEmpty)){
     loadedPlaylist=playlist;
     // Playlist order is the list's load order; a column sort would hide it.
-    if(columnLayout.sort.length)await applyColumns({...columnLayout,sort:[]}).catch(error=>{errors=[...errors,{path:'Columns',error:String(error)}];render();});
+    if(columnLayout.sort.length)await applyColumns({...columnLayout,sort:[]}).catch(error=>{errors=[...errors,{path:'Columns',label:'Columns',error:String(error)}];render();});
   }
   return loaded;
 }
@@ -1391,11 +1462,11 @@ function modal(title: string, content: string, buttons: string): HTMLDialogEleme
   const dialog=document.createElement('dialog');dialog.innerHTML=`<header>${esc(title)}</header><div class="dialog-content">${content}</div><div class="dialog-footer"><button data-close>Cancel</button>${buttons}</div>`;
   document.body.append(dialog);dialog.querySelector('[data-close]')!.addEventListener('click',()=>dialog.close());dialog.addEventListener('close',()=>dialog.remove());dialog.showModal();return dialog;
 }
-function modalError(dialog: HTMLDialogElement, error: unknown) {let el=dialog.querySelector('.dialog-error');if(!el){el=document.createElement('p');el.className='dialog-error';el.setAttribute('role','alert');dialog.querySelector('.dialog-content')!.append(el);}el.textContent=publicMessage(error);}
+function modalError(dialog: HTMLDialogElement, error: unknown) {showFileError(dialog,error,t,translate,onLanguageChange,publicMessage);}
 function value(dialog: HTMLDialogElement, id: string) {return dialog.querySelector<HTMLInputElement|HTMLSelectElement>(`#${id}`)!.value;}
 function saveCopy() {
   const path=paths()[0],source=documentAccess.states[path];if(!source)return;
-  const dialog=modal('Save a copy',`<p><strong>${esc(source.name)}</strong></p><p>Create a new document in a location you choose. The source and its recovery copies are retained.</p>${workingMetadataNotice(path)}<label class="field"><span>COPY VERSION</span><select id="copy-version"><option value="edited">Edited copy — includes pending tag changes</option><option value="original">Original backup — last verified source</option></select></label><p class="copy-status" role="status">${source.state==='recovery_required'?'Recovery required. Choose the edited copy or original backup.':'The edited copy includes the current tags and any pending changes.'}</p>`,`<button class="primary" id="save-document-copy">Choose destination…</button>`);
+  const dialog=modal('Save a copy',`<p><strong translate="no">${esc(source.name)}</strong></p><p>Create a new document in a location you choose. The source and its recovery copies are retained.</p>${workingMetadataNotice(path)}<label class="field"><span>COPY VERSION</span><select id="copy-version"><option value="edited">Edited copy — includes pending tag changes</option><option value="original">Original backup — last verified source</option></select></label><p class="copy-status" role="status">${source.state==='recovery_required'?'Recovery required. Choose the edited copy or original backup.':'The edited copy includes the current tags and any pending changes.'}</p>`,`<button class="primary" id="save-document-copy">Choose destination…</button>`);
   dialog.setAttribute('aria-label','Save a copy');
   const saveButton=dialog.querySelector<HTMLButtonElement>('#save-document-copy')!,closeButton=dialog.querySelector<HTMLButtonElement>('[data-close]')!;
   let copying=false;
@@ -1409,12 +1480,12 @@ function saveCopy() {
     const result=await run('Saving a copy…',async()=>{
       const batch=await invoke<Batch>('document_save_copy',request),outcome=copyOutcome(batch);
       if(outcome==='cancelled'){status='Copy cancelled. No copy was saved; pending edits are retained.';progress.textContent=status;return batch;}
-      if(outcome==='failed'){errors=batch.errors;status='Copy could not be saved. Pending edits and recovery files are retained.';modalError(dialog,batch.errors.map(error=>`${displayName(error.path)}: ${publicMessage(error.error)}`).join('\n'));return batch;}
+      if(outcome==='failed'){errors=batch.errors;status='Copy could not be saved. Pending edits and recovery files are retained.';modalError(dialog,new BatchFailure(batch.errors,'Copy failed. Pending edits and recovery files are retained.',{name:displayName,plain:publicMessage}));return batch;}
       accept(batch,'Saved copy',false);selected.clear();batch.entries.forEach(entry=>selected.add(entry.path));anchor=batch.entries[0].path;
-      location='Provider documents';dialog.close();return batch;
+      location='Provider documents';locationIsData=false;dialog.close();return batch;
     });
     copying=false;
-    if(dialog.open){saveButton.disabled=false;closeButton.disabled=false;dialog.querySelector<HTMLSelectElement>('#copy-version')!.disabled=false;if(!result){progress.textContent='Copy failed. Pending edits and recovery files are retained.';modalError(dialog,errors.map(error=>publicMessage(error.error)).join('\n'));}}
+    if(dialog.open){saveButton.disabled=false;closeButton.disabled=false;dialog.querySelector<HTMLSelectElement>('#copy-version')!.disabled=false;if(!result){progress.textContent='Copy failed. Pending edits and recovery files are retained.';modalError(dialog,new BatchFailure(errors,'Copy failed. Pending edits and recovery files are retained.',{paths:false,plain:publicMessage}));}}
   });
 }
 function converter(rename: boolean) {
@@ -1425,8 +1496,8 @@ function converter(rename: boolean) {
     const previewButton=dialog.querySelector<HTMLButtonElement>('#preview-button')!;previewButton.disabled=true;apply.disabled=true;planToken=undefined;
     try{
       const template=value(dialog,'template'),targets=paths(),revision=previewRevision;
-      if(rename){const result=await invoke<RenamePreview[]>('preview_rename',{paths:targets,template,columns:columnSpecs(targets)});if(!dialog.open||revision!==previewRevision)return;const token=result[0]?.plan_token;if(!token||result.length!==targets.length||result.some((row,index)=>row.path!==targets[index]||row.plan_token!==token))throw new Error('The rename preview could not be verified. Run Preview again.');dialog.querySelector('#preview')!.innerHTML=`<div class="preview">${result.map(r=>`<div><small>${esc(displayName(r.path))}</small>${esc(r.value)}</div>`).join('')}</div>`;planToken=token;}
-      else{const result=await invoke<FilenamePreview[]>('preview_filename',{paths:targets,pattern:template});if(!dialog.open||revision!==previewRevision)return;matched=result.filter(r=>r.fields).length;dialog.querySelector('#preview')!.innerHTML=`<div class="preview">${result.map(r=>`<div${r.fields?'':' class="no-match"'}><small>${esc(displayName(r.path))}</small>${r.fields?Object.entries(r.fields).map(([key,values])=>`${esc(key)}: ${esc(values.join(' · '))}`).join('<br>'):r.error?esc(publicMessage(r.error)):'No match, not changed'}</div>`).join('')}</div>`;apply.textContent=`Apply to ${matched} file${matched===1?'':'s'}`;}
+      if(rename){const result=await invoke<RenamePreview[]>('preview_rename',{paths:targets,template,columns:columnSpecs(targets)});if(!dialog.open||revision!==previewRevision)return;const token=result[0]?.plan_token;if(!token||result.length!==targets.length||result.some((row,index)=>row.path!==targets[index]||row.plan_token!==token))throw new Error('The rename preview could not be verified. Run Preview again.');dialog.querySelector('#preview')!.innerHTML=`<div class="preview">${result.map(r=>`<div translate="no"><small>${esc(displayName(r.path))}</small>${esc(r.value)}</div>`).join('')}</div>`;planToken=token;}
+      else{const result=await invoke<FilenamePreview[]>('preview_filename',{paths:targets,pattern:template});if(!dialog.open||revision!==previewRevision)return;matched=result.filter(r=>r.fields).length;dialog.querySelector('#preview')!.innerHTML=`<div class="preview">${result.map(r=>`<div${r.fields?'':' class="no-match"'}><small translate="no">${esc(displayName(r.path))}</small>${r.fields?Object.entries(r.fields).map(([key,values])=>`<span translate="no">${esc(key)}: ${esc(values.join(' · '))}</span>`).join('<br>'):r.error?esc(publicMessage(r.error)):'No match, not changed'}</div>`).join('')}</div>`;apply.textContent=`Apply to ${matched} file${matched===1?'':'s'}`;}
       dialog.querySelector('.dialog-error')?.remove();previewed=template;previewPaths=targets;apply.disabled=value(dialog,'template')!==template||JSON.stringify(paths())!==JSON.stringify(targets)||(rename&&!planToken)||(!rename&&!matched);
     }catch(e){modalError(dialog,e);}finally{previewButton.disabled=false;}
   });
@@ -1450,6 +1521,18 @@ function reviewedConverter(kind:'filename'|'text') {
   const dialog=modal(title,`${content}<p class="converter-status" role="status" aria-live="polite">Run Preview to review every selected file.</p><div id="reviewed-preview" aria-label="Conversion preview"></div>`,
     `<button id="reviewed-preview-button">Preview</button><button class="primary" id="reviewed-apply" disabled></button>`);
   dialog.setAttribute('aria-label',title);
+  let rollbackFailure:ConverterRollback|undefined;
+  const refreshRollback=()=>{const el=dialog.querySelector('.dialog-error');if(rollbackFailure&&el)el.textContent=converterRollbackText(rollbackFailure,t,translate);};
+  const showError=(error:unknown)=>{
+    rollbackFailure=converterRollbackError(error);
+    modalError(dialog,rollbackFailure?converterRollbackText(rollbackFailure):error);
+    const el=dialog.querySelector('.dialog-error')!;
+    if(rollbackFailure){el.setAttribute('translate','no');refreshRollback();}else if(!(error instanceof BatchFailure))el.removeAttribute('translate');
+  };
+  const clearError=()=>{rollbackFailure=undefined;clearFileError(dialog);};
+  const stopLanguage=onLanguageChange(refreshRollback);
+  dialog.addEventListener('close',stopLanguage,{once:true});
+
   const apply=dialog.querySelector<HTMLButtonElement>('#reviewed-apply')!,previewButton=dialog.querySelector<HTMLButtonElement>('#reviewed-preview-button')!;
   const previewArea=dialog.querySelector<HTMLDivElement>('#reviewed-preview')!,progress=dialog.querySelector<HTMLElement>('.converter-status')!;
   const closeButton=dialog.querySelector<HTMLButtonElement>('[data-close]')!;
@@ -1477,9 +1560,9 @@ function reviewedConverter(kind:'filename'|'text') {
       options:{ansi_codepage:file?(value(dialog,'text-codepage').trim()||null):null,case_sensitive_paths:dialog.querySelector<HTMLInputElement>('#text-case-sensitive')!.checked}};
   };
   const syncControls=()=>{
-    const count=paths().length,blocked=applying||picking||busy||dirtySelected()||!count;
-    const planned=review.planned??count; // Unmatched files are left unchanged.
-    apply.textContent=`${rename?'Rename':'Save tags to'} ${planned} file${planned===1?'':'s'}`;
+    const selectedCount=paths().length,blocked=applying||picking||busy||dirtySelected()||!selectedCount;
+    const count=review.planned??selectedCount; // Unmatched files are left unchanged.
+    apply.textContent=`${rename?'Rename':'Save tags to'} ${count} file${count===1?'':'s'}`;
     let ready=false,inputsValid=false;
     try{const request=readRequest();inputsValid=true;ready=review.canApply(request,context());}catch{/* Missing inputs remain visible and can be completed. */}
     apply.disabled=blocked||!ready;previewButton.disabled=blocked||review.pending||!inputsValid;
@@ -1490,7 +1573,7 @@ function reviewedConverter(kind:'filename'|'text') {
   };
   const invalidate=(message='Inputs changed. Run Preview again.')=>{
     review.invalidate();window.clearTimeout(expiryTimer);previewArea.replaceChildren();
-    progress.textContent=message;dialog.querySelector('.dialog-error')?.remove();syncControls();
+    progress.textContent=message;clearError();syncControls();
   };
   const observeWorkspace=()=>{
     const next=context();
@@ -1501,7 +1584,7 @@ function reviewedConverter(kind:'filename'|'text') {
   dialog.addEventListener('close',()=>{
     review.invalidate();window.clearTimeout(expiryTimer);
     if(reviewedConverterContextChanged===observeWorkspace)reviewedConverterContextChanged=undefined;
-    if(!document.querySelector('dialog[open]'))[...app.querySelectorAll<HTMLElement>('.menubar > .menu > summary')].find(summary=>summary.textContent==='Convert')?.focus({preventScroll:true});
+    if(!document.querySelector('dialog[open]'))app.querySelector<HTMLElement>('.menubar > .menu[data-menu="Convert"] > summary')?.focus({preventScroll:true});
   });
   dialog.addEventListener('cancel',event=>{if(applying)event.preventDefault();});
   inputControls.forEach(control=>{
@@ -1515,13 +1598,13 @@ function reviewedConverter(kind:'filename'|'text') {
   dialog.querySelector('#pick-text-source')?.addEventListener('click',async()=>{
     invalidate('Choose a text source, then run Preview.');picking=true;syncControls();
     try{const source=await open({multiple:false,title:'Choose text import source'});if(dialog.open&&typeof source==='string'){dialog.querySelector<HTMLInputElement>('#text-source-path')!.value=source;inputsChanged(inputValues());}}
-    catch(error){if(dialog.open)modalError(dialog,error);}
+    catch(error){if(dialog.open)showError(error);}
     finally{picking=false;if(dialog.open){syncControls();dialog.querySelector<HTMLInputElement>('#text-source-path')!.focus({preventScroll:true});}}
   });
-  const fieldRows=(fields:Fields)=>`<dl class="converter-values">${Object.entries(fields).map(([name,values])=>`<dt>${esc(name)}</dt><dd>${values.length?values.map((value,index)=>`<span>${values.length>1?`${index+1}. `:''}${value===''?'<em>(empty)</em>':esc(value)}</span>`).join(''):'<em>No values</em>'}</dd>`).join('')}</dl>`;
+  const fieldRows=(fields:Fields)=>`<dl class="converter-values">${Object.entries(fields).map(([name,values])=>`<dt translate="no">${esc(name)}</dt><dd>${values.length?values.map((value,index)=>`<span>${values.length>1?`${index+1}. `:''}${value===''?'<em>(empty)</em>':`<span translate="no">${esc(value)}</span>`}</span>`).join(''):'<em>No values</em>'}</dd>`).join('')}</dl>`;
   const previewMarkup=(items:Item[],unmatched:string[])=>`<div class="preview" tabindex="0" role="region" aria-label="Reviewed conversion results">${items.map(item=>'target' in item?
-    `<div><small>${esc(item.path)}</small><strong>${esc(item.target)}</strong>${fieldRows(item.captures)}</div>`:
-    `<div><small>Source line ${item.source_line} → selected file ${item.selection_index+1}</small><strong>${esc(item.path)}</strong>${fieldRows(item.fields)}</div>`).join('')}${unmatched.map(path=>`<div class="no-match"><small>${esc(path)}</small>No match, not changed</div>`).join('')}</div>`;
+    `<div><small translate="no">${esc(item.path)}</small><strong translate="no">${esc(item.target)}</strong>${fieldRows(item.captures)}</div>`:
+    `<div><small>Source line ${item.source_line} → selected file ${item.selection_index+1}</small><strong translate="no">${esc(item.path)}</strong>${fieldRows(item.fields)}</div>`).join('')}${unmatched.map(path=>`<div class="no-match"><small translate="no">${esc(path)}</small>No match, not changed</div>`).join('')}</div>`;
   previewButton.addEventListener('click',async()=>{
     let attempt:ReturnType<typeof review.begin>|undefined;
     previewButton.focus({preventScroll:true});
@@ -1529,46 +1612,47 @@ function reviewedConverter(kind:'filename'|'text') {
     try{
       inputsChanged(inputValues()); // Capture also acknowledges AX edits with deferred change events.
       const request=readRequest();attempt=review.begin(request,context());
-      window.clearTimeout(expiryTimer);previewArea.replaceChildren();dialog.querySelector('.dialog-error')?.remove();progress.textContent='Reading files and preparing preview…';syncControls();
+      window.clearTimeout(expiryTimer);previewArea.replaceChildren();clearError();progress.textContent='Reading files and preparing preview…';syncControls();
       const response=await invoke<ConverterPreview<Item>>(rename?'preview_filename_conversion':'preview_text_import',{request:attempt.request});
       if(!dialog.open)return;
       const markup=previewMarkup(response.items,response.unmatched??[]);
       if(!review.complete(attempt,response,readRequest(),context())){review.fail(attempt);return;}
       previewArea.innerHTML=markup;progress.textContent=`Reviewed ${response.items.length} file${response.items.length===1?'':'s'}${response.source_path?` from ${response.source_path}`:''}. Apply uses these exact results.`;
       expiryTimer=window.setTimeout(()=>{if(dialog.open)invalidate('The preview expired. Run Preview again.');},300_000);
-    }catch(error){if(dialog.open&&(!attempt||review.fail(attempt))){modalError(dialog,error);progress.textContent='Preview failed. Review the error and try again.';}}
+    }catch(error){if(dialog.open&&(!attempt||review.fail(attempt))){showError(error);progress.textContent='Preview failed. Review the error and try again.';}}
     finally{if(dialog.open){syncControls();if(restoreFocus&&(document.activeElement===dialog||document.activeElement===document.body))previewButton.focus({preventScroll:true});}}
   });
   apply.addEventListener('click',async()=>{
     let reviewed:ReturnType<typeof review.take>;
     apply.focus({preventScroll:true});
     try{if(busy)throw new Error('Wait for the current file operation to finish.');reviewed=review.take(readRequest(),context());}
-    catch(error){invalidate('Run Preview again before applying.');modalError(dialog,error);return;}
+    catch(error){invalidate('Run Preview again before applying.');showError(error);return;}
     applying=true;window.clearTimeout(expiryTimer);progress.textContent=rename?'Renaming reviewed files…':'Saving reviewed tag values…';syncControls();
-    let failure:string|undefined;
+    let failure:unknown;
     const result=await run(rename?'Renaming files…':'Importing text tags…',async()=>{
       try{
         const batch=await invoke<Batch>(rename?'apply_filename_conversion':'apply_text_import',{request:reviewed.request,planToken:reviewed.planToken});
         applyRenamed(batch);accept(batch,rename?'Renamed':'Imported text tags',false);return batch;
       }catch(error){
-        failure=String(error);
+        failure=error;
+        const rollback=converterRollbackError(error);
         try{accept(await invoke<Batch>('scan_files',{paths:reviewed.request.paths,recursive:false}),'Reloaded reviewed source files',false);}
-        catch(reloadError){errors=[{path:'Reload',error:String(reloadError)}];}
-        errors=[{path:'Conversion',error:failure},...errors];status='Conversion failed. Review file errors and run Preview again.';return undefined;
+        catch(reloadError){errors=[{path:'Reload',label:'Reload',error:String(reloadError)}];}
+        errors=[{path:'Conversion',label:'Conversion',error:rollback?converterRollbackText(rollback):String(error),rollback},...errors];status='Conversion failed. Review file errors and run Preview again.';return undefined;
       }
     });
     applying=false;
     if(!dialog.open)return;
     if(result&&!result.errors.length){dialog.close();return;}
     invalidate('Apply did not complete. Review the errors and run Preview again.');
-    modalError(dialog,failure||result?.errors.map(error=>`${error.path}: ${error.error}`).join('\n')||'Conversion did not complete. Run Preview again.');
+    showError(failure||(result?.errors.length?new BatchFailure(result.errors,'Conversion did not complete. Run Preview again.'):'Conversion did not complete. Run Preview again.'));
     previewButton.focus({preventScroll:true});
   });
   syncControls();dialog.querySelector<HTMLInputElement|HTMLSelectElement>(rename?'#old-pattern':'#text-source-kind')!.focus({preventScroll:true});
 }
 async function refreshHistory(){
   if(!desktop)return;
-  try{const next=await invoke<HistoryState>('history_state');if(next.notice&&next.notice!==history.notice)status=`${status}. ${next.notice}`;history=next;}catch{/* Undo history is optional; operations still complete. */}
+  try{const next=await invoke<HistoryState>('history_state');if(next.notice&&next.notice!==history.notice)status=status instanceof ColumnImportStatus?status.withNotice(next.notice):`${status}. ${next.notice}`;history=next;}catch{/* Undo history is optional; operations still complete. */}
 }
 async function replayHistory(kind:'undo'|'redo'){
   const step=history[kind];if(!step)return;
@@ -1585,13 +1669,13 @@ const clipTargets=()=>paths().map(path=>({path,fields:merged(entries.get(path)!)
 // Files whose covers are known and saved in place: provider documents with unreadable working copies, or
 // that only Save a copy can keep (it writes fields only), are left alone.
 const coverTargets=()=>sourcePolicy().mutationReason?[]:paths().filter(path=>!workingReadErrors.has(path)).map(path=>({path,covers:pendingCovers.get(path)??entries.get(path)!.covers}));
-function stageTagUpdates(plan:()=>PasteUpdate[],name:string,done:(count:number)=>string,coverPlan:()=>CoverUpdate[]=()=>[]){
+function stageTagUpdates(plan:()=>PasteUpdate[],operation:'Cut tags'|'Paste tags',statusMessage:(count:number)=>string,coverPlan:()=>CoverUpdate[]=()=>[]){
   try{
     const updates=plan(),coverUpdates=coverPlan();
     for(const {path,updates:fields} of updates){const entry=entries.get(path)!;for(const [key,values] of Object.entries(fields))updateDraft(path,panelKey({format:entry.format,fields:merged(entry)},key),values);}
     for(const {path,covers} of coverUpdates){pendingCovers.set(path,covers);if(!drafts.has(path))drafts.set(path,{});changedData();if(active()?.path===path)coverIndex=0;}
-    status=`${done(new Set([...updates,...coverUpdates].map(update=>update.path)).size)} ${sourcePolicy().mutationReason?'Use Save a copy to keep these edits.':'Save tags to write them.'}`;
-  }catch(error){errors=[{path:name,error:error instanceof Error?error.message:String(error)}];status=`${name} failed`;}
+    status=`${statusMessage(new Set([...updates,...coverUpdates].map(update=>update.path)).size)} ${sourcePolicy().mutationReason?'Use Save a copy to keep these edits.':'Save tags to write them.'}`;
+  }catch(error){errors=[{path:operation,label:operation,error:error instanceof Error?error.message:String(error)}];status=`${operation} failed`;}
   render();
 }
 /** Copy and Cut tags include the covers (Edit → Copy). Image data stays in the backend until a save writes pasted covers. */
@@ -1628,8 +1712,8 @@ function tagToTag(){
     apply:async({field,template,paths:targets})=>{
       if(!enabled('tag-tag'))throw new Error(operationReason('tag-tag')||'Select files and save pending tag edits first.');
       const result=await run('Converting tags…',async()=>{const batch=await invoke<Batch>('convert_tag_to_tag',{paths:targets,field,template,columns:columnSpecs(targets)});applyRenamed(batch);accept(batch,'Tag → Tag');return batch;});
-      if(!result)throw new Error(errors.map(error=>`${error.path}: ${error.error}`).join('\n')||'Tag → Tag did not complete.');
-      if(result.errors.length)throw new Error(result.errors.map(error=>`${displayName(error.path)}: ${error.error}`).join('\n'));
+      if(!result)throw new BatchFailure(errors,'Tag → Tag did not complete.');
+      if(result.errors.length)throw new BatchFailure(result.errors,'Tag → Tag did not complete.',{name:displayName});
     }});
 }
 /** Auto-numbering wizard; `perFolder` (Ctrl+Shift+K) restarts the track counter in each folder. Options are remembered between runs. */
@@ -1639,7 +1723,7 @@ function numbering(options:{perFolder?:boolean}={}) {
   const perFolder=!!options.perFolder&&directoryAvailable; // Provider documents have no folders to number by.
   const memory=recallNumbering(storage,perFolder);
   const names=[...new Set(['ALBUM','DISCNUMBER','ALBUMARTIST',...paths().flatMap(path=>Object.keys(merged(entries.get(path)!))),...[memory.next_disc_on_field,memory.reset_disc_on_field].filter(Boolean)])].sort();
-  const fieldOptions=(chosen:string)=>`<option value="">Do not change counter</option>${names.map(name=>`<option value="${esc(name)}" ${name===chosen?'selected':''}>${esc(name)}</option>`).join('')}`;
+  const fieldOptions=(chosen:string)=>`<option value="">Do not change counter</option>${names.map(name=>`<option value="${esc(name)}" ${name===chosen?'selected':''} translate="no">${esc(name)}</option>`).join('')}`;
   const counter=(id:string,label:string,initial:number,max=4_294_967_295)=>`<label class="field"><span>${label}</span><input id="${id}" type="number" min="1" max="${max}" step="1" value="${initial}"></label>`;
   const on=(value:boolean)=>value?'checked':'';
   const dialog=modal('Auto-numbering',`<p>Number selected files in their current table order. Preview, then stage the numbers as pending edits.</p>
@@ -1694,7 +1778,7 @@ function numbering(options:{perFolder?:boolean}={}) {
       if(!dialog.open||current!==generation)return;
       if(!review.complete(attempt,plan,request())){progress.textContent='Selection changed. Run Preview again.';return;}
       const rows=plan.slice(0,100);
-      area.innerHTML=`<div class="preview" tabindex="0" aria-label="Numbering preview"><table><thead><tr><th>File</th><th>Track</th>${attempt.request.options.disc_enabled?'<th>Disc</th>':''}</tr></thead><tbody>${rows.map(row=>`<tr><td>${esc(displayName(row.path))}</td><td>${esc(row.fields.TRACK[0])}</td>${attempt.request.options.disc_enabled?`<td>${esc(row.fields.DISCNUMBER[0])}</td>`:''}</tr>`).join('')}</tbody></table></div>`;
+      area.innerHTML=`<div class="preview" tabindex="0" aria-label="Numbering preview"><table><thead><tr><th>File</th><th>Track</th>${attempt.request.options.disc_enabled?'<th>Disc</th>':''}</tr></thead><tbody translate="no">${rows.map(row=>`<tr><td>${esc(displayName(row.path))}</td><td>${esc(row.fields.TRACK[0])}</td>${attempt.request.options.disc_enabled?`<td>${esc(row.fields.DISCNUMBER[0])}</td>`:''}</tr>`).join('')}</tbody></table></div>`;
       progress.textContent=`Reviewed ${plan.length} files.${plan.length>100?' Showing the first 100.':''} Stage numbers, then Save tags to write them.`;
     }catch(error){if(dialog.open&&current===generation){review.invalidate();modalError(dialog,error);progress.textContent='Preview failed. Review the options and try again.';}}
     finally{if(dialog.open&&current===generation){pending=false;sync();}}
@@ -1722,7 +1806,7 @@ function numbering(options:{perFolder?:boolean}={}) {
 // Utils → Remove unsupported fields, Optimize and Strip chapters, for the selected files they apply to.
 async function runUtil(util:Util){
   const spec=UTILS[util],formats=paths().map(path=>entries.get(path)!.format),targets=paths().filter(path=>spec.formats.includes(entries.get(path)!.format));
-  if(!utilTargets(util,formats)){errors=[{path:spec.label,error:`${spec.label} applies to ${spec.applies}.`}];status=`${spec.label}: none of the selected files apply`;render();return;}
+  if(!utilTargets(util,formats)){errors=[{path:spec.label,label:spec.label,error:`${spec.label} applies to ${spec.applies}.`}];status=`${spec.label}: none of the selected files apply`;render();return;}
   const done=util==='remove_unsupported_fields'?'Removed unsupported fields':'Optimized';
   const dialog=modal(spec.label,`<p>${esc(utilMessage(util,formats))}</p>`,`<button id="run-util" class="primary">${esc(spec.label)}</button>`);
   dialog.classList.add('util-dialog');
@@ -1730,7 +1814,7 @@ async function runUtil(util:Util){
   button.addEventListener('click',async()=>{
     button.disabled=true;
     const result=await run(`${spec.label}…`,async()=>{const batch=await invoke<Batch>('apply_util',{paths:targets,util});accept(batch,done,true,targets.map(rowFile));return batch;});
-    if(result&&!result.errors.length)dialog.close();else{modalError(dialog,result?result.errors.map(error=>`${displayName(error.path)}: ${publicMessage(error.error)}`).join('\n'):errors.map(error=>publicMessage(error.error)).join('\n'));button.disabled=false;}
+    if(result&&!result.errors.length)dialog.close();else{modalError(dialog,new BatchFailure(result?result.errors:errors,'Operation failed',{paths:!!result,name:displayName,plain:publicMessage}));button.disabled=false;}
   });
 }
 // Help → Check for updates and Options → Updates.
@@ -1760,11 +1844,11 @@ async function operateImpl(op: Operation) {
   if(op==='about'){const dialog=modal('About OpenTag',`<img class="about-artwork" data-theme-image="about" src="${themedAsset('about')}" alt="OpenTag — Tag, Organize, Enjoy"><p>Tag, Organize, Enjoy.</p><p>Open source music tag editor.</p><p>Version ${esc(appVersion)} · MIT License</p>`,'');dialog.querySelector('[data-close]')!.textContent='Close';return;}
   if(op==='refresh-source'){await run('Refreshing source access…',async()=>{},{preserveErrors:true});status=documentAccess.refreshError?'Source access refresh failed. Pending edits are retained.':'Source access refreshed';render();return;}
   if(op==='save-copy'){saveCopy();return;}
-  if(op==='files'&&runtimePlatform.document_access_supported){await run('Choosing audio documents…',async()=>{const batch=await invoke<Batch>('pick_document_files');if(!batch.entries.length&&!batch.errors.length){status='No files added';return;}accept(batch,'Loaded',false);location='Provider documents';if(batch.entries.length){selected.clear();batch.entries.forEach(entry=>selected.add(entry.path));anchor=batch.entries[0].path;}});return;}
+  if(op==='files'&&runtimePlatform.document_access_supported){await run('Choosing audio documents…',async()=>{const batch=await invoke<Batch>('pick_document_files');if(!batch.entries.length&&!batch.errors.length){status='No files added';return;}accept(batch,'Loaded',false);location='Provider documents';locationIsData=false;if(batch.entries.length){selected.clear();batch.entries.forEach(entry=>selected.add(entry.path));anchor=batch.entries[0].path;}});return;}
   if(op==='folder'||/^(dir|file)-/.test(op)){await fileOps.operate(op as FileOperation|'folder');return;}
   if(op==='files'){const result=await open({multiple:true,title:'Add audio files'});if(result)await loadPaths(Array.isArray(result)?result:[result]);return;}
   if(op==='save'){await saveDrafts();return;}
-  if(op==='redo'&&repeatState().kind==='repeat'){await executeGroups(lastActionGroups!).catch(error=>{errors=[{path:'Repeat',error:publicMessage(error)}];status='Repeat failed';render();});return;}
+  if(op==='redo'&&repeatState().kind==='repeat'){await executeGroups(lastActionGroups!).catch(error=>{errors=[{path:'Repeat',label:'Repeat',error:publicMessage(error)}];status='Repeat failed';render();});return;}
   if(op==='undo'||op==='redo'){await replayHistory(op);return;}
   if(op==='cut-tags'&&!await messages.confirm('confirm_cut_tags',`Cut the tags of ${selected.size} selected file${selected.size===1?'':'s'}? The fields are cleared as pending changes.`,'Cut tags'))return;
   if(op==='paste-tags'&&!await messages.confirm('confirm_paste_tags',`Paste tags to ${selected.size} selected file${selected.size===1?'':'s'}?`,'Paste tags'))return;
@@ -1779,11 +1863,11 @@ async function operateImpl(op: Operation) {
   if(op==='filename-filename'||op==='text-tags'){reviewedConverter(op==='filename-filename'?'filename':'text');return;}
   if(op==='action'){actionUI.quick();return;}
   if(op==='groups'){await actionUI.groupsDialog();return;}
-  if(op==='export-config'||op==='export-folders'){const perDirectory=op==='export-folders';if(optionsUI.page('export').show_dialog===false)await exportUI.runSaved(perDirectory).catch(error=>{errors=[{path:'Export',error:publicMessage(error)}];status='Export failed';render();});else await exportUI.open(perDirectory);return;}
+  if(op==='export-config'||op==='export-folders'){const perDirectory=op==='export-folders';if(optionsUI.page('export').show_dialog===false)await exportUI.runSaved(perDirectory).catch(error=>{errors=[{path:'Export',label:'Export',error:publicMessage(error)}];status='Export failed';render();});else await exportUI.open(perDirectory);return;}
   if(op==='playlist-load'){const path=await open({multiple:false,title:'Load playlist or cue sheet',filters:[{name:'Playlists and cue sheets',extensions:['m3u','m3u8','pls','cue']}]});if(typeof path!=='string'||drafts.size&&!await messages.confirm('unsaved_changes',`Load ${basename(path)} and discard pending tag changes in ${drafts.size} file${drafts.size===1?'':'s'}?`,'Unsaved changes'))return;await loadPaths([path],{replace:true,recursive:false,location:path});return;}
-  if(op==='playlist-all'||op==='playlist-selected'){await playlistUI.create(op==='playlist-all'?'all':'selected').catch(error=>{errors=[{path:'Playlist',error:publicMessage(error)}];status='Playlist failed';render();});return;}
+  if(op==='playlist-all'||op==='playlist-selected'){await playlistUI.create(op==='playlist-all'?'all':'selected').catch(error=>{errors=[{path:'Playlist',label:'Playlist',error:publicMessage(error)}];status='Playlist failed';render();});return;}
   if(op==='playlist-generate'){playlistUI.generate();return;}
-  if(op==='playlist-folders'){await playlistUI.createPerFolder().catch(error=>{errors=[{path:'Playlist',error:publicMessage(error)}];status='Playlist failed';render();});return;}
+  if(op==='playlist-folders'){await playlistUI.createPerFolder().catch(error=>{errors=[{path:'Playlist',label:'Playlist',error:publicMessage(error)}];status='Playlist failed';render();});return;}
   if(op==='toggle-filter'){toggleFilter();return;}
   if(op==='toggle-toolbar'){await saveToolbar({...toolbarConfig,shown:!toolbarConfig.shown});status=toolbarConfig.shown?'Main toolbar shown':'Main toolbar hidden. Show it again with View → Toolbars → Main toolbar.';render();return;}
   if(op==='toolbar-customize'){customizeToolbar({config:()=>toolbarConfig,save:saveToolbar,mac:macKeyboard});return;}
@@ -1806,7 +1890,7 @@ async function operateImpl(op: Operation) {
   if(op==='field-values'){tagPanel.fieldValues();return;}
   if(op==='panel-defaults'){tagPanel.applyDefaults();return;}
   if(op==='add-cover'||op==='remove-cover'||op==='cover-manage'){await coverUI.run(op==='add-cover'?'add':op==='remove-cover'?'remove':'manage');return;}
-  if(op==='remove-tags'){if(await messages.confirm('confirm_remove_tags',removeTagPrompt(selected.size,optionsUI.settings.tags),'Remove tag'))await mutate('remove_tags',{},'Removed tags');return;}
+  if(op==='remove-tags'){if(await messages.confirm('confirm_remove_tags',{parts:removeTagParts(selected.size,optionsUI.settings.tags),separator:'\n'},'Remove tag'))await mutate('remove_tags',{},'Removed tags');return;}
   if(op==='strip-mp4-chapters'){const found=mp4ChapterFiles(selectedFiles());if(await messages.confirm('confirm_remove_tags',stripChaptersPrompt(found),'Strip chapters MP4'))await mutate('strip_mp4_chapters',{},'Stripped MP4 chapters');return;}
   if(op==='remove-tag-types'){removeTagTypesDialog({modal,modalError,tags:()=>paths().map(path=>entries.get(path)?.technical?._TAG?.[0]),remove:async kinds=>{await mutate('remove_tag_types',{kinds:kinds as RemovableTag[]},'Removed tag types');}});return;}
   if(op==='copy-text'){copyAsTextDialog({modal,modalError,values:()=>optionsUI.page('copy-as-text'),remember:values=>desktop?optionsUI.updatePage('copy-as-text',values):Promise.resolve(),count:()=>selected.size,
@@ -1821,7 +1905,8 @@ async function operateImpl(op: Operation) {
   if(op==='config-save'){const outputPath=await save({title:'Save configuration',defaultPath:configurationFileName(),filters:[CONFIGURATION_FILTER]});if(outputPath){const count=await invoke<number>('export_configuration',{outputPath});status=`Saved ${count} configuration file${count===1?'':'s'} to ${basename(outputPath)}`;render();}return;}
   if(op==='config-load'){
     const path=await open({multiple:false,title:'Load configuration',filters:[CONFIGURATION_FILTER]});if(typeof path!=='string')return;
-    if(!await ask(`Replace the current options, action groups, export configurations, columns, tag panel, favorite directories and remembered lists with ${basename(path)}?${drafts.size?` Pending changes in ${drafts.size} file${drafts.size===1?'':'s'} are discarded.`:''}\n\nOpenTag reloads its window afterwards. The Discogs access token is not part of a configuration file.`,{title:'Load configuration',kind:'warning'}))return;
+    // Pass source paragraphs to the native boundary; it translates once, then joins the layout.
+    if(!await ask({parts:[`Replace the current options, action groups, export configurations, columns, tag panel, favorite directories and remembered lists with ${basename(path)}?${drafts.size?` Pending changes in ${drafts.size} file${drafts.size===1?'':'s'} are discarded.`:''}`,'OpenTag reloads its window afterwards. The Discogs access token is not part of a configuration file.'],separator:'\n\n'},{title:'Load configuration',kind:'warning'}))return;
     // Remembered lists are part of the configuration; nothing may save over the restored ones.
     await helperLists.flush().catch(()=>{});helperLists.pause();
     const restored=await invoke<string[]>('import_configuration',{path});drafts.clear();status=`Loaded ${restored.length} configuration file${restored.length===1?'':'s'}`;window.location.reload();return;
@@ -1852,7 +1937,7 @@ async function listOperation(op:Operation){
     if(pending&&!await messages.confirm('unsaved_changes',`${pending} file${pending===1?' has':'s have'} pending tag changes. Remove ${targets.length===1?'it':'them'} from the list and discard the changes? Files on disk are not changed.`,op==='clear-list'?'Clear list':'Remove from list'))return;
     const removed=new Set(targets),next=list.slice(Math.max(0,...list.map((path,index)=>removed.has(path)?index:-1))).find(path=>!removed.has(path))||[...list].reverse().find(path=>!removed.has(path));
     cellEditor.cancel();removeEntries(targets);
-    if(op==='clear-list'||!entries.size){listRoots=[];location='No folder loaded';errors=[];}
+    if(op==='clear-list'||!entries.size){listRoots=[];location='No folder loaded';locationIsData=false;errors=[];}
     status=`Removed ${targets.length} file${targets.length===1?'':'s'} from the list`;
     choose(next?[next]:[],next,true);return;
   }
@@ -1882,16 +1967,16 @@ async function commitCell(target:CellTarget,value:string):Promise<string|undefin
 async function renameFromList(entry:Entry,key:string,value:string):Promise<string|undefined>{
   const dot=entry.filename.lastIndexOf('.'),extension=dot>0?entry.filename.slice(dot):'';
   let stem=value.trim();
-  if(key==='_FILENAME_EXT'){if(stem===entry.filename)return entry.path;if(extension&&stem.toLowerCase().endsWith(extension.toLowerCase()))stem=stem.slice(0,-extension.length);else if(extension){errors=[{path:'Rename',error:`Keep the ${extension} extension when renaming ${entry.filename}.`}];render();return undefined;}}
+  if(key==='_FILENAME_EXT'){if(stem===entry.filename)return entry.path;if(extension&&stem.toLowerCase().endsWith(extension.toLowerCase()))stem=stem.slice(0,-extension.length);else if(extension){errors=[{path:'Rename',label:'Rename',error:`Keep the ${extension} extension when renaming ${entry.filename}.`}];render();return undefined;}}
   else if(stem===entry.filename.slice(0,dot>0?dot:undefined))return entry.path;
   const problem=!desktop?'Renaming requires the desktop app.':sourcePolicy().unsupportedReason||(!stem.trim()?'Enter a filename.':/[\\/]/.test(stem)?'Filenames cannot contain path separators.':'');
-  if(problem){errors=[{path:'Rename',error:problem}];render();return undefined;}
+  if(problem){errors=[{path:'Rename',label:'Rename',error:problem}];render();return undefined;}
   const result=await run('Renaming file…',async()=>{const batch=await invoke<Batch>('rename_files',{paths:[entry.path],template:`'${stem.replace(/'/g,"''")}'`,planToken:null});applyRenamed(batch);accept(batch,'Renamed',false);queuedNotices=[];return batch;});
   return result&&!result.errors.length?result.renamed?.find(item=>item.from===entry.path)?.to||entry.path:undefined;
 }
 async function operate(op: Operation) {
   try { if(listOperations.includes(op)){if(enabled(op))await listOperation(op);}else await operateImpl(op); }
-  catch(error) {errors=[{path:'Operation',error:String(error)}];status='Operation failed';render();}
+  catch(error) {errors=[{path:'Operation',label:'Operation',error:String(error)}];status='Operation failed';render();}
 }
 // Modifier keys seen by the window, for drops while OpenTag has the keyboard; the native state is asked as well.
 let heldModifiers={control:false,command:false};
@@ -1944,7 +2029,7 @@ document.addEventListener('keydown',event=>{
   if(!typing&&document.querySelector<HTMLDetailsElement>('#actions-menu')?.open&&event.key.trim().length===1&&!event.metaKey&&!event.ctrlKey){event.preventDefault();void actionUI.mnemonic(event.key);return;}
   if(!typing&&document.querySelector<HTMLDetailsElement>('#tag-sources-menu')?.open&&event.key.trim().length===1&&!event.metaKey&&!event.ctrlKey&&!event.altKey&&webSourcesUI.mnemonic(event.key)){event.preventDefault();return;}
   if(toolsUI.shortcut(event,typing)){menubar.close();return;}
-  if(autoSizeShortcut(event)&&!typing){event.preventDefault();menubar.close();void autoSizeColumns(tableColumns().map(column=>column.id)).catch(error=>{errors=[{path:'Columns',error:String(error)}];render();});return;}
+  if(autoSizeShortcut(event)&&!typing){event.preventDefault();menubar.close();void autoSizeColumns(tableColumns().map(column=>column.id)).catch(error=>{errors=[{path:'Columns',label:'Columns',error:String(error)}];render();});return;}
   const edit=editShortcut(event,{typing,textSelected:!!window.getSelection()?.toString(),mac});
   if(edit&&(edit!=='paste-tags'||tagClipboard)){event.preventDefault();menubar.close();void operate(edit);return;}
   if(event.key==='Escape'&&progressJob){event.preventDefault();cancelProgress();return;}
@@ -1965,6 +2050,7 @@ tagPanel.install(document);
 coverUI.install(document);
 window.addEventListener('beforeunload',event=>{if(drafts.size||actionUI.hasUnsavedChanges){event.preventDefault();event.returnValue='';}});
 installHelperMenus({
+  translateNow,
   storage:helperLists,
   fieldNames:()=>[...new Set(paths().flatMap(path=>Object.keys(merged(entries.get(path)!))))],
   panelFields:()=>tagPanel.settings.panel.fields.filter(field=>field.visible&&!field.field.startsWith('_')).map(field=>field.field),
@@ -1982,12 +2068,13 @@ window.addEventListener('resize',()=>{if(!resizeFrame)resizeFrame=requestAnimati
 });});
 if(desktop){
   const versionReady=getVersion().then(version=>{appVersion=version;return version;}).catch(()=>{appVersion='unknown';return '';});
-  void actionUI.initialize().catch(error=>{errors=[{path:'Action groups',error:String(error)}];render();});
-  void invoke<ColumnLayout|null>('load_columns').then(layout=>{if(layout){columnLayout=normalizeLayout(layout);render();}}).catch(error=>{errors=[{path:'Columns',error:String(error)}];render();});
-  void tagPanel.initialize().catch(error=>{errors=[{path:'Tag panel',error:String(error)}];render();});
-  const optionsReady=optionsUI.initialize().then(response=>{collator=naturalCollator(response.settings);toolbarConfig=normalizeToolbar(response.settings.pages.toolbar);customToolbar=normalizeCustomToolbar(response.settings.pages['custom-toolbar']);if(response.settings.pages.layout)updateLayout(normalizeMainLayout(response.settings.pages.layout));void applyNotificationArea();changedData();applyAppearancePrefs();if(response.warning)errors=[...errors,{path:'Options',error:response.warning}];render();}).catch(error=>{errors=[...errors,{path:'Options',error:String(error)}];render();});
+  void actionUI.initialize().catch(error=>{errors=[{path:'Action groups',label:'Action groups',error:String(error)}];render();});
+  void invoke<ColumnLayout|null>('load_columns').then(layout=>{if(layout){columnLayout=normalizeLayout(layout);render();}}).catch(error=>{errors=[{path:'Columns',label:'Columns',error:String(error)}];render();});
+  void tagPanel.initialize().catch(error=>{errors=[{path:'Tag panel',label:'Tag panel',error:String(error)}];render();});
+  const optionsReady=optionsUI.initialize().then(async response=>{collator=naturalCollator(response.settings);toolbarConfig=normalizeToolbar(response.settings.pages.toolbar);customToolbar=normalizeCustomToolbar(response.settings.pages['custom-toolbar']);if(response.settings.pages.layout)updateLayout(normalizeMainLayout(response.settings.pages.layout));await applyLanguage();void applyNotificationArea();changedData();applyAppearancePrefs();if(response.warning)errors=[...errors,{path:'Options',label:'Options',error:response.warning}];render();}).catch(async error=>{errors=[...errors,{path:'Options',label:'Options',error:String(error)}];await applyLanguage(languageChoice());}).finally(()=>{render();translateNow(app);app.inert=false;app.style.visibility='';syncWindowTitle();});
+  let directoriesReady=Promise.resolve();
   void Promise.all([optionsReady,versionReady]).then(([,version])=>version?startupUpdates(version):undefined);
-  void invoke<typeof runtimePlatform>('runtime_platform').then(async platform=>{runtimePlatform=platform;nativeAppearanceReady=platform.family==='desktop';render();syncNativeAppearance();if(platform.folder_picker_supported)void optionsReady.then(()=>fileOps.initialize()).catch(error=>{errors=[{path:'Directories',error:String(error)}];render();});if(platform.document_access_supported)await run('Restoring recovery copies…',async()=>{const batch=await invoke<Batch>('restore_document_recovery');accept(batch,'Restored recovery copies',false);location='Provider documents';if(!selected.size&&batch.entries.length){selected.add(batch.entries[0].path);anchor=batch.entries[0].path;}if(!batch.entries.length&&!batch.errors.length)status='Ready';});}).catch(error=>{errors=[{path:'Platform',error:String(error)}];render();});
+  const platformReady=invoke<typeof runtimePlatform>('runtime_platform').then(async platform=>{runtimePlatform=platform;nativeAppearanceReady=platform.family==='desktop';languagePage.setFolderSupport(platform.family==='desktop');render();syncNativeAppearance();if(platform.folder_picker_supported)directoriesReady=optionsReady.then(()=>fileOps.initialize()).catch(error=>{errors=[{path:'Directories',label:'Directories',error:String(error)}];render();});if(platform.document_access_supported){await optionsReady;await run('Restoring recovery copies…',async()=>{const batch=await invoke<Batch>('restore_document_recovery');accept(batch,'Restored recovery copies',false);location='Provider documents';locationIsData=false;if(!selected.size&&batch.entries.length){selected.add(batch.entries[0].path);anchor=batch.entries[0].path;}if(!batch.entries.length&&!batch.errors.length)status='Ready';});}}).catch(error=>{errors=[{path:'Platform',label:'Platform',error:String(error)}];render();});
   void listen<{job:string;done:number;total:number}>('opentag://progress',event=>{const job=progressJob;if(!job||event.payload.job!==job.id)return;job.done=event.payload.done;job.total=event.payload.total;showProgress();}).catch(()=>{/* Progress is optional; operations still complete. */});
   void webSourcesUI.refresh();
   // Which API keys exist (never the keys): AcoustID, Last.fm and fanart.tv wait for one.
@@ -1995,7 +2082,7 @@ if(desktop){
   // Sources copied into the folder by hand appear when the window is used again.
   void listen('opentag://web-sources',()=>void webSourcesUI.refresh()).catch(()=>{/* The menu also refreshes on focus. */});
   window.addEventListener('focus',()=>void webSourcesUI.refresh());
-  void listen('opentag://launch',()=>{if(runtimePlatform.folder_picker_supported)void fileOps.takeLaunches().catch(error=>{errors=[{path:'Command line',error:String(error)}];render();});}).catch(error=>{errors=[{path:'Command line',error:String(error)}];render();});
+  void listen('opentag://launch',()=>{void platformReady.then(async()=>{await optionsReady;await directoriesReady;if(runtimePlatform.folder_picker_supported)await fileOps.takeLaunches();}).catch(error=>{errors=[{path:'Command line',label:'Command line',error:String(error)}];render();});}).catch(error=>{errors=[{path:'Command line',label:'Command line',error:String(error)}];render();});
   void getCurrentWindow().onCloseRequested(async event => {
     if(busy){event.preventDefault();return;}
     if(!drafts.size&&!actionUI.hasUnsavedChanges)return;
@@ -2004,13 +2091,14 @@ if(desktop){
     if(await messages.confirm('unsaved_changes',message,'Unsaved changes')){
       await getCurrentWindow().destroy();
     }
-  }).catch(error=>{errors=[{path:'Window',error:String(error)}];render();});
-  void getCurrentWebview().onDragDropEvent(event=>{
+  }).catch(error=>{errors=[{path:'Window',label:'Window',error:String(error)}];render();});
+  void getCurrentWebview().onDragDropEvent(async event=>{
+    await optionsReady;await platformReady;await directoriesReady;
     document.querySelector('.drop-overlay')?.remove();
     // A cover dragged out of the cover window is not dropped back in.
     if(coverUI.draggingOut)return;
     if(!runtimePlatform.document_access_supported&&coverUI.dragDrop(event.payload))return;
     if(event.payload.type==='enter'||event.payload.type==='over'){const overlay=document.createElement('div');overlay.className='drop-overlay';overlay.textContent=entries.size?`Drop audio files, folders or playlists to replace the list. Hold ${macKeyboard()?'⌘':'Ctrl'} to add them.`:'Drop audio files, folders or playlists to open them';document.body.append(overlay);}
-    if(event.payload.type==='drop'&&!busy&&!runtimePlatform.document_access_supported)void dropFiles(event.payload.paths).catch(error=>{errors=[{path:'Drag and drop',error:publicMessage(error)}];render();});
-  }).catch(error=>{errors=[{path:'Drag and drop',error:String(error)}];render();});
+    if(event.payload.type==='drop'&&!busy&&!runtimePlatform.document_access_supported)void dropFiles(event.payload.paths).catch(error=>{errors=[{path:'Drag and drop',label:'Drag and drop',error:publicMessage(error)}];render();});
+  }).catch(error=>{errors=[{path:'Drag and drop',label:'Drag and drop',error:String(error)}];render();});
 }

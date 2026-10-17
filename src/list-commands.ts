@@ -61,14 +61,18 @@ export function formatSize(bytes:number):string{
 }
 
 type SummaryEntry={duration:number;size:number;format:string;bitrate:number;sample_rate:number;channels:number;technical?:Record<string,string[]>};
+/** Codec identities are data; technical unit/channel labels are independent UI text. */
+export function technicalSummary(active:SummaryEntry){
+  return{codec:active.technical?._CODEC?.[0]||active.format,details:[active.bitrate?`${active.bitrate} kbps`:'',active.sample_rate?`${active.sample_rate.toLocaleString()} Hz`:'',active.channels?`${active.channels} channel${active.channels===1?'':'s'}`:''].filter(Boolean)};
+}
 /** Status-bar segments: selection totals, listed totals and active file properties. */
 export function listSummary(selected:SummaryEntry[],listed:SummaryEntry[],total:number,active?:SummaryEntry):string[]{
   const sum=(items:SummaryEntry[])=>`${formatDuration(items.reduce((s,e)=>s+e.duration,0))} | ${formatSize(items.reduce((s,e)=>s+e.size,0))}`;
   const segments=[selected.length?`${selected.length} selected (${sum(selected)})`:'Select a file to view its tags'];
   if(total)segments.push(`${listed.length===total?`${total}`:`${listed.length} of ${total}`} file${total===1?'':'s'} (${sum(listed)})`);
   if(active){
-    const codec=active.technical?._CODEC?.[0]||active.format;
-    segments.push([codec,active.bitrate?`${active.bitrate} kbps`:'',active.sample_rate?`${active.sample_rate.toLocaleString()} Hz`:'',active.channels?`${active.channels} channel${active.channels===1?'':'s'}`:''].filter(Boolean).join(' · '));
+    const {codec,details}=technicalSummary(active);
+    segments.push([codec,...details].filter(Boolean).join(' · '));
   }
   return segments;
 }

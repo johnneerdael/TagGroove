@@ -25,8 +25,7 @@ the eight initial publication pages. The export batch raises the local total
 to 80, the navigation-reference batch raises it to 88, and the web-source
 batch raises it to 91. The remaining Actions, Help and context-menu references
 raise the total to 94. File-list, Extended tags and cover-management guides
-raise the current milestone to 97. These are integration milestones, not completion of the whole guide. The language options page remains a draft because its actual
-implementation is not yet part of this source baseline.
+raise the guide30 milestone to 97. These are integration milestones, not completion of the whole guide. That baseline held Language as a draft until its implementation arrived. The Language implementation in PR17 now supplies the source-backed options reference and customization guide; only those two additional pages become current, while all other unfinished pages remain gated.
 
 | Batch | Preserved source revision | Evidence and limits |
 | --- | --- | --- |
@@ -92,9 +91,7 @@ The final integration receipt must record those outcomes before opening a PR.
 The advanced export and web-source batches are integrated. Their ledgers
 record canonical topics, working examples and source limitations. Current
 claims have been reconciled with main `a9cd900`, including merged PRs 26, 27
-and 29; the incoming Windows-undo draft note and verification are retained. Pending language, provider, gnudb, web-source and action changes require
-a new source comparison after their own merges; this guide does not publish
-those branch-only behaviors as current.
+and 29; the incoming Windows-undo draft note and verification are retained. PR17 separately reconciles the implemented Language controls and its two current pages. The options/integration JSON receipts preserve their original baseline and held-language observations as historical evidence. Pending provider, gnudb, web-source and action changes require a new source comparison after their own merges; this guide does not publish those branch-only behaviors as current.
 
 The command-line, keyboard and six menu-reference pages are integrated.
 The Actions, Help, cover, field and format-helper contexts are now integrated;
@@ -379,6 +376,13 @@ and current release metadata, and ran the supplied focused core/model checks.
 Copying that receipt changes only authoring evidence. Final-head GitHub CODE,
 trusted CI and actual publication proof remain separate requirements.
 
+## Language integration on the reviewed 137-page guide
+
+PR17 integrates main `325007c` once, preserving all forty PR31/32 chapters,
+their tests and navigation. Its two implemented Language pages bring the
+combined source to 139 current pages and 48 drafts. The existing guide JSON
+receipts retain their historical source hashes and counts. This integration
+requires its own exact-head review and trusted validation before publication.
 ## Local Help and recovery explanations
 
 Three local Help pages provide sixteen FAQ answers, ordered troubleshooting
@@ -783,14 +787,6 @@ merge and actual release/Pages verification. Full canonical semantic
 completion, the remaining23drafts and original deferred P2/REA work are not
 claimed complete by this publication step.
 
-## PR #20 source reconciliation
-
-`docs/verification/src-compat-direct.md` records the direct-main compatibility
-change and fresh qualification. The five affected format, regex and web-source
-pages describe the revised grammar, cursor, JSON and output behavior; their
-written native examples pass under LF and CRLF. This reconciliation does not
-claim a complete downloaded-script corpus or full semantic Mp3tag parity.
-
 
 ## PR18 provider features on actual main
 
@@ -800,3 +796,41 @@ the 164 published chapter entries and adds six completed source chapters.
 This checkpoint excludes the independently reviewed, unmerged PR17 Language
 implementation. Existing guide receipts continue to describe their exact
 source baselines; they are not new native, live-provider or publication proof.
+
+## PR #20 source reconciliation
+
+`docs/verification/src-compat-direct.md` records the direct-main compatibility
+change and fresh qualification. The five affected format, regex and web-source
+pages describe the revised grammar, cursor, JSON and output behavior; their
+written native examples pass under LF and CRLF. This reconciliation does not
+claim a complete downloaded-script corpus or full semantic Mp3tag parity.
+
+## Local combined provider and compatibility preparation
+
+The local integration preparation combines the independently prepared PR18
+providers, PR19 gnudb workflow and PR20 web-source compatibility changes. It
+preserves the combined 172 completed navigation entries and 15 drafts; PR17
+Language behavior remains separate. This is preparation for reconciliation
+against the actual feature merges, not evidence that all three are merged or
+published. Earlier per-PR receipts retain their pinned source and limitations.
+
+## Language integration on the reviewed 164-page guide
+
+PR17 also integrates actual reviewed main `1fe6a800` once, preserving all 27
+PR33 chapters, their five native example targets, four frontend guide-contract
+files and the complete 164-page navigation order. Its two source-backed
+Language pages bring the combined candidate to 166 current pages and 21 drafts.
+Application source, catalogs and existing tests are unchanged from the locally
+qualified `b7ea3ca` checkpoint; the incoming guide fixtures are qualified on this
+combined source using PR17's own target. Historical guide author/peer JSON
+receipts retain their original source identities, counts and publication limits.
+This integration requires a fresh exact-head CODE review and trusted validation;
+local guide counts do not establish publication or full semantic completeness.
+
+## Local Language preparation on all three source features
+
+The background integration now retains the 172 feature-guide navigation
+entries plus the two Language chapters: 174 completed pages and 13 drafts.
+It combines local feature checkpoint `92268df` with translation checkpoint
+`6fe1eed`. These are local preparations, not actual merged-main or public
+availability claims; historical receipts retain their original sources.

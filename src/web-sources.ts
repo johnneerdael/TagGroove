@@ -1,7 +1,7 @@
 import { menuSegments, mnemonicMarkup } from './action-ui';
 
 /** One `[SearchBy]` field: its label and the format string that fills it from the first selected file. */
-export type SearchField = {label:string;format:string};
+export type SearchField = {label:string;format:string;default_label?:boolean};
 /** A `.src` file in the sources folder. `menu` is its file name without extension: `#` makes submenus, `&` marks access keys. */
 export type WebSourceInfo = {id:string;menu:string;name:string;search_by:SearchField[];direct:boolean};
 export type WebSettingsInfo = {id:string;menu:string};
@@ -14,6 +14,7 @@ export type SettingsSchema = {key:string;title?:string;settings:SettingSpec[];lo
 export type SettingsForm = {schema:SettingsSchema;values:Record<string,unknown>};
 
 const html = (value:unknown) => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
+let settingsTitleId = 0;
 /** The menu path without access-key markers, for dialog titles. */
 export const menuLabel = (menu:string) => menuSegments(menu).map(segment => segment.label).join(' › ');
 
@@ -30,7 +31,7 @@ export function menuTree(leaves:Leaf[], prefix:string[] = []):string {
     else if (!branches.has(segment.label)) { branches.add(segment.label); slots.push({branch:segment.label,raw}); }
   }
   return slots.map(slot => 'branch' in slot
-    ? `<details class="group-submenu web-submenu"><summary>${mnemonicMarkup(slot.raw)}</summary><div>${menuTree(leaves,[...prefix,slot.branch])}</div></details>`
+    ? `<details class="group-submenu web-submenu"><summary translate="no">${mnemonicMarkup(slot.raw)}</summary><div>${menuTree(leaves,[...prefix,slot.branch])}</div></details>`
     : slot.leaf.markup(slot.raw)).join('');
 }
 
@@ -41,7 +42,7 @@ export function localized(schema:SettingsSchema, key:string, language:string) {
 }
 
 /** Read the dialog's controls back into typed values. */
-export function readSettings(schema:SettingsSchema, root:ParentNode):Record<string,unknown> {
+export function readSettings(schema:SettingsSchema, root:ParentNode, language='en'):Record<string,unknown> {
   const values:Record<string,unknown> = {};
   schema.settings.forEach((setting,index) => {
     const control = root.querySelector<HTMLInputElement|HTMLSelectElement>(`[data-setting="${index}"]`);
@@ -49,7 +50,7 @@ export function readSettings(schema:SettingsSchema, root:ParentNode):Record<stri
     if (setting.type === 'bool') values[setting.key] = (control as HTMLInputElement).checked;
     else if (setting.type === 'number') {
       const number = Number(control.value);
-      if (control.value.trim() === '' || !Number.isFinite(number)) throw new Error(`${setting.title || setting.key} needs a number.`);
+      if (control.value.trim() === '' || !Number.isFinite(number)) {const title=localized(schema,setting.key,language)?.title || setting.title || setting.key;throw new Error(`${title} needs a number.`);}
       values[setting.key] = number;
     } else values[setting.key] = control.value;
   });
@@ -60,16 +61,16 @@ export function settingsMarkup(form:SettingsForm, language:string) {
   const {schema,values} = form;
   return schema.settings.map((setting,index) => {
     const text = localized(schema,setting.key,language), title = text?.title || setting.title || setting.key, description = text?.description || setting.description || '';
-    const help = description ? `<small>${html(description)}</small>` : '';
+    const help = description ? `<small translate="no">${html(description)}</small>` : '';
     const value = values[setting.key] ?? setting.default;
     switch (setting.type) {
-      case 'heading': return `<h3 class="ws-heading">${html(title)}</h3>`;
-      case 'separator': return `<hr class="ws-separator">${setting.title || text?.title ? `<p class="ws-note">${html(title)}</p>` : ''}`;
-      case 'bool': return `<label class="action-check"><input type="checkbox" data-setting="${index}" ${value === true ? 'checked' : ''}> ${html(title)}</label>${help}`;
-      case 'number': return `<label class="field"><span>${html(title.toUpperCase())}</span><input type="number" data-setting="${index}" value="${html(value)}"></label>${help}`;
+      case 'heading': return `<h3 class="ws-heading" translate="no">${html(title)}</h3>`;
+      case 'separator': return `<hr class="ws-separator">${setting.title || text?.title ? `<p class="ws-note" translate="no">${html(title)}</p>` : ''}`;
+      case 'bool': return `<label class="action-check"><input type="checkbox" data-setting="${index}" ${value === true ? 'checked' : ''}> <span translate="no">${html(title)}</span></label>${help}`;
+      case 'number': return `<label class="field"><span translate="no">${html(title)}</span><input type="number" data-setting="${index}" value="${html(value)}"></label>${help}`;
       case 'string': return setting.choices?.length
-        ? `<label class="field"><span>${html(title.toUpperCase())}</span><select data-setting="${index}">${setting.choices.map(choice => `<option ${choice === value ? 'selected' : ''}>${html(choice)}</option>`).join('')}</select></label>${help}`
-        : `<label class="field"><span>${html(title.toUpperCase())}</span><input data-setting="${index}" value="${html(value)}" autocomplete="off" spellcheck="false"></label>${help}`;
+        ? `<label class="field"><span translate="no">${html(title)}</span><select data-setting="${index}">${setting.choices.map(choice => `<option value="${html(choice)}" translate="no" ${choice === value ? 'selected' : ''}>${html(choice)}</option>`).join('')}</select></label>${help}`
+        : `<label class="field"><span translate="no">${html(title)}</span><input data-setting="${index}" value="${html(value)}" autocomplete="off" spellcheck="false"></label>${help}`;
       default: return '';
     }
   }).join('');
@@ -108,8 +109,8 @@ export class WebSourcesUI {
   /** Web sources and their configuration entries for the Tag Sources menu. */
   menuHTML() {
     const reason = this.host.reason(), last = this.host.last();
-    const sources = menuTree(this.listing.sources.map((source,index) => ({menu:source.menu,markup:raw => `<button data-web-source="${index}" ${reason ? 'disabled' : ''} title="${html(reason || source.name)}"><span>${mnemonicMarkup(raw)}…</span>${source.id === last ? `<small>${this.host.shortcut}</small>` : ''}</button>`})));
-    const settings = menuTree(this.listing.settings.map((entry,index) => ({menu:entry.menu,markup:raw => `<button data-web-settings="${index}"><span>${mnemonicMarkup(raw)}…</span></button>`})));
+    const sources = menuTree(this.listing.sources.map((source,index) => ({menu:source.menu,markup:raw => `<button data-web-source="${index}" ${reason ? 'disabled' : `data-verbatim="${html(source.name)}"`} title="${html(reason || source.name)}"><span translate="no">${mnemonicMarkup(raw)}…</span>${source.id === last ? `<small>${this.host.shortcut}</small>` : ''}</button>`})));
+    const settings = menuTree(this.listing.settings.map((entry,index) => ({menu:entry.menu,markup:raw => `<button data-web-settings="${index}"><span translate="no">${mnemonicMarkup(raw)}…</span></button>`})));
     const problems = this.listing.problems.length ? `<p class="menu-note" title="${html(this.listing.problems.map(p => `${p.file}: ${p.error}`).join('\n'))}">${this.listing.problems.length} tag source file${this.listing.problems.length === 1 ? '' : 's'} could not be read.</p>` : '';
     return `${sources ? `<hr>${sources}` : ''}${problems}${settings ? `<hr>${settings}` : ''}<hr>`;
   }
@@ -163,17 +164,19 @@ export class WebSourcesUI {
     let form:SettingsForm;
     try { form = await this.host.invoke<SettingsForm>('web_source_settings',{id:entry.id}); } catch (error) { this.host.fail(error); return; }
     this.showing = true;
-    const language = navigator.language || 'en', title = localized(form.schema,form.schema.key,language)?.title || form.schema.title || menuLabel(entry.menu);
+    // The UI language (Options → Language) picks the source's own translations.
+    const language = document.documentElement.lang || navigator.language || 'en', title = localized(form.schema,form.schema.key,language)?.title || form.schema.title || menuLabel(entry.menu);
     const dialog = document.createElement('dialog');
     dialog.className = 'tag-source-dialog web-settings-dialog';
-    dialog.setAttribute('aria-label',title);
-    dialog.innerHTML = `<header>${html(title)}</header><div class="dialog-content">${settingsMarkup(form,language) || '<p>This tag source has no settings.</p>'}</div><div class="dialog-footer"><button data-close>Cancel</button><button class="primary" id="ws-save">Save</button></div>`;
+    const titleId=`ws-settings-title-${++settingsTitleId}`;
+    dialog.setAttribute('aria-labelledby',titleId);
+    dialog.innerHTML = `<header id="${titleId}" translate="no">${html(title)}</header><div class="dialog-content">${settingsMarkup(form,language) || '<p>This tag source has no settings.</p>'}</div><div class="dialog-footer"><button data-close>Cancel</button><button class="primary" id="ws-save">Save</button></div>`;
     document.body.append(dialog);
     const error = (message:unknown) => { let p = dialog.querySelector('.dialog-error'); if (!p) { p = document.createElement('p'); p.className = 'dialog-error'; p.setAttribute('role','alert'); dialog.querySelector('.dialog-content')!.append(p); } p.textContent = String(message).replace(/^Error: /,''); };
     dialog.querySelector('[data-close]')!.addEventListener('click',() => dialog.close());
     dialog.addEventListener('close',() => { this.showing = false; dialog.remove(); });
     dialog.querySelector('#ws-save')!.addEventListener('click',async () => {
-      try { await this.host.invoke('save_web_source_settings',{id:entry.id,values:readSettings(form.schema,dialog)}); dialog.close(); }
+      try { await this.host.invoke('save_web_source_settings',{id:entry.id,values:readSettings(form.schema,dialog,language)}); dialog.close(); }
       catch (e) { error(e); }
     });
     dialog.showModal();

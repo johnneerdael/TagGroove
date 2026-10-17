@@ -6,7 +6,7 @@
     not(any(windows, target_os = "linux")),
     allow(dead_code, unused_imports)
 )]
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Mutex,
@@ -42,13 +42,42 @@ static OPTIONS: Mutex<TrayOptions> = Mutex::new(TrayOptions {
 });
 static HIDDEN: AtomicBool = AtomicBool::new(false);
 
+/// Menu labels of the icon in the UI language (Options → Language).
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+pub struct TrayLabels {
+    pub show: String,
+    pub quit: String,
+}
+static LABELS: Mutex<Option<TrayLabels>> = Mutex::new(None);
+
+fn labels() -> TrayLabels {
+    LABELS
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone()
+        .unwrap_or_else(|| TrayLabels {
+            show: "Show OpenTag".into(),
+            quit: "Quit OpenTag".into(),
+        })
+}
+/// Store new labels; returns whether they changed.
+fn relabel(next: Option<TrayLabels>) -> bool {
+    let Some(next) = next.filter(|l| !l.show.trim().is_empty() && !l.quit.trim().is_empty()) else {
+        return false;
+    };
+    let mut current = LABELS.lock().unwrap_or_else(|e| e.into_inner());
+    let changed = current.as_ref() != Some(&next);
+    *current = Some(next);
+    changed
+}
+
 fn options() -> TrayOptions {
     *OPTIONS.lock().unwrap_or_else(|e| e.into_inner())
 }
 
 #[cfg(any(windows, target_os = "linux"))]
 mod native {
-    use super::{icon_wanted, options, HIDDEN};
+    use super::{icon_wanted, labels, options, HIDDEN};
     use std::sync::atomic::Ordering;
     use tauri::{
         menu::{MenuBuilder, MenuItemBuilder},
@@ -84,10 +113,11 @@ mod native {
         #[cfg(target_os = "linux")]
         indicator_available()?;
         let error = |e: tauri::Error| e.to_string();
-        let show = MenuItemBuilder::with_id("tray-show", "Show OpenTag")
+        let labels = labels();
+        let show = MenuItemBuilder::with_id("tray-show", labels.show)
             .build(app)
             .map_err(error)?;
-        let quit = MenuItemBuilder::with_id("tray-quit", "Quit OpenTag")
+        let quit = MenuItemBuilder::with_id("tray-quit", labels.quit)
             .build(app)
             .map_err(error)?;
         let menu = MenuBuilder::new(app)
@@ -124,6 +154,13 @@ mod native {
         }
         builder.build(app).map_err(error)?;
         Ok(())
+    }
+
+    /// Rebuild the icon's menu with new labels.
+    pub fn rebuild(app: &AppHandle) {
+        if app.tray_by_id(TRAY_ID).is_some() {
+            let _ = app.remove_tray_by_id(TRAY_ID);
+        }
     }
 
     /// Create or remove the icon to match the options; returns whether it is shown.
@@ -171,13 +208,18 @@ pub fn set_tray_options(
     _app: tauri::AppHandle,
     show_icon: bool,
     minimize_to_tray: bool,
+    labels: Option<TrayLabels>,
 ) -> Result<TrayState, String> {
     *OPTIONS.lock().unwrap_or_else(|e| e.into_inner()) = TrayOptions {
         show_icon,
         minimize_to_tray,
     };
+    let relabelled = relabel(labels);
     #[cfg(any(windows, target_os = "linux"))]
     {
+        if relabelled {
+            native::rebuild(&_app);
+        }
         let active = native::sync(&_app)?;
         Ok(TrayState {
             supported: true,
@@ -186,6 +228,7 @@ pub fn set_tray_options(
     }
     #[cfg(not(any(windows, target_os = "linux")))]
     {
+        let _ = relabelled;
         Ok(TrayState {
             supported: false,
             active: false,
@@ -218,5 +261,22 @@ mod tests {
         assert!(!hide_on_minimize(minimize, true, true));
         assert!(!hide_on_minimize(always, true, false));
         assert!(!hide_on_minimize(off, true, false));
+    }
+
+    #[test]
+    fn menu_labels_follow_the_ui_language_and_ignore_blank_ones() {
+        assert_eq!(labels().show, "Show OpenTag");
+        let dutch = TrayLabels {
+            show: "OpenTag tonen".into(),
+            quit: "OpenTag afsluiten".into(),
+        };
+        assert!(relabel(Some(dutch.clone())));
+        assert!(!relabel(Some(dutch.clone())));
+        assert!(!relabel(None));
+        assert!(!relabel(Some(TrayLabels {
+            show: " ".into(),
+            quit: "x".into()
+        })));
+        assert_eq!(labels(), dutch);
     }
 }

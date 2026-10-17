@@ -1,0 +1,244 @@
+[
+  {
+    "id": "rename-completed",
+    "payload": {
+      "operation": "rename",
+      "error": {
+        "kind": "message",
+        "message": "Select files first."
+      },
+      "failures": []
+    },
+    "source": "Select files first.; rename rollback completed"
+  },
+  {
+    "id": "text-completed",
+    "payload": {
+      "operation": "text_import",
+      "error": {
+        "kind": "external",
+        "message": "Help: IO;  Title"
+      },
+      "failures": []
+    },
+    "source": "Help: IO;  Title; text import rollback completed"
+  },
+  {
+    "id": "text-multiple",
+    "payload": {
+      "operation": "text_import",
+      "error": {
+        "kind": "message",
+        "message": "Select files first."
+      },
+      "failures": [
+        {
+          "path": "/Help: Source; one.wav",
+          "error": {
+            "kind": "message",
+            "message": "File changed externally after commit; rollback did not overwrite it"
+          },
+          "recovery": {
+            "kind": "retained",
+            "path": "/Title: original;  backup.wav"
+          }
+        },
+        {
+          "path": "/Title; Source: two.wav",
+          "error": {
+            "kind": "external",
+            "message": "Help: IO;  Title"
+          },
+          "recovery": {
+            "kind": "failed",
+            "error": "Title: keep;  Help"
+          }
+        },
+        {
+          "path": "/Help; Source: three.wav",
+          "error": {
+            "kind": "message",
+            "message": "Missing rollback copy"
+          },
+          "recovery": {
+            "kind": "unavailable"
+          }
+        }
+      ]
+    },
+    "source": "Select files first.; text import rollback /Help: Source; one.wav: File changed externally after commit; rollback did not overwrite it; original backup retained at /Title: original;  backup.wav; /Title; Source: two.wav: Help: IO;  Title; could not retain recovery copy: Title: keep;  Help; /Help; Source: three.wav: Missing rollback copy; no recovery copy is available"
+  },
+  {
+    "id": "rename-multiple",
+    "payload": {
+      "operation": "rename",
+      "error": {
+        "kind": "message",
+        "message": "Select files first."
+      },
+      "failures": [
+        {
+          "path": "/Help: Source; one.wav",
+          "error": {
+            "kind": "message",
+            "message": "Moved file changed externally; retained at destination"
+          },
+          "recovery": null
+        },
+        {
+          "path": "/Title; Source: two.wav",
+          "error": {
+            "kind": "external",
+            "message": "Err(Os { code: 13, kind: PermissionDenied, message: \"Help\" })"
+          },
+          "recovery": null
+        }
+      ]
+    },
+    "source": "Select files first.; rename rollback /Help: Source; one.wav: Moved file changed externally; retained at destination; /Title; Source: two.wav: Err(Os { code: 13, kind: PermissionDenied, message: \"Help\" })"
+  },
+  {
+    "id": "rename-helper-variants",
+    "payload": {
+      "operation": "rename",
+      "error": {
+        "kind": "message",
+        "message": "Select files first."
+      },
+      "failures": [
+        {
+          "path": "/Help: Source; one.wav",
+          "error": {
+            "kind": "rename",
+            "message": {
+              "kind": "external",
+              "error": "Help: IO;  Title"
+            }
+          },
+          "recovery": null
+        },
+        {
+          "path": "/Help: Source; one.wav",
+          "error": {
+            "kind": "rename",
+            "message": {
+              "kind": "only_regular"
+            }
+          },
+          "recovery": null
+        },
+        {
+          "path": "/Help: Source; one.wav",
+          "error": {
+            "kind": "rename",
+            "message": {
+              "kind": "cannot_create",
+              "path": "/Help: Source; one.wav",
+              "error": "Help: IO;  Title"
+            }
+          },
+          "recovery": null
+        },
+        {
+          "path": "/Help: Source; one.wav",
+          "error": {
+            "kind": "rename",
+            "message": {
+              "kind": "copy_rollback",
+              "error": {
+                "kind": "external",
+                "error": "Help: IO;  Title"
+              },
+              "rollback": "Err(Os { code: 13, kind: PermissionDenied, message: \"Help\" })"
+            }
+          },
+          "recovery": null
+        },
+        {
+          "path": "/Help: Source; one.wav",
+          "error": {
+            "kind": "rename",
+            "message": {
+              "kind": "copy_rollback",
+              "error": {
+                "kind": "source_changed"
+              },
+              "rollback": "Err(Os { code: 13, kind: PermissionDenied, message: \"Help\" })"
+            }
+          },
+          "recovery": null
+        },
+        {
+          "path": "/Help: Source; one.wav",
+          "error": {
+            "kind": "rename",
+            "message": {
+              "kind": "source_changed_rollback",
+              "rollback": "Err(Os { code: 13, kind: PermissionDenied, message: \"Help\" })"
+            }
+          },
+          "recovery": null
+        },
+        {
+          "path": "/Help: Source; one.wav",
+          "error": {
+            "kind": "rename",
+            "message": {
+              "kind": "remove_original_rollback",
+              "error": "Help: IO;  Title",
+              "rollback": "Err(Os { code: 13, kind: PermissionDenied, message: \"Help\" })"
+            }
+          },
+          "recovery": null
+        },
+        {
+          "path": "/Help: Source; one.wav",
+          "error": {
+            "kind": "rename",
+            "message": {
+              "kind": "no_name"
+            }
+          },
+          "recovery": null
+        },
+        {
+          "path": "/Help: Source; one.wav",
+          "error": {
+            "kind": "rename",
+            "message": {
+              "kind": "no_temporary_name"
+            }
+          },
+          "recovery": null
+        },
+        {
+          "path": "/Help: Source; one.wav",
+          "error": {
+            "kind": "rename",
+            "message": {
+              "kind": "cannot_rename",
+              "path": "/Help: Source; one.wav",
+              "error": "Help: IO;  Title"
+            }
+          },
+          "recovery": null
+        },
+        {
+          "path": "/Help: Source; one.wav",
+          "error": {
+            "kind": "rename",
+            "message": {
+              "kind": "alias_rollback",
+              "source": "/Help: Source; one.wav",
+              "destination": "/Title; Dest: two.wav",
+              "error": "Help: IO;  Title",
+              "rollback": "Err(Os { code: 13, kind: PermissionDenied, message: \"Help\" })"
+            }
+          },
+          "recovery": null
+        }
+      ]
+    },
+    "source": "Select files first.; rename rollback /Help: Source; one.wav: Help: IO;  Title; /Help: Source; one.wav: Only regular files can be renamed; /Help: Source; one.wav: Cannot create /Help: Source; one.wav: Help: IO;  Title; /Help: Source; one.wav: Help: IO;  Title; destination rollback: Err(Os { code: 13, kind: PermissionDenied, message: \"Help\" }); /Help: Source; one.wav: Source changed while copying; original was retained; destination rollback: Err(Os { code: 13, kind: PermissionDenied, message: \"Help\" }); /Help: Source; one.wav: Source changed before move completed; original was retained; destination rollback: Err(Os { code: 13, kind: PermissionDenied, message: \"Help\" }); /Help: Source; one.wav: Cannot remove original: Help: IO;  Title; destination rollback: Err(Os { code: 13, kind: PermissionDenied, message: \"Help\" }); /Help: Source; one.wav: The source has no name; /Help: Source; one.wav: No free temporary name for the case-only rename; /Help: Source; one.wav: Cannot rename /Help: Source; one.wav: Help: IO;  Title; /Help: Source; one.wav: Cannot rename /Help: Source; one.wav to /Title; Dest: two.wav: Help: IO;  Title; rollback: Err(Os { code: 13, kind: PermissionDenied, message: \"Help\" })"
+  }
+]
