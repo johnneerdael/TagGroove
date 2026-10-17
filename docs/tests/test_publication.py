@@ -27,7 +27,7 @@ class ScreenshotArtifactTests(unittest.TestCase):
                 env={**os.environ, "PATH": directory + os.pathsep + os.environ["PATH"]},
             )
         self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
-        self.assertIn("paused pending review-gated CI support", result.stderr)
+        self.assertIn("explicit numeric run ID", result.stderr)
         self.assertNotIn("UNEXPECTED_GITHUB_CALL", result.stderr)
 
 

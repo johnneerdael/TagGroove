@@ -263,7 +263,7 @@ jobs:
         run: |
           # macOS runs the binary inside the .app bundle; it carries the test identifier.
           if [[ "$RUNNER_OS" == macOS ]]; then bundle=(--bundles app); else bundle=(--no-bundle); fi
-          config="$(node scripts/native-test-config.mjs)"
+          config="$(python3 scripts/native-test-config.py)"
           npx tauri build --debug "${bundle[@]}" --config "$config"
       - name: Capture user-guide screenshots from the reviewed app
         if: runner.os == 'Linux'

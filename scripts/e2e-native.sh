@@ -23,23 +23,16 @@ native() { if [[ "$os" == windows ]]; then cygpath -w "$1"; else printf '%s' "$1
 # Parallel runs need distinct identifiers: single-instance forwarding and app
 # config directories are keyed by it.
 identifier="${OPENTAG_E2E_ID:-org.opentag.editor.usertest}"
-# Concurrent runs cover each other's windows; WebKit would otherwise suspend
-# timers in an occluded test window (macOS 14+ honours this policy).
-window='"app":{"windows":[{"title":"OpenTag","width":1240,"height":800,"minWidth":800,"minHeight":560,"backgroundThrottling":"disabled"}]}'
+config="$(python3 "$root/scripts/native-test-config.py" --root "$root" --identifier "$identifier")"
 if [[ "${2:-}" != "--no-build" ]]; then
   if [[ "$os" == macos ]]; then bundle=(--bundles app); else bundle=(--no-bundle); fi
   if [[ "$os" != windows ]]; then export AR="${AR:-/usr/bin/ar}"; fi
-  (cd "$root" && npx tauri build --debug "${bundle[@]}" \
-    --config "{\"identifier\":\"$identifier\",\"productName\":\"OpenTag UserTest\",$window}" >/dev/null)
+  (cd "$root" && npx tauri build --debug "${bundle[@]}" --config "$config" >/dev/null)
 fi
-case "$os" in
-  macos) bin="$root/target/debug/bundle/macos/OpenTag UserTest.app/Contents/MacOS/opentag" ;;
-  windows) bin="$root/target/debug/opentag.exe" ;;
-  *) bin="$root/target/debug/opentag" ;;
-esac
+bin="$root/$(python3 "$root/scripts/native-test-config.py" --root "$root" --binary-path "$os")"
 # --no-build may reuse a bundle built for another identifier; trust the bundle.
 if [[ "$os" == macos ]]; then
-  identifier="$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "${bin%/MacOS/opentag}/Info.plist")"
+  identifier="$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$(dirname "$(dirname "$bin")")/Info.plist")"
 fi
 # Start every run from empty app state; only test identifiers are ever cleared.
 case "$identifier" in

@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import subprocess
 import tempfile
+import sys
 import unittest
 
 
@@ -12,18 +13,29 @@ ROOT = Path(__file__).resolve().parents[3]
 
 class ScreenshotWorkflowTests(unittest.TestCase):
     def test_native_config_follows_each_checked_out_product_and_os(self):
-        script = ROOT / "scripts/native-test-config.mjs"
+        script = ROOT / "scripts/native-test-config.py"
         for product in ["OpenTag", "TagGroove"]:
             for platform in ["Linux", "macOS", "Windows"]:
                 with self.subTest(product=product, platform=platform), tempfile.TemporaryDirectory() as work:
                     directory = Path(work) / "src-tauri"
                     directory.mkdir()
                     (directory / "tauri.conf.json").write_text(json.dumps({"productName": product}))
+                    binary = "taggroove" if product == "TagGroove" else "opentag"
+                    cargo = '[package]\nname = "opentag"\n'
+                    if product == "TagGroove":
+                        cargo += f'[[bin]]\nname = "{binary}"\n'
+                    (directory / "Cargo.toml").write_text(cargo)
                     config = json.loads(subprocess.check_output(
-                        ["node", str(script)], cwd=work,
+                        [sys.executable, str(script)], cwd=work,
                         env={**os.environ, "RUNNER_OS": platform}, text=True))
                     self.assertEqual(config["identifier"], "org.opentag.editor.usertest")
                     self.assertEqual(config["productName"], product + " UserTest")
+                    os_name = {"Linux": "linux", "macOS": "macos", "Windows": "windows"}[platform]
+                    path = subprocess.check_output([sys.executable, str(script), "--binary-path", os_name], cwd=work, text=True).strip()
+                    if platform == "macOS":
+                        self.assertEqual(path, f"target/debug/bundle/macos/{product} UserTest.app/Contents/MacOS/{binary}")
+                    else:
+                        self.assertEqual(path, f"target/debug/{binary}" + (".exe" if platform == "Windows" else ""))
                     if platform == "Linux":
                         self.assertNotIn("app", config)
                     else:
@@ -36,7 +48,7 @@ class ScreenshotWorkflowTests(unittest.TestCase):
         native = workflow.split("  native-e2e:\n", 1)[1].split("  android:\n", 1)[0]
         self.assertIn("needs: authorize", native)
         self.assertIn("if: needs.authorize.outputs.ready == 'true'", native)
-        self.assertIn("node scripts/native-test-config.mjs", native)
+        self.assertIn("python3 scripts/native-test-config.py", native)
         self.assertIn("if: runner.os == 'Linux'\n        run: scripts/docs-screenshots.sh", native)
         self.assertIn("name: docs-screens\n", native)
         self.assertIn("if-no-files-found: error", native)
