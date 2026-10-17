@@ -930,11 +930,16 @@ test('actual history menus replay progress completion and typed errors translate
     }finally{p.close();}
   }
 });
-test('native fixed history label producers have registered exact translations and unknown labels remain raw',async()=>{
-  const sources={};for(const name of ['lib','history','converters','sources/mod','utilities','covers'])sources[name]=await readFile(new URL(`../src-tauri/src/${name}.rs`,import.meta.url),'utf8');
+function nativeHistoryLabels(sources){
   const labels=new Set();
   for(const text of Object.values(sources)){const production=text.split(/#\[cfg\(test\)\]\s*mod tests/)[0];for(const match of production.matchAll(/(?:history::)?\brecord(?:_[a-z_]+)?\s*\(\s*"([^"]+)"/g))labels.add(match[1]);}
-  for(const [name,start] of [['utilities','impl Util {'],['covers','fn history_label(']])for(const match of sources[name].split(start)[1].split('\n}\n')[0].matchAll(/"([^"]+)"/g))labels.add(match[1]);
+  for(const [name,start] of [['utilities','impl Util {'],['covers','fn history_label(']])for(const match of sources[name].split(start)[1].split(/\r?\n}\r?\n/)[0].matchAll(/"([^"]+)"/g))labels.add(match[1]);
+  return labels;
+}
+test('native fixed history label producers have registered exact translations and unknown labels remain raw',async()=>{
+  const sources={};for(const name of ['lib','history','converters','sources/mod','utilities','covers'])sources[name]=await readFile(new URL(`../src-tauri/src/${name}.rs`,import.meta.url),'utf8');
+  const labels=nativeHistoryLabels(sources);
+  for(const newline of ['\n','\r\n'])assert.deepEqual(nativeHistoryLabels(Object.fromEntries(Object.entries(sources).map(([name,text])=>[name,text.replace(/\r?\n/g,newline)]))),labels);
   assert.equal(labels.size,21);const generated=englishCatalog();
   for(const label of labels)assert.equal(generated[label],label,`register native history label ${label}`);
   const {historyLabelText}=await load('i18n/core.ts');assert.equal(typeof historyLabelText,'function');

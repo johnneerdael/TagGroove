@@ -316,3 +316,12 @@ The two lowercase-leading zlib/bzip2 license headings are retained through the
 explicit extra-key manifest. The catalog regression reads every component
 heading from the real notice metadata and requires generated English plus
 Dutch/German translations, preventing partial notice localization.
+
+The first combined-head CI run found two frontend harness portability limits.
+The history-label source boundary assumed LF, so Windows CRLF read 254 labels
+instead of the same 21 production labels. The test now checks both endings
+with the same assertions. The macOS DOM suite exhausted Node 22's 2 GiB heap;
+that abort was reproduced locally. The frontend runner now caps its heap at
+4 GiB and executes one isolated test file at a time to bound peak memory.
+All 547 frontend tests pass with that budget. This changes test resources, not
+application memory behavior or assertion coverage.
