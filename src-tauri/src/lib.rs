@@ -14,6 +14,7 @@ mod exports;
 mod file_hashes;
 mod file_ops;
 mod filter_cache;
+mod find;
 mod history;
 mod import_diagnostics;
 mod languages;
@@ -1444,6 +1445,7 @@ pub fn run() {
             restore_document_recovery,
             get_covers,
             filter_matches,
+            find::regex_find,
             preview_numbering,
             scan_files,
             save_fields,

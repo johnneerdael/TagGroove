@@ -174,3 +174,17 @@ These are OpenTag source-verified rules. They do not establish identical corner-
 - [Format strings](format-strings.md)
 
 <!-- verified: baseline007a806 crates/tag-core/src/filter.rs compile_filter, Parser, Selector.values, Expression.matches, leading_integer; crates/tag-core/tests/filter.rs; public example table is executed by crates/tag-core/tests/user_guide_filter_reference.rs. -->
+
+## Fix an invalid query
+
+A filter error names the failed context: an unfinished double quotation,
+an invalid format string in the selector, or an invalid `MATCHES` regular
+expression. Fix the query and apply it again. A quotation error gives the
+character where its opening quote occurred, counting non-ASCII characters
+as one character each.
+
+Mixed quoted and bare text in one search or operand is currently rejected.
+For example, replace `hidden "orchestra"` with `"hidden orchestra"`, or
+`artist HAS hidden "orchestra"` with `artist HAS "hidden orchestra"`.
+This is the app's current restriction; exact Mp3tag behavior for mixed
+fragments remains unqualified.
