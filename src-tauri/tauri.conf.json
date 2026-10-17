@@ -43,6 +43,11 @@
     "macOS": {
       "signingIdentity": "-"
     },
+    "windows": {
+      "wix": {
+        "upgradeCode": "ed7df85b-a59c-563d-84e9-a966cbccc202"
+      }
+    },
     "linux": {
       "deb": {
         "files": {

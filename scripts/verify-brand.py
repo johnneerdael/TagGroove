@@ -3,6 +3,7 @@
 import hashlib
 import json
 from pathlib import Path
+import uuid
 import xml.etree.ElementTree as ET
 
 
@@ -42,9 +43,12 @@ def verify():
                         assert (resources / "drawable" / (value.split("/", 1)[1] + ".xml")).is_file(), path
     config = json.loads((ROOT / "src-tauri/tauri.conf.json").read_text())
     assert config["productName"] == "TagGroove"
-    assert config["identifier"] == "org.opentag.editor", "Keep existing application data and upgrade identity"
+    assert config["identifier"] == "org.opentag.editor", "Keep the existing application and data identifier"
+    upgrade_code = config["bundle"].get("windows", {}).get("wix", {}).get("upgradeCode")
+    assert upgrade_code is not None, "Pin the original MSI upgrade identity across the product rename"
+    assert uuid.UUID(upgrade_code) == uuid.uuid5(uuid.NAMESPACE_DNS, "OpenTag.exe.app.x64"), "Keep OpenTag's original MSI upgrade code"
     assert 'pub const APPLICATION: &str = "OpenTagAudioTagEditor";' in (ROOT / "src-tauri/src/sources/freedb.rs").read_text()
-    print(f"Verified {len(manifest['files'])} supplied files and {len(provenance['asset_copies'])} integrated copies; app and gnudb identities unchanged.")
+    print(f"Verified {len(manifest['files'])} supplied files and {len(provenance['asset_copies'])} integrated copies; app, MSI and gnudb identities unchanged.")
 
 
 if __name__ == "__main__":

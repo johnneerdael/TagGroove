@@ -4413,6 +4413,10 @@
       {
         "path": "src-tauri/src/sources/web/mod.rs",
         "change": "Restore the browser-style web-source user agent to its original OpenTag wire token, byte-identical to canonical main. This does not change the captured artwork, layout or local fixture states."
+      },
+      {
+        "path": "src-tauri/tauri.conf.json",
+        "change": "Pin the original OpenTag MSI upgrade identity ed7df85b-a59c-563d-84e9-a966cbccc202 while retaining visible TagGroove branding. This affects Windows installer metadata only and does not change captured application artwork, layout or fixture states."
       }
     ]
   },
