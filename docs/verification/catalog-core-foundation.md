@@ -24,11 +24,11 @@ Two review regressions cover locale-sensitive exact/category selection through
 explicit and captured values, and nested-category rejection/usable-catalog
 filtering with valid nested forms retained. A further producer-bound case covers every catalog identifier and underscored
 native limit values through direct/captured rendering and plural parsing. All
-twenty-eight pure cases remain in the
+twenty-nine pure cases remain in the
 same test module when the complete application test suite is
 integrated; the later source-bound extraction and UI tests must also be kept.
 
-Fresh local checks passed 412 UI/model tests with zero failures or skips, the
+Fresh local checks passed 413 UI/model tests with zero failures or skips, the
 production build, the strict 172-page guide and eight publication tests. One
 existing UI case compiles a temporary pure Rust helper; it is separate from
 application-native qualification. All 1,360 existing tracked main files are
@@ -179,3 +179,11 @@ also fails validation. A second regression checks direct parsing, placeholder
 inspection, invalid-key reporting, key-once language warnings, constructor
 rejection and English fallback. Both regressions first failed on the reviewed
 parent; all 26 earlier pure cases remain unchanged.
+
+The translation cache is now read and written only at depth zero. A warmed
+top-level translation could previously be reused in a nested call and bypass
+the recursion limit, making the output depend on which labels were rendered
+first. The new test first reproduces that difference, then compares fresh and
+warmed translators at depths zero, one and two across nested frames, multiple
+seed orders, surrounding whitespace and protected values. All 28 earlier pure
+cases remain unchanged.

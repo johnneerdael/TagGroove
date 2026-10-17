@@ -336,11 +336,11 @@ export class Translator {
     if (!core || !/\p{L}/u.test(core)) return text;
     const name = typeof verbatim === 'string' ? normalize(verbatim) : undefined;
     if (name !== undefined && normalize(core) === name) return text;
-    const cached = !verbatim;
+    const cached = !verbatim && depth === 0;
     let result = cached ? this.cache.get(core) : undefined;
     if (result === undefined) {
       result = this.lookup(core, depth, verbatim === true, name);
-      if (cached && depth === 0) {if (this.cache.size > 20000) this.cache.clear();this.cache.set(core, result);}
+      if (cached) {if (this.cache.size > 20000) this.cache.clear();this.cache.set(core, result);}
     }
     if (result === null) return text;
     const lead = /^\s*/.exec(text)![0], trail = /\s*$/.exec(text)![0];

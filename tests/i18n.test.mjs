@@ -605,3 +605,21 @@ test('stray closing braces invalidate catalogs and fall back to English',()=>{
   assert.throws(()=>parse('Wert {x} {unfinished'),/Unclosed/);
   assert.equal(new Translator('de',{}).t('Literal {not a placeholder} stays'),'Literal {not a placeholder} stays');
 });
+
+test('top-level cache warming cannot bypass nested translation depth limits',()=>{
+  const catalog={'Outer {a}':'Außen {a}','Middle {b}':'Mitte {b}','Inner {c}':'Innen {c}',Leaf:'Blatt'};
+  const fresh=()=>new Translator('de',catalog);
+  const text='Outer Middle Inner Leaf',expected='Außen Mitte Innen Leaf';
+  assert.equal(fresh().translate(text),expected);
+  const warmed=fresh();assert.equal(warmed.translate('Inner Leaf'),'Innen Blatt');
+  assert.equal(warmed.translate(text),expected);
+  for(const seed of ['Leaf','Inner Leaf','Middle Inner Leaf',text]){
+    const translator=fresh();translator.translate(seed);
+    for(const depth of [0,1,2])for(const source of [text,'Middle Inner Leaf','Inner Leaf','Leaf']){
+      assert.equal(translator.translate(source,depth),fresh().translate(source,depth),`${seed}: ${source}, depth ${depth}`);
+      assert.equal(translator.translate(`  ${source}  `,depth),`  ${fresh().translate(source,depth)}  `);
+    }
+    assert.equal(translator.translate(text,0,true),fresh().translate(text,0,true));
+    assert.equal(translator.translate(text,0,'Middle Inner Leaf'),fresh().translate(text,0,'Middle Inner Leaf'));
+  }
+});
