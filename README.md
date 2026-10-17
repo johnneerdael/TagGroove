@@ -42,7 +42,7 @@ cargo clippy --workspace --all-targets --locked -- -D warnings
 npm run tauri build
 ```
 
-Builds run through the reviewed pull-request workflow (see `.github/CI_LOCKDOWN.md`) for Windows, macOS and Linux. Local macOS validation is not proof of the other platforms. Android and iOS builds exist, but their document access still needs device verification.
+Builds run through the reviewed pull-request workflow (see `.github/CI_LOCKDOWN.md`) for Windows, macOS and Linux. Local macOS validation is not proof of the other platforms. Android and iOS builds exist. Android document access still needs device verification, and iOS document access and save-back are not implemented yet.
 
 ## Evidence
 
