@@ -29,7 +29,7 @@ pub fn external_override(configured: &str) -> Result<Option<PathBuf>, String> {
     if path.is_file() {
         Ok(Some(path))
     } else {
-        Err(format!("The optional fpcalc override was not found at {configured}. Clear it to use built-in fingerprinting in Options → Tag Sources → Online services."))
+        Err(format!("The optional fpcalc override was not found at {path}. Clear it to use built-in fingerprinting in Options → Tag Sources → Online services.", path=configured))
     }
 }
 

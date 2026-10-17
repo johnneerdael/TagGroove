@@ -283,6 +283,17 @@ ignored. The adapter build now supplies `/external:W0` with that include path,
 matching the external-header warning policy already used on other platforms.
 Windows app/API/package validation remains required on the corrected head.
 
+After language switching merged into main, the fingerprint setup, notices and
+backend diagnostics were registered in all three catalogs. The extractor now
+discovers the native crate's `std::error::Error` / `Display` messages, including
+`write_str` literals. Twenty-nine new keys have Dutch and German translations;
+obsolete installation instructions were removed. The optional-override path
+uses the existing raw `path` role, and decoder details retain their raw
+`value` role. Regressions cover extraction/snapshot agreement, translated setup
+and all native error variants, plus literal paths/details containing `$&` and
+placeholder-looking text. The fingerprint algorithm and oracle inputs did not
+change.
+
 Linux compiled and ran the producer, but its Vorbis result differed from the
 ARM golden by thirteen raw bits across 75 items. A local x86 source build
 reproduced that exact Linux result. The unmodified upstream fpcalc source was
