@@ -180,6 +180,10 @@ class WorkflowTrustTests(unittest.TestCase):
                     self.assertIn('arch: x64', msvc)
                     msys = selected('uses: msys2/setup-msys2@v2', "if: runner.os == 'Windows'")
                     self.assertIn('install: make', msys)
+                    self.assertIn('id: msys2', msys)
+                    binding = selected('steps.msys2.outputs.msys2-location', "if: runner.os == 'Windows'")
+                    for required in ("'usr/bin/bash.exe'", "'usr/bin/make.exe'", 'OPENTAG_MSYS2=$env:MSYS2_LOCATION', '$env:GITHUB_ENV'):
+                        self.assertIn(required, binding)
                     windows = selected('choco install ffmpeg nasm', "if: runner.os == 'Windows'")
                     for required in ('shell: pwsh', '$LASTEXITCODE', "'nasm.exe'", '$env:GITHUB_PATH'):
                         self.assertIn(required, windows)
