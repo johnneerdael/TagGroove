@@ -47,6 +47,34 @@ Legend: **Impact** H = daily tagging, M = regular, L = rare or legacy. **Size** 
 | Sources | Keyed services | AcoustID, Last.fm and fanart.tv need a build or user key | L | — |
 | Sources | `.src` scripts | `[MinAppVersion*]` not enforced | L | S |
 | Sources | Mobile | No keychain for the Discogs token | L | M |
+| Formats | Native-field limits | Bare `UNIQUEFILEID` writes fail; non-empty USLT descriptions are not fully represented; some legacy 8-byte `plID` values are rejected ([CRITICAL-MAPPING](../CRITICAL-MAPPING.md)) | L | M |
+| Matroska | Edge cases | `TRACK` such as `3/12` is stored in `PART_NUMBER` without a `TOTAL_PARTS` split; a file without a SeekHead gets unindexed Tags, and a SeekHead with no spare room fails the write; the Segment Info title is not shown; chapters bound to other segments or ordered editions are kept but not interpreted ([formats-dsd-mkv](../verification/formats-dsd-mkv.md)) | L | M |
+| Formats | ASF/WMA | Headers over 512 MiB are refused; every write rewrites the whole file | L | M |
+| Formats | APE | A 131-byte APE tag whose items put "TAG" where ID3v1 starts is misread; header-less APEv2 tags are mishandled ([formats-edge](../verification/formats-edge.md)) | L | S |
+| Formats | Tag kinds | ID3v2 on Ape/Mpc files is not displayed (it can be removed); WAV/AIFF ID3v2 keeps its existing revision; removing ID3v1 does not remove a dependent Lyrics3 tag | M | S |
+| Tag preferences | Defaults | Write and remove defaults, cross-kind mirroring, ID3v1 truncation, multi-value joining and the encoding of existing Latin-1 frames in UTF-16 mode are not captured from the original ([tag-preferences](../verification/tag-preferences.md)) | M | S |
+| Chapters | Whole-file commands | Remove tag and Strip chapters MP4 are refused on chapter and cue rows; `%_subsong%` base and Nero field-name case are unconfirmed | L | S |
+| Utils | Optimize and Remove Unsupported Fields | Fragmented MP4 is refused and `stco` is not promoted to `co64`; FLAC with a leading ID3v2 tag is refused; Remove Unsupported Fields handles ID3v2 on MP3, AAC, AIFF and WAV only | L | M |
+| Scripting | `%_vbr%` and tag sizes | `%_vbr%` for Musepack and WavPack and tag sizes for chunk and box containers are unfinished ([script-export](../verification/script-export.md)) | L | S |
+| Export | Dropped files | A `.mte` file dropped into the export folder while the Export dialog is open is retired if the dialog saves | L | S |
+| Playlists | Reading and ordering | XSPF, WPL and ASX are not read; F5 does not re-read a loaded playlist; loading one clears the saved column sort and there is no "Playlist order" sort criterion | L | S |
+| Covers | Linux drag-out | The GTK drag source writes `file://` URIs without percent-encoding, so temporary names are limited to ASCII letters, digits and `-_.()` | L | S |
+| File list | Inline rename and order | Inline filename edits cannot move a file to another folder; manual order is not kept across sessions; save-on-move is not triggered by cell-editor Enter/Tab, Find, Select all or Select directory; Refresh reports an error for a file added individually and later renamed | L | M |
+| File operations | Details | Play opens each file separately with no temporary playlist; the native folder dialog has no subfolders checkbox; macOS uses Ctrl+H and Ctrl+M for Add and Favorite directory because ⌘H and ⌘M are reserved | L | S |
+| Tag panel | Details | The directory switcher does not change the working directory and takes no typed path; defaults are filled on multi-select only through the explicit command; format-string fields are not implemented | L | M |
+| Toolbars | Custom toolbar | Buttons are text labels with no symbol choice and none for individual tag sources; Mp3tag `toolbar.ini` and `toolbar_custom.ini` are not imported | L | M |
+| Tools | Default tool | Selecting "No action" for the default tool still opens Extended Tags on a file-list double-click; tools receive path placeholders only, `.lnk` and `.bat` forms are not special-cased, and a per-file launch is capped at 100 files | L | S |
+| Sources | freedb | "Current list of freedb servers" restores two built-in entries instead of fetching a current list; artist/album and artwork search is limited to `gnudb.org` hosts and local lookups are exact | M | M |
+| Sources | Review step | Utils are buttons, not a menu; "Suggest sorting" entries are one-shot actions; the exact Mp3tag behaviour of Ctrl+Shift+I is undocumented | L | S |
+| Rename | Reserved characters | Mp3tag's handling of `: * ? " < > |` in tag values is undocumented and OpenTag replaces them with `_`; Replace and Regex replace on `_FILENAME` can still produce invalid Windows characters | L | S |
+| Converters | Path edge cases | Filename → Filename resolves relative targets against the file's folder; two partitions writing one output file are refused; `/` as a folder marker in the old pattern is unverified | L | S |
+| Actions | Plan clashes and codepages | Filename → Filename refuses the whole reviewed plan when one destination clashes; Convert Codepage has no EBCDIC or ISO-2022 pages; Import Text File has no explicit codepage choice and reads a UTF-8-valid ANSI file as UTF-8; the quality preset numbers and default field list are OpenTag choices | L | M |
+| Configuration | Storage | Quick-action memories and field-list and format-string histories live in WebView storage, so configuration export does not include them; Mp3tag configuration ZIPs cannot be imported | M | M |
+| Updates | Install | The update check reads GitHub releases and offers no download or install | L | M |
+| General | Auto-completion | Fills from the first matching drop-down value only, not in multiline fields, with no filtered suggestions while typing | L | S |
+| Library | Locale | Locale-formatted technical fields such as `%_file_mod_date%` are stored as formatted and a locale change does not refresh them | L | S |
+| Undo | External changes | Outside Unix, external changes are detected by size and mtime only | L | S |
+| Launch | Open With | `.mkv` and `.webm` appear in Finder's Open With only when the system or another app declares their types | L | — |
 | Settings | UI languages | English, Dutch and German bundled; the original ships 43 | M | L |
 | Settings | Networking | Proxy credentials, SOCKS and PAC | L | S |
 | Settings | Setting names in the binary with no confirmed equivalent | `ConvFTFShowDlg`, `ConvFTTShowDlg`, `ConvTFFShowDlg`, `ConvTTFShowDlg`, `ConvReplaceShowDlg` (per-converter "show dialog"), `ToolOverwriteDefault`, `CoverPopup`, `HideID3Bar`, `ContextMenuDisabled` (Windows shell entry). Feature meaning for the first four groups not documented | L | S |
