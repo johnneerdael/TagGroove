@@ -141,14 +141,14 @@ def apply_patches(spec, native):
     for patch in spec.get("patches", []):
         path = native[patch["component"]] / patch["target"]
         verify_archive(path, patch["original_sha256"])
-        old = path.read_text()
+        old = path.read_text(encoding="utf-8")
         # This exact, reviewed policy opt-in leaves every upstream license
         # check intact. Match the complete original line, not a loose regex.
         needle = 'enabled gpl && enable lgpl_gpl # Files that are marked as LGPL but some developers prefer only building them with --enable-gpl'
         if old.count(needle) != 1:
             raise ValueError("Pinned FFmpeg policy patch no longer matches its source")
         new = old.replace(needle, needle + '\n# OpenTag opts in to these explicitly LGPL-marked audio components only.\n# GPL/nonfree/version3 remain disabled; the compiled object closure is audited.\nenable lgpl_gpl')
-        path.write_text(new)
+        path.write_bytes(new.encode("utf-8"))
         verify_archive(path, patch["patched_sha256"])
 
 

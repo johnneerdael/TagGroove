@@ -123,5 +123,21 @@ class SourceSafetyTests(unittest.TestCase):
             self.assertFalse(any(flag.startswith("--cc=") and " " in flag for flag in flags))
             self.assertEqual(env["PATH"].split(os.pathsep)[0], str(compiler.parent))
 
+    def test_pinned_patch_bytes_do_not_depend_on_windows_text_newlines(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            target = root / "configure"
+            needle = 'enabled gpl && enable lgpl_gpl # Files that are marked as LGPL but some developers prefer only building them with --enable-gpl'
+            original = ("#!/bin/sh\n" + needle + "\n").encode()
+            expected = original.replace(needle.encode(), (needle + '\n# OpenTag opts in to these explicitly LGPL-marked audio components only.\n# GPL/nonfree/version3 remain disabled; the compiled object closure is audited.\nenable lgpl_gpl').encode())
+            target.write_bytes(original)
+            spec = {"patches":[{"component":"ffmpeg","target":"configure", "original_sha256":hashlib.sha256(original).hexdigest(), "patched_sha256":hashlib.sha256(expected).hexdigest()}]}
+            def windows_text_write(path, text, **kwargs):
+                return path.write_bytes(text.replace("\n","\r\n").encode("utf-8"))
+            with mock.patch.object(Path,"write_text",autospec=True,side_effect=windows_text_write):
+                self.build.apply_patches(spec,{"ffmpeg":root})
+            self.assertEqual(target.read_bytes(),expected)
+            self.assertNotIn(b"\r\n",target.read_bytes())
+
 if __name__ == "__main__":
     unittest.main()

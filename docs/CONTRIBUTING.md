@@ -62,13 +62,14 @@ tools. Windows uses Visual Studio's MSVC toolchain plus MSYS2 Bash/Make
 `NDK_HOME` or `ANDROID_NDK_HOME`. Source builds disable external-library
 autodetection and do not link an installed Homebrew or GPL FFmpeg.
 
-Choose an owned build/cache directory without spaces with
+Choose an absolute owned build/cache directory without spaces with
 `OPENTAG_AUDIO_BUILD_ROOT`; its completed prefixes verify installed libraries,
 headers, configuration and notices against the retained manifest. Set
 `OPENTAG_AUDIO_SOURCE_DIR` to a flat directory containing the original pinned
 archives for offline builds. An absent or changed offline archive fails
 without falling back to a network download. The default cache is inside
-Cargo's target directory. Native build phases require more than 2.3 GiB free.
+Cargo's actual build-script output directory, including when its target directory
+is relative to a caller outside the workspace. Native build phases require more than 2.3 GiB free.
 
 Run the actual producer tests with:
 

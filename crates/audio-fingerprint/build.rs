@@ -6,14 +6,18 @@ fn main() {
     let crate_dir = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").unwrap());
     let workspace = crate_dir.parent().unwrap().parent().unwrap();
     let target = env::var("TARGET").unwrap();
-    let root = env::var_os("OPENTAG_AUDIO_BUILD_ROOT")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| {
-            env::var_os("CARGO_TARGET_DIR")
-                .map(PathBuf::from)
-                .unwrap_or_else(|| workspace.join("target"))
-                .join("audio-native")
-        });
+    let root = if let Some(path) = env::var_os("OPENTAG_AUDIO_BUILD_ROOT") {
+        let path = PathBuf::from(path);
+        assert!(
+            path.is_absolute(),
+            "OPENTAG_AUDIO_BUILD_ROOT must be absolute; omit it for Cargo-owned native output"
+        );
+        path
+    } else {
+        // OUT_DIR already resolves Cargo's actual output location, including
+        // relative CARGO_TARGET_DIR supplied by a caller outside the workspace.
+        PathBuf::from(env::var_os("OUT_DIR").expect("Cargo provides OUT_DIR")).join("audio-native")
+    };
     println!("cargo:rerun-if-changed=native");
     println!("cargo:rerun-if-changed=../../scripts/audio-deps");
     println!("cargo:rerun-if-env-changed=OPENTAG_AUDIO_BUILD_ROOT");
