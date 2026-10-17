@@ -1474,7 +1474,7 @@ function saveCopy() {
   dialog.addEventListener('cancel',event=>{if(copying)event.preventDefault();});
   saveButton.addEventListener('click',async()=>{
     if(copying||busy)return;
-    const request=copyRequest(path,value(dialog,'copy-version') as 'edited'|'original',editedCopyFields(path));
+    const request=copyRequest(path,value(dialog,'copy-version') as 'edited'|'original',editedCopyFields(path),pendingCovers.get(path));
     copying=true;saveButton.disabled=true;closeButton.disabled=true;dialog.querySelector<HTMLSelectElement>('#copy-version')!.disabled=true;
     dialog.querySelector('.dialog-error')?.remove();
     const progress=dialog.querySelector<HTMLElement>('.copy-status')!;progress.textContent='Choose a destination. The copy will be checked after writing.';

@@ -77,9 +77,12 @@ text-tag copy included all pictures.
 
 Pasted artwork stays pending until **Save tags**. **Discard pending changes**
 abandons it with the selected files' other pending edits. Provider-document
-sources and destinations have additional access/copy limits; **Save a copy…**
-currently carries edited tag fields, not pending artwork. Use supported local
-copies when an artwork transfer must be verified.
+sources and destinations have additional access/copy limits. For a supported
+provider document, **Save a copy… → Edited copy** includes pending tag fields
+and pasted artwork, including a pending removal of all covers. **Original
+backup** uses the last verified source and ignores pending changes. Check the
+saved copy before discarding the source or recovery files; cancelling or
+failing the copy retains the source's pending edits.
 
 ## Cut without deleting the audio
 

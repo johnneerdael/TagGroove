@@ -25,8 +25,8 @@ const factory=`import {BatchFailure} from ${JSON.stringify(batchURL)};
 ${helper.replace(/\bexport /g,'')}
 ${coverModules}
 export function createWorkspace(initial, options={}) {
-  const path='retained.wav', original=structuredClone(initial);
-  let working=structuredClone(initial), workingCovers=structuredClone(options.covers||[]), copied, copiedCovers, dialog, status='', busy=false, errors=[], location='', anchor;
+  const path='retained.wav', original=structuredClone(initial), originalCovers=structuredClone(options.covers||[]);
+  let working=structuredClone(initial), workingCovers=structuredClone(options.covers||[]), copied, copiedCovers, copyRequestSent, dialog, status='', busy=false, errors=[], location='', anchor;
   const nativeCalls=[],workingReadErrors=new Map();
   const coverEpochs=new Map(),coverCache=new Map(),coverRequests=new Map();
   const coverCacheBytesLimit=12*1024*1024,coverCacheEntryLimit=8;
@@ -35,7 +35,7 @@ export function createWorkspace(initial, options={}) {
   const coverUI=new CoverUI({selection:()=>paths().map(path=>({path,covers:workingReadErrors.has(path)?[]:entries.get(path).covers})),displayed:()=>({path:active()?.path,covers:coversFor(active()),index:coverIndex}),reason:()=>'',clipboard:()=>false,mac:false});
   const makeEntry=(path,fields)=>({path,filename:path,format:'WAV',duration:1,bitrate:1411,sample_rate:44100,channels:2,size:44,fields:structuredClone(fields),technical:{},covers:structuredClone(workingCovers)});
   const entries=new Map([[path,makeEntry(path,initial)]]),drafts=new Map(),copyOverrides=new Map(),selected=new Set([path]);
-  // Pasted covers and the folder-image fallback (list-behaviour) stay idle for provider documents.
+  // Clipboard images are controlled here; production pending-cover and copy coordination stay intact.
   const pendingCovers=new Map(),clipCovers=new Map(),clipImages=new Map(),folderImageFor=()=>undefined;
   const ready={uri:'content://provider/audio',name:path,writable:true,persisted:true,state:'ready',error:null};
   let documentAccess={states:{[path]:ready},refreshError:null}, nativeState=ready, refreshFails=!!options.refreshFails;
@@ -71,7 +71,11 @@ export function createWorkspace(initial, options={}) {
     }
     if(command==='document_states') {if(refreshFails)throw new Error('State refresh unavailable');return {[path]:nativeState};}
     if(command==='document_save_copy') {
-      copiedCovers=structuredClone(workingCovers);
+      copyRequestSent=structuredClone(args);
+      if(options.copyThrows)throw new Error('Destination publication failed');
+      if(options.copyCancels)return {entries:[],errors:[]};
+      if(options.copyFails)return {entries:[],errors:[{path:'new-copy',error:'Destination publication failed'}]};
+      copiedCovers=structuredClone(args.version==='original'?originalCovers:args.covers??workingCovers);
       copied=applyFields(args.version==='original'?original:working,args.updates);
       return {entries:[makeEntry('copied.wav',copied)],errors:[]};
     }
@@ -88,6 +92,7 @@ export function createWorkspace(initial, options={}) {
   ${functions}
   return {
     edit:(key,values)=>updateDraft(path,key,values),save:()=>saveDrafts(),
+    stageCovers:covers=>{pendingCovers.set(path,structuredClone(covers));if(!drafts.has(path))drafts.set(path,{});},
     mutate:(command,args={})=>mutate(command,args,'Applied'),
     hydrate:async()=>{hydrateActiveCover();await Promise.all([...coverRequests.values()]);},
     coverMarkup,sourceMarkup:()=>sourceMarkup('tags'),
@@ -97,7 +102,7 @@ export function createWorkspace(initial, options={}) {
     acceptImported:fields=>accept({entries:[makeEntry(path,fields)],errors:[]},'Loaded',false),
     acceptLoaded:fields=>{working=structuredClone(fields);nativeState=ready;accept({entries:[makeEntry(path,fields)],errors:[]},'Reloaded');},
     copy:async(version='edited')=>{selected.clear();selected.add(path);saveCopy();dialog.controls.get('#copy-version').value=version;await dialog.controls.get('#save-document-copy').click();return structuredClone(copied);},
-    snapshot:()=>({fields:structuredClone(merged(entries.get(path))),drafts:structuredClone([...drafts]),copyOverrides:structuredClone([...copyOverrides]),errors:structuredClone(errors),status,busy,covers:structuredClone(coversFor(entries.get(path))),copiedCovers,coverIndex,nativeCalls:[...nativeCalls],workingReadErrors:[...workingReadErrors],dialogContent}),
+    snapshot:()=>({fields:structuredClone(merged(entries.get(path))),drafts:structuredClone([...drafts]),copyOverrides:structuredClone([...copyOverrides]),errors:structuredClone(errors),status,busy,covers:structuredClone(coversFor(entries.get(path))),copiedCovers,copyRequestSent,pendingCovers:structuredClone([...pendingCovers]),coverIndex,nativeCalls:[...nativeCalls],workingReadErrors:[...workingReadErrors],dialogContent}),
   };
 }`;
 const javascript=ts.transpileModule(factory,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
@@ -231,4 +236,45 @@ test('reselecting a recovery backup does not clear a known unavailable edited-me
   assert.match(workspace.sourceMarkup(),/retained.*unavailable/i);
   workspace.acceptLoaded({TITLE:['Verified source']});
   assert.equal(workspace.snapshot().workingReadErrors.length,0);
+});
+
+const pendingCover={digest:'pasted-cover',picture_type:'CoverBack',description:'Pending back cover'};
+for(const covers of [[pendingCover],[]]) {
+  test(`Save a copy sends staged ${covers.length?'replacement artwork':'cover removal'} with fields in one request`,async()=>{
+    const workspace=createWorkspace({TITLE:['Old']},{covers:[oldCover]});
+    workspace.edit('TITLE',['Pending']);workspace.stageCovers(covers);
+    const before=workspace.snapshot();await workspace.copy();const after=workspace.snapshot();
+    assert.deepEqual(after.copyRequestSent,{path:'retained.wav',version:'edited',updates:{TITLE:['Pending']},covers});
+    assert.deepEqual(after.copiedCovers,covers);
+    assert.deepEqual(after.pendingCovers,before.pendingCovers);
+    assert.deepEqual(after.drafts,before.drafts);
+    assert.equal(after.nativeCalls.filter(command=>command==='document_save_copy').length,1);
+    assert.equal(after.nativeCalls.includes('save_fields_batch'),false);
+  });
+  test(`original-backup copy ignores staged ${covers.length?'artwork':'cover removal'}`,async()=>{
+    const workspace=createWorkspace({TITLE:['Old']},{covers:[oldCover]});
+    workspace.edit('TITLE',['Pending']);workspace.stageCovers(covers);await workspace.copy('original');
+    assert.deepEqual(workspace.snapshot().copyRequestSent,{path:'retained.wav',version:'original',updates:{}});
+    assert.deepEqual(workspace.snapshot().copiedCovers,[oldCover]);
+  });
+}
+for(const outcome of ['copyCancels','copyFails','copyThrows']) {
+  test(`${outcome} retains pending artwork and fields for another copy attempt`,async()=>{
+    const workspace=createWorkspace({TITLE:['Old']},{covers:[oldCover],[outcome]:true});
+    workspace.edit('TITLE',['Pending']);workspace.stageCovers([pendingCover]);
+    const before=workspace.snapshot();await workspace.copy();const after=workspace.snapshot();
+    assert.deepEqual(after.pendingCovers,before.pendingCovers);
+    assert.deepEqual(after.drafts,before.drafts);
+    assert.equal(after.busy,false);
+    assert.match(after.status,/cancelled|failed|retained/i);
+  });
+}
+
+test('artwork-only pending edits reach Save a copy without manufacturing field updates',async()=>{
+  const workspace=createWorkspace({TITLE:['Original']},{covers:[oldCover]});
+  workspace.stageCovers([pendingCover]);await workspace.copy();
+  const state=workspace.snapshot();
+  assert.deepEqual(state.copyRequestSent,{path:'retained.wav',version:'edited',updates:{},covers:[pendingCover]});
+  assert.deepEqual(state.copiedCovers,[pendingCover]);
+  assert.deepEqual(state.pendingCovers,[['retained.wav',[pendingCover]]]);
 });
