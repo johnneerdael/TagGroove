@@ -40,7 +40,7 @@ The filter RPC evaluates a caller-supplied field map. The frontend now merges op
 | `%_tag_size_appended%` | Measured for ID3/APE-style streams and FLAC | Tag bytes after the audio data; absent for the other containers. |
 | `%_tag_size_prepended%` | Measured for ID3/APE-style streams and FLAC | Tag bytes before the audio data; absent for the other containers. |
 | `%_tool%` | Measured, conditional where noted | Literal stored Vorbis vendor for FLAC/Vorbis/Opus/Speex, when present; no invented ENCODER metadata field. |
-| `%_vbr%` | Measured, conditional where noted | CBR/VBR from the stream header (`raw_streams.rs`); empty when the format gives no mode. |
+| `%_vbr%` | Measured for MPEG and Monkey's Audio | MPEG CBR/ABR/VBR from stream headers and Monkey's Audio compression level (`media_info.rs`); absent for other formats, with Musepack and WavPack profiles still unfinished ([script-export](verification/script-export.md)). |
 | `%_video_bitrate%` | Measured, conditional where noted | Video stream property for MP4 and Matroska files (`mp4_chapters.rs`, `matroska.rs`); absent for audio-only files. |
 | `%_video_codec%` | Measured, conditional where noted | Video stream property for MP4 and Matroska files (`mp4_chapters.rs`, `matroska.rs`); absent for audio-only files. |
 | `%_video_height%` | Measured, conditional where noted | Video stream property for MP4 and Matroska files (`mp4_chapters.rs`, `matroska.rs`); absent for audio-only files. |
