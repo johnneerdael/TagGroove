@@ -1,13 +1,13 @@
-# About OpenTag and this guide
+# About TagGroove and this guide
 
-OpenTag is an independently authored, open-source audio metadata editor.
+TagGroove is an independently authored, open-source audio metadata editor.
 It is being developed for Windows, macOS, Linux, Android and iOS, with different
 capabilities and release qualifications on each platform. Its compatibility
 and performance goals do not establish complete Mp3tag parity today.
 
 ## Identify the application you are using
 
-Choose **Help → About OpenTag** to see the application's version and MIT
+Choose **Help → About TagGroove** to see the application's version and MIT
 license identification. Include that version, your operating system and the
 operation used when reporting a problem. A similar-looking screenshot or an
 old source checkout does not identify the package installed on your computer.
@@ -17,7 +17,7 @@ notices. **Sources and releases** leads to the release downloads and the
 corresponding-source archive with rebuild and relink instructions. On Android
 and iOS, the notice displays the release address to open in your browser.
 
-Use the project's [GitHub releases](https://github.com/johnneerdael/opentag/releases)
+Use the project's [GitHub releases](https://github.com/johnneerdael/TagGroove/releases)
 for packages, source revisions, checksums and release notes. The
 [installation chapter](../getting-started/install.md) explains the currently
 inspected package set and its signing/preview limits. A successful automated
@@ -26,9 +26,9 @@ same way.
 
 ## Relationship to Mp3tag
 
-OpenTag is an independent project, not an official Mp3tag edition, update,
+TagGroove is an independent project, not an official Mp3tag edition, update,
 support channel or endorsement. The original application remains its author's
-property. OpenTag's own source, examples, artwork and guide are separate work.
+property. TagGroove's own source, examples, artwork and guide are separate work.
 Do not assume that a Windows-only menu, original configuration archive,
 third-party template or parser script transfers unchanged.
 
@@ -40,8 +40,8 @@ Use the [regex reference](../reference/regular-expressions.md) and the relevant
 command's worked cases instead of treating a shared function name as proof
 of identical behavior.
 
-Report OpenTag problems on the
-[OpenTag issue tracker](https://github.com/johnneerdael/opentag/issues).
+Report TagGroove problems on the
+[TagGroove issue tracker](https://github.com/johnneerdael/TagGroove/issues).
 The [Help menu](../reference/menus/help.md) identifies its actual destinations;
 there is no separate donation or original-editor support command in that menu.
 An issue report shares reproducible information. It does not promise a
@@ -49,9 +49,9 @@ response time or recovery of personal files.
 
 ## License and credits
 
-The independently authored OpenTag application and associated repository
+The independently authored TagGroove application and associated repository
 documentation carry the project's
-[MIT license](https://github.com/johnneerdael/opentag/blob/main/LICENSE).
+[MIT license](https://github.com/johnneerdael/TagGroove/blob/main/LICENSE).
 Read that file for its permission, notice and warranty terms. Third-party
 components retain their own licenses; the project license does not replace
 their notices or license the original Mp3tag software.
@@ -75,7 +75,7 @@ Choose a section for the kind of help needed:
 | Exact syntax, field mappings, menus or settings | **Reference** |
 | Diagnosis and a useful issue report | [Troubleshooting](troubleshooting.md) and [FAQ](faq.md) |
 
-The guide describes implemented OpenTag behavior using independently written
+The guide describes implemented TagGroove behavior using independently written
 explanations and invented practice data. Canonical Mp3tag topics were a
 research checklist and do not guarantee runtime equivalence. Source reads,
 core/model tests, native UI tests, package checks and actual live publication
@@ -88,13 +88,13 @@ saved result in the tools used for your own library.
 
 ## Improve a page
 
-For a correction, identify the page/section, your OpenTag version, the steps
+For a correction, identify the page/section, your TagGroove version, the steps
 tried and the actual result. A copied expression and input/output pair help
 more than “the script does not work.” If the issue is a missing explanation,
 describe the task and the point where the instructions became unclear.
 
 The source guide lives under `docs/user-guide/` in the
-[OpenTag repository](https://github.com/johnneerdael/opentag). Contributors
+[TagGroove repository](https://github.com/johnneerdael/TagGroove). Contributors
 follow its contribution and documentation-publication instructions: finish a
 page, validate links/examples, obtain the required current-head review and
 checks, then verify the published result after merge. Unfinished chapters
@@ -104,7 +104,7 @@ practice files.
 
 ## Related
 
-- [Start using OpenTag](../getting-started/index.md)
+- [Start using TagGroove](../getting-started/index.md)
 - [Frequently asked questions](faq.md)
 - [Troubleshooting](troubleshooting.md)
 - [Help menu](../reference/menus/help.md)

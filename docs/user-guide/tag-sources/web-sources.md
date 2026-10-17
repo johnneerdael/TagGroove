@@ -50,9 +50,9 @@ restores this snapshot automatically on the next source-list/settings read.
 The original downloaded folder/ZIP is never modified.
 
 **Tag Sources → Open sources folder** opens
-`data/sources` inside OpenTag's configuration folder. **File → Open
+`data/sources` inside TagGroove's configuration folder. **File → Open
 configuration folder** is another way to find it. Files can be copied there
-manually; returning focus to OpenTag refreshes the source list. Complete
+manually; returning focus to TagGroove refreshes the source list. Complete
 script sets can occupy subfolders. Keep companions beside their source;
 include and schema filenames are found there regardless of case, with the
 source root as a fallback. An include cannot name an arbitrary outside path.
@@ -141,8 +141,8 @@ unrelated browser's login session merely because the site works there.
 ## Compatibility and limits
 
 A third-party source can rely on headers, parser details or remote behavior
-that differs in OpenTag. Minimum-version declarations written for another
-application do not certify OpenTag compatibility. Check the actual command
+that differs in TagGroove. Minimum-version declarations written for another
+application do not certify TagGroove compatibility. Check the actual command
 reference and test a small copied selection.
 
 Keep unsupported headers and matching assumptions visible while adapting a
@@ -162,5 +162,5 @@ provider import.
 The official Mp3tag Community has [Web Sources Scripts](https://community.mp3tag.de/c/development/web-sources-scripts/12)
 for contributed sources and [Web Sources Discussion](https://community.mp3tag.de/c/development/web-sources-discussion/15)
 for authoring questions. Treat examples there as source material to inspect,
-adapt and test against OpenTag's current commands and request behavior;
+adapt and test against TagGroove's current commands and request behavior;
 community publication does not establish unchanged compatibility here.

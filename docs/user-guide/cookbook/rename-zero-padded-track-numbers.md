@@ -55,7 +55,7 @@ two digits:
 | `112` | `112` (never cut short) |
 
 Everything after the first non-digit is ignored, which is how `/12`
-disappears. `%title%` adds the title, and OpenTag keeps the extension.
+disappears. `%title%` adds the title, and TagGroove keeps the extension.
 
 !!! warning "Check for files without a track number first"
     A file without a `TRACK` tag, or with a vinyl-style track like `B2`, gets

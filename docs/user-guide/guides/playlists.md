@@ -25,7 +25,7 @@ ordinary M3U/M3U8 uses path-line order; PLS uses the numeric `File1`, `File2`,
 references to the same resolved path keep their first position. This is not
 a promise about every filesystem alias identifying the same recording.
 
-Relative references resolve beside the playlist, not beside OpenTag's
+Relative references resolve beside the playlist, not beside TagGroove's
 executable. Local `file://` references are accepted; network stream URLs such
 as HTTP are reported as unsupported by this local-file loader. A broken
 reference is not repaired by a playlist label or by renaming its suffix.
@@ -43,7 +43,7 @@ https://example.invalid/live
 ```
 <!-- playlist-load-example:end -->
 
-OpenTag resolves two unique local files, in the order `02 - Low Tide.wav`,
+TagGroove resolves two unique local files, in the order `02 - Low Tide.wav`,
 then `01 - Paper Boats.wav`. It reports `missing.wav` on line 5 and the HTTP
 entry on line 6. It does not fetch that URL as an audio stream. Actual audio
 reading can report further errors after reference resolution.
@@ -123,7 +123,7 @@ The M3U8 text is:
 
 `#EXTINF` stores a rounded duration and display label. A player can use that
 label without rereading tags, so later tag edits can require regenerating the
-playlist. OpenTag writes CRLF line endings; the displayed example represents
+playlist. TagGroove writes CRLF line endings; the displayed example represents
 the same lines. Multi-line labels are flattened to spaces; line breaks in
 entry paths are rejected instead of becoming extra records. Disabling
 extended info writes path lines alone.

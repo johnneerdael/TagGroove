@@ -53,7 +53,7 @@ pub fn load_library(path: &Path) -> Result<ActionLibrary, String> {
     }
 }
 /// Groups offered before any action configuration was saved. They are
-/// unchecked, listed under Examples, and written for OpenTag.
+/// unchecked, listed under Examples, and written for TagGroove.
 pub fn example_library() -> ActionLibrary {
     use tag_core::actions::CaseMode;
     let group = |name: &str, actions| ActionGroup {

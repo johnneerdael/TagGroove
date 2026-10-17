@@ -38,7 +38,7 @@ export const exportOptionsPage:OptionsPage={id:'export',label:'Export',order:62,
     {kind:'checkbox',path:'pages.export.show_dialog',label:'Show selection dialog'},
     {kind:'checkbox',path:'pages.export.dont_create_directories',label:'Don\'t create directories'},
     {kind:'checkbox',path:'pages.export.write_bom',label:'Write BOM (UTF-8 and UTF-16 exports)'},
-    {kind:'note',text:'Without the selection dialog, File → Export runs the active configuration at once. Hold Shift (⌘/Ctrl ⇧ E) to create one export file per directory. Options → Messages decides whether OpenTag offers to open the exported file.'},
+    {kind:'note',text:'Without the selection dialog, File → Export runs the active configuration at once. Hold Shift (⌘/Ctrl ⇧ E) to create one export file per directory. Options → Messages decides whether TagGroove offers to open the exported file.'},
   ]};
 
 const str=(value:unknown,fallback:string)=>typeof value==='string'?value:fallback;

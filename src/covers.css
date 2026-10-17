@@ -68,5 +68,5 @@
   .manage-covers-buttons hr{display:none}
   .manage-covers-buttons button{min-height:44px;flex:1 1 30%}
 }
-/* The cover is dragged out by OpenTag itself (a native file drag), not by the webview. */
+/* The cover is dragged out by TagGroove itself (a native file drag), not by the webview. */
 .cover-art img{-webkit-user-drag:none;user-select:none}

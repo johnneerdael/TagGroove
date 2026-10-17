@@ -26,7 +26,7 @@ The picture's cover type and description are retained.
 | **Resize cover** | Off initially; enables the size and scaling settings |
 
 **Original** retains a writable original format: JPEG, PNG, GIF, BMP or
-WebP. If OpenTag cannot write that original format, choose JPEG or PNG.
+WebP. If TagGroove cannot write that original format, choose JPEG or PNG.
 PNG preserves transparency; JPEG does not. Quality does not control PNG
 compression or resize dimensions.
 

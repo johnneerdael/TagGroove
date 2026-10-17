@@ -2,7 +2,7 @@
 
 A tool starts a program you have installed, using paths from the current
 selection. It can open a player, editor or inspection application without
-making you browse to each track again. OpenTag does not automatically undo
+making you browse to each track again. TagGroove does not automatically undo
 changes that another application makes.
 
 ## Configure one tool on a copied file
@@ -30,7 +30,7 @@ changes that another application makes.
    Check what the external application actually opened before expanding the
    selection or enabling per-file launching.
 
-OpenTag begins with no configured tools and permits up to 99 definitions.
+TagGroove begins with no configured tools and permits up to 99 definitions.
 Its editor changes the selected entry's fields directly; there is no separate
 Edit-button step. **Remove**, **Move up** and **Move down** manage definitions.
 Removing an entry does not uninstall the other program.
@@ -38,11 +38,11 @@ Removing an entry does not uninstall the other program.
 These instructions describe the launch contract. This guide has not executed
 your chosen program, checked its options, or qualified an installed version.
 Use that program's own argument syntax; the examples below explain how
-OpenTag parses text, not a promise that a particular program supports a flag.
+TagGroove parses text, not a promise that a particular program supports a flag.
 
 ## Understand the two parsing stages
 
-OpenTag first splits the Parameter text into arguments, then substitutes the
+TagGroove first splits the Parameter text into arguments, then substitutes the
 supported path placeholders inside each argument. It passes that argument
 list directly to the program, without invoking a command shell.
 
@@ -105,7 +105,7 @@ placeholders and scripting functions are not evaluated here. The recognized
 
 Likewise, `>` is passed as an argument; it does not redirect output. Pipes,
 shell wildcard expansion and command substitution are not performed by
-OpenTag. The selected program decides what its arguments mean. Do not paste
+TagGroove. The selected program decides what its arguments mean. Do not paste
 an entire shell command into Path or assume a converter expression is a tool
 parameter.
 
@@ -142,7 +142,7 @@ requires a complete location.
 
 ## Choose one launch or one per file
 
-With **for all selected files** off, OpenTag runs once for the first selected
+With **for all selected files** off, TagGroove runs once for the first selected
 file in its ordered list. It does not combine every selected path into one
 invocation. With the option on, it prepares one invocation per selected file.
 Selection can include rows hidden by a filter, so inspect or reselect the
@@ -173,20 +173,20 @@ before retrying a whole selection.
 Use a full existing executable path, not a command name that only a shell can
 find through its search path. A macOS `.app` bundle is accepted and started
 through `/usr/bin/open -a … --args …`; how that application consumes arguments
-or opens windows is separate from OpenTag's parsing contract. An app bundle
+or opens windows is separate from TagGroove's parsing contract. An app bundle
 path on another operating system does not establish support there.
 
-OpenTag sets the spawned process's working directory to each file's existing
+TagGroove sets the spawned process's working directory to each file's existing
 containing folder when available. For a macOS bundle, that process is the
 `open` helper; the GUI application's own working directory is not guaranteed
 here. This is separate from the listed-root context used for relative placeholders. Avoid relying on a relative program path or an
 assumed launch directory copied from another tool definition.
 
 **Started** means launch processes were created, not that the external task
-finished successfully or opened a separate window for every file. OpenTag
+finished successfully or opened a separate window for every file. TagGroove
 discards their standard output/error and does not report their final exit
 status. Check the other application's UI or output. If it edits tags, resolve
-any pending OpenTag edits before using **Reload tags** to inspect the result;
+any pending TagGroove edits before using **Reload tags** to inspect the result;
 a later save of old pending values could overwrite that external edit.
 
 Tools require the desktop application and supported local-file paths.
@@ -203,7 +203,7 @@ typing in an ordinary text field, and Alt-digit chords belong to other commands.
 
 **Default tool (double-click in the file list)** starts at **No action**.
 Choosing a saved tool makes a row double-click run that definition using the
-current selection/scope rules. With **No action**, OpenTag falls back to
+current selection/scope rules. With **No action**, TagGroove falls back to
 **Extended tags…** on a row double-click; it does not make double-click do
 nothing. This is an explicit difference from the original editor's described
 No action behavior.
@@ -221,7 +221,7 @@ The official Mp3tag community has a [user-defined tools collection](https://comm
 Treat those command lines as ideas to inspect and adapt: program locations,
 quoting, supported placeholders and application options can differ. Test one
 copied file with the intended program before saving a batch workflow. A
-community example is not an OpenTag compatibility or installation guarantee.
+community example is not a TagGroove compatibility or installation guarantee.
 
 ## Related
 

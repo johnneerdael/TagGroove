@@ -28,7 +28,7 @@ disabled command's explanation instead of assuming it has already run.
 
 ## Quick settings are remembered
 
-OpenTag remembers the last Quick action type and that type's last applied
+TagGroove remembers the last Quick action type and that type's last applied
 settings. Switching types can recall a different saved configuration. For
 example, returning to **Replace** can restore an earlier search/replacement
 instead of supplying empty controls. Check every field before applying.
@@ -83,4 +83,4 @@ does not evaluate `%artist%` or scripting functions.
 - [Keyboard shortcuts](../keyboard-shortcuts.md)
 - [Convert menu](convert.md)
 
-<!-- Source baseline main4e4d5fc: src/main.ts menu/enabled/operationReason; src/action-ui.ts menuHTML/runOne/mnemonic/recallQuick/groupsDialog. Canonical menus/actions topics independently explained; OpenTag's remembered Quick state and library-without-selection behavior are explicit differences. No native UI run. -->
+<!-- Source baseline main4e4d5fc: src/main.ts menu/enabled/operationReason; src/action-ui.ts menuHTML/runOne/mnemonic/recallQuick/groupsDialog. Canonical menus/actions topics independently explained; TagGroove's remembered Quick state and library-without-selection behavior are explicit differences. No native UI run. -->

@@ -83,7 +83,7 @@ function mainMessage(call,needle,index,values){
   const js=ts.transpileModule(`return ${expression.getText(parsed)};`,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
   return new Function(...Object.keys(values),js)(...Object.values(values));
 }
-const configurationMessage=values=>mainMessage('ask','OpenTag reloads its window',0,values);
+const configurationMessage=values=>mainMessage('ask','TagGroove reloads its window',0,values);
 const removalMessage=(count,tags)=>mainMessage('messages.confirm','removeTagParts',1,{removeTagParts,selected:{size:count},optionsUI:{settings:{tags}}});
 function page(){
   const window=new Window();
@@ -175,7 +175,7 @@ test('reserved system catalog locales cannot duplicate the real Language default
 });
 
 test('launch locations reach the real header and native-title renderers with the correct provenance',async()=>{
-  const custom={'{length} added locations':'Title',Title:'Heading','OpenTag — {location}':'Window: {location}'};
+  const custom={'{length} added locations':'Title',Title:'Heading','TagGroove — {location}':'Window: {location}'};
   const declaration=parsed.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text==='syncWindowTitle');
   const js=ts.transpileModule(declaration.getText(parsed),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
   const cases=[[{directories:['/one','/two'],files:[],add:false},'2 added locations',false],[{directories:[],files:['/one/a.mp3','/two/b.mp3'],add:true},'2 added locations',false],[{directories:['/one'],files:['/one/a.mp3'],add:false},'2 added locations',false],[{directories:['2 added locations'],files:[],add:true},'2 added locations',true],[{directories:['No folder loaded'],files:[],add:false},'No folder loaded',true],[{directories:[],files:['/one/a.mp3','/one/b.mp3'],add:false},'/one',true]];
@@ -191,7 +191,7 @@ test('launch locations reach the real header and native-title renderers with the
         assert.equal(p.body.querySelector('.path').textContent,shown);assert.equal(p.body.querySelector('.path').title,shown);
         const values={app:{inert:false},translate:text=>t.translate(text),windowTitle,location,locationIsData,optionsUI:{settings:defaultSettings()},desktop:true,getCurrentWindow:()=>({setTitle:async title=>titles.push(title)})};
         new Function(...Object.keys(values),`let shownTitle='';${js};return syncWindowTitle;`)(...Object.values(values))();
-        assert.deepEqual(titles,[t.t('OpenTag — {location}',{location:shown})]);return true;
+        assert.deepEqual(titles,[t.t('TagGroove — {location}',{location:shown})]);return true;
       }});
       await ui.launch(request);assert.equal(loaded,1);
     }finally{p.close();}
@@ -253,7 +253,7 @@ test('cover extraction type captions translate beside unchanged technical detail
   }
 });
 test('the native window-title wrapper translates generated locations once and preserves authored paths',async()=>{
-  const custom={'OpenTag — {location}':'Window: {location}','Provider documents':'Help','{length} added locations':'Title',Help:'Assistance',Title:'Heading','No folder loaded':'Help'};
+  const custom={'TagGroove — {location}':'Window: {location}','Provider documents':'Help','{length} added locations':'Title',Help:'Assistance',Title:'Heading','No folder loaded':'Help'};
   const declaration=parsed.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text==='syncWindowTitle');
   const js=ts.transpileModule(declaration.getText(parsed),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
   for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]]){
@@ -264,7 +264,7 @@ test('the native window-title wrapper translates generated locations once and pr
       const values={app:{inert:false},translate:text=>t.translate(text),windowTitle,location,locationIsData,optionsUI:{settings},desktop:true,getCurrentWindow:()=>({setTitle:async title=>{calls.push(title);}})};
       const sync=new Function(...Object.keys(values),`let shownTitle='';${js};return syncWindowTitle;`)(...Object.values(values));
       sync();await Promise.resolve();
-      assert.deepEqual(calls,[show&&label!==null?t.t('OpenTag — {location}',{location:label}):'OpenTag']);
+      assert.deepEqual(calls,[show&&label!==null?t.t('TagGroove — {location}',{location:label}):'TagGroove']);
       sync();assert.equal(calls.length,1);
     }
   }
@@ -860,7 +860,7 @@ test('actual ActionUI run, quick and checked-group dialogs retain typed failures
 });
 
 test('actual global and modal batch error renderers retain source records and raw context through live language changes',()=>{
-  const keys={'{value} / action {value2}: {error}':'Action {value2} for [{value}]: {error}','{value}: {error}':'Group [{value}]: {error}','Changed outside OpenTag after {value}; it was not {verb}':'After [{value}], not {verb}','It was not {verb}: {error}':'Not {verb}: {error}','Folders and side files could not be {verb}: {error}':'Folders not {verb}: {error}','Destination exists or another file maps to {value}':'Taken: [{value}]','Line {line}: {error}':'At {line}: {error}','The cover image could not be saved: {error}':'Cover failed: {error}','Cannot write {path}: {error}':'Writing [{path}]: {error}',undone:'reverted',redone:'reapplied','Select files first.':'Help',Help:'Wrong second lookup',Title:'Wrong raw name'};
+  const keys={'{value} / action {value2}: {error}':'Action {value2} for [{value}]: {error}','{value}: {error}':'Group [{value}]: {error}','Changed outside TagGroove after {value}; it was not {verb}':'After [{value}], not {verb}','It was not {verb}: {error}':'Not {verb}: {error}','Folders and side files could not be {verb}: {error}':'Folders not {verb}: {error}','Destination exists or another file maps to {value}':'Taken: [{value}]','Line {line}: {error}':'At {line}: {error}','The cover image could not be saved: {error}':'Cover failed: {error}','Cannot write {path}: {error}':'Writing [{path}]: {error}',undone:'reverted',redone:'reapplied','Select files first.':'Help',Help:'Wrong second lookup',Title:'Wrong raw name'};
   const declaration=parsed.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text==='modalError'),js=ts.transpileModule(declaration.getText(parsed),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
   for(const item of batchDiagnosticCases){const p=page();let active=new Translator('en');const listeners=new Set();try{
     const rawPath=item.diagnostic.kind==='history_folders_failed'?'Help / action 1: Title':'/Music/Help; Title.wav',row={path:rawPath,error:item.source};
@@ -937,7 +937,7 @@ test('actual history menus replay progress completion and typed errors translate
         p.body.innerHTML=Object.entries(raw).map(([key,text])=>`<p data-history="${key}">${esc(text)}</p>`).join('')+mainTemplate(node=>node.head.text==='<p><strong translate="no">',{e,esc,displayName:path=>path,publicMessage:value=>value,t,translate:text=>tr.translate(text)});
         p.translate(language,strings);p.translateTree(p.body);
         for(const [key,text] of Object.entries(expected))assert.equal(p.body.querySelector(`[data-history="${key}"]`).textContent,text,`${language} ${key} ${JSON.stringify(item.label)}`);
-        const expectedError=t('Changed outside OpenTag after {value}; it was not {verb}',{value:label,verb});
+        const expectedError=t('Changed outside TagGroove after {value}; it was not {verb}',{value:label,verb});
         assert.equal(p.body.querySelector('span[translate="no"]').textContent,expectedError);assert.equal(p.body.querySelector('strong').textContent,'Help:');
         assert.equal(e.diagnostic.label,item.label);assert.equal(observed.history[kind].label,item.label);
       }
@@ -962,7 +962,7 @@ test('native fixed history label producers have registered exact translations an
     for(const label of labels)assert.equal(historyLabelText(label,t),t(label));
     for(const label of ['Help','Help / action 1: Title; it was not undone','  unknown label  ']){
       assert.equal(historyLabelText(label,t),label);
-      assert.equal(batchErrorText({kind:'history_changed',label,direction:'undo'},t,text=>tr.translate(text)),t('Changed outside OpenTag after {value}; it was not {verb}',{value:label,verb:t('undone')}));
+      assert.equal(batchErrorText({kind:'history_changed',label,direction:'undo'},t,text=>tr.translate(text)),t('Changed outside TagGroove after {value}; it was not {verb}',{value:label,verb:t('undone')}));
     }
   }
 });
@@ -1015,7 +1015,7 @@ test('forwarded cover verification messages translate in typed and legacy produc
 test('typed batch frames preserve raw collision text, source-owned versus IO causes and indexed association',()=>{
   const keys={
     '{value} / action {value2}: {error}':'Action {value2} for [{value}]: {error}',
-    'Changed outside OpenTag after {value}; it was not {verb}':'After [{value}], not {verb}',
+    'Changed outside TagGroove after {value}; it was not {verb}':'After [{value}], not {verb}',
     'It was not {verb}: {error}':'Not {verb}: {error}',
     'Folders and side files could not be {verb}: {error}':'Folders not {verb}: {error}',
     'Destination exists or another file maps to {value}':'Taken: [{value}]',
@@ -1439,7 +1439,7 @@ test('web-source result headers and search labels remain authored while applicat
     }finally{p.close();}
   }
 });
-test('source-authored settings prose remains authoritative while OpenTag controls and errors translate',async()=>{
+test('source-authored settings prose remains authoritative while TagGroove controls and errors translate',async()=>{
   const custom={Save:'Store',Cancel:'Back',Help:'Assistance',Title:'Name','Select files first.':'Choose files','Save tags':'Write tags','{title} needs a number.':'A number is required for {title}.','This tag source has no settings.':'There are no settings.'};
   for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]]){
     const p=page();
@@ -1527,7 +1527,7 @@ test('native Remove Tag translates empty settings and conjunctions while preserv
 });
 test('structured confirmations translate source parts once through Messages and the native ask wrapper',async()=>{
   const first='Replace the current options, action groups, export configurations, columns, tag panel, favorite directories and remembered lists with {path}?';
-  const reload='OpenTag reloads its window afterwards. The Discogs access token is not part of a configuration file.';
+  const reload='TagGroove reloads its window afterwards. The Discogs access token is not part of a configuration file.';
   const translator=new Translator('en',{[first]:'Save tags',[reload]:'Save tags','Save tags':'Write tags','Save tags Save tags':'Incorrect second translation',
     'Remove tags from {count} selected files?':'Save tags','MP3, TTA: {kinds}':'Save tags','APE, MPC, WavPack, TAK, OptimFROG: {kinds}':'Save tags','Other formats: all tags':'Save tags',
     'Save tags Save tags Save tags Save tags':'Incorrect second translation',Yes:'Save tags',No:'Keep tags','Load configuration':'Save tags','Remove tag':'Save tags'});
@@ -1676,7 +1676,7 @@ for(const locale of ['de','nl']){
       await ask({...prompt,separator:newline+newline},'Load configuration');
       const configuration=calls.at(-1)[0];
       assert.ok(configuration.includes(filename),configuration);
-      assert.ok(configuration.includes(`${newline}${newline}${translator.t('OpenTag reloads its window afterwards. The Discogs access token is not part of a configuration file.')}`),configuration);
+      assert.ok(configuration.includes(`${newline}${newline}${translator.t('TagGroove reloads its window afterwards. The Discogs access token is not part of a configuration file.')}`),configuration);
       assert.notEqual(configuration.split(newline)[0].startsWith('Replace the current options'),true);
     }
   });

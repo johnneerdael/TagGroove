@@ -361,7 +361,7 @@ test('gnudb lookups use the track layout or a text search, never a typed disc ID
 
 test('the freedb email address must look valid; empty sends the developer contact', () => {
   for (const email of ['john@neerdael.nl', 'Jane.Doe+tags@mail.example.co.uk']) assert.ok(validEmail(email), email);
-  for (const email of ['', 'opentag', 'me@localhost', '@example.org', 'me@', 'a b@example.org', 'me@@example.org', 'me@example.c0m', 'me@.example.org']) assert.ok(!validEmail(email), email);
+  for (const email of ['', 'taggroove', 'me@localhost', '@example.org', 'me@', 'a b@example.org', 'me@@example.org', 'me@example.c0m', 'me@.example.org']) assert.ok(!validEmail(email), email);
   const freedb = tagSourcesOptionsPages(async () => null)[1];
   const draft = email => ({pages: {'tag-sources-freedb': {address: 'gnudb.gnudb.org', email}}});
   assert.equal(freedb.validate(draft('')), undefined);

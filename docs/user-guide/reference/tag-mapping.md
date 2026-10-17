@@ -1,13 +1,13 @@
 # Tag mapping tables
 
-A mapping connects the editable name `ARTIST` to native storage such as the ID3v2 frame `TPE1` or MP4 atom `©ART`. Use the field name in OpenTag; inspect the native identifier when troubleshooting another reader or an existing file.
+A mapping connects the editable name `ARTIST` to native storage such as the ID3v2 frame `TPE1` or MP4 atom `©ART`. Use the field name in TagGroove; inspect the native identifier when troubleshooting another reader or an existing file.
 
 !!! tip "New to this?"
     Read [Field names](field-names.md) for the meanings and special value syntax. A mapping changes where a value is stored; it does not calculate or translate that value.
 
 ## How to read these tables
 
-The tables contain all 118 named fields from OpenTag's source-checked mapping vocabulary. **—** means no dedicated mapping in that cell. It does not always mean the field is forbidden: the [custom-field fallback](#custom-field-fallback) explains what is used instead. APE and Vorbis Comments store actual field names rather than using this fixed native-identifier table.
+The tables contain all 118 named fields from TagGroove's source-checked mapping vocabulary. **—** means no dedicated mapping in that cell. It does not always mean the field is forbidden: the [custom-field fallback](#custom-field-fallback) explains what is used instead. APE and Vorbis Comments store actual field names rather than using this fixed native-identifier table.
 
 `TXXX:description` denotes an ID3 user-text frame with that description. `UFID:owner` denotes an owner-specific ID3 identifier. `----:namespace:name` denotes an MP4 freeform atom. The `©` character is part of a four-character MP4 identifier, not decorative punctuation.
 
@@ -283,7 +283,7 @@ Scroll this comparison horizontally to read complete native identifiers.
 
 In recommended Matroska video mapping, target 50 `PART_NUMBER` is exposed as `TVEPISODE`, and target 60 `PART_NUMBER` as `TVSEASON`. The audio `DISCNUMBER` rule is not also applied to that episode value. Mapped native names stored at other, unrecognized levels may remain hidden and preserved. Track/edition/attachment-scoped metadata is not automatically merged into global editable fields; supported chapter-targeted tags belong to their chapter rows.
 
-ASF `WM/TrackNumber` is the normal track mapping. OpenTag also reads legacy zero-based `WM/Track` as TRACK plus one when no modern value is present, and keeps an existing legacy attribute synchronized on a TRACK edit. This fallback is not a separate field shown in the table.
+ASF `WM/TrackNumber` is the normal track mapping. TagGroove also reads legacy zero-based `WM/Track` as TRACK plus one when no modern value is present, and keeps an existing legacy attribute synchronized on a TRACK edit. This fallback is not a separate field shown in the table.
 
 RIFF INFO holds one string per identifier. Multiple edited values are joined with `; ` there, so it cannot preserve separate values in the same way as a multi-value tag. A WAV file can also carry ID3v2 metadata alongside INFO.
 
@@ -313,13 +313,13 @@ The tables identify native locations. Several fields also impose value structure
 - `MUSICBRAINZ_TRACKID` means recording ID; its ID3 storage is the `http://musicbrainz.org` UFID owner. `MUSICBRAINZ_RELEASETRACKID` is a different identifier.
 - `YEAR` and `DATE` are not interchangeable date transformations. A user-defined alias changes a name while leaving the text unchanged.
 
-The source importers can supply BARCODE and CATALOGNUMBER from release data. Historical Mp3tag version annotations about introducing those fields do not describe OpenTag release availability.
+The source importers can supply BARCODE and CATALOGNUMBER from release data. Historical Mp3tag version annotations about introducing those fields do not describe TagGroove release availability.
 
 ## User-defined field names
 
 Use **File → Options… → Tags → Mapping** for per-format Source → Target aliases. On read, the source name is shown as the target. On write, the target is translated back to each source mapped to it. Several sources can share one target; one source cannot map to several different targets. A Vorbis `DATE` → `YEAR` rule is an example of harmonizing names without changing the date text.
 
-These aliases operate above the native identifier mappings. Enter OpenTag's readable field name as Source for ID3v2/MP4, rather than a frame or atom code. A custom alias does not replace the built-in mapping from `TPE1` to ARTIST. Matroska is not a selectable tag type in that alias editor.
+These aliases operate above the native identifier mappings. Enter TagGroove's readable field name as Source for ID3v2/MP4, rather than a frame or atom code. A custom alias does not replace the built-in mapping from `TPE1` to ARTIST. Matroska is not a selectable tag type in that alias editor.
 
 ## Related
 

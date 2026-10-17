@@ -11,7 +11,7 @@ file. Use copied files while choosing which stored metadata to retain.
 | Clear one field, such as `COMMENT` | Clear it in the tag panel, or remove its row in Extended tags | After **Save tags** |
 | Remove configured tag families from selected files | **File → Remove tag…** | When confirmed |
 | Remove explicitly chosen ID3v1, ID3v2 or APEv2 blocks | **Tools → Remove tag types…** | When **Remove** is chosen |
-| Remove rows from OpenTag's list | **Edit → Remove from list** | No audio/tag deletion |
+| Remove rows from TagGroove's list | **Edit → Remove from list** | No audio/tag deletion |
 
 The **Remove Fields** action is another field-level route; actions write when
 run. Use [Remove Fields](../actions/remove-fields.md) when a repeatable list
@@ -88,7 +88,7 @@ Changing **Write** and **Remove** affects future saves too: a type selected
 for removal but not writing can be removed during an ordinary save. Review
 both sets of switches before saving after a cleanup.
 
-Mp3tag's reference mentions dependent Lyrics3 removal with ID3v1. OpenTag has
+Mp3tag's reference mentions dependent Lyrics3 removal with ID3v1. TagGroove has
 no guide-verified promise of that coupling for every MPEG path; do not use the
 ID3v1 checkbox as a general Lyrics3 cleanup operation. Removing MP4 metadata
 can also affect per-chapter tag fields; it is separate from a dedicated

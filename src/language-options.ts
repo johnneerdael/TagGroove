@@ -1,5 +1,5 @@
 // Options → Language (https://docs.mp3tag.de/customization/options/language/):
-// the language of the user interface. OpenTag ships its own catalogs (English,
+// the language of the user interface. TagGroove ships its own catalogs (English,
 // Dutch, German); a catalog file in the configuration folder's languages folder
 // adds another language or replaces a shipped one. Unlike Mp3tag, the choice
 // applies at once.
@@ -47,7 +47,7 @@ export function languageOptionsPage(host: LanguageHost): OptionsPage & {refresh:
   }};
   const folderButton:OptionControl|undefined=host.openFolder?{kind:'button',id:'open-languages-folder',label:'Open languages folder',run:()=>host.openFolder!()}:undefined;
   const otherLanguages:OptionControl[]=[
-    {kind: 'note', text: 'To add a language, open the languages folder, copy _template.json to a file named after the language (for example fr.json or pt-BR.json), set its name and translate the values. Keep the placeholders in braces as they are. A file named nl.json or de.json replaces the shipped translation. OpenTag reads the folder at startup and when you choose OK.'},
+    {kind: 'note', text: 'To add a language, open the languages folder, copy _template.json to a file named after the language (for example fr.json or pt-BR.json), set its name and translate the values. Keep the placeholders in braces as they are. A file named nl.json or de.json replaces the shipped translation. TagGroove reads the folder at startup and when you choose OK.'},
     status,
   ];
   const setFolderSupport=(supported:boolean)=>{otherLanguages.splice(2,otherLanguages.length-2,...(supported&&folderButton?[folderButton]:[]));};

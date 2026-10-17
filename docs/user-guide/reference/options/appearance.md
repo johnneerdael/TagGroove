@@ -9,11 +9,11 @@ Open **File → Options… → Appearance** to change color mode, control size, 
 
 **System** is the default and follows the operating system's light/dark preference. **Light** and **Dark** fix the app to the selected mode. The title-bar color-mode control has the same preference; it is remembered on the device.
 
-The setting changes presentation, not artwork or exported files. Mp3tag's documented Windows-version restriction is not an OpenTag requirement; OpenTag uses its own interface theme.
+The setting changes presentation, not artwork or exported files. Mp3tag's documented Windows-version restriction is not a TagGroove requirement; TagGroove uses its own interface theme.
 
 ## Symbols
 
-OpenTag does not provide Mp3tag's **Standard** versus **Original** icon-set switch. Its toolbar uses OpenTag's own symbols. Choosing a color mode or changing scale does not load a historical Mp3tag icon set.
+TagGroove does not provide Mp3tag's **Standard** versus **Original** icon-set switch. Its toolbar uses TagGroove's own symbols. Choosing a color mode or changing scale does not load a historical Mp3tag icon set.
 
 ## Toolbar scaling
 
@@ -31,7 +31,7 @@ OpenTag does not provide Mp3tag's **Standard** versus **Original** icon-set swit
 | **Alternate row colors** | Shade adjacent rows differently to help follow a wide row. |
 | **Grid lines** | Draw boundaries between file-list cells. Useful with many columns. |
 
-OpenTag uses explicit choices. Mp3tag's three-state checkbox encodes these appearances differently; a grayed checkbox in that application is not an extra OpenTag mode.
+TagGroove uses explicit choices. Mp3tag's three-state checkbox encodes these appearances differently; a grayed checkbox in that application is not an extra TagGroove mode.
 
 ## Related
 

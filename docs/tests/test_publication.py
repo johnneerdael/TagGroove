@@ -152,10 +152,10 @@ class GuideContentTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             parser = PrerequisiteParser()
             parser.feed((Path(output) / "learn/first-tagging-session/index.html").read_text())
-        matches = [item for item in parser.items if "OpenTag installed" in item["text"]]
+        matches = [item for item in parser.items if "TagGroove installed" in item["text"]]
         self.assertEqual(len(matches), 1)
         self.assertEqual(matches[0]["checkboxes"], 1)
-        self.assertIn("https://github.com/johnneerdael/opentag/releases/latest", matches[0]["links"])
+        self.assertIn("https://github.com/johnneerdael/TagGroove/releases/latest", matches[0]["links"])
 
 
     def test_regex_examples_preserve_copyable_edge_spaces(self):

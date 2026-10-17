@@ -1316,7 +1316,7 @@ fn ansi(text: &str, context: &EvalContext<'_>) -> Result<String, String> {
 
 // These are the only builtins that can return a foreign payload: the Boost
 // engine, or an opt-in host's field resolver. Other builtin error factories
-// replace library failures with OpenTag-owned diagnostics.
+// replace library failures with TagGroove-owned diagnostics.
 fn function_diagnostic(
     name: &str,
     a: &[&str],

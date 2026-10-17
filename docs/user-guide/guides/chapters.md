@@ -6,7 +6,7 @@ distinction matters when editing a title, creating playlists, or choosing a
 command that acts on the whole containing file.
 
 Use copied local files and sheets first. These instructions describe current
-OpenTag source behavior; they do not establish every container/player's
+TagGroove source behavior; they do not establish every container/player's
 support or a native application test on each platform.
 
 ## Show embedded chapters as rows
@@ -15,7 +15,7 @@ support or a native application test on each platform.
    pending edits deliberately before changing the view and reloading.
 2. Open **File → Options… → Tags → Advanced** and enable **List chapters as
    separate files**, which is off by default.
-3. Apply the options and reload the directory. OpenTag expands files with at
+3. Apply the options and reload the directory. TagGroove expands files with at
    least two recognized chapters into chapter-order rows. A file with fewer
    than two stays an ordinary file row.
 4. Inspect a row's title and length, then compare the whole-file view by

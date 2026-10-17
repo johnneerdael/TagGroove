@@ -432,7 +432,7 @@ fn external_changes_are_reported_and_never_overwritten() {
     let external = fs::read(&changed).unwrap();
     let replay = history.undo().unwrap();
     assert_eq!(replay.errors.len(), 1);
-    assert!(replay.errors[0].error.contains("Changed outside OpenTag"));
+    assert!(replay.errors[0].error.contains("Changed outside TagGroove"));
     assert_eq!(
         fs::read(&changed).unwrap(),
         external,
@@ -486,7 +486,7 @@ fn side_files_created_or_replaced_are_removed_or_restored() {
     fs::write(&created, b"edited elsewhere").unwrap();
     let replay = history.undo().unwrap();
     assert_eq!(replay.errors.len(), 1, "{:?}", replay.errors);
-    assert!(replay.errors[0].error.contains("Changed outside OpenTag"));
+    assert!(replay.errors[0].error.contains("Changed outside TagGroove"));
     assert_eq!(fs::read(&created).unwrap(), b"edited elsewhere");
     assert_eq!(fs::read(&replaced).unwrap(), b"old image");
     assert_eq!(fs::read(&audio).unwrap(), original);

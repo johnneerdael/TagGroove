@@ -4,7 +4,7 @@ Build a source that reads an album and two track titles from JSON you control.
 This lesson takes about 25 minutes. It keeps network data predictable while
 you learn source headers, JSON selection, output buffers and settings.
 
-- [ ] OpenTag desktop app with source installation/folder access available.
+- [ ] TagGroove desktop app with source installation/folder access available.
 - [ ] Two copied practice audio files selected in this order: Paper Boats,
       then Lanterns on the Water; save pending edits first.
 - [ ] Python available to serve a separate practice-data folder on localhost.
@@ -13,7 +13,7 @@ you learn source headers, JSON selection, output buffers and settings.
 The local server serves only the practice folder and binds to `127.0.0.1`.
 It is part of this exercise. Do not run the source against a
 personal music directory. The parser examples are also checked directly by
-tests without launching OpenTag or making network requests.
+tests without launching TagGroove or making network requests.
 
 ## 1. Create one predictable response
 
@@ -49,7 +49,7 @@ python3 -m http.server 8766 --bind 127.0.0.1 --directory "$HOME/PracticeCatalogu
 
 Open `http://127.0.0.1:8766/release/harbour.json` in a browser. It must show the
 JSON above. Keep the terminal open; the server runs until stopped with Ctrl+C.
-If the address fails, resolve the path/port problem before involving OpenTag.
+If the address fails, resolve the path/port problem before involving TagGroove.
 
 ## 2. Write the source description
 

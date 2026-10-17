@@ -89,7 +89,7 @@ spreadsheet imports treat as another data record.
 | Accents look garbled | Select UTF-8 or use the receiving program's required BOM |
 | Columns shift after a quoted title | Double embedded quotes, and quote every arbitrary text cell |
 | Header repeats halfway through | Replace the output instead of appending the full template |
-| Changes in a spreadsheet do not appear in OpenTag | Export is one-way; a separate import workflow must map fields and match files deliberately |
+| Changes in a spreadsheet do not appear in TagGroove | Export is one-way; a separate import workflow must map fields and match files deliberately |
 
 See [export controls](index.md) and the [template language](template-language.md)
 for partitioning, naming, loops and encodings.

@@ -33,17 +33,17 @@ The review can offer album, album artist, year, genre and copyright; song
 titles, artists, track and disc numbers; and iTunes album, artist and catalog
 identifiers. Advisory information appears only when supplied. The release
 lookup requests a limited response (`limit=200`). If Apple returns fewer album
-songs than its stated positive track count, OpenTag reports an incomplete album
+songs than its stated positive track count, TagGroove reports an incomplete album
 before opening the review or saving. A response at the limit without a usable
 album total is also refused. Smaller responses without a total show the
 available songs, whose completeness cannot be confirmed.
 
-OpenTag makes no continuation request for this album lookup. Large or
+TagGroove makes no continuation request for this album lookup. Large or
 incomplete albums can therefore be unavailable, including in **Covers:
 iTunes…**, which uses the same lookup. Try another edition, store country or
 source rather than saving a partial listing as the complete album.
 
-OpenTag spaces iTunes requests about 3.1 seconds apart, so a search followed
+TagGroove spaces iTunes requests about 3.1 seconds apart, so a search followed
 by a release lookup can pause. It retrieves metadata and artwork, not music,
 audio previews or an Apple Music subscription library.
 

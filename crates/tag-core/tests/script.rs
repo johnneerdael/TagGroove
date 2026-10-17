@@ -553,15 +553,15 @@ fn environment_and_app_paths_are_explicit_and_absent_variables_are_empty() {
     let environment = [("TEST_ENV".into(), "Value".into())].into();
     let mut context = EvalContext::new(&f);
     context.environment = Some(&environment);
-    context.app_directory = Some("/apps/OpenTag");
-    context.app_data_directory = Some("/config/OpenTag");
+    context.app_directory = Some("/apps/TagGroove");
+    context.app_data_directory = Some("/config/TagGroove");
     assert_eq!(
         evaluate_with_context(
             "$getenv(TEST_ENV)|$getenv(ABSENT)|$getenv(MP3TAGAPP)|$getenv(MP3TAGAPPDATA)",
             &context
         )
         .unwrap(),
-        "Value||/apps/OpenTag|/config/OpenTag"
+        "Value||/apps/TagGroove|/config/TagGroove"
     );
 }
 

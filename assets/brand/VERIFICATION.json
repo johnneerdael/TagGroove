@@ -1,37 +1,5 @@
 {
-  "copies_hash_verified": 72,
-  "sources_unchanged": true,
-  "inline_glyphs_verified": 12,
-  "ios_icon_opaque_1024": true,
-  "contrast": {
-    "ink_on_orange": 6.7,
-    "burnt_orange_on_paper": 6.36,
-    "muted_on_paper": 5.28
-  },
-  "frontend_build": "passed npm run build",
-  "ui_tests": {
-    "passed": 15,
-    "failed": 0
-  },
-  "desktop_screenshot": "passed: native CUA captured actual macOS app header, empty view, fixture view, About artwork/tagline/version/MIT, and Finder application icon",
-  "mobile_layout_preview": "captured actual production app iframe390x800 without sample data; current Chrome profile client-blocks/collapses header logo; no extension/security changes made",
-  "native_device_icons": "Frozen-source Android arm64 debug APK and unsigned arm64 iOS simulator app builds passed; no source drift. Installation/device behavior not tested.",
-  "mobile_artifact_evidence": "docs/verification/mobile-final-artifacts.json",
-  "ios_unassigned_icon_warnings_final_build": 0,
-  "desktop_visual_verification": {
-    "date_utc": "2026-10-14",
-    "build_exit": 0,
-    "rust": "1.95.0",
-    "architecture": "arm64",
-    "signature": "strict ad-hoc verification passed; not notarized",
-    "receipt": "docs/verification/branding-app-proof.json",
-    "screenshots": [
-      "docs/verification/branding-desktop-empty.png",
-      "docs/verification/branding-desktop-fixtures.png",
-      "docs/verification/branding-desktop-about.png",
-      "docs/verification/branding-macos-icon-info.png"
-    ],
-    "fixtures_unchanged": true,
-    "source_scope": "build-time snapshot before later native Windows output-path fix; branding source unchanged"
-  }
+  "date": "2026-10-17",
+  "status": "Pending rename verification; see docs/verification/taggroove-rename.md.",
+  "historical_verification": "Previous brand verification is available in Git history; it does not validate this rename."
 }
