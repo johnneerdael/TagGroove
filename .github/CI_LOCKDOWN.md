@@ -16,7 +16,7 @@ Enable only the new controller, metadata signal, reviewed PR workflow, reusable 
 gh workflow run review-controller.yml --ref main -f pr_number=17
 ```
 
-An actual failed build requires an explicit `retry_build=true` dispatch after investigating it. API failures and stale heads deny application execution. Reactions have no direct Actions event and nothing polls for them: the controller runs only at merge time, from a main push, when a validation it dispatched finishes, or when you dispatch it for one PR. Run it once a PR has a clean Codex review, then wait for `Reviewed PR builds` before merging. No Pages/site or release-note changes are included in this emergency bootstrap. Rebase later workflow PRs onto these paths so they cannot restore automatic execution.
+An actual failed build requires an explicit `retry_build=true` dispatch after investigating it. API failures and stale heads deny application execution. Reactions have no direct Actions event and nothing polls for them: the controller has no schedule and does not run on PR pushes or comments. It runs when a review is posted or dismissed, when a validation it dispatched finishes, on a main push, or when you dispatch it for one PR. Dispatch it once a PR has a clean Codex review and again immediately before merging, then wait for `Reviewed PR builds`. No Pages/site or release-note changes are included in this emergency bootstrap. Rebase later workflow PRs onto these paths so they cannot restore automatic execution.
 
 Local checks:
 

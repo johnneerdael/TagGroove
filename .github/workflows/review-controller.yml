@@ -1,12 +1,13 @@
 name: Review authorization controller
 on:
-  # Runs only at merge time: a main push (release authorization), the end of a
-  # validation it dispatched, or an explicit recheck of one PR. No PR, comment,
-  # review or schedule event starts it.
+  # No schedule and no PR, push-to-PR or comment events. It runs when a review
+  # is posted or dismissed (through the unprivileged signal), when a validation
+  # it dispatched finishes, on a main push (release authorization) and when
+  # dispatched by hand for one PR.
   push:
     branches: [main]
   workflow_run:
-    workflows: [Reviewed PR validation]
+    workflows: [Review metadata signal, Reviewed PR validation]
     types: [completed]
   workflow_dispatch:
     inputs:

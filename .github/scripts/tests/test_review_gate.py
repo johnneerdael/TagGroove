@@ -146,18 +146,20 @@ class WorkflowTrustTests(unittest.TestCase):
             self.assertNotIn('  pull_request:', header)
             self.assertNotIn('  pull_request_target:', header)
 
-    def test_review_controller_runs_only_at_merge_time(self):
+    def test_review_controller_has_no_polling_or_per_event_triggers(self):
         workflows = ROOT.parent / 'workflows'
         controller = (workflows / 'review-controller.yml').read_text().split('jobs:')[0]
         for trigger in ['push', 'workflow_run', 'workflow_dispatch']:
             self.assertIn(f'  {trigger}:', controller)
-        for trigger in ['pull_request_target', 'pull_request', 'issue_comment', 'pull_request_review', 'schedule', 'cron']:
+        for trigger in ['pull_request_target', 'pull_request', 'issue_comment', 'schedule']:
             self.assertNotIn(f'  {trigger}:', controller)
-        self.assertIn('workflows: [Reviewed PR validation]', controller)
-        self.assertNotIn('Review metadata signal', controller)
+        self.assertNotIn('cron:', controller)
+        # Review events still invalidate an earlier approval, through the unprivileged relay.
+        self.assertIn('workflows: [Review metadata signal, Reviewed PR validation]', controller)
         signal = (workflows / 'review-metadata-signal.yml').read_text().split('jobs:')[0]
-        self.assertIn('  workflow_dispatch:', signal)
-        for trigger in ['pull_request_review', 'pull_request_review_comment', 'pull_request', 'issue_comment', 'schedule']:
+        for trigger in ['pull_request_review', 'pull_request_review_comment']:
+            self.assertIn(f'  {trigger}:', signal)
+        for trigger in ['pull_request', 'issue_comment', 'schedule']:
             self.assertNotIn(f'  {trigger}:', signal)
 
     def test_reusable_build_rechecks_review_and_authenticates_main_caller(self):
