@@ -1,4 +1,5 @@
 //! Independent retained carriers shared by the regression suite and paired harness.
+pub mod mp4_atoms;
 pub mod native_id3;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use lofty::{
@@ -103,6 +104,18 @@ pub fn seed(path: &Path) {
             ));
             file.set_ilst(tag);
             file.save_to_path(path, WriteOptions::default()).unwrap();
+            // Set locale structurally: Lofty's native model has no locale field.
+            let bytes = fs::read(path).unwrap();
+            let raw = mp4_atoms::items(&bytes)
+                .into_iter()
+                .map(|mut item| {
+                    if item.identity == mp4_atoms::Identity::Fourcc(*b"xQA!") {
+                        item.raw = mp4_atoms::item(*b"xQA!", &[mp4_atoms::data(0, 1033, OPAQUE)]);
+                    }
+                    item.raw
+                })
+                .collect::<Vec<_>>();
+            fs::write(path, mp4_atoms::with_items(&bytes, &raw, 0)).unwrap();
         }
         _ => unreachable!(),
     }
@@ -359,6 +372,12 @@ pub fn snapshot(path: &Path) -> Value {
         })).collect::<Vec<_>>(),
         "opaque_marker_count": bytes.windows(OPAQUE.len()).filter(|v| *v == OPAQUE).count(),
         "opaque_native": opaque_native,
+        "native_mp4": if path.extension().unwrap().eq_ignore_ascii_case("m4a") {
+            json!(mp4_atoms::items(&bytes).into_iter().filter(|i|i.identity==mp4_atoms::Identity::Fourcc(*b"xQA!")).map(|i|json!({
+                "fourcc_base64": STANDARD.encode(b"xQA!"),
+                "values":i.values.into_iter().map(|v|json!({"type":v.code,"locale":v.locale,"raw_base64":STANDARD.encode(v.raw)})).collect::<Vec<_>>()
+            })).collect::<Vec<_>>())
+        } else { Value::Null },
         "native_id3": if path.extension().unwrap().eq_ignore_ascii_case("mp3") { native_id3::snapshot(&bytes) } else { Value::Null },
         "audio_payload_base64": STANDARD.encode(payload(path)),
         "tag_kinds": entry.technical.get("_TAG"),

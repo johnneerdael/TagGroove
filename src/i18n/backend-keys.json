@@ -426,6 +426,7 @@
  "MP4 fourcc must be Latin-1",
  "MP4 fourcc requires four characters",
  "MP4 freeform requires mean:name",
+ "MP4 metadata structure cannot be preserved safely; original file was not changed",
  "MTA Unicode escape is not a scalar value",
  "Malformed ASF header",
  "Malformed ASF header extension size",

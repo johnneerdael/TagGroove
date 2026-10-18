@@ -1,19 +1,19 @@
 //! MP4 `ilst` writes that reuse the `free` atoms next to the tag.
 //!
-//! lofty reads a whole MP4 file into memory and writes all of it back for
-//! every tag change, even when the new `ilst` fits the `free` atoms beside the
-//! old one. Here lofty encodes the new tag against an in-memory copy of only
-//! the `ftyp` and `moov` atoms. When the encoded `ilst` fits the old `ilst`
-//! plus its neighbouring `free` atoms inside `moov.udta.meta`, it is written
-//! over that region and the rest becomes a `free` atom: `moov` keeps its size,
-//! so no chunk offset changes and the media data is never touched.
+//! Plan `ilst` once, retaining raw data envelopes for native identities whose
+//! values are unchanged. This preserves locale and encoding bytes absent from
+//! Lofty's model. Explicit edits/removals use normal native encoding.
 //!
-//! A tag that outgrows the region is spliced into `moov` with a [`PADDING`]
-//! `free` atom after it, so later edits fit; chunk offsets that point past
-//! `moov` are shifted. Files without an `ilst`, fragmented files and 64-bit
-//! container sizes fall back to lofty's full write.
+//! Reuse adjacent padding or grow `moov` and adjust chunk offsets when possible.
+//! Other layouts use Lofty's full layout writer with a structurally verified,
+//! exactly sized surrogate `ilst`, replaced on staging before publication.
 use crate::id3_padding::PADDING;
-use lofty::{config::WriteOptions, mp4::Ilst, tag::TagExt};
+use lofty::{
+    config::WriteOptions,
+    mp4::{AtomData, AtomIdent, Ilst},
+    tag::TagExt,
+};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::{
     fs::File,
     io::{Cursor, Read, Seek, SeekFrom, Write},
@@ -81,6 +81,7 @@ fn meta(moov: &[u8]) -> Option<(Atom, Atom, Vec<Atom>)> {
 }
 
 /// The `ilst` atom of an encoded `moov`, if it has one.
+#[cfg(test)]
 fn ilst(moov: &[u8]) -> Option<&[u8]> {
     let (_, _, children) = meta(moov)?;
     let ilst = children.iter().find(|a| &a.kind == b"ilst")?;
@@ -333,23 +334,453 @@ pub(crate) fn odd_album_id(
 /// Write `tag` into the MP4 file, in place when the `free` atoms allow it.
 /// Unless `single_atom`, a field with several values is stored as one atom
 /// per value (Options → Tags → Advanced).
-pub(crate) fn save(file: &mut File, tag: &Ilst, single_atom: bool) -> Result<(), String> {
-    match padded(file, tag, single_atom).map_err(|e| e.to_string())? {
+pub(crate) fn save(
+    file: &mut File,
+    before: &Ilst,
+    tag: &Ilst,
+    touched: &[AtomIdent<'_>],
+    single_atom: bool,
+) -> Result<(), crate::batch_errors::ErrorCause> {
+    let plan = preserved_ilst(file, before, tag, touched, single_atom).map_err(SaveError::cause)?;
+    match padded(file, &plan).map_err(crate::batch_errors::ErrorCause::external)? {
         Some(true) => return Ok(()),
         Some(false) => crate::write_cost::rewrote_all(),
         None => {
             crate::write_cost::rewrote_all();
-            file.seek(SeekFrom::Start(0)).map_err(|e| e.to_string())?;
-            tag.save_to(file, WriteOptions::default())
-                .map_err(|e| crate::tags::error_message(&e))?;
-            // lofty writes one atom per field; split it now that an `ilst`
-            // exists.
-            if !single_atom && tag.into_iter().any(|atom| atom.data().count() > 1) {
-                padded(file, tag, false).map_err(|e| e.to_string())?;
-            }
+            write_full_plan(file, &plan).map_err(SaveError::cause)?;
         }
     }
     Ok(())
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+enum ItemKey {
+    Fourcc([u8; 4]),
+    Freeform(String, String),
+}
+fn item_key(id: &AtomIdent<'_>) -> ItemKey {
+    match id {
+        AtomIdent::Fourcc(id) => ItemKey::Fourcc(*id),
+        AtomIdent::Freeform { mean, name } => ItemKey::Freeform(mean.to_string(), name.to_string()),
+    }
+}
+#[derive(Clone)]
+struct RawItem {
+    key: ItemKey,
+    bytes: Vec<u8>,
+    kind: [u8; 4],
+    prefix: Vec<u8>,
+    data: Vec<Vec<u8>>,
+    wide: bool,
+}
+#[derive(Debug)]
+enum SaveError {
+    Structure,
+    External(String),
+}
+const STRUCTURE_GUARD: SaveError = SaveError::Structure;
+impl From<String> for SaveError {
+    fn from(value: String) -> Self {
+        Self::External(value)
+    }
+}
+impl SaveError {
+    fn cause(self) -> crate::batch_errors::ErrorCause {
+        match self {
+            Self::Structure => crate::batch_errors::ErrorCause::owned(
+                "MP4 metadata structure cannot be preserved safely; original file was not changed",
+            ),
+            Self::External(message) => crate::batch_errors::ErrorCause::external(message),
+        }
+    }
+}
+
+fn resolved_bytes(bytes: &[u8], atom: Atom) -> Result<Vec<u8>, SaveError> {
+    let mut raw = bytes[atom.start..atom.end].to_vec();
+    if raw[..4] == [0; 4] {
+        let length = u32::try_from(raw.len()).map_err(|_| STRUCTURE_GUARD)?;
+        raw[..4].copy_from_slice(&length.to_be_bytes());
+    }
+    Ok(raw)
+}
+fn raw_items(bytes: &[u8]) -> Result<Vec<RawItem>, SaveError> {
+    if bytes.is_empty() {
+        return Ok(Vec::new());
+    }
+    let root = atoms(bytes, 0..bytes.len())
+        .filter(|v| v.len() == 1 && v[0].kind == *b"ilst")
+        .ok_or(STRUCTURE_GUARD)?[0];
+    atoms(bytes, root.content())
+        .ok_or(STRUCTURE_GUARD)?
+        .into_iter()
+        .map(|item| {
+            let children = if matches!(&item.kind, b"free" | b"skip") {
+                Vec::new()
+            } else {
+                atoms(bytes, item.content()).ok_or(STRUCTURE_GUARD)?
+            };
+            let key = if item.kind == *b"----" {
+                let text = |kind| -> Result<String, SaveError> {
+                    let found: Vec<_> = children.iter().filter(|c| c.kind == kind).collect();
+                    if found.len() != 1 {
+                        return Err(STRUCTURE_GUARD);
+                    }
+                    let c = found[0];
+                    String::from_utf8(
+                        bytes
+                            .get(c.content().start + 4..c.end)
+                            .ok_or(STRUCTURE_GUARD)?
+                            .to_vec(),
+                    )
+                    .map_err(|_| STRUCTURE_GUARD)
+                };
+                ItemKey::Freeform(text(*b"mean")?, text(*b"name")?)
+            } else {
+                ItemKey::Fourcc(item.kind)
+            };
+            let prefix = children
+                .iter()
+                .filter(|c| c.kind != *b"data")
+                .map(|c| resolved_bytes(bytes, *c))
+                .collect::<Result<Vec<_>, _>>()?
+                .concat();
+            let data = children
+                .iter()
+                .filter(|c| c.kind == *b"data")
+                .map(|c| resolved_bytes(bytes, *c))
+                .collect::<Result<Vec<_>, _>>()?;
+            let mut raw = resolved_bytes(bytes, item)?;
+            for child in &children {
+                if bytes[child.start..child.start + 4] == [0; 4] {
+                    let start = child.start - item.start;
+                    raw[start..start + 4].copy_from_slice(
+                        &u32::try_from(child.end - child.start)
+                            .map_err(|_| STRUCTURE_GUARD)?
+                            .to_be_bytes(),
+                    );
+                }
+            }
+            Ok(RawItem {
+                key,
+                bytes: raw,
+                kind: item.kind,
+                prefix,
+                data,
+                wide: item.header == 16,
+            })
+        })
+        .collect()
+}
+fn make_item(item: &RawItem, data: &[Vec<u8>]) -> Result<Vec<u8>, SaveError> {
+    let length = (if item.wide { 16usize } else { 8 })
+        .checked_add(item.prefix.len())
+        .and_then(|n| data.iter().try_fold(n, |n, v| n.checked_add(v.len())))
+        .ok_or(STRUCTURE_GUARD)?;
+    let mut bytes = if item.wide {
+        let mut b = 1u32.to_be_bytes().to_vec();
+        b.extend(item.kind);
+        b.extend((length as u64).to_be_bytes());
+        b
+    } else {
+        let mut b = u32::try_from(length)
+            .map_err(|_| STRUCTURE_GUARD)?
+            .to_be_bytes()
+            .to_vec();
+        b.extend(item.kind);
+        b
+    };
+    bytes.extend(&item.prefix);
+    for value in data {
+        bytes.extend(value);
+    }
+    Ok(bytes)
+}
+fn locate_path(bytes: &[u8], path: &[[u8; 4]]) -> Result<Option<Range<usize>>, SaveError> {
+    let top = atoms(bytes, 0..bytes.len()).ok_or(STRUCTURE_GUARD)?;
+    let movies: Vec<_> = top.into_iter().filter(|a| a.kind == *b"moov").collect();
+    if movies.len() != 1 {
+        return Err(STRUCTURE_GUARD);
+    }
+    let mut parent = movies[0];
+    for &kind in path {
+        let mut range = parent.content();
+        if parent.kind == *b"meta" && bytes.get(range.start..range.start + 4) == Some(&[0; 4]) {
+            range.start += 4;
+        }
+        let found: Vec<_> = atoms(bytes, range)
+            .ok_or(STRUCTURE_GUARD)?
+            .into_iter()
+            .filter(|a| a.kind == kind)
+            .collect();
+        if found.is_empty() {
+            return Ok(None);
+        }
+        if found.len() != 1 {
+            return Err(STRUCTURE_GUARD);
+        }
+        parent = found[0];
+    }
+    Ok(Some(parent.start..parent.end))
+}
+fn locate_ilst(bytes: &[u8]) -> Result<Option<Range<usize>>, SaveError> {
+    locate_path(bytes, &[*b"udta", *b"meta", *b"ilst"])
+}
+fn original_ilst(file: &mut File) -> Result<Vec<u8>, SaveError> {
+    let top = top_level(file)
+        .map_err(|e| e.to_string())?
+        .ok_or(STRUCTURE_GUARD)?;
+    let movies: Vec<_> = top
+        .into_iter()
+        .filter(|(kind, _)| *kind == *b"moov")
+        .collect();
+    if movies.len() != 1 {
+        return Err(STRUCTURE_GUARD);
+    }
+    let moov = read_range(file, &movies[0].1).map_err(|e| e.to_string())?;
+    Ok(locate_ilst(&moov)?
+        .map(|range| moov[range].to_vec())
+        .unwrap_or_default())
+}
+fn native_groups(tag: &Ilst) -> BTreeMap<ItemKey, Vec<lofty::mp4::Atom<'static>>> {
+    let mut out: BTreeMap<_, Vec<_>> = BTreeMap::new();
+    for atom in tag {
+        out.entry(item_key(atom.ident()))
+            .or_default()
+            .push(atom.clone());
+    }
+    out
+}
+fn preserved_ilst(
+    file: &mut File,
+    before: &Ilst,
+    after: &Ilst,
+    touched: &[AtomIdent<'_>],
+    single: bool,
+) -> Result<Vec<u8>, SaveError> {
+    let old = raw_items(&original_ilst(file)?)?;
+    let mut encoded = Vec::new();
+    after
+        .dump_to(&mut encoded, WriteOptions::default())
+        .map_err(|e| e.to_string())?;
+    let new = raw_items(&encoded)?;
+    let old_native = native_groups(before);
+    let new_native = native_groups(after);
+    let dirty: BTreeSet<_> = touched.iter().map(item_key).collect();
+    let mut originals: BTreeMap<ItemKey, Vec<&RawItem>> = BTreeMap::new();
+    for item in &old {
+        originals.entry(item.key.clone()).or_default().push(item);
+    }
+    let mut templates: BTreeMap<ItemKey, Vec<&RawItem>> = BTreeMap::new();
+    for item in &new {
+        templates.entry(item.key.clone()).or_default().push(item);
+    }
+    let mut reused: BTreeMap<ItemKey, VecDeque<Vec<u8>>> = BTreeMap::new();
+    for (key, items) in &originals {
+        if dirty.contains(key) || old_native.get(key) != new_native.get(key) {
+            continue;
+        }
+        let flat: Vec<_> = items
+            .iter()
+            .flat_map(|item| item.data.iter().map(move |data| (*item, data)))
+            .collect();
+        let shape = templates.get(key);
+        let count = shape
+            .map(|items| items.iter().map(|i| i.data.len()).sum::<usize>())
+            .unwrap_or(0);
+        let mut output = VecDeque::new();
+        if count == flat.len() && count > 0 {
+            let mut at = 0;
+            for template in shape.unwrap() {
+                let end = at + template.data.len();
+                if end == at {
+                    return Err(STRUCTURE_GUARD);
+                }
+                let source = flat[at].0;
+                let data: Vec<_> = flat[at..end]
+                    .iter()
+                    .map(|(_, data)| (*data).clone())
+                    .collect();
+                output.push_back(if source.data == data {
+                    source.bytes.clone()
+                } else {
+                    // Regrouping follows the established native atom shape;
+                    // preserve each data envelope, not obsolete item wrappers.
+                    make_item(source, &data)?
+                });
+                at = end;
+            }
+        } else {
+            output.extend(items.iter().map(|item| item.bytes.clone()));
+        }
+        reused.insert(key.clone(), output);
+    }
+    let mut remaining: BTreeMap<ItemKey, usize> = BTreeMap::new();
+    for item in &new {
+        *remaining.entry(item.key.clone()).or_default() += 1;
+    }
+    let mut body = Vec::new();
+    for item in &new {
+        let count = remaining.get_mut(&item.key).unwrap();
+        *count -= 1;
+        if let Some(queue) = reused.get_mut(&item.key) {
+            if let Some(bytes) = queue.pop_front() {
+                body.extend(bytes);
+            }
+            if *count == 0 {
+                for bytes in queue.drain(..) {
+                    body.extend(bytes);
+                }
+            }
+        } else {
+            body.extend(&item.bytes);
+        }
+    }
+    // Items the native reader cannot model are still retained unless this exact
+    // physical identity was explicitly edited/removed.
+    for item in &old {
+        if let Some(queue) = reused.get_mut(&item.key) {
+            for bytes in queue.drain(..) {
+                body.extend(bytes);
+            }
+        }
+    }
+    if body.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut result = u32::try_from(body.len() + 8)
+        .map_err(|_| STRUCTURE_GUARD)?
+        .to_be_bytes()
+        .to_vec();
+    result.extend(b"ilst");
+    result.extend(body);
+    if !single {
+        result = split_items(&result).ok_or(STRUCTURE_GUARD)?;
+    }
+    Ok(result)
+}
+/// Keep all byte offsets while adapting small extended containers to Lofty's
+/// 32-bit size updates. The extended-size word becomes a legal padding child.
+fn normalize_extended_containers(bytes: &mut [u8]) -> Result<bool, SaveError> {
+    let mut quicktime_adapter = false;
+    let mut range = 0..bytes.len();
+    for kind in [*b"moov", *b"udta", *b"meta"] {
+        let found: Vec<_> = atoms(bytes, range)
+            .ok_or(STRUCTURE_GUARD)?
+            .into_iter()
+            .filter(|a| a.kind == kind)
+            .collect();
+        if found.is_empty() {
+            return Ok(quicktime_adapter);
+        }
+        if found.len() != 1 {
+            return Err(STRUCTURE_GUARD);
+        }
+        let atom = found[0];
+        let mut start = atom.start + atom.header;
+        if atom.header == 16 {
+            if let Ok(length) = u32::try_from(atom.end - atom.start) {
+                if kind == *b"meta" {
+                    // Lofty accepts ISO full and QuickTime non-full meta.
+                    if bytes.get(start..start + 4) == Some(&[0; 4]) {
+                        bytes.copy_within(start..start + 4, atom.start + 8);
+                        bytes[atom.start + 12..atom.start + 20].copy_from_slice(&free_atom(8));
+                        start += 4;
+                    } else {
+                        // `meta_is_full` recognizes `mhdr`, but not padding,
+                        // as a first child of a QuickTime (non-full) meta.
+                        bytes[atom.start + 8..atom.start + 16]
+                            .copy_from_slice(&[0, 0, 0, 8, b'm', b'h', b'd', b'r']);
+                        quicktime_adapter = true;
+                    }
+                } else {
+                    bytes[atom.start + 8..atom.start + 16].copy_from_slice(&free_atom(8));
+                }
+                bytes[atom.start..atom.start + 4].copy_from_slice(&length.to_be_bytes());
+            }
+        } else if kind == *b"meta" && bytes.get(start..start + 4) == Some(&[0; 4]) {
+            start += 4;
+        }
+        range = start..atom.end;
+    }
+    Ok(quicktime_adapter)
+}
+fn restore_quicktime_header(bytes: &mut [u8]) -> Result<(), SaveError> {
+    let meta = locate_path(bytes, &[*b"udta", *b"meta"])?.ok_or(STRUCTURE_GUARD)?;
+    let start = meta.start;
+    let header = bytes.get(start..start + 16).ok_or(STRUCTURE_GUARD)?;
+    if header[..4]
+        != u32::try_from(meta.len())
+            .map_err(|_| STRUCTURE_GUARD)?
+            .to_be_bytes()
+        || header[8..16] != [0, 0, 0, 8, b'm', b'h', b'd', b'r']
+    {
+        return Err(STRUCTURE_GUARD);
+    }
+    // Reuse the adapter slot as the original extended-size word. No child
+    // moves, and no synthetic metadata atom reaches the published file.
+    bytes[start..start + 4].copy_from_slice(&1u32.to_be_bytes());
+    bytes[start + 8..start + 16].copy_from_slice(&(meta.len() as u64).to_be_bytes());
+    Ok(())
+}
+fn write_full_plan(file: &mut File, plan: &[u8]) -> Result<(), SaveError> {
+    file.seek(SeekFrom::Start(0)).map_err(|e| e.to_string())?;
+    let mut source = Vec::new();
+    file.read_to_end(&mut source).map_err(|e| e.to_string())?;
+    let quicktime_adapter = normalize_extended_containers(&mut source)?;
+    let mut candidate = Cursor::new(source);
+    if plan.is_empty() {
+        Ilst::default()
+            .save_to(&mut candidate, WriteOptions::default())
+            .map_err(|e| crate::tags::error_message(&e))?;
+    } else {
+        let length = if plan.len() < 32 {
+            if 32 - plan.len() >= 8 {
+                32
+            } else {
+                plan.len() + 8
+            }
+        } else {
+            plan.len()
+        };
+        let mut surrogate = Ilst::default();
+        surrogate.insert(lofty::mp4::Atom::new(
+            AtomIdent::Fourcc(*b"tGRv"),
+            AtomData::Unknown {
+                code: lofty::mp4::DataType::Reserved,
+                data: vec![0; length - 32],
+            },
+        ));
+        let mut expected = Vec::new();
+        surrogate
+            .dump_to(&mut expected, WriteOptions::default())
+            .map_err(|e| e.to_string())?;
+        if expected.len() != length {
+            return Err(STRUCTURE_GUARD);
+        }
+        surrogate
+            .save_to(&mut candidate, WriteOptions::default())
+            .map_err(|e| crate::tags::error_message(&e))?;
+        let range = locate_ilst(candidate.get_ref())?.ok_or(STRUCTURE_GUARD)?;
+        if candidate.get_ref().get(range.clone()) != Some(expected.as_slice()) {
+            return Err(STRUCTURE_GUARD);
+        }
+        let mut replacement = plan.to_vec();
+        if length > plan.len() {
+            replacement.extend(free_atom(length - plan.len()));
+        }
+        if replacement.len() != range.len() {
+            return Err(STRUCTURE_GUARD);
+        }
+        candidate.get_mut()[range].copy_from_slice(&replacement);
+    }
+    let mut bytes = candidate.into_inner();
+    if quicktime_adapter {
+        restore_quicktime_header(&mut bytes)?;
+    }
+    file.seek(SeekFrom::Start(0))
+        .and_then(|_| file.write_all(&bytes))
+        .and_then(|_| file.set_len(bytes.len() as u64))
+        .map_err(|e| SaveError::External(e.to_string()))
 }
 
 /// One item atom per `data` atom: an `ilst` item with several values becomes
@@ -359,6 +790,10 @@ fn split_items(ilst: &[u8]) -> Option<Vec<u8>> {
     let root = atoms(ilst, 0..ilst.len())?.into_iter().next()?;
     let mut body = Vec::new();
     for item in atoms(ilst, root.content())? {
+        if matches!(&item.kind, b"free" | b"skip") {
+            body.extend_from_slice(&ilst[item.start..item.end]);
+            continue;
+        }
         let children = atoms(ilst, item.content())?;
         let data: Vec<_> = children.iter().filter(|a| &a.kind == b"data").collect();
         if data.len() < 2 || &item.kind == b"covr" {
@@ -386,7 +821,10 @@ fn split_items(ilst: &[u8]) -> Option<Vec<u8>> {
 
 /// `Some(true)`: written in place; `Some(false)`: `moov` was rewritten with
 /// padding; `None`: nothing was written and lofty has to write the tag.
-fn padded(file: &mut File, tag: &Ilst, single_atom: bool) -> std::io::Result<Option<bool>> {
+fn padded(file: &mut File, new: &[u8]) -> std::io::Result<Option<bool>> {
+    if new.is_empty() {
+        return Ok(None);
+    }
     let Some(top) = top_level(file)? else {
         return Ok(None);
     };
@@ -409,29 +847,7 @@ fn padded(file: &mut File, tag: &Ilst, single_atom: bool) -> std::io::Result<Opt
     let Some(region) = region(&children) else {
         return Ok(None);
     };
-    // lofty encodes the tag into a copy of `ftyp` and `moov` alone.
-    let mut copy = read_range(file, &ftyp.1)?;
-    let moov_at = copy.len();
-    copy.extend_from_slice(&original);
-    let mut encoded = Cursor::new(copy);
-    if tag.save_to(&mut encoded, WriteOptions::default()).is_err() {
-        return Ok(None);
-    }
-    let encoded = encoded.into_inner();
-    let Some(new) = encoded.get(moov_at..).and_then(ilst) else {
-        // Removing the tag is left to lofty.
-        return Ok(None);
-    };
-    let split;
-    let new = if single_atom {
-        new
-    } else {
-        let Some(items) = split_items(new) else {
-            return Ok(None);
-        };
-        split = items;
-        &split[..]
-    };
+    let _ = ftyp;
     let available = region.len();
     if new.len() == available || new.len() + 8 <= available {
         let mut bytes = new.to_vec();
@@ -535,6 +951,54 @@ mod tests {
         out.extend_from_slice(kind);
         out.extend_from_slice(content);
         out
+    }
+
+    #[test]
+    fn full_writer_tiny_and_empty_plans_have_legal_adjacent_padding() {
+        let carrier = include_bytes!("../tests/fixtures/save-corpus/tone.m4a");
+        for length in [16, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33] {
+            let plan = atom(b"ilst", &atom(b"free", &vec![0; length - 16]));
+            let mut file = tempfile::tempfile().unwrap();
+            file.write_all(carrier).unwrap();
+            write_full_plan(&mut file, &plan).unwrap();
+            file.seek(SeekFrom::Start(0)).unwrap();
+            let mut bytes = Vec::new();
+            file.read_to_end(&mut bytes).unwrap();
+            let range = locate_ilst(&bytes).unwrap().unwrap();
+            assert_eq!(&bytes[range], plan);
+            let moov = top_level(&mut file)
+                .unwrap()
+                .unwrap()
+                .into_iter()
+                .find(|(k, _)| k == b"moov")
+                .unwrap()
+                .1;
+            assert!(meta(&read_range(&mut file, &moov).unwrap()).is_some());
+        }
+        let mut file = tempfile::tempfile().unwrap();
+        file.write_all(carrier).unwrap();
+        write_full_plan(&mut file, &[]).unwrap();
+        file.seek(SeekFrom::Start(0)).unwrap();
+        let mut bytes = Vec::new();
+        file.read_to_end(&mut bytes).unwrap();
+        assert!(locate_ilst(&bytes).unwrap().is_none());
+    }
+    #[test]
+    fn structural_guard_has_owned_provenance_and_io_remains_external() {
+        use crate::batch_errors::ErrorCause;
+        assert!(matches!(
+            raw_items(b"not an ilst").err().unwrap().cause(),
+            ErrorCause::Owned { .. }
+        ));
+        let mut file = File::open(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/save-corpus/tone.m4a"
+        ))
+        .unwrap();
+        assert!(matches!(
+            write_full_plan(&mut file, &[]).unwrap_err().cause(),
+            ErrorCause::External { .. }
+        ));
     }
 
     #[test]

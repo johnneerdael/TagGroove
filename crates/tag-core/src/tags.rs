@@ -1612,6 +1612,7 @@ fn save_preserving_native_diagnostic(
         }
         TagType::Mp4Ilst => {
             let mut native = originals.ilst.unwrap_or_default();
+            let before = native.clone();
             let mut updates = Cow::Borrowed(updates);
             if !id3.reuse_mp4_atoms {
                 let moved = mapping::remap_mp4(&mut native, &updates);
@@ -1626,8 +1627,18 @@ fn save_preserving_native_diagnostic(
                     native.insert_picture(picture.clone());
                 }
             }
-            crate::mp4_metadata::save(staging, &native, id3.mp4_single_atom)
-                .map_err(ErrorCause::external)?;
+            let mut touched = updates
+                .keys()
+                .map(|name| match name.as_str() {
+                    "TRACK" | "TOTALTRACKS" => Ok(lofty::mp4::AtomIdent::Fourcc(*b"trkn")),
+                    "DISCNUMBER" | "TOTALDISCS" => Ok(lofty::mp4::AtomIdent::Fourcc(*b"disk")),
+                    _ => mapping::mp4_ident_diagnostic(name),
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            if covers_changed {
+                touched.push(lofty::mp4::AtomIdent::Fourcc(*b"covr"));
+            }
+            crate::mp4_metadata::save(staging, &before, &native, &touched, id3.mp4_single_atom)?;
             if covers_changed {
                 // The covers shown, Nero ones included, are now the iTunes covers.
                 mp4_chapters::drop_nero_covers_diagnostic(staging)?;

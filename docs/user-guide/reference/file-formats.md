@@ -128,6 +128,13 @@ Nero artwork is displayed when iTunes artwork is absent. A cover edit writes the
 
 Nonstandard `plID` items survive unrelated edits. Values of 1–8 bytes can appear as `ITUNESALBUMID`; editing that field writes the standard 8-byte representation. These constructed-fixture checks do not certify every original Nero or Mp3tag version’s output. Keep copies of unusual files and inspect saved tags in the receiving application.
 
+For supported saves, items whose values and storage mapping are unchanged retain
+their original data records, including stored locale words and UTF-16 encoding.
+Changed values, cover edits and mapping rewrites use normal serialization;
+deleted values are not restored from the old records. Item lengths and container
+headers can change to keep the result valid. This preserves the named metadata
+records rather than the complete file's bytes or every possible MP4 layout.
+
 ### DSD
 
 DSF metadata uses its terminal ID3v2 area. DSF and DSDIFF can preserve unedited compressed or opaque encrypted ID3v2 frames byte for byte, including the supported ID3v2.3 extended-header and ID3v2.4 CRC/footer cases above. That does not decrypt them; combined unsynchronization/header transformations, unsupported footer layouts and merged duplicate frames still limit preservation. DSDIFF can additionally supply DIIN artist/title when ID3 lacks them. Duplicate DSDIFF ID3 chunks are refused for field/cover writes instead of being silently merged; removal can still handle them. A DST index can prevent edits that would move indexed sound data. These are container restrictions, not a request to decode DSD audio to PCM.

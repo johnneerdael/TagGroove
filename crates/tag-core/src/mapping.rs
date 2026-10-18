@@ -2490,7 +2490,7 @@ fn mp4_ident(name: &str) -> Result<AtomIdent<'static>, String> {
     mp4_ident_diagnostic(name).map_err(|error| error.to_string())
 }
 
-fn mp4_ident_diagnostic(name: &str) -> Result<AtomIdent<'static>, ErrorCause> {
+pub(super) fn mp4_ident_diagnostic(name: &str) -> Result<AtomIdent<'static>, ErrorCause> {
     let mapped = field_mapping(name)
         .map(|r| r.mp4)
         .filter(|s| !s.is_empty())

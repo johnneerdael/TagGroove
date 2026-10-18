@@ -3404,5 +3404,6 @@
  "Unexpected source installation recovery entry; move it aside before installing.": "Unerwarteter Eintrag der Quelleninstallationswiederherstellung; verschiebe ihn vor der Installation.",
  "Unexpected source publication entry; retained files were not changed.": "Unerwarteter Eintrag der Quellenveröffentlichung; die aufbewahrten Dateien wurden nicht geändert.",
  "Unsupported source installation recovery intent; retained files were not changed.": "Nicht unterstützter Wiederherstellungsplan der Quelleninstallation; die aufbewahrten Dateien wurden nicht geändert.",
- "Unsupported source publication state; retained files were not changed.": "Nicht unterstützter Veröffentlichungszustand der Quelleninstallation; die aufbewahrten Dateien wurden nicht geändert."
+ "Unsupported source publication state; retained files were not changed.": "Nicht unterstützter Veröffentlichungszustand der Quelleninstallation; die aufbewahrten Dateien wurden nicht geändert.",
+ "MP4 metadata structure cannot be preserved safely; original file was not changed": "Die MP4-Metadatenstruktur kann nicht sicher erhalten bleiben; die Originaldatei wurde nicht geändert"
 }

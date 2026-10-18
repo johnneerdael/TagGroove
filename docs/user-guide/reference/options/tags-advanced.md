@@ -35,11 +35,19 @@ Defaults to on. Store a field's multiple values as several data entries inside o
 
 For example, two artist values can be represented under one artist atom with two data entries, or two artist atoms. Different players may interpret these arrangements differently. Test with the actual consumer rather than joining distinct artists into one string merely to work around a display issue.
 
+Turning this on does not force every pre-existing repeated native item to merge
+during an unrelated save. Unchanged items can retain their established grouping;
+the option controls how multiple values are serialized when written.
+
 ## Reuse unmodified MP4 atoms
 
 Defaults to off. With reuse enabled, an unchanged existing field can stay in its original storage rather than being remapped on a save. This matters for user-defined atoms whose field name has a documented standard atom: the existing atom remains until the value changes. A changed value is written through the normal mapping.
 
 Leave it off when normalizing such fields to the documented representation is desired. Enable when an established collection or legacy reader relies on the existing arrangement. This is a field-storage preservation policy, not a guarantee that the complete MP4 file remains byte-for-byte unchanged after editing another field.
+
+This mapping choice is separate from retaining the data records of untouched
+items, such as their stored locale words and text encoding. An explicit field,
+mapping or cover rewrite uses normal serialization for the affected items.
 
 ## Reuse unmodified ID3v2 frames
 

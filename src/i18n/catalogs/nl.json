@@ -3391,5 +3391,6 @@
  "Unexpected source installation recovery entry; move it aside before installing.": "Onverwacht broninstallatieherstelbestand; verplaats het voordat je installeert.",
  "Unexpected source publication entry; retained files were not changed.": "Onverwacht broninstallatiepublicatiebestand; de bewaarde bestanden zijn niet gewijzigd.",
  "Unsupported source installation recovery intent; retained files were not changed.": "Niet-ondersteunde herstelregistratie voor de broninstallatie; de bewaarde bestanden zijn niet gewijzigd.",
- "Unsupported source publication state; retained files were not changed.": "Niet-ondersteunde publicatiestatus van de broninstallatie; de bewaarde bestanden zijn niet gewijzigd."
+ "Unsupported source publication state; retained files were not changed.": "Niet-ondersteunde publicatiestatus van de broninstallatie; de bewaarde bestanden zijn niet gewijzigd.",
+ "MP4 metadata structure cannot be preserved safely; original file was not changed": "De MP4-metadatastructuur kan niet veilig behouden blijven; het oorspronkelijke bestand is niet gewijzigd"
 }
