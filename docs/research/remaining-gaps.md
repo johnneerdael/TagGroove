@@ -4,7 +4,7 @@ This companion explains why work is present in, or excluded from, the single act
 
 ## Snapshot and method
 
-Inspected merged application baseline `bb1c1ecb77c1fed424f054c88cedd55ed11cd069`, after PR63. On **2026-10-18**, PRs49–63 are merged and the consolidated follow-up PR64 is draft. C18 records the committed export implementation `24fdf4cbc77b08fe17345dd3b66f29c1c5071166`; C19–C23 inspect the follow-up code/qualification batch `9547ee33b6d1c0dca97e0600acf1fa6ec64e8e10`. C24/C25 inspect workflow implementation `709f5c0b530131e2445a1c7f7ef827bf6e59bf62`; C26 inspects preservation fix `5d6f039aef651827b8089da4df25793fc175feb3` and v2.4 follow-up `8b1c11ba3edba0ceabc84228f9d374392a02fc48`. C27 inspects saved-only portable-transfer implementation `2df303071a0ba2276edaaa49e5603bd24c4d320b`. The further serialization fixes are inspected at `8024a589b9011791ef377e2ff16393119bd0ab6f`; C28 composition guards at `40f8deb7957b799577f990ee452ef34c75abe60b`. C29 records joined-replay tests at `422c6a73e20611c48b44e5902de263787a29af8e`. C26/C30 inspect the experimental-ID/cache-date fixes at `9930efe1a21984599a0e4521f5b5b33352f0defb`; C04 inspects recovery fixes at `9f22fc224bbe1d55a00b2e4b1d04d08ed48a2e06`; C25 and the regex teaching follow-up inspect `fc3a2723a38458c89ee3d750358988dbd64f4c71`. C31 inspects the Unix rename-preview identity fix at `73d092ce05a2977c1621a91f2a2366b9209a1da4`. The current preservation/recovery checkpoint is linked below; [combined local evidence](../verification/parity-roundtrip-2026-10-18.md) keeps their original/native boundaries explicit. The [current follow-up checkpoint](../verification/parity-recovery-followups-2026-10-18.md) records combined local validation without closing those boundaries. The umbrella checklist is planned scope, not blanket coverage. Existing final merge/head identities, current source paths and bounded verification notes remain authoritative for their named scopes. Closed-unmerged PRs are not coverage.
+Inspected merged application baseline `bb1c1ecb77c1fed424f054c88cedd55ed11cd069`, after PR63. On **2026-10-19**, PRs49–63 are merged and consolidated follow-up PR64 remains draft. The implementation checkpoint table below identifies the inspected code and evidence for C18–C31. The umbrella checklist is planned scope, not blanket coverage. Current source paths, exact commit identities and bounded verification notes remain authoritative for their named scopes. Closed-unmerged PRs are not coverage.
 
 The independent roadmap’s L01–L79 identities and R01–R20 initiatives are retained for continuity; its older `4a1a95f` baseline is context, not current-state proof. Split partially covered rows instead of declaring the containing area complete. New N01–N06 entries retain acceptance already called out in the source-installation, automation and save verification notes. Historical impact/size labels below are planning estimates (H/M/L impact; S/M/L size), not measurements or delivery promises.
 
@@ -34,6 +34,31 @@ The exact heads and merge commits below identify the delivered scopes. Linked ve
 | [PR61](https://github.com/johnneerdael/TagGroove/pull/61) | Merged 2026-10-18T14:44:47Z | `9440544d2bd973abc49f11878cf157c0b772582f` | `449847b794285aa57e35da60a703c542d2154615` |
 | [PR62](https://github.com/johnneerdael/TagGroove/pull/62) | Merged 2026-10-18T16:19:01Z | `0724b3a478de5881255b325b2e57b5fa24719c8d` | `179e705cad91ef42f85107310664409271eb2c4c` |
 | [PR63](https://github.com/johnneerdael/TagGroove/pull/63) | Merged 2026-10-18T17:09:18Z | `e962bd7a4e05bc73393dac887fde01a82b0f3d8e` | `bb1c1ecb77c1fed424f054c88cedd55ed11cd069` |
+
+## PR64 implementation checkpoints
+
+These immutable commits identify represented implementation and local evidence.
+They are not release identities or exact-final-head GitHub review approval. The
+[round-trip checkpoint](../verification/parity-roundtrip-2026-10-18.md) and
+[preservation/recovery follow-up](../verification/parity-recovery-followups-2026-10-18.md)
+retain their measured counts and original/native boundaries.
+
+| Scope | Implementation commit | Bounded evidence |
+| --- | --- | --- |
+| C18 export persistence | `24fdf4cbc77b08fe17345dd3b66f29c1c5071166` | [Export persistence](../verification/export-library-snapshot-2026-10-18.md) |
+| C19–C23 first consolidated batch | `9547ee33b6d1c0dca97e0600acf1fa6ec64e8e10` | The named scope/evidence rows below separate Undo identity, source preflight, full-cover routes, evaluation and toolbar work. |
+| C24/C25 codepage and playlist source order | `709f5c0b530131e2445a1c7f7ef827bf6e59bf62` | [Codepage memory](../verification/codepage-group-memory-2026-10-18.md), [source order](../verification/playlists-source-order-2026-10-18.md) |
+| C26 ID3v2.3 extended headers | `5d6f039aef651827b8089da4df25793fc175feb3` | [Envelope preservation](../verification/id3-extended-preservation-2026-10-18.md) |
+| C26 ID3v2.4 CRC/footer envelopes | `8b1c11ba3edba0ceabc84228f9d374392a02fc48` | [Envelope preservation](../verification/id3-extended-preservation-2026-10-18.md) |
+| C27 saved-only portable transfer | `2df303071a0ba2276edaaa49e5603bd24c4d320b` | [Portable configuration](../verification/portable-configuration-2026-10-18.md) |
+| C26 frame unsynchronisation and action serialization | `8024a589b9011791ef377e2ff16393119bd0ab6f` | [Frame preservation](../verification/id3-frame-unsync-2026-10-18.md), [MTA serialization](../verification/mta-opaque-preservation-2026-10-18.md) |
+| C28 input-method composition | `40f8deb7957b799577f990ee452ef34c75abe60b` | [Composition controls](../verification/ime-editing-2026-10-18.md) |
+| C29 joined source replay | `422c6a73e20611c48b44e5902de263787a29af8e` | [Parser/review/save/Undo replay](../verification/source-workflow-replay-2026-10-18.md) |
+| C26/C30 experimental ID provenance and cached dates | `9930efe1a21984599a0e4521f5b5b33352f0defb` | [ID provenance](../verification/id3-y-provenance-2026-10-18.md), [cached dates](../verification/library-date-refresh-2026-10-18.md) |
+| C04 source update recovery | `9f22fc224bbe1d55a00b2e4b1d04d08ed48a2e06` | [Snapshot/process recovery](../verification/source-update-recovery-2026-10-18.md) |
+| C25 manual Refresh order and regex guidance | `fc3a2723a38458c89ee3d750358988dbd64f4c71` | [Refresh order](../verification/refresh-manual-order-2026-10-18.md), [guide details](../verification/guide-reference-details-2026-10-18.md) |
+| C31 Unix rename preview identity | `73d092ce05a2977c1621a91f2a2366b9209a1da4` | [Replacement guard](../verification/rename-preview-identity-2026-10-19.md) |
+| Guess Values sequence guidance | `8ae3116b508a6727e1d34a38ea6fda1f6fa0d49b` | [Guide clarification](../verification/guide-reference-details-2026-10-18.md#action-sequence-guidance-2026-10-19) |
 
 ## Represented and delivered scopes
 
