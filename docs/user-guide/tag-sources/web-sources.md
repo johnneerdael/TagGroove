@@ -23,8 +23,8 @@ the right edition or track mapping for your selected files.
    dependencies and schemas; a real lookup must still qualify the parser and
    provider response.
 
-The installer accepts local source files up to 4 MB each, ZIPs up to 128 MB,
-4096 entries, and source paths at most three folders deep. It preserves nested
+The installer accepts Unicode-named local source files up to 4 MB each, ZIPs
+up to 128 MB, 4096 entries, and source paths at most three folders deep. It preserves nested
 folders, source filenames, submenu/access-key markers and existing source IDs
 when updating the same path with different filename case. ZIP paths must be
 relative, without traversal, drive prefixes, symbolic links or repeated names
@@ -40,7 +40,9 @@ values file. Saved values still need the same schema root key and value type.
 The combined sources folder must fit the 128 MB/4096-entry staging limits;
 move large debug captures elsewhere if necessary. The three-folder depth limit
 applies to incoming source bundles. Existing unrelated directories, including
-empty folders and hidden metadata directories, are preserved up to 64 folders deep. Move existing
+empty folders and hidden metadata directories, are preserved up to 64 folders deep.
+Existing unrelated entries retain their native filesystem names, including names
+that cannot be represented as UTF-8; incoming source identifiers remain Unicode. Move existing
 symbolic links or directories deeper than 64 levels aside before installation.
 
 After a successful replacement, `data/.opentag-sources-previous` retains the

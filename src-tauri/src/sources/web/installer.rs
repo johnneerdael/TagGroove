@@ -2,7 +2,7 @@
 use super::{extension, load, plain_name, relative_name, schema, MAX_DEPTH, MAX_FILE_BYTES};
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::Read;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 pub(super) static LOCK: Mutex<()> = Mutex::new(());
@@ -13,6 +13,22 @@ const BACKUP: &str = ".opentag-sources-previous";
 const MARKER: &str = ".opentag-source-install";
 
 type Files = BTreeMap<String, Vec<u8>>;
+
+#[derive(Default)]
+struct ExistingTree {
+    files: BTreeMap<PathBuf, Vec<u8>>,
+    directories: BTreeSet<PathBuf>,
+    bytes: u64,
+    entries: usize,
+}
+
+/// Source identifiers use Unicode and forward slashes; unrelated native paths need not.
+fn source_name(path: &Path) -> Option<String> {
+    path.iter()
+        .map(|part| part.to_str())
+        .collect::<Option<Vec<_>>>()
+        .map(|parts| parts.join("/"))
+}
 
 fn supported(name: &str) -> bool {
     matches!(extension(name).as_str(), "src" | "inc" | "settings")
@@ -66,9 +82,7 @@ fn directory(
     files: &mut Files,
     total: &mut u64,
     entries: &mut usize,
-    mut existing_directories: Option<&mut BTreeSet<String>>,
 ) -> Result<(), String> {
-    let all = existing_directories.is_some();
     for entry in std::fs::read_dir(path).map_err(|e| format!("{}: {e}", path.display()))? {
         let entry = entry.map_err(|e| e.to_string())?;
         *entries += 1;
@@ -85,25 +99,19 @@ fn directory(
                 "{name}: symbolic links are not accepted in source folders."
             ));
         }
-        // Download metadata and documentation are never installed. Existing local
-        // files are copied verbatim, including settings.json and debug artifacts.
-        if !all && name.starts_with('.') {
+        // Download metadata and documentation are never installed.
+        if name.starts_with('.') {
             continue;
         }
         let relative = format!("{prefix}{name}");
         if kind.is_dir() {
-            let depth_limit = if all { MAX_EXISTING_DEPTH } else { MAX_DEPTH };
+            let depth_limit = MAX_DEPTH;
             if depth >= depth_limit {
                 return Err(format!(
                     "{relative}: source folders can be at most {depth_limit} levels deep."
                 ));
             }
-            if !all {
-                plain_name(&name)?;
-            }
-            if let Some(directories) = existing_directories.as_deref_mut() {
-                directories.insert(relative.clone());
-            }
+            plain_name(&name)?;
             directory(
                 &entry.path(),
                 &format!("{relative}/"),
@@ -111,23 +119,60 @@ fn directory(
                 files,
                 total,
                 entries,
-                existing_directories.as_deref_mut(),
             )?;
-        } else if all || supported(&name) {
-            if !all {
-                plain_name(&name)?;
-            }
-            let bytes = read(&entry.path(), if all { MAX_BYTES } else { MAX_FILE_BYTES })?;
+        } else if supported(&name) {
+            plain_name(&name)?;
+            let bytes = read(&entry.path(), MAX_FILE_BYTES)?;
             *total += bytes.len() as u64;
             if *total > MAX_BYTES {
                 return Err("Sources folder exceeds the 128 MB staging limit.".into());
             }
-            if all {
-                files.insert(relative, bytes);
-            } else {
-                *total -= bytes.len() as u64;
-                add(files, &relative, bytes, total)?;
+            *total -= bytes.len() as u64;
+            add(files, &relative, bytes, total)?;
+        }
+    }
+    Ok(())
+}
+
+/// Snapshot local files and directories without converting their native names.
+fn existing_directory(
+    path: &Path,
+    prefix: &Path,
+    depth: usize,
+    tree: &mut ExistingTree,
+) -> Result<(), String> {
+    for entry in std::fs::read_dir(path).map_err(|e| format!("{}: {e}", path.display()))? {
+        let entry = entry.map_err(|e| e.to_string())?;
+        tree.entries += 1;
+        if tree.entries > MAX_ENTRIES {
+            return Err("Source folder exceeds 4096 entries.".into());
+        }
+        let name = entry.file_name();
+        let relative = prefix.join(&name);
+        let kind = entry.file_type().map_err(|e| e.to_string())?;
+        if kind.is_symlink() {
+            let name = name.to_string_lossy();
+            return Err(format!(
+                "{name}: symbolic links are not accepted in source folders."
+            ));
+        }
+        if kind.is_dir() {
+            if depth >= MAX_EXISTING_DEPTH {
+                let relative = relative.display();
+                let depth_limit = MAX_EXISTING_DEPTH;
+                return Err(format!(
+                    "{relative}: source folders can be at most {depth_limit} levels deep."
+                ));
             }
+            tree.directories.insert(relative.clone());
+            existing_directory(&entry.path(), &relative, depth + 1, tree)?;
+        } else {
+            let bytes = read(&entry.path(), MAX_BYTES)?;
+            tree.bytes += bytes.len() as u64;
+            if tree.bytes > MAX_BYTES {
+                return Err("Sources folder exceeds the 128 MB staging limit.".into());
+            }
+            tree.files.insert(relative, bytes);
         }
     }
     Ok(())
@@ -224,11 +269,82 @@ pub(super) fn recover(folder: &Path) -> Result<(), String> {
     Ok(())
 }
 
-fn write_all(folder: &Path, files: &Files) -> Result<(), String> {
+/// Canonicalize source identifiers while retaining every native metadata path.
+fn prepare_incoming(existing: &ExistingTree, incoming: Files) -> Result<Files, String> {
+    let mut spellings = BTreeMap::new();
+    for name in existing
+        .files
+        .keys()
+        .chain(existing.directories.iter())
+        .filter_map(|path| source_name(path))
+    {
+        let mut prefix = String::new();
+        for part in name.split('/') {
+            if !prefix.is_empty() {
+                prefix.push('/');
+            }
+            prefix.push_str(part);
+            if let Some(previous) = spellings.insert(prefix.to_lowercase(), prefix.clone()) {
+                if previous != prefix {
+                    return Err(format!("Installed paths differ only in case: {previous} and {prefix}. Rename one before installing."));
+                }
+            }
+        }
+    }
+    let incoming = incoming
+        .into_iter()
+        .map(|(name, bytes)| {
+            let mut canonical = String::new();
+            for part in name.split('/') {
+                if !canonical.is_empty() {
+                    canonical.push('/');
+                }
+                canonical.push_str(part);
+                let known = spellings
+                    .entry(canonical.to_lowercase())
+                    .or_insert_with(|| canonical.clone());
+                canonical = known.clone();
+            }
+            (canonical, bytes)
+        })
+        .collect::<Files>();
+    let incoming_paths = incoming.keys().map(PathBuf::from).collect::<BTreeSet<_>>();
+    let mut combined_entries = BTreeSet::new();
+    for path in existing
+        .files
+        .keys()
+        .chain(existing.directories.iter())
+        .chain(incoming_paths.iter())
+    {
+        for ancestor in path.ancestors().filter(|path| !path.as_os_str().is_empty()) {
+            combined_entries.insert(ancestor.to_path_buf());
+        }
+    }
+    if combined_entries.len() > MAX_ENTRIES {
+        return Err("Source folder exceeds 4096 entries.".into());
+    }
+    let combined_bytes = existing
+        .files
+        .iter()
+        .filter(|(path, _)| !incoming_paths.contains(*path))
+        .map(|(_, bytes)| bytes.len() as u64)
+        .chain(incoming.values().map(|bytes| bytes.len() as u64))
+        .sum::<u64>();
+    if combined_bytes > MAX_BYTES {
+        return Err("Combined sources exceed the 128 MB staging limit.".into());
+    }
+    Ok(incoming)
+}
+
+fn write_all<P: AsRef<Path>>(folder: &Path, files: &BTreeMap<P, Vec<u8>>) -> Result<(), String> {
     for (name, bytes) in files {
-        let path = folder.join(name);
+        let relative = name.as_ref();
+        let path = folder.join(relative);
         std::fs::create_dir_all(path.parent().unwrap()).map_err(|e| e.to_string())?;
-        std::fs::write(path, bytes).map_err(|e| format!("{name}: {e}"))?;
+        std::fs::write(path, bytes).map_err(|e| {
+            let name = relative.display();
+            format!("{name}: {e}")
+        })?;
     }
     Ok(())
 }
@@ -261,7 +377,7 @@ pub(super) fn install(folder: &Path, paths: &[String]) -> Result<(), String> {
         }
         if meta.is_dir() {
             complete = true;
-            directory(path, "", 0, &mut incoming, &mut total, &mut entries, None)?;
+            directory(path, "", 0, &mut incoming, &mut total, &mut entries)?;
         } else if extension(&path.to_string_lossy()) == "zip" {
             complete = true;
             archive(path, &mut incoming, &mut total, &mut entries)?;
@@ -287,89 +403,19 @@ pub(super) fn install(folder: &Path, paths: &[String]) -> Result<(), String> {
         .prefix(".opentag-sources-stage-")
         .tempdir_in(parent)
         .map_err(|e| e.to_string())?;
-    let mut existing = Files::new();
-    let mut existing_directories = BTreeSet::new();
+    let mut existing = ExistingTree::default();
     if folder.exists() {
         let meta = std::fs::symlink_metadata(folder).map_err(|e| e.to_string())?;
         if !meta.is_dir() || meta.is_symlink() {
             return Err("The sources folder must be a real directory.".into());
         }
-        directory(
-            folder,
-            "",
-            0,
-            &mut existing,
-            &mut 0,
-            &mut 0,
-            Some(&mut existing_directories),
-        )?;
+        existing_directory(folder, Path::new(""), 0, &mut existing)?;
     }
-    // Canonicalize every path component, including existing folder spelling.
-    // Otherwise a case-sensitive host could create both Shop/ and shop/ and
-    // break Windows-style companion lookup in a later installation.
-    let mut spellings = BTreeMap::new();
-    for name in existing.keys().chain(existing_directories.iter()) {
-        let mut prefix = String::new();
-        for part in name.split('/') {
-            if !prefix.is_empty() {
-                prefix.push('/');
-            }
-            prefix.push_str(part);
-            if let Some(previous) = spellings.insert(prefix.to_lowercase(), prefix.clone()) {
-                if previous != prefix {
-                    return Err(format!("Installed paths differ only in case: {previous} and {prefix}. Rename one before installing."));
-                }
-            }
-        }
-    }
-    let incoming = incoming
-        .into_iter()
-        .map(|(name, bytes)| {
-            let mut canonical = String::new();
-            for part in name.split('/') {
-                if !canonical.is_empty() {
-                    canonical.push('/');
-                }
-                canonical.push_str(part);
-                let known = spellings
-                    .entry(canonical.to_lowercase())
-                    .or_insert_with(|| canonical.clone());
-                canonical = known.clone();
-            }
-            (canonical, bytes)
-        })
-        .collect::<Files>();
-    let mut combined_entries = BTreeSet::new();
-    for name in existing
-        .keys()
-        .chain(incoming.keys())
-        .chain(existing_directories.iter())
-    {
-        let mut prefix = String::new();
-        for part in name.split('/') {
-            if !prefix.is_empty() {
-                prefix.push('/');
-            }
-            prefix.push_str(part);
-            combined_entries.insert(prefix.clone());
-        }
-    }
-    if combined_entries.len() > MAX_ENTRIES {
-        return Err("Source folder exceeds 4096 entries.".into());
-    }
-    let combined_bytes = existing
-        .iter()
-        .filter(|(name, _)| !incoming.contains_key(*name))
-        .map(|(_, bytes)| bytes.len() as u64)
-        .chain(incoming.values().map(|bytes| bytes.len() as u64))
-        .sum::<u64>();
-    if combined_bytes > MAX_BYTES {
-        return Err("Combined sources exceed the 128 MB staging limit.".into());
-    }
-    for name in &existing_directories {
+    let incoming = prepare_incoming(&existing, incoming)?;
+    for name in &existing.directories {
         std::fs::create_dir_all(stage.path().join(name)).map_err(|e| e.to_string())?;
     }
-    write_all(stage.path(), &existing)?;
+    write_all(stage.path(), &existing.files)?;
     write_all(stage.path(), &incoming)?;
     // Folder/ZIP bundles must be self-contained. Explicit-file selections also
     // support incremental updates using validated installed companions.
@@ -405,9 +451,14 @@ pub(super) fn install(folder: &Path, paths: &[String]) -> Result<(), String> {
         }
         Ok(())
     };
-    for name in existing.keys().filter(|name| extension(name) == "src") {
-        if validate_source(folder, name).is_ok() {
-            validate_source(stage.path(), name)
+    for name in existing
+        .files
+        .keys()
+        .filter_map(|path| source_name(path))
+        .filter(|name| extension(name) == "src")
+    {
+        if validate_source(folder, &name).is_ok() {
+            validate_source(stage.path(), &name)
                 .map_err(|e| format!("{name}: {e}. Choose the complete bundle."))?;
         }
     }
@@ -631,6 +682,136 @@ mod tests {
             .unwrap_err()
             .contains("4096"));
         assert_eq!(std::fs::read_dir(&target).unwrap().count(), MAX_ENTRIES);
+        assert!(!dir.path().join(BACKUP).exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn native_metadata_paths_do_not_alias_unicode_source_identifiers() {
+        use std::os::unix::ffi::OsStringExt;
+        let opaque = PathBuf::from(std::ffi::OsString::from_vec(b"Upper-\xff".to_vec()));
+        assert!(
+            opaque.as_os_str().to_os_string().into_string().is_err(),
+            "legacy conversion rejects this native name"
+        );
+        let mut existing = ExistingTree::default();
+        existing.directories.insert(opaque.clone());
+        existing
+            .files
+            .insert(opaque.join("notes.bin"), b"native metadata".to_vec());
+        existing.directories.insert(PathBuf::from("Known"));
+        existing.files.insert(
+            Path::new("Known").join(std::ffi::OsString::from_vec(b"entry-\xfe".to_vec())),
+            Vec::new(),
+        );
+        let incoming = Files::from([
+            ("upper-\u{fffd}/Child.inc".into(), b"new source".to_vec()),
+            ("known/Child.inc".into(), b"new child".to_vec()),
+        ]);
+        let prepared = prepare_incoming(&existing, incoming).unwrap();
+        assert!(prepared.contains_key("upper-\u{fffd}/Child.inc"));
+        assert!(!prepared.contains_key("Upper-\u{fffd}/Child.inc"));
+        assert!(prepared.contains_key("Known/Child.inc"));
+        assert!(existing.files.contains_key(&opaque.join("notes.bin")));
+        assert!(source_name(&opaque).is_none());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn native_metadata_paths_remain_in_the_combined_entry_budget() {
+        use std::os::unix::ffi::OsStringExt;
+        let mut existing = ExistingTree::default();
+        for index in 0..MAX_ENTRIES {
+            let mut name = format!("metadata-{index}-").into_bytes();
+            name.push(0xff);
+            existing.files.insert(
+                PathBuf::from(std::ffi::OsString::from_vec(name)),
+                Vec::new(),
+            );
+        }
+        let incoming = Files::from([("New.inc".into(), b"new source".to_vec())]);
+        assert!(prepare_incoming(&existing, incoming)
+            .unwrap_err()
+            .contains("4096"));
+    }
+
+    // APFS rejects these names. Protected Linux CI exercises the real filesystem case.
+    #[cfg(unix)]
+    #[cfg_attr(
+        not(target_os = "linux"),
+        ignore = "requires a Linux filesystem accepting non-UTF-8 names"
+    )]
+    #[test]
+    fn existing_non_unicode_entries_survive_updates_snapshots_and_recovery() {
+        use std::os::unix::{ffi::OsStringExt, fs::symlink};
+        let dir = tempfile::tempdir().unwrap();
+        let bundle = dir.path().join("download");
+        let target = dir.path().join("sources");
+        collection(&bundle);
+        collection(&target);
+        let first = PathBuf::from(std::ffi::OsString::from_vec(b"metadata-\xff".to_vec()));
+        let second = PathBuf::from(std::ffi::OsString::from_vec(b"metadata-\xfe".to_vec()));
+        let native_dir = PathBuf::from(std::ffi::OsString::from_vec(b".cache-\xfd".to_vec()));
+        let empty = native_dir.join(std::ffi::OsString::from_vec(b"empty-\xfc".to_vec()));
+        let nested = native_dir.join(std::ffi::OsString::from_vec(b"value-\xfb".to_vec()));
+        std::fs::create_dir_all(target.join(&empty)).unwrap();
+        for (name, bytes) in [
+            (&first, b"first".as_slice()),
+            (&second, b"second"),
+            (&nested, b"nested"),
+        ] {
+            std::fs::write(target.join(name), bytes).unwrap();
+        }
+        std::fs::write(target.join("metadata-\u{fffd}"), b"Unicode peer").unwrap();
+        for _ in 0..2 {
+            install(&target, &selected(&bundle)).unwrap();
+            for root in [&target, &dir.path().join(BACKUP)] {
+                assert_eq!(std::fs::read(root.join(&first)).unwrap(), b"first");
+                assert_eq!(std::fs::read(root.join(&second)).unwrap(), b"second");
+                assert_eq!(std::fs::read(root.join(&nested)).unwrap(), b"nested");
+                assert_eq!(
+                    std::fs::read(root.join("metadata-\u{fffd}")).unwrap(),
+                    b"Unicode peer"
+                );
+                assert!(root.join(&empty).is_dir());
+            }
+        }
+        std::fs::remove_dir_all(&target).unwrap();
+        prepare_folder_open(&target).unwrap();
+        assert_eq!(std::fs::read(target.join(&first)).unwrap(), b"first");
+        assert!(target.join(&empty).is_dir());
+        let outside = dir.path().join("outside.txt");
+        std::fs::write(&outside, b"outside stays private").unwrap();
+        let link = std::ffi::OsString::from_vec(b"link-\xfa".to_vec());
+        symlink(&outside, target.join(link)).unwrap();
+        assert!(install(&target, &selected(&bundle))
+            .unwrap_err()
+            .contains("symbolic links"));
+        assert_eq!(std::fs::read(&outside).unwrap(), b"outside stays private");
+    }
+
+    #[cfg(unix)]
+    #[cfg_attr(
+        not(target_os = "linux"),
+        ignore = "requires a Linux filesystem accepting non-UTF-8 names"
+    )]
+    #[test]
+    fn incoming_non_unicode_source_names_still_reject_without_replacement() {
+        use std::os::unix::ffi::OsStringExt;
+        let dir = tempfile::tempdir().unwrap();
+        let bundle = dir.path().join("download");
+        let target = dir.path().join("sources");
+        collection(&bundle);
+        collection(&target);
+        let name = std::ffi::OsString::from_vec(b"incoming-\xff.src".to_vec());
+        std::fs::write(bundle.join(name), SOURCE).unwrap();
+        assert!(install(&target, &selected(&bundle))
+            .unwrap_err()
+            .contains("non-Unicode"));
+        assert_eq!(
+            std::fs::read_to_string(target.join("Common.inc")).unwrap(),
+            INCLUDE
+        );
         assert!(!dir.path().join(BACKUP).exists());
     }
 
