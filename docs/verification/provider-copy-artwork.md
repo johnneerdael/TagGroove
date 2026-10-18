@@ -23,6 +23,14 @@ intent only. The source access policy continues to block **Save tags** and
 immediate cover mutations, and an unreadable working copy is excluded from
 artwork staging.
 
+Recovery startup re-reads every restored entry through
+`document_working_entries` before the restore operation finishes. A displayed
+verified-backup fallback does not certify that the edited working bytes are
+readable. If that read fails, the source and cover panels show the retained
+metadata warning, clipboard operations omit artwork changes, and **Original
+backup** remains available. Readable recovery copies still permit pending
+artwork edits for **Edited copy**.
+
 The native wrapper resolves all requested clipboard image bytes before
 `CREATE_DOCUMENT`. The document engine starts from retained edited bytes or
 the verified original baseline, stages cover and field changes on the new
@@ -76,6 +84,14 @@ remains separate work. MP4 artwork still has no cover type or description.
   remove-all, artwork-only pastes, unavailable working metadata and blocked
   source writes. The controlled transport and dialog boundaries still make
   this model-level UI evidence; it does not exercise OS input or a real picker.
+- Four restart cases execute the production `platformReady` callback with
+  readable recovery entries or the native restore contract's verified-baseline
+  fallback. Real Copy → Paste and Cut are followed by edited/original copy
+  requests. Before startup reconciliation, the two unreadable cases staged
+  replacement/removal artwork and all four cases omitted the working-byte read;
+  with reconciliation they pass, retain the warning where needed, and keep
+  original-backup copies isolated. The native transport remains controlled;
+  these cases do not claim an actual Android process restart.
 
 Validation commands and their final results are recorded in the PR. These
 fixtures exercise real metadata and audio files with a substituted SAF

@@ -24,13 +24,19 @@ const mergedDeclaration=parsed.statements.filter(ts.isVariableStatement).flatMap
 const functions=parsed.statements.filter(node=>ts.isFunctionDeclaration(node)&&names.has(node.name?.text)).map(node=>node.getText(parsed)).join('\n');
 const declarationNames=new Set(['clipTargets','coverTargets','utilOperations','tagSourceOperations','listOperations']);
 const declarations=parsed.statements.filter(ts.isVariableStatement).flatMap(statement=>statement.declarationList.declarations).filter(declaration=>declarationNames.has(declaration.name.getText(parsed))).map(declaration=>`const ${declaration.getText(parsed)};`).join('\n');
+// Run the actual recovery-startup callback, including its ordering relative to
+// accept() and working-copy reconciliation, without launching the application.
+let platformReady;
+function locatePlatformReady(node){if(ts.isVariableDeclaration(node)&&node.name.getText(parsed)==='platformReady')platformReady=node;ts.forEachChild(node,locatePlatformReady);}
+locatePlatformReady(parsed);
+const restorePlatform=platformReady.initializer.expression.expression.arguments[0].getText(parsed);
 const factory=`import {BatchFailure} from ${JSON.stringify(batchURL)};
 import {panelKey} from ${JSON.stringify(actionURL)};
 ${helper.replace(/\bexport /g,'')}
 ${coverModules}
 export function createWorkspace(initial, options={}) {
   const path='retained.wav', original=structuredClone(initial), originalCovers=structuredClone(options.covers||[]);
-  let working=structuredClone(initial), workingCovers=structuredClone(options.covers||[]), copied, copiedCovers, copyRequestSent, dialog, status='', busy=false, errors=[], location='', anchor;
+  let working=structuredClone(initial), workingCovers=structuredClone(options.covers||[]), copied, copiedCovers, copyRequestSent, dialog, status='', busy=false, errors=[], location='', locationIsData=false, anchor;
   const nativeCalls=[],workingReadErrors=new Map();
   const coverEpochs=new Map(),coverCache=new Map(),coverRequests=new Map();
   const coverCacheBytesLimit=12*1024*1024,coverCacheEntryLimit=8;
@@ -44,7 +50,9 @@ export function createWorkspace(initial, options={}) {
   const ready={uri:'content://provider/audio',name:path,writable:options.writable!==false,persisted:true,state:'ready',error:null};
   let nativeState={...ready,state:options.state||'ready'}, refreshFails=!!options.refreshFails;
   let documentAccess={states:options.provider===false?{}:{[path]:nativeState},refreshError:null};
-  const runtimePlatform={document_access_supported:options.provider!==false,folder_picker_supported:options.provider===false,family:options.provider===false?'desktop':'android'};
+  let runtimePlatform={document_access_supported:options.provider!==false,folder_picker_supported:options.provider===false,family:options.provider===false?'desktop':'android'};
+  let nativeAppearanceReady=false,directoriesReady;
+  const languagePage={setFolderSupport(){}},syncNativeAppearance=()=>{},optionsReady=Promise.resolve();
   const paths=()=>[...selected],dirtySelected=()=>paths().some(path=>drafts.has(path));
   const render=()=>{},changedData=()=>{},esc=value=>String(value),publicMessage=value=>String(value),displayName=value=>value;
   const merged=${mergedDeclaration.initializer.getText(parsed)};
@@ -57,6 +65,14 @@ export function createWorkspace(initial, options={}) {
   const applyFields=(base,updates)=>{const result=structuredClone(base);for(const [key,values] of Object.entries(updates)){if(values.length)result[key]=structuredClone(values);else delete result[key];}return result;};
   async function invoke(command,args) {
     nativeCalls.push(command);
+    if(command==='restore_document_recovery') {
+      // The native Store::entry path falls back to its verified baseline when
+      // edited bytes cannot be read. Neither entry nor empty errors certify it.
+      working=structuredClone(options.recoveredFields||initial);
+      nativeState={...ready,state:'recovery_required',error:'Retained recovery copy'};
+      const entry=makeEntry(path,options.workingReadFails?original:working);
+      return {entries:[entry],errors:[]};
+    }
     if(['remove_tags','filename_to_tags','add_cover','remove_cover'].includes(command)) {
       if(command==='remove_tags'){working={};workingCovers=[];}
       if(command==='filename_to_tags')working=applyFields(working,options.filenameFields||{TITLE:['Filename title']});
@@ -106,7 +122,9 @@ export function createWorkspace(initial, options={}) {
     return dialog;
   }
   ${functions}
+  const restorePlatform=${restorePlatform};
   return {
+    restartRecovery:async()=>{entries.delete(path);selected.clear();await restorePlatform({...runtimePlatform,folder_picker_supported:false});},
     edit:(key,values)=>updateDraft(path,key,values),save:()=>saveDrafts(),
     operate:async(operation,target=path)=>{selected.clear();selected.add(target);await operateImpl(operation);},
     available:enabled,policy:sourcePolicy,
@@ -356,4 +374,37 @@ for(const operation of ['Paste','Cut']) {
     await workspace.copy();
     assert.equal(Object.hasOwn(workspace.snapshot().copyRequestSent,'covers'),false);
   });
+}
+
+for(const workingReadFails of [true,false]) {
+  for(const operation of ['Paste','Cut']) {
+    test(`restart ${workingReadFails?'unreadable baseline fallback':'readable recovery'}: ${operation} respects restored working-copy availability`,async()=>{
+      const workspace=createWorkspace({TITLE:['Original']},{covers:[oldCover],workingReadFails,recoveredFields:{TITLE:['Recovered edit']},clipboardSource:clipboardSource([pendingCover])});
+      await workspace.restartRecovery();
+      assert.deepEqual(workspace.snapshot().fields,{TITLE:[workingReadFails?'Original':'Recovered edit']});
+      assert.equal(workspace.snapshot().busy,false);
+      if(operation==='Paste')await pasteCopiedTags(workspace);else await workspace.operate('cut-tags');
+      const staged=workspace.snapshot();
+      assert.deepEqual(staged.pendingCovers,workingReadFails?[]:[['retained.wav',operation==='Paste'?[pendingCover]:[]]]);
+      assert.equal(staged.workingReadErrors.length,workingReadFails?1:0);
+      assert.ok(staged.nativeCalls.indexOf('document_working_entries')>staged.nativeCalls.indexOf('restore_document_recovery'));
+      assert.match(workspace.policy().mutationReason,/Recovery required/);
+      assert.equal(workspace.available('save'),false);
+      if(workingReadFails){
+        assert.deepEqual(staged.covers,[]);
+        assert.match(workspace.sourceMarkup(),/Retained tags and artwork are unavailable/);
+        assert.match(workspace.sourceMarkup(),/Choose Original backup/);
+      }else{
+        await workspace.copy();
+        assert.deepEqual(workspace.snapshot().copiedCovers,operation==='Paste'?[pendingCover]:[]);
+        assert.deepEqual(workspace.snapshot().copyRequestSent.updates,{TITLE:operation==='Paste'?['Pending']:[]});
+      }
+      await workspace.copy('original');
+      const copied=workspace.snapshot();
+      assert.deepEqual(copied.copyRequestSent,{path:'retained.wav',version:'original',updates:{}});
+      assert.deepEqual(copied.copiedCovers,[oldCover]);
+      assert.deepEqual(copied.pendingCovers,staged.pendingCovers);
+      assert.equal(copied.nativeCalls.some(command=>['save_fields_batch','add_cover','remove_cover','remove_tags'].includes(command)),false);
+    });
+  }
 }

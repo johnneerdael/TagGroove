@@ -91,6 +91,12 @@ immediate cover writes remain unavailable. If retained metadata is unreadable,
 clipboard operations leave its artwork alone instead of staging a replacement
 or removal from an unknown cover list.
 
+This check also runs when recovery documents are restored after a restart.
+If the edited bytes cannot be read, the displayed tags may come from the last
+verified backup. The **Retained tags and artwork are unavailable** warning
+identifies that situation. Choose **Original backup** to export the verified
+source; displayed backup tags do not mean the edited copy can be recovered.
+
 ## Cut without deleting the audio
 
 **Edit → Cut tags** copies the selected tags, then stages removal of their

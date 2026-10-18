@@ -341,7 +341,7 @@ fn failed_copy_keeps_pending_artwork_and_fields_through_restart_and_fresh_copy()
         .write_to(&mut image, image::ImageFormat::Png)
         .unwrap();
     let image = image.into_inner();
-    let replacement = vec![tag_core::CoverChange {
+    let replacement = [tag_core::CoverChange {
         image: Some(image.clone()),
         picture_type: "CoverBack".into(),
         description: "Pending back".into(),
