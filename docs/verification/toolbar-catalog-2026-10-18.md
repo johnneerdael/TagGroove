@@ -91,6 +91,23 @@ They do not replace native/platform CI or the final committed-head review.
 | Brand verification | 249 supplied files and 78 integrated copies verified; app/MSI/gnudb identities unchanged |
 | Diff whitespace check | Passed |
 
+## Windows guide-test portability correction
+
+Protected validation of `78209d2749220cd3cc013c60b607c6e5cf046df9` found
+that the toolbar guide-content test required a literal LF inside a prose
+sentence. Windows checks out this Markdown with CRLF. The original assertion
+failed again locally when supplied the CRLF form of the actual guide.
+
+Exercise both LF and CRLF forms in the same guide-content test and match the
+sentence across ordinary whitespace. Keep every command-label assertion. All
+11 toolbar cases then pass. This correction changes only the test and this
+receipt; application behavior, native code and guide instructions are unchanged.
+The full frontend suite rerun after this correction passed all 625 tests;
+the strict guide build passed. The earlier full workspace run passed 625
+frontend and 1,139 Rust tests (nine
+platform-specific tests ignored locally) at `78209d2`; protected platform
+validation and clean code review must be renewed on the corrected final head.
+
 ## Historical catalog validation receipt
 
 These results predate the remembered-built-in correction and approved-main

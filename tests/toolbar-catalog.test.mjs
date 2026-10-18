@@ -261,8 +261,10 @@ test('actual generic button binding invokes the existing dispatcher for an added
 });
 
 
-test('the user guide names every new toolbar choice without inventing another operation',async()=>{
-  const guide=await readFile(new URL('docs/user-guide/customize/toolbars.md',root),'utf8');
-  for(const id of added)assert.ok(guide.includes(toolbar.TOOLBAR_COMMANDS[id].label),id);
-  assert.ok(guide.includes('Existing\nbutton positions, custom labels and visibility stay intact'));
+test('the user guide names every new toolbar choice under LF and CRLF without inventing another operation',async()=>{
+  const text=await readFile(new URL('docs/user-guide/customize/toolbars.md',root),'utf8');
+  for(const guide of [text.replace(/\r\n/g,'\n'),text.replace(/\r?\n/g,'\r\n')]){
+    for(const id of added)assert.ok(guide.includes(toolbar.TOOLBAR_COMMANDS[id].label),id);
+    assert.match(guide,/Existing\s+button positions, custom labels and visibility stay intact/);
+  }
 });
