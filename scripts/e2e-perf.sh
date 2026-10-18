@@ -21,14 +21,14 @@ done
 identifier="${OPENTAG_E2E_ID:-org.opentag.editor.e2e.perf}"
 if (( build )); then
   (cd "$root" && AR="${AR:-/usr/bin/ar}" npx tauri build --bundles app --features e2e \
-    --config "{\"identifier\":\"$identifier\",\"productName\":\"OpenTag Perf\"}" >/dev/null)
+    --config "{\"identifier\":\"$identifier\",\"productName\":\"TagGroove Perf\"}" >/dev/null)
 fi
-bin="${OPENTAG_PERF_BIN:-$root/target/release/bundle/macos/OpenTag Perf.app/Contents/MacOS/opentag}"
+bin="${OPENTAG_PERF_BIN:-$root/target/release/bundle/macos/TagGroove Perf.app/Contents/MacOS/taggroove}"
 # App Nap throttles timers, animation frames and disk I/O of windows that are
 # not visible, which would turn background runs into multi-second outliers.
 defaults write "$identifier" NSAppSleepDisabled -bool YES
 scratch="${OPENTAG_PERF_SCRATCH:-${TMPDIR:-/tmp}}"
-work="$(mktemp -d "$scratch/opentag-perf.XXXXXX")"; trap 'rm -rf "$work"' EXIT
+work="$(mktemp -d "$scratch/taggroove-perf.XXXXXX")"; trap 'rm -rf "$work"' EXIT
 clone="$work/$(basename "$folder")"
 cp -cR "$folder" "$clone"
 for run in $(seq 1 "$runs"); do

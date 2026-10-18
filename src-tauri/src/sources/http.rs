@@ -10,6 +10,8 @@ use std::sync::{Arc, Mutex as StdMutex};
 use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 
+// This change renames visible product content. Keep the existing wire identity
+// and provider integrations stable; product/help links use the new repository.
 pub const USER_AGENT: &str = concat!(
     "OpenTag/",
     env!("CARGO_PKG_VERSION"),
@@ -74,7 +76,7 @@ pub fn parse_trusted(url: &str) -> Result<Url, String> {
         .ok_or_else(|| "This image address is not from a supported tag source.".to_string())
 }
 
-/// A client builder with OpenTag's TLS roots, user agent and the timeout and
+/// A client builder with TagGroove's TLS roots, user agent and the timeout and
 /// proxy from Options → Networking.
 pub(crate) fn builder(network: &Network) -> Result<reqwest::ClientBuilder, String> {
     let mut roots = rustls::RootCertStore::empty();
@@ -175,7 +177,7 @@ pub enum Auth {
     None,
     /// A Discogs personal access token.
     DiscogsToken(String),
-    /// OpenTag's own Discogs application key and secret ("key/secret" requests).
+    /// TagGroove's own Discogs application key and secret ("key/secret" requests).
     DiscogsApp { key: String, secret: String },
     /// API keys sent as request headers (fanart.tv).
     Headers(Vec<(&'static str, String)>),
@@ -285,7 +287,7 @@ pub fn network_message(name: &str, error: &reqwest::Error) -> String {
     if error.is_timeout() {
         format!("{name} did not respond in time. Check your connection and try again.")
     } else if error.is_redirect() {
-        format!("{name} redirected to an address OpenTag does not trust.")
+        format!("{name} redirected to an address TagGroove does not trust.")
     } else if error.is_connect() {
         format!("Could not connect to {name}. Check your network connection.")
     } else {
@@ -296,7 +298,7 @@ pub fn network_message(name: &str, error: &reqwest::Error) -> String {
 pub fn status_message(name: &str, status: StatusCode, auth: &Auth) -> String {
     match (status.as_u16(), auth) {
         (401 | 403, Auth::DiscogsToken(_)) => "Discogs rejected the personal access token. Update it in Tag Sources → Discogs access token….".into(),
-        (401 | 403, Auth::DiscogsApp { .. }) => "Discogs refused OpenTag's application key. Add a personal access token in Tag Sources → Discogs access token….".into(),
+        (401 | 403, Auth::DiscogsApp { .. }) => "Discogs refused TagGroove's application key. Add a personal access token in Tag Sources → Discogs access token….".into(),
         (401 | 403, Auth::None) if name == "Discogs" => "Discogs requires a personal access token for this request. Add one in Tag Sources → Discogs access token….".into(),
         (400 | 401 | 403, Auth::Key | Auth::Headers(_)) => format!("{name} rejected the request. Check the API key in Tag Sources → API keys…."),
         _ => plain_status_message(name, status),
@@ -468,7 +470,7 @@ pub async fn freedb_text(
                 "{} has no CDDB program at this path. Check Options → Tag Sources → freedb.",
                 service.name
             ),
-            429 => format!("{} answered 429 Too Many Requests. OpenTag does not retry on its own; wait a while and try again later.", service.name),
+            429 => format!("{} answered 429 Too Many Requests. TagGroove does not retry on its own; wait a while and try again later.", service.name),
             _ => plain_status_message(service.name, status),
         });
     }
@@ -615,7 +617,7 @@ pub fn decode_text(bytes: &[u8], content_type: Option<&str>) -> String {
     }
 }
 
-/// Download a page for a web source. `user_agent` replaces OpenTag's own.
+/// Download a page for a web source. `user_agent` replaces TagGroove's own.
 pub async fn web_page(
     name: &str,
     url: &str,
@@ -626,7 +628,7 @@ pub async fn web_page(
     let url = Url::parse(url)
         .ok()
         .filter(web_allowed)
-        .ok_or_else(|| format!("{name} produced an address OpenTag cannot open: {url}"))?;
+        .ok_or_else(|| format!("{name} produced an address TagGroove cannot open: {url}"))?;
     let client = web_client()?;
     let response = {
         let mut last = WEB.0.lock().await;
@@ -641,7 +643,7 @@ pub async fn web_page(
         *last = Some(Instant::now());
         result.map_err(|error| {
             if error.is_redirect() {
-                format!("{name} redirected to an address OpenTag cannot open.")
+                format!("{name} redirected to an address TagGroove cannot open.")
             } else {
                 network_message(name, &error)
             }

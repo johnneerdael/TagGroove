@@ -12,7 +12,7 @@ export type ModalError=(dialog:HTMLDialogElement,error:unknown)=>void;
 export type Util='remove_unsupported_fields'|'optimize';
 export const UTILS:Record<Util,{label:string;formats:string[];applies:string;effect:string}>={
   remove_unsupported_fields:{label:'Remove unsupported fields',formats:['MP3','AAC','AIFF','WAV'],applies:'MP3 files (ID3v2 tags, also in AAC, AIFF and WAV)',
-    effect:'ID3v2 frames OpenTag cannot display (listed by %_id3v2_unknown_frames%, such as PRIV or GEOB) are removed permanently.'},
+    effect:'ID3v2 frames TagGroove cannot display (listed by %_id3v2_unknown_frames%, such as PRIV or GEOB) are removed permanently.'},
   optimize:{label:'Optimize',formats:['FLAC','MP4'],applies:'FLAC and MP4 files',
     effect:'FLAC files get exactly 4 KB of padding. MP4 files lose their free space and get the movie and tag data before the audio data.'},
 };
@@ -190,5 +190,5 @@ export function shortcutsDialog(modal:Modal,rows:ShortcutRow[]){
 }
 
 // Configuration backup ------------------------------------------------------------
-export const CONFIGURATION_FILTER={name:'OpenTag configuration',extensions:['json']};
-export function configurationFileName(date=new Date()){return`opentag-configuration-${date.toISOString().slice(0,10)}.json`;}
+export const CONFIGURATION_FILTER={name:'TagGroove configuration',extensions:['json']};
+export function configurationFileName(date=new Date()){return`taggroove-configuration-${date.toISOString().slice(0,10)}.json`;}

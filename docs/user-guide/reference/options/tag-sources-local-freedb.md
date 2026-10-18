@@ -1,6 +1,6 @@
 # Tag Sources → Local freedb
 
-Open **File → Options… → Tag Sources → Local freedb** to use an extracted historical freedb database on disk. This is a source of album metadata, separate from OpenTag's own [Library cache](library.md).
+Open **File → Options… → Tag Sources → Local freedb** to use an extracted historical freedb database on disk. This is a source of album metadata, separate from TagGroove's own [Library cache](library.md).
 
 !!! tip "New to this?"
     Select the database root containing category subfolders, not an individual album file. A local snapshot reflects the date it was created; it does not receive current server updates.
@@ -11,7 +11,7 @@ The folder defaults to empty. Type its full path or use **Choose folder…**. Th
 
 Extract the snapshot before selecting it; a downloaded compressed archive is not the database folder. A nonexistent path or unreadable category data cannot provide matches. Store it somewhere the app can continue to access.
 
-Local lookup by disc ID reads that snapshot. The historical Mp3tag documentation says audio-file-based lookup is unavailable locally. Do not transfer that restriction to OpenTag unchanged: its local reader supports disc-ID lookup, and its tag-source workflow can derive a disc ID from a suitable ordered track layout. That is metadata matching, not an acoustic fingerprint of the music.
+Local lookup by disc ID reads that snapshot. The historical Mp3tag documentation says audio-file-based lookup is unavailable locally. Do not transfer that restriction to TagGroove unchanged: its local reader supports disc-ID lookup, and its tag-source workflow can derive a disc ID from a suitable ordered track layout. That is metadata matching, not an acoustic fingerprint of the music.
 
 ## Text index
 

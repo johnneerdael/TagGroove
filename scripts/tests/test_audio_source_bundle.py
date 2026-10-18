@@ -144,7 +144,7 @@ def fixture(root, original_sha=None, patched_sha=None, cargo_config=None):
 
 
 def build(f, output=None, version="0.1.0"):
-    output = output or f["root"] / f"OpenTag-v{version}-sources.tar.xz"
+    output = output or f["root"] / f"TagGroove-v{version}-sources.tar.xz"
     load_builder().build_bundle(f["app"], f["commit"], version, output,
                                f["evidence"], f["archives"], f["vendor"], f["dist"])
     return output
@@ -310,7 +310,7 @@ class SourceBundleTests(unittest.TestCase):
 
     def test_unsafe_tar_links_traversal_and_duplicates_fail_before_extraction(self):
         path = self.f['root'] / 'unsafe.tar.xz'
-        prefix = 'OpenTag-v0.1.0-sources/'
+        prefix = 'TagGroove-v0.1.0-sources/'
         for kind in ('traversal', 'symlink', 'duplicate'):
             with self.subTest(kind=kind):
                 with tarfile.open(path, 'w:xz') as archive:

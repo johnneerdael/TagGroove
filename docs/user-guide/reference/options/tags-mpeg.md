@@ -1,13 +1,13 @@
 # Tags → Mpeg
 
-Open **File → Options… → Tags → Mpeg** to control ID3v1, ID3v2, and APE tags in MPEG-family audio. This policy also serves raw AAC and TTA through OpenTag's format adapters. An AAC stream inside an MP4/M4A container instead uses MP4 tags.
+Open **File → Options… → Tags → Mpeg** to control ID3v1, ID3v2, and APE tags in MPEG-family audio. This policy also serves raw AAC and TTA through TagGroove's format adapters. An AAC stream inside an MP4/M4A container instead uses MP4 tags.
 
 !!! tip "New to this?"
     A file can hold several independent tag blocks with conflicting values. Check what is read before choosing what to write or remove. Try a copied file before changing a library-wide policy.
 
 ## Read
 
-All three reading switches default to on. OpenTag displays one enabled, present tag type, in this priority order:
+All three reading switches default to on. TagGroove displays one enabled, present tag type, in this priority order:
 
 | Priority | Switch | Reads |
 |---|---|---|
@@ -32,7 +32,7 @@ At least one write type must remain enabled. Saving synchronizes written types f
 
 ### When ID3v1 is too small
 
-OpenTag checks more than text length. Artwork, custom fields, multiple values, a user-defined genre, and characters outside Latin-1 require ID3v2. In the inspected implementation, title/artist/album fit only within 30 characters; comment space is 28 characters when a track is present, otherwise 30; year must be four digits; a track must fit its legacy positive byte value. A `TRACK` value containing a total, such as `3/8`, needs ID3v2 to preserve that text.
+TagGroove checks more than text length. Artwork, custom fields, multiple values, a user-defined genre, and characters outside Latin-1 require ID3v2. In the inspected implementation, title/artist/album fit only within 30 characters; comment space is 28 characters when a track is present, otherwise 30; year must be four digits; a track must fit its legacy positive byte value. A `TRACK` value containing a total, such as `3/8`, needs ID3v2 to preserve that text.
 
 | Metadata in a file without ID3v2 | With conditional ID3v2 writing |
 |---|---|
@@ -57,7 +57,7 @@ Changing this setting affects future writes; it does not convert every loaded fi
 
 If every Remove switch is off, the remove command reports that no types are selected. Disabling Read alone never requests deletion. A type left unread and unwritten is retained only if the removal policy also leaves it alone.
 
-Mp3tag's original reference specifically couples ID3v1 removal with removal of a dependent Lyrics3 tag. OpenTag has Lyrics3-aware raw-stream layout handling, but this guide has no verified equivalent guarantee for every MPEG removal path. Do not use the ID3v1 checkbox as a general Lyrics3-cleanup promise.
+Mp3tag's original reference specifically couples ID3v1 removal with removal of a dependent Lyrics3 tag. TagGroove has Lyrics3-aware raw-stream layout handling, but this guide has no verified equivalent guarantee for every MPEG removal path. Do not use the ID3v1 checkbox as a general Lyrics3-cleanup promise.
 
 ## Related
 

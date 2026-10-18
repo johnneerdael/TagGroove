@@ -511,7 +511,7 @@ pub fn technical_fields(entry: &AudioEntry, index: usize) -> Fields {
 
 /// `%_app%`: the application name and version.
 pub fn app_name() -> String {
-    format!("OpenTag v{}", env!("CARGO_PKG_VERSION"))
+    format!("TagGroove v{}", env!("CARGO_PKG_VERSION"))
 }
 
 pub fn enriched_fields(entry: &AudioEntry, index: usize) -> Fields {
@@ -680,7 +680,7 @@ mod tests {
         assert_eq!(context["_COUNTER"], ["3"]);
         assert_eq!(
             context["_APP"],
-            [format!("OpenTag v{}", env!("CARGO_PKG_VERSION"))]
+            [format!("TagGroove v{}", env!("CARGO_PKG_VERSION"))]
         );
         assert_eq!(context["_FILETYPE"], ["WAV"]);
         assert_eq!(context["TITLE"], ["Raw title"]);

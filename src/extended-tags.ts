@@ -47,7 +47,7 @@ export class ExtendedTags{
   private originals=new WeakMap<HTMLTextAreaElement,string>();
   private rowSetters=new WeakMap<HTMLElement,(values:string[])=>void>();
   private staged=new Set<string>();
-  /** Fields copied with the field list's context menu; kept while OpenTag runs. */
+  /** Fields copied with the field list's context menu; kept while TagGroove runs. */
   private clip:FieldClip[]=[];
   private menu?:HTMLElement;
   constructor(private host:ExtendedTagsHost){}

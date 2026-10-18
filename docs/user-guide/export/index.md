@@ -56,7 +56,7 @@ text uses the selected/system ANSI codepage, with Windows-1252 as the fallback
 on macOS and Linux.
 
 Saved configurations have `.mte` files in the configuration folder's `export`
-subfolder. OpenTag discovers other readable `.mte` files copied there. Keep a
+subfolder. TagGroove discovers other readable `.mte` files copied there. Keep a
 backup before editing shared configurations externally. A template made for
 another application still needs syntax and output checks; its extension alone
 does not establish compatibility.
@@ -110,7 +110,7 @@ files you need to retain.
 
 ## Create one output file per group
 
-Enable **Create one output file per**, then set **Partition format**. OpenTag
+Enable **Create one output file per**, then set **Partition format**. TagGroove
 evaluates this ordinary format string for every selected file. Equal text
 values belong to one report; different values produce different reports.
 Grouping is case-sensitive: `Harbour Lights` and `HARBOUR LIGHTS` differ.
@@ -122,7 +122,7 @@ containing that separator still need care.
 
 The output name is evaluated separately for every group. For example,
 `%albumartist% - %album%.txt` distinguishes reports in one folder. A fixed
-`report.txt` would repeatedly target the same path, so OpenTag rejects the
+`report.txt` would repeatedly target the same path, so TagGroove rejects the
 collision. Each partition starts with fresh template variables and totals.
 
 For a report in each audio folder, partition by `%_folderpath%` and name the

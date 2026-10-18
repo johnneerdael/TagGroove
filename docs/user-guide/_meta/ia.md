@@ -1,11 +1,11 @@
-# OpenTag user guide: information architecture and coverage map
+# TagGroove user guide: information architecture and coverage map
 
 Not published (`_meta/` is excluded in `mkdocs.yml`). This file has three
 jobs:
 
 1. It explains how the guide is organised and why.
 2. It **proves coverage**: every page of the Mp3tag documentation, used as a
-   checklist of topics only, maps to OpenTag pages.
+   checklist of topics only, maps to TagGroove pages.
 3. It tracks status and splits the remaining work into workstreams.
 
 The full page plan lives in `_meta/planned-nav.yml` (`nav:`). Every page listed there
@@ -25,7 +25,7 @@ Seven tabs, each with one kind of page (see `style.md` § 3 for the page types):
 | Home | 1 | | Landing page |
 | Get started | 12 | 7 top-level pages; Platform notes (5) | How-to guides for the first hour, plus platform notes |
 | Learn | 19 | Tutorials (10), Concepts (8), plus an index | Tutorials and concept explainers. **Mp3tag's docs have neither.** |
-| Guides | 22 | Everyday editing (10), OpenTag extras (3), Customize (8), plus an index | How-to guides for the main window and customization |
+| Guides | 22 | Everyday editing (10), TagGroove extras (3), Customize (8), plus an index | How-to guides for the main window and customization |
 | Automate | 44 | Converters (7), Actions (19), Tag sources (12), Export and playlists (5), plus an index | How-to guides, one page per converter and action type |
 | Reference | 50 | 8 top-level pages; Format strings (9), Menus (10), Options (23) | Reference: complete and exact |
 | Cookbook | 35 | Rename (6), Fix and tidy (10), Import (5), Numbers (3), Covers (4), Find and report (6), plus an index | Recipes. **Mp3tag's docs have none.** |
@@ -56,7 +56,7 @@ Design decisions:
 - **Concept explainers** (`concepts/`) answer the "why" questions behind
   support requests: tag formats and versions, multi-value fields, track
   totals, covers, ReplayGain, encodings and sort fields.
-- **OpenTag extras** that Mp3tag doesn't have: Library, chapters and cue
+- **TagGroove extras** that Mp3tag doesn't have: Library, chapters and cue
   sheets as rows, languages and translations, platform notes (macOS, Linux,
   Android, iOS), and the tag sources iTunes, Deezer, LRCLIB and AcoustID.
   Those four pages are stubs marked *waiting for merge*: the sources are
@@ -83,17 +83,17 @@ main. They stay drafts until then.
 Edit this file only to change the plan itself (a page added, split or
 renamed). Do that in a PR of its own, or tell the docs lead.
 
-## Coverage map: Mp3tag documentation → OpenTag guide
+## Coverage map: Mp3tag documentation → TagGroove guide
 
 Every page of the private Mp3tag documentation crawl
-(`reference-docs/full-site/`, 94 pages) appears below with the OpenTag pages
+(`reference-docs/full-site/`, 94 pages) appears below with the TagGroove pages
 that must cover it. The sub-topics column lists that page's section headings
 as a **checklist**: each one must be covered somewhere in the mapped pages,
-in our own words and from OpenTag's actual behaviour. Never copy prose,
-examples or tables from the source. A sub-topic that OpenTag doesn't
+in our own words and from TagGroove's actual behaviour. Never copy prose,
+examples or tables from the source. A sub-topic that TagGroove doesn't
 implement is documented as such, or left out with a note in the PR.
 
-| Mp3tag page | Topic | OpenTag page(s) | Sub-topics to cover |
+| Mp3tag page | Topic | TagGroove page(s) | Sub-topics to cover |
 |---|---|---|---|
 | `actions` | Actions | [`actions/index.md`](../actions/index.md), [`learn/first-action-group.md`](../learn/first-action-group.md) | Action Types; Quick Actions; Action Groups; Adding, Duplicating, and Removing Action Groups; Rearranging Action Groups; Enabling and Disabling Action Groups; Loading and Saving of Selection Presets; Editing Action Groups; Organizing Action Groups; Action Types |
 | `actions/adjust-cover` | Adjust Cover | [`actions/adjust-cover.md`](../actions/adjust-cover.md) | — |
@@ -192,19 +192,19 @@ implement is documented as such, or left out with a note in the PR.
 
 All 94 checklist pages are mapped; none is unmapped.
 
-## OpenTag pages beyond the checklist
+## TagGroove pages beyond the checklist
 
-These have no Mp3tag counterpart. They are OpenTag features or teaching
+These have no Mp3tag counterpart. They are TagGroove features or teaching
 material:
 
 | Page(s) | Why |
 |---|---|
 | `learn/*` (all tutorials), `concepts/*` | Teaching layer |
 | `cookbook/*` (35 pages) | Recipe layer |
-| `getting-started/editing-and-saving.md` | OpenTag's pending-edits model and session undo |
+| `getting-started/editing-and-saving.md` | TagGroove's pending-edits model and session undo |
 | `getting-started/coming-from-mp3tag.md` | Migration: compatibility and differences |
 | `platforms/*` | macOS, Windows, Linux, Android, iOS specifics |
-| `guides/library.md`, `reference/options/library.md` | OpenTag's library cache |
+| `guides/library.md`, `reference/options/library.md` | TagGroove's library cache |
 | `guides/chapters.md` | Chapters and cue sheets listed as rows |
 | `guides/undo-history.md` | Session-wide undo journal |
 | `customize/languages.md` | Translations and user language catalogs |

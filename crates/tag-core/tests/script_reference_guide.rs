@@ -124,8 +124,8 @@ fn every_published_function_example_runs_with_its_stated_result() {
                 &columns
             });
             context.environment = Some(&environment);
-            context.app_directory = Some("/opt/OpenTag");
-            context.app_data_directory = Some("/home/listener/.config/opentag");
+            context.app_directory = Some("/opt/TagGroove");
+            context.app_data_directory = Some("/home/listener/.config/taggroove");
             let result = evaluate_with_context(&expression, &context)
                 .unwrap_or_else(|error| panic!("{name}: {expression}: {error}"));
             if cells[2].starts_with('`') || cells[2] == "*(empty)*" {

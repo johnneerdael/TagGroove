@@ -1,12 +1,12 @@
 # Regular expressions
 
-<p class="lead">A regular expression (regex) describes a <em>shape</em> of text rather than exact text: “a number at the start”, “anything in brackets at the end”, “two words separated by a comma”. OpenTag uses them to find that shape in your tags and file names, and to rewrite it.</p>
+<p class="lead">A regular expression (regex) describes a <em>shape</em> of text rather than exact text: “a number at the start”, “anything in brackets at the end”, “two words separated by a comma”. TagGroove uses them to find that shape in your tags and file names, and to rewrite it.</p>
 
 This page takes you from your first pattern to lookarounds, then documents
-the main places OpenTag accepts regular expressions. The web-source parser
+the main places TagGroove accepts regular expressions. The web-source parser
 commands have their own [reference](../tag-sources/web-source-reference.md).
 Each section builds on the one before. If you already know regular expressions from another program,
-skip to [How OpenTag's regular expressions differ](#how-opentag-differs) and
+skip to [How TagGroove's regular expressions differ](#how-taggroove-differs) and
 the [`$regexp` reference](#regexp).
 
 !!! tip "Try every example as you read"
@@ -469,7 +469,7 @@ after the last comma in `$regexp`, or an empty replacement box in the action.
 
 (`·` stands for a space, and `|` for a plain `|`.)
 
-## How OpenTag's regular expressions differ { #how-opentag-differs }
+## How TagGroove's regular expressions differ { #how-taggroove-differs }
 
 The shared core used by format strings, actions, filters and web-source
 parser commands accepts Boost’s Perl-compatible syntax. The following

@@ -105,7 +105,7 @@ controls inline completion.
 
 For GENRE, **Show only user-defined genres** omits the standard genre list.
 Existing values from selected files can still appear, even if they are not
-in your custom list. Saving the preference takes effect in OpenTag without
+in your custom list. Saving the preference takes effect in TagGroove without
 the restart described for the original editor.
 
 A custom genre remains text, not an extension of ID3v1's fixed indexed genre
@@ -136,7 +136,7 @@ before a large list change; it is not an audio-file backup.
 ## Add a value while editing
 
 In a tag-panel field, type the intended single-line text and press
-++shift+enter++. OpenTag adds that field's text to its saved custom list.
+++shift+enter++. TagGroove adds that field's text to its saved custom list.
 An exact duplicate is not added again; empty or multiline text is rejected.
 If saving the list fails, read the error rather than assuming it persisted.
 

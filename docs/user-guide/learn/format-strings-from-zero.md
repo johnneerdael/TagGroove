@@ -4,7 +4,7 @@ Build a title from existing tags, add a function, then choose a fallback
 when a field is missing. This lesson takes about 15 minutes. You will use
 the live preview before saving a practice change.
 
-- [ ] OpenTag installed and a few copied audio files available.
+- [ ] TagGroove installed and a few copied audio files available.
 - [ ] Pending edits saved or discarded.
 - [ ] One selected practice file with `ARTIST` = `Juniper Vale`,
   `TITLE` = `Paper Boats`, `ALBUM` = `Harbour Lights`, `TRACK` = `3/8`
@@ -38,7 +38,7 @@ Replace the expression with:
 %artist% - %title%
 ```
 
-The preview becomes `Juniper Vale - Paper Boats`. OpenTag fills both
+The preview becomes `Juniper Vale - Paper Boats`. TagGroove fills both
 placeholders for each selected file and copies the spaces and hyphen
 between them literally.
 
@@ -110,7 +110,7 @@ Try:
 ```
 
 The preview shows `Harbour Lights (2024)`. Square brackets mark an optional
-section. The year is present, so OpenTag includes that section, including
+section. The year is present, so TagGroove includes that section, including
 its space and round brackets.
 
 Now try a missing field:

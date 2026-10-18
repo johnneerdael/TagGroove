@@ -2,7 +2,7 @@
 
 Why can an album show artwork in one folder, then lose it when a track is
 copied elsewhere? An image beside the audio file and an image embedded in
-its tags are different objects. OpenTag labels its folder-image fallback so
+its tags are different objects. TagGroove labels its folder-image fallback so
 you can tell which one you are seeing.
 
 ## Where the picture lives
@@ -18,7 +18,7 @@ each file self-contained. Those are storage choices. They do not guarantee
 what a particular player displays. Some players prefer a folder image;
 others choose an embedded role, the first image, or cached artwork.
 
-OpenTag can show **Folder image** / **Not embedded in the file** when the
+TagGroove can show **Folder image** / **Not embedded in the file** when the
 eligible local selection has no embedded or pending artwork. This fallback
 is a display convenience. Adding an embedded image does not delete the
 external source. Removing embedded images does not remove `folder.jpg`.
@@ -62,7 +62,7 @@ its membership. **Apply to all** deliberately adds it to other selected files.
 A newly added image is planned for the whole initial selection.
 
 Not every format preserves these properties equally. MP4 artwork does not
-retain the same role distinctions as ID3v2; OpenTag reads its pictures as
+retain the same role distinctions as ID3v2; TagGroove reads its pictures as
 **Other**. ID3v1 cannot hold pictures. Read the [file format capabilities](../reference/file-formats.md)
 before relying on a role or description surviving a conversion.
 
@@ -84,10 +84,10 @@ Changing `.jpg` to `.png` in a filename does not convert the bytes. Use
 resize/conversion. A preview's **Correct aspect ratio** changes how it is
 shown, not the embedded pixels. Upscaling cannot restore detail missing from
 a small original. Settings that already match can leave image bytes unchanged;
-JPEG quality alone does not force OpenTag's adjustment path to recompress an
+JPEG quality alone does not force TagGroove's adjustment path to recompress an
 otherwise unchanged image.
 
-## What this means in OpenTag
+## What this means in TagGroove
 
 Start with a copy and decide whether the task is display, embedding,
 extraction, reordering or image conversion. **Manage covers…** stages a list

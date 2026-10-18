@@ -63,7 +63,7 @@ Do not treat an empty result as proof the original files were deleted.
 3. If the save failed, retain the pending edit while checking the reported
    access/format problem. Confirm the file is writable in its actual source.
    Another program using the file or a restricted location may require action
-   outside OpenTag; do not change broad permissions as a first experiment.
+   outside TagGroove; do not change broad permissions as a first experiment.
 4. After a successful save, use **File → Reload tags** and compare the value.
    Reload can discard pending edits, so resolve them before accepting it.
 5. If the saved value is still unexpected, inspect the native storage and
@@ -78,7 +78,7 @@ Save As or proof that the original provider document was updated.
 
 ## The player still shows old or different information
 
-First establish the saved result with a reload in OpenTag. Then check that
+First establish the saved result with a reload in TagGroove. Then check that
 the player opened the same path, including any rename. If it did, inspect its
 metadata/library refresh behavior and the fields/tag families it chooses.
 Do not assume a different displayed album artist or image proves a failed
@@ -170,7 +170,7 @@ or that every tag-source service is unavailable. See
 On the current mobile Help route, a message provides the URL instead of
 using the desktop opener. A useful report contains:
 
-- OpenTag version from **Help → About OpenTag**, OS version, architecture and
+- TagGroove version from **Help → About TagGroove**, OS version, architecture and
   package filename when installation is involved.
 - The exact menu/dialog/action, selected and visible file counts, filter state,
   and whether unsaved edits were present.
@@ -201,4 +201,4 @@ and configuration commands.
 - [Editing, saving and undo](../getting-started/editing-and-saving.md)
 - [Opening files](../getting-started/opening-files.md)
 - [Messages options](../reference/options/messages.md)
-- [About OpenTag and this guide](about.md)
+- [About TagGroove and this guide](about.md)

@@ -1484,7 +1484,7 @@ fn replay_side_file(side: &SideFile, backward: bool) -> Result<(), ErrorCause> {
     };
     if !holds(from.as_ref(), &side.path) {
         return Err(ErrorCause::message(
-            "Changed outside OpenTag: {value}",
+            "Changed outside TagGroove: {value}",
             [("value", display(&side.path))],
         ));
     }
@@ -1801,7 +1801,7 @@ mod tests {
         assert_eq!(json[0]["diagnostic"]["cause"]["kind"], "owned");
         assert_eq!(
             json[0]["diagnostic"]["cause"]["key"],
-            "Changed outside OpenTag: {value}"
+            "Changed outside TagGroove: {value}"
         );
         assert_eq!(fs::read(current).unwrap(), b"External cover");
         assert!(!from.exists());

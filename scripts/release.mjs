@@ -198,7 +198,7 @@ function checkedTag(tag) {
 
 export function sourceAssetName(tag) {
   checkedTag(tag);
-  return `OpenTag-${tag}-sources.tar.xz`;
+  return `TagGroove-${tag}-sources.tar.xz`;
 }
 
 const sourceBuilder = fileURLToPath(new URL('./audio-source-bundle.py', import.meta.url));
@@ -228,7 +228,7 @@ export function assetName(tag, platform, source) {
   else if (platform === 'ios-arm64-simulator-preview' && source.endsWith('.app.zip')) suffix = '-debug.app.zip';
   else suffix = FORMATS[platform].find(format => source.endsWith(format));
   if (!suffix) throw new Error(`Unsupported artifact format for ${platform}: ${basename(source)}`);
-  return `OpenTag-${tag}-${platform}${suffix}`;
+  return `TagGroove-${tag}-${platform}${suffix}`;
 }
 
 async function describe(path) {
@@ -265,7 +265,7 @@ export async function collectAssets({ plan, platform, sourcePaths, outputDir, na
     const { path: _path, ...description } = await describe(target);
     assets.push(description);
   }
-  if (assets.length !== expected.length || !expected.every(suffix => names.has(`OpenTag-${plan.tag}-${platform}${suffix}`))) throw new Error(`Missing required artifact formats for ${platform}`);
+  if (assets.length !== expected.length || !expected.every(suffix => names.has(`TagGroove-${plan.tag}-${platform}${suffix}`))) throw new Error(`Missing required artifact formats for ${platform}`);
   const nativePath = join(outputDir, `native-${platform}.json`);
   if (nativeManifest && resolve(nativeManifest) !== resolve(nativePath)) await copyFile(nativeManifest, nativePath);
   const native = await nativeEvidence(plan, platform, nativePath);
@@ -291,7 +291,7 @@ export async function assembleRelease({ plan, directory }) {
         || Object.entries(native).some(([key, value]) => manifest.native[key] !== value))
       throw new Error(`Native evidence hash or target mismatch: ${platform}`);
     nativeBuilds[platform] = native;
-    const expectedNames = FORMATS[platform].map(suffix => `OpenTag-${plan.tag}-${platform}${suffix}`);
+    const expectedNames = FORMATS[platform].map(suffix => `TagGroove-${plan.tag}-${platform}${suffix}`);
     if (!Array.isArray(manifest.assets) || manifest.assets.length !== expectedNames.length) throw new Error(`Incomplete package set in ${manifestName}`);
     for (const item of manifest.assets) {
       if (!expectedNames.includes(item.name) || names.has(item.name)) throw new Error(`Unexpected or duplicate release asset: ${item.name}`);
@@ -320,9 +320,9 @@ export async function assembleRelease({ plan, directory }) {
 }
 
 export function releaseBody(plan, repository, notes = '') {
-  return `![OpenTag](https://raw.githubusercontent.com/${repository}/${plan.tag}/assets/brand/OpenTag-Brand-Kit/03-banners/opentag-github-light-1280x640.png)
+  return `![TagGroove](https://raw.githubusercontent.com/${repository}/${plan.tag}/assets/brand/TagGroove-Brand-Kit/03-banners/taggroove-github-light-1280x640.png)
 
-OpenTag — Tag, Organize, Enjoy.
+TagGroove — Tag, Organize, Enjoy.
 
 ${plan.prerelease ? '**Development prerelease.**' : `**Release${plan.version.startsWith('0.') ? ' (pre-1.0)' : ''}.**`} Source: [${plan.commit.slice(0, 12)}](https://github.com/${repository}/commit/${plan.commit}).
 Feature parity and runtime qualification remain tracked in the [parity ledger](https://github.com/${repository}/blob/${plan.tag}/docs/PARITY.md).
@@ -334,7 +334,7 @@ ${notes.trim() ? `\n${notes.trim()}\n` : ''}
 | Windows installer | x64 | unsigned; no Authenticode certificate |
 | macOS DMG and app archive | Apple Silicon arm64 / Intel x64 | ad-hoc signed; not Apple notarized |
 | Linux AppImage, DEB, RPM | x64 / arm64 | unsigned packages |
-| Android UI preview (release APK) | arm64 | signed with the OpenTag application key; document editing and save-back integration in progress |
+| Android UI preview (release APK) | arm64 | signed with the TagGroove application key; document editing and save-back integration in progress |
 | iOS simulator UI preview ZIP | arm64 simulator, debug | unsigned simulator app; document editing/save-back in progress; not a device installer or App Store package |
 | Corresponding source archive | All seven build targets | Version-stamped application source, vendored Cargo dependencies, frontend assets, original native archives, licenses, patches and build provenance |
 
@@ -352,7 +352,7 @@ export function makeLatest(plan, latest) {
 }
 
 export async function publishRelease({ api, plan, assembled, repository, notes = '' }) {
-  const metadata = { tag_name: plan.tag, target_commitish: plan.commit, name: `OpenTag ${plan.tag}`, body: releaseBody(plan, repository, notes), draft: true, prerelease: plan.prerelease, make_latest: 'false' };
+  const metadata = { tag_name: plan.tag, target_commitish: plan.commit, name: `TagGroove ${plan.tag}`, body: releaseBody(plan, repository, notes), draft: true, prerelease: plan.prerelease, make_latest: 'false' };
   let release = await api.findRelease(plan.tag);
   if (release && !release.draft) {
     // A rerun after a successful publication is a no-op, never a duplicate.
@@ -538,13 +538,13 @@ async function main(command) {
     console.log(signature);
     await collectAssets({ plan, platform: 'android-arm64', sourcePaths: paths, outputDir });
   } else if (command === 'collect-ios') {
-    const app = join(root, 'src-tauri/gen/apple/build/arm64-sim/OpenTag.app');
+    const app = join(root, 'src-tauri/gen/apple/build/arm64-sim/TagGroove.app');
     const executable = execFileSync('plutil', ['-extract', 'CFBundleExecutable', 'raw', '-o', '-', join(app, 'Info.plist')], { encoding: 'utf8' }).trim();
     const version = execFileSync('plutil', ['-extract', 'CFBundleShortVersionString', 'raw', '-o', '-', join(app, 'Info.plist')], { encoding: 'utf8' }).trim();
     const info = execFileSync('xcrun', ['vtool', '-show-build', join(app, executable)], { encoding: 'utf8' });
     if (version !== appleVersion(plan.version) || !info.includes('IOSSIMULATOR')) throw new Error('Expected matching-version iOS simulator app');
     await mkdir(outputDir, { recursive: true });
-    const zip = join(outputDir, assetName(plan.tag, 'ios-arm64-simulator-preview', 'OpenTag.app.zip'));
+    const zip = join(outputDir, assetName(plan.tag, 'ios-arm64-simulator-preview', 'TagGroove.app.zip'));
     execFileSync('ditto', ['-c', '-k', '--sequesterRsrc', '--keepParent', app, zip]);
     await collectAssets({ plan, platform: 'ios-arm64-simulator-preview', sourcePaths: [zip], outputDir });
   } else if (command === 'publish') {

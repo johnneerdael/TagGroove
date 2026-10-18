@@ -5,7 +5,7 @@
 // Standalone (type imports only), so the rules are unit-tested directly.
 
 /** pages.tags (defaults in options-ui TAGS_PAGE_DEFAULTS): Options → Tags switches beyond the tag type pages. */
-/** Options → Tags → Save mode at extended tag dialog, when << or >> leaves a changed file: keep the changes pending (OpenTag's default), ask, discard them or save the file. */
+/** Options → Tags → Save mode at extended tag dialog, when << or >> leaves a changed file: keep the changes pending (TagGroove's default), ask, discard them or save the file. */
 export type ExtendedSaveMode='pending'|'ask'|'ignore'|'save';
 export type TagsPagePrefs={save_on_move:boolean;no_folder_image:boolean;extended_save_mode:ExtendedSaveMode};
 export function tagsPagePrefs(values:Record<string,unknown>):TagsPagePrefs{

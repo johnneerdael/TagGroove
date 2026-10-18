@@ -10,7 +10,7 @@ configs:
 settingGroups:
   app:
     base:
-      PRODUCT_NAME: OpenTag
+      PRODUCT_NAME: TagGroove
       PRODUCT_BUNDLE_IDENTIFIER: org.opentag.editor
 targetTemplates:
   app:
