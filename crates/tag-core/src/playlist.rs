@@ -388,9 +388,10 @@ fn resolve_input_entries(
                     value,
                     entry_candidates_diagnostic(value, playlist_directory),
                 ),
-                SourceLocation::Xml { value, base, uri } => {
-                    (value, xml_candidates(value, base, *uri, playlist_directory))
-                }
+                SourceLocation::Xml { value, base, uri } => (
+                    value,
+                    xml_candidates(value, base, *uri, playlist_directory, &exists),
+                ),
             };
             match candidates {
                 Ok(candidates) => match candidates.into_iter().find(|path| exists(path)) {
@@ -433,6 +434,7 @@ fn xml_candidates(
     base: &XmlBase,
     uri: bool,
     directory: &Path,
+    exists: &impl Fn(&Path) -> bool,
 ) -> Result<Vec<PathBuf>, ErrorCause> {
     let value = value.trim();
     if value.len() > MAX_XML_URI {
@@ -448,6 +450,33 @@ fn xml_candidates(
             "{location}: network shares are not supported by XML playlists",
             [("location", value.into())],
         ));
+    }
+    let scheme = value.split_once(':').is_some_and(|(prefix, _)| {
+        !prefix.is_empty()
+            && prefix.starts_with(|c: char| c.is_ascii_alphabetic())
+            && prefix
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '-' | '.'))
+    });
+    // WPL/ASX filesystem names can contain a colon on Unix. An opaque
+    // scheme-looking name is ambiguous: prefer an existing local candidate,
+    // then retain the strict URI diagnostic if no local file is present.
+    // Explicit file: URIs and scheme:// locations never take this fallback.
+    if !uri
+        && !cfg!(windows)
+        && scheme
+        && !is_windows_absolute(value)
+        && url_scheme(value).is_none()
+        && !value
+            .split_once(':')
+            .unwrap()
+            .0
+            .eq_ignore_ascii_case("file")
+    {
+        let candidates = entry_candidates_diagnostic(value, directory)?;
+        if candidates.iter().any(|path| exists(path)) {
+            return Ok(candidates);
+        }
     }
     let windows_drive = value.as_bytes().get(1) == Some(&b':')
         && value.starts_with(|c: char| c.is_ascii_alphabetic());
@@ -466,13 +495,6 @@ fn xml_candidates(
         }
         return entry_candidates_diagnostic(value, directory);
     }
-    let scheme = value.split_once(':').is_some_and(|(prefix, _)| {
-        !prefix.is_empty()
-            && prefix.starts_with(|c: char| c.is_ascii_alphabetic())
-            && prefix
-                .chars()
-                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '-' | '.'))
-    });
     if uri || scheme {
         if percent_decode(value).is_none() || value.contains('\\') {
             return Err(ErrorCause::message(
@@ -1230,6 +1252,35 @@ mod tests {
             assert_eq!(loaded.result.missing.len(), 1);
         }
     }
+    #[test]
+    fn explicit_xml_uris_and_windows_drive_rules_do_not_probe_ambiguous_paths() {
+        let base = std::sync::Arc::new(Ok(url::Url::parse("file:///Music/list.wpl").unwrap()));
+        let mut values = vec![
+            "https://invalid.example/song.wav",
+            "file://remote.invalid/share/song.wav",
+            "//remote.invalid/share/song.wav",
+            r"\\remote.invalid\share\song.wav",
+        ];
+        if cfg!(windows) {
+            values.extend(["C:existing.wav", r"C:sub\existing.wav"]);
+        } else {
+            values.push(r"C:\Music\existing.wav");
+        }
+        for value in values {
+            let error = xml_candidates(value, &base, false, Path::new("."), &|_| {
+                panic!("{value}: unsafe literal candidate reached filesystem probe")
+            })
+            .unwrap_err();
+            let message = error.to_string();
+            assert!(
+                message.contains("local")
+                    || message.contains("network")
+                    || message.contains("Windows"),
+                "{value}: {message}"
+            );
+        }
+    }
+
     #[test]
     fn oversized_joined_xml_location_never_reaches_filesystem_probe() {
         let base = std::sync::Arc::new(Ok(url::Url::parse(&format!(

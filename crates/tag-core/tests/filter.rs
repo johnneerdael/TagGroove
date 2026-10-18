@@ -257,3 +257,24 @@ fn numeric_filters_compare_the_numeric_part_of_values() {
         assert_eq!(matches_filter(query, &f).unwrap(), expected, "{query}");
     }
 }
+
+#[test]
+fn error_messages_identify_the_failed_filter_context() {
+    assert!(compile_filter("title MATCHES \"(\"")
+        .unwrap_err()
+        .contains("Invalid regular expression in MATCHES operand"));
+    assert!(compile_filter("\"$unknown(x)\" IS yes")
+        .unwrap_err()
+        .contains("Invalid format string in filter selector"));
+    let error = compile_filter("猫 HAS \"unfinished").unwrap_err();
+    assert!(error.contains("character 7"), "{error}");
+    assert!(error.contains("Close the double quote"), "{error}");
+    // Preserve the current explicit refusal until original mixed-quote semantics
+    // are qualified; never silently turn a fragment into another expression.
+    assert!(compile_filter("hidden \"orchestra\"")
+        .unwrap_err()
+        .contains("complete search string"));
+    assert!(compile_filter("artist HAS hidden \"orchestra\"")
+        .unwrap_err()
+        .contains("complete filter operand"));
+}

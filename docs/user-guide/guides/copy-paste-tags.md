@@ -77,9 +77,33 @@ text-tag copy included all pictures.
 
 Pasted artwork stays pending until **Save tags**. **Discard pending changes**
 abandons it with the selected files' other pending edits. Provider-document
-sources and destinations have additional access/copy limits; **Save a copy…**
-currently carries edited tag fields, not pending artwork. Use supported local
-copies when an artwork transfer must be verified.
+sources and destinations have additional access/copy limits. For a supported
+provider document, **Save a copy… → Edited copy** includes pending tag fields
+and pasted artwork, including a pending removal of all covers. **Original
+backup** uses the last verified source and ignores pending changes. Check the
+saved copy before discarding the source or recovery files; cancelling or
+failing the copy retains the source's pending edits.
+
+Pending fields and artwork written to an **Edited copy** use the same current
+tag-writing settings and field mappings. For example, a configured APEv2-only
+MPEG policy also applies to pasted artwork. **Original backup** preserves the
+verified bytes without those conversions. The saved provider copy may display
+a custom field alias under its native field name.
+
+For a **Source read-only** or **Recovery required** document, Copy, Paste and
+Cut can still stage cover changes from its readable working copy. Choose
+**Save a copy… → Edited copy** to keep those changes; **Save tags** and
+immediate cover writes remain unavailable. If retained metadata is unreadable,
+clipboard operations leave its artwork alone instead of staging a replacement
+or removal from an unknown cover list.
+
+This check also runs when recovery documents are restored after a restart.
+If the edited bytes cannot be read, the displayed tags may come from the last
+verified backup. The **Retained tags and artwork are unavailable** warning
+identifies that situation. Choose **Original backup** to export the verified
+source; displayed backup tags do not mean the edited copy can be recovered.
+Enabling **List chapters as separate files** does not make a readable recovery
+copy's artwork unavailable; this check reads the retained file as a whole.
 
 ## Cut without deleting the audio
 

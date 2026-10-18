@@ -103,8 +103,8 @@ Reduce the example before applying anything:
 4. Check commas, apostrophes, literal parentheses, empty arguments and
    quoting with [Format strings](../reference/format-strings.md).
 5. For regex, record pattern, replacement and case setting separately.
-   **Find** uses JavaScript Unicode regex; the shared core uses Boost-compatible
-   syntax. Filter and web-source defaults also need their own context.
+   **Find** and the shared core use Boost-compatible syntax, but their quoting
+   and case controls differ. Filter and web-source defaults also need their own context.
 6. Compare both a matching and a nonmatching practice value. “No change” can
    mean no match, rather than a reported parser error.
 

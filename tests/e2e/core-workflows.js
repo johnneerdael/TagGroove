@@ -105,7 +105,25 @@
       dlg.querySelector('#options-cancel').click(); await sleep(300); return pages;
     });
 
-    await step('Find (Cmd+F) opens', async () => { key('f', { metaKey: true }); await sleep(600); const d = [...document.querySelectorAll('dialog[open], .find-window, [role=dialog]')].map(e => e.getAttribute('aria-label') || e.className).join('|'); if (!d) throw new Error('no find dialog'); document.querySelectorAll('dialog[open]').forEach(x => x.close()); key('Escape'); return d; });
+    await step('Find regex uses Boost through the native command and reports invalid patterns', async () => {
+      document.body.focus(); key('f', { metaKey: true });
+      const dlg = await waitFor(() => document.querySelector('dialog.find-dialog[open]'), 5000, 'Find dialog');
+      try {
+        const criteria = dlg.querySelector('#find-criteria'), strategy = dlg.querySelector('#find-strategy');
+        strategy.value = 'regex'; strategy.dispatchEvent(new Event('change', { bubbles: true }));
+        criteria.value = String.raw`(?i)\Asine-[ab]\.mp3\z`; criteria.dispatchEvent(new Event('input', { bubbles: true }));
+        dlg.querySelector('#find-run').click();
+        await waitFor(() => /2 matches in 2 files/.test(dlg.querySelector('#find-status').textContent), 8000, 'Boost Find filename results');
+        const matches = [...dlg.querySelectorAll('tbody tr')].map(row => row.children[0].textContent).sort();
+        if (matches.join('|') !== 'sine-a.mp3|sine-b.mp3') throw new Error('Find results: ' + matches);
+        criteria.value = '('; criteria.dispatchEvent(new Event('input', { bubbles: true }));
+        if (dlg.querySelectorAll('tbody tr').length) throw new Error('old results survived an edit');
+        dlg.querySelector('#find-run').click();
+        await waitFor(() => /Invalid regular expression:/.test(dlg.querySelector('#find-status').textContent), 8000, 'native syntax error');
+        if (dlg.querySelectorAll('tbody tr').length || !dlg.querySelector('#find-select').disabled) throw new Error('failed Find exposed partial results');
+        return 'two filename matches; edited criteria clear results; invalid pattern reports an error';
+      } finally { dlg.close(); }
+    });
 
     await step('Remove from list (Del) and Refresh (F5)', async () => {
       await clickRow('sine-b.mp3'); const before = document.querySelectorAll('tr[data-path]').length;

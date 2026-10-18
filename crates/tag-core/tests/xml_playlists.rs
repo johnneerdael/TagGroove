@@ -85,6 +85,83 @@ fn xspf_uri_decoding_is_once_while_wpl_paths_keep_literal_percent_names() {
     );
     assert_eq!(wpl.files, [percent]);
 }
+#[cfg(not(windows))]
+#[test]
+fn wpl_and_asx_raw_colon_names_are_loaded_before_uri_interpretation() {
+    let dir = tempfile::tempdir().unwrap();
+    for name in ["mix:disc.flac", "a:disc.flac", "mix:disc%20one.flac"] {
+        let audio = file(dir.path(), name);
+        for (extension, text) in [
+            (
+                "wpl",
+                format!(r#"<smil><body><seq><media src="{name}"/></seq></body></smil>"#),
+            ),
+            (
+                "asx",
+                format!(r#"<ASX version="3.0"><ENTRY><REF HREF="{name}"/></ENTRY></ASX>"#),
+            ),
+        ] {
+            let result = read(dir.path(), extension, &text);
+            assert_eq!(
+                result.files.as_slice(),
+                std::slice::from_ref(&audio),
+                "{extension}: {name}"
+            );
+            assert!(
+                result.missing.is_empty(),
+                "{extension}: {:?}",
+                result.missing
+            );
+        }
+        // XSPF locations remain URI references, even if a matching literal exists.
+        let xspf = read(
+            dir.path(),
+            "xspf",
+            &format!(
+                r#"<playlist xmlns="http://xspf.org/ns/0/" version="1"><trackList><track><location>{name}</location></track></trackList></playlist>"#
+            ),
+        );
+        assert!(xspf.files.is_empty());
+        assert!(xspf.missing[0].1.contains("local file URIs"));
+    }
+}
+
+#[test]
+fn wpl_and_asx_uri_and_drive_safety_survives_literal_path_fallback() {
+    let dir = tempfile::tempdir().unwrap();
+    // A local spelling of a hierarchical URL must not override URI validation.
+    #[cfg(not(windows))]
+    file(dir.path(), "https:/invalid.example/song.wav");
+    for (extension, wrap) in [
+        ("wpl", ("<smil><body><seq>", "</seq></body></smil>")),
+        ("asx", ("<ASX version=\"3.0\">", "</ASX>")),
+    ] {
+        for value in [
+            "https://invalid.example/song.wav",
+            "https:missing.wav",
+            "file://remote.invalid/share/song.wav",
+            "//remote.invalid/share/song.wav",
+            r"\\remote.invalid\share\song.wav",
+            "C:missing.wav",
+        ] {
+            let entry = if extension == "wpl" {
+                format!(r#"<media src="{value}"/>"#)
+            } else {
+                format!(r#"<ENTRY><REF HREF="{value}"/></ENTRY>"#)
+            };
+            let text = format!("{}{entry}{}", wrap.0, wrap.1);
+            let result = read(dir.path(), extension, &text);
+            assert!(result.files.is_empty(), "{extension}: {value}");
+            assert_eq!(result.missing.len(), 1, "{extension}: {value}");
+            let error = &result.missing[0].1;
+            assert!(
+                error.contains("local") || error.contains("network") || error.contains("Windows"),
+                "{extension}: {value}: {error}"
+            );
+        }
+    }
+}
+
 #[test]
 fn local_xml_base_is_inherited_and_remote_scope_does_not_redirect_to_local_files() {
     let dir = tempfile::tempdir().unwrap();

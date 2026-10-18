@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 use tag_core::{Action, AudioEntry, Fields, FileError, ScanResult};
 mod action_host;
+mod associated_files;
 mod columns;
 mod converters;
 mod cover_drag;
@@ -14,6 +15,7 @@ mod exports;
 mod file_hashes;
 mod file_ops;
 mod filter_cache;
+mod find;
 mod history;
 mod import_diagnostics;
 mod languages;
@@ -25,6 +27,7 @@ mod managed_actions;
 mod mp3tag_columns;
 mod mp3tag_tag_panel;
 mod playlists;
+mod profile_migration;
 mod progress;
 mod rename_plan;
 mod settings;
@@ -488,16 +491,36 @@ async fn document_states(
 }
 #[tauri::command]
 async fn document_save_copy(
-    app: tauri::AppHandle,
     path: String,
     updates: Fields,
+    covers: Option<Vec<list_behaviour::PendingCover>>,
     version: String,
 ) -> Result<ScanResult, String> {
-    io(move || documents::save_copy(&app, &path, &updates, &version)).await
+    io(move || documents::save_copy(&path, &updates, covers.as_deref(), &version)).await
 }
 #[tauri::command]
 async fn document_working_entries(paths: Vec<String>) -> Result<ScanResult, String> {
-    io(move || Ok(batch(&paths, documents::read_working))).await
+    io(move || Ok(working_entries(&paths))).await
+}
+fn working_entries(paths: &[String]) -> ScanResult {
+    let mut result = ScanResult::default();
+    let mut seen = std::collections::HashSet::new();
+    // Reconciliation addresses retained physical entries, not presentation rows.
+    // In particular, neither chapter preferences nor a .cue suffix may expand
+    // a requested identity into other paths.
+    for path in paths {
+        if !seen.insert(path) {
+            continue;
+        }
+        match documents::read_working(Path::new(path)) {
+            Ok(entry) => result.entries.push(entry),
+            Err(error) => result.errors.push(FileError {
+                path: path.clone(),
+                error,
+            }),
+        }
+    }
+    result
 }
 #[tauri::command]
 async fn restore_document_recovery() -> Result<ScanResult, String> {
@@ -902,6 +925,14 @@ struct Preview {
     plan_token: Option<String>,
 }
 
+#[derive(Serialize)]
+struct RenamePreview {
+    path: String,
+    value: String,
+    plan_token: Option<String>,
+    associated: Vec<associated_files::Preview>,
+}
+
 #[tauri::command]
 async fn preview_format(
     paths: Vec<String>,
@@ -1109,7 +1140,7 @@ async fn preview_rename(
     paths: Vec<String>,
     template: String,
     columns: Option<Vec<evaluation::ColumnSpec>>,
-) -> Result<Vec<Preview>, String> {
+) -> Result<Vec<RenamePreview>, String> {
     let settings = evaluation_settings(columns)?;
     io(move || {
         reject_provider_operation(&paths, "Rename")?;
@@ -1123,14 +1154,37 @@ async fn preview_rename(
                 &settings,
             )?);
         }
-        let token = rename_plan::record(&paths, &template, targets.clone())?;
+        let associated = if associated_files::enabled() {
+            Some(associated_files::Plan::new(
+                paths.iter().cloned().zip(targets.iter().cloned()).collect(),
+                true,
+            )?)
+        } else {
+            None
+        };
+        let token =
+            rename_plan::record_associated(&paths, &template, targets.clone(), associated.clone())?;
         Ok(paths
             .into_iter()
             .zip(targets)
-            .map(|(path, target)| Preview {
-                path,
+            .map(|(path, target)| RenamePreview {
+                path: path.clone(),
                 value: target.to_string_lossy().into_owned(),
                 plan_token: Some(token.clone()),
+                associated: associated
+                    .as_ref()
+                    .and_then(|plan| plan.groups.iter().find(|g| g.audio.source == path))
+                    .map(|group| {
+                        group
+                            .associated
+                            .iter()
+                            .map(|item| associated_files::Preview {
+                                from: item.source.clone(),
+                                to: item.target.to_string_lossy().into_owned(),
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default(),
             })
             .collect())
     })
@@ -1147,6 +1201,7 @@ struct RenameResult {
     #[serde(flatten)]
     result: ScanResult,
     renamed: Vec<Renamed>,
+    associated_renamed: Vec<Renamed>,
 }
 
 #[cfg(test)]
@@ -1156,7 +1211,7 @@ async fn rename_files(
     template: String,
     plan_token: Option<String>,
 ) -> Result<RenameResult, String> {
-    rename_files_diagnostic(paths, template, plan_token)
+    rename_files_diagnostic(paths, template, plan_token, None)
         .await
         .map(|report| report.result)
 }
@@ -1164,16 +1219,42 @@ async fn rename_files_diagnostic(
     paths: Vec<String>,
     template: String,
     plan_token: Option<String>,
+    audio_only: Option<bool>,
 ) -> Result<tag_core::batch_errors::Detailed<RenameResult>, String> {
     let evaluation = evaluation_settings(None)?;
-    let targets = paths.clone();
     io(move || {
-        reject_provider_operation(&paths, "Rename")?;
-        history::record("Tag → Filename", None, &targets, move || {
-            rename_planned_diagnostic(paths, &template, plan_token, &evaluation)
-        })
+        rename_files_with_policy(
+            paths,
+            &template,
+            plan_token,
+            &evaluation,
+            audio_only.unwrap_or(false),
+            associated_files::enabled(),
+        )
     })
     .await
+}
+fn rename_files_with_policy(
+    paths: Vec<String>,
+    template: &str,
+    plan_token: Option<String>,
+    evaluation: &evaluation::EvaluationSettings,
+    audio_only: bool,
+    associated_enabled: bool,
+) -> Result<tag_core::batch_errors::Detailed<RenameResult>, String> {
+    reject_provider_operation(&paths, "Rename")?;
+    // Inline filename edits are audio-only and never reuse converter receipts.
+    if audio_only && plan_token.is_some() {
+        return Err("The rename request changed; preview again".into());
+    }
+    let associated_enabled = associated_enabled && !audio_only;
+    let mut targets = paths.clone();
+    if let Some(token) = &plan_token {
+        targets.extend(rename_plan::associated_sources(token, &paths, template)?);
+    }
+    history::record("Tag → Filename", None, &targets, move || {
+        rename_planned_with_policy(paths, template, plan_token, evaluation, associated_enabled)
+    })
 }
 
 mod diagnostics_ipc {
@@ -1197,8 +1278,9 @@ mod diagnostics_ipc {
         paths: Vec<String>,
         template: String,
         plan_token: Option<String>,
+        audio_only: Option<bool>,
     ) -> Result<tag_core::batch_errors::Detailed<super::RenameResult>, String> {
-        super::rename_files_diagnostic(paths, template, plan_token).await
+        super::rename_files_diagnostic(paths, template, plan_token, audio_only).await
     }
 }
 
@@ -1221,11 +1303,27 @@ fn rename_planned(
 ) -> Result<RenameResult, String> {
     rename_planned_diagnostic(paths, template, plan_token, evaluation).map(|report| report.result)
 }
+#[cfg(test)]
 fn rename_planned_diagnostic(
     paths: Vec<String>,
     template: &str,
     plan_token: Option<String>,
     evaluation: &evaluation::EvaluationSettings,
+) -> Result<tag_core::batch_errors::Detailed<RenameResult>, String> {
+    rename_planned_with_policy(
+        paths,
+        template,
+        plan_token,
+        evaluation,
+        associated_files::enabled(),
+    )
+}
+fn rename_planned_with_policy(
+    paths: Vec<String>,
+    template: &str,
+    plan_token: Option<String>,
+    evaluation: &evaluation::EvaluationSettings,
+    associated_enabled: bool,
 ) -> Result<tag_core::batch_errors::Detailed<RenameResult>, String> {
     {
         let mut diagnostics = Vec::new();
@@ -1235,12 +1333,22 @@ fn rename_planned_diagnostic(
         };
         let mut plans = vec![];
         let mut destinations = std::collections::HashSet::new();
+        let mut associated = None;
         let candidates = if let Some(token) = plan_token {
-            rename_plan::consume(&token, &paths, template)?
+            let (targets, reviewed_associated) =
+                rename_plan::consume_associated(&token, &paths, template)?;
+            if reviewed_associated.is_some() != associated_enabled {
+                return Err("The associated-file policy changed; preview again".into());
+            }
+            associated = reviewed_associated;
+            targets
                 .into_iter()
                 .map(|(path, target)| (path, Ok(target)))
                 .collect::<Vec<_>>()
         } else {
+            if associated_enabled {
+                return Err("Preview the associated files before renaming".into());
+            }
             paths
                 .into_iter()
                 .enumerate()
@@ -1276,16 +1384,28 @@ fn rename_planned_diagnostic(
             }
         }
         let mut renamed = vec![];
+        let mut associated_renamed = vec![];
         // A file whose destination clashes is skipped and reported; the
         // others are still renamed.
         for (path, target) in plans {
-            let operation = if dunce::canonicalize(&path).ok().as_ref() == Some(&target) {
+            let group = associated
+                .as_ref()
+                .and_then(|plan| plan.groups.iter().find(|group| group.audio.source == path));
+            let operation = if let Some(group) = group {
+                group.execute(&mut tag_core::operations::rename_no_clobber)
+            } else if dunce::canonicalize(&path).ok().as_ref() == Some(&target) {
                 Ok(())
             } else {
                 tag_core::operations::rename_no_clobber(Path::new(&path), &target)
             };
             match operation {
                 Ok(()) => {
+                    if let Some(group) = group {
+                        associated_renamed.extend(group.associated.iter().map(|item| Renamed {
+                            from: item.source.clone(),
+                            to: item.target.to_string_lossy().into_owned(),
+                        }));
+                    }
                     let to = target.to_string_lossy().into_owned();
                     renamed.push(Renamed {
                         from: path,
@@ -1300,7 +1420,11 @@ fn rename_planned_diagnostic(
             }
         }
         Ok(tag_core::batch_errors::Detailed {
-            result: RenameResult { result, renamed },
+            result: RenameResult {
+                result,
+                renamed,
+                associated_renamed,
+            },
             error_diagnostics: diagnostics,
         })
     }
@@ -1444,6 +1568,7 @@ pub fn run() {
             restore_document_recovery,
             get_covers,
             filter_matches,
+            find::regex_find,
             preview_numbering,
             scan_files,
             save_fields,
@@ -1486,6 +1611,7 @@ pub fn run() {
             file_ops::trash_files,
             file_ops::delete_files_permanently,
             file_ops::modifier_keys,
+            file_ops::preview_transfer,
             file_ops::transfer_files,
             file_ops::reveal_files,
             file_ops::open_directory,
@@ -1535,6 +1661,10 @@ pub fn run() {
             utilities::run_tool,
             utilities::export_configuration,
             utilities::import_configuration,
+            profile_migration::profile_migration_preview,
+            profile_migration::profile_migration_apply,
+            profile_migration::profile_migration_status,
+            profile_migration::profile_migration_restore,
             utilities::open_configuration_folder,
             languages::language_catalogs,
             languages::open_languages_folder,
@@ -1558,6 +1688,10 @@ pub fn run() {
             }
         });
 }
+
+#[cfg(test)]
+#[path = "documents/copy_command_tests.rs"]
+mod document_copy_tests;
 
 #[cfg(test)]
 mod tests {
@@ -1968,6 +2102,17 @@ mod tests {
         .err()
         .unwrap()
         .contains("provider"));
+        assert!(
+            tauri::async_runtime::block_on(diagnostics_ipc::rename_files_with_diagnostics(
+                paths.clone(),
+                "'new'".into(),
+                None,
+                Some(true),
+            ))
+            .err()
+            .unwrap()
+            .contains("provider")
+        );
         assert!(tauri::async_runtime::block_on(export_csv(paths.clone(), output.clone())).is_err());
         let playlist_request = |paths: Vec<String>, output: String| playlists::PlaylistRequest {
             paths,
@@ -2188,6 +2333,104 @@ mod tests {
     }
 
     #[test]
+    fn working_entries_keep_physical_identity_with_chapter_listing_enabled() {
+        use base64::Engine;
+        use documents::command_fixture::Session;
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("provider.wav");
+        wav(&source);
+        let sheet = "FILE \"provider.wav\" WAVE\n  TRACK 01 AUDIO\n    TITLE \"Opening\"\n    INDEX 01 00:00:00\n  TRACK 02 AUDIO\n    TITLE \"Closing\"\n    INDEX 01 00:00:03\n";
+        tag_core::write_fields(
+            &source,
+            &Fields::from([
+                ("TITLE".into(), vec!["Episode".into()]),
+                ("CUESHEET".into(), vec![sheet.into()]),
+            ]),
+        )
+        .unwrap();
+        let image = dir.path().join("cover.png");
+        let png = base64::engine::general_purpose::STANDARD.decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j4n8AAAAASUVORK5CYII=").unwrap();
+        std::fs::write(&image, &png).unwrap();
+        tag_core::add_cover(&source, &image).unwrap();
+        let session = Session::import(&dir.path().join("private"), &source, "Episode.wav", true);
+        let second = Session::import(&dir.path().join("second"), &source, "Second.wav", false);
+        session.fail_publish();
+        let failed = tauri::async_runtime::block_on(save_fields(
+            vec![session.path.clone()],
+            Fields::from([("TITLE".into(), vec!["Recovered episode".into()])]),
+            None,
+        ))
+        .unwrap();
+        assert!(failed.entries.is_empty());
+        assert!(failed.errors[0].error.contains("publication failed"));
+        let retained = std::fs::read(&session.path).unwrap();
+        std::fs::remove_file(&source).unwrap(); // A provider read now fails.
+        let unmanaged = dir
+            .path()
+            .join("unknown.cue")
+            .to_string_lossy()
+            .into_owned();
+        // Valid cue content must still be rejected as an unmanaged physical
+        // request, rather than followed or rewritten into virtual track paths.
+        std::fs::write(&unmanaged, sheet).unwrap();
+        let paths = vec![
+            session.path.clone(),
+            unmanaged.clone(),
+            second.path.clone(),
+            session.path.clone(),
+            unmanaged.clone(),
+            second.path.clone(),
+        ];
+        let for_worker = paths.clone();
+        let result = tauri::async_runtime::block_on(io(move || {
+            let mut options = tag_core::TagOptions::default();
+            options.advanced.list_chapters = true;
+            Ok(settings::with_test_tag_options(options, || {
+                // Positive control: this file really has chapter rows and the
+                // production presentation transform observes the preference.
+                let listed = batch(
+                    std::slice::from_ref(&for_worker[0]),
+                    documents::read_working,
+                );
+                assert!(listed.errors.is_empty());
+                assert_eq!(listed.entries.len(), 2);
+                assert!(listed
+                    .entries
+                    .iter()
+                    .all(|entry| tag_core::subsong_parts(&entry.path).is_some()));
+                working_entries(&for_worker)
+            }))
+        }))
+        .unwrap();
+        assert_eq!(
+            result.entries.len(),
+            2,
+            "working entries must not expand chapters"
+        );
+        assert_eq!(result.entries[1].path, second.path);
+        assert_eq!(result.entries[1].fields["TITLE"], ["Episode"]);
+        let entry = &result.entries[0];
+        assert_eq!(entry.path, session.path);
+        assert_eq!(entry.fields["TITLE"], ["Recovered episode"]);
+        assert_eq!(entry.filename, "Episode.wav");
+        assert_eq!(entry.technical["_PATH"], std::slice::from_ref(&session.uri));
+        assert_eq!(entry.chapters.len(), 2);
+        assert_eq!(entry.covers.len(), 1);
+        assert!(entry.covers[0].data_base64.is_empty());
+        assert_eq!(result.errors.len(), 1);
+        assert_eq!(result.errors[0].path, unmanaged);
+        assert!(result.errors[0].error.contains("Unknown provider document"));
+        assert_eq!(std::fs::read(&session.path).unwrap(), retained);
+        // Also exercise the async command boundary, which delegates to the same
+        // worker; its unit-test options are otherwise the application's defaults.
+        let command = tauri::async_runtime::block_on(document_working_entries(paths)).unwrap();
+        assert_eq!(
+            serde_json::to_value(command).unwrap(),
+            serde_json::to_value(result).unwrap()
+        );
+    }
+
+    #[test]
     fn working_entries_reject_unmanaged_paths_and_never_fall_back_to_backup() {
         use documents::command_fixture::Session;
         let dir = tempfile::tempdir().unwrap();
@@ -2197,11 +2440,9 @@ mod tests {
         session.fail_publish();
         tauri::async_runtime::block_on(remove_tags(vec![session.path.clone()])).unwrap();
         std::fs::write(&session.path, b"unreadable retained audio").unwrap();
-        let local = tauri::async_runtime::block_on(document_working_entries(vec![
-            session.path.clone(),
-            source.to_string_lossy().into_owned(),
-        ]))
-        .unwrap();
+        let paths = vec![session.path.clone(), source.to_string_lossy().into_owned()];
+        let local =
+            tauri::async_runtime::block_on(document_working_entries(paths.clone())).unwrap();
         assert!(
             local.entries.is_empty(),
             "must not present backup as edited bytes"
@@ -2209,6 +2450,18 @@ mod tests {
         assert_eq!(local.errors.len(), 2);
         assert_eq!(local.errors[0].path, session.path);
         assert!(local.errors[1].error.contains("Unknown provider document"));
+        let chapter_enabled = tauri::async_runtime::block_on(io(move || {
+            let mut options = tag_core::TagOptions::default();
+            options.advanced.list_chapters = true;
+            Ok(settings::with_test_tag_options(options, || {
+                working_entries(&paths)
+            }))
+        }))
+        .unwrap();
+        assert_eq!(
+            serde_json::to_value(chapter_enabled).unwrap(),
+            serde_json::to_value(local).unwrap()
+        );
         // Recovery's separate baseline salvage remains available.
         let recovered = tauri::async_runtime::block_on(restore_document_recovery()).unwrap();
         assert!(recovered
@@ -2231,10 +2484,14 @@ mod tests {
         let source_bytes = std::fs::read(&source).unwrap();
         let paths = vec![source.to_string_lossy().into_owned()];
         let template = "'Title; Help'".to_string();
-        let report = tauri::async_runtime::block_on(
-            diagnostics_ipc::rename_files_with_diagnostics(paths.clone(), template.clone(), None),
-        )
-        .unwrap();
+        let report =
+            tauri::async_runtime::block_on(diagnostics_ipc::rename_files_with_diagnostics(
+                paths.clone(),
+                template.clone(),
+                None,
+                None,
+            ))
+            .unwrap();
         assert_eq!(report.result.result.errors.len(), 1);
         assert_eq!(report.error_diagnostics.len(), 1);
         assert_eq!(report.error_diagnostics[0].index, 0);
@@ -2641,5 +2898,206 @@ mod tests {
         let entry = tag_core::write_fields(&path, &fields).unwrap();
         let target = rename_target(&entry, "$replace(%title%,':','-')").unwrap();
         assert_eq!(target.file_name().unwrap(), "A-B.wav");
+    }
+    #[test]
+    fn inline_audio_only_rename_ignores_enabled_companions() {
+        let _journal = history::TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        for companions in [false, true] {
+            let dir = tempfile::tempdir().unwrap();
+            let root = dunce::canonicalize(dir.path()).unwrap();
+            let source = root.join("old.wav");
+            let target = root.join("O'Brien %title%.wav");
+            history::TEST_ROOTS.lock().unwrap().push(root.clone());
+            wav(&source);
+            let audio = std::fs::read(&source).unwrap();
+            if companions {
+                std::fs::write(root.join("old.lrc"), b"lyrics").unwrap();
+                std::fs::write(root.join("old.cdg"), b"karaoke").unwrap();
+            }
+            let result = rename_files_with_policy(
+                vec![source.to_string_lossy().into_owned()],
+                "'O''Brien %title%'",
+                None,
+                &evaluation_settings(None).unwrap(),
+                true,
+                true,
+            )
+            .unwrap()
+            .result;
+            assert!(result.result.errors.is_empty());
+            assert_eq!(result.renamed.len(), 1);
+            assert!(result.associated_renamed.is_empty());
+            assert!(!source.exists());
+            assert_eq!(std::fs::read(&target).unwrap(), audio);
+            let undo_step = history::history_state().unwrap().undo.unwrap();
+            assert_eq!(undo_step.label, "Tag → Filename");
+            assert_eq!(undo_step.files, 1, "inline history captures only the audio");
+            if companions {
+                assert_eq!(std::fs::read(root.join("old.lrc")).unwrap(), b"lyrics");
+                assert_eq!(std::fs::read(root.join("old.cdg")).unwrap(), b"karaoke");
+            }
+            assert!(!root.join("O'Brien %title%.lrc").exists());
+            assert!(!root.join("O'Brien %title%.cdg").exists());
+            if companions {
+                std::fs::write(root.join("old.lrc"), b"external lyric edit").unwrap();
+            }
+            let undo = tauri::async_runtime::block_on(history::undo_last()).unwrap();
+            assert_eq!(
+                serde_json::to_value(undo).unwrap()["errors"],
+                serde_json::json!([])
+            );
+            assert_eq!(std::fs::read(&source).unwrap(), audio);
+            assert!(!target.exists());
+            let redo = tauri::async_runtime::block_on(history::redo_last()).unwrap();
+            assert_eq!(
+                serde_json::to_value(redo).unwrap()["errors"],
+                serde_json::json!([])
+            );
+            assert_eq!(std::fs::read(&target).unwrap(), audio);
+            if companions {
+                assert_eq!(
+                    std::fs::read(root.join("old.lrc")).unwrap(),
+                    b"external lyric edit"
+                );
+                assert_eq!(std::fs::read(root.join("old.cdg")).unwrap(), b"karaoke");
+            }
+            history::TEST_ROOTS
+                .lock()
+                .unwrap()
+                .retain(|path| path != &root);
+        }
+    }
+
+    #[test]
+    fn registered_inline_rename_boundary_forwards_audio_only_mode() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
+        let source = root.join("old.wav");
+        wav(&source);
+        let audio = std::fs::read(&source).unwrap();
+        std::fs::write(root.join("old.lrc"), b"lyrics").unwrap();
+        let report =
+            tauri::async_runtime::block_on(diagnostics_ipc::rename_files_with_diagnostics(
+                vec![source.to_string_lossy().into_owned()],
+                "'literal %title%'".into(),
+                None,
+                Some(true),
+            ))
+            .unwrap();
+        assert!(report.result.result.errors.is_empty());
+        assert!(report.error_diagnostics.is_empty());
+        assert!(report.result.associated_renamed.is_empty());
+        assert_eq!(
+            std::fs::read(root.join("literal %title%.wav")).unwrap(),
+            audio
+        );
+        assert_eq!(std::fs::read(root.join("old.lrc")).unwrap(), b"lyrics");
+        assert!(!root.join("literal %title%.lrc").exists());
+    }
+
+    #[test]
+    fn configured_rename_still_requires_companion_preview_when_enabled() {
+        for companions in [false, true] {
+            let dir = tempfile::tempdir().unwrap();
+            let source = dir.path().join("old.wav");
+            wav(&source);
+            let audio = std::fs::read(&source).unwrap();
+            if companions {
+                std::fs::write(dir.path().join("old.lrc"), b"lyrics").unwrap();
+            }
+            let result = rename_files_with_policy(
+                vec![source.to_string_lossy().into_owned()],
+                "'new'",
+                None,
+                &evaluation_settings(None).unwrap(),
+                false,
+                true,
+            );
+            assert_eq!(
+                result.err().unwrap(),
+                "Preview the associated files before renaming"
+            );
+            assert_eq!(std::fs::read(source).unwrap(), audio);
+            assert!(!dir.path().join("new.wav").exists());
+            if companions {
+                assert_eq!(
+                    std::fs::read(dir.path().join("old.lrc")).unwrap(),
+                    b"lyrics"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn reviewed_tag_to_filename_moves_companions_and_requires_fresh_membership() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
+        let source = root.join("old.wav");
+        let target = root.join("new.wav");
+        wav(&source);
+        let paths = vec![source.to_string_lossy().into_owned()];
+        let lyric = root.join("old.lrc");
+        std::fs::write(&lyric, b"lyrics").unwrap();
+        let review = || {
+            let plan = associated_files::Plan::new(vec![(paths[0].clone(), target.clone())], true)
+                .unwrap();
+            rename_plan::record_associated(&paths, "new", vec![target.clone()], Some(plan)).unwrap()
+        };
+        let evaluation = evaluation_settings(None).unwrap();
+        let token = review();
+        assert_eq!(
+            rename_files_with_policy(paths.clone(), "new", Some(token), &evaluation, false, false,)
+                .err()
+                .unwrap(),
+            "The associated-file policy changed; preview again"
+        );
+        assert!(source.exists() && lyric.exists() && !target.exists());
+        let token = review();
+        std::fs::write(root.join("old.cdg"), b"late companion").unwrap();
+        assert!(rename_files_with_policy(
+            paths.clone(),
+            "new",
+            Some(token),
+            &evaluation,
+            false,
+            true
+        )
+        .is_err());
+        assert!(source.exists() && lyric.exists() && !target.exists());
+        let token = review();
+        assert!(
+            rename_files_with_policy(
+                paths.clone(),
+                "new",
+                Some(token.clone()),
+                &evaluation,
+                true,
+                true,
+            )
+            .is_err(),
+            "inline mode must not consume a reviewed converter receipt"
+        );
+        let result = rename_files_with_policy(
+            paths.clone(),
+            "new",
+            Some(token.clone()),
+            &evaluation,
+            false,
+            true,
+        )
+        .unwrap()
+        .result;
+        assert!(result.result.errors.is_empty());
+        assert_eq!(result.renamed.len(), 1);
+        assert_eq!(result.associated_renamed.len(), 2);
+        assert_eq!(std::fs::read(root.join("new.lrc")).unwrap(), b"lyrics");
+        assert_eq!(
+            std::fs::read(root.join("new.cdg")).unwrap(),
+            b"late companion"
+        );
+        assert!(!source.exists() && !lyric.exists());
+        assert!(
+            rename_files_with_policy(paths, "new", Some(token), &evaluation, false, true).is_err()
+        );
     }
 }

@@ -59,6 +59,12 @@ files present beside the playlist:
 | XSPF `Song%2520One.wav` | `Song%20One.wav` |
 | WPL `src="Song%20One.wav"` as a raw relative path | Try the literal `Song%20One.wav` first, using the existing path fallback rules |
 
+On macOS and Linux, a raw WPL or ASX filename such as `mix:disc.flac` or
+`a:disc.flac` is checked as a local filename before interpreting its colon as a
+URI scheme. If no local candidate exists, the normal URI or Windows-drive
+diagnostic remains. XSPF locations always use URI rules. Explicit `file:` URIs,
+`scheme://` URLs and absolute Windows drives retain their platform and URI checks.
+
 WPL and ASX accept ordinary relative/absolute filesystem paths as well as local
 `file:` URIs. Windows drive paths must be absolute and require Windows. Relative
 Windows backslash separators are also tried on other desktop systems. Non-ASCII

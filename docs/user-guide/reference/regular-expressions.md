@@ -25,12 +25,10 @@ the [`$regexp` reference](#regexp).
 | [Find](#in-the-filter-and-find), strategy **Regular expression** | Lists matching filename/field values | **Case sensitive** checkbox |
 | [Web-source parser commands](../tag-sources/web-source-reference.md#sayregexp), such as SayRegexp and RegexpReplace | Read or transform downloaded text and parser outputs | Case-sensitive by default |
 
-Format strings, actions, filters and web-source parser commands use the
-shared Boost-compatible core. **Find** uses the browser’s Unicode JavaScript
-regular expressions. Their advanced syntax and line-break rules differ; a
-pattern accepted in one context is not guaranteed to work in another. The
-detailed replacement and core flag rules below apply to the shared core;
-[Find’s specific behavior](#find-dialect) is described separately.
+Format strings, actions, filters, Find and web-source parser commands use the
+shared Boost-compatible core. Case defaults, quoting and replacement processing
+still depend on the context. Find searches without replacing text;
+[its case control and limits](#find-dialect) are described separately.
 
 The examples use `$regexp(text,pattern,replacement)` and show the text,
 pattern and replacement in separate columns. You'd normally use a placeholder
@@ -419,31 +417,40 @@ parentheses:
 | `* MATCHES "\s{2,}"` | any field contains a double space |
 | `artist MATCHES "^the "` | the artist starts with "The" |
 
-### Find uses JavaScript regular expressions { #find-dialect }
+### Find uses the shared Boost engine { #find-dialect }
 
 In **Edit → Find…** (++cmd+f++ / ++ctrl+f++), choose **Regular expression**
-to search filenames and individual tag values. Use **Case sensitive** to
-control letter case. Find compiles its pattern with JavaScript’s Unicode
-mode and an optional case-insensitive flag; it does not apply the shared
-core’s default multiline/dot-all behavior or replacement syntax.
-
-For example, unscoped `(?i)` is accepted by the shared core but is invalid
-in Find. Type `boats` and use the checkbox instead:
+to search filenames and individual tag values. Type the raw pattern without
+format-string apostrophes. Use **Case sensitive** to control letter case;
+inline options such as `(?i)` override that setting in the same way as in
+other regex contexts. The shared multiline/dot-all rules also apply.
 
 <!-- find-regex-examples:start -->
 | Pattern | Case sensitive | Value | Result |
 | --- | --- | --- | --- |
 | `boats` | Off | `Paper Boats` | Match |
 | `boats` | On | `Paper Boats` | No match |
-| `(?i)boats` | Off | `Paper Boats` | Invalid pattern |
+| `(?i)boats` | On | `Paper Boats` | Match |
+| `\APaper Boats\z` | Off | `Paper Boats` | Match |
+| `\APaper Boats\z` | Off | `Paper Boats Live` | No match |
+| `(` | Off | `Paper Boats` | Invalid pattern |
 <!-- find-regex-examples:end -->
 
 Find reports an invalid expression instead of treating it as no matches.
-It does not directly rewrite tags. Selecting a result changes the main
+A failed search clears its table, and editing the criteria, strategy or case
+setting clears previous results until **Find** runs again. Search work runs
+in the native backend; an earlier search cannot replace results from a newer
+query. In a browser-only preview without that backend, regex Find is unavailable.
+
+For one search, the native backend accepts up to 100,000 values, 1 MiB per
+value and 64 MiB of text overall; patterns can use up to 64 KiB. A limit error
+asks for a smaller File List or simpler pattern. It returns no partial results.
+
+Find does not directly rewrite tags. Selecting a result changes the main
 selection, where configured tag-panel defaults or save-on-move settings can
 still act. Review the selection before applying an action.
 
-<!-- verified: tests/guide-find-regex.test.mjs executes this actual table through src/find.ts findMatcher. -->
+<!-- verified: src-tauri/src/find.rs tests execute this table through the native Boost matcher; tests/guide-find-regex.test.mjs checks batching, errors and stale UI requests. -->
 
 ## A pattern library
 
@@ -471,9 +478,8 @@ after the last comma in `$regexp`, or an empty replacement box in the action.
 
 ## How TagGroove's regular expressions differ { #how-taggroove-differs }
 
-The shared core used by format strings, actions, filters and web-source
-parser commands accepts Boost’s Perl-compatible syntax. The following
-core rules do not describe Find’s JavaScript engine. If you come from
+The shared core used by format strings, actions, filters, Find and web-source
+parser commands accepts Boost’s Perl-compatible syntax. If you come from
 another tool, watch for these:
 
 - **Case is ignored by default** in `$regexp`, the action and the filter.

@@ -1,11 +1,10 @@
 # R10 local XML playlist readers — 18 October 2026
 
 Implement a bounded local-file import subset for XSPF version 1, static WPL and
-well-formed XML ASX version 3. Start independently from branding commit
-`c1375a6ccf24e728f3ac29dfd442d4bf1071d47b`; the coordinating owner reported newer
-branding head `864b1448f7c3e4ea95a16aa9f5da51ea7e25a08c` during this work. Final
-publication requires a clean coordinated branding sync and fresh validation.
-The frozen sidecar and toolbar deliveries in PRs #54 and #55 are not dependencies.
+well-formed XML ASX version 3. Integrate against approved main
+`9317589e76de93bca0b5114a7d73f87df8af0d19`, including the completed TagGroove
+rename, sidecar and toolbar deliveries, source-read policy and crash-resumable
+setup migration. The XML input subset preserves those existing behaviors.
 
 ## Primary format references and scope choices
 
@@ -40,8 +39,13 @@ messages. Cue-sheet row behavior is unchanged.
 
 XSPF URI references decode percent escapes once. WPL/ASX raw filesystem paths
 retain existing literal-first path fallback behavior; explicit URIs use strict
-URI resolution. Permit empty/localhost file-URI authorities, local absolute
-paths and native absolute Windows drives. Refuse other schemes/authorities,
+URI resolution. On Unix, probe existing local candidates for ambiguous raw
+colon names such as `mix:disc.flac` and `a:disc.flac` before interpreting an opaque
+scheme or drive-relative prefix. If no candidate exists, retain the URI or
+Windows-drive diagnostic. Explicit `file:` and `scheme://` locations, XSPF URI
+references and absolute Windows drives do not use that ambiguous-name fallback.
+Permit empty/localhost file-URI authorities, local absolute paths and native
+absolute Windows drives. Refuse other schemes/authorities,
 raw UNC paths, URI queries/fragments and drive-relative Windows paths. Filesystem
 access to already mounted volumes remains OS behavior; no network client,
 external entity resolver, stylesheet or schema loader is introduced.
@@ -112,7 +116,7 @@ Focused local evidence covers XML namespaces and injection, order/alternatives,
 percent-literal versus URI decoding, Unicode, XML Base, native/local path rules,
 unsupported dynamic instructions, strict encodings, fatal parse handling,
 controlled limits, indexed diagnostics, real WAV IPC/scan and output refusal.
-Full local qualification before the namespace-copy follow-up, after normal
+Historical local qualification before the namespace-copy follow-up, after normal
 merge of branding revision
 `36d7dea4e7b930d3a7d98facaca8498d0ef7c8de`:
 
@@ -125,7 +129,7 @@ merge of branding revision
   check and strict workspace/all-target Clippy passed.
 - Branding verifier: 249 supplied files and 78 integrated copies verified.
 
-After the namespace-copy follow-up, the complete `tag-core` suite passed
+In the historical namespace-copy follow-up, the complete `tag-core` suite passed
 664 tests with no ignored tests, including the new bounded namespace control
 and all 16 XML integration cases. All 5 actual XML UI tests, production build,
 strict workspace/all-target Clippy, catalog extraction and formatting checks
@@ -135,8 +139,48 @@ it was not rerun for this private parser classification change.
 The routine large-bundle build notice and shared Cargo registry auto-clean
 permission notice did not fail these checks. No registry or build policy was
 changed. These results are local qualification, not protected CI, a GitHub code
-review, deployment or native OS/runtime proof. Draft publication remains subject
-to the coordinator's fresh branding-head currency/ancestry check.
+review, deployment or native OS/runtime proof. The earlier branding-head hold
+is superseded by the approved-main integration above. Final publication still
+requires exact-head Codex review, protected current-main validation and merge.
+
+## Approved-main integration and review follow-up
+
+The raw-path regression first failed for an existing Unix `mix:disc.flac`
+WPL entry, then failed separately for an existing `a:disc.flac` entry after
+the opaque-scheme branch alone was repaired. The final resolver probes
+ambiguous raw colon paths only on Unix, before opaque-scheme/drive-relative
+interpretation. The same WPL/ASX fixtures now load multi-letter, one-letter and
+literal-percent colon names. XSPF keeps URI interpretation even when an
+identically named literal file exists. No-probe controls retain refusal of
+explicit remote/network locations and native Windows drive-relative paths;
+the Windows-specific control still needs execution on Windows.
+
+The integration preserves every current-main German and Dutch catalog value
+and adds only the 54 XML keys to each. Backend/English catalogs are regenerated
+from current source with the intended extractor modes. Main-window integration
+is exactly the additional three picker suffixes relative to approved main;
+setup recovery, pending edits, sidecars, toolbar and provider policy remain.
+The XML guide now appears in the complete writing plan and coverage mapping as
+well as public navigation: 178 of 189 pages are written, with 11 remaining drafts.
+
+Local checks for this integration:
+
+- Before the final Unix-only guard and no-probe unit addition, the complete
+  `tag-core` suite passed 680 tests with no ignored tests. This is a bounded
+  historical result, not a complete test count for the final staged source.
+- Final playlist resolver/parser unit controls: 21 passed. XML integration:
+  18 passed. Native playlist IPC, real WAV scan and writer integration: 8 passed.
+- Focused current-main profile/startup/workspace, pending-document/file-operation,
+  toolbar, i18n and XML frontend integration: 145 passed. The separate macOS
+  declaration/association regression passed.
+- Production TypeScript/Vite build, catalog extraction check, formatting,
+  eight documentation tests, writing-plan status and strict guide build passed.
+
+Full final workspace tests, strict workspace Clippy, GitHub Codex review and
+protected cross-platform validation remain the coordinating owner's next gates.
+These local checks do not establish native desktop interaction, original
+Mp3tag execution, installed file associations, complete playlist ordering parity
+or provider/mobile file-opening support.
 
 Native mouse/key/IME/accessibility, screenshots, installed OS file opening,
 Windows/Linux filesystems and original differential behavior remain unqualified.
