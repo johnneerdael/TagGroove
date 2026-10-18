@@ -277,7 +277,7 @@ export class TagPanel {
    * (Control+Option+mnemonic while typing on macOS, where Option+letter types). */
   install(root:Document){
     root.addEventListener('keydown',event=>{
-      if(event.defaultPrevented||root.querySelector('dialog[open]'))return;
+      if(event.isComposing||event.defaultPrevented||root.querySelector('dialog[open]'))return;
       if(event.ctrlKey&&!event.metaKey&&!event.altKey&&!event.shiftKey&&event.code==='KeyQ'){event.preventDefault();this.toggle();return;}
       if(!event.altKey||!this.visible||!this.host.altShortcut(event))return;
       const letter=/^Key([A-Z])$|^Digit([0-9])$/.exec(event.code);if(!letter)return;
@@ -302,6 +302,7 @@ export class TagPanel {
     window.addEventListener('resize',()=>this.closeList());
   }
   private comboKey(event:KeyboardEvent,input:HTMLInputElement|HTMLTextAreaElement){
+    if(event.isComposing)return;
     const open=this.list?.input===input,multiline=input instanceof HTMLTextAreaElement;
     if(event.key==='ArrowDown'||event.key==='ArrowUp'){
       if(!open){if(multiline&&!event.altKey)return;event.preventDefault();this.openList(input,event.key==='ArrowUp'?-1:1);return;}

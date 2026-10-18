@@ -35,6 +35,10 @@ Open the helper menu beside the Filter, or focus the field and press ++ctrl+spac
 
 **Auto-apply filter** defaults to enabled. Results update while typing after a short delay. Turn it off to compose an expression without filtering at each partial word, then press Enter to apply it. The text being edited and the currently applied query can differ in manual mode.
 
+When using an input method to choose characters, automatic filtering waits for
+that composition to finish. The Enter used to choose a character does not also
+apply a manual filter: finish the choice, then press Enter separately.
+
 Enabling Auto-apply while unapplied text exists applies that text. The helper also lists fields, information fields, functions, and history/favorites. Inserted placeholders still need the surrounding filter syntax: a function by itself is not an operator.
 
 ## Clear, hide, and restore the filter

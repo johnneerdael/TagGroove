@@ -49,7 +49,7 @@ export function completion(typed:string,candidates:Iterable<string>):string|unde
  */
 export function completeInput(input:HTMLInputElement|HTMLTextAreaElement,event:Event,candidates:()=>Iterable<string>){
   const kind=(event as InputEvent).inputType;
-  if(!kind||!kind.startsWith('insert')||kind==='insertFromPaste'||input.selectionStart!==input.value.length)return false;
+  if((event as InputEvent).isComposing||kind==='insertCompositionText'||!kind||!kind.startsWith('insert')||kind==='insertFromPaste'||input.selectionStart!==input.value.length)return false;
   const value=completion(input.value,candidates());if(!value)return false;
   const typed=input.value.length;input.value=value;input.setSelectionRange(typed,value.length);return true;
 }

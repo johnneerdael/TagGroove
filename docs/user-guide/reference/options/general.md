@@ -18,6 +18,10 @@ Open **File → Options… → General** to control everyday selection, sorting,
 
 Completion matches prefixes without regard to case and retains the characters already typed. If a candidate is `Juniper Vale` and the typed text is `ju`, the suggested text starts `ju` and completes the rest. Empty input is not filled automatically, and pasting does not trigger this inline completion. The candidates depend on the field's [custom value lists](field-values.md) and current selection.
 
+Completion waits while an input method is composing a character. Finish that
+choice before using Enter or Tab to finish a file-list cell. Escape during
+composition is left to the input method, so it does not discard the cell edit.
+
 Even with automatic selection off, loading files into an empty, unselected list selects an initial file for inspection. The setting controls selecting the incoming batch, not a guarantee that the list will have no selected row.
 
 ## Notification area

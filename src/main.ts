@@ -1369,6 +1369,14 @@ function bindPanelDock(){
     floatObserver.observe(editor);
   }
 }
+function filterInputChanged(event:Event){
+  const el=event.target as HTMLInputElement,position=el.selectionStart;
+  if((event as InputEvent).isComposing||!filterAutoApply){filterDraft=el.value;return;}
+  if(filter===el.value&&filterDraft===undefined)return;
+  filter=el.value;filterDraft=undefined;document.querySelector('.table-wrap')!.scrollTop=0;refreshList();
+  const replacement=document.querySelector<HTMLInputElement>('#filter')!;
+  if(replacement!==el){replacement.focus();try{replacement.setSelectionRange(position,position);}catch{/* Search controls do not expose selection on every webview. */}}
+}
 function bind() {
   document.querySelector<HTMLSelectElement>('#appearance')!.addEventListener('change',event=>appearance.set((event.target as HTMLSelectElement).value));
   bindSplitter();bindPanelDock();
@@ -1383,13 +1391,9 @@ function bind() {
   document.querySelectorAll<HTMLButtonElement>('button[data-pane]').forEach(el=>el.addEventListener('click',()=>{mobilePane=el.dataset.pane as 'files'|'tags';render();}));
   document.querySelectorAll<HTMLButtonElement>('[data-op]').forEach(el => el.addEventListener('click', () => { document.querySelectorAll<HTMLDetailsElement>('details[open]').forEach(d => d.open = false); void operate(el.dataset.op as Operation); }));
   bindFields(app);
-  document.querySelector<HTMLInputElement>('#filter')!.addEventListener('keydown',event=>{if(event.key==='Enter'&&filterDraft!==undefined){filter=filterDraft;filterDraft=undefined;document.querySelector('.table-wrap')!.scrollTop=0;refreshList();document.querySelector<HTMLInputElement>('#filter')?.focus();}});
-  document.querySelector<HTMLInputElement>('#filter')!.addEventListener('input',event => {
-    const el = event.target as HTMLInputElement, position = el.selectionStart;
-    if(!filterAutoApply){filterDraft=el.value;return;}
-    filter = el.value; document.querySelector('.table-wrap')!.scrollTop=0;refreshList();
-    const replacement = document.querySelector<HTMLInputElement>('#filter')!;if(replacement!==el){replacement.focus();try{replacement.setSelectionRange(position,position);}catch{/* Search controls do not expose selection on every webview. */}}
-  });
+  document.querySelector<HTMLInputElement>('#filter')!.addEventListener('keydown',event=>{if(!event.isComposing&&event.key==='Enter'&&filterDraft!==undefined){filter=filterDraft;filterDraft=undefined;document.querySelector('.table-wrap')!.scrollTop=0;refreshList();document.querySelector<HTMLInputElement>('#filter')?.focus();}});
+  document.querySelector<HTMLInputElement>('#filter')!.addEventListener('input',filterInputChanged);
+  document.querySelector<HTMLInputElement>('#filter')!.addEventListener('compositionend',filterInputChanged);
   document.querySelector('.view-sort-menu')?.addEventListener('click',event=>{
     const el=(event.target as Element).closest<HTMLButtonElement>('[data-sort-menu]');if(!el)return;
     document.querySelectorAll<HTMLDetailsElement>('details[open]').forEach(d=>d.open=false);
@@ -2146,9 +2150,10 @@ function focusPane(backward:boolean){
   if(target==='filter')app.querySelector<HTMLInputElement>('#filter')?.focus();
   if(target==='list'){const path=anchor&&selected.has(anchor)?anchor:paths()[0]||visible()[0]?.path;if(path)revealRow(path);}
 }
-// Ctrl+R (⌘R) is File → Remove tag. Captured first and always consumed, so
+// Outside text composition, Ctrl+R (⌘R) is File → Remove tag. Captured first and always consumed, so
 // WebView2 never reloads the page, even while a dialog or text field has focus.
 document.addEventListener('keydown',event=>{
+  if(event.isComposing)return;
   const typing=event.target instanceof HTMLInputElement||event.target instanceof HTMLTextAreaElement;
   const command=removeTagShortcut(event,typing,macPlatform);
   if(!command)return;
@@ -2156,7 +2161,7 @@ document.addEventListener('keydown',event=>{
   if(command==='remove-tags'&&!document.querySelector('dialog[open]')&&enabled('remove-tags')){menubar.close();void operate('remove-tags');}
 },true);
 document.addEventListener('keydown',event=>{
-  if(event.defaultPrevented||document.querySelector('dialog[open]:not(.find-dialog):not(.cover-viewer)'))return;
+  if(event.isComposing||event.defaultPrevented||document.querySelector('dialog[open]:not(.find-dialog):not(.cover-viewer)'))return;
   const typing=isTextEntry(event.target),mac=macKeyboard();
   const shortcut=windowShortcut(event,{typing,mac});
   if(shortcut){event.preventDefault();menubar.close();windowCommand(shortcut);return;}

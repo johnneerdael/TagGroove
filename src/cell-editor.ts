@@ -58,6 +58,7 @@ export class CellEditor{
     this.input=input;this.target=target;
     input.addEventListener('keydown',event=>{
       event.stopPropagation();
+      if(event.isComposing)return;
       if(event.key==='Enter'){event.preventDefault();void this.finish(this.host.advance?.()?'down':undefined);}
       else if(event.key==='Escape'){event.preventDefault();this.cancel();}
       else if(event.key==='Tab'){event.preventDefault();void this.finish(event.shiftKey?-1:1);}
