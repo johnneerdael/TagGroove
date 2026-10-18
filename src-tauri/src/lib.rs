@@ -3061,6 +3061,94 @@ mod tests {
         }
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn rename_identity_refusal_preserves_audio_and_fresh_review_undo() {
+        use std::{fs, os::unix::fs::MetadataExt};
+        let _lock = history::TEST_LOCK.lock().unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
+        let source = root.join("source.wav");
+        let original = root.join("retained-original.wav");
+        let replacement = root.join("replacement.wav");
+        for (path, title) in [(&source, "AAAA"), (&replacement, "BBBB")] {
+            wav(path);
+            tag_core::write_fields(path, &Fields::from([("TITLE".into(), vec![title.into()])]))
+                .unwrap();
+        }
+        let original_bytes = fs::read(&source).unwrap();
+        let replacement_bytes = fs::read(&replacement).unwrap();
+        let before = fs::metadata(&source).unwrap();
+        let paths = vec![source.to_string_lossy().into_owned()];
+        let evaluation = evaluation_settings(None).unwrap();
+        let review = || {
+            let entry = settings::read_summary(&source).unwrap();
+            let target = rename_target_with_settings(&entry, "%title%", 1, &evaluation).unwrap();
+            rename_plan::record(&paths, "%title%", vec![target]).unwrap()
+        };
+        let token = review();
+        fs::rename(&source, &original).unwrap();
+        fs::rename(&replacement, &source).unwrap();
+        fs::File::open(&source)
+            .unwrap()
+            .set_times(fs::FileTimes::new().set_modified(before.modified().unwrap()))
+            .unwrap();
+        let after = fs::metadata(&source).unwrap();
+        assert_eq!(before.len(), after.len());
+        assert_eq!(before.modified().unwrap(), after.modified().unwrap());
+        assert_ne!((before.dev(), before.ino()), (after.dev(), after.ino()));
+        history::TEST_ROOTS.lock().unwrap().push(root.clone());
+        let refused = rename_files_with_policy(
+            paths.clone(),
+            "%title%",
+            Some(token),
+            &evaluation,
+            false,
+            false,
+        );
+        assert_eq!(
+            refused.err().unwrap(),
+            "A file changed after preview; preview again"
+        );
+        assert_eq!(fs::read(&source).unwrap(), replacement_bytes);
+        assert_eq!(fs::read(&original).unwrap(), original_bytes);
+        assert!(!root.join("AAAA.wav").exists());
+        assert!(!root.join("BBBB.wav").exists());
+
+        let fresh_token = review();
+        let renamed = rename_files_with_policy(
+            paths,
+            "%title%",
+            Some(fresh_token),
+            &evaluation,
+            false,
+            false,
+        )
+        .unwrap();
+        assert!(renamed.result.result.errors.is_empty());
+        assert_eq!(renamed.result.renamed.len(), 1);
+        let target = root.join("BBBB.wav");
+        assert_eq!(fs::read(&target).unwrap(), replacement_bytes);
+        assert!(!source.exists() && !root.join("AAAA.wav").exists());
+        for (undo, expected) in [(true, &source), (false, &target)] {
+            let result = if undo {
+                tauri::async_runtime::block_on(history::undo_last()).unwrap()
+            } else {
+                tauri::async_runtime::block_on(history::redo_last()).unwrap()
+            };
+            assert_eq!(
+                serde_json::to_value(result).unwrap()["errors"],
+                serde_json::json!([])
+            );
+            assert_eq!(fs::read(expected).unwrap(), replacement_bytes);
+            assert_eq!(fs::read(&original).unwrap(), original_bytes);
+        }
+        history::TEST_ROOTS
+            .lock()
+            .unwrap()
+            .retain(|path| path != &root);
+    }
+
     #[test]
     fn reviewed_tag_to_filename_moves_companions_and_requires_fresh_membership() {
         let dir = tempfile::tempdir().unwrap();
