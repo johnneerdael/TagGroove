@@ -108,19 +108,23 @@ Selecting results changes the main selection. Configured tag-panel defaults
 can stage values for a multi-file selection; inspect pending changes before
 saving them. Running a search is not itself a metadata-replacement operation.
 
-## Regular expressions use the Find dialect
+## Regular expressions use the shared Boost engine
 
-Find uses JavaScript Unicode regular expressions, controlled by its **Case
-sensitive** checkbox. Enter the raw pattern without the apostrophe quoting
-used inside a `$regexp(...)` format string. An invalid expression is shown
-as an error and clears the result table for that run.
+Find uses the same Boost-compatible regex engine as actions, filters, format
+strings and web-source parser commands. Enter the raw pattern without the
+apostrophe quoting used inside a `$regexp(...)` format string. Use **Case
+sensitive** to control case, or inline options such as `(?i)` to override it.
+`\A` and `\z` match the complete value; `^` and `$` also recognize line breaks,
+and `.` matches line breaks by default.
 
-Do not assume every advanced pattern from an action or filter is accepted.
-For example, unscoped `(?i)` is invalid here; use the checkbox instead.
-Find does not add the shared core's multiline/dot-all defaults. The
-[regex reference](../reference/regular-expressions.md#find-dialect) provides
-actual case-control and invalid-pattern examples. Find has no replacement
-box: use an action or converter when matching should lead to an edit.
+An invalid expression is shown as an error and clears the result table for
+that run. Changing the criteria, strategy or case setting also clears previous
+results; press **Find** to search again. If a size limit is reported, filter
+the File List to a smaller set. See the
+[regex reference](../reference/regular-expressions.md#find-dialect) for worked
+examples and limits. Find has no replacement box: use an action or converter
+when matching should lead to an edit. Quoting and case defaults still differ
+between those contexts.
 
 ## Reuse or remove criteria
 

@@ -2,7 +2,7 @@
 
 This ledger lists the known gaps: what is missing, partial or unverified. It is built from audits and verification notes and is not an exhaustive proof; the [verification notes](verification/) and [feature inventory](FEATURE-INVENTORY.md) hold the detail. No area is certified as exact parity, because none has been compared run for run against the original program.
 
-Reference target: `../Mp3tag.exe`, SHA-256 `484794eec4e2b9a649d04eaab63b4cc73127ceb48a9e46075ea488c0e1eac911`. Current as of 2026-10-17 at `main` `9d3764b`. The item-level list with impact and size is the [remaining-gaps register](research/remaining-gaps.md).
+Reference target: `../Mp3tag.exe`, SHA-256 `484794eec4e2b9a649d04eaab63b4cc73127ceb48a9e46075ea488c0e1eac911`. Baseline as of 2026-10-17 at `main` `9d3764b`; the Find entry is updated by the [2026-10-18 automation verification](verification/automation-parity-2026-10-18.md). The item-level list with impact and size is the [remaining-gaps register](research/remaining-gaps.md).
 
 | Area | Remaining gap |
 | --- | --- |
@@ -10,7 +10,7 @@ Reference target: `../Mp3tag.exe`, SHA-256 `484794eec4e2b9a649d04eaab63b4cc73127
 | Menus and keyboard | No File → Exit item (the macOS app menu quits). Alt+Enter opens Extended Tags instead of the Windows properties dialog |
 | Extended Tags | "Keep changes" only stages the fields and needs a later Save tags; the configured immediate-save mode applies only when moving between files ([keyboard-ui](verification/keyboard-ui.md)) |
 | Tag panel | The floating panel is an in-window overlay, not a separate OS window |
-| File table | Find uses JavaScript `RegExp`, not the Boost bridge. Mp3tag `columns.ini` import covers known keys only because the layout is undocumented |
+| File table | Find now uses the shared native Boost bridge, with local cross-context regression coverage; original-runtime and native-input equivalence remain unverified ([automation verification](verification/automation-parity-2026-10-18.md)). Mp3tag `columns.ini` import covers known keys only because the layout is undocumented |
 | Scripting | Unverified against the original: `$caps` word-start characters, truth of non-boolean conditions, and errors inside a format string (TagGroove aborts the whole string). `%_md5audio%` works in exports only and is empty for MP4 and Ogg; tag-size placeholders are absent for WAV, AIFF, MP4, Ogg, Matroska, ASF and DSD |
 | Filters | A plain search that mixes quoted and bare words is rejected. AND/OR precedence and locale behaviour are unverified |
 | Actions | Adjust Cover "Original" requires JPEG or PNG for TIFF and unknown formats. Remove Fields Except leaves unmapped frames (PRIV, GEOB). Split Field keeps empty pieces (unverified). Convert Codepage starts at 1251 in action group dialogs instead of the last choice. File, cover-file and rename actions on mobile provider documents. `.mta` export of Adjust Cover, Set Cover Properties and Generate Playlists uses TagGroove-only type IDs 1001 to 1003, which Mp3tag lists as unknown actions |
