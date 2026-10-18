@@ -114,6 +114,7 @@ nav:
       - Template gallery: export/template-gallery.md
       - Export CSV: export/csv.md
       - Playlists and cue sheets: guides/playlists.md
+      - Local XML playlists: guides/xml-playlists.md
   - Reference:
     - reference/index.md
     - Format strings:
