@@ -7,7 +7,7 @@ Windows size, modification time and filesystem identity from the same
 attributes-only file handle. It prefers `GetFileInformationByHandleEx` with
 `FileIdInfo` (volume and 128-bit ID), falling back to
 `GetFileInformationByHandle` (volume and legacy 64-bit file index).
-Neither-query success is an error, never a silent size/time-only fallback.
+Failure of both queries is an error, never a silent size/time-only fallback.
 
 An initial Windows fingerprint error abandons that capture through the
 existing **cannot be undone** notice. Replay treats an unavailable fingerprint
