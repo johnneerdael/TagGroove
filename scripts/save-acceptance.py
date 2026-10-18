@@ -11,10 +11,12 @@ import hashlib
 import json
 import os
 import platform
+import re
 from pathlib import Path
 import shutil
 import subprocess
 import sys
+import tempfile
 from datetime import datetime, timezone
 
 REPO = Path(__file__).resolve().parents[1]
@@ -172,7 +174,9 @@ def prepare(root, executable, corpus=None):
     baseline = {}
     for path in sorted((root / "inputs").iterdir()):
         name = path.name
-        baseline[name] = {"input_sha256": sha256(path.read_bytes()), "snapshot": normalize(invoke(executable, "observe", path))}
+        input_hash = sha256(path.read_bytes())
+        baseline[name] = {"input_sha256": input_hash,
+                          "snapshot": observe_verified(executable, path, input_hash, "prepared input")}
         for operation in OPERATIONS:
             for app in ("taggroove", "reference"):
                 directory = root / app / operation / "input"
@@ -192,6 +196,11 @@ def prepare(root, executable, corpus=None):
         "Record actual defaults as an object and capture filenames in an identity JSON with application, version,\n"
         "executable_sha256, platform, runtime, recorded_at_utc, defaults and evidence (nonempty array).\n"
         "Add input_sha256 mapping each filename to the verified pre-edit hash from contract.json.\n"
+        "Require stage_sha256[operation][stage][filename] for every prepared operation, saved/undone/redone stage and input.\n"
+        "Record each lowercase whole-file SHA-256 at capture time, before transferring files; retain those bindings unchanged.\n"
+        "The reference-capture collector exports these bindings from a validated capture manifest; it does not copy media.\n"
+        "Comparison rejects absent/invalid bindings or transferred bytes differing from capture, and rechecks after observation.\n"
+        "Hash-bound observations decode private read-only snapshots made from the verified bytes, not the original stage paths.\n"
         "Run: python3 scripts/save-acceptance.py compare WORKSPACE --identity IDENTITY.json\n"
         "Cancellation/interruption, native gain-consumer behavior and UI behavior need separate evidence.\n", encoding="utf-8")
     return {"workspace": str(root), "reference_comparison": "not performed"}
@@ -206,7 +215,8 @@ def validate_inputs(root, executable, contract):
         path = root / "inputs" / name
         if sha256(path.read_bytes()) != baseline["input_sha256"]:
             raise ValueError(f"retained input changed: {name}")
-        if differences(baseline["snapshot"], normalize(invoke(executable, "observe", path))):
+        observed = observe_verified(executable, path, baseline["input_sha256"], "retained input")
+        if differences(baseline["snapshot"], observed):
             raise ValueError(f"baseline does not match the retained input: {name}")
 
 
@@ -226,9 +236,10 @@ def run(root, executable):
             if sha256(path.read_bytes()) != baseline["input_sha256"]:
                 raise ValueError(f"paired input changed: {path}")
             result = invoke(executable, "exercise", path, operation, path.parent.parent)
-            stages = {stage: normalize(invoke(executable, "observe", path.parent.parent / stage / name))
-                      for stage in ("saved", "undone", "redone")}
             hashes = stage_hashes(root, operation, name)
+            stages = {stage: observe_verified(executable, path.parent.parent / stage / name,
+                                               hashes[stage], "retained local stage")
+                      for stage in ("saved", "undone", "redone")}
             wanted = expected(baseline["snapshot"], operation)
             errors = {stage: differences(baseline["snapshot"] if stage == "undone" else wanted, observed) for stage, observed in stages.items()}
             errors.update(replay_byte_errors(baseline["input_sha256"], hashes))
@@ -261,6 +272,49 @@ def run(root, executable):
     return {"passed": passed, "cases": len(cases), "receipt": str(receipt_path), "reference_comparison": "not performed"}
 
 
+def observe_verified(executable, path, expected_hash, context):
+    """Decode a private read-only copy of the exact bytes whose hash was checked."""
+    data = path.read_bytes()
+    if sha256(data) != expected_hash:
+        raise ValueError(f"{context} hash differs from captured bytes: {path}")
+    with tempfile.TemporaryDirectory(prefix="taggroove-verified-stage-") as directory:
+        private = Path(directory)
+        snapshot = private / path.name
+        try:
+            snapshot.write_bytes(data)
+            snapshot.chmod(0o400)
+            private.chmod(0o500)
+            # The native observer reopens its path for fields, opaque tags and
+            # payload. Keep every read on this detached, read-only snapshot.
+            return normalize(invoke(executable, "observe", snapshot))
+        finally:
+            private.chmod(0o700)
+            if snapshot.exists():
+                snapshot.chmod(0o600)
+
+
+def validate_reference_stages(root, reference, baseline):
+    """Bind every transferred stage to the operator's captured whole-file hash."""
+    bindings = reference.get("stage_sha256")
+    if not isinstance(bindings, dict) or set(bindings) != set(OPERATIONS):
+        raise ValueError("reference stage bindings require exactly the prepared operations")
+    for operation in OPERATIONS:
+        stages = bindings[operation]
+        if not isinstance(stages, dict) or set(stages) != {"saved", "undone", "redone"}:
+            raise ValueError(f"reference stage bindings are incomplete or invalid: {operation}")
+        for stage, files in stages.items():
+            if not isinstance(files, dict) or files.keys() != baseline.keys():
+                raise ValueError(f"reference stage bindings require exactly the prepared filenames: {operation}/{stage}")
+            for name, captured_hash in files.items():
+                if not isinstance(captured_hash, str) or not re.fullmatch(r"[0-9a-f]{64}", captured_hash):
+                    raise ValueError(f"reference stage hash is invalid: {operation}/{stage}/{name}")
+                path = root / "reference" / operation / stage / name
+                if not path.is_file():
+                    raise ValueError(f"missing original-runtime capture: {path}")
+                if sha256(path.read_bytes()) != captured_hash:
+                    raise ValueError(f"reference stage hash differs from captured bytes: {operation}/{stage}/{name}")
+
+
 def compare(root, executable, identity_path):
     validate_workspace(root)
     contract = json.loads((root / "contract.json").read_text(encoding="utf-8"))
@@ -283,6 +337,7 @@ def compare(root, executable, identity_path):
     wanted_cases = {(operation, name) for operation in OPERATIONS for name in contract["baseline"]}
     if local_cases.keys() != wanted_cases or len(local["cases"]) != len(wanted_cases):
         raise ValueError("local receipt does not contain exactly the captured cases")
+    validate_reference_stages(root, reference, contract["baseline"])
     cases = []
     for operation in OPERATIONS:
         for name in contract["baseline"]:
@@ -299,15 +354,18 @@ def compare(root, executable, identity_path):
                 if not path.is_file():
                     raise ValueError(f"missing original-runtime capture: {path}")
                 local_path = root / "taggroove" / operation / stage / name
-                local_observed = normalize(invoke(executable, "observe", local_path))
+                local_observed = observe_verified(executable, local_path, hashes[stage], "retained local stage")
                 wanted = contract["baseline"][name]["snapshot"] if stage == "undone" else expected(contract["baseline"][name]["snapshot"], operation)
                 if differences(wanted, local_observed):
                     raise ValueError(f"retained local output failed preservation: {local_path}")
-                observed = normalize(invoke(executable, "observe", path))
+                reference_hash = reference["stage_sha256"][operation][stage][name]
+                observed = observe_verified(executable, path, reference_hash, "reference stage")
                 cases.append({"file": name, "operation": operation, "stage": stage,
                     "local_file_sha256": hashes[stage],
-                    "reference_file_sha256": sha256(path.read_bytes()), "observed_reference": observed,
+                    "reference_file_sha256": reference_hash, "observed_reference": observed,
                     "differences_from_taggroove": differences(local_observed, observed)})
+    # Recheck every binding after observation, including stages read earlier.
+    validate_reference_stages(root, reference, contract["baseline"])
     passed = all(not c["differences_from_taggroove"] for c in cases)
     require_identity(consumer, identity(executable, root), "Completed comparison")
     receipt = {"passed": passed, "producer": local["producer"], "prepared_by": contract["producer"],
