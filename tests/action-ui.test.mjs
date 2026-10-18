@@ -5,7 +5,7 @@ import ts from 'typescript';
 
 const source = await readFile(new URL('../src/action-ui.ts', import.meta.url), 'utf8');
 const javascript = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 } }).outputText;
-const { actionListKey, moveMarked, markAll, clickMark, actionCatalog, panelKey, moveItem, renameGroup, removeGroup, applyPreset, menuSegments, resolvePathChanges, rebaseCaseOnly, mnemonicMarkup, sortGroups, enabledSummary, copyName, codepageChoices, qualityPresets, recallQuick, rememberQuick } = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);
+const { mtaExportWarning, actionListKey, moveMarked, markAll, clickMark, actionCatalog, panelKey, moveItem, renameGroup, removeGroup, applyPreset, menuSegments, resolvePathChanges, rebaseCaseOnly, mnemonicMarkup, sortGroups, enabledSummary, copyName, codepageChoices, qualityPresets, recallQuick, rememberQuick } = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);
 const library = () => ({groups:[{name:'First',enabled:true,actions:[{type:'format_value',field:'TITLE',template:'text'}]},{name:'Second',enabled:false,actions:[]}],presets:[{name:'Only first',enabled_groups:['First']}]});
 
 test('catalog exposes every documented action type exactly once', () => {
@@ -132,4 +132,12 @@ test('Actions (Quick) reopens on the last applied type with its settings', () =>
   assert.equal(recallQuick(storage, 'split_field').separator, ';');
   rememberQuick(storage, {type: 'unresolved_mta'});
   assert.equal(items.get('opentag.actions.quick'), '{');
+});
+
+test('action-file export identifies app-only mappings before users transfer the file',()=>{
+  const group=actions=>({name:'Practice',enabled:true,actions});
+  assert.equal(mtaExportWarning(group([{type:'replace',field:'TITLE',from:'x',to:'y'}])), '');
+  const warning=mtaExportWarning(group([{type:'adjust_cover'}, {type:'set_cover_properties'}, {type:'generate_playlists'}, {type:'adjust_cover'}]));
+  assert.match(warning,/app-only extensions/);assert.match(warning,/Adjust Cover/);assert.match(warning,/Set Cover Properties/);assert.match(warning,/Generate Playlists/);
+  assert.match(warning,/will not transfer to Mp3tag/);assert.equal(warning.match(/Adjust Cover/g).length,1);
 });

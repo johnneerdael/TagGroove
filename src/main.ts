@@ -94,7 +94,7 @@ type Entry = { path: string; filename: string; format: string; duration: number;
 type FileError = PresentedFileError & { label?: string };
 type Batch = { entries: Entry[]; errors: FileError[]; renamed?: { from: string; to: string }[]; moved_directories?: {from:string;to:string}[]; outputs?: string[]; unmatched?: string[] };
 type Preview = { path: string; value: string };
-type RenamePreview = Preview & {plan_token:string};
+type RenamePreview = Preview & {plan_token:string;associated?:{from:string;to:string}[]};
 // A file whose name does not match the pattern has no fields and is left unchanged.
 type FilenamePreview = { path: string; fields: Fields|null; error?: string };
 type Operation = 'folder'|'files'|'save'|'save-copy'|'refresh-source'|'reload'|'extended'|'add-cover'|'remove-cover'|'filename-tags'|'tags-filename'|'filename-filename'|'text-tags'|'action'|'groups'|'number'|'remove-tags'|'playlist-load'|'playlist-all'|'playlist-selected'|'playlist-generate'|'export-folders'|'list-unsorted'|'csv'|'export-config'|'select-all'|'discard'|'options'|'about'|'toggle-panel'|'panel-options'|'field-values'|'panel-defaults'|'undo'|'redo'|'copy-tags'|'cut-tags'|'paste-tags'|'tag-tag'|'source-musicbrainz'|'source-freedb'|'source-local-freedb'|'source-cover-freedb'|'source-cover-musicbrainz'|'source-cover-discogs'|'source-discogs'|'source-discogs-release'|'source-itunes'|'source-deezer'|'source-lastfm'|'source-acoustid'|'source-lrclib'|'source-cover-itunes'|'source-cover-deezer'|'source-cover-fanart'|'source-keys'|'source-token'|'source-install'|'source-folder'|'source-options'|'cover-manage'|'copy-text'|'remove-tag-types'|'strip-mp4-chapters'|'tools-options'|'config-save'|'config-load'|'config-folder'|'help-shortcuts'|'help-docs'|'help-issues'|'help-releases'|'help-updates'|'playlist-folders'|'source-last'|'source-last-quick'|'toggle-filter'|'toggle-toolbar'|'toolbar-customize'|'toggle-custom-toolbar'|'custom-toolbar-customize'|UtilOperation|ListOperation|FileOperation;
@@ -223,7 +223,7 @@ let toolbarConfig:ToolbarConfig=normalizeToolbar(undefined);
 // View → Toolbars → Custom toolbar: commands, tools and action groups the user adds (pages['custom-toolbar']).
 let customToolbar:ToolbarConfig=normalizeCustomToolbar(undefined);
 const actionUI=new ActionUI({batchError:error=>error instanceof BatchFailure?error.text(t,translate):undefined,onLanguageChange,
-  translateNow,
+  translateNow,translateLabel:label=>translate(label),
   load:()=>invoke<ActionLibrary>('load_action_library'),
   save:library=>invoke<void>('save_action_library',{library}),
   import:async(path,legacyEncoding)=>{try{return await invoke<ImportedGroup>('import_action_group',{path,legacyEncoding:legacyEncoding||null});}catch(error){throw importFailure(error,true)??error;}},
@@ -319,15 +319,15 @@ const extendedTags=new ExtendedTags({
 });
 const fileOps=new FileOpsUI({
   invoke:(command,args)=>invoke(command,args),
-  pickDirectories:async(title,multiple)=>{const result=await open({directory:true,multiple,title});return result?Array.isArray(result)?result:[result]:[];},
-  confirm:(text,title)=>title==='Delete files'||title==='Delete permanently'?messages.confirm('confirm_delete_files',text,title):title==='Unsaved changes'?messages.confirm('unsaved_changes',text,title):ask(text,{title,kind:'warning'}),
+  pickDirectories:async(title,multiple,defaultPath)=>{const result=await open({directory:true,multiple,title,defaultPath});return result?Array.isArray(result)?result:[result]:[];},
+  confirm:(text,title)=>typeof text!=='string'?ask(text,{title,kind:'warning'}):title==='Delete files'||title==='Delete permanently'?messages.confirm('confirm_delete_files',text,title):title==='Unsaved changes'?messages.confirm('unsaved_changes',text,title):ask(text,{title,kind:'warning'}),
   selection:()=>paths().map(path=>({path,name:displayName(path)})),pendingCount:()=>drafts.size,
   load:(targets,options)=>loadPaths(targets,options),removeEntries,
   moved:(result,message)=>{const batch=result as Batch;applyRenamed(batch);accept(batch,'Moved',false);status=message;},
   run:(message,job)=>run(message,job),report:(failures,message)=>{errors=failures;status=message;render();},
   openReason:()=>busy?'Wait for the current operation.':runtimePlatform.folder_picker_supported?'':'Folder access is not available here. Use Add files.',
   changed:()=>render(),mac:macPlatform,busy:()=>busy,
-  preferences:()=>({subfolders:optionsUI.settings.directories.subfolders,startup:startupChoice(optionsUI.settings.pages['directories-startup']?.startup)}),
+  preferences:()=>({subfolders:optionsUI.settings.directories.subfolders,startup:startupChoice(optionsUI.settings.pages['directories-startup']?.startup),associatedFiles:optionsUI.settings.pages.files?.associated_files===true}),
 });
 registerOptionsPage(startupOptionsPage);
 registerOptionsPage(libraryOptionsPage({
@@ -523,7 +523,7 @@ const webSourcesUI=new WebSourcesUI({
   last:()=>tagSourcesUI.lastWeb,
   shortcut:'⌘/Ctrl I',
   changed:()=>render(),
-  pickFiles:async()=>{const chosen=await open({multiple:true,title:'Install tag sources',filters:[{name:'Tag sources',extensions:['src','inc','settings']}]});return Array.isArray(chosen)?chosen:typeof chosen==='string'?[chosen]:null;},
+  pickFiles:async(mode='files')=>{const chosen=await open(mode==='folder'?{directory:true,multiple:false,title:'Install source folder'}:{multiple:true,title:'Install tag sources or ZIP',filters:[{name:'Tag sources or ZIP',extensions:['src','inc','settings','zip']}]});return Array.isArray(chosen)?chosen:typeof chosen==='string'?[chosen]:null;},
   report:message=>{status=message;render();},
   fail:error=>{errors=[{path:'Tag sources',label:'Tag sources',error:error instanceof Error?error.message:String(error)}];render();},
 });
@@ -630,6 +630,7 @@ async function autoSizeColumns(ids:string[]){
   await applyColumns({...columnLayout,columns:columnLayout.columns.map(column=>widths.has(column.id)?{...column,width:widths.get(column.id)!}:column)});
 }
 const findUI=new FindUI({
+  regex:(pattern,caseSensitive,values)=>invoke<boolean[]>('regex_find',{pattern,caseSensitive,values}),
   items:()=>visible().map(entry=>({path:entry.path,filename:entry.filename,fields:merged(entry)})),
   select:(targets,focus)=>{selected.clear();targets.forEach(path=>selected.add(path));anchor=focus;coverIndex=0;coverError=undefined;render();if(focus)revealRow(focus,false);status=`${targets.length} file${targets.length===1?'':'s'} selected from Find results`;document.querySelector('.status-message')!.textContent=status;},
   listed:path=>visible().some(entry=>entry.path===path),
@@ -1474,7 +1475,7 @@ function saveCopy() {
   dialog.addEventListener('cancel',event=>{if(copying)event.preventDefault();});
   saveButton.addEventListener('click',async()=>{
     if(copying||busy)return;
-    const request=copyRequest(path,value(dialog,'copy-version') as 'edited'|'original',editedCopyFields(path));
+    const request=copyRequest(path,value(dialog,'copy-version') as 'edited'|'original',editedCopyFields(path),pendingCovers.get(path));
     copying=true;saveButton.disabled=true;closeButton.disabled=true;dialog.querySelector<HTMLSelectElement>('#copy-version')!.disabled=true;
     dialog.querySelector('.dialog-error')?.remove();
     const progress=dialog.querySelector<HTMLElement>('.copy-status')!;progress.textContent='Choose a destination. The copy will be checked after writing.';
@@ -1490,14 +1491,14 @@ function saveCopy() {
   });
 }
 function converter(rename: boolean) {
-  const dialog=modal(rename?'Tag → Filename':'Filename → Tag',`<p>${rename?'Preview filenames before applying. The audio file extension is retained.':'Extract tags from each filename using field placeholders. Preview the results before saving them to your files.'}</p><label class="field"><span>${rename?'FORMAT STRING':'FILENAME PATTERN'}</span><input id="template" value="%artist% - %title%" spellcheck="false" autocomplete="off" data-helper="${rename?'format':'pattern'}" data-history="${rename?'tag-filename':'filename-tag'}" data-history-manage></label><div id="preview"></div>`,`<button id="preview-button">Preview</button><button class="primary" id="apply-converter" disabled>Apply to ${selected.size} files</button>`);
+  const dialog=modal(rename?'Tag → Filename':'Filename → Tag',`<p>${rename?'Preview filenames before applying. The audio file extension is retained. Options → Files controls whether matching .lrc/.cdg companions follow the audio; their paths appear in the preview.':'Extract tags from each filename using field placeholders. Preview the results before saving them to your files.'}</p><label class="field"><span>${rename?'FORMAT STRING':'FILENAME PATTERN'}</span><input id="template" value="%artist% - %title%" spellcheck="false" autocomplete="off" data-helper="${rename?'format':'pattern'}" data-history="${rename?'tag-filename':'filename-tag'}" data-history-manage></label><div id="preview"></div>`,`<button id="preview-button">Preview</button><button class="primary" id="apply-converter" disabled>Apply to ${selected.size} files</button>`);
   const apply=dialog.querySelector<HTMLButtonElement>('#apply-converter')!;let previewed='',previewRevision=0,previewPaths:string[]=[],planToken:string|undefined,matched=0;
   dialog.querySelector('#template')!.addEventListener('input',()=>{previewRevision++;previewed='';previewPaths=[];planToken=undefined;apply.disabled=true;dialog.querySelector('#preview')!.innerHTML='';});
   dialog.querySelector('#preview-button')!.addEventListener('click',async()=>{
     const previewButton=dialog.querySelector<HTMLButtonElement>('#preview-button')!;previewButton.disabled=true;apply.disabled=true;planToken=undefined;
     try{
       const template=value(dialog,'template'),targets=paths(),revision=previewRevision;
-      if(rename){const result=await invoke<RenamePreview[]>('preview_rename',{paths:targets,template,columns:columnSpecs(targets)});if(!dialog.open||revision!==previewRevision)return;const token=result[0]?.plan_token;if(!token||result.length!==targets.length||result.some((row,index)=>row.path!==targets[index]||row.plan_token!==token))throw new Error('The rename preview could not be verified. Run Preview again.');dialog.querySelector('#preview')!.innerHTML=`<div class="preview">${result.map(r=>`<div translate="no"><small>${esc(displayName(r.path))}</small>${esc(r.value)}</div>`).join('')}</div>`;planToken=token;}
+      if(rename){const result=await invoke<RenamePreview[]>('preview_rename',{paths:targets,template,columns:columnSpecs(targets)});if(!dialog.open||revision!==previewRevision)return;const token=result[0]?.plan_token;if(!token||result.length!==targets.length||result.some((row,index)=>row.path!==targets[index]||row.plan_token!==token))throw new Error('The rename preview could not be verified. Run Preview again.');dialog.querySelector('#preview')!.innerHTML=`<div class="preview">${result.map(r=>`<div translate="no"><small>${esc(displayName(r.path))}</small>${esc(r.value)}${(r.associated??[]).map(item=>`<div class="associated-file"><small>${esc(item.from)}</small>${esc(item.to)}</div>`).join('')}</div>`).join('')}</div>`;planToken=token;}
       else{const result=await invoke<FilenamePreview[]>('preview_filename',{paths:targets,pattern:template});if(!dialog.open||revision!==previewRevision)return;matched=result.filter(r=>r.fields).length;dialog.querySelector('#preview')!.innerHTML=`<div class="preview">${result.map(r=>`<div${r.fields?'':' class="no-match"'}><small translate="no">${esc(displayName(r.path))}</small>${r.fields?Object.entries(r.fields).map(([key,values])=>`<span translate="no">${esc(key)}: ${esc(values.join(' · '))}</span>`).join('<br>'):r.error?esc(publicMessage(r.error)):'No match, not changed'}</div>`).join('')}</div>`;apply.textContent=`Apply to ${matched} file${matched===1?'':'s'}`;}
       dialog.querySelector('.dialog-error')?.remove();previewed=template;previewPaths=targets;apply.disabled=value(dialog,'template')!==template||JSON.stringify(paths())!==JSON.stringify(targets)||(rename&&!planToken)||(!rename&&!matched);
     }catch(e){modalError(dialog,e);}finally{previewButton.disabled=false;}
@@ -1667,9 +1668,9 @@ async function replayHistory(kind:'undo'|'redo'){
   });
 }
 const clipTargets=()=>paths().map(path=>({path,fields:merged(entries.get(path)!)}));
-// Files whose covers are known and saved in place: provider documents with unreadable working copies, or
-// that only Save a copy can keep (it writes fields only), are left alone.
-const coverTargets=()=>sourcePolicy().mutationReason?[]:paths().filter(path=>!workingReadErrors.has(path)).map(path=>({path,covers:pendingCovers.get(path)??entries.get(path)!.covers}));
+// Clipboard operations stage edits, including for read-only or recovery sources.
+// Leave artwork alone when the retained working copy cannot be read.
+const coverTargets=()=>paths().filter(path=>!workingReadErrors.has(path)).map(path=>({path,covers:pendingCovers.get(path)??entries.get(path)!.covers}));
 function stageTagUpdates(plan:()=>PasteUpdate[],operation:'Cut tags'|'Paste tags',statusMessage:(count:number)=>string,coverPlan:()=>CoverUpdate[]=()=>[]){
   try{
     const updates=plan(),coverUpdates=coverPlan();
@@ -1979,7 +1980,7 @@ async function renameFromList(entry:Entry,key:string,value:string):Promise<strin
   else if(stem===entry.filename.slice(0,dot>0?dot:undefined))return entry.path;
   const problem=!desktop?'Renaming requires the desktop app.':sourcePolicy().unsupportedReason||(!stem.trim()?'Enter a filename.':/[\\/]/.test(stem)?'Filenames cannot contain path separators.':'');
   if(problem){errors=[{path:'Rename',label:'Rename',error:problem}];render();return undefined;}
-  const result=await run('Renaming file…',async()=>{const batch=await invoke<Batch>('rename_files',{paths:[entry.path],template:`'${stem.replace(/'/g,"''")}'`,planToken:null});applyRenamed(batch);accept(batch,'Renamed',false);queuedNotices=[];return batch;});
+  const result=await run('Renaming file…',async()=>{const batch=await invoke<Batch>('rename_files',{paths:[entry.path],template:`'${stem.replace(/'/g,"''")}'`,planToken:null,audioOnly:true});applyRenamed(batch);accept(batch,'Renamed',false);queuedNotices=[];return batch;});
   return result&&!result.errors.length?result.renamed?.find(item=>item.from===entry.path)?.to||entry.path:undefined;
 }
 async function operate(op: Operation) {
@@ -2082,7 +2083,7 @@ if(desktop){
   const optionsReady=optionsUI.initialize().then(async response=>{collator=naturalCollator(response.settings);toolbarConfig=normalizeToolbar(response.settings.pages.toolbar);customToolbar=normalizeCustomToolbar(response.settings.pages['custom-toolbar']);if(response.settings.pages.layout)updateLayout(normalizeMainLayout(response.settings.pages.layout));await applyLanguage();void applyNotificationArea();changedData();applyAppearancePrefs();if(response.warning)errors=[...errors,{path:'Options',label:'Options',error:response.warning}];render();}).catch(async error=>{errors=[...errors,{path:'Options',label:'Options',error:String(error)}];await applyLanguage(languageChoice());}).finally(()=>{render();translateNow(app);app.inert=false;app.style.visibility='';syncWindowTitle();});
   let directoriesReady=Promise.resolve();
   void Promise.all([optionsReady,versionReady]).then(([,version])=>version?startupUpdates(version):undefined);
-  const platformReady=invoke<typeof runtimePlatform>('runtime_platform').then(async platform=>{runtimePlatform=platform;nativeAppearanceReady=platform.family==='desktop';languagePage.setFolderSupport(platform.family==='desktop');render();syncNativeAppearance();if(platform.folder_picker_supported)directoriesReady=optionsReady.then(()=>fileOps.initialize()).catch(error=>{errors=[{path:'Directories',label:'Directories',error:String(error)}];render();});if(platform.document_access_supported){await optionsReady;await run('Restoring recovery copies…',async()=>{const batch=await invoke<Batch>('restore_document_recovery');accept(batch,'Restored recovery copies',false);location='Provider documents';locationIsData=false;if(!selected.size&&batch.entries.length){selected.add(batch.entries[0].path);anchor=batch.entries[0].path;}if(!batch.entries.length&&!batch.errors.length)status='Ready';});}}).catch(error=>{errors=[{path:'Platform',label:'Platform',error:String(error)}];render();});
+  const platformReady=invoke<typeof runtimePlatform>('runtime_platform').then(async platform=>{runtimePlatform=platform;nativeAppearanceReady=platform.family==='desktop';languagePage.setFolderSupport(platform.family==='desktop');render();syncNativeAppearance();if(platform.folder_picker_supported)directoriesReady=optionsReady.then(()=>fileOps.initialize()).catch(error=>{errors=[{path:'Directories',label:'Directories',error:String(error)}];render();});if(platform.document_access_supported){await optionsReady;await run('Restoring recovery copies…',async()=>{const batch=await invoke<Batch>('restore_document_recovery');accept(batch,'Restored recovery copies',false);await reconcileWorkingEntries(batch.entries.map(entry=>entry.path));location='Provider documents';locationIsData=false;if(!selected.size&&batch.entries.length){selected.add(batch.entries[0].path);anchor=batch.entries[0].path;}if(!batch.entries.length&&!batch.errors.length)status='Ready';});}}).catch(error=>{errors=[{path:'Platform',label:'Platform',error:String(error)}];render();});
   void listen<{job:string;done:number;total:number}>('opentag://progress',event=>{const job=progressJob;if(!job||event.payload.job!==job.id)return;job.done=event.payload.done;job.total=event.payload.total;showProgress();}).catch(()=>{/* Progress is optional; operations still complete. */});
   void webSourcesUI.refresh();
   // Which API keys exist (never the keys): AcoustID, Last.fm and fanart.tv wait for one.
