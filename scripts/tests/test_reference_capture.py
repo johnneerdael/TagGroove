@@ -1,9 +1,12 @@
-"""Synthetic integrity/containment controls; no Mp3tag or Windows execution."""
+"""Synthetic integrity and pure filesystem probe tests; no reference/native APIs."""
 import copy
 import hashlib
 import importlib.util
 import json
 from pathlib import Path
+import os
+import shutil
+import subprocess
 import tempfile
 import unittest
 from unittest import mock
@@ -171,6 +174,136 @@ class ReferenceCapture(unittest.TestCase):
         self.save()
         with self.assertRaisesRegex(ValueError, "escapes"):
             collector.validate_capture(self.root, self.contract)
+
+
+@unittest.skipUnless(shutil.which("pwsh") or shutil.which("powershell"), "PowerShell is unavailable")
+class ProbeFinalization(unittest.TestCase):
+    def finalize(self, candidate, status="probe_only"):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            cfg = root / "mp3tag.cfg"
+            cfg.write_bytes(candidate if isinstance(candidate, bytes) else b"")
+            if candidate == "deleted":
+                cfg.unlink()
+            elif candidate == "renamed":
+                cfg.rename(root / "mp3tag.cfg.invalid")
+            elif candidate == "directory":
+                cfg.unlink()
+                cfg.mkdir()
+            # Parse the real script, then execute only Write-Record and its final
+            # observation block. Startup, native declarations and API calls never
+            # execute. The already-exited process is a fixture, not a real process.
+            script = r"""
+$ErrorActionPreference = 'Stop'
+Set-StrictMode -Version Latest
+$tokens = $null
+$parseErrors = $null
+$ast = [Management.Automation.Language.Parser]::ParseFile($env:PROBE_SOURCE, [ref]$tokens, [ref]$parseErrors)
+if ($parseErrors.Count) { throw $parseErrors[0] }
+$writer = $ast.Find({ param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Write-Record' }, $false)
+. ([scriptblock]::Create($writer.Extent.Text))
+$final = $ast.Find({ param($node) $node -is [Management.Automation.Language.TryStatementAst] -and $null -ne $node.Finally }, $false).Finally.Extent.Text
+$cfg = Join-Path $env:PROBE_CASE_ROOT 'mp3tag.cfg'
+$output = Join-Path $env:PROBE_CASE_ROOT 'record.json'
+$errors = [Collections.Generic.List[string]]::new()
+$errors.Add('Earlier observation failed')
+$record = @{
+    status = $env:PROBE_CASE_STATUS
+    runtime = @{ process_id = 123 }
+    native_windows = @(@{ handle = 456 })
+    automation_elements = @(@{ automation_id = 'observed-control' })
+    configuration = @{ mode = 'unverified'; path_observed = $false; bytes_after_exit = $null; sha256_after_exit = $null }
+    shutdown = @{ exit_code = $null }
+    errors = $errors
+}
+$started = [pscustomobject]@{ HasExited = $true; ExitCode = 7 }
+function Confirm-OwnedProcess { return $null }
+if ($env:PROBE_CASE_ACTION -in @('deleted-during-hash', 'directory-during-hash')) {
+    # Mutate the real file after Get-Item; retain the actual hash cmdlet's errors.
+    function Get-FileHash {
+        param($LiteralPath, $Algorithm)
+        Remove-Item -LiteralPath $LiteralPath
+        if ($env:PROBE_CASE_ACTION -eq 'directory-during-hash') {
+            [void](New-Item -ItemType Directory -Path $LiteralPath)
+        }
+        Microsoft.PowerShell.Utility\Get-FileHash -LiteralPath $LiteralPath -Algorithm $Algorithm
+    }
+}
+. ([scriptblock]::Create($final.Substring(1, $final.Length - 2)))
+"""
+            result = subprocess.run(
+                [shutil.which("pwsh") or shutil.which("powershell"), "-NoProfile", "-NonInteractive", "-Command", script],
+                env={**os.environ, "PROBE_SOURCE": str(Path(__file__).parents[1] / "reference-capture/probe.ps1"),
+                     "PROBE_CASE_ROOT": str(root), "PROBE_CASE_STATUS": status,
+                     "PROBE_CASE_ACTION": candidate if isinstance(candidate, str) else ""},
+                capture_output=True, text=True, timeout=30,
+            )
+            output = root / "record.json"
+            self.assertTrue(output.is_file(), f"probe observations were lost: {result.stderr}")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            record = json.loads(output.read_text(encoding="utf-8"))
+            self.assertEqual(record["runtime"]["process_id"], 123)
+            self.assertEqual(record["native_windows"], [{"handle": 456}])
+            self.assertEqual(record["automation_elements"], [{"automation_id": "observed-control"}])
+            self.assertEqual(record["shutdown"]["exit_code"], 7)
+            self.assertEqual(record["errors"][0], "Earlier observation failed")
+            return record
+
+    def test_deleted_or_renamed_candidate_retains_probe_observations(self):
+        for candidate in ("deleted", "renamed"):
+            with self.subTest(candidate=candidate):
+                record = self.finalize(candidate)
+                configuration = record["configuration"]
+                self.assertIs(configuration.get("candidate_present_after_exit"), False)
+                self.assertFalse(configuration["path_observed"])
+                self.assertIsNone(configuration["bytes_after_exit"])
+                self.assertIsNone(configuration["sha256_after_exit"])
+                self.assertEqual(configuration["mode"], "unverified")
+                self.assertEqual(record["status"], "probe_only")
+                self.assertEqual(len(record["errors"]), 2)
+
+    def test_present_candidates_record_actual_size_hash_and_write_observation(self):
+        for data, expected_hash in ((b"", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"),
+                                    (b"abc", "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")):
+            with self.subTest(data=data):
+                record = self.finalize(data)
+                configuration = record["configuration"]
+                self.assertIs(configuration.get("candidate_present_after_exit"), True)
+                self.assertEqual(configuration["bytes_after_exit"], len(data))
+                self.assertEqual(configuration["sha256_after_exit"], expected_hash)
+                self.assertEqual(configuration["path_observed"], bool(data))
+                self.assertEqual(configuration["mode"], "unverified")
+                self.assertEqual(record["errors"], ["Earlier observation failed"])
+
+    def test_configuration_inspection_error_retains_record_and_blocks_probe(self):
+        record = self.finalize("directory")
+        self.assertEqual(record["status"], "blocked")
+        self.assertFalse(record["configuration"]["path_observed"])
+        self.assertIsNone(record["configuration"]["sha256_after_exit"])
+        self.assertEqual(len(record["errors"]), 2)
+
+    def test_candidate_deleted_during_hash_retains_absence_and_observations(self):
+        record = self.finalize("deleted-during-hash")
+        configuration = record["configuration"]
+        self.assertIs(configuration.get("candidate_present_after_exit"), False)
+        self.assertIsNone(configuration["bytes_after_exit"])
+        self.assertIsNone(configuration["sha256_after_exit"])
+        self.assertFalse(configuration["path_observed"])
+        self.assertEqual(record["status"], "probe_only")
+        self.assertEqual(len(record["errors"]), 2)
+
+    def test_nonmissing_hash_error_retains_observations_and_blocks_probe(self):
+        record = self.finalize("directory-during-hash")
+        self.assertEqual(record["status"], "blocked")
+        self.assertFalse(record["configuration"]["path_observed"])
+        self.assertIsNone(record["configuration"]["bytes_after_exit"])
+        self.assertIsNone(record["configuration"]["sha256_after_exit"])
+        self.assertEqual(len(record["errors"]), 2)
+
+    def test_absent_candidate_does_not_clear_an_earlier_block(self):
+        record = self.finalize("deleted", status="blocked")
+        self.assertEqual(record["status"], "blocked")
+        self.assertEqual(len(record["errors"]), 2)
 
 
 if __name__ == "__main__":

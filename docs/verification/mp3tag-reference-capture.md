@@ -1,11 +1,11 @@
 # Pinned Windows reference capture: diagnostic first
 
-This bounded R01 batch starts from approved branding base
-`c1375a6ccf24e728f3ac29dfd442d4bf1071d47b`. It is independent of the frozen
-PR51 save producer/consumer and imports none of its implementation. It adds
-a pinned runtime preparer, an explicit Windows-only diagnostic and capture
-manifest validation. It does not add a workflow hook or execute Windows CI.
-The merge/review/CI hold remains in force.
+This tooling adds a pinned runtime preparer, an explicit Windows-only
+diagnostic and capture manifest validation. It complements the merged
+paired save producer/consumer in `scripts/save-acceptance.py`, documented in
+[the save verification guide](trust-saves.md). Preparation never executes
+Mp3tag; the diagnostic requires separate explicit runtime authorization.
+This change adds no workflow hook or Windows CI execution.
 
 ## Verified acquisition
 
@@ -94,8 +94,8 @@ files remain in `download/` and `runtime/`; neither is an evidence artifact.
 
 ## Future authorized Windows diagnostic
 
-Do not run this command while the hold is active. After clean review and
-separate root authorization for an appropriate Windows runner:
+Run only after clean review and separate explicit authorization for an
+appropriate interactive Windows environment:
 
 ```powershell
 powershell -NoProfile -File scripts/reference-capture/probe.ps1 -Workspace TEMP_WORKSPACE -RunReference
@@ -117,9 +117,14 @@ were recorded. Any required forced termination is recorded separately.
 A changed, nonempty candidate config after shutdown is evidence of a write
 at that path. It does not by itself establish portable mode, selected
 defaults, all locations the application accessed, or successful tagging.
-The diagnostic keeps mode unverified and defaults null. A first-launch
-dialog, missing desktop or unsupported control provider is a diagnostic
-outcome to investigate, not permission to invent control selectors.
+The diagnostic keeps mode unverified and defaults null. If the candidate
+is deleted or renamed, it records `candidate_present_after_exit: false`,
+null size/hash and `path_observed: false`, retaining the inspection error
+and process/window observations in the probe JSON. Other configuration
+inspection failures retain the record and mark it blocked; an earlier
+blocked status is preserved. A first-launch dialog, missing desktop or
+unsupported control provider is a diagnostic outcome to investigate,
+not permission to invent control selectors.
 
 ## Capture manifest and consumer compatibility
 
@@ -137,7 +142,8 @@ probe-only and synthetic records cannot qualify. A completed manifest needs:
   process creation timestamp and collector source hash.
 - Observed portable configuration path/hash, selected MPEG read/write/remove
   switches and ID3v2 encoding, with hashed JSON evidence and timestamps.
-- The exact prepared PR51-style schema-1 contract hash and input hashes.
+- The exact schema-1 `contract.json` hash and input hashes prepared by
+  `scripts/save-acceptance.py prepare`.
 - Exactly one case per prepared file and `edit-one`/`edit-many` operation,
   with actual ordered edit/save/undo/redo/reload operator steps and evidence.
 - Every stage at `evidence/OPERATION/STAGE/FILENAME`, its size and SHA-256.
@@ -154,20 +160,40 @@ python3 scripts/reference-capture/collector.py validate CAPTURE_WORKSPACE --cont
 python3 scripts/reference-capture/collector.py export-identity CAPTURE_WORKSPACE --contract PREPARED_CONTRACT --destination NEW_IDENTITY_JSON
 ```
 
-The exporter writes a compatible identity JSON only. It does not copy media,
-runtime files, scratch directories or vendor bodies. Future paired acceptance
-must use the validated stage files with the separate PR51 consumer once that
-dependency is available and the hold is released. This branch neither imports
-nor duplicates that consumer. Manifest validation checks integrity and explicit
-operator claims; it cannot authenticate who produced a supplied file. It
-does not perform or certify a parity comparison.
+The exporter writes only the identity JSON accepted by the merged
+`scripts/save-acceptance.py compare` consumer. It does not copy media,
+runtime files, scratch directories or vendor bodies, and does not prepare
+a paired comparison by itself. This collector retains reference stage files
+at `CAPTURE_WORKSPACE/evidence/OPERATION/STAGE/FILENAME`; the paired consumer
+reads `PAIRED_WORKSPACE/reference/OPERATION/STAGE/FILENAME`. A future authorized
+capture must separately transfer each validated stage file to that paired
+layout, verify its bytes against the capture manifest, and use the same
+prepared contract and input hashes. Follow the save verification guide for
+the local producer run and comparison command. No stage transfer or paired
+comparison was performed for this change.
+
+Manifest validation checks integrity and explicit operator claims; it cannot
+authenticate who produced a supplied file. It does not perform or certify
+a parity comparison.
 
 ## Evidence achieved and remaining
 
-Observed locally: the exact official download/executable hash match; successful
-runtime staging marked unexecuted; native-Windows refusal on macOS; PowerShell
-syntax parsing and compilation of its native declarations without API calls;
-eleven synthetic containment/integrity tests. No reference process was run.
+The initial investigation on 18 October 2026 recorded the official
+installer/executable hash match, successful staging marked unexecuted,
+native-Windows refusal on macOS, PowerShell syntax parsing and compilation
+of native declarations without API calls, and eleven synthetic
+containment/integrity tests. These are historical acquisition/static
+observations; this revision did not repeat the download or staging.
+
+The current focused suite passes those eleven synthetic tests and six
+probe-finalization tests. The latter execute only the parsed final observation
+block and JSON writer against disposable files and an already-exited process
+fixture. They cover deleted/renamed, empty, nonempty and invalid-directory
+candidates, disappearance or a read failure during hashing, retained
+observations/errors and an earlier blocked status.
+They require an existing PowerShell installation and skip if it is absent.
+They do not execute startup, native declarations, Win32/UIA APIs or Mp3tag.
+No reference process was run, and no paired save parity was established.
 
 ```sh
 python3 -m unittest discover -s scripts/tests -p test_reference_capture.py -v

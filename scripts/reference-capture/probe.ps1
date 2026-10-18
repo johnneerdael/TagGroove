@@ -83,7 +83,7 @@ $record = [ordered]@{
     recorded_at_utc = [DateTime]::UtcNow.ToString('o')
     runtime = @{ os = 'Windows'; os_version = [Environment]::OSVersion.VersionString; process_id = $null; session_id = $null; interactive_desktop = [Environment]::UserInteractive; collector_source_sha256 = (Get-FileHash -LiteralPath $PSCommandPath -Algorithm SHA256).Hash.ToLowerInvariant() }
     reference = @{ application = 'Mp3tag'; version = '3.36.1'; executable_sha256 = (Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash.ToLowerInvariant(); installer_sha256 = (Get-FileHash -LiteralPath $package -Algorithm SHA256).Hash.ToLowerInvariant(); installer_url = 'https://download.mp3tag.de/mp3tag-v3.36.1-x64-setup.exe' }
-    configuration = @{ candidate = 'runtime/application/mp3tag.cfg'; mode = 'unverified'; path_observed = $false; bytes_after_exit = $null; sha256_after_exit = $null }
+    configuration = @{ candidate = 'runtime/application/mp3tag.cfg'; mode = 'unverified'; path_observed = $false; candidate_present_after_exit = $null; bytes_after_exit = $null; sha256_after_exit = $null }
     defaults = $null
     shutdown = @{ requested = $false; clean_exit = $null; forced_termination = $false; exit_code = $null }
     save_actions_performed = $false
@@ -187,10 +187,22 @@ try {
             }
             if ($started.HasExited) { $record.shutdown.exit_code = $started.ExitCode }
         } catch { $record.status = 'blocked'; $errors.Add($_.Exception.Message) }
-        $cfgFile = Get-Item -LiteralPath $cfg
-        $record.configuration.bytes_after_exit = $cfgFile.Length
-        $record.configuration.sha256_after_exit = (Get-FileHash -LiteralPath $cfg -Algorithm SHA256).Hash.ToLowerInvariant()
-        $record.configuration.path_observed = $cfgFile.Length -gt 0
+        try {
+            $cfgFile = Get-Item -LiteralPath $cfg
+            $record.configuration.candidate_present_after_exit = $true
+            if ($cfgFile.PSIsContainer) { throw 'Configuration candidate is a directory after exit.' }
+            $cfgHash = (Get-FileHash -LiteralPath $cfg -Algorithm SHA256).Hash.ToLowerInvariant()
+            $record.configuration.bytes_after_exit = $cfgFile.Length
+            $record.configuration.sha256_after_exit = $cfgHash
+            $record.configuration.path_observed = $cfgFile.Length -gt 0
+        } catch [System.Management.Automation.ItemNotFoundException], [IO.FileNotFoundException], [IO.DirectoryNotFoundException] {
+            # Deletion/rename is a diagnostic outcome, not evidence of portable mode.
+            $record.configuration.candidate_present_after_exit = $false
+            $errors.Add($_.Exception.Message)
+        } catch {
+            $record.status = 'blocked'
+            $errors.Add($_.Exception.Message)
+        }
     }
     Write-Record $output $record
 }
