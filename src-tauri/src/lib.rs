@@ -489,16 +489,36 @@ async fn document_states(
 }
 #[tauri::command]
 async fn document_save_copy(
-    app: tauri::AppHandle,
     path: String,
     updates: Fields,
+    covers: Option<Vec<list_behaviour::PendingCover>>,
     version: String,
 ) -> Result<ScanResult, String> {
-    io(move || documents::save_copy(&app, &path, &updates, &version)).await
+    io(move || documents::save_copy(&path, &updates, covers.as_deref(), &version)).await
 }
 #[tauri::command]
 async fn document_working_entries(paths: Vec<String>) -> Result<ScanResult, String> {
-    io(move || Ok(batch(&paths, documents::read_working))).await
+    io(move || Ok(working_entries(&paths))).await
+}
+fn working_entries(paths: &[String]) -> ScanResult {
+    let mut result = ScanResult::default();
+    let mut seen = std::collections::HashSet::new();
+    // Reconciliation addresses retained physical entries, not presentation rows.
+    // In particular, neither chapter preferences nor a .cue suffix may expand
+    // a requested identity into other paths.
+    for path in paths {
+        if !seen.insert(path) {
+            continue;
+        }
+        match documents::read_working(Path::new(path)) {
+            Ok(entry) => result.entries.push(entry),
+            Err(error) => result.errors.push(FileError {
+                path: path.clone(),
+                error,
+            }),
+        }
+    }
+    result
 }
 #[tauri::command]
 async fn restore_document_recovery() -> Result<ScanResult, String> {
@@ -1562,6 +1582,10 @@ pub fn run() {
 }
 
 #[cfg(test)]
+#[path = "documents/copy_command_tests.rs"]
+mod document_copy_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -2190,6 +2214,104 @@ mod tests {
     }
 
     #[test]
+    fn working_entries_keep_physical_identity_with_chapter_listing_enabled() {
+        use base64::Engine;
+        use documents::command_fixture::Session;
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("provider.wav");
+        wav(&source);
+        let sheet = "FILE \"provider.wav\" WAVE\n  TRACK 01 AUDIO\n    TITLE \"Opening\"\n    INDEX 01 00:00:00\n  TRACK 02 AUDIO\n    TITLE \"Closing\"\n    INDEX 01 00:00:03\n";
+        tag_core::write_fields(
+            &source,
+            &Fields::from([
+                ("TITLE".into(), vec!["Episode".into()]),
+                ("CUESHEET".into(), vec![sheet.into()]),
+            ]),
+        )
+        .unwrap();
+        let image = dir.path().join("cover.png");
+        let png = base64::engine::general_purpose::STANDARD.decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j4n8AAAAASUVORK5CYII=").unwrap();
+        std::fs::write(&image, &png).unwrap();
+        tag_core::add_cover(&source, &image).unwrap();
+        let session = Session::import(&dir.path().join("private"), &source, "Episode.wav", true);
+        let second = Session::import(&dir.path().join("second"), &source, "Second.wav", false);
+        session.fail_publish();
+        let failed = tauri::async_runtime::block_on(save_fields(
+            vec![session.path.clone()],
+            Fields::from([("TITLE".into(), vec!["Recovered episode".into()])]),
+            None,
+        ))
+        .unwrap();
+        assert!(failed.entries.is_empty());
+        assert!(failed.errors[0].error.contains("publication failed"));
+        let retained = std::fs::read(&session.path).unwrap();
+        std::fs::remove_file(&source).unwrap(); // A provider read now fails.
+        let unmanaged = dir
+            .path()
+            .join("unknown.cue")
+            .to_string_lossy()
+            .into_owned();
+        // Valid cue content must still be rejected as an unmanaged physical
+        // request, rather than followed or rewritten into virtual track paths.
+        std::fs::write(&unmanaged, sheet).unwrap();
+        let paths = vec![
+            session.path.clone(),
+            unmanaged.clone(),
+            second.path.clone(),
+            session.path.clone(),
+            unmanaged.clone(),
+            second.path.clone(),
+        ];
+        let for_worker = paths.clone();
+        let result = tauri::async_runtime::block_on(io(move || {
+            let mut options = tag_core::TagOptions::default();
+            options.advanced.list_chapters = true;
+            Ok(settings::with_test_tag_options(options, || {
+                // Positive control: this file really has chapter rows and the
+                // production presentation transform observes the preference.
+                let listed = batch(
+                    std::slice::from_ref(&for_worker[0]),
+                    documents::read_working,
+                );
+                assert!(listed.errors.is_empty());
+                assert_eq!(listed.entries.len(), 2);
+                assert!(listed
+                    .entries
+                    .iter()
+                    .all(|entry| tag_core::subsong_parts(&entry.path).is_some()));
+                working_entries(&for_worker)
+            }))
+        }))
+        .unwrap();
+        assert_eq!(
+            result.entries.len(),
+            2,
+            "working entries must not expand chapters"
+        );
+        assert_eq!(result.entries[1].path, second.path);
+        assert_eq!(result.entries[1].fields["TITLE"], ["Episode"]);
+        let entry = &result.entries[0];
+        assert_eq!(entry.path, session.path);
+        assert_eq!(entry.fields["TITLE"], ["Recovered episode"]);
+        assert_eq!(entry.filename, "Episode.wav");
+        assert_eq!(entry.technical["_PATH"], std::slice::from_ref(&session.uri));
+        assert_eq!(entry.chapters.len(), 2);
+        assert_eq!(entry.covers.len(), 1);
+        assert!(entry.covers[0].data_base64.is_empty());
+        assert_eq!(result.errors.len(), 1);
+        assert_eq!(result.errors[0].path, unmanaged);
+        assert!(result.errors[0].error.contains("Unknown provider document"));
+        assert_eq!(std::fs::read(&session.path).unwrap(), retained);
+        // Also exercise the async command boundary, which delegates to the same
+        // worker; its unit-test options are otherwise the application's defaults.
+        let command = tauri::async_runtime::block_on(document_working_entries(paths)).unwrap();
+        assert_eq!(
+            serde_json::to_value(command).unwrap(),
+            serde_json::to_value(result).unwrap()
+        );
+    }
+
+    #[test]
     fn working_entries_reject_unmanaged_paths_and_never_fall_back_to_backup() {
         use documents::command_fixture::Session;
         let dir = tempfile::tempdir().unwrap();
@@ -2199,11 +2321,9 @@ mod tests {
         session.fail_publish();
         tauri::async_runtime::block_on(remove_tags(vec![session.path.clone()])).unwrap();
         std::fs::write(&session.path, b"unreadable retained audio").unwrap();
-        let local = tauri::async_runtime::block_on(document_working_entries(vec![
-            session.path.clone(),
-            source.to_string_lossy().into_owned(),
-        ]))
-        .unwrap();
+        let paths = vec![session.path.clone(), source.to_string_lossy().into_owned()];
+        let local =
+            tauri::async_runtime::block_on(document_working_entries(paths.clone())).unwrap();
         assert!(
             local.entries.is_empty(),
             "must not present backup as edited bytes"
@@ -2211,6 +2331,18 @@ mod tests {
         assert_eq!(local.errors.len(), 2);
         assert_eq!(local.errors[0].path, session.path);
         assert!(local.errors[1].error.contains("Unknown provider document"));
+        let chapter_enabled = tauri::async_runtime::block_on(io(move || {
+            let mut options = tag_core::TagOptions::default();
+            options.advanced.list_chapters = true;
+            Ok(settings::with_test_tag_options(options, || {
+                working_entries(&paths)
+            }))
+        }))
+        .unwrap();
+        assert_eq!(
+            serde_json::to_value(chapter_enabled).unwrap(),
+            serde_json::to_value(local).unwrap()
+        );
         // Recovery's separate baseline salvage remains available.
         let recovered = tauri::async_runtime::block_on(restore_document_recovery()).unwrap();
         assert!(recovered
