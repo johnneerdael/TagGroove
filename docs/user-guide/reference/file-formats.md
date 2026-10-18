@@ -91,6 +91,18 @@ TAK and OptimFROG tag paths do not decode/re-encode the audio. Existing tests us
 
 Footer-only APEv2 tags are read without treating the preceding 32 audio bytes as a header; an internal `TAG` sequence is not an ID3v1 tag. APE tags left untouched by the selected write policy retain their bytes. Some other unusual APE footer/header layouts and compressed/encrypted ID3 frames have additional restrictions. Unsupported encrypted-frame revision conversion is refused to keep the original file. A successful read is not a promise that every malformed or encrypted structure can be rewritten.
 
+Supported ID3v2.3 extended headers, with or without a CRC checksum, can be read
+without losing ordinary fields or unedited compressed/encrypted records. A
+same-revision metadata edit can normalize the tag to a plain ID3v2.3 header;
+the optional extended header/checksum is then absent, while unedited opaque
+records and audio remain preserved. Recorded Undo restores the original bytes,
+including that header/checksum. This does not decrypt encrypted metadata.
+
+Global unsynchronization combined with an extended header, and opaque frames
+combined with ID3v2.4 CRC/footer layouts, still have unsupported cases. A
+refused operation should leave the original file intact. Keep a backup rather
+than converting an encrypted tag's revision to get around a refusal.
+
 ### MP4 metadata preservation
 
 MP4 iTunes fields take precedence over Nero metadata; Nero supplies missing values. Editing or deleting a mapped field also updates or removes its existing Nero copy. TagGroove does not add newly created fields to the Nero set. For a file without chapters, an edited value too long for its existing Nero space is written to iTunes only; the older Nero value remains hidden by iTunes precedence.
@@ -101,7 +113,7 @@ Nonstandard `plID` items survive unrelated edits. Values of 1–8 bytes can appe
 
 ### DSD
 
-DSF metadata uses its terminal ID3v2 area. DSF and DSDIFF can preserve unedited compressed or opaque encrypted ID3v2 frames byte for byte. That does not decrypt them; unsynchronization, extended headers, footers and merged duplicate frames still limit preservation. DSDIFF can additionally supply DIIN artist/title when ID3 lacks them. Duplicate DSDIFF ID3 chunks are refused for field/cover writes instead of being silently merged; removal can still handle them. A DST index can prevent edits that would move indexed sound data. These are container restrictions, not a request to decode DSD audio to PCM.
+DSF metadata uses its terminal ID3v2 area. DSF and DSDIFF can preserve unedited compressed or opaque encrypted ID3v2 frames byte for byte, including the supported ID3v2.3 extended-header cases above. That does not decrypt them; combined unsynchronization/header transformations, unsupported footer layouts and merged duplicate frames still limit preservation. DSDIFF can additionally supply DIIN artist/title when ID3 lacks them. Duplicate DSDIFF ID3 chunks are refused for field/cover writes instead of being silently merged; removal can still handle them. A DST index can prevent edits that would move indexed sound data. These are container restrictions, not a request to decode DSD audio to PCM.
 
 ### Matroska and WebM
 

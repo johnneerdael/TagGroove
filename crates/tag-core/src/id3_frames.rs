@@ -216,20 +216,126 @@ fn encrypted_patches(reader: &mut (impl Read + Seek)) -> io::Result<Option<(Patc
 /// Bytes shown instead of the stored ones, by offset.
 type Patches = crate::ape_footer::Patches;
 
+/// Lofty reads a v2.3 extended header using the v2.4 layout. Present its
+/// validated frames followed by extra zero padding instead, keeping the tag,
+/// container and media offsets unchanged. Only this read view is normalized;
+/// scan/Passthrough still see the original flags and physical frame bytes.
+fn v23_extended_view(reader: &mut (impl Read + Seek)) -> io::Result<(Patches, u64)> {
+    let position = reader.stream_position()?;
+    let result = (|| {
+        let invalid = || {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                "Invalid ID3v2.3 extended header",
+            )
+        };
+        let Some(start) = locate(reader)? else {
+            return Ok((Vec::new(), 0));
+        };
+        reader.seek(SeekFrom::Start(start))?;
+        let mut header = [0; 10];
+        reader.read_exact(&mut header)?;
+        if header[3] != 3 || header[5] & 0x40 == 0 {
+            return Ok((Vec::new(), 0));
+        }
+        // A global unsynchronisation changes physical offsets, including the
+        // extended header. Do not apply this non-unsynchronised view to it.
+        if header[5] & 0x80 != 0 {
+            return Err(io::Error::new(io::ErrorKind::Unsupported,
+                "Combined ID3v2.3 extended header and unsynchronisation needs further verification; original file preserved"));
+        }
+        if header[5] & 0x1f != 0 {
+            return Err(invalid());
+        }
+        let size = u64::from(syncsafe(&header[6..10]).ok_or_else(invalid)?);
+        let length = reader.seek(SeekFrom::End(0))?;
+        let end = start
+            .checked_add(10)
+            .and_then(|at| at.checked_add(size))
+            .ok_or_else(invalid)?;
+        if end > length || size < 10 {
+            return Err(invalid());
+        }
+        if start != 0 {
+            // locate() found an embedded RIFF/AIFF ID3 chunk. Do not read into
+            // the next chunk even if the tag claims more bytes than its owner.
+            reader.seek(SeekFrom::Start(0))?;
+            let mut form = [0; 12];
+            reader.read_exact(&mut form)?;
+            reader.seek(SeekFrom::Start(start - 4))?;
+            let mut chunk_size = [0; 4];
+            reader.read_exact(&mut chunk_size)?;
+            let size = if &form[..4] == b"RIFF" {
+                u32::from_le_bytes(chunk_size)
+            } else {
+                u32::from_be_bytes(chunk_size)
+            };
+            if end > start + u64::from(size) {
+                return Err(invalid());
+            }
+        }
+        reader.seek(SeekFrom::Start(start + 10))?;
+        let mut extended = [0; 10];
+        reader.read_exact(&mut extended)?;
+        let declared = u32::from_be_bytes(extended[..4].try_into().expect("4 bytes"));
+        let flags = u16::from_be_bytes(extended[4..6].try_into().expect("2 bytes"));
+        let has_crc = flags == 0x8000;
+        if flags != 0 && !has_crc || declared != if has_crc { 10 } else { 6 } {
+            return Err(invalid());
+        }
+        let shift = u64::from(declared) + 4;
+        if shift > size {
+            return Err(invalid());
+        }
+        let padding = u64::from(u32::from_be_bytes(
+            extended[6..10].try_into().expect("4 bytes"),
+        ));
+        if padding > size - shift {
+            return Err(invalid());
+        }
+        // All allocation is limited to the actual, validated metadata range.
+        reader.seek(SeekFrom::Start(start + 10))?;
+        let size_usize = usize::try_from(size).map_err(|_| invalid())?;
+        let mut body = Vec::new();
+        body.try_reserve_exact(size_usize)
+            .map_err(io::Error::other)?;
+        body.resize(size_usize, 0);
+        reader.read_exact(&mut body)?;
+        let frames_end = body.len() - padding as usize;
+        if body[frames_end..].iter().any(|byte| *byte != 0) {
+            return Err(invalid());
+        }
+        if has_crc {
+            let expected = u32::from_be_bytes(body[10..14].try_into().expect("4 bytes"));
+            if crc32fast::hash(&body[shift as usize..frames_end]) != expected {
+                return Err(invalid());
+            }
+        }
+        body.copy_within(shift as usize.., 0);
+        body[(size - shift) as usize..].fill(0);
+        Ok((
+            vec![(start + 5, vec![header[5] & !0x40]), (start + 10, body)],
+            shift,
+        ))
+    })();
+    reader.seek(SeekFrom::Start(position))?;
+    result
+}
+
 /// A reader that shows the file with some bytes replaced and some appended:
 /// each encrypted ID3v2 frame renamed to a placeholder without flags, so
 /// lofty reads its stored bytes as binary data, and the view of a trailing
 /// APE tag lofty would misread (see `ape_footer`).
-pub(crate) struct Overlay<R> {
+pub(crate) struct Overlay<'a, R> {
     inner: R,
-    patches: Patches,
+    patches: &'a [(u64, Vec<u8>)],
     /// Bytes after the end of `inner`.
-    tail: Vec<u8>,
+    tail: &'a [u8],
     length: u64,
     position: u64,
 }
-impl<R: Read + Seek> Overlay<R> {
-    fn new(mut inner: R, patches: Patches, tail: Vec<u8>) -> io::Result<Self> {
+impl<'a, R: Read + Seek> Overlay<'a, R> {
+    fn new(mut inner: R, patches: &'a [(u64, Vec<u8>)], tail: &'a [u8]) -> io::Result<Self> {
         let position = inner.stream_position()?;
         let length = inner.seek(SeekFrom::End(0))?;
         inner.seek(SeekFrom::Start(position))?;
@@ -242,7 +348,7 @@ impl<R: Read + Seek> Overlay<R> {
         })
     }
 }
-impl<R: Read> Read for Overlay<R> {
+impl<R: Read> Read for Overlay<'_, R> {
     fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
         if self.position >= self.length {
             let tail = self
@@ -259,19 +365,21 @@ impl<R: Read> Read for Overlay<R> {
             .min(usize::try_from(self.length - self.position).unwrap_or(usize::MAX));
         let read = self.inner.read(&mut buffer[..take])?;
         let window = self.position..self.position + read as u64;
-        for (offset, bytes) in &self.patches {
-            for (index, byte) in bytes.iter().enumerate() {
-                let at = offset + index as u64;
-                if window.contains(&at) {
-                    buffer[(at - window.start) as usize] = *byte;
-                }
+        for (offset, bytes) in self.patches {
+            // Copy only the intersection: a normalized extended-header patch
+            // may span the whole tag, while the reader requests small buffers.
+            let start = window.start.max(*offset);
+            let end = window.end.min(offset.saturating_add(bytes.len() as u64));
+            if start < end {
+                buffer[(start - window.start) as usize..(end - window.start) as usize]
+                    .copy_from_slice(&bytes[(start - offset) as usize..(end - offset) as usize]);
             }
         }
         self.position = window.end;
         Ok(read)
     }
 }
-impl<R: Seek> Seek for Overlay<R> {
+impl<R: Seek> Seek for Overlay<'_, R> {
     fn seek(&mut self, to: SeekFrom) -> io::Result<u64> {
         let end = self.length + self.tail.len() as u64;
         let target = match to {
@@ -303,6 +411,8 @@ pub(crate) fn read_with_fallback_diagnostic<R: Read + Seek, T>(
         append,
         phantom,
     } = crate::ape_footer::read_view(reader).map_err(ErrorCause::external)?;
+    let (extended, shift) = v23_extended_view(reader).map_err(ErrorCause::external)?;
+    patches.extend(extended);
     let tail = if append {
         crate::ape_footer::PHANTOM.to_vec()
     } else {
@@ -311,8 +421,8 @@ pub(crate) fn read_with_fallback_diagnostic<R: Read + Seek, T>(
     let first = if patches.is_empty() && tail.is_empty() {
         read(reader)
     } else {
-        let mut overlay = Overlay::new(&mut *reader, patches.clone(), tail.clone())
-            .map_err(ErrorCause::external)?;
+        let mut overlay =
+            Overlay::new(&mut *reader, &patches, &tail).map_err(ErrorCause::external)?;
         read(&mut overlay)
     };
     let error = match first {
@@ -320,10 +430,13 @@ pub(crate) fn read_with_fallback_diagnostic<R: Read + Seek, T>(
         Err(error) => error,
     };
     match encrypted_patches(reader) {
-        Ok(Some((encrypted, tag))) => {
+        Ok(Some((mut encrypted, tag))) => {
+            for (offset, _) in &mut encrypted {
+                *offset -= shift;
+            }
             patches.extend(encrypted);
             let mut overlay =
-                Overlay::new(&mut *reader, patches, tail).map_err(ErrorCause::external)?;
+                Overlay::new(&mut *reader, &patches, &tail).map_err(ErrorCause::external)?;
             let value = read(&mut overlay)?;
             Ok((value, placeholder_names(&tag), phantom))
         }
@@ -521,6 +634,34 @@ mod tests {
     }
 
     #[test]
+    fn extended_only_read_view_does_not_move_media_or_reject_an_empty_body() {
+        // The ID3v2.3 spec requires frames, but the adapter need not reject a
+        // tolerated empty tag before the underlying reader makes that decision.
+        let mut bytes = b"ID3\x03\0\x40\0\0\0\x0a".to_vec();
+        bytes.extend(6u32.to_be_bytes());
+        bytes.extend([0; 6]);
+        bytes.extend(b"media payload");
+        let mut source = Cursor::new(bytes.clone());
+        source.set_position(7);
+        let (patches, shift) = v23_extended_view(&mut source).unwrap();
+        assert_eq!(
+            source.position(),
+            7,
+            "inspection preserves the reader position"
+        );
+        assert_eq!(shift, 10);
+        source.set_position(0);
+        let mut view = Overlay::new(source, &patches, &[]).unwrap();
+        let mut normalized = Vec::new();
+        view.read_to_end(&mut normalized).unwrap();
+        assert_eq!(normalized.len(), bytes.len());
+        assert_eq!(normalized[5], 0);
+        assert_eq!(&normalized[6..10], &bytes[6..10]);
+        assert_eq!(&normalized[10..20], [0; 10]);
+        assert_eq!(&normalized[20..], b"media payload");
+    }
+
+    #[test]
     fn detailed_fallback_retains_callback_provenance_and_splice_owns_its_guard() {
         let text = "Invalid ID3v2 serialization";
         let owned = read_with_fallback_diagnostic(
@@ -564,7 +705,7 @@ mod tests {
         let mut cursor = Cursor::new(bytes.clone());
         let (patches, _) = encrypted_patches(&mut cursor).unwrap().unwrap();
         cursor.set_position(0);
-        let mut overlay = Overlay::new(cursor, patches, b"tail".to_vec()).unwrap();
+        let mut overlay = Overlay::new(cursor, &patches, b"tail").unwrap();
         let mut seen = Vec::new();
         // Read in small pieces so patches straddle buffer boundaries.
         let mut buffer = [0u8; 7];

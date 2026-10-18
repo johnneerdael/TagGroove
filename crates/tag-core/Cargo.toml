@@ -5,6 +5,7 @@ edition = "2021"
 license = "MIT"
 
 [dependencies]
+crc32fast = "=1.5.2"
 quick-xml = "=0.42.0"
 url = "=2.5.8"
 dunce = "1"
