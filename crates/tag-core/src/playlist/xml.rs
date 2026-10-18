@@ -35,6 +35,22 @@ impl Kind {
         }
     }
 }
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Namespace {
+    Unbound,
+    Xspf,
+    Other,
+}
+fn resolve_namespace(namespace: ResolveResult<'_>) -> Result<Namespace, &'static str> {
+    // Classification compares length before bytes; long inherited foreign URIs
+    // stay borrowed in NsReader and are never copied for each Start/End event.
+    match namespace {
+        ResolveResult::Bound(namespace) if namespace.as_ref() == XSPF => Ok(Namespace::Xspf),
+        ResolveResult::Bound(_) => Ok(Namespace::Other),
+        ResolveResult::Unbound => Ok(Namespace::Unbound),
+        ResolveResult::Unknown(_) => Err("Unknown XML namespace prefix"),
+    }
+}
 fn xml_character(c: char) -> bool {
     matches!(c, '\u{9}' | '\u{a}' | '\u{d}' | '\u{20}'..='\u{d7ff}' | '\u{e000}'..='\u{fffd}' | '\u{10000}'..='\u{10ffff}')
 }
@@ -192,7 +208,7 @@ impl Parser {
     fn start(
         &mut self,
         name: &str,
-        namespace: Option<&str>,
+        namespace: Namespace,
         attrs: BTreeMap<String, String>,
         line: usize,
     ) -> Result<(), String> {
@@ -201,9 +217,9 @@ impl Parser {
         }
         let parent = self.frames.last().map(|frame| frame.role);
         let qualified = if self.kind == Kind::Xspf {
-            namespace == Some(XSPF)
+            namespace == Namespace::Xspf
         } else {
-            namespace.is_none()
+            namespace == Namespace::Unbound
         };
         let name = if self.kind == Kind::Asx {
             name.to_ascii_lowercase()
@@ -460,13 +476,7 @@ fn read_with_base_budget(
         let (namespace, event) = reader
             .read_resolved_event()
             .map_err(|e| failure(e.to_string()))?;
-        let namespace = match namespace {
-            ResolveResult::Bound(namespace) => Some(namespace.as_ref().to_owned()),
-            ResolveResult::Unbound => None,
-            ResolveResult::Unknown(_) => {
-                return Err(failure("Unknown XML namespace prefix".into()))
-            }
-        };
+        let namespace = resolve_namespace(namespace).map_err(|error| failure(error.into()))?;
         match event {
             Event::Start(start) => {
                 let mut attrs = BTreeMap::new();
@@ -507,12 +517,7 @@ fn read_with_base_budget(
                     }
                 }
                 parser
-                    .start(
-                        start.local_name().as_ref(),
-                        namespace.as_deref(),
-                        attrs,
-                        line,
-                    )
+                    .start(start.local_name().as_ref(), namespace, attrs, line)
                     .map_err(failure)?;
             }
             Event::End(_) => parser.end().map_err(failure)?,
@@ -665,5 +670,36 @@ mod tests {
         let (_dir, path) = fixture(&base, &distinct);
         let error = read_with_base_budget(&path, Kind::Xspf, 8192).unwrap_err();
         assert!(error.contains("retained base URI size limit"), "{error}");
+    }
+    #[test]
+    fn long_inherited_foreign_namespace_has_constant_size_event_classification() {
+        let namespace = format!("urn:{}", "x".repeat(8192 - 4));
+        let tracks = format!(
+            r#"<extension xmlns:f="{namespace}">{}</extension>"#,
+            "<f:x/>".repeat(128)
+        );
+        let (_dir, path) = fixture("", &tracks);
+        assert!(read(&path, Kind::Xspf).unwrap().is_empty());
+        let text = std::fs::read_to_string(&path).unwrap();
+        let mut reader = NsReader::from_str(&text);
+        reader.config_mut().expand_empty_elements = true;
+        let mut foreign_events = 0;
+        let mut largest_classification = 0;
+        loop {
+            let (resolved, event) = reader.read_resolved_event().unwrap();
+            if matches!(&resolved, ResolveResult::Bound(value) if value.as_ref().len() == 8192) {
+                foreign_events += 1;
+            }
+            // Exercise the exact event-loop boundary: its value must carry no
+            // owned namespace payload, even for ignored Start and End events.
+            let classification = resolve_namespace(resolved).unwrap();
+            largest_classification =
+                largest_classification.max(std::mem::size_of_val(&classification));
+            if matches!(event, Event::Eof) {
+                break;
+            }
+        }
+        assert_eq!(foreign_events, 256);
+        assert!(largest_classification <= 1, "event classification must not own inherited namespace URI data: {largest_classification} bytes");
     }
 }

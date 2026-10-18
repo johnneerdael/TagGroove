@@ -72,6 +72,18 @@ fitting that budget, and no filesystem probe for an oversized joined location.
 No large-memory or OOM execution was used. Other controlled negative fixtures
 cover input, nesting, events, locations and character-reference refusal.
 
+An independent review also identified a full inherited namespace URI copy on
+both Start and End events, including ignored foreign subtrees. A modest 8 KiB
+foreign namespace with 128 short empty prefixed elements supplies 256 such
+events. The regression first failed with owned namespace containers; it now
+checks that the exact event-loop boundary carries at most a one-byte
+classification with no URI payload, while the foreign subtree stays ignored.
+Classify unbound, XSPF and other namespaces by borrowing the resolver value;
+long foreign URIs fail the XSPF length comparison immediately. Keep unknown
+prefix errors and the existing attribute namespace validation. This removes
+per-event URI copying without applying the base-storage budget to inherited
+namespace data or changing XML format rules.
+
 ## Application and packaging integration
 
 Recognize the extensions in dropped/queued file-open paths and the existing
@@ -100,7 +112,8 @@ Focused local evidence covers XML namespaces and injection, order/alternatives,
 percent-literal versus URI decoding, Unicode, XML Base, native/local path rules,
 unsupported dynamic instructions, strict encodings, fatal parse handling,
 controlled limits, indexed diagnostics, real WAV IPC/scan and output refusal.
-Local qualification after normal merge of branding revision
+Full local qualification before the namespace-copy follow-up, after normal
+merge of branding revision
 `36d7dea4e7b930d3a7d98facaca8498d0ef7c8de`:
 
 - `npm test` with the pinned offline audio sources and shared Cargo target:
@@ -111,6 +124,13 @@ Local qualification after normal merge of branding revision
 - `npm run build`, strict MkDocs guide, catalog extraction check, formatting
   check and strict workspace/all-target Clippy passed.
 - Branding verifier: 249 supplied files and 78 integrated copies verified.
+
+After the namespace-copy follow-up, the complete `tag-core` suite passed
+664 tests with no ignored tests, including the new bounded namespace control
+and all 16 XML integration cases. All 5 actual XML UI tests, production build,
+strict workspace/all-target Clippy, catalog extraction and formatting checks
+also passed. The previous full-workspace result remains recorded separately;
+it was not rerun for this private parser classification change.
 
 The routine large-bundle build notice and shared Cargo registry auto-clean
 permission notice did not fail these checks. No registry or build policy was
