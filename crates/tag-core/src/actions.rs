@@ -1894,7 +1894,8 @@ fn mta_escape(value: &str, opaque: bool) -> Result<String, String> {
             // A backslash stays literal unless the importer would read it as
             // the start of an escape sequence (including one written below).
             '\\' if chars.get(index + 1).is_some_and(|next| {
-                matches!(next, 'x' | 'u' | '\\') || (0x80..=0xffff).contains(&u32::from(*next))
+                matches!(next, 'x' | 'u' | '\\' | '\r' | '\n')
+                    || (0x80..=0xffff).contains(&u32::from(*next))
             }) =>
             {
                 out.push_str("\\\\")

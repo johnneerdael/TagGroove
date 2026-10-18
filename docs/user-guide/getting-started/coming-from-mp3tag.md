@@ -23,9 +23,10 @@ action**, and the imported group starts disabled.
 
 Use **Export .mta…** to retain those unresolved settings for later inspection
 or recovery. Encoded line breaks and literal backslash text survive export
-and re-import. The action remains unresolved; this does not prove that its
-settings work in TagGroove or that the original app accepts the exported
-file. Export preserves decoded values rather than the original bytes, section
+and re-import, including when they appear next to each other. The action
+remains unresolved; this does not prove that its settings work in TagGroove
+or that the original app accepts the exported file. Export preserves decoded
+values rather than the original bytes, section
 numbers or escape spellings. Recognized actions with actual multiline
 settings still report an export error.
 

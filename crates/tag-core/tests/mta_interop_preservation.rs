@@ -1,6 +1,6 @@
 //! Independently authored accepted-input preservation cases. These are not
 //! original Mp3tag-generated fixtures or proof of its runtime semantics.
-use tag_core::actions::{export_mta, import_mta, ActionGroup, ActionSpec};
+use tag_core::actions::{export_mta, import_mta, validate_action, ActionGroup, ActionSpec};
 
 #[test]
 fn opaque_mta_values_with_escaped_line_breaks_can_be_exported_and_reimported() {
@@ -98,6 +98,107 @@ fn opaque_future_options_preserve_controls_literals_unicode_and_action_order() {
             imported.records[1].properties
         );
     }
+}
+
+// Encode every BMP scalar uniformly, independently of the exporter's selective
+// escaping. Supplementary characters remain UTF-8, as accepted by the importer.
+fn fixture_value(value: &str) -> String {
+    value
+        .chars()
+        .map(|c| {
+            if u32::from(c) <= 0xffff {
+                format!("\\u{:04x}", u32::from(c))
+            } else {
+                c.to_string()
+            }
+        })
+        .collect()
+}
+
+#[test]
+fn opaque_backslash_runs_before_line_breaks_survive_import_export_reimport() {
+    for count in 1..=8 {
+        for line_break in ["\r", "\n", "\r\n", "\n\r", "\r\r", "\n\n"] {
+            for suffix in ["", "\\", r"\x0a\u000d", "é 猫 😀"] {
+                let value = format!("{}{line_break}{suffix}", "\\".repeat(count));
+                // Reverse the file's section and property order. Both an unknown
+                // type and a future option on a known type must stay opaque.
+                let input = format!(
+                    "[#12]\n2={}\n3=future-flag\nF=TITLE\n1=old\nT=4\n\
+                     [#2]\nextra=unchanged\n1={}\nF=COMMENT\nT=9999\n",
+                    fixture_value(&value),
+                    fixture_value(&value)
+                );
+                let imported =
+                    import_mta("Backslash controls".into(), input.as_bytes(), None).unwrap();
+                assert_eq!(imported.records[0].index, 2);
+                assert_eq!(imported.records[1].index, 12);
+                assert_eq!(imported.records[0].properties["1"], value);
+                assert_eq!(imported.records[1].properties["2"], value);
+                assert!(!imported.group.enabled);
+                assert_eq!(imported.issues.len(), 2);
+
+                let exported = export_mta(&imported.group).unwrap();
+                let utf16le = [0xff, 0xfe]
+                    .into_iter()
+                    .chain(exported.encode_utf16().flat_map(u16::to_le_bytes))
+                    .collect::<Vec<_>>();
+                let utf16be = [0xfe, 0xff]
+                    .into_iter()
+                    .chain(exported.encode_utf16().flat_map(u16::to_be_bytes))
+                    .collect::<Vec<_>>();
+                for bytes in [exported.as_bytes(), &utf16le, &utf16be] {
+                    let reimported = import_mta("Backslash controls".into(), bytes, None).unwrap();
+                    for (before, after) in imported.records.iter().zip(&reimported.records) {
+                        assert_eq!(after.properties, before.properties, "value: {value:?}");
+                    }
+                    assert_eq!(reimported.group.actions, imported.group.actions);
+                    assert!(!reimported.group.enabled);
+                    assert_eq!(reimported.issues.len(), 2);
+                    for action in &reimported.group.actions {
+                        assert!(matches!(action, ActionSpec::UnresolvedMta { .. }));
+                        assert!(validate_action(action).is_err());
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn opaque_backslashes_preserve_all_byte_values_and_unicode_boundaries() {
+    let next_chars = (0..=0xff).map(char::from_u32).map(Option::unwrap).chain([
+        '\u{100}',
+        '\u{7ff}',
+        '\u{800}',
+        '\u{d7ff}',
+        '\u{e000}',
+        '\u{ffff}',
+        '\u{10000}',
+        '猫',
+        '😀',
+        '\u{10ffff}',
+    ]);
+    let mut expected = String::new();
+    for c in next_chars {
+        for count in 1..=4 {
+            expected.push_str(&"\\".repeat(count));
+            expected.push(c);
+            expected.push('|');
+        }
+    }
+    expected.push_str(r"\x0a \u000d \x0 \u000 \xGG \uZZZZ \\");
+    let input = format!("[#0]\nT=9999\n1={}\n", fixture_value(&expected));
+    let imported = import_mta("Character boundaries".into(), input.as_bytes(), None).unwrap();
+    assert_eq!(imported.records[0].properties["1"], expected);
+    let exported = export_mta(&imported.group).unwrap();
+    let reimported = import_mta("Character boundaries".into(), exported.as_bytes(), None).unwrap();
+    assert_eq!(
+        reimported.records[0].properties,
+        imported.records[0].properties
+    );
+    assert_eq!(reimported.group.actions, imported.group.actions);
+    assert!(!reimported.group.enabled);
 }
 
 #[test]

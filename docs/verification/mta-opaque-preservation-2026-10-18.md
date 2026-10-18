@@ -1,9 +1,10 @@
 # R06: preserve opaque action settings through export
 
-Local branch: `codex/parity-automation-mta-next`, based on PR47 snapshot
-`36d7dea4e7b930d3a7d98facaca8498d0ef7c8de`. PR47 remains open and changing;
-this receipt records the inspected base rather than approval to publish or
-merge it. PR49 is frozen and is not amended by this work.
+PR58 branch: `codex/parity-automation-mta-next`. The current change is scoped
+against approved main `0bc9d82963cb007374079bf16d10eded3467a4e7`, including
+the merged PR57 diagnostics. Earlier validation below predates that integration
+and the backslash/control-character correction; it is historical evidence,
+not validation of the final PR58 head.
 
 ## Demonstrated accepted-input defect
 
@@ -23,8 +24,10 @@ app interprets any unknown action, setting or control character.
 ## Narrow change
 
 Allow the existing MTA value escaper to encode CR/LF only for unresolved
-records, using `\x0d`/`\x0a`, which the importer already decodes. Preserve the
-existing multiline refusal for recognized actions. Leave all action IDs,
+records, using `\x0d`/`\x0a`, which the importer already decodes. Escape a
+preceding literal backslash so that re-import can distinguish it from those
+control escapes, including runs of backslashes. Preserve the existing
+multiline refusal for recognized actions. Leave all action IDs,
 option schemas, validators and executable behavior unchanged. An unresolved
 action remains unresolved, and re-import leaves its group disabled.
 
@@ -44,16 +47,67 @@ interpreted action values, without asserting byte-for-byte equivalence.
   including CRLF, Unicode, equals signs and an unrelated property.
 - Actual control characters beside literal `\x0a`/`\u000a` text, trailing
   backslashes and mixed section ordering, so export cannot reinterpret literals.
+- One through eight backslashes immediately before CR, LF, CRLF and repeated
+  line breaks, followed by trailing backslashes, literal escape text or Unicode.
+  Both unknown types and future options retain their maps and reject execution
+  validation after re-import.
+- Backslash runs before every U+0000–U+00FF scalar, Unicode encoding boundaries,
+  supplementary characters, and incomplete or invalid-looking literal escapes.
 - Export/re-import through UTF-8, BOM-marked UTF-16LE (the native host's output
   encoding) and BOM-marked UTF-16BE.
 - Continued rejection of LF/CR/CRLF in recognized actions, with a control that
   literal escape text still exports, imports and stays executable.
 
-The focused suite passes all three tests. No audio files or installed user
-configuration are used. Native host serialization is represented by the same
-UTF-16 encoding boundary; no claim of native UI execution is made.
+The focused suite passes all five tests after the review correction described
+below. No audio files or installed user configuration are used. Native host
+serialization is represented by the same UTF-16 encoding boundary; no claim of
+native UI execution is made.
 
-## Local validation
+## Review correction and current focused validation
+
+Review comment `4305123260` identified that the first change omitted CR/LF
+from the literal-backslash lookahead. Importing `\u005c\u000d` accepted a
+backslash followed by CR; export then emitted `\\x0d`, which re-import read
+as literal `\x0d` text. The control character was lost.
+
+The new `opaque_backslash_runs_before_line_breaks_survive_import_export_reimport`
+regression failed before the escaper correction with exactly that difference.
+Transcript: `/tmp/taggroove-pr58-slash-controls-red.log` (exit 101). Adding CR/LF
+to the existing escape lookahead made the full focused suite pass: five tests,
+zero failures. Transcript: `/tmp/taggroove-pr58-slash-controls-green.log`.
+The suite includes 192 decoded-value combinations across three encodings for
+each of two opaque action kinds, plus the character-boundary regression.
+The recognized-action test still refuses actual LF/CR/CRLF and retains literal
+escape text in an executable action.
+
+These focused checks apply to the working-tree correction after local merge
+`f5602348fe4574cd4b528e550e17e4fdf1de30ff`. Full-suite results, exact-head
+remote CODE review, required CI and merge authorization remain separate checks.
+
+## Current integrated local validation
+
+After integrating approved main and correcting the review finding, the local
+macOS/Apple Silicon run with Rust/Clippy 1.99 completed:
+
+- `npm test`: 625 frontend and 1,144 Rust tests passed; nine existing Rust tests
+  remained ignored. The five preservation regressions are included in that run.
+- `cargo clippy --workspace --all-targets --locked -- -D warnings`: passed.
+- `npm run build`, `cargo fmt --all -- --check`,
+  `node scripts/i18n-extract.mjs --check` and `git diff --check`: passed.
+
+The same four private shipped inputs listed below were rechecked with the
+current `tag-core` library: import, export, UTF-16LE/BOM encoding and re-import
+retained interpreted actions and enabled state, with no import issues. Record
+counts remained 19, 1, 1 and 6; all four input sizes and SHA-256 hashes matched
+the recorded inventory before and after the probe. No vendor contents entered
+the repository. This is a current TagGroove consistency check against shipped
+input, not original Mp3tag execution or opaque-control interoperability proof.
+
+## Historical local validation before integration and review correction
+
+The following counts describe the earlier implementation before PR57 was
+integrated and before the two new backslash regressions and correction. They
+must not be read as results for the final PR58 head.
 
 On macOS/Apple Silicon with Rust/Clippy 1.92, using the established offline
 audio archive directory and Apple archive tools:
@@ -70,12 +124,16 @@ Cargo printed an existing global-cache auto-clean permission warning; its
 commands completed successfully. The unrelated cache was not changed manually.
 No remote publication, review request, CI dispatch or merge was performed.
 
-## Original shipped evidence and limits
+## Historical shipped-input evidence and limits
 
-Reference executable: Mp3tag 3.36.1 Windows x64, SHA-256 freshly verified as
+The following inventory and importer probe were recorded before the current
+review correction; they do not establish current-head or original-app runtime
+behavior.
+
+Reference executable: Mp3tag 3.36.1 Windows x64, SHA-256 recorded as
 `484794eec4e2b9a649d04eaab63b4cc73127ceb48a9e46075ea488c0e1eac911`.
-The four supplied shipped files were inventoried directly; no vendor contents
-were copied into the repository:
+The four supplied shipped files were inventoried directly in that earlier
+run; no vendor contents were copied into the repository:
 
 | Shipped action file | SHA-256 | Observed type IDs |
 | --- | --- | --- |
