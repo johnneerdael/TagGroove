@@ -88,6 +88,34 @@ prefix errors and the existing attribute namespace validation. This removes
 per-event URI copying without applying the base-storage budget to inherited
 namespace data or changing XML format rules.
 
+A later exact-head review identified an additional allocation proportional to
+newline count: a `Vec<usize>` held one offset per newline before event-limit
+checks. Replace that index with a consumed-byte cursor and a line counter.
+Count LF bytes only in each newly consumed range immediately before the next
+parser event, preserving the old one-based, pre-event diagnostic positions.
+CRLF contributes one line, UTF-8 offsets remain byte offsets, and expanded
+empty-element End events with an unchanged position recount no bytes. The
+line-tracking state now uses two scalars without a newline-proportional
+allocation; encoded/decoded buffers and all existing parser/base caps remain.
+
+Three modest compatibility controls passed both before and after this change:
+sparse LF/CRLF blocks with non-ASCII text preserve accepted and missing-entry
+line numbers; unknown entities, invalid character references and mismatched
+closing tags preserve fatal error start lines; leading/trailing newline gaps,
+synthetic zero-progress empty ends and end-of-input preserve success/failure
+behavior. These controls do not measure process memory and are not a resource
+RED. The removed allocation and constant line-tracking storage are established
+by the source change and audit. No OOM exercise, global allocator interception
+or maximum-size whitespace stress run was used.
+
+For this follow-up, the complete final `tag-core` suite passed 684 tests with no
+ignored tests, including 24 playlist/parser unit controls and 18 XML integration
+cases. The native playlist IPC/real-WAV scan/writer suite passed all 8 tests.
+Formatting, catalog extraction, documentation status and strict guide build also
+passed. These focused results supplement the earlier historical counts; the
+coordinating owner still runs complete final workspace tests, strict Clippy and
+the exact-head GitHub/protected validation gates after this source change.
+
 ## Application and packaging integration
 
 Recognize the extensions in dropped/queued file-open paths and the existing

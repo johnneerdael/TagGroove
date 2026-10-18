@@ -452,9 +452,10 @@ fn read_with_base_budget(
     let mut reader = NsReader::from_str(&text);
     reader.config_mut().enable_all_checks(true);
     reader.config_mut().expand_empty_elements = true;
-    let lines: Vec<_> = std::iter::once(0)
-        .chain(text.match_indices('\n').map(|(index, _)| index + 1))
-        .collect();
+    // Count consumed bytes once instead of retaining one offset per newline.
+    // Expanded empty-element End events may leave the byte position unchanged.
+    let mut line_position = 0;
+    let mut line = 1;
     let mut declaration = false;
     let mut events = 0;
     loop {
@@ -466,7 +467,11 @@ fn read_with_base_budget(
             ));
         }
         let position = reader.buffer_position() as usize;
-        let line = lines.partition_point(|start| *start <= position);
+        line += text.as_bytes()[line_position..position]
+            .iter()
+            .filter(|&&byte| byte == b'\n')
+            .count();
+        line_position = position;
         let failure = |error: String| {
             format!(
                 "{}: Invalid XML playlist at line {line}: {error}",
@@ -588,6 +593,93 @@ mod tests {
         std::fs::write(&path, format!(r#"<playlist xmlns="http://xspf.org/ns/0/" version="1" xml:base="{base}"><trackList>{tracks}</trackList></playlist>"#)).unwrap();
         (dir, path)
     }
+    #[test]
+    fn sparse_newlines_crlf_and_unicode_keep_entry_and_missing_line_numbers() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("sparse.wpl");
+        std::fs::write(dir.path().join("one.wav"), b"fixture").unwrap();
+        let text = format!(
+            "<smil>\r\n<body>\n<seq>\r\n{}<!-- café 猫 -->\r\n<media src=\"one.wav\"/>\r\n{}<media src=\"missing.wav\"/>\n<media src=\"\"/>\r\n</seq>\n</body>\r\n</smil>\n",
+            "\n".repeat(4096),
+            "\r\n".repeat(8192),
+        );
+        std::fs::write(&path, &text).unwrap();
+        let entries = read(&path, Kind::Wpl).unwrap();
+        assert_eq!(
+            entries.iter().map(|entry| entry.line).collect::<Vec<_>>(),
+            [4101, 12_294, 12_295]
+        );
+        let loaded = super::super::load_playlist(&path, None).unwrap();
+        assert_eq!(loaded.files, [dir.path().join("one.wav")]);
+        assert_eq!(
+            loaded
+                .missing
+                .iter()
+                .map(|(line, _)| *line)
+                .collect::<Vec<_>>(),
+            [12_294, 12_295]
+        );
+        // Expanded self-closing media produce synthetic end events at the
+        // same byte position; consecutive line observations must not recount.
+        let mut reader = NsReader::from_str(&text);
+        reader.config_mut().expand_empty_elements = true;
+        let mut same_position_ends = 0;
+        loop {
+            let before = reader.buffer_position();
+            let event = reader.read_event().unwrap();
+            if matches!(&event, Event::End(end) if end.name().as_ref() == "media")
+                && reader.buffer_position() == before
+            {
+                same_position_ends += 1;
+            }
+            if matches!(event, Event::Eof) {
+                break;
+            }
+        }
+        assert_eq!(same_position_ends, 3);
+    }
+
+    #[test]
+    fn sparse_newlines_preserve_fatal_error_start_lines() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("fatal.wpl");
+        let prefix = format!(
+            "<?xml version=\"1.0\"?>\r\n<smil>\n<body>\r\n<seq>\n{}<media src=\"one.wav\"/>\n<!-- café 猫 -->\r\n",
+            "\r\n".repeat(4096),
+        );
+        for invalid in [
+            r#"<media src="&unknown;"/>"#,
+            "</body>",
+            r#"<media src="bad&#1;.wav"/>"#,
+        ] {
+            std::fs::write(&path, format!("{prefix}{invalid}")).unwrap();
+            let error = read(&path, Kind::Wpl).unwrap_err();
+            assert!(
+                error.contains("Invalid XML playlist at line 4103:"),
+                "{invalid}: {error}"
+            );
+        }
+    }
+
+    #[test]
+    fn newline_only_gaps_and_end_of_input_keep_empty_document_checks() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("end.wpl");
+        let gap = "\n".repeat(32_768);
+        for tail in ["", "\r\n\n"] {
+            std::fs::write(
+                &path,
+                format!("{gap}<smil><body><seq/></body></smil>{tail}"),
+            )
+            .unwrap();
+            assert!(read(&path, Kind::Wpl).unwrap().is_empty());
+        }
+        for text in [gap.clone(), format!("<smil><body><seq>{gap}")] {
+            std::fs::write(&path, text).unwrap();
+            assert!(read(&path, Kind::Wpl).is_err());
+        }
+    }
+
     #[test]
     fn inherited_base_storage_is_shared_across_many_short_locations() {
         let base = local_base(&"a".repeat(2048));
