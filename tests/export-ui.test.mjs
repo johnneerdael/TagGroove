@@ -21,6 +21,13 @@ test('remove updates selected configuration and allows an empty saved library',(
  const source=library(),result=removeExportConfiguration(source,'a');assert.deepEqual(result.configurations.map(c=>c.id),['b']);assert.equal(result.preferences.configuration,'b');assert.equal(source.preferences.configuration,'a');
  const empty=removeExportConfiguration(result,'b');assert.equal(empty.preferences.configuration,null);assert.deepEqual(empty.configurations,[]);assert.equal(empty.preferences.filename,'out.txt');
 });
+test('configuration edits preserve the loaded file baseline for backend removal decisions',()=>{
+ const source={...library(),observed_files:['a.mte','b.mte']};
+ for(const result of [copyExportConfiguration(source,'a','c'),renameExportConfiguration(source,'a','Renamed'),removeExportConfiguration(source,'a')]){
+  assert.deepEqual(JSON.parse(JSON.stringify(result)).observed_files,['a.mte','b.mte']);
+  result.observed_files.push('independent.mte');assert.deepEqual(source.observed_files,['a.mte','b.mte']);
+ }
+});
 const {ExportUI}=await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
 test('export without the selection dialog runs the saved configuration, per directory on request',async()=>{
  const runs=[];let reason='';
