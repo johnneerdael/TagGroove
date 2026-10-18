@@ -1847,7 +1847,7 @@ Juniper Vale
 
 **Syntax:** `json_select_array "array" index ["separator"]`
 
-Select a one-based array element, or -1 for all elements joined by the supplied separator. An out-of-range index becomes empty. Without a separator, all-element mode concatenates the values. Selecting one object element also enters its context until json_unselect_object. This one-based index differs from a numeric component in a dotted JSON path.
+Select a one-based array element, or -1 for all elements joined by the supplied separator. An out-of-range index becomes empty. Without a separator, all-element mode concatenates the values. Selecting one object element also enters its context until json_unselect_object. In a dotted JSON path, array indices instead start at 0.
 
 **Input**
 
@@ -1868,6 +1868,35 @@ SayRest
 ```text
 Paper Boats / Lanterns
 ```
+
+#### Compare the two index rules
+
+<!-- json-index-comparison:start -->
+
+**Input:** `{"tracks":[{"title":"Paper Boats"},{"title":"Lanterns on the Water"}]}`
+
+Run each command cell separately in a fresh parser context with this same
+complete JSON input. Start with `json "on"`, run the commands in that cell,
+then use `SayRest` to read the result. The two columns reach the same title
+using different index origins:
+
+| Track | Dotted-path commands | Array-selector commands | Result |
+|---|---|---|---|
+| First | `json_select "tracks.0.title"` | `json_select_array "tracks" 1` then `json_select "title"` | `Paper Boats` |
+| Second | `json_select "tracks.1.title"` | `json_select_array "tracks" 2` then `json_select "title"` | `Lanterns on the Water` |
+
+<!-- json-index-comparison:end -->
+
+After the array selector enters a track object, subsequent JSON selections
+are relative to that object. To read the second track in the **same run**,
+use `json_unselect_object` after reading the first title, then
+`json_select_array "tracks" 2` and `json_select "title"` from the root.
+
+An exact key still takes precedence over a dotted path. If the root object
+has a key literally named `tracks.0.title`, `json_select "tracks.0.title"`
+reads that key instead of traversing the array.
+
+<!-- verified: src-tauri/src/sources/web/engine.rs:guide_json_index_comparison_uses_fresh_contexts_and_returns_to_root -->
 
 <!-- web-example:json_select_many -->
 

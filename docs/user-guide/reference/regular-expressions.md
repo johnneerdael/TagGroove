@@ -380,10 +380,22 @@ settings:
 
 | Setting | Meaning |
 |---|---|
-| **Field** | The field to change. `_ALL` changes every field, `_FILENAME` the file name, `_DIRECTORY` the folder name |
+| **Field** | One tag field or a special target from the table below |
 | **Regular expression** | The pattern |
 | **Replace matches with** | The replacement, with the codes from [section 6](#6-the-replacement) |
 | **Case-sensitive comparison** | Off: case is ignored (the default). On: case must match |
+
+| Special target | What the action changes |
+|---|---|
+| `_TAG` | Every tag field; filenames stay unchanged |
+| `_ALL` | Every tag field and each filename, including its extension |
+| `_FILENAME` | The filename including its extension |
+| `_DIRECTORY` | The containing folder name |
+
+Choose `_TAG` for tags-only cleanup. `_ALL` also changes filenames; it does
+not include `_DIRECTORY`. A folder rename can affect unselected files in
+that folder. See the [action guide](../actions/replace-regexp.md#special-targets-and-extensions)
+before choosing a naming target.
 
 Differences from `$regexp`:
 

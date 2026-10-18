@@ -41,7 +41,8 @@ row says otherwise:
 
 ## Where you use format strings
 
-The same language works everywhere. Only what happens to the result differs.
+These contexts use the same format-string language. What happens to the
+result differs:
 
 | Where | The result becomes |
 |---|---|
@@ -52,8 +53,13 @@ The same language works everywhere. Only what happens to the result differs.
 | Export, playlists | Output file names, partitions and extended playlist info |
 | Cover actions (import, export), Import text file, Text File → Tag | The name of the file to read or write |
 | Guess values (source) | The text that the guessing pattern takes apart |
-| External tools (parameter) | The argument passed to the tool |
 | Filter (left side of an operator) | The value that is compared |
+
+External-tool parameters use a separate language with
+[seven path placeholders](../customize/tools.md#all-seven-supported-placeholders).
+They do not evaluate ordinary tag placeholders or scripting functions. For
+example, `$upper(%_filename%)` expands the filename inside the parentheses,
+but leaves `$upper(…)` as text; it does not uppercase the name.
 
 Two more places look similar but work the other way round: **Filename → Tag**
 and **Guess values** read values *out of* text with a pattern. See
