@@ -72,8 +72,7 @@ test('find strategies match tag values and filenames', () => {
   assert.deepEqual(fields('content', 'LOVE'), ['Two love.mp3:TITLE:love']);
   assert.deepEqual(fields('begins', 'lov'), ['One.mp3:TITLE:Love Song', 'One.mp3:ARTIST:Lovely Guest', 'Two love.mp3:TITLE:love']);
   assert.deepEqual(fields('ends', '.MP3'), ['One.mp3:Filename:One.mp3', 'Two love.mp3:Filename:Two love.mp3']);
-  assert.deepEqual(fields('regex', '^L\\w+ S'), ['One.mp3:TITLE:Love Song']);
-  assert.throws(() => findMatcher('(', 'regex', false), /Invalid regular expression/);
+  assert.throws(() => findMatcher('(', 'regex', false), /native matcher/);
   assert.throws(() => findMatcher('', 'contains', false), /Enter text/);
   const results = findInList(items, 'love', 'contains', false);
   assert.deepEqual(sortFindResults(results, { key: 'field', ascending: true }).map(result => result.field), ['ARTIST', 'Filename', 'TITLE', 'TITLE']);

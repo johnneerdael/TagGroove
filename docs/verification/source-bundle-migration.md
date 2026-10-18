@@ -106,3 +106,14 @@ Two Codex findings were reproduced with failing regressions. The old Open source
 Existing hidden directories were previously rejected by incoming-source name validation. Updates now preserve existing unrelated directories, including nested `.git` history, without relaxing incoming source-name/ZIP restrictions. Existing metadata traversal is bounded to64 levels; new source bundles retain the existing source nesting limit, and staging byte/entry limits still apply.
 
 After the correction, all61 web-source tests pass with2 opt-in tests ignored, strict local Clippy passes, and catalog extraction consistency/diff checks pass. The initial batch's full frontend/workspace checks above remain historical; final-head trusted cross-platform CI and fresh clean Codex review are still required.
+
+
+## Approved-main integration and guide corrections
+
+The branch integrates approved main `24f0a7423fb507450db5bd157c1d213f0e4325e5`. The guide now distinguishes three levels for incoming bundles from 64 levels for existing-tree metadata, and identifies TagGroove as the process to close during manual rollback. On-disk backup names remain the existing protocol names.
+
+Catalogs retain both the installer messages and approved main's Find/action-export messages. German and Dutch translation values are preserved by a three-way merge. Their approved-main template order is retained: a first combined run caught a quotation change caused by reordering overlapping templates, and the existing dialog regression passes after restoring that order. Backend and English snapshots are regenerated from the combined source.
+
+Combined local validation passes all 577 frontend tests and 1,107 Rust tests, including 61 web-source tests; seven opt-in tests remain ignored by the default run. All 17 inherited Python acceptance controls, production build, strict guide build, formatting, strict local Clippy, catalog extraction and diff checks pass.
+
+The supplied private folders still match the retained hashes for all 16 runtime source/include/schema files. Production installer/loader/schema/compiler qualification passes for both original folders and locally created flat ZIPs: Traxsource loads eight sources, one schema and compiles 14 blocks in each route; SoundCloud loads one source, one schema and compiles two blocks in each route. Original files remain byte-identical, including their download documentation. These checks make no provider requests, open no native picker and modify no audio metadata; dated live-provider results and remaining native journeys above keep their original scope.

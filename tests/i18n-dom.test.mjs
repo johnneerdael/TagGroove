@@ -1976,3 +1976,34 @@ for(const [ending,newline] of [['LF','\n'],['CRLF','\r\n']]){
     assert.deepEqual(create(native,new Translator('en')).ask({parts:['Help','Title'],separator:'\n\n'},'Open files'),['Help\n\nTitle','Open files']);
   });
 }
+
+for(const locale of ['de','nl'])for(const count of [3,1])for(const phase of ['warning','status'])test(`MTA export ${phase} translates ${count} fixed action title${count===1?'':'s'} in ${locale} and preserves authored values`,async()=>{
+  const p=page(),listeners=new Set(),calls=[];
+  const name='Help {join} < & >',path='/tmp/Title {name} Adjust Cover.mta';
+  const catalog={...catalogs[locale],[name]:'Wrong authored group lookup',[path]:'Wrong authored path lookup'};
+  let active=p.translate(locale,catalog);
+  const actions=[{type:'adjust_cover'},{type:'set_cover_properties'},{type:'generate_playlists'}].slice(0,count);
+  const library={groups:[{name,enabled:true,actions}],presets:[]};
+  const invoke=async(command,args)=>{calls.push({command,args:structuredClone(args)});if(command==='load_action_library')return structuredClone(library);if(command==='export_action_group')return;throw new Error(command);};
+  const host=rendererVariable(parsed,'actionUI',{ActionUI:class{constructor(host){return host;}},t:(key,params)=>active.t(key,params),translate:text=>active.translate(text),onLanguageChange:listener=>{listeners.add(listener);return()=>listeners.delete(listener);},translateNow:p.translateTree,executeGroups:async()=>assert.fail('Export does not execute actions'),invoke,open:async()=>null,save:async()=>path,enabled:()=>true,operationReason:()=>'',selected:new Set(['/Music/Help.wav']),paths:()=>['/Music/Help.wav'],merged:()=>({TITLE:['Title']}),entries:new Map(),render:()=>{}});
+  try{
+    const ui=new ActionUI(host);await ui.groupsDialog();const dialog=p.body.querySelector('.action-groups-dialog');
+    if(phase==='status'){dialog.querySelector('[data-command="export"]').click();for(let i=0;i<6;i++)await new Promise(resolve=>setTimeout(resolve,0));}
+    const check=()=>{
+      p.translateTree(dialog);
+      const labels=['Adjust Cover','Set Cover Properties','Generate Playlists'].slice(0,count).map(label=>active.t(label)).join(', ');
+      const warning=active.t('This .mta export contains app-only extensions ({names}). These actions will not transfer to Mp3tag; keep this file for use in this app.',{names:labels});
+      const actual=dialog.querySelector(phase==='status'?'.group-notice':'.import-issues');
+      assert.equal(actual?.textContent,phase==='status'?active.t('Exported {name} to {path}. {mtaExportWarning}',{name,path,mtaExportWarning:warning}):warning);
+      assert.equal(dialog.querySelector('.group-row > span').textContent,name);
+    };
+    check();
+    // The dialog can stay open while the locale changes. Stock labels update;
+    // authored names/paths and placeholder-shaped data remain intact.
+    active=p.translate(locale==='de'?'nl':'de',catalogs[locale==='de'?'nl':'de']);listeners.forEach(listener=>listener());check();
+    const custom={'Adjust Cover':'Help','Set Cover Properties':'Title','Generate Playlists':'File',Help:'Wrong second lookup',Title:'Wrong second lookup',File:'Wrong second lookup','This .mta export contains app-only extensions ({names}). These actions will not transfer to Mp3tag; keep this file for use in this app.':'Extensions: {names}','Exported {name} to {path}. {mtaExportWarning}':'Export [{name}] [{path}]: {mtaExportWarning}',[name]:'Wrong authored group lookup',[path]:'Wrong authored path lookup'};
+    active=p.translate('en',custom);listeners.forEach(listener=>listener());check();
+    if(phase==='status')assert.deepEqual(calls.find(call=>call.command==='export_action_group').args,{path,group:library.groups[0]});
+    dialog.close();assert.equal(listeners.size,0);
+  }finally{p.close();}
+});

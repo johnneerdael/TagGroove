@@ -38,14 +38,16 @@ all files beside the sources folder before replacement. Existing unrelated
 files and `settings.json` values remain; incoming downloads cannot replace that
 values file. Saved values still need the same schema root key and value type.
 The combined sources folder must fit the 128 MB/4096-entry staging limits;
-move large debug captures elsewhere if necessary. Existing symbolic links or
-folders deeper than three levels must be moved aside before installation.
+move large debug captures elsewhere if necessary. The three-folder depth limit
+applies to incoming source bundles. Existing unrelated directories, including
+hidden metadata directories, are preserved up to 64 folders deep. Move existing
+symbolic links or directories deeper than 64 levels aside before installation.
 
 After a successful replacement, `data/.opentag-sources-previous` retains the
 complete previous sources folder, including its configured values. Another
-successful update replaces that snapshot. To roll back manually, close OpenTag,
+successful update replaces that snapshot. To roll back manually, close TagGroove,
 move `data/sources` aside, and rename `.opentag-sources-previous` to `sources`.
-If an interrupted replacement leaves the sources folder missing, OpenTag
+If an interrupted replacement leaves the sources folder missing, TagGroove
 restores this snapshot automatically on the next source-list/settings read.
 The original downloaded folder/ZIP is never modified.
 

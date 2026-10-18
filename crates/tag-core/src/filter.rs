@@ -299,7 +299,10 @@ fn tokenize(query: &str) -> Result<Vec<Token>, String> {
             '"' => {
                 let mut text = String::new();
                 loop {
-                    let (_, next) = characters.next().ok_or("Unterminated filter quotation")?;
+                    let (_, next) = characters.next().ok_or_else(|| format!(
+                        "Unterminated filter quotation at character {}. Close the double quote before applying the filter.",
+                        query[..start].chars().count() + 1
+                    ))?;
                     if next == '"' {
                         break;
                     }
@@ -514,7 +517,11 @@ impl Parser<'_> {
             }
             Selector::Field(name.to_ascii_uppercase())
         } else if lhs.contains(['$', '%']) {
-            Selector::Template(CompiledTemplate::compile(&lhs)?)
+            Selector::Template(
+                CompiledTemplate::compile(&lhs).map_err(|error| {
+                    format!("Invalid format string in filter selector: {error}")
+                })?,
+            )
         } else {
             Selector::Field(lhs.to_ascii_uppercase())
         };
@@ -525,7 +532,9 @@ impl Parser<'_> {
             match operator.as_str() {
                 "HAS" => Operation::Has(words(&rhs)),
                 "IS" => Operation::Is(rhs.to_lowercase()),
-                "MATCHES" => Operation::Matches(regex(&rhs, true)?),
+                "MATCHES" => Operation::Matches(regex(&rhs, true).map_err(|error| {
+                    format!("Invalid regular expression in MATCHES operand: {error}")
+                })?),
                 "GREATER" | "LESS" | "EQUAL" => {
                     let integer = rhs.parse::<i64>().map_err(|_| "Numeric filters require an integer operand; durations and decimals are not documented filter numbers")?;
                     let comparison = match operator.as_str() {

@@ -112,9 +112,8 @@ the preview and test input before applying it.
 ## Can I use the same regex everywhere?
 
 Start by identifying the context. Format strings, actions, filters and
-web-source parser commands use the Boost-compatible core. **Find** uses the
-browser's Unicode JavaScript regex implementation. Syntax, replacement
-processing, case defaults and line-break rules differ. A pattern working in
+web-source parser commands and **Find** use the Boost-compatible core. Quoting,
+replacement processing and case defaults still depend on the context. A pattern working in
 Find is not proof it will work unchanged in an action. Follow the
 [regex reference](../reference/regular-expressions.md) and the relevant
 command's worked examples.
