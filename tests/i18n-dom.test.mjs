@@ -25,7 +25,7 @@ const {ToolsUI,toolsOptionsPage}=await load('tools.ts'),{installHelperMenus}=awa
 const {customizeToolbar,itemHint,itemLabel,userLabel,visibleItems,isSeparator,isSpacer,TOOLBAR_COMMANDS}=await load('toolbar.ts');
 const {copyAsTextDialog,UTILS}=await load('utils-ui.ts'),{PlaylistUI}=await load('playlist-ui.ts'),{openTagToTag}=await load('tag-tag-ui.ts');
 const {offerOpenOutputs,ExportUI}=await load('export-ui.ts');
-const {FileOpsUI,nameList,defaultDirectoryState}=await load('file-ops.ts');
+const {FileOpsUI,nameList,defaultDirectoryState,startupChoice}=await load('file-ops.ts');
 const {copiedMessage,pastePlan,copyTags}=await load('tag-clipboard.ts');
 const {cleanupText,libraryOptionsPage}=await load('library.ts');
 const {mappingOptionsPage}=await load('field-mapping.ts');
@@ -918,11 +918,15 @@ test('actual history menus replay progress completion and typed errors translate
     const errors=Array.from({length:failures},()=>({path:'Help',error:'raw'})),entries=new Map(),rowFile=path=>path,applyRenamed=()=>{},accept=()=>{};
     const invoke=async()=>({label,entries:Array.from({length:files},(_,i)=>({path:String(i)})),history}),run=async(text,job)=>{progress=text;await job();};
     ${replay};await replayHistory(kind);return{progress,status,history};})()`);
+  const fileOps=await readFile(new URL('../src-tauri/src/file_ops.rs',import.meta.url),'utf8');
+  const moveLabel=/(?:history::)?\brecord\s*\(\s*"([^"]+)"/.exec(fileOps)?.[1];
+  assert.equal(moveLabel,'Move files','exercise the native move history producer');
   const english=JSON.parse(await source('i18n/catalogs/en.json'));
-  const custom={...english,'Action {name}':'Copy of {name}','Actions ({count} groups)':'Copy of {count} groups','Copy of Help':'Again',Help:'Wrong name','Action Help':'Wrong action-like name','Actions (2 groups)':'Wrong count-like name'};
+  const custom={...english,'Move files':'Transfer files','Action {name}':'Copy of {name}','Actions ({count} groups)':'Copy of {count} groups','Copy of Help':'Again',Help:'Wrong name','Action Help':'Wrong action-like name','Actions (2 groups)':'Wrong count-like name'};
   const reordered={...custom,'Action {name}':'[{name}] applied','Actions ({count} groups)':'[{count}] groups applied','[Help] applied':'Again'};
   const cases=['Help','Action Help','Actions (2 groups)','  Help  ','Help\nTitle'].map(name=>({label:`Action ${name}`,key:'Action {name}',params:{name}}));
   cases.push({label:'Actions (2 groups)',key:'Actions ({count} groups)',params:{count:'2'}});
+  cases.push({label:moveLabel,key:moveLabel,params:{}});
   for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom],['en',reordered]])for(const [i,item] of cases.entries())for(const kind of ['undo','redo']){
     const files=i%2+1,failures=i%2,observed=await runReplay(item.label,kind,files,failures),step={label:item.label,files};
     const raw={menu:kind==='undo'?historyLabel('Undo',step):redoOrRepeat({redo:step},undefined).label,progress:observed.progress,status:observed.status};
@@ -951,10 +955,10 @@ function nativeHistoryLabels(sources){
   return labels;
 }
 test('native fixed history label producers have registered exact translations and unknown labels remain raw',async()=>{
-  const sources={};for(const name of ['lib','history','converters','sources/mod','utilities','covers'])sources[name]=await readFile(new URL(`../src-tauri/src/${name}.rs`,import.meta.url),'utf8');
+  const sources={};for(const name of ['lib','history','converters','sources/mod','utilities','covers','file_ops'])sources[name]=await readFile(new URL(`../src-tauri/src/${name}.rs`,import.meta.url),'utf8');
   const labels=nativeHistoryLabels(sources);
   for(const newline of ['\n','\r\n'])assert.deepEqual(nativeHistoryLabels(Object.fromEntries(Object.entries(sources).map(([name,text])=>[name,text.replace(/\r?\n/g,newline)]))),labels);
-  assert.equal(labels.size,21);const generated=englishCatalog();
+  assert.equal(labels.size,22);assert.ok(labels.has('Move files'));const generated=englishCatalog();
   for(const label of labels)assert.equal(generated[label],label,`register native history label ${label}`);
   const {historyLabelText}=await load('i18n/core.ts');assert.equal(typeof historyLabelText,'function');
   for(const locale of ['de','nl']){
@@ -1976,6 +1980,60 @@ for(const [ending,newline] of [['LF','\n'],['CRLF','\r\n']]){
     assert.deepEqual(create(native,new Translator('en')).ask({parts:['Help','Title'],separator:'\n\n'},'Open files'),['Help\n\nTitle','Open files']);
   });
 }
+
+
+for(const locale of ['de','nl'])test(`${locale}: associated Move confirmation translates parts and preserves complete raw paths`,async()=>{
+  const translator=new Translator(locale,catalogs[locale]),calls=[];
+  const nativeSource=(await source('i18n/dialog.ts')).replace(/^import .*;\r?\n/gm,'').replace(/^export /gm,'');
+  const js=ts.transpileModule(nativeSource,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
+  const dialogs=new Function('dialog','t','translate','translationActive',`${js}\nreturn {ask};`)({ask:async(...args)=>{calls.push(args);return false;}},key=>translator.t(key),text=>translator.translate(text),()=>true);
+  const from='/Music/Help  $& {value}.lrc',to='/Dest/Title  $& {from}.lrc';
+  const host={mac:false,selection:()=>[{name:'Help',path:'/Music/Help.wav'}],openReason:()=>'',pickDirectories:async()=>['/Dest'],
+    preferences:()=>({associatedFiles:true}),run:async(_message,job)=>job(),
+    invoke:async(command)=>{assert.equal(command,'preview_transfer');return{plan_token:'reviewed',associated:[{from,to}]};},
+    confirm:(message,title)=>dialogs.ask(message,{title})};
+  await new FileOpsUI(host).operate('file-move');
+  assert.equal(calls.length,1);
+  const message=calls[0][0];
+  assert.ok(message.includes(from)&&message.includes(to),message);
+  assert.ok(message.includes(translator.t('Associated .lrc/.cdg files: {length}',{length:1})),message);
+  assert.ok(message.includes(translator.t('Associated file: {from} → {to}',{from,to})),message);
+  assert.notEqual(calls[0][1].title,'Move files');
+});
+
+
+test('actual Files options save and restore the companion policy through the compact page picker and main host',async()=>{
+  const p=page(),globals=Object.fromEntries(['CSS','getComputedStyle'].map(name=>[name,Object.getOwnPropertyDescriptor(globalThis,name)]));
+  p.window.happyDOM.setViewport({width:420,height:700});
+  Object.defineProperty(globalThis,'CSS',{configurable:true,value:p.window.CSS});
+  Object.defineProperty(globalThis,'getComputedStyle',{configurable:true,value:p.window.getComputedStyle.bind(p.window)});
+  try{
+    // Happy DOM requires whitespace after @media; browsers accept either spelling.
+    const style=p.window.document.createElement('style');style.textContent=(await source('style.css')).replaceAll('@media(', '@media (');p.window.document.head.append(style);
+    let settings=defaultSettings();
+    const response=()=>({settings:structuredClone(settings),defaults:defaultSettings(),warning:null});
+    const ui=new OptionsUI({load:async()=>response(),save:async value=>{settings=structuredClone(value);return response();},appearance:{get:()=> 'system',set:()=>{}},applied:()=>{}});
+    await ui.open('files');
+    assert.equal(p.window.getComputedStyle(p.body.querySelector('.options-tree')).display,'none');
+    assert.equal(p.window.getComputedStyle(p.body.querySelector('.options-page-select')).display,'block');
+    assert.equal(p.window.document.activeElement.id,'options-page-picker');
+    let control=p.body.querySelector('[data-option="pages.files.associated_files"]');
+    assert.equal(control.checked,false);
+    assert.equal(control.disabled,false);
+    control.checked=true;control.dispatchEvent(new p.window.Event('change',{bubbles:true}));
+    p.body.querySelector('#options-ok').click();await p.window.happyDOM.waitUntilComplete();
+    assert.equal(settings.pages.files.associated_files,true);
+    const captured=rendererVariable(parsed,'fileOps',{FileOpsUI:class{constructor(host){this.host=host;}},removeEntries:()=>{},macPlatform:false,optionsUI:ui,startupChoice});
+    assert.equal(captured.host.preferences().associatedFiles,true);
+    await ui.open('general');
+    const picker=p.body.querySelector('#options-page-picker');picker.value='files';picker.dispatchEvent(new p.window.Event('change',{bubbles:true}));
+    control=p.body.querySelector('[data-option="pages.files.associated_files"]');assert.equal(control.checked,true);
+    p.body.querySelector('#options-defaults').click();
+    assert.equal(p.body.querySelector('[data-option="pages.files.associated_files"]').checked,false);
+    p.body.querySelector('#options-ok').click();await p.window.happyDOM.waitUntilComplete();
+    assert.equal(captured.host.preferences().associatedFiles,false);
+  }finally{for(const [name,descriptor] of Object.entries(globals))if(descriptor)Object.defineProperty(globalThis,name,descriptor);else delete globalThis[name];p.close();}
+});
 
 for(const locale of ['de','nl'])for(const count of [3,1])for(const phase of ['warning','status'])test(`MTA export ${phase} translates ${count} fixed action title${count===1?'':'s'} in ${locale} and preserves authored values`,async()=>{
   const p=page(),listeners=new Set(),calls=[];
