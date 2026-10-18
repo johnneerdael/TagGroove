@@ -98,8 +98,14 @@ the optional extended header/checksum is then absent, while unedited opaque
 records and audio remain preserved. Recorded Undo restores the original bytes,
 including that header/checksum. This does not decrypt encrypted metadata.
 
-Global unsynchronization combined with an extended header, and opaque frames
-combined with ID3v2.4 CRC/footer layouts, still have unsupported cases. A
+Supported non-unsynchronised ID3v2.4 CRC extensions and footers can also
+preserve unedited compressed/encrypted records in the qualified same-revision
+edits. A successful save normalizes these optional envelopes to plain v2.4;
+it does not retain their checksum/footer representation. Exact Undo restores
+the original bytes.
+
+Global unsynchronization combined with optional headers, update/restriction
+declarations and arbitrary frame/layout combinations remain unqualified. A
 refused operation should leave the original file intact. Keep a backup rather
 than converting an encrypted tag's revision to get around a refusal.
 
@@ -113,7 +119,7 @@ Nonstandard `plID` items survive unrelated edits. Values of 1–8 bytes can appe
 
 ### DSD
 
-DSF metadata uses its terminal ID3v2 area. DSF and DSDIFF can preserve unedited compressed or opaque encrypted ID3v2 frames byte for byte, including the supported ID3v2.3 extended-header cases above. That does not decrypt them; combined unsynchronization/header transformations, unsupported footer layouts and merged duplicate frames still limit preservation. DSDIFF can additionally supply DIIN artist/title when ID3 lacks them. Duplicate DSDIFF ID3 chunks are refused for field/cover writes instead of being silently merged; removal can still handle them. A DST index can prevent edits that would move indexed sound data. These are container restrictions, not a request to decode DSD audio to PCM.
+DSF metadata uses its terminal ID3v2 area. DSF and DSDIFF can preserve unedited compressed or opaque encrypted ID3v2 frames byte for byte, including the supported ID3v2.3 extended-header and ID3v2.4 CRC/footer cases above. That does not decrypt them; combined unsynchronization/header transformations, unsupported footer layouts and merged duplicate frames still limit preservation. DSDIFF can additionally supply DIIN artist/title when ID3 lacks them. Duplicate DSDIFF ID3 chunks are refused for field/cover writes instead of being silently merged; removal can still handle them. A DST index can prevent edits that would move indexed sound data. These are container restrictions, not a request to decode DSD audio to PCM.
 
 ### Matroska and WebM
 

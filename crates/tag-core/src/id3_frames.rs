@@ -322,6 +322,144 @@ fn v23_extended_view(reader: &mut (impl Read + Seek)) -> io::Result<(Patches, u6
     result
 }
 
+/// Validate optional v2.4 CRC/footer envelopes before presenting their frames
+/// with plain zero padding. The physical extent is unchanged, including the
+/// footer: its bytes become padding and the view's body size grows by ten.
+/// Stored frames remain available at their original offsets for Passthrough.
+fn v24_optional_view(reader: &mut (impl Read + Seek)) -> io::Result<(Patches, u64)> {
+    let position = reader.stream_position()?;
+    let result = (|| {
+        let invalid = || io::Error::new(io::ErrorKind::InvalidData, "Invalid ID3v2.4 envelope");
+        let Some(start) = locate(reader)? else {
+            return Ok((Vec::new(), 0));
+        };
+        reader.seek(SeekFrom::Start(start))?;
+        let mut header = [0; 10];
+        reader.read_exact(&mut header)?;
+        if header[3] != 4 || header[5] & 0x50 == 0 {
+            return Ok((Vec::new(), 0));
+        }
+        if header[5] & 0x80 != 0 {
+            return Err(io::Error::new(io::ErrorKind::Unsupported,
+                "Combined ID3v2.4 optional envelope and unsynchronisation needs further verification; original file preserved"));
+        }
+        if header[5] & 0x0f != 0 {
+            return Err(invalid());
+        }
+        let size = u64::from(syncsafe(&header[6..10]).ok_or_else(invalid)?);
+        let footer = header[5] & 0x10 != 0;
+        let viewed_size = size + if footer { 10 } else { 0 };
+        let viewed_size_bytes = syncsafe_bytes(viewed_size as usize).ok_or_else(invalid)?;
+        let length = reader.seek(SeekFrom::End(0))?;
+        let end = start
+            .checked_add(10)
+            .and_then(|at| at.checked_add(viewed_size))
+            .ok_or_else(invalid)?;
+        if end > length {
+            return Err(invalid());
+        }
+        if start != 0 {
+            reader.seek(SeekFrom::Start(0))?;
+            let mut form = [0; 12];
+            reader.read_exact(&mut form)?;
+            reader.seek(SeekFrom::Start(start - 4))?;
+            let mut chunk_size = [0; 4];
+            reader.read_exact(&mut chunk_size)?;
+            let chunk_size = if &form[..4] == b"RIFF" {
+                u32::from_le_bytes(chunk_size)
+            } else {
+                u32::from_be_bytes(chunk_size)
+            };
+            if end > start + u64::from(chunk_size) {
+                return Err(invalid());
+            }
+        }
+        let size = size as usize;
+        if footer {
+            reader.seek(SeekFrom::Start(start + 10 + size as u64))?;
+            let mut stored_footer = [0; 10];
+            reader.read_exact(&mut stored_footer)?;
+            if stored_footer[..3] != *b"3DI" || stored_footer[3..] != header[3..] {
+                return Err(invalid());
+            }
+        }
+        let mut shift = 0;
+        let mut expected_crc = None;
+        if header[5] & 0x40 != 0 {
+            if size < 6 {
+                return Err(invalid());
+            }
+            reader.seek(SeekFrom::Start(start + 10))?;
+            let mut extended = [0; 6];
+            reader.read_exact(&mut extended)?;
+            shift = syncsafe(&extended[..4]).ok_or_else(invalid)? as usize;
+            // Update/restriction semantics are separate from the supported
+            // optional checksum. Never silently discard those declarations.
+            if extended[4] != 1 || !matches!(extended[5], 0 | 0x20) {
+                return Err(invalid());
+            }
+            let crc = extended[5] == 0x20;
+            if shift != if crc { 12 } else { 6 } || shift > size {
+                return Err(invalid());
+            }
+            if crc {
+                let mut crc = [0; 6];
+                reader.read_exact(&mut crc)?;
+                if crc[0] != 5 || crc[1] > 0x0f {
+                    return Err(invalid());
+                }
+                expected_crc = Some(syncsafe(&crc[1..]).ok_or_else(invalid)?);
+            }
+        }
+        reader.seek(SeekFrom::Start(start + 10))?;
+        let allocation = usize::try_from(viewed_size).map_err(|_| invalid())?;
+        let mut body = Vec::new();
+        body.try_reserve_exact(allocation)
+            .map_err(io::Error::other)?;
+        body.resize(allocation, 0);
+        reader.read_exact(&mut body)?;
+        // v2.4 covers stored frames AND padding, excluding the extended header
+        // and footer (unlike v2.3's frames-only CRC).
+        if expected_crc.is_some_and(|expected| crc32fast::hash(&body[shift..size]) != expected) {
+            return Err(invalid());
+        }
+        let mut at = shift;
+        while at < size && body[at] != 0 {
+            if size - at < 10
+                || !body[at..at + 4]
+                    .iter()
+                    .all(|byte| byte.is_ascii_uppercase() || byte.is_ascii_digit())
+            {
+                return Err(invalid());
+            }
+            let frame = syncsafe(&body[at + 4..at + 8]).ok_or_else(invalid)? as usize;
+            let next = at
+                .checked_add(10)
+                .and_then(|at| at.checked_add(frame))
+                .ok_or_else(invalid)?;
+            if frame == 0 || next > size {
+                return Err(invalid());
+            }
+            at = next;
+        }
+        if body[at..size].iter().any(|byte| *byte != 0) || footer && at != size {
+            return Err(invalid());
+        }
+        body.copy_within(shift..size, 0);
+        body[size - shift..].fill(0);
+        Ok((
+            vec![
+                (start + 5, vec![header[5] & !0x50]),
+                (start + 6, viewed_size_bytes.to_vec()),
+                (start + 10, body),
+            ],
+            shift as u64,
+        ))
+    })();
+    reader.seek(SeekFrom::Start(position))?;
+    result
+}
+
 /// A reader that shows the file with some bytes replaced and some appended:
 /// each encrypted ID3v2 frame renamed to a placeholder without flags, so
 /// lofty reads its stored bytes as binary data, and the view of a trailing
@@ -413,6 +551,9 @@ pub(crate) fn read_with_fallback_diagnostic<R: Read + Seek, T>(
     } = crate::ape_footer::read_view(reader).map_err(ErrorCause::external)?;
     let (extended, shift) = v23_extended_view(reader).map_err(ErrorCause::external)?;
     patches.extend(extended);
+    let (optional, v24_shift) = v24_optional_view(reader).map_err(ErrorCause::external)?;
+    patches.extend(optional);
+    let shift = shift + v24_shift;
     let tail = if append {
         crate::ape_footer::PHANTOM.to_vec()
     } else {
@@ -659,6 +800,39 @@ mod tests {
         assert_eq!(&normalized[6..10], &bytes[6..10]);
         assert_eq!(&normalized[10..20], [0; 10]);
         assert_eq!(&normalized[20..], b"media payload");
+    }
+
+    #[test]
+    fn v24_footer_read_view_keeps_the_physical_metadata_extent_and_source_bytes() {
+        let plain = frame(b"TIT2", [0, 0], b"\x03Title", 4);
+        let mut bytes = tag(4, std::slice::from_ref(&plain), 0);
+        bytes[5] = 0x10;
+        let mut footer = bytes[..10].to_vec();
+        footer[..3].copy_from_slice(b"3DI");
+        bytes.extend(footer);
+        let audio_at = bytes.len();
+        bytes.extend(b"media payload");
+        let mut source = Cursor::new(bytes.clone());
+        source.set_position(7);
+        let (patches, shift) = v24_optional_view(&mut source).unwrap();
+        assert_eq!(shift, 0);
+        assert_eq!(source.position(), 7);
+        let mut normalized = Vec::new();
+        {
+            let mut view = Overlay::new(&mut source, &patches, &[]).unwrap();
+            view.seek(SeekFrom::Start(0)).unwrap();
+            view.read_to_end(&mut normalized).unwrap();
+        }
+        assert_eq!(source.get_ref(), &bytes, "the source is read-only");
+        assert_eq!(normalized.len(), bytes.len());
+        assert_eq!(normalized[5], 0);
+        assert_eq!(
+            syncsafe(&normalized[6..10]).unwrap() as usize + 10,
+            audio_at
+        );
+        assert_eq!(&normalized[10..10 + plain.len()], plain);
+        assert_eq!(&normalized[audio_at - 10..audio_at], [0; 10]);
+        assert_eq!(&normalized[audio_at..], b"media payload");
     }
 
     #[test]

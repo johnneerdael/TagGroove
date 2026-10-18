@@ -83,8 +83,10 @@ enum Envelope {
     Crc3,
     Unsync3,
     Plain4,
+    Extended4,
     Crc4,
     Footer4,
+    CrcFooter4,
     FrameUnsync4,
 }
 
@@ -92,7 +94,15 @@ impl Envelope {
     fn supported(self) -> bool {
         matches!(
             self,
-            Self::Plain3 | Self::Extended3 | Self::Crc3 | Self::Plain4 | Self::FrameUnsync4
+            Self::Plain3
+                | Self::Extended3
+                | Self::Crc3
+                | Self::Plain4
+                | Self::Extended4
+                | Self::Crc4
+                | Self::Footer4
+                | Self::CrcFooter4
+                | Self::FrameUnsync4
         )
     }
 
@@ -152,7 +162,7 @@ impl Envelope {
             ),
         ]
         .concat();
-        let padding = if matches!(self, Self::Footer4) {
+        let padding = if matches!(self, Self::Footer4 | Self::CrcFooter4) {
             0
         } else {
             128
@@ -172,14 +182,23 @@ impl Envelope {
                 body.extend(crc32(&frames).to_be_bytes());
                 0x40
             }
-            Self::Crc4 => {
+            Self::Extended4 => {
+                body.extend(syncsafe(6));
+                body.extend([1, 0]);
+                0x40
+            }
+            Self::Crc4 | Self::CrcFooter4 => {
                 body.extend(syncsafe(12));
                 body.extend([1, 0x20, 5]);
                 let mut crc_input = frames.clone();
                 crc_input.resize(crc_input.len() + padding, 0);
                 let crc = u64::from(crc32(&crc_input));
                 body.extend([28, 21, 14, 7, 0].map(|shift| ((crc >> shift) & 127) as u8));
-                0x40
+                if matches!(self, Self::CrcFooter4) {
+                    0x50
+                } else {
+                    0x40
+                }
             }
             Self::Unsync3 => 0x80,
             Self::Footer4 => 0x10,
@@ -193,7 +212,7 @@ impl Envelope {
         let mut output = vec![b'I', b'D', b'3', major, 0, flags];
         output.extend(syncsafe(body.len()));
         output.extend(body);
-        if matches!(self, Self::Footer4) {
+        if matches!(self, Self::Footer4 | Self::CrcFooter4) {
             let mut footer = output[..10].to_vec();
             footer[..3].copy_from_slice(b"3DI");
             output.extend(footer);
@@ -351,8 +370,10 @@ fn unrelated_edits_keep_opaque_frames_and_audio_or_refuse_without_touching_the_o
         Envelope::Crc3,
         Envelope::Unsync3,
         Envelope::Plain4,
+        Envelope::Extended4,
         Envelope::Crc4,
         Envelope::Footer4,
+        Envelope::CrcFooter4,
         Envelope::FrameUnsync4,
     ] {
         for extension in ["mp3", "dsf", "dff"] {
@@ -776,6 +797,98 @@ fn wav_and_aiff_extended_header_views_respect_the_owning_chunk() {
                 assert_eq!(fs::read(&path).unwrap(), after);
                 println!("{extension}: positive read/save/Undo/Redo control passed");
             }
+        }
+    }
+}
+
+#[test]
+fn malformed_v4_crc_and_footer_envelopes_refuse_without_changing_disk_or_history() {
+    for variant in [
+        "crc",
+        "crc-high",
+        "crc-syncsafe",
+        "crc-length",
+        "flag-count",
+        "extended-size",
+        "unknown-flags",
+        "tag-bounds",
+        "footer-signature",
+        "footer-size",
+        "footer-flags",
+        "footer-padding",
+        "frame-bounds",
+        "footer-truncated",
+    ] {
+        let is_footer = variant.starts_with("footer-") || variant == "frame-bounds";
+        let mut tag = if is_footer {
+            Envelope::Footer4.tag()
+        } else {
+            Envelope::Crc4.tag()
+        };
+        let length = tag.len();
+        match variant {
+            "crc" => tag[21] ^= 1,
+            "crc-high" => tag[17] = 0x10,
+            "crc-syncsafe" => tag[18] |= 0x80,
+            "crc-length" => tag[16] = 4,
+            "flag-count" => tag[14] = 2,
+            "extended-size" => tag[10..14].copy_from_slice(&syncsafe(length + 1)),
+            "unknown-flags" => tag[15] = 0x10,
+            "tag-bounds" => tag[6..10].copy_from_slice(&syncsafe(1024 * 1024)),
+            "footer-signature" => tag[length - 10] = b'X',
+            "footer-size" => tag[length - 1] ^= 1,
+            "footer-flags" => tag[length - 5] ^= 0x20,
+            "footer-padding" => {
+                tag.insert(length - 10, 0);
+                let size = syncsafe(tag.len() - 20);
+                tag[6..10].copy_from_slice(&size);
+                let end = tag.len();
+                tag[end - 4..].copy_from_slice(&size);
+            }
+            "frame-bounds" => tag[14..18].copy_from_slice(&syncsafe(length)),
+            "footer-truncated" => tag.truncate(length - 5),
+            _ => unreachable!(),
+        }
+        for extension in ["mp3", "dsf", "dff"] {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join(format!("{variant}.{extension}"));
+            let original = carrier(extension, &tag);
+            fs::write(&path, &original).unwrap();
+            let mut options = TagOptions::default();
+            options.mpeg.id3v2_format = Id3v2Format::V24Utf8;
+            options.mpeg.write_id3v1 = false;
+            assert!(
+                read_entry_with_options(&path, &[], &options).is_err(),
+                "{variant}.{extension}: malformed read accepted"
+            );
+            let mut history =
+                Journal::open(&dir.path().join("journal"), Limits::default()).unwrap();
+            let control = dir.path().join("control.mp3");
+            fs::write(&control, include_bytes!("fixtures/save-corpus/tone.mp3")).unwrap();
+            let fields: Fields = [("ARTIST".into(), vec!["Someone".into()])]
+                .into_iter()
+                .collect();
+            let prior = history.begin(
+                "Earlier control edit",
+                None,
+                &[control.to_string_lossy().into()],
+            );
+            write_fields_with_options(&control, &fields, false, &[], &options).unwrap();
+            history.commit(prior, &[], &[]);
+            let retained = history.retained_bytes();
+            let capture = history.begin("Refused v4 edit", None, &[path.to_string_lossy().into()]);
+            assert!(
+                write_fields_with_options(&path, &fields, false, &[], &options).is_err(),
+                "{variant}.{extension}: malformed write accepted"
+            );
+            history.commit(capture, &[], &[]);
+            assert_eq!(
+                fs::read(&path).unwrap(),
+                original,
+                "{variant}.{extension}: refusal changed metadata/audio bytes"
+            );
+            assert_eq!(history.state().undo.unwrap().label, "Earlier control edit");
+            assert_eq!(history.retained_bytes(), retained);
         }
     }
 }
