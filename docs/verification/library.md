@@ -26,6 +26,7 @@ Scope: Options → Library (Enable Library, Only include these directories, Clea
 - Files outside the included directories (with the restriction on) are neither looked up nor stored. An empty list with the restriction on stores nothing; the page says so.
 - File → Reload tags (⌘/Ctrl T) passes `refresh`, which reads every selected file and replaces its row.
 - Provider documents (Android) and chapter/cue sheet row paths are never stored; chapter rows are expanded from the stored file entry as from a read one.
+- Consolidated PR64 refreshes known localized file/MP4 date text from raw timestamps on cache hits, using the actual reader formatter; invalid legacy raw data causes a fresh read/repair. It does not reparse audio for valid formatting-only refreshes. See [current evidence](library-date-refresh-2026-10-18.md).
 
 **Keeping it current**
 - Every command that writes audio files runs through `history::record` (save, batch save, paste, actions, conversions, rename, covers, remove tags, utils, tag source import). After the work, successful or not, the written files, both sides of each rename and both sides of each moved folder are removed from the library, so the next load reads them. This also covers Options → Files → Preserve timestamps, where a write keeps the modification time (and in-place writes keep the size).
@@ -58,5 +59,5 @@ Scope: Options → Library (Enable Library, Only include these directories, Clea
 ## Gaps
 
 - Files changed outside OpenTag with their modification time and size both preserved keep their old entry until Reload tags or Clear Library (Mp3tag only checks the time, so it shares this).
-- Locale-formatted technical fields (`%_file_mod_date%` and similar) are stored as formatted when read; changing the system locale does not refresh them.
+- Native system-locale/region transitions and immediate already-loaded UI notification remain unqualified. Stored raw-backed file/MP4 dates are now formatted again on cache hits; loading/Refresh updates the view. This does not establish a native OS-change journey.
 - Release-build and Windows/Linux timings, and comparison with Mp3tag on the same collection, were not measured.

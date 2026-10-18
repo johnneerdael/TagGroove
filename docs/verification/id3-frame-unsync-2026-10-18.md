@@ -37,6 +37,9 @@ is documented [separately](id3-extended-preservation-2026-10-18.md).
 
 ## Confirmed remaining placeholder collision
 
+**Superseded by the [implemented provenance follow-up](id3-y-provenance-2026-10-18.md).**
+The following paragraph records the earlier reproduced defect and design need.
+
 Ordinary unflagged experimental Y000/YABC binary frames can still be mistaken
 for synthetic encrypted-frame placeholders, producing an unrelated-edit refusal.
 X000/Z000 controls save. A legitimate Y000 beside an actual encrypted record

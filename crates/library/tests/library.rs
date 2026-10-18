@@ -104,6 +104,205 @@ fn unchanged_files_come_from_the_library_and_match_a_fresh_read() {
     assert!(library.stats().unwrap().bytes > 0);
 }
 
+fn dated_files(root: &Path) -> Vec<PathBuf> {
+    let wav_path = root.join("dated.wav");
+    wav(&wav_path, "Keep title", "Keep artist");
+    let mp4_path = root.join("dated.m4a");
+    let mut bytes = fs::read(
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../tag-core/tests/fixtures/save-corpus/tone.m4a"),
+    )
+    .unwrap();
+    let header = bytes.windows(4).position(|value| value == b"mvhd").unwrap();
+    assert_eq!(
+        bytes[header + 4],
+        0,
+        "the independent fixture uses a version-0 movie header"
+    );
+    assert_eq!(
+        u32::from_be_bytes(bytes[header - 4..header].try_into().unwrap()),
+        108
+    );
+    let timestamp = (981_173_106u32 + 2_082_844_800).to_be_bytes();
+    bytes[header + 8..header + 12].copy_from_slice(&timestamp);
+    bytes[header + 12..header + 16].copy_from_slice(&timestamp);
+    fs::write(&mp4_path, bytes).unwrap();
+    for path in [&wav_path, &mp4_path] {
+        fs::File::options()
+            .write(true)
+            .open(path)
+            .unwrap()
+            .set_modified(std::time::UNIX_EPOCH + Duration::from_secs(981_173_106))
+            .unwrap();
+    }
+    vec![wav_path, mp4_path]
+}
+
+fn old_clock_value(raw: i64, datetime: bool, locale: &str) -> String {
+    let fields = Fields::new();
+    let mut context = tag_core::EvalContext::new(&fields);
+    context.timestamp_seconds = Some(raw);
+    context.timezone_offset_seconds = Some(0);
+    context.locale = locale.into();
+    tag_core::evaluate_with_context(if datetime { "%_datetime%" } else { "%_date%" }, &context)
+        .unwrap()
+}
+
+#[test]
+fn cached_date_fields_use_current_formatting_without_rereading_audio() {
+    let dir = tempfile::tempdir().unwrap();
+    let files = dated_files(dir.path());
+    let before: Vec<_> = files.iter().map(|path| fs::read(path).unwrap()).collect();
+    let options = TagOptions::default();
+    let scope = Scope::everything();
+    let roots: Vec<_> = files.iter().map(|path| text(path)).collect();
+    let library = Library::in_memory().unwrap();
+    let (fresh, hits, stored) = scan(&library, &scope, &options, &roots, false);
+    assert!(fresh.errors.is_empty(), "{:?}", fresh.errors);
+    assert_eq!((hits, stored), (0, 2));
+    let raw = fresh.entries[0].technical["_FILE_MOD_DATETIME_RAW"][0]
+        .parse()
+        .unwrap();
+    let old_locale = ["en-US", "de-DE", "ja-JP"]
+        .into_iter()
+        .find(|locale| {
+            old_clock_value(raw, false, locale) != fresh.entries[0].technical["_FILE_MOD_DATE"][0]
+        })
+        .unwrap();
+    let mut previous = fresh.entries.clone();
+    for entry in &mut previous {
+        for prefix in ["_FILE_MOD", "_FILE_CREATE"] {
+            let Some(raw) = entry
+                .technical
+                .get(&format!("{prefix}_DATETIME_RAW"))
+                .map(|v| v[0].parse::<i64>().unwrap())
+            else {
+                continue;
+            };
+            for (suffix, datetime) in [("DATE", false), ("DATETIME", true)] {
+                let key = format!("{prefix}_{suffix}");
+                let old = old_clock_value(raw, datetime, old_locale);
+                entry.technical.insert(key, vec![old]);
+            }
+        }
+        for key in ["_MP4_CREATION_TIME", "_MP4_MODIFICATION_TIME"] {
+            let Some(raw) = entry
+                .technical
+                .get(&format!("{key}_RAW"))
+                .map(|v| v[0].parse::<i64>().unwrap())
+            else {
+                continue;
+            };
+            assert_eq!(raw, 981_173_106);
+            let old = old_clock_value(raw, true, old_locale);
+            entry.technical.insert(key.into(), vec![old]);
+        }
+        let stamp = Stamp::of(Path::new(&entry.path)).unwrap();
+        library
+            .store(&[(entry, stamp)], &fingerprint(&options, "test"))
+            .unwrap();
+    }
+    assert_ne!(
+        json(&previous),
+        json(&fresh.entries),
+        "the cache represents a previous formatting context"
+    );
+    let (cached, hits, stored) = scan(&library, &scope, &options, &roots, false);
+    assert_eq!(
+        (hits, stored),
+        (2, 0),
+        "format-only refresh must retain the read cache"
+    );
+    assert_eq!(json(&cached.entries), json(&fresh.entries));
+    for (path, bytes) in files.iter().zip(before) {
+        assert_eq!(fs::read(path).unwrap(), bytes);
+    }
+}
+
+#[test]
+fn cached_dates_without_usable_raw_timestamps_are_reread_and_repaired() {
+    let dir = tempfile::tempdir().unwrap();
+    let files = dated_files(dir.path());
+    let options = TagOptions::default();
+    let scope = Scope::everything();
+    let roots: Vec<_> = files.iter().map(|path| text(path)).collect();
+    for invalid in [None, Some("not a timestamp"), Some("9223372036854775807")] {
+        let library = Library::in_memory().unwrap();
+        let (fresh, _, _) = scan(&library, &scope, &options, &roots, false);
+        let mut previous = fresh.entries.clone();
+        for entry in &mut previous {
+            let key = if entry.path.ends_with(".m4a") {
+                "_MP4_CREATION_TIME_RAW"
+            } else {
+                "_FILE_MOD_DATETIME_RAW"
+            };
+            if let Some(value) = invalid {
+                entry.technical.insert(key.into(), vec![value.into()]);
+            } else {
+                entry.technical.remove(key);
+            }
+            library
+                .store(
+                    &[(entry, Stamp::of(Path::new(&entry.path)).unwrap())],
+                    &fingerprint(&options, "test"),
+                )
+                .unwrap();
+        }
+        let (repaired, hits, stored) = scan(&library, &scope, &options, &roots, false);
+        assert_eq!((hits, stored), (0, 2), "{invalid:?}");
+        assert_eq!(json(&repaired.entries), json(&fresh.entries));
+        let (again, hits, stored) = scan(&library, &scope, &options, &roots, false);
+        assert_eq!((hits, stored), (2, 0));
+        assert_eq!(json(&again.entries), json(&fresh.entries));
+    }
+}
+
+#[test]
+fn cached_date_refresh_preserves_negative_epoch_timestamps() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("before-epoch.wav");
+    wav(&path, "Keep title", "Keep artist");
+    fs::File::options()
+        .write(true)
+        .open(&path)
+        .unwrap()
+        .set_modified(std::time::UNIX_EPOCH - Duration::from_secs(86_401))
+        .unwrap();
+    let library = Library::in_memory().unwrap();
+    let options = TagOptions::default();
+    let scope = Scope::everything();
+    let roots = [text(&path)];
+    let (fresh, _, _) = scan(&library, &scope, &options, &roots, false);
+    assert_eq!(
+        fresh.entries[0].technical["_FILE_MOD_DATETIME_RAW"],
+        ["-86401"]
+    );
+    let mut previous = fresh.entries[0].clone();
+    let locale = ["en-US", "de-DE", "ja-JP"]
+        .into_iter()
+        .find(|locale| {
+            old_clock_value(-86_401, false, locale) != previous.technical["_FILE_MOD_DATE"][0]
+        })
+        .unwrap();
+    previous.technical.insert(
+        "_FILE_MOD_DATE".into(),
+        vec![old_clock_value(-86_401, false, locale)],
+    );
+    previous.technical.insert(
+        "_FILE_MOD_DATETIME".into(),
+        vec![old_clock_value(-86_401, true, locale)],
+    );
+    library
+        .store(
+            &[(&previous, Stamp::of(&path).unwrap())],
+            &fingerprint(&options, "test"),
+        )
+        .unwrap();
+    let (cached, hits, stored) = scan(&library, &scope, &options, &roots, false);
+    assert_eq!((hits, stored), (1, 0));
+    assert_eq!(json(&cached.entries), json(&fresh.entries));
+}
+
 #[test]
 fn changed_files_are_read_again_and_replace_their_entry() {
     let dir = tempfile::tempdir().unwrap();

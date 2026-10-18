@@ -824,14 +824,19 @@ fn write_id3_rows_diagnostic(
             if chapters.iter().all(Fields::is_empty) {
                 return Ok(());
             }
-            let mut tag = native_tags_diagnostic(staging, kind)?
+            let original = native_tags_diagnostic(staging, kind)?;
+            let mut tag = original
                 .id3
                 .ok_or_else(|| ErrorCause::owned("The ID3v2 tag with the chapters is missing"))?;
             let ids: Vec<String> = id3_chapters(&tag).into_iter().map(|(id, _)| id).collect();
             // MPEG saves use the configured revision, as every MPEG save does.
             let target = if kind == FileType::Mpeg {
                 let target = tag_policy::id3_target(options);
-                mapping::convert_id3_version_diagnostic(&mut tag, &target)?;
+                mapping::convert_id3_version_diagnostic(
+                    &mut tag,
+                    &target,
+                    &original.id3_placeholders,
+                )?;
                 target
             } else {
                 mapping::Id3Target::preserving(&tag, options.comment_language())
@@ -876,7 +881,7 @@ fn write_id3_rows_diagnostic(
             staging
                 .seek(SeekFrom::Start(0))
                 .map_err(ErrorCause::external)?;
-            mapping::save_id3_diagnostic(staging, kind, &tag, &target)?;
+            mapping::save_id3_diagnostic(staging, kind, &tag, &target, &original.id3_placeholders)?;
             let written = native_tags_diagnostic(staging, kind)?
                 .id3
                 .map(|tag| id3_chapters(&tag))

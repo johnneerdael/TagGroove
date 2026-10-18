@@ -18,7 +18,6 @@ use lofty::{
 use std::{
     fs::Metadata,
     path::{Path, MAIN_SEPARATOR},
-    sync::OnceLock,
     time::{Duration, SystemTime},
 };
 
@@ -144,17 +143,14 @@ pub(super) fn aiff(properties: &AiffProperties) -> Fields {
 }
 
 fn locale() -> Locale {
-    static LOCALE: OnceLock<Locale> = OnceLock::new();
-    *LOCALE.get_or_init(|| {
-        sys_locale::get_locale()
-            .and_then(|name| {
-                let name = name.split('.').next().unwrap_or(&name).replace('-', "_");
-                Locale::try_from(name.as_str()).ok()
-            })
-            .unwrap_or(Locale::en_US)
-    })
+    sys_locale::get_locale()
+        .and_then(|name| {
+            let name = name.split('.').next().unwrap_or(&name).replace('-', "_");
+            Locale::try_from(name.as_str()).ok()
+        })
+        .unwrap_or(Locale::en_US)
 }
-fn timestamp(fields: &mut Fields, prefix: &str, time: SystemTime) {
+fn timestamp(fields: &mut Fields, prefix: &str, time: SystemTime, locale: Locale) {
     // Provider timestamps may exceed Chrono's representable calendar range.
     // Unlike From<SystemTime>, this checked conversion leaves unknown fields absent.
     let (seconds, nanos) = match time.duration_since(std::time::UNIX_EPOCH) {
@@ -184,12 +180,12 @@ fn timestamp(fields: &mut Fields, prefix: &str, time: SystemTime) {
     put(
         fields,
         &format!("{prefix}_DATE"),
-        local.format_localized("%x", locale()),
+        local.format_localized("%x", locale),
     );
     put(
         fields,
         &format!("{prefix}_DATETIME"),
-        local.format_localized("%x %X", locale()),
+        local.format_localized("%x %X", locale),
     );
 }
 
@@ -209,11 +205,12 @@ pub(super) fn file_time_fields(
     modified: Option<SystemTime>,
 ) -> Fields {
     let mut fields = Fields::new();
+    let locale = locale();
     if let Some(time) = modified {
-        timestamp(&mut fields, "_FILE_MOD", time);
+        timestamp(&mut fields, "_FILE_MOD", time, locale);
     }
     if let Some(time) = created {
-        timestamp(&mut fields, "_FILE_CREATE", time);
+        timestamp(&mut fields, "_FILE_CREATE", time, locale);
     }
     fields
 }

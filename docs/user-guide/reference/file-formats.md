@@ -110,6 +110,11 @@ paths. This is byte escaping inside a frame, separate from the optional tag
 headers above. The supported MPEG v2.4→v2.3 conversion retains the decoded
 payload instead of marking already-decoded bytes as escaped again.
 
+Ordinary experimental frame names such as `Y000` are retained as real opaque
+metadata. They do not become encrypted merely because their names resemble an
+internal placeholder. Genuine encrypted records keep their existing decryption and revision-conversion
+restrictions.
+
 Global unsynchronization combined with optional headers, update/restriction
 declarations and arbitrary frame/layout combinations remain unqualified. A
 refused operation should leave the original file intact. Keep a backup rather

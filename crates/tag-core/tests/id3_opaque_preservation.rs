@@ -1166,3 +1166,420 @@ fn malformed_ordinary_unsync_frames_refuse_without_writing() {
         }
     }
 }
+
+fn experimental_y_tag(major: u8, encrypted: bool, encrypted_first: bool) -> Vec<u8> {
+    let ordinary = [
+        frame(major, b"Y000", 0, b"ordinary Y000 opaque payload"),
+        frame(major, b"Y001", 0, b"ordinary Y001 opaque payload"),
+        frame(major, b"YABC", 0, b"ordinary YABC opaque payload"),
+    ]
+    .concat();
+    let cipher = if encrypted {
+        let flag = if major == 3 { 0x40 } else { 4 };
+        [
+            frame(
+                major,
+                b"ENCR",
+                0,
+                b"qualification.example.invalid\0\x81fixture method",
+            ),
+            frame(major, b"TXXX", flag, b"\x81first opaque ciphertext"),
+            frame(major, b"TALB", flag, b"\x81second opaque ciphertext"),
+        ]
+        .concat()
+    } else {
+        Vec::new()
+    };
+    let body = [
+        frame(major, b"TIT2", 0, b"\0Plain title"),
+        if encrypted_first {
+            [cipher, ordinary].concat()
+        } else {
+            [ordinary, cipher].concat()
+        },
+    ]
+    .concat();
+    let mut tag = vec![b'I', b'D', b'3', major, 0, 0];
+    tag.extend(syncsafe(body.len() + 128));
+    tag.extend(body);
+    tag.resize(tag.len() + 128, 0);
+    tag
+}
+
+#[test]
+fn real_experimental_y_frames_and_encrypted_collisions_save_without_reinterpretation() {
+    for major in [3, 4] {
+        for encrypted in [false, true] {
+            for first in [false, true] {
+                if !encrypted && first {
+                    continue;
+                }
+                for extension in ["mp3", "dsf", "dff", "wav", "aiff"] {
+                    let dir = tempfile::tempdir().unwrap();
+                    let name = format!("experimental-y-{major}-{encrypted}-{first}.{extension}");
+                    let path = dir.path().join(&name);
+                    let tag = experimental_y_tag(major, encrypted, first);
+                    let before = if matches!(extension, "wav" | "aiff") {
+                        pcm_container(extension, &tag)
+                    } else {
+                        carrier(extension, &tag)
+                    };
+                    let parts = |bytes| {
+                        if matches!(extension, "wav" | "aiff") {
+                            pcm_parts(extension, bytes)
+                        } else {
+                            native_parts(extension, bytes)
+                        }
+                    };
+                    let (original_tag, original_audio) = parts(&before);
+                    fs::write(&path, &before).unwrap();
+                    let mut options = TagOptions::default();
+                    options.mpeg.write_id3v1 = false;
+                    options.mpeg.id3v2_format = if major == 3 {
+                        Id3v2Format::V23Utf16
+                    } else {
+                        Id3v2Format::V24Utf8
+                    };
+                    let initial = read_entry_with_options(&path, &[], &options).unwrap();
+                    let names = initial.technical["_ID3V2_UNKNOWN_FRAMES"].join(", ");
+                    let mut expected_names =
+                        std::collections::BTreeSet::from(["Y000", "Y001", "YABC"]);
+                    if encrypted {
+                        expected_names.extend(["ENCR", "TXXX", "TALB"]);
+                    }
+                    assert_eq!(
+                        names.split(", ").collect::<std::collections::BTreeSet<_>>(),
+                        expected_names,
+                        "{name}: exact stored identities"
+                    );
+                    let mut journal =
+                        Journal::open(&dir.path().join("journal"), Limits::default()).unwrap();
+                    journal.set_tag_options(options.clone());
+                    let capture = journal.begin(
+                        "Unrelated Y frame edit",
+                        None,
+                        &[path.to_string_lossy().into()],
+                    );
+                    write_fields_with_options(
+                        &path,
+                        &Fields::from([("ARTIST".into(), vec!["Someone".into()])]),
+                        false,
+                        &[],
+                        &options,
+                    )
+                    .unwrap_or_else(|e| panic!("{name}: {e}"));
+                    journal.commit(capture, &[], &[]);
+                    let after = fs::read(&path).unwrap();
+                    let (saved_tag, saved_audio) = parts(&after);
+                    assert_eq!(saved_audio, original_audio, "{name}: media");
+                    for id in [b"Y000", b"Y001", b"YABC"] {
+                        assert_eq!(
+                            logical_frame(saved_tag, id),
+                            logical_frame(original_tag, id),
+                            "{name}: real Y payload"
+                        );
+                        let raw = frame(major, id, 0, &logical_frame(original_tag, id).1);
+                        assert_eq!(
+                            saved_tag
+                                .windows(raw.len())
+                                .filter(|bytes| *bytes == raw)
+                                .count(),
+                            1,
+                            "{name}: exactly one original Y record"
+                        );
+                    }
+                    assert_eq!(
+                        opaque_records(saved_tag),
+                        opaque_records(original_tag),
+                        "{name}: encrypted records"
+                    );
+                    let reopened = read_entry_with_options(&path, &[], &options).unwrap();
+                    assert_eq!(reopened.fields["TITLE"], ["Plain title"]);
+                    assert_eq!(reopened.fields["ARTIST"], ["Someone"]);
+                    assert_eq!(
+                        reopened.technical["_ID3V2_UNKNOWN_FRAMES"],
+                        initial.technical["_ID3V2_UNKNOWN_FRAMES"],
+                        "{name}: stored identifiers"
+                    );
+                    assert!(journal.undo().unwrap().errors.is_empty());
+                    let undone = fs::read(&path).unwrap();
+                    assert_eq!(undone, before);
+                    assert!(journal.redo().unwrap().errors.is_empty());
+                    let redone = fs::read(&path).unwrap();
+                    assert_eq!(redone, after);
+                    for (stage, bytes) in [
+                        ("input", &before),
+                        ("after", &after),
+                        ("undone", &undone),
+                        ("redone", &redone),
+                    ] {
+                        keep_evidence(&name, stage, bytes);
+                    }
+                    keep_evidence(
+                        &name,
+                        "after-fields.json",
+                        &serde_json::to_vec(&reopened.fields).unwrap(),
+                    );
+                    keep_evidence(
+                        &name,
+                        "unknown-frames.json",
+                        &serde_json::to_vec(&reopened.technical["_ID3V2_UNKNOWN_FRAMES"]).unwrap(),
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn real_y_revision_conversion_succeeds_but_genuine_encryption_keeps_protected_refusal() {
+    for major in [3, 4] {
+        for encrypted in [false, true] {
+            let dir = tempfile::tempdir().unwrap();
+            let name = format!("experimental-y-conversion-{major}-{encrypted}.mp3");
+            let path = dir.path().join(&name);
+            let before = carrier("mp3", &experimental_y_tag(major, encrypted, true));
+            fs::write(&path, &before).unwrap();
+            let mut options = TagOptions::default();
+            options.mpeg.write_id3v1 = false;
+            options.mpeg.id3v2_format = if major == 3 {
+                Id3v2Format::V24Utf8
+            } else {
+                Id3v2Format::V23Utf16
+            };
+            let mut journal =
+                Journal::open(&dir.path().join("journal"), Limits::default()).unwrap();
+            journal.set_tag_options(options.clone());
+            let control = dir.path().join("control.mp3");
+            fs::write(&control, include_bytes!("fixtures/save-corpus/tone.mp3")).unwrap();
+            let changes = Fields::from([("ARTIST".into(), vec!["Someone".into()])]);
+            let prior = journal.begin(
+                "Earlier control edit",
+                None,
+                &[control.to_string_lossy().into()],
+            );
+            write_fields_with_options(&control, &changes, false, &[], &options).unwrap();
+            journal.commit(prior, &[], &[]);
+            let retained = journal.retained_bytes();
+            let capture = journal.begin(
+                "Convert real Y frames",
+                None,
+                &[path.to_string_lossy().into()],
+            );
+            let result = write_fields_with_options(&path, &changes, false, &[], &options);
+            journal.commit(capture, &[], &[]);
+            let after = fs::read(&path).unwrap();
+            keep_evidence(&name, "input", &before);
+            keep_evidence(&name, "after", &after);
+            if encrypted {
+                let error = result.expect_err("genuine encrypted revision conversion must refuse");
+                assert!(
+                    error.contains("Encrypted ID3v2 frames cannot be converted"),
+                    "{error}"
+                );
+                assert_eq!(after, before);
+                assert_eq!(journal.state().undo.unwrap().label, "Earlier control edit");
+                assert_eq!(journal.retained_bytes(), retained);
+                keep_evidence(&name, "write-error.txt", error.as_bytes());
+                continue;
+            }
+            result.unwrap();
+            let (original_tag, audio) = native_parts("mp3", &before);
+            let (saved_tag, saved_audio) = native_parts("mp3", &after);
+            assert_ne!(saved_tag[3], major);
+            assert_eq!(saved_audio, audio);
+            for id in [b"Y000", b"Y001", b"YABC"] {
+                assert_eq!(
+                    logical_frame(saved_tag, id),
+                    logical_frame(original_tag, id)
+                );
+            }
+            let reopened = read_entry_with_options(&path, &[], &options).unwrap();
+            assert_eq!(reopened.fields["TITLE"], ["Plain title"]);
+            assert_eq!(reopened.fields["ARTIST"], ["Someone"]);
+            assert!(journal.undo().unwrap().errors.is_empty());
+            let undone = fs::read(&path).unwrap();
+            assert_eq!(undone, before);
+            assert!(journal.redo().unwrap().errors.is_empty());
+            let redone = fs::read(&path).unwrap();
+            assert_eq!(redone, after);
+            keep_evidence(&name, "undone", &undone);
+            keep_evidence(&name, "redone", &redone);
+            keep_evidence(
+                &name,
+                "after-fields.json",
+                &serde_json::to_vec(&reopened.fields).unwrap(),
+            );
+        }
+    }
+}
+
+#[test]
+fn chapter_row_save_retains_real_y_and_encrypted_provenance() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("experimental-y-chapter.mp3");
+    let chapters: Vec<u8> = [("first", 0u32, 500u32), ("second", 500, 1000)]
+        .into_iter()
+        .flat_map(|(id, start, end)| {
+            let mut body = id.as_bytes().to_vec();
+            body.push(0);
+            body.extend(start.to_be_bytes());
+            body.extend(end.to_be_bytes());
+            body.extend([0xff; 8]);
+            body.extend(frame(
+                3,
+                b"TIT2",
+                0,
+                &[b"\0".as_slice(), id.as_bytes()].concat(),
+            ));
+            frame(3, b"CHAP", 0, &body)
+        })
+        .collect();
+    let mut tag = experimental_y_tag(3, true, false);
+    let at = tag.len() - 128;
+    tag.splice(at..at, chapters);
+    let size = syncsafe(tag.len() - 10);
+    tag[6..10].copy_from_slice(&size);
+    let before = carrier("mp3", &tag);
+    fs::write(&path, &before).unwrap();
+    let mut options = TagOptions::default();
+    options.mpeg.write_id3v1 = false;
+    assert_eq!(
+        read_entry_with_options(&path, &[], &options)
+            .unwrap()
+            .chapters
+            .len(),
+        2
+    );
+    let mut journal = Journal::open(&dir.path().join("journal"), Limits::default()).unwrap();
+    journal.set_tag_options(options.clone());
+    let capture = journal.begin("Chapter edit", None, &[path.to_string_lossy().into()]);
+    let row = tag_core::subsong_path(path.to_str().unwrap(), 1);
+    write_fields_with_options(
+        Path::new(&row),
+        &Fields::from([("TITLE".into(), vec!["Changed chapter".into()])]),
+        false,
+        &[],
+        &options,
+    )
+    .unwrap();
+    journal.commit(capture, &[], &[]);
+    let after = fs::read(&path).unwrap();
+    let (original_tag, original_audio) = native_parts("mp3", &before);
+    let (saved_tag, saved_audio) = native_parts("mp3", &after);
+    assert_eq!(saved_audio, original_audio);
+    assert_eq!(opaque_records(saved_tag), opaque_records(original_tag));
+    for id in [b"Y000", b"Y001", b"YABC"] {
+        assert_eq!(
+            logical_frame(saved_tag, id),
+            logical_frame(original_tag, id)
+        );
+    }
+    let reopened = read_entry_with_options(&path, &[], &options).unwrap();
+    assert_eq!(reopened.fields["TITLE"], ["Plain title"]);
+    assert_eq!(reopened.chapters[0].title, "Changed chapter");
+    assert_eq!(reopened.chapters[1].title, "second");
+    keep_evidence(
+        "experimental-y-chapter.mp3",
+        "after-fields.json",
+        &serde_json::to_vec(&reopened.fields).unwrap(),
+    );
+    keep_evidence(
+        "experimental-y-chapter.mp3",
+        "after-chapters.json",
+        &serde_json::to_vec(&reopened.chapters).unwrap(),
+    );
+    keep_evidence(
+        "experimental-y-chapter.mp3",
+        "unknown-frames.json",
+        &serde_json::to_vec(&reopened.technical["_ID3V2_UNKNOWN_FRAMES"]).unwrap(),
+    );
+    assert!(journal.undo().unwrap().errors.is_empty());
+    let undone = fs::read(&path).unwrap();
+    assert_eq!(undone, before);
+    assert!(journal.redo().unwrap().errors.is_empty());
+    let redone = fs::read(&path).unwrap();
+    assert_eq!(redone, after);
+    for (stage, bytes) in [
+        ("input", &before),
+        ("after", &after),
+        ("undone", &undone),
+        ("redone", &redone),
+    ] {
+        keep_evidence("experimental-y-chapter.mp3", stage, bytes);
+    }
+}
+
+#[test]
+fn incomplete_occupied_id_inventory_refuses_encrypted_fallback_without_mutation() {
+    for major in [3, 4] {
+        for variant in ["frame-bounds", "invalid-id", "nonzero-padding"] {
+            let mut tag = experimental_y_tag(major, true, true);
+            let at = tag.windows(4).position(|bytes| bytes == b"YABC").unwrap();
+            match variant {
+                "frame-bounds" => {
+                    let size = tag.len() + 4096;
+                    tag[at + 4..at + 8].copy_from_slice(&if major == 3 {
+                        (size as u32).to_be_bytes()
+                    } else {
+                        syncsafe(size)
+                    });
+                }
+                "invalid-id" => tag[at..at + 4].copy_from_slice(b"bad?"),
+                "nonzero-padding" => *tag.last_mut().unwrap() = 1,
+                _ => unreachable!(),
+            }
+            for extension in ["mp3", "dsf", "dff", "wav", "aiff"] {
+                let dir = tempfile::tempdir().unwrap();
+                let name = format!("experimental-y-malformed-{major}-{variant}.{extension}");
+                let path = dir.path().join(&name);
+                let before = if matches!(extension, "wav" | "aiff") {
+                    pcm_container(extension, &tag)
+                } else {
+                    carrier(extension, &tag)
+                };
+                fs::write(&path, &before).unwrap();
+                let mut options = TagOptions::default();
+                options.mpeg.write_id3v1 = false;
+                options.mpeg.id3v2_format = if major == 3 {
+                    Id3v2Format::V23Utf16
+                } else {
+                    Id3v2Format::V24Utf8
+                };
+                assert!(
+                    read_entry_with_options(&path, &[], &options).is_err(),
+                    "{name}: unsafe fallback admitted"
+                );
+                let mut journal =
+                    Journal::open(&dir.path().join("journal"), Limits::default()).unwrap();
+                journal.set_tag_options(options.clone());
+                let control = dir.path().join("control.mp3");
+                fs::write(&control, include_bytes!("fixtures/save-corpus/tone.mp3")).unwrap();
+                let changes = Fields::from([("ARTIST".into(), vec!["Someone".into()])]);
+                let prior = journal.begin(
+                    "Earlier control edit",
+                    None,
+                    &[control.to_string_lossy().into()],
+                );
+                write_fields_with_options(&control, &changes, false, &[], &options).unwrap();
+                journal.commit(prior, &[], &[]);
+                let retained = journal.retained_bytes();
+                let capture = journal.begin(
+                    "Refused unsafe fallback",
+                    None,
+                    &[path.to_string_lossy().into()],
+                );
+                let error = write_fields_with_options(&path, &changes, false, &[], &options)
+                    .expect_err("unsafe fallback write must refuse");
+                journal.commit(capture, &[], &[]);
+                let after = fs::read(path).unwrap();
+                assert_eq!(after, before);
+                assert_eq!(journal.state().undo.unwrap().label, "Earlier control edit");
+                assert_eq!(journal.retained_bytes(), retained);
+                keep_evidence(&name, "input", &before);
+                keep_evidence(&name, "after", &after);
+                keep_evidence(&name, "write-error.txt", error.as_bytes());
+            }
+        }
+    }
+}

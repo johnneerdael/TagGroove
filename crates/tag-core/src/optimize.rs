@@ -76,15 +76,14 @@ pub fn remove_unsupported_fields_with_options(
         &options.mappings,
         options,
         |staging, _, _| {
-            let mut tag = native_tags(staging, kind)?
-                .id3
-                .ok_or("The ID3v2 tag disappeared")?;
+            let native = native_tags(staging, kind)?;
+            let mut tag = native.id3.ok_or("The ID3v2 tag disappeared")?;
             let target = mapping::Id3Target::preserving(&tag, language);
             tag.retain(|frame| !unsupported_id3_frame(frame));
             staging
                 .seek(SeekFrom::Start(0))
                 .map_err(|e| e.to_string())?;
-            mapping::save_id3(staging, kind, &tag, &target)
+            mapping::save_id3(staging, kind, &tag, &target, &native.id3_placeholders)
         },
     )
 }

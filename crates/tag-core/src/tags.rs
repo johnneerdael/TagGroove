@@ -370,6 +370,7 @@ struct NativeTags {
     vorbis: Option<VorbisComments>,
     ape: Option<ApeTag>,
     id3: Option<Id3v2Tag>,
+    id3_placeholders: crate::id3_frames::Placeholders,
     ilst: Option<Ilst>,
     riff: Option<RiffInfoList>,
     technical: Fields,
@@ -386,7 +387,10 @@ fn native_tags_diagnostic(reader: &mut fs::File, kind: FileType) -> Result<Nativ
         crate::id3_frames::read_with_fallback_diagnostic(reader, |reader| {
             native_tags_with_diagnostic(reader, kind, mode)
         })
-        .map(|(native, _, _)| native)
+        .map(|(mut native, names, _)| {
+            native.id3_placeholders = names;
+            native
+        })
     })
 }
 fn native_tags_with_diagnostic(
@@ -764,8 +768,6 @@ fn read_description_diagnostic(
         .implicit_conversions(false)
         .parsing_mode(ParsingMode::Strict);
     let mut reader = probe.into_inner();
-    // Stored identifiers of encrypted ID3v2 frames read as placeholders.
-    let mut placeholders = Vec::new();
     macro_rules! read {
         ($ty:ty,$snapshot:expr) => {{
             let (media, names, phantom) = strict_or_lenient_id3v1_diagnostic(|mode| {
@@ -778,8 +780,8 @@ fn read_description_diagnostic(
                         .map_err(|e| ErrorCause::external(error_message(&e)))
                 })
             })?;
-            placeholders = names;
-            let native: NativeTags = ($snapshot)(&media);
+            let mut native: NativeTags = ($snapshot)(&media);
+            native.id3_placeholders = names;
             (without_phantom(TaggedFile::from(media), phantom), native)
         }};
     }
@@ -865,7 +867,7 @@ fn read_description_diagnostic(
     if kind == FileType::Mp4 {
         mp4_chapters::describe(&path, &mut entry, rules);
     }
-    name_placeholders(&mut entry.technical, &placeholders);
+    name_placeholders(&mut entry.technical, &native.id3_placeholders);
     Ok(entry)
 }
 
@@ -1575,13 +1577,14 @@ fn save_preserving_native_diagnostic(
     let originals = native_tags_diagnostic(staging, file_type)?;
     match tag.tag_type() {
         TagType::Id3v2 => {
+            let placeholders = originals.id3_placeholders;
             let mut native = originals.id3.unwrap_or_default();
             let target = match id3.revision {
                 Id3Revision::Preserve(language) => {
                     mapping::Id3Target::preserving(&native, language)
                 }
                 Id3Revision::Convert(target) => {
-                    mapping::convert_id3_version_diagnostic(&mut native, &target)?;
+                    mapping::convert_id3_version_diagnostic(&mut native, &target, &placeholders)?;
                     target
                 }
             };
@@ -1605,7 +1608,7 @@ fn save_preserving_native_diagnostic(
             staging
                 .seek(SeekFrom::Start(0))
                 .map_err(ErrorCause::external)?;
-            mapping::save_id3_diagnostic(staging, file_type, &native, &target)
+            mapping::save_id3_diagnostic(staging, file_type, &native, &target, &placeholders)
         }
         TagType::Mp4Ilst => {
             let mut native = originals.ilst.unwrap_or_default();

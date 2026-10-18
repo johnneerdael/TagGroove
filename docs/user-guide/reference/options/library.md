@@ -13,6 +13,13 @@ TagGroove updates the cache when it saves, renames, moves, or deletes files. **F
 
 The status reports whether the database exists, the cached file count and size, and how many files in the last load came from the Library versus disk. A high disk-read count after enabling the Library is expected for the first load or changed files.
 
+Loading cached entries formats their technical dates again from the saved raw
+timestamps. A formatting change therefore does not require clearing the whole
+Library or rewriting audio. Refresh or load the list again after a system locale
+change; if the system has not exposed its new locale to the running app, restart
+TagGroove and reload. This changes displayed date text, not file timestamps or
+stored tag values.
+
 !!! info "Coming from Mp3tag"
     TagGroove caches metadata and image descriptors. It reads image bytes from the audio file when needed; it does not move embedded images or other binary payloads into the Library database. Do not expect the binary-storage or memory behavior described for Mp3tag's Library.
 

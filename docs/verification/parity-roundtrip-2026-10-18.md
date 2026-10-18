@@ -1,6 +1,9 @@
 # Serialization, composition and source workflow checkpoint — 2026-10-18
 
 Scope: the next consolidated PR64 batch over `94d4dc2a5d4f839061fbfeb1160696a0cc2bc64b`.
+The later [Y-provenance follow-up](id3-y-provenance-2026-10-18.md) supersedes
+the confirmed Y-ID remainder recorded at this checkpoint; the counts below
+remain evidence for this earlier batch.
 The branch remains draft; these local results are not final GitHub CODE review,
 current-main immutable CI, merge, release or published-guide evidence.
 

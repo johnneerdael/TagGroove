@@ -19,7 +19,7 @@ use std::io::Cursor;
 /// bytes, so the tag is wrapped in a minimal in-memory AIFF form, which lofty
 /// reads without audio properties. Encrypted frames are read as placeholders
 /// (see `id3_frames`).
-fn parse_id3(bytes: &[u8]) -> Result<Id3v2Tag, ErrorCause> {
+fn parse_id3(bytes: &[u8]) -> Result<(Id3v2Tag, crate::id3_frames::Placeholders), ErrorCause> {
     if !bytes.starts_with(b"ID3") {
         return Err(ErrorCause::owned("The metadata block is not an ID3v2 tag"));
     }
@@ -37,17 +37,19 @@ fn parse_id3(bytes: &[u8]) -> Result<Id3v2Tag, ErrorCause> {
         .read_properties(false)
         .implicit_conversions(false)
         .parsing_mode(ParsingMode::Strict);
-    crate::id3_frames::read_with_fallback_diagnostic(&mut Cursor::new(form), |mut reader| {
-        reader
-            .seek(SeekFrom::Start(0))
-            .map_err(ErrorCause::external)?;
-        AiffFile::read_from(&mut reader, options)
-            .map_err(|e| ErrorCause::external(error_message(&e)))
-    })?
-    .0
-    .id3v2()
-    .cloned()
-    .ok_or_else(|| ErrorCause::owned("The ID3v2 tag could not be read"))
+    let (file, names, _) =
+        crate::id3_frames::read_with_fallback_diagnostic(&mut Cursor::new(form), |mut reader| {
+            reader
+                .seek(SeekFrom::Start(0))
+                .map_err(ErrorCause::external)?;
+            AiffFile::read_from(&mut reader, options)
+                .map_err(|e| ErrorCause::external(error_message(&e)))
+        })?;
+    let tag = file
+        .id3v2()
+        .cloned()
+        .ok_or_else(|| ErrorCause::owned("The ID3v2 tag could not be read"))?;
+    Ok((tag, names))
 }
 
 fn u32_le(bytes: &[u8], at: usize) -> u32 {
@@ -307,6 +309,7 @@ fn chunk_bytes(id: &[u8; 4], data: &[u8]) -> Vec<u8> {
 
 struct Snapshot {
     id3: Option<Id3v2Tag>,
+    placeholders: crate::id3_frames::Placeholders,
     /// The stored bytes of `id3`.
     id3_bytes: Vec<u8>,
     artist: Option<String>,
@@ -317,6 +320,7 @@ struct Snapshot {
 fn snapshot(path: &Path, kind: Kind) -> Result<Snapshot, ErrorCause> {
     let mut file = fs::File::open(path).map_err(ErrorCause::external)?;
     let mut id3_bytes = Vec::new();
+    let mut placeholders = Vec::new();
     let (id3, artist, title, description) = match kind {
         Kind::Dsf => {
             let dsf = parse_dsf(&mut file)?;
@@ -328,7 +332,9 @@ fn snapshot(path: &Path, kind: Kind) -> Result<Snapshot, ErrorCause> {
                     dsf.pointer,
                     (dsf.length - dsf.pointer) as usize,
                 )?;
-                Some(parse_id3(&id3_bytes)?)
+                let (tag, names) = parse_id3(&id3_bytes)?;
+                placeholders = names;
+                Some(tag)
             };
             let duration = if dsf.sample_rate > 0 {
                 dsf.samples as f64 / f64::from(dsf.sample_rate)
@@ -361,7 +367,9 @@ fn snapshot(path: &Path, kind: Kind) -> Result<Snapshot, ErrorCause> {
             let id3 = match dff.id3.first() {
                 Some(chunk) => {
                     id3_bytes = read_at_diagnostic(&mut file, chunk.data, chunk.size as usize)?;
-                    Some(parse_id3(&id3_bytes)?)
+                    let (tag, names) = parse_id3(&id3_bytes)?;
+                    placeholders = names;
+                    Some(tag)
                 }
                 None => None,
             };
@@ -411,6 +419,7 @@ fn snapshot(path: &Path, kind: Kind) -> Result<Snapshot, ErrorCause> {
     };
     Ok(Snapshot {
         id3,
+        placeholders,
         id3_bytes,
         artist,
         title,
@@ -436,6 +445,7 @@ pub(super) fn describe_diagnostic(
 ) -> Result<Description, ErrorCause> {
     let Snapshot {
         id3,
+        placeholders,
         artist,
         title,
         mut description,
@@ -451,6 +461,8 @@ pub(super) fn describe_diagnostic(
         description.tags.push(technical::id3_name(tag).into());
         let generic: Tag = tag.clone().into();
         description.pictures = generic.pictures().to_vec();
+        technical::id3_details(&mut description.technical, tag);
+        name_placeholders(&mut description.technical, &placeholders);
     }
     let mut fields = map_read_fields_diagnostic(&native, TagType::Id3v2, rules)?;
     // ID3v2 takes precedence; DIIN text only fills fields the tag lacks.
@@ -522,7 +534,7 @@ pub(super) fn write_diagnostic(
         .id3
         .as_ref()
         .map(|tag| (tag, current.id3_bytes.as_slice()));
-    let bytes = mapping::render_id3_diagnostic(&native, &target, stored)?;
+    let bytes = mapping::render_id3_diagnostic(&native, &target, stored, &current.placeholders)?;
     match kind {
         Kind::Dsf => write_dsf(staging, original, &bytes)?,
         _ => write_dff(
