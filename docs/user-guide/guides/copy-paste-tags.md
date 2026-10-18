@@ -84,6 +84,12 @@ backup** uses the last verified source and ignores pending changes. Check the
 saved copy before discarding the source or recovery files; cancelling or
 failing the copy retains the source's pending edits.
 
+Pending fields and artwork written to an **Edited copy** use the same current
+tag-writing settings and field mappings. For example, a configured APEv2-only
+MPEG policy also applies to pasted artwork. **Original backup** preserves the
+verified bytes without those conversions. The saved provider copy may display
+a custom field alias under its native field name.
+
 For a **Source read-only** or **Recovery required** document, Copy, Paste and
 Cut can still stage cover changes from its readable working copy. Choose
 **Save a copy… → Edited copy** to keep those changes; **Save tags** and

@@ -301,7 +301,13 @@ fn read_only_does_not_call_local_writer_but_edited_copy_applies_drafts() {
         .is_err());
     let result = f
         .store
-        .save_copy(Path::new(&entry.path), &updates(), None, "edited")
+        .save_copy(
+            Path::new(&entry.path),
+            &updates(),
+            None,
+            "edited",
+            &tag_core::TagOptions::default(),
+        )
         .unwrap();
     assert_eq!(result.entries.len(), 1);
     assert_eq!(result.entries[0].fields["TITLE"], ["Edited title"]);
@@ -321,7 +327,13 @@ fn original_copy_ignores_draft_and_export_does_not_clear_recovery() {
     f.files.0.failure.set(0);
     let result = f
         .store
-        .save_copy(Path::new(&entry.path), &updates(), None, "original")
+        .save_copy(
+            Path::new(&entry.path),
+            &updates(),
+            None,
+            "original",
+            &tag_core::TagOptions::default(),
+        )
         .unwrap();
     assert_eq!(fs::read(&result.entries[0].path).unwrap(), f.source);
     assert_eq!(f.store.states()[&entry.path].state, "recovery_required");
@@ -329,7 +341,13 @@ fn original_copy_ignores_draft_and_export_does_not_clear_recovery() {
     let count = f.store.states().len();
     let cancelled = f
         .store
-        .save_copy(Path::new(&entry.path), &updates(), None, "edited")
+        .save_copy(
+            Path::new(&entry.path),
+            &updates(),
+            None,
+            "edited",
+            &tag_core::TagOptions::default(),
+        )
         .unwrap();
     assert!(cancelled.entries.is_empty() && cancelled.errors.is_empty());
     assert_eq!(f.store.states().len(), count);
@@ -370,7 +388,13 @@ fn failed_copy_keeps_pending_artwork_and_fields_through_restart_and_fresh_copy()
             f.files.0.failure.set(failure);
             assert!(f
                 .store
-                .save_copy(Path::new(&entry.path), &updates(), Some(covers), "edited")
+                .save_copy(
+                    Path::new(&entry.path),
+                    &updates(),
+                    Some(covers),
+                    "edited",
+                    &tag_core::TagOptions::default()
+                )
                 .is_err());
             assert_eq!(fs::read(&source).unwrap(), f.source);
             assert_eq!(fs::read(&entry.path).unwrap(), f.source);
@@ -393,7 +417,13 @@ fn failed_copy_keeps_pending_artwork_and_fields_through_restart_and_fresh_copy()
             f.files.0.failure.set(0);
             let retry = f
                 .store
-                .save_copy(Path::new(&copy_path), &Fields::new(), None, "edited")
+                .save_copy(
+                    Path::new(&copy_path),
+                    &Fields::new(),
+                    None,
+                    "edited",
+                    &tag_core::TagOptions::default(),
+                )
                 .unwrap();
             let copied = tag_core::read_entry(Path::new(&retry.entries[0].path)).unwrap();
             assert_eq!(copied.fields["TITLE"], ["Edited title"]);
@@ -538,13 +568,25 @@ fn provider_unavailable_recovery_can_export_verified_backup_to_new_provider_docu
     assert_eq!(restored.entries[0].path, entry.path);
     let copied = f
         .store
-        .save_copy(Path::new(&entry.path), &updates(), None, "original")
+        .save_copy(
+            Path::new(&entry.path),
+            &updates(),
+            None,
+            "original",
+            &tag_core::TagOptions::default(),
+        )
         .unwrap();
     assert_eq!(fs::read(&copied.entries[0].path).unwrap(), f.source);
     assert_eq!(fs::read(&entry.path).unwrap(), b"invalid edited audio");
     assert!(f
         .store
-        .save_copy(Path::new(&entry.path), &updates(), None, "edited")
+        .save_copy(
+            Path::new(&entry.path),
+            &updates(),
+            None,
+            "edited",
+            &tag_core::TagOptions::default()
+        )
         .is_err());
 }
 #[cfg(unix)]
@@ -581,7 +623,13 @@ fn failed_ready_manifest_after_provider_success_keeps_old_backup_until_restart()
     f.files.0.failure.set(0);
     let copy = f
         .store
-        .save_copy(Path::new(&entry.path), &Fields::new(), None, "original")
+        .save_copy(
+            Path::new(&entry.path),
+            &Fields::new(),
+            None,
+            "original",
+            &tag_core::TagOptions::default(),
+        )
         .unwrap();
     assert_eq!(fs::read(&copy.entries[0].path).unwrap(), f.source);
 }

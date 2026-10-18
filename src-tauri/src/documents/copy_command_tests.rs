@@ -82,6 +82,180 @@ fn stale_cover() -> Vec<list_behaviour::PendingCover> {
     .unwrap()
 }
 
+// Inspect native tag boundaries/items independently of the tag-core reader.
+fn mpeg_native(path: &Path) -> (Vec<u8>, std::collections::BTreeMap<String, Vec<u8>>) {
+    let bytes = fs::read(path).unwrap();
+    assert!(
+        !bytes.starts_with(b"ID3"),
+        "APE-only copy must not create ID3v2"
+    );
+    assert!(
+        bytes.len() < 128 || &bytes[bytes.len() - 128..bytes.len() - 125] != b"TAG",
+        "APE-only copy must not create ID3v1"
+    );
+    let footer = &bytes[bytes.len() - 32..];
+    assert_eq!(&footer[..8], b"APETAGEX", "APE-only copy must retain APEv2");
+    assert_eq!(u32::from_le_bytes(footer[8..12].try_into().unwrap()), 2000);
+    let size = u32::from_le_bytes(footer[12..16].try_into().unwrap()) as usize;
+    let count = u32::from_le_bytes(footer[16..20].try_into().unwrap());
+    let flags = u32::from_le_bytes(footer[20..24].try_into().unwrap());
+    let mut cursor = bytes.len() - size;
+    let audio_end = cursor - if flags & 0x8000_0000 != 0 { 32 } else { 0 };
+    let mut items = std::collections::BTreeMap::new();
+    for _ in 0..count {
+        let len = u32::from_le_bytes(bytes[cursor..cursor + 4].try_into().unwrap()) as usize;
+        cursor += 8;
+        let end = cursor + bytes[cursor..].iter().position(|byte| *byte == 0).unwrap();
+        let key = std::str::from_utf8(&bytes[cursor..end])
+            .unwrap()
+            .to_ascii_uppercase();
+        cursor = end + 1;
+        items.insert(key, bytes[cursor..cursor + len].to_vec());
+        cursor += len;
+    }
+    assert_eq!(cursor, bytes.len() - 32);
+    (bytes[..audio_end].to_vec(), items)
+}
+
+fn edited_copy_policy_case(with_fields: bool) {
+    let _clipboard = list_behaviour::TEST_CLIPBOARD.lock().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let source = dir.path().join("source.mp3");
+    fs::write(
+        &source,
+        include_bytes!("../../../crates/tag-core/tests/fixtures/save-corpus/tone.mp3"),
+    )
+    .unwrap();
+    let mut options = tag_core::TagOptions::default();
+    options.mpeg.write_id3v1 = false;
+    options.mpeg.write_id3v2 = false;
+    options.mpeg.write_ape = true;
+    options.mpeg.read_id3v1 = false;
+    options.mpeg.read_id3v2 = false;
+    options.mappings = vec![tag_core::UserFieldMapping {
+        tag_type: "APEv2".into(),
+        source: "TG_NATIVE_NOTE".into(),
+        target: "MIGRANT_NOTE".into(),
+    }];
+    tag_core::write_fields_with_options(
+        &source,
+        &Fields::from([
+            ("TITLE".into(), vec!["Original".into()]),
+            ("COMMENT".into(), vec!["Remove me".into()]),
+            ("ARTIST".into(), vec!["Retained artist".into()]),
+            ("MIGRANT_NOTE".into(), vec!["Original mapped note".into()]),
+        ]),
+        false,
+        &options.mappings,
+        &options,
+    )
+    .unwrap();
+    tag_core::add_cover_bytes_with_options(
+        &source,
+        png([255, 0, 0]),
+        "Original front",
+        Some("CoverFront"),
+        &options,
+    )
+    .unwrap();
+    let original = fs::read(&source).unwrap();
+    let (sound, _) = mpeg_native(&source);
+    let donor = dir.path().join("clipboard.wav");
+    wav(&donor);
+    let image = png([0, 0, 255]);
+    cover(&donor, image.clone(), "CoverFront", "Pending front");
+    let covers = pending(&donor);
+    let session = Session::import(&dir.path().join("private"), &source, "Source.mp3", false);
+    let retained = fs::read(&session.path).unwrap();
+    let target = dir.path().join("edited.mp3");
+    session.copy_to(&target);
+    let mut updates = if with_fields {
+        fields("Pending title")
+    } else {
+        Fields::new()
+    };
+    if with_fields {
+        updates.insert("MIGRANT_NOTE".into(), vec!["Pending mapped note".into()]);
+    }
+    let path = session.path.clone();
+    let active = options.clone();
+    let copied = tauri::async_runtime::block_on(io(move || {
+        settings::with_test_tag_options(active, || {
+            documents::save_copy(&path, &updates, Some(&covers), "edited")
+        })
+    }))
+    .unwrap();
+    assert!(copied.errors.is_empty());
+    assert_eq!(copied.entries.len(), 1);
+    let (copied_sound, native) = mpeg_native(&target);
+    assert_eq!(copied_sound, sound);
+    assert_eq!(
+        native["TITLE"],
+        if with_fields {
+            b"Pending title".as_slice()
+        } else {
+            b"Original".as_slice()
+        }
+    );
+    assert_eq!(native["ARTIST"], b"Retained artist");
+    assert_eq!(
+        native["TG_NATIVE_NOTE"],
+        if with_fields {
+            b"Pending mapped note".as_slice()
+        } else {
+            b"Original mapped note".as_slice()
+        }
+    );
+    assert!(
+        !native.contains_key("MIGRANT_NOTE"),
+        "UI alias must not leak into native APE names"
+    );
+    assert_eq!(native.contains_key("COMMENT"), !with_fields);
+    let artwork = &native["COVER ART (FRONT)"];
+    let image_start = artwork.iter().position(|byte| *byte == 0).unwrap() + 1;
+    assert_eq!(&artwork[image_start..], image);
+    let read = tag_core::read_entry_with_options(&target, &options.mappings, &options).unwrap();
+    assert_eq!(
+        read.fields["MIGRANT_NOTE"],
+        [if with_fields {
+            "Pending mapped note"
+        } else {
+            "Original mapped note"
+        }]
+    );
+    // Provider result projection still uses its existing default reader, so
+    // mapped aliases are verified above, not promised by this return value.
+    assert!(copied.entries[0].fields.contains_key("TG_NATIVE_NOTE"));
+    assert!(!copied.entries[0].fields.contains_key("MIGRANT_NOTE"));
+    assert_eq!(copied.entries[0].covers.len(), 1);
+    let backup = dir.path().join("original.mp3");
+    session.copy_to(&backup);
+    let path = session.path.clone();
+    tauri::async_runtime::block_on(io(move || {
+        settings::with_test_tag_options(options, || {
+            documents::save_copy(
+                &path,
+                &fields("Ignored draft"),
+                Some(&stale_cover()),
+                "original",
+            )
+        })
+    }))
+    .unwrap();
+    assert_eq!(fs::read(&backup).unwrap(), original);
+    assert_eq!(fs::read(&source).unwrap(), original);
+    assert_eq!(fs::read(&session.path).unwrap(), retained);
+}
+
+#[test]
+fn edited_copy_artwork_uses_active_mpeg_policy() {
+    edited_copy_policy_case(false);
+}
+#[test]
+fn edited_copy_artwork_and_fields_share_active_mpeg_policy_and_mappings() {
+    edited_copy_policy_case(true);
+}
+
 #[test]
 fn edited_copy_command_writes_pending_fields_and_ordered_artwork_without_changing_read_only_source()
 {

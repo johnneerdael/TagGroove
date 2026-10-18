@@ -236,6 +236,8 @@ pub fn save_copy(
     covers: Option<&[crate::list_behaviour::PendingCover]>,
     version: &str,
 ) -> Result<ScanResult, String> {
+    // One policy snapshot governs every write in this new-copy transaction.
+    let options = crate::settings::tag_options();
     // Resolve pending image bytes once, before opening CREATE_DOCUMENT. Original
     // backups ignore all draft intent, including stale clipboard references.
     let changes = if version == "edited" {
@@ -253,15 +255,27 @@ pub fn save_copy(
             .iter_mut()
             .find(|store| store.is_managed(Path::new(path)))
             .ok_or_else(|| "Unknown provider document".to_string())?
-            .save_copy(Path::new(path), updates, changes.as_deref(), version);
+            .save_copy(
+                Path::new(path),
+                updates,
+                changes.as_deref(),
+                version,
+                &options,
+            );
     }
     #[cfg(all(target_os = "android", not(test)))]
     return android::with_store(|store| {
-        store.save_copy(Path::new(path), updates, changes.as_deref(), version)
+        store.save_copy(
+            Path::new(path),
+            updates,
+            changes.as_deref(),
+            version,
+            &options,
+        )
     });
     #[cfg(not(any(target_os = "android", test)))]
     {
-        let _ = (path, updates, changes, version);
+        let _ = (path, updates, changes, version, options);
         Err("Provider Save a copy is supported only on Android".into())
     }
 }

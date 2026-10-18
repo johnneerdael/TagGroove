@@ -492,6 +492,7 @@ impl<P: Provider> Store<P> {
         updates: &Fields,
         covers: Option<&[tag_core::CoverChange]>,
         version: &str,
+        options: &tag_core::TagOptions,
     ) -> Result<ScanResult> {
         let source = self.record(path)?;
         let input = match version {
@@ -532,14 +533,16 @@ impl<P: Provider> Store<P> {
             replace_from(&input, &working)?;
             if version == "edited" {
                 if let Some(covers) = covers {
-                    tag_core::apply_cover_changes_with_options(
-                        &working,
-                        covers,
-                        &tag_core::TagOptions::default(),
-                    )?;
+                    tag_core::apply_cover_changes_with_options(&working, covers, options)?;
                 }
                 if !updates.is_empty() {
-                    tag_core::write_fields(&working, updates)?;
+                    tag_core::write_fields_with_options(
+                        &working,
+                        updates,
+                        false,
+                        &options.mappings,
+                        options,
+                    )?;
                 }
             }
             Ok(())

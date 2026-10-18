@@ -52,9 +52,18 @@ its provider output may be partial or unverified. No rollback of an unknown
 provider output is attempted. A later copy can recover the retained edited
 bytes without reading the source provider.
 
-Copy writing continues to use the existing default tag policy. Applying user
-read precedence and field mappings throughout provider read/reload/copy paths
-remains separate work. MP4 artwork still has no cover type or description.
+Edited-copy writes snapshot the active tag options once, before destination
+creation. Both pending artwork and the subsequent field overlay use that same
+write/remove policy and field mappings. For example, an APEv2-only MPEG policy
+does not silently become the default ID3 policy when pasted artwork is saved,
+and a later pending field does not undo that choice. An original-backup copy
+ignores pending fields/artwork and does not apply policy conversions.
+
+Provider import, recovery and published-result projection retain their existing
+default read behavior. A custom mapped alias can therefore return under its
+native field name even when the new copy was written using the mapping.
+Applying user read precedence and field mappings throughout those reads remains
+separate acceptance work. MP4 artwork still has no cover type or description.
 
 ## Regression evidence
 
@@ -109,6 +118,20 @@ remains separate work. MP4 artwork still has no cover type or description.
   `.cue` error. Provider bytes are deleted before the read. The actual async
   command boundary is also checked with default test settings, and unreadable
   working bytes still refuse baseline substitution with either preference.
+- Two policy regressions use the frozen owned `tone.mp3`, an APEv2-only MPEG
+  write policy, a custom field mapping and actual clipboard image bytes.
+  Native APE footer/item parsing checks the absence of new ID3 tags, retained
+  fields, mapped native names, deletion intent and the exact PNG bytes; the
+  MPEG payload, source document and source working copy remain unchanged.
+  Both artwork-only and artwork-plus-fields copies are checked. Restoring
+  either the old cover-policy default or the old field-overlay default makes
+  its corresponding case fail. Original-backup copies remain byte-identical
+  while ignoring stale artwork and pending fields. The nondefault policy is
+  scoped to the production synchronous copy body on its I/O worker thread;
+  existing default-policy cases also exercise the actual async command.
+  Result projection is checked under its current native-name behavior and an
+  independent options-aware read verifies the mapped alias. No provider-wide
+  read-policy parity or physical Android device is claimed.
 
 Validation commands and their final results are recorded in the PR. These
 fixtures exercise real metadata and audio files with a substituted SAF
