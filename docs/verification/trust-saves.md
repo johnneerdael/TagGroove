@@ -60,8 +60,9 @@ a custom field, remove a cover, change opaque bytes and corrupt audio bytes
 across the three formats. They must produce detectable differences.
 
 Audio identity uses encoded media payload bytes, not whole-file equality:
-MPEG excludes leading ID3 and trailing ID3v1/APE, FLAC excludes metadata
-blocks, and ordinary 32-bit MP4 concatenates top-level `mdat` payloads. The
+MPEG excludes leading ID3 (including a validated ID3v2.4 footer) and trailing
+ID3v1/APE. FLAC excludes metadata blocks. Ordinary 32-bit MP4 concatenates
+top-level `mdat` payloads, including a final box whose zero size means EOF. The
 Python receipt computes SHA-256 over those bytes. Separate whole-file hashes
 identify paired inputs and retained save/undo/redo stages. Every local case
 requires undone bytes to match the original input hash and redone bytes to
@@ -191,3 +192,19 @@ native UI save/cancel/reload and interrupted/rejected OS writes. Restart
 history, non-cloning storage budgets and crash recovery belong to the
 separate R17 implementation stream. Specialist formats, platform/device
 editing and released artifacts remain separate acceptance programs.
+
+
+## Review follow-up: audio boundaries
+
+After integrating approved main `84bf037cee0402a5de0de09dd7374cf36dd8ceb1`, four new boundary controls failed against the previous observer and pass with its two parsing fixes. The application save implementation is unchanged.
+
+- An ID3v2.4 header's size omits its optional ten-byte footer. The observer now skips a footer only when the v2.4 flag is set, and validates its signature and matching header fields. Missing, truncated or mismatched footers fail observation. A valid authored title frame/footer wraps the retained MPEG frames; the test reads its title and preserves the same audio before and after an ordinary save. See the [ID3v2.4 structure specification, sections 3.1 and 3.4](https://id3.org/id3v2.4.0-structure).
+- A zero-sized top-level MP4 box extends through EOF. The observer now uses the remaining file length and retains bounds checks. The retained M4A is rearranged into a valid terminal-`mdat` layout with its real chunk offset adjusted; metadata and audio are read before an ordinary save, and audio remains identical after it. A final EOF-sized metadata box is skipped rather than hashed as audio. Truncated, oversized, empty-audio and still-unsupported extended-size cases fail. See [Apple's atom size documentation](https://developer.apple.com/documentation/quicktime-file-format/atoms).
+
+The frozen carrier files and six baseline save cases are unchanged. All seven save-acceptance Rust tests pass, including the four new boundary tests. These are local observer/save controls, not captures of original Mp3tag behavior.
+
+
+A one-off independent decode check with local FFmpeg 9.0.2 confirmed identical decoded PCM SHA-256 for the footer MP3, EOF-sized `mdat` M4A and EOF-sized `moov` M4A against their frozen carrier originals. This checks validity of the authored variants; it is not original-application evidence. The Rust regressions and paired harness still require no media executable at runtime.
+
+
+Combined-source validation after approved-main integration passed 575 frontend tests, 1,095 Rust tests across 72 result blocks (six existing ignores), all ten Python save-acceptance tests, 107 review-tooling tests and 28 release tests. Production build, strict guide build, strict local Clippy, formatting, actionlint with the documented concurrency-queue exception and diff checks passed. Final-head Codex review and protected current-main platform validation remain required before merge.
