@@ -2333,7 +2333,7 @@
  "There is not enough free disk space for the side-file undo snapshot": "There is not enough free disk space for the side-file undo snapshot",
  "There is nothing to redo": "There is nothing to redo",
  "There is nothing to undo": "There is nothing to undo",
- "This .mta export contains app-only extensions ({join}). These actions will not transfer to Mp3tag; keep this file for use in this app.": "This .mta export contains app-only extensions ({join}). These actions will not transfer to Mp3tag; keep this file for use in this app.",
+ "This .mta export contains app-only extensions ({names}). These actions will not transfer to Mp3tag; keep this file for use in this app.": "This .mta export contains app-only extensions ({names}). These actions will not transfer to Mp3tag; keep this file for use in this app.",
  "This DSDIFF file contains more than one ID3 chunk; remove the tag first so that no metadata is silently merged": "This DSDIFF file contains more than one ID3 chunk; remove the tag first so that no metadata is silently merged",
  "This Discogs release has no tracks.": "This Discogs release has no tracks.",
  "This MusicBrainz release has no tracks.": "This MusicBrainz release has no tracks.",

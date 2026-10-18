@@ -2991,7 +2991,7 @@
  "Regular expression search failed: {error}. Simplify the pattern and try again.": "Suche mit regulärem Ausdruck fehlgeschlagen: {error}. Muster vereinfachen und erneut versuchen.",
  "Regular expression search requires the native matcher.": "Die Suche mit regulärem Ausdruck benötigt die native Suchfunktion.",
  "Searching…": "Suche läuft…",
- "This .mta export contains app-only extensions ({join}). These actions will not transfer to Mp3tag; keep this file for use in this app.": "Dieser .mta-Export enthält app-eigene Erweiterungen ({join}). Diese Aktionen lassen sich nicht nach Mp3tag übertragen; diese Datei für die Verwendung in dieser App aufbewahren.",
+ "This .mta export contains app-only extensions ({names}). These actions will not transfer to Mp3tag; keep this file for use in this app.": "Dieser .mta-Export enthält app-eigene Erweiterungen ({names}). Diese Aktionen lassen sich nicht nach Mp3tag übertragen; diese Datei für die Verwendung in dieser App aufbewahren.",
  "Too much text for one regex Find. Filter the File List to a smaller set, then try again (100,000 values, 1 MiB per value, 64 MiB total).": "Zu viel Text für eine Regex-Suche. Dateiliste auf eine kleinere Auswahl filtern und erneut versuchen (100.000 Werte, 1 MiB pro Wert, 64 MiB insgesamt).",
  "Unterminated filter quotation at character {value}. Close the double quote before applying the filter.": "Nicht abgeschlossenes Filterzitat bei Zeichen {value}. Das doppelte Anführungszeichen vor dem Anwenden des Filters schließen."
 }

@@ -2978,7 +2978,7 @@
  "Regular expression search failed: {error}. Simplify the pattern and try again.": "Zoeken met een reguliere expressie mislukt: {error}. Vereenvoudig het patroon en probeer het opnieuw.",
  "Regular expression search requires the native matcher.": "Zoeken met een reguliere expressie vereist de native zoekfunctie.",
  "Searching…": "Zoeken…",
- "This .mta export contains app-only extensions ({join}). These actions will not transfer to Mp3tag; keep this file for use in this app.": "Deze .mta-export bevat app-specifieke uitbreidingen ({join}). Deze acties zijn niet overdraagbaar naar Mp3tag; bewaar dit bestand voor gebruik in deze app.",
+ "This .mta export contains app-only extensions ({names}). These actions will not transfer to Mp3tag; keep this file for use in this app.": "Deze .mta-export bevat app-specifieke uitbreidingen ({names}). Deze acties zijn niet overdraagbaar naar Mp3tag; bewaar dit bestand voor gebruik in deze app.",
  "Too much text for one regex Find. Filter the File List to a smaller set, then try again (100,000 values, 1 MiB per value, 64 MiB total).": "Te veel tekst voor één regex-zoekopdracht. Filter de bestandslijst tot een kleinere selectie en probeer het opnieuw (100.000 waarden, 1 MiB per waarde, 64 MiB totaal).",
  "Unterminated filter quotation at character {value}. Close the double quote before applying the filter.": "Onafgesloten aanhalingstekens in het filter bij teken {value}. Sluit het dubbele aanhalingsteken voordat het filter wordt toegepast."
 }
