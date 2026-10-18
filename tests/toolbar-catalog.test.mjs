@@ -13,7 +13,7 @@ const toolbar=await load('toolbar');
 const {FileOpsUI}=await load('file-ops');
 const {chapterRowReason}=await load('chapters');
 const {documentSelection}=await load('document-state');
-const {sourceRequest,sourceKeyReason}=await load('tag-sources');
+const {TagSourcesUI,sourceRequest,sourceKeyReason}=await load('tag-sources');
 const main=await readFile(new URL('src/main.ts',root),'utf8');
 const parsed=ts.createSourceFile('main.ts',main,ts.ScriptTarget.Latest,true);
 const js=source=>ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
@@ -64,7 +64,7 @@ function runtime(state={}){
   const entries=new Map((state.list??['/Music/a.wav','/Music/b.wav']).map(path=>[path,{path,filename:path.split('/').pop()}]));
   const files=new FileOpsUI({mac:false,selection:()=>[...selected].map(path=>({path,name:path})),invoke:async()=>{}});
   files.state.favorites=state.favorites??['/Favorites'];if(state.directory!==null){files.history.visit('/Music');files.history.visit(state.directory??'/Music/Album');files.history.visit('/Music/Next');files.history.move('back');}
-  const calls=[],window=new Window();
+  const calls=[],window=state.window??new Window();
   const dependencies={state,selected,entries,calls,added,document:window.document,chapterRowReason,documentSelection,sourceRequest,sourceKeyReason,...toolbar,
     fileOps:{reason:op=>files.reason(op),operate:async op=>{calls.push(['file',op]);}},
   };
@@ -78,8 +78,9 @@ function runtime(state={}){
     const columnLayout={sort:[]},tableColumns=()=>[{id:'filename'}],editKey=()=> '_FILENAME_EXT';
     const history={undo:null},repeatState=()=>({kind:'none'}),tagClipboard=null;
     const coverUI={canRemove:()=>!!state.covers,run:async op=>{calls.push(['cover',op]);}};
-    const tagSourcesUI={keyReason:op=>{const request=sourceRequest(op);return request?sourceKeyReason(request.provider,state.credentials??null):'';},run:async op=>{calls.push(['source',op]);}};
-    const lastSourceOp=()=>state.lastSource??'source-musicbrainz',lastWebSource=()=>null;
+    const tagSourcesUI=state.sourceUI??{lastOperation:state.lastSource??'source-musicbrainz',lastBuiltInOperation:state.lastBuiltIn??state.lastSource??'source-musicbrainz',keyReason:op=>{const request=sourceRequest(op);return request?sourceKeyReason(request.provider,state.credentials??null):'';},run:async op=>{calls.push(['source',op]);}};
+    const lastWebSource=()=>state.webSource?.id===tagSourcesUI.lastWeb?state.webSource:undefined;
+    const webSourcesUI={run:async source=>{calls.push(['web',source.id]);await tagSourcesUI.open('web',{web:source});}};
     const playlistUI={create:async scope=>{calls.push(['playlist',scope]);},createPerFolder:async()=>{calls.push(['playlist','folders']);},generate:()=>{calls.push(['playlist','generate']);}};
     const open=async()=>{calls.push(['picker','playlist']);return null;},converter=rename=>{calls.push(['converter',rename]);};
     const render=()=>{},customItemReason=()=>'',glyphs={},esc=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -89,7 +90,7 @@ function runtime(state={}){
     let errors=[],status='';
     ${declaration('listOperations')} ${declaration('tagSourceOperations')}
   `;
-  const code=js(`${setup}\n${functions(['operationReason','enabled','listEnabled','button','toolbarMarkup','customToolbarMarkup','customToolbarChoices','operateImpl','operate'])}\nreturn{enabled,reason:operationReason,render:toolbarMarkup,custom:customToolbarMarkup,choices:customToolbarChoices,operate,errors:()=>errors};`);
+  const code=js(`${setup}\n${functions(['lastSourceOp','operationReason','enabled','listEnabled','button','toolbarMarkup','customToolbarMarkup','customToolbarChoices','operateImpl','operate'])}\nreturn{enabled,reason:operationReason,render:toolbarMarkup,custom:customToolbarMarkup,choices:customToolbarChoices,operate,errors:()=>errors};`);
   const model=new Function(...Object.keys(dependencies),code)(...Object.values(dependencies));
   return{...model,calls,selected,entries,window};
 }
@@ -124,6 +125,11 @@ test('added toolbar buttons retain the actual unsupported-context and dynamic el
     [{list:['/Music/book.m4b\u00011']},'playlist-generate','Chapter rows are not files of their own.'],
     [{credentials:{acoustid_key_set:false,acoustid_built_in:false}},'source-acoustid','AcoustID needs an API key.'],
     [{lastSource:'source-acoustid',credentials:{acoustid_key_set:false,acoustid_built_in:false}},'source-last','AcoustID needs an API key.'],
+    [{lastBuiltIn:'source-acoustid',credentials:{acoustid_key_set:false,acoustid_built_in:false}},'source-last-quick','AcoustID needs an API key.'],
+    [{dirty:true,lastBuiltIn:'source-deezer'},'source-last-quick','Save pending changes first.'],
+    [{selection:['content://provider/a'],documents:{'content://provider/a':{writable:false,state:'ready'}},lastBuiltIn:'source-deezer'},'source-last-quick','read-only source'],
+    [{selection:[],lastBuiltIn:'source-deezer'},'source-last-quick',''],
+    [{busy:true,lastBuiltIn:'source-deezer'},'source-last-quick',''],
     [{covers:false},'remove-cover',''],
     [{busy:true},'playlist-selected',''],
   ];
@@ -132,6 +138,84 @@ test('added toolbar buttons retain the actual unsupported-context and dynamic el
     model.window.document.body.innerHTML=model.render();const button=model.window.document.querySelector(`[data-op="${id}"]`);assert.equal(button.disabled,true,id);if(reason)assert.ok(button.title.includes(reason),id);
     await model.operate(id);assert.deepEqual(model.calls,[],`stale ${id} invocation must still be refused`);assert.deepEqual(model.errors(),[],id);
   }finally{model.window.happyDOM.abort();}}
+});
+
+// Exercise real source dialogs and persisted state through the production main
+// guards/dispatcher. Provider responses are fixtures, with no network or writes.
+async function sourceRuntime(saved,check){
+  const window=new Window({url:'http://localhost:1420'}),calls=[];
+  const descriptors=new Map(['window','document'].map(key=>[key,Object.getOwnPropertyDescriptor(globalThis,key)]));
+  globalThis.window=window;globalThis.document=window.document;
+  for(const [key,value] of Object.entries(saved))window.localStorage.setItem(`opentag.tagSources.${key}`,value);
+  const webSource={id:'installed-fixture',name:'Installed fixture',menu:['Installed fixture'],search_by:[]};
+  const host={files:()=>[{path:'/Music/a.wav',name:'a.wav',artist:'Artist',album:'Album',title:'Track',album_artist:'',track:'1',disc:'1',length:200}],reason:()=>'',options:()=>({}),evaluate:async()=>'',apply:async()=>{throw new Error('No metadata apply expected');},pickSave:async()=>null,
+    invoke:async(command,args)=>{calls.push([command,args]);if(command==='tag_source_search')return{results:[],total:0};if(command==='load_tag_source_settings')return{acoustid_key_set:false,acoustid_built_in:false};},
+  };
+  const create=()=>{const ui=new TagSourcesUI(host);return{ui,model:runtime({window,sourceUI:ui,webSource})};};
+  const settle=async()=>{await window.happyDOM.waitUntilComplete();};
+  const close=async()=>{document.querySelector('dialog')?.close();await settle();};
+  try{await check({window,calls,webSource,create,close,settle});}
+  finally{for(const [key,descriptor]of descriptors){if(descriptor)Object.defineProperty(globalThis,key,descriptor);else delete globalThis[key];}window.happyDOM.abort();}
+}
+
+test('quick source retains Deezer across an installed web source and a UI reload; ordinary last source still opens web',async()=>{
+  await sourceRuntime({},async({window,calls,webSource,create,close,settle})=>{
+    let{ui,model}=create();
+    await ui.run('source-deezer');await close();
+    await ui.open('web',{web:webSource});await close();
+    ({ui,model}=create()); // Reconstruct the UI from persisted preferences.
+    assert.equal(ui.lastWeb,webSource.id);
+    await model.operate('source-last');await settle();
+    assert.deepEqual(model.calls,[['web',webSource.id]]);
+    assert.match(document.querySelector('dialog header').textContent,/Installed fixture/);await close();
+    calls.length=0;
+    await model.operate('source-last-quick');await settle();
+    assert.deepEqual(model.errors(),[]);
+    assert.equal(calls.find(([command])=>command==='tag_source_search')?.[1].provider,'deezer');
+    assert.match(document.querySelector('dialog header').textContent,/Deezer/);
+    assert.equal(window.localStorage.getItem('opentag.tagSources.lastBuiltIn'),'source-deezer');
+    assert.equal(ui.lastWeb,null,'quick becomes the most recently opened source');
+    await close();
+  });
+});
+
+test('remembered built-in keeps cover and release modes, and falls back compatibly for older or invalid preferences',async()=>{
+  await sourceRuntime({},async({window,webSource,create,close,settle})=>{
+    let{ui,model}=create();
+    await ui.run('source-cover-deezer');await close();await ui.open('web',{web:webSource});await close();
+    ({ui,model}=create());await model.operate('source-last-quick');await settle();
+    assert.match(document.querySelector('dialog header').textContent,/Deezer cover art/);await close();
+    await ui.run('source-discogs-release');await close();await ui.open('web',{web:webSource});await close();
+    ({ui,model}=create());await model.operate('source-last-quick');await settle();
+    assert.match(document.querySelector('dialog header').textContent,/Discogs Release ID/);
+    assert.equal(document.querySelector('#ts-mode').value,'release_id');await close();
+    for(const [saved,lastSource,legacy,expected]of [
+      [null,'source-cover-itunes','discogs','source-cover-itunes'],
+      [null,'source-deezer',null,'source-deezer'],
+      [null,`web:${webSource.id}`,'discogs','source-discogs'],
+      [null,`web:${webSource.id}`,null,'source-musicbrainz'],
+      [null,null,null,'source-musicbrainz'],
+      ['web:invalid','source-deezer',null,'source-deezer'],
+      ['bogus','bogus','discogs','source-discogs'],
+    ]){
+      window.localStorage.clear();
+      for(const [key,value]of [['lastBuiltIn',saved],['lastSource',lastSource],['last',legacy]])if(value!==null)window.localStorage.setItem(`opentag.tagSources.${key}`,value);
+      ({ui}=create());assert.equal(ui.lastBuiltInOperation,expected);
+      await ui.open('web',{web:webSource});await close();
+      ({ui}=create());assert.equal(ui.lastBuiltInOperation,expected,'opening web first must seed the older profile before replacing lastSource');
+    }
+  });
+});
+
+test('quick source guards use the remembered built-in provider after a web source',async()=>{
+  await sourceRuntime({},async({window,webSource,create,close})=>{
+    const{ui,model}=create();await ui.run('source-acoustid');await close();await ui.open('web',{web:webSource});await close();
+    await ui.refreshCredentials();
+    assert.equal(model.enabled('source-last-quick'),false);
+    assert.match(model.reason('source-last-quick'),/AcoustID needs an API key/);
+    await model.operate('source-last-quick');assert.equal(document.querySelector('dialog'),null);
+    assert.equal(window.localStorage.getItem('opentag.tagSources.lastSource'),`web:${webSource.id}`,'refused quick invocation preserves the universal last source');
+  });
 });
 
 

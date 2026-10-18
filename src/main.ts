@@ -846,13 +846,13 @@ function operationReason(op:Operation):string {
   if(op==='number'&&dirtySelected()&&!sourcePolicy().unsupportedReason)return 'Save pending changes first.';
   if(/^(dir|file)-/.test(op)&&fileOps.reason(op as FileOperation))return fileOps.reason(op as FileOperation);
   if(dirtySelected()&&!/^(dir-|file-reveal$|file-play$)/.test(op)&&!['save','save-copy','refresh-source','reload','extended','number','discard','folder','files','select-all','about','groups','toggle-panel','panel-options','field-values','panel-defaults','options','undo','redo','copy-tags','cut-tags','paste-tags','source-token','source-keys','source-options','source-install','source-folder','copy-text','tools-options','config-save','config-load','config-folder','help-shortcuts','help-docs','help-issues','help-releases','help-updates','list-unsorted','toggle-filter','toggle-toolbar','toolbar-customize','toggle-custom-toolbar','custom-toolbar-customize','source-last','source-last-quick',...listOperations].includes(op))return 'Save pending changes first.';
-  if(op==='source-last'||op==='source-last-quick')return operationReason(lastSourceOp());
+  if(op==='source-last'||op==='source-last-quick')return operationReason(lastSourceOp(op==='source-last-quick'));
   if(tagSourceOperations.includes(op)&&tagSourcesUI.keyReason(op))return tagSourcesUI.keyReason(op);
   return '';
 }
 function enabled(op: Operation): boolean {
   if (op === 'about' || op === 'toggle-panel' || op === 'help-shortcuts' || op === 'toggle-filter' || op === 'toggle-toolbar' || op === 'toolbar-customize' || op === 'toggle-custom-toolbar' || op === 'custom-toolbar-customize') return true;
-  if (op === 'source-last' || op === 'source-last-quick') return enabled(lastSourceOp());
+  if (op === 'source-last' || op === 'source-last-quick') return enabled(lastSourceOp(op==='source-last-quick'));
   if (busy) return false;
   if (op === 'select-all') return visible().length > 0;
   if (op === 'discard') return dirtySelected();
@@ -875,8 +875,8 @@ function enabled(op: Operation): boolean {
 }
 /** File List entries for the View menu: Refresh leads it and column customization follows the tag panel items, as in Mp3tag. */
 const viewListItems:[Operation,string,string?][]=[['refresh','Refresh','F5'],['columns','Customize columns…'],['autosize-columns','Auto-size columns','⌘/Ctrl Num +'],['list-unsorted','Unsorted (load and playlist order)']];
-/** The Tag Sources menu entry Ctrl+I repeats: the last source used, for tags or covers only. */
-function lastSourceOp():Operation{return tagSourcesUI.lastOperation as Operation;}
+/** Resolve the built-in command for last-source guards; quick retains its own source. */
+function lastSourceOp(quick=false):Operation{return quick?tagSourcesUI.lastBuiltInOperation:tagSourcesUI.lastOperation;}
 /** View menu submenus: Sort by (each shown column; again reverses the order) and Toolbars. */
 function sortMenuItems(){
   const primary=columnLayout.sort[0];

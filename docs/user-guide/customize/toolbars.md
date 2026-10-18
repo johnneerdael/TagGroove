@@ -96,9 +96,17 @@ bypasses the trash. The existing confirmation preferences still apply.
 Source buttons open the existing source flows. A key-gated source such as
 AcoustID remains unavailable until the app has an applicable API key. Adding
 its button does not supply credentials or establish a successful provider
-lookup. **Last tag source** can reopen an installed web source; the quick
-variant uses the last built-in source. Toolbar customization does not import
-an original Mp3tag toolbar layout.
+lookup. **Last tag source** can reopen an installed web source. **Last tag
+source (quick)** remembers the last built-in source separately, including
+cover-only and Discogs Release ID modes, even after opening a web source or
+restarting the app. For example, opening Deezer and then an installed web source
+leaves **Last tag source** pointing to that web source, while the quick button
+still uses Deezer. Quick search starts automatically when the selected files
+provide the needed search values; Release ID mode still waits for an ID.
+Older profiles keep their remembered built-in choice when available, then fall
+back to their older Discogs preference or MusicBrainz. These choices are local
+preferences and are not included in Save configuration. Toolbar customization
+does not import an original Mp3tag toolbar layout.
 
 ## Build a custom toolbar
 
