@@ -11,6 +11,8 @@ mod compat;
 mod engine;
 mod installer;
 mod source;
+#[cfg(test)]
+mod workflow_replay;
 
 use super::http::{self, Channel};
 use super::model::{self, Provider, SourceCover, SourceRelease, SourceTrack};
