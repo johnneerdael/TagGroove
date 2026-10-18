@@ -186,6 +186,13 @@ The consumer requires every reference stage and matching pinned provenance.
 It verifies all transferred reference bytes against those captured hashes
 before comparison and rechecks every reference stage after observation,
 rejecting missing/invalid bindings, wrong mapped stages and changed bytes.
+Each hash-bound observation reads the source bytes once, verifies their digest,
+and decodes a private read-only snapshot with the original filename/extension.
+The same snapshot remains in place for every native reader reopen, so transient
+replacement of an original path cannot change the observed fields, opaque tags
+or payload. Preparation baselines, retained-input validation, local producer
+stages and both sides of comparison use this path. Temporary copies are removed
+after observation, including observer failures.
 It independently rereads retained inputs and local/reference outputs,
 compares them against the expected operation and writes structural
 differences to `paired-results.json`. Before accepting the local stages, it
@@ -211,8 +218,11 @@ captured-input copying, baseline/receipt tamper detection and real audio
 corruption detection. Collector-exported identities also pass through a
 synthetic stage transfer and the real consumer. Changed reference padding
 with identical decoded output, missing/invalid stage bindings, wrong stage
-assignments and changes during observation fail closed. Those synthetic
-controls test the harness; they are
+assignments and persistent changes during observation fail closed. Transient
+stage substitutions restored before final hash checks cannot hide a captured
+audio difference, and transient input substitutions cannot validate a fabricated
+baseline. A failure control checks snapshot permissions and cleanup. Those
+synthetic controls test the harness; they are
 not Mp3tag execution evidence.
 
 Additional controls change a disposable backend binary and initialize a

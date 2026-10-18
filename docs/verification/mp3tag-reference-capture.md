@@ -166,7 +166,12 @@ The exporter writes only the identity JSON accepted by the merged
 associations and their captured whole-file hashes. The consumer requires
 exactly every prepared operation, stage and filename, checks transferred
 bytes before comparison and rechecks all reference stages after observation.
-Missing/invalid bindings, wrong stage assignments and changed bytes fail
+Hash-bound decoding uses internally owned read-only snapshots made from the
+verified bytes, preserving the original filename/extension throughout all
+native reader reopens. Original-path replacement during observation cannot
+substitute the bytes being decoded. The same mechanism binds preparation,
+retained-input and local-stage observations, with cleanup after success or
+failure. Missing/invalid bindings, wrong stage assignments and changed bytes fail
 closed; generic evidence alone cannot authorize comparison. These checks bind
 transferred bytes to operator-supplied captures, without authenticating the
 application that produced them. The exporter does not copy media,
@@ -204,7 +209,8 @@ They require an existing PowerShell installation and skip if it is absent.
 They do not execute startup, native declarations, Win32/UIA APIs or Mp3tag.
 The paired consumer tests also cover collector-exported bindings, unchanged
 synthetic transfers, equivalent-decoding byte mutations, missing/invalid or
-misassigned bindings and changes during observation. No reference process
+misassigned bindings, persistent changes during observation, transient source
+substitution and private-snapshot cleanup. No reference process
 was run, and no original-versus-TagGroove save parity was established.
 
 ```sh

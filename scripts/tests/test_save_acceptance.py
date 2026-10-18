@@ -171,19 +171,101 @@ class SaveAcceptance(unittest.TestCase):
                     harness.compare(self.root, self.executable, self.identity_path)
                 self.assertFalse((self.root / "paired-results.json").exists())
 
+    def test_verified_observer_removes_its_private_copy_after_failure(self):
+        source = self.root / "inputs/café 日本.flac"
+        captured = source.read_bytes()
+        observed = []
+        def fail_observation(executable, *args):
+            snapshot = Path(args[1])
+            observed.append(snapshot)
+            self.assertNotEqual(snapshot, source)
+            self.assertEqual(snapshot.read_bytes(), captured)
+            self.assertFalse(snapshot.stat().st_mode & 0o222)
+            raise OSError("synthetic observer failure")
+        with mock.patch.object(harness, "invoke", fail_observation):
+            with self.assertRaisesRegex(OSError, "synthetic observer failure"):
+                harness.observe_verified(self.executable, source,
+                                         self.contract["baseline"][source.name]["input_sha256"], "retained input")
+        self.assertEqual(len(observed), 1)
+        self.assertFalse(observed[0].parent.exists())
+        self.assertEqual(source.read_bytes(), captured)
+
+    def test_transient_input_substitution_cannot_hide_a_fabricated_baseline(self):
+        target = self.root / "inputs/café 日本.flac"
+        captured = target.read_bytes()
+        changed = self.root / "taggroove/edit-one/saved" / target.name
+        contract = copy.deepcopy(self.contract)
+        contract["baseline"][target.name]["snapshot"] = harness.normalize(
+            harness.invoke(self.executable, "observe", changed))
+        with self.assertRaisesRegex(ValueError, "baseline does not match"):
+            harness.validate_inputs(self.root, self.executable, contract)
+        invoke = harness.invoke
+        substitutions = []
+        def transient_substitution(executable, *args):
+            if args[0] == "observe" and Path(args[1]).name == target.name:
+                target.write_bytes(changed.read_bytes())
+                substitutions.append(str(args[1]))
+                try:
+                    return invoke(executable, *args)
+                finally:
+                    target.write_bytes(captured)
+            return invoke(executable, *args)
+        with mock.patch.object(harness, "invoke", transient_substitution):
+            with self.assertRaisesRegex(ValueError, "baseline does not match"):
+                harness.validate_inputs(self.root, self.executable, contract)
+        self.assertTrue(substitutions)
+        self.assertEqual(target.read_bytes(), captured)
+
+    def test_transient_stage_substitution_cannot_hide_captured_audio_difference(self):
+        self.synthetic_reference()
+        target = self.root / "reference/edit-one/saved/café 日本.flac"
+        local = self.root / "taggroove/edit-one/saved/café 日本.flac"
+        data = bytearray(target.read_bytes())
+        data[-1] ^= 1
+        target.write_bytes(data)
+        captured = target.read_bytes()
+        reference = json.loads(self.identity_path.read_text())
+        reference["stage_sha256"]["edit-one"]["saved"][target.name] = harness.sha256(captured)
+        harness.write_json(self.identity_path, reference)
+        self.assertFalse(harness.compare(self.root, self.executable, self.identity_path)["passed"],
+                         "captured audio must differ before the transient substitution")
+        invoke = harness.invoke
+        substitutions = []
+        def transient_substitution(executable, *args):
+            if args[0] == "observe" and Path(args[1]).name == target.name:
+                target.write_bytes(local.read_bytes())
+                substitutions.append(str(args[1]))
+                try:
+                    return invoke(executable, *args)
+                finally:
+                    target.write_bytes(captured)
+            return invoke(executable, *args)
+        with mock.patch.object(harness, "invoke", transient_substitution):
+            result = harness.compare(self.root, self.executable, self.identity_path)
+        self.assertTrue(substitutions, "the original stage must be substituted during observation")
+        self.assertEqual(target.read_bytes(), captured, "substitution must be restored before the end checks")
+        self.assertFalse(result["passed"], "transient substitution hid the captured audio difference")
+        receipt = json.loads((self.root / "paired-results.json").read_text())
+        case = next(case for case in receipt["cases"] if case["operation"] == "edit-one"
+                    and case["stage"] == "saved" and case["file"] == target.name)
+        self.assertEqual(case["reference_file_sha256"], harness.sha256(captured))
+        self.assertIn("/audio_payload_sha256", case["differences_from_taggroove"])
+
     def test_compare_rejects_reference_changes_during_observation(self):
         self.synthetic_reference()
-        invoke = harness.invoke
+        observe_verified = harness.observe_verified
         target = self.root / "reference/edit-one/saved/café 日本.flac"
-        def change_after_observation(executable, *args):
-            result = invoke(executable, *args)
-            if args[0] == "observe" and Path(args[1]) == target:
-                with mock.patch.object(harness, "invoke", invoke):
-                    self.change_unprojected_bytes(target)
+        mutations = []
+        def change_after_reference_observation(executable, path, expected_hash, context):
+            result = observe_verified(executable, path, expected_hash, context)
+            if path == target:
+                self.change_unprojected_bytes(target)
+                mutations.append(path)
             return result
-        with mock.patch.object(harness, "invoke", change_after_observation):
+        with mock.patch.object(harness, "observe_verified", change_after_reference_observation):
             with self.assertRaisesRegex(ValueError, "reference stage.*hash"):
                 harness.compare(self.root, self.executable, self.identity_path)
+        self.assertEqual(mutations, [target], "mutate only after the actual reference decode")
         self.assertFalse((self.root / "paired-results.json").exists())
 
     def test_compare_rejects_changed_backend_before_observing_captures(self):
