@@ -97,7 +97,16 @@ achieve these checks, and no gain application was executed.
 
 ## Run and capture a pair
 
-From the repository root, choose a new disposable directory:
+From the repository root, choose a new disposable capture directory. An external
+location such as the example below keeps capture data separate from the checkout.
+Repository-local directories such as `./save-pair` also work. Their source-relative
+path is recorded as `untracked_capture_workspace`: only untracked files beneath
+that capture directory are excluded from source-status identity. Tracked status,
+the complete tracked diff, source-file hashes and backend hash remain checked.
+Use the capture directory for data. The source root and its ancestors, Git
+administration directories and frozen carrier inventory are reserved; invalid
+placements are rejected before the CLI builds its backend or creates captures.
+
 
 ```sh
 python3 scripts/save-acceptance.py prepare /tmp/taggroove-save-pair
@@ -208,3 +217,12 @@ A one-off independent decode check with local FFmpeg 9.0.2 confirmed identical d
 
 
 Combined-source validation after approved-main integration passed 575 frontend tests, 1,095 Rust tests across 72 result blocks (six existing ignores), all ten Python save-acceptance tests, 107 review-tooling tests and 28 release tests. Production build, strict guide build, strict local Clippy, formatting, actionlint with the documented concurrency-queue exception and diff checks passed. Final-head Codex review and protected current-main platform validation remain required before merge.
+
+
+## Review follow-up: gain verdict and workspace identity
+
+The policy verdict now checks the seeded displayed values of `MP3GAIN_UNDO`, `MP3GAIN_MINMAX` and `REPLAYGAIN_TRACK_GAIN` for both default and explicit-APE saves, in addition to its native APE, audio and undo checks. `mpeg_policy_passed` records that verdict and `mpeg_policy_gain_errors` identifies differing field paths. Twelve synthetic report faults remove or change each field in each policy; every fault makes the local verdict fail while the ordinary file-capture cases still pass. These controls test the consumer, not original-application behavior.
+
+Repository-local capture data no longer produces a late source-identity failure. The producer records its canonical source-relative data scope and filters only untracked status entries inside it. All tracked entries remain visible, including tracked files inside the capture directory; unrelated untracked files also remain visible. The tracked binary diff, source-file hashes and executable hash are unchanged identity checks. Status parsing uses Git's [NUL-delimited porcelain format](https://git-scm.com/docs/git-status#_porcelain_format_version_1) so whitespace and non-ASCII filenames remain distinct. Source roots, Git administration and the retained-input inventory are rejected before preparation.
+
+All 17 Python acceptance tests pass. Real disposable committed repositories cover unignored, ignored and partially ignored capture directories, symlink aliases, preparation/run/synthetic comparison, and rejection of source edits before the observer executes. The application and Rust sources remain byte-identical to implementation head `03ef0ad24850ca02f44c4866c133686d6e36388f`, where the full 575-frontend/1,095-Rust suite passed; six Rust tests remain intentionally ignored.

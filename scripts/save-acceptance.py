@@ -9,6 +9,7 @@ import base64
 import copy
 import hashlib
 import json
+import os
 import platform
 from pathlib import Path
 import shutil
@@ -20,7 +21,7 @@ REPO = Path(__file__).resolve().parents[1]
 FORMATS = ("mp3", "flac", "m4a")
 OPERATIONS = ("edit-one", "edit-many")
 REFERENCE_SHA256 = "484794eec4e2b9a649d04eaab63b4cc73127ceb48a9e46075ea488c0e1eac911"
-IDENTITY_FIELDS = ("source_head", "source_diff_sha256", "source_status", "source_files_sha256",
+IDENTITY_FIELDS = ("source_head", "source_diff_sha256", "source_status", "untracked_capture_workspace", "source_files_sha256",
                    "backend_sha256", "cargo_lock_sha256", "rustc", "platform", "scope")
 
 
@@ -79,15 +80,34 @@ def differences(expected_value, observed, prefix=""):
     return [] if expected_value == observed else [prefix or "/"]
 
 
-def identity(executable):
+def identity(executable, workspace=None):
     sources = ["scripts/save-acceptance.py", "crates/tag-core/examples/save_acceptance.rs",
         "crates/tag-core/tests/support/save_corpus.rs", "crates/tag-core/tests/save_acceptance.rs",
         "scripts/tests/test_save_acceptance.py", "Cargo.lock"]
     sources.extend(str(p.relative_to(REPO)) for p in sorted((REPO / "crates/tag-core/tests/fixtures/save-corpus").iterdir()))
+    capture = None
+    if workspace is not None:
+        try:
+            capture = workspace.resolve().relative_to(REPO.resolve())
+        except ValueError:
+            pass
+    raw_status = subprocess.check_output(
+        ["git", "status", "--porcelain=v1", "-z", "--untracked-files=all", "--no-renames"], cwd=REPO)
+    source_status = []
+    for record in raw_status.split(b"\0"):
+        if not record:
+            continue
+        if len(record) < 4 or record[2:3] != b" ":
+            raise ValueError("unexpected Git source-status record")
+        state, name = record[:2].decode("ascii"), os.fsdecode(record[3:])
+        if state == "??" and capture is not None and Path(name).is_relative_to(capture):
+            continue
+        source_status.append((state, name))
     return {
         "source_head": command(["git", "rev-parse", "HEAD"]),
         "source_diff_sha256": sha256(subprocess.check_output(["git", "diff", "HEAD", "--binary"], cwd=REPO)),
-        "source_status": command(["git", "status", "--porcelain"]),
+        "source_status": json.dumps(source_status, ensure_ascii=True) if source_status else "",
+        "untracked_capture_workspace": capture.as_posix() if capture is not None else None,
         "source_files_sha256": {name: sha256((REPO / name).read_bytes()) for name in sources},
         "backend_sha256": sha256(executable.read_bytes()),
         "cargo_lock_sha256": sha256((REPO / "Cargo.lock").read_bytes()),
@@ -117,8 +137,23 @@ def replay_byte_errors(input_sha256, hashes):
     }
 
 
+def validate_workspace(root):
+    """Keep capture output separate from source roots, Git metadata and frozen inputs."""
+    workspace = root.resolve()
+    repository = REPO.resolve()
+    if workspace == repository or workspace in repository.parents:
+        raise ValueError("workspace must be separate from the source repository root")
+    source_inputs = (REPO / "crates/tag-core/tests/fixtures/save-corpus").resolve()
+    if workspace == source_inputs or source_inputs in workspace.parents:
+        raise ValueError("workspace must not be inside the retained source inputs")
+    administration = Path(command(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"])).resolve()
+    if workspace == administration or administration in workspace.parents:
+        raise ValueError("workspace must be outside Git administration directories")
+
+
 def prepare(root, executable, corpus=None):
-    producer = identity(executable)
+    validate_workspace(root)
+    producer = identity(executable, root)
     root.mkdir()  # Never overwrite an existing workspace.
     if corpus is None:
         defaults = invoke(executable, "prepare", root / "inputs")
@@ -143,7 +178,7 @@ def prepare(root, executable, corpus=None):
                 directory = root / app / operation / "input"
                 directory.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(path, directory / name)
-    require_identity(producer, identity(executable), "Completed preparation producer")
+    require_identity(producer, identity(executable, root), "Completed preparation producer")
     write_json(root / "contract.json", {"schema": 1, "producer": producer, "input_provenance": provenance, **defaults,
         "reference": {"version": "Mp3tag 3.36.1 Windows x64", "executable_sha256": REFERENCE_SHA256,
             "runtime_comparison": "not performed", "defaults": "not captured"}, "baseline": baseline,
@@ -176,8 +211,9 @@ def validate_inputs(root, executable, contract):
 
 
 def run(root, executable):
+    validate_workspace(root)
     contract = json.loads((root / "contract.json").read_text(encoding="utf-8"))
-    producer = identity(executable)
+    producer = identity(executable, root)
     require_identity(contract["producer"], producer, "Prepared/run producer")
     validate_inputs(root, executable, contract)
     receipt_path = root / "taggroove-results.json"
@@ -211,17 +247,25 @@ def run(root, executable):
     native = policy["explicit_write_ape"]["native_ape_after"]
     policy_passed = policy_passed and native == {"mp3gain_undo": 'Text("+001,+001,N")',
         "mp3gain_minmax": 'Text("094,205")', "opaque_companion": "Binary([1, 0, 255, 17])"}
+    expected_gain = {"MP3GAIN_UNDO": ["+001,+001,N"], "MP3GAIN_MINMAX": ["094,205"],
+                     "REPLAYGAIN_TRACK_GAIN": ["-3.00 dB"]}
+    gain_errors = {name: differences(expected_gain,
+        {field: record["displayed_after"][field] for field in expected_gain if field in record["displayed_after"]})
+        for name, record in policy.items()}
+    policy_passed = policy_passed and not any(gain_errors.values())
     passed = passed and policy_passed
-    require_identity(producer, identity(executable), "Completed run producer")
-    receipt = {"passed": passed, "producer": producer, "reference_comparison": "not performed", "mpeg_policy": policy, "cases": cases}
+    require_identity(producer, identity(executable, root), "Completed run producer")
+    receipt = {"passed": passed, "producer": producer, "reference_comparison": "not performed", "mpeg_policy": policy,
+               "mpeg_policy_passed": policy_passed, "mpeg_policy_gain_errors": gain_errors, "cases": cases}
     write_json(receipt_path, receipt)
     return {"passed": passed, "cases": len(cases), "receipt": str(receipt_path), "reference_comparison": "not performed"}
 
 
 def compare(root, executable, identity_path):
+    validate_workspace(root)
     contract = json.loads((root / "contract.json").read_text(encoding="utf-8"))
     local = json.loads((root / "taggroove-results.json").read_text(encoding="utf-8"))
-    consumer = identity(executable)
+    consumer = identity(executable, root)
     require_identity(contract["producer"], local["producer"], "Prepared/local capture producer")
     require_identity(local["producer"], consumer, "Local producer/current comparison")
     validate_inputs(root, executable, contract)
@@ -265,7 +309,7 @@ def compare(root, executable, identity_path):
                     "reference_file_sha256": sha256(path.read_bytes()), "observed_reference": observed,
                     "differences_from_taggroove": differences(local_observed, observed)})
     passed = all(not c["differences_from_taggroove"] for c in cases)
-    require_identity(consumer, identity(executable), "Completed comparison")
+    require_identity(consumer, identity(executable, root), "Completed comparison")
     receipt = {"passed": passed, "producer": local["producer"], "prepared_by": contract["producer"],
         "consumer": consumer, "reference": reference,
         "scope": "operator-supplied saved/undo/redo files; decoded through the same TagGroove reader; no complete parity certification", "cases": cases}
@@ -276,16 +320,17 @@ def compare(root, executable, identity_path):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("command", choices=("prepare", "run", "compare"))
-    parser.add_argument("workspace", type=Path)
+    parser.add_argument("workspace", type=Path, help="capture-data directory; must be new for prepare")
     parser.add_argument("--identity", type=Path)
     parser.add_argument("--corpus", type=Path, help="prepare from captured regular MP3/FLAC/M4A files; originals are read only")
     args = parser.parse_args()
     if args.command == "compare" and args.identity is None:
         parser.error("compare requires --identity with captured reference provenance")
-    executable = backend()
     root = args.workspace.resolve()
+    validate_workspace(root)
     if args.corpus is not None and args.command != "prepare":
         parser.error("--corpus applies only to prepare")
+    executable = backend()
     result = prepare(root, executable, args.corpus) if args.command == "prepare" else run(root, executable) if args.command == "run" else compare(root, executable, args.identity)
     print(json.dumps(result, indent=2))
     return 0 if result.get("passed", True) else 1
