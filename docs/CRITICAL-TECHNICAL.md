@@ -1,6 +1,6 @@
 # Critical technical placeholder production
 
-> **Status note.** Written on 2026-10-14 and corrected piecemeal since. Where it disagrees with the [remaining-gaps register](research/remaining-gaps.md), the register is current.
+> **Status note.** Written on 2026-10-14 and corrected piecemeal since. Where it disagrees with the [uncovered parity ledger](PARITY.md), the ledger and its linked coverage evidence are current.
 
 The [official format placeholder inventory](https://docs.mp3tag.de/format/) and [date formatting contract](https://docs.mp3tag.de/scripting/#date-and-time-formatting) were checked on 2026-10-14. This ledger covers all 72 names in the scripting audit. Resolution of supplied fields and production of real values are separate obligations; this document records production, including intentional absence.
 

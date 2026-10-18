@@ -1,6 +1,6 @@
 # Actions, helper menus and action-group UX audit
 
-> **Historical record.** The gaps below were written when this note was made; later batches closed most of them. The current open list is the [remaining-gaps register](../research/remaining-gaps.md).
+> **Historical record.** The gaps below were written when this note was made; later batches closed most of them. The current uncovered list is the [parity ledger](../PARITY.md); the [coverage companion](../research/remaining-gaps.md) records represented and delivered scopes.
 
 Checkpoint: 2026-10-14, branch `feat/actions-audit` (from `feat/core-parity`). macOS arm64 debug build, isolated identifier `org.opentag.editor.e2e.actions`.
 

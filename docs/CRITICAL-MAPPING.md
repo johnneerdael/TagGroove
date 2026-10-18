@@ -1,6 +1,6 @@
 # Critical field mapping audit
 
-> **Status note.** Written on 2026-10-14 and corrected piecemeal since. Where it disagrees with the [remaining-gaps register](research/remaining-gaps.md), the register is current.
+> **Status note.** Written on 2026-10-14 and corrected piecemeal since. Where it disagrees with the [uncovered parity ledger](PARITY.md), the ledger and its linked coverage evidence are current.
 
 The registry records all 118 named fields from the [published Mp3tag mapping](https://docs.mp3tag.de/mapping/) and [compact table](https://docs.mp3tag.de/mapping-table/), inspected on 2026-10-14. It contains 85 ID3v2.3, 90 ID3v2.4, 78 MP4, 9 RIFF, 40 ASF, and 76 Matroska nonempty mapping cells. Identifiers below are functional format facts, not copied application code. Blank cells mean the documentation specifies no fixed mapping for that format; they do not imply that a custom field is forbidden.
 
