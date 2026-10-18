@@ -60,6 +60,26 @@ the two supported columns, supported panel fields, the disabled action group
 and export. The skipped column/control and any unknown global-settings file
 remain in the report. This is a partial profile transfer, not full editor parity.
 
+## Bring an action group safely
+
+Keep a copy of the original `.mta` file, then choose **Actions → Actions… →
+Import .mta…**. Inspect the imported actions before enabling or running the
+group. An unknown action type or setting becomes an **Unresolved imported
+action**, and the imported group starts disabled.
+
+Use **Export .mta…** to retain those unresolved settings for later inspection
+or recovery. Encoded line breaks and literal backslash text survive export
+and re-import, including when they appear next to each other. The action
+remains unresolved; this does not prove that its settings work in TagGroove
+or that the original app accepts the exported file. Export preserves decoded
+values rather than the original bytes, section
+numbers or escape spellings. Recognized actions with actual multiline
+settings still report an export error.
+
+See [Import and export an action group](../actions/index.md#import-and-export-an-action-group)
+for encoding choices and unresolved-action handling. Importing or exporting
+a group does not run its actions against audio files.
+
 ## Import, restart and verify
 
 Choose **Import selected setup** after reviewing the replacements. The native
@@ -71,7 +91,7 @@ TagGroove stages the supported outputs with the existing parsers/validators,
 then records a local recovery journal before replacing managed files. The
 window reloads to read the saved configuration. It rescans the captured local
 workspace and restores file order/selection, location, filter and the explicitly
-supported window preferences. A workspace receipt is consumed only after that
+supported window preferences, including the last built-in quick tag source. A workspace receipt is consumed only after that
 restore succeeds; later starts do not replay a consumed workspace. Recovery
 runs before newly queued file-opening requests, so an explicit new launch is
 then honored as a replace or add operation. Successful recovery suppresses
@@ -85,9 +105,17 @@ Mp3tag behavior, valid external commands or working provider credentials.
 If workspace files are unavailable, their recovery stays pending in **File →
 Restore setup…**. Make those files accessible and choose **Retry workspace**.
 A failed file-read attempt is not automatically replayed over later work on
-every start. If the native attempt could not be durably claimed, startup stays
-in a blocking retry dialog before admitting new launches. An acknowledgement
-failure retains the restored workspace and a pending, actionable receipt.
+every start. A claim interrupted by a renderer/application exit resumes on the
+next start, before ordinary startup or queued launches. Only a durably recorded
+completed failure requires manual retry. If the claim or failure record cannot
+be written, startup stays in a blocking retry dialog before admitting new
+launches. An acknowledgement failure retains the restored workspace and a
+pending, actionable receipt.
+
+**Retry workspace** first records the native retry request, then restores browser
+preferences and reloads. A rejected native request leaves current preferences
+and the workspace unchanged. A browser-storage failure after that request keeps
+the retry pending for the next startup; it does not mark recovery complete.
 Audio contents are reread from disk; they are not restored from the setup snapshot.
 
 ## Restore the configuration from before import

@@ -72,8 +72,7 @@ test('find strategies match tag values and filenames', () => {
   assert.deepEqual(fields('content', 'LOVE'), ['Two love.mp3:TITLE:love']);
   assert.deepEqual(fields('begins', 'lov'), ['One.mp3:TITLE:Love Song', 'One.mp3:ARTIST:Lovely Guest', 'Two love.mp3:TITLE:love']);
   assert.deepEqual(fields('ends', '.MP3'), ['One.mp3:Filename:One.mp3', 'Two love.mp3:Filename:Two love.mp3']);
-  assert.deepEqual(fields('regex', '^L\\w+ S'), ['One.mp3:TITLE:Love Song']);
-  assert.throws(() => findMatcher('(', 'regex', false), /Invalid regular expression/);
+  assert.throws(() => findMatcher('(', 'regex', false), /native matcher/);
   assert.throws(() => findMatcher('', 'contains', false), /Enter text/);
   const results = findInList(items, 'love', 'contains', false);
   assert.deepEqual(sortFindResults(results, { key: 'field', ascending: true }).map(result => result.field), ['ARTIST', 'Filename', 'TITLE', 'TITLE']);
@@ -99,4 +98,39 @@ test('a delayed second click edits only while the clicked row keeps the focus', 
   assert.equal(slowEditStillWanted(target, { selected, busy: true, focusedRow: 'a' }), false);
   assert.equal(slowEditStillWanted(target, { selected: new Set(['a', 'b']), busy: false, focusedRow: 'a' }), false);
   assert.equal(slowEditStillWanted(target, { selected: new Set(['b']), busy: false, focusedRow: 'a' }), false);
+});
+
+
+test('F2 filename editing sends an explicit audio-only request through the production commit path', async () => {
+  const source = await readFile(new URL('../src/main.ts', import.meta.url), 'utf8');
+  const parsed = ts.createSourceFile('main.ts', source, ts.ScriptTarget.Latest, true);
+  const declaration = name => parsed.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === name);
+  const operation = declaration('listOperation');
+  const editBranch = operation.body.statements.find(node => ts.isIfStatement(node) && node.expression.getText(parsed) === "op==='edit-cell'");
+  assert.ok(editBranch);
+  assert.match(source, /commit:commitCell/);
+  const javascript = ts.transpileModule(`${declaration('commitCell').getText(parsed)}
+${declaration('renameFromList').getText(parsed)}
+return {commitCell, start: op => {${editBranch.getText(parsed)}}};`, {compilerOptions: {target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None}}).outputText;
+  for (const key of ['_FILENAME', '_FILENAME_EXT']) {
+    const entry = {path: '/Music/old.wav', filename: 'old.wav'};
+    const column = {id: 'filename', key};
+    const calls = [], presented = [];
+    let target;
+    const dependencies = {
+      entries: new Map([[entry.path, entry]]), columnLayout: {columns: [column]}, editKey: value => value.key,
+      paths: () => [entry.path], tableColumns: () => [column], cellEditor: {start: value => {target = value;}},
+      desktop: true, sourcePolicy: () => ({}), render: () => assert.fail('valid inline edit must not render an error'),
+      run: async (_, work) => work(),
+      invoke: async (command, request) => {calls.push([command, request]); return {entries: [], errors: [], renamed: [{from: entry.path, to: "/Music/O'Brien %title%.wav"}]};},
+      applyRenamed: value => presented.push(value), accept: (value, label, notify) => {assert.equal(label, 'Renamed'); assert.equal(notify, false);},
+    };
+    const editor = new Function(...Object.keys(dependencies), `let errors=[],queuedNotices=[];${javascript}`)(...Object.values(dependencies));
+    editor.start(listShortcut({key: 'F2', ctrlKey: false, metaKey: false, shiftKey: false, altKey: false}, false));
+    assert.deepEqual(target, {path: entry.path, column: column.id});
+    const result = await editor.commitCell(target, key === '_FILENAME_EXT' ? "O'Brien %title%.wav" : "O'Brien %title%");
+    assert.equal(result, "/Music/O'Brien %title%.wav");
+    assert.deepEqual(calls, [['rename_files', {paths: [entry.path], template: "'O''Brien %title%'", planToken: null, audioOnly: true}]]);
+    assert.equal(presented.length, 1);
+  }
 });

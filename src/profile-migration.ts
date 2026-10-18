@@ -3,7 +3,7 @@ export type ProfileWorkspace = {paths:string[];selected:string[];roots:string[];
 export type ProfileWindow = {version:1;preferences:Record<string,string>;workspace:ProfileWorkspace};
 type Item = {file:string;kind:string;name:string;warnings:string[];collision:boolean;supported:boolean};
 type Report = {legacy_encoding?:string|null;items:Item[];imported:string[];kept:string[];source_hash:string};
-type Pending = {id:string;attempted:boolean;window:ProfileWindow};
+type Pending = {id:string;attempted:boolean;failed?:boolean;window:ProfileWindow};
 type Status = {desktop:boolean;phase:string;report:Report|null;restorable:boolean;pending:Pending|null;preference_keys:string[]};
 type Preview = {token:string;source_hash:string;items:Item[]};
 type Host = {
@@ -36,7 +36,7 @@ export function restoreProfilePreferences(storage:Storage, keys:readonly string[
 /** Recover before constructing any configuration-backed frontend service. */
 export async function bootstrapProfileMigration(invoke:Host['invoke'], storage:()=>Storage):Promise<Status> {
   const state=await invoke<Status>('profile_migration_status');
-  if(state.desktop&&state.pending&&!state.pending.attempted)restoreProfilePreferences(storage(),state.preference_keys,state.pending.window.preferences);
+  if(state.desktop&&state.pending&&!state.pending.failed)restoreProfilePreferences(storage(),state.preference_keys,state.pending.window.preferences);
   return state;
 }
 
@@ -53,11 +53,11 @@ export class ProfileMigrationUI {
   private state:Status={desktop:true,phase:'none',report:null,restorable:false,pending:null,preference_keys:[]};
   private resume:Pending|null=null;
   private startupFailure:unknown;
-  constructor(private host:Host, initial?:Status){if(initial){this.state=initial;if(initial.desktop&&initial.pending&&!initial.pending.attempted)this.resume=initial.pending;}}
+  constructor(private host:Host, initial?:Status){if(initial){this.state=initial;if(initial.desktop&&initial.pending&&!initial.pending.failed)this.resume=initial.pending;}}
   private snapshot():ProfileWindow{return{version:1,preferences:captureProfilePreferences(this.host.storage(),this.state.preference_keys),workspace:this.host.workspace()};}
   private async status(args:Record<string,unknown>={}){this.state=await this.host.invoke<Status>('profile_migration_status',args);return this.state;}
 
-  /** Claim once; failed attempts stay in the report and require explicit retry. */
+  /** Resume interrupted claims; durably failed attempts require explicit retry. */
   async restoreAfterStartup():Promise<boolean> {
     if(!this.resume)return false;
     const pending=this.resume;this.resume=null;
@@ -67,8 +67,19 @@ export class ProfileMigrationUI {
     let restored=false;
     try{
       restored=await this.host.restoreWorkspace(pending.window.workspace);
-      if(restored)await this.status({ack:pending.id});
+      if(restored){
+        try{await this.status({ack:pending.id});}
+        catch(error){
+          // A durable acknowledgement may outlive its IPC response. Reconcile
+          // consumption before trying to mark a receipt that no longer exists.
+          if((await this.status()).pending===null)return true;
+          throw error;
+        }
+      }else throw new Error('The captured workspace could not be read completely.');
     }catch(error){
+      // Publish a completed failure before admitting later work. A crash before
+      // this write leaves the claim resumable; a refused write blocks startup.
+      await this.status({failed:pending.id});
       this.startupFailure=new Error(`Workspace recovery remains pending. Open Restore setup to retry. ${String(error)}`);
       this.host.fail(this.startupFailure);
     }
@@ -136,7 +147,7 @@ export class ProfileMigrationUI {
       let working=false,reloadRequired=false,completed=false;dialog.querySelector('[data-close]')!.addEventListener('click',()=>{if(!working)dialog.close();});dialog.addEventListener('cancel',event=>{if(working||reloadRequired)event.preventDefault();});
       dialog.querySelector('[data-retry]')?.addEventListener('click',async()=>{const pending=this.state.pending;if(!pending||working)return;working=true;try{
         if(!await this.host.prepare())return;await this.host.flush();this.host.pause();reloadRequired=true;
-        restoreProfilePreferences(this.host.storage(),this.state.preference_keys,pending.window.preferences);await this.status({retry:pending.id});completed=true;this.host.reload();dialog.close();
+        await this.status({retry:pending.id});restoreProfilePreferences(this.host.storage(),this.state.preference_keys,pending.window.preferences);completed=true;this.host.reload();dialog.close();
       }catch(error){this.error(dialog,error);if(reloadRequired){dialog.querySelector('[data-close]')!.textContent='Reload setup';dialog.querySelector<HTMLButtonElement>('[data-retry]')!.disabled=true;dialog.querySelector<HTMLButtonElement>('[data-restore]')!.disabled=true;}}finally{working=false;}});
       dialog.querySelector('[data-restore]')!.addEventListener('click',async()=>{
         if(working)return;working=true;

@@ -1,16 +1,12 @@
 # R02 populated-profile migration: discovery and next implementation
 
-Status: implementation resumed after the review-correction batch. The original
-discovery below remains the design record; production modules, authored fixtures
-and recovery controls now exist. Current work continues on `codex/parity-profile-migration` in the existing `parity-migration` worktree.
-The branch starts at origin/main `4a1a95ff4eddb9da7492aaace68197c4f81347d0`.
-PR #47 branding head `c1375a6ccf24e728f3ac29dfd442d4bf1071d47b` was normally
-merged after checkpoint `2e6a8e7`. After the complete local profile checks,
-head `36d7dea4e7b930d3a7d98facaca8498d0ef7c8de` was normally merged without
-conflicts; its delta was limited to the Windows NSIS fixture/tests and README.
-The root coordinator owns PR #52 and its later
-review fixes in another worktree; do not alter that branch. New remote pushes,
-PR creation and review requests are held until the root ancestry/currency check.
+Status: implemented as the bounded guided setup-import and local-recovery
+workflow. This document retains the original discovery and design decisions;
+`docs/verification/profile-migration.md` records the current evidence boundary.
+The implementation includes crash-resumable workspace claims, durable explicit
+retry before browser-preference mutation, and the supported built-in quick
+source preference. Original populated-profile and native desktop interaction
+qualification remain outstanding.
 
 ## Authorized outcome and ownership
 
@@ -21,14 +17,12 @@ private scripts, proprietary data or credentials enter the repository. Do not
 infer undocumented global/binary Mp3tag configuration syntax. Unsupported
 components stay visible with a reason, and do not count as migrated.
 
-Root approved isolated `src/profile-migration.ts` and
-`src-tauri/src/profile_migration.rs`, tests/fixtures, guide/verification docs,
-and additive catalogs. Shared edits are limited to: main.ts import/new UI host,
-profile operation entries in Operation union/File menu, handlers beside
-`config-load` (baseline ~1913); lib.rs module declaration and new command
-registrations beside utilities. Coordinate exact lines again before editing.
-Root owns docs/PARITY.md and docs/research/remaining-gaps.md. Other lanes own
-main.saveCopy/lib490 and main.rename1492+/FileOps/options files paths.
+Implementation lives in `src/profile-migration.ts` and
+`src-tauri/src/profile_migration.rs`, with authored fixtures, focused tests,
+guide/verification docs and additive catalogs. Shared wiring adds the profile
+menu/handlers and an early startup barrier while preserving current file,
+document, toolbar and tag-source behavior. The legacy seven-JSON configuration
+backup remains unchanged.
 
 ## Confirmed existing entry points
 
@@ -42,7 +36,7 @@ main.saveCopy/lib490 and main.rename1492+/FileOps/options files paths.
 - `action_host::import_group_diagnostic(path, legacy_encoding)` yields an MTA
   import report with unresolved actions preserved. `load_library` returns
   existing groups or example defaults; `save_library` checks unique names.
-  Reuse group identity/diagnostics. Automation lane owns MTA semantics.
+  Reuse group identity/diagnostics. Opaque MTA preservation follows the shared action importer.
 - `exports::import(path, legacy_encoding)` decodes an MTE into an owned
   Configuration (new UUID, name from filename, `file: None`). `exports::load`
   reads actual files from sibling `export/`; `exports::save` writes templates
@@ -72,8 +66,8 @@ main.saveCopy/lib490 and main.rename1492+/FileOps/options files paths.
 
 1. User chooses Folder or ZIP. Intake is read-only, bounded, rejects symlinks,
    traversal/absolute/drive paths and case-duplicate entries. Match ZIP
-   dependency feature/version to PR #52 (`zip` 2.4, default features disabled,
-   deflate only; resolved 2.6.1) for merge-compatible Cargo.toml/lock additions.
+   dependency feature/version to the shared source installer (`zip` 2.4,
+   default features disabled, deflate only; resolved 2.6.1).
    Do not copy the entire source installer as another general extractor.
 2. Inventory every bounded input file. Recognize columns.ini/column presets,
    usrfields.ini/panel presets, MTA action groups and MTE templates. Report
@@ -125,17 +119,13 @@ restart readback and exact configuration restoration (including files absent
 before import and frontend histories/workspace). Test recovery after an
 interrupted transaction and preserve credentials separately.
 
-Run npm test, npm run build, relevant native suites, strict guide build,
-formatter/extraction/diff checks, then a clean feature commit/PR and one genuine
-Codex review request on its final head. Root owns review/CI dispatch/merges.
-Use only `/tmp/opentag-gh-owner.py` for GitHub auth/push. Local builds use
-CARGO_TARGET_DIR=/tmp/taggroove-target,
-OPENTAG_AUDIO_SOURCE_DIR=/tmp/taggroove-parity-audio-sources,
-AR=/usr/bin/ar and RANLIB=/usr/bin/ranlib. Existing strict guide interpreter:
-`/tmp/opentag-pr45-docs-venv/bin/python`.
+Require the complete application tests, production build, relevant native
+suites, strict guide build, formatting, catalog and diff checks. Request a
+clean Codex code review on the exact final head and require current-main
+protected validation before merging through the documented contribution flow.
 
 R02 remains open for undocumented global settings and original-populated-profile
-comparisons. R04 remains next: native private-source review/save/reload/undo,
+comparisons. Separate R04 acceptance includes: native private-source review/save/reload/undo,
 recorded/direct-ID/settings/matching journeys, and distinct full-cover plus
 album-preview evidence/implementation. Do not count installation/compilation
 or partial live parsing as those completed outcomes.

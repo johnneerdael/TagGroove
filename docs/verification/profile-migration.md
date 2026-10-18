@@ -61,12 +61,21 @@ A pending workspace restores after saved options/language and before directory
 initialization drains explicit launches. Successful recovery suppresses only
 favorite/previous startup fallback. A newly queued B replaces or adds after
 recovered A. Failed reads retain an attempted receipt but admit explicit launch
-or fallback; an ambiguous native claim failure blocks those later actions.
-Acknowledgement failure retains the restored list and actionable receipt. Every
+or fallback only after that failure is durably recorded. The `attempted` claim
+alone remains resumable after renderer/application exit; the separate `failed`
+marker identifies completed failed attempts. Failed-marker publication refusal
+blocks later actions, as does an ambiguous native claim failure. The default
+false marker is omitted from serialized journals so existing checksums remain
+compatible. Acknowledgement failure retains the restored list and actionable
+receipt. If acknowledgement was durably consumed before its IPC response was
+lost, a fresh native status read recognizes completion without replay or a
+spurious failed-marker write. Manual retry durably rearms the native receipt before any browser
+preference changes. Native refusal leaves preferences/workspace unchanged;
+browser quota failure after rearm retains recovery for the next bootstrap. Every
 manual import, restore or workspace-retry mutation uses the unsaved-audio/
 artwork/action-editor gate; cancelling a preview does not discard audio drafts.
 
-## Local evidence
+## Local evidence and historical checkpoints
 
 The native suite exercises populated folder and ZIP transfer, partial columns/
 panels, unresolved actions, explicit name collisions, legacy MTA/MTE codepage,
@@ -98,14 +107,12 @@ rows and preserves the current list when a required row cannot be rescanned.
 
 These are local native functions and bundled-renderer tests with controlled
 boundaries, not native OS picker/key input or a released-build certification.
-The complete local pre-sync checks passed at `dd97cf4184848681a6959b60461dea57c77b36ee`:
+Historical pre-sync checks passed at `dd97cf4184848681a6959b60461dea57c77b36ee`:
 583 frontend tests and 1095 Rust tests passed (7 opt-in/helper tests ignored),
 production build and strict guide build passed, and formatting/extraction/diff
-checks passed. Branding head `36d7dea4e7b930d3a7d98facaca8498d0ef7c8de` was then
-normally merged; only the Windows NSIS fixture/tests and its README changed.
-The affected NSIS suite was rerun after sync. Profile application source was
-unchanged by that merge. Exact final review and current-base platform validation
-remain requirements for the eventual PR, after root currency checks.
+checks passed. These historical counts are not current-head or current-main validation.
+Exact final-head code review and current-main protected validation remain
+required separately.
 
 ## Remaining R02 and R04 acceptance
 
@@ -126,13 +133,36 @@ remain requirements for the eventual PR, after root currency checks.
 
 The initial review controls failed against the unpublished checkpoint for
 overlap acceptance, current-journal clobbering and ambiguous source-name import.
-The corrected profile suite passes 18 native tests with one controlled restart
+At that historical checkpoint the corrected profile suite passed 18 native tests with one controlled restart
 helper ignored; each parent process invokes that helper explicitly in isolated
 sandboxes. See `/tmp/taggroove-profile-review-native.log` for the local run.
-The full Rust workspace passes 1100 tests (7 opt-in/helper tests ignored).
+That historical full Rust workspace passed 1100 tests (7 opt-in/helper tests ignored).
 The frontend snapshot test initially detected that the new backend errors had
 not yet been regenerated into the catalog; the intended extractor refreshed
 that snapshot and the affected catalog suites then passed all 37 controls.
-The final complete frontend rerun passes all 583 tests. Production build, strict
-guide, formatting and catalog consistency checks pass.
+The historical complete frontend rerun passed all 583 tests. Its production
+build, strict guide, formatting and catalog consistency checks also passed;
+those receipts do not certify the current integrated head.
 These corrections do not add original-profile or native OS interaction evidence.
+
+## Current recovery-review integration
+
+The current focused native run passes 20 tests with one controlled restart
+helper ignored by ordinary discovery. Parent tests explicitly invoke that
+helper in isolated sandboxes. A new six-process sequence exits immediately
+after a real claim publication, reads the same resumable receipt in a fresh
+process, refuses failed-marker and retry publication without changing persisted
+bytes, then verifies durable failure, rearm and acknowledgement across further
+fresh processes. The existing three-process restore and four-process
+interrupted-second-import controls remain in place. The retained snapshot now
+includes `opentag.tagSources.lastBuiltIn`; credential stores and the ordinary
+seven-JSON backup are unchanged.
+
+RED regressions reproduced skipped preferences/workspace after claim and
+preference mutation before native retry refusal. Current focused UI and real
+bundled-main controls cover in-progress A before queued B for add/replace,
+failed-marker refusal blocking B, browser quota failure after durable rearm,
+next-bootstrap quick-source restoration and the existing 10000-row rescan.
+These controls use real renderer code at controlled native seams; the native
+fresh-process tests separately establish receipt persistence. No native picker,
+original-populated-profile, device or full-R02 acceptance claim follows.

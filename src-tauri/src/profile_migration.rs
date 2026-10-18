@@ -35,6 +35,7 @@ pub const PREFERENCE_KEYS: &[&str] = &[
     "opentag.cover.aspect",
     "opentag.cover.extractFormat",
     "opentag.tagSources.lastSource",
+    "opentag.tagSources.lastBuiltIn",
     "opentag.tagSources.last",
     "opentag.tagSources.saveCover",
     "opentag.tagSources.suggestSorting",
@@ -608,7 +609,13 @@ pub struct Report {
 pub struct Pending {
     id: String,
     attempted: bool,
+    // Omit the default to retain checksums of journals written before this field.
+    #[serde(default, skip_serializing_if = "is_false")]
+    failed: bool,
     window: WindowState,
+}
+fn is_false(value: &bool) -> bool {
+    !value
 }
 #[derive(Clone, Serialize, Deserialize)]
 struct Journal {
@@ -827,6 +834,7 @@ fn recovered_with(
             previous.pending = Some(Pending {
                 id: uuid::Uuid::new_v4().to_string(),
                 attempted: false,
+                failed: false,
                 window,
             });
             Some(previous)
@@ -847,6 +855,7 @@ fn recovered_with(
         state.pending = Some(Pending {
             id: uuid::Uuid::new_v4().to_string(),
             attempted: false,
+            failed: false,
             window: state
                 .rollback_window
                 .take()
@@ -873,6 +882,25 @@ fn status(
     ack: Option<&str>,
     retry: Option<&str>,
 ) -> Result<Status, String> {
+    status_with_failure(directory, start, ack, retry, None)
+}
+fn status_with_failure(
+    directory: &Path,
+    start: Option<&str>,
+    ack: Option<&str>,
+    retry: Option<&str>,
+    failed: Option<&str>,
+) -> Result<Status, String> {
+    status_with_publication(directory, start, ack, retry, failed, persist)
+}
+fn status_with_publication(
+    directory: &Path,
+    start: Option<&str>,
+    ack: Option<&str>,
+    retry: Option<&str>,
+    failed: Option<&str>,
+    mut publish: impl FnMut(&Path, &Journal) -> Result<(), String>,
+) -> Result<Status, String> {
     let state = journal(directory)?
         .map(|state| recovered(directory, state))
         .transpose()?;
@@ -884,7 +912,7 @@ fn status(
                 .filter(|pending| pending.id == id)
                 .ok_or("The setup workspace receipt expired.")?;
             pending.attempted = true;
-            persist(directory, &state)?;
+            publish(directory, &state)?;
         }
         if let Some(id) = retry {
             let pending = state
@@ -893,7 +921,17 @@ fn status(
                 .filter(|pending| pending.id == id)
                 .ok_or("The setup workspace receipt expired.")?;
             pending.attempted = false;
-            persist(directory, &state)?;
+            pending.failed = false;
+            publish(directory, &state)?;
+        }
+        if let Some(id) = failed {
+            let pending = state
+                .pending
+                .as_mut()
+                .filter(|pending| pending.id == id && pending.attempted)
+                .ok_or("The setup workspace receipt expired.")?;
+            pending.failed = true;
+            publish(directory, &state)?;
         }
         if let Some(id) = ack {
             if state
@@ -904,7 +942,7 @@ fn status(
                 return Err("The setup workspace receipt expired.".into());
             }
             state.pending = None;
-            persist(directory, &state)?;
+            publish(directory, &state)?;
         }
         Ok(Status {
             desktop: true,
@@ -1092,6 +1130,7 @@ fn apply(
     state.pending = Some(Pending {
         id: uuid::Uuid::new_v4().to_string(),
         attempted: false,
+        failed: false,
         window,
     });
     persist(directory, &state)?;
@@ -1123,6 +1162,7 @@ fn restore(directory: &Path, window: WindowState) -> Result<Status, String> {
     state.pending = Some(Pending {
         id: uuid::Uuid::new_v4().to_string(),
         attempted: false,
+        failed: false,
         window: state.window.clone(),
     });
     persist(directory, &state)?;
@@ -1164,6 +1204,7 @@ pub async fn profile_migration_status(
     start: Option<String>,
     ack: Option<String>,
     retry: Option<String>,
+    failed: Option<String>,
 ) -> Result<Status, String> {
     if cfg!(mobile) {
         return Ok(Status {
@@ -1177,11 +1218,12 @@ pub async fn profile_migration_status(
     }
     let directory = crate::utilities::configuration_directory(&app)?;
     crate::io(move || {
-        let result = status(
+        let result = status_with_failure(
             &directory,
             start.as_deref(),
             ack.as_deref(),
             retry.as_deref(),
+            failed.as_deref(),
         )?;
         crate::settings::reload(&app)?;
         Ok(result)
@@ -1222,6 +1264,10 @@ mod tests {
             preferences: BTreeMap::from([
                 ("opentag.language".into(), "nl".into()),
                 ("opentag.filter-shown".into(), "false".into()),
+                (
+                    "opentag.tagSources.lastBuiltIn".into(),
+                    "source-discogs".into(),
+                ),
             ]),
             workspace: Workspace {
                 paths: vec![path.clone()],
@@ -1235,6 +1281,16 @@ mod tests {
                 playlist: None,
             },
         }
+    }
+    #[test]
+    fn quick_builtin_source_is_supported_without_capturing_credentials() {
+        let mut captured = window();
+        captured.preferences.insert(
+            "opentag.tagSources.lastBuiltIn".into(),
+            "source-discogs".into(),
+        );
+        assert!(validate_window(&captured).is_ok());
+        assert!(!PREFERENCE_KEYS.contains(&"opentag.tagSources.credentials"));
     }
     fn make_preview(directory: &Path, path: &str, window: WindowState) -> Result<Preview, String> {
         preview(directory, path, window, None)
@@ -1799,6 +1855,39 @@ mod tests {
         }
     }
     #[test]
+    fn claimed_failed_and_rearmed_receipts_survive_fresh_processes() {
+        let root = tempfile::tempdir().unwrap();
+        let nonce = uuid::Uuid::new_v4().to_string();
+        std::fs::write(root.path().join(".profile-native-test-sandbox"), &nonce).unwrap();
+        for phase in [
+            "apply",
+            "claimed",
+            "claimed-restart",
+            "failed-restart",
+            "rearmed-restart",
+            "consumed-claim",
+        ] {
+            let output = std::process::Command::new(std::env::current_exe().unwrap())
+                .args([
+                    "--exact",
+                    "profile_migration::tests::profile_restart_child",
+                    "--ignored",
+                    "--nocapture",
+                ])
+                .env("OPENTAG_PROFILE_TEST_ROOT", root.path())
+                .env("OPENTAG_PROFILE_TEST_NONCE", &nonce)
+                .env("OPENTAG_PROFILE_TEST_PHASE", phase)
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "fresh-process {phase}: {} {}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
+    }
+    #[test]
     #[ignore = "controlled restart child; invoked only by the parent sandbox test"]
     fn profile_restart_child() {
         let root = std::path::PathBuf::from(
@@ -1822,6 +1911,117 @@ mod tests {
                 let path = make_source(&source);
                 let preview = make_preview(&directory, &path, window()).unwrap();
                 apply(&directory, &preview.token, &selected(), true, window()).unwrap();
+            }
+            "claimed" => {
+                let pending = status(&directory, None, None, None)
+                    .unwrap()
+                    .pending
+                    .unwrap();
+                let claimed = status(&directory, Some(&pending.id), None, None)
+                    .unwrap()
+                    .pending
+                    .unwrap();
+                assert!(claimed.attempted);
+                assert!(!claimed.failed);
+                // Exit the process immediately after the real journal publication.
+                // No renderer restoration or acknowledgement has happened.
+            }
+            "claimed-restart" => {
+                assert!(PLANS.get().is_none());
+                let pending = status(&directory, None, None, None)
+                    .unwrap()
+                    .pending
+                    .unwrap();
+                assert!(pending.attempted);
+                assert!(
+                    !pending.failed,
+                    "a claimed receipt remains resumable after process exit"
+                );
+                assert_eq!(pending.window, window());
+                assert_eq!(
+                    pending.window.preferences["opentag.tagSources.lastBuiltIn"],
+                    "source-discogs"
+                );
+                // Reclaiming the same in-progress receipt is idempotent.
+                status(&directory, Some(&pending.id), None, None).unwrap();
+                let bytes = std::fs::read(directory.join(STORE).join("current.json")).unwrap();
+                let error = status_with_publication(
+                    &directory,
+                    None,
+                    None,
+                    None,
+                    Some(&pending.id),
+                    |_, state| {
+                        assert!(state.pending.as_ref().unwrap().failed);
+                        Err("controlled failed-marker publication refusal".into())
+                    },
+                )
+                .unwrap_err();
+                assert!(error.contains("publication refusal"));
+                assert_eq!(
+                    std::fs::read(directory.join(STORE).join("current.json")).unwrap(),
+                    bytes
+                );
+                assert!(
+                    !status(&directory, None, None, None)
+                        .unwrap()
+                        .pending
+                        .unwrap()
+                        .failed
+                );
+                status_with_failure(&directory, None, None, None, Some(&pending.id)).unwrap();
+            }
+            "failed-restart" => {
+                assert!(PLANS.get().is_none());
+                let pending = status(&directory, None, None, None)
+                    .unwrap()
+                    .pending
+                    .unwrap();
+                assert!(pending.attempted && pending.failed);
+                let bytes = std::fs::read(directory.join(STORE).join("current.json")).unwrap();
+                let error = status_with_publication(
+                    &directory,
+                    None,
+                    None,
+                    Some(&pending.id),
+                    None,
+                    |_, state| {
+                        let rearmed = state.pending.as_ref().unwrap();
+                        assert!(!rearmed.attempted && !rearmed.failed);
+                        Err("controlled retry publication refusal".into())
+                    },
+                )
+                .unwrap_err();
+                assert!(error.contains("publication refusal"));
+                assert_eq!(
+                    std::fs::read(directory.join(STORE).join("current.json")).unwrap(),
+                    bytes
+                );
+                assert!(
+                    status(&directory, None, None, None)
+                        .unwrap()
+                        .pending
+                        .unwrap()
+                        .failed
+                );
+                status(&directory, None, None, Some(&pending.id)).unwrap();
+            }
+            "rearmed-restart" => {
+                assert!(PLANS.get().is_none());
+                let pending = status(&directory, None, None, None)
+                    .unwrap()
+                    .pending
+                    .unwrap();
+                assert!(!pending.attempted && !pending.failed);
+                assert_eq!(pending.window, window());
+                status(&directory, Some(&pending.id), None, None).unwrap();
+                status(&directory, None, Some(&pending.id), None).unwrap();
+            }
+            "consumed-claim" => {
+                assert!(status(&directory, None, None, None)
+                    .unwrap()
+                    .pending
+                    .is_none());
             }
             "second-interrupted" => {
                 let pending = status(&directory, None, None, None)

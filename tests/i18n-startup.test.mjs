@@ -28,13 +28,14 @@ async function boot({native=true,remembered='fr',choice=remembered,preferred=['e
   Object.defineProperty(window.navigator,'languages',{value:preferred,configurable:true});Object.defineProperty(window.navigator,'language',{value:preferred[0],configurable:true});
   window.document.documentElement.lang='en';window.document.body.innerHTML='<div id="app"></div>';window.localStorage.setItem('opentag.language',remembered);window.localStorage.setItem('opentag.last-version','0.2.0');
   const settings=deferred(),catalogs=deferred(),directories=deferred(),calls=[],events=new Map(),titles=[],paints=[];
-  const recovery=profile?{id:'profile-receipt',attempted:false,window:{version:1,preferences:{'opentag.language':remembered},workspace:{paths:['/A.flac'],selected:['/A.flac'],roots:['/'],location:'/',location_is_data:true,filter:'',filter_draft:null,anchor:'/A.flac',playlist:null}}}:null;let pending=recovery,profileReads=0;
+  const recovery=profile?{id:'profile-receipt',attempted:profile.attempted??false,failed:profile.failed??false,window:{version:1,preferences:{'opentag.language':remembered},workspace:{paths:['/A.flac'],selected:['/A.flac'],roots:['/'],location:'/',location_is_data:true,filter:'',filter_draft:null,anchor:'/A.flac',playlist:null}}}:null;let pending=recovery,profileReads=0;
   const host={native,calls,events,picks:[],profileCalls:[],get pending(){return pending;},drag:undefined,settings,catalogs,directories,defaults:undefined,scan:[],scanRecords:[],scanErrors:[],launches:structuredClone(initialLaunches),nativeWindow:{setTitle:async title=>titles.push(title),setTheme:async()=>{},onCloseRequested:async()=>()=>{},isMaximized:async()=>false,isMinimized:async()=>false},invoke:async(command,args,factories)=>{
     calls.push(command);host.defaults=factories;
     if(command==='profile_migration_status'){
       host.profileCalls.push(args);profileReads++;
       if(rejectExtraProfileReads&&profileReads>1&&!args?.start&&!args?.ack)throw new Error('second status read refused');
       if(args?.start){if(profile?.failure==='claim')throw new Error('controlled claim refusal');assert.equal(args.start,pending.id);pending.attempted=true;}
+      if(args?.failed){if(profile?.failure==='failure-receipt')throw new Error('controlled failure receipt refusal');assert.equal(args.failed,pending.id);pending.failed=true;}
       if(args?.ack){assert.equal(args.ack,pending.id);if(profile?.failure==='ack')throw new Error('controlled acknowledgement refusal');pending=null;}
       return{desktop:true,phase:profile?'applied':'none',report:null,restorable:!!profile,pending:structuredClone(pending),preference_keys:profile?['opentag.language']:[]};
     }
@@ -50,7 +51,7 @@ async function boot({native=true,remembered='fr',choice=remembered,preferred=['e
     if(command==='take_launch_requests')return host.launches.splice(0);
     if(command==='scan_files'){
       host.scan.push(args.paths);host.scanRecords.push(args);
-      if(profile&&args.paths.includes('/A.flac')&&profile.failure==='scan')return{entries:[],errors:[{path:'/A.flac',error:'controlled missing recovery file'}]};
+      if(profile&&args.paths.includes('/A.flac')&&['scan','failure-receipt'].includes(profile.failure))return{entries:[],errors:[{path:'/A.flac',error:'controlled missing recovery file'}]};
       return{entries:profile?args.paths.map(path=>{path=path.endsWith('.flac')?path:path+'/track.flac';return{path,filename:path.split('/').at(-1),format:'FLAC',duration:1,bitrate:128,sample_rate:44100,channels:2,size:4096,fields:{TITLE:[path]},covers:[]};}):[],errors:host.scanErrors};
     }
     if(command==='evaluate_columns'&&profile)return{values:args.items.map(()=>args.templates.map(()=>'')),errors:[]};
@@ -245,5 +246,21 @@ test('acknowledgement failure retains an actionable receipt without replacing th
   try{
     await finishProfileBoot(fixture);await until(()=>!fixture.app.inert&&fixture.app.querySelector('tr[data-path="/A.flac"]'));
     assert.deepEqual(fixture.host.scan,[['/A.flac']]);assert.equal(fixture.host.pending.attempted,true);assert.match(fixture.app.querySelector('.errors').textContent,/Open Restore setup to retry/);
+  }finally{await fixture.close();}
+});
+
+test('a renderer restart after a native claim still restores workspace A before queued launch B',async()=>{
+  for(const add of [false,true]){
+    const fixture=await boot({remembered:'en',choice:'en',profile:{attempted:true},initialLaunches:[{directories:[],files:['/B.flac'],add}]});
+    try{await finishProfileBoot(fixture);await until(()=>!fixture.app.inert&&fixture.app.querySelector('tr[data-path="/B.flac"]'));
+      assert.deepEqual(fixture.host.scan,[['/A.flac'],['/B.flac']]);assert.equal(!!fixture.app.querySelector('tr[data-path="/A.flac"]'),add);assert.equal(fixture.host.pending,null);
+    }finally{await fixture.close();}
+  }
+});
+
+test('failure to durably record a completed workspace failure blocks queued launches and preserves the in-progress receipt',async()=>{
+  const fixture=await boot({remembered:'en',choice:'en',profile:{failure:'failure-receipt'},initialLaunches:[{directories:[],files:['/B.flac'],add:false}]});
+  try{await finishProfileBoot(fixture);await until(()=>fixture.app.querySelector('.profile-recovery-dialog[open]'));
+    assert.match(fixture.app.textContent,/controlled failure receipt refusal/);assert.deepEqual(fixture.host.scan,[['/A.flac']]);assert.ok(!fixture.host.calls.includes('take_launch_requests'));assert.equal(fixture.host.pending.attempted,true);assert.equal(fixture.host.pending.failed,false);
   }finally{await fixture.close();}
 });

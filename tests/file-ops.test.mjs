@@ -84,7 +84,7 @@ test('summaries bound long selections and report errors', () => {
 });
 
 function harness(overrides = {}) {
-  const calls = [], state = {...defaultDirectoryState(), favorites: ['/fav']};
+  const calls = [], state = {...defaultDirectoryState(), favorites: ['/fav'], ...overrides.directoryState};
   const host = {
     mac: false, selected: [{path: '/m/a.mp3', name: 'a.mp3'}, {path: '/m/b.mp3', name: 'b.mp3'}], pending: 0, answers: [], picks: [], loads: [],
     invoke: async (command, args) => {
@@ -97,7 +97,8 @@ function harness(overrides = {}) {
       if (command === 'delete_files_permanently') return {removed: args.paths, errors: []};
       if (command === 'transfer_files') return {entries: [], errors: [], renamed: args.mode === 'move' ? args.paths.map(from => ({from, to: `/dest/${from.split('/').pop()}`})) : [], copied: args.mode === 'copy' ? [{from: '/m/a.mp3', to: '/dest/a.mp3'}] : []};
     },
-    pickDirectories: async () => host.picks.shift() || [],
+    pickerCalls: [],
+    pickDirectories: async (title, multiple, defaultPath) => { host.pickerCalls.push({title, multiple, defaultPath}); return host.picks.shift() || []; },
     confirm: async message => { host.confirmed = message; return host.answers.length ? host.answers.shift() : true; },
     selection: () => host.selected, pendingCount: () => host.pending,
     load: async (paths, options) => { host.loads.push([paths, options]); return host.loadResult ?? true; },
@@ -189,6 +190,84 @@ test('copy and move ask for a destination and hand moves to the re-keying hook',
   assert.match(host.confirmed, /Existing files are never replaced/);
   assert.equal(host.movedResult.renamed.length, 2);
   assert.equal(host.status, 'Moved 2 files to /dest');
+});
+
+test('copy and move restore their own destination and persist successful choices', async () => {
+  const {ui, host, calls} = harness({directoryState: {copy_destination: '/copy-before', move_destination: '/move-before'}});
+  await ui.initialize();
+  host.picks.push(['/copy-next']);
+  await ui.operate('file-copy');
+  assert.deepEqual(host.pickerCalls[0], {title: 'Copy files to', multiple: false, defaultPath: '/copy-before'});
+  const saved = calls.findLast(([command]) => command === 'save_directory_state')[1].state;
+  assert.equal(saved.copy_destination, '/copy-next');
+  assert.equal(saved.move_destination, '/move-before');
+  assert.deepEqual(saved.favorites, ['/fav']);
+  const restarted = harness({directoryState: saved});
+  await restarted.ui.initialize();
+  await restarted.ui.operate('file-copy');
+  await restarted.ui.operate('file-move');
+  assert.equal(restarted.host.pickerCalls[0].defaultPath, '/copy-next');
+  assert.equal(restarted.host.pickerCalls[1].defaultPath, '/move-before');
+  host.picks.push(['/move-next']);
+  await ui.operate('file-move');
+  assert.equal(ui.state.move_destination, '/move-next');
+  assert.equal(ui.state.copy_destination, '/copy-next');
+});
+
+test('cancelled or wholly failed transfers keep the previous destination', async () => {
+  const {ui, host, calls} = harness({directoryState: {copy_destination: '/before'}});
+  await ui.initialize();
+  await ui.operate('file-copy');
+  host.picks.push(['/cancelled']); host.answers.push(false);
+  await ui.operate('file-copy');
+  const invoke = host.invoke;
+  host.invoke = async (command, args) => command === 'transfer_files'
+    ? {entries: [], errors: [{path: '/m/a.mp3', error: 'destination locked'}], copied: [], renamed: []}
+    : invoke(command, args);
+  host.picks.push(['/failed']);
+  await ui.operate('file-copy');
+  assert.equal(ui.state.copy_destination, '/before');
+  assert.equal(calls.some(([command]) => command === 'save_directory_state'), false);
+  assert.equal(host.status, 'Copied 0 files to /failed, 1 error');
+});
+
+test('preference-write failure never hides a completed transfer or causes a retry', async () => {
+  const {ui, host, calls} = harness();
+  const invoke = host.invoke;
+  host.invoke = async (command, args) => {
+    if (command === 'save_directory_state') throw new Error('preferences are read-only');
+    return invoke(command, args);
+  };
+  host.picks.push(['/dest']);
+  await ui.operate('file-copy');
+  assert.equal(host.status, 'Copied 1 file to /dest');
+  assert.equal(ui.state.copy_destination, '/dest', 'keep a session memory even when disk persistence fails');
+  assert.equal(calls.filter(([command]) => command === 'transfer_files').length, 1);
+});
+
+test('unsaved transfer destinations survive directory-state refreshes', async () => {
+  const {ui, host, calls} = harness({directoryState: {copy_destination: '/copy-old', move_destination: '/move-old'}});
+  const invoke = host.invoke;
+  let writable = false;
+  host.invoke = async (command, args) => {
+    if (command === 'save_directory_state' && !writable) throw new Error('preferences temporarily locked');
+    return invoke(command, args);
+  };
+  await ui.initialize();
+  host.picks.push(['/copy-new']);
+  await ui.operate('file-copy');
+  await ui.openDirectory('/another-album', {replace: true});
+  await ui.operate('file-copy');
+  assert.equal(host.pickerCalls.at(-1).defaultPath, '/copy-new');
+  assert.equal(ui.state.copy_destination, '/copy-new');
+  assert.deepEqual(ui.state.recent, ['/another-album']);
+  assert.deepEqual(ui.state.favorites, ['/fav']);
+  writable = true;
+  host.picks.push(['/move-new']);
+  await ui.operate('file-move');
+  const saved = calls.findLast(([command]) => command === 'save_directory_state')[1].state;
+  assert.equal(saved.copy_destination, '/copy-new');
+  assert.equal(saved.move_destination, '/move-new');
 });
 
 test('selection-dependent operations explain why they are unavailable', () => {
@@ -305,4 +384,37 @@ test('a plain drop replaces the list after the unsaved-changes question', async 
   assert.deepEqual(host.loads[0], [['/drop/album'], {replace: true, recursive: true, location: '/drop/album'}]);
   await ui.replaceWith(['/drop/a.mp3', '/drop/b.mp3']);
   assert.equal(host.loads[1][1].location, '2 dropped locations');
+});
+
+
+test('opted-in moves retain destination memory while reviewing companions and applying frozen tokens', async () => {
+  const {ui, host, calls} = harness({prefs: {subfolders: true, startup: 'empty', associatedFiles: true},
+    directoryState: {copy_destination: '/copy-before', move_destination: '/move-before'}});
+  await ui.initialize();calls.length=0;
+  const original = host.invoke;
+  host.invoke = async (command, args) => {
+    if (command === 'preview_transfer') {
+      calls.push([command, args]);
+      return {plan_token: 'frozen', associated: [{from: '/m/a.lrc', to: '/dest/a.lrc'}]};
+    }
+    return original(command, args);
+  };
+  host.picks.push(['/dest']);
+  await ui.operate('file-move');
+  assert.deepEqual(host.pickerCalls[0], {title: 'Move files to', multiple: false, defaultPath: '/move-before'});
+  assert.deepEqual(calls[0], ['preview_transfer', {paths: ['/m/a.mp3', '/m/b.mp3'], destination: '/dest'}]);
+  assert.match(host.confirmed.parts.join(host.confirmed.separator), /a\.lrc.*a\.lrc/s);
+  assert.deepEqual(calls[1], ['transfer_files', {paths: ['/m/a.mp3', '/m/b.mp3'], destination: '/dest', mode: 'move', planToken: 'frozen'}]);
+  const saved=calls.findLast(([command])=>command==='save_directory_state')[1].state;
+  assert.equal(saved.move_destination,'/dest');assert.equal(saved.copy_destination,'/copy-before');
+  host.picks.push(['/cancelled']); host.answers.push(false);
+  await ui.operate('file-move');
+  assert.equal(host.pickerCalls.at(-1).defaultPath,'/dest');
+  assert.equal(ui.state.move_destination,'/dest');
+  assert.equal(calls.filter(([command])=>command==='save_directory_state').length,1);
+  assert.equal(calls.filter(([command]) => command === 'transfer_files').length, 1, 'cancelled review never applies');
+  host.picks.push(['/dest']);
+  await ui.operate('file-copy');
+  assert.equal(host.pickerCalls.at(-1).defaultPath,'/copy-before');
+  assert.equal(calls.filter(([command]) => command === 'preview_transfer').length, 2, 'copy never silently adopts the move policy');
 });

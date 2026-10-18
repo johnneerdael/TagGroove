@@ -177,6 +177,7 @@ nav:
     - Filtering the file list: guides/filter.md
     - Find text: guides/find.md
     - Copy, move and delete files: guides/file-operations.md
+    - Associated lyrics and karaoke: guides/associated-files.md
     - Undo and history: guides/undo-history.md
     - Built-in utilities: guides/utilities.md
     - Library cache: guides/library.md
@@ -338,6 +339,7 @@ nav:
   - macOS: platforms/macos.md
   - Windows: platforms/windows.md
   - Linux: platforms/linux.md
+  - Android: platforms/android.md
 
 - Help:
   - Frequently asked questions: help/faq.md
