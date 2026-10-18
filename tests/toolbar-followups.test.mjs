@@ -10,6 +10,7 @@ const moduleURL=async name=>url(transpile(await readFile(new URL(`src/${name}.ts
 const toolbar=await import(await moduleURL('toolbar'));
 const {chapterRowReason}=await import(await moduleURL('chapters'));
 const {documentSelection}=await import(await moduleURL('document-state'));
+const {ConfigurationTransferUI}=await import(await moduleURL('configuration-transfer'));
 const coverSource=await readFile(new URL('src/covers.ts',root),'utf8');
 const {CoverUI}=await import(url(transpile(coverSource).replace("import './covers.css';",'').replace("'./keyboard'",JSON.stringify(await moduleURL('keyboard'))).replace("'./cover-model'",JSON.stringify(await moduleURL('cover-model')))));
 const main=await readFile(new URL('src/main.ts',root),'utf8'),parsed=ts.createSourceFile('main.ts',main,ts.ScriptTarget.Latest,true);
@@ -41,6 +42,7 @@ test('followup hints translate while saved toolbar names remain authored text',a
 
 function runtime(state={}){
   const window=new Window({url:'http://localhost:1420'}),document=window.document,calls=[];
+  globalThis.document=document;
   window.location.reload=()=>calls.push(['reload']);
   const selected=new Set(state.selection??['/Music/a.mp3']),entries=new Map((state.list??['/Music/a.mp3','/Music/b.mp3']).map(path=>[path,{path,filename:path.split('/').pop(),format:'mp4',covers:state.coversByPath?.[path]??state.covers??[art()]}]));
   const dialogs=[],modal=(title,content,buttons)=>{calls.push(['dialog',title]);const dialog=document.createElement('dialog');dialog.innerHTML=`<header>${title}</header>${content}<button data-close>Cancel</button>${buttons}`;document.body.append(dialog);dialog.querySelector('[data-close]').onclick=()=>dialog.close();dialogs.push(dialog);dialog.showModal();return dialog;};
@@ -51,9 +53,9 @@ function runtime(state={}){
     mutate:async(command,args)=>{calls.push(['cover-mutate',command,args]);return{errors:[]};},
     adjust:()=>calls.push(['adjust']),evaluate:async()=>'',modal,modalError:(_dialog,error)=>{throw error;},confirm:async()=>{calls.push(['cover-confirm']);return state.confirm!==false;},notify:message=>calls.push(['notice',message]),fail:error=>calls.push(['cover-fail',error]),show:()=>{},
   });
-  const dependencies={state,calls,selected,entries,window,document,modal,coverUI,...toolbar,chapterRowReason,documentSelection,customizeToolbar:host=>{calls.push(['customize',host.custom?'custom':'main']);}};
+  const dependencies={state,calls,selected,entries,window,document,modal,coverUI,ConfigurationTransferUI,...toolbar,chapterRowReason,documentSelection,customizeToolbar:host=>{calls.push(['customize',host.custom?'custom':'main']);}};
   const setup=`
-    const desktop=state.desktop??true,busy=state.busy??false;
+    const desktop=state.desktop??true,busy=state.busy??false,profileBootstrap={desktop:state.native??desktop};
     const runtimePlatform={family:desktop?'desktop':'android',folder_picker_supported:desktop,document_access_supported:!desktop,...state.platform};
     const sourcePolicy=()=>documentSelection([...selected],{states:state.documents??{},refreshError:null},runtimePlatform.document_access_supported);
     const dirtySelected=()=>!!state.dirty,paths=()=>[...selected],visible=()=>[...entries.values()];
@@ -72,9 +74,10 @@ function runtime(state={}){
     const messages={confirm:async()=>{calls.push(['confirm']);return state.confirm!==false;}},stripChaptersPrompt=()=>'',mutate=async command=>calls.push(['mutate',command]);
     const shortcutsDialog=()=>calls.push(['shortcuts']),menuShortcuts=()=>[],EXTRA_SHORTCUTS=[],checkForUpdates=async startup=>calls.push(['updates',startup]);
     const audioLicenses=[],themedAsset=()=>'',appVersion='fixture';
-    const invoke=async(command,args)=>{calls.push(['invoke',command,args]);return command==='audio_fingerprint_backend'?{chromaprint:'fixture',ffmpeg:'fixture'}:[];};
+    const invoke=async(command,args)=>{calls.push(['invoke',command,args]);return command==='audio_fingerprint_backend'?{chromaprint:'fixture',ffmpeg:'fixture'}:command==='configuration_transfer_preview'?{token:'reviewed',version:2,source_hash:'fixture',files:['options.json'],export_assets:[],preference_keys:[],preferences_available:false,workspace:null,workspace_available:true,unavailable:[],warnings:[],replaces_snapshot:false}:command==='configuration_transfer_apply'?{pending:{id:'pending-reload'}}:[];};
     const open=async options=>{calls.push(['open',options.title]);return state.openAnswer??null;},save=async options=>{calls.push(['save',options.title]);return null;},configurationFileName=()=> 'fixture.zip',CONFIGURATION_FILTER={},ask=async()=>{calls.push(['restore-confirm']);return state.confirm!==false;};
     const helperLists={flush:async()=>calls.push(['lists-flush']),pause:()=>calls.push(['lists-pause'])},drafts={size:0,clear:()=>calls.push(['drafts-clear'])},basename=value=>value.split('/').pop();
+    const configurationTransferUI=new ConfigurationTransferUI({invoke,pickLoad:()=>open({title:'Load configuration'}),pickSave:()=>save({title:'Save configuration'}),capture:()=>({version:1,preferences:{},workspace:null}),flush:async()=>calls.push(['configuration-flush']),prepare:async()=>{calls.push(['prepare-configuration']);return state.confirm!==false;},inspectWorkspace:async()=>[],hold:held=>calls.push(['configuration-hold',held]),pause:()=>calls.push(['configuration-pause']),resume:()=>calls.push(['configuration-resume']),reload:()=>window.location.reload(),report:text=>calls.push(['configuration-report',text]),fail:error=>{throw error;}});
     const listOperation=async op=>calls.push(['list',op]);
     let errors=[],status='';
     ${declaration('utilOperations')} ${declaration('listOperations')} ${declaration('tagSourceOperations')} ${declaration('coverOperations')}
@@ -145,7 +148,14 @@ test('extract alias retains existing-file confirmation and cancelled overwrite n
 
 test('existing menu safety keeps chapter removal confirmation and cancelled setup restore intact',async()=>{
   for(const confirm of [false,true]){const model=runtime({confirm});try{await model.operate('strip-mp4-chapters');assert.equal(model.calls.some(call=>call[0]==='mutate'),confirm);}finally{model.window.happyDOM.abort();}}
-  const model=runtime({confirm:false,openAnswer:'/fixture/setup.zip'});try{await model.operate('config-load');assert.deepEqual(model.calls,[['open','Load configuration'],['restore-confirm']]);}finally{model.window.happyDOM.abort();}
-  const restored=runtime({confirm:true,openAnswer:'/fixture/setup.zip'});try{await restored.operate('config-load');assert.deepEqual(restored.calls,[['open','Load configuration'],['restore-confirm'],['lists-flush'],['lists-pause'],['invoke','import_configuration',{path:'/fixture/setup.zip'}],['drafts-clear'],['reload']]);}finally{restored.window.happyDOM.abort();}
-  for(const [state,id]of [[{selection:[]},'copy-text'],[{chapters:false},'strip-mp4-chapters'],[{dirty:true},'util-optimize'],[{busy:true},'help-updates'],[{list:['/Music/a.mp3']},'shuffle-list'],[{sort:[]},'list-unsorted']]){const model=runtime(state);try{assert.equal(model.enabled(id),false,id);await model.operate(id);assert.deepEqual(model.calls,[],id);}finally{model.window.happyDOM.abort();}}
+  const settleReview=async model=>{for(let i=0;i<12&&!model.document.querySelector('.configuration-transfer-dialog');i++)await Promise.resolve();const dialog=model.document.querySelector('.configuration-transfer-dialog');assert.ok(dialog);return dialog;};
+  const model=runtime({openAnswer:'/fixture/setup.zip'});try{const operation=model.operate('config-load'),dialog=await settleReview(model);dialog.querySelector('[data-cancel]').click();await operation;assert.deepEqual(model.calls.map(call=>call[0]),['open','configuration-flush','invoke']);assert.equal(model.calls[2][1],'configuration_transfer_preview');assert.equal(model.calls.some(call=>call[1]==='configuration_transfer_apply'),false);}finally{model.window.happyDOM.abort();}
+  for(const confirm of [false,true]){const restored=runtime({confirm,openAnswer:'/fixture/setup.zip'});try{const operation=restored.operate('config-load'),dialog=await settleReview(restored);dialog.querySelector('[data-apply]').click();for(let i=0;i<12;i++)await Promise.resolve();
+    assert.equal(restored.calls.some(call=>call[0]==='prepare-configuration'),true);
+    assert.equal(restored.calls.some(call=>call[1]==='configuration_transfer_apply'),confirm);
+    assert.equal(restored.calls.some(call=>call[0]==='reload'),confirm);
+    if(confirm){assert.equal(restored.calls.find(call=>call[1]==='configuration_transfer_apply')[2].token,'reviewed');assert.equal(restored.calls.some(call=>call[0]==='configuration-pause'),true);}else dialog.querySelector('[data-cancel]').click();
+    await operation;assert.equal(restored.calls.some(call=>call[0]==='drafts-clear'),false,'the old window never discards drafts before recovery reload');
+  }finally{restored.window.happyDOM.abort();}}
+  for(const [state,id]of [[{selection:[]},'copy-text'],[{chapters:false},'strip-mp4-chapters'],[{dirty:true},'util-optimize'],[{busy:true},'help-updates'],[{list:['/Music/a.mp3']},'shuffle-list'],[{sort:[]},'list-unsorted'],[{native:false},'config-load'],[{native:false},'config-save'],[{desktop:false},'config-load'],[{desktop:false},'config-save']]){const model=runtime(state);try{assert.equal(model.enabled(id),false,id);await model.operate(id);assert.deepEqual(model.calls,[],id);}finally{model.window.happyDOM.abort();}}
 });

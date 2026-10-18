@@ -454,6 +454,10 @@ pub async fn save_settings(
             .path
             .as_deref()
             .ok_or("The options location is unavailable")?;
+        let _configuration_guard = crate::profile_migration::mutation_guard(
+            path.parent()
+                .ok_or("Configuration directory is unavailable")?,
+        )?;
         save(path, &settings)?;
         *store.state.write().map_err(|_| "Options are unavailable")? = (settings.clone(), None);
         Ok(SettingsResponse {

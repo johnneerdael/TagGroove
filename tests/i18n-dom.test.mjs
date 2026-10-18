@@ -25,6 +25,7 @@ const {ToolsUI,toolsOptionsPage}=await load('tools.ts'),{installHelperMenus}=awa
 const {customizeToolbar,itemHint,itemLabel,userLabel,visibleItems,isSeparator,isSpacer,TOOLBAR_COMMANDS}=await load('toolbar.ts');
 const {copyAsTextDialog,UTILS}=await load('utils-ui.ts'),{PlaylistUI}=await load('playlist-ui.ts'),{openTagToTag}=await load('tag-tag-ui.ts');
 const {offerOpenOutputs,ExportUI}=await load('export-ui.ts');
+const {ConfigurationTransferUI,SavedConfigurationWrites}=await load('configuration-transfer.ts');
 const {FileOpsUI,nameList,defaultDirectoryState,startupChoice}=await load('file-ops.ts');
 const {copiedMessage,pastePlan,copyTags}=await load('tag-clipboard.ts');
 const {cleanupText,libraryOptionsPage}=await load('library.ts');
@@ -83,7 +84,14 @@ function mainMessage(call,needle,index,values){
   const js=ts.transpileModule(`return ${expression.getText(parsed)};`,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
   return new Function(...Object.keys(values),js)(...Object.values(values));
 }
-const configurationMessage=values=>mainMessage('ask','TagGroove reloads its window',0,values);
+async function configurationReview(p,path){
+  const calls=[];
+  const ui=new ConfigurationTransferUI({pickLoad:async()=>path,flush:async()=>{},capture:()=>({version:1,preferences:{},workspace:null}),inspectWorkspace:async()=>[],invoke:async(command,args)=>{calls.push([command,args]);assert.equal(command,'configuration_transfer_preview');return{token:'review',version:2,source_hash:'fixture',files:['options.json'],export_assets:[],preference_keys:[],preferences_available:false,workspace:null,workspace_available:true,unavailable:[],warnings:[],replaces_snapshot:false};},fail:error=>{throw error;}});
+  const done=ui.load();
+  for(let i=0;i<10&&!p.body.querySelector('.configuration-transfer-dialog');i++)await Promise.resolve();
+  const dialog=p.body.querySelector('.configuration-transfer-dialog');assert.ok(dialog);
+  return{dialog,done,calls};
+}
 const removalMessage=(count,tags)=>mainMessage('messages.confirm','removeTagParts',1,{removeTagParts,selected:{size:count},optionsUI:{settings:{tags}}});
 function page(){
   const window=new Window();
@@ -893,12 +901,13 @@ test('actual playlist expansion retains independently indexed diagnostics while 
   }
 });
 test('actual invoke normalizes only covered command replies before callers merge errors in both performance paths',async()=>{
-  const fn=parsed.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text==='invoke'),choice=parsed.statements.filter(ts.isVariableStatement).flatMap(node=>[...node.declarationList.declarations]).find(node=>node.name.getText(parsed)==='DIAGNOSTIC_COMMANDS');
-  const js=ts.transpileModule(`const ${choice.getText(parsed)};${fn.getText(parsed)};return invoke;`,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
+  const functions=['invoke','invokeUntracked'].map(name=>parsed.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text===name).getText(parsed)).join('\n'),choice=parsed.statements.filter(ts.isVariableStatement).flatMap(node=>[...node.declarationList.declarations]).find(node=>node.name.getText(parsed)==='DIAGNOSTIC_COMMANDS');
+  const saved=parsed.statements.filter(ts.isVariableStatement).flatMap(node=>[...node.declarationList.declarations]).find(node=>node.name.getText(parsed)==='savedConfigurationCommands');
+  const js=ts.transpileModule(`const ${choice.getText(parsed)};const ${saved.getText(parsed)};const configurationWrites=new SavedConfigurationWrites();${functions};return invoke;`,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
   const fixture=batchDiagnosticCases[0],row={path:'Help',error:fixture.source};
   for(const measured of [false,true])for(const metadata of [undefined,[],[{index:0,diagnostic:fixture.diagnostic}],null,[{index:2,diagnostic:fixture.diagnostic}]]){
     const raw={entries:[],errors:[row],...(metadata===undefined?{}:{error_diagnostics:metadata})},records=[];
-    const invoke=new Function('normalizeBatchDiagnostics','coreInvoke','perfSink','performance',js)(normalizeBatchDiagnostics,async()=>raw,()=>measured?records:undefined,performance);
+    const invoke=new Function('normalizeBatchDiagnostics','coreInvoke','perfSink','performance','SavedConfigurationWrites',js)(normalizeBatchDiagnostics,async()=>raw,()=>measured?records:undefined,performance,SavedConfigurationWrites);
     const shown=await invoke('execute_action_groups');
     assert.equal(shown.errors[0].diagnostic!==undefined,Array.isArray(metadata)&&metadata.length===1&&metadata[0].index===0);
     assert.equal(shown.errors[0].diagnosticRaw===true,metadata===undefined||metadata===null||metadata?.[0]?.index===2);
@@ -1567,18 +1576,17 @@ test('native Remove Tag translates empty settings and conjunctions while preserv
   }
 });
 test('structured confirmations translate source parts once through Messages and the native ask wrapper',async()=>{
-  const first='Replace the current options, action groups, export configurations, columns, tag panel, favorite directories and remembered lists with {path}?';
-  const reload='TagGroove reloads its window afterwards. The Discogs access token is not part of a configuration file.';
-  const translator=new Translator('en',{[first]:'Save tags',[reload]:'Save tags','Save tags':'Write tags','Save tags Save tags':'Incorrect second translation',
+  const translator=new Translator('en',{'Save tags':'Write tags',
     'Remove tags from {count} selected files?':'Save tags','MP3, TTA: {kinds}':'Save tags','APE, MPC, WavPack, TAK, OptimFROG: {kinds}':'Save tags','Other formats: all tags':'Save tags',
-    'Save tags Save tags Save tags Save tags':'Incorrect second translation',Yes:'Save tags',No:'Keep tags','Load configuration':'Save tags','Remove tag':'Save tags'});
+    'Save tags Save tags Save tags Save tags':'Incorrect second translation',Yes:'Save tags',No:'Keep tags','Remove tag':'Save tags'});
   const calls=[],nativeSource=(await source('i18n/dialog.ts')).replace(/^import .*;\r?\n/gm,'').replace(/^export /gm,'');
   const js=ts.transpileModule(nativeSource,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
   const ask=new Function('dialog','t','translate','translationActive',`${js}\nreturn ask;`)({ask:async(...args)=>{calls.push(args);return false;}},key=>translator.t(key),text=>translator.translate(text),()=>true);
-  await ask(configurationMessage({translate:text=>translator.translate(text),basename:path=>path,path:'Help  Title.json',drafts:{size:0}}),'Load configuration');
-  assert.equal(calls.at(-1)[0],'Save tags\n\nSave tags');
+  const tags={mpeg:{remove_id3v1:true},ape:{remove_ape:true}};
+  await ask(removalMessage(2,tags),'Remove tag');
+  assert.equal(calls.at(-1)[0],'Save tags\n\nSave tags\nSave tags\nSave tags');
   assert.deepEqual(calls.at(-1)[1],{title:'Save tags',okLabel:'Save tags',cancelLabel:'Keep tags'});
-  const messages=new Messages({values:()=>({}),ask:(text,title)=>ask(text,title)}),tags={mpeg:{remove_id3v1:true},ape:{remove_ape:true}};
+  const messages=new Messages({values:()=>({}),ask:(text,title)=>ask(text,title)});
   await messages.confirm('confirm_remove_tags',removalMessage(2,tags),'Remove tag');
   assert.equal(calls.at(-1)[0],'Save tags\n\nSave tags\nSave tags\nSave tags');
 });
@@ -1711,15 +1719,18 @@ for(const locale of ['de','nl']){
     assert.ok(removal.includes(`${newline}${newline}MP3, TTA: ID3v1${newline}APE, MPC, WavPack, TAK, OptimFROG: APE${newline}`),removal);
     assert.notEqual(removal.split(newline)[0],'Remove tags from 2 selected files?');
     assert.notEqual(removal.split(newline).at(-1),'Other formats: all tags');
-    for(const size of [0,1,2]){
-      const filename=`Help  ${newline}Title.json`;
-      const prompt=configurationMessage({basename:path=>path,path:filename,drafts:{size}});
-      await ask({...prompt,separator:newline+newline},'Load configuration');
-      const configuration=calls.at(-1)[0];
-      assert.ok(configuration.includes(filename),configuration);
-      assert.ok(configuration.includes(`${newline}${newline}${translator.t('TagGroove reloads its window afterwards. The Discogs access token is not part of a configuration file.')}`),configuration);
-      assert.notEqual(configuration.split(newline)[0].startsWith('Replace the current options'),true);
-    }
+    const p=page();try{
+      const filename=`Help  ${newline}Title.json`,{dialog,done,calls:reviewCalls}=await configurationReview(p,filename);
+      const t=p.translate(locale);
+      assert.equal(dialog.querySelector('p[translate="no"]').textContent,filename);
+      assert.equal(dialog.querySelector('header').textContent,t.t('Review saved configuration'));
+      const paragraphs=[...dialog.querySelectorAll('.dialog-content > p')].map(node=>node.textContent);
+      assert.ok(paragraphs.includes(t.t('Restore saved configuration and local workspace references only. Unsaved audio, artwork and action-editor changes are not included. No audio tags are saved by this operation.')));
+      assert.ok(paragraphs.includes(t.t('Unselected components and the current file list are preserved. Restoring a selected empty workspace clears the list.')));
+      assert.equal(dialog.querySelector('[data-apply]').textContent,t.t('Replace selected configuration'));
+      dialog.querySelector('[data-cancel]').click();await done;
+      assert.deepEqual(reviewCalls.map(([command])=>command),['configuration_transfer_preview'],'cancelling review never applies configuration');
+    }finally{p.close();}
   });
   test(`${locale}: generated copy, playlist and tag-to-tag previews retain data and translate their controls`,async()=>{
     const p=page();

@@ -296,7 +296,14 @@ pub async fn load_tag_panel(app: tauri::AppHandle) -> Result<Settings, String> {
 #[tauri::command]
 pub async fn save_tag_panel(app: tauri::AppHandle, settings: Settings) -> Result<(), String> {
     let path = settings_path(&app)?;
-    super::io(move || save(&path, &settings)).await
+    super::io(move || {
+        let _guard = crate::profile_migration::mutation_guard(
+            path.parent()
+                .ok_or("Configuration directory is unavailable")?,
+        )?;
+        save(&path, &settings)
+    })
+    .await
 }
 #[tauri::command]
 pub async fn import_tag_panel_layout(path: String) -> Result<Layout, String> {
@@ -304,7 +311,11 @@ pub async fn import_tag_panel_layout(path: String) -> Result<Layout, String> {
 }
 #[tauri::command]
 pub async fn export_tag_panel_layout(path: String, panel: Layout) -> Result<(), String> {
-    super::io(move || export_layout(Path::new(&path), &panel)).await
+    super::io(move || {
+        let _guard = crate::profile_migration::auxiliary_configuration_guard(Path::new(&path))?;
+        export_layout(Path::new(&path), &panel)
+    })
+    .await
 }
 #[tauri::command]
 pub async fn import_value_list(path: String) -> Result<Vec<String>, String> {
@@ -312,7 +323,11 @@ pub async fn import_value_list(path: String) -> Result<Vec<String>, String> {
 }
 #[tauri::command]
 pub async fn export_value_list(path: String, values: Vec<String>) -> Result<(), String> {
-    super::io(move || write_value_list(Path::new(&path), &values)).await
+    super::io(move || {
+        let _guard = crate::profile_migration::auxiliary_configuration_guard(Path::new(&path))?;
+        write_value_list(Path::new(&path), &values)
+    })
+    .await
 }
 
 #[cfg(test)]

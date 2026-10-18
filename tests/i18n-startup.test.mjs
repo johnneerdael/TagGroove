@@ -29,16 +29,19 @@ async function boot({native=true,remembered='fr',choice=remembered,preferred=['e
   window.document.documentElement.lang='en';window.document.body.innerHTML='<div id="app"></div>';window.localStorage.setItem('opentag.language',remembered);window.localStorage.setItem('opentag.last-version','0.2.0');
   const settings=deferred(),catalogs=deferred(),directories=deferred(),calls=[],events=new Map(),titles=[],paints=[];
   const recovery=profile?{id:'profile-receipt',attempted:profile.attempted??false,failed:profile.failed??false,window:{version:1,preferences:{'opentag.language':remembered},workspace:{paths:['/A.flac'],selected:['/A.flac'],roots:['/'],location:'/',location_is_data:true,filter:'',filter_draft:null,anchor:'/A.flac',playlist:null}}}:null;let pending=recovery,profileReads=0;
-  const host={native,calls,events,picks:[],profileCalls:[],get pending(){return pending;},drag:undefined,settings,catalogs,directories,defaults:undefined,scan:[],scanRecords:[],scanErrors:[],launches:structuredClone(initialLaunches),nativeWindow:{setTitle:async title=>titles.push(title),setTheme:async()=>{},onCloseRequested:async()=>()=>{},isMaximized:async()=>false,isMinimized:async()=>false},invoke:async(command,args,factories)=>{
+  const host={native,calls,events,picks:[],profileCalls:[],reloads:0,restoreCalls:[],get pending(){return pending;},drag:undefined,settings,catalogs,directories,defaults:undefined,scan:[],scanRecords:[],scanErrors:[],launches:structuredClone(initialLaunches),nativeWindow:{setTitle:async title=>titles.push(title),setTheme:async()=>{},onCloseRequested:async()=>()=>{},isMaximized:async()=>false,isMinimized:async()=>false},invoke:async(command,args,factories)=>{
     calls.push(command);host.defaults=factories;
     if(command==='profile_migration_status'){
       host.profileCalls.push(args);profileReads++;
       if(rejectExtraProfileReads&&profileReads>1&&!args?.start&&!args?.ack)throw new Error('second status read refused');
+      if(args?.retry){assert.equal(args.retry,pending.id);pending.attempted=false;pending.failed=false;}
+      if(args?.settingsOnly){assert.equal(args.settingsOnly,pending.id);pending.window.workspace=null;pending.attempted=false;pending.failed=false;}
       if(args?.start){if(profile?.failure==='claim')throw new Error('controlled claim refusal');assert.equal(args.start,pending.id);pending.attempted=true;}
       if(args?.failed){if(profile?.failure==='failure-receipt')throw new Error('controlled failure receipt refusal');assert.equal(args.failed,pending.id);pending.failed=true;}
       if(args?.ack){assert.equal(args.ack,pending.id);if(profile?.failure==='ack')throw new Error('controlled acknowledgement refusal');pending=null;}
       return{desktop:true,phase:profile?'applied':'none',report:null,restorable:!!profile,pending:structuredClone(pending),preference_keys:profile?['opentag.language']:[]};
     }
+    if(command==='profile_migration_restore'){host.restoreCalls.push(args);pending={...pending,id:'restored-receipt',attempted:false,failed:false};return{desktop:true,phase:'restored',report:null,restorable:true,pending:structuredClone(pending),preference_keys:['opentag.language']};}
     if(command==='load_settings')return settings.promise;
     if(command==='language_catalogs')return catalogs.promise;
     if(command==='runtime_platform'){if(platformFailure)throw new Error('runtime unavailable');return{family:'desktop',folder_picker_supported:true,document_access_supported:false};}
@@ -62,6 +65,7 @@ async function boot({native=true,remembered='fr',choice=remembered,preferred=['e
     if(command==='save_directory_state')return;
     throw new Error('Unexpected native invocation: '+command);
   }};
+  window.location.reload=()=>{host.reloads++;};
   globalThis.__BOOT_HOST__=host;
   const app=window.document.querySelector('#app'),visible=()=>window.getComputedStyle(app).visibility!=='hidden'&&window.getComputedStyle(app).display!=='none';
   let frame=0;
@@ -223,13 +227,23 @@ test('successful workspace recovery suppresses only favorite fallback when no ex
     assert.deepEqual(fixture.host.scan,[['/A.flac']]);assert.ok(fixture.app.querySelector('tr[data-path="/A.flac"]'));assert.equal(fixture.host.pending,null);
   }finally{await fixture.close();}
 });
-test('failed workspace reads retain the attempted receipt and still admit explicit launches or the existing favorite fallback',async()=>{
-  for(const explicit of [false,true]){
+test('failed workspace reads block launch and favorite fallback until an explicit recovery choice',async()=>{
+  for(const explicit of [false,true])for(const choice of ['retry','settings-only','previous']){
     const fixture=await boot({remembered:'en',choice:'en',profile:{failure:'scan'},initialLaunches:explicit?[{directories:[],files:['/B.flac'],add:false}]:[]});
     try{
-      await finishProfileBoot(fixture);const path=explicit?'/B.flac':'/fallback/track.flac';await until(()=>!fixture.app.inert&&fixture.app.querySelector(`tr[data-path="${path}"]`));
-      assert.deepEqual(fixture.host.scan,[['/A.flac'],[explicit?'/B.flac':'/fallback']]);assert.equal(fixture.host.pending.attempted,true);assert.ok(!fixture.host.profileCalls.some(args=>args?.ack));
-      assert.match(fixture.app.querySelector('.errors').textContent,/Open Restore setup to retry/);
+      await finishProfileBoot(fixture);await until(()=>fixture.window.document.querySelector('dialog[aria-label="Restore setup"]'));
+      const dialog=fixture.window.document.querySelector('dialog[aria-label="Restore setup"]');
+      assert.equal(dialog.querySelector('[data-close]').hidden,true,'failed receipt cannot silently continue startup');
+      assert.deepEqual(fixture.host.scan,[['/A.flac']]);assert.equal(fixture.host.pending.attempted,true);assert.equal(fixture.host.pending.failed,true);assert.ok(!fixture.host.calls.includes('take_launch_requests'));
+      assert.equal(fixture.host.launches.length,explicit?1:0);assert.ok(!fixture.host.profileCalls.some(args=>args?.ack));
+      assert.ok(dialog.querySelector('[data-retry]'));assert.ok(dialog.querySelector('[data-settings-only]'));assert.equal(dialog.querySelector('[data-restore]').disabled,false);
+      dialog.querySelector(choice==='retry'?'[data-retry]':choice==='settings-only'?'[data-settings-only]':'[data-restore]').click();
+      await until(()=>fixture.host.reloads===1);
+      if(choice==='previous')assert.equal(fixture.host.restoreCalls.length,1);
+      else assert.ok(fixture.host.profileCalls.some(args=>choice==='retry'?args?.retry==='profile-receipt':args?.settingsOnly==='profile-receipt'));
+      if(choice==='settings-only')assert.equal(fixture.host.pending.window.workspace,null);
+      assert.deepEqual(fixture.host.scan,[['/A.flac']],'choice reloads recovery instead of consuming launches in the old window');
+      assert.ok(!fixture.host.calls.includes('take_launch_requests'));assert.equal(fixture.host.launches.length,explicit?1:0);
     }finally{await fixture.close();}
   }
 });
@@ -241,11 +255,14 @@ test('an ambiguous workspace claim failure exposes a blocking retry and never dr
     fixture.window.document.dispatchEvent(new fixture.window.KeyboardEvent('keydown',{key:'d',ctrlKey:true,bubbles:true,cancelable:true}));await tick();assert.deepEqual(fixture.host.picks,[],'modal recovery prevents background file-picker shortcuts');
   }finally{await fixture.close();}
 });
-test('acknowledgement failure retains an actionable receipt without replacing the already restored workspace with a favorite',async()=>{
-  const fixture=await boot({remembered:'en',choice:'en',profile:{failure:'ack'}});
+test('acknowledgement failure blocks startup while preserving the restored workspace and queued launches',async()=>{
+  const fixture=await boot({remembered:'en',choice:'en',profile:{failure:'ack'},initialLaunches:[{directories:[],files:['/B.flac'],add:false}]});
   try{
-    await finishProfileBoot(fixture);await until(()=>!fixture.app.inert&&fixture.app.querySelector('tr[data-path="/A.flac"]'));
-    assert.deepEqual(fixture.host.scan,[['/A.flac']]);assert.equal(fixture.host.pending.attempted,true);assert.match(fixture.app.querySelector('.errors').textContent,/Open Restore setup to retry/);
+    await finishProfileBoot(fixture);await until(()=>fixture.window.document.querySelector('dialog[aria-label="Restore setup"]'));
+    const dialog=fixture.window.document.querySelector('dialog[aria-label="Restore setup"]');
+    assert.deepEqual(fixture.host.scan,[['/A.flac']]);assert.ok(fixture.app.querySelector('tr[data-path="/A.flac"]'));assert.equal(fixture.host.pending.attempted,true);assert.equal(fixture.host.pending.failed,true);
+    assert.equal(dialog.querySelector('[data-close]').hidden,true);assert.ok(dialog.querySelector('[data-retry]'));assert.ok(dialog.querySelector('[data-settings-only]'));assert.equal(dialog.querySelector('[data-restore]').disabled,false);
+    assert.ok(!fixture.host.calls.includes('take_launch_requests'));assert.equal(fixture.host.launches.length,1);assert.equal(fixture.host.reloads,0);
   }finally{await fixture.close();}
 });
 

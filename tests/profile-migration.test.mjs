@@ -6,7 +6,7 @@ import {Window} from 'happy-dom';
 
 const source=await readFile(new URL('../src/profile-migration.ts',import.meta.url),'utf8');
 const javascript=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText;
-const {ProfileMigrationUI,bootstrapProfileMigration,captureProfilePreferences,restoreProfilePreferences}=await import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);
+const {ProfileMigrationUI,bootstrapProfileMigration,captureProfilePreferences,captureProfileWindow,restoreProfilePreferences}=await import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);
 const workspace=()=>({paths:['/Music/practice.flac'],selected:['/Music/practice.flac'],roots:['/Music'],location:'/Music',location_is_data:true,filter:'Artist HAS Practice',filter_draft:null,anchor:'/Music/practice.flac',playlist:null});
 const windowState=()=>({version:1,preferences:{'opentag.language':'nl','opentag.filter-shown':'false','opentag.tagSources.lastBuiltIn':'source-discogs'},workspace:workspace()});
 const state=()=>({desktop:true,phase:'none',report:null,restorable:false,pending:null,preference_keys:['opentag.language','opentag.filter-shown','opentag.tagSources.lastBuiltIn']});
@@ -88,6 +88,20 @@ test('browser preference failure rolls its own writes back and cannot be reporte
     assert.equal(current.pending.id,'retained-receipt');assert.match(p.window.document.querySelector('[role="alert"]').textContent,/storage quota/);assert.ok(p.calls.some(([name])=>name==='pause'));assert.ok(!p.calls.some(([name])=>name==='reload'));p.window.document.querySelector('[data-close]').click();await running;assert.equal(p.calls.filter(([name])=>name==='reload').length,1);
   }finally{p.close();}
 });
+test('preference restoration verifies written and removed values before startup can acknowledge recovery',async()=>{
+  for(const ignored of ['set','remove']){
+    const data=new Map([['opentag.language','en'],['opentag.filter-shown','true']]);
+    const before=[...data];
+    const storage={getItem:key=>data.get(key)??null,setItem:(key,value)=>{if(!(ignored==='set'&&key==='opentag.language'&&value==='nl'))data.set(key,value);},removeItem:key=>{if(!(ignored==='remove'&&key==='opentag.filter-shown'))data.delete(key);}};
+    assert.throws(()=>restoreProfilePreferences(storage,['opentag.language','opentag.filter-shown'],{'opentag.language':'nl'}),/readback/i);
+    assert.deepEqual([...data],before,'failed restoration rolls already written preferences back');
+    const current=state();current.pending={id:'unverified-browser-values',attempted:false,window:{...windowState(),preferences:{'opentag.language':'nl'}}};
+    const calls=[],invoke=async(command,args)=>{calls.push([command,args]);return current;};
+    await assert.rejects(bootstrapProfileMigration(invoke,()=>storage),/readback/i);
+    assert.deepEqual(calls,[['profile_migration_status',undefined]],'no claim or acknowledgement follows failed browser verification');
+    assert.equal(current.pending.id,'unverified-browser-values');
+  }
+});
 test('manual workspace retry gates reload and preference changes on the existing unsaved-edits decision',async()=>{
   const p=page();try{
     const current=state();current.phase='applied';current.pending={id:'retained',attempted:true,window:windowState()};current.pending.window.preferences['opentag.language']='en';
@@ -139,5 +153,56 @@ test('a lost acknowledgement response reconciles the consumed durable receipt wi
     const ui=new ProfileMigrationUI(p.host,await bootstrapProfileMigration(p.host.invoke,p.host.storage));assert.equal(await ui.restoreAfterStartup(),true);
     assert.equal(current.pending,null);assert.deepEqual(p.errors,[]);assert.ok(!p.calls.some(([name,args])=>args?.failed));
     assert.equal(await new ProfileMigrationUI(p.host,await bootstrapProfileMigration(p.host.invoke,p.host.storage)).restoreAfterStartup(),false);assert.equal(p.calls.filter(([name])=>name==='workspace').length,1);
+  }finally{p.close();}
+});
+
+test('versioned snapshots retain legacy v1 and explicitly carry complete v2 order and working directory',()=>{
+  const p=page();try{
+    assert.equal(captureProfileWindow(p.host.storage(),state().preference_keys,workspace()).version,1);
+    const current={...workspace(),version:2,working_directory:'/Music',list_order:'playlist',source_order:['/Music/practice.flac']};
+    assert.deepEqual(captureProfileWindow(p.host.storage(),state().preference_keys,current),{...windowState(),version:2,workspace:current});
+    assert.deepEqual(captureProfileWindow(p.host.storage(),state().preference_keys,null),{...windowState(),version:2,workspace:null});
+  }finally{p.close();}
+});
+
+test('settings-only mobile recovery verifies preferences and acknowledges without loading a startup workspace',async()=>{
+  const p=page();try{
+    const current={...state(),desktop:false,pending:{id:'portable-settings',attempted:false,window:{...windowState(),version:2,workspace:null}}};
+    p.host.storage().setItem('opentag.language','en');
+    p.host.invoke=async(command,args)=>{p.calls.push([command,args]);if(args?.start)current.pending.attempted=true;if(args?.ack)current.pending=null;return structuredClone(current);};
+    let completed=false;p.host.recovered=state=>{assert.equal(state.pending,null);completed=true;};
+    const initial=await bootstrapProfileMigration(p.host.invoke,p.host.storage);
+    assert.equal(p.host.storage().getItem('opentag.language'),'nl');
+    assert.equal(await new ProfileMigrationUI(p.host,initial).finishStartupRecovery(),true,'completion suppresses incidental startup-folder loading');
+    assert.ok(!p.calls.some(([name])=>name==='workspace'));
+    assert.equal(current.pending,null);
+    assert.equal(completed,true,'complete is reported only after the shared durable acknowledgement');
+  }finally{p.close();}
+});
+
+test('failed startup recovery requires explicit settings-only choice and keeps ordinary startup gated until reload',async()=>{
+  const p=page();try{
+    const current={...state(),phase:'applied',restorable:true,pending:{id:'missing-workspace',attempted:true,failed:true,window:{...windowState(),version:2,workspace:{...workspace(),version:2,working_directory:'/Music',list_order:'manual',source_order:null}}}};
+    p.host.invoke=async(command,args)=>{p.calls.push([command,args]);if(args?.settingsOnly){assert.equal(args.settingsOnly,'missing-workspace');current.pending.window.workspace=null;current.pending.failed=false;current.pending.attempted=false;}return structuredClone(current);};
+    let admitted=false;void new ProfileMigrationUI(p.host,current).finishStartupRecovery().then(()=>{admitted=true;});await settle();
+    const dialog=p.window.document.querySelector('dialog');assert.equal(dialog.querySelector('[data-close]').hidden,true);assert.match(dialog.textContent,/file list starts empty/);
+    dialog.querySelector('[data-settings-only]').click();await settle();
+    assert.equal(current.pending.window.workspace,null);assert.ok(p.calls.some(([name])=>name==='reload'));assert.equal(admitted,false);assert.ok(!p.calls.some(([name,args])=>name==='profile_migration_status'&&args?.ack),'the next bootstrap verifies/acknowledges the rearmed settings-only receipt');
+  }finally{p.close();}
+});
+test('required recovery status failure reaches the blocking startup retry surface',async()=>{
+  const p=page();try{
+    const current={...state(),pending:{id:'failed',attempted:true,failed:true,window:windowState()}};
+    p.host.invoke=async()=>{throw new Error('recovery state unavailable');};
+    const outcome=await Promise.race([new ProfileMigrationUI(p.host,current).finishStartupRecovery().then(()=> 'admitted',error=>String(error)),new Promise(resolve=>setTimeout(()=>resolve('unreachable recovery UI'),30))]);
+    assert.match(outcome,/recovery state unavailable/);assert.equal(p.errors.length,0,'the main blocking retry surface owns required startup errors');
+  }finally{p.close();}
+});
+test('shared rollback report names portable configuration restores and shows selected counts and omissions',async()=>{
+  const p=page();try{
+    const current={...state(),phase:'applied',restorable:true,report:{operation:'configuration',items:[],imported:['settings.json'],kept:[],source_hash:'portable-hash',configuration:{version:2,files:1,export_assets:2,preferences:0,workspace_rows:0,omitted:['Incoming workspace was not selected; the current captured workspace is preserved.']}}};
+    p.host.invoke=async()=>structuredClone(current);const running=new ProfileMigrationUI(p.host,current).restore();await settle();const dialog=p.window.document.querySelector('dialog');
+    assert.match(dialog.textContent,/Last configuration restore/);assert.match(dialog.textContent,/1 saved components/);assert.match(dialog.textContent,/2 export templates/);assert.match(dialog.textContent,/current captured workspace is preserved/);assert.ok(!dialog.textContent.includes('Last setup import'));assert.ok(!dialog.textContent.includes('Legacy codepage:'));
+    dialog.querySelector('[data-close]').click();await running;
   }finally{p.close();}
 });

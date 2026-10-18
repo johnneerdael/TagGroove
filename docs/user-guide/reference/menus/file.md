@@ -92,15 +92,19 @@ the current provider-document/save-back limitations.
 | Item | Result |
 | --- | --- |
 | **Options…** | Open application preferences |
-| **Save configuration…** | Save a configuration archive for backup/transfer |
-| **Load configuration…** | Choose and load a supported configuration archive |
+| **Save configuration…** | Back up saved settings, active export templates, remembered choices and local workspace references |
+| **Load configuration…** | Preview and restore selected components of a supported configuration archive |
+| **Import Mp3tag setup…** | Inspect a supported user-owned setup folder/ZIP before selecting items to import; shown on supported desktop builds |
+| **Restore setup…** | Inspect pending setup recovery or restore the previous local setup checkpoint; shown with desktop setup import |
 | **Open configuration folder** | Open the folder containing the app's settings/configuration files |
 
 A configuration archive is not a backup of the audio library. Keep original
 media and any report outputs separately. Loading configuration changes app
 settings, actions, exports, layouts and remembered lists. After confirmation,
-loading discards pending edits and reloads the window. Inspect the selected
-archive and save edits you need first. The Discogs access token is not included
+a successful application discards the confirmed pending edits and reloads
+the window; opening or canceling preview does not. Inspect the selected
+components and save edits you need first. See
+[configuration backup and recovery](../../customize/configuration.md). The Discogs access token is not included
 in the configuration archive.
 
 The current webview File menu has no separate **Exit** item. Close the window

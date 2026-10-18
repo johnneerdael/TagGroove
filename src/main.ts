@@ -28,7 +28,8 @@ import { removeTagTypesDialog, mp4ChapterFiles, stripChaptersPrompt, copyAsTextD
 import { ExtendedTags } from './extended-tags';
 import { isMacPlatform, isTextEntry, altChord, nextPane, windowShortcut, type Pane, type WindowShortcut } from './keyboard';
 import { WebSourcesUI, menuLabel } from './web-sources';
-import { ProfileMigrationUI, bootstrapProfileMigration, showProfileRecoveryFailure, type ProfileWorkspace } from './profile-migration';
+import { ProfileMigrationUI, bootstrapProfileMigration, captureProfileWindow, showProfileRecoveryFailure, type ProfileWorkspace, type ProfileWorkspaceV2 } from './profile-migration';
+import { ConfigurationTransferUI, SavedConfigurationWrites } from './configuration-transfer';
 import { TagSourcesUI, webScriptErrorText, tagSourcesOptionsPages, type IndexStatus } from './tag-sources';
 import { ActionUI, panelKey, rebaseCaseOnly, resolvePathChanges, type ActionGroup, type ActionLibrary, type ImportedGroup } from './action-ui';
 import { ColumnUI, ColumnValueCache, columnFields, columnName, setColumnNameTranslation, defaultLayout, editKey, headerMarkup, maxColumnWidth, minColumnWidth, normalizeLayout, quickValue, sortClick, sortIndicator, sortRows, sortTemplate, updateSortHeader, visibleColumns, type ColumnLayout } from './columns';
@@ -83,7 +84,13 @@ const perfSink=()=>(window as Window&{__OPENTAG_TIMINGS__?:PerfRecord[]}).__OPEN
 type DialogSeam={requests:{title:string;defaultPath?:string}[];answers:(string|null)[]};
 const dialogSeam=()=>(window as Window&{__OPENTAG_E2E_DIALOGS__?:DialogSeam}).__OPENTAG_E2E_DIALOGS__;
 const DIAGNOSTIC_COMMANDS=new Set(['execute_action_groups','apply_action','undo_last','redo_last','rename_files','read_playlist','tag_source_apply','convert_tag_to_tag']);
+const configurationWrites=new SavedConfigurationWrites();
+const savedConfigurationCommands=new Set(['save_settings','save_action_library','save_export_library','save_columns','save_tag_panel','save_directory_state','save_helper_lists']);
 function invoke<T>(command:string,args?:InvokeArgs):Promise<T>{
+  if(savedConfigurationCommands.has(command))return configurationWrites.run(()=>invokeUntracked<T>(command,args));
+  return invokeUntracked<T>(command,args);
+}
+function invokeUntracked<T>(command:string,args?:InvokeArgs):Promise<T>{
   const normalized=(result:T)=>normalizeBatchDiagnostics(result,DIAGNOSTIC_COMMANDS.has(command));
   const sink=perfSink();if(!sink)return coreInvoke<T>(command,args).then(normalized);
   const record:PerfRecord={name:`ipc ${command}`,at:performance.now(),ms:0,pending:true,in:JSON.stringify(args??{}).length};sink.push(record);
@@ -114,7 +121,9 @@ const profileBootstrap=desktop?await bootstrapProfileMigration(invoke,()=>window
   showProfileRecoveryFailure(document.querySelector<HTMLElement>('#app')!,error,()=>window.location.reload());
   return await new Promise<never>(()=>{});
 }):undefined;
-const profileWorkspacePending=profileBootstrap?.desktop===true&&!!profileBootstrap.pending&&!profileBootstrap.pending.failed;
+const profileWorkspacePending=!!profileBootstrap?.pending;
+let configurationRecoveryActive=profileWorkspacePending;
+if(profileWorkspacePending)configurationWrites.pause();
 const appearanceAssets = {
   light: {logo:logoLightUrl,mark:markLightUrl,artwork:artworkLightUrl,about:aboutLightUrl},
   dark: {logo:logoDarkUrl,mark:markDarkUrl,artwork:artworkDarkUrl,about:aboutDarkUrl},
@@ -538,33 +547,69 @@ const webSourcesUI=new WebSourcesUI({
   report:message=>{status=message;render();},
   fail:error=>{errors=[{path:'Tag sources',label:'Tag sources',error:error instanceof Error?error.message:String(error)}];render();},
 });
+let configurationLaunchesPending=0;
+async function coordinateConfigurationLaunches<T>(load:()=>Promise<T>):Promise<T>{
+  while(busy)await new Promise(resolve=>setTimeout(resolve,100));
+  configurationLaunchesPending++;
+  try{return await load();}finally{configurationLaunchesPending--;}
+}
+async function prepareConfigurationLoad(){
+  if(busy||configurationLaunchesPending)return false;
+  if(actionUI.hasUnsavedChanges)throw new Error('Save or close the action group editor before changing setup.');
+  const pending=new Set([...drafts.keys(),...pendingCovers.keys()]);
+  return !pending.size||await messages.confirm('unsaved_changes',`Discard pending audio and artwork changes in ${pending.size} files only after the selected setup is successfully applied? Unsaved edits are not included in configuration backups.`,'Unsaved changes');
+}
+async function flushSavedConfiguration(){
+  if(configurationRecoveryActive)return;
+  if(layoutSaveTimer){window.clearTimeout(layoutSaveTimer);layoutSaveTimer=0;const saving=mainLayout;ownLayoutSave=JSON.stringify(normalizeMainLayout(saving));await optionsUI.updatePage('layout',saving);}
+  await configurationWrites.flush();await helperLists.ready;await helperLists.flush();await configurationWrites.flush();
+}
+function captureConfigurationWorkspace():ProfileWorkspaceV2|null {
+  const paths=[...entries.keys()];
+  const references=[...listRoots,...(fileOps.history.current?[fileOps.history.current]:[]),...(loadedPlaylist?[loadedPlaylist]:[]),...(locationIsData?[location]:[])];
+  if(references.some(path=>!path.startsWith('/'))||paths.some(path=>!rowFile(path).startsWith('/')||!!documentAccess.states[rowFile(path)]))return null;
+  return{version:2,paths,selected:[...selected],roots:[...listRoots],working_directory:fileOps.history.current??null,list_order:listOrder,source_order:sourceOrder?rankSourceRows([...entries.values()],sourceOrder).map(entry=>entry.path):null,location,location_is_data:locationIsData,filter,filter_draft:filterDraft??null,anchor:anchor??null,playlist:loadedPlaylist??null};
+}
+async function readConfigurationWorkspace(workspace:ProfileWorkspace){
+  const batch=workspace.paths.length?await invoke<Batch>('scan_files',{paths:[...workspace.paths],recursive:false,exactRows:true}):{entries:[],errors:[]};
+  const available=new Map(batch.entries.map(entry=>[entry.path,entry]));
+  const unavailable=[...new Set([...batch.errors.map(error=>error.path),...workspace.paths.filter(path=>!available.has(path))])];
+  return{batch,available,unavailable};
+}
+async function restoreConfigurationWorkspace(workspace:ProfileWorkspace){
+  status='Restoring setup workspace…';render();
+  const {available,unavailable}=await readConfigurationWorkspace(workspace);
+  if(unavailable.length)throw new Error(`Workspace restoration is incomplete: ${unavailable.length} unavailable rows. ${unavailable.join('\n')}`);
+  const restored=workspace.paths.map(path=>available.get(path)!);
+  if('version'in workspace){await invoke('set_working_directory',{path:workspace.working_directory});fileOps.history.current=workspace.working_directory??undefined;}
+  clearWorkspace();accept({entries:restored,errors:[]},'Restored setup workspace',false);
+  entries.clear();restored.forEach(entry=>entries.set(entry.path,entry));
+  selected.clear();workspace.selected.forEach(path=>selected.add(path));listRoots=[...workspace.roots];location=workspace.location;locationIsData=workspace.location_is_data;filter=workspace.filter;filterDraft=workspace.filter_draft??undefined;anchor=workspace.anchor??undefined;loadedPlaylist=workspace.playlist??undefined;
+  if('version'in workspace){sourceOrder=workspace.source_order??undefined;listOrder=workspace.list_order;}
+  changedData();render();return true;
+}
 const profileMigrationUI=new ProfileMigrationUI({
   invoke,
   pick:async folder=>{const result=await open(folder?{directory:true,multiple:false,title:'Choose Mp3tag setup folder'}:{multiple:false,title:'Choose Mp3tag setup ZIP',filters:[{name:'Setup ZIP',extensions:['zip']}]});return typeof result==='string'?result:null;},
-  prepare:async()=>{
-    if(busy)return false;
-    if(actionUI.hasUnsavedChanges)throw new Error('Save or close the action group editor before changing setup.');
-    const pending=new Set([...drafts.keys(),...pendingCovers.keys()]);
-    if(pending.size){
-      if(!await messages.confirm('unsaved_changes',`Discard pending audio and artwork changes in ${pending.size} files before changing setup? Setup restore cannot recover unsaved audio edits.`,'Unsaved changes'))return false;
-      [...pending].forEach(discardDrafts);changedData();render();
-    }
-    return true;
-  },
-  flush:async()=>{await helperLists.ready;await helperLists.flush();},pause:()=>helperLists.pause(),storage:()=>window.localStorage,
-  workspace:()=>({paths:[...entries.keys()],selected:[...selected],roots:[...listRoots],location,location_is_data:locationIsData,filter,filter_draft:filterDraft??null,anchor:anchor??null,playlist:loadedPlaylist??null}),
-  restoreWorkspace:async(workspace:ProfileWorkspace)=>{
-    status='Restoring setup workspace…';render();
-    const batch=workspace.paths.length?await invoke<Batch>('scan_files',{paths:[...new Set(workspace.paths.map(rowFile))],recursive:false}):{entries:[],errors:[]};
-    const available=new Set(batch.entries.map(entry=>entry.path));
-    if(batch.errors.length||workspace.paths.some(path=>!available.has(path)))throw new Error('Some workspace files are unavailable. Retry workspace restoration from Restore setup when they are accessible.');
-    clearWorkspace();accept(batch,'Restored setup workspace',false);
-    const restored=workspace.paths.map(path=>entries.get(path)!);entries.clear();restored.forEach(entry=>entries.set(entry.path,entry));
-    selected.clear();workspace.selected.forEach(path=>selected.add(path));listRoots=[...workspace.roots];location=workspace.location;locationIsData=workspace.location_is_data;filter=workspace.filter;filterDraft=workspace.filter_draft??undefined;anchor=workspace.anchor??undefined;loadedPlaylist=workspace.playlist??undefined;changedData();render();return true;
-  },
+  prepare:prepareConfigurationLoad,
+  flush:flushSavedConfiguration,pause:()=>{configurationWrites.pause();helperLists.pause();},storage:()=>window.localStorage,
+  workspace:captureConfigurationWorkspace,restoreWorkspace:restoreConfigurationWorkspace,
   reload:()=>window.location.reload(),
+  recovered:state=>{const summary=state.report?.configuration;if(summary){status=`Saved configuration restoration completed: ${summary.files} saved components, ${summary.export_assets} export templates, ${summary.preferences} saved preference values and ${summary.workspace_rows} imported workspace rows. ${summary.omitted.join(' ')}`;render();}},
   fail:error=>{errors=[{path:'Setup migration',label:'Setup migration',error:publicMessage(error)}];status='Setup migration requires attention.';render();},
 },profileBootstrap);
+const configurationTransferUI=new ConfigurationTransferUI({
+  invoke,preferenceKeys:()=>profileBootstrap?.preference_keys??[],recoveryPending:()=>configurationRecoveryActive,
+  pickSave:()=>save({title:'Save configuration',defaultPath:configurationFileName(),filters:[CONFIGURATION_FILTER]}),
+  pickLoad:async()=>{const path=await open({multiple:false,title:'Load configuration',filters:[CONFIGURATION_FILTER]});return typeof path==='string'?path:null;},
+  capture:keys=>captureProfileWindow(window.localStorage,keys,captureConfigurationWorkspace()),
+  flush:flushSavedConfiguration,prepare:prepareConfigurationLoad,
+  pause:()=>{configurationWrites.pause();helperLists.pause();},resume:()=>{configurationWrites.resume();helperLists.resume();},
+  hold:held=>{busy=held;app.inert=held;render();},
+  inspectWorkspace:async workspace=>(await readConfigurationWorkspace(workspace)).unavailable,
+  reload:()=>window.location.reload(),report:text=>{status=text;render();},
+  fail:error=>{errors=[{path:'Configuration',label:'Configuration',error:publicMessage(error)}];status='Configuration transfer failed';render();},
+});
 
 async function executeGroups(groups:ActionGroup[]){
   if(!enabled('action'))throw new Error(operationReason('action')||'Select files and save pending tag edits before applying actions.');
@@ -878,6 +923,7 @@ function updateVirtualRows(force=false){
   timing('table window',startTime,{rendered:end-start,first:start,last:end});
 }
 function operationReason(op:Operation):string {
+  if((op==='config-save'||op==='config-load')&&(profileBootstrap?.desktop!==true||runtimePlatform.family!=='desktop'))return 'Configuration backup and restore are available in the desktop app.';
   // Cover aliases share the cover window's edit policy; reading a saved cover
   // remains possible when tag edits or source write access prevent mutations.
   if(op in coverOperations)return op==='cover-copy'||op==='cover-extract'?'':operationReason('add-cover');
@@ -902,6 +948,7 @@ function enabled(op: Operation): boolean {
   if (op === 'about' || op === 'toggle-panel' || op === 'help-shortcuts' || op === 'toggle-filter' || op === 'toggle-toolbar' || op === 'toolbar-customize' || op === 'toggle-custom-toolbar' || op === 'custom-toolbar-customize') return true;
   if (op === 'source-last' || op === 'source-last-quick') return enabled(lastSourceOp(op==='source-last-quick'));
   if (busy) return false;
+  if(op==='config-save'||op==='config-load')return profileBootstrap?.desktop===true&&runtimePlatform.family==='desktop';
   if(op in coverOperations)return coverUI.canRun(coverOperations[op as CoverOperation]);
   if (op === 'select-all') return visible().length > 0;
   if (op === 'discard') return dirtySelected();
@@ -1986,15 +2033,8 @@ async function operateImpl(op: Operation) {
   if(op==='profile-import'){await profileMigrationUI.open();return;}
   if(op==='profile-restore'){await profileMigrationUI.restore();return;}
   if(op==='config-folder'){await invoke('open_configuration_folder');return;}
-  if(op==='config-save'){const outputPath=await save({title:'Save configuration',defaultPath:configurationFileName(),filters:[CONFIGURATION_FILTER]});if(outputPath){const count=await invoke<number>('export_configuration',{outputPath});status=`Saved ${count} configuration file${count===1?'':'s'} to ${basename(outputPath)}`;render();}return;}
-  if(op==='config-load'){
-    const path=await open({multiple:false,title:'Load configuration',filters:[CONFIGURATION_FILTER]});if(typeof path!=='string')return;
-    // Pass source paragraphs to the native boundary; it translates once, then joins the layout.
-    if(!await ask({parts:[`Replace the current options, action groups, export configurations, columns, tag panel, favorite directories and remembered lists with ${basename(path)}?${drafts.size?` Pending changes in ${drafts.size} file${drafts.size===1?'':'s'} are discarded.`:''}`,'TagGroove reloads its window afterwards. The Discogs access token is not part of a configuration file.'],separator:'\n\n'},{title:'Load configuration',kind:'warning'}))return;
-    // Remembered lists are part of the configuration; nothing may save over the restored ones.
-    await helperLists.flush().catch(()=>{});helperLists.pause();
-    const restored=await invoke<string[]>('import_configuration',{path});drafts.clear();status=`Loaded ${restored.length} configuration file${restored.length===1?'':'s'}`;window.location.reload();return;
-  }
+  if(op==='config-save'){await configurationTransferUI.save();return;}
+  if(op==='config-load'){await configurationTransferUI.load();return;}
   if(op==='csv'){const outputPath=await save({title:'Export tags as CSV',defaultPath:'tags.csv',filters:[{name:'CSV file',extensions:['csv']}]});if(outputPath&&await run('Exporting…',async()=>{await invoke('export_csv',{paths:paths(),outputPath});status=`Exported ${selected.size} files to ${basename(outputPath)}`;return true;}))await offerOpen([outputPath]);}
 }
 async function listOperation(op:Operation){
@@ -2166,11 +2206,11 @@ if(desktop){
   void actionUI.initialize().catch(error=>{errors=[{path:'Action groups',label:'Action groups',error:String(error)}];render();});
   void invoke<ColumnLayout|null>('load_columns').then(layout=>{if(layout){columnLayout=normalizeLayout(layout);render();}}).catch(error=>{errors=[{path:'Columns',label:'Columns',error:String(error)}];render();});
   void tagPanel.initialize().catch(error=>{errors=[{path:'Tag panel',label:'Tag panel',error:String(error)}];render();});
-  const optionsReady=optionsUI.initialize().then(async response=>{collator=naturalCollator(response.settings);toolbarConfig=normalizeToolbar(response.settings.pages.toolbar);customToolbar=normalizeCustomToolbar(response.settings.pages['custom-toolbar']);if(response.settings.pages.layout)updateLayout(normalizeMainLayout(response.settings.pages.layout));await applyLanguage();void applyNotificationArea();changedData();applyAppearancePrefs();if(response.warning)errors=[...errors,{path:'Options',label:'Options',error:response.warning}];render();}).catch(async error=>{errors=[...errors,{path:'Options',label:'Options',error:String(error)}];await applyLanguage(languageChoice());}).finally(()=>{render();translateNow(app);app.inert=profileWorkspacePending;app.style.visibility='';syncWindowTitle();});
-  const profileWorkspaceReady=profileWorkspacePending?optionsReady.then(()=>profileMigrationUI.restoreAfterStartup()).catch(async error=>{showProfileRecoveryFailure(app,error,()=>window.location.reload());return await new Promise<never>(()=>{});}):Promise.resolve(false);
+  const optionsReady=optionsUI.initialize().then(async response=>{collator=naturalCollator(response.settings);toolbarConfig=normalizeToolbar(response.settings.pages.toolbar);customToolbar=normalizeCustomToolbar(response.settings.pages['custom-toolbar']);if(response.settings.pages.layout){mainLayout=normalizeMainLayout(response.settings.pages.layout);applyLayoutVars();}await applyLanguage();void applyNotificationArea();changedData();applyAppearancePrefs();if(response.warning)errors=[...errors,{path:'Options',label:'Options',error:response.warning}];render();}).catch(async error=>{errors=[...errors,{path:'Options',label:'Options',error:String(error)}];await applyLanguage(languageChoice());}).finally(()=>{render();translateNow(app);app.inert=profileWorkspacePending;app.style.visibility='';syncWindowTitle();});
+  const profileWorkspaceReady=profileWorkspacePending?optionsReady.then(async()=>{const restored=await profileMigrationUI.finishStartupRecovery();configurationRecoveryActive=false;configurationWrites.resume();return restored;}).catch(async error=>{showProfileRecoveryFailure(app,error,()=>window.location.reload());return await new Promise<never>(()=>{});}):Promise.resolve(false);
   let directoriesReady:Promise<unknown>=profileWorkspaceReady;
-  void Promise.all([optionsReady,versionReady]).then(([,version])=>version?startupUpdates(version):undefined);
-  const platformReady=invoke<typeof runtimePlatform>('runtime_platform').then(async platform=>{runtimePlatform=platform;nativeAppearanceReady=platform.family==='desktop';languagePage.setFolderSupport(platform.family==='desktop');render();syncNativeAppearance();if(platform.folder_picker_supported)directoriesReady=optionsReady.then(async()=>fileOps.initialize({skipStartup:await profileWorkspaceReady})).catch(error=>{errors=[{path:'Directories',label:'Directories',error:String(error)}];render();});if(platform.document_access_supported){await optionsReady;await run('Restoring recovery copies…',async()=>{const batch=await invoke<Batch>('restore_document_recovery');accept(batch,'Restored recovery copies',false);await reconcileWorkingEntries(batch.entries.map(entry=>entry.path));location='Provider documents';locationIsData=false;if(!selected.size&&batch.entries.length){selected.add(batch.entries[0].path);anchor=batch.entries[0].path;}if(!batch.entries.length&&!batch.errors.length)status='Ready';});}}).catch(error=>{errors=[{path:'Platform',label:'Platform',error:String(error)}];render();});
+  void Promise.all([optionsReady,versionReady,profileWorkspaceReady]).then(([,version])=>version?startupUpdates(version):undefined);
+  const platformReady=invoke<typeof runtimePlatform>('runtime_platform').then(async platform=>{runtimePlatform=platform;nativeAppearanceReady=platform.family==='desktop';languagePage.setFolderSupport(platform.family==='desktop');render();syncNativeAppearance();if(platform.folder_picker_supported)directoriesReady=optionsReady.then(async()=>{const skipStartup=await profileWorkspaceReady;return coordinateConfigurationLaunches(()=>fileOps.initialize({skipStartup}));}).catch(error=>{errors=[{path:'Directories',label:'Directories',error:String(error)}];render();});if(platform.document_access_supported){await optionsReady;await run('Restoring recovery copies…',async()=>{const batch=await invoke<Batch>('restore_document_recovery');accept(batch,'Restored recovery copies',false);await reconcileWorkingEntries(batch.entries.map(entry=>entry.path));location='Provider documents';locationIsData=false;if(!selected.size&&batch.entries.length){selected.add(batch.entries[0].path);anchor=batch.entries[0].path;}if(!batch.entries.length&&!batch.errors.length)status='Ready';});}}).catch(error=>{errors=[{path:'Platform',label:'Platform',error:String(error)}];render();});
   if(profileWorkspacePending)void Promise.all([optionsReady,platformReady]).then(async()=>{await directoriesReady;profileMigrationUI.reportStartupFailure();app.inert=false;syncWindowTitle();});
   void listen<{job:string;done:number;total:number}>('opentag://progress',event=>{const job=progressJob;if(!job||event.payload.job!==job.id)return;job.done=event.payload.done;job.total=event.payload.total;showProgress();}).catch(()=>{/* Progress is optional; operations still complete. */});
   void webSourcesUI.refresh();
@@ -2179,7 +2219,7 @@ if(desktop){
   // Sources copied into the folder by hand appear when the window is used again.
   void listen('opentag://web-sources',()=>void webSourcesUI.refresh()).catch(()=>{/* The menu also refreshes on focus. */});
   window.addEventListener('focus',()=>void webSourcesUI.refresh());
-  void listen('opentag://launch',()=>{void platformReady.then(async()=>{await optionsReady;await directoriesReady;if(runtimePlatform.folder_picker_supported)await fileOps.takeLaunches();}).catch(error=>{errors=[{path:'Command line',label:'Command line',error:String(error)}];render();});}).catch(error=>{errors=[{path:'Command line',label:'Command line',error:String(error)}];render();});
+  void listen('opentag://launch',()=>{void platformReady.then(async()=>{await optionsReady;await directoriesReady;if(runtimePlatform.folder_picker_supported)await coordinateConfigurationLaunches(()=>fileOps.takeLaunches());}).catch(error=>{errors=[{path:'Command line',label:'Command line',error:String(error)}];render();});}).catch(error=>{errors=[{path:'Command line',label:'Command line',error:String(error)}];render();});
   void getCurrentWindow().onCloseRequested(async event => {
     if(busy){event.preventDefault();return;}
     if(!drafts.size&&!actionUI.hasUnsavedChanges)return;

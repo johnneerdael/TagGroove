@@ -638,6 +638,7 @@ mod tests {
                 false,
                 None,
                 Some(true),
+                None,
             ))
             .unwrap();
             assert!(scanned.errors.is_empty(), "{:?}", scanned.errors);

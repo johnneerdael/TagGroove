@@ -248,11 +248,23 @@ pub fn export_group(path: &Path, group: &ActionGroup) -> Result<(), String> {
     bytes.extend(text.encode_utf16().flat_map(u16::to_le_bytes));
     atomic_output(path, &bytes, false)
 }
+fn export_group_worker(directory: &Path, path: &Path, group: &ActionGroup) -> Result<(), String> {
+    let _guard = crate::profile_migration::auxiliary_configuration_guard_in(directory, path)?;
+    export_group(path, group)
+}
+
 #[tauri::command]
-pub async fn export_action_group(path: String, group: ActionGroup) -> Result<(), String> {
-    tauri::async_runtime::spawn_blocking(move || export_group(Path::new(&path), &group))
-        .await
-        .map_err(|e| e.to_string())?
+pub async fn export_action_group(
+    app: tauri::AppHandle,
+    path: String,
+    group: ActionGroup,
+) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let directory = crate::utilities::configuration_directory(&app)?;
+        export_group_worker(&directory, Path::new(&path), &group)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 pub(crate) fn atomic_output(path: &Path, bytes: &[u8], append: bool) -> Result<(), String> {
@@ -1515,6 +1527,84 @@ pub fn execute_with_side_file_epochs_diagnostic(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn action_group_export_worker_obeys_pending_configuration_guard_and_shared_lock() {
+        use crate::profile_migration as transfer;
+        let root = tempfile::tempdir().unwrap();
+        let directory = root.path().join("config");
+        let private = directory.join("settings.json");
+        let after = transfer::Files::from([(
+            "settings.json".into(),
+            serde_json::to_vec(&crate::settings::Settings::default()).unwrap(),
+        )]);
+        let window: transfer::WindowState = serde_json::from_value(
+            serde_json::json!({"version":2,"preferences":{},"workspace":null}),
+        )
+        .unwrap();
+        let report = transfer::Report {
+            legacy_encoding: None,
+            items: Vec::new(),
+            imported: vec!["settings.json".into()],
+            kept: Vec::new(),
+            source_hash: "fixture".into(),
+            operation: Some("configuration".into()),
+            configuration: None,
+        };
+        let pending = serde_json::to_value(
+            transfer::publish_configuration(
+                &directory,
+                transfer::Files::new(),
+                after,
+                window.clone(),
+                window,
+                report,
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let id = pending["pending"]["id"].as_str().unwrap();
+        let before = fs::read(&private).unwrap();
+        let group = ActionGroup {
+            name: "Exported".into(),
+            enabled: true,
+            actions: vec![ActionSpec::FormatValue {
+                field: "TITLE".into(),
+                template: "%artist%".into(),
+            }],
+        };
+        assert!(export_group_worker(&directory, &private, &group).is_err());
+        assert_eq!(fs::read(&private).unwrap(), before);
+        let held = transfer::CONFIGURATION_LOCK.lock().unwrap();
+        let (sender, receiver) = std::sync::mpsc::channel();
+        let config = directory.clone();
+        let target = private.clone();
+        let copy = group.clone();
+        let worker = std::thread::spawn(move || {
+            sender
+                .send(export_group_worker(&config, &target, &copy))
+                .unwrap();
+        });
+        assert!(receiver
+            .recv_timeout(std::time::Duration::from_millis(50))
+            .is_err());
+        assert_eq!(fs::read(&private).unwrap(), before);
+        let external = root.path().join("external.mta");
+        export_group_worker(&directory, &external, &group).unwrap();
+        assert!(fs::read(&external).unwrap().starts_with(&[0xff, 0xfe]));
+        drop(held);
+        assert!(receiver
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .unwrap()
+            .is_err());
+        worker.join().unwrap();
+        assert_eq!(fs::read(&private).unwrap(), before);
+        transfer::status(&directory, Some(id), None, None).unwrap();
+        transfer::status(&directory, None, Some(id), None).unwrap();
+        let managed = directory.join("export/explicit.mte");
+        export_group_worker(&directory, &managed, &group).unwrap();
+        assert!(fs::read(managed).unwrap().starts_with(&[0xff, 0xfe]));
+    }
     use tag_core::actions::{ActionSpec, CaseMode};
 
     #[test]

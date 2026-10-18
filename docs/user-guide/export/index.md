@@ -67,6 +67,15 @@ Keep a backup before editing shared configurations externally. A template
 made for another application still needs syntax and output checks; its extension alone
 does not establish compatibility.
 
+[Configuration backups](../customize/configuration.md) also carry active
+physical templates and their recorded text encoding. Restoring those assets
+keeps the original bytes; the matching content uses its recorded decoding
+choice, even if the destination's ANSI default differs. An external change to
+those bytes invalidates that old decoding choice, so ordinary detection applies
+again. Saving an edited template uses the normal saved-template encoding policy.
+This concerns reading the template; the report's `$filename` encoding remains
+separate.
+
 ## Choose a name and encoding
 
 **Export file name** accepts a format string. A relative name uses the first

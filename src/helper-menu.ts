@@ -147,6 +147,8 @@ export class ConfigListStorage implements HelperStorage{
   }
   /** Stop saving, so a configuration that is being restored is not overwritten. */
   pause(){this.paused=true;if(this.timer!==undefined){clearTimeout(this.timer);this.timer=undefined;}}
+  /** Resume only after the coordinator proves incoming configuration was not published. */
+  resume(){if(!this.paused)return;this.paused=false;this.schedule();}
 }
 
 /** A copy of `entries[index]` placed after it, named so the copy can be told apart. */

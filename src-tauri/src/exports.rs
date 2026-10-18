@@ -1,5 +1,179 @@
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use std::collections::BTreeMap;
+use std::io::Read;
 use std::{collections::HashSet, fs, path::Path};
+
+pub(crate) const ENCODING_SIDECAR: &str = ".encoding-v1.json";
+const ENCODING_LIMIT: u64 = 1024 * 1024;
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct EncodingOverride {
+    pub sha256: String,
+    pub text_encoding: String,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Encodings {
+    version: u32,
+    files: BTreeMap<String, EncodingOverride>,
+}
+
+fn ansi_encoding(label: &str) -> Result<&'static encoding_rs::Encoding, String> {
+    let number = label
+        .strip_prefix("windows-")
+        .or_else(|| label.strip_prefix("cp"))
+        .unwrap_or(label)
+        .parse::<u16>()
+        .ok();
+    let encoding = match number {
+        Some(65001) => Some(encoding_rs::UTF_8),
+        Some(932) => Some(encoding_rs::SHIFT_JIS),
+        Some(936) => Some(encoding_rs::GBK),
+        Some(949) => Some(encoding_rs::EUC_KR),
+        Some(950) => Some(encoding_rs::BIG5),
+        Some(value) => encoding_rs::Encoding::for_label(format!("windows-{value}").as_bytes()),
+        None => encoding_rs::Encoding::for_label(label.as_bytes()),
+    };
+    encoding.ok_or_else(|| format!("Unsupported export configuration encoding: {label}"))
+}
+
+/// Decode the explicitly recorded charset without UTF-8 sniffing overriding it.
+pub(crate) fn decode_recorded(bytes: &[u8], label: &str) -> Result<String, String> {
+    match label {
+        "utf-16le" if bytes.starts_with(&[0xff, 0xfe]) => {
+            tag_core::decode_export_template(bytes, None)
+        }
+        "utf-16be" if bytes.starts_with(&[0xfe, 0xff]) => {
+            tag_core::decode_export_template(bytes, None)
+        }
+        "utf-16le" | "utf-16be" => Err("Export configuration encoding marker mismatch".into()),
+        "utf-8" => String::from_utf8(
+            bytes
+                .strip_prefix(&[0xef, 0xbb, 0xbf])
+                .unwrap_or(bytes)
+                .to_vec(),
+        )
+        .map_err(|e| e.to_string()),
+        label => {
+            let encoding = ansi_encoding(label)?;
+            let (text, malformed) = encoding.decode_without_bom_handling(bytes);
+            if malformed {
+                Err(format!(
+                    "Invalid export configuration for encoding: {label}"
+                ))
+            } else {
+                Ok(text.into_owned())
+            }
+        }
+    }
+}
+
+fn validate_encodings(files: &BTreeMap<String, EncodingOverride>) -> Result<(), String> {
+    if files.len() > 4096 {
+        return Err("Export encoding metadata exceeds 4096 entries".into());
+    }
+    let mut names = HashSet::new();
+    for (name, value) in files {
+        if !valid_file_name(name)
+            || name.starts_with('.')
+            || !names.insert(name.to_lowercase())
+            || value.sha256.len() != 64
+            || !value.sha256.bytes().all(|c| c.is_ascii_hexdigit())
+        {
+            return Err(format!(
+                "Invalid or conflicting export encoding metadata: {name}"
+            ));
+        }
+        match value.text_encoding.as_str() {
+            "utf-8" | "utf-16le" | "utf-16be" => {}
+            label => {
+                ansi_encoding(label)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+pub(crate) fn encoding_bytes(
+    files: &BTreeMap<String, EncodingOverride>,
+) -> Result<Vec<u8>, String> {
+    validate_encodings(files)?;
+    let bytes = serde_json::to_vec_pretty(&Encodings {
+        version: 1,
+        files: files.clone(),
+    })
+    .map_err(|e| e.to_string())?;
+    if bytes.len() as u64 > ENCODING_LIMIT {
+        return Err("Export encoding metadata exceeds 1 MB".into());
+    }
+    Ok(bytes)
+}
+
+pub(crate) fn encoding_overrides(
+    directory: &Path,
+) -> Result<BTreeMap<String, EncodingOverride>, String> {
+    let path = directory.join(ENCODING_SIDECAR);
+    let metadata = match fs::symlink_metadata(&path) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(BTreeMap::new()),
+        Err(error) => return Err(error.to_string()),
+    };
+    if !metadata.is_file() || metadata.file_type().is_symlink() || metadata.len() > ENCODING_LIMIT {
+        return Err(
+            "Export encoding metadata must be a bounded regular file without symbolic links".into(),
+        );
+    }
+    let mut bytes = Vec::new();
+    fs::File::open(path)
+        .map_err(|e| e.to_string())?
+        .take(ENCODING_LIMIT + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|e| e.to_string())?;
+    if bytes.len() as u64 > ENCODING_LIMIT {
+        return Err("Export encoding metadata exceeds 1 MB".into());
+    }
+    let metadata: Encodings =
+        serde_json::from_slice(&bytes).map_err(|e| format!("Export encoding metadata: {e}"))?;
+    if metadata.version != 1 {
+        return Err("Unsupported export encoding metadata version".into());
+    }
+    validate_encodings(&metadata.files)?;
+    Ok(metadata.files)
+}
+
+pub(crate) fn matching_encoding<'a>(
+    files: &'a BTreeMap<String, EncodingOverride>,
+    name: &str,
+    bytes: &[u8],
+) -> Option<&'a str> {
+    let hash = format!("{:x}", Sha256::digest(bytes));
+    files
+        .iter()
+        .find(|(file, value)| {
+            file.to_lowercase() == name.to_lowercase() && value.sha256.eq_ignore_ascii_case(&hash)
+        })
+        .map(|(_, value)| value.text_encoding.as_str())
+}
+
+fn decode_physical(
+    files: &BTreeMap<String, EncodingOverride>,
+    name: &str,
+    bytes: &[u8],
+    fallback: Option<&str>,
+) -> Result<String, String> {
+    match matching_encoding(files, name, bytes) {
+        Some(encoding) => decode_recorded(bytes, encoding),
+        None => tag_core::decode_export_template(bytes, fallback),
+    }
+}
+
+pub(crate) fn validate_metadata(bytes: &[u8]) -> Result<(), String> {
+    let library: Library =
+        serde_json::from_slice(bytes).map_err(|e| format!("Export metadata: {e}"))?;
+    validate(&library, false)
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Configuration {
@@ -388,6 +562,7 @@ pub fn load(path: &Path) -> Result<Library, String> {
     };
     let directory = path.parent().unwrap_or(Path::new(".")).join("export");
     let codepage = legacy_codepage();
+    let encodings = encoding_overrides(&directory)?;
     if path.exists() {
         // Validate identities before using them as stable MTE filenames.
         validate(&library, false)?;
@@ -405,7 +580,12 @@ pub fn load(path: &Path) -> Result<Library, String> {
                 }
                 Err(e) => return Err(format!("Cannot read {}: {e}", source.display())),
             };
-            configuration.template = tag_core::decode_export_template(&bytes, codepage.as_deref())?;
+            configuration.template = decode_physical(
+                &encodings,
+                &configuration.file_name(),
+                &bytes,
+                codepage.as_deref(),
+            )?;
             kept.push(configuration);
         }
         library.configurations = kept;
@@ -420,7 +600,7 @@ pub fn load(path: &Path) -> Result<Library, String> {
                 library.configurations.first().map(|c| c.id.clone());
         }
     }
-    discover(&directory, &mut library, codepage.as_deref());
+    discover(&directory, &mut library, codepage.as_deref(), &encodings);
     validate(&library, false)?;
     library.observed_files = Some(
         library
@@ -435,7 +615,12 @@ pub fn load(path: &Path) -> Result<Library, String> {
 /// Add the `.mte` files in the export folder that no configuration uses yet,
 /// such as configurations copied from Mp3tag, named after their file.
 /// Unreadable files are skipped.
-fn discover(directory: &Path, library: &mut Library, codepage: Option<&str>) {
+fn discover(
+    directory: &Path,
+    library: &mut Library,
+    codepage: Option<&str>,
+    encodings: &BTreeMap<String, EncodingOverride>,
+) {
     let Ok(entries) = fs::read_dir(directory) else {
         return;
     };
@@ -455,7 +640,7 @@ fn discover(directory: &Path, library: &mut Library, codepage: Option<&str>) {
         let Ok(bytes) = fs::read(directory.join(&file)) else {
             continue;
         };
-        let Ok(template) = tag_core::decode_export_template(&bytes, codepage) else {
+        let Ok(template) = decode_physical(encodings, &file, &bytes, codepage) else {
             continue;
         };
         let stem = Path::new(&file)
@@ -579,6 +764,7 @@ pub fn save(path: &Path, library: &Library) -> Result<(), String> {
         })
         .collect();
     let codepage = legacy_codepage();
+    let encodings = encoding_overrides(&directory)?;
     for configuration in &library.configurations {
         let target = path
             .parent()
@@ -587,7 +773,13 @@ pub fn save(path: &Path, library: &Library) -> Result<(), String> {
             .join(configuration.file_name());
         // Unchanged files keep their bytes and encoding.
         if fs::read(&target).ok().is_some_and(|bytes| {
-            tag_core::decode_export_template(&bytes, codepage.as_deref()).as_deref()
+            decode_physical(
+                &encodings,
+                &configuration.file_name(),
+                &bytes,
+                codepage.as_deref(),
+            )
+            .as_deref()
                 == Ok(configuration.template.as_str())
         }) {
             continue;
@@ -695,6 +887,67 @@ pub fn import(path: &Path, legacy_encoding: Option<&str>) -> Result<Configuratio
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn portable_hash_bound_encoding_preserves_discovery_text_and_unchanged_raw_bytes() {
+        use sha2::{Digest, Sha256};
+        let root = tempfile::tempdir().unwrap();
+        let folder = root.path().join("export");
+        fs::create_dir(&folder).unwrap();
+        let (raw, _, malformed) = encoding_rs::WINDOWS_1251.encode("Привет");
+        assert!(!malformed);
+        fs::write(folder.join("Cyrillic.mte"), &raw).unwrap();
+        fs::write(folder.join(".encoding-v1.json"), serde_json::to_vec(&serde_json::json!({"version":1,"files":{"Cyrillic.mte":{"sha256":format!("{:x}",Sha256::digest(&raw)),"text_encoding":"windows-1251"}}})).unwrap()).unwrap();
+        let path = root.path().join("exports.json");
+        let library = load(&path).unwrap();
+        assert_eq!(
+            library
+                .configurations
+                .iter()
+                .find(|c| c.file.as_deref() == Some("Cyrillic.mte"))
+                .unwrap()
+                .template,
+            "Привет"
+        );
+        save(&path, &library).unwrap();
+        assert_eq!(fs::read(folder.join("Cyrillic.mte")).unwrap(), raw.as_ref());
+        assert_eq!(
+            load(&path)
+                .unwrap()
+                .configurations
+                .iter()
+                .find(|c| c.file.as_deref() == Some("Cyrillic.mte"))
+                .unwrap()
+                .template,
+            "Привет"
+        );
+        fs::write(folder.join("Cyrillic.mte"), b"caf\xe9").unwrap();
+        assert_eq!(
+            load(&path)
+                .unwrap()
+                .configurations
+                .iter()
+                .find(|c| c.file.as_deref() == Some("Cyrillic.mte"))
+                .unwrap()
+                .template,
+            "café",
+            "an external edit must ignore the stale override"
+        );
+    }
+
+    #[test]
+    fn portable_corrupt_or_ambiguous_encoding_sidecar_is_not_silently_ignored() {
+        let root = tempfile::tempdir().unwrap();
+        let folder = root.path().join("export");
+        fs::create_dir(&folder).unwrap();
+        fs::write(folder.join("Practice.mte"), b"saved text").unwrap();
+        for bytes in [b"not JSON".to_vec(),serde_json::to_vec(&serde_json::json!({"version":99,"files":{}})).unwrap(),serde_json::to_vec(&serde_json::json!({"version":1,"files":{"Practice.mte":{"sha256":"a".repeat(64),"text_encoding":"not-a-codepage"}}})).unwrap()] {
+            fs::write(folder.join(".encoding-v1.json"),&bytes).unwrap();
+            assert!(load(&root.path().join("exports.json")).is_err());
+            assert_eq!(fs::read(folder.join(".encoding-v1.json")).unwrap(),bytes);
+            assert_eq!(fs::read(folder.join("Practice.mte")).unwrap(),b"saved text");
+        }
+    }
 
     #[test]
     fn stale_library_save_keeps_new_mte_files_in_export_folder() {

@@ -121,9 +121,10 @@ leaves **Last tag source** pointing to that web source, while the quick button
 still uses Deezer. Quick search starts automatically when the selected files
 provide the needed search values; Release ID mode still waits for an ID.
 Older profiles keep their remembered built-in choice when available, then fall
-back to their older Discogs preference or MusicBrainz. These choices are local
-preferences and are not included in Save configuration. Toolbar customization
-does not import an original Mp3tag toolbar layout.
+back to their older Discogs preference or MusicBrainz. These remembered choices are included in new version 2
+[configuration backups](configuration.md). Older version 1 backups do not
+contain them. Toolbar customization does not import an original Mp3tag toolbar
+layout.
 
 ## Build a custom toolbar
 

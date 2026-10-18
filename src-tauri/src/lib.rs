@@ -5,6 +5,7 @@ use tag_core::{Action, AudioEntry, Fields, FileError, ScanResult};
 mod action_host;
 mod associated_files;
 mod columns;
+mod configuration_transfer;
 mod converters;
 mod cover_drag;
 mod covers;
@@ -53,7 +54,14 @@ async fn save_export_library(
     library: exports::Library,
 ) -> Result<(), String> {
     let path = export_library_path(&app)?;
-    io(move || exports::save(&path, &library)).await
+    io(move || {
+        let _guard = profile_migration::mutation_guard(
+            path.parent()
+                .ok_or("Configuration directory is unavailable")?,
+        )?;
+        exports::save(&path, &library)
+    })
+    .await
 }
 #[tauri::command]
 async fn import_export_configuration(
@@ -131,7 +139,14 @@ async fn save_action_library(
     library: tag_core::actions::ActionLibrary,
 ) -> Result<(), String> {
     let path = action_host::library_path(&app)?;
-    io(move || action_host::save_library(&path, &library)).await
+    io(move || {
+        let _guard = profile_migration::mutation_guard(
+            path.parent()
+                .ok_or("Configuration directory is unavailable")?,
+        )?;
+        action_host::save_library(&path, &library)
+    })
+    .await
 }
 #[cfg(test)]
 #[tauri::command]
@@ -667,17 +682,29 @@ fn write_row_group(
 /// `job` names the operation for progress events and [`progress::cancel_job`].
 /// `refresh` (File → Reload tags) reads every file even when Options →
 /// Library holds it.
+pub(crate) fn scan_read_options(
+    options: &tag_core::TagOptions,
+    exact_rows: bool,
+) -> tag_core::TagOptions {
+    let mut options = options.clone();
+    if exact_rows {
+        options.advanced.list_chapters = false;
+    }
+    options
+}
+
 #[tauri::command]
 async fn scan_files(
     paths: Vec<String>,
     recursive: bool,
     job: Option<String>,
     refresh: Option<bool>,
+    exact_rows: Option<bool>,
 ) -> Result<ScanResult, String> {
     io(move || {
         #[cfg(target_os = "android")]
         {
-            let _ = (recursive, job, refresh);
+            let _ = (recursive, job, refresh, exact_rows);
             Ok(batch(&paths, documents::reload))
         }
         #[cfg(not(target_os = "android"))]
@@ -686,10 +713,11 @@ async fn scan_files(
             let (managed, ordinary): (Vec<_>, Vec<_>) = paths
                 .into_iter()
                 .partition(|p| documents::is_managed(Path::new(p)));
+            let options = scan_read_options(&settings::tag_options(), exact_rows.unwrap_or(false));
             let mut result = library::scan(
                 &ordinary,
                 recursive,
-                &settings::tag_options(),
+                &options,
                 settings::extensions().as_deref(),
                 &job,
                 refresh.unwrap_or(false),
@@ -1659,6 +1687,9 @@ pub fn run() {
             utilities::apply_util,
             utilities::strip_mp4_chapters,
             utilities::run_tool,
+            configuration_transfer::configuration_transfer_export,
+            configuration_transfer::configuration_transfer_preview,
+            configuration_transfer::configuration_transfer_apply,
             utilities::export_configuration,
             utilities::import_configuration,
             profile_migration::profile_migration_preview,
@@ -2015,7 +2046,8 @@ mod tests {
         tag_core::write_fields(&source, &external).unwrap();
         session.rename("Other - Changed.wav");
         let reloaded =
-            tauri::async_runtime::block_on(scan_files(paths.clone(), false, None, None)).unwrap();
+            tauri::async_runtime::block_on(scan_files(paths.clone(), false, None, None, None))
+                .unwrap();
         assert_eq!(reloaded.entries[0].fields["TITLE"], ["External"]);
         assert_eq!(reloaded.entries[0].filename, "Other - Changed.wav");
         let renamed_preview = tauri::async_runtime::block_on(preview_filename(
@@ -2224,7 +2256,8 @@ mod tests {
             .entries
             .iter()
             .any(|e| e.path == session.path && e.fields["TITLE"] == ["Retain edited"]));
-        let blocked = tauri::async_runtime::block_on(scan_files(paths, false, None, None)).unwrap();
+        let blocked =
+            tauri::async_runtime::block_on(scan_files(paths, false, None, None, None)).unwrap();
         assert!(blocked.entries.is_empty());
         assert!(blocked.errors[0].error.contains("recovery"));
         let readonly =

@@ -98,10 +98,15 @@ const SHORTCUT = /^(?:(?:⌘|⌥|⇧|⌃|⌫|(?<![A-Za-z0-9])(?:Ctrl|Alt|Shift|O
 const NUMERIC = /^(length|count|size|total|done|restored|missing|unmatched|pending|saved|failed|skipped|selectedCount|tracks|discs|chapters|selected|shown|started|removed|files|line|lines|matched|n|i|index|position|lastHits|lastStored|min|max|channels|bitrate|sampleRate|counts|covers|withCovers|sourceLine|selectionIndex|minimum|maximum|invalid|number|major|code|MAX_COLUMNS|MAX_FIELDS|MAX_VALUES|MIN_WIDTH|MAX_WIDTH|PLAY_LIMIT|TOOL_LIMIT|TOOLLIMIT|TIMEOUTRANGE)\d*$/;
 // Anonymous/raw role names stay polymorphic except in these audited source-owned frames.
 const NUMERIC_SLOTS: Readonly<Record<string, readonly string[]>> = {
+  "Captured workspace: {rows} rows and {length} roots. Unavailable: {length2}.": ["rows"],
   "Chapter {value}: {error}": ["value"],
   "${name} expects {min}..={max} arguments, received {value}": ["value"],
   "Cannot show {value} files here": ["value"],
   "Configuration version {value} is not supported": ["value"],
+  "Configuration version {version} is not supported": ["version"],
+  "Saved configuration restoration completed: {files} saved components, {exportAssets} export templates, {preferences} saved preference values and {workspaceRows} imported workspace rows. {join}": ["exportAssets", "preferences", "workspaceRows"],
+  "Saved configuration: {files} saved components, {exportAssets} export templates, {preferences} preferences and {workspaceRows} workspace rows. Excluded: {join}": ["exportAssets", "preferences", "workspaceRows"],
+  "Selected restoration: {files} saved components, {exportAssets} export templates, {preferences} saved preference values and {workspaceRows} imported workspace rows.": ["exportAssets", "preferences", "workspaceRows"],
   "Cover {value} does not exist": ["value"],
   "Invalid action section at line {value}": ["value"],
   "Invalid action setting at line {value}": ["value"],

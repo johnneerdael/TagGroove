@@ -314,7 +314,7 @@ pub async fn run_tool(
 
 /// Configuration files that make up a backup, with the validation that each
 /// module applies when it loads them. Discogs credentials are deliberately excluded.
-const CONFIGURATION: [&str; 7] = [
+pub(crate) const CONFIGURATION: [&str; 7] = [
     "settings.json",
     "actions.json",
     "exports.json",
@@ -324,7 +324,7 @@ const CONFIGURATION: [&str; 7] = [
     "lists.json",
 ];
 pub const BUNDLE_FORMAT: &str = "opentag-configuration";
-const BUNDLE_LIMIT: u64 = 32 * 1024 * 1024;
+pub(crate) const BUNDLE_LIMIT: u64 = 32 * 1024 * 1024;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Bundle {
@@ -333,7 +333,7 @@ pub struct Bundle {
     pub files: BTreeMap<String, serde_json::Value>,
 }
 
-fn validate_file(name: &str, path: &Path) -> Result<(), String> {
+pub(crate) fn validate_file(name: &str, path: &Path) -> Result<(), String> {
     match name {
         "settings.json" => match settings::load(path) {
             (_, Some(warning)) => Err(warning),
@@ -370,6 +370,7 @@ pub fn collect(directory: &Path) -> Result<Bundle, String> {
 
 /// Validate every file of a bundle before writing any, then replace the
 /// matching files of `directory`. Files missing from the bundle are kept.
+#[cfg_attr(not(test), allow(dead_code))]
 pub fn restore(directory: &Path, bytes: &[u8]) -> Result<Vec<String>, String> {
     let bundle: Bundle =
         serde_json::from_slice(bytes).map_err(|e| format!("Not a TagGroove configuration: {e}"))?;
@@ -410,19 +411,17 @@ pub(crate) fn configuration_directory(app: &tauri::AppHandle) -> Result<PathBuf,
         .to_path_buf())
 }
 
+fn legacy_configuration_dispatch() -> Result<(), String> {
+    Err("Use Load configuration (configuration_transfer_preview then configuration_transfer_apply) or Save configuration (configuration_transfer_export) for reviewed, recoverable configuration transfer.".into())
+}
+
 #[tauri::command]
 pub async fn export_configuration(
     app: tauri::AppHandle,
     output_path: String,
 ) -> Result<usize, String> {
-    let directory = configuration_directory(&app)?;
-    io(move || {
-        let bundle = collect(&directory)?;
-        let bytes = serde_json::to_vec_pretty(&bundle).map_err(|e| e.to_string())?;
-        crate::action_host::atomic_output(Path::new(&output_path), &bytes, false)?;
-        Ok(bundle.files.len())
-    })
-    .await
+    let _ = (app, output_path);
+    legacy_configuration_dispatch().map(|()| 0)
 }
 
 #[tauri::command]
@@ -430,22 +429,8 @@ pub async fn import_configuration(
     app: tauri::AppHandle,
     path: String,
 ) -> Result<Vec<String>, String> {
-    let directory = configuration_directory(&app)?;
-    io(move || {
-        let path = crate::auxiliary_input(&path)?;
-        if fs::metadata(&path).map_err(|e| e.to_string())?.len() > BUNDLE_LIMIT {
-            return Err("The configuration file is too large".into());
-        }
-        let bytes = fs::read(&path).map_err(|e| e.to_string())?;
-        let restored = restore(&directory, &bytes)?;
-        if restored.iter().any(|name| name == "settings.json") {
-            if let Some(warning) = settings::reload(&app)? {
-                return Err(warning);
-            }
-        }
-        Ok(restored)
-    })
-    .await
+    let _ = (app, path);
+    legacy_configuration_dispatch().map(|()| Vec::new())
 }
 
 #[tauri::command]
@@ -518,6 +503,11 @@ pub async fn open_help_page(page: String) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn deprecated_configuration_ipc_dispatch_refuses_unreviewed_mutation() {
+        assert!(legacy_configuration_dispatch().is_err());
+    }
 
     #[test]
     fn parameters_split_on_whitespace_and_keep_quoted_groups() {

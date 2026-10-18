@@ -11,16 +11,9 @@ const LIMIT: u64 = 128 * 1024 * 1024;
 const ENTRIES: usize = 4096;
 const DEPTH: usize = 64;
 const STORE: &str = ".profile-migration";
-const NATIVE: [&str; 7] = [
-    "settings.json",
-    "actions.json",
-    "exports.json",
-    "columns.json",
-    "tag-panel.json",
-    "directories.json",
-    "lists.json",
-];
-type Files = BTreeMap<String, Vec<u8>>;
+const NATIVE: [&str; 7] = crate::utilities::CONFIGURATION;
+
+pub(crate) type Files = BTreeMap<String, Vec<u8>>;
 type Encoded = BTreeMap<String, String>;
 
 pub const PREFERENCE_KEYS: &[&str] = &[
@@ -31,6 +24,7 @@ pub const PREFERENCE_KEYS: &[&str] = &[
     "opentag.filter-auto-apply",
     "opentag.filter-shown",
     "opentag.numbering",
+    "opentag.tag-tag",
     "opentag.actions.quick",
     "opentag.cover.aspect",
     "opentag.cover.extractFormat",
@@ -53,9 +47,64 @@ pub const PREFERENCE_KEYS: &[&str] = &[
     "opentag.tagSources.disabled.web",
 ];
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
+pub(crate) static CONFIGURATION_LOCK: Mutex<()> = Mutex::new(());
+
+pub(crate) fn mutation_guard(
+    directory: &Path,
+) -> Result<std::sync::MutexGuard<'static, ()>, String> {
+    let guard = CONFIGURATION_LOCK.lock().map_err(|e| e.to_string())?;
+    let state = inspect_status(directory)?;
+    if state.pending.is_some() || ["applying", "restoring"].contains(&state.phase.as_str()) {
+        return Err(
+            "Configuration recovery is pending; finish or restore it before saving settings."
+                .into(),
+        );
+    }
+    Ok(guard)
+}
+
+/// Explicit file-export commands can also target configuration files. Only
+/// outputs inside the active private configuration tree need this guard.
+pub(crate) fn auxiliary_configuration_guard(
+    path: &Path,
+) -> Result<Option<std::sync::MutexGuard<'static, ()>>, String> {
+    let Some(app) = crate::APP_HANDLE.get() else {
+        return Ok(None);
+    };
+    let directory = crate::utilities::configuration_directory(app)?;
+    auxiliary_configuration_guard_in(&directory, path)
+}
+
+pub(crate) fn auxiliary_configuration_guard_in(
+    directory: &Path,
+    path: &Path,
+) -> Result<Option<std::sync::MutexGuard<'static, ()>>, String> {
+    if canonical_target(path)?.starts_with(canonical_target(directory)?) {
+        mutation_guard(directory).map(Some)
+    } else {
+        Ok(None)
+    }
+}
+
+pub(crate) fn portable_preference_keys() -> Vec<String> {
+    PREFERENCE_KEYS
+        .iter()
+        .filter(|key| **key != "opentag.last-version")
+        .map(|key| (*key).into())
+        .collect()
+}
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct Workspace {
+    #[serde(default)]
+    pub version: Option<u32>,
+    #[serde(default)]
+    pub working_directory: Option<String>,
+    #[serde(default)]
+    pub list_order: Option<String>,
+    #[serde(default)]
+    pub source_order: Option<Vec<String>>,
     pub paths: Vec<String>,
     pub selected: Vec<String>,
     pub roots: Vec<String>,
@@ -66,24 +115,70 @@ pub struct Workspace {
     pub anchor: Option<String>,
     pub playlist: Option<String>,
 }
+impl Serialize for Workspace {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeStruct;
+        // Preserve v1 field order: existing journal checksums include these bytes.
+        let mut state = serializer
+            .serialize_struct("Workspace", if self.version.is_some() { 13 } else { 9 })?;
+        state.serialize_field("paths", &self.paths)?;
+        state.serialize_field("selected", &self.selected)?;
+        state.serialize_field("roots", &self.roots)?;
+        state.serialize_field("location", &self.location)?;
+        state.serialize_field("location_is_data", &self.location_is_data)?;
+        state.serialize_field("filter", &self.filter)?;
+        state.serialize_field("filter_draft", &self.filter_draft)?;
+        state.serialize_field("anchor", &self.anchor)?;
+        state.serialize_field("playlist", &self.playlist)?;
+        if let Some(version) = self.version {
+            state.serialize_field("version", &version)?;
+            state.serialize_field("working_directory", &self.working_directory)?;
+            state.serialize_field("list_order", &self.list_order)?;
+            state.serialize_field("source_order", &self.source_order)?;
+        }
+        state.end()
+    }
+}
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct WindowState {
     pub version: u32,
     pub preferences: BTreeMap<String, String>,
-    pub workspace: Workspace,
+    pub workspace: Option<Workspace>,
 }
 
-fn validate_window(window: &WindowState) -> Result<(), String> {
-    if window.version != 1
-        || window
-            .preferences
-            .keys()
-            .any(|key| !PREFERENCE_KEYS.contains(&key.as_str()))
-    {
-        return Err("Unsupported setup window-state version or preference key.".into());
+pub(crate) const WINDOW_LIMIT: usize = 2 * 1024 * 1024;
+
+/// Validate bounded saved-state structure without interpreting path syntax.
+/// Foreign workspace inventories may be reviewed, but never applied by this check.
+pub(crate) fn validate_window_shape(window: &WindowState) -> Result<(), String> {
+    if ![1, 2].contains(&window.version) {
+        return Err("Unsupported setup window-state version.".into());
     }
-    let workspace = &window.workspace;
+    if serde_json::to_vec(window).map_err(|e| e.to_string())?.len() > WINDOW_LIMIT {
+        return Err("The setup window state exceeds 2 MB.".into());
+    }
+    let Some(workspace) = &window.workspace else {
+        return if window.version == 2 {
+            Ok(())
+        } else {
+            Err("Legacy setup snapshots require their original workspace.".into())
+        };
+    };
+    if (window.version == 1
+        && (workspace.version.is_some()
+            || workspace.working_directory.is_some()
+            || workspace.list_order.is_some()
+            || workspace.source_order.is_some()))
+        || (window.version == 2
+            && (workspace.version != Some(2)
+                || !workspace
+                    .list_order
+                    .as_deref()
+                    .is_some_and(|mode| ["columns", "manual", "playlist"].contains(&mode))))
+    {
+        return Err("Unsupported setup workspace version or order mode.".into());
+    }
     if workspace.paths.len() > 10000 || workspace.roots.len() > 10000 {
         return Err("Setup workspace recovery supports at most 10000 listed files and 10000 roots. Save the larger file list as a playlist, clear it, then inspect the setup again; no files are truncated.".into());
     }
@@ -99,27 +194,57 @@ fn validate_window(window: &WindowState) -> Result<(), String> {
     {
         return Err("The setup workspace has invalid file identities.".into());
     }
+    if let Some(order) = &workspace.source_order {
+        if order.len() != workspace.paths.len()
+            || order.iter().collect::<BTreeSet<_>>() != listed
+            || order.iter().collect::<BTreeSet<_>>().len() != order.len()
+        {
+            return Err(
+                "The setup workspace source order must rank every captured row exactly once."
+                    .into(),
+            );
+        }
+    }
     for path in workspace
         .paths
         .iter()
         .chain(&workspace.roots)
         .chain(workspace.playlist.iter())
+        .chain(workspace.working_directory.iter())
     {
-        if path.is_empty()
-            || path.contains('\0')
-            || path.contains("://")
-            || !Path::new(path).is_absolute()
-        {
-            return Err("Setup workspace recovery requires absolute local file paths.".into());
+        if path.is_empty() || path.contains('\0') {
+            return Err("The setup workspace has invalid file identities.".into());
         }
-    }
-    if serde_json::to_vec(window).map_err(|e| e.to_string())?.len() > 2 * 1024 * 1024 {
-        return Err("The setup window state exceeds 2 MB.".into());
     }
     Ok(())
 }
 
-fn relative(name: &str) -> Result<(), String> {
+pub(crate) fn validate_window(window: &WindowState) -> Result<(), String> {
+    validate_window_shape(window)?;
+    if window
+        .preferences
+        .keys()
+        .any(|key| !PREFERENCE_KEYS.contains(&key.as_str()))
+    {
+        return Err("Unsupported setup window-state version or preference key.".into());
+    }
+    if let Some(workspace) = &window.workspace {
+        for path in workspace
+            .paths
+            .iter()
+            .chain(&workspace.roots)
+            .chain(workspace.playlist.iter())
+            .chain(workspace.working_directory.iter())
+        {
+            if path.contains("://") || !Path::new(path).is_absolute() {
+                return Err("Setup workspace recovery requires absolute local file paths.".into());
+            }
+        }
+    }
+    Ok(())
+}
+
+pub(crate) fn relative(name: &str) -> Result<(), String> {
     if name.is_empty()
         || name.split('/').count() > DEPTH
         || name.contains(['\\', ':', '\0'])
@@ -134,7 +259,7 @@ fn relative(name: &str) -> Result<(), String> {
 fn managed(name: &str) -> bool {
     NATIVE.contains(&name) || name.starts_with("export/")
 }
-fn read(path: &Path, limit: u64) -> Result<Vec<u8>, String> {
+pub(crate) fn read(path: &Path, limit: u64) -> Result<Vec<u8>, String> {
     let metadata =
         std::fs::symlink_metadata(path).map_err(|e| format!("{}: {e}", path.display()))?;
     if !metadata.is_file() || metadata.len() > limit {
@@ -246,7 +371,7 @@ fn input(path: &Path) -> Result<Files, String> {
     }
     Ok(files)
 }
-fn native(directory: &Path) -> Result<Files, String> {
+pub(crate) fn native(directory: &Path) -> Result<Files, String> {
     let mut files = Files::new();
     for name in NATIVE {
         match std::fs::symlink_metadata(directory.join(name)) {
@@ -271,7 +396,7 @@ fn native(directory: &Path) -> Result<Files, String> {
     bounded(&files)?;
     Ok(files)
 }
-fn hash(files: &Files, window: Option<&WindowState>) -> Result<String, String> {
+pub(crate) fn hash(files: &Files, window: Option<&WindowState>) -> Result<String, String> {
     let mut digest = Sha256::new();
     for (name, bytes) in files {
         digest.update((name.len() as u64).to_le_bytes());
@@ -312,7 +437,7 @@ fn decode(files: &Encoded) -> Result<Files, String> {
     }
     Ok(decoded)
 }
-fn write_stage(root: &Path, files: &Files) -> Result<(), String> {
+pub(crate) fn write_stage(root: &Path, files: &Files) -> Result<(), String> {
     for (name, bytes) in files {
         let path = root.join(name);
         std::fs::create_dir_all(path.parent().unwrap()).map_err(|e| e.to_string())?;
@@ -338,7 +463,7 @@ pub struct Item {
     pub supported: bool,
 }
 #[derive(Clone, PartialEq, Eq)]
-struct SourceIdentity {
+pub(crate) struct SourceIdentity {
     canonical: PathBuf,
     #[cfg(unix)]
     device: u64,
@@ -347,7 +472,7 @@ struct SourceIdentity {
 }
 // Resolve future configuration directories without creating them. Existing ancestors may
 // contain symlinks, so canonicalize before appending the missing path components.
-fn canonical_target(path: &Path) -> Result<PathBuf, String> {
+pub(crate) fn canonical_target(path: &Path) -> Result<PathBuf, String> {
     let absolute = if path.is_absolute() {
         path.to_path_buf()
     } else {
@@ -379,7 +504,7 @@ fn canonical_target(path: &Path) -> Result<PathBuf, String> {
     }
     Ok(canonical)
 }
-fn source_identity(directory: &Path, path: &Path) -> Result<SourceIdentity, String> {
+pub(crate) fn source_identity(directory: &Path, path: &Path) -> Result<SourceIdentity, String> {
     let canonical = std::fs::canonicalize(path).map_err(|error| error.to_string())?;
     let target = canonical_target(directory)?;
     if canonical.starts_with(&target) || target.starts_with(&canonical) {
@@ -604,6 +729,10 @@ pub struct Report {
     pub imported: Vec<String>,
     pub kept: Vec<String>,
     pub source_hash: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub operation: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub configuration: Option<serde_json::Value>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Pending {
@@ -639,6 +768,7 @@ pub struct Status {
     pub restorable: bool,
     pub pending: Option<Pending>,
     pub preference_keys: Vec<String>,
+    pub portable_preference_keys: Vec<String>,
 }
 
 fn store(directory: &Path) -> Result<std::path::PathBuf, String> {
@@ -876,7 +1006,7 @@ fn recovered_with(
     }
     Ok(state)
 }
-fn status(
+pub(crate) fn status(
     directory: &Path,
     start: Option<&str>,
     ack: Option<&str>,
@@ -951,6 +1081,7 @@ fn status_with_publication(
             restorable: state.phase == "applied",
             pending: state.pending,
             preference_keys: PREFERENCE_KEYS.iter().map(|key| (*key).into()).collect(),
+            portable_preference_keys: portable_preference_keys(),
         })
     } else {
         Ok(Status {
@@ -960,6 +1091,7 @@ fn status_with_publication(
             restorable: false,
             pending: None,
             preference_keys: PREFERENCE_KEYS.iter().map(|key| (*key).into()).collect(),
+            portable_preference_keys: portable_preference_keys(),
         })
     }
 }
@@ -1033,6 +1165,8 @@ fn apply(
         imported: Vec::new(),
         kept: Vec::new(),
         source_hash: plan.source_hash,
+        operation: None,
+        configuration: None,
     };
     let mut actions_changed = false;
     let mut exports_changed = false;
@@ -1095,7 +1229,33 @@ fn apply(
         crate::exports::save(&stage.path().join("exports.json"), &exports)?;
     }
     let after = native(stage.path())?;
-    // Persist the complete rollback journal before replacing a single managed file.
+    publish_configuration(directory, before, after, window.clone(), window, report)
+}
+
+/// One journal/replacement/receipt engine shared by profile import and portable backup.
+pub(crate) fn publish_configuration(
+    directory: &Path,
+    before: Files,
+    after: Files,
+    window: WindowState,
+    desired_window: WindowState,
+    report: Report,
+) -> Result<Status, String> {
+    validate_window(&window)?;
+    validate_window(&desired_window)?;
+    bounded(&before)?;
+    bounded(&after)?;
+    if status(directory, None, None, None)?.pending.is_some() {
+        return Err(
+            "Complete the pending workspace recovery before changing configuration.".into(),
+        );
+    }
+    if native(directory)? != before {
+        return Err(
+            "Setup changed while its replacement was prepared; nothing was overwritten.".into(),
+        );
+    }
+    // Persist complete rollback state before replacing a single managed file.
     let old = journal(directory)?;
     if let Some(old) = &old {
         crate::action_host::atomic_output(
@@ -1131,13 +1291,13 @@ fn apply(
         id: uuid::Uuid::new_v4().to_string(),
         attempted: false,
         failed: false,
-        window,
+        window: desired_window,
     });
     persist(directory, &state)?;
     status(directory, None, None, None)
 }
 
-fn restore(directory: &Path, window: WindowState) -> Result<Status, String> {
+pub(crate) fn restore(directory: &Path, window: WindowState) -> Result<Status, String> {
     validate_window(&window)?;
     let state = journal(directory)?.ok_or("No setup migration snapshot is available.")?;
     let mut state = recovered(directory, state)?;
@@ -1169,6 +1329,45 @@ fn restore(directory: &Path, window: WindowState) -> Result<Status, String> {
     status(directory, None, None, None)
 }
 
+pub(crate) fn inspect_status(directory: &Path) -> Result<Status, String> {
+    let state = journal(directory)?;
+    Ok(Status {
+        desktop: !cfg!(mobile)
+            || state
+                .as_ref()
+                .is_some_and(|s| s.report.operation.as_deref() == Some("configuration")),
+        phase: state.as_ref().map_or("none", |s| s.phase.as_str()).into(),
+        report: state.as_ref().map(|s| s.report.clone()),
+        restorable: state.as_ref().is_some_and(|s| s.phase == "applied"),
+        pending: state.and_then(|s| s.pending),
+        preference_keys: PREFERENCE_KEYS.iter().map(|key| (*key).into()).collect(),
+        portable_preference_keys: portable_preference_keys(),
+    })
+}
+
+fn settings_only_transition(directory: &Path, id: &str) -> Result<(), String> {
+    let mut state = journal(directory)?.ok_or("The setup workspace receipt expired.")?;
+    let pending = state
+        .pending
+        .as_mut()
+        .filter(|pending| pending.id == id)
+        .ok_or("The setup workspace receipt expired.")?;
+    pending.window.version = 2;
+    pending.window.workspace = None;
+    pending.failed = false;
+    pending.attempted = false;
+    if let Some(summary) = &mut state.report.configuration {
+        summary["workspace_rows"] = 0.into();
+        if let Some(omitted) = summary
+            .get_mut("omitted")
+            .and_then(serde_json::Value::as_array_mut)
+        {
+            omitted.push("Workspace restoration was explicitly skipped.".into());
+        }
+    }
+    persist(directory, &state)
+}
+
 fn require_desktop() -> Result<(), String> {
     if cfg!(mobile) {
         return Err("Setup migration is available in the desktop app.".into());
@@ -1184,7 +1383,11 @@ pub async fn profile_migration_preview(
 ) -> Result<Preview, String> {
     require_desktop()?;
     let directory = crate::utilities::configuration_directory(&app)?;
-    crate::io(move || preview(&directory, &path, window, legacy_encoding)).await
+    crate::io(move || {
+        let _guard = CONFIGURATION_LOCK.lock().map_err(|e| e.to_string())?;
+        preview(&directory, &path, window, legacy_encoding)
+    })
+    .await
 }
 #[tauri::command]
 pub async fn profile_migration_apply(
@@ -1196,7 +1399,11 @@ pub async fn profile_migration_apply(
 ) -> Result<Status, String> {
     require_desktop()?;
     let directory = crate::utilities::configuration_directory(&app)?;
-    crate::io(move || apply(&directory, &token, &selected, replace_names, window)).await
+    crate::io(move || {
+        let _guard = CONFIGURATION_LOCK.lock().map_err(|e| e.to_string())?;
+        apply(&directory, &token, &selected, replace_names, window)
+    })
+    .await
 }
 #[tauri::command]
 pub async fn profile_migration_status(
@@ -1205,19 +1412,21 @@ pub async fn profile_migration_status(
     ack: Option<String>,
     retry: Option<String>,
     failed: Option<String>,
+    settings_only: Option<String>,
 ) -> Result<Status, String> {
-    if cfg!(mobile) {
-        return Ok(Status {
-            desktop: false,
-            phase: "unsupported".into(),
-            report: None,
-            restorable: false,
-            pending: None,
-            preference_keys: Vec::new(),
-        });
-    }
     let directory = crate::utilities::configuration_directory(&app)?;
     crate::io(move || {
+        let _guard = CONFIGURATION_LOCK.lock().map_err(|e| e.to_string())?;
+        let metadata = inspect_status(&directory)?;
+        if cfg!(mobile) && metadata.report.is_none() {
+            return Ok(Status {
+                desktop: false,
+                ..metadata
+            });
+        }
+        if let Some(id) = settings_only.as_deref() {
+            settings_only_transition(&directory, id)?;
+        }
         let result = status_with_failure(
             &directory,
             start.as_deref(),
@@ -1235,9 +1444,18 @@ pub async fn profile_migration_restore(
     app: tauri::AppHandle,
     window: WindowState,
 ) -> Result<Status, String> {
-    require_desktop()?;
     let directory = crate::utilities::configuration_directory(&app)?;
     crate::io(move || {
+        let _guard = CONFIGURATION_LOCK.lock().map_err(|e| e.to_string())?;
+        if cfg!(mobile)
+            && inspect_status(&directory)?
+                .report
+                .as_ref()
+                .and_then(|report| report.operation.as_deref())
+                != Some("configuration")
+        {
+            require_desktop()?;
+        }
         let result = restore(&directory, window)?;
         crate::settings::reload(&app)?;
         Ok(result)
@@ -1250,6 +1468,151 @@ mod tests {
     use super::*;
     use std::io::Write;
     static TESTS: Mutex<()> = Mutex::new(());
+
+    #[test]
+    fn original_v1_journal_wire_checksum_and_interrupted_recovery_remain_valid() {
+        // Fixed original a4d18b0 struct field order; checksum was generated without
+        // the current WindowState/Workspace/Report serializer.
+        const OLD: &[u8] = br#"{"checksum":"ebbba0bfda5835994f3b33ddb83ca05d441d30630aadb799c085744a957c0c3e","version":1,"phase":"applying","before":{},"after":{"settings.json":"eyJ2ZXJzaW9uIjoxfQ=="},"window":{"version":1,"preferences":{},"workspace":{"paths":[],"selected":[],"roots":[],"location":"","location_is_data":false,"filter":"","filter_draft":null,"anchor":null,"playlist":null}},"report":{"legacy_encoding":null,"items":[],"imported":["settings.json"],"kept":[],"source_hash":"original-v1-layout-fixture"},"pending":null,"rollback":{},"rollback_window":{"version":1,"preferences":{},"workspace":{"paths":[],"selected":[],"roots":[],"location":"","location_is_data":false,"filter":"","filter_draft":null,"anchor":null,"playlist":null}},"previous":false}"#;
+        let directory = tempfile::tempdir().unwrap();
+        std::fs::create_dir(directory.path().join(STORE)).unwrap();
+        std::fs::write(directory.path().join(STORE).join("current.json"), OLD).unwrap();
+        std::fs::write(directory.path().join("settings.json"), br#"{"version":1}"#).unwrap();
+        let state = checked_journal(OLD).unwrap();
+        assert_eq!(state.window.version, 1);
+        let recovered = status(directory.path(), None, None, None).unwrap();
+        assert_eq!(recovered.phase, "failed");
+        assert!(native(directory.path()).unwrap().is_empty());
+        assert_eq!(
+            serde_json::to_value(recovered.pending.unwrap().window.workspace).unwrap(),
+            serde_json::json!({"paths":[],"selected":[],"roots":[],"location":"","location_is_data":false,"filter":"","filter_draft":null,"anchor":null,"playlist":null})
+        );
+    }
+
+    #[test]
+    fn ordinary_configuration_writer_waits_for_the_shared_snapshot_lock() {
+        let dir = tempfile::tempdir().unwrap();
+        let directory = dir.path().to_path_buf();
+        let held = CONFIGURATION_LOCK.lock().unwrap();
+        let (sender, receiver) = std::sync::mpsc::channel();
+        let writer = std::thread::spawn(move || {
+            let _guard = mutation_guard(&directory).unwrap();
+            std::fs::write(directory.join("lists.json"), b"serialized writer").unwrap();
+            sender.send(()).unwrap();
+        });
+        assert!(receiver
+            .recv_timeout(std::time::Duration::from_millis(50))
+            .is_err());
+        assert!(!dir.path().join("lists.json").exists());
+        drop(held);
+        receiver
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .unwrap();
+        writer.join().unwrap();
+        assert_eq!(
+            std::fs::read(dir.path().join("lists.json")).unwrap(),
+            b"serialized writer"
+        );
+    }
+
+    #[test]
+    fn ordinary_configuration_writer_refuses_pending_receipt_and_resumes_after_ack() {
+        let dir = tempfile::tempdir().unwrap();
+        let before = Files::new();
+        let mut after = Files::new();
+        after.insert(
+            "settings.json".into(),
+            serde_json::to_vec(&crate::settings::Settings::default()).unwrap(),
+        );
+        let report = Report {
+            legacy_encoding: None,
+            items: Vec::new(),
+            imported: vec!["settings.json".into()],
+            kept: Vec::new(),
+            source_hash: "fixture".into(),
+            operation: Some("configuration".into()),
+            configuration: None,
+        };
+        let result = publish_configuration(
+            dir.path(),
+            before,
+            after.clone(),
+            window(),
+            window(),
+            report,
+        )
+        .unwrap();
+        let pending = result.pending.unwrap();
+        assert!(mutation_guard(dir.path()).unwrap_err().contains("pending"));
+        assert_eq!(native(dir.path()).unwrap(), after);
+        status(dir.path(), Some(&pending.id), None, None).unwrap();
+        status(dir.path(), None, Some(&pending.id), None).unwrap();
+        let guard = mutation_guard(dir.path()).unwrap();
+        std::fs::write(dir.path().join("lists.json"), b"after acknowledgement").unwrap();
+        drop(guard);
+        assert_eq!(
+            std::fs::read(dir.path().join("lists.json")).unwrap(),
+            b"after acknowledgement"
+        );
+    }
+
+    #[test]
+    fn explicit_settings_only_rearms_a_failed_receipt_without_replacing_native_files() {
+        let directory = tempfile::tempdir().unwrap();
+        let before = Files::new();
+        let after = Files::from([(
+            "settings.json".into(),
+            serde_json::to_vec(&crate::settings::Settings::default()).unwrap(),
+        )]);
+        let report = Report {
+            legacy_encoding: None,
+            items: Vec::new(),
+            imported: vec!["settings.json".into()],
+            kept: Vec::new(),
+            source_hash: "fixture".into(),
+            operation: Some("configuration".into()),
+            configuration: Some(serde_json::json!({"workspace_rows":1,"omitted":[]})),
+        };
+        let state = publish_configuration(
+            directory.path(),
+            before,
+            after.clone(),
+            window(),
+            window(),
+            report,
+        )
+        .unwrap();
+        let id = state.pending.unwrap().id;
+        status(directory.path(), Some(&id), None, None).unwrap();
+        status_with_failure(directory.path(), None, None, None, Some(&id)).unwrap();
+        settings_only_transition(directory.path(), &id).unwrap();
+        let state = inspect_status(directory.path()).unwrap();
+        let pending = state.pending.unwrap();
+        assert!(!pending.failed);
+        assert!(!pending.attempted);
+        assert_eq!(pending.window.version, 2);
+        assert!(pending.window.workspace.is_none());
+        assert_eq!(native(directory.path()).unwrap(), after);
+        assert!(status(directory.path(), None, Some(&id), None).is_err());
+        status(directory.path(), Some(&id), None, None).unwrap();
+        status(directory.path(), None, Some(&id), None).unwrap();
+        assert!(inspect_status(directory.path()).unwrap().pending.is_none());
+    }
+
+    #[test]
+    fn portable_window_v2_preserves_working_directory_and_distinct_order() {
+        let mut value = serde_json::to_value(window()).unwrap();
+        value["version"] = 2.into();
+        value["workspace"]["version"] = 2.into();
+        value["workspace"]["working_directory"] = serde_json::json!(std::env::temp_dir());
+        value["workspace"]["list_order"] = "playlist".into();
+        value["workspace"]["source_order"] = value["workspace"]["paths"].clone();
+        value["preferences"]["opentag.tag-tag"] =
+            r#"{"field":"TITLE","template":"%title%"}"#.into();
+        let state: WindowState = serde_json::from_value(value.clone()).unwrap();
+        validate_window(&state).unwrap();
+        assert_eq!(serde_json::to_value(state).unwrap(), value);
+    }
     fn window() -> WindowState {
         let root = std::env::temp_dir()
             .join("profile-music")
@@ -1269,7 +1632,11 @@ mod tests {
                     "source-discogs".into(),
                 ),
             ]),
-            workspace: Workspace {
+            workspace: Some(Workspace {
+                version: None,
+                working_directory: None,
+                list_order: None,
+                source_order: None,
                 paths: vec![path.clone()],
                 selected: vec![path.clone()],
                 roots: vec![root.clone()],
@@ -1279,7 +1646,7 @@ mod tests {
                 filter_draft: Some("draft expression".into()),
                 anchor: Some(path),
                 playlist: None,
-            },
+            }),
         }
     }
     #[test]
@@ -1383,6 +1750,8 @@ mod tests {
                 imported: vec!["fixture".into()],
                 kept: Vec::new(),
                 source_hash: hash(after, None).unwrap(),
+                operation: None,
+                configuration: None,
             },
             pending: None,
             rollback: Some(encode(before)),
@@ -1734,7 +2103,7 @@ mod tests {
         );
         let third = make_preview(dir.path(), &path, window()).unwrap();
         let mut changed = window();
-        changed.workspace.filter = "new filter".into();
+        changed.workspace.as_mut().unwrap().filter = "new filter".into();
         assert!(apply(dir.path(), &third.token, &selected(), true, changed)
             .unwrap_err()
             .contains("changed after preview"));
@@ -2045,7 +2414,8 @@ mod tests {
                 );
                 let mut state = pending_state(&before, &after, "applying");
                 let mut latest = window();
-                latest.workspace.filter = "latest pre-second-import workspace".into();
+                latest.workspace.as_mut().unwrap().filter =
+                    "latest pre-second-import workspace".into();
                 state.window = latest.clone();
                 state.rollback_window = Some(latest);
                 state.previous = true;
@@ -2079,7 +2449,7 @@ mod tests {
                 assert!(recovered.restorable);
                 let pending = recovered.pending.unwrap();
                 assert_eq!(
-                    pending.window.workspace.filter,
+                    pending.window.workspace.as_ref().unwrap().filter,
                     "latest pre-second-import workspace"
                 );
                 status(&directory, Some(&pending.id), None, None).unwrap();
@@ -2120,7 +2490,8 @@ mod tests {
     #[test]
     fn workspace_count_limit_explains_the_playlist_route_without_truncation() {
         let mut state = window();
-        state.workspace.paths = vec![state.workspace.paths[0].clone(); 10001];
+        state.workspace.as_mut().unwrap().paths =
+            vec![state.workspace.as_ref().unwrap().paths[0].clone(); 10001];
         let error = validate_window(&state).unwrap_err();
         assert!(error.contains("10000"));
         assert!(error.contains("playlist"));
@@ -2277,9 +2648,9 @@ mod tests {
             .insert("opentag.api-token".into(), "must not be captured".into());
         assert!(validate_window(&invalid).is_err());
         invalid = window();
-        invalid.workspace.paths = vec!["content://provider/document".into()];
-        invalid.workspace.selected.clear();
-        invalid.workspace.anchor = None;
+        invalid.workspace.as_mut().unwrap().paths = vec!["content://provider/document".into()];
+        invalid.workspace.as_mut().unwrap().selected.clear();
+        invalid.workspace.as_mut().unwrap().anchor = None;
         assert!(validate_window(&invalid).is_err());
         std::os::unix::fs::symlink(
             dir.path().join("tag-sources.json"),
