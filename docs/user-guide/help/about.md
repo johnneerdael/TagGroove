@@ -34,8 +34,8 @@ third-party template or parser script transfers unchanged.
 
 Compatibility must be assessed for the particular workflow: tag format,
 field mapping, expression context, replacement syntax, action order and output
-side effects can matter. For example, this guide distinguishes JavaScript
-regex in Find from the Boost-compatible core used by format strings/actions.
+side effects can matter. For example, Find and format strings/actions share a Boost-compatible regex
+engine, but their quoting, case controls and replacement processing differ.
 Use the [regex reference](../reference/regular-expressions.md) and the relevant
 command's worked cases instead of treating a shared function name as proof
 of identical behavior.

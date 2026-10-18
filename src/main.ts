@@ -223,7 +223,7 @@ let toolbarConfig:ToolbarConfig=normalizeToolbar(undefined);
 // View → Toolbars → Custom toolbar: commands, tools and action groups the user adds (pages['custom-toolbar']).
 let customToolbar:ToolbarConfig=normalizeCustomToolbar(undefined);
 const actionUI=new ActionUI({batchError:error=>error instanceof BatchFailure?error.text(t,translate):undefined,onLanguageChange,
-  translateNow,
+  translateNow,translateLabel:label=>translate(label),
   load:()=>invoke<ActionLibrary>('load_action_library'),
   save:library=>invoke<void>('save_action_library',{library}),
   import:async(path,legacyEncoding)=>{try{return await invoke<ImportedGroup>('import_action_group',{path,legacyEncoding:legacyEncoding||null});}catch(error){throw importFailure(error,true)??error;}},
@@ -319,7 +319,7 @@ const extendedTags=new ExtendedTags({
 });
 const fileOps=new FileOpsUI({
   invoke:(command,args)=>invoke(command,args),
-  pickDirectories:async(title,multiple)=>{const result=await open({directory:true,multiple,title});return result?Array.isArray(result)?result:[result]:[];},
+  pickDirectories:async(title,multiple,defaultPath)=>{const result=await open({directory:true,multiple,title,defaultPath});return result?Array.isArray(result)?result:[result]:[];},
   confirm:(text,title)=>typeof text!=='string'?ask(text,{title,kind:'warning'}):title==='Delete files'||title==='Delete permanently'?messages.confirm('confirm_delete_files',text,title):title==='Unsaved changes'?messages.confirm('unsaved_changes',text,title):ask(text,{title,kind:'warning'}),
   selection:()=>paths().map(path=>({path,name:displayName(path)})),pendingCount:()=>drafts.size,
   load:(targets,options)=>loadPaths(targets,options),removeEntries,
@@ -523,7 +523,7 @@ const webSourcesUI=new WebSourcesUI({
   last:()=>tagSourcesUI.lastWeb,
   shortcut:'⌘/Ctrl I',
   changed:()=>render(),
-  pickFiles:async()=>{const chosen=await open({multiple:true,title:'Install tag sources',filters:[{name:'Tag sources',extensions:['src','inc','settings']}]});return Array.isArray(chosen)?chosen:typeof chosen==='string'?[chosen]:null;},
+  pickFiles:async(mode='files')=>{const chosen=await open(mode==='folder'?{directory:true,multiple:false,title:'Install source folder'}:{multiple:true,title:'Install tag sources or ZIP',filters:[{name:'Tag sources or ZIP',extensions:['src','inc','settings','zip']}]});return Array.isArray(chosen)?chosen:typeof chosen==='string'?[chosen]:null;},
   report:message=>{status=message;render();},
   fail:error=>{errors=[{path:'Tag sources',label:'Tag sources',error:error instanceof Error?error.message:String(error)}];render();},
 });
@@ -630,6 +630,7 @@ async function autoSizeColumns(ids:string[]){
   await applyColumns({...columnLayout,columns:columnLayout.columns.map(column=>widths.has(column.id)?{...column,width:widths.get(column.id)!}:column)});
 }
 const findUI=new FindUI({
+  regex:(pattern,caseSensitive,values)=>invoke<boolean[]>('regex_find',{pattern,caseSensitive,values}),
   items:()=>visible().map(entry=>({path:entry.path,filename:entry.filename,fields:merged(entry)})),
   select:(targets,focus)=>{selected.clear();targets.forEach(path=>selected.add(path));anchor=focus;coverIndex=0;coverError=undefined;render();if(focus)revealRow(focus,false);status=`${targets.length} file${targets.length===1?'':'s'} selected from Find results`;document.querySelector('.status-message')!.textContent=status;},
   listed:path=>visible().some(entry=>entry.path===path),
@@ -1474,7 +1475,7 @@ function saveCopy() {
   dialog.addEventListener('cancel',event=>{if(copying)event.preventDefault();});
   saveButton.addEventListener('click',async()=>{
     if(copying||busy)return;
-    const request=copyRequest(path,value(dialog,'copy-version') as 'edited'|'original',editedCopyFields(path));
+    const request=copyRequest(path,value(dialog,'copy-version') as 'edited'|'original',editedCopyFields(path),pendingCovers.get(path));
     copying=true;saveButton.disabled=true;closeButton.disabled=true;dialog.querySelector<HTMLSelectElement>('#copy-version')!.disabled=true;
     dialog.querySelector('.dialog-error')?.remove();
     const progress=dialog.querySelector<HTMLElement>('.copy-status')!;progress.textContent='Choose a destination. The copy will be checked after writing.';
@@ -1667,9 +1668,9 @@ async function replayHistory(kind:'undo'|'redo'){
   });
 }
 const clipTargets=()=>paths().map(path=>({path,fields:merged(entries.get(path)!)}));
-// Files whose covers are known and saved in place: provider documents with unreadable working copies, or
-// that only Save a copy can keep (it writes fields only), are left alone.
-const coverTargets=()=>sourcePolicy().mutationReason?[]:paths().filter(path=>!workingReadErrors.has(path)).map(path=>({path,covers:pendingCovers.get(path)??entries.get(path)!.covers}));
+// Clipboard operations stage edits, including for read-only or recovery sources.
+// Leave artwork alone when the retained working copy cannot be read.
+const coverTargets=()=>paths().filter(path=>!workingReadErrors.has(path)).map(path=>({path,covers:pendingCovers.get(path)??entries.get(path)!.covers}));
 function stageTagUpdates(plan:()=>PasteUpdate[],operation:'Cut tags'|'Paste tags',statusMessage:(count:number)=>string,coverPlan:()=>CoverUpdate[]=()=>[]){
   try{
     const updates=plan(),coverUpdates=coverPlan();
@@ -2082,7 +2083,7 @@ if(desktop){
   const optionsReady=optionsUI.initialize().then(async response=>{collator=naturalCollator(response.settings);toolbarConfig=normalizeToolbar(response.settings.pages.toolbar);customToolbar=normalizeCustomToolbar(response.settings.pages['custom-toolbar']);if(response.settings.pages.layout)updateLayout(normalizeMainLayout(response.settings.pages.layout));await applyLanguage();void applyNotificationArea();changedData();applyAppearancePrefs();if(response.warning)errors=[...errors,{path:'Options',label:'Options',error:response.warning}];render();}).catch(async error=>{errors=[...errors,{path:'Options',label:'Options',error:String(error)}];await applyLanguage(languageChoice());}).finally(()=>{render();translateNow(app);app.inert=false;app.style.visibility='';syncWindowTitle();});
   let directoriesReady=Promise.resolve();
   void Promise.all([optionsReady,versionReady]).then(([,version])=>version?startupUpdates(version):undefined);
-  const platformReady=invoke<typeof runtimePlatform>('runtime_platform').then(async platform=>{runtimePlatform=platform;nativeAppearanceReady=platform.family==='desktop';languagePage.setFolderSupport(platform.family==='desktop');render();syncNativeAppearance();if(platform.folder_picker_supported)directoriesReady=optionsReady.then(()=>fileOps.initialize()).catch(error=>{errors=[{path:'Directories',label:'Directories',error:String(error)}];render();});if(platform.document_access_supported){await optionsReady;await run('Restoring recovery copies…',async()=>{const batch=await invoke<Batch>('restore_document_recovery');accept(batch,'Restored recovery copies',false);location='Provider documents';locationIsData=false;if(!selected.size&&batch.entries.length){selected.add(batch.entries[0].path);anchor=batch.entries[0].path;}if(!batch.entries.length&&!batch.errors.length)status='Ready';});}}).catch(error=>{errors=[{path:'Platform',label:'Platform',error:String(error)}];render();});
+  const platformReady=invoke<typeof runtimePlatform>('runtime_platform').then(async platform=>{runtimePlatform=platform;nativeAppearanceReady=platform.family==='desktop';languagePage.setFolderSupport(platform.family==='desktop');render();syncNativeAppearance();if(platform.folder_picker_supported)directoriesReady=optionsReady.then(()=>fileOps.initialize()).catch(error=>{errors=[{path:'Directories',label:'Directories',error:String(error)}];render();});if(platform.document_access_supported){await optionsReady;await run('Restoring recovery copies…',async()=>{const batch=await invoke<Batch>('restore_document_recovery');accept(batch,'Restored recovery copies',false);await reconcileWorkingEntries(batch.entries.map(entry=>entry.path));location='Provider documents';locationIsData=false;if(!selected.size&&batch.entries.length){selected.add(batch.entries[0].path);anchor=batch.entries[0].path;}if(!batch.entries.length&&!batch.errors.length)status='Ready';});}}).catch(error=>{errors=[{path:'Platform',label:'Platform',error:String(error)}];render();});
   void listen<{job:string;done:number;total:number}>('opentag://progress',event=>{const job=progressJob;if(!job||event.payload.job!==job.id)return;job.done=event.payload.done;job.total=event.payload.total;showProgress();}).catch(()=>{/* Progress is optional; operations still complete. */});
   void webSourcesUI.refresh();
   // Which API keys exist (never the keys): AcoustID, Last.fm and fanart.tv wait for one.

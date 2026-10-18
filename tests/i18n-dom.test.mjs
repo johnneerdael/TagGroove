@@ -326,8 +326,22 @@ test('real column-import and source-install warnings retain joined diagnostics a
       assert.equal(p.body.textContent,t.t(keys[count===1?0:1],{length:count,path:'Help.ini',length2:count,join:skipped.join('; ')}));
       p.body.removeAttribute('translate');const paths=Array.from({length:count},(_,index)=>`/tmp/${index?'Title':'Help'}.src`),problems=paths.map(path=>({file:path.split('/').at(-1),error:'Wrong expression'}));
       const sources=new WebSourcesUI({pickFiles:async()=>paths,invoke:async()=>({sources:[],problems}),changed:()=>{},report:message=>{p.body.textContent=message;},fail:error=>{throw error;}});
-      await sources.install();p.translate(locale,catalog);
+      const installing=sources.install();p.body.querySelector('[data-files]').click();await installing;p.translate(locale,catalog);
       assert.equal(p.body.textContent,t.t(keys[count===1?2:3],{names:paths.map(path=>path.split('/').at(-1)).join(', '),length:count,join:problems.map(problem=>`${problem.file}: ${problem.error}`).join('; ')}));
+    }finally{p.close();}
+  }
+});
+test('source installation routes folder and ZIP pickers and cancellation leaves the listing alone',async()=>{
+  for(const mode of ['folder','files',null]){
+    const p=page();try{
+      const picked=[],commands=[];
+      const ui=new WebSourcesUI({pickFiles:async kind=>{picked.push(kind);return ['/tmp/download'];},invoke:async(command,args)=>{commands.push([command,args]);return {folder:'/tmp/sources',sources:[],settings:[],problems:[]};},changed:()=>{},report:()=>{},fail:error=>{throw error;}});
+      const pending=ui.install();
+      assert.equal(p.body.querySelector('dialog').getAttribute('aria-label'),'Install tag sources');
+      p.body.querySelector(`[data-${mode || 'cancel'}]`).click();await pending;
+      assert.deepEqual(picked,mode?[mode]:[]);
+      assert.deepEqual(commands,mode?[['web_sources_install',{paths:['/tmp/download']}]]:[]);
+      assert.equal(p.body.querySelector('dialog'),null);
     }finally{p.close();}
   }
 });
@@ -1363,6 +1377,26 @@ test('source dialogs keep authored accessible names through search and review wh
     }finally{p.close();}
   }
 });
+test('scalar web-source TITLE reaches review and applies to the selected files through the existing album-wide fallback',async()=>{
+  for(const count of [1,2]){
+    const p=page();try{
+      const files=Array.from({length:count},(_,index)=>({path:`/Music/practice-${index+1}.flac`,name:`practice-${index+1}.flac`,title:'Before',artist:'Before Artist',album:'Before Album',album_artist:'',disc:'1',track:String(index+1),length:120})),applied=[];
+      const ui=new TagSourcesUI({files:()=>files,reason:()=>'',options:()=>({}),evaluate:async()=>'',apply:async(items,cover)=>{applied.push({items,cover});},invoke:async command=>{
+        if(command==='web_source_search')return{direct:true,columns:[],results:[{url:'https://example.invalid/practice'}]};
+        if(command==='web_source_release')return{provider:'web',id:'practice',url:'',artist:'Practice Artist',title:'',fields:{TITLE:['Practice Track'],ARTIST:['Practice Artist']},tracks:[],covers:[],more_covers:false};
+        throw new Error(command);
+      }});
+      await ui.open('web',{web:{id:'practice.src',name:'Practice source',search_by:[]}});
+      const dialog=p.body.querySelector('dialog');dialog.querySelector('#ts-search').click();
+      await p.window.happyDOM.waitUntilComplete();
+      assert.equal(dialog.querySelectorAll('.ts-matches tbody tr').length,count);
+      assert.equal(dialog.querySelector('#ts-apply').disabled,false);
+      assert.equal(dialog.querySelector('input[data-value="TITLE"]').value,'Practice Track');
+      dialog.querySelector('#ts-apply').click();await p.window.happyDOM.waitUntilComplete();
+      assert.deepEqual(applied,[{items:files.map(file=>({path:file.path,updates:{TITLE:['Practice Track'],ARTIST:['Practice Artist']}})),cover:null}]);
+    }finally{p.close();}
+  }
+});
 test('web-source result headers and search labels remain authored while application table/search controls translate',()=>{
   const custom={ARTIST:'Performer',Artist:'Performer',Help:'Assistance',Title:'Name',Search:'Find','Artist + Album':'Performer + Record','Search results':'Found records',Preview:'Inspect','Release artwork':'Release image','More results':'Show more','{length} of {total} shown':'{length} / {total} displayed'};
   for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom]]){
@@ -1995,4 +2029,35 @@ test('actual Files options save and restore the companion policy through the com
     p.body.querySelector('#options-ok').click();await p.window.happyDOM.waitUntilComplete();
     assert.equal(captured.host.preferences().associatedFiles,false);
   }finally{for(const [name,descriptor] of Object.entries(globals))if(descriptor)Object.defineProperty(globalThis,name,descriptor);else delete globalThis[name];p.close();}
+});
+
+for(const locale of ['de','nl'])for(const count of [3,1])for(const phase of ['warning','status'])test(`MTA export ${phase} translates ${count} fixed action title${count===1?'':'s'} in ${locale} and preserves authored values`,async()=>{
+  const p=page(),listeners=new Set(),calls=[];
+  const name='Help {join} < & >',path='/tmp/Title {name} Adjust Cover.mta';
+  const catalog={...catalogs[locale],[name]:'Wrong authored group lookup',[path]:'Wrong authored path lookup'};
+  let active=p.translate(locale,catalog);
+  const actions=[{type:'adjust_cover'},{type:'set_cover_properties'},{type:'generate_playlists'}].slice(0,count);
+  const library={groups:[{name,enabled:true,actions}],presets:[]};
+  const invoke=async(command,args)=>{calls.push({command,args:structuredClone(args)});if(command==='load_action_library')return structuredClone(library);if(command==='export_action_group')return;throw new Error(command);};
+  const host=rendererVariable(parsed,'actionUI',{ActionUI:class{constructor(host){return host;}},t:(key,params)=>active.t(key,params),translate:text=>active.translate(text),onLanguageChange:listener=>{listeners.add(listener);return()=>listeners.delete(listener);},translateNow:p.translateTree,executeGroups:async()=>assert.fail('Export does not execute actions'),invoke,open:async()=>null,save:async()=>path,enabled:()=>true,operationReason:()=>'',selected:new Set(['/Music/Help.wav']),paths:()=>['/Music/Help.wav'],merged:()=>({TITLE:['Title']}),entries:new Map(),render:()=>{}});
+  try{
+    const ui=new ActionUI(host);await ui.groupsDialog();const dialog=p.body.querySelector('.action-groups-dialog');
+    if(phase==='status'){dialog.querySelector('[data-command="export"]').click();for(let i=0;i<6;i++)await new Promise(resolve=>setTimeout(resolve,0));}
+    const check=()=>{
+      p.translateTree(dialog);
+      const labels=['Adjust Cover','Set Cover Properties','Generate Playlists'].slice(0,count).map(label=>active.t(label)).join(', ');
+      const warning=active.t('This .mta export contains app-only extensions ({names}). These actions will not transfer to Mp3tag; keep this file for use in this app.',{names:labels});
+      const actual=dialog.querySelector(phase==='status'?'.group-notice':'.import-issues');
+      assert.equal(actual?.textContent,phase==='status'?active.t('Exported {name} to {path}. {mtaExportWarning}',{name,path,mtaExportWarning:warning}):warning);
+      assert.equal(dialog.querySelector('.group-row > span').textContent,name);
+    };
+    check();
+    // The dialog can stay open while the locale changes. Stock labels update;
+    // authored names/paths and placeholder-shaped data remain intact.
+    active=p.translate(locale==='de'?'nl':'de',catalogs[locale==='de'?'nl':'de']);listeners.forEach(listener=>listener());check();
+    const custom={'Adjust Cover':'Help','Set Cover Properties':'Title','Generate Playlists':'File',Help:'Wrong second lookup',Title:'Wrong second lookup',File:'Wrong second lookup','This .mta export contains app-only extensions ({names}). These actions will not transfer to Mp3tag; keep this file for use in this app.':'Extensions: {names}','Exported {name} to {path}. {mtaExportWarning}':'Export [{name}] [{path}]: {mtaExportWarning}',[name]:'Wrong authored group lookup',[path]:'Wrong authored path lookup'};
+    active=p.translate('en',custom);listeners.forEach(listener=>listener());check();
+    if(phase==='status')assert.deepEqual(calls.find(call=>call.command==='export_action_group').args,{path,group:library.groups[0]});
+    dialog.close();assert.equal(listeners.size,0);
+  }finally{p.close();}
 });
