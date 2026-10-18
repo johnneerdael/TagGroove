@@ -4,8 +4,9 @@ This bounded R01 batch extends the producer/corpus in frozen PR51 head
 `f59edd7b7fbf6d6679c8623d8aa427619225fb76`, locally aligned with PR47 head
 `36d7dea4e7b930d3a7d98facaca8498d0ef7c8de`. It reuses the existing synthetic
 carriers, save/undo/redo runner and comparison consumer. It changes no
-application save policy, field codec or default. It includes no reference
-collector, Windows execution or original-app expected outputs.
+application save policy, field codec or default. This extension adds no reference
+collector, Windows execution or original-app expected outputs. The existing
+reference collector and its stage-binding checks remain separate requirements.
 
 ## Starting coverage and the demonstrated gap
 
@@ -99,6 +100,14 @@ The Python paired consumer also receives a synthetic reference copy with
 only a WMP counter byte changed. Displayed stars and audio remain identical,
 but native payload hashes differ and the comparison must fail. This is a
 consumer regression test; no original application produced that copy.
+Both synthetic native mutations first fail the mandatory captured-stage hash
+check. Their test-only identities are then rebound to the deliberately changed
+bytes so semantic comparison runs. Production comparison still requires complete
+whole-file bindings for every operation, saved/undone/redone stage and input; it
+checks them before and after detached read-only observation. The native extension
+also retains the current source/build identity checks and repository-local
+capture-directory controls. Unrelated untracked files, tracked changes and
+modified backend/source identities remain rejection cases.
 
 A separate representation control adds a leading zero byte to the same
 numeric counter. Owner, rating, counter and all other decoded observations

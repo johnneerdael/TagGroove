@@ -6,6 +6,14 @@
 
 An authorized merge to `main` that changes shipping files publishes a full GitHub release (not a prerelease); only a newer full release becomes latest. Pre-1.0 releases say "Release (pre-1.0)" in their notes. Android and iOS packages are **UI previews**: document editing and save-back integration is still in progress. Desktop feature parity and remaining runtime qualification are recorded in [PARITY.md](PARITY.md).
 
+## Validation and packaging boundary
+
+The approved PR pipeline runs frontend/tooling checks once, followed by cross-platform Rust/native UI checks, Android integration and strict documentation validation. Native checks share one desktop workspace per operating system. Release packages are built on main, after validating the reviewed head/base/test-merge proof and the actual merged source tree.
+
+Release jobs do not repeat the approved frontend unit tests, Rust tests or linting. They retain all target builds and the packaged macOS document-type check, plus version, signature, native build provenance, complete-source and checksum validation. The source-built embedded audio producer needs CMake/Make and an assembler where applicable; release packaging does not install an external FFmpeg executable just to regenerate test fixtures.
+
+Failed-main workflow repairs may be applied directly by the owner with an inspected-head lease and recorded local checks. A direct repair does not invent review/build proof or bypass publication checks.
+
 ## How versions are derived
 
 `package.json`, `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json`, `Cargo.lock` (the `opentag` entry), `package-lock.json` and the iOS project files carry the **base version**, currently `0.2.0`. It must be a plain `<major>.<minor>.0`.
@@ -81,7 +89,7 @@ The download table, signing status (Windows and Linux packages are unsigned, mac
 | Android arm64 UI preview | `ubuntu-24.04` | Release APK signed with the persistent TagGroove application key; document editing/save-back still in progress |
 | iOS arm64 simulator UI preview | `macos-15` | Unsigned debug `.app` ZIP for the simulator; document editing/save-back still in progress; not an iPhone/iPad installer or App Store package |
 
-Desktop jobs run the frontend build before native tests, then UI tests, Rust formatting, workspace tests and strict clippy. Tauri's [GitHub pipeline guidance](https://v2.tauri.app/distribute/pipelines/github/) and [tauri-action v1](https://github.com/tauri-apps/tauri-action/tree/v1) provide the build path. The action receives no release ID or tag name: it builds only. Its `artifactPaths` output feeds the collection script. The collector supplies a tested tar fallback for `.app` directories if the action does not create their app archives.
+Approved PR validation runs frontend tests once and combines Rust tests, formatting, Clippy and native UI suites in one workspace per desktop OS. Main desktop jobs build versioned release packages and check their bundled metadata; they do not rerun those validation suites. Tauri's [GitHub pipeline guidance](https://v2.tauri.app/distribute/pipelines/github/) and [tauri-action v1](https://github.com/tauri-apps/tauri-action/tree/v1) provide the build path. The action receives no release ID or tag name: it builds only. Its `artifactPaths` output feeds the collection script. The collector supplies a tested tar fallback for `.app` directories if the action does not create their app archives.
 
 Native build tools are installed explicitly before compilation: Python 3.12, CMake, Make and the target C/C++ toolchain, plus NASM for x86 assembly. Windows exposes the MSVC developer environment, binds `OPENTAG_MSYS2` to the setup action's actual installation after verifying Bash and Make, verifies the NASM executable, and adds its installation directory to `PATH`; Apple and Linux jobs install the matching tools through their existing package managers. Android and iOS retain their existing NDK/SDK and simulator targets. These are build prerequisites and do not add runtime programs to the application.
 

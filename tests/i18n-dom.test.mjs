@@ -25,7 +25,7 @@ const {ToolsUI,toolsOptionsPage}=await load('tools.ts'),{installHelperMenus}=awa
 const {customizeToolbar,itemHint,itemLabel,userLabel,visibleItems,isSeparator,isSpacer,TOOLBAR_COMMANDS}=await load('toolbar.ts');
 const {copyAsTextDialog,UTILS}=await load('utils-ui.ts'),{PlaylistUI}=await load('playlist-ui.ts'),{openTagToTag}=await load('tag-tag-ui.ts');
 const {offerOpenOutputs,ExportUI}=await load('export-ui.ts');
-const {FileOpsUI,nameList,defaultDirectoryState}=await load('file-ops.ts');
+const {FileOpsUI,nameList,defaultDirectoryState,startupChoice}=await load('file-ops.ts');
 const {copiedMessage,pastePlan,copyTags}=await load('tag-clipboard.ts');
 const {cleanupText,libraryOptionsPage}=await load('library.ts');
 const {mappingOptionsPage}=await load('field-mapping.ts');
@@ -326,8 +326,22 @@ test('real column-import and source-install warnings retain joined diagnostics a
       assert.equal(p.body.textContent,t.t(keys[count===1?0:1],{length:count,path:'Help.ini',length2:count,join:skipped.join('; ')}));
       p.body.removeAttribute('translate');const paths=Array.from({length:count},(_,index)=>`/tmp/${index?'Title':'Help'}.src`),problems=paths.map(path=>({file:path.split('/').at(-1),error:'Wrong expression'}));
       const sources=new WebSourcesUI({pickFiles:async()=>paths,invoke:async()=>({sources:[],problems}),changed:()=>{},report:message=>{p.body.textContent=message;},fail:error=>{throw error;}});
-      await sources.install();p.translate(locale,catalog);
+      const installing=sources.install();p.body.querySelector('[data-files]').click();await installing;p.translate(locale,catalog);
       assert.equal(p.body.textContent,t.t(keys[count===1?2:3],{names:paths.map(path=>path.split('/').at(-1)).join(', '),length:count,join:problems.map(problem=>`${problem.file}: ${problem.error}`).join('; ')}));
+    }finally{p.close();}
+  }
+});
+test('source installation routes folder and ZIP pickers and cancellation leaves the listing alone',async()=>{
+  for(const mode of ['folder','files',null]){
+    const p=page();try{
+      const picked=[],commands=[];
+      const ui=new WebSourcesUI({pickFiles:async kind=>{picked.push(kind);return ['/tmp/download'];},invoke:async(command,args)=>{commands.push([command,args]);return {folder:'/tmp/sources',sources:[],settings:[],problems:[]};},changed:()=>{},report:()=>{},fail:error=>{throw error;}});
+      const pending=ui.install();
+      assert.equal(p.body.querySelector('dialog').getAttribute('aria-label'),'Install tag sources');
+      p.body.querySelector(`[data-${mode || 'cancel'}]`).click();await pending;
+      assert.deepEqual(picked,mode?[mode]:[]);
+      assert.deepEqual(commands,mode?[['web_sources_install',{paths:['/tmp/download']}]]:[]);
+      assert.equal(p.body.querySelector('dialog'),null);
     }finally{p.close();}
   }
 });
@@ -489,7 +503,7 @@ test('the production Language page exposes its folder action only after a native
     try{
       const languagePage=rendererVariable(parsed,'languagePage',{desktop,ENGLISH:english,languageOptionsPage,onLanguageChange:()=>()=>{},invoke:async(command,args)=>{calls.push([command,args]);}});
       if(family&&desktop){
-        const values={languagePage,render:()=>{},syncNativeAppearance:()=>{},optionsReady:Promise.resolve(),fileOps:{initialize:async()=>{}},run:async()=>{}};
+        const values={languagePage,render:()=>{},syncNativeAppearance:()=>{},optionsReady:Promise.resolve(),profileWorkspaceReady:Promise.resolve(false),fileOps:{initialize:async()=>{}},run:async()=>{}};
         await new Function(...Object.keys(values),`let runtimePlatform={},nativeAppearanceReady=false,directoriesReady=Promise.resolve();${js}`)(...Object.values(values))({family,folder_picker_supported:family==='desktop',document_access_supported:family!=='desktop'});
       }
       p.body.innerHTML=languagePage.controls.map(controlMarkup).join('');p.translate('de');
@@ -904,11 +918,15 @@ test('actual history menus replay progress completion and typed errors translate
     const errors=Array.from({length:failures},()=>({path:'Help',error:'raw'})),entries=new Map(),rowFile=path=>path,applyRenamed=()=>{},accept=()=>{};
     const invoke=async()=>({label,entries:Array.from({length:files},(_,i)=>({path:String(i)})),history}),run=async(text,job)=>{progress=text;await job();};
     ${replay};await replayHistory(kind);return{progress,status,history};})()`);
+  const fileOps=await readFile(new URL('../src-tauri/src/file_ops.rs',import.meta.url),'utf8');
+  const moveLabel=/(?:history::)?\brecord\s*\(\s*"([^"]+)"/.exec(fileOps)?.[1];
+  assert.equal(moveLabel,'Move files','exercise the native move history producer');
   const english=JSON.parse(await source('i18n/catalogs/en.json'));
-  const custom={...english,'Action {name}':'Copy of {name}','Actions ({count} groups)':'Copy of {count} groups','Copy of Help':'Again',Help:'Wrong name','Action Help':'Wrong action-like name','Actions (2 groups)':'Wrong count-like name'};
+  const custom={...english,'Move files':'Transfer files','Action {name}':'Copy of {name}','Actions ({count} groups)':'Copy of {count} groups','Copy of Help':'Again',Help:'Wrong name','Action Help':'Wrong action-like name','Actions (2 groups)':'Wrong count-like name'};
   const reordered={...custom,'Action {name}':'[{name}] applied','Actions ({count} groups)':'[{count}] groups applied','[Help] applied':'Again'};
   const cases=['Help','Action Help','Actions (2 groups)','  Help  ','Help\nTitle'].map(name=>({label:`Action ${name}`,key:'Action {name}',params:{name}}));
   cases.push({label:'Actions (2 groups)',key:'Actions ({count} groups)',params:{count:'2'}});
+  cases.push({label:moveLabel,key:moveLabel,params:{}});
   for(const [locale,catalog] of [['de',catalogs.de],['nl',catalogs.nl],['en',custom],['en',reordered]])for(const [i,item] of cases.entries())for(const kind of ['undo','redo']){
     const files=i%2+1,failures=i%2,observed=await runReplay(item.label,kind,files,failures),step={label:item.label,files};
     const raw={menu:kind==='undo'?historyLabel('Undo',step):redoOrRepeat({redo:step},undefined).label,progress:observed.progress,status:observed.status};
@@ -937,10 +955,10 @@ function nativeHistoryLabels(sources){
   return labels;
 }
 test('native fixed history label producers have registered exact translations and unknown labels remain raw',async()=>{
-  const sources={};for(const name of ['lib','history','converters','sources/mod','utilities','covers'])sources[name]=await readFile(new URL(`../src-tauri/src/${name}.rs`,import.meta.url),'utf8');
+  const sources={};for(const name of ['lib','history','converters','sources/mod','utilities','covers','file_ops'])sources[name]=await readFile(new URL(`../src-tauri/src/${name}.rs`,import.meta.url),'utf8');
   const labels=nativeHistoryLabels(sources);
   for(const newline of ['\n','\r\n'])assert.deepEqual(nativeHistoryLabels(Object.fromEntries(Object.entries(sources).map(([name,text])=>[name,text.replace(/\r?\n/g,newline)]))),labels);
-  assert.equal(labels.size,21);const generated=englishCatalog();
+  assert.equal(labels.size,22);assert.ok(labels.has('Move files'));const generated=englishCatalog();
   for(const label of labels)assert.equal(generated[label],label,`register native history label ${label}`);
   const {historyLabelText}=await load('i18n/core.ts');assert.equal(typeof historyLabelText,'function');
   for(const locale of ['de','nl']){
@@ -1360,6 +1378,26 @@ test('source dialogs keep authored accessible names through search and review wh
       assert.equal(dialog.querySelector('header').textContent,`${expected}: Help – Title`);assert.equal(dialog.querySelector('#ts-back').textContent,t.t('Back'));
       dialog.querySelector('#ts-back').click();p.translateTree(dialog);assert.equal(accessibleName(),expected);assert.equal(dialog.querySelector('header').textContent,expected);
       p.translate('en');assert.equal(accessibleName(),name);dialog.close();
+    }finally{p.close();}
+  }
+});
+test('scalar web-source TITLE reaches review and applies to the selected files through the existing album-wide fallback',async()=>{
+  for(const count of [1,2]){
+    const p=page();try{
+      const files=Array.from({length:count},(_,index)=>({path:`/Music/practice-${index+1}.flac`,name:`practice-${index+1}.flac`,title:'Before',artist:'Before Artist',album:'Before Album',album_artist:'',disc:'1',track:String(index+1),length:120})),applied=[];
+      const ui=new TagSourcesUI({files:()=>files,reason:()=>'',options:()=>({}),evaluate:async()=>'',apply:async(items,cover)=>{applied.push({items,cover});},invoke:async command=>{
+        if(command==='web_source_search')return{direct:true,columns:[],results:[{url:'https://example.invalid/practice'}]};
+        if(command==='web_source_release')return{provider:'web',id:'practice',url:'',artist:'Practice Artist',title:'',fields:{TITLE:['Practice Track'],ARTIST:['Practice Artist']},tracks:[],covers:[],more_covers:false};
+        throw new Error(command);
+      }});
+      await ui.open('web',{web:{id:'practice.src',name:'Practice source',search_by:[]}});
+      const dialog=p.body.querySelector('dialog');dialog.querySelector('#ts-search').click();
+      await p.window.happyDOM.waitUntilComplete();
+      assert.equal(dialog.querySelectorAll('.ts-matches tbody tr').length,count);
+      assert.equal(dialog.querySelector('#ts-apply').disabled,false);
+      assert.equal(dialog.querySelector('input[data-value="TITLE"]').value,'Practice Track');
+      dialog.querySelector('#ts-apply').click();await p.window.happyDOM.waitUntilComplete();
+      assert.deepEqual(applied,[{items:files.map(file=>({path:file.path,updates:{TITLE:['Practice Track'],ARTIST:['Practice Artist']}})),cover:null}]);
     }finally{p.close();}
   }
 });
@@ -1942,3 +1980,88 @@ for(const [ending,newline] of [['LF','\n'],['CRLF','\r\n']]){
     assert.deepEqual(create(native,new Translator('en')).ask({parts:['Help','Title'],separator:'\n\n'},'Open files'),['Help\n\nTitle','Open files']);
   });
 }
+
+
+for(const locale of ['de','nl'])test(`${locale}: associated Move confirmation translates parts and preserves complete raw paths`,async()=>{
+  const translator=new Translator(locale,catalogs[locale]),calls=[];
+  const nativeSource=(await source('i18n/dialog.ts')).replace(/^import .*;\r?\n/gm,'').replace(/^export /gm,'');
+  const js=ts.transpileModule(nativeSource,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
+  const dialogs=new Function('dialog','t','translate','translationActive',`${js}\nreturn {ask};`)({ask:async(...args)=>{calls.push(args);return false;}},key=>translator.t(key),text=>translator.translate(text),()=>true);
+  const from='/Music/Help  $& {value}.lrc',to='/Dest/Title  $& {from}.lrc';
+  const host={mac:false,selection:()=>[{name:'Help',path:'/Music/Help.wav'}],openReason:()=>'',pickDirectories:async()=>['/Dest'],
+    preferences:()=>({associatedFiles:true}),run:async(_message,job)=>job(),
+    invoke:async(command)=>{assert.equal(command,'preview_transfer');return{plan_token:'reviewed',associated:[{from,to}]};},
+    confirm:(message,title)=>dialogs.ask(message,{title})};
+  await new FileOpsUI(host).operate('file-move');
+  assert.equal(calls.length,1);
+  const message=calls[0][0];
+  assert.ok(message.includes(from)&&message.includes(to),message);
+  assert.ok(message.includes(translator.t('Associated .lrc/.cdg files: {length}',{length:1})),message);
+  assert.ok(message.includes(translator.t('Associated file: {from} → {to}',{from,to})),message);
+  assert.notEqual(calls[0][1].title,'Move files');
+});
+
+
+test('actual Files options save and restore the companion policy through the compact page picker and main host',async()=>{
+  const p=page(),globals=Object.fromEntries(['CSS','getComputedStyle'].map(name=>[name,Object.getOwnPropertyDescriptor(globalThis,name)]));
+  p.window.happyDOM.setViewport({width:420,height:700});
+  Object.defineProperty(globalThis,'CSS',{configurable:true,value:p.window.CSS});
+  Object.defineProperty(globalThis,'getComputedStyle',{configurable:true,value:p.window.getComputedStyle.bind(p.window)});
+  try{
+    // Happy DOM requires whitespace after @media; browsers accept either spelling.
+    const style=p.window.document.createElement('style');style.textContent=(await source('style.css')).replaceAll('@media(', '@media (');p.window.document.head.append(style);
+    let settings=defaultSettings();
+    const response=()=>({settings:structuredClone(settings),defaults:defaultSettings(),warning:null});
+    const ui=new OptionsUI({load:async()=>response(),save:async value=>{settings=structuredClone(value);return response();},appearance:{get:()=> 'system',set:()=>{}},applied:()=>{}});
+    await ui.open('files');
+    assert.equal(p.window.getComputedStyle(p.body.querySelector('.options-tree')).display,'none');
+    assert.equal(p.window.getComputedStyle(p.body.querySelector('.options-page-select')).display,'block');
+    assert.equal(p.window.document.activeElement.id,'options-page-picker');
+    let control=p.body.querySelector('[data-option="pages.files.associated_files"]');
+    assert.equal(control.checked,false);
+    assert.equal(control.disabled,false);
+    control.checked=true;control.dispatchEvent(new p.window.Event('change',{bubbles:true}));
+    p.body.querySelector('#options-ok').click();await p.window.happyDOM.waitUntilComplete();
+    assert.equal(settings.pages.files.associated_files,true);
+    const captured=rendererVariable(parsed,'fileOps',{FileOpsUI:class{constructor(host){this.host=host;}},removeEntries:()=>{},macPlatform:false,optionsUI:ui,startupChoice});
+    assert.equal(captured.host.preferences().associatedFiles,true);
+    await ui.open('general');
+    const picker=p.body.querySelector('#options-page-picker');picker.value='files';picker.dispatchEvent(new p.window.Event('change',{bubbles:true}));
+    control=p.body.querySelector('[data-option="pages.files.associated_files"]');assert.equal(control.checked,true);
+    p.body.querySelector('#options-defaults').click();
+    assert.equal(p.body.querySelector('[data-option="pages.files.associated_files"]').checked,false);
+    p.body.querySelector('#options-ok').click();await p.window.happyDOM.waitUntilComplete();
+    assert.equal(captured.host.preferences().associatedFiles,false);
+  }finally{for(const [name,descriptor] of Object.entries(globals))if(descriptor)Object.defineProperty(globalThis,name,descriptor);else delete globalThis[name];p.close();}
+});
+
+for(const locale of ['de','nl'])for(const count of [3,1])for(const phase of ['warning','status'])test(`MTA export ${phase} translates ${count} fixed action title${count===1?'':'s'} in ${locale} and preserves authored values`,async()=>{
+  const p=page(),listeners=new Set(),calls=[];
+  const name='Help {join} < & >',path='/tmp/Title {name} Adjust Cover.mta';
+  const catalog={...catalogs[locale],[name]:'Wrong authored group lookup',[path]:'Wrong authored path lookup'};
+  let active=p.translate(locale,catalog);
+  const actions=[{type:'adjust_cover'},{type:'set_cover_properties'},{type:'generate_playlists'}].slice(0,count);
+  const library={groups:[{name,enabled:true,actions}],presets:[]};
+  const invoke=async(command,args)=>{calls.push({command,args:structuredClone(args)});if(command==='load_action_library')return structuredClone(library);if(command==='export_action_group')return;throw new Error(command);};
+  const host=rendererVariable(parsed,'actionUI',{ActionUI:class{constructor(host){return host;}},t:(key,params)=>active.t(key,params),translate:text=>active.translate(text),onLanguageChange:listener=>{listeners.add(listener);return()=>listeners.delete(listener);},translateNow:p.translateTree,executeGroups:async()=>assert.fail('Export does not execute actions'),invoke,open:async()=>null,save:async()=>path,enabled:()=>true,operationReason:()=>'',selected:new Set(['/Music/Help.wav']),paths:()=>['/Music/Help.wav'],merged:()=>({TITLE:['Title']}),entries:new Map(),render:()=>{}});
+  try{
+    const ui=new ActionUI(host);await ui.groupsDialog();const dialog=p.body.querySelector('.action-groups-dialog');
+    if(phase==='status'){dialog.querySelector('[data-command="export"]').click();for(let i=0;i<6;i++)await new Promise(resolve=>setTimeout(resolve,0));}
+    const check=()=>{
+      p.translateTree(dialog);
+      const labels=['Adjust Cover','Set Cover Properties','Generate Playlists'].slice(0,count).map(label=>active.t(label)).join(', ');
+      const warning=active.t('This .mta export contains app-only extensions ({names}). These actions will not transfer to Mp3tag; keep this file for use in this app.',{names:labels});
+      const actual=dialog.querySelector(phase==='status'?'.group-notice':'.import-issues');
+      assert.equal(actual?.textContent,phase==='status'?active.t('Exported {name} to {path}. {mtaExportWarning}',{name,path,mtaExportWarning:warning}):warning);
+      assert.equal(dialog.querySelector('.group-row > span').textContent,name);
+    };
+    check();
+    // The dialog can stay open while the locale changes. Stock labels update;
+    // authored names/paths and placeholder-shaped data remain intact.
+    active=p.translate(locale==='de'?'nl':'de',catalogs[locale==='de'?'nl':'de']);listeners.forEach(listener=>listener());check();
+    const custom={'Adjust Cover':'Help','Set Cover Properties':'Title','Generate Playlists':'File',Help:'Wrong second lookup',Title:'Wrong second lookup',File:'Wrong second lookup','This .mta export contains app-only extensions ({names}). These actions will not transfer to Mp3tag; keep this file for use in this app.':'Extensions: {names}','Exported {name} to {path}. {mtaExportWarning}':'Export [{name}] [{path}]: {mtaExportWarning}',[name]:'Wrong authored group lookup',[path]:'Wrong authored path lookup'};
+    active=p.translate('en',custom);listeners.forEach(listener=>listener());check();
+    if(phase==='status')assert.deepEqual(calls.find(call=>call.command==='export_action_group').args,{path,group:library.groups[0]});
+    dialog.close();assert.equal(listeners.size,0);
+  }finally{p.close();}
+});

@@ -64,8 +64,9 @@ a custom field, remove a cover, change opaque bytes and corrupt audio bytes
 across the three formats. They must produce detectable differences.
 
 Audio identity uses encoded media payload bytes, not whole-file equality:
-MPEG excludes leading ID3 and trailing ID3v1/APE, FLAC excludes metadata
-blocks, and ordinary 32-bit MP4 concatenates top-level `mdat` payloads. The
+MPEG excludes leading ID3 (including a validated ID3v2.4 footer) and trailing
+ID3v1/APE. FLAC excludes metadata blocks. Ordinary 32-bit MP4 concatenates
+top-level `mdat` payloads, including a final box whose zero size means EOF. The
 Python receipt computes SHA-256 over those bytes. Separate whole-file hashes
 identify paired inputs and retained save/undo/redo stages. Every local case
 requires undone bytes to match the original input hash and redone bytes to
@@ -100,7 +101,16 @@ achieve these checks, and no gain application was executed.
 
 ## Run and capture a pair
 
-From the repository root, choose a new disposable directory:
+From the repository root, choose a new disposable capture directory. An external
+location such as the example below keeps capture data separate from the checkout.
+Repository-local directories such as `./save-pair` also work. Their source-relative
+path is recorded as `untracked_capture_workspace`: only untracked files beneath
+that capture directory are excluded from source-status identity. Tracked status,
+the complete tracked diff, source-file hashes and backend hash remain checked.
+Use the capture directory for data. The source root and its ancestors, Git
+administration directories and frozen carrier inventory are reserved; invalid
+placements are rejected before the CLI builds its backend or creates captures.
+
 
 ```sh
 python3 scripts/save-acceptance.py prepare /tmp/taggroove-save-pair
@@ -146,7 +156,19 @@ and runtime evidence separately. Supply the resulting identity JSON:
   "recorded_at_utc": "record the capture timestamp",
   "defaults": {"record": "the actual selected read/write/remove settings and encoding"},
   "evidence": ["paths to screenshots, logs or capture notes"],
-  "input_sha256": {"café 日本.mp3": "the verified pre-edit hash; include every input"}
+  "input_sha256": {"café 日本.mp3": "the verified pre-edit hash; include every input"},
+  "stage_sha256": {
+    "edit-one": {
+      "saved": {"café 日本.mp3": "lowercase SHA-256 recorded at Save capture"},
+      "undone": {"café 日本.mp3": "lowercase SHA-256 recorded at Undo capture"},
+      "redone": {"café 日本.mp3": "lowercase SHA-256 recorded at Redo capture"}
+    },
+    "edit-many": {
+      "saved": {"café 日本.mp3": "lowercase SHA-256 recorded at Save capture"},
+      "undone": {"café 日本.mp3": "lowercase SHA-256 recorded at Undo capture"},
+      "redone": {"café 日本.mp3": "lowercase SHA-256 recorded at Redo capture"}
+    }
+  }
 }
 ```
 
@@ -154,7 +176,27 @@ and runtime evidence separately. Supply the resulting identity JSON:
 python3 scripts/save-acceptance.py compare /tmp/taggroove-save-pair --identity /tmp/mp3tag-capture.json
 ```
 
+Replace the illustrative hash descriptions with actual 64-character lowercase
+SHA-256 values and include every prepared filename in every stage. The required
+`stage_sha256[operation][stage][filename]` map must contain exactly the prepared
+operations, `saved`/`undone`/`redone` stages and input filenames. Record these
+hashes when capturing the original stage files, before transferring them into
+`reference/`; retain those bindings unchanged. The
+[reference capture exporter](mp3tag-reference-capture.md) derives this map from
+validated capture cases and artifact hashes. Generic evidence entries alone
+and older identities without stage bindings cannot authorize a comparison.
+
 The consumer requires every reference stage and matching pinned provenance.
+It verifies all transferred reference bytes against those captured hashes
+before comparison and rechecks every reference stage after observation,
+rejecting missing/invalid bindings, wrong mapped stages and changed bytes.
+Each hash-bound observation reads the source bytes once, verifies their digest,
+and decodes a private read-only snapshot with the original filename/extension.
+The same snapshot remains in place for every native reader reopen, so transient
+replacement of an original path cannot change the observed fields, opaque tags
+or payload. Preparation baselines, retained-input validation, local producer
+stages and both sides of comparison use this path. Temporary copies are removed
+after observation, including observer failures.
 It independently rereads retained inputs and local/reference outputs,
 compares them against the expected operation and writes structural
 differences to `paired-results.json`. Before accepting the local stages, it
@@ -177,7 +219,14 @@ python3 -m unittest discover -s scripts/tests -p test_save_acceptance.py -v
 The Python suite executes the producer and consumer with explicitly
 synthetic reference copies. It verifies missing-capture/identity rejection,
 captured-input copying, baseline/receipt tamper detection and real audio
-corruption detection. Those synthetic controls test the harness; they are
+corruption detection. Collector-exported identities also pass through a
+synthetic stage transfer and the real consumer. Changed reference padding
+with identical decoded output, missing/invalid stage bindings, wrong stage
+assignments and persistent changes during observation fail closed. Transient
+stage substitutions restored before final hash checks cannot hide a captured
+audio difference, and transient input substitutions cannot validate a fabricated
+baseline. A failure control checks snapshot permissions and cleanup. Those
+synthetic controls test the harness; they are
 not Mp3tag execution evidence.
 
 Additional controls change a disposable backend binary and initialize a
@@ -195,3 +244,28 @@ native UI save/cancel/reload and interrupted/rejected OS writes. Restart
 history, non-cloning storage budgets and crash recovery belong to the
 separate R17 implementation stream. Specialist formats, platform/device
 editing and released artifacts remain separate acceptance programs.
+
+
+## Review follow-up: audio boundaries
+
+After integrating approved main `84bf037cee0402a5de0de09dd7374cf36dd8ceb1`, four new boundary controls failed against the previous observer and pass with its two parsing fixes. The application save implementation is unchanged.
+
+- An ID3v2.4 header's size omits its optional ten-byte footer. The observer now skips a footer only when the v2.4 flag is set, and validates its signature and matching header fields. Missing, truncated or mismatched footers fail observation. A valid authored title frame/footer wraps the retained MPEG frames; the test reads its title and preserves the same audio before and after an ordinary save. See the [ID3v2.4 structure specification, sections 3.1 and 3.4](https://id3.org/id3v2.4.0-structure).
+- A zero-sized top-level MP4 box extends through EOF. The observer now uses the remaining file length and retains bounds checks. The retained M4A is rearranged into a valid terminal-`mdat` layout with its real chunk offset adjusted; metadata and audio are read before an ordinary save, and audio remains identical after it. A final EOF-sized metadata box is skipped rather than hashed as audio. Truncated, oversized, empty-audio and still-unsupported extended-size cases fail. See [Apple's atom size documentation](https://developer.apple.com/documentation/quicktime-file-format/atoms).
+
+The frozen carrier files and six baseline save cases are unchanged. All seven save-acceptance Rust tests pass, including the four new boundary tests. These are local observer/save controls, not captures of original Mp3tag behavior.
+
+
+A one-off independent decode check with local FFmpeg 9.0.2 confirmed identical decoded PCM SHA-256 for the footer MP3, EOF-sized `mdat` M4A and EOF-sized `moov` M4A against their frozen carrier originals. This checks validity of the authored variants; it is not original-application evidence. The Rust regressions and paired harness still require no media executable at runtime.
+
+
+Combined-source validation after approved-main integration passed 575 frontend tests, 1,095 Rust tests across 72 result blocks (six existing ignores), all ten Python save-acceptance tests, 107 review-tooling tests and 28 release tests. Production build, strict guide build, strict local Clippy, formatting, actionlint with the documented concurrency-queue exception and diff checks passed. Final-head Codex review and protected current-main platform validation remain required before merge.
+
+
+## Review follow-up: gain verdict and workspace identity
+
+The policy verdict now checks the seeded displayed values of `MP3GAIN_UNDO`, `MP3GAIN_MINMAX` and `REPLAYGAIN_TRACK_GAIN` for both default and explicit-APE saves, in addition to its native APE, audio and undo checks. `mpeg_policy_passed` records that verdict and `mpeg_policy_gain_errors` identifies differing field paths. Twelve synthetic report faults remove or change each field in each policy; every fault makes the local verdict fail while the ordinary file-capture cases still pass. These controls test the consumer, not original-application behavior.
+
+Repository-local capture data no longer produces a late source-identity failure. The producer records its canonical source-relative data scope and filters only untracked status entries inside it. All tracked entries remain visible, including tracked files inside the capture directory; unrelated untracked files also remain visible. The tracked binary diff, source-file hashes and executable hash are unchanged identity checks. Status parsing uses Git's [NUL-delimited porcelain format](https://git-scm.com/docs/git-status#_porcelain_format_version_1) so whitespace and non-ASCII filenames remain distinct. Source roots, Git administration and the retained-input inventory are rejected before preparation.
+
+All 17 Python acceptance tests pass. Real disposable committed repositories cover unignored, ignored and partially ignored capture directories, symlink aliases, preparation/run/synthetic comparison, and rejection of source edits before the observer executes. The application and Rust sources remain byte-identical to implementation head `03ef0ad24850ca02f44c4866c133686d6e36388f`, where the full 575-frontend/1,095-Rust suite passed; six Rust tests remain intentionally ignored.

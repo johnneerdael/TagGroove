@@ -73,7 +73,9 @@ fn text(data: &[u8], encoding: u8) -> String {
             };
             assert_eq!(data.len() % 2, 0);
             let units = data
-                .chunks_exact(2)
+                .as_chunks::<2>()
+                .0
+                .iter()
                 .map(|b| {
                     if little {
                         u16::from_le_bytes([b[0], b[1]])

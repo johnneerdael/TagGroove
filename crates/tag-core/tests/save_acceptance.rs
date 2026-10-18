@@ -282,3 +282,139 @@ fn negative_controls_detect_actual_field_cover_opaque_and_audio_loss() {
         );
     }
 }
+
+/// A standards-shaped v2.4 frame/footer around the retained MPEG frames.
+fn footer_mp3() -> (Vec<u8>, Vec<u8>, usize) {
+    let carrier = include_bytes!("fixtures/save-corpus/tone.mp3");
+    assert_eq!(&carrier[..10], b"ID3\x04\0\0\0\0\0\x0a");
+    let audio = carrier[20..].to_vec();
+    let text = b"\x03Footer case";
+    let mut frame = b"TIT2".to_vec();
+    frame.extend([0, 0, 0, u8::try_from(text.len()).unwrap(), 0, 0]);
+    frame.extend_from_slice(text);
+    let mut header = b"ID3\x04\0\x10\0\0\0".to_vec();
+    header.push(u8::try_from(frame.len()).unwrap());
+    let mut bytes = header.clone();
+    bytes.extend(frame);
+    let footer_at = bytes.len();
+    bytes.extend_from_slice(b"3DI");
+    bytes.extend_from_slice(&header[3..]);
+    bytes.extend_from_slice(&audio);
+    (bytes, audio, footer_at)
+}
+
+#[test]
+fn mpeg_payload_excludes_a_v24_footer_before_and_after_save() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("footer.mp3");
+    let (bytes, audio, _) = footer_mp3();
+    fs::write(&path, bytes).unwrap();
+    assert_eq!(
+        tag_core::read_entry(&path).unwrap().fields["TITLE"],
+        ["Footer case"]
+    );
+    assert_eq!(
+        corpus::payload(&path),
+        audio,
+        "footer is metadata, not MPEG audio"
+    );
+    corpus::edit(&path, "edit-one");
+    assert_eq!(
+        corpus::payload(&path),
+        audio,
+        "an ordinary save preserves MPEG frames"
+    );
+}
+
+#[test]
+fn mpeg_payload_rejects_missing_truncated_or_mismatched_v24_footers() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("invalid-footer.mp3");
+    let (bytes, _, footer_at) = footer_mp3();
+    for variant in ["missing", "truncated", "signature", "header"] {
+        let mut invalid = bytes.clone();
+        match variant {
+            "missing" => {
+                invalid.drain(footer_at..footer_at + 10);
+            }
+            "truncated" => invalid.truncate(footer_at + 5),
+            "signature" => invalid[footer_at] = b'X',
+            "header" => invalid[footer_at + 5] ^= 0x10,
+            _ => unreachable!(),
+        }
+        fs::write(&path, invalid).unwrap();
+        assert!(
+            std::panic::catch_unwind(|| corpus::payload(&path)).is_err(),
+            "{variant}"
+        );
+    }
+}
+
+/// Move the retained movie box before mdat and update its one real chunk offset.
+fn terminal_mdat() -> (Vec<u8>, Vec<u8>, usize) {
+    let carrier = include_bytes!("fixtures/save-corpus/tone.m4a");
+    let mdat = carrier.windows(4).position(|v| v == b"mdat").unwrap() - 4;
+    let size = u32::from_be_bytes(carrier[mdat..mdat + 4].try_into().unwrap()) as usize;
+    let moov = mdat + size;
+    assert_eq!(&carrier[moov + 4..moov + 8], b"moov");
+    let mut movie = carrier[moov..].to_vec();
+    assert_eq!(
+        u32::from_be_bytes(movie[..4].try_into().unwrap()) as usize,
+        movie.len()
+    );
+    let stco = movie.windows(4).position(|v| v == b"stco").unwrap();
+    assert_eq!(&movie[stco + 8..stco + 12], &1u32.to_be_bytes());
+    assert_eq!(
+        &movie[stco + 12..stco + 16],
+        &u32::try_from(mdat + 8).unwrap().to_be_bytes()
+    );
+    let target = mdat + movie.len();
+    movie[stco + 12..stco + 16].copy_from_slice(&u32::try_from(target + 8).unwrap().to_be_bytes());
+    let mut bytes = carrier[..mdat].to_vec();
+    bytes.extend(movie);
+    bytes.extend_from_slice(&carrier[mdat..moov]);
+    bytes[target..target + 4].fill(0);
+    assert_eq!(bytes.len(), carrier.len());
+    (bytes, carrier[mdat + 8..moov].to_vec(), target)
+}
+
+#[test]
+fn m4a_payload_accepts_a_terminal_eof_mdat_before_and_after_save() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("terminal.m4a");
+    fs::write(&path, include_bytes!("fixtures/save-corpus/tone.m4a")).unwrap();
+    let before = tag_core::read_entry(&path).unwrap();
+    let (bytes, audio, _) = terminal_mdat();
+    fs::write(&path, bytes).unwrap();
+    assert_eq!(tag_core::read_entry(&path).unwrap().fields, before.fields);
+    assert_eq!(corpus::payload(&path), audio);
+    corpus::edit(&path, "edit-one");
+    assert_eq!(corpus::payload(&path), audio);
+}
+
+#[test]
+fn m4a_payload_skips_an_eof_metadata_box_and_rejects_invalid_boundaries() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("boundaries.m4a");
+    let (bytes, audio, mdat) = terminal_mdat();
+    let mut metadata_eof = include_bytes!("fixtures/save-corpus/tone.m4a").to_vec();
+    let moov = metadata_eof.windows(4).position(|v| v == b"moov").unwrap() - 4;
+    metadata_eof[moov..moov + 4].fill(0);
+    fs::write(&path, metadata_eof).unwrap();
+    assert_eq!(corpus::payload(&path), audio, "metadata is not audio");
+    for variant in ["truncated", "oversize", "extended", "empty"] {
+        let mut invalid = bytes.clone();
+        match variant {
+            "truncated" => invalid.truncate(mdat + 7),
+            "oversize" => invalid[mdat..mdat + 4].copy_from_slice(&u32::MAX.to_be_bytes()),
+            "extended" => invalid[mdat..mdat + 4].copy_from_slice(&1u32.to_be_bytes()),
+            "empty" => invalid.truncate(mdat + 8),
+            _ => unreachable!(),
+        }
+        fs::write(&path, invalid).unwrap();
+        assert!(
+            std::panic::catch_unwind(|| corpus::payload(&path)).is_err(),
+            "{variant}"
+        );
+    }
+}

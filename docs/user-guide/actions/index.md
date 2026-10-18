@@ -159,8 +159,28 @@ Replace or correct that action explicitly; importing a file is not proof
 that every setting has an equivalent in TagGroove.
 
 Choose **Export .mta…** for the selected group to write an exchange file.
-Only supported export mappings can be written; review any reported error
-rather than assuming a partial export is usable.
+Review any reported error rather than assuming a partial export is usable.
+Unresolved imported actions can be exported for preservation: their decoded
+settings survive export and re-import, including encoded line breaks next to
+literal backslashes. Literal backslash sequences remain literal text. The
+action stays unresolved and its group stays disabled on re-import; export does
+not assign a supported meaning to unknown settings.
+
+This preserves setting values, not the original file's exact bytes: section
+numbers, property order, encoding and escape spellings can change. Keep the
+original `.mta` file when its exact form matters. Settings containing actual
+line breaks in recognized actions still report an export error. Acceptance
+by the original app for an unknown action or option remains unqualified.
+
+**Adjust Cover**, **Set Cover Properties** and **Generate Playlists** use
+app-only extensions in exported `.mta` files. The group dialog labels this
+before export and repeats the notice after writing the file. Action names in
+the notice follow the current language; saved group names and export paths
+stay as entered. These three actions can round-trip in this app, but do not
+transfer to Mp3tag. Their
+original serialized identifiers/options have not yet been qualified; a shared
+action name does not establish file compatibility. Keep a separate group
+without these actions when transferring the supported mappings.
 
 ## Keyboard controls in the group list
 

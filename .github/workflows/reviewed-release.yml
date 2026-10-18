@@ -154,7 +154,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
-          components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
         with:
           key: release-${{ matrix.target }}
@@ -165,47 +164,24 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf libssl-dev ffmpeg build-essential cmake make nasm
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf libssl-dev build-essential cmake make nasm
       - name: macOS media dependencies
         if: runner.os == 'macOS'
-        run: brew install ffmpeg cmake nasm
-      - name: Windows media dependencies and native assembler
+        run: brew install cmake nasm
+      - name: Windows native assembler
         if: runner.os == 'Windows'
         shell: pwsh
-        # Chocolatey's ffmpeg package can transiently fail; retry, then fall back to a pinned build.
         run: |
           $nasmDirectory = Join-Path $env:ProgramFiles 'NASM'
           for ($attempt = 1; $attempt -le 3; $attempt++) {
-            choco install ffmpeg nasm --no-progress -y
-            if ((Get-Command ffmpeg -ErrorAction SilentlyContinue) -and (Test-Path (Join-Path $nasmDirectory 'nasm.exe'))) { break }
-            Write-Host "ffmpeg or NASM not installed by Chocolatey (attempt $attempt)"
+            choco install nasm --no-progress -y
+            if (Test-Path (Join-Path $nasmDirectory 'nasm.exe')) { break }
             Start-Sleep -Seconds (15 * $attempt)
-          }
-          if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
-            # Chocolatey unavailable: fall back to the FFmpeg builds on GitHub.
-            $zip = Join-Path $env:RUNNER_TEMP 'ffmpeg.zip'
-            # Pin a month-end build (retained upstream for two years) and fail closed on replacement.
-            $url = 'https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-09-30-13-08/ffmpeg-N-127021-ge0c94b2d1c-win64-gpl.zip'
-            $expectedSha256 = '85c4a4636b93d681a07588ffa6f1d8f5c064d9c3fb0622066662906b6fd718a1'
-            Invoke-WebRequest $url -OutFile $zip -MaximumRetryCount 5 -RetryIntervalSec 10
-            $actualSha256 = (Get-FileHash -LiteralPath $zip -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()
-            if ($actualSha256 -ne $expectedSha256) { throw "FFmpeg archive SHA-256 mismatch: expected $expectedSha256, got $actualSha256" }
-            Expand-Archive $zip -DestinationPath (Join-Path $env:RUNNER_TEMP 'ffmpeg')
-            $bin = (Get-ChildItem (Join-Path $env:RUNNER_TEMP 'ffmpeg') -Recurse -Filter ffmpeg.exe | Select-Object -First 1).DirectoryName
-            if (-not $bin) { throw 'FFmpeg executable missing from verified archive' }
-            Add-Content $env:GITHUB_PATH $bin
-            $env:PATH = "$bin;$env:PATH" # this step only; GITHUB_PATH above carries it to later steps
           }
           if (-not (Test-Path (Join-Path $nasmDirectory 'nasm.exe'))) { throw "NASM installation missing (Chocolatey exit code $LASTEXITCODE)" }
           $nasmDirectory | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          # GitHub's pwsh wrapper ends the step with `exit $LASTEXITCODE`; forget a retried Chocolatey failure once ffmpeg and NASM are verified.
           $global:LASTEXITCODE = 0
       - run: npm ci
-      - run: npm run build
-      - run: npm run test:ui
-      - run: cargo fmt --all -- --check
-      - run: cargo test --workspace --locked
-      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
       # No releaseId or tagName: this action builds only. Nothing is published
       # until the single final job validates every required platform artifact.
       - name: Build desktop packages
@@ -215,6 +191,22 @@ jobs:
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }} --ci
           uploadUpdaterJson: false
           uploadWorkflowArtifacts: false
+      - name: Check macOS document types (Finder Open With)
+        if: runner.os == 'macOS'
+        run: |
+          product="$(node -p "JSON.parse(require('fs').readFileSync('src-tauri/tauri.conf.json', 'utf8')).productName")"
+          plutil -convert json -o "$RUNNER_TEMP/info.json" "target/${{ matrix.target }}/release/bundle/macos/$product.app/Contents/Info.plist"
+          # shellcheck disable=SC2016
+          node -e '
+            const types = require(process.argv[1]).CFBundleDocumentTypes || [];
+            const ext = types.flatMap(t => t.CFBundleTypeExtensions || []), uti = types.flatMap(t => t.LSItemContentTypes || []);
+            for (const x of ["flac", "ogg", "opus", "dsf", "ape", "wv", "m3u8", "cue"]) if (!ext.includes(x)) throw new Error(`.${x} missing`);
+            for (const x of ["public.audio", "public.folder"]) if (!uti.includes(x)) throw new Error(`${x} missing`);
+            // macOS ignores extensions in an entry that also lists content types.
+            if (types.some(t => t.CFBundleTypeExtensions && t.LSItemContentTypes)) throw new Error("mixed document type");
+            if (types.some(t => t.LSHandlerRank !== "Alternate")) throw new Error("TagGroove must not claim the default handler");
+            console.log(JSON.stringify(types, null, 1));
+          ' "$RUNNER_TEMP/info.json"
       - name: Name and hash desktop artifacts
         shell: bash
         env:
@@ -278,11 +270,6 @@ jobs:
           sdkmanager 'platforms;android-37.0' 'build-tools;37.0.0' 'ndk;28.2.13676358'
           echo "NDK_HOME=$ANDROID_HOME/ndk/28.2.13676358" >> "$GITHUB_ENV"
           echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/taggroove-release.keystore" >> "$GITHUB_ENV"
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Native build tools
-        run: sudo apt-get update && sudo apt-get install -y build-essential cmake make
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-linux-android
@@ -293,7 +280,6 @@ jobs:
       - name: Stamp release version (not committed)
         run: node scripts/release.mjs stamp
       - run: npm ci
-      - run: npm run test:ui
       - name: Restore application signing key
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -369,7 +355,6 @@ jobs:
       - name: Install Xcode project generator
         run: brew install xcodegen cmake
       - run: npm ci
-      - run: npm run test:ui
       - name: Build simulator app (not a physical-device installer)
         run: |
           # Tauri forwards this alias across the IDE build environment.

@@ -10,12 +10,12 @@ The catalog currently has **1533 section, functional-reference and authored acce
 
 ## Major acceptance gaps
 
-Status as of 2026-10-17 (`main` `9d3764b`). Only open work is listed; the item-level list is the [remaining-gaps register](research/remaining-gaps.md).
+Baseline status as of 2026-10-17 (`main` `9d3764b`); Find is updated by the [2026-10-18 automation verification](verification/automation-parity-2026-10-18.md). Only open work is listed; the item-level list is the [remaining-gaps register](research/remaining-gaps.md).
 
 | Area | Required acceptance work |
 | --- | --- |
 | Metadata and file formats | Real-encoder TAK/OptimFROG fixtures, original runtime comparison |
-| File table and panel | Boost regex in Find, floating panel as a separate OS window, movable toolbar bands |
+| File table and panel | Original-runtime and native-input qualification of Find (the shared native Boost engine is implemented and locally regression-tested), floating panel as a separate OS window, movable toolbar bands |
 | Saved operations | Persistent history across sessions |
 | Covers | Original resampler, quality and rounding equivalence |
 | Converters/numbering | Original differential semantics |

@@ -205,10 +205,21 @@ pub fn payload(path: &Path) -> Vec<u8> {
     {
         "mp3" => {
             let start = if b.starts_with(b"ID3") {
+                assert!(b.len() >= 10, "truncated ID3 header");
                 assert!(b[6..10].iter().all(|v| v & 0x80 == 0));
-                10 + b[6..10]
-                    .iter()
-                    .fold(0usize, |n, v| (n << 7) | usize::from(*v))
+                let tag_end = 10
+                    + b[6..10]
+                        .iter()
+                        .fold(0usize, |n, v| (n << 7) | usize::from(*v));
+                if b[3] == 4 && b[5] & 0x10 != 0 {
+                    // The v2.4 size excludes both the header and optional footer.
+                    let footer = b.get(tag_end..tag_end + 10).expect("truncated ID3 footer");
+                    assert_eq!(&footer[..3], b"3DI", "invalid ID3 footer signature");
+                    assert_eq!(&footer[3..], &b[3..10], "ID3 footer differs from header");
+                    tag_end + 10
+                } else {
+                    tag_end
+                }
             } else {
                 0
             };
@@ -245,10 +256,14 @@ pub fn payload(path: &Path) -> Vec<u8> {
             let mut at = 0;
             let mut payload = Vec::new();
             while at < b.len() {
+                let remaining = b.len() - at;
+                assert!(remaining >= 8, "truncated MP4 atom header");
                 let n = u32::from_be_bytes(b[at..at + 4].try_into().unwrap()) as usize;
+                // A zero-sized top-level atom extends through EOF.
+                let n = if n == 0 { remaining } else { n };
                 assert!(
-                    n >= 8 && at + n <= b.len(),
-                    "corpus requires ordinary 32-bit MP4 atoms"
+                    n >= 8 && n <= remaining,
+                    "corpus requires bounded 32-bit or terminal EOF MP4 atoms"
                 );
                 if &b[at + 4..at + 8] == b"mdat" {
                     payload.extend(&b[at + 8..at + n]);
