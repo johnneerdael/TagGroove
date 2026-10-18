@@ -1,6 +1,6 @@
 # TagGroove contributor instructions
 
-Use a feature branch and pull request. Follow [the contribution workflow](docs/CONTRIBUTING.md).
+Use a feature branch and pull request. Follow [the contribution workflow](docs/CONTRIBUTING.md). Owner-authorized workflow changes and repairs to failed main builds may be pushed directly to main. Protect the inspected main head with a lease, preserve unrelated commits, run the relevant local checks and record the failure/validation evidence. Direct-main commits do not manufacture PR review or release proof.
 
 - Require a clean GitHub Codex **code** review on the exact final PR head before merging. Fix findings, resolve threads and request another review after changes. Local review, resolved old findings, security-only review and elapsed time do not replace this gate.
 - Include substantive `## Release notes` in every PR body. Describe resulting user behavior, or write `Internal:` with the actual docs/test/CI change. Keep validation results outside release notes and align the prose with the final diff.

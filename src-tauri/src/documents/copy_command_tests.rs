@@ -223,15 +223,18 @@ fn edited_copy_policy_case(with_fields: bool) {
             "Original mapped note"
         }]
     );
-    // Provider result projection still uses its existing default reader, so
-    // mapped aliases are verified above, not promised by this return value.
-    assert!(copied.entries[0].fields.contains_key("TG_NATIVE_NOTE"));
-    assert!(!copied.entries[0].fields.contains_key("MIGRANT_NOTE"));
+    // Native APE items above keep the on-disk name; the returned editor
+    // description applies the same active read policy and mapped alias.
+    assert!(!copied.entries[0].fields.contains_key("TG_NATIVE_NOTE"));
+    assert_eq!(
+        copied.entries[0].fields["MIGRANT_NOTE"],
+        read.fields["MIGRANT_NOTE"]
+    );
     assert_eq!(copied.entries[0].covers.len(), 1);
     let backup = dir.path().join("original.mp3");
     session.copy_to(&backup);
     let path = session.path.clone();
-    tauri::async_runtime::block_on(io(move || {
+    let original_copy = tauri::async_runtime::block_on(io(move || {
         settings::with_test_tag_options(options, || {
             documents::save_copy(
                 &path,
@@ -242,6 +245,15 @@ fn edited_copy_policy_case(with_fields: bool) {
         })
     }))
     .unwrap();
+    assert_eq!(original_copy.entries.len(), 1);
+    assert!(original_copy.errors.is_empty());
+    assert_eq!(
+        original_copy.entries[0].fields["MIGRANT_NOTE"],
+        ["Original mapped note"]
+    );
+    assert!(!original_copy.entries[0]
+        .fields
+        .contains_key("TG_NATIVE_NOTE"));
     assert_eq!(fs::read(&backup).unwrap(), original);
     assert_eq!(fs::read(&source).unwrap(), original);
     assert_eq!(fs::read(&session.path).unwrap(), retained);

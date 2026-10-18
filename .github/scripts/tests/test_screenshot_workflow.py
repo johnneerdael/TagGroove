@@ -45,8 +45,8 @@ class ScreenshotWorkflowTests(unittest.TestCase):
 
     def test_capture_is_inside_the_review_authorized_linux_job(self):
         workflow = (ROOT / ".github/workflows/_reviewed-build.yml").read_text()
-        native = workflow.split("  native-e2e:\n", 1)[1].split("  android:\n", 1)[0]
-        self.assertIn("needs: authorize", native)
+        native = workflow.split("  desktop:\n", 1)[1].split("  android:\n", 1)[0]
+        self.assertIn("needs: [authorize, tooling]", native)
         self.assertIn("if: needs.authorize.outputs.ready == 'true'", native)
         self.assertIn("python scripts/native-test-config.py", native)
         self.assertIn("if: runner.os == 'Linux'\n        run: scripts/docs-screenshots.sh", native)

@@ -10,7 +10,7 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[3]
-WORKFLOWS = {'_reviewed-build.yml': 2, 'reviewed-release.yml': 1}
+WORKFLOWS = {'_reviewed-build.yml': 1}
 
 
 @unittest.skipUnless(shutil.which('pwsh'), 'PowerShell is needed to execute the fallback')
@@ -130,3 +130,21 @@ function Expand-Archive {
                 self.assertNotEqual(result.returncode, 0, result.stdout)
                 self.assertIn('FFmpeg executable missing from verified archive', result.stderr)
                 self.assertFalse((directory / 'github-path').exists())
+
+    def test_release_nasm_step_accepts_presence_and_refuses_missing_assembler(self):
+        source = (ROOT / '.github/workflows/reviewed-release.yml').read_text()
+        step = source.split('      - name: Windows native assembler\n', 1)[1].split('      - run: npm ci\n', 1)[0]
+        block = textwrap.dedent(step.split('        run: |\n', 1)[1])
+        self.assertNotIn('ffmpeg', block.lower())
+        self.assertNotIn('Invoke-WebRequest', block)
+        for mode, expected_attempts, succeeds in [('choco-success', 1, True), ('fallback', 1, True), ('missing-nasm', 3, False)]:
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
+                directory = Path(directory)
+                result = self.run_block(block, 'unused', directory, mode)
+                self.assertEqual(result.returncode == 0, succeeds, result.stderr)
+                self.assertEqual((directory / 'attempts').read_text(), str(expected_attempts))
+                if succeeds:
+                    self.assertIn(str(directory / 'program-files/NASM'), (directory / 'github-path').read_text())
+                else:
+                    self.assertIn('NASM installation missing', result.stderr)
+                    self.assertFalse((directory / 'github-path').exists())

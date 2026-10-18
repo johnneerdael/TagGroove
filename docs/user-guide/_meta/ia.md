@@ -26,11 +26,11 @@ Eight tabs, each with one kind of page (see `style.md` § 3 for the page types):
 | Get started | 12 | 7 top-level pages; Platform notes (5) | How-to guides for the first hour, plus platform notes |
 | Learn | 19 | Tutorials (10), Concepts (8), plus an index | Tutorials and concept explainers. **Mp3tag's docs have neither.** |
 | Guides | 23 | Everyday editing (11), TagGroove extras (3), Customize (8), plus an index | How-to guides for the main window and customization |
-| Automate | 44 | Converters (7), Actions (19), Tag sources (12), Export and playlists (5), plus an index | How-to guides, one page per converter and action type |
+| Automate | 45 | Converters (7), Actions (19), Tag sources (12), Export and playlists (6), plus an index | How-to guides, one page per converter and action type |
 | Reference | 50 | 8 top-level pages; Format strings (9), Menus (10), Options (23) | Reference: complete and exact |
 | Cookbook | 35 | Rename (6), Fix and tidy (10), Import (5), Numbers (3), Covers (4), Find and report (6), plus an index | Recipes. **Mp3tag's docs have none.** |
 | Help | 4 | | FAQ, troubleshooting, glossary, about |
-| **Total** | **188** | | |
+| **Total** | **189** | | |
 
 Design decisions:
 
@@ -180,7 +180,7 @@ implement is documented as such, or left out with a note in the PR.
 | `menus/help` | Menu Help | [`reference/menus/help.md`](../reference/menus/help.md) | Contents…; Keyboard Shortcuts; First Steps; Donation; Online Support…; Mp3tag Website…; Check for new version…; About Mp3tag… |
 | `menus/tag-sources` | Menu Tag Sources | [`reference/menus/tag-sources.md`](../reference/menus/tag-sources.md) | freedb …; freedb (local)…; Discogs, MusicBrainz, … |
 | `menus/view` | Menu View | [`reference/menus/view.md`](../reference/menus/view.md) | Refresh; Sort by; Tag Panel; Extended Tags…; Filter; Toolbars; Columns |
-| `playlists` | Playlists | [`guides/playlists.md`](../guides/playlists.md), [`reference/options/playlist.md`](../reference/options/playlist.md) | Loading Playlists; Adding Files; Saving Playlists; Generating Multiple Playlists |
+| `playlists` | Playlists | [`guides/playlists.md`](../guides/playlists.md), [`guides/xml-playlists.md`](../guides/xml-playlists.md), [`reference/options/playlist.md`](../reference/options/playlist.md) | Loading Playlists; Adding Files; Saving Playlists; Generating Multiple Playlists |
 | `regex` | Regular Expressions | [`reference/regular-expressions.md`](../reference/regular-expressions.md), [`learn/regex-from-zero.md`](../learn/regex-from-zero.md) | Literals; Wildcard; Repeats; Non-greedy repeats; Parenthesis; Alternatives; Line anchors; Sets; Word boundaries |
 | `scripting` | Scripting Functions | [`reference/scripting/index.md`](../reference/scripting/index.md), [`reference/scripting/text.md`](../reference/scripting/text.md), [`reference/scripting/search-compare.md`](../reference/scripting/search-compare.md), [`reference/scripting/conditions.md`](../reference/scripting/conditions.md), [`reference/scripting/numbers.md`](../reference/scripting/numbers.md), [`reference/scripting/dates-durations.md`](../reference/scripting/dates-durations.md), [`reference/scripting/lists-metadata.md`](../reference/scripting/lists-metadata.md), [`reference/regular-expressions.md`](../reference/regular-expressions.md) | String Functions; Boolean Functions; Arithmetic Functions; Variable Functions; Metadata Functions; Date and Time Formatting |
 | `tag-sources` | Tag Sources | [`tag-sources/index.md`](../tag-sources/index.md) | — |
@@ -272,9 +272,9 @@ W6 `reference.js`, W7 `options.js`, W8 `cookbook.js`.
 |---|---|---:|---|
 | W1 | Onboarding and help | 16 | `getting-started/*` (7), `platforms/*` (5), `help/*` (4) |
 | W2 | Tutorials and concepts | 18 | `learn/index.md`, the 9 remaining `learn/*.md` tutorials, `concepts/*` (8) |
-| W3 | Everyday editing and customization | 22 | `guides/*` except `playlists.md` (14), `customize/*` (8) |
+| W3 | Everyday editing and customization | 22 | `guides/*` except `playlists.md` and `xml-playlists.md` (14), `customize/*` (8) |
 | W4 | Converters and actions | 27 | `automate/index.md`, `converters/*` (7), `actions/*` (19) |
-| W5 | Tag sources, export and playlists | 17 | `tag-sources/*` (12, 4 waiting for merge), `export/*` (4), `guides/playlists.md` |
+| W5 | Tag sources, export and playlists | 18 | `tag-sources/*` (12, 4 waiting for merge), `export/*` (4), `guides/playlists.md`, `guides/xml-playlists.md` |
 | W6 | Scripting and data reference | 14 | `reference/index.md`, `reference/scripting/*` (7), `filter-syntax.md`, `field-names.md`, `tag-mapping.md`, `file-formats.md`, `keyboard-shortcuts.md`, `command-line.md` |
 | W7 | Menus and options reference | 33 | `reference/menus/*` (10), `reference/options/*` (23) |
 | W8 | Cookbook | 32 | `cookbook/index.md` and the 31 remaining recipes |

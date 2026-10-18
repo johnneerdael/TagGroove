@@ -10,7 +10,7 @@ The catalog currently has **1533 section, functional-reference and authored acce
 
 ## Acceptance and work tracking
 
-Use [PARITY.md](PARITY.md#uncovered-work) for actionable work not covered by an inspected open or merged PR. The [coverage companion](research/remaining-gaps.md) records the 2026-10-18 baseline and item-level exclusions/remainders. This inventory retains acceptance requirements even where implementation or test infrastructure is delivered or represented by an open PR. Neither these reference counts nor PR existence prove completed original-runtime, native-input, device or released-build qualification.
+Use [PARITY.md](PARITY.md#uncovered-work) for actionable work not covered by an inspected open or merged PR. The [coverage companion](research/remaining-gaps.md) records approved main `179e705cad91ef42f85107310664409271eb2c4c` after all fourteen PRs49–62 merged, with item-level exclusions/remainders. This inventory retains acceptance requirements even where implementation or test infrastructure is delivered or represented by an open PR. Neither these reference counts nor PR existence prove completed original-runtime, native-input, device or released-build qualification.
 
 ## Capabilities beyond the reference scope
 

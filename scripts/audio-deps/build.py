@@ -24,7 +24,7 @@ TARGETS = {
     "aarch64-apple-darwin", "x86_64-apple-darwin",
     "x86_64-pc-windows-msvc", "x86_64-unknown-linux-gnu",
     "aarch64-unknown-linux-gnu", "aarch64-linux-android",
-    "aarch64-apple-ios-sim",
+    "aarch64-apple-ios-sim", "aarch64-apple-ios",
 }
 
 
@@ -212,20 +212,23 @@ def target_tools(target, env):
         cmake += ["-DCMAKE_TOOLCHAIN_FILE=" + str(ndk / "build/cmake/android.toolchain.cmake"),
                   "-DANDROID_ABI=arm64-v8a", "-DANDROID_PLATFORM=android-24"]
     elif "apple" in target:
-        sdk = "iphonesimulator" if target.endswith("ios-sim") else "macosx"
+        sdk = "iphonesimulator" if target.endswith("ios-sim") else ("iphoneos" if target.endswith("apple-ios") else "macosx")
         sdk_path = subprocess.check_output(["xcrun", "--sdk", sdk, "--show-sdk-path"], text=True).strip()
         host_sdk = subprocess.check_output(["xcrun", "--sdk", "macosx", "--show-sdk-path"], text=True).strip()
         compiler = subprocess.check_output(["xcrun", "--sdk", sdk, "--find", "clang"], text=True).strip()
-        minimum = "13.0" if sdk == "iphonesimulator" else ("11.0" if target.startswith("aarch64") else "10.13")
+        minimum = "13.0" if sdk in {"iphonesimulator", "iphoneos"} else ("11.0" if target.startswith("aarch64") else "10.13")
         arch = "arm64" if target.startswith("aarch64") else "x86_64"
         flags = f"-arch {arch} -isysroot {sdk_path} "
-        flags += f"-target arm64-apple-ios{minimum}-simulator" if sdk == "iphonesimulator" else f"-mmacosx-version-min={minimum}"
+        if sdk in {"iphonesimulator", "iphoneos"}:
+            flags += f"-target arm64-apple-ios{minimum}" + ("-simulator" if sdk == "iphonesimulator" else "")
+        else:
+            flags += f"-mmacosx-version-min={minimum}"
         ffmpeg += ["--target-os=darwin", "--cc=" + compiler, "--extra-cflags=" + flags,
                    "--extra-ldflags=" + flags, "--host-cc=/usr/bin/clang",
                    "--host-cflags=-isysroot " + host_sdk, "--host-ldflags=-isysroot " + host_sdk,
                    "--ar=/usr/bin/ar", "--ranlib=/usr/bin/ranlib", "--nm=/usr/bin/nm",
                    "--strip=/usr/bin/strip"]
-        if sdk == "iphonesimulator":
+        if sdk in {"iphonesimulator", "iphoneos"}:
             ffmpeg += ["--enable-cross-compile"]
             cmake += ["-DCMAKE_SYSTEM_NAME=iOS"]
         cmake += ["-DCMAKE_OSX_SYSROOT=" + sdk_path, "-DCMAKE_OSX_ARCHITECTURES=" + arch,

@@ -142,6 +142,7 @@ nav:
   - The main window: getting-started/main-window.md
   - Opening files: getting-started/opening-files.md
   - Editing, saving and undo: getting-started/editing-and-saving.md
+  - Bring an Mp3tag setup across: getting-started/coming-from-mp3tag.md
 - Learn:
   - Tutorials:
     - Your first tagging session: learn/first-tagging-session.md
@@ -226,6 +227,7 @@ nav:
     - Template gallery: export/template-gallery.md
     - Export CSV: export/csv.md
     - Playlists and cue sheets: guides/playlists.md
+    - Local XML playlists: guides/xml-playlists.md
   - Tag sources:
     - Search, review and save: tag-sources/index.md
     - Discogs: tag-sources/discogs.md
@@ -338,6 +340,7 @@ nav:
   - macOS: platforms/macos.md
   - Windows: platforms/windows.md
   - Linux: platforms/linux.md
+  - Android: platforms/android.md
 
 - Help:
   - Frequently asked questions: help/faq.md

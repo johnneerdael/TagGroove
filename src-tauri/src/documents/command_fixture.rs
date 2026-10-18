@@ -109,7 +109,8 @@ impl Session {
             failure: false,
             copy_destination: None,
         })));
-        let mut store = engine::Store::open(root, provider.clone()).unwrap();
+        let mut store =
+            engine::Store::open(root, provider.clone(), crate::settings::tag_options).unwrap();
         let path = store.import(info).unwrap().path;
         STORES.lock().unwrap().push(store);
         Self {
@@ -170,4 +171,70 @@ pub(crate) fn snapshot_input_with_name(uri: &str) -> Option<Result<(PathBuf, Str
             None
         }
     })
+}
+
+#[test]
+fn provider_policy_adapter_reads_current_settings_for_reload_save_and_copy_results() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = dir.path().join("source.mp3");
+    let mut frames = Vec::new();
+    for _ in 0..20 {
+        frames.extend([0xff, 0xfb, 0x90, 0x64]);
+        frames.extend([0; 413]);
+    }
+    fs::write(&source, frames).unwrap();
+    let fields = |title: &str| Fields::from([("TITLE".into(), vec![title.into()])]);
+    tag_core::write_fields(&source, &fields("Original title")).unwrap();
+    let session = Session::import(&dir.path().join("private"), &source, "source.mp3", true);
+    let path = Path::new(&session.path);
+    let original_bytes = fs::read(&source).unwrap();
+    let mut options = tag_core::TagOptions::default();
+    options.mpeg.read_id3v1 = false;
+    options.mpeg.read_ape = false;
+    options.mappings.push(tag_core::UserFieldMapping {
+        tag_type: "ID3v2".into(),
+        source: "TITLE".into(),
+        target: "DISPLAY_TITLE".into(),
+    });
+    crate::settings::with_test_tag_options(options, || {
+        let assert_title = |entry: &AudioEntry, title: &str| {
+            assert_eq!(entry.fields["DISPLAY_TITLE"], [title]);
+            assert!(!entry.fields.contains_key("TITLE"));
+        };
+        assert_title(&super::read_working(path).unwrap(), "Original title");
+        assert_title(&super::reload(path).unwrap(), "Original title");
+        assert_eq!(fs::read(&source).unwrap(), original_bytes);
+        // Discard the writer's default-policy description and describe the
+        // published document using the current settings-backed supplier.
+        let saved = super::mutate(path, |path| {
+            tag_core::write_fields(path, &fields("Saved title"))
+        })
+        .unwrap();
+        assert_title(&saved, "Saved title");
+        assert_eq!(
+            saved.technical["_PATH"].as_slice(),
+            std::slice::from_ref(&session.uri)
+        );
+        for (version, expected) in [("original", "Saved title"), ("edited", "Copy title")] {
+            session.copy_to(&dir.path().join(format!("{version}.mp3")));
+            let result = super::save_copy(
+                &session.path,
+                &Fields::from([("DISPLAY_TITLE".into(), vec!["Copy title".into()])]),
+                None,
+                version,
+            )
+            .unwrap();
+            assert!(result.errors.is_empty());
+            assert_eq!(result.entries.len(), 1);
+            assert_title(&result.entries[0], expected);
+            assert_ne!(
+                result.entries[0].technical["_PATH"].as_slice(),
+                std::slice::from_ref(&session.uri)
+            );
+        }
+        assert_eq!(
+            tag_core::read_entry(&source).unwrap().fields["TITLE"],
+            ["Saved title"]
+        );
+    });
 }

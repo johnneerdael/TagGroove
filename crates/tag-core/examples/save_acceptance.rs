@@ -20,6 +20,7 @@ fn main() {
             for format in corpus::FORMATS {
                 corpus::seed(&path.join(format!("café 日本.{format}")));
             }
+            corpus::seed_native_id3(&path.join(corpus::NATIVE_ID3_NAME));
             println!(
                 "{}",
                 json!({"taggroove_defaults": tag_core::TagOptions::default()})
