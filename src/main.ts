@@ -1980,7 +1980,7 @@ async function renameFromList(entry:Entry,key:string,value:string):Promise<strin
   else if(stem===entry.filename.slice(0,dot>0?dot:undefined))return entry.path;
   const problem=!desktop?'Renaming requires the desktop app.':sourcePolicy().unsupportedReason||(!stem.trim()?'Enter a filename.':/[\\/]/.test(stem)?'Filenames cannot contain path separators.':'');
   if(problem){errors=[{path:'Rename',label:'Rename',error:problem}];render();return undefined;}
-  const result=await run('Renaming file…',async()=>{const batch=await invoke<Batch>('rename_files',{paths:[entry.path],template:`'${stem.replace(/'/g,"''")}'`,planToken:null});applyRenamed(batch);accept(batch,'Renamed',false);queuedNotices=[];return batch;});
+  const result=await run('Renaming file…',async()=>{const batch=await invoke<Batch>('rename_files',{paths:[entry.path],template:`'${stem.replace(/'/g,"''")}'`,planToken:null,audioOnly:true});applyRenamed(batch);accept(batch,'Renamed',false);queuedNotices=[];return batch;});
   return result&&!result.errors.length?result.renamed?.find(item=>item.from===entry.path)?.to||entry.path:undefined;
 }
 async function operate(op: Operation) {

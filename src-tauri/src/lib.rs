@@ -1210,7 +1210,7 @@ async fn rename_files(
     template: String,
     plan_token: Option<String>,
 ) -> Result<RenameResult, String> {
-    rename_files_diagnostic(paths, template, plan_token)
+    rename_files_diagnostic(paths, template, plan_token, None)
         .await
         .map(|report| report.result)
 }
@@ -1218,19 +1218,42 @@ async fn rename_files_diagnostic(
     paths: Vec<String>,
     template: String,
     plan_token: Option<String>,
+    audio_only: Option<bool>,
 ) -> Result<tag_core::batch_errors::Detailed<RenameResult>, String> {
     let evaluation = evaluation_settings(None)?;
     io(move || {
-        reject_provider_operation(&paths, "Rename")?;
-        let mut targets = paths.clone();
-        if let Some(token) = &plan_token {
-            targets.extend(rename_plan::associated_sources(token, &paths, &template)?);
-        }
-        history::record("Tag → Filename", None, &targets, move || {
-            rename_planned_diagnostic(paths, &template, plan_token, &evaluation)
-        })
+        rename_files_with_policy(
+            paths,
+            &template,
+            plan_token,
+            &evaluation,
+            audio_only.unwrap_or(false),
+            associated_files::enabled(),
+        )
     })
     .await
+}
+fn rename_files_with_policy(
+    paths: Vec<String>,
+    template: &str,
+    plan_token: Option<String>,
+    evaluation: &evaluation::EvaluationSettings,
+    audio_only: bool,
+    associated_enabled: bool,
+) -> Result<tag_core::batch_errors::Detailed<RenameResult>, String> {
+    reject_provider_operation(&paths, "Rename")?;
+    // Inline filename edits are audio-only and never reuse converter receipts.
+    if audio_only && plan_token.is_some() {
+        return Err("The rename request changed; preview again".into());
+    }
+    let associated_enabled = associated_enabled && !audio_only;
+    let mut targets = paths.clone();
+    if let Some(token) = &plan_token {
+        targets.extend(rename_plan::associated_sources(token, &paths, template)?);
+    }
+    history::record("Tag → Filename", None, &targets, move || {
+        rename_planned_with_policy(paths, template, plan_token, evaluation, associated_enabled)
+    })
 }
 
 mod diagnostics_ipc {
@@ -1254,8 +1277,9 @@ mod diagnostics_ipc {
         paths: Vec<String>,
         template: String,
         plan_token: Option<String>,
+        audio_only: Option<bool>,
     ) -> Result<tag_core::batch_errors::Detailed<super::RenameResult>, String> {
-        super::rename_files_diagnostic(paths, template, plan_token).await
+        super::rename_files_diagnostic(paths, template, plan_token, audio_only).await
     }
 }
 
@@ -1278,6 +1302,7 @@ fn rename_planned(
 ) -> Result<RenameResult, String> {
     rename_planned_diagnostic(paths, template, plan_token, evaluation).map(|report| report.result)
 }
+#[cfg(test)]
 fn rename_planned_diagnostic(
     paths: Vec<String>,
     template: &str,
@@ -2072,6 +2097,17 @@ mod tests {
         .err()
         .unwrap()
         .contains("provider"));
+        assert!(
+            tauri::async_runtime::block_on(diagnostics_ipc::rename_files_with_diagnostics(
+                paths.clone(),
+                "'new'".into(),
+                None,
+                Some(true),
+            ))
+            .err()
+            .unwrap()
+            .contains("provider")
+        );
         assert!(tauri::async_runtime::block_on(export_csv(paths.clone(), output.clone())).is_err());
         let playlist_request = |paths: Vec<String>, output: String| playlists::PlaylistRequest {
             paths,
@@ -2443,10 +2479,14 @@ mod tests {
         let source_bytes = std::fs::read(&source).unwrap();
         let paths = vec![source.to_string_lossy().into_owned()];
         let template = "'Title; Help'".to_string();
-        let report = tauri::async_runtime::block_on(
-            diagnostics_ipc::rename_files_with_diagnostics(paths.clone(), template.clone(), None),
-        )
-        .unwrap();
+        let report =
+            tauri::async_runtime::block_on(diagnostics_ipc::rename_files_with_diagnostics(
+                paths.clone(),
+                template.clone(),
+                None,
+                None,
+            ))
+            .unwrap();
         assert_eq!(report.result.result.errors.len(), 1);
         assert_eq!(report.error_diagnostics.len(), 1);
         assert_eq!(report.error_diagnostics[0].index, 0);
@@ -2855,6 +2895,135 @@ mod tests {
         assert_eq!(target.file_name().unwrap(), "A-B.wav");
     }
     #[test]
+    fn inline_audio_only_rename_ignores_enabled_companions() {
+        let _journal = history::TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        for companions in [false, true] {
+            let dir = tempfile::tempdir().unwrap();
+            let root = dunce::canonicalize(dir.path()).unwrap();
+            let source = root.join("old.wav");
+            let target = root.join("O'Brien %title%.wav");
+            history::TEST_ROOTS.lock().unwrap().push(root.clone());
+            wav(&source);
+            let audio = std::fs::read(&source).unwrap();
+            if companions {
+                std::fs::write(root.join("old.lrc"), b"lyrics").unwrap();
+                std::fs::write(root.join("old.cdg"), b"karaoke").unwrap();
+            }
+            let result = rename_files_with_policy(
+                vec![source.to_string_lossy().into_owned()],
+                "'O''Brien %title%'",
+                None,
+                &evaluation_settings(None).unwrap(),
+                true,
+                true,
+            )
+            .unwrap()
+            .result;
+            assert!(result.result.errors.is_empty());
+            assert_eq!(result.renamed.len(), 1);
+            assert!(result.associated_renamed.is_empty());
+            assert!(!source.exists());
+            assert_eq!(std::fs::read(&target).unwrap(), audio);
+            let undo_step = history::history_state().unwrap().undo.unwrap();
+            assert_eq!(undo_step.label, "Tag → Filename");
+            assert_eq!(undo_step.files, 1, "inline history captures only the audio");
+            if companions {
+                assert_eq!(std::fs::read(root.join("old.lrc")).unwrap(), b"lyrics");
+                assert_eq!(std::fs::read(root.join("old.cdg")).unwrap(), b"karaoke");
+            }
+            assert!(!root.join("O'Brien %title%.lrc").exists());
+            assert!(!root.join("O'Brien %title%.cdg").exists());
+            if companions {
+                std::fs::write(root.join("old.lrc"), b"external lyric edit").unwrap();
+            }
+            let undo = tauri::async_runtime::block_on(history::undo_last()).unwrap();
+            assert_eq!(
+                serde_json::to_value(undo).unwrap()["errors"],
+                serde_json::json!([])
+            );
+            assert_eq!(std::fs::read(&source).unwrap(), audio);
+            assert!(!target.exists());
+            let redo = tauri::async_runtime::block_on(history::redo_last()).unwrap();
+            assert_eq!(
+                serde_json::to_value(redo).unwrap()["errors"],
+                serde_json::json!([])
+            );
+            assert_eq!(std::fs::read(&target).unwrap(), audio);
+            if companions {
+                assert_eq!(
+                    std::fs::read(root.join("old.lrc")).unwrap(),
+                    b"external lyric edit"
+                );
+                assert_eq!(std::fs::read(root.join("old.cdg")).unwrap(), b"karaoke");
+            }
+            history::TEST_ROOTS
+                .lock()
+                .unwrap()
+                .retain(|path| path != &root);
+        }
+    }
+
+    #[test]
+    fn registered_inline_rename_boundary_forwards_audio_only_mode() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dunce::canonicalize(dir.path()).unwrap();
+        let source = root.join("old.wav");
+        wav(&source);
+        let audio = std::fs::read(&source).unwrap();
+        std::fs::write(root.join("old.lrc"), b"lyrics").unwrap();
+        let report =
+            tauri::async_runtime::block_on(diagnostics_ipc::rename_files_with_diagnostics(
+                vec![source.to_string_lossy().into_owned()],
+                "'literal %title%'".into(),
+                None,
+                Some(true),
+            ))
+            .unwrap();
+        assert!(report.result.result.errors.is_empty());
+        assert!(report.error_diagnostics.is_empty());
+        assert!(report.result.associated_renamed.is_empty());
+        assert_eq!(
+            std::fs::read(root.join("literal %title%.wav")).unwrap(),
+            audio
+        );
+        assert_eq!(std::fs::read(root.join("old.lrc")).unwrap(), b"lyrics");
+        assert!(!root.join("literal %title%.lrc").exists());
+    }
+
+    #[test]
+    fn configured_rename_still_requires_companion_preview_when_enabled() {
+        for companions in [false, true] {
+            let dir = tempfile::tempdir().unwrap();
+            let source = dir.path().join("old.wav");
+            wav(&source);
+            let audio = std::fs::read(&source).unwrap();
+            if companions {
+                std::fs::write(dir.path().join("old.lrc"), b"lyrics").unwrap();
+            }
+            let result = rename_files_with_policy(
+                vec![source.to_string_lossy().into_owned()],
+                "'new'",
+                None,
+                &evaluation_settings(None).unwrap(),
+                false,
+                true,
+            );
+            assert_eq!(
+                result.err().unwrap(),
+                "Preview the associated files before renaming"
+            );
+            assert_eq!(std::fs::read(source).unwrap(), audio);
+            assert!(!dir.path().join("new.wav").exists());
+            if companions {
+                assert_eq!(
+                    std::fs::read(dir.path().join("old.lrc")).unwrap(),
+                    b"lyrics"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn reviewed_tag_to_filename_moves_companions_and_requires_fresh_membership() {
         let dir = tempfile::tempdir().unwrap();
         let root = dunce::canonicalize(dir.path()).unwrap();
@@ -2871,18 +3040,44 @@ mod tests {
         };
         let evaluation = evaluation_settings(None).unwrap();
         let token = review();
-        std::fs::write(root.join("old.cdg"), b"late companion").unwrap();
-        assert!(
-            rename_planned_with_policy(paths.clone(), "new", Some(token), &evaluation, true)
-                .is_err()
+        assert_eq!(
+            rename_files_with_policy(paths.clone(), "new", Some(token), &evaluation, false, false,)
+                .err()
+                .unwrap(),
+            "The associated-file policy changed; preview again"
         );
         assert!(source.exists() && lyric.exists() && !target.exists());
         let token = review();
-        let result = rename_planned_with_policy(
+        std::fs::write(root.join("old.cdg"), b"late companion").unwrap();
+        assert!(rename_files_with_policy(
+            paths.clone(),
+            "new",
+            Some(token),
+            &evaluation,
+            false,
+            true
+        )
+        .is_err());
+        assert!(source.exists() && lyric.exists() && !target.exists());
+        let token = review();
+        assert!(
+            rename_files_with_policy(
+                paths.clone(),
+                "new",
+                Some(token.clone()),
+                &evaluation,
+                true,
+                true,
+            )
+            .is_err(),
+            "inline mode must not consume a reviewed converter receipt"
+        );
+        let result = rename_files_with_policy(
             paths.clone(),
             "new",
             Some(token.clone()),
             &evaluation,
+            false,
             true,
         )
         .unwrap()
@@ -2896,6 +3091,8 @@ mod tests {
             b"late companion"
         );
         assert!(!source.exists() && !lyric.exists());
-        assert!(rename_planned_with_policy(paths, "new", Some(token), &evaluation, true).is_err());
+        assert!(
+            rename_files_with_policy(paths, "new", Some(token), &evaluation, false, true).is_err()
+        );
     }
 }
