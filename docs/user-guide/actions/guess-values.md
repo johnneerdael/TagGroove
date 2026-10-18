@@ -61,7 +61,9 @@ that is unambiguous for the selected files.
 
 ## Gotchas
 
-- No full match means no field changes for that file. Check both successful
+- No full match leaves this action's destinations unchanged and produces no
+  mismatch warning. Later actions and groups still run using the unchanged
+  fields: Guess Values does not conditionally skip them. Check both matched
   and unmatched files after a batch.
 - Adjacent placeholders such as `%artist%%title%` are rejected because
   there is no separator defining where the first value ends.

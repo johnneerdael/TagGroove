@@ -48,3 +48,20 @@ scripting consumer explicitly retains its five scripting examples while the
 new literal context block runs through the actual action. Every reference to
 the page was checked; all 30 targeted guide/checkout controls pass, including
 execution of the new example under LF and CRLF.
+
+## Action sequence guidance — 2026-10-19
+
+A bounded source review of Import Text File, Guess Values and Format Value found
+no incorrect worked example. It identified one missing sequence detail in
+[Guess Values](../user-guide/actions/guess-values.md): a nonmatching pattern is
+a successful no-op for that action, without a mismatch warning, and does not
+conditionally skip the remaining actions/groups. The guide now states that
+explicitly. A later Format Value action can still write its destination using
+the unchanged fields.
+
+The basis is the successful empty-effect return in
+[`ActionSpec::GuessValues`](../../crates/tag-core/src/actions.rs) and the continuing
+per-action/group loop in the [native host](../../src-tauri/src/action_host.rs).
+The existing `guess_values_leaves_fields_unchanged_when_the_source_does_not_match`
+test already covers the no-op. This is a teaching clarification, with no
+production behavior change or new original/native acceptance claim.
