@@ -223,7 +223,7 @@ let toolbarConfig:ToolbarConfig=normalizeToolbar(undefined);
 // View → Toolbars → Custom toolbar: commands, tools and action groups the user adds (pages['custom-toolbar']).
 let customToolbar:ToolbarConfig=normalizeCustomToolbar(undefined);
 const actionUI=new ActionUI({batchError:error=>error instanceof BatchFailure?error.text(t,translate):undefined,onLanguageChange,
-  translateNow,
+  translateNow,translateLabel:label=>translate(label),
   load:()=>invoke<ActionLibrary>('load_action_library'),
   save:library=>invoke<void>('save_action_library',{library}),
   import:async(path,legacyEncoding)=>{try{return await invoke<ImportedGroup>('import_action_group',{path,legacyEncoding:legacyEncoding||null});}catch(error){throw importFailure(error,true)??error;}},
@@ -630,6 +630,7 @@ async function autoSizeColumns(ids:string[]){
   await applyColumns({...columnLayout,columns:columnLayout.columns.map(column=>widths.has(column.id)?{...column,width:widths.get(column.id)!}:column)});
 }
 const findUI=new FindUI({
+  regex:(pattern,caseSensitive,values)=>invoke<boolean[]>('regex_find',{pattern,caseSensitive,values}),
   items:()=>visible().map(entry=>({path:entry.path,filename:entry.filename,fields:merged(entry)})),
   select:(targets,focus)=>{selected.clear();targets.forEach(path=>selected.add(path));anchor=focus;coverIndex=0;coverError=undefined;render();if(focus)revealRow(focus,false);status=`${targets.length} file${targets.length===1?'':'s'} selected from Find results`;document.querySelector('.status-message')!.textContent=status;},
   listed:path=>visible().some(entry=>entry.path===path),

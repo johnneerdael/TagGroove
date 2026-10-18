@@ -5,14 +5,10 @@ export const findStrategies:[FindStrategy,string][]=[['contains','Contains'],['w
 const html=(value:unknown)=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 const escapeRegex=(text:string)=>text.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
 
-/** Build a matcher for one search strategy; invalid regular expressions throw. */
+/** Build a literal-strategy matcher. Regex searches use the native batch below. */
 export function findMatcher(criteria:string,strategy:FindStrategy,caseSensitive:boolean):(value:string)=>boolean{
   if(!criteria)throw new Error('Enter text to find.');
-  if(strategy==='regex'){
-    let pattern:RegExp;
-    try{pattern=new RegExp(criteria,caseSensitive?'u':'iu');}catch(error){throw new Error(`Invalid regular expression: ${error instanceof Error?error.message:String(error)}`);}
-    return value=>pattern.test(value);
-  }
+  if(strategy==='regex')throw new Error('Regular expression search requires the native matcher.');
   if(strategy==='word'){const pattern=new RegExp(`(?<![\\p{L}\\p{N}_])${escapeRegex(criteria)}(?![\\p{L}\\p{N}_])`,caseSensitive?'u':'iu');return value=>pattern.test(value);}
   const fold=(text:string)=>caseSensitive?text:text.toLocaleLowerCase(),needle=fold(criteria);
   if(strategy==='content')return value=>fold(value)===needle;
@@ -34,12 +30,30 @@ export function findInList(items:FindItem[],criteria:string,strategy:FindStrateg
   return results;
 }
 
+/** Match regex candidates in one native request so every value uses the shared Boost engine. */
+export type FindRegex=(pattern:string,caseSensitive:boolean,values:string[])=>Promise<boolean[]>;
+export async function findInListAsync(items:FindItem[],criteria:string,strategy:FindStrategy,caseSensitive:boolean,regex:FindRegex):Promise<FindResult[]>{
+  if(strategy!=='regex')return findInList(items,criteria,strategy,caseSensitive);
+  if(!criteria)throw new Error('Enter text to find.');
+  const candidates:FindResult[]=[];
+  for(const item of items){
+    candidates.push({path:item.path,filename:item.filename,field:'Filename',value:item.filename});
+    for(const [field,values] of Object.entries(item.fields)){
+      if(field.startsWith('_'))continue;
+      for(const value of values)candidates.push({path:item.path,filename:item.filename,field,value});
+    }
+  }
+  const matches=await regex(criteria,caseSensitive,candidates.map(row=>row.value));
+  if(matches.length!==candidates.length)throw new Error('Incomplete regular expression search response. Run Find again.');
+  return candidates.filter((_,index)=>matches[index]);
+}
+
 export type FindSort={key:'filename'|'field'|'value';ascending:boolean};
 export function sortFindResults(results:FindResult[],sort:FindSort,collator=new Intl.Collator(undefined,{numeric:true,sensitivity:'base'})):FindResult[]{
   return results.map((result,index)=>({result,index})).sort((a,b)=>(collator.compare(a.result[sort.key],b.result[sort.key])||a.index-b.index)*(sort.ascending?1:-1)).map(item=>item.result);
 }
 
-export type FindHost={items:()=>FindItem[];select:(paths:string[],focus?:string)=>void;listed:(path:string)=>boolean};
+export type FindHost={items:()=>FindItem[];select:(paths:string[],focus?:string)=>void;listed:(path:string)=>boolean;regex:FindRegex};
 /** Edit → Find: a non-modal search window whose results select files in the File List.
  * Used criteria are remembered in the configuration's helper lists (history `find`);
  * the ► button next to the search field removes one or all of them. */
@@ -48,7 +62,7 @@ export class FindUI{
   constructor(private host:FindHost){}
   open(){
     if(this.dialog?.open){this.dialog.querySelector<HTMLInputElement>('#find-criteria')!.select();return;}
-    let results:FindResult[]=[],sort:FindSort={key:'filename',ascending:true};
+    let results:FindResult[]=[],sort:FindSort={key:'filename',ascending:true},request=0;
     const dialog=document.createElement('dialog');dialog.className='find-dialog';dialog.setAttribute('aria-label','Find');this.dialog=dialog;
     dialog.innerHTML=`<header>Find</header><div class="dialog-content"><div class="action-input"><input id="find-criteria" data-helper="history" data-history="find" data-history-enter aria-label="Find" placeholder="Text to find in tag fields and filenames" autocomplete="off" spellcheck="false"><button class="primary" id="find-run">Find</button></div>
       <div class="field-pair"><label class="field"><span>STRATEGY</span><select id="find-strategy">${findStrategies.map(([value,label])=>`<option value="${value}">${label}</option>`).join('')}</select></label><label class="action-check"><input type="checkbox" id="find-case"> Case sensitive</label></div>
@@ -69,21 +83,29 @@ export class FindUI{
         row.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();choose();}if(event.key==='ArrowDown'||event.key==='ArrowUp'){event.preventDefault();const next=(event.key==='ArrowDown'?row.nextElementSibling:row.previousElementSibling) as HTMLTableRowElement|null;next?.focus();next?.click();}});
       });
     };
-    const run=()=>{
+    const run=async()=>{
+      const attempt=++request;
+      results=[];table();status('Searching…');
       const criteria=q<HTMLInputElement>('#find-criteria').value;
       try{
-        results=findInList(this.host.items(),criteria,q<HTMLSelectElement>('#find-strategy').value as FindStrategy,q<HTMLInputElement>('#find-case').checked);
+        const found=await findInListAsync(this.host.items(),criteria,q<HTMLSelectElement>('#find-strategy').value as FindStrategy,q<HTMLInputElement>('#find-case').checked,this.host.regex);
+        if(attempt!==request||!dialog.open)return;
+        results=found;
         const files=new Set(results.map(result=>result.path)).size;
         status(results.length?`${results.length} match${results.length===1?'':'es'} in ${files} file${files===1?'':'s'}${results.length>2000?'. Showing the first 2000.':'.'}`:'No matches.');
-      }catch(error){results=[];status(error instanceof Error?error.message:String(error));}
+      }catch(error){if(attempt!==request||!dialog.open)return;results=[];status(error instanceof Error?error.message:String(error));}
       table();
     };
-    q('#find-run').addEventListener('click',run);
-    q('#find-criteria').addEventListener('keydown',event=>{if((event as KeyboardEvent).key==='Enter'){event.preventDefault();run();}});
+    const changed=()=>{request++;results=[];table();status('Criteria changed. Run Find to update the results.');};
+    q('#find-criteria').addEventListener('input',changed);
+    q('#find-strategy').addEventListener('change',changed);
+    q('#find-case').addEventListener('change',changed);
+    q('#find-run').addEventListener('click',()=>{void run();});
+    q('#find-criteria').addEventListener('keydown',event=>{if((event as KeyboardEvent).key==='Enter'){event.preventDefault();void run();}});
     q('#find-select').addEventListener('click',()=>{const paths=[...new Set(sortFindResults(results,sort).map(result=>result.path))].filter(path=>this.host.listed(path));this.host.select(paths,paths[0]);});
     q('[data-close]').addEventListener('click',()=>dialog.close());
     dialog.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();dialog.close();}});
-    dialog.addEventListener('close',()=>{dialog.remove();if(this.dialog===dialog)this.dialog=undefined;});
+    dialog.addEventListener('close',()=>{request++;dialog.remove();if(this.dialog===dialog)this.dialog=undefined;});
     dialog.show();q<HTMLInputElement>('#find-criteria').focus();
   }
 }

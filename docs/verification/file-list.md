@@ -75,7 +75,7 @@ The selection-info bar shows:
 - Column configuration files use OpenTag's JSON layout, not Mp3tag's configuration format, and the editor is part of the Customize dialog rather than a Utils menu.
 - Mp3tag's random-order click on the file-icon column and Ctrl+Num+ auto-sizing are not implemented. Alt+arrow manual reordering of files is out of scope.
 - Inline filename edits cannot move a file to another folder (Mp3tag accepts `\` in the new name). Columns cannot use `$columnvalues()`/`$columnnames()` inside their own values (the engine reports a missing column context).
-- Find uses JavaScript regular expressions, not the Boost-compatible engine in `regex-compat`. Its history is per session, not persisted, and it searches the filtered list.
+- The original batch used JavaScript regular expressions in Find. This engine limitation is superseded by the [2026-10-18 automation batch](automation-parity-2026-10-18.md): Find now uses the shared native Boost bridge with local regression coverage. Original-runtime and native-input equivalence remain unverified. Its history is per session, not persisted, and it searches the filtered list.
 - Refresh rescans the opened roots. A file added individually and later renamed is not found at its old root path, and the rescan reports it as an error.
 - Cut/Copy/Paste of tags, Copy as Text, Delete, Copy/Move to directory, Undo/Redo, and the Tag Panel toggle (Ctrl+Q) are out of this batch.
 - Global shortcuts are ignored while a modal dialog is open (existing behaviour). The non-modal Find window is exempt.
