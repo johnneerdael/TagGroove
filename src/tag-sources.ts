@@ -627,13 +627,18 @@ export class TagSourcesUI {
   keyReason(op:string) { const request = sourceRequest(op); return request ? sourceKeyReason(request.provider,this.credentials) : ''; }
   /** The tag source Ctrl+I opens again. */
   get lastOperation():SourceOperation { return lastSourceOperation(storage.get('opentag.tagSources.lastSource'),storage.get('opentag.tagSources.last')); }
+  /** Ctrl+Shift+I retains the last built-in source even after opening a web source. */
+  get lastBuiltInOperation():SourceOperation {
+    const saved = storage.get('opentag.tagSources.lastBuiltIn');
+    return saved && sourceRequest(saved) ? saved as SourceOperation : this.lastOperation;
+  }
   /** The id of the web source used last, when the last tag source was one (Ctrl+I runs it again). */
   get lastWeb():string|null { const last = storage.get('opentag.tagSources.lastSource'); return last?.startsWith('web:') ? last.slice(4) : null; }
 
   /** A Tag Sources menu command; `source-last` and `source-last-quick` are Ctrl+I and Ctrl+Shift+I. */
   async run(op:string) {
     const quick = op === 'source-last-quick';
-    const request = sourceRequest(op === 'source-last' || quick ? this.lastOperation : op);
+    const request = sourceRequest(quick ? this.lastBuiltInOperation : op === 'source-last' ? this.lastOperation : op);
     if (!request) throw new Error(`Unknown tag source command ${op}`);
     await this.open(request.provider,{coversOnly:request.coversOnly,releaseId:request.releaseId,quick});
   }
@@ -727,7 +732,11 @@ export class TagSourcesUI {
     this.showing = true;
     const coversOnly = (!!options.coversOnly || provider === 'fanart') && provider !== 'local_freedb' && !web, freedb = isFreedb(provider), releaseOnly = !!options.releaseId && provider === 'discogs' && !coversOnly;
     const perFile = provider === 'lrclib' || provider === 'acoustid', columns = resultColumns(provider);
-    storage.set('opentag.tagSources.lastSource',web ? `web:${web.id}` : sourceOperation({provider,coversOnly,releaseId:releaseOnly}));
+    // Read the old preference before a web source replaces it, including on
+    // upgrade from profiles that have no separate built-in preference yet.
+    const builtIn = web ? this.lastBuiltInOperation : sourceOperation({provider,coversOnly,releaseId:releaseOnly});
+    storage.set('opentag.tagSources.lastBuiltIn',builtIn);
+    storage.set('opentag.tagSources.lastSource',web ? `web:${web.id}` : builtIn);
     const files = this.host.files(), name = web ? options.title || web.name : coversOnly ? `${providerName(provider)} cover art` : releaseOnly ? 'Discogs Release ID' : providerName(provider), prefill = searchPrefill(files);
     const toc = discToc(files.map(f => f.length));
     const disabledKey = `opentag.tagSources.disabled.${provider}`, saveCoverKey = 'opentag.tagSources.saveCover', suggestKey = 'opentag.tagSources.suggestSorting';

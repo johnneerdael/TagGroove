@@ -340,7 +340,29 @@ pub fn current() -> Settings {
         .unwrap_or_default()
 }
 pub fn tag_options() -> TagOptions {
+    #[cfg(test)]
+    if let Some(options) = TEST_TAG_OPTIONS.with(|options| options.borrow().clone()) {
+        return options;
+    }
     current().tags
+}
+
+#[cfg(test)]
+thread_local! {
+    static TEST_TAG_OPTIONS: std::cell::RefCell<Option<TagOptions>> = const { std::cell::RefCell::new(None) };
+}
+
+/// Scope command-worker settings without starting an app or changing other tests.
+#[cfg(test)]
+pub(crate) fn with_test_tag_options<T>(options: TagOptions, work: impl FnOnce() -> T) -> T {
+    struct Restore(Option<TagOptions>);
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            TEST_TAG_OPTIONS.with(|options| *options.borrow_mut() = self.0.take());
+        }
+    }
+    let _restore = Restore(TEST_TAG_OPTIONS.with(|current| current.replace(Some(options))));
+    work()
 }
 pub fn network() -> Network {
     current()
